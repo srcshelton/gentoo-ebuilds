@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 --- sh/init.sh.Linux.in.dist	2013-01-24 11:19:05.551662026 +0000
 +++ sh/init.sh.Linux.in	2013-01-24 13:43:28.681172914 +0000
+=======
+--- sh/init.sh.Linux.in.dist	2012-11-21 21:59:46.133254024 +0000
++++ sh/init.sh.Linux.in	2012-11-21 22:03:42.763725042 +0000
+>>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
 @@ -3,6 +3,62 @@
  # Copyright (c) 2007-2009 Roy Marples <roy@marples.name>
  # Released under the 2-clause BSD license.
@@ -63,7 +68,11 @@
  . "$RC_LIBEXECDIR"/sh/functions.sh
  [ -r /etc/rc.conf ] && . /etc/rc.conf
  
+<<<<<<< HEAD
 @@ -46,8 +102,41 @@
+=======
+@@ -46,33 +102,38 @@
+>>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
  		fi
  		mkdir /run
  	else
@@ -72,6 +81,7 @@
 +		#eerror "The /run directory does not exist. Unable to continue."
 +		#return 1
 +		:
+<<<<<<< HEAD
 +		# awk lives in /usr...
 +		if type -pf awk >/dev/null 2>&1; then
 +			boot_services="$( rc-status -Ca 2>/dev/null | awk 'BEGIN { doprint = 0 } ; /^Runlevel: / { doprint = 0 ; ( "boot" == $2 || "sysinit" == $2 ) && doprint = 2 } ; ( 1 == doprint ) { print $1 } ; ( 2 == doprint ) { doprint = 1 }' )"
@@ -108,6 +118,12 @@
  fi
  
 @@ -55,24 +144,28 @@
+=======
+ 	fi
+ fi
+ 
+ if [ -L /run/openrc ]; then
+>>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
  	rm /run/openrc
  fi
  
@@ -142,7 +158,11 @@
  	fi
 +	checkpath -d -m 0775 -o root:uucp /run/lock
 +else
+<<<<<<< HEAD
 +	[ -w /var ] && checkpath -d -m 0775 -o root:uucp /var/lock
+=======
++	checkpath -d -m 0775 -o root:uucp /var/lock
+>>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
  fi
  
  checkpath -d $RC_SVCDIR
@@ -150,7 +170,11 @@
  
  # Try to mount xenfs as early as possible, otherwise rc_sys() will always
  # return RC_SYS_XENU and will think that we are in a domU while it's not.
+<<<<<<< HEAD
 @@ -84,9 +177,4 @@
+=======
+@@ -80,9 +141,4 @@
+>>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
  	eend $?
  fi
  

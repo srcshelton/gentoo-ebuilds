@@ -12,7 +12,11 @@ if [ -x /sbin/vgs ] && \
 then
 	einfo "Shutting down the Logical Volume Manager"
 
+<<<<<<< HEAD
         VGS=$(/sbin/vgs --config "${config}" -o vg_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 2-)
+=======
+        VGS=$(/sbin/vgs --config "${config}" -o vg_name --noheadings --nosuffix 2> /dev/null)
+>>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
 
         if [ "$VGS" ]
         then
