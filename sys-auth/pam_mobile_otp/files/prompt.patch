@@ -1,0 +1,11 @@
+--- pam_mobile_otp.c.dist	2011-08-16 14:26:00.193806304 +0100
++++ pam_mobile_otp.c	2011-08-16 14:28:52.342608771 +0100
+@@ -204,7 +204,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_h
+     struct pam_message msg, *pmsg[1];
+     struct pam_response *resp;
+     struct pam_conv *conv;
+-    msg.msg = "passcode: ";
++    msg.msg = "OTP Passcode: ";
+     msg.msg_style = PAM_PROMPT_ECHO_OFF;
+     pmsg[0] = &msg;
+     

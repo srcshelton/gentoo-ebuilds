@@ -1,0 +1,43 @@
+#!/sbin/runscript
+# Copyright 1999-2012 Gentoo Foundation
+# Copyright 2012 Stuart Shelton
+# Distributed under the terms of the GNU General Public License v2
+# $Header: $
+
+DIR="%INST_DIR%"
+
+depend() {
+	need localmount
+	use net
+	before fetchmail dovecot
+}
+
+start() {
+	ebegin "Building \$CLASSPATH"
+	found=1
+	for JAR in $( find "${DIR}"/lib/ -type f -name \*.jar ); do
+		CLASSPATH="${CLASSPATH}:${JAR}"
+		found=0
+	done
+	eend $found "Unable to find bundled Jar libraries"
+	unset found
+
+        ebegin "Starting DavMail"
+        start-stop-daemon \
+                --start --quiet --pidfile /var/run/davmail.pid \
+		--user davmail:davmail --make-pidfile --background \
+                --exec java -- -cp "${DIR}"/bin/davmail.jar:${CLASSPATH} davmail.DavGateway "${DIR}"/conf/davmail.properties
+        local ret=$?
+        eend $ret
+        return $ret
+}
+
+stop() {
+        ebegin "Stopping DavMail"
+        start-stop-daemon \
+                --stop --quiet --pidfile /var/run/davmail.pid
+        local ret=$?
+        eend $ret
+        return $ret
+}
+
