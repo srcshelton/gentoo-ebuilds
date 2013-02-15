@@ -10,9 +10,9 @@ DESCRIPTION="TeamSpeak Server - Voice Communication Software"
 HOMEPAGE="http://teamspeak.com/"
 LICENSE="teamspeak3"
 SLOT="0"
-IUSE=""
+IUSE="doc pdf systemd tsdns"
 KEYWORDS="~amd64 ~x86"
-RESTRICT="strip"
+RESTRICT="installsources strip"
 
 SRC_URI="
 	amd64? ( http://ftp.4players.de/pub/hosted/ts3/releases/${PV}/teamspeak3-server_linux-amd64-${PV}.tar.gz )
@@ -29,28 +29,47 @@ pkg_setup() {
 }
 
 src_install() {
-	local dest="${D}/opt/teamspeak3-server"
+	into /opt/teamspeak3
 
-	mkdir -p "${dest}"
-	cp -R "${WORKDIR}/teamspeak3-server_linux-"*/* "${dest}/" || die
+	dodoc -r CHANGELOG doc/*.txt
+	use doc && dodoc -r serverquerydocs
+	use pdf && dodoc doc/*.pdf
+	newsbin ts3server_linux_${ARCH} ts3server-bin
+	dobin "${FILESDIR}/ts3server"
+	dobin *.sh
+	# 'dolib' may install to libx32 or lib64 - we just want standard lib
+	#dolib.so *.so
+	insinto /opt/teamspeak3/lib
+	doins *.so
+	# 'libmysqlclient.so.15' is hard-coded into the ts3-server binary :(
+	dosym ../../../usr/$(get_libdir)/libmysqlclient.so /opt/teamspeak3/lib/libmysqlclient.so.15
 
-	mv "${dest}/ts3server_linux_"* "${dest}/ts3server-bin" || die
+	if use tsdns; then
+		newdoc tsdns/README README.tsdns
+		newdoc tsdns/USAGE USAGE.tsdns
+		newsbin tsdns/tsdnsserver_linux_${ARCH} tsdnsserver
+		insinto /opt/teamspeak3/sbin
+		doins tsdns/tsdns_settings.ini.sample
+	fi
 
-	exeinto /usr/sbin || die
-	doexe "${FILESDIR}/ts3server" || die
+	insinto /opt/teamspeak3/lib
+	doins -r sql
 
-	# runtime FS layout ...
-	insinto /etc/teamspeak3-server
+	# Runtime FS layout ...
+	insinto /etc/teamspeak3
 	doins "${FILESDIR}/server.conf"
-	newinitd "${FILESDIR}/teamspeak3-server.rc" teamspeak3-server
+	doins "${FILESDIR}/ts3db_mysql.ini"
+	newinitd "${FILESDIR}/teamspeak3-server.rc" teamspeak3
 
-	keepdir /{etc,var/{lib,log,run}}/teamspeak3-server
-	fowners teamspeak3 /{etc,var/{lib,log,run}}/teamspeak3-server
-	fperms 700 /{etc,var/{lib,log,run}}/teamspeak3-server
+	keepdir /{etc,var/{lib,log,run}}/teamspeak3
+	fowners teamspeak3 /{etc,var/{lib,log,run}}/teamspeak3
+	fperms 700 /{etc,var/{lib,log,run}}/teamspeak3
 
-	fowners teamspeak3 /opt/teamspeak3-server
-	fperms 755 /opt/teamspeak3-server
+	fowners teamspeak3 /opt/teamspeak3
+	fperms 755 /opt/teamspeak3
 
-	systemd_dounit "${FILESDIR}/systemd/teamspeak3.service"
-	systemd_dotmpfilesd "${FILESDIR}/systemd/teamspeak3.conf"
+	if use systemd; then
+		systemd_dounit "${FILESDIR}/systemd/teamspeak3.service"
+		systemd_dotmpfilesd "${FILESDIR}/systemd/teamspeak3.conf"
+	fi
 }

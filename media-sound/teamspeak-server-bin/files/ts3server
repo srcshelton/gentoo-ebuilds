@@ -1,10 +1,10 @@
 #! /bin/bash
 
-BASEDIR="/opt/teamspeak3-server"
+BASEDIR="/opt/teamspeak3"
 
-export LD_LIBRARY_PATH="${BASEDIR}${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${BASEDIR}/lib${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH}"
 
-# work around DT_RPATH (.) security issue by chdir'ing into expected $LD_LIBRARY_PATH
+# Work around DT_RPATH (.) security issue by chdir'ing into expected $LD_LIBRARY_PATH
 cd "${BASEDIR}"
 
-exec "${BASEDIR}/ts3server-bin" $*
+exec "${BASEDIR}/sbin/ts3server-bin" $*
