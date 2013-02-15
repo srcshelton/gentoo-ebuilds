@@ -9,11 +9,7 @@ depend() {
 	after dmeventd modules device-mapper
 }
 
-<<<<<<< HEAD
 config='global { locking_dir = "/dev/.lvm" }'
-=======
-config='global { locking_dir = "/run/lock/lvm" }'
->>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
 
 dm_in_proc() {
 	local retval=0
@@ -77,11 +73,7 @@ then
 	einfo "Shutting down the Logical Volume Manager"
 	
 
-<<<<<<< HEAD
         VGS=$($lvm_path vgs --config "${config}" -o vg_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 2-)
-=======
-        VGS=$($lvm_path vgs --config "${config}" -o vg_name --noheadings --nosuffix 2> /dev/null)
->>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
 
         if [ "$VGS" ]
         then

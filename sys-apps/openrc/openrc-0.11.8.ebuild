@@ -110,11 +110,7 @@ src_install() {
 	gen_usr_ldscript libeinfo.so
 	gen_usr_ldscript librc.so
 
-<<<<<<< HEAD
 	if use varrun || ! use kernel_linux; then
-=======
-	if ! use kernel_linux; then
->>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
 		keepdir /$(get_libdir)/rc/init.d
 	fi
 	keepdir /$(get_libdir)/rc/tmp
@@ -444,11 +440,7 @@ pkg_postinst() {
 		chmod +x "${EROOT}"etc/local.d/*{start,stop}
 	fi
 
-<<<<<<< HEAD
 	if ! use varrun && use kernel_linux && [[ "${EROOT}" = "/" ]]; then
-=======
-	if use kernel_linux && [[ "${EROOT}" = "/" ]]; then
->>>>>>> 06df996536fd5dd0f21c07c3d24c11c8d9050009
 		if ! /$(get_libdir)/rc/sh/migrate-to-run.sh; then
 			ewarn "The dependency data could not be migrated to /run/openrc."
 			ewarn "This means you need to reboot your system."
