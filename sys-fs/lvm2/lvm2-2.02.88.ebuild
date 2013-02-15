@@ -1,6 +1,6 @@
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.88.ebuild,v 1.16 2012/12/10 20:41:45 axs Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.88.ebuild,v 1.13 2012/05/04 19:09:16 jdhore Exp $
 
 EAPI=3
 inherit eutils multilib toolchain-funcs autotools linux-info
@@ -14,13 +14,13 @@ LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~x86-linux"
 
-IUSE="readline +static +static-libs clvm cman +lvm1 selinux"
+IUSE="readline +static +static-libs udev clvm cman +lvm1 selinux"
 
 DEPEND_COMMON="!!sys-fs/device-mapper
 	readline? ( sys-libs/readline )
 	clvm? ( =sys-cluster/dlm-2*
 			cman? ( =sys-cluster/cman-2* ) )
-	<virtual/udev-196"
+	udev? ( >=sys-fs/udev-151-r4 )"
 
 RDEPEND="${DEPEND_COMMON}
 	!<sys-apps/openrc-0.4
@@ -39,9 +39,11 @@ DEPEND="${DEPEND_COMMON}
 S="${WORKDIR}/${PN/lvm/LVM}.${PV}"
 
 pkg_setup() {
-	local CONFIG_CHECK="~SYSVIPC"
-	local WARNING_SYSVIPC="CONFIG_SYSVIPC:\tis not set (required for udev sync)\n"
-	check_extra_config
+	if use udev; then
+		local CONFIG_CHECK="~SYSVIPC"
+		local WARNING_SYSVIPC="CONFIG_SYSVIPC:\tis not set (required for udev sync)\n"
+		check_extra_config
+	fi
 	# 1. Genkernel no longer copies /sbin/lvm blindly.
 	# 2. There are no longer any linking deps in /usr.
 	if use static; then
@@ -120,6 +122,13 @@ src_configure() {
 		buildmode="shared"
 	fi
 
+	if use udev; then
+		einfo "Enabling udev integration"
+		myconf="${myconf} --enable-udev_rules"
+		myconf="${myconf} --enable-udev_sync"
+		myconf="${myconf} --with-udevdir='${EPREFIX}/lib/udev/rules.d/'"
+	fi
+
 	# dmeventd requires mirrors to be internal, and snapshot available
 	# so we cannot disable them
 	myconf="${myconf} --with-mirrors=internal"
@@ -156,8 +165,7 @@ src_configure() {
 		myconf="${myconf} --with-clvmd=none --with-cluster=none"
 	fi
 
-	myconf="${myconf}
-			--with-dmeventd-path=/sbin/dmeventd"
+	myconf="${myconf} --with-dmeventd-path=/sbin/dmeventd"
 	econf $(use_enable readline) \
 		$(use_enable selinux) \
 		--enable-pkgconfig \
@@ -166,9 +174,6 @@ src_configure() {
 		--with-staticdir="${EPREFIX}/sbin" \
 		--libdir="${EPREFIX}/$(get_libdir)" \
 		--with-usrlibdir="${EPREFIX}/usr/$(get_libdir)" \
-		--enable-udev_rules \
-		--enable-udev_sync \
-		--with-udevdir="${EPREFIX}/lib/udev/rules.d/" \
 		${myconf} \
 		CLDFLAGS="${LDFLAGS}" || die
 }

@@ -1,6 +1,6 @@
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/openrc/openrc-0.11.8.ebuild,v 1.2 2012/12/08 15:51:36 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/openrc/openrc-0.11.6.ebuild,v 1.1 2012/11/30 19:17:52 williamh Exp $
 
 EAPI=4
 
@@ -14,7 +14,7 @@ if [[ ${PV} == "9999" ]]; then
 	inherit git-2
 else
 	SRC_URI="http://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
-	KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+	KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ~m68k ~mips ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 fi
 
 LICENSE="BSD-2"
@@ -46,8 +46,8 @@ src_prepare() {
 	fi
 
 	if use varrun ; then
-		epatch "${FILESDIR}/openrc-0.11.8-rc.h.in.patch" || die "rc.h.in epatch failed"
-		epatch "${FILESDIR}/openrc-0.11.8-init.sh.Linux.in.patch" || die "init.sh.Linux.in epatch failed"
+		epatch "${FILESDIR}/openrc-0.11.5-rc.h.in.patch" || die "rc.h.in epatch failed"
+		epatch "${FILESDIR}/openrc-0.11.5-init.sh.Linux.in.patch" || die "init.sh.Linux.in epatch failed"
 	fi
 	epatch "${FILESDIR}/openrc-0.11.5-bootmisc.in.patch" || die "bootmisc.in epatch failed"
 	# Allow user patches to be applied without modifying the ebuild

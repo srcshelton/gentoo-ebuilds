@@ -1,6 +1,6 @@
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/cryptsetup/cryptsetup-1.4.1.ebuild,v 1.12 2012/11/29 00:15:27 ssuominen Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/cryptsetup/cryptsetup-1.4.1.ebuild,v 1.10 2012/05/21 07:55:41 ssuominen Exp $
 
 EAPI="2"
 
@@ -14,7 +14,7 @@ SRC_URI="http://cryptsetup.googlecode.com/files/${MY_P}.tar.bz2"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 s390 sh sparc x86"
-IUSE="nls selinux +static"
+IUSE="nls selinux +static udev"
 
 S=${WORKDIR}/${MY_P}
 
@@ -26,7 +26,7 @@ RDEPEND="!<sys-apps/baselayout-2
 		>=sys-apps/util-linux-2.17.2
 		>=sys-fs/lvm2-2.02.64
 	)
-	virtual/udev
+	udev? ( >=sys-fs/udev-124 )
 	>=sys-libs/e2fsprogs-libs-1.41
 	selinux? ( sys-libs/libselinux )
 	!sys-fs/cryptsetup-luks"
@@ -37,7 +37,7 @@ DEPEND="${RDEPEND}
 		|| ( >=sys-apps/util-linux-2.20[static-libs] <sys-apps/util-linux-2.20 )
 		dev-libs/libgcrypt[static-libs]
 		|| ( >=sys-fs/lvm2-2.02.88[static-libs] <sys-fs/lvm2-2.02.88 )
-		virtual/udev
+		|| ( >=sys-fs/udev-182[static-libs] <=sys-fs/udev-171-r6 )
 	)"
 
 pkg_setup() {
@@ -54,12 +54,19 @@ src_prepare() {
 }
 
 src_configure() {
+	local myconf
+
+	if ! use udev; then
+		myconf="${myconf} --disable-udev"
+	fi
+
 	econf \
 		--sbindir=/sbin \
 		--enable-shared \
 		$(use_enable static static-cryptsetup) \
 		$(use_enable nls) \
-		$(use_enable selinux)
+		$(use_enable selinux) \
+		${myconf}
 }
 
 src_test() {
