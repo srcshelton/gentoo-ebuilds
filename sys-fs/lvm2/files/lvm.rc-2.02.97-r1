@@ -1,0 +1,27 @@
+#!/sbin/runscript
+# Copyright 1999-2007 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/lvm.rc-2.02.67-r1,v 1.1 2010/06/09 22:41:45 robbat2 Exp $
+
+depend() {
+	use dmeventd
+	before checkfs fsck
+	after modules device-mapper
+}
+
+run_addon() {
+	local f=/lib/rcscripts/addons/$1.sh
+	if [ -r "$f" ]; then
+		( . "$f" )
+	fi
+}
+
+start() {
+	run_addon lvm-start
+}
+
+stop() {
+	run_addon lvm-stop
+}
+
+# vim:ts=4
