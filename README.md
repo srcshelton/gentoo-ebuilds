@@ -34,6 +34,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
+* sys-apps/busybox
+    * Stock ebuild
 
 # Fixes for x32 ABI
 
