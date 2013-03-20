@@ -46,7 +46,7 @@ case "$ACTION" in
 		if [ -d $USB_PATH/$USB_DEV_DIR ]; then
 			for i in $USB_PATH/$USB_DEV_DIR/*/modalias ; do
 				modprobe -r `cat $i` 2>/dev/null
-		done
+			done
 		fi
 		# unload usb bus driver. Does this make sense?
 		# what happens, if two usb devices are plugged in

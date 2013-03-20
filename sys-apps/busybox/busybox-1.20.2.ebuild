@@ -57,7 +57,7 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="ipv6 livecd make-symlinks math mdev -pam selinux sep-usr +static systemd"
+IUSE="ipv6 livecd make-symlinks math +mdev -pam selinux sep-usr +static systemd"
 RESTRICT="test"
 
 RDEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
@@ -223,7 +223,7 @@ src_install() {
 	if use mdev ; then
 		dodir /$(get_libdir)/mdev/
 		use make-symlinks || dosym /bin/bb /sbin/mdev
-		cp "${S}"/examples/mdev_fat.conf "${ED}"/etc/mdev.conf
+		cp "${FILESDIR}"/mdev.conf "${ED}"/etc/mdev.conf
 
 		exeinto /$(get_libdir)/mdev/
 		doexe "${FILESDIR}"/mdev/*
