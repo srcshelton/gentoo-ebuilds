@@ -1,0 +1,78 @@
+#!/bin/sh
+
+if [ -w "kmsg" ]; then
+	LOGFILE="kmsg"
+else
+	LOGFILE="mdev_usb.log"
+fi
+
+echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev usb helper started as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'"
+
+[ -n "$MDEV" ] || exit 0
+[ -n "$DEVPATH" ] || exit 0
+[ "$SUBSYSTEM" = "usb" ] || exit 0
+
+# add zeros to device or bus
+function add_zeros() {
+	case "$( echo "$1" | wc -L )" in
+		1)	echo "00$1"
+			;;
+		2)	echo "0$1"
+			;;
+		*)	echo "$1"
+			;;
+	esac
+	return 0
+}
+
+# e.g. DEVPATH=/devices/pci0000:00/0000:00:0f.4/usb2/2-1, MDEV=2-1
+BUS=""
+USB_DEV=""
+if [ -d /sys/devices ]; then
+	BUS="$( add_zeros "$( cat "/sys$DEVPATH/busnum" 2>/dev/null )" )"
+	USB_DEV="$( add_zeros "$( cat "/sys$DEVPATH/devnum" 2>/dev/null )" )"
+fi
+if [ -z "$BUS" ]; then
+	BUS="$( add_zeros "$( echo "$DEVPATH" | cut -d'/' -f 5 | sed 's/^usb//' )" )"
+fi
+if [ -z "$USB_DEV" ]; then
+	USB_DEV="$( add_zeros "$( echo "$MDEV" | cut -d'-' -f 1 )" )"
+fi
+#USB_FUNC="$( add_zeros "$( echo "$MDEV" | cut -d'-' -f 2 )" )"
+
+# try to load the proper driver for usb devices
+case "$ACTION" in
+	add|"")
+		echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) Performing 'add' ACTION"
+
+		# move usb device file
+		if [ ! -d "bus/usb/$BUS" ]; then
+			echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) WARNING USB bus directory 'bus/usb/$BUS' doesn't exist - is USB initialised?"
+			mkdir -p "bus/usb/$BUS" \
+				&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mkdir succeeded for 'bus/usb/$BUS'" \
+				|| { echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mkdir failed for 'bus/usb/$BUS'" ; exit 0 ; }
+		fi
+		mv "$MDEV" "bus/usb/$BUS/$USB_DEV" \
+			&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mv succeeded for 'bus/usb/$BUS/$USB_DEV'" \
+			|| { echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mv failed for 'bus/usb/$BUS/$USB_DEV'" ; exit 0 ; }
+		;;
+	remove)
+		echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) Performing 'add' ACTION"
+
+		# remove device file and possible empty dirs
+		if rm -f "bus/usb/$BUS/$USB_DEV" 2>/dev/null \
+			&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rm -f 'bus/usb/$BUS/$USB_DEV' succeeded"
+		then
+			rmdir -p "bus/usb/$BUS" 2>/dev/null \
+				&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rmdir -p 'bus/usb/$BUS' succeeded" \
+				|| { echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rmdir -p 'bus/usb/$BUS' failed" ; exit 0 ; }
+		else
+			echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rm -f 'bus/usb/$BUS/$USB_DEV' failed"
+			exit 0
+		fi
+		;;
+esac
+
+echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) usb helper completed successfully"
+
+exit 0
