@@ -1,6 +1,6 @@
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/openrc/openrc-0.11.8.ebuild,v 1.2 2012/12/08 15:51:36 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/openrc/openrc-0.11.8.ebuild,v 1.11 2013/03/10 20:58:26 williamh Exp $
 
 EAPI=4
 
@@ -14,7 +14,7 @@ if [[ ${PV} == "9999" ]]; then
 	inherit git-2
 else
 	SRC_URI="http://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
-	KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+	KEYWORDS="alpha amd64 arm hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 fi
 
 LICENSE="BSD-2"
@@ -22,19 +22,22 @@ SLOT="0"
 IUSE="debug elibc_glibc ncurses pam newnet prefix selinux static-libs unicode
 	+varrun kernel_linux kernel_FreeBSD"
 
-RDEPEND="virtual/init
+COMMON_DEPEND="virtual/init
 	kernel_FreeBSD? ( || ( >=sys-freebsd/freebsd-ubin-9.0_rc sys-process/fuser-bsd ) )
 	elibc_glibc? ( >=sys-libs/glibc-2.5 )
-	ncurses? ( sys-libs/ncurses )
 	pam? ( sys-auth/pambase )
 	>=sys-apps/baselayout-2.1-r1
 	kernel_linux? (
 		sys-process/psmisc
 	)
+	selinux? ( sec-policy/selinux-openrc )
 	!<sys-fs/udev-init-scripts-17
 	!<sys-fs/udev-133"
-DEPEND="${RDEPEND}
+DEPEND="${COMMON_DEPEND}
+	ncurses? ( sys-libs/ncurses[-tinfo] )
 	virtual/os-headers"
+	RDEPEND="${COMMON_DEPEND}
+	ncurses? ( sys-libs/ncurses )"
 
 src_prepare() {
 	sed -i 's:0444:0644:' mk/sys.mk || die

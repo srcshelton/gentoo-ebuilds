@@ -52,3 +52,4 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Make 'udev' and optional dependency, controlled by the 'udev' USE-flag
 * sys-fs/mdadm
     * Restore previous boot-time functionality, add support for module-loading from '/etc/mdadm/mdmod.conf'
+
