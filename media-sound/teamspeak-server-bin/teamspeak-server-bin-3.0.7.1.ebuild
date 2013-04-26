@@ -1,6 +1,6 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/media-sound/teamspeak-server-bin/teamspeak-server-bin-3.0.6.1.ebuild,v 1.1 2013/04/25 18:11:05 tomwij Exp $
+# $Header: /var/cvsroot/gentoo-x86/media-sound/teamspeak-server-bin/teamspeak-server-bin-3.0.7.1.ebuild,v 1.1 2013/04/25 18:11:05 tomwij Exp $
 
 EAPI=5
 
@@ -66,7 +66,7 @@ src_install() {
 	insinto /etc/teamspeak3
 	doins "${FILESDIR}/server.conf"
 	doins "${FILESDIR}/ts3db_mysql.ini"
-	newinitd "${FILESDIR}/teamspeak3-server.rc" teamspeak3
+	newinitd "${FILESDIR}/${P}.rc" teamspeak3
 
 	if use systemd; then
 		systemd_dounit "${FILESDIR}/systemd/teamspeak3.service"
