@@ -1,6 +1,6 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.97-r1.ebuild,v 1.10 2013/01/20 19:49:52 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.97-r1.ebuild,v 1.13 2013/02/24 17:44:32 ago Exp $
 
 EAPI=5
 inherit eutils multilib toolchain-funcs autotools linux-info udev
@@ -12,7 +12,7 @@ SRC_URI="ftp://sources.redhat.com/pub/lvm2/${PN/lvm/LVM}.${PV}.tgz
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~x86-linux"
 
 IUSE="readline static static-libs clvm cman +lvm1 selinux +udev +thin"
 
@@ -37,7 +37,7 @@ RDEPEND="${RDEPEND}
 DEPEND="${DEPEND_COMMON}
 		virtual/pkgconfig
 		>=sys-devel/binutils-2.20.1-r1
-		static? ( udev? ( virtual/udev[static-libs] ) )"
+		static? ( virtual/udev[static-libs] )"
 
 S="${WORKDIR}/${PN/lvm/LVM}.${PV}"
 
@@ -216,12 +216,12 @@ src_install() {
 	emake DESTDIR="${D}" install || die "Failed to emake install"
 
 	dodoc README VERSION* WHATS_NEW WHATS_NEW_DM doc/*.{conf,c,txt}
-	insinto /$(get_libdir)/rcscripts/addons
-	newins "${FILESDIR}"/lvm2-start.sh-2.02.97-r1 lvm-start.sh || die
-	newins "${FILESDIR}"/lvm2-stop.sh-2.02.97-r1 lvm-stop.sh || die
 	newinitd "${FILESDIR}"/lvm.rc-2.02.97-r1 lvm || die
 	newinitd "${FILESDIR}"/lvm-monitoring.initd-2.02.97-r1 lvm-monitoring || die
 	newconfd "${FILESDIR}"/lvm.confd-2.02.28-r2 lvm || die
+	insinto /$(get_libdir)/rcscripts/addons
+	newins "${FILESDIR}"/lvm2-start.sh-2.02.97-r1 lvm-start.sh || die
+	newins "${FILESDIR}"/lvm2-stop.sh-2.02.97-r1 lvm-stop.sh || die
 	if use clvm; then
 		newinitd "${FILESDIR}"/clvmd.rc-2.02.39 clvmd || die
 		newconfd "${FILESDIR}"/clvmd.confd-2.02.39 clvmd || die
