@@ -5,6 +5,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 * dev-perl/Email-Outlook-Message
 * dev-perl/Locale-Hebrew
+* dev-perl/Net-Subnet
 * dev-perl/Net-Twitter-Lite
 * dev-perl/POE-Component-Client-Ping
 * dev-perl/Proc-PID-File
@@ -36,6 +37,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * A more FHS/Gentoo-like installation structure
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
+* sys-power/apcupsd
+    * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers
 
 # Fixes for x32 ABI
 
