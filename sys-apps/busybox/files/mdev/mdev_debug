@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# env ACTION=... DEVPATH=... SUBSYSTEM=... [SEQNUM=...]
+
+LOGFILE="mdev_usb.log"
+
+echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev_debug invoked as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'"
+#env >>"$LOGFILE"
+
+exit 0

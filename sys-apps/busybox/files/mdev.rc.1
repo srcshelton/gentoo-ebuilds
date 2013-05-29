@@ -20,6 +20,8 @@ find_mdev()
 
 populate_mdev()
 {
+	local i rc
+
 	# populate /dev with devices already found by the kernel
 
 	if get_bootparam "nocoldplug" ; then
@@ -27,9 +29,20 @@ populate_mdev()
 		ewarn "Skipping mdev coldplug as requested in kernel cmdline"
 	fi
 
-	ebegin "Populating /dev with existing devices with mdev -s"
-	$(find_mdev) -s
-	eend $?
+	ebegin "Populating '/dev' with existing devices with \"mdev -s\""
+	$( find_mdev ) -s
+	rc=$?
+	for i in /sys/class/net/*/uevent; do
+		[ -w "$i" ] && printf 'add' >"$i"
+	done
+	for i in /sys/bus/usb/devices/*; do
+		case "${i##*/}" in
+			[0-9]*-[0-9]*)
+				[ -w "$i"/uevent ] && printf 'add' >"$i"/uevent
+				;;
+		esac
+	done
+	eend $rc
 
 	return 0
 }
@@ -53,11 +66,13 @@ seed_dev()
 	fi
 
 	# Not provided by sysfs but needed
-	ln -snf /proc/self/fd /dev/fd
-	ln -snf fd/0 /dev/stdin
-	ln -snf fd/1 /dev/stdout
-	ln -snf fd/2 /dev/stderr
-	[ -e /proc/kcore ] && ln -snf /proc/kcore /dev/core
+	[ -L /dev/fd ] || ln -snf /proc/self/fd /dev/fd
+	[ -L /dev/stdin ] || ln -snf fd/0 /dev/stdin
+	[ -L /dev/stdout ] || ln -snf fd/1 /dev/stdout
+	[ -L /dev/stderr ] || ln -snf fd/2 /dev/stderr
+	if [ -e /proc/kcore ]; then
+		[ -L /dev/core ] || ln -snf /proc/kcore /dev/core
+	fi
 
 	# Create problematic directories
 	mkdir -p /dev/pts /dev/shm
@@ -76,9 +91,11 @@ mount_it()
 start()
 {
 	# Setup temporary storage for /dev
-	ebegin "Mounting /dev for mdev"
-	mount_it
-	eend $?
+	if -r /proc/mounts && ! grep -q "devtmpfs /dev devtmpfs" /proc/mounts; then
+		ebegin "Mounting /dev for mdev"
+		mount_it
+		eend $?
+	fi
 
 	# Create a file so that our rc system knows it's still in sysinit.
 	# Existance means init scripts will not directly run.
