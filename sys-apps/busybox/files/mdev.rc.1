@@ -91,7 +91,7 @@ mount_it()
 start()
 {
 	# Setup temporary storage for /dev
-	if -r /proc/mounts && ! grep -q "devtmpfs /dev devtmpfs" /proc/mounts; then
+	if [ -r /proc/mounts ] && ! grep -q "devtmpfs /dev devtmpfs" /proc/mounts; then
 		ebegin "Mounting /dev for mdev"
 		mount_it
 		eend $?
