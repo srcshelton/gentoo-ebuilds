@@ -49,10 +49,10 @@ src_prepare() {
 	fi
 
 	if use varrun ; then
-		epatch "${FILESDIR}/openrc-0.11.8-rc.h.in.patch" || die "rc.h.in epatch failed"
-		epatch "${FILESDIR}/openrc-0.11.8-init.sh.Linux.in.patch" || die "init.sh.Linux.in epatch failed"
+		epatch "${FILESDIR}/openrc-0.11.8-norun.patch" || die "epatch failed"
+	else
+		epatch "${FILESDIR}/openrc-0.11.5-bootmisc.in.patch" || die "bootmisc.in epatch failed"
 	fi
-	epatch "${FILESDIR}/openrc-0.11.5-bootmisc.in.patch" || die "bootmisc.in epatch failed"
 	# Allow user patches to be applied without modifying the ebuild
 	epatch_user
 }
@@ -114,9 +114,9 @@ src_install() {
 	gen_usr_ldscript librc.so
 
 	if use varrun || ! use kernel_linux; then
-		keepdir /$(get_libdir)/rc/init.d
+		keepdir "${EROOT}"$(get_libdir)/rc/init.d
 	fi
-	keepdir /$(get_libdir)/rc/tmp
+	keepdir "${EROOT}"$(get_libdir)/rc/tmp
 
 	# Backup our default runlevels
 	dodir /usr/share/"${PN}"
@@ -218,7 +218,7 @@ pkg_preinst() {
 	fi
 	if [[ -L "${EROOT}"${LIBDIR}/rc/init.d/started/clock ]] ; then
 		rm -f "${EROOT}"${LIBDIR}/rc/init.d/started/clock
-		ln -snf /etc/init.d/${clok} "${EROOT}"${LIBDIR}/rc/init.d/started/${clock}
+		ln -snf /etc/init.d/${clock} "${EROOT}"${LIBDIR}/rc/init.d/started/${clock}
 	fi
 
 	# /etc/conf.d/rc is no longer used for configuration
@@ -267,8 +267,8 @@ migrate_udev_init_script() {
 	# make sure udev is in sysinit if it was enabled before
 	local enable_udev=false
 	local rc_devices=$(
-		[[ -f /etc/rc.conf ]] && source /etc/rc.conf
-		[[ -f /etc/conf.d/rc ]] && source /etc/conf.d/rc
+		[[ -f "${EROOT}"etc/rc.conf ]] && source "${EROOT}"etc/rc.conf
+		[[ -f "${EROOT}"etc/conf.d/rc ]] && source "${EROOT}"etc/conf.d/rc
 		echo "${rc_devices:-${RC_DEVICES:-auto}}"
 	)
 	case ${rc_devices} in
@@ -444,7 +444,7 @@ pkg_postinst() {
 	fi
 
 	if ! use varrun && use kernel_linux && [[ "${EROOT}" = "/" ]]; then
-		if ! /$(get_libdir)/rc/sh/migrate-to-run.sh; then
+		if ! "${EROOT}"$(get_libdir)/rc/sh/migrate-to-run.sh; then
 			ewarn "The dependency data could not be migrated to /run/openrc."
 			ewarn "This means you need to reboot your system."
 		fi
