@@ -19,8 +19,8 @@ fi
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="debug elibc_glibc ncurses pam newnet prefix selinux static-libs unicode
-	+varrun kernel_linux kernel_FreeBSD"
+IUSE="debug elibc_glibc ncurses pam newnet prefix selinux static-libs +tmpfs
+	unicode +varrun kernel_linux kernel_FreeBSD"
 
 COMMON_DEPEND="virtual/init
 	kernel_FreeBSD? ( || ( >=sys-freebsd/freebsd-ubin-9.0_rc sys-process/fuser-bsd ) )
@@ -53,6 +53,7 @@ src_prepare() {
 	else
 		epatch "${FILESDIR}/openrc-0.11.5-bootmisc.in.patch" || die "bootmisc.in epatch failed"
 	fi
+	use tmpfs && epatch "${FILESDIR}/openrc-0.11.8-tmpfs.patch" || die "tmpfs epatch failed"
 	# Allow user patches to be applied without modifying the ebuild
 	epatch_user
 }
