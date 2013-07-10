@@ -30,6 +30,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * OpenNAB Nabaztag server software
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
+* www-misc/observium
+    * Observium is an autodiscovering SNMP based network monitoring platform
 
 # Modified ebuilds
 
@@ -42,6 +44,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Fixes for x32 ABI
 
+* dev-lang/ruby
+    * Avoid inline assembly with x32 ABI
 * sys-apps/baselayout
     * Don't error-out if using 'lib32' for x32 libraries
 
