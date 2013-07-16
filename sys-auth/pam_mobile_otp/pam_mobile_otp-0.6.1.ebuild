@@ -24,6 +24,15 @@ src_configure() {
 	epatch "${FILESDIR}/Makefile.patch" || die "Failed to patch Makefile"
 }
 
+src_compile() {
+	emake \
+		CC="$(tc-getCC)" \
+		CFLAGS="${CFLAGS}" \
+		LD="$(tc-getLD)" \
+		LDFLAGS="${LDFLAGS//-Wl,}" \
+	|| die "emake failed"
+}
+
 src_install() {
 	fperms 600 motp-manager || die "Cannot set permissions on 'motp-manager'"
 	dosbin motp-manager || die "Cannot install 'motp-manager'"

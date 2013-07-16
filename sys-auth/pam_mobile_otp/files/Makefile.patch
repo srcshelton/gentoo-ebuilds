@@ -1,11 +1,7 @@
 --- Makefile.dist	2011-08-16 15:02:44.128755738 +0100
 +++ Makefile	2011-08-16 15:06:03.346319737 +0100
-@@ -1,18 +1,25 @@
+@@ -1,18 +1,21 @@
  
-+CC = gcc
-+LD = ld
-+CFLAGS = -Os -march=pentium4 -mfpmath=sse -mmmx -msse -msse2 -fomit-frame-pointer -pipe
-+LDFLAGS = -O1 --as-needed
 +OPT = -D_TRACE_ -Wall
 +
  all:	pam_mobile_otp.so
