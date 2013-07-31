@@ -1,0 +1,211 @@
+--- rpimonitor/default.conf.dist	2013-07-19 11:51:54.000000000 +0100
++++ rpimonitor/default.conf	2013-07-31 23:30:31.475030708 +0100
+@@ -1,64 +1,73 @@
+ ########################################################################
+ # KPI extraction configuration 
+ # 
+-#  This part of the configuration file is defining which data to 
+-#  extract how to extract then and when.
++#  This configuration file defines how and when data should be
++#  extracted.
+ # 
+-#  Static KPI are extracted once at rpimonitord startup. Each statistic 
+-#  is identified into the conf file by a line stating with the keyword
+-#  static and an identifier <static data id>
++#  Static items are extracted once on rpimonitord startup. Each
++#  statistic is specified below by a line starting with the keyword
++#  'static' and followed by a numerical unique identifier.
+ # 
+-#  Each static KPI is defined by an id and with 4 parameters
++#  Each static item has four further parameters:
+ # 
+ #  static.<static data id>.name=<data name>
+-#    <data name> is a string representing the KPI or the list of KPI 
+-#    separated by comma. Each name has to be unique.
+-#    Only alpha numerical charter and underscore are accepted.
+-# 
+-#  static.<static data id>.source=<data source>
+-#    <data source> is a file or an executable file within the path. 
+-#    If the file exists, rpimonitord will read its content. If the file
+-#    is not existing, rpimonirotd will try to execute it and will parse 
+-#    the output. 
++#    <data name> is the string represention the item (or comma-separated
++#    items) being defined.  Each name must be unique.
++#    Only alpha-numeric charaters and underscores are valid in item
++#    names.
++# 
++#  static.<static data id>.source=<data source>[,<data source,...]
++#    <data source> may be a file or an executable from which content
++#    can be read.  If a full path is not provided, rpimonitord will
++#    first attempt to read from a file with the specified name and,
++#    failing this, will attempt to execute a binary of the same name
++#    within any directory specified in the contents of the PATH
++#    vaiable.
+ #    Warning: specifying an executable by its absolute name will tell
+ #    rpimonitord to read the content of the executable.1.graph.
+ # 
+-#  static.<static data id>.regexp=<data regexp>
+-#    <data regexp> is the regular expression extracting information from
+-#    data source. Regexp groups () has to be used to extract the data
+-#    In case of KPI list, each group will be affected to a KPI name.
++#  static.<static data id>.regexp=<data regex>
++#    <data regex> is an optional regular expression which may be
++#    applied to extracting information from the designated source
++#    value, above.  Data matching a Perl-Compatible/Extended Regular
++#    Expression group (e.g. matches within round-brackets) will be
++#    selected to represent this <data source>.
++#    Where a list of <data source>s is being defined, each sequential
++#    group match will be assigned to each <data source> in turn.
+ # 
+ #  static.<static data id>.postprocess=<data postprocess>
+-#    <data postprocess> is an expression defining the postprocessing to 
+-#    be applied on result. KPI are idendified by $1. In case of list,
+-#    other KPI are identified by $2, $3 .graph..
+-#    This parameter will be evaluate by the command eval of perl.
+-# 
+-#  Dynamic KPI are extracted periodically (defined by daemon.delay)
+-#  Each statistic is identified into the conf file by a line stating 
+-#  with the keyword dynamic and an identifier <dynamic data id>
++#    <data postprocess> is an optional expression denoting any
++#    postprocessing which should be applied to the raw <data source> or
++#    the <data regex> output if defined.
++#    The first <data source> is referenced as '$1', with further <data
++#    source>s in a list being referred to as '$2', '$3', etc.
++#    The expression will be evaluated via the Perl 'eval' command.
++# 
++#  Dynamic items are periodically evaluated with period specified by
++#  'daemon.delay' from /etc/rpimonitord.conf.  Each statistic is
++#  defined with the keyword 'dynamic' followed by a <dynamic data id>
++#  identifier and five further parameters:
+ #  
+-#  Each dynamic KPI is defined by an id and with 5 parameters
+-# 
+-#  dynamic.<dynamic data id>.name=<data name>
++#  dynamic.<dynamic data id>.name=<data name>[,<data name>,...]
+ #  dynamic.<dynamic data id>.source=<data source>
+-#  dynamic.<dynamic data id>.regexp=<data regexp>
++#  dynamic.<dynamic data id>.regexp=<data regex>
+ #  dynamic.<dynamic data id>.postprocess=<data postprocess>
+-#    <data name>, <data source>, <data regexp>, <data postprocess> 
+-#    This 4 first parameters have the same signification as for static 
+-#    parameters.
+-# 
+-#  dynamic.<dynamic data id>.rrd=<|GAUGE|COUNTER|DERIVE|ABSOLUTE|COMPUTE>
+-#    The 5th parameter is defining if the KPI has to be stored into a RRD
+-#    database and how <|GAUGE|COUNTER|DERIVE|ABSOLUTE|COMPUTE>. If the 
+-#    parameter is defined as empty, no RRD database will be created. If 
+-#    this parameter is defined, a RRD database will be created and data 
+-#    will be stored at every extraction. 
+-#    Ref http://oss.oetiker.ch/rrdtool/doc/rrdcreate.en.html for RRD 
+-#    parameter description.
+-#  Note: Static values are accessible for the post processing using the 
+-#  variable $this->{'static'}->{'static_data_name'} and can be used.
+-#  You can refer to swap data extraction to see an example.
++#    <data name>, <data source>, <data regex>, and <data postprocess> 
++#    have the same use as when used with static items.
++# 
++#  dynamic.<dynamic data id>.rrd=<GAUGE|COUNTER|DERIVE|ABSOLUTE|COMPUTE>
++#    The fifth parameter determines whether the item's data should be
++#    stored in an Round-Robin Database, and how it should be
++#    represented.  A blank entry will prevent RRD creation.
++#    See http://oss.oetiker.ch/rrdtool/doc/rrdcreate.en.html for
++#    details of the RRD different RRD options.
++#
++#  NB: Values associated with named static items are available for use
++#  during post-processing with the notation:
++#
++#    $this->{'static'}->{'static_data_name'}
++#
++#  See the dynamic item named 'swap_used' for a real-world example.
+ # 
+ ########################################################################
+ static.1.name=distribution
+@@ -78,7 +87,7 @@
+ 
+ static.4.name=processor
+ static.4.source=/proc/cpuinfo
+-static.4.regexp=Processor\s+: (.*)
++static.4.regexp=model name\s+: (.*)
+ static.4.postprocess=
+ 
+ static.5.name=scaling_governor
+@@ -97,27 +106,27 @@
+ static.7.postprocess=$1/1024
+ 
+ static.8.name=sdcard_root_total
+-static.8.source=df -t ext4
+-static.8.regexp=root\s+(\d+)
++static.8.source=df /
++static.8.regexp=^[^\s]+\s+(\d+)
+ static.8.postprocess=$1/1024
+ 
+ static.9.name=sdcard_boot_total
+-static.9.source=df -t vfat
+-static.9.regexp=mmcblk0p1\s+(\d+)
++static.9.source=df /boot
++static.9.regexp=^[^\s]+\s+(\d+)
+ static.9.postprocess=$1/1024
+ 
+ ##############################################################################
+-dynamic.1.name=upgrade
+-dynamic.1.source=/usr/share/rpimonitor/updatestatus.txt
+-dynamic.1.regexp=(\d+ upgraded, \d+ .*|.*&nbsp;.*)
+-dynamic.1.postprocess=
+-dynamic.1.rrd=
+-
+-dynamic.2.name=packages
+-dynamic.2.source=/usr/share/rpimonitor/updatestatus.txt
+-dynamic.2.regexp=^  (.*)\d+ upgraded,
+-dynamic.2.postprocess=
+-dynamic.2.rrd=
++#dynamic.1.name=upgrade
++#dynamic.1.source=/usr/share/rpimonitor/updatestatus.txt
++#dynamic.1.regexp=(\d+ upgraded, \d+ .*|.*&nbsp;.*)
++#dynamic.1.postprocess=
++#dynamic.1.rrd=
++#
++#dynamic.2.name=packages
++#dynamic.2.source=/usr/share/rpimonitor/updatestatus.txt
++#dynamic.2.regexp=^  (.*)\d+ upgraded,
++#dynamic.2.postprocess=
++#dynamic.2.rrd=
+ 
+ dynamic.3.name=cpu_frequency
+ dynamic.3.source=/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq
+@@ -126,7 +135,7 @@
+ dynamic.3.rrd=
+ 
+ dynamic.4.name=cpu_voltage
+-dynamic.4.source=vcgencmd measure_volts core
++dynamic.4.source=/opt/vc/bin/vcgencmd measure_volts core
+ dynamic.4.regexp=(\d+.\d+)V
+ dynamic.4.postprocess=
+ dynamic.4.rrd=
+@@ -138,14 +147,14 @@
+ dynamic.5.rrd=GAUGE
+ 
+ dynamic.6.name=sdcard_root_used
+-dynamic.6.source=df -t ext4
+-dynamic.6.regexp=root\s+\d+\s+(\d+)
++dynamic.6.source=df /
++dynamic.6.regexp=^[^\s]+\s+\d+\s+(\d+)
+ dynamic.6.postprocess=$1/1024
+ dynamic.6.rrd=GAUGE
+ 
+ dynamic.7.name=sdcard_boot_used
+-dynamic.7.source=df -t vfat
+-dynamic.7.regexp=mmcblk0p1\s+\d+\s+(\d+)
++dynamic.7.source=df /boot
++dynamic.7.regexp=^[^\s]+\s+\d+\s+(\d+)
+ dynamic.7.postprocess=$1/1024
+ dynamic.7.rrd=GAUGE
+ 
+@@ -314,7 +323,7 @@
+ web.status.1.content.1.line.2='Distribution: <b>'+ data.distribution + '</b>'
+ web.status.1.content.1.line.3='Kernel version: <b>' + data.kernel_version + '</b>'
+ web.status.1.content.1.line.4='Firmware: <b>' + data.firmware + '</b>'
+-web.status.1.content.1.line.5='Package(s) to be: <b>' + data.upgrade + '</b>' + ShowInfo('packages','Package update',data.packages)
++#web.status.1.content.1.line.5='Package(s) to be: <b>' + data.upgrade + '</b>' + ShowInfo('packages','Package update',data.packages)
+ 
+ web.status.1.content.2.name=Uptime
+ web.status.1.content.2.icon=uptime.png

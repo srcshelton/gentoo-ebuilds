@@ -1,0 +1,24 @@
+#!/sbin/runscript
+# Distributed under the terms of the GNU General Public License v2
+
+PERL="$( type -pf perl )"
+NAME=rpimonitord
+PIDFILE=/var/run/$NAME.pid
+DAEMON=/usr/sbin/$NAME
+DAEMON_ARGS="-b ${PIDFILE}"
+
+depend() {
+	need net
+}
+
+start() {
+	ebegin "Starting RPI Monitor"
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $PERL -- $DAEMON $DAEMON_ARGS
+	eend $? "Unable to start Monitor"
+}
+
+stop() {
+	ebegin "Stopping RPI Monitor"
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --interpreted --exec $PERL $DAEMON
+	eend $? "Unable to stop Monitor"
+}
