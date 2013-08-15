@@ -20,6 +20,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * dev-ruby/rake
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
+* sys-apps/tmpfs
+    * Mirror segments of a filesystem to a memory-based backing store
 * sys-auth/opie
     * OPIE One-time password system
 * sys-auth/pam_mobile_otp
@@ -28,6 +30,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Data acquisition and web-interface for Heatmiser Wifi Thermostats
 * www-apps/opennab
     * OpenNAB Nabaztag server software
+* www-apps/rpi-monitor
+    * Raspberry Pi monitoring web-interface from http://rpi-experiences.blogspot.fr/
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
 * www-misc/observium
@@ -41,6 +45,16 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers
+
+# Fixes for ebuilds using /run rather than /var/run
+
+* app-misc/screen
+* dev-libs/cyrus-sasl
+* net-analyzer/iptraf-ng
+* net-analyzer/ntop
+* net-analyzer/wireshark
+* sys-libs/pam
+* sys-power/acpid
 
 # Fixes for x32 ABI
 
