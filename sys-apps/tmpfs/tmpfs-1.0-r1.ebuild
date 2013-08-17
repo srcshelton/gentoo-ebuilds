@@ -1,6 +1,5 @@
-# Copyright 2010-2013 Stuart Shelton
+# Copyright (c) 2010-2013 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
-# $Header: $
 
 EAPI=4
 
@@ -18,6 +17,9 @@ mkdir -p "${S}"
 src_install() {
 	newconfd "${FILESDIR}"/"${PN}".conf "${PN}"
 	newinitd "${FILESDIR}"/"${PN}".init "${PN}"
+
+	exeinto /etc/local.d/
+	doexe "${FILESDIR}"/"${PN}".stop
 
 	if use examples; then
 		dodir /mnt/ram

@@ -1,5 +1,5 @@
 #!/sbin/runscript
-# Copyright 2010-2013 Stuart Shelton
+# Copyright (c) 2010-2013 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
 source /etc/conf.d/tmpfs

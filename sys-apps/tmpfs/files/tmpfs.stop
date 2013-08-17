@@ -1,0 +1,13 @@
+# By default, OpenRC unmounts tmpfs filesystems early in the shutdown/halt
+# sequence - which prevents us from committing our data to a backing-store.
+# However, if we perform this commit first then we can ensure that only data
+# modified on exit is not persisted.
+# The modified ebuilds from https://github.com/srcshelton/gentoo-ebuilds
+# attempt to mitigate this issue by making OpenRC more selective about when it
+# umounts tmpfs filesystems.
+
+if [ -x /etc/init.d/tmpfs.ram ]; then
+	if /etc/init.d/tmpfs.ram status --quiet; then
+		/etc/init.d/tmpfs.ram commit
+	fi
+fi
