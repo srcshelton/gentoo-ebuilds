@@ -39,6 +39,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Modified ebuilds
 
+* app-misc/colordiff
+    * Install example configuration file to /usr/share/doc/${PN}/ rather than /etc/
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
 * sys-apps/busybox
