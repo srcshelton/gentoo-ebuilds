@@ -1,11 +1,11 @@
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright (c) 2013 Stuart Shelton <stuart@shelton.me>
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="4"
 
 inherit eutils
 
-DESCRIPTION="RPi-Monitor always keep an eye on your Raspberry Pi"
+DESCRIPTION="RPi-Monitor - always keep an eye on your Raspberry Pi"
 HOMEPAGE="http://rpi-experiences.blogspot.fr"
 SRC_URI="https://github.com/XavierBerger/RPi-Monitor/archive/v${PV}.zip -> ${P}.zip
 	https://github.com/XavierBerger/RPi-Monitor-deb/archive/v${PV}.zip -> ${PN}-deb-${PV}.zip"
