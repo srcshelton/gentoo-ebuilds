@@ -1,5 +1,5 @@
---- rpimonitor/default.conf.dist	2013-08-17 14:54:04.390056536 +0100
-+++ rpimonitor/default.conf	2013-08-17 15:09:06.206429700 +0100
+--- rpimonitor/default.conf.dist	2013-08-19 18:55:16.823733000 +0100
++++ rpimonitor/default.conf	2013-08-19 19:11:40.119918000 +0100
 @@ -1,64 +1,73 @@
  ########################################################################
  # KPI extraction configuration 
@@ -120,61 +120,57 @@
  # 
  ########################################################################
  static.1.name=distribution
-@@ -78,113 +87,156 @@
- 
- static.4.name=processor
- static.4.source=/proc/cpuinfo
--static.4.regexp=Processor\s+: (.*)
-+static.4.regexp=model name\s+: (.*)
+@@ -81,110 +90,150 @@
+ static.4.regexp=(?:Processor|model name)\s+: (.*)
  static.4.postprocess=
  
--static.5.name=scaling_governor
--static.5.source=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
--static.5.regexp=(.*)
+-static.5.name=memory_total
+-static.5.source=/proc/meminfo
+-static.5.regexp=MemTotal:\s+(\d+)
+-static.5.postprocess=$1/1024
+-
+-static.6.name=swap_total
+-static.6.source=/proc/meminfo
+-static.6.regexp=SwapTotal:\s+(\d+)
+-static.6.postprocess=$1/1024
+-
+-static.7.name=sdcard_root_total
+-static.7.source=df -t ext4
+-static.7.regexp=root\s+(\d+)
+-static.7.postprocess=$1/1024
+-
+-static.8.name=sdcard_boot_total
+-static.8.source=df -t vfat
+-static.8.regexp=mmcblk0p1\s+(\d+)
 +static.5.name=hardware
 +static.5.source=/proc/cpuinfo
 +static.5.regexp=Hardware\s+: (.*)
- static.5.postprocess=
- 
--static.6.name=memory_total
--static.6.source=/proc/meminfo
--static.6.regexp=MemTotal:\s+(\d+)
--static.6.postprocess=$1/1024
--
--static.7.name=swap_total
--static.7.source=/proc/meminfo
--static.7.regexp=SwapTotal:\s+(\d+)
--static.7.postprocess=$1/1024
++static.5.postprocess=
++
 +static.6.name=revision
 +static.6.source=/proc/cpuinfo
-+static.6.regexp=Revision\s+: 0*(\d+)
++static.6.regexp=Revision\s+: 0*(.*)
 +static.6.postprocess=
 +
 +static.7.name=serial
 +static.7.source=/proc/cpuinfo
 +static.7.regexp=Serial\s+: (.*)
 +static.7.postprocess=
- 
- static.8.name=sdcard_root_total
--static.8.source=df -t ext4
--static.8.regexp=root\s+(\d+)
++
++static.8.name=sdcard_root_total
 +static.8.source=df /
 +static.8.regexp=^[^\s]+\s+(\d+)
  static.8.postprocess=$1/1024
  
- static.9.name=sdcard_boot_total
--static.9.source=df -t vfat
--static.9.regexp=mmcblk0p1\s+(\d+)
++static.9.name=sdcard_boot_total
 +static.9.source=df /boot
 +static.9.regexp=^[^\s]+\s+(\d+)
- static.9.postprocess=$1/1024
- 
-+# Also monitor the default mount from sys-apps/tmpfs - which should be used
-+# with RPi-Monitor in order to reduce writes to SD!
-+#static.11.name=tmpfs_ram_total
-+#static.11.source=df /mnt/ram
-+#static.11.regexp=^[^\s]+\s+(\d+)
-+#static.11.postprocess=$1/1024
++static.9.postprocess=$1/1024
++
++static.11.name=tmpfs_ram_total
++static.11.source=df /mnt/ram
++static.11.regexp=^[^\s]+\s+(\d+)
++static.11.postprocess=$1/1024
 +
  ##############################################################################
 -dynamic.1.name=upgrade
@@ -261,12 +257,11 @@
 -dynamic.8.source=/proc/meminfo
 -dynamic.8.regexp=SwapFree:\s+(\d+)
 -dynamic.8.postprocess=$this->{'static'}->{'swap_total'} - ($1/1024)
--dynamic.8.rrd=GAUGE
-+#dynamic.8.name=tmpfs_ram_used
-+#dynamic.8.source=df /mnt/ram
-+#dynamic.8.regexp=^[^\s]+\s+\d+\s+(\d+)
-+#dynamic.8.postprocess=$1/1024
-+#dynamic.8.rrd=GAUGE
++dynamic.8.name=tmpfs_ram_used
++dynamic.8.source=df /mnt/ram
++dynamic.8.regexp=^[^\s]+\s+\d+\s+(\d+)
++dynamic.8.postprocess=$1/1024
+ dynamic.8.rrd=GAUGE
  
 -dynamic.9.name=memory_free
 +dynamic.9.name=swap_total
@@ -318,6 +313,11 @@
 +dynamic.13.postprocess=$1/1024
  dynamic.13.rrd=GAUGE
  
+-dynamic.14.name=scaling_governor
+-dynamic.14.source=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+-dynamic.14.regexp=(.*)
+-dynamic.14.postprocess=
+-dynamic.14.rrd=
 +dynamic.14.name=memory_used
 +dynamic.14.source=/proc/meminfo
 +dynamic.14.regexp=MemFree:\s+(\d+)
@@ -339,7 +339,7 @@
 +dynamic.17.name=soc_temp
 +dynamic.17.source=/sys/devices/virtual/thermal/thermal_zone0/temp
 +dynamic.17.regexp=(.*)
-+dynamic.17.postprocess=$1/1000
++dynamic.17.postprocess=int($1/10)/100
 +dynamic.17.rrd=GAUGE
 +
 +dynamic.18.name=uptime
@@ -347,11 +347,10 @@
 +dynamic.18.regexp=(^\S+)
 +dynamic.18.postprocess=
 +dynamic.18.rrd=GAUGE
-+
+ 
  ########################################################################
  # Web interface configuration
- # 
-@@ -308,13 +360,16 @@
+@@ -309,13 +358,16 @@
  
  #######################################################################
  web.status.1.name=Raspberry Pi
@@ -372,11 +371,11 @@
  
  web.status.1.content.2.name=Uptime
  web.status.1.content.2.icon=uptime.png
-@@ -333,8 +388,9 @@
+@@ -334,8 +386,9 @@
  
  web.status.1.content.5.name=Memory
  web.status.1.content.5.icon=memory.png
--web.status.1.content.5.line.1="Used: <b>" + KMG(data.memory_total-data.memory_free,'M') + "</b> (<b>" + Percent(data.memory_free,data.memory_total,'M') + "</b>) Free: <b>" + KMG(data.memory_free,'M') + "</b> Total: <b>" + KMG(data.memory_total,'M') + "</b>"
+-web.status.1.content.5.line.1="Used: <b>" + KMG(data.memory_total-data.memory_free,'M') + "</b> (<b>" + Percent(data.memory_total-data.memory_free,data.memory_total,'M') + "</b>) Free: <b>" + KMG(data.memory_free,'M') + "</b> Total: <b>" + KMG(data.memory_total,'M') + "</b>"
 -web.status.1.content.5.line.2=ProgressBar(data.memory_total-data.memory_free,data.memory_total)
 +web.status.1.content.5.line.1="Used: <b>" + KMG(data.memory_used,'M') + "</b> (<b>" + Percent(data.memory_used,data.memory_total,'M') + "</b>) Free: <b>" + KMG(data.memory_free,'M') + "</b> Total: <b>" + KMG(data.memory_total,'M') + "</b>"
 +web.status.1.content.5.line.2="GPU: <b>" + KMG(data.memory_gpu,'M') + "</b>"
@@ -384,17 +383,17 @@
  
  web.status.1.content.6.name=Swap
  web.status.1.content.6.icon=swap.png
-@@ -348,66 +404,94 @@
+@@ -349,66 +402,94 @@
  web.status.1.content.7.line.3="<b>/</b> Used: <b>"+KMG(data.sdcard_root_used,'M') + "</b> (<b>" + Percent(data.sdcard_root_used,data.sdcard_root_total,'M')+"</b>) Free: <b>"+KMG(data.sdcard_root_total-data.sdcard_root_used,'M')+ "</b> Total: <b>"+ KMG(data.sdcard_root_total,'M') + "</b>"
  web.status.1.content.7.line.4=ProgressBar(data.sdcard_root_used,data.sdcard_root_total)
  
 -web.status.1.content.8.name=Network
 -web.status.1.content.8.icon=network.png
 -web.status.1.content.8.line.1="Ethernet Sent: <b>"+KMG(data.net_send)+"<i class='icon-arrow-up'></i></b> Received: <b>"+KMG(Math.abs(data.net_received)) + "<i class='icon-arrow-down'></i></b>"
-+#web.status.1.content.8.name=RAM fs
-+#web.status.1.content.8.icon=memory.png
-+#web.status.1.content.8.line.1="Used: <b>"+KMG(data.tmpfs_ram_used,'M')+"</b> (<b>"+Percent(data.tmpfs_ram_used,data.tmpfs_ram_total,'M')+"</b>) Free: <b>"+KMG(data.tmpfs_ram_total-data.tmpfs_ram_used,'M')+ "</b> Total: <b>"+ KMG(data.tmpfs_ram_total,'M') + "</b>"
-+#web.status.1.content.8.line.2=ProgressBar(data.tmpfs_ram_used,data.tmpfs_ram_total)
++web.status.1.content.8.name=RAM fs
++web.status.1.content.8.icon=memory.png
++web.status.1.content.8.line.1="Used: <b>"+KMG(data.tmpfs_ram_used,'M')+"</b> (<b>"+Percent(data.tmpfs_ram_used,data.tmpfs_ram_total,'M')+"</b>) Free: <b>"+KMG(data.tmpfs_ram_total-data.tmpfs_ram_used,'M')+ "</b> Total: <b>"+ KMG(data.tmpfs_ram_total,'M') + "</b>"
++web.status.1.content.8.line.2=ProgressBar(data.tmpfs_ram_used,data.tmpfs_ram_total)
 +
 +web.status.1.content.9.name=Network
 +web.status.1.content.9.icon=network.png
@@ -514,8 +513,8 @@
 +web.statistics.1.content.8.graph.2=memory_used
 +web.statistics.1.content.8.graph.3=memory_total
 +web.statistics.1.content.8.graph.4=memory_gpu
-+#web.statistics.1.content.8.graph.5=tmpfs_ram_total
-+#web.statistics.1.content.8.graph.6=tmpfs_ram_used
++web.statistics.1.content.8.graph.5=tmpfs_ram_total
++web.statistics.1.content.8.graph.6=tmpfs_ram_used
 +web.statistics.1.content.8.ds_graph_options.memory_free.label=Free Memory (MB)
 +web.statistics.1.content.8.ds_graph_options.memory_free.color="#77FF77"
 +web.statistics.1.content.8.ds_graph_options.memory_used.label=Used Memory (MB)
@@ -525,10 +524,10 @@
 +web.statistics.1.content.8.ds_graph_options.memory_gpu.label=GPU Memory (MB)
 +web.statistics.1.content.8.ds_graph_options.memory_gpu.lines={ fill: true }
 +web.statistics.1.content.8.ds_graph_options.memory_gpu.color="#FFFF77"
-+#web.statistics.1.content.8.ds_graph_options.tmpfs_ram_total.label=Size of /mnt/ram (MB)
-+#web.statistics.1.content.8.ds_graph_options.tmpfs_ram_total.color="#77FFFF"
-+#web.statistics.1.content.8.ds_graph_options.tmpfs_ram_used.label=Used on /mnt/ram (MB)
-+#web.statistics.1.content.8.ds_graph_options.tmpfs_ram_used.color="#FF77FF"
++web.statistics.1.content.8.ds_graph_options.tmpfs_ram_total.label=Size of /mnt/ram (MB)
++web.statistics.1.content.8.ds_graph_options.tmpfs_ram_total.color="#FF77FF"
++web.statistics.1.content.8.ds_graph_options.tmpfs_ram_used.label=Used on /mnt/ram (MB)
++web.statistics.1.content.8.ds_graph_options.tmpfs_ram_used.color="#77FFFF"
 +
 +web.statistics.1.content.9.name=Uptime
 +web.statistics.1.content.9.graph.1=uptime
