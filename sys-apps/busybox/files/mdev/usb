@@ -1,16 +1,15 @@
 #!/bin/sh
 
-if [ -w "kmsg" ]; then
-	LOGFILE="kmsg"
-else
-	LOGFILE="mdev_usb.log"
-fi
+function log() {
+	local LOGFILE
 
-echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev usb helper started as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'"
-
-[ -n "$MDEV" ] || exit 0
-[ -n "$DEVPATH" ] || exit 0
-[ "$SUBSYSTEM" = "usb" ] || exit 0
+	if [ -w "kmsg" ]; then
+		LOGFILE="kmsg"
+	else
+		LOGFILE="mdev_usb.log"
+	fi
+	echo >>"$LOGFILE" "mdev $$ $( date +"%T.%N" ) $@"
+}
 
 # Add zeros to device or bus identifiers
 function add_zeros() {
@@ -25,11 +24,21 @@ function add_zeros() {
 	return 0
 }
 
+log "usb helper started as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'"
+
+[ -n "$MDEV" ] || exit 0
+[ -n "$DEVPATH" ] || exit 0
+[ "$SUBSYSTEM" = "usb" ] || exit 0
+
 # e.g. DEVPATH=/devices/pci0000:00/0000:00:0f.4/usb2/2-1, MDEV=2-1
 #  or  DEVPATH=/devices/platform/bcm2708_usb/usb1/1-1/1-1.1, MDEV=1-1.1
 BUS=""
 USB_DEV=""
-#USB_FUNC="$( add_zeros "$( echo "$MDEV" | cut -d'-' -f 2 )" )"
+USB_VENDOR=""
+USB_PRODUCT=""
+PRODUCT=""
+IPHETH="/lib/udev/ipheth-pair"
+
 if [ -d /sys/devices ]; then
 	BUS="$( add_zeros "$( cat "/sys$DEVPATH/busnum" 2>/dev/null )" )"
 	USB_DEV="$( add_zeros "$( cat "/sys$DEVPATH/devnum" 2>/dev/null )" )"
@@ -44,44 +53,91 @@ if [ -z "$USB_DEV" ]; then
 	USB_DEV="$( expr $USB_DEV + $( echo "$MDEV" | cut -d'.' -f 2 ) )"
 	USB_DEV="$( add_zeros "$USB_DEV" )"
 fi
+if [ -e "/sys$DEVPATH/idVendor" ]; then
+	USB_VENDOR="$( cat "/sys$DEVPATH/idVendor" )"
+fi
+if [ -e "/sys$DEVPATH/idProduct" ]; then
+	USB_PRODUCT="$( cat "/sys$DEVPATH/idProduct" )"
+fi
+if [ -e "/sys$DEVPATH/product" ]; then
+	PRODUCT="$( cat "/sys$DEVPATH/product" )"
+fi
+#USB_FUNC="$( add_zeros "$( echo "$MDEV" | cut -d'-' -f 2 )" )"
 
 if ! [ -n "$BUS" && -n "$USB_DEV" ]; then
-	echo >>"LOGFILE" "$$ $( date +"%T.%N" ) Could not determine BUS and DEVICE information for node '$MDEV' - aborting"
+	log "Could not determine BUS and DEVICE information for node '$MDEV' - aborting"
 	exit 1
 fi
 
 case "$ACTION" in
 	add|"")
-		echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) Performing 'add' ACTION"
+		log "Performing 'add' ACTION"
 
 		# Move USB device node
 		if [ ! -d "bus/usb/$BUS" ]; then
-			echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) WARNING USB bus directory 'bus/usb/$BUS' doesn't exist - is USB initialised?"
+			log "WARNING USB bus directory 'bus/usb/$BUS' doesn't exist - is USB initialised?"
 			mkdir -p "bus/usb/$BUS" \
-				&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mkdir succeeded for 'bus/usb/$BUS'" \
-				|| { echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mkdir failed for 'bus/usb/$BUS'" ; exit 0 ; }
+				&& log "mkdir succeeded for 'bus/usb/$BUS'" \
+				|| { log "mkdir failed for 'bus/usb/$BUS'" ; exit 0 ; }
 		fi
 		mv "$MDEV" "bus/usb/$BUS/$USB_DEV" \
-			&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mv succeeded for 'bus/usb/$BUS/$USB_DEV'" \
-			|| { echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mv failed for 'bus/usb/$BUS/$USB_DEV'" ; exit 0 ; }
+			&& log "mv succeeded for 'bus/usb/$BUS/$USB_DEV'" \
+			|| { log "mv failed for 'bus/usb/$BUS/$USB_DEV'" ; exit 0 ; }
+
+		# Setup iPhone, if present
+		if [ -x "/usr/sbin/usbmuxd" -a -x "$IPHETH" ]; then
+			if [ -n "$USB_VENDOR" -a -n "$USB_PRODUCT" -a "$USB_VENDOR" = "05ac" ]; then
+				log "Detected Apple USB device..."
+				if echo "$USB_PRODUCT" | grep -qE "^12[9a]" >/dev/null 2>&1; then
+					CONF="$( cat "/sys$DEVPATH/bConfigurationValue" )"
+					NUM="$( cat "/sys$DEVPATH/bNumConfigurations" )"
+					log "... device is using configuration $CONF of $NUM"
+					if [ "$CONF" != "$NUM" ]; then
+						log "Forcing device to configuration $NUM"
+						echo "$NUM" > "/sys/$DEVPATH/bConfigurationValue"
+					fi
+					chown usbmux "bus/usb/$BUS/$USB_DEV" >/dev/null 2>&1
+					log "Running 'usbmuxd'"
+					/usr/sbin/usbmuxd -U usbmux >/dev/null 2>&1 </dev/null &
+				fi
+				if [ -n "$PRODUCT" -a "$PRODUCT" = "iPhone" ]; then
+					ln -s "bus/usb/$BUS/$USB_DEV" iphone
+					log "Running 'ipheth-pair'"
+					"$IPHETH" >/dev/null 2>&1 </dev/null &
+				fi
+			fi
+		fi
 		;;
 	remove)
-		echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) Performing 'add' ACTION"
+		log "Performing 'remove' ACTION"
+
+		if [ -x "/usr/sbin/usbmuxd" ]; then
+			if [ -n "$USB_VENDOR" -a -n "$USB_PRODUCT" -a "$USB_VENDOR" = "05ac" ]; then
+				log "Detected Apple USB device..."
+				if echo "$USB_PRODUCT" | grep -qE "^12[9a]" >/dev/null 2>&1; then
+					log "Stopping 'usbmuxd'"
+					/usr/sbin/usbmuxd -x >/dev/null 2>&1 </dev/null &
+				fi
+				if [ -n "$PRODUCT" -a "$PRODUCT" = "iPhone" ]; then
+					rm -f iphone 2>/dev/null
+				fi
+			fi
+		fi
 
 		# Remove device node and potential empty directories
 		if rm -f "bus/usb/$BUS/$USB_DEV" 2>/dev/null \
-			&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rm -f 'bus/usb/$BUS/$USB_DEV' succeeded"
+			&& log "rm -f 'bus/usb/$BUS/$USB_DEV' succeeded"
 		then
 			rmdir -p "bus/usb/$BUS" 2>/dev/null \
-				&& echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rmdir -p 'bus/usb/$BUS' succeeded" \
-				|| { echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rmdir -p 'bus/usb/$BUS' failed" ; exit 0 ; }
+				&& log "rmdir -p 'bus/usb/$BUS' succeeded" \
+				|| { log "rmdir -p 'bus/usb/$BUS' failed" ; exit 0 ; }
 		else
-			echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) rm -f 'bus/usb/$BUS/$USB_DEV' failed"
+			log "rm -f 'bus/usb/$BUS/$USB_DEV' failed"
 			exit 0
 		fi
 		;;
 esac
 
-echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) usb helper completed successfully"
+log "usb helper completed successfully"
 
 exit 0
