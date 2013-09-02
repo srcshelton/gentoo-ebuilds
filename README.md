@@ -3,6 +3,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Out-of-tree ebuilds
 
+* app-pda/ipheth-pair
+    * Tether an Apple iOS device to provide a network-link
 * dev-perl/Email-Outlook-Message
 * dev-perl/Locale-Hebrew
 * dev-perl/Net-Subnet
@@ -48,7 +50,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers
 
-# Fixes for ebuilds using /run rather than /var/run
+# Fixes for ebuilds using /run
+(... rather than /var/run)
 
 * app-misc/screen
 * dev-libs/cyrus-sasl
@@ -65,7 +68,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * sys-apps/baselayout
     * Don't error-out if using 'lib32' for x32 libraries
 
-# Fixes to allow seperate '/usr' partition and/or operation without a '/run' directory
+# Fixes to allow separate '/usr'
+(... and/or operation without a '/run' directory)
 
 * sys-apps/openrc
     * Add optional 'varrun' USE-flag to allow 'run' to remain in '/var/run'
