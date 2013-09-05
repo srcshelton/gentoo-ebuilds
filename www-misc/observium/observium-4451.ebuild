@@ -90,11 +90,6 @@ src_install() {
 
 	# Install non-webapp binaries to /usr/share/observium...
 	insinto /usr/share/${PN}
-
-	# Prune an unused directory...
-	[[ -d scripts/agent-local/munin-scripts ]] \
-		&& rmdir scripts/agent-local/munin-scripts 2>/dev/null
-
 	doins -r attic contrib scripts upgrade-scripts
 
 	find "${ED}"/usr/share/"${PN}"/ -type f -not \( \
@@ -116,7 +111,7 @@ src_install() {
 		insinto "${MY_HTDOCSDIR}"/
 		doins config.php.default *.php
 		use tools && doins poller-wrapper.py
-		doins -r html includes sql-schema
+		doins -r html includes update
 
 		mv "${ED}/${MY_HTDOCSDIR}"/config.php.default "${ED}/${MY_HTDOCSDIR}"/config.php
 		webapp_configfile ${MY_HTDOCSDIR}/config.php
@@ -149,8 +144,8 @@ EOF
 
 		webapp_src_install
 
-		for FILE in discovery.php addhost.php adduser.php \
-			includes/sql-schema/update.php; do
+		for FILE in discovery.php add_device.php adduser.php syslog.php \
+			includes/update/update.php; do
 			fperms 0755 "${MY_HTDOCSDIR}"/"$FILE"
 		done
 	fi
