@@ -30,7 +30,7 @@ create_devs() {
 
 # Start software raid with mdadm (new school)
 start_md() {
-	local mdadm_conf mdmod_conf nods devs mod dev timeout device node output ret
+	local mdadm_conf mdmod_conf mods devs mod dev timeout device node output ret
 	mdadm_conf="/etc/mdadm/mdadm.conf"
 	mdmod_conf="/etc/mdadm/mdmod.conf"
 	[ -e /etc/mdadm.conf -a ! -e "$mdadm_conf" ] && mdadm_conf="/etc/mdadm.conf"

@@ -3,3 +3,10 @@
 # For people who run raid on top of some other layer (like
 # dmcrypt), use rc_need to specify that requirement.  See
 # the runscript(8) man page for more information.
+
+# I/O Scheduler to apply to RAID storage devices
+SCHEDULER="cfq"
+
+# Enable NCQ on RAID storage devices?
+ENABLENCQ="YES"
+
