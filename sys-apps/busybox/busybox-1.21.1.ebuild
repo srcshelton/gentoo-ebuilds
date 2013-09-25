@@ -1,47 +1,11 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/busybox/busybox-1.20.2.ebuild,v 1.13 2013/08/20 08:15:14 gmsoft Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/busybox/busybox-1.21.1.ebuild,v 1.1 2013/08/17 17:55:02 vapier Exp $
+
+# See `man savedconfig.eclass` for info on how to use USE=savedconfig.
 
 EAPI="4"
 inherit eutils flag-o-matic savedconfig toolchain-funcs multilib
-
-################################################################################
-# BUSYBOX ALTERNATE CONFIG MINI-HOWTO
-#
-# Busybox can be modified in many different ways. Here's a few ways to do it:
-#
-# (1) Emerge busybox with FEATURES=keepwork so the work directory won't
-#     get erased afterwards. Add a definition like ROOT=/my/root/path to the
-#     start of the line if you're installing to somewhere else than the root
-#     directory. This command will save the default configuration to
-#     ${PORTAGE_CONFIGROOT} (or ${ROOT} if ${PORTAGE_CONFIGROOT} is not
-#     defined), and it will tell you that it has done this. Note the location
-#     where the config file was saved.
-#
-#     FEATURES=keepwork USE=savedconfig emerge busybox
-#
-# (2) Go to the work directory and change the configuration of busybox using its
-#     menuconfig feature.
-#
-#     cd /var/tmp/portage/busybox*/work/busybox-*
-#     make menuconfig
-#
-# (3) Save your configuration to the default location and copy it to the
-#     one of the locations listed in /usr/portage/eclass/savedconfig.eclass
-#
-# (4) Emerge busybox with USE=savedconfig to use the configuration file you
-#     just generated.
-#
-################################################################################
-#
-# (1) Alternatively skip the above steps and simply emerge busybox without
-#     USE=savedconfig.
-#
-# (2) Edit the file it saves by hand. ${ROOT}"/etc/portage/savedconfig/${CATEGORY}/${PF}
-#
-# (3) Remerge busybox as using USE=savedconfig.
-#
-################################################################################
 
 DESCRIPTION="Utilities for rescue and embedded systems"
 HOMEPAGE="http://www.busybox.net/"
@@ -52,12 +16,13 @@ if [[ ${PV} == "9999" ]] ; then
 else
 	MY_P=${PN}-${PV/_/-}
 	SRC_URI="http://www.busybox.net/downloads/${MY_P}.tar.bz2"
-	KEYWORDS="alpha amd64 arm hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~arm-linux ~x86-linux"
 fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="ipv6 livecd make-symlinks math +mdev -pam selinux sep-usr +static systemd"
+
+IUSE="ipv6 livecd make-symlinks math +mdev -pam selinux sep-usr +static syslog systemd"
 RESTRICT="test"
 
 RDEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
@@ -69,16 +34,29 @@ DEPEND="${RDEPEND}
 S=${WORKDIR}/${MY_P}
 
 busybox_config_option() {
-	case $1 in
-		y) sed -i -e "s:.*\<CONFIG_$2\>.*set:CONFIG_$2=y:g" .config;;
-		n) sed -i -e "s:CONFIG_$2=y:# CONFIG_$2 is not set:g" .config;;
-		*) use $1 \
-		       && busybox_config_option y $2 \
-		       || busybox_config_option n $2
-		   return 0
-		   ;;
+	local flag=$1 ; shift
+	if [[ ${flag} != [yn] ]] ; then
+		busybox_config_option $(usex ${flag} y n) "$@"
+		return
+	fi
+	while [[ $# -gt 0 ]] ; do
+		if [[ ${flag} == "y" ]] ; then
+			sed -i -e "s:.*\<CONFIG_$1\>.*set:CONFIG_$1=y:g" .config
+		else
+			sed -i -e "s:CONFIG_$1=y:# CONFIG_$1 is not set:g" .config
+		fi
+		einfo $(grep "CONFIG_$1[= ]" .config || echo Could not find CONFIG_$1 ...)
+		shift
+	done
+}
+
+busybox_config_enabled() {
+	local val=$(sed -n "/^CONFIG_$1=/s:^[^=]*=::p" .config)
+	case ${val} in
+	"") return 1 ;;
+	y)  return 0 ;;
+	*)  echo "${val}" | sed -r 's:^"(.*)"$:\1:' ;;
 	esac
-	einfo $(grep "CONFIG_$2[= ]" .config || echo Could not find CONFIG_$2 ...)
 }
 
 src_prepare() {
@@ -88,8 +66,7 @@ src_prepare() {
 
 	# patches go here!
 	epatch "${FILESDIR}"/${PN}-1.19.0-bb.patch
-	epatch "${FILESDIR}"/${PN}-1.20.0-udhcpc6-ipv6.patch
-	epatch "${FILESDIR}"/${P}-*.patch
+	#epatch "${FILESDIR}"/${P}-*.patch
 	cp "${FILESDIR}"/ginit.c init/ || die
 
 	# flag cleanup
@@ -157,6 +134,7 @@ src_configure() {
 	fi
 	busybox_config_option $(usex static n pam) PAM
 	busybox_config_option static STATIC
+	busybox_config_option syslog {K,SYS}LOGD LOGGER
 	busybox_config_option systemd FEATURE_SYSTEMD
 	busybox_config_option math FEATURE_AWK_LIBM
 
@@ -235,9 +213,39 @@ src_install() {
 		dosym busybox /bin/vi
 	fi
 
+	# add busybox daemon's, bug #444718
+	if busybox_config_enabled FEATURE_NTPD_SERVER; then
+		newconfd "${FILESDIR}/ntpd.confd" "busybox-ntpd"
+		newinitd "${FILESDIR}/ntpd.initd" "busybox-ntpd"
+	fi
+	if busybox_config_enabled SYSLOGD; then
+		newconfd "${FILESDIR}/syslogd.confd" "busybox-syslogd"
+		newinitd "${FILESDIR}/syslogd.initd" "busybox-syslogd"
+	fi
+	if busybox_config_enabled KLOGD; then
+		newconfd "${FILESDIR}/klogd.confd" "busybox-klogd"
+		newinitd "${FILESDIR}/klogd.initd" "busybox-klogd"
+	fi
+	if busybox_config_enabled WATCHDOG; then
+		newconfd "${FILESDIR}/watchdog.confd" "busybox-watchdog"
+		newinitd "${FILESDIR}/watchdog.initd" "busybox-watchdog"
+	fi
+	if busybox_config_enabled UDHCPC; then
+		local path=$(busybox_config_enabled UDHCPC_DEFAULT_SCRIPT)
+		exeinto "${path%/*}"
+		newexe examples/udhcp/simple.script "${path##*/}"
+	fi
+	if busybox_config_enabled UDHCPD; then
+		insinto /etc
+		doins examples/udhcp/udhcpd.conf
+	fi
+
 	# bundle up the symlink files for use later
 	emake DESTDIR="${ED}" install
 	rm _install/bin/busybox
+	# for compatibility, provide /usr/bin/env
+	mkdir -p _install/usr/bin
+	ln -s /bin/env _install/usr/bin/env
 	tar cf busybox-links.tar -C _install . || : #;die
 	insinto /usr/share/${PN}
 	use make-symlinks && doins busybox-links.tar
