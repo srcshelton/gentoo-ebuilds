@@ -119,6 +119,10 @@ src_install() {
 	fi
 	keepdir "${EROOT}"$(get_libdir)/rc/tmp
 
+	# Install updated /etc/init.d/root script, allowing /etc/fstab options to
+	# determine mount options for the root filesystem
+	newinitd "${FILESDIR}"/root.initd root
+
 	# Backup our default runlevels
 	dodir /usr/share/"${PN}"
 	cp -PR "${ED}"/etc/runlevels "${ED}"/usr/share/${PN} || die
