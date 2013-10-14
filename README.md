@@ -60,6 +60,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * net-analyzer/wireshark
 * sys-libs/pam
 * sys-power/acpid
+* www-servers/lighttpd
 
 # Fixes for x32 ABI
 
