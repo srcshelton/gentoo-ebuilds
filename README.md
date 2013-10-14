@@ -68,15 +68,17 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * sys-apps/baselayout
     * Don't error-out if using 'lib32' for x32 libraries
 
-# Fixes to allow separate '/usr'
+# Fixes for 'udev' and to allow separate '/usr'
 (... and/or operation without a '/run' directory)
 
+* net-wireless/bluez
+    * Make 'udev' an optional dependency, controlled by the 'udev' USE-flag
 * sys-apps/openrc
     * Add optional 'varrun' USE-flag to allow 'run' to remain in '/var/run'
 * sys-fs/cryptsetup
-    * Make 'udev' and optional dependency, controlled by the 'udev' USE-flag
+    * Make 'udev' an optional dependency, controlled by the 'udev' USE-flag
 * sys-fs/lvm2
-    * Make 'udev' and optional dependency, controlled by the 'udev' USE-flag
+    * Make 'udev' an optional dependency, controlled by the 'udev' USE-flag
 * sys-fs/mdadm
     * Restore previous boot-time functionality, add support for module-loading from '/etc/mdadm/mdmod.conf'
 
