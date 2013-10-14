@@ -12,7 +12,7 @@ SRC_URI="mirror://sourceforge/${PN}2/${P}.tar.xz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~ia64 -ppc ~x86"
-IUSE="selinux"
+IUSE="selinux systemd"
 
 RDEPEND="selinux? ( sec-policy/selinux-apm )"
 DEPEND="${RDEPEND}"
@@ -38,7 +38,7 @@ src_install() {
 	newinitd "${FILESDIR}"/${PN}-2.0.16-init.d ${PN}
 	newconfd "${FILESDIR}"/${PN}-2.0.16-conf.d ${PN}
 
-	systemd_dounit "${FILESDIR}"/systemd/${PN}.{service,socket}
+	use systemd && systemd_dounit "${FILESDIR}"/systemd/${PN}.{service,socket}
 }
 
 pkg_postinst() {
@@ -48,5 +48,15 @@ pkg_postinst() {
 		elog "which can be found online at:"
 		elog "http://www.gentoo.org/doc/en/power-management-guide.xml"
 		elog
+	fi
+
+	if use systemd; then
+		# files/systemd/acpid.socket -> ListenStream=/run/acpid.socket
+		mkdir -p "${ROOT}"/run
+	
+		if ! grep -qs "^tmpfs.*/run " "${ROOT}"/proc/mounts ; then
+			echo
+			ewarn "You should reboot the system now to get /run mounted with tmpfs!"
+		fi
 	fi
 }

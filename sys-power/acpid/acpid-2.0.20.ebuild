@@ -1,17 +1,17 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-power/acpid/acpid-2.0.17-r1.ebuild,v 1.4 2013/01/21 14:31:11 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-power/acpid/acpid-2.0.20.ebuild,v 1.1 2013/09/25 08:09:29 ssuominen Exp $
 
-EAPI=4
+EAPI=5
 inherit systemd
 
 DESCRIPTION="Daemon for Advanced Configuration and Power Interface"
-HOMEPAGE="http://tedfelix.com/linux/acpid-netlink.html"
-SRC_URI="http://tedfelix.com/linux/${P}.tar.xz"
+HOMEPAGE="http://sourceforge.net/projects/acpid2"
+SRC_URI="mirror://sourceforge/${PN}2/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ia64 -ppc x86"
+KEYWORDS="~amd64 ~ia64 -ppc ~x86"
 IUSE="selinux systemd"
 
 RDEPEND="selinux? ( sec-policy/selinux-apm )"
@@ -26,7 +26,7 @@ src_install() {
 
 	newdoc kacpimon/README README.kacpimon
 	dodoc -r samples
-	rm -f "${D}"/usr/share/doc/${PF}/COPYING
+	rm -f "${D}"/usr/share/doc/${PF}/COPYING || die
 
 	exeinto /etc/acpi
 	newexe "${FILESDIR}"/${PN}-1.0.6-default.sh default.sh
@@ -42,7 +42,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	if [[ -z "$REPLACING_VERSIONS" ]]; then
+	if [[ -z ${REPLACING_VERSIONS} ]]; then
 		elog
 		elog "You may wish to read the Gentoo Linux Power Management Guide,"
 		elog "which can be found online at:"
@@ -53,7 +53,7 @@ pkg_postinst() {
 	if use systemd; then
 		# files/systemd/acpid.socket -> ListenStream=/run/acpid.socket
 		mkdir -p "${ROOT}"/run
-	
+
 		if ! grep -qs "^tmpfs.*/run " "${ROOT}"/proc/mounts ; then
 			echo
 			ewarn "You should reboot the system now to get /run mounted with tmpfs!"
