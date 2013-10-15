@@ -1,32 +1,28 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/mdadm-3.2.6-r1.ebuild,v 1.5 2013/09/22 08:55:59 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/mdadm-3.3-r1.ebuild,v 1.1 2013/09/28 08:43:48 pacho Exp $
 
 EAPI="4"
-inherit multilib eutils flag-o-matic systemd toolchain-funcs
+inherit multilib flag-o-matic systemd toolchain-funcs
 
 DESCRIPTION="A useful tool for running RAID systems - it can be used as a replacement for the raidtools"
 HOMEPAGE="http://neil.brown.name/blog/mdadm"
-SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.bz2"
+SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~hppa ia64 ~mips ~ppc ~ppc64 ~sparc x86"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sparc ~x86"
 IUSE="static systemd +udev"
 
-DEPEND="virtual/pkgconfig"
-RDEPEND="!<sys-apps/baselayout-2.1-r1
-	!<sys-apps/openrc-0.10
-	>=sys-apps/util-linux-2.16"
+DEPEND="virtual/pkgconfig
+	app-arch/xz-utils"
+RDEPEND=">=sys-apps/util-linux-2.16"
 
 # The tests edit values in /proc and run tests on software raid devices.
 # Thus, they shouldn't be run on systems with active software RAID devices.
 RESTRICT="test"
 
-src_prepare() {
-	epatch "${FILESDIR}"/${PN}-3.2.1-mdassemble.patch #211426
-	epatch "${FILESDIR}"/${PN}-3.2.x-udevdir.patch #430900
-}
+rundir="/dev/.mdadm"
 
 mdadm_emake() {
 	emake \
@@ -34,7 +30,7 @@ mdadm_emake() {
 		CC="$(tc-getCC)" \
 		CWFLAGS="-Wall" \
 		CXFLAGS="${CFLAGS}" \
-		MAP_DIR=/dev/.mdadm \
+		RUN_DIR="${rundir}" \
 		"$@"
 }
 
@@ -50,7 +46,18 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${D}" install
+	if ! use systemd; then
+		emake \
+			DESTDIR="${D}" \
+			RUN_DIR="${rundir}" \
+			install
+	else
+		emake \
+			DESTDIR="${D}" \
+			RUN_DIR="${rundir}" \
+			SYSTEMD_DIR=$(systemd_get_unitdir) \
+			install install-systemd
+	fi
 	dosbin mdassemble
 	dodoc ChangeLog INSTALL TODO README* ANNOUNCE-${PV}
 
@@ -63,16 +70,18 @@ src_install() {
 	newinitd "${FILESDIR}"/mdraid.rc mdraid
 	newconfd "${FILESDIR}"/mdraid.confd mdraid
 	if use systemd; then
-		systemd_dounit "${FILESDIR}/mdadm.service"
-		systemd_newtmpfilesd "${FILESDIR}/mdadm.tmpfiles.conf" mdadm.conf
+		systemd_dounit "${FILESDIR}"/mdadm.service
+		systemd_newtmpfilesd "${FILESDIR}"/mdadm.tmpfiles.conf mdadm.conf
 	fi
 }
 
-pkg_preinst() {
-	if ! has_version ${CATEGORY}/${PN} ; then
-		# Only inform people the first time they install.
-		elog "If you're not relying on kernel auto-detect of your RAID"
-		elog "devices, you need to add 'mdraid' to your 'boot' runlevel:"
-		elog "	rc-update add mdraid boot"
+pkg_postinst() {
+	if use systemd && ! systemd_is_booted; then
+		if [[ -z ${REPLACING_VERSIONS} ]] ; then
+			# Only inform people the first time they install.
+			elog "If you're not relying on kernel auto-detect of your RAID"
+			elog "devices, you need to add 'mdraid' to your 'boot' runlevel:"
+			elog "	rc-update add mdraid boot"
+		fi
 	fi
 }
