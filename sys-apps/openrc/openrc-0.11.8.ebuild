@@ -122,6 +122,10 @@ src_install() {
 	# Install updated /etc/init.d/root script, allowing /etc/fstab options to
 	# determine mount options for the root filesystem
 	newinitd "${FILESDIR}"/root.initd root
+	# Install updated /etc/init.d/localmount script, to run:
+	#  btrfs devices scan
+	# ... before attempting to mount local btrfs filesystems
+	newinitd "${FILESDIR}"/localmount.initd localmount
 
 	# Backup our default runlevels
 	dodir /usr/share/"${PN}"
