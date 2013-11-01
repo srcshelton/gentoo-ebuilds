@@ -1,10 +1,19 @@
 
 Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree packages and miscellaneous fixes.
 
-# Out-of-tree ebuilds
+# iOS7-compatible ebuilds
 
 * app-pda/ipheth-pair
     * Tether an Apple iOS device to provide a network-link
+* app-pda/libimobiledevice
+    * git live ebuild for updated libimobiledevice tools
+* app-pda/libusbmuxd
+    * git live ebuild for split libusbmuxd/usbmuxd library
+* app-pda/usbmuxd
+    * git live ebuild for usbmuxd binaries
+
+# Out-of-tree ebuilds
+
 * dev-perl/Email-Outlook-Message
 * dev-perl/Locale-Hebrew
 * dev-perl/Net-Subnet
@@ -78,6 +87,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Add optional 'varrun' USE-flag to allow 'run' to remain in '/var/run'
 * sys-fs/cryptsetup
     * Make 'udev' an optional dependency, controlled by the 'udev' USE-flag
+* sys-fs/fuse
+    * Avoid installing udev rules unless 'udev' USE-flag is specified
 * sys-fs/lvm2
     * Make 'udev' an optional dependency, controlled by the 'udev' USE-flag
 * sys-fs/mdadm
