@@ -1,0 +1,28 @@
+--- init.d/bootmisc.in.dist	2013-11-05 14:37:25.035053719 +0000
++++ init.d/bootmisc.in	2013-11-05 14:51:31.837189579 +0000
+@@ -79,7 +79,7 @@ cleanup_var_run_dir()
+ 		case "$x" in
+ 			*.pid)
+ 				start-stop-daemon --test --quiet \
+-				--stop --pidfile "$x" && continue
++				--stop --pidfile "$x" >/dev/null 2>&1 && continue
+ 			;;
+ 		esac
+ 		rm -f -- "$x"
+@@ -151,11 +151,11 @@ start()
+ 		fi
+ 	done
+ 
+-	if [ "$RC_UNAME" = Linux -a -d /run ]; then
+-		migrate_to_run	/var/lock /run/lock
+-		migrate_to_run	/var/run /run
+-		clean_run
+-	fi
++	#if [ "$RC_UNAME" = Linux -a -d /run ]; then
++	#	migrate_to_run	/var/lock /run/lock
++	#	migrate_to_run	/var/run /run
++	#	clean_run
++	#fi
+ 
+ 	if checkpath -W /var/run; then
+ 		ebegin "Creating user login records"
