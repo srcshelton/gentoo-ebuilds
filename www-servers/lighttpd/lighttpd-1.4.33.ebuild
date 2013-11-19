@@ -1,6 +1,6 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/www-servers/lighttpd/lighttpd-1.4.32-r2.ebuild,v 1.12 2013/09/22 09:36:05 pacho Exp $
+# $Header: /var/cvsroot/gentoo-x86/www-servers/lighttpd/lighttpd-1.4.33.ebuild,v 1.2 2013/10/16 20:26:13 hwoarang Exp $
 
 EAPI="4"
 inherit base autotools eutils depend.php readme.gentoo user systemd
@@ -11,7 +11,7 @@ SRC_URI="http://download.lighttpd.net/lighttpd/releases-1.4.x/${P}.tar.bz2"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~sh sparc x86 ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sh ~sparc ~x86 ~sparc-fbsd ~x86-fbsd"
 IUSE="bzip2 doc fam gdbm ipv6 kerberos ldap libev lua minimal mmap memcache mysql pcre php rrdtool selinux ssl systemd test uploadprogress webdav xattr zlib"
 
 REQUIRED_USE="kerberos? ( ssl )"
@@ -45,6 +45,8 @@ DEPEND="${RDEPEND}
 		virtual/perl-Test-Harness
 		dev-libs/fcgi
 	)"
+
+PATCHES=( "${FILESDIR}"/${P}-fix-ipv6-build.patch )
 
 # update certain parts of lighttpd.conf based on conditionals
 update_config() {
@@ -167,10 +169,12 @@ src_install() {
 	doins "${FILESDIR}"/conf/mime-types.conf
 	doins "${FILESDIR}"/conf/mod_cgi.conf
 	doins "${FILESDIR}"/conf/mod_fastcgi.conf
-	# Secure directory for fastcgi sockets
-	keepdir /var/run/lighttpd/
-	fperms 0750 /var/run/lighttpd/
-	fowners lighttpd:lighttpd /var/run/lighttpd/
+	if ! use systemd; then
+		# Secure directory for fastcgi sockets
+		keepdir /var/run/lighttpd/
+		fperms 0750 /var/run/lighttpd/
+		fowners lighttpd:lighttpd /var/run/lighttpd/
+	fi
 
 	# update lighttpd.conf directives based on conditionals
 	update_config
@@ -198,7 +202,10 @@ src_install() {
 
 	use minimal && remove_non_essential
 
-	use systemd && systemd_dounit "${FILESDIR}/${PN}.service"
+	if use systemd; then
+		systemd_dounit "${FILESDIR}/${PN}.service"
+		systemd_dotmpfilesd "${FILESDIR}/${PN}.tmpfiles.conf"
+	fi
 }
 
 pkg_postinst () {
