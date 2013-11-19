@@ -31,6 +31,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * dev-ruby/rake
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
+* net-misc/minissdpd
+    * Temporarily retain old build, which doesn't require 'old-output' flag for sys-apps/net-tools
 * sys-apps/tmpfs
     * Mirror segments of a filesystem to a memory-based backing store
 * sys-auth/opie
@@ -54,6 +56,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Install example configuration file to /usr/share/doc/${PN}/ rather than /etc/
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
+* net-dialup/ppp
+    * Incorporate patches to allow interface discovery (rather than assuming the 'eth0' is the primary interface -the appropriate interface with a prefix of 'eth', 'em', 'ef', or 'eg' will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU.
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-power/apcupsd
@@ -62,11 +66,18 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 # Fixes for ebuilds using /run
 (... rather than /var/run)
 
+* app-admin/ulogd
+* app-antivirus/clamav
 * app-misc/screen
 * dev-libs/cyrus-sasl
 * net-analyzer/iptraf-ng
 * net-analyzer/ntop
+* net-analyzer/rrdtool
 * net-analyzer/wireshark
+* net-misc/minidlna
+* net-misc/openntpd
+* sys-apps/kmod
+* sys-apps/lm_sensors
 * sys-libs/pam
 * sys-power/acpid
 * www-servers/lighttpd
