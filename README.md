@@ -26,7 +26,6 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * dev-ruby/geocoder
 * dev-ruby/guard
 * dev-ruby/guard-rspec
-* dev-ruby/lumberjack
 * dev-ruby/pry
 * dev-ruby/rake
 * net-mail/davmail-bin
