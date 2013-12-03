@@ -1,6 +1,6 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/openrc/openrc-0.12.4.ebuild,v 1.1 2013/10/31 02:02:22 williamh Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/openrc/openrc-0.12.4.ebuild,v 1.6 2013/11/29 18:02:55 johu Exp $
 
 EAPI=5
 
@@ -14,7 +14,7 @@ if [[ ${PV} == "9999" ]]; then
 	inherit git-2
 else
 	SRC_URI="http://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
-	KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+	KEYWORDS="alpha amd64 arm hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 fi
 
 LICENSE="BSD-2"
@@ -125,7 +125,7 @@ src_install() {
 	# determine mount options for the root filesystem
 	newinitd "${FILESDIR}"/root.initd root
 	# Install updated /etc/init.d/localmount script, to run:
-	#  btrfs devices scan
+	#  `btrfs devices scan`
 	# ... before attempting to mount local btrfs filesystems
 	newinitd "${FILESDIR}"/localmount.initd localmount
 
