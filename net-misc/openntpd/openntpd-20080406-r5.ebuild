@@ -1,13 +1,13 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/openntpd/openntpd-20080406-r4.ebuild,v 1.7 2013/11/30 17:10:26 johu Exp $
+# $Header: /var/cvsroot/gentoo-x86/net-misc/openntpd/openntpd-20080406-r5.ebuild,v 1.1 2013/11/19 04:50:55 ottxor Exp $
 
 EAPI=5
 
 inherit autotools eutils toolchain-funcs systemd user
 
 MY_P="${P/-/_}p"
-DEB_VER="4"
+DEB_VER="6"
 DESCRIPTION="Lightweight NTP server ported from OpenBSD"
 HOMEPAGE="http://www.openntpd.org/"
 SRC_URI="mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}.orig.tar.gz
@@ -15,8 +15,8 @@ SRC_URI="mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}.orig.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~x86-fbsd"
-IUSE="ssl selinux systemd"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~x86-fbsd"
+IUSE="ssl selinux syslog systemd"
 
 RDEPEND="ssl? ( dev-libs/openssl )
 	selinux? ( sec-policy/selinux-ntp )
@@ -61,8 +61,13 @@ src_configure() {
 src_install() {
 	default
 
-	newinitd "${FILESDIR}/${PN}.init.d-${PVR}" ntpd
+	cp "${FILESDIR}/${PN}.init.d-${PV}-r4" "${T}/ntpd" || die
+	use !syslog || sed -e '8,12d' -i "${T}/ntpd" || die
+	doinitd "${T}/ntpd"
 	newconfd "${FILESDIR}/${PN}.conf.d-${PV}-r3" ntpd
+
+	insinto /etc/logrotate.d
+	newins "${FILESDIR}/${PN}.logrotate-${PVR}" "${PN}"
 
 	use systemd && systemd_newunit "${FILESDIR}/${PN}.service-${PV}-r3" ntpd.service
 }
