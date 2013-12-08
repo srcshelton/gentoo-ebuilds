@@ -83,6 +83,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Fixes for x32 ABI
 
+* dev-db/libdbi-drivers
+    * Add required '--with-dbi-libdir' option
 * dev-lang/ruby
     * Avoid inline assembly with x32 ABI
 * sys-apps/baselayout
