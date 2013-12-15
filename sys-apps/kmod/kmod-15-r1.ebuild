@@ -1,6 +1,6 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/kmod/kmod-15.ebuild,v 1.7 2013/12/08 18:22:35 maekke Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/kmod/kmod-15-r1.ebuild,v 1.1 2013/12/09 01:55:28 vapier Exp $
 
 EAPI=5
 inherit autotools eutils libtool multilib toolchain-funcs versionator
@@ -51,6 +51,7 @@ src_prepare() {
 		fi
 		eautoreconf
 	else
+		epatch "${FILESDIR}"/${PN}-15-dynamic-kmod.patch #493630
 		elibtoolize
 	fi
 
