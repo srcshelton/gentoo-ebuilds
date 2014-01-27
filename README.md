@@ -18,6 +18,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
+* net-firewall/nftables
+    * git live ebuild for nftables 'nft' binary
 
 # Out-of-tree ebuilds
 
