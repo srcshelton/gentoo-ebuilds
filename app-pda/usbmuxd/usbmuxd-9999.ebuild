@@ -3,12 +3,10 @@
 # $Header: app-pda/usbmuxd/usbmuxd-9999.ebuild,v 1.0 2013/10/31 17:05:12 srcs Exp $
 
 EAPI=4
-EGIT_MASTER="split"
 inherit autotools git-2 udev user
 
 DESCRIPTION="USB multiplex daemon for use with Apple iPhone/iPod Touch devices"
 HOMEPAGE="http://www.libimobiledevice.org/"
-SRC_URI=""
 EGIT_REPO_URI="https://github.com/libimobiledevice/usbmuxd.git"
 
 LICENSE="GPL-2 GPL-3"
