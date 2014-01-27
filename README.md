@@ -14,6 +14,11 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * app-pda/usbmuxd
     * git live ebuild for usbmuxd binaries
 
+# nftables ebuilds
+
+* net-firewall/iptables-nftables
+    * git live ebuild for nftables' iptables compatibility libraries
+
 # Out-of-tree ebuilds
 
 * dev-perl/Email-Outlook-Message
