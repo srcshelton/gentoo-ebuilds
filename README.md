@@ -7,6 +7,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Tether an Apple iOS device to provide a network-link
 * app-pda/libimobiledevice
     * git live ebuild for updated libimobiledevice tools
+* app-pda/libplist
+    * git live ebuild for updated plist library
 * app-pda/libusbmuxd
     * git live ebuild for split libusbmuxd/usbmuxd library
 * app-pda/usbmuxd
@@ -69,6 +71,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * app-antivirus/clamav
 * app-misc/screen
 * dev-libs/cyrus-sasl
+* mail-filter/spamassassin
 * net-analyzer/iptraf-ng
 * net-analyzer/ntop
 * net-analyzer/rrdtool
