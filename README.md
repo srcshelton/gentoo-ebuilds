@@ -93,12 +93,14 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * sys-power/acpid
 * www-servers/lighttpd
 
-# Fixes for x32 ABI
+# Fixes for MIPS n32 and x86_64 x32 ABIs
 
 * dev-db/libdbi-drivers
     * Add required '--with-dbi-libdir' option
 * dev-lang/ruby
     * Avoid inline assembly with x32 ABI
+* net-analyzer/arp-sk
+    * Look for libnet in the appropriate "libdir" rather than 'lib'
 * sys-apps/baselayout
     * Don't error-out if using 'lib32' for x32 libraries
 
