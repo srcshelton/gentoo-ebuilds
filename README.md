@@ -101,6 +101,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Avoid inline assembly with x32 ABI
 * net-analyzer/arp-sk
     * Look for libnet in the appropriate "libdir" rather than 'lib'
+* net-dns/bind-tools
+    * Correct many instances of hard-coded references to 'lib'
 * sys-apps/baselayout
     * Don't error-out if using 'lib32' for x32 libraries
 
