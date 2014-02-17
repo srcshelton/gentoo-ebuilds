@@ -19,7 +19,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
 * net-firewall/nftables
-    * git live ebuild for nftables 'nft' binary
+    * git live ebuild for nftables 'nft' binary (obsolete due to in-tree nftables build)
 
 # Out-of-tree ebuilds
 
@@ -74,6 +74,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 # Fixes for ebuilds using /run
 (... rather than /var/run)
 
+* app-admin/eselect-php
 * app-admin/ulogd
 * app-antivirus/clamav
 * app-misc/screen
