@@ -19,7 +19,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
 * net-firewall/nftables
-    * git live ebuild for nftables '`nft`' binary (obsolete due to in-tree nftables build)
+    * git live ebuild for nftables `nft` binary (obsolete due to in-tree nftables build)
 * sys-apps/iproute2
     * Updated dependencies to accept iptables or iptables-nftables packages
 
@@ -69,7 +69,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
 * net-dialup/ppp
-    * Incorporate patches to allow interface discovery (rather than assuming the '`eth0`' is the primary interface -the appropriate interface with a prefix of '`eth`', '`em`', '`ef`', or '`eg`' will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU.
+    * Incorporate patches to allow interface discovery (rather than assuming the `eth0` is the primary interface -the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU.
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-power/apcupsd
@@ -101,18 +101,18 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 # Fixes for MIPS n32 and x86_64 x32 ABIs
 
 * dev-db/libdbi-drivers
-    * Add required '`--with-dbi-libdir`' option
+    * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
     * Avoid inline assembly with x32 ABI
 * net-analyzer/arp-sk
-    * Look for libnet in the appropriate "libdir" rather than '`lib`'
+    * Look for libnet in the appropriate "libdir" rather than `lib`
 * net-dns/bind-tools
-    * Correct many instances of hard-coded references to '`lib`'
+    * Correct many instances of hard-coded references to `lib`
 * sys-apps/baselayout
-    * Don't error-out if using '`lib32`' for x32 libraries
+    * Don't error-out if using `lib32` for x32 libraries
 
-# Fixes for 'udev' and to allow separate '`/usr`'
-(... and/or operation without a '`/run`' directory)
+# Fixes for `udev` and to allow separate `/usr`
+(... and/or operation without a `/run` directory)
 
 * net-wireless/bluez
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
@@ -125,5 +125,5 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * sys-fs/lvm2
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-fs/mdadm
-    * Restore previous boot-time functionality, add support for module-loading from '`/etc/mdadm/mdmod.conf`'
+    * Restore previous boot-time functionality, add support for module-loading from `/etc/mdadm/mdmod.conf`
 
