@@ -4,10 +4,15 @@
 EAPI=4
 inherit autotools git-2
 
+#REPO="${PN}"
+REPO="iptables"
+#BRANCH="master"
+BRANCH="nft-compat"
+
 DESCRIPTION="Add nftables rules using {ip,ip6}tables syntax"
 HOMEPAGE="http://www.netfilter.org/projects/nftables/"
-EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
-EGIT_MASTER="master"
+EGIT_REPO_URI="git://git.netfilter.org/${REPO}.git"
+EGIT_MASTER="${BRANCH}"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -23,7 +28,11 @@ src_prepare() {
 }
 
 src_configure() {
-	econf --enable-libipq --enable-bpf-compiler
+	econf \
+		--enable-libipq \
+		--enable-bpf-compiler \
+		--enable-nfsynproxy \
+		--enable-devel
 }
 
 src_install() {
