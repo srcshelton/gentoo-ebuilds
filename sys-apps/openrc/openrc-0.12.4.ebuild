@@ -53,6 +53,7 @@ src_prepare() {
 		sed -i "/^GITVER[[:space:]]*=/s:=.*:=${ver}:" mk/git.mk || die
 	fi
 
+	epatch "${FILESDIR}/openrc-0.12.4-rc-cgroup.sh.in.patch" || die "epatch failed"
 	if use varrun ; then
 		epatch "${FILESDIR}/openrc-0.12.4-norun.patch" || die "epatch failed"
 	else
