@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-4.0.3-r8.ebuild,v 1.5 2014/01/18 05:42:49 vapier Exp $
+# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-4.0.3-r8.ebuild,v 1.6 2014/03/10 21:21:35 swegener Exp $
 
 EAPI=4
 
@@ -15,7 +15,7 @@ SRC_URI="ftp://ftp.uni-erlangen.de/pub/utilities/${PN}/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="debug nethack pam selinux multiuser"
+IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
 RDEPEND=">=sys-libs/ncurses-5.2
 	pam? ( virtual/pam )
@@ -127,14 +127,24 @@ src_configure() {
 }
 
 src_install() {
+	local tmpfiles_perms tmpfiles_group
+
 	dobin screen
 
-	if use multiuser || use prefix
-	then
-		fperms 4755 /usr/bin/screen
+	if use multiuser ; then
+		use prefix || fperms 4755 /usr/bin/screen
+		tmpfiles_perms="0755"
+		tmpfiles_group="root"
 	else
 		fowners root:utmp /usr/bin/screen
 		fperms 2755 /usr/bin/screen
+		tmpfiles_perms="0775"
+		tmpfiles_group="utmp"
+	fi
+
+	if use tmpfiles; then
+		dodir /etc/tmpfiles.d
+		echo "d /run/screen ${tmpfiles_perms} root ${tmpfiles_group}" >"${ED}"/etc/tmpfiles.d/screen.conf
 	fi
 
 	insinto /usr/share/screen
@@ -155,7 +165,10 @@ src_install() {
 }
 
 pkg_postinst() {
-	elog "Some dangerous key bindings have been removed or changed to more safe values."
-	elog "We enable some xterm hacks in our default screenrc, which might break some"
-	elog "applications. Please check /etc/screenrc for information on these changes."
+	if [[ -z ${REPLACING_VERSIONS} ]]
+	then
+		elog "Some dangerous key bindings have been removed or changed to more safe values."
+		elog "We enable some xterm hacks in our default screenrc, which might break some"
+		elog "applications. Please check /etc/screenrc for information on these changes."
+	fi
 }

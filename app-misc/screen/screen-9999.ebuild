@@ -1,6 +1,6 @@
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-9999.ebuild,v 1.2 2012/12/21 21:02:27 swegener Exp $
+# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-9999.ebuild,v 1.3 2014/03/10 21:21:35 swegener Exp $
 
 EAPI=4
 
@@ -18,7 +18,7 @@ HOMEPAGE="http://www.gnu.org/software/screen/"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS=""
-IUSE="debug nethack pam selinux multiuser"
+IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
 RDEPEND=">=sys-libs/ncurses-5.2
 	pam? ( virtual/pam )
@@ -82,14 +82,25 @@ src_configure() {
 }
 
 src_install() {
+	local tmpfiles_perms tmpfiles_group
+
 	dobin screen
 
 	if use multiuser || use prefix
 	then
 		fperms 4755 /usr/bin/screen
+		tmpfiles_perms="0755"
+		tmpfiles_group="root"
 	else
 		fowners root:utmp /usr/bin/screen
 		fperms 2755 /usr/bin/screen
+		tmpfiles_perms="0775"
+		tmpfiles_group="utmp"
+	fi
+
+	if use tmpfiles; then
+		dodir /etc/tmpfiles.d
+		echo "d /run/screen ${tmpfiles_perms} root ${tmpfiles_group}" >"${ED}"/etc/tmpfiles.d/screen.conf
 	fi
 
 	insinto /usr/share/screen
@@ -110,7 +121,10 @@ src_install() {
 }
 
 pkg_postinst() {
-	elog "Some dangerous key bindings have been removed or changed to more safe values."
-	elog "We enable some xterm hacks in our default screenrc, which might break some"
-	elog "applications. Please check /etc/screenrc for information on these changes."
+	if [[ -z ${REPLACING_VERSIONS} ]]
+	then
+		elog "Some dangerous key bindings have been removed or changed to more safe values."
+		elog "We enable some xterm hacks in our default screenrc, which might break some"
+		elog "applications. Please check /etc/screenrc for information on these changes."
+	fi
 }
