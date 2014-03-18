@@ -89,6 +89,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * net-analyzer/rrdtool
 * net-analyzer/wireshark
 * net-firewall/conntrack-tools
+* net-misc/dhcpcd
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
