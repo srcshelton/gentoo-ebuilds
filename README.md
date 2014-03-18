@@ -100,6 +100,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Fixes for MIPS n32 and x86_64 x32 ABIs
 
+* app-admin/monit
+    * Add required `--with-ssl-lib-dir` option
 * dev-db/libdbi-drivers
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
