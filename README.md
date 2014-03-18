@@ -89,9 +89,11 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * net-analyzer/rrdtool
 * net-analyzer/wireshark
 * net-firewall/conntrack-tools
+* net-misc/dhcpcd
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
+* net-p2p/bitcoind
 * sys-apps/kmod
 * sys-apps/lm_sensors
 * sys-libs/pam
@@ -100,6 +102,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Fixes for MIPS n32 and x86_64 x32 ABIs
 
+* app-admin/monit
+    * Add required `--with-ssl-lib-dir` option
 * dev-db/libdbi-drivers
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
