@@ -93,6 +93,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
+* net-p2p/bitcoind
 * sys-apps/kmod
 * sys-apps/lm_sensors
 * sys-libs/pam
