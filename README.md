@@ -54,7 +54,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * www-apps/opennab
     * OpenNAB Nabaztag server software
 * www-apps/rpi-monitor
-    * Raspberry Pi monitoring web-interface from http://rpi-experiences.blogspot.fr/
+    * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
 * www-misc/observium
@@ -62,8 +62,10 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Modified ebuilds
 
+* app-misc/ca-certificates
+    * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
 * app-misc/colordiff
-    * Install example configuration file to /usr/share/doc/${PN}/ rather than /etc/
+    * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
 * dev-libs/libcgroup
     * Improve output with `USE="DEBUG"`
 * media-sound/teamspeak-server-bin
