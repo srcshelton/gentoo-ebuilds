@@ -1,6 +1,34 @@
 
 Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree packages and miscellaneous fixes.
 
+# Fixes for compiling prefix packages under Mac OS using LLVM/clang
+
+Some packages will fail with `illegal instruction: 4` if compiled with compiler-optimisations enabled.  To work around this on a per-package basis:
+
+```
+mkdir ${EPREFIX}/etc/portage/env
+
+cat > ${EPREFIX}/etc/portage/env/fragile <<EOF
+CC="clang"
+
+CFLAGS="-arch x86_64 -march=core-avx-i -mmacosx-version-min=10.9"
+CFLAGS="${CFLAGS} -O0 -g -pipe"
+
+CXX="clang++"
+CXXFLAGS="${CFLAGS}"
+EOF
+
+cat >> ${EPREFIX}/etc/portage/package.env <<EOF
+~dev-lang/perl-5.18.2  debug
+~dev-lang/python-2.7.5 debug
+~dev-libs/icu-51.2     debug
+EOF
+```
+
+... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/fragile`.
+
+* sys-devel/llvm
+
 # iOS7-compatible ebuilds
 
 * app-pda/ipheth-pair
