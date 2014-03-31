@@ -29,6 +29,8 @@ EOF
 
 * app-arch/unzip
     * Remove `cc` hard-coding
+* dev-lang/python
+    * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * sys-devel/llvm
