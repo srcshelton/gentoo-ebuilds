@@ -27,7 +27,10 @@ EOF
 
 ... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/fragile`.
 
+* app-arch/unzip
+    * Remove 'cc' hard-coding
 * sys-devel/llvm
+    * Additional fixes for Darwin
 
 # iOS7-compatible ebuilds
 
