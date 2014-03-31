@@ -15,12 +15,13 @@ KEYWORDS="~amd64 ~x86 ~x64-macos"
 RESTRICT="nomirror"
 IUSE=""
 
-RDEPEND=">=dev-perl/URI-1.40
-	dev-perl/libwww-perl
-	dev-perl/Crypt-SSLeay
-	dev-perl/JSON
-	dev-perl/HTML-Parser
-	>=dev-perl/Net-OAuth-0.25"
+RDEPEND="
+	  dev-perl/Crypt-SSLeay
+	  dev-perl/JSON
+	  dev-perl/Test-Fatal
+	>=dev-perl/URI-1.40
+	  virtual/perl-Module-Build
+	"
 DEPEND="${RDEPEND}"
 
 # online test

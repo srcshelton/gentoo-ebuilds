@@ -5,7 +5,7 @@
 EAPI=4
 
 MODULE_AUTHOR=MMIMS
-MODULE_VERSION=0.12004
+MODULE_VERSION="${PV}"
 inherit perl-module
 
 DESCRIPTION="A perl interface to the Twitter API"
