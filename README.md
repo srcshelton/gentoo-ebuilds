@@ -28,7 +28,9 @@ EOF
 ... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/fragile`.
 
 * app-arch/unzip
-    * Remove 'cc' hard-coding
+    * Remove `cc` hard-coding
+* dev-vcs/subversion
+    * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * sys-devel/llvm
     * Additional fixes for Darwin
 
