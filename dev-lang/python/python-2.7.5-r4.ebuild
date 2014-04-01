@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.5-r4.ebuild,v 1.3 2013/12/30 21:57:26 floppym Exp $
+# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.5-r4.ebuild,v 1.4 2014/01/18 11:37:42 vapier Exp $
 
 EAPI="4"
 WANT_AUTOMAKE="none"
@@ -20,7 +20,7 @@ SRC_URI="http://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
 
 LICENSE="PSF-2"
 SLOT="2.7"
-KEYWORDS="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 +ncurses +readline sqlite +ssl +threads tk +wide-unicode wininst +xml"
 
 # Do not add a dependency on dev-lang/python to this ebuild.
@@ -81,6 +81,7 @@ pkg_setup() {
 		if has_version "=${CATEGORY}/${PN}-${PV%%.*}*[berkdb]"; then
 			ewarn "You are migrating from =${CATEGORY}/${PN}-${PV%%.*}*[berkdb]"
 			ewarn "to =${CATEGORY}/${PN}-${PV%%.*}*[-berkdb]."
+			ewarn "You might need to migrate your databases."
 		fi
 	fi
 }
@@ -249,8 +250,8 @@ src_configure() {
 		dbmliborder+="${dbmliborder:+:}bdb"
 	fi
 
-	# Don't include libmpc on IRIX - it is only available for 64bit MIPS4
-	[[ ${CHOST} == *-irix* ]] && export ac_cv_lib_mpc_usconfig=no
+	# Don't include libmpc on IRIX - it is only available for 64bit MIPS4 (mips-sgi-irix64)
+	[[ ${CHOST} == *-irix ]] && export ac_cv_lib_mpc_usconfig=no
 
 	[[ ${CHOST} == *-mint* ]] && export ac_cv_func_poll=no
 
