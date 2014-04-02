@@ -35,6 +35,8 @@ EOF
     * Add `-Qunused-arguments` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
+* sys-devel/binutils-apple
+    * Build to current Mac OS version and fix missing Libc header
 * sys-devel/llvm
     * Additional fixes for Darwin
 
