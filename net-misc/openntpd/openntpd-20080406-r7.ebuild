@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/openntpd/openntpd-20080406-r7.ebuild,v 1.10 2014/03/19 16:15:01 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/net-misc/openntpd/openntpd-20080406-r7.ebuild,v 1.11 2014/04/06 14:50:23 vapier Exp $
 
 EAPI=5
 
@@ -15,7 +15,7 @@ SRC_URI="mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}.orig.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~x86-fbsd"
 IUSE="ssl selinux systemd"
 
 RDEPEND="ssl? ( dev-libs/openssl )
@@ -38,7 +38,7 @@ pkg_setup() {
 	# the past
 	if [[ $(egethome ntp) != ${NTP_HOME} ]]; then
 		ewarn "From this version on, the homedir of the ntp user cannot be changed"
-		ewarn "dynamically after the installation. For a home directory other than"
+		ewarn "dynamically after the installation. For any home directory other than"
 		ewarn "'/var/lib/openntpd/chroot', set NTP_HOME in your make.conf and re-emerge."
 		esethome ntp "${NTP_HOME}"
 	fi
@@ -72,33 +72,50 @@ src_install() {
 }
 
 pkg_config() {
+	local eroot="" home=""
+
 	[[ -n "${NTP_HOME:-}" ]] || return 1
 
-	export NTP_HOME="${NTP_HOME%%/}/"
+	[[ -n "${EROOT:-}" ]] && eroot="${EROOT%%/}"
+	home="${NTP_HOME%%/}"
 
-	einfo "Setting up chroot for ntp in '${NTP_HOME}'"
+	if [[ -z "${eroot:-}" && -z "${home:-}" ]]; then
+		return 1
+	fi
+
+	einfo "Setting up chroot for ntp in '${eroot:-}${home}/'"
 
 	# Remove localtime file from previous installations...
-	rm -f "${EROOT:-/}${NTP_HOME}"etc/localtime
-	mkdir -p "${EROOT:-/}${NTP_HOME}"etc
-	if ! ln "${EROOT:-/}"etc/localtime "${EROOT:-/}${NTP_HOME}"etc/localtime >/dev/null 2>&1 ; then
-		cp "${EROOT:-/}"etc/localtime "${EROOT:-/}${NTP_HOME}"etc/localtime >/dev/null 2>&1 || \
-			die "Could not link '${EROOT:-/}${NTP_HOME}etc/localtime' to '${EROOT:-/}etc/localtime' by any method"
-		einfo "Could not create a hardlink from '/etc/localtime' to '${NTP_HOME:-/}etc/localtime',"
+	mkdir -p "${eroot:-}${home}"/etc || die "Could not create directory '${eroot:-}${home}/etc': $?"
+	[[ -e "${eroot:-}${home}"/etc/localtime ]] && rm -f "${eroot:-}${home}"/etc/localtime
+	if ! ln "${eroot:-}"/etc/localtime "${eroot:-}${home}"/etc/localtime >/dev/null 2>&1 ; then
+		cp "${eroot:-}"/etc/localtime "${eroot:-}${home}"/etc/localtime >/dev/null 2>&1 || \
+			die "Could not create link '${eroot:-}${home}/etc/localtime' from '${eroot:-}/etc/localtime' by any method"
+		einfo "Could not create a hardlink from '${eroot:-}/etc/localtime' to '${home}/etc/localtime',"
 		einfo "please run 'emerge --config =${CATEGORY}/${PF}' whenever you change"
 		einfo "your timezone."
 	fi
-	chown -R root:root "${EROOT:-/}${NTP_HOME:-}" || die "Setting owner for '${EROOT:-/}${NTP_HOME:-}' failed: $?"
+	chown -R root:root "${eroot:-}${home}"/ || die "Setting owner for '${eroot:-}${home}/' failed: $?"
 }
 
 pkg_postinst() {
+	local eroot=""
+
 	pkg_config
 
-	[[ -f "${EROOT:-/}"var/log/ntpd.log ]] && \
-		ewarn "There is an orphaned logfile '${EROOT:-/}var/log/ntpd.log', please remove it!"
+	[[ -n "${EROOT:-}" ]] && eroot="${EROOT%%/}"
+	[[ -f "${eroot:-}"/var/log/ntpd.log ]] && \
+		ewarn "There is an orphaned logfile '${eroot:-}/var/log/ntpd.log', please remove it!"
 }
 
 pkg_postrm() {
+	local eroot="" home=""
+
 	# remove localtime file from previous installations
-	rm -f "${EROOT:-/}${NTP_HOME:-}"etc/localtime
+	[[ -n "${EROOT:-}" ]] && eroot="${EROOT%%/}"
+	[[ -n "${NTP_HOME:-}" ]] && home="${NTP_HOME%%/}"
+
+	if [[ -n "${eroot:-}" || -n "${home:-}" ]]; then
+		rm -f "${eroot:-}${home:-}"/etc/localtime
+	fi
 }
