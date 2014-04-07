@@ -83,13 +83,18 @@ pkg_config() {
 		return 1
 	fi
 
+	[[ -r "$( readlink -e "${eroot:-}"/etc/localtime )" ]] || \
+		die "${eroot:-}/etc/localtime does not exist - please set your" \
+			"timezone, then re-run 'emerge --config =${CATEGORY}/${PF}'"
+
 	einfo "Setting up chroot for ntp in '${eroot:-}${home}/'"
 
 	# Remove localtime file from previous installations...
 	mkdir -p "${eroot:-}${home}"/etc || die "Could not create directory '${eroot:-}${home}/etc': $?"
-	[[ -e "${eroot:-}${home}"/etc/localtime ]] && rm -f "${eroot:-}${home}"/etc/localtime
+	[[ -e "${eroot:-}${home}"/etc/localtime || -L "${eroot:-}${home}"/etc/localtime ]] && \
+		rm -f "${eroot:-}${home}"/etc/localtime
 	if ! ln "${eroot:-}"/etc/localtime "${eroot:-}${home}"/etc/localtime >/dev/null 2>&1 ; then
-		cp "${eroot:-}"/etc/localtime "${eroot:-}${home}"/etc/localtime >/dev/null 2>&1 || \
+		cp -L "${eroot:-}"/etc/localtime "${eroot:-}${home}"/etc/localtime >/dev/null 2>&1 || \
 			die "Could not create link '${eroot:-}${home}/etc/localtime' from '${eroot:-}/etc/localtime' by any method"
 		einfo "Could not create a hardlink from '${eroot:-}/etc/localtime' to '${home}/etc/localtime',"
 		einfo "please run 'emerge --config =${CATEGORY}/${PF}' whenever you change"
