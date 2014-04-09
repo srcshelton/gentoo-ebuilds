@@ -33,6 +33,8 @@ EOF
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
 * dev-libs/openssl
     * Add `-Qunused-arguments` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
+* dev-libs/udis86
+    * Add `${EPREFIX}` to `docdir` configure option
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * sys-devel/binutils-apple
