@@ -82,6 +82,8 @@ EOF
 * dev-ruby/guard-rspec
 * dev-ruby/pry
 * dev-ruby/rake
+* mail-client/roundcube
+    * Roundcube 1.0.0 has been released, but is not yet in-tree...
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
