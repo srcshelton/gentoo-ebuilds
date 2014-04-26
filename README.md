@@ -72,6 +72,8 @@ EOF
 * dev-perl/Net-Twitter-Lite
 * dev-perl/POE-Component-Client-Ping
 * dev-perl/Proc-PID-File
+* dev-php/PEAR-Crypt_GPG
+    * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.0
 * dev-python/noxspellserver
 * dev-ruby/CFPropertyList
 * dev-ruby/cora
