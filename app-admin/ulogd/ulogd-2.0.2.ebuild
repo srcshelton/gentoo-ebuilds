@@ -1,6 +1,6 @@
-# Copyright 1999-2013 Gentoo Foundation
+# Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-admin/ulogd/ulogd-2.0.2.ebuild,v 1.7 2013/04/23 08:42:32 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/app-admin/ulogd/ulogd-2.0.2.ebuild,v 1.9 2014/04/27 09:57:27 hwoarang Exp $
 
 EAPI="5"
 
