@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.4.ebuild,v 1.10 2014/04/01 17:24:02 mgorny Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.4.ebuild,v 1.11 2014/04/28 17:51:17 mgorny Exp $
 
 EAPI=5
 
@@ -228,7 +228,7 @@ multilib_src_configure() {
 		conf_flags+=( --with-clang-resource-dir=../lib/clang/${PV} )
 	fi
 	# well, it's used only by clang executable c-index-test
-	if multilib_build_binaries && use clang && use xml; then
+	if multilib_is_native_abi && use clang && use xml; then
 		conf_flags+=( XML2CONFIG="$(tc-getPKG_CONFIG) libxml-2.0" )
 	else
 		conf_flags+=( ac_cv_prog_XML2CONFIG="" )
@@ -243,7 +243,7 @@ multilib_src_configure() {
 	fi
 	conf_flags+=( --enable-targets=${targets} )
 
-	if multilib_build_binaries; then
+	if multilib_is_native_abi; then
 		use gold && conf_flags+=( --with-binutils-include="${EPREFIX}"/usr/include/ )
 		# extra commas don't hurt
 		use ocaml && bindings+=',ocaml'
@@ -270,7 +270,7 @@ multilib_src_configure() {
 	ECONF_SOURCE=${S} \
 	econf "${conf_flags[@]}"
 
-	multilib_build_binaries && cmake_configure
+	multilib_is_native_abi && cmake_configure
 }
 
 cmake_configure() {
@@ -303,7 +303,7 @@ set_makeargs() {
 		local tools=( llvm-config )
 		use clang && tools+=( clang )
 
-		if multilib_build_binaries; then
+		if multilib_is_native_abi; then
 			tools+=(
 				opt llvm-as llvm-dis llc llvm-ar llvm-nm llvm-link lli
 				llvm-extract llvm-mc llvm-bcanalyzer llvm-diff macho-dump
@@ -343,7 +343,7 @@ multilib_src_compile() {
 	set_makeargs -1
 	emake "${MAKEARGS[@]}"
 
-	if multilib_build_binaries; then
+	if multilib_is_native_abi; then
 		set_makeargs
 		emake -C tools "${MAKEARGS[@]}"
 
@@ -401,12 +401,12 @@ multilib_src_install() {
 	local MAKEARGS
 	set_makeargs
 
-	local root="${ED}"/_"${ABI}"
+	local root="${D}"/_"${ABI}"
 
 	emake "${MAKEARGS[@]}" DESTDIR="${root}" install
-	multibuild_merge_root "${root}" "${ED}"
+	multibuild_merge_root "${root}" "${D}"
 
-	if ! multilib_build_binaries; then
+	if ! multilib_is_native_abi; then
 		# Backwards compat, will be happily removed someday.
 		dosym "${CHOST}"-llvm-config /usr/bin/llvm-config.${ABI}
 	else
