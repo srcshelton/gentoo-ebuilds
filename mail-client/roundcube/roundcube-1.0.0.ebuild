@@ -4,7 +4,7 @@
 
 EAPI=5
 
-inherit webapp
+inherit eutils webapp
 
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV/_/-}
@@ -22,6 +22,9 @@ LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
 KEYWORDS="amd64 arm ~hppa ppc ~ppc64 ~sparc x86"
 IUSE="ldap +mysql plugins postgres sqlite ssl spell"
 
+DEPEND="|| ( net-misc/wget net-misc/curl )
+	app-arch/unzip"
+
 RDEPEND="virtual/httpd-php
 	>=dev-lang/php-5.3[crypt,gd,iconv,json,ldap?,pdo,postgres?,session,sockets,ssl?,xml,unicode]
 	>=dev-php/PEAR-Crypt_GPG-1.4.0_beta1
@@ -35,6 +38,15 @@ need_httpd_cgi
 S=${WORKDIR}/${MY_P}
 
 src_prepare() {
+	epatch "${FILESDIR}"/roundcube-1.0.0-draft-autosave.patch || die "epatch failed"
+	if [[ -x bin/jsshrink.sh ]]; then
+		einfo "Patching bin/jsshrink.sh ..."
+		sed -ie "/^JAR_DIR=/s|'/tmp'|'${T}'|" bin/jsshrink.sh || die "Updating jsshrink.sh failed"
+		ebegin "Rebuilding patched JavaScript source"
+		bin/jsshrink.sh
+		eend $? "jsshrink failed: $?"
+	fi
+
 	cp config/config.inc.php{.sample,} || die
 	cp composer.json{-dist,} || die
 
