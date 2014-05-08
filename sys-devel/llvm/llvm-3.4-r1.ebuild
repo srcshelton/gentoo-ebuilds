@@ -70,7 +70,7 @@ REQUIRED_USE="${PYTHON_REQUIRED_USE}
 CMAKE_MAKEFILE_GENERATOR=emake
 
 MULTILIB_CHOST_TOOLS=(
-	"${EPREFIX}"/usr/bin/llvm-config
+	/usr/bin/llvm-config
 )
 
 pkg_pretend() {
