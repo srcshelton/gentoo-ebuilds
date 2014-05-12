@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.6-r1.ebuild,v 1.1 2014/04/25 18:33:36 chutzpah Exp $
+# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.6-r1.ebuild,v 1.2 2014/05/10 01:44:50 floppym Exp $
 
 EAPI="4"
 WANT_AUTOMAKE="none"
@@ -22,7 +22,7 @@ SRC_URI="http://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
 LICENSE="PSF-2"
 SLOT="2.7"
 KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 +ncurses +readline sqlite +ssl +threads tk +wide-unicode wininst +xml"
+IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 mercurial +ncurses +readline sqlite +ssl +threads tk +wide-unicode wininst +xml"
 
 # Do not add a dependency on dev-lang/python to this ebuild.
 # If you need to apply a patch which requires python for bootstrapping, please
@@ -48,6 +48,7 @@ RDEPEND="app-arch/bzip2
 			sys-libs/db:4.2
 		) )
 		gdbm? ( sys-libs/gdbm[berkdb] )
+		mercurial? ( dev-vcs/mercurial )
 		ncurses? (
 			>=sys-libs/ncurses-5.2
 			readline? ( >=sys-libs/readline-4.1 )
@@ -57,6 +58,7 @@ RDEPEND="app-arch/bzip2
 		tk? (
 			>=dev-lang/tk-8.0[-aqua]
 			dev-tcltk/blt
+			dev-tcltk/tix
 		)
 		xml? ( >=dev-libs/expat-2.1 )
 	)
@@ -275,8 +277,13 @@ src_configure() {
 	# note: for a framework build we need to use ucs2 because OSX
 	# uses that internally too:
 	# http://bugs.python.org/issue763708
-	# HAS_HG to avoid finding obsolete hg of the host
-	ECONF_SOURCE="${S}" OPT="" HAS_HG="no" \
+	if use mercurial; then
+		HAS_HG=""
+	else
+		# HAS_HG to avoid finding obsolete hg of the host
+		HAS_HG="no"
+	fi
+	ECONF_SOURCE="${S}" OPT="" HAS_HG="${HAS_HG:-}" \
 	econf \
 		--with-fpectl \
 		$(use_enable ipv6) \
