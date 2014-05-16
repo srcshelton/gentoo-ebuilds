@@ -143,6 +143,7 @@ EOF
 * net-p2p/bitcoind
 * sys-apps/kmod
 * sys-apps/lm_sensors
+* sys-apps/smartmontools
 * sys-libs/pam
 * sys-power/acpid
 * www-servers/lighttpd
