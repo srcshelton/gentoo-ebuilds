@@ -57,6 +57,8 @@ EOF
 
 # nftables ebuilds
 
+* net-libs/libnftnl
+    * Updated library version required by latest net-firewall/nftables
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
 * net-firewall/nftables
