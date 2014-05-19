@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/rrdtool/rrdtool-1.4.8.ebuild,v 1.11 2014/05/14 16:11:11 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/net-analyzer/rrdtool/rrdtool-1.4.8.ebuild,v 1.13 2014/05/19 00:35:42 jer Exp $
 
 EAPI="5"
 
@@ -35,7 +35,9 @@ RDEPEND="
 	tcpd? ( sys-apps/tcp-wrappers )
 "
 
-DEPEND="${RDEPEND}
+DEPEND="
+	${RDEPEND}
+	sys-apps/groff
 	virtual/pkgconfig
 	virtual/awk
 "
@@ -53,11 +55,9 @@ python_install() {
 src_prepare() {
 	epatch "${FILESDIR}"/${PN}-1.4.7-configure.ac.patch
 
-	# bug 281694
 	# bug 456810
 	# no time to sleep
 	sed -i \
-		-e '/PERLLD/s:same as PERLCC:same-as-PERLCC:' \
 		-e 's|$LUA_CFLAGS|IGNORE_THIS_BAD_TEST|g' \
 		-e 's|^sleep 1$||g' \
 		configure.ac || die
