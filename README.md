@@ -109,6 +109,8 @@ EOF
 
 # Modified ebuilds
 
+* app-emulation/lxc
+    * Don't require an upgrade to Python 3.x unless building against Python
 * app-misc/ca-certificates
     * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
 * app-misc/colordiff
