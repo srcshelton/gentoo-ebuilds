@@ -61,10 +61,12 @@ EOF
     * Updated library version required by latest net-firewall/nftables
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
-* net-firewall/nftables
-    * git live ebuild for nftables `nft` binary (obsolete due to in-tree nftables build)
+* ~~net-firewall/nftables~~
+    * ~~git live ebuild for nftables `nft` binary~~ (obsolete due to in-tree nftables build)
+* app-emulation/docker
+    * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
 * sys-apps/iproute2
-    * Updated dependencies to accept iptables or iptables-nftables packages
+    * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
 
 # Out-of-tree ebuilds
 
