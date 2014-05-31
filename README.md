@@ -73,6 +73,7 @@ EOF
 * dev-perl/Email-Outlook-Message
 * dev-perl/Locale-Hebrew
 * dev-perl/Mojolicious
+* dev-perl/Mojo-Server-FastCGI
 * dev-perl/Net-Subnet
 * dev-perl/Net-Twitter-Lite
 * dev-perl/POE-Component-Client-Ping
