@@ -170,6 +170,8 @@ EOF
     * Correct many instances of hard-coded references to `lib`
 * sys-apps/baselayout
     * Don't error-out if using `lib32` for x32 libraries
+* sys-apps/cpuid
+    * Don't use 64-bit assembly if `__ILP32__` is defined
 
 # Fixes for `udev` and to allow separate `/usr`
 (... and/or operation without a `/run` directory)
