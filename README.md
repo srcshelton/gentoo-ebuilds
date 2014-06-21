@@ -168,6 +168,8 @@ EOF
     * Look for libnet in the appropriate "libdir" rather than `lib`
 * net-dns/bind-tools
     * Correct many instances of hard-coded references to `lib`
+* net-misc/miniupnpd
+    * Prevent use of 'sysctl' syscall (which specifically errors on x32, but is deprecated for all ABIs)
 * sys-apps/baselayout
     * Don't error-out if using `lib32` for x32 libraries
 * sys-apps/cpuid
