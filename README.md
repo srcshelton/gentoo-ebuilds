@@ -161,6 +161,24 @@ EOF
 
 # Fixes for MIPS n32 and x86_64 x32 ABIs
 
+Included is a modified `eclass/multilib.eclass` that no longer overrides any amd64 `LIBDIR_*` environment variables, which may now usefully be set in `/etc/portage/make.conf`.  For this to work universally, you may need to edit `/etc/portage/repos.conf` and add:
+
+```
+[DEFAULT]
+eclass-overrides = srcshelton
+```
+
+... to ensure that main-repo ebuilds benefit from the change.  The `LIBDIR` variables, and their default values, are:
+
+```
+LIBDIR_amd64="lib64"
+LIBDIR_x32="libx32"
+LIBDIR_x86="lib"
+SYMLINK_LIB="yes"
+```
+
+... noting that `SYMLINK_LIB` defaults to `"no"` (e.g. do not try to symlink `/lib` and `/usr/lib` to the library directory which the ABI actually uses) for x32 profiles, and that these variables only affect multilib systems.
+
 * app-admin/monit
     * Add required `--with-ssl-lib-dir` option
 * dev-db/libdbi-drivers
@@ -177,6 +195,8 @@ EOF
     * Don't error-out if using `lib32` for x32 libraries
 * sys-apps/cpuid
     * Don't use 64-bit assembly if `__ILP32__` is defined
+* sys-devel/gcc
+    * Allow `LIBDIR_*` variables to override hard-coded default directory locations.
 
 # Fixes for `udev` and to allow separate `/usr`
 (... and/or operation without a `/run` directory)
