@@ -116,8 +116,8 @@ pkg_postinst() {
 
 	# bug #226491, remove <=openntpd-20080406-r7 trash
 	if [[ -n "${eroot:-}" || -n "${home:-}" ]]; then
-		rm -f "${eroot}${home}"etc/localtime
-		rmdir "${eroot}${home}"etc
+		rm -f "${eroot}${home}"/etc/localtime
+		rmdir "${eroot}${home}"/etc
 	fi
 }
 
