@@ -196,7 +196,9 @@ SYMLINK_LIB="yes"
 * sys-apps/cpuid
     * Don't use 64-bit assembly if `__ILP32__` is defined
 * sys-devel/gcc
-    * Allow `LIBDIR_*` variables to override hard-coded default directory locations.
+    * Allow `LIBDIR_*` variables to override hard-coded default directory locations
+* sys-libs/glibc
+    * Allow `LIBDIR_*` variables to override hard-coded default directory locations (for x86 only)
 
 # Fixes for `udev` and to allow separate `/usr`
 (... and/or operation without a `/run` directory)
