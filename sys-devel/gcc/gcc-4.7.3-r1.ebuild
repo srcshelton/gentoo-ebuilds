@@ -68,5 +68,20 @@ src_prepare() {
 
 		einfo "Using the following LIBDIR defines:"
 		tail -n 3 gcc/config/i386/linux64.h
+
+		sed -i \
+			-e "/^MULTILIB_OSDIRNAMES[+ ]= m64=/{s:=../lib64$:=../${LD64:-lib64}/:}" \
+			-e "/^MULTILIB_OSDIRNAMES[+ ]= m32=/{s:=../lib$:=../${LD32:-lib}/:}" \
+			-e "/^MULTILIB_OSDIRNAMES[+ ]= mx32=/{s:=../libx32$:=../${LDx32:-libx32}/:}" \
+				gcc/config/i386/t-linux64 \
+			|| die 'DIRNAMES replacement failed'
+
+		einfo "Using the following DIRNAMES defines:"
+		tail -n 3 gcc/config/i386/t-linux64
+
+		sed -i \
+			-e "/^const char \*__gnat_default_libgcc_subdir = \"libx32\";$/{s:\"libx32\":\"${LDx32:-libx32}\":}" \
+				gcc/ada/link.c \
+			|| die 'ADA replacement failed'
 	fi
 }
