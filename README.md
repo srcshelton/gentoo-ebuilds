@@ -195,6 +195,8 @@ SYMLINK_LIB="yes"
     * Don't error-out if using `lib32` for x32 libraries
 * sys-apps/cpuid
     * Don't use 64-bit assembly if `__ILP32__` is defined
+* sys-devel/binutils
+    * Allow `LIBDIR_*` variables to override hard-coded default directory locations
 * sys-devel/gcc
     * Allow `LIBDIR_*` variables to override hard-coded default directory locations
 * sys-libs/glibc
