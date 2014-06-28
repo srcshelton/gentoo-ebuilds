@@ -191,6 +191,73 @@ eblit-src_unpack-post() {
 			nscd/Makefile \
 			|| die "Failed to ensure nscd builds with ssp-all"
 	fi
+
+	if [[ "${ARCH}" == "amd64" ]]; then
+		local LD32="$( get_abi_LIBDIR x86 )"
+		local LDx32="$( get_abi_LIBDIR x32 )"
+		local LD64="$( get_abi_LIBDIR amd64 )"
+		local -i LD32l LDx32l LD64l
+		(( LD32l = ${#LD32} + 1 ))
+		(( LDx32l = ${#LDx32} + 1 ))
+		(( LD64l = ${#LD64} + 1 ))
+
+		# In order for this to work, LD64 and LDx32 must share a common root of
+		# LD32.  If this is not the case, then sysdeps/unix/sysv/linux/x86_64/dl-cache.h
+		# will need to be re-implemented.
+
+		local LDx32s="${LDx32#${LD32}}"
+		local LD64s="${LD64#${LD32}}"
+
+		cd "${S}"
+
+		sed -i \
+			-e "s:/libx32:/${LDx32:-libx32}:g" \
+				sysdeps/unix/sysv/linux/x86_64/x32/configure \
+			|| die 'configure patch failed'
+
+		sed -i \
+			-e "/^FLAG_ELF_LIBC6/{s:/lib/:/${LD32:-lib}/:}" \
+			-e "/^FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32:-libx32}/:}" \
+			-e "/^FLAG_ELF_LIBC6/{s:/lib64/:/${LD64:-lib64}/:}" \
+				sysdeps/unix/sysv/linux/x86_64/ldconfig.h \
+			|| die 'known_interpreter_names replacement failed'
+
+		sed -i \
+			-e "/^FLAG_ELF_LIBC6/{s:/lib/:/${LD32:-lib}/:}" \
+			-e "/^FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32:-libx32}/:}" \
+			-e "/^FLAG_ELF_LIBC6/{s:/lib64/:/${LD64:-lib64}/:}" \
+				sysdeps/unix/sysv/linux/x86_64/dl-cache.h \
+			|| die 'known_interpreter_names replacement failed'
+
+		#      if (len >= 6 && ! memcmp (path + len - 6, "/lib64", 6))   \
+		#        {                                                       \
+		#          len -= 2;                                             \
+		#
+		#      else if (len >= 7                                         \
+		#               && ! memcmp (path + len - 7, "/libx32", 7))      \
+		#        {                                                       \
+		#          len -= 3;                                             \
+		#
+		#      if (len >= 4 && ! memcmp (path + len - 4, "/lib", 4))     \
+		#        {                                                       \
+		#          memcpy (path + len, "64", 3);                         \
+		#          add_dir (path);                                       \
+		#          memcpy (path + len, "x32", 4);                                \
+		sed -i \
+			-e "/ memcmp /{s:len >= 6 :len >= ${LD64l} : ; s: 6, \"/lib64\", 6): ${LD64l}, \"/${LD64:-lib64}\", ${LD64l}):}" \
+			-e "/len -= 2;/{s:len -= 2;:len -= ${#LD64s};:}" \
+			-e "/else if (len >= 7/{s:len >= 7:len >= ${LDx32l}:}" \
+			-e "/ memcmp /{s: 7, \"/libx32\", 7): ${LDx32l}, \"/${LDx32:-libx32}\", ${LDx32l}):}" \
+			-e "/len -= 3;/{s:len -= 3;:len -= ${#LDx32s};:}" \
+			-e "/ memcmp /{s:len >= 4 :len >= ${LD32l} : ; s: 4, \"/lib\", 4): ${LD32l}, \"/${LD32:-lib}\", ${LD32l}):}" \
+			-e "/memcpy /{s:len, \"64\", 3):len, \"${LD64s}\", $(( ${#LD64s} + 1 ))):}" \
+			-e "/memcpy /{s:len, \"x32\", 4):len, \"${LDx32s}\", $(( ${#LDx32s} + 1 ))):}" \
+				sysdeps/unix/sysv/linux/x86_64/dl-cache.h \
+			|| die 'dl-cache.h modification failed'
+
+		einfo "dl-cache.h now contains:"
+		cat sysdeps/unix/sysv/linux/x86_64/dl-cache.h
+	fi
 }
 
 eblit-pkg_preinst-post() {
