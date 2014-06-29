@@ -17,7 +17,7 @@ SLOT="0"
 KEYWORDS="amd64 ~ia64 mips ppc x86"
 IUSE="dbi doc mysql nfacct +nfct +nflog pcap postgres sqlite"
 
-RDEPEND="net-firewall/iptables
+RDEPEND="|| ( net-firewall/iptables net-firewall/iptables-nftables )
 	>=net-libs/libnfnetlink-1.0.1
 	>=net-libs/libmnl-1.0.3
 	dbi? ( dev-db/libdbi )
