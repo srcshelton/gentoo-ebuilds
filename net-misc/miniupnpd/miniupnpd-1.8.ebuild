@@ -17,7 +17,7 @@ SLOT="0"
 KEYWORDS="~amd64 ~arm ~x86"
 IUSE=""
 
-RDEPEND=">=net-firewall/iptables-1.4.6
+RDEPEND="|| ( >=net-firewall/iptables-1.4.6 net-firewall/iptables-nftables )
 	net-libs/libnfnetlink"
 DEPEND="${RDEPEND}
 	sys-apps/util-linux
