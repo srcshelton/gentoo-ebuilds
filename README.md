@@ -141,6 +141,7 @@ EOF
 * app-misc/screen
 * dev-libs/cyrus-sasl
 * mail-filter/spamassassin
+* net-analyzer/darkstat
 * net-analyzer/iptraf-ng
 * net-analyzer/ntop
 * net-analyzer/rrdtool
