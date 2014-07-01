@@ -1,4 +1,4 @@
-EAPI=2
+EAPI=5
 
 MODULE_AUTHOR=MVZ
 inherit perl-module

@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: /var/cvsroot/gentoo-x86/dev-perl/Net-Twitter/Net-Twitter-3.180.20.ebuild,v 1.1 2012/04/25 16:11:29 tove Exp $
 
-EAPI=4
+EAPI=5
 
 MODULE_AUTHOR=MMIMS
 MODULE_VERSION="${PV}"
