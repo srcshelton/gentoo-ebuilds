@@ -33,6 +33,8 @@ RDEPEND="
 DEPEND="${RDEPEND}
 	virtual/os-headers
 	virtual/pkgconfig
+	net-libs/libnetfilter_conntrack
+	net-libs/libnftnl
 	net-libs/libpcap
 	!net-firewall/iptables
 "
