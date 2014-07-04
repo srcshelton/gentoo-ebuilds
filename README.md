@@ -131,7 +131,8 @@ EOF
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
-    * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible
+    * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
+    * Provide more flexibility with finer-grained USE flags
 
 # Fixes for ebuilds using /run
 (... rather than /var/run)
