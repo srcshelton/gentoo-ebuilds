@@ -52,11 +52,6 @@ src_install() {
 	doins .htaccess
 	use plugins && doins "${DISTDIR}"/composer.phar
 
-	# The second command here fails, for non-obvious reasons... earlier
-	# versions, which do not differ, continue to execute correctly.  Odd.
-	#[[ -d "${ED}"/"${MY_HTDOCSDIR}"/bin ]] || die "Cannot locate roundcube 'bin' directory in '${ED}/${MY_HTDOCSDIR}'"
-	#fperms 0755 "${MY_HTDOCSDIR}"/bin/*.sh || die "Cannot set file permissions in '${ED}/${MY_HTDOCSDIR}'"
-
 	webapp_serverowned "${MY_HTDOCSDIR}"/logs
 	webapp_serverowned "${MY_HTDOCSDIR}"/temp
 
@@ -68,6 +63,14 @@ src_install() {
 	webapp_postupgrade_txt en UPGRADING
 
 	webapp_src_install
+
+	# fperms must occur after webapp_src_install is called...
+
+	# The second command here fails, for non-obvious reasons... earlier
+	# versions, which do not differ, continue to execute correctly.  Odd.
+	#[[ -d "${ED}"/"${MY_HTDOCSDIR}"/bin ]] || die "Cannot locate roundcube 'bin' directory in '${ED}/${MY_HTDOCSDIR}'"
+	#fperms 0755 "${MY_HTDOCSDIR}"/bin/*.sh || die "Cannot set file permissions in '${ED}/${MY_HTDOCSDIR}'"
+	find "${ED}"/"${MY_HTDOCSDIR}"/bin/ -type f -name \*.sh -exec fperms 0755 {} \; || die "Cannot set file permissions in '${ED}/${MY_HTDOCSDIR}'"
 }
 
 pkg_postinst() {
