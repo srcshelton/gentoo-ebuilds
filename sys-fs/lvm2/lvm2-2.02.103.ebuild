@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.103.ebuild,v 1.12 2014/02/03 15:57:15 vapier Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.103.ebuild,v 1.13 2014/07/25 19:50:59 ssuominen Exp $
 
 EAPI=5
 inherit autotools eutils linux-info multilib systemd toolchain-funcs udev
@@ -17,7 +17,7 @@ IUSE="readline static static-libs clvm cman +lvm1 lvm2create_initrd selinux syst
 
 DEPEND_COMMON="clvm? ( cman? ( =sys-cluster/cman-3* ) =sys-cluster/libdlm-3* )
 	readline? ( sys-libs/readline )
-	udev? ( >=virtual/udev-200[static-libs?] )"
+	udev? ( >=virtual/libudev-208:=[static-libs?] )"
 # This version of LVM is incompatible with cryptsetup <1.1.2.
 RDEPEND="${DEPEND_COMMON}
 	>=sys-apps/baselayout-2.2
@@ -33,7 +33,7 @@ DEPEND="${DEPEND_COMMON}
 	>=sys-devel/binutils-2.20.1-r1
 	static? (
 		selinux? ( sys-libs/libselinux[static-libs] )
-		udev? ( virtual/udev[static-libs] )
+		udev? ( >=virtual/libudev-208:=[static-libs] )
 	)"
 
 S=${WORKDIR}/${PN/lvm/LVM}.${PV}
