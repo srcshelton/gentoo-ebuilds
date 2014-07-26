@@ -186,6 +186,8 @@ SYMLINK_LIB="yes"
 
 * app-admin/monit
     * Add required `--with-ssl-lib-dir` option
+* app-crypt/mit-krb5
+    * Ensure that AES assembly is built for x32 rather than amd64
 * dev-db/libdbi-drivers
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
