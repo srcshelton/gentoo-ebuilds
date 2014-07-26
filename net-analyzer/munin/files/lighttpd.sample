@@ -1,0 +1,18 @@
+server.modules += ("mod_alias")
+server.modules += ("mod_fastcgi")
+server.modules += ("mod_rewrite")
+
+$HTTP["host"] =~ "^munin\." {
+	server.document-root = var.basedir + "/htdocs/munin"
+
+	alias.url += ( "/munin-cgi" => var.basedir + "/cgi-bin/munin" )
+	alias.url += ( "/munin-static" => var.basedir + "/htdocs/munin/static" )
+	alias.url += ( "/munin" => "/var/cache/munin/www/" )
+
+	$HTTP["url"] =~ "^/munin-cgi" {
+		cgi.assign = ( "" => "" )
+	}
+}
+
+# vim: set ft=conf foldmethod=marker et :
+

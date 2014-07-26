@@ -1,0 +1,15 @@
+# Mail reports to root@, not munin@, only execute one at a time
+!mailto(root),serial(true)
+
+# This runs the munin task every 5 minutes.
+@ 5	/usr/bin/munin-cron
+
+# Alternatively, this route works differently
+# Update once a minute (for busy sites)
+#@ 1	/usr/libexec/munin/munin-update
+## Check for limit excess every 2 minutes
+#@ 2	/usr/libexec/munin/munin-limits
+## Update graphs every 5 minutes
+#@ 5	nice /usr/libexec/munin/munin-graph
+## Update HTML pages every 15 minutes
+#@ 15	nice /usr/libexec/munin/munin-html

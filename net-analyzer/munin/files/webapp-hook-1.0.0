@@ -1,0 +1,66 @@
+#! /bin/bash
+
+function die() {
+	local msg="${@:-}"
+	[[ -n "${msg:-}" ]] && echo -e >&2 "FATAL: ${msg}"
+	exit 1
+}
+
+if [[ -r "${EPREFIX:-}"/lib/rc/sh/functions.sh ]]; then
+	source "${EPREFIX:-}"/lib/rc/sh/functions.sh
+elif [[ -r "${EPREFIX:-}"/etc/init.d/functions.sh ]]; then
+	source "${EPREFIX:-}"/etc/init.d/functions.sh
+else
+	die "Cannot locate 'functions.sh' in ${EPREFIX:-}/etc/init.d/ or ${EPREFIX:-}/lib/rc/sh/"
+fi
+
+action="${1:-}"
+
+case "${action:-}" in
+	install)
+		if [[ -n "${MY_INSTALLDIR:-}" && -d "${MY_INSTALLDIR}" ]]; then
+			ebegin "Changing owner of '${MY_INSTALLDIR}' to 'munin'"
+			chown munin "${MY_INSTALLDIR}"
+			eend ${?} "chown(1) failed on '${MY_INSTALLDIR}': ${?}"
+
+			if (( $( find "${EPREFIX:-}"/etc/munin/plugins/ -type l | wc -l ) )); then
+				ebegin "Mirroring plugins from '${EPREFIX:-}/etc/munin/plugins/' to '${MY_INSTALLDIR}/config/plugins'"
+				find "${EPREFIX:-}"/etc/munin/plugins/ -type l -exec cp -a {} ${MY_INSTALLDIR}/config/plugins \;
+				eend ${?} "File copy failed: ${?}"
+			fi
+		fi
+
+		if [[ -e "${EPREFIX:-}"/var/log/munin/munin-cgi-graph.log || -e "${EPREFIX:-}"/var/log/munin/munin-cgi-html.log ]]; then
+			ebegin "Setting ownership of log files"
+			for FILE in "${EPREFIX:-}"/var/log/munin/munin-cgi-graph.log "${EPREFIX:-}"/var/log/munin/munin-cgi-html.log; do
+				#[[ -e "${FILE}" ]] && chown munin "${FILE}"
+				[[ -e "${FILE}" ]] && echo && ewarn "Due to sandboxing constraints, webapp-config cannot make the following change - please run \`chown munin '${FILE}'\`"
+			done
+			eend ${?} "chown(1) failed: ${?}"
+		fi
+		;;
+
+	clean)
+		if [[ -n "${MY_INSTALLDIR:-}" && -d "${MY_INSTALLDIR}" ]]; then
+			if [[ -d "${MY_INSTALLDIR}"/config/plugins ]]; then
+				ebegin "Clearing plugin symlinks"
+				find "${MY_INSTALLDIR}"/config/plugins -type l -delete
+				eend ${?} "symlink removal failed: ${?}"
+			fi
+
+			ebegin "Clearing generated HTML files"
+			find "${MY_INSTALLDIR}" -type f -name \*.html -delete
+			eend ${?} "File removal failed: ${?}"
+
+			ebegin "Clearing generated directories"
+			find "${MY_INSTALLDIR}" -mindepth 1 -depth -type d -exec rmdir {} \;
+			eend ${?} "Directory removal failed: ${?}"
+		fi
+		;;
+
+	*)
+		die "webapp_hook_script action '${action:-}' is not recognised"
+		;;
+esac
+
+exit 0
