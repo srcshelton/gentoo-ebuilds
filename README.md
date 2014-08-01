@@ -104,6 +104,8 @@ EOF
     * PAM component of mOTP
 * www-apps/heatmiser
     * Data acquisition and web-interface for Heatmiser Wifi Thermostats
+* www-apps/nabaztaglives
+    * Nabaztag Lives server software, re-factored into a webapp
 * www-apps/opennab
     * OpenNAB Nabaztag server software
 * www-apps/rpi-monitor

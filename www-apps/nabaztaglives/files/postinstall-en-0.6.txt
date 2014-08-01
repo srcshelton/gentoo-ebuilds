@@ -1,0 +1,18 @@
+
+For a new install, please edit:
+
+	db/initial.sql
+
+... and specify your desired username and password.  With these in mind,
+proceed to update:
+
+	config/db.php
+
+... with the same values.
+
+Finally, ensure that the two IP addresses specified in:
+
+	locate.jsp
+
+... are the IP address of the web-server.
+
