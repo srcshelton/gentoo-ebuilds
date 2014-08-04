@@ -152,6 +152,26 @@ for x in setup {pre,post}inst ; do
 	fi
 done
 
+pkg_postinst() {
+	x=postinst
+	e="${FILESDIR}/eblits/pkg_${x}.eblit"
+	if [[ -e ${e} ]] ; then
+		eblit-run pkg_${x}
+	fi
+
+	ewarn "${PF} has a bug whereby name-lookups will fail if an IPv6"
+	ewarn "address is used for the first 'nameserver' entry in /etc/resovl.conf"
+	ewarn "The current fix for this is to make the first 'nameserver' entry an"
+	ewarn "IPv4 IP address"
+
+	if grep '^nameserver' "${EROOT:-/}"etc/resolv.conf | head -n 1 | grep -q ':' ; then
+		echo
+		eerror "You appear to have an IPv6 address for your first nameserver, and so"
+		eerror "you will be affected by this issue!  Please edit /etc/resolv.conf and"
+		eerror "re-order your 'nameserver' entries."
+	fi
+}
+
 eblit-src_unpack-pre() {
 	[[ -n ${GCC_BOOTSTRAP_VER} ]] && use multilib && unpack gcc-${GCC_BOOTSTRAP_VER}-multilib-bootstrap.tar.bz2
 }
@@ -207,6 +227,11 @@ eblit-src_unpack-post() {
 		local LDx32s="${LDx32#${LD32}}"
 		local LD64s="${LD64#${LD32}}"
 
+		einfo "Using the following libdir paths:"
+		einfo "  32-bit libraries in '${LD32}'"
+		einfo "  Long-mode 32-bit libraries in '${LDx32}'"
+		einfo "  64-bit libraries in '${LD64}'"
+
 		cd "${S}"
 
 		sed -i \
@@ -215,17 +240,10 @@ eblit-src_unpack-post() {
 			|| die 'configure patch failed'
 
 		sed -i \
-			-e "/^FLAG_ELF_LIBC6/{s:/lib/:/${LD32:-lib}/:}" \
-			-e "/^FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32:-libx32}/:}" \
-			-e "/^FLAG_ELF_LIBC6/{s:/lib64/:/${LD64:-lib64}/:}" \
+			-e "/FLAG_ELF_LIBC6/{s:/lib/:/${LD32:-lib}/:}" \
+			-e "/FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32:-libx32}/:}" \
+			-e "/FLAG_ELF_LIBC6/{s:/lib64/:/${LD64:-lib64}/:}" \
 				sysdeps/unix/sysv/linux/x86_64/ldconfig.h \
-			|| die 'known_interpreter_names replacement failed'
-
-		sed -i \
-			-e "/^FLAG_ELF_LIBC6/{s:/lib/:/${LD32:-lib}/:}" \
-			-e "/^FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32:-libx32}/:}" \
-			-e "/^FLAG_ELF_LIBC6/{s:/lib64/:/${LD64:-lib64}/:}" \
-				sysdeps/unix/sysv/linux/x86_64/dl-cache.h \
 			|| die 'known_interpreter_names replacement failed'
 
 		#      if (len >= 6 && ! memcmp (path + len - 6, "/lib64", 6))   \
