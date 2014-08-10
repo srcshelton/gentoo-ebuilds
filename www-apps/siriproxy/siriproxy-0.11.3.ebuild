@@ -16,7 +16,7 @@ IUSE=""
 
 RDEPEND="virtual/httpd-php
 	app-admin/webapp-config
-	dev-db/mysql
+	virtual/mysql
 	|| ( dev-lang/php[mysql] dev-lang/php[mysqli] )"
 
 need_httpd_cgi
