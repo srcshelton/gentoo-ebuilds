@@ -160,7 +160,7 @@ pkg_postinst() {
 	fi
 
 	ewarn "${PF} has a bug whereby name-lookups will fail if an IPv6"
-	ewarn "address is used for the first 'nameserver' entry in /etc/resovl.conf"
+	ewarn "address is used for the first 'nameserver' entry in /etc/resolv.conf"
 	ewarn "The current fix for this is to make the first 'nameserver' entry an"
 	ewarn "IPv4 IP address"
 
