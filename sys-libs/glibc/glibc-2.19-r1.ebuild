@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/glibc-2.19-r1.ebuild,v 1.7 2014/08/10 17:29:37 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/glibc-2.19-r1.ebuild,v 1.8 2014/08/11 13:48:14 vapier Exp $
 
 inherit eutils versionator toolchain-funcs flag-o-matic gnuconfig multilib systemd unpacker multiprocessing
 
@@ -25,7 +25,7 @@ case ${PV} in
 	;;
 esac
 GCC_BOOTSTRAP_VER="4.7.3-r1"
-PATCH_VER="2"                                  # Gentoo patchset
+PATCH_VER="3"                                  # Gentoo patchset
 NPTL_KERN_VER=${NPTL_KERN_VER:-"2.6.16"}       # min kernel version nptl requires
 
 IUSE="debug gd hardened multilib nscd selinux systemd systemtap profile suid vanilla crosscompile_opts_headers-only"
@@ -151,26 +151,6 @@ for x in setup {pre,post}inst ; do
 		eval "pkg_${x}() { eblit-run pkg_${x} ; }"
 	fi
 done
-
-pkg_postinst() {
-	x=postinst
-	e="${FILESDIR}/eblits/pkg_${x}.eblit"
-	if [[ -e ${e} ]] ; then
-		eblit-run pkg_${x}
-	fi
-
-	ewarn "${PF} has a bug whereby name-lookups will fail if an IPv6"
-	ewarn "address is used for the first 'nameserver' entry in /etc/resolv.conf"
-	ewarn "The current fix for this is to make the first 'nameserver' entry an"
-	ewarn "IPv4 IP address"
-
-	if grep '^nameserver' "${EROOT:-/}"etc/resolv.conf | head -n 1 | grep -q ':' ; then
-		echo
-		eerror "You appear to have an IPv6 address for your first nameserver, and so"
-		eerror "you will be affected by this issue!  Please edit /etc/resolv.conf and"
-		eerror "re-order your 'nameserver' entries."
-	fi
-}
 
 eblit-src_unpack-pre() {
 	[[ -n ${GCC_BOOTSTRAP_VER} ]] && use multilib && unpack gcc-${GCC_BOOTSTRAP_VER}-multilib-bootstrap.tar.bz2
