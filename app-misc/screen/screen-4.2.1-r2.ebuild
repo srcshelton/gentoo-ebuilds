@@ -125,8 +125,8 @@ pkg_postinst() {
 	# add /var/run/screen in case it doesn't exist yet. This should solve
 	# problems like bug #508634 where tmpfiles.d isn't in effect.
 	local rundir="${EROOT%/}/var/run/screen"
+	local tmpfiles_group="utmp"
 	if [[ ! -d "${rundir}" ]] ; then
-		tmpfiles_group="utmp"
 		if use multiuser && ! use prefix ; then
 			tmpfiles_group="root"
 		fi
@@ -136,9 +136,9 @@ pkg_postinst() {
 
 	if use prefix; then
 		ewarn "In order to allow screen to work correctly, please execute:"
-		einfo "    chmod 4755 ${EPREFIX}/usr/bin/screen"
-		einfo "    chown root:utmp ${EPREFIX}/usr/bin/screen"
-		einfo "    chgrp ${tmpfiles_group} ${rundir}"
+		ewarn "    chmod 4755 ${EPREFIX}/usr/bin/screen"
+		ewarn "    chown root:utmp ${EPREFIX}/usr/bin/screen"
+		ewarn "    chgrp ${tmpfiles_group} ${rundir}"
 		ewarn "... as a privileged user"
 	fi
 }
