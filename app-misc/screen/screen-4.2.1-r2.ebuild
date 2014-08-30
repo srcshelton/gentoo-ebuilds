@@ -1,16 +1,14 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-4.0.3-r8.ebuild,v 1.6 2014/03/10 21:21:35 swegener Exp $
+# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-4.2.1-r2.ebuild,v 1.3 2014/08/26 16:07:14 jer Exp $
 
-EAPI=4
+EAPI=5
 
-WANT_AUTOCONF="2.5"
-
-inherit eutils flag-o-matic toolchain-funcs pam autotools user
+inherit autotools eutils flag-o-matic pam toolchain-funcs user
 
 DESCRIPTION="Full-screen window manager that multiplexes physical terminals between several processes"
 HOMEPAGE="http://www.gnu.org/software/screen/"
-SRC_URI="ftp://ftp.uni-erlangen.de/pub/utilities/${PN}/${P}.tar.gz"
+SRC_URI="mirror://gnu/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -20,7 +18,8 @@ IUSE="debug multiuser nethack pam selinux +tmpfiles"
 RDEPEND=">=sys-libs/ncurses-5.2
 	pam? ( virtual/pam )
 	selinux? ( sec-policy/selinux-screen )"
-DEPEND="${RDEPEND}"
+DEPEND="${RDEPEND}
+	sys-apps/texinfo"
 RDEPEND="${RDEPEND}
 	!prefix? ( >=sys-apps/openrc-0.11.6 )"
 
@@ -30,49 +29,12 @@ pkg_setup() {
 }
 
 src_prepare() {
-	# Bug 34599: integer overflow in 4.0.1
-	# (Nov 29 2003 -solar)
-	epatch "${FILESDIR}"/screen-4.0.1-int-overflow-fix.patch
-
-	# Bug 31070: configure problem which affects alpha
-	# (13 Jan 2004 agriffis)
-	epatch "${FILESDIR}"/screen-4.0.1-vsprintf.patch
-
-	# uclibc doesnt have sys/stropts.h
-	if ! (echo '#include <sys/stropts.h>' | $(tc-getCC) -E - &>/dev/null) ; then
-		epatch "${FILESDIR}"/4.0.2-no-pty.patch
-	fi
-
 	# Don't use utempter even if it is found on the system
 	epatch "${FILESDIR}"/4.0.2-no-utempter.patch
 
-	# Don't link against libelf even if it is found on the system
-	epatch "${FILESDIR}"/4.0.2-no-libelf.patch
-
-	# Patch for time function on 64bit systems
-	epatch "${FILESDIR}"/4.0.2-64bit-time.patch
-
-	# Patch that makes %u work for windowlist -b formats
-	epatch "${FILESDIR}"/4.0.2-windowlist-multiuser-fix.patch
-
-	# Open tty in non-blocking mode
-	epatch "${FILESDIR}"/4.0.2-nonblock.patch
-
-	# compability for sys-devel/autoconf-2.62
-	epatch "${FILESDIR}"/screen-4.0.3-config.h-autoconf-2.62.patch
-
-	# crosscompile patch
-	epatch "${FILESDIR}"/"${P}"-crosscompile.patch
-
 	# sched.h is a system header and causes problems with some C libraries
 	mv sched.h _sched.h || die
-	sed -i '/include/s:sched.h:_sched.h:' screen.h || die
-
-	# Allow for more rendition (color/attribute) changes in status bars
-	sed -i \
-		-e "s:#define MAX_WINMSG_REND 16:#define MAX_WINMSG_REND 64:" \
-		screen.c \
-		|| die "sed screen.c failed"
+	sed -i '/include/ s:sched.h:_sched.h:' screen.h || die
 
 	# Fix manpage.
 	sed -i \
@@ -82,24 +44,10 @@ src_prepare() {
 		-e "s:/etc/utmp:${EPREFIX}/var/run/utmp:g" \
 		-e "s:/local/screens/S-:${EPREFIX}/var/run/screen/S-:g" \
 		doc/screen.1 \
-		|| die "sed doc/screen.1 failed"
-
-	# proper setenv detection for Solaris
-	epatch "${FILESDIR}"/${P}-setenv_autoconf.patch
-
-	# Allow TERM string large enough to use with rxvt-unicode-256color
-	# Allow usernames up to 32 chars
-	epatch "${FILESDIR}"/${PV}-extend-d_termname-ng2.patch
-
-	# support CPPFLAGS
-	epatch "${FILESDIR}"/${P}-cppflags.patch
-
-	sed \
-		-e 's:termlib:tinfo:g' \
-		-i configure.in || die
+		|| die
 
 	# reconfigure
-	eautoconf
+	eautoreconf
 }
 
 src_configure() {
@@ -119,11 +67,14 @@ src_configure() {
 		--enable-telnet \
 		--enable-colors256 \
 		$(use_enable pam)
+}
 
-	# Second try to fix bug 12683, this time without changing term.h
-	# The last try seemed to break screen at run-time.
-	# (16 Jan 2003 agriffis)
-	LC_ALL=POSIX make term.h || die "Failed making term.h"
+src_compile() {
+	LC_ALL=POSIX emake comm.h term.h
+	emake osdef.h
+
+	emake -C doc screen.info
+	default
 }
 
 src_install() {
@@ -144,7 +95,8 @@ src_install() {
 
 	if use tmpfiles; then
 		dodir /etc/tmpfiles.d
-		echo "d /run/screen ${tmpfiles_perms} root ${tmpfiles_group}" >"${ED}"/etc/tmpfiles.d/screen.conf
+		echo "d /var/run/screen ${tmpfiles_perms} root ${tmpfiles_group}" \
+			> "${ED}"/etc/tmpfiles.d/screen.conf
 	fi
 
 	insinto /usr/share/screen
@@ -161,7 +113,7 @@ src_install() {
 		doc/{FAQ,README.DOTSCREEN,fdpat.ps,window_to_display.ps}
 
 	doman doc/screen.1
-	doinfo doc/screen.info*
+	doinfo doc/screen.info
 }
 
 pkg_postinst() {
@@ -170,5 +122,18 @@ pkg_postinst() {
 		elog "Some dangerous key bindings have been removed or changed to more safe values."
 		elog "We enable some xterm hacks in our default screenrc, which might break some"
 		elog "applications. Please check /etc/screenrc for information on these changes."
+	fi
+
+	# add /var/run/screen in case it doesn't exist yet. This should solve
+	# problems like bug #508634 where tmpfiles.d isn't in effect.
+	local rundir="${EROOT%/}/var/run/screen"
+	if [[ ! -d ${rundir} ]] ; then
+		if use multiuser || use prefix ; then
+			tmpfiles_group="root"
+		else
+			tmpfiles_group="utmp"
+		fi
+		mkdir -m 0775 "${rundir}"
+		chgrp ${tmpfiles_group} "${rundir}"
 	fi
 }
