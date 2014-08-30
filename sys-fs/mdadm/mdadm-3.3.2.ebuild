@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/mdadm-3.3.1-r2.ebuild,v 1.6 2014/08/28 09:36:04 jer Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/mdadm-3.3.2.ebuild,v 1.1 2014/08/21 12:04:07 ssuominen Exp $
 
 EAPI=4
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev
@@ -13,7 +13,7 @@ SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.xz
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm hppa ~ia64 ~mips ~ppc ~ppc64 ~sparc x86"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sparc ~x86"
 IUSE="static systemd +udev"
 
 DEPEND="virtual/pkgconfig
@@ -37,20 +37,6 @@ mdadm_emake() {
 		UDEVDIR="$(get_udevdir)" \
 		SYSTEMD_DIR="$(systemd_get_unitdir)" \
 		"$@"
-}
-
-src_prepare() {
-	# These are important bugfixes from upstream git after 3.3.1 release,
-	# and before and including 17 Jul 2014:
-	epatch \
-		"${FILESDIR}"/${P}-Makefile-install-mdadm-grow-continue-.service.patch \
-		"${FILESDIR}"/${P}-Grow-fix-removal-of-line-in-wrong-case.patch \
-		"${FILESDIR}"/${P}-IMSM-use-strcpy-rather-than-pointless-strncpy.patch \
-		"${FILESDIR}"/${P}-mdmon-ensure-Unix-domain-socket-is-created-with-safe.patch \
-		"${FILESDIR}"/${P}-mdmon-allow-prepare_update-to-report-failure.patch \
-		"${FILESDIR}"/${P}-DDF-validate-metadata_update-size-before-using-it.patch \
-		"${FILESDIR}"/${P}-IMSM-validate-metadata_update-size-before-using-it.patch \
-		"${FILESDIR}"/${P}-Grow-Do-not-try-to-restart-if-reshape-is-running.patch
 }
 
 src_compile() {
