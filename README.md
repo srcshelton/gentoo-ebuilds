@@ -39,6 +39,8 @@ EOF
     * Add `${EPREFIX}` to `docdir` configure option
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
+* dev-vcs/cvsps
+    * Use correct value for `prefix`
 * sys-devel/binutils-apple
     * Build to current Mac OS version and fix missing Libc header
 * sys-devel/llvm
