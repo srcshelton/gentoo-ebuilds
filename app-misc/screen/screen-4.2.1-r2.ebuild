@@ -134,7 +134,7 @@ pkg_postinst() {
 		use prefix || chgrp ${tmpfiles_group} "${rundir}"
 	fi
 
-	if use multiuser && use prefix; then
+	if use prefix; then
 		ewarn "In order to allow screen to work correctly, please execute:"
 		einfo "    chmod 4755 ${EPREFIX}/usr/bin/screen"
 		einfo "    chown root:utmp ${EPREFIX}/usr/bin/screen"
