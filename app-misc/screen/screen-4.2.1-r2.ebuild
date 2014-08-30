@@ -82,15 +82,14 @@ src_install() {
 
 	dobin screen
 
-	if use multiuser ; then
-		use prefix || fperms 4755 /usr/bin/screen
-		tmpfiles_perms="0755"
+	tmpfiles_perms="0775"
+	tmpfiles_group="utmp"
+	if use multiuser && ! use prefix; then
+		fperms 4755 /usr/bin/screen
 		tmpfiles_group="root"
 	else
-		fowners root:utmp /usr/bin/screen
+		use prefix || fowners root:utmp /usr/bin/screen
 		fperms 2755 /usr/bin/screen
-		tmpfiles_perms="0775"
-		tmpfiles_group="utmp"
 	fi
 
 	if use tmpfiles; then
@@ -127,13 +126,20 @@ pkg_postinst() {
 	# add /var/run/screen in case it doesn't exist yet. This should solve
 	# problems like bug #508634 where tmpfiles.d isn't in effect.
 	local rundir="${EROOT%/}/var/run/screen"
-	if [[ ! -d ${rundir} ]] ; then
-		if use multiuser || use prefix ; then
+	if [[ ! -d "${rundir}" ]] ; then
+		tmpfiles_group="utmp"
+		if use multiuser && ! use prefix ; then
 			tmpfiles_group="root"
-		else
-			tmpfiles_group="utmp"
 		fi
 		mkdir -m 0775 "${rundir}"
-		chgrp ${tmpfiles_group} "${rundir}"
+		use prefix || chgrp ${tmpfiles_group} "${rundir}"
+	fi
+
+	if use multiuser && use prefix; then
+		elog "In order to allow screen to work correctly, please execute:"
+		elog "    chmod 4755 ${EPREFIX}/usr/bin/screen"
+		elog "    chown root:utmp ${EPREFIX}/usr/bin/screen"
+		elog "    chgrp ${tmpfiles_group} ${rundir}"
+		elog "... as a privileged user"
 	fi
 }
