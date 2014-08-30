@@ -116,11 +116,10 @@ src_install() {
 }
 
 pkg_postinst() {
-	if [[ -z ${REPLACING_VERSIONS} ]]
-	then
-		elog "Some dangerous key bindings have been removed or changed to more safe values."
-		elog "We enable some xterm hacks in our default screenrc, which might break some"
-		elog "applications. Please check /etc/screenrc for information on these changes."
+	if [[ -z ${REPLACING_VERSIONS} ]]; then
+		ewarn "Some dangerous key bindings have been removed or changed to more safe values."
+		ewarn "We enable some xterm hacks in our default screenrc, which might break some"
+		ewarn "applications. Please check /etc/screenrc for information on these changes."
 	fi
 
 	# add /var/run/screen in case it doesn't exist yet. This should solve
@@ -136,10 +135,10 @@ pkg_postinst() {
 	fi
 
 	if use multiuser && use prefix; then
-		elog "In order to allow screen to work correctly, please execute:"
-		elog "    chmod 4755 ${EPREFIX}/usr/bin/screen"
-		elog "    chown root:utmp ${EPREFIX}/usr/bin/screen"
-		elog "    chgrp ${tmpfiles_group} ${rundir}"
-		elog "... as a privileged user"
+		ewarn "In order to allow screen to work correctly, please execute:"
+		einfo "    chmod 4755 ${EPREFIX}/usr/bin/screen"
+		einfo "    chown root:utmp ${EPREFIX}/usr/bin/screen"
+		einfo "    chgrp ${tmpfiles_group} ${rundir}"
+		ewarn "... as a privileged user"
 	fi
 }
