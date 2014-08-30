@@ -84,8 +84,8 @@ src_install() {
 
 	tmpfiles_perms="0775"
 	tmpfiles_group="utmp"
-	if use multiuser && ! use prefix; then
-		fperms 4755 /usr/bin/screen
+	if use multiuser; then
+		use prefix || fperms 4755 /usr/bin/screen
 		tmpfiles_group="root"
 	else
 		use prefix || fowners root:utmp /usr/bin/screen
@@ -127,7 +127,7 @@ pkg_postinst() {
 	local rundir="${EROOT%/}/var/run/screen"
 	local tmpfiles_group="utmp"
 	if [[ ! -d "${rundir}" ]] ; then
-		if use multiuser && ! use prefix ; then
+		if use multiuser || use prefix ; then
 			tmpfiles_group="root"
 		fi
 		mkdir -m 0775 "${rundir}"
