@@ -127,7 +127,7 @@ pkg_postinst() {
 	local rundir="${EROOT%/}/var/run/screen"
 	local tmpfiles_group="utmp"
 	if [[ ! -d "${rundir}" ]] ; then
-		if use multiuser || use prefix ; then
+		if use multiuser && ! use prefix ; then
 			tmpfiles_group="root"
 		fi
 		mkdir -m 0775 "${rundir}"
@@ -136,9 +136,13 @@ pkg_postinst() {
 
 	if use prefix; then
 		ewarn "In order to allow screen to work correctly, please execute:"
-		ewarn "    chmod 4755 ${EPREFIX}/usr/bin/screen"
 		ewarn "    chown root:utmp ${EPREFIX}/usr/bin/screen"
-		ewarn "    chgrp ${tmpfiles_group} ${rundir}"
+		if use multiuser; then
+			ewarn "    chmod 4755 ${EPREFIX}/usr/bin/screen"
+		else
+			ewarn "    chmod 2755 ${EPREFIX}/usr/bin/screen"
+		fi
+		ewarn "    chown root:utmp ${rundir}"
 		ewarn "... as a privileged user"
 	fi
 }
