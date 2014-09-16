@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/mail-client/roundcube/roundcube-1.0.2.ebuild,v 1.6 2014/08/30 17:05:18 ago Exp $
+# $Header: /var/cvsroot/gentoo-x86/mail-client/roundcube/roundcube-1.0.2.ebuild,v 1.8 2014/09/14 22:39:43 jer Exp $
 
 EAPI=5
 
@@ -19,10 +19,10 @@ SRC_URI="mirror://sourceforge/${MY_PN}/${MY_P}.tar.gz
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
-KEYWORDS="amd64 arm ~hppa ~ppc64 ~sparc x86"
+KEYWORDS="amd64 arm ~hppa ppc ~ppc64 ~sparc x86"
 IUSE="ldap +mysql plugins postgres sqlite ssl spell"
 
-# This function only sets DEPEND so we need to include that in RDEPEND ...
+# The function below sets only DEPEND, so we need to include the latter in RDEPEND ...
 need_httpd_cgi
 
 RDEPEND="
@@ -38,7 +38,7 @@ RDEPEND="
 	mysql? ( || ( dev-lang/php[mysql] dev-lang/php[mysqli] ) )
 	plugins? ( >=dev-lang/php-5.3.4[ctype,filter,hash,json,phar,ssl] )
 	spell? ( dev-lang/php[curl,spell] )
-	sqlite? ( || ( dev-lang/php[sqlite] dev-lang/php[sqlite3] ) )
+	sqlite? ( dev-lang/php[sqlite] )
 	virtual/httpd-php
 "
 
@@ -69,8 +69,6 @@ src_install() {
 	webapp_configfile "${MY_HTDOCSDIR}"/config/defaults.inc.php
 	webapp_configfile "${MY_HTDOCSDIR}"/composer.json
 
-	webapp_postinst_txt en "${FILESDIR}"/postinstall-en-0.6.txt
-	webapp_postupgrade_txt en "${FILESDIR}"/postupgrade-en-0.6.txt
 	webapp_postupgrade_txt en UPGRADING
 
 	webapp_src_install
