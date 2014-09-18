@@ -2,9 +2,11 @@
 
 # env ACTION=... DEVPATH=... SUBSYSTEM=... [SEQNUM=...]
 
-LOGFILE="mdev_usb.log"
+LOGFILE="mdev.log"
 
-echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev_debug invoked as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'"
+echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev_debug invoked as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM' (SEQNUM '$SEQNUM')"
+#echo >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev_debug last item in '$PWD': '$( ls -ltr . | tail -n 3 | head -n 1 )'" # Last items are mdev.seq and $LOGFILE
+#echo -e >>"$LOGFILE" "$$ $( date +"%T.%N" ) mdev_debug last items in '$PWD':\n$( ls -ltr . | tail -n 6 )"
 #env >>"$LOGFILE"
 
 exit 0
