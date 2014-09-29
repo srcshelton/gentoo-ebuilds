@@ -127,6 +127,8 @@ EOF
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
 * dev-libs/libcgroup
     * Improve output with `USE="DEBUG"`
+* mail-filter/spampd
+    * Fix `status` reporting, revise installed documentation, add optional systemd service support
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
 * net-analyzer/munin
