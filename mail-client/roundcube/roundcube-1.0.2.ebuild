@@ -14,7 +14,7 @@ PHAR="1.0.0-alpha8"
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="http://roundcube.net"
 SRC_URI="mirror://sourceforge/${MY_PN}/${MY_P}.tar.gz
-	https://getcomposer.org/download/${PHAR}/composer.phar"
+	plugins? ( https://getcomposer.org/download/${PHAR}/composer.phar )"
 
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
