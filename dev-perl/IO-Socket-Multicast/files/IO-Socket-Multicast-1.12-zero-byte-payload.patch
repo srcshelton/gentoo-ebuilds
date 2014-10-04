@@ -1,5 +1,5 @@
---- /var/tmp/portage/dev-perl/IO-Socket-Multicast-1.12/work/IO-Socket-Multicast-1.12/lib/IO/Socket/Multicast.pm.dist	2014-10-04 22:35:49.273194665 +0100
-+++ /var/tmp/portage/dev-perl/IO-Socket-Multicast-1.12/work/IO-Socket-Multicast-1.12/lib/IO/Socket/Multicast.pm	2014-10-04 22:36:40.364266647 +0100
+--- lib/IO/Socket/Multicast.pm
++++ lib/IO/Socket/Multicast.pm
 @@ -120,7 +120,7 @@ sub mcast_dest {
  
  sub mcast_send {
