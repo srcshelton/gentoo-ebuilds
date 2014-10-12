@@ -157,6 +157,7 @@ EOF
 * net-analyzer/ntop
 * net-analyzer/rrdtool
 * net-analyzer/wireshark
+* net-analyzer/zabbix
 * net-dns/bind
 * net-firewall/conntrack-tools
 * net-misc/dhcpcd
