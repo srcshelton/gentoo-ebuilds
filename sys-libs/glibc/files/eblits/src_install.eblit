@@ -251,3 +251,5 @@ eblit-glibc-src_install() {
 	foreach_abi toolchain-glibc_src_install
 	src_strip
 }
+
+# vi: set diffopt=iwhite,filler:
