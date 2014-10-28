@@ -5,7 +5,7 @@
 EAPI=5
 
 PYTHON_COMPAT=( python{2_6,2_7} )
-inherit autotools eutils flag-o-matic multilib-minimal python-any-r1 versionator
+inherit autotools eutils flag-o-matic python-any-r1 versionator multilib-minimal
 
 MY_P="${P/mit-}"
 P_DIR=$(get_version_component_range 1-2)
