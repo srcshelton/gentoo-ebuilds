@@ -4,7 +4,7 @@
 
 EAPI=5
 
-inherit eutils flag-o-matic multilib multilib-minimal autotools pam java-pkg-opt-2 db-use systemd
+inherit eutils flag-o-matic multilib autotools pam java-pkg-opt-2 db-use systemd multilib-minimal
 
 SASLAUTHD_CONF_VER="2.1.26"
 
@@ -16,7 +16,7 @@ LICENSE="BSD-with-attribution"
 SLOT="2"
 KEYWORDS="~alpha amd64 arm hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="authdaemond berkdb gdbm kerberos ldapdb openldap mysql pam postgres sample sqlite
-srp ssl static-libs urandom"
+srp ssl static-libs systemd urandom"
 
 DEPEND="net-mail/mailbase
 	authdaemond? ( || ( net-mail/courier-imap mail-mta/courier ) )
