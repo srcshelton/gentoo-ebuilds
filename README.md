@@ -43,6 +43,8 @@ EOF
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * sys-devel/binutils-apple
     * Build to current Mac OS version and fix missing Libc header
+* sys-devel/gdb
+    * Fixes for building with clang, building on Yosemite, and building with Python support
 * sys-devel/llvm
     * Additional fixes for Darwin
 
