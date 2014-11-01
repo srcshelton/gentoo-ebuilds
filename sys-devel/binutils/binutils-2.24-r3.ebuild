@@ -20,5 +20,8 @@ src_prepare() {
 			-e "/program interpreter$/{s:\"/libx32/ldx32.so.1\":\"/${LDx32:-libx32}/ldx32.so.1\":}" \
 				gold/x86_64.cc \
 			|| die 'program interpreter replacement failed'
+		sed -i \
+		    -e "/LIBPATH_SUFFIX/{s:=x32 ;;:=${LDx32:-libx32} ;;:}" \
+			|| die 'elf32_x86_64.sh patch failed'
 	fi
 }
