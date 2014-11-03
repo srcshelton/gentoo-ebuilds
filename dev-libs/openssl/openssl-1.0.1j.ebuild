@@ -256,6 +256,10 @@ multilib_src_install_all() {
 	dohtml -r doc/*
 	use rfc3779 && dodoc engines/ccgost/README.gost
 
+    # At least wget (>1.15?) is unhappy if any non-certificate appears
+    # in ${SSL_CNF_DIR}/certs...
+    dodoc certs/README.* && rm certs/README.*
+
 	# This is crappy in that the static archives are still built even
 	# when USE=static-libs.  But this is due to a failing in the openssl
 	# build system: the static archives are built as PIC all the time.
