@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/munin/munin-2.0.19.ebuild,v 1.5 2014/07/15 16:45:14 jer Exp $
+# $Header: /var/cvsroot/gentoo-x86/net-analyzer/munin/munin-2.0.19.ebuild,v 1.6 2014/11/03 13:25:57 titanofold Exp $
 
 EAPI=5
 
@@ -16,6 +16,7 @@ SRC_URI="mirror://sourceforge/munin/${MY_P}.tar.gz
 	http://dev.gentoo.org/~flameeyes/${PN}/${P}-gentoo-${PATCHSET}.tar.xz"
 
 LICENSE="GPL-2"
+#SLOT="0"
 KEYWORDS="amd64 ~arm ~mips ppc x86"
 IUSE="apache asterisk cgi dhcpd doc http ipmi ipv6 irc java memcached minimal mysql postgres ssl syslog systemd test"
 REQUIRED_USE="cgi? ( !minimal ) apache? ( cgi )"
@@ -33,7 +34,7 @@ DEPEND_COM="dev-lang/perl[berkdb]
 					 dev-perl/Cache-Cache
 					 dev-perl/DBD-mysql )
 			ssl? ( dev-perl/Net-SSLeay )
-			postgres? ( dev-perl/DBD-Pg dev-db/postgresql-base )
+			postgres? ( dev-perl/DBD-Pg virtual/postgresql )
 			memcached? ( dev-perl/Cache-Memcached )
 			cgi? ( dev-perl/FCGI )
 			apache? ( www-servers/apache[apache2_modules_cgi,apache2_modules_cgid,apache2_modules_rewrite] )
