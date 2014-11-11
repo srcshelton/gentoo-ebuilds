@@ -173,9 +173,9 @@ src_prepare() {
 				projects/compiler-rt/make/platform/clang_*.mk || die
 		fi
 
-		#if [[ ${CHOST} == *-darwin* ]] ; then
-		#	epatch "${FILESDIR}"/clang-3.5-fix_linker.patch
-		#fi
+		if [[ ${CHOST} == *-darwin* ]] ; then
+			epatch "${FILESDIR}"/clang-3.5-fix_linker.patch
+		fi
 
 		# constantly fails for a long time, likely due to our patches
 		rm tools/clang/test/Driver/cross-linux.c || die
