@@ -154,7 +154,6 @@ EOF
 
 * app-admin/eselect-php
 * app-admin/ulogd
-* app-antivirus/clamav
 * app-misc/screen
 * dev-libs/cyrus-sasl
 * mail-filter/spamassassin
@@ -202,6 +201,8 @@ SYMLINK_LIB="yes"
     * Add required `--with-ssl-lib-dir` option
 * app-crypt/mit-krb5
     * Ensure that AES assembly is built for x32 rather than amd64
+* app-antivirus/clamav
+    * Don't use (64-bit) assembly if `__ILP32__` is defined
 * dev-db/libdbi-drivers
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
