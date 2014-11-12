@@ -81,6 +81,7 @@ EOF
 * dev-perl/IO-Socket-Multicast
 * dev-perl/Mojolicious
 * dev-perl/Mojo-Server-FastCGI
+* dev-perl/Net-Interface
 * dev-perl/Net-Subnet
 * dev-perl/Net-Twitter-Lite
 * dev-perl/POE-Component-Client-Ping
