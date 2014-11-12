@@ -78,6 +78,7 @@ EOF
 
 * dev-perl/Email-Outlook-Message
 * dev-perl/Locale-Hebrew
+* dev-perl/IO-Interface
 * dev-perl/IO-Socket-Multicast
 * dev-perl/Mojolicious
 * dev-perl/Mojo-Server-FastCGI
