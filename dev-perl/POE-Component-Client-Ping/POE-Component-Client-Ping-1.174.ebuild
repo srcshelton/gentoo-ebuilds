@@ -5,7 +5,7 @@
 EAPI=5
 
 MODULE_AUTHOR=RCAPUTO
-MODULE_VERSION=1.171
+MODULE_VERSION=1.174
 inherit perl-module
 
 DESCRIPTION="A non-blocking ICMP ping client"
