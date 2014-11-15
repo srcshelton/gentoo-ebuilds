@@ -161,7 +161,7 @@ EOF
 * net-analyzer/iptraf-ng
 * net-analyzer/ntop
 * net-analyzer/rrdtool
-* net-analyzer/wireshark
+* ~~net-analyzer/wireshark~~
 * net-analyzer/zabbix
 * net-dns/bind
 * net-firewall/conntrack-tools
