@@ -34,7 +34,7 @@ EOF
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
 * dev-libs/openssl
-    * Add `-Qunused-arguments` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
+    * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-libs/libxslt
     * Fix for 'double prefix' QA error introduced in 1.1.28-r2
 * dev-libs/udis86
@@ -45,6 +45,8 @@ EOF
     * Build to current Mac OS version and fix missing Libc header
 * sys-devel/gdb
     * Fixes for building with clang, building on Yosemite, and building with Python support
+* sys-devel/gcc-apple
+    * Fixes for building with clang and building on Yosemite
 * sys-devel/llvm
     * Additional fixes for Darwin
 
