@@ -109,7 +109,8 @@ src_prepare() {
 
 	append-flags -fno-strict-aliasing
 	append-flags $(test-flags-CC -Wa,--noexecstack)
-	append-flags $(test-flags-CC -Qunused-arguments)
+	#append-flags $(test-flags-CC -Qunused-arguments)
+	append-flags $(test-flags-CC -Wno-error=unused-command-line-argument)
 
 	# avoid waiting on terminal input forever when spitting
 	# 64bit warning message.
