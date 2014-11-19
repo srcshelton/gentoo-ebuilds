@@ -173,7 +173,7 @@ src_prepare() {
 				projects/compiler-rt/make/platform/clang_*.mk || die
 		fi
 
-		if [[ ${CHOST} == *-darwin* ]] ; then
+		if [[ ${CHOST} == *-darwin* ]] && ! has_version '>=binutils-apple-4.5'; then
 			epatch "${FILESDIR}"/clang-3.5-fix_linker.patch
 		fi
 
