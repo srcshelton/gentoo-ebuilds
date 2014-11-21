@@ -136,6 +136,8 @@ EOF
     * Improve output with `USE="DEBUG"`
 * mail-filter/spampd
     * Fix `status` reporting, revise installed documentation, add optional systemd service support
+* media-libs/opengl-apple
+    * Check for missing files before installing the Apple X11/Xquartz compatibility symlinks
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
 * net-analyzer/munin
