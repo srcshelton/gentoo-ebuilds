@@ -8,14 +8,27 @@ Some packages will fail with `illegal instruction: 4` if compiled with compiler-
 ```
 mkdir ${EPREFIX}/etc/portage/env
 
-cat > ${EPREFIX}/etc/portage/env/fragile <<EOF
-CC="clang"
+cat > ${EPREFIX}/etc/portage/env/debug <<EOF
 
-CFLAGS="-arch x86_64 -march=core-avx-i -mmacosx-version-min=10.9"
-CFLAGS="${CFLAGS} -O0 -g -pipe"
+# Assuming that clang is now default...
 
-CXX="clang++"
+#CC="/opt/gentoo/usr/bin/clang"
+#CXX="/opt/gentoo/usr/bin/clang++"
+
+CFLAGS="-arch x86_64 -march=x86-64"
+#CFLAGS="${CFLAGS} -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}"
+CFLAGS="${CFLAGS} -fcolor-diagnostics -ftrapv -O0 -g -pipe"
+
 CXXFLAGS="${CFLAGS}"
+#CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
+
+#LDFLAGS="${LDFLAGS} -stdlib=libstdc++"
+
+MAKEOPTS="-j1"
+
+#PKGDIR="${PORTDIR}/packages/clang"
+
+# vi: set syntax=conf:
 EOF
 
 cat >> ${EPREFIX}/etc/portage/package.env <<EOF
@@ -25,7 +38,7 @@ cat >> ${EPREFIX}/etc/portage/package.env <<EOF
 EOF
 ```
 
-... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/fragile`.
+... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/debug`.
 
 * app-arch/unzip
     * Remove `cc` hard-coding
@@ -33,6 +46,8 @@ EOF
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
+* dev-libs/liblinear
+    * Update Makefile to build correctly on Darwin
 * dev-libs/openssl
     * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-libs/libxslt
