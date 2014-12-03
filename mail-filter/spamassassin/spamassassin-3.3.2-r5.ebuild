@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/mail-filter/spamassassin/spamassassin-3.3.2-r5.ebuild,v 1.10 2014/09/24 19:39:16 maekke Exp $
+# $Header: /var/cvsroot/gentoo-x86/mail-filter/spamassassin/spamassassin-3.3.2-r5.ebuild,v 1.13 2014/11/30 21:24:44 dilfridge Exp $
 
 EAPI=5
 
@@ -16,7 +16,9 @@ LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm hppa ia64 ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~x86-macos"
 # need keyword request for Mail-SPF ppc ppc64
-IUSE="berkdb doc ipv6 ldap mysql postgres qmail sqlite ssl systemd"
+IUSE="+berkdb doc ipv6 ldap mysql postgres qmail sqlite ssl systemd"
+
+REQUIRED_USE="|| ( berkdb mysql postgres sqlite )"
 
 DEPEND=">=dev-lang/perl-5.8.8-r8
 	virtual/perl-MIME-Base64
@@ -193,7 +195,6 @@ EOF
 }
 
 pkg_postinst() {
-	perl-module_pkg_postinst
 	elog "If you plan on using the -u flag to spamd, please read the notes"
 	elog "in /etc/conf.d/spamd regarding the location of the pid file.\n"
 	elog "If you build ${PN} with optional dependancy support,"
