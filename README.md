@@ -46,6 +46,8 @@ EOF
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
+* dev-libs/libksba
+    * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
 * dev-libs/liblinear
     * Update Makefile to build correctly on Darwin
 * dev-libs/openssl
