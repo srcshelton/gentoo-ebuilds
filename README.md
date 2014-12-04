@@ -66,6 +66,8 @@ EOF
     * Fixes for building with clang and building on Yosemite
 * sys-devel/llvm
     * Additional fixes for Darwin
+* sys-libs/gdbm
+    * Ensure that all functions are defined before being called
 * sys-libs/readline
     * Ensure that `<sys/ioctl.h>` header is included on Darwin
 
