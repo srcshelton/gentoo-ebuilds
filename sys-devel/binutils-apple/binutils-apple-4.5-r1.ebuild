@@ -77,6 +77,7 @@ src_prepare() {
 		epatch "${FILESDIR}"/ld64-136-librarypath.patch
 		sed -i -e 's!EPREFIX!'${EPREFIX}'!' ld/Options.cpp || die
 	fi
+	epatch "${FILESDIR}"/ld64-136-rpath.patch
 
 	ln -s ../../${CCTOOLS}/include
 	cp other/prune_trie.h include/mach-o/ || die
@@ -116,6 +117,7 @@ src_prepare() {
 
 	pushd "${S}" >/dev/null || die "Cannot locate source directory"
 	epatch "${FILESDIR}"/${PN}-4.5-CrashReporterClient.h.patch
+	epatch "${FILESDIR}"/ld64-136-create_configure.patch
 	popd >/dev/null || die "Cannot restore working directory"
 
 	local program
@@ -185,9 +187,14 @@ src_prepare() {
 }
 
 src_configure() {
-    CC=clang
-    CXX=clang++
-	tc-export CC CXX AR
+	# Don't force clang...
+    #CC=clang
+    #CXX=clang++
+	# ... as we might pick-up the OS binaries.  Apple's g++ is too old to grok
+	# the latest binutils code, however.
+	#tc-export CC CXX AR
+	tc-export AR
+
 	if use lto ; then
 		append-cppflags -DLTO_SUPPORT
 		append-ldflags -L"${EPREFIX}"/usr/$(get_libdir)/llvm
@@ -205,18 +212,26 @@ src_configure() {
 		# must be stopped-down to 10.9...
 		OSXMIN=10.9
 	fi
+	export MACOSX_DEPLOYMENT_TARGET="${OSXMIN}"
+
 	append-cflags -mmacosx-version-min=${OSXMIN}
-	append-cflags -stdlib=libc++
+	append-cflags $(test-flags-CC -stdlib=libc++)
+
 	append-cppflags -mmacosx-version-min=${OSXMIN}
 	# append-cppflags -D'ALL_SUPPORTED_ARCHS="i386 x86_64"'
 	append-cppflags -DSUPPORT_ARCH_i386=1
 	append-cppflags -DSUPPORT_ARCH_x86_64=1
-	append-cppflags -stdlib=libc++
+	append-cppflags -DDEFAULT_MACOSX_MIN_VERSION=\\\\\\\"${OSXMIN}\\\\\\\"
+	append-cppflags $(test-flags-CC -stdlib=libc++)
 	append-cppflags -DNDEBUG
 	append-cppflags -I${WORKDIR}/libunwind/include
 
 	append-ldflags  -mmacosx-version-min=${OSXMIN}
-	append-ldflags  -stdlib=libc++
+	append-ldflags  $(test-flags-CC -stdlib=libc++)
+
+	replace-flags -mmacosx-version-min=* -mmacosx-version-min=${OSXMIN}
+
+	einfo "Targeting MacOS release ${OSXMIN}"
 }
 
 compile_libunwind() {
