@@ -44,6 +44,8 @@ EOF
     * Remove `cc` hard-coding
 * dev-lang/python
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
+* dev-libs/apr
+    * Support F_FULLFSYNC on Darwin
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
 * dev-libs/libksba
