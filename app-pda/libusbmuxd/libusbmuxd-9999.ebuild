@@ -20,7 +20,7 @@ RDEPEND=">=app-pda/libplist-1.9"
 DEPEND="${RDEPEND}
 	virtual/pkgconfig"
 
-DOCS=( AUTHORS README README.devel )
+DOCS=( AUTHORS README )
 
 src_prepare() {
 	eautoreconf
