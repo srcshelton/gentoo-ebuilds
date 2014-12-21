@@ -14,7 +14,8 @@ PHAR="1.0.0-alpha8"
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="http://roundcube.net"
 SRC_URI="mirror://sourceforge/${MY_PN}/${MY_P}.tar.gz
-	plugins? ( https://getcomposer.org/download/${PHAR}/composer.phar )"
+	plugins? ( https://getcomposer.org/download/${PHAR}/composer.phar -> composer.phar_${PHAR} )"
+RESTRICT="mirror"
 
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
@@ -60,7 +61,7 @@ src_install() {
 	insinto "${MY_HTDOCSDIR}"
 	doins -r [[:lower:]]* SQL
 	doins .htaccess
-	use plugins && doins "${DISTDIR}"/composer.phar
+	use plugins && newins "${DISTDIR}"/composer.phar_${PHAR} composer.phar
 
 	webapp_serverowned "${MY_HTDOCSDIR}"/logs
 	webapp_serverowned "${MY_HTDOCSDIR}"/temp

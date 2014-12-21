@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/mail-client/roundcube/roundcube-1.0.2.ebuild,v 1.8 2014/09/14 22:39:43 jer Exp $
+# $Header: /var/cvsroot/gentoo-x86/mail-client/roundcube/roundcube-1.0.4.ebuild,v 1.1 2014/12/21 00:55:37 radhermit Exp $
 
 EAPI=5
 
@@ -9,7 +9,7 @@ inherit webapp
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV/_/-}
 
-PHAR="1.0.0-alpha8"
+PHAR="1.0.0-alpha9"
 
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="http://roundcube.net"
@@ -20,7 +20,7 @@ RESTRICT="mirror"
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
-KEYWORDS="amd64 arm ~hppa ppc ~ppc64 ~sparc x86"
+KEYWORDS="~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86"
 IUSE="ldap +mysql plugins postgres sqlite ssl spell"
 
 # The function below sets only DEPEND, so we need to include the latter in RDEPEND ...
