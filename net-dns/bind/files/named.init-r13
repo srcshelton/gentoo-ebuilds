@@ -66,7 +66,7 @@ _umount() {
 _get_pidfile() {
 	# as suggested in bug #107724, bug 335398#c17
 	[ -n "${PIDFILE}" ] || PIDFILE="${CHROOT}$(
-		/usr/sbin/named-checkconf -p ${CHROOT:+-t} ${CHROOT} ${NAMED_CONF#${CHROOT}} | grep 'pid-file' | cut -d\" -f2
+		/usr/sbin/named-checkconf -p ${CHROOT:+-t} ${CHROOT} ${NAMED_CONF#${CHROOT}} | grep 'pid-file' | cut -d'"' -f2
 	)"
 	[ -z "${PIDFILE}" ] && PIDFILE="${CHROOT}/var/run/named/named.pid"
 }
