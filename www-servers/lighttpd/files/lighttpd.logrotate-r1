@@ -4,20 +4,20 @@
 /var/log/lighttpd/*.log {
         daily
         missingok
-		copytruncate
+        copytruncate
         rotate 7
         compress
         notifempty
         sharedscripts
         postrotate
            if [ -x /etc/init.d/lighttpd ]; then \
-	        if /etc/init.d/lighttpd --quiet status; then \
+                if /etc/init.d/lighttpd --quiet status; then \
                      /etc/init.d/lighttpd --quiet reload || true ; \
-		fi; \
+                fi; \
            elif test -e /var/run/systemd/system; then \
                 systemctl restart lighttpd reload 1>/dev/null || true ; \
            else \
-	        true ; \
+                true ; \
            fi;
         endscript
 }
