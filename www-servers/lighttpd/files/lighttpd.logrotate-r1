@@ -1,0 +1,23 @@
+# $Header: /var/cvsroot/gentoo-x86/www-servers/lighttpd/files/lighttpd.logrotate-r1,v 1.1 2014/05/02 10:57:57 pacho Exp $
+# lighttpd logrotate script for Gentoo
+
+/var/log/lighttpd/*.log {
+        daily
+        missingok
+		copytruncate
+        rotate 7
+        compress
+        notifempty
+        sharedscripts
+        postrotate
+           if [ -x /etc/init.d/lighttpd ]; then \
+	        if /etc/init.d/lighttpd --quiet status; then \
+                     /etc/init.d/lighttpd --quiet reload || true ; \
+		fi; \
+           elif test -e /var/run/systemd/system; then \
+                systemctl restart lighttpd reload 1>/dev/null || true ; \
+           else \
+	        true ; \
+           fi;
+        endscript
+}
