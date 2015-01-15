@@ -1,14 +1,25 @@
 #!/bin/sh
 
 function log() {
-	local LOGFILE
+	local logfile src
 
-	if [ -w "kmsg" ]; then
-		LOGFILE="kmsg"
-	else
-		LOGFILE="mdev_usb.log"
+	#if [ -w "kmsg" ]; then
+	#	logfile="kmsg"
+	#else
+	#	logfile="mdev_usb.log"
+	#fi
+	#src="$( basename "${BASH_SOURCE}" 2>/dev/null )"
+	src="${BASH_SOURCE:-}"
+
+	for logfile in "kmsg" "mdev_usb.log" "mdev.log"; do
+		if [ -w "$logfile" ]; then
+			echo >>"$logfile" "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$@" && written=1
+		fi
+	done
+	if [ $written -eq 0 ]; then
+		test -w /dev/tty && echo >/dev/tty "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$@"
+		echo >&2 "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$@"
 	fi
-	echo >>"$LOGFILE" "mdev $$ $( date +"%T.%N" ) $@"
 }
 
 # Add zeros to device or bus identifiers
@@ -38,7 +49,7 @@ USB_DEV=""
 USB_VENDOR=""
 USB_PRODUCT=""
 PRODUCT=""
-IPHETH="/lib/udev/ipheth-pair"
+IPHETH="/usr/bin/ipeth-pair"
 
 if ! [ -s "/sys$DEVPATH/busnum" ]; then
 	DEVPATH="$( echo "$DEVPATH" | grep -o '^.*/[0-9]\+-[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+/' )"
@@ -88,7 +99,10 @@ case "$ACTION" in
 			log "WARNING USB bus directory 'bus/usb/$BUS' doesn't exist - is USB initialised?"
 			mkdir -p "bus/usb/$BUS" \
 				&&   log "mkdir succeeded for 'bus/usb/$BUS'" \
-				|| { log "mkdir failed for 'bus/usb/$BUS': $?" ; exit 0 ; }
+				|| { log "mkdir failed for 'bus/usb/$BUS': $?" ; exit 1 ; }
+			chown root:usb "bus/usb/$BUS" \
+				&& log "chown() succeeded for 'bus/usb/$BUS'" \
+				|| log "chown() failed for 'bus/usb/$BUS'"
 		fi
 		if [ ! -e "$MDEV" ]; then
 			# Device-node doesn't exist - attempt to recover vitals
@@ -97,15 +111,21 @@ case "$ACTION" in
 				major="$( cat "/sys$DEVPATH/dev" | cut -d':' -f 1 )"
 				minor="$( cat "/sys$DEVPATH/dev" | cut -d':' -f 2 )"
 				if [ -n "$major" -a -n "$minor" ]; then
-					mknod "$MDEV" 'c' "$major" "$minor" \
+					mknod -m 664 "$MDEV" 'c' "$major" "$minor" \
 						&&   log "mknod succeeded for '$MDEV'" \
 						|| { log "mknod failed for '$MDEV' ($major:$minor): $?" ; exit 1 ; }
 				fi
 			fi
 		fi
+
+		# Ensure that correct permissions are set on device node...
+		chown root:usb "$MDEV" >/dev/null
+		chmod 664 "$MDEV" >/dev/null
+
+		# Move device node to correct location...
 		mv "$MDEV" "bus/usb/$BUS/$USB_DEV" \
 			&&   log "mv succeeded for 'bus/usb/$BUS/$USB_DEV'" \
-			|| { log "mv failed for 'bus/usb/$BUS/$USB_DEV': $?" ; exit 0 ; }
+			|| { log "mv failed for 'bus/usb/$BUS/$USB_DEV': $?" ; exit 1 ; }
 
 		# Handle specific subsystems
 		case "$SUBSYSTEM" in
@@ -135,7 +155,7 @@ case "$ACTION" in
 						log "Forcing device to configuration $NUM"
 						echo "$NUM" > "/sys/$DEVPATH/bConfigurationValue"
 					fi
-					chown usbmux "bus/usb/$BUS/$USB_DEV" >/dev/null 2>&1
+					chown usbmux:usb "bus/usb/$BUS/$USB_DEV" >/dev/null 2>&1
 					log "Running 'usbmuxd'"
 					/usr/sbin/usbmuxd -U usbmux >/dev/null 2>&1 </dev/null &
 				fi
@@ -167,9 +187,8 @@ case "$ACTION" in
 		case "$SUBSYSTEM" in
 			bluetooth)
 				if [ -d "hci" -a -e "hci/$MDEV" ]; then
-					if rm -f "hci/$MDEV" 2>/dev/null \
-						&& log "rm -f 'hci/$MDEV' succeeded"
-					then
+					if rm -f "hci/$MDEV" 2>/dev/null; then
+						log "rm -f 'hci/$MDEV' succeeded"
 						rmdir -p "hci" 2>/dev/null \
 							&& log "rmdir -p 'hci' succeeded" \
 							|| log "rmdir -p 'hci' failed: $?"
@@ -186,12 +205,12 @@ case "$ACTION" in
 		esac
 
 		# Remove device node and potential empty directories
-		if rm -f "bus/usb/$BUS/$USB_DEV" 2>/dev/null \
-			&& log "rm -f 'bus/usb/$BUS/$USB_DEV' succeeded"
-		then
+		if rm -f "bus/usb/$BUS/$USB_DEV" 2>/dev/null; then
+			log "rm -f 'bus/usb/$BUS/$USB_DEV' succeeded"
 			rmdir -p "bus/usb/$BUS" 2>/dev/null \
 				&& log "rmdir -p 'bus/usb/$BUS' succeeded" \
 				|| log "rmdir -p 'bus/usb/$BUS' failed: $?"
+			exit 0
 		else
 			log "rm -f 'bus/usb/$BUS/$USB_DEV' failed: $?"
 			exit 1

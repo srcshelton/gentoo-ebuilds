@@ -1,6 +1,6 @@
-# Copyright 1999-2013 Gentoo Foundation
+# Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/busybox/busybox-1.21.1.ebuild,v 1.2 2013/09/29 00:55:52 vapier Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/busybox/busybox-1.23.0.ebuild,v 1.2 2014/12/30 22:10:06 williamh Exp $
 
 # See `man savedconfig.eclass` for info on how to use USE=savedconfig.
 
@@ -16,20 +16,21 @@ if [[ ${PV} == "9999" ]] ; then
 else
 	MY_P=${PN}-${PV/_/-}
 	SRC_URI="http://www.busybox.net/downloads/${MY_P}.tar.bz2"
-	KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~arm-linux ~x86-linux"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~arm-linux ~x86-linux"
 fi
 
 LICENSE="GPL-2"
 SLOT="0"
-
-IUSE="ipv6 livecd make-symlinks math +mdev -pam selinux sep-usr +static syslog systemd"
+IUSE="debug ipv6 livecd make-symlinks math +mdev -pam selinux sep-usr +static syslog systemd"
 RESTRICT="test"
 
-RDEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
+COMMON_DEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
 	pam? ( sys-libs/pam )"
-DEPEND="${RDEPEND}
+DEPEND="${COMMON_DEPEND}
 	static? ( selinux? ( sys-libs/libselinux[static-libs(+)] ) )
 	>=sys-kernel/linux-headers-2.6.39"
+RDEPEND="${COMMON_DEPEND}
+mdev? ( !<sys-apps/openrc-0.13 )"
 
 S=${WORKDIR}/${MY_P}
 
@@ -66,7 +67,7 @@ src_prepare() {
 
 	# patches go here!
 	epatch "${FILESDIR}"/${PN}-1.19.0-bb.patch
-	epatch "${FILESDIR}"/${P}-*.patch
+#	epatch "${FILESDIR}"/${P}-*.patch
 	cp "${FILESDIR}"/ginit.c init/ || die
 
 	# flag cleanup
@@ -99,18 +100,18 @@ src_configure() {
 
 	restore_config .config
 	if [ -f .config ]; then
-		yes "" | emake -j1 oldconfig > /dev/null
+		yes "" | emake -j1 -s oldconfig >/dev/null
 		return 0
 	else
 		ewarn "Could not locate user configfile, so we will save a default one"
 	fi
 
 	# setup the config file
-	emake -j1 allyesconfig > /dev/null
+	emake -j1 -s defconfig >/dev/null
 	# nommu forces a bunch of things off which we want on #387555
 	busybox_config_option n NOMMU
 	sed -i '/^#/d' .config
-	yes "" | emake -j1 oldconfig >/dev/null
+	yes "" | emake -j1 -s oldconfig >/dev/null
 
 	# now turn off stuff we really don't want
 	busybox_config_option n DMALLOC
@@ -132,6 +133,7 @@ src_configure() {
 		busybox_config_option n FEATURE_IPV6
 		busybox_config_option n TRACEROUTE6
 		busybox_config_option n PING6
+		busybox_config_option n UDHCPC6
 	fi
 
 	if use static && use pam ; then
@@ -148,6 +150,7 @@ src_configure() {
 	busybox_config_option y NO_DEBUG_LIB
 	busybox_config_option n DMALLOC
 	busybox_config_option n EFENCE
+	busybox_config_option $(usex debug y n) TFTP_DEBUG
 
 	busybox_config_option selinux SELINUX
 
@@ -212,7 +215,7 @@ src_install() {
 		exeinto /$(get_libdir)/mdev/
 		doexe "${FILESDIR}"/mdev/*
 
-		newinitd "${FILESDIR}"/mdev.rc.1 mdev
+		newinitd "${FILESDIR}"/mdev.initd mdev
 	fi
 	if use livecd ; then
 		dosym busybox /bin/vi

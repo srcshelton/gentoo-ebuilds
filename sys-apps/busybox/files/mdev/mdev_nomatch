@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# env ACTION=... DEVPATH=... SUBSYSTEM=... [SEQNUM=...]
+
+LOGFILE="mdev.log"
+ENV="$( env )"
+DATE="$( date +"%s %T.%N" )"
+
+echo -e >>"${LOGFILE}" "${$} ${DATE} mdev_nomatch invoked as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'\n---\n${ENV}\n---\n$( ls -lt /dev/ | head -n 6 | tail -n 3 )\n..."
+
+exit 0
