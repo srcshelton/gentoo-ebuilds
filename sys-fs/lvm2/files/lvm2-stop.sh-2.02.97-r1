@@ -20,22 +20,20 @@ if [ -x /sbin/vgs ] && \
 then
 	einfo "Shutting down the Logical Volume Manager"
 
-	VGS=$($lvm_path vgs --config "${config}" -o vg_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 2-)
+	VGS=$($lvm_path vgs --config "${config}" -o vg_name --noheadings --nosuffix --rows 2> /dev/null | cut -d' ' -f 2-)
 
 	if [ "$VGS" ]; then
 		ebegin "  Shutting Down Logical Volumes & Volume Groups"
-		#still echo stderr for debugging
+		# Keep stderr for debugging
 		lvm_commands="#! ${lvm_path} --config '${config}'\n"
-		# Extra PV find pass because some devices might not have been available until very recently
 		lvm_commands="${lvm_commands}lvchange --sysinit -a ln ${VGS}\n"
-		# Now make the nodes
 		lvm_commands="${lvm_commands}vgchange --sysinit -a ln\n"
 		# Order of this is important, have to work around dash and LVM readline
 		printf "%b\n" "${lvm_commands}" | $lvm_path /proc/self/fd/0 --config "${config}" >/dev/null
-		eend $? "Failed"
+		eend $? "Failed - some Volumes may be system-critical"
 	fi
 
-	einfo "Finished Shutting down the Logical Volume Manager"
+	einfo "Finished shutting down the Logical Volume Manager"
 fi
 
 # vim:ts=4

@@ -1,5 +1,14 @@
-# /lib/rcscripts/addons/dm-start.sh:  Setup DM volumes at boot
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/dm-start.sh,v 1.1 2009/04/09 23:00:10 caleb Exp $
+#!/sbin/runscript
+# Copyright 1999-2014 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/device-mapper.rc-2.02.105-r2,v 1.1 2014/02/02 19:52:34 robbat2 Exp $
+
+depend() {
+	# As of .67-r1, we call ALL lvm start/stop scripts with --sysinit, that
+	# means dmeventd is NOT notified, as it cannot be safely running
+	before dmeventd checkfs fsck
+	after modules
+}
 
 dm_in_proc() {
 	local retval=0
@@ -102,36 +111,37 @@ is_empty_dm_volume() {
 	[ "${volume}" = "$1" -a -z "$2" ]
 }
 
-if [ -e /proc/modules ] && ! dm_in_proc ; then
-	modprobe dm-mod 2>/dev/null
-fi
-# Ensure the dirs exist for locking and running
-checkpath -q -d -m 0700 -o root:root /dev/.lvm
 
-local x volume
+start() {
+	if [ -e /proc/modules ] && ! dm_in_proc ; then
+		modprobe dm-mod 2>/dev/null
+	fi
+	# Ensure the dirs exist for locking and running
+	checkpath -q -d -m 0700 -o root:root /run/lvm /run/lock/lvm
 
-if [ -x /sbin/dmsetup -a -c /dev/mapper/control -a -f /etc/dmtab ] ; then
-	[ -n "$(get_new_dm_volumes)" ] && \
-		einfo " Setting up device-mapper volumes:"
+	local x volume
+	
+	if [ -x /sbin/dmsetup -a -c /dev/mapper/control -a -f /etc/dmtab ] ; then
+		[ -n "$(get_new_dm_volumes)" ] && \
+			einfo " Setting up device-mapper volumes:"
+		
+		get_new_dm_volumes | \
+		while read x ; do
+			[ -n "${x}" ] || continue
+			
+			volume="${x##* }"
+			
+			ebegin "  Creating volume: ${volume}"
+			if ! eval $(build_dmsetup_command ${volume}) >/dev/null 2>/dev/null ; then
+				eend 1 "  Error creating volume: ${volume}"
+				# dmsetup still adds an empty volume in some cases,
+				#  so lets remove it
+				is_empty_dm_volume "${volume}" && \
+					/sbin/dmsetup remove "${volume}" 2>/dev/null
+			else
+				eend 0
+			fi
+		done
+	fi
+}
 
-	get_new_dm_volumes | \
-	while read x ; do
-		[ -n "${x}" ] || continue
-
-		volume="${x##* }"
-
-		ebegin "  Creating volume: ${volume}"
-		if ! eval $(build_dmsetup_command ${volume}) >/dev/null 2>/dev/null ; then
-			eend 1 "  Error creating volume: ${volume}"
-			# dmsetup still adds an empty volume in some cases,
-			#  so lets remove it
-			is_empty_dm_volume "${volume}" && \
-				/sbin/dmsetup remove "${volume}" 2>/dev/null
-		else
-			eend 0
-		fi
-	done
-fi
-
-
-# vim:ts=4

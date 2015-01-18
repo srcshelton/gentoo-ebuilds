@@ -14,9 +14,9 @@ VGCHANGE=/sbin/vgchange
 VGS=/sbin/vgs
 
 start() {
-	ret=0
+	local -i ret=0 ret2
 	# TODO do we want to separate out already active groups only?
-	VGSLIST=`$VGS --noheadings -o name 2> /dev/null | cut -d' ' -f 2-`
+	VGSLIST=`$VGS --noheadings -o name --rows 2> /dev/null | cut -d' ' -f 2-`
 	for vg in $VGSLIST
 	do
 	    ebegin "Starting LVM monitoring for VG $vg:"
@@ -29,9 +29,9 @@ start() {
 }
 
 stop() {
-	ret=0
+	local -i ret=0 ret2
 	# TODO do we want to separate out already active groups only?
-	VGSLIST=`$VGS --noheadings -o name 2> /dev/null | cut -d' ' -f 2-`
+	VGSLIST=`$VGS --noheadings -o name --rows 2> /dev/null | cut -d' ' -f 2-`
 	for vg in $VGSLIST
 	do
 	    ebegin "Stopping LVM monitoring for VG $vg:"

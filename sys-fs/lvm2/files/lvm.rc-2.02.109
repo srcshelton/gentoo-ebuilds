@@ -4,13 +4,14 @@
 # $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/lvm.rc-2.02.95-r2,v 1.2 2013/04/09 11:00:26 ssuominen Exp $
 
 depend() {
+	need lvmetad sysfs
 	use dmeventd
 	before checkfs fsck
 	after modules device-mapper
 }
 
 run_addon() {
-	local f="/lib/rcscripts/addons/${1}.sh"
+	local f=/lib/rcscripts/addons/$1.sh
 	if [[ -r "$f" ]]; then
 		( . "$f" )
 	fi

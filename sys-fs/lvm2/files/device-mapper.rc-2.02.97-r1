@@ -9,8 +9,8 @@ depend() {
 }
 
 start() {
-	local f=/lib/rcscripts/addons/dm-start.sh
-	if [ -r "$f" ]; then
+	local f="/lib/rcscripts/addons/dm-start.sh"
+	if [[ -r "$f" ]]; then
 		( . "$f" )
 	fi
 }
