@@ -11,24 +11,34 @@ depend() {
 }
 
 configtest() {
-        /usr/bin/monit -t 1>/dev/null 2>&1
+	local -i ret
+
+        /usr/bin/monit -c /etc/monitrc -t >/dev/null 2>&1
         ret=$?
-        if [ $ret -ne 0 ]; then
+        if (( ret )); then
                 eerror "${SVCNAME} has detected an error in your setup:"
-                /usr/bin/monit -t
+                /usr/bin/monit -c /etc/monitrc -t
         fi
+
         return $ret
 }
 
 start() {
 	ebegin "Starting monit"
-	start-stop-daemon --start --quiet --exec /usr/bin/monit >/dev/null 2>&1
+	start-stop-daemon \
+		--start \
+		--quiet \
+		--exec /usr/bin/monit -- -c /etc/monitrc
 	eend $?
 }
 
 stop() {
 	ebegin "Stopping monit"
-	start-stop-daemon --stop --quiet --exec /usr/bin/monit
+	start-stop-daemon \
+		--stop \
+		--quiet \
+		--retry TERM/5/KILL/10 \
+		--exec /usr/bin/monit
 	eend $?
 }
 
