@@ -1,0 +1,9 @@
+/dev/mdev.log {
+    compress
+    daily
+    rotate 6
+    notifempty
+    missingok
+    size 256K
+    create 0644 root
+}

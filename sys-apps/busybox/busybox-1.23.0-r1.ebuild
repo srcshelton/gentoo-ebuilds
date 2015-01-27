@@ -216,6 +216,9 @@ src_install() {
 		doexe "${FILESDIR}"/mdev/*
 
 		newinitd "${FILESDIR}"/mdev.initd mdev
+
+		insinto /etc/logrotate.d
+		newins "${FILESDIR}/mdev.logrotate" mdev
 	fi
 	if use livecd ; then
 		dosym busybox /bin/vi

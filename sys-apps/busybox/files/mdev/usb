@@ -1,29 +1,24 @@
 #!/bin/sh
 
-function log() {
+log() {
 	local logfile src
 
-	#if [ -w "kmsg" ]; then
-	#	logfile="kmsg"
-	#else
-	#	logfile="mdev_usb.log"
-	#fi
-	#src="$( basename "${BASH_SOURCE}" 2>/dev/null )"
-	src="${BASH_SOURCE:-}"
+	src="$( basename "${BASH_SOURCE:-}" 2>/dev/null )"
 
-	for logfile in "kmsg" "mdev_usb.log" "mdev.log"; do
+	#for logfile in "kmsg" "mdev_usb.log" "mdev.log"; do
+	for logfile in "kmsg" "mdev.log"; do
 		if [ -w "$logfile" ]; then
-			echo >>"$logfile" "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$@" && written=1
+			echo >>"$logfile" "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$*" && written=1
 		fi
 	done
 	if [ $written -eq 0 ]; then
-		test -w /dev/tty && echo >/dev/tty "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$@"
-		echo >&2 "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$@"
+		test -w /dev/tty && echo >/dev/tty "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$*"
+		echo >&2 "mdev $$ $( date +"%T.%N" ) ${src:+${src} }$*"
 	fi
 }
 
 # Add zeros to device or bus identifiers
-function add_zeros() {
+add_zeros() {
 	case "$( echo "$1" | wc -L )" in
 		1)	echo "00$1"
 			;;
@@ -38,8 +33,8 @@ function add_zeros() {
 log "usb helper started as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'"
 
 [ -n "$MDEV" ] || exit 0
-[ -n "$DEVPATH" ] || exit 0
-#[ "$SUBSYSTEM" = "usb" ] || exit 0
+#[ -n "$DEVPATH" ] || exit 0
+#[ "$SUBSYSTEM" = "usb" ] || exit 0 # Also allow bluetooth, etc.
 
 # e.g. DEVPATH=/devices/pci0000:00/0000:00:0f.4/usb2/2-1, MDEV=2-1
 #  or  DEVPATH=/devices/platform/bcm2708_usb/usb1/1-1/1-1.1, MDEV=1-1.1
@@ -49,45 +44,58 @@ USB_DEV=""
 USB_VENDOR=""
 USB_PRODUCT=""
 PRODUCT=""
+SERIAL=""
 IPHETH="/usr/bin/ipeth-pair"
 
-if ! [ -s "/sys$DEVPATH/busnum" ]; then
-	DEVPATH="$( echo "$DEVPATH" | grep -o '^.*/[0-9]\+-[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+/' )"
-	DEVPATH="${DEVPATH%/}"
-fi
-if ! [ -s "/sys$DEVPATH/busnum" ]; then
-	log "Could not determine valid DEVPATH for node '$MDEV' from string '$DEVPATH' - aborting"
-	exit 1
-fi
+if [ "${DEVNAME:0:8}" = "bus/usb/" ]; then
+	BUS="$( echo "$DEVNAME" | cut -d'/' -f 3 )"
+	USB_DEV="$( echo "$DEVNAME" | cut -d'/' -f 4 )"
+elif [ -n "$DEVPATH" ]; then
+	if ! [ -e "/sys$DEVPATH/busnum" ]; then
+		DEVPATH="$( echo "$DEVPATH" | grep -o '^.*/[0-9]\+-[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+/' )"
+		DEVPATH="${DEVPATH%/}"
+		if ! [ -e "/sys$DEVPATH/busnum" ]; then
+			log "Could not determine valid 'busnum' for node '$MDEV' from sysfs path '$DEVPATH' - aborting"
+			exit 1
+		fi
+	fi
 
-if [ -d /sys/devices ]; then
-	BUS="$( add_zeros "$( cat "/sys$DEVPATH/busnum" 2>/dev/null )" )"
-	USB_DEV="$( add_zeros "$( cat "/sys$DEVPATH/devnum" 2>/dev/null )" )"
+	if [ -d /sys/devices ]; then
+		BUS="$( add_zeros "$( cat "/sys$DEVPATH/busnum" 2>/dev/null )" )"
+		USB_DEV="$( add_zeros "$( cat "/sys$DEVPATH/devnum" 2>/dev/null )" )"
+	fi
+	if [ -z "$BUS" ]; then
+		BUS="$( add_zeros "$( echo "$DEVPATH" | cut -d'/' -f 5 | sed 's/^usb//' )" )"
+	fi
+	if [ -z "$USB_DEV" ]; then
+		# Some guesswork is involved here...
+		USB_DEV="$( echo "$MDEV" | cut -d'-' -f 1 )"
+		USB_DEV="$( expr "$USB_DEV" + "$( echo "$MDEV" | cut -d'-' -f 2 | cut -d'.' -f 1 )" )"
+		USB_DEV="$( expr "$USB_DEV" + "$( echo "$MDEV" | cut -d'.' -f 2 )" )"
+		USB_DEV="$( add_zeros "$USB_DEV" )"
+	fi
 fi
-if [ -z "$BUS" ]; then
-	BUS="$( add_zeros "$( echo "$DEVPATH" | cut -d'/' -f 5 | sed 's/^usb//' )" )"
-fi
-if [ -z "$USB_DEV" ]; then
-	# Some guesswork is involved here...
-	USB_DEV="$( echo "$MDEV" | cut -d'-' -f 1 )"
-	USB_DEV="$( expr $USB_DEV + $( echo "$MDEV" | cut -d'-' -f 2 | cut -d'.' -f 1 ) )"
-	USB_DEV="$( expr $USB_DEV + $( echo "$MDEV" | cut -d'.' -f 2 ) )"
-	USB_DEV="$( add_zeros "$USB_DEV" )"
-fi
-if [ -e "/sys$DEVPATH/idVendor" ]; then
-	USB_VENDOR="$( cat "/sys$DEVPATH/idVendor" )"
-fi
-if [ -e "/sys$DEVPATH/idProduct" ]; then
-	USB_PRODUCT="$( cat "/sys$DEVPATH/idProduct" )"
-fi
-if [ -e "/sys$DEVPATH/product" ]; then
-	PRODUCT="$( cat "/sys$DEVPATH/product" )"
-fi
-#USB_FUNC="$( add_zeros "$( echo "$MDEV" | cut -d'-' -f 2 )" )"
-
-if ! [ -n "$BUS" && -n "$USB_DEV" ]; then
+if ! [ -n "$BUS" -a -n "$USB_DEV" ]; then
 	log "Could not determine BUS and DEVICE information for node '$MDEV' - aborting"
 	exit 1
+fi
+
+if [ -d "/sys$DEVPATH/" ]; then
+	if [ -e "/sys$DEVPATH/idVendor" ]; then
+		USB_VENDOR="$( cat "/sys$DEVPATH/idVendor" )"
+	fi
+	if [ -e "/sys$DEVPATH/idProduct" ]; then
+		USB_PRODUCT="$( cat "/sys$DEVPATH/idProduct" )"
+	fi
+	if [ -e "/sys$DEVPATH/product" ]; then
+		PRODUCT="$( cat "/sys$DEVPATH/product" )"
+	fi
+	if [ -e "/sys$DEVPATH/serial" ]; then
+		SERIAL="$( cat "/sys$DEVPATH/serial" )"
+	fi
+fi
+if ! [ -n "$USB_VENDOR" -a -n "$USB_PRODUCT" -a -n "$PRODUCT" ]; then
+	log "Could not determine product details for node '$MDEV' from sysfs path '$DEVPATH'"
 fi
 
 case "$ACTION" in
@@ -104,12 +112,12 @@ case "$ACTION" in
 				&& log "chown() succeeded for 'bus/usb/$BUS'" \
 				|| log "chown() failed for 'bus/usb/$BUS'"
 		fi
-		if [ ! -e "$MDEV" ]; then
+		if [ -n "$DEVPATH" -a ! -e "$MDEV" ]; then
 			# Device-node doesn't exist - attempt to recover vitals
 			# from $DEVPATH/dev ...
 			if [ -s "/sys$DEVPATH/dev" ]; then
-				major="$( cat "/sys$DEVPATH/dev" | cut -d':' -f 1 )"
-				minor="$( cat "/sys$DEVPATH/dev" | cut -d':' -f 2 )"
+				major="$( cut -d':' -f 1 "/sys$DEVPATH/dev" )"
+				minor="$( cut -d':' -f 2 "/sys$DEVPATH/dev" )"
 				if [ -n "$major" -a -n "$minor" ]; then
 					mknod -m 664 "$MDEV" 'c' "$major" "$minor" \
 						&&   log "mknod succeeded for '$MDEV'" \
@@ -117,15 +125,18 @@ case "$ACTION" in
 				fi
 			fi
 		fi
+		[ -e "$MDEV" ] || { log "Could not find or synthesize device node '$MDEV'" ; exit 1 ; }
 
 		# Ensure that correct permissions are set on device node...
 		chown root:usb "$MDEV" >/dev/null
 		chmod 664 "$MDEV" >/dev/null
 
 		# Move device node to correct location...
-		mv "$MDEV" "bus/usb/$BUS/$USB_DEV" \
-			&&   log "mv succeeded for 'bus/usb/$BUS/$USB_DEV'" \
-			|| { log "mv failed for 'bus/usb/$BUS/$USB_DEV': $?" ; exit 1 ; }
+		if [ "$MDEV" != "bus/usb/$BUS/$USB_DEV" ]; then
+			mv "$MDEV" "bus/usb/$BUS/$USB_DEV" \
+				&&   log "mv succeeded for 'bus/usb/$BUS/$USB_DEV'" \
+				|| { log "mv failed for 'bus/usb/$BUS/$USB_DEV': $?" ; exit 1 ; }
+		fi
 
 		# Handle specific subsystems
 		case "$SUBSYSTEM" in
@@ -160,9 +171,18 @@ case "$ACTION" in
 					/usr/sbin/usbmuxd -U usbmux >/dev/null 2>&1 </dev/null &
 				fi
 				if [ -n "$PRODUCT" -a "$PRODUCT" = "iPhone" ]; then
-					ln -s "bus/usb/$BUS/$USB_DEV" iphone
+					# There can be only one...
+					ln -sf "bus/usb/$BUS/$USB_DEV" iphone
 					log "Running 'ipheth-pair'"
 					"$IPHETH" >/dev/null 2>&1 </dev/null &
+				fi
+				if [ -n "$SERIAL" ]; then
+					case "$SERIAL" in
+						xxxx)
+							[ -x /etc/init.d/net.iphone0 ] && \
+								/etc/init.d/net.iphone0 --quiet restart >/dev/null 2>&1 </dev/null &
+							;;
+					esac
 				fi
 			fi
 		fi
@@ -172,14 +192,20 @@ case "$ACTION" in
 
 		if [ -x "/usr/sbin/usbmuxd" ]; then
 			if [ -n "$USB_VENDOR" -a -n "$USB_PRODUCT" -a "$USB_VENDOR" = "05ac" ]; then
-				log "Detected Apple USB device..."
+				log "Apple USB device has been removed..."
+				if [ -n "$SERIAL" ]; then
+					case "$SERIAL" in
+						xxxx)
+							[ -x /etc/init.d/net.iphone0 ] && \
+								/etc/init.d/net.iphone0 --quiet stop >/dev/null 2>&1 </dev/null &
+							;;
+					esac
+				fi
 				if echo "$USB_PRODUCT" | grep -qE "^12[9a]" >/dev/null 2>&1; then
 					log "Stopping 'usbmuxd'"
 					/usr/sbin/usbmuxd -x >/dev/null 2>&1 </dev/null &
 				fi
-				if [ -n "$PRODUCT" -a "$PRODUCT" = "iPhone" ]; then
-					rm -f iphone 2>/dev/null
-				fi
+				[ -e iphone ] && rm -f iphone 2>/dev/null
 			fi
 		fi
 
