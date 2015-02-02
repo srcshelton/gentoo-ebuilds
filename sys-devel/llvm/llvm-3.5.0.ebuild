@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.5.0.ebuild,v 1.11 2015/01/01 20:53:32 maekke Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.5.0.ebuild,v 1.13 2015/01/31 19:48:12 grobian Exp $
 
 EAPI=5
 
@@ -49,7 +49,7 @@ DEPEND="${COMMON_DEPEND}
 	|| ( >=sys-devel/gcc-3.0 >=sys-devel/gcc-apple-4.2.1
 		( >=sys-freebsd/freebsd-lib-9.1-r10 sys-libs/libcxx )
 	)
-	|| ( >=sys-devel/binutils-2.18 >=sys-devel/binutils-apple-3.2.3 )
+	|| ( >=sys-devel/binutils-2.18 >=sys-devel/binutils-apple-5.1 )
 	clang? ( xml? ( virtual/pkgconfig ) )
 	doc? ( dev-python/sphinx )
 	libffi? ( virtual/pkgconfig )
@@ -446,7 +446,8 @@ multilib_src_install() {
 	if [[ ${CHOST} == *-darwin* ]] ; then
 		eval $(grep PACKAGE_VERSION= "${WORKDIR}"/${P}.src/configure)
 		[[ -n ${PACKAGE_VERSION} ]] && libpv=${PACKAGE_VERSION}
-		for lib in lib{EnhancedDisassembly,LLVM-${libpv},LTO,profile_rt,clang}.dylib LLVMHello.dylib clang/${libpv}/lib/darwin/libclang_rt.asan_osx_dynamic.dylib; do
+		libpvminor=${libpv%.[0-9]*}
+		for lib in lib{EnhancedDisassembly,LLVM-${libpv},LTO,profile_rt,clang}.dylib LLVMHello.dylib clang/${libpv}/lib/darwin/libclang_rt.asan_{osx,iossim}_dynamic.dylib; do
 			# libEnhancedDisassembly is Darwin10 only, so non-fatal
 			# + omit clang libs if not enabled
 			[[ -f ${ED}/usr/lib/${lib} ]] || continue
@@ -459,7 +460,7 @@ multilib_src_install() {
 		done
 		for f in "${ED}"/usr/bin/* "${ED}"/usr/lib/lib*.dylib "${ED}"/usr/lib/clang/${libpv}/lib/darwin/*.dylib ; do
 			# omit clang libs if not enabled
-			[[ -f ${ED}/usr/lib/${lib} ]] || continue
+			[[ -f "${f}" ]] || continue
 
 			scanmacho -BF'%n#f' "${f}" | tr ',' '\n' | \
 			while read odylib ; do
@@ -470,6 +471,9 @@ multilib_src_install() {
 						;;
 					*/libLLVM-${libpv}.dylib)
 						ndylib="${EPREFIX}"/usr/lib/libLLVM-${libpv}.dylib
+						;;
+					*/libLLVM-${libpvminor}.dylib)
+						ndylib="${EPREFIX}"/usr/lib/libLLVM-${libpvminor}.dylib
 						;;
 					*/libLTO.dylib)
 						ndylib="${EPREFIX}"/usr/lib/libLTO.dylib
