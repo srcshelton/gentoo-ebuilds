@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# NOTE: since mdev -s only provide $MDEV, don't depend on any hotplug vars.
+# NOTE: Since `mdev -s` only populates '$MDEV', don't depend on any hotplug variables.
 
 current=$(readlink usbdisk)
 
@@ -11,14 +11,15 @@ fi
 
 if [ -e /sys/block/$MDEV ]; then
 	SYSDEV=$(readlink -f /sys/block/$MDEV/device)
-	# if /sys device path contains '/usb[0-9]' then we assume its usb
-	# also, if its an usb without partitions we require FAT
+
+	# If /sys device path contains '/usb[0-9]' then we assume the new device is USB.
+	# Also, if it's a USB device without partitions then we require FAT...
 	if [ "${SYSDEV##*/usb[0-9]}" != "$SYSDEV" ]; then
-		# do not create link if there is not FAT
+		# Do not create link if there is not a FAT filesystem
 		dd if=/dev/$MDEV bs=512 count=1 2>/dev/null | strings | grep FAT >/dev/null || exit 0
 
 		ln -sf $MDEV usbdisk
-		# keep this for compat. people have it in fstab
+		# Keep this for compatability, as people may use it in /etc/fstab
 		ln -sf $MDEV usba1
 	fi
 
@@ -27,7 +28,7 @@ elif [ -e /sys/block/*/$MDEV ] ; then
 	SYSDEV=$(readlink -f $PARENT/device)
 	if [ "${SYSDEV##*/usb[0-9]}" != "$SYSDEV" ]; then
 		ln -sf $MDEV usbdisk
-		# keep this for compat. people have it in fstab
+		# Keep this for compatability, as people may use it in /etc/fstab
 		ln -sf $MDEV usba1
 	fi
 fi

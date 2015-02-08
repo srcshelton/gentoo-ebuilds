@@ -32,6 +32,7 @@ populate_mdev()
 	ebegin "Populating '/dev' with existing devices using \"mdev -s\""
 	$( find_mdev ) -s
 	rc=$?
+
 	for i in /sys/class/net/*/uevent; do
 		[ -w "$i" ] && printf 'add' >"$i"
 	done
@@ -42,6 +43,7 @@ populate_mdev()
 				;;
 		esac
 	done
+
 	eend $rc
 
 	return 0
@@ -83,7 +85,7 @@ mount_it()
 	if fstabinfo --quiet /dev ; then
 		mount -n /dev
 	else
-		# Some devices require exec, Bug #92921
+		# Some devices require 'exec', Bug #92921
 		mount -n -t tmpfs -o "exec,nosuid,mode=0755,size=2M" mdev /dev
 	fi
 }
@@ -91,7 +93,7 @@ mount_it()
 start()
 {
 	# Setup temporary storage for /dev
-	if [ -r /proc/mounts ] && ! grep -q "devtmpfs /dev devtmpfs" /proc/mounts; then
+	if [ -r /proc/mounts ] && ! grep -Eq "^[^ ]+ /dev (dev)?tmpfs" /proc/mounts; then
 		ebegin "Mounting /dev for mdev"
 		mount_it
 		eend $?
