@@ -16,8 +16,8 @@ cat > ${EPREFIX}/etc/portage/env/debug <<EOF
 #CXX="/opt/gentoo/usr/bin/clang++"
 
 CFLAGS="-arch x86_64 -march=x86-64"
-#CFLAGS="${CFLAGS} -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}"
 CFLAGS="${CFLAGS} -fcolor-diagnostics -ftrapv -O0 -g -pipe"
+CFLAGS="${CFLAGS} -Wno-implicit-function-declaration"
 
 CXXFLAGS="${CFLAGS}"
 #CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
@@ -32,9 +32,7 @@ MAKEOPTS="-j1"
 EOF
 
 cat >> ${EPREFIX}/etc/portage/package.env <<EOF
-~dev-lang/perl-5.18.2  debug
-~dev-lang/python-2.7.5 debug
-~dev-libs/icu-51.2     debug
+~sys-devel/binutils-apple-6.1 debug
 EOF
 ```
 
@@ -66,6 +64,8 @@ EOF
     * Allow CVS to build and tests to run on Darwin
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
+* sys-apps/baselayout-prefix
+    * Add missing `run_applets` prototype
 * sys-devel/binutils-apple
     * Build to current Mac OS version and fix missing Libc header
 * sys-devel/gdb
