@@ -62,6 +62,8 @@ EOF
     * Fix for 'double prefix' QA error introduced in 1.1.28-r2
 * dev-libs/udis86
     * Add `${EPREFIX}` to `docdir` configure option
+* dev-vcs/cvs
+    * Allow CVS to build and tests to run on Darwin
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * sys-devel/binutils-apple
