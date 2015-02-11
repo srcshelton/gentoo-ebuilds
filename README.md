@@ -42,6 +42,8 @@ EOF
 
 * app-arch/unzip
     * Remove `cc` hard-coding
+* app-crypt/pinentry
+    * Add `-Wno-implicit-function-declaration` to work around ncurses-related failures, if supported by the compiler
 * app-shells/bash
     * Include `<signal.h>` in relevant places to avoid `-Wimplicit-function-declaration` errors
 * dev-lang/python
