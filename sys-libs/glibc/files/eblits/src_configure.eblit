@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/files/eblits/src_configure.eblit,v 1.2 2014/09/18 16:48:15 vapier Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/files/eblits/src_configure.eblit,v 1.5 2015/02/09 16:14:04 vapier Exp $
 
 dump_toolchain_settings() {
 	echo
@@ -101,6 +101,7 @@ glibc_do_configure() {
 
 	myconf+=(
 		--without-cvs
+		--disable-werror
 		--enable-bind-now
 		--build=${CBUILD_OPT:-${CBUILD}}
 		--host=${CTARGET_OPT:-${CTARGET}}
@@ -208,14 +209,12 @@ toolchain-glibc_headers_configure() {
 		export ${v}
 	done
 
-	# Pick out the correct location for build headers
-	local ports="" myconf=()
-	[[ -d ${S}/ports ]] && ports=",ports"
+	local myconf=()
 	myconf+=(
 		--disable-sanity-checks
 		--enable-hacker-mode
-		--enable-add-ons=nptl${ports}
 		--without-cvs
+		--disable-werror
 		--enable-bind-now
 		--build=${CBUILD_OPT:-${CBUILD}}
 		--host=${CTARGET_OPT:-${CTARGET}}
@@ -224,9 +223,16 @@ toolchain-glibc_headers_configure() {
 		${EXTRA_ECONF}
 	)
 
+	local addons
+	[[ -d ${S}/ports ]] && addons+=",ports"
+	# Newer versions require nptl, so there is no addon for it.
+	version_is_at_least 2.20 || addons+=",nptl"
+	myconf+=( --enable-add-ons="${addons#,}" )
+
 	# Nothing is compiled here which would affect the headers for the target.
 	# So forcing CC/CFLAGS is sane.
 	set -- "${S}"/configure "${myconf[@]}"
+	echo "$@"
 	CC="$(tc-getBUILD_CC)" \
 	CFLAGS="-O1 -pipe" \
 	CPPFLAGS="-U_FORTIFY_SOURCE" \
@@ -235,8 +241,12 @@ toolchain-glibc_headers_configure() {
 }
 
 toolchain-glibc_src_configure() {
-	want_linuxthreads && glibc_do_configure linuxthreads
-	want_nptl && glibc_do_configure nptl
+	if just_headers ; then
+		toolchain-glibc_headers_configure
+	else
+		want_linuxthreads && glibc_do_configure linuxthreads
+		want_nptl && glibc_do_configure nptl
+	fi
 }
 
 eblit-glibc-src_configure() {
