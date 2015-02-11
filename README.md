@@ -42,6 +42,8 @@ EOF
 
 * app-arch/unzip
     * Remove `cc` hard-coding
+* app-shells/bash
+    * Include `<signal.h>` in relevant places to avoid `-Wimplicit-function-declaration` errors
 * dev-lang/python
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
 * dev-libs/apr
