@@ -66,6 +66,8 @@ EOF
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * sys-apps/baselayout-prefix
     * Add missing `run_applets` prototype
+* sys-apps/darwin-miscutils
+    * Add missing `md.c` prototypes and `#include`s
 * sys-devel/binutils-apple
     * Build to current Mac OS version and fix missing Libc header
 * sys-devel/gdb
