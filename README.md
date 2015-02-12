@@ -68,6 +68,8 @@ EOF
     * Add missing `run_applets` prototype
 * sys-apps/darwin-miscutils
     * Add missing `md.c` prototypes and `#include`s
+* sys-apps/texinfo
+    * Add missing `#include`
 * sys-devel/binutils-apple
     * Build to current Mac OS version and fix missing Libc header
 * sys-devel/gdb
