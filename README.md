@@ -246,6 +246,8 @@ SYMLINK_LIB="yes"
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
     * Avoid inline assembly with x32 ABI
+* media-libs/graphviz
+    * Ensure that correct lib directory is searched
 * net-analyzer/arp-sk
     * Look for libnet in the appropriate "libdir" rather than `lib`
 * net-dns/bind-tools
