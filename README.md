@@ -208,6 +208,7 @@ EOF
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
+* net-misc/rsyncd
 * net-p2p/bitcoind
 * sys-apps/kmod
 * sys-apps/lm_sensors
