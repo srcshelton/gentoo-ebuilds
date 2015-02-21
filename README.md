@@ -183,6 +183,8 @@ EOF
     * Prevent GCC infinite loop, rather than simply warning about it
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
+* sys-apps/usbutils
+    * Revert changes which make usbutils dependent on udev
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
