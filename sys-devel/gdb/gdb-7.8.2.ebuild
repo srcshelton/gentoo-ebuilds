@@ -85,11 +85,11 @@ pkg_setup() {
 src_prepare() {
 	[[ -n ${RPM} ]] && rpm_spec_epatch "${WORKDIR}"/gdb.spec
 	! use vanilla && [[ -n ${PATCH_VER} ]] && EPATCH_SUFFIX="patch" epatch "${WORKDIR}"/patch
-	use clang && epatch "${FILESDIR}"/"${P}"-clang.patch
+	use clang && epatch "${FILESDIR}"/"${PN}"-7.8.1-clang.patch
 	case ${CHOST} in
 		*-darwin*)
-			epatch "${FILESDIR}"/"${P}"-darwin_14.patch
-			epatch "${FILESDIR}"/"${P}"-python.patch
+			epatch "${FILESDIR}"/"${PN}"-7.8.1-darwin_14.patch
+			epatch "${FILESDIR}"/"${PN}"-7.8.1-python.patch
 			;;
 	esac
 	epatch_user
