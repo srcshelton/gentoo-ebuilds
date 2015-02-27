@@ -3,7 +3,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Fixes for compiling prefix packages under Mac OS using LLVM/clang
 
-Some packages will fail with `illegal instruction: 4` if compiled with compiler-optimisations enabled.  To work around this on a per-package basis:
+Some packages will fail with `illegal instruction: 4` if compiled with certain compiler-optimisations enabled.  Indeed, the `-ftrapv` flag will cause `clang` to intenionally insert `ud2` (Undefined Instruction) op-codes where integer overflows could occur, and this catches-out a significant number of packages, causing them to crash with `SIGILL` - illegal instruction.  To work around this on a per-package basis where `-ftrapv` has not been used during compilation, perform the following steps:
 
 ```
 mkdir ${EPREFIX}/etc/portage/env
@@ -12,11 +12,11 @@ cat > ${EPREFIX}/etc/portage/env/debug <<EOF
 
 # Assuming that clang is now default...
 
-#CC="/opt/gentoo/usr/bin/clang"
-#CXX="/opt/gentoo/usr/bin/clang++"
+#CC="${EPREFIX}/usr/bin/clang"
+#CXX="${EPREFIX}/usr/bin/clang++"
 
 CFLAGS="-arch x86_64 -march=x86-64"
-CFLAGS="${CFLAGS} -fcolor-diagnostics -ftrapv -O0 -g -pipe"
+CFLAGS="${CFLAGS} -fcolor-diagnostics -O0 -g -pipe"
 CFLAGS="${CFLAGS} -Wno-implicit-function-declaration"
 
 CXXFLAGS="${CFLAGS}"
@@ -37,6 +37,19 @@ EOF
 ```
 
 ... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/debug`.
+
+A similar configuration file could be added for all packages which fail to compile with clang and require gcc.  An (unfortunately incomplete) list of these packages consists of:
+
+```
+~dev-vcs/subversion-1.7.19
+~sys-devel/binutils-config-3-r03.1
+~sys-devel/gcc-apple-4.2.1_p5666
+~sys-libs/db-5.2.42
+```
+
+(subversion presents an issue - it cannot be compiled with clang, but if `USE="perl"` then the same compiler must be used to build subversion as was used to build perl)
+
+... with a slightly larger set of builds failing if `FEATURES="strict"` or `FEATURES="stricter"`, or if `MAKEOPTS` is not set to "`-j1`".
 
 * app-arch/unzip
     * Remove `cc` hard-coding
