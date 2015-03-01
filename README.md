@@ -5,6 +5,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 * dev-python/raspberrypi-gpio
     * RPi.GPIO ebuild
+* sys-boot/raspberrypi-mkimage
+    * Add latest signing tools to enable Device Tree support in self-built kernels
 * www-apps/rpi-monitor
     * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 
