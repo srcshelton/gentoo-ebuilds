@@ -1,6 +1,13 @@
 
 Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree packages and miscellaneous fixes.
 
+# Raspberry Pi tools and utilities
+
+* dev-python/raspberrypi-gpio
+    * RPi.GPIO ebuild
+* www-apps/rpi-monitor
+    * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
+
 # Fixes for compiling prefix packages under Mac OS using LLVM/clang
 
 Some packages will fail with `illegal instruction: 4` if compiled with certain compiler-optimisations enabled.  Indeed, the `-ftrapv` flag will cause `clang` to intenionally insert `ud2` (Undefined Instruction) op-codes where integer overflows could occur, and this catches-out a significant number of packages, causing them to crash with `SIGILL` - illegal instruction.  To work around this on a per-package basis where `-ftrapv` has not been used during compilation, perform the following steps:
@@ -163,8 +170,6 @@ A similar configuration file could be added for all packages which fail to compi
     * Nabaztag Lives server software, re-factored into a webapp
 * www-apps/opennab
     * OpenNAB Nabaztag server software
-* www-apps/rpi-monitor
-    * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
 * www-misc/observium
