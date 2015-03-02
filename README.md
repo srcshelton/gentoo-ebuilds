@@ -133,6 +133,7 @@ A similar configuration file could be added for all packages which fail to compi
 
 # Out-of-tree ebuilds
 
+* dev-perl/CPANPLUS
 * dev-perl/Email-Outlook-Message
 * dev-perl/Locale-Hebrew
 * dev-perl/IO-Interface
