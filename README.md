@@ -271,6 +271,8 @@ SYMLINK_LIB="yes"
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
     * Avoid inline assembly with x32 ABI
+* media-libs/flac
+    * Avoid link failures due to 32 bit downgrade with x32 ABI
 * media-libs/graphviz
     * Ensure that correct lib directory is searched
 * net-analyzer/arp-sk
