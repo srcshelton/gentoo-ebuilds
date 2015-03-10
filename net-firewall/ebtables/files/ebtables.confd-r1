@@ -1,0 +1,18 @@
+# /etc/conf.d/ebtables
+
+# Location in which ebtables initscript will save set rules on 
+# service shutdown
+EBTABLES_SAVE="/var/lib/ebtables/rules-save"
+
+# Options to pass to ebtables-save and ebtables-restore
+#
+
+# Alow save traffic counters along with rules?
+EBTABLES_SAVE_COUNTER="yes"
+
+# Setting 'noflush' prevents former chain contents from being
+# removed prior to rule re-loading
+#EBTABLES_RESTORE_OPTIONS="--noflush"
+
+# Save state on stopping ebtables
+SAVE_ON_STOP="yes"

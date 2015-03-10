@@ -105,7 +105,7 @@ A similar configuration file could be added for all packages which fail to compi
 * sys-libs/readline
     * Ensure that `<sys/ioctl.h>` header is included on Darwin
 
-# iOS7-compatible ebuilds
+# iOS7 and iOS 8 -compatible ebuilds
 
 * app-pda/ipheth-pair
     * Tether an Apple iOS device to provide a network-link
@@ -199,6 +199,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Re-factor munin to operate as a webapp, and remove configuration from `/etc`
 * net-dialup/ppp
     * Incorporate patches to allow interface discovery (rather than assuming the `eth0` is the primary interface -the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU
+* net-firewall/ebtables
+    * Update to latest git commit, which adds compatibility kernel headers more recent than v3.16
 * net-libs/neon
     * Patch trivial typo which prevents `writev` from being defined
 * net-misc/tor
