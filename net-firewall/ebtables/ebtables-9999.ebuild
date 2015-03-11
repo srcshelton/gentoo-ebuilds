@@ -27,6 +27,9 @@ src_prepare() {
 	# Enhance ebtables-save to take table names as parameters bug #189315
 	epatch "${FILESDIR}/${PN}-2.0.8.1-ebt-save.diff"
 
+	# Allow multi-line MAC/IP files for --among-src-file and --among-dst-file
+	epatch "${FILESDIR}/${PN}-2.0.10.4-ebt_among.c.patch"
+
 	sed -i -e "s,^MANDIR:=.*,MANDIR:=/usr/share/man," \
 		-e "s,^BINDIR:=.*,BINDIR:=/sbin," \
 		-e "s,^INITDIR:=.*,INITDIR:=/usr/share/doc/${PF}," \
