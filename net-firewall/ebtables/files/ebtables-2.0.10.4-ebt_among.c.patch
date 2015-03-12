@@ -1,6 +1,6 @@
---- extensions/ebt_among.c.dist	2015-03-10 23:54:32.224146486 +0000
-+++ extensions/ebt_among.c	2015-03-10 23:59:00.200050809 +0000
-@@ -197,7 +197,7 @@
+--- extensions/ebt_among.c.dist	2015-03-11 22:04:19.512855582 +0000
++++ extensions/ebt_among.c	2015-03-11 22:07:15.814269639 +0000
+@@ -197,7 +197,7 @@ static struct ebt_mac_wormhash *create_w
  
  		/* collect MAC; all its bytes are followed by ':' (colon),
  		 * except for the last one which can be followed by 
@@ -9,7 +9,7 @@
  		for (i = 0; i < 5; i++) {
  			if (read_until(&pc, ":", token, 2) < 0
  			    || token[0] == 0) {
-@@ -213,7 +213,7 @@
+@@ -213,7 +213,7 @@ static struct ebt_mac_wormhash *create_w
  			}
  			pc++;
  		}
@@ -18,7 +18,7 @@
  			ebt_print_error("MAC parse error: %.20s", anchor);
  			return NULL;
  		}
-@@ -238,7 +238,7 @@
+@@ -238,7 +238,7 @@ static struct ebt_mac_wormhash *create_w
  				}
  				pc++;
  			}
@@ -27,7 +27,7 @@
  				ebt_print_error("IP parse error: %.20s", anchor);
  				return NULL;
  			}
-@@ -279,14 +279,14 @@
+@@ -279,14 +279,14 @@ static struct ebt_mac_wormhash *create_w
  		/* now `pc' points to comma if we are here; */
  		/* increment this to the next char */
  		/* but first assert :-> */
@@ -45,7 +45,7 @@
  		if (!*pc) {
  			break;
  		}
-@@ -345,8 +345,6 @@
+@@ -345,8 +345,6 @@ static int parse(int c, char **argv, int
  				ebt_print_error("Couldn't map file to memory");
  			if (optarg[flen-1] != '\n')
  				ebt_print_error("File should end with a newline");
@@ -54,3 +54,14 @@
  			optarg[flen-1] = '\0';
  			if (ebt_errormsg[0] != '\0') {
  				munmap(argv, flen);
+@@ -424,7 +422,9 @@ static void wormhash_printout(const stru
+ 			ip = (unsigned char *) &p->ip;
+ 			printf("=%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+ 		}
+-		printf(",");
++		if (i < (wh->poolsize - 1)) {
++			printf(",");
++		}
+ 	}
+ 	printf(" ");
+ }

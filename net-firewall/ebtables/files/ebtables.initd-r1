@@ -25,14 +25,15 @@ ebtables_tables() {
 set_table_policy() {
 	local chains table=$1 policy=$2
 	case ${table} in
-		nat)    chains="PREROUTING POSTROUTING OUTPUT";;
+		nat)    chains="PREROUTING PREFORWARDING POSTROUTING POSTFORWARDING OUTPUT";;
 		broute) chains="BROUTING";;
 		filter) chains="INPUT FORWARD OUTPUT";;
 		*)      chains="";;
 	esac
 	local chain
 	for chain in ${chains} ; do
-		${ebtables_bin} -t ${table} -P ${chain} ${policy}
+		${ebtables_bin} -t ${table} -L ${chain} >/dev/null 2>&1 && \
+			${ebtables_bin} -t ${table} -P ${chain} ${policy}
 	done
 }
 

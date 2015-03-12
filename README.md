@@ -201,7 +201,10 @@ A similar configuration file could be added for all packages which fail to compi
     * Incorporate patches to allow interface discovery (rather than assuming the `eth0` is the primary interface -the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU
 * net-firewall/ebtables
     * Update to latest git commit, which adds compatibility kernel headers more recent than v3.16
-    * Allow --among-src-file and --among-dst-file options to accept files containing multiple lines, for ease of maintenance
+    * Allow `--among-src-file` and `--among-dst-file` options to accept files containing multiple lines, for ease of maintenance
+    * Fix some crazy inconsistencies in output which were breaking `ebtables-save` and `ebtables-restore`
+    * Set appropriate maximum buffer sizes to prevent `ebtables-restore` from segfaulting when loading more than 2kbytes of data from a single statement
+    * Add Debian patch to correct the use of `RETURN` as a module target
 * net-libs/neon
     * Patch trivial typo which prevents `writev` from being defined
 * net-misc/tor

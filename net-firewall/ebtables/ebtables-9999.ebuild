@@ -29,6 +29,10 @@ src_prepare() {
 
 	# Allow multi-line MAC/IP files for --among-src-file and --among-dst-file
 	epatch "${FILESDIR}/${PN}-2.0.10.4-ebt_among.c.patch"
+	# Fix ebtables output with custom chains, to fix ebtables-{save,restore}
+	epatch "${FILESDIR}/${PN}-2.0.10.4-ebt_standard.c.patch"
+	# Allow the use of '--*-target RETURN' after invoking a module with '-j'
+	epatch "${FILESDIR}/${PN}-2.0.10.4-libebtc.c.patch"
 
 	sed -i -e "s,^MANDIR:=.*,MANDIR:=/usr/share/man," \
 		-e "s,^BINDIR:=.*,BINDIR:=/sbin," \
@@ -48,6 +52,8 @@ src_compile() {
 	emake \
 		CC="$(tc-getCC)" \
 		CFLAGS="${CFLAGS}" \
+		EBTD_ARGC_MAX=2048 \
+		EBTD_CMDLINE_MAXLN=131072 \
 		$(use static && echo static)
 }
 
