@@ -211,8 +211,9 @@ A similar configuration file could be added for all packages which fail to compi
     * Prevent GCC infinite loop, rather than simply warning about it
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
-* sys-apps/gentoo-functions
-    * Deploy files to the correct locations on prefix installations
+* ~~sys-apps/gentoo-functions~~
+    * ~~Deploy files to the correct locations on prefix installations~~
+    * Fixed in sys-apps/gentoo-functions/sys-apps/gentoo-functions-0.9 v1.2
 * sys-apps/usbutils
     * Revert changes which make usbutils dependent on udev
 * sys-power/apcupsd
