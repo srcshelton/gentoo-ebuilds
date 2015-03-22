@@ -1,22 +1,23 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/media-sound/teamspeak-server-bin/teamspeak-server-bin-3.0.10.3.ebuild,v 1.1 2014/01/27 16:05:54 tomwij Exp $
+# $Header: /var/cvsroot/gentoo-x86/media-sound/teamspeak-server-bin/teamspeak-server-bin-3.0.10.3.ebuild,v 1.2 2015/03/21 21:17:13 jlec Exp $
 
 EAPI="5"
 
 inherit eutils systemd user
 
-DESCRIPTION="TeamSpeak Server - Voice Communication Software"
+DESCRIPTION="TeamSpeak Voice Communication Server"
 HOMEPAGE="http://www.teamspeak.com/"
-LICENSE="teamspeak3 GPL-2"
+SRC_URI="
+	amd64? ( http://files.teamspeak-services.com/releases/${PV}/teamspeak3-server_linux-amd64-${PV}.tar.gz )
+	x86? ( http://files.teamspeak-services.com/releases/${PV}/teamspeak3-server_linux-x86-${PV}.tar.gz )"
 
 SLOT="0"
+LICENSE="teamspeak3 GPL-2"
 IUSE="doc pdf systemd tsdns"
 KEYWORDS="~amd64 ~x86"
-RESTRICT="installsources mirror strip"
 
-SRC_URI="amd64? ( http://files.teamspeak-services.com/releases/${PV}/teamspeak3-server_linux-amd64-${PV}.tar.gz )
-	x86? ( http://files.teamspeak-services.com/releases/${PV}/teamspeak3-server_linux-x86-${PV}.tar.gz )"
+RESTRICT="installsources mirror strip"
 
 S="${WORKDIR}/teamspeak3-server_linux-${ARCH}"
 
@@ -64,7 +65,7 @@ src_install() {
 	insinto /etc/teamspeak3
 	doins "${FILESDIR}/server.conf"
 	doins "${FILESDIR}/ts3db_mysql.ini"
-	newinitd "${FILESDIR}/${PN}-3.0.7.1.rc" teamspeak3
+	newinitd "${FILESDIR}/${PN}-3.0.7.2.rc" teamspeak3
 
 	if use systemd; then
 		systemd_dounit "${FILESDIR}/systemd/teamspeak3.service"
