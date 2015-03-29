@@ -1,0 +1,19 @@
+ plugins/ppp_unix.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/ppp_unix.c b/plugins/ppp_unix.c
+index 869066f..6e1b60b 100644
+--- a/plugins/ppp_unix.c
++++ b/plugins/ppp_unix.c
+@@ -892,11 +892,9 @@ static int ppp_unix_pppd_spawn(struct ppp_context *ppp)
+ 
+ 		argv[arg++] = "plugin";
+ 		argv[arg++] = "pppol2tp.so";
+-#ifdef L2TP_FEATURE_RPC_MANAGEMENT
+ 		/* This plugin requires pppol2tp.so to be loaded first */
+ 		argv[arg++] = "plugin";
+ 		argv[arg++] = "openl2tp.so";
+-#endif
+ 
+ 		if (!ppp_unix_use_dummy_pppd()) {
+ 			int flags;
