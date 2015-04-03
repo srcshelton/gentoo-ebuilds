@@ -209,6 +209,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Patch trivial typo which prevents `writev` from being defined
 * net-misc/tor
     * Prevent GCC infinite loop, rather than simply warning about it
+* net-misc/usbip
+    * Prevent build failure due to harmless warning
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * ~~sys-apps/gentoo-functions~~
