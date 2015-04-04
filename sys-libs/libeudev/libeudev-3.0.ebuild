@@ -142,6 +142,17 @@ multilib_src_install_all() {
 	# drop distributed hwdb files, they override sys-apps/hwids
 	rm -f "${ED}"/etc/udev/hwdb.d/*.hwdb
 
+	# We can't re-generate an hwdb.bin files from hwdb.d or sys-apps/hwids if
+	# we're only installing libudev, so we have to ship a binary blob :(
+	#
+	# This is required for, at least, sys-apps/usbutils.  Without further
+	# configuration, the only directory examined for this file is /etc/udev,
+	# rather than any lib/udev directories.
+	#
+	# This one is from ubuntu-14.04.2-LTS...
+	insinto /etc/udev
+	doins "${FILESDIR}"/hwdb.bin
+
 	if use doc; then
 		insinto /usr/share/doc/${PF}/html/libudev
 		doins "${S}"/docs/libudev/html/*
