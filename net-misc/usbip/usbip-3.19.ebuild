@@ -14,7 +14,7 @@ SRC_URI="${KERNEL_URI}"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~x86"
-IUSE="static-libs tcpd"
+IUSE="doc static-libs tcpd"
 RESTRICT=""
 
 RDEPEND=">=dev-libs/glib-2.6
@@ -25,7 +25,10 @@ RDEPEND=">=dev-libs/glib-2.6
 DEPEND="${RDEPEND}
 	virtual/pkgconfig"
 
-DOCS="AUTHORS README ../../../drivers/usb/usbip/usbip_protocol.txt"
+DOCS="README"
+if use doc; then
+	DOCS+=" ../../../drivers/usb/usbip/usbip_protocol.txt"
+fi
 
 S=${WORKDIR}/linux-${PV}/tools/usb/${PN}
 
@@ -51,6 +54,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	elog "For using USB/IP you need to enable USB_IP_VHCI_HCD in the client"
-	elog "machine's kernel config and USB_IP_HOST on the server."
+	elog "In order to use USB/IP you must enable USBIP_VHCI_HCD in the client"
+	elog "machine's kernel config, and USBIP_HOST on the server where the device(s)"
+	elog "to share are attached."
 }
