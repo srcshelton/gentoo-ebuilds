@@ -10,3 +10,8 @@ SCHEDULER="cfq"
 # Enable NCQ on RAID storage devices?
 ENABLENCQ="YES"
 
+# Most configuration happens in /etc/mdadm.conf.
+
+# Pass additional options when assembling raids.
+# Note: This applies to all raids.
+MDADM_ASSEMBLE_OPTS=""
