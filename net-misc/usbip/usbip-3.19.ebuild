@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/usbip/usbip-3.19.ebuild,v 1.1 2015/03/17 15:49:16 chithanh Exp $
+# $Header: /var/cvsroot/gentoo-x86/net-misc/usbip/usbip-3.19.ebuild,v 1.2 2015/04/08 10:08:46 chithanh Exp $
 
 EAPI=5
 ETYPE="sources"
@@ -34,6 +34,7 @@ S=${WORKDIR}/linux-${PV}/tools/usb/${PN}
 
 src_prepare() {
 	# AC_SUBST([EXTRA_CFLAGS], ["-Wall -Werror -Wextra -std=gnu99"])
+	# Bug #545398
 	sed -i \
 		-e '/EXTRA_CFLAGS/s|\["-Wall -Werror -Wextra -std=gnu99"\]|["-std=gnu99"]|' \
 		configure.ac || die "sed failed"
