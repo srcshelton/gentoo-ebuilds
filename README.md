@@ -227,6 +227,7 @@ A similar configuration file could be added for all packages which fail to compi
 (... rather than /var/run)
 
 * app-admin/eselect-php
+* app-admin/syslog-ng
 * app-admin/ulogd
 * app-misc/screen
 * dev-libs/cyrus-sasl
