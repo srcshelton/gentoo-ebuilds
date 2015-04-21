@@ -1,4 +1,4 @@
-# Copyright 1999-2013 Gentoo Foundation
+# Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="5"
@@ -13,14 +13,13 @@ inherit autotools eutils git-r3 multilib systemd toolchain-funcs
 # ... and no longer has its own branch...
 #BRANCH="nft-compat"
 REPO="iptables"
-BRANCH="master"
-COMMIT="03091e55a0d949e35a723dadbd6fd0f78ddf3a8c"
+BRANCH="master" # ipset # xlate2
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools, with nftables compatibility"
 HOMEPAGE="http://www.netfilter.org/projects/nftables/"
 EGIT_REPO_URI="git://git.netfilter.org/${REPO}.git"
-#EGIT_BRANCH="${BRANCH}"
-EGIT_COMMIT="${COMMIT}"
+EGIT_BRANCH="${BRANCH}"
+#EGIT_COMMIT="${COMMIT}"
 
 LICENSE="GPL-2"
 SLOT="0"
