@@ -35,7 +35,7 @@ set_table_policy() {
 	esac
 	local chain
 	for chain in ${chains} ; do
-		${iptables_bin} -t ${table} -P ${chain} ${policy}
+		${iptables_bin} -w -t ${table} -P ${chain} ${policy}
 	done
 }
 
@@ -58,6 +58,11 @@ checkconfig() {
 
 start() {
 	checkconfig || return 1
+	if [[ -x /sbin/setsystz ]] && grep -i " time " "${iptables_save}" >/dev/null 2>&1; then
+		ebegin "Setting kernel timezone (for -m TIME rules)"
+		/sbin/setsystz
+		eend $? "setsystz failed"
+	fi
 	ebegin "Loading ${iptables_name} state and starting firewall"
 	${iptables_bin}-restore ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
 	eend $?
@@ -73,8 +78,8 @@ stop() {
 	for a in $(cat ${iptables_proc}) ; do
 		set_table_policy $a ACCEPT
 
-		${iptables_bin} -F -t $a
-		${iptables_bin} -X -t $a
+		${iptables_bin} -w -F -t $a
+		${iptables_bin} -w -X -t $a
 	done
 	eend $?
 }
@@ -85,8 +90,8 @@ reload() {
 	ebegin "Flushing firewall"
 	local a
 	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} -F -t $a
-		${iptables_bin} -X -t $a
+		${iptables_bin} -w -F -t $a
+		${iptables_bin} -w -X -t $a
 	done
 	eend $?
 
@@ -121,8 +126,8 @@ panic() {
 	local a
 	ebegin "Dropping all packets"
 	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} -F -t $a
-		${iptables_bin} -X -t $a
+		${iptables_bin} -w -F -t $a
+		${iptables_bin} -w -X -t $a
 
 		set_table_policy $a DROP
 	done
