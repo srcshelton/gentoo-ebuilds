@@ -1,15 +1,25 @@
 #!/sbin/runscript
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-emulation/lxc/files/lxc.initd.3,v 1.1 2014/10/18 17:00:37 hwoarang Exp $
+# $Header: /var/cvsroot/gentoo-x86/app-emulation/lxc/files/lxc.initd.3,v 1.2 2015/04/23 16:31:44 hwoarang Exp $
 
 CONTAINER=${SVCNAME#*.}
 
 lxc_get_configfile() {
-	if [ -f "/etc/lxc/${CONTAINER}.conf" ]; then
-		echo "/etc/lxc/${CONTAINER}.conf"
-	elif [ -f "/etc/lxc/${CONTAINER}/config" ]; then
-		echo "/etc/lxc/${CONTAINER}/config"
+	LXC_PATH="$( readlink -e "/var/lib" )"
+	if [ -d "/etc/lxc" ] && [ -f "/etc/lxc/${CONTAINER}.conf" -o -f "/etc/lxc/${CONTAINER}/config" ]; then
+		ewarn "Legacy LXC configuration directory '/etc/lxc' found - please migrate your"
+		ewarn "configuration files to '${LXC_PATH}'"
+		LXC_PATH="/etc/lxc"
+	elif [ -d "${LXC_PATH}/lxc" ] && [ -f "${LXC_PATH}/lxc/${CONTAINER}.conf" -o -f "${LXC_PATH}/lxc/${CONTAINER}/config" ]; then
+		LXC_PATH="${LXC_PATH}/lxc"
+		einfo "Using '${LXC_PATH}' as LXC configuration directory"
+	fi
+
+	if [ -f "${LXC_PATH}/${CONTAINER}.conf" ]; then
+		echo "${LXC_PATH}/${CONTAINER}.conf"
+	elif [ -f "${LXC_PATH}/${CONTAINER}/config" ]; then
+		echo "${LXC_PATH}/${CONTAINER}/config"
 	else
 		eerror "Unable to find a suitable configuration file."
 		eerror "If you set up the container in a non-standard"
