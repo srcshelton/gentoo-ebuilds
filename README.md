@@ -223,8 +223,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
     * Provide more flexibility with finer-grained USE flags
 
-# Fixes for ebuilds using /run
-(... rather than /var/run)
+# Fixes for ebuilds using `/run`
+(... rather than `/var/run`)
 
 * app-admin/eselect-php
 * app-admin/syslog-ng
@@ -252,6 +252,12 @@ A similar configuration file could be added for all packages which fail to compi
 * sys-libs/pam
 * sys-power/acpid
 * www-servers/lighttpd
+
+# Fixes to allow `/var/state` to be used in place of `/var/lib`
+
+* dev-lang/php
+* dev-php/PEAR-PEAR
+* media-libs/libpvx
 
 # Fixes for MIPS n32 and x86_64 x32 ABIs
 
