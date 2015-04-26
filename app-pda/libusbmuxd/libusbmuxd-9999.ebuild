@@ -4,7 +4,7 @@
 
 EAPI=4
 EGIT_MASTER="master"
-inherit autotools git-2
+inherit autotools eutils git-2
 
 DESCRIPTION="USB multiplex daemon for use with Apple iPhone/iPod Touch devices"
 HOMEPAGE="http://www.libimobiledevice.org/"
