@@ -12,7 +12,7 @@ EGIT_REPO_URI="https://github.com/libimobiledevice/usbmuxd.git"
 LICENSE="GPL-2 GPL-3"
 SLOT="0"
 KEYWORDS="amd64 ~arm ~ppc ~ppc64 x86"
-IUSE="udev +worker"
+IUSE="udev +worker systemd"
 
 RDEPEND=">=app-pda/libplist-1.9
 	virtual/libusb:1"
@@ -35,6 +35,7 @@ src_prepare() {
 src_configure() {
 	local myconf
 	use worker || myconf='--without-preflight'
+	use systemd || myconf='--without-systemd'
 
 	econf ${myconf}
 }
