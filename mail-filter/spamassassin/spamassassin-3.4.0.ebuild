@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/mail-filter/spamassassin/spamassassin-3.4.0.ebuild,v 1.18 2015/04/19 09:52:42 pacho Exp $
+# $Header: /var/cvsroot/gentoo-x86/mail-filter/spamassassin/spamassassin-3.4.0.ebuild,v 1.19 2015/04/26 17:16:26 pacho Exp $
 
 EAPI=5
 
@@ -14,7 +14,7 @@ SRC_URI="mirror://apache/spamassassin/source/${MY_P}.tar.bz2"
 
 LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ~ia64 ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~x86-macos"
+KEYWORDS="alpha amd64 arm hppa ~ia64 ppc ~ppc64 ~s390 ~sh ~sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~x86-macos"
 IUSE="+berkdb doc ipv6 ldap mysql postgres qmail sqlite ssl systemd"
 
 REQUIRED_USE="|| ( berkdb mysql postgres sqlite )"
@@ -208,7 +208,7 @@ pkg_postinst() {
 	ewarn "You will need to immediately run sa-update, or download"
 	ewarn "the additional rules .tgz package and run sa-update --install"
 	ewarn "with it, to get a ruleset.\n"
-	elog "If you run sa-update and receive a GPG validation error."
+	elog "If you run sa-update and receive a GPG validation error"
 	elog "then you need to import an updated sa-update key."
 	elog "sa-update --import /usr/share/spamassassin/sa-update-pubkey.txt\n"
 }
