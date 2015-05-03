@@ -1,6 +1,5 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: $
 
 EAPI=5
 
@@ -88,6 +87,9 @@ src_prepare() {
 
 	mv www/*.jpg www/images/
 	mv db/rabbit_pi.sql db/initial.sql
+
+	epatch "${FILESDIR}/${P}-api.patch" || die "Patch failed"
+	epatch "${FILESDIR}/${P}-mysql-debug.patch" || die "Patch failed"
 }
 
 src_install() {
@@ -95,7 +97,7 @@ src_install() {
 
 	use doc && dohtml -r docs/*
 
-	einfo "Installation of large numbers of files can be slow - please wait ..."
+	ewarn "Installation of large numbers of files can be slow - please wait ..."
 	insinto "${MY_HTDOCSDIR}"
 	doins -r www/*
 	dodir "${MY_HTDOCSDIR}"/db

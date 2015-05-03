@@ -1,6 +1,5 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: $
 
 EAPI=5
 
@@ -88,6 +87,9 @@ src_prepare() {
 
 	mv www/*.jpg www/images/
 	mv db/rabbit_pi.sql db/initial.sql
+
+	epatch "${FILESDIR}/${PN}-2.01-api.patch" || die "Patch failed"
+	epatch "${FILESDIR}/${PN}-2.00.patch" || die "Patch failed"
 }
 
 src_install() {
@@ -95,7 +97,7 @@ src_install() {
 
 	use doc && dohtml -r docs/*
 
-	einfo "Installation of large numbers of files can be slow - please wait ..."
+	ewarn "Installation of large numbers of files can be slow - please wait ..."
 	insinto "${MY_HTDOCSDIR}"
 	doins -r www/*
 	dodir "${MY_HTDOCSDIR}"/db
@@ -113,7 +115,7 @@ src_install() {
 	webapp_configfile  "${MY_HTDOCSDIR}"/config/db.php
 	webapp_configfile  "${MY_HTDOCSDIR}"/locate.jsp
 
-	webapp_postinst_txt en "${FILESDIR}"/postinstall-en-0.6.txt
+	webapp_postinst_txt en "${FILESDIR}"/postinstall-en-2.00.txt
 
 	webapp_src_install
 }

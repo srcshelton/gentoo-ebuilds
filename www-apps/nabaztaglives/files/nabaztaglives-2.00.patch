@@ -1,0 +1,614 @@
+--- www/check_rabbit.php	2014-07-29 02:14:49.000000000 +0100
++++ www/check_rabbit.php	2014-07-29 20:11:24.520466620 +0100
+@@ -96,7 +96,8 @@ while($row = mysqli_fetch_row($result))
+ 
+ echo '</table>';
+ echo "<P>Local server time is $time </center>";
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ mysqli_close($con); 
+ 
+ echo '<P>';
+--- www/index.php	2014-07-29 02:14:57.000000000 +0100
++++ www/index.php	2014-07-29 20:11:39.697184950 +0100
+@@ -86,7 +86,8 @@ include './subroutines/logError.php';
+ 			
+ 			echo "<h2>$count</h2>";
+ 			
+-			mysqli_next_result($con);
++			//mysqli_next_result($con);
++			while(mysqli_next_result($con));
+ 		?>
+ 	</div>
+ 	<div id="spacer"></div>
+@@ -108,7 +109,8 @@ include './subroutines/logError.php';
+ 			
+ 			if(isset($latest)) echo $latest . '!';
+ 			
+-			mysqli_next_result($con);
++			//mysqli_next_result($con);
++			while(mysqli_next_result($con));
+ 		?>
+ 
+ 	</div>
+@@ -146,7 +148,11 @@ include './subroutines/logError.php';
+     $data = fread($fh,filesize($file));
+     fclose($fh);
+ 
+-    $IP = $_SERVER['SERVER_ADDR'];
++    #$IP = $_SERVER['SERVER_ADDR'];
++    if(strlen($_SERVER['SERVER_ADDR']) < 10) 
++        $IP = gethostbyname(php_uname('n')); 
++    else
++        $IP = $_SERVER['SERVER_ADDR'];
+     
+     if(strlen($IP) < 8)
+     {
+@@ -156,16 +162,15 @@ include './subroutines/logError.php';
+     
+     if(stristr($data,"ping $IP") == FALSE)
+     {
+-        echo 'Warning - locator records are invalid.';
++        echo "Warning - locator records are invalid (expected 'ping $IP').";
+         return;
+     }
+     
+     if(stristr($data,"broad $IP") == FALSE)
+     {
+-        echo 'Warning - locator records are invalid.';
++        echo "Warning - locator records are invalid (expected 'broad $IP').";
+         return;
+     }
+     
+ ?>
+-	
+-</html>
+\ No newline at end of file
++</html>
+--- www/newRabbit.php	2014-07-29 02:15:00.000000000 +0100
++++ www/newRabbit.php	2014-07-29 01:51:04.514381105 +0100
+@@ -64,7 +64,8 @@ if (!$result)
+     return;
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while(mysqli_next_result($con));
+ 
+ $cmd = 'call sp_GetLanguage();';
+ 
+--- www/peek.php	2014-07-29 02:15:01.000000000 +0100
++++ www/peek.php	2014-07-29 20:12:28.057349572 +0100
+@@ -67,7 +67,8 @@ while($row = mysqli_fetch_row($result))
+ 	$serNbr = $row[0];
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ 
+ $result = mysqli_query($con,"call sp_GetRabbit('$serNbr')");
+ if (!$result) die('Invalid getRabbit query: ' . mysqli_error($con));
+@@ -104,7 +105,8 @@ if($debug==true)
+ 	echo "language = $language<br>";
+ 	echo "timezone = $time<br>";
+ }
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ 
+ $result = mysqli_query($con,'SELECT name from timeZone order by name');
+ if (!$result) die('Invalid timezone query: ' . mysqli_error($con));
+@@ -350,7 +352,8 @@ Still have a question? <a href="images/s
+ /******************************************
+  * Get RSS
+  ******************************************/
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ 
+ $result = mysqli_query($con,"call sp_GetRSS($rabbitID)");
+ if (!$result) die('Call to RSS proc failed. ' . mysqli_error($con));
+@@ -367,7 +370,8 @@ while($row = mysqli_fetch_row($result))
+   $rss_url[]     = $row[1];
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ 
+ if($reboot == 1)
+ 	$reboot='checked';
+@@ -410,7 +414,9 @@ If your rabbit has sniffed tags, they wi
+ <?php
+ $schedCount = 11;
+ $result = mysqli_query($con,"call sp_GetRFID($rabbitID)");
+-if (!$result) die('Call to RFID proc failed. ' . mysqli_error($con));
++//if (!$result) die('Call to RFID proc failed. ' . mysqli_error($con));
++if (!$result)
++    echo '<tr><td colspan="3">Call to RFID proc failed: ' . mysqli_error($con) . '</td></tr>';
+ mysqli_use_result($con);
+ 	
+ $i=0;
+@@ -431,7 +437,8 @@ while($row = mysqli_fetch_row($result))
+ 	
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ mysqli_close($con); 
+ 
+ 
+--- www/rabbits.php	2014-07-29 02:15:01.000000000 +0100
++++ www/rabbits.php	2014-07-29 20:12:45.890743612 +0100
+@@ -90,7 +90,8 @@ while($row = mysqli_fetch_row($result))
+ }    
+ echo '</table>';
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ 
+ $cmd = 'call sp_GetStats();';
+ 
+@@ -108,7 +109,8 @@ echo "<br>MySQL uptime hours = " . round
+ echo "<br>Your IP is $ip";
+ echo "<br>Peak PHP memory usage is " . number_format(memory_get_peak_usage(TRUE)) . " bytes";
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ mysqli_close($con); 
+ 
+ echo "&nbsp;<P>&nbsp;<P>";
+@@ -136,4 +138,4 @@ $_SESSION['rabbitCount'] = $i;
+ ?>
+ 
+ <a href="index.php">Home</a>
+-</html>
+\ No newline at end of file
++</html>
+--- www/saveUpdateRabbit.php	2014-07-29 02:15:03.000000000 +0100
++++ www/saveUpdateRabbit.php	2014-07-29 01:51:48.071196057 +0100
+@@ -241,7 +241,8 @@ if (isset($_POST['btnRestart']))
+     while($row = mysqli_fetch_row($result))
+         $msg = $row[0];
+ 
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ 
+     if($msg != 'OK')
+         logError("saveUpdateRabbit purge queue failed with $msg");
+@@ -337,7 +338,8 @@ if (!$result)
+     return;
+ }
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ if($debug == true)
+ {
+@@ -417,11 +419,13 @@ function queue($serNbr,$min,$msg,$con,$l
+     if (!$result) 
+     {
+         logError('Queue function invalid insert after retry: ' . mysqli_error($con));
+-        mysqli_next_result($con);  //required to avoid sync error
++        //mysqli_next_result($con);  //required to avoid sync error
++	while(mysqli_next_result($con));
+         return;
+     }
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ 
+     $result = mysqli_query($con,"select @msg");
+ 
+@@ -435,7 +439,8 @@ function queue($serNbr,$min,$msg,$con,$l
+         logError($msg);
+     }
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ 
+     echo "The message has been sent.  It may take a minute to reach your rabbit. Click your browser's back button to go back.";
+ }
+@@ -489,4 +494,4 @@ function doRSSFeed($url,$sn,$lang)
+ 
+ 
+ ?>
+-</html>
+\ No newline at end of file
++</html>
+--- www/stream.php	2014-07-29 02:15:09.000000000 +0100
++++ www/stream.php	2014-07-29 20:12:54.530773024 +0100
+@@ -104,7 +104,8 @@ if(intval($rabbitID) < 1)
+ 	return;
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ mysqli_close($con);
+ 
+ ?>
+--- www/stream_post.php	2014-07-29 02:15:10.000000000 +0100
++++ www/stream_post.php	2014-07-29 20:13:10.627494485 +0100
+@@ -113,7 +113,8 @@ if(intval($rabbitID) < 1)
+ 	return;
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while(mysqli_next_result($con));
+ mysqli_close($con);
+ 
+ //date_default_timezone_set('America/Chicago'); //for warning
+@@ -158,13 +159,15 @@ function queue($cmd,$rabbitID,$min)
+ 	if (!$result) 
+ 	{
+ 		logError('Queue function invalid insert Command query: ' . mysqli_error($con));
+-		mysqli_next_result($con);  //required to avoid sync error
++		//mysqli_next_result($con);  //required to avoid sync error
++		while(mysqli_next_result($con));
+ 		mysqli_close($con);
+ 		return;
+ 	}
+ 	
+-	mysqli_next_result($con);  //required to avoid sync error
++	//mysqli_next_result($con);  //required to avoid sync error
++	while(mysqli_next_result($con));
+ 	mysqli_close($con);
+ }
+ 
+-?>
+\ No newline at end of file
++?>
+--- www/subroutines/queryWithRetry.php	2014-07-29 02:15:12.000000000 +0100
++++ www/subroutines/queryWithRetry.php	2014-07-29 01:52:22.784647569 +0100
+@@ -14,7 +14,8 @@ function queryWithRetry($con,$cmd,$rabbi
+     $max    = 3;
+     $time1  = date("H:i:s");
+   
+-    if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++    //if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++    while(mysqli_next_result($con));
+ 
+     $result = mysqli_query($con,$cmd);
+     
+@@ -62,4 +63,4 @@ function queryWithRetry($con,$cmd,$rabbi
+     return $result;
+ }    
+ 
+-?>
+\ No newline at end of file
++?>
+--- www/updateRabbit2.php	2014-07-29 02:15:18.000000000 +0100
++++ www/updateRabbit2.php	2014-07-29 21:29:06.049668247 +0100
+@@ -41,7 +41,9 @@ $serialNbr = $_SESSION['rawSerialNbr'];
+ <P>
+ <?php
+ //error_reporting(E_ALL);  //don't use this in production
+-ini_set('display_errors', 0);
++//ini_set('display_errors', 0);
++error_reporting(E_ALL);  //don't use this in production
++ini_set('display_errors', 1);
+ ini_set('log_errors', 1);
+ ini_set('error_log','logs/error.log');
+ //error_reporting(0);  //don't use this, use ini_set or nothing goes to the log
+@@ -49,7 +51,8 @@ ini_set('error_log','logs/error.log');
+ include './subroutines/logError.php';
+ include 'config/db.php';
+ 
+-$debug=false;
++//$debug=false;
++$debug=true;
+ 
+ $con = mysqli_connect($host,$user,$pass,$db);
+ if (!$con) die('Could not connect: ' . mysqli_error());
+@@ -131,7 +134,8 @@ if(intval($rabbitID) < 1)
+ 
+ if(is_null($weekendWakeHour)) $weekendWakeHour = $wakeHour;
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while (mysqli_more_results($con)) { mysqli_next_result($con); }
+ 
+ $cmd = 'call sp_GetTimeZone();';
+ 
+@@ -141,7 +145,8 @@ if (!$result)
+     logError('updateRabbit2.php: Invalid timezone query: ' . mysqli_error($con));
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while (mysqli_more_results($con)) { mysqli_next_result($con); }
+ 
+ $cmd = 'call sp_GetLanguage();';
+ $resultLang = mysqli_query($con, $cmd);
+@@ -151,7 +156,8 @@ if (!$resultLang)
+     logError('updateRabbit2.php: Invalid query: ' . mysqli_error($con));
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while (mysqli_more_results($con)) { mysqli_next_result($con); }
+ 
+ if($reboot == 1)
+     $reboot='checked';
+@@ -403,7 +409,8 @@ Still have a question? <a href="images/s
+ /******************************************
+  * Get RSS
+  ******************************************/
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while (mysqli_more_results($con)) { mysqli_next_result($con); }
+ 
+ $result = mysqli_query($con,"call sp_GetRSS($rabbitID)");
+ if (!$result) die('Call to RSS proc failed. ' . mysqli_error($con));
+@@ -420,7 +427,8 @@ while($row = mysqli_fetch_row($result))
+   $rss_url[]     = $row[1];
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while (mysqli_more_results($con)) { mysqli_next_result($con); }
+ 
+ ?>
+ <fieldset><legend><b>RSS Feed (V2 only)</b></legend>
+@@ -478,8 +486,9 @@ $result = mysqli_query($con,"call sp_Get
+ if (!$result) 
+ {
+     logError('Call to RFID proc failed. ' . mysqli_error($con));
+-    return;
+-}
++    echo '<tr><td colspan="3">Call to RFID proc failed: ' . mysqli_error($con) . '</td></tr>';
++    //return;
++} else {
+ 
+ mysqli_use_result($con);
+     
+@@ -501,7 +510,10 @@ while($row = mysqli_fetch_row($result))
+     
+ }
+ 
+-mysqli_next_result($con);
++//mysqli_next_result($con);
++while (mysqli_more_results($con)) { mysqli_next_result($con); }
++
++}
+ 
+ ?>
+ </table>
+--- www/updateSchedule.php	2014-07-29 02:15:20.000000000 +0100
++++ www/updateSchedule.php	2014-07-29 01:53:00.108107967 +0100
+@@ -102,7 +102,8 @@ for($i=1;$i < 11; $i++)
+             return;
+         }
+     
+-        mysqli_next_result($con);  //required to avoid sync error
++        //mysqli_next_result($con);  //required to avoid sync error
++	while(mysqli_next_result($con));
+     }      
+ }
+-?>
+\ No newline at end of file
++?>
+--- www/vl/FR/p3.jsp	2014-07-29 02:19:52.000000000 +0100
++++ www/vl/FR/p3.jsp	2014-07-29 01:55:43.478664149 +0100
+@@ -118,7 +118,8 @@ if($rabbitID < 1)  //rows found in DB
+     return;
+ }
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ /*************************************
+  * get rabbit
+@@ -190,7 +191,8 @@ switch($language)
+         break;
+ }
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ /********************************************************
+  * set the version of the rabbit V1 if not set already
+@@ -202,7 +204,8 @@ $result = mysqli_query($con,$cmd);
+ if (!$result)
+     logError('Invalid update rabbit version query: ' . mysqli_error($con));
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ //delete cmd if older than 3 mins
+ 
+@@ -213,7 +216,8 @@ $result = mysqli_query($con,$cmd);
+ if (!$result)
+     logError('Invalid delete queue query: ' . mysqli_error($con));
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ date_default_timezone_set("$timeZone");  //sets to local time zone e.g london
+ $hour = date("H",time());
+@@ -321,7 +325,8 @@ while($row = mysqli_fetch_row($result))
+     }
+ }
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ //get next from queue
+ //note you may need to send the minute to the proc if you get duplicate messages 
+@@ -344,7 +349,8 @@ while($row = mysqli_fetch_row($result))
+     $msg = $row[1];
+ }
+ 
+-mysqli_next_result($con);  //required to avoid sync error
++//mysqli_next_result($con);  //required to avoid sync error
++while(mysqli_next_result($con));
+ 
+ if(strlen($msg) > 0)
+ {
+@@ -599,7 +605,8 @@ function testLoop($rabbitID, $min,$con)
+         out($dir . $file,$rabbitID,$min,$con);
+     }
+         
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ }
+     
+ /***********************************************************
+@@ -611,7 +618,8 @@ function queue($msg,$rabbitID,$min,$con)
+     
+     //echo "msg=$msg<br>rabbitID=$rabbitID<br>min=$min<br>";
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+     
+     $cmd = "call sp_Queue2('" . $rabbitID . "'
+                               ,'" . $min . "'
+@@ -625,11 +633,13 @@ function queue($msg,$rabbitID,$min,$con)
+     if (!$result) 
+     {
+       logError("Queue query failed. " . mysqli_error($con));
+-        mysqli_next_result($con);  //required to avoid sync error
++        //mysqli_next_result($con);  //required to avoid sync error
++	while(mysqli_next_result($con));
+         return;
+     }
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ 
+     $result = mysqli_query($con,"select @msg");
+ 
+@@ -639,7 +649,8 @@ function queue($msg,$rabbitID,$min,$con)
+     if($msg != 'OK')
+         logError("Queue function: $msg");
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+     //mysqli_close($con);
+ }
+ 
+@@ -667,11 +678,13 @@ function setLastCmd($con, $out, $rabbitI
+     if (!$result) 
+     {
+         logError('setLastCmd: invalid update last Command query: ' . mysqli_error($con));
+-        mysqli_next_result($con);  //required to avoid sync error
++        //mysqli_next_result($con);  //required to avoid sync error
++	while(mysqli_next_result($con));
+         return;
+     }
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ 
+     $result = mysqli_query($con,"select @msg");
+ 
+@@ -681,7 +694,8 @@ function setLastCmd($con, $out, $rabbitI
+     if($msg != 'OK')
+         logError($msg);
+     
+-    mysqli_next_result($con);  //required to avoid sync error
++    //mysqli_next_result($con);  //required to avoid sync error
++    while(mysqli_next_result($con));
+ 
+ }
+ 
+@@ -824,4 +838,4 @@ function logError($msg)
+ }
+ 
+     
+-?> 
+\ No newline at end of file
++?> 
+--- www/vl/p4.php	2014-07-29 02:15:40.000000000 +0100
++++ www/vl/p4.php	2014-07-29 20:14:13.011040178 +0100
+@@ -245,7 +245,8 @@ if($sn == '000000000000')  //for testing
+     //return;
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while(mysqli_next_result($con));
+    
+ /********************************************************
+  * set the version of the rabbit V2 if not set already
+@@ -262,7 +263,8 @@ if($version == 0)  //default DB value is
+         return;
+     }
+ 
+-    if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++    //if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++    while(mysqli_next_result($con));
+ }
+ 
+ /********************************************************
+@@ -278,7 +280,8 @@ if (!$result)
+     return;
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while(mysqli_next_result($con));
+ 
+ date_default_timezone_set("$timeZone");  //sets to local time zone of rabbit e.g london
+ $hour = date("H",time());
+@@ -451,7 +454,8 @@ if(($min == '10') || ($min == '20') || (
+                 $i=$i+1;
+             }
+             
+-            if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++            //if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++	    while(mysqli_next_result($con));
+ 
+         }
+         
+@@ -480,7 +484,8 @@ while($row = mysqli_fetch_row($result))
+     $rss[]       = $row[1];
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while(mysqli_next_result($con));
+ 
+ /*************************************************
+  * Check for RFID scan
+@@ -544,7 +549,8 @@ while($row = mysqli_fetch_row($result))
+ 
+ }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while(mysqli_next_result($con));
+ 
+ //get next from queue
+ 
+@@ -566,7 +572,8 @@ while($row = mysqli_fetch_row($result))
+     $msg = $row[1];
+  }
+ 
+-if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++//if(mysqli_more_results($con)) mysqli_next_result($con);  //Commands out of sync; you can't run this command now error.
++while(mysqli_next_result($con));
+ 
+ if(strlen($msg) > 0)
+ {
