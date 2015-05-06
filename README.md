@@ -90,6 +90,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Add missing `run_applets` prototype
 * sys-apps/darwin-miscutils
     * Add missing `md.c` prototypes and `#include`s
+* sys-apps/gptfdisk
+    * Allow `gdisk` to build on Darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used
 * sys-apps/texinfo
     * Add missing `#include`
 * sys-devel/binutils-apple
