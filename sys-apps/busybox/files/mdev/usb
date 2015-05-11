@@ -252,18 +252,25 @@ case "${ACTION}" in
 
 			# USB_PRODUCT is needed to invoke usb_modeswitch, so
 			# there's no point in proceeding if not set...
-			if [[ -n "${USB_VENDOR:-}" && -n "${USB_PRODUCT:-}" ]]; then
+			if ! [[ -n "${USB_VENDOR:-}" && -n "${USB_PRODUCT:-}" ]]; then
+				log "... USB_VENDOR ('${USB_VENDOR:-}') and USB_PRODUCT ('${USB_PRODUCT:-}') are not both known, skipping 3G/4G dongle init"
+			else
 				if ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}" >/dev/null 2>&1; then
 					cfgfile="/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}"
+					log "... using configuration file '${cfgfile}' (1)"
+
 				elif ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:"* >/dev/null 2>&1; then
 					declare -i num
 
 					num=$(( $( ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:"* 2>/dev/null | wc -l ) ))
 					if (( 1 == num )); then
 						cfgfile="$( ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:"* 2>/dev/null )"
+						log "... using configuration file '${cfgfile}' (2)"
+
 					elif (( num )); then
 						if [[ -n "${MANUFACTURER:-}" && -r "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:uMa=${MANUFACTURER}" ]]; then
 							cfgfile="/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:uMa=${MANUFACTURER}"
+							log "... using configuration file '${cfgfile}' (3)"
 						else
 							log "Unable to uniquely identify usb_modeswitch configuration file for '${USB_VENDOR}:${USB_PRODUCT}'"
 						fi
@@ -278,12 +285,14 @@ case "${ACTION}" in
 					log "Only found usb_modeswitch generic configuration for '${USB_VENDOR}(:${USB_PRODUCT})' - is device turned on?"
 				fi
 			fi
-			if [[ -n "${cfgfile:-}" ]]; then
+			if ! [[ -n "${cfgfile:-}" && -s "${cfgfile}" ]]; then
+				log "USB 3G/4G configuration file '${cfgfile:-}' is unset or empty - not performing device init"
+			else
 				declare mod
 				declare -i usbmsto=20 delay=4 num
 				declare -a cmd
 
-				log "usb_modeswitch configuration file '$cfgfile' matched"
+				log "usb_modeswitch configuration file '${cfgfile}' matched"
 
 				cmd=( ${MODESWITCH} -W -D -s ${usbmsto} )
 				num=$( cat "/sys${DEVPATH}/bNumConfigurations" 2>/dev/null )
@@ -319,10 +328,14 @@ case "${ACTION}" in
 
 				if [[ -n "${SERIAL:-}" ]]; then
 					case "${SERIAL}" in
-						"xxxx")
+						"HUAWEI_MOBILE")
 							[[ -x /etc/init.d/net.mifi0 ]] && \
 								/etc/init.d/net.mifi0 --quiet restart >/dev/null 2>&1 </dev/null &
 							;;
+						#"xxxx")
+						#	[[ -x /etc/init.d/net.mifi1 ]] && \
+						#		/etc/init.d/net.mifi1 --quiet restart >/dev/null 2>&1 </dev/null &
+						#	;;
 					esac
 				fi
 			fi
@@ -335,10 +348,14 @@ case "${ACTION}" in
 
 		if [[ -n "${SERIAL:-}" ]]; then
 			case "${SERIAL}" in
-				"xxxx")
+				"HUAWEI_MOBILE")
 					[[ -x /etc/init.d/net.mifi0 ]] && \
 						/etc/init.d/net.mifi0 --quiet stop >/dev/null 2>&1 </dev/null &
 					;;
+				#"xxxx")
+				#	[[ -x /etc/init.d/net.mifi1 ]] && \
+				#		/etc/init.d/net.mifi1 --quiet stop >/dev/null 2>&1 </dev/null &
+				#	;;
 			esac
 		fi
 
