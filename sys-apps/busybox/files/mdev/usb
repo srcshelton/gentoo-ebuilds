@@ -119,7 +119,7 @@ if [[ -d "/sys${DEVPATH}/" ]]; then
 	fi
 
 	if [[ -e "/sys${DEVPATH}/manufacturer" ]]; then
-		SERIAL="$( cat "/sys${DEVPATH}/manufacturer" )"
+		MANUFACTURER="$( cat "/sys${DEVPATH}/manufacturer" )"
 	fi
 fi
 
@@ -220,7 +220,7 @@ case "${ACTION}" in
 					fi
 
 					chown usbmux:usb "bus/usb/${BUS}/${USB_DEV}" >/dev/null 2>&1
-					log "Running 'usbmuxd'"
+					log "Running 'usbmuxd' ..."
 					${MUXD} -U "${muxduser}" >/dev/null 2>&1 </dev/null &
 
 					unset muxduser num conf
@@ -229,15 +229,25 @@ case "${ACTION}" in
 				if [[ -n "${PRODUCT:-}" && "${PRODUCT}" == "iPhone" ]]; then
 					# There can be only one...
 					ln -sf "bus/usb/${BUS}/${USB_DEV}" iphone
-					log "Running 'ipheth-pair'"
+					log "Running '$( basename "${IPHETH}" )' ..."
 					"${IPHETH}" >/dev/null 2>&1 </dev/null &
 				fi
 
-				if [[ -n "${SERIAL:-}" ]]; then
+				if ! [[ -n "${SERIAL:-}" ]]; then
+					log "Device serial unknown, not restarting network interfaces"
+				else
+					echo "${USB_VENDOR}:${USB_PRODUCT}:${SERIAL}" > "bus/usb/${BUS}/.${USB_DEV}.id"
 					case "${SERIAL}" in
-						"xxxx")
-							[[ -x /etc/init.d/net.iphone0 ]] && \
-								/etc/init.d/net.iphone0 --quiet restart >/dev/null 2>&1 </dev/null &
+						#"xxxx")
+						#	if [[ -x /etc/init.d/net.iphone0 ]]; then
+						#		log "Stopping any existing dhcpcd clients ..."
+						#		dhcpcd -x
+						#		log "Restarting service 'net.iphone0' for device with serial number '${SERIAL}' ..."
+						#		/etc/init.d/net.iphone0 --quiet restart >/dev/null 2>&1 </dev/null &
+						#	fi
+						#	;;
+						*)
+							log "Unknown serial number '${SERIAL}'"
 							;;
 					esac
 				fi
@@ -328,14 +338,25 @@ case "${ACTION}" in
 
 				if [[ -n "${SERIAL:-}" ]]; then
 					case "${SERIAL}" in
-						"HUAWEI_MOBILE")
-							[[ -x /etc/init.d/net.mifi0 ]] && \
-								/etc/init.d/net.mifi0 --quiet restart >/dev/null 2>&1 </dev/null &
-							;;
 						#"xxxx")
-						#	[[ -x /etc/init.d/net.mifi1 ]] && \
-						#		/etc/init.d/net.mifi1 --quiet restart >/dev/null 2>&1 </dev/null &
+						#	if [[ -x /etc/init.d/net.mifi0 ]]; then
+						#		log "Stopping any existing dhcpcd clients ..."
+						#		dhcpcd -x
+						#		log "Restarting service 'net.mifi0' for device with serial number '${SERIAL}' ..."
+						#		/etc/init.d/net.mifi0 --quiet restart >/dev/null 2>&1 </dev/null &
+						#	fi
 						#	;;
+						"0123456789ABCDEF")
+							if [[ -x /etc/init.d/net.mifi0 ]]; then
+								log "Stopping any existing dhcpcd clients ..."
+								dhcpcd -x
+								log "Restarting service 'net.mifi0' for device with serial number '${SERIAL}' ..."
+								/etc/init.d/net.mifi0 --quiet restart >/dev/null 2>&1 </dev/null &
+							fi
+							;;
+						*)
+							log "Unknown serial number '${SERIAL}'"
+							;;
 					esac
 				fi
 			fi
@@ -346,37 +367,68 @@ case "${ACTION}" in
 	remove)
 		log "Performing 'remove' ACTION"
 
+		if [[ -s "bus/usb/${BUS}/.${USB_DEV}.id" ]]; then
+			DATA="$( < "bus/usb/${BUS}/.${USB_DEV}.id" )"
+			USB_VENDOR="$( cut -d':' -f 1 <<<"${DATA}" )"
+			USB_PRODUCT="$( cut -d':' -f 2 <<<"${DATA}" )"
+			SERIAL="$( cut -d':' -f 3 <<<"${DATA}" )"
+			unset DATA
+			log "Node '${MDEV}' from sysfs path '${DEVPATH}' and cache 'bus/usb/${BUS}/.${USB_DEV}.id' is '${USB_VENDOR}:${USB_PRODUCT}' ('${PRODUCT}') with serial '${SERIAL}'"
+		fi
+
 		if [[ -n "${SERIAL:-}" ]]; then
 			case "${SERIAL}" in
-				"HUAWEI_MOBILE")
-					[[ -x /etc/init.d/net.mifi0 ]] && \
-						/etc/init.d/net.mifi0 --quiet stop >/dev/null 2>&1 </dev/null &
-					;;
 				#"xxxx")
-				#	[[ -x /etc/init.d/net.mifi1 ]] && \
-				#		/etc/init.d/net.mifi1 --quiet stop >/dev/null 2>&1 </dev/null &
+				#	if [[ -x /etc/init.d/net.mifi0 ]]; then
+				#		log "Stopping service 'net.mifi0' for device with serial number '${SERIAL}' ..."
+				#		/etc/init.d/net.mifi0 --quiet stop >/dev/null 2>&1 </dev/null
+				#		log "Stopping dhcpcd client ..."
+				#		dhcpcd -x
+				#	fi
 				#	;;
+				"0123456789ABCDEF")
+					if [[ -x /etc/init.d/net.mifi0 ]]; then
+						log "Stopping service 'net.mifi0' for device with serial number '${SERIAL}' ..."
+						/etc/init.d/net.mifi0 --quiet stop >/dev/null 2>&1 </dev/null
+						log "Stopping dhcpcd client ..."
+						dhcpcd -x
+					fi
+					;;
+				*)
+					log "Unknown serial number '${SERIAL}'"
+					;;
 			esac
 		fi
 
 		if [[ -x "${MUXD}" ]]; then
-			if [[ -n "${USB_VENDOR:-}" && -n "${USB_PRODUCT:-}" && "${USB_VENDOR}" == "05ac" ]]; then
-				log "Apple USB device has been removed..."
+			if ! [[ -n "${USB_VENDOR:-}" && -n "${USB_PRODUCT:-}" ]]; then
+				log "USB device vendor '${USB_VENDOR:-}' or product '${USB_PRODUCT:-}' not set - not stopping network devices"
+			else
+				if [[ "${USB_VENDOR}" == "05ac" ]]; then
+					log "Apple USB device has been removed..."
 
-				if [[ -n "${SERIAL:-}" ]]; then
-					case "${SERIAL}" in
-						"xxxx")
-							[[ -x /etc/init.d/net.iphone0 ]] && \
-								/etc/init.d/net.iphone0 --quiet stop >/dev/null 2>&1 </dev/null &
-							;;
-					esac
-				fi
+					if [[ -n "${SERIAL:-}" ]]; then
+						case "${SERIAL}" in
+							#"xxxx")
+							#	if [[ -x /etc/init.d/net.iphone0 ]]; then
+							#		log "Stopping service 'net.iphone0' for device with serial number '${SERIAL}' ..."
+							#		/etc/init.d/net.iphone0 --quiet stop >/dev/null 2>&1 </dev/null
+							#		log "Stopping dhcpcd client ..."
+							#		dhcpcd -x
+							#	fi
+							#	;;
+							*)
+								log "Unknown serial number '${SERIAL}'"
+								;;
+						esac
+					fi
 
-				if echo "${USB_PRODUCT}" | grep -qE "^12[9a]" >/dev/null 2>&1; then
-					log "Stopping 'usbmuxd'"
-					${MUXD} -x >/dev/null 2>&1 </dev/null &
+					if echo "${USB_PRODUCT}" | grep -qE "^12[9a]" >/dev/null 2>&1; then
+						log "Stopping 'usbmuxd'"
+						${MUXD} -x >/dev/null 2>&1 </dev/null &
+					fi
+					[[ -e iphone ]] && rm -f iphone 2>/dev/null
 				fi
-				[[ -e iphone ]] && rm -f iphone 2>/dev/null
 			fi
 		fi
 
@@ -405,6 +457,9 @@ case "${ACTION}" in
 		esac
 
 		# Remove device node and potential empty directories
+		if rm -f "bus/usb/${BUS}/.${USB_DEV}.id" 2>/dev/null; then
+			log "rm -f 'bus/usb/${BUS}/.${USB_DEV}.id' succeeded"
+		fi
 		if rm -f "bus/usb/${BUS}/${USB_DEV}" 2>/dev/null; then
 			log "rm -f 'bus/usb/${BUS}/${USB_DEV}' succeeded"
 			if rmdir -p "bus/usb/${BUS}" 2>/dev/null; then
