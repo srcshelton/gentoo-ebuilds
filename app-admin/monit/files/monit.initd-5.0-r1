@@ -20,7 +20,39 @@ configtest() {
                 /usr/bin/monit -c /etc/monitrc -t
         fi
 
-        return $ret
+        return ${ret}
+}
+
+start_pre() {
+	configtest || return 1
+
+	[[ -e /etc/monitrc ]] || {
+		eerror "Cannot read monit configuration from /etc/monitrc"
+		return 1
+	}
+
+	sed 's/#.*$//' /etc/monitrc \
+		| grep -v '^\s*$' \
+		| grep -oE '^\s*set\s+(id|state)file\s+([^[:space:]]+)|basedir\s+([^[:space:]]+)' \
+		| sed 's/^set\s\+//' \
+		| while read -r ENTRY; do
+		set -- ${ENTRY}
+		local arg="${1}"
+		shift
+		case "${arg}" in
+			*dir)
+				checkpath -d -m 0700 -o root:root "${@}"
+				;;
+			*file)
+				checkpath -d -m 0700 -o root:root "$( dirname "${@}" )"
+				;;
+			*)
+				error "Unknown configuration line '${ENTRY}'"
+				return 1
+				;;
+		esac
+	done
+	return 0
 }
 
 start() {
