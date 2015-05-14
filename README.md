@@ -238,6 +238,7 @@ A similar configuration file could be added for all packages which fail to compi
 * net-analyzer/iptraf-ng
 * net-analyzer/ntop
 * net-analyzer/rrdtool
+* net-analyzer/vnstat
 * ~~net-analyzer/wireshark~~
 * net-analyzer/zabbix
 * net-dns/bind
