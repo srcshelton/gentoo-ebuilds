@@ -52,7 +52,7 @@ pkg_postinst() {
 	elog
 	elog "/opt/nessus/sbin/nessuscli adduser <username>"
 	elog "/opt/nessus/sbin/nessuscli mkcert"
-	elog "/opt/nessus/bin/nessuscli fetch --register <your registration code>"
+	elog "/opt/nessus/sbin/nessuscli fetch --register <your registration code>"
 	elog
 	elog "If you had a previous version of Nessus installed, use"
 	elog "the following command to update the plugin database:"
