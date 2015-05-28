@@ -3,5 +3,11 @@
 # Adjust scheduling priority on vnstatd (default: 0)
 #VNSTATD_NICELEVEL="0"
 
+# Specify PID file location
+#VNSTATD_PIDFILE="/var/run/vnstatd.pid"
+
+# Specify configuration file location
+#VNSTATD_CONFIG="/etc/vnstat.conf"
+
 # Pass extra options to vnstatd
-#VNSTATD_EXTRAOPTS="--config /etc/vnstat.conf"
+#VNSTATD_EXTRAOPTS="--config ${VNSTATD_CONFIG:-/etc/vnstat.conf}"
