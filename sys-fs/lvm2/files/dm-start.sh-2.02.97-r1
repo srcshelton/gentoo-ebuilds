@@ -1,5 +1,7 @@
 # /lib/rcscripts/addons/dm-start.sh:  Setup DM volumes at boot
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/dm-start.sh,v 1.1 2009/04/09 23:00:10 caleb Exp $
+# Copyright 1999-2014 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/device-mapper.rc-2.02.105-r2,v 1.1 2014/02/02 19:52:34 robbat2 Exp $
 
 dm_in_proc() {
 	local retval=0
@@ -134,4 +136,4 @@ if [ -x /sbin/dmsetup -a -c /dev/mapper/control -a -f /etc/dmtab ] ; then
 fi
 
 
-# vim:ts=4
+# vi: set diffopt=iwhite,filler:
