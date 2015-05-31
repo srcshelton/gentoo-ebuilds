@@ -77,6 +77,10 @@ start()
 		ebegin "Setting up mdev as hotplug agent"
 		echo $(find_mdev) > /proc/sys/kernel/hotplug
 		eend 0
+	else
+		eerror "Kernel lacks uevent helper support"
+		eerror "No mdev rules will be processed when new devices are hotplugged"
+		ewarn "Recompile your kernel with 'CONFIG_UEVENT_HELPER=y' to resolve this issue"
 	fi
 
 	if get_bootparam "nocoldplug" ; then
