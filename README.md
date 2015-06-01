@@ -102,6 +102,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Fixes for building with clang and building on Yosemite
 * sys-devel/llvm
     * Additional fixes for Darwin
+* sys-libs/db
+    * Prevent clang builtins error due to `__atomic_compare_exchange` function
 * sys-libs/gdbm
     * Ensure that all functions are defined before being called
 * sys-libs/readline
