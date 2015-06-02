@@ -320,6 +320,8 @@ SYMLINK_LIB="yes"
 
 * net-wireless/bluez
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
+* sys-apps/gawk
+    * Install to `/bin` rather than `/usr/bin`, for init scripts which invoke `awk`
 * sys-apps/openrc
     * Add optional `USE="varrun"` flag to allow 'run' directory to remain as '/var/run'
 * sys-fs/cryptsetup
