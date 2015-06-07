@@ -8,7 +8,7 @@ inherit autotools git-2 linux-info
 DESCRIPTION="nftables aims to replace the existing {ip,ip6,arp,eb}tables framework"
 HOMEPAGE="http://netfilter.org/projects/nftables/"
 EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
-EGIT_MASTER="master"
+EGIT_MASTER="next-4.2"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -56,6 +56,9 @@ src_install() {
 
 	prune_libtool_files --all
 
+	if ! use doc; then
+		newman "${FILESDIR}"/"${PN}"-0.4.2-nftables.8 nft.8
+	fi
 	newconfd "${FILESDIR}"/${PN}.confd ${PN}
 	newinitd "${FILESDIR}"/${PN}.init ${PN}
 	keepdir /var/lib/nftables

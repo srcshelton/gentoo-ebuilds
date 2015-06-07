@@ -1,22 +1,21 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
+# $Header: /var/cvsroot/gentoo-x86/net-firewall/nftables/nftables-0.4.ebuild,v 1.3 2014/12/20 14:51:14 mrueg Exp $
 
 EAPI=5
 
-inherit autotools git-2 linux-info
+inherit autotools linux-info
 
-DESCRIPTION="nftables aims to replace the existing {ip,ip6,arp,eb}tables framework"
+DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="http://netfilter.org/projects/nftables/"
-EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
-EGIT_MASTER="master"
 
 LICENSE="GPL-2"
 SLOT="0"
-#KEYWORDS="~amd64 ~arm ~ppc ~ppc64 ~x86"
-KEYWORDS=""
-IUSE="+debug +doc pdf +readline"
+KEYWORDS="~amd64 ~arm ~x86"
+IUSE="debug +doc pdf +readline"
+SRC_URI="http://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
 
-RDEPEND=">=net-libs/libmnl-1.0.3
+RDEPEND="net-libs/libmnl
 	>=net-libs/libnftnl-1.0.2
 	dev-libs/gmp
 	readline? ( sys-libs/readline )"
@@ -47,15 +46,12 @@ src_configure() {
 		$(use_with readline cli)
 }
 
-src_compile() {
-	emake CFLAGS="${CFLAGS} -DDEBUG"
-}
-
 src_install() {
 	default
 
-	prune_libtool_files --all
-
+	if ! use doc; then
+		newman "${FILESDIR}"/"${P}"-nftables.8 nft.8
+	fi
 	newconfd "${FILESDIR}"/${PN}.confd ${PN}
 	newinitd "${FILESDIR}"/${PN}.init ${PN}
 	keepdir /var/lib/nftables
