@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.6.1.ebuild,v 1.4 2015/06/05 14:48:25 voyageur Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.6.1.ebuild,v 1.5 2015/06/14 17:56:07 mgorny Exp $
 
 EAPI=5
 
@@ -169,6 +169,9 @@ src_prepare() {
 		epatch "${FILESDIR}"/clang-3.6-gentoo-install.patch
 		epatch "${FILESDIR}"/clang-3.4-darwin_prefix-include-paths.patch
 		eprefixify tools/clang/lib/Frontend/InitHeaderSearch.cpp
+
+		# Fix build fails with using gcc-4.9 on Gentoo/FreeBSD, bug #548444
+		epatch "${FILESDIR}"/clang-3.6-fbsd-gcc49.patch
 
 		if use prefix; then
 			sed -i -e "/^CFLAGS /s@-Werror@-I${EPREFIX}/usr/include@" \
