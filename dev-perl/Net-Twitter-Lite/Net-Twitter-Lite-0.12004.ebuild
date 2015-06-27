@@ -19,11 +19,11 @@ RDEPEND="
 	  dev-perl/Crypt-SSLeay
 	  dev-perl/HTML-Parser
 	  dev-perl/JSON
-	>=dev-perl/Net-OAuth-0.25
+	  dev-perl/Module-Build
 	  dev-perl/Test-Fatal
 	  dev-perl/libwww-perl
+	>=dev-perl/Net-OAuth-0.25
 	>=dev-perl/URI-1.40
-	  virtual/perl-Module-Build
 	"
 DEPEND="${RDEPEND}"
 

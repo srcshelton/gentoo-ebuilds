@@ -18,9 +18,9 @@ IUSE=""
 RDEPEND="
 	  dev-perl/Crypt-SSLeay
 	  dev-perl/JSON
+	  dev-perl/Module-Build
 	  dev-perl/Test-Fatal
 	>=dev-perl/URI-1.40
-	  virtual/perl-Module-Build
 	"
 DEPEND="${RDEPEND}"
 
