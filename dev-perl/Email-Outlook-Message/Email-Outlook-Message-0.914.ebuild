@@ -13,9 +13,9 @@ RDEPEND="
 	dev-perl/Email-LocalDelivery
 	dev-perl/Email-MIME
 	dev-perl/IO-All
+	dev-perl/Module-Build
 	dev-perl/OLE-StorageLite
 	virtual/perl-Getopt-Long
-	virtual/perl-Module-Build
 	virtual/perl-Pod-Parser
 	"
 DEPEND="${RDEPEND}"

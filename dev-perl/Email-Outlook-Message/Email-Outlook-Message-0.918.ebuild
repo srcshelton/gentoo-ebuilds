@@ -12,6 +12,7 @@ IUSE=""
 RDEPEND="
 	dev-perl/Email-LocalDelivery
 	dev-perl/Email-MIME
+	dev-perl/Email-Sender
 	dev-perl/IO-All
 	dev-perl/Module-Build
 	dev-perl/OLE-StorageLite
