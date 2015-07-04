@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.1 2015/05/28 04:10:47 floppym Exp $
+# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.2 2015/06/29 17:26:27 floppym Exp $
 
 EAPI="4"
 WANT_LIBTOOL="none"
@@ -81,6 +81,7 @@ pkg_setup() {
 		if has_version "=${CATEGORY}/${PN}-${PV%%.*}*[berkdb]"; then
 			ewarn "You are migrating from =${CATEGORY}/${PN}-${PV%%.*}*[berkdb]"
 			ewarn "to =${CATEGORY}/${PN}-${PV%%.*}*[-berkdb]."
+			ewarn "You might need to migrate your databases."
 		fi
 	fi
 }
