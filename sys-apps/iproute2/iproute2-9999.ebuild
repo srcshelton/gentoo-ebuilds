@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/iproute2/iproute2-9999.ebuild,v 1.25 2015/05/24 03:42:06 vapier Exp $
+# $Header: /var/cvsroot/gentoo-x86/sys-apps/iproute2/iproute2-9999.ebuild,v 1.26 2015/07/07 10:29:38 vapier Exp $
 
 EAPI="5"
 
@@ -22,7 +22,7 @@ SLOT="0"
 IUSE="atm berkdb +iptables ipv6 minimal selinux"
 
 RDEPEND="!net-misc/arpd
-	iptables? ( || ( >=net-firewall/iptables-1.4.5 net-firewall/iptables-nftables ) )
+	iptables? ( || ( >=net-firewall/iptables-1.4.20:= net-firewall/iptables-nftables ) )
 	berkdb? ( sys-libs/db:= )
 	atm? ( net-dialup/linux-atm )
 	selinux? ( sys-libs/libselinux )"
