@@ -3,12 +3,12 @@
 run_check() {
 	if [[ -d "${D%/}"/etc ]]; then
 		if [[ -d "${D%/}"/etc/init.d || -d "${D%/}"/etc/conf.d ]]; then
-			if grep '/run/' "${D%/}"/etc/{init,conf}.d/* | grep -v '/var/run/' | grep -q '/run/'; then
+			if sed 's/#.*$//' "${D%/}"/etc/{init,conf}.d/* | grep '/run/' | grep -v '/var/run/' | grep -q '/run/'; then
 				local -A list=()
 				local -a files=()
 				while read -r i; do
 					list["${i#${D}}"]=1
-				done < <(grep -H '/run/' "${D%/}"/etc/{init,conf}.d/* | grep -v '/var/run/' | cut -d':' -f 1)
+				done < <(grep -H '/run/' "${D%/}"/etc/{init,conf}.d/* | sed 's/#.*$//' | grep -v '/var/run/' | grep '/run/' | cut -d':' -f 1)
 				files="${!list[@]}"
 				if (( 1 == ${#files[@]} )) && [[ "${files[*]}" =~ etc/init.d/bootmisc ]]; then
 					:
