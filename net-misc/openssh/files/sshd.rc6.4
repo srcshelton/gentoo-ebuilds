@@ -12,8 +12,8 @@ extra_started_commands="reload"
 : ${SSHD_BINARY:=/usr/sbin/sshd}
 
 depend() {
-	use logger dns
-	if [ "${rc_need+set}" = "set" ] ; then
+	use logger dns # iptables ip6tables
+	if [ -n "${rc_need}" ] ; then
 		: # Do nothing, the user has explicitly set rc_need
 	else
 		local x warn_addr

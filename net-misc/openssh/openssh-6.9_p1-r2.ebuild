@@ -30,7 +30,7 @@ LICENSE="BSD GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 # Probably want to drop ssl defaulting to on in a future version.
-IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos kernel_linux ldap ldns libedit pam +pie sctp selinux skey ssh1 +ssl static X X509"
+IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit -libseccomp pam +pie sctp selinux skey ssh1 +ssl static X X509 abi_x86_x32"
 REQUIRED_USE="ldns? ( ssl )
 	pie? ( !static )
 	ssh1? ( ssl )
@@ -44,6 +44,7 @@ LIB_DEPEND="
 		bindist? ( net-libs/ldns[-ecdsa,ssl] )
 	)
 	libedit? ( dev-libs/libedit[static-libs(+)] )
+	libseccomp? ( sys-libs/libseccomp )
 	sctp? ( net-misc/lksctp-tools[static-libs(+)] )
 	selinux? ( >=sys-libs/libselinux-1.28[static-libs(+)] )
 	skey? ( >=sys-auth/skey-1.1.5-r1[static-libs(+)] )
@@ -112,6 +113,9 @@ src_prepare() {
 	# don't break .ssh/authorized_keys2 for fun
 	sed -i '/^AuthorizedKeysFile/s:^:#:' sshd_config || die
 
+	if use libseccomp; then
+		epatch "${FILESDIR}"/${PN}-6.9_p1-libseccomp.patch
+	fi
 	if use X509 ; then
 		pushd .. >/dev/null
 		#epatch "${WORKDIR}"/${PN}-6.8_p1-x509-${X509_VER}-glue.patch
@@ -130,7 +134,7 @@ src_prepare() {
 	epatch "${FILESDIR}"/${PN}-6.7_p1-openssl-ignore-status.patch
 	# The X509 patchset fixes this independently.
 	use X509 || epatch "${FILESDIR}"/${PN}-6.8_p1-ssl-engine-configure.patch
-	epatch "${WORKDIR}"/${PN}-6.8_p1-sctp.patch
+	#epatch "${WORKDIR}"/${PN}-6.8_p1-sctp.patch
 	if use hpn ; then
 		EPATCH_FORCE="yes" EPATCH_SUFFIX="patch" \
 			EPATCH_MULTI_MSG="Applying HPN patchset ..." \
@@ -198,7 +202,17 @@ src_configure() {
 		$(use X509 || use_with ssl openssl)
 		$(use_with ssl md5-passwords)
 		$(use_with ssl ssl-engine)
+		$(use_with libseccomp sandbox libseccomp_filter)
 	)
+	if use abi_x86_x32 && ! use libseccomp; then
+		ewarn "The default 'seccomp' sandbox does not work correctly on x32, and so - without"
+		ewarn "experimental libseccomp support at least - it is required that this build"
+		ewarn "fallback to the basic 'rlimit' sandbox, where a child process is prevented from"
+		ewarn "forking or opening new network connections by having setrlimit() called to reset"
+		ewarn "its hard-limit of file descriptors and processes to zero.  As such, this is a"
+		ewarn "very basic fallback choice where no better alternative is available."
+		myconf+=( --with-sandbox=rlimit )
+	fi
 
 	# Special settings for Gentoo/FreeBSD 9.0 or later (see bug #391011)
 	if use elibc_FreeBSD && version_is_at_least 9.0 "$(uname -r|sed 's/\(.\..\).*/\1/')" ; then

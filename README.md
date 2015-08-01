@@ -251,7 +251,6 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
-* net-misc/openssh
 * net-misc/rsyncd
 * net-p2p/bitcoind
 * sys-apps/kmod
@@ -306,7 +305,9 @@ SYMLINK_LIB="yes"
 * net-dns/bind-tools
     * Correct many instances of hard-coded references to `lib`
 * net-misc/miniupnpd
-    * Prevent use of 'sysctl' syscall (which specifically errors on x32, but is deprecated for all ABIs)
+    * Prevent use of `sysctl` syscall (which specifically errors on x32, but is deprecated for all ABIs)
+* net-misc/openssh
+    * Add experimental `libseccomp` patch, and on x32 either use this or fallback to `rlimit` sandbox.  Without one of these changes, `sshd` is non-functional on x32
 * sys-apps/baselayout
     * Don't error-out if using `lib32` for x32 libraries
 * sys-apps/cpuid
