@@ -251,6 +251,7 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
+* net-misc/openssh
 * net-misc/rsyncd
 * net-p2p/bitcoind
 * sys-apps/kmod
