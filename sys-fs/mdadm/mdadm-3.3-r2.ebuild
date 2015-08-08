@@ -65,8 +65,8 @@ src_install() {
 	dodoc ChangeLog INSTALL TODO README* ANNOUNCE-${PV}
 
 	if ! use udev; then
-		rm -v "${ED}"/$(udev_get_udevdir)/rules.d/*.rules
-		rmdir -p "${ED}"/$(udev_get_udevdir)/rules.d
+		rm -v "${ED}"/$(get_udevdir)/rules.d/*.rules
+		rmdir -p "${ED}"/$(get_udevdir)/rules.d
 	fi
 
 	insinto /etc
