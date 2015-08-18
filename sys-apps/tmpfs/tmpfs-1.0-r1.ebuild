@@ -1,7 +1,7 @@
-# Copyright (c) 2010-2013 Stuart Shelton
+# Copyright (c) 2010-2015 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=4
+EAPI=5
 
 DESCRIPTION="Mirror segments of a filesystem to a memory-based backing store"
 HOMEPAGE="https://github.com/srcshelton/tmpfs"
@@ -13,8 +13,9 @@ IUSE="+examples"
 
 RDEPEND="sys-process/lsof"
 
-# Keep portage happy, as there is nothing to unpack...
-mkdir -p "${S}"
+S="${WORKDIR}"
+
+QA_RUN_ALLOWED="/etc/conf.d/tmpfs"
 
 src_install() {
 	newconfd "${FILESDIR}"/"${PN}".conf "${PN}"
