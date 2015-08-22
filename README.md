@@ -5,6 +5,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 * dev-python/raspberrypi-gpio
     * RPi.GPIO ebuild
+* media-libs/raspberrypi-userland
+    * Replace non-functional Raspian init script with OpenRC equivalent, and update PID location
 * sys-boot/raspberrypi-mkimage
     * Add latest signing tools to enable Device Tree support in self-built kernels
 * www-apps/rpi-monitor
