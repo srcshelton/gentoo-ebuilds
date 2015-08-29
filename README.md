@@ -10,9 +10,11 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * sys-apps/raspberrypi-utilities-armv6
     * Some Raspberry Pi userland tools are closed-source, and so not available in media-libs/raspberrypi-userland.  There (armv6 only, currently) utilities are installed by this package
 * sys-boot/raspberrypi-firmware
-    * Provide Raspberry Pi VideoCore firmware, Device Tree overlays, Kernel image, and kernel modules from a `smart-live-rebuild`-compatible ebuild
+    * Raspberry Pi VideoCore firmware, Device Tree overlays, Kernel image, and kernel modules from a `smart-live-rebuild`-compatible ebuild
 * sys-boot/raspberrypi-mkimage
     * Add latest signing tools to enable Device Tree support in self-built kernels
+* sys-kernel/raspberrypi-sources
+    * Raspberry Pi latest kernel sources, from a `smart-live-rebuild`-compatible ebuild
 * www-apps/rpi-monitor
     * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 
