@@ -1,6 +1,5 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
 
 EAPI=5
 inherit cmake-utils git-r3
@@ -11,8 +10,8 @@ SRC_URI=""
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS=""
-IUSE=""
+KEYWORDS="arm -*"
+IUSE="examples"
 
 DEPEND=""
 RDEPEND=""
@@ -42,10 +41,19 @@ src_install() {
 		"${D}"/usr/include/interface/vmcs_host/
 	rmdir "${D}"/usr/include/interface/vmcs_host/linux
 
-	dodir /usr/share/doc/${PF}
-	mv "${D}"/usr/src/hello_pi "${D}"/usr/share/doc/${PF}/
+	if use examples; then
+		dodir /usr/share/doc/${PN}
+		mv "${D}"/usr/src/hello_pi "${D}"/usr/share/doc/${PN}/
+	fi
 	rmdir "${D}"/usr/src
 
 	rm "${D}"/etc/init.d/vcfiled
 	newinitd "${FILESDIR}"/${PN}-vcfiled.initd vcfiled
+}
+
+pkg_postinst() {
+	ewarn "The package ${PN} only includes open-source Raspberry Pi"
+	ewarn "utilities, and the sys-apps/raspberrypi-utilities-armv6 package is"
+	ewarn "additionally required for certain closed-source components such as"
+	ewarn "the VideoCore IV debugging tool 'vcdbg'."
 }
