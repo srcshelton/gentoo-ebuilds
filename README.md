@@ -7,6 +7,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * RPi.GPIO ebuild
 * media-libs/raspberrypi-userland
     * Replace non-functional Raspian init script with OpenRC equivalent, and update PID location
+* sys-apps/raspberrypi-utilities-armv6
+    * Some Raspberry Pi userland tools are closed-source, and so not available in media-libs/raspberrypi-userland.  There (armv6 only, currently) utilities are installed by this package
 * sys-boot/raspberrypi-mkimage
     * Add latest signing tools to enable Device Tree support in self-built kernels
 * www-apps/rpi-monitor
