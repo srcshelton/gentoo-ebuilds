@@ -9,6 +9,8 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
     * Replace non-functional Raspian init script with OpenRC equivalent, and update PID location
 * sys-apps/raspberrypi-utilities-armv6
     * Some Raspberry Pi userland tools are closed-source, and so not available in media-libs/raspberrypi-userland.  There (armv6 only, currently) utilities are installed by this package
+* sys-boot/raspberrypi-firmware
+    * Provide Raspberry Pi VideoCore firmware, Device Tree overlays, Kernel image, and kernel modules from a `smart-live-rebuild`-compatible ebuild
 * sys-boot/raspberrypi-mkimage
     * Add latest signing tools to enable Device Tree support in self-built kernels
 * www-apps/rpi-monitor
