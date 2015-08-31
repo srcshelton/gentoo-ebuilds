@@ -16,7 +16,7 @@ IUSE="doc"
 
 RESTRICT="test"
 
-RDEPEND=">=sys-libs/ncurses-5.7-r7"
+RDEPEND=">=sys-libs/ncurses-5.7-r7:0="
 DEPEND="${RDEPEND}
 	virtual/os-headers
 	!net-analyzer/iptraf"

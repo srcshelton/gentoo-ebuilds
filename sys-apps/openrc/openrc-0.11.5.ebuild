@@ -7,13 +7,13 @@ EAPI=4
 inherit eutils flag-o-matic multilib pam toolchain-funcs
 
 DESCRIPTION="OpenRC manages the services, startup and shutdown of a host"
-HOMEPAGE="http://www.gentoo.org/proj/en/base/openrc/"
+HOMEPAGE="https://www.gentoo.org/proj/en/base/openrc/"
 
 if [[ ${PV} == "9999" ]]; then
 	EGIT_REPO_URI="git://git.overlays.gentoo.org/proj/${PN}.git"
 	inherit git-2
 else
-	SRC_URI="http://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
+	SRC_URI="https://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
 	KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 fi
 
@@ -481,5 +481,5 @@ pkg_postinst() {
 	elog "or equivalent before restarting any services or this host."
 	elog
 	elog "Please read the migration guide available at:"
-	elog "http://www.gentoo.org/doc/en/openrc-migration.xml"
+	elog "https://www.gentoo.org/doc/en/openrc-migration.xml"
 }

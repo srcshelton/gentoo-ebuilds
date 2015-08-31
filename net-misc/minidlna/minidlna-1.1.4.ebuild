@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/minidlna/minidlna-1.1.4.ebuild,v 1.4 2015/08/02 18:56:03 ago Exp $
+# $Id: 86b16aea54071a58c3dd36462a57410e8c572bde $
 
 EAPI=5
 
@@ -9,7 +9,7 @@ inherit eutils linux-info systemd toolchain-funcs user
 DESCRIPTION="DLNA/UPnP-AV compliant media server"
 HOMEPAGE="http://minidlna.sourceforge.net/"
 SRC_URI="mirror://sourceforge/${PN}/${PV}/${P}.tar.gz
-	http://dev.gentoo.org/~xmw/${PN}-gentoo-artwork.patch.xz"
+	https://dev.gentoo.org/~xmw/${PN}-gentoo-artwork.patch.xz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"

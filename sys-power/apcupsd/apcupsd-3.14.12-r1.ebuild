@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-power/apcupsd/apcupsd-3.14.12-r1.ebuild,v 1.1 2014/07/03 21:28:45 mattm Exp $
+# $Id: 75d43a778e5ad92707e00268f038b3f89c104272 $
 
 EAPI=4
 
@@ -158,3 +158,5 @@ pkg_postinst() {
 		elog "in /dev/apcups/by-id directory."
 	fi
 }
+
+# vi: set diffopt=iwhite,filler:

@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/vnstat/vnstat-1.14.ebuild,v 1.1 2015/05/01 15:54:06 jer Exp $
+# $Id: 53ea375992ae61654f6de62ba5006a223c37f757 $
 
 EAPI=5
 inherit prefix toolchain-funcs user

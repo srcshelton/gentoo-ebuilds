@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/pam/pam-1.1.8-r2.ebuild,v 1.13 2014/10/27 01:43:30 vapier Exp $
+# $Id: a20289668a1f19d6a3982e6cd10d17075599bd02 $
 
 EAPI=5
 
@@ -59,7 +59,7 @@ check_old_modules() {
 		eerror "not be installed."
 		eerror "Please replace pam_stack usage with proper include directive usage,"
 		eerror "following the PAM Upgrade guide at the following URL"
-		eerror "  http://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
+		eerror "  https://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
 		eerror ""
 
 		retval=1
@@ -71,10 +71,10 @@ check_old_modules() {
 		eerror "that are not built or supported anymore:"
 		eerror "pam_pwdb, pam_console"
 		eerror "If you are in real need for these modules, please contact the maintainers"
-		eerror "of PAM through http://bugs.gentoo.org/ providing information about its"
+		eerror "of PAM through https://bugs.gentoo.org/ providing information about its"
 		eerror "use cases."
 		eerror "Please also make sure to read the PAM Upgrade guide at the following URL:"
-		eerror "  http://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
+		eerror "  https://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
 		eerror ""
 
 		retval=1
@@ -167,7 +167,7 @@ multilib_src_install_all() {
 	if use selinux; then
 		dodir /usr/lib/tmpfiles.d
 		cat - > "${D}"/usr/lib/tmpfiles.d/${CATEGORY}:${PN}:${SLOT}.conf <<EOF
-d /run/sepermit 0755 root root
+d /var/run/sepermit 0755 root root
 EOF
 	fi
 }

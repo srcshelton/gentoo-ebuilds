@@ -1,12 +1,12 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/lvm2-2.02.109.ebuild,v 1.11 2015/07/29 05:30:20 vapier Exp $
+# $Id: 29c6ad3bfca98c99414d199e96ce6e1347afc3f9 $
 
 EAPI=5
 inherit autotools eutils linux-info multilib systemd toolchain-funcs udev flag-o-matic
 
 DESCRIPTION="User-land utilities for LVM2 (device-mapper) software"
-HOMEPAGE="http://sources.redhat.com/lvm2/"
+HOMEPAGE="https://sources.redhat.com/lvm2/"
 SRC_URI="ftp://sources.redhat.com/pub/lvm2/${PN/lvm/LVM}.${PV}.tgz
 	ftp://sources.redhat.com/pub/lvm2/old/${PN/lvm/LVM}.${PV}.tgz"
 
@@ -17,7 +17,7 @@ IUSE="clvm cman device-mapper-only lvm1 lvm2create_initrd readline selinux stati
 REQUIRED_USE="device-mapper-only? ( !clvm !cman !lvm1 !lvm2create_initrd !thin )"
 
 DEPEND_COMMON="clvm? ( cman? ( =sys-cluster/cman-3* ) =sys-cluster/libdlm-3* )
-	readline? ( sys-libs/readline )
+	readline? ( sys-libs/readline:0= )
 	udev? ( >=virtual/libudev-208:=[static-libs?] )"
 # This version of LVM is incompatible with cryptsetup <1.1.2.
 RDEPEND="${DEPEND_COMMON}
@@ -221,13 +221,12 @@ src_install() {
 	newconfd "${FILESDIR}"/device-mapper.conf-1.02.22-r3 device-mapper
 
 	if use !device-mapper-only ; then
+		newinitd "${FILESDIR}"/dmeventd.initd-2.02.97-r1 dmeventd
 		newinitd "${FILESDIR}"/lvm.rc-2.02.97-r1 lvm
 		newconfd "${FILESDIR}"/lvm.confd-2.02.28-r2 lvm
 
 		newinitd "${FILESDIR}"/lvm-monitoring.initd-2.02.97-r1 lvm-monitoring
 		newinitd "${FILESDIR}"/lvmetad.initd-2.02.105-r2 lvmetad
-
-		newinitd "${FILESDIR}"/dmeventd.initd-2.02.97-r1 dmeventd
 	fi
 
 	if use clvm; then

@@ -103,7 +103,7 @@ src_prepare() {
 	# Merged upstream
 	#epatch "${FILESDIR}"/${PN}-2.02.95-lvmpath.patch
 
-	# Upstream patch for http://bugs.gentoo.org/424810
+	# Upstream patch for https://bugs.gentoo.org/424810
 	# Merged upstream
 	#epatch "${FILESDIR}"/${PN}-2.02.95-udev185.patch
 

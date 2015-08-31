@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/baselayout-prefix/baselayout-prefix-2.2-r3.ebuild,v 1.6 2014/02/12 19:57:23 redlizard Exp $
+# $Id: a905ee37622d548cb1b993ae10fc41964f282b4f $
 
 EAPI=3
 
@@ -9,10 +9,10 @@ inherit eutils multilib libtool
 MY_P=${P/-prefix/}  # just use "upstream" sources
 EINFO=einfo-1.0.6
 DESCRIPTION="Minimal baselayout and e-functions for Gentoo Prefix installs"
-HOMEPAGE="http://www.gentoo.org/"
+HOMEPAGE="https://www.gentoo.org/"
 SRC_URI="mirror://gentoo/${MY_P}.tar.bz2
-	http://dev.gentoo.org/~vapier/dist/${MY_P}.tar.bz2
-	http://dev.gentoo.org/~redlizard/distfiles/${EINFO}.tar.xz"
+	https://dev.gentoo.org/~vapier/dist/${MY_P}.tar.bz2
+	https://dev.gentoo.org/~redlizard/distfiles/${EINFO}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"

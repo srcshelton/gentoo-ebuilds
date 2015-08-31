@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/media-libs/libvpx/libvpx-1.1.0.ebuild,v 1.32 2015/02/02 14:27:33 jer Exp $
+# $Id: 2f5504a355e58d52db306a49c872ed14e75c26a7 $
 
 EAPI=4
 inherit multilib toolchain-funcs base flag-o-matic
@@ -12,7 +12,7 @@ elif [[ ${PV} == *pre* ]]; then
 	SRC_URI="mirror://gentoo/${P}.tar.bz2"
 	KEYWORDS="alpha amd64 arm hppa ia64 ppc ppc64 ~sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux"
 else
-	SRC_URI="http://webm.googlecode.com/files/${PN}-v${PV}.tar.bz2"
+	SRC_URI="https://webm.googlecode.com/files/${PN}-v${PV}.tar.bz2"
 	KEYWORDS="alpha amd64 arm hppa ia64 ppc ppc64 ~sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux"
 	S="${WORKDIR}/${PN}-v${PV}"
 fi
@@ -61,7 +61,7 @@ src_configure() {
 	# build verbose by default
 	MAKEOPTS="${MAKEOPTS} verbose=yes"
 
-	# http://bugs.gentoo.org/show_bug.cgi?id=384585
+	# https://bugs.gentoo.org/show_bug.cgi?id=384585
 	# https://bugs.gentoo.org/show_bug.cgi?id=465988
 	# copied from php-pear-r1.eclass
 	addpredict /usr/share/snmp/mibs/.index

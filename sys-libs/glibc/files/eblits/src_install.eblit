@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/files/eblits/src_install.eblit,v 1.38 2014/09/10 18:15:55 vapier Exp $
+# $Id: 4a8056071a40a69d54d6a9048dbede76a13cb63d $
 
 toolchain-glibc_src_install() {
 	local builddir=$(builddir $(want_linuxthreads && echo linuxthreads || echo nptl))

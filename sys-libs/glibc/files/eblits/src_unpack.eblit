@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/glibc/files/eblits/src_unpack.eblit,v 1.27 2014/09/10 05:59:03 vapier Exp $
+# $Id: 8d4c74071713196af16e663a712757b73bd6c7af $
 
 [[ ${EAPI:-0} == [01] ]] && source "${FILESDIR}/eblits/src_prepare.eblit"
 

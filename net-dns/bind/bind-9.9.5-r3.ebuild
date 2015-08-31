@@ -46,7 +46,7 @@ HOMEPAGE="http://www.isc.org/software/bind"
 SRC_URI="ftp://ftp.isc.org/isc/bind9/${MY_PV}/${MY_P}.tar.gz
 	doc? ( mirror://gentoo/dyndns-samples.tbz2 )
 	geoip? ( ${GEOIP_SRC_URI_BASE}/files/${GEOIP_DOC_A}
-			 http://dev.gentoo.org/~idl0r/${P}-geoip.patch )
+			 https://dev.gentoo.org/~idl0r/${P}-geoip.patch )
 	sdb-ldap? (
 		http://ftp.disconnected-by-peer.at/pub/bind-sdb-ldap-${SDB_LDAP_VER}.patch.bz2
 	)"

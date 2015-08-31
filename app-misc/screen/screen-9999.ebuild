@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-9999.ebuild,v 1.5 2014/11/01 11:47:25 swegener Exp $
+# $Id: e4f0ab8faa8784c1f835c1321f7b59e0ad031133 $
 
 EAPI=5
 
@@ -13,14 +13,15 @@ WANT_AUTOCONF="2.5"
 inherit eutils flag-o-matic toolchain-funcs pam autotools user git-2
 
 DESCRIPTION="Full-screen window manager that multiplexes physical terminals between several processes"
-HOMEPAGE="http://www.gnu.org/software/screen/"
+HOMEPAGE="https://www.gnu.org/software/screen/"
 
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS=""
 IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
-CDEPEND=">=sys-libs/ncurses-5.2
+CDEPEND="
+	>=sys-libs/ncurses-5.2:0=
 	pam? ( virtual/pam )"
 RDEPEND="${CDEPEND}
 	selinux? ( sec-policy/selinux-screen )"

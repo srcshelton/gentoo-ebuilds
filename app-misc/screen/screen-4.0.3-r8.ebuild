@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-misc/screen/screen-4.0.3-r8.ebuild,v 1.8 2014/11/01 11:47:25 swegener Exp $
+# $Id: 3e574a1fbce831ff90b9ec198011d842fea0d6f0 $
 
 EAPI=4
 
@@ -9,7 +9,7 @@ WANT_AUTOCONF="2.5"
 inherit eutils flag-o-matic toolchain-funcs pam autotools user
 
 DESCRIPTION="Full-screen window manager that multiplexes physical terminals between several processes"
-HOMEPAGE="http://www.gnu.org/software/screen/"
+HOMEPAGE="https://www.gnu.org/software/screen/"
 SRC_URI="ftp://ftp.uni-erlangen.de/pub/utilities/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"

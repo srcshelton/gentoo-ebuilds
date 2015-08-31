@@ -1,6 +1,6 @@
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/busybox/busybox-1.20.2.ebuild,v 1.13 2013/08/20 08:15:14 gmsoft Exp $
+# $Id: 465f436de71ca57b62df68ceb0c1629e9ab7eee6 $
 
 EAPI="4"
 inherit eutils flag-o-matic savedconfig toolchain-funcs multilib

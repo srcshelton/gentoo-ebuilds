@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/usbip/usbip-3.19.ebuild,v 1.2 2015/04/08 10:08:46 chithanh Exp $
+# $Id: 5c9800031da51a187d7054d7251c6660e166f7ba $
 
 EAPI=5
 ETYPE="sources"
@@ -8,7 +8,7 @@ K_NOUSENAME=1
 inherit autotools eutils kernel-2
 
 DESCRIPTION="Userspace utilities for a general USB device sharing system over IP networks"
-HOMEPAGE="http://www.kernel.org/"
+HOMEPAGE="https://www.kernel.org/"
 SRC_URI="${KERNEL_URI}"
 
 LICENSE="GPL-2"

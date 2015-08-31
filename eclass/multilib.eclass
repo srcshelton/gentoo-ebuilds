@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/eclass/multilib.eclass,v 1.107 2015/05/26 14:25:16 ottxor Exp $
+# $Id: eb0ac1d24100d6a882f109a492b60fc4a0c186f0 $
 
 # @ECLASS: multilib.eclass
 # @MAINTAINER:

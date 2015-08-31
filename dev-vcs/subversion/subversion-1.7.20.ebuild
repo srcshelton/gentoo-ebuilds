@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/dev-vcs/subversion/subversion-1.7.20.ebuild,v 1.9 2015/07/03 08:56:31 ago Exp $
+# $Id: 5b585c87c7a7164be8b01c4b95af738b5bbd40fe $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )

@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/iptraf-ng/iptraf-ng-1.1.4-r1.ebuild,v 1.9 2014/05/03 20:46:58 zlogene Exp $
+# $Id: 74cbcc2c2ed2c50a0c4484797d3526fc44c5e640 $
 
 EAPI=5
 inherit eutils toolchain-funcs
@@ -17,7 +17,7 @@ IUSE="doc"
 RESTRICT="test"
 
 RDEPEND="
-	>=sys-libs/ncurses-5.7-r7
+	>=sys-libs/ncurses-5.7-r7:0=
 "
 DEPEND="
 	${RDEPEND}

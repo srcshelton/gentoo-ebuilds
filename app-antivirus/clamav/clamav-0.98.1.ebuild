@@ -16,7 +16,7 @@ KEYWORDS="alpha amd64 ~arm hppa ia64 ppc ppc64 sparc x86 ~x86-fbsd ~amd64-linux 
 IUSE="bzip2 clamdtop iconv ipv6 milter selinux static-libs systemd uclibc"
 
 CDEPEND="bzip2? ( app-arch/bzip2 )
-	clamdtop? ( sys-libs/ncurses )
+	clamdtop? ( sys-libs/ncurses:0= )
 	iconv? ( virtual/libiconv )
 	milter? ( || ( mail-filter/libmilter mail-mta/sendmail ) )
 	dev-libs/libtommath

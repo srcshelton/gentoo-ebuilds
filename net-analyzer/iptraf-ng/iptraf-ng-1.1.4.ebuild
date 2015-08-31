@@ -17,7 +17,7 @@ IUSE="doc"
 RESTRICT="test"
 
 RDEPEND="
-	>=sys-libs/ncurses-5.7-r7
+	>=sys-libs/ncurses-5.7-r7:0=
 "
 DEPEND="
 	${RDEPEND}

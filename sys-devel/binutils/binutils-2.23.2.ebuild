@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/binutils/binutils-2.23.2.ebuild,v 1.15 2014/11/08 16:54:29 vapier Exp $
+# $Id: 26b91e739a31450a16ddb489efb80c56657a6b75 $
 
 EAPI="4"
 

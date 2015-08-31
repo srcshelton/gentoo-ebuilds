@@ -15,8 +15,8 @@ PREFIX_PATCHREV=""
 DESCRIPTION="An interpreted, interactive, object-oriented programming language"
 HOMEPAGE="http://www.python.org/"
 SRC_URI="http://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
-	http://dev.gentoo.org/~floppym/python/python-gentoo-patches-${PATCHSET_VERSION}.tar.xz
-	prefix? ( http://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}.tar.bz2 )"
+	https://dev.gentoo.org/~floppym/python/python-gentoo-patches-${PATCHSET_VERSION}.tar.xz
+	prefix? ( https://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}.tar.bz2 )"
 
 LICENSE="PSF-2"
 SLOT="2.7"
@@ -206,7 +206,7 @@ src_configure() {
 		export ac_cv_file__dev_ptmx=yes
 	fi
 
-	# http://bugs.gentoo.org/show_bug.cgi?id=302137
+	# https://bugs.gentoo.org/show_bug.cgi?id=302137
 	if [[ ${CHOST} == powerpc-*-darwin* ]] && \
 		( is-flag "-mtune=*" || is-flag "-mcpu=*" ) || \
 		[[ ${CHOST} == powerpc64-*-darwin* ]];

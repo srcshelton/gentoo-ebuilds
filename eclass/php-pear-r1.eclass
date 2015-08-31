@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/eclass/php-pear-r1.eclass,v 1.33 2015/02/11 02:53:18 grknight Exp $
+# $Id: c2610307c7138276161ea440c1be1b6a7f226e22 $
 
 # @ECLASS: php-pear-r1.eclass
 # @MAINTAINER:

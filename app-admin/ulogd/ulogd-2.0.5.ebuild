@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-admin/ulogd/ulogd-2.0.5.ebuild,v 1.1 2015/05/30 09:38:29 idella4 Exp $
+# $Id: 0822bd77efb749e50cf7eeb5129816db83d61b0e $
 
 EAPI=5
 

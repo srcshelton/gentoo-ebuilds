@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-power/acpid/acpid-2.0.20.ebuild,v 1.6 2015/06/21 09:17:52 jer Exp $
+# $Id: f66e5bec20dad4876c457a43614530741b25cc58 $
 
 EAPI=5
 inherit systemd
@@ -47,7 +47,7 @@ pkg_postinst() {
 		elog
 		elog "You may wish to read the Gentoo Linux Power Management Guide,"
 		elog "which can be found online at:"
-		elog "http://www.gentoo.org/doc/en/power-management-guide.xml"
+		elog "https://www.gentoo.org/doc/en/power-management-guide.xml"
 		elog
 	fi
 

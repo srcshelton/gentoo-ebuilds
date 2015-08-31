@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/pam/pam-1.2.1.ebuild,v 1.10 2015/07/23 09:34:56 ago Exp $
+# $Id: 8309dda36a88c8eea62edca4ddb2b786af79af11 $
 
 EAPI=5
 
@@ -16,7 +16,7 @@ SRC_URI="http://www.linux-pam.org/library/${MY_P}.tar.bz2
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-linux ~ia64-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~ia64-linux ~x86-linux"
 IUSE="audit berkdb cracklib debug nis nls +pie selinux test vim-syntax"
 
 RDEPEND="nls? ( >=virtual/libintl-0-r1[${MULTILIB_USEDEP}] )
@@ -29,7 +29,7 @@ DEPEND="${RDEPEND}
 	>=sys-devel/libtool-2
 	>=sys-devel/flex-2.5.39-r1[${MULTILIB_USEDEP}]
 	nls? ( sys-devel/gettext )
-	>=virtual/pkgconfig-0-r1[${MULTILIB_USEDEP}]"
+	nis? ( >=virtual/pkgconfig-0-r1[${MULTILIB_USEDEP}] )"
 PDEPEND="sys-auth/pambase
 	vim-syntax? ( app-vim/pam-syntax )"
 RDEPEND="${RDEPEND}
@@ -55,7 +55,7 @@ check_old_modules() {
 		eerror "not be installed."
 		eerror "Please replace pam_stack usage with proper include directive usage,"
 		eerror "following the PAM Upgrade guide at the following URL"
-		eerror "  http://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
+		eerror "  https://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
 		eerror ""
 
 		retval=1
@@ -67,10 +67,10 @@ check_old_modules() {
 		eerror "that are not built or supported anymore:"
 		eerror "pam_pwdb, pam_console"
 		eerror "If you are in real need for these modules, please contact the maintainers"
-		eerror "of PAM through http://bugs.gentoo.org/ providing information about its"
+		eerror "of PAM through https://bugs.gentoo.org/ providing information about its"
 		eerror "use cases."
 		eerror "Please also make sure to read the PAM Upgrade guide at the following URL:"
-		eerror "  http://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
+		eerror "  https://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
 		eerror ""
 
 		retval=1

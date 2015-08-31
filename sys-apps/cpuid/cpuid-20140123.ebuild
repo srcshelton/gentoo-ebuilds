@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/cpuid/cpuid-20140123.ebuild,v 1.1 2014/01/29 01:42:54 dirtyepic Exp $
+# $Id: ce80f5c51d417211aa3df19fc918f98ef78a7009 $
 
 EAPI="5"
 

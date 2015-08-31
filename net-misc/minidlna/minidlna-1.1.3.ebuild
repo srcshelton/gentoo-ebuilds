@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/minidlna/minidlna-1.1.3.ebuild,v 1.3 2014/10/30 10:01:45 ago Exp $
+# $Id: 833a66685db8690d4d5c01ba3cb6e165cce01333 $
 
 EAPI=4
 
@@ -87,3 +87,5 @@ pkg_postinst() {
 	elog "cache is moved to /var/lib/minidlna."
 	elog "Please edit /etc/conf.d/${PN} and file ownerships to suit your needs."
 }
+
+# vi: set diffopt=iwhite,filler:

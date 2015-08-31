@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/mdadm-3.3.1-r2.ebuild,v 1.10 2015/04/04 21:48:46 vapier Exp $
+# $Id: 2f56dba220c1d812e02f606f74f59d547206ec49 $
 
 EAPI=4
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev

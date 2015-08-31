@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/gcc-apple/gcc-apple-4.2.1_p5666-r2.ebuild,v 1.3 2015/01/31 16:15:23 grobian Exp $
+# $Id: 5f5306f78aee9b2f5ef211596bdaa71988e68075 $
 
 EAPI="3"
 
@@ -9,7 +9,7 @@ inherit eutils toolchain flag-o-matic autotools prefix
 GCC_VERS=${PV/_p*/}
 APPLE_VERS="${PV/*_p/}.3"
 DESCRIPTION="Apple branch of the GNU Compiler Collection, Developer Tools 4.0"
-HOMEPAGE="http://gcc.gnu.org"
+HOMEPAGE="https://gcc.gnu.org"
 SRC_URI="http://www.opensource.apple.com/darwinsource/tarballs/other/gcc-${APPLE_VERS}.tar.gz
 		http://www.opensource.apple.com/darwinsource/tarballs/other/libstdcxx-16.tar.gz
 		http://www.opensource.apple.com/darwinsource/tarballs/other/libstdcxx-39.tar.gz
@@ -252,7 +252,7 @@ src_configure() {
 	CFLAGS="-O2 -pipe"
 	CXXFLAGS=${CFLAGS}
 
-	# http://gcc.gnu.org/ml/gcc-patches/2006-11/msg00765.html
+	# https://gcc.gnu.org/ml/gcc-patches/2006-11/msg00765.html
 	# (won't hurt if already 64-bits, but is essential when coming from a
 	# multilib compiler -- the default)
 	[[ ${CTARGET} == powerpc64-* || ${CTARGET} == x86_64-* ]] && \

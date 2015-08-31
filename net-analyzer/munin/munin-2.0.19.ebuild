@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/munin/munin-2.0.19.ebuild,v 1.8 2015/06/13 19:41:05 dilfridge Exp $
+# $Id: a20da2a40dc1061f2345f5c641a94c539515bd32 $
 
 EAPI=5
 
@@ -13,7 +13,7 @@ MY_P=${P/_/-}
 DESCRIPTION="Munin Server Monitoring Tool"
 HOMEPAGE="http://munin-monitoring.org/"
 SRC_URI="mirror://sourceforge/munin/${MY_P}.tar.gz
-	http://dev.gentoo.org/~flameeyes/${PN}/${P}-gentoo-${PATCHSET}.tar.xz"
+	https://dev.gentoo.org/~flameeyes/${PN}/${P}-gentoo-${PATCHSET}.tar.xz"
 
 LICENSE="GPL-2"
 #SLOT="0"

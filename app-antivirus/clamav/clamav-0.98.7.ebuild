@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-antivirus/clamav/clamav-0.98.7.ebuild,v 1.7 2015/07/24 12:38:55 zlogene Exp $
+# $Id: 86a3380ca98e8a8d79a0e8c468a13543a6302b56 $
 
 EAPI=5
 
@@ -16,7 +16,7 @@ KEYWORDS="alpha amd64 ~arm ~hppa ia64 ppc ~ppc64 sparc x86 ~x86-fbsd ~amd64-linu
 IUSE="bzip2 clamdtop iconv ipv6 milter metadata-analysis-api selinux static-libs systemd uclibc"
 
 CDEPEND="bzip2? ( app-arch/bzip2 )
-	clamdtop? ( sys-libs/ncurses )
+	clamdtop? ( sys-libs/ncurses:0= )
 	iconv? ( virtual/libiconv )
 	metadata-analysis-api? ( dev-libs/json-c )
 	milter? ( || ( mail-filter/libmilter mail-mta/sendmail ) )

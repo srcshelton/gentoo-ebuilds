@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/dev-lang/php/php-5.5.26.ebuild,v 1.9 2015/07/24 12:21:47 zlogene Exp $
+# $Id: aeedfb4d9ba5a1fb5ee54cdf229308627a143c7e $
 
 EAPI=5
 
@@ -18,7 +18,7 @@ function php_get_uri ()
 			echo "http://www.php.net/distributions/${2}"
 		;;
 		"olemarkus")
-			echo "http://dev.gentoo.org/~olemarkus/php/${2}"
+			echo "https://dev.gentoo.org/~olemarkus/php/${2}"
 		;;
 		"gentoo")
 			echo "mirror://gentoo/${2}"
@@ -785,7 +785,7 @@ pkg_postinst() {
 
 	elog
 	elog "For more details on how minor version slotting works (PHP_TARGETS) please read the upgrade guide:"
-	elog "http://www.gentoo.org/proj/en/php/php-upgrading.xml"
+	elog "https://www.gentoo.org/proj/en/php/php-upgrading.xml"
 	elog
 }
 

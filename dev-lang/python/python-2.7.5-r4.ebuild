@@ -16,7 +16,7 @@ DESCRIPTION="An interpreted, interactive, object-oriented programming language"
 HOMEPAGE="http://www.python.org/"
 SRC_URI="http://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
 	mirror://gentoo/python-gentoo-patches-${PV}-${PATCHSET_REVISION}.tar.xz
-	prefix? ( http://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}.tar.bz2 )"
+	prefix? ( https://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}.tar.bz2 )"
 
 LICENSE="PSF-2"
 SLOT="2.7"
@@ -203,7 +203,7 @@ src_configure() {
 		use hardened && replace-flags -O3 -O2
 	fi
 
-	# http://bugs.gentoo.org/show_bug.cgi?id=302137
+	# https://bugs.gentoo.org/show_bug.cgi?id=302137
 	if [[ ${CHOST} == powerpc-*-darwin* ]] && \
 		( is-flag "-mtune=*" || is-flag "-mcpu=*" ) || \
 		[[ ${CHOST} == powerpc64-*-darwin* ]];

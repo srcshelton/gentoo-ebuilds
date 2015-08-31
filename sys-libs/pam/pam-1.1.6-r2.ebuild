@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-libs/pam/pam-1.1.6-r2.ebuild,v 1.11 2014/01/18 05:16:15 vapier Exp $
+# $Id: d3e0f232e4fa984f9437f2a95495ecc35538f763 $
 
 EAPI=5
 
@@ -55,7 +55,7 @@ check_old_modules() {
 		eerror "not be installed."
 		eerror "Please replace pam_stack usage with proper include directive usage,"
 		eerror "following the PAM Upgrade guide at the following URL"
-		eerror "  http://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
+		eerror "  https://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
 		eerror ""
 
 		retval=1
@@ -67,10 +67,10 @@ check_old_modules() {
 		eerror "that are not built or supported anymore:"
 		eerror "pam_pwdb, pam_console"
 		eerror "If you are in real need for these modules, please contact the maintainers"
-		eerror "of PAM through http://bugs.gentoo.org/ providing information about its"
+		eerror "of PAM through https://bugs.gentoo.org/ providing information about its"
 		eerror "use cases."
 		eerror "Please also make sure to read the PAM Upgrade guide at the following URL:"
-		eerror "  http://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
+		eerror "  https://www.gentoo.org/proj/en/base/pam/upgrade-0.99.xml"
 		eerror ""
 
 		retval=1
@@ -162,6 +162,13 @@ src_install() {
 	# modules, and libpam is installed as a shared object only, so we
 	# don't need them for static linking either.
 	find "${D}" -name '*.la' -delete
+
+	if use selinux; then
+		dodir /usr/lib/tmpfiles.d
+		cat - > "${D}"/usr/lib/tmpfiles.d/${CATEGORY}:${PN}:${SLOT}.conf <<EOF
+d /var/run/sepermit 0755 root root
+EOF
+	fi
 }
 
 pkg_preinst() {

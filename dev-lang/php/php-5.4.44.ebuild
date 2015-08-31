@@ -1,12 +1,12 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
+# $Id: 31424bf7f250cdbc1f91d171ad46c883fec40d0e $
 
 EAPI=5
 
 inherit eutils autotools flag-o-matic versionator depend.apache apache-module db-use libtool systemd
 
-KEYWORDS="alpha amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
 function php_get_uri ()
 {
@@ -18,7 +18,7 @@ function php_get_uri ()
 			echo "http://www.php.net/distributions/${2}"
 		;;
 		"olemarkus")
-			echo "http://dev.gentoo.org/~olemarkus/php/${2}"
+			echo "https://dev.gentoo.org/~olemarkus/php/${2}"
 		;;
 		"gentoo")
 			echo "mirror://gentoo/${2}"
@@ -803,7 +803,7 @@ pkg_postinst() {
 
 	elog
 	elog "For more details on how minor version slotting works (PHP_TARGETS) please read the upgrade guide:"
-	elog "http://www.gentoo.org/proj/en/php/php-upgrading.xml"
+	elog "https://www.gentoo.org/proj/en/php/php-upgrading.xml"
 	elog
 }
 

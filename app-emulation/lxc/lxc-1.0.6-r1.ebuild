@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-emulation/lxc/lxc-1.0.6-r1.ebuild,v 1.5 2015/04/08 07:30:33 mgorny Exp $
+# $Id: a9b43e5f41beb7f40f0f9f68c1a03122537f7a69 $
 
 EAPI="5"
 

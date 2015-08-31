@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-admin/ulogd/ulogd-2.0.4-r1.ebuild,v 1.4 2015/07/23 20:00:11 pacho Exp $
+# $Id: a49fa023521425ce58881637b4c36c615242c631 $
 
 EAPI="5"
 

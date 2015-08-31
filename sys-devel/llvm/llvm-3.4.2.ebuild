@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-devel/llvm/llvm-3.4.2.ebuild,v 1.11 2015/05/31 09:45:07 grobian Exp $
+# $Id: 5268c28b23e930de26bc3e66ecd7ffbc7df66b6c $
 
 EAPI=5
 
@@ -18,7 +18,7 @@ SRC_URI="http://llvm.org/releases/${PV}/${P}.src.tar.gz
 	clang? ( http://llvm.org/releases/${PV}/compiler-rt-3.4.src.tar.gz
 		http://llvm.org/releases/${PV}/cfe-${PV}.src.tar.gz
 		http://llvm.org/releases/${PV}/clang-tools-extra-3.4.src.tar.gz )
-	!doc? ( http://dev.gentoo.org/~mgorny/dist/${PN}-3.4-manpages.tar.bz2 )"
+	!doc? ( https://dev.gentoo.org/~mgorny/dist/${PN}-3.4-manpages.tar.bz2 )"
 
 LICENSE="UoI-NCSA"
 SLOT="0/3.4"
@@ -39,7 +39,7 @@ COMMON_DEPEND="
 	)
 	gold? ( >=sys-devel/binutils-2.22:*[cxx] )
 	libffi? ( >=virtual/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
-	ncurses? ( >=sys-libs/ncurses-5.9-r3:5=[${MULTILIB_USEDEP}] )
+	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
 	ocaml? ( dev-lang/ocaml:0= )
 	udis86? ( >=dev-libs/udis86-1.7-r2:0=[pic(+),${MULTILIB_USEDEP}] )"
 DEPEND="${COMMON_DEPEND}

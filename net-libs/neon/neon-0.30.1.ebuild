@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-libs/neon/neon-0.30.1.ebuild,v 1.11 2015/05/16 07:56:57 vapier Exp $
+# $Id: 3a4f5a69caecfb4bc4e4a25052092db729bfdd66 $
 
 EAPI="5"
 

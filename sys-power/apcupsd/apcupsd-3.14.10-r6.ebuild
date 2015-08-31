@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-power/apcupsd/apcupsd-3.14.10-r6.ebuild,v 1.2 2014/06/11 07:50:39 pinkbyte Exp $
+# $Id: a3419b5fdd694ad7c283c25c80067c3a825ccbc7 $
 
 EAPI=4
 

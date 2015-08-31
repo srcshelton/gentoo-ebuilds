@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/mail-filter/spampd/spampd-2.42.ebuild,v 1.2 2014/08/10 21:17:16 slyfox Exp $
+# $Id: 817550e88151ee2c5940b515bff78fd03a92d91c $
 
 EAPI=5
 inherit systemd

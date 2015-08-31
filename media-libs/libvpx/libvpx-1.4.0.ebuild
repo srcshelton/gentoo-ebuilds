@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/media-libs/libvpx/libvpx-1.4.0.ebuild,v 1.10 2015/07/30 18:57:59 zlogene Exp $
+# $Id: ac6af7aea239ed7e8137e1ced330bafdf60d7951 $
 
 EAPI=5
 inherit eutils multilib toolchain-funcs multilib-minimal
@@ -60,7 +60,7 @@ multilib_src_configure() {
 		x86_64*) export AS=yasm;;
 	esac
 
-	# http://bugs.gentoo.org/show_bug.cgi?id=384585
+	# https://bugs.gentoo.org/show_bug.cgi?id=384585
 	# https://bugs.gentoo.org/show_bug.cgi?id=465988
 	# copied from php-pear-r1.eclass
 	addpredict /usr/share/snmp/mibs/.index

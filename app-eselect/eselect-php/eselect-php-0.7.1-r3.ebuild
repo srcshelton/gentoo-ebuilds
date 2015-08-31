@@ -1,14 +1,14 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-eselect/eselect-php/eselect-php-0.7.1-r3.ebuild,v 1.1 2015/03/31 16:53:51 ulm Exp $
+# $Id: a57b3c52296a60618a97ba5fbe8cc9a127cd91e5 $
 
 EAPI=5
 
 inherit depend.apache systemd
 
 DESCRIPTION="PHP eselect module"
-HOMEPAGE="http://www.gentoo.org"
-SRC_URI="http://dev.gentoo.org/~olemarkus/eselect-php/eselect-php-${PV}.bz2"
+HOMEPAGE="https://www.gentoo.org"
+SRC_URI="https://dev.gentoo.org/~olemarkus/eselect-php/eselect-php-${PV}.bz2"
 
 LICENSE="GPL-2"
 SLOT="0"

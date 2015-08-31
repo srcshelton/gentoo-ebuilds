@@ -18,7 +18,7 @@ SRC_URI="http://llvm.org/releases/${PV}/${P}.src.tar.gz
 	clang? ( http://llvm.org/releases/${PV}/compiler-rt-3.4.src.tar.gz
 		http://llvm.org/releases/${PV}/cfe-${PV}.src.tar.gz
 		http://llvm.org/releases/${PV}/clang-tools-extra-3.4.src.tar.gz )
-	!doc? ( http://dev.gentoo.org/~mgorny/dist/${PN}-3.4-manpages.tar.bz2 )"
+	!doc? ( https://dev.gentoo.org/~mgorny/dist/${PN}-3.4-manpages.tar.bz2 )"
 
 LICENSE="UoI-NCSA"
 SLOT="0/3.4"
@@ -39,7 +39,7 @@ COMMON_DEPEND="
 	)
 	gold? ( >=sys-devel/binutils-2.22:*[cxx] )
 	libffi? ( virtual/libffi:0=[${MULTILIB_USEDEP}] )
-	ncurses? ( sys-libs/ncurses:5=[${MULTILIB_USEDEP}] )
+	ncurses? ( sys-libs/ncurses:0=[${MULTILIB_USEDEP}] )
 	ocaml? ( dev-lang/ocaml:0= )
 	udis86? ( dev-libs/udis86:0=[pic(+),${MULTILIB_USEDEP}] )"
 DEPEND="${COMMON_DEPEND}

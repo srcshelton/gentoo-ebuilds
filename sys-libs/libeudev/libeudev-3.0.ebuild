@@ -12,7 +12,7 @@ if [[ ${PV} = 9999* ]]; then
 	EGIT_REPO_URI="git://github.com/gentoo/eudev.git"
 	inherit git-2
 else
-	SRC_URI="http://dev.gentoo.org/~blueness/${PN#lib}/${P#lib}.tar.gz"
+	SRC_URI="https://dev.gentoo.org/~blueness/${PN#lib}/${P#lib}.tar.gz"
 	KEYWORDS="~amd64 ~arm ~hppa ~mips ~ppc ~ppc64 ~x86"
 fi
 
