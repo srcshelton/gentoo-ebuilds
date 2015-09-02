@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 327a1ba6682efb97d066be40adfa2a6e3167ee61 $
+# $Id: 48a082b5100cbb87bbc7572bd5e7eb6b152de295 $
 
 EAPI=5
 
@@ -12,7 +12,7 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
 CDEPEND="
@@ -84,10 +84,10 @@ src_compile() {
 }
 
 src_install() {
+	local tmpfiles_perms="0775" tmpfiles_group="utmp"
+
 	dobin screen
 
-	local tmpfiles_perms="0775"
-	local tmpfiles_group="utmp"
 	if use multiuser; then
 		use prefix || fperms 4755 /usr/bin/screen
 		tmpfiles_perms="0755"
