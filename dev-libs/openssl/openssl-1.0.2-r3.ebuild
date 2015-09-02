@@ -1,6 +1,7 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 231155dac06726a4ddc267ed6d53957107b7aa0e $
+# $Header: /var/cvsroot/gentoo-x86/dev-libs/openssl/openssl-1.0.2-r3.ebuild,v 1.3 2015/03/19 21:14:17 vapier Exp $
 
 EAPI="4"
 
@@ -221,6 +222,12 @@ multilib_src_configure() {
 		--libdir=$(get_libdir) \
 		shared threads ${confopts} \
 		|| die
+
+	if [[ ${CHOST} == i?86*-*-linux* || ${CHOST} == i?86*-*-freebsd* ]]; then
+		# does not compile without optimization on x86-linux and x86-fbsd
+		filter-flags -O0
+		is-flagq -O* || append-flags -O1
+	fi
 
 	# Clean out hardcoded flags that openssl uses
 	local CFLAG=$(grep ^CFLAG= Makefile | LC_ALL=C sed \

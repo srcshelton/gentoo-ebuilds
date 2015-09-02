@@ -1,6 +1,7 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 6c22a2e934e37b4783384dcddabbbb3c48bfc168 $
+# $Header: /var/cvsroot/gentoo-x86/dev-libs/openssl/openssl-1.0.2a.ebuild,v 1.9 2015/04/03 05:44:45 vapier Exp $
 
 EAPI="4"
 
@@ -94,7 +95,7 @@ src_prepare() {
 	epatch "${FILESDIR}"/${PN}-0.9.8g-engines-installnames.patch
 	epatch "${FILESDIR}"/${PN}-1.0.0a-interix.patch
 	epatch "${FILESDIR}"/${PN}-1.0.0a-mint.patch
-	epatch "${FILESDIR}"/${PN}-0.9.8l-aixso.patch #213277: with import files now
+	epatch "${FILESDIR}"/${PN}-1.0.2a-aix-soname.patch # like libtool
 	epatch "${FILESDIR}"/${PN}-1.0.0b-darwin-bundle-compile-fix.patch
 	epatch "${FILESDIR}"/${PN}-1.0.2-gethostbyname2-solaris.patch
 	if [[ ${CHOST} == *-interix* ]] ; then
@@ -225,8 +226,8 @@ multilib_src_configure() {
 		shared threads ${confopts} \
 		|| die
 
-	if [[ ${CHOST} == i?86*-*-freebsd* ]]; then
-		# does not compile without optimization on x86-fbsd
+	if [[ ${CHOST} == i?86*-*-linux* || ${CHOST} == i?86*-*-freebsd* ]]; then
+		# does not compile without optimization on x86-linux and x86-fbsd
 		filter-flags -O0
 		is-flagq -O* || append-flags -O1
 	fi
