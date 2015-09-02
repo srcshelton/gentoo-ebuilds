@@ -1,6 +1,7 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: cac26457da2bef83a921b791f537673c4628baab $
+# $Header: /var/cvsroot/gentoo-x86/sys-libs/db/db-5.1.29-r1.ebuild,v 1.3 2015/03/20 14:41:50 jlec Exp $
 
 EAPI=5
 inherit eutils db flag-o-matic java-pkg-opt-2 autotools multilib toolchain-funcs
@@ -53,6 +54,7 @@ src_prepare() {
 	done
 	epatch "${FILESDIR}"/${PN}-4.8-libtool.patch
 	epatch "${FILESDIR}"/${PN}-4.8.24-java-manifest-location.patch
+	epatch "${FILESDIR}"/${PN}-4.8.30-rename-atomic-compare-exchange.patch
 
 	pushd dist > /dev/null || die "Cannot cd to 'dist'"
 
@@ -77,7 +79,9 @@ src_prepare() {
 
 	popd > /dev/null
 
-	epatch "${FILESDIR}"/${PN}-5.1-clang-builtins.patch
+	# upstream autoconf fails to build DBM when it's supposed to
+	# merged upstream in 5.0.26
+	#epatch "${FILESDIR}"/${PN}-5.0.21-enable-dbm-autoconf.patch
 
 	# Upstream release script grabs the dates when the script was run, so lets
 	# end-run them to keep the date the same.
