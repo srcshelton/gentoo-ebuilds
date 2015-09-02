@@ -82,4 +82,4 @@ src_install() {
 	use python || rm -f "${ED}"/usr/bin/lsusb.py
 }
 
-# vi: set diffopt=filler,iwhite:
+# vi: set diffopt=iwhite,filler:
