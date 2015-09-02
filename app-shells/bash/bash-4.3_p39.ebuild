@@ -1,6 +1,7 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: d754887ce98826ae569e9a012eafa9b73badfe54 $
+# $Header: /var/cvsroot/gentoo-x86/app-shells/bash/bash-4.3_p39.ebuild,v 1.1 2015/05/21 04:06:28 vapier Exp $
 
 EAPI="4"
 
@@ -160,6 +161,10 @@ src_configure() {
 		export ac_cv_lib_tinfo_tgetent=no
 		export ac_cv_lib_curses_tgetent=no # found on AIX
 		#export ac_cv_lib_ncurses_tgetent=no
+
+		# Without /dev/fd/*, bash uses named pipes instead, but the
+		# pipe names are not unique enough for portage's multijob.
+		append-cppflags -DUSE_MKTEMP
 	fi
 
 	# Don't even think about building this statically without
