@@ -95,4 +95,4 @@ pkg_postinst() {
 	elog "Please edit /etc/conf.d/${PN} and file ownerships to suit your needs."
 }
 
-# vi: set diffopt=filler,iwhite:
+# vi: set diffopt=iwhite,filler:
