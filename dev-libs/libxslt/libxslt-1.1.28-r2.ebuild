@@ -99,8 +99,8 @@ libxslt_py_emake() {
 		PYTHON="${PYTHON}" \
 		PYTHON_INCLUDES="${EPREFIX}/usr/include/${EPYTHON}" \
 		PYTHON_LIBS="$(python-config --ldflags)" \
-		PYTHON_SITE_PACKAGES="$(python_get_sitedir)" \
-		pythondir="$(python_get_sitedir)" \
+		PYTHON_SITE_PACKAGES="${EPREFIX}$(python_get_sitedir)" \
+		pythondir="${EPREFIX}$(python_get_sitedir)" \
 		PYTHON_VERSION=${EPYTHON/python} "$@"
 	popd > /dev/null
 }
