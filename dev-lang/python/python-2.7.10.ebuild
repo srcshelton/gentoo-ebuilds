@@ -1,6 +1,7 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 00ff5c59242da458353d82e102b1cd58280cad6a $
+# $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.1 2015/05/28 04:10:47 floppym Exp $
 
 EAPI="4"
 WANT_LIBTOOL="none"
@@ -432,7 +433,8 @@ src_install() {
 		# actually look into the UNIX-style dir, we just switch them around.
 		mkdir -p "${ED}"/usr/$(get_libdir)/python${SLOT}
 		mv "${D}${fwdir}"/Versions/${SLOT}/lib/python${SLOT}/* \
-			"${ED}"/usr/$(get_libdir)/python${SLOT}/ || die "can't move python${SLOT}"
+			"${ED}"/usr/$(get_libdir)/python${SLOT}/ \
+			|| die "can't move python${SLOT}"
 		rmdir "${D}${fwdir}"/Versions/${SLOT}/lib/python${SLOT} || die
 		pushd "${D}${fwdir}"/Versions/${SLOT}/lib > /dev/null
 		ln -s ../../../../python${SLOT} || die
@@ -451,7 +453,18 @@ src_install() {
 			-e '/^PYTHONFRAMEWORKPREFIX=/s/=.*$/=/' \
 			-e '/^PYTHONFRAMEWORKINSTALLDIR=/s/=.*$/=/' \
 			-e '/^LDLIBRARY=/s:=.*$:libpython$(VERSION).dylib:' \
-			"${ED}"/usr/lib/python${SLOT}/config/Makefile || die
+			"${libdir}"/config/Makefile || die
+		# and sysconfigdata likewise
+		sed -i \
+			-e "/'LINKFORSHARED'/s/-u _PyMac_Error[^']*'/'/" \
+			-e "/'LDFLAGS'/s/:.*$/:'',/" \
+			-e "/'prefix'/s|:.*$|:'${EPREFIX}/usr',|" \
+			-e "/'PYTHONFRAMEWORK'/s/:.*$/:'',/" \
+			-e "/'PYTHONFRAMEWORKDIR'/s/:.*$/:'no-framework',/" \
+			-e "/'PYTHONFRAMEWORKPREFIX'/s/:.*$/:'',/" \
+			-e "/'PYTHONFRAMEWORKINSTALLDIR'/s/:.*$/:'',/" \
+			-e "/'LDLIBRARY'/s|:.*$|:'libpython${SLOT}.dylib',|" \
+			"${libdir}"/_sysconfigdata.py || die
 
 		# add missing version.plist file
 		mkdir -p "${D}${fwdir}"/Versions/${SLOT}/Resources
