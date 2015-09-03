@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
-inherit git-r3
+inherit git-r3 mount-boot
 
 DESCRIPTION="Raspberry PI boot loader and firmware"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
@@ -157,8 +157,12 @@ pkg_preinst() {
 			fi
 		fi
 	fi
+
+	mount-boot_pkg_preinst
 }
 
 pkg_postinst() {
+	mount-boot_pkg_postinst
+
 	einfo "Please customise your Raspberry Pi configuration by editing /boot/config.txt"
 }
