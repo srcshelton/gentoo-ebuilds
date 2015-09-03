@@ -121,6 +121,15 @@ src_install() {
 }
 
 pkg_postinst() {
+	local rundir="${EROOT%/}/var/run/screen"
+	local tmpfiles_perms="0775" tmpfiles_group="utmp"
+	if use multiuser; then
+		tmpfiles_perms="0755"
+		if ! use prefix; then
+			tmpfiles_group="root"
+		fi
+	fi
+
 	if [[ -z ${REPLACING_VERSIONS} ]]
 	then
 		elog "Some dangerous key bindings have been removed or changed to more safe values."
@@ -130,13 +139,9 @@ pkg_postinst() {
 
 	# Add /var/run/screen in case it doesn't exist yet. This should solve
 	# problems like bug #508634 where tmpfiles.d isn't in effect.
-	local rundir="${EROOT%/}/var/run/screen"
-	local tmpfiles_group="utmp"
-	if [[ ! -d "${rundir}" ]] ; then
-		if use multiuser && ! use prefix ; then
-			tmpfiles_group="root"
-		fi
-		mkdir -m 0775 "${rundir}"
+	if [[ ! -d "${rundir}" || "$( stat -Lc '%a' "${rundir}" )" != "${tmpfiles_perms}" ]] ; then
+		mkdir -p "${rundir}"
+		chmod "${tmpfiles_perms}" "${rundir}"
 		use prefix || chgrp ${tmpfiles_group} "${rundir}"
 	fi
 
