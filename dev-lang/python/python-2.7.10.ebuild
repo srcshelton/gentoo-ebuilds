@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 00ff5c59242da458353d82e102b1cd58280cad6a $
+# $Id: 74ff08afc5ac4edbad4d405e0d59f203f0ad06e5 $
 # $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.1 2015/05/28 04:10:47 floppym Exp $
 
 EAPI="4"
@@ -33,6 +33,7 @@ RDEPEND="app-arch/bzip2
 	>=sys-libs/zlib-1.1.3
 	!m68k-mint? ( virtual/libffi )
 	virtual/libintl
+	xml? ( >=dev-libs/expat-2.1 )
 	!build? (
 		berkdb? ( || (
 			sys-libs/db:5.3
@@ -59,7 +60,6 @@ RDEPEND="app-arch/bzip2
 			dev-tcltk/blt
 			dev-tcltk/tix
 		)
-		xml? ( >=dev-libs/expat-2.1 )
 	)
 	!!<sys-apps/portage-2.1.9"
 DEPEND="${RDEPEND}
