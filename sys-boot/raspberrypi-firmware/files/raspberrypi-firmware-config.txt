@@ -49,6 +49,14 @@
 # Disable RaspiCam LED, for stealth recording(!)
 #disable_camera_led=1
 #
+# Allow 1.2mA current-draw in total between over all four of the Raspberry Pi
+# Model B+ and Raspberry Pi Model 2 USB ports, up from 600mA.
+# When set, GPIO38 is permantently held high.
+# (This was previously activated by setting 'safe_mode_gpio=4')
+# N.B.: This requires a reliable high-quality power-supply rated for a current
+#       of 2A or more...
+#max_usb_current=1
+#
 # Override SMSC9512/9514 MAC address:
 #smsc95xx.macaddr=B8:27:EB:aa:bb:cc
 #
