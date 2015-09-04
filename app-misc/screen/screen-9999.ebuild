@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e4f0ab8faa8784c1f835c1321f7b59e0ad031133 $
+# $Id: 21051322e812f34ea67da2f71a9b21cc49884dec $
 
 EAPI=5
 
@@ -37,7 +37,7 @@ pkg_setup() {
 
 src_prepare() {
 	# Don't use utempter even if it is found on the system
-	epatch "${FILESDIR}"/4.0.2-no-utempter.patch
+	epatch "${FILESDIR}"/${PN}-4.3.0-no-utempter.patch
 
 	# sched.h is a system header and causes problems with some C libraries
 	mv sched.h _sched.h || die
@@ -147,3 +147,5 @@ pkg_postinst() {
 
 	ewarn "This revision changes the screen socket location to /run/screen."
 }
+
+# vi: set diffopt=iwhite,filler:

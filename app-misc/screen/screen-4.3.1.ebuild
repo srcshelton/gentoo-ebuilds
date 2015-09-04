@@ -88,6 +88,16 @@ src_install() {
 
 	dobin screen
 
+	#
+	# In screen.c, the required directory mode, n, is defined as:
+	# n = (eff_uid == 0 && (real_uid || (st.st_mode & 0775) != 0775)) ? 0755 : (eff_gid == (int)st.st_gid && eff_gid != real_gid) ? 0775 : 0777;
+	# ... where st is the result of stat(SockDir, &st).
+	#
+	# ( eff_gid == (int)st.st_gid ) -> /var/run/screen does not have group:utmp, or /usr/bin/screen is not setgid;
+	# ( eff_gid != real_gid ) -> /usr/bin/screen is not setgid, or user has utmp as their primary group.
+	#
+	# ... so it appears that /usr/bin/screen is being installed with incorrect permissions.
+	#
 	if use multiuser; then
 		use prefix || fperms 4755 /usr/bin/screen
 		tmpfiles_perms="0755"
@@ -128,13 +138,11 @@ pkg_postinst() {
 		if ! use prefix; then
 			tmpfiles_group="root"
 		fi
-	fi
 
-	if [[ -z ${REPLACING_VERSIONS} ]]
-	then
-		elog "Some dangerous key bindings have been removed or changed to more safe values."
-		elog "We enable some xterm hacks in our default screenrc, which might break some"
-		elog "applications. Please check /etc/screenrc for information on these changes."
+		# Pre-merge permissions are being lost?!
+		chmod 4751 /usr/bin/screen
+	else
+		chmod 2751 /usr/bin/screen
 	fi
 
 	# Add /var/run/screen in case it doesn't exist yet. This should solve
@@ -143,6 +151,13 @@ pkg_postinst() {
 		mkdir -p "${rundir}"
 		chmod "${tmpfiles_perms}" "${rundir}"
 		use prefix || chgrp ${tmpfiles_group} "${rundir}"
+	fi
+
+	if [[ -z ${REPLACING_VERSIONS} ]]
+	then
+		elog "Some dangerous key bindings have been removed or changed to more safe values."
+		elog "We enable some xterm hacks in our default screenrc, which might break some"
+		elog "applications. Please check /etc/screenrc for information on these changes."
 	fi
 
 	if use prefix; then
