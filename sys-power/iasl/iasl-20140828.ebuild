@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5f8b142b5378f802339dd52e54fb82bfbe2e6158 $
+# $Id: a5c1ae1915409226580240324ac7142fcc4e7214 $
 
 EAPI=5
 
@@ -16,7 +16,7 @@ SRC_URI="http://www.acpica.org/sites/acpica/files/${MY_P}.tar.gz
 
 LICENSE="iASL"
 SLOT="0"
-KEYWORDS="amd64 ~ppc x86 ~amd64-fbsd ~x86-fbsd"
+KEYWORDS="amd64 ppc x86 ~amd64-fbsd ~x86-fbsd"
 IUSE="doc test"
 
 DEPEND="sys-devel/bison
@@ -120,3 +120,5 @@ aapits_test() {
 	cd ../bin
 	./aapitsrun || die "aapitsrun failed"
 }
+
+# vi: set diffopt=iwhite,filler:
