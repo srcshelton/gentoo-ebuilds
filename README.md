@@ -347,6 +347,8 @@ SYMLINK_LIB="yes"
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-fs/mdadm
     * Restore previous boot-time functionality, add support for module-loading from `/etc/mdadm/mdmod.conf`
+* net-misc/netifrc
+    * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-libs/libeudev
     * Provide `libudev` only without (e)udev daemon, for builds which require only the library component of udev
 * virtual/libudev
