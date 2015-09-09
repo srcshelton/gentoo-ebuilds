@@ -49,6 +49,10 @@
 # Disable RaspiCam LED, for stealth recording(!)
 #disable_camera_led=1
 #
+# Prevent the DSI-connected Raspberry Pi Display from pre-empting HDMI, if
+# present.
+#display_default_lcd=0
+#
 # Allow 1.2mA current-draw in total between over all four of the Raspberry Pi
 # Model B+ and Raspberry Pi Model 2 USB ports, up from 600mA.
 # When set, GPIO38 is permantently held high.
@@ -72,6 +76,9 @@ disable_audio_dither=1
 
 #
 # Device Tree configuration options
+#
+# Complete w.r.t. boot/overlays/README as-of
+# commit fc952516e1d73d54141861a64ac5d4be17e7a159.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -97,7 +104,7 @@ disable_audio_dither=1
 #device_tree_param=act_led_trigger=mmc # value 'heartbeat' gives a load-monitor
 #device_tree_param=act_led_activelow=off
 [pi1]
-#device_tree_param=act_led_gpio=16 # or 47 for Plus models
+#device_tree_param=act_led_gpio=47 # or 16 for pre-Plus models
 [pi2]
 #device_tree_param=act_led_gpio=47
 #device_tree_param=pwr_led_trigger=mmc # value 'heartbeat' gives a load-monitor
