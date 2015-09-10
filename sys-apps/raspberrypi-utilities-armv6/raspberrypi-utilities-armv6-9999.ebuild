@@ -30,7 +30,7 @@ src_install() {
 		name="$( basename "${bin}" )"
 		[[ "${name}" =~ ^containers_ ]] && continue
 
-		if [[ -e /usr/bin/"${name}" ]]; then
+		if grep -q " /usr/bin/${name} " /var/db/pkg/media-libs/raspberrypi-userland-*/CONTENTS; then
 			einfo "Skipping existing binary '${name}' ..."
 		else
 			dobin "${bin}"
