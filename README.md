@@ -256,6 +256,7 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 * net-analyzer/vnstat
 * ~~net-analyzer/wireshark~~
 * net-analyzer/zabbix
+* net-dialup/freeradius
 * net-dns/bind
 * net-firewall/conntrack-tools
 * net-misc/dhcpcd
