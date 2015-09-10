@@ -50,18 +50,18 @@ pkg_setup() {
 			die "Please set the RASPBERRYPI_BOOT environment variable in /etc/portage/make.conf"
 		fi
 
-		state="$( cut -d' ' -f 2-4 /proc/mounts 2>/dev/null | grep -E "^${boot} (u?msdos|v?fat) " | grep -Eo '[ ,]r[ow](,|$)' | sed 's/[ ,]//g' )"
-		case "${state}" in
-			rw)
-				:
-				;;
-			ro)
-				die "Filesystem '${boot}' is currently mounted read-only - installation cannot proceed"
-				;;
-			*)
-				die "Cannot determine mount-state of boot filesystem '${boot}' - is this partition mounted?"
-				;;
-		esac
+		#state="$( cut -d' ' -f 2-4 /proc/mounts 2>/dev/null | grep -E "^${boot} (u?msdos|v?fat) " | grep -Eo '[ ,]r[ow](,|$)' | sed 's/[ ,]//g' )"
+		#case "${state}" in
+		#	rw)
+		#		:
+		#		;;
+		#	ro)
+		#		die "Filesystem '${boot}' is currently mounted read-only - installation cannot proceed"
+		#		;;
+		#	*)
+		#		die "Cannot determine mount-state of boot filesystem '${boot}' - is this partition mounted?"
+		#		;;
+		#esac
 	fi
 }
 

@@ -42,17 +42,17 @@
 #fixup_file=fixup.dat
 #start_file=start_x.elf
 #fixup_file=fixup_x.dat
-#
+
 # Explicitly cause the extended firmware to be loaded
 #start_x=1
-#
+
 # Disable RaspiCam LED, for stealth recording(!)
 #disable_camera_led=1
-#
+
 # Prevent the DSI-connected Raspberry Pi Display from pre-empting HDMI, if
 # present.
 #display_default_lcd=0
-#
+
 # Allow 1.2mA current-draw in total between over all four of the Raspberry Pi
 # Model B+ and Raspberry Pi Model 2 USB ports, up from 600mA.
 # When set, GPIO38 is permantently held high.
@@ -60,14 +60,14 @@
 # N.B.: This requires a reliable high-quality power-supply rated for a current
 #       of 2A or more...
 #max_usb_current=1
-#
+
 # Override SMSC9512/9514 MAC address:
 #smsc95xx.macaddr=B8:27:EB:aa:bb:cc
-#
+
 # Disable dithering in the PWM audio algorithm, which may help to address
 # issues with white-noise through the audio jack...
 disable_audio_dither=1
-#
+
 # Adjust the bit-depth of analogue audio output, mostly for demonstration
 # purposes.  Values below 8 will result in too low a PLL frequency, and
 # therefore non-functional audio.
@@ -78,15 +78,15 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit fc952516e1d73d54141861a64ac5d4be17e7a159.
+# commit 2cdcc5aa8d8d81ca783f58b3232b4305ad36b38b.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
 #dtdebug=on
-#
+
 # Uncomment some or all of these to enable the optional hardware interfaces
 #dtparam=i2c,i2s,spi,random,watchdog
-#
+
 #device_tree_param=i2c0=off # i2c_vc
 #device_tree_param=i2c1=off # i2c_arm/i2c
 #device_tree_param=i2c_vc_baudrate=100000
@@ -111,36 +111,71 @@ disable_audio_dither=1
 #device_tree_param=pwr_led_activelow=off
 #device_tree_param=pwr_led_gpio=35
 [all]
+
+# SD/MMC driver - choose only one
 #
+# For 'mmc', the overclock_50 speed must be an even integer divisor of
+# core_freq, rounding down - the default is 250MHz/6 = 41.667MHz.
+# Reasonable values are therefore 63 or 84 only, and 84 isn't accepted at
+# core_freq=500MHz.  However, setting:
+#init_emmc_clock=50000000
+# ... may allow hitting 50MHz with core_freq=500MHz, as this does then form an
+# integer divisor.
+# For 'sdhost', the overclock_50 speed must be an integer divisor of core_freq
+# - default is 250MHz/5 = 50MHz, and for core_freq=500MHz, 500MHz/10 = 50MHz.
+#
+# From https://www.raspberrypi.org/forums/viewtopic.php?f=29&t=6201&p=761030:
+#
+# Core	mmc		sdhost
+# Freq	overclock_50	overclock_50
+#
+# 250	63		63,84
+# 275	69		55,69,92
+# 300	50,75		60,75,100
+# 325	55,82		55,65,82,(109)
+# 350	59,88		59,70,88.(117)
+# 375	63,94		54,63,75,94
+# 400	67,100		58,67,80,100
+# 425	54,71,(107)	54,61,71,85,(107)
+# 450	57,75,(113)	57,65,75,90,(113)
+# 475	60,80,(119)	53,60,68,80,95,(119)
+# 500	63,84		56,63,72,84,100
+#
+#device_tree_overlay=mmc
+#device_tree_overlay=mmc,overclock_50=63,force_pio
+#
+#device_tree_overlay=sdhost
+#device_tree_overlay=sdhost,overclock_50=84,force_pio,pio_limit=1,debug
+#
+# enables SDIO via GPIOs 22-27
+#device_tree_overlay=sdio
+#device_tree_overlay=sdio,overclock_50=84,force_pio,pio_limit=1,debug
+
 # Uncomment one of these lines to enable additional devices
 #device_tree_overlay=gpio-poweroff
 #device_tree_overlay=i2s-mmap
-#device_tree_overlay=mmc
-#device_tree_overlay=mmc,overclock_50=100,force_pio
-#device_tree_overlay=sdhost
-#device_tree_overlay=sdhost,overclock_50=100,force_pio,pio_limit=1,debug
-#
+
 #device_tree_overlay=bmp085_i2c-sensor
 #device_tree_overlay=dht11
 #device_tree_overlay=enc28j60
 #device_tree_overlay=rpi-sense
-#
+
 # RTC:
 # i2c-rtc supports ds1307, ds3231, mcp7941c, pcf2127, pcf8523, and pcf8563.
 #device_tree_overlay=i2c-rtc,ds1307
 #device_tree_overlay=ds1307-rtc # Removed
 #device_tree_overlay=pcf2127-rtc
 #device_tree_overlay=pcf8523-rtc
-#
+
 # Pulse-per-second:
 #device_tree_overlay=pps-gpio,gpiopin=18
 #device_tree_overlay=pwm
 #device_tree_overlay=pwm-2chan
-#
+
 # Dallas 1-wire:
 #device_tree_overlay=w1-gpio,gpiopin=4,pullup=0
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=0,extpullup=5
-#
+
 # Audio devices:
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
@@ -148,9 +183,10 @@ disable_audio_dither=1
 #device_tree_overlay=hifiberry-digi
 #device_tree_overlay=iqaudio-dac
 #device_tree_overlay=iqaudio-dacplus
+#device_tree_overlay=raspidac3
 #device_tree_overlay=rpi-dac
 #device_tree_overlay=rpi-proto
-#
+
 # Touch Screens and Displays:
 #device_tree_overlay=ads7846
 #device_tree_overlay=hy28a
@@ -162,14 +198,14 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-ft5406
 #device_tree_overlay=tinylcd35
 #device_tree_overlay=vga666
-#
+
 # CAN controllers:
 #device_tree_overlay=mcp2515-can0
 #device_tree_overlay=mcp2515-can1
-#
+
 # Infrared receiver:
 #device_tree_overlay=lirc-rpi
-#
+
 # Uncomment this to override the defaults for the lirc-rpi module
 #device_tree_param=gpio_out_pin=16
 #device_tree_param=gpio_in_pin=17
@@ -182,11 +218,11 @@ disable_audio_dither=1
 
 # If enabled, the following option requires an L2-disabled kernel:
 #disable_l2cache=0
-#
+
 # Disable the dynamic adjustment of RAM refresh rate every 500ms
 # A higher refresh rate is needed at higher temperatures...
 #disable_pvt=0
-#
+
 # GPU/CPU default memory split, minimum 16MB defulting to 64MB.
 # Maximum is 192MB for 256MB machines, 448MB for 512MB machines, and 944 for
 # 1GB RPi2s.
@@ -194,14 +230,15 @@ disable_audio_dither=1
 #gpu_mem_256=192
 #gpu_mem_512=448
 #gpu_mem_1024=944
-#
+
 # CMA Dynamic Memory Split
 # Requires 'coherent_pool=6M smsc95xx.turbo_mode=N' in cmdline.txt
-#
 #cma_lwm=16
 #cma_hwm=32
+#
 # How much memory to reserve for the GPU before CMA fully initialises
 #cma_offline_start=32
+#
 # e.g. On a 256MB machine, with gpu_mem=160, cma_lwm=16, cma_hwm=32 means that
 #      ARM always has (256-160=)96MB, GPU always has 20MB, the rest is CMA.
 #      GPU's 20MB is 16MB minimum + coherent_pool (+ cma)?
@@ -216,59 +253,59 @@ disable_audio_dither=1
 # Prevent 'start.elf' from populating ATAGS (0x100 upwards) before launching
 # kernel.
 #disable_commandline_tags=0
-#
+
 # Provide kernel arguments directly rather than in cmdline.txt
 cmdline=dwc_otg.lpm_enable=0 console=tty0 console=ttyAMA0,115200 root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline rootwait zcache
-#
+
 # Prevent the shorting of GPIO pins 5 & 6 to load kernel_emergency.img...
 # N.B.: Removed as of 20140318, but NOOBS still uses the same GPIO pins to
 # launch into its own safe-mode, and they can also be shorted to reboot a
 # halted RPi.
 #avoid_safe_mode=0
-#
+
 # Kernel load-address.
 #kernel_address=
-#
+
 # Load kernel at 0x0, and maintain HYP mode rather than dropping to SVC mode.
 #kernel_old=1
-#
+
 #ramfsfile=
 #ramfsaddr=
+#
 # ramfsfile & ramfsaddr in one option - note the lack of '='
-#initramfs initramf.gz 0x00a00000
-#initramfs kernel/initrd-srcs 0x00a00000
-#initramfs kernel/initrd-srcs followkernel
+#initramfs initramfs.gz 0x00a00000
+#initramfs initramfs.gz followkernel
+#
 # Valid addresses depend on kernel size: 0x00800000 was good for 3.6-era
 # kernels, whereas 3.14 is requires 0x00a00000.
-#
+
 # Address to load device-tree data into.
 #device_tree_address=
-#
+
 # Specify an alternate kernel image instead of 'kernel.img'/'kernel7.img'.
-#kernel=kernel/kernel.img
-#kernel=kernel/kernel7.img
 #kernel=kernel/uboot.img
-#kernel=kernel/kernel-4.1.1-srcs
 [pi1]
 kernel=kernel/kernel.img
-#initramfs kernel/initrd-srcs followkernel
+#initramfs kernel/initramfs.gz followkernel
 [pi2]
 kernel=kernel/kernel7.img
-#initramfs kernel/initrd7-srcs followkernel
+#initramfs kernel/initramfs7.gz followkernel
 [all]
-#
+
 # Boot delay, for diagnostic purposes.
 # delay == 1000 * boot_delay + boot_delay_ms
 #boot_delay=1
 #boot_delay_ms=0
-#
+
 # Disable rainbow splash-screen
 #disable_splash=1
-#
+
+# UART baud rate
 #init_uart_baud=115200
+#
 # Default UART/EMMC clock is 3MHz/100MHz
 #init_uart_clock=3000000
-#init_emmc_clock=100000000
+#init_emmc_clock=100000000 # N.B. only for 'mmc' driver, sdhost and sdio ignore
 
 
 #
@@ -280,120 +317,119 @@ kernel=kernel/kernel7.img
 
 # Set stdv mode to PAL (as used in Europe)...
 # 0 is NTSC, 1 is PAL/Japan, 3 is PAL/Brazil
-#sdtv_mode=0
 #sdtv_mode=2
-#
+
 # ... with a 16:9 ratio (1 is 4:3, 2 is 14:9)...
 #sdtv_aspect=3
-#
+
 # Disables colour burst on composite output. The picture will be monochrome,
 # but possibly sharper...
 #sdtv_disable_colourburst=1
-#
+
 # Enable HDMI "safe mode"
 # Uncomment if you get no picture on HDMI for a default "safe" mode
 # (Equivalent to hdmi_force_hotplug=1, hdmi_ignore_edid=0xa5000080,
 #  config_hdmi_boost=4, hdmi_group=2, hdmi_mode=4, disable_overscan=0,
 #  overscan_left=24, overscan_right=24, overscan_top=24, overscan_bottom=24)
 #hdmi_safe=1
-#
+
 # Force HDMI on even if not detected
 # Uncomment if HDMI display is not detected and composite is being output
 #hdmi_force_hotplug=1
-#
+
 # Pretends HDMI hotplug signal is not asserted so it appears a HDMI display is
 # not attached, and output goes to composite video connector
 #hdmi_ignore_hotplug=0
-#
+
 # Enables the ignoring of EDID/display data if display is non-compliant
 #hdmi_ignore_edid=0xa5000080
-#
+
 # Read data from edid.dat rather than from connected monitor
 #hdmi_edid_file=0
-#
+
 # Try to match resolution and framerate, even if blanking is wrong...
 #hdmi_fuzzy_match=1
-#
+
 # Don't sent initial active source message - avoids bringing (CEC enabled) TV
 # out of standby and channel switching when rebooting.
 #hdmi_ignore_cec_init=1
-#
+
 # Disable CEC entirely
 #hdmi_ignore_cec=1
-#
+
 # Pretends all audio formats are supported by display, allowing passthrough of
 # DTS/AC3 even when not reported as supported.
 #hdmi_force_edid_audio=1
-#
+
 # Pretends no audio formats are supported by display, causing ALSA to produce
 # analogue output.
 #hdmi_ignore_edid_audio=1
-#
+
 # Pretends all CEA modes support 3D.
 #hdmi_force_edid_3d=1
-#
+
 # Uncomment to increase signal to HDMI, if you have interference, blanking, or
 # no display
 # Values 0-7, default 0.  4 can be used if HDMI interference is seen
 #config_hdmi_boost=4
-#
+
 # Force pixel encoding mode - should come from EDID by default
 # 0 - Default (limited for CEA, full for DMT)
 # 1 - RGB limited (16-235), 2 - RGB full (0-255)
 # 3 - YCbCr limited (16-235), 4 - YCbCr full (0-255)
 #hdmi_pixel_encoding=0
-#
+
 # Force the monitor to HDMI mode (rather than DMT default DVI) so that sound
 # will be sent over HDMI cable
 # 1 - DVI (no audio), 2 - HDMI (Audio enabled if supported and enabled)
 #hdmi_drive=2
-#
+
 # Set monitor mode to default according to EDID(0), CEA(1), or DMT(2).
 # DMT is computer monitor mode, and disables HDMI audio without hdmi_drive.
 #hdmi_group=2
-#
+
 # Set monitor resolution to 1024x768 XGA 60Hz (HDMI_DMT_XGA_60)
 #hdmi_mode=16
 # Note that, due to pixel-clock limitations, the highest supported video mode
 # is 1920x1200@60Hz, with reduced blanking.
-#
+
 # Define a custom video mode, if necessary.  This mode will be hdmi_group=2,
 # hdmi_mode=87, and must still be selected as such to take effect.
 #hdmi_cvt=<width> <height> <framerate> <aspect> <margins> <interlace> <rb>
-#
+
 # Uncomment this if your display has a black border of unused pixels visible
 # and your display can output without overscan
 #disable_overscan=1
-#
+
 # Uncomment the following to adjust overscan. Use positive numbers if console
 # goes off screen, and negative if there is too much border
 #overscan_left=16
 #overscan_right=16
 #overscan_top=16
 #overscan_bottom=16
-#
+
 # Uncomment to force a console size. By default it will be display's size minus
 # overscan.
 #framebuffer_width=1280
 #framebuffer_height=720
-#
+
 #framebuffer_depth=16 # bpp
 # ... 8 is unreadable, 24 has corruption issues, 32 requires
 # framebuffer_ignore_alpha=1 and may show wrong colours
 # Disable alpha channel for 32bit modes
 #framebuffer_ignore_alpha=1
-#
+
 # Uncomment to hardware-rotate video output.
 # 0 - Normal, 1 - 90 degrees*, 2 - 180 degrees, 3 - 270 degrees*,
 # 0x10000 - h. flip, 0x20000 - v. flip
 # * - These modes require more GPU memory, and so don't work with
 #     16MB split
 #display_rotate=0
-#
+
 # Uncomment to respect the overscan_* settings with a composite-connected LCD
 # monitor
 #overscan_scale=1
-#
+
 # Enable test sound/image during boot for manufacturing test.
 #test_mode=0
 
@@ -420,7 +456,7 @@ kernel=kernel/kernel7.img
 #
 # Alternatively, core_freq=450 => pll_freq =900, *_freq=300.
 # ... or, core_freq=375 => pll_freq =750, *_freq=250.
-#
+
 # Don't dedicate a PLL to analogue PWM audio, reducing quality slightly.
 # This unlinks core_freq from the rest of the GPU, giving more overclocking
 # control.
@@ -434,43 +470,60 @@ avoid_pwm_pll=1
 #avoid_warnings=1
 
 # CPU core frequency (MHz).
+[pi1]
 #arm_freq=700
-#
+[pi2]
+#arm_freq=900
+[all]
+
 # GPU core (and L2 cache prior to RPi2) frequency (MHz).
 #core_freq=250
-#
+
 # GPU Hardware video block frequency (MHz).
 #h264_freq=250
-#
+
 # GPU Image sensor pipeline frequency (MHz).
 #isp_freq=250
-#
+
 # GPU 3D block frequency (MHz).
 #v3d_freq=250
-#
+
 # gpu_freq sets core_freq, h264_freq, isp_freq, and v3d_freq frequencies
 # together
 #gpu_freq=250
-#
+
 # SDRAM frequency (MHz).
+[pi1]
 #sdram_freq=400
-#
+[pi2]
+#sdram_freq=450
+[all]
+
 # Minimum values used for dynamic clocking.
 #
+[pi1]
 #arm_freq_min=700
-#
 #core_freq_min=250
-#
+#gpu_freq_min=250
 #sdram_freq_min=400
-#
 #over_voltage_min=0
+[pi2]
+#arm_freq_min=900
+#core_freq_min=250
+#gpu_freq_min=250
+#sdram_freq_min=450
+#over_voltage_min=0
+[all]
 
 
 # WARNING: Setting any of the parameters which over-volt your Raspberry Pi will
 #          set a permanent bit within the SoC and your warranty is void. So if
 #          you care about the warranty do not adjust voltage.
-# 0 is 1.2v, values can range from -16 (0.8v) to 16 (1.6v).  However, 8/1.4v is
-# the practical upper limit - higher values will shorten the SoC's lifespan.
+#
+# 0 is 1.2v, values can range from -16 (0.8v) to 16 (1.6v) in 0.025v steps.
+# However, 8/1.4v is the practical upper limit - higher values will shorten the
+# SoC's lifespan.
+#
 # force_turbo and current_limit_override will allow values higher than 6, also
 # setting the warranty-bit.
 #
@@ -498,7 +551,7 @@ avoid_pwm_pll=1
 # "over_voltage" is limited to 6 (1.35V). Non default values for the
 # h264/v3d/isp parts are ignored.
 #force_turbo=0
-#
+
 # Enables turbo mode from boot for the given value in seconds (up to 60) or
 # until cpufreq sets a frequency.
 # Can help with sdcard corruption if overclocked
@@ -507,7 +560,7 @@ avoid_pwm_pll=1
 # Overheat protection. Sets clocks and voltages to default when the SoC reaches
 # this Celsius value. Setting this higher than 85 voids warranty.
 #temp_limit=85
-#
+
 # Disables SMPS current limit protection when set to "0x5A000020". Can help if
 # you are currently hitting a reboot failure when overclocking too high.
 #current_limit_override=
@@ -517,9 +570,12 @@ avoid_pwm_pll=1
 #  900MHz CPU/350MHz GPU
 #  930MHz CPU/350MHz GPU/500MHz SDRAM
 # 1000MHz CPU/500MHz GPU Core/500MHz SDRAM/1.6v ARM+GPU
+#
+# Tested RPi2 values:
+# 1050MHz CPU/525MHz Core/350MHz GPU/480MHz SDRAM/1.3v
 
-# RPi overclocking defaults:
 [pi1]
+# RPi overclocking defaults:
 ##arm_freq_min=700
 #arm_freq_min=500
 #arm_freq=1000
@@ -529,20 +585,20 @@ avoid_pwm_pll=1
 #sdram_freq=500
 #over_voltage_min=0
 #over_voltage=6
-
-# RPi2 overclocking defaults:
 [pi2]
+# RPi2 overclocking defaults:
 #arm_freq_min=500
-#arm_freq=1100
+#arm_freq=1050
 #core_freq_min=250
-#core_freq=500
+#core_freq=525
 #sdram_freq_min=400
 #sdram_freq=500
+#gpu_freq=250
+#gpu_freq=350
 #over_voltage_min=0
-#over_voltage=6
-#temp_limit=80 # Will throttle to default clock speed if hit
-#initial_turbo = 60 # Does not affect warranty. (Speeds up boot)
-
+#over_voltage=4
 [all]
+#temp_limit=80 # Will throttle to default clock speed if hit
+#initial_turbo=60 # Does not affect warranty, speeds up boot
 
 # vi: set syntax=config:
