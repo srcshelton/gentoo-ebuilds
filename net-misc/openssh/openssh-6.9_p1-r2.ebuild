@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b9cf6abf10ad5abbf821a0612bf62d9fba4a1937 $
+# $Id: ead3926d6ef7f347ad783ca81364296eb0f43528 $
 
 EAPI="4"
 inherit eutils user flag-o-matic multilib autotools pam systemd versionator
@@ -49,7 +49,7 @@ LIB_DEPEND="
 	selinux? ( >=sys-libs/libselinux-1.28[static-libs(+)] )
 	skey? ( >=sys-auth/skey-1.1.5-r1[static-libs(+)] )
 	ssl? (
-		>=dev-libs/openssl-0.9.6d:0[bindist=]
+		>=dev-libs/openssl-0.9.8f:0[bindist=]
 		dev-libs/openssl[static-libs(+)]
 	)
 	>=sys-libs/zlib-1.2.3[static-libs(+)]"
@@ -90,9 +90,8 @@ pkg_setup() {
 
 	# Make sure people who are using tcp wrappers are notified of its removal. #531156
 	if grep -qs '^ *sshd *:' "${EROOT}"/etc/hosts.{allow,deny} ; then
-		eerror "Sorry, but openssh no longer supports tcp-wrappers, and it seems like"
-		eerror "you're trying to use it.  Update your ${EROOT}etc/hosts.{allow,deny} please."
-		die "USE=tcpd no longer works"
+		ewarn "Sorry, but openssh no longer supports tcp-wrappers, and it seems like"
+		ewarn "you're trying to use it.  Update your ${EROOT}etc/hosts.{allow,deny} please."
 	fi
 }
 
