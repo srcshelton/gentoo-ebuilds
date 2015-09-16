@@ -27,7 +27,7 @@ DEPEND="${RDEPEND}
 S="${WORKDIR}/${MY_P}"
 
 src_prepare() {
-	epatch "${FILESDIR}"/${PN}-1.10-build.patch
+	epatch "${FILESDIR}"/${PN}-1.10-build-r1.patch
 	mv Makefile.linux Makefile || die
 }
 
