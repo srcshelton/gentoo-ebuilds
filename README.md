@@ -239,6 +239,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Provide more flexibility with finer-grained USE flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
+* x11-drivers/nvidia-drivers
+    * Only start nVidia System Management Interface if valid for the host system
 
 # Fixes for ebuilds using `/run`
 (... rather than `/var/run`)
