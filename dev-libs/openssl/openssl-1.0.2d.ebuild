@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8947be663df1f58bfd47bd27c5ebce6036eb267f $
+# $Id: ec9fb82dc669c25d6f71d9d44fd650117143f5f9 $
 # $Header: /var/cvsroot/gentoo-x86/dev-libs/openssl/openssl-1.0.2d.ebuild,v 1.2 2015/07/10 06:08:30 vapier Exp $
 
 EAPI="4"
@@ -16,7 +16,7 @@ SRC_URI="mirror://openssl/source/${MY_P}.tar.gz
 
 LICENSE="openssl"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
 IUSE="+asm bindist gmp kerberos rfc3779 sctp cpu_flags_x86_sse2 static-libs test +tls-heartbeat vanilla zlib"
 RESTRICT="!bindist? ( bindist )"
@@ -121,7 +121,7 @@ src_prepare() {
 	append-flags $(test-flags-CC -Wno-error=unused-command-line-argument)
 
 	# allow openssl to be cross-compiled
-	cp "${FILESDIR}"/gentoo.config-1.0.1 gentoo.config || die
+	cp "${FILESDIR}"/gentoo.config-1.0.2 gentoo.config || die
 	chmod a+rx gentoo.config
 
 	append-flags -fno-strict-aliasing
