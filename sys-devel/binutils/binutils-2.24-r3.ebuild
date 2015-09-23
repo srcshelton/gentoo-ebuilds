@@ -12,16 +12,18 @@ src_prepare() {
 	toolchain-binutils_src_prepare
 
 	if [[ "${ARCH}" == "amd64" ]]; then
-		local LD32="$( get_abi_LIBDIR x86 )"
+		#local LD32="$( get_abi_LIBDIR x86 )"
 		local LDx32="$( get_abi_LIBDIR x32 )"
-		local LD64="$( get_abi_LIBDIR amd64 )"
+		#local LD64="$( get_abi_LIBDIR amd64 )"
+
+		LDx32="${LDx32:-libx32}"
 
 		sed -i \
-			-e "/program interpreter$/{s:\"/libx32/ldx32.so.1\":\"/${LDx32:-libx32}/ldx32.so.1\":}" \
+			-e "/program interpreter$/{s:\"/libx32/ldx32.so.1\":\"/${LDx32}/ldx32.so.1\":}" \
 				gold/x86_64.cc \
 			|| die 'program interpreter replacement failed'
 		sed -i \
-		    -e "/LIBPATH_SUFFIX/{s:=x32 ;;:=${LDx32:-libx32} ;;:}" \
+		    -e "/LIBPATH_SUFFIX/{s:=x32 ;;:=${LDx32#lib} ;;:}" \
 			    ld/emulparams/elf32_x86_64.sh \
 			|| die 'elf32_x86_64.sh patch failed'
 	fi
