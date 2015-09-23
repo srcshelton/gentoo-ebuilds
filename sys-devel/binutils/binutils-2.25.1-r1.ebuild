@@ -1,12 +1,14 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cb11f0f1249897cde611d476d6e1e99133069886 $
+# $Id: 66ebfe1bbb2ce151ac49435579673bd42c5a5612 $
 
-PATCHVER="1.4"
+EAPI="4"
+
+PATCHVER="1.1"
 ELF2FLT_VER=""
 inherit toolchain-binutils
 
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 -amd64-fbsd -sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 ~arm arm64 ~hppa ia64 m68k ~mips ~ppc ~ppc64 s390 sh sparc x86 ~amd64-fbsd -sparc-fbsd ~x86-fbsd"
 
 src_prepare() {
 	toolchain-binutils_src_prepare
