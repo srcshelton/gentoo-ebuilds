@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 86a3380ca98e8a8d79a0e8c468a13543a6302b56 $
+# $Id: 24cf61ca4e643b213b56c133b0630f243cc5614b $
 
 EAPI=5
 
@@ -12,11 +12,11 @@ SRC_URI="mirror://sourceforge/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~hppa ia64 ppc ~ppc64 sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~sparc-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 ~arm ~hppa ia64 ppc ppc64 sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~sparc-solaris ~x86-solaris"
 IUSE="bzip2 clamdtop iconv ipv6 milter metadata-analysis-api selinux static-libs systemd uclibc"
 
 CDEPEND="bzip2? ( app-arch/bzip2 )
-	clamdtop? ( sys-libs/ncurses:0= )
+	clamdtop? ( sys-libs/ncurses )
 	iconv? ( virtual/libiconv )
 	metadata-analysis-api? ( dev-libs/json-c )
 	milter? ( || ( mail-filter/libmilter mail-mta/sendmail ) )
