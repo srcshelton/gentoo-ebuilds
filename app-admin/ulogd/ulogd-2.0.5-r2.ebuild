@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c64fd33bf9d027c5436144cb6af65bc51dc1ed92 $
+# $Id: ff3f9240d4bedec24403bcb6f78e6f3bc71e3772 $
 
 EAPI=5
 
@@ -16,7 +16,7 @@ SRC_URI="ftp://ftp.netfilter.org/pub/${PN}/${P}.tar.bz2
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~ia64 ~ppc ~x86"
+KEYWORDS="amd64 ~ia64 ~ppc x86"
 IUSE="dbi doc json mysql nfacct +nfct +nflog pcap postgres sqlite systemd -ulog"
 
 RDEPEND="
