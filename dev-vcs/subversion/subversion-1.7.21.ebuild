@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ba2ec73f2b120043e1fe0cd9dbd5cc0df5a2049e $
+# $Id: 81d3a7a8e0808c3dd53bccada91d479631b82773 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -199,7 +199,7 @@ src_configure() {
 
 	# for build-time scripts
 	if use ctypes-python || use python || use test; then
-		python_export_best
+		python_setup
 	fi
 
 	if use clang; then
