@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 74ff08afc5ac4edbad4d405e0d59f203f0ad06e5 $
+# $Id: ff5da255c8a07c27896e6869272bca9c9820b549 $
 # $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.1 2015/05/28 04:10:47 floppym Exp $
 
 EAPI="4"
@@ -20,7 +20,7 @@ SRC_URI="http://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
 
 LICENSE="PSF-2"
 SLOT="2.7"
-KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 +ncurses +readline sqlite +ssl +threads tk +wide-unicode wininst +xml"
 
@@ -160,7 +160,7 @@ src_prepare() {
 src_configure() {
 	if use build; then
 		# Disable extraneous modules with extra dependencies.
-		export PYTHON_DISABLE_MODULES="dbm _bsddb gdbm _curses _curses_panel readline _sqlite3 _tkinter _elementtree pyexpat"
+		export PYTHON_DISABLE_MODULES="dbm _bsddb gdbm _curses _curses_panel readline _sqlite3 _tkinter"
 		export PYTHON_DISABLE_SSL="1"
 	else
 		# dbm module can be linked against berkdb or gdbm.
@@ -246,7 +246,7 @@ src_configure() {
 	# Needed on FreeBSD unless Python 2.7 is already installed.
 	# Please query BSD team before removing this!
 	# On AIX this is not needed, but would record '.' as runpath.
-	[[ ${CHOST} == *-aix* ]] ||
+	[[ ${CHOST} == *-aix* ]] || \
 	append-ldflags "-L."
 
 	local dbmliborder
@@ -528,7 +528,7 @@ EOF
 	else
 		use berkdb || rm -r "${libdir}/"{bsddb,dbhash.py,test/test_bsddb*} || die
 		use sqlite || rm -r "${libdir}/"{sqlite3,test/test_sqlite*} || die
-		use tk || rm -fr "${ED}usr/bin/idle${SLOT}" "${libdir}/"{idlelib,lib-tk} || die
+		use tk || rm -r "${ED}usr/bin/idle${SLOT}" "${libdir}/"{idlelib,lib-tk} || die
 		use elibc_uclibc && rm -fr "${libdir}/"{bsddb/test,test}
 	fi
 
