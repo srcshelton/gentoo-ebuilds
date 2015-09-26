@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2fc5a7edae91e1fc5e0bbfcfcc1bc73305d811b9 $
+# $Id: c64fd33bf9d027c5436144cb6af65bc51dc1ed92 $
 
 EAPI=5
 
@@ -16,7 +16,7 @@ SRC_URI="ftp://ftp.netfilter.org/pub/${PN}/${P}.tar.bz2
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~ia64 ~ppc ~x86"
+KEYWORDS="amd64 ~ia64 ~ppc ~x86"
 IUSE="dbi doc json mysql nfacct +nfct +nflog pcap postgres sqlite systemd -ulog"
 
 RDEPEND="
@@ -58,12 +58,12 @@ pkg_setup() {
 	linux-info_pkg_setup
 
 	if kernel_is lt 2 6 14; then
-		die "ulogd2 requires kernel newer than 2.6.14"
+		die "ulogd requires kernel newer than 2.6.14"
 	fi
 
 	if kernel_is lt 2 6 18; then
 		ewarn "You are using kernel older than 2.6.18"
-		ewarn "Some ulogd2 features may be unavailable"
+		ewarn "Some ulogd features may be unavailable"
 	fi
 
 	if use nfacct && kernel_is lt 3 3 0; then
