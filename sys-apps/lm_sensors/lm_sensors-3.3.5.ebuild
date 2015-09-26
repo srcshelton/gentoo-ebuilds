@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 86507f069e24d8494a2c4db984a6df4f85b29915 $
+# $Id: 664f1bcf8408eabc09be69a314880bb5e022dea3 $
 
 EAPI=5
 
@@ -12,7 +12,7 @@ SRC_URI="http://dl.lm-sensors.org/lm-sensors/releases/${P}.tar.bz2"
 
 LICENSE="GPL-2 LGPL-2.1"
 SLOT="0"
-KEYWORDS="alpha ~amd64 arm ~mips ppc ppc64 sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm ~mips ppc ppc64 sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
 IUSE="sensord static-libs systemd"
 
 RDEPEND="
