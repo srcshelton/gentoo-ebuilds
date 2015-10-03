@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0fea9a31ac7ee226c59382e2a4c29ab01139314d $
+# $Id: 02a19fec8092c08bf642b55ed532799f5ace6e19 $
 
 EAPI=5
 
@@ -20,7 +20,7 @@ else
 	[ "$DOCKER_GITCOMMIT" ] || die "DOCKER_GITCOMMIT must be added manually for each bump!"
 	inherit golang-vcs-snapshot
 fi
-inherit bash-completion-r1 linux-info multilib systemd udev user
+inherit bash-completion-r1 eutils linux-info multilib systemd udev user
 
 DESCRIPTION="Docker complements kernel namespacing with a high-level API which operates at the process level"
 HOMEPAGE="https://dockerproject.org"
