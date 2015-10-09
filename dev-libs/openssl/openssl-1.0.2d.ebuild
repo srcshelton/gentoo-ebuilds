@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ec9fb82dc669c25d6f71d9d44fd650117143f5f9 $
+# $Id: 98f1978b3039e6a70b79de99566bc1f8688d9d03 $
 # $Header: /var/cvsroot/gentoo-x86/dev-libs/openssl/openssl-1.0.2d.ebuild,v 1.2 2015/07/10 06:08:30 vapier Exp $
 
 EAPI="4"
@@ -34,10 +34,12 @@ RDEPEND="gmp? ( >=dev-libs/gmp-5.1.3-r1[static-libs(+)?,${MULTILIB_USEDEP}] )
 	!<net-misc/openssh-5.9_p1-r4
 	!<net-libs/neon-0.29.6-r1"
 DEPEND="${RDEPEND}
-	sys-apps/diffutils
 	>=dev-lang/perl-5
 	sctp? ( >=net-misc/lksctp-tools-1.0.12 )
-	test? ( sys-devel/bc )"
+	test? (
+		sys-apps/diffutils
+		sys-devel/bc
+	)"
 PDEPEND="app-misc/ca-certificates"
 
 S="${WORKDIR}/${MY_P}"
