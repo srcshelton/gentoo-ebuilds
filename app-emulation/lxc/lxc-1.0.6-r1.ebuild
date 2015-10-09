@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a9b43e5f41beb7f40f0f9f68c1a03122537f7a69 $
+# $Id: 5fcb85720ea2213dba28ed2f0fb9e4ef055d40c5 $
 
 EAPI="5"
 
@@ -56,6 +56,7 @@ CONFIG_CHECK="~CGROUPS ~CGROUP_DEVICE
 	~!GRKERNSEC_CHROOT_PIVOT
 	~!GRKERNSEC_CHROOT_CHMOD
 	~!GRKERNSEC_CHROOT_CAPS
+	~!GRKERNSEC_PROC
 "
 
 ERROR_DEVPTS_MULTIPLE_INSTANCES="CONFIG_DEVPTS_MULTIPLE_INSTANCES:	needed for pts inside container"
@@ -77,6 +78,7 @@ ERROR_GRKERNSEC_CHROOT_DOUBLE=":CONFIG_GRKERNSEC_CHROOT_DOUBLE	some GRSEC featur
 ERROR_GRKERNSEC_CHROOT_PIVOT=":CONFIG_GRKERNSEC_CHROOT_PIVOT	some GRSEC features make LXC unusable see postinst notes"
 ERROR_GRKERNSEC_CHROOT_CHMOD=":CONFIG_GRKERNSEC_CHROOT_CHMOD	some GRSEC features make LXC unusable see postinst notes"
 ERROR_GRKERNSEC_CHROOT_CAPS=":CONFIG_GRKERNSEC_CHROOT_CAPS	some GRSEC features make LXC unusable see postinst notes"
+ERROR_GRKERNSEC_PROC=":CONFIG_GRKERNSEC_PROC:  this GRSEC feature is incompatible with unprivileged containers"
 
 DOCS=(AUTHORS CONTRIBUTING MAINTAINERS NEWS README doc/FAQ.txt)
 
