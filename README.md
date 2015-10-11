@@ -155,6 +155,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-perl/Mojo-Server-FastCGI
 * dev-perl/Net-Interface
 * dev-perl/Net-MAC-Vendor
+* dev-perl/Net-SDP
 * dev-perl/Net-Subnet
 * dev-perl/Net-Twitter-Lite
 * dev-perl/POE-Component-Client-Ping
