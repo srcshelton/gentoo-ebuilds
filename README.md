@@ -313,6 +313,8 @@ SYMLINK_LIB="yes"
     * Add required `--with-dbi-libdir` option
 * dev-lang/ruby
     * Avoid inline assembly with x32 ABI
+* dev-util/cmake
+    * Add (x)32 library paths in addition to 64-bit variants
 * media-libs/flac
     * Avoid link failures due to 32 bit downgrade with x32 ABI
 * media-libs/graphviz
