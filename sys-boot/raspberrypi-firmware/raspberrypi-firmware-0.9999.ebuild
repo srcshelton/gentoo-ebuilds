@@ -2,6 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
+#inherit git-r3 mount-boot subversion
 inherit git-r3 mount-boot
 
 DESCRIPTION="Raspberry PI boot loader and firmware"
@@ -11,18 +12,49 @@ SRC_URI=""
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
 KEYWORDS="arm -*"
+#IUSE="+rpi1 +rpi2 svn"
 IUSE="+rpi1 +rpi2"
 
-DEPEND=""
-RDEPEND=""
+#DEPEND="svn? ( dev-vcs/subversion )"
+#RDEPEND=""
 
-EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains only
-						  # ~200MB of data - the rest is (literally) history :(
+REPO_URI="https://github.com/raspberrypi/firmware"
+#if use svn; then
+#	GITHUB_REV="$( svn log --with-revprop git-commit --xml "${REPO_URI}" 2>/dev/null | head -n 9 | grep "revision" | grep -o '[0-9]\+' )"
+#	ESVN_REPO_URI="https://github.com/raspberrypi/firmware/trunk/boot@${GITHUB_REV}"
+#else
+	EGIT_REPO_URI="${REPO_URI}"
+	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
+							  # only ~200MB of data - the rest is (literally)
+							  # history :(
+#fi
 
 RESTRICT="binchecks strip"
 #QA_PREBUILT=""
 
+# Gentoo doesn't support conditional inheritance, and GLEP54-style versioning
+# never seems to have got off the ground :(
+#if use svn; then
+#	function git-r3_src_fetch() {
+#		true
+#	}
+#	function git-r3_src_unpack() {
+#		true
+#	}
+#	function git-r3_pkg_needrebuild() {
+#		true
+#	}
+#else
+#	function subversion_src_unpack() {
+#		true
+#	}
+#	function subversion_src_prepare() {
+#		true
+#	}
+#	function subversion_pkg_preinst() {
+#		true
+#	}
+#fi
 
 pkg_setup() {
 	local state boot="${RASPBERRYPI_BOOT:-/boot}"
@@ -123,7 +155,7 @@ src_install() {
 
 	insinto /boot
 	newins "${FILESDIR}"/${PN}-config.txt config.txt
-	#newins "${FILESDIR}"/${PN}-cmdline.txt cmdline.txt
+	newins "${FILESDIR}"/${PN}-cmdline.txt cmdline.txt
 
 	# There's little or no standardisation in regards to where System.map
 	# should live, and the only two common locations seem to be /boot and /
