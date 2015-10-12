@@ -1,10 +1,10 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 199d89f33bc1d695cf735174868dd39ec8bdc215 $
+# $Id: 5d2355ce6ec07f9ba7c745bbe252eff55360a2cb $
 
 EAPI="4"
 
-PATCH_VER="1.2"
+PATCH_VER="1.3"
 UCLIBC_VER="1.0"
 
 # Hardened gcc 4 stuff
