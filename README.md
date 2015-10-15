@@ -225,6 +225,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Prevent GCC infinite loop, rather than simply warning about it
 * net-misc/usbip
     * Prevent build failure due to harmless warning
+* net-misc/wget
+    * Filter `-funsafe-math-optimizations`, which prevents wget from building on ARM
 * net-nds/openldap
     * If /etc/init.d/tmpfiles.setup isn't active, /var/run/openldap is never created yet the ebuild still attempts to set permissions upon it...
 * sys-apps/busybox
