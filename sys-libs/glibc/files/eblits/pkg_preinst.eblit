@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9160aaf8b78d7c2fd79a51b0e155d8f33f3ea1de $
+# $Id: cb8f461b0d12c37bc194f0e0bdeb99a1a291db58 $
 
 # Simple test to make sure our new glibc isnt completely broken.
 # Make sure we don't test with statically built binaries since
@@ -29,6 +29,9 @@ glibc_sanity_check() {
 		*"statically linked"*) continue;;
 		*"ASCII text"*) continue;;
 		esac
+		# We need to clear the locale settings as the upgrade might want
+		# incompatible locale data.  This test is not for verifying that.
+		LC_ALL=C \
 		./ld-*.so --library-path . ${x} > /dev/null \
 			|| die "simple run test (${x}) failed"
 	done
