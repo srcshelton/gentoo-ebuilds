@@ -218,8 +218,10 @@ src_install() {
 	exeinto /usr/libexec/docker
 	newexe bundles/$VERSION/dynbinary/dockerinit-$VERSION dockerinit
 
-	newinitd contrib/init/openrc/docker.initd docker
-	newconfd contrib/init/openrc/docker.confd docker
+	#newinitd contrib/init/openrc/docker.initd docker
+	#newconfd contrib/init/openrc/docker.confd docker
+	newinitd "${FILESDIR}/${PN}-r3.initd" docker
+	newconfd "${FILESDIR}/${PN}-r3.confd" docker
 
 	use systemd && systemd_dounit contrib/init/systemd/docker.{service,socket}
 
