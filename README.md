@@ -275,6 +275,7 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 * sys-apps/kmod
 * sys-apps/lm_sensors
 * sys-apps/smartmontools
+* sys-apps/util-linux
 * sys-libs/pam
 * sys-power/acpid
 * www-servers/lighttpd
