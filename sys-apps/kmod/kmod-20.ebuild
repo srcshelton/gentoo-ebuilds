@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4e4fbd9b2912e4d7f457e93bdc3ddc20737326ee $
+# $Id: 0c0b951251cfdb47eccfac6b8fcacd9ce6f0f00d $
 
 EAPI=5
 
@@ -98,7 +98,7 @@ src_configure() {
 	kmod_configure --disable-python
 
 	if use python; then
-		python_parallel_foreach_impl kmod_configure --enable-python
+		python_foreach_impl kmod_configure --enable-python
 	fi
 }
 
