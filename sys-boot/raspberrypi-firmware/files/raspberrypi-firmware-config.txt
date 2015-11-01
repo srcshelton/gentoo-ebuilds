@@ -78,7 +78,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit d56bf185f0f9e1cc2d9090970a2db1f6ebe76bb2.
+# commit 4047fe26797884cedf53bc8671d19e7f6f9f59d5.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -197,7 +197,9 @@ disable_audio_dither=1
 #device_tree_overlay=hy28b
 #device_tree_overlay=mz61581
 #device_tree_overlay=piscreen
+#device_tree_overlay=piscreen2r
 #device_tree_overlay=pitft28-resistive
+#device_tree_overlay=rpi-backlight
 #device_tree_overlay=rpi-display
 #device_tree_overlay=rpi-ft5406
 #device_tree_overlay=tinylcd35
