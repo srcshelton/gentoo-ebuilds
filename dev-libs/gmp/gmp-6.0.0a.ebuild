@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b10c9d145ddee7e0cf79e75b463ff00ecf3c94a7 $
+# $Id: 62f3477c389b4f81974571ceeb851e17aab63260 $
 # $Header: /var/cvsroot/gentoo-x86/dev-libs/gmp/gmp-6.0.0a.ebuild,v 1.3 2015/03/09 17:53:52 blueness Exp $
 
 EAPI="4"
@@ -18,16 +18,13 @@ SRC_URI="mirror://gnu/${PN}/${MY_P}.tar.xz
 
 LICENSE="|| ( LGPL-3+ GPL-2+ )"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="doc cxx pgo static-libs"
 
 DEPEND="sys-devel/m4
 	app-arch/xz-utils"
-RDEPEND="abi_x86_32? (
-	!<=app-emulation/emul-linux-x86-baselibs-20131008-r1
-	!app-emulation/emul-linux-x86-baselibs[-abi_x86_32(-)]
-)"
+RDEPEND=""
 
 S=${WORKDIR}/${MY_P%a}
 
@@ -44,10 +41,10 @@ src_prepare() {
 	# GMP uses the "ABI" env var during configure as does Gentoo (econf).
 	# So, to avoid patching the source constantly, wrap things up.
 	mv configure configure.wrapped || die
-	cat <<-\EOF > configure
+	cat <<\EOF > configure
 	#! ${EPREFIX:-}/usr/bin/env sh
-	exec env ABI="$GMPABI" ${CONFIG_SHELL} "$0.wrapped" "$@"
-	EOF
+	exec env ABI="${GMPABI}" ${CONFIG_SHELL} "$0.wrapped" "$@"
+EOF
 	chmod a+rx configure
 }
 
@@ -55,7 +52,7 @@ multilib_src_configure() {
 	# Because of our 32-bit userland, 1.0 is the only HPPA ABI that works
 	# http://gmplib.org/manual/ABI-and-ISA.html#ABI-and-ISA (bug #344613)
 	if [[ ${CHOST} == hppa2.0-* ]] ; then
-		export GMPABI="1.0"
+		GMPABI="1.0"
 	fi
 
 	# ABI mappings (needs all architectures supported)
