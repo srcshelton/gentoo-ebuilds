@@ -346,6 +346,8 @@ SYMLINK_LIB="yes"
 
 * net-wireless/bluez
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
+* sys-apps/coreutils
+    * Add `uniq` to the list of binaries moved to `/bin`, as some init scripts (such as `device-mapper`) rely on it being present during early-boot
 * sys-apps/gawk
     * Install to `/bin` rather than `/usr/bin`, for init scripts which invoke `awk`
 * sys-apps/openrc
