@@ -68,11 +68,16 @@ pkg_postinst() {
 	else
 		local l
 		for l in "${EROOT}"usr/share/man/man1/gawk.1* "${EROOT}"usr/bin/gawk; do
-			[[ -e ${l} && ! -e ${l/gawk/awk} ]] && ln -s "${l##*/}" "${l/gawk/awk}"
+			if [[ -e ${l} ]]; then
+				[[ ! -r ${l/gawk/awk} ]] && rm "${l/gawk/awk}"
+				[[ ! -e ${l/gawk/awk} ]] && ln -s "${l##*/}" "${l/gawk/awk}"
+			fi
 		done
 		if use sep-usr; then
+			[[ ! -r ${EROOT}bin/awk ]] && rm "${EROOT}bin/awk"
 			[[ ! -e ${EROOT}bin/awk ]] && ln -s "gawk" "${EROOT}bin/awk"
 		else
+			[[ ! -r ${EROOT}bin/awk ]] && rm "${EROOT}bin/awk"
 			[[ ! -e ${EROOT}bin/awk ]] && ln -s "../usr/bin/gawk" "${EROOT}bin/awk"
 		fi
 	fi
