@@ -1,0 +1,169 @@
+#!/sbin/runscript
+# Copyright 1999-2015 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Id: e4317aaa398ec73fc878c0f0f6598668765ea2ac $
+
+extra_commands="configtest"
+
+: ${DHCPD_CONF:=/etc/dhcp/${SVCNAME}.conf}
+
+depend() {
+	need net
+	use logger dns #@slapd@
+}
+
+get_var() {
+	local var="$(sed -n 's/^[[:blank:]]\?'"$1"' "*\([^#";]\+\).*/\1/p' "${chroot}${DHCPD_CONF}")"
+	echo ${var:-$2}
+}
+
+setup_opts() {
+	DHCPD_CHROOT=${DHCPD_CHROOT%/}
+
+	# Work out our cffile if it's in our DHCPD_OPTS
+	case " ${DHCPD_OPTS} " in
+		*" -cf "*)
+			DHCPD_CONF=" ${DHCPD_OPTS} "
+			DHCPD_CONF="${DHCPD_CONF##* -cf }"
+			DHCPD_CONF="${DHCPD_CONF%% *}"
+			;;
+		*)	DHCPD_OPTS="${DHCPD_OPTS} -cf ${DHCPD_CONF}"
+			;;
+	esac
+}
+
+checkconfig() {
+	set -- ${DHCPD_OPTS} ${DHCPD_CHROOT:+-chroot "${DHCPD_CHROOT:-/}"} -t
+
+	dhcpd "$@" 1>/dev/null 2>&1
+	local ret=$?
+	if [ ${ret} -ne 0 ] ; then
+		eerror "${SVCNAME} has detected a syntax error in your configuration files:"
+		dhcpd "$@"
+	fi
+
+	return ${ret}
+}
+
+configtest() {
+	setup_opts
+
+	ebegin "Checking ${SVCNAME} configuration"
+	checkconfig
+	eend $?
+}
+
+start() {
+	local chroot="${DHCPD_CHROOT:-}"
+	local git=""
+
+	setup_opts
+	if [ -n "${DHCPD_USE_GIT:-}" ] && [ "${DHCPD_USE_GIT}" != "0" ]; then
+		type -pf git >/dev/null 2>&1 && git="git"
+	fi
+
+	# see comment in get_var() above
+	if [ ! -f "${chroot}${DHCPD_CONF}" ] ; then
+		eerror "${chroot}${DHCPD_CONF} does not exist"
+		return 1
+	fi
+
+	if [ -n "${chroot}" ] ; then
+		# dhcpd config test wants these to exist
+		mkdir -p \
+			"${chroot}"/var/run/dhcp \
+			"${chroot}"/var/lib/dhcp \
+			"${chroot}"/etc/dhcp
+	fi
+
+	checkconfig || return 1
+
+	checkpath -d -o dhcp:dhcp "${chroot}"/var/run/dhcp "${chroot}"/var/lib/dhcp
+
+	local leasefile="$(get_var lease-file-name /var/lib/dhcp/${SVCNAME}.leases)"
+	checkpath -f -o dhcp:dhcp "${chroot}${leasefile}"
+
+	if [ -n "${chroot:-}" ] && [ -d "${chroot}" ] ; then
+		ebegin "Populating chroot directory"
+		mkdir -p "${chroot}"/lib "${chroot}"/usr/sbin "${chroot}"/usr/lib
+		checkpath -d -o root:root -m 0755 "${chroot}"/usr "${chroot}"/usr/sbin
+		${git:-} rm "${chroot}"/lib/*.so* "${chroot}"/usr/lib/*.so* 2>/dev/null
+		cp -a /usr/sbin/dhcpd "${chroot}"/usr/sbin/
+		for LIB in $( ldd /usr/sbin/dhcpd | grep '=>' | sed 's/^.*=>//' | cut -d" " -f 2 | grep -v "^$" ) /lib/libresolv.so.2 /lib/libnss_dns.so.2; do
+			cp "$LIB" "${chroot}"/"$LIB" || { eerror "Cannot copy \"$LIB\" to \"${chroot}\"" ; return 1 ; }
+		done
+		find "${chroot}"/lib -type l -delete
+		for LIB in libresolv.so libnss_dns.so; do
+			NAME="$( readlink -e /lib/"$LIB"* )"
+			cp "$NAME" "${chroot}"/lib/ || { eerror "Cannot copy \"$LIB\" to \"${chroot}\"" ; return 1 ; }
+			ln -s "$( basename "$NAME" )" "${chroot}"/lib/"$LIB" || { eerror "Cannot create \"$NAME\" symlink" ; return 1 ; }
+		done
+		eend 0
+
+		checkpath -d -o root:root -m 755 "${chroot}"/dev "${chroot}"/etc "${chroot}"/proc
+		rm /etc/{localtime,resolv.conf}
+		cp /etc/{localtime,resolv.conf} "${chroot}"/etc/
+
+		if [ -d "${chroot}"/.git ] && [ -n "${git:-}" ]; then
+			if ! [ -s "${chroot}"/.gitignore ]; then
+				cat >>"${chroot}"/.gitignore <<-EOF
+/etc/dhcp/*.sample
+/proc/**
+**/.keep*
+*.pid
+*.leases
+*.leases~
+				EOF
+			fi
+			pushd "${chroot}" >/dev/null 2>&1 &&
+			git status 2>/dev/null | grep -Eq '^(Untracked files:$|:\s+(deleted|modified|new file):\s+)' &&
+			einfo "Committing chroot changes to git"
+			git add --all . >/dev/null 2>&1 &&
+			git commit -m "Record changes on ${SVCNAME} start" >/dev/null 2>&1
+			popd >/dev/null 2>&1
+		fi
+
+		# Setup LD_PRELOAD so name resolution works in our chroot.
+		export LD_PRELOAD="${LD_PRELOAD} libresolv.so libnss_dns.so"
+		if ! mountinfo -q "${chroot}/proc" ; then
+			mount --bind /proc "${chroot}/proc"
+		fi
+	fi
+
+	local pidfile="$(get_var pid-file-name /var/run/dhcp/${SVCNAME}.pid)"
+
+	ebegin "Starting ${chroot:+chrooted }${SVCNAME}"
+	start-stop-daemon --start --exec /usr/sbin/dhcpd \
+		--pidfile "${chroot}/${pidfile}" \
+		-- ${DHCPD_OPTS} -q -pf "${pidfile}" -lf "${leasefile}" \
+		-user dhcp -group dhcp \
+		${chroot:+-chroot "${chroot:-/}"} ${DHCPD_IFACE}
+	eend ${?} &&
+		{
+		save_options dhcpd_chroot "${chroot}" &&
+		save_options pidfile "${pidfile}"
+		} ||
+		{
+			set -o xtrace
+			/usr/sbin/dhcpd ${DHCPD_OPTS} -pf "${pidfile}" -lf "${leasefile}" -user dhcp -group dhcp ${chroot:+-chroot "${chroot:-/}"} ${DHCPD_IFACE}
+			#set +o xtrace
+		}
+}
+
+stop() {
+	local chroot="$(get_options dhcpd_chroot)"
+	[ -z "${chroot}" ] && chroot="$(get_options chroot)"
+
+	ebegin "Stopping ${chroot:+chrooted }${SVCNAME}"
+	start-stop-daemon --stop --exec /usr/sbin/dhcpd \
+		--pidfile "${chroot}/$(get_options pidfile)"
+	res=$?
+
+	if [ ${res} -eq 0 ] && [ -n "${chroot}" ] ; then
+		if mountinfo -q "${chroot}/proc" ; then
+			umount "${chroot}/proc"
+		fi
+	fi
+
+	eend ${res}
+}

@@ -221,6 +221,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Add Debian patch to correct the use of `RETURN` as a module target
 * net-libs/neon
     * Patch trivial typo which prevents `writev` from being defined
+* net-misc/dhcp
+    * Enhance chroot support in init script
 * net-misc/tor
     * Prevent GCC infinite loop, rather than simply warning about it
 * net-misc/usbip
