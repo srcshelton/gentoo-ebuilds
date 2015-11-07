@@ -1,7 +1,7 @@
 #!/sbin/runscript
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 440e840c41a8f1f6c61c1e73dbf914371dbc117d $
+# $Id: f396ea2ef148bafdb609cc4fe8986e6203d2f747 $
 
 extra_commands="check save panic"
 extra_started_commands="reload"
@@ -35,7 +35,7 @@ set_table_policy() {
 	esac
 	local chain
 	for chain in ${chains} ; do
-		${iptables_bin} -t ${table} -P ${chain} ${policy}
+		${iptables_bin} -w -t ${table} -P ${chain} ${policy}
 	done
 }
 
@@ -73,8 +73,8 @@ stop() {
 	for a in $(cat ${iptables_proc}) ; do
 		set_table_policy $a ACCEPT
 
-		${iptables_bin} -F -t $a
-		${iptables_bin} -X -t $a
+		${iptables_bin} -w -F -t $a
+		${iptables_bin} -w -X -t $a
 	done
 	eend $?
 }
@@ -85,8 +85,8 @@ reload() {
 	ebegin "Flushing firewall"
 	local a
 	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} -F -t $a
-		${iptables_bin} -X -t $a
+		${iptables_bin} -w -F -t $a
+		${iptables_bin} -w -X -t $a
 	done
 	eend $?
 
@@ -121,8 +121,8 @@ panic() {
 	local a
 	ebegin "Dropping all packets"
 	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} -F -t $a
-		${iptables_bin} -X -t $a
+		${iptables_bin} -w -F -t $a
+		${iptables_bin} -w -X -t $a
 
 		set_table_policy $a DROP
 	done
