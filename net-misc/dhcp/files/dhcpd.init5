@@ -101,8 +101,8 @@ start() {
 		eend 0
 
 		checkpath -d -o root:root -m 755 "${chroot}"/dev "${chroot}"/etc "${chroot}"/proc
-		rm /etc/{localtime,resolv.conf}
-		cp /etc/{localtime,resolv.conf} "${chroot}"/etc/
+		rm "${chroot}"/etc/{localtime,resolv.conf}
+		cp -Lp /etc/{localtime,resolv.conf} "${chroot}"/etc/
 
 		if [ -d "${chroot}"/.git ] && [ -n "${git:-}" ]; then
 			if ! [ -s "${chroot}"/.gitignore ]; then
