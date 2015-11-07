@@ -1,0 +1,12 @@
+--- pam_mobile_otp.c.dist	2015-11-07 11:01:21.473203750 +0000
++++ pam_mobile_otp.c	2015-11-07 11:02:42.967101134 +0000
+@@ -67,6 +67,9 @@
+ #include "md5.h"
+ #endif
+ 
++extern void __stack_chk_fail(void);
++void __attribute__((visibility ("hidden"))) __stack_chk_fail_local(void) { __stack_chk_fail(); }
++
+ #define TO_STR(str) TO_STR_2(str)
+ #define TO_STR_2(str) #str
+ 

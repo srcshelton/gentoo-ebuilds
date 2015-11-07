@@ -18,10 +18,11 @@ KEYWORDS="~x86"
 
 S="${WORKDIR}/${PN}"
 
-src_configure() {
+src_prepare() {
 	epatch "${FILESDIR}/motp-manager.patch" || die "Failed to patch motp-manager"
 	epatch "${FILESDIR}/prompt.patch" || die "Failed to patch pam_mobile_otp.c"
 	epatch "${FILESDIR}/Makefile.patch" || die "Failed to patch Makefile"
+	epatch "${FILESDIR}/__stack_chk_fail_local.patch" || die "Failed to patch pam_mobile_otp.c"
 }
 
 src_compile() {
