@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 24cdf966c596ce19781b72579208059702e695f2 $
+# $Id: a063530c1b98377bff071e3a49ed4185fd42b903 $
 
 EAPI="4"
 inherit eutils user flag-o-matic multilib autotools pam systemd versionator
@@ -28,7 +28,7 @@ SRC_URI="mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 # Probably want to drop ssl defaulting to on in a future version.
 IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit libressl -libseccomp pam +pie sctp selinux skey ssh1 +ssl static X X509 abi_x86_x32"
 REQUIRED_USE="ldns? ( ssl )
@@ -319,12 +319,16 @@ pkg_postinst() {
 		elog "Make sure to update any configs that you might have.  Note that xinetd might"
 		elog "be an alternative for you as it supports USE=tcpd."
 	fi
-	if has_version "<${CATEGORY}/${PN}-7.1_p1" ; then #557388
+	if has_version "<${CATEGORY}/${PN}-7.1_p1" ; then #557388 #555518
 		elog "Starting with openssh-7.0, support for ssh-dss keys were disabled due to their"
 		elog "weak sizes.  If you rely on these key types, you can re-enable the key types by"
 		elog "adding to your sshd_config or ~/.ssh/config files:"
 		elog "	PubkeyAcceptedKeyTypes=+ssh-dss"
 		elog "You should however generate new keys using rsa or ed25519."
+
+		elog "Starting with openssh-7.0, the default for PermitRootLogin changed from 'yes'"
+		elog "to 'prohibit-password'.  That means password auth for root users no longer works"
+		elog "out of the box.  If you need this, please update your sshd_config explicitly."
 	fi
 	if ! use ssl && has_version "${CATEGORY}/${PN}[ssl]" ; then
 		elog "Be aware that by disabling openssl support in openssh, the server and clients"
