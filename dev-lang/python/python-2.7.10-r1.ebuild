@@ -211,8 +211,8 @@ src_configure() {
 	fi
 
 	# https://bugs.gentoo.org/show_bug.cgi?id=302137
-	if [[ ${CHOST} == powerpc-*-darwin* ]] && \
-		( is-flag "-mtune=*" || is-flag "-mcpu=*" ) || \
+	if [[ ${CHOST} == powerpc-*-darwin* ]] &&
+		( is-flag "-mtune=*" || is-flag "-mcpu=*" ) ||
 		[[ ${CHOST} == powerpc64-*-darwin* ]];
 	then
 		replace-flags -O2 -O3
@@ -550,7 +550,7 @@ EOF
 		# since that won't work here, use a (cheap) trick instead
 		libname=libpython${SLOT}
 	else
-		libname=$(printf 'e:\n\t@echo $(INSTSONAME)\ninclude Makefile\n' | \
+		libname=$(printf 'e:\n\t@echo $(INSTSONAME)\ninclude Makefile\n' |
 			emake --no-print-directory -s -f - 2>/dev/null)
 	fi
 	newins "${S}"/Tools/gdb/libpython.py "${libname}"-gdb.py
