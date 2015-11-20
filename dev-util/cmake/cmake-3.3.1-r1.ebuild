@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2de2a729b68d9594d8d5c0a0e296e429f5898bc0 $
+# $Id: 0f3a6c57fe0d918406a4046f6fc1cb4230741fb1 $
 
 EAPI=5
 
@@ -16,7 +16,7 @@ SRC_URI="http://www.cmake.org/files/v$(get_version_component_range 1-2)/${MY_P}.
 
 LICENSE="CMake"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x64-solaris ~x86-solaris"
 IUSE="doc emacs system-jsoncpp ncurses qt4 qt5"
 
 RDEPEND="
