@@ -4,94 +4,111 @@
 # $Id: 62ddac41e3a2245e27f621cf19ff964efa9d9f53 $
 
 depend() {
+	use lvmetad
 	before checkfs fsck
 	after modules device-mapper
-	need lvmetad sysfs
+	need sysfs
 }
 
-config='global { locking_dir = "/var/lock/lvm" }'
-
 dm_in_proc() {
-	local retval=0
+	local x
+	local -i retval=0
+
 	for x in devices misc ; do
-		grep -qs 'device-mapper' /proc/${x}
-		retval=$((${retval} + $?))
+		grep -qs 'device-mapper' /proc/"${x}"
+		retval=$(( retval + ${?} ))
 	done
+
 	return ${retval}
 }
 
 start() {
+	local lvm_path lvm_commands
+
+	local lvm_config
+	if [[ -d /var/lock/lvm && -w /var/lock/lvm && ! -d /dev/.lvm ]]; then
+		export lvm_config='global { locking_dir = "/var/lock/lvm" }'
+	else
+		export lvm_config='global { locking_dir = "/dev/.lvm" }'
+	fi
+
 	# LVM support for /usr, /home, /opt ....
 	# This should be done *before* checking local
 	# volumes, or they never get checked.
 	
-	# NOTE: Add needed modules for LVM or RAID, etc
+	# NOTE: Add needed modules for LVM or RAID, etc.
 	#       to /etc/modules.autoload if needed
 	for lvm_path in /bin/lvm /sbin/lvm ; do
-		[ -x "$lvm_path" ] && break
+		[[ -x "${lvm_path}" ]] && break
 	done
-	if [ ! -x "$lvm_path" ]; then
+	if [[ ! -x "${lvm_path}" ]] ; then
 		eerror "Cannot find lvm binary in /sbin or /bin!"
 		return 1
 	fi
-	if [ -z "${CDBOOT}" ] ; then
-		if [ -e /proc/modules ] && ! dm_in_proc ; then
+
+	if [[ -z "${CDBOOT}" ]] ; then
+		if [[ -e /proc/modules ]] && ! dm_in_proc ; then
 			modprobe dm-mod 2>/dev/null
 		fi
-		if [ -d /proc/lvm ] || dm_in_proc ; then
-			ebegin "Setting up the Logical Volume Manager"
-			#still echo stderr for debugging
-			lvm_commands="#! ${lvm_path} --config '${config}'\n"
-			# Extra PV find pass because some devices might not have been available until very recently
+		if [[ -d /proc/lvm ]] || dm_in_proc ; then
+			ebegin "Setting up Logical Volume Manager"
+			einfo "Using configuration directive '${lvm_config}'"
+			# Keep stderr, for debugging
+			lvm_commands="#! ${lvm_path} --config '${lvm_config}'\n"
+			# Extra pvscan pass since some devices might not have been available until very recently
 			lvm_commands="${lvm_commands}pvscan\n"
 			# Now make the nodes
 			lvm_commands="${lvm_commands}vgscan --mknodes\n"
 			# And turn them on!
 			lvm_commands="${lvm_commands}vgchange --sysinit -a ly\n"
 			# Order of this is important, have to work around dash and LVM readline
-			printf "%b\n" "${lvm_commands}" | $lvm_path /proc/self/fd/0 --config "${config}" >/dev/null
-			eend $? "Failed to setup the LVM"
+			printf "%b\n" "${lvm_commands}" | ${lvm_path} /proc/self/fd/0 --config "${lvm_config}" >/dev/null
+			eend ${?} "Failed to setup LVM"
 		fi
 	fi
 }
 
 stop() {
+	local lvm_path lvs vgs lvm_commands
+
+	local lvm_config
+	if [[ -d /var/lock/lvm && -w /var/lock/lvm && ! -d /dev/.lvm ]]; then
+		export lvm_config='global { locking_dir = "/var/lock/lvm" }'
+	else
+		export lvm_config='global { locking_dir = "/dev/.lvm" }'
+	fi
+
 	for lvm_path in /bin/lvm /sbin/lvm ; do
-		[ -x "$lvm_path" ] && break
+		[[ -x "${lvm_path}" ]] && break
 	done
-	if [ ! -x "$lvm_path" ]; then
+	if [[ ! -x "${lvm_path}" ]] ; then
 		eerror "Cannot find lvm binary in /sbin or /bin!"
 		return 1
 	fi
-# Stop LVM2
-if [ -x /sbin/vgs ] && \
-   [ -x /sbin/vgchange ] && \
-   [ -x /sbin/lvchange ] && \
-   [ -f /etc/lvmtab -o -d /etc/lvm ] && \
-   [ -d /proc/lvm  -o "`grep device-mapper /proc/misc 2>/dev/null`" ]
-then
-	einfo "Shutting down the Logical Volume Manager"
-	
 
-        VGS=$($lvm_path vgs --config "${config}" -o vg_name --noheadings --nosuffix --rows 2> /dev/null)
+	# Stop LVM2
+	if [[ -x /sbin/vgs ]] &&
+		[[ -x /sbin/vgchange ]] &&
+		[[ -x /sbin/lvchange ]] &&
+		[[ -f /etc/lvmtab ||  -d /etc/lvm ]] &&
+		[[ -d /proc/lvm  || -n "$( grep device-mapper /proc/misc 2>/dev/null )" ]]
+	then
+		vgs=$($lvm_path vgs --config "${lvm_config}" -o vg_name --noheadings --nosuffix --rows 2> /dev/null | cut -d' ' -f 3-)
+		lvs=$($lvm_path lvs --config "${lvm_config}" -o vg_name,lv_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 3- | sed 's| |/|')
 
-        if [ "$VGS" ]
-        then
-            ebegin "  Shutting Down LVs & VGs"
-			#still echo stderr for debugging
-			lvm_commands="#! ${lvm_path} --config '${config}'\n"
-			# Extra PV find pass because some devices might not have been available until very recently
-			lvm_commands="${lvm_commands}lvchange --sysinit -a ln ${VGS}\n"
-			# Now make the nodes
-			lvm_commands="${lvm_commands}vgchange --sysinit -a ln ${VGS}\n"
+		if [[ -n "${vgs}" ]] ; then
+			ebegin "Shutting down Logical Volume Manager"
+			einfo "Using configuration directive '${lvm_config}'"
+
+			# Keep stderr, for debugging
+			lvm_commands="#! ${lvm_path} --config '${lvm_config}'\n"
+			lvm_commands+="lvchange --sysinit -a ln ${lvs}\n"
+			lvm_commands+="vgchange --sysinit -a ln ${vgs}\n"
 			# Order of this is important, have to work around dash and LVM readline
-			printf "%b\n" "${lvm_commands}" | $lvm_path /proc/self/fd/0 --config "${config}" >/dev/null
-			eend $? "Failed (possibly some LVs still needed for /usr or root)"
-        fi
-
-	einfo "Finished shutting down the Logical Volume Manager"
-	return 0
-fi
+			printf "%b\n" "${lvm_commands}" | ${lvm_path} /proc/self/fd/0 --config "${lvm_config}" >/dev/null
+			eend ${?} "Failed (some LVs may still be required for system-essential volumes)"
+	        fi
+	fi
 }
 
 # vim:ts=4
