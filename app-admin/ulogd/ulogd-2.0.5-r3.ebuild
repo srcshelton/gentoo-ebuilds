@@ -1,11 +1,10 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 71cf91e2eaabe9efb32f816e8ae9c92e9832951c $
+# $Id: 599d0c949dccfa6f6d80456fc89e483d259a1126 $
 
 EAPI=5
 
 AUTOTOOLS_AUTORECONF=1
-AUTOTOOLS_IN_SOURCE_BUILD=1
 
 inherit autotools-utils eutils flag-o-matic linux-info readme.gentoo systemd user
 
@@ -20,7 +19,7 @@ KEYWORDS="~amd64 ~ia64 ~ppc ~x86"
 IUSE="dbi doc json mysql nfacct +nfct +nflog pcap postgres sqlite systemd -ulog"
 
 RDEPEND="
-	|| ( net-firewall/iptables net-firewall/iptables-nftables net-firewall/nftables )
+	|| ( net-firewall/iptables net-firewall/nftables net-firewall/iptables-nftables )
 	>=net-libs/libnfnetlink-1.0.1
 	dbi? ( dev-db/libdbi )
 	json? ( dev-libs/jansson )
@@ -121,16 +120,16 @@ src_install() {
 
 	if use doc; then
 		dohtml doc/${PN}.html
-		dodoc doc/${PN}.dvi doc/${PN}.txt doc/${PN}.ps
+		dodoc doc/${PN}.{dvi,ps,txt}
 	fi
 
-	use sqlite && dodoc doc/sqlite3.table
 	use mysql && dodoc doc/mysql-*.sql
 	use postgres && dodoc doc/pgsql-*.sql
+	use sqlite && dodoc doc/sqlite3.table
 	doman ${PN}.8
 
 	insinto /etc
-	doins ${PN}.conf
+	doins "${BUILD_DIR}/${PN}.conf"
 	fowners root:ulogd /etc/ulogd.conf
 	fperms 640 /etc/ulogd.conf
 
