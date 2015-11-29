@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 93ce8110a64dc4d228a682a8cfb38a73536e2cb0 $
+# $Id: 5f6110797dbf04673dbaae8656553f45a3828d19 $
 
 EAPI=5
 
@@ -10,9 +10,11 @@ AUTOTOOLS_IN_SOURCE_BUILD=1
 inherit autotools-utils eutils flag-o-matic linux-info readme.gentoo systemd user
 
 DESCRIPTION="A userspace logging daemon for netfilter/iptables related logging"
-HOMEPAGE="http://netfilter.org/projects/ulogd/index.html"
-SRC_URI="ftp://ftp.netfilter.org/pub/${PN}/${P}.tar.bz2
-		http://www.netfilter.org/projects/${PN}/files/${P}.tar.bz2"
+HOMEPAGE="https://netfilter.org/projects/ulogd/index.html"
+SRC_URI="
+	https://www.netfilter.org/projects/${PN}/files/${P}.tar.bz2
+	ftp://ftp.netfilter.org/pub/${PN}/${P}.tar.bz2
+"
 
 LICENSE="GPL-2"
 SLOT="0"

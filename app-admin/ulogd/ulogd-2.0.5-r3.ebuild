@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 599d0c949dccfa6f6d80456fc89e483d259a1126 $
+# $Id: b39dca2df8992f56f2574ee55eabfb4f3df362eb $
 
 EAPI=5
 
@@ -9,9 +9,11 @@ AUTOTOOLS_AUTORECONF=1
 inherit autotools-utils eutils flag-o-matic linux-info readme.gentoo systemd user
 
 DESCRIPTION="A userspace logging daemon for netfilter/iptables related logging"
-HOMEPAGE="http://netfilter.org/projects/ulogd/index.html"
-SRC_URI="ftp://ftp.netfilter.org/pub/${PN}/${P}.tar.bz2
-		http://www.netfilter.org/projects/${PN}/files/${P}.tar.bz2"
+HOMEPAGE="https://netfilter.org/projects/ulogd/index.html"
+SRC_URI="
+	https://www.netfilter.org/projects/${PN}/files/${P}.tar.bz2
+	ftp://ftp.netfilter.org/pub/${PN}/${P}.tar.bz2
+"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -42,9 +44,10 @@ DEPEND="${RDEPEND}
 	)
 "
 
+DOCS=( AUTHORS README TODO )
+
 PATCHES=( "${FILESDIR}/${P}-remove-db-automagic.patch" )
 
-DOCS=( AUTHORS README TODO )
 DOC_CONTENTS="
 	You must have at least one logging stack enabled to make ulogd work.
 	Please edit example configuration located at /etc/ulogd.conf
@@ -130,8 +133,8 @@ src_install() {
 
 	insinto /etc
 	doins "${BUILD_DIR}/${PN}.conf"
-	fowners root:ulogd /etc/ulogd.conf
-	fperms 640 /etc/ulogd.conf
+	fowners root:ulogd /etc/${PN}.conf
+	fperms 640 /etc/${PN}.conf
 
 	newinitd "${FILESDIR}/${PN}.init-r2" ${PN}
 	use systemd && systemd_newunit "${FILESDIR}/${PN}.service-r1" ${PN}.service
