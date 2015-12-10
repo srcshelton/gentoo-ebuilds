@@ -8,13 +8,14 @@ CONTAINER=${SVCNAME#*.}
 lxc_get_configfile() {
 	LXC_PATH="$( readlink -e "$( lxc-config lxc.lxcpath 2>/dev/null || echo '/var/lib' )" )"
 	if [ -d "/etc/lxc" ] && [ -f "/etc/lxc/${CONTAINER}.conf" -o -f "/etc/lxc/${CONTAINER}/config" ]; then
-		ewarn "Legacy LXC configuration directory '/etc/lxc' found - please migrate your"
-		ewarn "configuration files to '${LXC_PATH}'"
+		#ewarn "Legacy LXC configuration directory '/etc/lxc' found - please migrate your"
+		#ewarn "configuration files to '${LXC_PATH}'"
 		LXC_PATH="/etc/lxc"
 	elif [ -d "${LXC_PATH}/lxc" ] && [ -f "${LXC_PATH}/lxc/${CONTAINER}.conf" -o -f "${LXC_PATH}/lxc/${CONTAINER}/config" ]; then
 		LXC_PATH="${LXC_PATH}/lxc"
-		einfo "Using '${LXC_PATH}' as LXC configuration directory"
+		#einfo "Using '${LXC_PATH}' as LXC configuration directory"
 	fi
+	einfo "Using '${LXC_PATH}' as LXC configuration directory"
 
 	if [ -f "${LXC_PATH}/${CONTAINER}.conf" ]; then
 		echo "${LXC_PATH}/${CONTAINER}.conf"
