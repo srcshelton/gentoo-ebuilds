@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 03440c8abe1ae9bdd662d05513f7b737d7c4f241 $
+# $Id: 3fb9caa134bd05a2ac4c0e3bfe2a4dfb77daee75 $
 
 # @ECLASS: php-pear-lib-r1.eclass
 # @MAINTAINER:
@@ -75,16 +75,17 @@ php-pear-lib-r1_src_install() {
 
 	cd "${S}"
 
+	# metadata_dir needs to be set relative to ${D} for >=dev-php/PEAR-PEAR-1.10
 	if [[ -f "${WORKDIR}"/package2.xml ]] ; then
 		mv -f "${WORKDIR}/package2.xml" "${S}"
 		local WWW_DIR="/usr/share/webapps/${PN}/${PVR}/htdocs"
-		peardev -d php_bin="${PHP_BIN}" -d www_dir="${WWW_DIR}" \
+		peardev -d php_bin="${PHP_BIN}" -d www_dir="${WWW_DIR}" -d metadata_dir="/usr/share/php" \
 			install --force --loose --nodeps --offline --packagingroot="${D}" \
 			"${S}/package2.xml" || die "Unable to install PEAR package"
 	else
 		mv -f "${WORKDIR}/package.xml" "${S}"
 		local WWW_DIR="/usr/share/webapps/${PN}/${PVR}/htdocs"
-		peardev -d php_bin="${PHP_BIN}" -d www_dir="${WWW_DIR}" \
+		peardev -d php_bin="${PHP_BIN}" -d www_dir="${WWW_DIR}" -d metadata_dir="/usr/share/php" \
 			install --force --loose --nodeps --offline --packagingroot="${D}" \
 			"${S}/package.xml" || die "Unable to install PEAR package"
 	fi
