@@ -1,0 +1,24 @@
+--- init.d/devfs.in.dist	2015-12-11 18:36:04.868397061 +0000
++++ init.d/devfs.in	2015-12-11 18:40:42.473602166 +0000
+@@ -79,7 +79,7 @@
+ 	# Mount required directories as user may not have them in /etc/fstab
+ 	for x in \
+ 		"mqueue /dev/mqueue 1777 ,nodev mqueue" \
+-		"devpts /dev/pts 0755 ,gid=5,mode=0620 devpts" \
++		"devpts /dev/pts 0755 ,gid=5,mode=0620,ptmxmode=0666 devpts" \
+ 		"tmpfs /dev/shm 1777 ,nodev,mode=1777 shm" \
+ 	; do
+ 		set -- $x
+@@ -99,6 +99,12 @@
+ 			eend $?
+ 		fi
+ 	done
++	[ -e /dev/pts/ptmx ] && \
++		[ ! -L /dev/ptmx ] && \
++		ln -s pts/ptmx /dev/ptmx.new && \
++		{
++			mv /dev/ptmx.new /dev/ptmx || rm /dev/ptmx.new
++		}
+ }
+ 
+ restorecon_dev()
