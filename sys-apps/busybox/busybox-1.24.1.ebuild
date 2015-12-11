@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 562c6c7c154a92b3e93d50e6e71eff38c1de3d0e $
+# $Id: 981dd02f48ac878b18b507bfb0aa9ec57e5e690c $
 
 # See `man savedconfig.eclass` for info on how to use USE=savedconfig.
 
@@ -16,7 +16,7 @@ if [[ ${PV} == "9999" ]] ; then
 else
 	MY_P=${PN}-${PV/_/-}
 	SRC_URI="http://www.busybox.net/downloads/${MY_P}.tar.bz2"
-	KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~arm-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~arm-linux ~x86-linux"
 fi
 
 LICENSE="GPL-2" # GPL-2 only
