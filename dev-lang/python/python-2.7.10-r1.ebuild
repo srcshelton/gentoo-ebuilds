@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: bbc68548f3048b29434e436f5bfc0a8b931eb028 $
+# $Id: 5715577a33622e64f513904a5c733cd8446e8d63 $
 # $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.1 2015/05/28 04:10:47 floppym Exp $
 
 EAPI="4"
@@ -50,7 +50,7 @@ RDEPEND="app-arch/bzip2
 		) )
 		gdbm? ( sys-libs/gdbm[berkdb] )
 		ncurses? (
-			>=sys-libs/ncurses-5.2
+			>=sys-libs/ncurses-5.2:0
 			readline? ( >=sys-libs/readline-4.1 )
 		)
 		sqlite? ( >=dev-db/sqlite-3.3.8:3 )
