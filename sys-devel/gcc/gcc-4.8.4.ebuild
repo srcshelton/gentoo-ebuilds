@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e99481871e4dc9a0214ed072bbbe494b4578bd4d $
+# $Id: 468bba8ed81e839f4ac8339a43b922ecec1b2ec7 $
 
 EAPI="4"
 
@@ -22,7 +22,7 @@ SSP_UCLIBC_STABLE="x86 amd64 mips ppc ppc64 arm"
 
 inherit eutils toolchain
 
-KEYWORDS="alpha amd64 arm arm64 hppa ~ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~x86-fbsd"
 
 RDEPEND=""
 DEPEND="${RDEPEND}
