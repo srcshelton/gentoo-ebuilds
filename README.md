@@ -80,14 +80,16 @@ A similar configuration file could be added for all packages which fail to compi
     * Support F_FULLFSYNC on Darwin
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
+* dev-libs/jemalloc
+    * Correct library version used when calling `install_name_tool`
 * dev-libs/libksba
     * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
 * dev-libs/liblinear
     * Update Makefile to build correctly on Darwin
-* dev-libs/openssl
-    * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-libs/libxslt
     * Fix for 'double prefix' QA error introduced in 1.1.28-r2
+* dev-libs/openssl
+    * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-libs/udis86
     * Add `${EPREFIX}` to `docdir` configure option
 * dev-vcs/cvs
