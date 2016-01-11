@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0c07f1692ad7c7c3e44188841dd537bd76d6de2f $
+# $Id: 01aca05aa5e46726c74a83130d3af56c5bbe109a $
 
 EAPI="5"
 
@@ -184,7 +184,7 @@ pkg_postinst() {
 	if use server || use proxy ; then
 		# check for fping
 		local fping_perms
-		declare -i fping_perms=$( stat -c %a /usr/sbin/fping 2>/dev/null )
+		declare -i fping_perms=$(stat -c %a /usr/sbin/fping 2>/dev/null)
 		case ${fping_perms} in
 			4[157][157][157])
 				;;

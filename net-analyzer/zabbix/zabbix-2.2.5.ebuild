@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 603469cb297c660d237a4d114c787696bfe9bb11 $
+# $Id: fb86e85ab3ae1fee02757ff75b34fc6d7c604e85 $
 
 EAPI="5"
 
@@ -72,25 +72,25 @@ src_prepare() {
 
 pkg_setup() {
 	if use server || use proxy ; then
-		local -i dbnum=0
-		local dbtypes="mysql oracle postgres sqlite" dbtype
+		local dbnum dbtypes="mysql oracle postgres sqlite" dbtype
+		declare -i dbnum=0
 		for dbtype in ${dbtypes}; do
-			use ${dbtype} && (( dbnum++ ))
+			use ${dbtype} && let dbnum++
 		done
-		if (( dbnum > 1 )); then
+		if [ ${dbnum} -gt 1 ]; then
 			eerror
 			eerror "You can't use more than one database type in Zabbix."
 			eerror "Select exactly one database type out of these: ${dbtypes}"
 			eerror
 			die "Multiple database types selected."
-		elif (( dbnum != 1 )); then
+		elif [ ${dbnum} -lt 1 ]; then
 			eerror
 			eerror "Select exactly one database type out of these: ${dbtypes}"
 			eerror
 			die "No database type selected."
 		fi
 		if use oracle; then
-			if [[ -z "${ORACLE_HOME}" ]]; then
+			if [ -z "${ORACLE_HOME}" ]; then
 				eerror
 				eerror "The environment variable ORACLE_HOME must be set"
 				eerror "and point to the correct location."
@@ -123,8 +123,8 @@ pkg_postinst() {
 		elog
 
 		local zabbix_homedir="$( egethome zabbix )"
-		if [[ -n "${zabbix_homedir}" ]] && \
-		   [[ "${zabbix_homedir}" != "/var/lib/zabbix/home" ]]; then
+		if [ -n "${zabbix_homedir}" ] && \
+		   [ "${zabbix_homedir}" != "/var/lib/zabbix/home" ]; then
 			ewarn
 			ewarn "The user 'zabbix' should have his homedir changed"
 			ewarn "to /var/lib/zabbix/home if you want to use"
@@ -185,7 +185,8 @@ pkg_postinst() {
 
 	if use server || use proxy ; then
 		# check for fping
-		local -i fping_perms=$(( $( stat -c %a /usr/sbin/fping 2>/dev/null ) ))
+		local fping_perms
+		declare -i fping_perms=$(stat -c %a /usr/sbin/fping 2>/dev/null)
 		case ${fping_perms} in
 			4[157][157][157])
 				;;
