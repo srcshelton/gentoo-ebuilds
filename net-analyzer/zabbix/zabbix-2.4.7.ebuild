@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 01aca05aa5e46726c74a83130d3af56c5bbe109a $
+# $Id: 0c07f1692ad7c7c3e44188841dd537bd76d6de2f $
 
 EAPI="5"
 
@@ -330,7 +330,7 @@ src_install() {
 	if use frontend; then
 		webapp_src_preinst
 		cp -R frontends/php/* "${D}/${MY_HTDOCSDIR}"
-		webapp_postinst_txt en "${FILESDIR}/"1.6.6/postinstall-en.txt
+		#webapp_postinst_txt en "${FILESDIR}/"1.6.6/postinstall-en.txt
 		webapp_configfile \
 			"${MY_HTDOCSDIR}"/include/db.inc.php \
 			"${MY_HTDOCSDIR}"/include/config.inc.php
