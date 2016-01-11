@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a683fa59060af0a6b4e8bb5eaeb1b5976b11cee7 $
+# $Id: 998b7fda0c9cd8150e679bbb11f182569934f638 $
 
 inherit eutils versionator toolchain-funcs flag-o-matic gnuconfig multilib systemd unpacker multiprocessing
 
@@ -157,8 +157,11 @@ eblit-src_unpack-pre() {
 }
 
 eblit-src_unpack-post() {
+	cd "${S}"
+
+	epatch "${FILESDIR}"/2.19/${PN}-2.19-ia64-gcc-4.8-reloc-hack.patch #503838
+
 	if use hardened ; then
-		cd "${S}"
 		einfo "Patching to get working PIE binaries on PIE (hardened) platforms"
 		gcc-specs-pie && epatch "${FILESDIR}"/2.17/glibc-2.17-hardened-pie.patch
 		epatch "${FILESDIR}"/2.19/glibc-2.19-hardened-configure-picdefault.patch

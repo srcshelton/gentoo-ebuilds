@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 954508ca51aa4b07dd08f33a2a7c4c38e2643500 $
+# $Id: 99964fbee98e8afceaf0435fad98736b52431675 $
 
 dump_toolchain_settings() {
 	echo
@@ -118,6 +118,11 @@ glibc_do_configure() {
 		$(in_iuse nscd && use_enable nscd)
 		${EXTRA_ECONF}
 	)
+
+	# We rely on sys-libs/timezone-data for timezone tools normally.
+	if version_is_at_least 2.23 ; then
+		myconf+=( $(use_enable vanilla timezone-tools) )
+	fi
 
 	# There is no configure option for this and we need to export it
 	# since the glibc build will re-run configure on itself

@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8280980a41699c7ee93d61d2f013286c9944ee4e $
+# $Id: 0ea96b27052f0af9398284ea8dfc83af0685f56b $
 
 EAPI="4"
 
@@ -167,6 +167,8 @@ eblit-src_unpack-pre() {
 
 eblit-src_prepare-post() {
 	cd "${S}"
+
+	epatch "${FILESDIR}"/2.19/${PN}-2.19-ia64-gcc-4.8-reloc-hack.patch #503838
 
 	if use hardened ; then
 		einfo "Patching to get working PIE binaries on PIE (hardened) platforms"
