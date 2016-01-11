@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5ce910c542e07b051df6ed0dd099ca08f4552a43 $
+# $Id: 444743d6c8e0df2a30bd85395aff8eb99561bf8f $
 
 EAPI="4"
 
@@ -13,7 +13,7 @@ SRC_URI="mirror://openssl/source/${MY_P}.tar.gz"
 
 LICENSE="openssl"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ~ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 IUSE="+asm bindist gmp kerberos rfc3779 sctp cpu_flags_x86_sse2 static-libs test +tls-heartbeat vanilla zlib"
 RESTRICT="!bindist? ( bindist )"
 
