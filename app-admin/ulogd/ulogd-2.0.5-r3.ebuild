@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b39dca2df8992f56f2574ee55eabfb4f3df362eb $
+# $Id: 31cbd52ed99c4a0902c6e0a6256b30216e95b0f4 $
 
 EAPI=5
 
@@ -17,7 +17,7 @@ SRC_URI="
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~ia64 ~ppc ~x86"
+KEYWORDS="amd64 ~ia64 ppc x86"
 IUSE="dbi doc json mysql nfacct +nfct +nflog pcap postgres sqlite systemd -ulog"
 
 RDEPEND="
@@ -129,6 +129,7 @@ src_install() {
 	use mysql && dodoc doc/mysql-*.sql
 	use postgres && dodoc doc/pgsql-*.sql
 	use sqlite && dodoc doc/sqlite3.table
+
 	doman ${PN}.8
 
 	insinto /etc
@@ -136,8 +137,8 @@ src_install() {
 	fowners root:ulogd /etc/${PN}.conf
 	fperms 640 /etc/${PN}.conf
 
-	newinitd "${FILESDIR}/${PN}.init-r2" ${PN}
-	use systemd && systemd_newunit "${FILESDIR}/${PN}.service-r1" ${PN}.service
+	newinitd "${FILESDIR}/${PN}.init" ${PN}
+	use systemd && systemd_dounit "${FILESDIR}/${PN}.service"
 
 	insinto /etc/logrotate.d
 	newins "${FILESDIR}/${PN}.logrotate" ${PN}
