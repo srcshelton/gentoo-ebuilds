@@ -11,11 +11,12 @@ depend() {
 }
 
 configtest() {
-	local -i ret
+	local ret
+	declare -i ret=0
 
         /usr/bin/monit -c /etc/monitrc -t >/dev/null 2>&1
         ret=$?
-        if (( ret )); then
+        if [ $ret -ne 0 ]; then
                 eerror "${SVCNAME} has detected an error in your setup:"
                 /usr/bin/monit -c /etc/monitrc -t
         fi
@@ -26,10 +27,10 @@ configtest() {
 start_pre() {
 	configtest || return 1
 
-	[[ -e /etc/monitrc ]] || {
+	if ! [ -e /etc/monitrc ]; then
 		eerror "Cannot read monit configuration from /etc/monitrc"
 		return 1
-	}
+	fi
 
 	sed 's/#.*$//' /etc/monitrc \
 		| grep -v '^\s*$' \
