@@ -12,7 +12,8 @@ depend() {
 
 dm_in_proc() {
 	local x
-	local -i retval=0
+	local retval
+	declare -i retval=0
 
 	for x in devices misc ; do
 		grep -qs 'device-mapper' /proc/"${x}"
@@ -26,7 +27,7 @@ start() {
 	local lvm_path lvm_commands
 
 	local lvm_config
-	if [[ -d /var/lock/lvm && -w /var/lock/lvm && ! -d /dev/.lvm ]]; then
+	if [ -d /var/lock/lvm ] && [ -w /var/lock/lvm ] && ! [ -d /dev/.lvm ]; then
 		export lvm_config='global { locking_dir = "/var/lock/lvm" }'
 	else
 		export lvm_config='global { locking_dir = "/dev/.lvm" }'
@@ -35,22 +36,22 @@ start() {
 	# LVM support for /usr, /home, /opt ....
 	# This should be done *before* checking local
 	# volumes, or they never get checked.
-	
+
 	# NOTE: Add needed modules for LVM or RAID, etc.
 	#       to /etc/modules.autoload if needed
 	for lvm_path in /bin/lvm /sbin/lvm ; do
-		[[ -x "${lvm_path}" ]] && break
+		[ -x "${lvm_path}" ] && break
 	done
-	if [[ ! -x "${lvm_path}" ]] ; then
+	if ! [ -x "${lvm_path}" ] ; then
 		eerror "Cannot find lvm binary in /sbin or /bin!"
 		return 1
 	fi
 
-	if [[ -z "${CDBOOT}" ]] ; then
-		if [[ -e /proc/modules ]] && ! dm_in_proc ; then
+	if [ -z "${CDBOOT}" ] ; then
+		if [ -e /proc/modules ] && ! dm_in_proc ; then
 			modprobe dm-mod 2>/dev/null
 		fi
-		if [[ -d /proc/lvm ]] || dm_in_proc ; then
+		if [ -d /proc/lvm ] || dm_in_proc ; then
 			ebegin "Setting up Logical Volume Manager"
 			einfo "Using configuration directive '${lvm_config}'"
 			# Keep stderr, for debugging
@@ -72,31 +73,31 @@ stop() {
 	local lvm_path lvs vgs lvm_commands
 
 	local lvm_config
-	if [[ -d /var/lock/lvm && -w /var/lock/lvm && ! -d /dev/.lvm ]]; then
+	if [ -d /var/lock/lvm ] && [ -w /var/lock/lvm ] && ! [ -d /dev/.lvm ]; then
 		export lvm_config='global { locking_dir = "/var/lock/lvm" }'
 	else
 		export lvm_config='global { locking_dir = "/dev/.lvm" }'
 	fi
 
 	for lvm_path in /bin/lvm /sbin/lvm ; do
-		[[ -x "${lvm_path}" ]] && break
+		[ -x "${lvm_path}" ] && break
 	done
-	if [[ ! -x "${lvm_path}" ]] ; then
+	if ! [ -x "${lvm_path}" ] ; then
 		eerror "Cannot find lvm binary in /sbin or /bin!"
 		return 1
 	fi
 
 	# Stop LVM2
-	if [[ -x /sbin/vgs ]] &&
-		[[ -x /sbin/vgchange ]] &&
-		[[ -x /sbin/lvchange ]] &&
-		[[ -f /etc/lvmtab ||  -d /etc/lvm ]] &&
-		[[ -d /proc/lvm  || -n "$( grep device-mapper /proc/misc 2>/dev/null )" ]]
+	if [ -x /sbin/vgs ] &&
+		[ -x /sbin/vgchange ] &&
+		[ -x /sbin/lvchange ] &&
+		[ -f /etc/lvmtab ||  -d /etc/lvm ] &&
+		[ -d /proc/lvm  || -n "$( grep device-mapper /proc/misc 2>/dev/null )" ]
 	then
 		vgs=$($lvm_path vgs --config "${lvm_config}" -o vg_name --noheadings --nosuffix --rows 2> /dev/null | cut -d' ' -f 3-)
 		lvs=$($lvm_path lvs --config "${lvm_config}" -o vg_name,lv_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 3- | sed 's| |/|')
 
-		if [[ -n "${vgs}" ]] ; then
+		if [ -n "${vgs}" ] ; then
 			ebegin "Shutting down Logical Volume Manager"
 			einfo "Using configuration directive '${lvm_config}'"
 

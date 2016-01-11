@@ -11,45 +11,47 @@ depend() {
 
 VNSTATD_CONFIG="${VNSTATD_CONFIG:-/etc/vnstat.conf}"
 
-if [[ -z "${VNSTATD_PIDFILE:-}" ]]; then
-	VNSTATD_PIDFILE="$( grep '^\s*PidFile' < "${VNSTATD_CONFIG}" 2>/dev/null | sed -r 's/^\s*PidFile\s+"?([^"]+)"?\s*$/\1/' )"
+if [ -z "${VNSTATD_PIDFILE:-}" ]; then
+	VNSTATD_PIDFILE="$( grep '^\s*PidFile' "${VNSTATD_CONFIG}" 2>/dev/null | sed -r 's/^\s*PidFile\s+"?([^"]+)"?\s*$/\1/' )"
 	VNSTATD_PIDFILE="${VNSTATD_PIDFILE:-/var/run/vnstatd/vnstatd.pid}"
 fi
 
 start() {
-	[[ -s "${VNSTATD_CONFIG}" ]] || {
+	local vnstatd_user vnstatd_group vnstatd_dbdir vnstatd_logmode vnstatd_logfile vnstatd_logdir vnstatd_piddir vnstatd_changeuser
+
+	if ! [ -s "${VNSTATD_CONFIG}" ]; then
 		eerror "Cannot read vnstatd configuration file '${VNSTATD_CONFIG}'"
 		return 1
-	}
-
-	ebegin "Starting vnstatd"
-
-	local vnstatd_user="$( grep '^\s*DaemonUser' < "${VNSTATD_CONFIG}" | sed -r 's/^\s*DaemonUser\s+"?([^"]+)"?\s*$/\1/' )"
-	local vnstatd_group="$( grep '^\s*DaemonGroup' < "${VNSTATD_CONFIG}" | sed -r 's/^\s*DaemonGroup\s+"?([^"]+)"?\s*$/\1/' )"
-	local vnstatd_dbdir="$( grep '^\s*DatabaseDir' < "${VNSTATD_CONFIG}" | sed -r 's/^\s*DatabaseDir\s+"?([^"]+)"?\s*$/\1/' )"
-	local vnstatd_logmode="$( grep '^\s*UseLogging' < "${VNSTATD_CONFIG}" | sed -r 's/^\s*UseLogging\s+"?([^"]+)"?\s*$/\1/' )"
-	if [[ "${vnstatd_logmode:-}" == "1" ]]; then
-		local vnstatd_logfile="$( grep '^\s*LogFile' < "${VNSTATD_CONFIG}" | sed -r 's/^\s*LogFile\s+"?([^"]+)"?\s*$/\1/' )"
-		local vnstatd_logdir="$( dirname "${vnstatd_logfile:-}" )"
 	fi
-	local vnstatd_piddir="$( dirname "${VNSTATD_PIDFILE}" )"
-	local vnstatd_changeuser=""
-	if [[ -z "${vnstatd_user:-}" && -z "${vnstatd_group:-}" ]]; then
+
+	vnstatd_user="$( grep '^\s*DaemonUser' "${VNSTATD_CONFIG}" | sed -r 's/^\s*DaemonUser\s+"?([^"]+)"?\s*$/\1/' )"
+	vnstatd_group="$( grep '^\s*DaemonGroup' "${VNSTATD_CONFIG}" | sed -r 's/^\s*DaemonGroup\s+"?([^"]+)"?\s*$/\1/' )"
+	vnstatd_dbdir="$( grep '^\s*DatabaseDir' "${VNSTATD_CONFIG}" | sed -r 's/^\s*DatabaseDir\s+"?([^"]+)"?\s*$/\1/' )"
+	vnstatd_logmode="$( grep '^\s*UseLogging' "${VNSTATD_CONFIG}" | sed -r 's/^\s*UseLogging\s+"?([^"]+)"?\s*$/\1/' )"
+	if [ "${vnstatd_logmode:-}" = "1" ]; then
+		vnstatd_logfile="$( grep '^\s*LogFile' "${VNSTATD_CONFIG}" | sed -r 's/^\s*LogFile\s+"?([^"]+)"?\s*$/\1/' )"
+		vnstatd_logdir="$( dirname "${vnstatd_logfile:-}" )"
+	fi
+	vnstatd_piddir="$( dirname "${VNSTATD_PIDFILE}" )"
+	vnstatd_changeuser=""
+	if [ -z "${vnstatd_user:-}" ] && [ -z "${vnstatd_group:-}" ]; then
 		vnstatd_changeuser="--user vnstat --group vnstat"
 	fi
 
-	checkpath -q -d -m 755 -o ${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat} "${vnstatd_piddir:-/var/run/vnstatd}"
-	checkpath -q -d -m 755 -o ${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat} "${vnstatd_dbdir:-/var/lib/vnstat}"
-	if [[ "${vnstatd_logmode:-}" == "1" && "${vnstatd_logdir}" != "/var/log" ]]; then
-		checkpath -q -d -m 755 -o ${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat} "${vnstatd_logdir:-/var/log/vnstatd}"
+	checkpath -q -d -m 755 -o "${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat}" "${vnstatd_piddir:-/var/run/vnstatd}"
+	checkpath -q -d -m 755 -o "${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat}" "${vnstatd_dbdir:-/var/lib/vnstat}"
+	if [ "${vnstatd_logmode:-}" = "1" ] && [ "${vnstatd_logdir}" != "/var/log" ]; then
+		checkpath -q -d -m 755 -o "${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat}" "${vnstatd_logdir:-/var/log/vnstatd}"
 	fi
+
+	ebegin "Starting vnstatd"
 
 	start-stop-daemon --start --quiet \
 		--pidfile "${VNSTATD_PIDFILE}" \
 		${vnstatd_changeuser} \
 		--nicelevel ${VNSTATD_NICELEVEL:-0} \
 		--exec /usr/bin/vnstatd -- \
-			-d ${VNSTATD_EXTRAOPTS} -p ${VNSTATD_PIDFILE}
+			-d ${VNSTATD_EXTRAOPTS} -p "${VNSTATD_PIDFILE}"
 	eend $?
 }
 

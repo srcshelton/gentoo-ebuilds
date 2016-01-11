@@ -17,9 +17,9 @@ start() {
 	export LD_LIBRARY_PATH="${DIR}/lib:${LD_LIBRARY_PATH}"
 
 	# Temporay fix for EPERM bug (we still leave it here to make sure it is *really* not there)
-	[[ -e /dev/shm/7gbhujb54g8z9hu43jre8 ]] && rm -f /dev/shm/7gbhujb54g8z9hu43jre8
+	[ -e /dev/shm/7gbhujb54g8z9hu43jre8 ] && rm -f /dev/shm/7gbhujb54g8z9hu43jre8
 
-	[[ -d /var/run/teamspeak3 ]] || mkdir -p /var/run/teamspeak3
+	[ -d /var/run/teamspeak3 ] || mkdir -p /var/run/teamspeak3
 	chown teamspeak3:teamspeak3 /var/run/teamspeak3
 
 	start-stop-daemon --start --quiet --background \

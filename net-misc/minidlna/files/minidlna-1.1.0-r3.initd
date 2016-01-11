@@ -8,31 +8,33 @@ depend() {
 }
 
 start() {
+	local params
+	local stop
+	declare -i stop
+
 	ebegin "Starting MiniDLNA"
-	local params=""
-	local stop=0
 
-	checkpath -q -d -m 0755 -o ${M_USER:-minidlna}:${M_GROUP:-minidlna} /var/run/minidlna
+	checkpath -q -d -m 0755 -o "${M_USER:-minidlna}:${M_GROUP:-minidlna}" '/var/run/minidlna'
 
-	params="$params -P /var/run/minidlna/minidlna.pid"
-
-	if [[ "${RESCAN}" = "true" || "{$RESCAN}" = yes ]]; then
-		params="$params -R"
+	params='-P /var/run/minidlna/minidlna.pid'
+	if [ "${RESCAN}" = 'true' ] || [ "${RESCAN}" = 'yes' ]; then
+		params="${params} -R"
 	fi
 
-	#set the config file and check if it exists
+	stop=0
+	# Set the config file and check if it exists
 	if [ -z "${CONFIG}" ]; then
-		if [ ! -f "/etc/minidlna.conf" ]; then
+		if [ ! -f '/etc/minidlna.conf' ]; then
 			ewarn "You did not set the config file correctly"
 			stop=1
 		fi
-		params="$params -f /etc/minidlna.conf"
+		params="${params} -f /etc/minidlna.conf"
 	else
 		if [ ! -f "${CONFIG}" ]; then
 			ewarn "The specified config file does not exist"
 			stop=1
 		fi
-		params="$params -f ${CONFIG}"
+		params="${params} -f ${CONFIG}"
 	fi
 
 
@@ -40,14 +42,17 @@ start() {
 		eend 1
 	else
 		start-stop-daemon --start \
-			--user ${M_USER:-minidlna} --group ${M_GROUP:-minidlna} \
-			--exec /usr/sbin/minidlnad -- ${params}
-		eend $?
+			--user "${M_USER:-minidlna}" \
+			--group "${M_GROUP:-minidlna}" \
+			--exec '/usr/sbin/minidlnad' -- ${params}
+		eend ${?}
 	fi
 }
 
 stop() {
 	ebegin "Stopping MiniDLNA"
-	start-stop-daemon --stop --quiet --exec /usr/sbin/minidlnad
-	eend $?
+
+	start-stop-daemon --stop --quiet --exec '/usr/sbin/minidlnad'
+
+	eend ${?}
 }

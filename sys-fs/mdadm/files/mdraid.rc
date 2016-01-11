@@ -9,29 +9,29 @@ depend() {
 }
 
 start() {
-	local mdadm_conf mdmod_conf mods devs mod dev timeout device node rc output
+	local mdadm_conf mdmod_conf mods mod dev timeout device node output # devs
+	declare -i timeout
 
 	mdadm_conf="/etc/mdadm/mdadm.conf"
 	mdmod_conf="/etc/mdadm/mdmod.conf"
-	[ -e /etc/mdadm.conf -a ! -e "$mdadm_conf" ] && mdadm_conf="/etc/mdadm.conf"
-	[ -e /etc/mdmod.conf -a ! -e "$mdmod_conf" ] && mdmod_conf="/etc/mdmod.conf"
+	[ -e /etc/mdadm.conf ] && [ ! -e "$mdadm_conf" ] && mdadm_conf="/etc/mdadm.conf"
+	[ -e /etc/mdmod.conf ] && [ ! -e "$mdmod_conf" ] && mdmod_conf="/etc/mdmod.conf"
 
-	if [ -x /sbin/mdadm -a -f "${mdadm_conf}" ]; then
-		mods="$( awk '/^[[:space:]]*MODULE/ { print $2 }' "${mdadm_conf}" )"
-		devs="$( awk '/^[[:space:]]*ARRAY/ { print $2 }' "${mdadm_conf}" )"
+	if [ -x /sbin/mdadm ] && [ -f "${mdadm_conf}" ]; then
+		mods="$( awk '/^\s*MODULE/ { print $2 }' "${mdadm_conf}" )"
+		#devs="$( awk '/^\s*ARRAY/ { print $2 }' "${mdadm_conf}" )"
 
 		if [ -n "${mods}" ]; then
 			for mod in ${mods}; do
-				mod="$( echo "${mod}" | sed 's/-/_/g' )"
-
-				if [ -z "$( lsmod | grep "${mod}" )" ]; then
+				if lsmod 2>&1 | grep -q "${mod//-/_}"; then
 					ebegin "Loading RAID driver ${mod}"
 					modprobe "${mod}"
-					eend $? "Module load failed - storage array may be unavailable" || continue
+					eend ${?} "Module load failed - storage array may be unavailable" || continue
 				fi
 
-				dev=$( egrep "^[[:space:]]*MODULE" "${mdmod_conf}" | \
-					tr -s "[:space:]" | sed 's/^ //' | cut -d" " -f 3-
+				dev=$( grep "^\s*MODULE" "${mdmod_conf}" |
+					tr -s "[:space:]" | sed 's/^ //' |
+					cut -d" " -f 3-
 				)
 
 				#
@@ -40,13 +40,13 @@ start() {
 				#
 				timeout=50
 
-				while test ${timeout} -gt 0 ; do
+				while [ ${timeout} -gt 0 ]; do
 					for device in ${dev}; do
 						[ -e "${device}" ] && break 2
 					done
-					test ${timeout} -eq 50 && ewarn "Waiting for devices to become available ..."
-					timeout=$( expr ${timeout} - 1 )
-					sleep 0.1
+					[ ${timeout} -eq 50 ] && ewarn "Waiting for devices to become available ..."
+					timeout=$(( timeout - 1 ))
+					sleep 0.1 2>/dev/null || sleep 1
 				done
 
 				#
@@ -70,6 +70,11 @@ start() {
 				ios_module="as"
 				ios_queue="anticipatory"
 				;;
+			deadline)
+				ios_name="Deadline"
+				ios_module="deadline"
+				ios_queue="deadline"
+				;;
 			cfq|fair)
 				ios_name="Completely Fair"
 				ios_module="cfq"
@@ -82,7 +87,7 @@ start() {
 				;;
 		esac
 
-		ebegin "Loading $ios_name I/O scheduler"
+		ebegin "Loading ${ios_name} I/O scheduler"
 		modprobe "${ios_module}-iosched"
 		eend $?
 
@@ -95,15 +100,15 @@ start() {
 			[ "${device}" = "DEVICE" ] && continue
 
 			for node in /sys/block/"${device}"/queue/scheduler; do
-				if [ -e "${node}" -a -n "$( grep -q "${ios_queue}" "${node}" >/dev/null 2>&1 )" ]; then
+				if [ -e "${node}" ] && grep -q "${ios_queue}" "${node}"; then
 					ebegin "Setting I/O scheduler for device '${device}'"
-					echo -n "$ios_queue" > "${node}"
-					eend $? "Cannot install $ios_queue scheduler"
+					printf "${ios_queue}" > "${node}"
+					eend $? "Cannot install ${ios_queue} scheduler"
 				fi
 			done
 		done
 
-		if yesno ${ENABLENCQ}; then
+		if yesno "${ENABLENCQ}"; then
 			#
 			# Additionally, try to enble NCQ for increased performance.
 			# The libATA documentation says this should work...
@@ -120,9 +125,10 @@ start() {
 					if [ -w "${node}" ]; then
 						# Maximum depth should be 32, but 0xffffffff
 						# is the same value returned when a device is
-						# hot-unplugged, so that value is masked.
+						# hot-unplugged, so that particular value is
+						# masked.
 						ebegin "Setting maximum NCQ depth for device '${device}'"
-						( echo -n "31" > "${node}" ) &>/dev/null
+						( printf "31" > "${node}" ) >/dev/null 2>&1
 						eend $? "NCQ unavailable"
 					fi
 				done
@@ -131,7 +137,7 @@ start() {
 	fi
 
 	ebegin "Starting up RAID devices"
-	output=$(mdadm -As ${MDADM_ASSEMBLE_OPTS} 2>&1)
+	output="$( mdadm -As ${MDADM_ASSEMBLE_OPTS} 2>&1 )"
 	eend $? "${output}"
 
 	local pat="/dev/md_d*"
@@ -154,6 +160,6 @@ stop() {
 	[ ! -e /etc/mdadm/mdadm.conf ] && [ ! -e /etc/mdadm.conf ] && return 0
 
 	ebegin "Shutting down RAID devices"
-	output=$(mdadm -Ss 2>&1)
+	output="$( mdadm -Ss 2>&1 )"
 	eend $? "${output}"
 }

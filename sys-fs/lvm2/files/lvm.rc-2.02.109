@@ -11,9 +11,10 @@ depend() {
 }
 
 run_addon() {
-	local f=/lib/rcscripts/addons/$1.sh
-	if [[ -r "$f" ]]; then
-		( . "$f" )
+	local f="/lib/rcscripts/addons/${1}.sh"
+
+	if [ -r "${f}" ]; then
+		( . "${f}" )
 	fi
 }
 
@@ -24,5 +25,3 @@ start() {
 stop() {
 	run_addon lvm-stop
 }
-
-# vim:ts=4

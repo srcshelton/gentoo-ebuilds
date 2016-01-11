@@ -6,18 +6,25 @@
 extra_commands="check save panic"
 extra_started_commands="reload"
 
-iptables_name=${SVCNAME}
-case ${iptables_name} in
-iptables|ip6tables) ;;
-*) iptables_name="iptables" ;;
+iptables_name="${SVCNAME}"
+case "${iptables_name}" in
+	iptables|ip6tables)
+		;;
+	*)
+		iptables_name="iptables"
+		;;
 esac
 
 iptables_bin="/sbin/${iptables_name}"
-case ${iptables_name} in
-	iptables)  iptables_proc="/proc/net/ip_tables_names"
-	           iptables_save=${IPTABLES_SAVE};;
-	ip6tables) iptables_proc="/proc/net/ip6_tables_names"
-	           iptables_save=${IP6TABLES_SAVE};;
+case "${iptables_name}" in
+	iptables)
+		iptables_proc="/proc/net/ip_tables_names"
+		iptables_save="${IPTABLES_SAVE}"
+		;;
+	ip6tables)
+		iptables_proc="/proc/net/ip6_tables_names"
+		iptables_save="${IP6TABLES_SAVE}"
+		;;
 esac
 
 depend() {
@@ -26,29 +33,32 @@ depend() {
 }
 
 set_table_policy() {
-	local chains table=$1 policy=$2
-	case ${table} in
-		nat)    chains="PREROUTING POSTROUTING OUTPUT";;
-		mangle) chains="PREROUTING INPUT FORWARD OUTPUT POSTROUTING";;
-		filter) chains="INPUT FORWARD OUTPUT";;
-		*)      chains="";;
+	local chain chains table policy
+	table="${1}"
+	policy="${2}"
+
+	case "${table}" in
+		nat)	chains="PREROUTING POSTROUTING OUTPUT" ;;
+		mangle)	chains="PREROUTING INPUT FORWARD OUTPUT POSTROUTING" ;;
+		filter)	chains="INPUT FORWARD OUTPUT" ;;
+		*)	chains="" ;;
 	esac
-	local chain
 	for chain in ${chains} ; do
-		${iptables_bin} -w -t ${table} -P ${chain} ${policy}
+		"${iptables_bin}" -w -t "${table}" -P "${chain}" "${policy}"
 	done
 }
 
 checkkernel() {
-	if [ ! -e ${iptables_proc} ] ; then
+	if [ ! -e "${iptables_proc}" ] ; then
 		eerror "Your kernel lacks ${iptables_name} support, please load"
 		eerror "appropriate modules and try again."
 		return 1
 	fi
 	return 0
 }
+
 checkconfig() {
-	if [ ! -f ${iptables_save} ] ; then
+	if [ ! -f "${iptables_save}" ] ; then
 		eerror "Not starting ${iptables_name}.  First create some rules then run:"
 		eerror "/etc/init.d/${iptables_name} save"
 		return 1
@@ -58,41 +68,51 @@ checkconfig() {
 
 start() {
 	checkconfig || return 1
-	if [[ -x /sbin/setsystz ]] && grep -i " time " "${iptables_save}" >/dev/null 2>&1; then
+
+	if [ -x /sbin/setsystz ] && grep -qi ' time ' "${iptables_save}"; then
 		ebegin "Setting kernel timezone (for -m TIME rules)"
 		/sbin/setsystz
-		eend $? "setsystz failed"
+		eend ${?} "setsystz failed"
 	fi
 	ebegin "Loading ${iptables_name} state and starting firewall"
-	${iptables_bin}-restore ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
+	"${iptables_bin}-restore" ${SAVE_RESTORE_OPTIONS:-} < "${iptables_save}"
 	eend $?
 }
 
 stop() {
+	local a
+
 	if [ "${SAVE_ON_STOP}" = "yes" ] ; then
 		save || return 1
 	fi
-	checkkernel || return 1
-	ebegin "Stopping firewall"
-	local a
-	for a in $(cat ${iptables_proc}) ; do
-		set_table_policy $a ACCEPT
 
-		${iptables_bin} -w -F -t $a
-		${iptables_bin} -w -X -t $a
+	checkkernel || return 1
+
+	ebegin "Stopping firewall"
+
+	for a in $( cat "${iptables_proc}" ) ; do
+		set_table_policy "${a}" ACCEPT
+
+		"${iptables_bin}" -w -F -t "${a}"
+		"${iptables_bin}" -w -X -t "${a}"
 	done
-	eend $?
+
+	eend ${?}
 }
 
 reload() {
+	local a
+
 	checkkernel || return 1
 	checkrules || return 1
+
 	ebegin "Flushing firewall"
-	local a
-	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} -w -F -t $a
-		${iptables_bin} -w -X -t $a
+
+	for a in $( cat "${iptables_proc}" ) ; do
+		"${iptables_bin}" -w -F -t "${a}"
+		"${iptables_bin}" -w -X -t "${a}"
 	done
+
 	eend $?
 
 	start
@@ -100,8 +120,10 @@ reload() {
 
 checkrules() {
 	ebegin "Checking rules"
-	${iptables_bin}-restore --test ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
-	eend $?
+
+	"${iptables_bin}-restore" --test ${SAVE_RESTORE_OPTIONS:-} < "${iptables_save}"
+
+	eend ${?}
 }
 
 check() {
@@ -111,25 +133,31 @@ check() {
 
 save() {
 	ebegin "Saving ${iptables_name} state"
-	checkpath -q -d "$(dirname "${iptables_save}")"
+
+	checkpath -q -d "$( dirname "${iptables_save}" )"
 	checkpath -q -m 0600 -f "${iptables_save}"
-	${iptables_bin}-save ${SAVE_RESTORE_OPTIONS} > "${iptables_save}"
-	eend $?
+	"${iptables_bin}-save" ${SAVE_RESTORE_OPTIONS:-} > "${iptables_save}"
+
+	eend ${?}
 }
 
 panic() {
+	local a
+
 	checkkernel || return 1
-	if service_started ${iptables_name}; then
-		rc-service ${iptables_name} stop
+
+	if service_started "${iptables_name}"; then
+		rc-service "${iptables_name}" stop
 	fi
 
-	local a
 	ebegin "Dropping all packets"
-	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} -w -F -t $a
-		${iptables_bin} -w -X -t $a
 
-		set_table_policy $a DROP
+	for a in $( cat "${iptables_proc}" ) ; do
+		"${iptables_bin}" -w -F -t "${a}"
+		"${iptables_bin}" -w -X -t "${a}"
+
+		set_table_policy "${a}" DROP
 	done
-	eend $?
+
+	eend ${?}
 }
