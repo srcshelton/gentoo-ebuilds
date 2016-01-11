@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cba0fdda652ab1f96028dfd36c0c70806e0add34 $
+# $Id: b8d4cedb13e99eb1480b216e3c4543e6cebc6861 $
 
 EAPI=5
 
@@ -23,7 +23,7 @@ SRC_URI="
 "
 
 LICENSE="GPL-2 NVIDIA-r2"
-SLOT="0/340"
+SLOT="0/${PV%.*}"
 KEYWORDS="-* amd64 x86 ~amd64-fbsd ~x86-fbsd"
 IUSE="acpi kernel_FreeBSD kernel_linux multilib pax_kernel +tools +udev uvm +X"
 RESTRICT="bindist mirror strip"
