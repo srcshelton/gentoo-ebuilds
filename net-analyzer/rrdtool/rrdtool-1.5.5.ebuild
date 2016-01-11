@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cde758c7b875af1efce67374291cf1a879d7002f $
+# $Id: 31d09a0f92aa5d21356c72af917ce1db4e32a8ec $
 
 EAPI="5"
 
@@ -16,7 +16,7 @@ SRC_URI="http://oss.oetiker.ch/rrdtool/pub/${P/_/-}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~hppa ~mips ~ppc ~ppc64 ~s390 ~sh ~x86 ~x86-fbsd ~amd64-linux ~ia64-linux ~x86-linux ~x86-macos ~x86-solaris"
+KEYWORDS="amd64 ~arm hppa ~mips ~ppc ppc64 ~s390 ~sh ~x86 ~x86-fbsd ~amd64-linux ~ia64-linux ~x86-linux ~x86-macos ~x86-solaris"
 IUSE="dbi doc graph lua perl python rados rrdcgi ruby static-libs tcl tcpd"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
