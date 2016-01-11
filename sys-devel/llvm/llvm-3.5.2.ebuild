@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8a8c32c9f7805952b07e1947ae671768a6db041d $
+# $Id: f6bb2c37914c8d8f63a65a303e1b14fda2c796bf $
 
 EAPI=5
 
@@ -150,6 +150,9 @@ src_prepare() {
 	epatch "${FILESDIR}"/${P}-gcc-5.1.patch
 	# Make ocaml warnings non-fatal, bug #537308
 	sed -e "/RUN/s/-warn-error A//" -i test/Bindings/Ocaml/*ml  || die
+	# disable use of SDK on OSX, bug #568758
+	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
+
 
 	local sub_files=(
 		Makefile.config.in
