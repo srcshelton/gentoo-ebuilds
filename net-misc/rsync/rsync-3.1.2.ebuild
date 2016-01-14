@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 6d39962a111e003be694f01cdc7f1be7a608e8ce $
+# $Id: 3e5b40762907012d4cf4f0b29f0439058c23a26e $
 
 EAPI="5"
 
@@ -9,12 +9,14 @@ inherit eutils flag-o-matic prefix systemd
 DESCRIPTION="File transfer program to keep remote files into sync"
 HOMEPAGE="http://rsync.samba.org/"
 SRC_URI="http://rsync.samba.org/ftp/rsync/src/${P}.tar.gz"
-[[ "${PV}" = *_pre* ]] && SRC_URI="http://rsync.samba.org/ftp/rsync/src-previews/${P/_/}.tar.gz"
+[[ "${PV}" =~ _pre ]] && SRC_URI="http://rsync.samba.org/ftp/rsync/src-previews/${P/_/}.tar.gz"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-[[ "${PV}" = *_pre* ]] && KEYWORDS="arm hppa ppc64"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+if [[ "${PV}" =~ _pre ]]; then
+KEYWORDS="arm hppa ppc64"
+fi
 IUSE="acl iconv ipv6 static stunnel systemd xattr"
 
 LIB_DEPEND="acl? ( virtual/acl[static-libs(+)] )
