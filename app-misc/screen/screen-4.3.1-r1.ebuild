@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a4e04686ea9df01502149a7bf5a8052427a45331 $
+# $Id: 4237c22f2915e0ac77411b30fe34dd64bb38110c $
 
 EAPI=5
 
@@ -53,6 +53,10 @@ src_prepare() {
 		-e "s:/local/screens/S-:${EPREFIX}/var/run/screen/S-:g" \
 		doc/screen.1 \
 		|| die
+
+	if [[ ${CHOST} == *-darwin* ]] ; then
+		sed -i -e '/^#define UTMPOK/s/define/undef/' acconfig.h || die
+	fi
 
 	# reconfigure
 	eautoreconf
