@@ -78,7 +78,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 591b25a7749027ce095a49d0a515294491dd26fc.
+# commit 652c05c0b3369d3471a97537d6d1c5a47dc2fd2f.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -212,6 +212,7 @@ disable_audio_dither=1
 #device_tree_overlay=mcp2515-can1
 
 # Infrared receiver:
+#device_tree_overlay=gpio-ir
 #device_tree_overlay=lirc-rpi
 
 # Uncomment this to override the defaults for the lirc-rpi module
