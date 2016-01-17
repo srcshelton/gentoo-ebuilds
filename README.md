@@ -205,6 +205,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
 * dev-libs/libcgroup
     * Improve output with `USE="DEBUG"`
+* mail-filter/opendkim
+    * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
 * mail-filter/spampd
     * Fix `status` reporting, revise installed documentation, add optional systemd service support
 * media-libs/opengl-apple

@@ -1,0 +1,101 @@
+--- opendkim/opendkim.c.dist
++++ opendkim/opendkim.c
+@@ -4613,7 +4613,7 @@ dkimf_checkfsnode(const char *path, uid_
+ 			if (err != NULL)
+ 			{
+ 				snprintf(err, errlen,
+-				         "%s is not owned by the executing uid (%d)%s",
++				         "file \"%s\" is not owned by the executing uid (%d)%s",
+ 				         path, myuid,
+ 				         myuid != 0 ? " or the superuser"
+ 				                    : "");
+@@ -4638,7 +4638,7 @@ dkimf_checkfsnode(const char *path, uid_
+ 					if (err != NULL)
+ 					{
+ 						snprintf(err, errlen,
+-						         "%s is in group %u which has multiple users (e.g. \"%s\")",
++						         "file \"%s\" is in group %u which has multiple users (e.g. \"%s\")",
+ 						         path, s.st_gid,
+ 						         pw->pw_name);
+ 					}
+@@ -4664,7 +4664,7 @@ dkimf_checkfsnode(const char *path, uid_
+ 					if (err != NULL)
+ 					{
+ 						snprintf(err, errlen,
+-						         "%s is in group %u which has multiple users (e.g., \"%s\")",
++						         "file \"%s\" is in group %u which has multiple users (e.g., \"%s\")",
+ 						         path, s.st_gid,
+ 						         gr->gr_mem[c]);
+ 					}
+@@ -4682,7 +4682,7 @@ dkimf_checkfsnode(const char *path, uid_
+ 			if (err != NULL)
+ 			{
+ 				snprintf(err, errlen,
+-				         "%s can be read or written by other users",
++				         "file \"%s\" can be read or written by other users",
+ 				         path);
+ 			}
+ 
+@@ -4699,18 +4699,24 @@ dkimf_checkfsnode(const char *path, uid_
+ 			if (err != NULL)
+ 			{
+ 				snprintf(err, errlen,
+-				         "%s can be read or written by other users",
++				         "directory \"%s\" can be read or written by other users",
+ 				         path);
+ 			}
+ 			return 0;
+ 		}
+ 
+ 		/* group write needs to be super-user or me only */
+-		if ((s.st_mode & S_IWGRP) != 0)
++
++		/* Gentoo:
++		 * Users 'sync', 'shutdown', 'halt', and 'operator'
++		 * also share GID 0, so this test will always error by
++		 * default.
++		 */
++		if ((s.st_mode & S_IWGRP) != 0 && s.st_gid != 0)
+ 		{
+ 			int c;
+ 
+-			/* check if anyone else has this file's gid */
++			/* check if anyone else has this dir's gid */
+ 			pthread_mutex_lock(&pwdb_lock);
+ 			setpwent();
+ 			for (pw = getpwent(); pw != NULL; pw = getpwent())
+@@ -4722,9 +4728,9 @@ dkimf_checkfsnode(const char *path, uid_
+ 					if (err != NULL)
+ 					{
+ 						snprintf(err, errlen,
+-						         "%s is in group %u which has multiple users (e.g., \"%s\")",
+-						         myname, s.st_gid,
+-						         pw->pw_name);
++							 "directory \"%s\" has group %u which is the primary GID of multiple users (including '%s')",
++							 path, s.st_gid,
++							 pw->pw_name);
+ 					}
+ 
+ 					pthread_mutex_unlock(&pwdb_lock);
+@@ -4748,9 +4754,9 @@ dkimf_checkfsnode(const char *path, uid_
+ 					if (err != NULL)
+ 					{
+ 						snprintf(err, errlen,
+-						         "%s is in group %u which has multiple users (e.g., \"%s\")",
+-						         myname, s.st_gid,
+-						         gr->gr_mem[c]);
++							 "directory \"%s\" has group %u which contains multiple users (including '%s')",
++							 path, s.st_gid,
++							 gr->gr_mem[c]);
+ 					}
+ 
+ 					pthread_mutex_unlock(&pwdb_lock);
+@@ -4768,7 +4774,7 @@ dkimf_checkfsnode(const char *path, uid_
+ 			if (err != NULL)
+ 			{
+ 				snprintf(err, errlen,
+-				         "%s is writeable and owned by uid %u which is not the executing uid (%u)%s",
++				         "directory \"%s\" is writeable and owned by uid %u which is not the executing uid (%u)%s",
+ 				         path, s.st_uid, myuid,
+ 				         myuid != 0 ? " or the superuser"
+ 				                    : "");
