@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 20be1672603b408598d3884a94f737fe38f83293 $
+# $Id: f57629415e8df2fd84d1f9a94ba531f0ad9a436e $
 
 EAPI=5
 
@@ -18,7 +18,7 @@ SRC_URI="ftp://ftp.isc.org/isc/dhcp/${MY_P}.tar.gz
 
 LICENSE="ISC BSD SSLeay GPL-2" # GPL-2 only for init script
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 ~hppa ~ia64 ~m68k ~mips ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="+client ipv6 kernel_linux ldap libressl selinux +server ssl systemd vim-syntax"
 
 DEPEND="
@@ -258,3 +258,5 @@ pkg_postinst() {
 		ewarn
 	fi
 }
+
+# vi: set diffopt=iwhite,filler:
