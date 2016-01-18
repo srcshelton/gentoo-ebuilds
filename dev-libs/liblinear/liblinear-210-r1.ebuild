@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 07e1e0a78e254c1f102b19277988f55005ca9a77 $
+# $Id: 34894b9b6e8e8b4149de78ddc8092fcf61ccc512 $
 
 EAPI=5
 
@@ -12,7 +12,7 @@ SRC_URI="https://github.com/cjlin1/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0/3"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ~ppc ppc64 ~s390 ~sh sparc x86"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86"
 IUSE="blas"
 
 RDEPEND="
