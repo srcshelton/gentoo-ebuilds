@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e028eb2d65958285c78559036545c45a77d7cbf9 $
+# $Id: 4a580f9741bb6d034e61f5f59facb05fbde97248 $
 
 EAPI=5
 
@@ -19,11 +19,10 @@ fi
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="audit debug elibc_glibc ncurses pam newnet prefix +netifrc selinux static-libs
+IUSE="audit debug ncurses pam newnet prefix +netifrc selinux static-libs
 	+tmpfs tools unicode -vanilla +varrun kernel_linux kernel_FreeBSD"
 
 COMMON_DEPEND="kernel_FreeBSD? ( || ( >=sys-freebsd/freebsd-ubin-9.0_rc sys-process/fuser-bsd ) )
-	elibc_glibc? ( >=sys-libs/glibc-2.5 )
 	ncurses? ( sys-libs/ncurses:0= )
 	pam? (
 		sys-auth/pambase
