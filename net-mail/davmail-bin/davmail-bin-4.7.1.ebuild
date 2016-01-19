@@ -44,7 +44,7 @@ src_install () {
 	insinto /opt/"${MY_P}"
 	doins -r lib || die "Could not copy libraries"
 	insinto /opt/"${MY_P}"/conf
-	newins "${FILESDIR}"/davmail.properties-${PV} davmail.properties || die "Could not copy properties"
+	newins "${FILESDIR}"/davmail.properties-${PV%.[0-9]*}.0 davmail.properties || die "Could not copy properties"
 
 	dodir /var/log/davmail || die "Could not create log directory"
 	fowners davmail:davmail /var/log/davmail || die "Could not change ownership of log directory"
