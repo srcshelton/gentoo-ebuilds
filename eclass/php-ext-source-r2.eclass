@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: de046611ba7e329f9ee3b69339ab772d7f6dff16 $
+# $Id: 4d1714d3275d74f32efed62f2374f2b8a5394b9d $
 
 # @ECLASS: php-ext-source-r2.eclass
 # @MAINTAINER:
@@ -233,7 +233,7 @@ php_init_slot_env() {
 	PHPCLI="${EPREFIX}/usr/${libdir}/${1}/bin/php"
 	PHPCGI="${EPREFIX}/usr/${libdir}/${1}/bin/php-cgi"
 	PHP_PKG="$(best_version =dev-lang/php-${1:3}*)"
-	PHPPREFIX="${EPREFIX}}/usr/${libdir}/${slot}"
+	PHPPREFIX="${EPREFIX}/usr/${libdir}/${slot}"
 	EXT_DIR="$(${PHPCONFIG} --extension-dir 2>/dev/null)"
 	PHP_CURRENTSLOT=${1:3}
 
