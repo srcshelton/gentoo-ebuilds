@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a314e23de0eb0d1ec8e75f043b4c861e3f4fdfbe $
+# $Id: 4924cf9c22155b64157f9135100fc5697a350971 $
 
 EAPI=5
 
@@ -20,7 +20,7 @@ RESTRICT="mirror"
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
-KEYWORDS="~amd64 arm ~hppa ppc ~ppc64 ~sparc ~x86"
+KEYWORDS="~amd64 arm ~hppa ppc ~ppc64 ~sparc x86"
 
 IUSE="enigma ldap managesieve +mysql plugins postgres sqlite ssl spell"
 REQUIRED_USE="|| ( mysql postgres sqlite )"
