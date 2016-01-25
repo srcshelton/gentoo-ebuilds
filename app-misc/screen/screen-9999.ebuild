@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 3038ad6bd94470ed17f75966930f5c38225e5059 $
+# $Id: 1c5906ae2dec62a0990e889dc5ee4c90343409aa $
 
 EAPI=5
 
@@ -35,6 +35,9 @@ pkg_setup() {
 src_prepare() {
 	# Don't use utempter even if it is found on the system
 	epatch "${FILESDIR}"/${PN}-4.3.0-no-utempter.patch
+
+	# visual_bell is no longer an int
+	epatch "${FILESDIR}"/${PN}-9999-bool_visual_bell.patch
 
 	# sched.h is a system header and causes problems with some C libraries
 	mv sched.h _sched.h || die
