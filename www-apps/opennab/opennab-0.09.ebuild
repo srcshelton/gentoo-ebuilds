@@ -22,6 +22,8 @@ need_httpd_cgi
 S="${WORKDIR}"
 
 src_install() {
+	local dir
+
 	use test || rm -r "${S}"/vl/tests
 	use demo || rm -r "${S}"/vl/api_demo
 
@@ -36,7 +38,9 @@ src_install() {
 	webapp_serverowned "${MY_HTDOCSDIR}"/vl/config
 	webapp_serverowned "${MY_HTDOCSDIR}"/vl/logs
 	webapp_serverowned "${MY_HTDOCSDIR}"/vl/users
-	webapp_serverowned "${MY_HTDOCSDIR}"/vl/plugins/*/files
+	for dir in $( find "${MY_HTDOCSDIR}"/vl/plugins/ -mindepth 2 -maxdepth 2 -type d -name files ); do
+		webapp_serverowned "${dir}"
+	done
 
 	webapp_configfile  "${MY_HTDOCSDIR}"/vl/config/opennab.ini
 
