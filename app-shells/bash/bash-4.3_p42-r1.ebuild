@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2ffc0141cc79fef7b2c8b3b349e8d79b458a9cdb $
+# $Id: 8e9fbc2d31133b9aa3797c0b4417153aee3a634d $
 
 EAPI="4"
 
@@ -104,9 +104,9 @@ src_prepare() {
 
 	# modify the bashrc file for prefix
 	pushd "${T}" > /dev/null || die
-	cp "${FILESDIR}"/bashrc-r2 .
-	epatch "${FILESDIR}"/bashrc-r2-prefix.patch
-	eprefixify bashrc-r2
+	cp "${FILESDIR}"/bashrc .
+	epatch "${FILESDIR}"/bashrc-prefix.patch
+	eprefixify bashrc
 	popd > /dev/null
 
 	# DON'T YOU EVER PUT eautoreconf OR SIMILAR HERE!  THIS IS A CRITICAL
@@ -241,7 +241,7 @@ src_install() {
 
 	insinto /etc/bash
 	doins "${FILESDIR}"/bash_logout
-	newins "${T}"/bashrc-r2 bashrc
+	doins "${T}"/bashrc bashrc
 	keepdir /etc/bash/bashrc.d
 	insinto /etc/skel
 	for f in bash{_logout,_profile,rc} ; do

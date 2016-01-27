@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 11abc797f175ee4056eaa26a90bcf41a3339c774 $
+# $Id: 98d2e555595cf1be385b37702f3723e06076a544 $
 # $Header: /var/cvsroot/gentoo-x86/app-shells/bash/bash-4.2_p53.ebuild,v 1.4 2014/10/08 06:21:18 armin76 Exp $
 
 EAPI="4"
@@ -34,19 +34,19 @@ HOMEPAGE="http://tiswww.case.edu/php/chet/bash/bashtop.html"
 SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
 
 LICENSE="GPL-3"
-SLOT="0"
+SLOT="${MY_PV}"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline vanilla"
+IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline static"
 
-DEPEND=">=sys-libs/ncurses-5.2-r2
-	readline? ( >=sys-libs/readline-6.2 )
-	nls? ( virtual/libintl )"
-RDEPEND="${DEPEND}
-	!!<sys-apps/portage-2.1.6.7_p1
-	!!<sys-apps/paludis-0.26.0_alpha5"
+LIB_DEPEND=">=sys-libs/ncurses-5.2-r2[static-libs(+)]
+	nls? ( virtual/libintl )
+	readline? ( >=sys-libs/readline-6.2[static-libs(+)] )"
+RDEPEND="!static? ( ${LIB_DEPEND//\[static-libs(+)]} )"
 # we only need yacc when the .y files get patched (bash42-005)
-DEPEND+=" virtual/yacc"
+DEPEND="${RDEPEND}
+	virtual/yacc
+	static? ( ${LIB_DEPEND} )"
 
 S=${WORKDIR}/${MY_P}
 
@@ -57,8 +57,8 @@ pkg_setup() {
 		die "remove -malign-double from your CFLAGS mr ricer"
 	fi
 	if use bashlogger ; then
-		ewarn "The logging patch should ONLY be used in restricted (i.e. honeypot) envs."
-		ewarn "This will log ALL output you enter into the shell, you have been warned."
+		ewarn "bash logging should ONLY be used in restricted (i.e. honeypot) environments."
+		ewarn "Enabling this will log EVERYTHING you enter into the shell - you have been warned."
 	fi
 }
 
@@ -83,9 +83,7 @@ src_prepare() {
 	epatch "${FILESDIR}"/${PN}-4.2-parallel-build.patch
 	epatch "${FILESDIR}"/${PN}-4.2-no-readline.patch
 	epatch "${FILESDIR}"/${PN}-4.2-read-retry.patch #447810
-	if ! use vanilla ; then
-		epatch "${FILESDIR}"/${PN}-4.2-speed-up-read-N.patch
-	fi
+	epatch "${FILESDIR}"/${PN}-4.2-speed-up-read-N.patch
 
 	# this adds additional prefixes
 	epatch "${FILESDIR}"/${PN}-4.0-configs-prefix.patch
@@ -177,6 +175,7 @@ src_configure() {
 	# reading Bug 7714 first.  If you still build it statically,
 	# don't come crying to us with bugs ;).
 	#use static && export LDFLAGS="${LDFLAGS} -static"
+	use static && append-ldflags -static
 	use nls || myconf+=( --disable-nls )
 
 	# Historically, we always used the builtin readline, but since
@@ -226,7 +225,7 @@ src_install() {
 	emake install DESTDIR="${D}"
 
 	dodir /bin
-	mv "${ED}"/usr/bin/bash "${ED}"/bin/ || die
+	mv "${ED}"/usr/bin/bash "${ED}"/bin/bash-${SLOT} || die
 	dosym bash /bin/rbash
 
 	insinto /etc/bash
@@ -274,9 +273,14 @@ src_install() {
 		done
 	fi
 
-	doman doc/*.1
+	newman doc/bash.1 bash-${SLOT}.1
+	newman doc/builtins.1 builtins-${SLOT}.1
+
+	insinto /usr/share/info
+	newins doc/bashref.info bash-${SLOT}.info
+	dosym bash-${SLOT}.info /usr/share/info/bashref-${SLOT}.info
+
 	dodoc README NEWS AUTHORS CHANGES COMPAT Y2K doc/FAQ doc/INTRO
-	dosym bash.info /usr/share/info/bashref.info
 }
 
 pkg_preinst() {

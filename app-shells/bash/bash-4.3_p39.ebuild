@@ -106,9 +106,9 @@ src_prepare() {
 
 	# modify the bashrc file for prefix
 	pushd "${T}" > /dev/null || die
-	cp "${FILESDIR}"/bashrc-r2 .
-	epatch "${FILESDIR}"/bashrc-r2-prefix.patch
-	eprefixify bashrc-r2
+	cp "${FILESDIR}"/bashrc .
+	epatch "${FILESDIR}"/bashrc-prefix.patch
+	eprefixify bashrc
 	popd > /dev/null
 
 	# DON'T YOU EVER PUT eautoreconf OR SIMILAR HERE!  THIS IS A CRITICAL
@@ -243,7 +243,7 @@ src_install() {
 
 	insinto /etc/bash
 	doins "${FILESDIR}"/bash_logout
-	newins "${T}"/bashrc-r2 bashrc
+	doins "${T}"/bashrc
 	keepdir /etc/bash/bashrc.d
 	insinto /etc/skel
 	for f in bash{_logout,_profile,rc} ; do
