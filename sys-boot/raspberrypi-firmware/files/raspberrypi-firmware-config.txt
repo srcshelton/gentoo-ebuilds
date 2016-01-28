@@ -78,14 +78,14 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 652c05c0b3369d3471a97537d6d1c5a47dc2fd2f.
+# commit 45129f23ddd363b736137469c13b0ca12d5b1120.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
 #dtdebug=on
 
 # Uncomment some or all of these to enable the optional hardware interfaces
-#dtparam=i2c,i2s,spi,random,watchdog
+#dtparam=i2c,i2s,spi,watchdog
 
 #device_tree_param=i2c0=off # i2c_vc
 #device_tree_param=i2c1=off # i2c_arm/i2c
@@ -99,7 +99,7 @@ disable_audio_dither=1
 #device_tree_param=spi-bcm2835=off
 #device_tree_param=spi-dma=off
 #device_tree_param=audio=off
-#device_tree_param=random=off
+#device_tree_param=random=on
 #device_tree_param=watchdog=off
 #device_tree_param=act_led_trigger=mmc # value 'heartbeat' gives a load-monitor
 #device_tree_param=act_led_activelow=off
@@ -145,11 +145,16 @@ disable_audio_dither=1
 #device_tree_overlay=mmc,overclock_50=63,force_pio
 #
 #device_tree_overlay=sdhost
-#device_tree_overlay=sdhost,overclock_50=84,force_pio,pio_limit=1,debug
+#device_tree_overlay=sdhost,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off
 #
 # enables SDIO via GPIOs 22-27
 #device_tree_overlay=sdio
-#device_tree_overlay=sdio,overclock_50=84,force_pio,pio_limit=1,debug
+#device_tree_overlay=sdio,overclock_50=84,force_pio=off,pio_limit=1,debug=off,poll_once=on,bus_width=4
+
+# Eric Anholt's DRM VC4 HDMI/HVS/V3D driver:
+# Running startx or booting to GUI while this overlay is in use will cause
+# interesting lockups.
+#device_tree_overlay=vc4-kms-v3d
 
 # Uncomment one of these lines to enable additional devices
 #device_tree_overlay=gpio-poweroff
