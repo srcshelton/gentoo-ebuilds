@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4d1714d3275d74f32efed62f2374f2b8a5394b9d $
+# $Id: bc1c63ab89bd975c36cea5bc27ad7b19b6ad3004 $
 
 # @ECLASS: php-ext-source-r2.eclass
 # @MAINTAINER:
@@ -244,7 +244,7 @@ php_init_slot_env() {
 php-ext-source-r2_buildinilist() {
 	# Work out the list of <ext>.ini files to edit/add to
 	if [[ -z "${PHPSAPILIST}" ]] ; then
-		PHPSAPILIST="apache2 cli cgi fpm embed"
+		PHPSAPILIST="apache2 cli cgi fpm embed phpdbg"
 	fi
 
 	PHPINIFILELIST=""
