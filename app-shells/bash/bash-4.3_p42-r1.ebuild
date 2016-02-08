@@ -241,7 +241,13 @@ src_install() {
 
 	insinto /etc/bash
 	doins "${FILESDIR}"/bash_logout
-	doins "${T}"/bashrc bashrc
+	if [[ -s "${T}"/bashrc ]]; then
+		newins "${T}"/bashrc bashrc
+	else
+		eerror "Prefixified bashrc at '${T}/bashrc' cannot be read"
+		ewarn "Installing default bashrc"
+		newins "${FILESDIR}"/bashrc bashrc
+	fi
 	keepdir /etc/bash/bashrc.d
 	insinto /etc/skel
 	for f in bash{_logout,_profile,rc} ; do
