@@ -16,7 +16,7 @@ SRC_URI="http://miniupnp.free.fr/files/${MY_P}.tar.gz"
 LICENSE="BSD"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~x86"
-IUSE=""
+IUSE="-nftables"
 
 RDEPEND="|| ( >=net-firewall/iptables-1.4.6 net-firewall/iptables-nftables )
 	net-libs/libnfnetlink"
@@ -28,7 +28,11 @@ S="${WORKDIR}/${MY_P}"
 
 src_prepare() {
 	epatch "${FILESDIR}"/${PN}-1.10-build-r2.patch
-	mv Makefile.linux Makefile || die
+	if use nftables; then
+		mv Makefile.linux_nft Makefile || die
+	else
+		mv Makefile.linux Makefile || die
+	fi
 }
 
 src_configure() {
@@ -52,6 +56,12 @@ src_compile() {
 
 src_install() {
 	emake install PREFIX="${ED}"
+
+	exeinto /etc/miniupnpd
+	doexe "${FILESDIR}"/iptables_init.sh
+	doexe "${FILESDIR}"/iptables_removeall.sh
+	doexe "${FILESDIR}"/ip6tables_init.sh
+	doexe "${FILESDIR}"/ip6tables_removeall.sh
 
 	newinitd "${FILESDIR}"/${PN}-init.d ${PN}
 	newconfd "${FILESDIR}"/${PN}-conf.d ${PN}
