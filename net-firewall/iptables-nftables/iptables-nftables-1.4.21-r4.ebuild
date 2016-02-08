@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ef4eb78c92d7f88400535ae1a4077879110157f0 $
+# $Id: 49b9bd8648beaa640d49fa307750928daf202308 $
 
 EAPI="5"
 
@@ -9,8 +9,8 @@ AUTOTOOLS_AUTO_DEPEND=no
 
 inherit autotools eutils flag-o-matic git-r3 multilib systemd toolchain-funcs
 
-DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools, with nftables compatibility"
-HOMEPAGE="http://www.netfilter.org/projects/nftables/"
+DESCRIPTION="Linux kernel (2.4+) firewall, NAT and packet mangling tools, with nftables compatibility"
+HOMEPAGE="http://www.netfilter.org/projects/iptables/"
 
 REPO="iptables"
 BRANCH="master"
@@ -46,8 +46,8 @@ src_prepare() {
 
 	eautoreconf
 
-	epatch "${FILESDIR}"/iptables-${PV}-configure.patch #557586
-	epatch "${FILESDIR}"/iptables-${PV}-static-connlabel-config.patch #558234
+	#epatch "${FILESDIR}"/iptables-${PV}-configure.patch #557586
+	#epatch "${FILESDIR}"/iptables-${PV}-static-connlabel-config.patch #558234
 
 	# Only run autotools if user patched something
 	epatch_user && eautoreconf || elibtoolize

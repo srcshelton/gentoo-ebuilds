@@ -15,7 +15,8 @@ inherit autotools eutils git-r3 multilib systemd toolchain-funcs
 #BRANCH="nft-compat"
 REPO="iptables"
 BRANCH="master"
-COMMIT="03091e55a0d949e35a723dadbd6fd0f78ddf3a8c"
+#COMMIT="03091e55a0d949e35a723dadbd6fd0f78ddf3a8c" # nftables merge
+COMMIT="ab8c7d82f7848d318e472a3d809ec7dab969bd04" # Alignment problem between 64bit kernel 32bit userspace
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools, with nftables compatibility"
 HOMEPAGE="http://www.netfilter.org/projects/nftables/"
