@@ -1,7 +1,7 @@
 # /lib/rcscripts/addons/lvm-start.sh
 # $Header: /var/cvsroot/gentoo-x86/sys-fs/lvm2/files/lvm2-start.sh-2.02.95,v 1.1 2012/03/27 03:20:56 robbat2 Exp $
 
-config='global { locking_dir = "/dev/.lvm" }'
+config='global { locking_type = 1 locking_dir = "/dev/.lvm" }'
 
 dm_in_proc() {
 	local retval=0
@@ -30,18 +30,14 @@ if [ -z "${CDBOOT}" ] ; then
 		modprobe dm-mod 2>/dev/null
 	fi
 	if [ -d /proc/lvm ] || dm_in_proc ; then
-		ebegin "Setting up the Logical Volume Manager"
-		#still echo stderr for debugging
-		lvm_commands="#! ${lvm_path} --config '${config}'\n"
-		# Extra PV find pass because some devices might not have been available until very recently
-		lvm_commands="${lvm_commands}pvscan\n"
-		# Now make the nodes
-		lvm_commands="${lvm_commands}vgscan --mknodes\n"
-		# And turn them on!
-		lvm_commands="${lvm_commands}vgchange --sysinit -a ly\n"
-		# Order of this is important, have to work around dash and LVM readline
-		printf "%b\n" "${lvm_commands}" | $lvm_path /proc/self/fd/0 --config "${config}" >/dev/null
-		eend $? "Failed to setup the LVM"
+		ebegin "Setting up Logical Volume Manager"
+
+		# For debug purposes, don't redirect stderr...
+		$lvm_path pvscan --ignorelockingfailure --config "${config}" >/dev/null &&
+		$lvm_path vgscan --mknodes --ignorelockingfailure --config "${config}" >/dev/null &&
+		$lvm_path vgchange --sysinit -a ly --ignorelockingfailure --config "${config}" >/dev/null
+
+		eend $? "Failed to setup LVM"
 	fi
 fi
 
