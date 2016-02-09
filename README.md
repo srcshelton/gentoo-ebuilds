@@ -184,6 +184,8 @@ A similar configuration file could be added for all packages which fail to compi
     * OPIE One-time password system
 * sys-auth/pam_mobile_otp
     * PAM component of mOTP
+* sys-auth/yubipam
+    * PAM authentication module for YubiKey hardware
 * www-apps/heatmiser
     * Data acquisition and web-interface for Heatmiser Wifi Thermostats
 * www-apps/nabaztaglives
