@@ -194,6 +194,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Web interface for 'Three Little Pigs' fork of SiriProxy
 * ~~www-misc/observium~~
     * ~~Observium is an autodiscovering SNMP based network monitoring platform~~ Observium have removed public repo access, do not make versioned sources available, and aren't updating the current version string previously maintained at http://www.observium.org/stable.php - there no longer appears to be any sane way to package this application (... although it never worked correctly if using any web server other than Apache in any case)
+* www-servers/3dm2
+    * 3ware 3DM2 RAID controller web interface for 3w-xxxx, 3w-9xxx and 3w-sas controllers
 
 # Modified ebuilds
 
