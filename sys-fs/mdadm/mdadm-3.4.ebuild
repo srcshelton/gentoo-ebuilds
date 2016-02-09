@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 88431e15c5cbf2928b1e573ca94d7a017b099af6 $
+# $Id: a4aff3eb858e6256edc0e183a326d32298bf08b0 $
 
 EAPI=5
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev
@@ -29,10 +29,14 @@ rundir="/dev/.mdadm"
 mdadm_emake() {
 	local myconf=()
 
+	# We should probably make corosync & libdlm into USE flags. #573782
+
 	myconf+=( PKG_CONFIG="$(tc-getPKG_CONFIG)" )
 	myconf+=( CC="$(tc-getCC)" )
 	myconf+=( CWFLAGS="-Wall" )
 	myconf+=( CXFLAGS="${CFLAGS}" )
+	myconf+=( COROSYNC="-DNO_COROSYNC" )
+	myconf+=( DLM="-DNO_DLM" )
 
 	if use udev; then
 		myconf+=( UDEVDIR="$(get_udevdir)" )
@@ -87,8 +91,8 @@ src_install() {
 	insinto /etc/default
 	newins "${FILESDIR}"/etc-default-mdadm mdadm
 
-	insinto /etc/cron.weekly
-	newins "${FILESDIR}"/mdadm.weekly mdadm
+	exeinto /etc/cron.weekly
+	newexe "${FILESDIR}"/mdadm.weekly mdadm
 }
 
 pkg_postinst() {
