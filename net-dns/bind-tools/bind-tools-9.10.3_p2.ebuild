@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 44b36de9f14d702110a3a2d55abf5aab5139b76a $
+# $Id: 844e35ddb905860531cf62d33fe939b0b5e03f72 $
 
 EAPI="5"
 
@@ -23,7 +23,7 @@ IUSE="doc gost gssapi idn ipv6 libressl readline seccomp ssl urandom xml"
 
 REQUIRED_USE="gost? ( !libressl ssl )"
 
-DEPEND="
+CDEPEND="
 	ssl? (
 		!libressl? ( dev-libs/openssl:0 )
 		libressl? ( dev-libs/libressl )
@@ -34,7 +34,9 @@ DEPEND="
 	gssapi? ( virtual/krb5 )
 	readline? ( sys-libs/readline:0= )
 	seccomp? ( sys-libs/libseccomp )"
-RDEPEND="${DEPEND}
+DEPEND="${CDEPEND}
+	virtual/pkgconfig"
+RDEPEND="${CDEPEND}
 	!<net-dns/bind-9.10.2"
 
 S="${WORKDIR}/${MY_P}"
