@@ -1,13 +1,13 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: f6bb2c37914c8d8f63a65a303e1b14fda2c796bf $
+# $Id: 6d3a5ce61fc8894eca98a030b5f9115ed160d893 $
 
 EAPI=5
 
 PYTHON_COMPAT=( python2_7 pypy )
 
-inherit eutils flag-o-matic multibuild multilib \
-	python-r1 toolchain-funcs pax-utils check-reqs prefix multilib-minimal
+inherit check-reqs eutils flag-o-matic multibuild multilib \
+	pax-utils prefix python-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="Low Level Virtual Machine"
 HOMEPAGE="http://llvm.org/"
@@ -50,7 +50,7 @@ DEPEND="${COMMON_DEPEND}
 		( >=sys-freebsd/freebsd-lib-9.1-r10 sys-libs/libcxx )
 	)
 	|| ( >=sys-devel/binutils-2.18 >=sys-devel/binutils-apple-5.1 )
-	kernel_Darwin? ( sys-libs/libcxx )
+	kernel_Darwin? ( <sys-libs/libcxx-${PV%_rc*}.9999 )
 	clang? ( xml? ( virtual/pkgconfig ) )
 	doc? ( dev-python/sphinx )
 	libffi? ( virtual/pkgconfig )
