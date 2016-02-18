@@ -132,6 +132,10 @@ A similar configuration file could be added for all packages which fail to compi
 * app-pda/usbmuxd
     * git live ebuild for usbmuxd binaries
 
+# PHP 7.x compatible ebuilds
+* dev-php/pecl-memcache
+    * '`--php_targets_php7-0`' must currently be added to `/etc/portage/profile/use.mask`
+
 # nftables ebuilds
 
 * net-libs/libnftnl
