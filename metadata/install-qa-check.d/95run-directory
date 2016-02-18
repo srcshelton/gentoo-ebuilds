@@ -3,14 +3,14 @@
 run_check() {
 	if [[ -d "${D%/}"/etc ]]; then
 		if [[ -d "${D%/}"/etc/init.d || -d "${D%/}"/etc/conf.d ]]; then
-			if sed 's/#.*$//' "${D%/}"/etc/{init,conf}.d/* | grep '/run/' | grep -v '/var/run/' | grep -q '/run/'; then
+			if sed 's/#.*$//' "${D%/}"/etc/{init,conf}.d/* 2>/dev/null | grep '/run/' | grep -v '/var/run/' | grep -q '/run/'; then
 				local -A list=()
 				local -a files=()
 				while read -r i; do
 					if ! grep -q " /${i#${D}} " <<<" ${QA_RUN_ALLOWED[*]:-} "; then
 						list["${i#${D}}"]=1
 					fi
-				done < <(grep -H '/run/' "${D%/}"/etc/{init,conf}.d/* | sed 's/#.*$//' | grep -v '/var/run/' | grep '/run/' | cut -d':' -f 1)
+				done < <(grep -H '/run/' "${D%/}"/etc/{init,conf}.d/* 2>/dev/null | sed 's/#.*$//' | grep -v '/var/run/' | grep '/run/' | cut -d':' -f 1)
 				files="${!list[@]}"
 
 				# It'd be nicer to fix this in the ebuild itself, but this
