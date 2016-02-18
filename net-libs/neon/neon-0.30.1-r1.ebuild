@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c2b7f79bcbfbe30f06cf278fa65b07c014a4c6d6 $
+# $Id: e4de8328538cb285dd89b5e5cc7876497225d402 $
 
 EAPI="5"
 
@@ -57,7 +57,8 @@ src_prepare() {
 	sed -e "s/ALL_LINGUAS=.*/ALL_LINGUAS=\"${linguas}\"/" -i configure.ac || die
 	sed -e '/^#ifdef HAVE_SYS_UIO_h$/s/h$/H/' -i src/ne_socket.c || die
 
-	epatch "${FILESDIR}"/${P}-xml2-config.patch
+	epatch "${FILESDIR}"/${P}-xml2-config.patch \
+		"${FILESDIR}"/${P}-gnutls3.4.patch
 	AT_M4DIR="macros" eautoreconf
 
 	elibtoolize
