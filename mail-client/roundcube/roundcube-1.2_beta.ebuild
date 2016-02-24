@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ddb0fedad696b4cb21b1bb29c9fde7cbc7875449 $
+# $Id: 1ebd091ec91d82ded4efdcda19d2783dec2c5182 $
 
 EAPI=5
 
@@ -8,7 +8,6 @@ inherit webapp
 
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV/_/-}
-[[ "${PN}" =~ beta ]] && MYPN="${MY_PN}-beta"
 
 PHAR="1.0.0-alpha11"
 
@@ -91,15 +90,15 @@ src_install() {
 pkg_postinst() {
 	webapp_pkg_postinst
 
-	ewarn
-	ewarn "When upgrading from <= 0.9, note that the old configuration files"
-	ewarn "named main.inc.php and db.inc.php are deprecated and should be"
-	ewarn "replaced with one single config.inc.php file."
-	ewarn
-	ewarn "Run the ./bin/update.sh script to convert those"
-	ewarn "or manually merge the files."
-	ewarn
-	ewarn "The new config.inc.php should only contain options that"
-	ewarn "differ from the ones listed in defaults.inc.php."
-	ewarn
+	if has_version "<mail-client/roundcube-1.0.0"; then
+		ewarn "When upgrading from <= 1.0.0, note that the old configuration files"
+		ewarn "named main.inc.php and db.inc.php are deprecated and should be"
+		ewarn "replaced with one single config.inc.php file."
+		ewarn
+		ewarn "Run the ./bin/update.sh script to convert those or manually merge the"
+		ewarn "files."
+		ewarn
+		ewarn "The new config.inc.php should only contain options that differ from"
+		ewarn "the ones listed in defaults.inc.php."
+	fi
 }
