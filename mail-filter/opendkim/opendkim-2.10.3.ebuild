@@ -63,6 +63,11 @@ src_prepare() {
 	sed -i -e '/sock.*mt.getcwd/s:mt.getcwd():"/tmp":' opendkim/tests/*.lua
 	sed -i -e '/sock.*mt.getcwd/s:mt.getcwd():"/proc/self/cwd":' opendkim/tests/*.lua
 
+	einfo "Using libdir '$(get_libdir)' ..."
+	sed -i -r \
+	       -e "/\/lib/s#/lib([: \"/]|$)#/$(get_libdir)\1#" \
+		   configure.ac || die
+
 	eautoreconf
 }
 
@@ -97,6 +102,7 @@ src_configure() {
 		${myconf} \
 		--docdir=/usr/share/doc/${PF} \
 		--htmldir=/usr/share/doc/${PF}/html \
+		--libdir=/usr/$(get_libdir) \
 		--enable-filter \
 		--enable-atps \
 		--enable-identity_header \
