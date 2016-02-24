@@ -26,6 +26,9 @@ run_check() {
 			fi
 		fi
 	fi
+	if [[ -d "${D%/}"/run ]]; then
+		die "Aborting due to Repo QA concerns: ebuild creates /run"
+	fi
 }
 
 run_check
