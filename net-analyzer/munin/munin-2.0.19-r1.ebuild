@@ -403,10 +403,20 @@ pkg_postinst() {
 
 	# we create this here as we don't want Portage to check /run
 	# symlinks but we still need this to be present before the reboot.
-	if ! use minimal && [[ -d "${ROOT}"/run ]] && ! [[ -d "${ROOT}"/run/munin ]]; then
-		mkdir "${ROOT}"/run/munin
-		chown munin:munin "${ROOT}"/run/munin
-		chmod 0700 "${ROOT}"/run/munin
+	if ! use minimal; then
+		if [[ -d "${ROOT}"/run ]]; then
+			if ! [[ -d "${ROOT}"/run/munin ]]; then
+				mkdir "${ROOT}"/run/munin
+				chown munin:munin "${ROOT}"/run/munin
+				chmod 0700 "${ROOT}"/run/munin
+			fi
+		elif [[ -d "${ROOT}"/var/run ]]; then
+			if ! [[ -d "${ROOT}"/var/run/munin ]]; then
+				mkdir "${ROOT}"/var/run/munin
+				chown munin:munin "${ROOT}"/var/run/munin
+				chmod 0700 "${ROOT}"/var/run/munin
+			fi
+		fi
 	fi
 }
 
