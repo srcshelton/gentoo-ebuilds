@@ -78,7 +78,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 45129f23ddd363b736137469c13b0ca12d5b1120.
+# commit 18971a9d261bd1a0298cd3a11124b31b1e326c3a.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -87,19 +87,19 @@ disable_audio_dither=1
 # Uncomment some or all of these to enable the optional hardware interfaces
 #dtparam=i2c,i2s,spi,watchdog
 
-#device_tree_param=i2c0=off # i2c_vc
-#device_tree_param=i2c1=off # i2c_arm/i2c
-#device_tree_param=i2c_vc_baudrate=100000
-#device_tree_param=i2c_arm_baudrate=100000 # i2c_baudrate
-#device_tree_param=i2s=off
-#device_tree_param=uart0=on
-#device_tree_param=uart1=off,txd1_pin=14,rxd1_pin=15
-#device_tree_param=spi=off
-#device_tree_param=spi-bcm2708=off
-#device_tree_param=spi-bcm2835=off
-#device_tree_param=spi-dma=off
 #device_tree_param=audio=off
+#device_tree_param=i2c1=off # i2c_arm/i2c
+#device_tree_param=i2c0=off # i2c_vc
+#device_tree_param=i2c_arm_baudrate=100000 # i2c_baudrate
+#device_tree_param=i2c_vc_baudrate=100000
+#device_tree_param=i2s=off
+#device_tree_param=spi=off
 #device_tree_param=random=on
+#device_tree_param=sd_overclock=50
+#device_tree_param=sd_force_pio=off
+#device_tree_param=sd_pio_limit=1
+#device_tree_param=sd_debug=off
+#device_tree_param=uart0=on
 #device_tree_param=watchdog=off
 #device_tree_param=act_led_trigger=mmc # value 'heartbeat' gives a load-monitor
 #device_tree_param=act_led_activelow=off
@@ -111,6 +111,11 @@ disable_audio_dither=1
 #device_tree_param=pwr_led_activelow=off
 #device_tree_param=pwr_led_gpio=35
 [all]
+
+#device_tree_param=uart1=off,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
+#device_tree_param=spi-bcm2708=off
+#device_tree_param=spi-bcm2835=off
+#device_tree_param=spi-dma=off
 
 # SD/MMC driver - choose only one
 #
@@ -141,15 +146,12 @@ disable_audio_dither=1
 # 475	60,80,(119)	53,60,68,80,95,(119)
 # 500	63,84		56,63,72,84,100
 #
-#device_tree_overlay=mmc
-#device_tree_overlay=mmc,overclock_50=63,force_pio
+#device_tree_overlay=mmc,overclock_50=63
 #
-#device_tree_overlay=sdhost
 #device_tree_overlay=sdhost,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off
 #
 # enables SDIO via GPIOs 22-27
-#device_tree_overlay=sdio
-#device_tree_overlay=sdio,overclock_50=84,force_pio=off,pio_limit=1,debug=off,poll_once=on,bus_width=4
+#device_tree_overlay=sdio,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off,poll_once=on,bus_width=4
 
 # Eric Anholt's DRM VC4 HDMI/HVS/V3D driver:
 # Running startx or booting to GUI while this overlay is in use will cause
@@ -157,74 +159,65 @@ disable_audio_dither=1
 #device_tree_overlay=vc4-kms-v3d
 
 # Uncomment one of these lines to enable additional devices
-#device_tree_overlay=gpio-poweroff
-#device_tree_overlay=smi
+#device_tree_overlay=gpio-poweroff,gpiopin=26 # ,active_low
+#device_tree_overlay=smi # Uses GPIOs 2-25!
 #device_tree_overlay=smi-dev
 #device_tree_overlay=smi-nand
 #device_tree_overlay=i2s-mmap
 #device_tree_overlay=i2c-gpio,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 
 #device_tree_overlay=bmp085_i2c-sensor
-#device_tree_overlay=dht11
-#device_tree_overlay=enc28j60
+#device_tree_overlay=dht11,gpiopin=4
+#device_tree_overlay=enc28j60,int_pin=25,speed=12000000
 #device_tree_overlay=rpi-sense
-#device_tree_overlay=at86rf233
+#device_tree_overlay=at86rf233,interrupt=23,reset=24,sleep=25,speed=3000000,trim=15
 
 # RTC:
-# i2c-rtc supports ds1307, ds3231, mcp7941c, pcf2127, pcf8523, and pcf8563.
+# i2c-rtc supports ds1307, ds3231, mcp7941x, pcf2127, pcf8523, and pcf8563.
 #device_tree_overlay=i2c-rtc,ds1307
-#device_tree_overlay=ds1307-rtc # Removed
-#device_tree_overlay=pcf2127-rtc
-#device_tree_overlay=pcf8523-rtc
 
 # Pulse-per-second:
 #device_tree_overlay=pps-gpio,gpiopin=18
-#device_tree_overlay=pwm
-#device_tree_overlay=pwm-2chan
+#device_tree_overlay=pwm,pin=18,func=2,clock=? # Plus models & Pi2 support pin={12,13,18}
+#device_tree_overlay=pwm-2chan,pin=18,pin2=19,func=2,func2=2,clock=?
 
 # Dallas 1-wire:
-#device_tree_overlay=w1-gpio,gpiopin=4,pullup=0
-#device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=0,extpullup=5
+#device_tree_overlay=w1-gpio,gpiopin=4,pullup=off
+#device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
 # Audio devices:
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
-#device_tree_overlay=hifiberry-dacplus
+#device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain
 #device_tree_overlay=hifiberry-digi
 #device_tree_overlay=iqaudio-dac
-#device_tree_overlay=iqaudio-dacplus
+#device_tree_overlay=iqaudio-dacplus # ,24db_digital_gain
 #device_tree_overlay=raspidac3
 #device_tree_overlay=rpi-dac
 #device_tree_overlay=rpi-proto
 
 # Touch Screens and Displays:
-#device_tree_overlay=ads7846
-#device_tree_overlay=hy28a
-#device_tree_overlay=hy28b
-#device_tree_overlay=mz61581
-#device_tree_overlay=piscreen
-#device_tree_overlay=piscreen2r
-#device_tree_overlay=pitft28-capacitive
-#device_tree_overlay=pitft28-resistive
+#device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
+#device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
+#device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
+#device_tree_overlay=mz61581,speed=?,rotate=0,fps=?,txbuflen=32768,debug=[0-7],xohms=?
+#device_tree_overlay=piscreen,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
+#device_tree_overlay=piscreen2r,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
+#device_tree_overlay=pitft28-capacitive,speed=?,rotate=0,fps=?,debug=[0-7],touch-sizex=240,touch-sizey=320 # ,touch-invx,touch-invy,touch-swapxy
+#device_tree_overlay=pitft28-resistive,speed=?,rotate=0,fps=?,debug=[0-7]
 #device_tree_overlay=rpi-backlight
-#device_tree_overlay=rpi-display
+#device_tree_overlay=rpi-display,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
 #device_tree_overlay=rpi-ft5406
-#device_tree_overlay=tinylcd35
-#device_tree_overlay=vga666
+#device_tree_overlay=tinylcd35,speed=?,rotate=0,fps=?,debug=[0-7],touchgpio=?,xohms=? # ,touch,rtc-pcf,rtc-ds,keypad
+#device_tree_overlay=vga666 # Uses GPIOs 2-21!
 
 # CAN controllers:
-#device_tree_overlay=mcp2515-can0
-#device_tree_overlay=mcp2515-can1
+#device_tree_overlay=mcp2515-can0,oscillator=?,spimaxfrequency=?,interrupt=?
+#device_tree_overlay=mcp2515-can1,oscillator=?,spimaxfrequency=?,interrupt=?
 
 # Infrared receiver:
-#device_tree_overlay=gpio-ir
-#device_tree_overlay=lirc-rpi
-
-# Uncomment this to override the defaults for the lirc-rpi module
-#device_tree_param=gpio_out_pin=16
-#device_tree_param=gpio_in_pin=17
-#device_tree_param=gpio_in_pull=down
-
+#device_tree_overlay=gpio-ir,gpio_pin=18,gpio_pull=down,rc-map-name=rc-rc6-mce
+#device_tree_overlay=lirc-rpi,gpio_out_pin=17,gpio_in_pin=18,gpio_in_pull=down,sense=-1,softcarrier=on,invert=off,debug=off
 
 #
 # Memory Options
