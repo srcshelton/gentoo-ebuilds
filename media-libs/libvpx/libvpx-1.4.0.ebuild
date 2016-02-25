@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ac6af7aea239ed7e8137e1ced330bafdf60d7951 $
+# $Id: bd9994b4b4da774f89105c40bf17e3c5e4f46117 $
 
 EAPI=5
 inherit eutils multilib toolchain-funcs multilib-minimal
@@ -32,6 +32,7 @@ IUSE="altivec cpu_flags_x86_avx cpu_flags_x86_avx2 doc cpu_flags_x86_mmx postpro
 RDEPEND="abi_x86_32? ( !app-emulation/emul-linux-x86-medialibs[-abi_x86_32(-)] )"
 DEPEND="abi_x86_32? ( dev-lang/yasm )
 	abi_x86_64? ( dev-lang/yasm )
+	abi_x86_x32? ( dev-lang/yasm )
 	x86-fbsd? ( dev-lang/yasm )
 	amd64-fbsd? ( dev-lang/yasm )
 	doc? (
