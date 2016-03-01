@@ -92,6 +92,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-libs/udis86
     * Add `${EPREFIX}` to `docdir` configure option
+* dev-python/backports-ssl-match-hostname
+    * Change `${D}` to `${ED}` to prevent sandbox violation
 * dev-vcs/cvs
     * Allow CVS to build and tests to run on Darwin
 * dev-vcs/subversion
