@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 210563bcb5a19886e8575b70c4ec500bbfffcdac $
+# $Id: a1ea7610becc2fc350a991a8188244b1c2a4299f $
 # $Header: /var/cvsroot/gentoo-x86/app-arch/unzip/unzip-6.0-r3.ebuild,v 1.10 2014/01/18 05:01:26 vapier Exp $
 
 EAPI="2"
@@ -28,15 +28,13 @@ src_prepare() {
 	epatch "${FILESDIR}"/${P}-no-exec-stack.patch
 	use natspec && epatch "${FILESDIR}/${PN}-6.0-natspec.patch" #275244
 	epatch "${FILESDIR}"/${P}-irix.patch
-	sed -i \
+	sed -i -r \
 		-e '/^CFLAGS/d' \
-		-e '/CFLAGS/s:-O[0-9]\?:$(CFLAGS) $(CPPFLAGS):' \
+		-e '/CFLAGS/s:-O[0-9]?:$(CFLAGS) $(CPPFLAGS):' \
 		-e '/^STRIP/s:=.*:=true:' \
-		-e "s:\<CC = cc\>:CC = $(tc-getCC):" \
-		-e "s:\<AS = as\>:AS = $(tc-getCC):" \
-		-e "s:\<CC=gcc\>:CC=$(tc-getCC):" \
-		-e "s:\<LD=gcc\>:LD=$(tc-getCC):" \
-		-e "s:\<AS=gcc\>:AS=$(tc-getCC):" \
+		-e "s:\<CC *= *\"?g?cc2?\"?\>:CC=\"$(tc-getCC)\":" \
+		-e "s:\<LD *= *\"?(g?cc2?|ld)\"?\>:LD=\"$(tc-getCC)\":" \
+		-e "s:\<AS *= *\"?(g?cc2?|as)\"?\>:AS=\"$(tc-getCC)\":" \
 		-e 's:LF2 = -s:LF2 = :' \
 		-e 's:LF = :LF = $(LDFLAGS) :' \
 		-e 's:SL = :SL = $(LDFLAGS) :' \
