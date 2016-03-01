@@ -78,7 +78,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 18971a9d261bd1a0298cd3a11124b31b1e326c3a.
+# commit 9cd1c6c0e03ac5497b2972e5a45cb6150529150e.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -171,6 +171,7 @@ disable_audio_dither=1
 #device_tree_overlay=enc28j60,int_pin=25,speed=12000000
 #device_tree_overlay=rpi-sense
 #device_tree_overlay=at86rf233,interrupt=23,reset=24,sleep=25,speed=3000000,trim=15
+#device_tree_overlay=qca7000,int_pin=23,speed=12
 
 # RTC:
 # i2c-rtc supports ds1307, ds3231, mcp7941x, pcf2127, pcf8523, and pcf8563.
