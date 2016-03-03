@@ -17,21 +17,27 @@ SRC_URI="mirror://sourceforge/opendkim/${P}.tar.gz"
 LICENSE="Sendmail-Open-Source BSD"
 SLOT="0"
 KEYWORDS="amd64 ~arm x86"
-IUSE="+berkdb gnutls ldap lmdb lua memcached opendbx poll sasl selinux +ssl static-libs unbound"
+IUSE="+berkdb curl diffheaders erlang experimental gnutls jansson ldap libevent lmdb lua memcached opendbx poll sasl selinux +ssl static-libs unbound"
 
 DEPEND="|| ( mail-filter/libmilter mail-mta/sendmail )
 	dev-libs/libbsd
-	ssl? ( >=dev-libs/openssl-0.9.8:* )
 	berkdb? ( >=sys-libs/db-3.2:* )
-	opendbx? ( >=dev-db/opendbx-1.4.0 )
-	lua? ( dev-lang/lua:* )
+	curl? ( net-misc/curl )
+	diffheaders? ( dev-libs/tre )
+	erlang? ( dev-lang/erlang )
+	experimental? ( net-analyzer/rrdtool )
+	gnutls? ( >=net-libs/gnutls-2.11.7 )
+	jansson? ( dev-libs/jansson )
 	ldap? ( net-nds/openldap )
+	libevent? ( dev-libs/libevent )
 	lmdb? ( dev-db/lmdb )
+	lua? ( dev-lang/lua:* )
 	memcached? ( dev-libs/libmemcached )
+	opendbx? ( >=dev-db/opendbx-1.4.0 )
 	sasl? ( dev-libs/cyrus-sasl )
+	ssl? ( >=dev-libs/openssl-0.9.8:* )
 	unbound? ( >=net-dns/unbound-1.4.1 net-dns/dnssec-root )
-	!unbound? ( net-libs/ldns )
-	gnutls? ( >=net-libs/gnutls-2.11.7 )"
+	!unbound? ( net-libs/ldns )"
 
 RDEPEND="${DEPEND}
 	sys-process/psmisc
@@ -63,6 +69,8 @@ src_prepare() {
 	sed -i -e '/sock.*mt.getcwd/s:mt.getcwd():"/tmp":' opendkim/tests/*.lua
 	sed -i -e '/sock.*mt.getcwd/s:mt.getcwd():"/proc/self/cwd":' opendkim/tests/*.lua
 
+	epatch "${FILESDIR}"/"${PN}"-2.9.2-safekeys.patch || die
+
 	einfo "Using libdir '$(get_libdir)' ..."
 	sed -i -r \
 	       -e "/\/lib/s#/lib([: \"/]|$)#/$(get_libdir)\1#" \
@@ -73,46 +81,71 @@ src_prepare() {
 
 src_configure() {
 	local myconf
-	if use berkdb ; then
-		myconf=$(db_includedir)
+
+	# Not featured:
+	# --enable-socketdb						arbitrary socket data sets
+	# --enable-postgresql_reconnect_hack	hack to overcome PostgreSQL connection error detection bug
+
+	if use berkdb; then
+		# Not a bug, myconf is redefined based on its own contents...
+		myconf="$(db_includedir)"
 		myconf="--with-db-incdir=${myconf#-I}"
+
 		myconf+=" --enable-popauth"
 		myconf+=" --enable-query_cache"
 		myconf+=" --enable-stats"
+		myconf+=" $(use_enable lua statsext)"
+	fi
+	if use experimental; then
+		#myconf+=" --enable-atps" # Despite being experimental, included as standard below...
+		myconf+=" --enable-db_handle_pools"
+		myconf+=" --enable-reprrd"
+		myconf+=" --enable-reputation"
+		myconf+=" --with-librrd"
+	fi
+	if use ldap; then
+		#myconf+=" --enable-ldap_caching" # - Prevents LDAP changes from being immediately picked-up
+		myconf+=" $(use_with sasl)"
+	fi
+	if use libevent; then
+		myconf+=" $(use_with libevent)"
+	else
+		myconf+=" $(use_enable poll)"
 	fi
 	if use unbound; then
 		myconf+=" --with-unbound"
 	else
 		myconf+=" --with-ldns"
 	fi
-	if use ldap; then
-		myconf+=" $(use_with sasl)"
-	fi
 	econf \
-		$(use_with berkdb db) \
-		$(use_with opendbx odbx) \
-		$(use_with lua) \
-		$(use_enable lua rbl) \
-		$(use_with ldap openldap) \
-		$(use_with lmdb) \
-		$(use_enable poll) \
-		$(use_enable static-libs static) \
-		$(use_with gnutls) \
-		$(use_with memcached libmemcached) \
 		${myconf} \
 		--docdir=/usr/share/doc/${PF} \
 		--htmldir=/usr/share/doc/${PF}/html \
 		--libdir=/usr/$(get_libdir) \
-		--enable-filter \
 		--enable-atps \
+		--enable-default_sender \
+		$(use_enable diffheaders) \
+		--enable-filter \
 		--enable-identity_header \
 		--enable-rate_limit \
-		--enable-resign \
+		$(use_enable lua rbl) \
 		--enable-replace_rules \
-		--enable-default_sender \
+		--enable-resign \
 		--enable-sender_macro \
+		$(use_enable static-libs static) \
 		--enable-vbr \
-		--disable-live-testing
+		--disable-live-testing \
+		$(use_with berkdb db) \
+		$(use_with curl) \
+		$(use_with erlang) \
+		$(use_with gnutls) \
+		$(use_with jansson) \
+		$(use_with memcached libmemcached) \
+		$(use_with lmdb) \
+		$(use_with lua) \
+		$(use_with opendbx odbx) \
+		$(use_with ldap openldap) \
+		$(use_with diffheaders tre)
 		#--with-test-socket=/tmp/opendkim-$(echo ${RANDOM})-S
 		#--disable-rpath
 }
