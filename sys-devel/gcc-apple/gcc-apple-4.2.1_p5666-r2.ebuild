@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5f5306f78aee9b2f5ef211596bdaa71988e68075 $
+# $Id: 9d1eef42481bacbfbd0b549855177a83f0fc5a43 $
 
 EAPI="3"
 
@@ -123,15 +123,8 @@ src_prepare() {
 	epatch "${FILESDIR}"/${P}-darwin14.patch
 
 	# Try to filter incompatible clang options...
-	if ${CC:-cc} --version | grep -q clang; then
-		filter-flags -std=c++11
-		append-cflags -std=gnu89
-		append-cflags -Wno-array-bounds
-
+	if ${CC:-$(tc-getCC)} --version | grep -q clang; then
 		epatch "${FILESDIR}"/${P}-toplev.patch
-	else
-		filter-flags -stdlib=libstdc++
-		filter-flags -std=c++11
 	fi
 
 	# bootstrapping might fail with host provided gcc on 10.4/x86
@@ -257,6 +250,22 @@ src_configure() {
 	# multilib compiler -- the default)
 	[[ ${CTARGET} == powerpc64-* || ${CTARGET} == x86_64-* ]] && \
 		export CC="${CC:-$(tc-getCC)} -m64"
+
+	# Clang on OSX defaults to c99 mode, while GCC defaults to gnu89
+	# (C90 + extensions).  This makes Clang barf on GCC's sources, so
+	# work around that.  Bugs #491098, #574736
+	#export CC="${CC:-$(tc-getCC)} -std=gnu89"
+	#
+	# Try to filter incompatible clang options...
+	if ${CC:-$(tc-getCC)} --version | grep -q clang; then
+		filter-flags -std=c++11
+		append-cflags -std=gnu89
+		append-cflags -Wno-array-bounds
+	else
+		filter-flags -stdlib=libstdc++
+		filter-flags -std=c++11
+	fi
+
 
 	mkdir -p "${WORKDIR}"/build
 	cd "${WORKDIR}"/build
