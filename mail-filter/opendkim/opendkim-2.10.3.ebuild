@@ -17,26 +17,23 @@ SRC_URI="mirror://sourceforge/opendkim/${P}.tar.gz"
 LICENSE="Sendmail-Open-Source BSD"
 SLOT="0"
 KEYWORDS="amd64 ~arm x86"
-IUSE="+berkdb curl diffheaders erlang experimental gnutls jansson ldap libevent lmdb lua memcached opendbx poll sasl selinux +ssl static-libs unbound"
+IUSE="+berkdb diffheaders erlang experimental gnutls ldap libevent lmdb lua -memcached opendbx poll sasl selinux static-libs unbound"
 
 DEPEND="|| ( mail-filter/libmilter mail-mta/sendmail )
 	dev-libs/libbsd
 	berkdb? ( >=sys-libs/db-3.2:* )
-	curl? ( net-misc/curl )
 	diffheaders? ( dev-libs/tre )
 	erlang? ( dev-lang/erlang )
-	experimental? ( net-analyzer/rrdtool )
+	experimental? ( dev-libs/jansson net-analyzer/rrdtool net-misc/curl )
 	gnutls? ( >=net-libs/gnutls-2.11.7 )
-	jansson? ( dev-libs/jansson )
+	!gnutls? ( >=dev-libs/openssl-0.9.8:* )
 	ldap? ( net-nds/openldap )
-	libevent? ( dev-libs/libevent )
 	lmdb? ( dev-db/lmdb )
 	lua? ( dev-lang/lua:* )
 	memcached? ( dev-libs/libmemcached )
 	opendbx? ( >=dev-db/opendbx-1.4.0 )
 	sasl? ( dev-libs/cyrus-sasl )
-	ssl? ( >=dev-libs/openssl-0.9.8:* )
-	unbound? ( >=net-dns/unbound-1.4.1 net-dns/dnssec-root )
+	unbound? ( >=net-dns/unbound-1.4.1 net-dns/dnssec-root libevent? ( dev-libs/libevent ) )
 	!unbound? ( net-libs/ldns )"
 
 RDEPEND="${DEPEND}
@@ -52,6 +49,13 @@ pkg_setup() {
 	# For consistency reasons, milter user must be created here with this home directory
 	# even though this package doesn't need a home directory for this user (#280571)
 	enewuser milter -1 -1 /var/lib/milter milter
+
+	if use libevent && ! use unbound; then
+		ewarn "USE='libevent' requires USE='unbound' - libevent support will not be built"
+	fi
+	if use memcached; then
+		ewarn "memcached support in ${PN} is thought to be unstable"
+	fi
 }
 
 src_prepare() {
@@ -98,22 +102,24 @@ src_configure() {
 	fi
 	if use experimental; then
 		#myconf+=" --enable-atps" # Despite being experimental, included as standard below...
-		myconf+=" --enable-db_handle_pools"
-		myconf+=" --enable-reprrd"
-		myconf+=" --enable-reputation"
+		myconf+=" $(use_enable opendbx db_handle_pools)"
+
 		myconf+=" --with-librrd"
+		myconf+=" --enable-reprrd"
+
+		myconf+=" --with-curl"
+		myconf+=" --with-jansson"
+		myconf+=" --enable-reputation"
 	fi
 	if use ldap; then
-		#myconf+=" --enable-ldap_caching" # - Prevents LDAP changes from being immediately picked-up
+		#myconf+=" --enable-ldap_caching" # - Prevents LDAP changes from being immediately seen
 		myconf+=" $(use_with sasl)"
-	fi
-	if use libevent; then
-		myconf+=" $(use_with libevent)"
-	else
-		myconf+=" $(use_enable poll)"
 	fi
 	if use unbound; then
 		myconf+=" --with-unbound"
+		if use libevent; then
+			myconf+=" --with-libevent"
+		fi
 	else
 		myconf+=" --with-ldns"
 	fi
@@ -127,6 +133,7 @@ src_configure() {
 		$(use_enable diffheaders) \
 		--enable-filter \
 		--enable-identity_header \
+		$(use_enable poll) \
 		--enable-rate_limit \
 		$(use_enable lua rbl) \
 		--enable-replace_rules \
@@ -136,10 +143,8 @@ src_configure() {
 		--enable-vbr \
 		--disable-live-testing \
 		$(use_with berkdb db) \
-		$(use_with curl) \
 		$(use_with erlang) \
 		$(use_with gnutls) \
-		$(use_with jansson) \
 		$(use_with memcached libmemcached) \
 		$(use_with lmdb) \
 		$(use_with lua) \
