@@ -1,0 +1,13 @@
+#!/sbin/runscript
+# Copyright 1999-2014 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Id: db0b698ec2ec9dafe1ed7bb03e7b2b7f400281ee $
+
+pidfile="/var/run/lvmetad.pid"
+command="/sbin/lvmetad"
+command_args="${LVMETAD_OPTS:=-p ${pidfile}}"
+start_stop_daemon_args="--pidfile ${pidfile}"
+
+start_pre() {
+	checkpath --directory /var/run/lvm || return 1
+}

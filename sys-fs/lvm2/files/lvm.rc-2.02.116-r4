@@ -1,13 +1,49 @@
 #!/sbin/runscript
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 62ddac41e3a2245e27f621cf19ff964efa9d9f53 $
+# $Id: 8478c239f8f9d291773caab7da9d7daeac32dd3b $
+
+_get_lvm_path() {
+	local lvm_path
+
+	for lvm_path in /bin/lvm /sbin/lvm ; do
+		[ -x "${lvm_path}" ] && break
+	done
+	if ! [ -x "${lvm_path}" ]; then
+		eerror "Cannot find lvm binary in /sbin or /bin!"
+		return 1
+	fi
+
+	echo "${lvm_path}"
+	return 0
+}
+
+_need_lvmetad()
+{
+	local lvm_path="$(_get_lvm_path)"
+	[ ! -x "${lvm_path}" ] && return 1
+	${lvm_path} dumpconfig global | grep -q 'use_lvmetad=1'
+}
 
 depend() {
-	use lvmetad
+	local _need=
+
 	before checkfs fsck
 	after modules device-mapper
-	need sysfs
+	# We may use lvmetad based on the configuration. If we added lvmetad
+	# support while lvm2 is running then we aren't dependent on it. For the
+	# more common case, if its disabled in the config we aren't dependent
+	# on it.
+	config /etc/lvm/lvm.conf
+
+	if service_started; then
+		_need=$(service_get_value need)
+	else
+		if _need_lvmetad; then
+			_need="${_need} lvmetad"
+		fi
+	fi
+	need sysfs ${_need}
 }
 
 dm_in_proc() {
@@ -23,15 +59,15 @@ dm_in_proc() {
 	return ${retval}
 }
 
+
+if [ -d /var/lock/lvm ] && [ -w /var/lock/lvm ] && ! [ -d /dev/.lvm ]; then
+	export lvm_config='global { locking_dir = "/var/lock/lvm" }'
+else
+	export lvm_config='global { locking_dir = "/dev/.lvm" }'
+fi
+
 start() {
 	local lvm_path lvm_commands
-
-	local lvm_config
-	if [ -d /var/lock/lvm ] && [ -w /var/lock/lvm ] && ! [ -d /dev/.lvm ]; then
-		export lvm_config='global { locking_dir = "/var/lock/lvm" }'
-	else
-		export lvm_config='global { locking_dir = "/dev/.lvm" }'
-	fi
 
 	# LVM support for /usr, /home, /opt ....
 	# This should be done *before* checking local
@@ -39,13 +75,7 @@ start() {
 
 	# NOTE: Add needed modules for LVM or RAID, etc.
 	#       to /etc/modules.autoload if needed
-	for lvm_path in /bin/lvm /sbin/lvm ; do
-		[ -x "${lvm_path}" ] && break
-	done
-	if ! [ -x "${lvm_path}" ] ; then
-		eerror "Cannot find lvm binary in /sbin or /bin!"
-		return 1
-	fi
+	lvm_path="$(_get_lvm_path)" || return 1
 
 	if [ -z "${CDBOOT}" ] ; then
 		if [ -e /proc/modules ] && ! dm_in_proc ; then
@@ -53,7 +83,7 @@ start() {
 		fi
 		if [ -d /proc/lvm ] || dm_in_proc ; then
 			ebegin "Setting up Logical Volume Manager"
-			einfo "Using configuration directive '${lvm_config}'"
+			#einfo "Using configuration directive '${lvm_config}'"
 			# Keep stderr, for debugging
 			lvm_commands="#! ${lvm_path} --config '${lvm_config}'\n"
 			# Perform extra pvscan pass since some devices might not have been available until very recently
@@ -69,23 +99,17 @@ start() {
 	fi
 }
 
+start_post() {
+	# Remember whether we needed lvmetad...
+	if _need_lvmetad; then
+		service_set_value need lvmetad
+	fi
+}
+
 stop() {
 	local lvm_path lvs vgs lvm_commands
 
-	local lvm_config
-	if [ -d /var/lock/lvm ] && [ -w /var/lock/lvm ] && ! [ -d /dev/.lvm ]; then
-		export lvm_config='global { locking_dir = "/var/lock/lvm" }'
-	else
-		export lvm_config='global { locking_dir = "/dev/.lvm" }'
-	fi
-
-	for lvm_path in /bin/lvm /sbin/lvm ; do
-		[ -x "${lvm_path}" ] && break
-	done
-	if ! [ -x "${lvm_path}" ] ; then
-		eerror "Cannot find lvm binary in /sbin or /bin!"
-		return 1
-	fi
+	lvm_path="$(_get_lvm_path)" || return 1
 
 	# Stop LVM2
 	if [ -x "${lvm_path}" ] &&
@@ -97,7 +121,7 @@ stop() {
 
 		if [ -n "${vgs}" ] ; then
 			ebegin "Shutting down Logical Volume Manager"
-			einfo "Using configuration directive '${lvm_config}'"
+			#einfo "Using configuration directive '${lvm_config}'"
 
 			# Keep stderr, for debugging
 			lvm_commands="#! ${lvm_path} --config '${lvm_config}'\n"
