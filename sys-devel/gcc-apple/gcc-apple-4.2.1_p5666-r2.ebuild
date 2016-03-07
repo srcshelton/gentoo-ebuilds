@@ -254,18 +254,20 @@ src_configure() {
 	# Clang on OSX defaults to c99 mode, while GCC defaults to gnu89
 	# (C90 + extensions).  This makes Clang barf on GCC's sources, so
 	# work around that.  Bugs #491098, #574736
-	#export CC="${CC:-$(tc-getCC)} -std=gnu89"
-	#
-	# Try to filter incompatible clang options...
 	if ${CC:-$(tc-getCC)} --version | grep -q clang; then
+		# Try to filter incompatible clang options...
 		filter-flags -std=c++11
-		append-cflags -std=gnu89
-		append-cflags -Wno-array-bounds
+
+		# We can't 'append-cflags', because CFLAGS is also used by the freshly
+		# built gcc during bootstrap, and gcc doesn't understand all clang
+		# flags :(
+		#append-cflags -std=gnu89
+		#append-cflags -Wno-array-bounds
+		export CC="${CC:-$(tc-getCC)} -std=gnu89 -Wno-array-bounds"
 	else
 		filter-flags -stdlib=libstdc++
 		filter-flags -std=c++11
 	fi
-
 
 	mkdir -p "${WORKDIR}"/build
 	cd "${WORKDIR}"/build
