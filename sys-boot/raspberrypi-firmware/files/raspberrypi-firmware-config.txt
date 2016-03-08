@@ -11,9 +11,19 @@
 
 #
 # It is now possible to filter sections of this file using [pi1]/[pi2],
-# [EDID=*], and [0x12345678] to filter by serial-number.
+# [EDID=*] to filter by connected display, and [0x12345678] to filter by
+# serial-number.
+# 'tvservice -n' will produce output similar to 'device_name=VSC-TD2220', which
+# can then be selected upon using a '[EDID=VSC-TD2220]' section - and may be
+# used to select specific hdmi_group, hdmi_mode, etc. tunables.  For this to
+# apply, the TV/monitor in question *must* be connected on boot, and settings
+# are not hot-pluggable.
+# Device serial-numbers appear in '/proc/cpuinfo'.
 # Remeber to end each section with [all] to remove further filtering.  Until an
-# [all] block is encountered, filters of different types stack.
+# [all] block is encountered, filters of different types stack where this makes
+# sense (e.g. '[pi1]' followed by '[EDID=...]' will only apply to a given
+# monitor on an RPi1, but following this with '[pi2]' repalces '[pi1]' but
+# maintains the EDID filter.
 #
 
 
@@ -28,6 +38,7 @@
 #
 # Firmware configuration options
 #
+[all]
 
 # The _cd (cut-down) firmware files contain the minimal firmware required to
 # operate the BCM22708/BCM2709 SoC, and require only 16MB of dedicated GPU
@@ -78,7 +89,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 9cd1c6c0e03ac5497b2972e5a45cb6150529150e.
+# commit a192a05bc8ca597249e5a36875ce382c572ddc97.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -110,12 +121,17 @@ disable_audio_dither=1
 #device_tree_param=pwr_led_trigger=mmc # value 'heartbeat' gives a load-monitor
 #device_tree_param=pwr_led_activelow=off
 #device_tree_param=pwr_led_gpio=35
+[pi3]
+#device_tree_overlay=pi3-disable-bt
+#device_tree_overlay=pi3-miniuart-bt
 [all]
 
-#device_tree_param=uart1=off,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
-#device_tree_param=spi-bcm2708=off
-#device_tree_param=spi-bcm2835=off
-#device_tree_param=spi-dma=off
+#device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
+#device_tree_overlay=i2c0-bcm2708,sda0_pin=0,scl0_pin=1 # SDA0 pins 0, 28 (or 44); SCL0 pins 1, 29 (or 45).
+#device_tree_overlay=i2c1-bcm2708,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
+#device_tree_overlay=spi-bcm2708
+#device_tree_overlay=spi-bcm2835
+#device_tree_overlay=spi-dma
 
 # SD/MMC driver - choose only one
 #
@@ -308,6 +324,9 @@ kernel=kernel/kernel.img
 [pi2]
 kernel=kernel/kernel7.img
 #initramfs kernel/initramfs7.gz followkernel
+[pi3]
+kernel=kernel/kernel7.img
+#initramfs kernel/initramfs64.gz followkernel
 [all]
 
 # Boot delay, for diagnostic purposes.
@@ -493,8 +512,11 @@ kernel=kernel/kernel7.img
 #arm_freq=700
 [pi2]
 #arm_freq=900
+[pi3]
+#arm_freq=1200
 [all]
 
+[pi1]
 # GPU core (and L2 cache prior to RPi2) frequency (MHz).
 #core_freq=250
 
@@ -510,12 +532,47 @@ kernel=kernel/kernel7.img
 # gpu_freq sets core_freq, h264_freq, isp_freq, and v3d_freq frequencies
 # together
 #gpu_freq=250
+[pi2]
+# GPU core (and L2 cache prior to RPi2) frequency (MHz).
+#core_freq=250
+
+# GPU Hardware video block frequency (MHz).
+#h264_freq=250
+
+# GPU Image sensor pipeline frequency (MHz).
+#isp_freq=250
+
+# GPU 3D block frequency (MHz).
+#v3d_freq=250
+
+# gpu_freq sets core_freq, h264_freq, isp_freq, and v3d_freq frequencies
+# together
+#gpu_freq=250
+[pi3]
+# GPU core (and L2 cache prior to RPi2) frequency (MHz).
+#core_freq=400
+
+# GPU Hardware video block frequency (MHz).
+#h264_freq=400
+
+# GPU Image sensor pipeline frequency (MHz).
+#isp_freq=400
+
+# GPU 3D block frequency (MHz).
+#v3d_freq=400
+
+# gpu_freq sets core_freq, h264_freq, isp_freq, and v3d_freq frequencies
+# together
+#gpu_freq=400
+[all]
 
 # SDRAM frequency (MHz).
 [pi1]
 #sdram_freq=400
 [pi2]
 #sdram_freq=450
+[pi3]
+#sdram_freq=?
 [all]
 
 # Minimum values used for dynamic clocking.
@@ -531,6 +588,12 @@ kernel=kernel/kernel7.img
 #core_freq_min=250
 #gpu_freq_min=250
 #sdram_freq_min=450
+#over_voltage_min=0
+[pi3]
+#arm_freq_min=1200
+#core_freq_min=400
+#gpu_freq_min=400
+#sdram_freq_min=?
 #over_voltage_min=0
 [all]
 
@@ -616,6 +679,8 @@ kernel=kernel/kernel7.img
 #gpu_freq=350
 #over_voltage_min=0
 #over_voltage=4
+[pi3]
+#???
 [all]
 #temp_limit=80 # Will throttle to default clock speed if hit
 #initial_turbo=60 # Does not affect warranty, speeds up boot
