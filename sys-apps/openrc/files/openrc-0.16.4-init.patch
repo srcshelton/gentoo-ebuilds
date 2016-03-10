@@ -29,11 +29,11 @@
  	if grep -q devtmpfs /proc/filesystems; then
  		devfstype=devtmpfs
 -		mountopts="$mountopts,size=10M"
-+		mountopts+=",size=1M"
++		mountopts+=",size=5M"
  	elif grep -q tmpfs /proc/filesystems; then
  		devfstype=tmpfs
 -		mountopts="$mountopts,size=10M"
-+		mountopts+=",size=1M"
++		mountopts+=",size=5M"
  	fi
  	if [ -n "$devfstype" ]; then
  		ebegin "$msg $devfstype on /dev"
