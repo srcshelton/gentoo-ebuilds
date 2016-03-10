@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 817550e88151ee2c5940b515bff78fd03a92d91c $
+# $Id: 968e417e2a71e0eea4d7614c0e91574ecec40755 $
 
 EAPI=5
 inherit systemd
@@ -14,7 +14,7 @@ KEYWORDS="~amd64 ~ppc ~x86"
 IUSE="html systemd"
 
 RDEPEND="dev-lang/perl
-	dev-perl/net-server
+	dev-perl/Net-Server
 	mail-filter/spamassassin"
 DEPEND="${RDEPEND}"
 
