@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a51b6ae3a01f9ce9ad08a42fe5214ed79025a02c $
+# $Id: e95c01b8c88d15f93000e79b465c7ce75dbc132f $
 
 EAPI=5
 
@@ -54,7 +54,7 @@ DEPEND_COM="dev-lang/perl[berkdb]
 			dev-perl/Net-DNS
 			dev-perl/Net-Netmask
 			dev-perl/Net-SNMP
-			dev-perl/net-server[ipv6(-)?]
+			dev-perl/Net-Server[ipv6(-)?]
 			virtual/perl-Digest-MD5
 			virtual/perl-Getopt-Long
 			virtual/perl-MIME-Base64

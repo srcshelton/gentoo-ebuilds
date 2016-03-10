@@ -1,0 +1,34 @@
+/var/log/munin/munin-node.log {
+	daily
+	missingok
+	rotate 7
+	compress
+	copytruncate
+	notifempty
+	create 640 root root
+	postrotate
+		if test -e /var/run/systemd/system; then
+			systemctl restart munin-node 1>/dev/null || true
+		else
+			/etc/init.d/munin-node status --quiet >/dev/null 2>&1 && /etc/init.d/munin-node restart >/dev/null || true
+		fi
+	endscript
+}
+
+/var/log/munin/munin-update.log /var/log/munin/munin-graph.log /var/log/munin/munin-html.log /var/log/munin/munin-limits.log {
+	daily
+	missingok
+	rotate 7
+	compress
+	notifempty
+	nocreate
+}
+
+/var/log/munin/munin-cgi-graph.log /var/log/munin/munin-cgi-html.log {
+	daily
+	missingok
+	rotate 7
+	compress
+	notifempty
+	create 640 @CGIUSER@
+}
