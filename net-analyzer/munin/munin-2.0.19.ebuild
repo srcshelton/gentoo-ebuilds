@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 309affc73407a92d1904d78d7e4ea76f77f96c59 $
+# $Id: 069750789e6742c6b128d1efa9125ef0620a3f83 $
 
 EAPI=5
 
@@ -46,7 +46,7 @@ DEPEND_COM="dev-lang/perl[berkdb]
 				dev-perl/HTTP-Date
 			)
 			dev-perl/DBI
-			dev-perl/DateManip
+			dev-perl/Date-Manip
 			dev-perl/File-Copy-Recursive
 			dev-perl/List-MoreUtils
 			dev-perl/Log-Log4perl
