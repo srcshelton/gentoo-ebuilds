@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 419ffab344b24403af0cab4de006bbf8b52f424d $
+# $Id: f1286411285e0a8ebd87c90cd2606d7a92fba2f5 $
 
 EAPI=6
 
@@ -15,7 +15,7 @@ SRC_URI="
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 hppa ~ia64 ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 ~arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 IUSE="fpm apache2 systemd"
 
 # The "DirectoryIndex" line in 70_mod_php.conf requires mod_dir.
@@ -43,9 +43,7 @@ src_install() {
 
 	if use fpm ; then
 		newinitd "${FILESDIR}/php-fpm.init-r4" "php-fpm"
-		if use systemd ; then
-			systemd_dotmpfilesd "${FILESDIR}/php-fpm.conf"
-		fi
+		use systemd && systemd_dotmpfilesd "${FILESDIR}/php-fpm.conf"
 		exeinto /usr/libexec
 		doexe "${FILESDIR}/php-fpm-launcher"
 	fi
