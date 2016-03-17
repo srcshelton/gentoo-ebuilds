@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 87df95c417242fc0d3edf8556a3f0e418475745a $
+# $Id: 09981967eb5c3f88659c420132e91d6ffda53560 $
 
 EAPI="5"
 
@@ -28,7 +28,10 @@ SRC_URI="mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+[[ -z "${HPN_PATCH}" || -z "${LDAP_PATCH}" || -z "${X509_PATCH}" ]] && \
+	{ KEYWORDS="~${KEYWORDS// / ~}" ; KEYWORDS="${KEYWORDS//~~/~}" ; }
+
 # Probably want to drop ssl defaulting to on in a future version.
 IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit libressl -libseccomp pam +pie sctp selinux skey ssh1 +ssl static X X509 abi_x86_x32"
 REQUIRED_USE="ldns? ( ssl )
