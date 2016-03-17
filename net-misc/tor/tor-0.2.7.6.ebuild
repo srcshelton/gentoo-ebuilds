@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 94865d5ac58afe5b559a2c68a176090269083077 $
+# $Id: d15319906a7d240acf0b5bfabf5e7b51988ac7cf $
 
 EAPI="5"
 
@@ -16,17 +16,19 @@ S="${WORKDIR}/${MY_PF}"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm ~mips ppc ppc64 sparc x86"
-IUSE="-bufferevents doc nat-pmp scrypt seccomp selinux stats systemd tor-hardening transparent-proxy test upnp web"
+KEYWORDS="amd64 arm ~mips ppc ppc64 ~sparc x86 ~ppc-macos"
+IUSE="-bufferevents doc libressl scrypt seccomp selinux stats systemd tor-hardening transparent-proxy test web"
 
-DEPEND="dev-libs/openssl
-	sys-libs/zlib
+DEPEND="
+	doc? ( app-text/asciidoc )
 	dev-libs/libevent
+	sys-libs/zlib
 	bufferevents? ( dev-libs/libevent[ssl] )
-	nat-pmp? ( net-libs/libnatpmp )
+	!libressl? ( dev-libs/openssl:0=[-bindist] )
+	libressl? ( dev-libs/libressl:= )
 	scrypt? ( app-crypt/libscrypt )
 	seccomp? ( sys-libs/libseccomp )
-	upnp? ( net-libs/miniupnpc )"
+	systemd? ( sys-apps/systemd )"
 RDEPEND="${DEPEND}
 	selinux? ( sec-policy/selinux-tor )"
 
@@ -36,7 +38,7 @@ pkg_setup() {
 }
 
 src_prepare() {
-	epatch "${FILESDIR}"/${PN}-0.2.3.14_alpha-torrc.sample.patch
+	epatch "${FILESDIR}"/${PN}-0.2.7.4-torrc.sample.patch
 	epatch_user
 }
 
@@ -46,23 +48,18 @@ src_configure() {
 	# We'll filter-flags them here as we encounter them.
 	filter-flags -fstrict-aliasing
 
-	if [[ $(gcc-major-version) -eq 4 && $(gcc-minor-version) -eq 8 && $(gcc-micro-version) -ge 1 ]] ; then
-		replace-flags -Os -O2
-	fi
 	econf \
 		--enable-system-torrc \
 		$(use_enable doc asciidoc) \
-		--docdir=/usr/share/doc/${PF} \
+		--docdir="${EPREFIX}"/usr/share/doc/${PF} \
 		$(use_enable stats instrument-downloads) \
 		$(use_enable bufferevents) \
-		$(use_enable nat-pmp) \
 		$(use_enable scrypt libscrypt) \
 		$(use_enable seccomp) \
 		$(use_enable systemd) \
 		$(use_enable tor-hardening gcc-hardening) \
 		$(use_enable tor-hardening linker-hardening) \
 		$(use_enable transparent-proxy transparent) \
-		$(use_enable upnp) \
 		$(use_enable web tor2web-mode) \
 		$(use_enable test unittests) \
 		$(use_enable test coverage)
@@ -73,10 +70,8 @@ src_install() {
 
 	newconfd "${FILESDIR}"/tor.confd tor
 	newinitd "${FILESDIR}"/tor.initd-r7 tor
-	if use systemd; then
-		systemd_dounit "${FILESDIR}/${PN}.service"
-		systemd_dotmpfilesd "${FILESDIR}/${PN}.conf"
-	fi
+	systemd_dounit "${FILESDIR}/${PN}.service"
+	systemd_dotmpfilesd "${FILESDIR}/${PN}.conf"
 
 	emake DESTDIR="${D}" install
 
@@ -103,5 +98,3 @@ pkg_postinst() {
 		ewarn
 	fi
 }
-
-# set vi: diffopt=iwhite,filler:

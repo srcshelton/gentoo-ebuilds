@@ -17,10 +17,10 @@ S="${WORKDIR}/${MY_PF}"
 LICENSE="BSD GPL-2"
 SLOT="0"
 KEYWORDS="amd64 arm ~mips ppc ppc64 sparc x86"
-IUSE="-bufferevents nat-pmp scrypt seccomp selinux stats systemd tor-hardening transparent-proxy test upnp web"
+IUSE="-bufferevents doc nat-pmp scrypt seccomp selinux stats systemd tor-hardening transparent-proxy test upnp web"
 
 DEPEND="
-	app-text/asciidoc
+	doc? ( app-text/asciidoc )
 	dev-libs/libevent
 	dev-libs/openssl:=
 	sys-libs/zlib
@@ -54,7 +54,7 @@ src_configure() {
 	fi
 	econf \
 		--enable-system-torrc \
-		--enable-asciidoc \
+		$(use_enable doc asciidoc) \
 		--docdir=/usr/share/doc/${PF} \
 		$(use_enable stats instrument-downloads) \
 		$(use_enable bufferevents) \
