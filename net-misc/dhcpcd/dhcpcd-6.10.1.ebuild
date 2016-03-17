@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7a5e857c385d2bf801bfc43e880232cab7138380 $
+# $Id: 38b38f9d420813eb9b8ffca322c9cbdc5b869aa6 $
 
 EAPI=5
 
@@ -11,7 +11,7 @@ else
 	MY_P="${MY_P/_beta/-beta}"
 	MY_P="${MY_P/_rc/-rc}"
 	SRC_URI="http://roy.marples.name/downloads/${PN}/${MY_P}.tar.xz"
-	KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux"
 	S="${WORKDIR}/${MY_P}"
 fi
 
