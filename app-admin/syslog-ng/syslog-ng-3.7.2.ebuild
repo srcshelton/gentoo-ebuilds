@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 22e18b018c4ccafd6d0468bfd62bc68d3ea7dc87 $
+# $Id: b1ca716dca88899ab5e0be5fe389101c0357bb75 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -31,7 +31,7 @@ RDEPEND="
 	tcpd? ( >=sys-apps/tcp-wrappers-7.6 )
 	dev-libs/libpcre
 	!libressl? ( dev-libs/openssl:0= )
-	libressl? ( dev-libs/libressl:= )
+	libressl? ( dev-libs/libressl:0= )
 	>=dev-libs/eventlog-0.2.12
 	>=dev-libs/glib-2.10.1:2"
 DEPEND="${RDEPEND}
