@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 58b56e3d3e18be8a85c05fd1fb6dfe5b1f520d41 $
+# $Id: 5a21e199822ae0eb409093b54bbdcd533cdd4a16 $
 
 EAPI=5
 inherit autotools eutils linux-info multilib systemd toolchain-funcs udev flag-o-matic
@@ -12,7 +12,7 @@ SRC_URI="ftp://sources.redhat.com/pub/lvm2/${PN/lvm/LVM}.${PV}.tgz
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-linux ~x86-linux"
 IUSE="clvm cman device-mapper-only lvm1 lvm2create_initrd readline selinux static static-libs systemd +thin +udev"
 REQUIRED_USE="device-mapper-only? ( !clvm !cman !lvm1 !lvm2create_initrd !thin )
 	systemd? ( udev )
