@@ -153,6 +153,7 @@ A similar configuration file could be added for all packages which fail to compi
 
 # Out-of-tree ebuilds
 
+* app-emulation/wa-linux-agent
 * dev-perl/CPANPLUS
 * dev-perl/CPANPLUS-Dist-Gentoo
 * dev-perl/Email-Outlook-Message
@@ -179,7 +180,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-ruby/pry
 * dev-ruby/rake
 * mail-client/roundcube
-    * Roundcube 1.0.0 and Roundcube 1.01 have been released, but are not yet in-tree...
+    * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
