@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d15319906a7d240acf0b5bfabf5e7b51988ac7cf $
+# $Id: 05b2221b93dc6f21c624967c43915dc5a9d68d8c $
 
 EAPI="5"
 
@@ -16,7 +16,7 @@ S="${WORKDIR}/${MY_PF}"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm ~mips ppc ppc64 ~sparc x86 ~ppc-macos"
+KEYWORDS="amd64 arm ~mips ppc ppc64 sparc x86 ~ppc-macos"
 IUSE="-bufferevents doc libressl scrypt seccomp selinux stats systemd tor-hardening transparent-proxy test web"
 
 DEPEND="
