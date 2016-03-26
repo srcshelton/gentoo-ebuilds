@@ -1,12 +1,12 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a5af5ff40e9894f025d7ec9cb8f24fc8dfc0f2e2 $
+# $Id: 6b9b1ffaa8655a5f69c8bf9854d91a9c818d1367 $
 
 EAPI=5
 
 inherit eutils autotools flag-o-matic versionator depend.apache apache-module db-use libtool systemd
 
-KEYWORDS="alpha amd64 ~arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
 function php_get_uri ()
 {
