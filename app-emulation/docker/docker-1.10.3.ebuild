@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4cb61f602070297f47dcfefe0f5dce021a55b336 $
+# $Id: 8ab8d7328819a765829e4b7a45d37417bbfa9476 $
 
 EAPI=5
 
@@ -297,3 +297,4 @@ pkg_postinst() {
 	elog "  usermod -aG docker youruser"
 	elog ""
 }
+# vi: set diffopt=filler,iwhite:
