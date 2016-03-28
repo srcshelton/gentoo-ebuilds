@@ -142,7 +142,7 @@ src_configure() {
 	# mumbo jumbo.
 	if [[ ${CHOST} == *-linux-gnu || ${CHOST} == *-solaris* ]] || use userland_GNU ; then
 		# we hopefully use a GNU binutils linker in this case
-		append-ldflags -Wl,--default-symver
+		[[ ${CC} == *clang* ]] || append-ldflags -Wl,--default-symver
 	fi
 
 	tc-export CC CXX # would use CC=xlc_r on aix if not set
