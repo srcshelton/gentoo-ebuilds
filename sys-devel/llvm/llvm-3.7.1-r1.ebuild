@@ -180,7 +180,7 @@ src_prepare() {
 
 		eapply "${FILESDIR}"/clang-3.6-gentoo-install.patch
 
-		eapply "${FILESDIR}"/clang-3.4-darwin_prefix-include-paths.patch
+		eapply -p0 "${FILESDIR}"/clang-3.7-darwin_prefix-include-paths.patch
 		eprefixify tools/clang/lib/Frontend/InitHeaderSearch.cpp
 
 		sed -i -e "s^@EPREFIX@^${EPREFIX}^" \
