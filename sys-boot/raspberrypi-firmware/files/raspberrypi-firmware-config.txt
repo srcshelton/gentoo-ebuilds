@@ -89,7 +89,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit a192a05bc8ca597249e5a36875ce382c572ddc97.
+# commit 7f536a27cc74648183ee2e67371ac3db7b7dadd6.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -111,6 +111,7 @@ disable_audio_dither=1
 #device_tree_param=sd_pio_limit=1
 #device_tree_param=sd_debug=off
 #device_tree_param=uart0=on
+#device_tree_param=uart1=? # default varies
 #device_tree_param=watchdog=off
 #device_tree_param=act_led_trigger=mmc # value 'heartbeat' gives a load-monitor
 #device_tree_param=act_led_activelow=off
@@ -124,6 +125,7 @@ disable_audio_dither=1
 [pi3]
 #device_tree_overlay=pi3-disable-bt
 #device_tree_overlay=pi3-miniuart-bt
+#device_tree_overlay=pi3-act-led,activelow=off,gpio=47
 [all]
 
 #device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
@@ -192,6 +194,7 @@ disable_audio_dither=1
 # RTC:
 # i2c-rtc supports ds1307, ds3231, mcp7941x, pcf2127, pcf8523, and pcf8563.
 #device_tree_overlay=i2c-rtc,ds1307
+#device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
 # Pulse-per-second:
 #device_tree_overlay=pps-gpio,gpiopin=18
@@ -223,7 +226,7 @@ disable_audio_dither=1
 #device_tree_overlay=pitft28-capacitive,speed=?,rotate=0,fps=?,debug=[0-7],touch-sizex=240,touch-sizey=320 # ,touch-invx,touch-invy,touch-swapxy
 #device_tree_overlay=pitft28-resistive,speed=?,rotate=0,fps=?,debug=[0-7]
 #device_tree_overlay=rpi-backlight
-#device_tree_overlay=rpi-display,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
+#device_tree_overlay=rpi-display,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,swapxy
 #device_tree_overlay=rpi-ft5406
 #device_tree_overlay=tinylcd35,speed=?,rotate=0,fps=?,debug=[0-7],touchgpio=?,xohms=? # ,touch,rtc-pcf,rtc-ds,keypad
 #device_tree_overlay=vga666 # Uses GPIOs 2-21!
