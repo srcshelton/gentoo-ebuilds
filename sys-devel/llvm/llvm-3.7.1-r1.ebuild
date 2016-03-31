@@ -226,7 +226,7 @@ src_prepare() {
 
 		# Fix build with ncurses[tinfo], #560474
 		# http://llvm.org/viewvc/llvm-project?view=revision&revision=247842
-		eapply "${FILESDIR}"/cmake/${PN}-3.7.0-lldb_tinfo.patch
+		eapply -p0 "${FILESDIR}"/cmake/${PN}-3.7.0-lldb_tinfo.patch
 	fi
 
 	# User patches
