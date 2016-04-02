@@ -35,10 +35,12 @@
 #decode_WVC1=0x12345678[,...]
 
 
+[all]
+
+
 #
 # Firmware configuration options
 #
-[all]
 
 # The _cd (cut-down) firmware files contain the minimal firmware required to
 # operate the BCM22708/BCM2709 SoC, and require only 16MB of dedicated GPU
@@ -63,6 +65,13 @@
 # Prevent the DSI-connected Raspberry Pi Display from pre-empting HDMI, if
 # present.
 #display_default_lcd=0
+
+# Enable DSI display auto-detection on original Model A and Model B RPi1s,
+# after having read the wiring requirements at
+# https://www.raspberrypi.org/documentation/hardware/display/README.md
+[pi1]
+#ignore_lcd=0
+[all]
 
 # Allow 1.2mA current-draw in total between over all four of the Raspberry Pi
 # Model B+ and Raspberry Pi Model 2 USB ports, up from 600mA.
@@ -249,6 +258,10 @@ disable_audio_dither=1
 # Disable the dynamic adjustment of RAM refresh rate every 500ms
 # A higher refresh rate is needed at higher temperatures...
 #disable_pvt=0
+# As of February 2016, if sdram_freq>450 on RPi2, then disable_pvt=1 and
+# over_voltage_sdram_p=2 are set automatically. over_voltage_sdram_p may need
+# to be increased further for sdram_freq>500.
+# See https://www.raspberrypi.org/forums/viewtopic.php?f=29&t=6201&start=1019
 
 # GPU/CPU default memory split, minimum 16MB defulting to 64MB.
 # Maximum is 192MB for 256MB machines, 448MB for 512MB machines, and 944 for
@@ -397,6 +410,9 @@ kernel=kernel/kernel7.img
 # Disable CEC entirely
 #hdmi_ignore_cec=1
 
+# Set the CEC name of the device, defaulting to "Raspberry Pi"
+#cec_osd_name=
+
 # Pretends all audio formats are supported by display, allowing passthrough of
 # DTS/AC3 even when not reported as supported.
 #hdmi_force_edid_audio=1
@@ -408,10 +424,18 @@ kernel=kernel/kernel7.img
 # Pretends all CEA modes support 3D.
 #hdmi_force_edid_3d=1
 
+# Undocumented option to turn off displays after ~10 minutes of inactivity
+# (rather than simply blanking the display but keeping it powered).
+# N.B.: Some applications (such as omxplayer) don't prevent blanking, so this
+#       is off my default.
+#       See https://github.com/raspberrypi/linux/issues/487
+#hdmi_blanking=1
+
 # Uncomment to increase signal to HDMI, if you have interference, blanking, or
-# no display
-# Values 0-7, default 0.  4 can be used if HDMI interference is seen
-#config_hdmi_boost=4
+# no display (possibly due to lengthy HDMI cables).
+# Values 0-11, default 2 for RPi1 Models A & B, 5 for RPi1 Model B+ and later.
+# Try the value below if HDMI signal issues are seen...
+#config_hdmi_boost=7
 
 # Force pixel encoding mode - should come from EDID by default
 # 0 - Default (limited for CEA, full for DMT)
@@ -520,7 +544,7 @@ kernel=kernel/kernel7.img
 [all]
 
 [pi1]
-# GPU core (and L2 cache prior to RPi2) frequency (MHz).
+# GPU core (and L2 cache) frequency (MHz).
 #core_freq=250
 
 # GPU Hardware video block frequency (MHz).
@@ -536,7 +560,7 @@ kernel=kernel/kernel7.img
 # together
 #gpu_freq=250
 [pi2]
-# GPU core (and L2 cache prior to RPi2) frequency (MHz).
+# GPU core frequency (MHz).
 #core_freq=250
 
 # GPU Hardware video block frequency (MHz).
@@ -552,30 +576,29 @@ kernel=kernel/kernel7.img
 # together
 #gpu_freq=250
 [pi3]
-# GPU core (and L2 cache prior to RPi2) frequency (MHz).
+# GPU core frequency (MHz).
 #core_freq=400
 
 # GPU Hardware video block frequency (MHz).
-#h264_freq=400
+#h264_freq=250
 
 # GPU Image sensor pipeline frequency (MHz).
 #isp_freq=400
 
 # GPU 3D block frequency (MHz).
-#v3d_freq=400
-
-# gpu_freq sets core_freq, h264_freq, isp_freq, and v3d_freq frequencies
-# together
-#gpu_freq=400
+#v3d_freq=300
 [all]
 
 # SDRAM frequency (MHz).
 [pi1]
 #sdram_freq=400
+#sdram_schmoo=0x00000000
 [pi2]
 #sdram_freq=450
+#sdram_schmoo=0x00000000
 [pi3]
 #sdram_freq=?
+#sdram_schmoo=0x00000000
 [all]
 
 # Minimum values used for dynamic clocking.
@@ -592,6 +615,8 @@ kernel=kernel/kernel7.img
 #gpu_freq_min=250
 #sdram_freq_min=450
 #over_voltage_min=0
+# See https://www.raspberrypi.org/forums/viewtopic.php?f=29&t=6201&start=1016
+#sdram_schmoo=0x02000020
 [pi3]
 #arm_freq_min=1200
 #core_freq_min=400
@@ -645,6 +670,8 @@ kernel=kernel/kernel7.img
 # Overheat protection. Sets clocks and voltages to default when the SoC reaches
 # this Celsius value. Setting this higher than 85 voids warranty.
 #temp_limit=85
+# N.B.: Can actually only be lowered...
+# See https://www.raspberrypi.org/forums/viewtopic.php?f=29&t=6201&start=1110
 
 # Disables SMPS current limit protection when set to "0x5A000020". Can help if
 # you are currently hitting a reboot failure when overclocking too high.
@@ -683,7 +710,17 @@ kernel=kernel/kernel7.img
 #over_voltage_min=0
 #over_voltage=4
 [pi3]
-#???
+# RPi3 perportedly-working overclocking values:
+#arm_freq=1275
+#core_freq=500
+#sdram_schmoo=0x02000020
+#over_voltage_sdram_p=6
+#over_voltage_sdram_i=4
+#over_voltage_sdram_c=4
+#sdram_freq=575
+#v3d_freq=500
+#h264_freq=333
+#over_voltage=4
 [all]
 #temp_limit=80 # Will throttle to default clock speed if hit
 #initial_turbo=60 # Does not affect warranty, speeds up boot
