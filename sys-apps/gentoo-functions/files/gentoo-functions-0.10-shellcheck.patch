@@ -1,0 +1,203 @@
+--- functions.sh.dist	2016-04-05 00:22:29.183498427 +0100
++++ functions.sh	2016-04-05 01:24:01.519950476 +0100
+@@ -1,3 +1,4 @@
++# shellcheck shell=sh disable=2039
+ # Copyright 1999-2014 Gentoo Foundation
+ # Distributed under the terms of the GNU General Public License v2
+ 
+@@ -6,6 +7,7 @@
+ # not use bashisms.
+ #
+ 
++# shellcheck disable=SC2034
+ RC_GOT_FUNCTIONS="yes"
+ 
+ #
+@@ -23,6 +25,7 @@
+ #
+ #    increase the indent used for e-commands.
+ #
++# shellcheck disable=SC2120
+ eindent()
+ {
+ 	local i="$1"
+@@ -33,6 +36,7 @@
+ #
+ #    decrease the indent used for e-commands.
+ #
++# shellcheck disable=SC2120
+ eoutdent()
+ {
+ 	local i="$1"
+@@ -55,7 +59,7 @@
+ 	esac
+ 
+ 	local value=
+-	eval value=\$${1}
++	eval value="\$${1}"
+ 	case "$value" in
+ 		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1) return 0;;
+ 		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0) return 1;;
+@@ -95,7 +99,7 @@
+ 	if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+ 		printf "\n"
+ 	fi
+-	printf " ${GOOD}*${NORMAL} ${RC_INDENTATION}$*"
++	printf ' %b*%b %s%s' "${GOOD}" "${NORMAL}" "${RC_INDENTATION}" "${*}"
+ 	LAST_E_CMD="einfon"
+ 	return 0
+ }
+@@ -121,7 +125,7 @@
+ 		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+ 			printf "\n" >&2
+ 		fi
+-		printf " ${WARN}*${NORMAL} ${RC_INDENTATION}$*" >&2
++		printf ' %b*%b %s%s' "${WARN}" "${NORMAL}" "${RC_INDENTATION}" "${*}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+@@ -143,7 +147,7 @@
+ 		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+ 			printf "\n" >&2
+ 		fi
+-		printf " ${WARN}*${NORMAL} ${RC_INDENTATION}$*\n" >&2
++		printf ' %b*%b %s%b\n' "${WARN}" "${NORMAL}" "${RC_INDENTATION}" "${*}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+@@ -165,7 +169,7 @@
+ 		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+ 			printf "\n" >&2
+ 		fi
+-		printf " ${BAD}*${NORMAL} ${RC_INDENTATION}$*" >&2
++		printf ' %b*%b %s%s' "${BAD}" "${NORMAL}" "${RC_INDENTATION}" "${*}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+@@ -187,7 +191,7 @@
+ 		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+ 			printf "\n" >&2
+ 		fi
+-		printf " ${BAD}*${NORMAL} ${RC_INDENTATION}$*\n" >&2
++		printf ' %b*%b %s%b\n' "${BAD}" "${NORMAL}" "${RC_INDENTATION}" "${*}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+@@ -247,12 +251,13 @@
+ 	fi
+ 
+ 	if yesno "${RC_ENDCOL}"; then
+-		printf "${ENDCOL}  ${msg}\n"
++		printf '%b  %b\n' "${ENDCOL}" "${msg}"
+ 	else
+ 		[ "${LAST_E_CMD}" = ebegin ] || LAST_E_LEN=0
+ 		printf "%$(( COLS - LAST_E_LEN - 6 ))s%b\n" '' "${msg}"
+ 	fi
+ 
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+@@ -268,6 +273,7 @@
+ 	_eend "${retval}" eerror "$*"
+ 
+ 	LAST_E_CMD="eend"
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+@@ -283,6 +289,7 @@
+ 	_eend "${retval}" ewarn "$*"
+ 
+ 	LAST_E_CMD="ewend"
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+@@ -316,22 +323,26 @@
+ veend()
+ {
+ 	yesno "${EINFO_VERBOSE}" && { eend "$@"; return $?; }
++	# shellcheck disable=SC2086
+ 	return ${1:-0}
+ }
+ 
+ vewend()
+ {
+ 	yesno "${EINFO_VERBOSE}" && { ewend "$@"; return $?; }
++	# shellcheck disable=SC2086
+ 	return ${1:-0}
+ }
+ 
+ veindent()
+ {
++	# shellcheck disable=SC2119
+ 	yesno "${EINFO_VERBOSE}" && eindent
+ }
+ 
+ veoutdent()
+ {
++	# shellcheck disable=SC2119
+ 	yesno "${EINFO_VERBOSE}" && eoutdent
+ }
+ 
+@@ -345,7 +356,7 @@
+ 	elif command -v portageq > /dev/null 2>&1; then
+ 		CONF_LIBDIR="$(portageq envvar CONF_LIBDIR)"
+ 	fi
+-	printf "${CONF_LIBDIR:=lib}\n"
++	printf '%s\n' "${CONF_LIBDIR:=lib}"
+ }
+ 
+ #
+@@ -359,7 +370,7 @@
+ 
+ 	[ ! -r /proc/cmdline ] && return 1
+ 
+-	read copts < /proc/cmdline
++	read -r copts < /proc/cmdline
+ 	for copt in $copts ; do
+ 		if [ "${copt%=*}" = "gentoo" ] ; then
+ 			params=$(gawk -v PARAMS="${copt##*=}" '
+@@ -379,6 +390,7 @@
+ 		fi
+ 	done
+ 
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+@@ -415,12 +427,13 @@
+ # Default values for e-message indentation and dots
+ RC_INDENTATION=''
+ RC_DEFAULT_INDENT=2
++# shellcheck disable=SC2034
+ RC_DOT_PATTERN=''
+ 
+ # Cache the CONSOLETYPE - this is important as backgrounded shells don't
+ # have a TTY. rc unsets it at the end of running so it shouldn't hang
+ # around
+-if [ -z "${CONSOLETYPE}" ] ; then
++if [ -z "${CONSOLETYPE:-}" ] ; then
+ 	CONSOLETYPE="$(consoletype stdout 2>/dev/null )"; export CONSOLETYPE
+ fi
+ if [ "${CONSOLETYPE}" = "serial" ] ; then
+@@ -439,8 +452,9 @@
+ 
+ # Setup COLS and ENDCOL so eend can line up the [ ok ]
+ COLS="${COLUMNS:-0}"            # bash's internal COLUMNS variable
++# shellcheck disable=SC2046
+ [ "$COLS" -eq 0 ] && \
+-        COLS="$(set -- $(stty size 2>/dev/null) ; printf "$2\n")"
++        COLS="$(set -- $(stty size 2>/dev/null) ; printf '%s\n' "$2")"
+ [ -z "$COLS" ] && COLS=80
+ [ "$COLS" -gt 0 ] || COLS=80	# width of [ ok ] == 7
+ 
+@@ -464,6 +478,7 @@
+ 	GOOD=$(printf '\033[32;01m')
+ 	WARN=$(printf '\033[33;01m')
+ 	BAD=$(printf '\033[31;01m')
++	# shellcheck disable=SC2034
+ 	HILITE=$(printf '\033[36;01m')
+ 	BRACKET=$(printf '\033[34;01m')
+ 	NORMAL=$(printf '\033[0m')
