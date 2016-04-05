@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 91d4f7de188f535e9362135d8b415871171eb218 $
+# $Id: afcdbd83e9d0978cf3dd2b2ac844ea54e54fd4ef $
 
 EAPI=5
 inherit autotools eutils flag-o-matic systemd user
@@ -14,7 +14,7 @@ SRC_URI="http://www.memcached.org/files/${MY_P}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~sparc-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~sparc-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 IUSE="test slabs-reassign debug sasl selinux systemd" # hugetlbfs later
 
 RDEPEND=">=dev-libs/libevent-1.4
