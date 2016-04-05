@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a1ea7610becc2fc350a991a8188244b1c2a4299f $
+# $Id: 3a1d00193947cceedd1ae432e4d6f3a5305ef9d4 $
 # $Header: /var/cvsroot/gentoo-x86/app-arch/unzip/unzip-6.0-r3.ebuild,v 1.10 2014/01/18 05:01:26 vapier Exp $
 
 EAPI="2"
@@ -56,6 +56,7 @@ src_compile() {
 		i?86*-dragonfly*)    TARGET=freebsd ;; # mislabelled bsd with x86 asm
 		*bsd* | *dragonfly*) TARGET=bsd ;;
 		*-darwin*)           TARGET=macosx; append-cppflags "-DNO_LCHMOD" ;;
+		*-cygwin*)           TARGET=cygwin ;;
 		*-solaris*)          TARGET=generic ;;
 		mips-sgi-irix*)      TARGET=sgi; append-cppflags "-DNO_LCHMOD" ;;
 		*-interix3*)         TARGET=gcc; append-flags "-DUNIX"; append-cppflags "-DNO_LCHMOD" ;;
