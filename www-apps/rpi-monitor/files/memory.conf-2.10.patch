@@ -20,7 +20,7 @@
 +#static.11.postprocess=$1/1024
 +
 +dynamic.9.name=memory_total
-+dynamic.9.source=/opt/vc/bin/vcgencmd get_mem arm
++dynamic.9.source=/usr/sbin/vcgencmd get_mem arm
 +dynamic.9.regexp=^.*=(\d+)M$
 +dynamic.9.postprocess=
  dynamic.9.rrd=GAUGE
@@ -31,7 +31,7 @@
 -dynamic.15.postprocess=$1/1024
 -dynamic.15.rrd=GAUGE
 +dynamic.10.name=memory_gpu
-+dynamic.10.source=/opt/vc/bin/vcgencmd get_mem gpu
++dynamic.10.source=/usr/sbin/vcgencmd get_mem gpu
 +dynamic.10.regexp=^.*=(\d+)M$
 +dynamic.10.postprocess=
 +dynamic.10.rrd=GAUGE
@@ -43,14 +43,14 @@
 +dynamic.11.rrd=GAUGE
 +
 +dynamic.12.name=memory_used
-+dynamic.12.source=/proc/meminfo
-+dynamic.12.regexp=MemFree:\s+(\d+)
-+dynamic.12.postprocess=$this->{'dynamic'}->{'memory_total'} - ($1/1024)
++dynamic.12.source=/usr/bin/free -k
++dynamic.12.regexp=^Mem:\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s*$
++dynamic.12.postprocess=$1/1024
 +dynamic.12.rrd=GAUGE
 + 
 +dynamic.13.name=memory_available
-+dynamic.13.source=/usr/bin/free -mk
-+dynamic.13.regexp=^-\/\+ buffers\/cache:\s+\d+\s+(\d+)
++dynamic.13.source=/proc/meminfo
++dynamic.13.regexp=MemAvailable:\s+(\d+)
 +dynamic.13.postprocess=$1/1024
 +dynamic.13.rrd=GAUGE
 +

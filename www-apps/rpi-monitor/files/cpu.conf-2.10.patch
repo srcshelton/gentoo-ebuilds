@@ -30,7 +30,7 @@
 +dynamic.2.rrd=GAUGE
 +
 +dynamic.3.name=cpu_voltage
-+dynamic.3.source=/opt/vc/bin/vcgencmd measure_volts core
++dynamic.3.source=/usr/sbin/vcgencmd measure_volts core
 +dynamic.3.regexp=(\d+.\d+)V
  dynamic.3.postprocess=
  dynamic.3.rrd=GAUGE

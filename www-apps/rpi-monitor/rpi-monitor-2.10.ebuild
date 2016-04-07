@@ -27,7 +27,8 @@ RDEPEND="
 	net-analyzer/rrdtool[perl]
 	|| ( ( virtual/perl-JSON-PP dev-perl/JSON-Any ) dev-perl/JSON )
 	dev-perl/File-Which
-	dev-perl/IPC-ShareLite"
+	dev-perl/IPC-ShareLite
+	media-libs/raspberrypi-userland"
 
 if use httpd; then
 	inherit webapp
@@ -38,9 +39,18 @@ fi
 S="${WORKDIR}/RPi-Monitor-${PV}"
 
 src_prepare() {
-	cp rpimonitor/template/raspbian.conf rpimonitor/template/gentoo.conf
 	local patch
-	for patch in "${FILESDIR}"/*-${PV}.patch; do
+
+	cp rpimonitor/template/raspbian.conf rpimonitor/template/gentoo.conf
+
+	mkdir "${WORKDIR}"/patches
+	cp "${FILESDIR}"/*-${PV}.patch "${WORKDIR}"/patches/
+	if has_version "media-libs/raspberrypi-userland-9999:0=" || has_version "~media-libs/raspberrypi-userland-9999:0/0="; then
+		sed -i \
+			-e '/vcgencmd/s|/usr/sbin/|/usr/bin/|' \
+			"${WORKDIR}"/patches/*.patch
+	fi
+	for patch in "${WORKDIR}"/patches/*.patch; do
 		epatch "${patch}" || die "epatch failed"
 	done
 
@@ -49,9 +59,9 @@ src_prepare() {
 		-e "s|<b>Version</b>: {DEVELOPMENT} |<b>Version</b>: ${PV} |" \
 		   rpimonitor/web/js/rpimonitor.js || die "Version correction failed"
 
-	sed -i \
-		-e 's|<code>/etc/rpimonitor/data.conf</code>|<code>/etc/rpimonitor/data.conf</code>|' \
-		   rpimonitor/web/addons/about/about.html || die "path correction failed"
+	#sed -i \
+	#	-e 's|<code>/etc/rpimonitor/data.conf</code>|<code>/etc/rpimonitor/data.conf</code>|' \
+	#	   rpimonitor/web/addons/about/about.html || die "path correction failed"
 
 	cp "${S}"/../RPi-Monitor-deb-"${PV}"/conf2man.pl .
 	cp "${S}"/../RPi-Monitor-deb-"${PV}"/help2man.pl .
@@ -120,20 +130,20 @@ src_install() {
 	else
 		INSTROOT="${EROOT}/usr/share"
 	
-		insinto /usr/share/rpi-monitor
+		insinto /usr/share/"${PN}"
 		doins -r rpimonitor/web/*
 		diropts -m 0775 -o nobody -g nogroup
 
-		dodir /var/lib/rpi-monitor/custom/net_traffic
-		dodir /var/lib/rpi-monitor/stat
+		dodir /var/lib/"${PN}"/custom/net_traffic
+		dodir /var/lib/"${PN}"/stat
 
-		dosym ../../../var/lib/rpi-monitor/stat /usr/share/rpi-monitor/stat
-		dosym ../../../var/lib/rpi-monitor/custom /usr/share/rpi-monitor/custom
+		dosym ../../../var/lib/"${PN}"/stat /usr/share/"${PN}"/stat
+		dosym ../../../var/lib/"${PN}"/custom /usr/share/"${PN}"/custom
 	fi
 
 	sed -i \
-		-e "s|^#daemon.webroot=/usr/share/rpimonitor/web$|daemon.webroot=${INSTROOT/\/\///}/rpi-monitor|" \
-		-e "s|^#daemon.datastore=/var/lib/rpimonitor$|daemon.datastore=/var/lib/rpi-monitor|" \
+		-e "s|^#daemon.webroot=/usr/share/rpimonitor/web$|daemon.webroot=${INSTROOT/\/\///}/${PN}|" \
+		-e "s|^#daemon.datastore=/var/lib/rpimonitor$|daemon.datastore=/var/lib/${PN}|" \
 		-e "s|^#daemon.user=pi$|daemon.user=nobody|" \
 		-e "s|^#daemon.group=pi$|daemon.group=nogroup|" \
 		rpimonitor/daemon.conf
@@ -149,7 +159,7 @@ pkg_postinst() {
 	ewarn "If graphs display incorrect data or values are shown as 'NaN' in the"
 	ewarn "web-interface, especially after configuration changes, try stopping"
 	ewarn "RPi-Monitor and deleting the affected .rrd files from"
-	ewarn "/var/lib/rpi-monitor before restarting RPi-Monitor - which should clear"
+	ewarn "/var/lib/${PN} before restarting RPi-Monitor - which should clear"
 	ewarn "any problems caused by changes in format."
 	echo
 	ewarn "In release 2.10, the single configuration file 'default.conf' has been"
@@ -178,7 +188,7 @@ pkg_postinst() {
 			INSTROOT="${EROOT}/var/www/localhost/htdocs"
 		fi
 	else
-		INSTROOT="${EROOT}/var/lib/rpi-monitor"
+		INSTROOT="${EROOT}/var/lib/${PN}"
 	fi
 	einfo "rrdtool tune ${INSTROOT//\/\///}/stat/net_received.rrd -a net_received:0"
 	einfo "rrdtool tune ${INSTROOT//\/\///}/stat/net_send.rrd -i net_send:0"

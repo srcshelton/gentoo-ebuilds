@@ -41,8 +41,8 @@
 +# Set to '1' to prevent rpimonitor from starting it's built-in
 +# web-server
 +#
-+# Note: A symbolic link from /var/lib/rpimonitor/stat to
-+#       /usr/share/rpimonitor/stat may be required
++# Note: A symbolic link from /var/lib/rpi-monitor/stat to
++#       /usr/share/rpi-monitor/stat may be required
 +#daemon.noserver=0
 +
 +# Internal web-server bind address

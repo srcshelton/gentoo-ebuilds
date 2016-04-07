@@ -25,14 +25,18 @@ start() {
 
 stop() {
 	local pid pids
-	declare -i pid
+	declare -i pid rc=1
 
 	ebegin "Stopping RPi Monitor"
 	if [ -r "${PIDFILE}" ]; then
 		pids="$( cat "${PIDFILE}" )"
+
+		start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile "${PIDFILE}" --exec "${PERL}"
+		rc=${?}
+
 		if [ -n "${pids}" ]; then
 			for pid in ${pids}; do
-				if ps -o args= ${pid} | grep -q "${PIDFILE}$"; then
+				if ps -o args= ${pid} | grep -qw "${PIDFILE}"; then
 					eindent
 					einfo "Sending HUP signal to child ${pid} ..."
 					kill -HUP ${pid}
@@ -41,6 +45,5 @@ stop() {
 			done
 		fi
 	fi
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile "${PIDFILE}" --exec "${PERL}"
-	eend ${?} "Unable to stop RPi Monitor"
+	eend ${rc} "Unable to stop RPi Monitor"
 }
