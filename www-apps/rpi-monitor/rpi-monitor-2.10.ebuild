@@ -1,7 +1,7 @@
 # Copyright (c) 2013 Stuart Shelton <stuart@shelton.me>
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="4"
+EAPI="5"
 
 inherit eutils
 
@@ -45,7 +45,7 @@ src_prepare() {
 
 	mkdir "${WORKDIR}"/patches
 	cp "${FILESDIR}"/*-${PV}.patch "${WORKDIR}"/patches/
-	if has_version "media-libs/raspberrypi-userland-9999:0=" || has_version "~media-libs/raspberrypi-userland-9999:0/0="; then
+	if has_version "=media-libs/raspberrypi-userland-9999:0=" || has_version "~media-libs/raspberrypi-userland-9999:0/0="; then
 		sed -i \
 			-e '/vcgencmd/s|/usr/sbin/|/usr/bin/|' \
 			"${WORKDIR}"/patches/*.patch
