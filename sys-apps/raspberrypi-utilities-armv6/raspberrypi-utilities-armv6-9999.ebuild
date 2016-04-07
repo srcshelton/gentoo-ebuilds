@@ -9,8 +9,8 @@ HOMEPAGE="https://github.com/raspberrypi/firmware"
 SRC_URI=""
 
 LICENSE="Broadcom"
-SLOT="0"
-KEYWORDS="arm -*"
+SLOT="0/0"
+KEYWORDS="~aarch64 arm -*"
 IUSE=""
 
 DEPEND="media-libs/raspberrypi-userland"
@@ -21,7 +21,7 @@ EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains only
 						  # ~200MB of data - the rest is (literally) history :(
 
 RESTRICT="strip"
-QA_PREBUILT='/usr/bin/*'
+QA_PREBUILT=""
 
 src_install() {
 	local bin name
