@@ -10,8 +10,8 @@ HOMEPAGE="https://github.com/raspberrypi/userland"
 SRC_URI=""
 
 LICENSE="BSD"
-SLOT="0"
-KEYWORDS="arm -*"
+SLOT="0/0"
+KEYWORDS="~aarch64 arm -*"
 IUSE="examples"
 
 DEPEND=""
@@ -24,8 +24,16 @@ pkg_setup() {
 }
 
 src_prepare() {
-	epatch "${FILESDIR}"/${P}-gentoo.patch
+	epatch "${FILESDIR}"/${P}-gnu_source.patch
 	epatch "${FILESDIR}"/${P}-pid.patch
+}
+
+src_configure() {
+	local -a mycmakeargs
+	
+	mycmakeargs=( -DVMCS_INSTALL_PREFIX="/usr" )
+
+	cmake-utils_src_configure
 }
 
 src_install() {
