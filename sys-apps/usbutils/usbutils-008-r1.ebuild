@@ -14,8 +14,11 @@ SRC_URI="mirror://kernel/linux/utils/usb/${PN}/${P}.tar.xz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
-IUSE="-libudev python zlib"
-REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
+IUSE="experimental -libudev python zlib"
+REQUIRED_USE="
+	python? ( ${PYTHON_REQUIRED_USE} )
+	libudev? ( !zlib )
+"
 
 CDEPEND="virtual/libusb:1=
 	libudev? ( virtual/libudev:= )
@@ -34,7 +37,11 @@ if ! use libudev; then
 		dev-vcs/git"
 
 	EGIT_REPO_URI="git://github.com/srcshelton/${PN}.git"
-	EGIT_COMMIT="tags/v${PV}-nohwdb"
+	if use experimental; then
+		EGIT_COMMIT="heads/nohwdb"
+	else
+		EGIT_COMMIT="tags/v${PV}-nohwdb"
+	fi
 fi
 
 pkg_setup() {
@@ -50,7 +57,7 @@ src_prepare() {
 	if use libudev; then
 		epatch "${FILESDIR}"/${PN}-006-stdint.patch
 	else
-		epatch "${FILESDIR}"/${P}-stdint.patch
+		use experimental || epatch "${FILESDIR}"/${P}-stdint.patch
 	fi
 	sed -i -e '/^usbids/s:/usr/share:/usr/share/misc:' lsusb.py || die
 	use python && python_fix_shebang lsusb.py
