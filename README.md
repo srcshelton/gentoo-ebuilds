@@ -208,6 +208,8 @@ A similar configuration file could be added for all packages which fail to compi
 
 # Modified ebuilds
 
+* app-crypt/gnupg
+    * Fix clang compilation errors
 * app-emulation/lxc
     * Don't require an upgrade to Python 3.x unless building against Python
 * app-misc/ca-certificates
