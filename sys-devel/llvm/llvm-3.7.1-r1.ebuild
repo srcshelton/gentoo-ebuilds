@@ -284,6 +284,9 @@ multilib_src_configure() {
 	)
 
 	if use clang; then
+		# clang produces a long list of QA strict-aliasing warnings...
+		append-cflags -Wno-strict-aliasing
+
 		mycmakeargs+=(
 			-DCMAKE_DISABLE_FIND_PACKAGE_LibXml2=$(usex !xml)
 			# libgomp support fails to find headers without explicit -I
