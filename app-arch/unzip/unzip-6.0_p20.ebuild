@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0c9409b9844a24539e36d8d4a34fe34299344dbc $
+# $Id: 1e03f8577e199ace70b997f603f1e5c06c65cf77 $
 # $Header: /var/cvsroot/gentoo-x86/app-arch/unzip/unzip-6.0-r3.ebuild,v 1.10 2014/01/18 05:01:26 vapier Exp $
 
 EAPI="5"
@@ -18,7 +18,7 @@ SRC_URI="mirror://sourceforge/infozip/${MY_P}.tar.gz
 
 LICENSE="Info-ZIP"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="bzip2 natspec unicode"
 
@@ -61,8 +61,7 @@ src_prepare() {
 	rm -r bzip2 || die
 }
 
-src_compile() {
-	local TARGET
+src_configure() {
 	case ${CHOST} in
 		i?86*-*linux*)       TARGET="linux_asm" ;;
 		*linux*)             TARGET="linux_noasm" ;;
@@ -85,7 +84,9 @@ src_compile() {
 	use bzip2 && append-cppflags -DUSE_BZIP2
 	use unicode && append-cppflags -DUNICODE_SUPPORT -DUNICODE_WCHAR -DUTF8_MAYBE_NATIVE
 	append-cppflags -DLARGE_FILE_SUPPORT #281473
+}
 
+src_compile() {
 	ASFLAGS="${ASFLAGS} $(get_abi_var CFLAGS)" \
 		emake -f unix/Makefile ${TARGET} ||
 		die "emake failed"
