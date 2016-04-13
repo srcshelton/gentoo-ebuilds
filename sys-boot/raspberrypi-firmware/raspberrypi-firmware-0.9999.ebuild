@@ -126,7 +126,7 @@ src_install() {
 
 	# Install Device Tree overlays ...
 	insinto "${boot}"/overlays
-	doins boot/overlays/*.dtb
+	doins boot/overlays/*.dtbo
 
 	newdoc boot/overlays/README device-tree-overlays.txt
 

@@ -120,7 +120,7 @@ disable_audio_dither=1
 #device_tree_param=sd_pio_limit=1
 #device_tree_param=sd_debug=off
 #device_tree_param=uart0=on
-#device_tree_param=uart1=? # default varies
+#device_tree_param=uart1=off,txd1_pin=14,rxd1_pin=15 # default varies
 #device_tree_param=watchdog=off
 #device_tree_param=act_led_trigger=mmc # value 'heartbeat' gives a load-monitor
 #device_tree_param=act_led_activelow=off
@@ -597,7 +597,7 @@ kernel=kernel/kernel7.img
 #sdram_freq=450
 #sdram_schmoo=0x00000000
 [pi3]
-#sdram_freq=?
+#sdram_freq=450
 #sdram_schmoo=0x00000000
 [all]
 
@@ -621,7 +621,7 @@ kernel=kernel/kernel7.img
 #arm_freq_min=1200
 #core_freq_min=400
 #gpu_freq_min=400
-#sdram_freq_min=?
+#sdram_freq_min=450
 #over_voltage_min=0
 [all]
 
@@ -705,12 +705,14 @@ kernel=kernel/kernel7.img
 #core_freq=525
 #sdram_freq_min=400
 #sdram_freq=500
-#gpu_freq=250
+# See https://www.raspberrypi.org/forums/viewtopic.php?f=29&t=6201&start=1016
+#sdram_schmoo=0x02000020
+#gpu_freq_min=250
 #gpu_freq=350
 #over_voltage_min=0
 #over_voltage=4
 [pi3]
-# RPi3 perportedly-working overclocking values:
+# RPi3 purportedly-working overclocking values:
 #arm_freq=1275
 #core_freq=500
 #sdram_schmoo=0x02000020
