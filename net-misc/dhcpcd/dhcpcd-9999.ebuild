@@ -1,8 +1,8 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 3db5ed559d334ae53dc216adf915dd5d494dd2f6 $
+# $Id: 0b616f0955c541a5483be56bbea4410925a020ac $
 
-EAPI=5
+EAPI=6
 
 if [[ ${PV} == "9999" ]]; then
 	FOSSIL_URI="http://roy.marples.name/projects/dhcpcd"
