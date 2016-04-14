@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 69582b652c2149909c376854ea1c2770e1479e3f $
+# $Id: d1c19ff55262bd89ffc7b758dec92fd52d0f97de $
 
 # @ECLASS: multilib.eclass
 # @MAINTAINER:
@@ -238,11 +238,12 @@ get_libname() {
 	local libname
 	local ver=$1
 	case ${CHOST} in
-		*-cygwin|mingw*|*-mingw*) libname="dll";;
-		*-darwin*)                libname="dylib";;
-		*-mint*)                  libname="irrelevant";;
-		hppa*-hpux*)              libname="sl";;
-		*)                        libname="so";;
+		*-cygwin*)       libname="dll.a";; # import lib
+		mingw*|*-mingw*) libname="dll";;
+		*-darwin*)       libname="dylib";;
+		*-mint*)         libname="irrelevant";;
+		hppa*-hpux*)     libname="sl";;
+		*)               libname="so";;
 	esac
 
 	if [[ -z $* ]] ; then
@@ -250,6 +251,7 @@ get_libname() {
 	else
 		for ver in "$@" ; do
 			case ${CHOST} in
+				*-cygwin*) echo ".${libname}";;
 				*-darwin*) echo ".${ver}.${libname}";;
 				*-mint*)   echo ".${libname}";;
 				*)         echo ".${libname}.${ver}";;
