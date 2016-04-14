@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2a768329a5de67e5a49ee6f0fce40d3416e44cb8 $
+# $Id: ea4a91d804507082244cf247a3162d1924b09d56 $
 
 EAPI="4"
 
@@ -10,7 +10,7 @@ DESCRIPTION="GNU libc6 (also called glibc2) C library"
 HOMEPAGE="https://www.gnu.org/software/libc/libc.html"
 
 LICENSE="LGPL-2.1+ BSD HPND ISC inner-net rc PCRE"
-KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86"
 RESTRICT="strip" # strip ourself #46186
 EMULTILIB_PKG="true"
 
