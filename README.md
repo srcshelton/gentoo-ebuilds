@@ -293,6 +293,7 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 * net-misc/openntpd
 * net-misc/rsyncd
 * net-p2p/bitcoind
+* sys-apps/haveged
 * sys-apps/kmod
 * sys-apps/lm_sensors
 * sys-apps/smartmontools

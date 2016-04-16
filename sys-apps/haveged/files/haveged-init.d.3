@@ -1,0 +1,17 @@
+#!/sbin/runscript
+# Copyright 1999-2013 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Id: 7fbe1b6382b64ffd478e4c623200d1ce10dc29c7 $
+
+pidfile=/var/run/${SVCNAME}.pid
+
+command="/usr/sbin/${SVCNAME}"
+command_args="-r 0 ${HAVEGED_OPTS} -p ${pidfile}"
+
+depend() {
+	need localmount
+	use logger
+	provide entropy
+}
+
+# vim:ft=gentoo-init-d:
