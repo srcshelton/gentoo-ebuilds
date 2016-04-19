@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: af80b24aec58703aac3d62455ac3a8ff95bc3fea $
+# $Id: 6c958f69aa041f188857803dd5a59ef42783c630 $
 
 EAPI=5
 
@@ -38,6 +38,7 @@ DEPEND="${RDEPEND}
 	doc? (
 		app-text/linuxdoc-tools
 		app-text/texlive-core
+		dev-texlive/texlive-fontsrecommended
 		virtual/latex-base
 	)
 "
