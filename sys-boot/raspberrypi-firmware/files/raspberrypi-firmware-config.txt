@@ -98,7 +98,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 7f536a27cc74648183ee2e67371ac3db7b7dadd6.
+# commit 9628ed8ee809ace08e64beb58fddad5ebd8155f0.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -137,12 +137,34 @@ disable_audio_dither=1
 #device_tree_overlay=pi3-act-led,activelow=off,gpio=47
 [all]
 
+# USB driver - dwc-otg is default except for Pi Zero, which uses dwc2
+#device_tree_overlay=dwc-otg
+#
+# dwc2 supports modes 'host', 'peripheral', or 'otg'
+#device_tree_overlay=dwc2,dr_mode=host
+#device_tree_overlay=dwc2,dr_mode=peripheral
+#device_tree_overlay=dwc2,dr_mode=otg,g-rx-fifo-size=?,g-np-tx-fifo-size=?,g-tx-fifo-size=?
+
 #device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
 #device_tree_overlay=i2c0-bcm2708,sda0_pin=0,scl0_pin=1 # SDA0 pins 0, 28 (or 44); SCL0 pins 1, 29 (or 45).
 #device_tree_overlay=i2c1-bcm2708,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
-#device_tree_overlay=spi-bcm2708
-#device_tree_overlay=spi-bcm2835
-#device_tree_overlay=spi-dma
+
+# The following overlays have been removed:
+##device_tree_overlay=spi-bcm2708
+##device_tree_overlay=spi-bcm2835
+##device_tree_overlay=spi-dma
+
+#device_tree_overlay=spi-gpio35-39
+
+# spi1 is only available on devices with a 40-pin header:
+#device_tree_overlay=spi1-1cs,cs0_pin=18,cs0_spidev=okay
+#device_tree_overlay=spi1-2cs,cs0_pin=18,cs1_pin=17,cs0_spidev=okay,cs1_spidev=okay
+#device_tree_overlay=spi1-3cs,cs0_pin=18,cs1_pin=17,cs2_pin=16,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
+#
+# spi2 is only available on the Compute Module:
+#device_tree_overlay=spi2-1cs,cs0_pin=43,cs0_spidev=okay
+#device_tree_overlay=spi2-2cs,cs0_pin=43,cs1_pin=44,cs0_spidev=okay,cs1_spidev=okay
+#device_tree_overlay=spi2-3cs,cs0_pin=43,cs1_pin=44,cs2_pin=45,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
 
 # SD/MMC driver - choose only one
 #
@@ -175,7 +197,10 @@ disable_audio_dither=1
 #
 #device_tree_overlay=mmc,overclock_50=63
 #
+# N.B. dtoverlay=sdhost kills Wifi on RPi3!
 #device_tree_overlay=sdhost,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off
+#
+#device_tree_overlay=sdtweak,overlock_50=84,force_pio=off,pio_limit=1,debug=off
 #
 # enables SDIO via GPIOs 22-27
 #device_tree_overlay=sdio,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off,poll_once=on,bus_width=4
@@ -199,10 +224,13 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-sense
 #device_tree_overlay=at86rf233,interrupt=23,reset=24,sleep=25,speed=3000000,trim=15
 #device_tree_overlay=qca7000,int_pin=23,speed=12
+#device_tree_overlay=i2c-mux-pca9548a,addr=0x70
+#device_tree_overlay=i2c-pwm-pca9685a,addr=0x40
 
 # RTC:
-# i2c-rtc supports ds1307, ds3231, mcp7941x, pcf2127, pcf8523, and pcf8563.
+# i2c-rtc supports ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563.
 #device_tree_overlay=i2c-rtc,ds1307
+#device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?
 #device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
 # Pulse-per-second:
@@ -215,6 +243,9 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
 # Audio devices:
+#device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
+#device_tree_overlay=boomberry-dac # ,24db_digital_gain
+#device_tree_overlay=boomberry-digi
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain
@@ -227,6 +258,7 @@ disable_audio_dither=1
 
 # Touch Screens and Displays:
 #device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
+#device_tree_overlay=dpi24
 #device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=mz61581,speed=?,rotate=0,fps=?,txbuflen=32768,debug=[0-7],xohms=?
