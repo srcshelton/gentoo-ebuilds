@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a4aff3eb858e6256edc0e183a326d32298bf08b0 $
+# $Id: 559b74e5ad9b2e316693570554277cc4d244cb9c $
 
 EAPI=5
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev
@@ -25,6 +25,10 @@ RDEPEND=">=sys-apps/util-linux-2.16"
 RESTRICT="test"
 
 rundir="/dev/.mdadm"
+
+src_prepare() {
+	epatch "${FILESDIR}"/${PN}-3.4-sysmacros.patch #580188
+}
 
 mdadm_emake() {
 	local myconf=()
