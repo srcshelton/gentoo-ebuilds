@@ -1,5 +1,5 @@
 #!/bin/bash
-# $Id: iptables_init.sh,v 1.8 2014/04/15 13:45:08 nanard Exp $
+# $Id: iptables_init.sh,v 1.9 2016/02/09 09:37:44 nanard Exp $
 
 set -o pipefail
 
