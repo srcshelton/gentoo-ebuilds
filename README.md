@@ -93,7 +93,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-libs/udis86
     * Add `${EPREFIX}` to `docdir` configure option
 * dev-python/backports-ssl-match-hostname
-    * Change `${ED}` to `${D}` to double-prefix path usage
+    * Change `${ED}` to `${D}` to prevent double-prefix path usage QA error
 * dev-vcs/cvs
     * Allow CVS to build and tests to run on Darwin
 * dev-vcs/subversion
