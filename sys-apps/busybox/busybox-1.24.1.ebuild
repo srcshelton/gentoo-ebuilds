@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b614dec1974f9abe0ec75476ecf91563dbbce189 $
+# $Id: fdc957180d34e5f063ba9571e62d6e7342614538 $
 
 # See `man savedconfig.eclass` for info on how to use USE=savedconfig.
 
@@ -8,14 +8,14 @@ EAPI="4"
 inherit eutils flag-o-matic savedconfig toolchain-funcs multilib
 
 DESCRIPTION="Utilities for rescue and embedded systems"
-HOMEPAGE="http://www.busybox.net/"
+HOMEPAGE="https://www.busybox.net/"
 if [[ ${PV} == "9999" ]] ; then
 	MY_P=${PN}
 	EGIT_REPO_URI="git://busybox.net/busybox.git"
 	inherit git-2
 else
 	MY_P=${PN}-${PV/_/-}
-	SRC_URI="http://www.busybox.net/downloads/${MY_P}.tar.bz2"
+	SRC_URI="https://www.busybox.net/downloads/${MY_P}.tar.bz2"
 	KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
 fi
 
