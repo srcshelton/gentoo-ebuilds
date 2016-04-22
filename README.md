@@ -287,6 +287,7 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 * net-dialup/freeradius
 * net-dns/bind
 * net-firewall/conntrack-tools
+* net-fs/samba
 * net-misc/dhcpcd
 * net-misc/memcached
 * net-misc/minidlna
