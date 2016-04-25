@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 64fa40ce11b5308508522deaa52b00320f989e41 $
+# $Id: 3c389b1a93a7b9615cd8fab9add3e7f51b265394 $
 
 EAPI=5
 inherit prefix toolchain-funcs user
@@ -11,7 +11,7 @@ SRC_URI="http://humdi.net/vnstat/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm ~hppa ~ppc ~ppc64 ~sparc ~x86"
+KEYWORDS="amd64 arm hppa ~ppc ~ppc64 ~sparc ~x86"
 IUSE="gd selinux test"
 
 COMMON_DEPEND="
