@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: eabd8d83dbbc9d065b04c4633f30373d99c726cf $
+# $Id: 4b3fc942264da8dfff56a2dc8fbff32f9a6da7bc $
 
 EAPI=5
 
@@ -22,7 +22,7 @@ else
 fi
 inherit bash-completion-r1 linux-info multilib systemd udev user
 
-DESCRIPTION="Docker complements kernel namespacing with a high-level API which operates at the process level"
+DESCRIPTION="The core functions you need to create Docker images and run Docker containers"
 HOMEPAGE="https://dockerproject.org"
 LICENSE="Apache-2.0"
 SLOT="0"
