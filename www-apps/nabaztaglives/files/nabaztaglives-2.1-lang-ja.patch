@@ -1,0 +1,24 @@
+--- a/db/rabbit_pi.sql
++++ b/db/rabbit_pi.sql
+@@ -163,6 +163,13 @@
+ (name
+ ,description
+ )
++select 'ja'
++      ,'japanese-ja';
++
++insert into language
++(name
++,description
++)
+ select 'uk'
+       ,'english-uk';
+ 
+@@ -217,6 +224,7 @@
+ insert into timeZone (name) values('Pacific/Honolulu');
+ insert into timeZone (name) values('Pacific/Auckland');
+ insert into timeZone (name) values('Atlantic/Bermuda');
++insert into timeZone (name) values('Asia/Tokyo');
+ insert into timeZone (name) values('Asia/Dubai');
+ insert into timeZone (name) values('Europe/Kiev');
+ 
