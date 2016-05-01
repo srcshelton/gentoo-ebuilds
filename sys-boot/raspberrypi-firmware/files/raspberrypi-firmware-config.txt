@@ -98,7 +98,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 9628ed8ee809ace08e64beb58fddad5ebd8155f0.
+# commit 611d798ada7d36e4f4252459d55da5713b24853f.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -154,6 +154,7 @@ disable_audio_dither=1
 ##device_tree_overlay=spi-bcm2835
 ##device_tree_overlay=spi-dma
 
+#device_tree_overlay=i2s-gpio28-31
 #device_tree_overlay=spi-gpio35-39
 
 # spi1 is only available on devices with a 40-pin header:
@@ -208,7 +209,7 @@ disable_audio_dither=1
 # Eric Anholt's DRM VC4 HDMI/HVS/V3D driver:
 # Running startx or booting to GUI while this overlay is in use will cause
 # interesting lockups.
-#device_tree_overlay=vc4-kms-v3d
+#device_tree_overlay=vc4-kms-v3d,[cma-64,cma-96,cma-128,cma-192,cma-256]
 
 # Uncomment one of these lines to enable additional devices
 #device_tree_overlay=gpio-poweroff,gpiopin=26 # ,active_low
@@ -264,8 +265,9 @@ disable_audio_dither=1
 #device_tree_overlay=mz61581,speed=?,rotate=0,fps=?,txbuflen=32768,debug=[0-7],xohms=?
 #device_tree_overlay=piscreen,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
 #device_tree_overlay=piscreen2r,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
-#device_tree_overlay=pitft28-capacitive,speed=?,rotate=0,fps=?,debug=[0-7],touch-sizex=240,touch-sizey=320 # ,touch-invx,touch-invy,touch-swapxy
-#device_tree_overlay=pitft28-resistive,speed=?,rotate=0,fps=?,debug=[0-7]
+#device_tree_overlay=pitft22,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7]
+#device_tree_overlay=pitft28-capacitive,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7],touch-sizex=240,touch-sizey=320 # ,touch-invx,touch-invy,touch-swapxy
+#device_tree_overlay=pitft28-resistive,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7]
 #device_tree_overlay=rpi-backlight
 #device_tree_overlay=rpi-display,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,swapxy
 #device_tree_overlay=rpi-ft5406
