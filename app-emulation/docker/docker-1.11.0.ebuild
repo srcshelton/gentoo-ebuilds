@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: eabd8d83dbbc9d065b04c4633f30373d99c726cf $
+# $Id: 43b5a38e6d6053ed53995506685fd23b0bcf12e9 $
 
 EAPI=5
 
@@ -16,13 +16,13 @@ else
 	DOCKER_GITCOMMIT="4dc5990"
 	EGIT_COMMIT="v${MY_PV}"
 	SRC_URI="https://${EGO_PN}/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="~amd64"
+	KEYWORDS="amd64"
 	[ "$DOCKER_GITCOMMIT" ] || die "DOCKER_GITCOMMIT must be added manually for each bump!"
 	inherit golang-vcs-snapshot
 fi
 inherit bash-completion-r1 eutils linux-info multilib systemd udev user
 
-DESCRIPTION="Docker complements kernel namespacing with a high-level API which operates at the process level"
+DESCRIPTION="The core functions you need to create Docker images and run Docker containers"
 HOMEPAGE="https://dockerproject.org"
 LICENSE="Apache-2.0"
 SLOT="0"
@@ -86,7 +86,7 @@ CONFIG_CHECK="
 	~NAMESPACES ~NET_NS ~PID_NS ~IPC_NS ~UTS_NS
 	~DEVPTS_MULTIPLE_INSTANCES
 	~CGROUPS ~CGROUP_CPUACCT ~CGROUP_DEVICE ~CGROUP_FREEZER ~CGROUP_SCHED ~CPUSETS ~MEMCG
-	~MACVLAN ~VETH ~BRIDGE ~BRIDGE_NETFILTER
+	~KEYS ~MACVLAN ~VETH ~BRIDGE ~BRIDGE_NETFILTER
 	~NF_NAT_IPV4 ~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE
 	~NETFILTER_XT_MATCH_ADDRTYPE ~NETFILTER_XT_MATCH_CONNTRACK
 	~NF_NAT ~NF_NAT_NEEDED
@@ -102,6 +102,7 @@ CONFIG_CHECK="
 	~CFS_BANDWIDTH ~FAIR_GROUP_SCHED ~RT_GROUP_SCHED
 "
 
+ERROR_KEYS="CONFIG_KEYS: is mandatory, see bug 581348"
 ERROR_MEMCG_KMEM="CONFIG_MEMCG_KMEM: is optional"
 ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
 ERROR_RESOURCE_COUNTERS="CONFIG_RESOURCE_COUNTERS: is optional for container statistics gathering"
