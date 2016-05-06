@@ -1,6 +1,6 @@
---- init.d/devfs.in.dist	2015-12-11 18:36:04.868397061 +0000
-+++ init.d/devfs.in	2015-12-11 18:40:42.473602166 +0000
-@@ -79,7 +79,7 @@
+--- init.d/devfs.in.dist
++++ init.d/devfs.in
+@@ -79,11 +80,11 @@
  	# Mount required directories as user may not have them in /etc/fstab
  	for x in \
  		"mqueue /dev/mqueue 1777 ,nodev mqueue" \
@@ -9,7 +9,12 @@
  		"tmpfs /dev/shm 1777 ,nodev,mode=1777 shm" \
  	; do
  		set -- $x
-@@ -99,6 +99,12 @@
+-		grep -Eq "[[:space:]]+$1$" /proc/filesystems || continue
++		grep -q "\s\+${1}$" /proc/filesystems || continue
+ 		mountinfo -q $2 && continue
+ 
+ 		if [ ! -d $2 ]; then
+@@ -99,6 +100,12 @@
  			eend $?
  		fi
  	done

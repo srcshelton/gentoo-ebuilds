@@ -79,6 +79,7 @@ src_prepare() {
 		fi
 		epatch "${FILESDIR}/openrc-0.16.4-init.patch" || die "init epatch failed"
 		epatch "${FILESDIR}/openrc-0.18.4-devfs.patch" || die "devfs epatch failed"
+		epatch "${FILESDIR}/openrc-0.19.1-functions.sh.in.patch" || die "functions.sh.in epatch failed"
 	fi
 	epatch "${FILESDIR}/openrc-0.16.4-cgroup-race.patch" || die "cgroup epatch failed"
 
