@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d1c19ff55262bd89ffc7b758dec92fd52d0f97de $
+# $Id: 8c953871a65658d34995a7da94076308773e478a $
 
 # @ECLASS: multilib.eclass
 # @MAINTAINER:
@@ -251,7 +251,7 @@ get_libname() {
 	else
 		for ver in "$@" ; do
 			case ${CHOST} in
-				*-cygwin*) echo ".${libname}";;
+				*-cygwin*) echo ".${ver}.${libname}";;
 				*-darwin*) echo ".${ver}.${libname}";;
 				*-mint*)   echo ".${libname}";;
 				*)         echo ".${libname}.${ver}";;

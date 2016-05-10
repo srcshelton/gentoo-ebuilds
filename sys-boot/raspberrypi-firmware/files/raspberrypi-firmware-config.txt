@@ -98,7 +98,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 611d798ada7d36e4f4252459d55da5713b24853f.
+# commit e599713c0624a6515801966f39649b0648bf3eff.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -146,7 +146,7 @@ disable_audio_dither=1
 #device_tree_overlay=dwc2,dr_mode=otg,g-rx-fifo-size=?,g-np-tx-fifo-size=?,g-tx-fifo-size=?
 
 #device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
-#device_tree_overlay=i2c0-bcm2708,sda0_pin=0,scl0_pin=1 # SDA0 pins 0, 28 (or 44); SCL0 pins 1, 29 (or 45).
+#device_tree_overlay=i2c0-bcm2708,pins_0_1 # or pins_28_29, pins_44_45, pins_46_47
 #device_tree_overlay=i2c1-bcm2708,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
 
 # The following overlays have been removed:
