@@ -1,0 +1,19 @@
+# Global variables
+SHELL=/bin/sh
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+HOME=/
+
+# Local variables
+#services="monit"
+
+#  Fields:
+#   minute		(0-59)
+#   hour		(0-23)
+#   day of month	(1-31)
+#   month of year	(1-12)
+#   day of week		(0-6, Sunday == 0)
+
+* * * * *	root	test -x /usr/local/sbin/openrc-restart-crashed && /usr/local/sbin/openrc-restart-crashed --quiet -- $services
+
+# vi: set nowrap:

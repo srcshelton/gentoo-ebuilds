@@ -153,6 +153,8 @@ A similar configuration file could be added for all packages which fail to compi
 
 # Out-of-tree ebuilds
 
+* app-admin/openrc-restart-crashed
+    * Check for services with status 'crashed', and optionally restart specified services
 * app-emulation/wa-linux-agent
 * dev-perl/CPANPLUS
 * dev-perl/CPANPLUS-Dist-Gentoo
