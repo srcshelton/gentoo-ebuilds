@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fc4088c8689c94e2b8aea6a56d40aa896b320acc $
+# $Id: 9c5d675e1b53a88f42104a68717dd6ff24232f2d $
 
 EAPI=5
 inherit cmake-utils flag-o-matic git-r3
@@ -55,8 +55,8 @@ src_install() {
 	rmdir "${D}"/usr/include/interface/vmcs_host/linux
 
 	if use examples; then
-		dodir /usr/share/doc/${PN}
-		mv "${D}"/usr/src/hello_pi "${D}"/usr/share/doc/${PN}/
+		dodir /usr/share/doc/${PF}
+		mv "${D}"/usr/src/hello_pi "${D}"/usr/share/doc/${PF}/
 	fi
 	rmdir "${D}"/usr/src
 
