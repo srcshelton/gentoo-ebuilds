@@ -62,6 +62,8 @@ pkg_setup() {
 	einfo "Checking mount-points ..."
 
 	[[ "${boot}" == "${boot// }" ]] || die "Invalid value '${boot}' for control variable 'RASPBERRYPI_BOOT'"
+	[[ "${boot:0:1}" == "/" ]] || die "Invalid value '${boot}' for control variable 'RASPBERRYPI_BOOT': Value must be absolute path"
+	boot="$( readlink -e "${boot}" )" || die "readlink failed: ${?}"
 
 	if [[ -z "${RASPBERRYPI_BOOT:-}" ]]; then
 		ewarn "This ebuild assumes that your FAT32 firmware/boot partition is"
@@ -153,7 +155,7 @@ src_install() {
 		esac
 	done
 
-	insinto /boot
+	insinto "${boot}"
 	newins "${FILESDIR}"/${PN}-config.txt config.txt
 	newins "${FILESDIR}"/${PN}-cmdline.txt cmdline.txt
 
@@ -162,12 +164,14 @@ src_install() {
 	if [[ -n "${ver}" ]]; then
 		use rpi2 && newins extra/System7.map "System.map-${ver}-v7+"
 		use rpi1 && newins extra/System.map "System.map-${ver}+"
-		einfo "You should create a symlink from /System.map to /boot/System.map"
-		einfo "and from /boot/System.map to System.map-${ver}+ or System.map-${ver}-v7+,"
+		einfo "You should create a symlink from /System.map to ${boot}/System.map"
+		einfo "and from ${boot}/System.map to System.map-${ver}+ or System.map-${ver}-v7+,"
 		einfo "as appropriate."
 	fi
 
-	newenvd "${FILESDIR}"/${PN}-envd 90${PN}
+	cp "${FILESDIR}"/"${PN}"-envd "${T}"/"${PN}"-envd
+	sed -i "s|/boot|${boot}|g" "${T}"/"${PN}"-envd
+	newenvd "${T}"/"${PN}"-envd "90${PN}"
 }
 
 pkg_preinst() {
@@ -177,8 +181,8 @@ pkg_preinst() {
 			#if [[ -e "${D}"/boot/cmdline.txt -a -e /boot/cmdline.txt ]] ; then
 			#	msg+="/boot/cmdline.txt "
 			#fi
-			if [ [-e "${D}"/boot/config.txt -a -e /boot/config.txt ]] ; then
-				msg+="/boot/config.txt "
+			if [ [-e "${D}${boot}"/config.txt -a -e "${boot}"/config.txt ]] ; then
+				msg+="${boot}/config.txt "
 			fi
 			if [ -n "${msg}" ] ; then
 				msg="This package installs following files: ${msg}"
@@ -196,5 +200,5 @@ pkg_preinst() {
 pkg_postinst() {
 	mount-boot_pkg_postinst
 
-	einfo "Please customise your Raspberry Pi configuration by editing /boot/config.txt"
+	einfo "Please customise your Raspberry Pi configuration by editing ${boot}/config.txt"
 }
