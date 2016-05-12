@@ -1,5 +1,5 @@
---- tools/clang/lib/Frontend/InitHeaderSearch.cpp
-+++ tools/clang/lib/Frontend/InitHeaderSearch.cpp
+--- a/tools/clang/lib/Frontend/InitHeaderSearch.cpp
++++ b/tools/clang/lib/Frontend/InitHeaderSearch.cpp
 @@ -220,6 +220,7 @@ void InitHeaderSearch::AddDefaultCInclud
        if (triple.getEnvironment() != llvm::Triple::Cygnus)
          break;

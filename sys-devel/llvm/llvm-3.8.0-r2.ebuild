@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7bd5432dd533353826d1bd24dc8fb9d641032bd1 $
+# $Id: 71a927fd779f4d23b47e74ce0aafa646ba9c8ea5 $
 
 EAPI=6
 
@@ -17,7 +17,7 @@ SRC_URI="http://llvm.org/releases/${PV}/${P}.src.tar.xz
 		http://llvm.org/releases/${PV}/cfe-${PV}.src.tar.xz
 		http://llvm.org/releases/${PV}/clang-tools-extra-${PV}.src.tar.xz )
 	lldb? ( http://llvm.org/releases/${PV}/lldb-${PV}.src.tar.xz )
-	!doc? ( http://dev.gentoo.org/~voyageur/distfiles/${PN}-3.7.0-manpages.tar.bz2 )"
+	!doc? ( http://dev.gentoo.org/~voyageur/distfiles/${PN}-3.8.0-manpages.tar.bz2 )"
 
 LICENSE="UoI-NCSA"
 SLOT="0/${PV}"
@@ -39,6 +39,7 @@ COMMON_DEPEND="
 	gold? ( >=sys-devel/binutils-2.22:*[cxx] )
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=virtual/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
+	lldb? ( dev-python/six[${PYTHON_USEDEP}] )
 	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
 	ocaml? (
 		>=dev-lang/ocaml-4.00.0:0=
@@ -155,21 +156,16 @@ src_prepare() {
 	# https://llvm.org/bugs/show_bug.cgi?id=18341
 	eapply "${FILESDIR}"/cmake/0004-cmake-Do-not-install-libgtest.patch
 
-	# Fix llvm-config for shared linking, sane flags and return values
-	# in order:
-	# - backported r247159 that adds --build-system (needed for later code)
-	# - backported r252532 that adds better shared linking support
-	# - our fixes
-	# - backported r260343 that fixes cross-compilation
-	# combination of backported upstream r252532 with our patch
-	# https://bugs.gentoo.org/show_bug.cgi?id=565358
-	eapply "${FILESDIR}"/llvm-3.7.1-llvm-config-0.patch
-	eapply "${FILESDIR}"/llvm-3.7.1-llvm-config-1.patch
-	eapply "${FILESDIR}"/llvm-3.7.1-llvm-config-2.patch
-	eapply "${FILESDIR}"/llvm-3.7.1-llvm-config-3.patch
+	# Allow custom cmake build types (like 'Gentoo')
+	eapply "${FILESDIR}"/cmake/${PN}-3.8-allow_custom_cmake_build_types.patch
 
-	# Fix msan with newer kernels, #569894
-	eapply "${FILESDIR}"/llvm-3.7-msan-fix.patch
+	# Fix llvm-config for shared linking and sane flags
+	# https://bugs.gentoo.org/show_bug.cgi?id=565358
+	eapply "${FILESDIR}"/llvm-3.8-llvm-config.patch
+
+	# Restore SOVERSIONs for shared libraries
+	# https://bugs.gentoo.org/show_bug.cgi?id=578392
+	eapply "${FILESDIR}"/llvm-3.8-soversion.patch
 
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
@@ -178,22 +174,24 @@ src_prepare() {
 		# Automatically select active system GCC's libraries, bugs #406163 and #417913
 		eapply "${FILESDIR}"/clang-3.5-gentoo-runtime-gcc-detection-v3.patch
 
-		eapply "${FILESDIR}"/clang-3.6-gentoo-install.patch
+		# Support gcc4.9 search paths
+		# https://github.com/llvm-mirror/clang/commit/af4db76e059c1a3
+		eapply "${FILESDIR}"/clang-3.8-gcc4.9-search-path.patch
 
 		eapply "${FILESDIR}"/clang-3.7-darwin_prefix-include-paths.patch
 		eprefixify tools/clang/lib/Frontend/InitHeaderSearch.cpp
 
 		sed -i -e "s^@EPREFIX@^${EPREFIX}^" \
-			tools/clang/tools/scan-build/scan-build || die
+			tools/clang/tools/scan-build/bin/scan-build || die
 
 		# Install clang runtime into /usr/lib/clang
 		# https://llvm.org/bugs/show_bug.cgi?id=23792
-		eapply "${FILESDIR}"/cmake/clang-0001-Install-clang-runtime-into-usr-lib-without-suffix.patch
+		eapply "${FILESDIR}"/cmake/clang-0001-Install-clang-runtime-into-usr-lib-without-suffix-3.8.patch
 		eapply "${FILESDIR}"/cmake/compiler-rt-0001-cmake-Install-compiler-rt-into-usr-lib-without-suffi.patch
 
 		# Do not force -march flags on arm platforms
 		# https://bugs.gentoo.org/show_bug.cgi?id=562706
-		eapply "${FILESDIR}"/cmake/${PN}-3.7.0-compiler_rt_arm_march_flags.patch
+		eapply "${FILESDIR}"/cmake/${PN}-3.8.0-compiler_rt_arm_march_flags.patch
 
 		# Make it possible to override CLANG_LIBDIR_SUFFIX
 		# (that is used only to find LLVMgold.so)
@@ -201,9 +199,6 @@ src_prepare() {
 		eapply "${FILESDIR}"/cmake/clang-0002-cmake-Make-CLANG_LIBDIR_SUFFIX-overridable.patch
 
 		pushd projects/compiler-rt >/dev/null || die
-
-		# Fix msan with newer kernels, compiler-rt part, #569894
-		eapply "${FILESDIR}"/compiler-rt-3.7-msan-fix.patch
 
 		# Fix WX sections, bug #421527
 		find lib/builtins -type f -name '*.S' -exec sed \
@@ -218,15 +213,8 @@ src_prepare() {
 		# https://llvm.org/bugs/show_bug.cgi?id=18841
 		sed -e 's/add_subdirectory(readline)/#&/' \
 			-i tools/lldb/scripts/Python/modules/CMakeLists.txt || die
-
-		# Fix Python paths, bugs #562436 and #562438
-		eapply "${FILESDIR}"/${PN}-3.7-lldb_python.patch
-		sed -e "s/GENTOO_LIBDIR/$(get_libdir)/" \
-			-i tools/lldb/scripts/Python/finishSwigPythonLLDB.py || die
-
-		# Fix build with ncurses[tinfo], #560474
-		# http://llvm.org/viewvc/llvm-project?view=revision&revision=247842
-		eapply "${FILESDIR}"/cmake/${PN}-3.7.0-lldb_tinfo.patch
+		# Do not install bundled six module
+		eapply "${FILESDIR}"/${PN}-3.8-lldb_six.patch
 	fi
 
 	# User patches
@@ -447,7 +435,7 @@ multilib_src_install() {
 
 	if multilib_is_native_abi; then
 		# Install man pages.
-		use doc || doman "${WORKDIR}"/${PN}-3.7.0-manpages/*.1
+		use doc || doman "${WORKDIR}"/${PN}-3.8.0-manpages/*.1
 
 		# Symlink the gold plugin.
 		if use gold; then
@@ -502,31 +490,6 @@ multilib_src_install_all() {
 	if use clang; then
 		pushd tools/clang >/dev/null || die
 
-		if use static-analyzer ; then
-			pushd tools/scan-build >/dev/null || die
-
-			dobin ccc-analyzer scan-build
-			dosym ccc-analyzer /usr/bin/c++-analyzer
-			doman scan-build.1
-
-			insinto /usr/share/llvm
-			doins scanview.css sorttable.js
-
-			popd >/dev/null || die
-		fi
-
-		if use static-analyzer ; then
-			pushd tools/scan-view >/dev/null || die
-
-			python_doscript scan-view
-
-			touch __init__.py || die
-			python_moduleinto clang
-			python_domodule *.py Resources
-
-			popd >/dev/null || die
-		fi
-
 		if use python ; then
 			pushd bindings/python/clang >/dev/null || die
 
@@ -542,14 +505,14 @@ multilib_src_install_all() {
 		popd >/dev/null || die
 
 		python_fix_shebang "${ED}"
-		if use lldb && use python; then
-			python_optimize
+		if use static-analyzer; then
+			python_optimize "${ED}"usr/share/scan-view
 		fi
 	fi
 }
 
 pkg_postinst() {
-	if use clang && ! has_version sys-libs/libomp; then
+	if use clang && ! has_version 'sys-libs/libomp'; then
 		elog "To enable OpenMP support in clang, install sys-libs/libomp."
 	fi
 }

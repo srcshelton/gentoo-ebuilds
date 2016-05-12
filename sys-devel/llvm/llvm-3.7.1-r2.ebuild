@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7bd5432dd533353826d1bd24dc8fb9d641032bd1 $
+# $Id: 10e5e160848c5e50259eae0cb031ed611ce2bd05 $
 
 EAPI=6
 
@@ -177,6 +177,10 @@ src_prepare() {
 	if use clang; then
 		# Automatically select active system GCC's libraries, bugs #406163 and #417913
 		eapply "${FILESDIR}"/clang-3.5-gentoo-runtime-gcc-detection-v3.patch
+
+		# Support gcc4.9 search paths
+		# https://github.com/llvm-mirror/clang/commit/af4db76e059c1a3
+		eapply "${FILESDIR}"/clang-3.8-gcc4.9-search-path.patch
 
 		eapply "${FILESDIR}"/clang-3.6-gentoo-install.patch
 
