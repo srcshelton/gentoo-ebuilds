@@ -5,7 +5,7 @@ EAPI=5
 
 DESCRIPTION="Report and optionally restart crashed OpenRC services"
 HOMEPAGE="https://github.com/srcshelton/openrc-restart-crashed"
-SRC_URI="https://github.com/srcshelton/openrc-restart-crashed/archive/v1.0.0.tar.gz"
+SRC_URI="https://github.com/srcshelton/openrc-restart-crashed/archive/v1.0.0.tar.gz -> openrc-restart-crashed-v1.0.0.tar.gz"
 RESTRICT="nomirror"
 
 LICENSE="GPL-2"
