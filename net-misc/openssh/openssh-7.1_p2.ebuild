@@ -30,7 +30,7 @@ LICENSE="BSD GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 # Probably want to drop ssl defaulting to on in a future version.
-IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit libressl -libseccomp pam +pie sctp selinux skey ssh1 +ssl static X X509 abi_x86_x32"
+IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit libressl -libseccomp pam +pie sctp selinux skey ssh1 +ssl static systemd X X509 abi_x86_x32"
 REQUIRED_USE="ldns? ( ssl )
 	pie? ( !static )
 	ssh1? ( ssl )
@@ -262,8 +262,10 @@ src_install() {
 	diropts -m 0700
 	dodir /etc/skel/.ssh
 
-	systemd_dounit "${FILESDIR}"/sshd.{service,socket}
-	systemd_newunit "${FILESDIR}"/sshd_at.service 'sshd@.service'
+	if use systemd; then
+		systemd_dounit "${FILESDIR}"/sshd.{service,socket}
+		systemd_newunit "${FILESDIR}"/sshd_at.service 'sshd@.service'
+	fi
 }
 
 src_test() {
