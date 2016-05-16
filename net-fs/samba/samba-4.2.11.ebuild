@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2866ccf19d306409da6de09b510f9259cbae2bb8 $
+# $Id: e831ea657edcb4506264624561593d9b7d0e2f1a $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -42,6 +42,7 @@ MULTILIB_WRAPPED_HEADERS=(
 # sys-apps/attr is an automagic dependency (see bug #489748)
 CDEPEND="${PYTHON_DEPS}
 	>=app-arch/libarchive-3.1.2[${MULTILIB_USEDEP}]
+	dev-lang/perl:=
 	dev-libs/libbsd[${MULTILIB_USEDEP}]
 	dev-libs/iniparser:0
 	dev-libs/popt[${MULTILIB_USEDEP}]
@@ -256,3 +257,4 @@ pkg_postinst() {
 	elog "http://samba.org/samba/history/${PN}-4.2.0.html and"
 	elog "http://wiki.samba.org/index.php/Samba4/HOWTO "
 }
+# vi: set diffopt=iwhite,filler:
