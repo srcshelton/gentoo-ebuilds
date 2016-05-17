@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 98d2e555595cf1be385b37702f3723e06076a544 $
+# $Id: 7b42189543e46285e5660b7613138beb1a9f59aa $
 # $Header: /var/cvsroot/gentoo-x86/app-shells/bash/bash-4.2_p53.ebuild,v 1.4 2014/10/08 06:21:18 armin76 Exp $
 
 EAPI="4"
@@ -29,6 +29,9 @@ patches() {
 	fi
 }
 
+# The version of readline this bash normally ships with.
+READLINE_VER="6.2"
+
 DESCRIPTION="The standard GNU Bourne again shell"
 HOMEPAGE="http://tiswww.case.edu/php/chet/bash/bashtop.html"
 SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
@@ -37,7 +40,7 @@ LICENSE="GPL-3"
 SLOT="${MY_PV}"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline static"
+IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline static -system-shell"
 
 LIB_DEPEND=">=sys-libs/ncurses-5.2-r2[static-libs(+)]
 	nls? ( virtual/libintl )
@@ -104,7 +107,7 @@ src_prepare() {
 
 	# Fix not to reference a disabled symbol if USE=-readline, breaks
 	# Darwin, bug #500932
-	if use !readline ; then
+	if ! use readline ; then
 		sed -i -e 's/enable_hostname_completion//' builtins/shopt.def || die
 	fi
 
@@ -130,7 +133,7 @@ src_configure() {
 	local myconf=()
 
 	# For descriptions of these, see config-top.h
-	# bashrc/#26952 bash_logout/#90488 ssh/#24762
+	# bashrc/#26952 bash_logout/#90488 ssh/#24762 mktemp/#574426
 	if use prefix ; then
 		append-cppflags \
 			-DDEFAULT_PATH_VALUE=\'\"${EPREFIX}/usr/sbin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\' \
@@ -139,16 +142,18 @@ src_configure() {
 			-DSYS_BASH_LOGOUT=\'\"${EPREFIX}/etc/bash/bash_logout\"\' \
 			-DNON_INTERACTIVE_LOGIN_SHELLS \
 			-DSSH_SOURCE_BASHRC \
+			-DUSE_MKTEMP -DUSE_MKSTEMP \
 			$(use bashlogger && echo -DSYSLOG_HISTORY)
 	else
-	append-cppflags \
-		-DDEFAULT_PATH_VALUE=\'\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\' \
-		-DSTANDARD_UTILS_PATH=\'\"/bin:/usr/bin:/sbin:/usr/sbin\"\' \
-		-DSYS_BASHRC=\'\"/etc/bash/bashrc\"\' \
-		-DSYS_BASH_LOGOUT=\'\"/etc/bash/bash_logout\"\' \
-		-DNON_INTERACTIVE_LOGIN_SHELLS \
-		-DSSH_SOURCE_BASHRC \
-		$(use bashlogger && echo -DSYSLOG_HISTORY)
+		append-cppflags \
+			-DDEFAULT_PATH_VALUE=\'\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\' \
+			-DSTANDARD_UTILS_PATH=\'\"/bin:/usr/bin:/sbin:/usr/sbin\"\' \
+			-DSYS_BASHRC=\'\"/etc/bash/bashrc\"\' \
+			-DSYS_BASH_LOGOUT=\'\"/etc/bash/bash_logout\"\' \
+			-DNON_INTERACTIVE_LOGIN_SHELLS \
+			-DSSH_SOURCE_BASHRC \
+			-DUSE_MKTEMP -DUSE_MKSTEMP \
+			$(use bashlogger && echo -DSYSLOG_HISTORY)
 	fi
 
 	# IRIX's MIPSpro produces garbage with >= -O2, bug #209137
@@ -174,7 +179,6 @@ src_configure() {
 	# Don't even think about building this statically without
 	# reading Bug 7714 first.  If you still build it statically,
 	# don't come crying to us with bugs ;).
-	#use static && export LDFLAGS="${LDFLAGS} -static"
 	use static && append-ldflags -static
 	use nls || myconf+=( --disable-nls )
 
@@ -185,19 +189,25 @@ src_configure() {
 	# be safe.
 	# Exact cached version here doesn't really matter as long as it
 	# is at least what's in the DEPEND up above.
-	export ac_cv_rl_version=6.2
+	export ac_cv_rl_version=${READLINE_VER}
 
 	# Force linking with system curses ... the bundled termcap lib
 	# sucks bad compared to ncurses.  For the most part, ncurses
 	# is here because readline needs it.  But bash itself calls
 	# ncurses in one or two small places :(.
 
-	use plugins && case ${CHOST} in
-		*-linux-gnu | *-solaris* | *-freebsd* )
-			append-ldflags -Wl,-rpath,"${EPREFIX}"/usr/$(get_libdir)/bash
-		;;
-		# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
-	esac
+	if use plugins; then
+		case "${CHOST}" in
+			*-linux-gnu* | *-solaris* | *-freebsd* )
+				if use system-shell; then
+					append-ldflags -Wl,-rpath,"${EPREFIX}"/usr/$(get_libdir)/bash
+				else
+					append-ldflags -Wl,-rpath,"${EPREFIX}"/usr/$(get_libdir)/bash-"${SLOT}"
+				fi
+				;;
+				# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
+		esac
+	fi
 	tc-export AR #444070
 	econf \
 		--with-installed-readline=. \
@@ -214,7 +224,7 @@ src_configure() {
 }
 
 src_compile() {
-	emake
+	default
 
 	if use plugins ; then
 		emake -C examples/loadables all others
@@ -222,41 +232,64 @@ src_compile() {
 }
 
 src_install() {
-	emake install DESTDIR="${D}"
+	if ! use system-shell; then
+		exeinto /bin
+		newexe bash bash-"${SLOT}"
 
-	dodir /bin
-	mv "${ED}"/usr/bin/bash "${ED}"/bin/bash-${SLOT} || die
-	dosym bash /bin/rbash
+		if use plugins ; then
+			exeinto /usr/$(get_libdir)/bash-"${SLOT}"
+			doexe $( echo examples/loadables/*.o | sed 's:\.o::g' )
+		fi
 
-	insinto /etc/bash
-	doins "${T}"/bashrc
-	doins "${FILESDIR}"/bash_logout
-	insinto /etc/skel
-	for f in bash{_logout,_profile,rc} ; do
-		newins "${FILESDIR}"/dot-${f} .${f}
-	done
+		newman doc/bash.1 bash-${SLOT}.1
+		newman doc/builtins.1 builtins-${SLOT}.1
 
-	local sed_args=(
-		-e "s:#${USERLAND}#@::"
-		-e '/#@/d'
-	)
-	if ! use readline ; then
-		sed_args+=( #432338
-			-e '/^shopt -s histappend/s:^:#:'
-			-e 's:use_color=true:use_color=false:'
+		insinto /usr/share/info
+		newins doc/bashref.info bash-${SLOT}.info
+		dosym bash-${SLOT}.info /usr/share/info/bashref-${SLOT}.info
+	else
+		default
+
+		dodir /bin
+		mv "${ED}"/usr/bin/bash "${ED}"/bin/bash || die
+		dosym bash /bin/rbash
+
+		insinto /etc/bash
+		doins "${FILESDIR}"/bash_logout
+		doins "${T}"/bashrc
+		insinto /etc/skel
+		for f in bash{_logout,_profile,rc} ; do
+			newins "${FILESDIR}"/dot-${f} .${f}
+		done
+
+		local sed_args=(
+			-e "s:#${USERLAND}#@::"
+			-e '/#@/d'
 		)
-	fi
-	sed -i \
-		"${sed_args[@]}" \
-		"${ED}"/etc/skel/.bashrc \
-		"${ED}"/etc/bash/bashrc || die
+		if ! use readline ; then
+			sed_args+=( #432338
+				-e '/^shopt -s histappend/s:^:#:'
+				-e 's:use_color=true:use_color=false:'
+			)
+		fi
+		sed -i \
+			"${sed_args[@]}" \
+			"${ED}"/etc/skel/.bashrc \
+			"${ED}"/etc/bash/bashrc || die
 
-	if use plugins ; then
-		exeinto /usr/$(get_libdir)/bash
-		doexe $(echo examples/loadables/*.o | sed 's:\.o::g')
-		insinto /usr/include/bash-plugins
-		doins *.h builtins/*.h examples/loadables/*.h include/*.h \
-			lib/{glob/glob.h,tilde/tilde.h}
+		if use plugins ; then
+			exeinto /usr/$(get_libdir)/bash
+			doexe $( echo examples/loadables/*.o | sed 's:\.o::g' )
+			insinto /usr/include/bash-plugins
+			doins *.h builtins/*.h examples/loadables/*.h include/*.h \
+				lib/{glob/glob.h,tilde/tilde.h}
+		fi
+
+		doman doc/*.1
+
+		insinto /usr/share/info
+		newins doc/bashref.info bash.info
+		dosym bash.info /usr/share/info/bashref.info
 	fi
 
 	if use examples ; then
@@ -273,35 +306,35 @@ src_install() {
 		done
 	fi
 
-	newman doc/bash.1 bash-${SLOT}.1
-	newman doc/builtins.1 builtins-${SLOT}.1
-
-	insinto /usr/share/info
-	newins doc/bashref.info bash-${SLOT}.info
-	dosym bash-${SLOT}.info /usr/share/info/bashref-${SLOT}.info
-
-	dodoc README NEWS AUTHORS CHANGES COMPAT Y2K doc/FAQ doc/INTRO
+	dodoc CHANGES COMPAT doc/FAQ doc/INTRO
+	newdoc CWRU/changelog ChangeLog
 }
 
 pkg_preinst() {
-	if [[ -e ${EROOT}/etc/bashrc ]] && [[ ! -d ${EROOT}/etc/bash ]] ; then
-		mkdir -p "${EROOT}"/etc/bash
-		mv -f "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/
-	fi
+	if use system-shell; then
+		if [[ -e "${EROOT}"/etc/bashrc ]] && [[ ! -d "${EROOT}"/etc/bash ]] ; then
+			mkdir -p "${EROOT}"/etc/bash
+			mv -f "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/
+		fi
 
-	if [[ -L ${EROOT}/bin/sh ]]; then
-		# rewrite the symlink to ensure that its mtime changes. having /bin/sh
-		# missing even temporarily causes a fatal error with paludis.
-		local target=$(readlink "${EROOT}"/bin/sh)
-		local tmp=$(emktemp "${EROOT}"/bin)
-		ln -sf "${target}" "${tmp}"
-		mv -f "${tmp}" "${EROOT}"/bin/sh
+		if [[ -L "${EROOT}"/bin/sh ]] ; then
+			# rewrite the symlink to ensure that its mtime changes. having /bin/sh
+			# missing even temporarily causes a fatal error with paludis.
+			local target="$( readlink "${EROOT}"/bin/sh )"
+			local tmp="$( emktemp "${EROOT}"/bin )"
+			ln -sf "${target}" "${tmp}"
+			mv -f "${tmp}" "${EROOT}"/bin/sh
+		fi
 	fi
 }
 
 pkg_postinst() {
-	# If /bin/sh does not exist, provide it
-	if [[ ! -e ${EROOT}/bin/sh ]]; then
-		ln -sf bash "${EROOT}"/bin/sh
+	if use system-shell; then
+		# If /bin/sh does not exist, provide it
+		if [[ ! -e "${EROOT}"/bin/sh ]]; then
+			ln -sf bash "${EROOT}"/bin/sh
+		fi
 	fi
 }
+
+# vi: set diffopt=iwhite,filler:

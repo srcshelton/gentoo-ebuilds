@@ -61,8 +61,8 @@ pkg_setup() {
 		die "remove -malign-double from your CFLAGS mr ricer"
 	fi
 	if use bashlogger ; then
-		ewarn "The logging patch should ONLY be used in restricted (i.e. honeypot) envs."
-		ewarn "This will log ALL output you enter into the shell, you have been warned."
+		ewarn "bash logging should ONLY be used in restricted (i.e. honeypot) environments."
+		ewarn "Enabling this will log EVERYTHING you enter into the shell - you have been warned."
 	fi
 }
 
@@ -122,7 +122,7 @@ src_configure() {
 	local myconf=()
 
 	# For descriptions of these, see config-top.h
-	# bashrc/#26952 bash_logout/#90488 ssh/#24762
+	# bashrc/#26952 bash_logout/#90488 ssh/#24762 mktemp/#574426
 	if use prefix ; then
 		append-cppflags \
 			-DDEFAULT_PATH_VALUE=\'\"${EPREFIX}/usr/sbin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\' \
@@ -131,6 +131,7 @@ src_configure() {
 			-DSYS_BASH_LOGOUT=\'\"${EPREFIX}/etc/bash/bash_logout\"\' \
 			-DNON_INTERACTIVE_LOGIN_SHELLS \
 			-DSSH_SOURCE_BASHRC \
+			-DUSE_MKTEMP -DUSE_MKSTEMP \
 			$(use bashlogger && echo -DSYSLOG_HISTORY)
 	else
 	append-cppflags \
@@ -140,6 +141,7 @@ src_configure() {
 		-DSYS_BASH_LOGOUT=\'\"/etc/bash/bash_logout\"\' \
 		-DNON_INTERACTIVE_LOGIN_SHELLS \
 		-DSSH_SOURCE_BASHRC \
+			-DUSE_MKTEMP -DUSE_MKSTEMP \
 		$(use bashlogger && echo -DSYSLOG_HISTORY)
 	fi
 
@@ -161,10 +163,6 @@ src_configure() {
 		export ac_cv_lib_tinfo_tgetent=no
 		export ac_cv_lib_curses_tgetent=no # found on AIX
 		#export ac_cv_lib_ncurses_tgetent=no
-
-		# Without /dev/fd/*, bash uses named pipes instead, but the
-		# pipe names are not unique enough for portage's multijob.
-		append-cppflags -DUSE_MKTEMP
 	fi
 
 	# Don't even think about building this statically without
@@ -193,8 +191,8 @@ src_configure() {
 	fi
 
 	if use plugins; then
-		case ${CHOST} in
-			*-linux-gnu | *-solaris* | *-freebsd* )
+		case "${CHOST}" in
+			*-linux-gnu* | *-solaris* | *-freebsd* )
 				append-ldflags -Wl,-rpath,"${EPREFIX}"/usr/$(get_libdir)/bash
 				;;
 				# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
@@ -243,7 +241,13 @@ src_install() {
 
 	insinto /etc/bash
 	doins "${FILESDIR}"/bash_logout
-	doins "${T}"/bashrc
+	if [[ -s "${T}"/bashrc ]]; then
+		newins "${T}"/bashrc bashrc
+	else
+		eerror "Prefixified bashrc at '${T}/bashrc' cannot be read"
+		ewarn "Installing default bashrc"
+		newins "${FILESDIR}"/bashrc bashrc
+	fi
 	keepdir /etc/bash/bashrc.d
 	insinto /etc/skel
 	for f in bash{_logout,_profile,rc} ; do
@@ -292,16 +296,16 @@ src_install() {
 }
 
 pkg_preinst() {
-	if [[ -e ${EROOT}/etc/bashrc ]] && [[ ! -d ${EROOT}/etc/bash ]] ; then
+	if [[ -e "${EROOT}"/etc/bashrc ]] && [[ ! -d "${EROOT}"/etc/bash ]] ; then
 		mkdir -p "${EROOT}"/etc/bash
 		mv -f "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/
 	fi
 
-	if [[ -L ${EROOT}/bin/sh ]] ; then
+	if [[ -L "${EROOT}"/bin/sh ]] ; then
 		# rewrite the symlink to ensure that its mtime changes. having /bin/sh
 		# missing even temporarily causes a fatal error with paludis.
-		local target=$(readlink "${EROOT}"/bin/sh)
-		local tmp=$(emktemp "${EROOT}"/bin)
+		local target="$( readlink "${EROOT}"/bin/sh )"
+		local tmp="$( emktemp "${EROOT}"/bin )"
 		ln -sf "${target}" "${tmp}"
 		mv -f "${tmp}" "${EROOT}"/bin/sh
 	fi
@@ -309,7 +313,9 @@ pkg_preinst() {
 
 pkg_postinst() {
 	# If /bin/sh does not exist, provide it
-	if [[ ! -e ${EROOT}/bin/sh ]] ; then
+	if [[ ! -e "${EROOT}"/bin/sh ]] ; then
 		ln -sf bash "${EROOT}"/bin/sh
 	fi
 }
+
+# vi: set diffopt=iwhite,filler:
