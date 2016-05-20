@@ -98,7 +98,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit e599713c0624a6515801966f39649b0648bf3eff.
+# commit 9b0c28ae6d2bed25514f1e8a3de2b3da9e72bb57.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -225,8 +225,11 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-sense
 #device_tree_overlay=at86rf233,interrupt=23,reset=24,sleep=25,speed=3000000,trim=15
 #device_tree_overlay=qca7000,int_pin=23,speed=12
-#device_tree_overlay=i2c-mux-pca9548a,addr=0x70
+#device_tree_overlay=i2c-mux,pca9542,pca9545,pca9548,addr=0x70
 #device_tree_overlay=i2c-pwm-pca9685a,addr=0x40
+
+# The following overlays have been removed:
+##device_tree_overlay=i2c-mux-pca9548a,addr=0x70
 
 # RTC:
 # i2c-rtc supports ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563.
@@ -243,15 +246,17 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio,gpiopin=4,pullup=off
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
-# Audio devices:
+# Audio devices & codecs:
+#device_tree_overlay=adau1977-adc
 #device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
+#device_tree_overlay=audioinjector-wm8731-audio
 #device_tree_overlay=boomberry-dac # ,24db_digital_gain
 #device_tree_overlay=boomberry-digi
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain
 #device_tree_overlay=hifiberry-digi
-#device_tree_overlay=iqaudio-dac
+#device_tree_overlay=iqaudio-dac # ,24db_digital_gain
 #device_tree_overlay=iqaudio-dacplus # ,24db_digital_gain
 #device_tree_overlay=raspidac3
 #device_tree_overlay=rpi-dac
