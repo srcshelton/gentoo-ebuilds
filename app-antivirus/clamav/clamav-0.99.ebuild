@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 22e37794dd51f0c2e50b34c4b6a8f0c957abf2e9 $
+# $Id: 9f4090d42f84594021ce7b58eaa73fd06c26b193 $
 
 EAPI=5
 
@@ -25,7 +25,9 @@ CDEPEND="bzip2? ( app-arch/bzip2 )
 	!libressl? ( dev-libs/openssl:0= )
 	libressl? ( dev-libs/libressl:0= )
 	sys-devel/libtool
+	>dev-libs/libpcre-6
 	!!<app-antivirus/clamav-0.99"
+# hard block clamav < 0.99 due to linking problems Bug #567680
 # openssl is now *required* see this link as to why
 # http://blog.clamav.net/2014/02/introducing-openssl-as-dependency-to.html
 DEPEND="${CDEPEND}
