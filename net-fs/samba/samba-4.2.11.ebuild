@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e831ea657edcb4506264624561593d9b7d0e2f1a $
+# $Id: c404e533104ed4e01e1bb8f3152eb7cab72c958e $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -80,6 +80,7 @@ DEPEND="${CDEPEND}
 RDEPEND="${CDEPEND}
 	client? ( net-fs/cifs-utils[ads?] )
 	selinux? ( sec-policy/selinux-samba )
+	!dev-perl/Parse-Yapp
 "
 
 REQUIRED_USE="addc? ( gnutls !system-mitkrb5 )
