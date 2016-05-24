@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ef4a45d66207763b12e154a20c731522ca698aa9 $
+# $Id: b70527675f00970efb1846766a5da5979d829bfb $
 
 EAPI="5"
 
@@ -19,7 +19,7 @@ SRC_URI="http://www.opensource.apple.com/tarballs/ld64/${LD64}.tar.gz
 	http://www.opensource.apple.com/tarballs/dyld/${DYLD}.tar.gz
 	http://www.opensource.apple.com/tarballs/libunwind/${LIBUNWIND}.tar.gz
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-4.3-r1.tar.bz2
-	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-5.1-r1.tar.bz2
+	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-5.1-r2.tar.bz2
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-6.1-r1.tar.bz2
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-6.3-r1.tar.bz2
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-7.0-r1.tar.bz2"
