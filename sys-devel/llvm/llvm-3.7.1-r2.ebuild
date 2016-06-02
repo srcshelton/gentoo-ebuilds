@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 10e5e160848c5e50259eae0cb031ed611ce2bd05 $
+# $Id: 9e22175f2aff5a6ae6b65cf75af96f0c1756e6a7 $
 
 EAPI=6
 
@@ -21,7 +21,7 @@ SRC_URI="http://llvm.org/releases/${PV}/${P}.src.tar.xz
 
 LICENSE="UoI-NCSA"
 SLOT="0/${PV}"
-KEYWORDS="~amd64 ~arm ~arm64 ~ppc ~ppc64 ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~x64-freebsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="~amd64 arm ~arm64 ~ppc ~ppc64 ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~x64-freebsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 IUSE="clang debug doc gold libedit +libffi lldb multitarget ncurses ocaml
 	python +static-analyzer test xml video_cards_radeon
 	kernel_Darwin kernel_FreeBSD"
