@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9f4090d42f84594021ce7b58eaa73fd06c26b193 $
+# $Id: b4253878b714a252eb5d0f47b3eada9535ce4774 $
 
 EAPI=5
 
@@ -12,7 +12,7 @@ SRC_URI="mirror://sourceforge/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm hppa ~ia64 ~ppc ppc64 ~sparc ~x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~sparc-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 ~arm hppa ~ia64 ~ppc ppc64 ~sparc ~x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~sparc-solaris ~x86-solaris"
 IUSE="bzip2 clamdtop iconv ipv6 libressl milter metadata-analysis-api selinux static-libs systemd uclibc"
 
 CDEPEND="bzip2? ( app-arch/bzip2 )
