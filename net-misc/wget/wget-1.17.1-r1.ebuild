@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c9bfcbcea225b54a3ef85ba82a33318ba8b52b7b $
+# $Id: ad8ff3164b6ccd92f4c05c92b2a16d72529c4bea $
 
 EAPI="5"
 
@@ -51,6 +51,7 @@ pkg_setup() {
 
 src_prepare() {
 	epatch "${FILESDIR}"/${P}-progress-bar-segv.patch
+	epatch "${FILESDIR}"/${P}-gnulib-cygwin-sys_select.patch
 }
 
 src_configure() {
