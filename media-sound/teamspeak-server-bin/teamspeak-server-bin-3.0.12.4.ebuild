@@ -14,7 +14,7 @@ SRC_URI="
 
 SLOT="0"
 LICENSE="teamspeak3 GPL-2"
-IUSE="doc html systemd tsdns"
+IUSE="+doc html systemd tsdns"
 KEYWORDS="~amd64 ~x86"
 
 RESTRICT="installsources mirror strip"
@@ -77,11 +77,11 @@ src_install() {
 	fi
 
 	dodir "${dir}"/license
-	keepdir /{etc,var/{lib,log,run}}/teamspeak3
+	keepdir /{etc,var/{lib,log}}/teamspeak3
 
 	# Fix up permissions.
-	fowners teamspeak3 /{etc,var/{lib,log,run}}/teamspeak3
-	fperms 700 /{etc,var/{lib,log,run}}/teamspeak3
+	fowners teamspeak3 /{etc,var/{lib,log}}/teamspeak3
+	fperms 700 /{etc,var/{lib,log}}/teamspeak3
 
 	fowners teamspeak3 "${dir}"
 	fperms 755 "${dir}"
@@ -90,8 +90,11 @@ src_install() {
 pkg_postinst() {
 	einfo "On the first server start (or after clearing the database) *ONLY*, a new"
 	einfo "single-use 'ServerAdmin' key will be logged to"
+	einfo
 	einfo "    /var/log/teamspeak3/ts3server_1.log"
+	einfo
 	einfo "... the log file for the first TeamSpeak Virtual Server instance."
 	einfo
 	einfo "You will need to use this key in order to gain instance admin rights."
+	einfo
 }

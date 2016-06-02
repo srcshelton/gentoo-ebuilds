@@ -1,0 +1,7 @@
+# /etc/conf.d/teamspeak3: config file for /etc/init.d/teamspeak3
+
+# ts3-server gets unhappy if a non-C locale is not set...
+TS3_LANG="en_US.UTF-8"
+
+# Additional server options
+#TS3_ARGS='serveradmin_password="changeme"'
