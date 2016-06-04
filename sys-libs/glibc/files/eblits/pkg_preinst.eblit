@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cb8f461b0d12c37bc194f0e0bdeb99a1a291db58 $
+# $Id: 0c78b55f6ac8c6ad8afaf59e94fe4f28e4e31a3d $
 
 # Simple test to make sure our new glibc isnt completely broken.
 # Make sure we don't test with statically built binaries since
@@ -11,7 +11,7 @@
 glibc_sanity_check() {
 	cd / #228809
 
-	# We enter ${D} so to avoid trouble if the path contains
+	# We enter ${ED} so to avoid trouble if the path contains
 	# special characters; for instance if the path contains the
 	# colon character (:), then the linker will try to split it
 	# and look for the libraries in an unexpected place. This can
@@ -53,7 +53,7 @@ eblit-glibc-pkg_preinst() {
 	fi
 
 	[[ ${ROOT} != "/" ]] && return 0
-	[[ -d ${D}/$(get_libdir) ]] || return 0
+	[[ -d ${ED}/$(get_libdir) ]] || return 0
 	glibc_sanity_check
 
 	# For newer EAPIs, this was run in pkg_pretend.

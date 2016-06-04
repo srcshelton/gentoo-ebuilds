@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4a8056071a40a69d54d6a9048dbede76a13cb63d $
+# $Id: f0017fa53b2a5115ba3c2409b3a3d82b32c4ad58 $
 
 toolchain-glibc_src_install() {
 	local builddir=$(builddir $(want_linuxthreads && echo linuxthreads || echo nptl))
@@ -62,7 +62,7 @@ toolchain-glibc_src_install() {
 	# we should query the active gcc for info instead of hardcoding it ?
 	local i ldso_abi ldso_name
 
-	# Allow customised LIBDIR locations for Intel processors - other
+	# Allow customised LIBDIR locations for Intel architectures - other
 	# platforms are relatively sane...
         local LD64="$( get_abi_LIBDIR amd64 )"
         local LDx32="$( get_abi_LIBDIR x32 )"
@@ -109,7 +109,7 @@ toolchain-glibc_src_install() {
 		has ${ldso_abi} $(get_install_abis) || continue
 
 		ldso_name="$(alt_prefix)${ldso_abi_list[i+1]}"
-		if [[ ! -L ${D}/${ldso_name} && ! -e ${D}/${ldso_name} ]] ; then
+		if [[ ! -L ${ED}/${ldso_name} && ! -e ${ED}/${ldso_name} ]] ; then
 			dosym ../$(get_abi_LIBDIR ${ldso_abi})/${ldso_name##*/} ${ldso_name}
 		fi
 	done
@@ -118,7 +118,7 @@ toolchain-glibc_src_install() {
 	# binary to be setuid.  This is because the default owners/perms will be
 	# exactly what we want.
 	if in_iuse suid && ! use suid ; then
-		find "${D}" -name pt_chown -exec chmod -s {} +
+		find "${ED}" -name pt_chown -exec chmod -s {} +
 	fi
 
 	#################################################################
