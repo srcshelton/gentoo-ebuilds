@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d890cebc306e88123b745b53dcf2b5f9ae79c586 $
+# $Id: d2b2ecad4606d64a60e9796dd94a0d5aa0d131b3 $
 
 # Note: if your package uses the texi2dvi utility, it must depend on the
 # virtual/texi2dvi package to pull in all the right deps.  The tool is not
@@ -16,7 +16,7 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="nls static"
 
 RDEPEND="
