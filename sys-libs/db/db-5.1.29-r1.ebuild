@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cac26457da2bef83a921b791f537673c4628baab $
+# $Id: 07152689e8a56e5cfb9a38ce4e2e7cf80d33a5d6 $
 # $Header: /var/cvsroot/gentoo-x86/sys-libs/db/db-5.1.29-r1.ebuild,v 1.3 2015/03/20 14:41:50 jlec Exp $
 
 EAPI=5
@@ -54,7 +54,6 @@ src_prepare() {
 	done
 	epatch "${FILESDIR}"/${PN}-4.8-libtool.patch
 	epatch "${FILESDIR}"/${PN}-4.8.24-java-manifest-location.patch
-	epatch "${FILESDIR}"/${PN}-4.8.30-rename-atomic-compare-exchange.patch
 
 	pushd dist > /dev/null || die "Cannot cd to 'dist'"
 
@@ -82,6 +81,9 @@ src_prepare() {
 	# upstream autoconf fails to build DBM when it's supposed to
 	# merged upstream in 5.0.26
 	#epatch "${FILESDIR}"/${PN}-5.0.21-enable-dbm-autoconf.patch
+
+	# Needed when compiling with clang
+	epatch "${FILESDIR}"/${P}-rename-atomic-compare-exchange.patch
 
 	# Upstream release script grabs the dates when the script was run, so lets
 	# end-run them to keep the date the same.
@@ -203,7 +205,7 @@ src_install() {
 		[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
 		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
 		java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
-		rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
+		rm "${ED}"/usr/"$(get_libdir)"/*.jar
 	fi
 }
 
