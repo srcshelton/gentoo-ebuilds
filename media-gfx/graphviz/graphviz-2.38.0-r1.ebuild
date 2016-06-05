@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 218592776a1b66088e51021039e48ca62a0b9462 $
+# $Id: a8c0d4446aea959158da70d6b6163827348c5b0c $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -13,7 +13,7 @@ SRC_URI="http://www.graphviz.org/pub/graphviz/stable/SOURCES/${P}.tar.gz"
 
 LICENSE="CPL-1.0"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x64-solaris"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x64-solaris"
 IUSE="+cairo devil doc examples gdk-pixbuf gtk gts guile java lasi nls pdf perl postscript python qt4 ruby svg static-libs tcl X elibc_FreeBSD abi_x86_x32"
 
 # Requires ksh
