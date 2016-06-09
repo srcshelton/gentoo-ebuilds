@@ -93,7 +93,7 @@ src_prepare() {
 	! use vanilla && [[ -n ${PATCH_VER} ]] && EPATCH_SUFFIX="patch" epatch "${WORKDIR}"/patch
 	if use clang; then
 		epatch "${FILESDIR}"/"${PN}"-7.11-clang.patch
-		epatch "${FILESDIR}"/"${P}"-compile-loc2c.c.patch
+		epatch "${FILESDIR}"/"${PN}"-7.11-compile-loc2c.c.patch
 	fi
 	case ${CHOST} in
 		*-darwin*)
