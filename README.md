@@ -257,6 +257,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Fixed in sys-apps/gentoo-functions/sys-apps/gentoo-functions-0.9 v1.2
 * sys-apps/gentoo-functions
     * Fix inclusion when unbound variable checking is enabled
+* sys-apps/portage
+    * Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory
 * sys-apps/usbutils
     * Revert changes which make usbutils dependent on udev
 * sys-power/apcupsd
