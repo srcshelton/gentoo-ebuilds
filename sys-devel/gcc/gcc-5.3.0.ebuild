@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 48a7567638b08e0c697903285883ada6174847d0 $
+# $Id: 1730b19efefdd44fc9e35e48d8cc80328c08f4db $
 
 EAPI="4"
 
@@ -27,7 +27,6 @@ KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~s
 RDEPEND=""
 DEPEND="${RDEPEND}
 	elibc_glibc? ( >=sys-libs/glibc-2.8 )
-	!multislot? ( !<${CATEGORY}/gcc-4.9 )
 	>=${CATEGORY}/binutils-2.20"
 
 if [[ ${CATEGORY} != cross-* ]] ; then
