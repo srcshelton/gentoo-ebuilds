@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5377e85639a8fa8922f2ef42f22752698842f4af $
+# $Id: 9d00ad49bc57fecf0eb165f27a6021948bd8ee40 $
 
 EAPI="6"
 
@@ -17,7 +17,7 @@ LICENSE="GPL-2"
 SLOT="0"
 WEBAPP_MANUAL_SLOT="yes"
 KEYWORDS="~amd64 ~x86"
-IUSE="+agent curl frontend ipv6 java ldap libxml2 mysql odbc openipmi oracle postgres proxy server snmp sqlite ssh static systemd xmpp"
+IUSE="+agent curl frontend ipv6 java ldap libxml2 mysql odbc openipmi oracle postgres proxy server snmp sqlite ssh ssl static systemd xmpp"
 REQUIRED_USE="|| ( agent frontend proxy server )
 	proxy? ( ^^ ( mysql oracle postgres sqlite odbc ) )
 	server? ( ^^ ( mysql oracle postgres sqlite odbc ) )
@@ -39,7 +39,8 @@ COMMON_DEPEND="snmp? ( net-analyzer/net-snmp )
 	openipmi? ( sys-libs/openipmi )
 	ssh? ( net-libs/libssh2 )
 	java? ( virtual/jdk:* )
-	odbc? ( dev-db/unixODBC )"
+	odbc? ( dev-db/unixODBC )
+	ssl? ( dev-libs/openssl:= )"
 
 RDEPEND="${COMMON_DEPEND}
 	proxy? ( net-analyzer/fping )
@@ -137,6 +138,7 @@ src_configure() {
 		$(use_with ssh ssh2) \
 		$(use_with libxml2) \
 		$(use_with odbc unixodbc) \
+		$(use_with ssl openssl) \
 		|| die "econf failed"
 }
 
