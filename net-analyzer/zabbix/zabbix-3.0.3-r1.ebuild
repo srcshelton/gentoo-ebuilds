@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9d00ad49bc57fecf0eb165f27a6021948bd8ee40 $
+# $Id: 212ccb7569063d18240b3425fe8a8a2238a27ab5 $
 
 EAPI="6"
 
@@ -40,7 +40,7 @@ COMMON_DEPEND="snmp? ( net-analyzer/net-snmp )
 	ssh? ( net-libs/libssh2 )
 	java? ( virtual/jdk:* )
 	odbc? ( dev-db/unixODBC )
-	ssl? ( dev-libs/openssl:= )"
+	ssl? ( dev-libs/openssl:=[-bindist] )"
 
 RDEPEND="${COMMON_DEPEND}
 	proxy? ( net-analyzer/fping )
