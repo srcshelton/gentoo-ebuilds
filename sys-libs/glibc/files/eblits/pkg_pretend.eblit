@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c900ccc62f8baa6c01bd6d1629b1ce8b547159a4 $
+# $Id: ff8f1c1a652ed52b32401a62e56ccbc6506cca07 $
 
 glibc_compile_test() {
 	local ret save_cflags=${CFLAGS}
@@ -94,7 +94,7 @@ eblit-glibc-pkg_pretend() {
 		then
 			eerror "Your patched vendor kernel is broken.  You need to get an"
 			eerror "update from whoever is providing the kernel to you."
-			eerror "http://sourceware.org/bugzilla/show_bug.cgi?id=5227"
+			eerror "https://sourceware.org/bugzilla/show_bug.cgi?id=5227"
 			eerror "http://bugs.gentoo.org/262698"
 			die "keeping your system alive, say thank you"
 		fi
