@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 965d89bc72db40da7be73a7dfb18d757d452b071 $
+# $Id: 2e0c768040ece064a998f103e775eb59343637b3 $
 
 EAPI="5"
 PYTHON_COMPAT=( python{2_7,3_3,3_4} )
@@ -51,7 +51,7 @@ esac
 
 PATCH_VER=""
 DESCRIPTION="GNU debugger"
-HOMEPAGE="http://sourceware.org/gdb/"
+HOMEPAGE="https://sourceware.org/gdb/"
 SRC_URI="${SRC_URI} ${PATCH_VER:+mirror://gentoo/${P}-patches-${PATCH_VER}.tar.xz}"
 
 LICENSE="GPL-2 LGPL-2"
@@ -154,7 +154,7 @@ src_configure() {
 			# Disable guile for now as it requires guile-2.x #562902
 			--without-guile
 			# This only disables building in the readline subdir.
-			# For gdb itself, it'll use the system version. # ' <- Syntax highlight fix
+			# For gdb itself, it'll use the system version.
 			--disable-readline
 			--with-system-readline
 			--with-separate-debug-dir="${EPREFIX}"/usr/lib/debug
@@ -192,7 +192,7 @@ src_install() {
 		return 0
 	fi
 	# Install it by hand for now:
-	# http://sourceware.org/ml/gdb-patches/2011-12/msg00915.html
+	# https://sourceware.org/ml/gdb-patches/2011-12/msg00915.html
 	# Only install if it exists due to the twisted behavior (see
 	# notes in src_configure above).
 	[[ -e gdb/gdbserver/gdbreplay ]] && dobin gdb/gdbserver/gdbreplay
