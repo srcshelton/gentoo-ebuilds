@@ -391,6 +391,8 @@ SYMLINK_LIB="yes"
     * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-libs/libeudev
     * Provide `libudev` only without (e)udev daemon, for builds which require only the library component of udev
+* sys-process/procps
+    * Maintain compatibility with releases prior to 3.3.11 by keeping `sysctl` in `/sbin`
 * virtual/libudev
     * Allow sys-libs/libeudev to satisfy `virtual/libudev` dependency
 
