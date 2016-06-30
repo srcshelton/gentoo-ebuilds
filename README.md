@@ -183,6 +183,8 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-ruby/rake
 * mail-client/roundcube
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
+* net-analyzer/netdata
+    * With modifications to upstream ebuild and init script
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
