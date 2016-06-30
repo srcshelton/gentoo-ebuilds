@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0667345ad26a10e77d662057bd9a29f8b9270ecb $
+# $Id: aa0502f0c18b33c757d784c452fe5905d23c1a2b $
 
 EAPI=6
 
@@ -68,6 +68,8 @@ RDEPEND="
 
 RESTRICT="installsources strip"
 
+S="${WORKDIR}/${P}/src/${EGO_PN}"
+
 # see "contrib/check-config.sh" from upstream's sources
 CONFIG_CHECK="
 	~NAMESPACES ~NET_NS ~PID_NS ~IPC_NS ~UTS_NS
@@ -75,6 +77,7 @@ CONFIG_CHECK="
 	~CGROUPS ~CGROUP_CPUACCT ~CGROUP_DEVICE ~CGROUP_FREEZER ~CGROUP_SCHED ~CPUSETS ~MEMCG
 	~KEYS ~MACVLAN ~VETH ~BRIDGE ~BRIDGE_NETFILTER
 	~NF_NAT_IPV4 ~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE
+	~IP_VS
 	~NETFILTER_XT_MATCH_ADDRTYPE ~NETFILTER_XT_MATCH_CONNTRACK
 	~NF_NAT ~NF_NAT_NEEDED
 
@@ -87,6 +90,7 @@ CONFIG_CHECK="
 	~CGROUP_HUGETLB
 	~NET_CLS_CGROUP
 	~CFS_BANDWIDTH ~FAIR_GROUP_SCHED ~RT_GROUP_SCHED
+	~XFRM_ALGO ~XFRM_USER
 "
 
 ERROR_KEYS="CONFIG_KEYS: is mandatory"
@@ -98,6 +102,8 @@ ERROR_BLK_CGROUP="CONFIG_BLK_CGROUP: is optional for container statistics gather
 ERROR_IOSCHED_CFQ="CONFIG_IOSCHED_CFQ: is optional for container statistics gathering"
 ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gathering"
 ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
+ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
+ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 pkg_setup() {
 	if kernel_is lt 3 10; then
@@ -169,16 +175,7 @@ pkg_setup() {
 	enewgroup docker
 }
 
-src_prepare() {
-	cd "src/${EGO_PN}" || die
-	sed -i 's/docker-containerd/containerd/g; s/docker-runc/runc/g' libcontainerd/remote_linux.go
-	# allow user patches (use sparingly - upstream won't support them)
-	cd -
-	eapply_user
-}
-
 src_compile() {
-	cd "src/${EGO_PN}" || die
 	export GOPATH="${WORKDIR}/${P}:${PWD}/vendor"
 
 	# setup CFLAGS and LDFLAGS for separate build target
@@ -227,10 +224,12 @@ src_compile() {
 }
 
 src_install() {
-	cd "src/${EGO_PN}" || die
 	VERSION="$(cat VERSION)"
 	newbin "bundles/$VERSION/dynbinary-client/docker-$VERSION" docker
 	newbin "bundles/$VERSION/dynbinary-daemon/dockerd-$VERSION" dockerd
+	dosym containerd /usr/bin/docker-containerd
+	dosym containerd-shim /usr/bin/docker-containerd-shim
+	dosym runc /usr/bin/docker-runc
 
 	newinitd contrib/init/openrc/docker.initd docker
 	newconfd contrib/init/openrc/docker.confd docker
