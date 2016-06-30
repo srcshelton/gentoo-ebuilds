@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 27f012628ddb7f1503e41e2681a26072209b5468 $
+# $Id: ed14b763ba03a4993d650f002e1597e3369c9973 $
 
 EAPI=6
 
@@ -20,7 +20,7 @@ SRC_URI="
 "
 HOMEPAGE="http://www.freeradius.org/"
 
-KEYWORDS="amd64 ~ppc ~ppc64 ~sparc ~x86 ~x86-fbsd"
+KEYWORDS="amd64 ~ppc ~ppc64 ~sparc x86 ~x86-fbsd"
 LICENSE="GPL-2"
 SLOT="0"
 
