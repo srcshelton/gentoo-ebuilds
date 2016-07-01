@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 29787405a2b37d32f629fe12aedf13ac371c437f $
+# $Id: 399a6c40f08a5606d81eacf7048a0de42a81e5a1 $
 
 EAPI=5
 
@@ -771,8 +771,8 @@ pkg_postinst() {
 		fi
 	done
 
-	elog "Make sure that PHP_TARGETS in ${EPREFIX}/etc/make.conf includes php${SLOT/./-} in order"
-	elog "to compile extensions for the ${SLOT} ABI"
+	elog "To build extensions for this version of PHP, you will need to"
+	elog "add php${SLOT/./-} to your PHP_TARGETS USE_EXPAND variable."
 	elog
 	if ! use readline && use cli ; then
 		ewarn "Note that in order to use php interactivly, you need to enable"

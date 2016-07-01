@@ -1,10 +1,10 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 29787405a2b37d32f629fe12aedf13ac371c437f $
+# $Id: b7f8c3f21eaa6aeb0eb4339713901f7b5c45ee4f $
 
 EAPI=5
 
-inherit eutils autotools flag-o-matic versionator depend.apache apache-module db-use libtool systemd
+inherit eutils autotools flag-o-matic versionator depend.apache apache-module libtool systemd
 
 KEYWORDS="alpha amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
@@ -67,8 +67,8 @@ IUSE="${IUSE} bcmath berkdb bzip2 calendar cdb cjk
 	crypt +ctype curl debug
 	enchant exif frontbase +fileinfo +filter firebird
 	flatfile ftp gd gdbm gmp +hash +iconv imap inifile
-	intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit mhash
-	mssql mysql libmysqlclient mysqli nls
+	intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl
+	mhash mssql mysql libmysqlclient mysqli nls
 	oci8-instant-client odbc +opcache pcntl pdo +phar +posix postgres qdbm
 	readline recode selinux +session sharedmem
 	+simplexml snmp soap sockets spell sqlite ssl
@@ -76,11 +76,21 @@ IUSE="${IUSE} bcmath berkdb bzip2 calendar cdb cjk
 	+xml xmlreader xmlwriter xmlrpc xpm xslt zip zlib"
 
 DEPEND="
-	>=app-eselect/eselect-php-0.7.1-r3[apache2?,fpm?]
+	>=app-eselect/eselect-php-0.9.1[apache2?,fpm?]
 	>=dev-libs/libpcre-8.32[unicode]
 	apache2? ( || ( >=www-servers/apache-2.4[apache2_modules_unixd,threads=]
-		<www-servers/apache-2.4[threads=] ) )
-	berkdb? ( =sys-libs/db-4* )
+		<www-servers/apache-2.4[threads=] ) )"
+
+# The supported (that is, autodetected) versions of BDB are listed in
+# the ./configure script. Other versions *work*, but we need to stick to
+# the ones that can be detected to avoid a repeat of bug #564824.
+DEPEND="${DEPEND}
+	berkdb? ( || ( 	sys-libs/db:5.3
+					sys-libs/db:5.1
+					sys-libs/db:4.8
+					sys-libs/db:4.7
+					sys-libs/db:4.6
+					sys-libs/db:4.5 ) )
 	bzip2? ( app-arch/bzip2 )
 	cdb? ( || ( dev-db/cdb dev-db/tinycdb ) )
 	cjk? ( !gd? (
@@ -99,7 +109,7 @@ DEPEND="
 	firebird? ( dev-db/firebird )
 	gd? ( virtual/jpeg:0 media-libs/libpng:0= sys-libs/zlib )
 	gdbm? ( >=sys-libs/gdbm-1.8.0 )
-	gmp? ( >=dev-libs/gmp-4.1.2 )
+	gmp? ( dev-libs/gmp:0 )
 	iconv? ( virtual/libiconv )
 	imap? ( virtual/imap-c-client[ssl=] )
 	intl? ( dev-libs/icu:= )
@@ -116,9 +126,9 @@ DEPEND="
 	nls? ( sys-devel/gettext )
 	oci8-instant-client? ( dev-db/oracle-instantclient-basic )
 	odbc? ( >=dev-db/unixODBC-1.8.13 )
-	postgres? ( dev-db/postgresql )
+	postgres? ( dev-db/postgresql:* )
 	qdbm? ( dev-db/qdbm )
-	readline? ( sys-libs/readline )
+	readline? ( sys-libs/readline:0 )
 	recode? ( app-text/recode )
 	sharedmem? ( dev-libs/mm )
 	simplexml? ( >=dev-libs/libxml2-2.6.8 )
@@ -126,7 +136,10 @@ DEPEND="
 	soap? ( >=dev-libs/libxml2-2.6.8 )
 	spell? ( >=app-text/aspell-0.50 )
 	sqlite? ( >=dev-db/sqlite-3.7.6.3 )
-	ssl? ( >=dev-libs/openssl-0.9.7 )
+	ssl? (
+		!libressl? ( dev-libs/openssl:0 )
+		libressl? ( dev-libs/libressl )
+	)
 	sybase-ct? ( dev-db/freetds )
 	tidy? ( app-text/htmltidy )
 	truetype? (
@@ -155,7 +168,9 @@ DEPEND="
 
 php="=${CATEGORY}/${PF}"
 
+# Without USE=readline or libedit, the interactive "php -a" CLI will hang.
 REQUIRED_USE="
+	cli? ( ^^ ( readline libedit ) )
 	truetype? ( gd )
 	vpx? ( gd )
 	cjk? ( gd )
@@ -223,16 +238,16 @@ php_install_ini() {
 	php_set_ini_dir "${phpsapi}"
 
 	local phpinisrc="${PHP_INI_UPSTREAM}-${phpsapi}"
-	cp "${PHP_INI_UPSTREAM}" "${phpinisrc}"
+	cp "${PHP_INI_UPSTREAM}" "${phpinisrc}" || die
 
 	# default to /tmp for save_path, bug #282768
-	sed -e 's|^;session.save_path .*$|session.save_path = "'"${EPREFIX}"'/tmp"|g' -i "${phpinisrc}"
+	sed -e 's|^;session.save_path .*$|session.save_path = "'"${EPREFIX}"'/tmp"|g' -i "${phpinisrc}" || die
 
 	# Set the extension dir
-	sed -e "s|^extension_dir .*$|extension_dir = ${extension_dir}|g" -i "${phpinisrc}"
+	sed -e "s|^extension_dir .*$|extension_dir = ${extension_dir}|g" -i "${phpinisrc}" || die
 
 	# Set the include path to point to where we want to find PEAR packages
-	sed -e 's|^;include_path = ".:/php/includes".*|include_path = ".:'"${EPREFIX}"'/usr/share/php'${PHP_MV}':'"${EPREFIX}"'/usr/share/php"|' -i "${phpinisrc}"
+	sed -e 's|^;include_path = ".:/php/includes".*|include_path = ".:'"${EPREFIX}"'/usr/share/php'${PHP_MV}':'"${EPREFIX}"'/usr/share/php"|' -i "${phpinisrc}" || die
 
 	dodir "${PHP_INI_DIR#${EPREFIX}}"
 	insinto "${PHP_INI_DIR#${EPREFIX}}"
@@ -246,27 +261,21 @@ php_install_ini() {
 
 	if use_if_iuse opcache; then
 		elog "Adding opcache to $PHP_EXT_INI_DIR"
-		echo "zend_extension=${PHP_DESTDIR}/$(get_libdir)/opcache.so" >> "${D}/${PHP_EXT_INI_DIR}"/opcache.ini
-		dosym "${PHP_EXT_INI_DIR#${EPREFIX}}/opcache.ini" "${PHP_EXT_INI_DIR_ACTIVE#${EPREFIX}}/opcache.ini"
+		echo "zend_extension=${PHP_DESTDIR}/$(get_libdir)/opcache.so" >> \
+			 "${D}/${PHP_EXT_INI_DIR}"/opcache.ini
+		dosym "${PHP_EXT_INI_DIR#${EPREFIX}}/opcache.ini" \
+			  "${PHP_EXT_INI_DIR_ACTIVE#${EPREFIX}}/opcache.ini"
 	fi
 
 	# SAPI-specific handling
-
 	if [[ "${sapi}" == "fpm" ]] ; then
-		[[ -z ${PHP_FPM_CONF_VER} ]] && PHP_FPM_CONF_VER=0
-		einfo "Installing FPM CGI config file php-fpm.conf"
+		einfo "Installing FPM config file php-fpm.conf"
 		insinto "${PHP_INI_DIR#${EPREFIX}}"
-		newins "${FILESDIR}/php-fpm-r${PHP_FPM_CONF_VER}.conf" php-fpm.conf
-
-		# Remove bogus /etc/php-fpm.conf.default (bug 359906)
-		[[ -f "${ED}/etc/php-fpm.conf.default" ]] && rm "${ED}/etc/php-fpm.conf.default"
+		doins sapi/fpm/php-fpm.conf
 	fi
-
-	# Install PHP ini files into /usr/share/php
 
 	dodoc php.ini-development
 	dodoc php.ini-production
-
 }
 
 php_set_ini_dir() {
@@ -276,14 +285,6 @@ php_set_ini_dir() {
 }
 
 src_prepare() {
-	# USE=sharedmem (session/mod_mm to be exact) tries to mmap() this path
-	# ([empty session.save_path]/session_mm_[sapi][gid].sem)
-	# there is no easy way to circumvent that, all php calls during
-	# install use -n, so no php.ini file will be used.
-	# As such, this is the easiest way to get around
-	addpredict /session_mm_cli250.sem
-	addpredict /session_mm_cli0.sem
-
 	# Change PHP branding
 	# Get the alpha/beta/rc version
 	sed -re	"s|^(PHP_EXTRA_VERSION=\").*(\")|\1-pl${PR/r/}-gentoo\2|g" \
@@ -298,7 +299,8 @@ src_prepare() {
 	sed -i \
 		-e "s,-i -a -n php${PHP_MV},-i -n php${PHP_MV},g" \
 		-e "s,-i -A -n php${PHP_MV},-i -n php${PHP_MV},g" \
-		configure sapi/apache2filter/config.m4 sapi/apache2handler/config.m4
+		configure sapi/apache2filter/config.m4 sapi/apache2handler/config.m4 \
+		|| die
 
 	# Patch PHP to support heimdal instead of mit-krb5
 	if has_version "app-crypt/heimdal" ; then
@@ -308,11 +310,11 @@ src_prepare() {
 			|| die "Failed to fix heimdal crypt library reference"
 	fi
 
-	#Add user patches #357637
+	# Add user patches #357637
 	epatch_user
 
-	#force rebuilding aclocal.m4
-	rm aclocal.m4
+	# Force rebuilding aclocal.m4
+	rm -f aclocal.m4 || die
 	eautoreconf
 
 	if [[ ${CHOST} == *-darwin* ]] ; then
@@ -332,126 +334,127 @@ src_configure() {
 
 	PHP_DESTDIR="${EPREFIX}/usr/$(get_libdir)/php${SLOT}"
 
-	# This is a global variable and should be in caps. It isn't because the
-	# phpconfutils eclass relies on exactly this name...
-	# for --with-libdir see bug #327025
-	my_conf="
+	# The php-fpm config file wants localstatedir to be ${EPREFIX}/var
+	# and not the Gentoo default ${EPREFIX}/var/lib. See bug 572002.
+	local our_conf=(
 		--prefix="${PHP_DESTDIR}"
-		--mandir="${PHP_DESTDIR}"/man
-		--infodir="${PHP_DESTDIR}"/info
-		--libdir="${PHP_DESTDIR}"/lib
-		--with-libdir=$(get_libdir)
+		--mandir="${PHP_DESTDIR}/man"
+		--infodir="${PHP_DESTDIR}/info"
+		--libdir="${PHP_DESTDIR}/lib"
+		--with-libdir="$(get_libdir)"
+		--localstatedir="${EPREFIX}/var"
 		--without-pear
-		$(use_enable threads maintainer-zts)"
+		$(use_enable threads maintainer-zts)
+	)
 
-	#                             extension		  USE flag        shared
-	my_conf+="
-	$(use_enable bcmath bcmath )
-	$(use_with bzip2 bz2 "${EPREFIX}"/usr)
-	$(use_enable calendar calendar )
-	$(use_enable ctype ctype )
-	$(use_with curl curl "${EPREFIX}"/usr)
-	$(use_enable xml dom )
-	$(use_with enchant enchant "${EPREFIX}"/usr)
-	$(use_enable exif exif )
-	$(use_enable fileinfo fileinfo )
-	$(use_enable filter filter )
-	$(use_enable ftp ftp )
-	$(use_with nls gettext "${EPREFIX}"/usr)
-	$(use_with gmp gmp "${EPREFIX}"/usr)
-	$(use_enable hash hash )
-	$(use_with mhash mhash "${EPREFIX}"/usr)
-	$(use_with iconv iconv $(use elibc_glibc || use elibc_musl || echo "${EPREFIX}"/usr))
-	$(use_enable intl intl )
-	$(use_enable ipv6 ipv6 )
-	$(use_enable json json )
-	$(use_with kerberos kerberos "${EPREFIX}"/usr)
-	$(use_enable xml libxml )
-	$(use_with xml libxml-dir "${EPREFIX}"/usr)
-	$(use_enable unicode mbstring )
-	$(use_with crypt mcrypt "${EPREFIX}"/usr)
-	$(use_with mssql mssql "${EPREFIX}"/usr)
-	$(use_with unicode onig "${EPREFIX}"/usr)
-	$(use_with ssl openssl "${EPREFIX}"/usr)
-	$(use_with ssl openssl-dir "${EPREFIX}"/usr)
-	$(use_enable pcntl pcntl )
-	$(use_enable phar phar )
-	$(use_enable pdo pdo )
-	$(use_enable opcache opcache )
-	$(use_with postgres pgsql "${EPREFIX}"/usr)
-	$(use_enable posix posix )
-	$(use_with spell pspell "${EPREFIX}"/usr)
-	$(use_with recode recode "${EPREFIX}"/usr)
-	$(use_enable simplexml simplexml )
-	$(use_enable sharedmem shmop )
-	$(use_with snmp snmp "${EPREFIX}"/usr)
-	$(use_enable soap soap )
-	$(use_enable sockets sockets )
-	$(use_with sqlite sqlite3 "${EPREFIX}"/usr)
-	$(use_with sybase-ct sybase-ct "${EPREFIX}"/usr)
-	$(use_enable sysvipc sysvmsg )
-	$(use_enable sysvipc sysvsem )
-	$(use_enable sysvipc sysvshm )
-	$(use_with systemd fpm-systemd)
-	$(use_with tidy tidy "${EPREFIX}"/usr)
-	$(use_enable tokenizer tokenizer )
-	$(use_enable wddx wddx )
-	$(use_enable xml xml )
-	$(use_enable xmlreader xmlreader )
-	$(use_enable xmlwriter xmlwriter )
-	$(use_with xmlrpc xmlrpc)
-	$(use_with xslt xsl "${EPREFIX}"/usr)
-	$(use_enable zip zip )
-	$(use_with zlib zlib "${EPREFIX}"/usr)
-	$(use_enable debug debug )"
+	our_conf+=(
+		$(use_enable bcmath bcmath)
+		$(use_with bzip2 bz2 "${EPREFIX}/usr")
+		$(use_enable calendar calendar)
+		$(use_enable ctype ctype)
+		$(use_with curl curl "${EPREFIX}/usr")
+		$(use_enable xml dom)
+		$(use_with enchant enchant "${EPREFIX}/usr")
+		$(use_enable exif exif)
+		$(use_enable fileinfo fileinfo)
+		$(use_enable filter filter)
+		$(use_enable ftp ftp)
+		$(use_with nls gettext "${EPREFIX}/usr")
+		$(use_with gmp gmp "${EPREFIX}/usr")
+		$(use_enable hash hash)
+		$(use_with mhash mhash "${EPREFIX}/usr")
+		$(use_with iconv iconv \
+			$(use elibc_glibc || use elibc_musl || echo "${EPREFIX}/usr"))
+		$(use_enable intl intl)
+		$(use_enable ipv6 ipv6)
+		$(use_enable json json)
+		$(use_with kerberos kerberos "${EPREFIX}/usr")
+		$(use_enable xml libxml)
+		$(use_with xml libxml-dir "${EPREFIX}/usr")
+		$(use_enable unicode mbstring)
+		$(use_with crypt mcrypt "${EPREFIX}/usr")
+		$(use_with mssql mssql "${EPREFIX}/usr")
+		$(use_with unicode onig "${EPREFIX}/usr")
+		$(use_with ssl openssl "${EPREFIX}/usr")
+		$(use_with ssl openssl-dir "${EPREFIX}/usr")
+		$(use_enable pcntl pcntl)
+		$(use_enable phar phar)
+		$(use_enable pdo pdo)
+		$(use_enable opcache opcache)
+		$(use_with postgres pgsql "${EPREFIX}/usr")
+		$(use_enable posix posix)
+		$(use_with spell pspell "${EPREFIX}/usr")
+		$(use_with recode recode "${EPREFIX}/usr")
+		$(use_enable simplexml simplexml)
+		$(use_enable sharedmem shmop)
+		$(use_with snmp snmp "${EPREFIX}/usr")
+		$(use_enable soap soap)
+		$(use_enable sockets sockets)
+		$(use_with sqlite sqlite3 "${EPREFIX}/usr")
+		$(use_with sybase-ct sybase-ct "${EPREFIX}/usr")
+		$(use_enable sysvipc sysvmsg)
+		$(use_enable sysvipc sysvsem)
+		$(use_enable sysvipc sysvshm)
+		$(use_with systemd fpm-systemd)
+		$(use_with tidy tidy "${EPREFIX}/usr")
+		$(use_enable tokenizer tokenizer)
+		$(use_enable wddx wddx)
+		$(use_enable xml xml)
+		$(use_enable xmlreader xmlreader)
+		$(use_enable xmlwriter xmlwriter)
+		$(use_with xmlrpc xmlrpc)
+		$(use_with xslt xsl "${EPREFIX}/usr")
+		$(use_enable zip zip)
+		$(use_with zlib zlib "${EPREFIX}/usr")
+		$(use_enable debug debug)
+	)
 
 	# DBA support
 	if use cdb || use berkdb || use flatfile || use gdbm || use inifile \
 		|| use qdbm ; then
-		my_conf="${my_conf} --enable-dba${shared}"
+		our_conf+=( "--enable-dba${shared}" )
 	fi
 
 	# DBA drivers support
-	my_conf+="
-	$(use_with cdb cdb)
-	$(use_with berkdb db4 ${EPREFIX}/usr)
-	$(use_enable flatfile flatfile )
-	$(use_with gdbm gdbm ${EPREFIX}/usr)
-	$(use_enable inifile inifile )
-	$(use_with qdbm qdbm ${EPREFIX}/usr)"
+	our_conf+=(
+		$(use_with cdb cdb)
+		$(use_with berkdb db4 "${EPREFIX}/usr")
+		$(use_enable flatfile flatfile)
+		$(use_with gdbm gdbm "${EPREFIX}/usr")
+		$(use_enable inifile inifile)
+		$(use_with qdbm qdbm "${EPREFIX}/usr")
+	)
 
 	# Support for the GD graphics library
-	my_conf+="
-	$(use_with truetype freetype-dir ${EPREFIX}/usr)
-	$(use_with truetype t1lib ${EPREFIX}/usr)
-	$(use_enable cjk gd-jis-conv )
-	$(use_with gd jpeg-dir ${EPREFIX}/usr)
-	$(use_with gd png-dir ${EPREFIX}/usr)
-	$(use_with xpm xpm-dir ${EPREFIX}/usr)
-	$(use_with vpx vpx-dir ${EPREFIX}/usr)"
+	our_conf+=(
+		$(use_with truetype freetype-dir "${EPREFIX}/usr")
+		$(use_with truetype t1lib "${EPREFIX}/usr")
+		$(use_enable cjk gd-jis-conv)
+		$(use_with gd jpeg-dir "${EPREFIX}/usr")
+		$(use_with gd png-dir "${EPREFIX}/usr")
+		$(use_with xpm xpm-dir "${EPREFIX}/usr")
+		$(use_with vpx vpx-dir "${EPREFIX}/usr")
+	)
 	# enable gd last, so configure can pick up the previous settings
-	my_conf+="
-	$(use_with gd gd)"
+	our_conf+=( $(use_with gd gd) )
 
 	# IMAP support
 	if use imap ; then
-		my_conf+="
-		$(use_with imap imap ${EPREFIX}/usr)
-		$(use_with ssl imap-ssl ${EPREFIX}/usr)"
+		our_conf+=(
+			$(use_with imap imap "${EPREFIX}/usr")
+			$(use_with ssl imap-ssl "${EPREFIX}/usr")
+		)
 	fi
 
 	# Interbase/firebird support
-
-	if use firebird ; then
-		my_conf+="
-		$(use_with firebird interbase ${EPREFIX}/usr)"
-	fi
+	our_conf+=( $(use_with firebird interbase "${EPREFIX}/usr") )
 
 	# LDAP support
 	if use ldap ; then
-		my_conf+="
-		$(use_with ldap ldap ${EPREFIX}/usr)
-		$(use_with ldap-sasl ldap-sasl ${EPREFIX}/usr)"
+		our_conf+=(
+			$(use_with ldap ldap "${EPREFIX}/usr")
+			$(use_with ldap-sasl ldap-sasl "${EPREFIX}/usr")
+		)
 	fi
 
 	# MySQL support
@@ -460,68 +463,59 @@ src_configure() {
 	use libmysqlclient && mysqllib="${EPREFIX}/usr"
 	use libmysqlclient && mysqlilib="${EPREFIX}/usr/bin/mysql_config"
 
-	my_conf+=" $(use_with mysql mysql $mysqllib)"
-	my_conf+=" $(use_with mysqli mysqli $mysqlilib)"
+	our_conf+=( $(use_with mysql mysql "${mysqllib}") )
+	our_conf+=( $(use_with mysqli mysqli "${mysqlilib}") )
 
-	local mysqlsock=" $(use_with mysql mysql-sock ${EPREFIX}/var/run/mysqld/mysqld.sock)"
-	if use mysql ; then
-		my_conf+="${mysqlsock}"
-	elif use mysqli ; then
-		my_conf+="${mysqlsock}"
+	local mysqlsock="${EPREFIX}/var/run/mysqld/mysqld.sock"
+	if use mysql || use mysqli ; then
+		our_conf+=( $(use_with mysql mysql-sock "${mysqlsock}") )
 	fi
 
 	# ODBC support
-	if use odbc ; then
-		my_conf+="
-		$(use_with odbc unixODBC ${EPREFIX}/usr)"
-	fi
-
-	if use iodbc ; then
-		my_conf+="
-		$(use_with iodbc iodbc ${EPREFIX}/usr)"
-	fi
+	our_conf+=(
+		$(use_with odbc unixODBC "${EPREFIX}/usr")
+		$(use_with iodbc iodbc "${EPREFIX}/usr")
+	)
 
 	# Oracle support
-	if use oci8-instant-client ; then
-		my_conf+="
-		$(use_with oci8-instant-client oci8)"
-	fi
+	our_conf+=( $(use_with oci8-instant-client oci8) )
 
 	# PDO support
 	if use pdo ; then
-		my_conf+="
-		$(use_with mssql pdo-dblib )
-		$(use_with mysql pdo-mysql ${mysqllib})
-		$(use_with postgres pdo-pgsql )
-		$(use_with sqlite pdo-sqlite ${EPREFIX}/usr)
-		$(use_with odbc pdo-odbc unixODBC,${EPREFIX}/usr)"
-		if use oci8-instant-client ; then
-			my_conf+="
-			$(use_with oci8-instant-client pdo-oci)"
-		fi
+		our_conf+=(
+			$(use_with mssql pdo-dblib)
+			$(use_with mysql pdo-mysql "${mysqllib}")
+			$(use_with postgres pdo-pgsql)
+			$(use_with sqlite pdo-sqlite "${EPREFIX}/usr")
+			$(use_with firebird pdo-firebird "${EPREFIX}/usr")
+			$(use_with odbc pdo-odbc "unixODBC,${EPREFIX}/usr")
+			$(use_with oci8-instant-client pdo-oci)
+		)
 	fi
 
 	# readline/libedit support
-	my_conf+="
-	$(use_with readline readline ${EPREFIX}/usr)
-	$(use_with libedit libedit ${EPREFIX}/usr)"
+	our_conf+=(
+		$(use_with readline readline "${EPREFIX}/usr")
+		$(use_with libedit libedit "${EPREFIX}/usr")
+	)
 
 	# Session support
 	if use session ; then
-		my_conf+="
-		$(use_with sharedmem mm ${EPREFIX}/usr)"
+		our_conf+=( $(use_with sharedmem mm "${EPREFIX}/usr") )
 	else
-		my_conf+="
-		$(use_enable session session )"
+		our_conf+=( $(use_enable session session) )
 	fi
 
 	# Use pic for shared modules such as apache2's mod_php
-	my_conf="${my_conf} --with-pic"
+	our_conf+=( --with-pic )
 
 	# we use the system copy of pcre
 	# --with-pcre-regex affects ext/pcre
 	# --with-pcre-dir affects ext/filter and ext/zip
-	my_conf="${my_conf} --with-pcre-regex=${EPREFIX}/usr --with-pcre-dir=${EPREFIX}/usr"
+	our_conf+=(
+		--with-pcre-regex="${EPREFIX}/usr"
+		--with-pcre-dir="${EPREFIX}/usr"
+	)
 
 	# Catch CFLAGS problems
 	# Fixes bug #14067.
@@ -529,43 +523,56 @@ src_configure() {
 	replace-cpu-flags "k6*" "i586"
 
 	# Support user-passed configuration parameters
-	my_conf="${my_conf} ${EXTRA_ECONF:-}"
+	our_conf+=( ${EXTRA_ECONF:-} )
 
 	# Support the Apache2 extras, they must be set globally for all
 	# SAPIs to work correctly, especially for external PHP extensions
 
-	mkdir -p "${WORKDIR}/sapis-build"
+	mkdir -p "${WORKDIR}/sapis-build" || die
 	for one_sapi in $SAPIS ; do
 		use "${one_sapi}" || continue
 		php_set_ini_dir "${one_sapi}"
 
-		cp -r "${S}" "${WORKDIR}/sapis-build/${one_sapi}"
-		cd "${WORKDIR}/sapis-build/${one_sapi}"
+		# The BUILD_DIR variable is used to determine where to output
+		# the files that autotools creates. This was all originally
+		# based on the autotools-utils eclass.
+		BUILD_DIR="${WORKDIR}/sapis-build/${one_sapi}"
+		cp -r "${S}" "${BUILD_DIR}" || die
+		cd "${BUILD_DIR}" || die
 
-		sapi_conf="${my_conf} --with-config-file-path=${PHP_INI_DIR}
-			--with-config-file-scan-dir=${PHP_EXT_INI_DIR_ACTIVE}"
+		local sapi_conf=(
+			--with-config-file-path="${PHP_INI_DIR}"
+			--with-config-file-scan-dir="${PHP_EXT_INI_DIR_ACTIVE}"
+		)
 
 		for sapi in $SAPIS ; do
 			case "$sapi" in
 				cli|cgi|embed|fpm)
 					if [[ "${one_sapi}" == "${sapi}" ]] ; then
-						sapi_conf="${sapi_conf} --enable-${sapi}"
+						sapi_conf+=( "--enable-${sapi}" )
 					else
-						sapi_conf="${sapi_conf} --disable-${sapi}"
+						sapi_conf+=( "--disable-${sapi}" )
 					fi
 					;;
 
 				apache2)
 					if [[ "${one_sapi}" == "${sapi}" ]] ; then
-						sapi_conf="${sapi_conf} --with-apxs2=${EPREFIX}/usr/sbin/apxs"
+						sapi_conf+=( --with-apxs2="${EPREFIX}/usr/sbin/apxs" )
 					else
-						sapi_conf="${sapi_conf} --without-apxs2"
+						sapi_conf+=( --without-apxs2 )
 					fi
 					;;
 			esac
 		done
 
-		econf ${sapi_conf}
+		# Construct the $myeconfargs array by concatenating $our_conf
+		# (the common args) and $sapi_conf (the SAPI-specific args).
+		local myeconfargs=( "${our_conf[@]}" )
+		myeconfargs+=( "${sapi_conf[@]}" )
+
+		pushd "${BUILD_DIR}" > /dev/null || die
+		econf "${myeconfargs[@]}"
+		popd > /dev/null || die
 	done
 }
 
@@ -581,8 +588,9 @@ src_compile() {
 
 	for sapi in ${SAPIS} ; do
 		if use "${sapi}"; then
-			cd "${WORKDIR}/sapis-build/$sapi" || "Failed to change dir to ${WORKDIR}/sapis-build/$1"
-			emake || die "emake failed"
+			cd "${WORKDIR}/sapis-build/$sapi" || \
+				die "Failed to change dir to ${WORKDIR}/sapis-build/$1"
+			emake
 		fi
 	done
 }
@@ -604,15 +612,14 @@ src_install() {
 	dodir "${PHP_DESTDIR#${EPREFIX}}/bin"
 
 	# Install php environment (without any sapis)
-	cd "${WORKDIR}/sapis-build/$first_sapi"
+	cd "${WORKDIR}/sapis-build/$first_sapi" || die
 	emake INSTALL_ROOT="${D}" \
-		install-build install-headers install-programs \
-		|| die "emake install failed"
+		install-build install-headers install-programs
 
 	local extension_dir="$("${ED}/${PHP_DESTDIR#${EPREFIX}}/bin/php-config" --extension-dir)"
 
 	# Create the directory where we'll put version-specific php scripts
-	keepdir /usr/share/php${PHP_MV}
+	keepdir "/usr/share/php${PHP_MV}"
 
 	local sapi="", file=""
 	local sapi_list=""
@@ -620,13 +627,14 @@ src_install() {
 	for sapi in ${SAPIS}; do
 		if use "${sapi}" ; then
 			einfo "Installing SAPI: ${sapi}"
-			cd "${WORKDIR}/sapis-build/${sapi}"
+			cd "${WORKDIR}/sapis-build/${sapi}" || die
 
 			if [[ "${sapi}" == "apache2" ]] ; then
 				# We're specifically not using emake install-sapi as libtool
 				# may cause unnecessary relink failures (see bug #351266)
 				insinto "${PHP_DESTDIR#${EPREFIX}}/apache2/"
-				newins ".libs/libphp5$(get_libname)" "libphp${PHP_MV}$(get_libname)"
+				newins ".libs/libphp5$(get_libname)" \
+					   "libphp${PHP_MV}$(get_libname)"
 				keepdir "/usr/$(get_libdir)/apache2/modules"
 			else
 				# needed each time, php_install_ini would reset it
@@ -651,9 +659,9 @@ src_install() {
 				esac
 
 				if [[ "${source}" == *"$(get_libname)" ]]; then
-					dolib.so "${source}" || die "Unable to install ${sapi} sapi"
+					dolib.so "${source}"
 				else
-					dobin "${source}" || die "Unable to install ${sapi} sapi"
+					dobin "${source}"
 					local name="$(basename ${source})"
 					dosym "${dest}/bin/${name}" "/usr/bin/${name}${SLOT}"
 				fi
@@ -673,26 +681,25 @@ src_install() {
 
 	# Installing opcache module
 	if use_if_iuse opcache ; then
-		dolib.so "modules/opcache$(get_libname)" || die "Unable to install opcache module"
+		dolib.so "modules/opcache$(get_libname)"
 	fi
 
 	# Install env.d files
-	newenvd "${FILESDIR}/20php5-envd" \
-		"20php${SLOT}"
-	sed -e "s|/lib/|/$(get_libdir)/|g" -i \
-		"${ED}/etc/env.d/20php${SLOT}"
-	sed -e "s|php5|php${SLOT}|g" -i \
-		"${ED}/etc/env.d/20php${SLOT}"
+	newenvd "${FILESDIR}/20php5-envd" "20php${SLOT}"
+	sed -e "s|/lib/|/$(get_libdir)/|g" -i "${ED}/etc/env.d/20php${SLOT}" || die
+	sed -e "s|php5|php${SLOT}|g" -i "${ED}/etc/env.d/20php${SLOT}" || die
 
 	# set php-config variable correctly (bug #278439)
 	sed -e "s:^\(php_sapis=\)\".*\"$:\1\"${sapi_list}\":" -i \
-		"${ED}/usr/$(get_libdir)/php${SLOT}/bin/php-config"
+		"${ED}/usr/$(get_libdir)/php${SLOT}/bin/php-config" || die
 
 	if use fpm ; then
 		if use systemd; then
-			systemd_newunit "${FILESDIR}/php-fpm_at.service" "php-fpm@${SLOT}.service"
+			systemd_newunit "${FILESDIR}/php-fpm_at.service" \
+							"php-fpm@${SLOT}.service"
 		else
-			#systemd_newunit "${FILESDIR}/php-fpm_at-simple.service" "php-fpm@${SLOT}.service"
+			#systemd_newunit "${FILESDIR}/php-fpm_at-simple.service" \
+			#				"php-fpm@${SLOT}.service"
 			:
 		fi
 	fi
@@ -712,11 +719,13 @@ src_test() {
 		export TEST_PHP_CGI_EXECUTABLE="${WORKDIR}/sapis/cgi/php-cgi"
 	fi
 
-	REPORT_EXIT_STATUS=1 "${TEST_PHP_EXECUTABLE}" -n  -d "session.save_path=${T}" \
-		"${WORKDIR}/sapis-build/cli/run-tests.php" -n -q -d "session.save_path=${T}"
+	REPORT_EXIT_STATUS=1 "${TEST_PHP_EXECUTABLE}" -n  -d \
+					  "session.save_path=${T}" \
+					  "${WORKDIR}/sapis-build/cli/run-tests.php" -n -q -d \
+					  "session.save_path=${T}"
 
 	for name in ${EXPECTED_TEST_FAILURES}; do
-		mv "${name}.out" "${name}.out.orig" 2>/dev/null
+		mv "${name}.out" "${name}.out.orig" 2>/dev/null || die
 	done
 
 	local failed="$(find -name '*.out')"
@@ -750,7 +759,7 @@ pkg_postinst() {
 	# Output some general info to the user
 	if use apache2 ; then
 		APACHE2_MOD_DEFINE="PHP"
-		APACHE2_MOD_CONF="70_mod_php"  # provided by app-eselect/eselect-php
+		APACHE2_MOD_CONF="70_mod_php"  # Provided by app-eselect/eselect-php
 		apache-module_pkg_postinst
 	fi
 
@@ -760,7 +769,7 @@ pkg_postinst() {
 		if use $m ; then
 			local ci=$(eselect php show $m)
 			if [[ -z $ci ]]; then
-				eselect php set $m php${SLOT}
+				eselect php set $m php${SLOT} || die
 				einfo "Switched ${m} to use php:${SLOT}"
 				einfo
 			elif [[ $ci != "php${SLOT}" ]] ; then
@@ -771,25 +780,39 @@ pkg_postinst() {
 		fi
 	done
 
-	elog "Make sure that PHP_TARGETS in ${EPREFIX}/etc/make.conf includes php${SLOT/./-} in order"
-	elog "to compile extensions for the ${SLOT} ABI"
-	elog
-	if ! use readline && use cli ; then
-		ewarn "Note that in order to use php interactivly, you need to enable"
-		ewarn "the readline USE flag or php -a will hang"
-	fi
-	elog
-	elog "This ebuild installed a version of php.ini based on php.ini-${PHP_INI_VERSION} version."
-	elog "You can chose which version of php.ini to install by default by setting PHP_INI_VERSION to either"
-	elog "'production' or 'development' in ${EPREFIX}/etc/make.conf"
-	elog "Both versions of php.ini can be found in ${EPREFIX}/usr/share/doc/${PF}"
+	# Remove dead symlinks for SAPIs that were just disabled. For
+	# example, if the user has the cgi SAPI enabled, then he has an
+	# eselect-php symlink for it. If he later reinstalls PHP with
+	# USE="-cgi", that symlink will break. This call to eselect is
+	# supposed to remove that dead link per bug 572436.
+	eselect php cleanup || die
 
+	elog "To build extensions for this version of PHP, you will need to"
+	elog "add php${SLOT/./-} to your PHP_TARGETS USE_EXPAND variable."
 	elog
-	elog "For more details on how minor version slotting works (PHP_TARGETS) please read the upgrade guide:"
-	elog "https://www.gentoo.org/proj/en/php/php-upgrading.xml"
+	elog "This ebuild installed a version of php.ini based on"
+	elog "php.ini-${PHP_INI_VERSION}. You can choose which version of"
+	elog "php.ini to install by default by setting PHP_INI_VERSION"
+	elog "to either 'production' or 'development' in your make.conf."
+	elog "Both versions of php.ini can be found with the PHP docs in"
+	elog "${EPREFIX}/usr/share/doc/${PF}"
+	elog
+	elog "For more details on how version slotting works, please see"
+	elog "the wiki:"
+	elog
+	elog "  https://wiki.gentoo.org/wiki/PHP"
 	elog
 }
 
-pkg_prerm() {
+pkg_postrm() {
+	# This serves two purposes. First, if we have just removed the last
+	# installed version of PHP, then this will remove any dead symlinks
+	# belonging to eselect-php. Second, if a user upgrades slots from
+	# (say) 5.6 to 7.0 and depcleans the old slot, then this will update
+	# his existing symlinks to point to the new 7.0 installation. The
+	# latter is bug 432962.
+	#
+	# Note: the eselect-php package may not be installed at this point,
+	# so we can't die() if this command fails.
 	eselect php cleanup
 }
