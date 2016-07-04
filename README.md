@@ -68,6 +68,8 @@ A similar configuration file could be added for all packages which fail to compi
 
 ... with a slightly larger set of builds failing if `FEATURES="strict"` or `FEATURES="stricter"`, or if `MAKEOPTS` is not set to "`-j1`".
 
+* app-arch/lz4
+    * Ensure that appropriate `PREFIX` directory is available to build system
 * app-arch/unzip
     * Remove `cc` hard-coding
 * app-crypt/pinentry
