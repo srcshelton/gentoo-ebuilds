@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 23a6518785af41f1c7042d7152b2032464b16386 $
+# $Id: 528e255c9b709318ca4098580bd3c128f60d17a4 $
 
 EAPI="5"
 
@@ -19,7 +19,7 @@ SRC_URI="ftp://ftp.gmplib.org/pub/${MY_P}/${MY_P}.tar.xz
 LICENSE="|| ( LGPL-3+ GPL-2+ )"
 # The subslot reflects the C & C++ SONAMEs.
 SLOT="0/10.4"
-KEYWORDS="~alpha ~amd64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd" # arm ~arm64
+KEYWORDS="alpha ~amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="+asm doc cxx pgo static-libs"
 
 DEPEND="sys-devel/m4
@@ -43,10 +43,10 @@ src_prepare() {
 	# GMP uses the "ABI" env var during configure as does Gentoo (econf).
 	# So, to avoid patching the source constantly, wrap things up.
 	mv configure configure.wrapped || die
-	cat <<\EOF > configure
+	cat <<-\EOF > configure
 	#! ${EPREFIX:-}/usr/bin/env sh
 	exec env ABI="${GMPABI}" ${CONFIG_SHELL} "$0.wrapped" "$@"
-EOF
+	EOF
 	chmod a+rx configure
 }
 
