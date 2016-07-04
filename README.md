@@ -185,8 +185,8 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-ruby/rake
 * mail-client/roundcube
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
-* net-analyzer/netdata
-    * With modifications to upstream ebuild and init script
+* ~~net-analyzer/netdata~~
+    * ~~netdata is now in-tree~~
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
@@ -234,6 +234,8 @@ A similar configuration file could be added for all packages which fail to compi
     * A more FHS/Gentoo-like installation structure
 * net-analyzer/munin
     * Re-factor munin to operate as a webapp, and remove configuration from `/etc`
+* net-analyzer/netdata
+    * With modifications to upstream ebuild and init script
 * net-dialup/ppp
     * Incorporate patches to allow interface discovery (rather than assuming the `eth0` is the primary interface -the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU
 * net-firewall/ebtables

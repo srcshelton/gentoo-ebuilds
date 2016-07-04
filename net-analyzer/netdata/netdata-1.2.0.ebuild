@@ -1,5 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
+# $Id: 93b70ba211abeba3fa88042e1827aad746d80efa $
 
 EAPI=6
 
@@ -11,7 +12,7 @@ if [[ ${PV} == "9999" ]] ; then
 	SRC_URI=""
 	KEYWORDS=""
 else
-	SRC_URI="http://firehol.org/download/${PN}/releases/v${PV}/${P}.tar.xz"
+	SRC_URI="https://firehol.org/download/${PN}/releases/v${PV}/${P}.tar.xz"
 	KEYWORDS="amd64 x86"
 	RESTRICT="mirror"
 fi
@@ -24,7 +25,7 @@ case "${PV}" in
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
-HOMEPAGE="https://github.com/firehol/netdata http://netdata.firehol.org/"
+HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
