@@ -98,7 +98,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 9b0c28ae6d2bed25514f1e8a3de2b3da9e72bb57.
+# commit 65e34b54919dcc1e3824c99fe0432b10212c92f2.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -157,10 +157,15 @@ disable_audio_dither=1
 #device_tree_overlay=i2s-gpio28-31
 #device_tree_overlay=spi-gpio35-39
 
+# Re-enalbe hardware CS/CE (chip select) for SPI0
+#device_tree_overlay=spi0-hw-cs
+
 # spi1 is only available on devices with a 40-pin header:
 #device_tree_overlay=spi1-1cs,cs0_pin=18,cs0_spidev=okay
 #device_tree_overlay=spi1-2cs,cs0_pin=18,cs1_pin=17,cs0_spidev=okay,cs1_spidev=okay
 #device_tree_overlay=spi1-3cs,cs0_pin=18,cs1_pin=17,cs2_pin=16,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
+# ENable NXP SC16IS752 Dual UART w/SPI interface on SPI1
+#device_tree_overlay=sc16is752-spi1,int_pin=24
 #
 # spi2 is only available on the Compute Module:
 #device_tree_overlay=spi2-1cs,cs0_pin=43,cs0_spidev=okay
@@ -231,10 +236,14 @@ disable_audio_dither=1
 # The following overlays have been removed:
 ##device_tree_overlay=i2c-mux-pca9548a,addr=0x70
 
+# I2C:
+#device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
+
 # RTC:
-# i2c-rtc supports ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563.
-#device_tree_overlay=i2c-rtc,ds1307
-#device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?
+# i2c-rtc supports ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
+#device_tree_overlay=i2c-rtc,<device>,wakeup-source
+#device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
+#device_tree_overlay=spi-rtc,pcf2123
 #device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
 # Pulse-per-second:
@@ -246,21 +255,28 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio,gpiopin=4,pullup=off
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
-# Audio devices & codecs:
+# DAC & ADC Audio devices & codecs:
 #device_tree_overlay=adau1977-adc
+#device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2 # chb_enable,chb_cfg=4,chb_datarate=4,chb_gain=2,chc_enable,chc_cfg=4,chc_datarate=4,chc_gain=2,chd_enable,chd_cfg=4,chd_datarate=4,chd_gain=2
 #device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
 #device_tree_overlay=audioinjector-wm8731-audio
-#device_tree_overlay=boomberry-dac # ,24db_digital_gain
-#device_tree_overlay=boomberry-digi
+#device_tree_overlay=justboom-dac # ,24db_digital_gain
+#device_tree_overlay=justboom-digi
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
-#device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain
+#device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain,slave
 #device_tree_overlay=hifiberry-digi
 #device_tree_overlay=iqaudio-dac # ,24db_digital_gain
-#device_tree_overlay=iqaudio-dacplus # ,24db_digital_gain
+#device_tree_overlay=iqaudio-dacplus # ,24db_digital_gain,auto_mute_amp,unmute_amp
+#device_tree_overlay=iqaudio-digi-wm8804-audio # ,card_name="IQAudIODigi",dai_name="IQAudIO Digi",dai_stream_name="IQAudIO Digit HiFi"
 #device_tree_overlay=raspidac3
 #device_tree_overlay=rpi-dac
 #device_tree_overlay=rpi-proto
+#device_tree_overlay=rra-digidac1-wm8741-audio
+
+# The following overlays have been removed:
+##device_tree_overlay=boomberry-dac # ,24db_digital_gain
+##device_tree_overlay=boomberry-digi
 
 # Touch Screens and Displays:
 #device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
@@ -617,6 +633,7 @@ kernel=kernel/kernel7.img
 [pi3]
 # GPU core frequency (MHz).
 #core_freq=400
+# N.B. core_freq must be set to 250 for 'pi3-miniuart-bt' DT overlay to work...
 
 # GPU Hardware video block frequency (MHz).
 #h264_freq=250
