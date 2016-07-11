@@ -157,14 +157,14 @@ disable_audio_dither=1
 #device_tree_overlay=i2s-gpio28-31
 #device_tree_overlay=spi-gpio35-39
 
-# Re-enalbe hardware CS/CE (chip select) for SPI0
+# Re-enable hardware CS/CE (chip select) for SPI0
 #device_tree_overlay=spi0-hw-cs
 
 # spi1 is only available on devices with a 40-pin header:
 #device_tree_overlay=spi1-1cs,cs0_pin=18,cs0_spidev=okay
 #device_tree_overlay=spi1-2cs,cs0_pin=18,cs1_pin=17,cs0_spidev=okay,cs1_spidev=okay
 #device_tree_overlay=spi1-3cs,cs0_pin=18,cs1_pin=17,cs2_pin=16,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
-# ENable NXP SC16IS752 Dual UART w/SPI interface on SPI1
+# Enable NXP SC16IS752 Dual UART w/SPI interface on SPI1
 #device_tree_overlay=sc16is752-spi1,int_pin=24
 #
 # spi2 is only available on the Compute Module:
