@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c404e533104ed4e01e1bb8f3152eb7cab72c958e $
+# $Id: 8725607b0f34f6a2fea93dad23d5c9971053aa26 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -16,7 +16,7 @@ SRC_PATH="stable"
 
 SRC_URI="mirror://samba/${SRC_PATH}/${MY_P}.tar.gz
 	https://dev.gentoo.org/~polynomial-c/samba-disable-python-patches-4.2.9.tar.xz"
-KEYWORDS="amd64 arm hppa ~ia64 ~ppc ppc64 ~sparc x86"
+KEYWORDS="amd64 arm hppa ia64 ppc ppc64 sparc x86"
 [[ ${PV} = *_rc* ]] && KEYWORDS="arm hppa ppc64"
 
 DESCRIPTION="Samba Suite Version 4"
