@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5280fb539e28a28b512b55acb1db3a2391db0f49 $
+# $Id: 266027f4747aa1271dac70d9997b60f8fe74bc09 $
 
 EAPI=5
 
@@ -44,6 +44,7 @@ RDEPEND="
 	)
 	elibc_FreeBSD? ( sys-freebsd/freebsd-bin )
 	elibc_glibc? ( >=sys-apps/sandbox-2.2 )
+	elibc_musl? ( >=sys-apps/sandbox-2.2 )
 	elibc_uclibc? ( >=sys-apps/sandbox-2.2 )
 	>=app-misc/pax-utils-0.1.17
 	selinux? ( >=sys-libs/libselinux-2.0.94[python,${PYTHON_USEDEP}] )
