@@ -43,9 +43,9 @@ src_prepare() {
 	# GMP uses the "ABI" env var during configure as does Gentoo (econf).
 	# So, to avoid patching the source constantly, wrap things up.
 	mv configure configure.wrapped || die
-	cat <<-\EOF > configure
+	cat <<-EOF > configure
 	#! ${EPREFIX:-}/usr/bin/env sh
-	exec env ABI="${GMPABI}" ${CONFIG_SHELL} "$0.wrapped" "$@"
+	exec env ABI="\${GMPABI:-}" ${CONFIG_SHELL:-/bin/bash} "\$0.wrapped" "\$@"
 	EOF
 	chmod a+rx configure
 }
