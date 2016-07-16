@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b70527675f00970efb1846766a5da5979d829bfb $
+# $Id: 82a9a7a53ded441ff151c0632414f34c161cf5eb $
 
 EAPI="5"
 
@@ -25,7 +25,7 @@ SRC_URI="http://www.opensource.apple.com/tarballs/ld64/${LD64}.tar.gz
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-7.0-r1.tar.bz2"
 
 LICENSE="APSL-2"
-KEYWORDS="~x64-macos ~x86-macos"
+KEYWORDS="~ppc-macos ~x64-macos ~x86-macos"
 IUSE="test multitarget"
 
 # ld64 can now only be compiled using llvm and libc++ since it massivley uses
