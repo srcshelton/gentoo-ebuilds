@@ -1,9 +1,9 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
+# $Id: 82ad4a58f1ad03269f6a8b221d289b339624e56e $
 
 EAPI=4
-inherit eutils
+inherit eutils multilib
 
 DESCRIPTION="GNU utility to convert program --help output to a man page"
 HOMEPAGE="https://www.gnu.org/software/help2man/"
