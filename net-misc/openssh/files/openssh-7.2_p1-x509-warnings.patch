@@ -1,0 +1,22 @@
+--- sshconnect2.c.dist	2016-07-16 12:24:22.784369522 +0100
++++ sshconnect2.c	2016-07-16 12:29:42.459637342 +0100
+@@ -1456,7 +1456,7 @@ pubkey_cleanup(Authctxt *authctxt)
+ static int
+ get_allowed_keytype(Key *k) {
+ 	char *pattern;
+-	char *alg;
++	const char *alg;
+ 
+ 	if (k->type == KEY_RSA1 || k->type == KEY_UNSPEC)
+ 		return KEY_UNSPEC;
+--- x509_nm_cmp.c.dist	2016-07-16 12:27:40.188114003 +0100
++++ x509_nm_cmp.c	2016-07-16 12:27:43.298067968 +0100
+@@ -166,7 +166,7 @@ ssh_ASN1_STRING_to_UTF8(unsigned char **
+ 
+ 	tag = ASN1_STRING_type(in);
+ 	if (tag != V_ASN1_UTF8STRING) {
+-		return(ASN1_STRING_to_UTF8(out, in));
++		return(ASN1_STRING_to_UTF8(out, (ASN1_STRING *) in));
+ 	}
+ 
+ 	l = ASN1_STRING_length(in);
