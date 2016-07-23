@@ -189,6 +189,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
 * ~~net-analyzer/netdata~~
     * ~~netdata is now in-tree~~
+* net-libs/libhtp
+    * Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
