@@ -240,6 +240,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Re-factor munin to operate as a webapp, and remove configuration from `/etc`
 * net-analyzer/netdata
     * With modifications to upstream ebuild and init script
+* net-analyzer/suricata
+    * Minor ebuild fixes, automatically fetch latest rules on build
 * net-dialup/ppp
     * Incorporate patches to allow interface discovery (rather than assuming the `eth0` is the primary interface -the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU
 * net-firewall/ebtables
