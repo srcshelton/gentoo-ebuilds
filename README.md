@@ -191,6 +191,8 @@ A similar configuration file could be added for all packages which fail to compi
     * ~~netdata is now in-tree~~
 * net-libs/libhtp
     * Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old
+* net-libs/libupnp
+    * Add more recent libupnp-1.6.20 and forked libupnp-1.8.0 releases, both with [mjg59](https://twitter.com/mjg59/status/755062671418929152)'s [POST](http://seclists.org/oss-sec/2016/q3/118) patch applied
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
