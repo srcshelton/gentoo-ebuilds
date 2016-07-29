@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 38da85b12cfcb08d3add3bddb07e4cf496f40e06 $
+# $Id: c261db258fdb4ddd7226f63f8acfe3fa6d2bdbde $
 
 EAPI=6
 
@@ -9,7 +9,7 @@ inherit webapp
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV/_/-}
 
-PHAR="1.1.2"
+PHAR="1.2.0"
 
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="http://roundcube.net"
@@ -39,7 +39,7 @@ RDEPEND="
 	>=dev-php/PEAR-Net_Socket-1.0.14
 	virtual/httpd-php
 	enigma? ( >=dev-php/PEAR-Crypt_GPG-1.3.2 app-crypt/gnupg )
-	ldap? ( >=dev-php/PEAR-Net_LDAP2-2.0.12 )
+	ldap? ( || ( >=dev-php/PEAR-Net_LDAP2-2.0.12 dev-php/PEAR-Net_LDAP3 ) )
 	managesieve? ( >=dev-php/PEAR-Net_Sieve-1.3.2 )
 	mysql? ( || ( dev-lang/php[mysql] dev-lang/php[mysqli] ) )
 	php_targets_php7-0? ( >=dev-php/PEAR-PEAR-1.10.1 )

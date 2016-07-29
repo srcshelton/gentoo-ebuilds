@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 1ebd091ec91d82ded4efdcda19d2783dec2c5182 $
+# $Id: 2af432350facebb38ec3e06d9396f6e7d342df8a $
 
 EAPI=5
 
@@ -9,7 +9,7 @@ inherit webapp
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV/_/-}
 
-PHAR="1.0.0-alpha11"
+PHAR="1.2.0"
 
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="http://roundcube.net"
@@ -20,7 +20,7 @@ RESTRICT="mirror"
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
-KEYWORDS="amd64 arm ~hppa ppc ~ppc64 ~sparc x86"
+KEYWORDS=""
 
 IUSE="enigma ldap managesieve +mysql php_targets_php7-0 plugins postgres sqlite ssl spell"
 REQUIRED_USE="|| ( mysql postgres sqlite )"
@@ -39,7 +39,7 @@ RDEPEND="
 	>=dev-php/PEAR-Net_Socket-1.0.14
 	virtual/httpd-php
 	enigma? ( >=dev-php/PEAR-Crypt_GPG-1.3.2 app-crypt/gnupg )
-	ldap? ( >=dev-php/PEAR-Net_LDAP2-2.0.12 )
+	ldap? ( || ( >=dev-php/PEAR-Net_LDAP2-2.0.12 dev-php/PEAR-Net_LDAP3 ) )
 	managesieve? ( >=dev-php/PEAR-Net_Sieve-1.3.2 )
 	mysql? ( || ( dev-lang/php[mysql] dev-lang/php[mysqli] ) )
 	php_targets_php7-0? ( >=dev-php/PEAR-PEAR-1.10.1 )
