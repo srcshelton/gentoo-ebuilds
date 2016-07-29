@@ -1,12 +1,12 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 82453b6f51f1eaa5d1b9ed9dd1396062f7889ab2 $
+# $Id: a922b1e2e61b3ecf7cdc29c83877207a0066530a $
 
 EAPI=5
 inherit linux-info systemd
 
 DESCRIPTION="Daemon for Advanced Configuration and Power Interface"
-HOMEPAGE="http://sourceforge.net/projects/acpid2"
+HOMEPAGE="https://sourceforge.net/projects/acpid2"
 SRC_URI="mirror://sourceforge/${PN}2/${P}.tar.xz"
 
 LICENSE="GPL-2"
