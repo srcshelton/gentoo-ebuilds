@@ -214,7 +214,8 @@ A similar configuration file could be added for all packages which fail to compi
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
 * ~~www-misc/observium~~
-    * ~~Observium is an autodiscovering SNMP based network monitoring platform~~ Observium have removed public repo access, do not make versioned sources available, and aren't updating the current version string previously maintained at http://www.observium.org/stable.php - there no longer appears to be any sane way to package this application (... although it never worked correctly if using any web server other than Apache in any case)
+    * ~~Observium is an autodiscovering SNMP based network monitoring platform~~
+    * Observium have removed public repo access, do not make versioned sources available, and aren't updating the current version string which was previously maintained at http://www.observium.org/stable.php - there no longer appears to be any sane way to package this application (... although it never worked correctly if using any web server other than Apache in any case, and the developers made it very clear as to how little they cared about this - so whilst a shame, it is unfortunately likely to be no great loss ⊙︵⊙)
 * www-servers/3dm2
     * 3ware 3DM2 RAID controller web interface for 3w-xxxx, 3w-9xxx and 3w-sas controllers
 
@@ -245,7 +246,7 @@ A similar configuration file could be added for all packages which fail to compi
 * net-analyzer/suricata
     * Minor ebuild fixes, automatically fetch latest rules on build
 * net-dialup/ppp
-    * Incorporate patches to allow interface discovery (rather than assuming the `eth0` is the primary interface -the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-discovered), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that the PPPoE link can retain a full 1500-byte MTU
+    * Incorporate patches to allow interface discovery (rather than assuming that `eth0` is the primary interface, the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-detected), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that a PPPoE link can retain a full 1500-byte MTU
 * net-firewall/ebtables
     * Update to latest git commit, which adds compatibility kernel headers more recent than v3.16
     * Allow `--among-src-file` and `--among-dst-file` options to accept files containing multiple lines, for ease of maintenance
