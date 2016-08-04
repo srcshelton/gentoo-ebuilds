@@ -253,6 +253,8 @@ src_prepare() {
 			|| die "Failed to fix heimdal crypt library reference"
 	fi
 
+	epatch "${FILESDIR}"/zend_operators_x32-5.patch
+
 	# Add user patches #357637
 	epatch_user
 
