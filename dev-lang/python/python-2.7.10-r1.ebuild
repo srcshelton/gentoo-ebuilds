@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5715577a33622e64f513904a5c733cd8446e8d63 $
+# $Id: aaf1b143e04ecd56aea2d8bfcaea0075e5dca231 $
 # $Header: /var/cvsroot/gentoo-x86/dev-lang/python/python-2.7.10.ebuild,v 1.1 2015/05/28 04:10:47 floppym Exp $
 
 EAPI="4"
@@ -68,8 +68,7 @@ DEPEND="${RDEPEND}
 	!sys-devel/gcc[libffi]"
 RDEPEND+=" !build? ( app-misc/mime-types )
 	doc? ( dev-python/python-docs:${SLOT} )"
-PDEPEND="app-eselect/eselect-python
-	app-admin/python-updater"
+PDEPEND="app-eselect/eselect-python"
 
 S="${WORKDIR}/${MY_P}"
 
@@ -578,12 +577,6 @@ EOF
 	python_domodule epython.py
 }
 
-pkg_preinst() {
-	if has_version "<${CATEGORY}/${PN}-${SLOT}" && ! has_version "${CATEGORY}/${PN}:2.7"; then
-		python_updater_warning="1"
-	fi
-}
-
 eselect_python_update() {
 	if [[ -z "$(eselect python show)" || ! -f "${EROOT}usr/bin/$(eselect python show)" ]]; then
 		eselect python update
@@ -596,12 +589,6 @@ eselect_python_update() {
 
 pkg_postinst() {
 	eselect_python_update
-
-	if [[ "${python_updater_warning}" == "1" ]]; then
-		ewarn "You have just upgraded from an older version of Python."
-		ewarn "You should switch active version of Python ${PV%%.*} and run"
-		ewarn "'python-updater [options]' to rebuild Python modules."
-	fi
 }
 
 pkg_postrm() {
