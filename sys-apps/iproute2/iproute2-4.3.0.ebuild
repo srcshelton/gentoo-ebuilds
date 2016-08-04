@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 43d97e75eea770d089f55857248eac80357432e8 $
+# $Id: 3a95333c7b8d6970c5f41946a49a37379c330912 $
 
 EAPI="5"
 
@@ -15,7 +15,7 @@ else
 fi
 
 DESCRIPTION="kernel routing and traffic control utilities"
-HOMEPAGE="http://www.linuxfoundation.org/collaborate/workgroups/networking/iproute2"
+HOMEPAGE="https://wiki.linuxfoundation.org/networking/iproute2"
 
 LICENSE="GPL-2"
 SLOT="0"
