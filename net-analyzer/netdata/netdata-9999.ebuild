@@ -1,10 +1,10 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 93b70ba211abeba3fa88042e1827aad746d80efa $
+# $Id: ad8fb330313856814c3d6522e4509d28ce5a420d $
 
 EAPI=6
 
-inherit linux-info systemd user
+inherit linux-info systemd user fcaps
 
 if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="git://github.com/firehol/${PN}.git"
@@ -57,6 +57,10 @@ CONFIG_CHECK="
 
 : ${NETDATA_USER:=${PN}}
 : ${NETDATA_GROUP:=${PN}}
+
+FILECAPS=(
+	'cap_dac_read_search,cap_sys_ptrace+ep' 'usr/libexec/netdata/plugins.d/apps.plugin'
+)
 
 pkg_setup() {
 	linux-info_pkg_setup
