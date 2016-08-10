@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 1e440f6b9c5c3d7cfb23b20c7aed7638617db10e $
+# $Id: 1a34de559f5ecaa12933c63b1eac3ff395575628 $
 
 EAPI=6
 
@@ -490,7 +490,7 @@ src_configure() {
 
 				apache2)
 					if [[ "${one_sapi}" == "${sapi}" ]] ; then
-						sapi_conf+=( --with-apxs2="${EPREFIX}/usr/sbin/apxs" )
+						sapi_conf+=( --with-apxs2="${EPREFIX}/usr/bin/apxs" )
 					else
 						sapi_conf+=( --without-apxs2 )
 					fi
