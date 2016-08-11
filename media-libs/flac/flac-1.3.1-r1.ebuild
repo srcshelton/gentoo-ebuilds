@@ -1,12 +1,12 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 79112a386a24de5573a15341324c32691aef3e97 $
+# $Id: 5d2f37248ab1b4343479d5b89c76689bbc0778e0 $
 
 EAPI=5
 AUTOTOOLS_AUTORECONF=1
 AUTOTOOLS_PRUNE_LIBTOOL_FILES=all
 
-inherit autotools autotools-multilib
+inherit autotools-multilib
 
 DESCRIPTION="free lossless audio encoder and decoder"
 HOMEPAGE="http://flac.sourceforge.net"
@@ -30,11 +30,11 @@ DEPEND="${RDEPEND}
 
 src_prepare() {
 	local PATCHES=(
-		"${FILESDIR}"/${P}-x32.patch
 		"${FILESDIR}"/${P}-cflags.patch
 		"${FILESDIR}"/${PN}-1.3.0-asneeded.patch
 		"${FILESDIR}"/${PN}-1.3.0-dontbuild-tests.patch
 		"${FILESDIR}"/${PN}-1.3.0-dontbuild-examples.patch
+		"${FILESDIR}"/${PN}-1.3.1-x32.patch #574984
 	)
 
 	AT_M4DIR="m4" autotools-multilib_src_prepare
