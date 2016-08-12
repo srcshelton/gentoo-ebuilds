@@ -98,7 +98,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 6ab4d20851eec4da9f959cf791925e39a3edc441.
+# commit fcd6018ce35058bbfd0c32d02e9d93a28a11810d.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -247,7 +247,7 @@ disable_audio_dither=1
 #device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
 # Pulse-per-second:
-#device_tree_overlay=pps-gpio,gpiopin=18
+#device_tree_overlay=pps-gpio,gpiopin=18 # ,assert_falling_edge
 #device_tree_overlay=pwm,pin=18,func=2,clock=? # Plus models & Pi2 support pin={12,13,18}
 #device_tree_overlay=pwm-2chan,pin=18,pin2=19,func=2,func2=2,clock=?
 
@@ -265,6 +265,7 @@ disable_audio_dither=1
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain,slave
 #device_tree_overlay=hifiberry-digi
+#device_tree_overlay=hifiberry-digi-pro
 #device_tree_overlay=iqaudio-dac # ,24db_digital_gain
 #device_tree_overlay=iqaudio-dacplus # ,24db_digital_gain,auto_mute_amp,unmute_amp
 #device_tree_overlay=iqaudio-digi-wm8804-audio # ,card_name="IQAudIODigi",dai_name="IQAudIO Digi",dai_stream_name="IQAudIO Digit HiFi"
