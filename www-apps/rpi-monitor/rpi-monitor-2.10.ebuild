@@ -7,8 +7,8 @@ inherit eutils
 
 DESCRIPTION="RPi-Monitor - always keep an eye on your Raspberry Pi"
 HOMEPAGE="http://rpi-experiences.blogspot.fr"
-SRC_URI="https://github.com/XavierBerger/RPi-Monitor/archive/v${PV}.zip -> ${P}.zip
-	https://github.com/XavierBerger/RPi-Monitor-deb/archive/v${PV}.zip -> ${PN}-deb-${PV}.zip"
+SRC_URI="https://github.com/XavierBerger/RPi-Monitor/archive/v${PV}.tar.gz -> ${P}.tar.gz
+	https://github.com/XavierBerger/RPi-Monitor-deb/archive/v${PV}.tar.gz -> ${PN}-deb-${PV}.tar.gz"
 RESTRICT="nomirror"
 
 LICENSE="GPL-3"

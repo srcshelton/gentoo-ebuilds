@@ -13,3 +13,17 @@
  
    foreach ( @{$this->{'daemon'}->{'confFiles'}} ) {
      #print "$_\n";
+@@ -151,11 +151,11 @@ sub LoadFile
+   $this->Debug(2,"Loading file: $confFile");
+ 
+   open ( FILE, $confFile)
+-    or die "Error while openning configuration file \"$confFile\" because $!\n";
++    or die "Error while opening configuration file \"$confFile\" because $!\n";
+   while (<FILE>){
+     chomp;
+     /^\s*#|^$/ and next;                 # Ignore comments
+-    /^include=(.*)/ and -f $1 and push($this->{'daemon'}->{'confFiles'}, $1) and next;
++    /^include=(.*)/ and -f $1 and push(@{$this->{'daemon'}->{'confFiles'}}, $1) and next;
+     my ($key, $value) = /^([^=]*)=(.*)/; # Extract key and value
+     my @leaves=split('\.', $key);        # Explode key and construct config hash
+     my $tree=$this;
