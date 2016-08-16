@@ -80,6 +80,7 @@ src_prepare() {
 		eapply -p0 -- "${FILESDIR}/openrc-0.16.4-init.patch" || die "init eapply failed"
 		eapply -p0 -- "${FILESDIR}/openrc-0.18.4-devfs.patch" || die "devfs eapply failed"
 		eapply -p0 -- "${FILESDIR}/openrc-0.19.1-functions.sh.in.patch" || die "functions.sh.in eapply failed"
+		eapply -p0 -- "${FILESDIR}/openrc-0.21.3-rc.conf.in.patch" || die "rc.conf.in eapply failed"
 	fi
 	eapply -p0 -- "${FILESDIR}/openrc-0.16.4-cgroup-race.patch" || die "cgroup eapply failed"
 
