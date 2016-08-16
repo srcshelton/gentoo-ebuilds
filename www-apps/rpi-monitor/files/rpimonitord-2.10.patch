@@ -13,6 +13,17 @@
  
    foreach ( @{$this->{'daemon'}->{'confFiles'}} ) {
      #print "$_\n";
+@@ -88,8 +88,8 @@ sub Load
+   $this->{'daemon'}->{'sharedmemkey'}||= 20130906;
+   
+   # Check user and group
+-  $this->{'daemon'}->{'gid'} = getgrnam($this->{'daemon'}->{'user'})  || 1000;
+-  $this->{'daemon'}->{'uid'} = getpwnam($this->{'daemon'}->{'group'}) || 1000;
++  $this->{'daemon'}->{'uid'} = getgrnam($this->{'daemon'}->{'user'})  || 1000;
++  $this->{'daemon'}->{'gid'} = getpwnam($this->{'daemon'}->{'group'}) || 1000;
+ 
+   # Check rrd directory and files and create them if they are missing
+   # Create storage directory if needed
 @@ -151,11 +151,11 @@ sub LoadFile
    $this->Debug(2,"Loading file: $confFile");
  
