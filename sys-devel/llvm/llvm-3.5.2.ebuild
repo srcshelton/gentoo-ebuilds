@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 6d3a5ce61fc8894eca98a030b5f9115ed160d893 $
+# $Id: e158a2d87306b08646493f3fe06a88fdc494121d $
 
 EAPI=5
 
@@ -144,15 +144,14 @@ src_unpack() {
 }
 
 src_prepare() {
-	epatch "${FILESDIR}"/${PN}-3.2-nodoctargz.patch
-	epatch "${FILESDIR}"/${PN}-3.5-gcc-4.9.patch
-	epatch "${FILESDIR}"/${PN}-3.5-gentoo-install.patch
-	epatch "${FILESDIR}"/${P}-gcc-5.1.patch
+	epatch "${FILESDIR}"/3.6.2/nodoctargz.patch
+	epatch "${FILESDIR}"/3.6.2/gcc-4.9.patch
+	epatch "${FILESDIR}"/3.5.2/gentoo-install.patch
+	epatch "${FILESDIR}"/3.5.2/gcc-5.1.patch
 	# Make ocaml warnings non-fatal, bug #537308
 	sed -e "/RUN/s/-warn-error A//" -i test/Bindings/Ocaml/*ml  || die
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
-
 
 	local sub_files=(
 		Makefile.config.in
@@ -167,10 +166,10 @@ src_prepare() {
 		)
 
 		# Automatically select active system GCC's libraries, bugs #406163 and #417913
-		epatch "${FILESDIR}"/clang-3.5-gentoo-runtime-gcc-detection-v3.patch
+		epatch "${FILESDIR}"/3.8.1/clang/gentoo-runtime-gcc-detection-v3.patch
 
-		epatch "${FILESDIR}"/clang-3.5-gentoo-install.patch
-		epatch "${FILESDIR}"/clang-3.4-darwin_prefix-include-paths.patch
+		epatch "${FILESDIR}"/3.5.2/clang/gentoo-install.patch
+		epatch "${FILESDIR}"/3.8.1/clang/darwin_prefix-include-paths.patch
 		eprefixify tools/clang/lib/Frontend/InitHeaderSearch.cpp
 
 		if use prefix; then
@@ -449,7 +448,7 @@ multilib_src_install() {
 	# to just fix this, so we correct it post-install
 	local lib= f= odylib= ndylib= libpv=${PV}
 	if [[ ${CHOST} == *-darwin* ]] ; then
-		eval $(grep PACKAGE_VERSION= "${S}"/configure)
+		eval $(grep 'PACKAGE_VERSION=' "${S}"/configure)
 		[[ -n ${PACKAGE_VERSION} ]] && libpv=${PACKAGE_VERSION}
 		libpvminor=${libpv%.[0-9]*}
 		for lib in lib{EnhancedDisassembly,LLVM-${libpv},LTO,profile_rt,clang}.dylib LLVMHello.dylib clang/${libpv}/lib/darwin/libclang_rt.asan_{osx,iossim}_dynamic.dylib; do
