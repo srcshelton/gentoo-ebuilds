@@ -56,7 +56,8 @@
 #start_file=start_x.elf
 #fixup_file=fixup_x.dat
 
-# Explicitly cause the extended firmware to be loaded
+# Explicitly cause the extended firmware to be loaded, requires at least 128MB
+# GPU memory.
 #start_x=1
 
 # Disable RaspiCam LED, for stealth recording(!)
@@ -71,6 +72,21 @@
 # https://www.raspberrypi.org/documentation/hardware/display/README.md
 [pi1]
 #ignore_lcd=0
+[all]
+
+[pi3]
+# Release ARM CPU from reset in 64-bit ARMv8/AArch64 rather than 32-bit ARMv7,
+# noting that this then requires a (custom-built) 64-bit kernel.
+# arm_64bit=1 is equivalent to arm_control=0x200.
+#arm_64bit=1
+#kernel_old=1
+#disable_commandline_tags=1
+# Otherwise, a custom stub can be provided to setup the ARM CPU before a
+# kernel is loaded, although modern firmware provides appropriate stubs
+# automatically.
+#armstub=armstub8.bin
+# A less manual way to achieve the same thing is to use a kernel image named
+# 'kernel8.img', which will then be automatically booted in 64-bit mode.
 [all]
 
 # Allow 1.2mA current-draw in total between over all four of the Raspberry Pi
@@ -98,7 +114,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit fcd6018ce35058bbfd0c32d02e9d93a28a11810d.
+# commit 58567cb5207d1f31a7dcc3069787bc3b9a35e565.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -171,6 +187,11 @@ disable_audio_dither=1
 #device_tree_overlay=spi2-1cs,cs0_pin=43,cs0_spidev=okay
 #device_tree_overlay=spi2-2cs,cs0_pin=43,cs1_pin=44,cs0_spidev=okay,cs1_spidev=okay
 #device_tree_overlay=spi2-3cs,cs0_pin=43,cs1_pin=44,cs2_pin=45,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
+
+# MCP23S08/17 SPI GPIO expanders require one of the spi1-* or spi2-* options
+# above to be enabled if present on SPI1 or SPI2.
+#device_tree_overlay=mcp23s17,s08-spi<n>-<m>-present=?,s08-spi<n>-<m>-int-gpio=?  # SPI<n>, CS#<m>
+#device_tree_overlay=mcp23s17,s17-spi<n>-<m>-present=?,s17-spi<n>-<m>-int-gpio=?  # SPI<n>, CS#<m>
 
 # SD/MMC driver - choose only one
 #
@@ -256,6 +277,7 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
 # DAC & ADC Audio devices & codecs:
+#device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=adau1977-adc
 #device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2 # chb_enable,chb_cfg=4,chb_datarate=4,chb_gain=2,chc_enable,chc_cfg=4,chc_datarate=4,chc_gain=2,chd_enable,chd_cfg=4,chd_datarate=4,chd_gain=2
 #device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
@@ -788,4 +810,4 @@ kernel=kernel/kernel7.img
 # It is possible to source system parameters from multiple files:
 #include extra-config.txt
 
-# vi: set syntax=config:
+# vi: set syntax=config colorcolumn=80:
