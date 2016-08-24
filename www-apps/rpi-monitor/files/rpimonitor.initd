@@ -18,6 +18,8 @@ start() {
 		return 1
 	fi
 
+	export LC_ALL=C
+
 	ebegin "Starting RPi Monitor"
 	start-stop-daemon --start --quiet --pidfile "${PIDFILE}" --exec "${PERL}" -- "${DAEMON}" ${DAEMON_ARGS}
 	eend ${?} "Unable to start RPi Monitor"

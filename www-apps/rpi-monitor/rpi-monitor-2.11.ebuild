@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2016 Stuart Shelton <stuart@shelton.me>
+# Copyright (c) 2016 Stuart Shelton <stuart@shelton.me>
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="5"
@@ -7,8 +7,7 @@ inherit eutils webapp
 
 DESCRIPTION="RPi-Monitor - always keep an eye on your Raspberry Pi"
 HOMEPAGE="http://rpi-experiences.blogspot.fr"
-SRC_URI="https://github.com/XavierBerger/RPi-Monitor/archive/v${PV}.tar.gz -> ${P}.tar.gz
-	https://github.com/XavierBerger/RPi-Monitor-deb/archive/v${PV}.tar.gz -> ${PN}-deb-${PV}.tar.gz"
+SRC_URI="https://github.com/XavierBerger/RPi-Monitor/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 RESTRICT="nomirror"
 
 LICENSE="GPL-3"
@@ -36,7 +35,7 @@ S="${WORKDIR}/RPi-Monitor-${PV}"
 src_prepare() {
 	local patch
 
-	cp rpimonitor/template/raspbian.conf rpimonitor/template/gentoo.conf
+	cp src/etc/rpimonitor/template/raspbian.conf src/etc/rpimonitor/template/gentoo.conf
 
 	mkdir "${WORKDIR}"/patches
 	cp "${FILESDIR}"/"${PV}"/*.patch "${WORKDIR}"/patches/
@@ -52,23 +51,21 @@ src_prepare() {
 	# Fix version string...
 	sed -i \
 		-e "s|<b>Version</b>: {DEVELOPMENT} |<b>Version</b>: ${PV} |" \
-		   rpimonitor/web/js/rpimonitor.js || die "Version correction failed"
+		   src/usr/share/rpimonitor/web/js/rpimonitor.js || die "Version correction failed"
 
-	#sed -i \
-	#	-e 's|<code>/etc/rpimonitor/data.conf</code>|<code>/etc/rpimonitor/data.conf</code>|' \
-	#	   rpimonitor/web/addons/about/about.html || die "path correction failed"
-
-	cp "${S}"/../RPi-Monitor-deb-"${PV}"/conf2man.pl .
-	cp "${S}"/../RPi-Monitor-deb-"${PV}"/help2man.pl .
-	chmod 755 conf2man.pl help2man.pl
-
-	[[ -x ./help2man.pl && -x conf2man.pl ]] \
+	chmod 755 "${S}"/tools/conf2man.pl "${S}"/tools/help2man.pl
+	[[ -x "${S}"/tools/help2man.pl && -x "${S}"/tools/conf2man.pl ]] \
 		|| die "Portage temporary directory must not be mounted 'noexec'"
 
-	cat rpimonitor/daemon.conf rpimonitor/template/gentoo.conf > rpimonitord.conf
+	cat src/etc/rpimonitor/daemon.conf src/etc/rpimonitor/template/gentoo.conf > rpimonitord.conf
 
-	./help2man.pl rpimonitor/rpimonitord "${PV}" > rpimonitord.1
-	./conf2man.pl rpimonitord.conf "${PV}" > rpimonitord.conf.5
+	"${S}"/tools/help2man.pl src/usr/bin/rpimonitord "${PV}" > rpimonitord.1
+	"${S}"/tools/conf2man.pl rpimonitord.conf "${PV}" > rpimonitord.conf.5
+}
+
+src_compile() {
+	# RPi-Monitor now includes a Makefile, but we want to manage things ourselves...
+	:
 }
 
 src_install() {
@@ -80,12 +77,21 @@ src_install() {
 
 	dodoc README.md
 	newdoc tools/reverseproxy nginx.conf.example
-	dodoc rpimonitor/template/example.*.conf
-	for file in printer storage services wlan dht11; do
-		dodoc rpimonitor/template/"${file}".conf
-	done
 
-	dosbin rpimonitor/rpimonitord
+	dodoc src/etc/rpimonitor/template/example.*.conf
+	for file in printer storage services wlan dht11 entropy; do
+		dodoc src/etc/rpimonitor/template/"${file}".conf
+	done
+	# We don't want to compress the examples, so that if a user accidentally
+	# uncomments an example in their configuration file, it won't break things...
+	docompress -x /usr/share/doc
+	# Subsequent calls to 'docompress' appear to be ignored :(
+	#docompress /usr/share/doc/"${PF}"/README.md
+	#docompress /usr/share/doc/"${PF}"/nginx.conf.example
+	bzip2 -9 "${ED}"/usr/share/doc/"${PF}"/README.md
+	bzip2 -9 "${ED}"/usr/share/doc/"${PF}"/nginx.conf.example
+
+	dosbin src/usr/bin/rpimonitord
 	if use tools; then
 		exeinto /usr/share/"${PN}"/tools
 		doexe tools/{addnginxuser.sh,make_ca.sh,make_cert.sh,netTraffic.sh,openssl.cnf}
@@ -95,10 +101,11 @@ src_install() {
 	newinitd "${FILESDIR}"/rpimonitor.initd rpimonitor
 	dodir /etc/rpimonitord.conf.d
 	insinto /etc/rpimonitord.conf.d
-	newins rpimonitor/template/gentoo.conf data.conf
+	newins src/etc/rpimonitor/template/gentoo.conf data.conf
 	for file in version uptime cpu temperature memory swap sdcard network; do
-		doins rpimonitor/template/"${file}".conf
+		doins src/etc/rpimonitor/template/"${file}".conf
 	done
+	doins "${FILESDIR}"/battery.conf
 
 	if use httpd; then
 		# Try to determine the real root directory...
@@ -115,7 +122,7 @@ src_install() {
 		fi
 	
 		insinto "${MY_HTDOCSDIR}"
-		doins -r rpimonitor/web/*
+		doins -r src/usr/share/rpimonitor/web/*
 		dodir "${MY_HTDOCSDIR}"/custom/net_traffic
 		dodir "${MY_HTDOCSDIR}"/stat
 	
@@ -126,7 +133,7 @@ src_install() {
 		INSTROOT="${EROOT}/usr/share"
 	
 		insinto /usr/share/"${PN}"
-		doins -r rpimonitor/web/*
+		doins -r src/usr/share/rpimonitor/web/*
 		diropts -m 0775 -o nobody -g nogroup
 
 		dodir /var/lib/"${PN}"/custom/net_traffic
@@ -141,9 +148,9 @@ src_install() {
 		-e "s|^#daemon.datastore=/var/lib/rpimonitor$|daemon.datastore=/var/lib/${PN}|" \
 		-e "s|^#daemon.user=pi$|daemon.user=nobody|" \
 		-e "s|^#daemon.group=pi$|daemon.group=nogroup|" \
-		rpimonitor/daemon.conf
+		src/etc/rpimonitor/daemon.conf
 	insinto /etc/
-	newins rpimonitor/daemon.conf rpimonitord.conf
+	newins src/etc/rpimonitor/daemon.conf rpimonitord.conf
 
 	use httpd && webapp_src_install
 }

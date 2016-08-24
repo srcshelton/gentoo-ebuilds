@@ -1,0 +1,29 @@
+--- src/usr/bin/rpimonitord
++++ src/usr/bin/rpimonitord
+@@ -79,9 +79,9 @@
+   my ($path,$file) = /(.*)\/([^\/]*)$/;
+ 
+   # Add default configuration file if not already defined by command line
+-  if ( !@{$this->{'daemon'}->{'confFiles'}} ) {
+-    push(@{$this->{'daemon'}->{'confFiles'}},"/etc/rpimonitor/data.conf");
+-    push(@{$this->{'daemon'}->{'confFiles'}},"/etc/rpimonitor/daemon.conf");
++  if ( scalar( @{$this->{'daemon'}->{'confFiles'}} < 2 ) ) {
++    push(@{$this->{'daemon'}->{'confFiles'}},"/etc/rpimonitor/data.conf") if -r "/etc/rpimonitor/data.conf";
++    push(@{$this->{'daemon'}->{'confFiles'}},"/etc/rpimonitor/daemon.conf") if -r "/etc/rpimonitor/daemon.conf";
+   }
+ 
+   foreach ( @{$this->{'daemon'}->{'confFiles'}} ) {
+@@ -177,11 +177,11 @@ sub LoadFile
+   $this->Debug(3,"Loading file: $confFile");
+ 
+   open ( FILE, $confFile)
+-    or die "Error while openning configuration file \"$confFile\" because $!\n";
++    or die "Error while opening configuration file \"$confFile\" because $!\n";
+   while (<FILE>){
+     chomp;
+     /^\s*#|^$/ and next;                 # Ignore comments
+-    /^include=(.*)/ and -f $1 and push($this->{'daemon'}->{'confFiles'}, $1) and next;
++    /^include=(.*)/ and -f $1 and push(@{$this->{'daemon'}->{'confFiles'}}, $1) and next;
+     my ($key, $value) = /^([^=]*)=(.*)/; # Extract key and value
+     my @leaves=split('\.', $key);        # Explode key and construct config hash
+     my $tree=$this;
