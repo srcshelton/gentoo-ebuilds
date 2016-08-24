@@ -1,49 +1,49 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
+# $Id: a8fe28244ad1d8ad0870ecb6166e75498755c211 $
 
 EAPI="5"
 
 # Force users doing their own patches to install their own tools
 AUTOTOOLS_AUTO_DEPEND=no
 
-inherit autotools eutils flag-o-matic git-r3 multilib systemd toolchain-funcs
+inherit autotools eutils flag-o-matic multilib systemd toolchain-funcs
 
-DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools, with nftables compatibility"
-HOMEPAGE="http://www.netfilter.org/projects/nftables/"
+DESCRIPTION="Linux kernel (2.4+) firewall, NAT and packet mangling tools"
+HOMEPAGE="http://www.netfilter.org/projects/iptables/"
+SRC_URI="http://www.netfilter.org/projects/iptables/files/${P}.tar.bz2"
 
 LICENSE="GPL-2"
 # Subslot tracks libxtables as that's the one other packages generally link
 # against and iptables changes.  Will have to revisit if other sonames change.
 SLOT="0/11"
 KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86"
-IUSE="conntrack ipv6 netlink pcap static-libs systemd"
-
-REPO="iptables"
-EGIT_REPO_URI="git://git.netfilter.org/${REPO}.git"
-#EGIT_BRANCH="$( usex xlate 'xlate2' 'master' )"
-#EGIT_COMMIT="${COMMIT}"
+IUSE="conntrack ipv6 netlink nftables pcap static-libs systemd"
 
 RDEPEND="
 	conntrack? ( net-libs/libnetfilter_conntrack )
 	netlink? ( net-libs/libnfnetlink )
-	>=net-libs/libmnl-1.0
-	>=net-libs/libnftnl-1.0.6
+	nftables? (
+		>=net-libs/libmnl-1.0
+		>=net-libs/libnftnl-1.0.5
+	)
 	pcap? ( net-libs/libpcap )
 "
 DEPEND="${RDEPEND}
-	sys-devel/flex
 	virtual/os-headers
 	virtual/pkgconfig
-	virtual/yacc
+	nftables? (
+		sys-devel/flex
+		virtual/yacc
+	)
 "
 
 src_prepare() {
 	# use the saner headers from the kernel
 	rm -f include/linux/{kernel,types}.h
 
-	epatch_user
-
-	eautoreconf
+	# Only run autotools if user patched something
+	epatch_user && eautoreconf || elibtoolize
 }
 
 src_configure() {
@@ -68,7 +68,7 @@ src_configure() {
 		--enable-devel \
 		--enable-shared \
 		--enable-libipq \
-		--enable-nftables \
+		$(use_enable nftables) \
 		$(use_enable pcap bpf-compiler) \
 		$(use_enable pcap nfsynproxy) \
 		$(use_enable static-libs static) \
@@ -77,7 +77,7 @@ src_configure() {
 
 src_compile() {
 	# Deal with parallel build errors.
-	emake -C iptables xtables-config-parser.h
+	use nftables && emake -C iptables xtables-config-parser.h
 	emake V=1
 }
 
@@ -116,5 +116,5 @@ src_install() {
 	# Move important libs to /lib #332175
 	gen_usr_ldscript -a ip{4,6}tc iptc xtables
 
-	prune_libtool_files --all
+	prune_libtool_files
 }
