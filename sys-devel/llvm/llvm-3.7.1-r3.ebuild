@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 02635d1e52d0e470af39061def55158e670b68c7 $
+# $Id: 353bbff39151f5224ea561f3724fe8cac81e8138 $
 
 EAPI=6
 
@@ -155,7 +155,7 @@ src_prepare() {
 
 	# Prevent installing libgtest
 	# https://llvm.org/bugs/show_bug.cgi?id=18341
-	eapply "${FILESDIR}"/9999/0005-cmake-Do-not-install-libgtest.patch
+	eapply "${FILESDIR}"/3.8.1/0005-cmake-Do-not-install-libgtest.patch
 
 	# Fix llvm-config for shared linking, sane flags and return values
 	# in order:
