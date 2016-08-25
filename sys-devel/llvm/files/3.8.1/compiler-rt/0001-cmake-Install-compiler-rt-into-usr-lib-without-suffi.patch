@@ -1,18 +1,17 @@
-From 380b8faadc3fc66f9aa0528bd3578464b317c31e Mon Sep 17 00:00:00 2001
+From 8bd62a681744d3c31a0837c0f84f99ea4987e017 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Micha=C5=82=20G=C3=B3rny?= <mgorny@gentoo.org>
-Date: Thu, 12 May 2016 08:25:48 +0200
-Subject: [PATCH] cmake: Install compiler-rt to a directory without libdir
- suffix
+Date: Tue, 9 Jun 2015 12:17:57 +0200
+Subject: [PATCH] cmake: Install compiler-rt into /usr/lib (without suffix)
 
 ---
- cmake/base-config-ix.cmake | 2 +-
+ CMakeLists.txt | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/cmake/base-config-ix.cmake b/cmake/base-config-ix.cmake
-index 5d0502c..ce16ce9 100644
---- a/projects/compiler-rt/cmake/base-config-ix.cmake
-+++ b/projects/compiler-rt/cmake/base-config-ix.cmake
-@@ -18,7 +18,7 @@ if (NOT COMPILER_RT_STANDALONE_BUILD)
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0d8a880..5ae98a9 100644
+--- a/projects/compiler-rt/CMakeLists.txt
++++ b/projects/compiler-rt/CMakeLists.txt
+@@ -52,7 +52,7 @@ if (NOT COMPILER_RT_STANDALONE_BUILD)
    # Setup the paths where compiler-rt runtimes and headers should be stored.
    set(COMPILER_RT_OUTPUT_DIR ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION})
    set(COMPILER_RT_EXEC_OUTPUT_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
@@ -20,7 +19,7 @@ index 5d0502c..ce16ce9 100644
 +  set(COMPILER_RT_INSTALL_PATH lib/clang/${CLANG_VERSION})
    option(COMPILER_RT_INCLUDE_TESTS "Generate and build compiler-rt unit tests."
           ${LLVM_INCLUDE_TESTS})
-   option(COMPILER_RT_ENABLE_WERROR "Fail and stop if warning is triggered"
+  option(COMPILER_RT_ENABLE_WERROR "Fail and stop if warning is triggered"
 -- 
-2.8.2
+2.4.3
 
