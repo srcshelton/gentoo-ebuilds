@@ -19,10 +19,10 @@ KEYWORDS="~x86"
 S="${WORKDIR}/${PN}"
 
 src_prepare() {
-	epatch "${FILESDIR}/motp-manager.patch" || die "Failed to patch motp-manager"
-	epatch "${FILESDIR}/prompt.patch" || die "Failed to patch pam_mobile_otp.c"
-	epatch "${FILESDIR}/Makefile.patch" || die "Failed to patch Makefile"
-	epatch "${FILESDIR}/__stack_chk_fail_local.patch" || die "Failed to patch pam_mobile_otp.c"
+	epatch "${FILESDIR}/${P}-motp-manager.patch" || die "Failed to patch motp-manager"
+	epatch "${FILESDIR}/${P}-prompt.patch" || die "Failed to patch pam_mobile_otp.c"
+	epatch "${FILESDIR}/${P}-Makefile.patch" || die "Failed to patch Makefile"
+	epatch "${FILESDIR}/${P}-__stack_chk_fail_local.patch" || die "Failed to patch pam_mobile_otp.c"
 }
 
 src_compile() {
@@ -39,7 +39,7 @@ src_install() {
 	dosbin motp-manager || die "Cannot install 'motp-manager'"
 	dodir /var/cache/motp
 	dodir /etc/security
-	cp "${FILESDIR}/motp.conf" "${ED}/etc/security/"
+	cp "${FILESDIR}/${P}-motp.conf" "${ED}/etc/security/motp.conf"
 	dopammod pam_mobile_otp.so || die "Cannot install pam_mobile_otp.so PAM module"
 	dodoc README || die "Cannot install pam_mobile_otp README"
 }
