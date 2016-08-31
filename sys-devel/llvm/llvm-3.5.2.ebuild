@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e158a2d87306b08646493f3fe06a88fdc494121d $
+# $Id: a4f1139d49522928f5044416f4c5b81d4f9f08c5 $
 
 EAPI=5
 
@@ -166,10 +166,10 @@ src_prepare() {
 		)
 
 		# Automatically select active system GCC's libraries, bugs #406163 and #417913
-		epatch "${FILESDIR}"/3.8.1/clang/gentoo-runtime-gcc-detection-v3.patch
+		epatch "${FILESDIR}"/3.9.0/clang/gentoo-runtime-gcc-detection-v3.patch
 
 		epatch "${FILESDIR}"/3.5.2/clang/gentoo-install.patch
-		epatch "${FILESDIR}"/3.8.1/clang/darwin_prefix-include-paths.patch
+		epatch "${FILESDIR}"/3.9.0/clang/darwin_prefix-include-paths.patch
 		eprefixify tools/clang/lib/Frontend/InitHeaderSearch.cpp
 
 		if use prefix; then
