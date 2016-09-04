@@ -1,10 +1,11 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ad8fb330313856814c3d6522e4509d28ce5a420d $
+# $Id: f5951ec7e1621e25784df18fe8e79e1054d02163 $
 
 EAPI=6
+PYTHON_COMPAT=( python{2_7,3_3,3_4,3_5} )
 
-inherit linux-info systemd user fcaps
+inherit fcaps linux-info python-r1 systemd user
 
 if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="git://github.com/firehol/${PN}.git"
@@ -29,15 +30,28 @@ HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="+compression nfacct nodejs systemd"
-
+IUSE="+compression mysql nfacct nodejs +python systemd"
+REQUIRED_USE="
+	mysql? ( python )
+	python? ( ${PYTHON_REQUIRED_USE} )"
 # Most unconditional dependencies are for plugins.d/charts.d.plugin:
 RDEPEND="
 	>=app-shells/bash-4:0
 	net-misc/curl
 	net-misc/wget
 	virtual/awk
+	net-libs/libmnl
+	|| ( net-analyzer/netcat6 net-analyzer/netcat )
+	net-analyzer/tcpdump
+	net-analyzer/traceroute
 	compression? ( sys-libs/zlib )
+	python? (
+		${PYTHON_DEPS}
+		dev-python/pyyaml[${PYTHON_USEDEP}]
+		mysql? (
+			|| ( dev-python/mysqlclient[${PYTHON_USEDEP}] dev-python/mysql-python[${PYTHON_USEDEP}] )
+		)
+	)
 	nfacct? (
 		net-firewall/nfacct
 		net-libs/libmnl
@@ -104,7 +118,7 @@ src_install() {
 		fi
 	fi
 
-	use nodejs || rm -r "${ED}"//usr/libexec/netdata/node.d
+	use nodejs || rm -r "${ED}"/usr/libexec/netdata/node.d
 
 	rm -r "${ED}"/usr/share/netdata/web/old
 	rm 2>/dev/null \
@@ -116,6 +130,7 @@ src_install() {
 
 	fowners -R "${NETDATA_USER}":"${NETDATA_GROUP}" /usr/share/"${PN}" || die
 
+	#newinitd system/netdata-openrc "${PN}"
 	newinitd "${FILESDIR}"/"${PN}".initd "${PN}"
 	use systemd && systemd_dounit system/netdata.service
 }
