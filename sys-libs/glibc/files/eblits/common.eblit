@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e56f10eb52ba16ec2e9657fb37704ede8941a627 $
+# $Id: 370782b4b4f3d3ca517e386bc832904d55e3f75a $
 
 alt_prefix() {
 	is_crosscompile && echo /usr/${CTARGET}
@@ -318,8 +318,9 @@ setup_env() {
 	unset LD_RUN_PATH
 	unset LD_ASSUME_KERNEL
 
-	multilib_env ${CTARGET_OPT:-${CTARGET}}
 	if is_crosscompile || tc-is-cross-compiler ; then
+		multilib_env ${CTARGET_OPT:-${CTARGET}}
+
 		if ! use multilib ; then
 			MULTILIB_ABIS=${DEFAULT_ABI}
 		else
