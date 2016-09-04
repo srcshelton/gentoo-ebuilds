@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8c953871a65658d34995a7da94076308773e478a $
+# $Id: a80511c2ee52d3b11fe7ef3b1c3b6d271d378188 $
 
 # @ECLASS: multilib.eclass
 # @MAINTAINER:
@@ -223,6 +223,20 @@ is_final_abi() {
 number_abis() {
 	set -- `get_install_abis`
 	echo $#
+}
+
+# @FUNCTION: get_exeext
+# @DESCRIPTION:
+# Returns standard executable program suffix (null, .exe, etc.)
+# for the current platform identified by CHOST.
+#
+# Example:
+#     get_exeext
+#     Returns: null string (almost everywhere) || .exe (mingw*) || ...
+get_exeext() {
+	case ${CHOST} in
+		*-cygwin*|mingw*|*-mingw*)  echo ".exe";;
+	esac
 }
 
 # @FUNCTION: get_libname
