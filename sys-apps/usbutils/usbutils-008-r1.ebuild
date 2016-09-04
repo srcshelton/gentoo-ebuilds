@@ -30,14 +30,14 @@ RDEPEND="${CDEPEND}
 	sys-apps/hwids
 	python? ( ${PYTHON_DEPS} )"
 
-if ! use libudev; then
+if [[ " ${USE} " =~ \ libudev\  ]]; then
 	inherit autotools git-r3
 
 	DEPEND="${DEPEND}
 		dev-vcs/git"
 
 	EGIT_REPO_URI="git://github.com/srcshelton/${PN}.git"
-	if use experimental; then
+	if [[ " ${USE} " =~ \ experimental\  ]]; then
 		EGIT_COMMIT="heads/nohwdb"
 	else
 		EGIT_COMMIT="tags/v${PV}-nohwdb"
