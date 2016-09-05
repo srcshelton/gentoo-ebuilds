@@ -135,7 +135,7 @@ pkg_postinst() {
 			echo
 			elog "If you enable it, you will save 20-60% of netdata memory."
 			echo
-			elog "You may copy ${ED}/usr/share/doc/${P}/${PN}-sysctl to"
+			elog "You may copy /usr/share/doc/${PF}/${PN}-sysctl to"
 			elog "/etc/sysctl.d/${PN}.conf in order to activate this change"
 			elog "automatically upon reboot."
 		fi
