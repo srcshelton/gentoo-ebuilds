@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cc390c5fb7d48a31816b98c978e81343b10dcc0e $
+# $Id: 4846dcdb9b291bb6c904e76f40742d79f0b37eb9 $
 
 EAPI=6
 
@@ -185,6 +185,8 @@ src_prepare() {
 
 		eapply "${FILESDIR}"/3.9.0/clang/darwin_prefix-include-paths.patch
 		eprefixify tools/clang/lib/Frontend/InitHeaderSearch.cpp
+
+		eapply "${FILESDIR}"/3.8.1/compiler-rt/darwin-default-sysroot.patch
 
 		sed -i -e "s^@EPREFIX@^${EPREFIX}^" \
 			tools/clang/tools/scan-build/bin/scan-build || die
