@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8725607b0f34f6a2fea93dad23d5c9971053aa26 $
+# $Id: f921a9d0b3b511a9016666a6e8f100d3b306c490 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -52,7 +52,7 @@ CDEPEND="${PYTHON_DEPS}
 	>=net-libs/socket_wrapper-1.1.2[${MULTILIB_USEDEP}]
 	sys-apps/attr[${MULTILIB_USEDEP}]
 	sys-libs/libcap
-	>=sys-libs/ldb-1.1.24[${MULTILIB_USEDEP}]
+	>=sys-libs/ldb-1.1.24[ldap(+)?,${MULTILIB_USEDEP}]
 	sys-libs/ncurses:0=[${MULTILIB_USEDEP}]
 	>=sys-libs/nss_wrapper-1.0.2[${MULTILIB_USEDEP}]
 	>=sys-libs/ntdb-1.0[python,${PYTHON_USEDEP},${MULTILIB_USEDEP}]
