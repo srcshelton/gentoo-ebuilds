@@ -24,7 +24,9 @@ pkg_setup() {
 }
 
 src_prepare() {
-	epatch "${FILESDIR}"/${P}-gnu_source.patch
+	# Not required after commit d9ffcca70e730c02059591035bce4439341f4175 on the 16th April...
+	#epatch "${FILESDIR}"/${P}-gnu_source.patch
+
 	epatch "${FILESDIR}"/${P}-pid.patch
 }
 
