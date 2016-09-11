@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a4f1139d49522928f5044416f4c5b81d4f9f08c5 $
+# $Id: 62acb5af863e45e8a04e175576c26180b6c267f6 $
 
 EAPI=5
 
@@ -50,7 +50,6 @@ DEPEND="${COMMON_DEPEND}
 		( >=sys-freebsd/freebsd-lib-9.1-r10 sys-libs/libcxx )
 	)
 	|| ( >=sys-devel/binutils-2.18 >=sys-devel/binutils-apple-5.1 )
-	kernel_Darwin? ( <sys-libs/libcxx-${PV%_rc*}.9999 )
 	clang? ( xml? ( virtual/pkgconfig ) )
 	doc? ( dev-python/sphinx )
 	libffi? ( virtual/pkgconfig )
@@ -61,7 +60,8 @@ RDEPEND="${COMMON_DEPEND}
 		!>=sys-devel/clang-9999 )
 	abi_x86_32? ( !<=app-emulation/emul-linux-x86-baselibs-20130224-r2
 		!app-emulation/emul-linux-x86-baselibs[-abi_x86_32(-)] )"
-PDEPEND="clang? ( =sys-devel/clang-${PV}-r100 )"
+PDEPEND="clang? ( =sys-devel/clang-${PV}-r100 )
+	kernel_Darwin? ( =sys-libs/libcxx-${SLOT#*/}* )"
 
 # pypy gives me around 1700 unresolved tests due to open file limit
 # being exceeded. probably GC does not close them fast enough.
