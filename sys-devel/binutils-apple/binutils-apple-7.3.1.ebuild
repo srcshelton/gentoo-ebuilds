@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 733b6afdba52eb7bf24dd79fd7d6271cf86af0d1 $
+# $Id: 55be11280a7bc8e785878a6940c20eebe393306f $
 
 EAPI="5"
 
@@ -41,30 +41,11 @@ RDEPEND="sys-devel/binutils-config
 DEPEND="${RDEPEND}
 	test? ( >=dev-lang/perl-5.8.8 )"
 
-export CTARGET=${CTARGET:-${CHOST}}
-if [[ ${CTARGET} == ${CHOST} ]] ; then
-	if [[ ${CATEGORY} == cross-* ]] ; then
-		export CTARGET=${CATEGORY#cross-}
-	fi
-fi
-is_cross() { [[ ${CHOST} != ${CTARGET} ]] ; }
-
-if is_cross ; then
-	SLOT="${CTARGET}-7"
-else
-	SLOT="7"
-fi
-
-LIBPATH=/usr/$(get_libdir)/binutils/${CTARGET}/${PV}
-INCPATH=${LIBPATH}/include
-DATAPATH=/usr/share/binutils-data/${CTARGET}/${PV}
-if is_cross ; then
-	BINPATH=/usr/${CHOST}/${CTARGET}/binutils-bin/${PV}
-else
-	BINPATH=/usr/${CTARGET}/binutils-bin/${PV}
-fi
+SLOT="7"
 
 S=${WORKDIR}
+
+is_cross() { [[ ${CHOST} != ${CTARGET} ]] ; }
 
 src_prepare() {
 	if use multitarget ; then
@@ -203,6 +184,22 @@ src_prepare() {
 src_configure() {
 	ENABLE_LTO=0
 	use lto && ENABLE_LTO=1
+
+	export CTARGET=${CTARGET:-${CHOST}}
+	if [[ ${CTARGET} == ${CHOST} ]] ; then
+		if [[ ${CATEGORY} == cross-* ]] ; then
+			export CTARGET=${CATEGORY#cross-}
+		fi
+	fi
+
+	LIBPATH=/usr/$(get_libdir)/binutils/${CTARGET}/${PV}
+	INCPATH=${LIBPATH}/include
+	DATAPATH=/usr/share/binutils-data/${CTARGET}/${PV}
+	if is_cross ; then
+		BINPATH=/usr/${CHOST}/${CTARGET}/binutils-bin/${PV}
+	else
+		BINPATH=/usr/${CTARGET}/binutils-bin/${PV}
+	fi
 
 	# CPPFLAGS only affects ld64, cctools don't use 'em (which currently is
 	# what we want)

@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 82a9a7a53ded441ff151c0632414f34c161cf5eb $
+# $Id: 9973a8be5f57b67cbd88e8c8ee1bf71cd3172ad5 $
 
 EAPI="5"
 
@@ -44,30 +44,11 @@ RDEPEND="sys-devel/binutils-config
 DEPEND="${RDEPEND}
 	test? ( >=dev-lang/perl-5.8.8 )"
 
-export CTARGET=${CTARGET:-${CHOST}}
-if [[ ${CTARGET} == ${CHOST} ]] ; then
-	if [[ ${CATEGORY} == cross-* ]] ; then
-		export CTARGET=${CATEGORY#cross-}
-	fi
-fi
-is_cross() { [[ ${CHOST} != ${CTARGET} ]] ; }
-
-if is_cross ; then
-	SLOT="${CTARGET}-7"
-else
-	SLOT="7"
-fi
-
-LIBPATH=/usr/$(get_libdir)/binutils/${CTARGET}/${PV}
-INCPATH=${LIBPATH}/include
-DATAPATH=/usr/share/binutils-data/${CTARGET}/${PV}
-if is_cross ; then
-	BINPATH=/usr/${CHOST}/${CTARGET}/binutils-bin/${PV}
-else
-	BINPATH=/usr/${CTARGET}/binutils-bin/${PV}
-fi
+SLOT="7"
 
 S=${WORKDIR}
+
+is_cross() { [[ ${CHOST} != ${CTARGET} ]] ; }
 
 src_prepare() {
 	if use multitarget ; then
@@ -205,6 +186,22 @@ src_configure() {
 	# CPPFLAGS only affects ld64, cctools don't use 'em (which currently is
 	# what we want)
 	append-cppflags -DNDEBUG
+
+	export CTARGET=${CTARGET:-${CHOST}}
+	if [[ ${CTARGET} == ${CHOST} ]] ; then
+		if [[ ${CATEGORY} == cross-* ]] ; then
+			export CTARGET=${CATEGORY#cross-}
+		fi
+	fi
+
+	LIBPATH=/usr/$(get_libdir)/binutils/${CTARGET}/${PV}
+	INCPATH=${LIBPATH}/include
+	DATAPATH=/usr/share/binutils-data/${CTARGET}/${PV}
+	if is_cross ; then
+		BINPATH=/usr/${CHOST}/${CTARGET}/binutils-bin/${PV}
+	else
+		BINPATH=/usr/${CTARGET}/binutils-bin/${PV}
+	fi
 
 	# Block API and thus snapshots supported on >= 10.6
 	[[ ${CHOST} == *darwin* && ${CHOST#*-darwin} -ge 10 ]] && \
