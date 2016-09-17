@@ -125,7 +125,7 @@ A similar configuration file could be added for all packages which fail to compi
 * sys-libs/readline
     * Ensure that `<sys/ioctl.h>` header is included on Darwin
 
-# iOS7 and iOS 8 -compatible ebuilds
+# iOS7, 8, 9, and 10 -compatible ebuilds
 
 * app-pda/ipheth-pair
     * Tether an Apple iOS device to provide a network-link
@@ -229,6 +229,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
 * app-misc/colordiff
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
+* dev-db/mysql-init-scripts
+    * Only install support for requested service-managers
 * dev-libs/libcgroup
     * Improve output with `USE="DEBUG"`
 * mail-filter/opendkim
