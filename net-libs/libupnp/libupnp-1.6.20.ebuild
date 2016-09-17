@@ -1,8 +1,8 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c589c65c4df22e0d30c1427bd0f658d2eafe0a19 $
+# $Id: 83c50e86c2f0efd64b5131fa28127019a5710525 $
 
-EAPI=5
+EAPI=6
 
 inherit autotools eutils flag-o-matic
 
@@ -19,10 +19,14 @@ REQUIRED_USE="!server? ( !webserver )"
 
 DOCS="NEWS README ChangeLog"
 
+PATCHES=(
+	"${FILESDIR}"/${PN}-1.6.19-docs-install.patch
+	"${FILESDIR}"/${P}-suse.patch
+	"${FILESDIR}"/CVE-2016-6255.patch
+)
+
 src_prepare() {
-	epatch "${FILESDIR}"/${PN}-1.8.0-POST.patch \
-		"${FILESDIR}"/${P}-suse.patch \
-		"${FILESDIR}"/${PN}-1.6.19-docs-install.patch
+	default
 
 	# fix tests
 	chmod +x ixml/test/test_document.sh || die
@@ -48,13 +52,4 @@ src_install () {
 	default
 	use client && use server && use examples && dobin upnp/sample/.libs/tv_{combo,ctrlpt,device}
 	use static-libs || prune_libtool_files
-}
-
-pkg_postinst() {
-	ewarn "Please remember to run revdep-rebuild when upgrading"
-	ewarn "from libupnp 1.4.x to libupnp 1.6.x , so packages"
-	ewarn "are linked with the new library."
-	echo ""
-	ewarn "The revdep-rebuild script is part of the"
-	ewarn "app-portage/gentoolkit package."
 }
