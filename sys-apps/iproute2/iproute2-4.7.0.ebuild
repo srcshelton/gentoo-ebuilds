@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9a1447daa5d8d2ff29ac682a88ac37e4d5311409 $
+# $Id: 4b4f69e7fb3d1752272bc4edc1553983349314cd $
 
 EAPI="5"
 
@@ -52,7 +52,7 @@ src_prepare() {
 	epatch "${PATCHES[@]}"
 
 	sed -i \
-		-e '/^CC =/d' \
+		-e '/^CC :=/d' \
 		-e "/^LIBDIR/s:=.*:=/$(get_libdir):" \
 		-e "s:-O2:${CFLAGS} ${CPPFLAGS}:" \
 		-e "/^HOSTCC/s:=.*:= $(tc-getBUILD_CC):" \
