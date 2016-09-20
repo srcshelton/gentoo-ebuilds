@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 069750789e6742c6b128d1efa9125ef0620a3f83 $
+# $Id: f85716720cbe0d49ee037c8f5ccf613f9ad3a5c9 $
 
 EAPI=5
 
@@ -25,7 +25,7 @@ REQUIRED_USE="cgi? ( !minimal ) apache? ( cgi )"
 # Some of the postgres plugins use DBD::Pg, while others call psql directly.
 # Some of the mysql plugins use DBD::mysql, while others call mysqladmin directly.
 # We replace the original ipmi plugins with the freeipmi_ plugin which at least works.
-DEPEND_COM="dev-lang/perl[berkdb]
+DEPEND_COM="dev-lang/perl:=[berkdb]
 			kernel_linux? ( sys-process/procps )
 			doc? ( dev-python/sphinx )
 			asterisk? ( dev-perl/Net-Telnet )
@@ -181,7 +181,7 @@ src_install() {
 
 	# parallel install doesn't work and it's also pointless to have this
 	# run in parallel for now (because it uses internal loops).
-	emake -j1 DESTDIR="${D}" $(usex minimal install-minimal install)
+	emake -j1 DESTDIR="${ED}" $(usex minimal install-minimal install)
 
 	# we remove /run from the install, as it's not the package's to deal
 	# with.
@@ -246,7 +246,7 @@ src_install() {
 	if use systemd; then
 		dodir /usr/lib/tmpfiles.d
 		cat - > "${ED}"/usr/lib/tmpfiles.d/${CATEGORY}:${PN}:${SLOT}.conf <<EOF
-d /run/munin 0700 munin munin - -
+d /var/run/munin 0700 munin munin - -
 EOF
 
 		systemd_dounit "${FILESDIR}"/munin-async.service
@@ -280,7 +280,7 @@ EOF
 	fi
 
 	# Use a simpler pid file to avoid trouble with /run in tmpfs. The
-	# munin-node service is ran as user root, and only later drops
+	# munin-node service is run as user root, and only later drops
 	# privileges.
 	sed -i -e 's:/run/munin/munin-node.pid:/run/munin-node.pid:' \
 		"${ED}"/etc/munin/munin-node.conf \
@@ -403,10 +403,20 @@ pkg_postinst() {
 
 	# we create this here as we don't want Portage to check /run
 	# symlinks but we still need this to be present before the reboot.
-	if ! use minimal && [[ -d "${ROOT}"/run ]] && ! [[ -d "${ROOT}"/run/munin ]]; then
+	if ! use minimal; then
+		if [[ -d "${ROOT}"/run ]]; then
+			if ! [[ -d "${ROOT}"/run/munin ]]; then
 		mkdir "${ROOT}"/run/munin
 		chown munin:munin "${ROOT}"/run/munin
 		chmod 0700 "${ROOT}"/run/munin
+			fi
+		elif [[ -d "${ROOT}"/var/run ]]; then
+			if ! [[ -d "${ROOT}"/var/run/munin ]]; then
+				mkdir "${ROOT}"/var/run/munin
+				chown munin:munin "${ROOT}"/var/run/munin
+				chmod 0700 "${ROOT}"/var/run/munin
+			fi
+		fi
 	fi
 }
 

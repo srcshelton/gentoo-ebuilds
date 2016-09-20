@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fde3aa0064d67327a3efa79cf7ee53f13c59a1f9 $
+# $Id: 3a31df0ee80ab68b08070a1f37809465cd91a3bb $
 
 EAPI=5
 
@@ -25,7 +25,7 @@ REQUIRED_USE="cgi? ( !minimal ) apache? ( cgi )"
 # Some of the postgres plugins use DBD::Pg, while others call psql directly.
 # Some of the mysql plugins use DBD::mysql, while others call mysqladmin directly.
 # We replace the original ipmi plugins with the freeipmi_ plugin which at least works.
-DEPEND_COM="dev-lang/perl[berkdb]
+DEPEND_COM="dev-lang/perl:=[berkdb]
 			kernel_linux? ( sys-process/procps )
 			doc? ( dev-python/sphinx )
 			asterisk? ( dev-perl/Net-Telnet )
@@ -246,7 +246,7 @@ src_install() {
 	if use systemd; then
 		dodir /usr/lib/tmpfiles.d
 		cat - > "${ED}"/usr/lib/tmpfiles.d/${CATEGORY}:${PN}:${SLOT}.conf <<EOF
-d /run/munin 0700 munin munin - -
+d /var/run/munin 0700 munin munin - -
 EOF
 
 		systemd_dounit "${FILESDIR}"/munin-async.service
@@ -280,7 +280,7 @@ EOF
 	fi
 
 	# Use a simpler pid file to avoid trouble with /run in tmpfs. The
-	# munin-node service is ran as user root, and only later drops
+	# munin-node service is run as user root, and only later drops
 	# privileges.
 	sed -i -e 's:/run/munin/munin-node.pid:/run/munin-node.pid:' \
 		"${ED}"/etc/munin/munin-node.conf \
