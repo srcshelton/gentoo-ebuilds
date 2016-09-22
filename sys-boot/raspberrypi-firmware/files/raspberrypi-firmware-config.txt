@@ -114,7 +114,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit d0bc6ce8e2ae7850959fed4edb0695f3cddfb96a.
+# commit 83dc067c60fd3f66eda1114eab23e45f57be387d.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -232,10 +232,13 @@ disable_audio_dither=1
 # enables SDIO via GPIOs 22-27
 #device_tree_overlay=sdio,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off,poll_once=on,bus_width=4
 
-# Eric Anholt's DRM VC4 HDMI/HVS/V3D driver:
+# Eric Anholt's DRM VC4 drivers:
+# Run DRM VC4 V3D driver on top of existing dispmanx stack:
+#device_tree_overlay=vc4-fkms-v3d,[cma-64,cma-96,cma-128[,cma-192,cma-256]]
+# Experimental full-stack HDMI/HVS/V3D driver:
 # Running startx or booting to GUI while this overlay is in use will cause
 # interesting lockups.
-#device_tree_overlay=vc4-kms-v3d,[cma-64,cma-96,cma-128,cma-192,cma-256]
+#device_tree_overlay=vc4-kms-v3d,[cma-64,cma-96,cma-128[,cma-192,cma-256]]
 
 # Uncomment one of these lines to enable additional devices
 #device_tree_overlay=gpio-poweroff,gpiopin=26 # ,active_low
@@ -305,6 +308,7 @@ disable_audio_dither=1
 
 # Touch Screens and Displays:
 #device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
+#device_tree_overlay=dpi18
 #device_tree_overlay=dpi24
 #device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
