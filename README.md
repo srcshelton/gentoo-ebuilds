@@ -163,6 +163,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-perl/B-Lint
 * dev-perl/CPANPLUS
 * dev-perl/CPANPLUS-Dist-Gentoo
+* dev-perl/Devel-Trace
 * dev-perl/Email-Outlook-Message
 * dev-perl/File-Touch
 * dev-perl/IO-Interface
