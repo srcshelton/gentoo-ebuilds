@@ -176,6 +176,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-perl/Net-Twitter-Lite
 * dev-perl/POE-Component-Client-Ping
 * dev-perl/Proc-PID-File
+* dev-perl/Sub-Infix
 * dev-php/PEAR-Crypt_GPG
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.0
 * dev-python/noxspellserver
