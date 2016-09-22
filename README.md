@@ -167,6 +167,8 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-perl/IO-Interface
 * dev-perl/IO-Socket-Multicast
 * dev-perl/Locale-Hebrew
+* dev-perl/match-simple
+    * Provides match::smart
 * dev-perl/Mojolicious
 * dev-perl/Mojo-Server-FastCGI
 * dev-perl/Net-Interface
