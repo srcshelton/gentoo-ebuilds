@@ -24,7 +24,7 @@ signal_do() {
 		eval cmd_exec=\$${daemon}_${signal}
 		if [ -n "${cmd_exec}" ]; then
 			ebegin "${my_service_name} -> ${signal}: ${daemon}"
-			#echo ${cmd} '->' ${!cmd}
+			#echo ${cmd_exec} '->' ${!cmd_exec}
 			${cmd_exec} > /dev/null
 			last_result=$?
 			eend ${last_result}
@@ -32,6 +32,10 @@ signal_do() {
 		result=$(( ${result} + ${last_result} ))
 	done
 	return ${result}
+}
+
+start_pre() {
+	checkpath -d /var/run/samba || return 1
 }
 
 start() {
