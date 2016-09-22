@@ -237,6 +237,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Only install support for requested service-managers
 * dev-libs/libcgroup
     * Improve output with `USE="DEBUG"`
+* dev-perl/DBI-Shell
+    * Fix "Useless localization of scalar assignment" warning from DBI::Format
 * mail-filter/opendkim
     * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
 * mail-filter/postgrey
