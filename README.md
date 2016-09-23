@@ -203,6 +203,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
     * Temporarily retain old build, which doesn't require `USE="old-output"` for sys-apps/net-tools
+* sys-apps/lsusb-apple
+    * Jose L. Honorato's 'lsusb' for macOS
 * sys-apps/tmpfs
     * Mirror segments of a filesystem to a memory-based backing store
 * sys-auth/opie
