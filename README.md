@@ -193,6 +193,8 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-ruby/rake
 * mail-client/roundcube
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
+* media-sound/logitechmediaserver-bin
+    * Stuart Hickinbottom's Squeezebox Server ebuild, updated for Perl 5.22 and with minor optimisations
 * ~~net-analyzer/netdata~~
     * ~~netdata is now in-tree~~
 * net-libs/libhtp
