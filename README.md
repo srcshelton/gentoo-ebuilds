@@ -241,6 +241,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
+* dev-lang/perl
+    * Fix HTTP::Tiny SSL CA path for prefix installations
 * dev-libs/libcgroup
     * Improve output with `USE="DEBUG"`
 * dev-perl/DBI-Shell
