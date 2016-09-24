@@ -245,6 +245,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Improve output with `USE="DEBUG"`
 * dev-perl/DBI-Shell
     * Fix "Useless localization of scalar assignment" warning from DBI::Format
+* dev-perl/LWP-Protocol-https
+    * Fix SSL CA path for prefix installations
 * mail-filter/opendkim
     * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
 * mail-filter/postgrey
