@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 81d3f0fbe2fb593b6b99c2b7ba01192ee05047ac $
+# $Id: 2e81b58da5824a8af7142374ddc44bc132c6efc1 $
 
 EAPI=6
 
@@ -148,7 +148,7 @@ src_prepare() {
 
 	# Make it possible to override Sphinx HTML install dirs
 	# https://llvm.org/bugs/show_bug.cgi?id=23780
-	eapply "${FILESDIR}"/9999/0003-cmake-Support-overriding-Sphinx-HTML-doc-install-dir.patch
+	eapply "${FILESDIR}"/3.9.0/0003-cmake-Support-overriding-Sphinx-HTML-doc-install-dir.patch
 
 	# Prevent race conditions with parallel Sphinx runs
 	# https://llvm.org/bugs/show_bug.cgi?id=23781
