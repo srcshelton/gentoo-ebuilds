@@ -1,6 +1,6 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 77863be1a235e5b1aa1e7528a9cb7aab0a96f678 $
+# $Id: ae19cb5f037d0ee32e13716e68c487d519441f03 $
 
 EAPI="5"
 
@@ -11,7 +11,7 @@ CPUID instruction"
 HOMEPAGE="http://www.etallen.com/cpuid.html"
 SRC_URI="http://www.etallen.com/${PN}/${P}.src.tar.gz"
 
-KEYWORDS="~amd64 ~x86"
+KEYWORDS="amd64 ~x86"
 SLOT="0"
 LICENSE="GPL-2"
 IUSE=""
