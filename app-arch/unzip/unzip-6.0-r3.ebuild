@@ -1,4 +1,4 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 3a1d00193947cceedd1ae432e4d6f3a5305ef9d4 $
 # $Header: /var/cvsroot/gentoo-x86/app-arch/unzip/unzip-6.0-r3.ebuild,v 1.10 2014/01/18 05:01:26 vapier Exp $
@@ -64,7 +64,7 @@ src_compile() {
 		*-aix*)              TARGET=gcc; append-cppflags "-DNO_LCHMOD"; append-ldflags "-Wl,-blibpath:${EPREFIX}/usr/$(get_libdir)" ;;
 		*-hpux*)             TARGET=gcc; append-ldflags "-Wl,+b,${EPREFIX}/usr/$(get_libdir)" ;;
 		*-mint*)             TARGET=generic ;;
-		*) die "Unknown target, you suck" ;;
+		*) die "Unknown target '${CHOST}'" ;;
 	esac
 
 	[[ ${CHOST} == *linux* ]] && append-cppflags -DNO_LCHMOD
