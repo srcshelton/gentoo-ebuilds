@@ -142,7 +142,7 @@ src_configure() {
 
 	# Add linker versions to the symbols. Easier to do, and safer than header file
 	# mumbo jumbo.
-	if [[ ${CHOST} == *-linux-gnu || ${CHOST} == *-solaris* ]] || use userland_GNU ; then
+	if [[ ${CHOST} == *-linux-gnu* || ${CHOST} == *-solaris* ]] || use userland_GNU ; then
 		# we hopefully use a GNU binutils linker in this case
 		[[ ${CC} == *clang* ]] || append-ldflags -Wl,--default-symver
 	fi
