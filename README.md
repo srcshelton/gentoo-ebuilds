@@ -273,6 +273,8 @@ A similar configuration file could be added for all packages which fail to compi
     * Fix some crazy inconsistencies in output which were breaking `ebtables-save` and `ebtables-restore`
     * Set appropriate maximum buffer sizes to prevent `ebtables-restore` from segfaulting when loading more than 2kbytes of data from a single statement
     * Add Debian patch to correct the use of `RETURN` as a module target
+* net-dns/dnstop
+    * build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support
 * net-libs/neon
     * Patch trivial typo which prevents `writev` from being defined
 * net-misc/dhcp
