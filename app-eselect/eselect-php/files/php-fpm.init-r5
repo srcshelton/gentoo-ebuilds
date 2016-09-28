@@ -23,6 +23,7 @@ start() {
 	set_phpvars
         start-stop-daemon --start --pidfile "${PHP_FPM_PID}" \
 			  --exec "${PHP_FPM_BIN}" \
+			  ${PHP_FPM_UMASK:+--umask ${PHP_FPM_UMASK}} \
 			  -- \
 			  --fpm-config "${PHP_FPM_CONF}" \
 			  --pid "${PHP_FPM_PID}"
