@@ -1,7 +1,7 @@
-#!/sbin/runscript
-# Copyright 1999-2014 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header$
+# $Id$
 
 # These fit the Logitech Media Server ebuild and so shouldn't need to be
 # changed; user-servicable parts go in /etc/conf.d/logitechmediaserver.
@@ -27,10 +27,10 @@ start_pre() {
 start() {
 	ebegin "Starting Logitech Media Server"
 
-	cd /
 	start-stop-daemon \
 		--start --exec ${lmsbin} \
 		--pidfile ${pidfile} \
+		--chdir / \
 		--user ${lmsuser} \
 		--background \
 		-- \

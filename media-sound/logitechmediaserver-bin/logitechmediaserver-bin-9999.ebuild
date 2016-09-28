@@ -150,7 +150,7 @@ src_install() {
 
 	# Documentation
 	for lang in ${LANGS}; do
-		if use "l10n_${lang}"; then
+		if ! use "l10n_${lang}"; then
 			if [[ 'en' == "${lang}" ]]; then
 				lang=''
 			else
