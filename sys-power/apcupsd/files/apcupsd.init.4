@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-power/apcupsd/files/apcupsd.init.4,v 1.2 2013/12/03 22:18:44 mattm Exp $
+# $Id: 2a69687db89da28955a9567dd4c6084f68c42908 $
 
 INSTANCE="${SVCNAME#*.}"
 if [ -z "${INSTANCE}" ] || [ "${SVCNAME}" = "apcupsd" ]; then
@@ -15,6 +15,8 @@ depend() {
 }
 
 start_pre() {
+	local lockdir="$( grep -E '^\s*LOCKFILE\s+' "/etc/apcupsd/${INSTANCE}.conf" | sed -r 's/\s*LOCKFILE\s+//' )"
+        checkpath -d -m 0775 -o root:uucp ${lockdir} 
         checkpath -d -m 0775 -o root:uucp ${piddir} 
 }
 
@@ -22,16 +24,6 @@ start() {
 	rm -f /etc/apcupsd/powerfail
 
 	export SERVICE="${SVCNAME}"
-
-	local lockdir="$( grep -E '^\s*LOCKFILE\s+' "/etc/apcupsd/${INSTANCE}.conf" | sed -r 's/\s*LOCKFILE\s+//' )"
-	local dir
-	for dir in "${piddir}" "${lockdir}"; do
-		if [ ! -d "${dir}" ]; then
-			einfo " Creating ${dir}"
-			/bin/mkdir -p "${dir}"
-		fi
-	done
-	/bin/chown root:uucp "${piddir}"
 
 	ebegin "Starting APC UPS daemon"
 	start-stop-daemon \
@@ -50,3 +42,4 @@ stop() {
 		--exec /sbin/apcupsd
 	eend $?
 }
+
