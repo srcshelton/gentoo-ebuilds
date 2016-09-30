@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4832435d5ef811fae7b61c279b51ee1f3303f47f $
+# $Id: 54cb2f66c021c3a774363181ff1523f6a0900ea6 $
 
 EAPI="5"
 
@@ -21,7 +21,7 @@ LICENSE="OPENLDAP GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~x86-linux ~x86-solaris"
 
-IUSE_DAEMON="crypt experimental icu minimal samba slp systemd tcpd +tmpfiles"
+IUSE_DAEMON="crypt experimental icu minimal samba slp systemd tcpd"
 IUSE_BACKEND="+berkdb"
 IUSE_OVERLAY="overlays perl"
 IUSE_OPTIONAL="gnutls iodbc sasl ssl odbc debug ipv6 +syslog selinux"
@@ -42,7 +42,7 @@ CDEPEND="icu? ( dev-libs/icu:= )
 		odbc? ( !iodbc? ( dev-db/unixODBC )
 			iodbc? ( dev-db/libiodbc ) )
 		slp? ( net-libs/openslp )
-		perl? ( dev-lang/perl[-build(-)] )
+		perl? ( dev-lang/perl:=[-build(-)] )
 		samba? ( dev-libs/openssl )
 		berkdb? ( sys-libs/db )
 		smbkrb5passwd? (
@@ -709,8 +709,6 @@ multilib_src_install() {
 }
 
 multilib_src_install_all() {
-	use tmpfiles || dodir /var/run/openldap
-
 	dodoc ANNOUNCEMENT CHANGES COPYRIGHT README "${FILESDIR}"/DB_CONFIG.fast.example
 	docinto rfc ; dodoc doc/rfc/*.txt
 }
