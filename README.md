@@ -18,7 +18,7 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 * www-apps/rpi-monitor
     * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 
-# Fixes for compiling prefix packages under Mac OS using LLVM/clang
+# Fixes for compiling prefix packages under macOS using LLVM/clang
 
 Some packages will fail with `illegal instruction: 4` if compiled with certain compiler-optimisations enabled.  Indeed, the `-ftrapv` flag will cause `clang` to intenionally insert `ud2` (Undefined Instruction) op-codes where integer overflows could occur, and this catches-out a significant number of packages, causing them to crash with `SIGILL` - illegal instruction.  To work around this on a per-package basis where `-ftrapv` has not been used during compilation, perform the following steps:
 
@@ -79,7 +79,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-lang/python
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
 * dev-libs/apr
-    * Support F_FULLFSYNC on Darwin
+    * Support F_FULLFSYNC on darwin
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
 * dev-libs/jemalloc
@@ -87,7 +87,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-libs/libksba
     * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
 * dev-libs/liblinear
-    * Update Makefile to build correctly on Darwin
+    * Update Makefile to build correctly on darwin
 * dev-libs/libxslt
     * Fix for 'double prefix' QA error introduced in 1.1.28-r2
 * dev-libs/openssl
@@ -97,33 +97,35 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-python/backports-ssl-match-hostname
     * Change `${ED}` to `${D}` to prevent double-prefix path usage QA error
 * dev-vcs/cvs
-    * Allow CVS to build and tests to run on Darwin
+    * Allow CVS to build and tests to run on darwin
 * dev-vcs/subversion
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
+* net-analyzer/nmap
+    * Restore RT_MSGHDR_ALIGNMENT definition for building on macOS 
 * sys-apps/baselayout-prefix
     * Add missing `run_applets` prototype
 * sys-apps/darwin-miscutils
     * Add missing `md.c` prototypes and `#include`s
 * sys-apps/gptfdisk
-    * Allow `gdisk` to build on Darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used
+    * Allow `gdisk` to build on darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used
 * sys-apps/help2man
     * Ensure that `usr/lib/help2man/bindtextdomain.dylib` is correctly built and named
 * sys-apps/texinfo
     * Add missing `#include`
 * sys-devel/binutils-apple
-    * Build to current Mac OS version and fix missing Libc header
+    * Build to current macOS version and fix missing Libc header
 * sys-devel/gdb
     * Fixes for building with clang, building on Yosemite, and building with Python support
 * sys-devel/gcc-apple
     * Fixes for building with clang and building on Yosemite
 * sys-devel/llvm
-    * Additional fixes for Darwin
+    * Additional fixes for darwin
 * sys-libs/db
     * Prevent clang builtins error due to `__atomic_compare_exchange` function
 * sys-libs/gdbm
     * Ensure that all functions are defined before being called
 * sys-libs/readline
-    * Ensure that `<sys/ioctl.h>` header is included on Darwin
+    * Ensure that `<sys/ioctl.h>` header is included on darwin
 
 # iOS7, 8, 9, and 10 -compatible ebuilds
 
