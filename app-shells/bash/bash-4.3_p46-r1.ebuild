@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 23022ccfb2202d4bc34e4fca0061dcb92c403be3 $
+# $Id: 32520249b0e2aed871d6df8456912bf2a3900504 $
 
 EAPI="5"
 
@@ -38,7 +38,7 @@ SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline vanilla"
 
 DEPEND=">=sys-libs/ncurses-5.2-r2:0=
@@ -190,10 +190,10 @@ src_configure() {
 
 	if use plugins; then
 		case "${CHOST}" in
+			# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
 			*-linux-gnu* | *-solaris* | *-freebsd* )
 				append-ldflags -Wl,-rpath,"${EPREFIX}"/usr/$(get_libdir)/bash
 				;;
-				# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
 		esac
 	else
 		# Disable the plugins logic by hand since bash doesn't
