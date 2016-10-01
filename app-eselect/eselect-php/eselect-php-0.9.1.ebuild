@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 9d0ddde325e095edaec77429f68d319d8619035a $
 
-EAPI=6
+EAPI=5
 
 inherit depend.apache systemd
 
