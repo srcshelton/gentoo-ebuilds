@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5e58905a294814e65d08831c0bddb6e3946a0994 $
+# $Id: d440951931dafd6b81762b5fb102affd88e5ee44 $
 
 EAPI=6
 inherit eutils libtool linux-info udev toolchain-funcs
@@ -11,8 +11,8 @@ SRC_URI="https://github.com/libfuse/libfuse/releases/download/${P}/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux"
-IUSE="examples kernel_linux kernel_FreeBSD static-libs udev"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux"
+IUSE="examples kernel_linux kernel_FreeBSD static-libs +udev"
 
 PDEPEND="kernel_FreeBSD? ( sys-fs/fuse4bsd )"
 DEPEND="virtual/pkgconfig"
