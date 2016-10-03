@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 6896407d79ae6e40eb1db9fdc933760b4dcdc57f $
+# $Id: ddf70e6cb98f8b6c6f9d4387f6850c644e78878b $
 
 EAPI=6
 
@@ -12,7 +12,7 @@ SRC_URI="https://dev.gentoo.org/~mjo/distfiles/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~mips ~ppc ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 IUSE="fpm apache2 systemd"
 
 # The "DirectoryIndex" line in 70_mod_php.conf requires mod_dir.
