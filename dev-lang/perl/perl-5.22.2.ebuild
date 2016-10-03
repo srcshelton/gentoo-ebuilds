@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 40b2a98907d1a8dfb515c7beee16a10050fc0b95 $
+# $Id: 2e71223e2519e83912e9e6091405a55a5b9cb5f2 $
 
 EAPI=5
 
@@ -31,7 +31,7 @@ KEYWORDS="alpha amd64 arm ~arm64 ~hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh spar
 IUSE="berkdb debug doc gdbm ithreads"
 
 RDEPEND="
-	berkdb? ( sys-libs/db:* )
+	berkdb? ( sys-libs/db:= )
 	gdbm? ( >=sys-libs/gdbm-1.8.3 )
 	app-arch/bzip2
 	sys-libs/zlib
