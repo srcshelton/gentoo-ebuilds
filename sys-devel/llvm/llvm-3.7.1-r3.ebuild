@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5b809750bb8d2170a7fad5ee85da1cd895e4e5f5 $
+# $Id: 0b9885533953c8ea539b2cc95827768d75a3c5e0 $
 
 EAPI=6
 
@@ -151,7 +151,7 @@ src_prepare() {
 
 	# Prevent race conditions with parallel Sphinx runs
 	# https://llvm.org/bugs/show_bug.cgi?id=23781
-	eapply "${FILESDIR}"/9999/0004-cmake-Add-an-ordering-dep-between-HTML-man-Sphinx-ta.patch
+	eapply "${FILESDIR}"/3.9.0/0004-cmake-Add-an-ordering-dep-between-HTML-man-Sphinx-ta.patch
 
 	# Prevent installing libgtest
 	# https://llvm.org/bugs/show_bug.cgi?id=18341

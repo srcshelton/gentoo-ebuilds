@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7731a4baba214d8d47dacfd8998439926cbf01ae $
+# $Id: e45720084cf4fbf913ae9fa0ee787262d1b22fa8 $
 
 EAPI=6
 
@@ -152,7 +152,7 @@ src_prepare() {
 
 	# Prevent race conditions with parallel Sphinx runs
 	# https://llvm.org/bugs/show_bug.cgi?id=23781
-	eapply "${FILESDIR}"/9999/0004-cmake-Add-an-ordering-dep-between-HTML-man-Sphinx-ta.patch
+	eapply "${FILESDIR}"/3.9.0/0004-cmake-Add-an-ordering-dep-between-HTML-man-Sphinx-ta.patch
 
 	# Prevent installing libgtest
 	# https://llvm.org/bugs/show_bug.cgi?id=18341
@@ -167,7 +167,7 @@ src_prepare() {
 
 	# Restore SOVERSIONs for shared libraries
 	# https://bugs.gentoo.org/show_bug.cgi?id=578392
-	eapply "${FILESDIR}"/9999/0008-cmake-Restore-SOVERSIONs-on-shared-libraries.patch
+	eapply "${FILESDIR}"/3.8.1/0008-cmake-Restore-SOVERSIONs-on-shared-libraries.patch
 
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
