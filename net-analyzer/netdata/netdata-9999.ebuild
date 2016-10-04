@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: f5951ec7e1621e25784df18fe8e79e1054d02163 $
+# $Id: 47ad4c8ac66909f0f0fa37266bcc2e5ddd2999ce $
 
 EAPI=6
 PYTHON_COMPAT=( python{2_7,3_3,3_4,3_5} )
@@ -58,8 +58,7 @@ RDEPEND="
 	)
 	nodejs? (
 		net-libs/nodejs
-	)
-"
+	)"
 
 DEPEND="${RDEPEND}
 	virtual/pkgconfig"
