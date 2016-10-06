@@ -114,7 +114,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 83dc067c60fd3f66eda1114eab23e45f57be387d.
+# commit cb7b3fed0eabd02e3e03d1ae1f9deea8a5bf880a.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -281,6 +281,7 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
 # DAC & ADC Audio devices & codecs:
+#device_tree_overlay=allo-piano-dac-pcm512x-audio # ,24db_digital_gain
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=adau1977-adc
 #device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2 # chb_enable,chb_cfg=4,chb_datarate=4,chb_gain=2,chc_enable,chc_cfg=4,chc_datarate=4,chc_gain=2,chd_enable,chd_cfg=4,chd_datarate=4,chd_gain=2
@@ -318,6 +319,7 @@ disable_audio_dither=1
 #device_tree_overlay=pitft22,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7]
 #device_tree_overlay=pitft28-capacitive,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7],touch-sizex=240,touch-sizey=320 # ,touch-invx,touch-invy,touch-swapxy
 #device_tree_overlay=pitft28-resistive,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7]
+#device_tree_overlay=pitft35-resistive,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7]
 #device_tree_overlay=rpi-backlight
 #device_tree_overlay=rpi-display,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,swapxy
 #device_tree_overlay=rpi-ft5406
