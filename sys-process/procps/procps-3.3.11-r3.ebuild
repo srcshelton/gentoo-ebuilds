@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c55efa2b6ed9baf5364f14c4bdfb431291145f8e $
+# $Id: 458e5d23728e3508c8d4c4f9a42fd7f0f0624ced $
 
 EAPI=5
 
@@ -40,6 +40,7 @@ PATCHES=(
 
 src_prepare() {
 	epatch "${PATCHES[@]}"
+	epatch_user
 }
 
 src_configure() {
