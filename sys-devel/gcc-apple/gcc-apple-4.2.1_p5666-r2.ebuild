@@ -130,14 +130,14 @@ src_prepare() {
 	eprefixify "${S}"/gcc/gcc.c
 	sed -i -e "s|@GENTOO_PORTAGE_TPREFIX@|${TPREFIX}|g" "${S}"/gcc/config/darwin.h
 
-	if use !bootstrap ; then
+	#if use !bootstrap ; then
 		# this only occurs with up-to-date tools from the Prefix, and actually
 		# breaks the bootstrap since the autoconf needs a very recent automake
 		epatch "${FILESDIR}"/${PN}-${GCC_VERS}-texinfo.patch
 		epatch "${FILESDIR}"/${PN}-${GCC_VERS}-autoconf-m4-precious.patch
 		cd "${S}"/gcc && eautoconf
 		cd "${S}"/libgomp && eautoconf
-	fi
+	#fi
 
 	local BRANDING_GCC_PKGVERSION="$(sed -n -e '/^#define VERSUFFIX/s/^[^"]*"\([^"]\+\)".*$/\1/p' "${S}"/gcc/version.c)"
 	BRANDING_GCC_PKGVERSION="${BRANDING_GCC_PKGVERSION/(/(Gentoo ${PVR}, }" # "))}" # <- Syntax highlight fail
