@@ -246,7 +246,7 @@ A similar configuration file could be added for all packages which fail to compi
 * dev-lang/perl
     * Fix HTTP::Tiny SSL CA path for prefix installations
 * dev-libs/libcgroup
-    * Improve output with `USE="DEBUG"`
+    * Handle existing mountpoints and correct init scripts
 * dev-perl/DBI-Shell
     * Fix "Useless localization of scalar assignment" warning from DBI::Format
 * dev-perl/LWP-Protocol-https

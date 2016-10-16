@@ -1,0 +1,40 @@
+--- src/config.c.dist	2016-10-16 12:22:38.344574293 +0100
++++ src/config.c	2016-10-16 12:36:28.752158488 +0100
+@@ -670,7 +670,7 @@ static int cgroup_config_mount_fs(void)
+ 
+ 		ret = stat(curr->mount.path, &buff);
+ 
+-		if (ret < 0 && errno != ENOENT) {
++		if (ret < 0 && ENOENT != errno) {
+ 			cgroup_err("Error: cannot access %s: %s\n",
+ 					curr->mount.path, strerror(errno));
+ 			last_errno = errno;
+@@ -678,7 +678,7 @@ static int cgroup_config_mount_fs(void)
+ 			goto out_err;
+ 		}
+ 
+-		if (errno == ENOENT) {
++		if (ENOENT == errno) {
+ 			ret = cg_mkdir_p(curr->mount.path);
+ 			if (ret) {
+ 				cgroup_err("Error: cannot create directory %s\n",
+@@ -702,6 +702,19 @@ static int cgroup_config_mount_fs(void)
+ 		ret = mount(CGROUP_FILESYSTEM, curr->mount.path,
+ 				CGROUP_FILESYSTEM, 0, curr->name);
+ 
++		if (ret < 0 && EBUSY == errno) {
++			/*
++			 * If the mountpoint is already present, then
++			 * we shouldn't fail... but mount returns EBUSY
++			 * in three circumstances, only one of which
++			 * we're concerned with.  Let's try remounting
++			 * the mountpoint instead, to confirm it is
++			 * present...
++			 */
++			ret = mount(CGROUP_FILESYSTEM, curr->mount.path,
++					CGROUP_FILESYSTEM, MS_REMOUNT, curr->name);
++		}
++
+ 		if (ret < 0) {
+ 			cgroup_err("Error: cannot mount %s to %s: %s\n",
+ 					curr->name, curr->mount.path,

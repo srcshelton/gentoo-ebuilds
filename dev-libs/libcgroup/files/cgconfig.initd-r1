@@ -1,0 +1,71 @@
+#!/sbin/openrc-run
+# Copyright 1999-2015 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Id: 0615259f52f90b30ec1e902012d4b55f8610a9ed $
+
+CGCONFIGPARSER="/usr/sbin/cgconfigparser"
+CGCLASSIFY="/usr/bin/cgclassify"
+: ${CG_CONFIGFILE:=/etc/cgroup/cgconfig.conf}
+description="Control Group Configuration Service"
+
+cgconfig_umount() {
+	local ctrl eq mnt_pnt mnt_pts
+
+	while read ctrl eq mnt_pnt; do
+		case "${ctrl}" in
+			(\#*)    continue    ;;
+			(mount*) mnt_pts=true;;
+			(\}*)    mnt_pts=    ;;
+			(*)
+				[ -n "${mnt_pts}" ] || continue
+
+				mnt_pnt="${mnt_pnt%;}"
+
+				ebegin "Unmounting ${mnt_pnt}"
+				umount "${mnt_pnt}"
+				eend "$?"
+				;;
+		esac
+	done < "${CG_CONFIGFILE}"
+}
+
+start() {
+	local l
+	local -i rc
+
+	ebegin "Setting up CGroups"
+	${CGCONFIGPARSER} --load=${CG_CONFIGFILE} >/dev/null 2>&1
+	rc=${?}
+	if [ "0" != "${rc}" ]; then
+		eindent
+		${CGCONFIGPARSER} --load=${CG_CONFIGFILE} 2>&1 | \
+		while read -r l; do
+			eerror "${l}"
+		done
+		eoutdent
+	fi
+	eend ${rc}
+}
+
+start_post() {
+	local -i pid
+
+	# Classify PID according to the rules if requested
+	yesno "${CG_CLASSIFY}" || return 0
+
+	if ! [ -x "${CGCLASSIFY}" ]; then
+		eerror "Cannot locate '$( basename "${CGCLASSIFY}" )' binary"
+		return 1
+	fi
+
+	ebegin "Classifying PID to CGroups"
+	for pid in $( ps --no-headers -eL o tid ); do
+		 "${CGCLASSIFY}" ${pid}
+	done
+
+	eend ${?}
+}
+
+stop() {
+	cgconfig_umount
+}
