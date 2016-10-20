@@ -1,7 +1,7 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
+# $Id: 6b19ec5141cf4e2fedc7e5e83ead1d8b867e4568 $
 
 # These fit the Logitech Media Server ebuild and so shouldn't need to be
 # changed; user-servicable parts go in /etc/conf.d/logitechmediaserver.

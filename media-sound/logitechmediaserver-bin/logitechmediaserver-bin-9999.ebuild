@@ -36,7 +36,7 @@ inherit ${INHERIT_VCS} eutils user systemd
 
 DESCRIPTION="Server for Logitech Squeezebox players"
 LICENSE="${PN}"
-RESTRICT="bindist mirror"
+RESTRICT="mirror"
 SLOT="0"
 IUSE="doc html systemd"
 

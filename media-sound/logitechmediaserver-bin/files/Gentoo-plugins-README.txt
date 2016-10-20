@@ -1,6 +1,6 @@
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
+# $Id: 1ecbef3c5468d533e563ce47e600d857ae8530c7 $
 
 The standard Logitech Media Server package is installed differently on Gentoo
 in order that the installation complies with Gentoo's filesystem layout. These

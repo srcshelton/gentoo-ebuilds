@@ -1,6 +1,6 @@
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
+# $Id: ce42d0747740ade3a9955b83153f3bb6d160f5f4 $
 
 # This file contains a custom OS package to provide information on the
 # installation structure on Gentoo.
