@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9c5d675e1b53a88f42104a68717dd6ff24232f2d $
+# $Id: c7448085bbb36b90fff2e51cae4e6c4c2665e754 $
 
 EAPI=5
 inherit cmake-utils flag-o-matic git-r3
@@ -24,7 +24,6 @@ pkg_setup() {
 }
 
 src_prepare() {
-	epatch "${FILESDIR}"/${P}-gnu_source.patch
 	epatch "${FILESDIR}"/${P}-pid.patch
 }
 
