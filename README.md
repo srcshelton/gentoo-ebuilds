@@ -127,8 +127,10 @@ A similar configuration file could be added for all packages which fail to compi
 * sys-libs/readline
     * Ensure that `<sys/ioctl.h>` header is included on darwin
 
-# iOS7, 8, 9, and 10 -compatible ebuilds
+# iOS7, 8, 9, and 10 -compatible tools &amp; macOS ebuilds
 
+* app-admin/mas
+    * Mac App Store command-line interface (requires `xcodebuild`)
 * app-pda/ipheth-pair
     * Tether an Apple iOS device to provide a network-link
 * app-pda/libimobiledevice
