@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 07152689e8a56e5cfb9a38ce4e2e7cf80d33a5d6 $
+# $Id: 56f1dc12c0370ba04f84768ad9087ee35ab3eb54 $
 # $Header: /var/cvsroot/gentoo-x86/sys-libs/db/db-5.1.29-r1.ebuild,v 1.3 2015/03/20 14:41:50 jlec Exp $
 
 EAPI=5
@@ -21,7 +21,7 @@ fi
 S_BASE="${WORKDIR}/${MY_P}"
 S="${S_BASE}/build_unix"
 DESCRIPTION="Oracle Berkeley DB"
-HOMEPAGE="http://www.oracle.com/technology/software/products/berkeley-db/index.html"
+HOMEPAGE="http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html"
 SRC_URI="http://download.oracle.com/berkeley-db/${MY_P}.tar.gz"
 for (( i=1 ; i<=${PATCHNO} ; i++ )) ; do
 	export SRC_URI="${SRC_URI} http://www.oracle.com/technology/products/berkeley-db/db/update/${MY_PV}/patch.${MY_PV}.${i}"
