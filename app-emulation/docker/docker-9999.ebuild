@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2d30bb94603012b12e331828ef93446e23a0eaf1 $
+# $Id: feccb2ccffcd91429d8d194ee7888c580b1952a4 $
 
 EAPI=6
 
@@ -91,7 +91,7 @@ CONFIG_CHECK="
 	~CGROUP_HUGETLB
 	~NET_CLS_CGROUP
 	~CFS_BANDWIDTH ~FAIR_GROUP_SCHED ~RT_GROUP_SCHED
-	~IP_VS
+	~IP_VS ~IP_VS_PROTO_TCP ~IP_VS_PROTO_UDP ~IP_VS_NFCT
 
 	~VXLAN
 	~XFRM_ALGO ~XFRM_USER
@@ -269,7 +269,7 @@ src_install() {
 
 	if use zsh-completion; then
 		insinto /usr/share/zsh/site-functions
-		doins contrib/completion/zsh/*
+		doins contrib/completion/zsh/_*
 	fi
 
 	if use vim-syntax; then
