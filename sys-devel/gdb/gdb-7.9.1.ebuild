@@ -1,9 +1,9 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2e0c768040ece064a998f103e775eb59343637b3 $
+# $Id: 92cf65cd4c26569a09dc50fceada6120087f943f $
 
 EAPI="5"
-PYTHON_COMPAT=( python{2_7,3_3,3_4} )
+PYTHON_COMPAT=( python{2_7,3_4} )
 
 inherit flag-o-matic eutils python-single-r1
 
