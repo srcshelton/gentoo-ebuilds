@@ -1,10 +1,10 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7499eb983b81906cb26e6d3bfe780fba3c652d3a $
+# $Id: 01c71aabdd43293265169188d06543faf0989305 $
 
 EAPI="5"
 
-PYTHON_COMPAT=( python{3_3,3_4} )
+PYTHON_COMPAT=( python3_4 )
 
 inherit flag-o-matic python-any-r1 toolchain-funcs eutils
 
