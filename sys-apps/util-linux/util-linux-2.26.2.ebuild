@@ -1,10 +1,10 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: eb81bc337af80759cc4cebf2393a26782272aa3e $
+# $Id: 5dc92f4367c2c60b0eb02d3519c44ddffb732367 $
 
 EAPI="5"
 
-PYTHON_COMPAT=( python2_7 python3_{3,4} )
+PYTHON_COMPAT=( python2_7 python3_4 )
 
 inherit eutils toolchain-funcs libtool flag-o-matic bash-completion-r1 \
 	python-single-r1 multilib-minimal systemd
