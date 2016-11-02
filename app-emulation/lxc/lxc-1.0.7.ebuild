@@ -1,11 +1,11 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: bec1ea97da25aff7615f225b0ee1fad733c351de $
+# $Id: b5128ed6c50ef04c99f9c706f77b295f15712d53 $
 
 EAPI="5"
 
 MY_P="${P/_/-}"
-PYTHON_COMPAT=( python{3_3,3_4} )
+PYTHON_COMPAT=( python3_4 )
 DISTUTILS_OPTIONAL=1
 
 inherit autotools bash-completion-r1 distutils-r1 eutils linux-info versionator flag-o-matic systemd
