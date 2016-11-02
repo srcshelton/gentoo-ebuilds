@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 86eeaccc60353b46ee41b7a1db48dcb74b7e6a03 $
+# $Id: 2910d6f75a250f868cf090621bc36a97edde1826 $
 
 # Re: dlz/mysql and threads, needs to be verified..
 # MySQL uses thread local storage in its C api. Thus MySQL
@@ -13,7 +13,7 @@
 
 EAPI="5"
 
-PYTHON_COMPAT=( python2_7 python3_3 python3_4 )
+PYTHON_COMPAT=( python2_7 python3_4 )
 
 inherit python-r1 eutils autotools toolchain-funcs flag-o-matic multilib db-use user systemd
 
