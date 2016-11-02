@@ -1,9 +1,9 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 47ad4c8ac66909f0f0fa37266bcc2e5ddd2999ce $
+# $Id: 27cf2dcf33560d21e1c11deed7755536ad06f50c $
 
 EAPI=6
-PYTHON_COMPAT=( python{2_7,3_3,3_4,3_5} )
+PYTHON_COMPAT=( python{2_7,3_4,3_5} )
 
 inherit fcaps linux-info python-r1 systemd user
 
@@ -30,7 +30,7 @@ HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="+compression mysql nfacct nodejs +python systemd"
+IUSE="+compression mysql nfacct nodejs +python systemd cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )"
@@ -92,6 +92,7 @@ src_configure() {
 		--localstatedir="/var" \
 		--with-user="${NETDATA_USER}" \
 		$(use_enable nfacct plugin-nfacct) \
+		$(use_enable cpu_flags_x86_sse2 sse) \
 		$(use_with compression zlib)
 }
 
