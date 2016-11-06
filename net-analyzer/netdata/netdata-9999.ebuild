@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 27cf2dcf33560d21e1c11deed7755536ad06f50c $
+# $Id: e2a78bc9ed58eea612ece16b2293673f838918b2 $
 
 EAPI=6
 PYTHON_COMPAT=( python{2_7,3_4,3_5} )
@@ -92,7 +92,7 @@ src_configure() {
 		--localstatedir="/var" \
 		--with-user="${NETDATA_USER}" \
 		$(use_enable nfacct plugin-nfacct) \
-		$(use_enable cpu_flags_x86_sse2 sse) \
+		$(use_enable cpu_flags_x86_sse2 x86-sse) \
 		$(use_with compression zlib)
 }
 
