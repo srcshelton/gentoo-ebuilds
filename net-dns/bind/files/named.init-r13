@@ -157,7 +157,7 @@ start() {
 
 	checkconfig || { eend 1; return 1; }
 
-	# create piddir (usually /run/named) if necessary, bug 334535
+	# create piddir (usually /var/run/named) if necessary, bug 334535
 	_get_pidfile
 	piddir="${PIDFILE%/*}"
 	checkpath -q -d -o root:named -m 0770 "${piddir}" || {
