@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7f6eabecd6a699ae76dc80ac330bd05d58ac67ec $
+# $Id: 018f6a01429363d71cb11c6326fa455238e80491 $
 
 EAPI=5
 inherit autotools eutils flag-o-matic systemd user
@@ -10,7 +10,8 @@ MY_P="${PN}-${MY_PV}"
 
 DESCRIPTION="High-performance, distributed memory object caching system"
 HOMEPAGE="http://memcached.org/"
-SRC_URI="http://www.memcached.org/files/${MY_P}.tar.gz"
+SRC_URI="https://www.memcached.org/files/${MY_P}.tar.gz
+		 https://www.memcached.org/files/old/${MY_P}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
