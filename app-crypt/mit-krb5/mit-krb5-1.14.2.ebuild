@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b3c277fd8d69dcd0f9fae2357f2d67f1ed16e892 $
+# $Id: 60d7a5b162f90512257261da76f12f9a18eea492 $
 
 EAPI=5
 
@@ -64,7 +64,6 @@ src_prepare() {
 }
 
 src_configure() {
-	append-cppflags "-I${EPREFIX}/usr/include/et"
 	# QA
 	append-flags -fno-strict-aliasing
 	append-flags -fno-strict-overflow
