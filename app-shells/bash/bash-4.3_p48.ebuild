@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4867ce6a356c9551d3e76c7f3fc083712d40357f $
+# $Id: 0fef15d02b7e1828b026db06e7b0ec2ded56a847 $
 
 EAPI="5"
 
@@ -38,8 +38,8 @@ SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
-IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline vanilla"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline"
 
 DEPEND=">=sys-libs/ncurses-5.2-r2:0=
 	readline? ( >=sys-libs/readline-${READLINE_VER}:0= )
