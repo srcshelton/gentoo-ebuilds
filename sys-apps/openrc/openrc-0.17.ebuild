@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: bffc891d4ddcd5eb89689248a1ff482031e8f745 $
+# $Id: 28d95483897350f319893d724ba9a1331fe75226 $
 
 EAPI=5
 
@@ -45,7 +45,7 @@ DEPEND="${COMMON_DEPEND}
 	ncurses? ( virtual/pkgconfig )"
 RDEPEND="${COMMON_DEPEND}
 	!prefix? (
-		kernel_linux? ( || ( >=sys-apps/sysvinit-2.86-r6 sys-process/runit ) )
+		kernel_linux? ( >=sys-apps/sysvinit-2.86-r6 )
 		kernel_FreeBSD? ( sys-freebsd/freebsd-sbin )
 	)
 	selinux? (
