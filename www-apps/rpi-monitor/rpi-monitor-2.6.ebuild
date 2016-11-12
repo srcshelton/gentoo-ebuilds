@@ -29,12 +29,6 @@ RDEPEND="
 	dev-perl/File-Which
 	dev-perl/IPC-ShareLite"
 
-if use httpd; then
-	inherit webapp
-
-	need_httpd_cgi
-fi
-
 S="${WORKDIR}/RPi-Monitor-${PV}"
 
 src_prepare() {

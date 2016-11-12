@@ -27,12 +27,6 @@ RDEPEND="
 	net-analyzer/rrdtool[perl]
 	|| ( ( virtual/perl-JSON-PP dev-perl/JSON-Any ) dev-perl/JSON )"
 
-if use httpd; then
-	inherit webapp
-
-	need_httpd_cgi
-fi
-
 S="${WORKDIR}/RPi-Monitor-${PV}"
 
 src_prepare() {

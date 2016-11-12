@@ -28,12 +28,6 @@ RDEPEND="
 	|| ( ( virtual/perl-JSON-PP dev-perl/JSON-Any ) dev-perl/JSON )
 	dev-perl/IPC-ShareLite"
 
-if use httpd; then
-	inherit webapp
-
-	need_httpd_cgi
-fi
-
 S="${WORKDIR}/RPi-Monitor-${PV}"
 
 src_prepare() {
