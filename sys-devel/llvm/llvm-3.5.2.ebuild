@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 635a9209e3ee7f00d616032a0807475e07b5fa18 $
+# $Id: 303f969e92527d2596c05e52752f07c65712eabc $
 
 EAPI=5
 
@@ -87,7 +87,7 @@ S=${WORKDIR}/${P}.src
 # so why did it call itself ninja in the first place?
 CMAKE_MAKEFILE_GENERATOR=emake
 
-pkg_pretend() {
+check_space() {
 	# in megs
 	# !clang !debug !multitarget -O2       400
 	# !clang !debug  multitarget -O2       550
@@ -135,8 +135,12 @@ pkg_pretend() {
 	fi
 }
 
+pkg_pretend() {
+	check_space
+}
+
 pkg_setup() {
-	pkg_pretend
+	check_space
 }
 
 src_unpack() {

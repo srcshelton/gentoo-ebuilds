@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 6c748a12329c0150b497fd18e04856ec62ea55e2 $
+# $Id: de7426a24fcca5b5658ed852f0c778dbbf8a997c $
 
 EAPI=6
 
@@ -90,7 +90,7 @@ REQUIRED_USE="${PYTHON_REQUIRED_USE}
 
 S=${WORKDIR}/${P/_}.src
 
-pkg_pretend() {
+check_space() {
 	# in megs
 	# !clang !debug !multitarget -O2       400
 	# !clang !debug  multitarget -O2       550
@@ -126,8 +126,12 @@ pkg_pretend() {
 	check-reqs_pkg_pretend
 }
 
+pkg_pretend() {
+	check_space
+}
+
 pkg_setup() {
-	pkg_pretend
+	check_space
 }
 
 src_unpack() {
