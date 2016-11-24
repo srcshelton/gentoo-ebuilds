@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: feccb2ccffcd91429d8d194ee7888c580b1952a4 $
+# $Id: efafc55cfcfc0544724f739e6391cc9db571e676 $
 
 EAPI=6
 
@@ -26,7 +26,7 @@ DESCRIPTION="The core functions you need to create Docker images and run Docker 
 HOMEPAGE="https://dockerproject.org"
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="apparmor aufs btrfs +contrib +device-mapper doc experimental overlay seccomp systemd udev vim-syntax zsh-completion"
+IUSE="apparmor aufs btrfs +container-init +contrib +device-mapper doc experimental hardened overlay pkcs11 seccomp systemd udev vim-syntax zsh-completion"
 
 # https://github.com/docker/docker/blob/master/project/PACKAGERS.md#build-dependencies
 CDEPEND="
@@ -44,7 +44,7 @@ DEPEND="
 	dev-go/go-md2man
 
 	btrfs? (
-		>=sys-fs/btrfs-progs-3.8
+		>=sys-fs/btrfs-progs-3.16.1
 	)
 "
 
@@ -64,6 +64,8 @@ RDEPEND="
 
 	>app-emulation/containerd-0.2.2
 	app-emulation/runc[apparmor?,seccomp?]
+	app-emulation/docker-proxy
+	container-init? ( >=sys-process/tini-0.13.0[static] )
 "
 
 RESTRICT="installsources strip"
@@ -114,7 +116,7 @@ pkg_setup() {
 	if kernel_is lt 3 10; then
 		ewarn ""
 		ewarn "Using Docker with kernels older than 3.10 is unstable and unsupported."
-		ewarn " - http://docs.docker.com/installation/binaries/#check-kernel-dependencies"
+		ewarn " - http://docs.docker.com/engine/installation/binaries/#check-kernel-dependencies"
 	fi
 
 	# for where these kernel versions come from, see:
@@ -202,10 +204,10 @@ src_compile() {
 	export CGO_CFLAGS="-I${ROOT}/usr/include"
 	export CGO_LDFLAGS="-L${ROOT}/usr/$(get_libdir)"
 
-	# if we're building from a zip, we need the GITCOMMIT value
+	# if we're building from a tarball, we need the GITCOMMIT value
 	[ "$DOCKER_GITCOMMIT" ] && export DOCKER_GITCOMMIT
 
-	if gcc-specs-pie; then
+	if use hardened; then
 		sed -i "s/EXTLDFLAGS_STATIC='/&-fno-PIC /" hack/make.sh || die
 		grep -q -- '-fno-PIC' hack/make.sh || die 'hardened sed failed'
 
@@ -225,7 +227,7 @@ src_compile() {
 		fi
 	done
 
-	for tag in apparmor seccomp; do
+	for tag in apparmor pkcs11 seccomp; do
 		if use $tag; then
 			DOCKER_BUILDTAGS+=" $tag"
 		fi
@@ -249,10 +251,10 @@ src_install() {
 	VERSION="$(cat VERSION)"
 	newbin "bundles/$VERSION/dynbinary-client/docker-$VERSION" docker
 	newbin "bundles/$VERSION/dynbinary-daemon/dockerd-$VERSION" dockerd
-	newbin "bundles/$VERSION/dynbinary-daemon/docker-proxy-$VERSION" docker-proxy
 	dosym containerd /usr/bin/docker-containerd
 	dosym containerd-shim /usr/bin/docker-containerd-shim
 	dosym runc /usr/bin/docker-runc
+	use container-init && dosym tini /usr/bin/docker-init
 
 	newinitd contrib/init/openrc/docker.initd docker
 	newconfd contrib/init/openrc/docker.confd docker
