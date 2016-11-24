@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 60d7a5b162f90512257261da76f12f9a18eea492 $
+# $Id: 8a3c7c30a4f1942e69acfaaf6ddbdb4352958a8c $
 
 EAPI=5
 
@@ -58,6 +58,7 @@ MULTILIB_CHOST_TOOLS=(
 src_prepare() {
 	epatch "${FILESDIR}/${PN}-1.12_warn_cflags.patch"
 	epatch "${FILESDIR}/${PN}-config_LDFLAGS.patch"
+	epatch "${FILESDIR}/${PN}-1.14.2-redeclared-ttyname.patch"
 	epatch "${FILESDIR}/${PN}-1.12_x32.patch"
 
 	eautoreconf
