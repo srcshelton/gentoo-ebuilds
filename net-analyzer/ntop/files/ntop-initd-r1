@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/ntop/files/ntop-initd-r1,v 1.1 2013/08/06 06:28:07 polynomial-c Exp $
+# $Id: 4bcde98da03f8837518264e50ce9cb534c6d0679 $
 
 description="ntop - a network traffic analyzer"
 pidfile="/var/run/ntop.pid"

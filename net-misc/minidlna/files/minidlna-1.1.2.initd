@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/minidlna/files/minidlna-1.1.2.initd,v 1.1 2014/03/17 20:37:19 beandog Exp $
+# $Id: d1f252ed86323a77c03ec08ae3494941c5259245 $
 
 depend() {
 	need net

@@ -1,4 +1,4 @@
-# $Header: /var/cvsroot/gentoo-x86/app-admin/syslog-ng/files/syslog-ng.logrotate,v 1.3 2008/10/15 20:46:12 mr_bones_ Exp $
+# $Id: 60a181bc05cb76f9d497620031bbac3d1cc6e3c3 $
 #
 # Syslog-ng logrotate snippet for Gentoo Linux
 # contributed by Michael Sterrett

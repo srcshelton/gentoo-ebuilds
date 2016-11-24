@@ -1,9 +1,12 @@
-#!/sbin/runscript
-# Copyright 1999-2013 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/www-servers/lighttpd/files/lighttpd.initd,v 1.22 2013/02/06 19:36:51 hwoarang Exp $
+# $Id: 1a4fa561e16b480a269e548bd1f839ae09efd50b $
 
 extra_started_commands="reload graceful"
+
+LIGHTTPD_PID="$(awk '/^server.pid-file/{s=$3};{sub("\"","",s)};END{print s}' ${LIGHTTPD_CONF} 2>/dev/null)"
+LIGHTTPD_PID="${LIGHTTPD_PID:-/var/run/lighttpd.pid}"
 
 depend() {
 	need net
@@ -18,17 +21,23 @@ checkconfig() {
 		return 1
 	fi
 
-	if [ -z "${LIGHTTPD_PID}" ] ; then
-		ewarn "server.pid-file variable in ${LIGHTTPD_CONF}"
-		ewarn "is not set. Falling back to lighttpd.pid"
+	LIGHTTPD_PID="$(awk '/^server.pid-file/{s=$3};{sub("\"","",s)};END{print s}' ${LIGHTTPD_CONF} 2>/dev/null)"
+	if [ -z "${LIGHTTPD_PID:-}" ] ; then
 		LIGHTTPD_PID="/var/run/lighttpd.pid"
+		ewarn "server.pid-file variable in ${LIGHTTPD_CONF}"
+		ewarn "is not set. Falling back to '${LIGHTTPD_PID}'"
 	fi
 	/usr/sbin/lighttpd -t -f ${LIGHTTPD_CONF} >/dev/null
 }
 
 start() {
 	checkconfig || return 1
-	checkpath -d -q -m 0750 -o lighttpd:lighttpd /var/run/lighttpd/
+
+	# Glean lighttpd's credentials from the configuration file
+	# Fixes bug 454366
+	LIGHTTPD_USER="$(awk '/^server.username/{s=$3};{sub("\"","",s)};END{print s}' ${LIGHTTPD_CONF} 2>/dev/null)"
+	LIGHTTPD_GROUP="$(awk '/^server.groupname/{s=$3};{sub("\"","",s)};END{print s}' ${LIGHTTPD_CONF} 2>/dev/null)"
+	checkpath -q -d -m 0750 -o "${LIGHTTPD_USER:-lighttpd}":"${LIGHTTPD_GROUP:-lighttpd}" /var/run/lighttpd/
 
 	ebegin "Starting lighttpd"
 	start-stop-daemon --start --quiet --exec /usr/sbin/lighttpd \

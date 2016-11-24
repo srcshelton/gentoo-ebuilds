@@ -1,7 +1,7 @@
-#!/sbin/runscript
-# Copyright 1999-2013 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5bba99af1957f73c52dda0cd84f5d706e5bf1ac9 $
+# $Id: 27125af43fb1be46949638021f194496d4cb3f90 $
 
 [ -x /usr/sbin/clvmd ] && CLVMD_BIN="/usr/sbin/clvmd" || CLVMD_BIN="/sbin/clvmd"
 
@@ -15,7 +15,7 @@ VGDISPLAY="/sbin/vgdisplay"
 
 depend() {
 	use net dns logger dmeventd
-	need cman
+	want cman corosync openais
 }
 
 load_modules() {

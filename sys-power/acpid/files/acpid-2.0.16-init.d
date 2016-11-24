@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-power/acpid/files/acpid-2.0.16-init.d,v 1.1 2012/05/19 09:53:59 ssuominen Exp $
+# $Id: cd57da85fbb37e80b05896f01f8e9582cb5212e4 $
 
 extra_started_commands="reload"
 command="/usr/sbin/acpid"

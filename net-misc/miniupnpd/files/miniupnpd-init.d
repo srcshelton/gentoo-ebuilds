@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2011 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/miniupnpd/files/miniupnpd-init.d,v 1.3 2011/10/17 12:03:01 gurligebis Exp $
+# $Id: 3c25dba0d3e849c83dcb713fa3a1f5333e8a8420 $
 
 depend() {
 	need net iptables

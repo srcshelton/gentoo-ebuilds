@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-apps/busybox/files/syslogd.initd,v 1.2 2012/12/21 03:15:28 blueness Exp $
+# $Id: 62a99fec53ad419be283d0b22f21214212054f9e $
 
 command="/bin/busybox syslogd"
 command_args="${SYSLOGD_OPTS}"

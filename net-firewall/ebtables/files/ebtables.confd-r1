@@ -4,9 +4,6 @@
 # service shutdown
 EBTABLES_SAVE="/var/lib/ebtables/rules-save"
 
-# Options to pass to ebtables-save and ebtables-restore
-#
-
 # Alow save traffic counters along with rules?
 EBTABLES_SAVE_COUNTER="yes"
 

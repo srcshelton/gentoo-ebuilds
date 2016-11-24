@@ -1,7 +1,7 @@
-#!/sbin/runscript
-# Copyright 1999-2015 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License, v2 or later
-# $Id: 5eea10e918709b4cbe4575f7911da93e87beb24f $
+# $Id: bf162ad7452283247e5b127696f92bdba30c866b $
 
 extra_started_commands="reload"
 piddir="/var/run/samba"

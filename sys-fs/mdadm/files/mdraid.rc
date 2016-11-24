@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/files/mdraid.rc,v 1.7 2015/04/04 21:58:33 vapier Exp $
+# $Id: 327b89ef1b7b7b5516ec7a092f9ab7b49a4828fa $
 
 depend() {
 	before checkfs fsck
@@ -70,15 +70,20 @@ start() {
 				ios_module="as"
 				ios_queue="anticipatory"
 				;;
-			deadline)
-				ios_name="Deadline"
-				ios_module="deadline"
-				ios_queue="deadline"
+			bfq|budget)
+				ios_name="Budget Fair"
+				ios_module="bfq"
+				ios_queue="bfq"
 				;;
 			cfq|fair)
 				ios_name="Completely Fair"
 				ios_module="cfq"
 				ios_queue="cfq"
+				;;
+			deadline)
+				ios_name="Deadline"
+				ios_module="deadline"
+				ios_queue="deadline"
 				;;
 			*)
 				ios_name="Completely Fair"

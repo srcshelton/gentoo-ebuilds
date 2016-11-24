@@ -1,8 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 6dce4e84639401f1faee6ab9cd30b54dc574fee2 $
-# $Header: /var/cvsroot/gentoo-x86/x11-drivers/nvidia-drivers/files/nvidia-smi.init,v 1.2 2013/05/09 16:32:00 jer Exp $
+# $Id: 75aebb5ce348ace2b33e7f3c5d7296cb256d5342 $
 
 pidfile="/var/run/nvidia-smi.pid"
 

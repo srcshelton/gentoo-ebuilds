@@ -1,7 +1,7 @@
-#!/sbin/runscript
-# Copyright 1999-2014 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5e3669d0ab5c4dd84da868531ff8f2f276f10ea0 $
+# $Id: a6ec42bdfbae4ab39656e9c9dd4f3f9f2c465207 $
 
 depend() {
 	# As of .67-r1, we call ALL lvm start/stop scripts with --sysinit, that

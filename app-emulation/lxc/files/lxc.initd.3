@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-emulation/lxc/files/lxc.initd.3,v 1.2 2015/04/23 16:31:44 hwoarang Exp $
+# $Id: 7f124381f12b60e421d0efe273d2b53cbaf67be1 $
 
 CONTAINER=${SVCNAME#*.}
 
@@ -13,9 +13,8 @@ lxc_get_configfile() {
 		LXC_PATH="/etc/lxc"
 	elif [ -d "${LXC_PATH}/lxc" ] && [ -f "${LXC_PATH}/lxc/${CONTAINER}.conf" -o -f "${LXC_PATH}/lxc/${CONTAINER}/config" ]; then
 		LXC_PATH="${LXC_PATH}/lxc"
-		#einfo "Using '${LXC_PATH}' as LXC configuration directory"
 	fi
-	einfo "Using '${LXC_PATH}' as LXC configuration directory"
+	#einfo "Using '${LXC_PATH}' as LXC configuration directory"
 
 	if [ -f "${LXC_PATH}/${CONTAINER}.conf" ]; then
 		echo "${LXC_PATH}/${CONTAINER}.conf"

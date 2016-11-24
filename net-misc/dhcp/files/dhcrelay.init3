@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 54dcd4fd948fee9787dc5722286bc308b7e9e300 $
+# $Id: b7e28d86f42cc30cf0c5f060a4f4492e49184d78 $
 
 depend() {
 	need net

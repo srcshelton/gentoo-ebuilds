@@ -1,23 +1,24 @@
-#!/sbin/runscript
-# Copyright 1999-2015 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/app-admin/ulogd/files/ulogd.init,v 1.1 2015/05/30 09:38:29 idella4 Exp $
+# $Id: 74571bb51faae5cad5fe410bc77b6346e313155b $
 
 extra_started_commands="reload reopen"
 
 : ${ULOGD_BINARY:=/usr/sbin/ulogd}
 : ${ULOGD_PIDFILE:=/var/run/${SVCNAME}.pid}
+: ${ULOGD_WAIT:=200}
 : ${ULOGD_OPTS:=--daemon --uid ulogd --pidfile ${ULOGD_PIDFILE}}
 
 depend() {
-	before iptables ip6tables ebtables firewall
+	before iptables ip6tables ebtables nftables firewall
 	after mysql postgresql
 }
 
 start() {
 	ebegin "Starting ${SVCNAME}"
 	start-stop-daemon --start \
-		--exec ${ULOGD_BINARY} --pidfile ${ULOGD_PIDFILE} \
+		--exec ${ULOGD_BINARY} --pidfile ${ULOGD_PIDFILE} --wait ${ULOGD_WAIT} \
 		-- ${ULOGD_OPTS}
 	eend $?
 }

@@ -1,7 +1,7 @@
-#!/sbin/runscript
-# Copyright 1999-2014 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8478c239f8f9d291773caab7da9d7daeac32dd3b $
+# $Id: a09b0efac60ad04485b1b54275adba1fc802390e $
 
 _get_lvm_path() {
 	local lvm_path

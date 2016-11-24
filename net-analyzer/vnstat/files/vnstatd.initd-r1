@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-analyzer/vnstat/files/vnstatd.initd-r1,v 1.1 2015/01/20 16:51:08 jer Exp $
+# $Id: 3ee3c0ee62ecada8c9d559d94c5618d315ea1f40 $
 
 extra_started_commands="reload"
 
@@ -17,7 +17,7 @@ if [ -z "${VNSTATD_PIDFILE:-}" ]; then
 fi
 
 start() {
-	local vnstatd_user vnstatd_group vnstatd_dbdir vnstatd_logmode vnstatd_logfile vnstatd_logdir vnstatd_piddir vnstatd_changeuser
+	local vnstatd_user vnstatd_group vnstatd_dbdir vnstatd_logmode vnstatd_logfile vnstatd_logdir vnstatd_piddir vnstatd_switchuser
 
 	if ! [ -s "${VNSTATD_CONFIG}" ]; then
 		eerror "Cannot read vnstatd configuration file '${VNSTATD_CONFIG}'"
@@ -33,10 +33,11 @@ start() {
 		vnstatd_logdir="$( dirname "${vnstatd_logfile:-}" )"
 	fi
 	vnstatd_piddir="$( dirname "${VNSTATD_PIDFILE}" )"
-	vnstatd_changeuser=""
-	if [ -z "${vnstatd_user:-}" ] && [ -z "${vnstatd_group:-}" ]; then
-		vnstatd_changeuser="--user vnstat --group vnstat"
-	fi
+	vnstatd_switchuser=""
+	# vnstat configuration file states that privilege-dropping is optional...
+	#if [ -z "${vnstatd_user:-}" ] || [ -z "${vnstatd_group:-}" ]; then
+	#	vnstatd_switchuser="--user ${vnstatd_user:-vnstat} --group ${vnstatd_group:-vnstat}"
+	#fi
 
 	checkpath -q -d -m 755 -o "${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat}" "${vnstatd_piddir:-/var/run/vnstatd}"
 	checkpath -q -d -m 755 -o "${vnstatd_user:-vnstat}:${vnstatd_group:-vnstat}" "${vnstatd_dbdir:-/var/lib/vnstat}"
@@ -48,7 +49,7 @@ start() {
 
 	start-stop-daemon --start --quiet \
 		--pidfile "${VNSTATD_PIDFILE}" \
-		${vnstatd_changeuser} \
+		${vnstatd_switchuser:-} \
 		--nicelevel ${VNSTATD_NICELEVEL:-0} \
 		--exec /usr/bin/vnstatd -- \
 			-d ${VNSTATD_EXTRAOPTS} -p "${VNSTATD_PIDFILE}"

@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 379cbb13c38593de8cb67c5266e3cf2d149b592f $
+# $Id: c3eeb2aeb1f15c1a72e95f69785a4963266d5ffc $
 
 description="Create list of required static device nodes for the current kernel"
 

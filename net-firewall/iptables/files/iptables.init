@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: f396ea2ef148bafdb609cc4fe8986e6203d2f747 $
+# $Id: de9f39f74a180bc23527df90225f7133028ed583 $
 
 extra_commands="check save panic"
 extra_started_commands="reload"

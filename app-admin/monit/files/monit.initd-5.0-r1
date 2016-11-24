@@ -1,10 +1,12 @@
-#!/sbin/runscript
-# Copyright 1999-2011 Gentoo Foundation
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License, v2 or later
-# $Header: /var/cvsroot/gentoo-x86/app-admin/monit/files/monit.initd-5.0-r1,v 1.2 2011/12/31 16:28:50 idl0r Exp $
+# $Id: 9d16c11a196e17dda5b968389c223fd29251d03c $
 
 extra_commands="configtest"
 extra_started_commands="reload"
+
+command="/usr/bin/monit"
 
 depend() {
 	use net
@@ -14,31 +16,34 @@ configtest() {
 	local ret
 	declare -i ret=0
 
-        /usr/bin/monit -c /etc/monitrc -t >/dev/null 2>&1
+        "${command}" -c /etc/monitrc -t >/dev/null 2>&1
         ret=$?
         if [ $ret -ne 0 ]; then
                 eerror "${SVCNAME} has detected an error in your setup:"
-                /usr/bin/monit -c /etc/monitrc -t
+                "${command}" -c /etc/monitrc -t
         fi
 
         return ${ret}
 }
 
 start_pre() {
-	configtest || return 1
+	local ENTRY arg
 
 	if ! [ -e /etc/monitrc ]; then
 		eerror "Cannot read monit configuration from /etc/monitrc"
 		return 1
 	fi
 
-	sed 's/#.*$//' /etc/monitrc \
-		| grep -v '^\s*$' \
-		| grep -oE '^\s*set\s+(id|state)file\s+([^[:space:]]+)|basedir\s+([^[:space:]]+)' \
-		| sed 's/^set\s\+//' \
-		| while read -r ENTRY; do
+	configtest || return 1
+
+	sed 's/#.*$//' /etc/monitrc |
+		grep -v '^\s*$' |
+		grep -oE '^\s*set\s+(id|state)file\s+([^[:space:]]+)|basedir\s+([^[:space:]]+)' |
+		sed 's/^set\s\+//' |
+		while read -r ENTRY
+	do
 		set -- ${ENTRY}
-		local arg="${1}"
+		arg="${1}"
 		shift
 		case "${arg}" in
 			*dir)
@@ -53,6 +58,7 @@ start_pre() {
 				;;
 		esac
 	done
+
 	return 0
 }
 
@@ -61,7 +67,7 @@ start() {
 	start-stop-daemon \
 		--start \
 		--quiet \
-		--exec /usr/bin/monit -- -c /etc/monitrc
+		--exec "${command}" -- -c /etc/monitrc
 	eend $?
 }
 
@@ -71,12 +77,12 @@ stop() {
 		--stop \
 		--quiet \
 		--retry TERM/5/KILL/10 \
-		--exec /usr/bin/monit
+		--exec "${command}"
 	eend $?
 }
 
 reload() {
 	ebegin "Reloading monit"
-	/usr/bin/monit -c /etc/monitrc reload >/dev/null 2>&1
+	"${command}" -c /etc/monitrc reload >/dev/null 2>&1
 	eend $?
 }
