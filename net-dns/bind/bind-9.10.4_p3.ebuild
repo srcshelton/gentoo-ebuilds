@@ -1,8 +1,8 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 1786937b40ce2eff3f0baacbe1cf8d224c70fdf4 $
+# $Id: eb489f0157a5683beac766197bd931623ad06c41 $
 
-# Re: dlz/mysql and threads, needs to be verified..
+# Re: dlz/mysql and threads, needs to be verified.
 # MySQL uses thread local storage in its C api. Thus MySQL
 # requires that each thread of an application execute a MySQL
 # thread initialization to setup the thread local storage.
@@ -39,7 +39,7 @@ SRC_URI="ftp://ftp.isc.org/isc/bind9/${MY_PV}/${MY_P}.tar.gz
 
 LICENSE="GPL-2 ISC BSD BSD-2 HPND JNIC openssl"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc ~x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="berkdb +caps dlz doc fetchlimit filter-aaaa fixed-rrset geoip gost gssapi idn ipv6
 json ldap libressl mysql nslint odbc postgres python rpz seccomp selinux sit ssl static-libs
 systemd +threads urandom xml"
