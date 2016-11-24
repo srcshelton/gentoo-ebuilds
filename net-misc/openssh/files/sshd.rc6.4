@@ -1,7 +1,7 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/openssh/files/sshd.rc6.4,v 1.5 2015/05/04 02:56:25 vapier Exp $
+# $Id: a361401755cc14df55233bf3bceea6ddb943f4c8 $
 
 extra_commands="checkconfig"
 extra_started_commands="reload"
@@ -12,8 +12,8 @@ extra_started_commands="reload"
 : ${SSHD_BINARY:=/usr/sbin/sshd}
 
 depend() {
-	use logger dns # iptables ip6tables
-	if [ -n "${rc_need}" ] ; then
+	use logger dns # iptables ip6tables nftables
+	if [ -n "${rc_need:-}" ] ; then
 		: # Do nothing, the user has explicitly set rc_need
 	else
 		local x warn_addr
