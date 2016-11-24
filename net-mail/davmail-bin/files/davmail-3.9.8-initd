@@ -1,5 +1,5 @@
-#!/sbin/runscript
-# Copyright 2012-2015 Stuart Shelton
+#!/sbin/openrc-run
+# Copyright 2012-2016 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
 DIR="${DAVMAIL_DIR:-%INST_DIR%}"
