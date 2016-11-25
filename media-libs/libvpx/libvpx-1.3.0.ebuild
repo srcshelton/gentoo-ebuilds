@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 61dd47e92913cb6dbe792427a4a46ed3a38359cd $
+# $Id: 1685bf1caeda0d76ec763eba64de4ddf9dd9e535 $
 
 EAPI=4
 inherit eutils multilib toolchain-funcs multilib-minimal
@@ -14,7 +14,7 @@ elif [[ ${PV} == *pre* ]]; then
 	SRC_URI="mirror://gentoo/${P}.tar.bz2"
 	KEYWORDS="alpha amd64 arm hppa ia64 ppc ppc64 sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux"
 else
-	SRC_URI="https://webm.googlecode.com/files/${PN}-v${PV}.tar.bz2"
+	SRC_URI="http://storage.googleapis.com/downloads.webmproject.org/releases/webm/${PN}-v${PV}.tar.bz2"
 	KEYWORDS="alpha amd64 arm hppa ia64 ppc ppc64 sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux"
 	S="${WORKDIR}/${PN}-v${PV}"
 fi
