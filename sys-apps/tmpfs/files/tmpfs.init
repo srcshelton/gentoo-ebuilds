@@ -1,4 +1,4 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 # Copyright (c) 2010-2013 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 

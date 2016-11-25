@@ -1,4 +1,4 @@
-#!/sbin/runscript
+#!/sbin/openrc-run
 
 command=/usr/sbin/waagent
 pidfile=/var/run/waagent.pid
