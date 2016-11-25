@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 83c50e86c2f0efd64b5131fa28127019a5710525 $
+# $Id: 844408124a8b62bfb38091f43ff632eacc37d77a $
 
 EAPI=6
 
@@ -9,11 +9,11 @@ inherit autotools eutils flag-o-matic
 DESCRIPTION="A Portable Open Source UPnP Development Kit"
 HOMEPAGE="http://pupnp.sourceforge.net/"
 SRC_URI="mirror://sourceforge/pupnp/${P}.tar.bz2"
-RESTRICT="mirror"
+#RESTRICT="mirror"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux"
+KEYWORDS="alpha ~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux"
 IUSE="+client debug doc examples ipv6 static-libs +tools +server +webserver"
 REQUIRED_USE="!server? ( !webserver )"
 
