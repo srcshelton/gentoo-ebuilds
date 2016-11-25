@@ -6,7 +6,8 @@ EAPI=5
 
 inherit autotools eutils toolchain-funcs systemd user
 
-MY_P="${P/-/_}p"
+MY_P="${P/0.2008/2008}"
+MY_P="${MY_P/-/_}p"
 DEB_VER="4"
 DESCRIPTION="Lightweight NTP server ported from OpenBSD"
 HOMEPAGE="http://www.openntpd.org/"

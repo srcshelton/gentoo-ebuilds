@@ -6,12 +6,13 @@ EAPI=5
 
 inherit autotools eutils toolchain-funcs systemd user
 
-MY_P="${P/-/_}p"
-DEB_VER="6"
+MY_P="${P/0.2008/2008}"
+MY_P="${MY_P/-/_}p"
+DEB_VER="10"
 DESCRIPTION="Lightweight NTP server ported from OpenBSD"
 HOMEPAGE="http://www.openntpd.org/"
 SRC_URI="mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}.orig.tar.gz
-	mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}-${DEB_VER}.debian.tar.gz"
+	mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}-${DEB_VER}.debian.tar.xz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"

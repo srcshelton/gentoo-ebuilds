@@ -1,21 +1,22 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-misc/openntpd/openntpd-20080406-r7.ebuild,v 1.11 2014/04/06 14:50:23 vapier Exp $
+# $Header: /var/cvsroot/gentoo-x86/net-misc/openntpd/openntpd-20080406-r8.ebuild,v 1.10 2014/08/02 18:09:25 ago Exp $
 
 EAPI=5
 
 inherit autotools eutils toolchain-funcs systemd user
 
-MY_P="${P/-/_}p"
-DEB_VER="6"
+MY_P="${P/0.2008/2008}"
+MY_P="${MY_P/-/_}p"
+DEB_VER="10"
 DESCRIPTION="Lightweight NTP server ported from OpenBSD"
 HOMEPAGE="http://www.openntpd.org/"
 SRC_URI="mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}.orig.tar.gz
-	mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}-${DEB_VER}.debian.tar.gz"
+	mirror://debian/pool/main/${PN:0:1}/${PN}/${MY_P}-${DEB_VER}.debian.tar.xz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd"
 IUSE="ssl selinux systemd"
 
 RDEPEND="ssl? ( dev-libs/openssl )
@@ -64,6 +65,7 @@ src_configure() {
 
 src_install() {
 	default
+	rmdir "${ED}"/{var/empty,var}
 
 	newinitd "${FILESDIR}/${PN}.init.d-${PV}-r6" ntpd
 	newconfd "${FILESDIR}/${PN}.conf.d-${PV}-r6" ntpd
@@ -104,13 +106,20 @@ pkg_config() {
 }
 
 pkg_postinst() {
-	local eroot=""
+	local eroot="" home=""
 
 	pkg_config
 
 	[[ -n "${EROOT:-}" ]] && eroot="${EROOT%%/}"
+	[[ -n "${NTP_HOME:-}" ]] && home="${NTP_HOME%%/}"
 	[[ -f "${eroot:-}"/var/log/ntpd.log ]] && \
 		ewarn "There is an orphaned logfile '${eroot:-}/var/log/ntpd.log', please remove it!"
+
+	# bug #226491, remove <=openntpd-20080406-r7 trash
+	if [[ -n "${eroot:-}" || -n "${home:-}" ]]; then
+		rm -f "${eroot}${home}"/etc/localtime
+		rmdir "${eroot}${home}"/etc
+	fi
 }
 
 pkg_postrm() {
