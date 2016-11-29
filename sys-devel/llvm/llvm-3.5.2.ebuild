@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 303f969e92527d2596c05e52752f07c65712eabc $
+# $Id: 762055be933aab193c27714c1389f29ec7ea0c2c $
 
 EAPI=5
 
@@ -266,7 +266,7 @@ multilib_src_configure() {
 
 	if use libffi; then
 		local CPPFLAGS=${CPPFLAGS}
-		append-cppflags "$(pkg-config --cflags libffi)"
+		append-cppflags "$($(tc-getPKG_CONFIG) --cflags libffi)"
 	fi
 
 	# llvm prefers clang over gcc, so we may need to force that
