@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 85c10393cde57b0db5eda6b2bfd54ed81f862f4e $
+# $Id: 3250349abff6689dd0af8bace0178226beda683e $
 
 EAPI=5
 inherit multilib-build
@@ -17,14 +17,11 @@ IUSE="static-libs systemd"
 DEPEND=""
 RDEPEND="
 	!systemd? ( || (
-		>=sys-fs/udev-208-r1:0/0[${MULTILIB_USEDEP},static-libs?]
 		>=sys-fs/eudev-1.3:0/0[${MULTILIB_USEDEP},static-libs?]
-		>=sys-libs/libeudev-1.3:0/0[${MULTILIB_USEDEP},static-libs?] )
-	)
-	systemd? ( || (
-		>=sys-apps/systemd-212-r5:0/2[${MULTILIB_USEDEP}]
-		>=sys-apps/systemd-208-r3:0/1[${MULTILIB_USEDEP}]
-		>=sys-apps/systemd-208:0/0[${MULTILIB_USEDEP}] )
-	)"
+		>=sys-fs/udev-208-r1:0/0[${MULTILIB_USEDEP},static-libs?]
+		>=sys-libs/libeudev-1.3:0/0[${MULTILIB_USEDEP},static-libs?]
+	) )
+	systemd? ( >=sys-apps/systemd-212-r5:0/2[${MULTILIB_USEDEP}] )
+"
 
 REQUIRED_USE="systemd? ( !static-libs )"
