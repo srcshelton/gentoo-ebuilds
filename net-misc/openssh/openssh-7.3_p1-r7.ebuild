@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8629c7469ce6689b436384d766f5dc6d05f0cdbe $
+# $Id: cc687b5aacf46dc692f1f41309b5ec4bec7fa77d $
 
 EAPI="5"
 
@@ -31,7 +31,7 @@ SRC_URI="mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 # Probably want to drop ssl defaulting to on in a future version.
 IUSE="bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit libressl -libseccomp livecd pam +pie sctp selinux skey ssh1 +ssl static test X X509 abi_x86_x32"
 REQUIRED_USE="ldns? ( ssl )
