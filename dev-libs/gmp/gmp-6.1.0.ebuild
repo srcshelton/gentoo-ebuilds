@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c92ceca8fc5d9a4d94be967c7a24a1e183390b3f $
+# $Id: 519ff18c3031d9dfe52b82f49e62cf77959b6d6f $
 
 EAPI="5"
 
@@ -35,6 +35,8 @@ MULTILIB_WRAPPED_HEADERS=( /usr/include/gmp.h )
 
 src_prepare() {
 	[[ -d ${FILESDIR}/${PV} ]] && EPATCH_SUFFIX="diff" EPATCH_FORCE="yes" epatch "${FILESDIR}"/${PV}
+	epatch "${FILESDIR}"/${PN}-6.1.0-udiv.patch
+	epatch "${FILESDIR}"/${PN}-6.1.0-tune-printf.patch
 
 	# note: we cannot run autotools here as gcc depends on this package
 	elibtoolize
