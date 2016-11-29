@@ -1,5 +1,10 @@
 
-Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree packages and miscellaneous fixes.
+Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree
+packages and miscellaneous fixes.
+
+Also included is a script named `list-repo-updates.sh`, which will list any
+packages which exist with identical versions in both this repository and the
+main portage tree, but which still have the stock upstream package installed.
 
 # Raspberry Pi tools and utilities
 
@@ -20,7 +25,13 @@ Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree p
 
 # Fixes for compiling prefix packages under macOS using LLVM/clang
 
-Some packages will fail with `illegal instruction: 4` if compiled with certain compiler-optimisations enabled.  Indeed, the `-ftrapv` flag will cause `clang` to intenionally insert `ud2` (Undefined Instruction) op-codes where integer overflows could occur, and this catches-out a significant number of packages, causing them to crash with `SIGILL` - illegal instruction.  To work around this on a per-package basis where `-ftrapv` has not been used during compilation, perform the following steps:
+Some packages will fail with `illegal instruction: 4` if compiled with certain
+compiler-optimisations enabled.  Indeed, the `-ftrapv` flag will cause `clang`
+to intenionally insert `ud2` (Undefined Instruction) op-codes where integer
+overflows could occur, and this catches-out a significant number of packages,
+causing them to crash with `SIGILL` - illegal instruction.  To work around this
+on a per-package basis where `-ftrapv` has not been used during compilation,
+perform the following steps:
 
 ```
 mkdir ${EPREFIX}/etc/portage/env
@@ -53,9 +64,12 @@ cat >> ${EPREFIX}/etc/portage/package.env <<EOF
 EOF
 ```
 
-... correcting for `CFLAGS` as appropriate in `${EPREFIX}/etc/portage/env/debug`.
+... correcting for `CFLAGS` as appropriate in
+`${EPREFIX}/etc/portage/env/debug`.
 
-A similar configuration file could be added for all packages which fail to compile with clang and require gcc.  An (unfortunately incomplete) list of these packages consists of:
+A similar configuration file could be added for all packages which fail to
+compile with clang and require gcc.  An (unfortunately incomplete) list of
+these packages consists of:
 
 ```
 ~dev-vcs/subversion-1.7.19
@@ -64,9 +78,12 @@ A similar configuration file could be added for all packages which fail to compi
 ~sys-libs/db-5.2.42
 ```
 
-(subversion presents an issue - it cannot be compiled with clang, but if `USE="perl"` then the same compiler must be used to build subversion as was used to build perl)
+(subversion presents an issue - it cannot be compiled with clang, but if
+`USE="perl"` then the same compiler must be used to build subversion as was
+used to build perl)
 
-... with a slightly larger set of builds failing if `FEATURES="strict"` or `FEATURES="stricter"`, or if `MAKEOPTS` is not set to "`-j1`".
+... with a slightly larger set of builds failing if `FEATURES="strict"` or
+`FEATURES="stricter"`, or if `MAKEOPTS` is not set to "`-j1`".
 
 * app-arch/lz4
     * Ensure that appropriate `PREFIX` directory is available to build system
@@ -316,7 +333,9 @@ A similar configuration file could be added for all packages which fail to compi
 # Fixes for ebuilds using `/run`
 (... rather than `/var/run`)
 
-Included as `install-qa-check.d/95run-directory` is the repo `metadata` directory is an additional QA check which reports an error if files deployed to `/etc/init.d` or `/etc/conf.d` contain references to `/run`.
+Included as `install-qa-check.d/95run-directory` is the repo `metadata`
+directory is an additional QA check which reports an error if files deployed to
+`/etc/init.d` or `/etc/conf.d` contain references to `/run`.
 
 * app-admin/eselect-php
 * app-admin/syslog-ng
@@ -359,14 +378,18 @@ Included as `install-qa-check.d/95run-directory` is the repo `metadata` director
 
 # Fixes for MIPS n32 and x86_64 x32 ABIs
 
-Included is a modified `eclass/multilib.eclass` that no longer overrides any amd64 `LIBDIR_*` environment variables, which may now usefully be set in `/etc/portage/make.conf`.  For this to work universally, you may need to edit `/etc/portage/repos.conf` and add:
+Included is a modified `eclass/multilib.eclass` that no longer overrides any
+amd64 `LIBDIR_*` environment variables, which may now usefully be set in
+`/etc/portage/make.conf`.  For this to work universally, you may need to edit
+`/etc/portage/repos.conf` and add:
 
 ```
 [DEFAULT]
 eclass-overrides = srcshelton
 ```
 
-... to ensure that main-repo ebuilds benefit from the change.  The `LIBDIR` variables, and their default values, are:
+... to ensure that main-repo ebuilds benefit from the change.  The `LIBDIR`
+variables, and their default values, are:
 
 ```
 LIBDIR_amd64="lib64"
@@ -375,7 +398,9 @@ LIBDIR_x86="lib"
 SYMLINK_LIB="yes"
 ```
 
-... noting that `SYMLINK_LIB` defaults to `"no"` (e.g. do not try to symlink `/lib` and `/usr/lib` to the library directory which the ABI actually uses) for x32 profiles, and that these variables only affect multilib systems.
+... noting that `SYMLINK_LIB` defaults to `"no"` (e.g. do not try to symlink
+`/lib` and `/usr/lib` to the library directory which the ABI actually uses) for
+x32 profiles, and that these variables only affect multilib systems.
 
 * app-admin/monit
     * Add required `--with-ssl-lib-dir` option
