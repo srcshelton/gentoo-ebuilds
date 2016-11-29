@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 76b17cf83d370ac4bd30afbc54b0787e30ddd014 $
+# $Id: dd6af161af4102bd5b2accdfc1c9aa4d3131eec5 $
 
 EAPI="5"
 
@@ -52,7 +52,7 @@ CDEPEND="icu? ( dev-libs/icu:= )
 	!minimal? (
 		sys-devel/libtool
 		sys-libs/e2fsprogs-libs
-		>=dev-db/lmdb-0.9.14
+		>=dev-db/lmdb-0.9.17
 		tcpd? ( sys-apps/tcp-wrappers )
 		odbc? ( !iodbc? ( dev-db/unixODBC )
 			iodbc? ( dev-db/libiodbc ) )
