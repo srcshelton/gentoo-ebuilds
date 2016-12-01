@@ -22,11 +22,11 @@ _need_lvmetad()
 {
 	local lvm_path="$(_get_lvm_path)"
 	[ ! -x "${lvm_path}" ] && return 1
-	${lvm_path} dumpconfig global | grep -q 'use_lvmetad=1'
+	${lvm_path} dumpconfig global 2>/dev/null | grep -q 'use_lvmetad=1'
 }
 
 depend() {
-	local _need=
+	local _need
 
 	before checkfs fsck
 	after modules device-mapper
