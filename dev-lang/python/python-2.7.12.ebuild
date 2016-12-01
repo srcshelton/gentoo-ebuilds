@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fd47f81fcebdbad790efdd16233eb92822ed510a $
+# $Id: 09e76bab5df6371fb2a9c06fe7d76f241d5d6f5b $
 
 EAPI="5"
 WANT_LIBTOOL="none"
@@ -594,6 +594,10 @@ EOF
 eselect_python_update() {
 	if [[ -z "$(eselect python show)" || ! -f "${EROOT}usr/bin/$(eselect python show)" ]]; then
 		eselect python update
+	fi
+
+	if [[ -z "$(eselect python show --python${PV%%.*})" || ! -f "${EROOT}usr/bin/$(eselect python show --python${PV%%.*})" ]]; then
+		eselect python update --python${PV%%.*}
 	fi
 }
 
