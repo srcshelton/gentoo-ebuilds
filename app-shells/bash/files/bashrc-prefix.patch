@@ -6,27 +6,29 @@
  #
  # This file is sourced by all *interactive* bash shells on startup,
  # including some apparently interactive shells such as scp and rcp
-@@ -64,7 +64,7 @@
- safe_term=${TERM//[^[:alnum:]]/?}   # sanitize TERM
- match_lhs=""
- [[ -f ~/.dir_colors   ]] && match_lhs="${match_lhs}$(<~/.dir_colors)"
--[[ -f /etc/DIR_COLORS ]] && match_lhs="${match_lhs}$(</etc/DIR_COLORS)"
-+[[ -f @GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS ]] && match_lhs="${match_lhs}$(<@GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS)"
- [[ -z ${match_lhs}    ]] \
- 	&& type -P dircolors >/dev/null \
- 	&& match_lhs=$(dircolors --print-database)
-@@ -75,8 +75,8 @@
- 	if type -P dircolors >/dev/null ; then
- 		if [[ -f ~/.dir_colors ]] ; then
- 			eval $(dircolors -b ~/.dir_colors)
--		elif [[ -f /etc/DIR_COLORS ]] ; then
--			eval $(dircolors -b /etc/DIR_COLORS)
-+		elif [[ -f @GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS ]] ; then
-+			eval $(dircolors -b @GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS)
- 		fi
- 	fi
+@@ -51,18 +51,18 @@
  
-@@ -100,7 +100,7 @@
+ # Set colorful PS1 only on colorful terminals.
+ # dircolors --print-database uses its own built-in database
+-# instead of using /etc/DIR_COLORS.  Try to use the external file
++# instead of using @GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS.  Try to use the external file
+ # first to take advantage of user additions.
+ # We run dircolors directly due to its changes in file syntax and
+ # terminal name patching.
+ use_color=false
+ if type -P dircolors >/dev/null ; then
+	# Enable colors for ls, etc.  Prefer ~/.dir_colors #64489
+ 	LS_COLORS=''
+ 	if [[ -f ~/.dir_colors ]] ; then
+ 		eval "$(dircolors -b ~/.dir_colors)"
+-	elif [[ -f /etc/DIR_COLORS ]] ; then
+-		eval "$(dircolors -b /etc/DIR_COLORS)"
++	elif [[ -f @GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS ]] ; then
++		eval "$(dircolors -b @GENTOO_PORTAGE_EPREFIX@/etc/DIR_COLORS)"
+ 	else
+ 		eval "$(dircolors -b)"
+ 	fi
+@@ -105,7 +105,7 @@
  	fi
  fi
  
