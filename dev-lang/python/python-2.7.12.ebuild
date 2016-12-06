@@ -107,8 +107,8 @@ src_prepare() {
 
 	# Prefix' round of patches
 	# http://prefix.gentooexperimental.org:8000/python-patches-2_7
-	use prefix && EPATCH_EXCLUDE="${excluded_patches}" EPATCH_SUFFIX="patch" \
-		epatch "${WORKDIR}"/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}
+	#use prefix && EPATCH_EXCLUDE="${excluded_patches}" EPATCH_SUFFIX="patch" \
+	#	epatch "${WORKDIR}"/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}
 
 	if use aqua ; then
 		# make sure we don't get a framework reference here
@@ -259,9 +259,10 @@ src_configure() {
 	# we need this to get pythonw, the GUI version of python
 	# --enable-framework and --enable-shared are mutually exclusive:
 	# http://bugs.python.org/issue5809
+	local myshared
 	use aqua \
-		&& myconf="${myconf} --enable-framework=${EPREFIX}/usr/lib" \
-		|| myconf="${myconf} --enable-shared"
+		&& myshared="--enable-framework=${EPREFIX}/usr/lib" \
+		|| myshared="--enable-shared"
 
 	BUILD_DIR="${WORKDIR}/${CHOST}"
 	mkdir -p "${BUILD_DIR}" || die
@@ -274,7 +275,7 @@ src_configure() {
 	ECONF_SOURCE="${S}" OPT="" HAS_HG="no" \
 	econf \
 		--with-fpectl \
-		--enable-shared \
+		${myshared} \
 		$(use_enable ipv6) \
 		$(use_with threads) \
 		$( (use wide-unicode && ! use aqua) && echo "--enable-unicode=ucs4" || echo "--enable-unicode=ucs2") \
@@ -286,8 +287,7 @@ src_configure() {
 		--enable-loadable-sqlite-extensions \
 		--with-system-expat \
 		--with-system-ffi \
-		--without-ensurepip \
-		${myconf}
+		--without-ensurepip
 
 	if use threads && grep -q "#define POSIX_SEMAPHORES_NOT_ENABLED 1" pyconfig.h; then
 		eerror "configure has detected that the sem_open function is broken."
@@ -364,8 +364,16 @@ src_install() {
 		# do not make multiple targets in parallel when there are broken
 		# sharedmods (during bootstrap), would build them twice in parallel.
 
+		# Python_Launcher is kind of a wrapper, and we should fix it for
+		# Prefix (it uses /usr/bin/pythonw) so useless
+		# IDLE doesn't run, no idea, but definitely not used
+		sed -i -e 's/install_\(BuildApplet\|PythonLauncher\|IDLE\)[^:]//g' \
+			Mac/Makefile || die
+
 		# let the makefiles do their thing
 		emake -j1 CC="$(tc-getCC)" DESTDIR="${D}" STRIPFLAG= altinstall
+		rmdir "${ED}"/Applications/Python* || die
+		rmdir "${ED}"/Applications || die
 
 		# avoid framework incompatability, degrade to a normal UNIX lib
 		mkdir -p "${ED}"/usr/$(get_libdir)
@@ -558,6 +566,7 @@ EOF
 	if ! tc-is-cross-compiler; then
 		local -x PYTHON=./python
 		local -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH+${LD_LIBRARY_PATH}:}.
+		local -x DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH+${DYLD_LIBRARY_PATH}:}.
 	else
 		vars=( PYTHON "${vars[@]}" )
 	fi
