@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 519ff18c3031d9dfe52b82f49e62cf77959b6d6f $
+# $Id: 456ed0492a247ce290accdca34e5466e2a5d0f7c $
 
 EAPI="5"
 
@@ -51,7 +51,8 @@ src_prepare() {
 	#! ${EPREFIX:-}/usr/bin/env sh
 	exec env ABI="\${GMPABI:-}" ${CONFIG_SHELL:-/bin/bash} "\$0.wrapped" "\$@"
 	EOF
-	chmod a+rx configure
+	# Patches to original configure might have lost the +x bit.
+	chmod a+rx configure{,.wrapped}
 }
 
 multilib_src_configure() {
