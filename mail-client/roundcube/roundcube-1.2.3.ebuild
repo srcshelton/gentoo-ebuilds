@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2976d26befc53da926de7482ba8d4d8f93e4e698 $
+# $Id: 2c4efbbc649c0a064d10ad771974a6d5e9dcfc3a $
 
 EAPI=6
 
@@ -9,10 +9,10 @@ inherit webapp
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV/_/-}
 
-PHAR="1.2.0"
+PHAR="1.2.4"
 
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
-HOMEPAGE="http://roundcube.net"
+HOMEPAGE="https://roundcube.net"
 SRC_URI="https://github.com/${PN}/${MY_PN}/releases/download/${PV/_/-}/${MY_P}.tar.gz
 	plugins? ( https://getcomposer.org/download/${PHAR}/composer.phar -> composer.phar_${PHAR} )"
 RESTRICT="mirror"
@@ -30,7 +30,7 @@ need_httpd_cgi
 
 RDEPEND="
 	${DEPEND}
-	>=dev-lang/php-5.3.7[crypt,exif,fileinfo,filter,gd,iconv,intl,json,ldap?,mysql?,pdo,postgres?,session,sockets,sqlite?,ssl?,unicode,xml,zip]
+	>=dev-lang/php-5.3.7[crypt,exif?,fileinfo,filter,gd,iconv,intl,json,ldap?,mysql?,pdo,postgres?,session,sockets,sqlite?,ssl?,unicode,xml,zip]
 	>=dev-php/PEAR-Auth_SASL-1.0.6
 	>=dev-php/PEAR-Mail_Mime-1.10.0
 	>=dev-php/PEAR-Mail_mimeDecode-1.5.5
