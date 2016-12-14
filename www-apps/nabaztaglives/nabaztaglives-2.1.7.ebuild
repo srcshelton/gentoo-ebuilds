@@ -6,9 +6,9 @@ EAPI=5
 
 inherit eutils webapp
 
-LANGUAGES="linguas_de linguas_en linguas_es linguas_fr linguas_it linguas_ja linguas_us"
+LANGUAGES="l10n_de l10n_en l10n_es l10n_fr l10n_it l10n_ja l10n_us"
 
-COMMIT="258dd0c4c32207863fb4657a453d507876ca2c5a"
+COMMIT="bed1196b9d387ddbaaabf64170e734fbb6815b91"
 
 DESCRIPTION="Nabaztag/tag NabaztagLives! Server"
 HOMEPAGE="http://nabaztaglives.com"
@@ -33,7 +33,7 @@ S="${WORKDIR}/nabaztaglives-code-${COMMIT}"
 pkg_nofetch() {
 	einfo "If the source for this ebuild fails to download, please access the following URL:"
 	einfo
-	einfo "  https://sourceforge.net/p/nabaztaglives/code/ci/258dd0c4c32207863fb4657a453d507876ca2c5a/tree/"
+	einfo "  https://sourceforge.net/p/nabaztaglives/code/ci/${COMMIT}/tree/"
 	einfo
 	einfo "... and select 'Download Snapshot' in order to regenerate the cached archive."
 	einfo
@@ -43,7 +43,7 @@ pkg_nofetch() {
 src_prepare() {
 	cd "${S}"
 
-	if use linguas_ja; then
+	if use l10n_ja; then
 		epatch "${FILESDIR}"/"${PN}"-2.1-lang-ja.patch
 	fi
 
@@ -90,9 +90,9 @@ src_prepare() {
 		db/rabbit_pi.sql \
 	|| die "MySQL script patching failed: ${?}"
 
-	#use linguas_en || { einfo "Removing audio files for EN/US language" ; rm -r www/vl/broad_us ; }
+	#use l10n_en || { einfo "Removing audio files for EN/US language" ; rm -r www/vl/broad_us ; }
 	for LNG in it es de us; do
-		eval "use linguas_${LNG} || { einfo 'Removing audio files for ${LNG} language' ; rm -r www/vl/broad_${LNG} ; }"
+		eval "use l10n_${LNG} || { einfo 'Removing audio files for ${LNG} language' ; rm -r www/vl/broad_${LNG} ; }"
 	done
 
 	mkdir www/images
@@ -103,7 +103,7 @@ src_prepare() {
 	mv www/*.jpg www/images/
 	mv db/rabbit_pi.sql db/initial.sql
 
-	epatch "${FILESDIR}/${P}-api.patch" || die "Patch failed"
+	epatch "${FILESDIR}/${PN}-2.1.2-api.patch" || die "Patch failed"
 	epatch "${FILESDIR}/${PN}-2.00.patch" || die "Patch failed"
 }
 
@@ -133,4 +133,13 @@ src_install() {
 	webapp_postinst_txt en "${FILESDIR}"/postinstall-en-2.00.txt
 
 	webapp_src_install
+}
+
+pkg_postinst() {
+	elog "As of 12th December 2016:"
+	elog
+	elog "It seems that Acapella has caught on to us and they've told us that they"
+	elog "don't like rabbits,  especially ones that speak, so I'm currently testing"
+	elog "out a new TTS engine. In the meantime, you may want to disable your TTS feed on"
+	elog "your rabbit setup page."
 }
