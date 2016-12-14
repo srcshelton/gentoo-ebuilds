@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d558c594de0f85924aef3ec2fef9db69d398a14b $
+# $Id: aaa5b9153d53f47f23774435f05684f54c14f5fc $
 
 EAPI="6"
 
@@ -16,8 +16,8 @@ SRC_URI="http://prdownloads.sourceforge.net/zabbix/${MY_P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 WEBAPP_MANUAL_SLOT="yes"
-KEYWORDS="amd64 x86"
-IUSE="+agent curl frontend ipv6 java ldap libxml2 mysql odbc openipmi oracle postgres proxy server snmp sqlite ssh static systemd xmpp"
+KEYWORDS="~amd64 ~x86"
+IUSE="+agent curl frontend ipv6 java ldap libxml2 mysql odbc openipmi oracle postgres proxy server snmp sqlite ssh ssl static systemd xmpp"
 REQUIRED_USE="|| ( agent frontend proxy server )
 	proxy? ( ^^ ( mysql oracle postgres sqlite odbc ) )
 	server? ( ^^ ( mysql oracle postgres sqlite odbc ) )
@@ -39,11 +39,12 @@ COMMON_DEPEND="snmp? ( net-analyzer/net-snmp )
 	openipmi? ( sys-libs/openipmi )
 	ssh? ( net-libs/libssh2 )
 	java? ( virtual/jdk:* )
-	odbc? ( dev-db/unixODBC )"
+	odbc? ( dev-db/unixODBC )
+	ssl? ( dev-libs/openssl:=[-bindist] )"
 
 RDEPEND="${COMMON_DEPEND}
-	proxy? ( net-analyzer/fping )
-	server? ( net-analyzer/fping
+	proxy? ( net-analyzer/fping[suid] )
+	server? ( net-analyzer/fping[suid]
 		app-admin/webapp-config )
 	java?	(
 		>=virtual/jre-1.4
@@ -137,6 +138,7 @@ src_configure() {
 		$(use_with ssh ssh2) \
 		$(use_with libxml2) \
 		$(use_with odbc unixodbc) \
+		$(use_with ssl openssl) \
 		|| die "econf failed"
 }
 
@@ -167,8 +169,8 @@ src_install() {
 
 	if use server; then
 		insinto /etc/zabbix
-		doins "${FILESDIR}/2.2"/zabbix_server.conf
-		doinitd "${FILESDIR}/2.2"/init.d/zabbix-server
+		doins "${FILESDIR}/3.0"/zabbix_server.conf
+		doinitd "${FILESDIR}/3.0"/init.d/zabbix-server
 		dosbin src/zabbix_server/zabbix_server
 		fowners zabbix:zabbix /etc/zabbix/zabbix_server.conf
 		fperms 0640 /etc/zabbix/zabbix_server.conf
@@ -181,13 +183,10 @@ src_install() {
 	fi
 
 	if use proxy; then
-		doinitd \
-			"${FILESDIR}/2.2"/init.d/zabbix-proxy
-		dosbin \
-			src/zabbix_proxy/zabbix_proxy
+		doinitd "${FILESDIR}/3.0"/init.d/zabbix-proxy
+		dosbin src/zabbix_proxy/zabbix_proxy
 		insinto /etc/zabbix
-		doins \
-			"${FILESDIR}/2.2"/zabbix_proxy.conf
+		doins "${FILESDIR}/3.0"/zabbix_proxy.conf
 		dodir /usr/share/zabbix
 		/bin/cp -R "${S}/database/" "${D}"/usr/share/zabbix/
 		if use systemd; then
@@ -198,22 +197,14 @@ src_install() {
 
 	if use agent; then
 		insinto /etc/zabbix
-		doins \
-			"${FILESDIR}/2.2"/zabbix_agent.conf \
-			"${FILESDIR}/2.2"/zabbix_agentd.conf
-		doinitd "${FILESDIR}/2.2"/init.d/zabbix-agentd
-		dosbin \
-			src/zabbix_agent/zabbix_agent \
-			src/zabbix_agent/zabbix_agentd
+		doins "${FILESDIR}/3.0"/zabbix_agentd.conf
+		doinitd "${FILESDIR}/3.0"/init.d/zabbix-agentd
+		dosbin src/zabbix_agent/zabbix_agentd
 		dobin \
 			src/zabbix_sender/zabbix_sender \
 			src/zabbix_get/zabbix_get
-		fowners zabbix:zabbix \
-			/etc/zabbix/zabbix_agent.conf \
-			/etc/zabbix/zabbix_agentd.conf
-		fperms 0640 \
-			/etc/zabbix/zabbix_agent.conf \
-			/etc/zabbix/zabbix_agentd.conf
+		fowners zabbix:zabbix /etc/zabbix/zabbix_agentd.conf
+		fperms 0640 /etc/zabbix/zabbix_agentd.conf
 		if use systemd; then
 			systemd_dounit "${FILESDIR}/zabbix-agentd.service"
 			systemd_newtmpfilesd "${FILESDIR}/zabbix-agentd.tmpfiles" zabbix-agentd.conf
@@ -238,7 +229,6 @@ src_install() {
 		/var/log/zabbix
 
 	dodoc README INSTALL NEWS ChangeLog \
-		conf/zabbix_agent.conf \
 		conf/zabbix_agentd.conf \
 		conf/zabbix_proxy.conf \
 		conf/zabbix_agentd/userparameter_examples.conf \
@@ -270,12 +260,9 @@ src_install() {
 			src/zabbix_java/lib/logback.xml \
 			src/zabbix_java/lib/android-json-4.3_r3.1.jar \
 			src/zabbix_java/lib/slf4j-api-1.6.1.jar
-		exeinto /${ZABBIXJAVA_BASE}/
-		doexe \
-			src/zabbix_java/settings.sh \
-			src/zabbix_java/startup.sh \
-			src/zabbix_java/shutdown.sh
 		fowners -R zabbix:zabbix /${ZABBIXJAVA_BASE}
+		doinitd "${FILESDIR}"/3.0/init.d/zabbix-jmx-proxy
+		doconfd "${FILESDIR}"/3.0/conf.d/zabbix-jmx-proxy
 	fi
 }
 
@@ -327,8 +314,8 @@ pkg_postinst() {
 
 	if use server || use proxy ; then
 		# check for fping
-		local fping_perms
-		declare -i fping_perms=$(stat -c %a /usr/sbin/fping 2>/dev/null)
+		local -i fping_perms
+		fping_perms=$(stat -c %a /usr/sbin/fping 2>/dev/null)
 		case ${fping_perms} in
 			4[157][157][157])
 				;;
