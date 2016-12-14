@@ -1,8 +1,8 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 707d1595c45a5b800ba0d4a47c9c0cd73e4a975d $
+# $Id: 55953287ea1f8f9177937616797f0fae3a7211b0 $
 
-EAPI=5
+EAPI=6
 
 inherit autotools qmake-utils multilib eutils flag-o-matic toolchain-funcs
 
@@ -55,10 +55,14 @@ REQUIRED_USE="
 
 DOCS=( AUTHORS ChangeLog NEWS README THANKS TODO )
 
+PATCHES=(
+	"${FILESDIR}/${PN}-0.8.2-ncurses.patch"
+	"${FILESDIR}/${P}-build.patch"
+	"${FILESDIR}/${PN}-0.9.4-configure.ac.patch"
+)
+
 src_prepare() {
-	epatch "${FILESDIR}/${PN}-0.8.2-ncurses.patch" \
-		   "${FILESDIR}/${PN}-0.9.4-configure.ac.patch"
-	epatch_user
+	default
 	eautoreconf
 }
 
@@ -67,17 +71,16 @@ src_configure() {
 	use static && append-ldflags -static
 	[[ "$(gcc-major-version)" -ge 5 ]] && append-cxxflags -std=gnu++11
 
-	QT_MOC=""
 	if use qt4; then
-		myconf+=( --enable-pinentry-qt
-			  --disable-pinentry-qt5
-			)
-		QT_MOC="$(qt4_get_bindir)"/moc
-		# Issues finding qt on multilib systems
+		myconf+=(
+			--enable-pinentry-qt
+			--disable-pinentry-qt5
+		)
+		export MOC="$(qt4_get_bindir)"/moc
 		export QTLIB="$(qt4_get_libdir)"
 	elif use qt5; then
 		myconf+=( --enable-pinentry-qt )
-		QT_MOC="$(qt5_get_bindir)"/moc
+		export MOC="$(qt5_get_bindir)"/moc
 		export QTLIB="$(qt5_get_libdir)"
 	else
 		myconf+=( --disable-pinentry-qt )
@@ -92,8 +95,7 @@ src_configure() {
 		$(use_with caps libcap) \
 		$(use_enable gnome-keyring libsecret) \
 		$(use_enable gnome-keyring pinentry-gnome3) \
-		"${myconf[@]}" \
-		MOC="${QT_MOC}"
+		"${myconf[@]}"
 }
 
 src_install() {
