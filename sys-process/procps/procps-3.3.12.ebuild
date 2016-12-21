@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fea54a1eaa6c0924b169bf92f6e5247193560a5f $
+# $Id: bdfbd2f58825edf4893616df1124d3485c3e6481 $
 
 EAPI=5
 
@@ -35,6 +35,7 @@ S="${WORKDIR}/${PN}-ng-${PV}"
 PATCHES=(
 	"${FILESDIR}"/${PN}-3.3.8-kill-neg-pid.patch # http://crbug.com/255209
 	"${FILESDIR}"/${PN}-3.3.11-sysctl-manpage.patch # 565304
+	"${FILESDIR}"/${PN}-3.3.12-proc-tests.patch #583036
 
 	# Upstream fixes
 	"${FILESDIR}"/${P}-strtod_nol_err.patch
