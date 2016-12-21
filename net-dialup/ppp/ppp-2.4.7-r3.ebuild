@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ae9c2c9deb3673c072cbcbf4f0802801ab09dc32 $
+# $Id: cedbbde0b025f092a178160df003dc2eee284975 $
 
 EAPI=5
 
@@ -15,7 +15,7 @@ SRC_URI="ftp://ftp.samba.org/pub/ppp/${P}.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0/${PV}"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86"
+KEYWORDS="alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86"
 IUSE="activefilter atm dhcp eap-tls gtk ipv6 libressl pam radius"
 
 DEPEND="activefilter? ( net-libs/libpcap )
