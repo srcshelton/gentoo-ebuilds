@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: f74aacd8c3bc8ae017f205f856982f68f1fc92a4 $
+# $Id: 50d9b37d6a8e3726259c341d6e7aa252cfbb7369 $
 
 EAPI="5"
 
@@ -11,7 +11,7 @@ if [[ ${PV} == "9999" ]] ; then
 	inherit git-2
 else
 	SRC_URI="mirror://kernel/linux/utils/net/${PN}/${P}.tar.xz"
-	KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86"
+	KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86"
 fi
 
 DESCRIPTION="kernel routing and traffic control utilities"
@@ -63,10 +63,10 @@ src_configure() {
 	# This sure is ugly.  Should probably move into toolchain-funcs at some point.
 	local setns
 	pushd "${T}" >/dev/null
-	echo 'main(){return setns();};' > test.c
-	${CC} ${CFLAGS} ${LDFLAGS} test.c >&/dev/null && setns=y || setns=n
-	echo 'main(){};' > test.c
-	${CC} ${CFLAGS} ${LDFLAGS} test.c -lresolv >&/dev/null || sed -i '/^LDLIBS/s:-lresolv::' "${S}"/Makefile
+	printf '#include <sched.h>\nint main(){return setns(0, 0);}\n' > test.c
+	${CC} ${CFLAGS} ${CPPFLAGS} -D_GNU_SOURCE ${LDFLAGS} test.c >&/dev/null && setns=y || setns=n
+	echo 'int main(){return 0;}' > test.c
+	${CC} ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} test.c -lresolv >&/dev/null || sed -i '/^LDLIBS/s:-lresolv::' "${S}"/Makefile
 	popd >/dev/null
 
 	cat <<-EOF > Config

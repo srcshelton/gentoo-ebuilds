@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2e7af2b5505ad8c0db9e2ed587128876f150526a $
+# $Id: e9beb84bf045160194ecdabfb17a958674a51013 $
 
 EAPI="5"
 
@@ -64,10 +64,10 @@ src_configure() {
 	# This sure is ugly.  Should probably move into toolchain-funcs at some point.
 	local setns
 	pushd "${T}" >/dev/null
-	echo 'main(){return setns();};' > test.c
-	${CC} ${CFLAGS} ${LDFLAGS} test.c >&/dev/null && setns=y || setns=n
-	echo 'main(){};' > test.c
-	${CC} ${CFLAGS} ${LDFLAGS} test.c -lresolv >&/dev/null || sed -i '/^LDLIBS/s:-lresolv::' "${S}"/Makefile
+	printf '#include <sched.h>\nint main(){return setns(0, 0);}\n' > test.c
+	${CC} ${CFLAGS} ${CPPFLAGS} -D_GNU_SOURCE ${LDFLAGS} test.c >&/dev/null && setns=y || setns=n
+	echo 'int main(){return 0;}' > test.c
+	${CC} ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} test.c -lresolv >&/dev/null || sed -i '/^LDLIBS/s:-lresolv::' "${S}"/Makefile
 	popd >/dev/null
 
 	cat <<-EOF > Config
