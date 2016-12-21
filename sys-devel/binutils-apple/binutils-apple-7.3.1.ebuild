@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 55be11280a7bc8e785878a6940c20eebe393306f $
+# $Id: ec675e41cfcdce78188da9dce38819226e261186 $
 
 EAPI="5"
 
@@ -30,8 +30,8 @@ LICENSE="APSL-2"
 KEYWORDS="~ppc-macos ~x64-macos ~x86-macos"
 IUSE="lto test multitarget"
 
-# ld64 can now only be compiled using llvm and libc++ since it massivley uses
-# C++11 language fatures. *But additionally* the as driver now defaults to
+# ld64 can now only be compiled using llvm and libc++ since it massively uses
+# C++11 language features. *But additionally* the as driver now defaults to
 # calling clang as the assembler on many platforms. This can be disabled using
 # -Wa,-Q but since it's default we make llvm a static runtime dependency.
 RDEPEND="sys-devel/binutils-config
@@ -65,6 +65,9 @@ src_prepare() {
 	cd "${S}"/${LD64}/src
 	cp "${S}"/ld64-136-compile_stubs.h ld/compile_stubs.h
 	cp "${S}"/ld64-264.3.101-Makefile Makefile
+	# Patched below...
+	## provide right file for case-sensitive filesystems, bug #601804
+	#( cd ld && ln -s {B,b}itcode.hpp >& /dev/null )
 
 	epatch "${S}"/ld64-264.3.101-nolto.patch
 	epatch "${S}"/ld64-241.9-extraneous-includes.patch
