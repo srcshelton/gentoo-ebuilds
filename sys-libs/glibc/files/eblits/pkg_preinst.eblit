@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0c78b55f6ac8c6ad8afaf59e94fe4f28e4e31a3d $
+# $Id: a7975e296659a44a68c216f1ca63da1d82c5eab1 $
 
 # Simple test to make sure our new glibc isnt completely broken.
 # Make sure we don't test with statically built binaries since
@@ -54,7 +54,7 @@ eblit-glibc-pkg_preinst() {
 
 	[[ ${ROOT} != "/" ]] && return 0
 	[[ -d ${ED}/$(get_libdir) ]] || return 0
-	glibc_sanity_check
+	[[ -z ${BOOTSTRAP_RAP} ]] && glibc_sanity_check
 
 	# For newer EAPIs, this was run in pkg_pretend.
 	if [[ ${EAPI:-0} == [0123] ]] ; then

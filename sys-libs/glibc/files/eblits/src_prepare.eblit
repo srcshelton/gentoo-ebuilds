@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4a5c8af7f6a40bd2144478117dcc5961fb839a8b $
+# $Id: 11ff7af6f803b71f3a6aa458aa56b140785e2c82 $
 
 eblit-glibc-src_prepare() {
 	# XXX: We should do the branchupdate, before extracting the manpages and
@@ -57,6 +57,8 @@ eblit-glibc-src_prepare() {
 	cd "${WORKDIR}"
 	find . -type f '(' -size 0 -o -name "*.orig" ')' -delete
 	find . -name configure -exec touch {} +
+
+	eprefixify extra/locale/locale-gen
 
 	# Fix permissions on some of the scripts.
 	chmod u+x "${S}"/scripts/*.sh
