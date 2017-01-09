@@ -272,6 +272,8 @@ used to build perl)
     * Fix "Useless localization of scalar assignment" warning from DBI::Format
 * dev-perl/LWP-Protocol-https
     * Fix SSL CA path for prefix installations
+* dev-perl/Math-Pari
+    * Hack to allow math-pari to build on x32 systems and systems running a 32-bit userland on a 64-bit kernel
 * mail-filter/opendkim
     * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
 * mail-filter/postgrey
