@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: da45421e6c247a9840fdbeb1f944c21f7ada992f $
+# $Id: c48aedc7739d9a6960e025e43ec0746591d5d3d5 $
 
 EAPI=6
 
@@ -9,11 +9,10 @@ inherit autotools eutils flag-o-matic
 DESCRIPTION="A Portable Open Source UPnP Development Kit"
 HOMEPAGE="http://pupnp.sourceforge.net/"
 SRC_URI="mirror://sourceforge/pupnp/${P}.tar.bz2"
-#RESTRICT="mirror"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="alpha ~amd64 arm ~hppa ppc ppc64 sparc ~x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux"
 IUSE="+client debug doc examples ipv6 static-libs +tools +server +webserver"
 REQUIRED_USE="!server? ( !webserver )"
 
@@ -22,7 +21,6 @@ DOCS="NEWS README ChangeLog"
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.6.19-docs-install.patch
 	"${FILESDIR}"/${P}-suse.patch
-	"${FILESDIR}"/CVE-2016-6255.patch
 )
 
 src_prepare() {
