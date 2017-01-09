@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 559b74e5ad9b2e316693570554277cc4d244cb9c $
+# $Id: 0e58ce57c385977a7acd88ae3b81d0e7e15d7aa7 $
 
 EAPI=5
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev
@@ -13,7 +13,7 @@ SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.xz
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sparc ~x86"
+KEYWORDS="alpha amd64 ~arm ~hppa ia64 ~mips ppc ppc64 sparc x86"
 IUSE="static systemd +udev"
 
 DEPEND="virtual/pkgconfig
