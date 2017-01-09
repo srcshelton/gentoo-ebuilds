@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0f8d7742cd7c1bcc0d1a7b21b21383f142473d9e $
+# $Id: 6c9b3242699081b8b0afcb63fc6eedb9279042f3 $
 
 EAPI="5"
 
@@ -77,7 +77,7 @@ RDEPEND="${RDEPEND}
 
 S=${WORKDIR}/${PARCH}
 
-pkg_setup() {
+pkg_pretend() {
 	# this sucks, but i'd rather have people unable to `emerge -u openssh`
 	# than not be able to log in to their server any more
 	maybe_fail() { [[ -z ${!2} ]] && echo "$1" ; }
