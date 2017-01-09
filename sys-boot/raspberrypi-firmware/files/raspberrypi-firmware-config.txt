@@ -114,7 +114,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 413fc664838e81caeabdc4118dc51e138d5d6c71.
+# commit 18b5b6977d021937d82fb94010c99d84b403a08a.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -265,9 +265,9 @@ disable_audio_dither=1
 #device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
 
 # RTC:
-# i2c-rtc supports ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
+# i2c-rtc supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
 #device_tree_overlay=i2c-rtc,<device>,wakeup-source
-#device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
+#device_tree_overlay=i2c-rtc,ds1339,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
 #device_tree_overlay=spi-rtc,pcf2123
 #device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
