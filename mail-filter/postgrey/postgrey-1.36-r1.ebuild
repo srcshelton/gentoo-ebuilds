@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fdf79652234cc8b51de5b6bdff09648e40259eb3 $
+# $Id: 4897199388170986fd99967b02f940fceca82d66 $
 
 EAPI=5
 
@@ -13,7 +13,7 @@ http://postgrey.schweikert.ch/pub/old/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~hppa ~ppc ~ppc64 ~x86"
+KEYWORDS="amd64 ~hppa ~ppc ppc64 x86"
 IUSE="systemd targrey"
 
 DEPEND=""
