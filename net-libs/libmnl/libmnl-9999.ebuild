@@ -1,10 +1,10 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-libs/libmnl/libmnl-1.0.3-r1.ebuild,v 1.14 2015/05/05 15:30:19 vapier Exp $
+# $Id: c1eee63b971d93ae950f8d9ed8419667fa2e7f7f $
 
-EAPI=4
+EAPI=6
 
-inherit autotools eutils git-2 toolchain-funcs
+inherit autotools eutils git-r3 toolchain-funcs
 
 DESCRIPTION="Minimalistic netlink library"
 HOMEPAGE="http://netfilter.org/projects/libmnl"
@@ -12,8 +12,8 @@ EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
 EGIT_MASTER="master"
 
 LICENSE="LGPL-2.1"
-SLOT="0"
-#KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ppc ppc64 s390 sh sparc x86 ~amd64-linux"
+SLOT="0/0.2.0"
+#KEYWORDS="alpha amd64 arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-linux"
 KEYWORDS=""
 IUSE="examples static-libs"
 
@@ -27,6 +27,7 @@ src_configure() {
 
 src_install() {
 	default
+
 	gen_usr_ldscript -a mnl
 	prune_libtool_files
 
