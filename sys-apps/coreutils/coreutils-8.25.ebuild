@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e7f64e9651b7599a42b305088715984f36c11332 $
+# $Id: 96876853cf0a6bb89348b5252617deac6b62f132 $
 
 # To generate the man pages, unpack the upstream tarball and run:
 # ./configure --enable-install-program=arch,coreutils,hostname,kill
@@ -23,7 +23,7 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="acl caps elibc_glibc gmp hostname kill multicall nls selinux sep-usr static +stdbuf uptime userland_BSD vanilla xattr"
 
