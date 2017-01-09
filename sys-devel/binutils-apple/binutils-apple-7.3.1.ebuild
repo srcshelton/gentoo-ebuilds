@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ec675e41cfcdce78188da9dce38819226e261186 $
+# $Id: 9eb28b9e60ef38de860143fe148094565a526321 $
 
 EAPI="5"
 
@@ -24,7 +24,7 @@ SRC_URI="http://www.opensource.apple.com/tarballs/ld64/${LD64}.tar.gz
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-6.3-r1.tar.bz2
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-7.0-r2.tar.bz2
 	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-7.2-r0.tar.bz2
-	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-7.3-r0.tar.bz2"
+	http://dev.gentoo.org/~grobian/distfiles/${PN}-patches-7.3-r1.tar.bz2"
 
 LICENSE="APSL-2"
 KEYWORDS="~ppc-macos ~x64-macos ~x86-macos"
@@ -65,9 +65,6 @@ src_prepare() {
 	cd "${S}"/${LD64}/src
 	cp "${S}"/ld64-136-compile_stubs.h ld/compile_stubs.h
 	cp "${S}"/ld64-264.3.101-Makefile Makefile
-	# Patched below...
-	## provide right file for case-sensitive filesystems, bug #601804
-	#( cd ld && ln -s {B,b}itcode.hpp >& /dev/null )
 
 	epatch "${S}"/ld64-264.3.101-nolto.patch
 	epatch "${S}"/ld64-241.9-extraneous-includes.patch
@@ -79,7 +76,14 @@ src_prepare() {
 	epatch "${S}"/ld64-241.9-register-names.patch
 	epatch "${S}"/ld64-241.9-get-comm-align.patch
 	epatch "${S}"/ld64-241.9-cc_md5.patch
-	epatch "${FILESDIR}"/ld64-253.9-bitcode.patch
+	#epatch "${FILESDIR}"/ld64-253.9-bitcode.patch
+	epatch "${S}"/ld64-264.3.102-bitcode-case.patch
+
+	# workound llvm-3.9.{0,1} issue
+	# https://bugs.gentoo.org/show_bug.cgi?id=603580
+	# https://groups.google.com/forum/#!topic/llvm-dev/JY6nuKE__sU
+	# http://lists.llvm.org/pipermail/cfe-commits/Week-of-Mon-20160829/169553.html
+	sed -i -e '/COMPILE_TIME_ASSERT/d' ld/parsers/libunwind/*.hpp || die
 
 	# provide missing headers from libunwind and dyld
 	mkdir -p include/{mach,mach-o/arm} || die
