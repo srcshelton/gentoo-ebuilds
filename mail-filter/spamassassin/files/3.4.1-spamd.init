@@ -1,0 +1,56 @@
+#!/sbin/openrc-run
+# Copyright 1999-2016 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+# $Id: 7d2af814a03b19f2e3e989b4963a096d5799ea62 $
+
+# Provide a default PID location if there isn't one in /etc/conf.d/spamd...
+PIDFILE=${PIDFILE:-/var/run/spamd.pid}
+
+extra_started_commands="reload"
+
+depend() {
+	before mta
+	use logger
+@USEPOSTGRES@	use postgresql
+@USEMYSQL@	use mysql
+}
+
+start() {
+	ebegin "Starting spamd"
+
+	# Ensure that the PID file's directory exists.
+	checkpath --directory "$( dirname "${PIDFILE}" )"
+
+	# Reloading spamd causes its PID to change, so we track it by
+	# name instead.
+	start-stop-daemon --start --quiet \
+		--name spamd \
+		--nicelevel ${SPAMD_NICELEVEL:-0} \
+		--pidfile ${PIDFILE} \
+		--exec /usr/sbin/spamd -- \
+			--daemonize \
+			--pidfile=${PIDFILE} \
+			${SPAMD_OPTS}
+
+	retval=$?
+
+	eend ${retval} "Failed to start spamd"
+}
+
+stop() {
+	ebegin "Stopping spamd"
+	# Retry after SPAMD_TIMEOUT seconds because spamd can take a
+	# while to kill off all of its children. This was bug 322025.
+	start-stop-daemon --stop \
+			  --quiet \
+			  --retry ${SPAMD_TIMEOUT} \
+			  --pidfile ${PIDFILE}
+	eend $? "Failed to stop spamd"
+}
+
+reload() {
+	ebegin "Reloading configuration"
+	# Warning: causes the PID of the spamd process to change.
+	start-stop-daemon --signal HUP --quiet --pidfile ${PIDFILE}
+	eend $?
+}
