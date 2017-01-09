@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4269eec36c8650caceb1d370a6c89aa0e452fece $
+# $Id: a7d3bf174448e5f19f7863ad65d52a7b10d6488e $
 
 EAPI=6
 
@@ -19,7 +19,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(get_version_component_range 1-2)"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
 # We can build the following SAPIs in the given order
 SAPIS="embed cli cgi fpm apache2"
@@ -29,8 +29,8 @@ IUSE="${IUSE}
 	${SAPIS/cli/+cli}
 	threads"
 
-IUSE="${IUSE} bcmath berkdb bzip2 calendar cdb cjk
-	crypt +ctype curl debug
+IUSE="${IUSE} acl bcmath berkdb bzip2 calendar cdb cjk
+	coverage crypt +ctype curl debug
 	enchant exif +fileinfo +filter firebird
 	flatfile ftp gd gdbm gmp +hash +iconv imap inifile
 	intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl
@@ -47,6 +47,7 @@ IUSE="${IUSE} bcmath berkdb bzip2 calendar cdb cjk
 COMMON_DEPEND="
 	>=app-eselect/eselect-php-0.9.1[apache2?,fpm?]
 	>=dev-libs/libpcre-8.32[unicode]
+	acl? ( sys-apps/acl )
 	apache2? ( || ( >=www-servers/apache-2.4[apache2_modules_unixd,threads=]
 		<www-servers/apache-2.4[threads=] ) )
 	berkdb? ( || ( 	sys-libs/db:5.3
@@ -62,6 +63,7 @@ COMMON_DEPEND="
 		media-libs/libpng:0=
 		sys-libs/zlib
 	) )
+	coverage? ( dev-util/lcov )
 	crypt? ( >=dev-libs/libmcrypt-2.4 )
 	curl? ( >=net-misc/curl-7.10.5 )
 	enchant? ( app-text/enchant )
@@ -303,9 +305,11 @@ src_configure() {
 	)
 
 	our_conf+=(
+		$(use_with acl fpm-acl)
 		$(use_enable bcmath bcmath)
 		$(use_with bzip2 bz2 "${EPREFIX}/usr")
 		$(use_enable calendar calendar)
+		$(use_enable coverage gcov)
 		$(use_enable ctype ctype)
 		$(use_with curl curl "${EPREFIX}/usr")
 		$(use_enable xml dom)
