@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: efafc55cfcfc0544724f739e6391cc9db571e676 $
+# $Id: 5cd6a95f566350ec978ce9a620ff27067416f2f6 $
 
 EAPI=6
 
@@ -62,7 +62,7 @@ RDEPEND="
 	>=dev-vcs/git-1.7
 	>=app-arch/xz-utils-4.9
 
-	>app-emulation/containerd-0.2.2
+	>=app-emulation/containerd-0.2.5
 	app-emulation/runc[apparmor?,seccomp?]
 	app-emulation/docker-proxy
 	container-init? ( >=sys-process/tini-0.13.0[static] )
