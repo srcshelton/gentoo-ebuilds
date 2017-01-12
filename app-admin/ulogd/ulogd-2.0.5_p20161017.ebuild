@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ee7cc8effa2cc9417e562962e846bb5274c13997 $
+# $Id: d572851ae044dff39d2b5e8f586b83117e0c325f $
 
 EAPI=6
 
@@ -14,7 +14,7 @@ SRC_URI="http://git.netfilter.org/${PN}2/snapshot/${COMMIT_ID}.tar.gz -> ${P}.ta
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~ia64 ~ppc x86"
+KEYWORDS="amd64 ~ia64 ppc x86"
 IUSE="dbi doc json mysql nfacct +nfct +nflog pcap postgres sqlite systemd -ulog"
 
 RDEPEND="
@@ -114,20 +114,18 @@ src_compile() {
 }
 
 src_install() {
+	use doc && HTML_DOCS=( doc/${PN}.html )
+
 	default_src_install
 	prune_libtool_files --modules
 	readme.gentoo_create_doc
 
-	if use doc; then
-		HTML_DOCS=( doc/${PN}.html )
-		dodoc doc/${PN}.{dvi,ps,txt}
-	fi
+	doman ${PN}.8
 
+	use doc && dodoc doc/${PN}.{dvi,ps,txt}
 	use mysql && dodoc doc/mysql-*.sql
 	use postgres && dodoc doc/pgsql-*.sql
 	use sqlite && dodoc doc/sqlite3.table
-
-	doman ${PN}.8
 
 	insinto /etc
 	doins ${PN}.conf
