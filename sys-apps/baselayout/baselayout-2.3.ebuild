@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 72e59e412f3b4f29e44a2b366fab42dff31b5edb $
+# $Id: 270e22e27961dfa0c0012a9f22fee3dcacbfd65b $
 
 EAPI=5
 
@@ -12,7 +12,7 @@ SRC_URI="https://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="build kernel_linux"
 
 pkg_setup() {
@@ -242,3 +242,4 @@ pkg_postinst() {
 		fi
 	fi
 }
+# vi: set diffopt=filler,iwhite:
