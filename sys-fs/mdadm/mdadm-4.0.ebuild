@@ -1,20 +1,20 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7bb16429570fc47387cc6e866001ed5e5c67d4f6 $
+# $Id: c73a60dac768fb689455a1c137bb1092e5619788 $
 
 EAPI=5
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev
 
 DESCRIPTION="A useful tool for running RAID systems - it can be used as a replacement for the raidtools"
 HOMEPAGE="http://neil.brown.name/blog/mdadm"
-DEB_PR=1.1
+DEB_PR=4
 SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.xz
-		mirror://debian/pool/main/m/mdadm/${PN}_3.3.4-${DEB_PR}.debian.tar.xz"
+		mirror://debian/pool/main/m/mdadm/${PN}_3.4-${DEB_PR}.debian.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm hppa ia64 ~mips ppc ppc64 sparc x86"
-IUSE="static systemd +udev"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sparc ~x86"
+IUSE="static"
 
 DEPEND="virtual/pkgconfig
 	app-arch/xz-utils"
