@@ -75,13 +75,6 @@ src_install() {
 	cd "${S}"/generate/unix || die
 	emake install DESTDIR="${ED}" BITS=${BITS}
 
-	default_src_install
-
-	#local bin
-	#for bin in $(<"${T}"/binlist) ; do
-	#	dobin "${T}"/${bin}
-	#done
-
 	dodoc "${S}"/changes.txt
 	if use doc; then
 		newdoc "${S}"/source/compiler/readme.txt compiler-readme.txt
