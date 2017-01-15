@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 5b6a0cbfb9839f8662f4a17fded2d83996cb7dcd $
+# $Id: 5a632006011141df3b9ad0b2ddeae1d6562cdb9f $
 
 EAPI=6
 
@@ -12,7 +12,7 @@ SRC_URI="mirror://sourceforge/pupnp/${P}.tar.bz2"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~hppa ~ppc ~ppc64 sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux"
+KEYWORDS="~alpha amd64 arm hppa ~ppc ~ppc64 sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux"
 IUSE="+client debug doc examples ipv6 static-libs +tools +server +webserver"
 REQUIRED_USE="!server? ( !webserver )"
 
