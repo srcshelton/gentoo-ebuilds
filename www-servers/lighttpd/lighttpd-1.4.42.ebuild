@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b14917ad8370906bd509a16802db37280b898bf7 $
+# $Id: 40f90360766da61ec510c60f75a864160a9358ad $
 
 EAPI="6"
 inherit autotools eutils readme.gentoo-r1 user systemd
@@ -11,7 +11,7 @@ SRC_URI="http://download.lighttpd.net/lighttpd/releases-1.4.x/${P}.tar.xz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sh ~sparc x86 ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~hppa ia64 ~mips ppc ppc64 ~sh sparc x86 ~sparc-fbsd ~x86-fbsd"
 IUSE="bzip2 doc fam gdbm ipv6 kerberos ldap libev libressl lua minimal mmap memcached mysql pcre php rrdtool selinux ssl systemd test webdav xattr zlib"
 
 REQUIRED_USE="kerberos? ( ssl !libressl )"
