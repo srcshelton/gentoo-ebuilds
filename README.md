@@ -355,6 +355,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-dialup/freeradius
 * net-dns/bind
 * net-firewall/conntrack-tools
+* net-fs/netatalk
 * net-fs/samba
 * net-misc/dhcpcd
 * net-misc/memcached
