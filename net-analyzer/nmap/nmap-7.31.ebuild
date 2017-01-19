@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a2a24e0f8eb8882e8eeb2ce496b0f483374c6970 $
+# $Id: f76784c37508e6da2cb9a9586a2d1e5d95f5a05a $
 
 EAPI=5
 
@@ -19,7 +19,7 @@ SRC_URI="
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh sparc x86 ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ia64 ~mips ppc ~ppc64 ~s390 ~sh sparc x86 ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x86-solaris"
 
 IUSE="ipv6 libressl +nse system-lua ncat ndiff nls nmap-update nping ssl zenmap"
 NMAP_LINGUAS=( de fr hi hr it ja pl pt_BR ru zh )
