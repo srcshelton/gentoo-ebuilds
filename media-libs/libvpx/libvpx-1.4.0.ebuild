@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: bd9994b4b4da774f89105c40bf17e3c5e4f46117 $
+# $Id: 0a319098793d144d4ba1c3ad95b64af46f2ae692 $
 
 EAPI=5
 inherit eutils multilib toolchain-funcs multilib-minimal
@@ -86,6 +86,9 @@ multilib_src_configure() {
 		# not needed for multilib and will be overwritten anyway.
 		myconf+=" --disable-examples --disable-install-docs --disable-docs"
 	fi
+
+	# https://bugs.gentoo.org/569146
+	export LC_COLLATE=C
 
 	# #498364: sse doesn't work without sse2 enabled,
 	"${S}/configure" \
