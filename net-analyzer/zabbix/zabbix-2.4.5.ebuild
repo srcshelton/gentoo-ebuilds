@@ -369,4 +369,4 @@ src_compile() {
 	fi
 }
 
-# set vi: diffopt=iwhite,filler:
+# vi: set diffopt=iwhite,filler:
