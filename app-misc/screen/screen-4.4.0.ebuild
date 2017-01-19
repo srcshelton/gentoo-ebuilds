@@ -153,14 +153,14 @@ pkg_postinst() {
 		if (( 4751 != $( stat -Lc '%a' "${EPREFIX}/usr/bin/screen" ) )); then
 			ewarn "Having to re-set permissions of '${EPREFIX}/usr/bin/screen' from $(
 				stat -Lc '%a' "${EPREFIX}/usr/bin/screen"
-			) ..."
+			) to 4751 (-rwsr-x--x)"
 			chmod 4751 "${EPREFIX}/usr/bin/screen"
 		fi
 	else
 		if (( 2751 != $( stat -Lc '%a' "${EPREFIX}/usr/bin/screen" ) )); then
 			ewarn "Having to re-set permissions of '${EPREFIX}/usr/bin/screen' from $(
 				stat -Lc '%a' "${EPREFIX}/usr/bin/screen"
-			) ..."
+			) to 2751 (-rwx-r-s--x)"
 			chmod 2751 "${EPREFIX}/usr/bin/screen"
 		fi
 	fi
