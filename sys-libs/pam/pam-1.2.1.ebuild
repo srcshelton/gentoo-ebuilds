@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 035af29c7d2295956f9e253cc146af147e006287 $
+# $Id: bf96248ff7d3dc9dc486b2c46419531317d585f5 $
 
 EAPI=5
 
@@ -121,6 +121,7 @@ multilib_src_configure() {
 		$(use_enable pie)
 		--with-db-uniquename=-$(db_findver sys-libs/db)
 		--disable-prelude
+		--disable-regenerate-docu
 	)
 
 	ECONF_SOURCE=${S} \
