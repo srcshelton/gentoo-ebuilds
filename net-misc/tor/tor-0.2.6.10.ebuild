@@ -107,4 +107,4 @@ pkg_postinst() {
 	fi
 }
 
-# set vi: diffopt=iwhite,filler:
+# vi: set diffopt=iwhite,filler:
