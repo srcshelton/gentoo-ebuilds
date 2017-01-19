@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 3b708512d894ca056f949de2d992f5d0cc1e32eb $
+# $Id: 044cc0369ff133502aa9feae18c89899f88bb891 $
 
 EAPI=6
 inherit pam systemd
@@ -11,7 +11,7 @@ SRC_URI="http://mmonit.com/monit/dist/${P}.tar.gz"
 
 LICENSE="AGPL-3"
 SLOT="0"
-KEYWORDS="amd64 ~ppc ~ppc64 x86 ~amd64-linux"
+KEYWORDS="amd64 ppc ~ppc64 x86 ~amd64-linux"
 IUSE="libressl pam ssl systemd"
 
 RDEPEND="
