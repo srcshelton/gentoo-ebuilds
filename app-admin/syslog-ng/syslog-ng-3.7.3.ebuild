@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b3c8aa0394eca6bd36341cb49b397e601849e848 $
+# $Id: 859b10111ab4ee08f411a2b199d56c99ae4753fa $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -14,7 +14,7 @@ SRC_URI="https://github.com/balabit/syslog-ng/releases/download/${P}/${P}.tar.gz
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd"
+KEYWORDS="alpha amd64 ~arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd"
 IUSE="amqp caps dbi geoip ipv6 json libressl mongodb pacct python redis smtp spoof-source systemd tcpd"
 RESTRICT="test"
 
