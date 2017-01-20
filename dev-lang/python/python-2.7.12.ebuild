@@ -1,4 +1,4 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 894cddf4e6be94e963c3fe339ec4b52dccf09fbc $
 
@@ -9,13 +9,17 @@ inherit autotools eutils flag-o-matic multilib pax-utils python-utils-r1 toolcha
 
 MY_P="Python-${PV}"
 PATCHSET_VERSION="2.7.12-0"
-PREFIX_PATCHREV=""
+PREFIX_PATCHREV="r0"
+CYGWINPORTS_GITREV="7be648659ef46f33db6913ca0ca5a809219d5629"
 
 DESCRIPTION="An interpreted, interactive, object-oriented programming language"
 HOMEPAGE="http://www.python.org/"
 SRC_URI="https://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
-	https://dev.gentoo.org/~floppym/python/python-gentoo-patches-${PATCHSET_VERSION}.tar.xz"
-#	prefix? ( https://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}.tar.bz2 )"
+	https://dev.gentoo.org/~floppym/python/python-gentoo-patches-${PATCHSET_VERSION}.tar.xz
+	prefix? ( https://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches-${PREFIX_PATCHREV}.tar.xz )"
+
+[[ -n ${CYGWINPORTS_GITREV} ]] &&
+SRC_URI+=" elibc_Cygwin? ( https://github.com/cygwinports/python/archive/${CYGWINPORTS_GITREV}.zip )"
 
 LICENSE="PSF-2"
 SLOT="2.7"
@@ -103,12 +107,11 @@ src_prepare() {
 	#local EPATCH_EXCLUDE=" 01_all_prefix-no-patch-invention.patch"
 
 	EPATCH_SUFFIX="patch" epatch "${WORKDIR}/patches"
-	epatch "${FILESDIR}/python-2.7-issue18235.patch"
 
 	# Prefix' round of patches
 	# http://prefix.gentooexperimental.org:8000/python-patches-2_7
-	#use prefix && EPATCH_EXCLUDE="${excluded_patches}" EPATCH_SUFFIX="patch" \
-	#	epatch "${WORKDIR}"/python-prefix-${PV}-gentoo-patches${PREFIX_PATCHREV}
+	use prefix && EPATCH_EXCLUDE="${excluded_patches}" EPATCH_SUFFIX="patch" \
+		epatch "${WORKDIR}"/python-prefix-${PV}-gentoo-patches-${PREFIX_PATCHREV}
 
 	if use aqua ; then
 		# make sure we don't get a framework reference here
@@ -123,22 +126,35 @@ src_prepare() {
 	fi
 	# don't try to do fancy things on Darwin
 	sed -i -e 's/__APPLE__/__NO_MUCKING_AROUND__/g' Modules/readline.c || die
+	# On AIX, we've wrapped /usr/ccs/bin/nm to work around long TMPDIR.
+	sed -i -e "/^NM=.*nm$/s,^.*$,NM=$(tc-getNM)," Modules/makexp_aix || die
+	# fix header standards conflicts on Solaris
+	sed -i -e "/_XOPEN_SOURCE/s/500/600/" \
+		Modules/_multiprocessing/multiprocessing.h || die
 
 	# Fix for cross-compiling.
 	epatch "${FILESDIR}/python-2.7.5-nonfatal-compileall.patch"
 	epatch "${FILESDIR}/python-2.7.9-ncurses-pkg-config.patch"
 	epatch "${FILESDIR}/python-2.7.10-cross-compile-warn-test.patch"
 	epatch "${FILESDIR}/python-2.7.10-system-libffi.patch"
-
-	epatch "${FILESDIR}"/python-2.7-aix-dlopen-soname.patch # libtool-built modules
-
-	# On AIX, we've wrapped /usr/ccs/bin/nm to work around long TMPDIR.
-	sed -i -e "/^NM=.*nm$/s,^.*$,NM=$(tc-getNM)," Modules/makexp_aix || die
+	epatch "${FILESDIR}/python-3.4-pyfpe-dll.patch" # Cygwin: --with-fpectl
 
 	# Make sure python doesn't use the host libffi.
 	if use prefix; then
 		epatch "${FILESDIR}/python-2.7-libffi-pkgconfig.patch"
 		rm configure
+	fi
+
+	if [[ -n ${CYGWINPORTS_GITREV} ]] && use elibc_Cygwin; then
+	    local p d="${WORKDIR}/python-${CYGWINPORTS_GITREV}"
+	    for p in $(
+		    eval "$(sed -ne '/PATCH_URI="/,/"/p' < "${d}"/python.cygport)"
+		    echo ${PATCH_URI}
+	    ); do
+			# dropped by 01_all_prefix-no-patch-invention.patch
+			[[ ${p} == *-tkinter-* ]] && continue
+		    epatch "${d}/${p}"
+	    done
 	fi
 
 	epatch_user
@@ -268,7 +284,7 @@ src_configure() {
 	mkdir -p "${BUILD_DIR}" || die
 	cd "${BUILD_DIR}" || die
 
-	# note: for a framework build we need to use ucs2 because OSX
+	# note: for a framework build we need to use ucs2 because macOS
 	# uses that internally too:
 	# http://bugs.python.org/issue763708
 	# HAS_HG to avoid finding obsolete hg of the host
@@ -564,9 +580,9 @@ EOF
 
 	# if not using a cross-compiler, use the fresh binary
 	if ! tc-is-cross-compiler; then
-		local -x PYTHON=./python
-		local -x LD_LIBRARY_PATH=${LD_LIBRARY_PATH+${LD_LIBRARY_PATH}:}.
-		local -x DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH+${DYLD_LIBRARY_PATH}:}.
+		local -x PYTHON="./python$( sed -n '/BUILDEXE=/s/^.*=\s\+//p' Makefile )"
+		local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}."
+		local -x DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:+${DYLD_LIBRARY_PATH}:}."
 	else
 		vars=( PYTHON "${vars[@]}" )
 	fi
