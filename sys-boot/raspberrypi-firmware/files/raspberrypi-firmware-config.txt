@@ -56,6 +56,36 @@
 #start_file=start_x.elf
 #fixup_file=fixup_x.dat
 
+[pi3]
+# When using experimental start.elf and bootcode.bin files from the 'next'
+# branch:
+#  https://github.com/raspberrypi/firmware/raw/next/boot/start.elf
+#  https://github.com/raspberrypi/firmware/raw/next/boot/bootcode.bin
+# ... and having enabled the option below to allow the VideoCore OTP memory to
+# be updated with the ability to act as a USB host and locate the VideoCore
+# configuration and binaries and so boot from a connected USB mass-storage
+# device... although by default there will be a 5-second delay unless
+# a blank SD card is inserted, and any valid SD card will still be used in
+# preference.
+# This update can be confirmed by checking that the output of:
+#  vcgencmd otp_dump | grep '^17:'
+# ... is "17:3020000a".
+# Please note that this option is irreversible, and once a given SoC has been
+# booted with this option set then it will have no further effect.
+#program_usb_boot_mode=1
+
+# Wait for 5 seconds for USB devices, rather than 2 - useful to ensure that
+# hard discs have spun-up... please note that this also cannot be un-set once
+# applied.
+# This can also be tested in a reversible way by attempting to boot with an SD
+# card inserted containing a file named 'TIMEOUT' on the first FAT32 partition.
+#program_usb_boot_timeout=1
+
+# Some versions of the bootrom code are unable to process FAT32 partitions of
+# greater than 100GB in size, so separating the VideoCore initialisation code
+# from the working partition(s) is a good idea!
+[all]
+
 # Explicitly cause the extended firmware to be loaded, requires at least 128MB
 # GPU memory.
 #start_x=1
@@ -89,6 +119,7 @@
 # 'kernel8.img', which will then be automatically booted in 64-bit mode.
 [all]
 
+[pi2]
 # Allow 1.2mA current-draw in total between over all four of the Raspberry Pi
 # Model B+ and Raspberry Pi Model 2 USB ports, up from 600mA.
 # When set, GPIO38 is permantently held high.
@@ -96,6 +127,10 @@
 # N.B.: This requires a reliable high-quality power-supply rated for a current
 #       of 2A or more...
 #max_usb_current=1
+[pi1]
+# Model B+ only!
+#max_usb_current=1
+[all]
 
 # Override SMSC9512/9514 MAC address:
 #smsc95xx.macaddr=B8:27:EB:aa:bb:cc
@@ -114,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 18b5b6977d021937d82fb94010c99d84b403a08a.
+# commit f09dba0423cc78932b81ef54f003505b3155f239.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -148,6 +183,7 @@ disable_audio_dither=1
 #device_tree_param=pwr_led_activelow=off
 #device_tree_param=pwr_led_gpio=35
 [pi3]
+#device_tree_overlay=pi3-disable-wifi
 #device_tree_overlay=pi3-disable-bt
 #device_tree_overlay=pi3-miniuart-bt
 #device_tree_overlay=pi3-act-led,activelow=off,gpio=47
@@ -248,9 +284,9 @@ disable_audio_dither=1
 #device_tree_overlay=i2s-mmap
 #device_tree_overlay=i2c-gpio,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 
-#device_tree_overlay=bmp085_i2c-sensor
 #device_tree_overlay=dht11,gpiopin=4
 #device_tree_overlay=enc28j60,int_pin=25,speed=12000000
+#device_tree_overlay=enc28j60-spi2,int_pin=39,speed=12000000
 #device_tree_overlay=rpi-sense
 #device_tree_overlay=at86rf233,interrupt=23,reset=24,sleep=25,speed=3000000,trim=15
 #device_tree_overlay=qca7000,int_pin=23,speed=12
@@ -259,10 +295,12 @@ disable_audio_dither=1
 
 # The following overlays have been removed:
 ##device_tree_overlay=i2c-mux-pca9548a,addr=0x70
+##device_tree_overlay=bmp085_i2c-sensor
 
 # I2C:
 #device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
 #device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
+#device_tree_overlay=i2c-sensor,bmp085,bmp280,si7020
 
 # RTC:
 # i2c-rtc supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
@@ -818,4 +856,4 @@ kernel=kernel/kernel7.img
 # It is possible to source system parameters from multiple files:
 #include extra-config.txt
 
-# vi: set syntax=config colorcolumn=80:
+# vi: set syntax=config colorcolumn=80 nowrap:
