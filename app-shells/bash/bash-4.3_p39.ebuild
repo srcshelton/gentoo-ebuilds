@@ -96,6 +96,8 @@ src_prepare() {
 
 	epatch "${FILESDIR}"/${PN}-4.0-bashintl-in-siglist.patch
 
+	epatch "${FILESDIR}"/${P}-cygwin-r2.patch
+
 	# Include appropriate headers, to satisfy clang and avoid -Wimplicit-function-declaration
 	epatch "${FILESDIR}"/${PN}-4.2-signal.h.patch
 	epatch "${FILESDIR}"/${PN}-4.3-signal.h.patch

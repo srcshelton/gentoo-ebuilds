@@ -1,11 +1,10 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 3beced7294a5b014a1cf7495a187f15187d28cf5 $
-# $Header: /var/cvsroot/gentoo-x86/dev-libs/gmp/gmp-6.0.0a.ebuild,v 1.3 2015/03/09 17:53:52 blueness Exp $
 
 EAPI="4"
 
-inherit flag-o-matic eutils libtool toolchain-funcs multilib multilib-minimal
+inherit flag-o-matic eutils libtool toolchain-funcs multilib-minimal
 
 MY_PV=${PV/_p*}
 MY_P=${PN}-${MY_PV}
@@ -19,7 +18,6 @@ SRC_URI="mirror://gnu/${PN}/${MY_P}.tar.xz
 LICENSE="|| ( LGPL-3+ GPL-2+ )"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
-KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="doc cxx pgo static-libs"
 
 DEPEND="sys-devel/m4
