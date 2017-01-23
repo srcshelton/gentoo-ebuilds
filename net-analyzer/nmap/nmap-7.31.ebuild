@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: f76784c37508e6da2cb9a9586a2d1e5d95f5a05a $
+# $Id: bb2759cbcbc30c9c806bace87c879b79931bf16d $
 
 EAPI=5
 
@@ -19,7 +19,7 @@ SRC_URI="
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ia64 ~mips ppc ~ppc64 ~s390 ~sh sparc x86 ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 ~arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x86-solaris"
 
 IUSE="ipv6 libressl +nse system-lua ncat ndiff nls nmap-update nping ssl zenmap"
 NMAP_LINGUAS=( de fr hi hr it ja pl pt_BR ru zh )
@@ -67,15 +67,17 @@ src_unpack() {
 }
 
 src_prepare() {
+	rm -r libpcap/ || die
+
 	epatch \
 		"${FILESDIR}"/${PN}-5.10_beta1-string.patch \
 		"${FILESDIR}"/${PN}-5.21-python.patch \
 		"${FILESDIR}"/${PN}-6.46-uninstaller.patch \
-		"${FILESDIR}"/${PN}-6.47-no-libnl.patch \
 		"${FILESDIR}"/${PN}-6.25-liblua-ar.patch \
 		"${FILESDIR}"/${PN}-7.25-no-FORTIFY_SOURCE.patch \
 		"${FILESDIR}"/${PN}-7.25-CXXFLAGS.patch \
 		"${FILESDIR}"/${PN}-7.25-libpcre.patch \
+		"${FILESDIR}"/${PN}-7.31-libnl.patch \
 		"${FILESDIR}"/${PN}-7.30-RT_MSGHDR_ALIGNMENT.patch
 
 	if use nls; then
