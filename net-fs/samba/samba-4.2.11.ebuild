@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7422b295428bcf293b6dce730934e1b23ee84d59 $
+# $Id: a06ae87c4baab383764e14063a32b72d04abdea4 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -120,7 +120,7 @@ pkg_setup() {
 }
 
 src_prepare() {
-	epatch ${PATCHES[@]}
+	epatch "${PATCHES[@]}"
 
 	# install the patches from tarball(s)
 	EPATCH_SUFFIX="patch" \
