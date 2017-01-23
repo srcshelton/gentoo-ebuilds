@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a6991cf70db55c4455e4b8064e1cdd0976d014b2 $
+# $Id: fe6c75d37b11d5f708d791ab2d80868309a1d01e $
 
 EAPI=5
 
@@ -12,7 +12,7 @@ SRC_URI="mirror://sourceforge/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 ia64 ~mips ppc ~ppc64 sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm ~arm64 ia64 ~mips ppc ppc64 sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
 IUSE="kernel_linux ncurses static"
 
 LIB_DEPEND="
