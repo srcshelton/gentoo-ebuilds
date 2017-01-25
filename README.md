@@ -265,7 +265,7 @@ used to build perl)
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
 * dev-lang/perl
-    * Fix HTTP::Tiny SSL CA path for prefix installations
+    * Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS
 * dev-libs/libcgroup
     * Handle existing mountpoints and correct init scripts
 * dev-perl/DBI-Shell
