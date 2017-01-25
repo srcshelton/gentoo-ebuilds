@@ -1,18 +1,28 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a4a94b227b2bdccb876784330e998c6f3c302753 $
+# $Id: 7ea62d184fb9babfb76c997d4014ce720ab13d55 $
 
-EAPI=5
+EAPI=6
 
-inherit autotools eutils flag-o-matic pam toolchain-funcs user
+SCM=""
+[[ "${PV}" = 9999 ]] && SCM="git-r3"
+inherit autotools eutils flag-o-matic pam toolchain-funcs user ${SCM}
+unset SCM
 
 DESCRIPTION="screen manager with VT100/ANSI terminal emulation"
 HOMEPAGE="https://www.gnu.org/software/screen/"
-SRC_URI="mirror://gnu/${PN}/${P}.tar.gz"
+
+if [[ "${PV}" != 9999 ]] ; then
+	SRC_URI="mirror://gnu/${PN}/${P}.tar.gz"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+else
+	EGIT_REPO_URI="git://git.savannah.gnu.org/screen.git"
+	EGIT_CHECKOUT_DIR="${WORKDIR}/${P}" # needed for setting S later on
+	S="${WORKDIR}"/${P}/src
+fi
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~sparc-fbsd ~x86-fbsd ~hppa-hpux ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
 CDEPEND="
@@ -23,10 +33,11 @@ RDEPEND="${CDEPEND}
 DEPEND="${CDEPEND}
 	sys-apps/texinfo"
 
-# Patches:
-# - Don't use utempter even if it is found on the system.
 PATCHES=(
+	# Don't use utempter even if it is found on the system.
 	"${FILESDIR}"/${PN}-4.3.0-no-utempter.patch
+	# PATH_MAX usage needs an include on Solaris
+	"${FILESDIR}"/${P}-solaris-PATH_MAX.patch
 )
 
 pkg_setup() {
@@ -35,8 +46,7 @@ pkg_setup() {
 }
 
 src_prepare() {
-	# Apply patches.
-	epatch "${PATCHES[@]}"
+	default
 
 	# sched.h is a system header and causes problems with some C libraries
 	mv sched.h _sched.h || die
@@ -64,12 +74,6 @@ src_configure() {
 	append-cppflags "-DMAXWIN=${MAX_SCREEN_WINDOWS:-100}"
 
 	if [[ ${CHOST} == *-solaris* ]] ; then
-		# https://lists.gnu.org/archive/html/screen-devel/2014-04/msg00095.html
-		#append-cppflags -D_XOPEN_SOURCE \
-		#	-D_XOPEN_SOURCE_EXTENDED=1 \
-		#	-D__EXTENSIONS__
-		#append-libs -lsocket -lnsl
-
 		# enable msg_header by upping the feature standard compatible
 		# with c99 mode
 		append-cppflags -D_XOPEN_SOURCE=600
@@ -98,9 +102,14 @@ src_compile() {
 }
 
 src_install() {
-	local tmpfiles_perms="0775" tmpfiles_group="utmp"
+	local DOCS=(
+		README ChangeLog INSTALL TODO NEWS* patchlevel.h
+		doc/{FAQ,README.DOTSCREEN,fdpat.ps,window_to_display.ps}
+	)
 
-	dobin screen
+	default
+
+	local tmpfiles_perms="0775" tmpfiles_group="utmp"
 
 	#
 	# In screen.c, the required directory mode, n, is defined as:
@@ -113,12 +122,12 @@ src_install() {
 	# ... so it appears that /usr/bin/screen is being installed with incorrect permissions.
 	#
 	if use multiuser; then
-		use prefix || fperms 4755 /usr/bin/screen
+		use prefix || fperms 4755 /usr/bin/screen-${PV}
 		tmpfiles_perms="0755"
 		tmpfiles_group="root"
 	else
-		use prefix || fowners root:utmp /usr/bin/screen
-		fperms 2755 /usr/bin/screen
+		use prefix || fowners root:utmp /usr/bin/screen-${PV}
+		fperms 2755 /usr/bin/screen-${PV}
 	fi
 
 	if use tmpfiles; then
@@ -129,28 +138,21 @@ src_install() {
 
 	insinto /usr/share/screen
 	doins terminfo/{screencap,screeninfo.src}
-	insinto /usr/share/screen/utf8encodings
-	doins utf8encodings/??
+
 	insinto /etc
 	doins "${FILESDIR}"/screenrc
 
 	pamd_mimic_system screen auth
-
-	dodoc \
-		README ChangeLog INSTALL TODO NEWS* patchlevel.h \
-		doc/{FAQ,README.DOTSCREEN,fdpat.ps,window_to_display.ps}
-
-	doman doc/screen.1
-	doinfo doc/screen.info
 }
 
 pkg_postinst() {
 	local rundir="${EROOT%/}/var/run/screen"
 	local tmpfiles_perms="0775" tmpfiles_group="utmp"
+
 	if use multiuser; then
 		tmpfiles_perms="0755"
 		if ! use prefix; then
-		tmpfiles_group="root"
+			tmpfiles_group="root"
 		fi
 
 		# Pre-merge permissions are being lost?!
