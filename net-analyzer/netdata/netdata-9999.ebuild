@@ -1,20 +1,20 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e2a78bc9ed58eea612ece16b2293673f838918b2 $
+# $Id: ce0d866baa5ec4c7203a9dd11b4cda3ac75e6b62 $
 
 EAPI=6
 PYTHON_COMPAT=( python{2_7,3_4,3_5} )
 
-inherit fcaps linux-info python-r1 systemd user
+inherit autotools fcaps linux-info python-r1 systemd user
 
 if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="git://github.com/firehol/${PN}.git"
-	inherit git-r3 autotools
+	inherit git-r3
 	SRC_URI=""
 	KEYWORDS=""
 else
-	SRC_URI="https://firehol.org/download/${PN}/releases/v${PV}/${P}.tar.xz"
-	KEYWORDS="amd64 x86"
+	SRC_URI="https://github.com/firehol/netdata/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	KEYWORDS="~amd64 ~x86"
 	RESTRICT="mirror"
 fi
 
@@ -30,7 +30,7 @@ HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="+compression mysql nfacct nodejs +python systemd cpu_flags_x86_sse2"
+IUSE="+compression mysql nfacct nodejs postgres +python systemd cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )"
@@ -50,6 +50,9 @@ RDEPEND="
 		dev-python/pyyaml[${PYTHON_USEDEP}]
 		mysql? (
 			|| ( dev-python/mysqlclient[${PYTHON_USEDEP}] dev-python/mysql-python[${PYTHON_USEDEP}] )
+		)
+		postgres? (
+			dev-python/psycopg:2[${PYTHON_USEDEP}]
 		)
 	)
 	nfacct? (
@@ -89,7 +92,7 @@ src_prepare() {
 
 src_configure() {
 	econf \
-		--localstatedir="/var" \
+		--localstatedir="${EPREFIX}"/var \
 		--with-user="${NETDATA_USER}" \
 		$(use_enable nfacct plugin-nfacct) \
 		$(use_enable cpu_flags_x86_sse2 x86-sse) \
@@ -129,6 +132,9 @@ src_install() {
 	rmdir -p "${ED}"/var/log/netdata "${ED}"/var/cache/netdata 2>/dev/null
 
 	fowners -R "${NETDATA_USER}":"${NETDATA_GROUP}" /usr/share/"${PN}" || die
+
+	insinto /etc/netdata
+	doins system/netdata.conf
 
 	#newinitd system/netdata-openrc "${PN}"
 	newinitd "${FILESDIR}"/"${PN}".initd "${PN}"
