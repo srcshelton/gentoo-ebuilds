@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: bb2759cbcbc30c9c806bace87c879b79931bf16d $
+# $Id: 41fd57c29a1a949e7c27cf5bf2539afaa29dc6dd $
 
 EAPI=5
 
@@ -39,7 +39,7 @@ RDEPEND="
 		dev-python/pygtk:2[${PYTHON_USEDEP}]
 		${PYTHON_DEPS}
 	)
-	system-lua? ( >=dev-lang/lua-5.2[deprecated] )
+	system-lua? ( >=dev-lang/lua-5.2:*[deprecated] )
 	ndiff? ( ${PYTHON_DEPS} )
 	nls? ( virtual/libintl )
 	nmap-update? ( dev-libs/apr dev-vcs/subversion )
