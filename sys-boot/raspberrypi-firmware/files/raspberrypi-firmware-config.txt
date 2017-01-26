@@ -207,8 +207,9 @@ disable_audio_dither=1
 ##device_tree_overlay=spi-dma
 
 #device_tree_overlay=i2s-gpio28-31
-#device_tree_overlay=spi-gpio35-39
 
+#device_tree_overlay=spi-gpio35-39
+#device_tree_overlay=spi0-cs,cs0_pin=8,cs1_pin=7
 # Re-enable hardware CS/CE (chip select) for SPI0
 #device_tree_overlay=spi0-hw-cs
 
