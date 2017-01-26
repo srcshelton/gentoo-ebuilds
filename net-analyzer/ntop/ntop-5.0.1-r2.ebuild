@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c4e1d2e997c78797a0d0c5fbd553d5038c28d449 $
+# $Id: cd47be5fa385b16b3d540ee9da9793736636f919 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -13,7 +13,7 @@ SRC_URI="mirror://sourceforge/ntop/ntop/Stable/${P}.tar.gz"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="amd64 ~arm hppa ia64 ~ppc ppc64 ~s390 ~sh sparc x86"
+KEYWORDS="amd64 ~arm hppa ia64 ppc ppc64 ~s390 ~sh sparc x86"
 IUSE="snmp ssl"
 
 COMMON_DEPEND="
