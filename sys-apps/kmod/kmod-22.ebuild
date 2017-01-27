@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 1c85eca6e2992674b8a095e50517a7e08af52daf $
+# $Id: 1fb1c7671a51cc3c689f5b96ea359fda5c828312 $
 
 EAPI=5
 
@@ -142,7 +142,7 @@ src_install() {
 	if use tools; then
 		local bincmd sbincmd
 		for sbincmd in depmod insmod lsmod modinfo modprobe rmmod; do
-			dosym /bin/kmod /sbin/${sbincmd}
+			dosym ../bin/kmod /sbin/${sbincmd}
 		done
 
 		# These are also usable as normal user
