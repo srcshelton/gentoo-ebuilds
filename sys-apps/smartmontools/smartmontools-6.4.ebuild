@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ca0d4ff300780c1efab19294da210cc329d25220 $
+# $Id: 49a2c8ca15dddc5a38532f27e1d919ae3f9967bc $
 
 EAPI="4"
 
@@ -14,8 +14,8 @@ else
 	KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 sparc x86 ~x86-fbsd ~x86-freebsd ~amd64-linux ~arm-linux ~ia64-linux ~x86-linux ~x64-macos"
 fi
 
-DESCRIPTION="Self-Monitoring, Analysis and Reporting Technology System (S.M.A.R.T.) monitoring tools"
-HOMEPAGE="http://smartmontools.sourceforge.net/"
+DESCRIPTION="Tools to monitor storage systems to provide advanced warning of disk degradation"
+HOMEPAGE="https://www.smartmontools.org"
 
 LICENSE="GPL-2"
 SLOT="0"
