@@ -1,6 +1,6 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d17802613198f13a82fb400d7ec7ccd42d96316c $
+# $Id: f3aa99b46c3d267991805249a834c2121858cf18 $
 # $Header: /var/cvsroot/gentoo-x86/sys-libs/db/db-5.1.29-r1.ebuild,v 1.3 2015/03/20 14:41:50 jlec Exp $
 
 EAPI=5
