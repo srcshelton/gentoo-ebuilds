@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit f09dba0423cc78932b81ef54f003505b3155f239.
+# commit b846de8b876e07de1829c7425339140eba92b864.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -225,10 +225,11 @@ disable_audio_dither=1
 #device_tree_overlay=spi2-2cs,cs0_pin=43,cs1_pin=44,cs0_spidev=okay,cs1_spidev=okay
 #device_tree_overlay=spi2-3cs,cs0_pin=43,cs1_pin=44,cs2_pin=45,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
 
-# MCP23S08/17 SPI GPIO expanders require one of the spi1-* or spi2-* options
-# above to be enabled if present on SPI1 or SPI2.
+# MCP SPI devices require one of the spi1-* or spi2-* options above to be
+# enabled if present on SPI1 or SPI2.
 #device_tree_overlay=mcp23s17,s08-spi<n>-<m>-present=?,s08-spi<n>-<m>-int-gpio=?  # SPI<n>, CS#<m>
 #device_tree_overlay=mcp23s17,s17-spi<n>-<m>-present=?,s17-spi<n>-<m>-int-gpio=?  # SPI<n>, CS#<m>
+#device_tree_overlay=mcp3008,spi<n>-<m>-present=?,spi<n>-<m>-speed=? # SPI<n>, CS#<m>
 
 # SD/MMC driver - choose only one
 #
