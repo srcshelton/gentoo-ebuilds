@@ -1,6 +1,6 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 1706a4a57961fa005c0336b8000c73b24da69ed1 $
+# $Id: d084145f421e82f8a19ba35d5f0d4ffdf2330ee6 $
 
 EAPI="5"
 
@@ -19,7 +19,7 @@ SRC_URI="ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/${P}.tgz
 
 LICENSE="OPENLDAP GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x86-freebsd ~amd64-linux ~x86-linux ~x86-solaris"
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~x86-solaris"
 
 IUSE_DAEMON="crypt experimental icu minimal samba slp systemd tcpd"
 IUSE_BACKEND="+berkdb"
