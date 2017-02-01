@@ -48,27 +48,43 @@ src_prepare() {
 	fi
 
 	sed -si \
+		-e 's|<?$|<?php|' \
+		www/peek.php \
+	|| die "PHP patching failed: ${?}"
+	sed -si \
 		-e 's|<? |<?php |g' \
-		www/*.php \
+		www/saveUpdateRabbit.php \
 	|| die "PHP patching failed: ${?}"
 
 	sed -si \
-		-e "s|'../etc/nabaztag_error.log'|'logs/error.log'|" \
-		www/*.php www/subroutines/logError.php \
+		-e "s|'/var/etc/nabaztag_error.log'|'./logs/error.log'|" \
+		www/*.php \
 	|| die "Log-location patching failed: ${?}"
 	sed -si \
-		-e 's|../etc/nabaztag_error.log|logs/error.log|' \
-		www/vl/p4.php www/vl/FR/p3.jsp \
+		-e "s|'/var/etc/nabaztag_error.log'|'../logs/error.log'|" \
+		www/subroutines/logError.php www/vl/p4.php \
+	|| die "Log-location patching failed: ${?}"
+	sed -si \
+		-e "s|'/var/etc/nabaztag_error.log'|'../../logs/error.log'|" \
+		www/vl/FR/p3.jsp \
 	|| die "Log-location patching failed: ${?}"
 
 	sed -si \
-		-e "s|../etc/api_calls.log|logs/apicalls.log|" \
-		www/*.php \
+		-e "s|'/var/etc/api_calls.log'|'../logs/apicalls.log'|" \
+		www/api*.php \
 	|| die "API log-location patching failed: ${?}"
 
 	sed -si \
-		-e 's|../etc/nabaztag_db.php|config/db.php|' \
-		www/*.php www/subroutines/*.php www/vl/p4.php www/vl/FR/p3.jsp \
+		-e 's|'/var/etc/nabaztag_db.php'|'./config/db.php'|' \
+		www/*.php \
+	|| die "Configuration patching failed: ${?}"
+	sed -si \
+		-e 's|'/var/etc/nabaztag_db.php'|'../config/db.php'|' \
+		www/subroutines/*.php www/vl/p4.php www/vl/FR/p3.jsp \
+	|| die "Configuration patching failed: ${?}"
+	sed -si \
+		-e 's|'/var/etc/nabaztag_db.php'|'../../config/db.php'|' \
+		www/vl/FR/p3.jsp \
 	|| die "Configuration patching failed: ${?}"
 
 	sed -rsi \
@@ -105,6 +121,11 @@ src_prepare() {
 
 	epatch "${FILESDIR}/${PN}-2.1.2-api.patch" || die "Patch failed"
 	epatch "${FILESDIR}/${PN}-2.00.patch" || die "Patch failed"
+
+	sed -si \
+		-e "/Could not connect: /s|'[^']*Could not connect: '|__FILE__ . ': Could not connect to host \"' . \$host . '\" database \"' . \$db . '\" as ' . \$user . ':' . \$pass . ' - ' |" \
+		www/*.php www/subroutines/*.php \
+	|| die "Logging improvement patching failed: ${?}"
 }
 
 src_install() {
