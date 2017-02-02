@@ -178,6 +178,8 @@ used to build perl)
 
 # Out-of-tree ebuilds
 
+* app-accessibility/svox-pico
+    * SVOX Pico TTS (aka 'pico2wave'), required by >www-apps/nabaztaglives-2.2.0
 * app-admin/openrc-restart-crashed
     * Check for services with status 'crashed', and optionally restart specified services
 * app-emulation/wa-linux-agent
