@@ -24,6 +24,7 @@ RDEPEND="
 	dev-lang/php
 	media-sound/lame
 	media-sound/mp3wrap
+	app-accessibility/svox-pico
 "
 
 need_httpd_cgi
@@ -122,6 +123,10 @@ src_prepare() {
 	epatch "${FILESDIR}/${PN}-2.1.2-api.patch" || die "Patch failed"
 	epatch "${FILESDIR}/${PN}-2.00.patch" || die "Patch failed"
 
+	sed -si \
+		-e 's/doTTS2(/doTTS3(/g' \
+		www/api.php \
+	|| die "Undefined function patching failed: ${?}"
 	sed -si \
 		-e "/Could not connect: /s|'[^']*Could not connect: '|__FILE__ . ': Could not connect to host \"' . \$host . '\" database \"' . \$db . '\" as ' . \$user . ':' . \$pass . ' - ' |" \
 		www/*.php www/subroutines/*.php \
