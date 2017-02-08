@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fd2169f21109d5505d7a5f37ec9f63c5d373c278 $
+# $Id: 6402475ba5c9b7e7af541ac4e68dd4b2679df3b6 $
 
 # To generate the man pages, unpack the upstream tarball and run:
 # ./configure --enable-install-program=arch,coreutils,hostname,kill
@@ -13,7 +13,7 @@ EAPI="4"
 inherit eutils flag-o-matic toolchain-funcs multilib
 
 PATCH_VER="1.1"
-DESCRIPTION="Standard GNU file utilities (chmod, cp, dd, dir, ls...), text utilities (sort, tr, head, wc..), and shell utilities (whoami, who,...)"
+DESCRIPTION="Standard GNU utilities (chmod, cp, dd, ls, sort, tr, head, wc, who,...)"
 HOMEPAGE="https://www.gnu.org/software/coreutils/"
 SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 	mirror://gentoo/${P}-patches-${PATCH_VER}.tar.xz
