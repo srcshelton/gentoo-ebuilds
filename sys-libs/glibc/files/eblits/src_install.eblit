@@ -1,6 +1,6 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a23173eb961c414ea22548355adee53f6f1ef66a $
+# $Id: 11ef2a4d2a159af6a8772f1a29d1cc74e9232456 $
 
 toolchain-glibc_src_install() {
 	local builddir=$(builddir $(want_linuxthreads && echo linuxthreads || echo nptl))
@@ -49,6 +49,12 @@ toolchain-glibc_src_install() {
 		# use the nptl linker instead of the linuxthreads one as the linuxthreads
 		# one may lack TLS support and that can be really bad for business
 		cp -a elf/ld.so "${ED}"$(alt_libdir)/$(scanelf -qSF'%S#F' elf/ld.so) || die "copying nptl interp"
+	fi
+
+	# Newer versions get fancy with libm linkage to include vectorized support.
+	# While we don't really need a ldscript here, portage QA checks get upset.
+	if [[ -e ${ED}$(alt_usrlibdir)/libm-${PV}.a ]] ; then
+		dosym ../../$(get_libdir)/libm-${PV}.so $(alt_usrlibdir)/libm-${PV}.so
 	fi
 
 	# We'll take care of the cache ourselves
