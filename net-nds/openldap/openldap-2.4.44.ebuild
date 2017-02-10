@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0b553596b32861b92007a878d52dbfdd33ad4bef $
+# $Id: 560b602b6ac622e062e82d1076488263bc0462be $
 
 EAPI="5"
 
@@ -35,7 +35,8 @@ REQUIRED_USE="cxx? ( sasl )
 # always list newer first
 # Do not add any AGPL-3 BDB here!
 # See bug 525110, comment 15.
-BDB_SLOTS='5.3 5.1 4.8 4.7 4.6 4.5 4.4'
+# Advanced usage: OPENLDAP_BDB_SLOTS in the environment can be used to force a slot during build.
+BDB_SLOTS="${OPENLDAP_BDB_SLOTS:=5.3 5.1 4.8 4.7 4.6 4.5 4.4}"
 BDB_PKGS=''
 for _slot in $BDB_SLOTS; do BDB_PKGS="${BDB_PKGS} sys-libs/db:${_slot}" ; done
 
