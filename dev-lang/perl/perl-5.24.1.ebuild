@@ -1,15 +1,15 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b51f82c3920adcb6c9d0b6a9e58aa3d69f966a32 $
+# $Id: 6cbbe0ddd0b559aaa326a3db829828e02da35a33 $
 
-EAPI=5
+EAPI=6
 
 inherit eutils alternatives flag-o-matic toolchain-funcs multilib multiprocessing prefix
 
 PATCH_VER=2
-CROSS_VER=1.1.1
+CROSS_VER=1.1.3
 
-PERL_OLDVERSEN="5.22.0 5.22.1 5.22.2"
+PERL_OLDVERSEN="5.24.0"
 MODULE_AUTHOR=SHAY
 
 SHORT_PV="${PV%.*}"
@@ -30,7 +30,7 @@ HOMEPAGE="http://www.perl.org/"
 
 LICENSE="|| ( Artistic GPL-1+ )"
 SLOT="0/${SHORT_PV}"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~ppc-aix ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="berkdb debug doc gdbm ithreads"
 
 RDEPEND="
@@ -57,17 +57,17 @@ dual_scripts() {
 	src_remove_dual      perl-core/Archive-Tar        2.40.100_rc   ptar ptardiff ptargrep
 	src_remove_dual      perl-core/CPAN               2.110.100_rc  cpan
 	src_remove_dual      perl-core/Digest-SHA         5.950.100_rc  shasum
-	src_remove_dual      perl-core/Encode             2.720.100     enc2xs piconv
-	src_remove_dual      perl-core/ExtUtils-MakeMaker 7.40.200_rc   instmodsh
-	src_remove_dual      perl-core/ExtUtils-ParseXS   3.280.0       xsubpp
-	src_remove_dual      perl-core/IO-Compress        2.68.1_rc       zipdetails
-	src_remove_dual      perl-core/JSON-PP            2.273.0.100_rc  json_pp
-	src_remove_dual      perl-core/Module-CoreList    5.201.610.192.200_rc corelist
+	src_remove_dual      perl-core/Encode             2.800.100_rc  enc2xs piconv
+	src_remove_dual      perl-core/ExtUtils-MakeMaker 7.100.200_rc  instmodsh
+	src_remove_dual      perl-core/ExtUtils-ParseXS   3.310.0       xsubpp
+	src_remove_dual      perl-core/IO-Compress        2.69.1_rc          zipdetails
+	src_remove_dual      perl-core/JSON-PP            2.273.0.100_rc     json_pp
+	src_remove_dual      perl-core/Module-CoreList    5.201.701.142.400_rc  corelist
 	src_remove_dual      perl-core/Pod-Parser         1.630.0       pod2usage podchecker podselect
-	src_remove_dual      perl-core/Pod-Perldoc        3.250.100_rc  perldoc
-	src_remove_dual      perl-core/Test-Harness       3.350.100_rc  prove
-	src_remove_dual      perl-core/podlators          2.5.3         pod2man pod2text
-	src_remove_dual_man  perl-core/podlators          2.5.3         /usr/share/man/man1/perlpodstyle.1
+	src_remove_dual      perl-core/Pod-Perldoc        3.250.300_rc  perldoc
+	src_remove_dual      perl-core/Test-Harness       3.360.100_rc  prove
+	src_remove_dual      perl-core/podlators          4.70.0        pod2man pod2text
+	src_remove_dual_man  perl-core/podlators          4.70.0        /usr/share/man/man1/perlpodstyle.1
 }
 
 check_rebuild() {
@@ -266,6 +266,8 @@ src_prepare() {
 		EPATCH_SINGLE_MSG="  ${patch} ..."
 		epatch "${WORKDIR}"/patches/${patch}
 	done < "${WORKDIR}"/patches/series
+
+	epatch "${FILESDIR}"/"${PN}-5.24-darwin_time_mutex.patch"
 
 	sed -i -e '/Gentoo/s:"/etc/ssl/certs/ca-certificates.crt":"@GENTOO_PORTAGE_EPREFIX@/etc/ssl/certs/ca-certificates.crt":' \
 		"${S}"/cpan/HTTP-Tiny/lib/HTTP/Tiny.pm || die "Patching HTTP::Tiny.pm for prefix failed"
