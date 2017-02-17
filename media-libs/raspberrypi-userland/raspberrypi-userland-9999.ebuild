@@ -1,9 +1,9 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c7448085bbb36b90fff2e51cae4e6c4c2665e754 $
+# $Id: cc5ecd0b827129cf2246d3d1da04be3a8496764d $
 
 EAPI=5
-inherit cmake-utils flag-o-matic git-r3
+inherit cmake-utils flag-o-matic git-r3 udev
 
 DESCRIPTION="Raspberry Pi userspace tools and libraries"
 HOMEPAGE="https://github.com/raspberrypi/userland"
@@ -12,19 +12,20 @@ SRC_URI=""
 LICENSE="BSD"
 SLOT="0/0"
 KEYWORDS="~aarch64 arm -*"
-IUSE="examples"
+IUSE="examples udev"
 
 DEPEND=""
 RDEPEND=""
 
 EGIT_REPO_URI="https://github.com/raspberrypi/userland"
 
+PATCHES=(
+	"${FILESDIR}"/${P}-gentoo.patch
+	"${FILESDIR}"/${P}-pid.patch
+)
+
 pkg_setup() {
 	append-ldflags $(no-as-needed)
-}
-
-src_prepare() {
-	epatch "${FILESDIR}"/${P}-pid.patch
 }
 
 src_configure() {
@@ -52,6 +53,11 @@ src_install() {
 	mv "${D}"/usr/include/interface/vmcs_host/linux/* \
 		"${D}"/usr/include/interface/vmcs_host/
 	rmdir "${D}"/usr/include/interface/vmcs_host/linux
+
+	if use udev; then
+		insinto "${D}"/$(get_udevdir)/rules.d
+		doins "${FILESDIR}"/92-local-vchiq-permissions.rules
+	fi
 
 	if use examples; then
 		dodir /usr/share/doc/${PF}
