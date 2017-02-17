@@ -82,16 +82,16 @@
  AC_PROG_INSTALL
  AC_PROG_MAKE_SET
  AC_PROG_EGREP
-@@ -552,9 +553,6 @@ freebsd*)
- 		#:
- 		# Use -O0 in debug so that variables do not get optimized out
- 		AX_CFLAGS_GCC_OPTION([-O0, -g])
--	else
--		# add optimise for size
--		AX_CFLAGS_GCC_OPTION([-Os])
- 	fi
- 	;;
- esac
+#@@ -552,9 +553,6 @@ freebsd*)
+# 		#:
+# 		# Use -O0 in debug so that variables do not get optimized out
+# 		AX_CFLAGS_GCC_OPTION([-O0, -g])
+#-	else
+#-		# add optimise for size
+#-		AX_CFLAGS_GCC_OPTION([-Os])
+# 	fi
+# 	;;
+# esac
 @@ -568,8 +566,6 @@ echo "----------------------------------
  #
  AC_TYPE_SIZE_T

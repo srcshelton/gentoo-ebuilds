@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: abee901f84419b90736449f28412c6a3bd43733d $
+# $Id: 32baec6ad6fa2b067ebd5dfafc6f2dda59519543 $
 
 EAPI=6
 
@@ -19,8 +19,9 @@ REQUIRED_USE="!server? ( !webserver )"
 DOCS="NEWS README.md ChangeLog"
 
 PATCHES=(
-	"${FILESDIR}"/${P}-suse.patch
 	"${FILESDIR}"/${P}-docs-install.patch
+	"${FILESDIR}"/${PN}-1.6.21-cflags.patch
+	"${FILESDIR}"/${P}-suse.patch
 )
 
 src_prepare() {

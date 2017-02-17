@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4e7f7656a072c222a2080728c8520ec977c9890e $
+# $Id: 4342f131eb28cb50f3866418377f20162f0c6c55 $
 
 EAPI=6
 
@@ -20,6 +20,7 @@ DOCS="NEWS README ChangeLog"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.6.19-docs-install.patch
+	"${FILESDIR}"/${PN}-1.6.21-cflags.patch
 	"${FILESDIR}"/${P}-suse.patch
 )
 
