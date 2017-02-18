@@ -1,11 +1,11 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 044cc0369ff133502aa9feae18c89899f88bb891 $
+# $Id: 94b8c3da25947bfc269f799e40d73d55cf841d82 $
 
 EAPI=6
 inherit pam systemd
 
-DESCRIPTION="a utility for monitoring and managing daemons or similar programs running on a Unix system"
+DESCRIPTION="Monitoring and managing daemons or similar programs running on a Unix system"
 HOMEPAGE="http://mmonit.com/monit/"
 SRC_URI="http://mmonit.com/monit/dist/${P}.tar.gz"
 
