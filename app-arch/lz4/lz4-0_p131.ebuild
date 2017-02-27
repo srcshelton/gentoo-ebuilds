@@ -1,6 +1,6 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a52ce2f561356079fc4bf237108f0d9e144dd94c $
+# $Id: 2065f915ffff63e4d27a56f825623b88801a7453 $
 
 EAPI=5
 
@@ -14,7 +14,7 @@ else
 	MY_PV="r${PV##0_p}"
 	MY_P="${PN}-${MY_PV}"
 	SRC_URI="https://github.com/Cyan4973/lz4/archive/${MY_PV}.tar.gz -> ${MY_P}.tar.gz"
-	KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~x86-linux"
 	S="${WORKDIR}/${MY_P}"
 fi
 
