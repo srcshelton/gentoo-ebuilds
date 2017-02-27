@@ -13,10 +13,9 @@
 
 EAPI="5"
 
-PYTHON_DEPEND="python? 2:2.7 3"
-SUPPORT_PYTHON_ABIS="1"
+PYTHON_COMPAT=( python2_7 )
 
-inherit python eutils autotools toolchain-funcs flag-o-matic multilib db-use user systemd
+inherit python-r1 eutils autotools toolchain-funcs flag-o-matic multilib db-use user systemd
 
 MY_PV="${PV/_p/-P}"
 MY_PV="${MY_PV/_rc/rc}"
@@ -95,10 +94,6 @@ pkg_setup() {
 	enewgroup named 40
 	enewuser named 40 -1 /etc/bind named
 	eend ${?}
-
-	if use python; then
-		python_pkg_setup
-	fi
 }
 
 src_prepare() {
@@ -280,15 +275,12 @@ src_install() {
 
 	if use python; then
 		install_python_tools() {
-			python_convert_shebangs $PYTHON_ABI bin/python/dnssec-checkds bin/python/dnssec-coverage
-			newsbin bin/python/dnssec-checkds dnssec-checkds-${PYTHON_ABI}
-			newsbin bin/python/dnssec-coverage dnssec-coverage-${PYTHON_ABI}
+			dosbin bin/python/dnssec-{checkds,coverage}
 		}
-		python_execute_function install_python_tools
+		python_foreach_impl install_python_tools
 
-		rm -f "${D}/usr/sbin/dnssec-"{checkds,coverage}
-		python_generate_wrapper_scripts "${D}usr/sbin/dnssec-checkds"
-		python_generate_wrapper_scripts "${D}usr/sbin/dnssec-coverage"
+		python_replicate_script "${D}usr/sbin/dnssec-checkds"
+		python_replicate_script "${D}usr/sbin/dnssec-coverage"
 	fi
 
 	# bug 450406
