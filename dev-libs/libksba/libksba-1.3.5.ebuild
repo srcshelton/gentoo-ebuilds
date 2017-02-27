@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2bd9a906b87ae96c1674bc8a728cd839d0bf7183 $
+# $Id: e7561597e15f32f5f15633ba295c846232a6dbef $
 
 EAPI="6"
 
@@ -10,7 +10,7 @@ SRC_URI="mirror://gnupg/libksba/${P}.tar.bz2"
 
 LICENSE="LGPL-3+ GPL-2+ GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~ppc-aix ~amd64-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~amd64-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="static-libs"
 
 RDEPEND=">=dev-libs/libgpg-error-1.8"
