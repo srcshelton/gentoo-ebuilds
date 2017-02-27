@@ -1,6 +1,6 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 4ab9ac2dd5d07893c5831b11d9a8d001cc5baa51 $
+# $Id: 2f33e6031be86bc6935e342334ac1ddf48801b53 $
 
 EAPI=5
 inherit eutils multilib systemd versionator
@@ -13,7 +13,7 @@ SRC_URI="http://www.balabit.com/downloads/files/syslog-ng/sources/${MY_PV}/sourc
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~x86-fbsd"
 IUSE="amqp caps dbi geoip ipv6 json mongodb pacct redis smtp spoof-source ssl systemd tcpd"
 RESTRICT="test"
 
