@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 47400ab6b2596067e9867fb8fae6c44cdc487907 $
+# $Id: ad16fcf5ec27e795caa65dfd76b49c6449153664 $
 
 EAPI="5"
 
@@ -296,7 +296,7 @@ pkg_setup() {
 	# Bug #322787
 	if use minimal && ! has_version "net-nds/openldap" ; then
 		einfo "No datadir scan needed, openldap not installed"
-	elif use minimal && has_version "net-nds/openldap" && built_with_use net-nds/openldap minimal ; then
+	elif use minimal && has_version 'net-nds/openldap[minimal]' ; then
 		einfo "Skipping scan for previous datadirs as requested by minimal useflag"
 	else
 		openldap_find_versiontags
