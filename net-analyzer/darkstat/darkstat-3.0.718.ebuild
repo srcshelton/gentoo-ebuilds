@@ -1,6 +1,6 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d70afed591f0285daf4d6cda586ef21637265083 $
+# $Id: fa96b8bfaab3d4f3bfa8f1a0751900992cf0a572 $
 
 EAPI=5
 inherit autotools eutils user
@@ -13,7 +13,10 @@ LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 ppc x86"
 
-DEPEND="net-libs/libpcap"
+DEPEND="
+	net-libs/libpcap
+	sys-libs/zlib
+"
 RDEPEND="${DEPEND}"
 
 DARKSTAT_CHROOT_DIR=${DARKSTAT_CHROOT_DIR:-/var/lib/darkstat}

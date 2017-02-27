@@ -1,9 +1,9 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: ddfcbaaeb099ff570df335aacfcf5e60addbabe1 $
+# $Id: 00f43b0840c125cb1f66e0d1ce73f7f0203ae921 $
 
-EAPI=5
-inherit autotools eutils user
+EAPI=6
+inherit autotools user
 
 DESCRIPTION="Network traffic analyzer with cute web interface"
 HOMEPAGE="http://unix4lyfe.org/darkstat/"
@@ -11,9 +11,13 @@ SRC_URI="http://unix4lyfe.org/${PN}/${P}.tar.bz2"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~ppc ~x86"
+KEYWORDS="amd64 ppc x86"
 
-DEPEND="net-libs/libpcap"
+DEPEND="
+	dev-libs/libbsd
+	net-libs/libpcap
+	sys-libs/zlib
+"
 RDEPEND="${DEPEND}"
 
 DARKSTAT_CHROOT_DIR=${DARKSTAT_CHROOT_DIR:-/var/lib/darkstat}
@@ -21,8 +25,10 @@ DARKSTAT_CHROOT_DIR=${DARKSTAT_CHROOT_DIR:-/var/lib/darkstat}
 DOCS=( AUTHORS ChangeLog README NEWS )
 
 src_prepare() {
+	default
+
 	sed -i -e 's|-flto||g' configure.ac || die
-	epatch_user
+
 	eautoreconf
 }
 
