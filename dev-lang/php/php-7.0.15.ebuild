@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9e4dffbbfbfb3b0c854aaa833aa2136e399166c6 $
+# $Id: 5822a9ae16c7b46bc94b28b60c21e04a849f8604 $
 
 EAPI=6
 
@@ -19,7 +19,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(get_version_component_range 1-2)"
-KEYWORDS="alpha amd64 ~arm hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 arm hppa ~ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
 # We can build the following SAPIs in the given order
 SAPIS="embed cli cgi fpm apache2 phpdbg"
