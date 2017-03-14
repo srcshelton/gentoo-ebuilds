@@ -1,6 +1,6 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c7f6d078437033132b309841d75554167aef2ce8 $
+# $Id: 373adebabe2e7c1e4f7628ed0462f2e08585a163 $
 
 EAPI=6
 
@@ -11,7 +11,7 @@ DESCRIPTION="PEAR Base System"
 HOMEPAGE="http://pear.php.net/package/${MY_PN}"
 SRC_URI="http://pear.php.net/get/${MY_P}.tgz"
 LICENSE="MIT"
-KEYWORDS="alpha amd64 ~arm hppa ~ia64 ~ppc ~ppc64 ~s390 ~sh ~sparc x86 ~amd64-linux ~x86-linux ~x64-macos ~x86-macos"
+KEYWORDS="alpha amd64 arm hppa ia64 ppc ppc64 ~s390 ~sh sparc x86 ~amd64-linux ~x86-linux ~x64-macos ~x86-macos"
 SLOT="0"
 IUSE=""
 
