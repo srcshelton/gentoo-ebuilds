@@ -171,7 +171,7 @@ src_install() {
 		           $(usev hostname)"
 		if use sep-usr; then
 			# Required by (at least) /etc/init.d/device-mapper
-			fhs+=" uniq"
+			fhs+=" uniq md5sum"
 		fi
 		mv ${fhs} ../../bin/ || die "Could not move essential binaries from /usr/bin to /bin"
 		if use kill; then
