@@ -24,6 +24,7 @@ REPO_URI="https://github.com/raspberrypi/firmware"
 #	ESVN_REPO_URI="https://github.com/raspberrypi/firmware/trunk/boot@${GITHUB_REV}"
 #else
 	EGIT_REPO_URI="${REPO_URI}"
+	EGIT_BRANCH="stable"
 	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
 							  # only ~200MB of data - the rest is (literally)
 							  # history :(

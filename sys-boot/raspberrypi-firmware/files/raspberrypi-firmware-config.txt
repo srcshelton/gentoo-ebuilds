@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit b846de8b876e07de1829c7425339140eba92b864.
+# commit bf5201e9682bf36370bc31d26b37fd4d84e1cfca.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -200,6 +200,7 @@ disable_audio_dither=1
 #device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
 #device_tree_overlay=i2c0-bcm2708,pins_0_1 # or pins_28_29, pins_44_45, pins_46_47
 #device_tree_overlay=i2c1-bcm2708,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
+#device_tree_overlay=i2c-bcm2708
 
 # The following overlays have been removed:
 ##device_tree_overlay=spi-bcm2708
@@ -283,8 +284,10 @@ disable_audio_dither=1
 #device_tree_overlay=smi # Uses GPIOs 2-25!
 #device_tree_overlay=smi-dev
 #device_tree_overlay=smi-nand
-#device_tree_overlay=i2s-mmap
 #device_tree_overlay=i2c-gpio,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
+
+# The following overlays have been removed:
+##device_tree_overlay=i2s-mmap
 
 #device_tree_overlay=dht11,gpiopin=4
 #device_tree_overlay=enc28j60,int_pin=25,speed=12000000
@@ -323,11 +326,13 @@ disable_audio_dither=1
 # DAC & ADC Audio devices & codecs:
 #device_tree_overlay=allo-piano-dac-pcm512x-audio # ,24db_digital_gain
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
+#device_tree_overlay=adau7002-simple,card-name=adau7002
 #device_tree_overlay=adau1977-adc
 #device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2 # chb_enable,chb_cfg=4,chb_datarate=4,chb_gain=2,chc_enable,chc_cfg=4,chc_datarate=4,chc_gain=2,chd_enable,chd_cfg=4,chd_datarate=4,chd_gain=2
 #device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
 #device_tree_overlay=audioinjector-wm8731-audio
 #device_tree_overlay=dionaudio-loco
+#device_tree_overlay=dionaudio-loco-v2 # ,24db_digital_gain
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain,slave
@@ -340,6 +345,7 @@ disable_audio_dither=1
 #device_tree_overlay=justboom-digi
 #device_tree_overlay=pisound
 #device_tree_overlay=raspidac3
+#device_tree_overlay=rpi-cirrus-wm5102
 #device_tree_overlay=rpi-dac
 #device_tree_overlay=rpi-proto
 #device_tree_overlay=rra-digidac1-wm8741-audio
@@ -374,6 +380,9 @@ disable_audio_dither=1
 # Infrared receiver:
 #device_tree_overlay=gpio-ir,gpio_pin=18,gpio_pull=down,rc-map-name=rc-rc6-mce
 #device_tree_overlay=lirc-rpi,gpio_out_pin=17,gpio_in_pin=18,gpio_in_pull=down,sense=-1,softcarrier=on,invert=off,debug=off
+
+# UART0/ttyAMA0 MIDI:
+#device_tree_overlay=midi-uart0
 
 #
 # Memory Options
