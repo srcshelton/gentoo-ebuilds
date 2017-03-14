@@ -1,0 +1,13 @@
+--- src/rc/checkpath.c.dist	2017-03-05 14:33:54.609646168 +0000
++++ src/rc/checkpath.c	2017-03-05 14:34:36.502348653 +0000
+@@ -109,8 +109,8 @@ static int do_check(char *path, uid_t ui
+ 			r = mkdir(path, mode);
+ 			umask(u);
+ 			if (r == -1 && errno != EEXIST) {
+-				eerror("%s: mkdir: %s", applet,
+-				    strerror (errno));
++				eerror("%s: mkdir(%s): %s", applet,
++				    path, strerror (errno));
+ 				return -1;
+ 			}
+ 			mode = 0;

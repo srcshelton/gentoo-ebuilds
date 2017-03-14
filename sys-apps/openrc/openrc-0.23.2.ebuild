@@ -83,6 +83,7 @@ src_prepare() {
 		eapply -p0 -- "${FILESDIR}/openrc-0.23.2-rc.conf.patch" || die "rc.conf.in eapply failed"
 	fi
 	eapply -p0 -- "${FILESDIR}/openrc-0.22.4-cgroup-race.patch" || die "cgroup eapply failed"
+	eapply -p0 -- "${FILESDIR}/openrc-0.23.2-checkpath-mkdir.patch" || die "checkpath eapply failed"
 }
 
 src_compile() {
