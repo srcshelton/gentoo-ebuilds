@@ -1,0 +1,10 @@
+files/texinfo-4.13-accentenc-test.patch	24de5bc983ad7bc97d529121269c60b1
+files/texinfo-4.13-docbook.patch	d9e27e4496a78dbc0f9ef1cc7ba8f6c3
+files/texinfo-4.13-texi2dvi-regexp-range.patch	0d3e2cb09d700dcdbc8d4569b6f683a5
+files/texinfo-4.13-tinfo.patch	86135d8c45cc9362f677d628142408de
+files/texinfo-4.13-xz.patch	6468e025edf91a58b2b48ccc64d88c3b
+metadata.xml	464ba430961eaf517c95e03785c005ff
+texinfo-4.13-r2.ebuild	44ad4b96abddbe16732fcbea850d43fb
+texinfo-5.2.ebuild	faa8d7c7b0ef67db3499272cf0d983b1
+texinfo-6.1.ebuild	80ab89a85c1773f1afa2756b95d96849
+texinfo-6.3.ebuild	d5304e850595d50a2873c6634304dcfd

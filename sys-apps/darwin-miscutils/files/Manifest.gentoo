@@ -1,0 +1,10 @@
+darwin-miscutils-10.ebuild	11b48760c4c47d5e41c8b56d75f46523
+darwin-miscutils-11.ebuild	be0041ea86946adeb20960db0927e3bb
+darwin-miscutils-6-r1.ebuild	49c5ff568d1b1d804ef3a89b5d749bce
+darwin-miscutils-8.ebuild	122a100378e8a1296a364447e87679dd
+darwin-miscutils-9.ebuild	2ab5faa5ade557440f6496ec99eaa8ac
+files/darwin-miscutils-5-error.patch	1044735598815c09d821c9ea428c9c69
+files/darwin-miscutils-5-stdlib.patch	b25e2f640ad164d52c9120604ed645fc
+files/darwin-miscutils-5-w.patch	a3e42cac609960fcf880d23ab0444f66
+files/darwin-miscutils-6-w64.patch	93e65437753e15c5c8933b6df1e5a9ff
+metadata.xml	ec53184f38fc118db3296b60b03fe1f5

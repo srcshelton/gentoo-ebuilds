@@ -1,0 +1,6 @@
+files/opendkim.init.r3	aba7a99cd24b7cb2c79e1837bd665b7b
+files/opendkim-r1.service	ae31e9fed2948d593cbc8d7130d46c0e
+files/opendkim.service	902917bce54c004257510c44d06ffaac
+metadata.xml	e18a3ae98ada02ebd9f37d89ff9e1f96
+opendkim-2.10.3.ebuild	90e5cd4dffbf2ca903423f79a9a0305d
+opendkim-2.10.3-r2.ebuild	ac27b2dd1d2f3bcaf508344b0b0a1f89

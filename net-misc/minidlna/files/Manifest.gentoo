@@ -1,0 +1,8 @@
+files/minidlna-1.0.25.confd	59d14c1bf3cd637138bfa58db7255d78
+files/minidlna-1.1.2.initd	fafe0bfd7ab88a935b4ac811e1223ba1
+files/minidlna-1.1.2.service	10a9f16aff33c0608423078e848e8cff
+files/minidlna-1.1.5.initd	f8fcf1dbc7c5c716dde91fc395f52610
+metadata.xml	f3dbae0ebd549d070dc2ef3a6fd24611
+minidlna-1.1.4.ebuild	507c4153ff77d1a31661ee5ce8c360c6
+minidlna-1.1.5.ebuild	e9be6fdbaa33ed68eb705727dbe5eef1
+minidlna-1.1.5-r1.ebuild	415dff336dabb0912a19295fee545fdd

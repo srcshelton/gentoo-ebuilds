@@ -1,0 +1,4 @@
+dnstop-20140915.ebuild	1fb22c8bee33b229523fa1aebdedca1c
+dnstop-20140915-r2.ebuild	01ce6d75e2fc62d95cc630681d930a79
+files/dnstop-20140915-pkg-config.patch	22b130a9d007a20804fe1f91847ea1ba
+metadata.xml	6c9a88f4a4e6735b0ac0ac54f10f4906

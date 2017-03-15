@@ -1,0 +1,14 @@
+files/readline-5.0-no_rpath.patch	d5f28667389d9681136307274ebc1f28
+files/readline-5.2-no-ignore-shlib-errors.patch	8590d6315b384ae4d24f96dc8904fb07
+files/readline-6.2-rlfe-tgoto.patch	d07ad4b03452a60a4f5f3e41c01f8528
+files/readline-6.3-fix-long-prompt-vi-search.patch	fe1387b1d3659a718d59f7928adea58e
+files/readline-6.3-read-eof.patch	35b21dc7ec5c0f25a5dfa3bda397ad8c
+files/readline-7.0-headers.patch	234e4036f940293254d289bf9b1b9582
+files/readline-7.0-missing-echo-proto.patch	11667fe1542ae5e1670be451a413e40f
+metadata.xml	63ea1118b02b1b490e787e4fea75b85e
+readline-4.3_p5.ebuild	0ea8562958a6bdf3a85efa8856a94cac
+readline-5.2_p14.ebuild	f283329a70795cc745234dbabde275fc
+readline-6.2_p5-r2.ebuild	9caedd9420d9f947eb198fe83e100fab
+readline-6.3_p8-r3.ebuild	3b7326e8501b5564972146d19f64b1f4
+readline-7.0_p1-r1.ebuild	3bfc2e4199f9c504387aed3859023175
+readline-7.0_p3.ebuild	0c6510af7ee98cb7b8d0cc747c983237

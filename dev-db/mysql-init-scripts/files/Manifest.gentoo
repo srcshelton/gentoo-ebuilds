@@ -1,0 +1,12 @@
+files/conf.d-2.0	60f744ee1054d0f27b1ff5effa603c23
+files/init.d-2.0	240b647bf11e6065ace4f84b48ef6ff6
+files/init.d-s6	0192e88617989de3127cc33ca29a0a0f
+files/logrotate.mysql	bb37aa3ad2dbdd8746efc7413766244d
+files/log-s6	e461d47e84043b5aa59eebd5b01bab99
+files/mysql.conf	32f30449d3111714fe190931d08fdb8c
+files/mysqld_at-v2.service	8d2ea5abe5f1964d226d334deab217d2
+files/mysqld-v2.service	bbfa60a68eaceffe80b97cf2240a97c2
+files/mysqld-wait-ready	d2dd78b5a04a0ba4d7f76311a57bd2e6
+files/run-s6	9d6cc82cc0346fdf6272c7a2f6d3a73d
+metadata.xml	9248ae94524cdc717e2e50a65d909fcd
+mysql-init-scripts-2.1-r1.ebuild	190e52d532f8684cde607cd630abeb38

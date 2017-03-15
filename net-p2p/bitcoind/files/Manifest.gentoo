@@ -1,0 +1,8 @@
+bitcoind-0.13.0.ebuild	f52230f47f2e3d8c1e3cb6e5626d6671
+bitcoind-0.13.1.ebuild	c5be2d27403c44aa4be162d7f9959e1a
+bitcoind-0.13.2.ebuild	0c511106086bc8108d076f933f573644
+bitcoind-9999.ebuild	2e2f23a964479d9e005c41dfc145a594
+files/bitcoin.conf	ec2bf8c47e9f04e2f2c4c39a168830c5
+files/bitcoind.logrotate-r1	7cf7c72bb2669b69f81a7e19302d24b4
+files/bitcoind.service	961ffe2481b49a78133c80e44aaa5abc
+metadata.xml	ad25799b6737c1788f5a95f0172890e7

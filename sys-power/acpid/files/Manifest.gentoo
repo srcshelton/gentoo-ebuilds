@@ -1,0 +1,13 @@
+acpid-2.0.23.ebuild	c055a3cf3008f9013c2084c56e0fe22e
+acpid-2.0.27.ebuild	169958026927f1fea9c3d493e676a251
+acpid-2.0.28.ebuild	6a52f2af589888985a85c3a09762597d
+files/acpid-1.0.4-default	414d143f4c5e83c422f706f671820e6d
+files/acpid-1.0.6-default.sh	a8f74f384016faf6e404b24b553224da
+files/acpid-2.0.16-conf.d	1c19d202fe3add6aecec053036ad38be
+files/acpid-2.0.16-init.d	f1f0f98ccf7ab2ba870550f96e02abba
+files/acpid-2.0.25-add_mate-power-manager.patch	a6359e33995676df5c84996c48a6b9ce
+files/acpid-2.0.25-kde4.patch	3fedf06035bef93dcd41f2c049e2e630
+files/acpid-2.0.26-init.d	bb859635324aec19c3910b06bad47742
+files/systemd/acpid.service	10290f69491206cd104654e5b900b661
+files/systemd/acpid.socket	d11700eb136e0489835ddaf977a7905b
+metadata.xml	cf1c033bc6592e4ae0af7c4073649400

@@ -1,0 +1,6 @@
+files/minissdpd-1.2-remove-initd.patch	ab5cb0b3b269bc30bbc8f8d1b9f631af
+files/minissdpd.confd	9d0ceb5535561a9b28421a49dfc1732c
+files/minissdpd.initd-r2	6eb9b83478bebced6d5a07d823f28a6f
+metadata.xml	d1e5a0fa8c0ba0bf596f4e2f5c994587
+minissdpd-1.5.20160301.ebuild	2c48368339d07d5c7745f590d9d40256
+minissdpd-1.5.20161216.ebuild	d8cad637d5ec516a9d1ab2f668b95625

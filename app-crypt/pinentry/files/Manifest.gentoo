@@ -1,0 +1,6 @@
+files/pinentry-0.8.2-ncurses.patch	debc2d0a61b10f940349c808524e9f15
+files/pinentry-0.9.7-require-CPP11-for-qt-5-7.patches	85201ae5da6eefbb0c708d57bfb59355
+files/pinentry-1.0.0-build.patch	3b0b191c09745a4978a99af3c71349fe
+metadata.xml	06680c105e1c5fb418d47c9656b0db70
+pinentry-0.9.7-r1.ebuild	8e679633ac4efce6e309a060af9e0b93
+pinentry-1.0.0.ebuild	500907e4952cd50d4a27f9940a7f67c2

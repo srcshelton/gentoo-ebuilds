@@ -1,0 +1,7 @@
+files/raspberrypi-mkimage-0_p20120201-args-uncompressed.txt	9335d1263fd426215db69841a380ea26
+files/raspberrypi-mkimage-0_p20120201-boot-uncompressed.txt	a00e424e2fbb8c5a5f77ba2c4871bed4
+files/raspberrypi-mkimage-0_p20120201-imagetool-uncompressed.patch	31f3cba42dfc928514cdaf68f63c536b
+files/raspberrypi-mkimage-0_p20120201-imagetool-uncompressed.py	501628aa0a2659d0cd0136dfeecf99c1
+files/raspberrypi-mkimage-0_p20120201-imagetool-uncompressed-python3.patch	ead8dbe6170906acf50aa5eac9d64cce
+metadata.xml	2815b48b769490676ea51331dd8e6764
+raspberrypi-mkimage-0_p20120201.ebuild	cbb2027b3e37aa9986d093277ba4a65d

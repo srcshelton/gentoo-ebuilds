@@ -1,0 +1,14 @@
+files/libxslt-1.1.28-AC_PATH_TOOL.patch	7a27aa294919fec409700f87c63a3322
+files/libxslt-1.1.28-attribute-type-preprocessing.patch	b97b695cbe4171f8cb10df41f652aba5
+files/libxslt-1.1.28-broken-fprintf-parameters.patch	814f56084f3dc5669f88da2ef31be8c7
+files/libxslt-1.1.28-disable-static-modules.patch	480ab6b80a31685358f3b827849796c6
+files/libxslt-1.1.28-exslt-str-replace.patch	fcdd4db557c2b21c6aea9092008cffe0
+files/libxslt-1.1.28-fix-quoting-xlocale.patch	fae0b2ebea81ced74b10d8b617987a1b
+files/libxslt-1.1.28-seed-pseudo-random-generator.patch	506b134f6d4935989e4c8c216dea8359
+files/libxslt-1.1.28-simplify-python.patch	8b111841e4ab3f3da830045688d110c2
+files/libxslt-1.1.29-cygwin.patch	2bd1683ff99d60ad7a978b0adddefba4
+files/libxslt.m4-libxslt-1.1.26.patch	61b520bbd42006c16bbfc85bc5342b96
+libxslt-1.1.28-r5.ebuild	5e8af60f28b739a3a21bc722bfb929c3
+libxslt-1.1.29.ebuild	92e975a8b557fa47b62b37f9748e4a74
+libxslt-1.1.29-r1.ebuild	e1aadb4139a77bb2c0246bd8c3aa7ad2
+metadata.xml	f400f3d851c60437b9e5996528ccd5da

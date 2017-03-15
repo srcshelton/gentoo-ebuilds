@@ -1,0 +1,5 @@
+eselect-php-0.9.2.ebuild	0af482be4b1556f07d8973989a402c61
+files/70_mod_php5.backcompat.conf	f6b4bb324545d7adc5a58f7932a1e711
+files/php-fpm.conf	c60343df74f8e1afb13b084d5c0e47ed
+files/php-fpm-launcher	b496465f49a34ffdcb087fad5224020f
+metadata.xml	f8eb8808673eb8c1b35ead2d20c6e544

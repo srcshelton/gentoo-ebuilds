@@ -1,0 +1,15 @@
+files/47_mod_dav_svn.conf	5ddfdaf223cd35f29ecc46ab4ebee01e
+files/70svn-gentoo.el	febe7d642a09f49a4f45b51bf950f9c3
+files/subversion-1.5.4-interix.patch	5c7231c2ae2a4ead39ae8929a672fe69
+files/subversion-1.5.6-aix-dso.patch	201d3903c69f2f4eda51d8033fd2e03f
+files/subversion-1.8.0-hpux-dso.patch	60659928f6a79933dc7c7b16f7750447
+files/subversion-1.8.16-javadoc-nolint.patch	406415c520dd6b0740f75f82013aca1c
+files/subversion-1.8.1-revert_bdb6check.patch	f86632d17c03a0e96f20781903b9f6dc
+files/subversion-1.8.5-swig-python-no-gnome-keyring.patch	0999326d27243375153fabcbebca3084
+files/subversion-fix-parallel-build-support-for-perl-bindings.patch	4f8c45bfbc5efcb74631456798eeee3a
+files/svnserve.confd	67b3b8ea2641afb53ae1b1d064bc8a95
+files/svnserve.initd3	afac1fa0155957af636e3b8df6571922
+files/svnserve.xinetd	027fc7b3c7713c23f01cf83f118cb8ff
+metadata.xml	d2dc8da7b2ce3a15ecac3462fe2486f3
+subversion-1.8.17.ebuild	25f67af52f7f4e107fccdd58cc809931
+subversion-1.9.5.ebuild	6c677ba6049d43b7e09d2182a23380f0

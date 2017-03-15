@@ -1,0 +1,9 @@
+baselayout-prefix-1.12.14.ebuild	1add57b420945f054c1b2b72c74a001d
+baselayout-prefix-1.12.14-r1.ebuild	3e2c2bfdc873efc853a0561ff2cbd229
+baselayout-prefix-1.12.5-r11.ebuild	2e711195a4abe2d99c56ec14384e0769
+baselayout-prefix-2.2-r3.ebuild	a37d8da4d7cde8293b1ecf5eaa29007b
+baselayout-prefix-2.2-r4.ebuild	1192f19388f54e3cd9eb5c735382dc9d
+baselayout-prefix-2.2-r5.ebuild	a1968a0d66c192586e6c83fede63c2c8
+files/baselayout-1.12.5-prefix-chaining.patch	34c3a471a19c82a020f3ac9fd09a6bcd
+files/baselayout-1.12.5-prefix-no-consoletype.patch	a0c63e88bb19566d05539b693136c533
+metadata.xml	319330b77e3b7a65446c641215d0f783

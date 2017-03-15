@@ -1,0 +1,5 @@
+files/gnupg-2.1.16-gpgscm-Use-shorter-socket-path-lengts-to-improve-tes.patch	956b017af4ae22404ffd14ec67ca02d1
+gnupg-1.4.21.ebuild	3316468c7245363b04dd01697c4e1a11
+gnupg-2.1.15.ebuild	e30176b94953d033ca4c2e97a38a71c3
+gnupg-2.1.18.ebuild	9d1a760650a5f202dc74340dde7984d5
+metadata.xml	fd8fc8b49abfbef7837acf568254856e

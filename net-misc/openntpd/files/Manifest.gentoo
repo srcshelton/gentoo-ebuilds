@@ -1,0 +1,5 @@
+files/openntpd.conf.d-20080406-r6	4bd0344513e299019a3bc653c756a9d4
+files/openntpd.init.d-20080406-r6	a4315486356b7488422712cca6525f5a
+files/openntpd.service-20080406-r4	dae5aba4830de37fefb8dafa20d4fd73
+metadata.xml	06a149c9dfbc0875ca9686dc77a77ef0
+openntpd-6.0_p1.ebuild	b33847aa3138d1725f266ca43e947ace

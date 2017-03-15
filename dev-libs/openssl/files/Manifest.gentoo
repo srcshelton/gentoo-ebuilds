@@ -1,0 +1,17 @@
+files/gentoo.config-0.9.8	edec50398223ab81942a48c88ba6efea
+files/gentoo.config-1.0.2	116281a066b409d15958585c4c543e3c
+files/openssl-0.9.8e-bsd-sparc64.patch	88cedd3c5f30f6c1e43d09bae981132e
+files/openssl-0.9.8h-ldflags.patch	696e909811db7b64497f0210e070a7f9
+files/openssl-0.9.8m-binutils.patch	d243d76b4a6f2b0bc30a31faed38cdea
+files/openssl-1.0.0a-ldflags.patch	227c71483a155c1229778be2ab877b03
+files/openssl-1.0.1p-default-source.patch	8bfe90ca42d26d545b3d5bebfb1c6a23
+files/openssl-1.0.2a-parallel-install-dirs.patch	50740f12bd1e983f370240d9cad11107
+files/openssl-1.0.2a-parallel-obj-headers.patch	f5702ee42e0df918cb5cf7165c5ec4ab
+files/openssl-1.0.2a-parallel-symlinking.patch	c280a7b3c19dbd6fe1503c04cea766bf
+files/openssl-1.0.2a-x32-asm.patch	864d6137068718df75b5d9fd621c497f
+files/openssl-1.0.2i-parallel-build.patch	a3bcb33d5af0d96efc8f2aca0e4c9ed4
+files/openssl-1.0.2-ipv6.patch	44cecb26531fc81d48348167c1668503
+metadata.xml	438205b1bfe4b8ae2eacee42d36785b9
+openssl-0.9.8z_p8.ebuild	9d1519893ae43cb492c8b3bb309140e3
+openssl-1.0.2k.ebuild	8f2185c5b5d253bbfdc19980b4a97ba1
+openssl-1.1.0e.ebuild	60e84edc4b3c814dc7fdac4cc1177fc3
