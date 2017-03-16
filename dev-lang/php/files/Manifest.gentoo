@@ -5,6 +5,6 @@ files/php-fpm_at-simple.service	fe321a1da01ee2bcc20c976bd0586c9b
 metadata.xml	61557739a83d127226de2e9fb2e639a1
 php-5.6.30.ebuild	7f23350a884ef84575738f87d009f786
 php-5.6.30-r1.ebuild	a4cac8304f1139f066b18983b15707ad
-php-7.0.15.ebuild	7ed2b892a7fff0fe7bf9ce8cdc6ef4f3
+php-7.0.15.ebuild	9f1bf2b0fd546a797557381e2985f03b
 php-7.0.16.ebuild	e1503b025d7f6139f42103e56ba23aab
 php-7.1.2.ebuild	9e3a0d0e733740c9074d2cbb40ce7b0a
