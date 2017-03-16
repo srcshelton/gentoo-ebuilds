@@ -22,10 +22,10 @@ files/nvidia-drivers-settings.desktop	93b5f91ffeb26c6f76e0905d2deb7dcd
 files/NVIDIA_glx-defines.patch	3d8b3ecb3827e2e3a9a45ac6c3210a0a
 files/NVIDIA_glx-glheader.patch	32901fb95c4fdc6cfa6b762498240b3c
 files/nvidia-persistenced.conf	b3ae237ec9c8baa1240cbf922546a858
-files/nvidia-persistenced.init	12c28f926c67cfcf5d8c087aadf15f61
+files/nvidia-persistenced.init	6bb83f10e613b8782e26c8d653b17fdc
 files/nvidia-rmmod.conf	209ced823c60552ecce18394524c44d4
 files/nvidia-settings.desktop	33e6e14d9f67c2ac4568f99fa765efdb
-files/nvidia-smi.init	4f6a82e7d01573edbdece43198764e78
+files/nvidia-smi.init	08fa3717932bdae0f5490a1456add68e
 files/nvidia.udev-rule	70e659dca8f313dec7581ed7a349986c
 files/nvidia-udev.sh	257f3adeea1d1a0b228fea0ab6a96d3e
 files/nvidia-udev.sh-r1	2cfbc20f3e47ba2af5db724fea652ba7

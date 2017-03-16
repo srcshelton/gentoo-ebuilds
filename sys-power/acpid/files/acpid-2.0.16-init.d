@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cd57da85fbb37e80b05896f01f8e9582cb5212e4 $
 
 extra_started_commands="reload"
 command="/usr/sbin/acpid"

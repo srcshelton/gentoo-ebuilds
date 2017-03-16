@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2011 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 292c366409a007743a15dc2c906706e85010ccf7 $
 
 depend() {
 	need localmount

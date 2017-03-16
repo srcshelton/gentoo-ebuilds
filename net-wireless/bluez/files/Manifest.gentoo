@@ -1,11 +1,12 @@
 bluez-5.43-r1.ebuild	705c45aa6d3ab4ac244b35b0ea31f9ea
+bluez-5.44.ebuild	f43869c08d7795f4a09e9aed9bcff1a5
 files/0001-Allow-using-obexd-without-systemd-in-the-user-sessio.patch	4a78cf07e98bc1961774a0971dd5d7c9
 files/0001-obex-Use-GLib-helper-function-to-manipulate-paths.patch	a8b400b0c002ad3374c196360ada60bb
 files/0002-autopair-Don-t-handle-the-iCade.patch	849972dedef4d494df2a31be7d16bac5
 files/0004-agent-Assert-possible-infinite-loop.patch	7eca6c13dc122a6ae65dc9dbb38fc1c1
-files/bluetooth-init.d-r3	fca47f9592b052c37d6f76bd99531abc
+files/bluetooth-init.d-r3	879d5563dcf13c49d4a0cc45fd490836
 files/bluez-5.39-systemd-quote.patch	4d1fd610314eae202f72eb8d5302cdfc
 files/bluez-plugdev.patch	ebdbc9fb528c09fa62d66518c4ea12f2
 files/bluez-udevadm-path.patch	2d19e079253cc9d600a457bf87b26f32
-files/rfcomm-init.d-r2	d3db9c336fe9e59545650887aa2fce51
+files/rfcomm-init.d-r2	94d600dd7a7e4c8eb3cd59cd2d409c51
 metadata.xml	bf87d4e311f2fde35929dacf057867eb

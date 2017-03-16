@@ -1,7 +1,7 @@
 files/3.0.0-spamd.conf	e3ffe0e81db2bd4538f88e64fd8c468f
-files/3.3.1-spamd.init	1726985390b9941f7df5e76fe96f2550
+files/3.3.1-spamd.init	ef9182d0003aa14063317b2fb2061d28
 files/3.4.1-spamd.conf	23aeab9bd84810bf4c5980ceaa3a826a
-files/3.4.1-spamd.init	3a5e77a9f0c657823b6d24ec15abd983
+files/3.4.1-spamd.init	5ff2f90276de27d3e3dc776a78ea76ad
 files/secrets.cf	d3b6df49d772fdf4425d4c2376bc7173
 files/spamassassin-3.4.1-bug_7199.patch	b41faee2973a582c6efd045f7c14678d
 files/spamassassin-3.4.1-bug_7223.patch	19e09576055dcb2eb78d05ee3c511f2d

@@ -1,7 +1,7 @@
 files/4.2/samba4.confd	3c3a8578e562dcb3cf6ffe29123b773f
-files/4.2/samba4.initd-r1	6cb05d2ff328eceab31c072ba3215dfe
+files/4.2/samba4.initd-r1	bb182927943ec5f725e789cc483c0497
 files/4.4/samba4.confd	3c3a8578e562dcb3cf6ffe29123b773f
-files/4.4/samba4.initd-r1	6cb05d2ff328eceab31c072ba3215dfe
+files/4.4/samba4.initd-r1	bb182927943ec5f725e789cc483c0497
 files/nmbd.service	46bac3375dcf25baea4699226410987a
 files/samba-4.2.3-heimdal_compilefix.patch	4502917ddded195257c9a5e86fecb1c4
 files/samba-4.2.7-pam.patch	64721c6aa1c285b719a8e46ff7711b56
@@ -16,7 +16,6 @@ files/winbindd.service	03257dd11fc041d59e612c02a54ef4c0
 metadata.xml	4f12fd34a090174ac2b2a4d03100adea
 samba-4.2.11.ebuild	77ab10d2bb6e915c96d620fcfe5550c6
 samba-4.2.14.ebuild	e8b7f007e6bee6cb8ad898415a6afc63
-samba-4.5.4.ebuild	0a0423ed7e1b44aa68d7bc524920cc58
 samba-4.5.5.ebuild	0a0423ed7e1b44aa68d7bc524920cc58
-samba-4.6.0_rc2.ebuild	d4a6903afb96dc5bfbb43d5d4283568b
-samba-4.6.0_rc3.ebuild	34e2e6e987c9ebfe26c62bf0cc894909
+samba-4.5.6.ebuild	0a0423ed7e1b44aa68d7bc524920cc58
+samba-4.6.0.ebuild	26059996b439a82fd92cf2ba68f6bf94

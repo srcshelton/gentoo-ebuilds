@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 3c827d5fafa0f85d66811a3557417d194c71285c $
 
 pid_file="/var/run/zabbix/zabbix_agentd.pid"
 

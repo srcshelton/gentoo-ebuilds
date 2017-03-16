@@ -18,10 +18,10 @@ files/cyrus-sasl-2.1.26-missing-size_t.patch	5adf8edb5a88479a1f949284e86622e0
 files/cyrus-sasl-2.1.26-send-imap-logout.patch	ab6d20376c33faad7f640c9e62bbe21a
 files/cyrus-sasl.conf	85927467e3abc0f2ed6b951688920e90
 files/java.README.gentoo	bc046561db59ed3f4d0cc417b099c2f9
-files/pwcheck.rc6	a4a40664898d0ebb6e310cd49399b63e
+files/pwcheck.rc6	b0764f83dd5653ba781944f493a36682
 files/pwcheck.service	7ef6078c2819376e4d8c7ea071fc550d
-files/saslauthd-2.1.26.conf	cf21525431d34ad33b74ffdc4204d2af
-files/saslauthd2.rc7	1a28a45dff3a28957f30518e775da171
+files/saslauthd-2.1.26.conf	aa37c4b247bfdea355400c82ba898090
+files/saslauthd2.rc7	159feebb5212ad10f4a018e6360e0ddf
 files/saslauthd.pam-include	a1b5b72d1285487654685fc497aa81b5
 files/saslauthd.service	ad64019ce5776f9723364aa3e926b3c8
 metadata.xml	bc3d26f61ad7bfca87ecf40109337150

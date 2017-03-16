@@ -1,11 +1,11 @@
 files/cgconfig.confd	7743c134ead2422fbd375447c4c9654c
 files/cgconfig.confd-r1	edb4a0019e1c9bc50139a68c0d91912c
 files/cgconfig.initd	48c744a9fe799a0cd30542ea637bb9b2
-files/cgconfig.initd-r1	17f7d0c49e9ad1add162c6114b875584
+files/cgconfig.initd-r1	8f0797ba3706ed04ad29919036c76b06
 files/cgred.confd	f36926f1a968d3ee5fd7f0d7a6a7167e
 files/cgred.confd-r2	aa7adbe74bd38e52c1da3a3f5fdb1ff4
 files/cgred.initd	87167fc2dcb717b9058b8e4528e82206
-files/cgred.initd-r1	5a197bb7e1945c5c19268f3eab4d6043
+files/cgred.initd-r1	aa40f6f18a4a63b99c45b54a9da9738f
 files/libcgroup-0.41-reorder-headers.patch	906a9da7918aacdc097e2a1d4be73ce6
 files/libcgroup-0.41-replace_DECLS.patch	04f6f590457b099b0345fc004ed47831
 files/libcgroup-0.41-replace_INLCUDES.patch	2ac7727974c4dbd0bec119774bc91746

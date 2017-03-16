@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 98a7cbe225a5bd474d3c8d57df81dc94f8284cc8 $
 
 pidfile="/var/run/nvidia-persistenced/nvidia-persistenced.pid"
 

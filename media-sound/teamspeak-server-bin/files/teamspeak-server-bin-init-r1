@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 12592412748fe9e413480f1884a361542f460a36 $
 
 DIR="/opt/teamspeak3"
 name="TeamSpeak Server"
@@ -18,7 +17,7 @@ start_pre() {
 	# Ensure that ts3-server finds all custom shared objects on startup
 	export LD_LIBRARY_PATH="${DIR}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
-	# ts3-server complains if LANG ic 'C' or unset...
+	# ts3-server complains if LANG is 'C' or unset...
 	if [ -n "${TS3_LANG:-}" ]; then
 		export LANG="${TS3_LANG}"
 	else

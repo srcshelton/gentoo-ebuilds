@@ -17,7 +17,7 @@ files/dhcp-4.3.4-dhclient-ntp.patch	87213a316ab7c6901742a17155f408aa
 files/dhcpd4.service	c1fa04bf64d3dc401ba423b6e254316e
 files/dhcpd6.service	608beb1d1d588f63be7457d6f586d813
 files/dhcpd.conf2	026570f93fe76d2cdb0bbe6782b3ea5a
-files/dhcpd.init5	2008298abc9cd13e5b9b1894a5629be6
+files/dhcpd.init5	060005ff31ce7f34c5a9a6405f85156c
 files/dhcpd.tmpfiles	b7f8b070cfbcd527f11cfb809fddeb3a
 files/dhcrelay4.service	37190b99b1a979a4002a1784557a6916
 files/dhcrelay4.service.conf	025777d958c625b7419d490149e06790
@@ -25,5 +25,5 @@ files/dhcrelay6.conf	586a3ccc71627b40c83b8e1624afe0cf
 files/dhcrelay6.service	c1b5f53c272ded4ae27a17ddd4b31015
 files/dhcrelay6.service.conf	6320ef22b13c7fe70b2542efbf51803e
 files/dhcrelay.conf	e1892c0862c9b2cdcfbf68bb6d8992de
-files/dhcrelay.init3	0421df38128adafa6280d90d6efba8eb
+files/dhcrelay.init3	f1303e0c74c9df636753792480a369ca
 metadata.xml	5f48b03ab7d072acd5c0e8db6d5cc0dc

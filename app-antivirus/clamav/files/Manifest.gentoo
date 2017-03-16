@@ -12,7 +12,7 @@ files/clamav-milter.service-r1	5b1a1068937b6f0e20d88ae6f6869fbf
 files/clamd_at.service	34a7ca374399ec3969aa72253bbee6ad
 files/clamd.conf	7ad1864f4af881d10a8c613ea97e7648
 files/clamd.conf-r1	af1226accc2fc562fbbb88101fc9f61e
-files/clamd.initd-r6	783a0970651d782dbc1cdb48813cb90a
+files/clamd.initd-r6	75d3ed75da66d808cfd70da0e29dc609
 files/clamd.service	3f4b654916505c1bb3b8ee0a0ed3eaea
 files/freshclamd.service	9ea7c696979f3977120791bdb355acf9
 files/tmpfiles.d/clamav.conf	987b36ccdc3739ef1fe14955cd0d129c

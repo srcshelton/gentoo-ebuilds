@@ -1,7 +1,7 @@
 files/3.5.1-cross-compile.patch	56b5eeed30e4f0ca8cc00d8e2807810d
 files/3.5-secondary-targets.patch	d8b430eeeb7e9efc68391a64896fc919
-files/pydoc.conf	19063929b89064d94a1da62492dc3208
-files/pydoc.init	5305df04381ca4d08e65cb6981aa3b0f
+files/pydoc.conf	22439a0ae63342e054b1197c891009ec
+files/pydoc.init	4260553036f22ba0f161722c54816d8b
 files/python-2.7.10-cross-compile-warn-test.patch	49508e57e419c53b3cbad39c2aa49786
 files/python-2.7.10-system-libffi.patch	e90140e5d7d680e71b40ae9f85ff7d18
 files/python-2.7.5-nonfatal-compileall.patch	b691f5e23859ed54b7455d862bd28ceb
@@ -12,7 +12,7 @@ files/python-3.4-gcc-5.patch	afca6e776939e59d66ca079ea7062eae
 files/python-3.5-distutils-OO-build.patch	3ed2973b2aff853632c803a2c387b17f
 metadata.xml	910ed4f7e3b8c5a6cd61f428d78b57b6
 python-2.7.12.ebuild	f528a7a11c68949038841ffb90c5ee3e
-python-2.7.13.ebuild	6000bb1e3dd28fde34cca304888a30cc
+python-2.7.13.ebuild	fb470254aaee84db513778dc0348ffd8
 python-3.4.5.ebuild	cf528ada5c9dc067df36adb657a1fd7c
 python-3.4.6.ebuild	3f6dbeaf12184b1ffccdc4025bd4c84f
 python-3.5.2.ebuild	91b7573aad80078b18829e5296297607

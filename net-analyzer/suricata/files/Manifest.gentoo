@@ -2,9 +2,9 @@ files/fortify_source-numeric.patch	aeeb64fa4aa887d40a019ef52b3c49f2
 files/json.patch	0102960288c69249e11c27bcf6cf9a57
 files/magic-location.patch	2cb900341ada3836437a98384011c230
 files/suricata-3.2.1-conf	a244ade4a6edb5a42abfb640da755359
-files/suricata-3.2.1-init	68267a0dd24dbdd634e7f1685d9df8e0
+files/suricata-3.2.1-init	28298de7efb066ccbfa937ca89e842c0
 files/suricata-3.2-conf	a244ade4a6edb5a42abfb640da755359
-files/suricata-3.2-init	68267a0dd24dbdd634e7f1685d9df8e0
+files/suricata-3.2-init	28298de7efb066ccbfa937ca89e842c0
 files/suricata-logrotate	ddad04bb7516acbbf532029b2ab341bb
 metadata.xml	edd5c16cd91087cfa1a6198511cda9ea
 suricata-2.0.11.ebuild	b56879522f5242ac5db430e36094c699

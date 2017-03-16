@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2006 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2aa5f6472942d516609144ed357f67dd4109e8ce $
 
 checkconfig() {
 	if [ ! -f /etc/conf.d/lm_sensors ]; then

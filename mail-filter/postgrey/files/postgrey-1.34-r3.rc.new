@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: bc77bc6d12a6fa0f1d7c33087239d8060bc268e6 $
 
 conf="/etc/conf.d/postgrey"
 

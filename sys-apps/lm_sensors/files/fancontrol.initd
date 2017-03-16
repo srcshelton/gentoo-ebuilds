@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 05f787d026dcc70e0d5c68b52a58f34edf08ff67 $
 
 FANCONTROL_CONFIGFILE=${FANCONTROL_CONFIGFILE:-"/etc/fancontrol"}
 FANCONTROL_SSDARGS=${FANCONTROL_SSDARGS:-"--background --wait 1000"}

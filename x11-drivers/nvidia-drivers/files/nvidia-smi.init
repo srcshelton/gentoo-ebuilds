@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 75aebb5ce348ace2b33e7f3c5d7296cb256d5342 $
 
 pidfile="/var/run/nvidia-smi.pid"
 

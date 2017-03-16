@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 327b89ef1b7b7b5516ec7a092f9ab7b49a4828fa $
 
 depend() {
 	before checkfs fsck

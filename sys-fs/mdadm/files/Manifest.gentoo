@@ -9,10 +9,10 @@ files/mdadm-3.3.1-mdmon-allow-prepare_update-to-report-failure.patch	72f8b12163c
 files/mdadm-3.3.1-mdmon-ensure-Unix-domain-socket-is-created-with-safe.patch	a0bb77c1249d002e93ac40af10ebd8f3
 files/mdadm-3.4-sysmacros.patch	250994c938898fabc71f0b6c649896ef
 files/mdadm.confd	6682657bc391e56742065e9aecc2306f
-files/mdadm.rc	c036cf0a472a3c24bdf5cd99bc0bd78e
+files/mdadm.rc	3d51c2764c3f05a28cd881ebb3b1ac57
 files/mdadm.weekly	9731f63ba47120b1ea24ae7c8bc62d10
 files/mdraid.confd	bbda899e5193aa5e8c498dcdf5736775
-files/mdraid.rc	7db702c64f5d9a1f01138a2c81a6ac9f
+files/mdraid.rc	555be5cfa32d6dc9a97ff602535ae82a
 mdadm-3.3.1-r2.ebuild	92e818860f7ebbf1264c373c0af4b229
 mdadm-3.4.ebuild	fca8486790b6120fc84dec065fa14dfc
 mdadm-4.0.ebuild	366446e10e2e9f2245a6fddfe4dc2684

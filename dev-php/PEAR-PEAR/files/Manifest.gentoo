@@ -4,4 +4,5 @@ files/pear.conf-r2	cc65224f43d111f9c13cd8caee488532
 metadata.xml	766ca221b2c422a2b55c91b193502ce0
 PEAR-PEAR-1.10.1-r1.ebuild	ed0f4094f0a90fbfb1c30667f41bd166
 PEAR-PEAR-1.10.3.ebuild	8c1cb86e67537ffcdcd8ed2512dc20f2
+PEAR-PEAR-1.10.3-r1.ebuild	6fae8f082cfbd1e9a5d017559b9ae3fd
 PEAR-PEAR-1.9.4.ebuild	c7640f85e885837a1272d6165855a6f9

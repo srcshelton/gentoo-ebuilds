@@ -13,4 +13,6 @@ metadata.xml	c27b4aec42be8d3fda3acc63527071a2
 mit-krb5-1.14.2.ebuild	c39edc266e96bae292d043bbd88e4b97
 mit-krb5-1.14.3.ebuild	d9eae909e8897fca3802a946ff16d38e
 mit-krb5-1.14.4.ebuild	ea1b855f5fabee5a943e019c040d5068
+mit-krb5-1.14.5.ebuild	1985d97e4c8e13feb8340fb79805d44e
+mit-krb5-1.15.1.ebuild	8a93ec1ece5d3d4e0e6031d152628a73
 mit-krb5-1.15.ebuild	abe5c1dbcac9bea1433f92595c76e8ce

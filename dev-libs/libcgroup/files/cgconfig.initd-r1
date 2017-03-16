@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0615259f52f90b30ec1e902012d4b55f8610a9ed $
 
 CGCONFIGPARSER="/usr/sbin/cgconfigparser"
 CGCLASSIFY="/usr/bin/cgclassify"

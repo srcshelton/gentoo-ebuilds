@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7d2af814a03b19f2e3e989b4963a096d5799ea62 $
 
 # Provide a default PID location if there isn't one in /etc/conf.d/spamd...
 PIDFILE=${PIDFILE:-/var/run/spamd.pid}

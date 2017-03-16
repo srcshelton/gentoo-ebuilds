@@ -1,9 +1,9 @@
 files/ip6tables-1.4.13.confd	d5eacf7c3b9c2c44e1f2bb97d11197f3
 files/iptables-1.4.13.confd	5e55e36231cc2bf92da1f30fdbba84b0
-files/iptables-1.4.13-r1.init	24704c7f161c3876c393667c01228e18
+files/iptables-1.4.13-r1.init	06ec8e56247f47ffa371be6bd7a762b7
 files/iptables-1.4.21-configure.patch	79ea07a8a7cd4a49f973ffb21331acd6
 files/iptables-1.4.21-static-connlabel-config.patch	9f88f7b6f0e2ab4ef312d93569228139
-files/iptables.init	2e78db54ed0159853ea0f067b084975c
+files/iptables.init	605143926204d82549d13abc09d6d458
 files/systemd/ip6tables-restore.service	54f7ba2f82190186e779f6b006b8f329
 files/systemd/ip6tables.service	890897893a98d574e72278009c981442
 files/systemd/ip6tables-store.service	783bc5e52b4412fcd60adc5d76d8a985

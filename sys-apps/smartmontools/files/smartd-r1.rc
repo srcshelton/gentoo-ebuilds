@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 32e12b720b2fb9ea946301ceeab5e1121bdeebfc $
 
 pidfile="/var/run/smartd.pid"
 command="/usr/sbin/smartd"

@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9a8723fe4ea4eab07d55a1c3eaca3f8f35a19208 $
 
 CONFIG=/etc/sensors3.conf
 

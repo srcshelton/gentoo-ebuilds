@@ -1,6 +1,7 @@
 cmake-3.6.3.ebuild	31ba89215d1904a2c6f6d2ec7fd27089
 cmake-3.7.2.ebuild	02cf0a3b1907d09aa8153027edb94786
-cmake-3.8.0_rc1.ebuild	e242415d6254292c4ed76a6dab3ec51c
+cmake-3.7.2-r10.ebuild	37af33b51ce5363e181125db4540cf28
+cmake-3.8.0_rc2.ebuild	e242415d6254292c4ed76a6dab3ec51c
 files/50cmake-gentoo.el	4281be81193a1c2ce2ae715da96208e0
 files/cmake-2.8.10.2-FindPythonLibs.patch	415a84e9f81dd12988db3a5fdb3924f1
 files/cmake-2.8.12.1-FindImageMagick.patch	73153a49a5fa1fb0b712129491a978a3

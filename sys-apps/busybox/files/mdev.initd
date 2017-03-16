@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fbe7a2cd2ebde0a91d48c936240b8a6b9729923a $
 
 depend()
 {

@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
-# Copyright 1999-2006 Gentoo Technologies, Inc.
+# Copyright 1999-2006 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c721c4d0ade6a2ca3565fa3deaea6e2cabccb2bc $
 
 depend() {
 	use logger dns net

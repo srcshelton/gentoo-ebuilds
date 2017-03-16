@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 69f381324e660a189cfab26f67fbe4b8c1d067e3 $
 
 extra_commands="checkconfig checkzones"
 extra_started_commands="reload"

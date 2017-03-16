@@ -4,11 +4,11 @@ files/3.4.3/libffi-without-libgcj.patch	007c62d92efd70fd44c4d2e6a326036b
 files/3.4.4/gcc-3.4.4-cross-compile.patch	520c8e6799b5c4bff0fdcb81e81fbe88
 files/4.1.0/gcc-4.1.0-cross-compile.patch	6b71690a4a020aa0604a1f8fad21151b
 files/4.1.0/gcc-4.1.0-fast-math-i386-Os-workaround.patch	ab66a2c85bc3324fe4f0729927f63072
-files/awk/fixlafiles.awk	e11afb2517a6a99ed96ca1b3c8d389e3
-files/awk/fixlafiles.awk-no_gcc_la	dc61b6787f5594e749cd39fb6f0752e7
+files/awk/fixlafiles.awk	d1fe78a3d256ad105780d80d980b0268
+files/awk/fixlafiles.awk-no_gcc_la	1c64ec197cb530b2219b3d5c0c7cee4a
 files/c89	c1a72946570d6c8cb0577f2ad4b871ab
 files/c99	1676942af711f01087b5d0666b0e1874
-files/fix_libtool_files.sh	1f434337e4ce987acfc5ea181068dfa6
+files/fix_libtool_files.sh	38a16c6be9bcfeac38712faaf5377089
 files/gcc-configure-LANG.patch	e1d606df0fb23c52c4ec513d52fa50ab
 files/gcc-configure-texinfo.patch	9597a23b39f0dcec19dbc85dd64c6c0e
 files/gcc-spec-env.patch	a695d7648509b4f8e18b389a19e6037c
@@ -27,9 +27,6 @@ gcc-4.7.4.ebuild	a71bba3a6bdba5f633dca867109b0c16
 gcc-4.8.5.ebuild	af50cc77b195a79557166739169748f1
 gcc-4.9.3.ebuild	dae1ae9a8af0298a0eef30a6f60884d3
 gcc-4.9.4.ebuild	d30d948db5047d95716fff11e806a034
-gcc-5.1.0.ebuild	ae6da7eddd847796bc5124b25c710ff5
-gcc-5.2.0.ebuild	739a788bdba4c3e410fe5825881c6d58
-gcc-5.3.0.ebuild	42428f214016a8cdfe5cdfd2932a55ce
 gcc-5.4.0.ebuild	faaaec388f0c13cf550b82a069e36f69
 gcc-5.4.0-r3.ebuild	7e3259dc0ff3e7f2939aed354cb4a2ec
 gcc-6.3.0.ebuild	7099f758e14e17acb9d93e3bca49e62b

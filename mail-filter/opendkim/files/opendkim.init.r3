@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: dacd8135e2f219d864eb6eddc2462cf604d1cc16 $
 
 CONFFILE=/etc/opendkim/${SVCNAME}.conf
 

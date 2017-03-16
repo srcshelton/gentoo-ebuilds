@@ -8,8 +8,8 @@ files/subversion-1.8.1-revert_bdb6check.patch	f86632d17c03a0e96f20781903b9f6dc
 files/subversion-1.8.5-swig-python-no-gnome-keyring.patch	0999326d27243375153fabcbebca3084
 files/subversion-fix-parallel-build-support-for-perl-bindings.patch	4f8c45bfbc5efcb74631456798eeee3a
 files/svnserve.confd	67b3b8ea2641afb53ae1b1d064bc8a95
-files/svnserve.initd3	afac1fa0155957af636e3b8df6571922
+files/svnserve.initd3	933d24e12b3720873dc544e0a9bcd611
 files/svnserve.xinetd	027fc7b3c7713c23f01cf83f118cb8ff
 metadata.xml	d2dc8da7b2ce3a15ecac3462fe2486f3
 subversion-1.8.17.ebuild	25f67af52f7f4e107fccdd58cc809931
-subversion-1.9.5.ebuild	6c677ba6049d43b7e09d2182a23380f0
+subversion-1.9.5.ebuild	265886b228d0538660248476f418a625

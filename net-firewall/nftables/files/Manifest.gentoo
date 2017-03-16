@@ -4,6 +4,6 @@ files/nftables-0.6-null-payload-desc-fix.patch	4092d86fc5ac7932a238cc30e8224fc0
 files/nftables.confd	00f7dc61bcc1f7c2e48ebeaeb8b6b6b5
 files/nftables.init	8bdfe36fa47d9299ce965b3c1fee7a53
 files/systemd/nftables-restore.service	dec394873ce769e26ce092912c9bc8dd
-metadata.xml	a5c117d2d5cc2c5e6f20f5b4e8fba3b4
+metadata.xml	254f2a1c64c20b1b0d7b67dab1f39a26
 nftables-0.6-r4.ebuild	2468bc0b8f567b86ddfbdd97af3b1d7e
 nftables-0.7.ebuild	9a54d72887266047a6ce63a55e222fc4

@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2011 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 3c25dba0d3e849c83dcb713fa3a1f5333e8a8420 $
 
 depend() {
 	need net iptables

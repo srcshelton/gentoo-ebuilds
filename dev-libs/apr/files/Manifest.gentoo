@@ -1,6 +1,6 @@
 apr-1.5.0-r2.ebuild	291bc7cd90944bf395b759a894b79358
 apr-1.5.1-r1.ebuild	2a203f340ebb947770d4989ed83baa45
-apr-1.5.2.ebuild	500f972963f33bc1741a44bbbb41dc7e
+apr-1.5.2.ebuild	232ce4adfecfe04f66971cbf27770c47
 files/apr-1.5.0-cross-types.patch	5ebcf6f1478c2f75a001e23dc5d3583a
 files/apr-1.5.0-libtool.patch	e8bf15583fba45f6bbec67123a7663eb
 files/apr-1.5.0-mint.patch	1714e421dd68ab0c96e6100095acfadf

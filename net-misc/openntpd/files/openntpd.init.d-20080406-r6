@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 226a9a7e0f9c1544795714110cdc558f626ed9fe $
 
 name="OpenNTPD"
 command="/usr/sbin/ntpd"

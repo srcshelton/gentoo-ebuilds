@@ -21,12 +21,12 @@ files/openldap-2.4.42-mdb-unbundle.patch	46ef9d53c4bfed61ba9d207dfe065cbf
 files/openldap-2.4.6-evolution-ntlm.patch	7a477a666ce5a4add1aa1afbbf8a5053
 files/slapd-confd-2.4.28-r1	47c47ce8146d4f4a535395119123a98b
 files/slapd-confd	a326c92d0d278c666b921c4267702e64
-files/slapd-initd-2.4.40-r2	41b51bf62bed2d9de8f232a14205d4ac
-files/slapd-initd	b14665cddf71874af14559f355331a03
+files/slapd-initd-2.4.40-r2	9bbf555f163fe526b5be6bf2355cb742
+files/slapd-initd	751bdc653ba90126d0840c8a92c28949
 files/slapd.service	ba4b8f7d6a2e160eb421c7f6c57bf9c7
 files/slapd.service.conf	a8a04181e9384407030b994f58012fd4
 files/slapd.tmpfilesd	168d152875006326ef82dd4e2e83584b
-files/slurpd-initd	924a8d56d78af21eb7f4fae3fbe03bda
+files/slurpd-initd	c3f078780cc6750a746c10a30987a6f2
 metadata.xml	61a2784c5e8381731b108bff18e722f0
 openldap-2.3.43-r3.ebuild	7af5862867162be19b442ae29817761d
 openldap-2.3.43-r4.ebuild	cf18c086ffbdf026ffaee0b73027036e

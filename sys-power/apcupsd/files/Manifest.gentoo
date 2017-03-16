@@ -3,8 +3,8 @@ apcupsd-3.14.14.ebuild	af66660bde309e2305e697adce80e776
 apcupsd-3.14.14-r1.ebuild	280643a6c1f80c1b1f34f37830e1d0ed
 files/apcupsd-3.14.9-aliasing.patch	f67ab25514a0cf67761e049da68ab8b5
 files/apcupsd.conf	efec8219adf7a0cc47aaf1a25199c1f2
-files/apcupsd.init.4	fb5ff362d7ff9cc300b0404631af5523
-files/apcupsd.powerfail.init	4bb1b75217aee90f33297bc3ec580392
+files/apcupsd.init.4	7c121a237208ef47e8f86f8a5bce33e5
+files/apcupsd.powerfail.init	3b5b34413d8e2845db3e260e9c65c784
 files/apcupsd.service	3baf366b2cfabf83a206a1cb0c8f4c26
 files/apcupsd-tmpfiles.conf	f178d9f195421ca5663aeb1e7ee24947
 files/apcupsd-udev.rules	e16ff8fd709774f082193eb0c7a40eb7

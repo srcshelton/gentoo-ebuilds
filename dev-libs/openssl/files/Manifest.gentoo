@@ -1,5 +1,5 @@
-files/gentoo.config-0.9.8	edec50398223ab81942a48c88ba6efea
-files/gentoo.config-1.0.2	116281a066b409d15958585c4c543e3c
+files/gentoo.config-0.9.8	97455136f2a7b672781bd3f6dd88a26a
+files/gentoo.config-1.0.2	260f29b68d22252c517a001bab307573
 files/openssl-0.9.8e-bsd-sparc64.patch	88cedd3c5f30f6c1e43d09bae981132e
 files/openssl-0.9.8h-ldflags.patch	696e909811db7b64497f0210e070a7f9
 files/openssl-0.9.8m-binutils.patch	d243d76b4a6f2b0bc30a31faed38cdea

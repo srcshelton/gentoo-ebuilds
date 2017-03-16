@@ -1,13 +1,12 @@
 #!/sbin/openrc-run
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 86de0a7b0d2a60f49711526116beb9b55d6f2a43 $
 
-command="/usr/sbin/spampd.pl"
-command_args="${SPAMPD_OPTS:-}"
 piddir="/var/run"
 pidfile="${piddir:-/var/run}/spampd.pid"
 required_dirs="${piddir:-/var/run}"
+command="/usr/sbin/spampd.pl"
+command_args="--pid=${pidfile} ${SPAMPD_OPTS:-}"
 
 depend() {
 	use net

@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 27125af43fb1be46949638021f194496d4cb3f90 $
 
 [ -x /usr/sbin/clvmd ] && CLVMD_BIN="/usr/sbin/clvmd" || CLVMD_BIN="/sbin/clvmd"
 

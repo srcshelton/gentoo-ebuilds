@@ -1,7 +1,7 @@
 cryptsetup-1.7.2.ebuild	49936217a545a07c4b9211fb538194df
 cryptsetup-1.7.3.ebuild	e2520925e927f503c2e4ed9897aad256
 files/1.6.7-dmcrypt.confd	8a64af270190d5ecd6e4084d6ccf81de
-files/1.6.7-dmcrypt.rc	c7640f435e36f315534eb2ca6d23fbd2
+files/1.6.7-dmcrypt.rc	6365476433c3a8b06070eb0fbca4ad0c
 files/cryptsetup-1.7.3-libressl.patch	f6ec032aa10ee701dff7ad2e735d82d2
 files/setup-1.7.0.py	9256bae961e296f77bf766848f727412
 metadata.xml	792f6d5013268e06d3a619100bea1ba4

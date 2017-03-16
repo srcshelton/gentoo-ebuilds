@@ -10,9 +10,9 @@ files/lxc-2.0.6-bash-completion.patch	3a0c555ff41a122495b0cc478d9811da
 files/lxc-2.0.6-major.patch	d284166ac490c62077941deb3d790ce5
 files/lxc_at.service.4	936d5ff4aee85bf4651b70152b98d076
 files/lxc_at.service	6cc80953560cc67875f0b30c4d372412
-files/lxc.initd.3	5c87f01657ff2dcbc68d6ea4a9e93664
-files/lxc.initd.5	8219e82a040bd574dd974a4d56627847
-files/lxc.initd.6	a8f6a8b8559f2498fef325272b7a0049
+files/lxc.initd.3	42d928d6df0956d62fae4a680b888210
+files/lxc.initd.5	2928662252b655b126bc8d865399c811
+files/lxc.initd.6	b7f3dbd3d1b4b2eada5a4d21dddc925a
 lxc-1.0.8.ebuild	0deea22de62b90bfa1debb57f728683c
 lxc-2.0.3-r1.ebuild	8e8b4ef6004d83a54a752c67bd189e57
 lxc-2.0.4.ebuild	23e4d0113c45930307b676149e8283a3

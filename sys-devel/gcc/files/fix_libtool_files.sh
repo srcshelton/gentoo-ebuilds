@@ -1,7 +1,6 @@
 #!/bin/sh
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: eb96df282824ef4eb46745f8a915b3a9a3a827de $
 
 usage() {
 cat << "USAGE_END"

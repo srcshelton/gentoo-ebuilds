@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 62a99fec53ad419be283d0b22f21214212054f9e $
 
 command="/bin/busybox syslogd"
 command_args="${SYSLOGD_OPTS}"

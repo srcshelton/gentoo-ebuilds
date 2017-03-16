@@ -8,6 +8,6 @@ files/named.cache-r3	96d953fc698b3b34f7f24ed532a88abc
 files/named.conf	62fa972c76e9f504453aebdbfadcefa0
 files/named.confd-r7	bb341c2bedeeee80966d663c06bea5e6
 files/named.conf-r8	e11b34ebb219639988a77c4424bd4916
-files/named.init-r13	1943283b1800899d6b1b073ee62a8cdb
+files/named.init-r13	c3959103fbc686ab3a237b758c4dca4f
 files/named.service-r1	d8cfeaa4f1d33cea85ead1f33f4675db
 metadata.xml	3a72f7de237929e3a6b1d286c42a1ff8

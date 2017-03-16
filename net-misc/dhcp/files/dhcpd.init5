@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 6842888f82472d095704e78b3fefdbd2678df7ba $
 
 extra_commands="configtest"
 

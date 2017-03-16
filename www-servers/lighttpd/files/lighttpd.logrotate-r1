@@ -1,4 +1,3 @@
-# $Id: 724ff049d3c9360f579680a3fa32a873117c5f21 $
 # lighttpd logrotate script for Gentoo
 
 /var/log/lighttpd/*.log {

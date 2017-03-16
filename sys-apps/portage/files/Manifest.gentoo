@@ -6,5 +6,6 @@ portage-2.2.28.ebuild	39008bf1357b8b3cf8588080cb94e86c
 portage-2.3.0.ebuild	b2ba790d2a2675c6dcdc092d41997fd3
 portage-2.3.1.ebuild	57e4d112945c1bb4c282f47346620c29
 portage-2.3.2.ebuild	e361ce14d4361cd946d7c7b5347f55c1
-portage-2.3.3.ebuild	617bb3d7ac2d2a0e8fdba2c4500576ed
-portage-9999.ebuild	51eb89ffa4671bf38d08b6d602fd8f3b
+portage-2.3.3.ebuild	774df8d05d0b0fd047fb14d5dc0b7785
+portage-2.3.4.ebuild	7c75f30f5dbe93340afd53b92392703f
+portage-9999.ebuild	a46b3a02299ac71ae5bfa2e0c4842473

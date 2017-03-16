@@ -1,7 +1,6 @@
 # Copyright 1999-2004 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Id: 615ae02512ca45b214cf3310d4f42eba10db96a1 $
 
 CC ?= gcc
 LD = $(CC)

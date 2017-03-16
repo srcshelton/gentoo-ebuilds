@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 3d401235780c4220bbde46deb6a4523dbf487bf7 $
 
 # NB: Config is in /etc/conf.d/spamd
 
