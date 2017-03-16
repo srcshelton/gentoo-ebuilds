@@ -1,6 +1,5 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7d9cf2e5a9b94508d42788940252cc12f10b3493 $
 
 EAPI=5
 
@@ -17,7 +16,7 @@ SRC_URI="${SRC_URI}
 
 LICENSE="|| ( Artistic GPL-2 )"
 SLOT="0"
-KEYWORDS="alpha amd64 hppa ~mips ppc sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x86-macos ~x86-solaris"
+KEYWORDS="alpha amd64 hppa ~mips sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x86-macos ~x86-solaris"
 IUSE="abi_x86_x32 elibc_glibc"
 
 # Math::Pari requires that a copy of the pari source in a parallel
@@ -59,7 +58,7 @@ src_configure() {
 	# of the kernel differs from that of userland, math-pari goes with the
 	# kernel size and then breaks :(
 	# This affects x32 systems and systems with a 64-bit kernel running a
-	# 32-bit userland.  It like affects other architectures (primarily MIPS?)
+	# 32-bit userland.  It likely affects other architectures (primarily MIPS?)
 	# also, but this fix deals only with the Intel case.
 	# We're limited in what we can do here, because 'perl-module_src_configure'
 	# is a shell-function inherited from the 'perl-module' eclass, and we don't
