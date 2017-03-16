@@ -17,7 +17,11 @@ KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~spa
 IUSE="debug gnutls idn ipv6 libressl nls ntlm pcre +ssl static test uuid zlib"
 REQUIRED_USE=" ntlm? ( !gnutls ssl ) gnutls? ( ssl )"
 
-LIB_DEPEND="idn? ( net-dns/libidn2[static-libs(+)] )
+# For libidn2 screw-up, see https://bugs.gentoo.org/show_bug.cgi?id=612498
+LIB_DEPEND=" idn? ( || (
+		>=net-dns/libidn2-0.14[static-libs(+)]
+		( <net-dns/libidn2-0.14[static-libs(+)] dev-libs/libunistring )
+	) )
 	pcre? ( dev-libs/libpcre[static-libs(+)] )
 	ssl? (
 		gnutls? ( net-libs/gnutls:0=[static-libs(+)] )
