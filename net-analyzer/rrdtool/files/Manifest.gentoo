@@ -1,5 +1,5 @@
 files/rrdcached.confd	6e87b811aea8fff3e2afbf1e5590206d
-files/rrdcached.init	3aaeadfafec034eb770a9de8aec78fee
+files/rrdcached.init	674906ad89bc5bfd3bb177740f202860
 files/rrdtool-1.4.7-configure.ac.patch	3b0946183e6fc8712acd1c713e73fa2c
 files/rrdtool-1.4.9-disable-rrd_graph-cgi.patch	940f93c2d4a776696fa1c4ede089c62f
 files/rrdtool-1.4.9-disable-rrd_graph-perl.patch	4a0684a769bda7b5fd24630f3b1bdcdb
@@ -12,4 +12,4 @@ metadata.xml	bdebfde5157bf47cce668dd24c53c9d7
 rrdtool-1.4.8-r1.ebuild	41ebfcb38740b0307e83ade216cddaef
 rrdtool-1.5.5.ebuild	a2cf1683e151f2bec607c90b4971a9ab
 rrdtool-1.5.5-r1.ebuild	f922b8060f0d4d465ccdf0d47985e175
-rrdtool-1.6.0-r1.ebuild	b31484feec39a30b96c503620bd939be
+rrdtool-1.6.0-r1.ebuild	a240825cdc9bddba691ca30b9143b567
