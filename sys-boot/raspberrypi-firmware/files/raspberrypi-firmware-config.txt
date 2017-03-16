@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit bf5201e9682bf36370bc31d26b37fd4d84e1cfca.
+# commit 509beaab0e102cf6decf209922669700c9ac5576.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -328,11 +328,14 @@ disable_audio_dither=1
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=adau7002-simple,card-name=adau7002
 #device_tree_overlay=adau1977-adc
-#device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2 # chb_enable,chb_cfg=4,chb_datarate=4,chb_gain=2,chc_enable,chc_cfg=4,chc_datarate=4,chc_gain=2,chd_enable,chd_cfg=4,chd_datarate=4,chd_gain=2
+#device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2
+#device_tree_overlay=ads1115,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=7,cha_gain=1
 #device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
+#device_tree_overlay=audioinjector-addons
 #device_tree_overlay=audioinjector-wm8731-audio
 #device_tree_overlay=dionaudio-loco
 #device_tree_overlay=dionaudio-loco-v2 # ,24db_digital_gain
+#device_tree_overlay=fe-pi-audio
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain,slave
