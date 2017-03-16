@@ -72,7 +72,7 @@ DEPEND_COM="dev-lang/perl:=[berkdb]
 # Keep this seperate, as previous versions have had other deps here
 DEPEND="${DEPEND_COM}
 	dev-perl/Module-Build
-	cgi ? ( || ( virtual/httpd-cgi virtual/httpd-fastcgi ) )
+	cgi? ( || ( virtual/httpd-cgi virtual/httpd-fastcgi ) )
 	java? ( >=virtual/jdk-1.5 )
 	test? (
 		dev-perl/Test-Deep
