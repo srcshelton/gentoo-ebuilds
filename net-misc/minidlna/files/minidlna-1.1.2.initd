@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2013 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d1f252ed86323a77c03ec08ae3494941c5259245 $
 
 depend() {
 	need net
