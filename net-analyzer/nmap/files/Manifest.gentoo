@@ -9,5 +9,5 @@ files/nmap-7.25-no-FORTIFY_SOURCE.patch	ecd37c3d105daaa695b4790908aaba03
 files/nmap-7.31-libnl.patch	09a23408d302c3eb3adf85949faa6e78
 metadata.xml	e6d5e1b677a0c029515e84a373981b65
 nmap-7.31.ebuild	91f6a926475db538eb30f80f6d4ca05c
-nmap-7.40.ebuild	19df26ab02ba85b25cd7b05bc0e6a0d2
+nmap-7.40.ebuild	8b4837a157e7afe1b2b2b493878c60c0
 nmap-9999.ebuild	59c4686dd500392cc6f348a09004e353
