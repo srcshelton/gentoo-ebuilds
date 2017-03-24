@@ -4,3 +4,4 @@
 
 # Additional options with which to invoke Java when launching DavMail
 JAVA_OPTS="-Xmx512M -Dsun.net.inetaddr.ttl=60"
+#JAVA_OPTS="-XX:+UseLargePages -Xmx512M -Dsun.net.inetaddr.ttl=60"
