@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 865284b12da63e397a807989c8506dc1a4304350 $
 
 EAPI=6
 
@@ -291,6 +290,10 @@ src_prepare() {
 		sed -i \
 			-e 's|^lib/unicore/CombiningClass.pl pod/perluniprops.pod:|lib/unicore/CombiningClass.pl pod/perluniprops.pod: $(CONFIGPM)|' \
 			Makefile || die
+
+		# bug 604072
+		MAKEOPTS+=" -j1"
+		export MAKEOPTS
 	fi
 
 	if ! tc-is-static-only ; then
