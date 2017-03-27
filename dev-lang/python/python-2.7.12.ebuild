@@ -18,12 +18,12 @@ SRC_URI="https://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
 	prefix? ( https://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches-${PREFIX_PATCHREV}.tar.xz )"
 
 [[ -n ${CYGWINPORTS_GITREV} ]] &&
-SRC_URI+=" elibc_Cygwin? ( https://github.com/cygwinports/python/archive/${CYGWINPORTS_GITREV}.zip )"
+SRC_URI+=" elibc_Cygwin? ( https://github.com/cygwinports/python2/archive/${CYGWINPORTS_GITREV}.zip )"
 
 LICENSE="PSF-2"
 SLOT="2.7"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
-KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 libressl +ncurses +readline sqlite +ssl +threads tk +wide-unicode wininst +xml"
 
 # Do not add a dependency on dev-lang/python to this ebuild.
@@ -101,11 +101,11 @@ src_prepare() {
 		local EPATCH_EXCLUDE="*_regenerate_platform-specific_modules.patch"
 	fi
 
+	EPATCH_SUFFIX="patch" epatch "${WORKDIR}/patches"
+
 	# if building a patched source-tar, comment the rm's above, and uncomment
 	# this line:
 	#local EPATCH_EXCLUDE=" 01_all_prefix-no-patch-invention.patch"
-
-	EPATCH_SUFFIX="patch" epatch "${WORKDIR}/patches"
 
 	# Prefix' round of patches
 	# http://prefix.gentooexperimental.org:8000/python-patches-2_7
@@ -145,7 +145,7 @@ src_prepare() {
 	fi
 
 	if [[ -n ${CYGWINPORTS_GITREV} ]] && use elibc_Cygwin; then
-	    local p d="${WORKDIR}/python-${CYGWINPORTS_GITREV}"
+	    local p d="${WORKDIR}/python2-${CYGWINPORTS_GITREV}"
 	    for p in $(
 		    eval "$(sed -ne '/PATCH_URI="/,/"/p' < "${d}"/python.cygport)"
 		    echo ${PATCH_URI}
