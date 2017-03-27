@@ -55,10 +55,10 @@ files/3.9.1/llvm-config-r1.patch	803e515c0b1dc746aaa1bcf3b84f29b5
 files/9999/0007-llvm-config-Clean-up-exported-values-update-for-shar.patch	ee5739d2129ed1553e504f773c2f672c
 files/9999/musl-fixes.patch	cacf94d07a5ee28880e54755921c7a80
 llvm-3.4.2-r100.ebuild	053f4577ad9a662d640e63e64cc58761
-llvm-3.5.2.ebuild	0a9492cf296450862e134e061b79a953
-llvm-3.6.2.ebuild	c08e9b244b95e6f28547e6ea231bb201
-llvm-3.7.1-r3.ebuild	5b0089a9cd9adad91db2eb699a73d418
-llvm-3.8.1.ebuild	8780d20f5841eb276311834bd61d3e79
+llvm-3.5.2.ebuild	dd3621c4b1e3f771f3d726c2f770b601
+llvm-3.6.2.ebuild	23416e0930d94d1d667ac8656d451963
+llvm-3.7.1-r3.ebuild	81d6b3baadacc0aff1cbc32e84091767
+llvm-3.8.1.ebuild	5cad18a224615f335ef12c5d894630d3
 llvm-3.8.1-r2.ebuild	993d9d9abf80c61815404349fb574b8f
 llvm-3.9.0-r1.ebuild	1f5d14862f89f22bf413012d9209233c
 llvm-3.9.1.ebuild	c2b8e0e5640f6592640f2e39d02e1381
