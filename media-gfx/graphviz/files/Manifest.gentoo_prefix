@@ -1,0 +1,5 @@
+files/graphviz-2.34.0-dot-pangocairo-link.patch	ed8750d6c6c68ce3d2c5b8e7d27ed65a
+files/graphviz-2.34.0-Xaw-configure.patch	61a1213f8171e7f1b62426023208f51a
+files/graphviz-2.38.0-ghostscript-9.18.patch	69bfd7edaa052c506b23d53bbc22a475
+graphviz-2.38.0-r1.ebuild	78b0db2ad9edf2b64c85c17bcce29313
+metadata.xml	01a90b1e2e326de1f8af69802642064e

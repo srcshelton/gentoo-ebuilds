@@ -1,0 +1,10 @@
+apr-1.5.0-r2.ebuild	291bc7cd90944bf395b759a894b79358
+apr-1.5.1-r1.ebuild	2a203f340ebb947770d4989ed83baa45
+apr-1.5.2.ebuild	b4b990a6a5fd268f5fc548f7b2413de0
+files/apr-1.5.0-cross-types.patch	5ebcf6f1478c2f75a001e23dc5d3583a
+files/apr-1.5.0-libtool.patch	e8bf15583fba45f6bbec67123a7663eb
+files/apr-1.5.0-mint.patch	1714e421dd68ab0c96e6100095acfadf
+files/apr-1.5.0-sysroot.patch	22baf32ca6b3d0f8acdd9be1f000b20d
+files/apr-1.5.1-parallel_make_install.patch	9cf979de80759b07f00af6675eeb04f8
+files/config.layout.patch	3a0d2bae49b03d08d65da84b4b3beee6
+metadata.xml	85a47ab254fbb4cdc2e09a502333e2cb

@@ -1,0 +1,13 @@
+bind-9.10.4_p4.ebuild	b99a8a54638ea816d62cad75a0363122
+bind-9.11.0_p2.ebuild	c66d5e5fb2a8b6766321b5ab01175f49
+bind-9.11.0_p3.ebuild	082cbe773c757c87ea481238504f9ebe
+files/10bind.env	42b5ed5adcee33cf40531d7955412b21
+files/generate-rndc-key.sh	ceabe16b1cb208600c9ef8b78c5e59ef
+files/localhost.zone-r3	84f153452c05a9d6049ec89a6bee2a71
+files/named.cache-r3	96d953fc698b3b34f7f24ed532a88abc
+files/named.conf	62fa972c76e9f504453aebdbfadcefa0
+files/named.confd-r7	bb341c2bedeeee80966d663c06bea5e6
+files/named.conf-r8	e11b34ebb219639988a77c4424bd4916
+files/named.init-r13	c3959103fbc686ab3a237b758c4dca4f
+files/named.service-r1	d8cfeaa4f1d33cea85ead1f33f4675db
+metadata.xml	3a72f7de237929e3a6b1d286c42a1ff8

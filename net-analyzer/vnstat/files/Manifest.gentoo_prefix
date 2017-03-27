@@ -1,0 +1,8 @@
+files/vnstat.cron	389e6b2723965358ef9876b4e78d3bfc
+files/vnstatd.confd	810205e9cd5328b4279bd9ab1b804c36
+files/vnstatd.initd	33153451b980bb5ac813aef4138d83c0
+files/vnstatd.initd-r1	03f97f03361b7cb5e3bd55caf985b6ab
+metadata.xml	a2a23e812b484232d97fc362051f231d
+vnstat-1.15.ebuild	cfa19101ba8695d968612f873bb0a4e9
+vnstat-1.16.ebuild	e04bfb2d9c10638e6e98779711af5efe
+vnstat-1.17.ebuild	155d5c104573bd6f4a677b3d7e32920f

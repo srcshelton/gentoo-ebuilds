@@ -1,0 +1,10 @@
+files/unzip-5.52-CVE-2008-0888.patch	2e7fd2a7749ffbdd8d4673b4da6f0f07
+files/unzip-5.52-no-exec-stack.patch	75f5cdf093a1cd6c05465e48cf7535d0
+files/unzip-6.0-irix.patch	7ad692acb8f92d74718c522dabd67afd
+files/unzip-6.0-natspec.patch	fa41beedd9f3734086ffe22ff3f176f3
+files/unzip-6.0-no-exec-stack.patch	d420842be707da36d2639f7b6c93810a
+metadata.xml	4742f84386cf9d67304f321566ef2049
+unzip-5.52-r2.ebuild	eede04410a6e0581d33524abd4c632a4
+unzip-6.0-r1.ebuild	52ba6a01d39768d02ae3c39965a1e7b6
+unzip-6.0-r2.ebuild	ffa28941d0fca48dfb75ecc68b0c0b59
+unzip-6.0-r3.ebuild	934ec870cfc8076d4bf3439cf81a7480

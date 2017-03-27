@@ -1,0 +1,13 @@
+files/6.0.0a/gmp-6.0.0a-arm-thumb.diff	14bad30bbcca4db9b9daf9587c3908ca
+files/6.0.0a/ppc64-build.diff	01fc8d6dbe7b708204aecbac6cbb62e2
+files/gmp-4.1.4-noexecstack.patch	13c34f00e77ded6673270cfea06c35c3
+files/gmp-4.2.1-s390.diff	ddce691e68e722e03ea65d228ac650ea
+files/gmp-6.1.0-noexecstack-detect.patch	fc81b3c8acf2e9c90043042813688db2
+files/gmp-6.1.0-tune-printf.patch	f0decc87435d6d7f9f4198b7c39b241a
+files/gmp-6.1.0-udiv.patch	99a18b3023be99877584efa2368d6c5f
+gmp-4.3.2-r1.ebuild	6e51e954d5dfff8291071c855ba257c2
+gmp-6.0.0a.ebuild	513b543bf7f446ee26dae3b5b6e9827f
+gmp-6.1.0.ebuild	356e6c63bad684c4bbf6d2851301e9d2
+gmp-6.1.1.ebuild	c1d4487f9a36d8456c20ef42c9c34773
+gmp-6.1.2.ebuild	8235c101af72b693d4e463af63ffb783
+metadata.xml	729ee9a570090a8fe0dc286a6d8a0753

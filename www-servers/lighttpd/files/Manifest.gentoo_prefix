@@ -1,0 +1,16 @@
+files/conf/lighttpd.conf	d6f89cd17853cdb3d10250593e9c3d96
+files/conf/mime-types.conf	6b65ff7606e7253b3ebf0be686071847
+files/conf/mod_cgi.conf	c6f3c3a60e08b8c1f6aca8c1d4a602d5
+files/conf/mod_fastcgi.conf	da937620e5d3c077a1df79fdebf5ba85
+files/lighttpd.confd	838fdd7e668bd0e319af00f53ffe6a1e
+files/lighttpd.initd	3271f84d3c13063b0f200db9571ad908
+files/lighttpd.logrotate	1651bc13bb304987875c5814178fc282
+files/lighttpd.logrotate-r1	9cd0e5d2ba6b8063c9a52d923c78d43f
+files/lighttpd.service	43e5f6038171fff89d18c97e87a731c7
+files/lighttpd.tmpfiles.conf	97e72818cd7adae729174c2c5e3a716c
+lighttpd-1.4.42.ebuild	f1a113138c76e883e1c2c41cc186ccde
+lighttpd-1.4.43.ebuild	019e781ae36d94c31234d7a104971752
+lighttpd-1.4.44.ebuild	a62996809ab10f33b9520099da54524e
+lighttpd-1.4.45.ebuild	a62996809ab10f33b9520099da54524e
+lighttpd-9999.ebuild	b3fbf9f07b596552977565125ca0cdc8
+metadata.xml	54cc6b344e7951a8cff9dd97e02b793a

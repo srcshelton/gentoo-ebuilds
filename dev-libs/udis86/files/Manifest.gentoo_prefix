@@ -1,0 +1,5 @@
+files/udis86-1.7.2-docdir.patch	8741aaf78c386373fc622d344b11f3ab
+files/udis86-1.7-yasm.patch	7444cd81119d1c71cb7980e9bc9a1a70
+metadata.xml	a1db2cecf7eea3093209ee703331584b
+udis86-1.7.2.ebuild	225317eddf6865b328df051b6668539e
+udis86-1.7-r2.ebuild	2b5f71a204d1c299d4a2dfddd7bd5a78

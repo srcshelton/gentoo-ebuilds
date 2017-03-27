@@ -1,0 +1,15 @@
+files/3.0.0-spamd.conf	e3ffe0e81db2bd4538f88e64fd8c468f
+files/3.3.1-spamd.init	ef9182d0003aa14063317b2fb2061d28
+files/3.4.1-spamd.conf	23aeab9bd84810bf4c5980ceaa3a826a
+files/3.4.1-spamd.init	5ff2f90276de27d3e3dc776a78ea76ad
+files/secrets.cf	d3b6df49d772fdf4425d4c2376bc7173
+files/spamassassin-3.4.1-bug_7199.patch	b41faee2973a582c6efd045f7c14678d
+files/spamassassin-3.4.1-bug_7223.patch	19e09576055dcb2eb78d05ee3c511f2d
+files/spamassassin-3.4.1-bug_7231.patch	1a3189a02d11a6b1bf401003a63c5b32
+files/spamassassin-3.4.1-bug_7265.patch	9e7bb20ec763b1c52b4aeb7fa1982af1
+files/spamassassin.service.conf	d843be94c09af33189a92acdfb4d70fd
+files/spamassassin.service-r1	db15de89807ba1a7b3e1695a1fbff4d5
+files/update-spamassassin-rules.cron	df2773525ed3bb281cc532da96f0dba4
+metadata.xml	cd1a96d2c068e9f66365194049e6b177
+spamassassin-3.4.1-r10.ebuild	6072be53e6f12f969570b3332e765531
+spamassassin-3.4.1-r8.ebuild	677e7528de3c02a0182382dde24f2c01

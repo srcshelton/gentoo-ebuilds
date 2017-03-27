@@ -1,0 +1,6 @@
+files/haveged.conf	cc4063084d6edfa79461dd5b1a4fd954
+files/haveged-conf.d	7ad953f01e3c94ccfc48ced548051bdc
+files/haveged-init.d.3	d0ad4e59345941c0416132c82af1dfc5
+files/service.gentoo	987dce0ac5097aea7116ee81f7680d1b
+haveged-1.9.1.ebuild	a07171903d6ed3f43c7b3521e7a720cb
+metadata.xml	d523177d02e27b59ed4fe38923d04346

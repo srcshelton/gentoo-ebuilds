@@ -1,0 +1,7 @@
+files/LWP-Protocol-https-6.60.0-CVE-2014-3230.patch	93cf280969044c35bf8ac0a68596b0a7
+files/LWP-Protocol-https-6.60.0-etcsslcerts.patch	b0b8cfd20bf952a91c6f0da5f7343309
+files/LWP-Protocol-https-6.70.0-CVE-2014-3230.patch	3639f5c9500981549b104c22234e2493
+files/LWP-Protocol-https-6.70.0-etcsslcerts.patch	23ba48a2ed36022d678e7aff2492eb7c
+LWP-Protocol-https-6.60.0.ebuild	92613fa0df4d8c828f96623a6936066e
+LWP-Protocol-https-6.70.0.ebuild	910dc5db1b9e1e29dc715d804c042be4
+metadata.xml	b69852d1b7a4bfc55f733e99cdd99864

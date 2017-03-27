@@ -1,0 +1,5 @@
+checkrestart-0.47-r3.ebuild	9666a470ab254ec686e1a24811e08837
+checkrestart-0.47-r4.ebuild	0580b87832c660ada9692d7103e1fe73
+files/checkrestart-0.47-cwd.patch	ecf21f3c2b75191c32d03d8e11989eff
+files/checkrestart-0.47-list-comprehension-fix.patch	6035ca58194ca2924d06b8b4807723d0
+metadata.xml	d8f14de6a3a568901f1071e62555ba22

@@ -1,0 +1,10 @@
+files/lz4-0_p106-cflags.patch	bb55f496b5db9c66f07cb0d43aa53253
+files/lz4-0_p106-install-to-bindir.patch	a8f036b989c2927b387fbb76a8365e06
+files/lz4-0_p131-static-libs.patch	f259dadc449871e68d1ab001dffd80a3
+lz4-0_p106-r1.ebuild	456a32002d2efafa11addbd9a9253ecd
+lz4-0_p120.ebuild	90e3746d4f86ea304a878bda9e98b0d5
+lz4-0_p131.ebuild	933e7d3d3d512732fb5b10732f5e052d
+lz4-0_p131-r1.ebuild	74ccac628f616fd530c408323972e4d4
+lz4-1.7.5-r1.ebuild	ff6ceaca3737797dd974d1867e5d473a
+lz4-9999.ebuild	95c29f79ca5973f3f08dc6f81404dd15
+metadata.xml	6f9b861f2899141826638f2a1c9240b2

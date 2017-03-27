@@ -1,0 +1,8 @@
+files/netdata-1.4.0-glibc-sysmacros.patch	231f1538a371c05b079bd40293934700
+metadata.xml	3c5f731142c48328d22f99fffa09a8af
+netdata-1.2.0-r1.ebuild	d3fdcb3dda956c26946a954bd3112e64
+netdata-1.3.0.ebuild	ff6e57e628297244e547f2a1f358ac80
+netdata-1.4.0-r1.ebuild	59e191d7db173db9768131068ab73342
+netdata-1.5.0.ebuild	0067f4ebdaa5987d3ea0bdbcc3b96a21
+netdata-1.6.0.ebuild	152e7613fbde0ff965bf7943a94ff5c5
+netdata-9999.ebuild	152e7613fbde0ff965bf7943a94ff5c5
