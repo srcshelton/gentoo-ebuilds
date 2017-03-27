@@ -92,17 +92,17 @@ pkg_postinst() {
 	webapp_pkg_postinst
 
 	if has_version "<mail-client/roundcube-1.0.0"; then
-	ewarn
-	ewarn "When upgrading from <= 0.9, note that the old configuration files"
-	ewarn "named main.inc.php and db.inc.php are deprecated and should be"
-	ewarn "replaced with one single config.inc.php file."
-	ewarn
-	ewarn "Run the ./bin/update.sh script to convert those"
-	ewarn "or manually merge the files."
-	ewarn
-	ewarn "The new config.inc.php should only contain options that"
+		ewarn
+		ewarn "When upgrading from <= 0.9, note that the old configuration files"
+		ewarn "named main.inc.php and db.inc.php are deprecated and should be"
+		ewarn "replaced with one single config.inc.php file."
+		ewarn
+		ewarn "Run the ./bin/update.sh script to convert those"
+		ewarn "or manually merge the files."
+		ewarn
+		ewarn "The new config.inc.php should only contain options that"
 		ewarn "differ from those listed in defaults.inc.php."
-	ewarn
+		ewarn
 	fi
 }
 # vi: set diffopt=iwhite,filler:
