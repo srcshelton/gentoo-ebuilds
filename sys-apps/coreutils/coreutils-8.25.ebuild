@@ -24,7 +24,7 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 LICENSE="GPL-3"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
-KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="acl caps elibc_glibc gmp hostname kill multicall nls selinux sep-usr static +stdbuf uptime userland_BSD vanilla xattr"
 
 LIB_DEPEND="acl? ( sys-apps/acl[static-libs] )
@@ -182,9 +182,9 @@ src_install() {
 		           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 		mv ${com} ../../bin/ || die "could not move common bins"
 		# create a symlink for uname in /usr/bin/ since autotools require it,
-		# as long as /bin is not a symlink (to /usr/bin eventually)
+		# as long as /bin resolves to a different directory than /usr/bin
 		local x
-		[[ -L ${EROOT}/bin ]] ||
+		[[ ${EROOT}bin/. -ef ${EROOT}usr/bin/. ]] ||
 		for x in ${com} uname ; do
 			dosym /bin/${x} /usr/bin/${x}
 		done
