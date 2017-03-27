@@ -1,4 +1,4 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Id: f3aa99b46c3d267991805249a834c2121858cf18 $
 # $Header: /var/cvsroot/gentoo-x86/sys-libs/db/db-5.1.29-r1.ebuild,v 1.3 2015/03/20 14:41:50 jlec Exp $
@@ -30,7 +30,7 @@ done
 LICENSE="Sleepycat"
 SLOT="5.1"
 KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~sparc-fbsd ~x86-fbsd"
-KEYWORDS+="~ppc-aix ~x64-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS+="~ppc-aix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="doc java cxx tcl test"
 
 REQUIRED_USE="test? ( tcl )"
