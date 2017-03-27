@@ -1,6 +1,5 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 7b42189543e46285e5660b7613138beb1a9f59aa $
 # $Header: /var/cvsroot/gentoo-x86/app-shells/bash/bash-4.2_p53.ebuild,v 1.4 2014/10/08 06:21:18 armin76 Exp $
 
 EAPI="4"
@@ -39,7 +38,7 @@ SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
 LICENSE="GPL-3"
 SLOT="${MY_PV}"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
-KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS+="~ppc-aix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline static -system-shell"
 
 LIB_DEPEND=">=sys-libs/ncurses-5.2-r2[static-libs(+)]
@@ -255,8 +254,8 @@ src_install() {
 		dosym bash /bin/rbash
 
 		insinto /etc/bash
-		doins "${FILESDIR}"/bash_logout
 		doins "${T}"/bashrc
+		doins "${FILESDIR}"/bash_logout
 		insinto /etc/skel
 		for f in bash{_logout,_profile,rc} ; do
 			newins "${FILESDIR}"/dot-${f} .${f}
