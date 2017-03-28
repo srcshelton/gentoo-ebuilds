@@ -208,6 +208,7 @@ used to build perl)
 * dev-perl/Sub-Infix
 * dev-php/PEAR-Crypt_GPG
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.0
+* dev-python/ansible-lint
 * dev-python/noxspellserver
 * dev-ruby/CFPropertyList
 * dev-ruby/cora
