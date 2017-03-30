@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 509beaab0e102cf6decf209922669700c9ac5576.
+# commit d96013ae42c0ac19a3cb6ae35b7b5366d0c43fd0.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -195,7 +195,7 @@ disable_audio_dither=1
 # dwc2 supports modes 'host', 'peripheral', or 'otg'
 #device_tree_overlay=dwc2,dr_mode=host
 #device_tree_overlay=dwc2,dr_mode=peripheral
-#device_tree_overlay=dwc2,dr_mode=otg,g-rx-fifo-size=?,g-np-tx-fifo-size=?,g-tx-fifo-size=?
+#device_tree_overlay=dwc2,dr_mode=otg,g-rx-fifo-size=?,g-np-tx-fifo-size=?
 
 #device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
 #device_tree_overlay=i2c0-bcm2708,pins_0_1 # or pins_28_29, pins_44_45, pins_46_47
@@ -305,7 +305,7 @@ disable_audio_dither=1
 # I2C:
 #device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
 #device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
-#device_tree_overlay=i2c-sensor,bmp085,bmp280,si7020
+#device_tree_overlay=i2c-sensor,bmp085,bmp280,lm75,lm75addr=0x4f,si7020
 
 # RTC:
 # i2c-rtc supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
@@ -324,7 +324,9 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
 # DAC & ADC Audio devices & codecs:
+#device_tree_overlay=allo-boss-dac-pcm512x-audio # ,24db_digital_gain #, slave
 #device_tree_overlay=allo-piano-dac-pcm512x-audio # ,24db_digital_gain
+#device_tree_overlay=allo-piano-dac-plus-pcm512x-audio # ,24db_digital_gain
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=adau7002-simple,card-name=adau7002
 #device_tree_overlay=adau1977-adc
@@ -336,6 +338,7 @@ disable_audio_dither=1
 #device_tree_overlay=dionaudio-loco
 #device_tree_overlay=dionaudio-loco-v2 # ,24db_digital_gain
 #device_tree_overlay=fe-pi-audio
+#device_tree_overlay=googlevoicehat-soundcard
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain,slave
