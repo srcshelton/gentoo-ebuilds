@@ -5,4 +5,4 @@ files/vnstatd.initd-r1	03f97f03361b7cb5e3bd55caf985b6ab
 metadata.xml	a2a23e812b484232d97fc362051f231d
 vnstat-1.15.ebuild	cfa19101ba8695d968612f873bb0a4e9
 vnstat-1.16.ebuild	e04bfb2d9c10638e6e98779711af5efe
-vnstat-1.17.ebuild	155d5c104573bd6f4a677b3d7e32920f
+vnstat-1.17.ebuild	d2ed8c03a6427db8e41ca6b717ddf9c6
