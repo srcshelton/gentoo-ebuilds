@@ -2,5 +2,7 @@ ca-certificates-20161102.3.27.2-r2.ebuild	77a02cfbb0f427e119972a767256f89f
 ca-certificates-20161130.3.28.1.ebuild	ea0e4c203d5b2637653c7d9825817adf
 ca-certificates-20161130.3.29.1.ebuild	14ab3f4c88b344ef39b780eb45d7c753
 ca-certificates-20161130.3.29.3.ebuild	14ab3f4c88b344ef39b780eb45d7c753
+ca-certificates-20161130.3.30.ebuild	14ab3f4c88b344ef39b780eb45d7c753
+ca-certificates-20161130.3.30-r1.ebuild	f8aebb8fd2249802bd5e2dce3a8e1923
 files/ca-certificates-20150426-root.patch	3e428fb9b7fc73fc4898eefc84dc7e8d
 metadata.xml	9175363e9e833650a8144b12b52842ed

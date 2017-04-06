@@ -11,6 +11,10 @@ files/openssh-7.3_p1-Unregister-the-KEXINIT-handler-after-receive.patch	b6d4d162
 files/openssh-7.3_p1-x509-9.2-warnings.patch	2ec2518b179f734eb2c8701f49bce78b
 files/openssh-7.4_p1-GSSAPI-dns.patch	437f951ffcbb13dffaba23ae9ab58afc
 files/openssh-7.4_p1-test-bashism.patch	747427feb52ef05b6dbc22b37ef488b0
+files/openssh-7.5_p1-GSSAPI-dns.patch	d29c5e90e748ff140ccf1a0d358a5bfa
+files/openssh-7.5_p1-hpn-x509-10.1-glue.patch	c481dd6cf71e4330e932b5352e4f1f6f
+files/openssh-7.5_p1-x32-typo.patch	c9bb3a6328a905ebcda30e6b11f6ad7b
+files/openssh-7.5p1-x509-libressl.patch	961d8df41369e70c7dc86aa2bb14009f
 files/sshd_at.service	67aee1a909e35bd05f0bd9bfaea0f5c6
 files/sshd.confd	b35e9f3829f4cfca07168fcba98749c7
 files/sshd.pam_include.2	7c8d6e32f4ba92d13234cfa7b037432c
@@ -21,3 +25,5 @@ metadata.xml	09801853a7f867c7661d281420ba00ce
 openssh-7.3_p1-r7.ebuild	61df21e6e9bfc1de945e7cfcde98af71
 openssh-7.3_p1-r8.ebuild	5cff91c16136307448b0abeb188b64f5
 openssh-7.4_p1.ebuild	45157b0b7489c9dfa14eaf3d68b53b27
+openssh-7.5_p1.ebuild	83e4df9dde4bfc6641e9db6da0875112
+openssh-7.5_p1-r1.ebuild	4db844f27fdc19150319b73df3d69f06

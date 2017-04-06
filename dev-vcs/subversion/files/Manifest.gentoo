@@ -12,4 +12,4 @@ files/svnserve.initd3	933d24e12b3720873dc544e0a9bcd611
 files/svnserve.xinetd	027fc7b3c7713c23f01cf83f118cb8ff
 metadata.xml	d2dc8da7b2ce3a15ecac3462fe2486f3
 subversion-1.8.17.ebuild	25f67af52f7f4e107fccdd58cc809931
-subversion-1.9.5.ebuild	265886b228d0538660248476f418a625
+subversion-1.9.5.ebuild	84d35fa1b6b306f8cddcea7de3d388a8
