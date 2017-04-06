@@ -1,5 +1,5 @@
---- opendkim/opendkim.c.dist
-+++ opendkim/opendkim.c
+--- a/opendkim/opendkim.c.dist
++++ b/opendkim/opendkim.c
 @@ -4613,7 +4613,7 @@ dkimf_checkfsnode(const char *path, uid_
  			if (err != NULL)
  			{

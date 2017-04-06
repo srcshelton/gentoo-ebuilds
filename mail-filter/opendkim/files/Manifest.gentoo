@@ -5,4 +5,4 @@ files/opendkim.service	902917bce54c004257510c44d06ffaac
 metadata.xml	e18a3ae98ada02ebd9f37d89ff9e1f96
 opendkim-2.10.3.ebuild	90e5cd4dffbf2ca903423f79a9a0305d
 opendkim-2.10.3-r2.ebuild	ac27b2dd1d2f3bcaf508344b0b0a1f89
-opendkim-2.10.3-r3.ebuild	cb4b63407fedbf27bf02ab7147cfcf6a
+opendkim-2.10.3-r3.ebuild	aaf760793bac97b4d4688e592098fd8f
