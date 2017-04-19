@@ -119,6 +119,8 @@ used to build perl)
     * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
 * net-analyzer/nmap
     * Restore RT_MSGHDR_ALIGNMENT definition for building on macOS 
+* net-analyzer/wireshark
+    * Remove macOS '-isysroot' argument which broke macOS builds attempting to use SDK library stubs
 * sys-apps/baselayout-prefix
     * Add missing `run_applets` prototype
 * sys-apps/darwin-miscutils
@@ -353,7 +355,6 @@ directory is an additional QA check which reports an error if files deployed to
 * net-analyzer/ntop
 * net-analyzer/rrdtool
 * net-analyzer/vnstat
-* ~~net-analyzer/wireshark~~
 * net-analyzer/zabbix
 * net-dialup/freeradius
 * net-dns/bind
