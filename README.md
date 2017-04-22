@@ -261,6 +261,8 @@ used to build perl)
 
 * app-crypt/gnupg
     * Fix clang compilation errors
+* app-emulation/docker
+    * Allow more fine-grained control over optional features
 * app-emulation/lxc
     * Don't require an upgrade to Python 3.x unless building against Python
 * app-misc/ca-certificates
