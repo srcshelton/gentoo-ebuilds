@@ -28,6 +28,6 @@ gcc-4.8.5.ebuild	af50cc77b195a79557166739169748f1
 gcc-4.9.3.ebuild	dae1ae9a8af0298a0eef30a6f60884d3
 gcc-4.9.4.ebuild	d30d948db5047d95716fff11e806a034
 gcc-5.4.0.ebuild	faaaec388f0c13cf550b82a069e36f69
-gcc-5.4.0-r3.ebuild	7e3259dc0ff3e7f2939aed354cb4a2ec
+gcc-5.4.0-r3.ebuild	a8d114a3cf2cfd0e3b95d54c770eeeaf
 gcc-6.3.0.ebuild	7099f758e14e17acb9d93e3bca49e62b
 metadata.xml	1db125a2571c64a6f431c0cbe21ab075
