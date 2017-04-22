@@ -24,7 +24,7 @@ HOMEPAGE="https://www.kernel.org/pub/linux/utils/util-linux/"
 
 LICENSE="GPL-2 LGPL-2.1 BSD-4 MIT public-domain"
 SLOT="0"
-IUSE="build caps +cramfs fdformat kill ncurses nls pam python +readline selinux slang +static static-libs +suid systemd test tty-helpers udev unicode abi_x86_32"
+IUSE="build caps +cramfs fdformat kill ncurses nls pam python +readline selinux slang static-libs +suid systemd test tty-helpers udev unicode abi_x86_32"
 
 # Most lib deps here are related to programs rather than our libs,
 # so we rarely need to specify ${MULTILIB_USEDEP}.
@@ -128,7 +128,7 @@ multilib_src_configure() {
 	# --enable-write
 
 	# Additional options now enabled:
-	# --enable-static-programs=losetup,mount,umount,fdisk,sfdisk,blkid,nsenter,unshare
+	# --enable-static-programs=losetup,mount,umount,fdisk,sfdisk,blkid,nsenter,unshare (all require static-libs)
 	# --enable-sulogin-emergency-mount
 
 	# Additional options which may be enabled:
@@ -217,7 +217,6 @@ multilib_src_configure() {
 		--enable-schedutils \
 		--disable-su \
 		--enable-sulogin-emergency-mount \
-		$(multilib_native_use_enable static static-programs losetup,mount,umount,fdisk,sfdisk,blkid,nsenter,unshare) \
 		$(multilib_native_use_enable tty-helpers wall) \
 		$(multilib_native_use_enable tty-helpers write) \
 		$(multilib_native_use_enable suid makeinstall-chown) \
