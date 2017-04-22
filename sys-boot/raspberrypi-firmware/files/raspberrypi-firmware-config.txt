@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit d96013ae42c0ac19a3cb6ae35b7b5366d0c43fd0.
+# commit e73ca0a81e74b2305d77b05d33c40bcc6f91df90.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -326,7 +326,7 @@ disable_audio_dither=1
 # DAC & ADC Audio devices & codecs:
 #device_tree_overlay=allo-boss-dac-pcm512x-audio # ,24db_digital_gain #, slave
 #device_tree_overlay=allo-piano-dac-pcm512x-audio # ,24db_digital_gain
-#device_tree_overlay=allo-piano-dac-plus-pcm512x-audio # ,24db_digital_gain
+#device_tree_overlay=allo-piano-dac-plus-pcm512x-audio # ,24db_digital_gain,glb_mclk
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=adau7002-simple,card-name=adau7002
 #device_tree_overlay=adau1977-adc
@@ -354,6 +354,7 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-cirrus-wm5102
 #device_tree_overlay=rpi-dac
 #device_tree_overlay=rpi-proto
+#device_tree_overlay=rpi-tv
 #device_tree_overlay=rra-digidac1-wm8741-audio
 
 # The following overlays have been removed:
