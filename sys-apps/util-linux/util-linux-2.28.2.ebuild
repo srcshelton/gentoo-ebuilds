@@ -24,7 +24,7 @@ HOMEPAGE="https://www.kernel.org/pub/linux/utils/util-linux/"
 
 LICENSE="GPL-2 LGPL-2.1 BSD-4 MIT public-domain"
 SLOT="0"
-IUSE="build caps +cramfs fdformat kill ncurses nls pam python +readline selinux slang static-libs +suid systemd test tty-helpers udev unicode abi_x86_32"
+IUSE="build caps +cramfs fdformat kill ncurses nls pam python +readline selinux slang +static static-libs +suid systemd test tty-helpers udev unicode abi_x86_32"
 
 # Most lib deps here are related to programs rather than our libs,
 # so we rarely need to specify ${MULTILIB_USEDEP}.
@@ -101,6 +101,94 @@ multilib_src_configure() {
 	tc-is-cross-compiler && export scanf_cv_alloc_modifier=ms
 	export ac_cv_header_security_pam_misc_h=$(multilib_native_usex pam) #485486
 	export ac_cv_header_security_pam_appl_h=$(multilib_native_usex pam) #545042
+
+	# Options possibly enabled or disabled by stock ebuild:
+	# --disable-agetty
+	# --disable-bash-completion
+	# --enable-chfn-chsh (from sys-apps/shadow)
+	# --disable-cramfs
+	# --disable-fdformat
+	# --enable-fs-paths-extra=paths
+	# --disable-kill (from sys-process/procps)
+	# --disable-login (from sys-apps/shadow)
+	# --disable-makeinstall-chown
+	# --disable-makeinstall-setuid
+	# --disable-mesg
+	# --disable-nls
+	# --disable-nologin (from sys-apps/shadow)
+	# --disable-partx
+	# --disable-raw
+	# --disable-rename
+	# --enable-reset (from sys-libs/ncurses)
+	# --disable-schedutils
+	# --disable-setpriv
+	# --disable-su (from sys-apps/shadow)
+	# --disable-tls
+	# --disable-wall (from sys-apps/shadow)
+	# --enable-write
+
+	# Additional options now enabled:
+	# --enable-static-programs=losetup,mount,umount,fdisk,sfdisk,blkid,nsenter,unshare
+	# --enable-sulogin-emergency-mount
+
+	# Additional options which may be enabled:
+	# --enable-fs-paths-default=paths
+	# --enable-gtk-doc
+	# --enable-libmount-force-mountinfo (ignore /etc/mtab, for systemd)
+	# --enable-libuuid-force-uuidd (only with --disable-libuuid)
+	# --enable-line
+	# --enable-login-chown-vcs
+	# --enable-login-stat-mail
+	# --enable-newgrp (from sys-apps/shadow)
+	# --enable-tunelp
+	# --enable-usrdir-path (ignore PATH elements not beneath /usr, for systemd)
+	# --enable-vipw (from sys-apps/shadow)
+
+	# Default features which may be disabled:
+	# --disable-all-programs
+	# --disable-assert
+	# --disable-bfs
+	# --disable-cal
+	# --disable-chfn-chsh-password
+	# --disable-chsh-only-listed
+	# --disable-colors-default
+	# --disable-eject
+	# --disable-fallocate
+	# --disable-fsck
+	# --disable-hwclock
+	# --disable-ipcrm
+	# --disable-ipcs
+	# --disable-last
+	# --disable-libblkid
+	# --disable-libfdisk
+	# --disable-libmount
+	# --disable-libsmartcols
+	# --disable-libuuid
+	# --disable-logger
+	# --disable-losetup
+	# --disable-lslogins
+	# --disable-minix
+	# --disable-more
+	# --disable-mount
+	# --disable-mountpoint
+	# --disable-nsenter
+	# --disable-pg
+	# --disable-pg-bell
+	# --disable-pivot_root
+	# --disable-pylibmount
+	# --disable-rpath
+	# --disable-runuser
+	# --disable-setterm
+	# --disable-sulogin
+	# --disable-switch_root
+	# --disable-ul
+	# --disable-unshare
+	# --disable-use-tty-group
+	# --disable-utmpdump
+	# --disable-uuidd
+	# --disable-wdctl
+	# --disable-zramctl
+
 	ECONF_SOURCE=${S} \
 	econf \
 		--localstatedir="${EPREFIX}/var/run" \
@@ -128,6 +216,8 @@ multilib_src_configure() {
 		--disable-reset \
 		--enable-schedutils \
 		--disable-su \
+		--enable-sulogin-emergency-mount \
+		$(multilib_native_use_enable static static-programs losetup,mount,umount,fdisk,sfdisk,blkid,nsenter,unshare) \
 		$(multilib_native_use_enable tty-helpers wall) \
 		$(multilib_native_use_enable tty-helpers write) \
 		$(multilib_native_use_enable suid makeinstall-chown) \
