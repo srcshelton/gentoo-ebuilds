@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c7897169fed9a1651503803dc0b1699baf798243 $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -15,6 +14,7 @@ LICENSE="GPL-3"
 SLOT="0"
 KEYWORDS="amd64 arm hppa ia64 ppc ppc64 ~s390 ~sh sparc x86"
 IUSE="snmp ssl"
+REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
 COMMON_DEPEND="
 	dev-lang/lua:=
@@ -30,10 +30,10 @@ COMMON_DEPEND="
 	sys-libs/gdbm
 	sys-libs/zlib
 	virtual/awk
+	${PYTHON_DEPS}
 "
 DEPEND="
 	${COMMON_DEPEND}
-	${PYTHON_DEPS}
 	>=sys-devel/libtool-1.5.26
 "
 RDEPEND="
@@ -45,8 +45,6 @@ RDEPEND="
 	media-gfx/graphviz
 	net-misc/wget
 "
-
-REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
 pkg_setup() {
 	enewgroup ntop
@@ -95,7 +93,6 @@ src_configure() {
 		$(use_enable snmp) \
 		$(use_with ssl) \
 		--with-rrd-home=/usr/$(get_libdir)
-
 }
 
 src_compile() {
