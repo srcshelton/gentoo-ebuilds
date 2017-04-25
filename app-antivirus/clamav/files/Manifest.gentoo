@@ -1,10 +1,12 @@
 clamav-0.98.7.ebuild	3cae7bac80538d1a6eca91e9c4f81d0b
 clamav-0.98.7-r1.ebuild	e44c4c0f07c94f5b77bab8d30b36d9fa
-clamav-0.99.1.ebuild	b0c3002fb2e3db532c7b70b95d86219c
-clamav-0.99.2.ebuild	d3cd9f0a2b0843a8eb3ae2635d0ce065
-clamav-0.99.ebuild	6a1fc843236fe831df20a866acc5be29
+clamav-0.99.1.ebuild	4dae5a95c9457df49592928bad434c84
+clamav-0.99.2.ebuild	07c65f765a423d9ea38ab9e004a27ecc
+clamav-0.99.2-r1.ebuild	89bc2edd7514f57a31bf45d8b15f7788
+clamav-0.99.ebuild	af8ca081c8efe5febe17289f4e59448a
 files/clamav-0.99.2-gcc-6.patch	98daad8a36d58c88d2008b930ba6a5f0
-files/clamav-configure-zlib.patch	89de29912d49b444feca5bee22253bab
+files/clamav-0.99.2-tinfo.patch	4c6fff5d9a410b1f3ee454635da5aa1e
+files/clamav-0.99-zlib.patch	89de29912d49b444feca5bee22253bab
 files/clamav.logrotate	73670171015374e391e32a8ebe5adaea
 files/clamav-milter.README.gentoo	08f7b320461c04bbb88555e389c2e544
 files/clamav-milter.service	62aeb7c973a32374e64dcfc531090211

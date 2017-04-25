@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b77f3e708c133975c6cc07e34a981337c6b58892 $
 
 EAPI=5
 
@@ -48,7 +47,7 @@ src_prepare() {
 	use ppc64 && append-flags -mminimal-toc
 	use uclibc && export ac_cv_type_error_t=yes
 
-	epatch "${FILESDIR}"/${PN}-configure-zlib.patch # 604650, fixed in upstream HEAD
+	epatch "${FILESDIR}"/${P}-zlib.patch # 604650, fixed in upstream HEAD
 	eautoconf
 }
 
