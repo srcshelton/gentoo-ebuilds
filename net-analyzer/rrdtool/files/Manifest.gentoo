@@ -9,7 +9,7 @@ files/rrdtool-1.5.5-rpn1.output	cee533bf64d984e829da9a72e8e288de
 files/rrdtool-1.5.5-rrdrados.pod	0ded3553eeabf87aadcd0c106f7994ae
 files/rrdtool-1.6.0-configure.ac.patch	6f1c2ca1c2ef314eb5da2e78eb9ecfff
 metadata.xml	bdebfde5157bf47cce668dd24c53c9d7
-rrdtool-1.4.8-r1.ebuild	41ebfcb38740b0307e83ade216cddaef
+rrdtool-1.4.8-r1.ebuild	c55a125d1b22a9f0bf52414266023849
 rrdtool-1.5.5.ebuild	a2cf1683e151f2bec607c90b4971a9ab
 rrdtool-1.5.5-r1.ebuild	f922b8060f0d4d465ccdf0d47985e175
 rrdtool-1.6.0-r1.ebuild	a240825cdc9bddba691ca30b9143b567
