@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 76b865a50a2abad5b2779d083df7429c01645b29 $
 
 # Re: dlz/mysql and threads, needs to be verified.
 # MySQL uses thread local storage in its C api. Thus MySQL
@@ -54,7 +53,8 @@ REQUIRED_USE="postgres? ( dlz )
 	ldap? ( dlz )
 	gost? ( !libressl ssl )
 	threads? ( caps )
-	dnstap? ( threads )"
+	dnstap? ( threads )
+	python? ( ${PYTHON_REQUIRED_USE} )"
 # sdb-ldap? ( dlz )
 
 DEPEND="
@@ -77,7 +77,10 @@ DEPEND="
 	lmdb? ( dev-db/lmdb )
 	zlib? ( sys-libs/zlib )
 	dnstap? ( dev-libs/fstrm dev-libs/protobuf-c )
-	python? ( dev-python/ply[${PYTHON_USEDEP}] )"
+	python? (
+		${PYTHON_DEPS}
+		dev-python/ply[${PYTHON_USEDEP}]
+	)"
 #	sdb-ldap? ( net-nds/openldap )
 
 RDEPEND="${DEPEND}

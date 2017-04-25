@@ -1,6 +1,6 @@
-bind-9.10.4_p4.ebuild	b99a8a54638ea816d62cad75a0363122
-bind-9.11.0_p2.ebuild	c66d5e5fb2a8b6766321b5ab01175f49
-bind-9.11.0_p3.ebuild	082cbe773c757c87ea481238504f9ebe
+bind-9.10.4_p4.ebuild	e18fd3f901b39194ca6885e658e3e338
+bind-9.11.0_p2.ebuild	ee8d0614cb481e4718d58b5f1c9b0561
+bind-9.11.0_p3.ebuild	045d69f1cf2fe951c56c4889f50e1664
 files/10bind.env	42b5ed5adcee33cf40531d7955412b21
 files/generate-rndc-key.sh	ceabe16b1cb208600c9ef8b78c5e59ef
 files/localhost.zone-r3	84f153452c05a9d6049ec89a6bee2a71
