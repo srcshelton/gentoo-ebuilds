@@ -11,6 +11,6 @@ files/lighttpd.tmpfiles.conf	97e72818cd7adae729174c2c5e3a716c
 lighttpd-1.4.42.ebuild	f1a113138c76e883e1c2c41cc186ccde
 lighttpd-1.4.43.ebuild	019e781ae36d94c31234d7a104971752
 lighttpd-1.4.44.ebuild	a62996809ab10f33b9520099da54524e
-lighttpd-1.4.45.ebuild	a62996809ab10f33b9520099da54524e
+lighttpd-1.4.45.ebuild	3dc452b6a5367d0b91703b1bbffd0737
 lighttpd-9999.ebuild	b3fbf9f07b596552977565125ca0cdc8
 metadata.xml	54cc6b344e7951a8cff9dd97e02b793a
