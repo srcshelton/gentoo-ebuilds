@@ -22,7 +22,7 @@ files/zabbix-proxy.service	0bdd2a2fa842f38826d79e2875d74651
 files/zabbix-proxy.tmpfiles	9ce692356b4ac0a71595ce55fe3b44c1
 files/zabbix-server.service	55fe6f58da619b884c2bd75d87f5d753
 files/zabbix-server.tmpfiles	9ce692356b4ac0a71595ce55fe3b44c1
-metadata.xml	2e99cb5c64745583f01e726bd684bfb1
+metadata.xml	087f0bc2f8d160c22183033a7d161d6b
 zabbix-2.2.16.ebuild	71c2fd03537c9b65457d6163883ebfda
 zabbix-2.2.17.ebuild	453a840d5cd15ab363fc7b23a1eb55d2
 zabbix-2.2.18.ebuild	453a840d5cd15ab363fc7b23a1eb55d2
@@ -33,3 +33,4 @@ zabbix-3.2.2.ebuild	52d13ddc7b8be493a7f8cf9e2d49930c
 zabbix-3.2.3.ebuild	52d13ddc7b8be493a7f8cf9e2d49930c
 zabbix-3.2.4.ebuild	b025fae63f1944bf4d9b59c6c3153918
 zabbix-3.2.5.ebuild	b025fae63f1944bf4d9b59c6c3153918
+zabbix-3.2.6.ebuild	b025fae63f1944bf4d9b59c6c3153918
