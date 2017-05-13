@@ -1,5 +1,5 @@
-bind-tools-9.10.4_p4.ebuild	5d4f7ba77ee9b6d8c03953f88d5e2843
-bind-tools-9.11.0_p2.ebuild	bf0779f1c7f3678f0264565a427f15f9
-bind-tools-9.11.0_p3.ebuild	03f326db607e9907efed2f8fa432bd36
+bind-tools-9.10.5.ebuild	e9db58fc67060290869b5db915770c00
+bind-tools-9.11.0_p3.ebuild	30297f2a974564aebbb104eee1f6036c
+bind-tools-9.11.0_p5.ebuild	6d94896b94fecac4d7f4c208ec5bd6c6
 files/bind-tools-9.5.0_p1-lwconfig.patch	d1da96fe67581b35dfea937647c8b317
 metadata.xml	4176441266625137aabb7ebc2d2a3718
