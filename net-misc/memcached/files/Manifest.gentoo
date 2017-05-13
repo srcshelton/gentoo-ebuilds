@@ -9,5 +9,5 @@ memcached-1.4.33.ebuild	db407f7f652ccb8dc49fbbc14c4e1f7d
 memcached-1.4.33-r1.ebuild	dbd2ff6f55660ada9d838c995469d421
 memcached-1.4.34.ebuild	dbd2ff6f55660ada9d838c995469d421
 memcached-1.4.35.ebuild	dbd2ff6f55660ada9d838c995469d421
-memcached-1.4.36.ebuild	dbd2ff6f55660ada9d838c995469d421
+memcached-1.4.36.ebuild	152e70dd24fd49fee7104adaea1d5eac
 metadata.xml	6ce932b915adee14573401097525c964
