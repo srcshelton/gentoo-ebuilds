@@ -1,6 +1,5 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 796f876c88ba3ea6ce8f8a7ece127fe49cf86672 $
 
 EAPI=5
 
@@ -13,10 +12,11 @@ SRC_URI="http://www.issihosts.com/haveged/${P}.tar.gz"
 LICENSE="GPL-3+"
 SLOT="0"
 KEYWORDS="amd64 arm x86"
-IUSE="systemd"
+IUSE="selinux systemd"
 
 DEPEND=""
-RDEPEND="!<sys-apps/openrc-0.11.8"
+RDEPEND="!<sys-apps/openrc-0.11.8
+		 selinux? ( sec-policy/selinux-entropyd )"
 
 # threads are broken right now, but eventually
 # we should add $(use_enable threads)
