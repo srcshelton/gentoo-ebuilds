@@ -7,4 +7,5 @@ files/ntop-initd	af32215f664231f37a9a8147d89d97f0
 files/ntop-initd-r1	30a8c031d219d54ab47b11f03ac21e07
 files/ntop-update-geoip-db	080de490aeed421775e6f2472d86cb94
 metadata.xml	3c17b0f135abca2942257b1c604bf93d
-ntop-5.0.1-r2.ebuild	5a37092c6ae35962eaa919f842e35b7d
+ntop-5.0.1-r2.ebuild	e6a1fcfdd2b7efc393d9a2373e39b32c
+ntop-5.0.1-r3.ebuild	9c6c0062a20cf506eefec83cf933b3e7
