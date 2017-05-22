@@ -1,6 +1,5 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2fc02643d3cbc1d666fcf4f254aad6a67a5c551a $
 
 EAPI=5
 inherit eutils systemd user
@@ -57,6 +56,7 @@ src_install() {
 
 	newinitd "${FILESDIR}/${PN}.init.d-20080406-r6" ntpd
 	newconfd "${FILESDIR}/${PN}.conf.d-20080406-r6" ntpd
+	keepdir "${NTP_HOME}"
 
 	use systemd && systemd_newunit "${FILESDIR}/${PN}.service-20080406-r4" ntpd.service
 }
