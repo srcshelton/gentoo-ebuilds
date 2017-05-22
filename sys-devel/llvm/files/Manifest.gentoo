@@ -63,6 +63,6 @@ llvm-3.8.1-r2.ebuild	993d9d9abf80c61815404349fb574b8f
 llvm-3.9.0-r1.ebuild	1f5d14862f89f22bf413012d9209233c
 llvm-3.9.1.ebuild	c2b8e0e5640f6592640f2e39d02e1381
 llvm-3.9.1-r1.ebuild	5c878e2efb871dfa3bf51e51722d1f70
-llvm-4.0.0.ebuild	6cdebc09edfdc76f4b22b46a9013f3c0
-llvm-9999.ebuild	5f23109bafbf0a4849071766c4fba45e
+llvm-4.0.0-r2.ebuild	a03ecfb17ac712932b624f78301b2956
+llvm-9999.ebuild	8dfcf0d0d6db2e7d411db642622ca338
 metadata.xml	b0dc86f5080acd0ebe92d86752eb9437

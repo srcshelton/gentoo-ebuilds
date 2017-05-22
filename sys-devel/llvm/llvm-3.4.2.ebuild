@@ -5,9 +5,6 @@
 EAPI=5
 
 PYTHON_COMPAT=( python2_7 pypy )
-# this causes some issues so make it optional for now.
-# 3.5 will have CMakeFiles support in autotools.
-WANT_CMAKE=cmake
 
 inherit cmake-utils eutils flag-o-matic multibuild multilib \
 	python-r1 toolchain-funcs pax-utils check-reqs prefix multilib-minimal
