@@ -8,5 +8,5 @@ openrc-0.22.4.ebuild	a2227a03f9d3823761b3905a5da739e9
 openrc-0.23.2.ebuild	660fac1b1ec1facdab9e9f30b49f08f8
 openrc-0.24.2.ebuild	7e3acad6ee4f5c250092a71a8b7179b9
 openrc-0.25.ebuild	7b5128c9bab23881e363dd3238d8c442
-openrc-0.26.2.ebuild	c9313f5ddb3e92ea56cb9031ff75e6dc
+openrc-0.26.2.ebuild	f62ceea925f996d830a7fff6cb0494a1
 openrc-9999.ebuild	7b5128c9bab23881e363dd3238d8c442
