@@ -2,7 +2,7 @@ files/runuser-l.pamd	1a27b525ac1ed42a2dae9dfd0c1bca0e
 files/runuser.pamd	7d06cc6270a3b444c8e4aca706558aa7
 metadata.xml	182d13de28c8373d859048ea83493534
 util-linux-2.26.2.ebuild	2a1df48b8210311689043760deaa97bd
-util-linux-2.28.2.ebuild	99f960cd800ad519c3974e510ce7405f
+util-linux-2.28.2.ebuild	b6ce0b52871665f0efb90eff8573fa68
 util-linux-2.29.1-r1.ebuild	daf401f65e8582f9754722306427bcf6
 util-linux-2.29.2.ebuild	daf401f65e8582f9754722306427bcf6
 util-linux-2.29.2-r1.ebuild	dad20a80e37bfea7f17cbdac282eed02
