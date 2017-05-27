@@ -23,5 +23,5 @@ metadata.xml	4e915717942a28f8fd81318a54285e10
 syslog-ng-3.4.8.ebuild	e502586a8bbec74b9c57171a70dfbd03
 syslog-ng-3.6.2.ebuild	9bb04e48f2c736c02e4ea90394d5cf2f
 syslog-ng-3.6.4.ebuild	01eb15cabf9a038fd2de9311865afaea
-syslog-ng-3.7.2.ebuild	91bca9256adb5e7964d9928f2c337f8f
-syslog-ng-3.7.3.ebuild	a6f809917536929e19ea3a698e0e1d9c
+syslog-ng-3.7.2.ebuild	ae24462e5196ba24e83ad33cecd73f45
+syslog-ng-3.7.3.ebuild	fd6ec815687cb384db2377f19076e668
