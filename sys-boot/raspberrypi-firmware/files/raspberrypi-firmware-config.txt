@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 73e9b8a572974de0453377ea7994c61e828cd745.
+# commit 32c28990b18908ce899c289bcd12c6e9daeb1588.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -264,12 +264,15 @@ disable_audio_dither=1
 #device_tree_overlay=mmc,overclock_50=63
 #
 # N.B. dtoverlay=sdhost kills Wifi on RPi3!
-#device_tree_overlay=sdhost,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off
+#device_tree_overlay=sdhost,overclock_50=84,force_pio=off,pio_limit=1,debug=off
 #
 #device_tree_overlay=sdtweak,overlock_50=84,force_pio=off,pio_limit=1,debug=off
 #
 # enables SDIO via GPIOs 22-27
-#device_tree_overlay=sdio,overclock_50=84,sdio_overclock=84,force_pio=off,pio_limit=1,debug=off,poll_once=on,bus_width=4
+#device_tree_overlay=sdio,sdio_overclock=84,poll_once=on,bus_width=4
+#
+# enables SDIO via GPIOs 22-25
+#device_tree_overlay=sdio-1bit,sdio_overclock=84,poll_once=on
 
 # Eric Anholt's DRM VC4 drivers:
 # Run DRM VC4 V3D driver on top of existing dispmanx stack:
@@ -295,6 +298,7 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-sense
 #device_tree_overlay=at86rf233,interrupt=23,reset=24,sleep=25,speed=3000000,trim=15
 #device_tree_overlay=qca7000,int_pin=23,speed=12
+#device_tree_overlay=rotary-encoder,rotary0_pin_a=4,rotary0_pin_b=17
 #device_tree_overlay=i2c-mux,pca9542,pca9545,pca9548,addr=0x70
 #device_tree_overlay=i2c-pwm-pca9685a,addr=0x40
 
@@ -304,6 +308,7 @@ disable_audio_dither=1
 
 # I2C:
 #device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
+#device_tree_overlay=mpu6050,interrupt=4
 #device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
 #device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,lm75,lm75addr=0x4f,si7020,tmp102 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*
 
@@ -365,6 +370,7 @@ disable_audio_dither=1
 #device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
 #device_tree_overlay=dpi18
 #device_tree_overlay=dpi24
+#device_tree_overlay=goodix,interrupt=4,reset=17
 #device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=mz61581,speed=?,rotate=0,fps=?,txbuflen=32768,debug=[0-7],xohms=?

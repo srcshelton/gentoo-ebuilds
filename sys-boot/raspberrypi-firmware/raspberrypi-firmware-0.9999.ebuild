@@ -131,7 +131,9 @@ src_install() {
 	insinto "${boot}"/overlays
 	doins boot/overlays/*.dtbo
 
-	newdoc boot/overlays/README device-tree-overlays.txt
+	# The dtparam command expects to be able to read /boot/overlays/README
+	#newdoc boot/overlays/README device-tree-overlays.txt
+	doins boot/overlays/README
 
 	# Install kernel modules ...
 	insinto /lib/modules
