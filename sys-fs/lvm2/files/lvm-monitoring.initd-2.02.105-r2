@@ -21,12 +21,20 @@ start() {
 
 	# TODO do we want to separate out already active groups only?
 	vglist="$( ${VGS} --noheadings -o name --rows 2>/dev/null | cut -d' ' -f 2- )"
+	if [ ${?} -eq 0 ]; then
+		:
+	else
+		eerror "Command '${VGS} --noheadings -o name --rows' failed: ${?}"
+	fi
+
 	for vg in ${vglist}; do
 		ebegin "Starting LVM monitoring for VG ${vg}:"
-			${VGCHANGE} --monitor y --poll y ${vg}
-			rc=${?}
+		${VGCHANGE} --monitor y --poll y ${vg} ; rc=${?}
 		eend ${rc}
-		(( rc )) && ret=${rc}
+		if [ ${rc} -ne 0 ]; then
+			eerror "Command '${VGCHANGE} --monitor y --poll y ${vg}' failed: ${rc}"
+			ret=${rc}
+		fi
 	done
 	return ${ret}
 }
@@ -37,12 +45,20 @@ stop() {
 
 	# TODO do we want to separate out already active groups only?
 	vglist="$( ${VGS} --noheadings -o name --rows 2>/dev/null | cut -d' ' -f 2- )"
+	if [ ${?} -eq 0 ]; then
+		:
+	else
+		eerror "Command '${VGS} --noheadings -o name --rows' failed: ${?}"
+	fi
+
 	for vg in ${vglist}; do
 		ebegin "Stopping LVM monitoring for VG ${vg}:"
-			${VGCHANGE} --monitor n ${vg}
-			rc=${?}
+		${VGCHANGE} --monitor n ${vg} ; rc=${?}
 		eend ${rc}
-		(( rc )) && ret=${rc}
+		if [ ${rc} -ne 0 ]; then
+			eerror "Command '${VGCHANGE} --monitor y --poll y ${vg}' failed: ${rc}"
+			ret=${rc}
+		fi
 	done
 	return ${ret}
 }

@@ -29,6 +29,7 @@ depend() {
 
 	before checkfs fsck
 	after modules device-mapper
+
 	# We may use lvmetad based on the configuration. If we added lvmetad
 	# support while lvm2 is running then we aren't dependent on it. For the
 	# more common case, if its disabled in the config we aren't dependent
@@ -59,14 +60,8 @@ dm_in_proc() {
 }
 
 
-if [ -d /var/lock/lvm ] && [ -w /var/lock/lvm ] && ! [ -d /dev/.lvm ]; then
-	export config='global { locking_dir = "/var/lock/lvm" }'
-else
-	export config='global { locking_dir = "/dev/.lvm" }'
-fi
-
 start() {
-	local lvm_path lvm_commands
+	local config lvm_path lvm_commands
 
 	# LVM support for /usr, /home, /opt ....
 	# This should be done *before* checking local
@@ -81,6 +76,13 @@ start() {
 			modprobe dm-mod 2>/dev/null
 		fi
 		if [ -d /proc/lvm ] || dm_in_proc ; then
+			if checkpath -qW /var/lock/lvm && ! [ -d /dev/.lvm ]; then
+				config='global { locking_dir = "/var/lock/lvm" }'
+			else
+				checkpath -dqm 0700 /dev/.lvm
+				config='global { locking_dir = "/dev/.lvm" }'
+			fi
+
 			ebegin "Setting up Logical Volume Manager"
 			#einfo "Using configuration directive '${config}'"
 			# Keep stderr, for debugging
@@ -106,7 +108,8 @@ start_post() {
 }
 
 stop() {
-	local lvm_path lvs vgs lvm_commands
+	local config lvm_path lvs vgs
+	local -i rc=0
 
 	lvm_path="$(_get_lvm_path)" || return 1
 
@@ -115,20 +118,23 @@ stop() {
 	   [ -f /etc/lvmtab -o -d /etc/lvm ] &&
 	   [ -d /proc/lvm  -o -n "$( grep device-mapper /proc/misc 2>/dev/null )" ]
 	then
-		vgs=$("${lvm_path}" vgs --config "${config}" -o vg_name --noheadings --nosuffix --rows 2> /dev/null | cut -d' ' -f 3-)
-		lvs=$("${lvm_path}" lvs --config "${config}" -o vg_name,lv_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 3- | sed 's| |/|')
+		if checkpath -qW /var/lock/lvm && ! [ -d /dev/.lvm ]; then
+			config='global { locking_dir = "/var/lock/lvm" }'
+		else
+			config='global { locking_dir = "/dev/.lvm" }'
+		fi
+
+		lvs="$( "${lvm_path}" lvs --config "${config}" -o vg_name,lv_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 3- | sed 's| |/|' )"
+		vgs="$( "${lvm_path}" vgs --config "${config}" -o vg_name --noheadings --nosuffix --rows 2> /dev/null | cut -d' ' -f 3- )"
 
 		if [ -n "${vgs}" ] ; then
 			ebegin "Shutting down Logical Volume Manager"
 			#einfo "Using configuration directive '${config}'"
 
-			# Keep stderr, for debugging
-			lvm_commands="#! ${lvm_path} --config '${config}'\n"
-			lvm_commands="${lvm_commands}lvchange --sysinit -a ln ${lvs}\n"
-			lvm_commands="${lvm_commands}vgchange --sysinit -a ln ${vgs}\n"
-			# Order of this is important, have to work around dash and LVM readline
-			printf "%b\n" "${lvm_commands}" | "${lvm_path}" /proc/self/fd/0 --config "${config}" >/dev/null
-			eend ${?} "Failed (some LVs may still be required for system-essential volumes)"
+			"${lvm_path}" lvchange -a ln ${lvs} --config "${config}" >/dev/null || : $(( rc += ${?} ))
+			"${lvm_path}" vgchange -a ln ${vgs} --config "${config}" >/dev/null || : $(( rc += ${?} ))
+
+			eend ${rc} "Failed (some LVs may still be required for system-essential volumes)"
 		fi
 	fi
 }
