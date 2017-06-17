@@ -1,9 +1,9 @@
 files/wireshark-1.99.8-qtchooser.patch	d1783191ae8f3084dc804eabeec3b506
 files/wireshark-2.1.0-sse4_2-r1.patch	a95f2a98f729081c76560301378857fc
 files/wireshark-99999999-androiddump.patch	73f0c3ea9788bf114c4bfd5f7c0363cb
-files/wireshark-99999999-sse4_2.patch	0279728aef09aab870131a10f2342d9b
-metadata.xml	39359c906a2c2635faf322a398f0f4b4
+metadata.xml	dee4ef2a6b8c98cfde5a645b4cbc79e5
 wireshark-2.2.5.ebuild	778dfa584a62ba87145971ab45670137
 wireshark-2.2.6.ebuild	b18e772bebffd314af1ad0fe9e45b9ce
-wireshark-2.2.7.ebuild	582103b358d9b60f112eef12e4c56827
-wireshark-99999999.ebuild	dc74bb6d0bc6a096542599ecbf3f29d0
+wireshark-2.2.7.ebuild	822b38b45c1b56661d6294469198e411
+wireshark-2.4.0_rc1.ebuild	21007ebdff4cf3fd7b350a22037d9712
+wireshark-99999999.ebuild	016ae5c35d338c0baf02276fb5e99fe1
