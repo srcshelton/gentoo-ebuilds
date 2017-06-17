@@ -1,7 +1,8 @@
-bind-9.10.5.ebuild	46ffe82acb3a748f66efe9a4f8fc6112
+bind-9.10.5.ebuild	316d3eb7abb072e2f6f27282e2b394db
 bind-9.11.0_p3.ebuild	045d69f1cf2fe951c56c4889f50e1664
-bind-9.11.0_p5.ebuild	06d1955987febafa80156371870d3b9c
+bind-9.11.0_p5.ebuild	a02780942df0867caa1dd17e9c88d736
 files/10bind.env	42b5ed5adcee33cf40531d7955412b21
+files/bind-9.11.0_p5-dyndb-dlopen.patch	3dbee97bcb87bcb04e06ef0c31ae9a0d
 files/generate-rndc-key.sh	ceabe16b1cb208600c9ef8b78c5e59ef
 files/localhost.zone-r3	84f153452c05a9d6049ec89a6bee2a71
 files/named.cache-r3	96d953fc698b3b34f7f24ed532a88abc
