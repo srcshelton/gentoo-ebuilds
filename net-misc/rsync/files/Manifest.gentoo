@@ -1,8 +1,0 @@
-files/rsyncd.conf-3.0.9-r1	63536a1648af3de1e6ec800461744b12
-files/rsyncd.conf.d	e5e62e8cef29e09c22e8ba8152ec1751
-files/rsyncd.init.d-r1	581f5f60999b3b74f1280b683d41fa06
-files/rsyncd.logrotate	169cafc6907a4c3787bb0462e9d6a5c2
-files/rsyncd.service	397a9c2bc8aee1254be7355c55039286
-files/rsyncd.xinetd-3.0.9-r1	e2b738ceac3dd3223549964e749e5f2d
-metadata.xml	9fbc5a3bda530ac30a193eb96140d507
-rsync-3.1.2.ebuild	98a7d70e9170a33b621f59bd17a77c71

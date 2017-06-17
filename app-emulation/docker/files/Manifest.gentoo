@@ -1,6 +1,0 @@
-docker-1.12.6.ebuild	3bff6f5320dace51ecf219ec728264a2
-docker-17.03.1.ebuild	f1ca84b34bacc64c21bab5f2d00ee4a3
-docker-17.05.0.ebuild	7f1b46ff7236ec651d3aa2d4f20730c0
-docker-9999.ebuild	e4170ee05192057bd5189b7c9f3b33ff
-files/1.13.1-split-openrc-log.patch	cd7c58ea836e10ec08be8d0b58ef1346
-metadata.xml	271c0672ea04ee4a83e4f0a03d2b3a5c

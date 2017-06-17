@@ -1,9 +1,0 @@
-dhcpcd-6.10.1.ebuild	0f7a3708467d8efe88f4182fa8497529
-dhcpcd-6.11.1-r1.ebuild	8ac8a371815d5006bfb47250f9e768ee
-dhcpcd-6.11.3.ebuild	fbb92aaa897d5cfba9b42563c604bcc3
-dhcpcd-6.11.5.ebuild	97ac5e9e144bf4d3947bae43a0259920
-dhcpcd-9999.ebuild	93fb44b025da513618fdada680cf79a8
-files/dhcpcd-6.11.1-arp-conflict.patch	8bafccf4b2ef32d128785dbea595964d
-files/dhcpcd.initd	5cd5809d11b77b30f21df8418729d70b
-files/dhcpcd.service	69b33f4c9f360c2cdfc77d3beebaa6f6
-metadata.xml	3dd8aaa470d48425f36c20b6089e8cee

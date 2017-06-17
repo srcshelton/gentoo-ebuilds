@@ -1,6 +1,0 @@
-bind-tools-9.10.5.ebuild	1d3f63139e94b40efecaeb75dfbe965d
-bind-tools-9.11.0_p3.ebuild	30297f2a974564aebbb104eee1f6036c
-bind-tools-9.11.0_p5.ebuild	1f473c65e14fdca4d808e0cef918fe59
-files/bind-tools-9.11.0_p5-dyndb-dlopen.patch	3dbee97bcb87bcb04e06ef0c31ae9a0d
-files/bind-tools-9.5.0_p1-lwconfig.patch	d1da96fe67581b35dfea937647c8b317
-metadata.xml	4176441266625137aabb7ebc2d2a3718

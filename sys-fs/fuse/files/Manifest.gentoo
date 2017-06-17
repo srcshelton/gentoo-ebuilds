@@ -1,7 +1,0 @@
-files/fuse-2.9.3-kernel-types.patch	4beb3ba69d7a4eba7d0db9f838b38ea8
-files/fuse-fbsd.init	b4f078a10a3a268adb4f5df2c30978b0
-files/fuse.init	45fb51535c96a7d1fe2eb9690ac48814
-fuse-2.9.4.ebuild	d4b3d044722d5252f2f5c59da130e327
-fuse-2.9.7.ebuild	9bab9ce3b8600f4e4dde59b50fe1dbe0
-fuse-3.0.0_rc3.ebuild	5887843ef63be2f831d664a7546a2026
-metadata.xml	8b4e2061a511a8a510d2b84d02eff292

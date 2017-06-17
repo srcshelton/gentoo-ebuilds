@@ -1,9 +1,8 @@
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: $
 
 EAPI="4"
-USE_RUBY="ruby19"
+USE_RUBY="ruby21"
 
 RUBY_FAKEGEM_TASK_DOC=""
 RUBY_FAKEGEM_EXTRADOC=""
@@ -22,13 +21,16 @@ SLOT="0"
 KEYWORDS="amd64 x86"
 IUSE=""
 
+# Appears to require a test? () entry, otherwise a syntax error is generated :(
 ruby_add_bdepend "
 	dev-ruby/guard-rspec
 	dev-ruby/rake
-	dev-ruby/rspec"
+	dev-ruby/rspec
+"
 
 ruby_add_rdepend "
-	dev-ruby/geocoder"
+	dev-ruby/geocoder
+"
 
 all_ruby_prepare() {
 	sed -i \

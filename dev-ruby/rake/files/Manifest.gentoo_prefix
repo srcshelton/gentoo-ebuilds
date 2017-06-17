@@ -1,8 +1,0 @@
-files/rake.bash-completion	8b7c0286b67078464f5c34d1a7f7ecc9
-metadata.xml	49f4620e0badf132de8795c12e2e529e
-rake-0.9.6-r1.ebuild	489e6d35b6ed9d9f729197f43d43a978
-rake-10.5.0.ebuild	86c894ec6aa10a74889522a9e171b9ca
-rake-11.1.2.ebuild	db23fb3c3dba2ac0e5b92a89e5dfd31c
-rake-11.2.2-r1.ebuild	459d8b76b1e9be0c38379b10621e5bcd
-rake-11.3.0.ebuild	459d8b76b1e9be0c38379b10621e5bcd
-rake-12.0.0.ebuild	38c0e13c065560bd792fdc6f4de1e055

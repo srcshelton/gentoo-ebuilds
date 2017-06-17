@@ -1,5 +1,0 @@
-files/netatalk-3.1.7-gentoo.patch	d67cb3394c02c4daeaf404ebfde82bd8
-files/netatalk-3.1.8-disable-ld-library-path.patch	28664a95270f1f5d6528232cf851b5f8
-metadata.xml	d646afa0c0078d08b282e7ad7d67d070
-netatalk-3.1.10.ebuild	20123902615bac788fb06d21614ace7a
-netatalk-3.1.8.ebuild	92c917efc0c7448c1274c4d00d2883ea

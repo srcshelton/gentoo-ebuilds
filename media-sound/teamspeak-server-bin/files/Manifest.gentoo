@@ -1,8 +1,0 @@
-files/server.conf	0a2ca2779701502c19bb79c93ccf097a
-files/systemd/teamspeak3.conf	9a01830ddb29e503a0cd4e913b868464
-files/systemd/teamspeak3-r1.service	91b5cb4c262ab455008480cc7c08aafb
-files/teamspeak-server-bin-init-r1	54e7b80de099784d45ffc314e11e2cd5
-files/ts3db_mariadb.ini	487ba9c9925c52169f089ca75138dc3b
-files/ts3server	93b5335858d0b7ad254cf46a3293e86d
-metadata.xml	e9842c00e4ce80053c6617a7fa801a59
-teamspeak-server-bin-3.0.13.6.ebuild	19c6f10d256b73c5debf9dd086d0d4a1

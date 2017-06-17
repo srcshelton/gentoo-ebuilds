@@ -1,5 +1,0 @@
-files/ulogd.init	1f5888d7a26c3a26bb5c211f7141ab8b
-files/ulogd.logrotate	5cd598e537431550be1d3500d80f5f23
-files/ulogd.service	ce6581127479ed6e83545b7b209cc308
-metadata.xml	8cbedd461414a37cfb154b2629cc1d1d
-ulogd-2.0.5_p20161017.ebuild	ab73e3bd3639815c5cfd6a4afa186814

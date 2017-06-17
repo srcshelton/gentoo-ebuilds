@@ -1,8 +1,0 @@
-files/raspberrypi-firmware-0_p20130711-cmdline.txt	b3aa171041a48de29baa3e35eee50345
-files/raspberrypi-firmware-0_p20130711-config.txt	9b8459a3678271de12b3a3f444b0256a
-files/raspberrypi-firmware-0_p20130711-envd	aceb6680104b5492d815c017eab423c2
-metadata.xml	d736e0f574ffc07f44bdcec7e871bada
-raspberrypi-firmware-1.20160209.ebuild	fdd9061744b8221238a3a79e8dc3e841
-raspberrypi-firmware-1.20160309.ebuild	fdd9061744b8221238a3a79e8dc3e841
-raspberrypi-firmware-1_pre20130807.ebuild	6b359a7df87e68b5d8596bc992550685
-raspberrypi-firmware-9999.ebuild	b75ea77df641428ce3e131d1a20ce313

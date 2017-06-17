@@ -1,7 +1,0 @@
-files/gentoo-libtool-mismatch-fix.patch	ca578f6ca738f1df8b4ebe8f3e4c478d
-files/gentoo-libtool-mismatch-fix-v2.patch	cfc7ded1ae6a6cd6601a230625760107
-files/pear.conf-r2	cc65224f43d111f9c13cd8caee488532
-metadata.xml	766ca221b2c422a2b55c91b193502ce0
-PEAR-PEAR-1.10.1-r1.ebuild	ed0f4094f0a90fbfb1c30667f41bd166
-PEAR-PEAR-1.10.3-r1.ebuild	6fae8f082cfbd1e9a5d017559b9ae3fd
-PEAR-PEAR-1.10.3-r2.ebuild	aa1a5ef6022a406ddf5ad56a1cd56d11

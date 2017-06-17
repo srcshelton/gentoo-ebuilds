@@ -1,6 +1,0 @@
-ebtables-2.0.10.4.ebuild	14a3b50fb1a5ee19b5261892b02f5417
-ebtables-2.0.10.4-r1.ebuild	cd2ba3f04face11e7bc97b494172c8a3
-files/ebtables-2.0.8.1-ebt-save.diff	705da51523fa0dff11aa654d52b1578d
-files/ebtables.confd-r1	80ef574ef544679290108e73d2f2f377
-files/ebtables.initd-r1	7c241b4d390de0f6919b147bd5d583af
-metadata.xml	7509e077e2dd7db4caa3946e9f174312

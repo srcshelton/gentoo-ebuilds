@@ -1,8 +1,0 @@
-cachefilesd-0.10.5-r4.ebuild	6aad6bebf7564f894f1359855414640c
-cachefilesd-0.10.9.ebuild	f6ff6fad7007adef720db63bf7db5e74
-files/cachefilesd-0.10.4-makefile.patch	4f0929cda2948d9be6ad2ef5cd8130d0
-files/cachefilesd-0.10.9-makefile.patch	d29d16d68d6eb7df28d56b46b513baf2
-files/cachefilesd-3.init	2913b4f7e0ac499b5be00835039bb713
-files/cachefilesd.conf	134f5b506df3d334e35517af89d18546
-files/cachefilesd-tmpfiles.d	207d15db32e8122c4aa6e53f7ed50ad0
-metadata.xml	dd36670cc30836d35a6a05bc908934ae

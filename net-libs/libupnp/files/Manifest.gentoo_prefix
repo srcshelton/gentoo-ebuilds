@@ -1,6 +1,0 @@
-files/libupnp-1.6.19-docs-install.patch	cea5eb2133536d34bd14f6dce9b64dce
-files/libupnp-1.6.21-cflags.patch	129aa8c67db31e265ddde2dbb2905115
-files/libupnp-1.8.0-docs-install.patch	661ce6f1e492965020cfa7dadb981057
-libupnp-1.6.21.ebuild	043ccac33e14c4122cf3f86c912f833b
-libupnp-1.8.0.ebuild	830bec741a1b1b4e41b73b4628af8e6c
-metadata.xml	ef813a4d58aa2ef7b2c45b175903fcda

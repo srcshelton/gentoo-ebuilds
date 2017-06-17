@@ -1,7 +1,0 @@
-files/help2man-1.36.4-respect-LDFLAGS.patch	89262b29201f488fdefc9c55993abb71
-files/help2man-1.38.4-linguas.patch	9995f0c7c0d780e5ba29515bd8bf7049
-files/help2man-1.46.1-linguas.patch	0cda34b0c209190ba7709a92394af2d1
-help2man-1.46.6.ebuild	43837c324de0a0a1d8303f6ea6251243
-help2man-1.47.3.ebuild	12a63f851e6638239268193fb5bc0081
-help2man-1.47.4.ebuild	24d4d3e3810f6c4543992879a78ad076
-metadata.xml	464ba430961eaf517c95e03785c005ff

@@ -1,6 +1,0 @@
-files/procps-3.3.11-sysctl-manpage.patch	8a093118b02c3a8516d871fcb807ac6d
-files/procps-3.3.12-proc-tests.patch	76adf2a66ae22cfa87e6ff482e5a292b
-files/procps-3.3.12-strtod_nol_err.patch	3803abf2e343c8e6bf5eb94d628d08f6
-files/procps-3.3.8-kill-neg-pid.patch	5b2ceb6ffc514f279224017c06063183
-metadata.xml	90098c4f9f6e69f1db25c5cfeb77febc
-procps-3.3.12.ebuild	36119cef6d3e3adf5cdca40088882ddd

@@ -1,7 +1,0 @@
-files/iptraf-ng-1.1.4-printf-format.patch	5db0e8631d6555f416ba0f20b807298a
-files/iptraf-ng-1.1.4-sprintf-format.patch	a3b4b539d107dacb680aaba9d3c74f04
-files/iptraf-ng-1.1.4-tcplog_flowrate_msg.patch	19dc73f966ec741654e685e2888cbd27
-iptraf-ng-1.1.4-r1.ebuild	7b79d0c0d40e34eebf4ddf8e3674a72a
-iptraf-ng-1.1.4-r2.ebuild	64f5d49dab75d8d3a9acbb86722b5ce7
-iptraf-ng-9999.ebuild	6ff7cb22f26d45888f3b48646f58822e
-metadata.xml	1b90740eadb584b2fcdf2805138be9a5

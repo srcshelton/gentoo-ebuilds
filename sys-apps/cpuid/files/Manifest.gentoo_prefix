@@ -1,8 +1,0 @@
-cpuid-20130610.ebuild	555a0ed0f9c935df33c73ec91877a0cf
-cpuid-20140123.ebuild	68c9073b40320b9687974b8f6932e8c7
-cpuid-20150606.ebuild	ea58eafbdb7fc99e1e35c99110f1525f
-cpuid-20151017.ebuild	086f9ed8b27bd378cbe1f8a9fdf2290d
-files/cpuid-20110305-fPIC.patch	f5d7fa9de2eb922fa0cb7043561ecddf
-files/cpuid-20110305-Makefile.patch	198ba1a8140b6c12bbf7a3c9e818b324
-files/cpuid-20150606-Makefile.patch	49a50b7c2af2032449924f2d4ee7717d
-metadata.xml	0cc74bf4a0db68119f5054f4a265a320

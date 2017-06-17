@@ -1,9 +1,0 @@
-files/2.3.1-doc-Revert-URI-changes-related-to-docbook-schema.patch	3a3cbcc0630c2e99473441961c8d50c7
-files/README.RESCUE	c906e2e6782e197725b70f84cfe112a4
-metadata.xml	6ff3174bb675438d4ab1b840f713af9a
-portage-2.2.28.ebuild	39008bf1357b8b3cf8588080cb94e86c
-portage-2.3.0.ebuild	b2ba790d2a2675c6dcdc092d41997fd3
-portage-2.3.3.ebuild	f6a21ec2380afa91a772c5d501094cba
-portage-2.3.4.ebuild	7c75f30f5dbe93340afd53b92392703f
-portage-2.3.5.ebuild	7c75f30f5dbe93340afd53b92392703f
-portage-9999.ebuild	a46b3a02299ac71ae5bfa2e0c4842473

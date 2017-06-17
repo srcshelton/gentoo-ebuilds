@@ -1,8 +1,0 @@
-files/iasl-20120816-locale.patch	3ff68f21a479600a7f68952066656bf7
-files/iasl-20140214-nostrip.patch	d4fbfc9b5925e4f55dc011d1c8138363
-files/iasl-20140828-locale.patch	fce21ca15eb68c3d13e5b4ee0c2a48e5
-iasl-20121018.ebuild	40f3fcdbeb59e12474ad8a7a6c981cd8
-iasl-20140828.ebuild	721480d99359e9897bca673191bcada3
-iasl-20160729.ebuild	14b2933a97bee2df4dbc6a752a9b74e8
-iasl-20161222.ebuild	d1f477d7635d8fd5c2337776fbc2deba
-metadata.xml	6c5823bf3b45749fd750c66244a715e9

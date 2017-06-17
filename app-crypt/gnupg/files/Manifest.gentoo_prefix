@@ -1,9 +1,0 @@
-files/gnupg-2.1.16-gpgscm-Use-shorter-socket-path-lengts-to-improve-tes.patch	956b017af4ae22404ffd14ec67ca02d1
-files/gnupg-2.1.19-have_strlwr.patch	137cbecf7db360633e92419edf9a3634
-files/gnupg-2.1.19-solaris-ucred.patch	3c97a4ea3fcbe145868b81ecf2e03e53
-files/gnupg-2.1.19-ssh-no-scdaemon.patch	cb0399cbc36158df36cfcb55d4bee61d
-gnupg-1.4.21.ebuild	3316468c7245363b04dd01697c4e1a11
-gnupg-2.1.15.ebuild	e30176b94953d033ca4c2e97a38a71c3
-gnupg-2.1.18.ebuild	a76bf5ba2a92f7e6ba5c152e2339703f
-gnupg-2.1.19-r2.ebuild	08562b230be8a37268524703413bd3bd
-metadata.xml	fd8fc8b49abfbef7837acf568254856e

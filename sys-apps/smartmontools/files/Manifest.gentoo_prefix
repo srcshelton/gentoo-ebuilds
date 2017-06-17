@@ -1,8 +1,0 @@
-files/smartd.confd	371cdb7cc9dc924b6d12224d66b193c6
-files/smartd-r1.rc	0c2f87578ea7bcb3e382c8cd5f47a7a8
-files/smartmontools-update-drivedb	8fa6583afe314e8e009eb9e90035f324
-metadata.xml	e9aab8491b155267b0480dd8ad3e0621
-smartmontools-6.4.ebuild	2e9ca2970cc09eae1f90c72f7b8aaefb
-smartmontools-6.4-r1.ebuild	75790c35e11abcc335c3f24d228ad02d
-smartmontools-6.5.ebuild	27ca9689a0357049e1905f55080cffd6
-smartmontools-9999.ebuild	27ca9689a0357049e1905f55080cffd6
