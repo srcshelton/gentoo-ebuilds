@@ -1,7 +1,7 @@
 binutils-2.25.1-r1.ebuild	6b6b35ff56af59982f2c6fdffa8414b5
 binutils-2.26.1.ebuild	f1f8c0d541091501e2d049f6668be0bf
-binutils-2.27.ebuild	bb7dc8ea4fa70303960e314940891cf6
-binutils-2.28.ebuild	aa86f342817b88116240116eb3fa287b
+binutils-2.27-r1.ebuild	3fc99d09f5cfce3fd507c28254c8905c
+binutils-2.28-r2.ebuild	ca623d1556b70fb88f9e387d9e9469b6
 binutils-9999.ebuild	6302eb1a0e9111cc634d6b7550d215a3
 files/binutils-configure-LANG.patch	a18bff5d18e042d6873644aa515efca9
 metadata.xml	96e60f8bdc0fcd4a22294067e325080b
