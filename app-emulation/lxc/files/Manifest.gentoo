@@ -1,4 +1,3 @@
-files/lxc-1.0.6-bash-completion.patch	e98ff256956928f621a6066d066e17ba
 files/lxc-1.0.8-bash-completion.patch	8e402581845d14d86ca12d5656def16c
 files/lxc-2.0.3-bash-completion.patch	9bca643df4ab522429546bec9c46f7c3
 files/lxc-2.0.3-omit-sysconfig.patch	d58ea771da9843bed9b58fa96ab089de
@@ -18,5 +17,5 @@ lxc-2.0.3-r1.ebuild	8e8b4ef6004d83a54a752c67bd189e57
 lxc-2.0.4.ebuild	23e4d0113c45930307b676149e8283a3
 lxc-2.0.5.ebuild	23e4d0113c45930307b676149e8283a3
 lxc-2.0.6-r1.ebuild	7b417c3060fd478058a7b01989c0897d
-lxc-2.0.7.ebuild	22cd64240dd5ec5f1a7d924cd6dd26bc
+lxc-2.0.7.ebuild	ff551cb3ada44dabcc7526fcde40bac6
 metadata.xml	4162291d2802ee17e26ea7bfdc1b8f69
