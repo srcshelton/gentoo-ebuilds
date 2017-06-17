@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 32c28990b18908ce899c289bcd12c6e9daeb1588.
+# commit ca9116ffd0cea06fdeb876ac7d19790bf2631d8c.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -310,7 +310,7 @@ disable_audio_dither=1
 #device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
 #device_tree_overlay=mpu6050,interrupt=4
 #device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
-#device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,lm75,lm75addr=0x4f,si7020,tmp102 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*
+#device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,htu21,lm75,lm75addr=0x4f,si7020,tmp102 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*
 
 # RTC:
 # i2c-rtc supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
@@ -330,6 +330,7 @@ disable_audio_dither=1
 
 # DAC & ADC Audio devices & codecs:
 #device_tree_overlay=allo-boss-dac-pcm512x-audio # ,24db_digital_gain #, slave
+#device_tree_overlay=allo-digione
 #device_tree_overlay=allo-piano-dac-pcm512x-audio # ,24db_digital_gain
 #device_tree_overlay=allo-piano-dac-plus-pcm512x-audio # ,24db_digital_gain,glb_mclk
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
@@ -396,6 +397,7 @@ disable_audio_dither=1
 
 # UART0/ttyAMA0 MIDI:
 #device_tree_overlay=midi-uart0
+#device_tree_overlay=midi-uart1
 
 #
 # Memory Options
