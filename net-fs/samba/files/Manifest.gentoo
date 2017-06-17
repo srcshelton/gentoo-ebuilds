@@ -16,5 +16,6 @@ files/winbindd.service	03257dd11fc041d59e612c02a54ef4c0
 metadata.xml	4f12fd34a090174ac2b2a4d03100adea
 samba-4.2.11.ebuild	77ab10d2bb6e915c96d620fcfe5550c6
 samba-4.2.14.ebuild	e8b7f007e6bee6cb8ad898415a6afc63
-samba-4.5.10.ebuild	a7710147afd6782f117e87fef2179586
+samba-4.5.10.ebuild	83adea6e5ad0a55cc6f764445b59142b
 samba-4.6.4.ebuild	9a4f6d6632c5484bdf6ca39dcc7f423d
+samba-4.6.5.ebuild	9a4f6d6632c5484bdf6ca39dcc7f423d
