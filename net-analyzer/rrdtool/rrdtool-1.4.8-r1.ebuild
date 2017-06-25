@@ -48,12 +48,12 @@ PDEPEND="
 "
 
 python_compile() {
-	cd bindings/python || die 'can not chdir() to python bindings directory'
+	cd bindings/python || die 'Cannot chdir() to python bindings directory'
 	distutils-r1_python_compile
 }
 
 python_install() {
-	cd bindings/python || die 'can not chdir() to python bindings directory'
+	cd bindings/python || die 'Cannot chdir() to python bindings directory'
 	distutils-r1_python_install
 }
 
