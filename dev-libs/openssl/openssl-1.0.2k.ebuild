@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: e5fdeb6b80c54b621720e8d35fbf0a23a639f516 $
 
 EAPI="5"
 
@@ -14,6 +13,7 @@ SRC_URI="mirror://openssl/source/${MY_P}.tar.gz"
 LICENSE="openssl"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
 IUSE="+asm bindist gmp kerberos rfc3779 sctp cpu_flags_x86_sse2 sslv2 +sslv3 static-libs test +tls-heartbeat vanilla zlib"
 RESTRICT="!bindist? ( bindist )"
 
@@ -55,6 +55,9 @@ src_prepare() {
 		epatch "${FILESDIR}"/${PN}-1.0.1p-default-source.patch #554338
 
 		epatch_user #332661
+
+		# Solaris /bin/sh does not support "[ -e file ]", added by patches
+		sed -e 's/\[ -e /\[ -r /' -i Makefile.shared
 	fi
 
 	# disable fips in the build
@@ -76,12 +79,13 @@ src_prepare() {
 	sed -i -e "/SHELL=/s:=.*$:=${CONFIG_SHELL:-${BASH}}:" Makefile.org || die
 	sed -i -e "1a\SHELL=${CONFIG_SHELL:-${BASH}}" Makefile.shared || die
 
-	epatch "${FILESDIR}"/${PN}-0.9.8g-engines-installnames.patch
 	epatch "${FILESDIR}"/${PN}-1.0.0a-interix.patch
 	epatch "${FILESDIR}"/${PN}-1.0.0a-mint.patch
 	epatch "${FILESDIR}"/${PN}-1.0.2a-aix-soname.patch # like libtool
+	epatch "${FILESDIR}"/${PN}-0.9.8g-engines-installnames.patch
 	epatch "${FILESDIR}"/${PN}-1.0.0b-darwin-bundle-compile-fix.patch
 	epatch "${FILESDIR}"/${PN}-1.0.2-gethostbyname2-solaris.patch
+
 	if [[ ${CHOST} == *-interix* ]] ; then
 		sed -i -e 's/-Wl,-soname=/-Wl,-h -Wl,/' Makefile.shared || die
 	fi
@@ -90,7 +94,7 @@ src_prepare() {
 	# header files are copied instead of linked now, so leave it conditional.
 	[[ ${CHOST} == *-winnt* ]] && epatch "${FILESDIR}"/${PN}-0.9.8k-winnt.patch
 
-	# remove -arch for darwin
+	# remove -arch for Darwin
 	sed -i '/^"darwin/s,-arch [^ ]\+,,g' Configure || die
 
 	# since we're forcing $(CC) as makedep anyway, just fix
@@ -126,11 +130,12 @@ src_prepare() {
 
 	# type -P required on platforms where perl is not installed
 	# in the same prefix (prefix-chaining).
-	sed -i '1s,^:$,#!'${EPREFIX}'/usr/bin/perl,' Configure || die #141906
+	use prefix-chain && sed -i '1s,^:$,#!/usr/bin/env perl,' Configure #141906
+	sed -i '1s,^:$,#!'${EPREFIX}'/usr/bin/perl,' Configure #141906
 
 	# The config script does stupid stuff to prompt the user.  Kill it.
 	sed -i '/stty -icanon min 0 time 50; read waste/d' config || die
-	./config -t --test-sanity || die "Sanity checks failed"
+	./config --test-sanity || die "Sanity checks failed"
 
 	multilib_copy_sources
 }
@@ -278,7 +283,8 @@ multilib_src_install_all() {
 	# build system: the static archives are built as PIC all the time.
 	# Only way around this would be to manually configure+compile openssl
 	# twice; once with shared lib support enabled and once without.
-	use static-libs || rm -f "${ED}"/usr/lib*/lib*.a
+	use static-libs || find "${ED}"usr/lib* -mindepth 1 -maxdepth 1 \
+		-name "lib*.a" -not -name "lib*$(get_libname)" -delete
 
 	# create the certs directory
 	dodir ${SSL_CNF_DIR}/certs
