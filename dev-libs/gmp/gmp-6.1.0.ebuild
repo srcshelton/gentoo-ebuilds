@@ -9,7 +9,7 @@ MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
 MY_P=${PN}-${MY_PV}
 PLEVEL=${PV/*p}
-DESCRIPTION="Library for arbitrary-precision arithmetic on different types of numbers"
+DESCRIPTION="Library for arbitrary-precision arithmetic on different types of number"
 HOMEPAGE="http://gmplib.org/"
 SRC_URI="ftp://ftp.gmplib.org/pub/${MY_P}/${MY_P}.tar.xz
 	mirror://gnu/${PN}/${MY_P}.tar.xz
