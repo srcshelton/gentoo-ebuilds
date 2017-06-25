@@ -18,7 +18,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(get_version_component_range 1-2)"
-KEYWORDS="~alpha amd64 ~arm ~hppa ia64 ~mips ~ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
 # We can build the following SAPIs in the given order
 SAPIS="embed cli cgi fpm apache2 phpdbg"
@@ -37,7 +37,7 @@ IUSE="${IUSE} acl bcmath berkdb bzip2 calendar cdb cjk
 	oci8-instant-client odbc +opcache pcntl pdo +phar +posix postgres qdbm
 	readline recode selinux +session sharedmem
 	+simplexml snmp soap sockets spell sqlite ssl
-	sysvipc systemd tidy +tokenizer truetype unicode wddx webp
+	sysvipc systemd test tidy +tokenizer truetype unicode wddx webp
 	+xml xmlreader xmlwriter xmlrpc xpm xslt zip zlib"
 
 # The supported (that is, autodetected) versions of BDB are listed in
@@ -101,7 +101,7 @@ COMMON_DEPEND="
 		!libressl? ( dev-libs/openssl:0 )
 		libressl? ( dev-libs/libressl )
 	)
-	tidy? ( app-text/htmltidy )
+	tidy? ( || ( app-text/tidy-html5 app-text/htmltidy ) )
 	truetype? (
 		=media-libs/freetype-2*
 		!gd? (
@@ -130,12 +130,12 @@ RDEPEND="${COMMON_DEPEND}
 		selinux? ( sec-policy/selinux-phpfpm )
 		systemd? ( sys-apps/systemd ) )"
 
+# Bison isn't actually needed when building from a release tarball
+# However, the configure script will warn if it's absent or if you
+# have an incompatible version installed. See bug 593278.
 DEPEND="${COMMON_DEPEND}
 	app-arch/xz-utils
-	>=sys-devel/bison-3.0.1
-	sys-devel/flex
-	>=sys-devel/m4-1.4.3
-	>=sys-devel/libtool-1.5.18"
+	>=sys-devel/bison-3.0.1"
 
 # Without USE=readline or libedit, the interactive "php -a" CLI will hang.
 REQUIRED_USE="
@@ -222,11 +222,6 @@ php_set_ini_dir() {
 
 src_prepare() {
 	default
-
-	if [[ ${CHOST} == *-darwin* ]] ; then
-		# http://bugs.php.net/bug.php?id=48795, bug #343481
-		sed -i -e '/BUILD_CGI="\\$(CC)/s/CC/CXX/' configure || die
-	fi
 
 	# In php-7.x, the FPM pool configuration files have been split off
 	# of the main config. By default the pool config files go in
