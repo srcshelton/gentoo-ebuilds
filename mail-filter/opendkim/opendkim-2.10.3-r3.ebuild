@@ -29,22 +29,25 @@ DEPEND="|| ( mail-filter/libmilter mail-mta/sendmail )
 	diffheaders? ( dev-libs/tre )
 	erlang? ( dev-lang/erlang )
 	experimental? ( dev-libs/jansson net-analyzer/rrdtool net-misc/curl )
-	gnutls? ( >=net-libs/gnutls-3.3 )
+	opendbx? ( >=dev-db/opendbx-1.4.0 )
+	lua? ( dev-lang/lua:* )
 	ldap? ( net-nds/openldap )
 	lmdb? ( dev-db/lmdb )
-	lua? ( dev-lang/lua:* )
 	memcached? ( dev-libs/libmemcached )
-	opendbx? ( >=dev-db/opendbx-1.4.0 )
 	sasl? ( dev-libs/cyrus-sasl )
 	unbound? ( >=net-dns/unbound-1.4.1 net-dns/dnssec-root libevent? ( dev-libs/libevent ) )
-	!unbound? ( net-libs/ldns )"
+	!unbound? ( net-libs/ldns )
+	gnutls? ( >=net-libs/gnutls-3.3 )"
 
 RDEPEND="${DEPEND}
 	sys-process/psmisc
 	selinux? ( sec-policy/selinux-dkim )
 "
 
-REQUIRED_USE="sasl? ( ldap )"
+REQUIRED_USE="
+	sasl? ( ldap )
+	libevent? ( unbound )
+"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-2.9.2-safekeys.patch"
@@ -92,14 +95,14 @@ src_prepare() {
 }
 
 src_configure() {
-	local -a myconf
+	local -a myconf=()
 	local dbinc
 
 	# Not featured:
 	# --enable-socketdb						arbitrary socket data sets
 	# --enable-postgresql_reconnect_hack	hack to overcome PostgreSQL connection error detection bug
 
-	if use berkdb; then
+	if use berkdb ; then
 		dbinc="$(db_includedir)"
 		myconf+=(
 			--with-db-incdir=${dbinc#-I}
@@ -120,10 +123,6 @@ src_configure() {
 			--enable-reputation
 		)
 	fi
-	if use ldap; then
-		#myconf+=( --enable-ldap_caching ) # - Prevents LDAP changes from being immediately seen
-		myconf+=( $(use_with sasl) )
-	fi
 	if use unbound; then
 		myconf+=( --with-unbound )
 		if use libevent; then
@@ -132,31 +131,35 @@ src_configure() {
 	else
 		myconf+=( --with-ldns )
 	fi
+	if use ldap; then
+		#myconf+=( --enable-ldap_caching ) # - Prevents LDAP changes from being immediately seen
+		myconf+=( $(use_with sasl) )
+	fi
 	econf \
-		"${myconf[@]}" \
-		--enable-atps \
-		--enable-default_sender \
-		$(use_enable diffheaders) \
-		--enable-filter \
-		--enable-identity_header \
-		$(use_enable poll) \
-		--enable-rate_limit \
-		$(use_enable lua rbl) \
-		--enable-replace_rules \
-		--enable-resign \
-		--enable-sender_macro \
-		$(use_enable static-libs static) \
-		--enable-vbr \
-		--disable-live-testing \
 		$(use_with berkdb db) \
+		$(use_enable diffheaders) \
+		$(use_with diffheaders tre) \
 		$(use_with erlang) \
+		$(use_with opendbx odbx) \
+		$(use_with lua) \
+		$(use_enable lua rbl) \
+		$(use_with ldap openldap) \
+		$(use_with lmdb) \
+		$(use_enable poll) \
+		$(use_enable static-libs static) \
 		$(use_with gnutls) \
 		$(use_with memcached libmemcached) \
-		$(use_with lmdb) \
-		$(use_with lua) \
-		$(use_with opendbx odbx) \
-		$(use_with ldap openldap) \
-		$(use_with diffheaders tre)
+		"${myconf[@]}" \
+		--enable-filter \
+		--enable-atps \
+		--enable-identity_header \
+		--enable-rate_limit \
+		--enable-resign \
+		--enable-replace_rules \
+		--enable-default_sender \
+		--enable-sender_macro \
+		--enable-vbr \
+		--disable-live-testing
 		#--with-test-socket=/tmp/opendkim-$(echo ${RANDOM})-S
 		#--disable-rpath
 }
