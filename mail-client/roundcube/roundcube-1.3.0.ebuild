@@ -66,7 +66,8 @@ src_install() {
 	insinto "${MY_HTDOCSDIR}"
 	doins -r [[:lower:]]* SQL
 	doins .htaccess
-	use plugins && newins "${DISTDIR}"/composer.phar_${PHAR} composer.phar
+	exeinto "${MY_HTDOCSDIR}"
+	use plugins && newexe "${DISTDIR}"/composer.phar_${PHAR} composer.phar
 
 	webapp_serverowned "${MY_HTDOCSDIR}"/logs
 	webapp_serverowned "${MY_HTDOCSDIR}"/temp
@@ -79,6 +80,16 @@ src_install() {
 	webapp_postupgrade_txt en "${FILESDIR}"/postupgrade-en-0.6.txt
 
 	webapp_src_install
+
+	if pushd "${ED}/${MY_HTDOCSDIR}/" >/dev/null 2>&1; then
+	    set -o xtrace
+		# This is bad... the required sources should be included in the ebuild
+		# SRC_URI variable...
+		chmod 0755 bin/install-jsdeps.sh || die "Setting permissions on 'install-jsdeps.sh' failed: ${?}"
+		./bin/install-jsdeps.sh || die "JavaScript additional sources download failed: ${?}"
+	    set +o xtrace
+		popd >/dev/null 2>&1
+	fi
 
 	# fperms must occur after webapp_src_install is called...
 	#fperms 0755 "${MY_HTDOCSDIR}"/bin/*.sh || die "Cannot set file permissions in '${ED}/${MY_HTDOCSDIR}'"
@@ -104,12 +115,13 @@ pkg_postinst() {
 		ewarn "The new config.inc.php should only contain options that"
 		ewarn "differ from those listed in defaults.inc.php."
 	fi
-	if has_version "<=mail-client/roundcube-1.2.5"; then
-		ewarn
-		ewarn "When installing for the first time or upgrading from <= 1.2.5,"
-		ewarn "run the ./bin/install-jsdeps.sh script to download required"
-		ewarn "javascript files into the ./temp/js_cache/ folder."
-		ewarn
-	fi
+	# Action now performed by ebuild itself...
+	#if has_version "<=mail-client/roundcube-1.2.5"; then
+	#	ewarn
+	#	ewarn "When installing for the first time or upgrading from <= 1.2.5,"
+	#	ewarn "run the ./bin/install-jsdeps.sh script to download required"
+	#	ewarn "javascript files into the ./temp/js_cache/ folder."
+	#	ewarn
+	#fi
 }
 # vi: set diffopt=iwhite,filler:
