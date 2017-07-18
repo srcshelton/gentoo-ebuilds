@@ -38,6 +38,9 @@ src_prepare() {
 
 	# Allow user patches to be applied without modifying the ebuild
 	epatch_user
+
+	# netifrc has been updated to unconditionally use /run :(
+	find "${S}" -type f -exec grep -H '/run/' {} + | cut -d':' -f 1 | sort | uniq | xargs sed -i 's|/run/|/var/run/|g'
 }
 
 src_compile() {
