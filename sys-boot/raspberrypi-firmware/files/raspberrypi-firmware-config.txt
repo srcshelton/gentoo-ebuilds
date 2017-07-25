@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit ca9116ffd0cea06fdeb876ac7d19790bf2631d8c.
+# commit 63fd4a88e70b1ea70783dd408c2df12db74605c9.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -284,6 +284,16 @@ disable_audio_dither=1
 
 # Uncomment one of these lines to enable additional devices
 #device_tree_overlay=gpio-poweroff,gpiopin=26 # ,active_low
+# For systems without systemd >225, gpio-shutdown needs an additional udev
+# rule:
+#  ACTION!="REMOVE",       \
+#  SUBSYSTEM=="input",     \
+#  KERNEL=="event*",       \
+#  SUBSYSTEMS=="platform", \
+#  DRIVERS=="gpio-keys",   \
+#  ATTRS{keys}=="116",     \
+#  TAG+="power-switch"
+#device_tree_overlay=gpio-shutdown,gpiopin=3,active_low=1,gpio_pull=up
 #device_tree_overlay=smi # Uses GPIOs 2-25!
 #device_tree_overlay=smi-dev
 #device_tree_overlay=smi-nand
@@ -315,7 +325,12 @@ disable_audio_dither=1
 # RTC:
 # i2c-rtc supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
 #device_tree_overlay=i2c-rtc,<device>,wakeup-source
-#device_tree_overlay=i2c-rtc,ds1339,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
+#device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
+#device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
+# i2c-rtc-gpio supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
+#device_tree_overlay=i2c-rtc-gpio,<device>,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
+#device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
+#device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 #device_tree_overlay=spi-rtc,pcf2123
 #device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
