@@ -1,6 +1,5 @@
 # Copyright 1999-2011 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: $
 
 EAPI=5
 
@@ -12,7 +11,7 @@ inherit autotools-utils eutils git-r3 multilib user
 
 DESCRIPTION="YubiPAM: PAM module for Yubikeys"
 HOMEPAGE="http://www.securixlive.com/yubipam/"
-EGIT_REPO_URI="git://github.com/firnsy/yubipam.git"
+EGIT_REPO_URI="https://github.com/firnsy/yubipam.git"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~mips ~x86"
