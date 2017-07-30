@@ -26,7 +26,7 @@ pidfile="/var/run/netdata.pid"
 config_dir="${NETDATA_INSTALL_PATH:-}/etc/netdata"
 command="${NETDATA_INSTALL_PATH:-}/usr/sbin/netdata"
 command_background="yes"
-command_args="-pidfile ${pidfile} ${NETDATA_EXTRA_ARGS}"
+command_args="-P ${pidfile} ${NETDATA_EXTRA_ARGS}"
 # start_stop_daemon_args="-u ${NETDATA_OWNER}"
 start_stop_daemon_args=""
 
@@ -34,30 +34,33 @@ depend() {
 	use logger
 	need net
 	after ${NETDATA_START_AFTER_SERVICES}
+}
 
+start_pre() {
 	checkpath -o "${NETDATA_OWNER}" -d /var/log/netdata /var/cache/netdata /var/run/netdata
+	return ${?}
 }
 
 start_post() {
-	local -i ret=1
+	local -i rc=0
 
 	if ! [ -f "${config_dir}"/netdata.conf ]; then
 		ebegin "Downloading default configuration to '${config_dir}/netdata.conf'"
 		#sleep 2
 		curl -s -o "${config_dir}"/netdata.conf.new "${NETDATA_CONFIG_URL}"
-		ret=$?
-		if [ 0 -eq ${ret} ] && [ -s "${config_dir}"/netdata.conf.new ]; then
+		rc=$?
+		if [ 0 -eq ${rc} ] && [ -s "${config_dir}"/netdata.conf.new ]; then
 			mv "${config_dir}"/netdata.conf{.new,}
 		else
-			ret=1
+			rc=1
 			rm "${config_dir}"/netdata.conf.new 2>/dev/null
 		fi
-		eend ${ret}
+		eend ${rc}
 	fi
 }
 
 stop_post() {
-	local -i ret=1 count=0 sigkill=0
+	local -i rc=1 count=0 sigkill=0
 
 	ebegin "Waiting for netdata to save its database"
 	while [ -f "${pidfile}" ]; do
@@ -67,9 +70,9 @@ stop_post() {
 		fi
 
 		: $(( count += 1 ))
-		kill -0 "$( cat "${pidfile}" )" 2>/dev/null
-		ret=${?}
-		[ 0 -eq ${ret} ] && sleep 1
+		kill -0 "$( < "${pidfile}" )" 2>/dev/null
+		rc=${?}
+		[ 0 -eq ${rc} ] && sleep 1
 	done
 	eend ${sigkill}
 

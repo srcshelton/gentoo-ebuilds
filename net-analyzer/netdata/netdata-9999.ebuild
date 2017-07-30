@@ -3,6 +3,7 @@
 
 EAPI=6
 PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6} )
+WANT_AUTOCONF="2.5" # For autoconf-2.60+
 
 inherit autotools fcaps linux-info python-r1 systemd user
 
@@ -102,7 +103,8 @@ pkg_setup() {
 
 src_prepare() {
 	default
-	[[ ${PV} == "9999" ]] && eautoreconf
+
+	eautoreconf
 }
 
 src_configure() {
@@ -147,7 +149,7 @@ src_install() {
 		"${ED}"/usr/libexec/netdata/plugins.d/README.md
 	rmdir -p "${ED}"/var/log/netdata "${ED}"/var/cache/netdata 2>/dev/null
 
-	fowners -R "${NETDATA_USER}":"${NETDATA_GROUP}" /usr/share/"${PN}" || die
+	fowners -Rc root:"${NETDATA_GROUP}" /usr/share/"${PN}"/web || die
 
 	insinto /etc/netdata
 	doins system/netdata.conf
