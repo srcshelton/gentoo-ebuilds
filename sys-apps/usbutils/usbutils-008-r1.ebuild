@@ -36,7 +36,7 @@ if [[ " ${USE} " =~ \ libudev\  ]]; then
 	DEPEND="${DEPEND}
 		dev-vcs/git"
 
-	EGIT_REPO_URI="git://github.com/srcshelton/${PN}.git"
+	EGIT_REPO_URI="https://github.com/srcshelton/${PN}.git"
 	if [[ " ${USE} " =~ \ experimental\  ]]; then
 		EGIT_COMMIT="heads/nohwdb"
 	else

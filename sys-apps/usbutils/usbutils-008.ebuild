@@ -9,7 +9,7 @@ inherit autotools git-r3 python-single-r1
 
 DESCRIPTION="USB enumeration utilities"
 HOMEPAGE="http://linux-usb.sourceforge.net/"
-EGIT_REPO_URI="git://github.com/srcshelton/${PN}.git"
+EGIT_REPO_URI="https://github.com/srcshelton/${PN}.git"
 EGIT_COMMIT="tags/v${PV}-nohwdb"
 
 LICENSE="GPL-2"
