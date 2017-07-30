@@ -43,7 +43,7 @@ HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression ipmi mysql nfacct nodejs postgres +python systemd cpu_flags_x86_sse2"
+IUSE="caps +compression fping ipmi mysql nfacct nodejs postgres +python systemd cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )"
@@ -62,6 +62,7 @@ RDEPEND="
 	virtual/awk
 	caps? ( sys-libs/libcap )
 	compression? ( sys-libs/zlib )
+	fping? ( >=net-analyzer/fping-4.0 )
 	ipmi? ( sys-libs/freeipmi )
 	nfacct? (
 		net-firewall/nfacct
@@ -71,6 +72,8 @@ RDEPEND="
 	python? (
 		${PYTHON_DEPS}
 		dev-python/pyyaml[${PYTHON_USEDEP}]
+		virtual/python-dnspython
+		virtual/python-ipaddress
 		mysql? (
 			|| (
 				dev-python/mysqlclient[${PYTHON_USEDEP}]
@@ -120,12 +123,6 @@ src_configure() {
 src_install() {
 	default
 
-	cat >> "${T}"/"${PN}".sysctl.conf <<- EOF
-	kernel.mm.ksm.run = 1
-	kernel.mm.ksm.sleep_millisecs = 1000
-	EOF
-
-	dodoc "${T}"/"${PN}".sysctl.conf
 	newdoc "${ED}"/usr/libexec/netdata/charts.d/README.md charts.md
 	newdoc "${ED}"/usr/libexec/netdata/plugins.d/README.md plugins.md
 
@@ -139,7 +136,10 @@ src_install() {
 		fi
 	fi
 
-	use nodejs || rm -r "${ED}"/usr/libexec/netdata/node.d
+	if ! use nodejs; then
+		rm -r "${ED}"/usr/libexec/netdata/node.d
+		rm "${ED}"/usr/libexec/netdata/plugins.d/node.d.plugin
+	fi
 
 	rm -r "${ED}"/usr/share/netdata/web/old
 	rm 2>/dev/null \
@@ -149,7 +149,10 @@ src_install() {
 		"${ED}"/usr/libexec/netdata/plugins.d/README.md
 	rmdir -p "${ED}"/var/log/netdata "${ED}"/var/cache/netdata 2>/dev/null
 
-	fowners -Rc root:"${NETDATA_GROUP}" /usr/share/"${PN}"/web || die
+	# netdata includes 'web root owner' settings, but ignores them and fails to
+	# serve its pages if netdata:netdata isn't the owner :(
+	fowners -Rc "${NETDATA_USER}":"${NETDATA_GROUP}" /usr/share/"${PN}"/web ||
+		die "Failed settings owners: ${?}"
 
 	insinto /etc/netdata
 	doins system/netdata.conf
@@ -173,10 +176,6 @@ pkg_postinst() {
 			elog "echo 1000 >/sys/kernel/mm/ksm/sleep_millisecs"
 			echo
 			elog "If you enable it, you will save 20-60% of netdata memory."
-			echo
-			elog "You may copy /usr/share/doc/${PF}/${PN}.sysctl.conf to"
-			elog "/etc/sysctl.d/${PN}.conf in order to activate this change"
-			elog "automatically upon reboot."
 		fi
 	else
 		elog "INFORMATION:"
@@ -189,4 +188,11 @@ pkg_postinst() {
 		elog "If you can have it, you will save 20-60% of netdata memory."
 	fi
 
+	if ! use prefix; then
+		# This should be handled by FILECAPS, but wasn't... plus we want a
+		# fallback.
+		setcap cap_dac_read_search,cap_sys_ptrace+ep "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
+		chmod 4755 "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
+		eerror "Cannot set capabilities or SUID on '/usr/libexec/netdata/plugins.d/apps.plugin'"
+	fi
 }

@@ -37,7 +37,17 @@ depend() {
 }
 
 start_pre() {
-	checkpath -o "${NETDATA_OWNER}" -d /var/log/netdata /var/cache/netdata /var/run/netdata
+	local -i rc=0
+
+	checkpath -o "${NETDATA_OWNER}" -m 0770 -d \
+		/var/cache/netdata		   \
+		/var/lib/netdata		   \
+		/var/lib/netdata/registry
+	: $(( rc += ${?} ))
+	checkpath -o "${NETDATA_OWNER}" -m 0775 -d \
+		/var/log/netdata
+	: $(( rc += ${?} ))
+
 	return ${?}
 }
 
