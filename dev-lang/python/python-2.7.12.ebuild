@@ -12,7 +12,7 @@ PREFIX_PATCHREV="r0"
 CYGWINPORTS_GITREV="7be648659ef46f33db6913ca0ca5a809219d5629"
 
 DESCRIPTION="An interpreted, interactive, object-oriented programming language"
-HOMEPAGE="http://www.python.org/"
+HOMEPAGE="https://www.python.org/"
 SRC_URI="https://www.python.org/ftp/python/${PV}/${MY_P}.tar.xz
 	https://dev.gentoo.org/~floppym/python/python-gentoo-patches-${PATCHSET_VERSION}.tar.xz
 	prefix? ( https://dev.gentoo.org/~grobian/distfiles/python-prefix-${PV}-gentoo-patches-${PREFIX_PATCHREV}.tar.xz )"
