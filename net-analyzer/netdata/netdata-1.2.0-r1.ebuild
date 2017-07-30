@@ -7,7 +7,7 @@ EAPI=6
 inherit linux-info systemd user fcaps
 
 if [[ ${PV} == "9999" ]] ; then
-	EGIT_REPO_URI="git://github.com/firehol/${PN}.git"
+	EGIT_REPO_URI="https://github.com/firehol/${PN}.git"
 	inherit git-r3 autotools
 	SRC_URI=""
 	KEYWORDS=""

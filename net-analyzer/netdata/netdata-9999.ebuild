@@ -7,10 +7,10 @@ PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6} )
 inherit autotools fcaps linux-info python-r1 systemd user
 
 if [[ ${PV} == *9999 ]] ; then
-	EGIT_REPO_URI="git://github.com/firehol/${PN}.git"
+	EGIT_REPO_URI="https://github.com/firehol/${PN}.git"
 	inherit git-r3
 else
-	SRC_URI="https://github.com/firehol/netdata/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	SRC_URI="https://github.com/firehol/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~amd64 ~x86"
 	RESTRICT="mirror"
 fi
@@ -19,6 +19,21 @@ GIT_COMMIT=""
 case "${PV}" in
 	1.2.0)
 		GIT_COMMIT="bb4aa949f5ac825253d8adc6070661299abc1c3b"
+		;;
+	1.3.0)
+		GIT_COMMIT="b4591e87bd5bf5164eb55c90474bbb9f38f2dad4"
+		;;
+	1.4.0)
+		GIT_COMMIT="3028b87ee19e8550df6b9decc49733d595e0bd6e"
+		;;
+	1.5.0)
+		GIT_COMMIT="3bd41a09fccccbc6b095805556d3009b9ebf6213"
+		;;
+	1.6.0)
+		GIT_COMMIT="f5fa346a188e906a8f2cce3c2cf32a88ce81c666"
+		;;
+	1.7.0)
+		GIT_COMMIT="4016e2d9e3c2fcf5f6d59827bf5f81083d6645ba"
 		;;
 esac
 
@@ -103,12 +118,12 @@ src_configure() {
 src_install() {
 	default
 
-	cat >> "${T}"/"${PN}"-sysctl <<- EOF
+	cat >> "${T}"/"${PN}".sysctl.conf <<- EOF
 	kernel.mm.ksm.run = 1
 	kernel.mm.ksm.sleep_millisecs = 1000
 	EOF
 
-	dodoc "${T}"/"${PN}"-sysctl
+	dodoc "${T}"/"${PN}".sysctl.conf
 	newdoc "${ED}"/usr/libexec/netdata/charts.d/README.md charts.md
 	newdoc "${ED}"/usr/libexec/netdata/plugins.d/README.md plugins.md
 
@@ -157,7 +172,7 @@ pkg_postinst() {
 			echo
 			elog "If you enable it, you will save 20-60% of netdata memory."
 			echo
-			elog "You may copy /usr/share/doc/${PF}/${PN}-sysctl to"
+			elog "You may copy /usr/share/doc/${PF}/${PN}.sysctl.conf to"
 			elog "/etc/sysctl.d/${PN}.conf in order to activate this change"
 			elog "automatically upon reboot."
 		fi
