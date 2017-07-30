@@ -9,7 +9,7 @@ inherit autotools eutils git-2 udev
 DESCRIPTION="iPhone USB Ethernet Driver for Linux pairing helper"
 HOMEPAGE="http://giagio.com/wiki/moin.cgi/iPhoneEthernetDriver"
 SRC_URI=""
-EGIT_REPO_URI="git://github.com/dgiagio/ipheth.git/"
+EGIT_REPO_URI="https://github.com/dgiagio/ipheth.git/"
 EGIT_PROJECT="ipheth"
 
 LICENSE="GPL-2"
