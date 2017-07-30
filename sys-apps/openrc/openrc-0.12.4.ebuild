@@ -10,7 +10,7 @@ DESCRIPTION="OpenRC manages the services, startup and shutdown of a host"
 HOMEPAGE="https://www.gentoo.org/proj/en/base/openrc/"
 
 if [[ ${PV} == "9999" ]]; then
-	EGIT_REPO_URI="git://github.com/OpenRC/${PN}.git"
+	EGIT_REPO_URI="https://github.com/OpenRC/${PN}.git"
 	inherit git-2
 else
 	SRC_URI="https://dev.gentoo.org/~williamh/dist/${P}.tar.bz2"
