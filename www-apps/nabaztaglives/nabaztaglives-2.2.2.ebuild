@@ -119,7 +119,7 @@ src_prepare() {
 	mv www/*.jpg www/images/
 	mv db/rabbit_pi.sql db/initial.sql
 
-	epatch "${FILESDIR}/${PN}-2.1.2-api.patch" || die "Patch failed"
+	epatch "${FILESDIR}/${PN}-2.2.2-api.patch" || die "Patch failed"
 	epatch "${FILESDIR}/${PN}-2.00.patch" || die "Patch failed"
 
 	sed -si \
