@@ -9,7 +9,7 @@ inherit autotools eutils git-r3 toolchain-funcs
 DESCRIPTION="Minimalistic netlink library"
 HOMEPAGE="http://netfilter.org/projects/libmnl"
 EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
-EGIT_MASTER="master"
+#EGIT_MASTER="master"
 
 LICENSE="LGPL-2.1"
 SLOT="0/0.2.0"
@@ -18,6 +18,8 @@ KEYWORDS=""
 IUSE="examples static-libs"
 
 src_prepare() {
+	default
+
 	eautoreconf
 }
 
