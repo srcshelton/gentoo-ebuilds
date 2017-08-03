@@ -1,5 +1,5 @@
---- libclamav/bignum_fast.h.dist	2014-11-12 01:43:11.034069241 +0000
-+++ libclamav/bignum_fast.h	2014-11-12 01:46:42.065459358 +0000
+--- a/libclamav/bignum_fast.h.dist	2014-11-12 01:43:11.034069241 +0000
++++ b/libclamav/bignum_fast.h	2014-11-12 01:46:42.065459358 +0000
 @@ -18,7 +18,7 @@
  #ifndef TFM_H_
  #define TFM_H_
