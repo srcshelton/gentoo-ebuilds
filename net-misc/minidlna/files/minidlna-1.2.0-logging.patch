@@ -1,0 +1,280 @@
+--- a/upnpsoap.c
++++ b/upnpsoap.c
+@@ -97,7 +97,7 @@
+  * 							Defined by UPnP vendor.
+ */
+ static void
+-SoapError(struct upnphttp * h, int errCode, const char * errDesc)
++SoapError(struct upnphttp * h, int errCode, const char * errDesc, const char * errDetail)
+ {
+ 	static const char resp[] =
+ 		"<s:Envelope "
+@@ -120,7 +120,7 @@
+ 	char body[2048];
+ 	int bodylen;
+ 
+-	DPRINTF(E_WARN, L_HTTP, "Returning UPnPError %d: %s\n", errCode, errDesc);
++	DPRINTF(E_WARN, L_HTTP, "Returning UPnPError %d: %s (%s)\n", errCode, errDesc, errDetail);
+ 	bodylen = snprintf(body, sizeof(body), resp, errCode, errDesc);
+ 	BuildResp2_upnphttp(h, 500, "Internal Server Error", body, bodylen);
+ 	SendResp_upnphttp(h);
+@@ -205,7 +205,7 @@
+ 		BuildSendAndCloseSoapResp(h, body, bodylen);
+ 	}
+ 	else
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "GetValueFromNameValueList(&data, 'DeviceID') returned false in IsAuthorizedValidated()");
+ 
+ 	ClearNameValueList(&data);
+ }
+@@ -351,11 +351,11 @@
+ 		id = strtol(id_str, &endptr, 10);
+ 	if (!id_str || endptr == id_str)
+ 	{
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "GetValueFromNameValueList(&data, 'ConnectionID' returned false or NULL in GetCurrentConnectionInfo");
+ 	}
+ 	else if(id != 0)
+ 	{
+-		SoapError(h, 701, "No such object error");
++		SoapError(h, 701, "No such object error", "Object ID is not zero in GetCurrentConnectionInfo");
+ 	}
+ 	else
+ 	{
+@@ -1257,7 +1257,7 @@
+ 		RequestedCount = atoi(ptr);
+ 	if( RequestedCount < 0 )
+ 	{
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "RequestedCount < 0");
+ 		goto browse_error;
+ 	}
+ 	if( !RequestedCount )
+@@ -1266,17 +1266,24 @@
+ 		StartingIndex = atoi(ptr);
+ 	if( StartingIndex < 0 )
+ 	{
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "StartingIndex < 0");
+ 		goto browse_error;
+ 	}
+ 	if( !BrowseFlag || (strcmp(BrowseFlag, "BrowseDirectChildren") && strcmp(BrowseFlag, "BrowseMetadata")) )
+ 	{
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "BrowseFlags not set, or different to both 'BrowseDirectChildren' and 'BrowseMetadata'");
+ 		goto browse_error;
+ 	}
+ 	if( !ObjectID && !(ObjectID = GetValueFromNameValueList(&data, "ContainerID")) )
+ 	{
+-		SoapError(h, 402, "Invalid Args");
+-		goto browse_error;
++		if (h->req_client && (h->req_client->type->flags & FLAG_SAMSUNG_DCM10))
++		{
++			ObjectID = "0";
++		}
++		else
++		{
++			SoapError(h, 402, "Invalid Args", "ObjectID not set and could not be read from GetValueFromNameValueList(ContainerID)");
++			goto browse_error;
++		}
+ 	}
+ 
+@@ -1394,7 +1394,7 @@
+ 		/* If it's a DLNA client, return an error for bad sort criteria */
+ 		if( ret < 0 && ((args.flags & FLAG_DLNA) || GETFLAG(DLNA_STRICT_MASK)) )
+ 		{
+-			SoapError(h, 709, "Unsupported or invalid sort criteria");
++			SoapError(h, 709, "Unsupported or invalid sort criteria", "DLNA clients receive error for bad sort criteria");
+ 			goto browse_error;
+ 		}
+ 
+@@ -1410,7 +1410,7 @@
+ 	{
+ 		DPRINTF(E_WARN, L_HTTP, "SQL error: %s\nBAD SQL: %s\n", zErrMsg, sql);
+ 		sqlite3_free(zErrMsg);
+-		SoapError(h, 709, "Unsupported or invalid sort criteria");
++		SoapError(h, 709, "Unsupported or invalid sort criteria", "SQL error - see log for details");
+ 		goto browse_error;
+ 	}
+ 	sqlite3_free(sql);
+@@ -1419,7 +1419,7 @@
+ 	{
+ 		if( !object_exists(ObjectID) )
+ 		{
+-			SoapError(h, 701, "No such object error");
++			SoapError(h, 701, "No such object error", "totalMatches == 0 && !object_exists(ObjectID)");
+ 			goto browse_error;
+ 		}
+ 	}
+@@ -1751,7 +1751,7 @@
+ 	{
+ 		if( !(ContainerID = GetValueFromNameValueList(&data, "ObjectID")) )
+ 		{
+-			SoapError(h, 402, "Invalid Args");
++			SoapError(h, 402, "Invalid Args", "GetValueFromNameValueList(ObjectID) == 0");
+ 			goto search_error;
+ 		}
+ 	}
+@@ -1807,7 +1807,7 @@
+ 	if( totalMatches < 0 )
+ 	{
+ 		/* Must be invalid SQL, so most likely bad or unhandled search criteria. */
+-		SoapError(h, 708, "Unsupported or invalid search criteria");
++		SoapError(h, 708, "Unsupported or invalid search criteria", "totalMatches < 0");
+ 		goto search_error;
+ 	}
+ 	/* Does the object even exist? */
+@@ -1815,7 +1815,7 @@
+ 	{
+ 		if( !object_exists(ContainerID) )
+ 		{
+-			SoapError(h, 710, "No such container");
++			SoapError(h, 710, "No such container", "totalMatches == 0 && !object_exists(ContainerID)");
+ 			goto search_error;
+ 		}
+ 	}
+@@ -1825,7 +1825,7 @@
+ 	/* If it's a DLNA client, return an error for bad sort criteria */
+ 	if( ret < 0 && ((args.flags & FLAG_DLNA) || GETFLAG(DLNA_STRICT_MASK)) )
+ 	{
+-		SoapError(h, 709, "Unsupported or invalid sort criteria");
++		SoapError(h, 709, "Unsupported or invalid sort criteria", "parse_sort_criteria() < 0");
+ 		goto search_error;
+ 	}
+ 
+@@ -1892,7 +1892,7 @@
+ 
+ 	if(!var_name)
+ 	{
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "GetValueFromNameValueList(varName) returned error");
+ 	}
+ 	else if(strcmp(var_name, "ConnectionStatus") == 0)
+ 	{
+@@ -1905,7 +1905,7 @@
+ 	else
+ 	{
+ 		DPRINTF(E_WARN, L_HTTP, "%s: Unknown: %s\n", action, THISORNUL(var_name));
+-		SoapError(h, 404, "Invalid Var");
++		SoapError(h, 404, "Invalid Var", "QueryStateVariable() called to request variable name other than 'ConnectionStatus'");
+ 	}
+ 
+ 	ClearNameValueList(&data);
+@@ -1969,7 +1969,7 @@
+ 
+ 	if (!ObjectID || !CurrentTagValue || !NewTagValue)
+ 	{
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "ObjectID, CurrentTagValue, or NewTagValue equal to zero");
+ 		ClearNameValueList(&data);
+ 		return;
+ 	}
+@@ -1981,7 +1981,7 @@
+ 	detailID = sql_get_int64_field(db, "SELECT DETAIL_ID from OBJECTS where OBJECT_ID = '%q'", rid);
+ 	if (detailID <= 0)
+ 	{
+-		SoapError(h, 701, "No such object");
++		SoapError(h, 701, "No such object", "detailID from database not > 0");
+ 		ClearNameValueList(&data);
+ 		return;
+ 	}
+@@ -2030,7 +2030,7 @@
+ 	if (ret == SQLITE_OK)
+ 		BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
+ 	else
+-		SoapError(h, 501, "Action Failed");
++		SoapError(h, 501, "Action Failed", "SQLite response not SQLITE_OK");
+ 
+ 	ClearNameValueList(&data);
+ }
+@@ -2115,7 +2115,7 @@
+ 		BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
+ 	}
+ 	else
+-		SoapError(h, 402, "Invalid Args");
++		SoapError(h, 402, "Invalid Args", "!(ObjectID && PosSecond)");
+ 
+ 	ClearNameValueList(&data);
+ }
+@@ -2178,6 +2178,6 @@
+ 		DPRINTF(E_WARN, L_HTTP, "SoapMethod: Unknown: %.*s\n", methodlen, p);
+ 	}
+ 
+-	SoapError(h, 401, "Invalid Action");
++	SoapError(h, 401, "Invalid Action", "action does not contain '#' character, or SoapMethod failed");
+ }
+ 
+--- a/sql.c.dist
++++ b/sql.c
+@@ -30,7 +30,7 @@
+ 	char *errMsg = NULL;
+ 	char *sql;
+ 	va_list ap;
+-	//DPRINTF(E_DEBUG, L_DB_SQL, "SQL: %s\n", sql);
++	//DPRINTF(E_DEBUG, L_DB_SQL, "SQL (exec): %s\n", sql);
+ 
+ 	va_start(ap, fmt);
+ 	sql = sqlite3_vmprintf(fmt, ap);
+@@ -52,7 +52,7 @@
+ {
+ 	int ret;
+ 	char *errMsg = NULL;
+-	//DPRINTF(E_DEBUG, L_DB_SQL, "SQL: %s\n", sql);
++	//DPRINTF(E_DEBUG, L_DB_SQL, "SQL (get_table): %s\n", sql);
+ 	
+ 	ret = sqlite3_get_table(db, sql, pazResult, pnRow, pnColumn, &errMsg);
+ 	if( ret != SQLITE_OK )
+@@ -78,7 +78,7 @@
+ 	sql = sqlite3_vmprintf(fmt, ap);
+ 	va_end(ap);
+ 
+-	//DPRINTF(E_DEBUG, L_DB_SQL, "sql: %s\n", sql);
++	//DPRINTF(E_DEBUG, L_DB_SQL, "sql (int): %s\n", sql);
+ 
+ 	switch (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL))
+ 	{
+@@ -114,7 +114,7 @@
+ 			ret = sqlite3_column_int(stmt, 0);
+ 			break;
+ 		default:
+-			DPRINTF(E_WARN, L_DB_SQL, "%s: step failed: %s\n%s\n", __func__, sqlite3_errmsg(db), sql);
++			DPRINTF(E_WARN, L_DB_SQL, "%s: step failed: %s (%d)\n%s\n", __func__, sqlite3_errmsg(db), result, sql);
+ 			ret = -1;
+ 			break;
+ 	}
+@@ -137,7 +137,7 @@
+ 	sql = sqlite3_vmprintf(fmt, ap);
+ 	va_end(ap);
+ 
+-	//DPRINTF(E_DEBUG, L_DB_SQL, "sql: %s\n", sql);
++	//DPRINTF(E_DEBUG, L_DB_SQL, "sql (int64): %s\n", sql);
+ 
+ 	switch (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL))
+ 	{
+@@ -173,7 +173,7 @@
+ 			ret = sqlite3_column_int64(stmt, 0);
+ 			break;
+ 		default:
+-			DPRINTF(E_WARN, L_DB_SQL, "%s: step failed: %s\n%s\n", __func__, sqlite3_errmsg(db), sql);
++			DPRINTF(E_WARN, L_DB_SQL, "%s: step failed: %s (%d)\n%s\n", __func__, sqlite3_errmsg(db), result, sql);
+ 			ret = -1;
+ 			break;
+ 	}
+@@ -202,7 +202,7 @@
+ 	sql = sqlite3_vmprintf(fmt, ap);
+ 	va_end(ap);
+ 
+-	//DPRINTF(E_DEBUG, L_DB_SQL, "sql: %s\n", sql);
++	//DPRINTF(E_DEBUG, L_DB_SQL, "sql (text): %s\n", sql);
+ 
+ 	switch (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL))
+ 	{
+@@ -250,7 +250,7 @@
+ 			break;
+ 
+ 		default:
+-			DPRINTF(E_WARN, L_DB_SQL, "SQL step failed: %s\n", sqlite3_errmsg(db));
++			DPRINTF(E_WARN, L_DB_SQL, "SQL step failed: %s (%d)\n", sqlite3_errmsg(db), result);
+ 			str = NULL;
+ 			break;
+ 	}
