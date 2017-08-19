@@ -480,3 +480,4 @@ x32 profiles, and that these variables only affect multilib systems.
 (... controlled by the `sep-usr` USE-flag)
 
 * app-crypt/mit-krb5
+* dev-libs/gmp
