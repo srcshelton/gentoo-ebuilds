@@ -492,6 +492,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * net-fs/nfs-utils
     * Move nfsdcltrack, with many non-root library dependencies, to `/usr/sbin`
 * net-libs/libnfnetlink
+* net-libs/libpcap
 * sys-apps/util-linux
     * Add libfdisk.so to the list of libraries relocated to root
 * sys-fs/cryptsetup
