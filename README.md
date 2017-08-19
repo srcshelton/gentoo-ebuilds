@@ -501,4 +501,6 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-libs/db
 * sys-libs/libcap-ng
 * sys-libs/slang
+* sys-process/audit
+    * Add `zos` USE-flag to prevent building of z/OS-specific `zos-remote` plugin and tools, with many non-root library dependencies
 
