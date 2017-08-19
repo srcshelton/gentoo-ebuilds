@@ -483,6 +483,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/gmp
 * dev-libs/jansson
 * dev-libs/libgcrypt
+* dev-libs/libgpg-error
 * dev-libs/openssl
 * sys-apps/util-linux
     * Add libfdisk.so to the list of libraries relocated to root
