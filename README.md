@@ -481,3 +481,4 @@ x32 profiles, and that these variables only affect multilib systems.
 
 * app-crypt/mit-krb5
 * dev-libs/gmp
+* dev-libs/openssl
