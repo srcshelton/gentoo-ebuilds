@@ -488,6 +488,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/mini-xml
 * dev-libs/openssl
 * dev-libs/popt
+* net-dns/libidn
 * sys-apps/util-linux
     * Add libfdisk.so to the list of libraries relocated to root
 * sys-fs/cryptsetup
