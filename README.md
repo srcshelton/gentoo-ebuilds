@@ -500,4 +500,5 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-fs/cryptsetup
 * sys-libs/db
 * sys-libs/libcap-ng
+* sys-libs/slang
 
