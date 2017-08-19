@@ -476,3 +476,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * virtual/libudev
     * Allow sys-libs/libeudev to satisfy `virtual/libudev` dependency
 
+# Fixes for binaries and libraries which are installed to the root filesystem, but link to libraries originally installed to `/usr`
+(... controlled by the `sep-usr` USE-flag)
+
+* app-crypt/mit-krb5

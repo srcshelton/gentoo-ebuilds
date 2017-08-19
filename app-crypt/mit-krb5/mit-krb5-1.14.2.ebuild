@@ -16,7 +16,7 @@ SRC_URI="http://web.mit.edu/kerberos/dist/krb5/${P_DIR}/${MY_P}.tar.gz"
 LICENSE="openafs-krb5-a BSD MIT OPENLDAP BSD-2 HPND BSD-4 ISC RSA CC-BY-SA-3.0 || ( BSD-2 GPL-2+ )"
 SLOT="0"
 KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86"
-IUSE="doc +keyutils libressl openldap +pkinit selinux +threads test xinetd"
+IUSE="doc +keyutils libressl openldap +pkinit sep-usr selinux +threads test xinetd"
 
 CDEPEND="
 	!!app-crypt/heimdal
@@ -104,6 +104,11 @@ multilib_src_install() {
 		DESTDIR="${D}" \
 		EXAMPLEDIR="${EPREFIX}/usr/share/doc/${PF}/examples" \
 		install
+
+	if use sep-usr && multilib_is_native_abi; then
+		# need the libs in /
+		gen_usr_ldscript -a gssapi_krb5 k5crypto krb5 krb5support
+	fi
 }
 
 multilib_src_install_all() {
