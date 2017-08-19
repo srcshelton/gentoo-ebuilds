@@ -356,6 +356,7 @@ directory is an additional QA check which reports an error if files deployed to
 * mail-filter/spamassassin
 * net-analyzer/darkstat
 * net-analyzer/iptraf-ng
+* net-analyzer/nagios-core
 * net-analyzer/ntop
 * net-analyzer/rrdtool
 * net-analyzer/vnstat
