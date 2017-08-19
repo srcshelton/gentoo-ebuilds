@@ -482,6 +482,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * app-crypt/mit-krb5
 * dev-libs/gmp
 * dev-libs/jansson
+* dev-libs/libgcrypt
 * dev-libs/openssl
 * sys-apps/util-linux
     * Add libfdisk.so to the list of libraries relocated to root
