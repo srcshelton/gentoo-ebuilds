@@ -140,11 +140,16 @@ multilib_src_configure() {
 		is-flagq -O[s123] || append-flags -O2
 	fi
 
-	# Add linker versions to the symbols. Easier to do, and safer than header file
-	# mumbo jumbo.
-	if [[ ${CHOST} == *-linux-gnu* || ${CHOST} == *-solaris* ]] || use userland_GNU ; then
-		# we hopefully use a GNU binutils linker in this case
-		[[ ${CC} == *clang* ]] || append-ldflags -Wl,--default-symver
+	if [[ ${CC} == *clang* ]]; then
+		append-cflags -stdlib=libstdc++
+		append-cxxflags -stdlib=libstdc++
+	else
+		# Add linker versions to the symbols. Easier to do, and safer than header file
+		# mumbo jumbo.
+		if [[ ${CHOST} == *-linux-gnu* || ${CHOST} == *-solaris* ]] || use userland_GNU ; then
+			# we hopefully use a GNU binutils linker in this case
+			append-ldflags -Wl,--default-symver
+		fi
 	fi
 
 	tc-export CC CXX # would use CC=xlc_r on aix if not set
