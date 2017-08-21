@@ -498,7 +498,6 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-apps/util-linux
     * Add `libfdisk.so` to the list of libraries relocated to root
 * sys-fs/cryptsetup
-* sys-libs/db
 * sys-libs/libcap-ng
 * sys-libs/slang
 * sys-process/audit

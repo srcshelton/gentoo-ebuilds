@@ -29,7 +29,7 @@ LICENSE="Sleepycat"
 SLOT="5.3"
 KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~ppc ~ppc64 ~s390 ~sh sparc x86 ~sparc-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="doc java cxx sep-usr tcl test"
+IUSE="doc java cxx tcl test"
 
 REQUIRED_USE="test? ( tcl )"
 
@@ -200,16 +200,10 @@ multilib_src_install() {
 
 	db_src_install_usrlibcleanup
 
-	if multilib_is_native_abi; then
-		if use java; then
-			java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.so
-			java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
-			rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
-		fi
-		if use sep-usr; then
-			# need the libs in /
-			gen_usr_ldscript -a db-5.3
-		fi
+	if multilib_is_native_abi && use java; then
+		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.so
+		java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
+		rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
 	fi
 }
 
