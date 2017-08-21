@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 63fd4a88e70b1ea70783dd408c2df12db74605c9.
+# commit e7ba7ab135f5a68b2c00a919ea9ac8d5528a5d5b.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
@@ -323,7 +323,7 @@ disable_audio_dither=1
 #device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,htu21,lm75,lm75addr=0x4f,si7020,tmp102 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*
 
 # RTC:
-# i2c-rtc supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
+# i2c-rtc supports abx80x, ds1307, ds1339, ds3231, m41t62, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
 #device_tree_overlay=i2c-rtc,<device>,wakeup-source
 #device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
 #device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
@@ -390,6 +390,7 @@ disable_audio_dither=1
 #device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=mz61581,speed=?,rotate=0,fps=?,txbuflen=32768,debug=[0-7],xohms=?
+#device_tree_overlay=papirus,panel=[e1144cs021,e2200cs021,e2271cs021],speed=?
 #device_tree_overlay=piscreen,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
 #device_tree_overlay=piscreen2r,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?
 #device_tree_overlay=pitft22,speed=?,rotate=[0,90,180,270],fps=?,debug=[0-7]
