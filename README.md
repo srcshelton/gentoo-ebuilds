@@ -344,7 +344,7 @@ used to build perl)
 # Fixes for ebuilds using `/run`
 (... rather than `/var/run`)
 
-Included as `install-qa-check.d/95run-directory` is the repo `metadata`
+Included as `install-qa-check.d/95run-directory` in the repo `metadata`
 directory is an additional QA check which reports an error if files deployed to
 `/etc/init.d` or `/etc/conf.d` contain references to `/run`.
 
@@ -383,6 +383,12 @@ directory is an additional QA check which reports an error if files deployed to
 * www-servers/lighttpd
 
 # Fixes to allow `/var/state` to be used in place of `/var/lib`
+
+`/var/state` was referenced in the [Filesystem Hierarchy Standard 2.0](http://www.ibiblio.org/pub/Linux/docs/fsstnd/fhs-2.0.tar.gz) as superseding
+`/var/lib`, although versions 2.1 and later no longer mention this particular
+configuration.  Regardless, supporting `/var/state` (with a symlink from
+`/var/lib` for compatibility) takes very little effort, and the name `state`
+feels like a much better fit with respect to the intended contents.
 
 * dev-lang/php
 * dev-php/PEAR-PEAR
