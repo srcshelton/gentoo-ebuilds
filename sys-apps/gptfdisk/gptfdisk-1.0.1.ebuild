@@ -1,13 +1,12 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fe6c75d37b11d5f708d791ab2d80868309a1d01e $
 
 EAPI=5
 
 inherit flag-o-matic toolchain-funcs
 
 DESCRIPTION="GPT partition table manipulator for Linux"
-HOMEPAGE="http://www.rodsbooks.com/gdisk/"
+HOMEPAGE="https://www.rodsbooks.com/gdisk/"
 SRC_URI="mirror://sourceforge/${PN}/${P}.tar.gz"
 
 LICENSE="GPL-2"
