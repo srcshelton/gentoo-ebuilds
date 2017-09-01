@@ -1,16 +1,14 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c9bd0eef19a2ef07f53cf52685a3c0d10e0dd09f $
 
 EAPI=6
 
-EGIT_REPO_URI="git://git.savannah.gnu.org/screen.git"
-EGIT_CHECKOUT_DIR="${WORKDIR}/${P}" # needed for setting S later on
-
 inherit eutils flag-o-matic toolchain-funcs pam autotools user git-r3
 
-DESCRIPTION="Full-screen window manager that multiplexes physical terminals between several processes"
+DESCRIPTION="screen manager with VT100/ANSI terminal emulation"
 HOMEPAGE="https://www.gnu.org/software/screen/"
+EGIT_REPO_URI="https://git.savannah.gnu.org/git/screen.git"
+EGIT_CHECKOUT_DIR="${WORKDIR}/${P}" # needed for setting S later on
 
 LICENSE="GPL-2"
 SLOT="0"
