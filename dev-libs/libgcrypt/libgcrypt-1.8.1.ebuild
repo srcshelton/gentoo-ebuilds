@@ -32,6 +32,8 @@ MULTILIB_CHOST_TOOLS=(
 )
 
 src_prepare() {
+	[[ ${CC} == *clang* ]] && PATCHES+=( "${FILESDIR}"/${P}-clang-jitterentropy.patch )
+
 	default
 	eautoreconf
 }
