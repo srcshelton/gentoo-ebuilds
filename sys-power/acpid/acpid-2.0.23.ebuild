@@ -1,6 +1,5 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: a922b1e2e61b3ecf7cdc29c83877207a0066530a $
 
 EAPI=5
 inherit linux-info systemd
@@ -52,7 +51,7 @@ pkg_postinst() {
 		elog
 		elog "You may wish to read the Gentoo Linux Power Management Guide,"
 		elog "which can be found online at:"
-		elog "https://www.gentoo.org/doc/en/power-management-guide.xml"
+		elog "https://wiki.gentoo.org/wiki/Power_management/Guide"
 		elog
 	fi
 
