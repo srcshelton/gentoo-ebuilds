@@ -352,6 +352,7 @@ directory is an additional QA check which reports an error if files deployed to
 * app-admin/syslog-ng
 * app-admin/ulogd
 * app-misc/screen
+* dev-db/redis
 * dev-libs/cyrus-sasl
 * mail-filter/spamassassin
 * net-analyzer/darkstat
