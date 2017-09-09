@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 0d15fc07552b17ff4bf9a292e85b1922ec8d53fd $
 
 EAPI="5"
 
@@ -23,7 +22,7 @@ SRC_URI="mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz
 	${SCTP_PATCH:+mirror://gentoo/${SCTP_PATCH}}
 	${HPN_PATCH:+hpn? (
 		mirror://gentoo/${HPN_PATCH}.xz
-		http://dev.gentoo.org/~chutzpah/${HPN_PATCH}.xz
+		https://dev.gentoo.org/~chutzpah/${HPN_PATCH}.xz
 	)}
 	${LDAP_PATCH:+ldap? ( mirror://gentoo/${LDAP_PATCH} )}
 	${X509_PATCH:+X509? ( http://roumenpetrov.info/openssh/x509-${X509_VER}/${X509_PATCH} )}
