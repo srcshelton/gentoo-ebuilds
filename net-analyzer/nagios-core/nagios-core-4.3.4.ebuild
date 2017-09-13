@@ -17,7 +17,7 @@ SRC_URI="mirror://sourceforge/nagios/${MY_P}.tar.gz
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha ~amd64 ~arm ~arm64 ~hppa ~ppc ~ppc64 sparc ~x86"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ppc ~ppc64 ~sparc ~x86"
 IUSE="apache2 classicui lighttpd perl +web vim-syntax"
 
 # In pkg_postinst(), we change the group of the Nagios configuration
@@ -117,29 +117,53 @@ src_compile() {
 src_install() {
 	dodoc Changelog CONTRIBUTING.md README.asciidoc THANKS UPGRADING
 
-	emake DESTDIR="${D}" install-base
+	# There is no way to install the CGIs unstripped from the top-level
+	# makefile, so descend into base/ here. The empty INSTALL_OPTS
+	# ensures that root:root: owns the nagios executables.
+	cd "${S}/base" || die
+	emake INSTALL_OPTS="" DESTDIR="${D}" install-unstripped
+	cd "${S}" || die
+
+	# Otherwise this gets installed as 770 and you get "access denied"
+	# for some reason or other when starting nagios. The permissions
+	# on nagiostats are just for consistency (these should both get
+	# fixed upstream).
+	fperms 775 /usr/sbin/nagios /usr/sbin/nagiostats
+
+	# INSTALL_OPTS are needed for most of install-basic, but we don't
+	# want them on the LIBEXECDIR, argh.
 	emake DESTDIR="${D}" install-basic
-	emake DESTDIR="${D}" install-config
+	fowners root:root /usr/$(get_libdir)/nagios/plugins
+
+	# Don't make the configuration owned by the nagios user, because
+	# then he can edit nagios.cfg and trick nagios into running as root
+	# and doing his bidding.
+	emake INSTALL_OPTS="" DESTDIR="${D}" install-config
+
+	# No INSTALL_OPTS used in install-commandmode, thankfully.
 	emake DESTDIR="${D}" install-commandmode
 
 	if use web; then
-		emake DESTDIR="${D}" install-cgis
+		# There is no way to install the CGIs unstripped from the
+		# top-level makefile, so descend into cgi/ here. The empty
+		# INSTALL_OPTS ensures that root:root: owns the CGI executables.
+		cd "${S}/cgi" || die
+		emake INSTALL_OPTS="" DESTDIR="${D}" install-unstripped
+		cd "${S}" || die
 
 		# install-html installs the new exfoliation theme
-		emake DESTDIR="${D}" install-html
+		emake INSTALL_OPTS="" DESTDIR="${D}" install-html
 
 		if use classicui; then
 			# This overwrites the already-installed exfoliation theme
-			emake DESTDIR="${D}" install-classicui
+			emake INSTALL_OPTS="" DESTDIR="${D}" install-classicui
 		fi
 
 		# Install cute Gentoo icons (bug #388323), setting their
 		# owner, group, and mode to match those of the rest of Nagios's
 		# images.
-		insopts --group=nagios --owner=nagios --mode=0664
 		insinto /usr/share/nagios/htdocs/images/logos
 		doins "${WORKDIR}/${GENTOO_ICONS}"/*.*
-		insopts --mode=0644 # Back to the default...
 	fi
 
 	newinitd openrc-init nagios
@@ -159,71 +183,18 @@ src_install() {
 			ewarn "will have to configure your webserver yourself."
 		fi
 	fi
-
-	for dir in etc/nagios var/lib/nagios ; do
-		chown -R nagios:nagios "${D}/${dir}" \
-			|| die "failed chown of ${D}/${dir}"
-	done
-
-	chown -R root:root "${D}/usr/$(get_libdir)/nagios" \
-		|| die "failed chown of ${D}/usr/$(get_libdir)/nagios"
-
-	# The following two find...exec statements will die properly as long
-	# as chmod is only called once (that is, as long as the argument
-	# list is small enough).
-	find "${D}/usr/$(get_libdir)/nagios" -type d \
-		-exec chmod 755 '{}' + || die 'failed to make nagios dirs traversable'
-
-	if use web; then
-		find "${D}/usr/$(get_libdir)/nagios/cgi-bin" -type f \
-			-exec chmod 755 '{}' + || die 'failed to make cgi-bins executable'
-	fi
-
-	keepdir /etc/nagios
-	keepdir /var/lib/nagios
-	keepdir /var/lib/nagios/archives
-	keepdir /var/lib/nagios/rw
-	keepdir /var/lib/nagios/spool/checkresults
-
-	if use !apache2 && use !lighttpd; then
-		chown -R nagios:nagios "${D}"/var/lib/nagios/rw \
-			|| die "failed chown of ${D}/var/lib/nagios/rw"
-	else
-		if use apache2 ; then
-			chown -R nagios:apache "${D}"/var/lib/nagios/rw \
-				|| die "failed chown of ${D}/var/lib/nagios/rw"
-		elif use lighttpd ; then
-			chown -R nagios:lighttpd "${D}"/var/lib/nagios/rw \
-				|| die "failed chown of ${D}/var/lib/nagios/rw"
-		fi
-	fi
-
-	chmod ug+s "${D}"/var/lib/nagios/rw || die "failed chmod of ${D}/var/lib/nagios/rw"
-	chmod 0750 "${D}"/etc/nagios || die "failed chmod of ${D}/etc/nagios"
 }
 
 pkg_postinst() {
 
 	if use web; then
-		elog "Note that your web server user requires read-only access to"
-		elog "${ROOT}etc/nagios."
-
 		if use apache2 || use lighttpd ; then
-			elog
-			elog "To that end, we have changed the group of ${ROOT}etc/nagios"
-			elog "to that of your web server user."
-			elog
 			if use apache2; then
-				chown nagios:apache "${ROOT}etc/nagios" \
-					|| die "failed to change group of ${ROOT}etc/nagios"
-
 				elog "To enable the Nagios web front-end, please edit"
 				elog "${ROOT}etc/conf.d/apache2 and add \"-D NAGIOS -D PHP\""
 				elog "to APACHE2_OPTS. Then Nagios will be available at,"
 				elog
 			elif use lighttpd; then
-				chown nagios:lighttpd "${ROOT}etc/nagios" \
-					|| die "failed to change group of ${ROOT}etc/nagios"
 				elog "To enable the Nagios web front-end, please add"
 				elog "'include \"nagios.conf\"' to the lighttpd configuration"
 				elog "file at ${ROOT}etc/lighttpd/lighttpd.conf. Then Nagios"
@@ -232,9 +203,6 @@ pkg_postinst() {
 			fi
 
 			elog "  http://localhost/nagios/"
-		else
-			elog "Since you're not using either Apache or Lighttpd, you"
-			elog "will have to grant the necessary permissions yourself."
 		fi
 	fi
 
