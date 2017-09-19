@@ -4,7 +4,7 @@
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
 
-inherit python-single-r1
+inherit autotools python-single-r1
 
 DESCRIPTION="USB enumeration utilities"
 HOMEPAGE="https://www.kernel.org/pub/linux/utils/usb/usbutils/
