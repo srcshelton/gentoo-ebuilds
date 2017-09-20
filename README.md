@@ -273,6 +273,8 @@ used to build perl)
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
+* dev-java/commons-daemon
+    * Add additional include path to allow building with Oracle JDK 8 and above
 * dev-lang/perl
     * Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS
 * dev-libs/libcgroup
