@@ -1,0 +1,12 @@
+# Default log rotation
+/var/log/mongodb/*.log {
+	daily
+	rotate 14
+	dateext
+	copytruncate
+	delaycompress
+	compress
+	notifempty
+	extension gz
+	missingok
+}

@@ -271,6 +271,8 @@ used to build perl)
     * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
 * app-misc/colordiff
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
+* dev-db/mongodb
+    * Add firefox source to Allow building on ARM
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
 * dev-java/commons-daemon
