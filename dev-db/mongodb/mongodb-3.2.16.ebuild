@@ -125,7 +125,9 @@ src_compile() {
 	# respect mongoDB upstream's basic recommendations
 	# see bug #536688 and #526114
 	if ! use debug; then
-		filter-flags '-m*'
+		use arm || filter-flags '-m*' # ... but not on ARM, where flags such as -march/-mtune, -mfpu,
+									  # and -mfloat-abi, etc. are *essential* in order to produce
+									  # working code.
 		filter-flags '-O?'
 	fi
 	escons "${scons_opts[@]}" core tools || die
