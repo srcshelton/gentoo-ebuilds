@@ -57,6 +57,10 @@ src_prepare() {
 
 	# bug #510506
 	epatch "${FILESDIR}"/${PN}-4.8.24-java-manifest-location.patch
+	# Set of patches to make this thing compile with C++11, Oracle
+	# promised to fix this for the next release
+	# https://community.oracle.com/thread/3952592
+	epatch "${FILESDIR}"/${PN}-6.2-c++11.patch
 
 	pushd dist > /dev/null || die "Cannot cd to 'dist'"
 
@@ -75,11 +79,11 @@ src_prepare() {
 	#see code below
 	#sh ./s_config || die "Cannot execute ./s_config"
 
-	popd > /dev/null
-
 	# use the includes from the prefix
 	epatch "${FILESDIR}"/${PN}-4.6-jni-check-prefix-first.patch
 	epatch "${FILESDIR}"/${PN}-4.3-listen-to-java-options.patch
+
+	popd > /dev/null
 
 	# sqlite configure call has an extra leading ..
 	# upstreamed:5.2.36, missing in 5.3.x
@@ -91,6 +95,8 @@ src_prepare() {
 
 	# Needed when compiling with clang
 	epatch "${FILESDIR}"/${PN}-5.1.29-rename-atomic-compare-exchange.patch
+
+	epatch "${FILESDIR}"/${PN}-6.0.35-winnt.patch
 
 	# Upstream release script grabs the dates when the script was run, so lets
 	# end-run them to keep the date the same.
@@ -172,6 +178,14 @@ multilib_src_configure() {
 		myconf+=(--disable-tcl )
 	fi
 
+	if [[ ${CHOST} == *-winnt* ]]; then
+		# this one should really say --enable-windows, but
+		# seems the db devs only support mingw ... doesn't enable
+		# anything too specific to mingw.
+		myconf+=(--enable-mingw)
+		myconf+=(--with-mutex=win32)
+	fi
+
 	# sql_compat will cause a collision with sqlite3
 	# --enable-sql_compat
 	ECONF_SOURCE="${S_BASE}"/dist \
@@ -201,7 +215,9 @@ multilib_src_install() {
 	db_src_install_usrlibcleanup
 
 	if multilib_is_native_abi && use java; then
-		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.so
+		local ext=so
+		[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
+		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
 		java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
 		rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
 	fi
