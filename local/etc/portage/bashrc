@@ -1,0 +1,73 @@
+
+# portage overrides
+
+universal_epatch_user() {
+	# See https://wiki.gentoo.org/wiki//etc/portage/patches - ensure that
+	# epatch_user is run for all ebuilds, regardless of whether they import
+	# eutils or not...
+
+	[[ ${EAPI:-0} == [012345] ]] || return
+	if ! type estack_push > /dev/null 2>&1; then
+		local estack_names="eshopts_push eshopts_pop evar_push evar_push_set evar_pop estack_push estack_pop"
+		source <(awk "/^# @(FUNCTION|VARIABLE): / { p = 0 } /^# @(FUNCTION|VARIABLE): (${estack_names// /|})\$/ { p = 1 } p { print }" ${PORTDIR}/eclass/estack.eclass)
+	fi
+	if ! type epatch_user > /dev/null 2>&1; then
+		local epatch_names="EPATCH_SOURCE EPATCH_USER_SOURCE epatch_user_death_notice epatch_user epatch"
+		source <(awk "/^# @(FUNCTION|VARIABLE): / { p = 0 } /^# @(FUNCTION|VARIABLE): (${epatch_names// /|})\$/ { p = 1 } p { print }" ${PORTDIR}/eclass/epatch.eclass)
+	fi
+
+	epatch_user
+
+	for name in $epatch_names; do
+		unset $name
+	done
+	for name in $estack_names; do
+		unset $name
+	done
+} # universal_epatch_user
+
+darwin_epatch_vasnprintf() {
+	if [[ ! "${CHOST}" =~ ^x86_64-apple-darwin ]] || [[ "${CHOST}" < 'x86_64-apple-darwin17' ]]; then
+		return
+	fi
+
+	# Try to fix the intentional runtime failure of *printf functions when
+	# the '%n' format is used...
+	if [[ "${PWD}" =~ /(dev-util/pkgconfig|dev-vcs/cvs)- ]]; then
+		einfo "Skipping vasnprintf() patching for specifically patched package ${CATEGORY}/${PN}"
+
+	elif type -pf patch >/dev/null 2>&1 && [[ -r "${EPREFIX:-}"/etc/portage/patches/all/vasnprintf.patch ]]; then
+		ebegin "Checking source for 'vasnprintf()' source"
+
+		local d f
+		while read -r d; do
+			if [[ -e "${d}"/vasnprintf.c ]]; then
+				eend 1 "vasnprintf source found"
+				ewarn "Found vasnprintf.c in directory '$( readlink -e "${d}" 2>/dev/null || echo "${d}" )'"
+				if pushd "${d}" >/dev/null 2>&1; then
+					if patch -stNp2 --dry-run -i "${EPREFIX:-}"/etc/portage/patches/all/vasnprintf.patch; then
+						ebegin "Applying 'vasnprintf()' patch for macOS High Sierra"
+						patch -stNp2 --backup-if-mismatch -i "${EPREFIX:-}"/etc/portage/patches/all/vasnprintf.patch
+						eend ${?} "'vasnprintf()' patch failed to apply in directory '$( pwd )'" # &&
+						#echo "${CATEGORY}/${PVR} patched" >> "${EPREFIX:-}"/etc/portage/patches/vasnprintf.log
+					else
+						eerror "'vasnprintf()' patch for macOS High Sierra at '${EPREFIX:-}/etc/portage/patches/all/vasnprintf.patch' is not compatible with code in directory '$( pwd )'"
+						#echo "${CATEGORY}/${PVR} incompatible" >> "${EPREFIX:-}"/etc/portage/patches/vasnprintf.log
+					fi
+					popd >/dev/null 2>&1 || die "Could not store original directory"
+				else
+					eerror "Cannot chdir() to '${d}': ${?}"
+				fi
+			else
+				eend 0 "No instance of 'vasnprintf.c' found"
+			fi
+		done < <( find . -type d -name lib -print )
+	else
+		eerror "Cannot find pre-requisites required to patch 'vasnprintf()' source for macOS High Sierra"
+	fi
+} # darwin_epatch_vasnprintf
+
+pre_src_prepare() {
+	#universal_epatch_user
+	darwin_epatch_vasnprintf
+}

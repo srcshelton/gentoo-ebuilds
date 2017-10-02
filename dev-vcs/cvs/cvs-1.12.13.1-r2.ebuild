@@ -51,6 +51,8 @@ src_prepare() {
 	#epatch "${FILESDIR}"/${PN}-1.12.13-openat.patch
 	#epatch "${FILESDIR}"/${PN}-1.12.13-zlib.patch
 
+	epatch "${FILESDIR}"/${PN}-1.12.13.1-vasnprintf.patch
+
 	# this testcase was not updated
 	#sed -i.orig -e '/unrecognized keyword.*BogusOption/s,98,73,g' \
 	#  ${S}/src/sanity.sh

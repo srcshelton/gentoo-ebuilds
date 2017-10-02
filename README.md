@@ -23,6 +23,30 @@ main portage tree, but which still have the stock upstream package installed.
 * www-apps/rpi-monitor
     * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 
+# Fixes for compiling prefix packages on macOS 10.13 (High Sierra) and later
+
+For the High Sierra release, Apple have fixed a known vulnerability by causing
+code which uses the '`%n`' `printf()` format in a string stored in writable
+memory to crash with an `illegal instruction: 4` error.  Sadly, this is a
+runtime error rather than a compiler error, making it difficult to detect.
+Known failures currently exist in `vasnprintf()` implementations - these cases
+are automatically detected and patched by deploying the Portage `bashrc`
+override file from [local/etc/portage/bashrc](/local/etc/portage/bashrc)
+to `${EPREFIX}/etc/portage/` and copying the accomdanying patch from 
+[local/etc/portage/patches/All/vasnprintf.patch](/local/etc/portage/patches/All/vasnprintf.patch)
+to `${EPREFIX}/etc/portage/patches/All/`.
+
+Two affected packages which use an older `vasnprintf()` implementation which is
+incompatible with the supplied patch are as follows:
+
+* dev-util/pkgconfig
+* dev-vcs/cvs
+
+... which are explicitly patched in an overlay package.
+
+It is unlikely that this change affects only `vasnprintf()` code and no other,
+so further patches will likely also be required...
+
 # Fixes for compiling prefix packages under macOS using LLVM/clang
 
 Some packages will fail with `illegal instruction: 4` if compiled with certain
