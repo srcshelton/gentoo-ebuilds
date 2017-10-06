@@ -214,6 +214,8 @@ used to build perl)
     * Check for services with status 'crashed', and optionally restart specified services
 * app-editors/vim-core
     * Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others
+* app-editors/vim
+    * Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others
 * app-emulation/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
