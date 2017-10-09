@@ -1,1 +1,1 @@
-netdata-9999.ebuild
+netdata-1.8.0.ebuild

@@ -43,6 +43,7 @@ esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
 HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
+PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
@@ -126,6 +127,9 @@ src_configure() {
 src_install() {
 	default
 
+	# Remove unneeded .keep files
+	find "${ED}" -name ".keep" -delete || die
+
 	newdoc "${ED}"/usr/libexec/netdata/charts.d/README.md charts.md
 	newdoc "${ED}"/usr/libexec/netdata/plugins.d/README.md plugins.md
 
@@ -146,7 +150,6 @@ src_install() {
 
 	rm -r "${ED}"/usr/share/netdata/web/old
 	rm 2>/dev/null \
-		"${ED}"/var/log/netdata/.keep "${ED}"/var/cache/netdata/.keep \
 		"${ED}"/usr/libexec/netdata/charts.d/README.md \
 		"${ED}"/usr/libexec/netdata/node.d/README.md \
 		"${ED}"/usr/libexec/netdata/plugins.d/README.md
