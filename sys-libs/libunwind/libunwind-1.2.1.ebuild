@@ -23,9 +23,6 @@ RDEPEND="lzma? ( app-arch/xz-utils )"
 DEPEND="${RDEPEND}
 	libatomic? ( dev-libs/libatomic_ops )"
 
-# Bug 586208
-CCACHE_NODIRECT=1
-
 S="${WORKDIR}/${MY_P}"
 
 MULTILIB_WRAPPED_HEADERS=(
@@ -84,6 +81,11 @@ multilib_src_configure() {
 		$(use_enable static-libs static) \
 		$(use_enable debug conservative_checks) \
 		$(use_enable debug)
+}
+
+multilib_src_compile() {
+	# Bug 586208
+	CCACHE_NODIRECT=1 default
 }
 
 multilib_src_test() {
