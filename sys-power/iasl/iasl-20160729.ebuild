@@ -47,9 +47,12 @@ src_prepare() {
 		xargs -0 -I '{}' \
 		sed -r -e 's:-\<Werror\>::g' -i '{}' \
 		|| die
+	sed -ri -e "/CC\s+=\s+gcc/s:gcc:$(tc-getCC):" \
+		generate/unix/Makefile.config \
+		|| die
 
 	# BITS is tied to ARCH - please set appropriately if you add new keywords
-	if [[ $ARCH == @(amd64|amd64-fbsd) ]] ; then
+	if [[ $ARCH == @(amd64|amd64-fbsd|darwin) ]] ; then
 		export BITS=64
 	else
 		export BITS=32
