@@ -1,11 +1,11 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=6
 SCONS_MIN_VERSION="2.3.0"
 CHECKREQS_DISK_BUILD="2400M"
 CHECKREQS_DISK_USR="512M" # Less if stripped binaries are installed.
-CHECKREQS_MEMORY="640" # Default 1024M, but builds on RPi with ~700M available...
+CHECKREQS_MEMORY="640M" # Default 1024M, but builds on RPi with ~700M available...
 
 inherit eutils flag-o-matic multilib pax-utils scons-utils systemd toolchain-funcs user versionator check-reqs
 
@@ -44,6 +44,14 @@ DEPEND="${RDEPEND}
 		dev-python/pyyaml
 	)"
 PDEPEND="tools? ( >=app-admin/mongo-tools-${PV} )"
+
+PATCHES=(
+	"${FILESDIR}/${PN}-3.2.0-fix-scons.patch"
+	"${FILESDIR}/${PN}-3.2.4-boost-1.60.patch"
+	"${FILESDIR}/${PN}-3.2.10-boost-1.62.patch"
+	"${FILESDIR}/${PN}-3.2.16-Replace-string-with-explicit-std-string.patch"
+	"${FILESDIR}/${PN}-3.4.6-sysmacros-include.patch"
+)
 
 S=${WORKDIR}/${MY_P}
 
@@ -105,14 +113,11 @@ pkg_setup() {
 src_prepare() {
 	mv "${WORKDIR}"/mozilla-esr38 "${S}"/src/third_party/mozjs-38/mozilla-release || die
 
-	epatch \
-		"${FILESDIR}/${PN}-3.2.0-fix-scons.patch" \
-		"${FILESDIR}/${PN}-3.2.4-boost-1.60.patch" \
-		"${FILESDIR}/${PN}-3.2.16-Replace-string-with-explicit-std-string.patch"
 	if has_version ">=dev-libs/boost-1.62"; then
-		epatch "${FILESDIR}/${PN}-3.2.10-boost-1.62.patch"
+		PATCHES+=( "${FILESDIR}/${PN}-3.2.10-boost-1.62.patch" )
 	fi
-	epatch_user
+
+	default
 }
 
 src_compile() {
@@ -145,10 +150,10 @@ src_install() {
 	doman debian/mongo*.1
 	#dodoc README docs/building.md
 
-	newinitd "${FILESDIR}/${PN}.initd-r2" ${PN}
-	newconfd "${FILESDIR}/${PN}.confd-r2" ${PN}
-	newinitd "${FILESDIR}/${PN/db/s}.initd-r2" ${PN/db/s}
-	newconfd "${FILESDIR}/${PN/db/s}.confd-r2" ${PN/db/s}
+	newinitd "${FILESDIR}/${PN}.initd-r3" ${PN}
+	newconfd "${FILESDIR}/${PN}.confd-r3" ${PN}
+	newinitd "${FILESDIR}/${PN/db/s}.initd-r3" ${PN/db/s}
+	newconfd "${FILESDIR}/${PN/db/s}.confd-r3" ${PN/db/s}
 
 	insinto /etc
 	newins "${FILESDIR}/${PN}.conf-r3" ${PN}.conf
