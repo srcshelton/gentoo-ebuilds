@@ -265,6 +265,8 @@ used to build perl)
     * Java Microsoft Exchange <-> IMAP connector
 * net-misc/minissdpd
     * Temporarily retain old build, which doesn't require `USE="old-output"` for sys-apps/net-tools
+* net-misc/unifi-controller-bin
+    * Ubiquiti Networks' UniFi Controller software
 * sys-apps/lsusb-apple
     * Jose L. Honorato's 'lsusb' for macOS
 * sys-apps/tmpfs
