@@ -111,10 +111,8 @@ pkg_setup() {
 }
 
 src_prepare() {
-	mv "${WORKDIR}"/mozilla-esr38 "${S}"/src/third_party/mozjs-38/mozilla-release || die
-
-	if has_version ">=dev-libs/boost-1.62"; then
-		PATCHES+=( "${FILESDIR}/${PN}-3.2.10-boost-1.62.patch" )
+	if use arm; then
+		mv "${WORKDIR}"/mozilla-esr38 "${S}"/src/third_party/mozjs-38/mozilla-release || die
 	fi
 
 	default
@@ -182,7 +180,7 @@ pkg_preinst() {
 
 src_test() {
 	# this one test fails
-	rm jstests/core/repl_write_threads_start_param.js
+	rm jstests/core/repl_write_threads_start_param.js || die
 
 	./buildscripts/resmoke.py --dbpathPrefix=test --suites core || die "Tests failed"
 }
