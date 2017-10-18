@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 21a87e0c9bdabc093fd90ff4385aa88862a3574e $
 
 EAPI=5
 
@@ -26,14 +25,14 @@ DEPEND="${RDEPEND}
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-6.60.0-CVE-2014-3230.patch
 	#"${FILESDIR}"/${PN}-6.60.0-etcsslcerts.patch
+	"${FILESDIR}"/${PN}-6.60.0-CVE-2014-3230.patch
 )
 
 src_prepare() {
-	default
-
 	epatch "$( prefixify_ro "${FILESDIR}"/${PN}-6.60.0-etcsslcerts.patch )"
+
+	default
 }
 
 SRC_TEST=online
