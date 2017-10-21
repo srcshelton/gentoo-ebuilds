@@ -7,24 +7,23 @@ inherit check-reqs unpacker user
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
-MY_PV="${PV/_rc}-8261dc5066"
+MY_PV="${PV/_rc}-17e4cda571"
 
 DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
-#SNAPPY="1.1.4-M3"
 SRC_URI="
 	http://dl.ubnt.com/unifi/${MY_PV}/unifi_sysvinit_all.deb -> unifi-${MY_PV}_sysvinit_all.deb
 	tools? (
 		https://dl.ubnt.com/unifi/${MY_PV}/unifi_sh_api -> unifi-${MY_PV}_api.sh
-	)
-"
-	#https://repo1.maven.org/maven2/org/xerial/snappy/snappy-java/${SNAPPY}/snappy-java-${SNAPPY}.jar
+	)"
 RESTRICT="mirror"
 
 LICENSE="GPL-3" # Although UBNT state that the licence is GPL-3, they don't release their sources :(
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~x86"
-IUSE="rpi1 systemd +tools"
+IUSE="nls rpi1 systemd +tools"
+UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT sv tr zh_CN )
+IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 
 # debian control dependencies:
 #  binutils
@@ -40,7 +39,7 @@ IUSE="rpi1 systemd +tools"
 # As a result, we'll only accept the oldest or newer versions as dependencies.
 DEPEND="
 	|| (
-		=dev-db/mongodb-2.6.12
+		~dev-db/mongodb-2.6.12
 		>=dev-db/mongodb-3.2
 	)
 	>=virtual/jre-1.7.0
@@ -63,8 +62,8 @@ pkg_setup () {
 	# in time...
 	check-reqs_pkg_setup
 
-    enewgroup unifi
-    enewuser unifi -1 -1 /var/lib/unifi unifi
+	enewgroup unifi
+	enewuser unifi -1 -1 /var/lib/unifi unifi
 }
 
 src_unpack () {
@@ -79,12 +78,6 @@ src_unpack () {
 		fi
 	done
 	cd "${S}"
-
-	#tar -xzpf "${WORKDIR}"/control.tar.gz
-	#tar -xJpf "${WORKDIR}"/data.tar.xz || die
-
-	#mv usr/lib/unifi/lib/snappy-java-1.0.5.jar{,.dist}
-	#cp -H snappy-java-${SNAPPY}.jar usr/lib/unifi/lib/
 
 	if [[ "${ARCH}" == "arm" ]]; then
 		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
@@ -110,6 +103,15 @@ src_unpack () {
 
 src_prepare () {
 	default
+
+	if use nls; then
+		local lingua=''
+		for lingua in ${UNIFI_LINGUAS[@]}; do
+			if ! use linguas_${lingua}; then
+				rm -r usr/lib/unifi/webapps/ROOT/app-unifi/locales/"${lingua}" || die
+			fi
+		done
+	fi
 
 	echo "CONFIG_PROTECT=\"${EPREFIX%/}/var/lib/unifi/data\"" > "${T}/90${MY_PN}"
 }
@@ -141,7 +143,6 @@ src_install () {
 	dosym /var/lib/unifi/webapp/work /opt/"${MY_P}"/work
 	dosym /var/log/unifi /opt/"${MY_P}"/logs
 	dosym /var/run/unifi /opt/"${MY_P}"/run
-	#dosym /opt/"${MY_P}"/unifi/lib/{snappy-java-1.1.4-M3.jar,snappy-java-1.0.5.jar}
 
 	# <sigh>
 	dodir /opt/"${MY_P}"/bin
@@ -160,11 +161,11 @@ src_install () {
 		/var/lib/unifi \
 		/var/log/unifi
 
-    newinitd "${FILESDIR}"/unifi.initd unifi ||
-        die "Could not create init script"
-    newconfd "${FILESDIR}"/unifi.confd unifi ||
-        die "Could not create conf file"
-    sed -i -e "s|%INST_DIR%|/opt/${MY_P}|g" \
+	newinitd "${FILESDIR}"/unifi.initd unifi ||
+		die "Could not create init script"
+	newconfd "${FILESDIR}"/unifi.confd unifi ||
+		die "Could not create conf file"
+	sed -i -e "s|%INST_DIR%|/opt/${MY_P}|g" \
 		"${ED%/}"/etc/{init,conf}.d/unifi \
 	|| die "Could not customise init scripts"
 
@@ -218,8 +219,10 @@ pkg_prerm() {
 
 	# Clean-up any remaining symlinks, which would otherwise be protected and
 	# not removed...
-	for link in data logs run work; do
-		[[ -L "${EPREFIX%/}"/opt/"${MY_P}"/${link} ]] &&
-			rm "${EPREFIX%/}"/opt/"${MY_P}"/${link}
-	done
+	if [[ -z "${REPLACED_BY_VERSION:-}" || "${REPLACED_BY_VERSION}" != "${PVR}" ]]; then
+		for link in data logs run work; do
+			[[ -L "${EPREFIX%/}"/opt/"${MY_P}"/${link} ]] &&
+				rm "${EPREFIX%/}"/opt/"${MY_P}"/${link}
+		done
+	fi
 }

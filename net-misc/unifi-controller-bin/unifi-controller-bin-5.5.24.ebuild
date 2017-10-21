@@ -7,14 +7,15 @@ inherit check-reqs unpacker user
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
+MY_PV="${PV/_rc}"
 
 DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
 #SNAPPY="1.1.4-M3"
 SRC_URI="
-	http://dl.ubnt.com/unifi/${PV}/unifi_sysvinit_all.deb -> unifi-${PV}_sysvinit_all.deb
+	http://dl.ubnt.com/unifi/${MY_PV}/unifi_sysvinit_all.deb -> unifi-${MY_PV}_sysvinit_all.deb
 	tools? (
-		https://dl.ubnt.com/unifi/${PV}/unifi_sh_api -> unifi-${PV}_api.sh
+		https://dl.ubnt.com/unifi/${MY_PV}/unifi_sh_api -> unifi-${MY_PV}_api.sh
 	)
 "
 	#https://repo1.maven.org/maven2/org/xerial/snappy/snappy-java/${SNAPPY}/snappy-java-${SNAPPY}.jar
@@ -72,7 +73,7 @@ src_unpack () {
 		if [[ "${file}" == *.jar ]]; then
 			cp -r "${DISTDIR}"/"${file}" "${S}"/
 		elif [[ "${file}" == *.deb ]]; then
-			unpack_deb "${file}"
+			unpack_deb "${file}" || die
 		else
 			cp "${DISTDIR}"/"${file}" "${WORKDIR}"/
 		fi
@@ -80,7 +81,7 @@ src_unpack () {
 	cd "${S}"
 
 	#tar -xzpf "${WORKDIR}"/control.tar.gz
-	tar -xJpf "${WORKDIR}"/data.tar.xz
+	#tar -xJpf "${WORKDIR}"/data.tar.xz || die
 
 	#mv usr/lib/unifi/lib/snappy-java-1.0.5.jar{,.dist}
 	#cp -H snappy-java-${SNAPPY}.jar usr/lib/unifi/lib/
@@ -148,7 +149,7 @@ src_install () {
 
 	if use tools; then
 		insinto /opt/"${MY_P}"/bin
-		newins "${WORKDIR}"/unifi-${PV}_api.sh unifi-api.sh
+		newins "${WORKDIR}"/unifi-${MY_PV}_api.sh unifi-api.sh
 		fperms 755 /opt/"${MY_P}"/bin/unifi-api.sh
 	fi
 
@@ -210,4 +211,15 @@ pkg_postinst() {
 	elog "    set-inform http://<controller IP>:<new port>/inform"
 	elog
 	elog "... before they will be able to reconnect."
+}
+
+pkg_prerm() {
+	local link
+
+	# Clean-up any remaining symlinks, which would otherwise be protected and
+	# not removed...
+	for link in data logs run work; do
+		[[ -L "${EPREFIX%/}"/opt/"${MY_P}"/${link} ]] &&
+			rm "${EPREFIX%/}"/opt/"${MY_P}"/${link}
+	done
 }

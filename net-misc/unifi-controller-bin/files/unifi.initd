@@ -1,6 +1,9 @@
 #!/sbin/openrc-run
 # Distributed under the terms of the GNU General Public License v2
 
+extra_started_commands="info"
+description="Ubiquiti UniFi Controller software"
+
 DIR="${UNIFI_DIR:-%INST_DIR%}"
 class="com.ubnt.ace.Launcher"
 jar="${DIR}/lib/ace.jar"
@@ -25,10 +28,6 @@ checkconfig() {
 
 start() {
 	checkconfig || return 1
-
-	JAVA_HOME="$( java-config -o )"
-	[ -n "${GENTOO_VM:-}" ] && JAVA_HOME="$( java-config --select-vm="${GENTOO_VM}" -o )"
-	export JAVA_HOME
 
 	checkpath -qm 0750 -o unifi:unifi -d /var/run/unifi
 
@@ -70,6 +69,17 @@ start() {
 			"${class}"			\
 			start
 	eend ${?} "Launching ace.jar failed: ${?}"
+}
+
+info() {
+	ebegin "Checking UniFi Controller status"
+	su - unifi -s /bin/sh -c "java			\
+		${JVM_OPTS[@]:-}			\
+		${UNIFI_OPTS[@]:-}			\
+		-cp ${jar}				\
+		${class}				\
+		info"
+	eend ${?} "Status check failed"
 }
 
 stop() {
