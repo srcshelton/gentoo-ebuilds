@@ -149,7 +149,10 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit e7ba7ab135f5a68b2c00a919ea9ac8d5528a5d5b.
+# commit 478d637c476e838ffcfa8535232ff0b86daf5918.
+#
+# GPIO numbering uses the hardware pin numbering scheme (aka BCM scheme) and
+# not the physical pin numbers.
 #
 
 # Log DT diagnostics, to be collected via 'vcdbg log msg':
