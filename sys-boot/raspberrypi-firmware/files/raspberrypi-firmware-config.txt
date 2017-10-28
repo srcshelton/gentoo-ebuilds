@@ -452,8 +452,12 @@ disable_audio_dither=1
 # e.g. On a 256MB machine, with gpu_mem=160, cma_lwm=16, cma_hwm=32 means that
 #      ARM always has (256-160=)96MB, GPU always has 20MB, the rest is CMA.
 #      GPU's 20MB is 16MB minimum + coherent_pool (+ cma)?
+#
 # CMA is apparently officially unsupported:
 #  https://github.com/raspberrypi/linux/issues/503
+# Update:
+# CMA is non-operational and has been removed:
+#  https://github.com/raspberrypi/linux/pull/2233
 
 
 #
