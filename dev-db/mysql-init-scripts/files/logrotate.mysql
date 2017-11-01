@@ -1,15 +1,14 @@
 # Copyright 1999-2011 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2367d938c0456ce0cb9d06afccbe60d5feb8ad02 $
 
-/var/log/mysql/mysql.err /var/log/mysql/mysql.log /var/log/mysql/mysqld.err {
-monthly
-create 660 mysql mysql
-notifempty
-size 5M
-sharedscripts
-missingok
-postrotate
-[ -f /var/run/mysqld/mysqld.pid ] && /bin/kill -HUP `cat /var/run/mysqld/mysqld.pid`
-endscript
+/var/log/mysql/mysql.err /var/log/mysql/mysql.log /var/log/mysql/mysqld.err /var/log/mysql/mysqld.log {
+	weekly
+	create 660 mysql mysql
+	notifempty
+	size 5M
+	missingok
+	sharedscripts
+	postrotate
+		[ -f /var/run/mysqld/mysqld.pid ] && /bin/kill -HUP `cat /var/run/mysqld/mysqld.pid`
+	endscript
 }

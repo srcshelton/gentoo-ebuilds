@@ -1,8 +1,12 @@
 #!/sbin/openrc-run
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 extra_commands="checkconfig"
+extra_stopped_commands="bootstrap_galera"
+
+description_checkconfig="Verify the server's configuration"
+description_bootstrap_galera="Start a new Galera cluster with this server as the initial node"
 
 depend() {
 	use net.lo
@@ -11,7 +15,7 @@ depend() {
 }
 
 get_config() {
-	my_print_defaults --config-file="$1" mysqld |
+	my_print_defaults --defaults-file="$1" mysqld server mariadb |
 	sed -n -e "s/^--$2=//p"
 }
 
@@ -22,6 +26,20 @@ mysql_svcname() {
 		*) ebextra=" (mysql)" ;;
 	esac
 	echo "${SVCNAME}${ebextra}"
+}
+
+stringContain() { [ -z "${2##*$1*}" ] && [ -z "$1" -o -n "$2" ]; }
+
+bootstrap_galera() {
+	MY_ARGS="--wsrep-new-cluster ${MY_ARGS}"
+	mark_service_starting
+	if start ; then
+		mark_service_started
+		return 0
+	else
+		mark_service_stopped
+		return 1
+	fi
 }
 
 start() {
@@ -38,7 +56,9 @@ start() {
 	fi
 
 	# Check the config or die
-	checkconfig || return 1
+	if [ ${RC_CMD} != "restart" ] ; then
+		checkconfig || return 1
+	fi
 
 	# Now we can startup
 	ebegin "Starting $(mysql_svcname)"
@@ -52,33 +72,41 @@ start() {
 
 	# tail -n1 is critical as these we only want the last instance of the option
 	local basedir=$(get_config "${MY_CNF}" basedir | tail -n1)
-	local datadir=$(get_config "${MY_CNF}" datadir | tail -n1)
 	local pidfile=$(get_config "${MY_CNF}" pid-file | tail -n1)
 	local socket=$(get_config "${MY_CNF}" socket | tail -n1)
 	local chroot=$(get_config "${MY_CNF}" chroot | tail -n1)
+	local wsrep="$(get_config "${MY_CNF}" 'wsrep[_-]on' | tail -n1 | awk '{print tolower($0)}')"
+	local wsrep_new=$(get_config "${MY_CNF}" 'wsrep-new-cluster' | tail -n1)
 
 	if [ -n "${chroot}" ] ; then
 		socket="${chroot}/${socket}"
 		pidfile="${chroot}/${pidfile}"
 	fi
 
-	if [ ! -d "${datadir}" ] ; then
-		eerror "MySQL datadir \`${datadir}' is empty or invalid"
-		eerror "Please check your config file \`${MY_CNF}'"
-		return 1
-	fi
+	# Galera: Only check datadir if not starting a new cluster and galera is enabled
+	# wsrep_on is not on or wsrep-new-cluster exists in the config or MY_ARGS
+	[ "${wsrep}" = "1" ] && wsrep="on"
+	if [ "${wsrep}" != "on" ] || [ -n "${wsrep_new}" ] || stringContain 'wsrep-new-cluster' "${MY_ARGS}" ; then
 
-	if [ ! -d "${datadir}"/mysql ] ; then
-		# find which package is installed to report an error
-		local EROOT=$(portageq envvar EROOT)
-		local DBPKG_P=$(portageq match ${EROOT} $(portageq expand_virtual ${EROOT} virtual/mysql | head -n1))
-		if [ -z ${DBPKG_P} ] ; then
-			eerror "You don't appear to have a server package installed yet."
-		else
-			eerror "You don't appear to have the mysql database installed yet."
-			eerror "Please run \`emerge --config =${DBPKG_P}\` to have this done..."
+		local datadir=$(get_config "${MY_CNF}" datadir | tail -n1)
+		if [ ! -d "${datadir}" ] ; then
+			eerror "MySQL datadir \`${datadir}' is empty or invalid"
+			eerror "Please check your config file \`${MY_CNF}'"
+			return 1
 		fi
-		return 1
+
+		if [ ! -d "${datadir}"/mysql ] ; then
+			# find which package is installed to report an error
+			local EROOT=$(portageq envvar EROOT)
+			local DBPKG_P=$(portageq match ${EROOT} $(portageq expand_virtual ${EROOT} virtual/mysql | head -n1))
+			if [ -z ${DBPKG_P} ] ; then
+				eerror "You don't appear to have a server package installed yet."
+			else
+				eerror "You don't appear to have the mysql database installed yet."
+				eerror "Please run \`emerge --config =${DBPKG_P}\` to have this done..."
+			fi
+			return 1
+		fi
 	fi
 
 	local piddir="${pidfile%/*}"
@@ -90,18 +118,16 @@ start() {
 	fi
 
 	local startup_timeout=${STARTUP_TIMEOUT:-900}
-	local startup_early_timeout=${STARTUP_EARLY_TIMEOUT:-1000}
+#	local startup_early_timeout=${STARTUP_EARLY_TIMEOUT:-1000}
 	local tmpnice="${NICE:+"--nicelevel "}${NICE}"
 	local tmpionice="${IONICE:+"--ionice "}${IONICE}"
-	start-stop-daemon \
+	supervise-daemon \
 		${DEBUG:+"--verbose"} \
-		--start \
-		--exec "${basedir}"/sbin/mysqld \
-		--pidfile "${pidfile}" \
-		--background \
-		--wait ${startup_early_timeout} \
+		--pidfile "/var/run/${SVCNAME}.pid" \
 		${tmpnice} \
 		${tmpionice} \
+		--start \
+		"${basedir}"/sbin/mysqld \
 		-- --defaults-file="${MY_CNF}" ${MY_ARGS}
 	local ret=$?
 	if [ ${ret} -ne 0 ] ; then
@@ -111,24 +137,19 @@ start() {
 
 	ewaitfile ${startup_timeout} "${socket}"
 	eend $? || return 1
-
-	save_options pidfile "${pidfile}"
-	save_options basedir "${basedir}"
 }
 
 stop() {
+	if [ ${RC_CMD} = "restart" ] ; then
+		checkconfig || return 1
+	fi
+
 	ebegin "Stopping $(mysql_svcname)"
 
-	local pidfile="$(get_options pidfile)"
-	local basedir="$(get_options basedir)"
-	local stop_timeout=${STOP_TIMEOUT:-120}
-
-	start-stop-daemon \
+	supervise-daemon \
 		${DEBUG:+"--verbose"} \
 		--stop \
-		--exec "${basedir}"/sbin/mysqld \
-		--pidfile "${pidfile}" \
-		--retry ${stop_timeout}
+		--pidfile "/var/run/${SVCNAME}.pid"
 	eend $?
 }
 

@@ -1,6 +1,5 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: eefb867f0b79d20704aba1758b4c32d0c2b5553f $
 
 # If you want a non-stock location for the config file, uncomment or update
 # either of these as needed. If you do use it, you must make sure that none of

@@ -1,7 +1,7 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=6
 
 inherit systemd s6
 
@@ -32,13 +32,14 @@ src_install() {
 	if use s6; then
 		if use amd64 || use x86 ; then
 			newconfd "${FILESDIR}/conf.d-2.0" "mysql-s6"
-			newinitd "${FILESDIR}/init.d-s6" "mysql-s6"
+			newinitd "${FILESDIR}/init.d-s6-2.2" "mysql-s6"
 			s6_install_service mysql "${FILESDIR}/run-s6"
 			s6_install_service mysql/log "${FILESDIR}/log-s6"
 		fi
 	fi
 
-	newinitd "${FILESDIR}/init.d-2.0" "mysql"
+	newinitd "${FILESDIR}/init.d-2.2" "mysql"
+	newinitd "${FILESDIR}/init.d-supervise" "mysql-supervise"
 
 	# systemd unit installation
 	if use systemd; then
