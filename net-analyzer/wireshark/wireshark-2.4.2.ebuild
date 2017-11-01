@@ -10,13 +10,13 @@ SRC_URI="${HOMEPAGE}download/src/all-versions/${P/_/}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0/${PV}"
-KEYWORDS="amd64 ~arm ~arm64 hppa ~ppc ~ppc64 x86 ~x86-fbsd"
+KEYWORDS="amd64 ~arm ~arm64 hppa ~ia64 ~ppc ~ppc64 x86 ~x86-fbsd"
 IUSE="
-	adns androiddump +capinfos +caps +captype ciscodump cpu_flags_x86_sse4_2
-	crypt +dftest doc doc-pdf +dumpcap +editcap geoip gtk kerberos libssh
-	libxml2 lua +mergecap +netlink nghttp2 +pcap portaudio +qt5 +randpkt
-	+randpktdump +reordercap sbc selinux +sharkd smi snappy spandsp sshdump ssl
-	+text2pcap tfshark +tshark +udpdump zlib
+	adns androiddump +capinfos +caps +captype ciscodump cpu_flags_x86_sse4_2 crypt
+	+dftest doc doc-pdf +dumpcap +editcap geoip gtk kerberos libssh libxml2 lua
+	+mergecap +netlink nghttp2 +pcap portaudio +qt5 +randpkt +randpktdump
+	+reordercap sbc selinux +sharkd smi snappy spandsp sshdump ssl +text2pcap
+	tfshark +tshark +udpdump zlib
 "
 REQUIRED_USE="
 	ciscodump? ( libssh )
@@ -28,9 +28,9 @@ S=${WORKDIR}/${P/_/}
 
 CDEPEND="
 	>=dev-libs/glib-2.14:2
+	crypt? ( dev-libs/libgcrypt:0 )
 	netlink? ( dev-libs/libnl:3 )
 	adns? ( >=net-dns/c-ares-1.5 )
-	crypt? ( dev-libs/libgcrypt:0 )
 	caps? ( sys-libs/libcap )
 	geoip? ( dev-libs/geoip )
 	gtk? (
