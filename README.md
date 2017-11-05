@@ -339,14 +339,16 @@ used to build perl)
     * Minor ebuild fixes, automatically fetch latest rules on build
 * net-dialup/ppp
     * Incorporate patches to allow interface discovery (rather than assuming that `eth0` is the primary interface, the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-detected), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that a PPPoE link can retain a full 1500-byte MTU
+* net-dns/avahi
+    * Prevent build from incorrectly creating `/run` directory
+* net-dns/dnstop
+    * build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support
 * net-firewall/ebtables
     * Update to latest git commit, which adds compatibility kernel headers more recent than v3.16
     * Allow `--among-src-file` and `--among-dst-file` options to accept files containing multiple lines, for ease of maintenance
     * Fix some crazy inconsistencies in output which were breaking `ebtables-save` and `ebtables-restore`
     * Set appropriate maximum buffer sizes to prevent `ebtables-restore` from segfaulting when loading more than 2kbytes of data from a single statement
     * Add Debian patch to correct the use of `RETURN` as a module target
-* net-dns/dnstop
-    * build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support
 * net-libs/neon
     * Patch trivial typo which prevents `writev` from being defined
 * net-misc/dhcp
@@ -358,7 +360,7 @@ used to build perl)
 * net-misc/wget
     * Filter `-funsafe-math-optimizations`, which prevents wget from building on ARM
 * net-nds/openldap
-    * If /etc/init.d/tmpfiles.setup isn't active, /var/run/openldap is never created yet the ebuild still attempts to set permissions upon it...
+    * If /etc/init.d/tmpfiles.setup isn't active, `/var/run/openldap` is never created yet the ebuild still attempts to set permissions upon it...
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * ~~sys-apps/gentoo-functions~~
