@@ -1,5 +1,5 @@
---- src/configure.in.dist       2014-07-26 10:58:37.059767039 +0100
-+++ src/configure.in    2014-07-26 11:13:38.012836403 +0100
+--- src/configure.in
++++ src/configure.in
 @@ -278,6 +278,11 @@ if test "$CRYPTO_IMPL" = builtin -a "x$e
         aesni_flags="-D__linux__ -f elf -m $aesni_machine"
         ;;
