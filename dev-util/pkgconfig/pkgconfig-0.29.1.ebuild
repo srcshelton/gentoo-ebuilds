@@ -1,6 +1,5 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
 
 EAPI=6
 
@@ -13,11 +12,12 @@ if [[ ${PV} == *9999* ]]; then
 	# 1.12 is only needed for tests due to some am__check_pre / LOG_DRIVER
 	# weirdness with "/bin/bash /bin/sh" in arguments chain with >=1.13
 	WANT_AUTOMAKE=1.12
-	EGIT_REPO_URI="git://anongit.freedesktop.org/pkg-config"
+	EGIT_REPO_URI="https://anongit.freedesktop.org/git/pkg-config.git"
 	EGIT_CHECKOUT_DIR=${WORKDIR}/${MY_P}
 	inherit autotools git-r3
 else
-	KEYWORDS="~ppc-aix ~x64-cygwin ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+	KEYWORDS+="~x64-cygwin"
 	SRC_URI="https://pkgconfig.freedesktop.org/releases/${MY_P}.tar.gz"
 	INTERNAL_GLIB_CYGWIN_PATCHES=2.38.2
 fi
@@ -67,9 +67,11 @@ src_prepare() {
 	if [[ ${CHOST} == *-solaris* ]] ; then
 		# fix standards conflicts
 		sed -i \
-			-e 's/\<\(_XOPEN_SOURCE_EXTENDED\)\>/\1_DISABLED/' \
+			-e 's/\(_XOPEN_SOURCE\(_EXTENDED\)\?\|__EXTENSIONS__\)/  \1_DISABLED/' \
 			-e '/\<_XOPEN_SOURCE\>/s/2/600/' \
 			glib/configure || die
+		sed -i -e '/#define\s\+_POSIX_SOURCE/d' \
+			glib/glib/giounix.c || die
 	fi
 }
 
@@ -98,7 +100,7 @@ multilib_src_configure() {
 			fi
 		fi
 	else
-		if ! has_version dev-util/pkgconfig; then
+		if ! has_version --host-root dev-util/pkgconfig; then
 			export GLIB_CFLAGS="-I${EPREFIX}/usr/include/glib-2.0 -I${EPREFIX}/usr/$(get_libdir)/glib-2.0/include"
 			export GLIB_LIBS="-lglib-2.0"
 		fi
