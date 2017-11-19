@@ -92,9 +92,14 @@ src_prepare() {
 			avahi-daemon/avahi-daemon.conf || die
 	fi
 
-	sed -i\
+	sed -i \
 		-e "s:\\.\\./\\.\\./\\.\\./doc/avahi-docs/html/:../../../doc/${PF}/html/:" \
 		doxygen_to_devhelp.xsl || die
+
+	# avahi_runtime_dir="/run"
+	sed -i \
+		-e '/^avahi_runtime_dir=/s|/run|/var/run|' \
+		configure.ac || die
 
 	eapply_user
 
