@@ -7,7 +7,7 @@ inherit check-reqs unpacker user
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
-MY_PV="${PV/_rc}"
+MY_PV="${PV/_rc}-e2998a5aab"
 
 DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
@@ -20,7 +20,7 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="amd64 arm x86"
+KEYWORDS="~amd64 ~arm ~x86"
 IUSE="nls rpi1 systemd +tools"
 UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT sv tr zh_CN )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"

@@ -20,7 +20,7 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~x86"
+KEYWORDS="amd64 arm x86"
 IUSE="nls rpi1 systemd +tools"
 UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT sv tr zh_CN )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
@@ -219,6 +219,16 @@ pkg_postinst() {
 		ewarn "UniFi Guest Portal from operating correctly - please upgrade"
 		ewarn "or downgrade your Java installation to avoid this issue"
 	fi
+
+	elog
+	ewarn "From ${PN}-5.6.20, the default behaviour is to immediately"
+	ewarn "attempt to allocate 1GB of memory on startup.  If running on a"
+	ewarn "memory-constrained system, please edit:"
+	ewarn
+	ewarn "    /opt/${MY_P}/data/system.properties"
+	ewarn
+	ewarn "... in order to set appropriate Java XMS and XMX (minimum and"
+	ewarn "maximum memory constraints) values"
 }
 
 pkg_prerm() {
