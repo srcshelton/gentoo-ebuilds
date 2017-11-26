@@ -25,7 +25,7 @@ CDEPEND="bzip2? ( app-arch/bzip2 )
 	!libressl? ( dev-libs/openssl:0= )
 	libressl? ( dev-libs/libressl:0= )
 	sys-devel/libtool
-	>dev-libs/libpcre-6
+	|| ( dev-libs/libpcre2 >dev-libs/libpcre-6 )
 	!!<app-antivirus/clamav-0.99"
 # hard block clamav < 0.99 due to linking problems Bug #567680
 # openssl is now *required* see this link as to why
@@ -40,6 +40,7 @@ PATCHES=(
 	"${FILESDIR}"/${P}-gcc-6.patch
 	"${FILESDIR}"/${P}-tinfo.patch
 	"${FILESDIR}"/${PN}-0.99-zlib.patch
+	"${FILESDIR}"/${P}-bytecode_api.patch
 	"${FILESDIR}"/${PN}-0.98.4-x32.patch
 )
 
@@ -143,6 +144,10 @@ src_install() {
 	done
 
 	prune_libtool_files --all
+}
+
+src_test() {
+	emake quick-check
 }
 
 pkg_postinst() {
