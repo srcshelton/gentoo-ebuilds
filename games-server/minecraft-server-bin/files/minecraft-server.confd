@@ -1,0 +1,13 @@
+
+# Mojang minecraft-server settings
+
+# Installation directory
+MINECRAFT_DIR="%INST_DIR%"
+
+# Generic Java options - server usually takes ~100M memory
+JAVA_OPTS="-Xms32M -Xmx512M"
+# ... FreeBSD also requires '-Djava.nio.channels.spi.SelectorProvider=sun.nio.ch.PollSelectorProvider'
+
+# Minecraft Server options
+MS_OPTS="nogui"
+

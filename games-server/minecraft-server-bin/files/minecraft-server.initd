@@ -1,0 +1,31 @@
+#!/sbin/openrc-run
+# Copyright 2012-2017 Stuart Shelton
+# Distributed under the terms of the GNU General Public License v2
+
+DIR="${MINECRAFT_DIR:-%INST_DIR%}"
+
+depend() {
+	need localmount
+	use net
+}
+
+start() {
+	ebegin "Starting Minecraft Server"
+	start-stop-daemon				\
+		--start					\
+		--quiet					\
+		--pidfile /var/run/minecraft-server.pid	\
+		--chdir "${DIR}"/conf			\
+		--user minecraft:minecraft		\
+		--make-pidfile				\
+		--background				\
+		--exec java -- ${JAVA_OPTS:-} -jar "${DIR}"/minecraft-server.jar "${MS_OPTS:-}"
+	eend ${?} "Minecraft Server failed to start: ${?}"
+}
+
+stop() {
+	ebegin "Stopping Minecraft Server"
+	start-stop-daemon \
+		--stop --quiet --pidfile /var/run/minecraft-server.pid
+	eend ${?} "Minecraft Server failed to stop: ${?}"
+}
