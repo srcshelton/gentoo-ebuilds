@@ -1,11 +1,10 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: c73a60dac768fb689455a1c137bb1092e5619788 $
 
 EAPI=5
 inherit eutils flag-o-matic multilib systemd toolchain-funcs udev
 
-DESCRIPTION="A useful tool for running RAID systems - it can be used as a replacement for the raidtools"
+DESCRIPTION="Tool for running RAID systems - replacement for the raidtools"
 HOMEPAGE="http://neil.brown.name/blog/mdadm"
 DEB_PR=4
 SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.xz
