@@ -31,6 +31,7 @@ RDEPEND="${DEPEND}
 PATCHES=(
 	"${FILESDIR}"/${P}-gentoo.patch
 	"${FILESDIR}"/${P}-mysqltool.patch
+	"${FILESDIR}"/${P}-pointer-cmp.patch
 	"${FILESDIR}"/${P}-remove-pool-limits.patch
 	"${FILESDIR}"/${P}-fix-insecure-permissions.patch
 )
