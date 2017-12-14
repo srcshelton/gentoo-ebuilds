@@ -20,10 +20,10 @@ pkg_setup() {
 
 # Create our multilib dirs - the Makefile has no knowledge of this
 multilib_layout() {
-	local libdir libdirs=$(get_all_libdirs) def_libdir=$(get_abi_LIBDIR $DEFAULT_ABI)
+	local libdir libdirs="$(get_all_libdirs)" def_libdir="$(get_abi_LIBDIR $DEFAULT_ABI)"
 	: ${libdirs:=lib}	# it isn't that we don't trust multilib.eclass...
 
-	[ -z "${def_libdir}" ] && die "your DEFAULT_ABI=$DEFAULT_ABI appears to be invalid"
+	[[ -z "${def_libdir}" ]] && die "your DEFAULT_ABI=$DEFAULT_ABI appears to be invalid"
 
 	# figure out which paths should be symlinks and which should be directories
 	local dirs syms exp d
@@ -31,18 +31,18 @@ multilib_layout() {
 		exp=( {,usr/,usr/local/}${libdir} )
 		for d in "${exp[@]}" ; do
 			# most things should be dirs
-			if [ "${SYMLINK_LIB}" = "yes" ] && [ "${libdir}" = "lib" ] ; then
-				[ ! -h "${d}" ] && [ -e "${d}" ] && dirs+=" ${d}"
+			if [[ "${SYMLINK_LIB}" = "yes" ]] && [[ "${libdir}" = "lib" ]] ; then
+				[[ ! -L "${d}" ]] && [[ -e "${d}" ]] && dirs+=" ${d}"
 			else
-				[ -h "${d}" ] && syms+=" ${d}"
+				[[ -L "${d}" ]] && syms+=" ${d}"
 			fi
 		done
 	done
-	if [ -n "${syms}${dirs}" ] ; then
+	if [[ -n "${syms}${dirs}" ]] ; then
 		ewarn "Your system profile has SYMLINK_LIB=${SYMLINK_LIB:-no}, so that means you need to"
 		ewarn "have these paths configured as follows:"
-		[ -n "${dirs}" ] && ewarn "symlinks to '${def_libdir}':${dirs}"
-		[ -n "${syms}" ] && ewarn "directories:${syms}"
+		[[ -n "${dirs}" ]] && ewarn "symlinks to '${def_libdir}':${dirs}"
+		[[ -n "${syms}" ]] && ewarn "directories:${syms}"
 		ewarn "The ebuild will attempt to fix these, but only for trivial conversions."
 		ewarn "If things fail, you will need to manually create/move the directories."
 		echo
@@ -51,54 +51,54 @@ multilib_layout() {
 	# setup symlinks and dirs where we expect them to be; do not migrate
 	# data ... just fall over in that case.
 	local prefix
-	for prefix in "${EROOT}"{,usr/,usr/local/} ; do
-		if [ "${SYMLINK_LIB}" = yes ] ; then
+	for prefix in "${EROOT%/}"{,/usr,/usr/local} ; do
+		if [[ "${SYMLINK_LIB}" = yes ]] ; then
 			# we need to make sure "lib" points to the native libdir
-			if [ -h "${prefix}lib" ] ; then
+			if [[ -L "${prefix%/}/lib" ]] ; then
 				# it's already a symlink!  assume it's pointing to right place ...
 				continue
-			elif [ -d "${prefix}lib" ] ; then
+			elif [[ -d "${prefix%/}/lib" ]] ; then
 				# "lib" is a dir, so need to convert to a symlink
-				ewarn "Converting ${prefix}lib from a dir to a symlink"
-				rm -f "${prefix}lib"/.keep
-				if rmdir "${prefix}lib" 2>/dev/null ; then
-					ln -s ${def_libdir} "${prefix}lib" || die
+				ewarn "Converting ${prefix%/}/lib from a dir to a symlink"
+				rm -f "${prefix%/}/lib"/.keep
+				if rmdir "${prefix%/}/lib" 2>/dev/null ; then
+					ln -s ${def_libdir} "${prefix%/}/lib" || die
 				else
-					die "non-empty dir found where we needed a symlink: ${prefix}lib"
+					die "non-empty dir found where we needed a symlink: ${prefix%/}/lib"
 				fi
 			else
 				# nothing exists, so just set it up sanely
-				ewarn "Initializing ${prefix}lib as a symlink"
+				ewarn "Initializing ${prefix%/}/lib as a symlink"
 				mkdir -p "${prefix}" || die
-				rm -f "${prefix}lib" || die
-				ln -s ${def_libdir} "${prefix}lib" || die
-				mkdir -p "${prefix}${def_libdir}" #423571
+				rm -f "${prefix%/}/lib" || die
+				ln -s ${def_libdir} "${prefix%/}/lib" || die
+				mkdir -p "${prefix%/}/${def_libdir}" #423571
 			fi
 		else
 			# we need to make sure "lib" is a dir
-			if [ -h "${prefix}lib" ] ; then
+			if [[ -L "${prefix%/}/lib" ]] ; then
 				# "lib" is a symlink, so need to convert to a dir
-				ewarn "Converting ${prefix}lib from a symlink to a dir"
-				rm -f "${prefix}lib" || die
-				if [ -d "${prefix}lib32" ] ; then
-					ewarn "Migrating ${prefix}lib32 to ${prefix}lib"
-					mv "${prefix}lib32" "${prefix}lib" || die
+				ewarn "Converting ${prefix%/}/lib from a symlink to a dir"
+				rm -f "${prefix%/}/lib" || die
+				if [[ -d "${prefix%/}/lib32" ]] ; then
+					ewarn "Migrating ${prefix%/}/lib32 to ${prefix%/}/lib"
+					mv "${prefix%/}/lib32" "${prefix%/}/lib" || die
 				else
-					mkdir -p "${prefix}lib" || die
+					mkdir -p "${prefix%/}/lib" || die
 				fi
-			elif [ -d "${prefix}lib" ] && ! has lib32 ${libdirs} ; then
+			elif [[ -d "${prefix%/}/lib" ]] && ! has lib32 ${libdirs} ; then
 				# make sure the old "lib" ABI location does not exist; we
 				# only symlinked the lib dir on systems where we moved it
 				# to "lib32" ...
 				case ${CHOST} in
 				*-gentoo-freebsd*) ;; # We want it the other way on fbsd.
 				i?86*|x86_64*|powerpc*|sparc*|s390*)
-					if [ -d "${prefix}lib32" ] ; then
-						if ! [ "${LIBDIR_x32}" = "lib32" ] ; then
-							rm -f "${prefix}lib32"/.keep
-							if ! rmdir "${prefix}lib32" 2>/dev/null ; then
-								ewarn "You need to merge ${prefix}lib32 into ${prefix}lib"
-								die "non-empty dir found where there should be none: ${prefix}lib32"
+					if [[ -d "${prefix%/}/lib32" && ! -L "${prefix%/}/lib32" ]] ; then
+						if ! [[ "${LIBDIR_x32}" = "lib32" ]] ; then
+							rm -f "${prefix%/}/lib32"/.keep
+							if ! rmdir "${prefix%/}/lib32" 2>/dev/null ; then
+								ewarn "You need to merge ${prefix%/}/lib32 into ${prefix%/}/lib"
+								die "non-empty dir found where there should be none: ${prefix%/}/lib32"
 							fi
 						fi
 					fi
@@ -106,8 +106,8 @@ multilib_layout() {
 				esac
 			else
 				# nothing exists, so just set it up sanely
-				ewarn "Initializing ${prefix}lib as a dir"
-				mkdir -p "${prefix}lib" || die
+				ewarn "Initializing ${prefix%/}/lib as a dir"
+				mkdir -p "${prefix%/}/lib" || die
 			fi
 		fi
 	done
@@ -119,12 +119,12 @@ pkg_preinst() {
 	# /etc/conf.d into ${D}, it makes them all appear to be the default
 	# versions. In order to protect them from being unmerged after this
 	# upgrade, modify their timestamps.
-	touch "${EROOT}"/etc/conf.d/* 2>/dev/null
+	touch "${EROOT%/}"/etc/conf.d/* 2>/dev/null
 
 	# This is written in src_install (so it's in CONTENTS), but punt all
 	# pending updates to avoid user having to do etc-update (and make the
 	# pkg_postinst logic simpler).
-	rm -f "${EROOT}"/etc/._cfg????_gentoo-release
+	rm -f "${EROOT%/}"/etc/._cfg????_gentoo-release
 
 	# We need to install directories and maybe some dev nodes when building
 	# stages, but they cannot be in CONTENTS.
@@ -183,24 +183,24 @@ pkg_postinst() {
 	# (3) accidentally packaging up personal files with quickpkg
 	# If they don't exist then we install them
 	for x in master.passwd passwd shadow group fstab ; do
-		[ -e "${EROOT}etc/${x}" ] && continue
-		[ -e "${EROOT}usr/share/baselayout/${x}" ] || continue
-		cp -p "${EROOT}usr/share/baselayout/${x}" "${EROOT}"etc
+		[[ -e "${EROOT%/}/etc/${x}" ]] && continue
+		[[ -e "${EROOT%/}/usr/share/baselayout/${x}" ]] || continue
+		cp -p "${EROOT%/}/usr/share/baselayout/${x}" "${EROOT%/}"/etc/
 	done
 
 	# Force shadow permissions to not be world-readable #260993
 	for x in shadow ; do
-		[ -e "${EROOT}etc/${x}" ] && chmod o-rwx "${EROOT}etc/${x}"
+		[[ -e "${EROOT%/}/etc/${x}" ]] && chmod o-rwx "${EROOT%/}/etc/${x}"
 	done
 
 	# Take care of the etc-update for the user
-	if [ -e "${EROOT}"etc/._cfg0000_gentoo-release ] ; then
-		mv "${EROOT}"etc/._cfg0000_gentoo-release "${EROOT}"etc/gentoo-release
+	if [[ -e "${EROOT%/}"/etc/._cfg0000_gentoo-release ]] ; then
+		mv "${EROOT%/}"/etc/._cfg0000_gentoo-release "${EROOT%/}"/etc/gentoo-release
 	fi
 
 	# whine about users that lack passwords #193541
-	if [[ -e "${EROOT}"etc/shadow ]] ; then
-		local bad_users=$(sed -n '/^[^:]*::/s|^\([^:]*\)::.*|\1|p' "${EROOT}"/etc/shadow)
+	if [[ -e "${EROOT%/}"/etc/shadow ]] ; then
+		local bad_users=$(sed -n '/^[^:]*::/s|^\([^:]*\)::.*|\1|p' "${EROOT%/}"/etc/shadow)
 		if [[ -n ${bad_users} ]] ; then
 			echo
 			ewarn "The following users lack passwords!"
@@ -209,12 +209,12 @@ pkg_postinst() {
 	fi
 
 	# baselayout leaves behind a lot of .keep files, so let's clean them up
-	find "${EROOT}"lib*/rcscripts/ -name .keep -exec rm -f {} + 2>/dev/null
-	find "${EROOT}"lib*/rcscripts/ -depth -type d -exec rmdir {} + 2>/dev/null
+	find "${EROOT%/}"/lib*/rcscripts/ -name .keep -exec rm -f {} + 2>/dev/null
+	find "${EROOT%/}"/lib*/rcscripts/ -depth -type d -exec rmdir {} + 2>/dev/null
 
 	# whine about users with invalid shells #215698
-	if [[ -e "${EROOT}"etc/passwd ]] ; then
-		local bad_shells=$(awk -F: 'system("test -e " $7) { print $1 " - " $7}' "${EROOT}"etc/passwd | sort)
+	if [[ -e "${EROOT%/}"/etc/passwd ]] ; then
+		local bad_shells=$(awk -F: 'system("test -e " $7) { print $1 " - " $7}' "${EROOT%/}"/etc/passwd | sort)
 		if [[ -n ${bad_shells} ]] ; then
 			echo
 			ewarn "The following users have non-existent shells!"
@@ -224,7 +224,7 @@ pkg_postinst() {
 
 	# https://bugs.gentoo.org/361349
 	if use kernel_linux; then
-		use varrun || mkdir -p "${EROOT}"run
+		use varrun || mkdir -p "${EROOT%/}"/run
 
 		local found fstype mountpoint
 		while read -r _ mountpoint fstype _; do
@@ -236,14 +236,14 @@ pkg_postinst() {
 
 	for x in ${REPLACING_VERSIONS}; do
 		if ! version_is_at_least 2.4 ${v}; then
-			ewarn "After updating ${EROOT}etc/profile, please run"
+			ewarn "After updating ${EROOT%/}/etc/profile, please run"
 			ewarn "env-update and . /etc/profile"
 			break
 		fi
 	done
 
-	if [[ -e "${EROOT}"etc/env.d/00basic ]]; then
-		ewarn "${EROOT}etc/env.d/00basic is now ${EROOT}etc/env.d/50baselayout"
+	if [[ -e "${EROOT%/}"/etc/env.d/00basic ]]; then
+		ewarn "${EROOT%/}/etc/env.d/00basic is now ${EROOT%/}/etc/env.d/50baselayout"
 		ewarn "Please migrate your changes."
 	fi
 }
