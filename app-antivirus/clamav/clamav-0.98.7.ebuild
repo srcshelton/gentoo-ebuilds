@@ -1,6 +1,5 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 59e614ed266d0f8a3a5ca485718a929cd8a570ed $
 
 EAPI=5
 
@@ -16,7 +15,7 @@ KEYWORDS="alpha amd64 ~arm hppa ia64 ppc ppc64 sparc x86 ~x86-fbsd ~amd64-linux 
 IUSE="bzip2 clamdtop iconv ipv6 milter metadata-analysis-api selinux static-libs systemd uclibc"
 
 CDEPEND="bzip2? ( app-arch/bzip2 )
-	clamdtop? ( sys-libs/ncurses )
+	clamdtop? ( sys-libs/ncurses:0= )
 	iconv? ( virtual/libiconv )
 	metadata-analysis-api? ( dev-libs/json-c )
 	milter? ( || ( mail-filter/libmilter mail-mta/sendmail ) )
