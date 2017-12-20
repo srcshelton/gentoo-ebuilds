@@ -6,6 +6,7 @@ inherit autotools user toolchain-funcs
 
 DESCRIPTION="Network traffic analyzer with web interface"
 HOMEPAGE="http://www.ntop.org/"
+# Use (updated) stable branch rather than release tag...
 SRC_URI="https://github.com/ntop/${PN}/archive/${PV}-stable.zip -> ${P}.zip"
 RESTRICT="mirror"
 
@@ -16,10 +17,11 @@ KEYWORDS="~amd64 ~x86"
 DEPEND="dev-db/sqlite:3
 	dev-python/pyzmq
 	dev-lang/luajit:2
-	dev-libs/json-c
+	dev-libs/json-c:=
 	dev-libs/geoip
 	dev-libs/glib:2
 	dev-libs/hiredis
+	dev-libs/libsodium:=
 	dev-libs/libxml2
 	net-analyzer/rrdtool
 	net-libs/libpcap

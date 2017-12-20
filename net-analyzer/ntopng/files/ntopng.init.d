@@ -7,13 +7,15 @@ depend() {
 }
 
 start() {
+	local opts="--user ntopng ${NTOPNG_OPTS}"
+
 	ebegin "Starting ntopng"
-	start-stop-daemon --start --exec /usr/bin/ntopng --pidfile /var/run/ntopng.pid --make-pidfile --background -e LUA_PATH='/usr/share/ntopng/scripts/lua/modules/?.lua' -- --user ntopng ${NTOPNG_OPTS}
+	start-stop-daemon --start --exec /usr/sbin/ntopng --pidfile /var/run/ntopng.pid --make-pidfile --background -e LUA_PATH='/usr/share/ntopng/scripts/lua/modules/?.lua' -- ${opts}
 	eend $?
 }
 
 stop() {
 	ebegin "Stopping ntopng"
-	start-stop-daemon --stop --exec /usr/bin/ntopng --pidfile /var/run/ntopng.pid
+	start-stop-daemon --stop --exec /usr/sbin/ntopng --pidfile /var/run/ntopng.pid
 	eend $?
 }
