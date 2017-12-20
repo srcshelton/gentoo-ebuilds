@@ -22,7 +22,7 @@ SRC_URI+=" elibc_Cygwin? ( https://github.com/cygwinports/python2/archive/${CYGW
 
 LICENSE="PSF-2"
 SLOT="2.7"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 libressl +ncurses +readline sqlite +ssl +threads tk +wide-unicode wininst +xml"
 
@@ -144,6 +144,7 @@ src_prepare() {
 	epatch "${FILESDIR}/python-2.7.9-ncurses-pkg-config.patch"
 	epatch "${FILESDIR}/python-2.7.10-cross-compile-warn-test.patch"
 	epatch "${FILESDIR}/python-2.7.10-system-libffi.patch"
+	epatch "${FILESDIR}/2.7-disable-nis.patch"
 	epatch "${FILESDIR}/python-3.4-pyfpe-dll.patch" # Cygwin: --with-fpectl
 
 	# Make sure python doesn't use the host libffi.
@@ -569,7 +570,7 @@ EOF
 		libname=libpython${SLOT}
 	else
 		libname=$(printf 'e:\n\t@echo $(INSTSONAME)\ninclude Makefile\n' |
-			emake --no-print-directory -s -f - 2>/dev/null)
+		emake --no-print-directory -s -f - 2>/dev/null)
 	fi
 	newins "${S}"/Tools/gdb/libpython.py "${libname}"-gdb.py
 
