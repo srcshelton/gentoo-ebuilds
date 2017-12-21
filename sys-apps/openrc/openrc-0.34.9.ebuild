@@ -18,7 +18,7 @@ fi
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="audit compat debug ncurses pam newnet prefix +netifrc selinux static-libs
+IUSE="audit +compat debug ncurses pam newnet prefix +netifrc selinux static-libs
 	+tmpfiles unicode -vanilla +varrun kernel_linux kernel_FreeBSD"
 
 COMMON_DEPEND="kernel_FreeBSD? ( || ( >=sys-freebsd/freebsd-ubin-9.0_rc sys-process/fuser-bsd ) )
