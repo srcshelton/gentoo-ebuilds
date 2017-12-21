@@ -412,6 +412,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/openntpd
+* net-misc/radvd
 * net-misc/rsyncd
 * net-p2p/bitcoind
 * sys-apps/haveged
