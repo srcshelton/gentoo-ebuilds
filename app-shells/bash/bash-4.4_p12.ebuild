@@ -1,17 +1,22 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 24af1a67ee7fb286984f62bad470bc495faef0cd $
 
 EAPI="5"
 
 inherit eutils flag-o-matic toolchain-funcs multilib prefix
 
 # Official patchlevel
-# See ftp://ftp.cwru.edu/pub/bash/bash-4.3-patches/
+# See ftp://ftp.cwru.edu/pub/bash/bash-4.4-patches/
 PLEVEL=${PV##*_p}
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
 MY_P=${PN}-${MY_PV}
+is_release() {
+	case ${PV} in
+	*_alpha*|*_beta*|*_rc*) return 1 ;;
+	*) return 0 ;;
+	esac
+}
 [[ ${PV} != *_p* ]] && PLEVEL=0
 patches() {
 	local opt=$1 plevel=${2:-${PLEVEL}} pn=${3:-${PN}} pv=${4:-${MY_PV}}
@@ -29,16 +34,19 @@ patches() {
 }
 
 # The version of readline this bash normally ships with.
-READLINE_VER="6.3"
+READLINE_VER="7.0"
 
 DESCRIPTION="The standard GNU Bourne again shell"
 HOMEPAGE="http://tiswww.case.edu/php/chet/bash/bashtop.html"
-SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
-[[ ${PV} == *_rc* ]] && SRC_URI+=" ftp://ftp.cwru.edu/pub/bash/${MY_P}.tar.gz"
+if is_release ; then
+	SRC_URI="mirror://gnu/bash/${MY_P}.tar.gz $(patches)"
+else
+	SRC_URI="ftp://ftp.cwru.edu/pub/bash/${MY_P}.tar.gz"
+fi
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
+KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc ~x86 ~amd64-fbsd ~sparc-fbsd ~x86-fbsd"
 IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline"
 
 DEPEND=">=sys-libs/ncurses-5.2-r2:0=
@@ -48,14 +56,9 @@ RDEPEND="${DEPEND}
 	!<sys-apps/portage-2.1.6.7_p1
 	!<sys-apps/paludis-0.26.0_alpha5"
 # we only need yacc when the .y files get patched (bash42-005)
-DEPEND+=" virtual/yacc"
+#DEPEND+=" virtual/yacc"
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-4.3-mapfile-improper-array-name-validation.patch
-	"${FILESDIR}"/${PN}-4.3-arrayfunc.patch
-	"${FILESDIR}"/${PN}-4.3-protos.patch
-	"${FILESDIR}"/${PN}-4.4-popd-offset-overflow.patch #600174
-
 	# Prefix patches:
 	#  Use prefix root
 	"${FILESDIR}"/${PN}-4.0-configs-prefix.patch
@@ -88,19 +91,11 @@ src_prepare() {
 	[[ ${PLEVEL} -gt 0 ]] && epatch $(patches -s)
 
 	# Clean out local libs so we know we use system ones w/releases.
-	if [[ ${PV} != *_rc* ]] ; then
+	if is_release ; then
 		rm -rf lib/{readline,termcap}/*
 		touch lib/{readline,termcap}/Makefile.in # for config.status
 		sed -ri -e 's:\$[(](RL|HIST)_LIBSRC[)]/[[:alpha:]]*.h::g' Makefile.in || die
 	fi
-
-	# Avoid regenerating docs after patches #407985
-	sed -i -r '/^(HS|RL)USER/s:=.*:=:' doc/Makefile.in || die
-	touch -r . doc/*
-
-	epatch "${PATCHES[@]}"
-
-	eprefixify pathnames.h.in
 
 	# Nasty trick to set bashbug's shebang to bash instead of sh. We don't have
 	# sh while bootstrapping for the first time, This works around bug 309825
@@ -113,35 +108,37 @@ src_prepare() {
 	eprefixify bashrc
 	popd > /dev/null
 
+	epatch "${PATCHES[@]}"
+
+	# Prefixify hardcoded path names. No-op for non-prefix.
+	hprefixify pathnames.h.in
+
+	# Avoid regenerating docs after patches #407985
+	sed -i -r '/^(HS|RL)USER/s:=.*:=:' doc/Makefile.in || die
+	touch -r . doc/*
+
 	epatch_user
 }
 
 src_configure() {
 	local myconf=()
+	local extrapaths=''
+	local extrautils=''
 
 	# For descriptions of these, see config-top.h
 	# bashrc/#26952 bash_logout/#90488 ssh/#24762 mktemp/#574426
 	if use prefix ; then
-		append-cppflags \
-			-DDEFAULT_PATH_VALUE=\'\"${EPREFIX}/usr/local/sbin:${EPREFIX}/usr/local/bin:${EPREFIX}/usr/sbin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\' \
-			-DSTANDARD_UTILS_PATH=\'\"${EPREFIX}/bin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/usr/sbin:/bin:/usr/bin:/sbin:/usr/sbin\"\' \
-			-DSYS_BASHRC=\'\"${EPREFIX}/etc/bash/bashrc\"\' \
-			-DSYS_BASH_LOGOUT=\'\"${EPREFIX}/etc/bash/bash_logout\"\' \
-			-DNON_INTERACTIVE_LOGIN_SHELLS \
-			-DSSH_SOURCE_BASHRC \
-			-DUSE_MKTEMP -DUSE_MKSTEMP \
-			$(use bashlogger && echo -DSYSLOG_HISTORY)
-	else
-		append-cppflags \
-			-DDEFAULT_PATH_VALUE=\'\"${EPREFIX}/usr/local/sbin:${EPREFIX}/usr/local/bin:${EPREFIX}/usr/sbin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/bin\"\' \
-			-DSTANDARD_UTILS_PATH=\'\"${EPREFIX}/bin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/usr/sbin\"\' \
-			-DSYS_BASHRC=\'\"${EPREFIX}/etc/bash/bashrc\"\' \
-			-DSYS_BASH_LOGOUT=\'\"${EPREFIX}/etc/bash/bash_logout\"\' \
-			-DNON_INTERACTIVE_LOGIN_SHELLS \
-			-DSSH_SOURCE_BASHRC \
-			-DUSE_MKTEMP -DUSE_MKSTEMP \
-			$(use bashlogger && echo -DSYSLOG_HISTORY)
+		extrapaths='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+		extrautils='/bin:/usr/bin:/sbin:/usr/sbin'
 	fi
+	append-cppflags \
+		-DDEFAULT_PATH_VALUE=\'\"${EPREFIX}/usr/local/sbin:${EPREFIX}/usr/local/bin:${EPREFIX}/usr/sbin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/bin${extrapaths:+:${extrapaths}}\"\' \
+		-DSTANDARD_UTILS_PATH=\'\"${EPREFIX}/bin:${EPREFIX}/usr/bin:${EPREFIX}/sbin:${EPREFIX}/usr/sbin${extrautils:+:${extrautls}}\"\' \
+		-DSYS_BASHRC=\'\"${EPREFIX}/etc/bash/bashrc\"\' \
+		-DSYS_BASH_LOGOUT=\'\"${EPREFIX}/etc/bash/bash_logout\"\' \
+		-DNON_INTERACTIVE_LOGIN_SHELLS \
+		-DSSH_SOURCE_BASHRC \
+		$(use bashlogger && echo -DSYSLOG_HISTORY)
 
 	# IRIX's MIPSpro produces garbage with >= -O2, bug #209137
 	[[ ${CHOST} == mips-sgi-irix* ]] && replace-flags -O? -O1
@@ -176,14 +173,14 @@ src_configure() {
 	# be safe.
 	# Exact cached version here doesn't really matter as long as it
 	# is at least what's in the DEPEND up above.
-	export ac_cv_rl_version=${READLINE_VER}
+	export ac_cv_rl_version=${READLINE_VER%%_*}
 
 	# Force linking with system curses ... the bundled termcap lib
 	# sucks bad compared to ncurses.  For the most part, ncurses
 	# is here because readline needs it.  But bash itself calls
 	# ncurses in one or two small places :(.
 
-	if [[ ${PV} != *_rc* ]] ; then
+	if is_release ; then
 		# Use system readline only with released versions.
 		myconf+=( --with-installed-readline=. )
 	fi
@@ -240,11 +237,11 @@ src_install() {
 	insinto /etc/bash
 	doins "${FILESDIR}"/bash_logout
 	if [[ -s "${T}"/bashrc ]]; then
-		newins "${T}"/bashrc bashrc
+		doins "${T}"/bashrc
 	else
 		eerror "Prefixified bashrc at '${T}/bashrc' cannot be read"
 		ewarn "Installing default bashrc"
-		newins "${FILESDIR}"/bashrc bashrc
+		doins "$(prefixify_ro "${FILESDIR}"/bashrc)"
 	fi
 	keepdir /etc/bash/bashrc.d
 	insinto /etc/skel

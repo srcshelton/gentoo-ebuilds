@@ -1,5 +1,5 @@
---- bash-4.0/pathnames.h.in
-+++ bash-4.0/pathnames.h.in
+--- a/pathnames.h.in
++++ b/pathnames.h.in
 @@ -22,10 +22,10 @@
  #define _PATHNAMES_H_
  

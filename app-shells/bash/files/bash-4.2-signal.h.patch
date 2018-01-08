@@ -1,5 +1,5 @@
---- trap.c.dist	2015-02-11 01:07:27.000000000 +0000
-+++ trap.c	2015-02-11 01:09:45.000000000 +0000
+--- a/trap.c
++++ b/trap.c
 @@ -30,6 +30,7 @@
  
  #include <stdio.h>
@@ -8,8 +8,8 @@
  
  #include "bashintl.h"
  
---- builtins/kill.def.dist	2015-02-11 01:07:39.000000000 +0000
-+++ builtins/kill.def	2015-02-11 01:09:54.000000000 +0000
+--- a/builtins/kill.def
++++ b/builtins/kill.def
 @@ -47,6 +47,7 @@ $END
  
  #include <stdio.h>
