@@ -1,7 +1,7 @@
 http://bugs.gentoo.org/show_bug.cgi?id=282086
 
---- unzpriv.h.dist	2009-08-20 11:24:17.386734120 +0100
-+++ unzpriv.h	2009-08-20 11:29:37.592325480 +0100
+--- a/unzpriv.h
++++ b/unzpriv.h
 @@ -1904,7 +1904,7 @@
  
  #ifdef ZIP64_SUPPORT
@@ -11,8 +11,8 @@ http://bugs.gentoo.org/show_bug.cgi?id=282086
    typedef unsigned long long    z_uint8;
  #   else
    typedef unsigned __int64      z_uint8;
---- unix/unxcfg.h.dist	2009-08-20 11:36:17.658689640 +0100
-+++ unix/unxcfg.h	2009-08-20 11:38:31.458220280 +0100
+--- a/unix/unxcfg.h
++++ b/unix/unxcfg.h
 @@ -42,8 +42,10 @@
    /* These have to be before any include that sets types so the large file
       versions of the types are set in the includes */
