@@ -1,4 +1,4 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="5"
@@ -139,7 +139,8 @@ src_prepare() {
 	#fi
 
 	local BRANDING_GCC_PKGVERSION="$(sed -n -e '/^#define VERSUFFIX/s/^[^"]*"\([^"]\+\)".*$/\1/p' "${S}"/gcc/version.c)"
-	BRANDING_GCC_PKGVERSION="${BRANDING_GCC_PKGVERSION/(/(Gentoo ${PVR}, }" # "))}" # <- Syntax highlight fail
+	BRANDING_GCC_PKGVERSION=${BRANDING_GCC_PKGVERSION/(/(Gentoo ${PVR}, }
+	# ) ) } # <- to help Vim highlight this correctly
 	einfo "patching gcc version: ${GCC_VERS}${BRANDING_GCC_PKGVERSION}"
 
 	sed -i -e "s~VERSUFFIX \"[^\"]*~VERSUFFIX \"${BRANDING_GCC_PKGVERSION}~" \
@@ -329,9 +330,9 @@ src_install() {
 			ln -sf ${CTARGET}-${x} ${x}
 
 			# Create version-ed symlinks
-			dosym ${BINPATH#${EPREFIX}}/${CTARGET}-${x} \
+			dosym ../${BINPATH#${EPREFIX}/usr/}/${CTARGET}-${x} \
 				/usr/bin/${CTARGET}-${x}-${GCC_VERS}
-			dosym ${BINPATH#${EPREFIX}}/${CTARGET}-${x} \
+			dosym ../${BINPATH#${EPREFIX}/usr/}/${CTARGET}-${x} \
 				/usr/bin/${x}-${GCC_VERS}
 		fi
 
