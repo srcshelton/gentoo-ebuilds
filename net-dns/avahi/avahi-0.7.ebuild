@@ -1,4 +1,4 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="6"
@@ -100,6 +100,9 @@ src_prepare() {
 	sed -i \
 		-e '/^avahi_runtime_dir=/s|/run|/var/run|' \
 		configure.ac || die
+
+	# Don't pick up wrong moc based on qtchooser default, bug #587830
+	eapply "${FILESDIR}"/${PN}-0.6.32-mocqt4.patch
 
 	eapply_user
 
