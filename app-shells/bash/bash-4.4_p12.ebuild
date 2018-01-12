@@ -58,7 +58,7 @@ RDEPEND="${DEPEND}
 # we only need yacc when the .y files get patched (bash42-005)
 #DEPEND+=" virtual/yacc"
 
-PATCHES=(
+PREFIX_PATCHES=(
 	# Prefix patches:
 	#  Use prefix root
 	"${FILESDIR}"/${PN}-4.0-configs-prefix.patch
@@ -108,7 +108,7 @@ src_prepare() {
 	eprefixify bashrc
 	popd > /dev/null
 
-	epatch "${PATCHES[@]}"
+	use prefix && epatch "${PREFIX_PATCHES[@]}"
 
 	# Prefixify hardcoded path names. No-op for non-prefix.
 	hprefixify pathnames.h.in
