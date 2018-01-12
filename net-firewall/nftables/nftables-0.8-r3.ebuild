@@ -11,7 +11,7 @@ SRC_URI="https://git.netfilter.org/nftables/snapshot/v${PV}.tar.gz -> ${P}.tar.g
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ia64 x86"
+KEYWORDS="amd64 arm ia64 x86"
 IUSE="debug +doc +gmp pdf +readline systemd"
 
 RDEPEND=">=net-libs/libmnl-1.0.3:0=
@@ -21,7 +21,7 @@ RDEPEND=">=net-libs/libmnl-1.0.3:0=
 
 DEPEND="${RDEPEND}
 	doc? ( >=app-text/docbook2X-0.8.8-r4 )
-	pdf? ( app-text/dblatex )
+	pdf? ( >=app-text/dblatex-0.3.7 )
 	sys-devel/bison
 	sys-devel/flex
 	virtual/pkgconfig"
