@@ -244,6 +244,7 @@ used to build perl)
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.0
 * dev-python/ansible-lint
 * dev-python/noxspellserver
+* dev-python/yamllint
 * dev-ruby/CFPropertyList
 * dev-ruby/cora
 * dev-ruby/geocoder
