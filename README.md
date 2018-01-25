@@ -247,6 +247,7 @@ used to build perl)
 * dev-python/identify
 * dev-python/nodeenv
 * dev-python/noxspellserver
+* dev-python/pathspec
 * dev-python/yamllint
 * dev-ruby/CFPropertyList
 * dev-ruby/cora
