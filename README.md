@@ -245,6 +245,7 @@ used to build perl)
 * dev-python/ansible-lint
 * dev-python/aspy_yaml
 * dev-python/identify
+* dev-python/nodeenv
 * dev-python/noxspellserver
 * dev-python/yamllint
 * dev-ruby/CFPropertyList
