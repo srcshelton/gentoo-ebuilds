@@ -14,8 +14,13 @@ RESTRICT="mirror"
 LICENSE="GPL-3"
 SLOT="0"
 KEYWORDS="amd64 arm x86 ~amd64-linux ~x86-linux x64-macos"
+#IUSE="doc"
 
 #DEPEND="doc? ( dev-python/sphinx )"
+DEPEND="
+	dev-python/pyyaml
+	>=dev-python/pathspec-0.5.3
+"
 
 python_install_all() {
 	local DOCS=( README.rst )
