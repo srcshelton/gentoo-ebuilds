@@ -73,6 +73,9 @@ start() {
 				ios_name="Budget Fair"
 				ios_module="bfq"
 				ios_queue="bfq"
+				ios_fallback_name="Completely Fair"
+				ios_fallback_module="cfq"
+				ios_fallback_queue="cfq"
 				;;
 			cfq|fair)
 				ios_name="Completely Fair"
@@ -92,22 +95,46 @@ start() {
 		esac
 
 		ebegin "Loading ${ios_name} I/O scheduler"
-		modprobe "${ios_module}-iosched"
-		eend $?
+		if [ "${ios_module}" = "bfq" ] &&
+			[ "$( uname -r | cut -d'.' -f 1 )" = '4' ] &&
+			[ "$( uname -r | cut -d'.' -f 2 )" -gt 11 ]
+		then
+			if [ -r /sys/module/scsi_mod/parameters/use_blk_mq ] &&
+				[ "$( < /sys/module/scsi_mod/parameters/use_blk_mq )" = "N" ]
+			then
+				eerror "After mainline merge in Linux 4.12, 'bfq' requires 'scsi_mod.use_blk_mq=1' to"
+				eerror "be specified as a kernel option"
+				eend 1 "Falling back to 'cfq' scheduler"
+				ios_name="${ios_fallback_name:-}"
+				ios_module="${ios_fallback_module}"
+				ios_queue="${ios_fallback_queue}"
+				ebegin "Loading ${ios_name} I/O scheduler"
+				modprobe "${ios_module}-iosched"
+			else
+				modprobe "${ios_module}"
+			fi
+		else
+			modprobe "${ios_module}-iosched"
+		fi
+		eend ${?}
 
 		set -- discard $( grep "^\s*DEVICE\s*" "${mdadm_conf}" )
 		shift
 		while [ -n "${1}" ]; do
-			device="${1}"
+			device="$( basename "${1}" )"
 			shift
 
 			[ "${device}" = "DEVICE" ] && continue
 
 			for node in /sys/block/"${device}"/queue/scheduler; do
-				if [ -e "${node}" ] && grep -q "${ios_queue}" "${node}"; then
-					ebegin "Setting I/O scheduler for device '${device}'"
-					printf "${ios_queue}" > "${node}"
-					eend $? "Cannot install ${ios_queue} scheduler"
+				if [ -r "${node}" ]; then
+					if grep -q "${ios_queue}" "${node}"; then
+						ebegin "Setting I/O scheduler for device '${device}'"
+						printf "${ios_queue}" > "${node}"
+						eend $? "Cannot install ${ios_queue} scheduler"
+					else
+						ewarn "Not setting scheduler '${ios_queue}' for device '${device}'"
+					fi
 				fi
 			done
 		done
@@ -120,7 +147,7 @@ start() {
 			set -- discard $( grep "^\s*DEVICE\s*" "${mdadm_conf}" )
 			shift
 			while [ -n "${1}" ]; do
-				device="${1}"
+				device="$( basename "${1}" )"
 				shift
 
 				[ "${device}" = "DEVICE" ] && continue
@@ -140,9 +167,17 @@ start() {
 		fi
 	fi
 
-	ebegin "Starting up RAID devices"
-	output="$( mdadm -As ${MDADM_ASSEMBLE_OPTS} 2>&1 )"
-	eend $? "${output}"
+	if [ $( grep '^ARRAY' "${mdadm_conf}" | grep -o "md[[:digit:]]\+" | sort | tr -d $'\n' ) != \
+		$( grep 'active' /proc/mdstat | grep -o "md[[:digit:]]\+" | sort | tr -d $'\n' ) ]
+	then
+		ebegin "Starting up RAID devices"
+		output="$( mdadm -As ${MDADM_ASSEMBLE_OPTS} 2>&1 )"
+		rc=${?}
+		[ -n "${output:-}" ] || rc=0
+		eend $? "${output:-}"
+	else
+		ewarn "All RAID devices already active"
+	fi
 
 	local pat="/dev/md_d*"
 	set -- ${pat}
