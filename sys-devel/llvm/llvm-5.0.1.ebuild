@@ -1,4 +1,4 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -8,17 +8,18 @@ EAPI=6
 CMAKE_MIN_VERSION=3.7.0-r1
 PYTHON_COMPAT=( python2_7 )
 
-inherit cmake-utils flag-o-matic multilib-minimal pax-utils \
-	python-any-r1 toolchain-funcs versionator
+inherit cmake-utils eapi7-ver flag-o-matic multilib-minimal \
+	pax-utils python-any-r1 toolchain-funcs
 
 DESCRIPTION="Low Level Virtual Machine"
 HOMEPAGE="https://llvm.org/"
 SRC_URI="https://releases.llvm.org/${PV/_//}/${P/_/}.src.tar.xz
-	!doc? ( https://dev.gentoo.org/~mgorny/dist/llvm/llvm-manpages-${PV}.tar.bz2 )"
+	https://dev.gentoo.org/~mgorny/dist/llvm/${P}-patchset.tar.bz2
+	!doc? ( https://dev.gentoo.org/~mgorny/dist/llvm/${P}-manpages.tar.bz2 )"
 
 # Keep in sync with CMakeLists.txt
 ALL_LLVM_TARGETS=( AArch64 AMDGPU ARM BPF Hexagon Lanai Mips MSP430
-	NVPTX PowerPC RISCV Sparc SystemZ X86 XCore )
+	NVPTX PowerPC Sparc SystemZ X86 XCore )
 ALL_LLVM_TARGETS=( "${ALL_LLVM_TARGETS[@]/#/llvm_targets_}" )
 
 # Additional licenses:
@@ -31,10 +32,10 @@ ALL_LLVM_TARGETS=( "${ALL_LLVM_TARGETS[@]/#/llvm_targets_}" )
 
 LICENSE="UoI-NCSA rc BSD public-domain
 	llvm_targets_ARM? ( LLVM-Grant )"
-SLOT="$(get_major_version)"
-KEYWORDS="amd64 ~arm ~arm64 x86"
+SLOT="$(ver_cut 1)"
+KEYWORDS="amd64 ~arm ~arm64 x86 ~ppc-macos ~x64-macos ~x86-macos"
 IUSE="debug doc gold libedit +libffi ncurses test
-	elibc_musl kernel_Darwin ${ALL_LLVM_TARGETS[*]}"
+	kernel_Darwin ${ALL_LLVM_TARGETS[*]}"
 
 RDEPEND="
 	sys-libs/zlib:0=
@@ -48,8 +49,10 @@ DEPEND="${RDEPEND}
 	|| ( >=sys-devel/gcc-3.0 >=sys-devel/llvm-3.5
 		( >=sys-freebsd/freebsd-lib-9.1-r10 sys-libs/libcxx )
 	)
-	|| ( >=sys-devel/binutils-2.18 >=sys-devel/binutils-apple-5.1 )
-	kernel_Darwin? ( <sys-libs/libcxx-$(get_version_component_range 1-3).9999 )
+	kernel_Darwin? (
+		<sys-libs/libcxx-$(ver_cut 1-3).9999
+		>=sys-devel/binutils-apple-5.1
+	)
 	doc? ( dev-python/sphinx )
 	gold? ( sys-libs/binutils-libs )
 	libffi? ( virtual/pkgconfig )
@@ -75,12 +78,10 @@ src_prepare() {
 	# https://bugs.gentoo.org/show_bug.cgi?id=565358
 	eapply "${FILESDIR}"/9999/0007-llvm-config-Clean-up-exported-values-update-for-shar.patch
 
-	# Backport the fix for dlclose() causing option parser mess
-	# e.g. https://bugs.gentoo.org/617154
-	eapply "${FILESDIR}"/4.0.1/0001-cmake-Pass-Wl-z-nodelete-on-Linux-to-prevent-unloadi.patch
-
-	# support building llvm against musl-libc
-	use elibc_musl && eapply "${FILESDIR}"/9999/musl-fixes.patch
+	# Apply the backported patches
+	eapply "${WORKDIR}/${P}-patchset"
+	# Copy the new binary file (we don't support git binary patches)
+	cp {"${WORKDIR}/${P}-patchset",.}/test/tools/llvm-symbolizer/Inputs/print_context.o || die
 
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
@@ -102,6 +103,9 @@ multilib_src_configure() {
 
 	local libdir=$(get_libdir)
 	local mycmakeargs=(
+		# disable appending VCS revision to the version to improve
+		# direct cache hit ratio
+		-DLLVM_APPEND_VC_REV=OFF
 		-DCMAKE_INSTALL_PREFIX="${EPREFIX}/usr/lib/llvm/${SLOT}"
 		-DLLVM_LIBDIR_SUFFIX=${libdir#lib}
 
@@ -122,6 +126,7 @@ multilib_src_configure() {
 
 		-DFFI_INCLUDE_DIR="${ffi_cflags#-I}"
 		-DFFI_LIBRARY_DIR="${ffi_ldflags#-L}"
+		-DHAVE_LIBXAR=0
 
 		# disable OCaml bindings (now in dev-ml/llvm-ocaml)
 		-DOCAMLFIND=NO
@@ -210,6 +215,11 @@ multilib_src_install() {
 	rm -rf "${ED%/}"/usr/include || die
 	mv "${ED%/}"/usr/lib/llvm/${SLOT}/include "${ED%/}"/usr/include || die
 
+	# install fuzzer libraries for clang (cmake rules were added in 6)
+	# https://bugs.gentoo.org/636840
+	into "/usr/lib/llvm/${SLOT}"
+	dolib.a "$(get_libdir)"/libLLVMFuzzer*.a
+
 	LLVM_LDPATHS+=( "${EPREFIX}/usr/lib/llvm/${SLOT}/$(get_libdir)" )
 }
 
@@ -228,7 +238,7 @@ _EOF_
 	if ! use doc; then
 		# (doman does not support custom paths)
 		insinto "/usr/lib/llvm/${SLOT}/share/man/man1"
-		doins "${WORKDIR}/llvm-manpages-${PV}/llvm"/*.1
+		doins "${WORKDIR}/${P}-manpages/llvm"/*.1
 	fi
 
 	docompress "/usr/lib/llvm/${SLOT}/share/man"
