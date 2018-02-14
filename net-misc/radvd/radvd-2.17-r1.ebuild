@@ -11,7 +11,7 @@ SRC_URI="http://v6web.litech.org/radvd/dist/${P}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="amd64 arm ~arm64 hppa ppc sparc ~x86 ~x86-fbsd"
+KEYWORDS="amd64 arm ~arm64 hppa ppc sparc x86 ~x86-fbsd"
 IUSE="doc selinux systemd test kernel_FreeBSD"
 
 CDEPEND="dev-libs/libdaemon"
@@ -40,10 +40,7 @@ src_configure() {
 src_install() {
 	default
 
-	if use doc; then
-		insinto /usr/share/doc/${PF}/html
-		doins INTRO.html
-	fi
+	use doc && dohtml INTRO.html
 
 	newinitd "${FILESDIR}"/${PN}-2.15.init ${PN}
 	newconfd "${FILESDIR}"/${PN}.conf ${PN}
