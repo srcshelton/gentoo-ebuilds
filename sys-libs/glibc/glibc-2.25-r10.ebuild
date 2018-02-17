@@ -221,3 +221,12 @@ src_prepare() {
 		cat sysdeps/unix/sysv/linux/x86_64/dl-cache.h
 	fi
 }
+
+src_install() {
+	toolchain-glibc_src_install
+
+	# toolchain-glibc.eclass runs prefixify_ro and a @PIDFILE@ substitution
+	# on the included 'nscd', although it contains neither of the needed
+	# template tokens.
+	use nscd && newinitd "${FILESDIR}"/nscd.initd nscd
+}
