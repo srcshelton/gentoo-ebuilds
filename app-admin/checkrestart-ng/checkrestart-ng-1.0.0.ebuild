@@ -17,6 +17,8 @@ RDEPEND="
 	sys-apps/findutils
 	sys-libs/ncurses"
 
+S="${WORKDIR}/${PN%-ng}-${PV}"
+
 src_install() {
 	exeinto "/usr/local/sbin"
 	doexe "checkrestart"
