@@ -310,6 +310,8 @@ used to build perl)
     * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
 * app-misc/colordiff
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
+* app-portage/eix
+    * Make `tmpfiles` installation optional
 * dev-db/mongodb
     * Add firefox source to Allow building on ARM
 * dev-db/mysql-init-scripts
@@ -385,6 +387,8 @@ used to build perl)
     * Provide more flexibility with finer-grained USE flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
+* virtual/tmpfiles
+    * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 * x11-drivers/nvidia-drivers
     * Only start nVidia System Management Interface if valid for the host system
 
@@ -536,8 +540,6 @@ x32 profiles, and that these variables only affect multilib systems.
     * Maintain compatibility with releases prior to 3.3.11 by keeping `sysctl` in `/sbin`
 * virtual/libudev
     * Allow sys-libs/libeudev to satisfy `virtual/libudev` dependency
-* virtual/tmpfiles
-    * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 
 # Fixes for binaries and libraries which are installed to the root filesystem, but link to libraries originally installed to `/usr`
 (... controlled by the `sep-usr` USE-flag)
