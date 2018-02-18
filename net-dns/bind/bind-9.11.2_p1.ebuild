@@ -42,7 +42,7 @@ KEYWORDS="~alpha amd64 ~arm ~hppa ia64 ~mips ppc ~ppc64 ~s390 ~sh ~sparc x86 ~x8
 # -berkdb by default re bug 602682
 IUSE="-berkdb +caps dlz dnstap doc filter-aaaa fixed-rrset geoip gost gssapi idn ipv6
 json ldap libressl lmdb mysql nslint odbc postgres python rpz seccomp selinux ssl static-libs
-+threads urandom xml +zlib"
+systemd +threads urandom xml +zlib"
 # sdb-ldap - patch broken
 # no PKCS11 currently as it requires OpenSSL to be patched, also see bug 409687
 
