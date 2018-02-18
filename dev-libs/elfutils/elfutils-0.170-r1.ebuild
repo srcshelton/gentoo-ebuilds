@@ -55,17 +55,39 @@ multilib_src_test() {
 		emake check
 }
 
+multilib_src_install() {
+	emake DESTDIR="${D}" install
+
+	if use sep-usr && multilib_is_native_abi; then
+		# Rather than being named libelf.so.0.170, libs are instead named
+		# libelf-0.170.so!?
+		# The comments in gen_usr_ldscript indicate that this is sometimes the
+		# case, but, as below, gen_usr_ldscript then does the wrong thing.
+		# Indeed, if called as 'gen_usr_ldscript "libelf-${PV}"' then it
+		# doesn't seem to do *anything*.
+		#gen_usr_ldscript "libelf-${PV}"
+		gen_usr_ldscript -a elf
+
+		# We now have a broken symlink libelf.so.1 -> libelf-0.170.so in /lib*
+		# and the original library plus the ld script in /usr/lib*
+		if [[
+			     -f "${ED%/}/usr/$(get_libdir)/libelf-${PV}.so"
+			&&   -L "${ED%/}/$(get_libdir)/libelf.so.1"
+			&& ! -r "${ED%/}/$(get_libdir)/libelf.so.1"
+		]]; then
+			ewarn "Fixing-up bad gen_usr_ldscript result ..."
+			mv "${ED%/}/usr/$(get_libdir)/libelf-${PV}.so" "${ED%/}/$(get_libdir)/"
+		fi
+	fi
+}
+
 multilib_src_install_all() {
 	einstalldocs
 	dodoc NOTES
+
 	# These build quick, and are needed for most tests, so don't
 	# disable their building when the USE flag is disabled.
 	if ! use utils; then
 		rm -rf "${ED}"/usr/bin || die
-	fi
-	if multilib_is_native_abi; then
-		if use sep-usr; then
-			gen_usr_ldscript -a elf
-		fi
 	fi
 }
