@@ -71,11 +71,11 @@ src_install() {
 	emake PREFIX="${ED}" STRIP=true install
 
 	# Compare package versions against repo version before overwriting...
-	#exeinto /etc/miniupnpd
-	#newexe "${FILESDIR}"/iptables_init.sh-r2 iptables_init.sh
-	#newexe "${FILESDIR}"/iptables_removeall.sh-r2 iptables_removeall.sh
-	#doexe "${FILESDIR}"/ip6tables_init.sh
-	#doexe "${FILESDIR}"/ip6tables_removeall.sh
+	exeinto /etc/miniupnpd
+	newexe "${FILESDIR}"/iptables_init.sh-r2 iptables_init.sh
+	newexe "${FILESDIR}"/iptables_removeall.sh-r2 iptables_removeall.sh
+	doexe "${FILESDIR}"/ip6tables_init.sh
+	doexe "${FILESDIR}"/ip6tables_removeall.sh
 
 	newinitd "${FILESDIR}"/${PN}-init.d-r1 ${PN}
 	newconfd "${FILESDIR}"/${PN}-conf.d-r1 ${PN}
