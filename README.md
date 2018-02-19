@@ -381,6 +381,8 @@ used to build perl)
     * Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory
 * sys-apps/usbutils
     * Revert changes which make usbutils dependent on udev
+* sys-kernel/linux-firmware
+    * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
