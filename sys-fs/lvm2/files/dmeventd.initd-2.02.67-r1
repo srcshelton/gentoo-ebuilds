@@ -13,8 +13,24 @@ depend() {
 }
 
 start() {
+	local -i pid
+	if [ -e "${PIDFILE}" ]; then
+		pid=$( < "${PID}" )
+		if kill -0 ${pid} >/dev/null 2>&1; then
+			eerror "${svc} already appears to be running as process ${pid}"
+			return 1
+		else
+			ewarn "Detected stale pidfile '${PID}' for defunct process ${pid} - removing"
+			rm -f "${PID}" /var/run/dmeventd-{client,server} >/dev/null 2>&1
+		fi
+	fi
+
 	ebegin "Starting dmeventd"
-	start-stop-daemon --start --exec "${BIN}" --pidfile "${PIDFILE}"
+	# dmeventd aborts rapidly if left to daemonise into the background,
+	# which is the default behaviour. Running it in the foreground but then
+	# letting start-stop-daemon background it seems fine, though!
+	start-stop-daemon --start --exec "${BIN}" --background \
+		--pidfile "${PIDFILE}" -- -f
 	eend $?
 }
 
@@ -22,5 +38,15 @@ stop() {
 	ebegin "Stopping dmeventd"
 	start-stop-daemon --stop --exec "${BIN}" --pidfile "${PIDFILE}"
 	eend $?
-}
 
+	if [ -e "${PIDFILE}" ]; then
+		pid=$( < "${PID}" )
+		if kill -0 ${pid} >/dev/null 2>&1; then
+			eerror "${svc} appears to still be running as process ${pid}"
+			return 1
+		else
+			ewarn "Detected stale pidfile '${PID}' for defunct process ${pid} - removing"
+			rm -f "${PID}" /var/run/dmeventd-{client,server} >/dev/null 2>&1
+		fi
+	fi
+}
