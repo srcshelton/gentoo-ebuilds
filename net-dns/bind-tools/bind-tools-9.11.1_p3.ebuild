@@ -132,17 +132,13 @@ src_install() {
 	cd "${S}"/bin/nsupdate
 	dobin nsupdate
 	doman nsupdate.1
-	if use doc; then
-		dohtml nsupdate.html
-	fi
+	use doc && dohtml nsupdate.html
 
 	cd "${S}"/bin/dnssec
 	for tool in dsfromkey importkey keyfromlabel keygen \
 	  revoke settime signzone verify; do
 		dobin dnssec-"${tool}"
 		doman dnssec-"${tool}".8
-		if use doc; then
-			dohtml dnssec-"${tool}".html
-		fi
+		use doc && dohtml dnssec-"${tool}".html
 	done
 }
