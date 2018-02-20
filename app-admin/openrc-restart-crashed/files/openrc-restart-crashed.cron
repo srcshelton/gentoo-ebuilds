@@ -12,7 +12,7 @@ HOME=/
 #   hour		(0-23)
 #   day of month	(1-31)
 #   month of year	(1-12)
-#   day of week		(0-6, Sunday == 0)
+#   day of week		(0-7, Sunday == 0 and 7)
 
 * * * * *	root	test -x /usr/local/sbin/openrc-restart-crashed && /usr/local/sbin/openrc-restart-crashed --quiet -- $services
 
