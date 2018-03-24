@@ -11,7 +11,7 @@ SRC_URI="http://primates.ximian.com/~flucifredi/man/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~amd64-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh sparc ~x86 ~amd64-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+lzma nls selinux"
 
@@ -24,7 +24,7 @@ RDEPEND="|| ( >=sys-apps/groff-1.19.2-r1 app-doc/heirloom-doctools )
 
 pkg_setup() {
 	enewgroup man 15
-	enewuser man 13 -1 ${EPREFIX}/usr/share/man man
+	enewuser man 13 -1 "${EPREFIX}"/usr/share/man man
 }
 
 src_prepare() {
@@ -156,7 +156,11 @@ src_install() {
 	newexe "${T}"/makewhatis.cron makewhatis
 
 	keepdir /var/cache/man
-	use prefix || diropts -m0775 -g man && diropts -m0775
+	if use prefix; then
+		diropts -m0775
+	else
+		diropts -m0775 -g man
+	fi
 	local mansects=$(grep ^MANSECT "${ED}"/etc/man.conf | cut -f2-)
 	for x in ${mansects//:/ } ; do
 		keepdir /var/cache/man/cat${x}
