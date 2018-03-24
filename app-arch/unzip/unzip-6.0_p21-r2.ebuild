@@ -16,7 +16,7 @@ SRC_URI="mirror://sourceforge/infozip/${MY_P}.tar.gz
 
 LICENSE="Info-ZIP"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~arm-linux ~x86-linux"
 KEYWORDS+="~ppc-aix ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="bzip2 natspec unicode"
 
@@ -61,13 +61,13 @@ src_prepare() {
 
 src_configure() {
 	case ${CHOST} in
-	i?86*-*linux*)       TARGET="linux_asm" ;;
-	*linux*)             TARGET="linux_noasm" ;;
-	i?86*-*bsd* | \
-	i?86*-dragonfly*)    TARGET="freebsd" ;; # mislabelled bsd with x86 asm
-	*bsd* | *dragonfly*) TARGET="bsd" ;;
-	*-darwin*)           TARGET="macosx"; append-cppflags "-DNO_LCHMOD" ;;
-	*-cygwin*)           TARGET="cygwin" ;;
+		i?86*-*linux*)       TARGET="linux_asm" ;;
+		*linux*)             TARGET="linux_noasm" ;;
+		i?86*-*bsd* | \
+		i?86*-dragonfly*)    TARGET="freebsd" ;; # mislabelled bsd with x86 asm
+		*bsd* | *dragonfly*) TARGET="bsd" ;;
+		*-darwin*)           TARGET="macosx"; append-cppflags "-DNO_LCHMOD" ;;
+		*-cygwin*)           TARGET="cygwin" ;;
 		*-solaris*)          TARGET="generic" ;;
 		mips-sgi-irix*)      TARGET="sgi"; append-cppflags "-DNO_LCHMOD" ;;
 		*-interix3*)         TARGET="gcc"; append-flags "-DUNIX"; append-cppflags "-DNO_LCHMOD" ;;
@@ -75,7 +75,7 @@ src_configure() {
 		*-aix*)              TARGET="gcc"; append-cppflags "-DNO_LCHMOD"; append-ldflags "-Wl,-blibpath:${EPREFIX}/usr/$(get_libdir)" ;;
 		*-hpux*)             TARGET="gcc"; append-ldflags "-Wl,+b,${EPREFIX}/usr/$(get_libdir)" ;;
 		*-mint*)             TARGET="generic" ;;
-	*) die "Unknown target; please update the ebuild to handle ${CHOST}	" ;;
+		*) die "Unknown target; please update the ebuild to handle ${CHOST}	" ;;
 	esac
 
 	[[ ${CHOST} == *linux* ]] && append-cppflags -DNO_LCHMOD
