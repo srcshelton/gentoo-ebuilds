@@ -3,7 +3,7 @@
 
 EAPI="4"
 
-inherit eutils toolchain-funcs user flag-o-matic prefix
+inherit eutils flag-o-matic prefix toolchain-funcs user
 
 DESCRIPTION="Standard commands to read man pages"
 HOMEPAGE="http://primates.ximian.com/~flucifredi/man/"
@@ -11,7 +11,7 @@ SRC_URI="http://primates.ximian.com/~flucifredi/man/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh sparc ~x86 ~amd64-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 ~hppa ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd"
 KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+lzma nls selinux"
 
@@ -116,16 +116,25 @@ src_configure() {
 	else
 		mylang="none"
 	fi
-
-	local myconf=
-	use prefix || myconf="${myconf} +sgid"
-
 	export COMPRESS
 	if use lzma ; then
 		COMPRESS="${EPREFIX}"/usr/bin/xz
 	else
 		COMPRESS="${EPREFIX}"/bin/bzip2
 	fi
+
+	local myconf=
+	use prefix || myconf="${myconf} +sgid"
+
+	if [[ -n ${EPREFIX} ]]; then
+		hprefixify configure || die
+		sed -i \
+			-e "s/man_user=root/man_user=$(id -u)/"  \
+			-e "s/man_group=man/man_group=$(id -g)/" \
+			configure || die "Failed to disable suid/sgid options for prefix man"
+		sed -i -e 's:/usr/bin:@bindir@:' man2html/Makefile.in || die
+	fi
+
 	echoit \
 	./configure \
 		-prefix="${EPREFIX}/usr" \
@@ -202,3 +211,4 @@ pkg_postinst() {
 		ewarn "configuration."
 	fi
 }
+# vi: set diffopt=iwhite,filler:
