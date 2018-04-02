@@ -17,7 +17,7 @@ SRC_URI="
 
 LICENSE="GPL-2"
 #SLOT="0"
-KEYWORDS="amd64 ~arm ~mips ppc x86"
+KEYWORDS="amd64 ~arm ppc x86"
 IUSE="apache asterisk cgi dhcpd doc http ipmi ipv6 irc java memcached minimal mysql postgres selinux ssl syslog systemd test"
 REQUIRED_USE="cgi? ( !minimal ) apache? ( cgi )"
 
