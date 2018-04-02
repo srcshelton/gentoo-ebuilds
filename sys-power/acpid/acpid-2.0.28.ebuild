@@ -1,6 +1,5 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 597dd1b5275775720c2af9a15be70bf05fc65a80 $
 
 EAPI=6
 inherit linux-info systemd
@@ -11,7 +10,7 @@ SRC_URI="mirror://sourceforge/${PN}2/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ia64 x86"
+KEYWORDS="amd64 ~arm64 ia64 x86"
 IUSE="selinux systemd"
 
 RDEPEND="selinux? ( sec-policy/selinux-apm )"
