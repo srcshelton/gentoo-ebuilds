@@ -1,38 +1,48 @@
 # Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=6
 
 inherit eutils multilib-minimal
 
 DESCRIPTION="Multi-platform library designed to allow a developer to create robust software"
 HOMEPAGE="http://www.jedsoft.org/slang/"
-SRC_URI="http://www.jedsoft.org/releases/${PN}/${P}.tar.bz2
-	http://www.jedsoft.org/releases/${PN}/old/${P}.tar.bz2"
-
+if [[ "${PV}" = *_pre* ]] ; then
+	MY_P="${PN}-pre${PV/_pre/-}"
+	SRC_URI="https://www.jedsoft.org/snapshots/${MY_P}.tar.gz"
+	S="${WORKDIR}/${MY_P}"
+else
+	SRC_URI="http://www.jedsoft.org/releases/${PN}/${P}.tar.bz2
+		http://www.jedsoft.org/releases/${PN}/old/${P}.tar.bz2"
+	KEYWORDS="alpha amd64 ~arm ~arm64 hppa ia64 ~mips ~ppc ~ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x86-solaris"
+fi
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x86-solaris"
 IUSE="cjk pcre png readline sep-usr static-libs zlib"
 
 # ncurses for ncurses5-config to get terminfo directory
-RDEPEND="sys-libs/ncurses:0=
-	pcre? ( >=dev-libs/libpcre-8.33-r1[${MULTILIB_USEDEP}] )
-	png? ( >=media-libs/libpng-1.6.10:0[${MULTILIB_USEDEP}] )
+RDEPEND="
+	sys-libs/ncurses:0=
 	cjk? ( >=dev-libs/oniguruma-5.9.5:=[${MULTILIB_USEDEP}] )
+	pcre? ( >=dev-libs/libpcre-8.33-r1[${MULTILIB_USEDEP}] )
+	png? ( >=media-libs/libpng-1.6.10:0=[${MULTILIB_USEDEP}] )
 	readline? ( >=sys-libs/readline-6.2_p5-r1:0=[${MULTILIB_USEDEP}] )
 	zlib? ( >=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}] )
 	abi_x86_32? (
 		!app-emulation/emul-linux-x86-baselibs[-abi_x86_32(-)]
 		!<=app-emulation/emul-linux-x86-baselibs-20140406-r1
-	)"
+	)
+"
 DEPEND="${RDEPEND}"
 
-MAKEOPTS="${MAKEOPTS} -j1"
+MAKEOPTS+=" -j1"
+
+PATCHES=(
+	"${FILESDIR}"/${PN}-2.3.1-slsh-libs.patch
+)
 
 src_prepare() {
-	epatch "${FILESDIR}"/${PN}-2.2.3-slsh-libs.patch
-	epatch "${FILESDIR}"/${PN}-2.2.4-memset.patch
+	default
 
 	# avoid linking to -ltermcap race with some systems
 	sed -i -e '/^TERMCAP=/s:=.*:=:' configure || die
@@ -45,23 +55,22 @@ src_prepare() {
 }
 
 multilib_src_configure() {
-	local myconf=slang
-	use readline && myconf=gnu
-
-	econf \
-		--with-readline=${myconf} \
-		$(use_with pcre) \
-		$(use_with cjk onig) \
-		$(use_with png) \
+	local myeconfargs=(
+		--with-readline=$(usex readline gnu slang)
+		$(use_with pcre)
+		$(use_with cjk onig)
+		$(use_with png)
 		$(use_with zlib z)
+	)
+	econf "${myeconfargs[@]}"
 }
 
 multilib_src_compile() {
 	emake elf $(use static-libs && echo static)
 
-	pushd slsh >/dev/null
+	pushd slsh >/dev/null || die
 	emake slsh
-	popd
+	popd || die
 }
 
 multilib_src_install() {
@@ -74,7 +83,7 @@ multilib_src_install() {
 }
 
 multilib_src_install_all() {
-	rm -r "${ED}"/usr/share/doc/{slang,slsh}
+	rm -r "${ED%/}"/usr/share/doc/{slang,slsh} || die
 	dodoc NEWS README *.txt doc/{,internal,text}/*.txt
 	dohtml doc/slangdoc.html slsh/doc/html/*.html
 }
