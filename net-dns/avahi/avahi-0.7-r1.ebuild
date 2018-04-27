@@ -16,8 +16,8 @@ SRC_URI="https://github.com/lathiat/avahi/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="LGPL-2.1"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 ~hppa ia64 ~mips ppc ppc64 sparc x86"
-IUSE="autoipd bookmarks dbus doc gdbm gtk gtk3 howl-compat +introspection ipv6 kernel_linux mdnsresponder-compat mono nls python qt4 selinux test"
+KEYWORDS="alpha amd64 ~arm ~arm64 ~hppa ia64 ~mips ppc ppc64 sparc x86 ~amd64-fbsd"
+IUSE="autoipd bookmarks dbus doc gdbm gtk gtk3 howl-compat +introspection ipv6 kernel_linux mdnsresponder-compat mono nls python qt5 selinux test"
 
 REQUIRED_USE="
 	python? ( dbus gdbm ${PYTHON_REQUIRED_USE} )
@@ -31,7 +31,7 @@ COMMON_DEPEND="
 	dev-libs/expat
 	dev-libs/glib:2[${MULTILIB_USEDEP}]
 	gdbm? ( sys-libs/gdbm[${MULTILIB_USEDEP}] )
-	qt4? ( dev-qt/qtcore:4[${MULTILIB_USEDEP}] )
+	qt5? ( dev-qt/qtcore:5 )
 	gtk? ( x11-libs/gtk+:2[${MULTILIB_USEDEP}] )
 	gtk3? ( x11-libs/gtk+:3[${MULTILIB_USEDEP}] )
 	dbus? ( sys-apps/dbus[${MULTILIB_USEDEP}] )
@@ -67,6 +67,10 @@ RDEPEND="
 	selinux? ( sec-policy/selinux-avahi )
 "
 
+MULTILIB_WRAPPED_HEADERS=( /usr/include/avahi-qt5/qt-watch.h )
+
+PATCHES=( "${FILESDIR}/${P}-qt5.patch" )
+
 pkg_preinst() {
 	enewgroup netdev
 	enewgroup avahi
@@ -83,6 +87,8 @@ pkg_setup() {
 }
 
 src_prepare() {
+	default
+
 	if ! use ipv6; then
 		sed -i \
 			-e s/use-ipv6=yes/use-ipv6=no/ \
@@ -97,11 +103,6 @@ src_prepare() {
 	sed -i \
 		-e '/^avahi_runtime_dir=/s|/run|/var/run|' \
 		configure.ac || die
-
-	# Don't pick up wrong moc based on qtchooser default, bug #587830
-	eapply "${FILESDIR}"/${PN}-0.6.32-mocqt4.patch
-
-	eapply_user
 
 	# Prevent .pyc files in DESTDIR
 	>py-compile
@@ -142,6 +143,8 @@ multilib_src_configure() {
 		)
 	fi
 
+	myconf+=( $(multilib_native_use_enable qt5) )
+
 	econf \
 		--localstatedir="${EPREFIX}/var" \
 		--with-distro=gentoo \
@@ -164,7 +167,7 @@ multilib_src_configure() {
 		$(use_enable nls) \
 		$(multilib_native_use_enable introspection) \
 		--disable-qt3 \
-		$(use_enable qt4) \
+		--disable-qt4 \
 		$(use_enable gdbm) \
 		--with-systemdsystemunitdir="$(systemd_get_systemunitdir)" \
 		"${myconf[@]}"
