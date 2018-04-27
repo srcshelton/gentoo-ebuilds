@@ -1,7 +1,7 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="6"
+EAPI=6
 
 inherit autotools eutils flag-o-matic linux-info pam
 
@@ -33,12 +33,15 @@ pkg_setup() {
 	linux-info_pkg_setup
 }
 
-src_prepare() {
-	epatch "${FILESDIR}"/${P}-replace_DECLS.patch
-	epatch "${FILESDIR}"/${P}-replace_INLCUDES.patch
-	epatch "${FILESDIR}"/${P}-reorder-headers.patch
-	epatch "${FILESDIR}"/${P}-remount.patch
+PATCHES=(
+	"${FILESDIR}"/${P}-replace_DECLS.patch
+	"${FILESDIR}"/${P}-replace_INLCUDES.patch
+	"${FILESDIR}"/${P}-reorder-headers.patch
+	"${FILESDIR}"/${P}-remount.patch
+)
 
+src_prepare() {
+	default
 	# Change rules file location
 	sed -e 's:/etc/cgrules.conf:/etc/cgroup/cgrules.conf:' \
 		-i src/libcgroup-internal.h || die "sed failed"
@@ -48,7 +51,6 @@ src_prepare() {
 		-i src/pam/Makefile.am || die "sed failed"
 	sed -e 's#/var/run#/run#g' -i configure.in || die "sed failed"
 
-	eapply_user
 	eautoreconf
 }
 
