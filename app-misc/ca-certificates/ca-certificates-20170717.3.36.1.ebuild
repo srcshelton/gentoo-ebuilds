@@ -1,6 +1,5 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 81b211a0da04bd7dc3fa89b93aabf0863de29d69 $
 
 # The Debian ca-certificates package merely takes the CA database as it exists
 # in the nss package and repackages it for use by openssl.
@@ -25,8 +24,9 @@
 # - If people want to add/remove certs, tell them to file w/mozilla:
 #   https://bugzilla.mozilla.org/enter_bug.cgi?product=NSS&component=CA%20Certificates&version=trunk
 
-EAPI="4"
-PYTHON_COMPAT=( python2_7 )
+EAPI=6
+
+PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6} )
 
 inherit eutils python-any-r1
 
@@ -45,33 +45,34 @@ else
 fi
 
 DESCRIPTION="Common CA Certificates PEM files"
-HOMEPAGE="http://packages.debian.org/sid/ca-certificates"
+HOMEPAGE="https://packages.debian.org/sid/ca-certificates"
+NMU_PR=""
 if ${PRECOMPILED} ; then
-	#NMU_PR="1"
 	SRC_URI="mirror://debian/pool/main/c/${PN}/${PN}_${PV}${NMU_PR:++nmu}${NMU_PR}_all.deb"
 else
 	SRC_URI="mirror://debian/pool/main/c/${PN}/${PN}_${DEB_VER}${NMU_PR:++nmu}${NMU_PR}.tar.xz
-		ftp://ftp.mozilla.org/pub/mozilla.org/security/nss/releases/${RTM_NAME}/src/nss-${NSS_VER}.tar.gz
-		cacert? ( https://dev.gentoo.org/~anarchy/patches/nss-3.14.1-add_spi+cacerts_ca_certs.patch )"
+		https://archive.mozilla.org/pub/security/nss/releases/${RTM_NAME}/src/nss-${NSS_VER}.tar.gz
+		cacert? (
+			https://dev.gentoo.org/~axs/distfiles/nss-cacert-class1-class3.patch
+		)"
 fi
 
 LICENSE="MPL-1.1"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~s390 ~sh ~sparc ~x86 ~ppc-aix ~amd64-fbsd ~sparc-fbsd ~x86-fbsd ~x64-freebsd ~x86-freebsd ~hppa-hpux ~ia64-hpux ~x86-interix ~amd64-linux ~arm-linux ~ia64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
-IUSE=""
-${PRECOMPILED} || IUSE+=" +cacert"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
+IUSE="insecure_certs"
+${PRECOMPILED} || IUSE+=" cacert"
 
 DEPEND=""
 if ${PRECOMPILED} ; then
+	DEPEND+=" !<sys-apps/portage-2.1.10.41"
 	# platforms like AIX don't have a good ar
-	DEPEND+="
-		kernel_AIX? ( app-arch/deb2targz )
-		!<sys-apps/portage-2.1.10.41"
+	DEPEND+=" kernel_AIX? ( app-arch/deb2targz )"
 fi
-# openssl: we run `c_rehash`
+# c_rehash: we run `c_rehash`; newer version for alt-cert-paths #552540
 # debianutils: we run `run-parts`
 RDEPEND="${DEPEND}
-	dev-libs/openssl
+	>=app-misc/c_rehash-1.7-r1
 	sys-apps/debianutils"
 
 if ! ${PRECOMPILED}; then
@@ -106,15 +107,16 @@ src_prepare() {
 
 		if use cacert ; then
 			pushd "${S}"/nss-${NSS_VER} >/dev/null || die "Could not chdir() to '${S}/nss-${NSS_VER}'"
-			epatch "${DISTDIR}"/nss-3.14.1-add_spi+cacerts_ca_certs.patch || die "Patch failed"
+			epatch "${DISTDIR}"/nss-cacert-class1-class3.patch
 			popd >/dev/null
 		fi
 	fi
 
-	epatch "${FILESDIR}"/${PN}-20110502-root.patch
+	default
+	eapply -p2 "${FILESDIR}"/${PN}-20150426-root.patch
 	local relp=$(echo "${EPREFIX}" | sed -e 's:[^/]\+:..:g')
 	sed -i \
-		-e '/="$ROOT/s:ROOT/:ROOT'"${EPREFIX}"'/:' \
+		-e '/="$ROOT/s:ROOT:ROOT'"${EPREFIX}"':' \
 		-e '/RELPATH="\.\./s:"$:'"${relp}"'":' \
 		usr/sbin/update-ca-certificates || die
 }
@@ -123,28 +125,39 @@ src_compile() {
 	cd "image/${EPREFIX}" || die
 	if ! ${PRECOMPILED} ; then
 		python_setup
-		local d="${S}/${PN}/mozilla"
+		local d="${S}/${PN}/mozilla" c="usr/share/${PN}"
 		# Grab the database from the nss sources.
 		cp "${S}"/nss-${NSS_VER}/nss/lib/ckfw/builtins/{certdata.txt,nssckbi.h} "${d}" || die
 		emake -C "${d}"
 
 		# Now move the files to the same places that the precompiled would.
-		mkdir -p etc/ssl/certs etc/ca-certificates/update.d usr/share/ca-certificates/mozilla
+		mkdir -p etc/ssl/certs etc/ca-certificates/update.d "${c}"/mozilla
 		if use cacert ; then
-			mkdir -p usr/share/ca-certificates/{cacert.org,spi-inc.org}
-			mv "${d}"/CAcert_Inc..crt usr/share/ca-certificates/cacert.org/cacert.org_root.crt || die
-			mv "${d}"/SPI_Inc..crt usr/share/ca-certificates/spi-inc.org/spi-cacert-2008.crt || die
+			mkdir -p "${c}"/cacert.org
+			mv "${d}"/CAcert_Inc..crt "${c}"/cacert.org/cacert.org_root.crt || die
 		fi
-		mv "${d}"/*.crt usr/share/ca-certificates/mozilla/ || die
+		mv "${d}"/*.crt "${c}"/mozilla/ || die
 	else
 		mv usr/share/doc/{ca-certificates,${PF}} || die
+	fi
+
+	if ! use insecure_certs ; then
+		elog "To prevent applications which rely upon the system's trusted root certificate"
+		elog "store from using CAs upon which trust-level restrictions have been applied by"
+		elog "at least one major browser vendor that Gentoo is tracking, the following"
+		elog "certificate(s) were removed:"
+		# Remove untrusted certs from StartCom and WoSign (bug #598072)
+		elog "$(find "${c}" -type f \(	\
+			   -iname '*startcom*'		\
+			-o -iname '*wosign*'		\
+			\) -printf '%P removed; see https://bugs.gentoo.org/598072 for details\n' -delete)"
 	fi
 
 	(
 	echo "# Automatically generated by ${CATEGORY}/${PF}"
 	echo "# $(date -u)"
 	echo "# Do not edit."
-	cd usr/share/ca-certificates
+	cd "${c}"
 	find * -name '*.crt' | LC_ALL=C sort
 	) > etc/ca-certificates.conf
 
@@ -156,7 +169,7 @@ src_install() {
 	if ! ${PRECOMPILED} ; then
 		cd ca-certificates
 		doman sbin/*.8
-		dodoc debian/README.*
+		dodoc debian/README.* examples/ca-certificates-local/README
 	fi
 
 	echo 'CONFIG_PROTECT_MASK="/etc/ca-certificates.conf"' > 98ca-certificates
@@ -172,12 +185,7 @@ pkg_postinst() {
 		"${EROOT}"/usr/sbin/update-ca-certificates --root "${EROOT}"
 	fi
 
-	local c badcerts=0
-	for c in $(find -L "${EROOT}"etc/ssl/certs/ -type l) ; do
-		ewarn "Broken symlink for a certificate at $c"
-		badcerts=1
-	done
-	if [ $badcerts -eq 1 ]; then
+	if [ -n "$(find -L "${EROOT}"etc/ssl/certs/ -type l)" ] ; then
 		ewarn "Removing the following broken symlinks:"
 		ewarn "$(find -L "${EROOT}"/etc/ssl/certs/ -type l -printf '%p -> %l\n' -delete)"
 	fi
