@@ -1,0 +1,16 @@
+[Unit]
+Description=TeamSpeak3 Server
+After=network-online.target
+
+[Service]
+Type=simple
+User=teamspeak
+Group=teamspeak
+WorkingDirectory=/opt/teamspeak3
+Environment="LD_LIBRARY_PATH=/opt/teamspeak3/lib"
+Environment="TS3SERVER_LICENSE=accept"
+ExecStartPre=/bin/rm -f /dev/shm/7gbhujb54g8z9hu43jre8
+ExecStart=/opt/teamspeak3/bin/ts3server inifile=/etc/teamspeak/server.conf
+
+[Install]
+WantedBy=multi-user.target
