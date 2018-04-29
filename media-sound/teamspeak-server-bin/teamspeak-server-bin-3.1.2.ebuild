@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit eutils systemd user
+inherit systemd user
 
 DESCRIPTION="Voice chat software designed with security in mind"
 HOMEPAGE="https://www.teamspeak.com/"
@@ -41,27 +41,22 @@ src_install() {
 	touch "${T%/}"/.ts3server_license_accepted || die
 	doins "${T}"/.ts3server_license_accepted
 
-	# Install binary and wrapper
 	newsbin ts3server ts3server-bin
 	# Standard package installs ts3server to /usr/sbin directory
 	dobin "${FILESDIR}"/ts3server
 
-	# Install libs
 	# 'dolib' may install to libx32 or lib64 - we just want 'lib' alone
 	insinto "${opt_dir}"/lib
 	doins *.so redist/libmariadb.so.2
 	#doins libts3db_sqlite3.so
 
-	# Install sql
 	# Standard package installs sql directory to /opt/teamspeak3-server directory
 	insinto "${opt_dir}"/lib
 	doins -r sql
 
-	# Install config
 	insinto /etc/teamspeak
 	doins "${FILESDIR}"/server.conf "${FILESDIR}"/ts3db_mariadb.ini
 
-	# Install init script and systemd unit
 	newinitd "${FILESDIR}"/${PN/-server-bin}.initd teamspeak3
 	newconfd "${FILESDIR}"/${PN}-conf-r1 teamspeak3
 	if use systemd; then
@@ -83,7 +78,6 @@ src_install() {
 	#	doins -r "sql/updates_and_fixes"
 	#fi
 
-	# Install optional docs
 	dodoc -r CHANGELOG doc/*.txt
 	if use doc; then
 		dodoc -r serverquerydocs
@@ -98,7 +92,6 @@ src_install() {
 		dosym ../../../usr/share/doc/${PF}/serverquery ${opt_dir}/doc/serverquery
 	fi
 
-	# Install tsdns
 	if use tsdns; then
 		newdoc tsdns/README README.tsdns
 		newdoc tsdns/USAGE USAGE.tsdns
@@ -107,10 +100,8 @@ src_install() {
 		doins tsdns/tsdns_settings.ini.sample
 	fi
 
-	# Install docs
 	einstalldocs
 
-	# Keep directories
 	keepdir "/etc/teamspeak"
 	keepdir "/var/log/teamspeak3"
 
@@ -122,7 +113,6 @@ src_install() {
 	#fi
 	#doenvd "${T}"/99teamspeak3-server
 
-	# Set permissions
 	fowners -R teamspeak:teamspeak "${opt_dir}" /var/log/teamspeak3
 	fperms 700 /etc/teamspeak
 	fperms 700 /var/log/teamspeak3
