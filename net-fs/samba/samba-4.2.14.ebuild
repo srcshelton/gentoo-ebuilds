@@ -1,6 +1,5 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: b654ea9c0184f485302edc69a1c11d97976b2b1d $
 
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
@@ -20,7 +19,7 @@ SRC_URI="mirror://samba/${SRC_PATH}/${MY_P}.tar.gz
 KEYWORDS="alpha amd64 arm hppa ~ia64 ppc ppc64 ~sparc ~x86"
 
 DESCRIPTION="Samba Suite Version 4"
-HOMEPAGE="http://www.samba.org/"
+HOMEPAGE="https://www.samba.org/"
 LICENSE="GPL-3"
 
 SLOT="0"
@@ -49,6 +48,7 @@ CDEPEND="${PYTHON_DEPS}
 	sys-libs/readline:=
 	virtual/libiconv
 	dev-python/subunit[${PYTHON_USEDEP},${MULTILIB_USEDEP}]
+	net-libs/libnsl:=[${MULTILIB_USEDEP}]
 	>=net-libs/socket_wrapper-1.1.2[${MULTILIB_USEDEP}]
 	sys-apps/attr[${MULTILIB_USEDEP}]
 	sys-libs/libcap
@@ -64,7 +64,10 @@ CDEPEND="${PYTHON_DEPS}
 	acl? ( virtual/acl )
 	addns? ( net-dns/bind-tools[gssapi] )
 	aio? ( dev-libs/libaio )
-	cluster? ( !dev-db/ctdb )
+	cluster? (
+		net-libs/rpcsvc-proto
+		!dev-db/ctdb
+	)
 	cups? ( net-print/cups )
 	dmapi? ( sys-apps/dmapi )
 	fam? ( virtual/fam )
@@ -92,6 +95,7 @@ S="${WORKDIR}/${MY_P}"
 PATCHES=(
 	"${FILESDIR}/${PN}-4.2.3-heimdal_compilefix.patch"
 	"${FILESDIR}/${PN}-4.2.7-pam.patch"
+	"${FILESDIR}/${PN}-glibc-2.26-no_rpc.patch" #637320
 )
 
 CONFDIR="${FILESDIR}/$(get_version_component_range 1-2)"
@@ -254,8 +258,8 @@ pkg_postinst() {
 	ewarn "controller work previously known as 'samba4'."
 
 	elog "For further information and migration steps make sure to read "
-	elog "http://samba.org/samba/history/${P}.html "
-	elog "http://samba.org/samba/history/${PN}-4.2.0.html and"
-	elog "http://wiki.samba.org/index.php/Samba4/HOWTO "
+	elog "https://www.samba.org/samba/history/${P}.html "
+	elog "https://www.samba.org/samba/history/${PN}-4.2.0.html and"
+	elog "https://wiki.samba.org/index.php/Samba4/HOWTO "
 }
 # vi: set diffopt=iwhite,filler:
