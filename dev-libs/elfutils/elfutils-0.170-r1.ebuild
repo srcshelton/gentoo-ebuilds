@@ -60,7 +60,7 @@ multilib_src_install() {
 
 	if use sep-usr && multilib_is_native_abi; then
 		# Rather than being named libelf.so.0.170, libs are instead named
-		# libelf-0.170.so!?
+		# libelf-0.170.so...
 		# The comments in gen_usr_ldscript indicate that this is sometimes the
 		# case, but, as below, gen_usr_ldscript then does the wrong thing.
 		# Indeed, if called as 'gen_usr_ldscript "libelf-${PV}"' then it
