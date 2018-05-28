@@ -48,6 +48,7 @@ src_configure()
 src_install()
 {
 	default
+	keepdir /var/lib/dhcpcd
 	newinitd "${FILESDIR}"/${PN}.initd ${PN}
 	use systemd && systemd_dounit "${FILESDIR}"/${PN}.service
 }
