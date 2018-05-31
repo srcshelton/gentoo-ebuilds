@@ -59,6 +59,7 @@ RDEPEND="${DEPEND_COMMON}
 	)
 "
 DEPEND="${DEPEND_COMMON}
+	net-libs/rpcsvc-proto
 	virtual/pkgconfig"
 
 PATCHES=(
@@ -85,6 +86,7 @@ src_configure() {
 		--enable-tirpc
 		--with-tirpcinclude="${EPREFIX%/}"/usr/include/tirpc/
 		--with-pluginpath="${EPREFIX%/}"/usr/$(get_libdir)/libnfsidmap
+		--with-rpcgen
 		$(use_with systemd systemd "$(systemd_get_systemunitdir)")
 		--without-gssglue
 		$(use_enable caps)
@@ -159,6 +161,7 @@ src_install() {
 
 	keepdir /var/lib/nfs #368505
 	keepdir /var/lib/nfs/v4recovery #603628
+
 }
 
 pkg_postinst() {
@@ -185,3 +188,4 @@ pkg_postinst() {
 		#ewarn "same runlevel as nfsmount."
 	fi
 }
+# vi: set diffopt=iwhite,filler:
