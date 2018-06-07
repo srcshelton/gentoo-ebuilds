@@ -14,7 +14,7 @@ SRC_URI="https://web.mit.edu/kerberos/dist/krb5/${P_DIR}/${MY_P}.tar.gz"
 
 LICENSE="openafs-krb5-a BSD MIT OPENLDAP BSD-2 HPND BSD-4 ISC RSA CC-BY-SA-3.0 || ( BSD-2 GPL-2+ )"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh ~sparc x86"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 s390 ~sh ~sparc x86"
 IUSE="doc +keyutils libressl nls openldap +pkinit selinux sep-usr systemd +threads test xinetd"
 
 # Test suite require network access
@@ -125,7 +125,7 @@ multilib_src_install_all() {
 	dodoc README
 
 	if use doc; then
-		dohtml -r doc/html
+		dodoc -r doc/html
 		docinto pdf
 		dodoc doc/pdf/*.pdf
 	fi
@@ -160,3 +160,4 @@ multilib_src_install_all() {
 		newins "${FILESDIR}/kpropd.xinetd" kpropd
 	fi
 }
+# vi:set diffopt=iwhite,filler:
