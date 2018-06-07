@@ -5,7 +5,7 @@ EAPI=6
 inherit autotools user toolchain-funcs
 
 DESCRIPTION="Network traffic analyzer with web interface"
-HOMEPAGE="http://www.ntop.org/"
+HOMEPAGE="https://www.ntop.org/"
 # Use (updated) stable branch rather than release tag...
 SRC_URI="https://github.com/ntop/${PN}/archive/${PV}-stable.zip -> ${P}.zip"
 RESTRICT="mirror"
