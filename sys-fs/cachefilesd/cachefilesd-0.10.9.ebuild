@@ -1,6 +1,5 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2f12ec6e734840f34adf6cb531ef45c8213d5249 $
 
 EAPI=6
 
@@ -12,7 +11,7 @@ SRC_URI="https://people.redhat.com/~dhowells/fscache/${P}.tar.bz2"
 
 SLOT="0"
 LICENSE="GPL-2+"
-KEYWORDS="amd64 ~x86"
+KEYWORDS="amd64 x86"
 IUSE="doc selinux systemd"
 
 RDEPEND="selinux? ( sec-policy/selinux-cachefilesd )"
