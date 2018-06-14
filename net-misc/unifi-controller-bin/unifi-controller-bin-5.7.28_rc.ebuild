@@ -5,7 +5,8 @@ CHECKREQS_DISK_VAR="500M"
 
 inherit check-reqs unpacker user
 
-MY_HASH=""
+MY_HASH="5c442c6b54"
+MY_DOC="316/2"
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
@@ -15,6 +16,9 @@ DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
 SRC_URI="
 	http://dl.ubnt.com/unifi/${MY_PV}/unifi_sysvinit_all.deb -> unifi-${MY_PV}_sysvinit_all.deb
+	doc? (
+		https://community.ubnt.com/ubnt/attachments/ubnt/Blog_UniFi/${MY_DOC}/UniFi-changelog-5.7.x.txt -> unifi-${MY_PV}_changelog.txt
+	)
 	tools? (
 		https://dl.ubnt.com/unifi/${MY_PV}/unifi_sh_api -> unifi-${MY_PV}_api.sh
 	)"
@@ -22,8 +26,8 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="amd64 arm x86"
-IUSE="nls rpi1 systemd +tools"
+KEYWORDS="~aarch64 ~amd64 ~arm ~x86"
+IUSE="doc nls rpi1 systemd +tools"
 UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT ru sv tr zh_CN )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 
@@ -39,11 +43,13 @@ IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 # version is currently v3.0.14 - but this crashes with the UniFi code, possibly
 # documented in https://jira.mongodb.org/browse/SERVER-22334.
 # As a result, we'll only accept the oldest or newer versions as dependencies.
+# Ubiquiti recommend the use of MongoDB 3.4.x.
 DEPEND="
 	|| (
 		~dev-db/mongodb-2.6.12
 		>=dev-db/mongodb-3.2
 	)
+	<dev-db/mongodb-3.6
 	>=virtual/jre-1.8.0
 	<virtual/jre-1.9.0
 "
@@ -167,6 +173,8 @@ src_install () {
 		newins "${WORKDIR}"/unifi-${MY_PV}_api.sh unifi-api.sh
 		fperms 755 /opt/"${MY_P}"/bin/unifi-api.sh
 	fi
+
+	use doc && newdoc "unifi-${MY_PV}_changelog.txt" CHANGELOG-5.7.txt
 
 	insinto /var/lib/unifi/data
 	doins "${FILESDIR}"/system.properties
