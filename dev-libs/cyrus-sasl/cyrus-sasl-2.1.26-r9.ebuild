@@ -3,7 +3,7 @@
 
 EAPI=5
 
-inherit eutils flag-o-matic multilib autotools pam java-pkg-opt-2 db-use systemd multilib-minimal
+inherit autotools db-use eutils flag-o-matic java-pkg-opt-2 multilib pam systemd multilib-minimal
 
 SASLAUTHD_CONF_VER="2.1.26"
 
@@ -20,7 +20,7 @@ srp ssl static-libs systemd urandom"
 DEPEND="net-mail/mailbase
 	authdaemond? ( || ( net-mail/courier-imap mail-mta/courier ) )
 	berkdb? ( >=sys-libs/db-4.8.30-r1:=[${MULTILIB_USEDEP}] )
-	gdbm? ( >=sys-libs/gdbm-1.10-r1[${MULTILIB_USEDEP}] )
+	gdbm? ( >=sys-libs/gdbm-1.10-r1:=[${MULTILIB_USEDEP}] )
 	kerberos? ( >=virtual/krb5-0-r1[${MULTILIB_USEDEP}] )
 	openldap? ( >=net-nds/openldap-2.4.38-r1[${MULTILIB_USEDEP}] )
 	mysql? ( virtual/mysql )
