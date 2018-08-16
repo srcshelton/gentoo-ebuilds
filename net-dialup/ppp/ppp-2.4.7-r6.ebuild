@@ -14,7 +14,7 @@ SRC_URI="https://download.samba.org/pub/ppp/${P}.tar.gz
 
 LICENSE="BSD GPL-2"
 SLOT="0/${PV}"
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ia64 ~mips ~ppc ~ppc64 ~s390 ~sh sparc x86"
+KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ia64 ~mips ~ppc ~ppc64 ~s390 ~sh sparc x86"
 IUSE="activefilter atm dhcp eap-tls gtk ipv6 libressl pam radius"
 
 DEPEND="activefilter? ( net-libs/libpcap )
@@ -87,11 +87,19 @@ src_prepare() {
 		sed -i -e '/+= radius/s:^:#:' pppd/plugins/Makefile.linux || die
 	fi
 
+	# Respect our pkg-config settings.
+	sed -i \
+		-e 's:pkg-config:$(PKG_CONFIG):' \
+		contrib/pppgetpass/Makefile.linux || die
+	sed -i \
+		-e '/^LIBS/{s:-L/usr/local/ssl/lib::;s:-lcrypto:`$(PKG_CONFIG) --libs libcrypto`:}' \
+		pppd/Makefile.linux || die
+
 	eapply_user #549588
 }
 
 src_compile() {
-	tc-export AR CC
+	tc-export AR CC PKG_CONFIG
 	emake COPTS="${CFLAGS} -D_GNU_SOURCE"
 
 	# build pppgetpass
