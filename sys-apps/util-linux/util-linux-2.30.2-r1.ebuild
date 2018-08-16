@@ -3,9 +3,9 @@
 
 EAPI=6
 
-PYTHON_COMPAT=( python2_7 python3_{4,5,6} )
+PYTHON_COMPAT=( python2_7 )
 
-inherit eutils toolchain-funcs libtool flag-o-matic bash-completion-r1 \
+inherit toolchain-funcs libtool flag-o-matic bash-completion-r1 \
 	pam python-single-r1 multilib-minimal multiprocessing systemd
 
 MY_PV="${PV/_/-}"
