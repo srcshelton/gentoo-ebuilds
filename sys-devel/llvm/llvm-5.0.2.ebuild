@@ -14,7 +14,7 @@ inherit cmake-utils eapi7-ver flag-o-matic multilib-minimal \
 DESCRIPTION="Low Level Virtual Machine"
 HOMEPAGE="https://llvm.org/"
 SRC_URI="https://releases.llvm.org/${PV/_//}/${P/_/}.src.tar.xz
-	https://dev.gentoo.org/~mgorny/dist/llvm/${PN}-5.0.1-patchset.tar.bz2
+	https://dev.gentoo.org/~mgorny/dist/llvm/llvm-5.0.1-patchset.tar.bz2
 	!doc? ( https://dev.gentoo.org/~mgorny/dist/llvm/${P}-manpages.tar.bz2 )"
 
 # Keep in sync with CMakeLists.txt
@@ -33,7 +33,7 @@ ALL_LLVM_TARGETS=( "${ALL_LLVM_TARGETS[@]/#/llvm_targets_}" )
 LICENSE="UoI-NCSA rc BSD public-domain
 	llvm_targets_ARM? ( LLVM-Grant )"
 SLOT="$(ver_cut 1)"
-KEYWORDS="amd64 ~arm ~arm64 ~ppc64 x86 ~amd64-fbsd ~amd64-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="amd64 arm ~arm64 ~ppc64 x86 ~amd64-fbsd ~amd64-linux ~ppc-macos ~x64-macos ~x86-macos"
 IUSE="debug doc gold libedit +libffi ncurses test
 	kernel_Darwin kernel_linux ${ALL_LLVM_TARGETS[*]}"
 
@@ -79,12 +79,15 @@ src_prepare() {
 	eapply "${FILESDIR}"/9999/0007-llvm-config-Clean-up-exported-values-update-for-shar.patch
 
 	# Apply the backported patches
-	eapply "${WORKDIR}/${PN}-5.0.1-patchset"
+	eapply "${WORKDIR}/llvm-5.0.1-patchset"
 	# Copy the new binary file (we don't support git binary patches)
-	cp {"${WORKDIR}/${PN}-5.0.1-patchset",.}/test/tools/llvm-symbolizer/Inputs/print_context.o || die
+	cp {"${WORKDIR}/llvm-5.0.1-patchset",.}/test/tools/llvm-symbolizer/Inputs/print_context.o || die
 
 	# Fix appending -Wl,-rpath-link on non-Linux (-> FreeBSD).
-	eapply "${FILESDIR}"/6.0.9999/0001-cmake-Append-Wl-rpath-link-conditionally-to-GNULD.patch
+	eapply "${FILESDIR}"/6.0.1/0001-cmake-Append-Wl-rpath-link-conditionally-to-GNULD.patch
+
+	# gcc-8 build failure
+	eapply "${FILESDIR}"/5.0.2/0001-Fix-return-type-in-ORC-readMem-client-interface.patch
 
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
