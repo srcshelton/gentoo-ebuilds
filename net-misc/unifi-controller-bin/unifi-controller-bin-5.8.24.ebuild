@@ -5,7 +5,7 @@ CHECKREQS_DISK_VAR="500M"
 
 inherit check-reqs unpacker user
 
-MY_HASH="2a76eef78d"
+MY_HASH=""
 MY_DOC="319/2"
 
 MY_P="${P/-bin}"
@@ -26,7 +26,7 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="~aarch64 ~amd64 ~arm ~x86"
+KEYWORDS="aarch64 amd64 arm x86"
 IUSE="doc nls rpi1 systemd +tools"
 UNIFI_LINGUAS=( ca cs da de_DE el en es_ES fr nl pl pt_PT ru sv tr zh_CN )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
