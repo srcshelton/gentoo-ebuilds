@@ -1,9 +1,8 @@
-# Copyright 1999-2017 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6} )
-WANT_AUTOCONF="2.5" # For autoconf-2.60+
 
 inherit autotools fcaps linux-info python-r1 systemd user
 
