@@ -13,7 +13,7 @@ SRC_URI="mirror://apache/spamassassin/source/${MY_P}.tar.bz2"
 
 LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~hppa ia64 ~ppc ppc64 s390 ~sh ~sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~x86-macos"
+KEYWORDS="alpha amd64 arm ~hppa ia64 ppc ppc64 s390 ~sh ~sparc x86 ~x86-fbsd ~amd64-linux ~x86-linux ~x86-macos"
 IUSE="berkdb cron ipv6 ldap libressl mysql postgres qmail sqlite ssl test"
 
 # The Makefile.PL script checks for dependencies, but only fails if a
@@ -88,12 +88,6 @@ PATCHES=(
 	"${FILESDIR}/spamassassin-3.4.1-perl526.patch"
 	"${FILESDIR}/spamassassin-3.4.1-bug_7361.patch"
 )
-
-pkg_setup() {
-	# The spamd daemon runs as this user. Use a real home directory so
-	# that it can hold SA configuration.
-	enewuser spamd -1 -1 /var/lib/spamassassin
-}
 
 src_prepare() {
 	default
@@ -225,6 +219,12 @@ src_test() {
 	# set in SATest.pm.
 	export SPAMD_HOST=disabled
 	default
+}
+
+pkg_preinst() {
+	# The spamd daemon runs as this user. Use a real home directory so
+	# that it can hold SA configuration.
+	enewuser spamd -1 -1 /var/lib/spamassassin
 }
 
 pkg_postinst() {
