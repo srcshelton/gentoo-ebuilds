@@ -247,13 +247,11 @@ pkg_preinst() {
 
 	if ! has_version ">=sys-apps/openrc-0.11.3" ; then
 		migrate_udev_mount_script
-		add_boot_init tmpfiles.setup boot
 	fi
 
 	# these were added in 0.12.
 	if ! has_version ">=sys-apps/openrc-0.12"; then
 		add_boot_init loopback
-		add_boot_init tmpfiles.dev sysinit
 
 		# ensure existing /etc/conf.d/net is not removed
 		# undoes the hack to get around CONFIG_PROTECT in openrc-0.11.8 and earlier
@@ -325,7 +323,7 @@ pkg_postinst() {
 	fi
 
 	# Handle the conf.d/local.{start,stop} -> local.d transition
-	if path_exists -o "${EROOT%/}"etc/conf.d/local.{start,stop} ; then
+	if [[ -f ${EROOT%/}/etc/conf.d/local.start || -f ${EROOT%/}/etc/conf.d/local.stop ]] ; then
 		elog "Moving your ${EROOT%/}/etc/conf.d/local.{start,stop}"
 		elog "files to ${EROOT%/}/etc/local.d"
 		mv "${EROOT%/}"/etc/conf.d/local.start "${EROOT%/}"/etc/local.d/baselayout1.start
@@ -341,7 +339,7 @@ pkg_postinst() {
 	fi
 
 	# update the dependency tree after touching all files #224171
-	[[ "${EROOT}" == "/" ]] && /"${LIBDIR}"/rc/bin/rc-depend -u
+	[[ "${EROOT}" == "/" ]] && "${EROOT%/}/${LIBDIR%/}"/rc/bin/rc-depend -u
 
 	if ! use newnet && ! use netifrc; then
 		ewarn "You have emerged OpenRC without network support. This"
