@@ -25,7 +25,7 @@ DESCRIPTION="The core functions you need to create Docker images and run Docker 
 HOMEPAGE="https://dockerproject.org"
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="apparmor aufs btrfs +container-init +contrib +device-mapper doc experimental hardened overlay pkcs11 seccomp systemd udev vim-syntax zsh-completion"
+IUSE="apparmor aufs btrfs +container-init +contrib +device-mapper doc experimental fish-completion hardened overlay pkcs11 seccomp systemd udev vim-syntax zsh-completion"
 
 # https://github.com/docker/docker/blob/master/project/PACKAGERS.md#build-dependencies
 CDEPEND="
@@ -271,6 +271,11 @@ src_install() {
 	if use zsh-completion; then
 		insinto /usr/share/zsh/site-functions
 		doins contrib/completion/zsh/_*
+	fi
+
+	if use fish-completion; then
+		insinto /usr/share/fish/vendor_completions.d/
+		doins contrib/completion/fish/docker.fish
 	fi
 
 	if use vim-syntax; then
