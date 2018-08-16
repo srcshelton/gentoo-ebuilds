@@ -8,7 +8,7 @@ inherit autotools db-use eutils flag-o-matic java-pkg-opt-2 multilib pam systemd
 SASLAUTHD_CONF_VER="2.1.26"
 
 DESCRIPTION="The Cyrus SASL (Simple Authentication and Security Layer)"
-HOMEPAGE="http://cyrusimap.web.cmu.edu/"
+HOMEPAGE="https://www.cyrusimap.org/sasl/"
 SRC_URI="ftp://ftp.cyrusimap.org/cyrus-sasl/${P}.tar.gz"
 
 LICENSE="BSD-with-attribution"
