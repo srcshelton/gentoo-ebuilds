@@ -290,8 +290,8 @@ pkg_postinst() {
 	ewarn "controller work previously known as 'samba4'."
 
 	elog "For further information and migration steps make sure to read "
-	elog "https://www.samba.org/samba/history/${P}.html "
-	elog "https://www.samba.org/samba/history/${PN}-4.5.0.html and"
+	elog "https://samba.org/samba/history/${P}.html "
+	elog "https://samba.org/samba/history/${PN}-4.5.0.html and"
 	elog "https://wiki.samba.org/index.php/Samba4/HOWTO "
 }
 # vi: set diffopt=iwhite,filler:
