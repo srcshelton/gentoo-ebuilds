@@ -59,7 +59,7 @@ fi
 
 LICENSE="MPL-1.1"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-fbsd ~x86-fbsd ~amd64-linux ~arm-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
 IUSE="insecure_certs"
 ${PRECOMPILED} || IUSE+=" cacert"
 
@@ -72,7 +72,7 @@ fi
 # c_rehash: we run `c_rehash`; newer version for alt-cert-paths #552540
 # debianutils: we run `run-parts`
 RDEPEND="${DEPEND}
-	>=app-misc/c_rehash-1.7-r1
+	app-misc/c_rehash
 	sys-apps/debianutils"
 
 if ! ${PRECOMPILED}; then
