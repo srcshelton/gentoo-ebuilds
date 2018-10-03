@@ -54,6 +54,7 @@ REQUIRED_USE="
 RDEPEND="
 	>=app-shells/bash-4:0
 	|| (
+		net-analyzer/openbsd-netcat
 		net-analyzer/netcat6
 		net-analyzer/netcat
 	)
