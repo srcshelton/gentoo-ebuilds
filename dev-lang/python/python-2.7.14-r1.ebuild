@@ -33,13 +33,11 @@ IUSE="aqua -berkdb build doc elibc_uclibc examples gdbm hardened ipv6 libressl +
 
 RDEPEND="app-arch/bzip2:0=
 	>=sys-libs/zlib-1.1.3:0=
-	!m68k-mint? ( virtual/libffi )
+	!m68k-mint? ( virtual/libffi:= )
 	virtual/libintl
 	berkdb? ( || (
 		sys-libs/db:5.3
-		sys-libs/db:5.2
 		sys-libs/db:5.1
-		sys-libs/db:5.0
 		sys-libs/db:4.8
 		sys-libs/db:4.7
 		sys-libs/db:4.6
