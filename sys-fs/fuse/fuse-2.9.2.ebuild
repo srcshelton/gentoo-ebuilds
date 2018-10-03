@@ -8,7 +8,7 @@ inherit eutils libtool linux-info udev toolchain-funcs
 MY_P=${P/_/-}
 DESCRIPTION="An interface for filesystems implemented in userspace"
 HOMEPAGE="http://fuse.sourceforge.net"
-SRC_URI="mirror://sourceforge/fuse/${MY_P}.tar.gz"
+SRC_URI="https://github.com/libfuse/libfuse/releases/download/${PN}_2_9_4/${P}.tar.gz" # Really...
 
 LICENSE="GPL-2"
 SLOT="0"
