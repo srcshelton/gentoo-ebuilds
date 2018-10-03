@@ -4,7 +4,7 @@
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
 
-inherit autotools python-single-r1
+inherit python-single-r1
 
 DESCRIPTION="USB enumeration utilities"
 HOMEPAGE="https://www.kernel.org/pub/linux/utils/usb/usbutils/
@@ -13,7 +13,7 @@ SRC_URI="mirror://kernel/linux/utils/usb/${PN}/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~arm-linux ~x86-linux"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~x86-linux"
 IUSE="experimental -libudev python zlib"
 REQUIRED_USE="
 	python? ( ${PYTHON_REQUIRED_USE} )
