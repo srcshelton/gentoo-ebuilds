@@ -334,6 +334,8 @@ used to build perl)
     * Make systemd service support optional
 * mail-filter/spampd
     * Fix `status` reporting, revise installed documentation, add optional systemd service support
+* mail-mta/nullmailer
+    * Make systemd service support optional
 * media-libs/opengl-apple
     * Check for missing files before installing the Apple X11/Xquartz compatibility symlinks
 * media-sound/teamspeak-server-bin
