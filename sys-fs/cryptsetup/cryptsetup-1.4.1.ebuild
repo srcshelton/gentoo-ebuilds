@@ -4,12 +4,12 @@
 
 EAPI="2"
 
-inherit linux-info libtool
+inherit linux-info libtool versionator
 
 MY_P=${P/_rc/-rc}
 DESCRIPTION="Tool to setup encrypted devices with dm-crypt"
 HOMEPAGE="http://code.google.com/p/cryptsetup/"
-SRC_URI="http://cryptsetup.googlecode.com/files/${MY_P}.tar.bz2"
+SRC_URI="mirror://kernel/linux/utils/${PN}/v$(get_version_component_range 1-2)/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
