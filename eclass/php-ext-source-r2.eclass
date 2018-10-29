@@ -10,12 +10,13 @@
 # Author: Luca Longinotti <chtekk@gentoo.org>
 # Author: Jakub Moc <jakub@gentoo.org> (documentation)
 # Author: Ole Markus With <olemarkus@gentoo.org>
+# @SUPPORTED_EAPIS: 4 5
 # @BLURB: A unified interface for compiling and installing standalone PHP extensions.
 # @DESCRIPTION:
 # This eclass provides a unified interface for compiling and installing standalone
 # PHP extensions (modules).
 
-inherit flag-o-matic autotools multilib eutils
+inherit autotools multilib
 
 EXPORT_FUNCTIONS src_unpack src_prepare src_configure src_compile src_install
 

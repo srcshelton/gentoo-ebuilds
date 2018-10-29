@@ -351,9 +351,10 @@ multilib_env() {
 				;;
 			esac
 		;;
-		mips64*)
+		mips64*|mipsisa64*)
 			export CFLAGS_o32=${CFLAGS_o32--mabi=32}
 			export CHOST_o32=${CTARGET/mips64/mips}
+			export CHOST_o32=${CHOST_o32/mipsisa64/mipsisa32}
 			export CTARGET_o32=${CHOST_o32}
 			export LIBDIR_o32="lib"
 
@@ -450,6 +451,11 @@ multilib_toolchain_setup() {
 		done
 		export _DEFAULT_ABI_SAVED="true"
 
+		# Set CBUILD only if not cross-compiling.
+		if [[ ${CBUILD} == "${CHOST}" ]]; then
+			export CBUILD=$(get_abi_CHOST $1)
+		fi
+
 		# Set the CHOST native first so that we pick up the native
 		# toolchain and not a cross-compiler by accident #202811.
 		export CHOST=$(get_abi_CHOST ${DEFAULT_ABI})
@@ -459,7 +465,6 @@ multilib_toolchain_setup() {
 		export FC="$(tc-getFC) $(get_abi_CFLAGS)"
 		export LD="$(tc-getLD) $(get_abi_LDFLAGS)"
 		export CHOST=$(get_abi_CHOST $1)
-		export CBUILD=$(get_abi_CHOST $1)
 		export PKG_CONFIG_LIBDIR=${EPREFIX}/usr/$(get_libdir)/pkgconfig
 		export PKG_CONFIG_PATH=${EPREFIX}/usr/share/pkgconfig
 	fi
