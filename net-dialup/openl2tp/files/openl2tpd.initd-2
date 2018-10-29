@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 use_rpc="yes"
@@ -8,7 +8,7 @@ retry_delay="0.5"
 
 bin="/usr/sbin/openl2tpd"
 pid="/var/run/openl2tpd.pid"
-[ -z "${OPENL2TPD_CONFIG_FILE:-}" ] && OPENL2TPD_CONFIG_FILE="/etc/openl2tpd.conf"
+[ -n "${OPENL2TPD_CONFIG_FILE:-}" ] || OPENL2TPD_CONFIG_FILE="/etc/openl2tpd.conf"
 
 depend() {
 	need net
@@ -48,11 +48,11 @@ start() {
 	if [ "${use_rpc}" = "yes" ] && [ -r "${OPENL2TPD_CONFIG_FILE}" ]; then
 		# on system startup it may take some time to load daemon
 		: $(( i = 0 ))
-		while [ $(( i < retry_count )) -ne 0 ]; do
+		while [ $i -lt $retry_count ]; do
 			l2tpconfig config restore file="${OPENL2TPD_CONFIG_FILE}" >/dev/null 2>&1 ; rc=$?
 			[ "${rc}" = "0" ] && break
-			sleep ${retry_delay} 2>/dev/null || sleep 1
 			: $(( i = i + 1 ))
+			sleep ${retry_delay} 2>/dev/null || sleep 1
 		done
 	fi
 	eend ${rc}
