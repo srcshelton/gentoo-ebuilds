@@ -410,6 +410,7 @@ directory is an additional QA check which reports an error if files deployed to
 * dev-db/redis
 * dev-libs/cyrus-sasl
 * mail-filter/spamassassin
+* net-mail/dovecot
 * net-analyzer/darkstat
 * net-analyzer/iptraf-ng
 * net-analyzer/nagios-core
