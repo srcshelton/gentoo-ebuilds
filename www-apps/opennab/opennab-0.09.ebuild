@@ -7,7 +7,7 @@ inherit webapp
 
 DESCRIPTION="Nabaztag/tag OpenNab server"
 HOMEPAGE="http://opennab.sourceforge.net/"
-SRC_URI="http://dfn.dl.sourceforge.net/project/${PN}/${PN}/${PN}_${PV}/${PN}_${PV}.zip"
+SRC_URI="https://downloads.sourceforge.net/project/${PN}/${PN}/${PN}_${PV}/${PN}_${PV}.zip"
 RESTRICT="nomirror"
 
 LICENSE="GPL-2"
