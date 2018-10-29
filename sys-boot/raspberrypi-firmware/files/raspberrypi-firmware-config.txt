@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 445b6a86faec72eaddb8c4386b87e385e1c338ac.
+# commit 10c1c5f9637849e8a3a70e114d3837e25987fc7c.
 #
 # GPIO numbering uses the hardware pin numbering scheme (aka BCM scheme) and
 # not the physical pin numbers.
@@ -162,7 +162,10 @@ disable_audio_dither=1
 #dtparam=i2c,i2s,spi,watchdog
 
 #device_tree_param=audio=off
-#device_tree_param=i2c1=off # i2c_arm/i2c
+#device_tree_param=eee=on
+#device_tree_param=eth_led0=1
+#device_tree_param=eth_led1=6
+#device_tree_param=I2c1=off # i2c_arm/i2c
 #device_tree_param=i2c0=off # i2c_vc
 #device_tree_param=i2c_arm_baudrate=100000 # i2c_baudrate
 #device_tree_param=i2c_vc_baudrate=100000
@@ -173,6 +176,8 @@ disable_audio_dither=1
 #device_tree_param=sd_force_pio=off
 #device_tree_param=sd_pio_limit=1
 #device_tree_param=sd_debug=off
+#device_tree_param=sdio_overclock=50
+#device_tree_param=tx_lpi_timer=600
 #device_tree_param=uart0=on
 #device_tree_param=uart1=off,txd1_pin=14,rxd1_pin=15 # default varies
 #device_tree_param=watchdog=off
@@ -192,6 +197,9 @@ disable_audio_dither=1
 #device_tree_overlay=pi3-act-led,activelow=off,gpio=47
 [all]
 
+#device_tree_overlay=upstream
+#device_tree_overlay=upstream-aux-interrupt
+
 # USB driver - dwc-otg is default except for Pi Zero, which uses dwc2
 #device_tree_overlay=dwc-otg
 #
@@ -201,8 +209,8 @@ disable_audio_dither=1
 #device_tree_overlay=dwc2,dr_mode=otg,g-rx-fifo-size=?,g-np-tx-fifo-size=?
 
 #device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
-#device_tree_overlay=i2c0-bcm2708,pins_0_1 # or pins_28_29, pins_44_45, pins_46_47
-#device_tree_overlay=i2c1-bcm2708,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
+#device_tree_overlay=i2c0-bcm2708,combine=yes,pins_0_1 # or pins_28_29, pins_44_45, pins_46_47
+#device_tree_overlay=i2c1-bcm2708,combine=yes,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
 #device_tree_overlay=i2c-bcm2708
 
 # The following overlays have been removed:
@@ -228,6 +236,8 @@ disable_audio_dither=1
 #device_tree_overlay=spi2-1cs,cs0_pin=43,cs0_spidev=okay
 #device_tree_overlay=spi2-2cs,cs0_pin=43,cs1_pin=44,cs0_spidev=okay,cs1_spidev=okay
 #device_tree_overlay=spi2-3cs,cs0_pin=43,cs1_pin=44,cs2_pin=45,cs0_spidev=okay,cs1_spidev=okay,cs2_spidev=okay
+
+#device_tree_overlay=jedec-spi-nor # ,flash-spi<n>-<m>,flash-fastr-spi<n>-<m>
 
 # MCP SPI devices require one of the spi1-* or spi2-* options above to be
 # enabled if present on SPI1 or SPI2.
@@ -270,7 +280,7 @@ disable_audio_dither=1
 # N.B. dtoverlay=sdhost kills Wifi on RPi3!
 #device_tree_overlay=sdhost,overclock_50=84,force_pio=off,pio_limit=1,debug=off
 #
-#device_tree_overlay=sdtweak,overlock_50=84,force_pio=off,pio_limit=1,debug=off
+#device_tree_overlay=sdtweak,overlock_50=84,force_pio=off,pio_limit=1,debug=off,poll_once=off,enable=on
 #
 # enables SDIO via GPIOs 22-27
 #device_tree_overlay=sdio,sdio_overclock=84,poll_once=on,bus_width=4
@@ -285,9 +295,10 @@ disable_audio_dither=1
 # Running startx or booting to GUI while this overlay is in use will cause
 # interesting lockups.
 #device_tree_overlay=vc4-kms-v3d,[cma-64,cma-96,cma-128[,cma-192,cma-256]]
+#device_tree_overlay=vc4-kms-kippah-7inch
 
 # Uncomment one of these lines to enable additional devices
-#device_tree_overlay=gpio-poweroff,gpiopin=26 # ,active_low
+#device_tree_overlay=gpio-poweroff,gpiopin=26 # ,active_low,input,export
 # For systems without systemd >225, gpio-shutdown needs an additional udev
 # rule:
 #  ACTION!="REMOVE",       \
@@ -301,7 +312,7 @@ disable_audio_dither=1
 #device_tree_overlay=smi # Uses GPIOs 2-25!
 #device_tree_overlay=smi-dev
 #device_tree_overlay=smi-nand
-#device_tree_overlay=i2c-gpio,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
+#device_tree_overlay=i2c-gpio,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2,bus=0
 
 # The following overlays have been removed:
 ##device_tree_overlay=i2s-mmap
@@ -310,9 +321,12 @@ disable_audio_dither=1
 #device_tree_overlay=dht11,gpiopin=4
 #device_tree_overlay=enc28j60,int_pin=25,speed=12000000
 #device_tree_overlay=enc28j60-spi2,int_pin=39,speed=12000000
+#device_tree_overlay=gpio-fan,gpiopin=12,temp=55000
 #device_tree_overlay=gpio-key,gpio=3,active_low=1,gpio_pull=up,label=?,keycode=?
+#device_tree_overlay=gpio-no-bank0-irq
+#device_tree_overlay=gpio-no-irq
 #device_tree_overlay=qca7000,int_pin=23,speed=12
-#device_tree_overlay=rotary-encoder,rotary0_pin_a=4,rotary0_pin_b=17,linux_axis=0,rollover=?,steps-per-period=?,steps=24,wakeup=?,encoding=gray # relative_axis
+#device_tree_overlay=rotary-encoder,pin_a=4,pin_b=17,linux_axis=0,rollover=?,steps-per-period=?,steps=24,wakeup=?,encoding=gray # relative_axis
 #device_tree_overlay=rpi-sense
 
 # The following overlays have been removed:
@@ -322,25 +336,27 @@ disable_audio_dither=1
 # I2C:
 #device_tree_overlay=i2c-mux,pca9542,pca9545,pca9548,addr=0x70
 #device_tree_overlay=i2c-pwm-pca9685a,addr=0x40
-#device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,hdc100x,htu21,lm75,lm75addr=0x4f,si7020,tmp102,sht3x,tsl4531,veml6070 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*, addr=0x44 (or 0x45) for sht3x, addr=0x40 (through to 0x43) for hdc100x
+#device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,ds1621,hdc100x,htu21,lm75,lm75addr=0x4f,sht3x=0x44,si7020,tmp102,tsl4531,veml6070 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*, addr=0x44 (or 0x45) for sht3x, addr=0x40 (through to 0x43) for hdc100x
 #device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
 #device_tree_overlay=mpu6050,interrupt=4
 #device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
+#device_tree_overlay=sc16is752-i2c,int_pin=24,addr=0x48,xtal=14745600
+#device_tree_overlay=sx150x # sx150<x>-<n>-<m>,sx150<x>-<n>-<m>-int-gpio=?
 
 # RTC:
 # i2c-rtc supports abx80x, ds1307, ds1339, ds3231, m41t62, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
 #device_tree_overlay=i2c-rtc,<device>,wakeup-source
 #device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
 #device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
-# i2c-rtc-gpio supports abx80x, ds1307, ds1339, ds3231, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
-#device_tree_overlay=i2c-rtc-gpio,<device>,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
+# i2c-rtc-gpio supports abx80x, ds1307, ds1339, ds3231, m41t62, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
+#device_tree_overlay=i2c-rtc-gpio,<device>,addr=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 #device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 #device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 #device_tree_overlay=spi-rtc,pcf2123
 #device_tree_overlay=wittypi,led_gpio=17,led_trigger=default-on
 
 # Pulse-per-second:
-#device_tree_overlay=pps-gpio,gpiopin=18 # ,assert_falling_edge
+#device_tree_overlay=pps-gpio,gpiopin=18 # ,assert_falling_edge,capture_clear
 #device_tree_overlay=pwm,pin=18,func=2,clock=? # Plus models & Pi2 support pin={12,13,18}
 #device_tree_overlay=pwm-2chan,pin=18,pin2=19,func=2,func2=2,clock=?
 
@@ -356,10 +372,12 @@ disable_audio_dither=1
 #device_tree_overlay=akkordion-iqdacplus # ,24db_digital_gain
 #device_tree_overlay=allo-boss-dac-pcm512x-audio # ,24db_digital_gain #, slave
 #device_tree_overlay=allo-digione
+#device_tree_overlay=allo-katana-dac-audio
 #device_tree_overlay=allo-piano-dac-pcm512x-audio # ,24db_digital_gain
 #device_tree_overlay=allo-piano-dac-plus-pcm512x-audio # ,24db_digital_gain,glb_mclk
 #device_tree_overlay=applepi-dac
-#device_tree_overlay=audioinjector-addons
+#device_tree_overlay=audioinjector-addons # ,non-stop-clocks
+#device_tree_overlay=audioinjector-ultra
 #device_tree_overlay=audioinjector-wm8731-audio
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=dionaudio-loco
@@ -377,17 +395,19 @@ disable_audio_dither=1
 #device_tree_overlay=justboom-dac # ,24db_digital_gain
 #device_tree_overlay=justboom-digi
 #device_tree_overlay=mbed-dac
+#device_tree_overlay=pibell,alsaname="PiBell"
 #device_tree_overlay=pisound
-#device_tree_overlay=raspidac3
 #device_tree_overlay=rpi-cirrus-wm5102
 #device_tree_overlay=rpi-dac
 #device_tree_overlay=rpi-proto
 #device_tree_overlay=rpi-tv
 #device_tree_overlay=rra-digidac1-wm8741-audio
+#device_tree_overlay=superaudioboard,gpiopin=?
 
 # The following overlays have been removed:
 ##device_tree_overlay=boomberry-dac # ,24db_digital_gain
 ##device_tree_overlay=boomberry-digi
+##device_tree_overlay=raspidac3
 
 # Touch (Screens) and Displays:
 #device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
@@ -395,6 +415,7 @@ disable_audio_dither=1
 #device_tree_overlay=dpi24
 #device_tree_overlay=exc3000,interrupt=4,sizex=4096,sizey=4096 # ,invx,invy,swapxy
 #device_tree_overlay=goodix,interrupt=4,reset=17
+#device_tree_overlay=hd44780-lcd,pin_d4=6,pin_d5=13,pin_d6=19,pin_d7=26,pin_en=21,pin_rs=20,display_height=?,display_width=? # ,pin_bl
 #device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=media-center,speed=?,fps=?,xohms=?,backlight=?,gpio_out_pin=17,gpio_in_pin=18,gpio_in_pull=down,sense=-1,softcarrier=on,invert=off,debug=off # , swapxy
@@ -412,6 +433,15 @@ disable_audio_dither=1
 #device_tree_overlay=tinylcd35,speed=?,rotate=0,fps=?,debug=[0-7],touchgpio=?,xohms=? # ,touch,rtc-pcf,rtc-ds,keypad
 #device_tree_overlay=vga666 # Uses GPIOs 2-21!
 
+# Video output:
+#device_tree_overlay=adv7282m # ,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=adv7282x-m,addr=0x21, # ,adv7280m,adv7281m,adv7281ma,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+
+# Camera input:
+#device_tree_overlay=ov5647 # ,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=tc358743,link-frequency=486000000 # ,4lane,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=tc358743-audio,card-name="tc358743"
+
 # CAN controllers:
 #device_tree_overlay=mcp2515-can0,oscillator=?,spimaxfrequency=?,interrupt=?
 #device_tree_overlay=mcp2515-can1,oscillator=?,spimaxfrequency=?,interrupt=?
@@ -425,6 +455,13 @@ disable_audio_dither=1
 # UART0/ttyAMA0 MIDI:
 #device_tree_overlay=midi-uart0,txd0_pin=14,rxd0_pin=15 # pin_func
 #device_tree_overlay=midi-uart1
+
+# Expension boards:
+#device_tree_overlay=balena-fin
+#device_tree_overlay=rpi-poe,poe_fan_temp0=50000,poe_fan_temp0_hyst=5000,poe_fan_temp1=55000,poe_fan_temp1_hyst=5000
+
+# Battery gauges:
+#device_tree_overlay=ltc294x,resistor-sense=?,prescaler-exponent=7 # ,ltc2941,ltc2942,ltc2943,ltc2944
 
 #
 # Memory Options
