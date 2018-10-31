@@ -328,6 +328,8 @@ used to build perl)
     * Fix SSL CA path for prefix installations
 * dev-perl/Math-Pari
     * Hack to allow math-pari to build on x32 systems and systems running a 32-bit userland on a 64-bit kernel
+* dev-perl/libwww-perl
+    * Add missing Mozilla::CA dependency for correct SSL operation
 * mail-filter/opendkim
     * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
 * mail-filter/postgrey
