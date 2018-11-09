@@ -3,6 +3,9 @@ Description=clamav updater
 
 [Service]
 Type=forking
+User=clamav
+Group=clamav
+RuntimeDirectory=clamav
 PIDFile=/var/run/clamav/freshclam.pid
 ExecStart=/usr/bin/freshclam -d -p /var/run/clamav/freshclam.pid
 

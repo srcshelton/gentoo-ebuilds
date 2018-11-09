@@ -1,6 +1,6 @@
---- src/config.c.dist	2016-10-16 12:22:38.344574293 +0100
-+++ src/config.c	2016-10-16 12:36:28.752158488 +0100
-@@ -670,7 +670,7 @@ static int cgroup_config_mount_fs(void)
+--- a/src/config.c	2016-10-16 12:22:38.344574293 +0100
++++ b/src/config.c	2016-10-16 12:36:28.752158488 +0100
+@@ -673,7 +673,7 @@ static int cgroup_config_mount_fs(void)
  
  		ret = stat(curr->mount.path, &buff);
  
@@ -9,7 +9,7 @@
  			cgroup_err("Error: cannot access %s: %s\n",
  					curr->mount.path, strerror(errno));
  			last_errno = errno;
-@@ -678,7 +678,7 @@ static int cgroup_config_mount_fs(void)
+@@ -681,7 +681,7 @@ static int cgroup_config_mount_fs(void)
  			goto out_err;
  		}
  
