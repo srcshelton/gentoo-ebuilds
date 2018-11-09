@@ -385,6 +385,8 @@ used to build perl)
     * Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory
 * sys-apps/usbutils
     * Revert changes which make usbutils dependent on udev
+* sys-apps/util-linux
+    * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-kernel/linux-firmware
     * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
 * sys-power/apcupsd
@@ -437,7 +439,6 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/kmod
 * sys-apps/lm_sensors
 * sys-apps/smartmontools
-* sys-apps/util-linux
 * sys-fs/cachefilesd
 * sys-libs/pam
 * sys-power/acpid

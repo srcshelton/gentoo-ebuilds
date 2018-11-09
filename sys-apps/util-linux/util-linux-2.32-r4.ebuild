@@ -43,6 +43,7 @@ RDEPEND="caps? ( sys-libs/libcap-ng )
 DEPEND="${RDEPEND}
 	virtual/pkgconfig
 	nls? ( sys-devel/gettext )
+	static-libs? ( ncurses? ( sys-libs/ncurses[static-libs?] ) readline? ( sys-libs/readline[static-libs?] ) )
 	test? ( sys-devel/bc )
 	virtual/os-headers"
 RDEPEND+="
