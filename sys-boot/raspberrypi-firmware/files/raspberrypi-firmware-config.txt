@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 10c1c5f9637849e8a3a70e114d3837e25987fc7c.
+# commit 8993bff0b82f8cd8d60409d28bb61d2197606ebb.
 #
 # GPIO numbering uses the hardware pin numbering scheme (aka BCM scheme) and
 # not the physical pin numbers.
@@ -159,13 +159,13 @@ disable_audio_dither=1
 #dtdebug=on
 
 # Uncomment some or all of these to enable the optional hardware interfaces
-#dtparam=i2c,i2s,spi,watchdog
+#dtparam=i2c,i2s,spi,random,watchdog
 
 #device_tree_param=audio=off
 #device_tree_param=eee=on
 #device_tree_param=eth_led0=1
 #device_tree_param=eth_led1=6
-#device_tree_param=I2c1=off # i2c_arm/i2c
+#device_tree_param=i2c1=off # i2c_arm/i2c
 #device_tree_param=i2c0=off # i2c_vc
 #device_tree_param=i2c_arm_baudrate=100000 # i2c_baudrate
 #device_tree_param=i2c_vc_baudrate=100000
@@ -330,7 +330,7 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-sense
 
 # The following overlays have been removed:
-##device_tree_overlay=i2c-mux-pca9548a,addr=0x70
+##device_tree_overlay=i2c-mux-pca9548a
 ##device_tree_overlay=bmp085_i2c-sensor
 
 # I2C:
@@ -405,11 +405,11 @@ disable_audio_dither=1
 #device_tree_overlay=superaudioboard,gpiopin=?
 
 # The following overlays have been removed:
-##device_tree_overlay=boomberry-dac # ,24db_digital_gain
+##device_tree_overlay=boomberry-dac
 ##device_tree_overlay=boomberry-digi
 ##device_tree_overlay=raspidac3
 
-# Touch (Screens) and Displays:
+# Touch Screens and Displays:
 #device_tree_overlay=ads7846,cs=1,speed=2,penirq=<gpio>,penirq_pull={0,2},swapxy,xmin=0,ymin=0,xmax=4095,ymax=4095,pmin=0,pmax=65535,xohms=400
 #device_tree_overlay=dpi18
 #device_tree_overlay=dpi24
@@ -418,6 +418,7 @@ disable_audio_dither=1
 #device_tree_overlay=hd44780-lcd,pin_d4=6,pin_d5=13,pin_d6=19,pin_d7=26,pin_en=21,pin_rs=20,display_height=?,display_width=? # ,pin_bl
 #device_tree_overlay=hy28a,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=hy28b,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
+#device_tree_overlay=hy28b-2017,speed=?,rotate=0,fps=?,debug=[0-7],xohms=?,resetgpio=?,ledgpio=?
 #device_tree_overlay=media-center,speed=?,fps=?,xohms=?,backlight=?,gpio_out_pin=17,gpio_in_pin=18,gpio_in_pull=down,sense=-1,softcarrier=on,invert=off,debug=off # , swapxy
 #device_tree_overlay=mz61581,speed=?,rotate=0,fps=?,txbuflen=32768,debug=[0-7],xohms=?
 #device_tree_overlay=papirus,panel=[e1144cs021,e2200cs021,e2271cs021],speed=?
