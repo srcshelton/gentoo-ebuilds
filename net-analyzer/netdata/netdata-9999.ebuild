@@ -1,16 +1,16 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
-PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6} )
+EAPI=7
+PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6,3_7} )
 
 inherit autotools fcaps linux-info python-r1 systemd user
 
 if [[ ${PV} == *9999 ]] ; then
-	EGIT_REPO_URI="https://github.com/firehol/${PN}.git"
+	EGIT_REPO_URI="https://github.com/netdata/${PN}.git"
 	inherit git-r3
 else
-	SRC_URI="https://github.com/firehol/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	SRC_URI="https://github.com/netdata/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~amd64 ~x86"
 	RESTRICT="mirror"
 fi
@@ -41,15 +41,17 @@ case "${PV}" in
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
-HOMEPAGE="https://github.com/firehol/netdata https://my-netdata.io/"
+HOMEPAGE="https://github.com/netdata/netdata https://my-netdata.io/"
 PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression fping ipmi mysql nfacct nodejs postgres +python systemd cpu_flags_x86_sse2"
+IUSE="caps +compression fping ipmi mysql nfacct nodejs postgres +python systemd tor cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
-	python? ( ${PYTHON_REQUIRED_USE} )"
+	python? ( ${PYTHON_REQUIRED_USE} )
+	tor? ( python )"
+
 # Most unconditional dependencies are for plugins.d/charts.d.plugin:
 RDEPEND="
 	>=app-shells/bash-4:0
@@ -85,6 +87,7 @@ RDEPEND="
 			)
 		)
 		postgres? ( dev-python/psycopg:2[${PYTHON_USEDEP}] )
+		tor? ( net-libs/stem[${PYTHON_USEDEP}] )
 	)"
 DEPEND="${RDEPEND}
 	virtual/pkgconfig"
