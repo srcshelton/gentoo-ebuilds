@@ -5,16 +5,19 @@ CHECKREQS_DISK_VAR="500M"
 
 inherit check-reqs unpacker user
 
-MY_HASH=""
+MY_DOC="340/2"
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
-MY_PV="${PV/_rc}${MY_HASH:+-${MY_HASH}}"
+MY_PV="${PV/_rc}"
 
 DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
 SRC_URI="
 	http://dl.ubnt.com/unifi/${MY_PV}/unifi_sysvinit_all.deb -> unifi-${MY_PV}_sysvinit_all.deb
+	doc? (
+		https://community.ubnt.com/ubnt/attachments/ubnt/Blog_UniFi/${MY_DOC}/UniFi-changelog-5.6.x.txt -> unifi-${MY_PV}_changelog.txt
+	)
 	tools? (
 		https://dl.ubnt.com/unifi/${MY_PV}/unifi_sh_api -> unifi-${MY_PV}_api.sh
 	)"
@@ -22,9 +25,9 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~x86"
-IUSE="nls rpi1 systemd +tools"
-UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT ru sv tr zh_CN )
+KEYWORDS="amd64 arm x86"
+IUSE="doc nls rpi1 systemd +tools"
+UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT sv tr zh_CN )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 
 # debian control dependencies:
@@ -39,12 +42,14 @@ IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 # version is currently v3.0.14 - but this crashes with the UniFi code, possibly
 # documented in https://jira.mongodb.org/browse/SERVER-22334.
 # As a result, we'll only accept the oldest or newer versions as dependencies.
+# Ubiquiti recommend the use of MongoDB 3.4.x.
 DEPEND="
 	|| (
 		~dev-db/mongodb-2.6.12
 		>=dev-db/mongodb-3.2
 	)
-	>=virtual/jre-1.8.0
+	<dev-db/mongodb-3.6
+	>=virtual/jre-1.7.0
 	<virtual/jre-1.9.0
 "
 RDEPEND="${DEPEND}"
@@ -82,26 +87,16 @@ src_unpack () {
 	done
 	cd "${S}"
 
-	if [[ "${ARCH}" == "aarch64" ]]; then
-		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
+	if [[ "${ARCH}" == "arm" ]]; then
 		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
-	elif [[ "${ARCH}" == "arm" ]]; then
-		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_webrtc_jni.so
-		use rpi1 && rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
+		use rpi1 && rm usr/lib/unifi/lib/native/Linux/armhf/libubnt_webrtc_jni.so
 	elif [[ "${ARCH}" == "amd64" ]]; then
-		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
+		rm usr/lib/unifi/lib/native/Linux/armhf/libubnt_webrtc_jni.so
 	else # [[ "${ARCH}" == "x86" ]]
-		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
 		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
+		rm usr/lib/unifi/lib/native/Linux/armhf/libubnt_webrtc_jni.so
 	fi
-	rmdir -p \
-		usr/lib/unifi/lib/native/Linux/aarch64 \
-		usr/lib/unifi/lib/native/Linux/armv7 \
-		usr/lib/unifi/lib/native/Linux/x86_64 \
-		2>/dev/null
+	rmdir -p usr/lib/unifi/lib/native/Linux/x86_64 usr/lib/unifi/lib/native/Linux/armhf 2>/dev/null
 
 	rm -r usr/lib/unifi/lib/native/Windows
 	if [[ ${CHOST} == *-darwin* ]] ; then
@@ -167,6 +162,8 @@ src_install () {
 		newins "${WORKDIR}"/unifi-${MY_PV}_api.sh unifi-api.sh
 		fperms 755 /opt/"${MY_P}"/bin/unifi-api.sh
 	fi
+
+	use doc && newdoc "unifi-${MY_PV}_changelog.txt" CHANGELOG-5.6.txt
 
 	insinto /var/lib/unifi/data
 	doins "${FILESDIR}"/system.properties
@@ -243,11 +240,6 @@ pkg_postinst() {
 	ewarn
 	ewarn "... in order to set appropriate Java XMS and XMX (minimum and"
 	ewarn "maximum memory constraints) values"
-	elog
-	ewarn "UniFi Controller 5.7+ does not support UAP-AC and UAP-AC-Outdoor"
-	ewarn "models, or the PicoM2:"
-	ewarn "    https://community.ubnt.com/t5/UniFi-Updates-Blog/UAP-AC-UAP-AC-Outdoor-LTS-Announcement/ba-p/2059058"
-	ewarn "    https://community.ubnt.com/t5/UniFi-Updates-Blog/UniFi-5-7-23-Stable-has-been-released/ba-p/2318813"
 }
 
 pkg_prerm() {

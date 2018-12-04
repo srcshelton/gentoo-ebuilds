@@ -6,6 +6,7 @@ CHECKREQS_DISK_VAR="500M"
 inherit check-reqs unpacker user
 
 MY_HASH=""
+MY_DOC="348/2"
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
@@ -15,6 +16,9 @@ DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
 SRC_URI="
 	http://dl.ubnt.com/unifi/${MY_PV}/unifi_sysvinit_all.deb -> unifi-${MY_PV}_sysvinit_all.deb
+	doc? (
+		https://community.ubnt.com/ubnt/attachments/ubnt/Blog_UniFi/${MY_DOC}/UniFi-changelog-5.9.x.txt -> unifi-${MY_PV}_changelog.txt
+	)
 	tools? (
 		https://dl.ubnt.com/unifi/${MY_PV}/unifi_sh_api -> unifi-${MY_PV}_api.sh
 	)"
@@ -22,9 +26,9 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~x86"
-IUSE="nls rpi1 systemd +tools"
-UNIFI_LINGUAS=( ca cs da de_DE el en es_ES nl pl pt_PT ru sv tr zh_CN )
+KEYWORDS="~aarch64 ~amd64 ~arm ~x86"
+IUSE="doc nls rpi1 systemd +tools"
+UNIFI_LINGUAS=( ca cs da de_DE el en es_ES fr nl pl pt_PT ru sv tr zh_CN )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 
 # debian control dependencies:
@@ -39,11 +43,13 @@ IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 # version is currently v3.0.14 - but this crashes with the UniFi code, possibly
 # documented in https://jira.mongodb.org/browse/SERVER-22334.
 # As a result, we'll only accept the oldest or newer versions as dependencies.
+# Ubiquiti recommend the use of MongoDB 3.4.x.
 DEPEND="
 	|| (
 		~dev-db/mongodb-2.6.12
 		>=dev-db/mongodb-3.2
 	)
+	<dev-db/mongodb-3.6
 	>=virtual/jre-1.8.0
 	<virtual/jre-1.9.0
 "
@@ -83,19 +89,19 @@ src_unpack () {
 	cd "${S}"
 
 	if [[ "${ARCH}" == "aarch64" ]]; then
-		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
+		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_{webrtc,sdnotify}_jni.so
+		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_{webrtc,sdnotify}_jni.so
 	elif [[ "${ARCH}" == "arm" ]]; then
-		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_webrtc_jni.so
-		use rpi1 && rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
+		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_{webrtc,sdnotify}_jni.so
+		use rpi1 && rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_{webrtc,sdnotify}_jni.so
+		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_{webrtc,sdnotify}_jni.so
 	elif [[ "${ARCH}" == "amd64" ]]; then
-		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
+		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_{webrtc,sdnotify}_jni.so
+		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_{webrtc,sdnotify}_jni.so
 	else # [[ "${ARCH}" == "x86" ]]
-		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_webrtc_jni.so
-		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_webrtc_jni.so
+		rm usr/lib/unifi/lib/native/Linux/aarch64/libubnt_{webrtc,sdnotify}_jni.so
+		rm usr/lib/unifi/lib/native/Linux/armv7/libubnt_{webrtc,sdnotify}_jni.so
+		rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_{webrtc,sdnotify}_jni.so
 	fi
 	rmdir -p \
 		usr/lib/unifi/lib/native/Linux/aarch64 \
@@ -168,6 +174,8 @@ src_install () {
 		fperms 755 /opt/"${MY_P}"/bin/unifi-api.sh
 	fi
 
+	use doc && newdoc "unifi-${MY_PV}_changelog.txt" CHANGELOG-5.9.txt
+
 	insinto /var/lib/unifi/data
 	doins "${FILESDIR}"/system.properties
 
@@ -208,6 +216,8 @@ pkg_postinst() {
 	elog
 	elog "Additionally, ports 8881 and 8882 are reserved, and 6789 is used"
 	elog "for determining throughput."
+	elog
+	elog "From release 5.9.x onwards, port 8883/tcp must allow outbound traffic"
 	elog
 	elog "All of these ports may be customised by editing"
 	elog
