@@ -157,8 +157,8 @@ used to build perl)
     * Add missing `string.h` header to `makemsg.c`
 * sys-apps/texinfo
     * Add missing `#include`
-* sys-devel/binutils-apple
-    * Build to current macOS version and fix missing Libc header
+* ~~sys-devel/binutils-apple~~
+    * ~~Build to current macOS version and fix missing Libc header~~
 * sys-devel/gdb
     * Fixes for building with clang, building on Yosemite, and building with Python support
 * sys-devel/gcc-apple
