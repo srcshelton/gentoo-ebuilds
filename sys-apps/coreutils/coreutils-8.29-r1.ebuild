@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="6"
@@ -16,7 +16,7 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 ~arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~x86-linux"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~x86-linux"
 KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="acl caps elibc_Cygwin elibc_glibc gmp hostname kill multicall nls selinux sep-usr +split-usr static +stdbuf uptime test userland_BSD vanilla xattr"
 
@@ -195,12 +195,12 @@ src_install() {
 			           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 			mv ${com} ../../bin/ || die "could not move common binaries from /usr/bin to /bin"
 			# create a symlink for uname in /usr/bin/ since autotools require it,
-		# as long as /bin resolves to a different directory than /usr/bin
+			# as long as /bin resolves to a different directory than /usr/bin
 			local x
-		[[ ${EROOT%/}/bin/. -ef ${EROOT%/}/usr/bin/. ]] ||
-			for x in ${com} uname ; do
-				dosym ../../bin/${x} /usr/bin/${x}
-			done
+			[[ ${EROOT%/}/bin/. -ef ${EROOT%/}/usr/bin/. ]] ||
+				for x in ${com} uname ; do
+					dosym ../../bin/${x} /usr/bin/${x}
+				done
 		fi
 	else
 		# For now, drop the man pages, collides with the ones of the system.
@@ -229,3 +229,4 @@ pkg_postinst() {
 		esac
 	fi
 }
+# vi: set diffopt=filler,iwhite:
