@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -59,9 +59,12 @@ src_prepare() {
 		doc/screen.1 \
 		|| die
 
-	if [[ ${CHOST} == *-darwin* ]] ; then
+	if [[ ${CHOST} == *-darwin* ]] || use elibc_musl ; then
 		sed -i -e '/^#define UTMPOK/s/define/undef/' acconfig.h || die
 	fi
+
+	# disable musl dummy headers for utmp[x]
+	use elibc_musl && append-cppflags "-D_UTMP_H -D_UTMPX_H"
 
 	# reconfigure
 	eautoreconf
@@ -128,9 +131,9 @@ src_install() {
 	fi
 
 	if use tmpfiles; then
-	dodir /etc/tmpfiles.d
-		echo "d /var/run/screen ${tmpfiles_perms} root ${tmpfiles_group}" \
-		> "${ED}"/etc/tmpfiles.d/screen.conf
+		dodir /etc/tmpfiles.d
+			echo "d /var/run/screen ${tmpfiles_perms} root ${tmpfiles_group}" \
+			> "${ED}"/etc/tmpfiles.d/screen.conf
 	fi
 
 	insinto /usr/share/screen
@@ -170,11 +173,11 @@ pkg_postinst() {
 
 	# Add /var/run/screen in case it doesn't exist yet. This should solve
 	# problems like bug #508634 where tmpfiles.d isn't in effect.
-	if [[ ! -d "${rundir}" || "$( stat -Lc '%a' "${rundir}" )" != "${tmpfiles_perms}" ]] ; then
-		mkdir -p "${rundir}"
-		chmod "${tmpfiles_perms}" "${rundir}"
-		use prefix || chgrp ${tmpfiles_group} "${rundir}"
-	fi
+	#if [[ ! -d "${rundir}" || "$( stat -Lc '%a' "${rundir}" )" != "${tmpfiles_perms}" ]] ; then
+	#	mkdir -p "${rundir}"
+	#	chmod "${tmpfiles_perms}" "${rundir}"
+	#	use prefix || chgrp ${tmpfiles_group} "${rundir}"
+	#fi
 
 	if [[ -z ${REPLACING_VERSIONS} ]]
 	then
