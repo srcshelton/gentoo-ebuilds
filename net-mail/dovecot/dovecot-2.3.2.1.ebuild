@@ -33,7 +33,7 @@ IUSE_DOVECOT_AUTH="kerberos ldap lua mysql pam postgres sqlite vpopmail"
 IUSE_DOVECOT_COMPRESS="bzip2 lzma lz4 zlib"
 IUSE_DOVECOT_OTHER="argon2 caps doc ipv6 libressl lucene managesieve selinux sieve solr static-libs suid tcpd textcat"
 
-IUSE="${IUSE_DOVECOT_AUTH} ${IUSE_DOVECOT_STORAGE} ${IUSE_DOVECOT_COMPRESS} ${IUSE_DOVECOT_OTHER}"
+IUSE="${IUSE_DOVECOT_AUTH} ${IUSE_DOVECOT_STORAGE} ${IUSE_DOVECOT_COMPRESS} ${IUSE_DOVECOT_OTHER} systemd"
 
 DEPEND="argon2? ( dev-libs/libsodium )
 	bzip2? ( app-arch/bzip2 )
@@ -104,7 +104,7 @@ src_configure() {
 		--without-libbsd \
 		--with-icu \
 		--with-ssl \
-		--with-systemdsystemunitdir="$(systemd_get_systemunitdir)" \
+		$( use_with systemd systemdsystemunitdir "$(systemd_get_systemunitdir)" ) \
 		$( use_with argon2 sodium ) \
 		$( use_with bzip2 bzlib ) \
 		$( use_with caps libcap ) \
