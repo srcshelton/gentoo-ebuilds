@@ -284,6 +284,8 @@ used to build perl)
     * PAM component of mOTP
 * sys-auth/yubipam
     * PAM authentication module for YubiKey hardware
+* sys-boot/grub-legacy
+    * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
 * www-apps/heatmiser
     * Data acquisition and web-interface for Heatmiser Wifi Thermostats
 * www-apps/nabaztaglives
