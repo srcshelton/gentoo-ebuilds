@@ -391,6 +391,8 @@ used to build perl)
     * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-kernel/linux-firmware
     * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
+* sys-libs/libhugetlbfs
+    * Fix build on systems where userspace and kernel conform to different ABIs, and fix installation of broken manpage symlinks
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
