@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=notify
-PIDFile=/run/php-fpm/php-fpm-%I.pid
+PIDFile=/var/run/php-fpm/php-fpm-%I.pid
 ExecStart=/usr/libexec/php-fpm-launcher php%I -y /etc/php/fpm-php%I/php-fpm.conf --nodaemonize
 ExecReload=/bin/kill -USR2 $MAINPID
 PrivateTmp=true
