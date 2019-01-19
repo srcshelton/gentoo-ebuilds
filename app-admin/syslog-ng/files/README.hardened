@@ -8,6 +8,6 @@ please be sure to configure it to listen accordingly, e.g. replace
 
 with
 
-    unix-dgram("/run/systemd/journal/syslog");
+    unix-dgram("/var/run/systemd/journal/syslog");
 
 in /etc/syslog-ng/syslog-ng.conf
