@@ -188,7 +188,7 @@ src_configure() {
 		$(use_enable udev udev_sync) \
 		$(use_with udev udevdir "$(get_udevdir)"/rules.d) \
 		$(use_enable systemd udev-systemd-background-jobs) \
-		$(use_with systemd systemdsystemunitdir "$(systemd_get_unitdir)") \
+		$(use_with systemd systemdsystemunitdir "$(systemd_get_systemunitdir)") \
 		${myconf} \
 		CLDFLAGS="${LDFLAGS}"
 }
