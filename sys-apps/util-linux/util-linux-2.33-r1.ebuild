@@ -1,12 +1,13 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors and others
+# Copyright 2018 Sony Interactive Entertainment Inc.
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 
-PYTHON_COMPAT=( python2_7 )
+PYTHON_COMPAT=( python2_7 python3_{4,5,6,7} )
 
 inherit toolchain-funcs libtool flag-o-matic bash-completion-r1 \
-	pam python-single-r1 multilib-minimal multiprocessing systemd
+	pam python-r1 multilib-minimal multiprocessing systemd
 
 MY_PV="${PV/_/-}"
 MY_P="${PN}-${MY_PV}"
@@ -16,7 +17,7 @@ if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git"
 else
 	[[ "${PV}" = *_rc* ]] || \
-	KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 ~arm arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86 ~amd64-fbsd ~amd64-linux ~x86-linux"
 	SRC_URI="mirror://kernel/linux/utils/util-linux/v${PV:0:4}/${MY_P}.tar.xz"
 fi
 
@@ -43,7 +44,6 @@ RDEPEND="caps? ( sys-libs/libcap-ng )
 DEPEND="${RDEPEND}
 	virtual/pkgconfig
 	nls? ( sys-devel/gettext )
-	static-libs? ( ncurses? ( sys-libs/ncurses[static-libs?] ) readline? ( sys-libs/readline[static-libs?] ) )
 	test? ( sys-devel/bc )
 	virtual/os-headers"
 RDEPEND+="
@@ -63,16 +63,13 @@ REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
 S="${WORKDIR}/${MY_P}"
 
-pkg_setup() {
-	use python && python-single-r1_pkg_setup
-}
+PATCHES=(
+	"${FILESDIR}/util-linux-2.32.1-skip-oids-test-when-uuidgen-is-not-available.patch"
+	"${FILESDIR}/${P}-sparc-setarch.patch"
+)
 
 src_prepare() {
 	default
-
-	eapply "${FILESDIR}"/${P}-add-missing-lintl.patch
-	touch -r "${S}"/configure "${S}"/libsmartcols/src/Makemodule.am || die
-	touch -r "${S}"/configure "${S}"/libuuid/src/Makemodule.am || die
 
 	sed -e 's|/run/|/var/run/|' \
 		-i disk-utils/fsck.* term-utils/agetty.c misc-utils/blkid.8 \
@@ -117,6 +114,26 @@ lfs_fallocate_test() {
 	rm -f "${T}"/fallocate.${ABI}.c
 }
 
+python_configure() {
+	local myeconfargs=(
+		--disable-all-programs
+		--disable-bash-completion
+		--without-systemdsystemunitdir
+		--with-python
+	)
+	if use userland_GNU; then
+		myeconfargs+=(
+			--enable-libblkid
+			--enable-libmount
+			--enable-pylibmount
+		)
+	fi
+	mkdir "${BUILD_DIR}" || die
+	pushd "${BUILD_DIR}" >/dev/null || die
+	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"
+	popd >/dev/null || die
+}
+
 multilib_src_configure() {
 	lfs_fallocate_test
 	# The scanf test in a run-time test which fails while cross-compiling.
@@ -126,112 +143,12 @@ multilib_src_configure() {
 	export ac_cv_header_security_pam_misc_h=$(multilib_native_usex pam) #485486
 	export ac_cv_header_security_pam_appl_h=$(multilib_native_usex pam) #545042
 
-	# Disabled by default:
-	# --enable-chfn-chsh      build chfn and chsh
-	# --disable-login         do not build login
-	# --disable-nologin       do not build nologin
-	# --disable-su            do not build su
-
-	# Enabled by default:
-	# --disable-agetty        do not build agetty
-	# --disable-bash-completion
-	# --enable-line           build line
-	# --disable-partx         do not build addpart, delpart, partx
-	# --disable-raw           do not build raw
-	# --disable-rename        do not build rename
-	# --disable-rfkill        do not build rfkill
-	# --disable-schedutils    do not build chrt, ionice, taskset
-
-	# USE-flag dependent:
-	# --disable-makeinstall-chown
-	# --disable-makeinstall-setuid
-	# --disable-nls           do not use Native Language Support
-	# --disable-widechar      do not compile wide character support
-	# --disable-setpriv       do not build setpriv
-	# --enable-static[=PKGS]  build static libraries [default=yes]
-	# --disable-cramfs        do not build fsck.cramfs, mkfs.cramfs
-	# --disable-fdformat      do not build fdformat
-	# --disable-mesg          do not build mesg
-	# --disable-wall          do not build wall
-	# --enable-write          build write
-	# --disable-kill          do not build kill
-
-	# Non-native builds, Enabled by default:
-	# --disable-libuuid       do not build libuuid and uuid utilities
-	# --disable-libblkid      do not build libblkid and many related utilities
-	# --disable-libsmartcols  do not build libsmartcols
-	# --disable-libfdisk      do not build libfdisk
-
-	# Additional options now enabled:
-	# --enable-static-programs=losetup,mount,umount,fdisk,sfdisk,blkid,nsenter,unshare (all require static-libs)
-	# --enable-sulogin-emergency-mount
-
-	# --disable-all-programs  disable everything, might be overridden
-	# --disable-assert        turn off assertions
-	# --disable-bfs           do not build mkfs.bfs
-	# --disable-cal           do not build cal
-	# --disable-chfn-chsh-password
-	# --disable-chmem         do not build chmem
-	# --disable-chsh-only-listed
-	# --disable-colors-default
-	# --disable-dependency-tracking
-	# --disable-eject         do not build eject
-	# --disable-fallocate     do not build fallocate
-	# --disable-fsck          do not build fsck
-	# --disable-hwclock       do not build hwclock
-	# --disable-ipcrm         do not build ipcrm
-	# --disable-ipcs          do not build ipcs
-	# --disable-largefile     omit support for large files
-	# --disable-last          do not build last
-	# --disable-libmount      do not build libmount
-	# --disable-libtool-lock  avoid locking (might break parallel builds)
-	# --disable-logger        do not build logger
-	# --disable-losetup       do not build losetup
-	# --disable-lslogins      do not build lslogins
-	# --disable-lsmem         do not build lsmem
-	# --disable-minix         do not build fsck.minix, mkfs.minix
-	# --disable-more          do not build more
-	# --disable-mount         do not build mount(8) and umount(8)
-	# --disable-mountpoint    do not build mountpoint
-	# --disable-nsenter       do not build nsenter
-	# --disable-option-checking  ignore unrecognized --enable/--with options
-	# --disable-pg-bell       let pg not ring the bell on invalid keys
-	# --disable-pivot_root    do not build pivot_root
-	# --disable-plymouth_support
-	# --disable-pylibmount    do not build pylibmount
-	# --disable-rpath         do not hardcode runtime library paths
-	# --disable-runuser       do not build runuser
-	# --disable-setterm       do not build setterm
-	# --disable-silent-rules  verbose build output (undo: "make V=0")
-	# --disable-sulogin       do not build sulogin
-	# --disable-switch_root   do not build switch_root
-	# --disable-symvers       disable library symbol versioning [default=auto]
-	# --disable-tls           disable use of thread local support
-	# --disable-ul            do not build ul
-	# --disable-unshare       do not build unshare
-	# --disable-use-tty-group do not install wall and write setgid tty
-	# --disable-utmpdump      do not build utmpdump
-	# --disable-uuidd         do not build the uuid daemon
-	# --disable-wdctl         do not build wdctl
-	# --disable-zramctl       do not build zramctl
-
-	# --enable-asan           compile with Address Sanitizer
-	# --enable-libmount-support-mtab
-	# --enable-libuuid-force-uuidd
-	# --enable-login-chown-vcs
-	# --enable-login-stat-mail
-	# --enable-newgrp         build newgrp
-	# --enable-pg             build pg
-	# --enable-tunelp         build tunelp
-	# --enable-usrdir-path    use only /usr paths in PATH env. variable
-	# --enable-vipw           build vipw
-
 	local myeconfargs=(
 		--enable-fs-paths-extra="${EPREFIX}/usr/sbin:${EPREFIX}/bin:${EPREFIX}/usr/bin"
 		--with-bashcompletiondir="$(get_bashcompdir)"
+		--without-python
 		$(multilib_native_use_enable suid makeinstall-chown)
 		$(multilib_native_use_enable suid makeinstall-setuid)
-		$(multilib_native_use_with python)
 		$(multilib_native_use_with readline)
 		$(multilib_native_use_with slang)
 		$(multilib_native_use_with systemd)
@@ -243,7 +160,7 @@ multilib_src_configure() {
 		$(use_enable unicode widechar)
 		$(use_enable static-libs static)
 		$(use_with selinux)
-		$(usex ncurses '' '--without-tinfo')
+		$(use_with ncurses tinfo)
 	)
 	# build programs only on GNU, on *BSD we want libraries only
 	if multilib_is_native_abi && use userland_GNU; then
@@ -251,6 +168,7 @@ multilib_src_configure() {
 			--disable-chfn-chsh
 			--disable-login
 			--disable-nologin
+			--disable-pylibmount
 			--disable-su
 			--enable-agetty
 			--enable-bash-completion
@@ -290,20 +208,56 @@ multilib_src_configure() {
 		fi
 	fi
 	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"
+
+	if multilib_is_native_abi && use python; then
+		python_foreach_impl python_configure
+	fi
+}
+
+python_compile() {
+	pushd "${BUILD_DIR}" >/dev/null || die
+	emake all
+	popd >/dev/null || die
+}
+
+multilib_src_compile() {
+	emake all
+
+	if multilib_is_native_abi && use python; then
+		python_foreach_impl python_compile
+	fi
+}
+
+python_test() {
+	pushd "${BUILD_DIR}" >/dev/null || die
+	emake check TS_OPTS="--parallel=$(makeopts_jobs) --nonroot"
+	popd >/dev/null || die
 }
 
 multilib_src_test() {
 	emake check TS_OPTS="--parallel=$(makeopts_jobs) --nonroot"
+	if multilib_is_native_abi && use python; then
+		python_foreach_impl python_test
+	fi
+}
+
+python_install() {
+	pushd "${BUILD_DIR}" >/dev/null || die
+	emake DESTDIR="${D}" install
+	python_optimize
+	popd >/dev/null || die
 }
 
 multilib_src_install() {
+	if multilib_is_native_abi && use python; then
+		python_foreach_impl python_install
+	fi
+
 	emake DESTDIR="${D}" install
 
 	if multilib_is_native_abi && use userland_GNU; then
 		# need the libs in /
 		gen_usr_ldscript -a blkid fdisk mount smartcols uuid
-
-		use python && python_optimize
 	fi
 }
 
