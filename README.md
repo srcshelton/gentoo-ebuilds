@@ -547,6 +547,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-fs/fuse
     * Avoid installing udev rules unless `USE="udev"` is specified
+* sys-fs/fuse-common
+    * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-fs/lvm2
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-fs/mdadm
