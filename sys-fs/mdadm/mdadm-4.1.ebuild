@@ -1,19 +1,19 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/sys-fs/mdadm/mdadm-3.3.1.ebuild,v 1.1 2014/07/14 18:08:15 ssuominen Exp $
 
-EAPI="4"
-inherit multilib flag-o-matic systemd toolchain-funcs udev
+EAPI=6
+inherit flag-o-matic multilib systemd toolchain-funcs udev
 
-DESCRIPTION="A useful tool for running RAID systems - it can be used as a replacement for the raidtools"
-HOMEPAGE="http://neil.brown.name/blog/mdadm"
-DEB_PR=2
-SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P}.tar.xz
-		mirror://debian/pool/main/m/mdadm/${PN}_3.3-${DEB_PR}.debian.tar.gz"
+DESCRIPTION="Tool for running RAID systems - replacement for the raidtools"
+HOMEPAGE="https://git.kernel.org/pub/scm/utils/mdadm/mdadm.git/"
+DEB_PF="4.1~rc1-4"
+SRC_URI="mirror://kernel/linux/utils/raid/mdadm/${P/_/-}.tar.xz
+		mirror://debian/pool/main/m/mdadm/${PN}_${DEB_PF}.debian.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~mips ~ppc ~ppc64 ~sparc ~x86"
+[[ "${PV}" = *_rc* ]] || \
+KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 sparc x86"
 IUSE="static systemd +udev"
 
 DEPEND="virtual/pkgconfig
@@ -26,22 +26,41 @@ RESTRICT="test"
 
 rundir="/dev/.mdadm"
 
+PATCHES=(
+	"${FILESDIR}"/${PN}-3.4-sysmacros.patch #580188
+)
+
 mdadm_emake() {
+	local myconf=()
+
+	# We should probably make corosync & libdlm into USE flags. #573782
+
+	myconf+=( PKG_CONFIG="$(tc-getPKG_CONFIG)" )
+	myconf+=( CC="$(tc-getCC)" )
+	myconf+=( CWFLAGS="-Wall" )
+	myconf+=( CXFLAGS="${CFLAGS}" )
+	myconf+=( COROSYNC="-DNO_COROSYNC" )
+	myconf+=( DLM="-DNO_DLM" )
+
+	if use udev; then
+		myconf+=( UDEVDIR="$(get_udevdir)" )
+	fi
+
+	if use systemd; then
+		myconf+=( SYSTEMD_DIR="$(systemd_get_unitdir)" )
+	else
+		myconf+=( RUN_DIR="${rundir}" )
+		myconf+=( MAP_DIR="${rundir}" )
+	fi
+
 	emake \
-		PKG_CONFIG="$(tc-getPKG_CONFIG)" \
-		CC="$(tc-getCC)" \
-		CWFLAGS="-Wall" \
-		CXFLAGS="${CFLAGS}" \
-		RUN_DIR="${rundir}" \
-		MAP_DIR="${rundir}" \
-		UDEVDIR="$(get_udevdir)" \
-		SYSTEMD_DIR="$(systemd_get_unitdir)" \
+		"${myconf[@]}" \
 		"$@"
 }
 
 src_compile() {
 	use static && append-ldflags -static
-	mdadm_emake all mdassemble
+	mdadm_emake all
 }
 
 src_test() {
@@ -51,18 +70,10 @@ src_test() {
 }
 
 src_install() {
-	if ! use systemd; then
-		emake \
-			DESTDIR="${D}" \
-			RUN_DIR="${rundir}" \
-			install
-	else
-		emake \
-			DESTDIR="${D}" \
-			RUN_DIR="${rundir}" \
-			install install-systemd
+	mdadm_emake DESTDIR="${D}" install
+	if use systemd; then
+		mdadm_emake DESTDIR="${D}" install-systemd
 	fi
-	dosbin mdassemble
 	dodoc ChangeLog INSTALL TODO README* ANNOUNCE-${PV}
 
 	if ! use udev; then
@@ -76,15 +87,15 @@ src_install() {
 	newconfd "${FILESDIR}"/mdadm.confd mdadm
 	newinitd "${FILESDIR}"/mdraid.rc mdraid
 	newconfd "${FILESDIR}"/mdraid.confd mdraid
-# Shouldn't be required since upstream has it's own .service files. Untested. -ssuominen
-#	wmd_newunit "${FILESDIR}"/mdadm.service-r1 mdadm.service
 
 	# From the Debian patchset
 	dodoc "${WORKDIR}"/debian/README.checkarray
 	dosbin "${WORKDIR}"/debian/checkarray
+	insinto /etc/default
+	newins "${FILESDIR}"/etc-default-mdadm mdadm
 
-	insinto /etc/cron.weekly
-	newins "${FILESDIR}"/mdadm.weekly mdadm
+	exeinto /etc/cron.weekly
+	newexe "${FILESDIR}"/mdadm.weekly mdadm
 }
 
 pkg_postinst() {
