@@ -1,18 +1,23 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 
-inherit eutils multilib versionator prefix
+inherit multilib versionator prefix
 
 DESCRIPTION="Filesystem baselayout and init scripts"
 HOMEPAGE="https://www.gentoo.org/"
-SRC_URI="https://gitweb.gentoo.org/proj/baselayout.git/snapshot/${P}.tar.bz2"
+if [[ ${PV} = 9999 ]]; then
+	EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/${PN}.git"
+	inherit git-r3
+else
+	SRC_URI="https://gitweb.gentoo.org/proj/${PN}.git/snapshot/${P}.tar.bz2"
+	KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh ~sparc x86 ~amd64-fbsd ~x86-fbsd"
+fi
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~x86-fbsd"
-IUSE="build kernel_linux +varrun"
+IUSE="build kernel_FreeBSD kernel_linux +split-usr +varrun"
 
 pkg_setup() {
 	multilib_layout
@@ -20,19 +25,50 @@ pkg_setup() {
 
 # Create our multilib dirs - the Makefile has no knowledge of this
 multilib_layout() {
-	local libdir libdirs="$(get_all_libdirs)" def_libdir="$(get_abi_LIBDIR $DEFAULT_ABI)"
+	local dir def_libdir libdir libdirs
+	local prefix prefix_lst
+	def_libdir="$(get_abi_LIBDIR $DEFAULT_ABI)"
+	libdirs="$(get_all_libdirs)"
 	: ${libdirs:=lib}	# it isn't that we don't trust multilib.eclass...
 
-	[[ -n "${def_libdir}" ]] ||
-		die "your DEFAULT_ABI=$DEFAULT_ABI appears to be invalid"
+	if [[ -z "${SYMLINK_LIB}" || "${SYMLINK_LIB}" = 'no' ]] ; then
+		prefix_lst=( "${EROOT}"{,usr/,usr/local/} )
+		for prefix in ${prefix_lst[@]}; do
+			for libdir in ${libdirs}; do
+				dir="${prefix}${libdir}"
+				if [[ -e "${dir}" ]]; then
+					[[ ! -d "${dir}" ]] &&
+						die "${dir} exists but is not a directory"
+					continue
+				fi
+				if ! use split-usr && [[ ${prefix} = ${EROOT} ]]; then
+					einfo "symlinking ${dir} to usr/${libdir}"
+					ln -s usr/${libdir} ${dir} ||
+						die " Unable to make ${dir} symlink"
+				else
+					einfo "creating directory ${dir}"
+					mkdir -p "${dir}" ||
+						die "Unable to create ${dir} directory"
+				fi
+			done
+		done
+		return 0
+	fi
+
+	[[ -z "${def_libdir}" ]] &&
+		die "Your DEFAULT_ABI ('$DEFAULT_ABI') appears to be invalid"
 
 	# figure out which paths should be symlinks and which should be directories
 	local dirs syms exp d
 	for libdir in ${libdirs} ; do
-		exp=( {,usr/,usr/local/}${libdir} )
+		if use split-usr ; then
+			exp=( {,usr/,usr/local/}${libdir} )
+		else
+			exp=( {usr/,usr/local/}${libdir} )
+		fi
 		for d in "${exp[@]}" ; do
 			# most things should be dirs
-			if [[ "${SYMLINK_LIB}" = "yes" ]] && [[ "${libdir}" = "lib" ]] ; then
+			if [[ "${SYMLINK_LIB}" = 'yes' ]] && [[ "${libdir}" = 'lib' ]] ; then
 				[[ ! -L "${d}" ]] && [[ -e "${d}" ]] && dirs+=" ${d}"
 			else
 				[[ -L "${d}" ]] && syms+=" ${d}"
@@ -51,9 +87,13 @@ multilib_layout() {
 
 	# setup symlinks and dirs where we expect them to be; do not migrate
 	# data ... just fall over in that case.
-	local prefix
-	for prefix in "${EROOT%/}"{,/usr,/usr/local} ; do
-		if [[ "${SYMLINK_LIB}" = yes ]] ; then
+	if use split-usr ; then
+		prefix_lst=( "${EROOT}"{,usr/,usr/local/} )
+	else
+		prefix_lst=( "${EROOT}"{usr/,usr/local/} )
+	fi
+	for prefix in "${prefix_lst[@]}"; do
+		if [[ "${SYMLINK_LIB}" = 'yes' ]] ; then
 			# we need to make sure "lib" points to the native libdir
 			if [[ -L "${prefix%/}/lib" ]] ; then
 				# it's already a symlink!  assume it's pointing to right place ...
@@ -112,6 +152,13 @@ multilib_layout() {
 			fi
 		fi
 	done
+	if ! use split-usr ; then
+		for libdir in ${libdirs}; do
+			if [[ ! -e "${EROOT}${libdir}" ]]; then
+				ln -s usr/"${libdir}" "${EROOT}${libdir}"
+			fi
+		done
+	fi
 }
 
 pkg_preinst() {
@@ -132,7 +179,11 @@ pkg_preinst() {
 	# Also, we cannot reference $S as binpkg will break so we do this.
 	multilib_layout
 	if use build ; then
-		emake -C "${ED}/usr/share/${PN}" DESTDIR="${EROOT}" layout || die
+		if use split-usr ; then
+			emake -C "${ED}/usr/share/${PN}" DESTDIR="${EROOT}" layout
+		else
+			emake -C "${ED}/usr/share/${PN}" DESTDIR="${EROOT}" layout-usrmerge
+		fi
 	fi
 	rm -f "${ED}"/usr/share/${PN}/Makefile
 }
@@ -209,10 +260,6 @@ pkg_postinst() {
 		fi
 	fi
 
-	# baselayout leaves behind a lot of .keep files, so let's clean them up
-	find "${EROOT%/}"/lib*/rcscripts/ -name .keep -exec rm -f {} + 2>/dev/null
-	find "${EROOT%/}"/lib*/rcscripts/ -depth -type d -exec rmdir {} + 2>/dev/null
-
 	# whine about users with invalid shells #215698
 	if [[ -e "${EROOT%/}"/etc/passwd ]] ; then
 		local bad_shells=$(awk -F: 'system("test -e " $7) { print $1 " - " $7}' "${EROOT%/}"/etc/passwd | sort)
@@ -229,17 +276,29 @@ pkg_postinst() {
 
 		local found fstype mountpoint
 		while read -r _ mountpoint fstype _; do
-			[[ ${mountpoint} = /run ]] && [[ ${fstype} = tmpfs ]] && found=1
+		[[ ${mountpoint} = /run ]] && [[ ${fstype} = tmpfs ]] && found=1
 		done < "${ROOT}"proc/mounts
 		[[ -z ${found} ]] && ! use varrun &&
 			ewarn "You should reboot now to get /run mounted with tmpfs!"
 	fi
 
-	for v in ${REPLACING_VERSIONS}; do
-		if ! version_is_at_least 2.4 ${v}; then
+	for x in ${REPLACING_VERSIONS}; do
+		if ! version_is_at_least 2.4 ${x}; then
 			ewarn "After updating ${EROOT%/}/etc/profile, please run"
-			ewarn "env-update and . /etc/profile"
-			break
+			ewarn "env-update && . /etc/profile"
+		fi
+
+		if ! version_is_at_least 2.6 ${x}; then
+			ewarn "Please run env-update then log out and back in to"
+			ewarn "update your path."
+		fi
+
+		# clean up after 2.5 typos
+		# https://bugs.gentoo.org/show_bug.cgi?id=656380
+		if [[ "${x}" == '2.5' ]]; then
+			if [[ -d "${EROOT%/}"/'{,usr' ]]; then
+				rm -fr "${EROOT%/}"/'{,usr'
+			fi
 		fi
 	done
 
@@ -248,4 +307,5 @@ pkg_postinst() {
 		ewarn "Please migrate your changes."
 	fi
 }
+
 # vi: set diffopt=filler,iwhite:
