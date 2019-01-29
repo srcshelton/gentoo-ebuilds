@@ -429,6 +429,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-analyzer/zabbix
 * net-dialup/freeradius
 * net-dns/bind
+* net-dns/unbound
 * net-firewall/conntrack-tools
 * net-fs/netatalk
 * net-fs/samba
