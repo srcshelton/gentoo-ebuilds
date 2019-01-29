@@ -72,7 +72,7 @@ src_prepare() {
 	default
 
 	sed -e 's|/run/|/var/run/|' \
-		-i disk-utils/fsck.* term-utils/agetty.c misc-utils/blkid.8 \
+		-i disk-utils/fsck.* term-utils/agetty.c lib*/src/*P.h misc-utils/*.8 \
 	|| die
 
 	# Prevent uuidd test failure due to socket path limit. #593304
@@ -142,6 +142,8 @@ multilib_src_configure() {
 	tc-is-cross-compiler && export scanf_cv_alloc_modifier=ms
 	export ac_cv_header_security_pam_misc_h=$(multilib_native_usex pam) #485486
 	export ac_cv_header_security_pam_appl_h=$(multilib_native_usex pam) #545042
+
+	export runstatedir=/var/run
 
 	local myeconfargs=(
 		--enable-fs-paths-extra="${EPREFIX}/usr/sbin:${EPREFIX}/bin:${EPREFIX}/usr/bin"
