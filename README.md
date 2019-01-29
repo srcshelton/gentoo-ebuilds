@@ -376,6 +376,8 @@ used to build perl)
     * Filter `-funsafe-math-optimizations`, which prevents wget from building on ARM
 * net-nds/openldap
     * If /etc/init.d/tmpfiles.setup isn't active, `/var/run/openldap` is never created yet the ebuild still attempts to set permissions upon it...
+* net-vpn/tor
+    * Remove hard dependency on asciidoc
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * ~~sys-apps/gentoo-functions~~
