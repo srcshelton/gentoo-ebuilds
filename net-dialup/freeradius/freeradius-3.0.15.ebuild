@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -214,10 +214,9 @@ src_install() {
 
 pkg_config() {
 	if use ssl; then
-		cd "${EROOT}"/etc/raddb/certs
-		./bootstrap
-
-		use prefix || chown -R root:radius "${EROOT}"/etc/raddb/certs
+		cd "${ROOT}"/etc/raddb/certs || die
+		./bootstrap || die "Error while running ./bootstrap script."
+		use prefix || fowners -R root:radius "${EROOT}"/etc/raddb/certs
 	fi
 }
 
