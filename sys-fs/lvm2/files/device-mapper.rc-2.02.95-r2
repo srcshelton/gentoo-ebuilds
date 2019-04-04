@@ -84,7 +84,7 @@ start() {
 	fi
 	# Ensure the dirs exist for locking and running
 	if [ -d /run ]; then
-		checkpath -q -d -m 0700 -o root:root /run/lvm /run/lock/lvm
+		checkpath -q -d -m 0700 -o root:root /var/run/lvm /var/run/lock/lvm
 	else
 		checkpath -q -d -m 0700 -o root:root /var/run/lvm /var/lock/lvm
 	fi
