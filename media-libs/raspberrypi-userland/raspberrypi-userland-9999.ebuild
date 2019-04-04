@@ -1,16 +1,15 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: cc5ecd0b827129cf2246d3d1da04be3a8496764d $
 
 EAPI=5
-inherit cmake-utils flag-o-matic git-r3 udev
+inherit cmake-utils flag-o-matic git-r3
 
 DESCRIPTION="Raspberry Pi userspace tools and libraries"
 HOMEPAGE="https://github.com/raspberrypi/userland"
 SRC_URI=""
 
 LICENSE="BSD"
-SLOT="0/0"
+SLOT="0"
 KEYWORDS="~aarch64 arm -*"
 IUSE="examples udev"
 
