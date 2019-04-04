@@ -5,10 +5,12 @@ EAPI="7"
 
 inherit autotools flag-o-matic systemd
 
+PATCH_V="20190307"
+
 DESCRIPTION="The PHP language runtime engine"
 HOMEPAGE="https://secure.php.net/"
 SRC_URI="https://php.net/distributions/${P}.tar.xz
-	https://salsa.debian.org/php-team/php/raw/8149a436/debian/patches/0055-Use-OpenSSL-1.1-compatibility-patch-when-built-with-.patch?inline=false -> php-5.6-openssl-1.1-compatibility.patch"
+	mirror://gentoo/php-patches-${PATCH_V}-r1.tar.xz"
 
 LICENSE="PHP-3.01
 	BSD
@@ -232,13 +234,27 @@ php_set_ini_dir() {
 }
 
 src_prepare() {
-	eapply "${FILESDIR}/php-${SLOT}-no-bison-warnings.patch"
-	eapply "${FILESDIR}/5.6-mbstring-oniguruma-6.8.patch"
-	eapply "${DISTDIR}/php-5.6-openssl-1.1-compatibility.patch"
-	eapply "${FILESDIR}/php-5.6-intl-detect-icu-via-pkg-config.patch"
-	eapply "${FILESDIR}/php-5.6-intl-use-icu-namespace.patch"
-	eapply "${FILESDIR}/php-5.6-intl-icu-memory-corruption.patch"
-	eapply "${FILESDIR}/php-freetype-2.9.1.patch"
+	local patchdir="${WORKDIR}/php-patches-${PATCH_V}"
+
+	eapply "${patchdir}/php-${SLOT}-no-bison-warnings.patch" \
+		"${patchdir}/5.6-mbstring-oniguruma-6.8.patch" \
+		"${patchdir}/php-5.6-openssl-1.1-compatibility.patch" \
+		"${patchdir}/php-5.6-intl-detect-icu-via-pkg-config.patch" \
+		"${patchdir}/php-5.6-intl-use-icu-namespace.patch" \
+		"${patchdir}/php-5.6-intl-icu-memory-corruption.patch" \
+		"${FILESDIR}/php-freetype-2.9.1.patch" \
+		"${patchdir}/php-5.6-secbug-77396.patch" \
+		"${patchdir}/php-5.6-secbug-77431.patch" \
+		"${patchdir}/php-5.6-bug77494.patch" \
+		"${patchdir}/php-5.6-secbug-77509.patch" \
+		"${patchdir}/php-5.6-secbug-77540.patch" \
+		"${patchdir}/php-5.6-secbug-77563.patch" \
+		"${patchdir}/php-5.6-secbug-77586.patch" \
+		"${patchdir}/php-5.6-secbug-77630.patch"
+
+	# Copy test binaries from patches
+	cp "${patchdir}/bug77540.jpg" \
+		"${patchdir}/bug77563.jpg" "ext/exif/tests/" || die
 
 	# Change PHP branding
 	# Get the alpha/beta/rc version
