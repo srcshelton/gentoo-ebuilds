@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Authors
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -23,6 +23,7 @@ IUSE="atm berkdb caps elf +iptables ipv6 minimal selinux"
 # We could make libmnl optional, but it's tiny, so eh
 RDEPEND="
 	!net-misc/arpd
+	dev-libs/libbsd
 	!minimal? ( net-libs/libmnl )
 	caps? ( sys-libs/libcap )
 	elf? ( virtual/libelf )
@@ -39,18 +40,19 @@ DEPEND="
 	>=sys-devel/bison-2.4
 	sys-devel/flex
 	>=sys-kernel/linux-headers-3.16
+	virtual/pkgconfig
 	elibc_glibc? ( >=sys-libs/glibc-2.7 )
 "
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-3.1.0-mtu.patch #291907
-	"${FILESDIR}"/${PN}-4.17.0-configure-nomagic.patch # bug 643722
+	"${FILESDIR}"/${PN}-4.20.0-configure-nomagic.patch # bug 643722
 )
 
 src_prepare() {
 	if ! use ipv6 ; then
 		PATCHES+=(
-			"${FILESDIR}"/${PN}-4.11.0-no-ipv6.patch #326849
+			"${FILESDIR}"/${PN}-4.20.0-no-ipv6.patch #326849
 		)
 	fi
 
@@ -66,10 +68,12 @@ src_prepare() {
 		Makefile || die
 
 	# build against system headers
-	rm -r include/netinet #include/linux include/ip{,6}tables{,_common}.h include/libiptc
+	rm -r include/netinet || die #include/linux include/ip{,6}tables{,_common}.h include/libiptc
 	sed -i 's:TCPI_OPT_ECN_SEEN:16:' misc/ss.c || die
 
-	use minimal && sed -i -e '/^SUBDIRS=/s:=.*:=lib tc ip:' Makefile
+	if use minimal ; then
+		sed -i -e '/^SUBDIRS=/s:=.*:=lib tc ip:' Makefile || die
+	fi
 }
 
 src_configure() {
@@ -140,7 +144,7 @@ src_install() {
 	sed -i '/linux\/netconf.h/d' "${ED%/}"/usr/include/libnetlink.h || die
 
 	if use berkdb ; then
-		dodir /var/lib/arpd
+		keepdir /var/lib/arpd
 		# bug 47482, arpd doesn't need to be in /sbin
 		dodir /usr/bin
 		mv "${ED%/}"/sbin/arpd "${ED%/}"/usr/bin/ || die
