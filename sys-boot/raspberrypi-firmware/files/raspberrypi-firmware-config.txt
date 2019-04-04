@@ -149,7 +149,9 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 8993bff0b82f8cd8d60409d28bb61d2197606ebb.
+# commit 8b12e9904759b85df224f7352662397ec745ba2b.
+#
+# https://github.com/raspberrypi/firmware/commits/master/boot/overlays/README
 #
 # GPIO numbering uses the hardware pin numbering scheme (aka BCM scheme) and
 # not the physical pin numbers.
@@ -162,9 +164,12 @@ disable_audio_dither=1
 #dtparam=i2c,i2s,spi,random,watchdog
 
 #device_tree_param=audio=off
+#device_tree_param=axiperf=off
 #device_tree_param=eee=on
+#device_tree_param=eth_downshift_after=2 # 0,2,3,4,5
 #device_tree_param=eth_led0=1
 #device_tree_param=eth_led1=6
+#device_tree_param=eth_max_speed=1000 # 10,100,1000
 #device_tree_param=i2c1=off # i2c_arm/i2c
 #device_tree_param=i2c0=off # i2c_vc
 #device_tree_param=i2c_arm_baudrate=100000 # i2c_baudrate
@@ -208,7 +213,8 @@ disable_audio_dither=1
 #device_tree_overlay=dwc2,dr_mode=peripheral
 #device_tree_overlay=dwc2,dr_mode=otg,g-rx-fifo-size=?,g-np-tx-fifo-size=?
 
-#device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15,33, or 41.
+#device_tree_overlay=uart0,txd0_pin=14,rxd0_pin=15,pin_func=? # tx pins 14, 32, or 36; rx pins 15, 33, or 37; alternate pin function 4 (alt0: 14, 15), 7 (alt3: 32, 33), 6 (alt2: 36, 37).
+#device_tree_overlay=uart1,txd1_pin=14,rxd1_pin=15 # tx pins 14, 32, or 40; rx pins 15, 33, or 41.
 #device_tree_overlay=i2c0-bcm2708,combine=yes,pins_0_1 # or pins_28_29, pins_44_45, pins_46_47
 #device_tree_overlay=i2c1-bcm2708,combine=yes,sda0_pin=0,scl0_pin=1,pin_func=4 # SDA0 pin 2 (or 44); SCL0 pin 3 (or 45); pin function 4 (alt0) or 6 (alt2)
 #device_tree_overlay=i2c-bcm2708
@@ -282,11 +288,11 @@ disable_audio_dither=1
 #
 #device_tree_overlay=sdtweak,overlock_50=84,force_pio=off,pio_limit=1,debug=off,poll_once=off,enable=on
 #
-# enables SDIO via GPIOs 22-27
-#device_tree_overlay=sdio,sdio_overclock=84,poll_once=on,bus_width=4
-#
-# enables SDIO via GPIOs 22-25
-#device_tree_overlay=sdio-1bit,sdio_overclock=84,poll_once=on
+# enables SDIO via GPIOs 22-27 or 34-37
+#device_tree_overlay=sdio,sdio_overclock=84,poll_once=on,bus_width=4,gpios_34_39 # gpios_22_25|gpios_34_37 # ... with bus_width=1, to replace sdio-1bit overlay
+
+# The following overlays have been removed:
+##device_tree_overlay=sdio-1bit
 
 # Eric Anholt's DRM VC4 drivers:
 # Run DRM VC4 V3D driver on top of existing dispmanx stack:
@@ -336,15 +342,16 @@ disable_audio_dither=1
 # I2C:
 #device_tree_overlay=i2c-mux,pca9542,pca9545,pca9548,addr=0x70
 #device_tree_overlay=i2c-pwm-pca9685a,addr=0x40
-#device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,ds1621,hdc100x,htu21,lm75,lm75addr=0x4f,sht3x=0x44,si7020,tmp102,tsl4531,veml6070 # addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*, addr=0x44 (or 0x45) for sht3x, addr=0x40 (through to 0x43) for hdc100x
-#device_tree_overlay=mcp23017,gpiopin=4,addr=0x20
+#device_tree_overlay=i2c-sensor,addr=0xxx,bme280,bmp085,bmp180,bmp280,ds1621,hdc100x,htu21,lm75,lm75addr=0x4f,max17040,sht3x=0x44,si7020,tmp102,tsl4531,veml6070 # ,addr=0x76 (or 0x77) for bm*, addr=0x48 (through to 0x4b) for tm*, addr=0x44 (or 0x45) for sht3x, addr=0x40 (through to 0x43) for hdc100x
+#device_tree_overlay=mcp23017,gpiopin=4,addr=0x20 # ,mcp23008
 #device_tree_overlay=mpu6050,interrupt=4
-#device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48
+#device_tree_overlay=sc16is750-i2c,int_pin=24,addr=0x48,xtal=14745600
 #device_tree_overlay=sc16is752-i2c,int_pin=24,addr=0x48,xtal=14745600
-#device_tree_overlay=sx150x # sx150<x>-<n>-<m>,sx150<x>-<n>-<m>-int-gpio=?
+#device_tree_overlay=ssd1306,address=0,width=128,height=64,offset=0 # ,normal,sequential,remapped,inverted
+#device_tree_overlay=sx150x # ,sx150<x>-<n>-<m>,sx150<x>-<n>-<m>-int-gpio=?
 
 # RTC:
-# i2c-rtc supports abx80x, ds1307, ds1339, ds3231, m41t62, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
+# i2c-rtc supports abx80x, ds1307, ds1339, ds3231, m41t62, mcp7940x, mcp7941x, pcf2127, pcf8523, pcf8563, and rv3028 devices.
 #device_tree_overlay=i2c-rtc,<device>,wakeup-source
 #device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
 #device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
@@ -364,7 +371,11 @@ disable_audio_dither=1
 #device_tree_overlay=w1-gpio,gpiopin=4,pullup=off
 #device_tree_overlay=w1-gpio-pullup,gpiopin=4,pullup=off,extpullup=5
 
+# TPM modules
+#device_tree_overlay=tpm-slb9670
+
 # DAC & ADC Audio devices & codecs:
+#device_tree_overlay=3dlab-nano-player
 #device_tree_overlay=adau1977-adc
 #device_tree_overlay=adau7002-simple,card-name=adau7002
 #device_tree_overlay=ads1015,addr=0x48,cha_enable,cha_cfg=4,cha_datarate=4,cha_gain=2
@@ -379,6 +390,7 @@ disable_audio_dither=1
 #device_tree_overlay=audioinjector-addons # ,non-stop-clocks
 #device_tree_overlay=audioinjector-ultra
 #device_tree_overlay=audioinjector-wm8731-audio
+#device_tree_overlay=audiosense-pi
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=dionaudio-loco
 #device_tree_overlay=dionaudio-loco-v2 # ,24db_digital_gain
@@ -387,6 +399,7 @@ disable_audio_dither=1
 #device_tree_overlay=hifiberry-amp
 #device_tree_overlay=hifiberry-dac
 #device_tree_overlay=hifiberry-dacplus # ,24db_digital_gain,slave
+#device_tree_overlay=hifiberry-dacplusadc # ,24db_digital_gain,slave
 #device_tree_overlay=hifiberry-digi
 #device_tree_overlay=hifiberry-digi-pro
 #device_tree_overlay=iqaudio-dac # ,24db_digital_gain
@@ -395,6 +408,7 @@ disable_audio_dither=1
 #device_tree_overlay=justboom-dac # ,24db_digital_gain
 #device_tree_overlay=justboom-digi
 #device_tree_overlay=mbed-dac
+#device_tree_overlay=mcp342x,addr=0x68 # ,mcp3421,mcp3422,mcp3423,mcp3424,mcp3425,mcp3426,mcp3427,mcp3428
 #device_tree_overlay=pibell,alsaname="PiBell"
 #device_tree_overlay=pisound
 #device_tree_overlay=rpi-cirrus-wm5102
@@ -435,12 +449,12 @@ disable_audio_dither=1
 #device_tree_overlay=vga666 # Uses GPIOs 2-21!
 
 # Video output:
-#device_tree_overlay=adv7282m # ,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
-#device_tree_overlay=adv7282x-m,addr=0x21, # ,adv7280m,adv7281m,adv7281ma,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=adv7282m # ,i2c_pins_0_1 (for CM),i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=adv7282x-m,addr=0x21, # ,adv7280m,adv7281m,adv7281ma,i2c_pins_0_1 (for CM),i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
 
 # Camera input:
-#device_tree_overlay=ov5647 # ,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
-#device_tree_overlay=tc358743,link-frequency=486000000 # ,4lane,i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=ov5647 # ,i2c_pins_0_1 (for CM),i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
+#device_tree_overlay=tc358743,link-frequency=486000000 # ,4lane,i2c_pins_0_1 (for CM),i2c_pins_28_29 (for PiB+, Pi2, Pi0(W))
 #device_tree_overlay=tc358743-audio,card-name="tc358743"
 
 # CAN controllers:
@@ -448,13 +462,15 @@ disable_audio_dither=1
 #device_tree_overlay=mcp2515-can1,oscillator=?,spimaxfrequency=?,interrupt=?
 
 # Infrared receiver:
-#device_tree_overlay=gpio-ir,gpio_pin=18,gpio_pull=down,rc-map-name=rc-rc6-mce
+#device_tree_overlay=gpio-ir,gpio_pin=18,gpio_pull=up,rc-map-name=rc-rc6-mce
 #device_tree_overlay=gpio-ir-tx,gpio_pin=18,invert=0
-#device_tree_overlay=lirc-rpi,gpio_out_pin=17,gpio_in_pin=18,gpio_in_pull=down,sense=-1,softcarrier=on,invert=off,debug=off
 #device_tree_overlay=pwm-ir-tx,gpio_pin=18,func=2
 
+# The following overlays have been removed:
+##device_tree_overlay=lirc-rpi
+
 # UART0/ttyAMA0 MIDI:
-#device_tree_overlay=midi-uart0,txd0_pin=14,rxd0_pin=15 # pin_func
+#device_tree_overlay=midi-uart0,txd0_pin=14,rxd0_pin=15 # ,pin_func
 #device_tree_overlay=midi-uart1
 
 # Expension boards:
