@@ -1,15 +1,15 @@
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -34,15 +34,15 @@ LIBPCAP=-lpcap
+@@ -34,15 +34,15 @@
  MONGOOSE_HOME=${PWD}/third-party/mongoose
  MONGOOSE_INC=-I$(MONGOOSE_HOME)
  ######
--HAS_LUAJIT=$(shell pkg-config --exists luajit; echo $$?)
+-HAS_LUAJIT=$(shell pkg-config --atleast-version=2.1.0 luajit; echo $$?)
 -ifeq ($(HAS_LUAJIT), 0)
 -	LUAJIT_INC = $(shell pkg-config --cflags luajit)
 -	LUAJIT_LIB = $(shell pkg-config --libs luajit)
 -else
-+#HAS_LUAJIT=$(shell pkg-config --exists luajit; echo $$?)
++#HAS_LUAJIT=$(shell pkg-config --atleast-version=2.1.0 luajit; echo $$?)
 +#ifeq ($(HAS_LUAJIT), 0)
 +#	LUAJIT_INC = $(shell pkg-config --cflags luajit)
 +#	LUAJIT_LIB = $(shell pkg-config --libs luajit)
