@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -38,8 +38,13 @@ IUSE="debug doc gold libedit +libffi ncurses test
 	kernel_Darwin kernel_linux ${ALL_LLVM_TARGETS[*]}"
 
 RDEPEND="
-	sys-libs/zlib:0=
-	gold? ( >=sys-devel/binutils-2.22:*[cxx] )
+	sys-libs/zlib:0=[${MULTILIB_USEDEP}]
+	gold? (
+		|| (
+			>=sys-devel/binutils-2.31.1-r4:*[plugins]
+			<sys-devel/binutils-2.31.1-r4:*[cxx]
+		)
+	)
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=virtual/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
 	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )"
@@ -65,8 +70,7 @@ RDEPEND="${RDEPEND}
 PDEPEND="sys-devel/llvm-common
 	gold? ( >=sys-devel/llvmgold-${SLOT} )"
 
-REQUIRED_USE="${PYTHON_REQUIRED_USE}
-	|| ( ${ALL_LLVM_TARGETS[*]} )"
+REQUIRED_USE="|| ( ${ALL_LLVM_TARGETS[*]} )"
 
 S=${WORKDIR}/${P/_/}.src
 
@@ -76,7 +80,7 @@ CMAKE_BUILD_TYPE=RelWithDebInfo
 src_prepare() {
 	# Fix llvm-config for shared linking and sane flags
 	# https://bugs.gentoo.org/show_bug.cgi?id=565358
-	eapply "${FILESDIR}"/9999/0007-llvm-config-Clean-up-exported-values-update-for-shar.patch
+	eapply "${FILESDIR}"/7.1.0/0007-llvm-config-Clean-up-exported-values-update-for-shar.patch
 
 	# Apply the backported patches
 	eapply "${WORKDIR}/llvm-5.0.1-patchset"
