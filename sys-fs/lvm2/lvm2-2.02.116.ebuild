@@ -1,9 +1,9 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 48cc2d99d297c6015e1268a0569d4263330a5fcb $
 
 EAPI=5
-inherit autotools eutils linux-info multilib systemd toolchain-funcs udev flag-o-matic
+inherit autotools eutils linux-info multilib systemd toolchain-funcs udev flag-o-matic usr-ldscript
 
 DESCRIPTION="User-land utilities for LVM2 (device-mapper) software"
 HOMEPAGE="https://sourceware.org/lvm2/"
@@ -16,7 +16,7 @@ KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~amd
 IUSE="clvm cman device-mapper-only lvm1 lvm2create_initrd readline selinux static static-libs systemd +thin +udev"
 REQUIRED_USE="device-mapper-only? ( !clvm !cman !lvm1 !lvm2create_initrd !thin )
 	systemd? ( udev )
-	static? ( !udev )" #520450
+	static? ( !udev !systemd )" #520450
 
 DEPEND_COMMON="clvm? ( cman? ( =sys-cluster/cman-3* ) =sys-cluster/libdlm-3* )
 	readline? ( sys-libs/readline:0= )

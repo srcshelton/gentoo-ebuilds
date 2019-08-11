@@ -21,7 +21,14 @@ _need_lvmetad()
 {
 	local lvm_path="$(_get_lvm_path)"
 	[ ! -x "${lvm_path}" ] && return 1
-	${lvm_path} dumpconfig global 2>/dev/null | grep -q 'use_lvmetad=1'
+	"${lvm_path}" dumpconfig global 2>/dev/null | grep -q 'use_lvmetad=1'
+}
+
+_need_lvmlockd()
+{
+	local lvm_path="$(_get_lvm_path)"
+	[ ! -x "${lvm_path}" ] && return 1
+	"${lvm_path}" dumpconfig global 2>/dev/null | grep -q 'use_lvmlockd=1'
 }
 
 depend() {
@@ -37,10 +44,13 @@ depend() {
 	config /etc/lvm/lvm.conf
 
 	if service_started; then
-		_need=$(service_get_value need)
+		_need="$(service_get_value need)"
 	else
 		if _need_lvmetad; then
 			_need="${_need} lvmetad"
+		fi
+		if _need_lvmlockd; then
+			_need="${_need} lvmlockd"
 		fi
 	fi
 	need sysfs ${_need:-}
@@ -85,16 +95,21 @@ start() {
 
 			ebegin "Setting up Logical Volume Manager"
 			#einfo "Using configuration directive '${config}'"
+
 			# Keep stderr, for debugging
-			lvm_commands="#! ${lvm_path} --config '${config}'\n"
+			lvm_commands="#! ${lvm_path}\n"
 			# Perform extra pvscan pass since some devices might not have been available until very recently
-			lvm_commands="${lvm_commands}pvscan\n"
+			lvm_commands="${lvm_commands}pvscan --config '${config}'\n"
 			# Now make the nodes
-			lvm_commands="${lvm_commands}vgscan --mknodes\n"
+			lvm_commands="${lvm_commands}vgscan --config '${config}' --mknodes\n"
 			# And turn them on!
-			lvm_commands="${lvm_commands}vgchange --sysinit -a ly\n"
+			lvm_commands="${lvm_commands}vgchange --config '${config}' --sysinit -a ly\n"
+			if _need_lvmlockd; then
+				# Start lockd VGs as required
+				lvm_commands="${lvm_commands}vgchange --config '${config}' --lock-start --lock-opt auto\n"
+			fi
 			# Order of this is important, have to work around dash and LVM readline
-			printf "%b\n" "${lvm_commands}" | "${lvm_path}" /proc/self/fd/0 --config "${config}" >/dev/null
+			printf "%b\n" "${lvm_commands}" | "${lvm_path}" /proc/self/fd/0 >/dev/null
 			eend ${?} "Failed to setup LVM"
 		fi
 	fi
@@ -109,7 +124,6 @@ start_post() {
 
 stop() {
 	local config lvm_path lvs vgs
-	local -i rc=0
 
 	lvm_path="$(_get_lvm_path)" || return 1
 
@@ -131,10 +145,18 @@ stop() {
 			ebegin "Shutting down Logical Volume Manager"
 			#einfo "Using configuration directive '${config}'"
 
-			"${lvm_path}" lvchange -a ln ${lvs} --config "${config}" >/dev/null || : $(( rc += ${?} ))
-			"${lvm_path}" vgchange -a ln ${vgs} --config "${config}" >/dev/null || : $(( rc += ${?} ))
+			local _ending="eend"
+			[ "$RC_RUNLEVEL" = shutdown ] && _ending="ewend"
 
-			eend ${rc} "Failed (some LVs may still be required for system-essential volumes)"
+			# Keep stderr, for debugging
+			lvm_commands="#! ${lvm_path}\n"
+			# Perform extra pvscan pass since some devices might not have been available until very recently
+			lvm_commands="${lvm_commands}lvchange --config '${config}' --sysinit -a ln ${lvs}\n"
+			# Now make the nodes
+			lvm_commands="${lvm_commands}vgchange --config '${config}' --sysinit -a ln ${vgs}\n"
+			# Order of this is important, have to work around dash and LVM readline
+			printf "%b\n" "${lvm_commands}" | "${lvm_path}" /proc/self/fd/0 >/dev/null
+			${_ending} ${?} "Failed (some LVs may still be required for system-essential volumes)"
 		fi
 	fi
 }
