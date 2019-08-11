@@ -270,8 +270,10 @@ used to build perl)
     * Add more recent libupnp-1.6.20 and forked libupnp-1.8.0 releases, both with [mjg59](https://twitter.com/mjg59/status/755062671418929152)'s [POST](http://seclists.org/oss-sec/2016/q3/118) patch applied
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
+* net-mail/imapproxy
+    * Retain old up-imapproxy ebuild
 * net-misc/minissdpd
-    * Temporarily retain old build, which doesn't require `USE="old-output"` for sys-apps/net-tools
+    * Temporarily retain old ebuild, which doesn't require `USE="old-output"` for sys-apps/net-tools
 * net-misc/pixelserv
 * net-misc/unifi-controller-bin
     * Ubiquiti Networks' UniFi Controller software
