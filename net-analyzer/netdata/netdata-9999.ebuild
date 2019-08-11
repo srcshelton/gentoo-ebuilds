@@ -1,8 +1,8 @@
-# Copyright 1999-2018 Gentoo Authors
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-PYTHON_COMPAT=( python{2_7,3_4,3_5,3_6,3_7} )
+PYTHON_COMPAT=( python{2_7,3_5,3_6,3_7} )
 
 inherit autotools fcaps linux-info python-r1 systemd user
 
@@ -46,7 +46,7 @@ PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression fping ipmi mysql nfacct nodejs postgres +python systemd tor cpu_flags_x86_sse2"
+IUSE="caps +compression cups fping ipmi mysql nfacct nodejs postgres +python systemd tor xen cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -54,6 +54,7 @@ REQUIRED_USE="
 
 # Most unconditional dependencies are for plugins.d/charts.d.plugin:
 RDEPEND="
+	app-misc/jq
 	>=app-shells/bash-4:0
 	|| (
 		net-analyzer/openbsd-netcat
@@ -67,6 +68,7 @@ RDEPEND="
 	sys-apps/util-linux
 	virtual/awk
 	caps? ( sys-libs/libcap )
+	cups? ( net-print/cups )
 	compression? ( sys-libs/zlib )
 	fping? ( >=net-analyzer/fping-4.0 )
 	ipmi? ( sys-libs/freeipmi )
@@ -88,6 +90,10 @@ RDEPEND="
 		)
 		postgres? ( dev-python/psycopg:2[${PYTHON_USEDEP}] )
 		tor? ( net-libs/stem[${PYTHON_USEDEP}] )
+	)
+	xen? (
+		app-emulation/xen-tools
+		dev-libs/yajl
 	)"
 DEPEND="${RDEPEND}
 	virtual/pkgconfig"
@@ -121,8 +127,10 @@ src_configure() {
 	econf \
 		--localstatedir="${EPREFIX}"/var \
 		--with-user="${NETDATA_USER}" \
+		$(use_enable cups plugin-cups) \
 		$(use_enable nfacct plugin-nfacct) \
 		$(use_enable ipmi plugin-freeipmi) \
+		$(use_enable xen plugin-xenstat) \
 		$(use_enable cpu_flags_x86_sse2 x86-sse) \
 		$(use_with compression zlib)
 }
