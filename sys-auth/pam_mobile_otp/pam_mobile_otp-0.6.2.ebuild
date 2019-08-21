@@ -1,7 +1,7 @@
-# Copyright 1999-2011 Gentoo Foundation
+# Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=4
+EAPI=7
 
 inherit toolchain-funcs pam
 
@@ -18,20 +18,22 @@ IUSE="-android manager"
 S="${WORKDIR}/${PN}"
 
 src_prepare() {
-	epatch "${FILESDIR}/${P}-Makefile.patch" || die "Failed to patch Makefile"
-	epatch "${FILESDIR}/${P}-md5.patch" || die "Failed to patch md5 library code"
-	epatch "${FILESDIR}/${PN}-0.6.1-prompt.patch" || die "Failed to patch pam_mobile_otp.c"
-	epatch "${FILESDIR}/${PN}-0.6.1-__stack_chk_fail_local.patch" || die "Failed to patch pam_mobile_otp.c"
+	eapply "${FILESDIR}/${P}-Makefile.patch" || die "Failed to patch Makefile"
+	eapply "${FILESDIR}/${P}-md5.patch" || die "Failed to patch md5 library code"
+	eapply "${FILESDIR}/${PN}-0.6.1-prompt.patch" || die "Failed to patch pam_mobile_otp.c"
+	eapply "${FILESDIR}/${PN}-0.6.1-__stack_chk_fail_local.patch" || die "Failed to patch pam_mobile_otp.c"
 
 	if use android; then
 		sed -i '/^#define LEN_PIN/s/4$/7/' pam_mobile_otp.c || die "Failed to update PIN length for Android devices"
 	fi
+
+	default
 }
 
 src_install() {
 	if use manager; then
-		fperms 600 motp-manager || die "Cannot set permissions on 'motp-manager'"
 		dosbin motp-manager || die "Cannot install 'motp-manager'"
+		fperms 600 /usr/sbin/motp-manager || die "Cannot set permissions on 'motp-manager'"
 	fi
 
 	insinto /etc/security

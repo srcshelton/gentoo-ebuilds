@@ -1,7 +1,7 @@
 # Headers and library code from include/ and libiberty/ from GCC release 4.9.3.
 #
---- /dev/null
-+++ ansidecl.h
+--- a/ansidecl.h
++++ b/ansidecl.h
 @@ -0,0 +1,313 @@
 +/* ANSI and traditional C compatability macros
 +   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
@@ -316,8 +316,8 @@
 +#endif
 +
 +#endif	/* ansidecl.h	*/
---- md5.h
-+++ md5.h
+--- a/md5.h
++++ b/md5.h
 @@ -1,6 +1,6 @@
  /* md5.h - Declaration of functions and data types used for MD5 sum
     computing library functions.
@@ -490,8 +490,8 @@
  #endif
  
  #endif
---- md5.c
-+++ md5.c
+--- a/md5.c
++++ b/md5.c
 @@ -1,8 +1,9 @@
  /* md5.c - Functions to compute MD5 message digest of files or memory blocks
     according to the definition of MD5 in RFC 1321 from April 1992.

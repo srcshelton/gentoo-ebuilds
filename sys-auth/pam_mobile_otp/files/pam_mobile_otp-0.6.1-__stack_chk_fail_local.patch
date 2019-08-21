@@ -1,5 +1,5 @@
---- pam_mobile_otp.c.dist	2015-11-07 11:01:21.473203750 +0000
-+++ pam_mobile_otp.c	2015-11-07 11:02:42.967101134 +0000
+--- a/pam_mobile_otp.c
++++ b/pam_mobile_otp.c
 @@ -67,6 +67,9 @@
  #include "md5.h"
  #endif

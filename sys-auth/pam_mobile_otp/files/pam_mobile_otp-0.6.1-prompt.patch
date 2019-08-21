@@ -1,5 +1,5 @@
---- pam_mobile_otp.c.dist	2011-08-16 14:26:00.193806304 +0100
-+++ pam_mobile_otp.c	2011-08-16 14:28:52.342608771 +0100
+--- a/pam_mobile_otp.c
++++ b/pam_mobile_otp.c
 @@ -204,7 +204,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_h
      struct pam_message msg, *pmsg[1];
      struct pam_response *resp;
