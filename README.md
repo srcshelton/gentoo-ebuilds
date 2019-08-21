@@ -446,7 +446,6 @@ directory is an additional QA check which reports an error if files deployed to
 * net-misc/openntpd
 * net-misc/radvd
 * net-misc/rsyncd
-* net-p2p/bitcoind
 * net-p2p/deluge
 * sys-apps/haveged
 * sys-apps/kmod
