@@ -1,8 +1,8 @@
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=4
-inherit linux-info eutils
+EAPI=7
+inherit linux-info eutils usr-ldscript
 
 DESCRIPTION="the low-level library for netfilter related kernel/userspace communication"
 HOMEPAGE="http://www.netfilter.org/projects/libnfnetlink/"
@@ -14,14 +14,10 @@ SRC_URI="http://www.netfilter.org/projects/${PN}/files/${P}.tar.bz2
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86"
-IUSE="sep-usr static-libs"
+IUSE="static-libs"
 
 DOCS=( README )
 PATCHES=( "${DISTDIR}/${PATCH_FN}" )
-
-src_prepare() {
-	epatch "${PATCHES[@]}"
-}
 
 pkg_setup() {
 	linux-info_pkg_setup
@@ -50,10 +46,6 @@ src_configure() {
 src_install() {
 	default
 
-	if use sep-usr; then
-		# need the libs in /
-		gen_usr_ldscript -a nfnetlink
-	fi
-
-	prune_libtool_files
+	gen_usr_ldscript -a nfnetlink
+	find "${D}" -name '*.la' -delete || die
 }
