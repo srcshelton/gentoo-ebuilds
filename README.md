@@ -157,8 +157,6 @@ used to build perl)
     * Add missing `string.h` header to `makemsg.c`
 * sys-apps/texinfo
     * Add missing `#include`
-* ~~sys-devel/binutils-apple~~
-    * ~~Build to current macOS version and fix missing Libc header~~
 * sys-devel/gdb
     * Fixes for building with clang, building on Yosemite, and building with Python support
 * sys-devel/gcc-apple
@@ -197,8 +195,6 @@ used to build perl)
     * Updated library version required by latest net-firewall/nftables
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
-* ~~net-firewall/nftables~~
-    * ~~git live ebuild for nftables `nft` binary~~ (obsolete due to in-tree nftables build)
 * app-emulation/docker
     * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
 * sys-apps/iproute2
@@ -262,8 +258,6 @@ used to build perl)
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
 * media-sound/logitechmediaserver-bin
     * Stuart Hickinbottom's Squeezebox Server ebuild, updated for Perl 5.22 and with minor optimisations
-* ~~net-analyzer/netdata~~
-    * ~~netdata is now in-tree~~
 * net-libs/libhtp
     * Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old
 * net-libs/libupnp
@@ -297,9 +291,6 @@ used to build perl)
     * OpenNAB Nabaztag server software
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
-* ~~www-misc/observium~~
-    * ~~Observium is an autodiscovering SNMP based network monitoring platform~~
-    * Observium have removed public repo access, do not make versioned sources available, and aren't updating the current version string which was previously maintained at http://www.observium.org/stable.php - there no longer appears to be any sane way to package this application (... although it never worked correctly if using any web server other than Apache in any case, and the developers made it very clear as to how little they cared about this - so whilst a shame, it is unfortunately likely to be no great loss ⊙︵⊙)
 * www-servers/3dm2
     * 3ware 3DM2 RAID controller web interface for 3w-xxxx, 3w-9xxx and 3w-sas controllers
 
@@ -343,8 +334,6 @@ used to build perl)
     * Fix `status` reporting, revise installed documentation, add optional systemd service support
 * mail-mta/nullmailer
     * Make systemd service support optional
-* media-libs/opengl-apple
-    * Check for missing files before installing the Apple X11/Xquartz compatibility symlinks
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
 * net-analyzer/munin
@@ -383,9 +372,6 @@ used to build perl)
     * Remove hard dependency on asciidoc
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
-* ~~sys-apps/gentoo-functions~~
-    * ~~Deploy files to the correct locations on prefix installations~~
-    * Fixed in sys-apps/gentoo-functions/sys-apps/gentoo-functions-0.9 v1.2
 * sys-apps/gentoo-functions
     * Fix inclusion when unbound variable checking is enabled
 * sys-apps/portage
