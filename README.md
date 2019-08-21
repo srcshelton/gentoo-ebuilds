@@ -247,12 +247,6 @@ used to build perl)
 * dev-python/pre-commit
 * dev-python/yamllint
 * dev-ruby/CFPropertyList
-* dev-ruby/cora
-* dev-ruby/geocoder
-* dev-ruby/guard
-* dev-ruby/guard-rspec
-* dev-ruby/pry
-* dev-ruby/rake
 * games-server/minecraft-server-bin
 * mail-client/roundcube
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
