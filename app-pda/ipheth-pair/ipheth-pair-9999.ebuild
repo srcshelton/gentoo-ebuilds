@@ -1,8 +1,7 @@
-# Copyright 1999-2010 Gentoo Foundation
+# Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="4"
-
+EAPI=5
 inherit autotools eutils git-2 udev
 
 DESCRIPTION="iPhone USB Ethernet Driver for Linux pairing helper"
