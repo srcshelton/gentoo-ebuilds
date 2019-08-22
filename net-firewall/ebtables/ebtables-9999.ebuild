@@ -2,11 +2,11 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: /var/cvsroot/gentoo-x86/net-firewall/ebtables/ebtables-2.0.10.4.ebuild,v 1.5 2014/08/10 20:55:27 slyfox Exp $
 
-EAPI="4"
+EAPI=5
 
 inherit git-r3 versionator eutils toolchain-funcs multilib flag-o-matic
 
-DESCRIPTION="Utility that enables basic Ethernet frame filtering on a Linux bridge, MAC NAT and brouting"
+DESCRIPTION="Basic Ethernet frame filtering on a Linux bridge, MAC NAT and brouting"
 HOMEPAGE="http://ebtables.sourceforge.net/"
 EGIT_REPO_URI="git://git.netfilter.org/ebtables"
 EGIT_COMMIT="f4bdc80ae8c1a79b4ab5dcb8431ad85aea618d66"
