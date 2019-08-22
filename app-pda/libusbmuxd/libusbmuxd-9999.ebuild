@@ -1,8 +1,8 @@
-# Copyright 1999-2013 Gentoo Foundation
+# Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 # $Header: app-pda/libusbmuxd/libusbmuxd-9999.ebuild,v 1.0 2013/10/31 16:34:12 srcs Exp $
 
-EAPI=4
+EAPI=5
 EGIT_MASTER="master"
 inherit autotools eutils git-2
 
