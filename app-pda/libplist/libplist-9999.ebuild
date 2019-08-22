@@ -1,4 +1,4 @@
-# Copyright 1999-2013 Gentoo Foundation
+# Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 # $Header: app-pda/libplist/libplist-9999.ebuild,v 1.0 2014/01/13 17:21:55 srcs Exp $
 
