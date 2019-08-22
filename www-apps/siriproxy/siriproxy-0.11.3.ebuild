@@ -1,13 +1,13 @@
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="4"
+EAPI=7
 
 inherit webapp
 
 DESCRIPTION="An intelligent Siri Proxy with multiple key storage and key throttling"
-HOMEPAGE="https://github.com/interstateone/The-Three-Little-Pigs-Siri-Proxy/"
-SRC_URI="https://github.com/interstateone/The-Three-Little-Pigs-Siri-Proxy/archive/v${PV}.zip -> ${P}.zip"
+HOMEPAGE="https://github.com/jimmykane/The-Three-Little-Pigs-Siri-Proxy/"
+SRC_URI="https://github.com/jimmykane/The-Three-Little-Pigs-Siri-Proxy/archive/v${PV}.zip -> ${P}.zip"
 RESTRICT="nomirror"
 
 LICENSE="CCPL-Attribution-ShareAlike-NonCommercial-3.0"
