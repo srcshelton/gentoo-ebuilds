@@ -1,5 +1,5 @@
---- www/api.php.dist	2017-08-01 07:18:06.331127221 +0100
-+++ www/api.php	2017-08-01 07:20:24.698727371 +0100
+--- a/www/api.php
++++ b/www/api.php
 @@ -29,7 +29,9 @@ You should have received a copy of the G
  along with NabaztagLives.  If not, see <http://www.gnu.org/licenses/>.
  */

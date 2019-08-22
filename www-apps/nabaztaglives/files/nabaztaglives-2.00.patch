@@ -1,5 +1,5 @@
---- www/check_rabbit.php	2014-07-29 02:14:49.000000000 +0100
-+++ www/check_rabbit.php	2014-07-29 20:11:24.520466620 +0100
+--- a/www/check_rabbit.php
++++ b/www/check_rabbit.php
 @@ -96,7 +96,8 @@ while($row = mysqli_fetch_row($result))
  
  echo '</table>';
@@ -10,8 +10,8 @@
  mysqli_close($con); 
  
  echo '<P>';
---- www/index.php	2014-07-29 02:14:57.000000000 +0100
-+++ www/index.php	2014-07-29 20:11:39.697184950 +0100
+--- a/www/index.php
++++ b/www/index.php
 @@ -86,7 +86,8 @@ include './subroutines/logError.php';
  			
  			echo "<h2>$count</h2>";
@@ -66,8 +66,8 @@
 -</html>
 \ No newline at end of file
 +</html>
---- www/newRabbit.php	2014-07-29 02:15:00.000000000 +0100
-+++ www/newRabbit.php	2014-07-29 01:51:04.514381105 +0100
+--- a/www/newRabbit.php
++++ b/www/newRabbit.php
 @@ -64,7 +64,8 @@ if (!$result)
      return;
  }
@@ -78,8 +78,8 @@
  
  $cmd = 'call sp_GetLanguage();';
  
---- www/peek.php	2014-07-29 02:15:01.000000000 +0100
-+++ www/peek.php	2014-07-29 20:12:28.057349572 +0100
+--- a/www/peek.php
++++ b/www/peek.php
 @@ -67,7 +67,8 @@ while($row = mysqli_fetch_row($result))
  	$serNbr = $row[0];
  }
@@ -141,8 +141,8 @@
  mysqli_close($con); 
  
  
---- www/rabbits.php	2014-07-29 02:15:01.000000000 +0100
-+++ www/rabbits.php	2014-07-29 20:12:45.890743612 +0100
+--- a/www/rabbits.php
++++ b/www/rabbits.php
 @@ -90,7 +90,8 @@ while($row = mysqli_fetch_row($result))
  }    
  echo '</table>';
@@ -170,8 +170,8 @@
 -</html>
 \ No newline at end of file
 +</html>
---- www/saveUpdateRabbit.php	2014-07-29 02:15:03.000000000 +0100
-+++ www/saveUpdateRabbit.php	2014-07-29 01:51:48.071196057 +0100
+--- a/www/saveUpdateRabbit.php
++++ b/www/saveUpdateRabbit.php
 @@ -241,7 +241,8 @@ if (isset($_POST['btnRestart']))
      while($row = mysqli_fetch_row($result))
          $msg = $row[0];
@@ -225,8 +225,8 @@
 -</html>
 \ No newline at end of file
 +</html>
---- www/stream.php	2014-07-29 02:15:09.000000000 +0100
-+++ www/stream.php	2014-07-29 20:12:54.530773024 +0100
+--- a/www/stream.php
++++ b/www/stream.php
 @@ -104,7 +104,8 @@ if(intval($rabbitID) < 1)
  	return;
  }
@@ -237,8 +237,8 @@
  mysqli_close($con);
  
  ?>
---- www/stream_post.php	2014-07-29 02:15:10.000000000 +0100
-+++ www/stream_post.php	2014-07-29 20:13:10.627494485 +0100
+--- a/www/stream_post.php
++++ b/www/stream_post.php
 @@ -113,7 +113,8 @@ if(intval($rabbitID) < 1)
  	return;
  }
@@ -269,8 +269,8 @@
 -?>
 \ No newline at end of file
 +?>
---- www/subroutines/queryWithRetry.php	2014-07-29 02:15:12.000000000 +0100
-+++ www/subroutines/queryWithRetry.php	2014-07-29 01:52:22.784647569 +0100
+--- a/www/subroutines/queryWithRetry.php
++++ b/www/subroutines/queryWithRetry.php
 @@ -14,7 +14,8 @@ function queryWithRetry($con,$cmd,$rabbi
      $max    = 3;
      $time1  = date("H:i:s");
@@ -288,8 +288,8 @@
 -?>
 \ No newline at end of file
 +?>
---- www/updateRabbit2.php	2014-07-29 02:15:18.000000000 +0100
-+++ www/updateRabbit2.php	2014-07-29 21:29:06.049668247 +0100
+--- a/www/updateRabbit2.php
++++ b/www/updateRabbit2.php
 @@ -41,7 +41,9 @@ $serialNbr = $_SESSION['rawSerialNbr'];
  <P>
  <?php
@@ -385,8 +385,8 @@
  
  ?>
  </table>
---- www/updateSchedule.php	2014-07-29 02:15:20.000000000 +0100
-+++ www/updateSchedule.php	2014-07-29 01:53:00.108107967 +0100
+--- a/www/updateSchedule.php
++++ b/www/updateSchedule.php
 @@ -102,7 +102,8 @@ for($i=1;$i < 11; $i++)
              return;
          }
@@ -399,8 +399,8 @@
 -?>
 \ No newline at end of file
 +?>
---- www/vl/FR/p3.jsp	2014-07-29 02:19:52.000000000 +0100
-+++ www/vl/FR/p3.jsp	2014-07-29 01:55:43.478664149 +0100
+--- a/www/vl/FR/p3.jsp
++++ b/www/vl/FR/p3.jsp
 @@ -118,7 +118,8 @@ if($rabbitID < 1)  //rows found in DB
      return;
  }
@@ -540,8 +540,8 @@
 -?> 
 \ No newline at end of file
 +?> 
---- www/vl/p4.php	2014-07-29 02:15:40.000000000 +0100
-+++ www/vl/p4.php	2014-07-29 20:14:13.011040178 +0100
+--- a/www/vl/p4.php
++++ b/www/vl/p4.php
 @@ -245,7 +245,8 @@ if($sn == '000000000000')  //for testing
      //return;
  }
