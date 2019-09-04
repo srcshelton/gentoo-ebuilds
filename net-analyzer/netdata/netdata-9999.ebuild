@@ -46,7 +46,7 @@ PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression cups fping ipmi mysql nfacct nodejs postgres +python systemd tor xen cpu_flags_x86_sse2"
+IUSE="caps +compression cups dbengine fping ipmi mysql nfacct nodejs postgres +python systemd tor xen cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -69,6 +69,12 @@ RDEPEND="
 	virtual/awk
 	caps? ( sys-libs/libcap )
 	cups? ( net-print/cups )
+	dbengine? (
+		dev-libs/libuv
+		app-arch/lz4
+		dev-libs/judy
+		dev-libs/openssl:=
+	)
 	compression? ( sys-libs/zlib )
 	fping? ( >=net-analyzer/fping-4.0 )
 	ipmi? ( sys-libs/freeipmi )
@@ -127,7 +133,9 @@ src_configure() {
 	econf \
 		--localstatedir="${EPREFIX}"/var \
 		--with-user="${NETDATA_USER}" \
+		--disable-jsonc \
 		$(use_enable cups plugin-cups) \
+		$(use_enable dbengine) \
 		$(use_enable nfacct plugin-nfacct) \
 		$(use_enable ipmi plugin-freeipmi) \
 		$(use_enable xen plugin-xenstat) \
@@ -177,6 +185,9 @@ src_install() {
 	#newinitd system/netdata-openrc "${PN}"
 	newinitd "${FILESDIR}"/"${PN}".initd "${PN}"
 	use systemd && systemd_dounit system/netdata.service
+
+	echo "CONFIG_PROTECT=\"${EPREFIX}/usr/$(get_libdir)/netdata/conf.d\"" > 99netdata
+	doenvd 99netdata
 }
 
 pkg_postinst() {
