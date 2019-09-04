@@ -3,7 +3,7 @@
 
 EAPI="5"
 
-inherit libtool multilib eutils pam toolchain-funcs flag-o-matic db-use fcaps multilib-minimal
+inherit libtool multilib eutils pam toolchain-funcs flag-o-matic db-use fcaps usr-ldscript multilib-minimal
 
 MY_PN="Linux-PAM"
 MY_P="${MY_PN}-${PV}"
