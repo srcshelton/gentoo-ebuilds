@@ -5,7 +5,7 @@ EAPI=6
 
 PYTHON_COMPAT=( python{2_7,3_5,3_6} )
 
-inherit autotools linux-info ltprune multilib preserve-libs python-r1 systemd toolchain-funcs multilib-minimal
+inherit autotools linux-info ltprune multilib preserve-libs python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
 DESCRIPTION="Userspace utilities for storing and processing auditing records"
 HOMEPAGE="https://people.redhat.com/sgrubb/audit/"
