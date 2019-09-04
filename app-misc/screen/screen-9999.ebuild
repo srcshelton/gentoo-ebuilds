@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit autotools eutils flag-o-matic pam toolchain-funcs user
+inherit autotools eutils flag-o-matic pam tmpfiles toolchain-funcs user
 
 DESCRIPTION="screen manager with VT100/ANSI terminal emulation"
 HOMEPAGE="https://www.gnu.org/software/screen/"
