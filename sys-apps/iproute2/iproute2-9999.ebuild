@@ -66,9 +66,9 @@ src_prepare() {
 		-e "/^LIBDIR/s:=.*:=/$(get_libdir):" \
 		-e "s|-O2|${CFLAGS} ${CPPFLAGS}|" \
 		-e "/^HOSTCC/s:=.*:= $(tc-getBUILD_CC):" \
-		-e "/^WFLAGS/s:-Werror::" \
 		-e "/^DBM_INCLUDE/s:=.*:=${T}:" \
 		Makefile || die
+#		-e "/^WFLAGS/s:-Werror::" \
 
 	# build against system headers
 	rm -r include/netinet || die #include/linux include/ip{,6}tables{,_common}.h include/libiptc
