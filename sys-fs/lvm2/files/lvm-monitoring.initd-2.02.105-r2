@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9181c9544e3d5ac6c0f6c8287134de003847244c $
 
 # This script is based on upstream file
 # LVM2.2.02.67/scripts/lvm2_monitoring_init_red_hat.in

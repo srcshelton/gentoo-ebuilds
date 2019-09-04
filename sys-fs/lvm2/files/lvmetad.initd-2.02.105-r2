@@ -1,7 +1,6 @@
 #!/sbin/openrc-run
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2f9ab0c3d9f7676283ec15771a21fbd5d1cb89c0 $
 
 pidfile="/var/run/lvmetad.pid"
 command="/sbin/lvmetad"

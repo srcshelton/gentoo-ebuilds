@@ -1,13 +1,17 @@
 #!/sbin/openrc-run
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Id: d41239ef6f8adab7da14cf5a9f2c77a23108f117 $
 
 pidfile="/var/run/lvmetad.pid"
 command="/sbin/lvmetad"
 command_args="${LVMETAD_OPTS:=-p ${pidfile}}"
 start_stop_daemon_args="--pidfile ${pidfile}"
 
-start_pre() {
-	checkpath -q -d /var/run/lvm || return 1
+depend() {
+	:
+}
+
+start_pre()
+{
+	checkpath -quiet --directory /var/run/lvm || return 1
 }
