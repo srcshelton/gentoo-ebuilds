@@ -35,8 +35,8 @@ PERL_RM_FILES=(
 	"t/https_proxy.t" # see above
 )
 
-src_prepare() {
-	epatch "$( prefixify_ro "${FILESDIR}"/${P}-etcsslcerts.patch )"
-
-	default
-}
+#src_prepare() {
+#	epatch "$( prefixify_ro "${FILESDIR}"/${P}-etcsslcerts.patch )"
+#
+#	default
+#}
