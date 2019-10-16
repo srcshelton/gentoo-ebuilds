@@ -8,13 +8,15 @@ inherit autotools
 MY_P="${P/mini-xml/mxml}"
 
 DESCRIPTION="Small XML parsing library to read XML and XML-like data files"
-HOMEPAGE="http://www.minixml.org/"
-SRC_URI="http://www.msweet.org/files/project3/${MY_P}.tar.gz"
+HOMEPAGE="https://www.msweet.org/mxml/"
+SRC_URI="https://github.com/michaelrsweet/mxml/releases/download/release-${PV}/mxml-${PV}.tar.gz"
 
 LICENSE="Mini-XML"
 SLOT="0"
 KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ppc ~ppc64 ~sparc x86"
 IUSE="threads sep-usr static-libs"
+
+RESTRICT="mirror"
 
 DEPEND="virtual/pkgconfig"
 RDEPEND=""
