@@ -1,12 +1,13 @@
+# Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-CHECKREQS_DISK_VAR="500M"
+CHECKREQS_DISK_VAR="1G"
 
 inherit check-reqs unpacker user
 
-MY_HASH=""
-MY_DOC="372/2"
+MY_HASH="949a431d7a"
+#MY_DOC="372/2"
 
 MY_P="${P/-bin}"
 MY_PN="${PN/-bin}"
@@ -16,37 +17,48 @@ DESCRIPTION="Ubiquiti UniFi Controller"
 HOMEPAGE="https://www.ubnt.com/download/unifi/"
 SRC_URI="
 	http://dl.ubnt.com/unifi/${MY_PV}/unifi_sysvinit_all.deb -> unifi-${MY_PV}_sysvinit_all.deb
-	doc? (
-		https://community.ubnt.com/ubnt/attachments/ubnt/Blog_UniFi/${MY_DOC}/UniFi-changelog-5.10.x.txt -> unifi-${MY_PV}_changelog.txt
-	)
 	tools? (
 		https://dl.ubnt.com/unifi/${MY_PV}/unifi_sh_api -> unifi-${MY_PV}_api.sh
 	)"
+	#doc? (
+	#	https://community.ui.com/ubnt/attachments/ubnt/Blog_UniFi/${MY_DOC}/UniFi-changelog-5.10.x.txt -> unifi-${MY_PV}_changelog.txt
+	#)
 RESTRICT="mirror"
 
 LICENSE="GPL-3 UBNT-20170717"
 SLOT="0"
-KEYWORDS="aarch64 amd64 arm x86"
-IUSE="doc nls rpi1 systemd +tools"
-UNIFI_LINGUAS=( ca cs da de_DE el en es_ES fr nl pl pt_PT ru sv tr zh_CN zh_TW )
+KEYWORDS="~aarch64 ~amd64 ~arm ~x86"
+IUSE="nls rpi1 systemd +tools" # doc
+UNIFI_LINGUAS=( ca cs da de_DE el en es_ES fr ja nl pl pt_PT ru sv tr zh_CN zh_TW )
 IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 
 # debian control dependencies:
+#  adduser
 #  binutils
 #  coreutils
-#  jsvc
-#  mongodb-server (>=2.4.10) | mongodb-10gen (>=2.4.14) | mongodb-org-server (>=2.6.0)
-#  openjdk-7-jre-headless | java8-runtime-headless
-
+#  curl
+#  jsvc (>=1.0.8)
+#  libcap2
+#  mongodb-server (>= 2.4.10) | mongodb-10gen (>= 2.4.14) | mongodb-org-server (>= 2.6.0),
+#  mongodb-server (<< 1:3.6.0) | mongodb-10gen (<< 3.6.0) | mongodb-org-server (<< 3.6.0),
+#  java8-runtime-headless
+#
 # The version of mongodb bundled with the Mac edition is v2.4.14 at the moment,
 # but currently the oldest ebuild (and only v2.x) is v2.6.12.  The default
 # version is currently v3.0.14 - but this crashes with the UniFi code, possibly
 # documented in https://jira.mongodb.org/browse/SERVER-22334.
+#
 # As a result, we'll only accept the oldest or newer versions as dependencies.
+#
 # Ubiquiti recommend the use of MongoDB 3.4.x.
+#
+# ... which is now deprecated.  However, it is widely reported that the only issue with
+# MongoDB 3.6.x is that the '--nohttpinterface' option is now deprecated, and causes an
+# error if used.  The Ubiquiti code, of course, hard-codes this :(
+#
 DEPEND="
 	>=dev-db/mongodb-3.2
-	<dev-db/mongodb-3.6
+	<dev-db/mongodb-3.7
 	>=virtual/jre-1.8.0
 	<virtual/jre-1.9.0
 "
@@ -54,7 +66,10 @@ RDEPEND="${DEPEND}"
 
 S="${WORKDIR}"
 
-QA_PREBUILT="opt/${MY_P}/lib/native/*/*/libubnt_webrtc_jni.so"
+QA_PREBUILT="
+	opt/${MY_P}/lib/native/*/*/libubnt_sdnotify_jni.so
+	opt/${MY_P}/lib/native/*/*/libubnt_webrtc_jni.so
+"
 
 pkg_setup () {
 	# unifi controller uses mongodb as a data-store, and mongo immediately
@@ -125,7 +140,12 @@ src_prepare () {
 	if use nls && (( ${#UNIFI_LINGUAS[@]} )); then
 		for lingua in ${UNIFI_LINGUAS[@]}; do
 			if ! use linguas_${lingua}; then
-				rm -r usr/lib/unifi/webapps/ROOT/app-unifi/locales/"${lingua}" || die
+				if [[ -d usr/lib/unifi/webapps/ROOT/app-unifi/locales/"${lingua}" ]]; then
+					rm -r usr/lib/unifi/webapps/ROOT/app-unifi/locales/"${lingua}" || die
+				fi
+				if [[ -d usr/lib/unifi/webapps/ROOT/app-unifi/data/locales/"${lingua}" ]]; then
+					rm -r usr/lib/unifi/webapps/ROOT/app-unifi/data/locales/"${lingua}" || die
+				fi
 			fi
 		done
 	fi
@@ -162,16 +182,17 @@ src_install () {
 	dosym /var/run/unifi /opt/"${MY_P}"/run
 
 	# <sigh>
-	dodir /opt/"${MY_P}"/bin
-	dosym /usr/bin/mongod /opt/"${MY_P}"/bin/mongod
+	#dodir /opt/"${MY_P}"/bin
+	#dosym /usr/bin/mongod /opt/"${MY_P}"/bin/mongod
+	exeinto "/opt/${MY_P}/bin"
+	newexe "${FILESDIR}"/mongod.sh mongod || die "Failed to install mongod wrapper"
 
 	if use tools; then
-		insinto /opt/"${MY_P}"/bin
-		newins "${WORKDIR}"/unifi-${MY_PV}_api.sh unifi-api.sh
-		fperms 755 /opt/"${MY_P}"/bin/unifi-api.sh
+		exeinto "/opt/${MY_P}/bin"
+		newexe "${WORKDIR}"/unifi-${MY_PV}_api.sh unifi-api.sh
 	fi
 
-	use doc && newdoc "unifi-${MY_PV}_changelog.txt" "CHANGELOG-$(ver_cut '1-2').txt"
+	#use doc && newdoc "unifi-${MY_PV}_changelog.txt" "CHANGELOG-$(ver_cut '1-2').txt"
 
 	insinto /var/lib/unifi/data
 	doins "${FILESDIR}"/system.properties
@@ -251,11 +272,6 @@ pkg_postinst() {
 	ewarn "... in order to set appropriate Java XMS and XMX (minimum and"
 	ewarn "maximum memory constraints) values"
 	elog
-	ewarn "UniFi Controller 5.7+ does not support UAP-AC and UAP-AC-Outdoor"
-	ewarn "models, or the PicoM2:"
-	ewarn "    https://community.ubnt.com/t5/UniFi-Updates-Blog/UAP-AC-UAP-AC-Outdoor-LTS-Announcement/ba-p/2059058"
-	ewarn "    https://community.ubnt.com/t5/UniFi-Updates-Blog/UniFi-5-7-23-Stable-has-been-released/ba-p/2318813"
-	ewarn
 	ewarn "UniFi Controller 5.10+ requires at least firmware 4.0.9 for"
 	ewarn "UAP/USW and at least firmware 4.4.34 for USG"
 }
