@@ -24,7 +24,7 @@ S="${WORKDIR}/teamspeak3-server_linux-${ARCH}"
 QA_PREBUILT="/opt/teamspeak3"
 
 pkg_setup() {
-	enewuser teamspeak3
+	enewuser teamspeak
 }
 
 src_install() {
@@ -78,9 +78,9 @@ src_install() {
 	keepdir /{etc,var/{lib,log,run}}/teamspeak3
 
 	# Fix up permissions
-	fowners teamspeak3 /{etc,var/{lib,log,run}}/teamspeak3
+	fowners teamspeak /{etc,var/{lib,log,run}}/teamspeak3
 	fperms 700 /{etc,var/{lib,log,run}}/teamspeak3
 
-	fowners teamspeak3 "${dir}"
+	fowners teamspeak "${dir}"
 	fperms 755 "${dir}"
 }

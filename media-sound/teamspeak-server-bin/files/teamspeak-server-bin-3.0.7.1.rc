@@ -20,11 +20,11 @@ start() {
 	[ -e /dev/shm/7gbhujb54g8z9hu43jre8 ] && rm -f /dev/shm/7gbhujb54g8z9hu43jre8
 
 	[ -d /var/run/teamspeak3 ] || mkdir -p /var/run/teamspeak3
-	chown teamspeak3:teamspeak3 /var/run/teamspeak3
+	chown teamspeak:teamspeak /var/run/teamspeak3
 
 	start-stop-daemon --start --quiet --background \
 		--pidfile "/var/run/teamspeak3/server.pid" --make-pidfile \
-		--user "teamspeak3" --chdir "${DIR}" \
+		--user "teamspeak" --chdir "${DIR}" \
 		--exec "${DIR}/bin/ts3server" -- \
 		inifile="/etc/teamspeak3/server.conf"
 

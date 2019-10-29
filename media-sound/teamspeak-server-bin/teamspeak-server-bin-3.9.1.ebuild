@@ -7,8 +7,8 @@ inherit systemd user
 
 DESCRIPTION="Voice chat software designed with security in mind"
 HOMEPAGE="https://www.teamspeak.com/"
-SRC_URI="amd64? ( http://ftp.4players.de/pub/hosted/ts3/releases/${PV}/teamspeak3-server_linux_amd64-${PV}.tar.bz2 )
-	x86? ( http://ftp.4players.de/pub/hosted/ts3/releases/${PV}/teamspeak3-server_linux_x86-${PV}.tar.bz2 )"
+SRC_URI="amd64? ( https://files.teamspeak-services.com/releases/server/${PV}/teamspeak3-server_linux_amd64-${PV}.tar.bz2 )
+	x86? ( https://files.teamspeak-services.com/releases/server/${PV}/teamspeak3-server_linux_x86-${PV}.tar.bz2 )"
 
 LICENSE="LGPL-2.1 teamspeak3"
 SLOT="0"
@@ -23,8 +23,12 @@ RESTRICT="installsources mirror strip"
 
 S="${WORKDIR}/teamspeak3-server_linux_${ARCH}"
 
-QA_PREBUILT="opt/teamspeak3/libts3db_sqlite3.so
-		opt/teamspeak3/ts3server"
+QA_PREBUILT="
+		opt/teamspeak3/libmariadb.so.2
+		opt/teamspeak3/libts3_mariadb.so
+		opt/teamspeak3/libts3_sqlite3.so
+		opt/teamspeak3/libts3_ssh.so
+		opt/teamspeak3/sbin/ts3server-bin"
 
 pkg_setup() {
 	enewgroup teamspeak
@@ -36,6 +40,7 @@ src_install() {
 
 	# Install TeamSpeak 3 server into /opt/teamspeak3.
 	into "${opt_dir}"
+	insinto "${opt_dir}"
 
 	# Accept license
 	touch "${T%/}"/.ts3server_license_accepted || die
@@ -54,7 +59,7 @@ src_install() {
 	insinto "${opt_dir}"/lib
 	doins -r sql
 
-	insinto /etc/teamspeak
+	insinto /etc/teamspeak3
 	doins "${FILESDIR}"/server.conf "${FILESDIR}"/ts3db_mariadb.ini
 
 	newinitd "${FILESDIR}"/${PN/-server-bin}.initd teamspeak3
@@ -66,7 +71,7 @@ src_install() {
 
 	# Install optional mysql
 	#if use mysql; then
-	#	insinto "/etc/teamspeak"
+	#	insinto "/etc/teamspeak3"
 	#	doins "${FILESDIR}/ts3server_mariadb.ini.sample"
 	#	doins "${FILESDIR}/ts3db_mariadb.ini.sample"
 	#
@@ -96,26 +101,26 @@ src_install() {
 		newdoc tsdns/README README.tsdns
 		newdoc tsdns/USAGE USAGE.tsdns
 		dosbin tsdns/tsdnsserver
-		insinto "/etc/teamspeak"
+		insinto "/etc/teamspeak3"
 		doins tsdns/tsdns_settings.ini.sample
 	fi
 
 	einstalldocs
 
-	keepdir "/etc/teamspeak"
+	keepdir "/etc/teamspeak3"
 	keepdir "/var/log/teamspeak3"
 
 	# Protect config
 	#if use mysql; then
-	#	echo "CONFIG_PROTECT=\"/etc/teamspeak/ts3server.ini /etc/teamspeak/ts3server_mariadb.ini\"" > "${T}"/99teamspeak3-server || die
+	#	echo "CONFIG_PROTECT=\"/etc/teamspeak3/ts3server.ini /etc/teamspeak3/ts3server_mariadb.ini\"" > "${T}"/99teamspeak3-server || die
 	#else
-	#	echo "CONFIG_PROTECT=\"/etc/teamspeak/ts3server.ini\"" > "${T}"/99teamspeak3-server || die
+	#	echo "CONFIG_PROTECT=\"/etc/teamspeak3/ts3server.ini\"" > "${T}"/99teamspeak3-server || die
 	#fi
 	#doenvd "${T}"/99teamspeak3-server
 
-	fowners -R teamspeak:teamspeak "${opt_dir}" /var/log/teamspeak3
-	fperms 700 /etc/teamspeak
-	fperms 700 /var/log/teamspeak3
+	fowners teamspeak:teamspeak "${opt_dir}" /var/log/teamspeak3
+	fperms 755 /etc/teamspeak3
+	fperms 755 /var/log/teamspeak3
 	fperms 755 "${opt_dir}"
 }
 
@@ -130,5 +135,5 @@ pkg_postinst() {
 	einfo "You will need to use this key in order to gain instance admin rights."
 	einfo
 	elog "If you have a Non-Profit License (NPL), place it in"
-	elog "/etc/teamspeak as licensekey.dat."
+	elog "/etc/teamspeak3 as licensekey.dat."
 }

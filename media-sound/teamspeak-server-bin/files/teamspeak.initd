@@ -2,14 +2,14 @@
 # Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-DIR="/opt/teamspeak3"
+DIR='/opt/teamspeak3'
 command="${DIR}/bin/ts3server"
-command_background="true"
-group="teamspeak"
-inifile="/etc/teamspeak/server.conf
-name="TeamSpeak Server"
-pidfile="/var/run/teamspeak3/server.pid"
-user="teamspeak"
+command_background='true'
+inifile='/etc/teamspeak3/server.conf'
+name='TeamSpeak Server'
+pidfile='/var/run/teamspeak3/server.pid'
+user='teamspeak'
+group='teamspeak'
 
 depend() {
 	need net
