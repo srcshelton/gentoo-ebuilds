@@ -10,7 +10,7 @@ CHECKREQS_DISK_BUILD="2400M"
 CHECKREQS_DISK_USR="512M" # Less if stripped binaries are installed
 CHECKREQS_MEMORY="640M" # Default 1024M, but builds on RPi with ~700M available...
 
-inherit eutils flag-o-matic multilib multiprocessing pax-utils python-any-r1 scons-utils systemd toolchain-funcs user versionator check-reqs
+inherit check-reqs eutils flag-o-matic multilib multiprocessing pax-utils python-any-r1 scons-utils systemd toolchain-funcs user versionator
 
 MY_P=${PN}-src-r${PV/_rc/-rc}
 
