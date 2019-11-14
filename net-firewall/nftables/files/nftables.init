@@ -1,6 +1,6 @@
 #!/sbin/openrc-run
-# Copyright 2014-2016 Nicholas Vinson
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 2014-2017 Nicholas Vinson
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
 extra_commands="clear list panic save"
@@ -9,24 +9,6 @@ extra_started_commands="reload"
 depend() {
 	need localmount #434774
 	before net
-}
-
-checkkernel() {
-	if ! nft list tables >/dev/null 2>&1; then
-		eerror "Your kernel lacks nftables support, please load"
-		eerror "appropriate modules and try again."
-		return 1
-	fi
-	return 0
-}
-
-checkconfig() {
-	if [ ! -f ${NFTABLES_SAVE} ]; then
-		eerror "Not starting nftables.  First create some rules then run:"
-		eerror "rc-service nftables save"
-		return 1
-	fi
-	return 0
 }
 
 start_pre() {
@@ -91,19 +73,20 @@ panic() {
 	fi
 }
 
-save() {
-	ebegin "Saving nftables state"
-	checkpath -q -d "$(dirname "${NFTABLES_SAVE}")"
-	checkpath -q -m 0600 -f "${NFTABLES_SAVE}"
-	/usr/libexec/nftables/nftables.sh store ${NFTABLES_SAVE}
-	return $?
-}
-
 reload() {
 	checkkernel || return 1
 	ebegin "Flushing firewall"
 	clear
 	start
+}
+
+save() {
+	ebegin "Saving nftables state"
+	checkpath -q -d "$(dirname "${NFTABLES_SAVE}")"
+	checkpath -q -m 0600 -f "${NFTABLES_SAVE}"
+	export SAVE_OPTIONS
+	/usr/libexec/nftables/nftables.sh store ${NFTABLES_SAVE}
+	return $?
 }
 
 start() {
@@ -121,4 +104,22 @@ stop() {
 	ebegin "Stopping firewall"
 	clear
 	eend $?
+}
+
+checkconfig() {
+	if [ ! -f ${NFTABLES_SAVE} ]; then
+		eerror "Not starting nftables.  First create some rules then run:"
+		eerror "rc-service nftables save"
+		return 1
+	fi
+	return 0
+}
+
+checkkernel() {
+	if ! nft list tables >/dev/null 2>&1; then
+		eerror "Your kernel lacks nftables support, please load"
+		eerror "appropriate modules and try again."
+		return 1
+	fi
+	return 0
 }

@@ -10,6 +10,13 @@ SAVE_OPTIONS="-n"
 # Save state on stopping nftables
 SAVE_ON_STOP="yes"
 
+# Only for OpenRC systems.
+# Set to "hard" or "soft" to panic when stopping instead of
+# clearing the rules
+# Soft panic loads a ruleset dropping any new or invalid connections
+# Hard panic loads a ruleset dropping all traffic
+PANIC_ON_STOP=""
+
 # If you need to log nftables messages as soon as nftables starts,
 # AND your logger does NOT depend on the network, then you may wish
 # to uncomment the next line.

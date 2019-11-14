@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -11,13 +11,14 @@ SRC_URI="https://git.netfilter.org/nftables/snapshot/v${PV}.tar.gz -> ${P}.tar.g
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm ia64 x86"
-IUSE="debug +doc +gmp pdf +readline systemd"
+KEYWORDS="amd64 arm ~arm64 ia64 x86"
+IUSE="debug doc +gmp json pdf +modern_kernel +readline systemd"
 
 RDEPEND=">=net-libs/libmnl-1.0.3:0=
 	gmp? ( dev-libs/gmp:0= )
+	json? ( dev-libs/jansson )
 	readline? ( sys-libs/readline:0= )
-	>=net-libs/libnftnl-1.0.8:0="
+	>=net-libs/libnftnl-1.1.1:0="
 
 DEPEND="${RDEPEND}
 	doc? ( >=app-text/docbook2X-0.8.8-r4 )
@@ -30,6 +31,9 @@ S="${WORKDIR}/v${PV}"
 
 pkg_setup() {
 	if kernel_is ge 3 13; then
+		if use modern_kernel && kernel_is lt 3 18; then
+			eerror "The modern_kernel USE flag requires kernel version 3.18 or newer to work properly."
+		fi
 		CONFIG_CHECK="~NF_TABLES"
 		linux-info_pkg_setup
 	else
@@ -45,10 +49,11 @@ src_prepare() {
 src_configure() {
 	local myeconfargs=(
 		--sbindir="${EPREFIX}"/sbin
-		$(use_enable pdf pdf-doc)
 		$(use_enable debug)
-		$(use_with readline cli)
+		$(use_enable pdf pdf-doc)
 		$(use_with !gmp mini_gmp)
+		$(use_with json)
+		$(use_with readline cli)
 	)
 	econf "${myeconfargs[@]}"
 }
@@ -56,22 +61,27 @@ src_configure() {
 src_install() {
 	default
 
+	local mksuffix=""
+	use modern_kernel && mksuffix="-mk"
+
 	# Deploy a pre-generated man-page to avoid docbook2X dependency...
 	if ! use doc; then
 		newman "${FILESDIR}"/"${P}"-nftables.8 nft.8
 	fi
 
-	dodir /usr/libexec/${PN}
-	exeinto /usr/libexec/${PN}
-	doexe "${FILESDIR}"/libexec/${PN}.sh
+	exeinto "/usr/libexec/${PN}"
+	newexe "${FILESDIR}/libexec/${PN}${mksuffix}.sh" "${PN}.sh"
 
-	newconfd "${FILESDIR}"/${PN}.confd ${PN}
-	newinitd "${FILESDIR}"/${PN}.init ${PN}
+	newconfd "${FILESDIR}/${PN}${mksuffix}.confd" "${PN}"
+	newinitd "${FILESDIR}/${PN}${mksuffix}.init" "${PN}"
 	keepdir /var/lib/nftables
 
-	if use systemd; then
-		systemd_dounit "${FILESDIR}"/systemd/${PN}-restore.service
-		systemd_enable_service basic.target ${PN}-restore.service
+	use systemd && systemd_dounit "${FILESDIR}"/systemd/${PN}-restore.service
+
+	if use doc; then
+		docinto /usr/share/doc/${PF}/skels
+		dodoc "${D}"/etc/nftables/*
+		rm -r "${D}"/etc/nftables
 	fi
 }
 
@@ -85,6 +95,12 @@ pkg_postinst() {
 		touch ${save_file}
 	fi
 
+	if use systemd; then
+		elog "If you wish to enable the firewall rules on boot (on systemd) you"
+		elog "will need to enable the nftables-restore service."
+		elog "    'systemd_enable_service basic.target ${PN}-restore.service'"
+		elog
+	fi
 	elog "If you are creating firewall rules before the next system restart "
 	elog "the nftables-restore service must be manually started in order to "
 	elog "save those rules on shutdown."
