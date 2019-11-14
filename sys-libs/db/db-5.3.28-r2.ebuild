@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
-inherit eutils db flag-o-matic java-pkg-opt-2 autotools multilib multilib-minimal toolchain-funcs
+inherit autotools db eutils flag-o-matic java-pkg-opt-2 multilib toolchain-funcs usr-ldscript multilib-minimal
 
 #Number of official patches
 #PATCHNO=`echo ${PV}|sed -e "s,\(.*_p\)\([0-9]*\),\2,"`
@@ -146,13 +146,13 @@ multilib_src_configure() {
 	tc-ld-disable-gold #470634
 
 	# compilation with -O0 fails on amd64, see bug #171231
-	if [[ ${ABI} == amd64 ]]; then
+	if [[ ${ABI} == amd64 ]] ; then
 		local CFLAGS=${CFLAGS} CXXFLAGS=${CXXFLAGS}
 		replace-flags -O0 -O2
 		is-flagq -O[s123] || append-flags -O2
 	fi
 
-	if [[ ${CC} == *clang* ]]; then
+	if [[ ${CC} == *clang* ]] ; then
 		append-cflags -stdlib=libstdc++
 		append-cxxflags -stdlib=libstdc++
 	else
@@ -184,7 +184,7 @@ multilib_src_configure() {
 		myconf+=(--disable-tcl )
 	fi
 
-	if [[ ${CHOST} == *-winnt* ]]; then
+	if [[ ${CHOST} == *-winnt* ]] ; then
 		# this one should really say --enable-windows, but
 		# seems the db devs only support mingw ... doesn't enable
 		# anything too specific to mingw.
@@ -226,12 +226,20 @@ multilib_src_install() {
 
 	db_src_install_usrlibcleanup
 
-	if multilib_is_native_abi && use java; then
-		local ext=so
-		[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
-		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
-		java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
-		rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
+	if multilib_is_native_abi ; then
+		if use java ; then
+			local ext=so
+			[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
+			java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
+			java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
+			rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
+		fi
+
+		einfo "Generating library links for 'db-$(ver_cut 1-2)' ..."
+		#gen_usr_ldscript -a "db-$(ver_cut 1-2)" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
+		dodir "/$(get_libdir)"
+		mv "${ED%/}/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so" "${ED%/}/$(get_libdir)/"
+		gen_usr_ldscript "libdb-$(ver_cut 1-2).so" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
 	fi
 }
 
