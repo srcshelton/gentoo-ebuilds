@@ -547,8 +547,9 @@ x32 profiles, and that these variables only affect multilib systems.
     * Allow sys-libs/libeudev to satisfy `virtual/libudev` dependency
 
 # Fixes for binaries and libraries which are installed to the root filesystem, but link to libraries originally installed to `/usr`
-(... controlled by the `sep-usr` USE-flag)
+(... previously controlled by the `sep-usr` USE-flag, now using standardised `split-usr`)
 
+* app-crypt/argon2
 * app-crypt/mit-krb5
 * dev-libs/elfutils
 * dev-libs/gmp
