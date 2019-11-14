@@ -2,11 +2,11 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
-inherit autotools eutils flag-o-matic toolchain-funcs user
+inherit autotools toolchain-funcs user
 
 # Oh god, this is horrible :(
 NDPI_PN="nDPI"
-NDPI_PV="2.2"
+NDPI_PV="2.8"
 NDPI_P="${NDPI_PN}-${NDPI_PV}"
 LUAJIT="LuaJIT-2.1.0-beta3"
 
@@ -34,15 +34,16 @@ DEPEND="
 	net-analyzer/rrdtool
 	net-libs/libpcap
 	net-misc/curl
+	sys-libs/binutils-libs:=
 	virtual/libmysqlclient"
 RDEPEND="${DEPEND}
 	dev-db/redis"
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-3.2-gentoo.patch
-	"${FILESDIR}"/${PN}-3.2-mysqltool.patch
-	"${FILESDIR}"/${PN}-3.2-luajit.patch
-	"${FILESDIR}"/${PN}-3.2-remove-pool-limits.patch
+	"${FILESDIR}"/${PV}-gentoo.patch
+	"${FILESDIR}"/${PV}-mysqltool.patch
+	"${FILESDIR}"/${PV}-luajit.patch
+	"${FILESDIR}"/${PV}-remove-pool-limits.patch
 )
 
 S="${WORKDIR}/${P}-stable"
@@ -146,6 +147,8 @@ src_prepare() {
 
 	popd >/dev/null || die
 
+	sed -ei '/NDPI_LIB/s|/src/lib/.libs/libndpi.a|/src/lib/libndpi.a|' "${S}"/confgure.seed || die
+	sed -ei '/NDPI_LIB/s|/src/lib/.libs/libndpi.a|/src/lib/libndpi.a|' "${S}"/Makefile.in || die
 	sed -e "s/@VERSION@/${PV}/g;s/@SHORT_VERSION@/${PV}/g" < "${S}/configure.seed" > "${S}/configure.ac" || die
 
 	default
