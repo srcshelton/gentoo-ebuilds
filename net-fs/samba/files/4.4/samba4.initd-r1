@@ -34,12 +34,11 @@ signal_do() {
 }
 
 start_pre() {
-	checkpath -d "${piddir}" || return 1
+	checkpath -q -d "${piddir}" || return 1
 }
 
 start() {
 	${my_service_PRE}
-	[ -d "${piddir}" ] || mkdir -p "${piddir}"
 	signal_do start && return 0
 
 	eerror "Error: starting services (see system logs)"
