@@ -2,9 +2,9 @@
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-pidfile="/var/run/lvmetad.pid"
-command="/sbin/lvmetad"
-command_args="${LVMETAD_OPTS:=-p ${pidfile}}"
+pidfile="/var/run/lvmpolld.pid"
+command="/sbin/lvmpolld"
+command_args="${LVMPOLLD_OPTS:=-p ${pidfile}}"
 start_stop_daemon_args="--pidfile ${pidfile}"
 
 depend() {
@@ -13,5 +13,5 @@ depend() {
 
 start_pre()
 {
-	checkpath --quiet --directory /var/run/lvm || return 1
+	checkpath --directory /var/run/lvm || return 1
 }
