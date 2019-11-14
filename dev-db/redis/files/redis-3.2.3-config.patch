@@ -7,7 +7,7 @@ index 22e00bc..b09de57 100644
  # Creating a pid file is best effort: if Redis is not able to create it
  # nothing bad happens, the server will start and run normally.
 -pidfile /var/run/redis_6379.pid
-+pidfile /run/redis/redis.pid
++pidfile /var/run/redis/redis.pid
  
  # Specify the server verbosity level.
  # This can be one of:
