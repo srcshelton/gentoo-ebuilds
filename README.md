@@ -386,6 +386,8 @@ used to build perl)
     * Provide more flexibility with finer-grained USE flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
+* virtual/bitcoin-leveldb
+    * Be more flexible about necessary dependencies
 * virtual/tmpfiles
     * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 * x11-drivers/nvidia-drivers
