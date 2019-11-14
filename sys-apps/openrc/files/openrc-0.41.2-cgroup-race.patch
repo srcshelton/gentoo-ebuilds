@@ -1,0 +1,11 @@
+--- a/sh/rc-cgroup.sh
++++ b/sh/rc-cgroup.sh
+@@ -104,7 +104,7 @@
+ 	if [ -d "$openrc_cgroup" ]; then
+ 		cgroup="$openrc_cgroup/$RC_SVCNAME"
+ 		mkdir -p "$cgroup"
+-		[ -w "$cgroup/tasks" ] && printf "%d" 0 > "$cgroup/tasks"
++		[ -d "$cgroup" -a -w "$cgroup/tasks" ] && printf "%d" 0 > "$cgroup/tasks"
+ 	fi
+ }
+ 
