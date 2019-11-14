@@ -401,6 +401,7 @@ directory is an additional QA check which reports an error if files deployed to
 `/etc/init.d` or `/etc/conf.d` contain references to `/run`.
 
 * app-admin/eselect-php
+* app-admin/metalog
 * app-admin/sudo
 * app-admin/syslog-ng
 * app-admin/ulogd
