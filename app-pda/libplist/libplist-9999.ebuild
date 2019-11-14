@@ -1,46 +1,91 @@
-# Copyright 2019 Gentoo Authors
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Header: app-pda/libplist/libplist-9999.ebuild,v 1.0 2014/01/13 17:21:55 srcs Exp $
 
-EAPI=5
-PYTHON_COMPAT=( python2_7 )
-inherit autotools git-2 python-r1
+EAPI="6"
+PYTHON_COMPAT=( python{2_7,3_5,3_6} )
+inherit autotools git-r3 python-r1
 
-DESCRIPTION="A library to handle Apple Property List format in binary or XML"
+DESCRIPTION="Support library to deal with Apple Property Lists (Binary & XML)"
 HOMEPAGE="http://www.libimobiledevice.org/"
-#SRC_URI=""
+#SRC_URI="http://www.libimobiledevice.org/downloads/${P}.tar.bz2"
 EGIT_REPO_URI="https://github.com/libimobiledevice/libplist.git"
 #EGIT_MASTER="master"
 
 LICENSE="GPL-2 LGPL-2.1"
-SLOT="0"
-KEYWORDS="amd64 ~arm ~ppc ~ppc64 x86"
-IUSE="python"
+SLOT="0/3.1.0" # based on SONAME of libplist.so
+KEYWORDS="~amd64 ~arm ~arm64 ~ppc ~ppc64 ~x86 ~amd64-fbsd"
+IUSE="python static-libs"
 
-RDEPEND="dev-libs/libxml2"
+RDEPEND="python? ( ${PYTHON_DEPS} )"
 DEPEND="${RDEPEND}
-	python? (
-		${PYTHON_DEPS}
-		>=dev-python/cython-0.14.1-r1[${PYTHON_USEDEP}]
-	)"
+	virtual/pkgconfig
+	python? ( >=dev-python/cython-0.17[${PYTHON_USEDEP}] )"
 
-DOCS=( README )
+REQUIRED_USE="${PYTHON_REQUIRED_USE}"
+
+DOCS=( NEWS README )
+
+BUILD_DIR="${S}_build"
 
 MAKEOPTS+=" -j1" #406365
 
 src_prepare() {
+	default
+
 	eautoreconf
 }
 
 src_configure() {
-	use python && python_export_best
+	local ECONF_SOURCE=${S}
+	local myeconfargs=( $(use_enable static-libs static) )
 
-	myconf=$(use_with python cython)
-	econf $myconf
+	do_configure() {
+		mkdir -p "${BUILD_DIR}" || die
+		pushd "${BUILD_DIR}" >/dev/null || die
+		econf "${myeconfargs[@]}" "${@}"
+		popd >/dev/null || die
+	}
+
+	do_configure_python() {
+		PYTHON_LDFLAGS="$(python_get_LIBS)" do_configure "$@"
+	}
+
+	do_configure --without-cython
+	use python && python_foreach_impl do_configure_python
 }
 
-#src_install() {
-#	default
-#
-#	prune_libtool_files --all
-#}
+src_compile() {
+	python_compile() {
+		emake -C "${BUILD_DIR}"/cython -j1 \
+			VPATH="${S}/cython:${native_builddir}/cython" \
+			plist_la_LIBADD="${native_builddir}/src/libplist.la"
+	}
+
+	local native_builddir=${BUILD_DIR}
+	pushd "${BUILD_DIR}" >/dev/null || die
+	emake -j1
+	use python && python_foreach_impl python_compile
+	popd >/dev/null || die
+}
+
+src_install() {
+	python_install() {
+		emake -C "${BUILD_DIR}/cython" -j1 \
+			VPATH="${S}/cython:${native_builddir}/cython" \
+			DESTDIR="${D}" install
+	}
+
+	local native_builddir=${BUILD_DIR}
+	pushd "${BUILD_DIR}" >/dev/null || die
+	emake -j1 DESTDIR="${D}" install
+	use python && python_foreach_impl python_install
+	popd >/dev/null || die
+
+	einstalldocs
+
+	if use python ; then
+		insinto /usr/include/plist/cython
+		doins cython/plist.pxd
+	fi
+	prune_libtool_files --all
+}
