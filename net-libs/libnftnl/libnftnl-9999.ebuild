@@ -18,7 +18,7 @@ KEYWORDS=""
 IUSE="xml json examples static-libs"
 
 RDEPEND=">=net-libs/libmnl-1.0.0
-	xml? ( >=dev-libs/mini-xml-2.6 )
+	xml? ( >=dev-libs/mxml-2.6 )
 	json? ( >=dev-libs/jansson-2.3 )"
 DEPEND="virtual/pkgconfig
 	${RDEPEND}"

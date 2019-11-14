@@ -16,7 +16,7 @@ IUSE="xml json examples static-libs"
 SRC_URI="http://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
 
 RDEPEND=">=net-libs/libmnl-1.0.0
-	xml? ( >=dev-libs/mini-xml-2.6 )
+	xml? ( >=dev-libs/mxml-2.6 )
 	json? ( >=dev-libs/jansson-2.3 )"
 DEPEND="virtual/pkgconfig
 	${RDEPEND}"
