@@ -438,6 +438,7 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/kmod
 * sys-apps/lm_sensors
 * sys-apps/smartmontools
+* sys-devel/distcc
 * sys-fs/cachefilesd
 * sys-libs/pam
 * sys-power/acpid
