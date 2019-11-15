@@ -560,6 +560,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/libgpg-error
 * dev-libs/libnl
 * dev-libs/libpcre2
+* dev-libs/libunistring
 * dev-libs/mini-xml
 * dev-libs/openssl
 * dev-libs/popt
