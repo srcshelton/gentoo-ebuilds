@@ -405,6 +405,7 @@ directory is an additional QA check which reports an error if files deployed to
 * app-admin/sudo
 * app-admin/syslog-ng
 * app-admin/ulogd
+* app-emulation/containerd
 * app-misc/screen
 * dev-db/redis
 * dev-libs/cyrus-sasl
