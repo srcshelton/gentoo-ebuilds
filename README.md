@@ -565,6 +565,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/openssl
 * dev-libs/popt
 * net-dns/libidn
+* net-dns/libidn2
 * net-fs/nfs-utils
     * Move nfsdcltrack, with many non-root library dependencies, to `/usr/sbin`
 * net-libs/libnfnetlink
