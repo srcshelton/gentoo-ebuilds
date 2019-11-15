@@ -557,6 +557,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/jansson
 * dev-libs/libgcrypt
 * dev-libs/libgpg-error
+* dev-libs/json-c
 * dev-libs/mini-xml
 * dev-libs/openssl
 * dev-libs/popt
