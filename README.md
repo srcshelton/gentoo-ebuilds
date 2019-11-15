@@ -445,6 +445,7 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-libs/pam
 * sys-power/acpid
 * www-servers/lighttpd
+* www-servers/spawn-fcgi
 
 # Fixes to allow `/var/state` to be used in place of `/var/lib`
 
