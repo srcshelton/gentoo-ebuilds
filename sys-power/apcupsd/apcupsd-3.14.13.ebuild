@@ -1,6 +1,5 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2018 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 44b5cd3e42b1e14194aa5b7f2a7dbf43d76ae833 $
 
 EAPI=5
 
@@ -12,7 +11,7 @@ SRC_URI="mirror://sourceforge/apcupsd/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ppc x86 ~x86-fbsd"
+KEYWORDS="amd64 ~arm ppc x86"
 IUSE="snmp +usb cgi dumb gnome kernel_linux +modbus +net nls +powerchute +smart systemd udev"
 
 DEPEND="
