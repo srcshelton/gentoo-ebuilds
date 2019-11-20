@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -6,9 +6,10 @@ inherit autotools user toolchain-funcs
 
 DESCRIPTION="Network traffic analyzer with web interface"
 HOMEPAGE="https://www.ntop.org/"
+SRC_URI="https://github.com/ntop/${PN}/archive/${PV}.tar.gz -> ${P}.tar.gz"
 # Use (updated) stable branch rather than release tag...
-SRC_URI="https://github.com/ntop/${PN}/archive/${PV}-stable.zip -> ${P}.zip"
-RESTRICT="mirror"
+#SRC_URI="https://github.com/ntop/${PN}/archive/${PV}-stable.zip -> ${P}.zip"
+#RESTRICT="mirror"
 
 LICENSE="GPL-3"
 SLOT="0"
@@ -21,39 +22,36 @@ DEPEND="dev-db/sqlite:3
 	dev-libs/geoip
 	dev-libs/glib:2
 	dev-libs/hiredis
-	dev-libs/libmaxminddb
 	dev-libs/libsodium:=
 	dev-libs/libxml2
+	dev-libs/libmaxminddb
 	net-analyzer/rrdtool
 	net-libs/libpcap
-	>=net-libs/nDPI-2.6
+	>=net-libs/nDPI-2.4
 	net-misc/curl
 	sys-libs/binutils-libs
-	virtual/libmysqlclient"
+	dev-db/mysql-connector-c:="
 RDEPEND="${DEPEND}
 	dev-db/redis"
-
 PATCHES=(
-	"${FILESDIR}"/${P}-gentoo.patch
-	"${FILESDIR}"/${PN}-3.2-mysqltool.patch
-	#"${FILESDIR}"/${P}-pointer-cmp.patch
-	"${FILESDIR}"/${P}-remove-pool-limits.patch
-	"${FILESDIR}"/${P}-ndpi.patch
+	"${FILESDIR}"/${P}-mysqltool.patch
+	"${FILESDIR}"/${P}-ndpi-includes.patch
+	"${FILESDIR}"/${P}-missing-min.patch
+	"${FILESDIR}"/${P}-ndpi-call.patch
 )
 
-S="${WORKDIR}/${P}-stable"
+#S="${WORKDIR}/${P}-stable"
 
 src_prepare() {
-	sed -e "s/@VERSION@/${PV}/g;s/@SHORT_VERSION@/${PV}/g" < "${S}/configure.seed" > "${S}/configure.ac" || die
-
 	default
-
+	sed -e "s/@VERSION@/${PV}.$(date +%y%m%d)/g" -e "s/@SHORT_VERSION@/${PV}/g" < "${S}/configure.seed" > "${S}/configure.ac" > configure.ac
+	eapply_user
 	eautoreconf
 }
 
-src_configure() {
-	econf --with-ndpi-includes="${EPREFIX%/}/usr/include/ndpi"
-}
+#src_configure() {
+#	econf --with-ndpi-includes="${EPREFIX%/}/usr/include/ndpi"
+#}
 
 src_install() {
 	SHARE_NTOPNG_DIR="${EPREFIX}/usr/share/${PN}"
@@ -69,14 +67,13 @@ src_install() {
 
 	exeinto /usr/sbin
 	doexe ${PN}
-
 	doman ${PN}.8
 
 	newinitd "${FILESDIR}/ntopng.init.d" ntopng
 	newconfd "${FILESDIR}/ntopng.conf.d" ntopng
 
 	dodir "/var/lib/ntopng"
-	fowners ntopng "${EPREFIX}/var/lib/ntopng"
+	fowners ntopng "${EPREFIX%/}/var/lib/ntopng"
 }
 
 pkg_setup() {
