@@ -11,8 +11,8 @@ SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
 
 LICENSE="GPL-2"
 SLOT="0/11" # libnftnl.so version
-KEYWORDS="alpha amd64 arm arm64 ~hppa ia64 ~mips ppc ppc64 ~riscv ~sparc x86"
-IUSE="examples json static-libs xml"
+KEYWORDS="alpha amd64 arm arm64 ~hppa ia64 ~mips ppc ppc64 ~riscv sparc x86"
+IUSE="examples json static-libs test xml"
 
 RDEPEND=">=net-libs/libmnl-1.0.3
 	xml? ( >=dev-libs/mxml-2.6 )
