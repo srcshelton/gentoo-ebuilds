@@ -16,6 +16,8 @@ else
 	MY_P=${PN}-${MY_PV}
 fi
 
+RESTRICT="!test? ( test )"
+
 S_BASE="${WORKDIR}/${MY_P}"
 S="${S_BASE}/build_unix"
 DESCRIPTION="Oracle Berkeley DB"
@@ -27,7 +29,7 @@ done
 
 LICENSE="Sleepycat"
 SLOT="5.3"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~m68k ppc ppc64 ~riscv ~s390 ~sh sparc x86 ~x86-fbsd"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~m68k ppc ppc64 ~riscv ~s390 ~sh sparc x86"
 KEYWORDS+="~ppc-aix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="doc java cxx tcl test"
 
