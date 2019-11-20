@@ -11,8 +11,8 @@ SRC_URI="https://sourceware.org/elfutils/ftp/${PV}/${P}.tar.bz2"
 
 LICENSE="|| ( GPL-2+ LGPL-3+ ) utils? ( GPL-3+ )"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 ~hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~amd64-linux ~x86-linux"
-IUSE="bzip2 lzma nls sep-usr static-libs test +threads +utils"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~amd64-linux ~x86-linux"
+IUSE="bzip2 lzma nls split-usr static-libs test +threads +utils"
 
 RDEPEND=">=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}]
 	bzip2? ( >=app-arch/bzip2-1.0.6-r4[${MULTILIB_USEDEP}] )
@@ -22,6 +22,8 @@ DEPEND="${RDEPEND}
 	nls? ( sys-devel/gettext )
 	>=sys-devel/flex-2.5.4a
 	sys-devel/m4"
+
+RESTRICT="!test? ( test )"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-0.118-PaX-support.patch
@@ -63,7 +65,7 @@ multilib_src_test() {
 multilib_src_install() {
 	emake DESTDIR="${D}" install
 
-	if use sep-usr && multilib_is_native_abi; then
+	if use split-usr && multilib_is_native_abi; then
 		# Rather than being named libelf.so.0.170, libs are instead named
 		# libelf-0.170.so...
 		# The comments in gen_usr_ldscript indicate that this is sometimes the
