@@ -7,7 +7,7 @@
 # @AUTHOR:
 # Bo Ørsted Andresen <zlin@gentoo.org>
 # Original Author: Ciaran McCreesh <ciaranm@gentoo.org>
-# @SUPPORTED_EAPIS: 0 1 2 3 4 5 6 7
+# @SUPPORTED_EAPIS: 4 5 6 7
 # @BLURB: Provides a uniform way of handling ebuild which have very high build requirements
 # @DESCRIPTION:
 # This eclass provides a uniform way of handling ebuilds which have very high
@@ -60,29 +60,18 @@ if [[ ! ${_CHECK_REQS_ECLASS_} ]]; then
 # @DESCRIPTION:
 # How much space is needed in /var? Eg.: CHECKREQS_DISK_VAR=3000M
 
-EXPORT_FUNCTIONS pkg_setup
-case "${EAPI:-0}" in
-	0|1|2|3) ;;
-	4|5|6|7) EXPORT_FUNCTIONS pkg_pretend ;;
-	*) die "EAPI=${EAPI} is not supported" ;;
+case ${EAPI:-0} in
+	4|5|6|7) ;;
+	*) die "${ECLASS}: EAPI=${EAPI:-0} is not supported" ;;
 esac
 
-# @FUNCTION: check_reqs
-# @DESCRIPTION:
+EXPORT_FUNCTIONS pkg_pretend pkg_setup
+
 # Obsolete function executing all the checks and printing out results
 check_reqs() {
-	debug-print-function ${FUNCNAME} "$@"
-
-	[[ ${EAPI:-0} == [012345] ]] || die "${FUNCNAME} is banned in EAPI > 5"
-
-	echo
-	eqawarn "Package calling old ${FUNCNAME} function."
-	eqawarn "Please file a bug against the package."
-	eqawarn "It should call check-reqs_pkg_pretend and check-reqs_pkg_setup"
-	eqawarn "and possibly use EAPI=4 or later."
-	echo
-
-	check-reqs_pkg_setup "$@"
+	eerror "Package calling old ${FUNCNAME} function."
+	eerror "It should call check-reqs_pkg_pretend and check-reqs_pkg_setup."
+	die "${FUNCNAME} is banned"
 }
 
 # @FUNCTION: check-reqs_pkg_setup
@@ -134,9 +123,6 @@ check-reqs_run() {
 	# some people are *censored*
 	unset CHECKREQS_FAILED
 
-	[[ ${EAPI:-0} == [0123] ]] && local MERGE_TYPE=""
-
-	# use != in test, because MERGE_TYPE only exists in EAPI 4 and later
 	if [[ ${MERGE_TYPE} != binary ]]; then
 		[[ -n ${CHECKREQS_MEMORY} ]] && \
 			check-reqs_memory \
