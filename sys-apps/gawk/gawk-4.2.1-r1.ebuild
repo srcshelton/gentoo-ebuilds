@@ -12,7 +12,7 @@ SRC_URI="mirror://gnu/gawk/${P}.tar.xz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="forced-sandbox mpfr nls readline sep-usr"
+IUSE="forced-sandbox mpfr nls readline split-usr"
 
 RDEPEND="
 	dev-libs/gmp:0=
@@ -59,7 +59,7 @@ src_configure() {
 		$(use_enable nls)
 		$(use_with readline)
 	)
-	use sep-usr && myeconfargs+=(
+	use split-usr && myeconfargs+=(
 		--bindir=/bin
 	)
 	econf "${myeconfargs[@]}"
@@ -77,7 +77,7 @@ src_install() {
 
 pkg_postinst() {
 	# symlink creation here as the links do not belong to gawk, but to any awk
-	if ! use sep-usr \
+	if ! use split-usr \
 			&& has_version app-admin/eselect \
 			&& has_version app-eselect/eselect-awk ; then
 		eselect awk update ifunset
@@ -89,7 +89,7 @@ pkg_postinst() {
 				[[ ! -e ${l/gawk/awk} ]] && ln -s "${l##*/}" "${l/gawk/awk}"
 			fi
 		done
-		if use sep-usr; then
+		if use split-usr; then
 			[[ ! -r ${EROOT%/}/bin/awk ]] && rm "${EROOT%/}/bin/awk"
 			[[ ! -e ${EROOT%/}/bin/awk ]] && ln -s "gawk" "${EROOT%/}/bin/awk"
 		else
@@ -100,7 +100,7 @@ pkg_postinst() {
 }
 
 pkg_postrm() {
-	if ! use sep-usr \
+	if ! use split-usr \
 			&& has_version app-admin/eselect \
 			&& has_version app-eselect/eselect-awk ; then
 		eselect awk update ifunset
