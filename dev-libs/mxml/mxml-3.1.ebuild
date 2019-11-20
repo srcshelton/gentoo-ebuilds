@@ -5,23 +5,19 @@ EAPI=7
 
 inherit autotools usr-ldscript
 
-MY_P="${P/mini-xml/mxml}"
-
-DESCRIPTION="Small XML parsing library to read XML and XML-like data files"
-HOMEPAGE="https://www.msweet.org/mxml/"
-SRC_URI=" https://github.com/michaelrsweet/mxml/releases/download/v${PV}/mxml-${PV}.tar.gz"
+DESCRIPTION="A small XML parsing library that you can use to read XML data files or strings"
+HOMEPAGE="
+	https://github.com/michaelrsweet/mxml
+	https://www.msweet.org/mxml/
+"
+SRC_URI="https://github.com/michaelrsweet/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="Apache-2.0"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~hppa ~ia64 ppc ~ppc64 ~sparc x86"
+KEYWORDS="~alpha ~amd64 ~arm ~hppa ~ia64 ~ppc ~ppc64 ~sparc ~x86"
 IUSE="doc threads static-libs"
 
-RESTRICT="mirror"
-
-DEPEND="virtual/pkgconfig"
-RDEPEND=""
-
-S="${WORKDIR}/${MY_P}"
+BDEPEND="virtual/pkgconfig"
 
 src_prepare() {
 	default
@@ -54,14 +50,14 @@ src_prepare() {
 }
 
 src_configure() {
-	local myeconfopts=(
+	local myeconfargs=(
 		--enable-shared
 		--libdir="/usr/$(get_libdir)"
 		--with-docdir="/usr/share/doc/${PF}"
 		$(use_enable threads)
 	)
 
-	econf "${myeconfopts[@]}"
+	econf "${myeconfargs[@]}"
 }
 
 src_install() {
