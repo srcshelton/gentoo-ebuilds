@@ -10,8 +10,8 @@ SRC_URI="http://rpm5.org/files/popt/${P}.tar.gz"
 
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~amd64-fbsd ~x86-fbsd ~x86-linux"
-IUSE="nls sep-usr static-libs"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~x86-linux"
+IUSE="nls split-usr static-libs"
 
 RDEPEND="nls? ( >=virtual/libintl-0-r1[${MULTILIB_USEDEP}] )"
 DEPEND="nls? ( sys-devel/gettext )"
@@ -33,7 +33,7 @@ multilib_src_configure() {
 multilib_src_install() {
 	default
 
-	if use sep-usr && multilib_is_native_abi; then
+	if use split-usr && multilib_is_native_abi; then
 		# need the libs in /
 		gen_usr_ldscript -a popt
 	fi
