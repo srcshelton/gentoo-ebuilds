@@ -11,8 +11,8 @@ SRC_URI="http://www.digip.org/jansson/releases/${P}.tar.gz"
 
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd"
-IUSE="doc sep-usr static-libs"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86"
+IUSE="doc split-usr static-libs"
 
 DEPEND="doc? ( >=dev-python/sphinx-1.0.4 )"
 RDEPEND=""
@@ -41,7 +41,7 @@ multilib_src_compile() {
 multilib_src_install() {
 	default
 
-	if use sep-usr && multilib_is_native_abi; then
+	if use split-usr && multilib_is_native_abi; then
 		# need the libs in /
 		gen_usr_ldscript -a jansson
 	fi
