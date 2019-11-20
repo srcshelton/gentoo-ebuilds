@@ -5,7 +5,7 @@ EAPI=6
 inherit autotools eutils multilib versionator
 
 DESCRIPTION="Open Source Deep Packet Inspection Software Toolkit"
-HOMEPAGE="https://www.ntop.org/"
+HOMEPAGE="http://www.ntop.org/"
 SRC_URI="https://github.com/ntop/${PN}/archive/${PV}.tar.gz -> ${P}.tar.gz"
 RESTRICT="mirror"
 
@@ -35,6 +35,9 @@ src_prepare() {
 		-e "s/@NDPI_VERSION_SHORT@/${NDPI_VERSION_SHORT}/g" \
 		configure.seed > configure.ac ||
 	die "Version substitution failed: ${?}"
+
+	epatch "${FILESDIR}/${P}-fix-pkgconfigdir.patch"
+	epatch "${FILESDIR}/${P}-relative-sym.patch"
 
 	default
 
