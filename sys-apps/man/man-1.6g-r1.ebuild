@@ -3,7 +3,7 @@
 
 EAPI="4"
 
-inherit eutils flag-o-matic prefix toolchain-funcs user
+inherit eutils prefix toolchain-funcs user
 
 DESCRIPTION="Standard commands to read man pages"
 HOMEPAGE="http://primates.ximian.com/~flucifredi/man/"
@@ -11,7 +11,7 @@ SRC_URI="http://primates.ximian.com/~flucifredi/man/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~amd64-fbsd ~x86-fbsd"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86"
 KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+lzma nls selinux"
 
@@ -24,7 +24,7 @@ RDEPEND=">=sys-apps/groff-1.19.2-r1
 
 pkg_setup() {
 	enewgroup man 15
-	enewuser man 13 -1 "${EPREFIX}"/usr/share/man man
+	enewuser man 13 -1 "${EPREFIX%/}/usr/share/man" man
 }
 
 src_prepare() {
@@ -126,7 +126,7 @@ src_configure() {
 	local myconf=
 	use prefix || myconf="${myconf} +sgid"
 
-	if [[ -n ${EPREFIX} ]]; then
+	if [[ -n "${EPREFIX:-}" ]]; then
 		hprefixify configure || die
 		sed -i \
 			-e "s/man_user=root/man_user=$(id -u)/"  \
@@ -137,8 +137,8 @@ src_configure() {
 
 	echoit \
 	./configure \
-		-prefix="${EPREFIX}/usr" \
-		-confdir="${EPREFIX}"/etc \
+		-prefix="${EPREFIX%/}/usr" \
+		-confdir="${EPREFIX%/}"/etc \
 		${myconf} \
 		+fhs \
 		+lang ${mylang} \
@@ -190,13 +190,13 @@ pkg_postinst() {
 
 	echo
 
-	local f files=$(ls "${EROOT}"/etc/cron.{daily,weekly}/makewhatis{,.cron} 2>/dev/null)
+	local f files=$(ls "${EROOT%/}/etc/cron.{daily,weekly}/makewhatis{,.cron}" 2>/dev/null)
 	for f in ${files} ; do
 		[[ ${f} == */etc/cron.daily/makewhatis ]] && continue
 		[[ $(md5sum "${f}") == "8b2016cc778ed4e2570b912c0f420266 "* ]] \
 			&& rm -f "${f}"
 	done
-	files=$(ls "${EROOT}"etc/cron.{daily,weekly}/makewhatis{,.cron} 2>/dev/null)
+	files=$(ls "${EROOT%/}/etc/cron.{daily,weekly}/makewhatis{,.cron}" 2>/dev/null)
 	if [[ ${files/$'\n'} != ${files} ]] ; then
 		ewarn "You have multiple makewhatis cron files installed."
 		ewarn "You might want to delete all but one of these:"
