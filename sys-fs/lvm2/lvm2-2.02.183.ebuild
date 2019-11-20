@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
-inherit autotools linux-info multilib systemd toolchain-funcs udev flag-o-matic usr-ldscript
+inherit autotools linux-info multilib systemd toolchain-funcs udev flag-o-matic
 
 DESCRIPTION="User-land utilities for LVM2 (device-mapper) software"
 HOMEPAGE="https://sourceware.org/lvm2/"
@@ -23,7 +23,7 @@ DEPEND_COMMON="
 	readline? ( sys-libs/readline:0= )
 	sanlock? ( sys-cluster/sanlock )
 	systemd? ( >=sys-apps/systemd-205:0= )
-	udev? ( >=virtual/libudev-208:=[static-libs?] )"
+	udev? ( >=virtual/libudev-208:=[static-libs(-)?] )"
 # /run is now required for locking during early boot. /var cannot be assumed to
 # be available -- thus, pull in recent enough baselayout for /run.
 # This version of LVM is incompatible with cryptsetup <1.1.2.
@@ -230,9 +230,7 @@ src_install() {
 	if use static-libs; then
 		dolib.a libdm/ioctl/libdevmapper.a
 		dolib.a libdaemon/client/libdaemonclient.a #462908
-		#gen_usr_ldscript libdevmapper.so
 		dolib.a daemons/dmeventd/libdevmapper-event.a
-		#gen_usr_ldscript libdevmapper-event.so
 	else
 		rm -f "${ED%/}"/usr/$(get_libdir)/{libdevmapper-event,liblvm2cmd,liblvm2app,libdevmapper}.a
 	fi
