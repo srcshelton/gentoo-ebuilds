@@ -25,6 +25,7 @@ main() {
 			retval=$?
 		;;
 		"store")
+			umask 177
 			local tmp_save="${NFTABLES_SAVE}.tmp"
 			if ! use_legacy; then
 				nft ${SAVE_OPTIONS} list ruleset > ${tmp_save}
@@ -147,3 +148,5 @@ deletetable() {
 }
 
 main "$@"
+
+# vi: set diffopt=iwhite,filler:
