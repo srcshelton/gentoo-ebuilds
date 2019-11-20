@@ -8,7 +8,7 @@ inherit webapp
 MY_PN=${PN}mail
 MY_P=${MY_PN}-${PV}
 
-PHAR="1.9.0"
+PHAR="1.9.1"
 
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="https://roundcube.net"
@@ -19,9 +19,9 @@ RESTRICT="mirror"
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
-KEYWORDS="amd64 arm ~hppa ppc ppc64 sparc x86"
+KEYWORDS="~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86"
 
-IUSE="change-password enigma exif ldap managesieve +mysql plugins postgres sqlite ssl spell php_targets_php7-1 php_targets_php7-2"
+IUSE="change-password enigma exif ldap managesieve +mysql plugins postgres sqlite ssl spell php_targets_php7-1 php_targets_php7-2 php_targets_php7-3"
 REQUIRED_USE="|| ( mysql postgres sqlite )"
 
 # The function below sets only DEPEND, so we need to include the latter in RDEPEND ...
@@ -60,6 +60,7 @@ RDEPEND="
 	)
 	php_targets_php7-1? ( >=dev-php/PEAR-PEAR-1.10.1 )
 	php_targets_php7-2? ( >=dev-php/PEAR-PEAR-1.10.1 )
+	php_targets_php7-3? ( >=dev-php/PEAR-PEAR-1.10.1 )
 	plugins? ( dev-lang/php[ctype,filter,hash,json,phar,ssl] )
 	spell? ( dev-lang/php[curl,spell] )
 "
