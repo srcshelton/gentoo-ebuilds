@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit user flag-o-matic multilib autotools pam systemd
+inherit user eapi7-ver flag-o-matic multilib autotools pam systemd
 
 # Make it more portable between straight releases
 # and _p? releases.
@@ -18,24 +18,23 @@ HPN_PATCHES=(
 )
 
 SCTP_VER="1.2" SCTP_PATCH="${PARCH}-sctp-${SCTP_VER}.patch.xz"
-X509_VER="11.6" X509_PATCH="${PARCH}+x509-${X509_VER}.diff.gz"
+X509_VER="12.1-gentoo" X509_PATCH="${PARCH}+x509-${X509_VER}.diff.gz"
 
 PATCH_SET="openssh-7.9p1-patches-1.0"
 
 DESCRIPTION="Port of OpenBSD's free SSH release"
 HOMEPAGE="https://www.openssh.com/"
 SRC_URI="mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz
-	https://dev.gentoo.org/~whissi/dist/${PN}/${PATCH_SET}.tar.xz
 	${SCTP_PATCH:+sctp? ( https://dev.gentoo.org/~whissi/dist/openssh/${SCTP_PATCH} )}
 	${HPN_VER:+hpn? ( $(printf "mirror://sourceforge/hpnssh/HPN-SSH%%20${HPN_VER/./v}%%20${HPN_PV/_P/p}/%s\n" "${HPN_PATCHES[@]}") )}
-	${X509_PATCH:+X509? ( https://roumenpetrov.info/openssh/x509-${X509_VER}/${X509_PATCH} )}
+	${X509_PATCH:+X509? ( https://dev.gentoo.org/~whissi/dist/openssh/${X509_PATCH} )}
 	"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 # Probably want to drop ssl defaulting to on in a future version.
-IUSE="audit bindist debug hpn kerberos ldns libedit libressl -libseccomp livecd pam +pie sctp selinux +ssl static test X X509 abi_mips_n32 abi_x86_x32"
+IUSE="audit bindist debug hpn kerberos ldns libedit libressl livecd pam +pie sctp selinux +ssl static test X X509 xmss" # -libseccomp
 RESTRICT="!test? ( test )"
 REQUIRED_USE="ldns? ( ssl )
 	pie? ( !static )
@@ -116,39 +115,29 @@ src_prepare() {
 	# don't break .ssh/authorized_keys2 for fun
 	sed -i '/^AuthorizedKeysFile/s:^:#:' sshd_config || die
 
-	eapply "${FILESDIR}"/${PN}-7.9_p1-openssl-1.0.2-compat.patch
 	eapply "${FILESDIR}"/${PN}-7.9_p1-include-stdlib.patch
-	eapply "${FILESDIR}"/${PN}-7.8_p1-GSSAPI-dns.patch #165444 integrated into gsskex
+	eapply "${FILESDIR}"/${PN}-8.0_p1-GSSAPI-dns.patch #165444 integrated into gsskex
 	eapply "${FILESDIR}"/${PN}-6.7_p1-openssl-ignore-status.patch
 	eapply "${FILESDIR}"/${PN}-7.5_p1-disable-conch-interop-tests.patch
-
-	if use X509 ; then
-		# patch doesn't apply due to X509 modifications
-		rm \
-			"${WORKDIR}"/patches/0001-fix-key-type-check.patch \
-			"${WORKDIR}"/patches/0002-request-rsa-sha2-cert-signatures.patch \
-			|| die
-	else
-		eapply "${FILESDIR}"/${PN}-7.9_p1-CVE-2018-20685.patch # X509 patch set includes this patch
-	fi
+	eapply "${FILESDIR}"/${PN}-8.0_p1-fix-putty-tests.patch
+	eapply "${FILESDIR}"/${PN}-8.0_p1-deny-shmget-shmat-shmdt-in-preauth-privsep-child.patch
+	eapply "${FILESDIR}"/${PN}-8.0_p1-fix-integer-overflow-in-XMSS-private-key-parsing.patch
+	eapply "${FILESDIR}"/${PN}-8.0_p1-fix-an-unreachable-integer-overflow-similar-to-the-XMSS-case.patch
+	use X509 || eapply "${FILESDIR}"/${PN}-8.0_p1-tests.patch
 
 	[[ -d ${WORKDIR}/patches ]] && eapply "${WORKDIR}"/patches
 
 	local PATCHSET_VERSION_MACROS=()
 
 	if use X509 ; then
-		pushd "${WORKDIR}" || die
-		eapply "${FILESDIR}/${P}-X509-glue-${X509_VER}.patch"
-		eapply "${FILESDIR}/${P}-X509-dont-make-piddir-${X509_VER}.patch"
-		popd || die
-
-		if use hpn ; then
-			einfo "Will disable MT AES cipher due to incompatbility caused by X509 patch set"
-			HPN_DISABLE_MTAES=1
-		fi
+		# X509 12.1-gentoo patch contains the changes from below
+		#pushd "${WORKDIR}" &>/dev/null || die
+		#eapply "${FILESDIR}/${P}-X509-glue-"${X509_VER}".patch"
+		#eapply "${FILESDIR}/${P}-X509-dont-make-piddir-"${X509_VER}".patch"
+		#popd &>/dev/null || die
 
 		eapply "${WORKDIR}"/${X509_PATCH%.*}
-		eapply "${FILESDIR}"/${P}-X509-${X509_VER}-tests.patch
+		eapply "${FILESDIR}"/${P}-X509-$(ver_cut 1-2 ${X509_VER})-tests.patch
 
 		# We need to patch package version or any X.509 sshd will reject our ssh client
 		# with "userauth_pubkey: could not parse key: string is too large [preauth]"
@@ -180,22 +169,33 @@ src_prepare() {
 			"${S}"/regress/Makefile || die "Failed to disable known failing test (cfgparse) caused by SCTP patch"
 	fi
 
-	if use libseccomp; then
-		epatch "${FILESDIR}"/${PN}-7.3_p1-libseccomp.patch
-	fi
+	# Compiles but crashes on run if enabled :(
+	#
+	#if use libseccomp; then
+	#	epatch "${FILESDIR}"/${PN}-8.0_p1-libseccomp.patch
+	#fi
 
 	if use hpn ; then
 		local hpn_patchdir="${T}/${P}-hpn${HPN_VER}"
 		mkdir "${hpn_patchdir}"
 		cp $(printf -- "${DISTDIR}/%s\n" "${HPN_PATCHES[@]}") "${hpn_patchdir}"
-		pushd "${hpn_patchdir}"
-		eapply "${FILESDIR}"/${P}-hpn-glue.patch
-		use X509 && eapply "${FILESDIR}"/${P}-hpn-X509-glue.patch
-		use sctp && eapply "${FILESDIR}"/${P}-hpn-sctp-glue.patch
-		popd
+		pushd "${hpn_patchdir}" &>/dev/null || die
+		eapply "${FILESDIR}"/${PN}-8.0_p1-hpn-glue.patch
+		if use X509; then
+			einfo "Will disable MT AES cipher due to incompatbility caused by X509 patch set"
+			# X509 and AES-CTR-MT don't get along, let's just drop it
+			rm openssh-${HPN_PV//./_}-hpn-AES-CTR-${HPN_VER}.diff || die
+			eapply "${FILESDIR}"/${PN}-8.0_p1-hpn-X509-glue.patch
+		fi
+		use sctp && eapply "${FILESDIR}"/${PN}-7.9_p1-hpn-sctp-glue.patch
+		popd &>/dev/null || die
 
 		eapply "${hpn_patchdir}"
-		eapply "${FILESDIR}/openssh-7.9_p1-hpn-openssl-1.1.patch"
+
+		if ! use X509; then
+			eapply "${FILESDIR}/openssh-7.9_p1-hpn-openssl-1.1.patch"
+			eapply "${FILESDIR}/openssh-8.0_p1-hpn-version.patch"
+		fi
 
 		einfo "Patching Makefile.in for HPN patch set ..."
 		sed -i \
@@ -278,6 +278,7 @@ src_configure() {
 
 	use debug && append-cppflags -DSANDBOX_SECCOMP_FILTER_DEBUG
 	use static && append-ldflags -static
+	use xmss && append-cflags -DWITH_XMSS
 
 	local myconf=(
 		--with-ldflags="${LDFLAGS}"
@@ -302,14 +303,15 @@ src_configure() {
 		$(use_with ssl md5-passwords)
 		$(use_with ssl ssl-engine)
 		$(use_with !elibc_Cygwin hardening) #659210
-		$(use_with libseccomp sandbox libseccomp_filter)
+		#$(use_with libseccomp sandbox libseccomp_filter)
 	)
 
 	# stackprotect is broken on musl x86 and ppc
 	use elibc_musl && ( use x86 || use ppc ) && myconf+=( --without-stackprotect )
 
 	# The seccomp sandbox is broken on x32, so use the older method for now. #553748
-	if use abi_x86_x32 && ! use libseccomp; then
+	if use amd64 && [[ "${ABI}" == 'x32' ]] # && ! use libseccomp
+	then
 		ewarn "The default 'seccomp' sandbox does not work correctly on x32, and so - without"
 		ewarn "experimental libseccomp support at least - it is required that this build"
 		ewarn "fallback to the basic 'rlimit' sandbox, where a child process is prevented from"
@@ -340,7 +342,7 @@ src_test() {
 	mkdir -p "${sshhome}"/.ssh
 	for t in "${tests[@]}" ; do
 		# Some tests read from stdin ...
-		HOMEDIR="${sshhome}" HOME="${sshhome}" \
+		HOMEDIR="${sshhome}" HOME="${sshhome}" SUDO="" \
 		emake -k -j1 ${t} </dev/null \
 			&& passed+=( "${t}" ) \
 			|| failed+=( "${t}" )
