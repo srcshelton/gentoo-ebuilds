@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -13,6 +13,7 @@ LICENSE="BSD"
 SLOT="0"
 KEYWORDS="amd64 arm ~arm64 hppa ppc sparc x86"
 IUSE="doc selinux systemd test kernel_FreeBSD"
+RESTRICT="!test? ( test )"
 
 CDEPEND="dev-libs/libdaemon"
 DEPEND="${CDEPEND}
@@ -40,7 +41,10 @@ src_configure() {
 src_install() {
 	default
 
-	use doc && dohtml INTRO.html
+	if use doc; then
+		insinto /usr/share/doc/${PF}/html
+		doins INTRO.html
+	fi
 
 	newinitd "${FILESDIR}"/${PN}-2.15.init ${PN}
 	newconfd "${FILESDIR}"/${PN}.conf ${PN}
