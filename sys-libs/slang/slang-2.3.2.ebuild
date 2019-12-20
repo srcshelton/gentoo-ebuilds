@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit eutils multilib-minimal
+inherit usr-ldscript multilib-minimal
 
 DESCRIPTION="Multi-platform library designed to allow a developer to create robust software"
 HOMEPAGE="http://www.jedsoft.org/slang/"
@@ -18,7 +18,7 @@ else
 fi
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="cjk pcre png readline sep-usr static-libs zlib"
+IUSE="cjk pcre png readline split-usr static-libs zlib"
 
 # ncurses for ncurses5-config to get terminfo directory
 RDEPEND="
@@ -72,7 +72,7 @@ multilib_src_compile() {
 multilib_src_install() {
 	emake DESTDIR="${D}" install $(use static-libs && echo install-static)
 
-	if use sep-usr && multilib_is_native_abi; then
+	if use split-usr && multilib_is_native_abi; then
 		# need the libs in /
 		gen_usr_ldscript -a slang
 	fi
