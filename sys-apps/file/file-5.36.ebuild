@@ -6,7 +6,7 @@ EAPI=6
 PYTHON_COMPAT=( python2_7 python3_{5,6,7} pypy )
 DISTUTILS_OPTIONAL=1
 
-inherit distutils-r1 libtool toolchain-funcs multilib-minimal
+inherit distutils-r1 libtool toolchain-funcs usr-ldscript multilib-minimal
 
 if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="https://github.com/glensc/file.git"
@@ -21,7 +21,7 @@ HOMEPAGE="https://www.darwinsys.com/file/"
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="python -libseccomp sep-usr static-libs zlib"
+IUSE="python -libseccomp split-usr static-libs zlib"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
 DEPEND="
@@ -106,7 +106,7 @@ multilib_src_install() {
 	if multilib_is_native_abi ; then
 		default
 
-		if use sep-usr; then
+		if use split-usr; then
 			# need the libs in /
 			gen_usr_ldscript -a magic
 		fi
