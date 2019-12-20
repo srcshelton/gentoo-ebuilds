@@ -26,9 +26,9 @@ DEPEND="
 RDEPEND="${DEPEND}"
 
 PATCHES=(
-	"${FILESDIR}"/"${PN}"-1.11-variable_unset.patch
-	"${FILESDIR}"/"${P}"-fix-a-typo-in-gdbm.h.patch
-	"${FILESDIR}"/"${P}"-fix-build-with-enable-gdbm-export.patch
+	"${FILESDIR}"/gdbm-1.11-variable_unset.patch
+	"${FILESDIR}"/gdbm-1.13-fix-a-typo-in-gdbm.h.patch
+	"${FILESDIR}"/gdbm-1.13-fix-build-with-enable-gdbm-export.patch
 )
 
 EX_S="${WORKDIR}/${EX_P}"
