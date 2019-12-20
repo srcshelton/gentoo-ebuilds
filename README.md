@@ -563,6 +563,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/gmp
 * dev-libs/jansson
 * dev-libs/json-c
+* dev-libs/libbsd
 * dev-libs/libgcrypt
 * dev-libs/libgpg-error
 * dev-libs/libnl
