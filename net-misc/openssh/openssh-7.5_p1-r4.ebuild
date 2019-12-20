@@ -28,6 +28,7 @@ SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 # Probably want to drop ssl defaulting to on in a future version.
 IUSE="audit bindist debug ${HPN_PATCH:++}hpn kerberos ldap ldns libedit libressl -libseccomp livecd pam +pie sctp selinux skey ssh1 +ssl static test X X509 abi_mips_n32 abi_x86_x32"
+RESTRICT="!test? ( test )"
 REQUIRED_USE="ldns? ( ssl )
 	pie? ( !static )
 	ssh1? ( ssl )
@@ -84,7 +85,7 @@ pkg_pretend() {
 	fail=$(echo ${fail})
 	if [[ -n ${fail} ]] ; then
 		eerror "Sorry, but this version does not yet support features"
-		eerror "that you requested:	 ${fail}"
+		eerror "that you requested: ${fail}"
 		eerror "Please mask ${PF} for now and check back later:"
 		eerror " # echo '=${CATEGORY}/${PF}' >> /etc/portage/package.mask"
 		die "This version of OpenSSH does not yet have all previous functionality enabled"

@@ -84,7 +84,7 @@ pkg_pretend() {
 	fail=$(echo ${fail})
 	if [[ -n ${fail} ]] ; then
 		eerror "Sorry, but this version does not yet support features"
-		eerror "that you requested:	 ${fail}"
+		eerror "that you requested: ${fail}"
 		eerror "Please mask ${PF} for now and check back later:"
 		eerror " # echo '=${CATEGORY}/${PF}' >> /etc/portage/package.mask"
 		die "This version of OpenSSH does not yet have all previous functionality enabled"
