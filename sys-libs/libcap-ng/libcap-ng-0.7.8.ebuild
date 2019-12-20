@@ -7,7 +7,7 @@ AUTOTOOLS_AUTORECONF=1
 AUTOTOOLS_PRUNE_LIBTOOL_FILES=all
 PYTHON_COMPAT=( python{2_7,3_5,3_6} )
 
-inherit autotools-utils flag-o-matic python-r1
+inherit autotools-utils flag-o-matic python-r1 usr-ldscript
 
 DESCRIPTION="POSIX 1003.1e capabilities"
 HOMEPAGE="https://people.redhat.com/sgrubb/libcap-ng/"
@@ -16,7 +16,7 @@ SRC_URI="https://people.redhat.com/sgrubb/${PN}/${P}.tar.gz"
 LICENSE="LGPL-2.1"
 SLOT="0"
 KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~x86-linux"
-IUSE="python sep-usr static-libs"
+IUSE="python split-usr static-libs"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
 RDEPEND="python? ( ${PYTHON_DEPS} )"
@@ -98,7 +98,7 @@ src_install() {
 			VPATH="${BUILD_DIR}"/bindings/python
 	fi
 
-	if use sep-usr; then
+	if use split-usr; then
 		# need the libs in /
 		gen_usr_ldscript -a cap-ng
 	fi
