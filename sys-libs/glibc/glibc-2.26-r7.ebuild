@@ -824,6 +824,11 @@ glibc_do_src_install() {
 		# toolchain-glibc.eclass runs prefixify_ro and a @PIDFILE@ substitution
 		# on the included 'nscd', although it contains neither of the needed
 		# template tokens.
+		#doinitd "$(prefixify_ro "${WORKDIR}"/extra/etc/nscd)"
+		#local nscd_args=(
+		#	-e "s:@PIDFILE@:$(strings "${ED}"/usr/sbin/nscd | grep nscd.pid):"
+		#)
+		#sed -i "${nscd_args[@]}" "${ED}"/etc/init.d/nscd
 		newinitd "${FILESDIR}"/nscd.initd nscd
 
 		use systemd && systemd_dounit nscd/nscd.service
