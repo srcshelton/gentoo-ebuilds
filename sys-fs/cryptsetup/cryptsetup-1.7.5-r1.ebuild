@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
@@ -6,7 +6,7 @@ EAPI=5
 DISTUTILS_OPTIONAL=1
 PYTHON_COMPAT=( python{2_7,3_5,3_6,3_7} )
 
-inherit autotools distutils-r1 linux-info libtool eutils versionator
+inherit autotools distutils-r1 linux-info libtool eutils usr-ldscript versionator
 
 DESCRIPTION="Tool to setup encrypted devices with dm-crypt"
 HOMEPAGE="https://gitlab.com/cryptsetup/cryptsetup/blob/master/README.md"
@@ -14,11 +14,11 @@ SRC_URI="https://www.kernel.org/pub/linux/utils/${PN}/v$(get_version_component_r
 
 LICENSE="GPL-2+"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 ~s390 ~sh sparc x86"
+KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 ~mips ppc ppc64 s390 ~sh sparc x86"
 CRYPTO_BACKENDS="+gcrypt kernel nettle openssl"
 # we don't support nss since it doesn't allow cryptsetup to be built statically
 # and it's missing ripemd160 support so it can't provide full backward compatibility
-IUSE="${CRYPTO_BACKENDS} libressl nls pwquality python reencrypt sep-usr static static-libs +udev urandom"
+IUSE="${CRYPTO_BACKENDS} libressl nls pwquality python reencrypt split-usr static static-libs +udev urandom"
 REQUIRED_USE="^^ ( ${CRYPTO_BACKENDS//+/} )
 	python? ( ${PYTHON_REQUIRED_USE} )
 	static? ( !gcrypt )" #496612
@@ -118,7 +118,7 @@ src_install() {
 		use reencrypt && { mv "${ED}"/sbin/cryptsetup-reencrypt{.static,} || die ; }
 	fi
 
-	if use sep-usr; then
+	if use split-usr; then
 		# need the libs in /
 		gen_usr_ldscript -a cryptsetup
 	fi
