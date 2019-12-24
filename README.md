@@ -501,8 +501,6 @@ x32 profiles, and that these variables only affect multilib systems.
     * Add (x)32 library paths in addition to 64-bit variants
 * media-libs/flac
     * Avoid link failures due to 32 bit downgrade with x32 ABI
-* media-libs/graphviz
-    * Ensure that correct lib directory is searched
 * net-analyzer/arp-sk
     * Look for libnet in the appropriate "libdir" rather than `lib`
 * net-dns/bind-tools
