@@ -1,0 +1,13 @@
+--- a/configure.in
++++ b/configure.in
+@@ -126,6 +126,10 @@
+ fi
+ 
+ LIBS="$save_LIBS"
++
++AC_SEARCH_LIBS(stdscr, tinfo curses ncurses, [LIB_CURSES="$LIB_CURSES $ac_cv_search_stdscr"],
++ AC_MSG_ERROR([Cannot find a library providing stdscr]))
++
+ AC_SUBST(LIB_CURSES)
+ 
+ 

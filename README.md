@@ -261,7 +261,7 @@ used to build perl)
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-mail/imapproxy
-    * Retain old up-imapproxy ebuild
+    * Retain old up-imapproxy ebuild, add imapproxy-1.2.8 with SSL fixes
 * net-misc/minissdpd
     * Temporarily retain old ebuild, which doesn't require `USE="old-output"` for sys-apps/net-tools
 * net-misc/pixelserv
