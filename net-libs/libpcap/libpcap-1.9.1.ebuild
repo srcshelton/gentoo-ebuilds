@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
-inherit autotools ltprune multilib-minimal
+inherit autotools ltprune multilib-minimal usr-ldscript
 
 DESCRIPTION="A system-independent library for user-level network packet capture"
 HOMEPAGE="
