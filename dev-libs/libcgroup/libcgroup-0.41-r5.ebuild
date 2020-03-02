@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit autotools flag-o-matic linux-info pam
+inherit autotools flag-o-matic linux-info pam usr-ldscript
 
 DESCRIPTION="Tools and libraries to configure and manage kernel control groups"
 HOMEPAGE="http://libcg.sourceforge.net/"
@@ -86,6 +86,12 @@ src_test() {
 
 src_install() {
 	default
+
+	if use split-usr; then
+		# need the libs in /
+		gen_usr_ldscript -a cgroup
+	fi
+
 	prune_libtool_files --all
 
 	insinto /etc/cgroup
