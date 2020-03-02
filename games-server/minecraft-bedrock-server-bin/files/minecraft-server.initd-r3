@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# Copyright 1999-2019 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+if [[ "${SVCNAME}" = 'minecraft-bedrock-server' ]]; then
+	instance='world'
+else
+	instance="${SVCNAME#minecraft-bedrock-server.}"
+fi
+
+name="Minecraft Server (World: ${instance})"
+pidfile="/var/run/minecraft-bedrock-server.${instance}.pid"
+start_stop_daemon_args="--chdir '/opt/minecraft-bedrock-server'"
+
+command="/opt/minecraft-bedrock-server/bedrock_server"
+command_background="true"
+command_group="minecraft"
+command_user="minecraft"
+output_log="/var/log/minecraft-bedrock-server/${instance}.log"
+error_log="/var/log/minecraft-bedrock-server/${instance}.err"
+
+depend() {
+	use net
+}

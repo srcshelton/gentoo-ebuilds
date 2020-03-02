@@ -247,6 +247,7 @@ used to build perl)
 * dev-python/pre-commit
 * dev-python/yamllint
 * dev-ruby/CFPropertyList
+* games-server/minecraft-bedrock-server-bin
 * games-server/minecraft-server-bin
 * mail-client/roundcube
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
