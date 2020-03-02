@@ -290,6 +290,8 @@ used to build perl)
     * Web interface for 'Three Little Pigs' fork of SiriProxy
 * www-servers/3dm2
     * 3ware 3DM2 RAID controller web interface for 3w-xxxx, 3w-9xxx and 3w-sas controllers
+* www-servers/pound
+    * Third-party Zevenet pound-2.8a, which builds against modern OpenSSL
 
 # Modified ebuilds
 
