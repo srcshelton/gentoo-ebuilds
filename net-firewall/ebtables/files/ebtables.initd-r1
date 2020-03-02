@@ -24,15 +24,14 @@ ebtables_tables() {
 set_table_policy() {
 	local chains table=$1 policy=$2
 	case ${table} in
-		nat)    chains="PREROUTING PREFORWARDING POSTROUTING POSTFORWARDING OUTPUT";;
+		nat)    chains="PREROUTING POSTROUTING OUTPUT";;
 		broute) chains="BROUTING";;
 		filter) chains="INPUT FORWARD OUTPUT";;
 		*)      chains="";;
 	esac
 	local chain
 	for chain in ${chains} ; do
-		${ebtables_bin} -t ${table} -L ${chain} >/dev/null 2>&1 && \
-			${ebtables_bin} -t ${table} -P ${chain} ${policy}
+		${ebtables_bin} -t ${table} -P ${chain} ${policy}
 	done
 }
 
@@ -48,7 +47,7 @@ checkconfig() {
 start() {
 	checkconfig || return 1
 	ebegin "Loading ebtables state and starting bridge firewall"
-	${ebtables_bin}-restore ${EBTABLES_RESTORE_OPTIONS} < "${ebtables_save}"
+	${ebtables_bin}-restore ${SAVE_RESTORE_OPTIONS} < "${ebtables_save}"
 	eend $?
 }
 
@@ -83,8 +82,7 @@ save() {
 	ebegin "Saving ebtables state"
 	touch "${ebtables_save}"
 	chmod 0600 "${ebtables_save}"
-	export EBTABLES_SAVE_COUNTER
-	${ebtables_bin}-save $(ebtables_tables) > "${ebtables_save}"
+	${ebtables_bin}-save $(ebtables_tables) ${SAVE_RESTORE_OPTIONS} > "${ebtables_save}"
 	eend $?
 }
 
