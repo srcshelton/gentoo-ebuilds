@@ -57,11 +57,12 @@ IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 # error if used.  The Ubiquiti code, of course, hard-codes this :(
 #
 DEPEND="
-	>=dev-db/mongodb-3.2
-	<dev-db/mongodb-3.7
 	>=virtual/jre-1.8.0
 	<virtual/jre-1.9.0
+	>=dev-db/mongodb-3.2
 "
+	#<dev-db/mongodb-3.7
+
 RDEPEND="${DEPEND}"
 
 S="${WORKDIR}"
