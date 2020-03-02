@@ -1,25 +1,24 @@
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
-inherit autotools linux-info libtool eapi7-ver
+inherit autotools linux-info libtool usr-ldscript
 
 DESCRIPTION="Tool to setup encrypted devices with dm-crypt"
 HOMEPAGE="https://gitlab.com/cryptsetup/cryptsetup/blob/master/README.md"
-SRC_URI="mirror://kernel/linux/utils/${PN}/v$(ver_cut 1-2)/${P/_/-}.tar.xz"
+SRC_URI="https://www.kernel.org/pub/linux/utils/${PN}/v$(ver_cut 1-2)/${P/_/-}.tar.xz"
 
 LICENSE="GPL-2+"
 SLOT="0/12" # libcryptsetup.so version
 [[ ${PV} != *_rc* ]] && \
-KEYWORDS="alpha amd64 arm arm64 ~hppa ia64 ~mips ppc ppc64 s390 ~sh sparc x86"
-# cryptsetup does _not_ have a libressl backend. We only have this for REQUIRED_USE
-# and change "libressl" to "openssl" in our econf call.
-CRYPTO_BACKENDS="gcrypt kernel libressl nettle +openssl"
+KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 ~sh sparc x86"
+CRYPTO_BACKENDS="gcrypt kernel nettle +openssl"
 # we don't support nss since it doesn't allow cryptsetup to be built statically
 # and it's missing ripemd160 support so it can't provide full backward compatibility
-IUSE="${CRYPTO_BACKENDS} +argon2 libressl +luks1_default nls pwquality reencrypt sep-usr static static-libs +udev urandom"
+IUSE="${CRYPTO_BACKENDS} +argon2 libressl +luks1_default nls pwquality reencrypt split-usr static static-libs +udev urandom"
 REQUIRED_USE="^^ ( ${CRYPTO_BACKENDS//+/} )
+	libressl? ( openssl )
 	static? ( !gcrypt )" #496612
 
 LIB_DEPEND="
@@ -32,19 +31,21 @@ LIB_DEPEND="
 	nettle? ( >=dev-libs/nettle-2.4[static-libs(+)] )
 	openssl? (
 		!libressl? ( dev-libs/openssl:0=[static-libs(+)] )
-		libressl? ( dev-libs/libressl:=[static-libs(+)] )
+		libressl? ( dev-libs/libressl:0=[static-libs(+)] )
 	)
 	pwquality? ( dev-libs/libpwquality[static-libs(+)] )
 	sys-fs/lvm2[static-libs(+)]
-	udev? ( virtual/libudev[static-libs(+)] )"
+	udev? ( virtual/libudev[static-libs(-)] )"
 # We have to always depend on ${LIB_DEPEND} rather than put behind
 # !static? () because we provide a shared library which links against
 # these other packages. #414665
 RDEPEND="static-libs? ( ${LIB_DEPEND} )
-	${LIB_DEPEND//\[static-libs\(+\)\]}"
+	${LIB_DEPEND//\[static-libs\([+-]\)\]}"
 DEPEND="${RDEPEND}
-	virtual/pkgconfig
 	static? ( ${LIB_DEPEND} )"
+BDEPEND="
+	virtual/pkgconfig
+"
 
 S="${WORKDIR}/${P/_/-}"
 
@@ -81,11 +82,6 @@ src_configure() {
 		ewarn "userspace crypto libraries."
 	fi
 
-	local x cryptobackend
-	for x in ${CRYPTO_BACKENDS//+/} ; do
-		use ${x} && cryptobackend="${x/libressl/openssl}"
-	done
-
 	local myeconfargs=(
 		--disable-internal-argon2
 		--enable-shared
@@ -93,7 +89,7 @@ src_configure() {
 		# for later use
 		--with-default-luks-format=LUKS$(usex luks1_default 1 2)
 		--with-tmpfilesdir="${EPREFIX%/}/usr/lib/tmpfiles.d"
-		--with-crypto_backend=${cryptobackend}
+		--with-crypto_backend=$(for x in ${CRYPTO_BACKENDS//+/} ; do usev ${x} ; done)
 		$(use_enable argon2 libargon2)
 		$(use_enable nls)
 		$(use_enable pwquality)
@@ -126,17 +122,19 @@ src_install() {
 	if use static ; then
 		mv "${ED%/}"/sbin/cryptsetup{.static,} || die
 		mv "${ED%/}"/sbin/veritysetup{.static,} || die
-		use reencrypt && { mv "${ED%/}"/sbin/cryptsetup-reencrypt{.static,} || die ; }
+		if use reencrypt ; then
+			mv "${ED%/}"/sbin/cryptsetup-reencrypt{.static,} || die
+		fi
 	fi
 
-	if use sep-usr; then
+	if use split-usr; then
 		# need the libs in /
 		gen_usr_ldscript -a cryptsetup
 	fi
 
-	find "${ED}" -name "*.la" -delete || die
+	find "${ED}" -type f -name "*.la" -delete || die
 
-	dodoc docs/v*ReleaseNotes
+	dodoc docs/v${PV}-ReleaseNotes
 
 	newconfd "${FILESDIR}"/1.6.7-dmcrypt.confd dmcrypt
 	newinitd "${FILESDIR}"/1.6.7-dmcrypt.rc dmcrypt
