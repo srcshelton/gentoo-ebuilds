@@ -1,10 +1,10 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-PYTHON_COMPAT=( python{2_7,3_5,3_6,3_7} )
+PYTHON_COMPAT=( python{3_6,3_7} )
 
-inherit autotools fcaps linux-info python-r1 systemd
+inherit autotools fcaps linux-info python-single-r1 systemd
 
 if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/netdata/${PN}.git"
@@ -49,7 +49,7 @@ PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression cups +dbengine fping ipmi mysql nfacct nodejs postgres +python systemd tor xen cpu_flags_x86_sse2"
+IUSE="caps +compression cups +dbengine fping ipmi +jsonc kinesis mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -83,24 +83,31 @@ RDEPEND="
 	compression? ( sys-libs/zlib )
 	fping? ( >=net-analyzer/fping-4.0 )
 	ipmi? ( sys-libs/freeipmi )
+	jsonc? ( dev-libs/json-c )
+	kinesis? ( dev-libs/aws-sdk-cpp[kinesis] )
+	mongodb? ( dev-libs/mongo-c-driver )
 	nfacct? (
 		net-firewall/nfacct
 		net-libs/libmnl
 	)
 	nodejs? ( net-libs/nodejs )
+	prometheus? (
+		dev-libs/protobuf:=
+		app-arch/snappy
+	)
 	python? (
 		${PYTHON_DEPS}
-		dev-python/pyyaml[${PYTHON_USEDEP}]
+		$(python_gen_cond_dep 'dev-python/pyyaml[${PYTHON_MULTI_USEDEP}]')
 		virtual/python-dnspython
 		virtual/python-ipaddress
 		mysql? (
 			|| (
-				dev-python/mysqlclient[${PYTHON_USEDEP}]
-				dev-python/mysql-python[${PYTHON_USEDEP}]
+				$(python_gen_cond_dep 'dev-python/mysqlclient[${PYTHON_MULTI_USEDEP}]')
+				$(python_gen_cond_dep 'dev-python/mysql-python[${PYTHON_MULTI_USEDEP}]')
 			)
 		)
-		postgres? ( dev-python/psycopg:2[${PYTHON_USEDEP}] )
-		tor? ( net-libs/stem[${PYTHON_USEDEP}] )
+		postgres? ( $(python_gen_cond_dep 'dev-python/psycopg:2[${PYTHON_MULTI_USEDEP}]') )
+		tor? ( $(python_gen_cond_dep 'net-libs/stem[${PYTHON_MULTI_USEDEP}]') )
 	)
 	xen? (
 		app-emulation/xen-tools
@@ -122,6 +129,7 @@ FILECAPS=(
 )
 
 pkg_setup() {
+	use python && python-single-r1_pkg_setup
 	linux-info_pkg_setup
 }
 
@@ -134,11 +142,14 @@ src_configure() {
 	econf \
 		--localstatedir="${EPREFIX}"/var \
 		--with-user="${NETDATA_USER}" \
-		--disable-jsonc \
+		$(use_enable jsonc) \
 		$(use_enable cups plugin-cups) \
 		$(use_enable dbengine) \
 		$(use_enable nfacct plugin-nfacct) \
 		$(use_enable ipmi plugin-freeipmi) \
+		$(use_enable kinesis backend-kinesis) \
+		$(use_enable mongodb backend-mongodb) \
+		$(use_enable prometheus backend-prometheus-remote-write) \
 		$(use_enable xen plugin-xenstat) \
 		$(use_enable cpu_flags_x86_sse2 x86-sse) \
 		$(use_with compression zlib)
@@ -192,6 +203,8 @@ src_install() {
 }
 
 pkg_postinst() {
+	fcaps_pkg_postinst
+
 	if use xen ; then
 		fcaps 'cap_dac_override' 'usr/libexec/netdata/plugins.d/xenstat.plugin'
 	fi
