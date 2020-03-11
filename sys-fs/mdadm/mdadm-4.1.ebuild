@@ -1,4 +1,4 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -6,14 +6,14 @@ inherit flag-o-matic multilib systemd toolchain-funcs udev
 
 DESCRIPTION="Tool for running RAID systems - replacement for the raidtools"
 HOMEPAGE="https://git.kernel.org/pub/scm/utils/mdadm/mdadm.git/"
-DEB_PF="4.1~rc1-4"
+DEB_PF="4.1-3"
 SRC_URI="https://www.kernel.org/pub/linux/utils/raid/mdadm/${P/_/-}.tar.xz
 		mirror://debian/pool/main/m/mdadm/${PN}_${DEB_PF}.debian.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0"
 [[ "${PV}" = *_rc* ]] || \
-KEYWORDS="alpha amd64 arm hppa ia64 ~mips ppc ppc64 sparc x86"
+KEYWORDS="~alpha amd64 arm hppa ia64 ~mips ppc ppc64 sparc x86"
 IUSE="static systemd +udev"
 
 DEPEND="virtual/pkgconfig
@@ -74,7 +74,7 @@ src_install() {
 	if use systemd; then
 		mdadm_emake DESTDIR="${D}" install-systemd
 	fi
-	dodoc ChangeLog INSTALL TODO README* ANNOUNCE-${PV}
+	dodoc ChangeLog INSTALL TODO README* ANNOUNCE-*
 
 	if ! use udev; then
 		rm -v "${ED}"/$(get_udevdir)/rules.d/*.rules
