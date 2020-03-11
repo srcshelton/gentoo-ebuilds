@@ -1,4 +1,4 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -17,7 +17,7 @@ SRC_URI="ftp://ftp.isc.org/isc/dhcp/${MY_P}.tar.gz
 
 LICENSE="MPL-2.0 BSD SSLeay GPL-2" # GPL-2 only for init script
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ia64 ~m68k ~mips ppc ppc64 ~s390 ~sh sparc x86"
 IUSE="+client ipv6 kernel_linux ldap libressl selinux +server ssl systemd vim-syntax"
 
 DEPEND="
@@ -170,7 +170,7 @@ src_configure() {
 	cd bind/bind-*/ || die
 	local el
 	eval econf \
-		$( for el in $( awk '/^bindconfig/,/^$/ {print}' ../Makefile.in ) ; do if [[ ${el} =~ ^-- ]] ; then printf ' %s' ${el} ; fi ; done | sed 's,@\([[:alpha:]]\+\)dir@,${binddir}/\1,g' ) \
+		$(for el in $(awk '/^bindconfig/,/^$/ {print}' ../Makefile.in) ; do if [[ ${el} =~ ^-- ]] ; then printf ' %s' ${el} ; fi ; done | sed 's,@\([[:alpha:]]\+\)dir@,${binddir}/\1,g') \
 		--disable-symtable \
 		--without-make-clean
 }
