@@ -1,4 +1,4 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -67,3 +67,4 @@ See ${ROOT}usr/share/doc/${PF} for an example.
 grsecurity users should allow a specific group to read /proc
 and add the radvd user to that group, otherwise radvd may
 segfault on startup."
+# vi: set diffopt=iwhite,filler:
