@@ -1,4 +1,4 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="4"
@@ -11,8 +11,8 @@ SRC_URI="http://primates.ximian.com/~flucifredi/man/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="alpha amd64 arm ~arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86"
-KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm ~arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86"
+#KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+lzma nls selinux"
 
 DEPEND="nls? ( sys-devel/gettext )"
@@ -179,14 +179,14 @@ src_install() {
 pkg_postinst() {
 	if use !prefix ; then
 
-	einfo "Forcing sane permissions onto ${EROOT}var/cache/man (Bug #40322)"
-	chown -R root:man "${EROOT}"/var/cache/man
-	[[ -e ${EROOT}/var/cache/man/whatis ]] \
-		&& chown root:0 "${EROOT}"/var/cache/man/whatis
+	einfo "Forcing sane permissions onto ${EROOT%/}var/cache/man (Bug #40322)"
+	chown -R root:man "${EROOT%/}"/var/cache/man
+	[[ -e ${EROOT%/}/var/cache/man/whatis ]] \
+		&& chown root:0 "${EROOT%/}"/var/cache/man/whatis
 
 	fi # end lame indenting
 
-	chmod -R g+w "${EROOT}"/var/cache/man
+	chmod -R g+w "${EROOT%/}"/var/cache/man
 
 	echo
 
