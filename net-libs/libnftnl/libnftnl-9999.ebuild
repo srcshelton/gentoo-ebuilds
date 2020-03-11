@@ -4,12 +4,11 @@
 
 EAPI=5
 
-inherit autotools base git-2 linux-info toolchain-funcs
+inherit autotools base git-r3 linux-info toolchain-funcs
 
 DESCRIPTION="Netlink API to the in-kernel nf_tables subsystem"
 HOMEPAGE="http://netfilter.org/projects/nftables/"
 EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
-EGIT_MASTER="master"
 
 LICENSE="GPL-2"
 SLOT="0"
