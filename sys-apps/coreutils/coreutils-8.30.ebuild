@@ -1,9 +1,9 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="6"
 
-PYTHON_COMPAT=( python{2_7,3_5,3_6} )
+PYTHON_COMPAT=( python3_6 )
 
 inherit eutils flag-o-matic python-any-r1 toolchain-funcs
 
@@ -16,9 +16,9 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~x86-linux"
-KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="acl caps elibc_Cygwin elibc_glibc gmp hostname kill multicall nls selinux sep-usr +split-usr static +stdbuf uptime test userland_BSD vanilla xattr"
+KEYWORDS="~alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sh sparc x86 ~x86-linux"
+IUSE="acl caps gmp hostname kill multicall nls selinux +split-usr static +stdbuf uptime test userland_BSD vanilla xattr elibc_Cygwin elibc_glibc"
+#KEYWORDS+="~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 RESTRICT="!test? ( test )"
 
 LIB_DEPEND="acl? ( sys-apps/acl[static-libs] )
@@ -54,6 +54,10 @@ RDEPEND+="
 	!sys-apps/mktemp
 	!<app-forensics/tct-1.18-r1
 	!<net-fs/netatalk-2.0.3-r4"
+
+python_check_deps() {
+	has_version --host-root "dev-python/pyinotify[${PYTHON_USEDEP}]"
+}
 
 pkg_setup() {
 	if use test ; then
@@ -183,14 +187,16 @@ src_install() {
 		local fhs="cat chgrp chmod chown cp date dd df echo false ln ls
 		           mkdir mknod mv pwd rm rmdir stty sync true uname
 		           $(usev hostname)"
-		if use sep-usr; then
+
+		if use split-usr; then
 			# Required by (at least) /etc/init.d/device-mapper
 			fhs+=" uniq md5sum"
 		fi
 		use hostname && fhs+=" hostname"
 		use kill && fhs+=" kill"
 		mv ${fhs} ../../bin/ || die "Could not move essential binaries from /usr/bin to /bin"
-		if use sep-usr || use split-usr ; then
+
+		if use split-usr ; then
 			# move critical binaries into /bin (common scripts)
 			local com="basename chroot cut dir dirname du env expr head mkfifo
 			           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
