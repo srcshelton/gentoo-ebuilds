@@ -1,9 +1,9 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
-inherit autotools eutils flag-o-matic pam tmpfiles toolchain-funcs user
+inherit autotools flag-o-matic pam tmpfiles toolchain-funcs
 
 DESCRIPTION="screen manager with VT100/ANSI terminal emulation"
 HOMEPAGE="https://www.gnu.org/software/screen/"
@@ -20,37 +20,35 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="debug multiuser nethack pam selinux +tmpfiles utmp"
+IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
 CDEPEND="
 	>=sys-libs/ncurses-5.2:0=
 	pam? ( sys-libs/pam )"
 RDEPEND="${CDEPEND}
-	selinux? ( sec-policy/selinux-screen )
-	utmp? (
-		kernel_linux? ( sys-libs/libutempter )
-		kernel_FreeBSD? ( || ( >=sys-freebsd/freebsd-lib-9.0 sys-libs/libutempter ) )
-	)
-"
+	acct-group/utmp
+	selinux? ( sec-policy/selinux-screen )"
 DEPEND="${CDEPEND}
 	sys-apps/texinfo"
 
-RESTRICT="test"
-
-pkg_setup() {
-	# Make sure utmp group exists, as it's used later on.
-	enewgroup utmp 406
-}
+PATCHES=(
+	# Don't use utempter even if it is found on the system.
+	"${FILESDIR}"/${PN}-4.3.0-no-utempter.patch
+	"${FILESDIR}"/${PN}-4.6.2-utmp-exit.patch
+)
 
 src_prepare() {
-	default
+	if [[ "${PV}" != *9999 ]] ; then
+		default
+	else
+		eapply_user
+	fi
 
 	# sched.h is a system header and causes problems with some C libraries
 	mv sched.h _sched.h || die
-	sed -i \
-		-e '/include/ s:sched.h:_sched.h:' \
-		screen.h winmsg.c canvas.h sched.c || die
-	sed -i -e 's:sched.h:_sched.h:g' Makefile.in || die
+	sed -i '/include/ s:sched\.h:_sched.h:' \
+		screen.h winmsg.c window.h sched.c canvas.h || die
+	sed -i 's@[[:space:]]sched\.h@ _sched.h@' Makefile.in || die
 
 	# Fix manpage.
 	sed -i \
@@ -60,8 +58,14 @@ src_prepare() {
 		-e "s:/etc/utmp:${EPREFIX}/var/run/utmp:g" \
 		-e 's:/local/screens/S\\-:'"${EPREFIX}"'/var/run/screen/S\\-:g' \
 		-e 's:/usr/tmp/screens/:'"${EPREFIX}"'/var/run/screen/:g' \
-		doc/screen.1 \
-		|| die
+		doc/screen.1 || die
+
+	if [[ ${CHOST} == *-darwin* ]] || use elibc_musl ; then
+		sed -i -e '/^#define UTMPOK/s/define/undef/' acconfig.h || die
+	fi
+
+	# disable musl dummy headers for utmp[x]
+	use elibc_musl && append-cppflags "-D_UTMP_H -D_UTMPX_H"
 
 	# reconfigure
 	eautoreconf
@@ -70,19 +74,25 @@ src_prepare() {
 src_configure() {
 	append-cppflags "-DMAXWIN=${MAX_SCREEN_WINDOWS:-100}"
 
-	[[ ${CHOST} == *-solaris* ]] && append-libs -lsocket -lnsl
+	if [[ ${CHOST} == *-solaris* ]] ; then
+		# enable msg_header by upping the feature standard compatible
+		# with c99 mode
+		append-cppflags -D_XOPEN_SOURCE=600
+		append-libs -lsocket -lnsl
+	fi
 
 	use nethack || append-cppflags "-DNONETHACK"
 	use debug && append-cppflags "-DDEBUG"
 
-	econf \
-		--enable-socket-dir="${EPREFIX}/var/run/screen" \
-		--with-system_screenrc="${EPREFIX}/etc/screenrc" \
-		--with-pty-mode=0620 \
-		--with-pty-group=5 \
-		--enable-telnet \
-		$(use_enable pam) \
-		$(use_enable utmp)
+	local myeconfargs=(
+		--enable-socket-dir="${EPREFIX}/var/run/${PN}"
+		--with-system_screenrc="${EPREFIX}/etc/screenrc"
+		--with-pty-mode=0620
+		--with-pty-group=5
+		--enable-telnet
+		$(use_enable pam)
+	)
+	econf "${myeconfargs[@]}"
 }
 
 src_compile() {
@@ -98,18 +108,17 @@ src_install() {
 		doc/{FAQ,README.DOTSCREEN,fdpat.ps,window_to_display.ps}
 	)
 
-	emake DESTDIR="${D}" SCREEN=screen-${PV} install
+	emake DESTDIR="${D}" SCREEN="${P}" install
 
 	local tmpfiles_perms tmpfiles_group
 
-	if use multiuser || use prefix
-	then
-		fperms 4755 /usr/bin/screen-${PV}
+	if use multiuser || use prefix ; then
+		fperms 4755 /usr/bin/${P}
 		tmpfiles_perms="0755"
 		tmpfiles_group="root"
 	else
-		fowners root:utmp /usr/bin/screen-${PV}
-		fperms 2755 /usr/bin/screen-${PV}
+		fowners root:utmp /usr/bin/${P}
+		fperms 2755 /usr/bin/${P}
 		tmpfiles_perms="0775"
 		tmpfiles_group="utmp"
 	fi
@@ -118,7 +127,7 @@ src_install() {
 		newtmpfiles - screen.conf <<<"d /var/run/screen ${tmpfiles_perms} root ${tmpfiles_group}"
 	fi
 
-	insinto /usr/share/screen
+	insinto /usr/share/${PN}
 	doins terminfo/{screencap,screeninfo.src}
 
 	insinto /etc
@@ -136,8 +145,6 @@ pkg_postinst() {
 		elog "We enable some xterm hacks in our default screenrc, which might break some"
 		elog "applications. Please check /etc/screenrc for information on these changes."
 	fi
-
-	ewarn "This revision changes the screen socket location to /var/run/screen."
 }
 
 # vi: set diffopt=iwhite,filler:
