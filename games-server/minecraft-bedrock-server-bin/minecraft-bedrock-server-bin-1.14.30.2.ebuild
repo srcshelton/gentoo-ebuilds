@@ -24,18 +24,6 @@ RESTRICT="bindist mirror"
 
 S="${WORKDIR}"
 
-#-rwxr-xr-x  1 portage portage 181740696 Dec 12 23:37 bedrock_server
-#-rw-r--r--  1 portage portage     19374 Dec 12 23:01 bedrock_server_how_to.html
-#drwxr-xr-x  8 portage portage      4096 Dec 12 23:09 behavior_packs
-#drwxr-xr-x  9 portage portage      4096 Dec 12 23:09 definitions
-#-rwxr-xr-x  1 portage portage    710368 Dec 12 23:09 libCrypto.so
-#-rw-r--r--  1 portage portage         3 Dec 12 23:01 permissions.json
-#-rw-r--r--  1 portage portage       185 Dec 12 23:01 release-notes.txt
-#drwxr-xr-x  4 portage portage      4096 Dec 12 23:09 resource_packs
-#-rw-r--r--  1 portage portage      3623 Dec 12 23:01 server.properties
-#drwxr-xr-x 11 portage portage      4096 Dec 12 23:09 structures
-#-rw-r--r--  1 portage portage         3 Dec 12 23:01 whitelist.json
-
 src_install() {
 	exeinto "/opt/${MY_PN}"
 	doexe bedrock_server libCrypto.so
