@@ -1,9 +1,9 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 
-inherit autotools db-use eapi7-ver flag-o-matic java-pkg-opt-2 multilib pam systemd multilib-minimal
+inherit autotools db-use eapi7-ver eutils flag-o-matic java-pkg-opt-2 multilib pam systemd multilib-minimal
 
 SASLAUTHD_CONF_VER="2.1.26"
 
@@ -14,7 +14,7 @@ SRC_URI="https://github.com/cyrusimap/${PN}/releases/download/${P}/${P}.tar.gz"
 
 LICENSE="BSD-with-attribution"
 SLOT="2"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 hppa ia64 ~mips ppc ppc64 s390 sh sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="authdaemond berkdb gdbm kerberos ldapdb libressl openldap mysql pam postgres sample selinux sqlite srp ssl static-libs systemd urandom"
 
 CDEPEND="
@@ -234,7 +234,7 @@ multilib_src_install_all() {
 	fi
 }
 
-pkg_postinst () {
+pkg_postinst() {
 	# Generate an empty sasldb2 with correct permissions.
 	if ( use berkdb || use gdbm ) && [[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]] ; then
 		einfo "Generating an empty sasldb2 with correct permissions ..."
