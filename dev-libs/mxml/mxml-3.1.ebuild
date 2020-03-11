@@ -14,7 +14,7 @@ SRC_URI="https://github.com/michaelrsweet/${PN}/archive/v${PV}.tar.gz -> ${P}.ta
 
 LICENSE="Mini-XML"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ppc ~ppc64 ~sparc x86"
+KEYWORDS="~alpha amd64 arm ~hppa ~ia64 ppc ~ppc64 ~sparc x86"
 IUSE="doc threads static-libs"
 
 BDEPEND="virtual/pkgconfig"
@@ -23,7 +23,7 @@ src_prepare() {
 	default
 
 	# Respect users CFLAGS
-	sed -i -e 's:OPTIM="-Os -g":OPTIM="":' configure.ac || die
+	sed -e 's/-Os -g//' -i configure.ac || die
 
 	# Don't run always tests
 	# Enable verbose compiling
@@ -53,11 +53,15 @@ src_configure() {
 	local myeconfargs=(
 		--enable-shared
 		--libdir="/usr/$(get_libdir)"
-		--with-docdir="/usr/share/doc/${PF}"
 		$(use_enable threads)
+		--with-docdir="/usr/share/doc/${PF}"
 	)
 
 	econf "${myeconfargs[@]}"
+}
+
+src_test() {
+	emake testmxml
 }
 
 src_install() {
@@ -69,8 +73,4 @@ src_install() {
 	dodoc CHANGES.md README.md
 	rm "${ED%/}/usr/share/doc/${PF}/"{CHANGES,LICENSE,NOTICE,README,mxml.epub} || die
 	use doc || rm -r "${ED%/}/usr/share/doc/${PF}"
-}
-
-src_test() {
-	emake testmxml
 }
