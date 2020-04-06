@@ -3,12 +3,12 @@
 
 EAPI=5
 
-inherit autotools git-2 linux-info
+inherit autotools git-r3 linux-info
 
 DESCRIPTION="nftables aims to replace the existing {ip,ip6,arp,eb}tables framework"
 HOMEPAGE="http://netfilter.org/projects/nftables/"
 EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
-EGIT_MASTER="next-4.2"
+EGIT_BRANCH="next-4.2"
 
 LICENSE="GPL-2"
 SLOT="0"
