@@ -3,7 +3,7 @@
 # $Header: app-pda/usbmuxd/usbmuxd-9999.ebuild,v 1.0 2013/10/31 17:05:12 srcs Exp $
 
 EAPI=5
-inherit autotools git-2 udev user
+inherit autotools git-r3 udev user
 
 DESCRIPTION="USB multiplex daemon for use with Apple iPhone/iPod Touch devices"
 HOMEPAGE="http://www.libimobiledevice.org/"
