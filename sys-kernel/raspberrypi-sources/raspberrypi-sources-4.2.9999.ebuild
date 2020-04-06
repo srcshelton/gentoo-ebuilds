@@ -10,10 +10,9 @@ inherit kernel-2
 detect_version
 detect_arch
 
-inherit git-2 versionator
+inherit git-r3 versionator
 IUSE="-rpi1 +rpi2"
 EGIT_REPO_URI=https://github.com/raspberrypi/linux.git
-EGIT_PROJECT="raspberrypi-linux.git"
 EGIT_BRANCH="rpi-$(get_version_component_range 1-2).y"
 EGIT_CLONE_TYPE="shallow"
 
@@ -41,6 +40,7 @@ pkg_setup() {
 }
 
 src_unpack() {
-	git-2_src_unpack
+	default
+
 	unpack_set_extraversion
 }
