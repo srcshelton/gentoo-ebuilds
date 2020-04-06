@@ -1,9 +1,9 @@
 # Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
-inherit autotools db-use eapi7-ver eutils flag-o-matic java-pkg-opt-2 multilib pam systemd multilib-minimal
+inherit autotools db-use eutils flag-o-matic java-pkg-opt-2 multilib pam systemd multilib-minimal
 
 SASLAUTHD_CONF_VER="2.1.26"
 
@@ -56,6 +56,7 @@ PATCHES=(
 	"${FILESDIR}/${PN}-2.1.26-missing-size_t.patch"
 	"${FILESDIR}/${PN}-2.1.27-doc_build_fix.patch"
 	"${FILESDIR}/${PN}-2.1.27-memmem.patch"
+	"${FILESDIR}/${PN}-2.1.27-CVE-2019-19906.patch"
 )
 
 pkg_setup() {
@@ -210,7 +211,7 @@ multilib_src_install_all() {
 	newdoc pwcheck/README README.pwcheck
 
 	newdoc docsrc/sasl/release-notes/$(ver_cut 1-2)/index.rst release-notes
-	edos2unix ${ED%/}/usr/share/doc/${PF}/release-notes
+	edos2unix "${ED%/}/usr/share/doc/${PF}/release-notes"
 
 	docinto html
 	dodoc doc/html/*.html
