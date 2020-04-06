@@ -4,11 +4,11 @@
 
 EAPI=5
 EGIT_MASTER="master"
-inherit autotools eutils git-2
+inherit autotools eutils git-r3
 
 DESCRIPTION="USB multiplex daemon for use with Apple iPhone/iPod Touch devices"
 HOMEPAGE="http://www.libimobiledevice.org/"
-SRC_URI=""
+#SRC_URI=""
 EGIT_REPO_URI="https://github.com/libimobiledevice/libusbmuxd.git"
 
 LICENSE="LGPL-2.1"
