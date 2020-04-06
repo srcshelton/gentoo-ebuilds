@@ -237,7 +237,9 @@ used to build perl)
 * dev-perl/Proc-PID-File
 * dev-perl/Sub-Infix
 * dev-php/PEAR-Crypt_GPG
-    * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.0
+    * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.x
+* dev-php/PEAR-Net_LDAP3
+    * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-python/ansible-lint
 * dev-python/aspy_yaml
 * dev-python/identify
