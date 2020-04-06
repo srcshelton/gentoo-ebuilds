@@ -244,6 +244,8 @@ used to build perl)
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.x
 * dev-php/PEAR-Net_LDAP3
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
+* dev-php/ZxcvbnPhp
+    * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-python/ansible-lint
 * dev-python/aspy_yaml
 * dev-python/identify
