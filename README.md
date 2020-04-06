@@ -236,6 +236,8 @@ used to build perl)
 * dev-perl/POE-Component-Client-Ping
 * dev-perl/Proc-PID-File
 * dev-perl/Sub-Infix
+* dev-php/Endroid-QrCode
+    * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-php/Masterminds-HTML5
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-php/PEAR-Crypt_GPG
