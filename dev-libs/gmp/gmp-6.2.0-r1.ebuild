@@ -1,7 +1,7 @@
 # Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="5"
+EAPI=7
 
 inherit flag-o-matic eutils libtool toolchain-funcs multilib-minimal
 
@@ -18,12 +18,11 @@ SRC_URI="ftp://ftp.gmplib.org/pub/${MY_P}/${MY_P}.tar.xz
 LICENSE="|| ( LGPL-3+ GPL-2+ )"
 # The subslot reflects the C & C++ SONAMEs.
 SLOT="0/10.4"
-KEYWORDS="~alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 s390 sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="+asm doc cxx pic split-usr static-libs"
+KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+IUSE="+asm doc +cxx pic split-usr static-libs"
 
-DEPEND="sys-devel/m4
+BDEPEND="sys-devel/m4
 	app-arch/xz-utils"
-RDEPEND=""
 
 S=${WORKDIR}/${MY_P%a}
 
@@ -31,17 +30,19 @@ DOCS=( AUTHORS ChangeLog NEWS README doc/configuration doc/isa_abi_headache )
 HTML_DOCS=( doc )
 MULTILIB_WRAPPED_HEADERS=( /usr/include/gmp.h )
 
+PATCHES=(
+	"${FILESDIR}"/${PN}-6.1.0-noexecstack-detect.patch
+)
+
 src_prepare() {
-	[[ -d ${FILESDIR}/${PV} ]] && EPATCH_SUFFIX="diff" EPATCH_FORCE="yes" epatch "${FILESDIR}"/${PV}
+	default
 
 	# note: we cannot run autotools here as gcc depends on this package
 	elibtoolize
 
-	epatch "${FILESDIR}"/${PN}-6.1.0-noexecstack-detect.patch
-
 	# https://bugs.gentoo.org/536894
 	if [[ ${CHOST} == *-darwin* ]] ; then
-		epatch "${FILESDIR}"/${PN}-6.1.2-gcc-apple-4.0.1.patch
+		eapply "${FILESDIR}"/${PN}-6.1.2-gcc-apple-4.0.1.patch
 	fi
 
 	# GMP uses the "ABI" env var during configure as does Gentoo (econf).
@@ -52,8 +53,7 @@ src_prepare() {
 	exec env ABI="\${GMPABI:-}" ${CONFIG_SHELL:-/bin/bash} "\$0.wrapped" "\$@"
 	EOF
 	# Patches to original configure might have lost the +x bit.
-	chmod a+rx configure{,.wrapped}
-	epatch_user
+	chmod a+rx configure{,.wrapped} || die
 }
 
 multilib_src_configure() {
@@ -88,14 +88,6 @@ multilib_src_configure() {
 		$(use_enable static-libs static)
 }
 
-multilib_src_compile() {
-	emake
-}
-
-multilib_src_test() {
-	emake check
-}
-
 multilib_src_install() {
 	emake DESTDIR="${D}" install
 
@@ -103,9 +95,7 @@ multilib_src_install() {
 	rm -f "${ED}"/usr/$(get_libdir)/libgmp.la
 	# this requires libgmp
 	local la="${ED}/usr/$(get_libdir)/libgmpxx.la"
-	use static-libs \
-		&& sed -i 's:/[^ ]*/libgmp.la:-lgmp:' "${la}" \
-		|| rm -f "${la}"
+	use static-libs || rm -f "${la}"
 
 	if use split-usr && multilib_is_native_abi; then
 		# need the libs in /
