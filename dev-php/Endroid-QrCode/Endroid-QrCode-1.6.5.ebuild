@@ -14,10 +14,10 @@ KEYWORDS="~amd64 ~x86"
 
 RDEPEND=">=dev-lang/php-5.3.0[gd]"
 
-S="${WORKDIR}/qr-code${PV}"
+S="${WORKDIR}/qr-code-${PV}"
 
 src_install() {
 	insinto "/usr/share/php/Enroid/QrCode"
-	doins -r src/Exceptions QrCode.php
+	doins -r src/Exceptions src/QrCode.php
 	dodoc README.md
 }
