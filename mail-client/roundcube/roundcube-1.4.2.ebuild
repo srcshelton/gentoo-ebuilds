@@ -22,7 +22,7 @@ RESTRICT="mirror"
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
 KEYWORDS="~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86"
 
-IUSE="change-password enigma exif ldap managesieve +mysql plugins postgres sqlite ssl spell zxcvbn php_targets_php7-1 php_targets_php7-2 php_targets_php7-3 php_targets_php7-4"
+IUSE="change-password enigma exif ldap managesieve +mysql plugins postgres sqlite ssl spell zxcvbn"
 REQUIRED_USE="|| ( mysql postgres sqlite )"
 
 # The function below sets only DEPEND, so we need to include the latter in RDEPEND ...
@@ -38,6 +38,7 @@ RDEPEND="
 	>=dev-php/PEAR-Mail_mimeDecode-1.5.5
 	>=dev-php/PEAR-Net_IDNA2-0.2.0
 	>=dev-php/PEAR-Net_SMTP-1.8.1
+	>=dev-php/PEAR-PEAR-1.10.1
 	virtual/httpd-php
 	change-password? (
 		>=dev-php/PEAR-Net_Socket-1.2.1
@@ -60,10 +61,6 @@ RDEPEND="
 			dev-lang/php[mysqli]
 		)
 	)
-	php_targets_php7-1? ( >=dev-php/PEAR-PEAR-1.10.1 )
-	php_targets_php7-2? ( >=dev-php/PEAR-PEAR-1.10.1 )
-	php_targets_php7-3? ( >=dev-php/PEAR-PEAR-1.10.1 )
-	php_targets_php7-4? ( >=dev-php/PEAR-PEAR-1.10.1 )
 	plugins? ( dev-lang/php[ctype,filter,hash,json,phar,ssl] )
 	spell? ( dev-lang/php[curl,spell] )
 	zxcvbn? ( >=dev-php/ZxcvbnPhp-4.4.2 )
