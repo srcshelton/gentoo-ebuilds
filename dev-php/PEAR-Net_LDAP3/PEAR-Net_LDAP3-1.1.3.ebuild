@@ -16,3 +16,5 @@ RDEPEND="
 	>=dev-php/PEAR-Net_LDAP2-2.0.12
 "
 RESTRICT="mirror"
+
+S="${WORKDIR}/net_ldap3-pear-Net-LDAP3-${PV}"
