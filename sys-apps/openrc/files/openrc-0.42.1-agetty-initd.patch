@@ -1,0 +1,11 @@
+--- a/init.d/agetty.in
++++ b/init.d/agetty.in
+@@ -16,7 +16,7 @@
+ term_type="${term_type:-linux}"
+ command=/sbin/agetty
+ command_args_foreground="${agetty_options} ${port} ${baud} ${term_type}"
+-pidfile="/run/${RC_SVCNAME}.pid"
++pidfile="/var/run/${RC_SVCNAME}.pid"
+ 
+ depend() {
+ 	after local
