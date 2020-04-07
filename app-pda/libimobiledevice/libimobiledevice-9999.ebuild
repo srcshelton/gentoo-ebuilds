@@ -5,7 +5,7 @@
 EAPI=5
 PYTHON_COMPAT=( python2_7 )
 EGIT_MASTER="master"
-inherit autotools eutils git-2 python-r1 multilib
+inherit autotools eutils git-r3 python-r1 multilib
 
 DESCRIPTION="Support library to communicate with Apple iPhone/iPod Touch devices"
 HOMEPAGE="http://www.libimobiledevice.org/"
