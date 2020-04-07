@@ -6,14 +6,15 @@ EAPI="5"
 
 inherit multilib rpm
 
-MY_P="Nessus-${PV}-es6"
-# We are using the Red Hat/CentOS binary
+MY_P="Nessus-${PV}"
 
 DESCRIPTION="A remote security scanner for Linux"
 HOMEPAGE="http://www.nessus.org/"
 SRC_URI="
-	x86? ( ${MY_P}.i386.rpm )
-	amd64? ( ${MY_P}.x86_64.rpm )"
+	x86? ( ${MY_P}-es6.i386.rpm )
+	amd64? ( ${MY_P}-es7.x86_64.rpm )
+"
+# We are using the Red Hat/CentOS binary
 
 RESTRICT="mirror fetch strip"
 
@@ -43,7 +44,7 @@ src_install() {
 	doenvd "${FILESDIR}"/90nessus-bin
 
 	# init script
-	newinitd "${FILESDIR}"/nessusd-initd-r1 nessusd-bin
+	newinitd "${FILESDIR}"/nessusd-initd-r1 nessus
 }
 
 pkg_postinst() {
