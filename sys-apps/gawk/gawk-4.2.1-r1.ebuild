@@ -54,7 +54,6 @@ src_configure() {
 	export ac_cv_libsigsegv=no
 	local -a myeconfargs
 	myeconfargs=(
-		--libexec="$(libdir)/misc"
 		$(use_with mpfr)
 		$(use_enable nls)
 		$(use_with readline)
