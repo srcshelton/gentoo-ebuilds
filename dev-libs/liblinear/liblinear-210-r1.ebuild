@@ -3,7 +3,7 @@
 
 EAPI=5
 
-inherit multilib toolchain-funcs
+inherit eutils multilib toolchain-funcs
 
 DESCRIPTION="A Library for Large Linear Classification"
 HOMEPAGE="https://www.csie.ntu.edu.tw/~cjlin/liblinear/ https://github.com/cjlin1/liblinear"
