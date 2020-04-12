@@ -11,7 +11,7 @@ SRC_URI="https://github.com/nhorman/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~arm64 ~ia64 ~mips ppc ppc64 ~riscv x86"
+KEYWORDS="~alpha amd64 arm arm64 ~ia64 ~mips ppc ppc64 ~riscv x86"
 IUSE="jitterentropy nistbeacon pkcs11 selinux systemd"
 
 DEPEND="dev-libs/libgcrypt:0
@@ -27,6 +27,7 @@ DEPEND="dev-libs/libgcrypt:0
 	)
 	pkcs11? (
 		dev-libs/libp11:=
+		dev-libs/openssl:0=
 	)
 	elibc_musl? ( sys-libs/argp-standalone )
 "
@@ -38,21 +39,8 @@ DEPEND="${DEPEND}
 	)
 "
 
-PATCHES=(
-	"${FILESDIR}"/test-for-argp.patch
-	"${FILESDIR}"/${PN}-5-fix-textrels-on-PIC-x86.patch #469962
-	"${FILESDIR}"/rngd-shutdown.patch
-)
-
 src_prepare() {
 	echo 'bin_PROGRAMS = randstat' >> contrib/Makefile.am || die
-
-	# rngd_pkcs11.c needs to be linked against -lcrypto #684228
-	# See: https://github.com/nhorman/rng-tools/pull/61
-	if use pkcs11; then
-		sed -e '/rngd_pkcs11.c$/ a rngd_LDADD\t+= -lcrypto' \
-			-i Makefile.am || die
-	fi
 
 	default
 
