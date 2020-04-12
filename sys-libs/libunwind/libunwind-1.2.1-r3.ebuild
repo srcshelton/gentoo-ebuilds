@@ -12,14 +12,14 @@ HOMEPAGE="https://savannah.nongnu.org/projects/libunwind"
 SRC_URI="mirror://nongnu/libunwind/${MY_P}.tar.gz"
 
 LICENSE="MIT"
-SLOT="7"
-KEYWORDS="amd64 arm arm64 hppa ia64 ~mips ppc ppc64 -sparc x86 ~amd64-linux ~x86-linux"
+SLOT="0"
+KEYWORDS="amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 -sparc x86 ~amd64-linux ~x86-linux"
 IUSE="abi_x86_x32 debug debug-frame doc libatomic lzma +static-libs"
 
 RESTRICT="test" # half of tests are broken (toolchain version dependent)
 
 # We just use the header from libatomic.
-RDEPEND="lzma? ( app-arch/xz-utils[${MULTILIB_USEDEP}] )"
+RDEPEND="lzma? ( app-arch/xz-utils[static-libs?,${MULTILIB_USEDEP}] )"
 DEPEND="${RDEPEND}
 	libatomic? ( dev-libs/libatomic_ops[${MULTILIB_USEDEP}] )"
 
