@@ -11,7 +11,7 @@ SRC_URI="https://download.lighttpd.net/lighttpd/releases-1.4.x/${P}.tar.xz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ia64 ~mips ppc ppc64 s390 sparc x86"
+KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 s390 sparc x86"
 IUSE="bzip2 dbi doc fam gdbm geoip ipv6 kerberos ldap libev libressl lua memcached minimal mmap mysql pcre php postgres rrdtool sasl selinux ssl sqlite systemd test webdav xattr zlib"
 #IUSE="bzip2 dbi doc fam gdbm geoip ipv6 kerberos ldap libev libressl lua mariadb memcached minimal mmap mysql pcre php postgres rrdtool sasl selinux ssl sqlite systemd test webdav xattr zlib"
 RESTRICT="!test? ( test )"
@@ -222,13 +222,13 @@ src_install() {
 pkg_postinst() {
 	use ipv6 && readme.gentoo_print_elog
 
-	if [[ -f "${ROOT%/}/etc/conf.d/spawn-fcgi.conf" ]] ; then
+	if [[ -f ${ROOT}/etc/conf.d/spawn-fcgi.conf ]] ; then
 		einfo "spawn-fcgi is now provided by www-servers/spawn-fcgi."
 		einfo "spawn-fcgi's init script configuration is now located"
 		einfo "at /etc/conf.d/spawn-fcgi."
 	fi
 
-	if [[ -f "${ROOT%/}/etc/lighttpd.conf" ]] ; then
+	if [[ -f ${ROOT}/etc/lighttpd.conf ]] ; then
 		elog "Gentoo has a customized configuration,"
 		elog "which is now located in /etc/lighttpd.  Please migrate your"
 		elog "existing configuration."
