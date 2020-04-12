@@ -8,7 +8,7 @@ DESCRIPTION="Network traffic analyzer with web interface"
 HOMEPAGE="https://www.ntop.org/"
 SRC_URI="https://github.com/ntop/${PN}/archive/${PV}.tar.gz -> ${P}.tar.gz"
 # Use (updated) stable branch rather than release tag...
-#SRC_URI="https://github.com/ntop/${PN}/archive/${PV}-stable.zip -> ${P}.zip"
+#SRC_URI="https://github.com/ntop/${PN}/archive/${PV%.[0-9]*}-stable.zip -> ${P}.zip"
 #RESTRICT="mirror"
 
 LICENSE="GPL-3"
@@ -94,7 +94,7 @@ src_install() {
 	newconfd "${FILESDIR}"/ntopng.conf.d ntopng
 
 	keepdir /var/lib/ntopng
-	fowners ntopng "${EPREFIX%/}/var/lib/ntopng"
+	fowners ntopng "${EPREFIX%/}"/var/lib/ntopng
 }
 
 pkg_postinst() {
