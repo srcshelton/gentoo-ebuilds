@@ -196,7 +196,11 @@ multilib_src_install() {
 	fi
 
 	# The build system creates an empty "/run" directory, so we clean it up here
-	[[ -d "${ED}"/run ]] && rmdir "${ED}"/run || die
+	if [[ -d "${ED}"/run ]]; then
+		rmdir "${ED}"/run || die
+	elif [[ -d "${ED}"/var/run ]]; then
+		rmdir "${ED}"/var/run || die
+	fi
 }
 
 multilib_src_install_all() {
