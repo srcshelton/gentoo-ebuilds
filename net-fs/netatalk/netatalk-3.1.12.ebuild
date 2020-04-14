@@ -146,11 +146,11 @@ pkg_postinst() {
 	for v in ${REPLACING_VERSIONS}; do
 		if [[ $(ver_test ${v} -lt 3) ]]; then
 			for fle in afp_signature.conf afp_voluuid.conf; do
-				if [[ -f "${EROOT%/}"/etc/netatalk/${fle} ]]; then
-					if [[ ! -f "${EROOT%/}"/var/lib/netatalk/${fle} ]]; then
+				if [[ -f "${EROOT}"/etc/netatalk/${fle} ]]; then
+					if [[ ! -f "${EROOT}"/var/lib/netatalk/${fle} ]]; then
 						mv \
-							"${EROOT%/}"/etc/netatalk/${fle} \
-							"${EROOT%/}"/var/lib/netatalk/
+							"${EROOT}"/etc/netatalk/${fle} \
+							"${EROOT}"/var/lib/netatalk/
 					fi
 				fi
 			done
