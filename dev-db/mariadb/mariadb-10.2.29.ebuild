@@ -36,14 +36,14 @@ IUSE="+backup bindist client-libs cracklib debug extraengine galera innodb-lz4
 	# abi_x86_32
 
 # Tests always fail when libressl is enabled due to hard-coded ciphers in the tests
-RESTRICT="!bindist? ( bindist ) !test? ( test ) libressl? ( test )"
+RESTRICT="!bindist? ( bindist ) libressl? ( test ) !test? ( test )"
 
 REQUIRED_USE="jdbc? ( extraengine server !static )
 	server? ( tokudb? ( jemalloc !tcmalloc ) )
 	?? ( tcmalloc jemalloc )
 	static? ( yassl !pam )"
 
-KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~x64-solaris ~x86-solaris"
 
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -277,7 +277,7 @@ src_prepare() {
 
 	local plugin
 	local server_plugins=( handler_socket auth_socket feedback metadata_lock_info
-				locale_info qc_info server_audit sql_errlog )
+				locale_info qc_info server_audit sql_errlog auth_ed25519 )
 	local test_plugins=( audit_null auth_examples daemon_example fulltext
 				debug_key_management example_key_management )
 	if ! use server; then # These plugins are for the server
@@ -306,6 +306,15 @@ src_prepare() {
 	else
 		_disable_engine mroonga
 	fi
+
+	# Don't clash with dev-db/mysql-connector-c
+	sed -i -e 's/ my_print_defaults.1//' \
+		-e 's/ perror.1//' \
+		"${S}"/man/CMakeLists.txt || die
+
+	# Fix galera_recovery.sh script
+	sed -i -e "s~@bindir@/my_print_defaults~${EPREFIX}/usr/libexec/mariadb/my_print_defaults~" \
+		scripts/galera_recovery.sh || die
 
 	cmake-utils_src_prepare
 	java-pkg-opt-2_src_prepare
@@ -371,6 +380,7 @@ src_configure() {
 		-DWITHOUT_CLIENTLIBS=YES
 		-DCLIENT_PLUGIN_DIALOG=OFF
 		-DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
+		-DCLIENT_PLUGIN_CLIENT_ED25519=OFF
 		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
 		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
 	)
@@ -656,17 +666,21 @@ src_test() {
 		_disable_test  "$t" "False positive due to varying policies"
 	done
 
-	for t in main.mysql_client_test main.mysql_client_test_nonblock \
+	for t in main.mysql_client_test main.mysql_client_test_nonblock main.mysql \
 		main.mysql_client_test_comp rpl.rpl_extra_col_master_myisam ; do
 			_disable_test  "$t" "False positives in Gentoo"
 	done
 
+	_disable_test main.gis_notembedded "Needs latin1 USE set"
 	_disable_test main.plugin_auth "Needs client libraries built"
+	_disable_test plugins.auth_ed25519 "Needs client libraries built"
 	_disable_test main.mysqldump "Test fails past 2018-12-31 due to event expiration"
 
 	# Likely environment issues as only number of clients connected fails
 	_disable_test rpl.rpl_semi_sync_uninstall_plugin \
 		"Fails intermittently on parallel testing"
+
+	_disable_test main.ssl_crl "Not compatible with OpenSSL 1.1.1"
 
 	# run mysql-test tests
 	perl mysql-test-run.pl --force --vardir="${T}/var-tests" --reorder --skip-test=tokudb --skip-test-list="${T}/disabled.def"
@@ -744,7 +758,7 @@ mysql_init_vars() {
 
 pkg_config() {
 	_getoptval() {
-		local mypd="${EROOT}"/usr/bin/my_print_defaults
+		local mypd="${EROOT}"usr/libexec/mariadb/my_print_defaults
 		local section="$1"
 		local flag="--${2}="
 		local extra_options="${3}"
