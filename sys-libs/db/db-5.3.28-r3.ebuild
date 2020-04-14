@@ -235,7 +235,12 @@ multilib_src_install() {
 		#gen_usr_ldscript -a "db-$(ver_cut 1-2)" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
 		dodir "/$(get_libdir)"
 		mv "${ED%/}/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so" "${ED%/}/$(get_libdir)/"
-		gen_usr_ldscript "libdb-$(ver_cut 1-2).so" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
+		# The following generates a correct script, which packages are then
+		# unable to compile against?!
+		#gen_usr_ldscript "libdb-$(ver_cut 1-2).so" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
+		if ! [[ -L "${ED%/}/$(get_libdir)" ]] && ! [[ -L "${ED%/}/usr/$(get_libdir)" ]]; then
+			ln -s "../../$(get_libdir)/libdb-$(ver_cut 1-2).so" "${ED%/}/usr/$(get_libdir)/"
+		fi
 	fi
 }
 
