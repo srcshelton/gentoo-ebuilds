@@ -323,6 +323,8 @@ used to build perl)
     * Add additional include path to allow building with Oracle JDK 8 and above
 * dev-lang/perl
     * Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS
+* dev-libs/glib
+    * Prevent binary merges from failing due to assumptions about build files being present
 * dev-libs/libcgroup
     * Handle existing mountpoints and correct init scripts
 * ~~dev-perl/DBI-Shell~~
@@ -381,8 +383,9 @@ used to build perl)
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-apps/gentoo-functions
     * Fix inclusion when unbound variable checking is enabled
-* ~~sys-apps/portage~~
+* sys-apps/portage
     * ~~Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory~~
+    * Prevent binary merges from failing due to assumptions about build files being present
 * sys-apps/usbutils
     * Revert changes which make usbutils dependent on udev
 * sys-apps/util-linux
@@ -422,6 +425,7 @@ directory is an additional QA check which reports an error if files deployed to
 * app-misc/screen
 * dev-db/redis
 * dev-libs/cyrus-sasl
+    * Prevent binary merges from failing due to assumptions about build files being present
 * mail-filter/spamassassin
 * net-mail/dovecot
 * net-analyzer/darkstat
@@ -531,6 +535,7 @@ x32 profiles, and that these variables only affect multilib systems.
     * Allow `LIBDIR_*` variables to override hard-coded default directory locations
 * sys-libs/glibc
     * Allow `LIBDIR_*` variables to override hard-coded default directory locations (for x86 only)
+    * Prevent binary merges from failing due to assumptions about build files being present
 * sys-libs/libunwind
     * Add x32 patch from [sjnewbury's repo](https://github.com/sjnewbury/x32/blob/master/sys-libs/libunwind/files/libunwind-1.1-x32.patch)
 
