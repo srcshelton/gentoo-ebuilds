@@ -149,7 +149,7 @@ disable_audio_dither=1
 # Device Tree configuration options
 #
 # Complete w.r.t. boot/overlays/README as-of
-# commit 8b12e9904759b85df224f7352662397ec745ba2b.
+# commit 9ce09b817068671faddc56b5400c1b33232eabcf.
 #
 # https://github.com/raspberrypi/firmware/commits/master/boot/overlays/README
 #
@@ -355,6 +355,7 @@ disable_audio_dither=1
 #device_tree_overlay=i2c-rtc,<device>,wakeup-source
 #device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source
 #device_tree_overlay=i2c-rtc,ds1339,trickle-resistor-ohms=?,wakeup-source
+#device_tree_overlay=i2c-rtc,rv3028,trickle-resistor-ohms=?,wakeup-source,backup-switchover-mode=0
 # i2c-rtc-gpio supports abx80x, ds1307, ds1339, ds3231, m41t62, mcp7940x, mcp7941x, pcf2127, pcf8523, and pcf8563 devices.
 #device_tree_overlay=i2c-rtc-gpio,<device>,addr=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
 #device_tree_overlay=i2c-rtc,abx80x,trickle-diode-type={standard,schottky},trickle-resistor-ohms=?,wakeup-source,i2c_gpio_sda=23,i2c_gpio_scl=24,i2c_gpio_delay_us=2
@@ -394,6 +395,7 @@ disable_audio_dither=1
 #device_tree_overlay=audremap # ,swap_lr,enable_jack # Move PWM to GPIO pins 12 & 13
 #device_tree_overlay=dionaudio-loco
 #device_tree_overlay=dionaudio-loco-v2 # ,24db_digital_gain
+#device_tree_overlay=draws,draws_adc_ch4_gain=1,draws_adc_ch4_datarate=?,draws_adc_ch5_gain=1,draws_adc_ch5_datarate=?,draws_adc_ch6_gain=2,draws_adc_ch6_datarate=?,draws_adc_ch7_gain=2,draws_adc_ch7_datarate=?,alsaname="draws"
 #device_tree_overlay=fe-pi-audio
 #device_tree_overlay=googlevoicehat-soundcard
 #device_tree_overlay=hifiberry-amp
@@ -402,6 +404,7 @@ disable_audio_dither=1
 #device_tree_overlay=hifiberry-dacplusadc # ,24db_digital_gain,slave
 #device_tree_overlay=hifiberry-digi
 #device_tree_overlay=hifiberry-digi-pro
+#device_tree_overlay=i-sabre-q2m
 #device_tree_overlay=iqaudio-dac # ,24db_digital_gain
 #device_tree_overlay=iqaudio-dacplus # ,24db_digital_gain,auto_mute_amp,unmute_amp
 #device_tree_overlay=iqaudio-digi-wm8804-audio # ,card_name="IQAudIODigi",dai_name="IQAudIO Digi",dai_stream_name="IQAudIO Digit HiFi"
@@ -417,6 +420,7 @@ disable_audio_dither=1
 #device_tree_overlay=rpi-tv
 #device_tree_overlay=rra-digidac1-wm8741-audio
 #device_tree_overlay=superaudioboard,gpiopin=?
+#device_tree_overlay=udrc,alsaname="udrc"
 
 # The following overlays have been removed:
 ##device_tree_overlay=boomberry-dac
