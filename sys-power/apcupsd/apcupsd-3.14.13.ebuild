@@ -1,9 +1,9 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
 
-inherit eutils linux-info flag-o-matic systemd udev
+inherit eutils flag-o-matic linux-info systemd udev
 
 DESCRIPTION="APC UPS daemon with integrated tcp/ip remote shutdown"
 HOMEPAGE="http://www.apcupsd.org/"
@@ -12,13 +12,10 @@ SRC_URI="mirror://sourceforge/apcupsd/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 ~arm ppc x86"
-IUSE="snmp +usb cgi dumb gnome kernel_linux +modbus +net nls +powerchute +smart systemd udev"
+IUSE="cgi dumb gnome kernel_linux +modbus +net nls +powerchute +smart snmp systemd udev +usb"
 
 DEPEND="
-	||	( >=sys-apps/util-linux-2.23[tty-helpers(-)]
-		  <=sys-apps/sysvinit-2.88-r4
-		  sys-freebsd/freebsd-ubin
-		)
+	>=sys-apps/util-linux-2.23[tty-helpers(-)]
 	cgi? ( >=media-libs/gd-1.8.4 )
 	nls? ( sys-devel/gettext )
 	snmp? ( >=net-analyzer/net-snmp-5.7.2 )
