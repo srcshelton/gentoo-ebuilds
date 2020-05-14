@@ -2,8 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: app-pda/libusbmuxd/libusbmuxd-9999.ebuild,v 1.0 2013/10/31 16:34:12 srcs Exp $
 
-EAPI=5
-EGIT_MASTER="master"
+EAPI=6
 inherit autotools eutils git-r3
 
 DESCRIPTION="USB multiplex daemon for use with Apple iPhone/iPod Touch devices"
@@ -20,9 +19,11 @@ RDEPEND=">=app-pda/libplist-1.9"
 DEPEND="${RDEPEND}
 	virtual/pkgconfig"
 
-DOCS=( AUTHORS README )
+DOCS=( AUTHORS README.md )
 
 src_prepare() {
+	default
+
 	eautoreconf
 }
 
@@ -33,5 +34,6 @@ src_configure() {
 src_install() {
 	default
 
-	prune_libtool_files --all
+	#prune_libtool_files --all
+	find "${ED}" -type f -name "*.la" -delete
 }
