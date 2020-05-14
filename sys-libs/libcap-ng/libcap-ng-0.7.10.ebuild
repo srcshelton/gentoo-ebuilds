@@ -5,7 +5,7 @@ EAPI=7
 
 PYTHON_COMPAT=( python3_{6,7,8} )
 
-inherit autotools flag-o-matic python-r1
+inherit autotools flag-o-matic python-r1 usr-ldscript
 
 DESCRIPTION="POSIX 1003.1e capabilities"
 HOMEPAGE="https://people.redhat.com/sgrubb/libcap-ng/"
@@ -14,7 +14,7 @@ SRC_URI="https://people.redhat.com/sgrubb/${PN}/${P}.tar.gz"
 LICENSE="LGPL-2.1"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
-IUSE="python static-libs"
+IUSE="python split-usr static-libs"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
 RDEPEND="python? ( ${PYTHON_DEPS} )"
