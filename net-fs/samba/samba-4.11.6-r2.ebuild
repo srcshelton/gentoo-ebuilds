@@ -23,8 +23,8 @@ LICENSE="GPL-3"
 
 SLOT="0"
 
-IUSE="acl addc addns ads ceph client cluster cups debug dmapi fam gnutls gpg
-iprint json ldap pam profiling-data python quota selinux syslog system-heimdal
+IUSE="acl addc addns ads ceph client cluster cups debug dmapi fam gpg iprint
+json ldap pam profiling-data python quota selinux syslog system-heimdal
 +system-mitkrb5 systemd test winbind zeroconf"
 
 MULTILIB_WRAPPED_HEADERS=(
@@ -44,9 +44,11 @@ CDEPEND="
 	dev-lang/perl:=
 	dev-libs/libaio[${MULTILIB_USEDEP}]
 	dev-libs/libbsd[${MULTILIB_USEDEP}]
+	dev-libs/libgcrypt:0
 	dev-libs/iniparser:0
 	dev-libs/popt[${MULTILIB_USEDEP}]
 	>=dev-util/cmocka-1.1.1[${MULTILIB_USEDEP}]
+	>=net-libs/gnutls-3.2.0
 	net-libs/libnsl:=[${MULTILIB_USEDEP}]
 	sys-apps/attr[${MULTILIB_USEDEP}]
 	>=sys-libs/ldb-2.0.8[ldap(+)?,python?,${PYTHON_SINGLE_USEDEP},${MULTILIB_USEDEP}]
@@ -77,10 +79,6 @@ CDEPEND="
 	debug? ( dev-util/lttng-ust )
 	dmapi? ( sys-apps/dmapi )
 	fam? ( virtual/fam )
-	gnutls? (
-		dev-libs/libgcrypt:0
-		>=net-libs/gnutls-3.2.0
-	)
 	gpg? ( app-crypt/gpgme )
 	json? ( dev-libs/jansson )
 	ldap? ( net-nds/openldap[${MULTILIB_USEDEP}] )
@@ -214,13 +212,12 @@ multilib_src_configure() {
 		$(multilib_native_use_with syslog)
 		$(multilib_native_use_with systemd)
 		$(usex systemd --systemd-install-services '' '' '')
-		$(use_with systemd systemddir "$(systemd_get_systemunitdir)")
+		$(usex systemd '--with-systemddir' '' "$(systemd_get_systemunitdir)" '')
 		$(multilib_native_use_with winbind)
 		$(multilib_native_usex python '' '--disable-python')
 		$(multilib_native_use_enable zeroconf avahi)
 		$(multilib_native_usex test '--enable-selftest' '')
 		$(usex system-mitkrb5 "--with-system-mitkrb5 $(multilib_native_usex addc --with-experimental-mit-ad-dc '')" '')
-		$(use_enable gnutls)
 		$(use_with debug lttng)
 		$(use_with ldap)
 		$(use_with profiling-data)
