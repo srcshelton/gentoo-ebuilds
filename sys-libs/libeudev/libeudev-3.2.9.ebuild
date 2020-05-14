@@ -57,20 +57,22 @@ MULTILIB_WRAPPED_HEADERS=(
 
 S="${WORKDIR}/${P#lib}"
 
-pkg_setup() {
-	CONFIG_CHECK="~BLK_DEV_BSG ~DEVTMPFS ~!IDE ~INOTIFY_USER ~!SYSFS_DEPRECATED ~!SYSFS_DEPRECATED_V2 ~SIGNALFD ~EPOLL ~FHANDLE ~NET ~UNIX"
-	linux-info_pkg_setup
-	get_running_version
-
-	# These are required kernel options, but we don't error out on them
-	# because you can build under one kernel and run under another.
-	if kernel_is lt ${KV_min//./ }; then
-		ewarn
-		ewarn "Your current running kernel version ${KV_FULL} is too old to run ${P}."
-		ewarn "Make sure to run udev under kernel version ${KV_min} or above."
-		ewarn
-	fi
-}
+#pkg_setup() {
+#	CONFIG_CHECK="~BLK_DEV_BSG ~DEVTMPFS ~!IDE ~INOTIFY_USER ~!SYSFS_DEPRECATED ~!SYSFS_DEPRECATED_V2 ~SIGNALFD ~EPOLL ~FHANDLE ~NET ~UNIX"
+#	linux-info_pkg_setup
+#	get_running_version
+#
+#	# These are required kernel options, but we don't error out on them
+#	# because you can build under one kernel and run under another.
+#	if kernel_is lt ${KV_min//./ }; then
+#		ewarn
+#		ewarn "Your current running kernel version ${KV_FULL} is too old to run ${P}."
+#		ewarn "Make sure to run udev under kernel version ${KV_min} or above."
+#		ewarn
+#	fi
+#
+#	# Unfortunately, the linux-info eclass does error :(
+#}
 
 # The multilib-build.eclass doesn't handle situation where the installed headers
 # are different in ABIs. In this case, we install libgudev headers in native
@@ -84,7 +86,7 @@ src_prepare() {
 
 	eapply_user
 
-	echo 'EXTRA_DIST =' > docs/gtk-doc.make
+	[[ -d docs ]] && echo 'EXTRA_DIST =' > docs/gtk-doc.make
 
 	eautoreconf
 }
