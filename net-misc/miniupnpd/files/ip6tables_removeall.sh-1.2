@@ -1,0 +1,42 @@
+#!/bin/bash
+# $Id: ip6tables_removeall.sh,v 1.2 2018/04/06 09:21:11 nanard Exp $
+
+IPV6=1
+EXT=1
+. "$( dirname "${0}" )/functions.sh" || exit 1
+
+print "Detected IPv6 external interface '${EXTIF}' with IP address '${EXTIP}'"
+
+if ! existstablechain 'filter' "${CHAIN:-MINIUPNPD}"; then
+	print "Flushing IPv6 filter chain '${CHAIN:-MINIUPNPD}'"
+	doiptables --table filter --flush "${CHAIN:-MINIUPNPD}"
+
+	if doiptables --table filter --list-rules FORWARD 2>/dev/null | grep -q "${CHAIN:-MINIUPNPD}"; then
+		print "Deleting IPv6 filter 'FORWARD' rules"
+		if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+			doiptables --table filter --delete FORWARD \
+				  --in-interface "${BRIF}" \
+				  --match physdev \
+				  --physdev-in "${EXTIF}" \
+				! --physdev-out "${EXTIF}" \
+				  --physdev-is-bridged \
+				  --jump "${CHAIN:-MINIUPNPD}"
+		else
+			doiptables --table filter --delete FORWARD \
+				  --in-interface "${EXTIF}" \
+				! --out-interface "${EXTIF}" \
+				  --jump "${CHAIN:-MINIUPNPD}"
+		fi
+	fi
+
+	print -n "Deleting IPv6 filter chain '${CHAIN:-MINIUPNPD}'"
+	if doiptables --table filter --delete-chain "${CHAIN:-MINIUPNPD}" >/dev/null 2>&1; then
+		print -f " okay"
+		exit 0
+	else
+		print -f " failed"
+		exit 1
+	fi
+fi
+
+exit 0

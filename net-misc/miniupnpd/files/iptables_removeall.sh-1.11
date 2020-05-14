@@ -1,0 +1,124 @@
+#!/bin/bash
+# $Id: iptables_removeall.sh,v 1.11 2018/04/06 10:17:09 nanard Exp $
+
+EXT=1
+. "$( dirname "${0}" )/functions.sh" || exit 1
+
+rc=0
+
+print "Detected external interface '${EXTIF}' with IP address '${EXTIP}'"
+
+# nat
+
+if ! existstablechain 'nat' "${CHAIN:-MINIUPNPD}"; then
+	print "Flushing nat chain '${CHAIN:-MINIUPNPD}'"
+	doiptables --table nat --flush "${CHAIN:-MINIUPNPD}"
+
+	print "Deleting nat 'PREROUTING' rules"
+	if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+		doiptables --table nat --delete PREROUTING \
+			--in-interface "${BRIF}" \
+			--match physdev \
+			--physdev-in "${EXTIF}" \
+			--physdev-is-bridged \
+			--jump "${CHAIN:-MINIUPNPD}"
+	else
+		#doiptables --table nat --delete PREROUTING \
+		#	--in-interface "${EXTIF}" \
+		#	--destination "${EXTIP}" \
+		#	--jump "${CHAIN:-MINIUPNPD}"
+		doiptables --table nat --delete PREROUTING \
+			--in-interface "${EXTIF}" \
+			--jump "${CHAIN:-MINIUPNPD}"
+	fi
+
+	print -n "Deleting nat chain '${CHAIN:-MINIUPNPD}' ..."
+	if doiptables --table nat --delete-chain "${CHAIN:-MINIUPNPD}" >/dev/null 2>&1; then
+		print -f " okay"
+	else
+		print -f " failed"
+		(( rc ++ ))
+	fi
+fi
+
+# mangle
+
+if ! existstablechain 'mangle' "${CHAIN:-MINIUPNPD}"; then
+	print "Flushing mangle chain '${CHAIN:-MINIUPNPD}'"
+	doiptables --table mangle --flush "${CHAIN:-MINIUPNPD}"
+
+	print "Deleting mangle 'PREROUTING' rules"
+	if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+		doiptables --table mangle --delete PREROUTING \
+			--in-interface "${BRIF}" \
+			--match physdev \
+			--physdev-in "${EXTIF}" \
+			--physdev-is-bridged \
+			--jump "${CHAIN:-MINIUPNPD}"
+	else
+		doiptables --table mangle --delete PREROUTING \
+			--in-interface "${EXTIF}" \
+			--jump "${CHAIN:-MINIUPNPD}"
+	fi
+
+	print -n "Deleting mangle chain '${CHAIN:-MINIUPNPD}'"
+	if doiptables --table mangle --delete-chain "${CHAIN:-MINIUPNPD}" >/dev/null 2>&1; then
+		print -f " okay"
+	else
+		print -f " failed"
+		(( rc ++ ))
+	fi
+fi
+
+# filter
+
+if ! existstablechain 'filter' "${CHAIN:-MINIUPNPD}"; then
+	print "Flushing filter chain '${CHAIN:-MINIUPNPD}'"
+	doiptables --table filter --flush "${CHAIN:-MINIUPNPD}"
+
+	print "Deleting filter 'FORWARD' rules"
+	if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+		doiptables --table filter --delete FORWARD \
+			  --in-interface "${BRIF}" \
+			  --match physdev \
+			  --physdev-in "${EXTIF}" \
+			! --physdev-out "${EXTIF}" \
+			  --physdev-is-bridged \
+			  --jump "${CHAIN:-MINIUPNPD}"
+	else
+		doiptables --table filter --delete FORWARD \
+			  --in-interface "${EXTIF}" \
+			! --out-interface "${EXTIF}" \
+			  --jump "${CHAIN:-MINIUPNPD}"
+	fi
+
+	print -n "Deleting filter chain '${CHAIN:-MINIUPNPD}'"
+	if doiptables --table filter --delete-chain "${CHAIN:-MINIUPNPD}" >/dev/null 2>&1; then
+		print -f " okay"
+	else
+		print -f " failed"
+		(( rc ++ ))
+	fi
+fi
+
+# nat POSTROUTING
+
+if ! existstablechain 'nat' "${CHAIN:-MINIUPNPD}-POSTROUTING"; then
+	print "Flushing nat chain '${CHAIN:-MINIUPNPD}-POSTROUTING'"
+	doiptables --table nat --flush "${CHAIN:-MINIUPNPD}-POSTROUTING"
+
+	print "Deleting nat 'POSTROUTING' rules"
+	doiptables --table nat --delete POSTROUTING \
+		--out-interface "${EXTIF}" \
+		--jump "${CHAIN:-MINIUPNPD}-POSTROUTING"
+
+	print -n "Deleting NAT chain '${CHAIN:-MINIUPNPD}-POSTROUTING' ..."
+	if doiptables --table nat --delete-chain "${CHAIN:-MINIUPNPD}-POSTROUTING" >/dev/null 2>&1; then
+		print -f " okay"
+	else
+		print -f " failed"
+		(( rc ++ ))
+	fi
+fi
+
+exit ${rc}

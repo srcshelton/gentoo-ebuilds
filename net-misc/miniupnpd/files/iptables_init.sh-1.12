@@ -1,0 +1,71 @@
+#!/bin/bash
+# $Id: iptables_init.sh,v 1.12 2019/04/03 16:25:55 nanard Exp $
+
+EXT=1
+. "$( dirname "${0}" )/functions.sh" || exit 1
+
+# -I inserts the rule at the head of the chain,
+# -A appends the rule at the end of the chain
+#ADDCMD='--insert'
+ADDCMD='--append'
+
+print "Detected external interface '${EXTIF}' with IP address '${EXTIP}'"
+
+createtablechain nat "${CHAIN:-MINIUPNPD}"
+
+if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+	doiptables --table nat "${ADDCMD:---append}" PREROUTING \
+		--in-interface "${BRIF}" \
+		--match physdev \
+		--physdev-in "${EXTIF}" \
+		--physdev-is-bridged \
+		--jump "${CHAIN:-MINIUPNPD}"
+else
+	#doiptables --table nat "${ADDCMD:---append}" PREROUTING \
+	#	--in-interface "${EXTIF}" \
+	#	--destination "${EXTIP}" \
+	#	--jump "${CHAIN:-MINIUPNPD}"
+	doiptables --table nat "${ADDCMD:---append}" PREROUTING \
+		--in-interface "${EXTIF}" \
+		--jump "${CHAIN:-MINIUPNPD}"
+fi
+
+createtablechain mangle "${CHAIN:-MINIUPNPD}"
+
+if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+	doiptables --table mangle "${ADDCMD:---append}" PREROUTING \
+		--in-interface "${BRIF}" \
+		--match physdev \
+		--physdev-in "${EXTIF}" \
+		--physdev-is-bridged \
+		--jump "${CHAIN:-MINIUPNPD}"
+else
+	doiptables --table mangle "${ADDCMD:---append}" PREROUTING \
+		--in-interface "${EXTIF}" \
+		--jump "${CHAIN:-MINIUPNPD}"
+fi
+
+createtablechain filter "${CHAIN:-MINIUPNPD}"
+
+if (( BRIDGED )) && [[ -n "${BRIF}" ]]; then
+	doiptables --table filter "${ADDCMD:---append}" FORWARD \
+		  --in-interface "${BRIF}" \
+		  --match physdev \
+		  --physdev-in "${EXTIF}" \
+		! --physdev-out "${EXTIF}" \
+		  --physdev-is-bridged \
+		  --jump "${CHAIN:-MINIUPNPD}"
+else
+	doiptables --table filter "${ADDCMD:---append}" FORWARD \
+		  --in-interface "${EXTIF}" \
+		! --out-interface "${EXTIF}" \
+		  --jump "${CHAIN:-MINIUPNPD}"
+fi
+
+createtablechain nat "${CHAIN:-MINIUPNPD}-POSTROUTING"
+
+doiptables --table nat "${ADDCMD:---append}" POSTROUTING \
+	--out-interface "${EXTIF}" \
+	--jump "${CHAIN:-MINIUPNPD}-POSTROUTING"
+
+exit 0
