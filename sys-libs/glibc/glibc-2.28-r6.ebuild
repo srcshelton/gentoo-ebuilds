@@ -3,8 +3,7 @@
 
 EAPI=6
 
-inherit eapi7-ver eutils flag-o-matic gnuconfig multilib multiprocessing \
-	prefix systemd toolchain-funcs usr-ldscript
+inherit eapi7-ver eutils flag-o-matic gnuconfig multilib multiprocessing prefix systemd toolchain-funcs usr-ldscript
 
 DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
@@ -17,7 +16,7 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://sourceware.org/git/glibc.git"
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 m68k ~mips ppc ppc64 s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz"
 fi
 

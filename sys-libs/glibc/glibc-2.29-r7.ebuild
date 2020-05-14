@@ -652,7 +652,7 @@ sanity_prechecks() {
 	fi
 
 	# When we actually have to compile something...
-	if ! just_headers ; then
+	if [[ "${MERGE_TYPE}" != 'binary' ]] && ! just_headers ; then
 		ebegin "Checking gcc for __thread support"
 		if ! eend $(want__thread ; echo $?) ; then
 			echo
