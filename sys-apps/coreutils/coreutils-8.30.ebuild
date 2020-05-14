@@ -16,8 +16,8 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 m68k ~mips ppc ppc64 s390 sparc x86 ~x86-linux"
-IUSE="acl caps gmp hostname kill multicall nls selinux +split-usr static +stdbuf uptime test userland_BSD vanilla xattr elibc_Cygwin elibc_glibc"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86 ~x86-linux"
+IUSE="acl caps elibc_Cygwin elibc_glibc gmp hostname kill multicall nls selinux +split-usr static +stdbuf test uptime userland_BSD vanilla xattr"
 RESTRICT="!test? ( test )"
 
 LIB_DEPEND="acl? ( sys-apps/acl[static-libs] )
