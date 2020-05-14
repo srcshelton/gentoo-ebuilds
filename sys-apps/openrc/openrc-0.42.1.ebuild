@@ -140,21 +140,26 @@ src_install() {
 	gen_usr_ldscript librc.so
 
 	if use varrun; then
-		keepdir "${EROOT%/}"/lib/rc/init.d
+		keepdir /lib/rc/init.d
 	fi
-	keepdir "${EROOT%/}"/lib/rc/tmp
+	keepdir /lib/rc/tmp
 
 	if ! use vanilla; then
 		# Install updated /etc/init.d/root script, allowing /etc/fstab options to
 		# determine mount options for the root filesystem
 		newinitd "${FILESDIR}"/root-r3.initd root
+
 		# Install updated /etc/init.d/localmount script, to run:
 		#  `btrfs devices scan`
 		# ... before attempting to mount local btrfs filesystems
 		newinitd "${FILESDIR}"/localmount-r5.initd localmount
 
+		# Make devtmpfs size explicitly customisable
+		newinitd "${FILESDIR}"/devfs.initd devfs
+		newconfd "${FILESDIR}"/devfs.confd devfs
+
 		# Restore now-integrated script
-		exeinto "${EROOT%/}"/lib/rc/sh
+		exeinto /lib/rc/sh
 		newexe "${FILESDIR}"/${PN}-0.13.7-init-common-post.sh init-common-post.sh
 
 		use compat && dosym rc-service /sbin/service
@@ -195,10 +200,17 @@ pkg_preinst() {
 		: ${hostname:=${HOSTNAME}}
 		[[ -n ${hostname} ]] && set_config /etc/conf.d/hostname hostname "${hostname}"
 		)
+	elif [[ -e /etc/conf.d/hostname ]] ; then
+		(
+		unset hostname HOSTNAME
+		source /etc/conf.d/hostname
+		: ${hostname:=${HOSTNAME}}
+		[[ -n ${hostname} ]] && set_config /etc/conf.d/hostname hostname "${hostname}"
+		)
 	fi
 
 	# set default interactive shell to sulogin if it exists
-	set_config /etc/rc.conf rc_shell "${EROOT%/}/sbin/sulogin" '#' test -e "${EROOT%/}/sbin/sulogin"
+	set_config /etc/rc.conf rc_shell "/sbin/sulogin" '#' test -e "${EROOT}/sbin/sulogin"
 	return 0
 }
 
