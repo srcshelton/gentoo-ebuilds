@@ -3,11 +3,12 @@
 
 EAPI="7"
 
-PATCH_VER="3"
+PATCH_VER="2"
 
 inherit toolchain
 
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
+IUSE="-lib-only"
 
 RDEPEND=""
 DEPEND="${RDEPEND}
@@ -21,7 +22,7 @@ fi
 src_prepare() {
 	toolchain_src_prepare
 
-	if [[ "${ARCH}" == "amd64" ]]; then
+	if [[ "${ARCH}" == 'amd64' ]]; then
 		local LD32="$( get_abi_LIBDIR x86 )"
 		local LDx32="$( get_abi_LIBDIR x32 )"
 		local LD64="$( get_abi_LIBDIR amd64 )"
@@ -49,5 +50,37 @@ src_prepare() {
 			-e "/^const char \*__gnat_default_libgcc_subdir = \"libx32\";$/{s:\"libx32\":\"${LDx32:-libx32}\":}" \
 				gcc/ada/link.c \
 			|| die 'ADA replacement failed'
+
+		einfo "Further x32 references detected:"
+		grep -RHF 'libx32' gcc/ | grep -Ev 'GLIBC_DYNAMIC_LINKER|MULTILIB_OSDIRNAMES|gcc/ada/link.c'
+	fi
+}
+
+src_install() {
+	toolchain_src_install
+
+	if use lib-only; then
+		einfo "Removing non-library directories..."
+
+		mv "${ED%/}/usr/share/gcc-data/${CHOST:-fail}/${PV}" "${T}"/data || die
+		mv "${ED%/}/usr/lib/gcc/${CHOST:-fail}/${PV}" "${T}"/lib || die
+		mv "${ED%/}/usr/libexec/gcc/${CHOST:-fail}/${PV}" "${T}"/libexec || die
+
+		rm -r "${ED}"/*
+
+		mkdir -p "${ED%/}/usr/lib/gcc/${CHOST}" "${ED%/}/usr/libexec/gcc/${CHOST}" "${ED%/}/usr/share/gcc-data/${CHOST}" || die
+		mv "${T}"/data "${ED%/}/usr/share/gcc-data/${CHOST}/${PV}" || die
+		mv "${T}"/lib "${ED%/}/usr/lib/gcc/${CHOST}/${PV}" || die
+		mv "${T}"/libexec "${ED%/}/usr/libexec/gcc/${CHOST}/${PV}" || die
+
+		pushd "${ED%/}/usr/lib/gcc/${CHOST}/${PV}" >/dev/null || die
+		rm -r include include-fixed plugin/include
+		rm *.o *.a *.spec *.la plugin/gtype.state
+		popd >/dev/null || die
+
+		pushd "${ED%/}/usr/libexec/gcc/${CHOST}/${PV}" >/dev/null || die
+		rm -r plugin
+		ls -1 | grep -v '.so' | xargs rm
+		popd >/dev/null || die
 	fi
 }
