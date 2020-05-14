@@ -5,17 +5,17 @@ EAPI=7
 
 # needed to make webapp-config dep optional
 WEBAPP_OPTIONAL="yes"
-inherit flag-o-matic java-pkg-opt-2 systemd toolchain-funcs user webapp
+inherit flag-o-matic webapp java-pkg-opt-2 user systemd toolchain-funcs
 
 DESCRIPTION="ZABBIX is software for monitoring of your applications, network and servers"
 HOMEPAGE="https://www.zabbix.com/"
 MY_P=${P/_/}
 MY_PV=${PV/_/}
-SRC_URI="mirror://sourceforge/project/zabbix/ZABBIX%20Latest%20Stable/${PV}/${P}.tar.gz"
+SRC_URI="https://cdn.zabbix.com/stable/${PV}/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 WEBAPP_MANUAL_SLOT="yes"
-KEYWORDS="amd64 ~x86"
+KEYWORDS="~amd64 ~x86"
 IUSE="+agent curl frontend ipv6 java ldap libxml2 mysql odbc openipmi oracle +postgres proxy server snmp sqlite ssh ssl static systemd"
 REQUIRED_USE="|| ( agent frontend proxy server )
 	proxy? ( ^^ ( mysql oracle postgres sqlite odbc ) )
