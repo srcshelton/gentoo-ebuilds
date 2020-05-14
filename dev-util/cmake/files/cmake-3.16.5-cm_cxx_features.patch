@@ -1,0 +1,14 @@
+--- a/Source/Checks/cm_cxx_features.cmake
++++ b/Source/Checks/cm_cxx_features.cmake
+@@ -26,6 +26,11 @@
+     string(REGEX REPLACE "[^\n]*warning:[^\n]*sprintf\\(\\) is often misused, please use snprintf[^\n]*" "" check_output "${check_output}")
+     # Filter out xcodebuild warnings.
+     string(REGEX REPLACE "[^\n]* xcodebuild\\[[0-9]*:[0-9]*\\] warning: [^\n]*" "" check_output "${check_output}")
++    # Only look for /compiler/ errors, not warnings from ancillary tools.
++    string(REGEX REPLACE "[^\n]*distcc[^\n]* Warning: [^\n]*" "" check_output "${check_output}")
++    string(REGEX REPLACE "[^\n]*make[^\n]*: warning: [^\n]*" "" check_output "${check_output}")
++    # Filter out ld warnings (from 3.17.x)
++    string(REGEX REPLACE "[^\n]*ld: warning: [^\n]*" "" check_output "${check_output}")
+     # If using the feature causes warnings, treat it as broken/unavailable.
+     if(check_output MATCHES "(^|[ :])[Ww][Aa][Rr][Nn][Ii][Nn][Gg]")
+       set(CMake_HAVE_CXX_${FEATURE} OFF CACHE INTERNAL "TRY_COMPILE" FORCE)
