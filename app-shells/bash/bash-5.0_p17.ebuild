@@ -1,12 +1,12 @@
 # Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
 inherit eutils flag-o-matic multilib prefix toolchain-funcs
 
 # Official patchlevel
-# See ftp://ftp.cwru.edu/pub/bash/bash-4.4-patches/
+# See ftp://ftp.cwru.edu/pub/bash/bash-5.0-patches/
 PLEVEL=${PV##*_p}
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
@@ -34,7 +34,7 @@ patches() {
 }
 
 # The version of readline this bash normally ships with.
-READLINE_VER="7.0"
+READLINE_VER="8.0"
 
 DESCRIPTION="The standard GNU Bourne again shell"
 HOMEPAGE="http://tiswww.case.edu/php/chet/bash/bashtop.html"
@@ -46,13 +46,13 @@ fi
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~ppc-aix ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="afs bashlogger examples mem-scramble +net nls plugins +readline"
 
 DEPEND="
 	>=sys-libs/ncurses-5.2-r2:0=
-	readline? ( >=sys-libs/readline-${READLINE_VER}:0= )
 	nls? ( virtual/libintl )
+	readline? ( >=sys-libs/readline-${READLINE_VER}:0= )
 "
 RDEPEND="
 	${DEPEND}
@@ -60,6 +60,7 @@ RDEPEND="
 # we only need yacc when the .y files get patched (bash42-005)
 #DEPEND+=" virtual/yacc"
 
+# TODO: Validate that these still apply...
 PREFIX_PATCHES=(
 	# Prefix patches:
 	#  Use prefix root
@@ -71,6 +72,12 @@ PREFIX_PATCHES=(
 )
 
 S="${WORKDIR}/${MY_P}"
+
+PATCHES=(
+	# Patches from Chet sent to bashbug ml
+	"${FILESDIR}"/${PN}-5.0-history-append.patch
+	"${FILESDIR}"/${PN}-5.0-syslog-history-extern.patch
+)
 
 pkg_setup() {
 	if is-flag -malign-double ; then #7332
@@ -92,9 +99,6 @@ src_prepare() {
 	# Include official patches
 	[[ ${PLEVEL} -gt 0 ]] && eapply -p0 $(patches -s)
 
-	eapply "${FILESDIR}/${PN}-4.4-jobs_overflow.patch" #644720
-	eapply "${FILESDIR}/${PN}-4.4-set-SHOBJ_STATUS.patch" #644720
-
 	# Clean out local libs so we know we use system ones w/releases.
 	if is_release ; then
 		rm -rf lib/{readline,termcap}/*
@@ -109,7 +113,7 @@ src_prepare() {
 	eprefixify bashrc
 	popd > /dev/null
 
-	use prefix && epatch "${PREFIX_PATCHES[@]}"
+	#use prefix && eapply "${PREFIX_PATCHES[@]}"
 
 	# Prefixify hardcoded path names. No-op for non-prefix.
 	hprefixify pathnames.h.in
@@ -118,6 +122,7 @@ src_prepare() {
 	sed -i -r '/^(HS|RL)USER/s:=.*:=:' doc/Makefile.in || die
 	touch -r . doc/*
 
+	eapply -p0 "${PATCHES[@]}"
 	eapply_user
 }
 
@@ -228,7 +233,7 @@ src_install() {
 	default
 
 	dodir /bin
-	mv "${ED%/}"/usr/bin/bash "${ED%/}"/bin/ || die
+	mv "${ED}"/usr/bin/bash "${ED}"/bin/ || die
 	dosym bash /bin/rbash
 
 	insinto /etc/bash
@@ -258,8 +263,8 @@ src_install() {
 	fi
 	sed -i \
 		"${sed_args[@]}" \
-		"${ED%/}"/etc/skel/.bashrc \
-		"${ED%/}"/etc/bash/bashrc || die
+		"${ED}"/etc/skel/.bashrc \
+		"${ED}"/etc/bash/bashrc || die
 
 	if use plugins ; then
 		exeinto /usr/$(get_libdir)/bash
@@ -288,25 +293,25 @@ src_install() {
 }
 
 pkg_preinst() {
-	if [[ -e "${EROOT%/}"/etc/bashrc ]] && [[ ! -d "${EROOT%/}"/etc/bash ]] ; then
-		mkdir -p "${EROOT%/}"/etc/bash
-		mv -f "${EROOT%/}"/etc/bashrc "${EROOT%/}"/etc/bash/
+	if [[ -e ${EROOT}/etc/bashrc ]] && [[ ! -d ${EROOT}/etc/bash ]] ; then
+		mkdir -p "${EROOT}"/etc/bash
+		mv -f "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/
 	fi
 
-	if [[ -L "${EROOT%/}"/bin/sh ]] ; then
+	if [[ -L ${EROOT}/bin/sh ]] ; then
 		# rewrite the symlink to ensure that its mtime changes. having /bin/sh
 		# missing even temporarily causes a fatal error with paludis.
-		local target="$( readlink "${EROOT%/}"/bin/sh )"
-		local tmp="$( emktemp "${EROOT%/}"/bin )"
+		local target="$( readlink "${EROOT}"/bin/sh )"
+		local tmp="$( emktemp "${EROOT}"/bin )"
 		ln -sf "${target}" "${tmp}"
-		mv -f "${tmp}" "${EROOT%/}"/bin/sh
+		mv -f "${tmp}" "${EROOT}"/bin/sh
 	fi
 }
 
 pkg_postinst() {
 	# If /bin/sh does not exist, provide it
-	if [[ ! -e "${EROOT%/}"/bin/sh ]] ; then
-		ln -sf bash "${EROOT%/}"/bin/sh
+	if [[ ! -e ${EROOT}/bin/sh ]] ; then
+		ln -sf bash "${EROOT}"/bin/sh
 	fi
 }
 
