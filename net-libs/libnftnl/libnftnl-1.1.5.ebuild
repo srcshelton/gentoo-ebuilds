@@ -11,7 +11,7 @@ SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
 
 LICENSE="GPL-2"
 SLOT="0/11" # libnftnl.so version
-KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv ~sparc x86"
+KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~sparc x86"
 IUSE="examples json static-libs test xml"
 
 RESTRICT="!test? ( test )"
@@ -21,6 +21,8 @@ RDEPEND=">=net-libs/libmnl-1.0.3
 	json? ( >=dev-libs/jansson-2.3 )"
 BDEPEND="virtual/pkgconfig"
 DEPEND="${RDEPEND}"
+
+PATCHES=( "${FILESDIR}"/${P}-fix-nft-flowtable-test.patch )
 
 pkg_setup() {
 	if kernel_is ge 3 13; then
