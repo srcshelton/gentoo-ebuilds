@@ -3,7 +3,7 @@
 
 EAPI="7"
 
-PYTHON_COMPAT=( python3_{6,7} )
+PYTHON_COMPAT=( python3_{6,7,8} )
 PYTHON_REQ_USE="gdbm"
 inherit autotools flag-o-matic mono-env python-r1 systemd multilib-minimal
 
@@ -13,7 +13,7 @@ SRC_URI="https://github.com/lathiat/avahi/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="LGPL-2.1"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 sparc ~x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86"
 IUSE="autoipd bookmarks dbus doc gdbm gtk gtk2 howl-compat +introspection ipv6 kernel_linux mdnsresponder-compat mono nls python qt5 selinux systemd test"
 
 REQUIRED_USE="
@@ -111,13 +111,6 @@ src_prepare() {
 
 	# bundled manpages
 	multilib_copy_sources
-}
-
-src_configure() {
-	# those steps should be done once-per-ebuild rather than per-ABI
-	use sh && replace-flags -O? -O0
-
-	multilib-minimal_src_configure
 }
 
 multilib_src_configure() {
