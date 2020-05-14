@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit toolchain-funcs flag-o-matic usr-ldscript
+inherit flag-o-matic toolchain-funcs usr-ldscript
 
 DESCRIPTION="standard informational utilities and process-handling tools"
 HOMEPAGE="http://procps-ng.sourceforge.net/ https://gitlab.com/procps-ng/procps"
@@ -11,7 +11,7 @@ SRC_URI="mirror://sourceforge/${PN}-ng/${PN}-ng-${PV}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0/6" # libprocps.so
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="elogind +kill modern-top +ncurses nls selinux static-libs systemd test unicode"
 RESTRICT="!test? ( test )"
 
