@@ -3,7 +3,7 @@
 
 EAPI="7"
 
-inherit flag-o-matic toolchain-funcs multilib prefix usr-ldscript multilib-minimal
+inherit flag-o-matic multilib prefix toolchain-funcs usr-ldscript multilib-minimal
 
 # openssl-1.0.2-patches-1.6 contain additional CVE patches
 # which got fixed with this release.
@@ -37,8 +37,8 @@ SRC_URI="mirror://openssl/source/${MY_P}.tar.gz
 
 LICENSE="openssl"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~x86-linux"
-IUSE="+asm bindist gmp kerberos rfc3779 sctp cpu_flags_x86_sse2 sslv2 +sslv3 static-libs test +tls-heartbeat vanilla zlib"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~x86-linux"
+IUSE="+asm bindist cpu_flags_x86_sse2 gmp kerberos rfc3779 sctp sslv2 +sslv3 static-libs test +tls-heartbeat vanilla zlib"
 RESTRICT="!bindist? ( bindist )
 	!test? ( test )"
 
