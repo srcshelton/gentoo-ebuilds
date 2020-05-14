@@ -236,9 +236,9 @@ multilib_src_install_all() {
 	fi
 }
 
-pkg_postinst() {
+pkg_config() {
 	# Generate an empty sasldb2 with correct permissions.
-	if ( use berkdb || use gdbm ) && [[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]] ; then
+	if [[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]] ; then
 		einfo "Generating an empty sasldb2 with correct permissions ..."
 		echo "p" | "${EROOT}/usr/sbin/saslpasswd2" -f "${EROOT}/etc/sasl2/sasldb2" -p login \
 			|| die "Failed to generate sasldb2"
@@ -248,6 +248,15 @@ pkg_postinst() {
 			|| die "Failed to chown ${EROOT}/etc/sasl2/sasldb2"
 		chmod 0640 "${EROOT}/etc/sasl2/sasldb2" \
 			|| die "Failed to chmod ${EROOT}/etc/sasl2/sasldb2"
+	else
+		ewarn "You appear to already have a '${EROOT%/}/etc/sasl2/sasldb2' file"
+		ewarn "Backup and remove this file in order to create a clean database"
+	fi
+}
+
+pkg_postinst() {
+	if [[ "${MERGE_TYPE}" != 'binary' ]] ; then
+		( use berkdb || use gdbm ) && pkg_config
 	fi
 
 	if use authdaemond ; then
