@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-PYTHON_COMPAT=( python{3_6,3_7} )
+PYTHON_COMPAT=( python{3_6,3_7,3_8} )
 
 inherit autotools fcaps linux-info python-single-r1 systemd
 
@@ -41,6 +41,21 @@ case "${PV}" in
 	1.18.1)
 		GIT_COMMIT="697f76c32dfd30eab95592ba3bde117f0867e750"
 		;;
+	1.19.0)
+		GIT_COMMIT="5000257f0171271cb3ee2cf0fe02e8a2154ddf2e"
+		;;
+	1.20.0)
+		GIT_COMMIT="563284310302c35a700d707b95824d282aebb6e7"
+		;;
+	1.21.0)
+		GIT_COMMIT="6931cb80778f104518782d91f4c16dec22e566b6"
+		;;
+	1.21.1)
+		GIT_COMMIT="b450a1e9d0f0dbbeff9e56325b5ba120be8b97b2"
+		;;
+	1.22.0)
+		GIT_COMMIT="84e38198c6f3f5a318626f7362e4bdefa3289084"
+		;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
@@ -49,7 +64,7 @@ PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression cups +dbengine fping ipmi +jsonc kinesis mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen cpu_flags_x86_sse2"
+IUSE="caps +compression cpu_flags_x86_sse2 cups +dbengine fping ipmi +jsonc kinesis mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -75,11 +90,11 @@ RDEPEND="
 	caps? ( sys-libs/libcap )
 	cups? ( net-print/cups )
 	dbengine? (
-		dev-libs/libuv
 		app-arch/lz4
 		dev-libs/judy
 		dev-libs/openssl:=
 	)
+	dev-libs/libuv
 	compression? ( sys-libs/zlib )
 	fping? ( >=net-analyzer/fping-4.0 )
 	ipmi? ( sys-libs/freeipmi )
@@ -142,6 +157,7 @@ src_configure() {
 	econf \
 		--localstatedir="${EPREFIX}"/var \
 		--with-user="${NETDATA_USER}" \
+		--disable-cloud \ # https://github.com/netdata/netdata/issues/8961
 		$(use_enable jsonc) \
 		$(use_enable cups plugin-cups) \
 		$(use_enable dbengine) \
