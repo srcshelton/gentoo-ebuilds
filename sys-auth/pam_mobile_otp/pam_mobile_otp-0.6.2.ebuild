@@ -12,7 +12,7 @@ RESTICT="mirror"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~x86"
+KEYWORDS="~amd64 ~x86"
 IUSE="-android manager"
 
 S="${WORKDIR}/${PN}"
@@ -33,7 +33,7 @@ src_prepare() {
 src_install() {
 	if use manager; then
 		dosbin motp-manager || die "Cannot install 'motp-manager'"
-		fperms 600 /usr/sbin/motp-manager || die "Cannot set permissions on 'motp-manager'"
+		fperms 0700 /usr/sbin/motp-manager || die "Cannot set permissions on 'motp-manager'"
 	fi
 
 	insinto /etc/security
