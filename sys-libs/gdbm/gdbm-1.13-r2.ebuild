@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit autotools flag-o-matic multilib multilib-minimal
+inherit autotools flag-o-matic multilib multilib-minimal multilib-minimal
 
 EX_P="${PN}-1.8.3"
 DESCRIPTION="Standard GNU database libraries"
@@ -13,13 +13,12 @@ SRC_URI="mirror://gnu/gdbm/${P}.tar.gz
 
 LICENSE="GPL-3"
 SLOT="0/1.13"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 m68k ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+berkdb exporter nls +readline static-libs"
 
 DEPEND="
 	readline? ( sys-libs/readline:0=[${MULTILIB_USEDEP}] )
 	abi_x86_32? (
-		!<=app-emulation/emul-linux-x86-baselibs-20131008-r4
 		!app-emulation/emul-linux-x86-baselibs[-abi_x86_32(-)]
 	)
 "
