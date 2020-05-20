@@ -3,6 +3,8 @@
 
 EAPI=6
 
+inherit multilib
+
 DESCRIPTION="GNU utility to convert program --help output to a man page"
 HOMEPAGE="https://www.gnu.org/software/help2man/"
 SRC_URI="mirror://gnu/${PN}/${P}.tar.xz"
