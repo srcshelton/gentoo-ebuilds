@@ -10,7 +10,8 @@ inherit toolchain
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
 IUSE="-lib-only"
 
-RDEPEND=""
+RDEPEND="
+	!=sys-devel/gcc-libs-${PV}"
 DEPEND="${RDEPEND}
 	elibc_glibc? ( >=sys-libs/glibc-2.13 )
 	>=${CATEGORY}/binutils-2.20"
@@ -82,5 +83,29 @@ src_install() {
 		rm -r plugin
 		ls -1 | grep -v '.so' | xargs rm
 		popd >/dev/null || die
+
+		keepdir "/usr/${CHOST}/gcc-bin/${PV}"
+	fi
+}
+
+pkg_postinst() {
+	local best="$( best_version "${CATEGORY}/${PN}" )"
+
+	if use lib-only; then
+		if [[ -n "${best}" ]] && [[ "${PF}" != "${best}" ]]; then
+			einfo "Not updating library directory, latest version is '${best}'"
+		else
+			einfo "Making libstdc++.so.6 & libgcc_s.so.1 available in /usr/$(get_libdir)"
+			if ! [[ -L "/usr/$(get_libdir)/libstdc++.so.6" ]]; then
+				ewarn "Not replacing non-symlink '/usr/$(get_libdir)/libstdc++.so.6'"
+			else
+				cp -L "${ED%/}/usr/lib/gcc/${CHOST}/${PV}/libstdc++.so.6" "/usr/$(get_libdir)/"
+			fi
+			if ! [[ -L "/usr/$(get_libdir)/libgcc_s.so.1" ]]; then
+				ewarn "Not replacing non-symlink '/usr/$(get_libdir)/libgcc_s.so.1'"
+			else
+				cp -L "${ED%/}/usr/lib/gcc/${CHOST}/${PV}/libgcc_s.so.1" "/usr/$(get_libdir)/"
+			fi
+		fi
 	fi
 }
