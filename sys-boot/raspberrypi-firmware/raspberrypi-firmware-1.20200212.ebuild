@@ -9,7 +9,6 @@ DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+rpi4"
 
 # Temporary safety measure to prevent ending up with a pair of
 # sys-kernel/raspberrypi-image and sys-boot/raspberrypi-firmware
@@ -17,15 +16,10 @@ IUSE="+rpi4"
 # Remove when the mentioned version and all older ones are deleted.
 RDEPEND="!<=sys-kernel/raspberrypi-image-4.19.57_p20190709"
 
-if [[ "${PV}" == *9999 ]]; then
+if [[ "${PV}" == 9999 ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
-							  # only ~200MB of data - the rest is (literally)
-							  # history :(
-	if ! [[ "${PV}" == 9999 ]]; then
-		EGIT_BRANCH="stable"
-	fi
+	EGIT_CLONE_TYPE="shallow"
 else
 	SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="-* ~arm ~arm64"
@@ -108,11 +102,7 @@ src_install() {
 	insinto "${boot}"
 	#for f in boot/*.dtb boot/*.bin boot/*.dat boot/*.elf; do
 	for f in boot/*.bin boot/*.dat boot/*.elf; do
-		if [[ -e "${f}" ]]; then
-			if use rpi4 || [[ "${f}" != *4* ]]; then
-				doins "${f}"
-			fi
-		fi
+		[[ -e "${f}" ]] && doins "${f}"
 	done
 
 	# Install kernel(s) ...
@@ -159,8 +149,8 @@ src_install() {
 	#done
 
 	insinto "${boot}"
-	newins "${FILESDIR}"/${PN}-config.txt config.txt
-	newins "${FILESDIR}"/${PN}-cmdline.txt cmdline.txt
+	newins "${FILESDIR}"/${PN}-0_p20130711-config.txt config.txt
+	newins "${FILESDIR}"/${PN}-0_p20130711-cmdline.txt cmdline.txt
 
 	# There's little or no standardisation in regards to where System.map
 	# should live, and the only two common locations seem to be /boot and /
@@ -172,7 +162,7 @@ src_install() {
 	#	einfo "as appropriate."
 	#fi
 
-	cp "${FILESDIR}"/"${PN}"-envd "${T}"/"${PN}"-envd
+	cp "${FILESDIR}"/"${PN}"-0_p20130711-envd "${T}"/"${PN}"-envd
 	sed -i "s|/boot|${boot}|g" "${T}"/"${PN}"-envd
 	newenvd "${T}"/"${PN}"-envd "90${PN}"
 
