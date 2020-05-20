@@ -40,10 +40,10 @@ RDEPEND="${DEPEND}
 	dev-db/redis"
 
 PATCHES=(
-	"${FILESDIR}"/${PV}-gentoo.patch
-	"${FILESDIR}"/${PV}-mysqltool.patch
-	"${FILESDIR}"/${PV}-luajit.patch
-	"${FILESDIR}"/${PV}-remove-pool-limits.patch
+	"${FILESDIR}"/${P}-gentoo.patch
+	"${FILESDIR}"/${P}-mysqltool.patch
+	"${FILESDIR}"/${P}-luajit.patch
+	"${FILESDIR}"/${P}-remove-pool-limits.patch
 )
 
 S="${WORKDIR}/${P}-stable"

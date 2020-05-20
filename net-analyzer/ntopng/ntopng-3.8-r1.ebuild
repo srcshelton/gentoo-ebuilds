@@ -38,6 +38,7 @@ PATCHES=(
 	"${FILESDIR}"/${P}-ndpi-includes.patch
 	"${FILESDIR}"/${P}-missing-min.patch
 	"${FILESDIR}"/${P}-ndpi-call.patch
+	"${FILESDIR}"/${P}-remove-pool-limits.patch
 )
 
 #S="${WORKDIR}/${P}-stable"
