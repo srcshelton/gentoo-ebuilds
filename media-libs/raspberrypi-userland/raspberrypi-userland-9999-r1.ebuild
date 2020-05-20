@@ -1,6 +1,5 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: fc4088c8689c94e2b8aea6a56d40aa896b320acc $
 
 EAPI=5
 inherit cmake-utils flag-o-matic git-r3
@@ -32,8 +31,10 @@ src_prepare() {
 
 src_configure() {
 	local -a mycmakeargs
-	
-	mycmakeargs=( -DVMCS_INSTALL_PREFIX="/usr" )
+
+	mycmakeargs=(
+		-DVMCS_INSTALL_PREFIX="/usr"
+	)
 
 	cmake-utils_src_configure
 }
@@ -46,7 +47,7 @@ src_install() {
 	dodir /usr/lib/opengl/raspberrypi/lib
 	touch "${ED}"/usr/lib/opengl/raspberrypi/.gles-only
 	mv "${ED}"/usr/lib/lib{EGL,GLESv2}* \
-		"${ED}"/usr/lib/opengl/raspberrypi/lib
+		"${ED}"/usr/lib/opengl/raspberrypi/lib/
 
 	dodir /usr/lib/opengl/raspberrypi/include
 	mv "${ED}"/usr/include/{EGL,GLES,GLES2,KHR,WF} \

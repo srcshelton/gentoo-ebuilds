@@ -29,8 +29,10 @@ pkg_setup() {
 
 src_configure() {
 	local -a mycmakeargs
-	
-	mycmakeargs=( -DVMCS_INSTALL_PREFIX="/usr" )
+
+	mycmakeargs=(
+		-DVMCS_INSTALL_PREFIX="/usr"
+	)
 
 	cmake-utils_src_configure
 }
@@ -41,11 +43,12 @@ src_install() {
 	dodir /usr/lib/opengl/raspberrypi/lib
 	touch "${D}"/usr/lib/opengl/raspberrypi/.gles-only
 	mv "${D}"/usr/lib/lib{EGL,GLESv2}* \
-		"${D}"/usr/lib/opengl/raspberrypi/lib
+		"${D}"/usr/lib/opengl/raspberrypi/lib/
 
 	dodir /usr/lib/opengl/raspberrypi/include
 	mv "${D}"/usr/include/{EGL,GLES,GLES2,KHR,WF} \
-		"${D}"/usr/lib/opengl/raspberrypi/include
+		"${D}"/usr/lib/opengl/raspberrypi/include/
+
 	mv "${D}"/usr/include/interface/vcos/pthreads/* \
 		"${D}"/usr/include/interface/vcos/
 	rmdir "${D}"/usr/include/interface/vcos/pthreads
@@ -54,7 +57,7 @@ src_install() {
 	rmdir "${D}"/usr/include/interface/vmcs_host/linux
 
 	if use udev; then
-		insinto "${D}"/$(get_udevdir)/rules.d
+		insinto /$(get_udevdir)/rules.d
 		doins "${FILESDIR}"/92-local-vchiq-permissions.rules
 	fi
 
@@ -74,3 +77,5 @@ pkg_postinst() {
 	ewarn "additionally required for certain closed-source components such as"
 	ewarn "the VideoCore IV debugging tool 'vcdbg'."
 }
+
+# vi: set diffopt=iwhite,filler:
