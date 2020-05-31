@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
-inherit eutils libtool ltprune multilib-minimal multilib-minimal
+inherit eutils libtool ltprune usr-ldscript multilib-minimal
 
 DESCRIPTION="Parse Options - Command line parser"
 HOMEPAGE="http://rpm5.org/"
