@@ -88,24 +88,53 @@ src_install() {
 	fi
 }
 
+pkg_postinst_fix_so() {
+	local src_dir="${1:-}"
+	local src_so="${2:-}"
+	local dst_dir="${3:-}"
+	local dst_rel="${4:-}"
+
+	local so=''
+
+	[[ -d "${src_dir:-}/" ]] || return 1
+	[[ -d "${dst_dir:-}/" ]] || return 1
+	ls "${src_dir}/${src_so}"* >/dev/null 2>&1 || return 1
+
+	while read -r so; do
+		so="$( basename "${so}" )"
+		einfo "Making '${src_dir%/}/${so}' available in '${dst_dir}/' ..."
+		if [[ -e "${dst_dir}/${so}" ]] && ! [[ -L "${dst_dir}/${so}" ]]; then
+			ewarn "Not replacing non-symlink '${dst_dir%/}/${so}'"
+		else
+			if [[ -n "${dst_rel:-}" ]]; then
+				if [[ -s "${dst_dir}/${dst_rel}/${so}" ]]; then
+					ln -s "${dst_rel}/${so}" "${dst_dir}/${so}"
+				else
+					warn "Could not resolve path '${dst_dir}/${dst_rel}/${so}', creating absolute symlink ..."
+					ln -s "${src_dir}/${so}" "${dst_dir}/${so}"
+				fi
+			else
+				ln -s "${src_dir}/${so}" "${dst_dir}/${so}"
+			fi
+		fi
+	done < <( ls -1 "${src_dir}/${src_so}"* )
+
+	return 0
+} # pkg_postinst_fix_so
+
 pkg_postinst() {
 	local best="$( best_version "${CATEGORY}/${PN}" )"
 
 	if use lib-only; then
-		if [[ -n "${best}" ]] && [[ "${PF}" != "${best}" ]]; then
-			einfo "Not updating library directory, latest version is '${best}'"
+		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
+			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
-			einfo "Making libstdc++.so.6 & libgcc_s.so.1 available in /usr/$(get_libdir)"
-			if ! [[ -L "/usr/$(get_libdir)/libstdc++.so.6" ]]; then
-				ewarn "Not replacing non-symlink '/usr/$(get_libdir)/libstdc++.so.6'"
-			else
-				cp -L "${ED%/}/usr/lib/gcc/${CHOST}/${PV}/libstdc++.so.6" "/usr/$(get_libdir)/"
-			fi
-			if ! [[ -L "/usr/$(get_libdir)/libgcc_s.so.1" ]]; then
-				ewarn "Not replacing non-symlink '/usr/$(get_libdir)/libgcc_s.so.1'"
-			else
-				cp -L "${ED%/}/usr/lib/gcc/${CHOST}/${PV}/libgcc_s.so.1" "/usr/$(get_libdir)/"
-			fi
+			pkg_postinst_fix_so "${EROOT}/usr/lib/gcc/${CHOST}/${PV}" 'libstdc++.so' "${EROOT}/usr/$(get_libdir)" "../lib/gcc/${CHOST}/${PV}" ||
+				die "Couldn't link library 'libstdc++.so'"
+			pkg_postinst_fix_so "${EROOT}/usr/lib/gcc/${CHOST}/${PV}" 'libgcc_s.so' "${EROOT}/usr/$(get_libdir)" "../lib/gcc/${CHOST}/${PV}" ||
+				die "Couldn't link library 'libgcc_s.so'"
 		fi
 	fi
 }
+
+# vi: set diffopt=iwhite,filler:
