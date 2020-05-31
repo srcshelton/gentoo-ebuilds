@@ -1,16 +1,16 @@
 # Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
 # do not add a ssl USE flag.  ssl is mandatory
 SSL_DEPS_SKIP=1
-inherit autotools eapi7-ver ssl-cert systemd toolchain-funcs user
+inherit autotools ssl-cert systemd toolchain-funcs
 
 MY_P="${P/_/.}"
 #MY_S="${PN}-ce-${PV}"
 major_minor="$(ver_cut 1-2)"
-sieve_version="0.5.7.2"
+sieve_version="0.5.10"
 if [[ ${PV} == *_rc* ]] ; then
 	rc_dir="rc/"
 else
@@ -28,13 +28,13 @@ HOMEPAGE="https://www.dovecot.org/"
 
 SLOT="0"
 LICENSE="LGPL-2.1 MIT"
-KEYWORDS="~alpha amd64 arm ~hppa ~ia64 ~mips ppc ppc64 s390 ~sparc x86"
+KEYWORDS="~alpha amd64 ~arm ~hppa ~ia64 ~mips ppc ppc64 ~s390 ~sparc x86"
 
 IUSE_DOVECOT_AUTH="kerberos ldap lua mysql pam postgres sqlite vpopmail"
 IUSE_DOVECOT_COMPRESS="bzip2 lzma lz4 zlib"
-IUSE_DOVECOT_OTHER="argon2 caps doc ipv6 libressl lucene managesieve selinux sieve solr static-libs suid tcpd textcat"
+IUSE_DOVECOT_OTHER="argon2 caps doc ipv6 libressl lucene managesieve selinux sieve solr static-libs suid tcpd textcat unwind"
 
-IUSE="${IUSE_DOVECOT_AUTH} ${IUSE_DOVECOT_STORAGE} ${IUSE_DOVECOT_COMPRESS} ${IUSE_DOVECOT_OTHER} systemd"
+IUSE="${IUSE_DOVECOT_AUTH} ${IUSE_DOVECOT_COMPRESS} ${IUSE_DOVECOT_OTHER} systemd"
 
 DEPEND="argon2? ( dev-libs/libsodium )
 	bzip2? ( app-arch/bzip2 )
@@ -56,28 +56,24 @@ DEPEND="argon2? ( dev-libs/libsodium )
 	suid? ( acct-group/mail )
 	tcpd? ( sys-apps/tcp-wrappers )
 	textcat? ( app-text/libexttextcat )
+	unwind? ( sys-libs/libunwind )
 	vpopmail? ( net-mail/vpopmail )
 	zlib? ( sys-libs/zlib )
 	virtual/libiconv
 	dev-libs/icu:="
 
 RDEPEND="${DEPEND}
+	acct-group/dovecot
+	acct-group/dovenull
+	acct-user/dovecot
+	acct-user/dovenull
 	net-mail/mailbase"
-
-PATCHES=(
-	"${FILESDIR}/${PN}-userdb-passwd-fix.patch"
-)
 
 pkg_setup() {
 	if use managesieve && ! use sieve; then
 		ewarn "managesieve USE flag selected but sieve USE flag unselected"
 		ewarn "sieve USE flag will be turned on"
 	fi
-	# default internal user
-	enewgroup dovecot 97
-	enewuser dovecot 97 -1 /dev/null dovecot
-	# default login user
-	enewuser dovenull -1 -1 /dev/null
 }
 
 src_prepare() {
@@ -89,6 +85,15 @@ src_prepare() {
 
 src_configure() {
 	local conf=""
+
+	# There's a mismatch between dovecot and sys-libs/libunwind-1.2.1-r3 where
+	# dovecot looks for libunwind-i686.so whilst libunwind provides
+	# libunwind-x86.so :(
+	if [[ "${CHOST}" == 'i686-pc-linux-gnu' ]]; then
+		sed -i \
+			-e '/^build_cpu=/s|=$1|=x86|' \
+			configure || die
+	fi
 
 	if use postgres || use mysql || use sqlite; then
 		conf="${conf} --with-sql"
@@ -121,13 +126,14 @@ src_configure() {
 		$( use_with solr ) \
 		$( use_with tcpd libwrap ) \
 		$( use_with textcat ) \
+		$( use_with unwind libunwind ) \
 		$( use_with vpopmail ) \
 		$( use_with zlib ) \
 		$( use_enable static-libs static ) \
 		${conf}
 
 	if use sieve || use managesieve ; then
-		# The sieve plugin needs this file to be build to determine the plugin
+		# The sieve plugin needs this file to be built to determine the plugin
 		# directory and the list of libraries to link to.
 		emake dovecot-config
 		cd "../dovecot-${major_minor}-pigeonhole-${sieve_version}" || die "cd failed"
@@ -164,8 +170,8 @@ src_install() {
 	# better:
 	if use suid;then
 		einfo "Changing perms to allow deliver to be suided"
-		fowners root:mail "${EPREFIX%/}/usr/libexec/dovecot/dovecot-lda"
-		fperms 4750 "${EPREFIX%/}/usr/libexec/dovecot/dovecot-lda"
+		fowners root:mail "/usr/libexec/dovecot/dovecot-lda"
+		fperms 4750 "/usr/libexec/dovecot/dovecot-lda"
 	fi
 
 	newinitd "${FILESDIR}"/dovecot.init-r6 dovecot
@@ -191,7 +197,7 @@ src_install() {
 	doins doc/example-config/*.{conf,ext}
 	insinto /etc/dovecot/conf.d
 	doins doc/example-config/conf.d/*.{conf,ext}
-	fperms 0600 "${EPREFIX%/}"/etc/dovecot/dovecot-{ldap,sql}.conf.ext
+	fperms 0600 /etc/dovecot/dovecot-{ldap,sql}.conf.ext
 	rm -f "${confd}/../README"
 
 	# .maildir is the Gentoo default
