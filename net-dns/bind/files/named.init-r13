@@ -11,7 +11,7 @@ depend() {
 	provide dns
 }
 
-NAMED_CONF=${CHROOT}/etc/bind/named.conf
+NAMED_CONF="${CHROOT%/}/etc/bind/${RC_SVCNAME}.conf"
 
 OPENSSL_LIBGOST=${OPENSSL_LIBGOST:-0}
 MOUNT_CHECK_TIMEOUT=${MOUNT_CHECK_TIMEOUT:-60}
@@ -27,12 +27,12 @@ _mount() {
 		return 1
 	fi
 
-	from=$1
-	to=$2
+	from="${1}"
+	to="${2}"
 	shift 2
 
 	opts="${*}"
-	shift $#
+	shift ${#}
 
 	if [ -z "$(awk "\$2 == \"${to}\" { print \$2 }" /proc/mounts)" ]; then
 		einfo "mounting ${from} to ${to}"
@@ -44,10 +44,10 @@ _mount() {
 	fi
 
 	return 0
-}
+} # _mount
 
 _umount() {
-	local dir=$1
+	local dir="${1}"
 	local ret=0
 
 	if [ -n "$(awk "\$2 == \"${dir}\" { print \$2 }" /proc/mounts)" ]; then
@@ -60,15 +60,15 @@ _umount() {
 	fi
 
 	return 0
-}
+} # _umount
 
 _get_pidfile() {
 	# as suggested in bug #107724, bug 335398#c17
 	[ -n "${PIDFILE}" ] || PIDFILE="${CHROOT}$(
-		/usr/sbin/named-checkconf -p ${CHROOT:+-t} ${CHROOT} ${NAMED_CONF#${CHROOT}} | grep 'pid-file' | cut -d'"' -f2
+		/usr/sbin/named-checkconf -p ${CHROOT:+-t "${CHROOT}"} ${NAMED_CONF#${CHROOT}} | grep 'pid-file' | cut -d'"' -f2
 	)"
-	[ -z "${PIDFILE}" ] && PIDFILE="${CHROOT}/var/run/named/named.pid"
-}
+	[ -z "${PIDFILE}" ] && PIDFILE="${CHROOT%/}/var/run/named/named.pid"
+} # _get_pidfile
 
 check_chroot() {
 	if [ -n "${CHROOT}" ]; then
@@ -90,7 +90,7 @@ check_chroot() {
 	fi
 
 	return 0
-}
+} # check_chroot
 
 checkconfig() {
 	ebegin "Checking named configuration"
@@ -100,25 +100,24 @@ checkconfig() {
 		return 1
 	fi
 
-	/usr/sbin/named-checkconf ${CHROOT:+-t} ${CHROOT} ${NAMED_CONF#${CHROOT}} || {
+	/usr/sbin/named-checkconf ${CHROOT:+-t "${CHROOT}"} ${NAMED_CONF#${CHROOT}} || {
 		eerror "named-checkconf failed! Please fix your config first."
 		return 1
 	}
 
 	eend 0
 	return 0
-}
+} # checkconfig
 
 checkzones() {
 	ebegin "Checking named configuration and zones"
-	/usr/sbin/named-checkconf -z -j ${CHROOT:+-t} ${CHROOT} ${NAMED_CONF#${CHROOT}}
+	/usr/sbin/named-checkconf -z -j ${CHROOT:+-t "${CHROOT}"} ${NAMED_CONF#${CHROOT}}
 	eend $?
-}
+} # checkzones
+
 
 start() {
 	local piddir
-
-	ebegin "Starting ${CHROOT:+chrooted }named"
 
 	if [ -n "${CHROOT}" ]; then
 		if [ ${CHROOT_NOCHECK:-0} -eq 0 ]; then
@@ -154,7 +153,7 @@ start() {
 		fi
 
 		# On initial startup, if piddir is inside the chroot's '/var/run/named'
-		# directory then the .../var/run part might not exist yet...
+		# directory then the .../var/run part might not exist yet...
 		checkpath -q -d -o root:root -m 0755 "${piddir}/.."
 	fi
 
@@ -174,10 +173,12 @@ start() {
 		CPU="-n ${CPU}"
 	fi
 
+	ebegin "Starting ${CHROOT:+chrooted }named"
+
 	start-stop-daemon --start --pidfile ${PIDFILE} \
 		--nicelevel ${NAMED_NICELEVEL:-0} \
 		--exec /usr/sbin/named \
-		-- -u named ${CPU} ${OPTIONS} ${CHROOT:+-t} ${CHROOT}
+		-- -u named ${CPU} ${OPTIONS} ${CHROOT:+-t "${CHROOT}"}
 	eend $?
 }
 
@@ -221,7 +222,7 @@ stop() {
 			reported=$((reported+1))
 		done
 
-		[ "${CHROOT_GEOIP:-0}" -eq 1 ] && _umount ${CHROOT}/usr/share/GeoIP
+		[ "${CHROOT_GEOIP:-0}" -eq 1 ] && _umount ${CHROOT%/}/usr/share/GeoIP
 		_umount ${CHROOT}/etc/bind
 		_umount ${CHROOT}/var/log/named
 		_umount ${CHROOT}/var/bind
@@ -233,9 +234,9 @@ stop() {
 reload() {
 	local ret
 
-	ebegin "Reloading named.conf and zone files"
-
 	checkconfig || { eend 1; return 1; }
+
+	ebegin "Reloading named.conf and zone files"
 
 	_get_pidfile
 	if [ -n "${PIDFILE}" ]; then
