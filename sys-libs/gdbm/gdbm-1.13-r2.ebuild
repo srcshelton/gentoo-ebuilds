@@ -16,6 +16,9 @@ SLOT="0/1.13"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+berkdb exporter nls +readline static-libs"
 
+BDEPEND="
+	nls? ( sys-devel/gettext )
+"
 DEPEND="
 	readline? ( sys-libs/readline:0=[${MULTILIB_USEDEP}] )
 	abi_x86_32? (
@@ -59,6 +62,13 @@ multilib_src_configure() {
 		$(use_enable static-libs static)
 		$(use_with readline)
 	)
+
+	if ! has_version 'sys-devel/gettext'; then
+		myconfargs+=(
+			--with-included-gettext
+		)
+	fi
+
 	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"
 }
 
