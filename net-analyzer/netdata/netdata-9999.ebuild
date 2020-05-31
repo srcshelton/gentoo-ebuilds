@@ -136,9 +136,6 @@ CONFIG_CHECK="
 	~KSM
 "
 
-: ${NETDATA_USER:=${PN}}
-: ${NETDATA_GROUP:=${PN}}
-
 FILECAPS=(
 	'cap_dac_read_search,cap_sys_ptrace+ep' 'usr/libexec/netdata/plugins.d/apps.plugin'
 )
@@ -154,10 +151,11 @@ src_prepare() {
 }
 
 src_configure() {
+	# --disable-cloud: https://github.com/netdata/netdata/issues/8961
 	econf \
 		--localstatedir="${EPREFIX}"/var \
-		--with-user="${NETDATA_USER}" \
-		--disable-cloud \ # https://github.com/netdata/netdata/issues/8961
+		--with-user=netdata \
+		--disable-cloud \
 		$(use_enable jsonc) \
 		$(use_enable cups plugin-cups) \
 		$(use_enable dbengine) \
@@ -204,7 +202,7 @@ src_install() {
 
 	# netdata includes 'web root owner' settings, but ignores them and fails to
 	# serve its pages if netdata:netdata isn't the owner :(
-	fowners -Rc "${NETDATA_USER}":"${NETDATA_GROUP}" /usr/share/"${PN}"/web ||
+	fowners -Rc netdata:netdata /usr/share/"${PN}"/web ||
 		die "Failed settings owners: ${?}"
 
 	insinto /etc/netdata
