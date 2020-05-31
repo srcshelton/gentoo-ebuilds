@@ -15,7 +15,7 @@ SRC_PATH="stable"
 
 SRC_URI="mirror://samba/${SRC_PATH}/${MY_P}.tar.gz"
 [[ ${PV} = *_rc* ]] || \
-KEYWORDS="~alpha ~amd64 ~arm arm64 ~hppa ~ia64 ppc ppc64 ~sparc x86"
+KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ppc ppc64 ~sparc x86"
 
 DESCRIPTION="Samba Suite Version 4"
 HOMEPAGE="https://www.samba.org/"
@@ -23,7 +23,7 @@ LICENSE="GPL-3"
 
 SLOT="0"
 
-IUSE="acl addc addns ads ceph client cluster cups debug dmapi fam gnutls gpg iprint json ldap pam profiling-data python quota selinux syslog systemd system-heimdal +system-mitkrb5 test winbind zeroconf"
+IUSE="acl addc addns ads ceph client cluster cups debug dmapi fam gpg iprint json ldap pam profiling-data python quota selinux syslog systemd system-heimdal +system-mitkrb5 test winbind zeroconf"
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/samba-4.0/policy.h
@@ -42,6 +42,7 @@ CDEPEND="
 	dev-libs/libbsd[${MULTILIB_USEDEP}]
 	dev-libs/libtasn1[${MULTILIB_USEDEP}]
 	dev-libs/popt[${MULTILIB_USEDEP}]
+	>=net-libs/gnutls-3.2.0[${MULTILIB_USEDEP}]
 	net-libs/libnsl:=[${MULTILIB_USEDEP}]
 	sys-apps/dbus[${MULTILIB_USEDEP}]
 	sys-libs/e2fsprogs-libs[${MULTILIB_USEDEP}]
@@ -73,9 +74,6 @@ CDEPEND="
 	debug? ( dev-util/lttng-ust )
 	dmapi? ( sys-apps/dmapi )
 	fam? ( virtual/fam )
-	gnutls? (
-		>=net-libs/gnutls-3.2.0[${MULTILIB_USEDEP}]
-	)
 	gpg? ( app-crypt/gpgme )
 	json? ( dev-libs/jansson )
 	ldap? ( net-nds/openldap[${MULTILIB_USEDEP}] )
@@ -111,9 +109,9 @@ RDEPEND="${CDEPEND}
 "
 
 REQUIRED_USE="
-	addc? ( python gnutls json winbind )
+	addc? ( python json winbind )
 	addns? ( python )
-	ads? ( acl gnutls ldap winbind )
+	ads? ( acl ldap winbind )
 	cluster? ( ads )
 	gpg? ( addc )
 	test? ( python )
@@ -216,7 +214,6 @@ multilib_src_configure() {
 		$(multilib_native_use_enable zeroconf avahi)
 		$(multilib_native_usex test '--enable-selftest' '')
 		$(usex system-mitkrb5 "--with-system-mitkrb5 $(multilib_native_usex addc --with-experimental-mit-ad-dc '')" '')
-		$(use_enable gnutls)
 		$(use_with debug lttng)
 		$(use_with ldap)
 		$(use_with profiling-data)
