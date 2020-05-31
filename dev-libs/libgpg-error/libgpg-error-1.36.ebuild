@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools libtool multilib-minimal toolchain-funcs prefix
+inherit autotools libtool prefix toolchain-funcs usr-ldscript multilib-minimal
 
 DESCRIPTION="Contains error handling functions used by GnuPG software"
 HOMEPAGE="http://www.gnupg.org/related_software/libgpg-error"
