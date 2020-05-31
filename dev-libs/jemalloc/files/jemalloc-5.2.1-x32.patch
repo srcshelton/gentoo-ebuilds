@@ -1,0 +1,11 @@
+--- a/include/jemalloc/internal/bit_util.h
++++ b/include/jemalloc/internal/bit_util.h
+@@ -87,7 +87,7 @@ pow2_ceil_u64(uint64_t x) {
+ 		return x;
+ 	}
+ 	size_t msb_on_index;
+-#if (defined(__amd64__) || defined(__x86_64__))
++#if (!defined(__ILP32__) && (defined(__amd64__) || defined(__x86_64__)))
+ 	asm ("bsrq %1, %0"
+ 			: "=r"(msb_on_index) // Outputs.
+ 			: "r"(x-1)           // Inputs.

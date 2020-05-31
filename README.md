@@ -125,6 +125,7 @@ used to build perl)
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
 * dev-libs/jemalloc
     * Correct library version used when calling `install_name_tool`
+    * Don't use (64-bit) assembly when `__ILP32__` is defined
 * dev-libs/libksba
     * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
 * dev-libs/liblinear
@@ -506,7 +507,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * app-crypt/mit-krb5
     * Ensure that AES assembly is built for x32 rather than amd64
 * app-antivirus/clamav
-    * Don't use (64-bit) assembly if `__ILP32__` is defined
+    * Don't use (64-bit) assembly when `__ILP32__` is defined
 * dev-db/libdbi-drivers
     * Add required `--with-dbi-libdir` option
 * dev-db/mariadb
@@ -528,7 +529,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-apps/baselayout
     * Don't error-out if using `lib32` for x32 libraries
 * ~~sys-apps/cpuid~~
-    * ~~Don't use 64-bit assembly if `__ILP32__` is defined~~
+    * ~~Don't use 64-bit assembly when `__ILP32__` is defined~~
 * sys-devel/binutils
     * Allow `LIBDIR_*` variables to override hard-coded default directory locations
 * sys-devel/gcc
