@@ -5,7 +5,7 @@ EAPI=7
 
 CMAKE_MAKEFILE_GENERATOR="emake"
 CMAKE_REMOVE_MODULES_LIST=( none )
-inherit bash-completion-r1 cmake elisp-common flag-o-matic multiprocessing toolchain-funcs virtualx xdg
+inherit bash-completion-r1 cmake elisp-common flag-o-matic multiprocessing toolchain-funcs virtualx xdg-utils
 
 MY_P="${P/_/-}"
 
@@ -137,7 +137,7 @@ src_prepare() {
 
 	# Add gcc libs to the default link paths
 	sed -i \
-		-e "s|@GENTOO_PORTAGE_GCCLIBDIR@|${EPREFIX}/usr/${CHOST}/$(get_libdir)/|g" \
+		-e "s|@GENTOO_PORTAGE_GCCLIBDIR@|${EPREFIX}/usr/${CHOST}/lib/|g" \
 		-e "$(usex prefix-guest "s|@GENTOO_HOST@||" "/@GENTOO_HOST@/d")" \
 		-e "s|@GENTOO_PORTAGE_EPREFIX@|${EPREFIX}/|g" \
 		Modules/Platform/{UnixPaths,Darwin}.cmake || die "sed failed"
@@ -233,16 +233,20 @@ src_install() {
 	rm -r "${ED}"/usr/share/cmake/{completions,editors} || die
 }
 
-pkg_preinst() {
-	use qt5 && xdg_pkg_preinst
-}
-
 pkg_postinst() {
 	use emacs && elisp-site-regen
-	use qt5 && xdg_pkg_postinst
+	if use qt5; then
+		xdg_icon_cache_update
+		xdg_desktop_database_update
+		xdg_mimeinfo_database_update
+	fi
 }
 
 pkg_postrm() {
 	use emacs && elisp-site-regen
-	use qt5 && xdg_pkg_postrm
+	if use qt5; then
+		xdg_icon_cache_update
+		xdg_desktop_database_update
+		xdg_mimeinfo_database_update
+	fi
 }
