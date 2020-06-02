@@ -12,13 +12,11 @@ SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
 LICENSE="GPL-2"
 SLOT="0/11" # libnftnl.so version
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv sparc x86"
-IUSE="examples json static-libs test xml"
+IUSE="examples static-libs test"
 
 RESTRICT="!test? ( test )"
 
-RDEPEND=">=net-libs/libmnl-1.0.3
-	xml? ( >=dev-libs/mxml-2.6 )
-	json? ( >=dev-libs/jansson-2.3 )"
+RDEPEND=">=net-libs/libmnl-1.0.3"
 BDEPEND="virtual/pkgconfig"
 DEPEND="${RDEPEND}"
 
@@ -34,8 +32,6 @@ pkg_setup() {
 src_configure() {
 	local myeconfargs=(
 		$(use_enable static-libs static)
-		$(use_with xml xml-parsing)
-		$(use_with json json-parsing)
 	)
 	econf "${myeconfargs[@]}"
 }
