@@ -33,7 +33,8 @@ PATCH_DEV=dilfridge
 SRC_URI+=" https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 SRC_URI+=" multilib? ( https://dev.gentoo.org/~dilfridge/distfiles/gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz )"
 
-IUSE="audit caps cet compile-locales +crypt custom-cflags doc gd headers-only +multiarch multilib nscd profile selinux +ssp +static-libs suid systemd systemtap test +tmpfiles vanilla"
+IUSE="audit caps cet compile-locales +crypt custom-cflags doc gd headers-only +multiarch multilib nscd profile selinux +ssp +static-libs suid systemd systemtap test -timezone-tools +tmpfiles vanilla"
+REQUIRED_USE="vanilla? ( timezone-tools )"
 
 # Minimum kernel version that glibc requires
 MIN_KERN_VER="3.2.0"
@@ -123,9 +124,9 @@ else
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
 		>=net-dns/libidn2-2.3.0
-		vanilla? ( !sys-libs/timezone-data )
+		timezone-tools? ( !sys-libs/timezone-data )
 	"
-	PDEPEND+=" !vanilla? ( sys-libs/timezone-data )"
+	PDEPEND+=" !timezone-tools? ( sys-libs/timezone-data )"
 fi
 
 # Ignore tests whitelisted below
@@ -984,7 +985,7 @@ glibc_do_configure() {
 	)
 
 	# We rely on sys-libs/timezone-data for timezone tools normally.
-	myconf+=( $(use_enable vanilla timezone-tools) )
+	myconf+=( $(use_enable timezone-tools) )
 
 	# These libs don't have configure flags.
 	ac_cv_lib_audit_audit_log_user_avc_message=$(usex audit || echo no)
