@@ -12,7 +12,7 @@ SRC_URI="https://www.clamav.net/downloads/production/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ppc ppc64 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~sparc-solaris ~x86-solaris"
-IUSE="bzip2 clamdtop clamsubmit doc iconv ipv6 libclamav-only libressl milter metadata-analysis-api selinux static-libs systemd test uclibc xml"
+IUSE="bzip2 clamdtop clamsubmit doc iconv ipv6 libclamav-only libressl metadata-analysis-api milter selinux static-libs systemd test uclibc xml"
 
 REQUIRED_USE="libclamav-only? ( !clamdtop !clamsubmit !milter !metadata-analysis-api )"
 

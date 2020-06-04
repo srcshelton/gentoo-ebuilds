@@ -54,7 +54,6 @@ PATCHES=(
 
 src_prepare() {
 	default
-
 	eautoconf
 }
 
