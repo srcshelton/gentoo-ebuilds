@@ -1,0 +1,105 @@
+--- a/src/becomenonroot.c
++++ b/src/becomenonroot.c
+@@ -51,6 +51,7 @@
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <string.h>
+ #include <pwd.h>
+ #include <grp.h>
+ #include <syslog.h>
+--- a/src/main.c
++++ b/src/main.c
+@@ -258,6 +258,7 @@
+ 
+ static int verify_callback( int, X509_STORE_CTX *);
+ static int set_cert_stuff( SSL_CTX *, const char *, const char * );
++int Attempt_STARTTLS( ITD_Struct * );
+ #endif
+ 
+ #ifdef HAVE_LIBWRAP
+@@ -1059,9 +1060,9 @@
+ 		strerror(errno));
+ 		exit( 1 );
+ 	}
+-	close(2); dup(i);
+-	close(1); dup(i);
+-	close(0); dup(i);
++	close(2); (void) !dup(i);
++	close(1); (void) !dup(i);
++	close(0); (void) !dup(i);
+ 	close(i);
+     }
+     else
+--- a/src/request.c
++++ b/src/request.c
+@@ -188,6 +188,7 @@
+ static int cmd_resetcounters( ITD_Struct *, char * );
+ static int cmd_version( ITD_Struct *, char * );
+ static int Raw_Proxy( ITD_Struct *, ITD_Struct *, ISC_Struct * );
++void ICC_Invalidate ( ICC_Struct * );
+ 
+ 
+ 
+@@ -515,7 +516,7 @@
+     if ( !Username )
+     {
+ 	snprintf( SendBuf, BufLen, "\n\n-----> C= %d %s PROXY: user tracing disabled. Expect further output until client logout.\n", (int)time(0), TraceUser );
+-	write( Tracefd, SendBuf, strlen( SendBuf ) );
++	(void) !write( Tracefd, SendBuf, strlen( SendBuf ) );
+ 	
+ 	memset( TraceUser, 0, sizeof TraceUser );
+ 	snprintf( SendBuf, BufLen, "%s OK Tracing disabled\r\n", Tag );
+@@ -560,7 +561,7 @@
+     }
+ 
+     snprintf( SendBuf, BufLen, "\n\n-----> C= %d %s PROXY: user tracing enabled.\n", (int)time(0), TraceUser );
+-    write( Tracefd, SendBuf, strlen( SendBuf ) );
++    (void) !write( Tracefd, SendBuf, strlen( SendBuf ) );
+     
+     UnLockMutex( &trace );
+     return( 0 );
+@@ -1290,8 +1291,8 @@
+ 	    {
+ 		snprintf( TraceBuf, sizeof TraceBuf - 1, "\n\n-----> C= %d %s SERVER: sd [%d]\n",
+ 		    (int)time(0), ( (*TraceUser) ? TraceUser : "Null username" ), Server->conn->sd );
+-		write( Tracefd, TraceBuf, strlen( TraceBuf ) );
+-		write( Tracefd, Server->ReadBuf, status );
++		(void) !write( Tracefd, TraceBuf, strlen( TraceBuf ) );
++		(void) !write( Tracefd, Server->ReadBuf, status );
+ 	    }
+ 	    
+ 	    /* whatever we read from the server, ship off to the client */
+@@ -1336,8 +1337,8 @@
+ 		if ( Client->TraceOn )
+ 		{
+ 		    snprintf( TraceBuf, sizeof TraceBuf - 1, "\n\n-----> C= %d %s CLIENT: sd [%d]\n", (int)time(0), ( (*TraceUser) ? TraceUser : "Null username" ), Client->conn->sd );
+-		    write( Tracefd, TraceBuf, strlen( TraceBuf ) );
+-		    write( Tracefd, Client->ReadBuf, status );
++		    (void) !write( Tracefd, TraceBuf, strlen( TraceBuf ) );
++		    (void) !write( Tracefd, Client->ReadBuf, status );
+ 		}
+ 		
+ 	    
+@@ -1498,8 +1499,8 @@
+ 		if ( Server->TraceOn )
+ 		{
+ 		    snprintf( TraceBuf, sizeof TraceBuf - 1, "\n\n-----> C= %d %s SERVER: sd [%d]\n", (int)time(0), ( (*TraceUser) ? TraceUser : "Null username" ), Server->conn->sd );
+-		    write( Tracefd, TraceBuf, strlen( TraceBuf ) );
+-		    write( Tracefd, Server->ReadBuf, status );
++		    (void) !write( Tracefd, TraceBuf, strlen( TraceBuf ) );
++		    (void) !write( Tracefd, Server->ReadBuf, status );
+ 		}
+ 
+ 		if ( Server->ReadBuf[0] != '+' )
+@@ -1533,8 +1534,8 @@
+ 		if ( Client->TraceOn )
+ 		{
+ 		    snprintf( TraceBuf, sizeof TraceBuf - 1, "\n\n-----> C= %d %s CLIENT: sd [%d]\n", (int)time(0), ( (*TraceUser) ? TraceUser : "Null username" ), Client->conn->sd );
+-		    write( Tracefd, TraceBuf, strlen( TraceBuf ) );
+-		    write( Tracefd, Client->ReadBuf, status );
++		    (void) !write( Tracefd, TraceBuf, strlen( TraceBuf ) );
++		    (void) !write( Tracefd, Client->ReadBuf, status );
+ 		}
+ 		
+ 		/* send any literal data back to the server */

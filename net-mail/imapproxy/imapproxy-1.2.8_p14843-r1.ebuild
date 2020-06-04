@@ -1,14 +1,14 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=7
 
 WANT_AUTOCONF="2.1"
 inherit autotools eutils toolchain-funcs
 
 DESCRIPTION="Proxy IMAP transactions between an IMAP client and an IMAP server"
 HOMEPAGE="https://sourceforge.net/projects/squirrelmail/"
-SRC_URI="https://sourceforge.net/code-snapshots/svn/s/sq/squirrelmail/code/squirrelmail-code-${PR}-trunk.zip"
+SRC_URI="https://sourceforge.net/code-snapshots/svn/s/sq/squirrelmail/code/squirrelmail-code-r${PV#*_p}-trunk.zip"
 RESTRICT="mirror"
 
 LICENSE="GPL-2"
@@ -22,13 +22,19 @@ RDEPEND="sys-libs/ncurses
 	tcpd? ( >=sys-apps/tcp-wrappers-7.6 )"
 DEPEND="${RDEPEND}
 	sys-apps/sed"
+BDEPEND="app-arch/unzip"
 
-S="${WORKDIR}/squirrelmail-code-${PR}-trunk/imap_proxy"
+S="${WORKDIR}/squirrelmail-code-r${PV#*_p}-trunk/imap_proxy"
+
+PATCHES=(
+	"${FILESDIR}/${P%_p*}"-tinfo.patch
+	"${FILESDIR}/${P%_p*}"-aarch64.patch
+	"${FILESDIR}/${P%_p*}"-ssl.patch
+	"${FILESDIR}/${P%_p*}"-warnings.patch
+)
 
 src_prepare() {
-	epatch "${FILESDIR}/${P}"-tinfo.patch
-	epatch "${FILESDIR}/${P}"-aarch64.patch
-	epatch "${FILESDIR}/${P}"-ssl.patch
+	default
 
 	sed -i \
 		-e 's:in\.imapproxyd:imapproxyd:g' \
