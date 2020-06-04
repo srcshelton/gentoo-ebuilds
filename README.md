@@ -429,6 +429,7 @@ directory is an additional QA check which reports an error if files deployed to
     * Prevent binary merges from failing due to assumptions about build files being present
 * mail-filter/spamassassin
 * net-mail/dovecot
+* net-analyzer/arpwatch
 * net-analyzer/darkstat
 * net-analyzer/iptraf-ng
 * net-analyzer/nagios-core
