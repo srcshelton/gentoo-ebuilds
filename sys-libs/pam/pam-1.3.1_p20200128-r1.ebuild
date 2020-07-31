@@ -7,11 +7,13 @@ inherit autotools db-use fcaps toolchain-funcs usr-ldscript multilib-minimal
 
 DESCRIPTION="Linux-PAM (Pluggable Authentication Modules)"
 HOMEPAGE="https://github.com/linux-pam/linux-pam"
-SRC_URI="https://github.com/linux-pam/linux-pam/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+
+COMMIT_HASH="4dd9b97b762cc73816cb867d49c9d0d0b91d642c"
+SRC_URI="https://github.com/linux-pam/linux-pam/archive/${COMMIT_HASH}.tar.gz#/${PN}-${COMMIT_HASH}.tar.gz"
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="audit berkdb +cracklib debug nis +pie selinux static-libs +tmpfiles vim-syntax"
 
 BDEPEND="app-text/docbook-xml-dtd:4.1.2
@@ -36,7 +38,7 @@ RDEPEND="${DEPEND}"
 
 PDEPEND="sys-auth/pambase"
 
-S="${WORKDIR}/linux-${P}"
+S="${WORKDIR}/linux-${PN}-${COMMIT_HASH}"
 
 src_prepare() {
 	default
@@ -57,9 +59,12 @@ multilib_src_configure() {
 
 	local myconf=(
 		--with-db-uniquename=-$(db_findver sys-libs/db)
+		--with-xml-catalog="${EPREFIX%/}/etc/xml/catalog"
 		--enable-securedir="${EPREFIX%/}/$(get_libdir)/security"
-		--libdir=/usr/$(get_libdir)
+		--libdir="${EPREFIX%/}/usr/$(get_libdir)"
+		--exec-prefix="${EPREFIX}"
 		--disable-prelude
+		--enable-doc
 		$(use_enable audit)
 		$(use_enable berkdb db)
 		$(use_enable cracklib)
@@ -79,7 +84,7 @@ multilib_src_compile() {
 
 multilib_src_install() {
 	emake DESTDIR="${D}" install \
-		sepermitlockdir="${EPREFIX}/var/run/sepermit"
+		sepermitlockdir="${EPREFIX%/}/var/run/sepermit"
 
 	gen_usr_ldscript -a pam pam_misc pamc
 }
