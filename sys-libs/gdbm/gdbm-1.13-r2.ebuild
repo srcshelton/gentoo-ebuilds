@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit autotools flag-o-matic multilib multilib-minimal multilib-minimal
+inherit autotools flag-o-matic multilib multilib-minimal
 
 EX_P="${PN}-1.8.3"
 DESCRIPTION="Standard GNU database libraries"
