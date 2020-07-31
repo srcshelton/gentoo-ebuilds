@@ -1,0 +1,58 @@
+From 10678c0ed75ca1f1570a60b81e73065f6bf9d412 Mon Sep 17 00:00:00 2001
+From: Matthew Heon <mheon@redhat.com>
+Date: Wed, 8 Jul 2020 13:19:25 -0400
+Subject: [PATCH] Fix a bug where --pids-limit was parsed incorrectly
+
+The --pids-limit flag was using strconv.ParseInt with bad
+arguments, resulting in it being unable to parse standard
+integers (1024, for example, would produce an 'out of range'
+error).
+
+Change the arguments to make sense (base 10, max 32-bit) and
+add a test to ensure we don't regress again.
+
+Fixes #6908
+
+Signed-off-by: Matthew Heon <mheon@redhat.com>
+---
+ cmd/podman/containers/create.go |  2 +-
+ test/e2e/run_test.go            | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/cmd/podman/containers/create.go b/cmd/podman/containers/create.go
+index cebf0fa4ba..10761be337 100644
+--- a/cmd/podman/containers/create.go
++++ b/cmd/podman/containers/create.go
+@@ -202,7 +202,7 @@ func createInit(c *cobra.Command) error {
+ 	}
+ 	if c.Flags().Changed("pids-limit") {
+ 		val := c.Flag("pids-limit").Value.String()
+-		pidsLimit, err := strconv.ParseInt(val, 0, 10)
++		pidsLimit, err := strconv.ParseInt(val, 10, 32)
+ 		if err != nil {
+ 			return err
+ 		}
+diff --git a/test/e2e/run_test.go b/test/e2e/run_test.go
+index fa52d2d05a..e3729d1c30 100644
+--- a/test/e2e/run_test.go
++++ b/test/e2e/run_test.go
+@@ -1015,4 +1015,19 @@ USER mail`
+ 			Expect(session.ExitCode()).To(Equal(0))
+ 		}
+ 	})
++
++	It("podman run verify pids-limit", func() {
++		cgroupsv2, err := cgroups.IsCgroup2UnifiedMode()
++		Expect(err).To(BeNil())
++
++		If(!cgroupsv2) {
++			Skip("Test requires cgroups v2 to be enabled")
++		}
++
++		limit := "4321"
++		session := podmanTest.Podman([]string{"run", "--pids-limit", limit, "--rm", ALPINE, "cat", "/sys/fs/cgroup/pids.max"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		Expect(session.OutputToString()).To(ContainSubstring(limit))
++	})
+ })

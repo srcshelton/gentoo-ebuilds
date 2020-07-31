@@ -1,0 +1,14 @@
+--- a/Makefile
++++ b/Makefile
+@@ -146,9 +146,9 @@
+ 	ln -sfn "$(CURDIR)" "$(GOPKGDIR)"
+ endif
+
+-ifneq (,$(findstring varlink,$(BUILDTAGS)))
++#ifneq (,$(findstring varlink,$(BUILDTAGS)))
+ 	ln -sfn "$(CURDIR)/vendor/github.com/varlink" "$(FIRST_GOPATH)/src/github.com/varlink"
+-endif
++#endif 
+ 	touch $@
+
+ .PHONY: lint

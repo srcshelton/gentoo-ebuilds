@@ -3,19 +3,21 @@
 
 EAPI=7
 
-EGIT_COMMIT="5d44534fff6877b1cb15b760242279ae6293154c"
+EGIT_COMMIT="5460ea87d48ea6c10a5ef3c753c57e27b3356aae"
+CATATONIT_VERSION='0.1.5'
 
 inherit bash-completion-r1 flag-o-matic go-module
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/libpod/"
-SRC_URI="https://github.com/containers/libpod/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
+SRC_URI="https://github.com/containers/libpod/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
+	https://github.com/openSUSE/catatonit/archive/v${CATATONIT_VERSION}.tar.gz -> catatonit-${CATATONIT_VERSION}.tar.gz"
+LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 GPL-3+ ISC MIT MPL-2.0"
 SLOT="0"
 
 KEYWORDS="~amd64"
-IUSE="apparmor btrfs +fuse +rootless selinux"
-RESTRICT="test"
+IUSE="apparmor btrfs +fuse +rootless selinux systemd"
+RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
@@ -32,11 +34,20 @@ COMMON_DEPEND="
 	rootless? ( app-emulation/slirp4netns )
 	selinux? ( sys-libs/libselinux:= )
 "
-DEPEND="
-	${COMMON_DEPEND}
+BDEPEND="
+	dev-vcs/git
+	systemd? ( sys-apps/systemd )"
+DEPEND="${COMMON_DEPEND}
 	dev-go/go-md2man"
 RDEPEND="${COMMON_DEPEND}
 	fuse? ( sys-fs/fuse-overlayfs )"
+
+PATCHES=(
+	"${FILESDIR}"/libpod-2.0.0_rc4-varlink.patch 
+	"${FILESDIR}"/libpod-2.0.0_rc7-imagebuilder.patch 
+)
+
+S="${WORKDIR}/${P/_/-}"
 
 src_prepare() {
 	default
@@ -49,12 +60,27 @@ src_prepare() {
 		-e 's/^\(install:.*\) install\.python$/\1/'
 	)
 
+	use systemd || makefile_sed_args+=(
+		-e '/install.*SYSTEMDDIR/ s:^:#:'
+		-e '/install.*TMPFILESDIR/ s:^:#:'
+		-e 's/^\(install:.*\) install\.systemd$/\1/'
+	)
+
 	has_version -b '>=dev-lang/go-1.13.9' || makefile_sed_args+=(-e 's:GO111MODULE=off:GO111MODULE=on:')
 
 	sed "${makefile_sed_args[@]}" -i Makefile || die
 
 	sed -e 's|OUTPUT="${CIRRUS_TAG:.*|OUTPUT='v${PV}'|' \
 		-i hack/get_release_info.sh || die
+
+	# Revert broken buildah-1.15.0 to buildah-1.14.10 (as 1.15.0-dev no longer exists)
+	cat /dev/null > "${S}"/go.sum
+	sed -i \
+		-e '/buildah/ s|1\.15\.0|1.14.10|' \
+		"${S}"/docs/source/markdown/podman-info.1.md \
+		"${S}"/vendor/modules.txt \
+		"${S}"/go.mod \
+	|| die "buildah reversion failed: ${?}"
 }
 
 src_compile() {
@@ -83,9 +109,46 @@ src_compile() {
 		echo -e "#!/bin/sh\ntrue" > hack/selinux_tag.sh || die
 	fi
 
+	[[ -f hack/systemd_tag.sh ]] || die
+	if use systemd; then
+		echo -e "#!/bin/sh\necho systemd" > hack/systemd_tag.sh || die
+	else
+		echo -e "#!/bin/sh\ntrue" > hack/systemd_tag.sh || die
+	fi
+
+	[[ -f hack/install_catatonit.sh ]] || die
+	cat > hack/install_catatonit.sh <<-EOF
+		#!/bin/bash -ux
+		BASE_PATH="/usr/libexec/podman"
+		CATATONIT_PATH="\${BASE_PATH}/catatonit"
+		CATATONIT_VERSION="v${CATATONIT_VERSION}"
+
+		if [ -f \$CATATONIT_PATH ]; then
+				echo "skipping ... catatonit is already installed"
+		else
+				echo "installing catatonit to \$CATATONIT_PATH"
+				#buildDir=\$(mktemp -d)
+				#git clone https://github.com/openSUSE/catatonit.git \$buildDir
+				buildDir="${WORKDIR}/catatonit-${CATATONIT_VERSION}"
+
+				pushd \$buildDir
+				echo \$( pwd )
+				#git reset --hard \${CATATONIT_VERSION}
+				autoreconf -fiv
+				./configure
+				make
+				install \${SELINUXOPT} -d -m 755 "${D%/}"/\$BASE_PATH
+				install \${SELINUXOPT} -m 755 catatonit "${D%/}"/\$CATATONIT_PATH
+				popd
+
+				#rm -rf \$buildDir
+		fi
+	EOF
+	sed -e '/\.\/hack\/install_catatonit\.sh$/ s|\.|SELINUXOPT="${SELINUXOPT}" .|' -i Makefile || die
+
 	export -n GOCACHE GOPATH XDG_CACHE_HOME
 	GOBIN="${S}/bin" \
-		emake all \
+		emake all install.catatonit \
 			GIT_BRANCH=master \
 			GIT_BRANCH_CLEAN=master \
 			COMMIT_NO="${EGIT_COMMIT}" \
@@ -93,7 +156,7 @@ src_compile() {
 }
 
 src_install() {
-	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
+	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install install.catatonit
 
 	insinto /etc/containers
 	newins test/registries.conf registries.conf.example
