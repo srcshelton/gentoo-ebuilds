@@ -90,6 +90,7 @@ stop() {
 		--exec java				\
 		--pidfile "${pidfile}"			\
 		--user unifi:unifi			\
+		--retry 'TERM/10/KILL/2'		\
 		--progress
 	eend ${?} "Stopping acr.jar failed: ${?}"
 }
