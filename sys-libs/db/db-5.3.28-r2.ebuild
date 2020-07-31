@@ -30,7 +30,7 @@ done
 LICENSE="Sleepycat"
 SLOT="5.3"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="doc java cxx tcl test"
+IUSE="-sep-usr doc java cxx tcl test"
 
 REQUIRED_USE="test? ( tcl )"
 
@@ -38,9 +38,10 @@ REQUIRED_USE="test? ( tcl )"
 DEPEND="tcl? ( >=dev-lang/tcl-8.5.15-r1:0=[${MULTILIB_USEDEP}] )
 	test? ( >=dev-lang/tcl-8.5.15-r1:0=[${MULTILIB_USEDEP}] )
 	java? ( >=virtual/jdk-1.5 )
-	|| ( sys-devel/binutils-apple
-		 sys-devel/native-cctools
-		 >=sys-devel/binutils-2.16.1
+	|| (
+		sys-devel/binutils-apple
+		sys-devel/native-cctools
+		>=sys-devel/binutils-2.16.1
 	)"
 RDEPEND="tcl? ( >=dev-lang/tcl-8.5.15-r1:0=[${MULTILIB_USEDEP}] )
 	java? ( >=virtual/jre-1.5 )"
@@ -227,20 +228,12 @@ multilib_src_install() {
 
 	db_src_install_usrlibcleanup
 
-	if multilib_is_native_abi ; then
-		if use java ; then
-			local ext=so
-			[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
-			java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
-			java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
-			rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
-		fi
-
-		einfo "Generating library links for 'db-$(ver_cut 1-2)' ..."
-		#gen_usr_ldscript -a "db-$(ver_cut 1-2)" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
-		dodir "/$(get_libdir)"
-		mv "${ED%/}/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so" "${ED%/}/$(get_libdir)/"
-		gen_usr_ldscript "libdb-$(ver_cut 1-2).so" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
+	if multilib_is_native_abi && use java ; then
+		local ext=so
+		[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
+		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
+		java-pkg_dojar "${ED}"/usr/"$(get_libdir)"/*.jar
+		rm -f "${ED}"/usr/"$(get_libdir)"/*.jar
 	fi
 }
 
@@ -259,6 +252,32 @@ multilib_src_install_all() {
 
 pkg_postinst() {
 	multilib_foreach_abi db_fix_so
+
+	if use sep-usr; then
+		ewarn "Relocation of 'libdb-$(ver_cut 1-2).so' from '/usr/$(get_libdir)' to '/$(get_libdir)'"
+		ewarn "work correctly and dependent applications can build against libdb - but every"
+		ewarn "linked application will always show has causing the preservation of the actual"
+		ewarn "library in '/$(get_libdir)', and rebuilding these packages won't fix this :("
+		# ... but only if the library isn't in /lib?  Doesn't seem to be an issue on 32bit systems...
+		# Update: 32bit x86 is okay, 32bit ARM isn't.
+
+		if [[ -f "/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so" ]]; then
+			einfo "Generating library links for 'db-$(ver_cut 1-2)' ..."
+			#gen_usr_ldscript -a "db-$(ver_cut 1-2)" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
+			#gen_usr_ldscript "libdb-$(ver_cut 1-2).so" || die "Unable to relocate libdb-$(ver_cut 1-2).so"
+			dodir "/$(get_libdir)"
+			mv "/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so" "/$(get_libdir)/" || die
+			if [[ ! -L "/$(get_libdir)" ]] && [[ ! -L "/usr/$(get_libdir)" ]]; then
+				ln -s "../../$(get_libdir)/libdb-$(ver_cut 1-2).so" "/usr/$(get_libdir)/" || die
+			else
+				die "Either or both of '/$(get_libdir)' and '/usr/$(get_libdir)' are a symlink"
+			fi
+			[[ -f "/$(get_libdir)/libdb-$(ver_cut 1-2).so" && -L "/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so" ]] ||
+				die "Library relocation failed"
+		else
+			ewarn "Library '/usr/$(get_libdir)/libdb-$(ver_cut 1-2).so' doesn't exist"
+		fi
+	fi
 }
 
 pkg_postrm() {
