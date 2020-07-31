@@ -88,7 +88,6 @@ BDEPEND="
 	${PYTHON_DEPS}
 	>=app-misc/pax-utils-0.1.10
 	sys-devel/bison
-	!<sys-devel/bison-2.7
 	doc? ( sys-apps/texinfo )
 "
 COMMON_DEPEND="
@@ -795,6 +794,11 @@ src_prepare() {
 		cd "${S}"
 
 		sed -i \
+			-e "/LIBC_SLIBDIR_RTLDDIR/{s:/libx32:/${LDx32:-libx32}:g}" \
+				sysdeps/unix/sysv/linux/x86_64/x32/configure.ac \
+			|| die 'configure.ac patch failed'
+
+		sed -i \
 			-e "s:/libx32:/${LDx32:-libx32}:g" \
 				sysdeps/unix/sysv/linux/x86_64/x32/configure \
 			|| die 'configure patch failed'
@@ -1271,19 +1275,22 @@ glibc_do_src_install() {
 	# Make sure the non-native interp can be found on multilib systems even
 	# if the main library set isn't installed into the right place.  Maybe
 	# we should query the active gcc for info instead of hardcoding it ?
+	local LD32="$( get_abi_LIBDIR x86 )"
+	local LDx32="$( get_abi_LIBDIR x32 )"
+	local LD64="$( get_abi_LIBDIR amd64 )"
 	local i ldso_abi ldso_name
 	local ldso_abi_list=(
 		# x86
-		amd64   /lib64/ld-linux-x86-64.so.2
-		x32     /libx32/ld-linux-x32.so.2
-		x86     /lib/ld-linux.so.2
+		amd64   /${LD64}/ld-linux-x86-64.so.2
+		x32     /${LDx32}/ld-linux-x32.so.2
+		x86     /${LD32}/ld-linux.so.2
 		# mips
-		o32     /lib/ld.so.1
-		n32     /lib32/ld.so.1
-		n64     /lib64/ld.so.1
+		o32     /${LD32}/ld.so.1
+		n32     /${LDx32}/ld.so.1
+		n64     /${LD64}/ld.so.1
 		# powerpc
-		ppc     /lib/ld.so.1
-		ppc64   /lib64/ld64.so.1
+		ppc     /${LD32}/ld.so.1
+		ppc64   /${LD64}/ld64.so.1
 		# riscv
 		lp64d   /lib/ld-linux-riscv64-lp64d.so.1
 		lp64    /lib/ld-linux-riscv64-lp64.so.1
@@ -1291,8 +1298,8 @@ glibc_do_src_install() {
 		s390    /lib/ld.so.1
 		s390x   /lib/ld64.so.1
 		# sparc
-		sparc32 /lib/ld-linux.so.2
-		sparc64 /lib64/ld-linux.so.2
+		sparc32 /${LD32}/ld-linux.so.2
+		sparc64 /${LD64}/ld-linux.so.2
 	)
 	case $(tc-endian) in
 	little)
