@@ -9,7 +9,7 @@ MY_PN=${PN}mail
 MY_PV=${PV/_/-}
 MY_P=${MY_PN}-${MY_PV}
 
-PHAR="1.10.6"
+PHAR="1.10.7"
 
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="https://roundcube.net"
