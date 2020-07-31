@@ -203,6 +203,8 @@ used to build perl)
 
 # Out-of-tree ebuilds
 
+* acct-group/hugetlb
+    * Consistent group for sys-libs/libhugetlbfs
 * app-accessibility/svox-pico
     * SVOX Pico TTS (aka 'pico2wave'), required by >www-apps/nabaztaglives-2.2.0
 * app-admin/checkrestart-ng
