@@ -11,22 +11,16 @@ SRC_URI=""
 LICENSE="BSD"
 SLOT="0/1"
 KEYWORDS="~aarch64 arm -*"
-IUSE="-containers examples tools"
-
-DEPEND=""
-RDEPEND=""
+IUSE="-containers examples tools udev"
 
 EGIT_REPO_URI="https://github.com/raspberrypi/userland"
 
+PATCHES=(
+	"${FILESDIR}"/${P}-pid.patch
+)
+
 pkg_setup() {
 	append-ldflags $(no-as-needed)
-}
-
-src_prepare() {
-	# Not required after commit d9ffcca70e730c02059591035bce4439341f4175 on the 16th April...
-	#epatch "${FILESDIR}"/${P}-gnu_source.patch
-
-	epatch "${FILESDIR}"/${P}-pid.patch
 }
 
 src_configure() {
@@ -65,6 +59,11 @@ src_install() {
 		"${ED}"/usr/$(get_libdir)/raspberrypi/plugins/
 	rmdir "${ED}"/usr/lib/plugins
 
+	if use udev; then
+		insinto /$(get_udevdir)/rules.d
+		doins "${FILESDIR}"/92-local-vchiq-permissions.rules
+	fi
+
 	if use examples; then
 		dodir /usr/share/doc/${PF}
 		mv "${ED}"/usr/src/hello_pi "${ED}"/usr/share/doc/${PF}/
@@ -95,3 +94,5 @@ pkg_postinst() {
 	ewarn "additionally required for certain closed-source components such as"
 	ewarn "the VideoCore IV debugging tool 'vcdbg'."
 }
+
+# vi: set diffopt=iwhite,filler:

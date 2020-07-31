@@ -13,13 +13,9 @@ SLOT="0"
 KEYWORDS="~aarch64 arm -*"
 IUSE="examples udev"
 
-DEPEND=""
-RDEPEND=""
-
 EGIT_REPO_URI="https://github.com/raspberrypi/userland"
 
 PATCHES=(
-	"${FILESDIR}"/${P}-gentoo.patch
 	"${FILESDIR}"/${P}-pid.patch
 )
 
