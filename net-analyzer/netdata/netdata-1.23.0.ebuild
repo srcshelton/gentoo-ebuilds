@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-PYTHON_COMPAT=( python{3_6,3_7,3_8,3_9} )
+PYTHON_COMPAT=( python{3_6,3_7,3_8} )
 
 inherit autotools fcaps linux-info python-single-r1 systemd
 
@@ -12,7 +12,6 @@ if [[ ${PV} == *9999 ]] ; then
 else
 	SRC_URI="https://github.com/netdata/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~amd64 ~x86"
-	RESTRICT="mirror"
 fi
 
 GIT_COMMIT=""
@@ -38,33 +37,50 @@ case "${PV}" in
 	1.8.0)
 		GIT_COMMIT="89ed309252981ddd50f697fde4fe93019cb3e652"
 		;;
-	1.18.1)
-		GIT_COMMIT="697f76c32dfd30eab95592ba3bde117f0867e750"
+	1.9.0)
+		GIT_COMMIT="8e3e6627ccd97959d64bbb4df1f377a39c0e753f"
 		;;
-	1.19.0)
-		GIT_COMMIT="5000257f0171271cb3ee2cf0fe02e8a2154ddf2e"
+	1.10.0)
+		GIT_COMMIT="c92349444f88427d8ddef2fb1ac6c4932cf6c8bb"
 		;;
-	1.20.0)
-		GIT_COMMIT="563284310302c35a700d707b95824d282aebb6e7"
+	1.11.0)
+		GIT_COMMIT="2b16aab3955dea836a06f580c0e111396916d7ef"
 		;;
-	1.21.0)
-		GIT_COMMIT="6931cb80778f104518782d91f4c16dec22e566b6"
+	1.12.0)
+		GIT_COMMIT="d1ebd8a057a45e6fdbc975fbcc4c8e8f9ffedb20"
 		;;
-	1.21.1)
-		GIT_COMMIT="b450a1e9d0f0dbbeff9e56325b5ba120be8b97b2"
+	1.12.2)
+		GIT_COMMIT="01eb819ff49cb918f157c183b7d50c3d925ddb04"
 		;;
-	1.22.0)
-		GIT_COMMIT="84e38198c6f3f5a318626f7362e4bdefa3289084"
+	1.13.0)
+		GIT_COMMIT="f8e0f3ced35509f608f360823c57c19b19eb6164"
+		;;
+	1.14.0)
+		GIT_COMMIT="4f64e8edbdb0d4b68b882aa34474a0156b6ba150"
+		;;
+	1.15.0)
+		GIT_COMMIT="fc8e3bbd451cff1b9dbfee8f213c6e0a5813b5f4"
+		;;
+	1.16.0)
+		GIT_COMMIT="2c4146832061635273d153a5174c85fb1d967d57"
+		;;
+	1.16.1)
+		GIT_COMMIT="deb3623fdccde61207bc21753ac0284ecb259d79"
+		;;
+	1.17.0)
+		GIT_COMMIT="588ce5a7b18999dfa66698cd3a2f005f7a3c31cf"
+		;;
+	1.23.0)
+		GIT_COMMIT="cd19e256d6a0e1338ab09d75bd1e85ede68098d7"
 		;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
 HOMEPAGE="https://github.com/netdata/netdata https://my-netdata.io/"
-PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression cpu_flags_x86_sse2 cups +dbengine fping ipmi +jsonc kinesis mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen"
+IUSE="caps +compression cups +dbengine fping ipmi +jsonc kinesis mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen cpu_flags_x86_sse2"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -113,7 +129,7 @@ RDEPEND="
 	python? (
 		${PYTHON_DEPS}
 		$(python_gen_cond_dep 'dev-python/pyyaml[${PYTHON_MULTI_USEDEP}]')
-		virtual/python-dnspython
+		dev-python/dnspython
 		virtual/python-ipaddress
 		mysql? (
 			|| (
@@ -175,9 +191,6 @@ src_install() {
 	# Remove unneeded .keep files
 	find "${ED}" -name ".keep" -delete || die
 
-	newdoc "${ED}"/usr/libexec/netdata/charts.d/README.md charts.md
-	newdoc "${ED}"/usr/libexec/netdata/plugins.d/README.md plugins.md
-
 	if ! [[ -s "${ED}"/usr/share/netdata/web/version.txt && "$( < "${ED}"/usr/share/netdata/web/version.txt )" != '0' ]]; then
 		if [[ -n "${GIT_COMMIT:-}" ]]; then
 			einfo "Replacing packaged version '$( < "${ED}"/usr/share/netdata/web/version.txt )' with version '${GIT_COMMIT}'"
@@ -200,20 +213,19 @@ src_install() {
 		"${ED}"/usr/libexec/netdata/plugins.d/README.md
 	rmdir -p "${ED}"/var/log/netdata "${ED}"/var/cache/netdata 2>/dev/null
 
-	# netdata includes 'web root owner' settings, but ignores them and fails to
-	# serve its pages if netdata:netdata isn't the owner :(
-	fowners -Rc netdata:netdata /usr/share/"${PN}"/web ||
+	# Moved to init script
+	#fowners -Rc netdata:netdata /var/log/netdata
+	#fowners -Rc netdata:netdata /var/lib/netdata
+
+	fowners -Rc root:netdata /usr/share/netdata/web ||
 		die "Failed settings owners: ${?}"
 
 	insinto /etc/netdata
 	doins system/netdata.conf
 
 	#newinitd system/netdata-openrc "${PN}"
-	newinitd "${FILESDIR}"/"${PN}".initd "${PN}"
+	newinitd "${FILESDIR}"/"${PN}.initd" "${PN}"
 	use systemd && systemd_dounit system/netdata.service
-
-	echo "CONFIG_PROTECT=\"${EPREFIX}/usr/$(get_libdir)/netdata/conf.d\"" > 99netdata
-	doenvd 99netdata
 }
 
 pkg_postinst() {
@@ -221,6 +233,14 @@ pkg_postinst() {
 
 	if use xen ; then
 		fcaps 'cap_dac_override' 'usr/libexec/netdata/plugins.d/xenstat.plugin'
+	fi
+
+	if ! use prefix; then
+		# This should be handled by FILECAPS, but wasn't... plus we want a
+		# fallback.
+		setcap cap_dac_read_search,cap_sys_ptrace+ep "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
+		chmod 4755 "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
+		eerror "Cannot set capabilities or SUID on '/usr/libexec/netdata/plugins.d/apps.plugin'"
 	fi
 
 	if [[ -e "/sys/kernel/mm/ksm/run" ]]; then
@@ -248,11 +268,4 @@ pkg_postinst() {
 		elog "If you can have it, you will save 20-60% of netdata memory."
 	fi
 
-	if ! use prefix; then
-		# This should be handled by FILECAPS, but wasn't... plus we want a
-		# fallback.
-		setcap cap_dac_read_search,cap_sys_ptrace+ep "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
-		chmod 4755 "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
-		eerror "Cannot set capabilities or SUID on '/usr/libexec/netdata/plugins.d/apps.plugin'"
-	fi
 }
