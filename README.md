@@ -6,6 +6,15 @@ Also included is a script named `list-repo-updates.sh`, which will list any
 packages which exist with identical versions in both this repository and the
 main portage tree, but which still have the stock upstream package installed.
 
+# Latest versions of podman container management tools
+
+* app-emulation/buildah
+* app-emulation/catatonit
+* app-emulation/conmon
+* app-emulation/crun
+* app-emulation/skopeo
+* app-emulation/slirp4netns
+
 # Raspberry Pi tools and utilities
 
 * dev-python/raspberrypi-gpio
