@@ -82,6 +82,7 @@ REQUIRED_USE="
 	ssl? ( crypt )
 	plugin-ifdemo? ( plugins )
 "
+RESTRICT="test"
 PATCHES=(
 	"${FILESDIR}"/${PN}-2.4-androiddump.patch
 	"${FILESDIR}"/${PN}-2.6.0-redhat.patch
