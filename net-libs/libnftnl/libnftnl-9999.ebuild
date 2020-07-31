@@ -1,26 +1,32 @@
-# Copyright 1999-2014 Gentoo Foundation
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/net-libs/libnftnl/libnftnl-1.0.0-r2.ebuild,v 1.2 2014/02/01 20:09:06 steev Exp $
 
-EAPI=5
+EAPI=7
 
-inherit autotools base git-r3 linux-info toolchain-funcs
+inherit autotools linux-info toolchain-funcs usr-ldscript
 
 DESCRIPTION="Netlink API to the in-kernel nf_tables subsystem"
-HOMEPAGE="http://netfilter.org/projects/nftables/"
-EGIT_REPO_URI="git://git.netfilter.org/${PN}.git"
+HOMEPAGE="https://netfilter.org/projects/nftables/"
+
+if [[ ${PV} =~ ^[9]{4,}$ ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
+else
+	SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
+fi
 
 LICENSE="GPL-2"
-SLOT="0"
-#KEYWORDS="~amd64 ~arm ~x86"
-KEYWORDS=""
-IUSE="xml json examples static-libs"
+SLOT="0/11" # libnftnl.so version
+IUSE="examples json static-libs test xml"
 
-RDEPEND=">=net-libs/libmnl-1.0.0
+RESTRICT="!test? ( test )"
+
+RDEPEND=">=net-libs/libmnl-1.0.4
 	xml? ( >=dev-libs/mxml-2.6 )
 	json? ( >=dev-libs/jansson-2.3 )"
-DEPEND="virtual/pkgconfig
-	${RDEPEND}"
+BDEPEND="virtual/pkgconfig"
+DEPEND="${RDEPEND}"
 
 pkg_setup() {
 	if kernel_is ge 3 13; then
@@ -32,24 +38,27 @@ pkg_setup() {
 }
 
 src_prepare() {
-	eautoreconf
+	default
+	[[ ${PV} =~ ^[9]{4,}$ ]] && eautoreconf
 }
 
 src_configure() {
-	econf \
-		$(use_enable static-libs static) \
-		$(use_with xml xml-parsing) \
+	local myeconfargs=(
+		$(use_enable static-libs static)
+		$(use_with xml xml-parsing)
 		$(use_with json json-parsing)
+	)
+	econf "${myeconfargs[@]}"
 }
 
 src_install() {
 	default
 	gen_usr_ldscript -a nftnl
-	prune_libtool_files
+	find "${ED}" -type f -name '*.la' -delete || die
 
 	if use examples; then
-		find examples/ -name 'Makefile*' -delete
-		dodoc -r examples/
+		find examples/ -name 'Makefile*' -delete || die "Could not rm examples"
+		dodoc -r examples
 		docompress -x /usr/share/doc/${PF}/examples
 	fi
 }
