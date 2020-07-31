@@ -374,6 +374,8 @@ used to build perl)
     * Incorporate patches to allow interface discovery (rather than assuming that `eth0` is the primary interface, the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-detected), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that a PPPoE link can retain a full 1500-byte MTU
 * net-dns/avahi
     * Prevent build from incorrectly creating `/run` directory
+* net-dns/dnscrypt-proxy
+    * Move binary to /sbin
 * net-dns/dnstop
     * build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support
 * net-firewall/ebtables
