@@ -9,6 +9,7 @@ DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
+IUSE="+rpi4"
 
 # Temporary safety measure to prevent ending up with a pair of
 # sys-kernel/raspberrypi-image and sys-boot/raspberrypi-firmware
@@ -16,36 +17,24 @@ SLOT="0"
 # Remove when the mentioned version and all older ones are deleted.
 RDEPEND="!<=sys-kernel/raspberrypi-image-4.19.57_p20190709"
 
-if [[ "${PV}" == 9999 ]]; then
+if [[ "${PV}" == *9999 ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-	EGIT_CLONE_TYPE="shallow"
+	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
+							  # only ~200MB of data - the rest is (literally)
+							  # history :(
+	if ! [[ "${PV}" == 9999 ]]; then
+		EGIT_BRANCH="stable"
+	fi
 else
 	SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="-* ~arm ~arm64"
+	KEYWORDS="-* ~arm64 ~arm"
 	S="${WORKDIR}/firmware-${PV}"
 fi
 
-RESTRICT="binchecks strip"
+RESTRICT="binchecks mirror strip"
 
-pkg_preinst() {
-	if [ -z "${REPLACING_VERSIONS}" ] ; then
-		local msg=""
-		if [ -e "${D}"/boot/cmdline.txt -a -e /boot/cmdline.txt ] ; then
-			msg+="/boot/cmdline.txt "
-		fi
-		if [ -e "${D}"/boot/config.txt -a -e /boot/config.txt ] ; then
-			msg+="/boot/config.txt "
-		fi
-		if [ -n "${msg}" ] ; then
-			msg="This package installs following files: ${msg}."
-			msg="${msg} Please remove(backup) your copies durning install"
-			msg="${msg} and merge settings afterwards."
-			msg="${msg} Further updates will be CONFIG_PROTECTed."
-			die "${msg}"
-		fi
-	fi
-}
+DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
 
 pkg_setup() {
 	local state boot="${RASPBERRYPI_BOOT:-/boot}"
@@ -55,6 +44,8 @@ pkg_setup() {
 	[[ "${boot}" == "${boot// }" ]] || die "Invalid value '${boot}' for control variable 'RASPBERRYPI_BOOT'"
 	[[ "${boot:0:1}" == "/" ]] || die "Invalid value '${boot}' for control variable 'RASPBERRYPI_BOOT': Value must be absolute path"
 	boot="$( readlink -e "${boot}" )" || die "readlink failed: ${?}"
+
+	export RASPBERRYPI_BOOT="${boot}"
 
 	if [[ -z "${RASPBERRYPI_BOOT:-}" ]]; then
 		ewarn "This ebuild assumes that your FAT32 firmware/boot partition is"
@@ -75,92 +66,43 @@ pkg_setup() {
 			die "Please set the RASPBERRYPI_BOOT environment variable in /etc/portage/make.conf"
 		fi
 
-		#state="$( cut -d' ' -f 2-4 /proc/mounts 2>/dev/null | grep -E "^${boot} (u?msdos|v?fat) " | grep -Eo '[ ,]r[ow](,|$)' | sed 's/[ ,]//g' )"
-		#case "${state}" in
-		#	rw)
-		#		:
-		#		;;
-		#	ro)
-		#		die "Filesystem '${boot}' is currently mounted read-only - installation cannot proceed"
-		#		;;
-		#	*)
-		#		die "Cannot determine mount-state of boot filesystem '${boot}' - is this partition mounted?"
-		#		;;
-		#esac
+		state="$( cut -d' ' -f 2-4 /proc/mounts 2>/dev/null | grep -E "^${boot} (u?msdos|v?fat) " | grep -Eo '[ ,]r[ow](,|$)' | sed 's/[ ,]//g' )"
+		case "${state}" in
+			rw)
+				:
+				;;
+			ro)
+				die "Filesystem '${boot}' is currently mounted read-only - installation cannot proceed"
+				;;
+			*)
+				die "Cannot determine mount-state of boot filesystem '${boot}' - is this partition mounted?"
+				;;
+		esac
 	fi
 }
 
 src_install() {
 	local f boot="${RASPBERRYPI_BOOT:-/boot}" ver
 
-	dodir "${boot}"
-	#dodir "${boot}"/kernel
-	#dodir "${boot}"/overlays
-	#dodir /lib/modules
+	keepdir "${boot}"
 
-	# Install firmware ...
+	# Install firmware blobs ...
 	insinto "${boot}"
-	#for f in boot/*.dtb boot/*.bin boot/*.dat boot/*.elf; do
-	for f in boot/*.bin boot/*.dat boot/*.elf; do
-		[[ -e "${f}" ]] && doins "${f}"
+	for f in boot/*.bin boot/*.dat boot/*.elf boot/LICENCE.*; do
+		if [[ -e "${f}" ]]; then
+			if use rpi4 || [[ "${f}" != *4* ]]; then
+				doins "${f}"
+			fi
+		fi
 	done
 
-	# Install kernel(s) ...
-	#insinto "${boot}"/kernel
-	#for f in boot/*.img; do
-	#	case "${f}" in
-	#		boot/kernel.img)
-	#			use rpi1 && doins "${f}" ;;
-	#		boot/kernel7.img)
-	#			use rpi2 && doins "${f}" ;;
-	#		*)
-	#			[[ -e "${f}" ]] && doins "${f}" ;;
-	#	esac
-	#done
-
-	# Install Device Tree overlays ...
-	#insinto "${boot}"/overlays
-	#doins boot/overlays/*.dtbo
-
-	# The dtparam command expects to be able to read /boot/overlays/README
-	#doins boot/overlays/README
-
-	# Install kernel modules ...
-	#insinto /lib/modules
-	#for f in modules/*; do
-	#	case "${f}" in
-	#		*-v7+)
-	#			[[ -z "${ver}" ]] && ver="$( basename "${f}" | sed 's/-v7+$//' )"
-	#			use rpi2 && doins -r "${f}" ;;
-	#		*-v[0-9]*+)
-	#			# For future architectures ...
-	#			[[ -z "${ver}" ]] && ver="$( basename "${f}" | sed 's/-v[0-9]\++$//' )"
-	#			doins -r "${f}" ;;
-	#		*+)
-	#			[[ -z "${ver}" ]] && ver="$( basename "${f}" | sed 's/+$//' )"
-	#			use rpi1 && doins -r "${f}" ;;
-	#		*)
-	#			if [[ -e "${f}" ]]; then
-	#				[[ -z "${ver}" ]] && ver="$( basename "${f}" )"
-	#				doins -r "${f}"
-	#			fi
-	#			;;
-	#	esac
-	#done
+	# Install library required by vcdbg ...
+	insinto /usr/$(get_libdir)
+	doins hardfp/opt/vc/lib/libelftoolchain.so
 
 	insinto "${boot}"
 	newins "${FILESDIR}"/${PN}-0_p20130711-config.txt config.txt
 	newins "${FILESDIR}"/${PN}-0_p20130711-cmdline.txt cmdline.txt
-
-	# There's little or no standardisation in regards to where System.map
-	# should live, and the only two common locations seem to be /boot and /
-	#if [[ -n "${ver}" ]]; then
-	#	use rpi2 && newins extra/System7.map "System.map-${ver}-v7+"
-	#	use rpi1 && newins extra/System.map "System.map-${ver}+"
-	#	einfo "You should create a symlink from /System.map to ${boot}/System.map"
-	#	einfo "and from ${boot}/System.map to System.map-${ver}+ or System.map-${ver}-v7+,"
-	#	einfo "as appropriate."
-	#fi
 
 	cp "${FILESDIR}"/"${PN}"-0_p20130711-envd "${T}"/"${PN}"-envd
 	sed -i "s|/boot|${boot}|g" "${T}"/"${PN}"-envd
@@ -170,13 +112,15 @@ src_install() {
 }
 
 pkg_preinst() {
+	local boot="${RASPBERRYPI_BOOT:-/boot}"
+
 	if [[ "${MERGE_TYPE}" != "buildonly" ]]; then
 		if [[ -z "${REPLACING_VERSIONS}" ]]; then
 			local msg=""
-			#if [[ -e "${D}"/boot/cmdline.txt -a -e /boot/cmdline.txt ]] ; then
-			#	msg+="/boot/cmdline.txt "
-			#fi
-			if [ [-e "${D}${boot}"/config.txt -a -e "${boot}"/config.txt ]] ; then
+			if [[ -e "${ED}"/boot/cmdline.txt ]] && [[ -e /boot/cmdline.txt ]] ; then
+				msg+="/boot/cmdline.txt "
+			fi
+			if [[ -e "${ED}${boot}"/config.txt ]] && [[ -e "${boot}"/config.txt ]] ; then
 				msg+="${boot}/config.txt "
 			fi
 			if [ -n "${msg}" ] ; then
@@ -197,5 +141,3 @@ pkg_postinst() {
 
 	readme.gentoo_print_elog
 }
-
-DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${boot}/config.txt"

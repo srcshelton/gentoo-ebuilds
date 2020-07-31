@@ -163,8 +163,8 @@ src_install() {
 	#done
 
 	insinto "${boot}"
-	newins "${FILESDIR}"/${PN}-config.txt config.txt
-	newins "${FILESDIR}"/${PN}-cmdline.txt cmdline.txt
+	newins "${FILESDIR}"/${PN}-0_p20130711-config.txt config.txt
+	newins "${FILESDIR}"/${PN}-0_p20130711-cmdline.txt cmdline.txt
 
 	# There's little or no standardisation in regards to where System.map
 	# should live, and the only two common locations seem to be /boot and /
@@ -176,7 +176,7 @@ src_install() {
 	#	einfo "as appropriate."
 	#fi
 
-	cp "${FILESDIR}"/"${PN}"-envd "${T}"/"${PN}"-envd
+	cp "${FILESDIR}"/"${PN}"-0_p20130711-envd "${T}"/"${PN}"-envd
 	sed -i "s|/boot|${boot}|g" "${T}"/"${PN}"-envd
 	newenvd "${T}"/"${PN}"-envd "90${PN}"
 
