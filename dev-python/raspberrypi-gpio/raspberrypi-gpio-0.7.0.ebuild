@@ -2,15 +2,15 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
-PYTHON_COMPAT=( python{2_6,2_7} )
+PYTHON_COMPAT=( python{2_7,3_{6,7,8}} )
 
 inherit distutils-r1 eutils
 
 MY_P=${P/raspberrypi-gpio/RPi.GPIO}
 
-DESCRIPTION="A collection of libraries to process XML with Python"
-HOMEPAGE="http://pyxml.sourceforge.net/"
-SRC_URI="https://downloads.sourceforge.net/project/raspberry-gpio-python/old%20releases/RPi.GPIO-0.5.11.tar.gz"
+DESCRIPTION="A Python module to control the GPIO on a Raspberry Pi"
+HOMEPAGE="https://sourceforge.net/projects/raspberry-gpio-python/"
+SRC_URI="https://downloads.sourceforge.net/project/raspberry-gpio-python/RPi.GPIO-${PV}.tar.gz"
 RESTRICT="mirror test"
 
 LICENSE="MIT"
