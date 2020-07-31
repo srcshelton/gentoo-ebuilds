@@ -1,8 +1,9 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
-inherit eutils
+EAPI=7
+
+inherit multilib
 
 DESCRIPTION="GNU utility to convert program --help output to a man page"
 HOMEPAGE="https://www.gnu.org/software/help2man/"
@@ -10,14 +11,12 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="alpha amd64 arm arm64 hppa ia64 m68k ~mips ppc ppc64 ~riscv s390 sh sparc x86 ~ppc-aix ~amd64-fbsd ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~ppc-aix ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~m68k-mint ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="nls"
 
-BDEPEND="dev-perl/Locale-gettext"
-COMMON_DEPEND="dev-lang/perl"
-DEPEND="${COMMON_DEPEND}"
-RDEPEND="${COMMON_DEPEND}
+RDEPEND="dev-lang/perl
 	nls? ( dev-perl/Locale-gettext )"
+DEPEND=${RDEPEND}
 
 DOCS=( debian/changelog NEWS README THANKS ) #385753
 
@@ -26,25 +25,28 @@ PATCHES=(
 )
 
 src_prepare() {
-	default
-
 	if [[ ${CHOST} == *-darwin* ]] ; then
 		sed -i \
 			-e "s:-shared:-dynamiclib -install_name ${EPREFIX}/usr/lib/${PN}/bindtextdomain.dylib:" \
 			-e "s:LD_PRELOAD:DYLD_INSERT_LIBRARIES:g" \
+			-e "s/\$(preload).so/\$(preload)$(get_libname)/" \
 			Makefile.in \
 			|| die
 	fi
+
+	default
+
 	sed -i \
 		-e "s/\$(preload).so/\$(preload)$(get_libname)/" \
-		Makefile.in \
 		configure \
 		|| die
 }
 
 src_configure() {
 	# Disable gettext requirement as the release includes the gmo files #555018
-	econf \
-		ac_cv_path_MSGFMT=$(type -P false) \
+	local myeconfargs=(
+		ac_cv_path_MSGFMT=$(type -P false)
 		$(use_enable nls)
+	)
+	econf "${myeconfargs[@]}"
 }
