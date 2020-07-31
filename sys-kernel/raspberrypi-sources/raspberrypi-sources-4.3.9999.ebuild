@@ -19,7 +19,7 @@ EGIT_CLONE_TYPE="shallow"
 DESCRIPTION="Raspberry Pi kernel sources"
 HOMEPAGE="https://github.com/raspberrypi/linux"
 
-KEYWORDS="arm"
+KEYWORDS="-*"
 
 pkg_setup() {
 	if use rpi1 && use rpi2; then
