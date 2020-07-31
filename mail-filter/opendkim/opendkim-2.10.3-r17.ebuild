@@ -93,7 +93,8 @@ src_prepare() {
 	sed -i -r \
 		   -e "/\/lib/s#/lib([: \"/]|$)#/$(get_libdir)\1#" \
 		   configure.ac || die
-	# ` # Syntax highlight failure
+
+	rm configure || die
 
 	eautoreconf
 }
@@ -262,7 +263,7 @@ pkg_config() {
 		eerror "Oddly enough, you don't have a HOSTNAME."
 		return 1
 	fi
-	if [[ -f "${ROOT%/}/var/lib/opendkim/${selector}.private" ]]; then
+	if [[ -f "${ROOT}/var/lib/opendkim/${selector}.private" ]]; then
 		ewarn "The private key for this selector already exists."
 	else
 		keysize=1024
@@ -273,9 +274,9 @@ pkg_config() {
 		opendkim-genkey -b ${keysize} -D "${ROOT%/}"/var/lib/opendkim/ \
 			-s "${selector}" -d '(your domain)' && \
 			chgrp --no-dereference opendkim \
-				  "${ROOT%/}/var/lib/opendkim/${selector}".{private,txt} || \
+				  "${ROOT}/var/lib/opendkim/${selector}".{private,txt} || \
 				{ eerror "Failed to create private and public keys."; return 1; }
-		chmod g+r "${ROOT%/}/var/lib/opendkim/${selector}.{private,txt}"
+		chmod g+r "${ROOT}/var/lib/opendkim/${selector}".{private,txt}
 	fi
 
 	# opendkim selector configuration
@@ -293,7 +294,7 @@ pkg_config() {
 
 	# DNS configuration
 	einfo "After you configured your MTA, publish your key by adding this TXT record to your domain:"
-	cat "${ROOT%/}/var/lib/opendkim/${selector}.txt"
+	cat "${ROOT}/var/lib/opendkim/${selector}.txt"
 	einfo "t=y signifies you only test the DKIM on your domain. See following page for the complete list of tags:"
 	einfo "  http://www.dkim.org/specs/rfc4871-dkimbase.html#key-text"
 }
