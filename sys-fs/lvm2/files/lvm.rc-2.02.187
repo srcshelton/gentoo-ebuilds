@@ -146,9 +146,10 @@ start_post() {
 }
 
 stop() {
-	local config lvm_path lvs vgs
-	local has_errors=0 verbose_command='' eend_cmd="eend"
+	local config lvm_path lvs lv vgs vg
+	local verbose_command='' eend_cmd="eend"
 	local msg="Failed to stop Logical Volume Manager"
+	local -i rc=0 has_errors=0
 
 	lvm_path="$(_get_lvm_path)"
 	if [ -z "${lvm_path}" ] ; then
@@ -185,10 +186,19 @@ stop() {
 		ebegin "Stopping Logical Volume Manager"
 		#einfo "Using configuration directive '${config}'"
 
-		${lvm_path} lvchange${verbose_command} --config "${config}" --sysinit --activate n
-		[ $? -ne 0 ] && has_errors=1
-		${lvm_path} vgchange${verbose_command} --config "${config}" --sysinit --activate n
-		[ $? -ne 0 ] && has_errors=1
+		rc=0
+		for lv in ${lvs}; do
+			einfo "${lvm_path} lvchange${verbose_command} --config '${config}' --sysinit --activate n ${lv}"
+			${lvm_path} lvchange${verbose_command} --config "${config}" --sysinit --activate n "${lv}" || : $(( rc = rc + 1 ))
+		done
+		[ $rc -ne 0 ] && has_errors=1
+
+		rc=0
+		for vg in ${vgs}; do
+			einfo "${lvm_path} vgchange${verbose_command} --config '${config}' --sysinit --activate n ${vg}"
+			${lvm_path} vgchange${verbose_command} --config "${config}" --sysinit --activate n "${vg}" || : $(( rc = rc + 1 ))
+		done
+		[ $rc -ne 0 ] && has_errors=1
 
 		${eend_cmd} ${has_errors} "${msg}"
 	fi
