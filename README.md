@@ -306,6 +306,8 @@ used to build perl)
 
 # Modified ebuilds
 
+* app-admin/eselect
+    * eselect requires app-shells/bash
 * ~~app-crypt/gnupg~~
     * ~~Fix clang compilation errors~~
 * app-emulation/docker
