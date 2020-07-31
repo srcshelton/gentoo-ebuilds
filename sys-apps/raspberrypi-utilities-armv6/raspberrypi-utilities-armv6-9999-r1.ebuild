@@ -10,7 +10,7 @@ SRC_URI=""
 
 LICENSE="Broadcom"
 SLOT="0/1"
-KEYWORDS="~aarch64 arm -*"
+KEYWORDS="-*"
 IUSE=""
 
 DEPEND="media-libs/raspberrypi-userland"

@@ -14,7 +14,8 @@ IUSE=""
 
 BDEPEND="media-libs/raspberrypi-userland"
 DEPEND="${BDEPEND}"
-#RDEPEND=""
+# vcdbg is linked against libelftoolchain.so, which is is the firmware repo :(
+RDEPEND="sys-boot/raspberrypi-firmware"
 
 RESTRICT="binchecks strip"
 QA_PREBUILT=""
