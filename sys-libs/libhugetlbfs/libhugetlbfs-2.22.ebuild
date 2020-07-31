@@ -18,6 +18,7 @@ IUSE="static-libs test abi_x86_x32"
 RESTRICT="!test? ( test )"
 
 DEPEND="test? ( ${PYTHON_DEPS} )"
+RDEPEND="acct-group/hugetlb"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-2.6-fixup-testsuite.patch
@@ -71,14 +72,14 @@ src_install() {
 			fix32=1
 		fi
 	fi
-    if [[ -f makefile || -f Makefile || -f GNUmakefile ]]; then
+	if [[ -f makefile || -f Makefile || -f GNUmakefile ]]; then
 		if (( fix32 )); then
-	        linux32 emake DESTDIR="${D}" install
+			linux32 emake DESTDIR="${D}" install
 		else
-	        emake DESTDIR="${D}" install
+			emake DESTDIR="${D}" install
 		fi
-    fi
-    einstalldocs
+	fi
+	einstalldocs
 	# End __eapi6_src_install
 
 	use static-libs || rm -f "${ED}"/usr/$(get_libdir)/*.a
@@ -213,4 +214,19 @@ src_test() {
 	# ---------------------------------------------------------
 
 	return ${rc}
+}
+
+pkg_postinst() {
+	elog "For details of how to configure HugeTLBfs, please see"
+	elog "    https://wiki.debian.org/Hugepages#Enabling_HugeTlbPage"
+	elog
+	elog "A 'hugetlb' group with UIG=30 has been created for this purpose"
+	elog
+	elog "To fully enable hugetlb support, changes are required to:"
+	elog "    /etc/groups"
+	elog "    /etc/sysctl.conf"
+	elog "    /etc/security/limits.conf"
+	elog "    /etc/fstab"
+	elog
+	elog "dev-db/redis warns against the presence of hugetlb"
 }
