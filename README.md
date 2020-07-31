@@ -235,6 +235,7 @@ used to build perl)
 * dev-perl/File-Touch
 * ~~dev-perl/IO-Interface~~
 * dev-perl/IO-Socket-Multicast
+* dev-perl/IP-Country
 * dev-perl/Locale-Hebrew
 * dev-perl/match-simple
     * Provides match::smart
