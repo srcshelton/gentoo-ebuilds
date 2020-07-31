@@ -21,7 +21,8 @@ DESCRIPTION="A fully featured, yet light weight RFC2131 compliant DHCP client"
 HOMEPAGE="https://roy.marples.name/projects/dhcpcd"
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="debug elibc_glibc +embedded ipv6 kernel_linux +privsep systemd +udev"
+IUSE="debug elibc_glibc +embedded chroot ipv6 kernel_linux privsep systemd +udev"
+REQUIRED_USE="chroot? ( privsep )"
 
 COMMON_DEPEND="udev? ( virtual/udev )"
 DEPEND="${COMMON_DEPEND}"
@@ -114,9 +115,9 @@ pkg_postinst() {
 	done
 
 	# dhcpcd-9 introduced privesep support in a chroot
-	if use privsep ; then
+	if use chroot ; then
 		local dhcpcd_libdir="/var/lib/dhcpcd"
-		local chroot_base="${EROOT}/var/chroot/dhcpcd"
+		local chroot_base="${EROOT}/var/gaol/dhcpcd"
 		local chroot_dir="${chroot_base}${dhcpcd_libdir}"
 		local chroot_retval=0
 		# Set up proper chroot.
