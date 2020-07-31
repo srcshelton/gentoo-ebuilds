@@ -402,6 +402,8 @@ used to build perl)
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-apps/gentoo-functions
     * Fix inclusion when unbound variable checking is enabled
+* sys-apps/groff
+    * Fix for building on ARM
 * sys-apps/portage
     * ~~Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory~~
     * Prevent binary merges from failing due to assumptions about build files being present
