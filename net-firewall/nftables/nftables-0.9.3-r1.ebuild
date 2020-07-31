@@ -5,7 +5,7 @@ EAPI=7
 
 PYTHON_COMPAT=( python3_{6,7,8} )
 
-inherit autotools linux-info python-r1 systemd
+inherit autotools linux-info python-r1 systemd usr-ldscript
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
@@ -117,6 +117,11 @@ src_install() {
 
 	if use python ; then
 		python_foreach_impl python_make install
+	fi
+
+	if use split-usr; then
+		# Required by /sbin/nft
+		gen_usr_ldscript -a nftables
 	fi
 
 	find "${ED}" -type f -name "*.la" -delete || die
