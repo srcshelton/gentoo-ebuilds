@@ -2,24 +2,17 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="7"
-MY_EXTRAS_VER="20200203-1749Z"
 SUBSLOT="18"
 
 JAVA_PKG_OPT_USE="jdbc"
 
 inherit cmake eutils flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
-SRC_URI="https://downloads.mariadb.org/interstitial/${P}/source/${P}.tar.gz "
+# Patch version
+PATCH_SET="https://dev.gentoo.org/~whissi/dist/${PN}/${PN}-10.4.13-patches-03.tar.xz"
 
-# Gentoo patches to MySQL
-if [[ "${MY_EXTRAS_VER}" != "live" && "${MY_EXTRAS_VER}" != "none" ]]; then
-	SRC_URI="${SRC_URI}
-		mirror://gentoo/mysql-extras-${MY_EXTRAS_VER}.tar.bz2
-		https://gitweb.gentoo.org/proj/mysql-extras.git/snapshot/mysql-extras-${MY_EXTRAS_VER}.tar.bz2
-		https://dev.gentoo.org/~grknight/distfiles/mysql-extras-${MY_EXTRAS_VER}.tar.bz2
-		https://dev.gentoo.org/~robbat2/distfiles/mysql-extras-${MY_EXTRAS_VER}.tar.bz2
-		https://dev.gentoo.org/~jmbsvicetto/distfiles/mysql-extras-${MY_EXTRAS_VER}.tar.bz2"
-fi
+SRC_URI="https://downloads.mariadb.org/interstitial/${P}/source/${P}.tar.gz
+	${PATCH_SET}"
 
 HOMEPAGE="https://mariadb.org/"
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
@@ -41,25 +34,6 @@ KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sparc x86
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
 S="${WORKDIR}/mysql"
-
-if [[ "${MY_EXTRAS_VER}" == "live" ]] ; then
-	inherit git-r3
-	EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/mysql-extras.git"
-	EGIT_CHECKOUT_DIR="${WORKDIR}/mysql-extras"
-	EGIT_CLONE_TYPE=shallow
-	MY_PATCH_DIR="${WORKDIR}/mysql-extras"
-else
-	MY_PATCH_DIR="${WORKDIR}/mysql-extras-${MY_EXTRAS_VER}"
-fi
-
-PATCHES=(
-	"${MY_PATCH_DIR}"/20015_all_mariadb-pkgconfig-location.patch
-	"${MY_PATCH_DIR}"/20018_all_mariadb-10.4.5-without-clientlibs-tools.patch
-	"${MY_PATCH_DIR}"/20024_all_mariadb-10.2.6-mysql_st-regression.patch
-	"${MY_PATCH_DIR}"/20025_all_mariadb-10.2.6-gssapi-detect.patch
-	"${MY_PATCH_DIR}"/20035_all_mariadb-10.3-atomic-detection.patch
-	"${MY_PATCH_DIR}"/20039_all_mariadb-binutil-libs-2.34.patch
-)
 
 # Be warned, *DEPEND are version-dependant
 # These are used for both runtime and compiletime
@@ -114,8 +88,7 @@ DEPEND="static? ( sys-libs/ncurses[static-libs] )
 		extraengine? ( jdbc? ( >=virtual/jdk-1.6 ) )
 		test? ( acct-group/mysql acct-user/mysql )
 	)
-	${COMMON_DEPEND}
-"
+	${COMMON_DEPEND}"
 RDEPEND="selinux? ( sec-policy/selinux-mysql )
 	!dev-db/mysql !dev-db/mariadb-galera !dev-db/percona-server !dev-db/mysql-cluster
 	!<virtual/mysql-5.6-r11
@@ -140,7 +113,7 @@ RDEPEND="selinux? ( sec-policy/selinux-mysql )
 	)
 "
 	#abi_x86_32? ( !app-emulation/emul-linux-x86-db[-abi_x86_32(-)] )
-
+# For other stuff to bring us in
 # dev-perl/DBD-mysql is needed by some scripts installed by MySQL
 PDEPEND="perl? ( >=dev-perl/DBD-mysql-2.9004 )
 	server? ( ~virtual/mysql-5.6[static=] )"
@@ -238,13 +211,15 @@ pkg_setup() {
 
 src_unpack() {
 	unpack ${A}
-	# Grab the patches
-	[[ "${MY_EXTRAS_VER}" == "live" ]] && S="${WORKDIR}/mysql-extras" git-r3_src_unpack
 
 	mv -f "${WORKDIR}/${P/_rc/}" "${S}" || die
 }
 
 src_prepare() {
+	eapply "${WORKDIR}"/mariadb-patches
+
+	eapply_user
+
 	_disable_plugin() {
 		echo > "${S}/plugin/${1}/CMakeLists.txt" || die
 	}
@@ -301,11 +276,6 @@ src_prepare() {
 		"${S}"/wsrep-lib/wsrep-API/CMakeLists.txt || die
 	sed -i -e 's~add_library(wsrep-lib$~add_library(wsrep-lib STATIC~' \
 		"${S}"/wsrep-lib/src/CMakeLists.txt || die
-
-	# Don't clash with dev-db/mysql-connector-c
-	sed -i -e 's/ my_print_defaults.1//' \
-		-e 's/ perror.1//' \
-		"${S}"/man/CMakeLists.txt || die
 
 	# Fix galera_recovery.sh script
 	sed -i -e "s~@bindir@/my_print_defaults~${EPREFIX%/}/usr/libexec/mariadb/my_print_defaults~" \
