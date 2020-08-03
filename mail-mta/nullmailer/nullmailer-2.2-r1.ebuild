@@ -15,6 +15,14 @@ KEYWORDS="amd64 ~arm ppc x86 ~x64-cygwin"
 IUSE="ssl systemd test"
 RESTRICT="!test? ( test )"
 
+# busybox provides 'ar', but this doesn't support the 'u' option which
+# nullmailer invokes.
+# Note, however, that simply having binutils installed isn't enough - it must
+# also be made active via 'binutils-config' from the package of the same name.
+BDEPEND="
+	sys-devel/binutils-config
+	sys-devel/binutils
+"
 DEPEND="
 	ssl? ( net-libs/gnutls:0= )
 	test? ( sys-apps/ucspi-tcp[ipv6] sys-process/daemontools )
@@ -108,7 +116,9 @@ src_install() {
 
 pkg_postinst() {
 	if [[ ! -e ${EROOT}/var/spool/nullmailer/trigger ]]; then
-		mkfifo --mode=0660 "${EROOT}/var/spool/nullmailer/trigger" || die
+		# If using busybox binaries, mkfifo supports '-m' but not '--mode' ...
+		#mkfifo --mode=0660 "${EROOT}/var/spool/nullmailer/trigger" || die
+		mkfifo -m 0660 "${EROOT}/var/spool/nullmailer/trigger" || die
 	fi
 	chown nullmail:nullmail \
 		"${EROOT}"/var/log/nullmailer \
