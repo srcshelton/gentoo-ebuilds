@@ -565,6 +565,8 @@ x32 profiles, and that these variables only affect multilib systems.
 # Fixes for `udev` and to allow separate `/usr`
 (... and/or operation without a `/run` directory)
 
+* app-eselect/eselect-awk
+    * Support for (g)awk installed in `/bin`
 * ~~net-wireless/bluez~~
     * ~~Make 'udev' an optional dependency, controlled by `USE="udev"`~~
 * sys-apps/coreutils
