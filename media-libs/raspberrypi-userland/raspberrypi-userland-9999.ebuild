@@ -15,9 +15,9 @@ IUSE="examples udev"
 
 EGIT_REPO_URI="https://github.com/raspberrypi/userland"
 
-PATCHES=(
-	"${FILESDIR}"/${P}-pid.patch
-)
+#PATCHES=(
+#	"${FILESDIR}"/${P}-pid.patch
+#)
 
 pkg_setup() {
 	append-ldflags $(no-as-needed)

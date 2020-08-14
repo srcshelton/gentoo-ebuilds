@@ -15,9 +15,9 @@ IUSE="-containers examples tools udev"
 
 EGIT_REPO_URI="https://github.com/raspberrypi/userland"
 
-PATCHES=(
-	"${FILESDIR}"/${P}-pid.patch
-)
+#PATCHES=(
+#	"${FILESDIR}"/${P}-pid.patch
+#)
 
 pkg_setup() {
 	append-ldflags $(no-as-needed)
@@ -84,8 +84,8 @@ src_install() {
 		[[ -e "${ED}/usr/bin/${bin}" ]] && mv "${ED}/usr/bin/${bin}" "${ED}"/usr/sbin/
 	done
 
-	rm "${ED}"/etc/init.d/vcfiled
-	newinitd "${FILESDIR}"/${PN}-vcfiled.initd vcfiled
+	#rm "${ED}"/etc/init.d/vcfiled
+	#newinitd "${FILESDIR}"/${PN}-vcfiled.initd vcfiled
 }
 
 pkg_postinst() {
