@@ -1,0 +1,40 @@
+--- a/stats/opendkim-reportstats.in
++++ b/stats/opendkim-reportstats.in
+@@ -66,7 +66,7 @@
+ 
+ version()
+ {
+-        echo "${PROGNAME} v{OPENDKIMSTATS}"
++        echo "${PROGNAME} v${OPENDKIMSTATS}"
+         exit 0
+ }
+ 
+@@ -85,7 +85,7 @@ usage()
+ 	echo "                     sends a registration request"
+         echo
+         echo "  -sendregistration  Sends pre-setup GPG registration to"
+-	ecoh "                     opendkim.org in case initial registration"
++	echo "                     opendkim.org in case initial registration"
+ 	echo "                     has problems sending email"
+         echo
+         echo "  -sendstats         Sends latest OpenDKIM stats to opendkim.org"
+--- a/stats/opendkim-reportstats
++++ b/stats/opendkim-reportstats
+@@ -66,7 +66,7 @@
+ 
+ version()
+ {
+-        echo "${PROGNAME} v{OPENDKIMSTATS}"
++        echo "${PROGNAME} v${OPENDKIMSTATS}"
+         exit 0
+ }
+ 
+@@ -85,7 +85,7 @@ usage()
+ 	echo "                     sends a registration request"
+         echo
+         echo "  -sendregistration  Sends pre-setup GPG registration to"
+-	ecoh "                     opendkim.org in case initial registration"
++	echo "                     opendkim.org in case initial registration"
+ 	echo "                     has problems sending email"
+         echo
+         echo "  -sendstats         Sends latest OpenDKIM stats to opendkim.org"

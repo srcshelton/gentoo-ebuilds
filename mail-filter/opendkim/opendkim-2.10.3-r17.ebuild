@@ -59,6 +59,7 @@ PATCHES=(
 	"${FILESDIR}/${P}-gnutls-3.4.patch"
 	"${FILESDIR}/${P}-openrc.patch"
 	"${FILESDIR}/${P}-openssl-1.1.1.patch.r2"
+	"${FILESDIR}/${P}-reportstats.patch"
 )
 
 pkg_setup() {
@@ -91,8 +92,8 @@ src_prepare() {
 
 	einfo "Using libdir '$(get_libdir)' ..."
 	sed -i -r \
-		   -e "/\/lib/s#/lib([: \"/]|$)#/$(get_libdir)\1#" \
-		   configure.ac || die
+		-e "/\/lib/s#/lib([: \"/]|$)#/$(get_libdir)\1#" \
+		configure.ac || die
 
 	rm configure || die
 
