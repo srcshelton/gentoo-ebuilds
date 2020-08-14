@@ -17,7 +17,7 @@ elif [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="https://github.com/Logitech/slimserver.git"
 	HOMEPAGE="http://github.com/Logitech/slimserver"
 	S="${WORKDIR}/slimserver"
-	INHERIT_VCS="git-2"
+	INHERIT_VCS="git-r3"
 	KEYWORDS="~amd64 ~x86"
 else
 	SRC_DIR="LogitechMediaServer_v${PV}"
