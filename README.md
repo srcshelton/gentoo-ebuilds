@@ -27,6 +27,8 @@ main portage tree, but which still have the stock upstream package installed.
     * Raspberry Pi VideoCore firmware, Device Tree overlays, Kernel image, and kernel modules from a `smart-live-rebuild`-compatible ebuild
 * sys-boot/raspberrypi-mkimage
     * Add latest signing tools to enable Device Tree support in self-built kernels
+* sys-kernel/raspberrypi-image
+    * Raspberry Pi latest kernel image
 * sys-kernel/raspberrypi-sources
     * Raspberry Pi latest kernel sources, from a `smart-live-rebuild`-compatible ebuild
 * www-apps/rpi-monitor
