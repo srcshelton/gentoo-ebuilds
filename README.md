@@ -556,6 +556,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Don't error-out if using `lib32` for x32 libraries
 * ~~sys-apps/cpuid~~
     * ~~Don't use 64-bit assembly when `__ILP32__` is defined~~
+* sys-apps/kexec-tools
+    * Add x32 patch from [OpenEmbedded](http://cgit.openembedded.org/meta-openembedded/tree/meta-initramfs/recipes-kernel/kexec/kexec-tools-klibc/kexec-x32.patch?h=thud)
 * sys-devel/binutils
     * Allow `LIBDIR_*` variables to override hard-coded default directory locations
 * sys-devel/gcc
