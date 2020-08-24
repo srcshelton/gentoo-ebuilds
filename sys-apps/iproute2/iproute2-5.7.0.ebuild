@@ -3,14 +3,14 @@
 
 EAPI=7
 
-inherit toolchain-funcs flag-o-matic multilib
+inherit flag-o-matic multilib toolchain-funcs
 
 if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git"
 	inherit git-r3
 else
 	SRC_URI="https://www.kernel.org/pub/linux/utils/net/${PN}/${P}.tar.xz"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv s390 sparc x86"
 fi
 
 DESCRIPTION="kernel routing and traffic control utilities"
@@ -48,6 +48,7 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-3.1.0-mtu.patch #291907
 	"${FILESDIR}"/${PN}-4.20.0-configure-nomagic.patch # bug 643722
 	"${FILESDIR}"/${PN}-5.1.0-portability.patch
+	"${FILESDIR}"/${PN}-5.7.0-mix-signal.h-include.patch
 )
 
 src_prepare() {
@@ -152,5 +153,7 @@ src_install() {
 		# bug 47482, arpd doesn't need to be in /sbin
 		dodir /usr/bin
 		mv "${ED}"/sbin/arpd "${ED}"/usr/bin/ || die
+	elif [[ -d "${ED}"/var/lib/arpd ]]; then
+		rmdir --ignore-fail-on-non-empty -p "${ED}"/var/lib/arpd || die
 	fi
 }
