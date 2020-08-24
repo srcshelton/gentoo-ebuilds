@@ -318,6 +318,8 @@ used to build perl)
 
 # Modified ebuilds
 
+* app-admin/cpulimit
+    * Fix use of 'inline' (rather than 'static inline')
 * app-admin/eselect
     * eselect requires app-shells/bash
 * ~~app-crypt/gnupg~~
