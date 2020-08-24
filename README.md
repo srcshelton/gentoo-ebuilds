@@ -340,6 +340,8 @@ used to build perl)
     * Add additional include path to allow building with Oracle JDK 8 and above
 * dev-lang/perl
     * Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS
+* dev-libs/geoip
+    * Remove obselete update script and 'wget' dependency
 * dev-libs/glib
     * Prevent binary merges from failing due to assumptions about build files being present
 * dev-libs/libcgroup
