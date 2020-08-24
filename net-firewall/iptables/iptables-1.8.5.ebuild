@@ -13,7 +13,7 @@ LICENSE="GPL-2"
 # Subslot reflects PV when libxtables and/or libip*tc was changed
 # the last time.
 SLOT="0/1.8.3"
-KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv s390 sparc x86"
 IUSE="conntrack ipv6 netlink nftables pcap static-libs systemd"
 
 BUILD_DEPEND="
@@ -24,7 +24,7 @@ COMMON_DEPEND="
 	netlink? ( net-libs/libnfnetlink )
 	nftables? (
 		>=net-libs/libmnl-1.0:0=
-		>=net-libs/libnftnl-1.1.5:0=
+		>=net-libs/libnftnl-1.1.6:0=
 	)
 	pcap? ( net-libs/libpcap )
 "
@@ -81,7 +81,6 @@ src_configure() {
 		--libexecdir="${EPREFIX}/$(get_libdir)"
 		--enable-devel
 		--enable-shared
-		--enable-libipq
 		$(use_enable nftables)
 		$(use_enable pcap bpf-compiler)
 		$(use_enable pcap nfsynproxy)
