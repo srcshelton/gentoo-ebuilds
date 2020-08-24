@@ -21,7 +21,7 @@ SLOT="0"
 IUSE=""
 
 src_prepare() {
-	epatch "${FILESDIR}"/"${PN}"-0.10-shellcheck.patch
+	epatch -p1 "${FILESDIR}"/"${PN}"-0.10-shellcheck.patch
 
 	tc-export CC
 	append-lfs-flags
