@@ -249,10 +249,10 @@ pkg_postinst() {
 	multilib_foreach_abi db_fix_so
 
 	if use sep-usr; then
-		ewarn "Relocation of 'libdb-$(ver_cut 1-2).so' from '/usr/$(get_libdir)' to '/$(get_libdir)'"
-		ewarn "work correctly and dependent applications can build against libdb - but every"
-		ewarn "linked application will always show has causing the preservation of the actual"
-		ewarn "library in '/$(get_libdir)', and rebuilding these packages won't fix this :("
+		ewarn "Relocation of 'libdb-$(ver_cut 1-2).so' from '/usr/$(get_libdir)' to '/$(get_libdir)' works correctly"
+		ewarn "and dependent applications can build against libdb - but every linked"
+		ewarn "application will always show as causing the preservation of the actual library"
+		ewarn "in '/$(get_libdir)', and rebuilding these packages won't fix this :("
 		# ... but only if the library isn't in /lib?  Doesn't seem to be an issue on 32bit systems...
 		# Update: 32bit x86 is okay, 32bit ARM isn't.
 
