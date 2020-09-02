@@ -3,7 +3,7 @@
 
 EAPI=7
 COMMIT="67abbb3cefbdc876447583d5ea45e76bf441eba7"
-inherit go-module bash-completion-r1
+inherit bash-completion-r1 go-module
 
 DESCRIPTION="Command line utility foroperations on container images and image repositories"
 HOMEPAGE="https://github.com/containers/skopeo"
@@ -11,7 +11,7 @@ SRC_URI="https://github.com/containers/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.g
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT"
 SLOT="0"
-KEYWORDS="~amd64"
+KEYWORDS="~amd64 ~arm64"
 IUSE="btrfs"
 
 COMMON_DEPEND=">=app-crypt/gpgme-1.5.5:=
