@@ -134,7 +134,7 @@ src_install() {
 	if use systemd; then
 		sed \
 			-e "s|:SBINDIR:|${EPREFIX}/usr/sbin|g" \
-			-e "s|:PATH_NETATALK_LOCK:|/var/lock/netatalk|g" \
+			-e "s|:PATH_NETATALK_LOCK:|/var/lock/${PN}|g" \
 			distrib/initscripts/service.systemd.tmpl \
 			> "${T}"/service.systemd || die
 		systemd_newunit "${T}"/service.systemd ${PN}.service
@@ -147,15 +147,15 @@ src_install() {
 }
 
 pkg_postinst() {
-	local fle v
+	local file v
 	for v in ${REPLACING_VERSIONS}; do
 		if [[ $(ver_test ${v} -lt 3) ]]; then
-			for fle in afp_signature.conf afp_voluuid.conf; do
-				if [[ -f "${EROOT}"/etc/netatalk/${fle} ]]; then
-					if [[ ! -f "${EROOT}"/var/lib/netatalk/${fle} ]]; then
+			for file in afp_signature.conf afp_voluuid.conf; do
+				if [[ -f "${EROOT}/etc/${PN}/${file}" ]]; then
+					if [[ ! -f "${EROOT}/var/lib/${PN}/${file}" ]]; then
 						mv \
-							"${EROOT}"/etc/netatalk/${fle} \
-							"${EROOT}"/var/lib/netatalk/
+							"${EROOT}/etc/${PN}/${file}" \
+							"${EROOT}/var/lib/${PN}"/
 					fi
 				fi
 			done
