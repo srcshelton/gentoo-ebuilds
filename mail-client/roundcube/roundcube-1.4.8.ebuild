@@ -20,7 +20,7 @@ RESTRICT="mirror"
 # roundcube is GPL-licensed, the rest of the licenses here are
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
-KEYWORDS="~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86"
+KEYWORDS="amd64 arm ~hppa ppc ppc64 sparc x86"
 
 IUSE="change-password enigma exif ldap managesieve +mysql plugins postgres sqlite ssl spell zxcvbn"
 REQUIRED_USE="|| ( mysql postgres sqlite )"
