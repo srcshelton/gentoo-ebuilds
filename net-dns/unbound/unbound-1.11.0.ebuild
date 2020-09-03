@@ -122,6 +122,11 @@ multilib_src_configure() {
 multilib_src_install_all() {
 	use python && python_optimize
 
+	dodir /sbin
+	for bin in unbound-checkconf; do
+		mv "${ED}/usr/sbin/${bin}" "${ED}"/sbin/ || die
+	done
+
 	newinitd "${FILESDIR}"/unbound-r1.initd unbound
 	newconfd "${FILESDIR}"/unbound-r1.confd unbound
 

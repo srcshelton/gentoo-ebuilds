@@ -4,7 +4,7 @@
 
 UNBOUND_BINARY=${UNBOUND_BINARY:-"/usr/sbin/unbound"}
 UNBOUND_CACHEFILE=${UNBOUND_CACHEFILE:-"/var/lib/unbound/${SVCNAME}.cache"}
-UNBOUND_CHECKCONF=${UNBOUND_CHECKCONF:-"/usr/sbin/unbound-checkconf"}
+UNBOUND_CHECKCONF=${UNBOUND_CHECKCONF:-"/sbin/unbound-checkconf"}
 UNBOUND_CONFFILE=${UNBOUND_CONFFILE:-"/etc/unbound/${SVCNAME}.conf"}
 UNBOUND_CONTROL=${UNBOUND_CONTROL:-"/usr/sbin/unbound-control"}
 UNBOUND_PIDFILE=${UNBOUND_PIDFILE:-"/var/run/unbound.pid"}
