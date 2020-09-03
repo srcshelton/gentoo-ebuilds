@@ -73,8 +73,10 @@ multilib_src_install() {
 
 	if multilib_is_native_abi ; then
 		dodir /bin
+		dodir /sbin
 		mv "${ED}"/usr/bin/pidof "${ED}"/bin/ || die
 		mv "${ED}"/usr/bin/ps "${ED}"/bin/ || die
+		mv "${ED}"/usr/sbin/sysctl "${ED}"/sbin/ || die
 		if use kill; then
 			mv "${ED}"/usr/bin/kill "${ED}"/bin/ || die
 		fi
