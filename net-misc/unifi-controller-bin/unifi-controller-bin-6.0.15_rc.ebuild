@@ -6,7 +6,7 @@ CHECKREQS_DISK_VAR="1G"
 
 inherit check-reqs unpacker user
 
-MY_HASH="49f6654778"
+MY_HASH="60e2436234"
 #MY_DOC="372/2"
 
 MY_P="${P/-bin}"
