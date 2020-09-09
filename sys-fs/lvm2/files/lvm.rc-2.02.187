@@ -188,14 +188,14 @@ stop() {
 
 		rc=0
 		for lv in ${lvs}; do
-			einfo "${lvm_path} lvchange${verbose_command} --config '${config}' --sysinit --activate n ${lv}"
+			#einfo "${lvm_path} lvchange${verbose_command} --config '${config}' --sysinit --activate n ${lv}"
 			${lvm_path} lvchange${verbose_command} --config "${config}" --sysinit --activate n "${lv}" || : $(( rc = rc + 1 ))
 		done
 		[ $rc -ne 0 ] && has_errors=1
 
 		rc=0
 		for vg in ${vgs}; do
-			einfo "${lvm_path} vgchange${verbose_command} --config '${config}' --sysinit --activate n ${vg}"
+			#einfo "${lvm_path} vgchange${verbose_command} --config '${config}' --sysinit --activate n ${vg}"
 			${lvm_path} vgchange${verbose_command} --config "${config}" --sysinit --activate n "${vg}" || : $(( rc = rc + 1 ))
 		done
 		[ $rc -ne 0 ] && has_errors=1
