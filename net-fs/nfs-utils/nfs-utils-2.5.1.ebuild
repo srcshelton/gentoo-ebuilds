@@ -14,7 +14,7 @@ if [[ "${PV}" = *_rc* ]] ; then
 	S="${WORKDIR}/${PN}-${PN}-${MY_PV}"
 else
 	SRC_URI="mirror://sourceforge/nfs/${P}.tar.bz2"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 LICENSE="GPL-2"
@@ -135,14 +135,22 @@ src_install() {
 	dodir /sbin
 	mv "${ED}"/usr/sbin/rpc.statd "${ED}"/sbin/ || die
 
-	if use nfsv4 && use nfsidmap ; then
-		insinto /etc
-		doins support/nfsidmap/idmapd.conf
+	if use nfsv4; then
+		if use nfsdcld ; then
+			# nfsdcltrack depends on sqlite & icu
+			dodir /usr/sbin
+			mv "${ED}"/sbin/nfsdcltrack "${ED}"/usr/sbin/ || die
+		fi
 
-		# Install a config file for idmappers in newer kernels. #415625
-		insinto /etc/request-key.d
-		echo 'create id_resolver * * /usr/sbin/nfsidmap -t 600 %k %d' > id_resolver.conf
-		doins id_resolver.conf
+		if use nfsidmap ; then
+			insinto /etc
+			doins support/nfsidmap/idmapd.conf
+
+			# Install a config file for idmappers in newer kernels. #415625
+			insinto /etc/request-key.d
+			echo 'create id_resolver * * /usr/sbin/nfsidmap -t 600 %k %d' > id_resolver.conf
+			doins id_resolver.conf
+		fi
 	fi
 
 	insinto /etc
