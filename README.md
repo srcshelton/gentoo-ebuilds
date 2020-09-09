@@ -623,13 +623,15 @@ x32 profiles, and that these variables only affect multilib systems.
 * net-dns/libidn
 * net-dns/libidn2
 * net-fs/nfs-utils
-    * Move nfsdcltrack, with many non-root library dependencies, to `/usr/sbin`
+    * Move 'nfsdcltrack', with many non-root library dependencies, to `/usr/sbin`
 * net-libs/libnfnetlink
 * net-libs/libpcap
 * sys-apps/file
     * Move `libmagic.so` to the root filesystem, for app-editors/nano
 * sys-apps/util-linux
     * Add `libfdisk.so` to the list of libraries relocated to root
+* sys-block/thin-provisioning-tools
+    * Move 'pdata_tools', with many non-root library dependencies, to `/usr/sbin`
 * sys-fs/cryptsetup
 * sys-libs/libcap-ng
 * sys-libs/slang
