@@ -237,6 +237,7 @@ src_install() {
 
 	dodir /var/log/named
 
+	# /etc/bind is set to root:named by acct-user/named
 	fowners root:named /{etc,var}/bind /var/log/named /var/bind/{sec,pri,dyn}
 	fowners root:named /var/bind/named.cache /var/bind/pri/localhost.zone /etc/bind/{bind.keys,named.conf}
 	fperms 0640 /var/bind/named.cache /var/bind/pri/localhost.zone /etc/bind/{bind.keys,named.conf}
@@ -252,15 +253,21 @@ src_install() {
 }
 
 pkg_postinst() {
-	if [ ! -f '/etc/bind/rndc.key' ]; then
+	if [ ! -f "${ROOT}/etc/bind/rndc.key" ]; then
+		if [ "${ROOT}" != '/' ]; then
+			export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+		fi
 		if use urandom; then
 			einfo "Using /dev/urandom for generating rndc.key"
-			/usr/sbin/rndc-confgen -r /dev/urandom -a
+			"${ROOT}"/usr/sbin/rndc-confgen -r /dev/urandom -a
 			echo
 		else
 			einfo "Using /dev/random for generating rndc.key"
-			/usr/sbin/rndc-confgen -a
+			"${ROOT}"/usr/sbin/rndc-confgen -a
 			echo
+		fi
+		if [ -f /etc/bind/rndc.key ] && [ ! -f "${ROOT}"/etc/bind/rndc.key ]; then
+			cp -a /etc/bind/rndc.key "${ROOT}"/etc/bind/rndc.key
 		fi
 		chown root:named /etc/bind/rndc.key || die
 		chmod 0640 /etc/bind/rndc.key || die
@@ -281,7 +288,7 @@ pkg_postinst() {
 	einfo "2) Run \`emerge --config '=${CATEGORY}/${PF}'\`"
 	einfo
 
-	CHROOT=$(source /etc/conf.d/named 2>/dev/null; echo ${CHROOT})
+	CHROOT=$(source "${ROOT}"/etc/conf.d/named 2>/dev/null; echo ${CHROOT})
 	if [[ -n ${CHROOT} ]]; then
 		elog "NOTE: As of net-dns/bind-9.4.3_p5-r1 the chroot part of the init-script got some major changes!"
 		elog "To enable the old behaviour (without using mount) uncomment the"
@@ -294,9 +301,9 @@ pkg_postinst() {
 }
 
 pkg_config() {
-	CHROOT=$(source /etc/conf.d/named; echo ${CHROOT})
-	CHROOT_NOMOUNT=$(source /etc/conf.d/named; echo ${CHROOT_NOMOUNT})
-	CHROOT_GEOIP=$(source /etc/conf.d/named; echo ${CHROOT_GEOIP})
+	CHROOT=$(source "${ROOT}"/etc/conf.d/named; echo ${CHROOT})
+	CHROOT_NOMOUNT=$(source "${ROOT}"/etc/conf.d/named; echo ${CHROOT_NOMOUNT})
+	CHROOT_GEOIP=$(source "${ROOT}"/etc/conf.d/named; echo ${CHROOT_GEOIP})
 
 	if [[ -z "${CHROOT}" ]]; then
 		eerror "This config script is designed to automate setting up"
