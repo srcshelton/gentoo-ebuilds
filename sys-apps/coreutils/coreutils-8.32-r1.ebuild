@@ -192,12 +192,10 @@ src_install() {
 		# move critical binaries into /bin (required by FHS)
 		local fhs="cat chgrp chmod chown cp date dd df echo false ln ls
 			mkdir mknod mv pwd rm rmdir stty sync true uname
-			$(usev hostname)"
+			$(usev hostname) $(usev kill)"
 
 		# Required by (at least) /etc/init.d/device-mapper
 		fhs+=" uniq md5sum"
-		use hostname && fhs+=" hostname"
-		use kill && fhs+=" kill"
 		mv ${fhs} ../../bin/ || die "Could not move essential binaries from /usr/bin to /bin"
 
 		# move critical binaries into /bin (common scripts)
