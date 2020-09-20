@@ -15,6 +15,13 @@ main portage tree, but which still have the stock upstream package installed.
 * app-emulation/skopeo
 * app-emulation/slirp4netns
 
+# Fixes for ROOT != / installation
+
+* dev-libs/cyrus-sasl
+* dev-libs/glib
+* mail-mta/postfix
+* net-dns/bind
+
 # Raspberry Pi tools and utilities
 
 * dev-python/raspberrypi-gpio
