@@ -57,6 +57,7 @@ PATCHES=(
 	"${FILESDIR}/${PN}-2.1.27-doc_build_fix.patch"
 	"${FILESDIR}/${PN}-2.1.27-memmem.patch"
 	"${FILESDIR}/${PN}-2.1.27-CVE-2019-19906.patch"
+	"${FILESDIR}/${PN}-2.1.27-gdbm_errno_fix.patch"
 )
 
 pkg_setup() {
@@ -238,6 +239,9 @@ multilib_src_install_all() {
 }
 
 pkg_config() {
+	if [ "${ROOT}" != '/' ]; then
+		local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+	fi
 	# Generate an empty sasldb2 with correct permissions.
 	if [[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]] ; then
 		einfo "Generating an empty sasldb2 with correct permissions ..."
