@@ -36,12 +36,13 @@ RDEPEND="
 	>=dev-libs/libffi-3.0.13-r1:=[${MULTILIB_USEDEP}]
 	>=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}]
 	>=virtual/libintl-0-r2[${MULTILIB_USEDEP}]
-	kernel_linux? ( || ( >=sys-apps/util-linux-2.23[${MULTILIB_USEDEP}] sys-apps/busybox[make-symlinks] ) )
+	kernel_linux? ( >=sys-apps/util-linux-2.23[${MULTILIB_USEDEP}] )
 	selinux? ( >=sys-libs/libselinux-2.2.2-r5[${MULTILIB_USEDEP}] )
 	xattr? ( !elibc_glibc? ( >=sys-apps/attr-2.4.47-r1[${MULTILIB_USEDEP}] ) )
 	!kernel_Winnt? ( virtual/libelf:0= )
 	fam? ( >=virtual/fam-0-r1[${MULTILIB_USEDEP}] )
 "
+	#kernel_linux? ( || ( >=sys-apps/util-linux-2.23[${MULTILIB_USEDEP}] sys-apps/busybox[make-symlinks] ) )
 DEPEND="${RDEPEND}"
 # libxml2 used for optional tests that get automatically skipped
 BDEPEND="
@@ -255,8 +256,11 @@ pkg_postinst() {
 
 	multilib_pkg_postinst() {
 		if [[ ${MERGE_TYPE} != "binary" ]] ; then
+			if [[ -n "${ROOT:-}" ]] && [[ "${ROOT}" != '/' ]]; then
+				local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+			fi
 			gnome2_giomodule_cache_update \
-				|| die "Update GIO modules cache failed (for ${ABI})"
+				|| die "Update GIO modules cache failed (for ${ABI}, merge type '${MERGE_TYPE}')"
 		fi
 	}
 	if ! tc-is-cross-compiler ; then
