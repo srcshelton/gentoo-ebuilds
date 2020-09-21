@@ -592,6 +592,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Add optional `USE="varrun"` flag to allow 'run' directory to remain as '/var/run'
 * sys-fs/cryptsetup
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
+* sys-fs/e2fsprogs
+    * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-fs/fuse
     * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-fs/fuse-common
