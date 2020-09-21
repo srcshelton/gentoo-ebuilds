@@ -290,6 +290,14 @@ multilib_src_install_all() {
 	# e2fsprogs-libs didnt install .la files, and .pc work fine
 	find "${ED}" -name "*.la" -delete || die
 
+	if use split-usr ; then
+		cd "${ED}"/usr/bin || die
+		dodir /bin
+		# move critical binaries into /bin (common scripts)
+		local com='rev'
+		mv ${com} ../../bin/ || die "could not move common binaries from /usr/bin to /bin"
+	fi
+
 	if ! use userland_GNU; then
 		# manpage collisions
 		# TODO: figure out a good way to keep them
