@@ -19,7 +19,7 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~x86-linux"
 IUSE="acl caps elibc_Cygwin elibc_glibc gmp hostname kill multicall nls selinux +split-usr static +stdbuf test uptime userland_BSD vanilla xattr"
 RESTRICT="!test? ( test )"
 
@@ -201,9 +201,9 @@ src_install() {
 		# move critical binaries into /bin (common scripts)
 		local com="basename chroot cut dir dirname du env expr head mkfifo
 			mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
-			mv ${com} ../../bin/ || die "could not move common binaries from /usr/bin to /bin"
-			# create a symlink for uname in /usr/bin/ since autotools requires it,
-			# as long as /bin resolves to a different directory than /usr/bin
+		mv ${com} ../../bin/ || die "could not move common binaries from /usr/bin to /bin"
+		# create a symlink for uname in /usr/bin/ since autotools requires it,
+		# as long as /bin resolves to a different directory than /usr/bin.
 		# Other than uname, we need to figure out why we are
 		# creating symlinks for these in /usr/bin instead of leaving
 		# the files there in the first place.
