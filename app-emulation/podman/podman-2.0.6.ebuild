@@ -9,13 +9,13 @@ CATATONIT_VERSION='0.1.5'
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
-HOMEPAGE="https://github.com/containers/libpod/"
-SRC_URI="https://github.com/containers/libpod/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
+HOMEPAGE="https://github.com/containers/podman/"
+SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
 	https://github.com/openSUSE/catatonit/archive/v${CATATONIT_VERSION}.tar.gz -> catatonit-${CATATONIT_VERSION}.tar.gz"
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 GPL-3+ ISC MIT MPL-2.0" # GPL-3+ for catatonit
 SLOT="0"
 
-KEYWORDS="~amd64"
+KEYWORDS="~amd64 ~arm64"
 IUSE="apparmor btrfs +fuse +rootless selinux systemd"
 RESTRICT="mirror test"
 
@@ -279,7 +279,9 @@ src_install() {
 pkg_preinst() {
 	LIBPOD_ROOTLESS_UPGRADE=false
 	if use rootless; then
-		has_version 'app-emulation/libpod[rootless]' || LIBPOD_ROOTLESS_UPGRADE=true
+		has_version 'app-emulation/libpod[rootless]' ||
+		has_version 'app-emulation/podman[rootless]' ||
+			LIBPOD_ROOTLESS_UPGRADE=true
 	fi
 }
 

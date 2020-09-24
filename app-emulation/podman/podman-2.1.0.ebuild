@@ -3,7 +3,8 @@
 
 EAPI=7
 
-EGIT_COMMIT="776abc52106ec7652ced6dbc0869020123ed393d"
+EGIT_COMMIT='d8868746fd3f45b9bfd79e37bf2aa0c7103245fd'
+SECCOMP_VERSION='v0.23.0'
 CATATONIT_VERSION='0.1.5'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
@@ -11,7 +12,8 @@ inherit bash-completion-r1 flag-o-matic go-module linux-info
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
 SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
-	https://github.com/openSUSE/catatonit/archive/v${CATATONIT_VERSION}.tar.gz -> catatonit-${CATATONIT_VERSION}.tar.gz"
+	https://github.com/openSUSE/catatonit/archive/v${CATATONIT_VERSION}.tar.gz -> catatonit-${CATATONIT_VERSION}.tar.gz
+	https://github.com/containers/common/raw/${SECCOMP_VERSION}/pkg/seccomp/seccomp.json -> seccomp-${SECCOMP_VERSION}.json"
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 GPL-3+ ISC MIT MPL-2.0" # GPL-3+ for catatonit
 SLOT="0"
 
@@ -62,7 +64,7 @@ CONFIG_CHECK="
 	~USER_NS
 	~SECCOMP
 	~CGROUP_PIDS
-	~MEMCG_SWAP ~MEMCG_SWAP_ENABLED
+	~MEMCG_SWAP
 
 	~BLK_CGROUP ~BLK_DEV_THROTTLING
 	~CGROUP_PERF
@@ -150,6 +152,12 @@ pkg_setup() {
 	"
 
 	linux-info_pkg_setup
+}
+
+src_unpack() {
+	# Don't try to unpack the .json file
+	MY_A=( ${A[@]/seccomp-${SECCOMP_VERSION}.json} )
+	unpack ${MY_A}
 }
 
 src_prepare() {
@@ -263,8 +271,9 @@ src_install() {
 	newins test/registries.conf registries.conf.example
 	newins test/policy.json policy.json.example
 
+	# Migrated to containers/common ...
 	insinto /usr/share/containers
-	doins seccomp.json
+	newins "${DISTDIR}/seccomp-${SECCOMP_VERSION}.json" seccomp.json
 
 	newinitd "${FILESDIR}"/podman.initd podman
 
