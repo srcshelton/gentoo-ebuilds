@@ -11,7 +11,7 @@ LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 IUSE="selinux"
 EGIT_COMMIT="v${PV}"
-GIT_COMMIT="295b825cdc0795f7e60349b901880e40e9850f5a"
+GIT_COMMIT="0de2694a2eca934d4ca121ac1d1497c76b0ffc85"
 SRC_URI="https://github.com/containers/buildah/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
 RDEPEND="app-crypt/gpgme:=
 	app-emulation/skopeo
