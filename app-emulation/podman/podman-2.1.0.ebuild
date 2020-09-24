@@ -157,7 +157,7 @@ pkg_setup() {
 src_unpack() {
 	# Don't try to unpack the .json file
 	MY_A=( ${A[@]/seccomp-${SECCOMP_VERSION}.json} )
-	unpack ${MY_A}
+	unpack ${MY_A[@]}
 }
 
 src_prepare() {
