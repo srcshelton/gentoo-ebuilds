@@ -45,7 +45,7 @@ DOCS=( README.md )
 src_unpack() {
 	# Don't try to unpack the .lds file
 	MY_A=( ${A[@]/libcrun.lds} )
-	unpack ${MY_A}
+	unpack ${MY_A[@]}
 }
 
 src_prepare() {
