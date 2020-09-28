@@ -4,4 +4,4 @@
 CG_CONFIGFILE=/etc/cgroup/cgconfig.conf
 
 # Enable calssifying pid according to rules if necessary
-CG_CLASSIFY=No
+CG_CLASSIFY=no

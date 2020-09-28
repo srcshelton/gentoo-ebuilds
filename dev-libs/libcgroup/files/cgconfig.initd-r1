@@ -2,8 +2,8 @@
 # Copyright 1999-2015 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-CGCONFIGPARSER="/usr/sbin/cgconfigparser"
-CGCLASSIFY="/usr/bin/cgclassify"
+CGCONFIGPARSER="/sbin/cgconfigparser"
+CGCLASSIFY="/bin/cgclassify"
 : ${CG_CONFIGFILE:=/etc/cgroup/cgconfig.conf}
 description="Control Group Configuration Service"
 

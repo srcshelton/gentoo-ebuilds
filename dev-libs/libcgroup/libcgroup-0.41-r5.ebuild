@@ -87,6 +87,10 @@ src_test() {
 src_install() {
 	default
 
+	dodir /bin /sbin
+	mv "${ED}"/usr/bin/* "${ED}"/bin/
+	mv "${ED}"/usr/sbin/* "${ED}"/sbin/
+
 	if use split-usr; then
 		# need the libs in /
 		gen_usr_ldscript -a cgroup
