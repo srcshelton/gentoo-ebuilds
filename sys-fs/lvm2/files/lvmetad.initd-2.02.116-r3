@@ -2,10 +2,13 @@
 # Copyright 1999-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-pidfile="/var/run/lvmetad.pid"
+#: ${LVM_LVMETAD_PIDFILE:=/var/run/lvmetad.pid}
+#: ${LVM_LVMETAD_SOCKET:=/var/run/lvm/lvmetad.socket}
+
+#pidfile="/var/run/lvmetad.pid"
 command="/sbin/lvmetad"
-command_args="${LVMETAD_OPTS:=-p ${pidfile}}"
-start_stop_daemon_args="--pidfile ${pidfile}"
+#command_args="${LVMETAD_OPTS:=-p ${pidfile}}"
+#start_stop_daemon_args="--pidfile ${pidfile}"
 
 depend() {
 	:
@@ -13,5 +16,30 @@ depend() {
 
 start_pre()
 {
-	checkpath --quiet --directory /var/run/lvm || return 1
+	if checkpath -qW /var/run; then
+		checkpath --quiet --directory /var/run/lvm || return 1
+	else
+		checkpath --quiet --directory /dev/.lvm || return 1
+	fi
+}
+
+start()
+{
+	local piddir='' basedir=''
+
+	if checkpath -qW /var/run/lvm; then
+		piddir="/var/run"
+		basedir="/var/run/lvm"
+	else
+		piddir="/dev/.lvm"
+		basedir="/dev/.lvm"
+	fi
+
+	export pidfile="${piddir}/lvmetad.pid"
+	export command_args="${LVMETAD_OPTS:=-p ${pidfile}}"
+	export start_stop_daemon_args="--pidfile ${pidfile}"
+	export LVM_LVMETAD_PIDFILE="${pidfile}"
+	export LVM_LVMETAD_SOCKET="${basedir}/lvmetad.socket"
+
+	default_start
 }

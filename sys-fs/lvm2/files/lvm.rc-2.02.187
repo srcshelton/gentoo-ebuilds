@@ -2,6 +2,11 @@
 # Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
+#: ${LVM_LVMETAD_PIDFILE:=/var/run/lvmetad.pid}
+#: ${LVM_LVMETAD_SOCKET:=/var/run/lvm/lvmetad.socket}
+: ${LVM_LVMETAD_PIDFILE:=/dev/.lvm/lvmetad.pid}
+: ${LVM_LVMETAD_SOCKET:=dev/.lvm/lvmetad.socket}
+
 _get_lvm_path() {
 	local lvm_path
 
@@ -101,6 +106,10 @@ start() {
 				checkpath -dqm 0700 /dev/.lvm
 				config='global { locking_dir = "/dev/.lvm" }'
 			fi
+			if checkpath -qW /var/run/lvm; then
+				export LVM_LVMETAD_PIDFILE="/var/run/lvmetad.pid"
+				export LVM_LVMETAD_SOCKET="/var/run/lvm/lvmetad.socket"
+			fi
 
 			yesno "${rc_verbose}" && verbose_command=" -v"
 
@@ -165,6 +174,10 @@ stop() {
 			config='global { locking_dir = "/var/lock/lvm" }'
 		else
 			config='global { locking_dir = "/dev/.lvm" }'
+		fi
+		if checkpath -qW /var/run/lvm; then
+			export LVM_LVMETAD_PIDFILE="/var/run/lvmetad.pid"
+			export LVM_LVMETAD_SOCKET="/var/run/lvm/lvmetad.socket"
 		fi
 
 		lvs="$( "${lvm_path}" lvs --config "${config}" -o vg_name,lv_name --noheadings --nosuffix 2> /dev/null | cut -d' ' -f 3- | sed 's| |/|' )"
