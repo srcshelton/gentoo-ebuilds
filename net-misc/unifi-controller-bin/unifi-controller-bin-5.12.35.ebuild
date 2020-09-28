@@ -60,8 +60,8 @@ DEPEND="
 	>=virtual/jre-1.8.0
 	<virtual/jre-1.9.0
 	>=dev-db/mongodb-3.2
+	<dev-db/mongodb-4.2
 "
-	#<dev-db/mongodb-3.7
 
 RDEPEND="${DEPEND}"
 

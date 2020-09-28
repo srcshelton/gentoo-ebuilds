@@ -41,6 +41,7 @@ DEPEND="
 	|| (
 		~dev-db/mongodb-2.6.12
 		>=dev-db/mongodb-3.2
+		<dev-db/mongodb-3.6
 	)
 	>=virtual/jre-1.7.0
 "

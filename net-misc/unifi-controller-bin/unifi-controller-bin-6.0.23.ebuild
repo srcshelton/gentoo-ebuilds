@@ -56,6 +56,10 @@ IUSE+=" ${UNIFI_LINGUAS[@]/#/linguas_}"
 # MongoDB 3.6.x is that the '--nohttpinterface' option is now deprecated, and causes an
 # error if used.  The Ubiquiti code, of course, hard-codes this :(
 #
+# Worse, even though Ubiquiti's softare worked unofficially with MongoDB 4.0, it's still
+# using ancient mongodb-3.4 Java libraries to connect to mongo, and MongoDB 4.2
+# is no longer compatible >:(
+#
 DEPEND="
 	>=virtual/jre-1.8.0
 	<virtual/jre-1.9.0
