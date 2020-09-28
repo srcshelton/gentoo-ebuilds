@@ -223,6 +223,8 @@ used to build perl)
 
 * acct-group/hugetlb
     * Consistent group for sys-libs/libhugetlbfs
+* acct-group/socat
+    * Privilege-separation account as recommended by net-misc/socat maintainers
 * app-accessibility/svox-pico
     * SVOX Pico TTS (aka 'pico2wave'), required by >www-apps/nabaztaglives-2.2.0
 * app-admin/checkrestart-ng
