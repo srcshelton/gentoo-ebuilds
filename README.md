@@ -633,6 +633,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/libpcre2
 * dev-libs/libunistring
 * dev-libs/mini-xml
+* dev-libs/mpfr
 * dev-libs/openssl
 * dev-libs/popt
 * net-dns/libidn
