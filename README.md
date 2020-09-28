@@ -403,6 +403,8 @@ used to build perl)
     * Patch trivial typo which prevents `writev` from being defined
 * net-misc/dhcp
     * Enhance chroot support in init script
+* net-misc/socat
+    * Use privilege-separation group for security, make HTML documentation and additional tools optional installs
 * net-misc/tor
     * Prevent GCC infinite loop, rather than simply warning about it
 * net-misc/usbip
