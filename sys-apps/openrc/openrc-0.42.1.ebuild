@@ -63,6 +63,7 @@ REQUIRED_USE="compat? ( !vanilla )"
 PATCHES=(
 	"${FILESDIR}"/${PN}-0.42.1-gcc-10.patch
 	"${FILESDIR}"/${PN}-0.42.1-agetty-initd.patch
+	"${FILESDIR}"/${PN}-0.42.1-cgroups.patch
 )
 
 src_prepare() {
