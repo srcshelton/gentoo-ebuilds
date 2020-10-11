@@ -26,18 +26,6 @@ SAPIS="embed cli cgi fpm apache2 phpdbg"
 # SAPIs and SAPI-specific USE flags (cli SAPI is default on):
 IUSE="acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +hash +iconv imap inifile intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline recode selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite ssl systemd sysvipc test threads tidy +tokenizer tokyocabinet truetype unicode wddx webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip zip-encryption zlib"
 
-IUSE="${IUSE} acl argon2 bcmath berkdb bzip2 calendar cdb cjk
-	coverage +ctype curl debug
-	enchant exif +fileinfo +filter firebird
-	+flatfile ftp gd gdbm gmp +hash +iconv imap inifile
-	intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl lmdb
-	mhash mssql mysql mysqli nls
-	oci8-instant-client odbc +opcache pcntl pdo +phar +posix postgres qdbm
-	readline recode selinux +session session-mm sharedmem
-	+simplexml snmp soap sockets sodium spell sqlite ssl
-	sysvipc systemd test tidy +tokenizer tokyocabinet truetype unicode wddx webp
-	+xml xmlreader xmlwriter xmlrpc xpm xslt zip zip-encryption zlib"
-
 # The supported (that is, autodetected) versions of BDB are listed in
 # the ./configure script. Other versions *work*, but we need to stick to
 # the ones that can be detected to avoid a repeat of bug #564824.
