@@ -1,0 +1,96 @@
+From 6c151b98b6d4d6a6d9acf64aaafdb5265d07932e Mon Sep 17 00:00:00 2001
+From: Valentin Rothberg <rothberg@redhat.com>
+Date: Fri, 2 Oct 2020 10:51:01 +0200
+Subject: [PATCH] image prune: remove all candidates
+
+Make sure to remove images until there's nothing left to prune.
+A single iteration may not be sufficient.
+
+Fixes: #7872
+Signed-off-by: Valentin Rothberg <rothberg@redhat.com>
+---
+ libpod/image/prune.go          | 50 ++++++++++++++++++++--------------
+ pkg/domain/infra/abi/images.go |  6 +---
+ 2 files changed, 31 insertions(+), 25 deletions(-)
+
+diff --git a/libpod/image/prune.go b/libpod/image/prune.go
+index fcc65fb03e..b38265a7ef 100644
+--- a/libpod/image/prune.go
++++ b/libpod/image/prune.go
+@@ -125,29 +125,39 @@ func (ir *Runtime) PruneImages(ctx context.Context, all bool, filter []string) (
+ 		filterFuncs = append(filterFuncs, generatedFunc)
+ 	}
+ 
+-	pruneImages, err := ir.GetPruneImages(ctx, all, filterFuncs)
+-	if err != nil {
+-		return nil, errors.Wrap(err, "unable to get images to prune")
+-	}
+-	prunedCids := make([]string, 0, len(pruneImages))
+-	for _, p := range pruneImages {
+-		repotags, err := p.RepoTags()
++	pruned := []string{}
++	prev := 0
++	for {
++		toPrune, err := ir.GetPruneImages(ctx, all, filterFuncs)
+ 		if err != nil {
+-			return nil, err
++			return nil, errors.Wrap(err, "unable to get images to prune")
+ 		}
+-		if err := p.Remove(ctx, true); err != nil {
+-			if errors.Cause(err) == storage.ErrImageUsedByContainer {
+-				logrus.Warnf("Failed to prune image %s as it is in use: %v.\nA container associated with containers/storage i.e. Buildah, CRI-O, etc., maybe associated with this image.\nUsing the rmi command with the --force option will remove the container and image, but may cause failures for other dependent systems.", p.ID(), err)
+-				continue
+-			}
+-			return nil, errors.Wrap(err, "failed to prune image")
++		numImages := len(toPrune)
++		if numImages == 0 || numImages == prev {
++			// If there's nothing left to do, return.
++			break
+ 		}
+-		defer p.newImageEvent(events.Prune)
+-		nameOrID := p.ID()
+-		if len(repotags) > 0 {
+-			nameOrID = repotags[0]
++		prev = numImages
++		for _, img := range toPrune {
++			repotags, err := img.RepoTags()
++			if err != nil {
++				return nil, err
++			}
++			if err := img.Remove(ctx, false); err != nil {
++				if errors.Cause(err) == storage.ErrImageUsedByContainer {
++					logrus.Warnf("Failed to prune image %s as it is in use: %v.\nA container associated with containers/storage (e.g., Buildah, CRI-O, etc.) maybe associated with this image.\nUsing the rmi command with the --force option will remove the container and image, but may cause failures for other dependent systems.", img.ID(), err)
++					continue
++				}
++				return nil, errors.Wrap(err, "failed to prune image")
++			}
++			defer img.newImageEvent(events.Prune)
++			nameOrID := img.ID()
++			if len(repotags) > 0 {
++				nameOrID = repotags[0]
++			}
++			pruned = append(pruned, nameOrID)
+ 		}
+-		prunedCids = append(prunedCids, nameOrID)
++
+ 	}
+-	return prunedCids, nil
++	return pruned, nil
+ }
+diff --git a/pkg/domain/infra/abi/images.go b/pkg/domain/infra/abi/images.go
+index d56dc7d947..965c63bec1 100644
+--- a/pkg/domain/infra/abi/images.go
++++ b/pkg/domain/infra/abi/images.go
+@@ -46,11 +46,7 @@ func (ir *ImageEngine) Exists(_ context.Context, nameOrID string) (*entities.Boo
+ }
+ 
+ func (ir *ImageEngine) Prune(ctx context.Context, opts entities.ImagePruneOptions) (*entities.ImagePruneReport, error) {
+-	return ir.pruneImagesHelper(ctx, opts.All, opts.Filter)
+-}
+-
+-func (ir *ImageEngine) pruneImagesHelper(ctx context.Context, all bool, filters []string) (*entities.ImagePruneReport, error) {
+-	results, err := ir.Libpod.ImageRuntime().PruneImages(ctx, all, filters)
++	results, err := ir.Libpod.ImageRuntime().PruneImages(ctx, opts.All, opts.Filter)
+ 	if err != nil {
+ 		return nil, err
+ 	}

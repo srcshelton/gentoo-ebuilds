@@ -1,0 +1,87 @@
+From 1492f3c936a0f6180db61a6500371aceebc37e39 Mon Sep 17 00:00:00 2001
+From: zhangguanzhang <zhangguanzhang@qq.com>
+Date: Fri, 2 Oct 2020 21:56:04 +0800
+Subject: [PATCH] --rm option shold conflicts with --restart
+
+Signed-off-by: zhangguanzhang <zhangguanzhang@qq.com>
+---
+ cmd/podman/common/createparse.go |  2 +-
+ cmd/podman/common/specgen.go     |  2 +-
+ completions/bash/podman          |  2 +-
+ test/e2e/run_test.go             | 24 ++++++++++++++++++++++++
+ 4 files changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/cmd/podman/common/createparse.go b/cmd/podman/common/createparse.go
+index 059f9050f2..09ee5aa0ce 100644
+--- a/cmd/podman/common/createparse.go
++++ b/cmd/podman/common/createparse.go
+@@ -10,7 +10,7 @@ import (
+ func (c *ContainerCLIOpts) validate() error {
+ 	var ()
+ 	if c.Rm && c.Restart != "" && c.Restart != "no" {
+-		return errors.Errorf("the --rm option conflicts with --restart")
++		return errors.Errorf(`the --rm option conflicts with --restart, when the restartPolicy is not "" and "no"`)
+ 	}
+ 
+ 	if _, err := util.ValidatePullType(c.Pull); err != nil {
+diff --git a/cmd/podman/common/specgen.go b/cmd/podman/common/specgen.go
+index e7b88eb3f6..84ae70b6a9 100644
+--- a/cmd/podman/common/specgen.go
++++ b/cmd/podman/common/specgen.go
+@@ -233,7 +233,7 @@ func FillOutSpecGen(s *specgen.SpecGenerator, c *ContainerCLIOpts, args []string
+ 
+ 	// validate flags as needed
+ 	if err := c.validate(); err != nil {
+-		return nil
++		return err
+ 	}
+ 
+ 	s.User = c.User
+diff --git a/completions/bash/podman b/completions/bash/podman
+index a83cfc7907..e12862126c 100644
+--- a/completions/bash/podman
++++ b/completions/bash/podman
+@@ -407,7 +407,7 @@ __podman_local_interfaces() {
+ __podman_complete_restart() {
+ 	case "$prev" in
+ 		--restart)
+-			COMPREPLY=( $( compgen -W "always no on-failure" -- "$cur") )
++			COMPREPLY=( $( compgen -W "always no on-failure unless-stopped" -- "$cur") )
+ 			return
+ 			;;
+ 	esac
+diff --git a/test/e2e/run_test.go b/test/e2e/run_test.go
+index 292df529c8..05aede122b 100644
+--- a/test/e2e/run_test.go
++++ b/test/e2e/run_test.go
+@@ -67,6 +67,30 @@ var _ = Describe("Podman run", func() {
+ 		Expect(session.ExitCode()).To(Equal(0))
+ 	})
+ 
++	It("podman run --rm with --restart", func() {
++		session := podmanTest.Podman([]string{"run", "--rm", "--restart", "", ALPINE})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++
++		session = podmanTest.Podman([]string{"run", "--rm", "--restart", "no", ALPINE})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++
++		// the --rm option conflicts with --restart, when the restartPolicy is not "" and "no"
++		// so the exitCode should not equal 0
++		session = podmanTest.Podman([]string{"run", "--rm", "--restart", "on-failure", ALPINE})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Not(Equal(0)))
++
++		session = podmanTest.Podman([]string{"run", "--rm", "--restart", "always", ALPINE})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Not(Equal(0)))
++
++		session = podmanTest.Podman([]string{"run", "--rm", "--restart", "unless-stopped", ALPINE})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Not(Equal(0)))
++	})
++
+ 	It("podman run a container based on on a short name with localhost", func() {
+ 		tag := podmanTest.Podman([]string{"tag", nginx, "localhost/libpod/alpine_nginx:latest"})
+ 		tag.WaitWithDefaultTimeout()

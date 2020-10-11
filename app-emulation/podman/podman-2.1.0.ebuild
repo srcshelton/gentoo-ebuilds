@@ -46,6 +46,7 @@ RDEPEND="${COMMON_DEPEND}
 
 PATCHES=(
 	"${FILESDIR}"/libpod-2.0.0_rc4-varlink.patch 
+	"${FILESDIR}"/podman-2.1.0-caps.patch
 )
 
 S="${WORKDIR}/${P/_/-}"
