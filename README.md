@@ -229,6 +229,8 @@ used to build perl)
     * Add user to 'hugetlb' group
 * acct-user/mysql
     * Add user to 'hugetlb' group
+* acct-user/redis
+    * Add user to 'hugetlb' group
 * app-accessibility/svox-pico
     * SVOX Pico TTS (aka 'pico2wave'), required by >www-apps/nabaztaglives-2.2.0
 * app-admin/checkrestart-ng
