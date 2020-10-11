@@ -491,6 +491,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-misc/radvd
 * net-misc/rsyncd
 * net-p2p/deluge
+* net-print/cups
 * sys-apps/dbus
 * sys-apps/haveged
 * sys-apps/kmod
