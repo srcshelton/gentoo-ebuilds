@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools user
+inherit autotools
 
 DESCRIPTION="Network traffic analyzer with cute web interface"
 HOMEPAGE="https://unix4lyfe.org/darkstat/"
@@ -11,9 +11,10 @@ SRC_URI="https://unix4lyfe.org/${PN}/${P}.tar.bz2"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~ppc ~x86"
+KEYWORDS="amd64 ppc x86"
 
 DEPEND="
+	acct-user/darkstat
 	dev-libs/libbsd
 	net-libs/libpcap
 	sys-libs/zlib
@@ -21,8 +22,11 @@ DEPEND="
 RDEPEND="
 	${DEPEND}
 "
+
 DARKSTAT_CHROOT_DIR=${DARKSTAT_CHROOT_DIR:-/var/lib/darkstat}
+
 DOCS=( AUTHORS ChangeLog README NEWS )
+
 PATCHES=(
 	"${FILESDIR}"/${PN}-3.0.719-strncpy-off-by-one.patch
 )
@@ -39,7 +43,7 @@ src_prepare() {
 }
 
 src_configure() {
-	econf --with-privdrop-user=darkstat
+	econf --disable-debug --with-privdrop-user=darkstat
 }
 
 src_install() {
@@ -55,15 +59,11 @@ src_install() {
 	chown darkstat:0 "${D}${DARKSTAT_CHROOT_DIR}"
 }
 
-pkg_preinst() {
-	enewuser darkstat
-}
-
 pkg_postinst() {
 	# Workaround bug #141619
-	DARKSTAT_CHROOT_DIR=$(
-		sed -n 's/^#CHROOT=\(.*\)/\1/p' "${ROOT}"/etc/conf.d/darkstat
-	)
+	DARKSTAT_CHROOT_DIR="$(
+		sed -n 's/^#CHROOT=\(.*\)/\1/p' "${ROOT%/}"/etc/conf.d/darkstat
+	)"
 	chown darkstat:0 "${ROOT}${DARKSTAT_CHROOT_DIR}"
 
 	elog "To start different darkstat instances which will listen on a different"
