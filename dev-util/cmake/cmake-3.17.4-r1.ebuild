@@ -16,13 +16,13 @@ SRC_URI="https://cmake.org/files/v$(ver_cut 1-2)/${MY_P}.tar.gz"
 LICENSE="CMake"
 SLOT="0"
 [[ "${PV}" = *_rc* ]] || \
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~x64-solaris ~x86-solaris"
 IUSE="doc emacs ncurses qt5 test"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
-	app-crypt/rhash
 	>=app-arch/libarchive-3.3.3:=
+	app-crypt/rhash
 	>=dev-libs/expat-2.0.1
 	>=dev-libs/jsoncpp-1.9.2-r2:0=
 	>=dev-libs/libuv-1.10.0:=
@@ -57,18 +57,16 @@ PATCHES=(
 	#"${FILESDIR}"/${PN}-3.1.0-darwin-isysroot.patch
 
 	# handle gentoo packaging in find modules
-	"${FILESDIR}"/${PN}-3.15.0_rc2-FindBLAS.patch
-	"${FILESDIR}"/${PN}-3.14.0_rc1-FindLAPACK.patch
+	"${FILESDIR}"/${PN}-3.17.0_rc1-FindBLAS.patch
+	"${FILESDIR}"/${PN}-3.17.0_rc1-FindLAPACK.patch
 	"${FILESDIR}"/${PN}-3.5.2-FindQt4.patch
 
 	# respect python eclasses
 	"${FILESDIR}"/${PN}-2.8.10.2-FindPythonLibs.patch
 	"${FILESDIR}"/${PN}-3.9.0_rc2-FindPythonInterp.patch
 
-	# Try to make the configure stage less fragile
-	"${FILESDIR}"/${PN}-3.16.5-cm_cxx_features.patch
-
 	# upstream fixes (can usually be removed with a version bump)
+	"${FILESDIR}"/${P}-uv-check-return.patch # bug 726962
 )
 
 cmake_src_bootstrap() {
@@ -110,17 +108,19 @@ cmake_src_test() {
 	#    CMakeOnly.AllFindModules: pthread issues
 	#    CTest.updatecvs: fails to commit as root
 	#    Fortran: requires fortran
+	#    RunCMake.CommandLineTar: whatever...
 	#    RunCMake.CompilerLauncher: also requires fortran
 	#    RunCMake.CPack_RPM: breaks if app-arch/rpm is installed because
 	#        debugedit binary is not in the expected location
 	#    RunCMake.CPack_DEB: breaks if app-arch/dpkg is installed because
 	#        it can't find a deb package that owns libc
+	#    RunCMake.{IncompatibleQt,ObsoleteQtMacros}: Require Qt4
 	#    TestUpload: requires network access
 	"${BUILD_DIR}"/bin/ctest \
 		-j "$(makeopts_jobs)" \
 		--test-load "$(makeopts_loadavg)" \
 		${ctestargs} \
-		-E "(BootstrapTest|BundleUtilities|CMakeOnly.AllFindModules|CompileOptions|CTest.UpdateCVS|Fortran|RunCMake.CompilerLauncher|RunCMake.PrecompileHeaders|RunCMake.CPack_(DEB|RPM)|TestUpload)" \
+		-E "(BootstrapTest|BundleUtilities|CMakeOnly.AllFindModules|CompileOptions|CTest.UpdateCVS|Fortran|RunCMake.CommandLineTar|RunCMake.CompilerLauncher|RunCMake.IncompatibleQt|RunCMake.ObsoleteQtMacros|RunCMake.PrecompileHeaders|RunCMake.CPack_(DEB|RPM)|TestUpload)" \
 		|| die "Tests failed"
 
 	popd > /dev/null
@@ -171,34 +171,44 @@ src_configure() {
 
 	cmake_src_configure
 
-	# Try to fix-up lib(x)32 paths...
-	if [[ ${ABI} == "x32" ]] || [[ -n "${LIBDIR_x32}" && "${LIBDIR_x32}" != 'libx32' ]]; then
-		ebegin "Updating 'x32' library paths to use '${LIBDIR_x32}'"
-		local file
-		local -i counter=0
-		while read -r file; do
-			sed -i \
-			    -e "s|libx32|${LIBDIR_x32}|g" \
-			    "${file}" || die "sed failed: ${?}"
-			(( counter ++ ))
-		done < <( find . -type f -exec grep -H libx32 {} + | grep -v 'matches$' | cut -d':' -f 1 )
-		sed -i \
-		    -e "s|this->AddArchitecturePaths(\"x32\");|this->AddArchitecturePaths(\"${LIBDIR_x32#lib}\");|" \
-			Source/cmFindLibraryCommand.cxx || die "sed failed: ${?}"
-		(( counter ++ ))
-		einfo "Updated ${counter} files"
-		eend 0
-	fi
 	if use amd64 && [[ ${ABI} == "x32" ]]; then
+		# Try to fix-up lib(x)32 paths...
+		if [[ -n "${LIBDIR_x32}" && "${LIBDIR_x32}" != 'libx32' ]]; then
+			ebegin "Updating 'x32' library paths to use '${LIBDIR_x32}'"
+			local file
+			local -i counter=0
+			while read -r file; do
+				if [[ -s "${file}" ]]; then
+					einfo "Attempting to update file '${file}' ..."
+					sed -i \
+						-e "s|libx32|${LIBDIR_x32}|g" \
+						"${file}" || die "sed failed: ${?}"
+					(( counter ++ ))
+				else
+					ewarn "File '${file}' could not be read"
+				fi
+			#done <<<"$( find . -type f -exec grep -H libx32 {} + | grep -v 'matches$' | cut -d':' -f 1 | sort | uniq )"
+			done <<<"$( find . -type f -exec grep -l libx32 {} + )"
+
+			sed -i \
+				-e "s|this->AddArchitecturePaths(\"x32\");|this->AddArchitecturePaths(\"${LIBDIR_x32#lib}\");|" \
+				Source/cmFindLibraryCommand.cxx || die "sed failed: ${?}"
+			(( counter ++ ))
+			einfo "Updated ${counter} files"
+			eend 0
+		fi
+
 		# Try to ensure that we search for libraries from the specified LIBDIR
 		# first...
 		local file
 		while read -r file; do
+			einfo "Attempting to correct order in file '${file}' ..."
 			sed -i \
 			    -e "s|lib64\(.*\)${LIBDIR_x32}|${LIBDIR_x32}\1lib64|g" \
 			    "${file}" || die "sed failed: ${?}"
 			    #-e 's|/lib64/|/lib64-ignore/|g' \
-		done < <( find . -type f -exec grep -H lib64 {} + | grep -v 'matches$' | cut -d':' -f 1 )
+		#done <<<"$( find . -type f -exec grep -H lib64 {} + | grep -v 'matches$' | cut -d':' -f 1 )"
+		done <<<"$( find . -type f -exec grep -l lib64 {} + )"
 	fi
 }
 
