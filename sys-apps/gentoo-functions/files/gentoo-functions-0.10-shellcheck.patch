@@ -167,7 +167,7 @@
  	return ${retval}
  }
  
-@@ -415,12 +427,13 @@
+@@ -415,15 +427,16 @@
  # Default values for e-message indentation and dots
  RC_INDENTATION=''
  RC_DEFAULT_INDENT=2
@@ -181,18 +181,27 @@
 +if [ -z "${CONSOLETYPE:-}" ] ; then
  	CONSOLETYPE="$(consoletype stdout 2>/dev/null )"; export CONSOLETYPE
  fi
- if [ "${CONSOLETYPE}" = "serial" ] ; then
-@@ -439,8 +452,9 @@
+-if [ "${CONSOLETYPE}" = "serial" ] ; then
++if [ "${CONSOLETYPE:-}" = "serial" ] ; then
+ 	RC_NOCOLOR="yes"
+ 	RC_ENDCOL="no"
+ fi
+@@ -439,10 +452,11 @@
  
  # Setup COLS and ENDCOL so eend can line up the [ ok ]
  COLS="${COLUMNS:-0}"            # bash's internal COLUMNS variable
-+# shellcheck disable=SC2046
- [ "$COLS" -eq 0 ] && \
+-[ "$COLS" -eq 0 ] && \
 -        COLS="$(set -- $(stty size 2>/dev/null) ; printf "$2\n")"
-+        COLS="$(set -- $(stty size 2>/dev/null) ; printf '%s\n' "$2")"
- [ -z "$COLS" ] && COLS=80
- [ "$COLS" -gt 0 ] || COLS=80	# width of [ ok ] == 7
+-[ -z "$COLS" ] && COLS=80
+-[ "$COLS" -gt 0 ] || COLS=80	# width of [ ok ] == 7
++# shellcheck disable=SC2046
++[ "${COLS:-}" -eq 0 ] && \
++        COLS="$(set -- $(stty size 2>/dev/null) ; printf '%s\n' "${2:-}")"
++[ -z "${COLS:-}" ] && COLS=80
++[ "${COLS}" -gt 0 ] || COLS=80	# width of [ ok ] == 7
  
+ if yesno "${RC_ENDCOL}"; then
+ 	ENDCOL='\033[A\033['$(( COLS - 8 ))'C'
 @@ -464,6 +478,7 @@
  	GOOD=$(printf '\033[32;01m')
  	WARN=$(printf '\033[33;01m')
