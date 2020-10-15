@@ -460,6 +460,8 @@ used to build perl)
     * Provide more flexibility with finer-grained USE flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
+* sys-process/cronbase
+    * Add consistent group and user dependencies
 * virtual/bitcoin-leveldb
     * Be more flexible about necessary dependencies
 * virtual/tmpfiles
