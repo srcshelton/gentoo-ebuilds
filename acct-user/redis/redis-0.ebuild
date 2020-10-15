@@ -5,7 +5,7 @@ EAPI=7
 
 inherit acct-user
 
-DESCRIPTION="Redis program user"
+DESCRIPTION="user for redis daemon"
 ACCT_USER_ID=75
 ACCT_USER_GROUPS=( redis hugetlb )
 
