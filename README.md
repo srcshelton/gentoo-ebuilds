@@ -227,6 +227,8 @@ used to build perl)
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/socat
     * Privilege-separation account as recommended by net-misc/socat maintainers
+* acct-user/cron
+    * Consistent user for sys-process/cronbase
 * acct-user/memcached
     * Add user to 'hugetlb' group
 * acct-user/mysql
