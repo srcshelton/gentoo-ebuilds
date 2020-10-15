@@ -221,6 +221,8 @@ used to build perl)
 
 # Out-of-tree ebuilds
 
+* acct-group/cron
+    * Consistent group for sys-process/cronbase
 * acct-group/hugetlb
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/socat
