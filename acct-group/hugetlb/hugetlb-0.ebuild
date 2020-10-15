@@ -5,4 +5,5 @@ EAPI=7
 
 inherit acct-group
 
+DESCRIPTION="group for hugetlb"
 ACCT_GROUP_ID=30
