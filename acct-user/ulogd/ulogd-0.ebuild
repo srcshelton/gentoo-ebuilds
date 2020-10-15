@@ -5,7 +5,7 @@ EAPI=7
 
 inherit acct-user
 
-DESCRIPTION="user for ulogd"
+DESCRIPTION="user for ulogd daemon"
 ACCT_USER_ID=23
 ACCT_USER_GROUPS=( ulogd )
 
