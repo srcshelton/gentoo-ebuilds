@@ -7,7 +7,7 @@ inherit acct-user
 
 SLOT="0"
 
-DESCRIPTION="MySQL program user"
+DESCRIPTION="user for mysql daemon"
 ACCT_USER_ID=60
 ACCT_USER_GROUPS=( mysql hugetlb )
 
