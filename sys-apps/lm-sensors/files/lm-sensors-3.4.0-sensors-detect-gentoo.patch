@@ -29,7 +29,7 @@ index 057cd96..e29ab4c 100755
 +
 +	# Check whether the system was booted using systemd.
 +	# See: man sd_booted
-+	$systemd_is_booted = -d '/var/run/systemd/system';
++	$systemd_is_booted = -d '/run/systemd/system';
  }
  
  # [0] -> VERSION
