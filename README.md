@@ -399,6 +399,8 @@ used to build perl)
     * Remove some of the more onerous limitations from the community edition, use source from `3.0-stable` branch rather than `3.0` tag
 * net-analyzer/suricata
     * Minor ebuild fixes, automatically fetch latest rules on build
+* net-analyzer/tcpdump
+    * Add consistent group and user dependencies
 * net-dialup/ppp
     * Incorporate patches to allow interface discovery (rather than assuming that `eth0` is the primary interface, the appropriate interface with a prefix of `eth`, `em`, `ef`, or `eg` will be auto-detected), and to enable the use of Baby Jumbo Frames whereby the host interface is given an MTU of 1508 so that a PPPoE link can retain a full 1500-byte MTU
 * net-dns/avahi
