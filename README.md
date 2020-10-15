@@ -448,6 +448,8 @@ used to build perl)
     * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-apps/sysvinit
     * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
+* sys-auth/pam_mktemp
+    * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
 * sys-kernel/linux-firmware
     * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
 * sys-libs/libhugetlbfs
