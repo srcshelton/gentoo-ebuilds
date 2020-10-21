@@ -25,7 +25,7 @@ SRC_URI="
 	#)
 RESTRICT="mirror"
 
-LICENSE="GPL-3 UBNT-20170717"
+LICENSE="GPL-3 UBNT"
 SLOT="0"
 KEYWORDS="~aarch64 ~amd64 ~arm ~x86"
 IUSE="nls rpi1 systemd +tools" # doc

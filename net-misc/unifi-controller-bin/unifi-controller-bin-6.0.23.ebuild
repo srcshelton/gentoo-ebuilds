@@ -25,7 +25,7 @@ SRC_URI="
 	#)
 RESTRICT="mirror"
 
-LICENSE="GPL-3 UBNT-20170717"
+LICENSE="GPL-3 UBNT"
 SLOT="0"
 KEYWORDS="~aarch64 ~amd64 ~arm ~x86"
 IUSE="nls rpi1 systemd +tools" # doc
@@ -65,6 +65,8 @@ DEPEND="
 	<virtual/jre-1.9.0
 	>=dev-db/mongodb-3.6
 	<dev-db/mongodb-4.2
+	acct-group/unifi
+	acct-user/unifi
 "
 
 RDEPEND="${DEPEND}"
@@ -87,9 +89,6 @@ pkg_setup () {
 	# clients - the likelihood is that (much?) more space will be required
 	# in time...
 	check-reqs_pkg_setup
-
-	enewgroup unifi
-	enewuser unifi -1 -1 /var/lib/unifi unifi
 }
 
 src_unpack () {

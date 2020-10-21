@@ -21,7 +21,7 @@ SRC_URI="
 	#https://repo1.maven.org/maven2/org/xerial/snappy/snappy-java/${SNAPPY}/snappy-java-${SNAPPY}.jar
 RESTRICT="mirror"
 
-LICENSE="GPL-3 UBNT-20170717"
+LICENSE="GPL-3 UBNT"
 SLOT="0"
 KEYWORDS="amd64 arm x86"
 IUSE="rpi1 systemd +tools"
