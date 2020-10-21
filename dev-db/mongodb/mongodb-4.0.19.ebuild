@@ -32,6 +32,7 @@ RDEPEND="acct-group/mongodb
 	>=dev-libs/libpcre-8.41[cxx]
 	dev-libs/snowball-stemmer
 	net-libs/libpcap
+	net-misc/curl
 	>=sys-libs/zlib-1.2.11:=
 	kerberos? ( dev-libs/cyrus-sasl[kerberos] )
 	mms-agent? ( app-admin/mms-agent )
