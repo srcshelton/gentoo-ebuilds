@@ -4,7 +4,7 @@
 EAPI=7
 
 EGIT_COMMIT='9f6d6ba0b314d86521b66183c9ce48eaa2da1de2'
-SECCOMP_VERSION='v0.23.0'
+SECCOMP_VERSION='v0.26.0'
 CATATONIT_VERSION='0.1.5'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
@@ -49,6 +49,8 @@ PATCHES=(
 	"${FILESDIR}"/podman-2.1.0-caps.patch
 	"${FILESDIR}"/podman-2.1.1-restart.patch
 	"${FILESDIR}"/podman-2.1.1-prune.patch
+	"${FILESDIR}"/podman-2.1.1-namespace.patch
+	"${FILESDIR}"/podman-2.1.1-hostname.patch
 )
 
 S="${WORKDIR}/${P/_/-}"

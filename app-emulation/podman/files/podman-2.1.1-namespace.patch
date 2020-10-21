@@ -1,0 +1,97 @@
+From 3ae47f7d2b9328ff47dc5702d834ae9ee296a27b Mon Sep 17 00:00:00 2001
+From: Daniel J Walsh <dwalsh@redhat.com>
+Date: Tue, 6 Oct 2020 07:04:18 -0400
+Subject: [PATCH] Populate /etc/hosts file when run in a user namespace
+
+We do not populate the hostname field with the IP Address
+when running within a user namespace.
+
+Fixes https://github.com/containers/podman/issues/7490
+
+Signed-off-by: Daniel J Walsh <dwalsh@redhat.com>
+---
+ libpod/container_internal.go       | 24 ++++++++++++++++++++++++
+ libpod/container_internal_linux.go |  5 +----
+ test/e2e/run_networking_test.go    | 11 +++++++++++
+ 3 files changed, 36 insertions(+), 4 deletions(-)
+
+diff --git a/libpod/container_internal.go b/libpod/container_internal.go
+index d64d3ab87d..4ae571de6a 100644
+--- a/libpod/container_internal.go
++++ b/libpod/container_internal.go
+@@ -976,6 +976,21 @@ func (c *Container) completeNetworkSetup() error {
+ 			}
+ 		}
+ 	}
++	// check if we have a bindmount for /etc/hosts
++	if hostsBindMount, ok := state.BindMounts["/etc/hosts"]; ok && len(c.cniHosts()) > 0 {
++		ctrHostPath := filepath.Join(c.state.RunDir, "hosts")
++		if hostsBindMount == ctrHostPath {
++			// read the existing hosts
++			b, err := ioutil.ReadFile(hostsBindMount)
++			if err != nil {
++				return err
++			}
++			if err := ioutil.WriteFile(hostsBindMount, append(b, []byte(c.cniHosts())...), 0644); err != nil {
++				return err
++			}
++		}
++	}
++
+ 	// check if we have a bindmount for resolv.conf
+ 	resolvBindMount := state.BindMounts["/etc/resolv.conf"]
+ 	if len(outResolvConf) < 1 || resolvBindMount == "" || len(c.config.NetNsCtr) > 0 {
+@@ -997,6 +1012,15 @@ func (c *Container) completeNetworkSetup() error {
+ 	return ioutil.WriteFile(resolvBindMount, []byte(strings.Join(outResolvConf, "\n")), 0644)
+ }
+ 
++func (c *Container) cniHosts() string {
++	var hosts string
++	if len(c.state.NetworkStatus) > 0 && len(c.state.NetworkStatus[0].IPs) > 0 {
++		ipAddress := strings.Split(c.state.NetworkStatus[0].IPs[0].Address.String(), "/")[0]
++		hosts += fmt.Sprintf("%s\t%s %s\n", ipAddress, c.Hostname(), c.Config().Name)
++	}
++	return hosts
++}
++
+ // Initialize a container, creating it in the runtime
+ func (c *Container) init(ctx context.Context, retainRetries bool) error {
+ 	span, _ := opentracing.StartSpanFromContext(ctx, "init")
+diff --git a/libpod/container_internal_linux.go b/libpod/container_internal_linux.go
+index 894982973a..41cc807899 100644
+--- a/libpod/container_internal_linux.go
++++ b/libpod/container_internal_linux.go
+@@ -1543,10 +1543,7 @@ func (c *Container) getHosts() string {
+ 		// When using slirp4netns, the interface gets a static IP
+ 		hosts += fmt.Sprintf("# used by slirp4netns\n%s\t%s %s\n", "10.0.2.100", c.Hostname(), c.Config().Name)
+ 	}
+-	if len(c.state.NetworkStatus) > 0 && len(c.state.NetworkStatus[0].IPs) > 0 {
+-		ipAddress := strings.Split(c.state.NetworkStatus[0].IPs[0].Address.String(), "/")[0]
+-		hosts += fmt.Sprintf("%s\t%s %s\n", ipAddress, c.Hostname(), c.Config().Name)
+-	}
++	hosts += c.cniHosts()
+ 	return hosts
+ }
+ 
+diff --git a/test/e2e/run_networking_test.go b/test/e2e/run_networking_test.go
+index 044e56e6c8..0f8b3e939c 100644
+--- a/test/e2e/run_networking_test.go
++++ b/test/e2e/run_networking_test.go
+@@ -477,6 +477,17 @@ var _ = Describe("Podman run networking", func() {
+ 		Expect(session.ExitCode()).To(Equal(0))
+ 	})
+ 
++	It("podman run --uidmap /etc/hosts contains --hostname", func() {
++		SkipIfRootless("uidmap population of cninetworks not supported for rootless users")
++		session := podmanTest.Podman([]string{"run", "--uidmap", "0:100000:1000", "--rm", "--hostname", "foohostname", ALPINE, "grep", "foohostname", "/etc/hosts"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++
++		session = podmanTest.Podman([]string{"run", "--uidmap", "0:100000:1000", "--rm", "--hostname", "foohostname", "-v", "/etc/hosts:/etc/hosts", ALPINE, "grep", "foohostname", "/etc/hosts"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(1))
++	})
++
+ 	It("podman run network in user created network namespace", func() {
+ 		SkipIfRootless("ip netns is not supported for rootless users")
+ 		if Containerized() {
