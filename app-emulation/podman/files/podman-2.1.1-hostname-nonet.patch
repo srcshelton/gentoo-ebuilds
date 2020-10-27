@@ -1,0 +1,48 @@
+diff --git a/libpod/container_internal_linux.go b/libpod/container_internal_linux.go
+index ffb2f5b73c..2efe0d0869 100644
+--- a/libpod/container_internal_linux.go
++++ b/libpod/container_internal_linux.go
+@@ -1550,9 +1550,13 @@ func (c *Container) getHosts() string {
+ 			hosts += fmt.Sprintf("# used by slirp4netns\n%s\t%s %s\n", "10.0.2.100", c.Hostname(), c.config.Name)
+ 		} else {
+ 			hasNetNS := false
++			netNone := false
+ 			for _, ns := range c.config.Spec.Linux.Namespaces {
+ 				if ns.Type == spec.NetworkNamespace {
+ 					hasNetNS = true
++					if ns.Path == "" && !c.config.CreateNetNS {
++						netNone = true
++					}
+ 					break
+ 				}
+ 			}
+@@ -1564,6 +1568,9 @@ func (c *Container) getHosts() string {
+ 				}
+ 				hosts += fmt.Sprintf("127.0.1.1 %s\n", osHostname)
+ 			}
++			if netNone {
++				hosts += fmt.Sprintf("127.0.1.1 %s\n", c.Hostname())
++			}
+ 		}
+ 	}
+ 	return hosts
+diff --git a/test/e2e/run_networking_test.go b/test/e2e/run_networking_test.go
+index 540ac5409c..76d5c4cdc5 100644
+--- a/test/e2e/run_networking_test.go
++++ b/test/e2e/run_networking_test.go
+@@ -584,6 +584,14 @@ var _ = Describe("Podman run networking", func() {
+ 		run := podmanTest.Podman([]string{"run", "--net=host", "--hostname", hostname, ALPINE, "hostname"})
+ 		run.WaitWithDefaultTimeout()
+ 		Expect(run.ExitCode()).To(BeZero())
+-		Expect(strings.Contains(run.OutputToString(), "testctr")).To(BeTrue())
++		Expect(strings.Contains(run.OutputToString(), hostname)).To(BeTrue())
++	})
++
++	It("podman run with --net=none adds hostname to /etc/hosts", func() {
++		hostname := "testctr"
++		run := podmanTest.Podman([]string{"run", "--net=none", "--hostname", hostname, ALPINE, "hostname"})
++		run.WaitWithDefaultTimeout()
++		Expect(run.ExitCode()).To(BeZero())
++		Expect(strings.Contains(run.OutputToString(), hostname)).To(BeTrue())
+ 	})
+ })
