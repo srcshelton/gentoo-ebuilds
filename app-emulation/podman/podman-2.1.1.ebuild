@@ -52,6 +52,7 @@ PATCHES=(
 	"${FILESDIR}"/podman-2.1.1-namespace.patch
 	"${FILESDIR}"/podman-2.1.1-hostname.patch
 	"${FILESDIR}"/podman-2.1.1-hostname-nonet.patch
+	#"${FILESDIR}"/podman-2.1.1-signals.patch
 )
 
 S="${WORKDIR}/${P/_/-}"
