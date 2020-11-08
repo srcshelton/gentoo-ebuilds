@@ -391,6 +391,8 @@ used to build perl)
     * Fix `status` reporting, revise installed documentation, add optional systemd service support
 * mail-mta/nullmailer
     * Make systemd service support optional
+* mail-mta/ssmtp
+    * Use acct-group/ssmtp instead of `user` eclass
 * media-sound/teamspeak-server-bin
     * A more FHS/Gentoo-like installation structure
 * net-analyzer/munin
