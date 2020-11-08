@@ -227,6 +227,8 @@ used to build perl)
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/socat
     * Privilege-separation account as recommended by net-misc/socat maintainers
+* acct-group/ssmtp
+    * Privilege-separation account
 * acct-group/tcpdump
     * Privilege-separation account
 * acct-user/cron
