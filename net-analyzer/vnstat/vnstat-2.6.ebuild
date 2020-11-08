@@ -10,7 +10,7 @@ SRC_URI="https://humdi.net/vnstat/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~arm hppa ~mips ppc ppc64 sparc x86"
+KEYWORDS="amd64 arm ~arm64 hppa ~mips ppc ppc64 sparc x86"
 IUSE="gd selinux systemd test"
 RESTRICT="!test? ( test )"
 
@@ -27,7 +27,9 @@ RDEPEND="
 	selinux? ( sec-policy/selinux-vnstatd )
 "
 PATCHES=(
+	"${FILESDIR}"/${PN}-2.2-conf.patch
 	"${FILESDIR}"/${PN}-2.2-drop-root.patch
+	"${FILESDIR}"/${PN}-2.2-run.patch
 )
 
 pkg_setup() {
