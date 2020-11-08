@@ -12,4 +12,5 @@ RDEPEND="
 	tmpfiles? ( || (
 		sys-apps/opentmpfiles
 		sys-apps/systemd
+		sys-apps/systemd-tmpfiles
 	) )"
