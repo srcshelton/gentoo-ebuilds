@@ -1,0 +1,46 @@
+# Copyright 1999-2020 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+EAPI=7
+inherit libtool usr-ldscript multilib-minimal
+
+DESCRIPTION="Parse Options - Command line parser"
+HOMEPAGE="https://github.com/rpm-software-management/popt"
+SRC_URI="http://ftp.rpm.org/${PN}/releases/${PN}-1.x/${P}.tar.gz"
+
+LICENSE="MIT"
+SLOT="0"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~x86-linux"
+IUSE="nls split-usr static-libs"
+
+RDEPEND="nls? ( >=virtual/libintl-0-r1[${MULTILIB_USEDEP}] )"
+DEPEND="${RDEPEND}"
+BDEPEND="nls? ( sys-devel/gettext )"
+
+src_prepare() {
+	default
+	sed -i -e 's:lt-test1:test1:' tests/testit.sh || die
+	elibtoolize
+}
+
+multilib_src_configure() {
+	local myeconfargs=(
+		$(use_enable static-libs static)
+		$(use_enable nls)
+	)
+	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"
+}
+
+multilib_src_install() {
+	default
+
+	if use split-usr && multilib_is_native_abi; then
+		# need the libs in /
+		gen_usr_ldscript -a popt
+	fi
+}
+
+multilib_src_install_all() {
+	dodoc CHANGES README
+	find "${ED}" -type f -name "*.la" -delete || die
+}
