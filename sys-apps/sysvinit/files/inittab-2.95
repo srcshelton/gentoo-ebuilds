@@ -22,7 +22,7 @@ rc::bootwait:/sbin/openrc boot
 
 l0u:0:wait:/sbin/telinit u
 l0:0:wait:/sbin/openrc shutdown
-l0s:0:wait:/sbin/halt -dhnp
+l0s:0:wait:/sbin/halt.sh
 l1:1:wait:/sbin/openrc single
 l2:2:wait:/sbin/openrc nonetwork
 l3:3:wait:/sbin/openrc default
