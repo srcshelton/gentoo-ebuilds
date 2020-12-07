@@ -18,8 +18,7 @@ fi
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="audit bash compat debug ncurses pam newnet prefix +netifrc selinux static-libs
-	+tmpfiles unicode -vanilla +varrun kernel_linux kernel_FreeBSD"
+IUSE="audit bash compat debug kernel_FreeBSD kernel_linux ncurses +netifrc newnet pam prefix selinux static-libs +tmpfiles unicode -vanilla +varrun"
 
 COMMON_DEPEND="kernel_FreeBSD? ( || ( >=sys-freebsd/freebsd-ubin-9.0_rc sys-process/fuser-bsd ) )
 	ncurses? ( sys-libs/ncurses:0= )
@@ -227,7 +226,7 @@ pkg_postinst() {
 		ewarn "You have emerged OpenRC without network support. This"
 		ewarn "means you need to SET UP a network manager such as"
 		ewarn "	net-misc/netifrc, net-misc/dhcpcd, net-misc/connman,"
-		ewarn "net-misc/NetworkManager, or net-vpn/badvpn."
+		ewarn " net-misc/NetworkManager, or net-vpn/badvpn."
 		ewarn "Or, you have the option of emerging openrc with the newnet"
 		ewarn "use flag and configuring /etc/conf.d/network and"
 		ewarn "/etc/conf.d/staticroute if you only use static interfaces."
