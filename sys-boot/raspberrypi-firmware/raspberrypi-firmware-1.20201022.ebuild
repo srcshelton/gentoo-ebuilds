@@ -1,21 +1,9 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
 inherit mount-boot readme.gentoo-r1
-
-DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
-HOMEPAGE="https://github.com/raspberrypi/firmware"
-LICENSE="GPL-2 raspberrypi-videocore-bin"
-SLOT="0"
-IUSE="+rpi4"
-
-# Temporary safety measure to prevent ending up with a pair of
-# sys-kernel/raspberrypi-image and sys-boot/raspberrypi-firmware
-# none of which installed device tree files.
-# Remove when the mentioned version and all older ones are deleted.
-RDEPEND="!<=sys-kernel/raspberrypi-image-4.19.57_p20190709"
 
 if [[ "${PV}" == *9999 ]]; then
 	inherit git-r3
@@ -28,9 +16,22 @@ if [[ "${PV}" == *9999 ]]; then
 	fi
 else
 	SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="-* ~arm64 ~arm"
+	KEYWORDS="-* ~arm ~arm64"
 	S="${WORKDIR}/firmware-${PV}"
 fi
+
+DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
+HOMEPAGE="https://github.com/raspberrypi/firmware"
+
+LICENSE="GPL-2 raspberrypi-videocore-bin"
+SLOT="0"
+IUSE="+rpi4"
+
+# Temporary safety measure to prevent ending up with a pair of
+# sys-kernel/raspberrypi-image and sys-boot/raspberrypi-firmware
+# none of which installed device tree files.
+# Remove when the mentioned version and all older ones are deleted.
+RDEPEND="!<=sys-kernel/raspberrypi-image-4.19.57_p20190709"
 
 RESTRICT="binchecks mirror strip"
 
@@ -83,6 +84,17 @@ pkg_setup() {
 	fi
 }
 
+src_prepare() {
+	default
+
+	cp "${FILESDIR}"/${PN}-1.20201022-config.txt "${WORKDIR}" || die
+
+	if use arm64; then
+		# Force selection of the 64-bit kernel8.img to match our userland
+		echo "arm_64bit=1" >> "${WORKDIR}"/${PN}-1.20201022-config.txt || die
+	fi
+}
+
 src_install() {
 	local f boot="${RASPBERRYPI_BOOT:-/boot}" ver
 
@@ -103,8 +115,8 @@ src_install() {
 	doins hardfp/opt/vc/lib/libelftoolchain.so
 
 	insinto "${boot}"
-	newins "${FILESDIR}"/${PN}-0_p20130711-config.txt config.txt
-	newins "${FILESDIR}"/${PN}-0_p20130711-cmdline.txt cmdline.txt
+	newins "${FILESDIR}"/${PN}-1.20201022-config.txt config.txt
+	newins "${FILESDIR}"/${PN}-1.20201022-cmdline.txt cmdline.txt
 
 	cp "${FILESDIR}"/"${PN}"-0_p20130711-envd "${T}"/"${PN}"-envd
 	sed -i "s|/boot|${boot}|g" "${T}"/"${PN}"-envd
