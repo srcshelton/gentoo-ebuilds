@@ -518,6 +518,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-misc/dhcpcd
 * net-misc/memcached
 * net-misc/minidlna
+* net-misc/ndisc6
 * net-misc/ntp
 * net-misc/openntpd
 * net-misc/radvd
