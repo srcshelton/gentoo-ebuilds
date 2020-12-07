@@ -366,10 +366,11 @@ src_install() {
 
 		echo ; ebegin "Removing all files not listed in saved config"
 		grep -qv '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
-		find ! -type d -printf "%P\n" \
-			| grep -Fvx -f <( grep -v '^#' "${S}/${PN}.conf" \
-				|| die "grep failed, empty config file?" ) \
-			| xargs -d '\n' --no-run-if-empty rm
+		find ! -type d -printf "%P\n" |
+			grep -Fvx -f <(
+				grep -v '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
+			) |
+			xargs -d '\n' --no-run-if-empty rm -v
 		#eend $? || die
 	fi
 
