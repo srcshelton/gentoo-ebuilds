@@ -35,7 +35,25 @@ src_configure() {
 src_install() {
 	default
 
+	if [[ ! -d "${D}" ]]; then
+		ewarn "Directory '${D}' doesn't exist"
+	fi
+	if [[ ! -d "${ED}" ]]; then
+		ewarn "Directory '${ED}' doesn't exist"
+	fi
+	if [[ ! -d "${ED}/etc" ]]; then
+		ewarn "Directory '${ED%/}/etc' doesn't exist"
+	fi
+	if [[ ! -d "${ED}/etc/logrotate.d" ]]; then
+		ewarn "Directory '${ED%/}/etc/logrotate.d' doesn't exist"
+	fi
 	if [[ -e "${ED}"/etc/logrotate.d/php-fpm.logrotate ]]; then
+		einfo "Renaming '/etc/logrotate.d/php-fpm.logrotate' to 'php-fpm'"
 		mv "${ED}"/etc/logrotate.d/php-fpm.logrotate "${ED}"/etc/logrotate.d/php-fpm
+	fi
+	find "${D}" -print
+	if [[ -e "${EROOT}"/etc/logrotate.d/php-fpm.logrotate ]]; then
+		einfo "Renaming '/etc/logrotate.d/php-fpm.logrotate' to 'php-fpm' in ROOT '${EROOT}'"
+		mv "${EROOT}"/etc/logrotate.d/php-fpm.logrotate "${EROOT}"/etc/logrotate.d/php-fpm
 	fi
 }
