@@ -12,7 +12,7 @@ SRC_URI="mirror://nongnu/${PN}/${P/_/-}.tar.xz"
 LICENSE="GPL-2"
 SLOT="0"
 [[ "${PV}" == *beta* ]] || \
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
 IUSE="ibm kernel_FreeBSD selinux static"
 
 CDEPEND="
@@ -59,6 +59,14 @@ src_prepare() {
 		-e '/^(USR)?S?BIN/s:\<logsave\>::g' \
 		-e '/^MAN8/s:\<logsave.8\>::g' \
 		src/Makefile || die
+
+	# Revert use of /run/initctl back to /dev/initctl
+	local file
+	grep -lR 'run/initctl' man/ src/ | while read -r file; do
+		sed -i \
+			-e '/initctl/ s|run/initctl|dev/initctl|g' \
+			"${file}" || die
+	done
 
 	# Mung inittab for specific architectures
 	cd "${WORKDIR}" || die
