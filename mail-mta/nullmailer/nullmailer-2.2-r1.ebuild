@@ -11,7 +11,7 @@ SRC_URI="http://untroubled.org/${PN}/archive/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ppc x86 ~x64-cygwin"
+KEYWORDS="amd64 ~arm ~arm64 ppc x86 ~x64-cygwin"
 IUSE="ssl systemd test"
 RESTRICT="!test? ( test )"
 
@@ -116,8 +116,8 @@ src_install() {
 
 pkg_postinst() {
 	if [[ ! -e ${EROOT}/var/spool/nullmailer/trigger ]]; then
-		# If using busybox binaries, mkfifo supports '-m' but not '--mode' ...
 		#mkfifo --mode=0660 "${EROOT}/var/spool/nullmailer/trigger" || die
+		# If using busybox binaries, mkfifo supports '-m' but not '--mode' ...
 		mkfifo -m 0660 "${EROOT}/var/spool/nullmailer/trigger" || die
 	fi
 	chown nullmail:nullmail \
