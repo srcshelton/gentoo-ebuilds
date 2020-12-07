@@ -1,0 +1,27 @@
+#!/sbin/openrc-run
+# Copyright 2020 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+: ${BP:=-p 1000000000}
+: ${BR:=-r 20000}
+: ${BD:=-d 3}
+: ${THRESH:=-t 60}
+: ${LOGGING:=--log_syslog}
+: ${STALLD_ARGS:=${CLIST:-} ${AGGR:-} ${BP} ${BR} ${BD} ${THRESH} ${LOGGING}}
+
+PF="${PF#--pidfile }"
+
+name="stall daemon"
+description="Red Hat thread-stall booster daemon"
+command=/usr/bin/stalld
+pidfile="${PF:-/var/run/stalld.pid}"
+command_args="${STALLD_ARGS} --pidfile ${pidfile} --foreground"
+start_stop_daemon_args="--background --stdout /var/log/stalld/stalld.log"
+
+depend() {
+	need localmount
+}
+
+start_pre() {
+	checkpath -d -m 0755 -o root:root -q /var/log/stalld
+}

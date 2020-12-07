@@ -332,6 +332,8 @@ used to build perl)
     * PAM authentication module for YubiKey hardware
 * sys-boot/grub-legacy
     * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
+* sys-process/stalld
+    * Red Hat thread-booster
 * www-apps/heatmiser
     * Data acquisition and web-interface for Heatmiser Wifi Thermostats
 * www-apps/nabaztaglives
