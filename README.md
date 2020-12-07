@@ -225,6 +225,8 @@ used to build perl)
     * Consistent group for sys-process/cronbase
 * acct-group/hugetlb
     * Consistent group for sys-libs/libhugetlbfs
+* acct-group/milter
+    * Consistent group for mail filters
 * acct-group/socat
     * Privilege-separation account as recommended by net-misc/socat maintainers
 * acct-group/ssmtp
