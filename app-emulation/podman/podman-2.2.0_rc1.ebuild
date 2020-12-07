@@ -4,7 +4,7 @@
 EAPI=7
 
 EGIT_COMMIT='02843f881f9271440e7eaad8db231ddf20e33e51'
-SECCOMP_VERSION='v0.27.0'
+SECCOMP_VERSION='v0.30.0'
 CATATONIT_VERSION='0.1.5'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info

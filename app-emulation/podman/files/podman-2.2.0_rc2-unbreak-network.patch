@@ -1,0 +1,244 @@
+From f441190d10ca3d41e01a076e4b9b3a63746888b6 Mon Sep 17 00:00:00 2001
+From: Paul Holzinger <paul.holzinger@web.de>
+Date: Thu, 19 Nov 2020 12:34:00 +0100
+Subject: [PATCH] Allow multiple --network flags for podman run/create
+
+We allow a container to be connected to several cni networks
+but only if they are listed comma sperated. This is not intuitive
+for users especially since the flag parsing allows multiple string
+flags but only would take the last value. see: spf13/pflag#72
+
+Also get rid of the extra parsing logic for pods. The invalid options
+are already handled by `pkg/specgen`.
+
+A test is added to prevent a future regression.
+
+Signed-off-by: Paul Holzinger <paul.holzinger@web.de>
+---
+ cmd/podman/common/netflags.go           | 34 ++++++++++++++-----------
+ cmd/podman/pods/create.go               | 28 +-------------------
+ docs/source/markdown/podman-create.1.md |  2 +-
+ docs/source/markdown/podman-run.1.md    |  2 +-
+ pkg/specgen/namespaces.go               |  6 -----
+ test/e2e/pod_create_test.go             | 20 +++++++++++++++
+ test/e2e/run_networking_test.go         | 29 +++++++++++++++++++++
+ 7 files changed, 71 insertions(+), 50 deletions(-)
+
+diff --git a/cmd/podman/common/netflags.go b/cmd/podman/common/netflags.go
+index cae52ccaa4..898d65bd05 100644
+--- a/cmd/podman/common/netflags.go
++++ b/cmd/podman/common/netflags.go
+@@ -59,8 +59,8 @@ func DefineNetFlags(cmd *cobra.Command) {
+ 	_ = cmd.RegisterFlagCompletionFunc(macAddressFlagName, completion.AutocompleteNone)
+ 
+ 	networkFlagName := "network"
+-	netFlags.String(
+-		networkFlagName, containerConfig.NetNS(),
++	netFlags.StringArray(
++		networkFlagName, []string{containerConfig.NetNS()},
+ 		"Connect a container to a network",
+ 	)
+ 	_ = cmd.RegisterFlagCompletionFunc(networkFlagName, AutocompleteNetworks)
+@@ -194,25 +194,29 @@ func NetFlagsToNetOptions(cmd *cobra.Command) (*entities.NetOptions, error) {
+ 	}
+ 
+ 	if cmd.Flags().Changed("network") {
+-		network, err := cmd.Flags().GetString("network")
++		networks, err := cmd.Flags().GetStringArray("network")
+ 		if err != nil {
+ 			return nil, err
+ 		}
++		for i, network := range networks {
++			parts := strings.SplitN(network, ":", 2)
+ 
+-		parts := strings.SplitN(network, ":", 2)
+-
+-		ns, cniNets, err := specgen.ParseNetworkNamespace(network)
+-		if err != nil {
+-			return nil, err
+-		}
++			ns, cniNets, err := specgen.ParseNetworkNamespace(network)
++			if err != nil {
++				return nil, err
++			}
++			if i > 0 && (len(cniNets) == 0 || len(opts.CNINetworks) == 0) {
++				return nil, errors.Errorf("network conflict between type %s and %s", opts.Network.NSMode, ns.NSMode)
++			}
+ 
+-		if len(parts) > 1 {
+-			opts.NetworkOptions = make(map[string][]string)
+-			opts.NetworkOptions[parts[0]] = strings.Split(parts[1], ",")
+-			cniNets = nil
++			if len(parts) > 1 {
++				opts.NetworkOptions = make(map[string][]string)
++				opts.NetworkOptions[parts[0]] = strings.Split(parts[1], ",")
++				cniNets = nil
++			}
++			opts.Network = ns
++			opts.CNINetworks = append(opts.CNINetworks, cniNets...)
+ 		}
+-		opts.Network = ns
+-		opts.CNINetworks = cniNets
+ 	}
+ 
+ 	aliases, err := cmd.Flags().GetStringSlice("network-alias")
+diff --git a/cmd/podman/pods/create.go b/cmd/podman/pods/create.go
+index 449d60bb95..57b895e834 100644
+--- a/cmd/podman/pods/create.go
++++ b/cmd/podman/pods/create.go
+@@ -171,33 +171,7 @@ func create(cmd *cobra.Command, args []string) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	createOptions.Net.Network = specgen.Namespace{}
+-	if cmd.Flag("network").Changed {
+-		netInput, err := cmd.Flags().GetString("network")
+-		if err != nil {
+-			return err
+-		}
+-		parts := strings.SplitN(netInput, ":", 2)
+-
+-		n := specgen.Namespace{}
+-		switch {
+-		case netInput == "bridge":
+-			n.NSMode = specgen.Bridge
+-		case netInput == "host":
+-			n.NSMode = specgen.Host
+-		case netInput == "slirp4netns", strings.HasPrefix(netInput, "slirp4netns:"):
+-			n.NSMode = specgen.Slirp
+-			if len(parts) > 1 {
+-				createOptions.Net.NetworkOptions = make(map[string][]string)
+-				createOptions.Net.NetworkOptions[parts[0]] = strings.Split(parts[1], ",")
+-			}
+-		default:
+-			// Container and NS mode are presently unsupported
+-			n.NSMode = specgen.Bridge
+-			createOptions.Net.CNINetworks = strings.Split(netInput, ",")
+-		}
+-		createOptions.Net.Network = n
+-	}
++
+ 	if len(createOptions.Net.PublishPorts) > 0 {
+ 		if !createOptions.Infra {
+ 			return errors.Errorf("you must have an infra container to publish port bindings to the host")
+diff --git a/docs/source/markdown/podman-create.1.md b/docs/source/markdown/podman-create.1.md
+index 749af8a666..2d5c1e1a0f 100644
+--- a/docs/source/markdown/podman-create.1.md
++++ b/docs/source/markdown/podman-create.1.md
+@@ -584,7 +584,7 @@ Valid _mode_ values are:
+ - **none**: no networking;
+ - **container:**_id_: reuse another container's network stack;
+ - **host**: use the Podman host network stack. Note: the host mode gives the container full access to local system services such as D-bus and is therefore considered insecure;
+-- _network-id_: connect to a user-defined network, multiple networks should be comma separated;
++- **cni-network**: connect to a user-defined network, multiple networks should be comma-separated or they can be specified with multiple uses of the **--network** option;
+ - **ns:**_path_: path to a network namespace to join;
+ - **private**: create a new namespace for the container (default)
+ - **slirp4netns[:OPTIONS,...]**: use **slirp4netns**(1) to create a user network stack.  This is the default for rootless containers.  It is possible to specify these additional options:
+diff --git a/docs/source/markdown/podman-run.1.md b/docs/source/markdown/podman-run.1.md
+index 5b2cdd6a53..45cdee8cdb 100644
+--- a/docs/source/markdown/podman-run.1.md
++++ b/docs/source/markdown/podman-run.1.md
+@@ -610,7 +610,7 @@ Valid _mode_ values are:
+ - **none**: no networking;
+ - **container:**_id_: reuse another container's network stack;
+ - **host**: use the Podman host network stack. Note: the host mode gives the container full access to local system services such as D-bus and is therefore considered insecure;
+-- _network-id_: connect to a user-defined network, multiple networks should be comma separated;
++- **cni-network**: connect to a user-defined network, multiple networks should be comma-separated or they can be specified with multiple uses of the **--network** option;
+ - **ns:**_path_: path to a network namespace to join;
+ - **private**: create a new namespace for the container (default)
+ - **slirp4netns[:OPTIONS,...]**: use **slirp4netns**(1) to create a user network stack.  This is the default for rootless containers.  It is possible to specify these additional options:
+diff --git a/pkg/specgen/namespaces.go b/pkg/specgen/namespaces.go
+index 90c56d3662..11108a5c17 100644
+--- a/pkg/specgen/namespaces.go
++++ b/pkg/specgen/namespaces.go
+@@ -272,16 +272,10 @@ func ParseNetworkNamespace(ns string) (Namespace, []string, error) {
+ 		toReturn.NSMode = Private
+ 	case strings.HasPrefix(ns, "ns:"):
+ 		split := strings.SplitN(ns, ":", 2)
+-		if len(split) != 2 {
+-			return toReturn, nil, errors.Errorf("must provide a path to a namespace when specifying ns:")
+-		}
+ 		toReturn.NSMode = Path
+ 		toReturn.Value = split[1]
+ 	case strings.HasPrefix(ns, "container:"):
+ 		split := strings.SplitN(ns, ":", 2)
+-		if len(split) != 2 {
+-			return toReturn, nil, errors.Errorf("must provide name or ID or a container when specifying container:")
+-		}
+ 		toReturn.NSMode = FromContainer
+ 		toReturn.Value = split[1]
+ 	default:
+diff --git a/test/e2e/pod_create_test.go b/test/e2e/pod_create_test.go
+index be0a2f6f0e..ccfbcefaef 100644
+--- a/test/e2e/pod_create_test.go
++++ b/test/e2e/pod_create_test.go
+@@ -9,6 +9,7 @@ import (
+ 
+ 	"github.com/containers/podman/v2/pkg/rootless"
+ 	. "github.com/containers/podman/v2/test/utils"
++	"github.com/containers/storage/pkg/stringid"
+ 	. "github.com/onsi/ginkgo"
+ 	. "github.com/onsi/gomega"
+ )
+@@ -476,4 +477,23 @@ entrypoint ["/fromimage"]
+ 		Expect(status3.ExitCode()).To(Equal(0))
+ 		Expect(strings.Contains(status3.OutputToString(), "Degraded")).To(BeTrue())
+ 	})
++
++	It("podman create pod invalid network config", func() {
++		net1 := "n1" + stringid.GenerateNonCryptoID()
++		session := podmanTest.Podman([]string{"network", "create", net1})
++		session.WaitWithDefaultTimeout()
++		defer podmanTest.removeCNINetwork(net1)
++		Expect(session.ExitCode()).To(BeZero())
++
++		session = podmanTest.Podman([]string{"pod", "create", "--network", "host", "--network", net1})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(125))
++		Expect(session.ErrorToString()).To(ContainSubstring("host"))
++		Expect(session.ErrorToString()).To(ContainSubstring("bridge"))
++
++		session = podmanTest.Podman([]string{"pod", "create", "--network", "container:abc"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(125))
++		Expect(session.ErrorToString()).To(ContainSubstring("pods presently do not support network mode container"))
++	})
+ })
+diff --git a/test/e2e/run_networking_test.go b/test/e2e/run_networking_test.go
+index 3e80e953ee..1d416498c5 100644
+--- a/test/e2e/run_networking_test.go
++++ b/test/e2e/run_networking_test.go
+@@ -665,4 +665,33 @@ var _ = Describe("Podman run networking", func() {
+ 		session.WaitWithDefaultTimeout()
+ 		Expect(session.ExitCode()).To(BeZero())
+ 	})
++
++	It("podman run with multiple networks", func() {
++		net1 := "n1" + stringid.GenerateNonCryptoID()
++		session := podmanTest.Podman([]string{"network", "create", net1})
++		session.WaitWithDefaultTimeout()
++		defer podmanTest.removeCNINetwork(net1)
++		Expect(session.ExitCode()).To(BeZero())
++
++		net2 := "n2" + stringid.GenerateNonCryptoID()
++		session = podmanTest.Podman([]string{"network", "create", net2})
++		session.WaitWithDefaultTimeout()
++		defer podmanTest.removeCNINetwork(net2)
++		Expect(session.ExitCode()).To(BeZero())
++
++		run := podmanTest.Podman([]string{"run", "--network", net1, "--network", net2, ALPINE, "ip", "-o", "-4", "addr"})
++		run.WaitWithDefaultTimeout()
++		Expect(run.ExitCode()).To(BeZero())
++		Expect(len(run.OutputToStringArray())).To(Equal(3))
++		Expect(run.OutputToString()).To(ContainSubstring("lo"))
++		Expect(run.OutputToString()).To(ContainSubstring("eth0"))
++		Expect(run.OutputToString()).To(ContainSubstring("eth1"))
++
++		//invalid config network host and cni should fail
++		run = podmanTest.Podman([]string{"run", "--network", "host", "--network", net2, ALPINE, "ip", "-o", "-4", "addr"})
++		run.WaitWithDefaultTimeout()
++		Expect(run.ExitCode()).To(Equal(125))
++		Expect(run.ErrorToString()).To(ContainSubstring("host"))
++		Expect(run.ErrorToString()).To(ContainSubstring("bridge"))
++	})
+ })

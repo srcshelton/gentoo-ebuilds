@@ -3,7 +3,7 @@
 
 EAPI=7
 
-EGIT_COMMIT='9f6d6ba0b314d86521b66183c9ce48eaa2da1de2'
+EGIT_COMMIT='cbdb4d54bd3dddb8b4452adbfc29ca7702b8e387'
 SECCOMP_VERSION='v0.30.0'
 CATATONIT_VERSION='0.1.5'
 
@@ -19,7 +19,7 @@ SLOT="0"
 
 KEYWORDS="~amd64 ~arm64"
 IUSE="apparmor btrfs +fuse +rootless selinux systemd"
-RESTRICT="mirror test"
+RESTRICT="mirror test network-sandbox"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
@@ -46,14 +46,6 @@ RDEPEND="${COMMON_DEPEND}
 
 PATCHES=(
 	"${FILESDIR}"/libpod-2.0.0_rc4-varlink.patch 
-	"${FILESDIR}"/podman-2.1.0-caps.patch
-	"${FILESDIR}"/podman-2.1.1-restart.patch
-	"${FILESDIR}"/podman-2.1.1-prune.patch
-	"${FILESDIR}"/podman-2.1.1-namespace.patch
-	"${FILESDIR}"/podman-2.1.1-hostname.patch
-	"${FILESDIR}"/podman-2.1.1-hostname-nonet.patch
-	#"${FILESDIR}"/podman-2.1.1-hostname-nonet.2.patch
-	#"${FILESDIR}"/podman-2.1.1-signals.patch
 )
 
 S="${WORKDIR}/${P/_/-}"
@@ -170,6 +162,8 @@ src_unpack() {
 
 src_prepare() {
 	default
+
+	eapply -Rp1 "${FILESDIR}"/podman-2.2.0_rc2-unbreak-network.patch || die
 
 	# Disable installation of python modules here, since those are
 	# installed by separate ebuilds.
