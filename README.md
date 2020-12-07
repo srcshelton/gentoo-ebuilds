@@ -237,6 +237,8 @@ used to build perl)
     * Consistent user for sys-process/cronbase
 * acct-user/memcached
     * Add user to 'hugetlb' group
+* acct-user/milter
+    * Consistent user for mail filters
 * acct-user/mysql
     * Add user to 'hugetlb' group
 * acct-user/redis
