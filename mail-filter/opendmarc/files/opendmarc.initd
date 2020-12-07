@@ -1,0 +1,50 @@
+#!/sbin/openrc-run
+# Copyright 1999-2020 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+CONFFILE="/etc/opendmarc/${SVCNAME}.conf"
+
+required_files="${CONFFILE}"
+command='/usr/sbin/opendmarc'
+command_args="-c ${CONFFILE}"
+pidfile="$( sed -ne 's/^[[:space:]]*PidFile[[:space:]]\+//p' "${CONFFILE}" )"
+
+depend() {
+	use dns logger net
+	before mta
+}
+
+check_cfg() {
+	if [ ! -f "${CONFFILE}" ] ; then
+		eerror "Configuration file ${CONFFILE} is missing"
+		return 1
+	fi
+
+	if [ -z "${pidfile}" ] ; then
+		eerror "Configuration file needs PidFile setting - recommend adding 'PidFile /var/run/opendmarc/${SVCNAME}.pid' to ${CONFFILE}"
+		return 1
+	fi
+	if egrep -q '^[[:space:]]*Background[[:space:]]+false' "${CONFFILE}" ; then
+		eerror "${SVCNAME} service cannot run with Background key set to false!"
+		return 1
+	fi
+
+	checkpath -q -d -o "${OPENDMARC_USER}:${OPENDMARC_GROUP}" -m 0750 /var/run/opendmarc || return 1
+
+	local PIDDIR="${pidfile%/*}"
+	if [ ! -d  "${PIDDIR}" ] ; then
+		checkpath -q -d -o "${OPENDMARC_USER}:${OPENDMARC_GROUP}" -m 0750 "${PIDDIR}" || return 1
+	fi
+
+	ebegin "Checking your configfile (${CONFFILE})"
+	opendmarc -c "${CONFFILE}" -n
+	eend $? "Configuration error. Please fix your configfile (${CONFFILE})"
+}
+
+start_pre() {
+	check_cfg || return 1
+}
+
+stop_pre() {
+	check_cfg || return 1
+}

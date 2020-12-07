@@ -389,6 +389,8 @@ used to build perl)
     * Add sys-devel/m4 dependency
 * mail-filter/opendkim
     * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
+* mail-filter/opendmarc
+    * Use `acct-*` dependencies rather than `user.eclass`
 * mail-filter/postgrey
     * Make systemd service support optional
 * mail-filter/spampd
