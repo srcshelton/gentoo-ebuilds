@@ -252,21 +252,14 @@ pkg_postinst() {
 				|| die "Update GIO modules cache failed (for ${ABI})"
 		fi
 	}
-	if ! tc-is-cross-compiler ; then
-		if [[ ${MERGE_TYPE} == "binary" ]] ; then
-			ewarn "Not running GIO modules cache update for binary installation"
-			ewarn
-			ewarn "Upon installation on destination host, please run:"
-			ewarn "    gio-querymodules /usr/$(get_libdir)/gio/modules/"
-			ewarn
-		else
-			multilib_foreach_abi multilib_pkg_postinst
-		fi
+	if [[ ${MERGE_TYPE} == "binary" ]] ; then
+		ewarn "Not running GIO modules cache update for binary installation"
+		ewarn
+		ewarn "Upon installation on destination host, please run:"
+		ewarn "    gio-querymodules /usr/$(get_libdir)/gio/modules/"
+		ewarn
 	else
-		ewarn "Updating of GIO modules cache skipped due to cross-compilation."
-		ewarn "You might want to run gio-querymodules manually on the target for"
-		ewarn "your final image for performance reasons and re-run it when packages"
-		ewarn "installing GIO modules get upgraded or added to the image."
+		multilib_foreach_abi multilib_pkg_postinst
 	fi
 }
 
