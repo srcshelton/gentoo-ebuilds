@@ -117,7 +117,6 @@ esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
 HOMEPAGE="https://github.com/netdata/netdata https://my-netdata.io/"
-#PATCHES=( "${FILESDIR}/${P}-openrc-fixes.patch" )
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
@@ -254,6 +253,15 @@ src_install() {
 		"${ED}"/usr/libexec/netdata/plugins.d/README.md
 	rmdir -p "${ED}"/var/log/netdata "${ED}"/var/cache/netdata 2>/dev/null
 
+	# Moved to init script
+	#keepdir /var/log/netdata
+	#fowners -Rc netdata:netdata /var/log/netdata
+	#keepdir /var/lib/netdata
+	#keepdir /var/lib/netdata/registry
+	#fowners -Rc netdata:netdata /var/lib/netdata
+
+	#fowners -Rc root:netdata /usr/share/${PN}
+
 	# netdata includes 'web root owner' settings, but ignores them and fails to
 	# serve its pages if netdata:netdata isn't the owner :(
 	fowners -Rc netdata:netdata /usr/share/netdata/web ||
@@ -275,6 +283,14 @@ pkg_postinst() {
 
 	if use xen ; then
 		fcaps 'cap_dac_override' 'usr/libexec/netdata/plugins.d/xenstat.plugin'
+	fi
+
+	if ! use prefix; then
+		# This should be handled by FILECAPS, but wasn't... plus we want a
+		# fallback.
+		setcap cap_dac_read_search,cap_sys_ptrace+ep "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
+		chmod 4755 "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
+		eerror "Cannot set capabilities or SUID on '/usr/libexec/netdata/plugins.d/apps.plugin'"
 	fi
 
 	if [[ -e "/sys/kernel/mm/ksm/run" ]]; then
@@ -302,11 +318,4 @@ pkg_postinst() {
 		elog "If you can have it, you will save 20-60% of netdata memory."
 	fi
 
-	if ! use prefix; then
-		# This should be handled by FILECAPS, but wasn't... plus we want a
-		# fallback.
-		setcap cap_dac_read_search,cap_sys_ptrace+ep "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
-		chmod 4755 "${EROOT%/}"/usr/libexec/netdata/plugins.d/apps.plugin ||
-		eerror "Cannot set capabilities or SUID on '/usr/libexec/netdata/plugins.d/apps.plugin'"
-	fi
 }
