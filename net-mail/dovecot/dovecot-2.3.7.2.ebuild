@@ -34,14 +34,14 @@ IUSE_DOVECOT_AUTH="kerberos ldap lua mysql pam postgres sqlite vpopmail"
 IUSE_DOVECOT_COMPRESS="bzip2 lzma lz4 zlib"
 IUSE_DOVECOT_OTHER="argon2 caps doc ipv6 libressl lucene managesieve selinux sieve solr static-libs suid tcpd textcat"
 
-IUSE="${IUSE_DOVECOT_AUTH} ${IUSE_DOVECOT_STORAGE} ${IUSE_DOVECOT_COMPRESS} ${IUSE_DOVECOT_OTHER} systemd"
+IUSE="argon2 bzip2 caps doc ipv6 kerberos ldap libressl lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid systemd tcpd textcat vpopmail zlib"
 
 DEPEND="argon2? ( dev-libs/libsodium )
 	bzip2? ( app-arch/bzip2 )
 	caps? ( sys-libs/libcap )
 	kerberos? ( virtual/krb5 )
 	ldap? ( net-nds/openldap )
-	lua? ( dev-lang/lua:* )
+	lua? ( dev-lang/lua:0= )
 	lucene? ( >=dev-cpp/clucene-2.3 )
 	lzma? ( app-arch/xz-utils )
 	lz4? ( app-arch/lz4 )
