@@ -16,7 +16,7 @@ SRC_URI="https://oss.oetiker.ch/rrdtool/pub/${MY_P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0/8.0.0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~x86-macos ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~x86-macos ~x86-solaris"
 IUSE="dbi doc graph lua perl python rados rrdcgi ruby static-libs tcl tcpd test"
 RESTRICT="!test? ( test )"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
@@ -30,7 +30,7 @@ CDEPEND="
 		>=x11-libs/cairo-1.10.2[svg,static-libs(+)?]
 		>=x11-libs/pango-1.28
 	)
-	lua? ( dev-lang/lua:*[deprecated] )
+	lua? ( dev-lang/lua:0=[deprecated] )
 	perl? ( dev-lang/perl:= )
 	python? ( ${PYTHON_DEPS} )
 	rados? ( sys-cluster/ceph )
