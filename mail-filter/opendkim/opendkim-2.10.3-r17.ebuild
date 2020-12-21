@@ -1,4 +1,4 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -17,7 +17,7 @@ IUSE="+berkdb diffheaders erlang experimental gnutls ldap libevent libressl lmdb
 
 BDEPEND="acct-group/opendkim
 	acct-user/opendkim
-	test? ( dev-lang/lua:* )"
+	test? ( dev-lang/lua:0= )"
 
 COMMON_DEPEND="|| ( mail-filter/libmilter mail-mta/sendmail )
 	dev-libs/libbsd
@@ -31,7 +31,7 @@ COMMON_DEPEND="|| ( mail-filter/libmilter mail-mta/sendmail )
 	erlang? ( dev-lang/erlang )
 	experimental? ( dev-libs/jansson net-analyzer/rrdtool net-misc/curl )
 	opendbx? ( >=dev-db/opendbx-1.4.0 )
-	lua? ( dev-lang/lua:* )
+	lua? ( dev-lang/lua:0= )
 	ldap? ( net-nds/openldap )
 	lmdb? ( dev-db/lmdb )
 	memcached? ( dev-libs/libmemcached )
