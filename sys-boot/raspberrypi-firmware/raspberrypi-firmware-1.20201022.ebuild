@@ -16,7 +16,7 @@ if [[ "${PV}" == *9999 ]]; then
 	fi
 else
 	SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="-* ~arm ~arm64"
+	KEYWORDS="-* arm arm64"
 	S="${WORKDIR}/firmware-${PV}"
 fi
 
