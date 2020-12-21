@@ -3,7 +3,7 @@
 
 EAPI="7"
 
-inherit autotools flag-o-matic systemd
+inherit autotools flag-o-matic systemd toolchain-funcs
 
 DESCRIPTION="The PHP language runtime engine"
 HOMEPAGE="https://www.php.net/"
@@ -18,7 +18,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos"
 
 # We can build the following SAPIs in the given order
 SAPIS="embed cli cgi fpm apache2 phpdbg"
@@ -229,6 +229,10 @@ src_configure() {
 	fi
 	addpredict "${varlib}"/net-snmp/mib_indexes #nowarn
 	unset varlib
+
+	# Fix building against >=ICU-68, https://bugs.php.net/80310
+	append-cflags -DU_DEFINE_FALSE_AND_TRUE=1
+	append-cxxflags -DU_DEFINE_FALSE_AND_TRUE=1
 
 	PHP_DESTDIR="${EPREFIX}/usr/$(get_libdir)/php${SLOT}"
 
