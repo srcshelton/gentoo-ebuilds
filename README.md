@@ -50,7 +50,7 @@ runtime error rather than a compiler error, making it difficult to detect.
 Known failures currently exist in `vasnprintf()` implementations - these cases
 are automatically detected and patched by deploying the Portage `bashrc`
 override file from [local/etc/portage/bashrc](/local/etc/portage/bashrc)
-to `${EPREFIX}/etc/portage/` and copying the accomdanying patch from 
+to `${EPREFIX}/etc/portage/` and copying the accomdanying patch from
 [local/etc/portage/patches/All/vasnprintf.patch](/local/etc/portage/patches/All/vasnprintf.patch)
 to `${EPREFIX}/etc/portage/patches/All/`.
 
@@ -131,14 +131,14 @@ used to build perl)
     * ~~Ensure that appropriate `PREFIX` directory is available to build system~~
 * app-arch/unzip
     * Remove `cc` hard-coding
-* app-crypt/pinentry
-    * Add `-Wno-implicit-function-declaration` to work around ncurses-related failures, if supported by the compiler
+* ~~app-crypt/pinentry~~
+    * ~~Add `-Wno-implicit-function-declaration` to work around ncurses-related failures, if supported by the compiler~~
 * app-shells/bash
     * Include `<signal.h>` in relevant places to avoid `-Wimplicit-function-declaration` errors
 * dev-lang/python
     * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
-* dev-libs/apr
-    * Support F_FULLFSYNC on darwin
+* ~~dev-libs/apr~~
+    * ~~Support F_FULLFSYNC on darwin~~
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
 * dev-libs/jemalloc
@@ -156,16 +156,16 @@ used to build perl)
     * Add `${EPREFIX}` to `docdir` configure option
 * ~~dev-python/backports-ssl-match-hostname~~
     * ~~Change `${ED}` to `${D}` to prevent double-prefix path usage QA error~~
-* dev-vcs/cvs
-    * Allow CVS to build and tests to run on darwin
-* dev-vcs/subversion
-    * Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used
-* net-analyzer/nmap
-    * Restore RT_MSGHDR_ALIGNMENT definition for building on macOS 
+* ~~dev-vcs/cvs~~
+    * ~~Allow CVS to build and tests to run on darwin~~
+* ~~dev-vcs/subversion~~
+    * ~~Correct detection of compiler by `get-py-info.py` and ensure appropriate compiler is used~~
+* ~~net-analyzer/nmap~~
+    * ~~Restore `RT_MSGHDR_ALIGNMENT` definition for building on macOS~~
 * net-analyzer/wireshark
     * Remove macOS '-isysroot' argument which broke macOS builds attempting to use SDK library stubs
-* sys-apps/baselayout-prefix
-    * Add missing `run_applets` prototype
+* ~~sys-apps/baselayout-prefix~~
+    * ~~Add missing `run_applets` prototype~~
 * sys-apps/darwin-miscutils
     * Add missing `md.c` prototypes and `#include`s
 * sys-apps/gptfdisk
@@ -324,8 +324,8 @@ used to build perl)
     * Jose L. Honorato's 'lsusb' for macOS
 * sys-apps/tmpfs
     * Mirror segments of a filesystem to a memory-based backing store
-* sys-auth/opie
-    * OPIE One-time password system
+* ~~sys-auth/opie~~
+    * ~~OPIE One-time password system~~
 * sys-auth/pam_mobile_otp
     * PAM component of mOTP
 * sys-auth/yubipam
