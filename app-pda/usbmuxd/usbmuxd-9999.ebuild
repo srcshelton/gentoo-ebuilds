@@ -15,18 +15,15 @@ KEYWORDS="amd64 ~arm ~ppc ~ppc64 x86"
 IUSE="udev +worker systemd"
 
 RDEPEND=">=app-pda/libplist-1.9
-	virtual/libusb:1"
+	virtual/libusb:1
+	acct-group/plugdev
+	acct-user/usbmux"
 DEPEND="${RDEPEND}
 	worker? ( >=app-pda/libusbmuxd-1.0.9 )
 	>=app-pda/libimobiledevice-1.1.6
 	virtual/pkgconfig"
 
-DOCS=( AUTHORS README )
-
-pkg_setup() {
-	enewgroup plugdev
-	enewuser usbmux -1 -1 -1 "usb,plugdev"
-}
+DOCS=( AUTHORS README.md )
 
 src_prepare() {
 	eautoreconf
