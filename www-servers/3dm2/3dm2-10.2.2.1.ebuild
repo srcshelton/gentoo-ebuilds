@@ -12,8 +12,7 @@ esac
 
 DESCRIPTION="3ware 3DM2 CLI Linux from the 10.2.2.1/9.5.5.1 code set 8xxx/95xx/96xx/97xx"
 HOMEPAGE="http://www.avagotech.com/support/download-search"
-SRC_URI="http://docs.avagotech.com/docs-and-downloads/raid-controllers/raid-controllers-common-files/3DM2_CLI-linux_${PV//./-}_${CV//./-}.zip"
-RELNOTES="http://www.lsi.com/downloads/Public/SATA/SATA%20Common%20Files/${PV}_Release_Notes.pdf"
+SRC_URI="https://docs.broadcom.com/docs-and-downloads/raid-controllers/raid-controllers-common-files/3DM2_CLI-linux_${PV//./-}_${CV//./-}.zip"
 
 # Note: 3ware gave permission to redistribute the binaries before:
 # Ref: https://bugs.gentoo.org/show_bug.cgi?id=60690#c106
@@ -134,7 +133,4 @@ pkg_postinst() {
 	elog
 	ewarn "The default passwords for both user and administrator are '3ware'."
 	eerror "PLEASE CHANGE THESE PASSWORDS *BEFORE* ENABLING REMOTE ACCESS"
-	elog
-	elog "Release notes for this version are available at:"
-	elog "${RELNOTES}"
 }
