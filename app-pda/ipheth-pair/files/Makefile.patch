@@ -1,11 +1,12 @@
---- ipheth-pair/Makefile.orig	2010-02-23 10:35:56.000000000 +0200
-+++ ipheth-pair/Makefile	2010-02-23 10:37:02.099913826 +0200
-@@ -1,4 +1,3 @@
+--- a/ipheth-pair/Makefile
++++ b/ipheth-pair/Makefile
+@@ -1,14 +1,12 @@
 -CFLAGS += -Wall -O2
- LDLIBS += -limobiledevice
+-LDLIBS += -limobiledevice
++LDLIBS += -limobiledevice-1.0
  
  all: ipheth-pair
-@@ -6,9 +5,8 @@
+ 
  ipheth-pair: ipheth-pair.o
  
  install:
