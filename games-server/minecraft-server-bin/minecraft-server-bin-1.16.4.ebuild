@@ -5,10 +5,11 @@ EAPI=7
 
 MY_PN="${PN%-bin}"
 MY_PN="${MY_PN//-/_}"
+MY_HASH='35139deedbd5182953cf1caa23835da59ca3d7cd'
 
 DESCRIPTION="Minecraft: Java Edition Multiplayer Server"
 HOMEPAGE="https://minecraft.net/en-us/download/server"
-SRC_URI="https://s3.amazonaws.com/Minecraft.Download/versions/${PV}/${MY_PN}.${PV}.jar"
+SRC_URI="https://launcher.mojang.com/v1/objects/${MY_HASH}/server.jar"
 RESTRICT="mirror"
 
 LICENSE="Mojang"

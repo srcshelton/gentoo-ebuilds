@@ -7,12 +7,12 @@ EAPI=5
 inherit udev
 
 MY_PN="WALinuxAgent"
-MY_PV="WALinuxAgent-${PV}"
+MY_PV="${PV}"
 MY_P="${MY_PN}-${MY_PV}"
 
 DESCRIPTION="Windows Azure Linux Agent"
 HOMEPAGE="https://github.com/Azure/WALinuxAgent"
-SRC_URI="${HOMEPAGE}/archive/${MY_PV}.tar.gz"
+SRC_URI="${HOMEPAGE}/archive/v${PV}.tar.gz"
 RESTRICT="mirror"
 
 LICENSE="Apache-2.0"
@@ -47,7 +47,7 @@ src_prepare() {
 }
 
 src_install() {
-	dosbin waagent
+	newsbin bin/waagent2.0 waagent
 
 	# The waagent script contains init scripts for every supported OS
 	# (including Gentoo) - but we want to package-manage all components, so the
@@ -55,18 +55,20 @@ src_install() {
 	# make it somewhat non-standard.
 	newinitd "${FILESDIR}"/waagent.initd waagent
 
-	dodoc Changelog README
+	dodoc Changelog README.md
 
 	insinto "/etc"
 	doins config/waagent.conf
 
 	insinto /etc/logrotate.d
 	newins config/waagent.logrotate waagent
+	newins config/waagent-extn.logrotate waagent-extensions
 
 	keepdir /var/lib/waagent
 
 	if use udev; then
 		insinto $(get_udevdir)/rules.d
+		doins config/66-azure-storage.rules
 		doins config/99-azure-product-uuid.rules
 	fi
 }
