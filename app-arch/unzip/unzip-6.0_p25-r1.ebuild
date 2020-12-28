@@ -16,7 +16,7 @@ SRC_URI="mirror://sourceforge/infozip/${MY_P}.tar.gz
 
 LICENSE="Info-ZIP"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="bzip2 natspec unicode"
 
 DEPEND="bzip2? ( app-arch/bzip2 )
@@ -67,7 +67,6 @@ src_configure() {
 		i?86*-dragonfly*)    TARGET="freebsd" ;; # mislabelled bsd with x86 asm
 		*bsd* | *dragonfly*) TARGET="bsd" ;;
 		*-darwin*)           TARGET="macosx"; append-cppflags "-DNO_LCHMOD" ;;
-		*-cygwin*)           TARGET="cygwin" ;;
 		*-solaris*)          TARGET="generic" ;;
 		mips-sgi-irix*)      TARGET="sgi"; append-cppflags "-DNO_LCHMOD" ;;
 		*-interix3*)         TARGET="gcc"; append-flags "-DUNIX"; append-cppflags "-DNO_LCHMOD" ;;
@@ -75,6 +74,7 @@ src_configure() {
 		*-aix*)              TARGET="gcc"; append-cppflags "-DNO_LCHMOD"; append-ldflags "-Wl,-blibpath:${EPREFIX}/usr/$(get_libdir)" ;;
 		*-hpux*)             TARGET="gcc"; append-ldflags "-Wl,+b,${EPREFIX}/usr/$(get_libdir)" ;;
 		*-mint*)             TARGET="generic" ;;
+		*-cygwin*)           TARGET="cygwin" ;;
 		*) die "Unknown target; please update the ebuild to handle ${CHOST}	" ;;
 	esac
 
