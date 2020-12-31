@@ -29,12 +29,11 @@ PATCHES=(
 )
 
 src_prepare() {
-	default
-
 	# Respect AR variable for bug 722162.
 	sed -e 's|^AC_PROG_CC$|AC_DEFUN([AC_PROG_AR], [AC_CHECK_TOOL(AR, ar, :)])\nAC_PROG_AR\n\0|' \
 		-i configure.ac || die
 	eautoreconf
+	default
 }
 
 pkg_postinst() {
