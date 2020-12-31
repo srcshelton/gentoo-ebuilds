@@ -1,7 +1,7 @@
-# Copyright 1999-2019 Gentoo Authors
+# Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="6"
+EAPI=7
 
 KV_min=2.6.39
 
@@ -30,7 +30,7 @@ COMMON_DEPEND=">=sys-apps/util-linux-2.20
 		!<=app-emulation/emul-linux-x86-baselibs-20130224-r7
 		!app-emulation/emul-linux-x86-baselibs[-abi_x86_32(-)]
 	)"
-DEPEND="${COMMON_DEPEND}
+BDEPEND="${COMMON_DEPEND}
 	dev-util/gperf
 	virtual/os-headers
 	virtual/pkgconfig
@@ -48,8 +48,6 @@ RDEPEND="${COMMON_DEPEND}
 	!sys-fs/eudev
 	!sys-fs/udev
 	!sys-apps/systemd"
-
-PDEPEND=""
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/udev.h
