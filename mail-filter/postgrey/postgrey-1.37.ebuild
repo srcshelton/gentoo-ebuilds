@@ -3,7 +3,7 @@
 
 EAPI=5
 
-inherit eutils systemd user
+inherit eutils systemd
 
 DESCRIPTION="Postgrey is a Postfix policy server implementing greylisting"
 HOMEPAGE="http://postgrey.schweikert.ch/"
@@ -15,7 +15,8 @@ SLOT="0"
 KEYWORDS="amd64 ~hppa ~ppc ppc64 x86"
 IUSE="systemd"
 
-DEPEND=""
+DEPEND="acct-group/postgrey
+		acct-user/postgrey"
 RDEPEND=">=dev-lang/perl-5.6.0
 		dev-perl/Net-Server
 		dev-perl/IO-Multiplex
@@ -25,12 +26,8 @@ RDEPEND=">=dev-lang/perl-5.6.0
 		dev-perl/Net-RBLClient
 		dev-perl/Parse-Syslog
 		virtual/perl-Digest-SHA
-		>=sys-libs/db-4.1"
-
-pkg_setup() {
-	enewgroup ${PN}
-	enewuser ${PN} -1 -1 /dev/null ${PN}
-}
+		>=sys-libs/db-4.1
+		${DEPEND}"
 
 src_prepare() {
 	# bug 479400
