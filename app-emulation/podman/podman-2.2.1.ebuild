@@ -37,10 +37,10 @@ COMMON_DEPEND="
 	selinux? ( sys-libs/libselinux:= )
 "
 BDEPEND="
+	dev-go/go-md2man
 	dev-vcs/git
 	systemd? ( sys-apps/systemd )"
-DEPEND="${COMMON_DEPEND}
-	dev-go/go-md2man"
+DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	fuse? ( sys-fs/fuse-overlayfs )"
 
