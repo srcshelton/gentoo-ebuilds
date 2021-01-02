@@ -383,6 +383,8 @@ used to build perl)
     * Bump to EAPI=7 for BDEPEND/RDEPEND build-dependency improvements
 * ~~dev-perl/DBI-Shell~~
     * ~~Fix "Useless localization of scalar assignment" warning from DBI::Format~~
+* dev-perl/Locale-gettext
+    * Declare run-time dependency on dev-lang/perl
 * dev-perl/LWP-Protocol-https
     * Fix SSL CA path for prefix installations
 * dev-perl/Math-Pari
