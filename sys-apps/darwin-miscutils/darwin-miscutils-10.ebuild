@@ -1,10 +1,9 @@
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 8438cd004f06d4f0f6cf30260a9652f502722772 $
 
-EAPI="4"
+EAPI="6"
 
-inherit toolchain-funcs eutils
+inherit eutils toolchain-funcs
 
 # from 10.8
 MISC_VER=31
@@ -24,7 +23,7 @@ SRC_URI="http://www.opensource.apple.com/darwinsource/tarballs/other/misc_cmds-$
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~ppc-macos ~x64-macos ~x86-macos"
+KEYWORDS="~ppc-macos ~x64-macos"
 IUSE=""
 
 S=${WORKDIR}
@@ -38,6 +37,8 @@ src_prepare() {
 		"${S}"/adv_cmds-${MD_VER}/md/md.c || die
 	cp "${DISTDIR}"/adv_cmds-md-${MD_VER}.1 \
 		"${S}"/adv_cmds-${MD_VER}/md/md.1 || die
+
+	eapply_user
 
 	pushd .. >/dev/null 2>&1
 	epatch "${FILESDIR}"/"${P}"-md.patch
