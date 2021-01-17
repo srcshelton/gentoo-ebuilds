@@ -1,0 +1,218 @@
+diff --git a/cmd/podman/containers/stats.go b/cmd/podman/containers/stats.go
+index ca5c0fdb8..1a436aaef 100644
+--- a/cmd/podman/containers/stats.go
++++ b/cmd/podman/containers/stats.go
+@@ -147,13 +147,14 @@ func stats(cmd *cobra.Command, args []string) error {
+ 
+ func outputStats(reports []define.ContainerStats) error {
+ 	headers := report.Headers(define.ContainerStats{}, map[string]string{
+-		"ID":       "ID",
+-		"CPUPerc":  "CPU %",
+-		"MemUsage": "MEM USAGE / LIMIT",
+-		"MemPerc":  "MEM %",
+-		"NetIO":    "NET IO",
+-		"BlockIO":  "BLOCK IO",
+-		"PIDS":     "PIDS",
++		"ID":            "ID",
++		"CPUPerc":       "CPU %",
++		"MemUsage":      "MEM USAGE / LIMIT",
++		"MemUsageBytes": "MEM USAGE / LIMIT",
++		"MemPerc":       "MEM %",
++		"NetIO":         "NET IO",
++		"BlockIO":       "BLOCK IO",
++		"PIDS":          "PIDS",
+ 	})
+ 	if !statsOptions.NoReset {
+ 		tm.Clear()
+@@ -222,10 +223,15 @@ func (s *containerStats) PIDS() string {
+ 	}
+ 	return fmt.Sprintf("%d", s.PIDs)
+ }
++
+ func (s *containerStats) MemUsage() string {
+ 	return combineHumanValues(s.ContainerStats.MemUsage, s.ContainerStats.MemLimit)
+ }
+ 
++func (s *containerStats) MemUsageBytes() string {
++	return combineBytesValues(s.ContainerStats.MemUsage, s.ContainerStats.MemLimit)
++}
++
+ func floatToPercentString(f float64) string {
+ 	strippedFloat, err := utils.RemoveScientificNotationFromFloat(f)
+ 	if err != nil || strippedFloat == 0 {
+@@ -242,6 +248,13 @@ func combineHumanValues(a, b uint64) string {
+ 	return fmt.Sprintf("%s / %s", units.HumanSize(float64(a)), units.HumanSize(float64(b)))
+ }
+ 
++func combineBytesValues(a, b uint64) string {
++	if a == 0 && b == 0 {
++		return "-- / --"
++	}
++	return fmt.Sprintf("%s / %s", units.BytesSize(float64(a)), units.BytesSize(float64(b)))
++}
++
+ func outputJSON(stats []containerStats) error {
+ 	type jstat struct {
+ 		Id         string `json:"id"` // nolint
+diff --git a/cmd/podman/pods/stats.go b/cmd/podman/pods/stats.go
+index 79e7cd8ed..5f79fa016 100644
+--- a/cmd/podman/pods/stats.go
++++ b/cmd/podman/pods/stats.go
+@@ -75,11 +75,12 @@ func stats(cmd *cobra.Command, args []string) error {
+ 	doJSON := report.IsJSON(row)
+ 
+ 	headers := report.Headers(entities.PodStatsReport{}, map[string]string{
+-		"CPU":      "CPU %",
+-		"MemUsage": "MEM USAGE/ LIMIT",
+-		"MEM":      "MEM %",
+-		"NET IO":   "NET IO",
+-		"BlockIO":  "BLOCK IO",
++		"CPU":           "CPU %",
++		"MemUsage":      "MEM USAGE/ LIMIT",
++		"MemUsageBytes": "MEM USAGE/ LIMIT",
++		"MEM":           "MEM %",
++		"NET IO":        "NET IO",
++		"BlockIO":       "BLOCK IO",
+ 	})
+ 
+ 	for ; ; time.Sleep(time.Second) {
+diff --git a/docs/source/markdown/podman-pod-stats.1.md b/docs/source/markdown/podman-pod-stats.1.md
+index b1b23cd06..4ef15fc20 100644
+--- a/docs/source/markdown/podman-pod-stats.1.md
++++ b/docs/source/markdown/podman-pod-stats.1.md
+@@ -35,17 +35,18 @@ Pretty-print container statistics to JSON or using a Go template
+ 
+ Valid placeholders for the Go template are listed below:
+ 
+-| **Placeholder** | **Description**   |
+-| --------------- | ---------------   |
+-| .Pod            | Pod ID      |
+-| .CID            | Container ID      |
+-| .Name           | Container Name    |
+-| .CPU            | CPU percentage    |
+-| .MemUsage       | Memory usage      |
+-| .Mem            | Memory percentage |
+-| .NetIO          | Network IO        |
+-| .BlockIO        | Block IO          |
+-| .PIDS           | Number of PIDs    |
++| **Placeholder** | **Description**    |
++| --------------- | ------------------ |
++| .Pod            | Pod ID             |
++| .CID            | Container ID       |
++| .Name           | Container Name     |
++| .CPU            | CPU percentage     |
++| .MemUsage       | Memory usage       |
++| .MemUsageBytes  | Memory usage (IEC) |
++| .Mem            | Memory percentage  |
++| .NetIO          | Network IO         |
++| .BlockIO        | Block IO           |
++| .PIDS           | Number of PIDs     |
+ 
+ When using a GO template, you may precede the format with `table` to print headers.
+ ## EXAMPLE
+diff --git a/docs/source/markdown/podman-stats.1.md b/docs/source/markdown/podman-stats.1.md
+index d5de8caf2..722027aae 100644
+--- a/docs/source/markdown/podman-stats.1.md
++++ b/docs/source/markdown/podman-stats.1.md
+@@ -45,16 +45,17 @@ Pretty-print container statistics to JSON or using a Go template
+ 
+ Valid placeholders for the Go template are listed below:
+ 
+-| **Placeholder** | **Description**   |
+-| --------------- | ---------------   |
+-| .ID             | Container ID      |
+-| .Name           | Container Name    |
+-| .CPUPerc        | CPU percentage    |
+-| .MemUsage       | Memory usage      |
+-| .MemPerc        | Memory percentage |
+-| .NetIO          | Network IO        |
+-| .BlockIO        | Block IO          |
+-| .PIDS           | Number of PIDs    |
++| **Placeholder** | **Description**    |
++| --------------- | ------------------ |
++| .ID             | Container ID       |
++| .Name           | Container Name     |
++| .CPUPerc        | CPU percentage     |
++| .MemUsage       | Memory usage       |
++| .MemUsageBytes  | Memory usage (IEC) |
++| .MemPerc        | Memory percentage  |
++| .NetIO          | Network IO         |
++| .BlockIO        | Block IO           |
++| .PIDS           | Number of PIDs     |
+ 
+ When using a GO template, you may precede the format with `table` to print headers.
+ 
+diff --git a/pkg/domain/entities/pods.go b/pkg/domain/entities/pods.go
+index edb0af15a..32900d536 100644
+--- a/pkg/domain/entities/pods.go
++++ b/pkg/domain/entities/pods.go
+@@ -212,15 +212,16 @@ type PodStatsOptions struct {
+ 
+ // PodStatsReport includes pod-resource statistics data.
+ type PodStatsReport struct {
+-	CPU      string
+-	MemUsage string
+-	Mem      string
+-	NetIO    string
+-	BlockIO  string
+-	PIDS     string
+-	Pod      string
+-	CID      string
+-	Name     string
++	CPU           string
++	MemUsage      string
++	MemUsageBytes string
++	Mem           string
++	NetIO         string
++	BlockIO       string
++	PIDS          string
++	Pod           string
++	CID           string
++	Name          string
+ }
+ 
+ // ValidatePodStatsOptions validates the specified slice and options. Allows
+diff --git a/pkg/domain/infra/abi/pods_stats.go b/pkg/domain/infra/abi/pods_stats.go
+index 16c10710a..29bcbe087 100644
+--- a/pkg/domain/infra/abi/pods_stats.go
++++ b/pkg/domain/infra/abi/pods_stats.go
+@@ -44,15 +44,16 @@ func (ic *ContainerEngine) podsToStatsReport(pods []*libpod.Pod) ([]*entities.Po
+ 		podID := pods[i].ID()[:12]
+ 		for j := range podStats {
+ 			r := entities.PodStatsReport{
+-				CPU:      floatToPercentString(podStats[j].CPU),
+-				MemUsage: combineHumanValues(podStats[j].MemUsage, podStats[j].MemLimit),
+-				Mem:      floatToPercentString(podStats[j].MemPerc),
+-				NetIO:    combineHumanValues(podStats[j].NetInput, podStats[j].NetOutput),
+-				BlockIO:  combineHumanValues(podStats[j].BlockInput, podStats[j].BlockOutput),
+-				PIDS:     pidsToString(podStats[j].PIDs),
+-				CID:      podStats[j].ContainerID[:12],
+-				Name:     podStats[j].Name,
+-				Pod:      podID,
++				CPU:           floatToPercentString(podStats[j].CPU),
++				MemUsage:      combineHumanValues(podStats[j].MemUsage, podStats[j].MemLimit),
++				MemUsageBytes: combineBytesValues(podStats[j].MemUsage, podStats[j].MemLimit),
++				Mem:           floatToPercentString(podStats[j].MemPerc),
++				NetIO:         combineHumanValues(podStats[j].NetInput, podStats[j].NetOutput),
++				BlockIO:       combineHumanValues(podStats[j].BlockInput, podStats[j].BlockOutput),
++				PIDS:          pidsToString(podStats[j].PIDs),
++				CID:           podStats[j].ContainerID[:12],
++				Name:          podStats[j].Name,
++				Pod:           podID,
+ 			}
+ 			reports = append(reports, &r)
+ 		}
+@@ -68,6 +69,13 @@ func combineHumanValues(a, b uint64) string {
+ 	return fmt.Sprintf("%s / %s", units.HumanSize(float64(a)), units.HumanSize(float64(b)))
+ }
+ 
++func combineBytesValues(a, b uint64) string {
++	if a == 0 && b == 0 {
++		return "-- / --"
++	}
++	return fmt.Sprintf("%s / %s", units.BytesSize(float64(a)), units.BytesSize(float64(b)))
++}
++
+ func floatToPercentString(f float64) string {
+ 	strippedFloat, err := utils.RemoveScientificNotationFromFloat(f)
+ 	if err != nil || strippedFloat == 0 {

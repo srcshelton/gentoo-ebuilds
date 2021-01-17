@@ -4,7 +4,7 @@
 EAPI=7
 
 EGIT_COMMIT='a0d478edea7f775b7ce32f8eb1a01e75374486cb'
-SECCOMP_VERSION='v0.31.0'
+SECCOMP_VERSION='v0.33.1'
 CATATONIT_VERSION='0.1.5'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
@@ -46,6 +46,7 @@ RDEPEND="${COMMON_DEPEND}
 
 PATCHES=(
 	"${FILESDIR}"/libpod-2.0.0_rc4-varlink.patch 
+	"${FILESDIR}"/podman-2.2.1-stats.patch 
 )
 
 S="${WORKDIR}/${P/_/-}"
