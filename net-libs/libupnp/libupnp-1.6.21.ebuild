@@ -11,8 +11,8 @@ SRC_URI="mirror://sourceforge/pupnp/${P}.tar.bz2"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ppc ppc64 sparc x86 ~amd64-linux"
-IUSE="+client debug doc examples ipv6 static-libs +tools +server +webserver"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ppc ppc64 sparc x86 ~amd64-linux"
+IUSE="+client debug doc examples ipv6 +server static-libs +tools +webserver"
 REQUIRED_USE="!server? ( !webserver )"
 
 DOCS="NEWS README ChangeLog"
