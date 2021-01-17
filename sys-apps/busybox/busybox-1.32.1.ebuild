@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # See `man savedconfig.eclass` for info on how to use USE=savedconfig.
@@ -70,7 +70,6 @@ busybox_config_enabled() {
 # patches go here!
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.26.2-bb.patch
-	"${FILESDIR}"/${PN}-1.31.1-glibc-2.31.patch
 	# "${FILESDIR}"/${P}-*.patch
 )
 
