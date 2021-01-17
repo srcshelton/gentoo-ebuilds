@@ -2,37 +2,43 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit linux-info
 
+inherit go-module linux-info
+
+# update on bump, look for https://github.com/docker\
+# docker-ce/blob/<docker ver OR branch>/components/engine/hack/dockerfile/install/runc.installer
+RUNC_COMMIT=ff819c7e9184c13b7c2607fe6c30ae19403a7aff
 CONFIG_CHECK="~USER_NS"
-EGO_PN="github.com/opencontainers/${PN}"
-
-if [[ ${PV} == *9999 ]]; then
-	inherit golang-build golang-vcs
-else
-	MY_PV="${PV/_/-}"
-	# Change this when you update the ebuild
-	RUNC_COMMIT="ff819c7e9184c13b7c2607fe6c30ae19403a7aff"
-	SRC_URI="https://${EGO_PN}/archive/${RUNC_COMMIT}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 ~arm ~arm64 ~ppc64"
-	inherit golang-build golang-vcs-snapshot
-fi
 
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="http://runc.io"
+MY_PV="${PV/_/-}"
+SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
-IUSE="+ambient apparmor +doc hardened +kmem +seccomp"
+KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~x86"
+IUSE="+ambient apparmor +doc hardened +kmem +seccomp selinux test"
+
+DEPEND="seccomp? ( sys-libs/libseccomp )"
+
+RDEPEND="
+	${DEPEND}
+	!app-emulation/docker-runc
+	apparmor? ( sys-libs/libapparmor )
+"
 
 BDEPEND="
 	doc? ( dev-go/go-md2man )
+	test? ( "${RDEPEND}" )
 "
-RDEPEND="
-	apparmor? ( sys-libs/libapparmor )
-	seccomp? ( sys-libs/libseccomp )
-	!app-emulation/docker-runc
-"
+
+# tests need busybox binary, and portage namespace
+# sandboxing disabled: mount-sandbox pid-sandbox ipc-sandbox
+# majority of tests pass
+RESTRICT+=" test"
+
+S="${WORKDIR}/${PN}-${RUNC_COMMIT}"
 
 src_prepare() {
 	default
@@ -52,25 +58,31 @@ src_compile() {
 
 	# build up optional flags
 	local options=(
-		$(usex ambient 'ambient' '')
-		$(usex apparmor 'apparmor' '')
-		$(usex seccomp 'seccomp' '')
+		$(usev ambient)
+		$(usev apparmor)
+		$(usev seccomp)
+		$(usev selinux)
 		$(usex kmem '' 'nokmem')
 	)
 
-	COMMIT=${RUNC_COMMIT} GOPATH="${S}" emake BUILDTAGS="${options[*]}" \
-		-C src/${EGO_PN}
+	myemakeargs=(
+		BINDIR="${ED}/usr/bin"
+		BUILDTAGS="${options[*]}"
+		COMMIT=${RUNC_COMMIT}
+		DESTDIR="${ED}"
+		PREFIX="${ED}/usr"
+	)
+
+	emake "${myemakeargs[@]}" runc man
 }
 
 src_install() {
-	pushd src/${EGO_PN} || die
-	dobin runc
-	dodoc README.md PRINCIPLES.md
+	emake "${myemakeargs[@]}" install install-bash
+
+	local DOCS=( README.md PRINCIPLES.md docs/. )
+	einstalldocs
+
 	if use doc; then
-		pushd man || die
-		./md2man-all.sh || die
-		doman man*/*
-		popd || die
+		emake "${myemakeargs[@]}" install-man
 	fi
-	popd || die
 }
