@@ -11,15 +11,15 @@ SRC_URI="https://github.com/trusteddomainproject/OpenDMARC/archive/rel-${PN}-${P
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ppc ppc64 sparc x86"
-IUSE="spf +reports static-libs systemd"
+KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ppc ppc64 sparc x86"
+IUSE="+reports spf static-libs systemd"
 
-DEPEND="dev-libs/libbsd:0
-	reports? ( dev-perl/DBI )
+DEPEND="reports? ( dev-perl/DBI )
 	|| ( mail-filter/libmilter mail-mta/sendmail )"
 RDEPEND="${DEPEND}
 	acct-group/milter
 	acct-user/milter
+	dev-libs/libbsd
 	reports? (
 		dev-perl/DBD-mysql
 		dev-perl/HTTP-Message
@@ -41,7 +41,7 @@ src_prepare() {
 	sed -i -e '/^\s\+docs\/Makefile/d' configure.ac || die
 
 	eautoreconf
-	if ! use reports ; then
+	if use !reports ; then
 		sed -i -e '/^SUBDIRS =/s/reports//' Makefile.in || die
 	fi
 }
