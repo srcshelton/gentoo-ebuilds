@@ -16,10 +16,9 @@ SRC_URI="
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
-IUSE="static-libs"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
+IUSE="split-usr"
 
-DOCS=( README )
 PATCHES=( "${DISTDIR}/${PATCH_FN}" )
 
 pkg_setup() {
@@ -43,12 +42,14 @@ pkg_setup() {
 }
 
 src_configure() {
-	econf $(use_enable static-libs static)
+	econf --disable-static
 }
 
 src_install() {
 	default
 
 	gen_usr_ldscript -a nfnetlink
+
+	# no static archives
 	find "${D}" -name '*.la' -delete || die
 }
