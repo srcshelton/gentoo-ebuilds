@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit systemd s6 tmpfiles
+inherit s6 systemd tmpfiles
 
 DESCRIPTION="Gentoo MySQL init scripts."
 HOMEPAGE="https://wiki.gentoo.org/wiki/No_homepage"
@@ -11,7 +11,7 @@ SRC_URI=""
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86"
 IUSE="s6 systemd"
 
 DEPEND=""
