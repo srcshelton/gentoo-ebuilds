@@ -16,7 +16,7 @@ LICENSE="GPL-2"
 # Subslot tracks libxtables as that's the one other packages generally link
 # against and iptables changes.  Will have to revisit if other sonames change.
 SLOT="0/12"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 s390 sparc x86"
 IUSE="conntrack ipv6 netlink nftables pcap static-libs systemd"
 
 COMMON_DEPEND="
@@ -73,7 +73,6 @@ src_configure() {
 		--libexecdir="${EPREFIX}/$(get_libdir)" \
 		--enable-devel \
 		--enable-shared \
-		--enable-libipq \
 		$(use_enable nftables) \
 		$(use_enable pcap bpf-compiler) \
 		$(use_enable pcap nfsynproxy) \
