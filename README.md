@@ -258,6 +258,8 @@ used to build perl)
 * app-emulation/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
+* dev-embedded/rpi-eeprom
+    * Follow raspbian releases more closely
 * dev-perl/B-Lint
 * dev-perl/CPANPLUS
 * dev-perl/CPANPLUS-Dist-Gentoo
