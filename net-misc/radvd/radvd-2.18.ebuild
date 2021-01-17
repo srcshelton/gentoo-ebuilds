@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit systemd user eutils readme.gentoo-r1
+inherit eutils readme.gentoo-r1 systemd user
 
 DESCRIPTION="Linux IPv6 Router Advertisement Daemon"
 HOMEPAGE="http://v6web.litech.org/radvd/"
@@ -11,8 +11,8 @@ SRC_URI="http://v6web.litech.org/radvd/dist/${P}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="amd64 arm arm64 hppa ppc ~ppc64 sparc x86"
-IUSE="doc selinux systemd test kernel_FreeBSD"
+KEYWORDS="amd64 arm arm64 ~hppa ppc ~ppc64 sparc x86"
+IUSE="doc kernel_FreeBSD selinux systemd test"
 RESTRICT="!test? ( test )"
 
 CDEPEND="dev-libs/libdaemon"
@@ -33,7 +33,6 @@ pkg_setup() {
 
 src_configure() {
 	econf --with-pidfile=/var/run/radvd/radvd.pid \
-		--disable-silent-rules \
 		--with-systemdsystemunitdir=no \
 		$(use_with test check)
 }
