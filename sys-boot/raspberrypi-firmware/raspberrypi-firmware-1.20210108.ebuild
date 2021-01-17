@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -104,14 +104,20 @@ src_install() {
 	insinto "${boot}"
 	for f in boot/*.bin boot/*.dat boot/*.elf boot/LICEN[CS]E.*; do
 		if [[ -e "${f}" ]]; then
-			if use rpi4 || [[ "${f}" != *4* ]]; then
+			if use rpi4; then
+				if [[ "${f}" == 'boot/bootcode.bin' ]]; then
+					continue
+				fi
+				doins "${f}"
+			elif [[ "${f}" != *4* ]]; then
 				doins "${f}"
 			fi
 		fi
 	done
 
 	# Install library required by vcdbg ...
-	insinto /usr/$(get_libdir)
+	#insinto /usr/$(get_libdir)
+	insinto /usr/lib
 	doins hardfp/opt/vc/lib/libelftoolchain.so
 
 	insinto "${boot}"
