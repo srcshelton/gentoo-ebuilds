@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -18,7 +18,7 @@ LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 GPL-3+ ISC MIT MPL-2.0" # GPL-3+ for 
 SLOT="0"
 
 KEYWORDS="~amd64 ~arm64"
-IUSE="apparmor btrfs +fuse +rootless selinux systemd"
+IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd zsh-completion"
 RESTRICT="mirror test network-sandbox"
 
 COMMON_DEPEND="
@@ -274,6 +274,7 @@ src_install() {
 
 	# Migrated to containers/common ...
 	insinto /usr/share/containers
+	#doins vendor/github.com/containers/common/pkg/seccomp/seccomp.json
 	newins "${DISTDIR}/seccomp-${SECCOMP_VERSION}.json" seccomp.json
 
 	newinitd "${FILESDIR}"/podman.initd podman
@@ -281,17 +282,27 @@ src_install() {
 	insinto /etc/logrotate.d
 	newins "${FILESDIR}/podman.logrotated" podman
 
-	dobashcomp completions/bash/*
+	use bash-completion && dobashcomp completions/bash/*
+
+	if use zsh-completion; then
+		insinto /usr/share/zsh/site-functions
+		doins completions/zsh/*
+	fi
+
+	if use fish-completion; then
+		insinto /usr/share/fish/vendor_completions.d
+		doins completions/fish/*
+	fi
 
 	keepdir /var/lib/containers
 }
 
 pkg_preinst() {
-	LIBPOD_ROOTLESS_UPGRADE=false
+	PODMAN_ROOTLESS_UPGRADE=false
 	if use rootless; then
 		has_version 'app-emulation/libpod[rootless]' ||
 		has_version 'app-emulation/podman[rootless]' ||
-			LIBPOD_ROOTLESS_UPGRADE=true
+			PODMAN_ROOTLESS_UPGRADE=true
 	fi
 }
 
@@ -306,7 +317,7 @@ pkg_postinst() {
 		elog "cp /etc/containers/policy.json{.example,}"
 		want_newline=true
 	fi
-	if [[ ${LIBPOD_ROOTLESS_UPGRADE} == true ]] ; then
+	if [[ ${PODMAN_ROOTLESS_UPGRADE} == true ]] ; then
 		${want_newline} && elog ""
 		elog "For rootless operation, you need to configure subuid/subgid"
 		elog "for user running podman. In case subuid/subgid has only been"
