@@ -51,7 +51,7 @@ src_prepare() {
 }
 
 src_install() {
-	dosbin arpwatch arpsnmp arp2ethers massagevendor arpfetch bihourly.sh
+	dosbin arpwatch arpsnmp arp2ethers massagevendor arpfetch
 	doman arpwatch.8 arpsnmp.8 arp2ethers.8 massagevendor.8 arpfetch.8 bihourly.8
 
 	insinto /usr/share/arpwatch
