@@ -1,13 +1,15 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="5"
+EAPI=7
 
 DISTUTILS_OPTIONAL=true
 DISTUTILS_SINGLE_IMPL=true
 GENTOO_DEPEND_ON_PERL=no
-PYTHON_COMPAT=( python2_7 )
-inherit autotools eutils perl-module distutils-r1 flag-o-matic multilib
+LUA_COMPAT=( lua5-{1..4} luajit )
+PYTHON_COMPAT=( python3_{7,8} )
+
+inherit autotools distutils-r1 flag-o-matic lua multilib perl-module
 
 MY_P=${P/_/-}
 
@@ -17,9 +19,14 @@ SRC_URI="https://oss.oetiker.ch/rrdtool/pub/${MY_P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0/8.0.0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~x86-macos ~x86-solaris"
-IUSE="dbi doc graph lua perl python rados rrdcgi ruby static-libs tcl tcpd"
-REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~x86-solaris"
+IUSE="dbi doc graph lua perl python rados rrdcgi ruby static-libs tcl tcpd test"
+RESTRICT="!test? ( test )"
+REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
+	lua? (
+		${LUA_REQUIRED_USE}
+		test? ( graph )
+	)"
 
 CDEPEND="
 	>=dev-libs/glib-2.28.7:2[static-libs(+)?]
@@ -30,7 +37,7 @@ CDEPEND="
 		>=x11-libs/cairo-1.10.2[svg,static-libs(+)?]
 		>=x11-libs/pango-1.28
 	)
-	lua? ( dev-lang/lua:*[deprecated] )
+	lua? ( ${LUA_DEPS} )
 	perl? ( dev-lang/perl:= )
 	python? ( ${PYTHON_DEPS} )
 	rados? ( sys-cluster/ceph )
@@ -43,13 +50,22 @@ DEPEND="
 	sys-apps/groff
 	virtual/pkgconfig
 	virtual/awk
+	test? ( sys-devel/bc )
 "
 RDEPEND="
 	${CDEPEND}
 "
+BDEPEND="test? (
+	lua? ( ${LUA_DEPS} )
+)"
 PDEPEND="
 	ruby? ( ~dev-ruby/rrdtool-bindings-${PV} )
 "
+PATCHES=(
+	"${FILESDIR}"/${PN}-1.4.9-disable-rrd_graph-perl.patch
+	"${FILESDIR}"/${PN}-1.7.0-disable-rrd_graph-cgi.patch
+	"${FILESDIR}"/${PN}-1.7.1-configure.ac.patch
+)
 S=${WORKDIR}/${MY_P}
 
 python_compile() {
@@ -67,16 +83,14 @@ pkg_setup() {
 }
 
 src_prepare() {
+	default
 	# At the next version bump, please see if you actually still need this
 	# before adding versions
-	cp "${FILESDIR}"/${PN}-1.5.5-rrdrados.pod doc/rrdrados.pod || die
-
-	epatch \
-		"${FILESDIR}"/${PN}-1.4.9-disable-rrd_graph-cgi.patch \
-		"${FILESDIR}"/${PN}-1.4.9-disable-rrd_graph-perl.patch \
-		"${FILESDIR}"/${PN}-1.5.0_rc1-disable-rrd_graph-lua.patch \
-		"${FILESDIR}"/${PN}-1.5.0_rc1-disable-rrd_graph-python.patch \
-		"${FILESDIR}"/${PN}-1.6.0-configure.ac.patch
+	if ! [ -f doc/rrdrados.pod ]; then
+		cp "${FILESDIR}"/${PN}-1.5.5-rrdrados.pod doc/rrdrados.pod
+	else
+		die "File already exists: doc/rrdrados.pod. Remove this code!"
+	fi
 
 	# bug 456810
 	# no time to sleep
@@ -95,17 +109,17 @@ src_prepare() {
 		sed -i \
 			-e '2s:rpn1::; 2s:rpn2::; 6s:create-with-source-4::;' \
 			-e '7s:xport1::; 7s:dcounter1::; 7s:vformatter1::' \
+			-e 's|graph1||g' \
 			tests/Makefile.am || die
 	fi
-
-	echo ${PV/_rc*/} >> VERSION || die
-
-	export rd_cv_gcc_flag__Werror=no
 
 	eautoreconf
 }
 
 src_configure() {
+	export rd_cv_gcc_flag__Werror=no
+	export rd_cv_ms_async=ok
+
 	filter-flags -ffast-math
 
 	export RRDDOCDIR=${EPREFIX}/usr/share/doc/${PF}
@@ -125,10 +139,11 @@ src_configure() {
 		myconf+=( "--disable-librados" )
 	fi
 
+	# We will handle Lua bindings ourselves, upstream is not multi-impl-ready
+	# and their Lua-detection logic depends on having the right version of the Lua
+	# interpreter available at build time.
 	econf \
 		$(use_enable graph rrd_graph) \
-		$(use_enable lua lua-site-install) \
-		$(use_enable lua) \
 		$(use_enable perl perl-site-install) \
 		$(use_enable perl) \
 		$(use_enable python) \
@@ -137,33 +152,81 @@ src_configure() {
 		$(use_enable tcl) \
 		$(use_with tcl tcllib "${EPREFIX}"/usr/$(get_libdir)) \
 		--with-perl-options=INSTALLDIRS=vendor \
+		--disable-lua \
 		--disable-ruby-site-install \
 		--disable-ruby \
 		${myconf[@]}
 }
 
+lua_src_compile() {
+	pushd "${BUILD_DIR}"/bindings/lua || die "Failed to change to Lua-binding directory for ${ELUA}"
+
+	# We do need the cmod-dir path here, otherwise libtool complains.
+	# Use the real one (i.e. not within ${ED}) just in case.
+	emake \
+		LUA_CFLAGS=$(lua_get_CFLAGS) \
+		LUA_INSTALL_CMOD="$(lua_get_cmod_dir)"
+
+	popd
+}
+
 src_compile() {
 	default
 
+	if use lua; then
+		# Only copy sources now so that we do not trigger librrd compilation
+		# multiple times.
+		lua_copy_sources
+
+		lua_foreach_impl lua_src_compile
+	fi
+
 	use python && distutils-r1_src_compile
+}
+
+lua_src_test() {
+	pushd "${BUILD_DIR}"/bindings/lua || die "Failed to change to Lua-binding directory for ${ELUA}"
+
+	LUA_CPATH="${PWD}/.libs/?.so" emake LUA="${LUA}" test
+
+	popd
 }
 
 src_test() {
 	export LC_ALL=C
 	default
+	if use lua; then
+		lua_foreach_impl lua_src_test
+	fi
+}
+
+lua_src_install() {
+	pushd "${BUILD_DIR}"/bindings/lua || die "Failed to change to Lua-binding directory for ${ELUA}"
+
+	# This time we must prefix the cmod-dir path with ${ED} so that make
+	# does not try to violate the sandbox.
+	emake \
+		LUA_INSTALL_CMOD="${ED}/$(lua_get_cmod_dir)" \
+		install
+
+	popd
 }
 
 src_install() {
 	default
 
 	if ! use doc ; then
-		rm -rf "${ED}"usr/share/doc/${PF}/{html,txt}
+		rm -rf "${ED}"/usr/share/doc/${PF}/{html,txt}
+	fi
+
+	if use lua; then
+		lua_foreach_impl lua_src_install
 	fi
 
 	if use !rrdcgi ; then
 		# uses rrdcgi, causes invalid shebang error in Prefix, useless
 		# without rrdcgi installed
-		rm -f "${ED}"usr/share/${PN}/examples/cgi-demo.cgi
+		rm -f "${ED}"/usr/share/${PN}/examples/cgi-demo.cgi
 	fi
 
 	if use perl ; then
@@ -173,7 +236,7 @@ src_install() {
 
 	dodoc CHANGES CONTRIBUTORS NEWS THREADS TODO
 
-	find "${ED}"usr -name '*.la' -exec rm -f {} +
+	find "${ED}"/usr -name '*.la' -exec rm -f {} +
 
 	keepdir /var/lib/rrdcached/journal/
 	keepdir /var/lib/rrdcached/db/
