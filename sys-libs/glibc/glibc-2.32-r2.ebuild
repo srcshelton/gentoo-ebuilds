@@ -3,7 +3,7 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{6,7,8,9} )
+PYTHON_COMPAT=( python3_{7,8,9} )
 
 inherit eutils flag-o-matic gnuconfig multilib multiprocessing prefix python-any-r1 systemd toolchain-funcs
 

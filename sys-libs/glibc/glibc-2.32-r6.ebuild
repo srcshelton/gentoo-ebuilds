@@ -1,9 +1,9 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{7,8} )
+PYTHON_COMPAT=( python3_{7,8,9} )
 
 inherit eutils flag-o-matic gnuconfig multilib multiprocessing prefix python-any-r1 systemd toolchain-funcs
 
@@ -15,22 +15,23 @@ SLOT="2.2"
 EMULTILIB_PKG="true"
 
 # Gentoo patchset (ignored for live ebuilds)
-PATCH_VER=8
-PATCH_DEV=dilfridge
+PATCH_VER=5
+PATCH_DEV=slyfox
 
 if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz"
 	SRC_URI+=" https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
+	SRC_URI+=" riscv? ( https://dev.gentoo.org/~dilfridge/distfiles/backport-rv32.txz )"
 fi
 
 RELEASE_VER=${PV}
 
-GCC_BOOTSTRAP_VER=20180511
+GCC_BOOTSTRAP_VER=20201208
 
-LOCALE_GEN_VER=2.00
+LOCALE_GEN_VER=2.10
 
 SRC_URI+=" https://gitweb.gentoo.org/proj/locale-gen.git/snapshot/locale-gen-${LOCALE_GEN_VER}.tar.gz"
 SRC_URI+=" multilib? ( https://dev.gentoo.org/~dilfridge/distfiles/gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz )"
@@ -88,11 +89,19 @@ fi
 # and that gcc already contains the hardened patches.
 # Lastly, let's avoid some openssh nastiness, bug 708224, as
 # convenience to our users.
+
+# gzip, grep, awk are needed by locale-gen, bug 740750
+
 BDEPEND="
 	${PYTHON_DEPS}
 	>=app-misc/pax-utils-0.1.10
 	sys-devel/bison
 	doc? ( sys-apps/texinfo )
+	!compile-locales? (
+		app-arch/gzip
+		sys-apps/grep
+		virtual/awk
+	)
 "
 COMMON_DEPEND="
 	gd? ( media-libs/gd:2= )
@@ -106,9 +115,17 @@ COMMON_DEPEND="
 	!<net-misc/openssh-8.1_p1-r2
 "
 DEPEND="${COMMON_DEPEND}
+	compile-locales? (
+		app-arch/gzip
+		sys-apps/grep
+		virtual/awk
+	)
 	test? ( >=net-dns/libidn2-2.3.0 )
 "
 RDEPEND="${COMMON_DEPEND}
+	app-arch/gzip
+	sys-apps/grep
+	virtual/awk
 	sys-apps/gentoo-functions
 "
 
@@ -151,10 +168,6 @@ XFAIL_TEST_LIST=(
 	# https://sourceware.org/PR19329
 	# https://bugs.gentoo.org/719674#c12
 	tst-stack4
-)
-
-PATCHES=(
-	"${FILESDIR}/${P}-fix-nptl-setgroups-x32.patch"
 )
 
 #
@@ -591,7 +604,7 @@ get_kheader_version() {
 sanity_prechecks() {
 	# Prevent native builds from downgrading
 	if [[ ${MERGE_TYPE} != "buildonly" ]] && \
-	   [[ -z "${ROOT}" ]] && \
+	   [[ -z "${ROOT:-}" || "${ROOT}" == '/' ]] && \
 	   [[ ${CBUILD} == ${CHOST} ]] && \
 	   [[ ${CHOST} == ${CTARGET} ]] ; then
 
@@ -752,6 +765,7 @@ src_unpack() {
 
 	cd "${WORKDIR}" || die
 	unpack locale-gen-${LOCALE_GEN_VER}.tar.gz
+	use riscv && unpack backport-rv32.txz
 }
 
 src_prepare() {
@@ -765,6 +779,12 @@ src_prepare() {
 		elog "Applying Gentoo Glibc Patchset ${patchsetname}"
 		eapply "${WORKDIR}"/patches
 		einfo "Done."
+
+		if use riscv ; then
+			elog "Adding rv32 backport patchset for glibc-2.32 (experimental)"
+			eapply "${WORKDIR}"/backport-rv32
+			einfo "Done."
+		fi
 	fi
 
 	default
@@ -1012,6 +1032,11 @@ glibc_do_configure() {
 		$(use_enable static-pie)
 		$(use_enable systemtap)
 		$(use_enable nscd)
+
+		# locale data is arch-independent
+		# https://bugs.gentoo.org/753740
+		libc_cv_complocaledir='${exec_prefix}/lib/locale'
+
 		${EXTRA_ECONF}
 	)
 
@@ -1324,6 +1349,8 @@ glibc_do_src_install() {
 		ppc     /${LD32}/ld.so.1
 		ppc64   /${LD64}/ld64.so.1
 		# riscv
+		ilp32d  /lib/ld-linux-riscv32-ilp32d.so.1
+		ilp32   /lib/ld-linux-riscv32-ilp32.so.1
 		lp64d   /lib/ld-linux-riscv64-lp64d.so.1
 		lp64    /lib/ld-linux-riscv64-lp64.so.1
 		# s390
@@ -1398,26 +1425,7 @@ glibc_do_src_install() {
 	insinto /etc
 	doins locale.gen
 
-	# Make sure all the ABI's can find the locales and so we only
-	# have to generate one set
-	local a
-	keepdir /usr/$(get_libdir)/locale
-	for a in $(get_install_abis) ; do
-		if [[ ! -e ${ED}/usr/$(get_abi_LIBDIR ${a})/locale ]] ; then
-			dosym ../$(get_libdir)/locale /usr/$(get_abi_LIBDIR ${a})/locale
-		fi
-	done
-
-	# HACK: If we're building for riscv, we need to additionally make sure that
-	# we can find the locale archive afterwards
-	case ${CTARGET} in
-		riscv*)
-			if [[ ! -e ${ED}/usr/lib/locale ]] ; then
-				dosym ../$(get_libdir)/locale /usr/lib/locale
-			fi
-			;;
-		*) ;;
-	esac
+	keepdir /usr/lib/locale
 
 	cd "${S}"
 
@@ -1447,6 +1455,10 @@ glibc_do_src_install() {
 		use tmpfiles && systemd_newtmpfilesd nscd/nscd.tmpfiles nscd.conf
 	fi
 
+	# Make getent available during system boot...
+	dodir /bin
+	mv "${ED}"/usr/bin/getent "${ED}"/bin/ || die
+
 	echo 'LDPATH="include ld.so.conf.d/*.conf"' > "${T}"/00glibc
 	doenvd "${T}"/00glibc
 
@@ -1461,8 +1473,8 @@ glibc_do_src_install() {
 
 	# Generate all locales if this is a native build as locale generation
 	if use compile-locales && ! is_crosscompile ; then
-		run_locale_gen --inplace-glibc "${ED%/}/"
-		sed -e 's:COMPILED_LOCALES="":COMPILED_LOCALES="1":' -i "${ED%/}/usr/sbin/locale-gen" || die
+		run_locale_gen --inplace-glibc "${ED}/"
+		sed -e 's:COMPILED_LOCALES="":COMPILED_LOCALES="1":' -i "${ED}"/usr/sbin/locale-gen || die
 	fi
 }
 
@@ -1546,8 +1558,14 @@ pkg_preinst() {
 	fi
 
 	[[ -n "${ROOT}" ]] && return 0
-	[[ -d "${ED%/}/$(get_libdir)" ]] || return 0
+	[[ -d "${ED}/$(get_libdir)" ]] || return 0
 	[[ -z "${BOOTSTRAP_RAP}" ]] && glibc_sanity_check
+
+	if [[ -L "${EROOT}/usr/lib/locale" ]]; then
+		# Help portage migrate this to a directory
+		# https://bugs.gentoo.org/753740
+		rm "${EROOT}"/usr/lib/locale || die
+	fi
 }
 
 pkg_postinst() {
