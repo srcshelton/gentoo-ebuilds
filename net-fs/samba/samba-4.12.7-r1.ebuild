@@ -3,7 +3,7 @@
 
 EAPI=6
 
-PYTHON_COMPAT=( python3_{6,7,8} )
+PYTHON_COMPAT=( python3_{7,8} )
 PYTHON_REQ_USE='threads(+),xml(+)'
 inherit linux-info pam python-single-r1 systemd waf-utils multilib-minimal
 
