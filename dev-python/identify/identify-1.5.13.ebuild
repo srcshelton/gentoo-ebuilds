@@ -1,8 +1,9 @@
-# Copyright 1999-2018 Stuart Shelton
+# Copyright 2018-2021 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
-PYTHON_COMPAT=( python2_7 pypy )
+EAPI=7
+#PYTHON_COMPAT=( python2_7 python3_{5..6} pypy )
+PYTHON_COMPAT=( python3_{7..9} pypy3 )
 
 inherit distutils-r1
 
