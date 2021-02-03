@@ -32,8 +32,8 @@ main portage tree, but which still have the stock upstream package installed.
     * Some Raspberry Pi userland tools are closed-source, and so not available in media-libs/raspberrypi-userland.  There (armv6 only, currently) utilities are installed by this package
 * sys-boot/raspberrypi-firmware
     * Raspberry Pi VideoCore firmware, Device Tree overlays, Kernel image, and kernel modules from a `smart-live-rebuild`-compatible ebuild
-* sys-boot/raspberrypi-mkimage
-    * Add latest signing tools to enable Device Tree support in self-built kernels
+* ~~sys-boot/raspberrypi-mkimage~~
+    * ~~Add latest signing tools to enable Device Tree support in self-built kernels~~
 * sys-kernel/raspberrypi-image
     * Raspberry Pi latest kernel image
 * sys-kernel/raspberrypi-sources
@@ -135,8 +135,8 @@ used to build perl)
     * ~~Add `-Wno-implicit-function-declaration` to work around ncurses-related failures, if supported by the compiler~~
 * app-shells/bash
     * Include `<signal.h>` in relevant places to avoid `-Wimplicit-function-declaration` errors
-* dev-lang/python
-    * If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed
+* ~~dev-lang/python~~
+    * ~~If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed~~
 * ~~dev-libs/apr~~
     * ~~Support F_FULLFSYNC on darwin~~
 * dev-libs/gmp
@@ -148,8 +148,8 @@ used to build perl)
     * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
 * dev-libs/liblinear
     * Update Makefile to build correctly on darwin
-* dev-libs/libxslt
-    * Fix for 'double prefix' QA error introduced in 1.1.28-r2
+* ~~dev-libs/libxslt~~
+    * ~~Fix for 'double prefix' QA error introduced in 1.1.28-r2~~
 * dev-libs/openssl
     * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
 * dev-libs/udis86
@@ -251,10 +251,10 @@ used to build perl)
     * A pure-shell tool to check for updated binaries and libraries
 * app-admin/openrc-restart-crashed
     * Check for services with status 'crashed', and optionally restart specified services
-* app-editors/vim-core
-    * Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others
-* app-editors/vim
-    * Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others
+* ~~app-editors/vim-core~~
+    * ~~Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others~~
+* ~~app-editors/vim~~
+    * ~~Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others~~
 * app-emulation/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
@@ -292,11 +292,11 @@ used to build perl)
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-php/ZxcvbnPhp
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
-* dev-python/ansible-lint
-* dev-python/aspy_yaml
+* ~~dev-python/ansible-lint~~
+* ~~dev-python/aspy_yaml~~
 * dev-python/identify
 * dev-python/nodeenv
-* dev-python/noxspellserver
+* ~~dev-python/noxspellserver~~
 * ~~dev-python/pathspec~~
 * dev-python/pre-commit
 * dev-python/yamllint
@@ -457,11 +457,11 @@ used to build perl)
     * Fix inclusion when unbound variable checking is enabled
 * sys-apps/groff
     * Fix for building on ARM
-* sys-apps/portage
+* ~~sys-apps/portage~~
     * ~~Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory~~
-    * Prevent binary merges from failing due to assumptions about build files being present
-* sys-apps/usbutils
-    * Revert changes which make usbutils dependent on udev
+    * ~~Prevent binary merges from failing due to assumptions about build files being present~~
+* ~~sys-apps/usbutils~~
+    * ~~Revert changes which make usbutils dependent on udev~~
 * sys-apps/util-linux
     * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-apps/sysvinit
@@ -510,7 +510,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-analyzer/darkstat
 * net-analyzer/iptraf-ng
 * net-analyzer/nagios-core
-* net-analyzer/ntop
+* ~~net-analyzer/ntop~~
 * net-analyzer/rrdtool
 * net-analyzer/vnstat
 * net-analyzer/zabbix
