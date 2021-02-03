@@ -1,13 +1,13 @@
-# Copyright 1999-2018 Stuart Shelton
+# Copyright 2018-2021 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
-PYTHON_COMPAT=( python2_7 pypy )
+EAPI=7
+PYTHON_COMPAT=( python3_{7..8} pypy3 )
 
 inherit distutils-r1
 
 # No branches, no tags, no releases - ugh :(
-commit='636a35204c80ed3e505c8d3dfac370b59821c7e6'
+commit='7b125acf41702cb82679dcf56aaf6a14d34bd785'
 
 DESCRIPTION="Utility library for gitignore style pattern matching of file paths"
 HOMEPAGE="https://github.com/cpburnz/python-path-specification"
@@ -16,7 +16,7 @@ RESTRICT="mirror"
 
 LICENSE="MPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm x86 ~amd64-linux ~x86-linux x64-macos"
+KEYWORDS="amd64 arm64 arm x86 ~amd64-linux ~x86-linux x64-macos"
 #IUSE="doc"
 
 S="${WORKDIR}/python-path-specification-${commit}"
