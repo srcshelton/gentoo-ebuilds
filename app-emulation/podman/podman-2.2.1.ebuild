@@ -277,6 +277,7 @@ src_install() {
 	#doins vendor/github.com/containers/common/pkg/seccomp/seccomp.json
 	newins "${DISTDIR}/seccomp-${SECCOMP_VERSION}.json" seccomp.json
 
+	newconfd "${FILESDIR}"/podman.confd podman
 	newinitd "${FILESDIR}"/podman.initd podman
 
 	insinto /etc/logrotate.d
