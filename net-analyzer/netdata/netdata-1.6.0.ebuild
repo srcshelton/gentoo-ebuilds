@@ -1,1 +1,0 @@
-netdata-1.8.0.ebuild
