@@ -3,7 +3,7 @@
 # $Header: app-pda/libimobiledevice/libimobiledevice-9999.ebuild,v 1.0 2013/10/31 16:38:49 srcs Exp $
 
 EAPI=6
-PYTHON_COMPAT=( python2_7 )
+PYTHON_COMPAT=( python3_{7..9} )
 inherit autotools eutils git-r3 multilib python-r1
 
 DESCRIPTION="Support library to communicate with Apple iPhone/iPod Touch devices"
