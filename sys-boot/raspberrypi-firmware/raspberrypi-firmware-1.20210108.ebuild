@@ -9,8 +9,8 @@ if [[ "${PV}" == *9999 ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
 	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
-							  # only ~200MB of data - the rest is (literally)
-							  # history :(
+				  # only ~200MB of data - the rest is (literally)
+				  # history :(
 	if ! [[ "${PV}" == 9999 ]]; then
 		EGIT_BRANCH="stable"
 	fi
