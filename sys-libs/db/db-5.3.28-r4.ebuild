@@ -29,7 +29,7 @@ done
 
 LICENSE="Sleepycat"
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ppc ~ppc64 ~riscv ~s390 ~sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ppc ~ppc64 ~riscv ~s390 sparc x86"
 IUSE="cxx doc java -sep-usr tcl test"
 
 REQUIRED_USE="test? ( tcl )"
@@ -151,7 +151,7 @@ multilib_src_configure() {
 		$(use_enable test)
 	)
 
-	tc-ld-disable-gold #470634
+	tc-ld-force-bfd #470634 #729510
 
 	# compilation with -O0 fails on amd64, see bug #171231
 	if [[ ${ABI} == amd64 ]]; then
