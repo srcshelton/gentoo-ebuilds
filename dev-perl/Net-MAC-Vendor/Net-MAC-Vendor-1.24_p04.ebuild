@@ -1,5 +1,5 @@
+# Copyright 2015-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Header: Exp $
 
 EAPI=5
 
@@ -24,6 +24,6 @@ DEPEND="${RDEPEND}
 S="${WORKDIR}"/net-mac-vendor-release-"${PV/p}"
 
 src_prepare() {
-	perl_rm_files .releaserc lib/.releaserc 
+	perl_rm_files .releaserc lib/.releaserc
 	perl_rm_files Changes README.pod
 }
