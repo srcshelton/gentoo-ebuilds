@@ -1,8 +1,8 @@
-# Copyright 1999-2018 Stuart Shelton
+# Copyright 2018-2021 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
-PYTHON_COMPAT=( python2_7 pypy )
+EAPI=7
+PYTHON_COMPAT=( python3_{7..9} )
 
 inherit distutils-r1
 
@@ -18,8 +18,9 @@ KEYWORDS="amd64 arm x86 ~amd64-linux ~x86-linux x64-macos"
 
 #DEPEND="doc? ( dev-python/sphinx )"
 DEPEND="
-	dev-python/pyyaml
 	>=dev-python/pathspec-0.5.3
+	dev-python/pyyaml
+	dev-python/setuptools
 "
 
 python_install_all() {
