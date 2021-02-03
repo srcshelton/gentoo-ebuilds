@@ -12,7 +12,7 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{6..9} )
+PYTHON_COMPAT=( python3_{7..9} )
 
 inherit autotools db-use eutils flag-o-matic multilib python-r1 systemd toolchain-funcs user
 
