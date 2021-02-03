@@ -3,7 +3,7 @@
 
 EAPI="6"
 
-PYTHON_COMPAT=( python3_{6,7,8} )
+PYTHON_COMPAT=( python3_{7,8} )
 
 inherit autotools linux-info multilib preserve-libs python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
@@ -24,8 +24,7 @@ LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv s390 sparc x86"
 IUSE="gssapi ldap python static-libs zos"
-REQUIRED_USE="
-	python? ( ${PYTHON_REQUIRED_USE} )
+REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
 	zos? ( ldap )"
 # Testcases are pretty useless as they are built for RedHat users/groups and kernels.
 RESTRICT="test"
