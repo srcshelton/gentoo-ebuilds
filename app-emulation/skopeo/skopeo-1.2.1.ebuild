@@ -22,8 +22,18 @@ COMMON_DEPEND=">=app-crypt/gpgme-1.5.5:=
 DEPEND="${COMMON_DEPEND}
 	dev-go/go-md2man"
 RDEPEND="${COMMON_DEPEND}"
+BDEPEND="sys-apps/findutils
+	sys-apps/grep
+	sys-apps/sed"
 
 RESTRICT="test"
+
+src_prepare() {
+	default
+
+	# Fix run path...
+	grep -Rl '[^r]/run/' . | xargs -r -- sed -ri -e 's|([ ":])/run|\1/var/run|g' || die
+}
 
 src_compile() {
 	local BUILDTAGS
