@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit autotools flag-o-matic ltprune multilib-minimal multilib-minimal
+inherit autotools flag-o-matic ltprune multilib-minimal
 
 DESCRIPTION="General purpose crypto library based on the code used in GnuPG"
 HOMEPAGE="http://www.gnupg.org/"
