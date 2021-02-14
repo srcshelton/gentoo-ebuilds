@@ -32,6 +32,8 @@ src_prepare() {
 	# Respect AR variable for bug 722162.
 	sed -e 's|^AC_PROG_CC$|AC_DEFUN([AC_PROG_AR], [AC_CHECK_TOOL(AR, ar, :)])\nAC_PROG_AR\n\0|' \
 		-i configure.ac || die
+	sed -e 's|/run/|/var/run/|' \
+		-i tests/slirp4netns-no-unmount.sh || die
 	eautoreconf
 	default
 }
