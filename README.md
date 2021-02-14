@@ -542,6 +542,7 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/smartmontools
 * sys-devel/distcc
 * sys-fs/cachefilesd
+* sys-fs/udev-init-scripts
 * sys-libs/ncurses
     * Fix list of libraries relocated to the root filesystem
 * sys-libs/pam
