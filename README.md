@@ -21,6 +21,7 @@ main portage tree, but which still have the stock upstream package installed.
 * dev-libs/glib
 * mail-mta/postfix
 * net-dns/bind
+* net-libs/glib-networking
 
 # Raspberry Pi tools and utilities
 
