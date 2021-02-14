@@ -2,6 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+
 inherit autotools multilib-minimal
 
 DESCRIPTION="A system-independent library for user-level network packet capture"
@@ -9,13 +10,12 @@ HOMEPAGE="
 	https://www.tcpdump.org/
 	https://github.com/the-tcpdump-group/libpcap
 "
-SRC_URI="
-	https://github.com/the-tcpdump-group/${PN}/archive/${P/_}.tar.gz
-"
+SRC_URI="https://github.com/the-tcpdump-group/${PN}/archive/${P/_pre/-bp}.tar.gz"
+S="${WORKDIR}/${PN}-${P/_pre/-bp}"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~x86-solaris"
 IUSE="bluetooth dbus netlink rdma -remote split-usr static-libs usb -yydebug"
 
 RDEPEND="
@@ -25,26 +25,24 @@ RDEPEND="
 	rdma? ( sys-cluster/rdma-core )
 	usb? ( virtual/libusb:1[${MULTILIB_USEDEP}] )
 "
-DEPEND="
-	${RDEPEND}
-"
+DEPEND="${RDEPEND}"
 BDEPEND="
 	sys-devel/flex
 	virtual/yacc
 	dbus? ( virtual/pkgconfig )
 "
 
-S=${WORKDIR}/${PN}-${P/_}
-
 PATCHES=(
-	"${FILESDIR}"/${PN}-1.8.1-usbmon.patch
 	"${FILESDIR}"/${PN}-1.9.1-pcap-config.patch
+	"${FILESDIR}"/${PN}-1.10.0-usbmon.patch
 )
 
 src_prepare() {
 	default
 
-	echo ${PV} > VERSION || die
+	if ! [[ -f VERSION ]]; then
+		echo ${PV} > VERSION || die
+	fi
 
 	eautoreconf
 }
