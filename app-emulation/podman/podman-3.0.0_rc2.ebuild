@@ -3,7 +3,7 @@
 
 EAPI=7
 
-EGIT_COMMIT='a0d478edea7f775b7ce32f8eb1a01e75374486cb'
+EGIT_COMMIT='510a983a752a136a5df0bdbff9d14db0490956b2'
 SECCOMP_VERSION='v0.34.2'
 CATATONIT_VERSION='0.1.5'
 
@@ -12,9 +12,8 @@ inherit bash-completion-r1 flag-o-matic go-module linux-info
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
 SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
-	https://github.com/openSUSE/catatonit/archive/v${CATATONIT_VERSION}.tar.gz -> catatonit-${CATATONIT_VERSION}.tar.gz
 	https://github.com/containers/common/raw/${SECCOMP_VERSION}/pkg/seccomp/seccomp.json -> seccomp-${SECCOMP_VERSION}.json"
-LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 GPL-3+ ISC MIT MPL-2.0" # GPL-3+ for catatonit
+LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
 KEYWORDS="~amd64 ~arm64"
@@ -39,15 +38,14 @@ COMMON_DEPEND="
 BDEPEND="
 	dev-go/go-md2man
 	dev-vcs/git
+	sys-apps/findutils
+	sys-apps/grep
+	sys-apps/sed
 	systemd? ( sys-apps/systemd )"
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
-	fuse? ( sys-fs/fuse-overlayfs )"
-
-PATCHES=(
-	"${FILESDIR}"/libpod-2.0.0_rc4-varlink.patch 
-	"${FILESDIR}"/podman-2.2.1-stats.patch 
-)
+	fuse? ( sys-fs/fuse-overlayfs )
+	app-emulation/catatonit"
 
 S="${WORKDIR}/${P/_/-}"
 
@@ -186,11 +184,7 @@ src_prepare() {
 		-i hack/get_release_info.sh || die
 
 	# Fix run path...
-	local f
-	find "${S}" -type f -exec grep -H '/run/podman/podman.sock' {} + | cut -d':' -f 1 | while read -r f; do
-		einfo "Correcting run-path in file '${f}' ..."
-		sed -i -e 's|/run/podman/podman.sock|/var/run/podman/podman.sock|g' "${f}" || die
-	done
+	grep -Rl '[^r]/run/' . | xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
 }
 
 src_compile() {
@@ -226,39 +220,9 @@ src_compile() {
 		echo -e "#!/bin/sh\ntrue" > hack/systemd_tag.sh || die
 	fi
 
-	[[ -f hack/install_catatonit.sh ]] || die
-	cat > hack/install_catatonit.sh <<-EOF
-		#!/bin/bash -ux
-		BASE_PATH="/usr/libexec/podman"
-		CATATONIT_PATH="\${BASE_PATH}/catatonit"
-		CATATONIT_VERSION="v${CATATONIT_VERSION}"
-
-		if [ -f \$CATATONIT_PATH ]; then
-				echo "skipping ... catatonit is already installed"
-		else
-				echo "installing catatonit to \$CATATONIT_PATH"
-				#buildDir=\$(mktemp -d)
-				#git clone https://github.com/openSUSE/catatonit.git \$buildDir
-				buildDir="${WORKDIR}/catatonit-${CATATONIT_VERSION}"
-
-				pushd \$buildDir
-				echo \$( pwd )
-				#git reset --hard \${CATATONIT_VERSION}
-				autoreconf -fiv
-				./configure
-				make
-				install \${SELINUXOPT} -d -m 755 "${D%/}"/\$BASE_PATH
-				install \${SELINUXOPT} -m 755 catatonit "${D%/}"/\$CATATONIT_PATH
-				popd
-
-				#rm -rf \$buildDir
-		fi
-	EOF
-	sed -e '/\.\/hack\/install_catatonit\.sh$/ s|\.|SELINUXOPT="${SELINUXOPT}" .|' -i Makefile || die
-
 	export -n GOCACHE GOPATH XDG_CACHE_HOME
 	GOBIN="${S}/bin" \
-		emake all install.catatonit \
+		emake all \
 			GIT_BRANCH=master \
 			GIT_BRANCH_CLEAN=master \
 			COMMIT_NO="${EGIT_COMMIT}" \
@@ -266,7 +230,7 @@ src_compile() {
 }
 
 src_install() {
-	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install install.catatonit
+	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
 
 	insinto /etc/containers
 	newins test/registries.conf registries.conf.example
