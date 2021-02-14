@@ -505,7 +505,6 @@ directory is an additional QA check which reports an error if files deployed to
 * dev-libs/cyrus-sasl
     * Prevent binary merges from failing due to assumptions about build files being present
 * mail-filter/spamassassin
-* net-mail/dovecot
 * net-analyzer/arpwatch
 * net-analyzer/darkstat
 * net-analyzer/iptraf-ng
@@ -521,6 +520,8 @@ directory is an additional QA check which reports an error if files deployed to
 * net-fs/netatalk
 * net-fs/samba
 * net-im/bitlbee
+* net-mail/dovecot
+* net-misc/cni-plugins
 * net-misc/dhcpcd
 * net-misc/memcached
 * net-misc/minidlna
@@ -534,7 +535,7 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/dbus
 * sys-apps/haveged
 * sys-apps/kmod
-* sys-apps/lm_sensors
+* sys-apps/lm\_sensors
 * sys-apps/smartmontools
 * sys-devel/distcc
 * sys-fs/cachefilesd
