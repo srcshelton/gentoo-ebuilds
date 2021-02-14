@@ -21,7 +21,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ~mips ~ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
 
 S="${WORKDIR}/${PN}-${MY_PV}"
 
@@ -32,6 +32,7 @@ SAPIS="embed cli cgi fpm apache2 phpdbg"
 IUSE="acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite ssl systemd sysvipc test threads tidy +tokenizer tokyocabinet truetype unicode webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip zlib"
 
 # Without USE=readline or libedit, the interactive "php -a" CLI will hang.
+# The Oracle instant client provides its own incompatible ldap library.
 REQUIRED_USE="
 	|| ( cli cgi fpm apache2 embed phpdbg )
 	cli? ( ^^ ( readline libedit ) )
@@ -49,6 +50,7 @@ REQUIRED_USE="
 	xmlwriter? ( xml )
 	xslt? ( xml )
 	ldap-sasl? ( ldap )
+	oci8-instant-client? ( !ldap )
 	qdbm? ( !gdbm )
 	session-mm? ( session !threads )
 	mysql? ( || ( mysqli pdo ) )
@@ -93,7 +95,7 @@ COMMON_DEPEND="
 	lmdb? ( dev-db/lmdb:= )
 	mssql? ( dev-db/freetds[mssql] )
 	nls? ( sys-devel/gettext )
-	oci8-instant-client? ( dev-db/oracle-instantclient-basic )
+	oci8-instant-client? ( dev-db/oracle-instantclient[sdk] )
 	odbc? ( iodbc? ( dev-db/libiodbc ) !iodbc? ( >=dev-db/unixODBC-1.8.13 ) )
 	postgres? ( dev-db/postgresql:* )
 	qdbm? ( dev-db/qdbm )
