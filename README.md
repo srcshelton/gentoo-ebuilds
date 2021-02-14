@@ -540,6 +540,7 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/kmod
 * sys-apps/lm\_sensors
 * sys-apps/smartmontools
+* sys-auth/elogind
 * sys-devel/distcc
 * sys-fs/cachefilesd
 * sys-fs/udev-init-scripts
