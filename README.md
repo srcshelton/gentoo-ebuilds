@@ -392,6 +392,8 @@ used to build perl)
     * Fix SSL CA path for prefix installations
 * dev-perl/Math-Pari
     * Hack to allow math-pari to build on x32 systems and systems running a 32-bit userland on a 64-bit kernel
+* dev-perl/Net-DNS-SEC
+    * Add optional dsa, ecdsa, gost, private-key dependencies
 * dev-perl/libwww-perl
     * Add missing Mozilla::CA dependency for correct SSL operation
 * mail-filter/libmilter
