@@ -270,6 +270,7 @@ used to build perl)
 * ~~dev-perl/IO-Interface~~
 * dev-perl/IO-Socket-Multicast
 * dev-perl/IP-Country
+* dev-perl/IP-Country-DB\_File
 * dev-perl/Locale-Hebrew
 * dev-perl/match-simple
     * Provides match::smart
