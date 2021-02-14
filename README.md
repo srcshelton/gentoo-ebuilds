@@ -138,7 +138,7 @@ used to build perl)
 * ~~dev-lang/python~~
     * ~~If `configure` is not removed after applying the prefix libffi patch, `@LIBFFI_LIB@` is never expanded to the correct value even after `autoconf` has completed~~
 * ~~dev-libs/apr~~
-    * ~~Support F_FULLFSYNC on darwin~~
+    * ~~Support F\_FULLFSYNC on darwin~~
 * dev-libs/gmp
     * Add patch to prevent `invalid reassignment of non-absolute variable 'L0m4_tmp'` error
 * dev-libs/jemalloc
@@ -246,7 +246,7 @@ used to build perl)
 * acct-user/tcpdump
     * Privilege-separation account
 * app-accessibility/svox-pico
-    * SVOX Pico TTS (aka 'pico2wave'), required by >www-apps/nabaztaglives-2.2.0
+    * SVOX Pico TTS (aka 'pico2wave'), required by \>www-apps/nabaztaglives-2.2.0
 * app-admin/checkrestart-ng
     * A pure-shell tool to check for updated binaries and libraries
 * app-admin/openrc-restart-crashed
@@ -286,14 +286,14 @@ used to build perl)
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-php/Masterminds-HTML5
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
-* dev-php/PEAR-Crypt_GPG
+* dev-php/PEAR-Crypt\_GPG
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.x
-* dev-php/PEAR-Net_LDAP3
+* dev-php/PEAR-Net\_LDAP3
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-php/ZxcvbnPhp
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * ~~dev-python/ansible-lint~~
-* ~~dev-python/aspy_yaml~~
+* ~~dev-python/aspy\_yaml~~
 * dev-python/identify
 * dev-python/nodeenv
 * ~~dev-python/noxspellserver~~
@@ -328,7 +328,7 @@ used to build perl)
     * Mirror segments of a filesystem to a memory-based backing store
 * ~~sys-auth/opie~~
     * ~~OPIE One-time password system~~
-* sys-auth/pam_mobile_otp
+* sys-auth/pam\_mobile\_otp
     * PAM component of mOTP
 * sys-auth/yubipam
     * PAM authentication module for YubiKey hardware
@@ -466,10 +466,12 @@ used to build perl)
     * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-apps/sysvinit
     * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
-* sys-auth/pam_mktemp
+* sys-auth/pam\_mktemp
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
 * sys-kernel/linux-firmware
     * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
+* sys-libs/libblockdev
+    * Add undeclared libudev dependency
 * sys-libs/libhugetlbfs
     * Fix build on systems where userspace and kernel conform to different ABIs, and fix installation of broken manpage symlinks
 * sys-power/apcupsd
@@ -558,7 +560,7 @@ feels like a much better fit with respect to the intended contents.
 * dev-php/PEAR-PEAR
 * media-libs/libpvx
 
-# Fixes for MIPS n32 and x86_64 x32 ABIs
+# Fixes for MIPS n32 and x86\_64 x32 ABIs
 
 Included is a modified `eclass/multilib.eclass` that no longer overrides any
 amd64 `LIBDIR_*` environment variables, which may now usefully be set in
@@ -688,7 +690,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-apps/util-linux
     * Add `libfdisk.so` to the list of libraries relocated to root
 * sys-block/thin-provisioning-tools
-    * Move 'pdata_tools', with many non-root library dependencies, to `/usr/sbin`
+    * Move 'pdata\_tools', with many non-root library dependencies, to `/usr/sbin`
 * sys-fs/cryptsetup
 * sys-libs/libcap-ng
 * sys-libs/slang
