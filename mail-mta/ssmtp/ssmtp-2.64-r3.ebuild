@@ -77,7 +77,7 @@ src_configure() {
 	econf \
 		--sysconfdir="${EPREFIX}"/etc/ssmtp \
 		$(use_enable ssl) \
-		$(usex gnutls '--with-gnutls' '' '' '') \
+		$(usex gnutls '--with-gnutls' '') \
 		$(use_enable ipv6 inet6) \
 		--enable-md5auth
 }
