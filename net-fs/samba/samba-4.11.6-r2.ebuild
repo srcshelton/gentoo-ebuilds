@@ -211,7 +211,7 @@ multilib_src_configure() {
 		$(multilib_native_use_with quota quotas)
 		$(multilib_native_use_with syslog)
 		$(multilib_native_use_with systemd)
-		$(usex systemd --systemd-install-services '' '' '')
+		$(usex systemd --systemd-install-services '')
 		$(usex systemd '--with-systemddir' '' "$(systemd_get_systemunitdir)" '')
 		$(multilib_native_use_with winbind)
 		$(multilib_native_usex python '' '--disable-python')
