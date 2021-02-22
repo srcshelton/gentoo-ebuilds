@@ -92,6 +92,12 @@ src_prepare() {
 		stats/opendkim-reportstats{,.in} \
 		|| die
 
+	# Fix opendkim-reportstats defaults
+	sed -e '/^OPENDKIMCONFIG=/ s#=.*$#="/etc/opendkim/opendkim.conf"#' \
+		-e '/^OPENDKIMDATOWNER=/ s#=.*$#="opendkim:opendkim"#' \
+		-i stats/opendkim-reportstats{,.in} \
+		|| die
+
 	sed -e 's:dist_doc_DATA:dist_html_DATA:' \
 		-i libopendkim/docs/Makefile.am \
 		|| die
@@ -257,7 +263,7 @@ pkg_postinst() {
 	if [[ -z ${REPLACING_VERSION} ]]; then
 		elog "If you want to sign your mail messages and need some help"
 		elog "please run:"
-		elog "	emerge --config ${CATEGORY}/${PN}"
+		elog "  emerge --config ${CATEGORY}/${PN}"
 		elog "It will help you create your key and give you hints on how"
 		elog "to configure your DNS and MTA."
 
@@ -313,7 +319,7 @@ pkg_config() {
 	# MTA configuration
 	echo
 	einfo "If you are using Postfix, add following lines to your main.cf:"
-	einfo "  smtpd_milters	   = unix:/var/run/opendkim/opendkim.sock"
+	einfo "  smtpd_milters     = unix:/var/run/opendkim/opendkim.sock"
 	einfo "  non_smtpd_milters = unix:/var/run/opendkim/opendkim.sock"
 	einfo "  and read http://www.postfix.org/MILTER_README.html"
 
