@@ -53,7 +53,7 @@ src_configure() {
 		$(use_enable criu)
 		$(use_enable seccomp)
 		$(use_enable systemd)
-		$(usex static-libs '--enable-shared --enable-static' '--enable-shared --disable-static' '' '')
+		$(usex static-libs '--enable-shared --enable-static' '--enable-shared --disable-static')
 	)
 
 	econf "${myeconfargs[@]}"
