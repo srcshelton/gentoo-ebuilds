@@ -22,7 +22,9 @@ fi
 LICENSE="GPL-2" # GPL-2 only
 SLOT="0"
 IUSE="debug ipv6 livecd make-symlinks math mdev -pam selinux sep-usr +static syslog systemd"
-REQUIRED_USE="pam? ( !static )"
+# FIXME: Cheat a bit here - skip this test when rebuilding stage3, which we'll
+#        re-use the 'livecd' flag to indicate!
+REQUIRED_USE="!livecd? ( pam? ( !static ) )"
 RESTRICT="test"
 
 COMMON_DEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
