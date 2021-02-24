@@ -13,7 +13,7 @@ SRC_URI="https://people.redhat.com/sgrubb/audit/${P}.tar.gz"
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 hppa ~ia64 ~mips ~ppc ppc64 ~riscv s390 sparc x86"
+KEYWORDS="amd64 arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv s390 sparc x86"
 IUSE="gssapi ldap python static-libs zos"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
@@ -80,10 +80,8 @@ multilib_src_compile() {
 
 		local native_build="${BUILD_DIR}"
 		python_compile() {
-			emake -C "${BUILD_DIR}"/bindings/swig \
-				top_builddir="${native_build}"
-			emake -C "${BUILD_DIR}"/bindings/python/python3 \
-				top_builddir="${native_build}"
+			emake -C "${BUILD_DIR}"/bindings/swig top_builddir="${native_build}"
+			emake -C "${BUILD_DIR}"/bindings/python/python3 top_builddir="${native_build}"
 		}
 		use python && python_foreach_impl python_compile
 	else
@@ -99,12 +97,8 @@ multilib_src_install() {
 
 		local native_build="${BUILD_DIR}"
 		python_install() {
-			emake -C "${BUILD_DIR}"/bindings/swig \
-				top_builddir="${native_build}" \
-				DESTDIR="${D}" install
-			emake -C "${BUILD_DIR}"/bindings/python/python3 \
-				top_builddir="${native_build}" \
-				DESTDIR="${D}" install
+			emake -C "${BUILD_DIR}"/bindings/swig DESTDIR="${D}" top_builddir="${native_build}" install
+			emake -C "${BUILD_DIR}"/bindings/python/python3 DESTDIR="${D}" top_builddir="${native_build}" install
 			python_optimize
 		}
 		use python && python_foreach_impl python_install
