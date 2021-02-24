@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -15,7 +15,7 @@ SRC_URI="https://github.com/linux-pam/linux-pam/releases/download/v${PV}/${MY_P}
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86"
 IUSE="audit berkdb debug nis selinux +tmpfiles"
 
 BDEPEND="
@@ -133,3 +133,5 @@ pkg_postinst() {
 	# read access to /etc/shadow only.
 	fcaps cap_dac_override sbin/unix_chkpwd
 }
+
+# vi: set diffopt=iwhite,filler:
