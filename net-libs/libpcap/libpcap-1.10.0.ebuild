@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools multilib-minimal
+inherit autotools usr-ldscript multilib-minimal
 
 DESCRIPTION="A system-independent library for user-level network packet capture"
 HOMEPAGE="
