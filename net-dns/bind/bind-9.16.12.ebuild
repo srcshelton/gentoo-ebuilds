@@ -1,7 +1,7 @@
 # Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-# Re dlz/mysql and threads, needs to be verified..
+# Re: dlz/mysql and threads, needs to be verified.
 # MySQL uses thread local storage in its C api. Thus MySQL
 # requires that each thread of an application execute a MySQL
 # thread initialization to setup the thread local storage.
