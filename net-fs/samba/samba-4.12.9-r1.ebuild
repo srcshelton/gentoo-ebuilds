@@ -23,7 +23,7 @@ LICENSE="GPL-3"
 
 SLOT="0"
 
-IUSE="acl addc addns ads ceph client cluster cups debug dmapi fam gpg iprint json ldap pam profiling-data python quota selinux snapper syslog systemd system-heimdal +system-mitkrb5 test winbind zeroconf"
+IUSE="acl addc addns ads ceph client cluster cups debug dmapi fam glusterfs gpg iprint json ldap ntvfs pam profiling-data python quota +regedit selinux snapper spotlight syslog systemd system-heimdal +system-mitkrb5 test winbind zeroconf"
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/samba-4.0/policy.h
@@ -39,7 +39,7 @@ MULTILIB_WRAPPED_HEADERS=(
 CDEPEND="
 	>=app-arch/libarchive-3.1.2[${MULTILIB_USEDEP}]
 	dev-lang/perl:=
-	dev-libs/icu:=[${MULTILIB_USEDEP}]
+	spotlight? ( dev-libs/icu:=[${MULTILIB_USEDEP}] )
 	dev-libs/libbsd[${MULTILIB_USEDEP}]
 	dev-libs/libtasn1[${MULTILIB_USEDEP}]
 	dev-libs/popt[${MULTILIB_USEDEP}]
@@ -87,8 +87,6 @@ CDEPEND="
 "
 DEPEND="${CDEPEND}
 	${PYTHON_DEPS}
-	app-text/docbook-xsl-stylesheets
-	dev-libs/libxslt
 	>=dev-util/cmocka-1.1.3[${MULTILIB_USEDEP}]
 	net-libs/libtirpc[${MULTILIB_USEDEP}]
 	virtual/pkgconfig
@@ -96,6 +94,7 @@ DEPEND="${CDEPEND}
 		net-libs/rpcsvc-proto
 		<sys-libs/glibc-2.26[rpc(+)]
 	)
+	spotlight? ( dev-libs/glib )
 	test? (
 		!system-mitkrb5? (
 			>=sys-libs/nss_wrapper-1.1.3
@@ -110,12 +109,19 @@ RDEPEND="${CDEPEND}
 	selinux? ( sec-policy/selinux-samba )
 "
 
+BDEPEND="
+	app-text/docbook-xsl-stylesheets
+	dev-libs/libxslt
+"
+
 REQUIRED_USE="
 	addc? ( python json winbind )
 	addns? ( python )
 	ads? ( acl ldap winbind )
 	cluster? ( ads )
 	gpg? ( addc )
+	ntvfs? ( addc )
+	spotlight? ( json )
 	test? ( python )
 	?? ( system-heimdal system-mitkrb5 )
 	${PYTHON_REQUIRED_USE}
@@ -207,13 +213,17 @@ multilib_src_configure() {
 		$(multilib_native_use_enable cups)
 		$(multilib_native_use_with dmapi)
 		$(multilib_native_use_with fam)
+		$(multilib_native_use_enable glusterfs)
 		$(multilib_native_use_with gpg gpgme)
 		$(multilib_native_use_with json)
 		$(multilib_native_use_enable iprint)
+		$(multilib_native_use_with ntvfs ntvfs-fileserver)
 		$(multilib_native_use_with pam)
 		$(multilib_native_usex pam "--with-pammodulesdir=${EPREFIX}/$(get_libdir)/security" '')
 		$(multilib_native_use_with quota quotas)
+		$(multilib_native_use_with regedit)
 		$(multilib_native_use_enable snapper)
+		$(multilib_native_use_enable spotlight)
 		$(multilib_native_use_with syslog)
 		$(multilib_native_use_with systemd)
 		$(usex systemd '--systemd-install-services' '')
@@ -316,3 +326,5 @@ pkg_postinst() {
 	elog "https://samba.org/samba/history/${P}.html "
 	elog "https://wiki.samba.org/index.php/Samba4/HOWTO "
 }
+
+# vi: set diffopt=iwhite,filler:
