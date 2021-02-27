@@ -674,6 +674,8 @@ x32 profiles, and that these variables only affect multilib systems.
 * app-crypt/mit-krb5
 * dev-libs/elfutils
 * dev-libs/gmp
+* dev-libs/inih
+    * Required by mkfs.xfs - perhaps this should be moved to /usr/sbin/ instead?
 * dev-libs/jansson
 * dev-libs/json-c
 * dev-libs/libbsd
