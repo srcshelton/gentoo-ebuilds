@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -42,7 +42,7 @@ src_install() {
 	dodoc CHANGELOG.md CONTRIBUTING.md README.md install.md troubleshooting.md
 	doman docs/*.1
 	dodoc -r docs/tutorials
-	dobin bin/${PN} bin/imgtype
+	dobin bin/{${PN},imgtype}
 	dobashcomp contrib/completions/bash/buildah
 }
 
