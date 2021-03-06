@@ -13,7 +13,7 @@ SRC_URI="mirror://openbsd/OpenNTPD/${MY_P}.tar.gz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86"
+KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sparc ~x86"
 IUSE="constraints libressl selinux systemd"
 
 DEPEND="
@@ -27,6 +27,7 @@ RDEPEND="
 	${DEPEND}
 	acct-group/openntpd
 	acct-user/openntpd
+	constraints? ( app-misc/ca-certificates )
 	selinux? ( sec-policy/selinux-ntp )"
 
 S="${WORKDIR}/${MY_P}"
@@ -38,6 +39,8 @@ src_prepare() {
 	#sed -i 's:/var/run/ntpd:/run/ntpd:g' src/ntpctl.8 src/ntpd.8 || die
 	#sed -i 's:LOCALSTATEDIR "/run/ntpd:"/run/ntpd:' src/ntpd.h || die
 
+	# fix ntpd.sock patch (with change needed to prevent use of /var/lib/run/openntpd/ntpd.sock)
+	sed -i 's:LOCALSTATEDIR "/run/ntpd.sock":"/var/run/ntpd.sock":' src/ntpd.h || die
 	# fix ntpd.drift path
 	sed -i 's:/var/db/ntpd.drift:/var/lib/openntpd/ntpd.drift:g' src/ntpd.8 || die
 	sed -i 's:"/db/ntpd.drift":"/openntpd/ntpd.drift":' src/ntpd.h || die
@@ -51,6 +54,7 @@ src_prepare() {
 
 src_configure() {
 	econf \
+		--with-cacert=/etc/ssl/certs/ca-certificates.crt \
 		--with-privsep-user=openntpd \
 		$(use_enable constraints https-constraint)
 }
