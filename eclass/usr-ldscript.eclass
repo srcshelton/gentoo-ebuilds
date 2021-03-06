@@ -19,6 +19,10 @@ inherit multilib toolchain-funcs
 
 IUSE="split-usr"
 
+# for 'scanelf':
+BDEPEND="app-misc/pax-utils"
+DEPEND="${BDEPEND}"
+
 # @FUNCTION: gen_usr_ldscript
 # @USAGE: [-a] <list of libs to create linker scripts for>
 # @DESCRIPTION:
@@ -131,7 +135,7 @@ gen_usr_ldscript() {
 		*)
 			if ${auto} ; then
 				tlib=$(scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib})
-				[[ -z ${tlib} ]] && die "unable to read SONAME from ${lib}"
+				[[ -z ${tlib} ]] && die "unable to read SONAME from ${lib} ('scanelf -qF'%S#F' \"${ED%/}/usr/${libdir}/${lib}\"' returned '$(scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib})')"
 				mv "${ED%/}"/usr/${libdir}/${lib}* "${ED%/}"/${libdir}/ || die
 				# some SONAMEs are funky: they encode a version before the .so
 				if [[ ${tlib} != ${lib}* ]] ; then
