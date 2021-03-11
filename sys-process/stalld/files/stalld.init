@@ -13,7 +13,7 @@ PF="${PF#--pidfile }"
 
 name="stall daemon"
 description="Red Hat thread-stall booster daemon"
-command=/usr/bin/stalld
+command=/usr/sbin/stalld
 pidfile="${PF:-/var/run/stalld.pid}"
 command_args="${STALLD_ARGS} --pidfile ${pidfile} --foreground"
 start_stop_daemon_args="--background --stdout /var/log/stalld/stalld.log"

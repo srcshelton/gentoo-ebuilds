@@ -1,22 +1,20 @@
-# Copyright 2020 Gentoo Authors
+# Copyright 2020-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-#inherit linux-info
-
-COMMIT="4aaa57bdd50828b38b41ef8aede352ef09583b48"
+inherit flag-o-matic  # linux-info
 
 DESCRIPTION="A Thread Stall Detector"
 HOMEPAGE="https://git.kernel.org/pub/scm/utils/stalld/stalld.git/"
-SRC_URI="https://git.kernel.org/pub/scm/utils/${PN}/${PN}.git/snapshot/${PN}-${COMMIT}.tar.gz -> ${P}.tar.gz"
+SRC_URI="https://git.kernel.org/pub/scm/utils/${PN}/${PN}.git/snapshot/${P}.tar.gz"
 RESTRICT="mirror"
 
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 x86"
 
-S="${WORKDIR}/${PN}-${COMMIT}"
+RDEPEND="app-shells/bash"
 
 CONFIG_CHECK="SCHED_DEBUG"
 ERROR_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
@@ -31,14 +29,20 @@ src_prepare() {
 		-e '/FILES/ s| gpl-2.0.txt||' \
 		-e 's|make|$(MAKE)|' \
 		-e '/LICDIR/ d' \
-		-i Makefile
+		-i Makefile ||
+	die "sed failed: ${?}"
 
 	sed -e 's|/run/|/var/run/|' \
 		-e 's/^# ex: /# e.g.: /' \
 		-e '/^[A-Z]\+=$/ s/^/#/' \
 		-e 's/LOGONLY/LOGGING/' \
-		redhat/stalld.conf > "${T}"/stalld.conf \
-	|| die "sed failed: ${?}"
+		redhat/stalld.conf > "${T}"/stalld.conf ||
+	die "sed failed: ${?}"
+
+	# VERSION pre-processor directive isn't being expanded?
+	sed -e "s|VERSION|'${PV%.0}'|g" \
+		-i src/stalld.c ||
+	die "sed failed: ${?}"
 
 	default
 }
@@ -46,7 +50,11 @@ src_prepare() {
 src_install() {
 	default
 
-	mv "${ED}"/usr/bin/stalld "${ED}"/usr/sbin/
+	dodir /usr/sbin
+	mv "${ED}"/usr/bin/stalld "${ED}"/usr/sbin/ ||
+		die "Binary move failed: ${?}"
+
+	dosbin scripts/throttlectl.sh
 
 	newinitd "${FILESDIR}"/stalld.init stalld
 	newconfd "${T}"/stalld.conf stalld
