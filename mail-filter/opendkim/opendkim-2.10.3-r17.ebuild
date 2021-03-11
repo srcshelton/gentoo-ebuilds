@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -188,10 +188,9 @@ src_install() {
 	newinitd "${FILESDIR}/opendkim.init.r5" opendkim
 	newconfd "${FILESDIR}/opendkim.confd" opendkim
 	if use systemd; then
+		newtmpfiles "contrib/systemd/opendkim.tmpfiles" "${PN}.conf"
 		#systemd_newunit "contrib/systemd/opendkim.service" "${PN}.service"
-		systemd_newunit "${FILESDIR}/opendkim-r3.service" opendkim.service
-		systemd_install_serviced "${FILESDIR}/${PN}.service.conf" "${PN}.service"
-		systemd_newtmpfilesd "contrib/systemd/opendkim.tmpfiles" "${PN}.conf"
+		systemd_newunit "${FILESDIR}/opendkim-r3.service" "${PN}.service"
 	fi
 
 	dodir /etc/opendkim
@@ -299,3 +298,5 @@ pkg_config() {
 	einfo "t=y signifies you only test the DKIM on your domain. See following page for the complete list of tags:"
 	einfo "  http://www.dkim.org/specs/rfc4871-dkimbase.html#key-text"
 }
+
+# vi: set diffopt=iwhite,filler:

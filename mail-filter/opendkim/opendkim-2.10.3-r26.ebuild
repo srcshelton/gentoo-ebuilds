@@ -219,9 +219,9 @@ src_install() {
 	newinitd "${FILESDIR}/opendkim.init.r5" opendkim
 	newconfd "${FILESDIR}/opendkim.confd" opendkim
 	if use systemd; then
+		newtmpfiles contrib/systemd/opendkim.tmpfiles "${PN}.conf"
 		#systemd_newunit contrib/systemd/opendkim.service "${PN}.service"
 		systemd_newunit "${FILESDIR}/opendkim-r3.service" opendkim.service
-		systemd_newtmpfilesd contrib/systemd/opendkim.tmpfiles "${PN}.conf"
 	fi
 
 	dodir /etc/opendkim
@@ -329,3 +329,5 @@ pkg_config() {
 	einfo "t=y signifies you only test the DKIM on your domain. See following page for the complete list of tags:"
 	einfo "  http://www.dkim.org/specs/rfc4871-dkimbase.html#key-text"
 }
+
+# vi: set diffopt=iwhite,filler:
