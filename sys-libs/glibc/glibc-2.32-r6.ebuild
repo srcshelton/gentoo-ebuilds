@@ -4,8 +4,9 @@
 EAPI=7
 
 PYTHON_COMPAT=( python3_{7,8,9} )
+TMPFILES_OPTIONAL=1
 
-inherit eutils flag-o-matic gnuconfig multilib multiprocessing prefix python-any-r1 systemd toolchain-funcs
+inherit eutils flag-o-matic gnuconfig multilib multiprocessing prefix python-any-r1 systemd tmpfiles toolchain-funcs
 
 DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
@@ -1452,7 +1453,7 @@ glibc_do_src_install() {
 		newinitd "${FILESDIR}"/nscd-1 nscd
 
 		use systemd && systemd_dounit nscd/nscd.service
-		use tmpfiles && systemd_newtmpfilesd nscd/nscd.tmpfiles nscd.conf
+		use tmpfiles && newtmpfiles nscd/nscd.tmpfiles nscd.conf
 	fi
 
 	# Make getent available during system boot...
@@ -1596,3 +1597,5 @@ pkg_postinst() {
 		done
 	fi
 }
+
+# vi: set diffopt=iwhite,filler:
