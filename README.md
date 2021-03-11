@@ -11,6 +11,7 @@ main portage tree, but which still have the stock upstream package installed.
 * app-emulation/buildah
 * app-emulation/catatonit
 * app-emulation/conmon
+* app-emulation/containers-storage
 * app-emulation/crun
 * app-emulation/skopeo
 * app-emulation/slirp4netns
