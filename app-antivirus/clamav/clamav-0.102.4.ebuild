@@ -1,9 +1,9 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-inherit autotools flag-o-matic systemd
+inherit autotools flag-o-matic systemd tmpfiles
 
 DESCRIPTION="Clam Anti-Virus Scanner"
 HOMEPAGE="https://www.clamav.net/"
@@ -119,7 +119,7 @@ src_install() {
 		newconfd "${FILESDIR}"/clamd.conf-r1 clamd
 
 		if use systemd; then
-			systemd_dotmpfilesd "${FILESDIR}/tmpfiles.d/clamav.conf"
+			dotmpfiles "${FILESDIR}/tmpfiles.d/clamav.conf"
 			systemd_newunit "${FILESDIR}/clamd_at.service" "clamd@.service"
 			systemd_dounit "${FILESDIR}/clamd.service"
 			systemd_dounit "${FILESDIR}/freshclamd.service"
@@ -152,7 +152,7 @@ src_install() {
 		if use milter ; then
 			# MilterSocket one to include ' /' because there is a 2nd line for
 			# inet: which we want to leave
-			dodoc "${FILESDIR}"/clamav-milter.README.gentoo
+			#dodoc "${FILESDIR}"/clamav-milter.README.gentoo
 			sed -i -e "s:^\(Example\):\# \1:" \
 				-e "s:.*\(PidFile\) .*:\1 ${EPREFIX}/var/run/clamav/clamav-milter.pid:" \
 				-e "s+^\#\(ClamdSocket\) .*+\1 unix:${EPREFIX}/var/run/clamav/clamd.sock+" \
