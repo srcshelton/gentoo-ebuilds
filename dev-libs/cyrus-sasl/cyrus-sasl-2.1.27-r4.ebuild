@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools db-use eutils flag-o-matic java-pkg-opt-2 multilib pam systemd toolchain-funcs multilib-minimal
+inherit autotools db-use eutils flag-o-matic java-pkg-opt-2 multilib pam systemd tmpfiles toolchain-funcs multilib-minimal
 
 SASLAUTHD_CONF_VER="2.1.26"
 
@@ -57,7 +57,6 @@ PATCHES=(
 	"${FILESDIR}/${PN}-2.1.27-doc_build_fix.patch"
 	"${FILESDIR}/${PN}-2.1.27-memmem.patch"
 	"${FILESDIR}/${PN}-2.1.27-CVE-2019-19906.patch"
-	"${FILESDIR}/${PN}-2.1.27-gdbm_errno_fix.patch"
 )
 
 pkg_setup() {
@@ -229,7 +228,7 @@ multilib_src_install_all() {
 	if use systemd; then
 		systemd_dounit "${FILESDIR}/pwcheck.service"
 		systemd_dounit "${FILESDIR}/saslauthd.service"
-		systemd_dotmpfilesd "${FILESDIR}/${PN}.conf"
+		dotmpfiles "${FILESDIR}/${PN}.conf"
 	fi
 
 	# The get_modname bit is important: do not remove the .la files on
