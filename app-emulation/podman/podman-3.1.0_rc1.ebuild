@@ -5,10 +5,9 @@ EAPI=7
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-EGIT_COMMIT='c640670e85c4aaaff92741691d6a854a90229d8d'
+EGIT_COMMIT='aa9616cd4dd70d1c51a85c32fb7adf637af05054'
 COMMON_VERSION='0.35.2'
 CATATONIT_VERSION='0.1.5'
-
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -185,14 +184,14 @@ src_prepare() {
 
 src_compile() {
 	local git_commit='' file=''
-	git_commit=$(grep '^[[:space:]]*gitCommit[[:space:]]' vendor/k8s.io/client-go/pkg/version/base.go)
-	git_commit=${git_commit#*\"}
-	git_commit=${git_commit%\"*}
-	if [[ "${git_commit:-}" != "${EGIT_COMMIT}" ]]; then
-		ewarn "ebuild commit '${EGIT_COMMIT}' does not match source" \
-			"commit '${git_commit:-}' (from file" \
-			"'vendor/k8s.io/client-go/pkg/version/base.go')"
-	fi
+	#git_commit=$(grep '^[[:space:]]*gitCommit[[:space:]]' vendor/k8s.io/client-go/pkg/version/base.go)
+	#git_commit=${git_commit#*\"}
+	#git_commit=${git_commit%\"*}
+	#if [[ "${git_commit:-}" != "${EGIT_COMMIT}" ]]; then
+	#	ewarn "ebuild commit '${EGIT_COMMIT}' does not match source" \
+	#		"commit '${git_commit:-}' (from file" \
+	#		"'vendor/k8s.io/client-go/pkg/version/base.go')"
+	#fi
 
 	# Filter unsupported linker flags
 	filter-flags '-Wl,*'
