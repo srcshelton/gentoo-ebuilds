@@ -13,8 +13,8 @@ CONFIG_CHECK="~USER_NS"
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="http://runc.io"
 MY_PV="${PV/_/-}"
-#SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
-SRC_URI="https://github.com/opencontainers/${PN}/archive/${RUNC_COMMIT}.tar.gz -> ${P}.tar.gz"
+#SRC_URI="https://github.com/opencontainers/${PN}/archive/${RUNC_COMMIT}.tar.gz -> ${P}.tar.gz"
+SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 RESTRICT="mirror"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
@@ -43,7 +43,8 @@ BDEPEND="
 # majority of tests pass
 RESTRICT+=" test"
 
-S="${WORKDIR}/${PN}-${RUNC_COMMIT}"
+#S="${WORKDIR}/${PN}-${RUNC_COMMIT}"
+S="${WORKDIR}/${PN}-${MY_PV}"
 
 src_prepare() {
 	default
