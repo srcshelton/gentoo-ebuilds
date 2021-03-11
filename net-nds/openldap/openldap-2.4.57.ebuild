@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools db-use flag-o-matic preserve-libs ssl-cert systemd toolchain-funcs multilib-minimal
+inherit autotools db-use flag-o-matic preserve-libs ssl-cert systemd tmpfiles toolchain-funcs multilib-minimal
 
 BIS_PN=rfc2307bis.schema
 BIS_PV=20140524
@@ -780,7 +780,7 @@ multilib_src_install() {
 			sed -e "s,/usr/lib/,/usr/$(get_libdir)/," "${FILESDIR}"/slapd.service > "${T}"/slapd.service || die
 			systemd_dounit "${T}"/slapd.service
 			systemd_install_serviced "${FILESDIR}"/slapd.service.conf
-			systemd_newtmpfilesd "${FILESDIR}"/slapd.tmpfilesd slapd.conf
+			newtmpfiles "${FILESDIR}"/slapd.tmpfilesd slapd.conf
 		fi
 
 		# If built without SLP, we don't need to be before avahi
@@ -912,3 +912,5 @@ pkg_postinst() {
 
 	preserve_old_lib_notify /usr/$(get_libdir)/{liblber,libldap,libldap_r}-2.3$(get_libname 0)
 }
+
+# vi: set diffopt=iwhite,filler:
