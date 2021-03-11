@@ -5,7 +5,7 @@ EAPI=7
 
 # needed to make webapp-config dep optional
 WEBAPP_OPTIONAL="yes"
-inherit flag-o-matic java-pkg-opt-2 systemd toolchain-funcs webapp
+inherit java-pkg-opt-2 systemd tmpfiles toolchain-funcs webapp
 
 DESCRIPTION="ZABBIX is software for monitoring of your applications, network and servers"
 HOMEPAGE="https://www.zabbix.com/"
@@ -188,7 +188,7 @@ src_install() {
 
 		if use systemd; then
 			systemd_dounit "${FILESDIR}"/zabbix-server.service
-			systemd_newtmpfilesd "${FILESDIR}"/zabbix-server.tmpfiles zabbix-server.conf
+			newtmpfiles "${FILESDIR}"/zabbix-server.tmpfiles zabbix-server.conf
 		fi
 	fi
 
@@ -207,7 +207,7 @@ src_install() {
 
 		if use systemd; then
 			systemd_dounit "${FILESDIR}"/zabbix-proxy.service
-			systemd_newtmpfilesd "${FILESDIR}"/zabbix-proxy.tmpfiles zabbix-proxy.conf
+			newtmpfiles "${FILESDIR}"/zabbix-proxy.tmpfiles zabbix-proxy.conf
 		fi
 	fi
 
@@ -226,7 +226,7 @@ src_install() {
 
 		if use systemd; then
 			systemd_dounit "${FILESDIR}"/zabbix-agentd.service
-			systemd_newtmpfilesd "${FILESDIR}"/zabbix-agentd.tmpfiles zabbix-agentd.conf
+			newtmpfiles "${FILESDIR}"/zabbix-agentd.tmpfiles zabbix-agentd.conf
 		fi
 	fi
 
