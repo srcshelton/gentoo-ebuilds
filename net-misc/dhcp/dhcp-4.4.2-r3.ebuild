@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit flag-o-matic systemd toolchain-funcs
+inherit flag-o-matic systemd tmpfiles toolchain-funcs
 
 MY_PV="${PV//_alpha/a}"
 MY_PV="${MY_PV//_beta/b}"
@@ -232,7 +232,7 @@ src_install() {
 		newconfd "${FILESDIR}"/dhcrelay6.conf dhcrelay6
 
 		if use systemd; then
-			systemd_newtmpfilesd "${FILESDIR}"/dhcpd.tmpfiles dhcpd.conf
+			newtmpfiles "${FILESDIR}"/dhcpd.tmpfiles dhcpd.conf
 			systemd_dounit "${FILESDIR}"/dhcpd4.service
 			systemd_dounit "${FILESDIR}"/dhcpd6.service
 			systemd_dounit "${FILESDIR}"/dhcrelay4.service
