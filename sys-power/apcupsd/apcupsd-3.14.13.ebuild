@@ -1,9 +1,9 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
 
-inherit eutils flag-o-matic linux-info systemd udev
+inherit eutils flag-o-matic linux-info systemd tmpfiles udev
 
 DESCRIPTION="APC UPS daemon with integrated tcp/ip remote shutdown"
 HOMEPAGE="http://www.apcupsd.org/"
@@ -105,7 +105,7 @@ src_install() {
 
 	if use systemd; then
 		systemd_dounit "${FILESDIR}"/${PN}.service
-		systemd_dotmpfilesd "${FILESDIR}"/${PN}-tmpfiles.conf
+		dotmpfiles "${FILESDIR}"/${PN}-tmpfiles.conf
 	else
 		# Without this it'll crash at startup. When merging in ROOT= this
 		# won't be created by default, so we want to make sure we got it!
@@ -127,6 +127,8 @@ src_install() {
 }
 
 pkg_postinst() {
+	use tmpfiles && tmpfiles_process ${PN}-tmpfiles.conf
+
 	if use cgi; then
 		elog "The cgi-bin directory for ${PN} is /usr/libexec/${PN}/cgi-bin."
 		elog "Set up your ScriptAlias or symbolic links accordingly."

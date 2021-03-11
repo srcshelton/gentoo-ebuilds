@@ -1,9 +1,9 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 
-inherit linux-info flag-o-matic systemd udev
+inherit flag-o-matic linux-info systemd tmpfiles udev
 
 DESCRIPTION="APC UPS daemon with integrated tcp/ip remote shutdown"
 HOMEPAGE="http://www.apcupsd.org/"
@@ -104,7 +104,7 @@ src_install() {
 
 	if use systemd; then
 		systemd_dounit "${FILESDIR}"/${PN}.service
-		systemd_dotmpfilesd "${FILESDIR}"/${PN}-tmpfiles.conf
+		dotmpfiles "${FILESDIR}"/${PN}-tmpfiles.conf
 	fi
 
 	# remove hal settings, we don't really want to have it around still.
@@ -118,6 +118,8 @@ src_install() {
 }
 
 pkg_postinst() {
+	use tmpfiles && tmpfiles_process ${PN}-tmpfiles.conf
+
 	if use cgi; then
 		elog "The cgi-bin directory for ${PN} is /usr/libexec/${PN}/cgi-bin."
 		elog "Set up your ScriptAlias or symbolic links accordingly."
