@@ -11,7 +11,7 @@ EAPI=7
 #    because lua_open became lua_newstate in 5.2
 LUA_COMPAT=( lua5-1 luajit )
 
-inherit autotools flag-o-matic lua-single systemd toolchain-funcs
+inherit autotools flag-o-matic lua-single systemd tmpfiles toolchain-funcs
 
 DESCRIPTION="A persistent caching system, key-value and data structures database"
 HOMEPAGE="https://redis.io"
@@ -141,7 +141,7 @@ src_install() {
 
 	if use systemd; then
 		systemd_newunit "${FILESDIR}/redis.service-3" redis.service
-		systemd_newtmpfilesd "${FILESDIR}/redis.tmpfiles-2" redis.conf
+		newtmpfiles "${FILESDIR}/redis.tmpfiles-2" redis.conf
 	fi
 
 	newconfd "${FILESDIR}/redis-sentinel.confd" redis-sentinel
