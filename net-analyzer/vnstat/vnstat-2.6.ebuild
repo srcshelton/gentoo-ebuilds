@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit systemd user
+inherit systemd tmpfiles user
 
 DESCRIPTION="Console-based network traffic monitor that keeps statistics of network usage"
 HOMEPAGE="https://humdi.net/vnstat/"
@@ -62,7 +62,7 @@ src_install() {
 
 	if use systemd; then
 		systemd_newunit "${FILESDIR}"/vnstatd.systemd vnstatd.service
-		systemd_newtmpfilesd "${FILESDIR}"/vnstatd.tmpfile vnstatd.conf
+		newtmpfiles "${FILESDIR}"/vnstatd.tmpfile vnstatd.conf
 	fi
 
 	if use prefix; then
@@ -80,3 +80,5 @@ src_install() {
 	newdoc INSTALL README.setup
 	dodoc CHANGES README UPGRADE FAQ examples/vnstat.cgi
 }
+
+# vi: set diffopt=iwhite,filler:
