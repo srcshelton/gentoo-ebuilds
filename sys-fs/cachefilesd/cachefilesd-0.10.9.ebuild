@@ -1,9 +1,9 @@
-# Copyright 1999-2018 Gentoo Foundation
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 
-inherit flag-o-matic systemd toolchain-funcs
+inherit flag-o-matic systemd tmpfiles toolchain-funcs
 
 DESCRIPTION="Provides a caching directory on an already mounted filesystem"
 HOMEPAGE="https://people.redhat.com/~dhowells/fscache/"
@@ -43,7 +43,7 @@ src_install() {
 
 	if use systemd; then
 		systemd_dounit ${PN}.service
-		systemd_newtmpfilesd "${FILESDIR}"/${PN}-tmpfiles.d ${PN}.conf
+		newtmpfiles "${FILESDIR}"/${PN}-tmpfiles.d ${PN}.conf
 	fi
 }
 
@@ -57,3 +57,5 @@ pkg_postinst() {
 	elog "Once that is taken care of, start the daemon, add -o ...,fsc"
 	elog "to the mount options of your network mounts, and let it fly!"
 }
+
+# vi: set diffopt=iwhite,filler:
