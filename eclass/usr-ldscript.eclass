@@ -133,15 +133,36 @@ gen_usr_ldscript() {
 			popd > /dev/null
 			;;
 		*)
-			if ${auto} ; then
-				tlib=$(scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib})
-				[[ -z ${tlib} ]] && die "unable to read SONAME from ${lib} ('scanelf -qF'%S#F' \"${ED%/}/usr/${libdir}/${lib}\"' returned '$(scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib})')"
-				mv "${ED%/}"/usr/${libdir}/${lib}* "${ED%/}"/${libdir}/ || die
+			if ${auto}; then
+				if ! [[ -s "${ED%/}/usr/${libdir}/${lib}" ]]; then
+					die "file '${ED%/}/usr/${libdir}/${lib}' is missing"
+				fi
+				tlib="$( scanelf -qF'%S#F' "${ED%/}/usr/${libdir}/${lib}" )"
+				if [[ -z "${tlib:-}" ]]; then
+					if command -v file >/dev/null 2>&1; then
+						if file "${ED%/}/usr/${libdir}/${lib}" | grep -q -- 'ASCII text$'; then
+							warn "file '${ED%/}/usr/${libdir}/${lib}' has already been replaced with a linker script"
+							if [[ -x "${ED%/}/usr/${libdir}/${lib}" ]] && (( $(
+									find "${ED%/}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
+							) )); then
+								return 0
+							else
+								die "However, the library does not appear to have been correcly relocated"
+							fi
+						fi
+					fi
+					die "unable to read SONAME from ${lib}" \
+						"('scanelf -qF'%S#F' \"${ED%/}/usr/${libdir}/${lib}\"' returned '$(
+							scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib}
+						)': ${?})"
+				fi
+				unset continue
+				mv "${ED%/}/usr/${libdir}/${lib}"* "${ED%/}/${libdir}"/ || die
 				# some SONAMEs are funky: they encode a version before the .so
 				if [[ ${tlib} != ${lib}* ]] ; then
-					mv "${ED%/}"/usr/${libdir}/${tlib}* "${ED%/}"/${libdir}/ || die
+					mv "${ED%/}/usr/${libdir}/${tlib}"* "${ED%/}/${libdir}"/ || die
 				fi
-				rm -f "${ED%/}"/${libdir}/${lib}
+				rm -f "${ED%/}/${libdir}/${lib}"
 			else
 				tlib=${lib}
 			fi
