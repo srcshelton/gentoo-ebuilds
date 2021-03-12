@@ -21,7 +21,7 @@ DESCRIPTION="A fully featured, yet light weight RFC2131 compliant DHCP client"
 HOMEPAGE="https://roy.marples.name/projects/dhcpcd"
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="debug elibc_glibc +embedded ipv6 kernel_linux privsep +udev"
+IUSE="debug elibc_glibc +embedded ipv6 privsep systemd +udev"
 
 COMMON_DEPEND="udev? ( virtual/udev )"
 DEPEND="${COMMON_DEPEND}"
