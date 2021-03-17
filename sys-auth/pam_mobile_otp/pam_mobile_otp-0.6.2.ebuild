@@ -15,6 +15,8 @@ SLOT="0"
 KEYWORDS="~amd64 ~x86"
 IUSE="-android manager"
 
+DEPEND="sys-libs/pam"
+
 S="${WORKDIR}/${PN}"
 
 src_prepare() {
