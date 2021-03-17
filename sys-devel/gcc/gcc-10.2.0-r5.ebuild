@@ -102,13 +102,13 @@ pkg_postinst_fix_so() {
 		else
 			if [[ -n "${dst_rel:-}" ]]; then
 				if [[ -s "${dst_dir}/${dst_rel}/${so}" ]]; then
-					ln -s "${dst_rel}/${so}" "${dst_dir}/${so}"
+					ln -sf "${dst_rel}/${so}" "${dst_dir}/${so}"
 				else
 					warn "Could not resolve path '${dst_dir}/${dst_rel}/${so}', creating absolute symlink ..."
-					ln -s "${src_dir}/${so}" "${dst_dir}/${so}"
+					ln -sf "${src_dir}/${so}" "${dst_dir}/${so}"
 				fi
 			else
-				ln -s "${src_dir}/${so}" "${dst_dir}/${so}"
+				ln -sf "${src_dir}/${so}" "${dst_dir}/${so}"
 			fi
 		fi
 	done < <( ls -1 "${src_dir}/${src_so}"* )
