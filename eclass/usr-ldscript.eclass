@@ -139,16 +139,21 @@ gen_usr_ldscript() {
 				fi
 				tlib="$( scanelf -qF'%S#F' "${ED%/}/usr/${libdir}/${lib}" )"
 				if [[ -z "${tlib:-}" ]]; then
-					if command -v file >/dev/null 2>&1; then
-						if file "${ED%/}/usr/${libdir}/${lib}" | grep -q -- 'ASCII text$'; then
-							warn "file '${ED%/}/usr/${libdir}/${lib}' has already been replaced with a linker script"
-							if [[ -x "${ED%/}/usr/${libdir}/${lib}" ]] && (( $(
-									find "${ED%/}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
-							) )); then
-								return 0
-							else
-								die "However, the library does not appear to have been correcly relocated"
-							fi
+					if ! command -v file >/dev/null 2>&1; then
+						warn "command 'file' not found"
+					fi
+					if
+						file "${ED%/}/usr/${libdir}/${lib}" 2>/dev/null |
+							grep -q -- 'ASCII text$' ||
+						grep -aq -- 'GNU ld script' "${ED%/}/usr/${libdir}/${lib}"
+					then
+						warn "file '${ED%/}/usr/${libdir}/${lib}' has already been replaced with a linker script"
+						if [[ -x "${ED%/}/usr/${libdir}/${lib}" ]] && (( $(
+								find "${ED%/}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
+						) )); then
+							return 0
+						else
+							die "However, the library does not appear to have been correcly relocated"
 						fi
 					fi
 					die "unable to read SONAME from ${lib}" \

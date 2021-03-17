@@ -5,7 +5,7 @@
 # @MAINTAINER:
 # kde@gentoo.org
 # @AUTHOR:
-# Tomáš Chvátal <scarabeus@gentoo.org>
+# TomÃ¡Å¡ ChvÃ¡tal <scarabeus@gentoo.org>
 # Maciej Mrozowski <reavertm@gentoo.org>
 # (undisclosed contributors)
 # Original author: Zephyrus (zephyrus@mirach.it)
@@ -128,6 +128,7 @@ if [[ ${PN} != cmake ]]; then
 fi
 
 BDEPEND+=" sys-apps/sed"
+DEPEND="sys-apps/sed"
 
 # @FUNCTION: cmake_run_in
 # @USAGE: <working dir> <run command>
