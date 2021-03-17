@@ -358,6 +358,8 @@ used to build perl)
     * Fix use of 'inline' (rather than 'static inline')
 * app-admin/eselect
     * eselect requires app-shells/bash
+* app-arch/xz-utils
+    * Explicitly depend on 'grep that handles long lines and -e' (although the real issue could be that somehow GNU `grep` _was_ installed during bootsrapping, but `libpcre` wasn't?)
 * ~~app-crypt/gnupg~~
     * ~~Fix clang compilation errors~~
 * app-emulation/docker
