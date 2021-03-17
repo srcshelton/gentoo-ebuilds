@@ -25,22 +25,21 @@ DEPEND="${RDEPEND}
 RESTRICT="test"
 
 PATCHES=(
-	"${FILESDIR}/${PN}-1.1.4-varrun.patch"
+	"${FILESDIR}/${PN}-1.1.9-varrun.patch"
 )
 
 src_prepare() {
+	default
+
 	# Respect AR variable for bug 722162.
 	sed -e 's|^AC_PROG_CC$|AC_DEFUN([AC_PROG_AR], [AC_CHECK_TOOL(AR, ar, :)])\nAC_PROG_AR\n\0|' \
 		-i configure.ac || die
-	sed -e 's|/run/|/var/run/|' \
-		-i tests/slirp4netns-no-unmount.sh || die
 	eautoreconf
-	default
 }
 
 pkg_postinst() {
 	if [[ -z ${REPLACING_VERSIONS} ]]; then
-		elog "You need to have the tun kernel module loaded in order to have"
-		elog "slirp4netns working"
+		elog "You must have the 'tun' kernel module loaded in order for"
+		elog "slirp4netns to work"
 	fi
 }
