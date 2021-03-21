@@ -6,7 +6,7 @@ EAPI=7
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
 EGIT_COMMIT='aa9616cd4dd70d1c51a85c32fb7adf637af05054'
-COMMON_VERSION='0.35.2'
+COMMON_VERSION='0.35.3'
 CATATONIT_VERSION='0.1.5'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
