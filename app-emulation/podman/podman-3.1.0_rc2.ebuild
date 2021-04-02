@@ -5,7 +5,7 @@ EAPI=7
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-EGIT_COMMIT='aa9616cd4dd70d1c51a85c32fb7adf637af05054'
+EGIT_COMMIT='1b56ea2d9df82cbba2679f646c077881fefb49d6'
 COMMON_VERSION='0.35.4'
 CATATONIT_VERSION='0.1.5'
 
