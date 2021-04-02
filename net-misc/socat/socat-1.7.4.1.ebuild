@@ -38,7 +38,7 @@ DOCS=( EXAMPLES SECURITY )
 
 pkg_setup() {
 	# bug #587740
-	if use readline && use ssl; then
+	if use readline && use ssl ; then
 		elog "You are enabling both readline and openssl USE flags, the licenses"
 		elog "for these packages conflict. You may not be able to legally"
 		elog "redistribute the resulting binary."
