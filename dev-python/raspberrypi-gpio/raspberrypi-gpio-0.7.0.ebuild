@@ -15,7 +15,7 @@ RESTRICT="mirror test"
 
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="arm"
+KEYWORDS="arm arm64"
 IUSE="doc"
 
 S="${WORKDIR}/${MY_P}"
