@@ -386,8 +386,8 @@ used to build perl)
     * Prevent binary merges from failing due to assumptions about build files being present
 * dev-libs/libcgroup
     * Handle existing mountpoints and correct init scripts
-* dev-libs/yajl
-    * Bump to EAPI=7 for BDEPEND/RDEPEND build-dependency improvements
+* ~~dev-libs/yajl~~
+    * ~~Bump to EAPI=7 for BDEPEND/RDEPEND build-dependency improvements~~
 * ~~dev-perl/DBI-Shell~~
     * ~~Fix "Useless localization of scalar assignment" warning from DBI::Format~~
 * dev-perl/Locale-gettext
