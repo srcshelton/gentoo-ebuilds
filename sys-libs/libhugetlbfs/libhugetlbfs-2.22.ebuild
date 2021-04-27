@@ -1,20 +1,20 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
 PYTHON_COMPAT=( python3_{7,8,9} )
 
-inherit multilib toolchain-funcs python-any-r1
+inherit python-any-r1 toolchain-funcs
 
-DESCRIPTION="easy hugepage access"
+DESCRIPTION="Easy hugepage access"
 HOMEPAGE="https://github.com/libhugetlbfs/libhugetlbfs"
 SRC_URI="https://github.com/libhugetlbfs/libhugetlbfs/archive/${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc ~ppc64 ~s390 ~x86"
-IUSE="static-libs test abi_x86_x32"
+IUSE="abi_x86_x32 static-libs test"
 RESTRICT="!test? ( test )"
 
 DEPEND="test? ( ${PYTHON_DEPS} )"
@@ -114,10 +114,10 @@ src_install() {
 }
 
 src_test_alloc_one() {
-	hugeadm="$1"
-	sign="$2"
-	pagesize="$3"
-	pagecount="$4"
+	hugeadm="${1}"
+	sign="${2}"
+	pagesize="${3}"
+	pagecount="${4}"
 	${hugeadm} \
 		--pool-pages-max ${pagesize}:${sign}${pagecount} \
 	&& \
@@ -129,7 +129,7 @@ src_test_alloc_one() {
 # die is NOT allowed in this src_test block after the marked point, so that we
 # can clean up memory allocation. You'll leak at LEAST 64MiB per run otherwise.
 src_test() {
-	[[ $UID -eq 0 ]] || die "Need FEATURES=-userpriv to run this testsuite"
+	[[ ${UID} -eq 0 ]] || die "Need FEATURES=-userpriv to run this testsuite"
 	einfo "Building testsuite"
 	emake -j1 tests || die "Failed to build tests"
 
@@ -206,7 +206,7 @@ src_test() {
 		pagesize="${alloc/:*}"
 		pagecount="${alloc/*:}"
 		einfo "  ${pagecount} @ ${pagesize}"
-		src_test_alloc_one "$hugeadm" "-" "${pagesize}" "${pagecount}"
+		src_test_alloc_one "${hugeadm}" "-" "${pagesize}" "${pagecount}"
 	done
 
 	# ---------------------------------------------------------
