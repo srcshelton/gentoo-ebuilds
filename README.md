@@ -188,8 +188,8 @@ used to build perl)
     * Prevent clang builtins error due to `__atomic_compare_exchange` function
 * sys-libs/gdbm
     * Ensure that all functions are defined before being called
-* sys-libs/readline
-    * Ensure that `<sys/ioctl.h>` header is included on darwin
+* ~~sys-libs/readline~~
+    * ~~Ensure that `<sys/ioctl.h>` header is included on darwin~~
 
 # iOS7, 8, 9, and 10 -compatible tools &amp; macOS ebuilds
 
