@@ -1,7 +1,7 @@
 # Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 inherit autotools systemd
 
 DESCRIPTION="A highly configurable replacement for syslogd/klogd"
@@ -14,7 +14,8 @@ KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 
 IUSE="systemd unicode"
 
 RDEPEND=">=dev-libs/libpcre-3.4"
-DEPEND="${RDEPEND}
+DEPEND="${RDEPEND}"
+BDEPEND="
 	sys-devel/autoconf-archive
 	virtual/pkgconfig"
 
@@ -38,7 +39,7 @@ src_install() {
 	dodoc AUTHORS ChangeLog README NEWS metalog.conf
 
 	into /
-	dosbin "${FILESDIR}"/consolelog.sh
+	newsbin "${FILESDIR}"/consolelog.sh-r1 consolelog.sh
 
 	newinitd "${FILESDIR}"/metalog.initd-r1 metalog
 	newconfd "${FILESDIR}"/metalog.confd metalog
