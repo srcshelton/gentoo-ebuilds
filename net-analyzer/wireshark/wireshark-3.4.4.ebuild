@@ -10,12 +10,20 @@ inherit cmake fcaps flag-o-matic lua-single python-any-r1 qmake-utils xdg-utils
 
 DESCRIPTION="A network protocol analyzer formerly known as ethereal"
 HOMEPAGE="https://www.wireshark.org/"
-SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz"
-S="${WORKDIR}/${P/_/}"
+
+if [[ ${PV} == *9999* ]] ; then
+	EGIT_REPO_URI="https://gitlab.com/wireshark/wireshark"
+	inherit git-r3
+else
+	SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz
+		https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${P}-glib-2.68-patches.tar.gz"
+	S="${WORKDIR}/${P/_/}"
+
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ppc64 x86"
+fi
 
 LICENSE="GPL-2"
 SLOT="0/${PV}"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ppc64 x86"
 IUSE="androiddump bcg729 brotli +capinfos +captype ciscodump crypt +dftest doc dpauxmon +dumpcap +editcap http2 ilbc kerberos libxml2 lto lua lz4 maxminddb +mergecap +minizip +netlink opus +pcap plugin-ifdemo +plugins +qt5 +randpkt +randpktdump +reordercap sbc sdjournal selinux +sharkd smi snappy spandsp sshdump ssl test +text2pcap tfshark +tshark +udpdump zlib +zstd"
 
 CDEPEND="
@@ -97,6 +105,8 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-3.4.2-cmake-lua-version.patch
 	"${FILESDIR}"/${PN}-9999-ui-needs-wiretap.patch
 	"${FILESDIR}"/${P}-cmake-3.20.patch
+	# Temporary, bug #777690
+	"${WORKDIR}"/${P}-glib-2.68-patches
 )
 
 pkg_setup() {
