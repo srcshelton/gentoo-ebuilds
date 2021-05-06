@@ -14,26 +14,20 @@ SRC_URI="mirror://apache/spamassassin/source/${MY_P}.tar.bz2"
 LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux"
-IUSE="berkdb cron ipv6 ldap libressl mysql postgres qmail sqlite ssl systemd test"
+IUSE="+berkdb cron dkim geoip ipv6 largenet ldap libressl mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode"
 RESTRICT="!test? ( test )"
 
 # The Makefile.PL script checks for dependencies, but only fails if a
 # required (i.e. not optional) dependency is missing. We therefore
 # require most of the optional modules only at runtime.
-REQDEPEND="acct-user/spamd
-	acct-group/spamd
-	dev-lang/perl:=
+REQDEPEND="dev-lang/perl:=
 	dev-perl/HTML-Parser
 	dev-perl/Net-DNS
 	dev-perl/NetAddr-IP
 	virtual/perl-Archive-Tar
 	virtual/perl-Digest-SHA
 	virtual/perl-IO-Zlib
-	virtual/perl-Time-HiRes
-	ssl? (
-		!libressl? ( dev-libs/openssl:0= )
-		libressl? ( dev-libs/libressl )
-	)"
+	virtual/perl-Time-HiRes"
 
 # SpamAssassin doesn't use libwww-perl except as a fallback for when
 # curl/wget are missing, so we depend on one of those instead. Some
@@ -43,43 +37,72 @@ REQDEPEND="acct-user/spamd
 #
 # We still need the old Digest-SHA1 because razor2 has not been ported
 # to Digest-SHA.
-OPTDEPEND="app-crypt/gnupg
-	dev-perl/BSD-Resource
-	dev-perl/Digest-SHA1
-	dev-perl/Encode-Detect
-	|| ( dev-perl/GeoIP2 dev-perl/Geo-IP )
-	dev-perl/HTTP-Date
-	dev-perl/Mail-DKIM
-	dev-perl/Mail-SPF
-	dev-perl/Net-Patricia
+OPTDEPEND="
 	dev-perl/Net-CIDR-Lite
-	dev-util/re2c
-	|| ( net-misc/wget[ssl] net-misc/curl[ssl] )
 	virtual/perl-MIME-Base64
 	virtual/perl-Pod-Parser
-	berkdb? ( virtual/perl-DB_File )
+	berkdb? (
+		dev-perl/DBI
+		virtual/perl-DB_File
+	)
+	dkim? ( >=dev-perl/Mail-DKIM-0.370.0 )
+	geoip? (
+		|| ( dev-perl/GeoIP2 dev-perl/Geo-IP )
+		dev-perl/IP-Country-DB_File
+	)
 	ipv6? ( dev-perl/IO-Socket-INET6 )
+	largenet? ( >=dev-perl/Net-Patricia-1.160.0 )
 	ldap? ( dev-perl/perl-ldap )
 	mysql? (
 		dev-perl/DBI
 		dev-perl/DBD-mysql
 	)
+	office? (
+		dev-perl/Archive-Zip
+		dev-perl/IO-String
+	)
+	pacct? ( dev-perl/BSD-Resource )
 	postgres? (
 		dev-perl/DBI
 		dev-perl/DBD-Pg
 	)
+	razor? (
+		mail-filter/razor
+		dev-perl/Digest-SHA1
+	)
+	sa-update? (
+		app-crypt/gnupg
+		dev-perl/HTTP-Date
+		dev-perl/libwww-perl
+		dev-util/re2c
+		net-misc/curl
+		net-misc/wget
+		www-client/fetch
+		|| ( net-misc/wget[ssl] net-misc/curl[ssl] )
+	)
+	spf? ( dev-perl/Mail-SPF )
 	sqlite? (
 		dev-perl/DBI
 		dev-perl/DBD-SQLite
 	)
-	ssl? ( dev-perl/IO-Socket-SSL )"
+	ssl? ( >dev-perl/IO-Socket-SSL-1.76.0 )
+	unicode? ( dev-perl/Encode-Detect )"
 
-DEPEND="${REQDEPEND}
+DEPEND="ssl? (
+		!libressl? ( dev-libs/openssl:0= )
+		libressl? ( dev-libs/libressl )
+	)"
+BDEPEND="${REQDEPEND}
+	${DEPEND}
+	${OPTDEPEND}
 	test? (
-		${OPTDEPEND}
 		virtual/perl-Test-Harness
 	)"
-RDEPEND="${REQDEPEND} ${OPTDEPEND}"
+RDEPEND="acct-group/spamd
+	acct-user/spamd
+	${REQDEPEND}
+	${DEPEND}
+	${OPTDEPEND}"
 
 PATCHES=(
 	"${FILESDIR}/mention-geoip.cf-in-init.pre.patch"
@@ -106,6 +129,14 @@ src_prepare() {
 	# spamd tests themselves -- see src_test), so use a crude
 	# workaround.
 	perl_rm_files t/spamc_*.t || die 'failed to remove spamc tests'
+
+	# Some tests need extra dependencies
+	# e.g. t/sql_based_whitelist.t needs DBD
+	# This is kinder than REQUIRED_USE for tests which hurts automation
+	if ! use mysql && ! use postgres && ! use sqlite ; then
+		perl_rm_files t/sql_based_whitelist.t ||
+			die 'failed to remove tests with extra dependencies'
+	fi
 
 	# Disable plugin by default
 	sed -i -e 's/^loadplugin/\#loadplugin/g' \
