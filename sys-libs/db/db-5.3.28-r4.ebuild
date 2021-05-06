@@ -29,7 +29,7 @@ done
 
 LICENSE="Sleepycat"
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ppc ~ppc64 ~riscv s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ppc ~ppc64 ~riscv ~s390 sparc x86"
 IUSE="cxx doc java -sep-usr tcl test"
 
 REQUIRED_USE="test? ( tcl )"
@@ -307,3 +307,5 @@ multilib_src_test() {
 
 	S="${BUILD_DIR}" db_src_test
 }
+
+# vi: set diffopt=iwhite,filler:

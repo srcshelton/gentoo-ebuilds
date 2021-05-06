@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
-inherit autotools db eutils flag-o-matic java-pkg-opt-2 multilib toolchain-funcs usr-ldscript multilib-minimal
+inherit autotools db epatch flag-o-matic java-pkg-opt-2 multilib toolchain-funcs usr-ldscript multilib-minimal
 
 #Number of official patches
 #PATCHNO=`echo ${PV}|sed -e "s,\(.*_p\)\([0-9]*\),\2,"`
@@ -30,7 +30,7 @@ done
 LICENSE="Sleepycat"
 SLOT="5.3"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="-sep-usr doc java cxx tcl test"
+IUSE="cxx doc java -sep-usr tcl test"
 
 REQUIRED_USE="test? ( tcl )"
 
@@ -148,7 +148,7 @@ multilib_src_configure() {
 	tc-ld-force-bfd #470634 #729510
 
 	# compilation with -O0 fails on amd64, see bug #171231
-	if [[ ${ABI} == amd64 ]] ; then
+	if [[ ${ABI} == amd64 ]]; then
 		local CFLAGS=${CFLAGS} CXXFLAGS=${CXXFLAGS}
 		replace-flags -O0 -O2
 		is-flagq -O[s123] || append-flags -O2
@@ -228,7 +228,7 @@ multilib_src_install() {
 
 	db_src_install_usrlibcleanup
 
-	if multilib_is_native_abi && use java ; then
+	if multilib_is_native_abi && use java; then
 		local ext=so
 		[[ ${CHOST} == *-darwin* ]] && ext=jnilib #313085
 		java-pkg_regso "${ED}"/usr/"$(get_libdir)"/libdb_java*.${ext}
