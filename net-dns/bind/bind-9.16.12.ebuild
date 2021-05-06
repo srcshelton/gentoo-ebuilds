@@ -35,7 +35,7 @@ LICENSE="Apache-2.0 BSD BSD-2 GPL-2 HPND ISC MPL-2.0"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux"
 # -berkdb by default re bug 602682
-IUSE="-berkdb +caps dlz dnsrps dnstap doc fixed-rrset geoip geoip2 gssapi json ldap libressl lmdb mysql odbc postgres python selinux static-libs systemd urandom xml +zlib"
+IUSE="-berkdb +caps dlz dnsrps dnstap doc fixed-rrset geoip geoip2 gssapi json ldap libressl lmdb mysql odbc postgres python selinux static-libs systemd xml +zlib"
 # sdb-ldap - patch broken
 # no PKCS11 currently as it requires OpenSSL to be patched, also see bug 409687
 
@@ -301,15 +301,7 @@ pkg_postinst() {
 			if [ "${ROOT}" != '/' ]; then
 				local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
 			fi
-			if use urandom; then
-				einfo "Using /dev/urandom for generating rndc.key"
-				"${ROOT}"/usr/sbin/rndc-confgen -r /dev/urandom -a
-				echo
-			else
-				einfo "Using /dev/random for generating rndc.key"
-				"${ROOT}"/usr/sbin/rndc-confgen -a
-				echo
-			fi
+			"${ROOT}"/usr/sbin/rndc-confgen -a
 			# rndc-confgen always creates files in /etc/bind/...
 			chown root:named /etc/bind/rndc.key || die
 			chmod 0640 /etc/bind/rndc.key || die
