@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit eutils flag-o-matic libtool toolchain-funcs usr-ldscript multilib-minimal
+inherit flag-o-matic libtool toolchain-funcs usr-ldscript multilib-minimal
 
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
@@ -34,6 +34,7 @@ MULTILIB_WRAPPED_HEADERS=( /usr/include/gmp.h )
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-6.1.0-noexecstack-detect.patch
+	"${FILESDIR}"/${PN}-6.2.1-no-zarch.patch
 )
 
 src_prepare() {
