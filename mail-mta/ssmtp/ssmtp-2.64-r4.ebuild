@@ -1,13 +1,12 @@
 # Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="7"
+EAPI=7
 
 PATCHSET=4
-
 WANT_AUTOMAKE=none
 
-inherit autotools eutils
+inherit autotools
 
 DESCRIPTION="Extremely simple MTA to get mail off the system to a Mailhub"
 HOMEPAGE="ftp://ftp.debian.org/debian/pool/main/s/ssmtp/"
@@ -17,26 +16,24 @@ SRC_URI="mirror://debian/pool/main/s/ssmtp/${P/-/_}.orig.tar.bz2
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="ipv6 libressl +ssl gnutls +mta"
+IUSE="gnutls ipv6 libressl +mta +ssl"
 
-DEPEND="ssl? (
+DEPEND="!prefix? ( acct-group/ssmtp )
+	ssl? (
 		gnutls? ( net-libs/gnutls[openssl] )
 		!gnutls? (
 			!libressl? ( dev-libs/openssl:0= )
 			libressl? ( dev-libs/libressl:0= )
 		)
-		!prefix? ( acct-group/ssmtp )
 	)"
 RDEPEND="${DEPEND}
 	net-mail/mailbase
 	mta? (
-		!net-mail/mailwrapper
 		!mail-mta/courier
 		!mail-mta/esmtp
 		!mail-mta/exim
 		!mail-mta/mini-qmail
 		!mail-mta/msmtp[mta]
-		!mail-mta/nbsmtp
 		!mail-mta/netqmail
 		!mail-mta/nullmailer
 		!mail-mta/postfix
@@ -48,23 +45,21 @@ RDEPEND="${DEPEND}
 REQUIRED_USE="gnutls? ( ssl )"
 
 src_prepare() {
-	# These patches are a mess with EAPI >6...
-	for patch in "${WORKDIR}"/patches/*.patch; do
-		name="$( basename "${patch}" )"
-		sed -e '/^--- /			s|\.\(old\|new\|orig\)||' \
-			-e '/^+++ /			s|\.\(old\|new\|orig\)||' \
-			-e "/^--- /			s|${PN}-[0-9.]\+|${P}|" \
-			-e "/^--- .*\//		s|^--- ${P}/|--- a/|" \
-			-e '/^--- [^a][^/]/	s|^--- |--- a/|' \
-			-e "/^+++ /			s|${PN}-[0-9.]\+|${P}|" \
-			-e "/^+++ .*\//		s|^+++ ${P}/|+++ b/|" \
-			-e '/^+++ [^b][^/]/	s|^+++ |+++ b/|' \
-			"${patch}" > "${T}/${name}"
-		eapply "${T}/${name}"
-		rm "${T}/${name}"
-	done
+	default
 
-	eapply_user
+	eapply "${WORKDIR}"/patches/0010_all_maxsysuid.patch
+	eapply "${WORKDIR}"/patches/0020_all_from-format-fix.patch
+	eapply "${WORKDIR}"/patches/0030_all_authpass.patch
+	eapply "${WORKDIR}"/patches/0040_all_darwin7.patch
+	eapply "${WORKDIR}"/patches/0050_all_strndup.patch
+	eapply "${WORKDIR}"/patches/0060_all_opessl_crypto.patch
+	eapply "${WORKDIR}"/patches/0070_all_solaris-basename.patch
+	eapply "${WORKDIR}"/patches/0080_all_gnutls.patch
+	eapply "${WORKDIR}"/patches/0090_all_debian-remote-addr.patch
+	eapply "${WORKDIR}"/patches/0100_all_ldflags.patch
+	eapply "${WORKDIR}"/patches/0110_all_stdint.patch
+	eapply "${WORKDIR}"/patches/0120_all_aliases.patch
+	eapply -p0 "${WORKDIR}"/patches/0130_all_garbage-writes.patch
 
 	# let's start by not using configure.in anymore as future autoconf
 	# versions will not support it.
@@ -74,12 +69,15 @@ src_prepare() {
 }
 
 src_configure() {
-	econf \
-		--sysconfdir="${EPREFIX}"/etc/ssmtp \
-		$(use_enable ssl) \
-		$(usex gnutls '--with-gnutls' '') \
-		$(use_enable ipv6 inet6) \
+	local myeconfargs=(
+		--sysconfdir="${EPREFIX}"/etc/ssmtp
+		$(use_enable ssl)
+		$(use_with gnutls)
+		$(use_enable ipv6 inet6)
 		--enable-md5auth
+	)
+
+	econf "${myeconfargs[@]}"
 }
 
 src_compile() {
