@@ -13,7 +13,7 @@ RESTRICT="nomirror"
 LICENSE="GPL-3"
 WEBAPP_MANUAL_SLOT="yes"
 SLOT="0"
-KEYWORDS="-* arm"
+KEYWORDS="-* arm arm64"
 IUSE="httpd tools"
 
 DEPEND="app-admin/webapp-config"
