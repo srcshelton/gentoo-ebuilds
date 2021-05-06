@@ -37,16 +37,16 @@ RDEPEND="${DEPEND}
 	seccomp? ( sys-libs/libseccomp[${MULTILIB_USEDEP}] )"
 
 PATCHES=(
-	"${FILESDIR}/file-5.39-add-missing-termios.patch" #728416
-	"${FILESDIR}/file-5.39-seccomp-musl.patch"
 	"${FILESDIR}/file-5.39-portage-sandbox.patch" #713710 #728978
-	"${FILESDIR}/file-5.39-allow-futex-seccomp.patch" #771096
+	"${FILESDIR}/file-5.40-xz_magic.patch" #784773
+	"${FILESDIR}/file-5.40-seccomp-faccessat.patch"
+	"${FILESDIR}/file-5.40-seccomp-fstatat64.patch" #784857
 )
 
 src_prepare() {
 	default
 
-	if [[ ${PV} == 9999 ]]; then
+	if [[ ${PV} == 9999 ]] ; then
 		eautoreconf
 	fi
 
@@ -88,9 +88,9 @@ need_build_file() {
 }
 
 src_configure() {
-	local ECONF_SOURCE=${S}
+	local ECONF_SOURCE="${S}"
 
-	if need_build_file; then
+	if need_build_file ; then
 		mkdir -p "${WORKDIR}"/build || die
 		cd "${WORKDIR}"/build || die
 		build_src_configure
@@ -110,7 +110,7 @@ multilib_src_compile() {
 }
 
 src_compile() {
-	if need_build_file; then
+	if need_build_file ; then
 		emake -C "${WORKDIR}"/build/src magic.h #586444
 		emake -C "${WORKDIR}"/build/src file
 		local -x PATH="${WORKDIR}/build/src:${PATH}"
@@ -140,7 +140,6 @@ multilib_src_install_all() {
 	dodoc ChangeLog MAINT README
 
 	# Required for `file -C`
-	dodir /usr/share/misc/magic
 	insinto /usr/share/misc/magic
 	doins -r magic/Magdir/*
 
