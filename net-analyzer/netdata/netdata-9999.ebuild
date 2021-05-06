@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -10,109 +10,52 @@ if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/netdata/${PN}.git"
 	inherit git-r3
 else
-	SRC_URI="https://github.com/netdata/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	SRC_URI="https://github.com/netdata/${PN}/releases/download/v${PV}/${PN}-v${PV}.tar.gz -> ${P}.tar.gz"
+	S="${WORKDIR}/${PN}-v${PV}"
 	KEYWORDS="~amd64 ~x86"
 	RESTRICT="mirror"
 fi
 
 GIT_COMMIT=""
 case "${PV}" in
-	1.2.0)
-		GIT_COMMIT="bb4aa949f5ac825253d8adc6070661299abc1c3b"
-		;;
-	1.3.0)
-		GIT_COMMIT="b4591e87bd5bf5164eb55c90474bbb9f38f2dad4"
-		;;
-	1.4.0)
-		GIT_COMMIT="3028b87ee19e8550df6b9decc49733d595e0bd6e"
-		;;
-	1.5.0)
-		GIT_COMMIT="3bd41a09fccccbc6b095805556d3009b9ebf6213"
-		;;
-	1.6.0)
-		GIT_COMMIT="f5fa346a188e906a8f2cce3c2cf32a88ce81c666"
-		;;
-	1.7.0)
-		GIT_COMMIT="4016e2d9e3c2fcf5f6d59827bf5f81083d6645ba"
-		;;
-	1.8.0)
-		GIT_COMMIT="89ed309252981ddd50f697fde4fe93019cb3e652"
-		;;
-	1.9.0)
-		GIT_COMMIT="8e3e6627ccd97959d64bbb4df1f377a39c0e753f"
-		;;
-	1.10.0)
-		GIT_COMMIT="c92349444f88427d8ddef2fb1ac6c4932cf6c8bb"
-		;;
-	1.11.0)
-		GIT_COMMIT="2b16aab3955dea836a06f580c0e111396916d7ef"
-		;;
-	1.12.0)
-		GIT_COMMIT="d1ebd8a057a45e6fdbc975fbcc4c8e8f9ffedb20"
-		;;
-	1.12.2)
-		GIT_COMMIT="01eb819ff49cb918f157c183b7d50c3d925ddb04"
-		;;
-	1.13.0)
-		GIT_COMMIT="f8e0f3ced35509f608f360823c57c19b19eb6164"
-		;;
-	1.14.0)
-		GIT_COMMIT="4f64e8edbdb0d4b68b882aa34474a0156b6ba150"
-		;;
-	1.15.0)
-		GIT_COMMIT="fc8e3bbd451cff1b9dbfee8f213c6e0a5813b5f4"
-		;;
-	1.16.0)
-		GIT_COMMIT="2c4146832061635273d153a5174c85fb1d967d57"
-		;;
-	1.16.1)
-		GIT_COMMIT="deb3623fdccde61207bc21753ac0284ecb259d79"
-		;;
-	1.17.0)
-		GIT_COMMIT="588ce5a7b18999dfa66698cd3a2f005f7a3c31cf"
-		;;
-	1.18.1)
-		GIT_COMMIT="697f76c32dfd30eab95592ba3bde117f0867e750"
-		;;
-	1.19.0)
-		GIT_COMMIT="5000257f0171271cb3ee2cf0fe02e8a2154ddf2e"
-		;;
-	1.20.0)
-		GIT_COMMIT="563284310302c35a700d707b95824d282aebb6e7"
-		;;
-	1.21.0)
-		GIT_COMMIT="6931cb80778f104518782d91f4c16dec22e566b6"
-		;;
-	1.21.1)
-		GIT_COMMIT="b450a1e9d0f0dbbeff9e56325b5ba120be8b97b2"
-		;;
-	1.22.0)
-		GIT_COMMIT="84e38198c6f3f5a318626f7362e4bdefa3289084"
-		;;
-	1.23.0)
-		GIT_COMMIT="cd19e256d6a0e1338ab09d75bd1e85ede68098d7"
-		;;
-	1.23.1)
-		GIT_COMMIT="8dcb85464579cdd8ac99aeea97acb431ecc04ec3"
-		;;
-	1.23.2)
-		GIT_COMMIT="1baa5c2f1afc40ca2652a76f22856801593aaf8c"
-		;;
-	1.24.0)
-		GIT_COMMIT="96cf2592193cd436f03552bbc114d59a809c205f"
-		;;
-	1.25.0)
-		GIT_COMMIT="d4ff1ea72c44f11a7debeb157ab09be882373900"
-		;;
-	1.26.0)
-		GIT_COMMIT="1a09f7fb810b0afd55c1659f3c135f9a122c960f"
-		;;
-	1.27.0)
-		GIT_COMMIT="00499259c446ea7d080d8254151c9efc6e799bd8"
-		;;
-	1.28.0)
-		GIT_COMMIT="85ff6af9fae7abfd5a1165c108c98b405389b4bc"
-		;;
+	1.2.0)	GIT_COMMIT="bb4aa949f5ac825253d8adc6070661299abc1c3b" ;;
+	1.3.0)	GIT_COMMIT="b4591e87bd5bf5164eb55c90474bbb9f38f2dad4" ;;
+	1.4.0)	GIT_COMMIT="3028b87ee19e8550df6b9decc49733d595e0bd6e" ;;
+	1.5.0)	GIT_COMMIT="3bd41a09fccccbc6b095805556d3009b9ebf6213" ;;
+	1.6.0)	GIT_COMMIT="f5fa346a188e906a8f2cce3c2cf32a88ce81c666" ;;
+	1.7.0)	GIT_COMMIT="4016e2d9e3c2fcf5f6d59827bf5f81083d6645ba" ;;
+	1.8.0)	GIT_COMMIT="89ed309252981ddd50f697fde4fe93019cb3e652" ;;
+	1.9.0)	GIT_COMMIT="8e3e6627ccd97959d64bbb4df1f377a39c0e753f" ;;
+	1.10.0)	GIT_COMMIT="c92349444f88427d8ddef2fb1ac6c4932cf6c8bb" ;;
+	1.11.0)	GIT_COMMIT="2b16aab3955dea836a06f580c0e111396916d7ef" ;;
+	1.12.0)	GIT_COMMIT="d1ebd8a057a45e6fdbc975fbcc4c8e8f9ffedb20" ;;
+	1.12.2)	GIT_COMMIT="01eb819ff49cb918f157c183b7d50c3d925ddb04" ;;
+	1.13.0)	GIT_COMMIT="f8e0f3ced35509f608f360823c57c19b19eb6164" ;;
+	1.14.0)	GIT_COMMIT="4f64e8edbdb0d4b68b882aa34474a0156b6ba150" ;;
+	1.15.0)	GIT_COMMIT="fc8e3bbd451cff1b9dbfee8f213c6e0a5813b5f4" ;;
+	1.16.0)	GIT_COMMIT="2c4146832061635273d153a5174c85fb1d967d57" ;;
+	1.16.1)	GIT_COMMIT="deb3623fdccde61207bc21753ac0284ecb259d79" ;;
+	1.17.0)	GIT_COMMIT="588ce5a7b18999dfa66698cd3a2f005f7a3c31cf" ;;
+	1.18.1)	GIT_COMMIT="697f76c32dfd30eab95592ba3bde117f0867e750" ;;
+	1.19.0)	GIT_COMMIT="5000257f0171271cb3ee2cf0fe02e8a2154ddf2e" ;;
+	1.20.0)	GIT_COMMIT="563284310302c35a700d707b95824d282aebb6e7" ;;
+	1.21.0)	GIT_COMMIT="6931cb80778f104518782d91f4c16dec22e566b6" ;;
+	1.21.1)	GIT_COMMIT="b450a1e9d0f0dbbeff9e56325b5ba120be8b97b2" ;;
+	1.22.0)	GIT_COMMIT="84e38198c6f3f5a318626f7362e4bdefa3289084" ;;
+	1.23.0)	GIT_COMMIT="cd19e256d6a0e1338ab09d75bd1e85ede68098d7" ;;
+	1.23.1)	GIT_COMMIT="8dcb85464579cdd8ac99aeea97acb431ecc04ec3" ;;
+	1.23.2)	GIT_COMMIT="1baa5c2f1afc40ca2652a76f22856801593aaf8c" ;;
+	1.24.0)	GIT_COMMIT="96cf2592193cd436f03552bbc114d59a809c205f" ;;
+	1.25.0)	GIT_COMMIT="d4ff1ea72c44f11a7debeb157ab09be882373900" ;;
+	1.26.0)	GIT_COMMIT="1a09f7fb810b0afd55c1659f3c135f9a122c960f" ;;
+	1.27.0)	GIT_COMMIT="00499259c446ea7d080d8254151c9efc6e799bd8" ;;
+	1.28.0)	GIT_COMMIT="85ff6af9fae7abfd5a1165c108c98b405389b4bc" ;;
+	1.29.0)	GIT_COMMIT="31d68c983d75e7d4e4c1d9e360ac4030d55f1362" ;;
+	1.29.1)	GIT_COMMIT="cb5022688a09e702f692253537730cdb6fe8f954" ;;
+	1.29.2)	GIT_COMMIT="6053ce9e113bf036fc7e121130ce44686e5ab164" ;;
+	1.29.3)	GIT_COMMIT="9580ed4d13125adac01483bac14a18c952afd13e" ;;
+	1.30.0)	GIT_COMMIT="fe27fdc389b58b318cf3973bc3d54ebfe3da5b48" ;;
+	1.30.1)	GIT_COMMIT="d5ea3cc5cf7256109c4c76148b5ba0d29328b380" ;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
@@ -121,7 +64,7 @@ HOMEPAGE="https://github.com/netdata/netdata https://my-netdata.io/"
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="caps +compression cpu_flags_x86_sse2 cups +dbengine fping ipmi +jsonc kinesis +lto mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen"
+IUSE="caps cloud +compression cpu_flags_x86_sse2 cups +dbengine fping ipmi +jsonc kinesis +lto mongodb mysql nfacct nodejs postgres prometheus +python systemd tor xen"
 REQUIRED_USE="
 	mysql? ( python )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -204,11 +147,11 @@ src_prepare() {
 }
 
 src_configure() {
-	# --disable-cloud: https://github.com/netdata/netdata/issues/8961
 	econf \
 		--localstatedir="${EPREFIX}"/var \
 		--with-user=netdata \
-		--disable-cloud \
+		$(use_enable cloud) \
+		$(use_with cloud aclk-ng) \
 		$(use_enable jsonc) \
 		$(use_enable cups plugin-cups) \
 		$(use_enable dbengine) \
@@ -221,6 +164,11 @@ src_configure() {
 		$(use_enable xen plugin-xenstat) \
 		$(use_enable cpu_flags_x86_sse2 x86-sse) \
 		$(use_with compression zlib)
+}
+
+src_compile() {
+	emake clean
+	default
 }
 
 src_install() {
@@ -263,7 +211,7 @@ src_install() {
 	doins system/netdata.conf
 
 	#newinitd system/netdata-openrc "${PN}"
-	newinitd "${FILESDIR}/${PN}.initd" "${PN}"
+	newinitd "${FILESDIR}/${PN}.initd-r1" "${PN}"
 	use systemd && systemd_dounit system/netdata.service
 
 	echo "CONFIG_PROTECT=\"${EPREFIX}/usr/$(get_libdir)/netdata/conf.d\"" > 99netdata
