@@ -19,7 +19,7 @@ IUSE="+bpf +caps criu man +seccomp static-libs systemd"
 COMMON_DEPEND="
 	>=dev-libs/yajl-2.0.0
 	caps? ( sys-libs/libcap )
-	criu? ( >=sys-process/criu-3.15 )
+	criu? ( >=sys-process/criu-3.13 )
 	seccomp? ( sys-libs/libseccomp )
 	systemd? ( sys-apps/systemd:= )
 "
