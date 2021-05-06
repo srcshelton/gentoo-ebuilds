@@ -1,0 +1,73 @@
+--- a/pppd/ether.c.inc
++++ b/pppd/ether.c.inc
+@@ -0,0 +1,50 @@
++#define PREF_ETH   "eth"
++#define PREF_EM    "em"
++#define PREF_EF    "ef"
++#define PREF_EG    "eg"
++
++static char *dev_file = "/proc/self/net/dev";
++
++/*
++ * get_first_ethernet - return the name of the first ethernet-style
++ * interface on this system.
++ */
++char *
++get_first_ethernet()
++{
++  FILE *f;
++  char buf[255], *dv, *smc;
++  char pci[16];
++
++  memset(pci, 0, sizeof(pci));
++  if ((f = fopen(dev_file, "r")) != NULL)
++  {
++    // go through network dev file
++    while (fgets (buf, sizeof(buf), f) != NULL)
++    {
++      // the line describes interface
++      if ((smc = strchr(buf, ':')) != NULL)
++      {
++        // trim whitespace characters
++        for (dv=buf, *smc=0; *dv <= ' '; dv++) ;
++        // is "eth" (originial ethernet name) or "em" (ethernet on board)
++        if (!strncmp(dv, PREF_ETH, strlen(PREF_ETH)) ||
++            !strncmp(dv, PREF_EM, strlen(PREF_EM)) ||
++            !strncmp(dv, PREF_EF, strlen(PREF_EF)) ||
++            !strncmp(dv, PREF_EG, strlen(PREF_EG)))
++        {
++          return strdup(dv);
++        }
++        // remember the first pci NIC-card
++        if (strlen(pci) == 0 && dv[0] == 'p' && isdigit(dv[1]))
++        {
++          strcpy(pci, dv);
++        }
++      }
++    }
++    fclose(f);
++  }
++  // return pci NIC-card or nil if no if name
++  return strlen(pci) > 0 ? strdup(pci) : 0L;
++}
++
+--- a/pppd/plugins/pppoe/pppoe-discovery.c
++++ b/pppd/plugins/pppoe/pppoe-discovery.c
+@@ -45,6 +45,8 @@
+ #include <net/if_arp.h>
+ #endif
+ 
++#include "../../ether.c.inc"
++
+ char *xstrdup(const char *s);
+ void usage(void);
+ 
+@@ -733,7 +735,7 @@ int main(int argc, char *argv[])
+ 
+     /* default interface name */
+     if (!conn->ifName)
+-	conn->ifName = strdup("eth0");
++	conn->ifName = get_first_ethernet();
+ 
+     conn->discoverySocket = -1;
+     conn->sessionSocket = -1;
