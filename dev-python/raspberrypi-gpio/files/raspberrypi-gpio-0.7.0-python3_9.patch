@@ -1,0 +1,60 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 4bbad2a..41310e9 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,6 +1,10 @@
+ Change Log
+ ==========
+ 
++0.7.1a3
++-------
++Fix PyEval_InitThreads deprecation warning for Python 3.9 (issue 188)
++
+ 0.7.1a2
+ -------
+ Fix build using GCC 10 (issue 187)
+diff --git a/RPi/GPIO/__init__.py b/RPi/GPIO/__init__.py
+index 7b457c4..b9af4e4 100644
+--- a/RPi/GPIO/__init__.py
++++ b/RPi/GPIO/__init__.py
+@@ -22,4 +22,4 @@
+ 
+ from RPi._GPIO import *
+ 
+-VERSION = '0.7.1a2'
++VERSION = '0.7.1a3'
+diff --git a/setup.py b/setup.py
+index dc49d3d..acc27f7 100644
+--- a/setup.py
++++ b/setup.py
+@@ -34,7 +34,7 @@
+                'Topic :: System :: Hardware']
+ 
+ setup(name             = 'RPi.GPIO',
+-      version          = '0.7.1a2',
++      version          = '0.7.1a3',
+       author           = 'Ben Croston',
+       author_email     = 'ben@croston.org',
+       description      = 'A module to control Raspberry Pi GPIO channels',
+diff --git a/source/py_gpio.c b/source/py_gpio.c
+index f7852c7..9709416 100644
+--- a/source/py_gpio.c
++++ b/source/py_gpio.c
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2012-2016 Ben Croston
++Copyright (c) 2012-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -1043,8 +1043,10 @@ PyMODINIT_FUNC init_GPIO(void)
+    Py_INCREF(&PWMType);
+    PyModule_AddObject(module, "PWM", (PyObject*)&PWMType);
+ 
++#if PY_MAJOR_VERSION < 3 || PY_MINOR_VERSION < 7
+    if (!PyEval_ThreadsInitialized())
+       PyEval_InitThreads();
++#endif
+ 
+    // register exit functions - last declared is called first
+    if (Py_AtExit(cleanup) != 0)

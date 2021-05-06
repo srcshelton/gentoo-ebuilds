@@ -1,0 +1,448 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 8398ef5..4bbad2a 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,8 +1,18 @@
+ Change Log
+ ==========
+ 
+-0.7.0
++0.7.1a2
++-------
++Fix build using GCC 10 (issue 187)
++
++0.7.1a1
+ -------
++- Fix docstrings to not include licence
++- Remove Debian/Raspbian stretch packaging support
++- Use setuptools instead of distutils
++
++0.7.0
++-----
+ - Updated RPI_INFO to include RPi 4B
+ - Fixed pull up/down for Pi4 (issue 168)
+ - Fix spelling mistake in docstrings
+diff --git a/INSTALL.txt b/INSTALL.txt
+index 0c23992..843ad01 100644
+--- a/INSTALL.txt
++++ b/INSTALL.txt
+@@ -5,7 +5,9 @@ $ sudo apt-get install python-rpi.gpio python3-rpi.gpio
+ ------------
+ 
+ If you are not using Raspbian, it is recommended that you install this module using pip:
+-$  sudo pip install RPi.GPIO
++$ pip install RPi.GPIO
++   or
++$ pip3 install RPi.GPIO
+ 
+ ------------
+ 
+@@ -17,6 +19,6 @@ $ sudo apt-get install python-dev python3-dev
+ 
+ To install the module:
+ 
+-$ sudo python setup.py install
+-  or
+-$ sudo python3 setup.py install
++$ python setup.py install
++   or
++$ python3 setup.py install
+diff --git a/LICENCE.txt b/LICENCE.txt
+index b03d7b8..0c62fb1 100644
+--- a/LICENCE.txt
++++ b/LICENCE.txt
+@@ -1,4 +1,4 @@
+-Copyright (c) 2012-2014 Ben Croston
++Copyright (c) 2012-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+diff --git a/README.txt b/README.txt
+index 4c6ea9b..9144f32 100644
+--- a/README.txt
++++ b/README.txt
+@@ -1,4 +1,4 @@
+-This package provides a class to control the GPIO on a Raspberry Pi.
++This package provides a Python module to control the GPIO on a Raspberry Pi.
+ 
+ Note that this module is unsuitable for real-time or timing critical applications.  This is because you
+ can not predict when Python will be busy garbage collecting.  It also runs under the Linux kernel which
+diff --git a/RPi/GPIO/__init__.py b/RPi/GPIO/__init__.py
+index 4cb7e4f..7b457c4 100644
+--- a/RPi/GPIO/__init__.py
++++ b/RPi/GPIO/__init__.py
+@@ -1,25 +1,25 @@
+-"""
+-Copyright (c) 2012-2019 Ben Croston
++# Copyright (c) 2012-2021 Ben Croston
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy of
++# this software and associated documentation files (the "Software"), to deal in
++# the Software without restriction, including without limitation the rights to
++# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
++# of the Software, and to permit persons to whom the Software is furnished to do
++# so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in all
++# copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++# SOFTWARE.
+ 
+-Permission is hereby granted, free of charge, to any person obtaining a copy of
+-this software and associated documentation files (the "Software"), to deal in
+-the Software without restriction, including without limitation the rights to
+-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-of the Software, and to permit persons to whom the Software is furnished to do
+-so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all
+-copies or substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-SOFTWARE.
+-"""
++"""This package provides a Python module to control the GPIO on a Raspberry Pi"""
+ 
+ from RPi._GPIO import *
+ 
+-VERSION = '0.7.0'
++VERSION = '0.7.1a2'
+diff --git a/setup.py b/setup.py
+index 2b600ca..dc49d3d 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1,26 +1,27 @@
++# Copyright (c) 2012-2021 Ben Croston
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy of
++# this software and associated documentation files (the "Software"), to deal in
++# the Software without restriction, including without limitation the rights to
++# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
++# of the Software, and to permit persons to whom the Software is furnished to do
++# so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in all
++# copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++# SOFTWARE.
+ """
+-Copyright (c) 2012-2019 Ben Croston
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of
+-this software and associated documentation files (the "Software"), to deal in
+-the Software without restriction, including without limitation the rights to
+-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-of the Software, and to permit persons to whom the Software is furnished to do
+-so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all
+-copies or substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-SOFTWARE.
++This package provides a Python module to control the GPIO on a Raspberry Pi.
+ """
+ 
+-from distutils.core import setup, Extension
++from setuptools import setup, Extension
+ 
+ classifiers = ['Development Status :: 5 - Production/Stable',
+                'Operating System :: POSIX :: Linux',
+@@ -33,7 +34,7 @@ classifiers = ['Development Status :: 5 - Production/Stable',
+                'Topic :: System :: Hardware']
+ 
+ setup(name             = 'RPi.GPIO',
+-      version          = '0.7.0',
++      version          = '0.7.1a2',
+       author           = 'Ben Croston',
+       author_email     = 'ben@croston.org',
+       description      = 'A module to control Raspberry Pi GPIO channels',
+diff --git a/source/common.c b/source/common.c
+index 1a8d121..fd9e549 100644
+--- a/source/common.c
++++ b/source/common.c
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013-2014 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -28,6 +28,9 @@ int gpio_mode = MODE_UNKNOWN;
+ const int pin_to_gpio_rev1[41] = {-1, -1, -1, 0, -1, 1, -1, 4, 14, -1, 15, 17, 18, 21, -1, 22, 23, -1, 24, 10, -1, 9, 25, 11, 8, -1, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+ const int pin_to_gpio_rev2[41] = {-1, -1, -1, 2, -1, 3, -1, 4, 14, -1, 15, 17, 18, 27, -1, 22, 23, -1, 24, 10, -1, 9, 25, 11, 8, -1, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+ const int pin_to_gpio_rev3[41] = {-1, -1, -1, 2, -1, 3, -1, 4, 14, -1, 15, 17, 18, 27, -1, 22, 23, -1, 24, 10, -1, 9, 25, 11, 8, -1, 7, -1, -1, 5, -1, 6, 12, 13, -1, 19, 16, 26, 20, -1, 21 };
++const int (*pin_to_gpio)[41];
++int gpio_direction[54];
++rpi_info rpiinfo;
+ int setup_error = 0;
+ int module_setup = 0;
+ 
+diff --git a/source/common.h b/source/common.h
+index dd9f25c..e44eb41 100644
+--- a/source/common.h
++++ b/source/common.h
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013-2015 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -30,14 +30,15 @@ SOFTWARE.
+ #define I2C          42
+ #define PWM          43
+ 
+-int gpio_mode;
+-const int pin_to_gpio_rev1[41];
+-const int pin_to_gpio_rev2[41];
+-const int pin_to_gpio_rev3[41];
+-const int (*pin_to_gpio)[41];
+-int gpio_direction[54];
+-rpi_info rpiinfo;
+-int setup_error;
+-int module_setup;
++extern int gpio_mode;
++extern const int pin_to_gpio_rev1[41];
++extern const int pin_to_gpio_rev2[41];
++extern const int pin_to_gpio_rev3[41];
++extern const int (*pin_to_gpio)[41];
++extern int gpio_direction[54];
++extern rpi_info rpiinfo;
++extern int setup_error;
++extern int module_setup;
++
+ int check_gpio_priv(void);
+ int get_gpio_number(int channel, unsigned int *gpio);
+diff --git a/source/constants.c b/source/constants.c
+index 3b8728c..91f7684 100644
+--- a/source/constants.c
++++ b/source/constants.c
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013-2016 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -26,6 +26,24 @@ SOFTWARE.
+ #include "c_gpio.h"
+ #include "event_gpio.h"
+ 
++PyObject *high;
++PyObject *low;
++PyObject *input;
++PyObject *output;
++PyObject *pwm;
++PyObject *serial;
++PyObject *i2c;
++PyObject *spi;
++PyObject *unknown;
++PyObject *board;
++PyObject *bcm;
++PyObject *pud_off;
++PyObject *pud_up;
++PyObject *pud_down;
++PyObject *rising_edge;
++PyObject *falling_edge;
++PyObject *both_edge;
++
+ void define_constants(PyObject *module)
+ {
+    high = Py_BuildValue("i", HIGH);
+diff --git a/source/constants.h b/source/constants.h
+index 6c200ad..cb0dc73 100644
+--- a/source/constants.h
++++ b/source/constants.h
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -23,22 +23,22 @@ SOFTWARE.
+ #define PY_PUD_CONST_OFFSET 20
+ #define PY_EVENT_CONST_OFFSET 30
+ 
+-PyObject *high;
+-PyObject *low;
+-PyObject *input;
+-PyObject *output;
+-PyObject *pwm;
+-PyObject *serial;
+-PyObject *i2c;
+-PyObject *spi;
+-PyObject *unknown;
+-PyObject *board;
+-PyObject *bcm;
+-PyObject *pud_off;
+-PyObject *pud_up;
+-PyObject *pud_down;
+-PyObject *rising_edge;
+-PyObject *falling_edge;
+-PyObject *both_edge;
++extern PyObject *high;
++extern PyObject *low;
++extern PyObject *input;
++extern PyObject *output;
++extern PyObject *pwm;
++extern PyObject *serial;
++extern PyObject *i2c;
++extern PyObject *spi;
++extern PyObject *unknown;
++extern PyObject *board;
++extern PyObject *bcm;
++extern PyObject *pud_off;
++extern PyObject *pud_up;
++extern PyObject *pud_down;
++extern PyObject *rising_edge;
++extern PyObject *falling_edge;
++extern PyObject *both_edge;
+ 
+ void define_constants(PyObject *module);
+diff --git a/source/event_gpio.c b/source/event_gpio.c
+index 7304132..af7c39b 100644
+--- a/source/event_gpio.c
++++ b/source/event_gpio.c
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013-2018 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -57,7 +57,6 @@ struct callback
+ };
+ struct callback *callbacks = NULL;
+ 
+-pthread_t threads;
+ int event_occurred[54] = { 0 };
+ int thread_running = 0;
+ int epfd_thread = -1;
+diff --git a/source/py_pwm.h b/source/py_pwm.h
+index 84e623d..f099924 100644
+--- a/source/py_pwm.h
++++ b/source/py_pwm.h
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -20,5 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
+ 
+-PyTypeObject PWMType;
++extern PyTypeObject PWMType;
++
+ PyTypeObject *PWM_init_PWMType(void);
+diff --git a/source/soft_pwm.c b/source/soft_pwm.c
+index 400ec09..b63cc64 100644
+--- a/source/soft_pwm.c
++++ b/source/soft_pwm.c
+@@ -1,5 +1,5 @@
+ /*
+-Copyright (c) 2013-2018 Ben Croston
++Copyright (c) 2013-2021 Ben Croston
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy of
+ this software and associated documentation files (the "Software"), to deal in
+@@ -25,7 +25,6 @@ SOFTWARE.
+ #include <time.h>
+ #include "c_gpio.h"
+ #include "soft_pwm.h"
+-pthread_t threads;
+ 
+ struct pwm
+ {
+@@ -193,6 +192,7 @@ void pwm_set_frequency(unsigned int gpio, float freq)
+ 
+ void pwm_start(unsigned int gpio)
+ {
++    pthread_t threads;
+     struct pwm *p;
+ 
+     if (((p = find_pwm(gpio)) == NULL) || p->running)
+diff --git a/test/test.py b/test/test.py
+index b41de3e..46a4889 100644
+--- a/test/test.py
++++ b/test/test.py
+@@ -1,30 +1,30 @@
+-#!/usr/bin/env python
++# Copyright (c) 2013-2021 Ben Croston
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy of
++# this software and associated documentation files (the "Software"), to deal in
++# the Software without restriction, including without limitation the rights to
++# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
++# of the Software, and to permit persons to whom the Software is furnished to do
++# so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in all
++# copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++# SOFTWARE.
++
+ from __future__ import print_function
+ if hasattr(__builtins__, 'raw_input'):
+     input = raw_input
+-"""
+-Copyright (c) 2013-2018 Ben Croston
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of
+-this software and associated documentation files (the "Software"), to deal in
+-the Software without restriction, including without limitation the rights to
+-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-of the Software, and to permit persons to whom the Software is furnished to do
+-so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all
+-copies or substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-SOFTWARE.
+-"""
+ 
+-"""This test suite assumes the following circuit is connected:
++"""RPi.GPIO unit tests
++
++This test suite assumes the following circuit is connected:
+ GND_PIN = 6
+ LED_PIN = 12 (with resistor to 0v)
+ SWITCH_PIN = 18 (with 0.1 uF capacitor around switch) to 0v
