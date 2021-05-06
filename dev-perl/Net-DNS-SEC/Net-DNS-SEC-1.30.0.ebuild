@@ -10,7 +10,7 @@ inherit perl-module
 DESCRIPTION="DNSSEC extensions to Net::DNS"
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="+dsa +ecdsa gost +private-key test"
 RESTRICT="!test? ( test )"
 
@@ -26,12 +26,12 @@ RDEPEND="
 		>=dev-perl/Crypt-OpenSSL-EC-1.10.0
 		>=dev-perl/Crypt-OpenSSL-ECDSA-0.60.0
 	)
-	private-key? ( >=dev-perl/Crypt-OpenSSL-Random-0.100.0 )
 	gost? (
 		>=dev-perl/Crypt-OpenSSL-EC-1.10.0
 		>=dev-perl/Crypt-OpenSSL-ECDSA-0.60.0
 		>=dev-perl/Digest-GOST-0.60.0
 	)
+	private-key? ( >=dev-perl/Crypt-OpenSSL-Random-0.100.0 )
 "
 DEPEND="${RDEPEND}
 	virtual/perl-ExtUtils-MakeMaker
@@ -91,3 +91,5 @@ src_test() {
 pkg_postinst() {
 	use test || optdep_notice
 }
+
+# vi: set diffopt=iwhite,filler:
