@@ -5,7 +5,7 @@ EAPI=7
 
 LUA_COMPAT=( lua5-1 lua5-2 )
 
-inherit autotools db-use eutils lua-single systemd tmpfiles
+inherit autotools db-use lua-single systemd tmpfiles
 
 DESCRIPTION="A milter providing DKIM signing and verification"
 HOMEPAGE="http://opendkim.org/"
