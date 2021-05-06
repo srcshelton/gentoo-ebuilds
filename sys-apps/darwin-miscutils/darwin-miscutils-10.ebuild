@@ -3,7 +3,7 @@
 
 EAPI="6"
 
-inherit eutils toolchain-funcs
+inherit epatch toolchain-funcs
 
 # from 10.8
 MISC_VER=31
@@ -41,7 +41,7 @@ src_prepare() {
 	eapply_user
 
 	pushd .. >/dev/null 2>&1
-	epatch "${FILESDIR}"/"${P}"-md.patch
+	epatch "${FILESDIR}/${P}-md.patch"
 	popd >/dev/null 2>&1
 }
 
