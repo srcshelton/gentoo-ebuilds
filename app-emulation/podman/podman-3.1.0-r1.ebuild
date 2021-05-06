@@ -50,6 +50,8 @@ RDEPEND="${COMMON_DEPEND}
 
 S="${WORKDIR}/${P/_/-}"
 
+PATCHES=( "${FILESDIR}/${P}-storage-opt.patch" )
+
 # Inherited from docker-19.03.8 ...
 CONFIG_CHECK="
 	~NAMESPACES ~NET_NS ~PID_NS ~IPC_NS ~UTS_NS

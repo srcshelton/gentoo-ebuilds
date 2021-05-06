@@ -2,11 +2,11 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+EGIT_COMMIT='51b8ddbc22cf5b10dd76dd9243924aa66ad7db39'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-EGIT_COMMIT='9f09fb62cba8f44c18eda84db3e72aab3ae76046'
-COMMON_VERSION='0.36.0'
+COMMON_VERSION='0.37.1'
 CATATONIT_VERSION='0.1.5'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
@@ -89,6 +89,10 @@ ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gath
 ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
 ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
 ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
+
+PATCHES=(
+	"${FILESDIR}/${P}-dev-warning.patch"
+)
 
 pkg_setup() {
 	if kernel_is lt 3 10; then

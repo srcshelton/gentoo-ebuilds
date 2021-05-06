@@ -1,0 +1,14 @@
+--- a/vendor/github.com/opencontainers/runtime-tools/generate/generate.go
++++ b/vendor/github.com/opencontainers/runtime-tools/generate/generate.go
+@@ -1442,9 +1442,11 @@ func (g *Generator) AddDevice(device rsp
+ 			g.Config.Linux.Devices[i] = device
+ 			return
+ 		}
++		/*
+ 		if dev.Type == device.Type && dev.Major == device.Major && dev.Minor == device.Minor {
+ 			fmt.Fprintln(os.Stderr, "WARNING: The same type, major and minor should not be used for multiple devices.")
+ 		}
++		*/
+ 	}
+ 
+ 	g.Config.Linux.Devices = append(g.Config.Linux.Devices, device)
