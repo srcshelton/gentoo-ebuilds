@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit prefix systemd
+inherit prefix systemd toolchain-funcs
 
 DESCRIPTION="File transfer program to keep remote files into sync"
 HOMEPAGE="https://rsync.samba.org/"
@@ -24,9 +24,7 @@ fi
 
 LICENSE="GPL-3"
 SLOT="0"
-IUSE_CPU_FLAGS_X86=" sse2"
 IUSE="acl cpu_flags_x86_sse2 examples iconv ipv6 libressl lz4 ssl stunnel systemd system-zlib xattr xxhash zstd"
-IUSE+=" ${IUSE_CPU_FLAGS_X86// / cpu_flags_x86_}"
 
 RDEPEND="acl? ( virtual/acl )
 	lz4? ( app-arch/lz4 )
@@ -55,6 +53,9 @@ python_check_deps() {
 }
 
 src_prepare() {
+	local PATCHES=(
+		"${FILESDIR}/rsync-3.2.3-glibc-lchmod.patch"
+	)
 	default
 	if [[ "${PV}" == *9999 ]] ; then
 		eaclocal -I m4
@@ -78,12 +79,11 @@ src_configure() {
 		$(use_enable zstd)
 	)
 
-	if use elibc_glibc && [[ "${ARCH}" == "amd64" ]] ; then
-		# SIMD is only available for x86_64 right now
-		# and only on glibc (#728868)
-		myeconfargs+=( $(use_enable cpu_flags_x86_sse2 simd) )
-	else
+	if tc-is-cross-compiler; then
+		# configure check is broken when cross-compiling.
 		myeconfargs+=( --disable-simd )
+	elif use cpu_flags_x86_sse2; then
+		myeconfargs+=( --enable-simd )
 	fi
 
 	econf "${myeconfargs[@]}"
