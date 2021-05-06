@@ -714,4 +714,5 @@ x32 profiles, and that these variables only affect multilib systems.
 # Make systemd unit installation optional
 
 * sys-apps/rng-tools
+* sys-block/zram-init
 
