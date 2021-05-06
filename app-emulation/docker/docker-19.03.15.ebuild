@@ -61,7 +61,7 @@ RDEPEND="
 	container-init? ( >=sys-process/tini-0.18.0[static] )
 "
 
-RESTRICT="installsources strip"
+RESTRICT="installsources strip test"
 
 S="${WORKDIR}/${P}/src/${EGO_PN}"
 
@@ -198,8 +198,8 @@ src_compile() {
 
 	# setup CFLAGS and LDFLAGS for separate build target
 	# see https://github.com/tianon/docker-overlay/pull/10
-	export CGO_CFLAGS="-I${ROOT}/usr/include"
-	export CGO_LDFLAGS="-L${ROOT}/usr/$(get_libdir)"
+	export CGO_CFLAGS="-I${ESYSROOT}/usr/include"
+	export CGO_LDFLAGS="-L${ESYSROOT}/usr/$(get_libdir)"
 
 	# if we're building from a tarball, we need the GITCOMMIT value
 	[[ ${DOCKER_GITCOMMIT} ]] && export DOCKER_GITCOMMIT
