@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools db-use eutils flag-o-matic java-pkg-opt-2 multilib pam systemd tmpfiles toolchain-funcs multilib-minimal
+inherit autotools db-use flag-o-matic java-pkg-opt-2 multilib pam systemd tmpfiles toolchain-funcs multilib-minimal
 
 SASLAUTHD_CONF_VER="2.1.26"
 
@@ -14,7 +14,7 @@ SRC_URI="https://github.com/cyrusimap/${PN}/releases/download/${P}/${P}.tar.gz"
 
 LICENSE="BSD-with-attribution"
 SLOT="2"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="authdaemond berkdb gdbm kerberos ldapdb libressl mysql openldap pam postgres sample selinux sqlite srp ssl static-libs systemd urandom"
 
 CDEPEND="
@@ -242,12 +242,15 @@ multilib_src_install_all() {
 }
 
 pkg_config() {
-	if [ "${ROOT}" != '/' ]; then
-		local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+	if ! use berkdb && ! use gdbm; then
+		return 0
 	fi
 	# Generate an empty sasldb2 with correct permissions.
 	if [[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]] ; then
 		einfo "Generating an empty sasldb2 with correct permissions ..."
+		if [ "${ROOT}" != '/' ]; then
+			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+		fi
 		echo "p" | "${EROOT}/usr/sbin/saslpasswd2" -f "${EROOT}/etc/sasl2/sasldb2" -p login \
 			|| die "Failed to generate sasldb2"
 		"${EROOT}/usr/sbin/saslpasswd2" -f "${EROOT}/etc/sasl2/sasldb2" -d login \
