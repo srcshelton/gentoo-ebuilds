@@ -27,11 +27,6 @@ RDEPEND="sys-apps/gentoo-functions
 	!<sys-fs/udev-init-scripts-27"
 BDEPEND="kernel_linux? ( virtual/pkgconfig )"
 
-PATCHES=(
-	"${FILESDIR}/${PN}-0.7.1-dhcpcd_pidfile_location.patch"
-	"${FILESDIR}/${PN}-0.7.1-dhcpcd_args_tempfile.patch"
-)
-
 src_prepare() {
 	if [[ ${PV} == "9999" ]] ; then
 		local ver="git-${EGIT_VERSION:0:6}"
