@@ -16,7 +16,7 @@ if [[ ${PV} == "9999" ]] ; then
 else
 	MY_P=${PN}-${PV/_/-}
 	SRC_URI="https://www.busybox.net/downloads/${MY_P}.tar.bz2"
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 fi
 
 LICENSE="GPL-2" # GPL-2 only
@@ -27,6 +27,7 @@ IUSE="debug ipv6 livecd make-symlinks math mdev -pam selinux sep-usr +static sys
 REQUIRED_USE="!livecd? ( pam? ( !static ) )"
 RESTRICT="test"
 
+# TODO: Could make pkgconfig conditional on selinux? bug #782829
 COMMON_DEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
 	pam? ( sys-libs/pam )
 	virtual/libcrypt:="
@@ -36,6 +37,7 @@ DEPEND="${COMMON_DEPEND}
 		selinux? ( sys-libs/libselinux[static-libs(+)] )
 	)
 	>=sys-kernel/linux-headers-2.6.39"
+BDEPEND="virtual/pkgconfig"
 RDEPEND="${COMMON_DEPEND}
 	mdev? ( !<sys-apps/openrc-0.13 )"
 
