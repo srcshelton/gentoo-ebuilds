@@ -304,6 +304,8 @@ used to build perl)
 * dev-python/pre-commit
 * dev-python/yamllint
 * dev-ruby/CFPropertyList
+* dev-util/ltrace
+    * The ltrace project hasn't made a release in a long time, but we can pull-in more recent commits
 * games-server/minecraft-bedrock-server-bin
 * games-server/minecraft-server-bin
 * mail-client/roundcube

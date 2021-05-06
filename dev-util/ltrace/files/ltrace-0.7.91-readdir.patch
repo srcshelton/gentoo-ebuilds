@@ -1,0 +1,39 @@
+diff --git a/sysdeps/linux-gnu/proc.c b/sysdeps/linux-gnu/proc.c
+index 953fd862f94168d855dfa9e4574651cf1cbfae98..0806268f2d77753edae70ac081977505c9a06cc8 100644
+--- a/sysdeps/linux-gnu/proc.c
++++ b/sysdeps/linux-gnu/proc.c
+@@ -242,16 +242,15 @@ process_tasks(pid_t pid, pid_t **ret_tasks, size_t *ret_n)
+ 	size_t alloc = 0;
+ 
+ 	while (1) {
+-		struct dirent entry;
+ 		struct dirent *result;
+-		if (readdir_r(d, &entry, &result) != 0) {
+-		fail:
+-			free(tasks);
+-			closedir(d);
+-			return -1;
++		errno = 0;
++		result = readdir(d);
++		if (result == NULL) {
++			if (errno == 0)
++				break; /* end of dir stream */
++			else
++				goto fail;
+ 		}
+-		if (result == NULL)
+-			break;
+ 		if (result->d_type == DT_DIR && all_digits(result->d_name)) {
+ 			pid_t npid = atoi(result->d_name);
+ 			if (n >= alloc) {
+@@ -272,6 +271,10 @@ process_tasks(pid_t pid, pid_t **ret_tasks, size_t *ret_n)
+ 	*ret_tasks = tasks;
+ 	*ret_n = n;
+ 	return 0;
++fail:
++	free(tasks);
++	closedir(d);
++	return -1;
+ }
+ 
+ /* On native 64-bit system, we need to be careful when handling cross
