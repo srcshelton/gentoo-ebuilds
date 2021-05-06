@@ -78,7 +78,7 @@ pkg_setup() {
 				die "Filesystem '${boot}' is currently mounted read-only - installation cannot proceed"
 				;;
 			*)
-				die "Cannot determine mount-state of boot filesystem '${boot}' - is this partition mounted?"
+				ewarn "Cannot determine mount-state of boot filesystem '${boot}' - is this partition mounted?"
 				;;
 		esac
 	fi
