@@ -44,6 +44,8 @@ inherit user
 [[ ${CATEGORY} == acct-group ]] ||
 	die "Ebuild error: this eclass can be used only in acct-group category!"
 
+BDEPEND="sys-apps/shadow"
+
 IUSE="systemd"
 
 
