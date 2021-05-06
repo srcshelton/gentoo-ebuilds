@@ -493,6 +493,8 @@ used to build perl)
     * Add consistent group and user dependencies
 * virtual/bitcoin-leveldb
     * Be more flexible about necessary dependencies
+* virtual/mta
+    * Add optional USE flags to control which MTA will be installed
 * virtual/tmpfiles
     * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 * ~~x11-drivers/nvidia-drivers~~
@@ -561,11 +563,12 @@ directory is an additional QA check which reports an error if files deployed to
 
 # Fixes to allow `/var/state` to be used in place of `/var/lib`
 
-`/var/state` was referenced in the [Filesystem Hierarchy Standard 2.0](http://www.ibiblio.org/pub/Linux/docs/fsstnd/fhs-2.0.tar.gz) as superseding
-`/var/lib`, although versions 2.1 and later no longer mention this particular
-configuration.  Regardless, supporting `/var/state` (with a symlink from
-`/var/lib` for compatibility) takes very little effort, and the name `state`
-feels like a much better fit with respect to the intended contents.
+`/var/state` was referenced in the [Filesystem Hierarchy Standard 2.0](http://www.ibiblio.org/pub/Linux/docs/fsstnd/fhs-2.0.tar.gz)
+as superseding `/var/lib`, although versions 2.1 and later no longer mention
+this particular configuration.  Regardless, supporting `/var/state` (with a
+symlink from `/var/lib` for compatibility) takes very little effort, and the
+name `state` feels like a much better fit with respect to the intended
+contents.
 
 * dev-lang/php
 * dev-php/PEAR-PEAR
