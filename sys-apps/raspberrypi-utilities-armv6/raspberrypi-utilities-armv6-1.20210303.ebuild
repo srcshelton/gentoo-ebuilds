@@ -11,7 +11,7 @@ SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> raspber
 
 LICENSE="Broadcom"
 SLOT="0/0"
-KEYWORDS="~aarch64 arm -*"
+KEYWORDS="arm ~arm64 -*"
 IUSE="-containers dtutils tools"
 
 BDEPEND="media-libs/raspberrypi-userland"
