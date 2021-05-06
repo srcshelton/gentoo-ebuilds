@@ -642,8 +642,8 @@ x32 profiles, and that these variables only affect multilib systems.
 
 * app-eselect/eselect-awk
     * Support for (g)awk installed in `/bin`
-* ~~net-wireless/bluez~~
-    * ~~Make 'udev' an optional dependency, controlled by `USE="udev"`~~
+* net-wireless/bluez
+    * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-apps/coreutils
     * Add `uniq` to the list of binaries moved to `/bin`, as some init scripts (such as `device-mapper`) rely on it being present during early-boot
 * sys-apps/gawk
