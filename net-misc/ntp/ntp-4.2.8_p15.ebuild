@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools flag-o-matic systemd toolchain-funcs
+inherit autotools flag-o-matic systemd
 
 MY_P=${P/_p/p}
 DESCRIPTION="Network Time Protocol suite/programs"
@@ -13,7 +13,7 @@ SRC_URI="http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-${PV:0:3}/${MY_P}.tar
 
 LICENSE="HPND BSD ISC"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="caps debug ipv6 libressl openntpd parse-clocks readline samba selinux snmp ssl systemd +threads vim-syntax zeroconf"
 
 COMMON_DEPEND="readline? ( >=sys-libs/readline-4.1:0= )
