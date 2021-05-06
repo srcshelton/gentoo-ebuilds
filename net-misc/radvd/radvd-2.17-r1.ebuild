@@ -1,9 +1,9 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
 
-inherit eutils readme.gentoo-r1 systemd user
+inherit readme.gentoo-r1 systemd user
 
 DESCRIPTION="Linux IPv6 Router Advertisement Daemon"
 HOMEPAGE="http://v6web.litech.org/radvd/"
@@ -66,4 +66,5 @@ See ${ROOT}usr/share/doc/${PF} for an example.
 grsecurity users should allow a specific group to read /proc
 and add the radvd user to that group, otherwise radvd may
 segfault on startup."
+
 # vi: set diffopt=iwhite,filler:
