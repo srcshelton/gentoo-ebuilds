@@ -5,7 +5,7 @@ EAPI="7"
 
 WANT_AUTOMAKE="none"
 
-inherit autotools flag-o-matic systemd
+inherit autotools flag-o-matic multilib systemd
 
 MY_PV=${PV/_rc/RC}
 DESCRIPTION="The PHP language runtime engine"
@@ -29,7 +29,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 SAPIS="embed cli cgi fpm apache2 phpdbg"
 
 # SAPIs and SAPI-specific USE flags (cli SAPI is default on):
-IUSE="acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite ssl systemd sysvipc test threads tidy +tokenizer tokyocabinet truetype unicode webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip zlib"
+IUSE="acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite ssl systemd sysvipc test threads tidy +tokenizer tokyocabinet truetype unicode webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip zlib"
 
 # Without USE=readline or libedit, the interactive "php -a" CLI will hang.
 # The Oracle instant client provides its own incompatible ldap library.
@@ -106,8 +106,7 @@ COMMON_DEPEND="
 	spell? ( >=app-text/aspell-0.50 )
 	sqlite? ( >=dev-db/sqlite-3.7.6.3 )
 	ssl? (
-		!libressl? ( >=dev-libs/openssl-1.0.1:0= )
-		libressl? ( dev-libs/libressl:0= )
+		>=dev-libs/openssl-1.0.1:0=
 	)
 	tidy? ( || ( app-text/tidy-html5 app-text/htmltidy ) )
 	tokyocabinet? ( dev-db/tokyocabinet )

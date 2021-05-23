@@ -27,14 +27,14 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 SAPIS="embed cli cgi fpm apache2 phpdbg"
 
 # SAPIs and SAPI-specific USE flags (cli SAPI is default on):
-IUSE="acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +hash +iconv imap inifile intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline recode selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite ssl systemd sysvipc test threads tidy +tokenizer tokyocabinet truetype unicode wddx webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip zip-encryption zlib"
+IUSE="acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +hash +iconv imap inifile intl iodbc ipv6 +jit +json kerberos ldap ldap-sasl libedit lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline recode selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite ssl systemd sysvipc test threads tidy +tokenizer tokyocabinet truetype unicode wddx webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip zip-encryption zlib"
 
 # The supported (that is, autodetected) versions of BDB are listed in
 # the ./configure script. Other versions *work*, but we need to stick to
 # the ones that can be detected to avoid a repeat of bug #564824.
 COMMON_DEPEND="
 	>=app-eselect/eselect-php-0.9.1[apache2?,fpm?]
-	>=dev-libs/libpcre2-10.30[unicode]
+	>=dev-libs/libpcre2-10.30[jit?,unicode]
 	fpm? ( acl? ( sys-apps/acl ) )
 	apache2? ( www-servers/apache[apache2_modules_unixd(+),threads=] )
 	argon2? ( app-crypt/argon2:= )
@@ -77,9 +77,7 @@ COMMON_DEPEND="
 	sodium? ( dev-libs/libsodium:= )
 	spell? ( >=app-text/aspell-0.50 )
 	sqlite? ( >=dev-db/sqlite-3.7.6.3 )
-	ssl? (
-		>=dev-libs/openssl-1.0.1:0=
-	)
+	ssl? ( >=dev-libs/openssl-1.0.1:0= )
 	tidy? ( || ( app-text/tidy-html5 app-text/htmltidy ) )
 	tokyocabinet? ( dev-db/tokyocabinet )
 	truetype? ( =media-libs/freetype-2* )
@@ -412,12 +410,11 @@ src_configure() {
 	# --with-pcre-regex affects ext/pcre
 	# --with-pcre-dir affects ext/filter and ext/zip
 	# --with-pcre-valgrind cannot be enabled with system pcre
-	# Many arches don't support pcre-jit
 	our_conf+=(
 		--with-pcre-regex="${EPREFIX}/usr"
 		--with-pcre-dir="${EPREFIX}/usr"
 		--without-pcre-valgrind
-		--without-pcre-jit
+		$(use_with jit pcre-jit)
 	)
 
 	# Catch CFLAGS problems
