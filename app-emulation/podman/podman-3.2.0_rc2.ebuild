@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT='cb30558bdf8c8f0481c4f05774105fffe0db597a'
+EGIT_COMMIT='e849ba2013c15ad4f46c7034ee77f7215eecb9cf'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
@@ -92,8 +92,8 @@ ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-3.1.2-dev-warning.patch"
-	"${FILESDIR}/${P}-only-prune-untagged.patch"
-	"${FILESDIR}/${P}-clear-storage-opts-with-root.patch"
+	#"${FILESDIR}/${PN}-3.2.0_rc1-only-prune-untagged.patch"
+	#"${FILESDIR}/${PN}-3.2.0_rc1-clear-storage-opts-with-root.patch"
 )
 
 pkg_setup() {

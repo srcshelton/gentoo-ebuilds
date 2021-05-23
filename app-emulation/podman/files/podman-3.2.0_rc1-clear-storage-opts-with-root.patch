@@ -1,0 +1,72 @@
+From c30e3f3bc65127eec1f98f9a44b1352081d22657 Mon Sep 17 00:00:00 2001
+From: Daniel J Walsh <dwalsh@redhat.com>
+Date: Wed, 19 May 2021 08:22:13 -0400
+Subject: [PATCH] Clear the storage-options from the graphdriver if users
+ specifies --root
+
+Fixes: https://github.com/containers/podman/issues/10393
+
+Currently if a user specifies a --root flag to override the location of
+the container storage, we still enforce the storage-opts from
+storage.conf. This causes issues with people trying to intereact with
+the additional stores feature, and then forces them to use the obscure
+--storage-opt="" option. I belive this should be the default and we
+already do this when the user specifies the --storage-driver option.
+
+Signed-off-by: Daniel J Walsh <dwalsh@redhat.com>
+---
+ docs/source/markdown/podman.1.md   |  2 ++
+ pkg/domain/infra/runtime_libpod.go |  1 +
+ test/system/005-info.bats          | 14 +++++++++-----
+ 3 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/docs/source/markdown/podman.1.md b/docs/source/markdown/podman.1.md
+index ab4be13078a..734d00971d3 100644
+--- a/docs/source/markdown/podman.1.md
++++ b/docs/source/markdown/podman.1.md
+@@ -120,6 +120,8 @@ Remote connections use local containers.conf for default.
+ Storage root dir in which data, including images, is stored (default: "/var/lib/containers/storage" for UID 0, "$HOME/.local/share/containers/storage" for other users).
+ Default root dir configured in `/etc/containers/storage.conf`.
+ 
++Overriding this option will cause the *storage-opt* settings in /etc/containers/storage.conf to be ignored.  The user must specify additional options via the `--storage-opt` flag.
++
+ #### **\-\-runroot**=*value*
+ 
+ Storage state directory where all state information is stored (default: "/run/containers/storage" for UID 0, "/run/user/$UID/run" for other users).
+diff --git a/pkg/domain/infra/runtime_libpod.go b/pkg/domain/infra/runtime_libpod.go
+index a98c9168a98..5cbee2e7670 100644
+--- a/pkg/domain/infra/runtime_libpod.go
++++ b/pkg/domain/infra/runtime_libpod.go
+@@ -129,6 +129,7 @@ func getRuntime(ctx context.Context, fs *flag.FlagSet, opts *engineOpts) (*libpo
+ 	if fs.Changed("root") {
+ 		storageSet = true
+ 		storageOpts.GraphRoot = cfg.Engine.StaticDir
++		storageOpts.GraphDriverOptions = []string{}
+ 	}
+ 	if fs.Changed("runroot") {
+ 		storageSet = true
+diff --git a/test/system/005-info.bats b/test/system/005-info.bats
+index 83d79221a49..02572fe4a09 100644
+--- a/test/system/005-info.bats
++++ b/test/system/005-info.bats
+@@ -75,11 +75,15 @@ store.imageStore.number   | 1
+ 
+ @test "podman info --storage-opt='' " {
+     skip_if_remote "--storage-opt flag is not supported for remote"
+-    skip_if_rootless "storage opts are required for rootless running"
+-    run_podman --storage-opt='' info
+-    # Note this will not work in rootless mode, unless you specify
+-    # storage-driver=vfs, until we have kernels that support rootless overlay
+-    # mounts.
++    run_podman --storage-driver=vfs --storage-opt='' info
+     is "$output" ".*graphOptions: {}" "output includes graphOptions: {}"
+ }
++
++@test "podman --root PATH info - basic output" {
++    if ! is_remote; then
++        run_podman --storage-driver=vfs --root ${PODMAN_TMPDIR}/nothing-here-move-along info --format '{{ .Store.GraphOptions }}'
++        is "$output" "map\[\]" "'podman --root should reset Graphoptions to []"
++    fi
++}
++
+ # vim: filetype=sh

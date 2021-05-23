@@ -1,0 +1,187 @@
+From 2a43fcf786a989862f732c829fa754b881cc8be7 Mon Sep 17 00:00:00 2001
+From: Valentin Rothberg <rothberg@redhat.com>
+Date: Mon, 17 May 2021 11:38:28 +0200
+Subject: [PATCH] image prune: remove unused images only with `--all`
+
+Fix a regression in `podman image prune` where unused images were
+accidentally removed even when `--all=false`.  Extend and partially
+rewrite the e2e tests to make sure we're not regressing again in the
+future.
+
+Fixing the aforementioned issue revealed another issue in the default
+prune filter.  While prune should remove all "dangling" images (i.e.,
+those without tag), it removed only "intermediate" ones; dangling images
+without children.  Remove the mistaken comment from the libimage
+migration.
+
+Also clarify the help message and man page.
+
+Fixes: #10350
+Signed-off-by: Valentin Rothberg <rothberg@redhat.com>
+---
+ cmd/podman/images/prune.go                   |  8 ++--
+ docs/source/markdown/podman-image-prune.1.md |  3 +-
+ pkg/domain/infra/abi/images.go               | 30 +++----------
+ test/e2e/prune_test.go                       | 47 ++++++++++++++++++++
+ 4 files changed, 58 insertions(+), 30 deletions(-)
+
+diff --git a/cmd/podman/images/prune.go b/cmd/podman/images/prune.go
+index 8231e5c5703..6849d5971f2 100644
+--- a/cmd/podman/images/prune.go
++++ b/cmd/podman/images/prune.go
+@@ -15,10 +15,8 @@ import (
+ )
+ 
+ var (
+-	pruneDescription = `Removes all unnamed images from local storage.
+-
+-  If an image is not being used by a container, it will be removed from the system.`
+-	pruneCmd = &cobra.Command{
++	pruneDescription = `Removes dangling or unused images from local storage.`
++	pruneCmd         = &cobra.Command{
+ 		Use:               "prune [options]",
+ 		Args:              validate.NoArgs,
+ 		Short:             "Remove unused images",
+@@ -41,7 +39,7 @@ func init() {
+ 	})
+ 
+ 	flags := pruneCmd.Flags()
+-	flags.BoolVarP(&pruneOpts.All, "all", "a", false, "Remove all unused images, not just dangling ones")
++	flags.BoolVarP(&pruneOpts.All, "all", "a", false, "Remove all images not in use by containers, not just dangling ones")
+ 	flags.BoolVarP(&force, "force", "f", false, "Do not prompt for confirmation")
+ 
+ 	filterFlagName := "filter"
+diff --git a/docs/source/markdown/podman-image-prune.1.md b/docs/source/markdown/podman-image-prune.1.md
+index 73024ffb88c..bd08d18fc13 100644
+--- a/docs/source/markdown/podman-image-prune.1.md
++++ b/docs/source/markdown/podman-image-prune.1.md
+@@ -8,8 +8,7 @@ podman-image-prune - Remove all unused images from the local store
+ 
+ ## DESCRIPTION
+ **podman image prune** removes all dangling images from local storage. With the `all` option,
+-you can delete all unused images.  Unused images are dangling images as well as any image that
+-does not have any containers based on it.
++you can delete all unused images (i.e., images not in use by any container).
+ 
+ The image prune command does not prune cache images that only use layers that are necessary for other images.
+ 
+diff --git a/pkg/domain/infra/abi/images.go b/pkg/domain/infra/abi/images.go
+index 0364b00a31b..79e815490b3 100644
+--- a/pkg/domain/infra/abi/images.go
++++ b/pkg/domain/infra/abi/images.go
+@@ -40,25 +40,13 @@ func (ir *ImageEngine) Exists(_ context.Context, nameOrID string) (*entities.Boo
+ }
+ 
+ func (ir *ImageEngine) Prune(ctx context.Context, opts entities.ImagePruneOptions) ([]*reports.PruneReport, error) {
+-	// NOTE: the terms "dangling" and "intermediate" are not used
+-	// consistently across our code base.  In libimage, "dangling" means
+-	// that an image has no tags.  "intermediate" means that an image is
+-	// dangling and that no other image depends on it (i.e., has no
+-	// children).
+-	//
+-	// While pruning usually refers to "dangling" images, it has always
+-	// removed "intermediate" ones.
+-	defaultOptions := &libimage.RemoveImagesOptions{
+-		Filters:  append(opts.Filter, "intermediate=true", "containers=false", "readonly=false"),
++	pruneOptions := &libimage.RemoveImagesOptions{
++		Filters:  append(opts.Filter, "containers=false", "readonly=false"),
+ 		WithSize: true,
+ 	}
+ 
+-	// `image prune --all` means to *also* remove images which are not in
+-	// use by any container.  Since image filters are chained, we need to
+-	// do two look ups since the default ones are a subset of all.
+-	unusedOptions := &libimage.RemoveImagesOptions{
+-		Filters:  append(opts.Filter, "containers=false", "readonly=false"),
+-		WithSize: true,
++	if !opts.All {
++		pruneOptions.Filters = append(pruneOptions.Filters, "dangling=true")
+ 	}
+ 
+ 	var pruneReports []*reports.PruneReport
+@@ -66,16 +54,12 @@ func (ir *ImageEngine) Prune(ctx context.Context, opts entities.ImagePruneOption
+ 	// Now prune all images until we converge.
+ 	numPreviouslyRemovedImages := 1
+ 	for {
+-		removedDefault, rmErrors := ir.Libpod.LibimageRuntime().RemoveImages(ctx, nil, defaultOptions)
+-		if rmErrors != nil {
+-			return nil, errorhandling.JoinErrors(rmErrors)
+-		}
+-		removedUnused, rmErrors := ir.Libpod.LibimageRuntime().RemoveImages(ctx, nil, unusedOptions)
++		removedImages, rmErrors := ir.Libpod.LibimageRuntime().RemoveImages(ctx, nil, pruneOptions)
+ 		if rmErrors != nil {
+ 			return nil, errorhandling.JoinErrors(rmErrors)
+ 		}
+ 
+-		for _, rmReport := range append(removedDefault, removedUnused...) {
++		for _, rmReport := range removedImages {
+ 			r := *rmReport
+ 			pruneReports = append(pruneReports, &reports.PruneReport{
+ 				Id:   r.ID,
+@@ -83,7 +67,7 @@ func (ir *ImageEngine) Prune(ctx context.Context, opts entities.ImagePruneOption
+ 			})
+ 		}
+ 
+-		numRemovedImages := len(removedDefault) + len(removedUnused)
++		numRemovedImages := len(removedImages)
+ 		if numRemovedImages+numPreviouslyRemovedImages == 0 {
+ 			break
+ 		}
+diff --git a/test/e2e/prune_test.go b/test/e2e/prune_test.go
+index 38f893a43fd..419748adb9f 100644
+--- a/test/e2e/prune_test.go
++++ b/test/e2e/prune_test.go
+@@ -88,6 +88,53 @@ var _ = Describe("Podman prune", func() {
+ 		Expect(podmanTest.NumberOfContainers()).To(Equal(0))
+ 	})
+ 
++	It("podman image prune - remove only dangling images", func() {
++		session := podmanTest.Podman([]string{"images", "-a"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		hasNone, _ := session.GrepString("<none>")
++		Expect(hasNone).To(BeFalse())
++		numImages := len(session.OutputToStringArray())
++
++		// Since there's no dangling image, none should be removed.
++		session = podmanTest.Podman([]string{"image", "prune", "-f"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		Expect(len(session.OutputToStringArray())).To(Equal(0))
++
++		// Let's be extra sure that the same number of images is
++		// reported.
++		session = podmanTest.Podman([]string{"images", "-a"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		Expect(len(session.OutputToStringArray())).To(Equal(numImages))
++
++		// Now build a new image with dangling intermediate images.
++		podmanTest.BuildImage(pruneImage, "alpine_bash:latest", "true")
++
++		session = podmanTest.Podman([]string{"images", "-a"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		hasNone, _ = session.GrepString("<none>")
++		Expect(hasNone).To(BeTrue()) // ! we have dangling ones
++		numImages = len(session.OutputToStringArray())
++
++		// Since there's at least one dangling image, prune should
++		// remove them.
++		session = podmanTest.Podman([]string{"image", "prune", "-f"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		numPrunedImages := len(session.OutputToStringArray())
++		Expect(numPrunedImages >= 1).To(BeTrue())
++
++		// Now make sure that exactly the number of pruned images has
++		// been removed.
++		session = podmanTest.Podman([]string{"images", "-a"})
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		Expect(len(session.OutputToStringArray())).To(Equal(numImages - numPrunedImages))
++	})
++
+ 	It("podman image prune skip cache images", func() {
+ 		podmanTest.BuildImage(pruneImage, "alpine_bash:latest", "true")
+ 
