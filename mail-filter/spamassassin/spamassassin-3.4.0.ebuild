@@ -4,7 +4,7 @@
 
 EAPI=5
 
-inherit perl-module toolchain-funcs eutils systemd readme.gentoo
+inherit perl-module toolchain-funcs eutils systemd readme.gentoo-r1
 
 MY_P=Mail-SpamAssassin-${PV//_/-}
 S=${WORKDIR}/${MY_P}
