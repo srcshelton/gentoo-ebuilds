@@ -18,11 +18,10 @@ HOMEPAGE="https://mariadb.org/"
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 LICENSE="GPL-2 LGPL-2.1+"
 SLOT="10.5/${SUBSLOT:-0}"
-IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 libressl mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
+IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
 	# abi_x86_32
 
-# Tests always fail when libressl is enabled due to hard-coded ciphers in the tests
-RESTRICT="!bindist? ( bindist ) libressl? ( test ) !test? ( test )"
+RESTRICT="!bindist? ( bindist ) !test? ( test )"
 
 REQUIRED_USE="jdbc? ( extraengine server !static )
 	?? ( tcmalloc jemalloc )
@@ -79,8 +78,7 @@ COMMON_DEPEND="
 	tcmalloc? ( dev-util/google-perftools:0= )
 	yassl? ( net-libs/gnutls:0= )
 	!yassl? (
-		!libressl? ( >=dev-libs/openssl-1.0.0:0= )
-		libressl? ( dev-libs/libressl:0= )
+		>=dev-libs/openssl-1.0.0:0=
 	)
 "
 BDEPEND="virtual/yacc
