@@ -19,7 +19,7 @@ KEYWORDS="amd64 ~arm arm64 ~ppc ~ppc64 ~sparc x86"
 LICENSE="GPL-2"
 SLOT="0"
 
-IUSE="debug firebird iodbc kerberos ldap libressl memcached mongodb mysql odbc oracle pam pcap postgres python readline redis rest samba sqlite ssl systemd"
+IUSE="debug firebird iodbc kerberos ldap memcached mongodb mysql odbc oracle pam pcap postgres python readline redis rest samba sqlite ssl systemd"
 RESTRICT="test firebird? ( bindist )"
 
 # NOTE: Temporary freeradius doesn't support linking with mariadb client
@@ -53,8 +53,7 @@ RDEPEND="acct-group/radius
 	samba? ( net-fs/samba )
 	sqlite? ( dev-db/sqlite:3 )
 	ssl? (
-		!libressl? ( dev-libs/openssl:0=[-bindist] )
-		libressl? ( dev-libs/libressl:0= )
+		dev-libs/openssl:0=[-bindist]
 	)
 	systemd? ( sys-apps/systemd )"
 DEPEND="${RDEPEND}"
@@ -64,7 +63,6 @@ REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 S="${WORKDIR}/${MY_P}"
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-3.0.18-libressl.patch
 	"${FILESDIR}"/${P}-systemd-service.patch
 	# Fix rlm_python3 build
 	# Backport from rlm_python changes to rlm_python3
