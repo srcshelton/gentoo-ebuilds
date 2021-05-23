@@ -11,7 +11,7 @@ SRC_URI="mirror://sourceforge/apcupsd/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~ppc ~x86"
+KEYWORDS="amd64 ~arm ppc x86"
 IUSE="cgi dumb gnome kernel_linux +modbus +net nls +powerchute +smart snmp systemd tmpfiles udev +usb"
 
 DEPEND=">=sys-apps/util-linux-2.23[tty-helpers(-)]
