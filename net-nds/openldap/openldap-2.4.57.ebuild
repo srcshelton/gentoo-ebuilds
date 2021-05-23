@@ -27,10 +27,10 @@ KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x
 #IUSE_DAEMON="crypt experimental minimal samba systemd tcpd"
 #IUSE_BACKEND="+berkdb"
 #IUSE_OVERLAY="overlays perl"
-#IUSE_OPTIONAL="debug gnutls iodbc ipv6 libressl odbc sasl selinux ssl static-libs +syslog test"
+#IUSE_OPTIONAL="debug gnutls iodbc ipv6 odbc sasl selinux ssl static-libs +syslog test"
 #IUSE_CONTRIB="kerberos kinit pbkdf2 sha2 smbkrb5passwd"
 #IUSE_CONTRIB="${IUSE_CONTRIB} -cxx"
-IUSE="+berkdb crypt -cxx debug experimental gnutls iodbc ipv6 kerberos kinit libressl minimal odbc overlays pbkdf2 perl samba sasl selinux sha2 smbkrb5passwd ssl static-libs +syslog systemd tcpd test"
+IUSE="+berkdb crypt -cxx debug experimental gnutls iodbc ipv6 kerberos kinit minimal odbc overlays pbkdf2 perl samba sasl selinux sha2 smbkrb5passwd ssl static-libs +syslog systemd tcpd test"
 
 RESTRICT="!test? ( test )"
 REQUIRED_USE="cxx? ( sasl )
@@ -50,8 +50,7 @@ for _slot in $BDB_SLOTS; do BDB_PKGS="${BDB_PKGS} sys-libs/db:${_slot}" ; done
 COMMON_DEPEND="
 	ssl? (
 		!gnutls? (
-			!libressl? ( >=dev-libs/openssl-1.0.1h-r2:0=[${MULTILIB_USEDEP}] )
-			libressl? ( dev-libs/libressl:0=[${MULTILIB_USEDEP}] )
+			>=dev-libs/openssl-1.0.1h-r2:0=[${MULTILIB_USEDEP}]
 		)
 		gnutls? (
 			>=net-libs/gnutls-2.12.23-r6:=[${MULTILIB_USEDEP}]
@@ -68,16 +67,14 @@ COMMON_DEPEND="
 			iodbc? ( dev-db/libiodbc ) )
 		perl? ( dev-lang/perl:=[-build(-)] )
 		samba? (
-			!libressl? ( dev-libs/openssl:0= )
-			libressl? ( dev-libs/libressl:0= )
+			dev-libs/openssl:0=
 		)
 		berkdb? (
 			<sys-libs/db-6.0:=
 			|| ( ${BDB_PKGS} )
 			)
 		smbkrb5passwd? (
-			!libressl? ( dev-libs/openssl:0= )
-			libressl? ( dev-libs/libressl:0= )
+			dev-libs/openssl:0=
 			kerberos? ( app-crypt/heimdal )
 			)
 		kerberos? (
@@ -176,9 +173,6 @@ PATCHES=(
 
 	# unbundle lmdb
 	"${FILESDIR}"/${PN}-2.4.42-mdb-unbundle.patch
-
-	# bug #622464
-	"${FILESDIR}"/${PN}-2.4.47-libressl.patch
 
 	# fix some compiler warnings
 	"${FILESDIR}"/${PN}-2.4.47-warnings.patch
