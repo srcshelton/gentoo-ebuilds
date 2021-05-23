@@ -248,12 +248,13 @@ src_install() {
 		dosym busybox /bin/bb
 	fi
 	if use mdev ; then
-		dodir /$(get_libdir)/mdev/
+		# Don't use get_libdir for mdev scripts...
+		dodir /lib/mdev/
 		use make-symlinks || dosym /bin/bb /sbin/mdev
 		cp "${FILESDIR}"/mdev.conf "${ED}"/etc/mdev.conf
 		newdoc "${S}"/examples/mdev_fat.conf mdev.conf
 
-		exeinto /$(get_libdir)/mdev/
+		exeinto /lib/mdev/
 		doexe "${FILESDIR}"/mdev/*
 
 		newinitd "${FILESDIR}"/mdev.initd mdev
