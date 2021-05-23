@@ -3,20 +3,17 @@
 
 EAPI=7
 
-# update on bump, look for https://github.com/docker\
-# docker-ce/blob/<docker ver OR branch>/components/engine/hack/dockerfile/install/containerd.installer
-CONTAINERD_COMMIT="8fba4e9a7d01810a393d5d25a3621dc101981175"
+CONTAINERD_COMMIT=05f951a3781f4f2c1911b05e61c160e9c30eaa8e
 EGO_PN="github.com/containerd/${PN}"
-
 inherit golang-vcs-snapshot toolchain-funcs
 
 DESCRIPTION="A daemon to control runC"
 HOMEPAGE="https://containerd.io/"
-SRC_URI="https://github.com/containerd/${PN}/archive/${CONTAINERD_COMMIT}.tar.gz -> ${P}.tar.gz"
+SRC_URI="https://github.com/containerd/containerd/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="Apache-2.0"
 SLOT="0"
-KEYWORDS="amd64 ~arm arm64 ppc64 ~x86"
+KEYWORDS="amd64 ~arm arm64 ~ppc64 ~x86"
 IUSE="apparmor btrfs +cri device-mapper hardened +seccomp selinux test"
 
 DEPEND="
@@ -26,13 +23,13 @@ DEPEND="
 
 RDEPEND="
 	${DEPEND}
-	~app-emulation/runc-1.0.0_rc10
+	~app-emulation/runc-1.0.0_rc92
 "
 
 BDEPEND="
 	dev-go/go-md2man
 	virtual/pkgconfig
-	test? ( "${RDEPEND}" )
+	test? ( ${RDEPEND} )
 "
 
 # tests require root or docker
@@ -77,7 +74,8 @@ src_install() {
 
 	# we already installed manpages, remove markdown source
 	# before installing docs directory
-	rm -rf docs/man || die
+	rm -r docs/man || die
+
 	local DOCS=( README.md PLUGINS.md docs/. )
 	einstalldocs
 }
