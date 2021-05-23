@@ -34,9 +34,9 @@ KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 ~sparc x86"
 
 #IUSE_DOVECOT_AUTH="kerberos ldap lua mysql pam postgres sqlite"
 #IUSE_DOVECOT_COMPRESS="bzip2 lzma lz4 zlib zstd"
-#IUSE_DOVECOT_OTHER="argon2 caps doc ipv6 libressl lucene managesieve rpc selinux sieve solr static-libs suid tcpd textcat unwind"
+#IUSE_DOVECOT_OTHER="argon2 caps doc ipv6 lucene managesieve rpc selinux sieve solr static-libs suid tcpd textcat unwind"
 
-IUSE="argon2 bzip2 caps doc ipv6 kerberos ldap libressl lua lucene lz4 lzma managesieve mysql pam postgres rpc selinux sieve solr sqlite static-libs suid systemd tcpd textcat unwind zlib zstd"
+IUSE="argon2 bzip2 caps doc ipv6 kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres rpc selinux sieve solr sqlite static-libs suid systemd tcpd textcat unwind zlib zstd"
 
 REQUIRED_USE="lua? ( ${LUA_REQUIRED_USE} )"
 
@@ -56,8 +56,7 @@ DEPEND="argon2? ( dev-libs/libsodium )
 	selinux? ( sec-policy/selinux-dovecot )
 	solr? ( net-misc/curl dev-libs/expat )
 	sqlite? ( dev-db/sqlite:* )
-	!libressl? ( dev-libs/openssl:0= )
-	libressl? ( dev-libs/libressl:0= )
+	dev-libs/openssl:0=
 	suid? ( acct-group/mail )
 	tcpd? ( sys-apps/tcp-wrappers )
 	textcat? ( app-text/libexttextcat )
