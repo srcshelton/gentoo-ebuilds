@@ -14,14 +14,11 @@ S="${WORKDIR}/${MY_P}"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
-IUSE="bindist doc ipv6 libressl readline ssl tcpd tools"
+IUSE="bindist doc ipv6 readline ssl tcpd tools"
 
 DEPEND="
 	acct-group/socat
-	ssl? (
-		!libressl? ( dev-libs/openssl:0= )
-		libressl? ( dev-libs/libressl:= )
-	)
+	ssl? ( dev-libs/openssl:0= )
 	readline? ( sys-libs/readline:= )
 	tcpd? ( sys-apps/tcp-wrappers )
 "
@@ -46,7 +43,8 @@ pkg_setup() {
 }
 
 src_configure() {
-	filter-flags '-Wno-error*' #293324
+	# bug #293324
+	filter-flags '-Wno-error*'
 	tc-export AR
 
 	econf \
