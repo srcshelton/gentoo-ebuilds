@@ -15,7 +15,7 @@ SRC_URI="https://downloads.sourceforge.net/project/opendkim/${P}.tar.gz"
 LICENSE="BSD GPL-2 Sendmail-Open-Source"
 SLOT="0"
 KEYWORDS="amd64 ~arm ~arm64 x86"
-IUSE="+berkdb diffheaders erlang experimental gnutls ldap libevent libressl lmdb lua -memcached opendbx poll querycache sasl selinux +ssl static-libs stats systemd test unbound"
+IUSE="+berkdb diffheaders erlang experimental gnutls ldap libevent lmdb lua -memcached opendbx poll querycache sasl selinux +ssl static-libs stats systemd test unbound"
 
 BDEPEND="acct-group/opendkim
 	acct-user/opendkim
@@ -25,8 +25,7 @@ COMMON_DEPEND="|| ( mail-filter/libmilter mail-mta/sendmail )
 	dev-libs/libbsd
 	sys-apps/grep
 	ssl? (
-		!libressl? ( dev-libs/openssl:0= )
-		libressl? ( dev-libs/libressl:0= )
+		dev-libs/openssl:0=
 	)
 	berkdb? ( >=sys-libs/db-3.2:* )
 	diffheaders? ( dev-libs/tre )
