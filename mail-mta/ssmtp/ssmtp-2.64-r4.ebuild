@@ -10,23 +10,27 @@ inherit autotools
 
 DESCRIPTION="Extremely simple MTA to get mail off the system to a Mailhub"
 HOMEPAGE="ftp://ftp.debian.org/debian/pool/main/s/ssmtp/"
-SRC_URI="mirror://debian/pool/main/s/ssmtp/${P/-/_}.orig.tar.bz2
-	https://dev.gentoo.org/~pinkbyte/distfiles/patches/${P}-patches-${PATCHSET}.tar.xz"
+SRC_URI="
+	mirror://debian/pool/main/s/ssmtp/${P/-/_}.orig.tar.bz2
+	https://dev.gentoo.org/~pinkbyte/distfiles/patches/${P}-patches-${PATCHSET}.tar.xz
+"
 
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="gnutls ipv6 libressl +mta +ssl"
+IUSE="gnutls ipv6 +mta +ssl"
 
-DEPEND="!prefix? ( acct-group/ssmtp )
+DEPEND="
+	!prefix? ( acct-group/ssmtp )
 	ssl? (
 		gnutls? ( net-libs/gnutls[openssl] )
 		!gnutls? (
-			!libressl? ( dev-libs/openssl:0= )
-			libressl? ( dev-libs/libressl:0= )
+			dev-libs/openssl:0=
 		)
-	)"
-RDEPEND="${DEPEND}
+	)
+"
+RDEPEND="
+	${DEPEND}
 	net-mail/mailbase
 	mta? (
 		!mail-mta/courier
@@ -40,7 +44,8 @@ RDEPEND="${DEPEND}
 		!mail-mta/qmail-ldap
 		!mail-mta/sendmail
 		!mail-mta/opensmtpd
-	)"
+	)
+"
 
 REQUIRED_USE="gnutls? ( ssl )"
 
