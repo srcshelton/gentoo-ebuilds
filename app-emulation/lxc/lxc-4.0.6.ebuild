@@ -14,7 +14,7 @@ KEYWORDS="amd64 ~arm ~arm64 ~ppc64 x86"
 
 LICENSE="LGPL-3"
 SLOT="0"
-IUSE="apparmor +caps checkpoint doc examples libressl man pam selinux +ssl systemd +templates +tools verify-sig"
+IUSE="apparmor +caps checkpoint doc examples man pam selinux +ssl systemd +templates +tools verify-sig"
 
 RDEPEND="acct-group/lxc
 	acct-user/lxc
@@ -28,8 +28,7 @@ RDEPEND="acct-group/lxc
 	pam? ( sys-libs/pam )
 	selinux? ( sys-libs/libselinux )
 	ssl? (
-		!libressl? ( dev-libs/openssl:0= )
-		libressl? ( dev-libs/libressl:0= )
+		dev-libs/openssl:0=
 	)"
 DEPEND="${RDEPEND}
 	>=sys-kernel/linux-headers-4
