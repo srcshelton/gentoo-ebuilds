@@ -454,7 +454,7 @@ src_configure() {
 		einfo "installed in any of the following paths:"
 		for incpath in ${inclist}; do
 			[[ -e "${EROOT%/}${VENDOR_BASE}/${incpath}" ]] && einfo " ${EROOT%/}${VENDOR_BASE}/${incpath}"
-			[[ -e "${EROOT%/}${PRIV_BASE}/${incpath}"   ]] && einfo " ${EROO%/T}${PRIV_BASE}/${incpath}"
+			[[ -e "${EROOT%/}${PRIV_BASE}/${incpath}"   ]] && einfo " ${EROOT%/}${PRIV_BASE}/${incpath}"
 			[[ -e "${EROOT%/}${SITE_BASE}/${incpath}"   ]] && einfo " ${EROOT%/}${SITE_BASE}/${incpath}"
 		done
 		einfo "This is a temporary measure and you should aim to cleanup these paths"
