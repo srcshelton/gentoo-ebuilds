@@ -154,8 +154,8 @@ used to build perl)
     * ~~Fix for 'double prefix' QA error introduced in 1.1.28-r2~~
 * dev-libs/openssl
     * Add `-Wno-error=unused-command-line-argument` to clang to prevent aborting with an `error` due to `-Wa,--noexecstack`, and fix util/domd to treat clang like gcc
-* dev-libs/udis86
-    * Add `${EPREFIX}` to `docdir` configure option
+* ~~dev-libs/udis86~~
+    * ~~Add `${EPREFIX}` to `docdir` configure option~~
 * ~~dev-python/backports-ssl-match-hostname~~
     * ~~Change `${ED}` to `${D}` to prevent double-prefix path usage QA error~~
 * ~~dev-vcs/cvs~~
@@ -178,8 +178,8 @@ used to build perl)
     * Add missing `string.h` header to `makemsg.c`
 * sys-apps/texinfo
     * Add missing `#include`
-* sys-devel/gdb
-    * Fixes for building with clang, building on Yosemite, and building with Python support
+* ~~sys-devel/gdb~~
+    * ~~Fixes for building with clang, building on Yosemite, and building with Python support~~
 * sys-devel/gcc-apple
     * Fixes for building with clang and building on Yosemite
 * sys-devel/llvm
@@ -301,7 +301,7 @@ used to build perl)
 * dev-python/nodeenv
 * ~~dev-python/noxspellserver~~
 * ~~dev-python/pathspec~~
-* dev-python/pre-commit
+* ~~dev-python/pre-commit~~ (see `dev-vcs/pre-commit`)
 * dev-python/yamllint
 * dev-ruby/CFPropertyList
 * dev-util/ltrace
@@ -335,8 +335,9 @@ used to build perl)
     * ~~OPIE One-time password system~~
 * sys-auth/pam\_mobile\_otp
     * PAM component of mOTP
-* sys-auth/yubipam
-    * PAM authentication module for YubiKey hardware
+* ~~sys-auth/yubipam~~
+    * ~~PAM authentication module for YubiKey hardware~~
+    * See `sys-auth/pam_yubico`
 * sys-boot/grub-legacy
     * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
 * sys-process/stalld
@@ -380,8 +381,8 @@ used to build perl)
     * Only install support for requested service-managers
 * dev-java/commons-daemon
     * Add additional include path to allow building with Oracle JDK 8 and above
-* dev-lang/perl
-    * Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS
+* ~~dev-lang/perl~~
+    * ~~Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS~~
 * dev-libs/geoip
     * Remove obselete update script and 'wget' dependency
 * dev-libs/glib
