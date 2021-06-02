@@ -3,7 +3,7 @@
 
 EAPI=6
 
-inherit autotools flag-o-matic linux-info ltprune pam usr-ldscript
+inherit autotools flag-o-matic linux-info pam usr-ldscript
 
 DESCRIPTION="Tools and libraries to configure and manage kernel control groups"
 HOMEPAGE="http://libcg.sourceforge.net/"
@@ -96,7 +96,7 @@ src_install() {
 		gen_usr_ldscript -a cgroup
 	fi
 
-	prune_libtool_files --all
+	find "${ED}" -name '*.la' -delete || die
 
 	insinto /etc/cgroup
 	doins samples/*.conf || die
