@@ -3,16 +3,17 @@
 
 EAPI=7
 inherit bash-completion-r1 go-module
+GIT_COMMIT="5e3515c5b09fe706d32bd4443800a996138516b2"
 
-KEYWORDS="~amd64 ~arm64"
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
+SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
+KEYWORDS="~amd64 ~arm64"
 IUSE="selinux"
-EGIT_COMMIT="v${PV}"
-GIT_COMMIT="5e3515c5b09fe706d32bd4443800a996138516b2"
-SRC_URI="https://github.com/containers/buildah/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
+
 RDEPEND="app-crypt/gpgme:=
 	app-emulation/skopeo
 	dev-libs/libgpg-error:=
@@ -21,7 +22,8 @@ RDEPEND="app-crypt/gpgme:=
 	sys-libs/libseccomp:=
 	selinux? ( sys-libs/libselinux:= )"
 DEPEND="${RDEPEND}"
-RESTRICT+=" mirror test"
+
+RESTRICT="mirror test"
 
 src_prepare() {
 	default
@@ -29,6 +31,7 @@ src_prepare() {
 	[[ -f selinux_tag.sh ]] || die
 	use selinux || { echo -e "#!/bin/sh\ntrue" > \
 		selinux_tag.sh || die; }
+	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . | xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
