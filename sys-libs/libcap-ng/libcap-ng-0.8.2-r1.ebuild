@@ -23,7 +23,7 @@ DEPEND="${RDEPEND}
 BDEPEND="python? ( >=dev-lang/swig-2 )"
 
 PATCHES=(
-	"${DISTDIR}"/libcap-ng-0.8.2-apply-disable.patch
+	"${FILESDIR}/${P}-apply-disable.patch"
 )
 
 src_prepare() {
