@@ -23,7 +23,7 @@ RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
-	>=app-emulation/conmon-2.0.0
+	>=app-emulation/conmon-2.0.24
 	|| ( >=app-emulation/runc-1.0.0_rc6 app-emulation/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
