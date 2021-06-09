@@ -27,7 +27,7 @@ RDEPEND="${DEPEND}
 	selinux? ( sec-policy/selinux-irqbalance )
 "
 PATCHES=(
-	"${FILESDIR}"/${P}-run.patch
+	"${FILESDIR}"/${PN}-1.7.0-run.patch
 )
 
 pkg_setup() {
