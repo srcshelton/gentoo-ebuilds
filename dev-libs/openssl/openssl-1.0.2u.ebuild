@@ -309,6 +309,15 @@ multilib_src_install() {
 
 	emake INSTALL_PREFIX="${D%/}" install
 
+	# This is crappy in that the static archives are still built even
+	# when USE=static-libs.  But this is due to a failing in the openssl
+	# build system: the static archives are built as PIC all the time.
+	# Only way around this would be to manually configure+compile openssl
+	# twice; once with shared lib support enabled and once without.
+	if ! use static-libs; then
+		rm "${ED}"/usr/$(get_libdir)/lib{crypto,ssl}.a || die
+	fi
+
 	if use split-usr && multilib_is_native_abi; then
 		# need the libs in /
 		gen_usr_ldscript -a crypto
@@ -328,14 +337,6 @@ multilib_src_install_all() {
 	# At least wget (>1.15?) is unhappy if any non-certificate appears
 	# in ${SSL_CNF_DIR}/certs...
 	dodoc certs/README.* && rm certs/README.*
-
-	# This is crappy in that the static archives are still built even
-	# when USE=static-libs.  But this is due to a failing in the openssl
-	# build system: the static archives are built as PIC all the time.
-	# Only way around this would be to manually configure+compile openssl
-	# twice; once with shared lib support enabled and once without.
-	use static-libs || find "${ED%/}"/usr/lib* -mindepth 1 -maxdepth 1 \
-		-name "lib*.a" -not -name "lib*$(get_libname)" -delete
 
 	# create the certs directory
 	dodir ${SSL_CNF_DIR}/certs
