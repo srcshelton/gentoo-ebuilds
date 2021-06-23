@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit meson usr-ldscript multilib-minimal
+inherit meson-multilib usr-ldscript
 
 DESCRIPTION="inih (INI not invented here) simple .INI file parser"
 HOMEPAGE="https://github.com/benhoyt/inih"
@@ -26,10 +26,6 @@ multilib_src_configure() {
 	)
 
 	meson_src_configure
-}
-
-multilib_src_compile() {
-	meson_src_compile
 }
 
 multilib_src_install() {
