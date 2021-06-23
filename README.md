@@ -170,8 +170,8 @@ used to build perl)
     * ~~Add missing `run_applets` prototype~~
 * sys-apps/darwin-miscutils
     * Add missing `md.c` prototypes and `#include`s
-* sys-apps/gptfdisk
-    * Allow `gdisk` to build on darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used
+* ~~sys-apps/gptfdisk~~
+    * ~~Allow `gdisk` to build on darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used~~
 * sys-apps/help2man
     * Ensure that `usr/lib/help2man/bindtextdomain.dylib` is correctly built and named
 * sys-apps/man
@@ -298,7 +298,7 @@ used to build perl)
 * ~~dev-python/ansible-lint~~
 * ~~dev-python/aspy\_yaml~~
 * dev-python/identify
-* dev-python/nodeenv
+* ~~dev-python/nodeenv~~
 * ~~dev-python/noxspellserver~~
 * ~~dev-python/pathspec~~
 * ~~dev-python/pre-commit~~ (see `dev-vcs/pre-commit`)
