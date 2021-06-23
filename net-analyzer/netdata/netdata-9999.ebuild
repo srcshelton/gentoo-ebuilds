@@ -12,7 +12,7 @@ if [[ ${PV} == *9999 ]] ; then
 else
 	SRC_URI="https://github.com/netdata/${PN}/releases/download/v${PV}/${PN}-v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${PN}-v${PV}"
-	KEYWORDS="~amd64 ~x86"
+	KEYWORDS="~amd64 ~ppc64 ~x86"
 	RESTRICT="mirror"
 fi
 
@@ -56,6 +56,7 @@ case "${PV}" in
 	1.29.3)	GIT_COMMIT="9580ed4d13125adac01483bac14a18c952afd13e" ;;
 	1.30.0)	GIT_COMMIT="fe27fdc389b58b318cf3973bc3d54ebfe3da5b48" ;;
 	1.30.1)	GIT_COMMIT="d5ea3cc5cf7256109c4c76148b5ba0d29328b380" ;;
+	1.31.0)	GIT_COMMIT="2f130c01aa487d2541a9f3045ff9970f91cc4fc9" ;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
@@ -220,6 +221,10 @@ src_install() {
 
 pkg_postinst() {
 	fcaps_pkg_postinst
+
+	if use nfacct ; then
+		fcaps 'cap_net_admin' 'usr/libexec/netdata/plugins.d/nfacct.plugin'
+	fi
 
 	if use xen ; then
 		fcaps 'cap_dac_override' 'usr/libexec/netdata/plugins.d/xenstat.plugin'
