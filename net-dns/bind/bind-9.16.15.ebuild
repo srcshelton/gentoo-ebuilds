@@ -325,7 +325,7 @@ pkg_postinst() {
 	einfo "2) Run \`emerge --config '=${CATEGORY}/${PF}'\`"
 	einfo
 
-	CHROOT=$(source "${ROOT}"/etc/conf.d/named 2>/dev/null; echo ${CHROOT})
+	CHROOT=$(source "${EROOT}"/etc/conf.d/named 2>/dev/null; echo ${CHROOT})
 	if [[ -n ${CHROOT} ]]; then
 		elog "NOTE: As of net-dns/bind-9.4.3_p5-r1 the chroot part of the init-script got some major changes!"
 		elog "To enable the old behaviour (without using mount) uncomment the"
@@ -338,9 +338,9 @@ pkg_postinst() {
 }
 
 pkg_config() {
-	CHROOT=$(source "${ROOT}"/etc/conf.d/named; echo ${CHROOT})
-	CHROOT_NOMOUNT=$(source "${ROOT}"/etc/conf.d/named; echo ${CHROOT_NOMOUNT})
-	CHROOT_GEOIP=$(source "${ROOT}"/etc/conf.d/named; echo ${CHROOT_GEOIP})
+	CHROOT=$(source "${EROOT}"/etc/conf.d/named; echo ${CHROOT})
+	CHROOT_NOMOUNT=$(source "${EROOT}"/etc/conf.d/named; echo ${CHROOT_NOMOUNT})
+	CHROOT_GEOIP=$(source "${EROOT}"/etc/conf.d/named; echo ${CHROOT_GEOIP})
 
 	if [[ -z "${CHROOT}" ]]; then
 		eerror "This config script is designed to automate setting up"
