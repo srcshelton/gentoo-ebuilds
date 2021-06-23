@@ -22,7 +22,7 @@ PATCH_DEV=dilfridge
 if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz"
 	SRC_URI+=" https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 fi
@@ -1310,9 +1310,14 @@ glibc_do_src_install() {
 	# Make sure the non-native interp can be found on multilib systems even
 	# if the main library set isn't installed into the right place.  Maybe
 	# we should query the active gcc for info instead of hardcoding it ?
-	local LD32="$( get_abi_LIBDIR x86 )"
-	local LDx32="$( get_abi_LIBDIR x32 )"
-	local LD64="$( get_abi_LIBDIR amd64 )"
+	local LD32='lib' LDx32='lib32' LD64='lib64'
+	case "${ARCH}" in
+		x86|amd64)
+			LD32="$( get_abi_LIBDIR x86 )"
+			LDx32="$( get_abi_LIBDIR x32 )"
+			LD64="$( get_abi_LIBDIR amd64 )"
+			;;
+	esac
 	local i ldso_abi ldso_name
 	local ldso_abi_list=(
 		# x86
@@ -1342,13 +1347,17 @@ glibc_do_src_install() {
 	little)
 		ldso_abi_list+=(
 			# arm
-			arm64   /lib/ld-linux-aarch64.so.1
+			arm64   /${LD32}/ld-linux-aarch64.so.1
+			# ELFv2 (glibc does not support ELFv1 on LE)
+			ppc64   /${LD64}/ld64.so.2
 		)
 		;;
 	big)
 		ldso_abi_list+=(
 			# arm
-			arm64   /lib/ld-linux-aarch64_be.so.1
+			arm64   /${LD32}/ld-linux-aarch64_be.so.1
+			# ELFv1 (glibc does not support ELFv2 on BE)
+			ppc64   /${LD64}/ld64.so.1
 		)
 		;;
 	esac
