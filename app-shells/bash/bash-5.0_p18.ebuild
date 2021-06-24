@@ -206,7 +206,7 @@ src_configure() {
 		case "${CHOST}" in
 			# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
 			*-linux-gnu* | *-solaris* | *-freebsd* )
-				append-ldflags -Wl,-rpath,"${EPREFIX%/}"/usr/$(get_libdir)/bash
+				append-ldflags "-Wl,-rpath,${EPREFIX%/}/usr/$(get_libdir)/bash"
 				;;
 		esac
 	else
@@ -309,15 +309,6 @@ pkg_preinst() {
 	if [[ -e ${EROOT}/etc/bashrc ]] && [[ ! -d ${EROOT}/etc/bash ]] ; then
 		mkdir -p "${EROOT}"/etc/bash
 		mv -f "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/
-	fi
-
-	if [[ -L ${EROOT}/bin/sh ]] ; then
-		# rewrite the symlink to ensure that its mtime changes. having /bin/sh
-		# missing even temporarily causes a fatal error with paludis.
-		local target="$( readlink "${EROOT}"/bin/sh )"
-		local tmp="$( emktemp "${EROOT}"/bin )"
-		ln -sf "${target}" "${tmp}"
-		mv -f "${tmp}" "${EROOT}"/bin/sh
 	fi
 }
 
