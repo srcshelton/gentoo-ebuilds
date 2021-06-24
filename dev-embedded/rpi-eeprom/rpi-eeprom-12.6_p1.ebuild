@@ -1,9 +1,9 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{6,7,8,9} )
+PYTHON_COMPAT=( python3_{7,8,9} )
 
 inherit python-r1 systemd
 
@@ -23,6 +23,7 @@ IUSE="systemd"
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
 BDEPEND="sys-apps/help2man"
+DEPEND="${PYTHON_DEPS}"
 RDEPEND="${PYTHON_DEPS}
 	sys-apps/flashrom[linux-spi]
 	sys-apps/pciutils
@@ -91,9 +92,9 @@ src_install() {
 pkg_postinst() {
 	elog 'To have rpi-eeprom-update run at each startup, enable and start'
 	if ! use systemd; then
-		elog '    /etc/init.d/rpi-eeprom-update (for openrc users)'
+		elog '    /etc/init.d/rpi-eeprom-update'
 	else
-		elog '    rpi-eeprom-update.service (for systemd users)'
+		elog '    rpi-eeprom-update.service'
 	fi
 	elog '/etc/conf.d/rpi-eeprom-update contains the configuration.'
 	elog 'FIRMWARE_RELEASE_STATUS="critical|stable|beta" determines'
