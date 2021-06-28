@@ -115,10 +115,12 @@ src_install() {
 		fi
 	done
 
-	# Install library required by vcdbg ...
-	#insinto /usr/$(get_libdir)
-	insinto /usr/lib
-	doins hardfp/opt/vc/lib/libelftoolchain.so
+	if [[ "${ARCH}" == 'arm' ]]; then
+		# Install library required by vcdbg ...
+		#insinto /usr/$(get_libdir)
+		insinto /usr/lib
+		doins hardfp/opt/vc/lib/libelftoolchain.so
+	fi
 
 	insinto "${boot}"
 	newins "${T}"/${PN}-1.20201022-config.txt config.txt
