@@ -1,0 +1,225 @@
+From 07161d4992038f95f2127f545c2f447335a76e4a Mon Sep 17 00:00:00 2001
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 29 Jun 2021 15:57:46 +0200
+Subject: [PATCH 1/2] stalld.c: Fail if user is not root
+
+Stalld needs access to some files and calls some system calls that
+require root permission. Currently, stalld does not check if it is
+running as root, and so stalld fails with a message error on some
+permission error.
+
+To make it clear to the user that stalld needs superuser permission,
+now it fails to start if the effective user is not root, printing a
+message about it.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ src/stalld.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/stalld.c b/src/stalld.c
+index d654fde..b017263 100644
+--- a/src/stalld.c
++++ b/src/stalld.c
+@@ -1818,6 +1818,13 @@ int main(int argc, char **argv)
+ 	int nr_cpus;
+ 	int i;
+ 
++	/*
++	 * stalld needs root permission to read kernel debug files
++	 * and to set SCHED_DEADLINE parameters.
++	 */
++	if (geteuid())
++		die("stalld needs root permission\n");
++
+ 	/*
+ 	 * get the system page size so we can use it
+ 	 * when allocating buffers
+-- 
+GitLab
+
+
+From fd2e991375bd00abee0d36853d6a548c9cad3809 Mon Sep 17 00:00:00 2001
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 29 Jun 2021 15:47:34 +0200
+Subject: [PATCH 2/2] stalld.c: Make the path to sched_debug path dynamic
+
+Stalld works by reading the /proc/sched_debug file as the main source
+of information. However, since the 5.13 kernel, the /proc/sched_debug
+file moved to /sys/kernel/debug/sched/debug due to cleanup
+in the scheduling debug code.
+
+Instead of trying to read the kernel version. Stalld keeps a vector
+of possible sched_debug paths. Each path in this vector is tried
+during the startup, and the first to be found is used. If no file
+is found, the daemon dies with a suggestive message.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ src/stalld.c | 72 +++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 57 insertions(+), 15 deletions(-)
+
+diff --git a/src/stalld.c b/src/stalld.c
+index b017263..72b6e31 100644
+--- a/src/stalld.c
++++ b/src/stalld.c
+@@ -93,7 +93,7 @@ char *config_monitored_cpus;
+ size_t config_buffer_size;
+ 
+ /*
+- * auto-detected task format from /proc/sched_debug
++ * auto-detected task format from sched_debug.
+  */
+ int config_task_format;
+ 
+@@ -148,6 +148,48 @@ regex_t *compiled_regex_thread = NULL;
+ unsigned int nr_process_ignore = 0;
+ regex_t *compiled_regex_process = NULL;
+ 
++/*
++ * store the current sched_debug file path.
++ */
++char *config_sched_debug_path = NULL;
++
++/*
++ * the sched_debug file path changed on 5.13. Since then, we
++ * have to check for the new path. Given that people are prone
++ * to adopt new kernels (at least I hope), keep the latest path
++ * on top.
++ */
++char *sched_debug_paths[] = {
++	"/sys/kernel/debug/sched/debug",
++	"/proc/sched_debug",
++	NULL
++};
++
++/*
++ * look for the sched_debug path.
++ */
++static void find_sched_debug_path(void)
++{
++	char *path;
++	int fd, i;
++
++	for (i = 0; *sched_debug_paths[i]; i++) {
++		path = sched_debug_paths[i];
++
++		fd = open(path, O_RDONLY);
++
++		log_msg("finding sched_debug: %s returned %d\n", path, fd);
++
++		if (fd >= 0) {
++			config_sched_debug_path = path;
++			close(fd);
++			return;
++		}
++	}
++
++	die("stalld could not find the sched_debug file.\n");
++}
++
+ /*
+  * API to fetch process name from process group ID
+  */
+@@ -234,8 +276,7 @@ out_free_mem:
+ }
+ 
+ /*
+- * read the content of /proc/sched_debug into the
+- * input buffer.
++ * read the content of sched_debug into the input buffer.
+  */
+ int read_sched_stat(char *buffer, int size)
+ {
+@@ -416,8 +457,7 @@ int get_cpu_busy_list(struct cpu_info *cpus, int nr_cpus, char *busy_cpu_list)
+ 	return busy_count;
+ }
+ /*
+- * read the contents of /proc/sched_debug into
+- * the input buffer
++ * read the contents of sched_debug into the input buffer.
+  */
+ int read_sched_debug(char *buffer, int size)
+ {
+@@ -425,7 +465,7 @@ int read_sched_debug(char *buffer, int size)
+ 	int retval;
+ 	int fd;
+ 
+-	fd = open("/proc/sched_debug", O_RDONLY);
++	fd = open(config_sched_debug_path, O_RDONLY);
+ 
+ 	if (!fd)
+ 		goto out_error;
+@@ -551,11 +591,11 @@ static inline char *nextline(char *str)
+ #define TASK_MARKER	"runnable tasks:"
+ 
+ /*
+- * read /proc/sched_debug and figure out if it's old or new format
++ * read sched_debug and figure out if it's old or new format
+  * done once so if we fail just exit the program
+  *
+  * NOTE: A side effect of this call is to set the initial value for
+- * config_buffer_size used when reading /proc/sched_debug for
++ * config_buffer_size used when reading sched_debug for
+  * parsing
+  */
+ int detect_task_format(void)
+@@ -574,15 +614,15 @@ int detect_task_format(void)
+ 	buffer = malloc(bufsiz);
+ 
+ 	if (buffer == NULL)
+-		die("unable to allocate %d bytes to read /proc/sched_debug");
++		die("unable to allocate %d bytes to read sched_debug");
+ 
+-	if ((fd = open("/proc/sched_debug", O_RDONLY)) < 0)
+-		die("error opening /proc/sched_debug for reading: %s\n", strerror(errno));
++	if ((fd = open(config_sched_debug_path, O_RDONLY)) < 0)
++		die("error opening sched_debug for reading: %s\n", strerror(errno));
+ 
+ 	ptr = buffer;
+ 	while ((status = read(fd, ptr, bufincrement))) {
+ 		if (status < 0)
+-			die ("error reading /proc/sched_debug: %s\n", strerror(errno));
++			die ("error reading sched_debug: %s\n", strerror(errno));
+ 		if (status == 0)
+ 			break;
+ 		size += status;
+@@ -721,7 +761,7 @@ int parse_new_task_format(char *buffer, struct task_info *task_info, int nr_entr
+ }
+ 
+ /*
+- * old format of /proc/sched_debug doesn't contain state information so we have
++ * old format of sched_debug doesn't contain state information so we have
+  * to pick up the pid and then open /proc/<pid>/stat to get the process state.
+  */
+ 
+@@ -1492,7 +1532,7 @@ void conservative_main(struct cpu_info *cpus, int nr_cpus)
+ 			has_busy_cpu = get_cpu_busy_list(cpus, nr_cpus, busy_cpu_list);
+ 			if (!has_busy_cpu) {
+ 				if (config_verbose)
+-					log_msg("all CPUs had idle time, skipping /proc/sched_debug parse\n");
++					log_msg("all CPUs had idle time, skipping sched_debug parse\n");
+ 				goto skipped;
+ 			}
+ 		}
+@@ -1670,7 +1710,7 @@ void single_threaded_main(struct cpu_info *cpus, int nr_cpus)
+ 			has_busy_cpu = get_cpu_busy_list(cpus, nr_cpus, busy_cpu_list);
+ 			if (!has_busy_cpu) {
+ 				if (config_verbose)
+-					log_msg("all CPUs had idle time, skipping /proc/sched_debug parse\n");
++					log_msg("all CPUs had idle time, skipping sched_debug parse\n");
+ 
+ 				goto skipped;
+ 			}
+@@ -1834,6 +1874,8 @@ int main(int argc, char **argv)
+ 
+ 	parse_args(argc, argv);
+ 
++	find_sched_debug_path();
++
+ 	/*
+ 	 * check RT throttling
+ 	 * if --systemd was specified then RT throttling should already be off
+-- 
+GitLab
+

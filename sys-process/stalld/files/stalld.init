@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Copyright 2020 Gentoo Authors
+# Copyright 2020-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 : ${BP:=-p 1000000000}
@@ -23,5 +23,13 @@ depend() {
 }
 
 start_pre() {
+	if ! [ -e /sys/kernel/debug/sched/debug ] && ! [ -e /proc/sched_debug ]; then
+		eerror "Required kernel scheduler debug data unavailable"
+		return 1
+	elif ! [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
+		eerror "Required kernel scheduler controls unavailable"
+		return 1
+	fi
+		
 	checkpath -d -m 0755 -o root:root -q /var/log/stalld
 }
