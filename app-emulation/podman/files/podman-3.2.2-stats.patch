@@ -1,0 +1,144 @@
+diff --git a/cmd/podman/containers/stats.go b/cmd/podman/containers/stats.go
+index 568e410d28e..e0f535c30d8 100644
+--- a/cmd/podman/containers/stats.go
++++ b/cmd/podman/containers/stats.go
+@@ -146,7 +146,9 @@ func stats(cmd *cobra.Command, args []string) error {
+ func outputStats(reports []define.ContainerStats) error {
+ 	headers := report.Headers(define.ContainerStats{}, map[string]string{
+ 		"ID":            "ID",
++		"UpTime":        "CPU TIME",
+ 		"CPUPerc":       "CPU %",
++		"AVGCPU":        "Avg CPU %",
+ 		"MemUsage":      "MEM USAGE / LIMIT",
+ 		"MemUsageBytes": "MEM USAGE / LIMIT",
+ 		"MemPerc":       "MEM %",
+@@ -166,7 +168,7 @@ func outputStats(reports []define.ContainerStats) error {
+ 	if report.IsJSON(statsOptions.Format) {
+ 		return outputJSON(stats)
+ 	}
+-	format := "{{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDS}}\n"
++	format := "{{.ID}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDS}}\t{{.UpTime}}\t{{.AVGCPU}}\n"
+ 	if len(statsOptions.Format) > 0 {
+ 		format = report.NormalizeFormat(statsOptions.Format)
+ 	}
+@@ -202,6 +204,14 @@ func (s *containerStats) CPUPerc() string {
+ 	return floatToPercentString(s.CPU)
+ }
+ 
++func (s *containerStats) AVGCPU() string {
++	return floatToPercentString(s.AvgCPU)
++}
++
++func (s *containerStats) Up() string {
++	return (s.UpTime.String())
++}
++
+ func (s *containerStats) MemPerc() string {
+ 	return floatToPercentString(s.ContainerStats.MemPerc)
+ }
+@@ -257,7 +267,9 @@ func outputJSON(stats []containerStats) error {
+ 	type jstat struct {
+ 		Id         string `json:"id"` // nolint
+ 		Name       string `json:"name"`
++		CPUTime    string `json:"cpu_time"`
+ 		CpuPercent string `json:"cpu_percent"` // nolint
++		AverageCPU string `json:"avg_cpu"`
+ 		MemUsage   string `json:"mem_usage"`
+ 		MemPerc    string `json:"mem_percent"`
+ 		NetIO      string `json:"net_io"`
+@@ -269,7 +281,9 @@ func outputJSON(stats []containerStats) error {
+ 		jstats = append(jstats, jstat{
+ 			Id:         j.ID(),
+ 			Name:       j.Name,
++			CPUTime:    j.Up(),
+ 			CpuPercent: j.CPUPerc(),
++			AverageCPU: j.AVGCPU(),
+ 			MemUsage:   j.MemUsage(),
+ 			MemPerc:    j.MemPerc(),
+ 			NetIO:      j.NetIO(),
+diff --git a/libpod/define/containerstate.go b/libpod/define/containerstate.go
+index 5d2bc90990d..fc272beaa4d 100644
+--- a/libpod/define/containerstate.go
++++ b/libpod/define/containerstate.go
+@@ -1,6 +1,10 @@
+ package define
+ 
+-import "github.com/pkg/errors"
++import (
++	"time"
++
++	"github.com/pkg/errors"
++)
+ 
+ // ContainerStatus represents the current state of a container
+ type ContainerStatus int
+@@ -120,12 +124,14 @@ func (s ContainerExecStatus) String() string {
+ 
+ // ContainerStats contains the statistics information for a running container
+ type ContainerStats struct {
++	AvgCPU        float64
+ 	ContainerID   string
+ 	Name          string
+ 	PerCPU        []uint64
+ 	CPU           float64
+ 	CPUNano       uint64
+ 	CPUSystemNano uint64
++	DataPoints    int64
+ 	SystemNano    uint64
+ 	MemUsage      uint64
+ 	MemLimit      uint64
+@@ -135,4 +141,6 @@ type ContainerStats struct {
+ 	BlockInput    uint64
+ 	BlockOutput   uint64
+ 	PIDs          uint64
++	UpTime        time.Duration
++	Duration      uint64
+ }
+diff --git a/libpod/stats.go b/libpod/stats.go
+index f4732b4fc9f..6f0360ef10f 100644
+--- a/libpod/stats.go
++++ b/libpod/stats.go
+@@ -56,7 +56,11 @@ func (c *Container) GetContainerStats(previousStats *define.ContainerStats) (*de
+ 
+ 	previousCPU := previousStats.CPUNano
+ 	now := uint64(time.Now().UnixNano())
++	stats.Duration = cgroupStats.CPU.Usage.Total
++	stats.UpTime = time.Duration(stats.Duration)
+ 	stats.CPU = calculateCPUPercent(cgroupStats, previousCPU, now, previousStats.SystemNano)
++	stats.AvgCPU = calculateAvgCPU(stats.CPU, previousStats.AvgCPU, previousStats.DataPoints)
++	stats.DataPoints = previousStats.DataPoints + 1
+ 	stats.MemUsage = cgroupStats.Memory.Usage.Usage
+ 	stats.MemLimit = getMemLimit(cgroupStats.Memory.Usage.Limit)
+ 	stats.MemPerc = (float64(stats.MemUsage) / float64(stats.MemLimit)) * 100
+@@ -127,3 +131,9 @@ func calculateBlockIO(stats *cgroups.Metrics) (read uint64, write uint64) {
+ 	}
+ 	return
+ }
++
++// calculateAvgCPU calculates the avg CPU percentage given the previous average and the number of data points.
++func calculateAvgCPU(statsCPU float64, prevAvg float64, prevData int64) float64 {
++	avgPer := ((prevAvg * float64(prevData)) + statsCPU) / (float64(prevData) + 1)
++	return avgPer
++}
+diff --git a/test/e2e/stats_test.go b/test/e2e/stats_test.go
+index 2218d72b5a1..7ab3dabc99a 100644
+--- a/test/e2e/stats_test.go
++++ b/test/e2e/stats_test.go
+@@ -83,6 +83,17 @@ var _ = Describe("Podman stats", func() {
+ 		Expect(session.ExitCode()).To(Equal(0))
+ 	})
+ 
++	It("podman stats only output CPU data", func() {
++		session := podmanTest.RunTopContainer("")
++		session.WaitWithDefaultTimeout()
++		Expect(session.ExitCode()).To(Equal(0))
++		session = podmanTest.Podman([]string{"stats", "--all", "--no-stream", "--format", "\"{{.ID}} {{.UpTime}} {{.AVGCPU}}\""})
++		session.WaitWithDefaultTimeout()
++		Expect(session.LineInOutputContains("UpTime")).To(BeTrue())
++		Expect(session.LineInOutputContains("AVGCPU")).To(BeTrue())
++		Expect(session.ExitCode()).To(Equal(0))
++	})
++
+ 	It("podman stats with json output", func() {
+ 		var found bool
+ 		session := podmanTest.RunTopContainer("")

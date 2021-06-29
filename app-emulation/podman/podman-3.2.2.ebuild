@@ -92,6 +92,7 @@ ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-3.1.2-dev-warning.patch"
+	"${FILESDIR}/${P}-stats.patch"
 )
 
 pkg_setup() {
