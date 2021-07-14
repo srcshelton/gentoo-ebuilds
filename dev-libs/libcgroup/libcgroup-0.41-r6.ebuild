@@ -11,7 +11,7 @@ SRC_URI="mirror://sourceforge/project/libcg/${PN}/v${PV}/${P}.tar.bz2"
 
 LICENSE="LGPL-2.1"
 SLOT="0"
-KEYWORDS="amd64 arm arm64 ~ppc ~ppc64 x86"
+KEYWORDS="amd64 arm arm64 ~ppc ~ppc64 ~riscv x86"
 IUSE="+daemon elibc_musl pam static-libs systemd test +tools"
 REQUIRED_USE="daemon? ( tools )"
 
@@ -27,14 +27,6 @@ BDEPEND="
 DEPEND="pam? ( sys-libs/pam )"
 RDEPEND="${DEPEND}"
 
-pkg_setup() {
-	local CONFIG_CHECK="~CGROUPS"
-	if use daemon; then
-		CONFIG_CHECK="${CONFIG_CHECK} ~CONNECTOR ~PROC_EVENTS"
-	fi
-	linux-info_pkg_setup
-}
-
 PATCHES=(
 	"${FILESDIR}"/${P}-replace_DECLS.patch
 	"${FILESDIR}"/${P}-replace_INLCUDES.patch
@@ -43,6 +35,14 @@ PATCHES=(
 	"${FILESDIR}"/${P}-slibtool.patch
 	"${FILESDIR}"/${P}-remount.patch
 )
+
+pkg_setup() {
+	local CONFIG_CHECK="~CGROUPS"
+	if use daemon; then
+		CONFIG_CHECK="${CONFIG_CHECK} ~CONNECTOR ~PROC_EVENTS"
+	fi
+	linux-info_pkg_setup
+}
 
 src_prepare() {
 	default
