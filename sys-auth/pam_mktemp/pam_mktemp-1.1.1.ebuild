@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit toolchain-funcs pam
+inherit pam toolchain-funcs
 
 DESCRIPTION="Create per-user private temporary directories during login"
 HOMEPAGE="http://www.openwall.com/pam/"
@@ -11,8 +11,8 @@ SRC_URI="http://www.openwall.com/pam/modules/${PN}/${P}.tar.gz"
 
 LICENSE="BSD-2" # LICENSE file says "heavily cut-down 'BSD license'"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux"
-IUSE="selinux +prevent-removal"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+IUSE="+prevent-removal selinux"
 
 RDEPEND="sys-libs/pam
 	selinux? ( sys-libs/libselinux )"
