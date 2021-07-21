@@ -174,8 +174,8 @@ used to build perl)
     * ~~Allow `gdisk` to build on darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used~~
 * sys-apps/help2man
     * Ensure that `usr/lib/help2man/bindtextdomain.dylib` is correctly built and named
-* sys-apps/man
-    * Add missing `string.h` header to `makemsg.c`
+* ~~sys-apps/man~~
+    * ~~Add missing `string.h` header to `makemsg.c`~~
 * sys-apps/texinfo
     * Add missing `#include`
 * ~~sys-devel/gdb~~
