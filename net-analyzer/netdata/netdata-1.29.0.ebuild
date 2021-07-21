@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-PYTHON_COMPAT=( python{3_7,3_8,3_9} )
+PYTHON_COMPAT=( python{3_8,3_9} )
 
 inherit autotools fcaps linux-info python-single-r1 systemd
 
@@ -172,12 +172,11 @@ RDEPEND="
 	)
 	python? (
 		${PYTHON_DEPS}
-		$(python_gen_cond_dep 'dev-python/pyyaml[${PYTHON_MULTI_USEDEP}]')
+		$(python_gen_cond_dep 'dev-python/pyyaml[${PYTHON_USEDEP}]')
 		dev-python/dnspython
-		virtual/python-ipaddress
-		mysql? ( $(python_gen_cond_dep 'dev-python/mysqlclient[${PYTHON_MULTI_USEDEP}]') )
-		postgres? ( $(python_gen_cond_dep 'dev-python/psycopg:2[${PYTHON_MULTI_USEDEP}]') )
-		tor? ( $(python_gen_cond_dep 'net-libs/stem[${PYTHON_MULTI_USEDEP}]') )
+		mysql? ( $(python_gen_cond_dep 'dev-python/mysqlclient[${PYTHON_USEDEP}]') )
+		postgres? ( $(python_gen_cond_dep 'dev-python/psycopg:2[${PYTHON_USEDEP}]') )
+		tor? ( $(python_gen_cond_dep 'net-libs/stem[${PYTHON_USEDEP}]') )
 	)
 	xen? (
 		app-emulation/xen-tools
