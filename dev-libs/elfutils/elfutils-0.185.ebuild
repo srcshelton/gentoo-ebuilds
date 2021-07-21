@@ -11,7 +11,7 @@ SRC_URI="https://sourceware.org/elfutils/ftp/${PV}/${P}.tar.bz2"
 
 LICENSE="|| ( GPL-2+ LGPL-3+ ) utils? ( GPL-3+ )"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="bzip2 lzma nls split-usr static-libs test +threads +utils valgrind zstd"
 
 RDEPEND=">=sys-libs/zlib-1.2.8-r1[static-libs?,${MULTILIB_USEDEP}]
@@ -74,6 +74,32 @@ multilib_src_test() {
 	env	LD_LIBRARY_PATH="${BUILD_DIR}/libelf:${BUILD_DIR}/libebl:${BUILD_DIR}/libdw:${BUILD_DIR}/libasm" \
 		LC_ALL="C" \
 		emake check VERBOSE=1
+}
+
+multilib_src_install() {
+	default
+
+	if use split-usr && multilib_is_native_abi; then
+		# Rather than being named libelf.so.0.170, libs are instead named
+		# libelf-0.170.so...
+		# The comments in gen_usr_ldscript indicate that this is sometimes the
+		# case, but, as below, gen_usr_ldscript then does the wrong thing.
+		# Indeed, if called as 'gen_usr_ldscript "libelf-${PV}"' then it
+		# doesn't seem to do *anything*.
+		#gen_usr_ldscript "libelf-${PV}"
+		gen_usr_ldscript -a elf
+
+		# We now have a broken symlink libelf.so.1 -> libelf-0.170.so in /lib*
+		# and the original library plus the ld script in /usr/lib*
+		if [[
+			     -f "${ED%/}/usr/$(get_libdir)/libelf-${PV}.so"
+			&&   -L "${ED%/}/$(get_libdir)/libelf.so.1"
+			&& ! -r "${ED%/}/$(get_libdir)/libelf.so.1"
+		]]; then
+			ewarn "Fixing-up bad gen_usr_ldscript result ..."
+			mv "${ED%/}/usr/$(get_libdir)/libelf-${PV}.so" "${ED%/}/$(get_libdir)/"
+		fi
+	fi
 }
 
 multilib_src_install_all() {
