@@ -16,7 +16,7 @@ SRC_URI="
 	https://dev.gentoo.org/~jer/ethercodes.dat-${ETHERCODES_DATE}.xz
 "
 
-KEYWORDS="amd64 ~hppa ppc sparc x86"
+KEYWORDS="amd64 ~hppa ppc ~riscv sparc x86"
 IUSE="selinux systemd"
 
 DEPEND="
@@ -66,10 +66,10 @@ pkg_postinst() {
 	# fixing, and the "&& chmod" ensures that we only adjust the
 	# permissions if the owner also needed fixing.
 	chown \
-		--from=root:root \
-		--no-dereference \
-		:arpwatch \
-		"${ROOT}"/var/lib/arpwatch &&
+			--from=root:root \
+			--no-dereference \
+			:arpwatch \
+			"${ROOT}"/var/lib/arpwatch &&
 		chmod 770 "${ROOT}"/var/lib/arpwatch
 }
 
