@@ -223,8 +223,8 @@ used to build perl)
 
 # Out-of-tree ebuilds
 
-* acct-group/cron
-    * Consistent group for sys-process/cronbase
+* ~~acct-group/cron~~
+    * ~~Consistent group for sys-process/cronbase~~
 * acct-group/hugetlb
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/milter
@@ -235,8 +235,8 @@ used to build perl)
     * Privilege-separation account
 * acct-group/tcpdump
     * Privilege-separation account
-* acct-user/cron
-    * Consistent user for sys-process/cronbase
+* ~~acct-user/cron~~
+    * ~~Consistent user for sys-process/cronbase~~
 * acct-user/memcached
     * Add user to 'hugetlb' group
 * acct-user/milter
@@ -490,8 +490,8 @@ used to build perl)
     * Provide more flexibility with finer-grained USE flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
-* sys-process/cronbase
-    * Add consistent group and user dependencies
+* ~~sys-process/cronbase~~
+    * ~~Add consistent group and user dependencies~~
 * virtual/bitcoin-leveldb
     * Be more flexible about necessary dependencies
 * virtual/mta
