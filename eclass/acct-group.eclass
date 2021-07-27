@@ -46,6 +46,7 @@ inherit user
 	die "Ebuild error: this eclass can be used only in acct-group category!"
 
 BDEPEND="sys-apps/shadow"
+RDEPEND="sys-apps/shadow"
 
 IUSE="systemd"
 
