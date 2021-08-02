@@ -202,6 +202,10 @@ pkg_postinst() {
 		ewarn "    chown root:utmp ${rundir}"
 		ewarn "... as a privileged user"
 	fi
+
+	if use tmpfiles; then
+		tmpfiles_process screen.conf
+	fi
 }
 
 # vi: set diffopt=iwhite,filler:

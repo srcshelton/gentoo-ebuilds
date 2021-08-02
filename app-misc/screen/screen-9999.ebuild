@@ -148,6 +148,10 @@ pkg_postinst() {
 		elog "We enable some xterm hacks in our default screenrc, which might break some"
 		elog "applications. Please check /etc/screenrc for information on these changes."
 	fi
+
+	if use tmpfiles; then
+		tmpfiles_process screen.conf
+	fi
 }
 
 # vi: set diffopt=iwhite,filler:
