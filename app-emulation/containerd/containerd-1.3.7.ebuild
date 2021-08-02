@@ -74,7 +74,7 @@ src_compile() {
 src_install() {
 	dobin bin/*
 	doman man/*
-	newinitd "${FILESDIR}"/${PN}.initd "${PN}"
+	newinitd "${FILESDIR}"/${PN}.initd-r1 "${PN}"
 	keepdir /var/lib/containerd
 
 	# we already installed manpages, remove markdown source
