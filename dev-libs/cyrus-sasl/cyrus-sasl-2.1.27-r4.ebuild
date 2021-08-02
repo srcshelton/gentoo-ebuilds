@@ -268,6 +268,10 @@ pkg_config() {
 }
 
 pkg_postinst() {
+	if use tmpfiles; then
+		tmpfiles_process ${PN}.conf
+	fi
+
 	if [[ "${MERGE_TYPE}" != 'binary' ]] ; then
 		( use berkdb || use gdbm ) && pkg_config
 	fi
