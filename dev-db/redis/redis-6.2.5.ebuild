@@ -18,7 +18,7 @@ HOMEPAGE="https://redis.io"
 SRC_URI="https://download.redis.io/releases/${P}.tar.gz"
 
 LICENSE="BSD"
-KEYWORDS="amd64 arm arm64 ~hppa ppc ppc64 sparc x86 ~amd64-linux ~x86-linux ~x86-solaris"
+KEYWORDS="amd64 arm arm64 ~hppa ppc ppc64 ~riscv sparc x86 ~amd64-linux ~x86-linux ~x86-solaris"
 IUSE="+jemalloc ssl systemd tcmalloc test +tmpfiles"
 RESTRICT="!test? ( test )"
 SLOT="0"
@@ -156,12 +156,8 @@ src_install() {
 	newconfd "${FILESDIR}/redis.confd-r2" redis
 	newinitd "${FILESDIR}/redis.initd-6" redis
 
-	if use systemd; then
-		systemd_newunit "${FILESDIR}/redis.service-4" redis.service
-	fi
-	if use tmpfiles; then
-		newtmpfiles "${FILESDIR}/redis.tmpfiles-2" redis.conf
-	fi
+	use systemd && systemd_newunit "${FILESDIR}/redis.service-4" redis.service
+	use tmpfiles && newtmpfiles "${FILESDIR}/redis.tmpfiles-2" redis.conf
 
 	newconfd "${FILESDIR}/redis-sentinel.confd-r1" redis-sentinel
 	newinitd "${FILESDIR}/redis-sentinel.initd-r1" redis-sentinel
@@ -185,9 +181,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	if use tmpfiles; then
-		tmpfiles_process redis.conf
-	fi
+	use tmpfiles && tmpfiles_process redis.conf
 
 	ewarn "The default redis configuration file location changed to:"
 	ewarn "  /etc/redis/{redis,sentinel}.conf"
