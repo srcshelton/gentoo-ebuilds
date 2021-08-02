@@ -35,7 +35,7 @@ LICENSE="Apache-2.0 BSD BSD-2 GPL-2 HPND ISC MPL-2.0"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~s390 sparc x86 ~amd64-linux ~x86-linux"
 # -berkdb by default re bug 602682
-IUSE="-berkdb +caps dlz dnsrps dnstap doc fixed-rrset geoip geoip2 gssapi json ldap lmdb mysql odbc postgres python selinux static-libs systemd xml +zlib"
+IUSE="-berkdb +caps dlz dnsrps dnstap doc fixed-rrset geoip geoip2 gssapi json ldap lmdb mysql odbc postgres python selinux static-libs systemd +tmpfiles xml +zlib"
 # sdb-ldap - patch broken
 # no PKCS11 currently as it requires OpenSSL to be patched, also see bug 409687
 
@@ -273,10 +273,8 @@ src_install() {
 	fperms 0750 /etc/bind /var/bind/pri
 	fperms 0770 /var/log/named /var/bind/{,sec,dyn}
 
-	if use systemd; then
-		systemd_newunit "${FILESDIR}/named.service-r1" named.service
-		dotmpfiles "${FILESDIR}"/named.conf
-	fi
+	use systemd && systemd_newunit "${FILESDIR}/named.service-r1" named.service
+	use tmpfiles && dotmpfiles "${FILESDIR}"/named.conf
 	exeinto /usr/libexec
 	doexe "${FILESDIR}/generate-rndc-key.sh"
 }
@@ -291,7 +289,7 @@ python_install() {
 }
 
 pkg_postinst() {
-	use systemd && tmpfiles_process "${FILESDIR}"/named.conf
+	use tmpfiles && tmpfiles_process named.conf
 
 	if [ ! -f "${ROOT}/etc/bind/rndc.key" ]; then
 		if [ -f "${ROOT}/etc/bind/rndc.conf" ]; then
