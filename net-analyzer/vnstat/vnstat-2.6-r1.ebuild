@@ -12,7 +12,7 @@ if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/vergoh/vnstat"
 	inherit git-r3
 else
-	VERIFY_SIG_OPENPGP_KEY_PATH="/usr/share/openpgp-keys/teemutoivola.asc"
+	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT%/}/usr/share/openpgp-keys/teemutoivola.asc"
 	inherit verify-sig
 
 	SRC_URI="https://humdi.net/vnstat/${P}.tar.gz
@@ -25,7 +25,7 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="gd selinux systemd test"
+IUSE="gd selinux systemd test +tmpfiles"
 RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
@@ -39,8 +39,8 @@ DEPEND="
 RDEPEND="
 	acct-group/vnstat
 	acct-user/vnstat
-	${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-vnstatd )
+	${COMMON_DEPEND}
 "
 
 PATCHES=(
@@ -70,10 +70,8 @@ src_install() {
 	newconfd "${FILESDIR}"/vnstatd.confd-r1 vnstatd
 	newinitd "${FILESDIR}"/vnstatd.initd-r2 vnstatd
 
-	if use systemd; then
-		systemd_newunit "${FILESDIR}"/vnstatd.systemd vnstatd.service
-		newtmpfiles "${FILESDIR}"/vnstatd.tmpfile vnstatd.conf
-	fi
+	use systemd && systemd_newunit "${FILESDIR}"/vnstatd.systemd vnstatd.service
+	use tmpfiles && newtmpfiles "${FILESDIR}"/vnstatd.tmpfile vnstatd.conf
 
 	if use prefix; then
 		sed -i -r \
@@ -91,3 +89,9 @@ src_install() {
 	newdoc INSTALL README.setup
 	dodoc CHANGES README UPGRADE FAQ examples/vnstat.cgi
 }
+
+pkg_postinst() {
+	use tmpfiles && tmpfiles_process vnstatd.conf
+}
+
+# vi: set diffopt=filler,iwhite:

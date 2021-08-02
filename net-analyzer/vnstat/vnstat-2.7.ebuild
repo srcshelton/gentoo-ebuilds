@@ -12,7 +12,7 @@ if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/vergoh/vnstat"
 	inherit git-r3
 else
-	VERIFY_SIG_OPENPGP_KEY_PATH="/usr/share/openpgp-keys/teemutoivola.asc"
+	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT%/}/usr/share/openpgp-keys/teemutoivola.asc"
 	inherit verify-sig
 
 	SRC_URI="https://humdi.net/vnstat/${P}.tar.gz
@@ -25,7 +25,7 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="gd selinux systemd test"
+IUSE="gd selinux systemd test +tmpfiles"
 RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
@@ -75,6 +75,8 @@ src_install() {
 
 	if use systemd; then
 		systemd_newunit "${FILESDIR}"/vnstatd.systemd vnstatd.service
+	fi
+	if use tmpfiles; then
 		newtmpfiles "${FILESDIR}"/vnstatd.tmpfile vnstatd.conf
 	fi
 
@@ -94,3 +96,11 @@ src_install() {
 	newdoc INSTALL README.setup
 	dodoc CHANGES README UPGRADE FAQ examples/vnstat.cgi
 }
+
+pkg_postinst() {
+	if use tmpfiles; then
+		tmpfiles_process vnstatd.conf
+	fi
+}
+
+# vi: set diffopt=filler,iwhite:
