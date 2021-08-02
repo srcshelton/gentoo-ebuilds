@@ -54,3 +54,85 @@ src_prepare() {
 		grep -RHF 'libx32' gcc/ | grep -Ev 'GLIBC_DYNAMIC_LINKER|MULTILIB_OSDIRNAMES|gcc/ada/link.c'
 	fi
 }
+
+src_install() {
+	toolchain_src_install
+
+	if use lib-only; then
+		einfo "Removing non-library directories..."
+
+		mv "${ED%/}/usr/share/gcc-data/${CHOST:-fail}/${PV}" "${T}"/data || die
+		mv "${ED%/}/usr/lib/gcc/${CHOST:-fail}/${PV}" "${T}"/lib || die
+		mv "${ED%/}/usr/libexec/gcc/${CHOST:-fail}/${PV}" "${T}"/libexec || die
+
+		rm -r "${ED}"/*
+
+		mkdir -p "${ED%/}/usr/lib/gcc/${CHOST}" "${ED%/}/usr/libexec/gcc/${CHOST}" "${ED%/}/usr/share/gcc-data/${CHOST}" || die
+		mv "${T}"/data "${ED%/}/usr/share/gcc-data/${CHOST}/${PV}" || die
+		mv "${T}"/lib "${ED%/}/usr/lib/gcc/${CHOST}/${PV}" || die
+		mv "${T}"/libexec "${ED%/}/usr/libexec/gcc/${CHOST}/${PV}" || die
+
+		pushd "${ED%/}/usr/lib/gcc/${CHOST}/${PV}" >/dev/null || die
+		rm -r include include-fixed plugin/include
+		rm *.o *.a *.spec *.la plugin/gtype.state
+		popd >/dev/null || die
+
+		pushd "${ED%/}/usr/libexec/gcc/${CHOST}/${PV}" >/dev/null || die
+		rm -r plugin
+		ls -1 | grep -v '.so' | xargs rm
+		popd >/dev/null || die
+
+		keepdir "/usr/${CHOST}/gcc-bin/${PV}"
+	fi
+}
+
+pkg_postinst_fix_so() {
+	local src_dir="${1:-}"
+	local src_so="${2:-}"
+	local dst_dir="${3:-}"
+	local dst_rel="${4:-}"
+
+	local so=''
+
+	[[ -d "${src_dir:-}/" ]] || return 1
+	[[ -d "${dst_dir:-}/" ]] || return 1
+	ls "${src_dir}/${src_so}"* >/dev/null 2>&1 || return 1
+
+	while read -r so; do
+		so="$( basename "${so}" )"
+		einfo "Making '${src_dir%/}/${so}' available in '${dst_dir}/' ..."
+		if [[ -e "${dst_dir}/${so}" ]] && ! [[ -L "${dst_dir}/${so}" ]]; then
+			ewarn "Not replacing non-symlink '${dst_dir%/}/${so}'"
+		else
+			if [[ -n "${dst_rel:-}" ]]; then
+				if [[ -s "${dst_dir}/${dst_rel}/${so}" ]]; then
+					ln -sf "${dst_rel}/${so}" "${dst_dir}/${so}"
+				else
+					warn "Could not resolve path '${dst_dir}/${dst_rel}/${so}', creating absolute symlink ..."
+					ln -sf "${src_dir}/${so}" "${dst_dir}/${so}"
+				fi
+			else
+				ln -sf "${src_dir}/${so}" "${dst_dir}/${so}"
+			fi
+		fi
+	done < <( ls -1 "${src_dir}/${src_so}"* )
+
+	return 0
+} # pkg_postinst_fix_so
+
+pkg_postinst() {
+	local best="$( best_version "${CATEGORY}/${PN}" )"
+
+	if use lib-only; then
+		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
+			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
+		else
+			pkg_postinst_fix_so "${EROOT%/}/usr/lib/gcc/${CHOST}/${PV}" 'libstdc++.so' "${EROOT%/}/usr/$(get_libdir)" "../lib/gcc/${CHOST}/${PV}" ||
+				die "Couldn't link library 'libstdc++.so'"
+			pkg_postinst_fix_so "${EROOT%/}/usr/lib/gcc/${CHOST}/${PV}" 'libgcc_s.so' "${EROOT%/}/usr/$(get_libdir)" "../lib/gcc/${CHOST}/${PV}" ||
+				die "Couldn't link library 'libgcc_s.so'"
+		fi
+	fi
+}
+
+# vi: set diffopt=iwhite,filler:
