@@ -59,7 +59,7 @@
      }
 --- a/slirp4netns.1
 +++ b/slirp4netns.1
-@@ -89,10 +89,10 @@
+@@ -93,10 +93,10 @@
  .PP
  \fB\fC\-\-enable\-sandbox\fR (since v0.4.0)
  enter the user namespace and create a new mount namespace where only /etc and
@@ -72,7 +72,7 @@
  
  .PP
  When running as the root, the process does not enter the user namespace but all
-@@ -429,7 +429,7 @@
+@@ -433,7 +433,7 @@
  
  .nf
  (host)$ nsenter \-t $(cat /tmp/pid) \-U \-\-preserve\-credentials \-n \-m
@@ -83,7 +83,7 @@
  (namespace)$ ip link add veth\-foo type veth peer name veth\-bar
 --- a/slirp4netns.1.md
 +++ b/slirp4netns.1.md
-@@ -64,9 +64,9 @@
+@@ -66,9 +66,9 @@
  
  `--enable-sandbox` (since v0.4.0)
  enter the user namespace and create a new mount namespace where only /etc and
@@ -95,7 +95,7 @@
  
  When running as the root, the process does not enter the user namespace but all
  the capabilities except `CAP_NET_BIND_SERVICE` are dropped.
-@@ -273,7 +273,7 @@
+@@ -275,7 +275,7 @@
  
  ```console
  (host)$ nsenter -t $(cat /tmp/pid) -U --preserve-credentials -n -m
@@ -104,11 +104,11 @@
  (namespace)$ ip netns add foo
  (namespace)$ ip netns add bar
  (namespace)$ ip link add veth-foo type veth peer name veth-bar
---- a/tests/slirp4netns-no-unmount.sh
-+++ b/tests/slirp4netns-no-unmount.sh
-@@ -6,10 +6,10 @@
- # it is a part of test-slirp4netns.sh
- # must run in a new mount namespace
+--- a/tests/test-slirp4netns-sandbox-no-unmount.sh
++++ b/tests/test-slirp4netns-sandbox-no-unmount.sh
+@@ -9,10 +9,10 @@
+ 
+ . $(dirname $0)/common.sh
  
 -mount -t tmpfs tmpfs /run
 -mkdir /run/foo
@@ -121,15 +121,15 @@
  
  unshare -n sleep infinity &
  child=$!
-@@ -26,4 +26,4 @@
+@@ -29,4 +29,4 @@
  
  wait_for_network_device $child tun11
  
 -findmnt /run/foo
 +findmnt /var/run/foo
---- a/tests/test-slirp4netns.sh
-+++ b/tests/test-slirp4netns.sh
-@@ -23,7 +23,7 @@
+--- a/tests/test-slirp4netns-sandbox.sh
++++ b/tests/test-slirp4netns-sandbox.sh
+@@ -21,7 +21,7 @@
  grep -v cap_sys_admin slirp.caps
  rm slirp.caps
  test -e /proc/$slirp_pid/root/etc
