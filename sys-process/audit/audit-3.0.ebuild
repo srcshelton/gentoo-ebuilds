@@ -13,8 +13,8 @@ SRC_URI="https://people.redhat.com/sgrubb/audit/${P}.tar.gz"
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="amd64 arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="gssapi ldap python static-libs zos"
+KEYWORDS="~alpha amd64 arm ~arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+IUSE="gssapi ldap python static-libs systemd zos"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
 	zos? ( ldap )"
