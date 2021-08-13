@@ -1,17 +1,15 @@
 # Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=8
 
 DIST_AUTHOR=OALDERS
-DIST_VERSION=6.07
+DIST_VERSION=6.10
 inherit perl-module prefix
 
 DESCRIPTION="Provide https support for LWP::UserAgent"
 
 SLOT="0"
-IUSE="test"
-RESTRICT="!test? ( test )"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~x64-solaris"
 
 RDEPEND="
@@ -32,12 +30,13 @@ PATCHES=(
 	#"${FILESDIR}"/${PN}-6.70.0-etcsslcerts.patch
 	"${FILESDIR}"/${PN}-6.70.0-CVE-2014-3230.patch # note: breaks a test, still needed?
 )
+
 PERL_RM_FILES=(
 	"t/https_proxy.t" # see above
 )
 
 src_prepare() {
-	epatch "$( prefixify_ro "${FILESDIR}"/${P}-etcsslcerts.patch )"
+	eapply "$( prefixify_ro "${FILESDIR}"/${PN}-6.70.0-etcsslcerts.patch )"
 
 	default
 }
