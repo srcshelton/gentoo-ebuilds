@@ -51,7 +51,12 @@ pkg_postinst() {
 			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
 		fi
 		einfo "Generating java cacerts file from system ca-certificates"
-		PATH="${ROOT}/usr/bin:${ROOT}/bin:${PATH}" \
-			env trust extract --overwrite --format=java-cacerts --filter=ca-anchors --purpose server-auth "${EROOT}/etc/ssl/certs/java/cacerts" || die
+		PATH="${ROOT%/}/usr/bin:${ROOT%/}/bin:${PATH}" env \
+		trust extract \
+				--overwrite \
+				--format=java-cacerts \
+				--filter=ca-anchors \
+				--purpose server-auth \
+			"${EROOT%/}/etc/ssl/certs/java/cacerts" || die "trust extract failed: ${?}"
 	fi
 }
