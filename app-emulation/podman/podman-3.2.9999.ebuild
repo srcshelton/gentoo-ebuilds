@@ -6,7 +6,7 @@ EAPI=7
 EGO_PN="github.com/containers/podman"
 MY_P="${P/_/-}"
 
-COMMON_VERSION='0.43.0'
+COMMON_VERSION='0.43.2'
 CATATONIT_VERSION='0.1.5'
 
 if [[ "${PV}" == *9999* ]]; then
