@@ -22,7 +22,7 @@ IUSE="examples json static-libs test xml"
 
 RESTRICT="!test? ( test )"
 
-RDEPEND=">=net-libs/libmnl-1.0.4
+RDEPEND=">=net-libs/libmnl-1.0.4:=
 	xml? ( >=dev-libs/mxml-2.6 )
 	json? ( >=dev-libs/jansson-2.3 )"
 BDEPEND="virtual/pkgconfig"
