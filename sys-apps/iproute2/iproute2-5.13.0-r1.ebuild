@@ -10,7 +10,7 @@ if [[ ${PV} == "9999" ]] ; then
 	inherit git-r3
 else
 	SRC_URI="https://www.kernel.org/pub/linux/utils/net/${PN}/${P}.tar.xz"
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 DESCRIPTION="kernel routing and traffic control utilities"
@@ -79,7 +79,6 @@ src_prepare() {
 		-e "/^HOSTCC/s:=.*:= $(tc-getBUILD_CC):" \
 		-e "/^DBM_INCLUDE/s:=.*:=${T}:" \
 		Makefile || die
-#		-e "/^WFLAGS/s:-Werror::" \
 
 	# build against system headers
 	rm -r include/netinet || die #include/linux include/ip{,6}tables{,_common}.h include/libiptc
@@ -102,12 +101,12 @@ src_configure() {
 	${CC} ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} test.c -lresolv >&/dev/null || sed -i '/^LDLIBS/s:-lresolv::' "${S}"/Makefile
 	popd >/dev/null
 
-	# Run "configure" script first to create "config.mk" ...
+	# run "configure" script first which will create "config.mk"...
 	LIBBPF_FORCE="$(usex bpf on off)" \
 	econf
 
-	# ... then switch on/off requested features via USE flags
-	# (this is only useful if the test did not set other things, per bug #643722)
+	# ...now switch on/off requested features via USE flags
+	# this is only useful if the test did not set other things, per bug #643722
 	cat <<-EOF >> config.mk
 	TC_CONFIG_ATM := $(usex atm y n)
 	TC_CONFIG_XT  := $(usex iptables y n)
