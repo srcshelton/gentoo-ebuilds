@@ -1,26 +1,32 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{7,8,9} )
+PYTHON_COMPAT=( python3_{7..10} )
 
 inherit autotools linux-info python-r1 systemd usr-ldscript
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
-SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2"
+
+if [[ ${PV} =~ ^[9]{4,}$ ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
+else
+	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2"
+	KEYWORDS="amd64 arm arm64 ~ia64 ppc ~ppc64 ~riscv sparc x86"
+fi
 
 LICENSE="GPL-2"
-SLOT="0"
-KEYWORDS="amd64 arm arm64 ~ia64 ppc ~ppc64 sparc x86"
-IUSE="debug doc +gmp json +modern-kernel python +readline static-libs systemd xtables"
+SLOT="0/1"
+IUSE="debug doc +gmp json libedit +modern-kernel python +readline static-libs systemd xtables"
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:0=
-	>=net-libs/libnftnl-1.1.9:0=
+	>=net-libs/libnftnl-1.2.0:0=
 	gmp? ( dev-libs/gmp:0= )
-	json? ( dev-libs/jansson )
+	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
 	readline? ( sys-libs/readline:0= )
 	xtables? ( >=net-firewall/iptables-1.6.1 )
@@ -40,6 +46,7 @@ BDEPEND="
 
 REQUIRED_USE="
 	python? ( ${PYTHON_REQUIRED_USE} )
+	libedit? ( !readline )
 "
 
 PATCHES=(
@@ -88,6 +95,7 @@ src_configure() {
 		$(use_enable doc man-doc)
 		$(use_with !gmp mini_gmp)
 		$(use_with json)
+		$(use_with libedit cli editline)
 		$(use_with readline cli readline)
 		$(use_enable static-libs static)
 		$(use_with xtables)
@@ -106,7 +114,7 @@ src_compile() {
 src_install() {
 	default
 
-	if ! use doc; then
+	if ! use doc && [[ ! ${PV} =~ ^[9]{4,}$ ]]; then
 		# Deploy a pre-generated man-page to avoid docbook2X dependency...
 		newman "${FILESDIR}/man-pages/${P}-libnftables.3" libnftables.3
 		newman "${FILESDIR}/man-pages/${P}-libnftables-json.5" libnftables-json.5
@@ -122,7 +130,7 @@ src_install() {
 	exeinto "/usr/libexec/${PN}"
 	newexe "${FILESDIR}/libexec/${PN}${mksuffix}.sh" "${PN}.sh"
 	newconfd "${FILESDIR}/${PN}${mksuffix}.confd" "${PN}"
-	newinitd "${FILESDIR}/${PN}${mksuffix}.init" "${PN}"
+	newinitd "${FILESDIR}/${PN}${mksuffix}.init-r1" "${PN}"
 	keepdir /var/lib/nftables
 
 	use systemd && systemd_dounit "${FILESDIR}"/systemd/${PN}-restore.service

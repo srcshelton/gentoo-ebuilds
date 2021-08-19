@@ -53,7 +53,7 @@ src_install() {
 	prune_libtool_files --all
 
 	if ! use doc; then
-		newman "${FILESDIR}"/"${PN}"-0.4.1-nftables.8 nft.8
+		newman "${FILESDIR}"/man-pages/"${PN}"-0.4.1-nftables.8 nft.8
 	fi
 	newconfd "${FILESDIR}"/${PN}.confd ${PN}
 	newinitd "${FILESDIR}"/${PN}.init ${PN}

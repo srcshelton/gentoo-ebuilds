@@ -50,7 +50,7 @@ src_install() {
 	default
 
 	if ! use doc; then
-		newman "${FILESDIR}"/"${P}"-nftables.8 nft.8
+		newman "${FILESDIR}"/man-pages/"${P}"-nftables.8 nft.8
 	fi
 	newconfd "${FILESDIR}"/${PN}.confd ${PN}
 	newinitd "${FILESDIR}"/${PN}.init ${PN}

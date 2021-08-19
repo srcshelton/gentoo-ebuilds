@@ -58,7 +58,7 @@ src_install() {
 
 	# Deploy a pre-generated man-page to avoid docbook2X dependency...
 	if ! use doc; then
-		newman "${FILESDIR}"/"${P}"-nftables.8 nft.8
+		newman "${FILESDIR}"/man-pages/"${P}"-nftables.8 nft.8
 	fi
 
 	dodir /usr/libexec/${PN}

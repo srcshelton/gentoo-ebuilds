@@ -51,7 +51,7 @@ src_install() {
 	if use doc; then
 		:
 	else
-		doman "${FILESDIR}"/nftables.8
+		doman "${FILESDIR}"/man-pages/nftables.8
 	fi
 	newconfd "${FILESDIR}"/${PN}.confd ${PN}
 	newinitd "${FILESDIR}"/${PN}.init ${PN}
