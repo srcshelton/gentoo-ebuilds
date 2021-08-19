@@ -65,7 +65,7 @@ src_prepare() {
 src_configure() {
 	local myconf=(
 		--disable-Werror
-		--libdir=/usr/lib
+		--libdir="${EPREFIX}"/usr/lib
 		$(use_enable ipv6 rfc2553)
 		$(use_with gtk)
 		--without-gnome
