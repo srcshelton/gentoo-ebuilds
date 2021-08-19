@@ -681,6 +681,7 @@ x32 profiles, and that these variables only affect multilib systems.
 
 * app-arch/zstd
 * app-crypt/argon2
+* app-crypt/libmd
 * app-crypt/mit-krb5
 * dev-libs/elfutils
 * dev-libs/gmp
