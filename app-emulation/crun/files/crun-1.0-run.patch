@@ -1,0 +1,48 @@
+--- a/src/libcrun/status.c
++++ b/src/libcrun/status.c
+@@ -60,7 +60,7 @@ get_run_directory (const char *state_roo
+         }
+     }
+   if (root == NULL)
+-    root = xstrdup ("/run/crun");
++    root = xstrdup ("/var/run/crun");
+ 
+   ret = crun_ensure_directory (root, 0700, false, &err);
+   if (UNLIKELY (ret < 0))
+--- a/tests/test_start.py
++++ b/tests/test_start.py
+@@ -131,10 +131,10 @@ def test_sd_notify():
+     conf['process']['args'] = ['/init', 'cat', '/proc/self/mountinfo']
+     add_all_namespaces(conf)
+     env = dict(os.environ)
+-    env["NOTIFY_SOCKET"] = "/run/notify/the-socket"
++    env["NOTIFY_SOCKET"] = "/var/run/notify/the-socket"
+     try:
+         out, cid = run_and_get_output(conf, env=env, command='run')
+-        if "/run/notify/the-socket" not in str(out):
++        if "/var/run/notify/the-socket" not in str(out):
+             return -1
+     except:
+         return -1
+--- a/crun.1.md
++++ b/crun.1.md
+@@ -68,7 +68,7 @@ Restore a container from a checkpoint
+ # STATE
+ 
+ By default, when running as root user, crun saves its state under the
+-**/run/crun** directory.  As unprivileged user, instead the
++**/var/run/crun** directory.  As unprivileged user, instead the
+ *XDG_RUNTIME_DIR* environment variable is honored, and the directory
+ **$XDG_RUNTIME_DIR/crun** is used.  The global option **--root**
+ overrides this setting.
+--- a/crun.1
++++ b/crun.1
+@@ -86,7 +86,7 @@ Restore a container from a checkpoint
+ .SH STATE
+ .PP
+ By default, when running as root user, crun saves its state under the
+-\fB/run/crun\fP directory.  As unprivileged user, instead the
++\fB/var/run/crun\fP directory.  As unprivileged user, instead the
+ \fIXDG_RUNTIME_DIR\fP environment variable is honored, and the directory
+ \fB$XDG_RUNTIME_DIR/crun\fP is used.  The global option \fB--root\fP
+ overrides this setting.
