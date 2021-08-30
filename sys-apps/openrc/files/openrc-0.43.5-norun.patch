@@ -1,0 +1,161 @@
+--- a/sh/init.sh.Linux.in
++++ b/sh/init.sh.Linux.in
+@@ -58,31 +58,80 @@ sys="$(openrc --sys)"
+ if [ ! -d /run ]; then
+ 	if [ "$sys" = VSERVER ]; then
+ 		if [ -e /run ]; then
+-		rm -rf /run
++			rm -rf /run
+ 		fi
+ 		mkdir /run
+ 	else
+-		eerror "The /run directory does not exist. Unable to continue."
+-		return 1
++		#eerror "The /run directory does not exist. Unable to continue."
++		#return 1
++		:
++		# awk may live in /usr...
++		if command -v awk >/dev/null 2>&1; then
++			boot_services="$( rc-status -Ca 2>/dev/null | awk -e "$( cat <<-'EOF'
++					BEGIN { doprint = 0 } ;
++					/^Runlevel: / {
++						doprint = 0 ;
++						( "boot" == $2 || "sysinit" == $2 ) && doprint = 2
++					} ;
++					( 1 == doprint ) { print $1 } ;
++					( 2 == doprint ) { doprint = 1 }
++				EOF
++			)" )"
++		else
++			boot_services="$( rc-status -Ca 2>/dev/null |
++				sed -r '/^Runlevel: / s/^(.*)$/Runlevel: \n\1/' |
++				sed -nr '/^Runlevel: (sysinit|boot)/,/^(Dynamic )?Runlevel: /p' |
++				grep -v '^Runlevel:' |
++				sed 's/^ \+// ; s/ .*$//'
++			)"
++		fi
++
++		if
++			echo "${boot_services:-lvm}" |
++				grep -Eq "dmeventd|lvm|device-mapper" >/dev/null 2>&1 &&
++			[ -d /var ] && ! [ -w /var ]
++		then
++			run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
++			if ! mountinfo -q /var/run; then
++				ebegin "Mounting /var/run"
++				if ! fstabinfo --mount /var/run; then
++					if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /var/run; then
++						eerror "Unable to mount tmpfs on /var/run."
++					fi
++				fi
++			fi
++			if ! mountinfo -q /var/lock; then
++				ebegin "Mounting /var/lock"
++				if ! fstabinfo --mount /var/lock; then
++					if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /var/lock; then
++						eerror "Unable to mount tmpfs on /var/lock"
++					fi
++				fi
++			fi
++		fi
+ 	fi
+ fi
+ 
+-if [ "$sys" = VSERVER ]; then
+-	rm -rf /run/*
+-elif ! mountinfo -q /run; then
+-	ebegin "Mounting /run"
+-	run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
+-	if ! fstabinfo --mount /run; then
+-		if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /run; then
+-			eerror "Unable to mount tmpfs on /run."
+-			eerror "Can't continue."
+-			exit 1
++if [ -d /run ]; then
++	if [ "$sys" = VSERVER ]; then
++		rm -rf /run/*
++	elif ! mountinfo -q /run; then
++		ebegin "Mounting /run"
++		run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
++		if ! fstabinfo --mount /run; then
++			if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /run; then
++				eerror "Unable to mount tmpfs on /run."
++				eerror "Can't continue."
++				exit 1
++			fi
+ 		fi
+ 	fi
++	checkpath -d -m 0775 -o root:uucp /run/lock
++else
++	[ -w /var ] && checkpath -d -m 0775 -o root:uucp /var/lock
+ fi
+ 
+ checkpath -d "$RC_SVCDIR"
+-checkpath -d -m 0775 -o root:uucp /run/lock
+ 
+ # Try to mount xenfs as early as possible, otherwise rc_sys() will always
+ # return RC_SYS_XENU and will think that we are in a domU while it's not.
+@@ -94,10 +144,14 @@ if grep -Eq "[[:space:]]+xenfs$" /proc/f
+ 	eend $?
+ fi
+ 
+-if [ -e "$RC_LIBEXECDIR"/cache/softlevel ]; then
+-	cp -p "$RC_LIBEXECDIR"/cache/* "$RC_SVCDIR" 2>/dev/null
++. "$RC_LIBEXECDIR"/sh/init-common-post.sh
++
++if [ -x /sbin/restorecon ]; then
++	if [ -d /run ]; then
++		/sbin/restorecon -rF /run
++	else
++		/sbin/restorecon -rF /var/run
++	fi
+ fi
+ 
+-echo sysinit >"$RC_SVCDIR"/softlevel
+-[ -x /sbin/restorecon ] && /sbin/restorecon -rF /run
+ exit 0
+--- a/src/librc/rc.h.in
++++ b/src/librc/rc.h.in
+@@ -28,9 +28,11 @@ extern "C" {
+ #define RC_LIBEXECDIR           "@LIBEXECDIR@"
+ #if defined(PREFIX)
+ #define RC_SVCDIR               RC_LIBEXECDIR "/init.d"
++/*
+ #elif defined(__linux__) || (defined(__FreeBSD_kernel__) && \
+ 		defined(__GLIBC__)) || defined(__GNU__)
+ #define RC_SVCDIR               "/run/openrc"
++*/
+ #else
+ #define RC_SVCDIR               RC_LIBEXECDIR "/init.d"
+ #endif
+--- a/init.d/bootmisc.in
++++ b/init.d/bootmisc.in
+@@ -87,8 +87,9 @@ cleanup_var_run_dir()
+ 		case "$x" in
+ 			*.pid)
+ 				start-stop-daemon --test --quiet \
+-				--stop --pidfile "$x" && continue
+-			;;
++						--stop --pidfile "$x" >/dev/null 2>&1 &&
++					continue
++				;;
+ 		esac
+ 		rm -f -- "$x"
+ 	done
+@@ -181,11 +182,11 @@ start()
+ 		fi
+ 	done
+ 
+-	if [ "$RC_UNAME" = Linux -a -d /run ]; then
+-		migrate_to_run	/var/lock /run/lock
+-		migrate_to_run	/var/run /run
+-		clean_run
+-	fi
++	#if [ "$RC_UNAME" = Linux -a -d /run ]; then
++	#	migrate_to_run	/var/lock /run/lock
++	#	migrate_to_run	/var/run /run
++	#	clean_run
++	#fi
+ 
+ 	if checkpath -W /var/run; then
+ 		ebegin "Creating user login records"

@@ -1,0 +1,115 @@
+--- a/init.d/fsck.in
++++ b/init.d/fsck.in
+@@ -21,7 +21,7 @@ depend()
+ }
+ 
+ _abort() {
+-	yesno ${fsck_abort_on_errors:-yes} && rc-abort
++	yesno "${fsck_abort_on_errors:-yes}" && rc-abort
+ 	return 1
+ }
+ 
+@@ -40,7 +40,7 @@ _forcefsck()
+ 
+ start()
+ {
+-	local fsck_opts= p= check_extra=
++	local fsck_opts='' p='' check_extra=''
+ 
+ 	if [ -e /fastboot ]; then
+ 		ewarn "Skipping fsck due to /fastboot"
+@@ -49,7 +49,7 @@ start()
+ 	if _forcefsck; then
+ 		fsck_opts="$fsck_opts -f"
+ 		check_extra="(check forced)"
+-	elif ! yesno ${fsck_on_battery:-YES} && ! on_ac_power; then
++	elif ! yesno "${fsck_on_battery:-yes}" && ! on_ac_power; then
+ 		ewarn "Skipping fsck due to not being on AC power"
+ 		return 0
+ 	fi
+@@ -79,7 +79,7 @@ start()
+ 	done
+ 
+ 	if [ "$RC_UNAME" = Linux ]; then
+-		local skiptypes
++		local skiptypes=''
+ 		skiptypes=$(printf 'no%s,' ${net_fs_list} ${extra_net_fs_list})
+ 		[ "${skiptypes}" = "no," ] && skiptypes=""
+ 		fsck_opts="$fsck_opts -C0 -T -t ${skiptypes}noopts=_netdev"
+@@ -92,11 +92,13 @@ start()
+ 		fi
+ 	fi
+ 
++	local -i rc=1
++
+ 	trap : INT QUIT
+ 	fsck ${fsck_args:--p} $fsck_opts "$@"
+ 	case $? in
+-	0)	eend 0; return 0;;
+-	1)	ewend 1 "Filesystems repaired"; return 0;;
++	0)	eend 0; rc=0;;
++	1)	ewend 1 "Filesystems repaired"; rc=0;;
+ 	2|3)	if [ "$RC_UNAME" = Linux ]; then
+ 		 	ewend 1 "Filesystems repaired, but reboot needed"
+ 	         	_reboot -f
+@@ -112,11 +114,30 @@ start()
+ 		 	ewend 1 "Filesystems repaired, but reboot needed"
+ 			_reboot
+ 		fi;;
+-	8)	ewend 1 "Operational error"; return 0;;
++	8)	ewend 1 "Operational error"; rc=0;;
+ 	12)	ewend 1 "fsck interrupted";;
+ 	*)	eend 2 "Filesystems couldn't be fixed";;
+ 	esac
+-	_abort || return 1
++	if (( 1 == rc )); then
++		_abort || return 1
++	fi
++
++	if [ -x /sbin/btrfsck ] && [ -n "$( fstabinfo -t btrfs -qq )" ]; then
++		einfo "btrfs filesystems and utilities present:"
++		local fs=''
++		for fs in $( fstabinfo -t btrfs 2>/dev/null ); do
++			einfo "... btrfs filesystem '${fs}' found"
++			if mountinfo --quiet --nonetdev "${fs}"; then
++				ebegin "Checking local btrfs filesystem '${fs}'"
++				/sbin/btrfsck --readonly --progress --qgroup-report "${fs}"
++				case ${?} in
++				0) eend 0;;
++				*) ewend 1 "btrfsck failed: ${?}";;
++				esac
++			fi
++		done
++	fi
++	return ${rc}
+ }
+ 
+ stop()
+@@ -126,6 +147,6 @@ stop()
+ 	_reboot() { return 0; }
+ 	_forcefsck() { return 1; }
+ 
+-	yesno $fsck_shutdown && start
++	yesno "${fsck_shutdown:-no}" && start
+ 	return 0
+ }
+--- a/init.d/local.in
++++ b/init.d/local.in
+@@ -29,13 +29,15 @@ start()
+ 	eindent
+ 	for file in "${local_d_dir}"/*.start; do
+ 		if [ -x "${file}" ]; then
+-			vebegin "Executing \"${file}\""
++			#vebegin "Executing \"${file}\""
++			ebegin "Executing \"${file}\""
+ 			eval "${file}" $redirect
+ 			retval=$?
+ 			if [ ${retval} -ne 0 ]; then
+ 				has_errors=1
+ 			fi
+-			veend ${retval} "Execution of \"${file}\" failed."
++			#veend ${retval} "Execution of \"${file}\" failed."
++			eend ${retval} "Execution of \"${file}\" failed."
+ 		fi
+ 	done
+ 	eoutdent

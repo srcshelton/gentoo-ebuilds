@@ -1,0 +1,112 @@
+--- a/init.d/bootmisc.in
++++ b/init.d/bootmisc.in
+@@ -107,20 +107,20 @@ migrate_to_run()
+ {
+ 	src="$1"
+ 	dst="$2"
+- 	if [ -L $src -a "$(readlink -f $src)" != $dst ]; then
+- 		ewarn "$src does not point to $dst."
+- 		ewarn "Setting $src to point to $dst."
+- 		rm $src
+- 	elif [ ! -L $src -a -d $src ]; then
+- 		ebegin "Migrating $src to $dst"
+- 		cp -a $src/* $dst/
+- 		rm -rf $src
+- 		eend $?
+- 	fi
+- 	# If $src doesn't exist at all, just run this
+- 	if [ ! -e $src ]; then
+- 		ln -s $dst $src
+- 	fi
++	if [ -L $src -a "$(readlink -f $src)" != $dst ]; then
++		ewarn "$src does not point to $dst."
++		ewarn "Setting $src to point to $dst."
++		rm $src
++	elif [ ! -L $src -a -d $src ]; then
++		ebegin "Migrating $src to $dst"
++		cp -a $src/* $dst/
++		rm -rf $src
++		eend $?
++	fi
++	# If $src doesn't exist at all, just run this
++	if [ ! -e $src ]; then
++		ln -s $dst $src
++	fi
+ }
+ 
+ clean_run()
+--- a/init.d/net-online.in
++++ b/init.d/net-online.in
+@@ -38,39 +38,39 @@ start ()
+ 	rc=0
+ 	interfaces=${interfaces:-$(get_interfaces)}
+ 	timeout=${timeout:-120}
+- [ $timeout -eq 0 ] && infinite=true || infinite=false
+- while $infinite || [ $timeout -gt 0 ]; do
+-	carriers=0
+-	configured=0
+-	ifcount=0
+- 	for dev in ${interfaces}; do
+-		: $((ifcount += 1))
+-		read carrier < /sys/class/net/$dev/carrier 2> /dev/null ||
+-			carrier=
+-		[ "$carrier" = 1 ] && : $((carriers += 1))
+-		read operstate < /sys/class/net/$dev/operstate 2> /dev/null ||
+-			operstate=
+-		[ "$operstate" = up ] && : $((configured += 1))
+-	done
+-	[ $configured -eq $ifcount ] && [ $carriers -ge 1 ] && break
+-	sleep 1
+-	: $((timeout -= 1))
+- done
+- ! $infinite && [ $timeout -eq 0 ] && rc=1
+- include_ping_test=${include_ping_test:-${ping_default_gateway}}
+- if [ -n "${ping_default_gateway}" ]; then
+- ewarn "ping_default_gateway is deprecated, please use include_ping_test"
+- fi
+- if [ $rc -eq 0 ] && yesno ${include_ping_test:-no}; then
+- 	ping_test_host="${ping_test_host:-google.com}"
+- 	if [ -n "$ping_test_host" ]; then
+-		while $infinite || [ $timeout -gt 0 ]; do
+-			ping -c 1 $ping_test_host > /dev/null 2>&1
+-			rc=$?
+-			[ $rc -eq 0 ] && break
+-			: $((timeout -= 1))
++	[ $timeout -eq 0 ] && infinite=true || infinite=false
++	while $infinite || [ $timeout -gt 0 ]; do
++		carriers=0
++		configured=0
++		ifcount=0
++		for dev in ${interfaces}; do
++			: $((ifcount += 1))
++			read carrier < /sys/class/net/$dev/carrier 2> /dev/null ||
++				carrier=
++			[ "$carrier" = 1 ] && : $((carriers += 1))
++			read operstate < /sys/class/net/$dev/operstate 2> /dev/null ||
++				operstate=
++			[ "$operstate" = up ] && : $((configured += 1))
+ 		done
++		[ $configured -eq $ifcount ] && [ $carriers -ge 1 ] && break
++		sleep 1
++		: $((timeout -= 1))
++	done
++	! $infinite && [ $timeout -eq 0 ] && rc=1
++	include_ping_test=${include_ping_test:-${ping_default_gateway}}
++	if [ -n "${ping_default_gateway}" ]; then
++		ewarn "ping_default_gateway is deprecated, please use include_ping_test"
++	fi
++	if [ $rc -eq 0 ] && yesno ${include_ping_test:-no}; then
++		ping_test_host="${ping_test_host:-google.com}"
++		if [ -n "$ping_test_host" ]; then
++			while $infinite || [ $timeout -gt 0 ]; do
++				ping -c 1 $ping_test_host > /dev/null 2>&1
++				rc=$?
++				[ $rc -eq 0 ] && break
++				: $((timeout -= 1))
++			done
++		fi
+ 	fi
+- fi
+- eend $rc "The network is offline"
++	eend $rc "The network is offline"
+ }
