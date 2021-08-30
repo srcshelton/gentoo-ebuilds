@@ -13,7 +13,7 @@ SRC_URI="https://github.com/${MY_PN}/${MY_PN}/archive/release-${PV}.tar.gz -> ${
 
 LICENSE="BSD"
 SLOT="0/17"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ppc ppc64 sparc x86 ~amd64-linux"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ppc ppc64 ~riscv sparc x86 ~amd64-linux"
 IUSE="blocking-tcp +client debug examples ipv6 +reuseaddr +server static-libs +tools +webserver"
 REQUIRED_USE="!server? ( !webserver )"
 
