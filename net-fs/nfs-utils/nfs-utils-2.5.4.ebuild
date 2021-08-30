@@ -63,10 +63,7 @@ BDEPEND="
 	virtual/pkgconfig
 "
 
-PATCHES=(
-	"${FILESDIR}"/${PN}-2.5.2-no-werror.patch
-	"${FILESDIR}"/${PN}-2.4.2-Ensure-consistent-struct-stat.patch
-)
+PATCHES=( "${FILESDIR}"/${PN}-2.5.2-no-werror.patch )
 
 pkg_setup() {
 	linux-info_pkg_setup
@@ -84,6 +81,15 @@ src_prepare() {
 	sed \
 		-e "/^sbindir/s:= := \"${EPREFIX}\":g" \
 		-i utils/*/Makefile.am || die
+	sed \
+		-e 's:/run/:/var/run/:' \
+		-i \
+			utils/blkmapd/device-discovery.c \
+			utils/statd/* \
+			utils/gssd/* \
+			support/nfs/getport.c \
+			tests/test-lib.sh \
+			systemd/*.service
 
 	eautoreconf
 }
