@@ -2,16 +2,19 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+
 inherit autotools
 
-LTRACE_V="0.7.3"
-DB_V="6"
+#LTRACE_V="0.7.91"
+#DB_V="6"
 COMMIT="ea8928dab8a0a1f549d0ed8ebc6ec563e9fa1159"
 
 DESCRIPTION="trace library calls made at runtime"
 HOMEPAGE="https://gitlab.com/cespedes/ltrace"
 SRC_URI="
-	https://gitlab.com/cespedes/ltrace/-/archive/${COMMIT}/ltrace-${COMMIT}.tar.bz2"
+	https://gitlab.com/cespedes/ltrace/-/archive/${COMMIT}/ltrace-${COMMIT}.tar.bz2
+"
+#	mirror://debian/pool/main/l/${PN}/${PN}_${LTRACE_V}.orig.tar.bz2
 #	mirror://debian/pool/main/l/${PN}/${PN}_${LTRACE_V}-${DB_V}.debian.tar.xz
 
 LICENSE="GPL-2"
@@ -74,6 +77,11 @@ src_configure() {
 }
 
 src_test() {
+	# On kernels with Yama enabled this will not run, even without sandbox,
+	# unless /proc/sys/kernel/yama/ptrace_scope == 0. Just don't bother.
+	# Note: we only delete it here in order to avoid Makefile.am patching.
+	rm -f testsuite/ltrace.minor/attach-process.exp
+
 	# sandbox redirects vfork() to fork(): bug # 774054
 	# Let's avoid sandbox entirely.
 	SANDBOX_ON=0 LD_PRELOAD= emake check
