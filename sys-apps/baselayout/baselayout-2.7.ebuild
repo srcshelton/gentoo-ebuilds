@@ -230,6 +230,23 @@ src_install() {
 	# need the makefile in pkg_preinst
 	insinto /usr/share/${PN}
 	doins Makefile
+
+	# With app-emulation/podman-3.3.0 and its _rc's, baselayout builds and
+	# installations are failing because /etc/hosts is writable, but cannot be
+	# replaced as it is a mountpoint.
+	# We can't investigate this situation from here, as prodding the system
+	# /etc/hosts file would be a sandbox violation.
+	#if use container && [ -e "${ED}"/etc/hosts ]; then
+	#	ewarn "Building in a container - potentially unable to overwrite /etc/hosts"
+	#	#ewarn
+	#	#elog "${P} /etc/hosts contents:"
+	#	#elog
+	#	#cat "${ED}"/etc/hosts | while read -r line; do
+	#	#	elog "${line}"
+	#	#done
+	#	#rm "${ED}"/etc/hosts || die
+	#	mv "${ED}"/etc/hosts "${ED}"/etc/._cfg0001_hosts || die
+	#fi
 }
 
 pkg_postinst() {
