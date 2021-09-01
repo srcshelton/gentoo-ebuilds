@@ -395,7 +395,7 @@ kernel_is() {
 	linux-info_get_any_version
 
 	# Now we can continue
-	local operator test value
+	local operator
 
 	case ${1#-} in
 	  lt) operator="-lt"; shift;;
@@ -407,9 +407,10 @@ kernel_is() {
 	esac
 	[[ $# -gt 3 ]] && die "Error in kernel-2_kernel_is(): too many parameters"
 
-	: $(( test = (KV_MAJOR << 16) + (KV_MINOR << 8) + KV_PATCH ))
-	: $(( value = (${1:-${KV_MAJOR:-0}} << 16) + (${2:-${KV_MINOR:-0}} << 8) + ${3:-${KV_PATCH:-0}} ))
-	[ ${test} ${operator} ${value} ]
+	ver_test \
+		"${KV_MAJOR:-0}.${KV_MINOR:-0}.${KV_PATCH:-0}" \
+		"${operator}" \
+		"${1:-${KV_MAJOR:-0}}.${2:-${KV_MINOR:-0}}.${3:-${KV_PATCH:-0}}"
 }
 
 get_localversion() {
@@ -457,7 +458,7 @@ get_version_warning_done=
 #
 # The kernel version variables (KV_MAJOR, KV_MINOR, KV_PATCH, KV_EXTRA and KV_LOCAL) are also set.
 #
-# The KV_DIR is set using the KERNEL_DIR env var, the KV_DIR_OUT is set using a valid
+# The KV_DIR is set using the KERNEL_DIR env var, the KV_OUT_DIR is set using a valid
 # KBUILD_OUTPUT (in a decreasing priority list, we look for the env var, makefile var or the
 # symlink /lib/modules/${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}/build).
 get_version() {
@@ -596,10 +597,16 @@ get_version() {
 	# caught before this if they are.
 	if [[ -z ${OUTPUT_DIR} ]] ; then
 		# Try to locate a kernel that is most relevant for us.
+		local OUTPUT_PATH+="/lib/modules/${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}"
 		for OUTPUT_DIR in "${SYSROOT%/}" "${ROOT%/}" "" ; do
-			OUTPUT_DIR+="/lib/modules/${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}/build"
-			if [[ -e ${OUTPUT_DIR} ]] ; then
+			if [[ -e "${OUTPUT_DIR}${OUTPUT_PATH}${KV_LOCAL}/build" ]] ; then
+				OUTPUT_DIR+="${OUTPUT_PATH}${KV_LOCAL}/build"
 				break
+			elif [[ -e "${OUTPUT_DIR}${OUTPUT_PATH}/build" ]] ; then
+				OUTPUT_DIR+="${OUTPUT_PATH}/build"
+				break
+			else
+				OUTPUT_DIR+="${OUTPUT_PATH}${KV_LOCAL}/build"
 			fi
 		done
 	fi
