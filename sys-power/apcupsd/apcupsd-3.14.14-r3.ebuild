@@ -3,7 +3,7 @@
 
 EAPI="7"
 
-inherit flag-o-matic linux-info systemd tmpfiles udev
+inherit linux-info systemd tmpfiles udev
 
 DESCRIPTION="APC UPS daemon with integrated tcp/ip remote shutdown"
 HOMEPAGE="http://www.apcupsd.org/"
