@@ -4,7 +4,7 @@
 EAPI=7
 EGIT_COMMIT='4c5283fabff2de5145838f1847a5a7b2b1fbc0a5'
 
-inherit bash-completion-r1 flag-o-matic go-module linux-info
+inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
 COMMON_VERSION='0.43.2'
 CATATONIT_VERSION='0.1.5'
@@ -16,8 +16,8 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64"
-IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd zsh-completion"
+KEYWORDS="~amd64 ~arm64 ~ppc64"
+IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
@@ -288,6 +288,8 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
+	use tmpfiles && tmpfiles_process podman.conf
+
 	local want_newline=false
 	if [[ ! ( -e ${EROOT%/*}/etc/containers/policy.json && -e ${EROOT%/*}/etc/containers/registries.conf ) ]]; then
 		elog "You need to create the following config files:"
