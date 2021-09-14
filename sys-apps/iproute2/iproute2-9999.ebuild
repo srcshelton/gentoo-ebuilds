@@ -52,6 +52,11 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-5.7.0-mix-signal.h-include.patch
 )
 
+doecho() {
+	echo "${@}"
+	"${@}" || die
+}
+
 src_prepare() {
 	if ! use ipv6 ; then
 		PATCHES+=(
@@ -103,8 +108,8 @@ src_configure() {
 	popd >/dev/null
 
 	# Run "configure" script first to create "config.mk" ...
-	LIBBPF_FORCE="$(usex bpf on off)" \
-	econf
+	# Using econf breaks since 5.14.0 (a9c3d70d902a0473ee5c13336317006a52ce8242)
+	doecho ./configure --libbpf_force $(usex bpf on off)
 
 	# ... then switch on/off requested features via USE flags
 	# (this is only useful if the test did not set other things, per bug #643722)
