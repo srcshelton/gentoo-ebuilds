@@ -3,19 +3,20 @@
 
 EAPI=7
 
-MY_P="Linux-${PN^^}-${PV}"
-
 # Avoid QA warnings
 # Can reconsider w/ EAPI 8 and IDEPEND, bug #810979
 TMPFILES_OPTIONAL=1
 
 inherit autotools db-use fcaps toolchain-funcs usr-ldscript multilib-minimal
 
+GIT_COMMIT="fe1307512fb8892b5ceb3d884c793af8dbd4c16a"
+DOC_SNAPSHOT="20210610"
+
 DESCRIPTION="Linux-PAM (Pluggable Authentication Modules)"
 HOMEPAGE="https://github.com/linux-pam/linux-pam"
 
-SRC_URI="https://github.com/linux-pam/linux-pam/releases/download/v${PV}/${MY_P}.tar.xz
-	https://github.com/linux-pam/linux-pam/releases/download/v${PV}/${MY_P}-docs.tar.xz"
+SRC_URI="https://github.com/linux-pam/linux-pam/archive/${GIT_COMMIT}.tar.gz -> ${P}.tar.gz
+	https://dev.gentoo.org/~zlogene/distfiles/${CATEGORY}/${PN}/${PN}-doc-${PV%_p*}_p${DOC_SNAPSHOT}.tar.xz"
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
@@ -43,7 +44,7 @@ RDEPEND="${DEPEND}"
 
 PDEPEND=">=sys-auth/pambase-20200616"
 
-S="${WORKDIR}/${MY_P}"
+S="${WORKDIR}/linux-${PN}-${GIT_COMMIT}"
 
 src_prepare() {
 	default
@@ -54,12 +55,6 @@ src_prepare() {
 multilib_src_configure() {
 	# Do not let user's BROWSER setting mess us up. #549684
 	unset BROWSER
-
-	# Disable automatic detection of libxcrypt; we _don't_ want the
-	# user to link libxcrypt in by default, since we won't track the
-	# dependency and allow to break PAM this way.
-
-	export ac_cv_header_xcrypt_h=no
 
 	local myconf=(
 		CC_FOR_BUILD="$(tc-getBUILD_CC)"
@@ -116,7 +111,7 @@ multilib_src_install_all() {
 
 	local page
 
-	for page in doc/man/*.{3,5,8} modules/*/*.{5,8} ; do
+	for page in "${WORKDIR}"/man/*.{3,5,8} ; do
 		doman ${page}
 	done
 }
@@ -137,5 +132,3 @@ pkg_postinst() {
 	# read access to /etc/shadow only.
 	fcaps cap_dac_override sbin/unix_chkpwd
 }
-
-# vi: set diffopt=iwhite,filler:
