@@ -80,6 +80,15 @@ KERNEL_DIR="${KERNEL_DIR:-${ROOT%/}/usr/src/linux}"
 # There are also a couple of variables which are set by this, and shouldn't be
 # set by hand. These are as follows:
 
+# @ECLASS-VARIABLE: KERNEL_MAKEFILE
+# @INTERNAL
+# @DESCRIPTION:
+# According to upstream documentation, by default, when make looks for the makefile, it tries
+# the following names, in order: GNUmakefile, makefile and Makefile. Set this variable to the
+# proper Makefile name or the eclass will search in this order for it.
+# See https://www.gnu.org/software/make/manual/make.html
+: ${KERNEL_MAKEFILE:=""}
+
 # @ECLASS-VARIABLE: KV_FULL
 # @OUTPUT_VARIABLE
 # @DESCRIPTION:
@@ -195,9 +204,10 @@ getfilevar() {
 		unset ARCH
 
 		# We use nonfatal because we want the caller to take care of things #373151
+		# Pass need-config= to make to avoid config check in kernel Makefile.
 		[[ ${EAPI:-0} == [0123] ]] && nonfatal() { "$@"; }
 		echo -e "e:\\n\\t@echo \$(${1})\\ninclude ${basefname}" | \
-			nonfatal emake -C "${basedname}" M="${T}" ${BUILD_FIXES} -s -f - 2>/dev/null
+			nonfatal emake -C "${basedname}" M="${T}" need-config= ${BUILD_FIXES} -s -f - 2>/dev/null
 
 		ARCH=${myARCH}
 	fi
@@ -510,7 +520,9 @@ get_version() {
 		qeinfo "    ${KV_DIR}"
 	fi
 
-	if [ ! -s "${KV_DIR}/Makefile" ]
+	kernel_get_makefile
+
+	if [[ ! -s ${KERNEL_MAKEFILE} ]]
 	then
 		if [ -z "${get_version_warning_done}" ]; then
 			get_version_warning_done=1
@@ -526,9 +538,6 @@ get_version() {
 	# do we pass KBUILD_OUTPUT on the CLI?
 	local OUTPUT_DIR=${KBUILD_OUTPUT}
 
-	# keep track of it
-	KERNEL_MAKEFILE="${KV_DIR}/Makefile"
-
 	if [[ -z ${OUTPUT_DIR} ]]; then
 		# Decide the function used to extract makefile variables.
 		local mkfunc=$(get_makefile_extract_function "${KERNEL_MAKEFILE}")
@@ -539,14 +548,11 @@ get_version() {
 
 	# And contrary to existing functions I feel we shouldn't trust the
 	# directory name to find version information as this seems insane.
-	# So we parse ${KERNEL_MAKEFILE}.  We should be able to trust that
-	# the Makefile is simple enough to use the noexec extract function.
-	# This has been true for every release thus far, and it's faster
-	# than using make to evaluate the Makefile every time.
-	KV_MAJOR=$(getfilevar_noexec VERSION "${KERNEL_MAKEFILE}")
-	KV_MINOR=$(getfilevar_noexec PATCHLEVEL "${KERNEL_MAKEFILE}")
-	KV_PATCH=$(getfilevar_noexec SUBLEVEL "${KERNEL_MAKEFILE}")
-	KV_EXTRA=$(getfilevar_noexec EXTRAVERSION "${KERNEL_MAKEFILE}")
+	# So we parse ${KERNEL_MAKEFILE}.  
+	KV_MAJOR=$(getfilevar VERSION "${KERNEL_MAKEFILE}")
+	KV_MINOR=$(getfilevar PATCHLEVEL "${KERNEL_MAKEFILE}")
+	KV_PATCH=$(getfilevar SUBLEVEL "${KERNEL_MAKEFILE}")
+	KV_EXTRA=$(getfilevar EXTRAVERSION "${KERNEL_MAKEFILE}")
 
 	if [ -z "${KV_MAJOR}" -o -z "${KV_MINOR}" -o -z "${KV_PATCH}" ]
 	then
@@ -963,20 +969,19 @@ linux-info_pkg_setup() {
 
 	linux-info_get_any_version
 
-	if kernel_is 2 4; then
-		if [ "$( gcc-major-version )" -eq "4" ] ; then
-			echo
-			ewarn "Be warned !! >=sys-devel/gcc-4.0.0 isn't supported with"
-			ewarn "linux-2.4 (or modules building against a linux-2.4 kernel)!"
-			echo
-			ewarn "Either switch to another gcc-version (via gcc-config) or use a"
-			ewarn "newer kernel that supports >=sys-devel/gcc-4."
-			echo
-			ewarn "Also, be aware that bug reports about gcc-4 not working"
-			ewarn "with linux-2.4 based ebuilds will be closed as INVALID!"
-			echo
-		fi
-	fi
-
 	[ -n "${CONFIG_CHECK}" ] && check_extra_config;
+}
+
+# @FUNCTION: kernel_get_makefile
+# @DESCRIPTION:
+# Support the possibility that the Makefile could be one of the following and should
+# be checked in the order described here:
+# https://www.gnu.org/software/make/manual/make.html
+# Order of checking and valid Makefiles names:  GNUMakefile, makefile, Makefile
+kernel_get_makefile() {
+
+	[[ -s ${KV_DIR}/GNUMakefile ]] && KERNEL_MAKEFILE="${KV_DIR}/GNUMakefile" && return
+	[[ -s ${KV_DIR}/makefile ]] && KERNEL_MAKEFILE="${KV_DIR}/makefile" && return
+	[[ -s ${KV_DIR}/Makefile ]] && KERNEL_MAKEFILE="${KV_DIR}/Makefile" && return
+
 }
