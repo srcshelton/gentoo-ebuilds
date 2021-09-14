@@ -8,11 +8,11 @@ inherit toolchain-funcs
 EGIT_COMMIT="7e6de6678f6ed8a18661e1d5721b81ccee293b9b"
 DESCRIPTION="An OCI container runtime monitor"
 HOMEPAGE="https://github.com/containers/conmon"
-SRC_URI="https://github.com/containers/conmon/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
+SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="Apache-2.0"
 SLOT="0"
-KEYWORDS="~amd64 ~arm64"
+KEYWORDS="~amd64 ~arm64 ~ppc64"
 IUSE="systemd"
 RESTRICT="mirror test"
 
@@ -20,8 +20,6 @@ BDEPEND="dev-go/go-md2man"
 RDEPEND="dev-libs/glib:=
 	systemd? ( sys-apps/systemd:= )"
 DEPEND="${RDEPEND}"
-
-S="${WORKDIR}/${PN}-${EGIT_COMMIT}"
 
 src_prepare() {
 	default
@@ -47,7 +45,7 @@ src_install() {
 		install
 
 	dodir /usr/libexec/podman
-	dosym /usr/{bin,libexec/podman}/conmon || die
+	ln "${ED}/usr/"{bin,libexec/podman}/conmon || die
 
 	dodoc README.md
 }
