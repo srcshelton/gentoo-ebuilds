@@ -1,0 +1,35 @@
+Description: Fix socklen_t types
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/src/main.c
++++ b/src/main.c
+@@ -285,7 +285,7 @@
+     char f_randfile[ PATH_MAX ];
+     int listensd;                      /* socket descriptor we'll bind to */
+     long clientsd;                     /* incoming socket descriptor */
+-    int sockaddrlen;                       
++    socklen_t sockaddrlen;
+     struct sockaddr_storage srvaddr;
+     struct sockaddr_storage cliaddr;
+     pthread_t ThreadId;                /* thread id of each incoming conn */
+--- a/src/request.c
++++ b/src/request.c
+@@ -702,7 +702,7 @@
+     char fullServerResponse[BUFSIZE] = "\0\0\0";
+     int BytesRead;
+     struct sockaddr_storage cli_addr;
+-    int sockaddrlen;
++    socklen_t sockaddrlen;
+     char hostaddr[INET6_ADDRSTRLEN], portstr[NI_MAXSERV];
+     
+     unsigned int BufLen = BUFSIZE - 1;
+@@ -979,7 +979,7 @@
+     ICD_Struct *conn;
+     char fullServerResponse[BUFSIZE] = "\0\0\0";
+     struct sockaddr_storage cli_addr;
+-    int sockaddrlen;
++    socklen_t sockaddrlen;
+     char hostaddr[INET6_ADDRSTRLEN], portstr[NI_MAXSERV];
+ 
+     memset( &Server, 0, sizeof Server );

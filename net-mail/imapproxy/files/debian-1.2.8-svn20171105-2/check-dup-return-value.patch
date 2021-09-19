@@ -1,0 +1,34 @@
+Description: Check dup() return value
+ I switched to dup2() as well, which combines in the close() call.
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/src/main.c
++++ b/src/main.c
+@@ -998,6 +998,7 @@
+  FILE* fp=NULL;
+  pid_t pid;                         /* used just for a fork call */
+  int i;
++ int j;
+ 
+     /* detach from our parent if necessary */
+     // NOTE: When started under systemd, the parent PID is already 1, so
+@@ -1059,9 +1060,15 @@
+ 		strerror(errno));
+ 		exit( 1 );
+ 	}
+-	close(2); dup(i);
+-	close(1); dup(i);
+-	close(0); dup(i);
++	for(j=0; j <= 2; j++)
++	{
++		if (dup2(i, j) < 0)
++		{
++			syslog(LOG_ERR, "%s: dup2() failed: %s", fn,
++				strerror(errno));
++			exit( 1 );
++		}
++	}
+ 	close(i);
+     }
+     else

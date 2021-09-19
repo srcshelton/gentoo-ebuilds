@@ -1,0 +1,24 @@
+Description: Fix SSL types
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/src/imapcommon.c
++++ b/src/imapcommon.c
+@@ -543,7 +543,7 @@
+     char AuthBufIndex;
+ 
+     unsigned int BufLen = BUFSIZE - 1;
+-    char md5pw[MD5_DIGEST_LENGTH];
++    unsigned char md5pw[MD5_DIGEST_LENGTH];
+     char *tokenptr;
+     char *endptr;
+     char *last;
+@@ -555,7 +555,7 @@
+     struct addrinfo *useai;
+ 
+     EVP_MD_CTX mdctx;
+-    int md_len;
++    unsigned int md_len;
+ 
+     Expiration = PC_Struct.cache_expiration_time;
+     memset( &Server, 0, sizeof Server );

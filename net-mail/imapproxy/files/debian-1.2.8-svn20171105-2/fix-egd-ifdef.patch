@@ -1,0 +1,15 @@
+Description: Fix compilation without EGD
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/src/main.c
++++ b/src/main.c
+@@ -460,7 +460,7 @@
+     /* Set up OpenSSL thread protection */
+     ssl_thread_setup(fn);
+ 
+-#ifndef HAVE_RAND_EGD
++#ifdef HAVE_RAND_EGD
+     if ( RAND_egd( ( RAND_file_name( f_randfile, sizeof( f_randfile ) ) == f_randfile ) ? f_randfile : "/.rnd" ) ) 
+ #endif
+     {

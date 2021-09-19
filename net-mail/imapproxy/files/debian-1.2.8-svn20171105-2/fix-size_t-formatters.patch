@@ -1,0 +1,26 @@
+Description: Fix size_t formatters
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/src/imapcommon.c
++++ b/src/imapcommon.c
+@@ -1004,7 +1004,7 @@
+      */
+     else if ( LiteralPasswd )
+     {
+-	snprintf( SendBuf, BufLen, "A0001 LOGIN %s {%d}\r\n", 
++	snprintf( SendBuf, BufLen, "A0001 LOGIN %s {%zd}\r\n",
+ 		  Username, strlen( Password ) );
+ 	if ( IMAP_Write( Server.conn, SendBuf, strlen(SendBuf) ) == -1 )
+ 	{
+--- a/src/hash.c
++++ b/src/hash.c
+@@ -69,7 +69,7 @@
+ 
+   if ( Size > sizeof Hash_Buffer )
+   {
+-    syslog(LOG_ERR, "Hash(): Maximum of %d for '%s' exceeds architectural limit of %d", Size, Input_Key, sizeof Hash_Buffer );
++    syslog(LOG_ERR, "Hash(): Maximum of %d for '%s' exceeds architectural limit of %zd", Size, Input_Key, sizeof Hash_Buffer );
+     exit(1);
+   }
+ 

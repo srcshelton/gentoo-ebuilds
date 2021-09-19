@@ -1,46 +1,5 @@
---- a/src/becomenonroot.c
-+++ b/src/becomenonroot.c
-@@ -51,6 +51,7 @@
- #include <errno.h>
- #include <stdlib.h>
- #include <stdio.h>
-+#include <string.h>
- #include <pwd.h>
- #include <grp.h>
- #include <syslog.h>
---- a/src/main.c
-+++ b/src/main.c
-@@ -258,6 +258,7 @@
- 
- static int verify_callback( int, X509_STORE_CTX *);
- static int set_cert_stuff( SSL_CTX *, const char *, const char * );
-+int Attempt_STARTTLS( ITD_Struct * );
- #endif
- 
- #ifdef HAVE_LIBWRAP
-@@ -1059,9 +1060,9 @@
- 		strerror(errno));
- 		exit( 1 );
- 	}
--	close(2); dup(i);
--	close(1); dup(i);
--	close(0); dup(i);
-+	close(2); (void) !dup(i);
-+	close(1); (void) !dup(i);
-+	close(0); (void) !dup(i);
- 	close(i);
-     }
-     else
 --- a/src/request.c
 +++ b/src/request.c
-@@ -188,6 +188,7 @@
- static int cmd_resetcounters( ITD_Struct *, char * );
- static int cmd_version( ITD_Struct *, char * );
- static int Raw_Proxy( ITD_Struct *, ITD_Struct *, ISC_Struct * );
-+void ICC_Invalidate ( ICC_Struct * );
- 
- 
- 
 @@ -515,7 +516,7 @@
      if ( !Username )
      {

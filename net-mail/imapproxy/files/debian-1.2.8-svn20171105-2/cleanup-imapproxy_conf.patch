@@ -1,0 +1,32 @@
+Description: Cleanup imapproxy.conf
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: no
+Last-Update: 2017-11-05
+
+--- a/scripts/imapproxy.conf
++++ b/scripts/imapproxy.conf
+@@ -131,8 +131,7 @@
+ ## of imapproxy.  If no value is specified, it will default to no priority
+ ## mask and you'll see all possible log messages.  Any of the possible
+ ## priority values listed in the syslog(3) manpage may be used here.  By
+-## default, I've left this commented out so you will see all possible log
+-## messages.
++## default, you will see all possible log messages.
+ #
+ #syslog_prioritymask LOG_WARNING
+ 
+@@ -222,7 +221,7 @@
+ 
+ #
+ ## Set any of these to "yes" if the corresponding TLS version is not
+-## sufficiently secure for your needs
++## sufficiently secure for your needs.
+ #
+ #tls_no_tlsv1 no
+ #tls_no_tlsv1.1 no
+@@ -265,5 +264,3 @@
+ ## Default if unset is AF_UNSPEC for both A and AAAA.
+ #
+ #ipversion_only 6
+- 
+-

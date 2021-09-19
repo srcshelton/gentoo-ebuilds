@@ -1,0 +1,29 @@
+Description: Fix missing definitions
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/include/imapproxy.h
++++ b/include/imapproxy.h
+@@ -373,8 +373,12 @@
+ extern void ICC_Logout( ICC_Struct * );
+ extern void ICC_Recycle( unsigned int );
+ extern void ICC_Recycle_Loop( void );
++extern void ICC_Invalidate( ICC_Struct * );
+ extern void LockMutex( pthread_mutex_t * );
+ extern void UnLockMutex( pthread_mutex_t * );
++#ifdef HAVE_LIBSSL
++extern int Attempt_STARTTLS( ITD_Struct * );
++#endif
+ extern void SetDefaultConfigValues(ProxyConfig_Struct *);
+ extern void SetConfigOptions( char * );
+ extern void SetLogOptions( void );
+--- a/src/becomenonroot.c
++++ b/src/becomenonroot.c
+@@ -48,6 +48,7 @@
+ 
+ #include <sys/types.h>
+ #include <strings.h>
++#include <string.h>
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <stdio.h>

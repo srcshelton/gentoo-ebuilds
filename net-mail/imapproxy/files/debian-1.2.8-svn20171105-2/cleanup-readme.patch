@@ -1,0 +1,83 @@
+Description: Cleanup README
+ 1) Remove reference to README.debian, which is useless and no longer installed.
+ 2) Remove the build instructions, which do not apply to the package.
+ 3) Update the paths and utility names (e.g. in.imapproxyd to imapproxyd).
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: not-needed
+Last-Update: 2016-11-23
+--- a/README
++++ b/README
+@@ -11,61 +11,21 @@
+ 
+ https://lists.sourceforge.net/lists/listinfo/squirrelmail-imapproxy
+ 
+-For some Debian specific issues that have come up, read the file README.debian.
+-
+ To read a little bit about SSL support in imapproxy, read README.ssl.
+ 
+ 
+-##############################################################################
+-HOW TO BUILD
+-##############################################################################
+-
+-Before you build imapproxy, you're going to need to obtain the OpenSSL
+-libraries.  Build and install them, then you're ready to move on.
+-
+-It should be pretty painless:
+-
+-./configure
+-make
+-
+-If you encounter any problems with this, check out README.known_issues to
+-see if your problem is addressed in there.  If not, ask on the list or file
+-a bug report.
+-
+-"make install" will attempt to install the following files:
+-
+-/usr/local/sbin/in.imapproxyd
+-/usr/local/sbin/pimpstat
+-
+-"make install-conf" will attempt to install the sample configuration file:
+-
+-/etc/imapproxy.conf
+-
+-"make install-init-systemd" will attempt to install the systemd startup script:
+-
+-/lib/systemd/system/imap_proxy.service
+-
+-"make install-init" will attempt to install the startup script and symlinks:
+-
+-/etc/init.d/imapproxy
+-/etc/rc2.d/S99imapproxy
+-/etc/rc0.d/K10imapproxy
+-
+-"make pkg" will attempt to install a sun package into /var/spool/package.
+-
+-After you successfully build the proxy server, you'll need to edit the
+-global configuration file to suit your needs.  By default, the proxy
+-server looks at /etc/imapproxy.conf as its default configuration file.
+-You can change this at runtime by supplying the -f argument to
+-/usr/local/sbin/in.imapproxyd.
+-
+-/usr/local/sbin/pimpstat is the Polling Imap Mail Proxy Statistical tool.  It's
+-a curses-based application that you can use to monitor the proxy server.  It's
+-aware of the same global configuration file as the proxy server, and can also
+-be told to look at a different configuration file by supplying it as a 
+-parameter with the -f argument.  Both pimpstat and in.imapproxyd must be using
+-the same configuration file, since the stat file that they both rely on is
+-set in the configuration file.
++You'll need to edit the global configuration file to suit your needs.  By
++default, the proxy server looks at /etc/imapproxy.conf as its configuration
++file.  You can change this at runtime by supplying the -f argument to
++imapproxyd.
++
++pimpstat is the Polling IMAP Mail Proxy Statistical tool.  It's a curses-based
++application that you can use to monitor the proxy server.  It's aware of the
++same global configuration file as the proxy server, and can also be told to
++look at a different configuration file by supplying it as a parameter with the
++-f argument.  Both pimpstat and imapproxyd must be using the same
++configuration file, since the stat file that they both rely on is set in the
++configuration file.
+ 
+ 
+ ##############################################################################

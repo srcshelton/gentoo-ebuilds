@@ -1,0 +1,18 @@
+Description: Remove unused variables
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2017-11-05
+--- a/src/main.c
++++ b/src/main.c
+@@ -187,9 +187,11 @@
+ */
+ 
+ 
++#if 0
+ static char *sourceRevision = "$Revision: 14637 $";
+ static char *sourceVersion = "$Id: main.c 14637 2016-12-14 21:09:57Z pdontthink $";
+ static char *sourceAuthor = "$Author: pdontthink $";
++#endif
+ 
+ #define _REENTRANT
+ 

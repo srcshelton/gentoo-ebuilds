@@ -1,6 +1,10 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
+# See https://sourceforge.net/p/squirrelmail/code/14928/log/?path=/trunk/imap_proxy
+# ... the last change besides comments was r14637, although Debian patches are
+# still being updated.
+
 EAPI=7
 
 WANT_AUTOCONF="2.1"
@@ -27,9 +31,21 @@ BDEPEND="app-arch/unzip"
 S="${WORKDIR}/squirrelmail-code-r${PV#*_p}-trunk/imap_proxy"
 
 PATCHES=(
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/fix-egd-ifdef.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/check-dup-return-value.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/fix-missing-definitions.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/fix-size_t-formatters.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/fix-ssl-types.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/fix-socklen_t-types.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/remove-unused-variables.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/openssl-1.1.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/cleanup-names.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/cleanup-readme.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/cleanup-imapproxy_conf.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/configure_imapproxy_conf.patch
+	"${FILESDIR}"/debian-1.2.8-svn20171105-2/remove-install-chown.patch
 	"${FILESDIR}/${P%_p*}"-tinfo.patch
 	"${FILESDIR}/${P%_p*}"-aarch64.patch
-	"${FILESDIR}/${P%_p*}"-ssl.patch
 	"${FILESDIR}/${P%_p*}"-warnings.patch
 )
 
@@ -68,7 +84,7 @@ src_install() {
 
 	newinitd "${FILESDIR}"/imapproxy.initd imapproxy
 
-	dodoc ChangeLog README README.known_issues
+	dodoc README
 	use ssl && dodoc README.ssl
 
 	doman "${FILESDIR}"/*.8

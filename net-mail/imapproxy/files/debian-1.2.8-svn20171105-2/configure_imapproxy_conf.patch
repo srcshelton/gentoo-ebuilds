@@ -1,0 +1,26 @@
+Description: Configure imapproxy.conf
+ This configures imapproxy.conf appropriately for the package.
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: not-needed
+Last-Update: 2020-01-12
+
+--- a/scripts/imapproxy.conf
++++ b/scripts/imapproxy.conf
+@@ -91,7 +91,7 @@
+ ##
+ ## This setting controls which groupname the IMAP proxy process will run as.
+ #
+-proc_groupname nobody
++proc_groupname nogroup
+ 
+ 
+ #
+@@ -180,7 +180,7 @@
+ ## If commented out, imapproxy will not run chroot()ed.  If a directory is
+ ## specified here, imapproxy will chroot() to that directory.
+ #
+-#chroot_directory /var/empty
++chroot_directory /var/lib/imapproxy/chroot
+ 
+ 
+ #

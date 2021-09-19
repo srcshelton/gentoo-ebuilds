@@ -1,0 +1,49 @@
+Description: Fix compilation with OpenSSL 1.1
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: https://sourceforge.net/p/squirrelmail/mailman/message/35526927/
+Last-Update: 2016-11-22
+--- a/src/main.c
++++ b/src/main.c
+@@ -1582,9 +1582,9 @@
+ 	    verify_error = X509_V_ERR_CERT_CHAIN_TOO_LONG;
+ 	}
+     }
+-    switch (ctx->error) {
++    switch (err) {
+     case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
+-	X509_NAME_oneline(X509_get_issuer_name(ctx->current_cert), buf, sizeof(buf));
++	X509_NAME_oneline(X509_get_issuer_name(err_cert), buf, sizeof(buf));
+ 	syslog(LOG_NOTICE, "issuer= %s", buf);
+ 	break;
+     case X509_V_ERR_CERT_NOT_YET_VALID:
+--- a/src/imapcommon.c
++++ b/src/imapcommon.c
+@@ -554,16 +554,24 @@
+     unsigned int Expiration;
+     struct addrinfo *useai;
+ 
+-    EVP_MD_CTX mdctx;
++    EVP_MD_CTX *mdctx;
+     unsigned int md_len;
+ 
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++    EVP_MD_CTX mdctx_;
++#define EVP_MD_CTX_new(x) &mdctx_
++#define EVP_MD_CTX_free(x)
++#endif
++
+     Expiration = PC_Struct.cache_expiration_time;
+     memset( &Server, 0, sizeof Server );
+     
+     /* need to md5 the passwd regardless, so do that now */
+-    EVP_DigestInit(&mdctx, EVP_md5());
+-    EVP_DigestUpdate(&mdctx, Password, strlen(Password));
+-    EVP_DigestFinal(&mdctx, md5pw, &md_len);
++    mdctx = EVP_MD_CTX_new();
++    EVP_DigestInit(mdctx, EVP_md5());
++    EVP_DigestUpdate(mdctx, Password, strlen(Password));
++    EVP_DigestFinal(mdctx, md5pw, &md_len);
++    EVP_MD_CTX_free(mdctx);
+     
+     /* see if we have a reusable connection available */
+     ICC_Active = NULL;

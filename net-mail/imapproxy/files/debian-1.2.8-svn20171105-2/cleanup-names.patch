@@ -1,0 +1,339 @@
+Description: Cleanup names
+ The name of this package in Debian is imapproxy.
+Author: Richard Laager <rlaager@wiktel.com>
+Forwarded: not-needed
+Last-Update: 2017-11-05
+--- a/README
++++ b/README
+@@ -4,7 +4,7 @@
+ 
+ This directory contains the source distribution of SquirrelMail IMAP Proxy.
+ 
+-If you find any bugs in squirrelmail-imap_proxy, please subscribe to the
++If you find any bugs in imapproxy, please subscribe to the
+ squirrelmail-imapproxy mailing list and post your bug there.
+ 
+ If you want to subscribe to the squirrelmail-imapproxy mailing list, visit:
+@@ -13,16 +13,15 @@
+ 
+ For some Debian specific issues that have come up, read the file README.debian.
+ 
+-To read a little bit about SSL support in squirrelmail-imap_proxy, read
+-README.ssl.
++To read a little bit about SSL support in imapproxy, read README.ssl.
+ 
+ 
+ ##############################################################################
+ HOW TO BUILD
+ ##############################################################################
+ 
+-Before you build squirrelmail-imap_proxy, you're going to need to obtain
+-the OpenSSL libraries.  Build and install them, then you're ready to move on.
++Before you build imapproxy, you're going to need to obtain the OpenSSL
++libraries.  Build and install them, then you're ready to move on.
+ 
+ It should be pretty painless:
+ 
+@@ -159,9 +158,8 @@
+ 
+ tls_cert_file
+ -------------
+-File containing the certificate presented by squirrelmail-imap_proxy to the
+-server for client authentication during STARTTLS.  See README.ssl for more
+-information.
++File containing the certificate presented by imapproxy to the server for
++client authentication during STARTTLS.  See README.ssl for more information.
+ 
+ tls_key_file
+ ------------
+@@ -204,31 +202,31 @@
+ 
+ foreground_mode
+ ---------------
+-When enabled, this will prevent squirrelmail-imap_proxy from detaching from
+-his parent process and controlling terminal.
++When enabled, this will prevent imapproxy from detaching from his parent
++process and controlling terminal.
+ 
+ chroot_directory
+ ----------------
+-If this value is set to anything, it implicitly causes squirrelmail-imap_proxy
+-to run in a chroot jail.
++If this value is set to anything, it implicitly causes imapproxy to run in a
++chroot jail.
+ 
+ enable_admin_commands
+ ---------------------
+-The internal admin commands that squirrelmail-imap_proxy provides (p_dumpicc,
+-p_trace, etc) are a security vulnerability if you do not restrict access to
+-the listen_port using tcp wrappers, iptables, ipchains, ipfilter, an external
+-firewall, or some other mechanism.  Because of this, the internal admin
+-commands are disabled by default.
++The internal admin commands that imapproxy provides (p_dumpicc, p_trace, etc.)
++are a security vulnerability if you do not restrict access to the listen_port
++using tcp wrappers, iptables, ipchains, ipfilter, an external firewall, or
++some other mechanism.  Because of this, the internal admin commands are
++disabled by default.
+ 
+ 
+ ##############################################################################
+ NEW STATUS RESPONSE:
+ ##############################################################################
+ 
+-Upon a successful LOGIN or AUTHENTICATION, if squirrelmail-imap_proxy reused
+-an existing connection an untagged IMAP response with the status response
+-XPROXYREUSE will be issued.  This status response indicates to a client that
+-any previous initialization does not need to be performed again.
++Upon a successful LOGIN or AUTHENTICATION, if imapproxy reused an existing
++connection an untagged IMAP response with the status response XPROXYREUSE will
++be issued.  This status response indicates to a client that any previous
++initialization does not need to be performed again.
+ 
+ Examples:
+ ---------
+@@ -242,7 +240,7 @@
+ 
+ C: a001 LOGIN user password
+ S: [... untagged response(s) from remote IMAP server ...]
+-S: * OK [XPROXYREUSE] IMAP connection reused by squirrelmail-imap_proxy
++S: * OK [XPROXYREUSE] IMAP connection reused by imapproxy
+ S: a001 OK User logged in
+ 
+ 
+@@ -352,7 +350,7 @@
+ Untagged response(s) (1 for each cached connection):
+   * XPROXY_VERSION <version>
+ 
+-  <version> = Current version number of squirrelmail-imap_proxy.
++  <version> = Current version number of imapproxy.
+ 
+ Example:
+ C: a001 XPROXY_VERSION
+@@ -362,13 +360,13 @@
+ 
+ ID
+ --
+-This is not a command specific to squirrelmail-imap_proxy, rather it
+-comes from RFC 2971.  It is listed here because the ID command may
+-be sent before the client authenticates, which means the proxy server
+-handles it - sort of.  Any ID commands still need to be sent to the
+-IMAP server, so the proxy responds with a fake "OK" and queues the ID
+-commands to be sent once a LOGIN or AUTHENTICATE is received from the
+-client and a server connection is (re)established.
++This is not a command specific to imapproxy, rather it comes from RFC 2971.
++It is listed here because the ID command may be sent before the client
++authenticates, which means the proxy server handles it - sort of.  Any ID
++commands still need to be sent to the IMAP server, so the proxy responds
++with a fake "OK" and queues the ID commands to be sent once a LOGIN or
++AUTHENTICATE is received from the client and a server connection is
++(re)established.
+ 
+ Usage:
+   <tag> ID [(parameter list)]
+--- a/README.ssl
++++ b/README.ssl
+@@ -1,27 +1,26 @@
+-First, if you're using squirrelmail-imap_proxy with SSL, you have Ken
+-Murchison to thank for that.  He added this feature.
++First, if you're using imapproxy with SSL, you have Ken Murchison to thank
++for that.  He added this feature.
+ 
+-squirrelmail-imap_proxy only supports TLS between the proxy server and the
+-real IMAP server.  It does not support TLS between a client (usually webmail)
+-and the proxy server.  The idea here is that you can run the IMAP proxy on
+-the same machine as your webserver.  If you're using TLS to your webserver,
+-the webserver can then send plaintext auth to the proxy without the password
+-ever crossing the network, then the proxy can use TLS to the IMAP server.
++imapproxy only supports TLS between the proxy server and the real IMAP
++server.  It does not support TLS between a client (usually webmail) and the
++proxy server.  The idea here is that you can run the IMAP proxy on the same
++machine as your webserver.  If you're using TLS to your webserver, the
++webserver can then send plaintext auth to the proxy without the password ever
++crossing the network, then the proxy can use TLS to the IMAP server.
+ 
+ The proxy will only use TLS if the real IMAP server forces it to do so by
+ advertising LOGINDISABLED in the capability string unless force_tls is
+ enabled in the configuration file.
+ 
+-squirrelmail-imap_proxy does not support the deprecated notion of imaps
+-using port 993.  It only supports the use of the STARTTLS command to
+-initiate SSL/TLS from within a regular IMAP connection (do NOT set the
+-"server_port" setting in imapproxy.conf to 993!).  However, keep reading...
++imapproxy does not support the deprecated notion of imaps using port 993.  It
++only supports the use of the STARTTLS command to initiate SSL/TLS from within
++a regular IMAP connection (do NOT set the "server_port" setting in
++imapproxy.conf to 993!).  However, keep reading...
+ 
+ If you are trying to proxy to an IMAP server that is only available using
+ imaps/port 993 (e.g., Gmail), you can setup a SSL tunnel (check out stunnel)
+-to that server and let squirrelmail-imap_proxy talk to the local (plaintext)
+-end of that tunnel (in which case, no SSL setup is required for
+-squirrelmail-imap_proxy).
++to that server and let imapproxy talk to the local (plaintext) end of that
++tunnel (in which case, no SSL setup is required for imapproxy).
+ 
+ Here are the options related to SSL configuration:
+ tls_ca_file        Path to CA file
+--- a/scripts/imapproxy.conf
++++ b/scripts/imapproxy.conf
+@@ -1,6 +1,6 @@
+ ## imapproxy.conf
+ ##
+-## This is the global configuration file for SquirrelMail IMAP Proxy.
++## This is the global configuration file for imapproxy.
+ ## Lines beginning with a '#' sign are treated as comments and will be
+ ## ignored.  Each line to be processed must be a space delimited
+ ## keyword/value pair.  
+@@ -128,10 +128,11 @@
+ ## syslog_prioritymask
+ ##
+ ## This configuration option is provided as a way to limit the verbosity
+-## of squirrelmail-imap_proxy.  If no value is specified, it will default
+-## to no priority mask and you'll see all possible log messages.  Any of
+-## the possible priority values listed in the syslog(3) manpage may be
+-## used here.  By default, you will see all possible log messages.
++## of imapproxy.  If no value is specified, it will default to no priority
++## mask and you'll see all possible log messages.  Any of the possible
++## priority values listed in the syslog(3) manpage may be used here.  By
++## default, I've left this commented out so you will see all possible log
++## messages.
+ #
+ #syslog_prioritymask LOG_WARNING
+ 
+@@ -149,8 +150,8 @@
+ ## enable_select_cache
+ ##
+ ## This configuration option allows you to turn select caching on or off.
+-## When select caching is enabled, squirrelmail-imap_proxy will cache SELECT
+-## responses from an IMAP server.
++## When select caching is enabled, imapproxy will cache SELECT responses
++## from an IMAP server.
+ #
+ enable_select_cache no
+ 
+@@ -158,8 +159,8 @@
+ #
+ ## foreground_mode
+ ##
+-## This will prevent squirrelmail-imap_proxy from detaching from its parent
+-## process and controlling terminal on startup.
++## This will prevent imapproxy from detaching from its parent process and
++## controlling terminal on startup.
+ #
+ foreground_mode no
+ 
+@@ -167,8 +168,8 @@
+ #
+ ## force_tls
+ ##
+-## Force squirrelmail-imap_proxy to use STARTTLS even if LOGIN is not
+-## disabled (unsecured connections will not be used).
++## Force imapproxy to use STARTTLS even if LOGIN is not disabled (unsecured
++## connections will not be used).
+ #
+ force_tls no
+ 
+@@ -176,10 +177,9 @@
+ #
+ ## chroot_directory
+ ##
+-## This allows squirrelmail-imap_proxy to run in a chroot jail if desired.
+-## If commented out, squirrelmail-imap_proxy will not run chroot()ed.  If
+-## a directory is specified here, squirrelmail-imap_proxy will chroot() to
+-## that directory.
++## This allows imapproxy to run in a chroot jail if desired.
++## If commented out, imapproxy will not run chroot()ed.  If a directory is
++## specified here, imapproxy will chroot() to that directory.
+ #
+ #chroot_directory /var/empty
+ 
+@@ -204,8 +204,7 @@
+ #
+ ## enable_admin_commands
+ ##
+-## Used to enable or disable the internal squirrelmail-imap_proxy
+-## administrative commands.
++## Used to enable or disable the internal imapproxy administrative commands.
+ #
+ enable_admin_commands no
+ 
+--- a/src/main.c
++++ b/src/main.c
+@@ -715,7 +715,7 @@
+ 	exit( 1 );
+     }
+ 
+-    syslog( LOG_INFO, "%s: squirrelmail-imap_proxy version %s normal server startup.", fn, IMAP_PROXY_VERSION );
++    syslog( LOG_INFO, "%s: imapproxy version %s normal server startup.", fn, IMAP_PROXY_VERSION );
+ 
+     /*
+      * Main server loop
+@@ -1004,7 +1004,7 @@
+ 
+     /* detach from our parent if necessary */
+     // NOTE: When started under systemd, the parent PID is already 1, so
+-    //       the safety check below of the parent PID causes imap_proxy
++    //       the safety check below of the parent PID causes imapproxy
+     //       to start in foreground mode. I'm commenting it out, hoping
+     //       it doesn't cause issues in other contexts
+     if (/*! (getppid() == 1) &&*/ ( ! PC_Struct.foreground_mode ) )
+@@ -1082,7 +1082,7 @@
+ /*++
+  * Function:	ParseBannerAndCapability
+  *
+- * Purpose:	Weed out stuff that squirrelmail-imap_proxy does not
++ * Purpose:	Weed out stuff that imapproxy does not
+  *              support from a banner line or a capability line.
+  *
+  * Parameters:	char * - Buffer for storing the cleaned up string.
+@@ -1265,7 +1265,7 @@
+     
+     /*
+      * Add a 'XIMAPPROXY' CAPABILITY response to indicate that the
+-     * current connection is handled by squirrelmail-imap_proxy.
++     * current connection is handled by imapproxy.
+      */
+     if ( capability == 1 )
+     {
+--- a/src/request.c
++++ b/src/request.c
+@@ -876,7 +876,7 @@
+      */
+     if (Server.conn->reused == 1)
+     {
+-	sprintf( SendBuf, "* OK [XPROXYREUSE] IMAP connection reused by squirrelmail-imap_proxy\r\n" );
++	sprintf( SendBuf, "* OK [XPROXYREUSE] IMAP connection reused by imapproxy\r\n" );
+ 	if ( IMAP_Write( Client->conn, SendBuf, strlen(SendBuf) ) == -1 )
+ 	{
+ 	    syslog(LOG_ERR, "%s: IMAP_Write() failed: %s", fn, strerror(errno) );
+@@ -1047,7 +1047,7 @@
+      */
+     if (Server.conn->reused == 1)
+     {
+-	sprintf( SendBuf, "* OK [XPROXYREUSE] IMAP connection reused by squirrelmail-imap_proxy\r\n" );
++	sprintf( SendBuf, "* OK [XPROXYREUSE] IMAP connection reused by imapproxy\r\n" );
+ 	if ( IMAP_Write( Client->conn, SendBuf, strlen(SendBuf) ) == -1 )
+ 	{
+ 	    syslog(LOG_ERR, "%s: IMAP_Write() failed: %s", fn, strerror(errno) );
+--- a/src/select.c
++++ b/src/select.c
+@@ -13,7 +13,7 @@
+ **
+ **  Abstract:
+ **
+-**      routines to support SELECT state caching in squirrelmail-imap_proxy.
++**      routines to support SELECT state caching in imapproxy.
+ **
+ **  Authors:
+ **
+--- a/src/threads.c
++++ b/src/threads.c
+@@ -59,7 +59,7 @@
+ 
+ static pthread_mutex_t *locks;
+ 
+-/* We use pthreads, since the rest of squirrelmail-imap_proxy does. */
++/* We use pthreads, since the rest of imapproxy does. */
+ 
+ void ssl_thread_setup(const char *fn) {
+     int i, rc;
