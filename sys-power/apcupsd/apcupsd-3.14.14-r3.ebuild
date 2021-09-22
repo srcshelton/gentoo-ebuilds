@@ -11,12 +11,11 @@ SRC_URI="mirror://sourceforge/apcupsd/${P}.tar.gz"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ppc x86"
-IUSE="cgi dumb gnome kernel_linux +modbus +net nls +powerchute +smart snmp systemd tmpfiles udev +usb"
+KEYWORDS="amd64 ~arm ~arm64 ppc x86"
+IUSE="cgi dumb gnome kernel_linux +modbus +net +powerchute +smart snmp systemd tmpfiles udev +usb"
 
 DEPEND=">=sys-apps/util-linux-2.23[tty-helpers(-)]
 	cgi? ( >=media-libs/gd-1.8.4 )
-	nls? ( sys-devel/gettext )
 	modbus? ( usb? ( virtual/libusb:0 ) )
 	gnome? (
 		>=x11-libs/gtk+-2.4.0:2
