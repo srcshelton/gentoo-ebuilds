@@ -27,7 +27,7 @@ SRC_URI="mirror://openssl/source/${MY_P}.tar.gz
 LICENSE="openssl"
 SLOT="0/1.1" # .so version of libssl/libcrypto
 [[ "${PV}" = *_pre* ]] || \
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
 IUSE="+asm bindist cpu_flags_x86_sse2 elibc_musl rfc3779 sctp sslv3 static-libs test tls-compression tls-heartbeat vanilla"
 RESTRICT="!bindist? ( bindist )
 	!test? ( test )"
@@ -124,7 +124,9 @@ src_prepare() {
 	fi
 
 	# Solaris /bin/sh does not support "[ -e file ]", added by patches
-	[[ -r Makefile.shared ]] && sed -e 's/\[ -e /\[ -r /' -i Makefile.shared
+	if [[ ${CHOST} == sparc-sun-solaris* ]]; then
+		[[ -r Makefile.shared ]] && sed -e 's/\[ -e /\[ -r /' -i Makefile.shared
+	fi
 
 	# make sure the man pages are suffixed #302165
 	# don't bother building man pages if they're disabled
