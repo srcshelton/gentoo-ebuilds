@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT='88559c197da3d05c7758920bce90d07e0f066101'
+EGIT_COMMIT='e343b5368da76812d5c84ce106b3b377e90372f5'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
