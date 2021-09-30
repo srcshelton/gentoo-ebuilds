@@ -2,6 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+TMPFILES_OPTIONAL=1
 inherit autotools flag-o-matic linux-info multilib systemd tmpfiles toolchain-funcs udev usr-ldscript
 
 DESCRIPTION="User-land utilities for LVM2 (device-mapper) software"
@@ -25,7 +26,7 @@ DEPEND_COMMON="
 	readline? ( sys-libs/readline:0= )
 	sanlock? ( sys-cluster/sanlock )
 	systemd? ( >=sys-apps/systemd-205:0= )
-	udev? ( >=virtual/libudev-208:=[static-libs(-)?] )"
+	udev? ( >=virtual/libudev-208:= )"
 # /run is now required for locking during early boot. /var cannot be assumed to
 # be available -- thus, pull in recent enough baselayout for /run.
 # This version of LVM is incompatible with cryptsetup <1.1.2.
@@ -36,6 +37,7 @@ RDEPEND="${DEPEND_COMMON}
 	!!sys-fs/lvm-user
 	>=sys-apps/util-linux-2.16
 	lvm2create_initrd? ( sys-apps/makedev )
+	!device-mapper-only? ( tmpfiles? ( virtual/tmpfiles ) )
 	thin? ( >=sys-block/thin-provisioning-tools-0.3.0 )"
 # note: thin- 0.3.0 is required to avoid --disable-thin_check_needs_check
 DEPEND="${DEPEND_COMMON}
@@ -268,7 +270,9 @@ src_install() {
 }
 
 pkg_postinst() {
-	use tmpfiles && tmpfiles_process lvm2.conf
+	if ! use device-mapper-only; then
+		use tmpfiles && tmpfiles_process lvm2.conf
+	fi
 
 	if [[ -z "${REPLACING_VERSIONS}" ]]; then
 		# This is a new installation
