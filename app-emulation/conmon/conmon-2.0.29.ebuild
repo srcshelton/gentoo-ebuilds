@@ -21,6 +21,8 @@ RDEPEND="dev-libs/glib:=
 	systemd? ( sys-apps/systemd:= )"
 DEPEND="${RDEPEND}"
 
+S="${WORKDIR}/${PN}-${EGIT_COMMIT}"
+
 src_prepare() {
 	default
 
@@ -45,7 +47,7 @@ src_install() {
 		install
 
 	dodir /usr/libexec/podman
-	ln "${ED}/usr/"{bin,libexec/podman}/conmon || die
+	ln -s "${ED}/usr/"{bin,libexec/podman}/conmon || die
 
 	dodoc README.md
 }
