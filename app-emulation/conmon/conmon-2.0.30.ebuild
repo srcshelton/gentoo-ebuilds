@@ -19,7 +19,8 @@ RESTRICT="mirror test"
 BDEPEND="dev-go/go-md2man"
 RDEPEND="dev-libs/glib:=
 	systemd? ( sys-apps/systemd:= )"
-DEPEND="${RDEPEND}"
+DEPEND="${RDEPEND}
+	sys-libs/libseccomp"
 
 src_prepare() {
 	default
