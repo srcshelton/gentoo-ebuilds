@@ -70,5 +70,9 @@ src_unpack() {
 src_install() {
 	# e.g. linux-raspberrypi-kernel_1.20200601-1 -> linux-4.19.118_p20200601-raspberrypi-r1
 	dodir /usr/src
-	mv "${S}" "${ED}/usr/src/linux-${PV%_p*}-raspberrypi-${PR}"
+	if [[ "${PR}" != 'r0' ]]; then
+		mv "${S}" "${ED}/usr/src/linux-${PV%_p*}-raspberrypi-${PR}"
+	else
+		mv "${S}" "${ED}/usr/src/linux-${PV%_p*}-raspberrypi"
+	fi
 }
