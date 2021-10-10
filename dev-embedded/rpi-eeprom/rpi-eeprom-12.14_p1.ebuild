@@ -27,7 +27,6 @@ DEPEND="${PYTHON_DEPS}"
 RDEPEND="${PYTHON_DEPS}
 	sys-apps/flashrom[linux-spi]
 	sys-apps/pciutils
-	sys-devel/binutils
 	|| (
 		>=media-libs/raspberrypi-userland-0_pre20201022
 		>=media-libs/raspberrypi-userland-bin-1.20201022
