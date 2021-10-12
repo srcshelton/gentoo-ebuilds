@@ -24,15 +24,14 @@ SLOT="0"
 IUSE="bzip2 lzma python seccomp split-usr static-libs zlib"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
-DEPEND="
+COMMON_DEPEND="
 	bzip2? ( app-arch/bzip2[${MULTILIB_USEDEP}] )
 	lzma? ( app-arch/xz-utils[${MULTILIB_USEDEP}] )
-	python? (
-		${PYTHON_DEPS}
-		dev-python/setuptools[${PYTHON_USEDEP}]
-	)
+	python? ( ${PYTHON_DEPS} )
 	zlib? ( >=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}] )"
-RDEPEND="${DEPEND}
+DEPEND="${COMMON_DEPEND}
+	python? ( dev-python/setuptools[${PYTHON_USEDEP}] )"
+RDEPEND="${COMMON_DEPEND}
 	python? ( !dev-python/python-magic )
 	seccomp? ( sys-libs/libseccomp[${MULTILIB_USEDEP}] )"
 
