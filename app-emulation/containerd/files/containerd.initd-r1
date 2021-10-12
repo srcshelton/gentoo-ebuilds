@@ -4,7 +4,6 @@
 
 description="Containerd container runtime"
 command="/usr/bin/containerd"
-command_args="${command_args:-}"
 command_background="true"
 pidfile="${pidfile:-/var/run/${RC_SVCNAME}.pid}"
 start_stop_daemon_args="--stderr /var/log/${RC_SVCNAME}/${RC_SVCNAME}.log --stdout /var/log/${RC_SVCNAME}/${RC_SVCNAME}.log"
