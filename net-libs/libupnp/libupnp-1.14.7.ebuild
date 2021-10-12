@@ -10,6 +10,7 @@ MY_PN="pupnp"
 DESCRIPTION="A Portable Open Source UPnP Development Kit" # forked in 2008 from upstream libupnp-1.6.6
 HOMEPAGE="http://pupnp.sourceforge.net/"
 SRC_URI="https://github.com/${MY_PN}/${MY_PN}/archive/release-${PV}.tar.gz -> ${P}.tar.gz"
+S="${WORKDIR}/${MY_PN}-release-${PV}"
 
 LICENSE="BSD"
 SLOT="0/17"
@@ -20,9 +21,7 @@ REQUIRED_USE="!server? ( !webserver )"
 # bug 733750
 RESTRICT="test"
 
-DOCS="ChangeLog"
-
-S="${WORKDIR}/${MY_PN}-release-${PV}"
+PATCHES=( "${FILESDIR}/${PN}-1.14.7-glibc-2.34.patch" )
 
 src_prepare() {
 	default
