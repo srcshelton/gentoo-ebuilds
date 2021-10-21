@@ -21,7 +21,7 @@ SLOT="0"
 IUSE=""
 
 PATCHES=(
-	"${FILESDIR}/${PN}-0.10-shellcheck.patch"
+	"${FILESDIR}/${P}-shellcheck.patch"
 )
 
 src_configure() {
