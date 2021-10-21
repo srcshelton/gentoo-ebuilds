@@ -18,12 +18,13 @@ HOMEPAGE="https://roundcube.net"
 # for bundled PEAR components, googiespell and utf8.class.php
 LICENSE="GPL-3 BSD PHP-2.02 PHP-3 MIT public-domain"
 
-IUSE="change-password enigma exif ldap managesieve +mysql postgres spell sqlite ssl zxcvbn" # plugins
+IUSE="change-password enigma exif ldap managesieve +mysql postgres spell sqlite ssl zxcvbn"
 REQUIRED_USE="|| ( mysql postgres sqlite )"
 
 RDEPEND="
 	|| ( virtual/httpd-cgi virtual/httpd-fastcgi )
 	>=dev-lang/php-5.4.0[exif?,fileinfo,filter,gd,iconv,intl,json(+),ldap?,mysql?,pdo,postgres?,session,sockets,sqlite?,ssl?,unicode,xml,zip]
+	<dev-lang/php-8
 	>=dev-php/Endroid-QrCode-1.6.5
 	>=dev-php/Masterminds-HTML5-2.5.0
 	>=dev-php/PEAR-Auth_SASL-1.1.0
