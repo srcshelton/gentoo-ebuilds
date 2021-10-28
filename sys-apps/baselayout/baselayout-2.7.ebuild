@@ -19,6 +19,10 @@ LICENSE="GPL-2"
 SLOT="0"
 IUSE="build kernel_FreeBSD kernel_linux +split-usr +varrun"
 
+PATCHES=(
+	"${FILESDIR}/${P}-containers.patch"
+)
+
 pkg_setup() {
 	multilib_layout
 }
