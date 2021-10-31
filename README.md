@@ -425,6 +425,8 @@ used to build perl)
     * With modifications to upstream ebuild and init script
 * net-analyzer/ntopng
     * Remove some of the more onerous limitations from the community edition, use source from `3.0-stable` branch rather than `3.0` tag
+* net-analyzer/speedtest-cli
+    * Remove unnecessary run-time dependency on dev-python/setuptools
 * net-analyzer/suricata
     * Minor ebuild fixes, automatically fetch latest rules on build
 * net-analyzer/tcpdump
