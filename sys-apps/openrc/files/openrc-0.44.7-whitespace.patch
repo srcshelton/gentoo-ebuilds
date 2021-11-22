@@ -1,0 +1,41 @@
+--- a/init.d/bootmisc.in
++++ b/init.d/bootmisc.in
+@@ -107,22 +107,22 @@ migrate_to_run()
+ {
+ 	src="$1"
+ 	dst="$2"
+- 	if [ -L $src -a "$(readlink -f $src)" != $dst ]; then
+- 		ewarn "$src does not point to $dst."
+- 		ewarn "Setting $src to point to $dst."
+- 		rm $src
+- 	elif [ ! -L $src -a -d $src ]; then
+- 		ebegin "Migrating $src to $dst"
+- 		if ! rmdir $src 2>/dev/null; then
+- 			cp -a $src/* $dst/
+- 			rm -rf $src
+- 		fi
+- 		eend $?
+- 	fi
+- 	# If $src doesn't exist at all, just run this
+- 	if [ ! -e $src ]; then
+- 		ln -s $dst $src
+- 	fi
++	if [ -L $src -a "$(readlink -f $src)" != $dst ]; then
++		ewarn "$src does not point to $dst."
++		ewarn "Setting $src to point to $dst."
++		rm $src
++	elif [ ! -L $src -a -d $src ]; then
++		ebegin "Migrating $src to $dst"
++		if ! rmdir $src 2>/dev/null; then
++			cp -a $src/* $dst/
++			rm -rf $src
++		fi
++		eend $?
++	fi
++	# If $src doesn't exist at all, just run this
++	if [ ! -e $src ]; then
++		ln -s $dst $src
++	fi
+ }
+ 
+ clean_run()
