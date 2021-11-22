@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit flag-o-matic toolchain-funcs multilib-minimal preserve-libs usr-ldscript
+inherit flag-o-matic preserve-libs toolchain-funcs usr-ldscript multilib-minimal
 
 MY_PV="${PV:0:3}"
 MY_P="${PN}-${MY_PV}"
@@ -77,8 +77,9 @@ src_configure() {
 		# some toolchains don't quite support static linking
 		local dbuildflags="-Wl,-rpath,${WORKDIR}/lib"
 		case ${CHOST} in
-			*-darwin*)  dbuildflags=     ;;
 			*-aix*)     dbuildflags=     ;;
+			*-darwin*)  dbuildflags=     ;;
+			*-solaris*) dbuildflags="-Wl,-R,${WORKDIR}/lib" ;;
 		esac
 		echo "int main() {}" | \
 			$(tc-getCC) -o x -x c - ${lbuildflags} -pipe >& /dev/null \
@@ -194,8 +195,17 @@ do_configure() {
 src_compile() {
 	# See comments in src_configure.
 	if ! has_version -b "~sys-libs/${P}:0" ; then
-		BUILD_DIR="${WORKDIR}" \
-		do_compile cross -C progs tic
+		# We could possibly merge these two branches but opting to be
+		# conservative when merging some of the Prefix changes.
+
+		if [[ ${CHOST} == *-cygwin* ]] && ! multilib_is_native_abi ; then
+			# We make 'tic$(x)' here, for Cygwin having x=".exe".
+			BUILD_DIR="${WORKDIR}" \
+				 do_compile cross -C progs all PROGS='tic$(x)'
+		else
+			BUILD_DIR="${WORKDIR}" \
+				do_compile cross -C progs tic
+		fi
 	fi
 
 	multilib-minimal_src_compile
@@ -239,8 +249,8 @@ multilib_src_install() {
 		gen_usr_ldscript -a \
 			"${NCURSES_TARGETS[@]}" \
 			$(use tinfo && usex unicode 'tinfow' '') \
-			$(use tinfo && usex unicode 'tinfotw' '') \
 			$(usev tinfo) \
+			$(use tinfo && usex unicode 'tinfotw' '') \
 			$(usex tinfo tinfot '')
 	fi
 	if ! tc-is-static-only ; then

@@ -78,6 +78,7 @@ src_configure() {
 		# some toolchains don't quite support static linking
 		local dbuildflags="-Wl,-rpath,${WORKDIR}/lib"
 		case ${CHOST} in
+			*-aix*)     dbuildflags=     ;;
 			*-darwin*)  dbuildflags=     ;;
 			*-solaris*) dbuildflags="-Wl,-R,${WORKDIR}/lib" ;;
 		esac
@@ -92,7 +93,7 @@ src_configure() {
 		CXXFLAGS=${BUILD_CXXFLAGS} \
 		CPPFLAGS=${BUILD_CPPFLAGS} \
 		LDFLAGS="${BUILD_LDFLAGS} ${lbuildflags}" \
-		do_configure cross --without-shared --with-normal
+		do_configure cross --without-shared --with-normal --with-progs
 	fi
 	multilib-minimal_src_configure
 }
@@ -204,7 +205,7 @@ src_compile() {
 				 do_compile cross -C progs all PROGS='tic$(x)'
 		else
 			BUILD_DIR="${WORKDIR}" \
-				 do_compile cross -C progs tic
+				do_compile cross -C progs tic
 		fi
 	fi
 
