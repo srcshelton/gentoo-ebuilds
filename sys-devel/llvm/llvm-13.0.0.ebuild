@@ -9,12 +9,6 @@ inherit cmake llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
 DESCRIPTION="Low Level Virtual Machine"
 HOMEPAGE="https://llvm.org/"
 
-# Those are in lib/Targets, without explicit CMakeLists.txt mention
-ALL_LLVM_EXPERIMENTAL_TARGETS=( ARC CSKY VE )
-# Keep in sync with CMakeLists.txt
-ALL_LLVM_TARGETS=( AArch64 AMDGPU ARM AVR BPF Hexagon Lanai Mips MSP430 NVPTX PowerPC RISCV Sparc SystemZ WebAssembly X86 XCore "${ALL_LLVM_EXPERIMENTAL_TARGETS[@]}" )
-ALL_LLVM_TARGETS=( "${ALL_LLVM_TARGETS[@]/#/llvm_targets_}" )
-
 # Additional licenses:
 # 1. OpenBSD regex: Henry Spencer's license ('rc' in Gentoo) + BSD.
 # 2. xxhash: BSD.
@@ -24,8 +18,7 @@ ALL_LLVM_TARGETS=( "${ALL_LLVM_TARGETS[@]/#/llvm_targets_}" )
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="$(ver_cut 1)"
 KEYWORDS="amd64 arm arm64 ~ppc ppc64 ~riscv ~sparc x86 ~amd64-linux ~ppc-macos ~x64-macos"
-IUSE="debug doc exegesis +gold kernel_Darwin libedit +libffi llvm_targets_AArch64 llvm_targets_AMDGPU llvm_targets_ARC llvm_targets_ARM llvm_targets_AVR llvm_targets_BPF llvm_targets_CSKY llvm_targets_Hexagon llvm_targets_Lanai llvm_targets_Mips llvm_targets_MSP430 llvm_targets_NVPTX llvm_targets_PowerPC llvm_targets_RISCV llvm_targets_Sparc llvm_targets_SystemZ llvm_targets_VE llvm_targets_WebAssembly llvm_targets_X86 llvm_targets_XCore ncurses test xar xml z3"
-REQUIRED_USE="|| ( ${ALL_LLVM_TARGETS[*]} )"
+IUSE="debug doc exegesis +gold kernel_Darwin libedit +libffi ncurses test xar xml z3"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -63,7 +56,8 @@ PDEPEND="sys-devel/llvm-common
 
 LLVM_COMPONENTS=( llvm )
 LLVM_MANPAGES=pregenerated
-LLVM_PATCHSET=12.0.1
+LLVM_PATCHSET=${PV/_/-}
+LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 
 python_check_deps() {
@@ -88,8 +82,6 @@ check_live_ebuild() {
 	for i in "${all_targets[@]}"; do
 		has "${i}" "${prod_targets[@]}" || exp_targets+=( "${i}" )
 	done
-	# reorder
-	all_targets=( "${prod_targets[@]}" "${exp_targets[@]}" )
 
 	if [[ ${exp_targets[*]} != ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]} ]]; then
 		eqawarn "ALL_LLVM_EXPERIMENTAL_TARGETS is outdated!"
@@ -98,10 +90,10 @@ check_live_ebuild() {
 		eqawarn
 	fi
 
-	if [[ ${all_targets[*]} != ${ALL_LLVM_TARGETS[*]#llvm_targets_} ]]; then
-		eqawarn "ALL_LLVM_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_TARGETS[*]#llvm_targets_}"
-		eqawarn "Expected: ${all_targets[*]}"
+	if [[ ${prod_targets[*]} != ${ALL_LLVM_PRODUCTION_TARGETS[*]} ]]; then
+		eqawarn "ALL_LLVM_PRODUCTION_TARGETS is outdated!"
+		eqawarn "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
+		eqawarn "Expected: ${prod_targets[*]}"
 	fi
 }
 
@@ -247,7 +239,6 @@ get_distribution_components() {
 			llvm-dlltool
 			llvm-dwarfdump
 			llvm-dwp
-			llvm-elfabi
 			llvm-exegesis
 			llvm-extract
 			llvm-gsymutil
@@ -270,6 +261,7 @@ get_distribution_components() {
 			llvm-objcopy
 			llvm-objdump
 			llvm-opt-report
+			llvm-otool
 			llvm-pdbutil
 			llvm-profdata
 			llvm-profgen
@@ -279,13 +271,16 @@ get_distribution_components() {
 			llvm-readobj
 			llvm-reduce
 			llvm-rtdyld
+			llvm-sim
 			llvm-size
 			llvm-split
 			llvm-stress
 			llvm-strings
 			llvm-strip
 			llvm-symbolizer
+			llvm-tapi-diff
 			llvm-undname
+			llvm-windres
 			llvm-xray
 			obj2yaml
 			opt
@@ -364,7 +359,7 @@ multilib_src_configure() {
 		-DFFI_INCLUDE_DIR="${ffi_cflags#-I}"
 		-DFFI_LIBRARY_DIR="${ffi_ldflags#-L}"
 		# used only for llvm-objdump tool
-		-DHAVE_LIBXAR=$(multilib_native_usex xar 1 0)
+		-DLLVM_HAVE_LIBXAR=$(multilib_native_usex xar 1 0)
 
 		-DPython3_EXECUTABLE="${PYTHON}"
 
