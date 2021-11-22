@@ -3,7 +3,7 @@
 
 EAPI=7
 TMPFILES_OPTIONAL=1
-inherit autotools flag-o-matic linux-info multilib systemd tmpfiles toolchain-funcs udev usr-ldscript
+inherit autotools flag-o-matic linux-info systemd tmpfiles toolchain-funcs udev usr-ldscript
 
 DESCRIPTION="User-land utilities for LVM2 (device-mapper) software"
 HOMEPAGE="https://sourceware.org/lvm2/"
@@ -13,8 +13,8 @@ SRC_URI="ftp://sourceware.org/pub/lvm2/${PN/lvm/LVM}.${PV}.tgz
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
-IUSE="device-mapper-only lvm2create_initrd readline sanlock selinux static static-libs systemd +thin +tmpfiles +udev"
-REQUIRED_USE="device-mapper-only? ( !lvm2create_initrd !sanlock !thin )
+IUSE="device-mapper-only lvm2create-initrd readline sanlock selinux static static-libs systemd +thin +tmpfiles +udev"
+REQUIRED_USE="device-mapper-only? ( !lvm2create-initrd !sanlock !thin )
 	static? ( !systemd !udev )
 	static-libs? ( !udev )
 	systemd? ( udev )"
@@ -36,7 +36,7 @@ RDEPEND="${DEPEND_COMMON}
 	!<sys-fs/cryptsetup-1.1.2
 	!!sys-fs/lvm-user
 	>=sys-apps/util-linux-2.16
-	lvm2create_initrd? ( sys-apps/makedev )
+	lvm2create-initrd? ( sys-apps/makedev )
 	!device-mapper-only? ( tmpfiles? ( virtual/tmpfiles ) )
 	thin? ( >=sys-block/thin-provisioning-tools-0.3.0 )"
 # note: thin- 0.3.0 is required to avoid --disable-thin_check_needs_check
@@ -257,7 +257,7 @@ src_install() {
 		rm -f "${ED}"/usr/$(get_libdir)/{libdevmapper-event,liblvm2cmd,liblvm2app,libdevmapper}.a
 	fi
 
-	if use lvm2create_initrd; then
+	if use lvm2create-initrd; then
 		dosbin scripts/lvm2create_initrd/lvm2create_initrd
 		doman scripts/lvm2create_initrd/lvm2create_initrd.8
 		newdoc scripts/lvm2create_initrd/README README.lvm2create_initrd
