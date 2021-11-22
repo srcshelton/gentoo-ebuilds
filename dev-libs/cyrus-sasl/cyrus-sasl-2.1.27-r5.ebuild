@@ -14,7 +14,7 @@ SRC_URI="https://github.com/cyrusimap/${PN}/releases/download/${P}/${P}.tar.gz"
 
 LICENSE="BSD-with-attribution"
 SLOT="2"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 ~arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 IUSE="authdaemond berkdb gdbm kerberos ldapdb mysql openldap pam postgres sample selinux sqlite srp ssl static-libs systemd urandom"
 
 CDEPEND="
@@ -56,8 +56,8 @@ PATCHES=(
 	"${FILESDIR}/${PN}-2.1.27-doc_build_fix.patch"
 	"${FILESDIR}/${PN}-2.1.27-memmem.patch"
 	"${FILESDIR}/${PN}-2.1.27-CVE-2019-19906.patch"
-	"${FILESDIR}/${PN}-2.1.27-gdbm_errno_fix.patch"
 	"${FILESDIR}/${PN}-2.1.27-slibtool.patch"
+	"${FILESDIR}/${PN}-2.1.27-db_gdbm-fix-gdbm_errno-overlay-from-gdbm_close.patch"
 )
 
 pkg_setup() {
