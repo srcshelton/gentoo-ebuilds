@@ -30,11 +30,12 @@ src_configure() {
 	#
 	# The libdir is passed explicitly in case the /usr/lib symlink
 	# is not present (bug 624528).
-	econf --libdir="${EPREFIX}/usr/$(get_libdir)" \
-		  --localstatedir="${EPREFIX}/var" \
-		  --with-piddir="${EPREFIX}/var/run" \
-		  $(use_enable apache2) \
-		  $(use_enable fpm)
+	econf \
+		--libdir="${EPREFIX}/usr/$(get_libdir)" \
+		--localstatedir="${EPREFIX}/var" \
+		--with-piddir="${EPREFIX}/var/run" \
+		$(use_enable apache2) \
+		$(use_enable fpm)
 }
 
 src_install() {
