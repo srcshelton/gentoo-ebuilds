@@ -381,6 +381,8 @@ used to build perl)
     * Only install support for requested service-managers
 * dev-java/commons-daemon
     * Add additional include path to allow building with Oracle JDK 8 and above
+* dev-lang/mono
+    * Fix DEPEND/BDEPEND to add virtual/linux-sources and dev-util/cmake respectively
 * ~~dev-lang/perl~~
     * ~~Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS~~
 * dev-libs/geoip
