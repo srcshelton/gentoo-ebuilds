@@ -20,7 +20,7 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	"
 else
 	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2"
-	KEYWORDS="~amd64 ~arm ~arm64 ~ia64 ~ppc ~ppc64 ~riscv ~sparc ~x86"
+	KEYWORDS="~amd64 ~arm ~arm64 ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
 fi
 
 LICENSE="GPL-2"
@@ -29,7 +29,7 @@ IUSE="debug doc +gmp json libedit +modern-kernel python +readline static-libs sy
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:0=
-	>=net-libs/libnftnl-1.2.0:0=
+	>=net-libs/libnftnl-1.2.1:0=
 	gmp? ( dev-libs/gmp:0= )
 	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
