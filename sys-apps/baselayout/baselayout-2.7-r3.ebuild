@@ -1,9 +1,9 @@
 # Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
-inherit multilib prefix versionator
+inherit multilib prefix
 
 DESCRIPTION="Filesystem baselayout and init scripts"
 HOMEPAGE="https://wiki.gentoo.org/wiki/No_homepage"
@@ -27,16 +27,44 @@ pkg_setup() {
 	multilib_layout
 }
 
+riscv_compat_symlink() {
+	# Here we apply some special sauce for riscv.
+	# Two multilib layouts exist for now:
+	# 1) one level libdirs, (32bit) "lib" and (64bit) "lib64"
+	#    these are chosen by us to closely resemble other arches
+	# 2) two level libdirs, "lib64/lp64d" "lib64/lp64" "lib32/ilp32d" ...
+	#    this is the glibc/gcc default
+	# Unfortunately, the default has only one fallback, which is "lib"
+	# for both 32bit and 64bit. So things do not break in 1), we need
+	# to provide compatibility symlinks...
+
+	# This function has exactly two parameters:
+	# - the default libdir, to determine if 1) or 2) applies
+	# - the location of the symlink (which points to ".")
+
+	# Note: we call this only in the ${SYMLINK_LIB} = no codepath, since
+	# there never was a ${SYMLINK_LIB} = yes riscv profile.
+
+	case "${CHOST:-}" in
+	riscv*)
+		# are we on a one level libdir profile? is there no symlink yet?
+		if [ "${1##*/}" = "${1}" ] && ! [ -L "${2}" ]; then
+			ln -s . "${2}" || die "Unable to make '${2}' riscv compatibility symlink"
+		fi
+		;;
+	esac
+}
+
 # Create our multilib dirs - the Makefile has no knowledge of this
 multilib_layout() {
 	local dir def_libdir libdir libdirs
 	local prefix prefix_lst
 	def_libdir="$(get_abi_LIBDIR ${DEFAULT_ABI})"
 	libdirs="$(get_all_libdirs)"
-	: ${libdirs:=lib}	# it isn't that we don't trust multilib.eclass...
+	: ${libdirs:=lib}  # it isn't that we don't trust multilib.eclass...
 
 	if [ -z "${SYMLINK_LIB:-}" ] || [ "${SYMLINK_LIB}" = 'no' ] ; then
-		prefix_lst=( "${EROOT}"{,usr/,usr/local/} )
+		prefix_lst=( "${EROOT%/}"/{,usr/,usr/local/} )
 		for prefix in "${prefix_lst[@]}"; do
 			for libdir in ${libdirs}; do
 				dir="${prefix}${libdir}"
@@ -45,22 +73,25 @@ multilib_layout() {
 						die "${dir} exists but is not a directory"
 					continue
 				fi
-				if ! use split-usr && [ ${prefix} = ${EROOT} ]; then
+				if ! use split-usr && [ "${prefix%/}/" = "${EROOT%/}/" ]; then
+					libdir="${libdir%%/*}"
+					dir="${prefix}${libdir}"
 					einfo "symlinking ${dir} to usr/${libdir}"
 					ln -s usr/${libdir} ${dir} ||
-						die " Unable to make ${dir} symlink"
+						die "Unable to make ${dir} symlink"
 				else
 					einfo "creating directory ${dir}"
 					mkdir -p "${dir}" ||
 						die "Unable to create ${dir} directory"
 				fi
 			done
+			riscv_compat_symlink "${def_libdir}" "${prefix}${def_libdir}/${DEFAULT_ABI}"
 		done
 		return 0
 	fi
 
 	[ -z "${def_libdir}" ] &&
-		die "Your DEFAULT_ABI ('$DEFAULT_ABI') appears to be invalid"
+		die "Your DEFAULT_ABI ('${DEFAULT_ABI}') appears to be invalid"
 
 	# figure out which paths should be symlinks and which should be directories
 	local dirs syms exp d
@@ -92,9 +123,9 @@ multilib_layout() {
 	# setup symlinks and dirs where we expect them to be; do not migrate
 	# data ... just fall over in that case.
 	if use split-usr ; then
-		prefix_lst=( "${EROOT}"{,usr/,usr/local/} )
+		prefix_lst=( "${EROOT%/}"/{,usr/,usr/local/} )
 	else
-		prefix_lst=( "${EROOT}"{usr/,usr/local/} )
+		prefix_lst=( "${EROOT%/}"/{usr/,usr/local/} )
 	fi
 	for prefix in "${prefix_lst[@]}"; do
 		if [ "${SYMLINK_LIB}" = 'yes' ] ; then
@@ -109,7 +140,7 @@ multilib_layout() {
 				if rmdir "${prefix%/}/lib" 2>/dev/null ; then
 					ln -s ${def_libdir} "${prefix%/}/lib" || die
 				else
-					die "non-empty dir found where we needed a symlink: ${prefix%/}/lib"
+					die "non-empty dir found where we needed a symlink: '${prefix%/}/lib'"
 				fi
 			else
 				# nothing exists, so just set it up sanely
@@ -158,9 +189,9 @@ multilib_layout() {
 	done
 	if ! use split-usr ; then
 		for libdir in ${libdirs}; do
-			if [ ! -e "${EROOT}${libdir}" ]; then
-				ln -s usr/"${libdir}" "${EROOT}${libdir}" ||
-					die " Unable to make ${EROOT}${libdir} symlink"
+			if [ ! -e "${EROOT%/}/${libdir#/}" ]; then
+				ln -s "usr/${libdir#/}" "${EROOT%/}/${libdir#/}" ||
+					die "Unable to make '${EROOT%/}/${libdir#/}' symlink"
 			fi
 		done
 	fi
@@ -235,6 +266,11 @@ src_install() {
 	insinto /usr/share/${PN}
 	doins Makefile
 
+	# This is needed for https://bugs.gentoo.org/732142
+	dodir /usr/lib
+	mv "${ED}"/etc/os-release "${ED}"/usr/lib || die
+	dosym ../usr/lib/os-release /etc/os-release
+
 	# With app-emulation/podman-3.3.0 and its _rc's, baselayout builds and
 	# installations are failing because /etc/hosts is writable, but cannot be
 	# replaced as it is a mountpoint.
@@ -285,13 +321,13 @@ pkg_postinst() {
 		if [ -n "${bad_users}" ] ; then
 			echo
 			ewarn "The following users lack passwords!"
-			ewarn ${bad_users}
+			ewarn "${bad_users}"
 		fi
 	fi
 
 	# whine about users with invalid shells #215698
 	if [ -e "${EROOT}"/etc/passwd ] ; then
-		local bad_shells=$(awk -F: 'system("test -e " $7) { print $1 " - " $7}' "${EROOT}"/etc/passwd | sort)
+		local bad_shells=$(awk -F: 'system("test -e ${ROOT}" $7) { print $1 " - " $7}' "${EROOT}"/etc/passwd | sort)
 		if [ -n "${bad_shells}" ] ; then
 			echo
 			ewarn "The following users have non-existent shells!"
@@ -306,29 +342,29 @@ pkg_postinst() {
 		local found fstype mountpoint
 		while read -r _ mountpoint fstype _; do
 		[ "${mountpoint}" = '/run' ] && [ "${fstype}" = 'tmpfs' ] && found=1
-		done < "${ROOT}"proc/mounts
+		done < "${ROOT}"/proc/mounts
 		[ -z "${found}" ] && ! use varrun &&
 			ewarn "You should reboot now to get /run mounted with tmpfs!"
 	fi
 
 	for x in ${REPLACING_VERSIONS}; do
-		if ! version_is_at_least 2.4 ${x}; then
+		if ver_test 2.4 -lt ${x}; then
 			ewarn "After updating ${EROOT%/}/etc/profile, please run"
 			ewarn "env-update && . /etc/profile"
 		fi
 
-		if ! version_is_at_least 2.6 ${x}; then
+		if ver_test 2.6 -lt ${x}; then
 			ewarn "Please run env-update then log out and back in to"
 			ewarn "update your path."
 		fi
 		# clean up after 2.5 typos
 		# https://bugs.gentoo.org/show_bug.cgi?id=656380
 		if [ "${x}" = '2.5' ]; then
-			rm -fr "${EROOT}{,usr" || die
+			rm -fr "${EROOT}/{,usr" || die
 		fi
 	done
 
-	if [ -e "${EROOT}"etc/env.d/00basic ]; then
+	if [ -e "${EROOT}"/etc/env.d/00basic ]; then
 		ewarn "${EROOT%/}/etc/env.d/00basic is now ${EROOT%/}/etc/env.d/50baselayout"
 		ewarn "Please migrate your changes."
 	fi
