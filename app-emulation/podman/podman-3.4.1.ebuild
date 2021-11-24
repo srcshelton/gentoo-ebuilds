@@ -7,7 +7,6 @@ EGIT_COMMIT='a6493ae6904a5b7dde2395a374cb77fc45c8a3bc'
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
 COMMON_VERSION='0.46.0'
-CATATONIT_VERSION='0.1.7'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -16,8 +15,8 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64 ~ppc64"
-IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
+KEYWORDS="amd64 arm64 ~ppc64"
+IUSE="apparmor +bash-completion btrfs fish-completion +fuse man +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
@@ -33,6 +32,7 @@ COMMON_DEPEND="
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
+	man? ( app-emulation/containers-storage )
 	rootless? ( app-emulation/slirp4netns )
 	selinux? ( sys-libs/libselinux:= )
 "
@@ -200,8 +200,6 @@ src_compile() {
 	# Filter unsupported linker flags
 	filter-flags '-Wl,*'
 
-	go-md2man -in "${WORKDIR}/common-${COMMON_VERSION}/docs/containers.conf.5.md" -out "${T}/containers.conf.5"
-
 	[[ -f hack/apparmor_tag.sh ]] || die
 	if use apparmor; then
 		echo -e "#!/bin/sh\necho apparmor" > hack/apparmor_tag.sh || die
@@ -272,8 +270,6 @@ src_install() {
 		insinto /usr/share/fish/vendor_completions.d
 		doins completions/fish/*
 	fi
-
-	doman "${T}"/*.[15]
 
 	keepdir /var/lib/containers
 }
