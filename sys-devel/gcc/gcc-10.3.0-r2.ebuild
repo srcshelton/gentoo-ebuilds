@@ -4,6 +4,7 @@
 EAPI="7"
 
 PATCH_VER="3"
+MUSL_VER="1"
 
 inherit toolchain
 
@@ -20,6 +21,8 @@ src_prepare() {
 	fi
 
 	toolchain_src_prepare
+
+	eapply_user
 
 	if [[ "${ARCH}" == 'amd64' ]]; then
 		local LD32="$( get_abi_LIBDIR x86 )"
