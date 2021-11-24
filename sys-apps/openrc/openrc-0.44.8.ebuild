@@ -84,6 +84,11 @@ src_prepare() {
 	eapply "${FILESDIR}/${PN}-0.43.5-checkpath-mkdir.patch" || die "checkpath eapply failed"
 }
 
+PATCHES=(
+	# Backported from master
+	"${FILESDIR}"/${P}-selinux-no-pam.patch
+)
+
 src_configure() {
 	local emesonargs=(
 		  $(meson_feature audit)
