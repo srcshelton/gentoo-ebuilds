@@ -1,0 +1,18 @@
+--- a/clientloop.c
++++ b/clientloop.c
+@@ -1224,6 +1224,7 @@ client_loop(struct ssh *ssh, int have_pt
+ 
+ 	debug("Entering interactive session.");
+ 
++#ifdef HAVE_PLEDGE
+ 	if (options.control_master &&
+ 	    !option_clear_or_none(options.control_path)) {
+ 		debug("pledge: id");
+@@ -1254,6 +1255,7 @@ client_loop(struct ssh *ssh, int have_pt
+ 		if (pledge("stdio unix inet dns proc tty", NULL) == -1)
+ 			fatal_f("pledge(): %s", strerror(errno));
+ 	}
++#endif
+ 
+ 	start_time = monotime_double();
+ 

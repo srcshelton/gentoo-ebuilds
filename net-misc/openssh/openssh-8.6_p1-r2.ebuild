@@ -182,12 +182,6 @@ src_prepare() {
 			"${S}"/regress/Makefile || die "Failed to disable known failing test (cfgparse) caused by SCTP patch"
 	fi
 
-	# Compiles but crashes on run if enabled :(
-	#
-	#if use libseccomp; then
-	#	epatch "${FILESDIR}"/${PN}-8.0_p1-libseccomp.patch
-	#fi
-
 	if use hpn ; then
 		local hpn_patchdir="${T}/${P}-hpn${HPN_VER}"
 		mkdir "${hpn_patchdir}" || die
@@ -252,6 +246,14 @@ src_prepare() {
 	sed -i \
 		-e "/#UseLogin no/d" \
 		"${S}"/sshd_config || die "Failed to remove removed UseLogin option (sshd_config)"
+
+	# Compiles but crashes on run if enabled :(
+	#
+	#if use libseccomp; then
+	#	eapply "${FILESDIR}"/${PN}-8.0_p1-libseccomp.patch
+	#fi
+
+	eapply "${FILESDIR}/${P}-clientloop.patch"
 
 	eapply_user #473004
 
