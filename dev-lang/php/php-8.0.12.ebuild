@@ -131,8 +131,9 @@ BDEPEND="virtual/pkgconfig
 PHP_MV="$(ver_cut 1)"
 
 PATCHES=(
-	"${FILESDIR}"/php-iodbc-header-location.patch
-	"${FILESDIR}"/php80-firebird-warnings.patch
+	"${FILESDIR}/php-iodbc-header-location.patch"
+	"${FILESDIR}/php80-firebird-warnings.patch"
+	"${FILESDIR}/php-icu-70.patch"
 )
 
 php_install_ini() {
