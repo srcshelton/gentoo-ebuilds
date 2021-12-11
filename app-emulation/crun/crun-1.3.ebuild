@@ -1,11 +1,11 @@
 # Copyright 2019-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
-PYTHON_COMPAT=( python3_{7..9} )
+PYTHON_COMPAT=( python3_{8..10} )
 
-inherit autotools python-any-r1
+inherit python-any-r1
 
 DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
@@ -17,7 +17,7 @@ KEYWORDS="~amd64 ~arm ~arm64 ~ppc64"
 IUSE="+bpf +caps criu man +seccomp static-libs systemd"
 
 COMMON_DEPEND="
-	>=dev-libs/yajl-2.0.0
+	>=dev-libs/yajl-2.0.0:=
 	caps? ( sys-libs/libcap )
 	criu? ( >=sys-process/criu-3.15 )
 	seccomp? ( sys-libs/libseccomp )
@@ -29,13 +29,13 @@ DEPEND="
 	sys-devel/gettext
 	sys-devel/libtool
 	sys-kernel/linux-headers
-	virtual/pkgconfig
 "
 RDEPEND="${COMMON_DEPEND}"
 BDEPEND="
 	${PYTHON_DEPS}
 	man? ( dev-go/go-md2man )
 	sys-apps/sed
+	virtual/pkgconfig
 "
 
 # the crun test suite is comprehensive to the extent that tests will fail
