@@ -1,7 +1,7 @@
 # Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=7
 
 CKV="${PV%_p*}"
 ETYPE=sources
@@ -10,6 +10,7 @@ ETYPE=sources
 K_FROM_GIT=1
 K_SECURITY_UNSUPPORTED=1
 H_SUPPORTEDARCH="arm arm64"
+
 inherit kernel-2
 detect_version
 detect_arch
