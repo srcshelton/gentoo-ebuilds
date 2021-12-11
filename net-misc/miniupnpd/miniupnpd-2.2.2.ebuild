@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -39,7 +39,7 @@ BDEPEND="
 VERIFY_SIG_OPENPGP_KEY_PATH=${BROOT}/usr/share/openpgp-keys/miniupnp.asc
 
 PATCHES=(
-	"${FILESDIR}/${P}-netfilter-debug.patch"
+	"${FILESDIR}/${PN}-2.2.1-netfilter-debug.patch"
 )
 
 src_configure() {
@@ -70,13 +70,18 @@ src_install() {
 	emake PREFIX="${ED}" STRIP=true install
 
 	exeinto /etc/miniupnpd
-	newexe "${FILESDIR}"/iptables_init.sh-1.12 iptables_init.sh
-	newexe "${FILESDIR}"/iptables_removeall.sh-1.11 iptables_removeall.sh
-	newexe "${FILESDIR}"/ip6tables_init.sh-1.3 ip6tables_init.sh
-	newexe "${FILESDIR}"/ip6tables_removeall.sh-1.2 ip6tables_removeall.sh
-	insinto /etc/miniupnpd
-	newins "${FILESDIR}"/miniupnpd_functions.sh-1.3 functions.sh
-	rm "${ED}"/etc/miniupnpd/miniupnpd_functions.sh
+	if ! use nftables; then
+		newexe "${FILESDIR}"/iptables_init.sh-1.12 iptables_init.sh
+		newexe "${FILESDIR}"/iptables_removeall.sh-1.11 iptables_removeall.sh
+		newexe "${FILESDIR}"/ip6tables_init.sh-1.3 ip6tables_init.sh
+		newexe "${FILESDIR}"/ip6tables_removeall.sh-1.2 ip6tables_removeall.sh
+		insinto /etc/miniupnpd
+		newins "${FILESDIR}"/miniupnpd_functions.sh-1.3 functions.sh
+		rm "${ED}"/etc/miniupnpd/miniupnpd_functions.sh
+	else
+		doexe "${FILESDIR}"/nft_init.sh
+		doexe "${FILESDIR}"/nft_removeall.sh
+	fi
 
 	local confd_seds=()
 	if use nftables; then
@@ -97,3 +102,5 @@ pkg_postinst() {
 	elog "Please correct the external interface in the top of the two"
 	elog "scripts in /etc/miniupnpd and edit the config file in there too"
 }
+
+# vi: set diffopt=iwhite,filler:

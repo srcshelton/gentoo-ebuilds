@@ -1,0 +1,132 @@
+--- a/netfilter/iptcrdr.c
++++ b/netfilter/iptcrdr.c
+@@ -145,8 +145,8 @@ int init_redirect(void)
+ 
+ 	h = iptc_init("nat");
+ 	if(!h) {
+-		syslog(LOG_ERR, "iptc_init() failed : %s",
+-		       iptc_strerror(errno));
++		syslog(LOG_ERR, "iptc_init(\"%s\") failed : %s",
++		       "nat", iptc_strerror(errno));
+ 		return -1;
+ 	} else {
+ #ifdef IPTABLES_143
+@@ -367,8 +367,8 @@ get_nat_redirect_rule(const char * nat_c
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "get_nat_redirect_rule", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "get_nat_redirect_rule", "nat", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	if(!iptc_is_chain(nat_chain_name, h))
+@@ -455,8 +455,8 @@ get_redirect_rule_by_index(int index,
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "get_redirect_rule_by_index", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "get_redirect_rule_by_index", "nat", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
+@@ -546,8 +546,8 @@ get_peer_rule_by_index(int index,
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "get_peer_rule_by_index", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "get_peer_rule_by_index", "nat", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	if(!iptc_is_chain(miniupnpd_nat_postrouting_chain, h))
+@@ -745,8 +745,8 @@ delete_redirect_and_filter_rules(unsigne
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "delete_redirect_and_filter_rules", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "delete_redirect_and_filter_rules", "nat", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	/* First step : find the right nat rule */
+@@ -1137,8 +1137,8 @@ iptc_init_verify_and_append(const char *
+ 	h = iptc_init(table);
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() error : %s\n",
+-		       logcaller, iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") error : %s\n",
++		       logcaller, table, iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	if(!iptc_is_chain(miniupnpd_chain, h))
+@@ -1614,8 +1614,8 @@ get_portmappings_in_range(unsigned short
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "get_portmappings_in_range", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "get_portmappings_in_range", "nat", iptc_strerror(errno));
+ 		free(array);
+ 		return NULL;
+ 	}
+@@ -1709,8 +1709,8 @@ update_rule_and_commit(const char * tabl
+ 	h = iptc_init(table);
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "update_rule_and_commit", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "update_rule_and_commit", table, iptc_strerror(errno));
+ 		return -1;
+ 	}
+ #ifdef IPTABLES_143
+@@ -1763,8 +1763,8 @@ update_portmapping(const char * ifname,
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "update_portmapping", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "update_portmapping", "nat", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	/* First step : find the right nat rule */
+@@ -1845,8 +1845,8 @@ update_portmapping(const char * ifname,
+ 	h = iptc_init("filter");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "update_portmapping", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "update_portmapping", "filter", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	i = 0; found = 0;
+@@ -1937,8 +1937,8 @@ update_portmapping(const char * ifname,
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
+-		       "update_portmapping", iptc_strerror(errno));
++		syslog(LOG_ERR, "%s() : iptc_init(\"%s\") failed : %s",
++		       "update_portmapping", "nat", iptc_strerror(errno));
+ 		goto skip;
+ 	}
+ 	i = 0; found = 0;
+@@ -2107,7 +2107,7 @@ list_redirect_rule(const char * ifname)
+ 	h = iptc_init("nat");
+ 	if(!h)
+ 	{
+-		printf("iptc_init() error : %s\n", iptc_strerror(errno));
++		printf("iptc_init(\"%s\") error : %s\n", "nat", iptc_strerror(errno));
+ 		return -1;
+ 	}
+ 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
