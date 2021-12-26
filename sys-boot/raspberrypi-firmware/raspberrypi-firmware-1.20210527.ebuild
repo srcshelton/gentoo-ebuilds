@@ -139,8 +139,8 @@ pkg_preinst() {
 	if [[ "${MERGE_TYPE}" != "buildonly" ]]; then
 		if [[ -z "${REPLACING_VERSIONS}" ]]; then
 			local msg=""
-			if [[ -e "${ED}"/boot/cmdline.txt ]] && [[ -e /boot/cmdline.txt ]] ; then
-				msg+="/boot/cmdline.txt "
+			if [[ -e "${ED}${boot}"/cmdline.txt ]] && [[ -e "${boot}"/cmdline.txt ]] ; then
+				msg+="${boot}/cmdline.txt "
 			fi
 			if [[ -e "${ED}${boot}"/config.txt ]] && [[ -e "${boot}"/config.txt ]] ; then
 				msg+="${boot}/config.txt "
