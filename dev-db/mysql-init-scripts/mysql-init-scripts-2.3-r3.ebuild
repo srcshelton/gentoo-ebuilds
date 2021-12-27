@@ -5,7 +5,7 @@ EAPI=6
 
 inherit s6 systemd tmpfiles
 
-DESCRIPTION="Gentoo MySQL init scripts."
+DESCRIPTION="Gentoo MySQL init scripts"
 HOMEPAGE="https://wiki.gentoo.org/wiki/No_homepage"
 SRC_URI=""
 
