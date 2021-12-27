@@ -36,16 +36,17 @@ COMMON_DEPEND="
 	seccomp? ( >=sys-libs/libseccomp-2.4.1 )
 	systemd? ( sys-apps/systemd )
 	zstd? ( app-arch/zstd )"
-# bug #764260
-DEPEND="${COMMON_DEPEND}
-	test? (
-		${PYTHON_DEPS}
-	)"
 RDEPEND="
 	acct-user/tor
 	acct-group/tor
 	${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-tor )"
+
+# bug #764260
+DEPEND="${COMMON_DEPEND}
+	test? (
+		${PYTHON_DEPS}
+	)"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-0.2.7.4-torrc.sample.patch
