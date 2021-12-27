@@ -8,13 +8,13 @@ main portage tree, but which still have the stock upstream package installed.
 
 # Latest versions of podman container management tools
 
-* app-emulation/buildah
-* app-emulation/catatonit
-* app-emulation/conmon
-* app-emulation/containers-storage
-* app-emulation/crun
-* app-emulation/skopeo
-* app-emulation/slirp4netns
+* app-containers/buildah
+* app-containers/catatonit
+* app-containers/conmon
+* app-containers/containers-storage
+* app-containers/crun
+* app-containers/skopeo
+* app-containers/slirp4netns
 
 # Fixes for ROOT != / installation
 
@@ -216,7 +216,7 @@ used to build perl)
     * Updated library version required by latest net-firewall/nftables
 * net-firewall/iptables-nftables
     * git live ebuild for nftables' iptables compatibility libraries
-* app-emulation/docker
+* app-containers/docker
     * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
 * sys-apps/iproute2
     * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
@@ -257,7 +257,7 @@ used to build perl)
     * ~~Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others~~
 * ~~app-editors/vim~~
     * ~~Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others~~
-* app-emulation/wa-linux-agent
+* app-containers/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
 * dev-embedded/rpi-eeprom
@@ -365,9 +365,9 @@ used to build perl)
     * Explicitly depend on 'grep that handles long lines and -e' (although the real issue could be that somehow GNU `grep` _was_ installed during bootsrapping, but `libpcre` wasn't?)
 * ~~app-crypt/gnupg~~
     * ~~Fix clang compilation errors~~
-* app-emulation/docker
+* app-containers/docker
     * Allow more fine-grained control over optional features
-* app-emulation/lxc
+* app-containers/lxc
     * Don't require an upgrade to Python 3.x unless building against Python
 * app-misc/ca-certificates
     * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
@@ -517,7 +517,7 @@ directory is an additional QA check which reports an error if files deployed to
 * app-admin/sudo
 * app-admin/syslog-ng
 * app-admin/ulogd
-* app-emulation/containerd
+* app-containers/containerd
 * app-misc/screen
 * dev-db/redis
 * dev-libs/cyrus-sasl

@@ -271,7 +271,7 @@ src_install() {
 	mv "${ED}"/etc/os-release "${ED}"/usr/lib || die
 	dosym ../usr/lib/os-release /etc/os-release
 
-	# With app-emulation/podman-3.3.0 and its _rc's, baselayout builds and
+	# With app-containers/podman-3.3.0 and its _rc's, baselayout builds and
 	# installations are failing because /etc/hosts is writable, but cannot be
 	# replaced as it is a mountpoint.
 	# We can't investigate this situation from here, as prodding the system

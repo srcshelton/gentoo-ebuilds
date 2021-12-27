@@ -235,7 +235,7 @@ src_install() {
 	insinto /usr/share/${PN}
 	doins Makefile
 
-	# With app-emulation/podman-3.3.0 and its _rc's, baselayout builds and
+	# With app-containers/podman-3.3.0 and its _rc's, baselayout builds and
 	# installations are failing because /etc/hosts is writable, but cannot be
 	# replaced as it is a mountpoint.
 	# We can't investigate this situation from here, as prodding the system
