@@ -31,7 +31,7 @@ BDEPEND="
 RDEPEND="
 	apparmor? ( sys-libs/libapparmor )
 	seccomp? ( sys-libs/libseccomp )
-	!app-containers/docker-runc
+	!app-emulation/docker-runc
 "
 
 src_prepare() {

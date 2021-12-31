@@ -25,7 +25,7 @@ DEPEND="seccomp? ( sys-libs/libseccomp )"
 
 RDEPEND="
 	${DEPEND}
-	!app-containers/docker-runc
+	!app-emulation/docker-runc
 	apparmor? ( sys-libs/libapparmor )
 "
 

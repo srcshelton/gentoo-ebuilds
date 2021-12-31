@@ -5,14 +5,14 @@ EAPI=7
 
 inherit go-module linux-info
 
-# update on bump, look for https://github.com/docker/docker-ce/blob/<docker ver OR branch>/components/engine/hack/dockerfile/install/runc.installer
-RUNC_COMMIT="f46b6ba2c9314cfc8caae24a32ec5fe9ef1059fe"
+# update on bump, look for https://github.com/docker\
+# docker-ce/blob/<docker ver OR branch>/components/engine/hack/dockerfile/install/runc.installer
+RUNC_COMMIT="52b36a2dd837e8462de8e01458bf02cf9eea47dd"
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
-HOMEPAGE="http://runc.io"
+HOMEPAGE="http://github.com/opencontainers/runc/"
 MY_PV="${PV/_/-}"
-#SRC_URI="https://github.com/opencontainers/${PN}/archive/${RUNC_COMMIT}.tar.gz -> ${P}.tar.gz"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 RESTRICT="mirror"
 
@@ -37,12 +37,13 @@ BDEPEND="
 	sys-apps/sed
 "
 
+PATCHES=( "${FILESDIR}/CVE-2021-43784.patch" )
+
 # tests need busybox binary, and portage namespace
 # sandboxing disabled: mount-sandbox pid-sandbox ipc-sandbox
 # majority of tests pass
 RESTRICT+=" test"
 
-#S="${WORKDIR}/${PN}-${RUNC_COMMIT}"
 S="${WORKDIR}/${PN}-${MY_PV}"
 
 src_prepare() {
