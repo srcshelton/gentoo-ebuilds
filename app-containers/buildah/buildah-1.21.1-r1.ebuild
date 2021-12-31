@@ -3,7 +3,7 @@
 
 EAPI=7
 inherit bash-completion-r1 go-module
-GIT_COMMIT="37fe4e86c284486c0ede084d579122c48ffe5dc1"
+GIT_COMMIT="d70e8ae3629df6d86c37e54a656625da7d173eb2"
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
@@ -18,6 +18,7 @@ RDEPEND="app-crypt/gpgme:=
 	app-containers/skopeo
 	dev-libs/libgpg-error:=
 	dev-libs/libassuan:=
+	sys-apps/shadow:=
 	sys-fs/lvm2:=
 	sys-libs/libseccomp:=
 	selinux? ( sys-libs/libselinux:= )"
