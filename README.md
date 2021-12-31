@@ -643,8 +643,8 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-libs/glibc
     * Allow `LIBDIR_*` variables to override hard-coded default directory locations (for x86 only)
     * Prevent binary merges from failing due to assumptions about build files being present
-* ~sys-libs/libunwind~
-    * ~Add x32 patch from [sjnewbury's repo](https://github.com/sjnewbury/x32/blob/master/sys-libs/libunwind/files/libunwind-1.1-x32.patch)~
+* ~~sys-libs/libunwind~~
+    * ~~Add x32 patch from [sjnewbury's repo](https://github.com/sjnewbury/x32/blob/master/sys-libs/libunwind/files/libunwind-1.1-x32.patch)~~
 
 # Fixes for `udev` and to allow separate `/usr`
 (... and/or operation without a `/run` directory)
