@@ -1,4 +1,4 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -21,8 +21,8 @@ fi
 LICENSE="GPL-2"
 SLOT="0"
 
-IUSE="down-root examples inotify iproute2 +lz4 +lzo mbedtls +openssl pam pkcs11 +plugins selinux systemd test +tmpfiles userland_BSD"
-IUSE+=" pam pkcs11 +plugins selinux systemd test userland_BSD"
+IUSE="down-root examples inotify iproute2 +lz4 +lzo mbedtls +openssl pam pkcs11 +plugins selinux systemd test +tmpfiles"
+IUSE+=" pam pkcs11 +plugins selinux systemd test"
 
 RESTRICT="!test? ( test )"
 REQUIRED_USE="
