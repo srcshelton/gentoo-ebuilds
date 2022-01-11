@@ -1,4 +1,4 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=6
@@ -7,7 +7,7 @@ inherit multilib prefix versionator
 
 DESCRIPTION="Filesystem baselayout and init scripts"
 HOMEPAGE="https://wiki.gentoo.org/wiki/No_homepage"
-if [ ${PV} = 9999 ]; then
+if [[ "${PV}" == 9999 ]]; then
 	EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/${PN}.git"
 	inherit git-r3
 else
@@ -17,7 +17,7 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="build kernel_FreeBSD kernel_linux +split-usr +varrun"
+IUSE="build +split-usr +varrun"
 
 PATCHES=(
 	"${FILESDIR}/${P}-containers.patch"
@@ -35,17 +35,17 @@ multilib_layout() {
 	libdirs="$(get_all_libdirs)"
 	: ${libdirs:=lib}	# it isn't that we don't trust multilib.eclass...
 
-	if [ -z "${SYMLINK_LIB:-}" ] || [ "${SYMLINK_LIB}" = 'no' ] ; then
+	if [[ -z "${SYMLINK_LIB:-}" || "${SYMLINK_LIB}" == 'no' ]] ; then
 		prefix_lst=( "${EROOT}"{,usr/,usr/local/} )
 		for prefix in "${prefix_lst[@]}"; do
 			for libdir in ${libdirs}; do
 				dir="${prefix}${libdir}"
-				if [ -e "${dir}" ]; then
-					[ ! -d "${dir}" ] &&
+				if [[ -e "${dir}" ]]; then
+					[[ ! -d "${dir}" ]] &&
 						die "${dir} exists but is not a directory"
 					continue
 				fi
-				if ! use split-usr && [ ${prefix} = ${EROOT} ]; then
+				if ! use split-usr && [[ "${prefix}" == "${EROOT}" ]]; then
 					einfo "symlinking ${dir} to usr/${libdir}"
 					ln -s usr/${libdir} ${dir} ||
 						die " Unable to make ${dir} symlink"
@@ -59,7 +59,7 @@ multilib_layout() {
 		return 0
 	fi
 
-	[ -z "${def_libdir}" ] &&
+	[[ -z "${def_libdir:-}" ]] &&
 		die "Your DEFAULT_ABI ('$DEFAULT_ABI') appears to be invalid"
 
 	# figure out which paths should be symlinks and which should be directories
@@ -97,12 +97,12 @@ multilib_layout() {
 		prefix_lst=( "${EROOT}"{usr/,usr/local/} )
 	fi
 	for prefix in "${prefix_lst[@]}"; do
-		if [ "${SYMLINK_LIB}" = 'yes' ] ; then
+		if [[ "${SYMLINK_LIB}" == 'yes' ]] ; then
 			# we need to make sure "lib" points to the native libdir
-			if [ -h "${prefix%/}/lib" ] ; then
+			if [[ -h "${prefix%/}/lib" ]] ; then
 				# it's already a symlink!  assume it's pointing to right place ...
 				continue
-			elif [ -d "${prefix%/}/lib" ] ; then
+			elif [[ -d "${prefix%/}/lib" ]] ; then
 				# "lib" is a dir, so need to convert to a symlink
 				ewarn "Converting ${prefix%/}/lib from a dir to a symlink"
 				rm -f "${prefix%/}/lib"/.keep || die
@@ -121,25 +121,25 @@ multilib_layout() {
 			fi
 		else
 			# we need to make sure "lib" is a dir
-			if [ -h "${prefix%/}/lib" ] ; then
+			if [[ -h "${prefix%/}/lib" ]] ; then
 				# "lib" is a symlink, so need to convert to a dir
 				ewarn "Converting ${prefix%/}/lib from a symlink to a dir"
 				rm -f "${prefix%/}/lib" || die
-				if [ -d "${prefix%/}/lib32" ] ; then
+				if [[ -d "${prefix%/}/lib32" ]] ; then
 					ewarn "Migrating ${prefix%/}/lib32 to ${prefix%/}/lib"
 					mv "${prefix%/}/lib32" "${prefix%/}/lib" || die
 				else
 					mkdir -p "${prefix%/}/lib" || die
 				fi
-			elif [ -d "${prefix%/}/lib" ] && ! has lib32 ${libdirs} ; then
+			elif [[ -d "${prefix%/}/lib" ]] && ! has lib32 ${libdirs} ; then
 				# make sure the old "lib" ABI location does not exist; we
 				# only symlinked the lib dir on systems where we moved it
 				# to "lib32" ...
 				case ${CHOST} in
 				*-gentoo-freebsd*) ;; # We want it the other way on fbsd.
 				i?86*|x86_64*|powerpc*|sparc*|s390*)
-					if [ -d "${prefix%/}/lib32" ] && ! [ -h "${prefix%/}/lib32" ] ; then
-						if ! [ "${LIBDIR_x32}" = "lib32" ] ; then
+					if [[ -d "${prefix%/}/lib32" && ! -h "${prefix%/}/lib32" ]] ; then
+						if ! [[ "${LIBDIR_x32}" == 'lib32' ]] ; then
 							rm -f "${prefix%/}/lib32/.keep" || die
 							if ! rmdir "${prefix%/}/lib32" 2>/dev/null ; then
 								ewarn "You need to merge ${prefix%/}/lib32 into ${prefix%/}/lib"
@@ -158,7 +158,7 @@ multilib_layout() {
 	done
 	if ! use split-usr ; then
 		for libdir in ${libdirs}; do
-			if [ ! -e "${EROOT}${libdir}" ]; then
+			if [[ ! -e "${EROOT}${libdir}" ]]; then
 				ln -s usr/"${libdir}" "${EROOT}${libdir}" ||
 					die " Unable to make ${EROOT}${libdir} symlink"
 			fi
@@ -225,7 +225,7 @@ src_prepare() {
 
 src_install() {
 	emake \
-		OS=$(usex kernel_FreeBSD BSD Linux) \
+		OS=Linux \
 		DESTDIR="${ED}" \
 		install
 	dodoc ChangeLog
@@ -262,27 +262,27 @@ pkg_postinst() {
 	# (3) accidentally packaging up personal files with quickpkg
 	# If they don't exist then we install them
 	for x in master.passwd passwd shadow group fstab ; do
-		[ -e "${EROOT}/etc/${x}" ] && continue
-		[ -e "${EROOT}/usr/share/baselayout/${x}" ] || continue
+		[[ -e "${EROOT}/etc/${x}" ]] && continue
+		[[ -e "${EROOT}/usr/share/baselayout/${x}" ]] || continue
 		cp -p "${EROOT}/usr/share/baselayout/${x}" "${EROOT}"/etc || die
 	done
 
 	# Force shadow permissions to not be world-readable #260993
 	for x in shadow ; do
-		if [ -e "${EROOT}/etc/${x}" ] ; then
+		if [[ -e "${EROOT}/etc/${x}" ]] ; then
 			chmod o-rwx "${EROOT}/etc/${x}" || die
 		fi
 	done
 
 	# Take care of the etc-update for the user
-	if [ -e "${EROOT}"/etc/._cfg0000_gentoo-release ] ; then
+	if [[ -e "${EROOT}"/etc/._cfg0000_gentoo-release ]] ; then
 		mv "${EROOT}"/etc/._cfg0000_gentoo-release "${EROOT}"/etc/gentoo-release || die
 	fi
 
 	# whine about users that lack passwords #193541
-	if [ -e "${EROOT}"/etc/shadow ] ; then
+	if [[ -e "${EROOT}"/etc/shadow ]] ; then
 		local bad_users=$(sed -n '/^[^:]*::/s|^\([^:]*\)::.*|\1|p' "${EROOT}"/etc/shadow)
-		if [ -n "${bad_users}" ] ; then
+		if [[ -n "${bad_users}" ]] ; then
 			echo
 			ewarn "The following users lack passwords!"
 			ewarn ${bad_users}
@@ -290,9 +290,9 @@ pkg_postinst() {
 	fi
 
 	# whine about users with invalid shells #215698
-	if [ -e "${EROOT}"/etc/passwd ] ; then
+	if [[ -e "${EROOT}"/etc/passwd ]] ; then
 		local bad_shells=$(awk -F: 'system("test -e " $7) { print $1 " - " $7}' "${EROOT}"/etc/passwd | sort)
-		if [ -n "${bad_shells}" ] ; then
+		if [[ -n "${bad_shells}" ]] ; then
 			echo
 			ewarn "The following users have non-existent shells!"
 			ewarn "${bad_shells}"
@@ -305,9 +305,9 @@ pkg_postinst() {
 
 		local found fstype mountpoint
 		while read -r _ mountpoint fstype _; do
-		[ "${mountpoint}" = '/run' ] && [ "${fstype}" = 'tmpfs' ] && found=1
+		[[ "${mountpoint}" == '/run' && "${fstype}" = 'tmpfs' ]] && found=1
 		done < "${ROOT}"proc/mounts
-		[ -z "${found}" ] && ! use varrun &&
+		[[ -z "${found}" ]] && ! use varrun &&
 			ewarn "You should reboot now to get /run mounted with tmpfs!"
 	fi
 
@@ -323,12 +323,12 @@ pkg_postinst() {
 		fi
 		# clean up after 2.5 typos
 		# https://bugs.gentoo.org/show_bug.cgi?id=656380
-		if [ "${x}" = '2.5' ]; then
+		if [[ "${x}" == '2.5' ]]; then
 			rm -fr "${EROOT}{,usr" || die
 		fi
 	done
 
-	if [ -e "${EROOT}"etc/env.d/00basic ]; then
+	if [[ -e "${EROOT}"etc/env.d/00basic ]]; then
 		ewarn "${EROOT%/}/etc/env.d/00basic is now ${EROOT%/}/etc/env.d/50baselayout"
 		ewarn "Please migrate your changes."
 	fi
