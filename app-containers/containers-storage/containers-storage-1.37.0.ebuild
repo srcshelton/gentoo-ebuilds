@@ -22,7 +22,7 @@ DEPEND="${RDEPEND}
 		sys-fs/lvm2
 		sys-apps/util-linux
 	)"
-RESTRICT="mirror test"
+RESTRICT="test"
 
 S=${WORKDIR}/${P#containers-}
 
