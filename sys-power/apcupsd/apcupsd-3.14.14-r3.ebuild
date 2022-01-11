@@ -1,4 +1,4 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="7"
@@ -12,7 +12,7 @@ SRC_URI="mirror://sourceforge/apcupsd/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 ~arm ~arm64 ppc ~riscv x86"
-IUSE="cgi dumb gnome kernel_linux +modbus +net +powerchute +smart snmp systemd tmpfiles udev +usb"
+IUSE="cgi dumb gnome +modbus +net +powerchute +smart snmp systemd tmpfiles udev +usb"
 
 DEPEND=">=sys-apps/util-linux-2.23[tty-helpers(-)]
 	cgi? ( >=media-libs/gd-1.8.4 )
@@ -150,7 +150,7 @@ pkg_postinst() {
 	elog ' \e[01m rc-update add apcupsd.powerfail shutdown \e[0m'
 	elog ''
 
-	if use kernel_linux; then
+	if use kernel_linux && use udev; then
 		elog "Starting from version 3.14.9-r1, ${PN} installs udev rules"
 		elog "for persistent device naming. If you have multiple UPS"
 		elog "connected to the machine, you can point them to the devices"
