@@ -312,8 +312,8 @@ used to build perl)
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
 * media-sound/logitechmediaserver-bin
     * Stuart Hickinbottom's Squeezebox Server ebuild, updated for Perl 5.22 and with minor optimisations
-* net-libs/libhtp
-    * Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old
+* ~~net-libs/libhtp~~
+    * ~~Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old~~
 * net-libs/libupnp
     * Add more recent libupnp-1.6.20 and forked libupnp-1.8.0 releases, both with [mjg59](https://twitter.com/mjg59/status/755062671418929152)'s [POST](http://seclists.org/oss-sec/2016/q3/118) patch applied
 * net-libs/nDPI
@@ -447,8 +447,8 @@ used to build perl)
     * Fix some crazy inconsistencies in output which were breaking `ebtables-save` and `ebtables-restore`
     * Set appropriate maximum buffer sizes to prevent `ebtables-restore` from segfaulting when loading more than 2kbytes of data from a single statement
     * Add Debian patch to correct the use of `RETURN` as a module target
-* net-libs/neon
-    * Patch trivial typo which prevents `writev` from being defined
+* ~~net-libs/neon~~
+    * ~~Patch trivial typo which prevents `writev` from being defined~~
 * net-misc/dhcp
     * Enhance chroot support in init script
 * net-misc/socat
