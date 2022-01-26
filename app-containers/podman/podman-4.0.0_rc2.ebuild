@@ -2,12 +2,12 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT='f6526ada1025c2e3f88745ba83b8b461ca659933'
+EGIT_COMMIT='71238d3cce09315af5e0dd9a320e1e743353849a'
 
-inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
+inherit bash-completion-r1 flag-o-matic go-module linux-info
 
 COMMON_VERSION='0.47.0'
-CATATONIT_VERSION='0.1.7'
+CATATONIT_VERSION='0.1.6'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -16,8 +16,8 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64 ~ppc64"
-IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
+KEYWORDS="~amd64 ~arm64"
+IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
@@ -90,9 +90,9 @@ ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics 
 ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
 ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
-PATCHES=(
-	"${FILESDIR}/${PN}-3.1.2-dev-warning.patch"
-)
+#PATCHES=(
+#	"${FILESDIR}/${PN}-4.0.0-dev-warning.patch"
+#)
 
 pkg_setup() {
 	if kernel_is lt 3 10; then
@@ -179,15 +179,15 @@ src_prepare() {
 
 	sed "${makefile_sed_args[@]}" -i Makefile || die
 
-	sed -e 's|OUTPUT="${CIRRUS_TAG:.*|OUTPUT='v${PV}'|' \
-		-i hack/get_release_info.sh || die
+	#sed -e 's|OUTPUT="${CIRRUS_TAG:.*|OUTPUT='v${PV}'|' \
+	#	-i hack/get_release_info.sh || die
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . | xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
 }
 
 src_compile() {
-	#local git_commit='' file=''
+	local git_commit='' file=''
 	#git_commit=$(grep '^[[:space:]]*gitCommit[[:space:]]' vendor/k8s.io/client-go/pkg/version/base.go)
 	#git_commit=${git_commit#*\"}
 	#git_commit=${git_commit%\"*}
@@ -288,8 +288,6 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
-	use tmpfiles && tmpfiles_process podman.conf
-
 	local want_newline=false
 	if [[ ! ( -e ${EROOT%/*}/etc/containers/policy.json && -e ${EROOT%/*}/etc/containers/registries.conf ) ]]; then
 		elog "You need to create the following config files:"
