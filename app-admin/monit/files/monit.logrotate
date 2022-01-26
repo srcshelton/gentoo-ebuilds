@@ -1,0 +1,20 @@
+/var/log/monit.log {
+	compress
+	copytruncate
+	create 0640 root
+	daily
+	missingok
+	notifempty
+	rotate 7
+	sharedscripts
+
+	postrotate
+		if [ -x /etc/init.d/monit ]; then \
+			if /etc/init.d/monit --quiet status; then \
+				/usr/bin/monit reload >/dev/null 2>&1
+			fi; \
+		else \
+			true ; \
+		fi;
+	endscript
+}
