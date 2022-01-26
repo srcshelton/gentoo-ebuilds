@@ -13,6 +13,7 @@ main portage tree, but which still have the stock upstream package installed.
 * app-containers/conmon
 * app-containers/containers-storage
 * app-containers/crun
+* app-containers/runc
 * app-containers/skopeo
 * app-containers/slirp4netns
 
@@ -532,6 +533,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-analyzer/vnstat
 * net-analyzer/zabbix
 * net-dialup/freeradius
+* net-dialup/xl2tpd
 * net-dns/bind
 * net-dns/unbound
 * net-firewall/conntrack-tools
