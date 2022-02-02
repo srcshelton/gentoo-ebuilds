@@ -3,3 +3,5 @@ account    include	system-local-login
 password   include	system-local-login
 session    optional	pam_lastlog.so
 session    include	system-local-login
+
+# vi: set syntax=pamconf:

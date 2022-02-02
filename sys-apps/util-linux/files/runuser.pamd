@@ -6,3 +6,5 @@ password   include	system-auth
 session    include	system-auth
 session    required	pam_env.so
 session    optional	pam_xauth.so
+
+# vi: set syntax=pamconf:
