@@ -1,4 +1,4 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -6,7 +6,7 @@ EGIT_COMMIT='f6526ada1025c2e3f88745ba83b8b461ca659933'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
-COMMON_VERSION='0.47.0'
+COMMON_VERSION='0.47.2'
 CATATONIT_VERSION='0.1.7'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
@@ -16,7 +16,7 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64 ~ppc64"
+KEYWORDS="amd64 arm64 ~ppc64"
 IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
