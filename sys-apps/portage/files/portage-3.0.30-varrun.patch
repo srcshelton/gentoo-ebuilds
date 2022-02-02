@@ -1,0 +1,24 @@
+--- a/lib/_emerge/actions.py
++++ b/lib/_emerge/actions.py
+@@ -2988,14 +2988,19 @@ def validate_ebuild_environment(trees):
+ 
+ def check_mounted_fs():
+     """We need /proc for finding CPU counts and finding other system information.
+-    We need /run for e.g. lock files in ebuilds."""
+-    paths = {"/proc": False, "/run": False}
++    We need /var/run for e.g. lock files in ebuilds."""
++    paths = {"/proc": False, "/var/run": False}
+ 
+     for path in paths.keys():
+         if platform.system() not in ("Linux",) or os.path.ismount(path):
+             paths[path] = True
+             continue
+ 
++        # There's something weird about tmpfs mounted onto /var/run which Python can't grok...
++        if path == "/var/run" and os.path.isdir(path):
++            paths[path] = True
++            continue
++
+         msg = "It seems %s is not mounted. Process management may malfunction." % path
+         writemsg_level(
+             "".join("!!! %s\n" % l for l in textwrap.wrap(msg, 70)),

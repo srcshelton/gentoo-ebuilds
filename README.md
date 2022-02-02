@@ -557,6 +557,8 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/haveged
 * sys-apps/kmod
 * sys-apps/lm\_sensors
+* sys-apps/portage
+    * A mountpoint-check has been added for `/run`, but Python's `os.path.ismount()` seems unreliable even when this path is corrected, so a work-around has been added...
 * sys-apps/smartmontools
 * sys-auth/elogind
 * sys-devel/distcc
