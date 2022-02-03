@@ -1,39 +1,39 @@
-# Copyright 2019 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Header: app-pda/libusbmuxd/libusbmuxd-9999.ebuild,v 1.0 2013/10/31 16:34:12 srcs Exp $
 
-EAPI=6
-inherit autotools eutils git-r3
+EAPI=8
+
+inherit autotools git-r3
 
 DESCRIPTION="USB multiplex daemon for use with Apple iPhone/iPod Touch devices"
-HOMEPAGE="http://www.libimobiledevice.org/"
-#SRC_URI=""
+HOMEPAGE="https://www.libimobiledevice.org/"
 EGIT_REPO_URI="https://github.com/libimobiledevice/libusbmuxd.git"
 
-LICENSE="LGPL-2.1"
-SLOT="0"
-KEYWORDS="amd64 ~arm ~ppc ~ppc64 x86"
-IUSE=""
+LICENSE="GPL-2+ LGPL-2.1+" # tools/*.c is GPL-2+, rest is LGPL-2.1+
+SLOT="0/2.0-6" # based on SONAME of libusbmuxd-2.0.so
+KEYWORDS="~amd64 ~arm ~arm64 ~x86"
+IUSE="static-libs"
 
-RDEPEND=">=app-pda/libplist-1.9"
-DEPEND="${RDEPEND}
-	virtual/pkgconfig"
-
-DOCS=( AUTHORS README.md )
+RDEPEND="
+	>=app-pda/libplist-2.2.0:=
+"
+DEPEND="${RDEPEND}"
+BDEPEND="
+	virtual/pkgconfig
+"
 
 src_prepare() {
 	default
-
 	eautoreconf
 }
 
 src_configure() {
-	econf --disable-static
+	econf \
+		$(use_enable static-libs static) \
+		$(usex kernel_linux '' --without-inotify)
 }
 
 src_install() {
 	default
-
-	#prune_libtool_files --all
-	find "${ED}" -type f -name "*.la" -delete
+	find "${ED}" -name '*.la' -type f -delete || die
 }
