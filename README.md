@@ -200,6 +200,8 @@ used to build perl)
     * Tether an Apple iOS device to provide a network-link
 * app-pda/libimobiledevice
     * git live ebuild for updated libimobiledevice tools
+* app-pda/libimobiledevice-glue
+    * git live ebuild for updated libimobiledevice shared library
 * app-pda/libplist
     * git live ebuild for updated plist library
 * app-pda/libusbmuxd
