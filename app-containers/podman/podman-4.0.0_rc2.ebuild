@@ -6,7 +6,7 @@ EGIT_COMMIT='71238d3cce09315af5e0dd9a320e1e743353849a'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-COMMON_VERSION='0.47.2'
+COMMON_VERSION='0.47.3'
 CATATONIT_VERSION='0.1.6'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
