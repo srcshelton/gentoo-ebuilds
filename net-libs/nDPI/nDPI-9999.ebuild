@@ -12,7 +12,6 @@ if [[ ${PV} == 9999 ]] ; then
 	inherit git-r3
 else
 	SRC_URI="https://github.com/ntop/${PN}/archive/${PV}.tar.gz -> ${P}.tar.gz"
-
 	KEYWORDS="~amd64 ~x86"
 fi
 
@@ -27,9 +26,6 @@ DEPEND="dev-libs/json-c:=
 	net-libs/libpcap
 	hyperscan? ( dev-libs/hyperscan )"
 RDEPEND="${DEPEND}"
-
-# Also sent a patch upstream https://github.com/ntop/nDPI/pull/1392 for
-# AR/CC etc but doesn't apply cleanly (at all) to 4.0.
 
 src_prepare() {
 	default
