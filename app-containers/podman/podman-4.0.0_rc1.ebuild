@@ -6,7 +6,7 @@ EGIT_COMMIT='9d26c1abb5771683a81e6ef483280a9dd89c19ff'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-COMMON_VERSION='0.47.3'
+COMMON_VERSION='0.47.4'
 CATATONIT_VERSION='0.1.6'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
@@ -28,6 +28,7 @@ COMMON_DEPEND="
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	>=net-misc/cni-plugins-0.8.6
+	sys-apps/shadow:=
 	sys-fs/lvm2
 	sys-libs/libseccomp:=
 
