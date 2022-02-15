@@ -181,8 +181,8 @@ used to build perl)
     * Add missing `#include`
 * ~~sys-devel/gdb~~
     * ~~Fixes for building with clang, building on Yosemite, and building with Python support~~
-* sys-devel/gcc-apple
-    * Fixes for building with clang and building on Yosemite
+* ~~sys-devel/gcc-apple~~
+    * ~~Fixes for building with clang and building on Yosemite~~
 * sys-devel/llvm
     * Additional fixes for darwin
 * sys-libs/db
@@ -432,8 +432,8 @@ used to build perl)
     * Remove some of the more onerous limitations from the community edition, use source from `3.0-stable` branch rather than `3.0` tag
 * net-analyzer/speedtest-cli
     * Remove unnecessary run-time dependency on dev-python/setuptools
-* net-analyzer/suricata
-    * Minor ebuild fixes, automatically fetch latest rules on build
+* ~~net-analyzer/suricata~~
+    * ~~Minor ebuild fixes, automatically fetch latest rules on build~~
 * net-analyzer/tcpdump
     * Add consistent group and user dependencies
 * net-dialup/ppp
