@@ -119,6 +119,9 @@ src_install() {
 	rm -rf "${ED}"/var/lib/clamav || die
 
 	if ! use libclamav-only ; then
+		newinitd "${FILESDIR}"/clamd.initd-r7 clamd
+		newinitd "${FILESDIR}"/freshclam.initd freshclam
+
 		if use systemd; then
 			# The tmpfiles entry is behind USE=systemd because the
 			# upstream OpenRC service files should (and do) ensure that
