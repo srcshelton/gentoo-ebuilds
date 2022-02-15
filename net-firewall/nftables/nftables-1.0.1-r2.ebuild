@@ -5,7 +5,7 @@ EAPI=7
 
 PYTHON_COMPAT=( python3_{7..10} )
 DISTUTILS_OPTIONAL=1
-inherit autotools linux-info distutils-r1 systemd
+inherit autotools distutils-r1 linux-info systemd usr-ldscript
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
@@ -13,14 +13,9 @@ HOMEPAGE="https://netfilter.org/projects/nftables/"
 if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
-
-	BDEPEND="
-		sys-devel/bison
-		sys-devel/flex
-	"
 else
 	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2"
-	KEYWORDS="~amd64 ~arm ~arm64 ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
+	KEYWORDS="amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv sparc x86"
 fi
 
 LICENSE="GPL-2"
@@ -39,11 +34,13 @@ RDEPEND="
 
 DEPEND="${RDEPEND}"
 
-BDEPEND+="
+BDEPEND="
 	doc? (
 		app-text/asciidoc
 		>=app-text/docbook2X-0.8.8-r4
 	)
+	sys-devel/bison
+	sys-devel/flex
 	virtual/pkgconfig
 "
 
@@ -123,6 +120,11 @@ src_install() {
 	default
 
 	if ! use doc && [[ ! ${PV} =~ ^[9]{4,}$ ]]; then
+		# Deploy a pre-generated man-page to avoid docbook2X dependency...
+		newman "${FILESDIR}/man-pages/${P}-libnftables.3" libnftables.3
+		newman "${FILESDIR}/man-pages/${P}-libnftables-json.5" libnftables-json.5
+		newman "${FILESDIR}/man-pages/${P}-nft.8" nft.8
+
 		pushd doc >/dev/null || die
 		doman *.?
 		popd >/dev/null || die
@@ -130,10 +132,10 @@ src_install() {
 
 	local mksuffix="$(usex modern-kernel '-mk' '')"
 
-	exeinto /usr/libexec/${PN}
-	newexe "${FILESDIR}"/libexec/${PN}${mksuffix}.sh ${PN}.sh
-	newconfd "${FILESDIR}"/${PN}${mksuffix}.confd ${PN}
-	newinitd "${FILESDIR}"/${PN}${mksuffix}.init-r1 ${PN}
+	exeinto "/usr/libexec/${PN}"
+	newexe "${FILESDIR}/libexec/${PN}${mksuffix}.sh" "${PN}.sh"
+	newconfd "${FILESDIR}/${PN}${mksuffix}.confd" "${PN}"
+	newinitd "${FILESDIR}/${PN}${mksuffix}.init-r1" "${PN}"
 	keepdir /var/lib/nftables
 
 	use systemd && systemd_dounit "${FILESDIR}"/systemd/${PN}-restore.service
@@ -144,12 +146,17 @@ src_install() {
 		popd >/dev/null || die
 	fi
 
+	if use split-usr; then
+		# Required by /sbin/nft
+		gen_usr_ldscript -a nftables
+	fi
+
 	find "${ED}" -type f -name "*.la" -delete || die
 }
 
 pkg_postinst() {
 	local save_file
-	save_file="${EROOT}/var/lib/nftables/rules-save"
+	save_file="${EROOT%/}/var/lib/nftables/rules-save"
 
 	# In order for the nftables-restore systemd service to start
 	# the save_file must exist.
