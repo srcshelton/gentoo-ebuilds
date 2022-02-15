@@ -111,7 +111,7 @@ src_prepare() {
 	# modify the bashrc file for prefix
 	pushd "${T}" > /dev/null || die
 	cp "${FILESDIR}"/bashrc .
-	epatch "${FILESDIR}"/bashrc-prefix.patch
+	eapply "${FILESDIR}"/bashrc-prefix.patch
 	eprefixify bashrc
 	popd > /dev/null
 

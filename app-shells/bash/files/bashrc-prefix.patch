@@ -1,5 +1,5 @@
---- bashrc
-+++ bashrc
+--- a/bashrc
++++ b/bashrc
 @@ -1,4 +1,4 @@
 -# /etc/bash/bashrc
 +# @GENTOO_PORTAGE_EPREFIX@/etc/bash/bashrc
