@@ -1,0 +1,36 @@
+#!/sbin/openrc-run
+# Copyright 1999-2021 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+# Note: spampd configuration file is /etc/conf.d/spampd
+piddir="/var/run"
+pidfile="${piddir:-/var/run}/spampd.pid"
+required_dirs="${piddir:-/var/run}"
+command="/usr/sbin/spampd"
+command_args="--pid=${pidfile} ${SPAMPD_OPTS:-}"
+retry=60
+
+depend() {
+	use net
+}
+
+start() {
+	ebegin "Starting spampd"
+	start-stop-daemon \
+			--start \
+			--quiet \
+			--interpreted \
+			--exec "${command}"
+		-- ${command_args}
+	eend $? "Failed to start spampd"
+}
+
+stop() {
+	ebegin "Stopping spampd"
+	start-stop-daemon \
+			--stop \
+			--quiet  \
+			--retry ${retry} \
+			--pidfile "${pidfile}"
+	eend $? "Failed to stop spampd"
+}
