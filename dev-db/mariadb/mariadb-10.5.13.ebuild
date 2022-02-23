@@ -214,6 +214,7 @@ src_unpack() {
 
 src_prepare() {
 	eapply "${WORKDIR}"/mariadb-patches
+	eapply "${FILESDIR}"/mariadb-10.5-my_chsize-debug.patch
 
 	eapply_user
 
@@ -949,7 +950,7 @@ pkg_config() {
 	# Always check if mysql user can write to directory even if we just
 	# created directory because a parent directory might be not
 	# accessible for that user.
-	PID_DIR="${EROOT}/run/mysqld"
+	PID_DIR="${EROOT}/var/run/mysqld"
 	if [[ ! -d "${PID_DIR}" ]] ; then
 		einfo "Creating ${PN} PID directory '${PID_DIR}' ..."
 		install -d -m 755 -o ${MYSQL_USER} -g ${MYSQL_GROUP} "${PID_DIR}" \

@@ -1,0 +1,45 @@
+--- a/mysys/my_chsize.c
++++ b/mysys/my_chsize.c
+@@ -14,6 +14,7 @@
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1335  USA */
+ 
++#include <stdio.h>
+ #include "mysys_priv.h"
+ #include "mysys_err.h"
+ #include "m_string.h"
+@@ -64,6 +65,7 @@ int my_chsize(File fd, my_off_t newlengt
+     if (ftruncate(fd, (off_t) newlength))
+     {
+       my_errno= errno;
++      fprintf(stderr, "Error in '%s' at line '%d': ftruncate() to %llu failed: %d\n", __FILE__, __LINE__, newlength, my_errno);
+       goto err;
+     }
+     DBUG_RETURN(0);
+@@ -75,6 +77,7 @@ int my_chsize(File fd, my_off_t newlengt
+     if (my_seek(fd, newlength, MY_SEEK_SET, MYF(MY_WME+MY_FAE))
+         == MY_FILEPOS_ERROR)
+     {
++      fprintf(stderr, "Error in '%s' at line '%d': my_seek() to %llu failed: %d\n", __FILE__, __LINE__, newlength, my_errno);
+       goto err;
+     }
+     swap_variables(my_off_t, newlength, oldsize);
+@@ -85,12 +88,16 @@ int my_chsize(File fd, my_off_t newlengt
+   bfill(buff, IO_SIZE, filler);
+   while (newlength-oldsize > IO_SIZE)
+   {
+-    if (my_write(fd, buff, IO_SIZE, MYF(MY_NABP)))
++    if (my_write(fd, buff, IO_SIZE, MYF(MY_NABP))) {
++      fprintf(stderr, "Error in '%s' at line '%d': my_write() failed\n", __FILE__, __LINE__);
+       goto err;
++    }
+     oldsize+= IO_SIZE;
+   }
+-  if (my_write(fd,buff,(size_t) (newlength-oldsize), MYF(MY_NABP)))
++  if (my_write(fd,buff,(size_t) (newlength-oldsize), MYF(MY_NABP))) {
++    fprintf(stderr, "Error in '%s' at line '%d': my_write() failed\n", __FILE__, __LINE__);
+     goto err;
++  }
+   DBUG_RETURN(0);
+ 
+ err:

@@ -1,4 +1,4 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI="7"
@@ -9,26 +9,24 @@ JAVA_PKG_OPT_USE="jdbc"
 inherit cmake eutils flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 # Patch version
-PATCH_SET="https://dev.gentoo.org/~whissi/dist/${PN}/${PN}-10.5.9-patches-04.tar.xz"
+PATCH_SET=( https://dev.gentoo.org/~{whissi,dlan}/dist/${PN}/${PN}-10.6.5-patches-04.tar.xz )
 
-SRC_URI="https://downloads.mariadb.org/interstitial/${P}/source/${P}.tar.gz
-	${PATCH_SET}"
+SRC_URI="mirror://mariadb/${PN}-${PV}/source/${P}.tar.gz
+	${PATCH_SET[@]}"
 
 HOMEPAGE="https://mariadb.org/"
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 LICENSE="GPL-2 LGPL-2.1+"
-SLOT="10.5/${SUBSLOT:-0}"
-IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 libressl mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
-	# abi_x86_32
+SLOT="$(ver_cut 1-2)/${SUBSLOT:-0}"
+IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
 
-# Tests always fail when libressl is enabled due to hard-coded ciphers in the tests
-RESTRICT="!bindist? ( bindist ) libressl? ( test ) !test? ( test )"
+RESTRICT="!bindist? ( bindist ) !test? ( test )"
 
 REQUIRED_USE="jdbc? ( extraengine server !static )
 	?? ( tcmalloc jemalloc )
 	static? ( yassl !pam )"
 
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x64-solaris ~x86-solaris"
 
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -41,6 +39,7 @@ COMMON_DEPEND="
 	>=sys-apps/sed-4
 	sys-libs/ncurses:0=
 	>=sys-libs/zlib-1.2.3:0=
+	virtual/libcrypt:=
 	!bindist? (
 		sys-libs/binutils-libs:0=
 		>=sys-libs/readline-4.1:0=
@@ -79,8 +78,7 @@ COMMON_DEPEND="
 	tcmalloc? ( dev-util/google-perftools:0= )
 	yassl? ( net-libs/gnutls:0= )
 	!yassl? (
-		!libressl? ( >=dev-libs/openssl-1.0.0:0= )
-		libressl? ( dev-libs/libressl:0= )
+		>=dev-libs/openssl-1.0.0:0=
 	)
 "
 BDEPEND="virtual/yacc
@@ -89,7 +87,7 @@ BDEPEND="virtual/yacc
 "
 DEPEND="${COMMON_DEPEND}
 	server? (
-		extraengine? ( jdbc? ( >=virtual/jdk-1.6 ) )
+		extraengine? ( jdbc? ( >=virtual/jdk-1.8 ) )
 		test? ( acct-group/mysql acct-user/mysql )
 	)
 	static? ( sys-libs/ncurses[static-libs] )
@@ -102,12 +100,15 @@ RDEPEND="${COMMON_DEPEND}
 	!dev-db/mariadb:10.2
 	!dev-db/mariadb:10.3
 	!dev-db/mariadb:10.4
+	!dev-db/mariadb:10.5
+	!dev-db/mariadb:10.7
+	!dev-db/mariadb:10.8
 	!<virtual/mysql-5.6-r11
 	!<virtual/libmysqlclient-18-r1
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
 		columnstore? ( dev-db/mariadb-connector-c )
-		extraengine? ( jdbc? ( >=virtual/jre-1.6 ) )
+		extraengine? ( jdbc? ( >=virtual/jre-1.8 ) )
 		galera? (
 			sys-apps/iproute2
 			=sys-cluster/galera-26*
@@ -117,7 +118,6 @@ RDEPEND="${COMMON_DEPEND}
 		!prefix? ( dev-db/mysql-init-scripts acct-group/mysql acct-user/mysql )
 	)
 "
-	#abi_x86_32? ( !app-emulation/emul-linux-x86-db[-abi_x86_32(-)] )
 # For other stuff to bring us in
 # dev-perl/DBD-mysql is needed by some scripts installed by MySQL
 PDEPEND="perl? ( >=dev-perl/DBD-mysql-2.9004 )"
@@ -225,9 +225,9 @@ src_prepare() {
 	}
 
 	if use jemalloc; then
-		echo "TARGET_LINK_LIBRARIES(mariadbd jemalloc)" >> "${S}/sql/CMakeLists.txt"
+		echo "TARGET_LINK_LIBRARIES(mariadbd LINK_PUBLIC jemalloc)" >> "${S}/sql/CMakeLists.txt"
 	elif use tcmalloc; then
-		echo "TARGET_LINK_LIBRARIES(mariadbd tcmalloc)" >> "${S}/sql/CMakeLists.txt"
+		echo "TARGET_LINK_LIBRARIES(mariadbd LINK_PUBLIC tcmalloc)" >> "${S}/sql/CMakeLists.txt"
 	fi
 
 	local plugin
@@ -367,10 +367,11 @@ src_configure() {
 	)
 
 	if use server ; then
-
-		# Federated{,X} must be treated special otherwise they will not be built as plugins
+		# Connect and Federated{,X} must be treated special
+		# otherwise they will not be built as plugins
 		if ! use extraengine ; then
 			mycmakeargs+=(
+				-DPLUGIN_CONNECT=NO
 				-DPLUGIN_FEDERATED=NO
 				-DPLUGIN_FEDERATEDX=NO
 			)
@@ -381,13 +382,12 @@ src_configure() {
 			-DPLUGIN_OQGRAPH=$(usex oqgraph DYNAMIC NO)
 			-DPLUGIN_SPHINX=$(usex sphinx YES NO)
 			-DPLUGIN_AUTH_PAM=$(usex pam YES NO)
+			-DPLUGIN_AWS_KEY_MANAGEMENT=NO
 			-DPLUGIN_CRACKLIB_PASSWORD_CHECK=$(usex cracklib YES NO)
-			-DPLUGIN_CASSANDRA=NO
 			-DPLUGIN_SEQUENCE=$(usex extraengine YES NO)
 			-DPLUGIN_SPIDER=$(usex extraengine YES NO)
 			-DPLUGIN_S3=$(usex s3 YES NO)
 			-DPLUGIN_COLUMNSTORE=$(usex columnstore YES NO)
-			-DPLUGIN_CONNECT=$(usex extraengine YES NO)
 			-DCONNECT_WITH_MYSQL=1
 			-DCONNECT_WITH_LIBXML2=$(usex xml)
 			-DCONNECT_WITH_ODBC=$(usex odbc)
@@ -428,8 +428,8 @@ src_configure() {
 
 		elif ! use latin1 ; then
 			mycmakeargs+=(
-				-DDEFAULT_CHARSET=utf8
-				-DDEFAULT_COLLATION=utf8_general_ci
+				-DDEFAULT_CHARSET=utf8mb4
+				-DDEFAULT_COLLATION=utf8mb4_unicode_520_ci
 			)
 		else
 			mycmakeargs+=(
@@ -465,7 +465,6 @@ src_configure() {
 			-DWITH_MYISAM_STORAGE_ENGINE=1
 			-DWITH_PARTITION_STORAGE_ENGINE=1
 		)
-
 	else
 		mycmakeargs+=(
 			-DWITHOUT_SERVER=1
@@ -499,19 +498,12 @@ src_test() {
 	}
 
 	local TESTDIR="${BUILD_DIR}/mysql-test"
-	local retstatus_unit
 	local retstatus_tests
 
 	if ! use server ; then
 		einfo "Skipping server tests due to minimal build."
 		return 0
 	fi
-
-	einfo ">>> Test phase [test]: ${CATEGORY}/${PF}"
-
-	# Run CTest (test-units)
-	cmake_src_test
-	retstatus_unit=$?
 
 	# Ensure that parallel runs don't die
 	export MTR_BUILD_THREAD="$((${RANDOM} % 100))"
@@ -559,22 +551,33 @@ src_test() {
 	# create directories because mysqladmin might run out of order
 	mkdir -p "${T}"/var-tests{,/log} || die
 
+	if [[ ! -f "${S}/mysql-test/unstable-tests" ]] ; then
+		touch "${S}"/mysql-test/unstable-tests || die
+	fi
+
 	cp "${S}"/mysql-test/unstable-tests "${T}/disabled.def" || die
 
 	local -a disabled_tests
 	disabled_tests+=( "compat/oracle.plugin;0;Needs example plugin which Gentoo disables" )
+	disabled_tests+=( "innodb_gis.1;25095;Known rounding error with latest AMD processors" )
+	disabled_tests+=( "innodb_gis.gis;25095;Known rounding error with latest AMD processors" )
+	disabled_tests+=( "main.gis;25095;Known rounding error with latest AMD processors" )
 	disabled_tests+=( "main.explain_non_select;0;Sporadically failing test" )
 	disabled_tests+=( "main.func_time;0;Dependent on time test was written" )
+	disabled_tests+=( "main.mysql_upgrade;27044;Sporadically failing test" )
 	disabled_tests+=( "main.plugin_auth;0;Needs client libraries built" )
+	disabled_tests+=( "main.selectivity_no_engine;26320;Sporadically failing test" )
 	disabled_tests+=( "main.stat_tables;0;Sporadically failing test" )
 	disabled_tests+=( "main.stat_tables_innodb;0;Sporadically failing test" )
 	disabled_tests+=( "main.upgrade_MDEV-19650;25096;Known to be broken" )
 	disabled_tests+=( "mariabackup.*;0;Broken test suite" )
 	disabled_tests+=( "perfschema.nesting;23458;Known to be broken" )
+	disabled_tests+=( "perfschema.privilege_table_io;27045;Sporadically failing test" )
 	disabled_tests+=( "plugins.auth_ed25519;0;Needs client libraries built" )
 	disabled_tests+=( "plugins.cracklib_password_check;0;False positive due to varying policies" )
 	disabled_tests+=( "plugins.two_password_validations;0;False positive due to varying policies" )
 	disabled_tests+=( "roles.acl_statistics;0;False positive due to a user count mismatch caused by previous test" )
+	disabled_tests+=( "sys_vars.wsrep_on_without_provider;25625;Known to be broken" )
 
 	if ! use latin1 ; then
 		disabled_tests+=( "funcs_1.is_columns_mysql;0;Requires USE=latin1" )
@@ -608,10 +611,9 @@ src_test() {
 	pkill -9 -f "${S}/sql" 2>/dev/null
 
 	local failures=""
-	[[ $retstatus_unit -eq 0 ]] || failures="${failures} test-unit"
-	[[ $retstatus_tests -eq 0 ]] || failures="${failures} tests"
+	[[ ${retstatus_tests} -eq 0 ]] || failures="${failures} tests"
 
-	[[ -z "$failures" ]] || die "Test failures: $failures"
+	[[ -z "${failures}" ]] || die "Test failures: ${failures}"
 	einfo "Tests successfully completed"
 }
 
@@ -696,14 +698,20 @@ src_install() {
 		fi
 	fi
 
+	# Conflicting files
+	conflicting_files=()
+
+	# We prefer my_print_defaults from dev-db/mysql-connector-c
+	conflicting_files=( "${ED}/usr/share/man/man1/my_print_defaults.1" )
+
 	# Remove bundled mytop in favor of dev-db/mytop
-	local mytop_file
-	for mytop_file in \
-		"${ED}/usr/bin/mytop" \
-		"${ED}/usr/share/man/man1/mytop.1"
-	do
-		if [[ -e "${mytop_file}" ]] ; then
-			rm -v "${mytop_file}" || die
+	conflicting_files+=( "${ED}/usr/bin/mytop" )
+	conflicting_files+=( "${ED}/usr/share/man/man1/mytop.1" )
+
+	local conflicting_file
+	for conflicting_file in "${conflicting_files[@]}" ; do
+		if [[ -e "${conflicting_file}" ]] ; then
+			rm -v "${conflicting_file}" || die
 		fi
 	done
 
@@ -793,18 +801,33 @@ pkg_postinst() {
 pkg_config() {
 	_getoptval() {
 		local section="${1}"
-		local flag="--${2}="
+		local option="--${2}"
 		local extra_options="${3}"
 		local cmd=(
 			"${my_print_defaults_binary}"
 			"${extra_options}"
 			"${section}"
 		)
-		local results=( $(eval "${cmd[@]}" 2>/dev/null | sed -n "/^${flag}/s,${flag},,gp") )
 
-		if [[ ${#results[@]} -gt 0 ]] ; then
-			# When option is set multiple times only return last value
-			echo "${results[-1]}"
+		local values=()
+		local parameters=( $(eval "${cmd[@]}" 2>/dev/null) )
+		for parameter in "${parameters[@]}"
+		do
+			# my_print_defaults guarantees output of options, one per line,
+			# in the form that they would be specified on the command line.
+			# So checking for --option=* should be safe.
+			case ${parameter} in
+				${option}=*)
+					values+=( "${parameter#*=}" )
+					;;
+			esac
+		done
+
+		if [[ ${#values[@]} -gt 0 ]] ; then
+			# Option could have been set multiple times
+			# in which case only the last occurrence
+			# contains the current value
+			echo "${values[-1]}"
 		fi
 	}
 
@@ -1008,13 +1031,15 @@ pkg_config() {
 		unset _my_tmpdir_testfile
 	fi
 
-	if [[ -n "${MYSQL_LOG_BIN}" && ! -d "${MYSQL_LOG_BIN}" ]] ; then
+	if [[ "${MYSQL_LOG_BIN}" == /* && ! -d "${MYSQL_LOG_BIN}" ]] ; then
+		# Only create directory when MYSQL_LOG_BIN is an absolute path
 		einfo "Creating ${PN} log-bin directory '${MYSQL_LOG_BIN}' ..."
 		install -d -m 770 -o ${MYSQL_USER} -g ${MYSQL_GROUP} "${MYSQL_LOG_BIN}" \
 			|| die "Failed to create ${PN} log-bin directory '${MYSQL_LOG_BIN}'"
 	fi
 
-	if [[ -n "${MYSQL_LOG_BIN}" ]] ; then
+	if [[ "${MYSQL_LOG_BIN}" == /* ]] ; then
+		# Only test when MYSQL_LOG_BIN is an absolute path
 		local _my_logbin_testfile="$(_mktemp_dry "${MYSQL_LOG_BIN}/.pkg_config-access-test.XXXXXXXXX")"
 		[[ -z "${_my_logbin_testfile}" ]] \
 			&& die "_mktemp_dry() for '${MYSQL_LOG_BIN}/.pkg_config-access-test.XXXXXXXXX' failed!"
@@ -1033,13 +1058,15 @@ pkg_config() {
 		fi
 	fi
 
-	if [[ -n "${MYSQL_RELAY_LOG}" && ! -d "${MYSQL_RELAY_LOG}" ]] ; then
+	if [[ "${MYSQL_RELAY_LOG}" == /* && ! -d "${MYSQL_RELAY_LOG}" ]] ; then
+		# Only create directory when MYSQL_RELAY_LOG is an absolute path
 		einfo "Creating ${PN} relay-log directory '${MYSQL_RELAY_LOG}' ..."
 		install -d -m 770 -o ${MYSQL_USER} -g ${MYSQL_GROUP} "${MYSQL_RELAY_LOG}" \
 			|| die "Failed to create ${PN} relay-log directory '${MYSQL_RELAY_LOG}'!"
 	fi
 
-	if [[ -n "${MYSQL_RELAY_LOG}" ]] ; then
+	if [[ "${MYSQL_RELAY_LOG}" == /* ]] ; then
+		# Only test when MYSQL_RELAY_LOG is an absolute path
 		local _my_relaylog_testfile="$(_mktemp_dry "${MYSQL_RELAY_LOG}/.pkg_config-access-test.XXXXXXXXX")"
 		[[ -z "${_my_relaylog_testfile}" ]] \
 			&& die "_mktemp_dry() for '${MYSQL_RELAY_LOG}/.pkg_config-access-test.XXXXXXXXX' failed!"
@@ -1076,11 +1103,13 @@ pkg_config() {
 	einfo "MySQL DATA directory:\t\t${MY_DATADIR}"
 	einfo "MySQL TMP directory:\t\t\t${MYSQL_TMPDIR}"
 
-	if [[ -n "${MYSQL_LOG_BIN}" ]] ; then
+	if [[ "${MYSQL_LOG_BIN}" == /* ]] ; then
+		# Absolute path for binary log files specified
 		einfo "MySQL Binary Log File location:\t${MYSQL_LOG_BIN}"
 	fi
 
-	if [[ -n "${MYSQL_RELAY_LOG}" ]] ; then
+	if [[ "${MYSQL_RELAY_LOG}" == /* ]] ; then
+		# Absolute path for relay log files specified
 		einfo "MySQL Relay Log File location:\t${MYSQL_RELAY_LOG}"
 	fi
 
