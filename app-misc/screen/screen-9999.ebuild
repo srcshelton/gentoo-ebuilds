@@ -1,9 +1,9 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-inherit autotools flag-o-matic pam tmpfiles toolchain-funcs
+inherit autotools flag-o-matic pam tmpfiles
 
 DESCRIPTION="screen manager with VT100/ANSI terminal emulation"
 HOMEPAGE="https://www.gnu.org/software/screen/"
@@ -22,28 +22,22 @@ LICENSE="GPL-2"
 SLOT="0"
 IUSE="debug multiuser nethack pam selinux +tmpfiles"
 
-CDEPEND="
-	>=sys-libs/ncurses-5.2:0=
+COMMON_DEPEND=">=sys-libs/ncurses-5.2:=
 	virtual/libcrypt:=
 	pam? ( sys-libs/pam )"
-RDEPEND="${CDEPEND}
+RDEPEND="${COMMON_DEPEND}
 	acct-group/utmp
 	selinux? ( sec-policy/selinux-screen )"
-DEPEND="${CDEPEND}
+DEPEND="${COMMON_DEPEND}
 	sys-apps/texinfo"
 
 PATCHES=(
 	# Don't use utempter even if it is found on the system.
-	"${FILESDIR}"/${PN}-4.3.0-no-utempter.patch
-	"${FILESDIR}"/${PN}-4.6.2-utmp-exit.patch
+	"${FILESDIR}"/${P}-no-utempter.patch
 )
 
 src_prepare() {
-	if [[ "${PV}" != *9999 ]] ; then
 		default
-	else
-		eapply_user
-	fi
 
 	# sched.h is a system header and causes problems with some C libraries
 	mv sched.h _sched.h || die
@@ -51,7 +45,7 @@ src_prepare() {
 		screen.h winmsg.c window.h sched.c canvas.h || die
 	sed -i 's@[[:space:]]sched\.h@ _sched.h@' Makefile.in || die
 
-	# Fix manpage.
+	# Fix manpage
 	sed -i \
 		-e "s:/usr/local/etc/screenrc:${EPREFIX}/etc/screenrc:g" \
 		-e "s:/usr/local/screens:${EPREFIX}/var/run/screen:g" \
@@ -61,7 +55,7 @@ src_prepare() {
 		-e 's:/usr/tmp/screens/:'"${EPREFIX}"'/var/run/screen/:g' \
 		doc/screen.1 || die
 
-	if [[ ${CHOST} == *-darwin* ]] || use elibc_musl ; then
+	if [[ ${CHOST} == *-darwin* ]] || use elibc_musl; then
 		sed -i -e '/^#define UTMPOK/s/define/undef/' acconfig.h || die
 	fi
 
@@ -75,7 +69,7 @@ src_prepare() {
 src_configure() {
 	append-cppflags "-DMAXWIN=${MAX_SCREEN_WINDOWS:-100}"
 
-	if [[ ${CHOST} == *-solaris* ]] ; then
+	if [[ ${CHOST} == *-solaris* ]]; then
 		# enable msg_header by upping the feature standard compatible
 		# with c99 mode
 		append-cppflags -D_XOPEN_SOURCE=600
@@ -124,9 +118,7 @@ src_install() {
 		tmpfiles_group="utmp"
 	fi
 
-	if use tmpfiles; then
-		newtmpfiles - screen.conf <<<"d /var/run/screen ${tmpfiles_perms} root ${tmpfiles_group}"
-	fi
+	use tmpfiles && newtmpfiles - screen.conf <<<"d /var/run/screen ${tmpfiles_perms} root ${tmpfiles_group}"
 
 	insinto /usr/share/${PN}
 	doins terminfo/{screencap,screeninfo.src}
@@ -142,16 +134,13 @@ src_install() {
 }
 
 pkg_postinst() {
-	if [[ -z ${REPLACING_VERSIONS} ]]
-	then
+	if [[ -z ${REPLACING_VERSIONS} ]]; then
 		elog "Some dangerous key bindings have been removed or changed to more safe values."
 		elog "We enable some xterm hacks in our default screenrc, which might break some"
 		elog "applications. Please check /etc/screenrc for information on these changes."
 	fi
 
-	if use tmpfiles; then
-		tmpfiles_process screen.conf
-	fi
+	use tmpfiles && tmpfiles_process screen.conf
 }
 
 # vi: set diffopt=iwhite,filler:
