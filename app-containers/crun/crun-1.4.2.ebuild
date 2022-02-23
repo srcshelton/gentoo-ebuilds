@@ -34,6 +34,7 @@ RDEPEND="${COMMON_DEPEND}"
 BDEPEND="
 	${PYTHON_DEPS}
 	man? ( dev-go/go-md2man )
+	app-shells/bash
 	sys-apps/sed
 	virtual/pkgconfig
 "
@@ -68,7 +69,9 @@ src_configure() {
 		$(usex static-libs '--enable-shared --enable-static' '--enable-shared --disable-static')
 	)
 
-	econf "${myeconfargs[@]}"
+	# Bashism workaround for https://github.com/containers/crun/pull/880
+	# Drop once fixed in a release.
+	CONFIG_SHELL="${BROOT}/bin/bash" econf "${myeconfargs[@]}"
 }
 
 src_compile() {
