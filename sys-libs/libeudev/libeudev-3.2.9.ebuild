@@ -167,7 +167,7 @@ multilib_src_test() {
 	if multilib_is_native_abi; then
 		addread /sys
 		addwrite /dev
-		addwrite /run
+		addwrite /var/run
 		default_src_test
 	fi
 }

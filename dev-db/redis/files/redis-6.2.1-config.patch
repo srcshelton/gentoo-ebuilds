@@ -7,7 +7,7 @@ index 465d56f..ef56037 100644
  # Note that on modern Linux systems "/run/redis.pid" is more conforming
  # and should be used instead.
 -pidfile /var/run/redis_6379.pid
-+pidfile /run/redis/redis.pid
++pidfile /var/run/redis/redis.pid
  
  # Specify the server verbosity level.
  # This can be one of:

@@ -25,7 +25,7 @@ index c0639e0..dcc6817 100644
 -	local args= opt= pidfile= opts= new=true
 +	# Save the args into a file so dhcpcd_stop can later re-use the very
 +	# same args later.
-+	local args= opt= pidfile= opts= new=true argsfile=/run/netifrc_dhcpcd_${IFACE}_args
++	local args= opt= pidfile= opts= new=true argsfile=/var/run/netifrc_dhcpcd_${IFACE}_args
  	eval args=\$dhcpcd_${IFVAR}
  	[ -z "${args}" ] && args=${dhcpcd}
 +	echo "${args}" > ${argsfile}
@@ -37,7 +37,7 @@ index c0639e0..dcc6817 100644
  dhcpcd_stop()
  {
 -	local args= pidfile= opts= sig=SIGTERM
-+	local args= pidfile= opts= sig=SIGTERM argsfile=/run/netifrc_dhcpcd_${IFACE}_args
++	local args= pidfile= opts= sig=SIGTERM argsfile=/var/run/netifrc_dhcpcd_${IFACE}_args
  
 -	# check for pidfile after we gathered the user's opts because they can
 +	# check for pidfile after we gathered the user's args because they can

@@ -305,7 +305,7 @@ pkg_postinst() {
 
 		local found fstype mountpoint
 		while read -r _ mountpoint fstype _; do
-		[[ "${mountpoint}" == '/run' && "${fstype}" = 'tmpfs' ]] && found=1
+		[[ "${mountpoint}" == '/run' && "${fstype}" == 'tmpfs' ]] && found=1
 		done < "${ROOT}"proc/mounts
 		[[ -z "${found}" ]] && ! use varrun &&
 			ewarn "You should reboot now to get /run mounted with tmpfs!"

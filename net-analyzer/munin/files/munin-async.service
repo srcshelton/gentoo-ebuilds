@@ -3,7 +3,7 @@ Description=Munin Async Service
 After=syslog.target network.target
 
 [Service]
-PIDFile=/run/munin/munin-asyncd.pid
+PIDFile=/var/run/munin/munin-asyncd.pid
 ExecStart=/usr/libexec/munin/munin-asyncd
 
 [Install]

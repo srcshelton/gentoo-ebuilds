@@ -6,7 +6,7 @@ After=mysql.service postgresql.service
 [Service]
 Type=forking
 PIDFile=/var/run/ulogd.pid
-ExecStart=/usr/sbin/ulogd --daemon --uid ulogd --pidfile /run/ulogd.pid
+ExecStart=/usr/sbin/ulogd --daemon --uid ulogd --pidfile /var/run/ulogd.pid
 ExecReload=/bin/kill -USR1 $MAINPID
 
 [Install]

@@ -106,10 +106,10 @@ multilib_src_install_all() {
 		dodir /usr/lib/tmpfiles.d
 
 		cat ->>  "${D}"/usr/lib/tmpfiles.d/${CATEGORY}-${PN}.conf <<-_EOF_
-			d /run/faillock 0755 root root
+			d /var/run/faillock 0755 root root
 		_EOF_
 		use selinux && cat ->>  "${D}"/usr/lib/tmpfiles.d/${CATEGORY}-${PN}-selinux.conf <<-_EOF_
-			d /run/sepermit 0755 root root
+			d /var/run/sepermit 0755 root root
 		_EOF_
 	fi
 

@@ -42,9 +42,7 @@ RDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-2.2-conf.patch
 	"${FILESDIR}"/${PN}-2.2-drop-root.patch
-	"${FILESDIR}"/${PN}-2.2-run.patch
 )
 
 pkg_setup() {

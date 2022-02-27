@@ -265,7 +265,7 @@ src_install() {
 	if use systemd; then
 		dodir /usr/lib/tmpfiles.d
 		cat > "${ED}/usr/lib/tmpfiles.d/${CATEGORY}:${PN}${SLOT:+:${SLOT}}.conf" <<- EOF
-		d /run/munin 0700 munin munin - -
+		d /var/run/munin 0700 munin munin - -
 		EOF
 
 		systemd_dounit "${FILESDIR}"/munin-async.service

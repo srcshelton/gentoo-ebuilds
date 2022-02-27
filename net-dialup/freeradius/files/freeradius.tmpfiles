@@ -1,1 +1,1 @@
-d /run/radiusd 0755 radius radius -
+d /var/run/radiusd 0755 radius radius -

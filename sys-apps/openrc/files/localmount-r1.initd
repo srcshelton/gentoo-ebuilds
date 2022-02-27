@@ -61,7 +61,7 @@ stop()
 	done
 
 	if [ "$RC_UNAME" = Linux ]; then
-		no_umounts_r="$no_umounts_r|/proc|/proc/.*|/run|/sys|/sys/.*"
+		no_umounts_r="$no_umounts_r|/proc|/proc/.*|/var/run|/run|/sys|/sys/.*"
 		if [ -e "$rc_svcdir"/usr_premounted ]; then
 			no_umounts_r="$no_umounts_r|/usr"
 		fi

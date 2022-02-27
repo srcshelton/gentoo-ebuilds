@@ -261,7 +261,7 @@ src_install() {
 
 	if use tmpfiles; then
 		newtmpfiles - ${CATEGORY}:${PN}:${SLOT}.conf <<-EOF || die
-		d /run/munin 0700 munin munin - -
+		d /var/run/munin 0700 munin munin - -
 		EOF
 	fi
 
