@@ -1,0 +1,14 @@
+--- a/vendor/github.com/containers/buildah/run_linux.go
++++ b/vendor/github.com/containers/buildah/run_linux.go
+@@ -2326,9 +2326,9 @@ func (b *Builder) runUsingRuntimeSubproc
+ 	return err
+ }
+ 
+-// waitForSync waits for a maximum of 5 seconds to read something from the file
++// waitForSync waits for a maximum of 30 seconds to read something from the file
+ func waitForSync(pipeR *os.File) error {
+-	if err := pipeR.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
++	if err := pipeR.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+ 		return err
+ 	}
+ 	b := make([]byte, 16)
