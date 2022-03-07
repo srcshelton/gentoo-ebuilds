@@ -452,6 +452,8 @@ used to build perl)
     * Add Debian patch to correct the use of `RETURN` as a module target
 * net-ftp/tftp-hpa
     * Allow net-ftp/uftpd to be installed at the same time, so long as only one tftp server is enabled
+* net-ftp/uftpd
+    * Allow net-ftp/tftp-hpa to be installed at the same time, so long as only one tftp server is enabled
 * ~~net-libs/neon~~
     * ~~Patch trivial typo which prevents `writev` from being defined~~
 * net-misc/dhcp
