@@ -32,6 +32,10 @@ RDEPEND="
 
 S="${WORKDIR}/RPi-Monitor-${PV}"
 
+PATCHES="
+	"${FILESDIR}/${P}-pr247-fix-syn-flooding.patch"
+"
+
 src_prepare() {
 	local patch
 
@@ -49,9 +53,8 @@ src_prepare() {
 	done
 
 	# Fix version string...
-	sed -i \
-		-e "s|<b>Version</b>: {DEVELOPMENT} |<b>Version</b>: ${PV} |" \
-		   src/usr/share/rpimonitor/web/js/rpimonitor.js || die "Version correction failed"
+	sed -e "s|<b>Version</b>: {DEVELOPMENT} |<b>Version</b>: ${PV} |" \
+		-i src/usr/share/rpimonitor/web/js/rpimonitor.js || die "Version correction failed"
 
 	chmod 755 "${S}"/tools/conf2man.pl "${S}"/tools/help2man.pl
 	[[ -x "${S}"/tools/help2man.pl && -x "${S}"/tools/conf2man.pl ]] \

@@ -1,0 +1,24 @@
+From c0320444fb52627ba0140ef7e0b1011df7af4caf Mon Sep 17 00:00:00 2001
+From: Leepic <Leepic@users.noreply.github.com>
+Date: Thu, 3 Jan 2019 14:54:00 +0100
+Subject: [PATCH] Override default Listen queue size of 5
+
+Depends on the SOMAXCONN system limit (e.g. 128):
+perl -MSocket -le 'print SOMAXCONN'
+128
+---
+ src/usr/bin/rpimonitord | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/usr/bin/rpimonitord b/src/usr/bin/rpimonitord
+index e01fbeb..5c7399b 100755
+--- a/src/usr/bin/rpimonitord
++++ b/src/usr/bin/rpimonitord
+@@ -572,6 +572,7 @@ sub Run
+ 
+   # Create the server
+   $this->{'server'} = new HTTP::Daemon     ( ReuseAddr => 1,
++                                             Listen => SOMAXCONN,
+                                              LocalAddr => $configuration->{'daemon'}->{'addr'},
+                                              LocalPort => $configuration->{'daemon'}->{'port'})
+     or die "Web server not started because of error: $!\n";
