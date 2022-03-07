@@ -97,6 +97,7 @@ RDEPEND="
 		dev-libs/openssl:=
 	)
 	dev-libs/libuv
+	cloud? ( dev-libs/protobuf:= )
 	compression? ( sys-libs/zlib )
 	fping? ( >=net-analyzer/fping-4.0 )
 	ipmi? ( sys-libs/freeipmi )
@@ -156,6 +157,7 @@ src_configure() {
 	econf \
 		--localstatedir="${EPREFIX}"/var \
 		--with-user=netdata \
+		--without-bundled-protobuf \
 		$(use_enable cloud) \
 		$(use_enable jsonc) \
 		$(use_enable cups plugin-cups) \
