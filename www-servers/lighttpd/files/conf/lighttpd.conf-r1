@@ -17,10 +17,10 @@ server.modules					=  (
 	, "mod_accesslog"
 #	, "mod_alias"
 #	, "mod_auth"
-#	, "mod_cml"
-#	, "mod_compress"
+#	, "mod_deflate"
 #	, "mod_evhost"
 #	, "mod_expire"
+#	, "mod_magnet"
 #	, "mod_proxy"
 #	, "mod_redirect"
 #	, "mod_rewrite"
@@ -30,7 +30,6 @@ server.modules					=  (
 #	, "mod_simple_vhost"
 #	, "mod_ssi"
 #	, "mod_status"
-#	, "mod_trigger_b4_dl"
 #	, "mod_userdir"
 #	, "mod_usertrack"
 #	, "mod_webdav"
@@ -184,11 +183,11 @@ url.access-deny					=  (
 #simple-vhost.document-root			=   "/pages/"
 
 
-# mod_compress
+# mod_deflate
 # See compress.txt
 #
-#compress.cache-dir				=    var.statedir + "/cache/compress"
-#compress.filetype				=  (
+#deflate.cache-dir				=    var.statedir + "/cache/compress"
+#deflate.mimetypes				=  (
 #	  "text/plain"
 #	, "text/html"
 #)
@@ -282,29 +281,6 @@ url.access-deny					=  (
 #)
 #setenv.add-response-header			=  (
 #	  "X-Secret-Message"			=>  "42"
-#)
-
-
-# mod_trigger_b4_dl
-# See trigger_b4_dl.txt
-#
-#trigger-before-download.gdbm-filename		=   "/home/weigon/testbase/trigger.db"
-#trigger-before-download.memcache-hosts		=  (
-#	  "127.0.0.1:11211"
-#)
-#trigger-before-download.trigger-url		=   "^/trigger/"
-#trigger-before-download.download-url		=   "^/download/"
-#trigger-before-download.deny-url		=   "http://127.0.0.1/index.html"
-#trigger-before-download.trigger-timeout	=    10
-
-
-# mod_cml
-# See cml.txt
-#
-# don't forget to add index.cml to server.indexfiles
-#cml.extension					=   ".cml"
-#cml.memcache-hosts				=  (
-#	  "127.0.0.1:11211"
 #)
 
 
