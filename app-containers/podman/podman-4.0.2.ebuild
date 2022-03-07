@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT='84c8870ac236578c41713113fc09a29a5f727bdd'
+EGIT_COMMIT='342c8259381b63296e96ad29519bd4b9c7afbf97'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -92,7 +92,6 @@ ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
 ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 PATCHES=(
-	"${FILESDIR}/${PN}-4.0.0-version.patch"
 	"${FILESDIR}/${PN}-4.0.0-buildah-timeout.patch"
 	#"${FILESDIR}/${PN}-4.0.0-dev-warning.patch"
 )
