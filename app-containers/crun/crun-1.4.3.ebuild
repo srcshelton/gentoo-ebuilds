@@ -13,7 +13,7 @@ SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.gz
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 ppc64"
+KEYWORDS="~amd64 ~arm ~arm64 ~ppc64"
 IUSE="+bpf +caps criu man +seccomp static-libs systemd"
 
 COMMON_DEPEND="
@@ -34,6 +34,7 @@ RDEPEND="${COMMON_DEPEND}"
 BDEPEND="
 	${PYTHON_DEPS}
 	man? ( dev-go/go-md2man )
+	app-shells/bash
 	sys-apps/sed
 	virtual/pkgconfig
 "
@@ -68,7 +69,9 @@ src_configure() {
 		$(usex static-libs '--enable-shared --enable-static' '--enable-shared --disable-static')
 	)
 
-	econf "${myeconfargs[@]}"
+	# Bashism workaround for https://github.com/containers/crun/pull/880
+	# Drop once fixed in a release.
+	CONFIG_SHELL="${BROOT}/bin/bash" econf "${myeconfargs[@]}"
 }
 
 src_compile() {
