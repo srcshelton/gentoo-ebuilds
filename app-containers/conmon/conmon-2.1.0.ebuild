@@ -12,7 +12,7 @@ SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.
 
 LICENSE="Apache-2.0"
 SLOT="0"
-KEYWORDS="~amd64 ~arm64 ~ppc64"
+KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 IUSE="systemd"
 RESTRICT="mirror test"
 
@@ -46,7 +46,7 @@ src_install() {
 		install
 
 	dodir /usr/libexec/podman
-	ln -s "${ED}/usr/"{bin,libexec/podman}/conmon || die
+	ln -s ../../bin/conmon "${ED}"/usr/libexec/podman/conmon || die
 
 	dodoc README.md
 }
