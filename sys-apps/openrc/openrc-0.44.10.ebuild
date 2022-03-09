@@ -59,6 +59,11 @@ PDEPEND="netifrc? ( net-misc/netifrc )"
 
 REQUIRED_USE="compat? ( !vanilla )"
 
+QA_RUN_ALLOWED=(
+	/etc/init.d/bootmisc
+	/etc/init.d/modules
+)
+
 PATCHES=(
 	"${FILESDIR}"/${PN}-0.42.1-agetty-initd.patch
 	"${FILESDIR}"/${PN}-0.43.5-cgroups.patch

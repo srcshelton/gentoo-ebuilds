@@ -18,8 +18,8 @@ run_check() {
 				local -a files=()
 
 				while read -r i; do
-					if ! grep -q " /${i#"${ED}"} " <<<" ${QA_RUN_ALLOWED[*]:-} "; then
-						list["${i#"${ED}"}"]=1
+					if ! grep -q " /${i#"${ED%/}/"} " <<<" ${QA_RUN_ALLOWED[*]:-} "; then
+						list["${i#"${ED%/}/"}"]=1
 					fi
 				done < <(
 					grep -H '/run/' "${ED%/}"/etc/{init,conf}.d/* 2>/dev/null |
@@ -30,15 +30,7 @@ run_check() {
 				)
 				files=( "${!list[@]}" )
 
-				# It'd be nicer to fix this in the ebuild itself, but this
-				# approach at least allows upstream ebuilds to remain
-				# unchanged...
-				if
-					(( 1 == ${#files[@]} )) &&
-						[[ "${files[*]}" =~ etc/init.d/bootmisc ]]
-				then
-					:
-				elif [[ -n "${files[*]:-}" ]]; then
+				if [[ -n "${files[*]:-}" ]]; then
 					eqawarn "Repo QA Notice: files referencing /run:"
 					eqatag -v using-run "${files[@]/#//}"
 					die "Aborting due to Repo QA concerns: ${#files[@]} files reference /run"
