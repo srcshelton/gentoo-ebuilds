@@ -414,12 +414,8 @@ used to build perl)
     * Prevent the unqualified need for 'RequireSafeKeys' on Gentoo due to GID=0 standard system users
 * mail-filter/opendmarc
     * Use `acct-*` dependencies rather than `user.eclass`
-* mail-filter/postgrey
-    * Make systemd service support optional
 * mail-filter/spampd
     * Fix `status` reporting, revise installed documentation, add optional systemd service support
-* mail-mta/nullmailer
-    * Make systemd service support optional
 * mail-mta/ssmtp
     * Use acct-group/ssmtp instead of `user` eclass
 * media-sound/teamspeak-server-bin
@@ -733,6 +729,9 @@ x32 profiles, and that these variables only affect multilib systems.
 
 # Make systemd unit installation optional
 
+* mail-filter/postgrey
+* mail-mta/nullmailer
+* net-proxy/privoxy
 * sys-apps/rng-tools
 * sys-block/zram-init
 
