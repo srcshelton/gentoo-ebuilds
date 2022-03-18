@@ -128,6 +128,11 @@ src_install() {
 		[[ -e "${ED}/usr/bin/${bin}" ]] && mv "${ED}/usr/bin/${bin}" "${ED}"/usr/sbin/
 	done
 
+	if [[ -d "${ED}"/usr/man ]]; then
+		doman "${ED}"/usr/man/man1/*.1 "${ED}"/usr/man/man7/*.7
+		rm -r "${ED}"/usr/man || die "Cannot remove directory '${ED%/}/usr/man': ${?}"
+	fi
+
 	#rm "${ED}"/etc/init.d/vcfiled || die
 	#newinitd "${FILESDIR}"/${PN}-vcfiled.initd vcfiled
 }
