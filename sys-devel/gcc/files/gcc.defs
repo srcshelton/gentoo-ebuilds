@@ -1,0 +1,8 @@
+GCC_PATH="/usr/%CHOST%/gcc-bin/%PV%"
+LDPATH="/usr/lib/gcc/%CHOST%/%PV%"
+MANPATH="/usr/share/gcc-data/%CHOST%/%PV%/man"
+INFOPATH="/usr/share/gcc-data/%CHOST%/%PV%/info"
+STDCXX_INCDIR="g++-v11"
+CTARGET="%CHOST%"
+GCC_SPECS=""
+MULTIOSDIRS="../lib64"

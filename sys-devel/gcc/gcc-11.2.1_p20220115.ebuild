@@ -1,27 +1,30 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="7"
+EAPI=7
 
-PATCH_VER="1"
+PATCH_VER="4"
+PATCH_GCC_VER="11.3.0"
 MUSL_VER="1"
+MUSL_GCC_VER="11.3.0"
 
 inherit toolchain
 
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ppc ~ppc64 ~riscv ~s390 sparc ~x86"
 IUSE="-lib-only"
 
-RDEPEND="
+# Technically only if USE=hardened *too* right now, but no point in complicating it further.
+# If GCC is enabling CET by default, we need glibc to be built with support for it.
+# bug #830454
+DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
+RDEPEND="${RDEPEND}
 	!=sys-devel/gcc-libs-${PV}"
-BDEPEND="${CATEGORY}/binutils"
+BDEPEND="${CATEGORY}/binutils[cet(-)?]"
+
+LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
 src_prepare() {
 	toolchain_src_prepare
-
-	if tc-is-cross-compiler ; then
-		# bug #803371
-		eapply "${FILESDIR}"/gcc-11.2.0-cross-compile-include.patch
-	fi
 
 	eapply_user
 
@@ -88,10 +91,12 @@ src_prepare() {
 }
 
 src_install() {
+	local file='' dest='' destdir=''
+
 	toolchain_src_install
 
 	if use lib-only; then
-		einfo "Removing non-library directories..."
+		einfo "Removing non-library directories ..."
 
 		mv "${ED%/}/usr/share/gcc-data/${CHOST:-fail}/${PV%_p*}" "${T}"/data || die
 		mv "${ED%/}/usr/lib/gcc/${CHOST:-fail}/${PV%_p*}" "${T}"/lib || die
@@ -110,11 +115,80 @@ src_install() {
 		popd >/dev/null || die
 
 		pushd "${ED%/}/usr/libexec/gcc/${CHOST}/${PV%_p*}" >/dev/null || die
-		rm -r plugin
-		ls -1 | grep -v '.so' | xargs rm
+		find . -mindepth 1 -maxdepth 1 -not -name '*.so' -exec rm -r {} +
 		popd >/dev/null || die
 
 		keepdir "/usr/${CHOST}/gcc-bin/${PV%_p*}"
+
+		einfo "Writing static gcc-config configuration ..."
+
+		for file in "${LIB_ONLY_GCC_CONFIG_FILES[@]}"; do
+			case "${file}" in
+				gcc-ld.so.conf)
+					dest="/etc/ld.so.conf.d/05${PN}-${CHOST}.conf" ;;
+				gcc.env)
+					dest="/etc/env.d/04${PN}-${CHOST}" ;;
+				gcc.config)
+					dest="/etc/env.d/${PN}/config-${CHOST}" ;;
+				gcc.defs)
+					dest="/etc/env.d/${PN}/${CHOST}-${PV%_p*}" ;;
+				*)
+					die "Unknown file '${file}'" ;;
+			esac
+			sed <"${FILESDIR}/${file}" \
+					-e "s/%CHOST%/${CHOST}/g" \
+					-e "s/%PV%/${PV%_p*}/g" \
+				>"${T}/${file}" || die "Failed templating file '${file}': ${?}"
+			insinto "$( dirname "${dest}" )"
+			newins "${T}/${file}" "$( basename "${dest}" )" || die "Writing gcc-config data to '${dest}' failed: ${?}"
+		done
+	fi
+}
+
+pkg_preinst_find_seq() {
+	local file="${1:-}"
+
+	[[ -n "${file:-}" ]] || return 1
+
+	#if ! [[ -e "${file}" ]]; then
+	#	printf '%s' "${file}"
+	#	return 0
+	#fi
+
+	path="$( dirname "${file}" )"
+	name="$( basename "${file}" )"
+
+	local -i counter=0
+
+	while [[ -e "$( printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}" )" ]]; do
+		(( counter++ ))
+	done
+
+	printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}"
+}
+
+pkg_preinst() {
+	local src='' dest=''
+
+	if use lib-only; then
+		for file in "${LIB_ONLY_GCC_CONFIG_FILES[@]}"; do
+			case "${file}" in
+				gcc-ld.so.conf)
+					src="/etc/ld.so.conf.d/05${PN}-${CHOST}.conf" ;;
+				gcc.env)
+					src="/etc/env.d/04${PN}-${CHOST}" ;;
+				gcc.config)
+					src="/etc/env.d/${PN}/config-${CHOST}" ;;
+				gcc.defs)
+					src="/etc/env.d/${PN}/${CHOST}-${PV%_p*}" ;;
+				*)
+					die "Unknown file '${file}'" ;;
+			esac
+			if [[ -e "${src}" ]]; then
+				dest="$( pkg_preinst_find_seq "${src}" )" || die "Failed to generate sequence for file '${src}': ${?}"
+				mv "${D}/${src}" "${D}/${dest}" || die "Moving gcc-config data from '${D%/}/${src}' to '${D%/}${dest}' failed: ${?}"
+			fi
+		done
 	fi
 }
 
@@ -154,16 +228,44 @@ pkg_postinst_fix_so() {
 
 pkg_postinst() {
 	local best="$( best_version "${CATEGORY}/${PN}" )"
+	local file='' dest='' path='' name=''
 
 	if use lib-only; then
 		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
-			pkg_postinst_fix_so "${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" 'libstdc++.so' "${EROOT}/usr/$(get_libdir)" "../lib/gcc/${CHOST}/${PV%_p*}" ||
-				die "Couldn't link library 'libstdc++.so'"
-			pkg_postinst_fix_so "${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" 'libgcc_s.so' "${EROOT}/usr/$(get_libdir)" "../lib/gcc/${CHOST}/${PV%_p*}" ||
-				die "Couldn't link library 'libgcc_s.so'"
+			for file in libstdc++.so libgcc_s.so; do
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -delete
+				pkg_postinst_fix_so \
+						"${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" \
+						"${file}" \
+						"${EROOT}/usr/$(get_libdir)" \
+						"../lib/gcc/${CHOST}/${PV%_p*}" ||
+					die "Couldn't link library '${file}'"
+			done
 		fi
+
+		for file in "${LIB_ONLY_GCC_CONFIG_FILES[@]}"; do
+			case "${file}" in
+				gcc-ld.so.conf)
+					dest="/etc/ld.so.conf.d/05${PN}-${CHOST}.conf" ;;
+				gcc.env)
+					dest="/etc/env.d/04${PN}-${CHOST}" ;;
+				gcc.config)
+					dest="/etc/env.d/${PN}/config-${CHOST}" ;;
+				gcc.defs)
+					dest="/etc/env.d/${PN}/${CHOST}-${PV%_p*}" ;;
+				*)
+					die "Unknown file '${file}'" ;;
+			esac
+			if ! [[ -e "${dest}" ]]; then
+				path="$( dirname "${dest}" )"
+				name="$( basename "${dest}" )"
+				if [[ -e "${path}/._cfg0000_${name}" ]]; then
+					mv "${path}/._cfg0000_${name}" "${dest}" || die "Moving gcc-config data from '${path}._cfg0000_${name}' to '${dest}' failed: ${?}"
+				fi
+			fi
+		done
 	fi
 }
 
