@@ -13,8 +13,8 @@ SRC_URI="https://download.lighttpd.net/lighttpd/releases-1.4.x/${P}.tar.xz"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ppc ~ppc64 ~riscv ~s390 sparc x86"
-IUSE="brotli dbi doc gnutls ipv6 kerberos ldap +lua maxminddb mbedtls mmap mysql +nettle nss +pcre php postgres rrdtool sasl selinux sqlite ssl systemd +system-xxhash test unwind webdav xattr +zlib zstd"
+KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+IUSE="+brotli dbi doc gnutls ipv6 kerberos ldap +lua maxminddb mbedtls mmap mysql +nettle nss +pcre php postgres rrdtool sasl selinux sqlite ssl systemd +system-xxhash test unwind webdav xattr +zlib zstd"
 RESTRICT="!test? ( test )"
 
 REQUIRED_USE="lua? ( ${LUA_REQUIRED_USE} )
@@ -58,13 +58,15 @@ COMMON_DEPEND="
 	zlib? ( >=sys-libs/zlib-1.1 )
 	zstd? ( app-arch/zstd )"
 
-BDEPEND="virtual/pkgconfig"
-
-DEPEND="${COMMON_DEPEND}
+BDEPEND="
+	virtual/pkgconfig
 	doc?  ( dev-python/docutils )
 	test? (
 		virtual/perl-Test-Harness
 	)"
+
+DEPEND="${COMMON_DEPEND}
+	elibc_musl? ( sys-libs/queue-standalone )"
 
 RDEPEND="${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-apache )
@@ -236,3 +238,5 @@ pkg_postinst() {
 	elog "changelog for details."
 	elog "https://www.lighttpd.net/2022/1/19/1.4.64/"
 }
+
+# vi: set diffopt=iwhite,filler:
