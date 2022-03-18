@@ -795,9 +795,10 @@ src_prepare() {
 
 	cd "${S}"
 
-	if ! [[ "${ARCH}" == "amd64" ]]; then
-		einfo "Architecture is not 'amd64' - no updates for x32 ABI required"
-	else
+	#if [[ "${ARCH}" != "amd64" ]]; then
+	#	einfo "Architecture is not 'amd64' - no updates for x32 ABI required"
+	#elif [[ "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
+	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
 
 		local LD32="$( get_abi_LIBDIR x86 )"
@@ -1338,9 +1339,9 @@ glibc_do_src_install() {
 		x32     /${LDx32}/ld-linux-x32.so.2
 		x86     /${LD32}/ld-linux.so.2
 		# mips
-		o32     /${LD32}/ld.so.1
-		n32     /${LDx32}/ld.so.1
-		n64     /${LD64}/ld.so.1
+		o32     /lib/ld.so.1
+		n32     /lib32/ld.so.1
+		n64     /lib64/ld.so.1
 		# powerpc
 		ppc     /lib/ld.so.1
 		# riscv
@@ -1353,7 +1354,7 @@ glibc_do_src_install() {
 		s390x   /lib/ld64.so.1
 		# sparc
 		sparc32 /lib/ld-linux.so.2
-		sparc64 /${LD64}/ld-linux.so.2
+		sparc64 /lib64/ld-linux.so.2
 	)
 	case $(tc-endian) in
 	little)
@@ -1361,7 +1362,7 @@ glibc_do_src_install() {
 			# arm
 			arm64   /lib/ld-linux-aarch64.so.1
 			# ELFv2 (glibc does not support ELFv1 on LE)
-			ppc64   /${LD64}/ld64.so.2
+			ppc64   /lib64/ld64.so.2
 		)
 		;;
 	big)
@@ -1369,7 +1370,7 @@ glibc_do_src_install() {
 			# arm
 			arm64   /lib/ld-linux-aarch64_be.so.1
 			# ELFv1 (glibc does not support ELFv2 on BE)
-			ppc64   /${LD64}/ld64.so.1
+			ppc64   /lib64/ld64.so.1
 		)
 		;;
 	esac

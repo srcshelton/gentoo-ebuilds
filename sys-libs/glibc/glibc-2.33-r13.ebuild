@@ -877,9 +877,7 @@ src_prepare() {
 
 	cd "${S}"
 
-	if ! [[ "${ARCH}" == "amd64" ]]; then
-		einfo "Architecture is not 'amd64' - no updates for x32 ABI required"
-	else
+	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
 
 		local LD32="$( get_abi_LIBDIR x86 )"
@@ -898,28 +896,41 @@ src_prepare() {
 		local LD64s="${LD64#${LD32}}"
 
 		einfo "Using the following libdir paths:"
-		einfo "  32-bit libraries in '${LD32}'"
-		einfo "  Long-mode 32-bit libraries in '${LDx32}'"
-		einfo "  64-bit libraries in '${LD64}'"
-
-		cd "${S}"
+		einfo "  32-bit libraries in '${LD32:=lib}'"
+		einfo "  Long-mode 32-bit libraries in '${LDx32:=libx32}'"
+		einfo "  64-bit libraries in '${LD64:=lib64}'"
 
 		sed -i \
-			-e "/LIBC_SLIBDIR_RTLDDIR/{s:/libx32:/${LDx32:-libx32}:g}" \
+			-e "/LIBC_SLIBDIR_RTLDDIR/{s:libx32:${LDx32}:g}" \
 				sysdeps/unix/sysv/linux/x86_64/x32/configure.ac \
 			|| die 'configure.ac patch failed'
+		einfo "Using the following LIBC_SLIBDIR_RTLDDIR definiton:"
+		einfo "$(
+			grep -F 'LIBC_SLIBDIR_RTLDDIR' sysdeps/unix/sysv/linux/x86_64/x32/configure.ac |
+			sed 's/^/  /g'
+		)"
 
 		sed -i \
-			-e "s:/libx32:/${LDx32:-libx32}:g" \
+			-e "s:/libx32:/${LDx32}:g" \
 				sysdeps/unix/sysv/linux/x86_64/x32/configure \
 			|| die 'configure patch failed'
+		einfo "Using the following x32 declarations:"
+		einfo "$(
+			grep -FA 3 -B 2 'dir=' sysdeps/unix/sysv/linux/x86_64/x32/configure |
+			sed 's/^/  /g'
+		)"
 
 		sed -i \
-			-e "/FLAG_ELF_LIBC6/{s:/lib/:/${LD32:-lib}/:}" \
-			-e "/FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32:-libx32}/:}" \
-			-e "/FLAG_ELF_LIBC6/{s:/lib64/:/${LD64:-lib64}/:}" \
+			-e "/FLAG_ELF_LIBC6/{s:/lib/:/${LD32}/:}" \
+			-e "/FLAG_ELF_LIBC6/{s:/libx32/:/${LDx32}/:}" \
+			-e "/FLAG_ELF_LIBC6/{s:/lib64/:/${LD64}/:}" \
 				sysdeps/unix/sysv/linux/x86_64/ldconfig.h \
-			|| die 'known_interpreter_names replacement failed'
+			|| die 'ldconfig.h patch failed'
+		einfo "Using the following SYSDEP_KNOWN_INTERPRETER_NAMES definition:"
+		einfo "$(
+			grep -B 1 'ld.*FLAG_ELF_LIBC6' sysdeps/unix/sysv/linux/x86_64/ldconfig.h |
+			sed 's/^/  /g'
+		)"
 
 		#      if (len >= 6 && ! memcmp (path + len - 6, "/lib64", 6))   \
 		#        {                                                       \
@@ -936,19 +947,32 @@ src_prepare() {
 		#          add_dir (path);                                       \
 		#          memcpy (path + len, "x32", 4);                                \
 		sed -i \
-			-e "/ memcmp /{s:len >= 6 :len >= ${LD64l} : ; s: 6, \"/lib64\", 6): ${LD64l}, \"/${LD64:-lib64}\", ${LD64l}):}" \
+			-e "/ memcmp /{s:len >= 6 :len >= ${LD64l} : ; s: 6, \"/lib64\", 6): ${LD64l}, \"/${LD64}\", ${LD64l}):}" \
 			-e "/len -= 2;/{s:len -= 2;:len -= ${#LD64s};:}" \
 			-e "/else if (len >= 7/{s:len >= 7:len >= ${LDx32l}:}" \
-			-e "/ memcmp /{s: 7, \"/libx32\", 7): ${LDx32l}, \"/${LDx32:-libx32}\", ${LDx32l}):}" \
+			-e "/ memcmp /{s: 7, \"/libx32\", 7): ${LDx32l}, \"/${LDx32}\", ${LDx32l}):}" \
 			-e "/len -= 3;/{s:len -= 3;:len -= ${#LDx32s};:}" \
-			-e "/ memcmp /{s:len >= 4 :len >= ${LD32l} : ; s: 4, \"/lib\", 4): ${LD32l}, \"/${LD32:-lib}\", ${LD32l}):}" \
+			-e "/ memcmp /{s:len >= 4 :len >= ${LD32l} : ; s: 4, \"/lib\", 4): ${LD32l}, \"/${LD32}\", ${LD32l}):}" \
 			-e "/memcpy /{s:len, \"64\", 3):len, \"${LD64s}\", $(( ${#LD64s} + 1 ))):}" \
 			-e "/memcpy /{s:len, \"x32\", 4):len, \"${LDx32s}\", $(( ${#LDx32s} + 1 ))):}" \
 				sysdeps/unix/sysv/linux/x86_64/dl-cache.h \
 			|| die 'dl-cache.h modification failed'
 
 		einfo "dl-cache.h now contains:"
-		cat sysdeps/unix/sysv/linux/x86_64/dl-cache.h
+		einfo "$(
+			cat sysdeps/unix/sysv/linux/x86_64/dl-cache.h |
+			sed 's/^/  /g'
+		)"
+
+		einfo "Checking for further 'x32' references ..."
+		output="$( grep -RHF 'libx32' . | grep -v 'ChangeLog.old/ChangeLog.18' )"
+		if [[ -n "${output}" ]]; then
+			ewarn "Further x32 references detected:"
+			ewarn "${output}"
+			sleep 10
+		else
+			einfo "... none found"
+		fi
 	fi
 }
 
