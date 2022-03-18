@@ -1,0 +1,105 @@
+--- a/include/pound.h.in
++++ b/include/pound.h.in
+@@ -126,6 +126,7 @@ typedef struct {
+     char    *http2_preamble[5];
+     int     log_facility;
+     int     log_level;
++    int     daemonise;
+ } GLOBAL;
+ 
+ extern GLOBAL   global;
+@@ -203,4 +204,4 @@ extern int get_be(HTTP_LISTENER *, char
+ extern void *thr_http(void *);
+ 
+ /* http2.c */
+-extern void do_http2(HTTP_LISTENER *, FILE *, char *, char *, int);
+\ No newline at end of file
++extern void do_http2(HTTP_LISTENER *, FILE *, char *, char *, int);
+
+--- a/src/config.c
++++ b/src/config.c
+@@ -599,7 +599,7 @@ get_base(yaml_document_t *document, yaml
+ void
+ config(const int argc, char **argv)
+ {
+-    int                 c_opt, o_check = 0, o_version = 0, is_key, i;
++    int                 c_opt, o_help = 0, o_check = 0, o_version = 0, is_key, i;
+     char                *f_conf = F_CONF;
+     FILE                *f_in;
+     yaml_parser_t       parser;
+@@ -614,15 +614,24 @@ config(const int argc, char **argv)
+     opterr = 0;
+     global.pid = "/var/run/pound.pid";
+     global.log_level = 0;
+-    while((c_opt = getopt(argc, argv, "f:cvd:p:")) > 0)
++    while((c_opt = getopt(argc, argv, "hDf:p:d:cv")) > 0)
+         switch(c_opt) {
++        case 'h':
++            /* print help and exit */
++            o_help = 1;
++            break;
++        case 'D':
++            /* don't daemonise: run in foreground */
++            global.daemonise = 0;
++            logmsg(4, "don't daemonise option %d %s:%d", global.daemonise, __FILE__, __LINE__);
++            break;
+         case 'f':
+-            /* configuration file specified on the commend line */
++            /* configuration file specified on the command line */
+             f_conf = optarg;
+             logmsg(4, "config file option %s %s:%d", f_conf, __FILE__, __LINE__);
+             break;
+         case 'p':
+-            /* configuration file specified on the commend line */
++            /* configuration file specified on the command line */
+             global.pid = optarg;
+             logmsg(4, "pid file option %s %s:%d", global.pid, __FILE__, __LINE__);
+             break;
+@@ -644,6 +653,20 @@ config(const int argc, char **argv)
+             logmsg(0, "Unknown flag %c", c_opt);
+             exit(1);
+         }
++    if(o_help) {
++        global.log_level = 1;
++        logmsg(0, "Usage: pound [-h] [-D] [-f <file>] [-p <file>] [-d <level>] [-c] [-v]");
++        logmsg(0, "");
++        logmsg(0, "       -h : Show this help message");
++        logmsg(0, "       -D : Don't daemonise");
++        logmsg(0, "       -f : Use specified configuration file");
++        logmsg(0, "       -p : Write PID to specified file");
++        logmsg(0, "       -d : Enable debug mode: don't daemonise, write all messages to stdout");
++        logmsg(0, "            Debug levels: 0 (disabled), 1 (least output) to 4 (most)");
++        logmsg(0, "       -c : Parse configuration file only and exit");
++        logmsg(0, "       -v : Show pound version and exit");
++        exit(0);
++    }
+     if(o_version) {
+         global.log_level = 1;
+         logmsg(0, "Pound version %s", VERSION);
+@@ -710,4 +733,4 @@ config(const int argc, char **argv)
+     if(o_check)
+         exit(0);
+     return;
+-}
+\ No newline at end of file
++}
+
+--- a/src/pound.c
++++ b/src/pound.c
+@@ -56,6 +56,7 @@ main(const int argc, char **argv)
+     mbedtls_entropy_context     tls_entropy;
+ 
+     memset(&global, 0, sizeof(global));
++    global.daemonise = 1;
+     global.log_facility = LOG_FACILITY;
+     openlog("pound", LOG_CONS | LOG_NDELAY, global.log_facility);
+     mbedtls_entropy_init(&tls_entropy);
+@@ -86,7 +87,7 @@ main(const int argc, char **argv)
+     global.http2_preamble[4] = NULL;
+ 
+     /* Daemonize if needed */
+-    if(global.log_level == 0) {
++    if(global.log_level == 0 && global.daemonise == 1) {
+         switch(fork()) {
+             case 0:
+                 close(0);

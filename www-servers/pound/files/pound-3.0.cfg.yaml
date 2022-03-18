@@ -1,0 +1,69 @@
+---
+
+## Minimal sample pound.cfg
+##
+## see pound(8) for details
+
+
+######################################################################
+#Global:
+#  User: 'nobody'
+#  Group: 'nobody'
+#  RootJail: '/chroot/pound'
+#  Err404: '/path/to/html'
+#  Err405: '/path/to/html'
+#  Err500: '/path/to/html'
+#
+#Backends:
+#  - &name
+#    Address: <ip_or_hostname>
+#    Port: <0-65535>
+#    # optional:
+#    Timeout: 15
+#    Threads: 8
+#    HeadAdd: 'header'
+#
+#Services:
+#  - URL: <url>
+#    HeadRequire: <pattern>
+#    HeadDeny: <pattern>
+#    Session: 0
+#    BackEnds:
+#      - *name
+#
+#HTTPListeners:
+#  - Address: <ip_or_hostname>
+#    Port: <0-65535>
+#    # optional:
+#    Client: 5
+#    Threads: 8
+#
+#HTTPSListeners:
+#  - Address: <ip_or_hostname>
+#    Port: <0-65535>
+#    # optional:
+#    Client: 5
+#    Threads: 8
+#    Certificates: <filename_or_list>
+#    Ciphers: <names>
+
+Global:
+  User: 'nobody'
+  Group: 'nobody'
+
+Backends:
+  - &local_80
+    Address: 127.0.0.1
+    Port: 80
+
+HTTPListeners:
+  - Address: 127.0.0.1
+    Port: 8888
+    Services:
+      - URL: ".*"
+        Backends:
+          - *local_80
+
+HTTPSListeners:
+
+...
