@@ -142,23 +142,47 @@ src_prepare() {
 	gnuconfig_update
 	elibtoolize --portage --no-uclibc
 
-	if [[ "${ARCH}" == "amd64" ]]; then
-		einfo "Updating lib(x)32 paths on AMD64 ..."
+	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
+		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
 
 		#local LD32="$( get_abi_LIBDIR x86 )"
 		local LDx32="$( get_abi_LIBDIR x32 )"
 		#local LD64="$( get_abi_LIBDIR amd64 )"
 
-		LDx32="${LDx32:-libx32}"
+		einfo "Using the following libdir paths:"
+		#einfo "  32-bit libraries in '${LD32:=lib}'"
+		einfo "  Long-mode 32-bit libraries in '${LDx32:=libx32}'"
+		#einfo "  64-bit libraries in '${LD64:=lib64}'"
 
 		sed -i \
 			-e "/program interpreter$/{s:\"/libx32/ldx32.so.1\":\"/${LDx32}/ldx32.so.1\":}" \
 				gold/x86_64.cc \
-			|| die 'program interpreter replacement failed'
+			|| die 'x86_64.cc patch failed'
+		einfo "Using the following 'program interpreter' definitions:"
+		einfo "$(
+			grep -F 'program interpreter' gold/x86_64.cc |
+			sed 's/^/  /g'
+		)"
+
 		sed -i \
 		    -e "/LIBPATH_SUFFIX=/{s:=x32$:=${LDx32#lib}:}" \
 			    ld/emulparams/elf32_x86_64.sh \
 			|| die 'elf32_x86_64.sh patch failed'
+		einfo "Using the following 'LIBPATH_SUFFIX' definitions:"
+		einfo "$(
+			grep -FC 2 'LIBPATH_SUFFIX' ld/emulparams/elf32_x86_64.sh |
+			sed 's/^/  /g'
+		)"
+
+		einfo "Checking for further 'x32' references ..."
+		output="$( grep -RHF 'libx32' . )"
+		if [[ -n "${output}" ]]; then
+			ewarn "Further x32 references detected:"
+			ewarn "${output}"
+			sleep 10
+		else
+			einfo "... none found"
+		fi
 	fi
 }
 
