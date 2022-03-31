@@ -570,6 +570,7 @@ directory is an additional QA check which reports an error if files deployed to
     * Fix list of libraries relocated to the root filesystem
 * sys-libs/pam
 * sys-power/acpid
+* sys-process/cronie
 * www-servers/lighttpd
 * www-servers/spawn-fcgi
 
