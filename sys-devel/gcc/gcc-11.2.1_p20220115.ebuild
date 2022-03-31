@@ -10,7 +10,7 @@ MUSL_GCC_VER="11.3.0"
 
 inherit toolchain
 
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ppc ~ppc64 ~riscv ~s390 sparc ~x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ~ppc64 ~riscv ~s390 sparc x86"
 IUSE="-lib-only"
 
 # Technically only if USE=hardened *too* right now, but no point in complicating it further.
@@ -19,7 +19,9 @@ IUSE="-lib-only"
 DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
 RDEPEND="${RDEPEND}
 	!=sys-devel/gcc-libs-${PV}"
-BDEPEND="${CATEGORY}/binutils[cet(-)?]"
+BDEPEND="${CATEGORY}/binutils[cet(-)?]
+	sys-apps/texinfo
+	sys-devel/flex"
 
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
