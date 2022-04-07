@@ -525,6 +525,7 @@ directory is an additional QA check which reports an error if files deployed to
 * dev-db/redis
 * dev-libs/cyrus-sasl
     * Prevent binary merges from failing due to assumptions about build files being present
+* dev-vcs/git
 * mail-filter/spamassassin
 * net-analyzer/arpwatch
 * net-analyzer/darkstat
