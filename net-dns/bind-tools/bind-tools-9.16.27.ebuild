@@ -54,6 +54,10 @@ src_prepare() {
 	# Disable tests for now, bug 406399
 	sed -i '/^SUBDIRS/s:tests::' bin/Makefile.in lib/Makefile.in || die
 
+	# Do not disable thread local storage on Solaris, it works with our
+	# toolchain, and it breaks further configure checks
+	sed -i -e '/LDFLAGS=/s/-zrelax=transtls//' configure.ac configure || die
+
 	# Fix hard-coding of .../lib/ - this appears to now be fixed and no longer
 	# necessary, but does no harm in case anything has been missed.  A small
 	# fix-up of the resulting configure script is still helpful for mysql
