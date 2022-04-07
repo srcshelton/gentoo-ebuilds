@@ -85,7 +85,8 @@ multilib_src_install() {
 		DESTDIR="${D}" \
 		$(multilib_is_native_abi || echo "bin_PROGRAMS= dist_html_DATA=") \
 		install
-	multilib_is_native_abi && gen_usr_ldscript -a pcre2-posix pcre2-8
+	multilib_is_native_abi && gen_usr_ldscript -a pcre2-posix pcre2-8 \
+		$(usex pcre16 'pcre2-16' '') $(usex pcre32 'pcre2-32' '') 
 }
 
 multilib_src_install_all() {
