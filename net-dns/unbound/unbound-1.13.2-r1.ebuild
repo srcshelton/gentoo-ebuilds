@@ -111,12 +111,12 @@ multilib_src_configure() {
 		--disable-rpath \
 		--enable-event-api \
 		--enable-ipsecmod \
-		--with-libevent="${EPREFIX%/}"/usr \
-		$(multilib_native_usex redis --with-libhiredis="${EPREFIX%/}/usr" --without-libhiredis) \
+		--with-libevent="${ESYSROOT%/}"/usr \
+		$(multilib_native_usex redis --with-libhiredis="${ESYSROOT%/}/usr" --without-libhiredis) \
 		--with-pidfile="${EPREFIX%/}"/var/run/unbound.pid \
 		--with-rootkey-file="${EPREFIX%/}"/etc/dnssec/root-anchors.txt \
-		--with-ssl="${EPREFIX%/}"/usr \
-		--with-libexpat="${EPREFIX%/}"/usr
+		--with-ssl="${ESYSROOT%/}"/usr \
+		--with-libexpat="${ESYSROOT%/}"/usr
 
 		# http://unbound.nlnetlabs.nl/pipermail/unbound-users/2011-April/001801.html
 		# $(use_enable debug lock-checks) \
@@ -126,7 +126,7 @@ multilib_src_configure() {
 }
 
 multilib_src_install() {
-	emake DESTDIR="${ED}" install
+	emake DESTDIR="${D}" install
 
 	if use systemd; then
 		systemd_dounit contrib/unbound.service
@@ -213,3 +213,5 @@ pkg_postinst() {
 		rm -f "${_perm_check_testfile}"
 	fi
 }
+
+# vi: set diffopt=filler,iwhite:
