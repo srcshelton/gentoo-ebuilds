@@ -17,14 +17,15 @@ LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
 KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
-IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
+IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
 	>=app-containers/conmon-2.0.24
-	|| ( >=app-containers/runc-1.0.0_rc6 app-containers/crun )
+	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
+	!cgroup-hybrid? ( app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	>=net-misc/cni-plugins-0.8.6
