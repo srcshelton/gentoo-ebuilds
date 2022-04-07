@@ -53,7 +53,7 @@ IUSE="systemd"
 
 # << Eclass variables >>
 
-# @ECLASS-VARIABLE: ACCT_GROUP_NAME
+# @ECLASS_VARIABLE: ACCT_GROUP_NAME
 # @INTERNAL
 # @DESCRIPTION:
 # The name of the group.  This is forced to ${PN} and the policy
@@ -61,7 +61,7 @@ IUSE="systemd"
 ACCT_GROUP_NAME=${PN}
 readonly ACCT_GROUP_NAME
 
-# @ECLASS-VARIABLE: ACCT_GROUP_ID
+# @ECLASS_VARIABLE: ACCT_GROUP_ID
 # @REQUIRED
 # @DESCRIPTION:
 # Preferred GID for the new group.  This variable is obligatory, and its
@@ -71,7 +71,7 @@ readonly ACCT_GROUP_NAME
 # Overlays should set this to -1 to dynamically allocate GID.  Using -1
 # in ::gentoo is prohibited by policy.
 
-# @ECLASS-VARIABLE: ACCT_GROUP_ENFORCE_ID
+# @ECLASS_VARIABLE: ACCT_GROUP_ENFORCE_ID
 # @DESCRIPTION:
 # If set to a non-null value, the eclass will require the group to have
 # specified GID.  If the group already exists with another GID, or
