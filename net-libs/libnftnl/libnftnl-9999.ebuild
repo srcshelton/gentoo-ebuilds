@@ -1,9 +1,9 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-inherit autotools linux-info usr-ldscript
+inherit autotools linux-info usr-ldscript verify-sig
 
 DESCRIPTION="Netlink API to the in-kernel nf_tables subsystem"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
@@ -12,8 +12,10 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
 else
-	SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2"
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
+	SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2
+		verify-sig? ( https://netfilter.org/projects/${PN}/files/${P}.tar.bz2.sig )"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv sparc x86"
+	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
 fi
 
 LICENSE="GPL-2"
@@ -25,7 +27,8 @@ RESTRICT="!test? ( test )"
 RDEPEND=">=net-libs/libmnl-1.0.4:=
 	xml? ( >=dev-libs/mxml-2.6 )
 	json? ( >=dev-libs/jansson-2.3 )"
-BDEPEND="virtual/pkgconfig"
+BDEPEND="virtual/pkgconfig
+	verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 DEPEND="${RDEPEND}"
 
 pkg_setup() {
