@@ -5,7 +5,7 @@ EAPI=7
 
 PYTHON_COMPAT=( python3_{7..10} )
 DISTUTILS_OPTIONAL=1
-inherit autotools distutils-r1 linux-info systemd usr-ldscript
+inherit autotools distutils-r1 linux-info systemd usr-ldscript verify-sig
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
@@ -14,8 +14,10 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
 else
-	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2"
+	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2
+		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.bz2.sig )"
 	KEYWORDS="amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv sparc x86"
+	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
 fi
 
 LICENSE="GPL-2"
@@ -39,6 +41,7 @@ BDEPEND="
 		app-text/asciidoc
 		>=app-text/docbook2X-0.8.8-r4
 	)
+	verify-sig? ( sec-keys/openpgp-keys-netfilter )
 	sys-devel/bison
 	sys-devel/flex
 	virtual/pkgconfig
