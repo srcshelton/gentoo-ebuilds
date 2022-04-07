@@ -22,13 +22,13 @@ SLOT="2.2"
 EMULTILIB_PKG="true"
 
 # Gentoo patchset (ignored for live ebuilds)
-PATCH_VER=11
+PATCH_VER=15
 PATCH_DEV=dilfridge
 
 if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz"
 	SRC_URI+=" https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 fi
@@ -39,7 +39,7 @@ GCC_BOOTSTRAP_VER=20201208
 
 LOCALE_GEN_VER=2.22
 
-GLIBC_SYSTEMD_VER=20210814
+GLIBC_SYSTEMD_VER=20210729
 
 SRC_URI+=" https://gitweb.gentoo.org/proj/locale-gen.git/snapshot/locale-gen-${LOCALE_GEN_VER}.tar.gz"
 SRC_URI+=" multilib-bootstrap? ( https://dev.gentoo.org/~dilfridge/distfiles/gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz )"
@@ -50,6 +50,9 @@ REQUIRED_USE="vanilla? ( timezone-tools )"
 
 # Minimum kernel version that glibc requires
 MIN_KERN_VER="3.2.0"
+# Minimum pax-utils version needed (which contains any new syscall changes for
+# its seccomp filter!). Please double check this!
+MIN_PAX_UTILS_VER="1.3.3"
 
 # Here's how the cross-compile logic breaks down ...
 #  CTARGET - machine that will target the binaries
@@ -103,7 +106,7 @@ fi
 
 BDEPEND="
 	${PYTHON_DEPS}
-	>=app-misc/pax-utils-1.3.1
+	>=app-misc/pax-utils-${MIN_PAX_UTILS_VER}
 	sys-devel/bison
 	doc? ( sys-apps/texinfo )
 	!compile-locales? (
@@ -135,7 +138,7 @@ RDEPEND="${COMMON_DEPEND}
 	sys-apps/grep
 	virtual/awk
 	sys-apps/gentoo-functions
-	!<app-misc/pax-utils-1.3.1
+	!<app-misc/pax-utils-${MIN_PAX_UTILS_VER}
 	!<net-misc/openssh-8.1_p1-r2
 "
 
@@ -166,18 +169,10 @@ GENTOO_GLIBC_XFAIL_TESTS="${GENTOO_GLIBC_XFAIL_TESTS:-yes}"
 # The following tests fail due to the Gentoo build system and are thus
 # executed but ignored:
 XFAIL_TEST_LIST=(
-	# 9) Failures of unknown origin
-	tst-latepthread
-
 	# buggy test, assumes /dev/ and /dev/null on a single filesystem
 	# 'mount --bind /dev/null /chroot/dev/null' breaks it.
 	# https://sourceware.org/PR25909
 	tst-support_descriptors
-
-	# Flaky test, known to fail occasionally:
-	# https://sourceware.org/PR19329
-	# https://bugs.gentoo.org/719674#c12
-	tst-stack4
 
 	# The following tests fail only inside portage
 	# https://bugs.gentoo.org/831267
@@ -329,6 +324,14 @@ setup_target_flags() {
 				export CFLAGS_x86="${CFLAGS_x86} -march=${t}"
 				einfo "Auto adding -march=${t} to CFLAGS_x86 #185404 (ABI=${ABI})"
 			fi
+
+			# Workaround for https://bugs.gentoo.org/823780. This really should
+			# be removed when the upstream bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=103275
+			# is fixed in our tree, either via 11.3 or an 11.2p2 patch set.
+			if [[ ${ABI} == x86 ]] && tc-is-gcc && (($(gcc-major-version) == 11)) && (($(gcc-minor-version) <= 2)) && (($(gcc-micro-version) == 0)); then
+				export CFLAGS_x86="${CFLAGS_x86} -mno-avx512f"
+				einfo "Auto adding -mno-avx512f to CFLAGS_x86 (bug #823780) (ABI=${ABI})"
+			fi
 		;;
 		mips)
 			# The mips abi cannot support the GNU style hashes. #233233
@@ -403,6 +406,7 @@ setup_flags() {
 		filter-flags '-O?'
 		append-flags -O2
 	fi
+
 	strip-unsupported-flags
 	filter-flags -m32 -m64 '-mabi=*'
 
@@ -512,6 +516,7 @@ setup_env() {
 	export __ORIG_CXX=${CXX}
 
 	if tc-is-clang && ! use custom-cflags && ! is_crosscompile ; then
+
 		# If we are running in an otherwise clang/llvm environment, we need to
 		# recover the proper gcc and binutils settings here, at least until glibc
 		# is finally building with clang. So let's override everything that is
@@ -520,9 +525,11 @@ setup_env() {
 		# a good start into that direction.
 		# Also, if you're crosscompiling, let's assume you know what you are doing.
 		# Hopefully.
+		# Last, we need the settings of the *build* environment, not of the
+		# target environment...
 
-		local current_binutils_path=$(binutils-config -B)
-		local current_gcc_path=$(gcc-config -B)
+		local current_binutils_path=$(env ROOT="${SYSROOT}" binutils-config -B)
+		local current_gcc_path=$(env ROOT="${SYSROOT}" gcc-config -B)
 		einfo "Overriding clang configuration, since it won't work here"
 
 		export CC="${current_gcc_path}/gcc"
@@ -544,6 +551,7 @@ setup_env() {
 		filter-flags '-D_FORTIFY_SOURCE=*'
 
 	else
+
 		# this is the "normal" case
 
 		export CC="$(tc-getCC ${CTARGET})"
@@ -754,7 +762,15 @@ sanity_prechecks() {
 
 	# When we actually have to compile something...
 	if ! just_headers && [[ "${MERGE_TYPE}" != 'binary' ]] ; then
-		if [[ "${CTARGET}" == *-linux* ]] ; then
+		if [[ -d "${ESYSROOT}"/usr/lib/include ]] ; then
+			# bug #833620, bug #643302
+			eerror "Found ${ESYSROOT}/usr/lib/include directory!"
+			eerror "This is known to break glibc's build."
+			eerror "Please backup its contents then remove the directory."
+			die "Found directory (${ESYSROOT}/usr/lib/include) which will break build (bug #833620)!"
+		fi
+
+		if [[ ${CTARGET} == *-linux* ]] ; then
 			local run_kv build_kv want_kv
 
 			run_kv=$(g_get_running_KV)
@@ -790,6 +806,7 @@ upgrade_warning() {
 					ewarn "After upgrading glibc, please restart all running processes."
 					ewarn "Be sure to include init (telinit u) or systemd (systemctl daemon-reexec)."
 					ewarn "Alternatively, reboot your system."
+					ewarn "(See bug #660556, bug #741116, bug #823756, etc)"
 					break
 				fi
 			done
@@ -858,6 +875,14 @@ src_prepare() {
 		eapply "${WORKDIR}"/patches
 		einfo "Done."
 	fi
+
+	# Contained within our next patchset version but build-time only fix
+	# (pretty much, anyway) so just apply manually here for now until
+	# next patchset version rolled.
+	eapply "${FILESDIR}"/2.34/${P}-hppa-asm-getcontext-fixes.patch
+
+	# TODO: We can drop this once patch is gone from our patchset
+	append-cppflags -DGENTOO_USE_CLONE3
 
 	default
 
@@ -1611,7 +1636,7 @@ glibc_sanity_check() {
 
 	# first let's find the actual dynamic linker here
 	# symlinks may point to the wrong abi
-	local newldso="$( find . -maxdepth 1 -name 'ld-*so' -type f -print -quit )"
+	local newldso="$( find . -maxdepth 1 -name 'ld*so.?' -type f -print -quit )"
 
 	einfo "Last-minute run tests with ${newldso} in /$(get_libdir) ..."
 
@@ -1709,4 +1734,4 @@ pkg_postinst() {
 	fi
 }
 
-# vi: set diffopt=iwhite,filler:
+# vi: set diffopt=filler,iwhite:
