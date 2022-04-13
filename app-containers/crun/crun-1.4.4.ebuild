@@ -14,7 +14,7 @@ SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.gz
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
 KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv"
-IUSE="+bpf +caps criu man +seccomp static-libs systemd"
+IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
 
 COMMON_DEPEND="
 	>=dev-libs/yajl-2.0.0:=
@@ -30,7 +30,8 @@ DEPEND="
 	sys-devel/libtool
 	sys-kernel/linux-headers
 "
-RDEPEND="${COMMON_DEPEND}"
+RDEPEND="${COMMON_DEPEND}
+	selinux? ( sec-policy/selinux-container )"
 BDEPEND="
 	${PYTHON_DEPS}
 	man? ( dev-go/go-md2man )
@@ -69,8 +70,8 @@ src_configure() {
 		$(usex static-libs '--enable-shared --enable-static' '--enable-shared --disable-static')
 	)
 
-	# Bashism workaround for https://github.com/containers/crun/pull/880
-	# Drop once fixed in a release.
+	# Need https://github.com/containers/libocispec/pull/107 to be merged & land in
+	# a crun release that syncs up w/ latest version, then can drop CONFIG_SHELL
 	CONFIG_SHELL="${BROOT}/bin/bash" econf "${myeconfargs[@]}"
 }
 
