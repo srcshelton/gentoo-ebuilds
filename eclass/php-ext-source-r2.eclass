@@ -32,7 +32,7 @@ case ${EAPI} in
 		die "php-ext-source-r2 is not compatible with EAPI=${EAPI}"
 esac
 
-# @ECLASS-VARIABLE: PHP_EXT_NAME
+# @ECLASS_VARIABLE: PHP_EXT_NAME
 # @REQUIRED
 # @DESCRIPTION:
 # The extension name. This must be set, otherwise the eclass dies.
@@ -40,19 +40,19 @@ esac
 # inherits that eclass, you must set this manually before inherit.
 [[ -z "${PHP_EXT_NAME}" ]] && die "No module name specified for the php-ext-source-r2 eclass"
 
-# @ECLASS-VARIABLE: PHP_EXT_INI
+# @ECLASS_VARIABLE: PHP_EXT_INI
 # @DESCRIPTION:
 # Controls whether or not to add a line to php.ini for the extension.
 # Defaults to "yes" and should not be changed in most cases.
 [[ -z "${PHP_EXT_INI}" ]] && PHP_EXT_INI="yes"
 
-# @ECLASS-VARIABLE: PHP_EXT_ZENDEXT
+# @ECLASS_VARIABLE: PHP_EXT_ZENDEXT
 # @DESCRIPTION:
 # Controls whether the extension is a ZendEngine extension or not.
 # Defaults to "no" and if you don't know what is it, you don't need it.
 [[ -z "${PHP_EXT_ZENDEXT}" ]] && PHP_EXT_ZENDEXT="no"
 
-# @ECLASS-VARIABLE: USE_PHP
+# @ECLASS_VARIABLE: USE_PHP
 # @REQUIRED
 # @DESCRIPTION:
 # Lists the PHP slots compatibile the extension is compatibile with
@@ -62,13 +62,13 @@ esac
 # @CODE
 [[ -z "${USE_PHP}" ]] && die "USE_PHP is not set for the php-ext-source-r2 eclass"
 
-# @ECLASS-VARIABLE: PHP_EXT_OPTIONAL_USE
+# @ECLASS_VARIABLE: PHP_EXT_OPTIONAL_USE
 # @DESCRIPTION:
 # If set, this is the USE flag that the PHP dependencies are behind
 # Most commonly set as PHP_EXT_OPTIONAL_USE=php to get the dependencies behind
 # USE=php.
 
-# @ECLASS-VARIABLE: PHP_EXT_S
+# @ECLASS_VARIABLE: PHP_EXT_S
 # @DESCRIPTION:
 # The relative location of the temporary build directory for the PHP extension within
 # the source package. This is useful for packages that bundle the PHP extension.
@@ -103,7 +103,7 @@ DEPEND="${DEPEND}
 # @DESCRIPTION:
 # runs standard src_unpack + _phpize
 
-# @ECLASS-VARIABLE: PHP_EXT_SKIP_PHPIZE
+# @ECLASS_VARIABLE: PHP_EXT_SKIP_PHPIZE
 # @DESCRIPTION:
 # phpize will be run by default for all ebuilds that use
 # php-ext-source-r2_src_unpack
@@ -145,7 +145,7 @@ php-ext-source-r2_phpize() {
 # @DESCRIPTION:
 # Takes care of standard configure for PHP extensions (modules).
 
-# @ECLASS-VARIABLE: my_conf
+# @ECLASS_VARIABLE: my_conf
 # @DESCRIPTION:
 # Set this in the ebuild to pass configure options to econf.
 
@@ -194,7 +194,7 @@ php-ext-source-r2_src_compile() {
 # @DESCRIPTION:
 # Takes care of standard install for PHP extensions (modules).
 
-# @ECLASS-VARIABLE: DOCS
+# @ECLASS_VARIABLE: DOCS
 # @DESCRIPTION:
 # Set in ebuild if you wish to install additional, package-specific documentation.
 php-ext-source-r2_src_install() {

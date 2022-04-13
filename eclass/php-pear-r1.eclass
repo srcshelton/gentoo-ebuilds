@@ -35,7 +35,7 @@ DEPEND="${PHP_DEPEND}
 	 >=dev-php/pear-1.8.1"
 RDEPEND="${DEPEND}"
 
-# @ECLASS-VARIABLE: PHP_PEAR_PKG_NAME
+# @ECLASS_VARIABLE: PHP_PEAR_PKG_NAME
 # @DESCRIPTION:
 # Set this if the the PEAR package name differs from ${PN/PEAR-/}
 # (generally shouldn't be the case).
@@ -50,7 +50,7 @@ fix_PEAR_PV() {
 	PEAR_PV="${tmp}"
 }
 
-# @ECLASS-VARIABLE: PEAR_PV
+# @ECLASS_VARIABLE: PEAR_PV
 # @DESCRIPTION:
 # Set in ebuild if the eclass ${PV} mangling breaks SRC_URI for alpha/beta/rc versions
 [[ -z "${PEAR_PV}" ]] && fix_PEAR_PV
