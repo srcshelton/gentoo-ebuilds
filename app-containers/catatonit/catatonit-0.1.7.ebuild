@@ -11,7 +11,7 @@ RESTRICT="mirror"
 
 LICENSE="GPL-3+"
 SLOT="0"
-KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv ~x86"
+KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
 
 DEPEND="
 	sys-devel/autogen
@@ -30,5 +30,7 @@ src_configure() {
 src_install() {
 	default
 	dodir /usr/libexec/podman
+	# Deploy symlink in place of hardlink...
+	#ln "${ED}/usr/"{bin,libexec/podman}/catatonit || die
 	ln -s ../../bin/catatonit "${ED}"/usr/libexec/podman/catatonit || die
 }
