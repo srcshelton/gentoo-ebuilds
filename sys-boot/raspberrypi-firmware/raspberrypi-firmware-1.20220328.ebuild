@@ -1,7 +1,7 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit mount-boot readme.gentoo-r1
 
@@ -25,7 +25,7 @@ HOMEPAGE="https://github.com/raspberrypi/firmware"
 
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+rpi4 64bit"
+IUSE="64bit +rpi4"
 
 # Temporary safety measure to prevent ending up with a pair of
 # sys-kernel/raspberrypi-image and sys-boot/raspberrypi-firmware
