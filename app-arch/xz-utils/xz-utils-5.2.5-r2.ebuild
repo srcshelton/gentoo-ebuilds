@@ -46,6 +46,10 @@ BDEPEND="verify-sig? ( sec-keys/openpgp-keys-lassecollin )
 # Tests currently do not account for smaller feature set
 RESTRICT="!extra-filters? ( test )"
 
+PATCHES=(
+	"${FILESDIR}"/${P}-xzgrep-ZDI-CAN-16587.patch
+)
+
 src_prepare() {
 	default
 
