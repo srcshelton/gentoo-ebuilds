@@ -7,7 +7,6 @@ EGIT_COMMIT='62534053086fdeba7b93117e7c4dc6e797835a3e'
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
 COMMON_VERSION='0.47.4'
-CATATONIT_VERSION='0.1.7'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -16,7 +15,7 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
+KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
 IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
@@ -48,7 +47,8 @@ BDEPEND="
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	fuse? ( sys-fs/fuse-overlayfs )
-	init? ( app-containers/catatonit )"
+	init? ( app-containers/catatonit )
+	selinux? ( sec-policy/selinux-podman )"
 
 S="${WORKDIR}/${P/_/-}"
 
