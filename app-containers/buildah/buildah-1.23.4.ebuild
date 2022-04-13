@@ -1,9 +1,9 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 inherit bash-completion-r1 go-module
-GIT_COMMIT="fcf94e3982b87702e91df4699ce535c2b548f6a4"
+GIT_COMMIT="b6b492324e6fb855bb04a8c7080267103f5e5112"
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
