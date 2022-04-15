@@ -260,6 +260,10 @@ used to build perl)
     * ~~Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others~~
 * ~~app-editors/vim~~
     * ~~Add v8.0.1094 which fixes arbitrary characters appearing in macOS Terminal.app and others~~
+* app-containers/aardvark-dns
+    * DNS helper for app-containers/netavark
+* app-containers/netavark
+    * net-misc/cni-plugins replacement for app-containers/podman
 * app-containers/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
