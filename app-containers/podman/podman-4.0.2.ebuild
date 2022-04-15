@@ -28,7 +28,7 @@ COMMON_DEPEND="
 	!cgroup-hybrid? ( app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	>=net-misc/cni-plugins-0.8.6
+	|| ( app-containers/netavark >=net-misc/cni-plugins-0.8.6 )
 	sys-apps/shadow:=
 	sys-fs/lvm2
 	sys-libs/libseccomp:=
