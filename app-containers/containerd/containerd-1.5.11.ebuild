@@ -12,7 +12,7 @@ SRC_URI="https://github.com/containerd/containerd/archive/v${PV}.tar.gz -> ${P}.
 LICENSE="Apache-2.0"
 SLOT="0"
 KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv ~x86"
-IUSE="apparmor btrfs +cri device-mapper hardened +seccomp selinux systemd test"
+IUSE="apparmor btrfs +cri device-mapper doc hardened +seccomp selinux systemd test"
 
 DEPEND="
 	btrfs? ( sys-fs/btrfs-progs )
@@ -79,6 +79,10 @@ src_install() {
 	# before installing docs directory
 	rm -r docs/man || die
 
-	local DOCS=( README.md PLUGINS.md docs/. )
+	# Also remove PDF documentation
+	rm docs/*.pdf || die
+
+	local DOCS=( README.md )
+	use doc && DOCS+=( docs/. )
 	einstalldocs
 }
