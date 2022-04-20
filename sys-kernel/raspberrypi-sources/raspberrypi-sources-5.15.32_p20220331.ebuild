@@ -1,14 +1,17 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 CKV="${PV%_p*}"
 ETYPE=sources
+K_EXP_GENPATCHES_NOUSE=1
+K_FROM_GIT=1
+K_GENPATCHES_VER=1
 #K_NOUSENAME=1
 #K_NOUSEPR=1
-K_FROM_GIT=1
 K_SECURITY_UNSUPPORTED=1
+K_WANT_GENPATCHES="base extras"
 H_SUPPORTEDARCH="arm arm64"
 
 inherit kernel-2
@@ -19,13 +22,20 @@ MY_PV="1.${PV#*_p}"
 
 DESCRIPTION="Raspberry Pi kernel sources"
 HOMEPAGE="https://github.com/raspberrypi/linux"
-SRC_URI="https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz"
+SRC_URI="https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz
+	${GENPATCHES_URI}"
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
 # Official designations: pi1, pi2, pi3, pi3+, pi4, pi400, cm4, pi0, pi0w, pi02
 IUSE="-rpi0 -rpi1 +rpi2 rpi3 rpi4"
 REQUIRED_USE="^^ ( rpi0 rpi1 rpi2 rpi3 rpi4 )"
+
+PATCHES=("${FILESDIR}"/${PN}-$(ver_cut 1-3)-gentoo-kconfig.patch)
+
+UNIPATCH_EXCLUDE="
+	10*
+	4567_distro-Gentoo-Kconfig.patch"
 
 S="${WORKDIR}/linux-${MY_PV}"
 
@@ -57,12 +67,30 @@ pkg_setup() {
 	else
 		die 'One of USE="rpi0", USE="rpi1", USE="rpi2", USE="rpi3", or USE="rpi4" must be selected'
 	fi
+
+	kernel-2_pkg_setup
 }
 
 src_unpack() {
 	default
 
 	unpack_set_extraversion
+
+	# remove all backup files
+	find . -iname "*~" -exec rm {} \; 2>/dev/null
+}
+
+src_prepare() {
+	# kernel-2_src_prepare doesn't apply PATCHES().
+	default
+	handle_genpatches --set-unipatch-list
+	[[ -n ${UNIPATCH_LIST} || -n ${UNIPATCH_LIST_DEFAULT} || -n ${UNIPATCH_LIST_GENPATCHES} ]] && \
+		unipatch "${UNIPATCH_LIST_DEFAULT} ${UNIPATCH_LIST_GENPATCHES} ${UNIPATCH_LIST}"
+
+	unpack_fix_install_path
+
+	# Setup xmakeopts and cd into sourcetree.
+	env_setup_xmakeopts
 }
 
 #src_compile() {
