@@ -550,6 +550,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-mail/dovecot
 * net-misc/cni-plugins
 * net-misc/dhcpcd
+* net-misc/iperf
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/ndisc6
