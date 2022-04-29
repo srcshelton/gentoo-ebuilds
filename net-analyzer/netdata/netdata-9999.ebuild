@@ -1,7 +1,7 @@
 # Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 PYTHON_COMPAT=( python{3_8,3_9,3_10} )
 
 inherit autotools fcaps flag-o-matic linux-info python-single-r1 systemd toolchain-funcs
@@ -10,8 +10,8 @@ if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/netdata/${PN}.git"
 	inherit git-r3
 else
-	SRC_URI="https://github.com/netdata/${PN}/releases/download/${PV}/${PN}-${PV}.tar.gz -> ${P}.tar.gz"
-	S="${WORKDIR}/${PN}-${PV}"
+	SRC_URI="https://github.com/netdata/${PN}/releases/download/v${PV}/${PN}-v${PV}.tar.gz -> ${P}.tar.gz"
+	S="${WORKDIR}/${PN}-v${PV}"
 	KEYWORDS="~amd64 ~ppc64 ~x86"
 	RESTRICT="mirror"
 fi
@@ -164,10 +164,10 @@ src_configure() {
 		$(use_enable dbengine) \
 		$(use_enable nfacct plugin-nfacct) \
 		$(use_enable ipmi plugin-freeipmi) \
-		$(use_enable kinesis backend-kinesis) \
+		$(use_enable kinesis exporting-kinesis) \
 		$(use_enable lto lto) \
-		$(use_enable mongodb backend-mongodb) \
-		$(use_enable prometheus backend-prometheus-remote-write) \
+		$(use_enable mongodb exporting-mongodb) \
+		$(use_enable prometheus exporting-prometheus-remote-write) \
 		$(use_enable xen plugin-xenstat) \
 		$(use_enable cpu_flags_x86_sse2 x86-sse) \
 		$(use_with compression zlib)
