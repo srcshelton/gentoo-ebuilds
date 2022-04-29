@@ -1,41 +1,31 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+EGIT_COMMIT='f8d2853259eae6ae82343c79df74dc926ba76b47'
 
-EGO_PN="github.com/containers/podman"
-MY_P="${P/_/-}"
+inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
-COMMON_VERSION='0.43.2'
-CATATONIT_VERSION='0.1.5'
-
-if [[ "${PV}" == *9999* ]]; then
-	EGIT_REPO_URI="https://${EGO_PN}.git"
-	EGIT_BRANCH="v3.2"
-	EGIT_CHECKOUT_DIR="${WORKDIR}/${MY_P}"
-	inherit git-r3
-else
-	EGIT_COMMIT='d577c44e359f9f8284b38cf984f939b3020badc3'
-	SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="~amd64 ~arm64"
-fi
-inherit bash-completion-r1 flag-o-matic go-module linux-info
+COMMON_VERSION='0.47.4'
+CATATONIT_VERSION='0.1.7'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
-SRC_URI="${SRC_URI:+${SRC+URI} }https://github.com/containers/common/archive/v${COMMON_VERSION}.tar.gz -> containers-common-${COMMON_VERSION}.tar.gz"
+SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
+	https://github.com/containers/common/archive/v${COMMON_VERSION}.tar.gz -> containers-common-${COMMON_VERSION}.tar.gz"
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64"
-IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd zsh-completion"
+KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
 	>=app-containers/conmon-2.0.24
-	|| ( >=app-containers/runc-1.0.0_rc6 app-containers/crun )
+	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
+	!cgroup-hybrid? ( app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	>=net-misc/cni-plugins-0.8.6
@@ -59,7 +49,7 @@ RDEPEND="${COMMON_DEPEND}
 	fuse? ( sys-fs/fuse-overlayfs )
 	app-containers/catatonit"
 
-S="${WORKDIR}/${MY_P}"
+S="${WORKDIR}/${P/_/-}"
 
 # Inherited from docker-19.03.8 ...
 CONFIG_CHECK="
@@ -103,7 +93,6 @@ ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-3.1.2-dev-warning.patch"
-	"${FILESDIR}/${PN}-3.2.2-stats.patch"
 )
 
 pkg_setup() {
@@ -170,13 +159,6 @@ pkg_setup() {
 	linux-info_pkg_setup
 }
 
-# Why hasn't this been invoked automatically?!
-src_unpack() {
-	default
-
-	git-r3_src_unpack
-}
-
 src_prepare() {
 	default
 
@@ -206,7 +188,7 @@ src_prepare() {
 }
 
 src_compile() {
-	local git_commit='' file=''
+	#local git_commit='' file=''
 	#git_commit=$(grep '^[[:space:]]*gitCommit[[:space:]]' vendor/k8s.io/client-go/pkg/version/base.go)
 	#git_commit=${git_commit#*\"}
 	#git_commit=${git_commit%\"*}
@@ -307,6 +289,8 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
+	use tmpfiles && tmpfiles_process podman.conf
+
 	local want_newline=false
 	if [[ ! ( -e ${EROOT%/*}/etc/containers/policy.json && -e ${EROOT%/*}/etc/containers/registries.conf ) ]]; then
 		elog "You need to create the following config files:"
