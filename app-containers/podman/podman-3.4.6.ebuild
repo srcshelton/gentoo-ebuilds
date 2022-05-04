@@ -6,7 +6,7 @@ EGIT_COMMIT='fb659cb53072c1dc2be35e6fd3f1f2740d278dab'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
-COMMON_VERSION='0.47.4'
+COMMON_VERSION='0.48.0'
 CATATONIT_VERSION='0.1.7'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"

@@ -6,7 +6,7 @@ EGIT_COMMIT='146dcb28dc028fbb0fdb7854f5e0e5863b78abe9'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-COMMON_VERSION='0.47.4'
+COMMON_VERSION='0.48.0'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
