@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -104,6 +104,10 @@ src_install() {
 }
 
 pkg_postinst() {
+	if use udev; then
+		udev_reload
+	fi
+
 	ewarn "The package ${PN} only includes open-source Raspberry Pi"
 	ewarn "utilities, and the sys-apps/raspberrypi-utilities-armv6 package is"
 	ewarn "additionally required for certain closed-source components such as"
