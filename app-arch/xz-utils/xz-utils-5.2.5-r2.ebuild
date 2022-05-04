@@ -22,8 +22,8 @@ else
 	SRC_URI="https://tukaani.org/xz/${MY_P}.tar.gz
 		verify-sig? ( https://tukaani.org/xz/${MY_P}.tar.gz.sig )"
 
-	if [[ "${PV}" != *_alpha* ]] && [[ "${PV}" != *_beta* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+	if [[ "${PV}" != *_alpha* && "${PV}" != *_beta* ]] ; then
+		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 	fi
 	S="${WORKDIR}/${MY_P}"
 fi
