@@ -2,10 +2,6 @@
 Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree
 packages and miscellaneous fixes.
 
-Also included is a script named `list-repo-updates.sh`, which will list any
-packages which exist with identical versions in both this repository and the
-main portage tree, but which still have the stock upstream package installed.
-
 # Latest versions of podman container management tools
 
 * app-containers/buildah
