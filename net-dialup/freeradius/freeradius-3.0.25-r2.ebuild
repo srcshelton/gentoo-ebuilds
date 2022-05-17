@@ -124,15 +124,15 @@ src_prepare() {
 		raddb/radiusd.conf.in || die
 
 	# verbosity
-	# build shared libraries using jlibtool --shared
+	# build shared libraries using jlibtool -shared
 	sed -i \
 		-e '/$(LIBTOOL)/s|--quiet ||g' \
-		-e 's:--mode=\(compile\|link\):& --shared:g' \
+		-e 's:--mode=\(compile\|link\):& -shared:g' \
 		Make.inc.in || die
 
 	sed -i \
 		-e 's|--silent ||g' \
-		-e 's:--mode=\(compile\|link\):& --shared:g' \
+		-e 's:--mode=\(compile\|link\):& -shared:g' \
 		scripts/libtool.mk || die
 
 	# crude measure to stop jlibtool from running ranlib and ar
