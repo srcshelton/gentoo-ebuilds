@@ -1,4 +1,4 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -9,9 +9,9 @@ DESCRIPTION="User-mode networking for unprivileged network namespaces"
 HOMEPAGE="https://github.com/rootless-containers/slirp4netns"
 SRC_URI="https://github.com/rootless-containers/slirp4netns/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
-KEYWORDS="~amd64 ~arm64 ~ppc64"
 LICENSE="GPL-2"
 SLOT="0"
+KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
 
 RDEPEND="
 	dev-libs/glib:2=
@@ -20,8 +20,10 @@ RDEPEND="
 	sys-libs/libseccomp:=
 	sys-libs/libcap:="
 
-DEPEND="${RDEPEND}
-	virtual/pkgconfig"
+DEPEND="${RDEPEND}"
+
+BDEPEND="virtual/pkgconfig"
+
 RESTRICT="test"
 
 PATCHES=(
