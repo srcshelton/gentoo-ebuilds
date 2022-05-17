@@ -16,7 +16,7 @@ if [[ ${PV} == "9999" ]] ; then
 else
 	MY_P="${PN}-${PV/_/-}"
 	SRC_URI="https://www.busybox.net/downloads/${MY_P}.tar.bz2"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 fi
 
 LICENSE="GPL-2" # GPL-2 only
@@ -28,9 +28,11 @@ REQUIRED_USE="!livecd? ( pam? ( !static ) )"
 RESTRICT="test"
 
 # TODO: Could make pkgconfig conditional on selinux? bug #782829
-COMMON_DEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
+COMMON_DEPEND="
+	virtual/libcrypt:=
+	!static? ( selinux? ( sys-libs/libselinux ) )
 	pam? ( sys-libs/pam )
-	virtual/libcrypt:="
+"
 DEPEND="${COMMON_DEPEND}
 	static? (
 		virtual/libcrypt[static-libs]
@@ -272,20 +274,20 @@ src_install() {
 
 	# add busybox daemon's, bug #444718
 	if busybox_config_enabled FEATURE_NTPD_SERVER; then
-		newconfd "${FILESDIR}/ntpd.confd" "busybox-ntpd"
-		newinitd "${FILESDIR}/ntpd.initd" "busybox-ntpd"
+		newconfd "${FILESDIR}"/ntpd.confd busybox-ntpd
+		newinitd "${FILESDIR}"/ntpd.initd busybox-ntpd
 	fi
 	if busybox_config_enabled SYSLOGD; then
-		newconfd "${FILESDIR}/syslogd.confd" "busybox-syslogd"
-		newinitd "${FILESDIR}/syslogd.initd" "busybox-syslogd"
+		newconfd "${FILESDIR}"/syslogd.confd busybox-syslogd
+		newinitd "${FILESDIR}"/syslogd.initd busybox-syslogd
 	fi
 	if busybox_config_enabled KLOGD; then
-		newconfd "${FILESDIR}/klogd.confd" "busybox-klogd"
-		newinitd "${FILESDIR}/klogd.initd" "busybox-klogd"
+		newconfd "${FILESDIR}"/klogd.confd busybox-klogd
+		newinitd "${FILESDIR}"/klogd.initd busybox-klogd
 	fi
 	if busybox_config_enabled WATCHDOG; then
-		newconfd "${FILESDIR}/watchdog.confd" "busybox-watchdog"
-		newinitd "${FILESDIR}/watchdog.initd" "busybox-watchdog"
+		newconfd "${FILESDIR}"/watchdog.confd busybox-watchdog
+		newinitd "${FILESDIR}"/watchdog.initd busybox-watchdog
 	fi
 	if busybox_config_enabled UDHCPC; then
 		local path=$(busybox_config_enabled UDHCPC_DEFAULT_SCRIPT)
