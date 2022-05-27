@@ -3,8 +3,9 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{8..11} )
+DISTUTILS_USE_PEP517=setuptools
 DISTUTILS_OPTIONAL=1
+PYTHON_COMPAT=( python3_{8..11} )
 
 inherit distutils-r1 libtool toolchain-funcs usr-ldscript multilib-minimal
 
@@ -34,10 +35,14 @@ DEPEND="${COMMON_DEPEND}
 RDEPEND="${COMMON_DEPEND}
 	python? ( !dev-python/python-magic )
 	seccomp? ( sys-libs/libseccomp[${MULTILIB_USEDEP}] )"
+BDEPEND="
+	python? (
+		${PYTHON_DEPS}
+		${DISTUTILS_DEPS}
+	)"
 
 PATCHES=(
 	"${FILESDIR}/file-5.39-portage-sandbox.patch" #713710 #728978
-	"${FILESDIR}/file-5.40-seccomp-fstatat64-musl.patch" #789336, not upstream yet
 )
 
 src_prepare() {
