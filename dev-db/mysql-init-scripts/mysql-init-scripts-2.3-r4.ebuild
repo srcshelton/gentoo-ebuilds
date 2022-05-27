@@ -11,8 +11,8 @@ SRC_URI=""
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="s6 systemd"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+IUSE="s6 systemd +tmpfiles"
 
 DEPEND=""
 # This _will_ break with MySQL 5.0, 4.x, 3.x
@@ -52,6 +52,8 @@ src_install() {
 		doexe "${FILESDIR}"/mysqld-wait-ready
 		systemd_newunit "${FILESDIR}/mysqld-v2.service" "mysqld.service"
 		systemd_newunit "${FILESDIR}/mysqld_at-v2.service" "mysqld@.service"
+	fi
+	if use tmpfiles; then
 		newtmpfiles "${FILESDIR}/mysql.conf-r1" "mysql.conf"
 	fi
 
@@ -60,6 +62,9 @@ src_install() {
 }
 
 pkg_postinst() {
+	if use tmpfiles; then
+		tmpfiles_process mysql.conf
+	fi
 	if use s6; then
 		if use amd64 || use x86 ; then
 			elog ""
@@ -69,7 +74,6 @@ pkg_postinst() {
 	fi
 
 	if use systemd; then
-		tmpfiles_process mysql.conf
 		elog ""
 		elog "Starting with version 10.1.8, MariaDB includes an improved systemd unit named mariadb.service"
 		elog "You should prefer that unit over this package's mysqld.service."
