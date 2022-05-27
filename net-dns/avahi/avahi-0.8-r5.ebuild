@@ -13,7 +13,7 @@ SRC_URI="https://github.com/lathiat/avahi/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="LGPL-2.1"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="autoipd bookmarks dbus doc gdbm gtk howl-compat +introspection ipv6 mdnsresponder-compat mono nls python qt5 selinux systemd test"
 
 REQUIRED_USE="
@@ -190,7 +190,8 @@ multilib_src_install() {
 	# The build system creates an empty "/run" directory, so we clean it up here
 	if [[ -d "${ED}"/run ]]; then
 		rmdir "${ED}"/run || die
-	elif [[ -d "${ED}"/var/run ]]; then
+	fi
+	if [[ -d "${ED}"/var/run ]]; then
 		rmdir "${ED}"/var/run || die
 	fi
 }
