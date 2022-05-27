@@ -16,7 +16,7 @@ SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
-IUSE="+ambient apparmor +doc hardened +kmem +seccomp selinux test"
+IUSE="+ambient apparmor +man hardened +kmem +seccomp selinux test"
 
 DEPEND="seccomp? ( sys-libs/libseccomp )"
 
@@ -28,7 +28,7 @@ RDEPEND="
 "
 
 BDEPEND="
-	doc? ( dev-go/go-md2man )
+	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils
 	sys-apps/grep
@@ -81,7 +81,7 @@ src_install() {
 	local DOCS=( README.md PRINCIPLES.md docs/. )
 	einstalldocs
 
-	if use doc; then
+	if use man; then
 		emake "${myemakeargs[@]}" install-man
 	fi
 }
