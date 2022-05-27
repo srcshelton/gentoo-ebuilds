@@ -148,15 +148,30 @@ esac
 # @DESCRIPTION:
 # Set the env ARCH to match what the kernel expects.
 set_arch_to_kernel() { export ARCH=$(tc-arch-kernel); }
+
 # @FUNCTION: set_arch_to_portage
 # @DESCRIPTION:
 # Set the env ARCH to match what portage expects.
-set_arch_to_portage() { export ARCH=$(tc-arch); }
+set_arch_to_portage() {
 
-# qeinfo "Message"
-# -------------------
-# qeinfo is a quiet einfo call when EBUILD_PHASE
-# should not have visible output.
+	ewarn "The function name: set_arch_to_portage is being deprecated and"
+	ewarn "being changed to:  set_arch_to_pkgmgr to comply with pms policy."
+	ewarn "See bug #843686"
+	ewarn "The old function name will be removed on or about July 1st, 2022."
+	ewarn "Please update your ebuild or eclass before this date."
+	ewarn ""
+
+	export ARCH=$(tc-arch);
+}
+
+# @FUNCTION: set_arch_to_pkgmgr
+# @DESCRIPTION:
+# Set the env ARCH to match what the package manager expects.
+set_arch_to_pkgmgr() { export ARCH=$(tc-arch); }
+
+# @FUNCTION: qout
+# @DESCRIPTION:
+# qout <einfo | ewarn | eerror>  is a quiet call when EBUILD_PHASE should not have visible output.
 qout() {
 	local outputmsg type
 	type=${1}
@@ -170,8 +185,21 @@ qout() {
 	[ -n "${outputmsg}" ] && ${type} "${outputmsg}"
 }
 
+# @FUNCTION: qeinfo
+# @DESCRIPTION:
+# qeinfo is a quiet einfo call when EBUILD_PHASE should not have visible output.
 qeinfo() { qout einfo "${@}" ; }
+
+# @FUNCTION: qewarn
+# @DESCRIPTION:
+# qewarn is a quiet ewarn call when EBUILD_PHASE
+# should not have visible output.
 qewarn() { qout ewarn "${@}" ; }
+
+# @FUNCTION: qeerror
+# @DESCRIPTION:
+# qeerror is a quiet error call when EBUILD_PHASE
+# should not have visible output.
 qeerror() { qout eerror "${@}" ; }
 
 # File Functions
@@ -253,6 +281,10 @@ getfilevar_noexec() {
 # config is available at all.
 _LINUX_CONFIG_EXISTS_DONE=
 
+# @FUNCTION: linux_config_qa_check
+# @INTERNAL
+# @DESCRIPTION:
+# Helper funciton which returns an error before the function argument is run if no config exists
 linux_config_qa_check() {
 	local f="$1"
 	if [ -z "${_LINUX_CONFIG_EXISTS_DONE}" ]; then
@@ -422,26 +454,9 @@ kernel_is() {
 		"${1:-${KV_MAJOR:-0}}.${2:-${KV_MINOR:-0}}.${3:-${KV_PATCH:-0}}"
 }
 
-get_localversion() {
-	local lv_list i x
-
-	local shopt_save=$(shopt -p nullglob)
-	shopt -s nullglob
-	local files=( ${1}/localversion* )
-	${shopt_save}
-
-	# ignore files with ~ in it.
-	for i in "${files[@]}"; do
-		[[ -n ${i//*~*} ]] && lv_list="${lv_list} ${i}"
-	done
-
-	for i in ${lv_list}; do
-		x="${x}$(<${i})"
-	done
-	x=${x/ /}
-	echo ${x}
-}
-
+# @FUNCTION: get_makefile_extract_function
+# @INTERNAL
+# @DESCRIPTION:
 # Check if the Makefile is valid for direct parsing.
 # Check status results:
 # - PASS, use 'getfilevar' to extract values
@@ -457,7 +472,10 @@ get_makefile_extract_function() {
 	echo "${mkfunc}"
 }
 
-# internal variable, so we know to only print the warning once
+# @ECLASS_VARIABLE: get_version_warning_done
+# @INTERNAL
+# @DESCRIPTION:
+# Internal variable, so we know to only print the warning once.
 get_version_warning_done=
 
 # @FUNCTION: get_version
@@ -547,7 +565,7 @@ get_version() {
 
 	# And contrary to existing functions I feel we shouldn't trust the
 	# directory name to find version information as this seems insane.
-	# So we parse ${KERNEL_MAKEFILE}.  
+	# So we parse ${KERNEL_MAKEFILE}.
 	KV_MAJOR=$(getfilevar VERSION "${KERNEL_MAKEFILE}")
 	KV_MINOR=$(getfilevar PATCHLEVEL "${KERNEL_MAKEFILE}")
 	KV_PATCH=$(getfilevar SUBLEVEL "${KERNEL_MAKEFILE}")
@@ -880,6 +898,9 @@ check_extra_config() {
 	export LINUX_CONFIG_EXISTS_DONE="${old_LINUX_CONFIG_EXISTS_DONE}"
 }
 
+# @FUNCTION: check_zlibinflate
+# @DESCRIPTION:
+# Function to make sure a ZLIB_INFLATE configuration has the required symbols.
 check_zlibinflate() {
 	if ! use kernel_linux; then
 		die "${FUNCNAME}() called on non-Linux system, please fix the ebuild"
