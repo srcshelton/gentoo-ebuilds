@@ -3,7 +3,7 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{7..9} )
+PYTHON_COMPAT=( python3_{7..10} )
 
 inherit autotools flag-o-matic prefix python-single-r1 systemd toolchain-funcs xdg-utils
 
@@ -56,6 +56,9 @@ src_prepare() {
 
 	# TODO: gdb tests fail due to gdb failing to find .c file
 	sed -i -e '/Gdb.*Case,/d' test/testdistcc.py || die
+
+	# See https://github.com/distcc/distcc/issues/454
+	append-cflags "-DPY_SSIZE_T_CLEAN"
 
 	hprefixify update-distcc-symlinks.py src/{serve,daemon}.c
 	python_fix_shebang update-distcc-symlinks.py "${T}/distcc-config"
