@@ -58,8 +58,8 @@ src_install() {
 	for dir in critical stable beta; do
 		doins -r firmware/${dir}
 	done
-	ln -s critical /lib/firmware/raspberrypi/bootloader/default
-	ln -s stable /lib/firmware/raspberrypi/bootloader/latest
+	dosym critical /lib/firmware/raspberrypi/bootloader/default
+	dosym stable /lib/firmware/raspberrypi/bootloader/latest
 
 	dodoc firmware/release-notes.md
 
