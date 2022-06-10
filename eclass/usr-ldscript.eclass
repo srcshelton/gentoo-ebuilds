@@ -38,7 +38,8 @@ DEPEND="${BDEPEND}"
 # the library (libfoo.so), as ldconfig should usually update it
 # correctly to point to the latest version of the library present.
 gen_usr_ldscript() {
-	local lib libdir=$(get_libdir) output_format="" auto=false suffix=$(get_libname)
+	local lib libdir="$(get_libdir)" output_format='' auto=false suffix="$(get_libname)"
+	local -i preexisting=0
 
 	tc-is-static-only && return
 	use prefix && return
@@ -74,7 +75,7 @@ gen_usr_ldscript() {
 		# If they're using gold, manually invoke the old bfd. #487696
 		local d="${T}/bfd-linker"
 		mkdir -p "${d}"
-		ln -sf $(which ${CHOST}-ld.bfd) "${d}"/ld
+		ln -sf "$(which ${CHOST}-ld.bfd)" "${d}"/ld
 		flags+=( -B"${d}" )
 	fi
 	output_format=$($(tc-getCC) "${flags[@]}" 2>&1 | sed -n 's/^OUTPUT_FORMAT("\([^"]*\)",.*/\1/p')
@@ -139,53 +140,74 @@ gen_usr_ldscript() {
 				tlib="$( scanelf -qF'%S#F' "${ED%/}/usr/${libdir}/${lib}" )"
 				if [[ -z "${tlib:-}" ]]; then
 					if ! command -v file >/dev/null 2>&1; then
-						warn "command 'file' not found"
+						ewarn "command 'file' not found"
 					fi
 					if
 						file "${ED%/}/usr/${libdir}/${lib}" 2>/dev/null |
 							grep -q -- 'ASCII text$' ||
 						grep -aq -- 'GNU ld script' "${ED%/}/usr/${libdir}/${lib}"
 					then
-						warn "file '${ED%/}/usr/${libdir}/${lib}' has already been replaced with a linker script"
+						ewarn "file '${ED%/}/usr/${libdir}/${lib}' is already a linker script"
 						if [[ -x "${ED%/}/usr/${libdir}/${lib}" ]] && (( $(
 								find "${ED%/}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
 						) )); then
 							return 0
 						else
-							die "However, the library does not appear to have been correcly relocated"
+							#
+							# libbsd is now writing a linker script in order to
+							# pull-in libmd for MD5 operations...
+							if grep -q -- '/usr/' "${ED%/}/usr/${libdir}/${lib}"; then
+								sed -e 's|/usr/|/|g' \
+									-i "${ED%/}/usr/${libdir}/${lib}"
+								ewarn "Existing linker-script updated - new content:"
+								ewarn "$( cat "${ED%/}/usr/${libdir}/${lib}" )"
+								preexisting=1
+							else
+								die "However, the library does not appear to have been correctly relocated"
+							fi
 						fi
 					fi
-					die "unable to read SONAME from ${lib}" \
-						"('scanelf -qF'%S#F' \"${ED%/}/usr/${libdir}/${lib}\"' returned '$(
-							scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib}
-						)': ${?})"
+					if ! (( preexisting )); then
+						die "unable to read SONAME from ${lib}" \
+							"('scanelf -qF'%S#F' \"${ED%/}/usr/${libdir}/${lib}\"' returned '$(
+								scanelf -qF'%S#F' "${ED%/}"/usr/${libdir}/${lib}
+							)': ${?})"
+					fi
 				fi
-				unset continue
 				mv "${ED%/}/usr/${libdir}/${lib}"* "${ED%/}/${libdir}"/ || die
 				# some SONAMEs are funky: they encode a version before the .so
 				if [[ ${tlib} != ${lib}* ]] ; then
 					mv "${ED%/}/usr/${libdir}/${tlib}"* "${ED%/}/${libdir}"/ || die
 				fi
-				rm -f "${ED%/}/${libdir}/${lib}"
+				if (( preexisting )); then
+					mv "${ED%/}/${libdir}/${lib}" "${ED%/}/usr/${libdir}"/
+					mv "${ED%/}/${libdir}/${lib%.so}"*.{a,la} "${ED%/}/usr/${libdir}"/
+				else
+					rm -f "${ED%/}/${libdir}/${lib}"
+				fi
 			else
 				tlib=${lib}
 			fi
-			cat > "${ED%/}/usr/${libdir}/${lib}" <<-END_LDSCRIPT
-			/* GNU ld script
-			   Since Gentoo has critical dynamic libraries in /lib, and the static versions
-			   in /usr/lib, we need to have a "fake" dynamic lib in /usr/lib, otherwise we
-			   run into linking problems.  This "fake" dynamic lib is a linker script that
-			   redirects the linker to the real lib.  And yes, this works in the cross-
-			   compiling scenario as the sysroot-ed linker will prepend the real path.
+			if ! (( preexisting )); then
+				cat > "${ED%/}/usr/${libdir}/${lib}" <<-END_LDSCRIPT
+				/* GNU ld script
+				   Since Gentoo has critical dynamic libraries in /lib, and the static versions
+				   in /usr/lib, we need to have a "fake" dynamic lib in /usr/lib, otherwise we
+				   run into linking problems.  This "fake" dynamic lib is a linker script that
+				   redirects the linker to the real lib.  And yes, this works in the cross-
+				   compiling scenario as the sysroot-ed linker will prepend the real path.
 
-			   See bug https://bugs.gentoo.org/4411 for more info.
-			 */
-			${output_format}
-			GROUP ( ${EPREFIX}/${libdir}/${tlib} )
-			END_LDSCRIPT
+				   See bug https://bugs.gentoo.org/4411 for more info.
+				 */
+				${output_format}
+				GROUP ( ${EPREFIX}/${libdir}/${tlib} )
+				END_LDSCRIPT
+			fi
 			;;
 		esac
-		fperms a+x "/usr/${libdir}/${lib}" || die "could not change perms on ${lib}"
+		if ! (( preexisting )); then
+			fperms a+x "/usr/${libdir}/${lib}" || die "could not change perms on ${lib}"
+		fi
 	done
 }
 
