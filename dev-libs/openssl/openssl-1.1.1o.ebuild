@@ -3,7 +3,7 @@
 
 EAPI="7"
 
-inherit flag-o-matic toolchain-funcs usr-ldscript verify-sig multilib-minimal
+inherit edo flag-o-matic toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
 MY_P=${P/_/-}
 
@@ -182,7 +182,6 @@ multilib_src_configure() {
 	tc-export CC AR RANLIB RC
 
 	use_ssl() { usex $1 "enable-${2:-$1}" "no-${2:-$1}" " ${*:3}" ; }
-	echoit() { echo "$@" ; "$@" ; }
 
 	local krb5=$(has_version app-crypt/mit-krb5 && echo "MIT" || echo "Heimdal")
 
@@ -218,8 +217,7 @@ multilib_src_configure() {
 	# Don't set it without thorough revdeps testing.
 	# Make sure user flags don't get added *yet* to avoid duplicated
 	# flags.
-	CFLAGS= LDFLAGS= echoit \
-	./${config} \
+	CFLAGS= LDFLAGS= edo ./${config} \
 		${sslout} \
 		$(use cpu_flags_x86_sse2 || echo "no-sse2") \
 		enable-camellia \
