@@ -378,6 +378,8 @@ used to build perl)
     * Install example configuration file to `/usr/share/doc/${PF}/` rather than `/etc/`
 * app-portage/eix
     * Make `tmpfiles` installation optional
+* app-portage/elt-patches
+    * Respect 'ROOT' variable when installing
 * dev-db/mongodb
     * Add firefox source to Allow building on ARM
 * dev-db/mysql-init-scripts
