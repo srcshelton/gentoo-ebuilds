@@ -493,6 +493,8 @@ used to build perl)
     * Add undeclared libudev dependency
 * sys-libs/libhugetlbfs
     * Fix build on systems where userspace and kernel conform to different ABIs, and fix installation of broken manpage symlinks
+* sys-libs/libseccomp
+    * Remove unnecessary run-time dependency on sys-kernel/linux-headers
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
