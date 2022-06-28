@@ -3,25 +3,24 @@
 
 EAPI=7
 
-inherit autotools linux-info usr-ldscript verify-sig
+VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
+inherit linux-info usr-ldscript verify-sig
 
 DESCRIPTION="Netlink API to the in-kernel nf_tables subsystem"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
 
 if [[ ${PV} =~ ^[9]{4,}$ ]]; then
-	inherit git-r3
+	inherit autotools git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
 else
 	SRC_URI="https://netfilter.org/projects/${PN}/files/${P}.tar.bz2
 		verify-sig? ( https://netfilter.org/projects/${PN}/files/${P}.tar.bz2.sig )"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv sparc x86"
-	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
 fi
 
 LICENSE="GPL-2"
 SLOT="0/11" # libnftnl.so version
 IUSE="examples json static-libs test xml"
-
 RESTRICT="!test? ( test )"
 
 RDEPEND=">=net-libs/libmnl-1.0.4:=
@@ -30,6 +29,10 @@ RDEPEND=">=net-libs/libmnl-1.0.4:=
 BDEPEND="virtual/pkgconfig
 	verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 DEPEND="${RDEPEND}"
+
+PATCHES=(
+	"${FILESDIR}"/${N}-1.2.1-missing-export-set_elem.patch
+)
 
 pkg_setup() {
 	if kernel_is ge 3 13; then
@@ -42,6 +45,7 @@ pkg_setup() {
 
 src_prepare() {
 	default
+
 	[[ ${PV} =~ ^[9]{4,}$ ]] && eautoreconf
 }
 
@@ -51,12 +55,15 @@ src_configure() {
 		$(use_with xml xml-parsing)
 		$(use_with json json-parsing)
 	)
+
 	econf "${myeconfargs[@]}"
 }
 
 src_install() {
 	default
+
 	gen_usr_ldscript -a nftnl
+
 	find "${ED}" -type f -name '*.la' -delete || die
 
 	if use examples; then
