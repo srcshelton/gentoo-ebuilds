@@ -293,23 +293,23 @@ python_install() {
 pkg_postinst() {
 	use systemd && tmpfiles_process "${FILESDIR}"/named.conf
 
-	if [ ! -f "${ROOT}/etc/bind/rndc.key" ]; then
-		if [ "${ROOT}" != '/' ]; then
+	if [ ! -f "${ROOT%/}/etc/bind/rndc.key" ]; then
+		if [ "${ROOT:-/}" != '/' ]; then
 			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
 		fi
 		if use urandom; then
 			einfo "Using /dev/urandom for generating rndc.key"
-			"${ROOT}"/usr/sbin/rndc-confgen -r /dev/urandom -a
+			"${ROOT%/}"/usr/sbin/rndc-confgen -r /dev/urandom -a
 			echo
 		else
 			einfo "Using /dev/random for generating rndc.key"
-			"${ROOT}"/usr/sbin/rndc-confgen -a
+			"${ROOT%/}"/usr/sbin/rndc-confgen -a
 			echo
 		fi
 		chown root:named /etc/bind/rndc.key || die
 		chmod 0640 /etc/bind/rndc.key || die
-		if [ -f /etc/bind/rndc.key ] && [ ! -f "${ROOT}"/etc/bind/rndc.key ]; then
-			cp -a /etc/bind/rndc.key "${ROOT}"/etc/bind/rndc.key
+		if [ -f /etc/bind/rndc.key ] && [ ! -f "${ROOT%/}"/etc/bind/rndc.key ]; then
+			cp -a /etc/bind/rndc.key "${ROOT%/}"/etc/bind/rndc.key
 		fi
 	fi
 
