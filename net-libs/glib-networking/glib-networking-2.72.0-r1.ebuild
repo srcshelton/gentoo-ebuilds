@@ -12,7 +12,7 @@ LICENSE="LGPL-2.1+"
 SLOT="0"
 IUSE="+gnome +libproxy +ssl test"
 RESTRICT="!test? ( test )"
-KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 
 RDEPEND="
 	>=dev-libs/glib-2.69.0:2[${MULTILIB_USEDEP}]
@@ -64,7 +64,7 @@ pkg_postinst() {
 
 	multilib_pkg_postinst() {
 		if [[ ${MERGE_TYPE} != "binary" ]] ; then
-			if [[ -n "${ROOT:-}" ]] && [[ "${ROOT}" != '/' ]]; then
+			if [[ "${ROOT:-/}" != '/' ]]; then
 				local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
 			fi
 			gnome2_giomodule_cache_update \
@@ -87,7 +87,7 @@ pkg_postrm() {
 
 	multilib_pkg_postrm() {
 		if [[ ${MERGE_TYPE} != "binary" ]] ; then
-			if [[ -n "${ROOT:-}" ]] && [[ "${ROOT}" != '/' ]]; then
+			if [[ "${ROOT:-/}" != '/' ]]; then
 				local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
 			fi
 			gnome2_giomodule_cache_update \
