@@ -46,12 +46,12 @@ pkg_postinst() {
 	xdg_icon_cache_update
 	# on first installation generate java cacert file
 	# so jdk ebuilds can create symlink to in into security directory
-	if [[ ! -f "${EROOT}"/etc/ssl/certs/java/cacerts ]]; then
-		if [ "${ROOT}" != '/' ]; then
-			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+	if [[ ! -f "${EROOT%/}"/etc/ssl/certs/java/cacerts ]]; then
+		if [ "${EROOT:-/}" != '/' ]; then
+			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${EROOT%/}/$(get_libdir):${EROOT%/}/usr/$(get_libdir)"
 		fi
 		einfo "Generating java cacerts file from system ca-certificates"
-		PATH="${ROOT%/}/usr/bin:${ROOT%/}/bin:${PATH}" env \
+		PATH="${EROOT%/}/usr/bin:${EROOT%/}/bin:${PATH}" env \
 		trust extract \
 				--overwrite \
 				--format=java-cacerts \
