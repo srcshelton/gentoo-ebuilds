@@ -372,6 +372,10 @@ used to build perl)
     * Allow more fine-grained control over optional features
 * app-containers/lxc
     * Don't require an upgrade to Python 3.x unless building against Python
+* app-editors/vim-core
+    * Correctly symlink 'docs' files
+* app-editors/vim
+    * Correctly symlink 'docs' files
 * app-misc/ca-certificates
     * Don't install files for creating .deb archives to `/usr/share/doc/${PF}/examples/`
 * app-misc/colordiff
