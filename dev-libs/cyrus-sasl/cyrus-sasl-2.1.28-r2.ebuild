@@ -200,9 +200,9 @@ pkg_config() {
 		return 0
 	fi
 	# Generate an empty sasldb2 with correct permissions.
-	if [[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]] ; then
-		if [ "${ROOT}" != '/' ]; then
-			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+	if [[ ! -f "${EROOT%/}/etc/sasl2/sasldb2" ]] ; then
+		if [ "${EROOT:-/}" != '/' ]; then
+			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${EROOT%/}/$(get_libdir):${EROOT%/}/usr/$(get_libdir)"
 		fi
 
 		einfo "Generating an empty sasldb2 with correct permissions ..."
