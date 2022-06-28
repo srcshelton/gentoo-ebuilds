@@ -3,15 +3,16 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{8..10} )
 DISTUTILS_OPTIONAL=1
-inherit autotools linux-info distutils-r1 systemd verify-sig
+PYTHON_COMPAT=( python3_{8..11} )
+VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
+inherit distutils-r1 edo linux-info systemd verify-sig
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
 
 if [[ ${PV} =~ ^[9]{4,}$ ]]; then
-	inherit git-r3
+	inherit autotools git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
 
 	BDEPEND="
@@ -22,13 +23,13 @@ else
 	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2
 		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.bz2.sig )"
 	KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
-	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
 	BDEPEND+="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 fi
 
 LICENSE="GPL-2"
 SLOT="0/1"
-IUSE="debug doc +gmp json libedit +modern-kernel python +readline static-libs systemd xtables"
+IUSE="debug doc +gmp json libedit +modern-kernel python +readline static-libs systemd test xtables"
+RESTRICT="test? ( userpriv ) !test? ( test )"
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:0=
@@ -43,17 +44,23 @@ RDEPEND="
 DEPEND="${RDEPEND}"
 
 BDEPEND+="
+	virtual/pkgconfig
 	doc? (
 		app-text/asciidoc
 		>=app-text/docbook2X-0.8.8-r4
 	)
-	virtual/pkgconfig
+	python? ( ${PYTHON_DEPS} )
 "
 
 REQUIRED_USE="
 	python? ( ${PYTHON_REQUIRED_USE} )
 	libedit? ( !readline )
 "
+
+PATCHES=(
+	"${FILESDIR}"/${PN}-1.0.3-optimize-segfault.patch
+	"${FILESDIR}"/${PN}-1.0.3-test-shell-sets.patch
+)
 
 pkg_setup() {
 	if kernel_is ge 3 13; then
@@ -70,13 +77,9 @@ pkg_setup() {
 src_prepare() {
 	default
 
-	# fix installation path for doc stuff
-	sed '/^pkgsysconfdir/s@${sysconfdir}.*$@${docdir}/skels@' \
-		-i files/nftables/Makefile.am || die
-	sed '/^pkgsysconfdir/s@${sysconfdir}.*$@${docdir}/skels/osf@' \
-		-i files/osf/Makefile.am || die
-
-	eautoreconf
+	if [[ ${PV} =~ ^[9]{4,}$ ]] ; then
+		eautoreconf
+	fi
 
 	if use python; then
 		pushd py >/dev/null || die
@@ -119,6 +122,17 @@ src_compile() {
 	fi
 }
 
+src_test() {
+	emake check
+
+	edo tests/shell/run-tests.sh -v
+
+	# Need to rig up Python eclass if using this, but it doesn't seem to work
+	# for me anyway.
+	#cd tests/py || die
+	#"${EPYTHON}" nft-test.py || die
+}
+
 src_install() {
 	default
 
@@ -127,6 +141,12 @@ src_install() {
 		doman *.?
 		popd >/dev/null || die
 	fi
+
+	# Move docs here instead of in src_prepare to avoid eautoreconf:
+	# rmdir lets us catch if more files end up installed in /etc/nftables
+	dodir /usr/share/doc/${PF}/skels/
+	mv "${ED}"/etc/nftables/osf "${ED}"/usr/share/doc/${PF}/skels/osf || die
+	rmdir "${ED}"/etc/nftables || die
 
 	local mksuffix="$(usex modern-kernel '-mk' '')"
 
@@ -149,7 +169,7 @@ src_install() {
 
 pkg_postinst() {
 	local save_file
-	save_file="${EROOT}/var/lib/nftables/rules-save"
+	save_file="${EROOT}"/var/lib/nftables/rules-save
 
 	# In order for the nftables-restore systemd service to start
 	# the save_file must exist.
@@ -172,6 +192,7 @@ pkg_postinst() {
 		elog "the nftables-restore service must be manually started in order to"
 		elog "save those rules on shutdown."
 	fi
+
 	if has_version 'sys-apps/openrc'; then
 		elog "If you wish to enable the firewall rules on boot (on openrc) you"
 		elog "will need to enable the nftables service."
