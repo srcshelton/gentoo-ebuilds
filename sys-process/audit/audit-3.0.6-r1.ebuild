@@ -3,7 +3,7 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{8..10} )
+PYTHON_COMPAT=( python3_{8..11} )
 
 inherit autotools linux-info python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
