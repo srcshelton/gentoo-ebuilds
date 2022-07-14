@@ -112,12 +112,10 @@ src_install() {
 	newinitd "${FILESDIR}/${PN}.init" "${PN}"
 	newinitd "${FILESDIR}/${PN}.powerfail.init" "${PN}".powerfail
 
-	if use systemd; then
-		systemd_dounit "${FILESDIR}"/${PN}.service
-		use tmpfies && dotmpfiles "${FILESDIR}"/${PN}-tmpfiles.conf
-	fi
+	use systemd && systemd_dounit "${FILESDIR}"/${PN}.service
+	use tmpfies && dotmpfiles "${FILESDIR}"/${PN}-tmpfiles.conf
 
-	# remove hal settings, we don't really want to have it around still.
+	# Remove HAL settings, we don't really want to have it around still.
 	rm -r "${D}"/usr/share/hal || die
 
 	# replace it with our udev rules if we're in Linux
@@ -128,6 +126,8 @@ src_install() {
 }
 
 pkg_postinst() {
+	use udev && use kernel_linux && udev_reload
+
 	use tmpfiles && tmpfiles_process ${PN}-tmpfiles.conf
 
 	if use cgi ; then
@@ -150,7 +150,7 @@ pkg_postinst() {
 	elog ' \e[01m rc-update add apcupsd.powerfail shutdown \e[0m'
 	elog ''
 
-	if use kernel_linux && use udev; then
+	if use udev && use kernel_linux; then
 		elog "Starting from version 3.14.9-r1, ${PN} installs udev rules"
 		elog "for persistent device naming. If you have multiple UPS"
 		elog "connected to the machine, you can point them to the devices"
