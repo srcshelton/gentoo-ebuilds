@@ -3,8 +3,7 @@
 
 EAPI=7
 
-MODULE_AUTHOR=ETHER
-MODULE_VERSION=1.266
+DIST_AUTHOR=ETHER
 inherit perl-module
 
 DESCRIPTION="Look up the vendor for a MAC"
