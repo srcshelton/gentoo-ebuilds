@@ -1,35 +1,42 @@
 #!/bin/sh
 
-# NOTE: Since `mdev -s` only populates '$MDEV', don't depend on any hotplug variables.
+# NOTE: Since `mdev -s` only populates '$MDEV', don't depend on any hotplug
+#       variables.
 
-current=$(readlink usbdisk)
+current="$(readlink usbdisk)"
 
-if [ "$current" = "$MDEV" ] && [ "$ACTION" = "remove" ]; then
+if [ "${current}" = "${MDEV}" ] && [ "${ACTION}" = "remove" ]; then
 	rm -f usbdisk usba1 
 fi
-[ -n "$current" ] && exit
+[ -n "${current}" ] && exit
 
-if [ -e /sys/block/$MDEV ]; then
-	SYSDEV=$(readlink -f /sys/block/$MDEV/device)
+if [ -e /sys/block/"${MDEV}" ]; then
+	SYSDEV=$(readlink -f /sys/block/"${MDEV}"/device)
 
-	# If /sys device path contains '/usb[0-9]' then we assume the new device is USB.
+	# If /sys device path contains '/usb[0-9]' then we assume the new device is
+	# USB.
 	# Also, if it's a USB device without partitions then we require FAT...
-	if [ "${SYSDEV##*/usb[0-9]}" != "$SYSDEV" ]; then
+	if [ "${SYSDEV##*/usb[0-9]}" != "${SYSDEV}" ]; then
 		# Do not create link if there is not a FAT filesystem
-		dd if=/dev/$MDEV bs=512 count=1 2>/dev/null | strings | grep FAT >/dev/null || exit 0
+		dd if=/dev/"${MDEV}" bs=512 count=1 2>/dev/null | strings | grep FAT >/dev/null || exit 0
 
-		ln -sf $MDEV usbdisk
+		ln -sf "${MDEV}" usbdisk
 		# Keep this for compatability, as people may use it in /etc/fstab
-		ln -sf $MDEV usba1
+		ln -sf "${MDEV}" usba1
 	fi
 
-elif [ -e /sys/block/*/$MDEV ] ; then
-	PARENT=$(dirname /sys/block/*/$MDEV)
-	SYSDEV=$(readlink -f $PARENT/device)
-	if [ "${SYSDEV##*/usb[0-9]}" != "$SYSDEV" ]; then
-		ln -sf $MDEV usbdisk
-		# Keep this for compatability, as people may use it in /etc/fstab
-		ln -sf $MDEV usba1
-	fi
+else
+	for i in /sys/block/*/"${MDEV}"; do
+		if [ -e "$i" ]; then
+			PARENT=$(dirname "$i")
+			SYSDEV=$(readlink -f "${PARENT}"/device)
+			if [ "${SYSDEV##*/usb[0-9]}" != "${SYSDEV}" ]; then
+				ln -sf "${MDEV}" usbdisk
+				# Keep this for compatability, as people may use it in
+				# /etc/fstab
+				ln -sf "${MDEV}" usba1
+			fi
+		fi
+	done
 fi
 
