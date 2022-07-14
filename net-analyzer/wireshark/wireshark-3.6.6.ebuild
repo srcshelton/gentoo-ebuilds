@@ -18,7 +18,7 @@ else
 	SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz"
 	S="${WORKDIR}/${P/_/}"
 
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ppc64 ~riscv x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~ppc64 ~riscv x86"
 fi
 
 LICENSE="GPL-2"
@@ -84,8 +84,10 @@ BDEPEND="${PYTHON_DEPS}
 		dev-qt/linguist-tools:5
 	)
 	test? (
-		dev-python/pytest
-		dev-python/pytest-xdist
+		$(python_gen_any_dep '
+			dev-python/pytest[${PYTHON_USEDEP}]
+			dev-python/pytest-xdist[${PYTHON_USEDEP}]
+		')
 	)"
 RDEPEND="${COMMON_DEPEND}
 	qt5? ( virtual/freedesktop-icon-theme )
@@ -96,8 +98,17 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-3.4.2-cmake-lua-version.patch
 )
 
+python_check_deps() {
+	use test || return 0
+
+	python_has_version -b "dev-python/pytest[${PYTHON_USEDEP}]" &&
+		 python_has_version -b "dev-python/pytest-xdist[${PYTHON_USEDEP}]"
+}
+
 pkg_setup() {
 	use lua && lua-single_pkg_setup
+
+	python-any-r1_pkg_setup
 }
 
 src_configure() {
@@ -158,7 +169,7 @@ src_configure() {
 		-DBUILD_tshark=$(usex tshark)
 		-DBUILD_udpdump=$(usex udpdump)
 		-DBUILD_wireshark=$(usex qt5)
-		-DDISABLE_WERROR=yes
+		-DDISABLE_WERROR=ON
 		-DENABLE_BCG729=$(usex bcg729)
 		-DENABLE_BROTLI=$(usex brotli)
 		-DENABLE_CAP=$(usex filecaps caps)
@@ -193,18 +204,11 @@ src_configure() {
 src_test() {
 	cmake_build test-programs
 
-	myctestargs=(
-		--disable-capture
-		--skip-missing-programs=all
-		--verbose
-
-		# Skip known failing tests
-		# extcaps needs a bunch of external programs
-		-E "(suite_extcaps)"
-		#-E "(suite_decryption|suite_extcaps|suite_nameres)"
-	)
-
-	cmake_src_test
+	# https://www.wireshark.org/docs/wsdg_html_chunked/ChTestsRunPytest.html
+	epytest \
+		--disable-capture \
+		--skip-missing-programs=all \
+		--program-path "${BUILD_DIR}"/run
 }
 
 src_install() {
