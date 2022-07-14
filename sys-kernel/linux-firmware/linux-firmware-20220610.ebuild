@@ -6,7 +6,7 @@ inherit mount-boot savedconfig
 
 # In case this is a real snapshot, fill in commit below.
 # For normal, tagged releases, leave blank
-MY_COMMIT=
+MY_COMMIT=""
 
 if [[ ${PV} == 99999999* ]]; then
 	inherit git-r3
@@ -14,11 +14,12 @@ if [[ ${PV} == 99999999* ]]; then
 else
 	if [[ -n "${MY_COMMIT}" ]]; then
 		SRC_URI="https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/snapshot/${MY_COMMIT}.tar.gz -> ${P}.tar.gz"
+		S="${WORKDIR}/${MY_COMMIT}"
 	else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -186,12 +187,14 @@ src_prepare() {
 
 	# blacklist of images with unknown license
 	local unknown_license=(
+		atmsar11.fw
 		korg/k1212.dsp
 		ess/maestro3_assp_kernel.fw
 		ess/maestro3_assp_minisrc.fw
 		yamaha/ds1_ctrl.fw
 		yamaha/ds1_dsp.fw
 		yamaha/ds1e_ctrl.fw
+		tr_smctr.bin
 		ttusb-budget/dspbootcode.bin
 		emi62/bitstream.fw
 		emi62/loader.fw
@@ -203,6 +206,7 @@ src_prepare() {
 		mts_mt9234zba.fw
 		whiteheat.fw
 		whiteheat_loader.fw
+		intelliport2.bin
 		cpia2/stv0672_vp4.bin
 		vicam/firmware.fw
 		edgeport/boot.fw
@@ -222,6 +226,7 @@ src_prepare() {
 		adaptec/starfire_tx.bin
 		yam/1200.bin
 		yam/9600.bin
+		3com/3C359.bin
 		ositech/Xilinx7OD.bin
 		qlogic/isp1000.bin
 		myricom/lanai.bin
@@ -359,10 +364,11 @@ src_install() {
 
 		echo ; ebegin "Removing all files not listed in saved config"
 		grep -qv '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
-		find ! -type d -printf "%P\n" \
-			| grep -Fvx -f <( grep -v '^#' "${S}/${PN}.conf" \
-				|| die "grep failed, empty config file?" ) \
-			| xargs -d '\n' --no-run-if-empty rm
+		find ! -type d -printf "%P\n" |
+			grep -Fvx -f <(
+				grep -v '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
+			) |
+			xargs -d '\n' --no-run-if-empty rm -v
 		#eend $? || die
 	fi
 
