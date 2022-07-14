@@ -3,8 +3,8 @@
 
 EAPI=7
 
-MODULE_AUTHOR=MMIMS
-MODULE_VERSION="${PV}"
+DIST_AUTHOR=MMIMS
+DIST_VERSION="${PV}"
 inherit perl-module
 
 DESCRIPTION="A perl interface to the Twitter API"
@@ -19,7 +19,7 @@ RDEPEND="
 	dev-perl/Test-Fatal
 	>=dev-perl/URI-1.40
 "
-DEPEND="${RDEPEND}
+BDEPEND="${RDEPEND}
 	dev-perl/Module-Build
 	dev-perl/Module-Build-Tiny
 "
