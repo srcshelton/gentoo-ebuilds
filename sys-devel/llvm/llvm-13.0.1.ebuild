@@ -58,7 +58,7 @@ PDEPEND="sys-devel/llvm-common
 	binutils-plugin? ( >=sys-devel/llvmgold-${SLOT} )"
 
 LLVM_COMPONENTS=( llvm )
-LLVM_MANPAGES=pregenerated
+LLVM_MANPAGES=1
 LLVM_PATCHSET=${PV/_/-}
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
@@ -133,7 +133,7 @@ check_distribution_components() {
 
 				all_targets+=( "${l}" )
 			fi
-		done < <(ninja -t targets all)
+		done < <(${NINJA} -t targets all)
 
 		while read -r l; do
 			my_targets+=( "${l}" )
