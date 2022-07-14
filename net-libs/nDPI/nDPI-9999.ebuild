@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit autotools
+inherit autotools edo
 
 DESCRIPTION="Open Source Deep Packet Inspection Software Toolkit"
 HOMEPAGE="https://www.ntop.org/"
@@ -73,11 +73,17 @@ src_configure() {
 	econf $(usex hyperscan '--with-hyperscan' '' )
 }
 
+src_configure() {
+	# "local" here means "local to the system", and hence means
+	# system copy, not the bundled one.
+	econf --with-local-libgcrypt
+}
+
 src_test() {
 	pushd tests || die
 
-	./do.sh || die "Failed tests"
-	./do-unit.sh || die "Failed unit tests"
+	edo ./do.sh
+	edo ./do-unit.sh
 
 	popd || die
 }
