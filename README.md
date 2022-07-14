@@ -265,29 +265,29 @@ used to build perl)
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
 * dev-embedded/rpi-eeprom
     * Follow raspbian releases more closely
-* dev-perl/B-Lint
-* dev-perl/CPANPLUS
-* dev-perl/CPANPLUS-Dist-Gentoo
-* dev-perl/Devel-Trace
-* dev-perl/Email-Outlook-Message
-* dev-perl/File-Touch
+* ~~dev-perl/B-Lint~~
+* ~~dev-perl/CPANPLUS~~
+* ~~dev-perl/CPANPLUS-Dist-Gentoo~~
+* ~~dev-perl/Devel-Trace~~
+* ~~dev-perl/Email-Outlook-Message~~
+* ~~dev-perl/File-Touch~~
 * ~~dev-perl/IO-Interface~~
-* dev-perl/IO-Socket-Multicast
+* ~~dev-perl/IO-Socket-Multicast~~
 * dev-perl/IP-Country
 * dev-perl/IP-Country-DB\_File
-* dev-perl/Locale-Hebrew
-* dev-perl/match-simple
-    * Provides match::smart
+* ~~dev-perl/Locale-Hebrew~~
+* ~~dev-perl/match-simple~~
+    * ~~Provides match::smart~~
 * ~~dev-perl/Mojolicious~~
 * dev-perl/Mojo-Server-FastCGI
-* dev-perl/Net-Interface
+* ~~dev-perl/Net-Interface~~
 * dev-perl/Net-MAC-Vendor
-* dev-perl/Net-SDP
+* ~~dev-perl/Net-SDP~~
 * dev-perl/Net-Subnet
 * dev-perl/Net-Twitter-Lite
-* dev-perl/POE-Component-Client-Ping
-* dev-perl/Proc-PID-File
-* dev-perl/Sub-Infix
+* ~~dev-perl/POE-Component-Client-Ping~~
+* ~~dev-perl/Proc-PID-File~~
+* ~~dev-perl/Sub-Infix~~
 * dev-php/Endroid-QrCode
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * dev-php/Masterminds-HTML5
@@ -345,8 +345,8 @@ used to build perl)
     * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
 * sys-process/stalld
     * Red Hat thread-booster
-* www-apps/heatmiser
-    * Data acquisition and web-interface for Heatmiser Wifi Thermostats
+* ~~www-apps/heatmiser~~
+    * ~~Data acquisition and web-interface for Heatmiser Wifi Thermostats~~
 * www-apps/nabaztaglives
     * Nabaztag Lives server software, re-factored into a webapp
 * www-apps/opennab

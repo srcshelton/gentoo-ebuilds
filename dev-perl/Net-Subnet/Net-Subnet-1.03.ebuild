@@ -1,7 +1,7 @@
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
-# $Header: /var/cvsroot/gentoo-x86/dev-perl/Net-Subnet/Net-Subnet-1.02.ebuild,v 1.0 2013/05/15 12:38:42 srcs Exp $
 
-EAPI=5
+EAPI=7
 
 MY_PN=Net-Subnet
 MODULE_AUTHOR=JUERD

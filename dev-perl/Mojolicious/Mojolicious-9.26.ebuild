@@ -1,9 +1,10 @@
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=7
 
 MODULE_AUTHOR=SRI
-MODULE_VERSION=6.18
+MODULE_VERSION=9.26
 inherit perl-module
 
 DESCRIPTION="Duct tape for the HTML5 web"
@@ -18,10 +19,12 @@ PDEPEND="
 DEPEND="
 	virtual/perl-ExtUtils-MakeMaker
 	virtual/perl-IO-Socket-IP
+	virtual/perl-JSON-PP
 	virtual/perl-Pod-Simple
+	virtual/perl-Scalar-List-Utils
 	virtual/perl-Time-Local
 "
 
 RESTRICT="nomirror"
 
-SRC_TEST=do
+SRC_TEST="do"
