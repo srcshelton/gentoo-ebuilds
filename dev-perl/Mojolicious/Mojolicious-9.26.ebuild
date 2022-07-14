@@ -3,8 +3,7 @@
 
 EAPI=7
 
-MODULE_AUTHOR=SRI
-MODULE_VERSION=9.26
+DIST_AUTHOR=SRI
 inherit perl-module
 
 DESCRIPTION="Duct tape for the HTML5 web"
