@@ -4,8 +4,7 @@
 EAPI=7
 
 MY_PN=Net-Subnet
-MODULE_AUTHOR=JUERD
-MODULE_VERSION=1.03
+DIST_AUTHOR=JUERD
 
 inherit perl-module eutils
 
