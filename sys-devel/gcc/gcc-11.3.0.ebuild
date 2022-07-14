@@ -4,12 +4,12 @@
 EAPI=7
 
 TOOLCHAIN_PATCH_DEV="sam"
-PATCH_VER="4"
+PATCH_VER="5"
 PATCH_GCC_VER="11.3.0"
 MUSL_VER="1"
 MUSL_GCC_VER="11.3.0"
 
-inherit toolchain
+inherit toolchain usr-ldscript
 
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="-lib-only"
@@ -170,7 +170,7 @@ pkg_preinst_find_seq() {
 	done
 
 	printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}"
-}
+} # pkg_preinst_find_seq
 
 pkg_preinst() {
 	local src='' dest=''
@@ -191,7 +191,7 @@ pkg_preinst() {
 			esac
 			if [[ -e "${src}" ]]; then
 				dest="$( pkg_preinst_find_seq "${src}" )" || die "Failed to generate sequence for file '${src}': ${?}"
-				mv "${D}/${src}" "${D}/${dest}" || die "Moving gcc-config data from '${D%/}/${src}' to '${D%/}${dest}' failed: ${?}"
+				mv "${ED}/${src}" "${ED}/${dest}" || die "Moving gcc-config data from '${ED%/}/${src}' to '${ED%/}${dest}' failed: ${?}"
 			fi
 		done
 	fi
@@ -207,7 +207,7 @@ pkg_postinst_fix_so() {
 
 	[[ -d "${src_dir:-}/" ]] || return 1
 	[[ -d "${dst_dir:-}/" ]] || return 1
-	ls "${src_dir}/${src_so}"* >/dev/null 2>&1 || return 1
+	ls "${src_dir}/${src_so}".so* >/dev/null 2>&1 || return 1
 
 	while read -r so; do
 		so="$( basename "${so}" )"
@@ -226,30 +226,15 @@ pkg_postinst_fix_so() {
 				ln -sf "${src_dir}/${so}" "${dst_dir}/${so}"
 			fi
 		fi
-	done < <( ls -1 "${src_dir}/${src_so}"* )
+	done < <( ls -1 "${src_dir}/${src_so}".so* )
 
 	return 0
 } # pkg_postinst_fix_so
 
 pkg_postinst() {
-	local best="$( best_version "${CATEGORY}/${PN}" )"
-	local file='' dest='' path='' name=''
+	pkg_config
 
 	if use lib-only; then
-		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
-			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
-		else
-			for file in libstdc++.so libgcc_s.so; do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -delete
-				pkg_postinst_fix_so \
-						"${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" \
-						"${file}" \
-						"${EROOT}/usr/$(get_libdir)" \
-						"../lib/gcc/${CHOST}/${PV%_p*}" ||
-					die "Couldn't link library '${file}'"
-			done
-		fi
-
 		for file in "${LIB_ONLY_GCC_CONFIG_FILES[@]}"; do
 			case "${file}" in
 				gcc-ld.so.conf)
@@ -271,6 +256,33 @@ pkg_postinst() {
 				fi
 			fi
 		done
+	fi
+}
+
+pkg_config() {
+	local best="$( best_version "${CATEGORY}/${PN}" )"
+	local file='' dest='' path='' name=''
+
+	if use lib-only; then
+		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
+			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
+		else
+			for file in libstdc++ libgcc_s; do
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -exec rm -v {} +
+				pkg_postinst_fix_so \
+						"${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" \
+						"${file}" \
+						"${EROOT}/usr/$(get_libdir)" \
+						"../lib/gcc/${CHOST}/${PV%_p*}" ||
+					die "Couldn't link library '${file}.so'*"
+			done
+			for file in libatomic; do
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -exec rm -v {} +
+				find "${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" -name "${file}.so*" -print0 | xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
+				gen_usr_ldscript --live -a "${file#lib}"
+			done
+
+		fi
 	fi
 }
 
