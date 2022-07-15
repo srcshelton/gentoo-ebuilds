@@ -60,7 +60,7 @@ gen_usr_ldscript() {
 	esac
 
 	if [[ $1 == "--live" ]] ; then
-		ed=''
+		ed="${ROOT:-}"
 		shift
 	fi
 	if [[ $1 == "-a" ]] ; then
