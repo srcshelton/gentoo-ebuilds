@@ -145,8 +145,8 @@ used to build perl)
     * Don't use (64-bit) assembly when `__ILP32__` is defined
 * dev-libs/libksba
     * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
-* dev-libs/liblinear
-    * Update Makefile to build correctly on darwin
+* ~~dev-libs/liblinear~~
+    * ~~Update Makefile to build correctly on darwin~~
 * ~~dev-libs/libxslt~~
     * ~~Fix for 'double prefix' QA error introduced in 1.1.28-r2~~
 * dev-libs/openssl
@@ -173,8 +173,8 @@ used to build perl)
     * Ensure that `usr/lib/help2man/bindtextdomain.dylib` is correctly built and named
 * ~~sys-apps/man~~
     * ~~Add missing `string.h` header to `makemsg.c`~~
-* sys-apps/texinfo
-    * Add missing `#include`
+* ~~sys-apps/texinfo~~
+    * ~~Add missing `#include`~~
 * ~~sys-devel/gdb~~
     * ~~Fixes for building with clang, building on Yosemite, and building with Python support~~
 * ~~sys-devel/gcc-apple~~
@@ -205,20 +205,18 @@ used to build perl)
 * app-pda/usbmuxd
     * git live ebuild for usbmuxd binaries
 
-# PHP 7.x compatible ebuilds
-* dev-php/pecl-memcache
-    * '`--php_targets_php7-0`' must currently be added to `/etc/portage/profile/use.mask`
+# ~~PHP 7.x compatible ebuilds~~
+* ~~dev-php/pecl-memcache~~
+    * ~~'`--php_targets_php7-0`' must currently be added to `/etc/portage/profile/use.mask`~~
 
 # nftables ebuilds
 
 * net-libs/libnftnl
     * Updated library version required by latest net-firewall/nftables
-* net-firewall/iptables-nftables
-    * git live ebuild for nftables' iptables compatibility libraries
-* app-containers/docker
-    * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
-* sys-apps/iproute2
-    * Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables
+* ~~net-firewall/iptables-nftables~~
+    * ~~git live ebuild for nftables' iptables compatibility libraries~~
+* ~~app-containers/docker~~
+    * ~~Allow net-firewall/iptables-nftables as an alternative to net-firewall/iptables~~
 
 # Out-of-tree ebuilds
 
@@ -388,8 +386,8 @@ used to build perl)
     * Add firefox source to Allow building on ARM
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
-* dev-java/commons-daemon
-    * Add additional include path to allow building with Oracle JDK 8 and above
+* ~~dev-java/commons-daemon~~
+    * ~~Add additional include path to allow building with Oracle JDK 8 and above~~
 * dev-lang/mono
     * Fix DEPEND/BDEPEND to add virtual/linux-sources and dev-util/cmake respectively
 * ~~dev-lang/perl~~
@@ -410,8 +408,8 @@ used to build perl)
     * Fix SSL CA path for prefix installations
 * dev-perl/Math-Pari
     * Hack to allow math-pari to build on x32 systems and systems running a 32-bit userland on a 64-bit kernel
-* dev-perl/Net-DNS-SEC
-    * Add optional dsa, ecdsa, gost, private-key dependencies
+* ~~dev-perl/Net-DNS-SEC~~
+    * ~~Add optional dsa, ecdsa, gost, private-key dependencies~~
 * dev-perl/libwww-perl
     * Add missing Mozilla::CA dependency for correct SSL operation
 * mail-filter/libmilter
@@ -444,8 +442,8 @@ used to build perl)
     * Prevent build from incorrectly creating `/run` directory
 * net-dns/dnscrypt-proxy
     * Move binary to /sbin
-* net-dns/dnstop
-    * build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support
+* ~~net-dns/dnstop~~
+    * ~~build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support~~
 * net-firewall/ebtables
     * Update to latest git commit, which adds compatibility kernel headers more recent than v3.16
     * Allow `--among-src-file` and `--among-dst-file` options to accept files containing multiple lines, for ease of maintenance
@@ -567,6 +565,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-vpn/openvpn
 * sys-apps/dbus
 * sys-apps/haveged
+* sys-apps/iproute2
 * sys-apps/kmod
 * sys-apps/lm\_sensors
 * sys-apps/portage

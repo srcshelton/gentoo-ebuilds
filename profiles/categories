@@ -13,7 +13,6 @@ app-portage
 app-shells
 dev-db
 dev-embedded
-dev-java
 dev-lang
 dev-libs
 dev-perl
