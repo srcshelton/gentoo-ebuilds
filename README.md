@@ -562,6 +562,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-misc/rsyncd
 * net-p2p/deluge
 * net-print/cups
+* net-print/cups-filters
 * net-vpn/openvpn
 * sys-apps/dbus
 * sys-apps/haveged
