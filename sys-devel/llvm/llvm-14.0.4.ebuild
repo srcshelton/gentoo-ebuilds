@@ -17,7 +17,7 @@ HOMEPAGE="https://llvm.org/"
 
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="$(ver_cut 1)"
-KEYWORDS="amd64 ~arm arm64 ~ppc ppc64 ~riscv ~sparc x86 ~amd64-linux ~ppc-macos ~x64-macos"
+KEYWORDS="amd64 arm arm64 ~ppc ppc64 ~riscv ~sparc x86 ~amd64-linux ~ppc-macos ~x64-macos"
 IUSE="+binutils-plugin debug doc exegesis libedit +libffi ncurses test xar xml z3"
 RESTRICT="!test? ( test )"
 
@@ -78,7 +78,7 @@ python_check_deps() {
 	has_version -b "dev-python/sphinx[${PYTHON_USEDEP}]"
 }
 
-check_live_ebuild() {
+check_uptodate() {
 	local prod_targets=(
 		$(sed -n -e '/set(LLVM_ALL_TARGETS/,/)/p' CMakeLists.txt \
 			| tail -n +2 | head -n -1)
@@ -175,8 +175,8 @@ src_prepare() {
 	# Update config.guess to support more systems
 	cp "${BROOT}/usr/share/gnuconfig/config.guess" cmake/ || die
 
-	# Verify that the live ebuild is up-to-date
-	check_live_ebuild
+	# Verify that the ebuild is up-to-date
+	check_uptodate
 
 	llvm.org_src_prepare
 
