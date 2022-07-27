@@ -9,8 +9,7 @@ JAVA_PKG_OPT_USE="jdbc"
 
 # Keeping eutils in EAPI=6 for emktemp in pkg_config
 
-inherit eutils systemd flag-o-matic prefix toolchain-funcs \
-	java-pkg-opt-2 user cmake-utils
+inherit cmake-utils eutils flag-o-matic java-pkg-opt-2 prefix systemd toolchain-funcs user
 
 SRC_URI="https://downloads.mariadb.org/interstitial/${P}/source/${P}.tar.gz "
 
