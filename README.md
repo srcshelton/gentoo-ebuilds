@@ -257,7 +257,7 @@ used to build perl)
 * app-containers/aardvark-dns
     * DNS helper for app-containers/netavark
 * app-containers/netavark
-    * net-misc/cni-plugins replacement for app-containers/podman
+    * app-containers/cni-plugins replacement for app-containers/podman
 * app-containers/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
@@ -550,7 +550,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-fs/samba
 * net-im/bitlbee
 * net-mail/dovecot
-* net-misc/cni-plugins
+* app-containers/cni-plugins
 * net-misc/dhcpcd
 * net-misc/iperf
 * net-misc/memcached
