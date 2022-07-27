@@ -23,7 +23,7 @@ COMMON_DEPEND="
 	|| ( >=app-containers/runc-1.0.0_rc6 app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	>=net-misc/cni-plugins-0.8.6
+	>=app-containers/cni-plugins-0.8.6
 	sys-fs/lvm2
 	sys-libs/libseccomp:=
 

@@ -1,13 +1,12 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+EGIT_COMMIT='81005b8d809990a0a2e3367a5980d3c4c2499708'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info
 
-EGIT_COMMIT='1b56ea2d9df82cbba2679f646c077881fefb49d6'
-COMMON_VERSION='0.35.4'
-CATATONIT_VERSION='0.1.5'
+COMMON_VERSION='0.49.0'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -16,18 +15,20 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="~amd64 ~arm64"
-IUSE="apparmor +bash-completion btrfs fish-completion +fuse +rootless selinux systemd zsh-completion"
+KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
+IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
-	>=app-containers/conmon-2.0.0
-	|| ( >=app-containers/runc-1.0.0_rc6 app-containers/crun )
+	>=app-containers/conmon-2.0.24
+	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
+	!cgroup-hybrid? ( app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	>=app-containers/cni-plugins-0.8.6
+	|| ( app-containers/netavark >=app-containers/cni-plugins-0.8.6 )
+	sys-apps/shadow:=
 	sys-fs/lvm2
 	sys-libs/libseccomp:=
 
@@ -46,7 +47,8 @@ BDEPEND="
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	fuse? ( sys-fs/fuse-overlayfs )
-	app-containers/catatonit"
+	init? ( app-containers/catatonit )
+	selinux? ( sec-policy/selinux-podman )"
 
 S="${WORKDIR}/${P/_/-}"
 
@@ -89,6 +91,11 @@ ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gath
 ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
 ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
 ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
+
+#PATCHES=(
+#	"${FILESDIR}/${PN}-4.0.0-buildah-timeout.patch"
+#	"${FILESDIR}/${PN}-4.0.0-dev-warning.patch"
+#)
 
 pkg_setup() {
 	if kernel_is lt 3 10; then
@@ -175,15 +182,12 @@ src_prepare() {
 
 	sed "${makefile_sed_args[@]}" -i Makefile || die
 
-	sed -e 's|OUTPUT="${CIRRUS_TAG:.*|OUTPUT='v${PV}'|' \
-		-i hack/get_release_info.sh || die
-
 	# Fix run path...
 	grep -Rl '[^r]/run/' . | xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
 }
 
 src_compile() {
-	local git_commit='' file=''
+	#local git_commit='' file=''
 	#git_commit=$(grep '^[[:space:]]*gitCommit[[:space:]]' vendor/k8s.io/client-go/pkg/version/base.go)
 	#git_commit=${git_commit#*\"}
 	#git_commit=${git_commit%\"*}
@@ -284,6 +288,8 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
+	use tmpfiles && tmpfiles_process podman.conf
+
 	local want_newline=false
 	if [[ ! ( -e ${EROOT%/*}/etc/containers/policy.json && -e ${EROOT%/*}/etc/containers/registries.conf ) ]]; then
 		elog "You need to create the following config files:"

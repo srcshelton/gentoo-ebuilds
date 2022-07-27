@@ -6,7 +6,7 @@ EGIT_COMMIT='e4b03902052294d4f342a185bb54702ed5bed8b1'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
-COMMON_VERSION='0.48.0'
+COMMON_VERSION='0.49.0'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -27,7 +27,7 @@ COMMON_DEPEND="
 	!cgroup-hybrid? ( app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	|| ( app-containers/netavark >=net-misc/cni-plugins-0.8.6 )
+	|| ( app-containers/netavark >=app-containers/cni-plugins-0.8.6 )
 	sys-apps/shadow:=
 	sys-fs/lvm2
 	sys-libs/libseccomp:=
