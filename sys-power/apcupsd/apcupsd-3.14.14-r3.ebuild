@@ -158,4 +158,8 @@ pkg_postinst() {
 	fi
 }
 
+pkg_postrm() {
+	use udev && use kernel_linux && udev_reload
+}
+
 # vi: set diffopt=iwhite,filler:
