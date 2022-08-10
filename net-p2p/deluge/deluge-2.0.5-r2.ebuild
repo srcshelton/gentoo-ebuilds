@@ -20,7 +20,7 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="console geoip gtk libnotify sound systemd webinterface"
+IUSE="console gtk libnotify sound systemd webinterface"
 REQUIRED_USE="
 	${PYTHON_REQUIRED_USE}
 	libnotify? ( gtk )
@@ -51,7 +51,6 @@ RDEPEND="
 			>=dev-python/twisted-17.1.0[crypt(-),${PYTHON_USEDEP}]
 		)
 		>=dev-python/zope-interface-4.4.2[${PYTHON_USEDEP}]
-		geoip? ( dev-python/geoip-python[${PYTHON_USEDEP}] )
 		gtk? (
 			sound? ( dev-python/pygame[${PYTHON_USEDEP}] )
 			dev-python/pygobject:3[${PYTHON_USEDEP}]
@@ -62,6 +61,7 @@ RDEPEND="
 	')"
 
 PATCHES=(
+	"${FILESDIR}/${PN}-2.0.3-setup.py.patch"
 	"${FILESDIR}/${PN}-2.0.3-UI-status.patch"
 )
 
@@ -148,3 +148,5 @@ pkg_postinst() {
 	elog "For more information look at https://dev.deluge-torrent.org/wiki/Faq"
 	elog
 }
+
+# vi: set diffopt=filler,iwhite:
