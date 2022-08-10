@@ -489,6 +489,8 @@ used to build perl)
     * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
 * sys-auth/pam\_mktemp
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
+* sys-devel/autogen
+    * Add required `WANT_AUTOMAKE` directive and inherit `autotools` eclass
 * sys-kernel/linux-firmware
     * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
 * sys-libs/libblockdev
