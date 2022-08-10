@@ -25,9 +25,9 @@ RDEPEND="acct-group/mail
 DEPEND="${RDEPEND}"
 BDEPEND="dev-lang/perl"
 
-PATCHES=(
-	"${FILESDIR}/${P}-no-pid-file.patch"
-)
+#PATCHES=(
+#	"${FILESDIR}/${P}-no-pid-file.patch"
+#)
 
 src_compile() {
 	mv "${PN}.pl" "${PN}" || die
