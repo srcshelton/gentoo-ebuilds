@@ -1,9 +1,9 @@
 # Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
-inherit eapi8-dosym edo toolchain-funcs
+inherit edo toolchain-funcs
 
 if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git"
@@ -197,7 +197,7 @@ src_install() {
 		# Can remove compatibility symlink in a year: 2023-05-28.
 		# bug #547264
 		mv "${ED}"/sbin/ss "${ED}"/bin/ss || die
-		dosym8 -r /bin/ss /sbin/ss
+		dosym -r /bin/ss /sbin/ss
 	fi
 
 	if use berkdb ; then
