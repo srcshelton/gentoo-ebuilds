@@ -5,7 +5,8 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{8..10} )
 
-inherit python-any-r1
+# Can drop autotools/eautoreconf after next release & glibc patch gone
+inherit autotools python-any-r1
 
 DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
@@ -58,6 +59,16 @@ src_prepare() {
 		crun.1 \
 		crun.1.md \
 	|| die "'/run' replacement failed: ${?}"
+}
+
+PATCHES=(
+	"${FILESDIR}"/${PN}-1.4.5-glibc-2.36.patch
+)
+
+src_prepare() {
+	default
+
+	eautoreconf
 }
 
 src_configure() {
