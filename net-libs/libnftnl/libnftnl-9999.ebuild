@@ -30,10 +30,6 @@ BDEPEND="virtual/pkgconfig
 	verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 DEPEND="${RDEPEND}"
 
-PATCHES=(
-	"${FILESDIR}"/${N}-1.2.1-missing-export-set_elem.patch
-)
-
 pkg_setup() {
 	if kernel_is ge 3 13; then
 		CONFIG_CHECK="~NF_TABLES"
