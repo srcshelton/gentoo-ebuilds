@@ -31,6 +31,7 @@ LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 src_prepare() {
 	toolchain_src_prepare
 
+	eapply "${FILESDIR}"/${P}-glibc-2.36.patch
 	eapply_user
 
 	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
