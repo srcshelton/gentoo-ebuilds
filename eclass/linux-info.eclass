@@ -443,17 +443,27 @@ kernel_is() {
 	linux-info_get_any_version
 
 	# Now we can continue
-	local operator
+	local operator=''
+
+	# Huston, we have a problem: a SKIP_KERNEL_CHECK flag has been added to
+	# avoid kernel-version checks (e.g. in containers) - but the semantics of
+	# kernel_is mean that the intended non-failure result is often false. We
+	# therefore can't reliably fix this without adding an additional parameter
+	# to specify the non-failure case, but we can guess at a mostly-safe
+	# default, having looked at the usage in current ebuilds...
+	local -i skip=0
 
 	case ${1#-} in
-	  lt) operator="-lt"; shift;;
+	  lt) operator="-lt"; skip=1; shift;;
 	  gt) operator="-gt"; shift;;
-	  le) operator="-le"; shift;;
+	  le) operator="-le"; skip=1; shift;;
 	  ge) operator="-ge"; shift;;
 	  eq) operator="-eq"; shift;;
 	   *) operator="-eq";;
 	esac
 	[[ $# -gt 3 ]] && die "Error in kernel-2_kernel_is(): too many parameters"
+
+	[[ -n ${SKIP_KERNEL_CHECK} ]] && return ${skip}
 
 	ver_test \
 		"${KV_MAJOR:-0}.${KV_MINOR:-0}.${KV_PATCH:-0}" \
