@@ -4,7 +4,8 @@
 EAPI=7
 
 TOOLCHAIN_PATCH_DEV="sam"
-PATCH_VER="5"
+TOOLCHAIN_PATCH_SUFFIX="xz"
+PATCH_VER="7"
 PATCH_GCC_VER="11.3.0"
 MUSL_VER="1"
 MUSL_GCC_VER="11.3.0"
@@ -30,9 +31,6 @@ LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
 src_prepare() {
 	toolchain_src_prepare
-
-	eapply "${FILESDIR}"/${P}-glibc-2.36.patch
-	eapply_user
 
 	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
@@ -192,7 +190,7 @@ pkg_preinst() {
 			esac
 			if [[ -e "${src}" ]]; then
 				dest="$( pkg_preinst_find_seq "${src}" )" || die "Failed to generate sequence for file '${src}': ${?}"
-				mv "${ED}/${src}" "${ED}/${dest}" || die "Moving gcc-config data from '${ED%/}/${src}' to '${ED%/}${dest}' failed: ${?}"
+				mv "${src}" "${dest}" || die "Moving gcc-config data from '${ED%/}/${src}' to '${ED%/}${dest}' failed: ${?}"
 			fi
 		done
 	fi
@@ -252,7 +250,7 @@ pkg_postinst() {
 			if ! [[ -e "${dest}" ]]; then
 				path="$( dirname "${dest}" )"
 				name="$( basename "${dest}" )"
-				if [[ -e "${path}/._cfg0000_${name}" ]]; then
+				if [[ -e "${path}/._cfg0000_${name}" && ! -e "${dest}" ]]; then
 					mv "${path}/._cfg0000_${name}" "${dest}" || die "Moving gcc-config data from '${path}._cfg0000_${name}' to '${dest}' failed: ${?}"
 				fi
 			fi
