@@ -20,15 +20,14 @@ HOMEPAGE="https://www.bitlbee.org/"
 
 LICENSE="GPL-2 BSD-2"
 SLOT="0"
-IUSE_PROTOCOLS="msn oscar purple twitter +xmpp"
-IUSE="debug +gnutls ipv6 libevent msn nss oscar otr +plugins purple selinux systemd test twitter xinetd +xmpp"
+IUSE_PROTOCOLS="purple twitter +xmpp"
+IUSE="debug +gnutls ipv6 libevent nss otr +plugins purple selinux systemd test twitter xinetd +xmpp"
 RESTRICT="!test? ( test )"
 
 REQUIRED_USE="
-	|| ( purple xmpp msn oscar )
+	|| ( purple xmpp )
 	purple? ( plugins )
-	test? ( plugins )
-	xmpp? ( !nss )
+	test? ( xmpp )
 "
 
 COMMON_DEPEND="
