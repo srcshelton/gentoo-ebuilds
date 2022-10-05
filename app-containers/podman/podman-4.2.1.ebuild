@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT='7fe5a419cfd2880df2028ad3d7fd9378a88a04f4'
+EGIT_COMMIT='62b324ddf718411b1d4d0ba8117c632f7f984a38'
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -21,20 +21,20 @@ IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +init
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
-	virtual/libcrypt
 	app-crypt/gpgme:=
+	>=app-containers/conmon-2.0.24
+	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
+	!cgroup-hybrid? ( app-containers/crun )
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	sys-apps/acl:=
-	sys-apps/attr:=
+	|| ( app-containers/netavark >=app-containers/cni-plugins-0.8.6 )
 	sys-apps/shadow:=
-	sys-libs/libcap-ng:=
+	sys-fs/lvm2
 	sys-libs/libseccomp:=
-	sys-libs/pam:=
-	sys-process/audit:=
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
+	rootless? ( app-containers/slirp4netns )
 	selinux? ( sys-libs/libselinux:= )
 "
 BDEPEND="
@@ -46,16 +46,9 @@ BDEPEND="
 	systemd? ( sys-apps/systemd )"
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
-	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
-	!cgroup-hybrid? ( app-containers/crun )
 	fuse? ( sys-fs/fuse-overlayfs )
 	init? ( app-containers/catatonit )
-	rootless? ( app-containers/slirp4netns )
-	selinux? ( sec-policy/selinux-podman )
-
-	>=app-containers/conmon-2.0.24
-	|| ( app-containers/netavark >=app-containers/cni-plugins-0.8.6 )
-	sys-fs/lvm2"
+	selinux? ( sec-policy/selinux-podman )"
 
 S="${WORKDIR}/${P/_/-}"
 
