@@ -3,6 +3,8 @@
 
 EAPI=7
 
+# See https://bugs.gentoo.org/835813 before bumping to 4.x!
+
 inherit flag-o-matic toolchain-funcs usr-ldscript multilib-minimal
 
 DESCRIPTION="Standard informational utilities and process-handling tools"
