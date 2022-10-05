@@ -6,7 +6,7 @@ EAPI=8
 DISTUTILS_OPTIONAL=1
 PYTHON_COMPAT=( python3_{8..11} )
 VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
-inherit distutils-r1 edo linux-info systemd verify-sig
+inherit distutils-r1 edo linux-info systemd usr-ldscript verify-sig
 
 DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
@@ -14,16 +14,10 @@ HOMEPAGE="https://netfilter.org/projects/nftables/"
 if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	inherit autotools git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
-
-	BDEPEND="
-		sys-devel/bison
-		sys-devel/flex
-	"
 else
 	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2
 		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.bz2.sig )"
-	KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
-	BDEPEND+="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
+	KEYWORDS="amd64 arm arm64 hppa ~ia64 ~mips ppc ppc64 ~riscv sparc x86"
 fi
 
 LICENSE="GPL-2"
@@ -33,7 +27,7 @@ RESTRICT="!test? ( test )"
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:0=
-	>=net-libs/libnftnl-1.2.3:0=
+	>=net-libs/libnftnl-1.2.2:0=
 	gmp? ( dev-libs/gmp:= )
 	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
@@ -44,12 +38,15 @@ RDEPEND="
 DEPEND="${RDEPEND}"
 
 BDEPEND+="
+	sys-devel/bison
+	sys-devel/flex
 	virtual/pkgconfig
 	doc? (
 		app-text/asciidoc
 		>=app-text/docbook2X-0.8.8-r4
 	)
 	python? ( ${PYTHON_DEPS} )
+	verify-sig? ( sec-keys/openpgp-keys-netfilter )
 "
 
 REQUIRED_USE="
@@ -70,6 +67,9 @@ pkg_setup() {
 }
 
 src_prepare() {
+	local PATCHES=(
+		"${FILESDIR}/nftables-1.0.4-revert-scanner-flags-move-to-own-scope.patch"
+	)
 	default
 
 	if [[ ${PV} =~ ^[9]{4,}$ ]] ; then
@@ -136,12 +136,17 @@ src_install() {
 	default
 
 	if ! use doc && [[ ! ${PV} =~ ^[9]{4,}$ ]]; then
+		# Deploy a pre-generated man-page to avoid docbook2X dependency...
+		newman "${FILESDIR}/man-pages/${P}-libnftables.3" libnftables.3
+		newman "${FILESDIR}/man-pages/${P}-libnftables-json.5" libnftables-json.5
+		newman "${FILESDIR}/man-pages/${P}-nft.8" nft.8
+
 		pushd doc >/dev/null || die
 		doman *.?
 		popd >/dev/null || die
 	fi
 
-	# Move docs here instead of in src_prepare to avoid eautoreconf:
+	# Do it here instead of in src_prepare to avoid eautoreconf
 	# rmdir lets us catch if more files end up installed in /etc/nftables
 	dodir /usr/share/doc/${PF}/skels/
 	mv "${ED}"/etc/nftables/osf "${ED}"/usr/share/doc/${PF}/skels/osf || die
@@ -149,10 +154,10 @@ src_install() {
 
 	local mksuffix="$(usex modern-kernel '-mk' '')"
 
-	exeinto /usr/libexec/${PN}
-	newexe "${FILESDIR}"/libexec/${PN}${mksuffix}.sh ${PN}.sh
-	newconfd "${FILESDIR}"/${PN}${mksuffix}.confd ${PN}
-	newinitd "${FILESDIR}"/${PN}${mksuffix}.init-r1 ${PN}
+	exeinto "/usr/libexec/${PN}"
+	newexe "${FILESDIR}/libexec/${PN}${mksuffix}.sh" "${PN}.sh"
+	newconfd "${FILESDIR}/${PN}${mksuffix}.confd" "${PN}"
+	newinitd "${FILESDIR}/${PN}${mksuffix}.init-r1" "${PN}"
 	keepdir /var/lib/nftables
 
 	use systemd && systemd_dounit "${FILESDIR}"/systemd/${PN}-restore.service
@@ -163,17 +168,22 @@ src_install() {
 		popd >/dev/null || die
 	fi
 
+	if use split-usr; then
+		# Required by /sbin/nft
+		gen_usr_ldscript -a nftables
+	fi
+
 	find "${ED}" -type f -name "*.la" -delete || die
 }
 
 pkg_preinst() {
-	if [[ -d /sys/module/nf_tables ]] && [[ -x /sbin/nft ]] && [[ -z ${ROOT} ]]; then
+	if [[ -d /sys/module/nf_tables ]] && [[ -x /sbin/nft ]] && [[ -z "${ROOT}" || "${ROOT}" == '/' ]]; then
 		if ! /sbin/nft -t list ruleset | "${ED}"/sbin/nft -c -f -; then
 			eerror "Your currently loaded ruleset cannot be parsed by the newly built instance of"
 			eerror "nft. This probably means that there is a regression introduced by v${PV}."
 			eerror "(To make the ebuild fail instead of warning, set NFTABLES_ABORT_ON_RELOAD_FAILURE=1.)"
 
-			if [[ -n ${NFTABLES_ABORT_ON_RELOAD_FAILURE} ]] ; then
+			if [[ -n "${NFTABLES_ABORT_ON_RELOAD_FAILURE}" ]] ; then
 				die "Aborting because of failed nft reload!"
 			fi
 		fi
@@ -182,7 +192,7 @@ pkg_preinst() {
 
 pkg_postinst() {
 	local save_file
-	save_file="${EROOT}"/var/lib/nftables/rules-save
+	save_file="${EROOT%/}/var/lib/nftables/rules-save"
 
 	# In order for the nftables-restore systemd service to start
 	# the save_file must exist.
