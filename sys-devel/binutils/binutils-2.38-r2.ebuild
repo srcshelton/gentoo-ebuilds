@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit elisp-common flag-o-matic gnuconfig libtool strip-linguas toolchain-funcs
+inherit flag-o-matic gnuconfig libtool strip-linguas toolchain-funcs
 
 DESCRIPTION="Tools necessary to build programs"
 HOMEPAGE="https://sourceware.org/binutils/"
