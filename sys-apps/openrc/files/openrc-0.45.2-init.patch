@@ -1,0 +1,58 @@
+--- init.d/devfs.in.dist
++++ init.d/devfs.in
+@@ -21,9 +21,9 @@
+ mount_dev()
+ {
+ 	local action conf_d_dir devfstype msg mountopts
+-	action=--mount
++	action='--mount'
+ 	conf_d_dir="${RC_SERVICE%/*/*}/conf.d"
+-	msg=Mounting
++	msg='Mounting'
+ 	# Some devices require exec, https://bugs.gentoo.org/92921
+ 	# Users with such requirements can use an fstab entry for /dev
+ 	mountopts="noexec,nosuid,mode=0755"
+@@ -32,9 +32,9 @@
+ 		return 0
+ 	fi
+ 	if mountinfo -q /dev; then
+-		action=--remount
++		action='--remount'
+ 		mountopts="remount,$mountopts"
+-		msg=Remounting
++		msg='Remounting'
+ 	fi
+ 	if fstabinfo -q /dev; then
+ 		ebegin "$msg /dev according to fstab"
+@@ -42,16 +42,17 @@
+ 		eend $?
+ 		return 0
+ 	fi
++
+ 	if grep -q devtmpfs /proc/filesystems; then
+ 		devfstype=devtmpfs
+-		mountopts="$mountopts,size=10M"
++		mountopts="$mountopts,size=1M"
+ 	elif grep -q tmpfs /proc/filesystems; then
+ 		devfstype=tmpfs
+-		mountopts="$mountopts,size=10M"
++		mountopts="$mountopts,size=1M"
+ 	fi
+ 	if [ -n "$devfstype" ]; then
+ 		ebegin "$msg $devfstype on /dev"
+-		mount -n -t $devfstype -o $mountopts dev /dev
++		mount -n -t "$devfstype" dev /dev -o "$mountopts"
+ 		eend $?
+ 	else
+ 		ewarn "This kernel does not have devtmpfs or tmpfs support, and there"
+--- init.d/bootmisc.in.dist
++++ init.d/bootmisc.in
+@@ -36,7 +36,7 @@
+ 		# Faster than raw find
+ 		if ! rm -rf -- [!ajlq\.]* 2>/dev/null ; then
+ 			# Blah, too many files
+-			find . -maxdepth 1 -name '[!ajlq\.]*' -exec rm -rf -- {} +
++			find . -maxdepth 1 ! -name '[ajlq\.]*' -exec rm -rf -- {} +
+ 		fi
+ 
+ 		# pam_mktemp creates a .private directory within which
