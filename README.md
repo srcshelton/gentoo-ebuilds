@@ -528,7 +528,9 @@ directory is an additional QA check which reports an error if files deployed to
 * app-admin/sudo
 * app-admin/syslog-ng
 * app-admin/ulogd
+* app-containers/cni-plugins
 * app-containers/containerd
+* app-crypt/tpm2-tss
 * app-misc/screen
 * dev-db/redis
 * dev-libs/cyrus-sasl
@@ -552,7 +554,6 @@ directory is an additional QA check which reports an error if files deployed to
 * net-fs/samba
 * net-im/bitlbee
 * net-mail/dovecot
-* app-containers/cni-plugins
 * net-misc/dhcpcd
 * net-misc/iperf
 * net-misc/memcached
@@ -571,8 +572,8 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/iproute2
 * sys-apps/kmod
 * sys-apps/lm\_sensors
-* sys-apps/portage
-    * A mountpoint-check has been added for `/run`, but Python's `os.path.ismount()` seems unreliable even when this path is corrected, so a work-around has been added...
+* ~~sys-apps/portage~~
+    * ~~A mountpoint-check has been added for `/run`, but Python's `os.path.ismount()` seems unreliable even when this path is corrected, so a work-around has been added...~~
 * sys-apps/smartmontools
 * sys-auth/elogind
 * sys-devel/distcc
@@ -702,7 +703,7 @@ x32 profiles, and that these variables only affect multilib systems.
 # Fixes for binaries and libraries which are installed to the root filesystem, but link to libraries originally installed to `/usr`
 (... previously controlled by the `sep-usr` USE-flag, now using standardised `split-usr`)
 
-* app-arch/zstd
+* ~~app-arch/zstd~~
 * app-crypt/argon2
 * app-crypt/libmd
 * app-crypt/mit-krb5
