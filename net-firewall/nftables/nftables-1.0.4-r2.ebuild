@@ -137,8 +137,8 @@ src_install() {
 
 	if ! use doc && [[ ! ${PV} =~ ^[9]{4,}$ ]]; then
 		# Deploy a pre-generated man-page to avoid docbook2X dependency...
-		newman "${FILESDIR}/man-pages/${P}-libnftables.3" libnftables.3
-		newman "${FILESDIR}/man-pages/${P}-libnftables-json.5" libnftables-json.5
+		newman "${FILESDIR}/man-pages/${PN}-1.0.1-libnftables.3" libnftables.3
+		newman "${FILESDIR}/man-pages/${PN}-1.0.1-libnftables-json.5" libnftables-json.5
 		newman "${FILESDIR}/man-pages/${P}-nft.8" nft.8
 
 		pushd doc >/dev/null || die
