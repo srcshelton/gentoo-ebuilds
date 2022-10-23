@@ -3,6 +3,8 @@
 
 EAPI=7
 
+inherit autotools
+
 DESCRIPTION="A container init that is so simple it's effectively brain-dead"
 HOMEPAGE="https://github.com/openSUSE/catatonit"
 SRC_URI="https://github.com/openSUSE/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz
@@ -22,14 +24,16 @@ PATCHES=(
 	"${DISTDIR}/${P}-automake.patch"
 )
 
-src_configure() {
-	./autogen.sh || die
+src_prepare() {
 	default
+
+	eautoreconf
 }
 
 src_install() {
 	default
 	dodir /usr/libexec/podman
+
 	# Deploy symlink in place of hardlink...
 	#ln "${ED}/usr/"{bin,libexec/podman}/catatonit || die
 	ln -s ../../bin/catatonit "${ED}"/usr/libexec/podman/catatonit || die
