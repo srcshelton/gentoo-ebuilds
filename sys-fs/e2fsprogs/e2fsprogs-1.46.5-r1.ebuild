@@ -159,3 +159,11 @@ multilib_src_install_all() {
 		doins "${FILESDIR}"/e2fsck.conf
 	fi
 }
+
+pkg_postinst() {
+	udev_reload
+}
+
+pkg_postrm() {
+	udev_reload
+}
