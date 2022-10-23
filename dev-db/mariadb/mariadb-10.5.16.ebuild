@@ -6,7 +6,7 @@ SUBSLOT="18"
 
 JAVA_PKG_OPT_USE="jdbc"
 
-inherit cmake eutils flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
+inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 # Patch version
 PATCH_SET="https://github.com/hydrapolic/gentoo-dist/raw/master/mariadb/mariadb-10.5.15-patches-01.tar.xz"

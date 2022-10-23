@@ -6,7 +6,7 @@ SUBSLOT="18"
 
 JAVA_PKG_OPT_USE="jdbc"
 
-inherit cmake eutils flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
+inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 # Patch version
 PATCH_SET="https://github.com/hydrapolic/gentoo-dist/raw/master/${PN}/${PN}-10.2.43-patches-01.tar.xz"
@@ -18,11 +18,7 @@ HOMEPAGE="https://mariadb.org/"
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 LICENSE="GPL-2 LGPL-2.1+"
 SLOT="$(ver_cut 1-2)/${SUBSLOT:-0}"
-IUSE="+backup bindist client-libs cracklib debug extraengine galera innodb-lz4
-	innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga
-	numa odbc oqgraph pam +perl profiling rocksdb selinux +server sphinx
-	sst-mariabackup sst-rsync sst-xtrabackup static systemd systemtap tcmalloc
-	test tokudb xml yassl"
+IUSE="+backup bindist client-libs cracklib debug extraengine galera innodb-lz4 innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb selinux +server sphinx sst-mariabackup sst-rsync sst-xtrabackup static systemd systemtap tcmalloc test tokudb xml yassl"
 	# abi_x86_32
 
 RESTRICT="!bindist? ( bindist ) !test? ( test )"
