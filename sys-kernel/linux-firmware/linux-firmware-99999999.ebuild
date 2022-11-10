@@ -2,11 +2,11 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit mount-boot savedconfig
+inherit linux-info mount-boot savedconfig multiprocessing
 
 # In case this is a real snapshot, fill in commit below.
 # For normal, tagged releases, leave blank
-MY_COMMIT=
+MY_COMMIT=""
 
 if [[ ${PV} == 99999999* ]]; then
 	inherit git-r3
@@ -14,11 +14,12 @@ if [[ ${PV} == 99999999* ]]; then
 else
 	if [[ -n "${MY_COMMIT}" ]]; then
 		SRC_URI="https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/snapshot/${MY_COMMIT}.tar.gz -> ${P}.tar.gz"
+		S="${WORKDIR}/${MY_COMMIT}"
 	else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -29,7 +30,7 @@ LICENSE="GPL-2 GPL-2+ GPL-3 BSD MIT || ( MPL-1.1 GPL-2 )
 		linux-fw-redistributable ( BSD-2 BSD BSD-4 ISC MIT no-source-code ) )
 	unknown-license? ( all-rights-reserved )"
 SLOT="0"
-IUSE="initramfs +redistributable savedconfig unknown-license"
+IUSE="compress initramfs +redistributable savedconfig unknown-license"
 REQUIRED_USE="initramfs? ( redistributable )"
 
 RESTRICT="binchecks strip test
@@ -59,6 +60,15 @@ RDEPEND="!savedconfig? (
 	)"
 
 QA_PREBUILT="*"
+
+pkg_setup() {
+	if ! use compress ; then
+		return
+	fi
+
+	local CONFIG_CHECK="~FW_LOADER_COMPRESS"
+	linux-info_pkg_setup
+}
 
 pkg_pretend() {
 	use initramfs && mount-boot_pkg_pretend
@@ -368,6 +378,17 @@ src_install() {
 
 	save_config "${S}"/${PN}.conf
 
+	if use compress ; then
+		while IFS= read -r -d '' f; do
+			target=$(readlink "${f}")
+			ln -sf "${target}".xz "${f}" || die
+			mv "${f}" "${f}".xz || die
+		done < <(find . -type l -print0) || die
+
+		find . -type f ! -path "./amd-ucode/*" -print0 | \
+			xargs -0 -P $(makeopts_jobs) -I'{}' xz -T1 -C crc32 '{}' || die
+	fi
+
 	popd &>/dev/null || die
 
 	if use initramfs ; then
@@ -379,6 +400,11 @@ src_install() {
 pkg_preinst() {
 	if use savedconfig; then
 		ewarn "USE=savedconfig is active. You must handle file collisions manually."
+	fi
+
+	# Fix 'symlink is blocked by a directory' Bug #871315
+	if has_version "<${CATEGORY}/${PN}-20220913-r2" ; then
+		rm -rf "${EROOT}"/lib/firmware/qcom/LENOVO/21BX
 	fi
 
 	# Make sure /boot is available if needed.
