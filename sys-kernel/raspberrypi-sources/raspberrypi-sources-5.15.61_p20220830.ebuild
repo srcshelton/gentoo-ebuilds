@@ -4,17 +4,23 @@
 EAPI=8
 
 CKV="${PV%_p*}"
+
 ETYPE=sources
+#K_DEFCONFIG="bcmrpi_defconfig" # Set below...
+K_SECURITY_UNSUPPORTED=1
+#EXTRAVERSION="-${PN}/-*" # Set below...
+
 K_EXP_GENPATCHES_NOUSE=1
+K_GENPATCHES_VER=22
+K_DEBLOB_AVAILABLE=0
+K_WANT_GENPATCHES="base extras"
+
+H_SUPPORTEDARCH="arm arm64"
 K_FROM_GIT=1
-K_GENPATCHES_VER=1
 #K_NOUSENAME=1
 #K_NOUSEPR=1
-K_SECURITY_UNSUPPORTED=1
-K_WANT_GENPATCHES="base extras"
-H_SUPPORTEDARCH="arm arm64"
 
-inherit kernel-2
+inherit kernel-2 linux-info
 detect_version
 detect_arch
 
@@ -22,8 +28,10 @@ MY_PV="1.${PV#*_p}"
 
 DESCRIPTION="Raspberry Pi kernel sources"
 HOMEPAGE="https://github.com/raspberrypi/linux"
-SRC_URI="https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz
-	${GENPATCHES_URI}"
+SRC_URI="
+	https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz -> ${P}.tar.gz
+	${GENPATCHES_URI}
+"
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
@@ -35,11 +43,22 @@ PATCHES=("${FILESDIR}"/${PN}-$(ver_cut 1-2).32-gentoo-kconfig.patch)
 
 UNIPATCH_EXCLUDE="
 	10*
-	4567_distro-Gentoo-Kconfig.patch"
+	15*
+	2000
+	29*
+	3000
+	4567"
 
 S="${WORKDIR}/linux-${MY_PV}"
 
 pkg_setup() {
+	ewarn ""
+	ewarn "${PN} is *not* supported by the Gentoo Kernel Project in any way."
+	ewarn "If you need support, please contact the raspberrypi developers directly."
+	ewarn "Do *not* open bugs in Gentoo's bugzilla unless you have issues with"
+	ewarn "the ebuilds. Thank you."
+	ewarn ""
+
 	# arm64: bcm2711_defconfig bcmrpi3_defconfig
 	# arm:   bcm2709_defconfig bcm2711_defconfig bcm2835_defconfig bcmrpi_defconfig
 	#
@@ -71,31 +90,36 @@ pkg_setup() {
 	kernel-2_pkg_setup
 }
 
-src_unpack() {
-	default
-
-	unpack_set_extraversion
+universal_unpack() {
+	unpack "${P}.tar.gz"
 
 	# remove all backup files
 	find . -iname "*~" -exec rm {} \; 2>/dev/null
 }
 
-src_prepare() {
-	# kernel-2_src_prepare doesn't apply PATCHES().
-	default
-	handle_genpatches --set-unipatch-list
-	[[ -n ${UNIPATCH_LIST} || -n ${UNIPATCH_LIST_DEFAULT} || -n ${UNIPATCH_LIST_GENPATCHES} ]] && \
-		unipatch "${UNIPATCH_LIST_DEFAULT} ${UNIPATCH_LIST_GENPATCHES} ${UNIPATCH_LIST}"
-
-	unpack_fix_install_path
-
-	# Setup xmakeopts and cd into sourcetree.
-	env_setup_xmakeopts
-}
-
-#src_compile() {
-#	emake mrproper defconfig prepare
+#src_unpack() {
+#	default
+#
+#	unpack_set_extraversion
+#
+#	# remove all backup files
+#	find . -iname "*~" -exec rm {} \; 2>/dev/null
 #}
+
+src_prepare() {
+	default
+	kernel-2_src_prepare
+
+	## kernel-2_src_prepare doesn't apply PATCHES()
+	#handle_genpatches --set-unipatch-list
+	#[[ -n ${UNIPATCH_LIST} || -n ${UNIPATCH_LIST_DEFAULT} || -n ${UNIPATCH_LIST_GENPATCHES} ]] && \
+	#	unipatch "${UNIPATCH_LIST_DEFAULT} ${UNIPATCH_LIST_GENPATCHES} ${UNIPATCH_LIST}"
+	#
+	#unpack_fix_install_path
+	#
+	## Setup xmakeopts and cd into sourcetree.
+	#env_setup_xmakeopts
+}
 
 src_install() {
 	# e.g. linux-raspberrypi-kernel_1.20200601-1 -> linux-4.19.118_p20200601-raspberrypi-r1
@@ -105,4 +129,12 @@ src_install() {
 	else
 		mv "${S}" "${ED}/usr/src/linux-${PV%_p*}-raspberrypi"
 	fi
+}
+
+pkg_postinst() {
+	kernel-2_pkg_postinst
+}
+
+pkg_postrm() {
+	kernel-2_pkg_postrm
 }
