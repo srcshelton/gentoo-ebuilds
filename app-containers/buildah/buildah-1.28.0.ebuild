@@ -23,6 +23,7 @@ RDEPEND="app-crypt/gpgme:=
 	sys-libs/libseccomp:=
 	selinux? ( sys-libs/libselinux:= )"
 DEPEND="${RDEPEND}"
+BDEPEND="sys-devel/binutils[gold]"
 
 RESTRICT="mirror test"
 
