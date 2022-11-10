@@ -1,7 +1,7 @@
-# Copyright 1999-2021 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit mount-boot readme.gentoo-r1
 
@@ -25,7 +25,7 @@ HOMEPAGE="https://github.com/raspberrypi/firmware"
 
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+rpi4 64bit"
+IUSE="64bit +rpi4"
 
 # Temporary safety measure to prevent ending up with a pair of
 # sys-kernel/raspberrypi-image and sys-boot/raspberrypi-firmware
@@ -142,16 +142,19 @@ pkg_preinst() {
 	local boot="${RASPBERRYPI_BOOT:-/boot}"
 
 	if [[ "${MERGE_TYPE}" != "buildonly" ]]; then
-		if [[ -z "${REPLACING_VERSIONS}" ]]; then
+		if [[ -z "${REPLACING_VERSIONS}" ]] ; then
 			local msg=""
+
 			if [[ -e "${ED}"/boot/cmdline.txt ]] && [[ -e /boot/cmdline.txt ]] ; then
 				msg+="/boot/cmdline.txt "
 			fi
+
 			if [[ -e "${ED}${boot}"/config.txt ]] && [[ -e "${boot}"/config.txt ]] ; then
 				msg+="${boot}/config.txt "
 			fi
-			if [ -n "${msg}" ] ; then
-				msg="This package installs following files: ${msg}"
+
+			if [[ -n "${msg}" ]] ; then
+				msg="This package installs the following files: ${msg}"
 				msg="${msg} Please backup and remove your local verions prior to installation"
 				msg="${msg} and merge your changes afterwards."
 				msg="${msg} Further updates will be CONFIG_PROTECTed."
@@ -168,3 +171,5 @@ pkg_postinst() {
 
 	readme.gentoo_print_elog
 }
+
+# vi: set diffopt=filler,iwhite:
