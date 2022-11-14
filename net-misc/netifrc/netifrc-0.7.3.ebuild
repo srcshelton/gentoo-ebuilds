@@ -38,7 +38,7 @@ src_prepare() {
 	default
 
 	# netifrc has been updated to unconditionally use /run :(
-	find "${S}" -type f -exec grep -H '/run/' {} + | cut -d':' -f 1 | sort | uniq | xargs sed -i 's|/run/|/var/run/|g'
+	find "${S}" -type f -exec grep -H '/run/' {} + | cut -d':' -f 1 | sort | uniq | xargs -r sed -i 's|/run/|/var/run/|g'
 }
 
 src_compile() {
@@ -61,7 +61,9 @@ src_install() {
 		rmdir -p "${ED}"/"$(get_udevdir)"/rules.d
 	fi
 
-	if use systemd; then
+	if ! use systemd; then
+		rm "${ED}"/lib/netifrc/sh/systemd-wrapper.sh
+	else
 		# Install the service file
 		LIBEXECDIR="${EPREFIX}/lib/${PN}"
 		UNIT_DIR="$(systemd_get_systemunitdir)"
@@ -72,7 +74,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	udev_reload
+	use udev && udev_reload
 	if [[ ! -e "${EROOT}"/etc/conf.d/net && -z ${REPLACING_VERSIONS} ]]; then
 		elog "The network configuration scripts will use dhcp by"
 		elog "default to set up your interfaces."
