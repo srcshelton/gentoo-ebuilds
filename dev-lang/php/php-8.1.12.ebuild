@@ -213,14 +213,15 @@ src_prepare() {
 	# stream_isatty fails due to portage redirects
 	# curl tests here fail for network sandbox issues
 	# session tests here fail because we set the session directory to $T
-	rm tests/output/stream_isatty_err.phpt \
-	   tests/output/stream_isatty_out-err.phpt \
-	   tests/output/stream_isatty_out.phpt \
-	   ext/curl/tests/bug76675.phpt \
-	   ext/curl/tests/bug77535.phpt \
-	   ext/curl/tests/curl_error_basic.phpt \
-	   ext/session/tests/bug74514.phpt \
-	   ext/session/tests/bug74936.phpt || die
+	rm \
+		tests/output/stream_isatty_err.phpt \
+		tests/output/stream_isatty_out-err.phpt \
+		tests/output/stream_isatty_out.phpt \
+		ext/curl/tests/bug76675.phpt \
+		ext/curl/tests/bug77535.phpt \
+		ext/curl/tests/curl_error_basic.phpt \
+		ext/session/tests/bug74514.phpt \
+		ext/session/tests/bug74936.phpt || die
 
 }
 
