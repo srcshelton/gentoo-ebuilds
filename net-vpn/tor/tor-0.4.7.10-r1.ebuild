@@ -3,8 +3,9 @@
 
 EAPI="8"
 
+WANT_AUTOMAKE=1.16
 PYTHON_COMPAT=( python3_{8..10} )
-inherit python-any-r1 readme.gentoo-r1 systemd verify-sig
+inherit autotools python-any-r1 readme.gentoo-r1 systemd verify-sig
 
 MY_PV="$(ver_rs 4 -)"
 MY_PF="${PN}-${MY_PV}"
