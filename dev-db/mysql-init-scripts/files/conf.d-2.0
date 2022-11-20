@@ -67,12 +67,9 @@ STOP_TIMEOUT=120
 
 # Should any one of the instances satisfy the requirement for MySQL coming up?
 # By default, we say no.
-[ "${SVCNAME}" != mysql ] && rc_provide="!mysql"
+# (Note: sense-inverted to prevent exiting with a possible failure)
+[ "${SVCNAME}" = mysql ] || rc_provide="!mysql"
 # But uncomment this next instead if you think it should.
 #rc_provide="mysql"
 
-# The conditional above has a false-positive "failure" return value as a
-# side-effect, and since it's the last statement, without the next line, this
-# script returns failure.
-return 0
 # vim: ft=gentoo-conf-d et ts=4 sw=4:
