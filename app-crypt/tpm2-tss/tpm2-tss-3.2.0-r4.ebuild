@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools flag-o-matic linux-info multilib-minimal tmpfiles udev
+inherit autotools flag-o-matic linux-info tmpfiles udev multilib-minimal
 
 DESCRIPTION="TCG Trusted Platform Module 2.0 Software Stack"
 HOMEPAGE="https://github.com/tpm2-software/tpm2-tss"
@@ -11,8 +11,8 @@ SRC_URI="https://github.com/tpm2-software/${PN}/releases/download/${PV}/${P}.tar
 
 LICENSE="BSD-2"
 SLOT="0/3"
-KEYWORDS="amd64 arm arm64 ppc64 ~riscv x86"
-IUSE="doc +fapi +openssl mbedtls static-libs systemd test +tmpfiles udev"
+KEYWORDS="amd64 arm arm64 ~loong ppc64 ~riscv x86"
+IUSE="doc +fapi mbedtls +openssl static-libs systemd test +tmpfiles udev"
 
 RESTRICT="!test? ( test )"
 
