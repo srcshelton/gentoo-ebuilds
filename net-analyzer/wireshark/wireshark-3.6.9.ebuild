@@ -1,36 +1,56 @@
-# Copyright 1999-2020 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
-PYTHON_COMPAT=( python3_{6,7,8} )
-inherit cmake fcaps flag-o-matic multilib python-any-r1 qmake-utils user xdg-utils
+EAPI=8
+
+LUA_COMPAT=( lua5-{1..2} )
+PYTHON_COMPAT=( python3_{8..10} )
+
+inherit cmake fcaps flag-o-matic lua-single python-any-r1 qmake-utils xdg
 
 DESCRIPTION="A network protocol analyzer formerly known as ethereal"
 HOMEPAGE="https://www.wireshark.org/"
-SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz"
+
+if [[ ${PV} == *9999* ]] ; then
+	EGIT_REPO_URI="https://gitlab.com/wireshark/wireshark"
+	inherit git-r3
+else
+	SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz"
+	S="${WORKDIR}/${P/_/}"
+
+	KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ppc64 ~riscv ~x86"
+fi
+
 LICENSE="GPL-2"
-
 SLOT="0/${PV}"
-KEYWORDS="~alpha amd64 arm ~arm64 ~hppa ~ia64 ppc64 x86"
-IUSE="androiddump bcg729 brotli +capinfos +captype ciscodump crypt +dftest doc dpauxmon +dumpcap +editcap http2 kerberos libxml2 lua lz4 maxminddb +mergecap +minizip +netlink +pcap plugin-ifdemo +plugins +qt5 +randpkt +randpktdump +reordercap sbc sdjournal selinux +sharkd smi snappy spandsp sshdump ssl test +text2pcap tfshark +tshark +udpdump zlib +zstd"
-S=${WORKDIR}/${P/_/}
+IUSE="androiddump bcg729 brotli +capinfos +captype ciscodump crypt +dftest doc dpauxmon +dumpcap +editcap http2 ilbc kerberos libxml2 lto lua lz4 maxminddb +mergecap +minizip +netlink opus +pcap plugin-ifdemo +plugins +qt5 +randpkt +randpktdump +reordercap sbc sdjournal selinux +sharkd smi snappy spandsp sshdump ssl test +text2pcap tfshark +tshark +udpdump zlib +zstd"
 
-CDEPEND="
-	>=dev-libs/glib-2.32:2
-	>=net-dns/c-ares-1.5
-	crypt? ( dev-libs/libgcrypt:0 )
+REQUIRED_USE="lua? ( ${LUA_REQUIRED_USE} )
+	plugin-ifdemo? ( plugins )
+	ssl? ( crypt )"
+
+RESTRICT="!test? ( test )"
+
+# bug #753062 for speexdsp
+COMMON_DEPEND="acct-group/pcap
+	>=dev-libs/glib-2.38:2
+	>=net-dns/c-ares-1.5:=
+	media-libs/speexdsp
 	bcg729? ( media-libs/bcg729 )
-	brotli? ( app-arch/brotli )
+	brotli? ( app-arch/brotli:= )
 	ciscodump? ( >=net-libs/libssh-0.6 )
+	crypt? ( dev-libs/libgcrypt:= )
 	filecaps? ( sys-libs/libcap )
-	http2? ( net-libs/nghttp2 )
+	http2? ( net-libs/nghttp2:= )
+	ilbc? ( media-libs/libilbc )
 	kerberos? ( virtual/krb5 )
 	libxml2? ( dev-libs/libxml2 )
-	lua? ( >=dev-lang/lua-5.1:* )
-	lz4? ( app-arch/lz4 )
-	maxminddb? ( dev-libs/libmaxminddb )
+	lua? ( ${LUA_DEPS} )
+	lz4? ( app-arch/lz4:= )
+	maxminddb? ( dev-libs/libmaxminddb:= )
 	minizip? ( sys-libs/zlib[minizip] )
 	netlink? ( dev-libs/libnl:3 )
+	opus? ( media-libs/opus )
 	pcap? ( net-libs/libpcap )
 	qt5? (
 		dev-qt/qtcore:5
@@ -48,18 +68,13 @@ CDEPEND="
 	sshdump? ( >=net-libs/libssh-0.6 )
 	ssl? ( net-libs/gnutls:= )
 	zlib? ( sys-libs/zlib )
-	zstd? ( app-arch/zstd )
-"
-# We need perl for `pod2html`. The rest of the perl stuff is to block older
-# and broken installs. #455122
-DEPEND="
-	${CDEPEND}
-	${PYTHON_DEPS}
-"
-BDEPEND="
+	zstd? ( app-arch/zstd:= )"
+DEPEND="${COMMON_DEPEND}"
+BDEPEND="${PYTHON_DEPS}
 	dev-lang/perl
 	sys-devel/bison
 	sys-devel/flex
+	sys-devel/gettext
 	virtual/pkgconfig
 	doc? (
 		app-doc/doxygen
@@ -69,31 +84,31 @@ BDEPEND="
 		dev-qt/linguist-tools:5
 	)
 	test? (
-		dev-python/pytest
-		dev-python/pytest-xdist
-	)
-"
-RDEPEND="
-	${CDEPEND}
+		$(python_gen_any_dep '
+			dev-python/pytest[${PYTHON_USEDEP}]
+			dev-python/pytest-xdist[${PYTHON_USEDEP}]
+		')
+	)"
+RDEPEND="${COMMON_DEPEND}
 	qt5? ( virtual/freedesktop-icon-theme )
-	selinux? ( sec-policy/selinux-wireshark )
-"
-REQUIRED_USE="
-	ssl? ( crypt )
-	plugin-ifdemo? ( plugins )
-"
-RESTRICT="test"
+	selinux? ( sec-policy/selinux-wireshark )"
+
 PATCHES=(
-	"${FILESDIR}"/${PN}-2.4-androiddump.patch
 	"${FILESDIR}"/${PN}-2.6.0-redhat.patch
-	"${FILESDIR}"/${PN}-2.9.0-tfshark-libm.patch
-	"${FILESDIR}"/${PN}-99999999-androiddump-wsutil.patch
-	"${FILESDIR}"/${PN}-99999999-qtsvg.patch
-	"${FILESDIR}"/${PN}-99999999-ui-needs-wiretap.patch
+	"${FILESDIR}"/${PN}-3.4.2-cmake-lua-version.patch
 )
 
+python_check_deps() {
+	use test || return 0
+
+	python_has_version -b "dev-python/pytest[${PYTHON_USEDEP}]" &&
+		 python_has_version -b "dev-python/pytest-xdist[${PYTHON_USEDEP}]"
+}
+
 pkg_setup() {
-	enewgroup wireshark
+	use lua && lua-single_pkg_setup
+
+	python-any-r1_pkg_setup
 }
 
 src_configure() {
@@ -101,7 +116,7 @@ src_configure() {
 
 	# Workaround bug #213705. If krb5-config --libs has -lcrypto then pass
 	# --with-ssl to ./configure. (Mimics code from acinclude.m4).
-	if use kerberos; then
+	if use kerberos ; then
 		case $(krb5-config --libs) in
 			*-lcrypto*)
 				ewarn "Kerberos was built with ssl support: linkage with openssl is enabled."
@@ -112,7 +127,7 @@ src_configure() {
 		esac
 	fi
 
-	if use qt5; then
+	if use qt5 ; then
 		export QT_MIN_VERSION=5.3.0
 		append-cxxflags -fPIC -DPIC
 	fi
@@ -126,6 +141,7 @@ src_configure() {
 	python_setup
 
 	mycmakeargs+=(
+		-DCMAKE_DISABLE_FIND_PACKAGE_{Asciidoctor,DOXYGEN}=$(usex !doc)
 		$(use androiddump && use pcap && echo -DEXTCAP_ANDROIDDUMP_LIBPCAP=yes)
 		$(usex qt5 LRELEASE=$(qt5_get_bindir)/lrelease '')
 		$(usex qt5 MOC=$(qt5_get_bindir)/moc '')
@@ -153,19 +169,21 @@ src_configure() {
 		-DBUILD_tshark=$(usex tshark)
 		-DBUILD_udpdump=$(usex udpdump)
 		-DBUILD_wireshark=$(usex qt5)
-		-DCMAKE_INSTALL_DOCDIR="${EROOT%/}/usr/share/doc/${PF}"
-		-DDISABLE_WERROR=yes
+		-DDISABLE_WERROR=ON
 		-DENABLE_BCG729=$(usex bcg729)
 		-DENABLE_BROTLI=$(usex brotli)
 		-DENABLE_CAP=$(usex filecaps caps)
 		-DENABLE_GNUTLS=$(usex ssl)
+		-DENABLE_ILBC=$(usex ilbc)
 		-DENABLE_KERBEROS=$(usex kerberos)
 		-DENABLE_LIBXML2=$(usex libxml2)
+		-DENABLE_LTO=$(usex lto)
 		-DENABLE_LUA=$(usex lua)
 		-DENABLE_LZ4=$(usex lz4)
 		-DENABLE_MINIZIP=$(usex minizip)
 		-DENABLE_NETLINK=$(usex netlink)
 		-DENABLE_NGHTTP2=$(usex http2)
+		-DENABLE_OPUS=$(usex opus)
 		-DENABLE_PCAP=$(usex pcap)
 		-DENABLE_PLUGINS=$(usex plugins)
 		-DENABLE_PLUGIN_IFDEMO=$(usex plugin-ifdemo)
@@ -186,8 +204,11 @@ src_configure() {
 src_test() {
 	cmake_build test-programs
 
-	myctestargs=( --disable-capture --skip-missing-programs=all --verbose )
-	cmake_src_test
+	# https://www.wireshark.org/docs/wsdg_html_chunked/ChTestsRunPytest.html
+	epytest \
+		--disable-capture \
+		--skip-missing-programs=all \
+		--program-path "${BUILD_DIR}"/run
 }
 
 src_install() {
@@ -199,71 +220,58 @@ src_install() {
 	# install headers
 	insinto /usr/include/wireshark
 	doins ws_diag_control.h ws_symbol_export.h \
-		"${BUILD_DIR}"/config.h "${BUILD_DIR}"/version.h
+		"${BUILD_DIR}"/config.h
 
+	# If trying to remove this, try build e.g. libvirt first!
+	# At last check, Fedora is still doing this too.
 	local dir dirs=(
 		epan
 		epan/crypt
 		epan/dfilter
 		epan/dissectors
 		epan/ftypes
-		epan/wmem
 		wiretap
 		wsutil
+		wsutil/wmem
 	)
-	for dir in "${dirs[@]}"
-	do
+
+	for dir in "${dirs[@]}" ; do
 		insinto /usr/include/wireshark/${dir}
 		doins ${dir}/*.h
 	done
 
-	#with the above this really shouldn't be needed, but things may be looking
-	# in wiretap/ instead of wireshark/wiretap/
-	insinto /usr/include/wiretap
-	doins wiretap/wtap.h
-
-	if use qt5; then
+	if use qt5 ; then
 		local s
-		for s in 16 32 48 64 128 256 512 1024; do
+
+		for s in 16 32 48 64 128 256 512 1024 ; do
 			insinto /usr/share/icons/hicolor/${s}x${s}/apps
 			newins image/wsicon${s}.png wireshark.png
 		done
+
 		for s in 16 24 32 48 64 128 256 ; do
 			insinto /usr/share/icons/hicolor/${s}x${s}/mimetypes
 			newins image/WiresharkDoc-${s}.png application-vnd.tcpdump.pcap.png
 		done
 	fi
 
-	if [[ -d "${D}"/usr/share/appdata ]]; then
-		rm -r "${D}"/usr/share/appdata || die
+	if [[ -d "${ED}"/usr/share/appdata ]] ; then
+		rm -r "${ED}"/usr/share/appdata || die
 	fi
 }
 
 pkg_postinst() {
-	xdg_desktop_database_update
-	xdg_icon_cache_update
-	xdg_mimeinfo_database_update
+	xdg_pkg_postinst
 
 	# Add group for users allowed to sniff.
-	if ! use prefix; then
-		enewgroup wireshark
-		chgrp wireshark "${EROOT}"/usr/bin/dumpcap
-	fi
+	chgrp pcap "${EROOT}"/usr/bin/dumpcap
 
-	if use dumpcap && use pcap; then
-		fcaps -o 0 -g wireshark -m 4710 -M 0710 \
+	if use dumpcap && use pcap ; then
+		fcaps -o 0 -g pcap -m 4710 -M 0710 \
 			cap_dac_read_search,cap_net_raw,cap_net_admin \
 			"${EROOT}"/usr/bin/dumpcap
 	fi
 
 	ewarn "NOTE: To capture traffic with wireshark as normal user you have to"
-	ewarn "add yourself to the wireshark group. This security measure ensures"
+	ewarn "add yourself to the pcap group. This security measure ensures"
 	ewarn "that only trusted users are allowed to sniff your traffic."
 }
-
-pkg_postrm() {
-	xdg_desktop_database_update
-	xdg_icon_cache_update
-	xdg_mimeinfo_database_update
-}
-# vi: set diffopt=iwhite,filler:

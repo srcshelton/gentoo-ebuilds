@@ -428,8 +428,8 @@ used to build perl)
     * Re-factor munin to operate as a webapp, and remove configuration from `/etc`
 * net-analyzer/netdata
     * With modifications to upstream ebuild and init script
-* net-analyzer/ntopng
-    * Remove some of the more onerous limitations from the community edition, use source from `3.0-stable` branch rather than `3.0` tag
+* ~~net-analyzer/ntopng~~
+    * ~~Remove some of the more onerous limitations from the community edition, use source from `3.0-stable` branch rather than `3.0` tag~~
 * net-analyzer/speedtest-cli
     * Remove unnecessary run-time dependency on dev-python/setuptools
 * ~~net-analyzer/suricata~~
