@@ -185,7 +185,7 @@ acct-user_add_deps() {
 eislocked() {
 	[[ $# -eq 1 ]] || die "usage: ${FUNCNAME} <user>"
 
-	if [[ ${EUID} -ne 0 ]]; then
+	if [[ ${EUID} -ne 0 || -n ${EPREFIX} ]]; then
 		einfo "Insufficient privileges to execute ${FUNCNAME[0]}"
 		return 0
 	fi
@@ -338,7 +338,7 @@ acct-user_pkg_preinst() {
 
 	unset _ACCT_USER_ADDED
 
-	if [[ ${EUID} -ne 0 ]]; then
+	if [[ ${EUID} -ne 0 || -n ${EPREFIX} ]]; then
 		einfo "Insufficient privileges to execute ${FUNCNAME[0]}"
 		return
 	fi
@@ -411,7 +411,7 @@ acct-user_pkg_postinst() {
 		return
 	fi
 
-	if [[ ${EUID} -ne 0 ]]; then
+	if [[ ${EUID} -ne 0 || -n ${EPREFIX} ]]; then
 		einfo "Insufficient privileges to execute ${FUNCNAME[0]}"
 		return
 	fi
@@ -460,7 +460,7 @@ acct-user_pkg_prerm() {
 		return
 	fi
 
-	if [[ ${EUID} -ne 0 ]]; then
+	if [[ ${EUID} -ne 0 || -n ${EPREFIX} ]]; then
 		einfo "Insufficient privileges to execute ${FUNCNAME[0]}"
 		return
 	fi
