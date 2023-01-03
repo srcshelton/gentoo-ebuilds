@@ -20,9 +20,9 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 		sys-devel/flex
 	"
 else
-	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.bz2
-		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.bz2.sig )"
-	KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
+	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.xz
+		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.xz.sig )"
+	KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
 	BDEPEND+="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 fi
 
@@ -32,8 +32,8 @@ IUSE="debug doc +gmp json libedit +modern-kernel python +readline static-libs sy
 RESTRICT="!test? ( test )"
 
 RDEPEND="
-	>=net-libs/libmnl-1.0.4:0=
-	>=net-libs/libnftnl-1.2.3:0=
+	>=net-libs/libmnl-1.0.4:=
+	>=net-libs/libnftnl-1.2.4:=
 	gmp? ( dev-libs/gmp:= )
 	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
