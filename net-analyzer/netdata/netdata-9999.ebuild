@@ -57,6 +57,8 @@ case "${PV}" in
 	1.30.0)	GIT_COMMIT="fe27fdc389b58b318cf3973bc3d54ebfe3da5b48" ;;
 	1.30.1)	GIT_COMMIT="d5ea3cc5cf7256109c4c76148b5ba0d29328b380" ;;
 	1.31.0)	GIT_COMMIT="2f130c01aa487d2541a9f3045ff9970f91cc4fc9" ;;
+	# ...
+	1.37.1)	GIT_COMMIT="562101d64137a4c6b3310d4a2fed4a1da1bfce8d" ;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
@@ -88,7 +90,7 @@ RDEPEND="
 	net-misc/curl
 	net-misc/wget
 	sys-apps/util-linux
-	virtual/awk
+	app-alternatives/awk
 	caps? ( sys-libs/libcap )
 	cups? ( net-print/cups )
 	dbengine? (
