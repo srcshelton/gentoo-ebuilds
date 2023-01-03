@@ -85,7 +85,7 @@ RDEPEND="
 	${DEPEND}
 "
 # We only need yacc when the .y files get patched (bash42-005, bash51-011)
-BDEPEND="virtual/yacc
+BDEPEND="app-alternatives/yacc
 	verify-sig? ( sec-keys/openpgp-keys-chetramey )"
 
 # TODO: Validate that these still apply...
@@ -126,6 +126,11 @@ src_unpack() {
 	else
 		if use verify-sig ; then
 			verify-sig_verify_detached "${DISTDIR}"/${MY_P}.tar.gz{,.sig}
+
+			local patch
+			for patch in "${MY_PATCHES[@]}" ; do
+				verify-sig_verify_detached ${patch}{,.sig}
+			done
 		fi
 
 		unpack ${MY_P}.tar.gz
