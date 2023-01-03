@@ -32,7 +32,7 @@ RDEPEND="
 BDEPEND="
 	dev-util/cmake
 	sys-devel/bc
-	virtual/yacc
+	app-alternatives/yacc
 	pax-kernel? ( sys-apps/elfix )
 "
 
