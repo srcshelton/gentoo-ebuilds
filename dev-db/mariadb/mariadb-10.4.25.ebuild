@@ -41,7 +41,6 @@ COMMON_DEPEND="
 		sys-process/procps:0=
 		dev-libs/libaio:0=
 	)
-	>=sys-apps/sed-4
 	jemalloc? ( dev-libs/jemalloc:0= )
 	tcmalloc? ( dev-util/google-perftools:0= )
 	systemtap? ( >=dev-util/systemtap-1.3:0= )

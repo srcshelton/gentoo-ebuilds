@@ -41,7 +41,6 @@ COMMON_DEPEND="
 		sys-process/procps:0=
 		dev-libs/libaio:0=
 	)
-	>=sys-apps/sed-4
 	>=sys-apps/texinfo-4.7-r1
 	jemalloc? ( dev-libs/jemalloc:0= )
 	tcmalloc? ( dev-util/google-perftools:0= )
@@ -80,7 +79,7 @@ COMMON_DEPEND="
 	>=dev-libs/libpcre-8.41-r1:3=
 	virtual/libcrypt:=
 "
-BDEPEND="virtual/yacc"
+BDEPEND="app-alternatives/yacc"
 DEPEND="static? ( sys-libs/ncurses[static-libs] )
 	server? (
 		extraengine? ( jdbc? ( >=virtual/jdk-1.8 ) )
