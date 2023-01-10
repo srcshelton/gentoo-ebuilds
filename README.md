@@ -671,6 +671,8 @@ x32 profiles, and that these variables only affect multilib systems.
 # Fixes for `udev` and to allow separate `/usr`
 (... and/or operation without a `/run` directory)
 
+* app-alternatives/awk
+    * Support for gawk installed in `/bin`
 * app-eselect/eselect-awk
     * Support for (g)awk installed in `/bin`
 * net-wireless/bluez
