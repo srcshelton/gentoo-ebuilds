@@ -386,6 +386,8 @@ used to build perl)
     * Add firefox source to Allow building on ARM
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
+* dev-db/opendbx
+    * Add missing sys-libs/readline run-time dependency
 * ~~dev-java/commons-daemon~~
     * ~~Add additional include path to allow building with Oracle JDK 8 and above~~
 * dev-lang/mono
