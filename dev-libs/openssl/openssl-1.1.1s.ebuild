@@ -18,10 +18,10 @@ SLOT="0/1.1" # .so version of libssl/libcrypto
 if [[ ${PV} != *_pre* ]] ; then
 	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris ~x86-winnt"
 fi
-IUSE="+asm cpu_flags_x86_sse2 rfc3779 sctp sslv3 static-libs test tls-compression tls-heartbeat vanilla verify-sig weak-ssl-ciphers"
+IUSE="+asm cpu_flags_x86_sse2 +rehash rfc3779 sctp sslv3 static-libs test tls-compression tls-heartbeat vanilla verify-sig weak-ssl-ciphers"
 RESTRICT="!test? ( test )"
 
-RDEPEND=">=app-misc/c_rehash-1.7-r1
+RDEPEND="rehash? ( >=app-misc/c_rehash-1.7-r1 )
 	tls-compression? ( >=sys-libs/zlib-1.2.8-r1[static-libs(+)?,${MULTILIB_USEDEP}] )"
 DEPEND="${RDEPEND}"
 BDEPEND="
@@ -380,7 +380,14 @@ multilib_src_install_all() {
 }
 
 pkg_postinst() {
-	ebegin "Running 'c_rehash ${EROOT%/}/${SSL_CNF_DIR#/}/certs/' to rebuild hashes (bug #333069)"
-	c_rehash "${EROOT%/}/${SSL_CNF_DIR#/}/certs" >/dev/null
-	eend $?
+	if ! use rehash; then
+		ewarn "${PN} built without USE='rehash' - upgrading from ${PN}-0.9.8" \
+			"requires"
+		ewarn "c_rehash to be manually installed and run:"
+		ewarn "    c_rehash '${EROOT%/}/${SSL_CNF_DIR#/}/certs'"
+	else
+		ebegin "Running 'c_rehash ${EROOT%/}/${SSL_CNF_DIR#/}/certs/' to rebuild hashes (bug #333069)"
+		c_rehash "${EROOT%/}/${SSL_CNF_DIR#/}/certs" >/dev/null
+		eend $?
+	fi
 }
