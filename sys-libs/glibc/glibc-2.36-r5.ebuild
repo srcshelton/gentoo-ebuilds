@@ -42,7 +42,7 @@ SRC_URI+=" https://gitweb.gentoo.org/proj/locale-gen.git/snapshot/locale-gen-${L
 SRC_URI+=" multilib-bootstrap? ( https://dev.gentoo.org/~dilfridge/distfiles/gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz )"
 SRC_URI+=" systemd? ( https://gitweb.gentoo.org/proj/toolchain/glibc-systemd.git/snapshot/glibc-systemd-${GLIBC_SYSTEMD_VER}.tar.gz )"
 
-IUSE="audit caps cet compile-locales +crypt custom-cflags doc gd hash-sysv-compat headers-only +multiarch multilib multilib-bootstrap nscd profile selinux +ssp stack-realign +static-libs suid systemd systemtap test -timezone-tools +tmpfiles vanilla"
+IUSE="audit caps cet compile-locales +crypt custom-cflags doc gd hash-sysv-compat headers-only -minimal +multiarch multilib multilib-bootstrap nscd profile selinux +ssp stack-realign +static-libs suid systemd systemtap test -timezone-tools +tmpfiles vanilla"
 REQUIRED_USE="vanilla? ( timezone-tools )"
 
 # Minimum kernel version that glibc requires
@@ -131,10 +131,12 @@ DEPEND="${COMMON_DEPEND}
 	test? ( >=net-dns/libidn2-2.3.0 )
 "
 RDEPEND="${COMMON_DEPEND}
-	app-arch/gzip
-	sys-apps/grep
-	app-alternatives/awk
-	sys-apps/gentoo-functions
+	!minimal? (
+		app-arch/gzip
+		sys-apps/grep
+		app-alternatives/awk
+		sys-apps/gentoo-functions
+	)
 	!<app-misc/pax-utils-${MIN_PAX_UTILS_VER}
 	!<net-misc/openssh-8.1_p1-r2
 "
@@ -931,6 +933,8 @@ src_prepare() {
 	chmod u+x "${S}"/scripts/*.sh
 
 	cd "${S}"
+
+	eapply "${FILESDIR}/${P}-ldd.bash.in.patch" || die
 
 	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
