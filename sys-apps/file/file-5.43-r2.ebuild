@@ -15,12 +15,10 @@ if [[ ${PV} == 9999 ]] ; then
 else
 	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/file.asc
 	inherit verify-sig
-	SRC_URI="ftp://ftp.astron.com/pub/file/${P}.tar.gz"
-	SRC_URI+=" verify-sig? ( ftp://ftp.astron.com/pub/file/${P}.tar.gz.asc )"
+	SRC_URI="ftp://ftp.astron.com/pub/file/${P}.tar.gz
+		verify-sig? ( ftp://ftp.astron.com/pub/file/${P}.tar.gz.asc )"
 
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-
-	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-file )"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
 fi
 
 DESCRIPTION="Identify a file's format by scanning binary data for patterns"
@@ -28,34 +26,30 @@ HOMEPAGE="https://www.darwinsys.com/file/"
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="bzip2 lzip lzma python seccomp static-libs zlib zstd"
+IUSE="bzip2 lzma python seccomp static-libs zlib"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
 COMMON_DEPEND="
 	bzip2? ( app-arch/bzip2[${MULTILIB_USEDEP}] )
-	lzip? ( app-arch/lzlib )
 	lzma? ( app-arch/xz-utils[${MULTILIB_USEDEP}] )
-	python? (
-		${PYTHON_DEPS}
-	)
-	zlib? ( >=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}] )
-	zstd? ( app-arch/zstd:=[${MULTILIB_USEDEP}] )"
+	python? ( ${PYTHON_DEPS} )
+	zlib? ( >=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}] )"
 DEPEND="${COMMON_DEPEND}
-	python? (
-		dev-python/setuptools[${PYTHON_USEDEP}]
-	)"
+	python? ( dev-python/setuptools[${PYTHON_USEDEP}] )"
 RDEPEND="${COMMON_DEPEND}
 	python? ( !dev-python/python-magic )
 	seccomp? ( sys-libs/libseccomp[${MULTILIB_USEDEP}] )"
-BDEPEND+="
+BDEPEND="
 	python? (
 		${PYTHON_DEPS}
 		${DISTUTILS_DEPS}
-	)"
+	)
+	verify-sig? ( sec-keys/openpgp-keys-file )"
 
 PATCHES=(
+	"${FILESDIR}/file-5.43-portage-sandbox.patch" #713710 #728978
 	"${FILESDIR}/file-5.43-seccomp-fstatat64-musl.patch" #789336, not upstream yet
-	"${FILESDIR}/file-5.43-portage-sandbox.patch" #889046
+	"${FILESDIR}/${P}-configure-clang16.patch"
 )
 
 src_prepare() {
@@ -67,9 +61,8 @@ src_prepare() {
 		elibtoolize
 	fi
 
-	# Don't let python README kill main README, bug ##60043
+	# don't let python README kill main README, bug ##60043
 	mv python/README.md python/README.python.md || die
-
 	# bug #662090
 	sed 's@README.md@README.python.md@' -i python/setup.py || die
 }
@@ -78,14 +71,11 @@ multilib_src_configure() {
 	local myeconfargs=(
 		--enable-fsect-man5
 		$(use_enable bzip2 bzlib)
-		$(multilib_native_use_enable lzip lzlib)
 		$(use_enable lzma xzlib)
 		$(use_enable seccomp libseccomp)
 		$(use_enable static-libs static)
 		$(use_enable zlib)
-		$(use_enable zstd zstdlib)
 	)
-
 	econf "${myeconfargs[@]}"
 }
 
@@ -102,7 +92,7 @@ build_src_configure() {
 }
 
 need_build_file() {
-	# When cross-compiling, we need to build up our own file
+	# when cross-compiling, we need to build up our own file
 	# because people often don't keep matching host/target
 	# file versions, bug #362941
 	tc-is-cross-compiler && ! has_version -b "~${CATEGORY}/${P}"
