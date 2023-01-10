@@ -4,11 +4,11 @@
 # @ECLASS: usr-ldscript.eclass
 # @MAINTAINER:
 # Toolchain Ninjas <toolchain@gentoo.org>
-# @SUPPORTED_EAPIS: 6 7 8
+# @SUPPORTED_EAPIS: 7 8
 # @BLURB: Defines the gen_usr_ldscript function.
 
 case ${EAPI} in
-	6|7|8) ;;
+	7|8) ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
 
@@ -19,7 +19,7 @@ inherit multilib toolchain-funcs
 
 IUSE="split-usr"
 
-# for 'scanelf':
+# ... for 'scanelf':
 BDEPEND="app-misc/pax-utils"
 DEPEND="${BDEPEND}"
 
@@ -59,25 +59,27 @@ gen_usr_ldscript() {
 	*) return 0 ;;
 	esac
 
-	if [[ $1 == "--live" ]] ; then
+	if [[ "${1}" == "--live" ]] ; then
 		ed="${ROOT:-}"
+		ed="${ed%/}"
 		shift
-	fi
-	if [[ $1 == "-a" ]] ; then
-		auto=true
-		shift
-		if ! [[ -d "${ed%/}/${libdir}" ]]; then
-			mkdir -p "${ed%/}/${libdir}"
-			chown root:root "${ed%/}/${libdir}"
-			chmod 0755 "${ed%/}/${libdir}"
-		fi
 	fi
 
 	# Just make sure it exists
-	if ! [[ -d "${ed%/}/usr/${libdir}" ]]; then
-		mkdir -p "${ed%/}/usr/${libdir}"
-		chown root:root "${ed%/}/usr/${libdir}"
-		chmod 0755 "${ed%/}/usr/${libdir}"
+	if ! [[ -d "${ed}/usr/${libdir}" ]]; then
+		mkdir -p "${ed}/usr/${libdir}"
+		chown root:root "${ed}/usr/${libdir}"
+		chmod 0755 "${ed}/usr/${libdir}"
+	fi
+
+	if [[ "${1}" == '-a' ]] ; then
+		auto=true
+		shift
+		if ! [[ -d "${ed}/${libdir}" ]]; then
+			mkdir -p "${ed}/${libdir}"
+			chown root:root "${ed}/${libdir}"
+			chmod 0755 "${ed}/${libdir}"
+		fi
 	fi
 
 	# OUTPUT_FORMAT gives hints to the linker as to what binary format
@@ -101,26 +103,26 @@ gen_usr_ldscript() {
 			# Ensure /lib/${lib} exists to avoid dangling scripts/symlinks.
 			# This especially is for AIX where $(get_libname) can return ".a",
 			# so /lib/${lib} might be moved to /usr/lib/${lib} (by accident).
-			[[ -r ${ed%/}/${libdir}/${lib} ]] || die "Unable to read non-automatic source library '${ed%/}/${libdir}/${lib}': ${?}"
+			[[ -r ${ed}/${libdir}/${lib} ]] || die "Unable to read non-automatic source library '${ed}/${libdir}/${lib}': ${?}"
 		fi
 
 		case ${CTARGET:-${CHOST}} in
 		*-darwin*)
 			if ${auto} ; then
-				tlib=$(scanmacho -qF'%S#F' "${ed%/}"/usr/${libdir}/${lib})
+				tlib=$(scanmacho -qF'%S#F' "${ed}"/usr/${libdir}/${lib})
 			else
-				tlib=$(scanmacho -qF'%S#F' "${ed%/}"/${libdir}/${lib})
+				tlib=$(scanmacho -qF'%S#F' "${ed}"/${libdir}/${lib})
 			fi
 			[[ -z ${tlib} ]] && die "unable to read install_name from ${lib}"
 			tlib=${tlib##*/}
 
 			if ${auto} ; then
-				mv "${ed%/}"/usr/${libdir}/${lib%${suffix}}.*${suffix#.} "${ed%/}"/${libdir}/ || die
+				mv "${ed}"/usr/${libdir}/${lib%${suffix}}.*${suffix#.} "${ed}"/${libdir}/ || die
 				# some install_names are funky: they encode a version
 				if [[ ${tlib} != ${lib%${suffix}}.*${suffix#.} ]] ; then
-					mv "${ed%/}"/usr/${libdir}/${tlib%${suffix}}.*${suffix#.} "${ed%/}"/${libdir}/ || die
+					mv "${ed}"/usr/${libdir}/${tlib%${suffix}}.*${suffix#.} "${ed}"/${libdir}/ || die
 				fi
-				rm -f "${ed%/}"/${libdir}/${lib}
+				rm -f "${ed}"/${libdir}/${lib}
 			fi
 
 			# Mach-O files have an id, which is like a soname, it tells how
@@ -130,49 +132,51 @@ gen_usr_ldscript() {
 			# libdir=/lib because that messes up libtool files.
 			# Make sure we don't lose the specific version, so just modify the
 			# existing install_name
-			if [[ ! -w "${ed%/}/${libdir}/${tlib}" ]] ; then
-				chmod u+w "${ed%/}/${libdir}/${tlib}" # needed to write to it
+			if [[ ! -w "${ed}/${libdir}/${tlib}" ]] ; then
+				chmod u+w "${ed}/${libdir}/${tlib}" # needed to write to it
 				local nowrite=yes
 			fi
 			install_name_tool \
 				-id "${EPREFIX}"/${libdir}/${tlib} \
-				"${ed%/}"/${libdir}/${tlib} || die "install_name_tool failed"
-			[[ -n ${nowrite} ]] && chmod u-w "${ed%/}/${libdir}/${tlib}"
+				"${ed}"/${libdir}/${tlib} || die "install_name_tool failed"
+			if [[ -n ${nowrite} ]] ; then
+				chmod u-w "${ed}/${libdir}/${tlib}"
+			fi
 			# Now as we don't use GNU binutils and our linker doesn't
 			# understand linker scripts, just create a symlink.
-			pushd "${ed%/}/usr/${libdir}" > /dev/null
+			pushd "${ed}/usr/${libdir}" > /dev/null
 			ln -snf "../../${libdir}/${tlib}" "${lib}"
 			popd > /dev/null
 			;;
 		*)
 			if ${auto}; then
-				if ! [[ -s "${ed%/}/usr/${libdir}/${lib}" ]]; then
-					die "file '${ed%/}/usr/${libdir}/${lib}' is missing"
+				if ! [[ -s "${ed}/usr/${libdir}/${lib}" ]]; then
+					die "file '${ed}/usr/${libdir}/${lib}' is missing"
 				fi
-				tlib="$( scanelf -qF'%S#F' "${ed%/}/usr/${libdir}/${lib}" )"
+				tlib="$( scanelf -qF'%S#F' "${ed}/usr/${libdir}/${lib}" )"
 				if [[ -z "${tlib:-}" ]]; then
-					if ! command -v file >/dev/null 2>&1; then
+					if ! type -P file >/dev/null 2>&1; then
 						ewarn "command 'file' not found"
 					fi
 					if
-						file "${ed%/}/usr/${libdir}/${lib}" 2>/dev/null |
+						file "${ed}/usr/${libdir}/${lib}" 2>/dev/null |
 							grep -q -- 'ASCII text$' ||
-						grep -aq -- 'GNU ld script' "${ed%/}/usr/${libdir}/${lib}"
+						grep -aq -- 'GNU ld script' "${ed}/usr/${libdir}/${lib}"
 					then
-						ewarn "file '${ed%/}/usr/${libdir}/${lib}' is already a linker script"
-						if [[ -x "${ed%/}/usr/${libdir}/${lib}" ]] && (( $(
-								find "${ed%/}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
+						ewarn "file '${ed}/usr/${libdir}/${lib}' is already a linker script"
+						if [[ -x "${ed}/usr/${libdir}/${lib}" ]] && (( $(
+								find "${ed}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
 						) )); then
 							return 0
 						else
 							#
 							# libbsd is now writing a linker script in order to
 							# pull-in libmd for MD5 operations...
-							if grep -q -- '/usr/' "${ed%/}/usr/${libdir}/${lib}"; then
+							if grep -q -- '/usr/' "${ed}/usr/${libdir}/${lib}"; then
 								sed -e 's|/usr/|/|g' \
-									-i "${ed%/}/usr/${libdir}/${lib}"
+									-i "${ed}/usr/${libdir}/${lib}"
 								ewarn "Existing linker-script updated - new content:"
-								ewarn "$( cat "${ed%/}/usr/${libdir}/${lib}" )"
+								ewarn "$( cat "${ed}/usr/${libdir}/${lib}" )"
 								preexisting=1
 							else
 								die "However, the library does not appear to have been correctly relocated"
@@ -181,27 +185,27 @@ gen_usr_ldscript() {
 					fi
 					if ! (( preexisting )); then
 						die "unable to read SONAME from ${lib}" \
-							"('scanelf -qF'%S#F' \"${ed%/}/usr/${libdir}/${lib}\"' returned '$(
-								scanelf -qF'%S#F' "${ed%/}"/usr/${libdir}/${lib}
+							"('scanelf -qF'%S#F' \"${ed}/usr/${libdir}/${lib}\"' returned '$(
+								scanelf -qF'%S#F' "${ed}"/usr/${libdir}/${lib}
 							)': ${?})"
 					fi
 				fi
-				mv "${ed%/}/usr/${libdir}/${lib}"* "${ed%/}/${libdir}"/ || die
+				mv "${ed}/usr/${libdir}/${lib}"* "${ed}/${libdir}"/ || die
 				# some SONAMEs are funky: they encode a version before the .so
 				if [[ ${tlib} != ${lib}* ]] ; then
-					mv "${ed%/}/usr/${libdir}/${tlib}"* "${ed%/}/${libdir}"/ || die
+					mv "${ed}/usr/${libdir}/${tlib}"* "${ed}/${libdir}"/ || die
 				fi
 				if (( preexisting )); then
-					mv "${ed%/}/${libdir}/${lib}" "${ed%/}/usr/${libdir}"/
-					mv "${ed%/}/${libdir}/${lib%.so}"*.{a,la} "${ed%/}/usr/${libdir}"/
+					mv "${ed}/${libdir}/${lib}" "${ed}/usr/${libdir}"/
+					mv "${ed}/${libdir}/${lib%.so}"*.{a,la} "${ed}/usr/${libdir}"/
 				else
-					rm -f "${ed%/}/${libdir}/${lib}"
+					rm -f "${ed}/${libdir}/${lib}"
 				fi
 			else # if ! ${auto}; then
 				tlib=${lib}
 			fi
 			if ! (( preexisting )); then
-				cat > "${ed%/}/usr/${libdir}/${lib}" <<-END_LDSCRIPT
+				cat > "${ed}/usr/${libdir}/${lib}" <<-END_LDSCRIPT
 				/* GNU ld script
 				   Since Gentoo has critical dynamic libraries in /lib, and the static versions
 				   in /usr/lib, we need to have a "fake" dynamic lib in /usr/lib, otherwise we
@@ -218,9 +222,11 @@ gen_usr_ldscript() {
 			;;
 		esac
 		if ! (( preexisting )); then
-			chmod a+x "${ed%/}/usr/${libdir}/${lib}" || die "could not change perms on ${lib}"
+			chmod a+x "${ed}/usr/${libdir}/${lib}" || die "could not change perms on ${lib}"
 		fi
 	done
 }
 
 fi # _USR_LDSCRIPT_ECLASS
+
+# vi: set diffopt=filler,icase,iwhite:

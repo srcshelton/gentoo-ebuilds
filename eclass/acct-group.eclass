@@ -46,8 +46,9 @@ inherit user-info
 [[ ${CATEGORY} == acct-group ]] ||
 	die "Ebuild error: this eclass can be used only in acct-group category!"
 
-BDEPEND="sys-apps/shadow"
-RDEPEND="sys-apps/shadow"
+DEPEND='sys-apps/baselayout'
+BDEPEND='sys-apps/grep sys-apps/shadow'
+RDEPEND="${DEPEND} sys-apps/shadow"
 
 IUSE="systemd"
 
@@ -164,7 +165,7 @@ acct-group_src_install() {
 acct-group_pkg_preinst() {
 	debug-print-function ${FUNCNAME} "${@}"
 
-	if [[ ${EUID} -ne 0 ]]; then
+	if [[ ${EUID} -ne 0 || -n ${EPREFIX} ]]; then
 		einfo "Insufficient privileges to execute ${FUNCNAME[0]}"
 		return
 	fi
