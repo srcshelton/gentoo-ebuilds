@@ -26,7 +26,7 @@ SLOT="0/${PV}"
 IUSE="androiddump bcg729 brotli +capinfos +captype ciscodump crypt +dftest doc dpauxmon +dumpcap +editcap http2 ilbc kerberos libxml2 lto lua lz4 maxminddb +mergecap +minizip +netlink opus +pcap plugin-ifdemo +plugins +qt5 +randpkt +randpktdump +reordercap sbc sdjournal selinux +sharkd smi snappy spandsp sshdump ssl test +text2pcap tfshark +tshark +udpdump zlib +zstd"
 
 REQUIRED_USE="lua? ( ${LUA_REQUIRED_USE} )
-	plugin-ifdemo? ( plugins )
+	plugin-ifdemo? ( plugins qt5 )
 	ssl? ( crypt )"
 
 RESTRICT="!test? ( test )"
