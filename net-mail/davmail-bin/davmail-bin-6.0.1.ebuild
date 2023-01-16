@@ -1,9 +1,7 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
-
-inherit eapi7-ver user
+EAPI=7
 
 DESCRIPTION="DavMail POP/IMAP/SMTP/Caldav/Carddav/LDAP Exchange Gateway"
 HOMEPAGE="http://davmail.sourceforge.net/"
@@ -18,18 +16,18 @@ SLOT="0"
 KEYWORDS="x86 amd64"
 IUSE="doc"
 
-DEPEND=""
-RDEPEND=">=virtual/jre-1.6"
+DEPEND="acct-group/davmail acct-user/davmail"
+RDEPEND="${DEPEND} >=virtual/jre-1.6"
 
 S="${WORKDIR}"
 
-pkg_setup() {
-	enewgroup davmail || die "DavMail Group creation failed"
-	enewuser davmail -1 -1 "/opt/${MY_P}" davmail || die "DavMail User creation failed"
-}
+#pkg_setup() {
+#	enewgroup davmail || die "DavMail Group creation failed"
+#	enewuser davmail -1 -1 "/opt/${MY_P}" davmail || die "DavMail User creation failed"
+#}
 
 src_install () {
-	echo "CONFIG_PROTECT=\"${EPREFIX}/opt/${MY_P}/conf\"" > "${T}/90${MY_PN}"
+	echo "CONFIG_PROTECT=\"${EPREFIX%/}/opt/${MY_P}/conf\"" > "${T}/90${MY_PN}"
 
 	newinitd "${FILESDIR}/davmail-3.9.8-initd" davmail || \
 		die "Could not create init script"
