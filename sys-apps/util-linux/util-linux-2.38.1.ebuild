@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{8..10} )
+PYTHON_COMPAT=( python3_{8..11} )
 
 inherit bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
