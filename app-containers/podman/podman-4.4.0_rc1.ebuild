@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT="814b7b003cc630bf6ab188274706c383f9fb9915"
+EGIT_COMMIT="d8774a93c34dc1c4a768b0702b8c45ed1127dcd3"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -15,7 +15,7 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
