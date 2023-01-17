@@ -1,9 +1,9 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{7..10} )
+PYTHON_COMPAT=( python3_{9..10} )
 
 inherit flag-o-matic python-any-r1 toolchain-funcs
 
@@ -20,13 +20,13 @@ SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 LICENSE="GPL-3+"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
-IUSE="acl caps elibc_Cygwin elibc_glibc gmp hostname kill multicall nls selinux +split-usr static +stdbuf test uptime userland_BSD vanilla xattr"
+IUSE="acl caps gmp hostname kill multicall nls selinux +split-usr static +stdbuf test uptime vanilla xattr"
 RESTRICT="!test? ( test )"
 
 LIB_DEPEND="acl? ( sys-apps/acl[static-libs] )
 	caps? ( sys-libs/libcap )
 	gmp? ( dev-libs/gmp:=[static-libs] )
-	xattr? ( elibc_glibc? ( sys-apps/attr[static-libs] ) )"
+	xattr? ( sys-apps/attr[static-libs] )"
 RDEPEND="!static? ( ${LIB_DEPEND//\[static-libs]} )
 	selinux? ( sys-libs/libselinux )
 	nls? ( virtual/libintl )"
@@ -40,9 +40,7 @@ BDEPEND="
 	test? (
 		dev-lang/perl
 		dev-perl/Expect
-		elibc_glibc? (
-			dev-util/strace
-		)
+		dev-util/strace
 		${PYTHON_DEPS}
 	)
 "
@@ -86,9 +84,6 @@ src_prepare() {
 			-e "/src_libstdbuf_so_LDFLAGS = -shared/s:-shared:-dynamiclib -install_name ${EPREFIX}/usr/libexec/coreutils/libstdbuf.dylib:" \
 			Makefile.in \
 			|| die
-	elif use elibc_Cygwin ; then
-		epatch "${FILESDIR}"/${P}-cygwin-8.26-3.patch
-		sed -i -e 's|\(libstdbuf\.so\)$(EXEEXT)|\1|g' Makefile.in || die
 	fi
 	sed -i \
 		-e "s/libstdbuf\\.so/libstdbuf$(get_libname)/" \
@@ -153,7 +148,6 @@ src_configure() {
 		export ac_cv_{header_selinux_{context,flash,selinux}_h,search_setfilecon}=no
 	fi
 
-	use userland_BSD && myconf+=( -program-prefix=g --program-transform-name=s/stat/nustat/ )
 	econf "${myconf[@]}"
 }
 
@@ -231,10 +225,6 @@ src_install() {
 			for x in ${com} uname ; do
 				dosym ../../bin/${x} /usr/bin/${x}
 			done
-	fi
-	if use elibc_Cygwin ; then
-		! use kill || mv "${ED%/}"/bin/{,g}kill || die
-		mv "${ED%/}"/usr/libexec/${PN}/libstdbuf$(get_libname){.exe,} || die
 	fi
 }
 

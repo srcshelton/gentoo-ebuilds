@@ -1,9 +1,9 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{8..10} )
+PYTHON_COMPAT=( python3_{9..10} )
 VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/coreutils.asc
 inherit flag-o-matic python-any-r1 toolchain-funcs verify-sig
 
@@ -35,7 +35,7 @@ RESTRICT="!test? ( test )"
 LIB_DEPEND="acl? ( sys-apps/acl[static-libs] )
 	caps? ( sys-libs/libcap )
 	gmp? ( dev-libs/gmp:=[static-libs] )
-	xattr? ( elibc_glibc? ( sys-apps/attr[static-libs] ) )"
+	xattr? ( sys-apps/attr[static-libs] )"
 RDEPEND="!static? ( ${LIB_DEPEND//\[static-libs]} )
 	selinux? ( sys-libs/libselinux )
 	nls? ( virtual/libintl )"
@@ -49,9 +49,7 @@ BDEPEND="
 	test? (
 		dev-lang/perl
 		dev-perl/Expect
-		elibc_glibc? (
-			dev-util/strace
-		)
+		dev-util/strace
 		${PYTHON_DEPS}
 	)
 	verify-sig? ( sec-keys/openpgp-keys-coreutils )

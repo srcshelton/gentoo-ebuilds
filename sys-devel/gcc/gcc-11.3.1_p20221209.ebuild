@@ -39,7 +39,7 @@ IUSE="-lib-only"
 COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
 RDEPEND="${COMMON_DEPEND}
 	!sys-devel/gcc-libs:${SLOT}"
-DEPEND="${COMMON_RDEPEND}"
+DEPEND="${COMMON_DEPEND}"
 # When built in a container, fails because elt-patches is not present - unclear
 # as to whether this is a problem with the toolchain eclass, gcc ebuild,
 # something related to elt-patches, or a portage dependency issue :(

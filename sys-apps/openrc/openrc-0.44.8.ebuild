@@ -68,6 +68,8 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-0.42.1-agetty-initd.patch
 	"${FILESDIR}"/${PN}-0.43.5-cgroups.patch
 	"${FILESDIR}"/${PN}-0.44.7-whitespace.patch
+	# Backported from master
+	"${FILESDIR}"/${P}-selinux-no-pam.patch
 )
 
 src_prepare() {
@@ -88,11 +90,6 @@ src_prepare() {
 	eapply "${FILESDIR}/${PN}-0.41.2-cgroup-race.patch" || die "cgroup eapply failed"
 	eapply "${FILESDIR}/${PN}-0.43.5-checkpath-mkdir.patch" || die "checkpath eapply failed"
 }
-
-PATCHES=(
-	# Backported from master
-	"${FILESDIR}"/${P}-selinux-no-pam.patch
-)
 
 src_configure() {
 	local emesonargs=(
