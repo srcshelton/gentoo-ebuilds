@@ -707,7 +707,7 @@ multilib_src_install() {
 		cd "${S}/contrib/slapd-modules" || die
 		for l in */*.la */*/*.la; do
 			[[ -e "${l}" ]] || continue
-			"${lt}" --mode=install cp "${l}" \
+			libtool --mode=install cp "${l}" \
 				"${ED}"/usr/$(get_libdir)/openldap/openldap || \
 				die "installing '${l}' failed"
 		done
