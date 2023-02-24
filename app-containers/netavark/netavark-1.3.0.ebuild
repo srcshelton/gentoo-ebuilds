@@ -205,8 +205,6 @@ BDEPEND="dev-go/go-md2man"
 RDEPEND="dns? ( app-containers/aardvark-dns )"
 
 src_prepare() {
-	cargo_src_prepare
-
 	sed -e "/println/s|commit|\"${EGIT_COMMIT}\"|" \
 		-i build.rs
 
