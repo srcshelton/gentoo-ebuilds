@@ -1,1 +1,2 @@
+move virtual/awk app-alternatives/awk
 move dev-python/yamllint dev-util/yamllint
