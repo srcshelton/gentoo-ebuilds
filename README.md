@@ -390,6 +390,8 @@ used to build perl)
     * Add missing sys-libs/readline run-time dependency
 * ~~dev-java/commons-daemon~~
     * ~~Add additional include path to allow building with Oracle JDK 8 and above~~
+* dev-java/openjdk
+    * Add missing sys-devel/autoconf dependency
 * dev-lang/mono
     * Fix DEPEND/BDEPEND to add virtual/linux-sources and dev-util/cmake respectively
 * ~~dev-lang/perl~~
