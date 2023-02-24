@@ -1,4 +1,4 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -39,6 +39,7 @@ S="${WORKDIR}/${MY_P}"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.19.2-man-unicode-dashes.patch #16108 #17580 #121502
+	"${FILESDIR}"/${PN}-1.22.4-skip-broken-diffutils-test.patch
 )
 
 src_prepare() {
@@ -75,6 +76,9 @@ src_configure() {
 		# bug #678026
 		export gl_cv_func_signbit_gcc=yes
 	fi
+
+	# Drop in release after 1.22.4! bug #894154
+	append-cxxflags -std=gnu++11
 
 	local myeconfargs=(
 		--with-appresdir="${EPREFIX}"/usr/share/X11/app-defaults
