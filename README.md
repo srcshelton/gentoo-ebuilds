@@ -258,6 +258,8 @@ used to build perl)
     * DNS helper for app-containers/netavark
 * app-containers/netavark
     * app-containers/cni-plugins replacement for app-containers/podman
+* app-containers/passt
+    * app-containers/slirp4netns replacement for app-containers/podman - see https://github.com/containers/podman/pull/16141
 * app-containers/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
