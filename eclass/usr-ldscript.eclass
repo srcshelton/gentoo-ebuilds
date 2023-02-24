@@ -54,11 +54,18 @@ DEPEND="${BDEPEND}"
 # the library (libfoo.so), as ldconfig should usually update it
 # correctly to point to the latest version of the library present.
 gen_usr_ldscript() {
-	local lib libdir="$(get_libdir)" output_format='' auto=false suffix="$(get_libname)" ed="${ED:-}"
+	local lib libdir="$(get_libdir)" output_format='' auto='false' suffix="$(get_libname)" ed="${ED:-}"
 	local -i preexisting=0
 
 	tc-is-static-only && return
 	use prefix && return
+
+	# The toolchain's sysroot is automatically prepended to paths in this
+	# script. We therefore need to omit EPREFIX on standalone prefix (RAP)
+	# systems. prefix-guest (non-RAP) systems don't apply a sysroot so EPREFIX
+	# is still needed in that case. This is moot because the above line makes
+	# the function a noop on prefix, but we keep this in case that changes.
+	local prefix=$(usex prefix-guest "${EPREFIX}" "")
 
 	# We only care about stuffing / for the native ABI. #479448
 	if [[ $(type -t multilib_is_native_abi) == "function" ]] ; then
@@ -105,7 +112,7 @@ gen_usr_ldscript() {
 		# If they're using gold, manually invoke the old bfd. #487696
 		local d="${T}/bfd-linker"
 		mkdir -p "${d}"
-		ln -sf "$(type -P ${CHOST}-ld.bfd)" "${d}"/ld
+		ln -sf "$( type -P "${CHOST}-ld.bfd" )" "${d}"/ld
 		flags+=( -B"${d}" )
 	fi
 	output_format=$($(tc-getCC) "${flags[@]}" 2>&1 | sed -n 's/^OUTPUT_FORMAT("\([^"]*\)",.*/\1/p')
@@ -149,14 +156,14 @@ gen_usr_ldscript() {
 			# Make sure we don't lose the specific version, so just modify the
 			# existing install_name
 			if [[ ! -w "${ed}/${libdir}/${tlib}" ]] ; then
-				chmod u+w "${ed}/${libdir}/${tlib}" # needed to write to it
+				chmod u+w "${ed}/${libdir}/${tlib}" || die # needed to write to it
 				local nowrite=yes
 			fi
 			install_name_tool \
 				-id "${EPREFIX}"/${libdir}/${tlib} \
 				"${ed}"/${libdir}/${tlib} || die "install_name_tool failed"
 			if [[ -n ${nowrite} ]] ; then
-				chmod u-w "${ed}/${libdir}/${tlib}"
+				chmod u-w "${ed}/${libdir}/${tlib}" || die
 			fi
 			# Now as we don't use GNU binutils and our linker doesn't
 			# understand linker scripts, just create a symlink.
@@ -232,7 +239,7 @@ gen_usr_ldscript() {
 				   See bug https://bugs.gentoo.org/4411 for more info.
 				 */
 				${output_format}
-				GROUP ( ${EPREFIX}/${libdir}/${tlib} )
+				GROUP ( ${prefix}/${libdir}/${tlib} )
 				END_LDSCRIPT
 			fi
 			;;
