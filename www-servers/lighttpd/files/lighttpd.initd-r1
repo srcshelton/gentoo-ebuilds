@@ -5,7 +5,7 @@
 extra_started_commands="reload graceful"
 
 LIGHTTPD_PID="$(
-	$(which lighttpd) -pf ${LIGHTTPD_CONF} |
+	$(type -pf lighttpd) -pf ${LIGHTTPD_CONF} |
 		grep server.pid-file |
 		cut -d '=' -f 2 |
 		tr -d \\\" |
@@ -27,7 +27,7 @@ checkconfig() {
 	fi
 
 	LIGHTTPD_PID="$(
-		$(which lighttpd) -pf ${LIGHTTPD_CONF} |
+		$(type -pf lighttpd) -pf ${LIGHTTPD_CONF} |
 			grep server.pid-file |
 			cut -d '=' -f 2 |
 			tr -d \\\" |
@@ -48,7 +48,7 @@ start() {
 	# Fixes bug 454366
 	LIGHTTPD_USER="$(awk '/^server.username/{s=$3};{sub("\"","",s)};END{print s}' ${LIGHTTPD_CONF} 2>/dev/null)"
 	LIGHTTPD_GROUP="$(awk '/^server.groupname/{s=$3};{sub("\"","",s)};END{print s}' ${LIGHTTPD_CONF} 2>/dev/null)"
-	checkpath -q -d -m 0750 -o "${LIGHTTPD_USER:-lighttpd}":"${LIGHTTPD_GROUP:-lighttpd}" /var/run/lighttpd/
+	checkpath -q -d -m 0750 -o "${LIGHTTPD_USER:-lighttpd}:${LIGHTTPD_GROUP:-lighttpd}" /var/run/lighttpd/
 
 	ebegin "Starting lighttpd"
 	start-stop-daemon --start --quiet --exec /usr/sbin/lighttpd \
