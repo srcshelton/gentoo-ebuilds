@@ -23,8 +23,8 @@ RDEPEND="${DEPEND}
 	selinux? ( sec-policy/selinux-tftp )
 	!net-ftp/atftp
 	server? (
-		!net-misc/iputils[tftpd(+)]
-		!net-ftp/uftpd[tftpd(+)]
+		!net-misc/iputils[tftpd(-)]
+		!net-ftp/uftpd
 	)
 "
 
@@ -80,3 +80,5 @@ src_install() {
 		newins "${FILESDIR}"/tftp.xinetd tftp
 	fi
 }
+
+# vi: set diffopt=filler,iwhite:
