@@ -5,7 +5,7 @@ EAPI=8
 
 TOOLCHAIN_PATCH_SUFFIX="xz"
 TOOLCHAIN_PATCH_DEV="sam"
-PATCH_VER="3"
+PATCH_VER="8"
 PATCH_GCC_VER="11.4.0"
 MUSL_VER="2"
 MUSL_GCC_VER="11.4.0"
@@ -27,9 +27,9 @@ inherit toolchain
 EGIT_BRANCH=releases/gcc-$(ver_cut 1)
 
 # Don't keyword live ebuilds
-if ! tc_is_live && [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-fi
+#if ! tc_is_live && [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
+#	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc ~x86"
+#fi
 
 IUSE="-lib-only"
 
@@ -40,9 +40,9 @@ COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
 RDEPEND="${COMMON_DEPEND}
 	!sys-devel/gcc-libs:${SLOT}"
 DEPEND="${COMMON_DEPEND}"
-# When built in a container, fails because elt-patches is not present - unclear
-# as to whether this is a problem with the toolchain eclass, gcc ebuild,
-# something related to elt-patches, or a portage dependency issue :(
+# The current build-script has to rebuild sys-devel/gcc to get a '+lib-only'
+# version with 'nodeps' enabled, which prevents 'app-portage/elt-patches' from
+# being automatically pulled-in - we'll try to solve this elsewhere...
 BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
 	>=app-portage/elt-patches-20170815
 	sys-apps/texinfo

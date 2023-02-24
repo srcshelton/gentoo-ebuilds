@@ -3,12 +3,11 @@
 
 EAPI=8
 
-TOOLCHAIN_PATCH_SUFFIX="xz"
 TOOLCHAIN_PATCH_DEV="sam"
-PATCH_VER="3"
-PATCH_GCC_VER="11.4.0"
-MUSL_VER="2"
-MUSL_GCC_VER="11.4.0"
+PATCH_VER="10"
+PATCH_GCC_VER="12.2.0"
+MUSL_VER="7"
+MUSL_GCC_VER="12.2.0"
 
 if [[ $(ver_cut 3) == 9999 ]] ; then
 	MY_PV_2=$(ver_cut 2)
@@ -20,15 +19,23 @@ if [[ $(ver_cut 3) == 9999 ]] ; then
 
 	# e.g. 12.2.9999 -> 12.1.1
 	TOOLCHAIN_GCC_PV=$(ver_cut 1).${MY_PV_2}.$(($(ver_cut 3) - 9998))
+elif [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
+	# Cheesy hack for RCs
+	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 5)
+	MY_P=${PN}-${MY_PV}
+	GCC_TARBALL_SRC_URI="https://gcc.gnu.org/pub/gcc/snapshots/${MY_PV}/${MY_P}.tar.xz"
+	TOOLCHAIN_SET_S=no
+	S="${WORKDIR}"/${MY_P}
 fi
 
 inherit toolchain
+
 # Needs to be after inherit (for now?), bug #830908
 EGIT_BRANCH=releases/gcc-$(ver_cut 1)
 
 # Don't keyword live ebuilds
 if ! tc_is_live && [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 sparc ~x86"
 fi
 
 IUSE="-lib-only"
@@ -40,9 +47,9 @@ COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
 RDEPEND="${COMMON_DEPEND}
 	!sys-devel/gcc-libs:${SLOT}"
 DEPEND="${COMMON_DEPEND}"
-# When built in a container, fails because elt-patches is not present - unclear
-# as to whether this is a problem with the toolchain eclass, gcc ebuild,
-# something related to elt-patches, or a portage dependency issue :(
+# The current build-script has to rebuild sys-devel/gcc to get a '+lib-only'
+# version with 'nodeps' enabled, which prevents 'app-portage/elt-patches' from
+# being automatically pulled-in - we'll try to solve this elsewhere...
 BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
 	>=app-portage/elt-patches-20170815
 	sys-apps/texinfo
@@ -51,13 +58,6 @@ BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
 src_prepare() {
-	local p upstreamed_patches=(
-		# add them here
-	)
-	for p in "${upstreamed_patches[@]}"; do
-		rm -v "${WORKDIR}/patch/${p}" || die
-	done
-
 	toolchain_src_prepare
 
 	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
