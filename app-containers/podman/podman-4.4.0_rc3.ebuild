@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT="814b7b003cc630bf6ab188274706c383f9fb9915"
+EGIT_COMMIT="dc3dfce94657a987fc2eb29ff4b7bdcaeb05477f"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -15,7 +15,7 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
@@ -34,7 +34,7 @@ COMMON_DEPEND="
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
-	rootless? ( app-containers/slirp4netns )
+	rootless? ( || ( app-containers/slirp4netns app-containers/passt ) )
 	selinux? ( sys-libs/libselinux:= )
 "
 BDEPEND="
@@ -52,33 +52,37 @@ RDEPEND="${COMMON_DEPEND}
 
 S="${WORKDIR}/${P/_/-}"
 
-# Inherited from docker-19.03.8 ...
+# Inherited from docker-20.10.22 ...
 CONFIG_CHECK="
 	~NAMESPACES ~NET_NS ~PID_NS ~IPC_NS ~UTS_NS
 	~CGROUPS ~CGROUP_CPUACCT ~CGROUP_DEVICE ~CGROUP_FREEZER ~CGROUP_SCHED ~CPUSETS ~MEMCG
+	~CGROUP_NET_PRIO
 	~KEYS
 	~VETH ~BRIDGE ~BRIDGE_NETFILTER
-	~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE
-	~NETFILTER_XT_MATCH_ADDRTYPE ~NETFILTER_XT_MATCH_CONNTRACK ~NETFILTER_XT_MATCH_IPVS
+	~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE ~NETFILTER_XT_MARK
+	~NETFILTER_NETLINK ~NETFILTER_XT_MATCH_ADDRTYPE ~NETFILTER_XT_MATCH_CONNTRACK ~NETFILTER_XT_MATCH_IPVS
 	~IP_NF_NAT ~NF_NAT
 	~POSIX_MQUEUE
 
 	~USER_NS
 	~SECCOMP
 	~CGROUP_PIDS
-	~MEMCG_SWAP
 
 	~BLK_CGROUP ~BLK_DEV_THROTTLING
 	~CGROUP_PERF
 	~CGROUP_HUGETLB
 	~NET_CLS_CGROUP
-	~CFS_BANDWIDTH ~FAIR_GROUP_SCHED ~RT_GROUP_SCHED
+	~CFS_BANDWIDTH ~FAIR_GROUP_SCHED
 	~IP_VS ~IP_VS_PROTO_TCP ~IP_VS_PROTO_UDP ~IP_VS_NFCT ~IP_VS_RR
 
 	~VXLAN
 	~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH ~XFRM_ALGO ~XFRM_USER
 	~IPVLAN
 	~MACVLAN ~DUMMY
+
+	~OVERLAY_FS ~!OVERLAY_FS_REDIRECT_DIR
+	~EXT4_FS_SECURITY
+	~EXT4_FS_POSIX_ACL
 "
 
 ERROR_KEYS="CONFIG_KEYS: is mandatory"
@@ -144,6 +148,18 @@ pkg_setup() {
 	if kernel_is lt 5 2; then
 		CONFIG_CHECK+="
 			~NF_NAT_NEEDED
+		"
+	fi
+
+	if kernel_is lt 5 8; then
+		CONFIG_CHECK+="
+			~MEMCG_SWAP_ENABLED
+		"
+	fi
+
+	if kernel_is lt 6 1; then
+		CONFIG_CHECK+="
+			~MEMCG_SWAP
 		"
 	fi
 
