@@ -155,8 +155,6 @@ SLOT="0"
 KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 
 src_prepare() {
-	cargo_src_prepare
-
 	sed -e "/println/s|commit|\"${EGIT_COMMIT}\"|" \
 		-i build.rs
 
