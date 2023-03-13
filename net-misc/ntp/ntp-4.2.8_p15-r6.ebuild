@@ -147,7 +147,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	if se tmpfiles && ! use openntpd; then
+	if use tmpfiles && ! use openntpd; then
 		tmpfiles_process ntp.conf
 	fi
 	if grep -qs '^[^#].*notrust' "${EROOT}"/etc/ntp.conf ; then
