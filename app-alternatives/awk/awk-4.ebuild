@@ -1,4 +1,4 @@
-# Copyright 2022 Gentoo Authors
+# Copyright 2022-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -13,8 +13,8 @@ ALTERNATIVES=(
 inherit app-alternatives
 
 DESCRIPTION="/bin/awk and /usr/bin/awk symlinks"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
-IUSE="split-usr compat"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~sparc-solaris ~sparc64-solaris ~x64-solaris ~x86-solaris"
+IUSE="compat split-usr"
 REQUIRED_USE="compat? ( split-usr )"
 
 RDEPEND="
@@ -27,7 +27,7 @@ src_install() {
 	# We could consider setting AWK=... like we do for yacc & lex,
 	# but it would need some testing with a fair amount of packages first,
 	# as autoconf prefers gawk.
-	case ${alt} in
+	case "${alt}" in
 		busybox)
 			dosym busybox /bin/awk
 			;;
