@@ -4,7 +4,7 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{9..11} )
-inherit cmake llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
+inherit cmake flag-o-matic llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="Low Level Virtual Machine"
 HOMEPAGE="https://llvm.org/"
@@ -322,6 +322,8 @@ multilib_src_configure() {
 	if use prefix; then
 		append-cppflags -I"${EPREFIX%/}/usr/include"
 	fi
+
+	tc-is-gcc && filter-lto # GCC miscompiles LLVM, bug #873670
 
 	local ffi_cflags ffi_ldflags
 	if use libffi; then
