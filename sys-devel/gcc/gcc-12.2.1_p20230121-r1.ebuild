@@ -28,7 +28,7 @@ elif [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
 	S="${WORKDIR}"/${MY_P}
 fi
 
-inherit toolchain
+inherit toolchain usr-ldscript
 
 # Needs to be after inherit (for now?), bug #830908
 EGIT_BRANCH=releases/gcc-$(ver_cut 1)
