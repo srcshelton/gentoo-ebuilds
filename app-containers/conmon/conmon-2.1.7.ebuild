@@ -5,7 +5,7 @@ EAPI=8
 
 inherit toolchain-funcs
 
-EGIT_COMMIT="158b5421dbac6bda96b1457955cf2e3c34af29bc"
+EGIT_COMMIT="f633919178f6c8ee4fb41b848a056ec33f8d707d"
 DESCRIPTION="An OCI container runtime monitor"
 HOMEPAGE="https://github.com/containers/conmon"
 SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz"
