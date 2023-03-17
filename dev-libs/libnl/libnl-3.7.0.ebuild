@@ -5,7 +5,7 @@ EAPI=8
 
 DISTUTILS_OPTIONAL=1
 DISTUTILS_USE_PEP517=setuptools
-PYTHON_COMPAT=( python3_{9..10} )
+PYTHON_COMPAT=( python3_{9..11} )
 inherit autotools distutils-r1 usr-ldscript multilib-minimal
 
 LIBNL_P=${P/_/-}
@@ -114,3 +114,5 @@ multilib_src_install_all() {
 
 	find "${ED}" -name '*.la' -delete || die
 }
+
+# vi: set diffopt=filler,iwhite:
