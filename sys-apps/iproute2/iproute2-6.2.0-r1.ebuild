@@ -5,12 +5,12 @@ EAPI=8
 
 inherit edo toolchain-funcs
 
-if [[ ${PV} == "9999" ]] ; then
+if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git"
 	inherit git-r3
 else
 	SRC_URI="https://www.kernel.org/pub/linux/utils/net/${PN}/${P}.tar.xz"
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 DESCRIPTION="kernel routing and traffic control utilities"
@@ -60,7 +60,7 @@ src_prepare() {
 
 	# Fix version if necessary
 	local versionfile="include/version.h"
-	if [[ "${PV}" != 9999 ]] && ! grep -Fq "${PV}" ${versionfile} ; then
+	if [[ ${PV} != 9999 ]] && ! grep -Fq "${PV}" ${versionfile} ; then
 		einfo "Fixing version string"
 		sed "s@\"[[:digit:]\.]\+\"@\"${PV}\"@" \
 			-i ${versionfile} || die
@@ -76,7 +76,6 @@ src_prepare() {
 		-e "/^HOSTCC/s:=.*:= $(tc-getBUILD_CC):" \
 		-e "/^DBM_INCLUDE/s:=.*:=${T}:" \
 		Makefile || die
-#		-e "/^WFLAGS/s:-Werror::" \
 
 	# Build against system headers
 	rm -r include/netinet || die #include/linux include/ip{,6}tables{,_common}.h include/libiptc
@@ -106,12 +105,12 @@ src_configure() {
 	fi
 	popd >/dev/null || die
 
-	# Run "configure" script first to create "config.mk"...
+	# run "configure" script first which will create "config.mk"...
 	# Using econf breaks since 5.14.0 (a9c3d70d902a0473ee5c13336317006a52ce8242)
 	edo ./configure --libbpf_force $(usex bpf on off)
 
-	# ...remove the definitions made by configure and allow them to be
-	# overridden by USE flags below.
+	# Remove the definitions made by configure and allow them to be overridden
+	# by USE flags below.
 	# We have to do the cheesy only-sed-if-disabled because otherwise
 	# the *_FLAGS etc stuff found by configure will be used but result
 	# in a broken build.
@@ -143,9 +142,9 @@ src_configure() {
 		sed -i -e '/HAVE_LIBBSD/d' config.mk || die
 	fi
 
-	# ... then switch on/off requested features via USE flags
-	# (this is only useful if the test did not set other things, per bug #643722)
-	# N.B. Keep in sync with ifs above, or refactor to be unified.
+	# ...Now switch on/off requested features via USE flags
+	# this is only useful if the test did not set other things, per bug #643722
+	# Keep in sync with ifs above, or refactor to be unified.
 	cat <<-EOF >> config.mk
 	TC_CONFIG_ATM := $(usex atm y n)
 	TC_CONFIG_XT  := $(usex iptables y n)
