@@ -19,7 +19,7 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="caps junction kerberos ldap +libmount nfsdcld +nfsidmap +nfsv4 nfsv41 sasl selinux systemd tcpd +uuid"
+IUSE="caps junction kerberos ldap +libmount nfsdcld +nfsidmap +nfsv4 nfsv41 sasl selinux systemd tcpd udev +uuid"
 REQUIRED_USE="kerberos? ( nfsv4 )"
 # bug #315573
 RESTRICT="test"
@@ -211,6 +211,11 @@ src_install() {
 		sed -i \
 			-e 's:/usr/sbin/rpc.statd:/sbin/rpc.statd:' \
 			"${ED}${systemd_systemunitdir}"/* || die
+	fi
+
+	if ! use udev && [[ -e "${ED}"/usr/lib/udev/rules.d/99-nfs.rules ]]; then
+		rm "${ED}"/usr/lib/udev/rules.d/99-nfs.rules
+		rmdir -p "${ED}"/usr/lib/udev/rules.d
 	fi
 
 	# bug #368505
