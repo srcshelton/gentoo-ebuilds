@@ -1,4 +1,4 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -25,6 +25,10 @@ HOMEPAGE="https://github.com/raspberrypi/firmware"
 
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
+RESTRICT="binchecks mirror strip"
+
+DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
+
 IUSE="64bit +rpi4"
 
 # Temporary safety measure to prevent ending up with a pair of
@@ -33,11 +37,7 @@ IUSE="64bit +rpi4"
 # Remove when the mentioned version and all older ones are deleted.
 RDEPEND="!<=sys-kernel/raspberrypi-image-4.19.57_p20190709"
 
-RESTRICT="binchecks mirror strip"
-
 QA_PREBUILT="/boot/start*.elf /usr/lib/libelftoolchain.so"
-
-DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
 
 pkg_setup() {
 	local state boot="${RASPBERRYPI_BOOT:-/boot}"
