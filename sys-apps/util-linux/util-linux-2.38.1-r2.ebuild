@@ -5,7 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{9..11} )
 
-inherit bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
+inherit autotools bash-completion-r1 flag-o-matic multiprocessing pam python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
 MY_PV="${PV/_/-}"
 MY_P="${PN}-${MY_PV}"
@@ -18,7 +18,7 @@ else
 	inherit verify-sig
 
 	if [[ ${PV} != *_rc* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+		KEYWORDS="~alpha ~amd64 ~arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
 	fi
 
 	SRC_URI="https://www.kernel.org/pub/linux/utils/util-linux/v${PV:0:4}/${MY_P}.tar.xz
@@ -90,6 +90,11 @@ fi
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} ) su? ( pam )"
 RESTRICT="!test? ( test )"
 
+PATCHES=(
+	"${FILESDIR}"/${P}-more-posix-exit-on-eof.patch
+	"${FILESDIR}"/util-linux-2.38.1-check-for-sys-pidfd.h.patch
+)
+
 pkg_pretend() {
 	if use su && ! use suid ; then
 		elog "su will be installed as suid despite USE=-suid (bug #832092)"
@@ -152,27 +157,7 @@ src_prepare() {
 
 	fi
 
-	if [[ ${PV} == 9999 ]] ; then
-		po/update-potfiles
-		eautoreconf
-	else
-		elibtoolize
-	fi
-}
-
-lfs_fallocate_test() {
-	# Make sure we can use fallocate with LFS, bug #300307
-	cat <<-EOF > "${T}"/fallocate.${ABI}.c
-		#define _GNU_SOURCE
-		#include <fcntl.h>
-		main() { return fallocate(0, 0, 0, 0); }
-	EOF
-
-	append-lfs-flags
-
-	$(tc-getCC) ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} "${T}"/fallocate.${ABI}.c -o /dev/null >/dev/null 2>&1 \
-		|| export ac_cv_func_fallocate=no
-	rm -f "${T}"/fallocate.${ABI}.c
+	eautoreconf
 }
 
 python_configure() {
@@ -194,8 +179,6 @@ python_configure() {
 }
 
 multilib_src_configure() {
-	lfs_fallocate_test
-
 	# The scanf test in a run-time test which fails while cross-compiling.
 	# Blindly assume a POSIX setup since we require libmount, and libmount
 	# itself fails when the scanf test fails. bug #531856
@@ -301,6 +284,11 @@ multilib_src_configure() {
 	if multilib_is_native_abi && use python ; then
 		python_foreach_impl python_configure
 	fi
+}
+
+src_configure() {
+	append-lfs-flags
+	multilib-minimal_src_configure
 }
 
 python_compile() {
