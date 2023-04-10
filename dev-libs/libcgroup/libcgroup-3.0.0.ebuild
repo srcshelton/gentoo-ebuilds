@@ -1,13 +1,13 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit autotools flag-o-matic linux-info pam systemd usr-ldscript
 
 DESCRIPTION="Tools and libraries to configure and manage kernel control groups"
-HOMEPAGE="http://libcg.sourceforge.net/"
-SRC_URI="mirror://sourceforge/project/libcg/${PN}/v${PV}/${P}.tar.bz2"
+HOMEPAGE="https://github.com/libcgroup/libcgroup"
+SRC_URI="https://github.com/libcgroup/libcgroup/releases/download/v$(ver_cut 1-2)/${P}.tar.gz"
 
 LICENSE="LGPL-2.1"
 SLOT="0"
@@ -15,26 +15,22 @@ KEYWORDS="amd64 arm arm64 ~ppc ~ppc64 ~riscv x86"
 IUSE="+daemon pam static-libs systemd test +tools"
 REQUIRED_USE="daemon? ( tools )"
 
-# Use mount cgroup to build directory
-# sandbox restricted to trivial build,
-RESTRICT="test"
+# Test failure needs investigation
+RESTRICT="!test? ( test ) test"
 
 BDEPEND="
 	sys-devel/bison
 	sys-devel/flex
-	elibc_musl? ( sys-libs/fts-standalone )
 "
-DEPEND="pam? ( sys-libs/pam )"
+DEPEND="
+	elibc_musl? ( sys-libs/fts-standalone )
+	pam? ( sys-libs/pam )
+"
 RDEPEND="${DEPEND}"
 
-# N.B. Upstream ebuild defines PATCHES twice, with different content :(
 PATCHES=(
-	"${FILESDIR}"/${P}-replace_DECLS.patch
-	"${FILESDIR}"/${P}-replace_INLCUDES.patch
-	"${FILESDIR}"/${P}-reorder-headers.patch
-	"${FILESDIR}"/${P}-remove-umask.patch
-	"${FILESDIR}"/${P}-slibtool.patch
-	"${FILESDIR}"/${P}-remount.patch
+	"${FILESDIR}"/${PN}-3.0.0-configure-bashism.patch
+	"${FILESDIR}"/${PN}-3.0.0-musl-strerror_r.patch
 )
 
 pkg_setup() {
@@ -47,39 +43,47 @@ pkg_setup() {
 
 src_prepare() {
 	default
+
 	# Change rules file location
-	sed -e 's:/etc/cgrules.conf:/etc/cgroup/cgrules.conf:' \
-		-i src/libcgroup-internal.h || die "sed failed"
-	sed -e 's:/etc/cgconfig.conf:/etc/cgroup/cgconfig.conf:' \
-		-i src/libcgroup-internal.h || die "sed failed"
-	sed -e 's:\(pam_cgroup_la_LDFLAGS.*\):\1\ -avoid-version:' \
-		-i src/pam/Makefile.am || die "sed failed"
+	find src -name *.c -o -name *.h \
+		| xargs sed -i '/^#define/s:/etc/cg:/etc/cgroup/cg:'
+	sed -i 's:/etc/cg:/etc/cgroup/cg:' \
+		doc/man/cg* samples/config/*.conf README* || die "sed failed"
+
+	# Drop native libcgconfig init config
+	sed -i '/^man_MANS/s:cgred.conf.5::' \
+		doc/man/Makefile.am || die "sed failed"
 
 	# If we're not running tests, don't bother building them.
 	if ! use test; then
 		sed -i '/^SUBDIRS/s:tests::' Makefile.am || die
 	fi
 
-	# Workaround configure.in
-	mv configure.in configure.ac || die
-
 	eautoreconf
 }
 
 src_configure() {
-	local my_conf
+	use elibc_musl && append-ldflags -lfts
+
+	local my_conf=(
+		$(use_enable static-libs static)
+		$(use_enable daemon)
+		$(use_enable pam)
+		$(use_enable tools)
+		$(use_enable test tests)
+	)
 
 	if use pam; then
-		my_conf=" --enable-pam-module-dir=$(getpam_mod_dir) "
+		my_conf+=( --enable-pam-module-dir="$(getpam_mod_dir)" )
 	fi
 
-	use elibc_musl && append-ldflags "-lfts"
-	econf \
-		$(use_enable static-libs static) \
-		$(use_enable daemon) \
-		$(use_enable pam) \
-		$(use_enable tools) \
-		${my_conf}
+	econf "${my_conf[@]}"
+}
+
+src_test() {
+	# Run just the unit tests rather than the full lot as they
+	# need fewer permissions, no containers, etc.
+	emake -C tests/gunit check
 }
 
 src_install() {
@@ -94,10 +98,15 @@ src_install() {
 		gen_usr_ldscript -a cgroup
 	fi
 
-	find "${D}" -name '*.la' -delete || die
+	find "${ED}" -name '*.la' -delete || die
 
 	insinto /etc/cgroup
-	doins samples/*.conf
+	doins samples/config/cgconfig.conf
+	doins samples/config/cgrules.conf
+	doins samples/config/cgsnapshot_blacklist.conf
+
+	keepdir /etc/cgroup/cgconfig.d
+	keepdir /etc/cgroup/cgrules.d
 
 	if use tools; then
 		newconfd "${FILESDIR}"/cgconfig.confd-r1 cgconfig

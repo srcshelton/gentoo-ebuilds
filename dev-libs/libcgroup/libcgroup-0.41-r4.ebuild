@@ -49,7 +49,6 @@ src_prepare() {
 		-i src/libcgroup-internal.h || die "sed failed"
 	sed -e 's:\(pam_cgroup_la_LDFLAGS.*\):\1\ -avoid-version:' \
 		-i src/pam/Makefile.am || die "sed failed"
-	sed -e 's#/var/run#/run#g' -i configure.in || die "sed failed"
 
 	eautoreconf
 }
