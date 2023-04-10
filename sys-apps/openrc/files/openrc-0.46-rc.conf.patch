@@ -1,0 +1,22 @@
+--- a/etc/rc.conf
++++ b/etc/rc.conf
+@@ -17,8 +17,8 @@
+ 
+ # If we need to drop to a shell, you can specify it here.
+ # If not specified we use $SHELL, otherwise the one specified in /etc/passwd,
+-# otherwise /bin/sh
+-# Linux users could specify /sbin/sulogin
++# otherwise '/bin/sh'.
++# Linux users could specify '/sbin/sulogin'.
+ #rc_shell=/bin/sh
+ 
+ # Do we allow any started service in the runlevel to satisfy the dependency
+@@ -92,7 +92,7 @@
+ #unicode="NO"
+ 
+ # This is how long fuser should wait for a remote server to respond. The
+-# default is 60 seconds, but  it can be adjusted here.
++# default is 60 seconds, but it can be adjusted here.
+ #rc_fuser_timeout=60
+ 
+ # Below is the default list of network fstypes.

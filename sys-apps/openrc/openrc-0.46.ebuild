@@ -13,7 +13,7 @@ if [[ ${PV} =~ ^9{4,}$ ]]; then
 	inherit git-r3
 else
 	SRC_URI="https://github.com/OpenRC/openrc/archive/${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 LICENSE="BSD-2"
@@ -65,10 +65,11 @@ QA_RUN_ALLOWED=(
 )
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-0.42.1-agetty-initd.patch
-	"${FILESDIR}"/${PN}-0.43.5-cgroups.patch
-	"${FILESDIR}"/${PN}-0.44.7-whitespace.patch
-	"${FILESDIR}"/${P}-grep-3.8.patch
+	"${FILESDIR}/${PN}-0.42.1-agetty-initd.patch"
+	"${FILESDIR}/${PN}-0.43.5-cgroups.patch"
+	"${FILESDIR}/${PN}-0.44.7-whitespace.patch"
+	"${FILESDIR}/${PN}-0.41.2-cgroup-race.patch"
+	"${FILESDIR}/${PN}-0.45.2-checkpath-mkdir.patch"
 )
 
 src_prepare() {
@@ -80,14 +81,12 @@ src_prepare() {
 		else
 			eapply -p0 -- "${FILESDIR}/${PN}-0.12.4-bootmisc.in.patch" || die "bootmisc.in eapply failed"
 		fi
-		eapply -p0 -- "${FILESDIR}/${P}-init.patch" || die "init eapply failed"
+		eapply "${FILESDIR}/${P}-init.patch" || die "init eapply failed"
 		eapply -p0 -- "${FILESDIR}/${PN}-0.18.4-devfs.patch" || die "devfs eapply failed"
 		eapply -p0 -- "${FILESDIR}/${PN}-0.19.1-functions.sh.in.patch" || die "functions.sh.in eapply failed"
-		eapply -p0 -- "${FILESDIR}/${P}-rc.conf.patch" || die "rc.conf.in eapply failed"
+		eapply "${FILESDIR}/${P}-rc.conf.patch" || die "rc.conf.in eapply failed"
 		eapply "${FILESDIR}/${PN}-0.43.5-init.d.patch" || die "init.d eapply failed"
 	fi
-	eapply "${FILESDIR}/${PN}-0.41.2-cgroup-race.patch" || die "cgroup eapply failed"
-	eapply "${FILESDIR}/${P}-checkpath-mkdir.patch" || die "checkpath eapply failed"
 }
 
 src_configure() {
