@@ -33,20 +33,24 @@ fi
 
 IUSE="-lib-only"
 
-# Technically only if USE=hardened *too* right now, but no point in complicating it further.
-# If GCC is enabling CET by default, we need glibc to be built with support for it.
-# bug #830454
-COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
-RDEPEND="${COMMON_DEPEND}
-	!sys-devel/gcc-libs:${SLOT}"
-DEPEND="${COMMON_DEPEND}"
-# When built in a container, fails because elt-patches is not present - unclear
-# as to whether this is a problem with the toolchain eclass, gcc ebuild,
-# something related to elt-patches, or a portage dependency issue :(
-BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
-	>=app-portage/elt-patches-20170815
-	sys-apps/texinfo
-	sys-devel/flex"
+if [[ ${CATEGORY} != cross-* ]] ; then
+	# Technically only if USE=hardened *too* right now, but no point in complicating it further.
+	# If GCC is enabling CET by default, we need glibc to be built with support for it.
+	# bug #830454
+	COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
+	RDEPEND="${COMMON_DEPEND}
+		!sys-devel/gcc-libs:${SLOT}"
+	DEPEND="${COMMON_DEPEND}"
+	# When built in a container, fails because elt-patches is not present - unclear
+	# as to whether this is a problem with the toolchain eclass, gcc ebuild,
+	# something related to elt-patches, or a portage dependency issue :(
+	# Update: This issue was because we were trying to build without
+	# elt-patches installed and with '--nodeps' specified :o
+	BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
+		>=app-portage/elt-patches-20170815
+		sys-apps/texinfo
+		sys-devel/flex"
+fi
 
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
