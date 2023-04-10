@@ -18,7 +18,7 @@ S="${WORKDIR}"/${MY_P}
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 ~ppc ~ppc64 ~sparc x86"
+KEYWORDS="amd64 ~arm arm64 ~ppc ~ppc64 ~sparc x86"
 
 IUSE="debug firebird iodbc kerberos ldap memcached mongodb mysql odbc oracle pam postgres python readline redis samba sqlite ssl systemd"
 
