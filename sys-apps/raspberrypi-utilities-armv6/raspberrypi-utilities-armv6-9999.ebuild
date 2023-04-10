@@ -1,7 +1,8 @@
 # Copyright 2015 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=7
+
 inherit git-r3
 
 DESCRIPTION="Raspberry Pi closed-source userspace tools"
@@ -17,8 +18,9 @@ DEPEND="media-libs/raspberrypi-userland"
 RDEPEND=""
 
 EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains only
-						  # ~200MB of data - the rest is (literally) history :(
+# The current repo is ~4GB in size, but contains only ~200MB of data - the rest
+# is (literally) history :(
+EGIT_CLONE_TYPE="shallow"
 
 RESTRICT="strip"
 QA_PREBUILT=""

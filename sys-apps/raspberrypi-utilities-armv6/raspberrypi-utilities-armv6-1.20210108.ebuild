@@ -1,7 +1,7 @@
 # Copyright 2015-2021 Gentoo Authors, Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=7
 
 DESCRIPTION="Raspberry Pi closed-source userspace tools"
 HOMEPAGE="https://github.com/raspberrypi/firmware"

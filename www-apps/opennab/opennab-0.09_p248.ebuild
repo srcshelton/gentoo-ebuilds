@@ -1,13 +1,13 @@
 # Copyright 2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=7
 
 inherit webapp
 
 DESCRIPTION="Nabaztag/tag OpenNab server"
 HOMEPAGE="http://opennab.sourceforge.net/"
-SRC_URI="https://downloads.sourceforge.net/project/${PN}/${PN}/${PN}_${PV}/${PN}_${PV}.zip"
+SRC_URI="https://sourceforge.net/code-snapshots/svn/o/op/opennab/code/opennab-code-r${PVR#*_p}-trunk.zip"
 RESTRICT="nomirror"
 
 LICENSE="GPL-2"
