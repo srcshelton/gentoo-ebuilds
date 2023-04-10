@@ -1,0 +1,1 @@
+d /var/run/postgresql 1775 root postgres -

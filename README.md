@@ -542,6 +542,7 @@ directory is an additional QA check which reports an error if files deployed to
 * app-containers/containerd
 * app-crypt/tpm2-tss
 * app-misc/screen
+* dev-db/postgresql
 * dev-db/redis
 * dev-libs/cyrus-sasl
     * Prevent binary merges from failing due to assumptions about build files being present
