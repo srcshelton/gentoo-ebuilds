@@ -115,7 +115,6 @@ src_configure() {
 		--with-rsyncd-conf="${EPREFIX}"/etc/rsyncd.conf
 		--without-included-popt
 		--enable-ipv6
-		--enable-md5-asm
 		$(use_enable acl acl-support)
 		$(use_enable iconv)
 		$(use_enable lz4)
@@ -127,6 +126,9 @@ src_configure() {
 		$(use_enable zstd)
 	)
 
+	if [[ "${ARCH}" == 'amd64' || "${ARCH}" == 'x86' ]]; then
+		myeconfargs+=( --enable-md5-asm )
+	fi
 	if use cpu_flags_x86_sse2; then
 		myeconfargs+=( --enable-roll-simd --enable-roll-asm )
 	fi
