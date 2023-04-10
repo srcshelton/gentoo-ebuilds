@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit linux-info mount-boot savedconfig multiprocessing
+inherit linux-info mount-boot multiprocessing savedconfig
 
 # In case this is a real snapshot, fill in commit below.
 # For normal, tagged releases, leave blank
@@ -19,7 +19,7 @@ else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -65,18 +65,22 @@ QA_PREBUILT="*"
 
 pkg_setup() {
 	if use compress-xz || use compress-zstd ; then
-		local CONFIG_CHECK
-
-		if kernel_is -ge 5 19; then
-			use compress-xz && CONFIG_CHECK="~FW_LOADER_COMPRESS_XZ"
-			use compress-zstd && CONFIG_CHECK="~FW_LOADER_COMPRESS_ZSTD"
+		if ! linux_config_exists; then
+			eerror "Unable to check your kernel for compressed firmware support"
 		else
-			use compress-xz && CONFIG_CHECK="~FW_LOADER_COMPRESS"
-			if use compress-zstd; then
-				eerror "Kernels <5.19 do not support ZSTD-compressed firmware files"
+			local CONFIG_CHECK
+
+			if kernel_is -ge 5 19; then
+				use compress-xz && CONFIG_CHECK="~FW_LOADER_COMPRESS_XZ"
+				use compress-zstd && CONFIG_CHECK="~FW_LOADER_COMPRESS_ZSTD"
+			else
+				use compress-xz && CONFIG_CHECK="~FW_LOADER_COMPRESS"
+				if use compress-zstd; then
+					eerror "You kernel does not support ZSTD-compressed firmware files"
+				fi
 			fi
+			linux-info_pkg_setup
 		fi
-		linux-info_pkg_setup
 	fi
 }
 
@@ -317,8 +321,8 @@ src_install() {
 	fi
 
 	# create config file
-	echo "# Remove files that shall not be installed from this list." > "${S}"/${PN}.conf.dist || die
-	find * ! -type d >> "${S}"/${PN}.conf.dist || die
+	echo "# Remove files that shall not be installed from this list." > "${S}"/${PN}.conf || die
+	find * ! -type d >> "${S}"/${PN}.conf || die
 
 	if ! use savedconfig; then
 		mv "${S}/${PN}.conf.dist" "${S}/${PN}.conf"
@@ -379,10 +383,11 @@ src_install() {
 
 		echo ; ebegin "Removing all files not listed in saved config"
 		grep -qv '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
-		find ! -type d -printf "%P\n" \
-			| grep -Fvx -f <( grep -v '^#' "${S}/${PN}.conf" \
-				|| die "grep failed, empty config file?" ) \
-			| xargs -d '\n' --no-run-if-empty rm
+		find ! -type d -printf "%P\n" |
+			grep -Fvx -f <(
+				grep -v '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
+			) |
+			xargs -d '\n' --no-run-if-empty rm -v
 		#eend $? || die
 	fi
 
@@ -407,15 +412,13 @@ src_install() {
 			# skip symlinks pointing to directories
 			[[ -d ${f} ]] && continue
 
-			target=$(readlink "${f}")
-			[[ $? -eq 0 ]] || die
-			ln -sf "${target}".${ext} "${f}" || die
-			mv -T "${f}" "${f}".${ext} || die
+			target=$(readlink "${f}") || die
+			ln -sf "${target}.${ext}" "${f}" || die
+			mv -T "${f}" "${f}.${ext}" || die
 		done < <(find . -type l -print0) || die
 
 		find . -type f ! -path "./amd-ucode/*" -print0 | \
 			xargs -0 -P $(makeopts_jobs) -I'{}' ${compressor} '{}' || die
-
 	fi
 
 	popd &>/dev/null || die
