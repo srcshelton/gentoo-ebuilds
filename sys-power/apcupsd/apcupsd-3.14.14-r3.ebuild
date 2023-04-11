@@ -12,16 +12,11 @@ SRC_URI="mirror://sourceforge/apcupsd/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 ~arm ~arm64 ppc ~riscv x86"
-IUSE="cgi dumb gnome +modbus +net +powerchute +smart snmp systemd tmpfiles udev +usb"
+IUSE="cgi dumb +modbus +net +powerchute +smart snmp systemd tmpfiles udev +usb"
 
 DEPEND=">=sys-apps/util-linux-2.23[tty-helpers(-)]
 	cgi? ( >=media-libs/gd-1.8.4 )
 	modbus? ( usb? ( virtual/libusb:0 ) )
-	gnome? (
-		>=x11-libs/gtk+-2.4.0:2
-		dev-libs/glib:2
-		>=gnome-base/gconf-2.0
-	)
 	snmp? ( >=net-analyzer/net-snmp-5.7.2 )"
 
 RDEPEND="${DEPEND}
@@ -78,12 +73,12 @@ src_configure() {
 		--with-log-dir=/var/log \
 		--with-distname=gentoo \
 		$(use_enable dumb) \
-		$(use_enable gnome gapcmon) \
 		$(use_enable modbus) \
 		$(use_enable net) \
 		$(use_enable smart apcsmart) \
 		$(use_enable snmp) \
 		$(use_enable usb) \
+		--disable-gapcmon \
 		${myconf} \
 		APCUPSD_MAIL=$(type -p mail)
 }
