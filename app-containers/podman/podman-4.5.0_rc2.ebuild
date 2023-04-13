@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-EGIT_COMMIT="3e48017d8503562370a4832449019c78a13a12f5"
+EGIT_COMMIT="f3c36588746942703aa9a6fcba42b577233a418e"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -25,6 +25,7 @@ COMMON_DEPEND="
 	>=app-containers/conmon-2.0.24
 	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
 	!cgroup-hybrid? ( app-containers/crun )
+	dev-db/sqlite:=
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	|| ( >=app-containers/netavark-1.6.0 >=app-containers/cni-plugins-0.8.6 )
