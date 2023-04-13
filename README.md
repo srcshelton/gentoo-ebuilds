@@ -226,10 +226,14 @@ used to build perl)
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/milter
     * Consistent group for mail filters
+* acct-group/nogroup-0
+    * 'nogroup' appears to no longer being included in service builds?
 * acct-group/socat
     * Privilege-separation account as recommended by net-misc/socat maintainers
 * acct-group/ssmtp
     * Privilege-separation account
+* acct-group/sys-0
+    * 'sys' appears to no longer being included in service builds (as GID 3)?
 * acct-group/tcpdump
     * Privilege-separation account
 * ~~acct-user/cron~~
@@ -240,6 +244,8 @@ used to build perl)
     * Consistent user for mail filters
 * acct-user/mysql
     * Add user to 'hugetlb' group
+* acct-user/nobody-0
+    * 'nobody' appears to no longer being included in service builds?
 * acct-user/redis
     * Add user to 'hugetlb' group
 * acct-user/tcpdump
