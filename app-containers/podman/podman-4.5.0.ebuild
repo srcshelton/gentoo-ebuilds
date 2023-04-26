@@ -260,6 +260,10 @@ src_compile() {
 src_install() {
 	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
 
+	if ! use systemd; then
+		rm "${ED}"/usr/libexec/podman/quadlet
+	fi
+
 	insinto /etc/containers
 	newins test/registries.conf registries.conf.example
 	newins test/policy.json policy.json.example
