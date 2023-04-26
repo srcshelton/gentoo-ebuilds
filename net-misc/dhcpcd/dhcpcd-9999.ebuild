@@ -1,25 +1,26 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit systemd toolchain-funcs
 
-if [[ ${PV} == "9999" ]]; then
+if [[ "${PV}" == '9999' ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/NetworkConfiguration/dhcpcd.git"
 else
 	MY_P="${P/_alpha/-alpha}"
 	MY_P="${MY_P/_beta/-beta}"
 	MY_P="${MY_P/_rc/-rc}"
-	SRC_URI="https://roy.marples.name/downloads/${PN}/${MY_P}.tar.xz"
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
-	S="${WORKDIR}/${MY_P}"
+	SRC_URI="https://github.com/NetworkConfiguration/dhcpcd/archive/refs/tags/${MY_P}.tar.gz"
+	S="${WORKDIR}/${PN}-${MY_P}"
+
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
 fi
 
 DESCRIPTION="A fully featured, yet light weight RFC2131 compliant DHCP client"
-HOMEPAGE="https://github.com/NetworkConfiguration/dhcpcd/
-https://roy.marples.name/projects/dhcpcd/"
+HOMEPAGE="https://github.com/NetworkConfiguration/dhcpcd/ https://roy.marples.name/projects/dhcpcd/"
+
 LICENSE="BSD-2"
 SLOT="0"
 IUSE="chroot debug +embedded ipv6 privsep systemd +udev"
