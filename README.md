@@ -585,6 +585,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-print/cups-filters
 * net-vpn/openvpn
 * sys-apps/dbus
+* sys-apps/earlyoom
 * sys-apps/haveged
 * sys-apps/iproute2
 * sys-apps/kmod
