@@ -108,7 +108,7 @@ src_install() {
 	newinitd "${FILESDIR}/${PN}.powerfail.init" "${PN}".powerfail
 
 	use systemd && systemd_dounit "${FILESDIR}"/${PN}.service
-	use tmpfies && dotmpfiles "${FILESDIR}"/${PN}-tmpfiles.conf
+	use tmpfiles && dotmpfiles "${FILESDIR}"/${PN}-tmpfiles.conf
 
 	# Remove HAL settings, we don't really want to have it around still.
 	rm -r "${D}"/usr/share/hal || die
