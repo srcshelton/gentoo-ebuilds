@@ -306,7 +306,7 @@ used to build perl)
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * ~~dev-python/ansible-lint~~
 * ~~dev-python/aspy\_yaml~~
-* dev-python/identify
+* ~~dev-python/identify~~
 * ~~dev-python/nodeenv~~
 * ~~dev-python/noxspellserver~~
 * ~~dev-python/pathspec~~
@@ -314,7 +314,7 @@ used to build perl)
 * dev-ruby/CFPropertyList
 * dev-util/ltrace
     * The ltrace project hasn't made a release in a long time, but we can pull-in more recent commits
-* dev-util/yamllint
+* ~~dev-util/yamllint~~
 * games-server/minecraft-bedrock-server-bin
 * games-server/minecraft-server-bin
 * mail-client/roundcube
