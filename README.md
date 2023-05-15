@@ -527,6 +527,8 @@ used to build perl)
     * Be more flexible about necessary dependencies
 * virtual/mta
     * Add optional USE flags to control which MTA will be installed
+* virtual/os-headers
+    * Also accept sys-kernel/raspberrypi-headers as an acceptable os-header
 * virtual/tmpfiles
     * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 * ~~x11-drivers/nvidia-drivers~~
