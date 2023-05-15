@@ -12,3 +12,7 @@ depend() {
 	after ntp-client
 	use dns logger
 }
+
+start_pre(){
+	checkpath --directory --quiet /var/run/openntpd
+}
