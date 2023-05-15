@@ -1,0 +1,160 @@
+# Raspberry Pi VideoCore configuration
+#
+# See https://www.raspberrypi.com/documentation/computers/config_txt.html
+#
+# Current as-of https://github.com/raspberrypi/documentation/commit/e97430c
+# (27th March 2023)
+
+# Content from additional files can be imported using through the use of the
+# 'include <file.txt>' directive.
+
+# Supported conditional filters:
+# [all] [none] [pi1] [pi2] [pi3] [pi3+] [pi4] [pi400] [cm4] [cm4s] [pi0]
+# [pi0w] [pi02] [board-type=<type>] [EDID=<name>] [0x<serial number>]
+# [gpio<pin>=<0|1>] [tryboot]
+#
+# Raspberry Pi 4-only filters:
+# [HDMI:<0|1>]
+#
+# Raspberry Pi Zero W will see sections filtered by [pi0] and [pi0w],
+# Raspberry Pi 3B+ will see [pi3] and [pi3+], Raspberry Pi 400 will see [pi4]
+# and [pi400].  A directive set in [pi4] could be reverted in [pi400] to
+# avoid affecting Raspberry Pi 400 systems.
+#
+# A monitor's name to be used as a parameter to the [EDID=*] filter can be
+# found from a running system connected to the monitor in question from
+# running:
+#
+#     tvservice -n
+#
+# ... and looking for the 'device_name' field.
+#
+# Mutually exclusive filters (such as [pi1] followed by [pi2]) overwrite each
+# other, whereas other filters (such as [EDID=*]) remain in effect until
+# cleared by [all].
+#
+# The [tryboot] filter passes if the one-time 'tryboot' reboot flag was
+# specified (and is intended for use in autoboot.txt[1] to select a different
+# boot partition than the default).  autoboot.txt is limited to 512 bytes in
+# size and supports only the [all], [none], and [tryboot] filters, see:
+#
+# https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#fail-safe-os-updates-tryboot
+#
+# Invoke 'tryboot' mode with:
+#
+#     sudo reboot "0 tryboot"
+#
+# ... noting the required quotes.
+
+# autoboot.txt Options:
+# ====================
+# https://www.raspberrypi.com/documentation/computers/config_txt.html#autoboot-txt
+#
+[none]
+#boot_partition=1
+#tryboot_a_b=0
+[all]
+
+# Common Options:
+# ==============
+# https://www.raspberrypi.com/documentation/computers/config_txt.html#common-options
+#
+# Common Display Options:
+# ----------------------
+#
+#disable_overscan=0
+[pi4]
+#hdmi_enable_4kp60=0
+[all]
+
+# Common Hardware Configuration Options:
+# -------------------------------------
+#
+#camera_auto_detect=0
+#display_auto_detect=0
+#dtoverlay=
+#dtparam=
+[pi4]
+arm_boost=1
+[all]
+
+# Onboard Analogue Audio:
+# ======================
+# https://www.raspberrypi.com/documentation/computers/config_txt.html#onboard-analogue-audio-3-5mm-jack
+#
+#audio_pwm_mode=2
+#disable_audio_dither=0
+#enable_audio_dither=0
+#pwm_sample_bits=11
+
+# Boot Options:
+# ============
+# https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options
+#
+#start_file=<start.elf,start_x.elf,start_db.elf,start4.elf,start4x.elf,start4db.elf,start4cd.elf>
+#fixup_file=<fixup.dat,fixup_x.dat,fixup_db.dat,fixup_cd.dat,fixup4.dat,fixup4x.dat,fixup4db.dat,fixup4cd.dat>
+# start?cd.elf and fixup?cd.dat are 'cut-down' versions
+#start_x=0
+# Implies start_file=start_x.elf, fixup_file=fixup_x.dat
+# Required for camera module operation
+#start_debug=0
+# Implies start_file=start_db.elf, fixup_file=fixup_db.dat
+#disable_commandline_tags=0
+#cmdline=cmdline.txt
+#kernel=<kernel.img,kernel7.img,kernel7l.img,kernel8.img>
+#arm_64bit=<0|1>
+# Defaults to 1 on [pi4], [pi400], [cm4], [cm4s], 0 otherwise;
+# Supported on [pi3]/[pi02] and above
+#arm_control=<deprecated>
+#armstub=<filename>
+#kernel_address=<0x0|0x8000|0x200000>
+# 0x0 if kernel_old is set, otherwise 0x8000 for 32bit, 0x200000 for 64bit
+#kernel_old=0
+#ramfsfile=<comma-separated-filename-list>
+#ramfsaddr=
+#initramfs <comma-separated-filename-list> <0x00800000|followkernel>
+# N.B.: No '=' sign needed
+#init_uart_baud=115200
+#init_uart_clock=48000000
+#bootcode_delay=0
+#boot_delay=1
+# (1000 x boot_delay) + boot_delay_ms
+#boot_delay_ms=0
+#disable_poe_fan=0
+#disable_splash=0
+#enable_uart=0
+# Requires 'console=serial0' in cmdline.txt
+# Uses GPIOs 14 and 15 (pins 8 and 10 on the 40-pin header)
+#force_eeprom_read=1
+#os_prefix=/
+# Requires that '${os_prefix}${overlay_prefix}README' exist
+[pi4]
+#arm_peri_high=0
+#enable_gic=1
+#otg_mode=0
+[cm4]
+otg_mode=1
+[cm4s]
+otg_mode=1
+[all]
+#overlay_prefix=overlays/
+# dtoverlay=disable-bt -> dtoverlay=${os_prefix}${overlay_prefix}disable-bt.dtbo
+# Requires that '${os_prefix}${overlay_prefix}README' exist
+#sha256=0
+# Accessible from 'sudo vcdbg log msg', greatly increases boot time
+#uart_2ndstage=0
+#upstream_kernel=0
+# If <1>, set 'os_prefix=upstream/' and search for upstream dtb names
+
+# GPIO Control:
+# ============
+# https://www.raspberrypi.com/documentation/computers/config_txt.html#gpio-control
+#
+#gpio=<set of pins>=<ip,op,a0-a5,dh,dl,pu,pd,pn,np>
+#enable_jtag_gpio=0
+# Set Alt4 mode for pins 22-27 (e.g. 'gpio=22-27=a4')
+
+include overclock.txt
+include legacy.txt
+
+# vi: set syntax=cfg colorcolumn=78,98:

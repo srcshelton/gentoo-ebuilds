@@ -1,1 +1,1 @@
-CONFIG_PROTECT="/boot/config.txt /boot/cmdline.txt"
+CONFIG_PROTECT="/boot/config.txt /boot/overclock.txt /boot/legacy.txt /boot/cmdline.txt"
