@@ -349,6 +349,8 @@ used to build perl)
     * See `sys-auth/pam_yubico`
 * sys-boot/grub-legacy
     * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
+* sys-kernel/raspberrypi-headers
+    * Kernel headers from Raspberry Pi sources
 * sys-process/stalld
     * Red Hat thread-booster
 * ~~www-apps/heatmiser~~
