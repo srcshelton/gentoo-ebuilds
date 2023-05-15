@@ -14,7 +14,7 @@ SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.xz
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv"
+KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv"
 IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
 
 COMMON_DEPEND="
@@ -60,6 +60,8 @@ src_prepare() {
 		crun.1 \
 		crun.1.md \
 	|| die "'/run' replacement failed: ${?}"
+
+	eautoreconf
 }
 
 src_configure() {
