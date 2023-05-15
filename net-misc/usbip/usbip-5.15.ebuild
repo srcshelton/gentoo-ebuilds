@@ -20,10 +20,10 @@ IUSE="doc tcpd"
 RDEPEND="
 	>=dev-libs/glib-2.6
 	sys-apps/hwdata
-	>=sys-kernel/linux-headers-3.17
 	virtual/libudev
 	tcpd? ( sys-apps/tcp-wrappers )"
-DEPEND="${RDEPEND}"
+DEPEND="${RDEPEND}
+	>=sys-kernel/linux-headers-3.17"
 BDEPEND="virtual/pkgconfig"
 
 src_unpack() {
