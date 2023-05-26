@@ -16,11 +16,11 @@ KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 IUSE="systemd"
 RESTRICT="mirror test"
 
-BDEPEND="dev-go/go-md2man"
 RDEPEND="dev-libs/glib:=
 	systemd? ( sys-apps/systemd:= )"
 DEPEND="${RDEPEND}
 	sys-libs/libseccomp"
+BDEPEND="dev-go/go-md2man"
 
 src_prepare() {
 	default
