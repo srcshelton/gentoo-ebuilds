@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit gnuconfig libtool toolchain-funcs usr-ldscript multilib-minimal
+inherit flag-o-matic gnuconfig libtool toolchain-funcs usr-ldscript multilib-minimal
 
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
@@ -95,6 +95,11 @@ src_prepare() {
 }
 
 multilib_src_configure() {
+	# Generally a very fragile package
+	strip-flags
+	# Miscompiled with LTO at least on arm64, bug #889948
+	filter-lto
+
 	# Because of our 32-bit userland, 1.0 is the only HPPA ABI that works
 	# https://gmplib.org/manual/ABI-and-ISA.html#ABI-and-ISA (bug #344613)
 	if [[ ${CHOST} == hppa2.0-* ]] ; then
@@ -108,11 +113,6 @@ multilib_src_configure() {
 		[onx]32)      GMPABI=${ABI};;
 	esac
 	export GMPABI
-
-	# bug #367719
-	if [[ ${CHOST} == *-mint* ]]; then
-		filter-flags -O?
-	fi
 
 	tc-export CC
 
