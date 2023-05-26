@@ -297,21 +297,21 @@ pkg_postrm() {
 }
 
 pkg_config() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}" cfg=''
-	local -i rc=0 s=0
+	local boot="${RASPBERRYPI_BOOT:-/boot}"
+	local -i rc=0
 
 	ebegin "Deploying Raspberry Pi kernel ${PV} from" \
-		"${FIRMWARE_DIR} to ${RASPBERRYPI_BOOT}"
+		"${FIRMWARE_DIR} to ${boot}"
 
 	set -o pipefail >/dev/null 2>&1
 	if use devicetree; then
-		if [[ -d "${RASPBERRYPI_BOOT}"/overlays ]]; then
-			if ! mv "${RASPBERRYPI_BOOT}"/overlays "${RASPBERRYPI_BOOT}"/overlays.old; then
+		if [[ -d "${boot}"/overlays ]]; then
+			if ! mv "${boot}"/overlays "${boot}"/overlays.old; then
 				eend ${?} "Failed to backup current 'overlays' directory"
 				return ${?}
 			fi
 		fi
-		cp -r "${FIRMWARE_DIR}/overlays" "${RASPBERRYPI_BOOT}/" ||
+		cp -r "${FIRMWARE_DIR}/overlays" "${boot}/" ||
 			eend ${?} "'overlays' directory copy failed: ${?}" ||
 			return ${?}
 	fi
@@ -322,19 +322,19 @@ pkg_config() {
 				-not -name config.txt \
 				-not -name cmdline.txt \
 				-print0 |
-		xargs -0 -r -I'{}' cp '{}' "${RASPBERRYPI_BOOT}/"
+		xargs -0 -r -I'{}' cp '{}' "${boot}/"
 	rc=${?}
 	eend ${rc} "kernel file copy failed: ${rc}" || return ${rc}
 
-	if use devicetree && [[ -d "${RASPBERRYPI_BOOT}"/overlays.old ]]; then
+	if use devicetree && [[ -d "${boot}"/overlays.old ]]; then
 		if ! (( rc )); then
-			if ! diff -qr "${RASPBERRYPI_BOOT}"/overlays{.old,}; then
+			if ! diff -qr "${boot}"/overlays{.old,}; then
 				ewarn "Overlay differences:"
-				diff -r "${RASPBERRYPI_BOOT}"/overlays{.old,}
-				elog "Please remove '${RASPBERRYPI_BOOT}/overlays.old' once" \
+				diff -r "${boot}"/overlays{.old,}
+				elog "Please remove '${boot}/overlays.old' once" \
 					"reconciled"
 			else
-				rm -r "${RASPBERRYPI_BOOT}"/overlays.old
+				rm -r "${boot}"/overlays.old
 			fi
 		fi
 	fi
