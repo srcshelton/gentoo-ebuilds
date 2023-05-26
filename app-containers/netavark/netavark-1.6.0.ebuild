@@ -271,15 +271,13 @@ SLOT="0"
 KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 IUSE="+dns"
 
-BDEPEND="
-	dev-go/go-md2man
-	dev-libs/protobuf
-"
+BDEPEND="dev-go/go-md2man
+	dev-libs/protobuf"
 RDEPEND="dns? ( app-containers/aardvark-dns )"
 
-# rust does not use *FLAGS from make.conf, silence portage warning
-# update with proper path to binaries this crate installs, omit leading /
-QA_FLAGS_IGNORED="usr/bin/${PN}"
+QA_FLAGS_IGNORED="usr/bin/${PN}
+	usr/bin/${PN}-dhcp-proxy-client
+	usr/libexec/podman/${PN}"
 
 src_prepare() {
 	sed -e "/println/s|GIT_COMMIT={commit}\"|GIT_COMMIT={}\", \"${EGIT_COMMIT}\"|" \
