@@ -18,7 +18,7 @@ fi
 
 LICENSE="BSD-2"
 SLOT="0"
-IUSE="audit bash compat debug ncurses +netifrc newnet pam selinux sysv-utils +tmpfiles unicode -vanilla +varrun"
+IUSE="audit bash compat debug ncurses +netifrc newnet pam selinux s6 sysv-utils +tmpfiles unicode -vanilla +varrun"
 
 COMMON_DEPEND="
 	ncurses? ( sys-libs/ncurses:0= )
@@ -173,7 +173,16 @@ src_install() {
 	fi
 
 	# install documentation
+	if ! use s6; then
+		rm s6-guide.md
+	fi
 	dodoc *.md
+
+	if ! use s6; then
+		rm "${ED}"/sbin/rc-sstat \
+			"${ED}"/usr/share/man/man8/rc-sstat.8* \
+			"${ED}"/etc/init.d/s6-svscan
+	fi
 }
 
 pkg_preinst() {
