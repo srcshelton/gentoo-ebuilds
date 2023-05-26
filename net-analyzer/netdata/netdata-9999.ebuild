@@ -12,7 +12,7 @@ if [[ ${PV} == *9999 ]] ; then
 else
 	SRC_URI="https://github.com/netdata/${PN}/releases/download/v${PV}/${PN}-v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${PN}-v${PV}"
-	KEYWORDS="~amd64 ~ppc64 ~x86"
+	KEYWORDS="~amd64 ~ppc64 ~riscv ~x86"
 	RESTRICT="mirror"
 fi
 
@@ -211,20 +211,27 @@ src_install() {
 		"${ED}"/usr/libexec/netdata/plugins.d/README.md
 	rmdir -p "${ED}"/var/log/netdata "${ED}"/var/cache/netdata 2>/dev/null
 
-	# netdata includes 'web root owner' settings, but ignores them and fails to
-	# serve its pages if netdata:netdata isn't the owner :(
+	# netdata includes 'web root owner' settings, but ignores them and
+	# fails to serve its pages if netdata:netdata isn't the owner :(
 	fowners -Rc netdata:netdata /usr/share/netdata/web ||
 		die "Failed settings owners: ${?}"
 
+	keepdir /var/lib/netdata/registry
+	fowners -Rc netdata:netdata /var/lib/netdata
+
+	#newinitd system/openrc/init.d/netdata ${PN}
+	#newconfd system/openrc/conf.d/netdata ${PN}
+	newinitd "${FILESDIR}/${PN}.initd-r1" "${PN}"
+	if use systemd; then
+		systemd_dounit system/systemd/netdata.service
+		systemd_dounit system/systemd/netdata-updater.service
+		systemd_dounit system/systemd/netdata-updater.timer
+	fi
 	insinto /etc/netdata
 	doins system/netdata.conf
 
-	#newinitd system/netdata-openrc "${PN}"
-	newinitd "${FILESDIR}/${PN}.initd-r1" "${PN}"
-	use systemd && systemd_dounit system/netdata.service
-
-	echo "CONFIG_PROTECT=\"${EPREFIX}/usr/$(get_libdir)/netdata/conf.d\"" > 99netdata
-	doenvd 99netdata
+	echo "CONFIG_PROTECT=\"${EPREFIX}/usr/$(get_libdir)/netdata/conf.d\"" > "${T}"/99netdata
+	doenvd "${T}"/99netdata
 }
 
 pkg_postinst() {
@@ -275,3 +282,5 @@ pkg_postinst() {
 	    fcaps 'cap_dac_override' 'usr/libexec/netdata/plugins.d/freeipmi.plugin'
 	fi
 }
+
+# vi: set diffopt=filler,iwhite:
