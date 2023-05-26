@@ -168,9 +168,8 @@ LICENSE="Apache-2.0 Apache-2.0-with-LLVM-exceptions MIT Unlicense ZLIB"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 
-# rust does not use *FLAGS from make.conf, silence portage warning
-# update with proper path to binaries this crate installs, omit leading /
-QA_FLAGS_IGNORED="usr/bin/${PN}"
+QA_FLAGS_IGNORED="usr/bin/${PN}
+	/usr/libexec/podman/${PN}"
 
 src_prepare() {
 	sed -e "/println/s|commit|\"${EGIT_COMMIT}\"|" \
