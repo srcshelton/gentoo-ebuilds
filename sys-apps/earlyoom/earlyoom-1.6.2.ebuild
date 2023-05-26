@@ -17,10 +17,10 @@ else
 	SRC_URI="https://github.com/rfjakob/earlyoom/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="amd64 x86"
 fi
-IUSE="docs systemd test"
+IUSE="doc systemd test"
 
 BDEPEND="
-	docs? ( app-text/pandoc )
+	doc? ( app-text/pandoc )
 	test? ( dev-lang/go )
 "
 
@@ -29,13 +29,13 @@ RESTRICT=test
 
 src_compile() {
 	VERSION="v${PV}" emake earlyoom
-	use docs && VERSION="v${PV}" emake earlyoom.1
+	use doc && VERSION="v${PV}" emake earlyoom.1
 	use systemd && emake PREFIX=/usr earlyoom.service
 }
 
 src_install() {
 	dobin earlyoom
-	use docs && doman earlyoom.1
+	use doc && doman earlyoom.1
 
 	insinto /etc/conf.d
 	newins earlyoom.default earlyoom
