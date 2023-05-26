@@ -1,0 +1,253 @@
+#!/sbin/openrc-run
+# Copyright 1999-2020 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+#: ${LVM_LVMETAD_PIDFILE:=/var/run/lvmetad.pid}
+#: ${LVM_LVMETAD_SOCKET:=/var/run/lvm/lvmetad.socket}
+: ${LVM_LVMETAD_PIDFILE:=/dev/.lvm/lvmetad.pid}
+: ${LVM_LVMETAD_SOCKET:=dev/.lvm/lvmetad.socket}
+
+_get_lvm_path() {
+	local lvm_path=''
+
+	for lvm_path in /bin/lvm /sbin/lvm ; do
+		[[ -x "${lvm_path}" ]] && break
+	done
+	if ! [[ -x "${lvm_path}" ]]; then
+		eerror "Cannot find lvm binary in /sbin or /bin!"
+		return 1
+	fi
+
+	echo "${lvm_path}"
+}
+
+_use_lvmetad() {
+	local lvm_path="$(_get_lvm_path)"
+
+	[[ -x "${lvm_path}" ]] || return 1
+
+	"${lvm_path}" dumpconfig global 2>/dev/null | grep -q 'use_lvmetad=1'
+}
+
+_use_lvmlockd() {
+	local lvm_path="$(_get_lvm_path)"
+
+	[[ -x "${lvm_path}" ]] || return 1
+
+	"${lvm_path}" dumpconfig global 2>/dev/null | grep -q 'use_lvmlockd=1'
+}
+
+depend() {
+	before checkfs fsck
+	after modules device-mapper
+
+	# We may want lvmetad based on the configuration. If we added lvmetad
+	# support while lvm2 is running then we aren't dependent on it. For the
+	# more common case, if its disabled in the config we aren't dependent
+	# on it.
+	config /etc/lvm/lvm.conf
+	local _want=''
+
+	if service_started ; then
+		_want="$(service_get_value want)"
+	else
+		if _use_lvmetad ; then
+			_want="${_want} lvmetad"
+		fi
+		if _use_lvmlockd ; then
+			_want="${_want} lvmlockd"
+		fi
+	fi
+
+	# Make sure you review /etc/conf.d/lvm as well!
+	# Depending on your system, it might also introduce udev & mdraid
+	need sysfs
+
+	if [ -n "${_want}" ] ; then
+		want ${_want}
+	fi
+}
+
+dm_in_proc() {
+	local x=''
+	local -i retval=0
+
+	for x in devices misc ; do
+		grep -qs 'device-mapper' "/proc/${x}"
+		(( retval += ${?} ))
+	done
+
+	return ${retval}
+}
+
+start() {
+	local config='' lvm_path='' verbose_command=''
+	local -i has_errors=0
+
+	# LVM support for /usr, /home, /opt ....
+	# This should be done *before* checking local
+	# volumes, or they never get checked.
+
+	# NOTE: Add needed modules for LVM or RAID, etc
+	#       to /etc/modules.autoload if needed
+	lvm_path="$(_get_lvm_path)" || return 1
+	if [[ -z "${lvm_path:-}" ]] ; then
+		eerror "Failed to find lvm binary in /bin or /sbin!"
+		return 1
+	fi
+
+	if [[ -z "${CDBOOT:-}" ]] ; then
+		if [[ -e /proc/modules ]] && ! dm_in_proc ; then
+			ebegin "Trying to load dm-mod module"
+			modprobe dm-mod 2>/dev/null
+			eend $?
+		fi
+		if [[ -d /proc/lvm ]] || dm_in_proc ; then
+			if checkpath -qW /var/lock/lvm && ! [[ -d /dev/.lvm ]]; then
+				config='global { locking_dir = "/var/lock/lvm" }'
+			else
+				checkpath -dqm 0700 /dev/.lvm
+				config='global { locking_dir = "/dev/.lvm" }'
+			fi
+			if checkpath -qW /var/run/lvm; then
+				export LVM_LVMETAD_PIDFILE="/var/run/lvmetad.pid"
+				export LVM_LVMETAD_SOCKET="/var/run/lvm/lvmetad.socket"
+			fi
+
+			yesno "${rc_verbose}" && verbose_command=" -v"
+
+			ebegin "Starting Logical Volume Manager"
+			#einfo "Using configuration directive '${config}'"
+
+			if _use_lvmetad ; then
+				# Perform extra pvscan pass since some devices might not have been available until very recently
+				${lvm_path} pvscan${verbose_command} --config "${config}" --cache
+				[ $? -ne 0 ] && has_errors=1
+			fi
+
+			# Now make the nodes
+			${lvm_path} vgscan${verbose_command} --config "${config}" --mknodes
+			[ $? -ne 0 ] && has_errors=1
+
+			# Enable all VGs
+			${lvm_path} vgchange${verbose_command} --config "${config}" --sysinit --activate y
+			[ $? -ne 0 ] && has_errors=1
+
+			if _use_lvmlockd ; then
+				# Start lockd VGs as required
+				${lvm_path} vgchange${verbose_command} --config "${config}" --lock-start --lock-opt auto
+				[ $? -ne 0 ] && has_errors=1
+			fi
+
+			eend ${has_errors} "Failed to start the Logical Volume Manager"
+		fi
+	fi
+}
+
+start_post() {
+	local _want=
+	if _use_lvmetad ; then
+		_want="${_want} lvmetad"
+	fi
+
+	if _use_lvmlockd ; then
+		_want="${_want} lvmlockd"
+	fi
+
+	service_set_value want "${_want}"
+}
+
+stop() {
+	local config='' lvm_path='' lvs='' lv='' vgs='' vg=''
+	local verbose_command='' eend_cmd='eend'
+	local msg='Failed to stop Logical Volume Manager'
+	local -i rc=0 has_errors=0
+
+	lvm_path="$(_get_lvm_path)"
+	if [ -z "${lvm_path}" ] ; then
+		eerror "Failed to find lvm binary in /bin or /sbin!"
+		return 1
+	fi
+
+	# Stop LVM2
+	if [[ -f /etc/lvmtab || -d /etc/lvm ]] \
+		&& [[ -d /proc/lvm  || -n "$(grep device-mapper /proc/misc 2>/dev/null)" ]]
+	then
+		if checkpath -qW /var/lock/lvm && ! [[ -d /dev/.lvm ]]; then
+			config='global { locking_dir = "/var/lock/lvm" }'
+		else
+			config='global { locking_dir = "/dev/.lvm" }'
+		fi
+		if checkpath -qW /var/run/lvm; then
+			export LVM_LVMETAD_PIDFILE="/var/run/lvmetad.pid"
+			export LVM_LVMETAD_SOCKET="/var/run/lvm/lvmetad.socket"
+		fi
+
+		lvs="$( 
+			"${lvm_path}" 2>/dev/null lvs \
+					--config "${config}" \
+					-o vg_name,lv_name \
+					--noheadings \
+					--nosuffix |
+				cut -d' ' -f 3- |
+				sed 's| |/|'
+		)"
+		vgs="$(
+			"${lvm_path}" 2>/dev/null vgs \
+					--config "${config}" \
+					-o vg_name \
+					--noheadings \
+					--nosuffix \
+					--rows |
+				cut -d' ' -f 3-
+		)"
+
+		if [ -z "${vgs}" ] ; then
+			# nothing to do for us
+			return 0
+		fi
+
+		yesno "${rc_verbose}" && verbose_command=" -v"
+
+		if [ "${RC_RUNLEVEL}" = shutdown ] ; then
+			# failures on shutdown are non-fatal
+			eend_cmd="ewend"
+			msg="${msg} (some volumes may still be required for system-essential volumes)"
+		fi
+
+		ebegin "Stopping Logical Volume Manager"
+		#einfo "Using configuration directive '${config}'"
+
+		for lv in ${lvs}; do
+			#einfo "${lvm_path} lvchange${verbose_command:+" ${verbose_command}"} --config '${config}' --sysinit --activate n ${lv}"
+			${lvm_path} lvchange \
+						${verbose_command} \
+						--config "${config}" \
+						--sysinit \
+						--activate 'n' \
+					"${lv}" ||
+				: $(( rc = rc + 1 ))
+		done
+		[ $rc -ne 0 ] && has_errors=1
+
+		rc=0
+		for vg in ${vgs}; do
+			#einfo "${lvm_path} vgchange${verbose_command:+" ${verbose_command}"} --config '${config}' --sysinit --activate n ${vg}"
+			${lvm_path} vgchange \
+						${verbose_command} \
+						--config "${config}" \
+						--sysinit \
+						--activate 'n' \
+					"${vg}" ||
+				: $(( rc = rc + 1 ))
+		done
+		[ $rc -ne 0 ] && has_errors=1
+
+		${eend_cmd} ${has_errors} "${msg}"
+	fi
+
+	# at this point make sure we always exit without indicating an error
+	return 0
+}
+
+# vi: set noet sw=4 ts=4 diffopt=iwhite,filler:
