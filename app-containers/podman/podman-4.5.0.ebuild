@@ -1,7 +1,7 @@
 # Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 EGIT_COMMIT="75e3c12579d391b81d871fd1cded6cf0d043550a"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
@@ -28,7 +28,10 @@ COMMON_DEPEND="
 	dev-db/sqlite:=
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	|| ( >=app-containers/netavark-1.6.0 >=app-containers/cni-plugins-0.8.6 )
+	|| (
+		>=app-containers/netavark-1.6.0[dns]
+		>=app-containers/cni-plugins-0.8.6
+	)
 	sys-apps/shadow:=
 	sys-fs/lvm2
 	sys-libs/libseccomp:=
@@ -171,19 +174,17 @@ pkg_setup() {
 		"
 	fi
 
-	CONFIG_CHECK+="
-		~OVERLAY_FS ~EXT4_FS_SECURITY ~EXT4_FS_POSIX_ACL
-	"
-
 	linux-info_pkg_setup
 }
 
 src_prepare() {
+	local -a makefile_sed_args=()
+
 	default
 
 	# Disable installation of python modules here, since those are
 	# installed by separate ebuilds.
-	local makefile_sed_args=(
+	makefile_sed_args=(
 		-e '/^GIT_.*/d'
 		-e 's/$(GO) build/$(GO) build -v -work -x/'
 		-e 's/^\(install:.*\) install\.python$/\1/'
@@ -195,12 +196,50 @@ src_prepare() {
 		-e 's/^\(install:.*\) install\.systemd$/\1/'
 	)
 
-	has_version -b '>=dev-lang/go-1.13.9' || makefile_sed_args+=(-e 's:GO111MODULE=off:GO111MODULE=on:')
+	has_version -b '>=dev-lang/go-1.13.9' ||
+		makefile_sed_args+=(-e 's:GO111MODULE=off:GO111MODULE=on:')
 
 	sed "${makefile_sed_args[@]}" -i Makefile || die
 
+	[[ -f hack/apparmor_tag.sh ]] || die
+	if use apparmor; then
+		echo -e "#!/bin/sh\\necho apparmor" > \
+			hack/apparmor_tag.sh || die
+	else
+		echo -e "#!/bin/sh\\ntrue" > \
+			hack/apparmor_tag.sh || die
+	fi
+
+	[[ -f hack/btrfs_installed_tag.sh ]] || die
+	if use btrfs; then
+		echo -e "#!/bin/sh\\ntrue" > \
+			hack/btrfs_installed_tag.sh || die
+	else
+		echo -e "#!/bin/sh\\necho exclude_graphdriver_btrfs" > \
+			hack/btrfs_installed_tag.sh || die
+	fi
+
+	[[ -f hack/selinux_tag.sh ]] || die
+	if use selinux; then
+		echo -e "#!/bin/sh\\necho selinux" > \
+			hack/selinux_tag.sh || die
+	else
+		echo -e "#!/bin/sh\\ntrue" > \
+			hack/selinux_tag.sh || die
+	fi
+
+	[[ -f hack/systemd_tag.sh ]] || die
+	if use systemd; then
+		echo -e "#!/bin/sh\\necho systemd" > \
+			hack/systemd_tag.sh || die
+	else
+		echo -e "#!/bin/sh\\ntrue" > \
+			hack/systemd_tag.sh || die
+	fi
+
 	# Fix run path...
-	grep -Rl '[^r]/run/' . | xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
+	grep -Rl '[^r]/run/' . |
+		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
 }
 
 src_compile() {
@@ -219,38 +258,10 @@ src_compile() {
 
 	go-md2man -in "${WORKDIR}/common-${COMMON_VERSION}/docs/containers.conf.5.md" -out "${T}/containers.conf.5"
 
-	[[ -f hack/apparmor_tag.sh ]] || die
-	if use apparmor; then
-		echo -e "#!/bin/sh\necho apparmor" > hack/apparmor_tag.sh || die
-	else
-		echo -e "#!/bin/sh\ntrue" > hack/apparmor_tag.sh || die
-	fi
-
-	[[ -f hack/btrfs_installed_tag.sh ]] || die
-	if use btrfs; then
-		echo -e "#!/bin/sh\ntrue" > hack/btrfs_installed_tag.sh || die
-	else
-		echo -e "#!/bin/sh\necho exclude_graphdriver_btrfs" > \
-			hack/btrfs_installed_tag.sh || die
-	fi
-
-	[[ -f hack/selinux_tag.sh ]] || die
-	if use selinux; then
-		echo -e "#!/bin/sh\necho selinux" > hack/selinux_tag.sh || die
-	else
-		echo -e "#!/bin/sh\ntrue" > hack/selinux_tag.sh || die
-	fi
-
-	[[ -f hack/systemd_tag.sh ]] || die
-	if use systemd; then
-		echo -e "#!/bin/sh\necho systemd" > hack/systemd_tag.sh || die
-	else
-		echo -e "#!/bin/sh\ntrue" > hack/systemd_tag.sh || die
-	fi
-
 	export -n GOCACHE GOPATH XDG_CACHE_HOME
 	GOBIN="${S}/bin" \
 		emake all \
+			PREFIX="${EPREFIX}/usr" \
 			GIT_BRANCH=master \
 			GIT_BRANCH_CLEAN=master \
 			COMMIT_NO="${EGIT_COMMIT}" \
@@ -267,6 +278,11 @@ src_install() {
 	insinto /etc/containers
 	newins test/registries.conf registries.conf.example
 	newins test/policy.json policy.json.example
+
+	if has_version -r '>=app-containers/cni-plugins-0.8.6'; then
+		insinto /etc/cni/net.d
+		doins cni/87-podman-bridge.conflist
+	fi
 
 	# Migrated to containers/common ...
 	insinto /usr/share/containers
