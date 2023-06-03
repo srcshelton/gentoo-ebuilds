@@ -17,7 +17,7 @@ SRC_URI="${SRC_URI}
 S_PARI="${WORKDIR}"/pari-${PARI_VER}
 
 SLOT="0"
-KEYWORDS="~alpha amd64 ~hppa sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x86-solaris"
+KEYWORDS="~alpha amd64 ~hppa sparc x86 ~amd64-linux ~x86-linux ~ppc-macos"
 IUSE="abi_x86_x32 elibc_glibc"
 
 # Math::Pari requires that a copy of the pari source in a parallel
