@@ -33,7 +33,7 @@ RDEPEND="${PYTHON_DEPS}
 		>=media-libs/raspberrypi-userland-bin-1.20201022
 	)"
 
-QA_PREBUILT="/lib/firmware/raspberrypi/bootloader/*/*.bin"
+QA_PREBUILT="lib/firmware/raspberrypi/bootloader/*/*.bin"
 
 src_prepare() {
 	default
