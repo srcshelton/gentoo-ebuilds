@@ -12,7 +12,7 @@ S="${WORKDIR}"/${PN}-${P}
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x64-cygwin"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="systemd unicode"
 
 RDEPEND="dev-libs/libpcre2"
@@ -47,7 +47,7 @@ src_install() {
 }
 
 pkg_preinst() {
-	if [[ -d "${ROOT}"/etc/metalog ]] && [[ ! -e "${ROOT}"/etc/metalog.conf ]] ; then
+	if [[ -d "${ROOT}"/etc/metalog && ! -e "${ROOT}"/etc/metalog.conf ]] ; then
 		mv -f "${ROOT}"/etc/metalog/metalog.conf "${ROOT}"/etc/metalog.conf
 		rmdir "${ROOT}"/etc/metalog
 		export MOVED_METALOG_CONF=true
