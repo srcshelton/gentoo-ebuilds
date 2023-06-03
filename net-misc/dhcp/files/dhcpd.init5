@@ -13,8 +13,11 @@ depend() {
 
 get_var() {
 	local var
-	var="$( sed -n 's/^[[:blank:]]\?'"$1"' "*\([^#";]\+\).*/\1/p' "${chroot}${DHCPD_CONF}" )"
-	printf '%s' "${var:-${2}}"
+	var="$(
+		sed -n 's/^[[:blank:]]\?'"${1}"' "*\([^#";]\+\).*/\1/p' \
+			"${chroot}${DHCPD_CONF}"
+	)"
+	printf '%s' "${var:-"${2}"}"
 }
 
 setup_opts() {
@@ -33,8 +36,7 @@ setup_opts() {
 }
 
 checkconfig() {
-	local rc
-	declare -i rc
+	local -i rc=0
 
 	set -- ${DHCPD_OPTS} ${DHCPD_CHROOT:+-chroot "${DHCPD_CHROOT:-/}"} -t
 
@@ -58,7 +60,7 @@ configtest() {
 }
 
 start() {
-	local chroot="${DHCPD_CHROOT:-}" git=""
+	local chroot="${DHCPD_CHROOT:-}" git="" leasefile="" pidfile=""
 
 	setup_opts
 
@@ -84,8 +86,9 @@ start() {
 
 	checkpath -d -o dhcp:dhcp "${chroot}"/var/run/dhcp "${chroot}"/var/lib/dhcp
 
-	local leasefile
-	leasefile="$( get_var 'lease-file-name' "/var/lib/dhcp/${SVCNAME}.leases" )"
+	leasefile="$(
+		get_var 'lease-file-name' "/var/lib/dhcp/${SVCNAME}.leases"
+	)"
 	checkpath -f -o dhcp:dhcp "${chroot}${leasefile}"
 
 	if [ -n "${chroot:-}" ] && [ -d "${chroot}" ] ; then
@@ -140,8 +143,9 @@ start() {
 		fi
 	fi
 
-	local pidfile
-	pidfile="$( get_var 'pid-file-name' "/var/run/dhcp/${SVCNAME}.pid" )"
+	pidfile="$(
+		get_var 'pid-file-name' "/var/run/dhcp/${SVCNAME}.pid"
+	)"
 
 	ebegin "Starting ${chroot:+chrooted }${SVCNAME}"
 	start-stop-daemon --start --pidfile "${chroot}/${pidfile}" \
@@ -159,8 +163,8 @@ start() {
 }
 
 stop() {
-	local chroot rc
-	declare -i rc
+	local chroot=""
+	local -i rc=0
 
 	chroot="$( get_options 'dhcpd_chroot' )"
 	[ -z "${chroot:-}" ] && chroot="$( get_options 'chroot' )"
