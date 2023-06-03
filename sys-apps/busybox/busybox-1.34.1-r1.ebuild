@@ -21,7 +21,7 @@ fi
 
 LICENSE="GPL-2" # GPL-2 only
 SLOT="0"
-IUSE="debug ipv6 livecd make-symlinks math mdev -pam selinux sep-usr +static syslog systemd"
+IUSE="debug doc examples ipv6 livecd make-symlinks math mdev -pam +safe selinux sep-usr +static syslog systemd"
 # FIXME: Cheat a bit here - skip this test when rebuilding stage3, which we'll
 #        re-use the 'livecd' flag to indicate!
 REQUIRED_USE="!livecd? ( pam? ( !static ) )"
@@ -75,11 +75,9 @@ busybox_config_enabled() {
 	esac
 }
 
-# patches go here!
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.26.2-bb.patch
 	"${FILESDIR}"/${PN}-1.34.1-skip-selinux-search.patch
-	# "${FILESDIR}"/${P}-*.patch
 )
 
 src_prepare() {
@@ -91,28 +89,28 @@ src_prepare() {
 	cp "${FILESDIR}"/ginit.c init/ || die
 
 	# flag cleanup
-	sed -i -r \
+	sed -r \
 		-e 's:[[:space:]]?-(Werror|Os|falign-(functions|jumps|loops|labels)=1|fomit-frame-pointer)\>::g' \
-		Makefile.flags || die
+		-i Makefile.flags || die
 	#sed -i '/bbsh/s:^//::' include/applets.h
-	sed -i '/^#error Aborting compilation./d' applets/applets.c || die
-	use elibc_glibc && sed -i 's:-Wl,--gc-sections::' Makefile
-	sed -i \
+	sed -e '/^#error Aborting compilation./d' -i applets/applets.c || die
+	use elibc_glibc && sed -e 's:-Wl,--gc-sections::' -i Makefile
+	sed \
 		-e "/^CROSS_COMPILE/s:=.*:= ${CHOST}-:" \
 		-e "/^AR\>/s:=.*:= $(tc-getAR):" \
 		-e "/^CC\>/s:=.*:= $(tc-getCC):" \
 		-e "/^HOSTCC/s:=.*:= $(tc-getBUILD_CC):" \
 		-e "/^PKG_CONFIG\>/s:=.*:= $(tc-getPKG_CONFIG):" \
-		Makefile || die
-	sed -i \
+		-i Makefile || die
+	sed \
 		-e 's:-static-libgcc::' \
-		Makefile.flags || die
+		-i Makefile.flags || die
 
 	# Enable additional debugging output for mdev...
 	if use debug; then
-		sed -i \
+		sed \
 			-e 's:^#define DEBUG_LVL 2$:#define DEBUG_LVL 3:' \
-			util-linux/mdev.c || die "Unable to increase mdev debug level"
+			-i util-linux/mdev.c || die "Unable to increase mdev debug level"
 	fi
 }
 
@@ -162,13 +160,22 @@ src_configure() {
 		busybox_config_option n FEATURE_VI_REGEX_SEARCH
 	fi
 
-	# Disable standalone shell mode when using make-symlinks, else Busybox calls its
-	# applets by default without looking up in PATH.
-	# This also enables users to disable a builtin by deleting the corresponding symlink.
-	if use make-symlinks; then
+	# Disable standalone shell mode when using make-symlinks, else Busybox
+	# calls its applets by default without looking up in PATH.
+	# This also enables users to disable a builtin by deleting the
+	# corresponding symlink.
+	# FEATURE_SH_STANDALONE requires FEATURE_PREFER_APPLETS, and causes busybox
+	# to exec /proc/self/exe where possible.
+	# If FEATURE_PREFER_APPLETS is enabled then busybox will always use its own
+	# applets instead of any on-disk binary, resulting in a loss of
+	# compatibililty in sed, mount, and others - which breaks things in
+	# entirely non-obvious ways, especially since there's no way to detect that
+	# this is the case :(
+	#
+	#if use make-symlinks; then
 		busybox_config_option n FEATURE_PREFER_APPLETS
 		busybox_config_option n FEATURE_SH_STANDALONE
-	fi
+	#fi
 
 	# If these are not set and we are using a busybox setup
 	# all calls to system() will fail.
@@ -287,7 +294,7 @@ src_install() {
 		dosym busybox /bin/vi
 	fi
 
-	# add busybox daemon's, bug #444718
+	# add busybox daemons, bug #444718
 	if busybox_config_enabled FEATURE_NTPD_SERVER; then
 		newconfd "${FILESDIR}"/ntpd.confd busybox-ntpd
 		newinitd "${FILESDIR}"/ntpd.initd busybox-ntpd
@@ -322,59 +329,118 @@ src_install() {
 		newinitd "${FILESDIR}"/crond.initd busybox-crond
 	fi
 
-	# bundle up the symlink files for use later
-	emake DESTDIR="${ED}" install
-	rm _install/bin/busybox || die
-	# for compatibility, provide /usr/bin/env
-	mkdir -p _install/usr/bin || die
-	if [[ ! -e _install/usr/bin/env ]]; then
-		ln -s /bin/env _install/usr/bin/env || die
-	fi
-	tar cf busybox-links.tar -C _install . || : #;die
-	insinto /usr/share/${PN}
-	use make-symlinks && doins busybox-links.tar
+	if use make-symlinks; then
+		# bundle up the symlink files for use later
+		emake DESTDIR="${ED}" install
+		rm _install/bin/busybox || die
 
-	dodoc AUTHORS README TODO
+		# for compatibility, provide /usr/bin/env
+		mkdir -p _install/usr/bin || die
+		if [[ ! -e _install/usr/bin/env ]]; then
+			ln -s /bin/env _install/usr/bin/env || die
+		fi
+
+		tar cf busybox-links.tar -C _install . || die
+		insinto /usr/share/${PN}
+		doins busybox-links.tar
+	fi
+
+	dodoc README
+	use doc && dodoc AUTHORS TODO
 
 	cd docs || die
 	doman busybox.1
-	docinto txt
-	dodoc *.txt
-	docinto pod
-	dodoc *.pod
-	docinto html
-	dodoc *.html
+	if use doc; then
+		docinto txt
+		dodoc *.txt
+		docinto pod
+		dodoc *.pod
+		docinto html
+		dodoc *.html
+	fi
 
-	cd ../examples || die
-	docinto examples
-	dodoc inittab depmod.pl *.conf *.script undeb unrpm
+	if use examples; then
+		cd ../examples || die
+		docinto examples
+		dodoc inittab depmod.pl *.conf *.script undeb unrpm
 
-	cd ../networking || die
-	dodoc httpd_indexcgi.c httpd_post_upload.cgi
+		cd ../networking || die
+		dodoc httpd_indexcgi.c httpd_post_upload.cgi
+	fi
 }
 
 pkg_preinst() {
-	if use make-symlinks && [[ ! ${VERY_BRAVE_OR_VERY_DUMB} == "yes" ]] && [[ -z "${ROOT}" || "${ROOT}" == '/' ]] ; then
+	if use make-symlinks &&
+		[[ ! ${VERY_BRAVE_OR_VERY_DUMB} == 'yes' ]] &&
+		[[ -z "${ROOT}" || "${ROOT}" == '/' ]]
+	then
 		ewarn "setting USE=make-symlinks and emerging to / is very dangerous."
 		ewarn "it WILL overwrite lots of system programs like: ls bash awk grep (bug 60805 for full list)."
 		ewarn "If you are creating a binary only and not merging this is probably ok."
-		ewarn "set env VERY_BRAVE_OR_VERY_DUMB=yes if this is really what you want."
-		die "silly options will destroy your system"
+		if use safe; then
+			ewarn "set env VERY_BRAVE_OR_VERY_DUMB=yes if this is really what you want."
+			die "silly options will destroy your system"
+		fi
 	fi
 
 	if use make-symlinks ; then
-		mv "${ED}"/usr/share/${PN}/busybox-links.tar "${T}"/ || die
+		mv "${ED}/usr/share/${PN}/busybox-links.tar" "${T}"/ &&
+			rmdir \
+					--parents --ignore-fail-on-non-empty \
+				"${ED}/usr/share/${PN}" || die
 	fi
 }
 
 pkg_postinst() {
+	local file=''
+	local -i ok=0 skipped=0 bad=0
+
 	savedconfig_pkg_postinst
 
 	if use make-symlinks ; then
-		cd "${T}" || die
-		mkdir _install
-		tar xf busybox-links.tar -C _install || die
-		yes 'n' | cp -ivpPR _install/* "${ROOT}"/ || die "copying links for ${x} failed"
+		pushd "${T}" >/dev/null|| die
+
+		ebegin "Extracting busybox symlinks from '${T}/busybox-links.tar' to '${ROOT}/'"
+
+		mkdir _install &&
+			tar xf busybox-links.tar -C _install &&
+			test -d _install &&
+			rm busybox-links.tar || die
+
+		#yes 'n' | cp -ivpPR _install/* "${ROOT}"/ || die "copying links for ${x} failed: ${?}"
+		while read -r file; do
+			if ! [[ -L "${file}" ]]; then
+				ewarn "Source file '${file}' does not exist"
+				(( bad++ ))
+				continue
+			fi
+			if ! [[ -e "${ROOT}/${file#_install/}" || -L "${ROOT}/${file#_install/}" ]]; then
+				ewarn "Destination file '${ROOT}/${file#_install/}' already exists"
+				(( skipped++ ))
+				continue
+			fi
+
+			ebegin "Copying '${file}' to '${ROOT}/${file#_install/}'"
+			if ! yes 'n' | cp -ivpPR "${file}" "${ROOT}/${file#_install/}"; then
+				# What is 'x' here?!
+				# It appears to be the ebuild stage...
+				eend ${?} "copying '${file}' link to '${ROOT}/${file#_install/}' for ${x} failed: ${?}"
+				(( bad++ ))
+			else
+				(( ok++ ))
+				eend 0
+			fi
+		done < <( find -P _install/ -type l )
+
+		if ! eend ${bad} "Installed ${ok} symlinks, skipped ${skipped} symlinks, failed to install ${bad} symlinks"; then
+			if (( skipped )); then
+				ewarn "Installed ${ok} symlinks, skipped ${skipped} symlinks"
+			fi
+		fi
+
+		popd >/dev/null
+		rm -rf "${T}/_install"
+		rmdir --parents --ignore-fail-on-non-empty "${T}"
 	fi
 
 	if use sep-usr ; then
