@@ -12,10 +12,11 @@ SRC_URI=""
 LICENSE="Broadcom"
 SLOT="0/0"
 KEYWORDS="-*"
-IUSE=""
 
-DEPEND="media-libs/raspberrypi-userland"
-RDEPEND=""
+RDEPEND="
+	media-libs/raspberrypi-userland
+	!sys-apps/raspberrypi-tools
+"
 
 EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
 # The current repo is ~4GB in size, but contains only ~200MB of data - the rest
@@ -36,7 +37,7 @@ src_install() {
 			einfo "Skipping existing binary '${name}' ..."
 		else
 			dobin "${bin}"
-			QA_PREBUILT+="${QA_PREBUILT:+ }/usr/bin/${name}"
+			QA_PREBUILT+="${QA_PREBUILT:+ }usr/bin/${name}"
 		fi
 	done
 }

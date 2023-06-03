@@ -12,10 +12,11 @@ SRC_URI=""
 LICENSE="Broadcom"
 SLOT="0/1"
 KEYWORDS="-*"
-IUSE=""
 
-DEPEND="media-libs/raspberrypi-userland"
-RDEPEND=""
+RDEPEND="
+	media-libs/raspberrypi-userland
+	!sys-apps/raspberrypi-tools
+"
 
 EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
 # The current repo is ~4GB in size, but contains only ~200MB of data - the rest
@@ -24,8 +25,8 @@ EGIT_CLONE_TYPE="shallow"
 
 RESTRICT="strip"
 QA_PREBUILT="
-	/usr/bin/edidparser
-	/usr/sbin/vcdbg
+	usr/bin/edidparser
+	usr/sbin/vcdbg
 "
 
 src_install() {

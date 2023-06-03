@@ -12,7 +12,7 @@ SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> raspber
 LICENSE="Broadcom"
 SLOT="0/0"
 KEYWORDS="~aarch64 arm -*"
-IUSE="-containers dtutils tools"
+IUSE="-containers devicetree tools"
 
 BDEPEND="media-libs/raspberrypi-userland"
 DEPEND="${BDEPEND}"
@@ -37,10 +37,10 @@ src_install() {
 		if grep -q "bin/${name} " "${EROOT}/var/db/pkg/$(best_version -r media-libs/raspberrypi-userland)/CONTENTS"; then
 			einfo "Skipping existing binary '${name}' ..."
 		else
-			if ! use dtutils; then
+			if ! use devicetree; then
 				# Keep this list sync'd with media-libs/raspberrypi-userland...
 				if [[ "${name}" =~ ^(dtmerge|dtoverlay|dtoverlay-post|dtoverlay-pre|dtparam)$ ]]; then
-					einfo "Skipping binary '${name}' due to USE='-dtutils'"
+					einfo "Skipping binary '${name}' due to USE='-devicetree'"
 					continue
 				fi
 			fi

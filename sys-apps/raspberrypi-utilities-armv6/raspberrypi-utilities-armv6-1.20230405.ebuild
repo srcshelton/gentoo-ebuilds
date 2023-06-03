@@ -11,18 +11,30 @@ SRC_URI="https://github.com/raspberrypi/firmware/archive/${PV}.tar.gz -> raspber
 
 LICENSE="Broadcom"
 SLOT="0/0"
-KEYWORDS="arm -*"
+KEYWORDS="-* arm"
 IUSE="-containers devicetree tools"
 
 BDEPEND="media-libs/raspberrypi-userland"
 DEPEND="${BDEPEND}"
 # vcdbg is linked against libelftoolchain.so, which is is the firmware repo :(
-RDEPEND="sys-boot/raspberrypi-firmware"
+RDEPEND="
+	sys-boot/raspberrypi-firmware
+	!sys-apps/raspberrypi-tools
+"
 
 RESTRICT="mirror strip"
 
 S="${WORKDIR}/firmware-${PV}"
 
+# FIXME: Binary selection is performed below at build-time, which makes
+#        assumptions which won't necessarily hold when the build host is not
+#        the same as the host the (binary) package will be deployed to.  The
+#        correct fix for this is to have this ebuild construct an archive of
+#        all possible binaries and write this to /usr/share, and then have a
+#        pkg_postinst() step defined in order to extract the relevent files
+#        from this to the live system.  This is the approach that
+#        sys-apps/busybox uses to deploy symlinks.
+#
 src_install() {
 	local bin name
 
@@ -55,11 +67,11 @@ src_install() {
 				# Keep this list sync'd with media-libs/raspberrypi-userland...
 				mmal_vc_diag|vcgencmd|vchiq_test|vcmailbox|vcsmem)
 					dosbin "${bin}"
-					QA_PREBUILT+="${QA_PREBUILT:+ }/usr/sbin/${name}"
+					QA_PREBUILT+="${QA_PREBUILT:+ }usr/sbin/${name}"
 					;;
 				*)
 					dobin "${bin}"
-					QA_PREBUILT+="${QA_PREBUILT:+ }/usr/bin/${name}"
+					QA_PREBUILT+="${QA_PREBUILT:+ }usr/bin/${name}"
 					;;
 			esac
 		fi
