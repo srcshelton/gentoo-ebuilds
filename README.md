@@ -338,6 +338,8 @@ used to build perl)
     * Ubiquiti Networks' UniFi Controller software
 * sys-apps/lsusb-apple
     * Jose L. Honorato's 'lsusb' for macOS
+* sys-apps/raspberrypi-gpio
+    * Raspberry Pi 'raspi-gpio' tool
 * sys-apps/raspberrypi-tools
     * Raspberry Pi utilities, including 'vclog' - a replacement for 32-bit, binary-only 'vcdbg'
 * sys-apps/tmpfs
