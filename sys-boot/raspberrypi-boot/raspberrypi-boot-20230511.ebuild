@@ -32,16 +32,20 @@ src_install() {
 
 	dobin rpiboot
 
-	insinto "/usr/share/${PN}"
+	insinto "/usr/share/${PN/-//}"
 	doins bootcode4.bin msd/bootcode.bin msd/*.elf
 	if use tools; then
 		doins -r mass-storage-gadget rpi-imager-embedded
 	fi
 
-	insinto "/var/lib/${PN}"
+	insinto "/var/lib/${PN/-//}"
 	doins recovery.bin
 	if use tools; then
-		doins -r eeprom-erase recovery tools
+		doins -r eeprom-erase recovery
+		exeinto "/var/lib/${PN/-//}/recovery"
+		doexe recovery/update-pieeprom.sh
+		exeinto "/var/lib/${PN/-//}/tools"
+		doexe tools/*
 	fi
 	if use secure-boot; then
 		doins -r secure-boot-{msd,recovery}
@@ -56,12 +60,12 @@ src_install() {
 pkg_postinst() {
 	elog "To access a Raspberry Pi SBC as a USB device, run:"
 	elog
-	elog "    /usr/bin/rpiboot -d /usr/share/${PN}"
+	elog "    /usr/bin/rpiboot -d /usr/share/${PN/-//}"
 	if use tools; then
 		elog
 		elog "Additional static firmware payloads can be found in"
-		elog "/usr/share/${PN} with configurable payloads"
-		elog "in /var/lib/${PN}"
+		elog "/usr/share/${PN/-//} with configurable payloads"
+		elog "in /var/lib/${PN/-//}"
 	fi
 	elog
 	elog "'rpiboot' does not need elevated privileges to run, so long as the"
