@@ -47,7 +47,7 @@ KEYWORDS="-* ~amd64 ~x86"
 IUSE=""
 
 RESTRICT="mirror strip"
-QA_PREBUILT="/opt/3ware/3DM2/3dm2"
+QA_PREBUILT="opt/3ware/3DM2/3dm2"
 
 # binary packages
 DEPEND="app-arch/unzip
