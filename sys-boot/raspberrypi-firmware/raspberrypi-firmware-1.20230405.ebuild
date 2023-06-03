@@ -49,8 +49,8 @@ RESTRICT="mirror strip"
 FIRMWARE_DIR='/usr/share/raspberrypi/firmware'
 
 QA_PREBUILT="
-	${FIRMWARE_DIR}/start*.elf
-	/usr/lib/libelftoolchain.so
+	${FIRMWARE_DIR#/}/start*.elf
+	usr/lib/libelftoolchain.so
 "
 
 DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
