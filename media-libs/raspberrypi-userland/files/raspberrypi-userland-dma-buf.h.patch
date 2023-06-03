@@ -1,0 +1,73 @@
+From 11c640054e60a949d41006a0e2f39fc6df469213 Mon Sep 17 00:00:00 2001
+From: Dave Jones <dave@waveform.org.uk>
+Date: Mon, 30 Nov 2020 15:03:16 +0000
+Subject: [PATCH] Use dma-buf.h from linux-libc-dev
+
+This patch removes the vendorized dma-buf header in favour of the ones
+shipped with linux-libc-dev.
+---
+ host_applications/linux/libs/sm/dma-buf.h   | 41 ---------------------
+ host_applications/linux/libs/sm/user-vcsm.c |  2 +-
+ 2 files changed, 1 insertion(+), 42 deletions(-)
+ delete mode 100644 host_applications/linux/libs/sm/dma-buf.h
+
+diff --git a/host_applications/linux/libs/sm/dma-buf.h b/host_applications/linux/libs/sm/dma-buf.h
+deleted file mode 100644
+index d75df5210..000000000
+--- a/host_applications/linux/libs/sm/dma-buf.h
++++ /dev/null
+@@ -1,41 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-/*
+- * Framework for buffer objects that can be shared across devices/subsystems.
+- *
+- * Copyright(C) 2015 Intel Ltd
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of the GNU General Public License version 2 as published by
+- * the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along with
+- * this program.  If not, see <http://www.gnu.org/licenses/>.
+- */
+-
+-#ifndef _DMA_BUF_UAPI_H_
+-#define _DMA_BUF_UAPI_H_
+-
+-#include <linux/types.h>
+-
+-/* begin/end dma-buf functions used for userspace mmap. */
+-struct dma_buf_sync {
+-	__u64 flags;
+-};
+-
+-#define DMA_BUF_SYNC_READ      (1 << 0)
+-#define DMA_BUF_SYNC_WRITE     (2 << 0)
+-#define DMA_BUF_SYNC_RW        (DMA_BUF_SYNC_READ | DMA_BUF_SYNC_WRITE)
+-#define DMA_BUF_SYNC_START     (0 << 2)
+-#define DMA_BUF_SYNC_END       (1 << 2)
+-#define DMA_BUF_SYNC_VALID_FLAGS_MASK \
+-	(DMA_BUF_SYNC_RW | DMA_BUF_SYNC_END)
+-
+-#define DMA_BUF_BASE		'b'
+-#define DMA_BUF_IOCTL_SYNC	_IOW(DMA_BUF_BASE, 0, struct dma_buf_sync)
+-
+-#endif
+diff --git a/host_applications/linux/libs/sm/user-vcsm.c b/host_applications/linux/libs/sm/user-vcsm.c
+index f2aa54b5f..557e5254d 100644
+--- a/host_applications/linux/libs/sm/user-vcsm.c
++++ b/host_applications/linux/libs/sm/user-vcsm.c
+@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ #include <vmcs_sm_ioctl.h>
+ #include "vc_sm_cma_ioctl.h"
+-#include "dma-buf.h"
++#include <linux/dma-buf.h>
+ #include "user-vcsm.h"
+ #include "interface/vcos/vcos.h"
+ 

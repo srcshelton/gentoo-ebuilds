@@ -17,7 +17,7 @@ else
 	# * Go to https://github.com/raspberrypi/userland/commits/master and find the full hash
 	GIT_COMMIT="e432bc3400401064e2d8affa5d1454aac2cf4a00"
 	SRC_URI="https://github.com/raspberrypi/userland/archive/${GIT_COMMIT}.tar.gz -> ${P}.tar.gz"
-	#KEYWORDS="~arm ~arm64"
+	KEYWORDS="~arm ~arm64"
 	S="${WORKDIR}/userland-${GIT_COMMIT}"
 fi
 
@@ -26,7 +26,6 @@ HOMEPAGE="https://github.com/raspberrypi/userland"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~arm64 arm -*"
 IUSE="examples udev"
 
 DEPEND=""
@@ -43,7 +42,6 @@ PATCHES=(
 	"${FILESDIR}/${PN}-libfdt-static.patch"
 	# See https://github.com/raspberrypi/userland/pull/659
 	"${FILESDIR}/${PN}-pkgconf-arm64.patch"
-#	"${FILESDIR}"/${P}-pid.patch
 )
 
 src_prepare() {
@@ -58,11 +56,11 @@ src_prepare() {
 }
 
 src_configure() {
-	local -a mycmakeargs
+	local -a mycmakeargs=()
 
 	append-ldflags $(no-as-needed)
 
-	local mycmakeargs=(
+	mycmakeargs=(
 		-DVMCS_INSTALL_PREFIX="${EPREFIX}/usr"
 		-DARM64=$(usex arm64)
 	)
@@ -72,6 +70,10 @@ src_configure() {
 
 src_install() {
 	cmake_src_install
+
+	if use udev; then
+		udev_dorules "${FILESDIR}"/92-local-vchiq-permissions.rules
+	fi
 
 	dodir /usr/lib/opengl/raspberrypi/lib
 	touch "${D}"/usr/lib/opengl/raspberrypi/.gles-only
@@ -88,10 +90,6 @@ src_install() {
 	mv "${D}"/usr/include/interface/vmcs_host/linux/* \
 		"${D}"/usr/include/interface/vmcs_host/
 	rmdir "${D}"/usr/include/interface/vmcs_host/linux
-
-	if use udev; then
-		udev_dorules "${FILESDIR}"/92-local-vchiq-permissions.rules
-	fi
 
 	if use examples; then
 		dodir /usr/share/doc/${PF}

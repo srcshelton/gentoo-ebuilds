@@ -1,0 +1,27 @@
+From 93ccae81b448cd8abf13b5475ffe3ad482b03b83 Mon Sep 17 00:00:00 2001
+From: Trevor Woerner <twoerner@gmail.com>
+Date: Fri, 27 Nov 2020 03:12:26 -0500
+Subject: [PATCH] all host_applications: remove non-existent projects
+
+The ALL_APPS symbol will optionally build an additional set of projects,
+however, two of them don't exist anymore. Remove them from the list of
+ALL_APPS.
+
+Signed-off-by: Trevor Woerner <twoerner@gmail.com>
+---
+ host_applications/linux/CMakeLists.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/host_applications/linux/CMakeLists.txt b/host_applications/linux/CMakeLists.txt
+index 928b63750..8b5555d7a 100644
+--- a/host_applications/linux/CMakeLists.txt
++++ b/host_applications/linux/CMakeLists.txt
+@@ -15,8 +15,6 @@ add_subdirectory(apps/dtmerge)
+ 
+ if(ALL_APPS)
+  add_subdirectory(apps/vcdbg)
+- add_subdirectory(libs/elftoolchain)
+- # add_subdirectory(apps/smct)
+  add_subdirectory(apps/edid_parser)
+  add_subdirectory(apps/hello_pi)
+ endif()

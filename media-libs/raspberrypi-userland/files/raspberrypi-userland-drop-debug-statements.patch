@@ -1,0 +1,37 @@
+From f6b17d40cc1e75280be40c17d0345abfe7c7a4cb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=81lvaro=20Torralba?= <donfrutosgomez@gmail.com>
+Date: Sun, 25 Apr 2021 14:11:39 -0300
+Subject: [PATCH] Remove debug-related code from vc_image_structs.h
+
+---
+ interface/vctypes/vc_image_structs.h | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/interface/vctypes/vc_image_structs.h b/interface/vctypes/vc_image_structs.h
+index cdb52230f..97b5ca285 100644
+--- a/interface/vctypes/vc_image_structs.h
++++ b/interface/vctypes/vc_image_structs.h
+@@ -34,8 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include "interface/vcos/vcos_stdint.h"
+ #include "interface/vcos/vcos_attr.h"
+ 
+-#include "helpers/debug_utils/debug_writer.h"
+-
+ #include "interface/vctypes/vc_image_types.h"
+ 
+    /* Format specific infos for vc images */
+@@ -244,14 +242,5 @@ unsigned int cube_map           : 1;
+    typedef int vc_image_t_size_check[(sizeof(VC_IMAGE_T) == 64) * 2 - 1];
+ #endif
+ 
+-/******************************************************************************
+- Debugging rules (defined in camera_debug.c)
+- *****************************************************************************/
+-extern DEBUG_WRITE_ENUM_LOOKUP_T vc_image_type_lookup[];
+-extern DEBUG_WRITE_ENUM_LOOKUP_T vc_image_bayer_order_lookup[];
+-extern DEBUG_WRITE_ENUM_LOOKUP_T vc_image_bayer_format_lookup[];
+-extern DEBUG_WRITE_RULE_T vc_image_info_rule[];
+-extern DEBUG_WRITE_RULE_T vc_image_rule[];
+-
+ #endif /* __VC_INCLUDE_IMAGE_TYPES_H__ */
+ 

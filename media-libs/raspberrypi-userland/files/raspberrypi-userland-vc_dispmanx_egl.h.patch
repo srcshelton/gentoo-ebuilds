@@ -1,0 +1,94 @@
+From 9c1f41d2ec9a59aa268040cd34519fed2f4fb2e1 Mon Sep 17 00:00:00 2001
+From: Nicolas Caramelli <caramelli.devel@gmail.com>
+Date: Thu, 13 May 2021 18:11:45 +0200
+Subject: [PATCH] EGL: Move EGL_DISPMANX_WINDOW_T definition in a separate
+ header
+
+---
+ .../linux/libs/bcm_host/include/bcm_host.h    |  1 +
+ interface/khronos/include/EGL/eglplatform.h   | 11 +----
+ interface/vmcs_host/vc_dispmanx_egl.h         | 41 +++++++++++++++++++
+ 3 files changed, 44 insertions(+), 9 deletions(-)
+ create mode 100755 interface/vmcs_host/vc_dispmanx_egl.h
+
+diff --git a/host_applications/linux/libs/bcm_host/include/bcm_host.h b/host_applications/linux/libs/bcm_host/include/bcm_host.h
+index 9adecfd80..0556ca264 100644
+--- a/host_applications/linux/libs/bcm_host/include/bcm_host.h
++++ b/host_applications/linux/libs/bcm_host/include/bcm_host.h
+@@ -48,6 +48,7 @@ unsigned bcm_host_get_peripheral_size(void);
+ unsigned bcm_host_get_sdram_address(void);
+ 
+ #include "interface/vmcs_host/vc_dispmanx.h"
++#include "interface/vmcs_host/vc_dispmanx_egl.h"
+ #include "interface/vmcs_host/vc_tvservice.h"
+ #include "interface/vmcs_host/vc_cec.h"
+ #include "interface/vmcs_host/vc_cecservice.h"
+diff --git a/interface/khronos/include/EGL/eglplatform.h b/interface/khronos/include/EGL/eglplatform.h
+index 1f7c93061..f6f2ddf13 100644
+--- a/interface/khronos/include/EGL/eglplatform.h
++++ b/interface/khronos/include/EGL/eglplatform.h
+@@ -107,15 +107,8 @@ typedef void *EGLNativeWindowType;
+ 
+ #ifndef EGL_SERVER_SMALLINT
+ 
+-#include "interface/vmcs_host/vc_dispmanx.h"
+-/* TODO: EGLNativeWindowType is really one of these but I'm leaving it
+- * as void* for now, in case changing it would cause problems
+- */
+-typedef struct {
+-   DISPMANX_ELEMENT_HANDLE_T element;
+-   int width;   /* This is necessary because dispmanx elements are not queriable. */
+-   int height;
+-} EGL_DISPMANX_WINDOW_T;
++#include "interface/vmcs_host/vc_dispmanx_egl.h"
++
+ #elif defined (ABSTRACT_PLATFORM)
+ 
+ #else
+diff --git a/interface/vmcs_host/vc_dispmanx_egl.h b/interface/vmcs_host/vc_dispmanx_egl.h
+new file mode 100755
+index 000000000..ff50c1026
+--- /dev/null
++++ b/interface/vmcs_host/vc_dispmanx_egl.h
+@@ -0,0 +1,41 @@
++/*
++Copyright (c) 2012, Broadcom Europe Ltd
++All rights reserved.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions are met:
++    * Redistributions of source code must retain the above copyright
++      notice, this list of conditions and the following disclaimer.
++    * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++    * Neither the name of the copyright holder nor the
++      names of its contributors may be used to endorse or promote products
++      derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
++ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
++DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++*/
++
++// Native window type for the Display manager EGL platform
++
++#ifndef _VC_DISPMANX_EGL_H_
++#define _VC_DISPMANX_EGL_H_
++
++#include "interface/vmcs_host/vc_dispmanx.h"
++
++typedef struct {
++   DISPMANX_ELEMENT_HANDLE_T element;
++   int width;   /* This is necessary because dispmanx elements are not queriable. */
++   int height;
++} EGL_DISPMANX_WINDOW_T;
++
++#endif // _VC_DISPMANX_EGL_H_

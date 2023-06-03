@@ -2,57 +2,101 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit cmake flag-o-matic udev
+#CMAKE_MAKEFILE_GENERATOR='emake'
+EGIT_REPO="userland"
+EGIT_COMMIT="cc1ca18fb0689b01cc2ca2aa4b400dcee624a213"
 
-if [[ ${PV} == 9999* ]]; then
-	inherit git-r3
-	EGIT_REPO_URI="https://github.com/${PN/-//}.git"
-	SRC_URI=""
-else
-	# We base our versioning on  Raspbian
-	# Go to https://archive.raspberrypi.org/debian/pool/main/r/raspberrypi-userland/
-	# Example:
-	# * libraspberrypi-bin-dbgsym_2+git20201022~151804+e432bc3-1_arm64.deb
-	# * "e432bc3" is the first 7 hex digits of the commit hash.
-	# * Go to https://github.com/raspberrypi/userland/commits/master and find the full hash
-	GIT_COMMIT="e432bc3400401064e2d8affa5d1454aac2cf4a00"
-	SRC_URI="https://github.com/raspberrypi/userland/archive/${GIT_COMMIT}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="~arm ~arm64"
-	S="${WORKDIR}/userland-${GIT_COMMIT}"
-fi
+inherit bash-completion-r1 cmake flag-o-matic udev
 
 DESCRIPTION="Raspberry Pi userspace tools and libraries"
 HOMEPAGE="https://github.com/raspberrypi/userland"
+SRC_URI="https://github.com/raspberrypi/${EGIT_REPO}/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="BSD"
 SLOT="0"
-IUSE="-containers debug devicetree examples tools udev"
+KEYWORDS="~amd64 arm arm64"
+IUSE="bash-completion -containers debug devicetree examples gps tools udev"
+REQUIRED_USE="
+	containers? ( arm )
+"
 
-RDEPEND="acct-group/video
-	!media-libs/raspberrypi-userland-bin"
+BDEPEND="
+	virtual/os-headers
+	gps? ( sci-geosciences/gpsd )
+"
+RDEPEND="
+	acct-group/video
+	devicetree? ( sys-apps/raspberrypi-tools[devicetree] )
+	gps? ( sci-geosciences/gpsd )
+"
+
+S="${WORKDIR}/${EGIT_REPO}-${EGIT_COMMIT}"
+DOCS=()
 
 PATCHES=(
+	# See https://github.com/raspberrypi/userland/pull/559
+	"${FILESDIR}/${PN}-vchi_cfg.h.patch"
 	# Install in $(get_libdir)
 	# See https://github.com/raspberrypi/userland/pull/650
 	"${FILESDIR}/${PN}-libdir.patch"
-	# Don't install includes that collide.
-	"${FILESDIR}/${PN}-include.patch"
 	# See https://github.com/raspberrypi/userland/pull/655
 	"${FILESDIR}/${PN}-libfdt-static.patch"
 	# See https://github.com/raspberrypi/userland/pull/659
 	"${FILESDIR}/${PN}-pkgconf-arm64.patch"
+	# See https://github.com/raspberrypi/userland/pull/661
+	"${FILESDIR}/${PN}-CMakeLists.txt.patch"
+	# See https://github.com/raspberrypi/userland/pull/666
+	"${FILESDIR}/${PN}-dma-buf.h.patch"
+	# See https://github.com/raspberrypi/userland/pull/670
+	"${FILESDIR}/${PN}-native.patch"
+	# See https://github.com/raspberrypi/userland/pull/683
+	"${FILESDIR}/${PN}-bcm2711.patch"
+	# See https://github.com/raspberrypi/userland/pull/689
+	"${FILESDIR}/${PN}-drop-debug-statements.patch"
+	# See https://github.com/raspberrypi/userland/pull/692
+	"${FILESDIR}/${PN}-vc_dispmanx_egl.h.patch"
+	# See https://github.com/raspberrypi/userland/pull/700
+	"${FILESDIR}/${PN}-bash-completion.patch"
+	# See https://github.com/raspberrypi/userland/pull/703
+	"${FILESDIR}/${PN}-vcgencmd.1.patch"
+	# See https://github.com/raspberrypi/userland/pull/719
+	"${FILESDIR}/${PN}-libexecinfo.patch"
+	# Don't install includes that collide.
+	"${FILESDIR}/${PN}-include.patch"
 )
 
 src_prepare() {
+	if use gps; then
+		# sci-geosciences/gpsd is unstable on arm(64) and the USE-flag is
+		# currently masked...
+		#
+		# See https://github.com/raspberrypi/userland/pull/662
+		eapply "${FILESDIR}/${PN}-libgps.patch"
+	fi
+
+	# https://github.com/raspberrypi/userland/pull/689#issuecomment-826880275
+	rm -r helpers/vc_image \
+			vcinclude/vc_image_types.h \
+			helpers/v3d/v3d_common.h ||
+		die
+
+	# https://github.com/raspberrypi/userland/pull/697
+	sed -e '/define WORK_DIR/s:/tmp/.dtoverlays:/var/run/dtoverlays:' \
+		-i host_applications/linux/apps/dtoverlay/dtoverlay_main.c || die
+
+	sed -e '/^cmake_minimum_required(VERSION 2.8)$/s:2.8:2.8.12:' \
+		-i CMakeLists.txt \
+		-i interface/vcos/CMakeLists.txt \
+		-i host_applications/linux/apps/gencmd/CMakeLists.txt \
+		-i host_applications/linux/apps/dtoverlay/CMakeLists.txt \
+		-i host_applications/linux/apps/dtmerge/CMakeLists.txt \
+		-i helpers/dtoverlay/CMakeLists.txt || die
 	cmake_src_prepare
+
 	sed \
-			-e 's:DESTINATION ${VMCS_INSTALL_PREFIX}/src:DESTINATION ${VMCS_INSTALL_PREFIX}/'"share/doc/${PF}:" \
-			-i makefiles/cmake/vmcs.cmake ||
-		die "Failed to update makefiles/cmake/vmcs.cmake"
-	sed \
-			-e 's:^install(TARGETS EGL GLESv2 OpenVG WFC:install(TARGETS:' \
-			-e '/^install(TARGETS EGL_static GLESv2_static/d' \
-			-i interface/khronos/CMakeLists.txt ||
+		-e 's:^install(TARGETS EGL GLESv2 OpenVG WFC:install(TARGETS:' \
+		-e '/^install(TARGETS EGL_static GLESv2_static/d' \
+		-i interface/khronos/CMakeLists.txt ||
 		die "Failed to update interface/khronos/CMakeLists.txt"
 }
 
@@ -65,6 +109,7 @@ src_configure() {
 		-DVMCS_INSTALL_PREFIX="${EPREFIX}/usr"
 		-DCMAKE_BUILD_TYPE=$(usex debug 'Debug' 'Release')
 		-DARM64=$(usex arm64 'ON' 'OFF')
+		-DAMD64=$(usex amd64 'ON' 'OFF')
 	)
 
 	cmake_src_configure
@@ -112,12 +157,13 @@ src_install() {
 		rmdir "${ED}"/usr/lib/plugins
 	fi
 
-	if use examples; then
-		dodir /usr/share/doc/${PF}
-		mv "${ED}"/usr/src/hello_pi "${ED}"/usr/share/doc/${PF}/
-	fi
-	if [[ -d "${ED}"/usr/src ]]; then
-		rm -r "${ED}"/usr/src || die
+	if [[ -d "${ED}"/usr/src/hello_pi ]]; then
+		if use examples; then
+			dodir /usr/src/raspberrypi
+			mv "${ED}"/usr/src/hello_pi "${ED}"/usr/src/raspberrypi/
+		else
+			rm -r "${ED}"/usr/src || die
+		fi
 	fi
 
 	if [[ -d "${ED}"/usr/share/install ]]; then
@@ -133,7 +179,7 @@ src_install() {
 		rm "${ED}"/usr/bin/{dtoverlay,dtoverlay-post,dtoverlay-pre,dtparam} || die
 	fi
 	# dtmerge is now provided by sys-apps/raspberrypi-tools
-	rm "${ED}"/usr/bin/dtmerge || die
+	rm "${ED}"/usr/bin/dtmerge "${ED}"/usr/man/man1/dtmerge.1*|| die
 
 	if ! use tools; then
 		if ! use arm64; then
@@ -142,9 +188,10 @@ src_install() {
 		rm "${ED}"/usr/bin/{vchiq_test,vcmailbox} || die
 	fi
 
-	dodir /usr/sbin
 	for bin in mmal_vc_diag vcgencmd vchiq_test vcmailbox vcsmem; do
-		[[ -e "${ED}/usr/bin/${bin}" ]] && mv "${ED}/usr/bin/${bin}" "${ED}"/usr/sbin/
+		if [[ -e "${ED}/usr/bin/${bin}" ]]; then
+			{ dosbin "${ED}/usr/bin/${bin}" && rm "${ED}/usr/bin/${bin}" ; } || die
+		fi
 	done
 
 	# See also https://github.com/raspberrypi/userland/pull/717
@@ -153,8 +200,9 @@ src_install() {
 		rm -r "${ED}"/usr/man || die "Cannot remove directory '${ED%/}/usr/man': ${?}"
 	fi
 
-	#rm "${ED}"/etc/init.d/vcfiled || die
-	#newinitd "${FILESDIR}"/${PN}-vcfiled.initd vcfiled
+	if use bash-completion; then
+		newbashcomp host_applications/linux/apps/gencmd/vcgencmd-completion.bash vcgencmd
+	fi
 }
 
 pkg_postinst() {
