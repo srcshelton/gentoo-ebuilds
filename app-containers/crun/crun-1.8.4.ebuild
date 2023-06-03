@@ -60,6 +60,8 @@ src_prepare() {
 		crun.1 \
 		crun.1.md \
 	|| die "'/run' replacement failed: ${?}"
+
+	eautoreconf
 }
 
 src_configure() {
@@ -91,4 +93,7 @@ src_install() {
 	fi
 
 	einstalldocs
+
+	#einfo "Cleaning up .la files"
+	find "${ED}" -name '*.la' -delete || die
 }

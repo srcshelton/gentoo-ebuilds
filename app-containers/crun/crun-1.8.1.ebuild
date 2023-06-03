@@ -93,4 +93,7 @@ src_install() {
 	fi
 
 	einstalldocs
+
+	einfo "Cleaning up .la files"
+	find "${ED}" -name '*.la' -delete || die
 }
