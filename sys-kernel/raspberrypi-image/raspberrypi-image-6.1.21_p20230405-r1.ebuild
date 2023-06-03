@@ -111,6 +111,7 @@ src_prepare() {
 
 src_install() {
 	local f='' boot="${RASPBERRYPI_BOOT:-/boot}" ver=''
+	local -a files=()
 
 	# 'keepdir' will fail on FAT32 filesystems = moved to pkg_preinst
 	#keepdir "${boot}"
@@ -250,9 +251,81 @@ src_install() {
 
 	# Install Device Tree overlays ...
 	if use devicetree; then
+		if use rpi-all || use rpi1; then
+			files+=( # <- Syntax
+				bcm2708-rpi-b.dtb
+				bcm2708-rpi-b-plus.dtb
+				bcm2708-rpi-b-rev1.dtb
+			)
+		fi
+		if use rpi-all || use rpi-cm; then
+			files+=( # <- Syntax
+				bcm2708-rpi-cm.dtb
+			)
+		fi
+		if use rpi-all || use rpi0; then
+			files+=( # <- Syntax
+				bcm2708-rpi-zero.dtb
+				bcm2708-rpi-zero-w.dtb
+			)
+		fi
+		if use rpi-all || use rpi2; then
+			files+=( # <- Syntax
+				bcm2709-rpi-2-b.dtb
+				bcm2710-rpi-2-b.dtb
+			)
+		fi
+		if use rpi-all || use rpi-cm2; then
+			files+=( # <- Syntax
+				bcm2709-rpi-cm2.dtb
+			)
+		fi
+		if use rpi-all || use rpi3; then
+			files+=( # <- Syntax
+				bcm2710-rpi-3-b.dtb
+				bcm2710-rpi-3-b-plus.dtb
+			)
+		fi
+		if use rpi-all || use rpi-cm3; then
+			files+=( # <- Syntax
+				bcm2710-rpi-cm3.dtb
+			)
+		fi
+		if use rpi-all || use rpi02; then
+			files+=( # <- Syntax
+				bcm2710-rpi-zero-2.dtb
+				bcm2710-rpi-zero-2-w.dtb
+			)
+		fi
+		if use rpi-all || use rpi4; then
+			files+=( # <- Syntax
+				bcm2711-rpi-4-b.dtb
+			)
+		fi
+		if use rpi-all || use rpi-cm4 || use rpi-cm4s; then
+			files+=( # <- Syntax
+				bcm2711-rpi-cm4-io.dtb
+			)
+			if use rpi-all || use rpi-cm4; then
+				files+=( # <- Syntax
+					bcm2711-rpi-cm4.dtb
+				)
+			fi
+			if use rpi-all || use rpi-cm4s; then
+				files+=( # <- Syntax
+					bcm2711-rpi-cm4s.dtb
+				)
+			fi
+		fi
+		if use rpi-all || use rpi400; then
+			files+=( # <- Syntax
+				bcm2711-rpi-400.dtb
+			)
+		fi
 		insinto "${FIRMWARE_DIR}"
-		doins boot/*.dtb
-		doins -r boot/overlays
+		pushd boot >/dev/null || die
+		doins -r "${files[@]}" overlays
+		popd >/dev/null
 	fi
 }
 
