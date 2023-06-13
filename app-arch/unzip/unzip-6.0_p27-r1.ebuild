@@ -78,7 +78,7 @@ src_configure() {
 		*-hpux*)             TARGET="gcc"; append-ldflags "-Wl,+b,${EPREFIX}/usr/$(get_libdir)" ;;
 		*-mint*)             TARGET="generic" ;;
 		*-cygwin*)           TARGET="cygwin" ;;
-		*) die "Unknown target; please update the ebuild to handle ${CHOST}	" ;;
+		*) die "Unknown target; please update the ebuild to handle ${CHOST}" ;;
 	esac
 
 	# Needed for Clang 16
@@ -103,4 +103,5 @@ src_install() {
 	doman man/*.1
 	dodoc BUGS History* README ToDo WHERE
 }
+
 # vi: set diffopt=iwhite,filler:
