@@ -4,7 +4,7 @@
 EAPI=8
 
 VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/openssl.org.asc
-inherit edo flag-o-matic linux-info toolchain-funcs usr-ldscript verify-sig multilib-minimal
+inherit edo flag-o-matic toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
 MY_P=${P/_/-}
 DESCRIPTION="Full-strength general purpose cryptography library (including SSL and TLS)"
@@ -48,10 +48,6 @@ PATCHES=(
 	# If they're Gentoo specific, add to USE=-vanilla logic in src_prepare!
 	"${FILESDIR}"/${PN}-1.1.0j-parallel_install_fix.patch # bug #671602
 	"${FILESDIR}"/${PN}-1.1.1i-riscv32.patch
-	"${FILESDIR}"/openssl-3.0.8-mips-cflags.patch
-	"${FILESDIR}"/openssl-1.1.1t-CVE-2023-0464.patch
-	"${FILESDIR}"/openssl-1.1.1t-CVE-2023-0465.patch
-	"${FILESDIR}"/openssl-1.1.1t-CVE-2023-0466.patch
 )
 
 pkg_setup() {
@@ -66,9 +62,6 @@ pkg_setup() {
 			die "FEATURES=test with USE=sctp requires net.sctp.auth_enable=1!"
 		fi
 	fi
-
-	use test && CONFIG_CHECK="~CRYPTO_USER_API_SKCIPHER"
-	linux-info_pkg_setup
 }
 
 src_unpack() {
@@ -310,7 +303,7 @@ multilib_src_install_all() {
 }
 
 pkg_postinst() {
-	ebegin "Running 'openssl rehash ${EROOT%/}/${SSL_CNF_DIR#/}/certs/' to rebuild hashes (bug #333069)"
+	ebegin "Running 'openssl rehash ${EROOT%/}/${SSL_CNF_DIR#/}/certs' to rebuild hashes (bug #333069)"
 	openssl rehash "${EROOT%/}/${SSL_CNF_DIR#/}/certs"
 	eend $?
 }
