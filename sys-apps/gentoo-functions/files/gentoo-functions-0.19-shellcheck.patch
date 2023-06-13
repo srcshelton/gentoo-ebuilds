@@ -1,0 +1,732 @@
+--- a/functions.sh
++++ b/functions.sh
+@@ -1,3 +1,4 @@
++# shellcheck shell=ash disable=2039
+ # Copyright 1999-2023 Gentoo Authors
+ # Distributed under the terms of the GNU General Public License v2
+ 
+@@ -5,80 +6,95 @@
+ # All functions in this file should be written in POSIX sh. Please do
+ # not use bashisms.
+ #
++# (... except for 'local', apparently - this is not POSIX, but is supported by
++# (d)ash and most other modern sh-replacement shells)
++#
+ 
+-RC_GOT_FUNCTIONS="yes"
++# shellcheck disable=SC2034
++RC_GOT_FUNCTIONS='yes'
+ 
+ #
+ #    hard set the indent used for e-commands.
+ #    num defaults to 0
+ # This is a private function.
+ #
+-_esetdent()
+-{
+-	local i="$1"
+-	[ -z "$i" ] || [ "$i" -lt 0 ] && i=0
+-	RC_INDENTATION=$(printf "%${i}s" '')
++_esetdent() {
++	local i="${1:-}"
++
++	[ -z "${i:-}" ] || [ $(( i )) -lt 0 ] && i=0
++	RC_INDENTATION="$( printf "%${i}s" '' )"
+ }
+ 
+ #
+ #    increase the indent used for e-commands.
+ #
+-eindent()
+-{
+-	local i="$1"
+-	[ -n "$i" ] && [ "$i" -gt 0 ] || i=${RC_DEFAULT_INDENT}
+-	_esetdent $(( ${#RC_INDENTATION} + i ))
++# shellcheck disable=SC2120
++eindent() {
++	local i="${1:-}"
++
++	[ -n "${i:-}" ] && [ $(( i )) -gt 0 ] || i="${RC_DEFAULT_INDENT:-2}"
++	_esetdent "$(( ${#RC_INDENTATION} + i ))"
+ }
+ 
+ #
+ #    decrease the indent used for e-commands.
+ #
+-eoutdent()
+-{
+-	local i="$1"
+-	[ -n "$i" ] && [ "$i" -gt 0 ] || i=${RC_DEFAULT_INDENT}
+-	_esetdent $(( ${#RC_INDENTATION} - i ))
++# shellcheck disable=SC2120
++eoutdent() {
++	local i="${1:-}"
++
++	[ -n "${i:-}" ] && [ $(( i )) -gt 0 ] || i="${RC_DEFAULT_INDENT:-2}"
++	_esetdent "$(( ${#RC_INDENTATION} - i ))"
+ }
+ 
+ #
+-# this function was lifted from OpenRC. It returns 0 if the argument  or
++# this function was lifted from OpenRC. It returns 0 if the argument or
+ # the value of the argument is "yes", "true", "on", or "1" or 1
+ # otherwise.
+ #
+-yesno()
+-{
+-	[ -z "$1" ] && return 1
+-
+-	case "$1" in
+-		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1) return 0;;
+-		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0) return 1;;
++yesno() {
++	[ -z "${1:-}" ] && return 1
++
++	case "${1}" in
++		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1)
++			return 0
++			;;
++		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0)
++			return 1
++			;;
+ 	esac
+ 
+-	local value=
+-	eval value=\$${1}
+-	case "$value" in
+-		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1) return 0;;
+-		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0) return 1;;
+-		*) vewarn "\$$1 is not set properly"; return 1;;
++	local value=''
++	eval value="\$${1}"
++	case "${value}" in
++		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1)
++			return 0
++			;;
++		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0)
++			return 1
++			;;
++		*)
++			vewarn "${1}('${value}') is not set to a yes/no value"
++			return  1
++			;;
+ 	esac
+ }
+ 
+ #
+ #    use the system logger to log a message
+ #
+-esyslog()
+-{
+-	local pri=
+-	local tag=
+-
+-	if [ -n "${EINFO_LOG}" ] && hash logger 2>/dev/null; then
+-		pri="$1"
+-		tag="$2"
++esyslog() {
++	local pri=''
++	local tag=''
++
++	if [ -n "${EINFO_LOG:-}" ] && hash logger 2>/dev/null 2>&1; then
++		pri="${1:-}"
++		tag="${2:-}"
+ 
+-		shift 2
+-		[ -z "$*" ] && return 0
++		shift 2 || return 1
++		[ -z "${*:-}" ] && return 0
+ 
+-		logger -p "${pri}" -t "${tag}" -- "$*"
++		logger -p "${pri:-}" -t "${tag:-}" -- "${*}"
+ 	fi
+ 
+ 	return 0
+@@ -87,135 +103,134 @@
+ #
+ #    show an informative message (without a newline)
+ #
+-einfon()
+-{
+-	if yesno "${EINFO_QUIET}"; then
++einfon() {
++	if yesno "${EINFO_QUIET:-}"; then
+ 		return 0
+ 	fi
+-	if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+-		printf "\n"
++	if ! yesno "${RC_ENDCOL:-}" && [ "${LAST_E_CMD:-}" = 'ebegin' ]; then
++		printf '\n'
+ 	fi
+-	printf " ${GOOD}*${NORMAL} ${RC_INDENTATION}$*"
+-	LAST_E_CMD="einfon"
++	printf ' %b*%b %s%s' "${GOOD:-}" "${NORMAL:-}" \
++		"${RC_INDENTATION:-}" "${*:-}"
++	LAST_E_CMD='einfon'
+ 	return 0
+ }
+ 
+ #
+ #    show an informative message (with a newline)
+ #
+-einfo()
+-{
+-	einfon "$*\n"
+-	LAST_E_CMD="einfo"
++einfo() {
++	einfon "${*:-}\\n"
++	LAST_E_CMD='einfo'
+ 	return 0
+ }
+ 
+ #
+ #    show a warning message (without a newline) and log it
+ #
+-ewarnn()
+-{
+-	if yesno "${EINFO_QUIET}"; then
++ewarnn() {
++	if yesno "${EINFO_QUIET:-}"; then
+ 		return 0
+ 	else
+-		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+-			printf "\n" >&2
++		if ! yesno "${RC_ENDCOL:-}" && [ "${LAST_E_CMD:-}" = 'ebegin' ]; then
++			printf '\n' >&2
+ 		fi
+-		printf " ${WARN}*${NORMAL} ${RC_INDENTATION}$*" >&2
++		printf ' %b*%b %s%s' "${WARN:-}" "${NORMAL:-}" \
++			"${RC_INDENTATION:-}" "${*:-}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+ 	# Log warnings to system log
+-	esyslog "daemon.warning" "${name}" "$*"
++	esyslog 'daemon.warning' "${name:-}" "${*:-}"
+ 
+-	LAST_E_CMD="ewarnn"
++	LAST_E_CMD='ewarnn'
+ 	return 0
+ }
+ 
+ #
+ #    show a warning message (with a newline) and log it
+ #
+-ewarn()
+-{
+-	if yesno "${EINFO_QUIET}"; then
++ewarn() {
++	if yesno "${EINFO_QUIET:-}"; then
+ 		return 0
+ 	else
+-		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+-			printf "\n" >&2
++		if ! yesno "${RC_ENDCOL:-}" && [ "${LAST_E_CMD:-}" = 'ebegin' ]; then
++			printf '\n' >&2
+ 		fi
+-		printf " ${WARN}*${NORMAL} ${RC_INDENTATION}$*\n" >&2
++		printf ' %b*%b %s%b\n' "${WARN:-}" "${NORMAL:-}" \
++			"${RC_INDENTATION:-}" "${*:-}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+ 	# Log warnings to system log
+-	esyslog "daemon.warning" "${name}" "$*"
++	esyslog 'daemon.warning' "${name:-}" "${*:-}"
+ 
+-	LAST_E_CMD="ewarn"
++	LAST_E_CMD='ewarn'
+ 	return 0
+ }
+ 
+ #
+ #    show an error message (without a newline) and log it
+ #
+-eerrorn()
+-{
+-	if yesno "${EERROR_QUIET}"; then
++eerrorn() {
++	if yesno "${EERROR_QUIET:-}"; then
+ 		return 1
+ 	else
+-		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+-			printf "\n" >&2
++		if ! yesno "${RC_ENDCOL:-}" && [ "${LAST_E_CMD:-}" = 'ebegin' ]; then
++			printf '\n' >&2
+ 		fi
+-		printf " ${BAD}*${NORMAL} ${RC_INDENTATION}$*" >&2
++		printf ' %b*%b %s%s' "${BAD:-}" "${NORMAL:-}" \
++			"${RC_INDENTATION:-}" "${*:-}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+ 	# Log errors to system log
+-	esyslog "daemon.err" "rc-scripts" "$*"
++	esyslog 'daemon.err' 'rc-scripts' "${*:-}"
+ 
+-	LAST_E_CMD="eerrorn"
++	LAST_E_CMD='eerrorn'
+ 	return 1
+ }
+ 
+ #
+ #    show an error message (with a newline) and log it
+ #
+-eerror()
+-{
+-	if yesno "${EERROR_QUIET}"; then
++eerror() {
++	if yesno "${EERROR_QUIET:-}"; then
+ 		return 1
+ 	else
+-		if ! yesno "${RC_ENDCOL}" && [ "${LAST_E_CMD}" = "ebegin" ]; then
+-			printf "\n" >&2
++		if ! yesno "${RC_ENDCOL:-}" && [ "${LAST_E_CMD:-}" = 'ebegin' ]; then
++			printf '\n' >&2
+ 		fi
+-		printf " ${BAD}*${NORMAL} ${RC_INDENTATION}$*\n" >&2
++		printf ' %b*%b %s%b\n' "${BAD:-}" "${NORMAL:-}" \
++			"${RC_INDENTATION:-}" "${*:-}" >&2
+ 	fi
+ 
+ 	local name="${0##*/}"
+ 	# Log errors to system log
+-	esyslog "daemon.err" "rc-scripts" "$*"
++	esyslog 'daemon.err' 'rc-scripts' "${*:-}"
+ 
+-	LAST_E_CMD="eerror"
++	LAST_E_CMD='eerror'
+ 	return 1
+ }
+ 
+ #
+ #    show a message indicating the start of a process
+ #
+-ebegin()
+-{
+-	local msg="$*"
+-	if yesno "${EINFO_QUIET}"; then
++ebegin() {
++	local msg="${*:-}"
++
++	if yesno "${EINFO_QUIET:-}"; then
+ 		return 0
+ 	fi
+ 
+-	msg="${msg} ..."
+-	einfon "${msg}"
+-	if yesno "${RC_ENDCOL}"; then
+-		printf "\n"
++	msg="${msg:-} ..."
++	einfon "${msg:-}"
++	if yesno "${RC_ENDCOL:-}"; then
++		printf '\n'
+ 	fi
+ 
+ 	LAST_E_LEN="$(( 3 + ${#RC_INDENTATION} + ${#msg} ))"
+-	LAST_E_CMD="ebegin"
++	LAST_E_CMD='ebegin'
+ 	return 0
+ }
+ 
+@@ -226,28 +241,29 @@
+ #    This function is private to functions.sh.  Do not call it from a
+ #    script.
+ #
+-_eend()
+-{
+-	local retval="${1:-0}" efunc="${2:-eerror}" msg
++_eend() {
++	local retval="${1:-0}" efunc="${2:-eerror}" msg=''
+ 	shift 2
+ 
+-	if [ "${retval}" = "0" ]; then
+-		yesno "${EINFO_QUIET}" && return 0
+-		msg="${BRACKET}[ ${GOOD}ok${BRACKET} ]${NORMAL}"
++	if [ $(( retval )) -eq 0 ]; then
++		yesno "${EINFO_QUIET:-}" &&
++			return 0
++		msg="${BRACKET:-}[ ${GOOD:-}ok${BRACKET:-} ]${NORMAL:-}"
+ 	else
+-		if [ -n "$*" ] ; then
+-			${efunc} "$*"
++		if [ -n "${efunc}" ] && [ -n "${*:-}" ]; then
++			${efunc} "${*}"
+ 		fi
+-		msg="${BRACKET}[ ${BAD}!!${BRACKET} ]${NORMAL}"
++		msg="${BRACKET:-}[ ${BAD:-}!!${BRACKET:-} ]${NORMAL:-}"
+ 	fi
+ 
+-	if yesno "${RC_ENDCOL}"; then
+-		printf "${ENDCOL}  ${msg}\n"
++	if yesno "${RC_ENDCOL:-}"; then
++		printf '%b  %b\n' "${ENDCOL:-}" "${msg:-}"
+ 	else
+-		[ "${LAST_E_CMD}" = ebegin ] || LAST_E_LEN=0
+-		printf "%$(( COLS - LAST_E_LEN - 6 ))s%b\n" '' "${msg}"
++		[ "${LAST_E_CMD:-}" = 'ebegin' ] || LAST_E_LEN=0
++		printf "%$(( COLS - LAST_E_LEN - 6 ))s%b\\n" '' "${msg:-}"
+ 	fi
+ 
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+@@ -255,14 +271,14 @@
+ #    indicate the completion of process
+ #    if error, show errstr via eerror
+ #
+-eend()
+-{
++eend() {
+ 	local retval="${1:-0}"
+-	[ $# -eq 0 ] || shift
++	[ $(( ${#} )) -eq 0 ] || shift
+ 
+-	_eend "${retval}" eerror "$*"
++	_eend "${retval}" 'eerror' "${*:-}"
+ 
+-	LAST_E_CMD="eend"
++	LAST_E_CMD='eend'
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+@@ -270,64 +286,67 @@
+ #    indicate the completion of process
+ #    if error, show errstr via ewarn
+ #
+-ewend()
+-{
++ewend() {
+ 	local retval="${1:-0}"
+-	[ $# -eq 0 ] || shift
++	[ $(( ${#} )) -eq 0 ] || shift
+ 
+-	_eend "${retval}" ewarn "$*"
++	_eend "${retval}" ewarn "${*:-}"
+ 
+-	LAST_E_CMD="ewend"
++	LAST_E_CMD='ewend'
++	# shellcheck disable=SC2086
+ 	return ${retval}
+ }
+ 
+ # v-e-commands honor EINFO_VERBOSE which defaults to no.
+ # The condition is negated so the return value will be zero.
+-veinfo()
+-{
+-	yesno "${EINFO_VERBOSE}" && einfo "$@"
++veinfo() {
++	yesno "${EINFO_VERBOSE:-}" && einfo "${@:-}"
+ }
+ 
+-veinfon()
+-{
+-	yesno "${EINFO_VERBOSE}" && einfon "$@"
++veinfon() {
++	yesno "${EINFO_VERBOSE:-}" && einfon "${@:-}"
+ }
+ 
+-vewarn()
+-{
+-	yesno "${EINFO_VERBOSE}" && ewarn "$@"
++vewarn() {
++	yesno "${EINFO_VERBOSE:-}" && ewarn "${@:-}"
+ }
+ 
+-veerror()
+-{
+-	yesno "${EINFO_VERBOSE}" && eerror "$@"
++veerror() {
++	yesno "${EINFO_VERBOSE:-}" && eerror "${@:-}"
+ }
+ 
+-vebegin()
+-{
+-	yesno "${EINFO_VERBOSE}" && ebegin "$@"
++vebegin() {
++	yesno "${EINFO_VERBOSE:-}" && ebegin "${@:-}"
+ }
+ 
+-veend()
+-{
+-	yesno "${EINFO_VERBOSE}" && { eend "$@"; return $?; }
++veend() {
++	if yesno "${EINFO_VERBOSE:-}"; then
++		eend "${@:-}"
++		return ${?}
++	fi
++
++	# shellcheck disable=SC2086
+ 	return ${1:-0}
+ }
+ 
+-vewend()
+-{
+-	yesno "${EINFO_VERBOSE}" && { ewend "$@"; return $?; }
++vewend() {
++	if yesno "${EINFO_VERBOSE:-}"; then
++		ewend "${@:-}"
++		return ${?}
++	fi
++
++	# shellcheck disable=SC2086
+ 	return ${1:-0}
+ }
+ 
+-veindent()
+-{
+-	yesno "${EINFO_VERBOSE}" && eindent
++veindent() {
++	# shellcheck disable=SC2119
++	yesno "${EINFO_VERBOSE:-}" && eindent
+ }
+ 
+-veoutdent()
+-{
+-	yesno "${EINFO_VERBOSE}" && eoutdent
++veoutdent() {
++	# shellcheck disable=SC2119
++	yesno "${EINFO_VERBOSE:-}" && eoutdent
+ }
+ 
+ #
+@@ -335,31 +354,39 @@
+ #
+ #   EXAMPLE:  if get_bootparam "nodevfs" ; then ....
+ #
+-get_bootparam()
+-(
++get_bootparam() (
+ 	# Gentoo cmdline parameters are comma-delimited, so a search
+ 	# string containing a comma must not be allowed to match.
+ 	# Similarly, the empty string must not be allowed to match.
+-	case $1 in ''|*,*) return 1 ;; esac
++	case "${1:-}" in
++		''|*,*)
++			return 1
++			;;
++	esac
+ 
+-	if [ "${TEST_GENFUNCS}" = 1 ]; then
+-		read -r cmdline
++	if [ $(( TEST_GENFUNCS )) -eq 1 ]; then
++		read -r cmdline || return 1
+ 	else
+-		read -r cmdline < /proc/cmdline
+-	fi || return
++		read -r cmdline < /proc/cmdline || return 1
++	fi
+ 
+-	# Disable pathname expansion. The definition of this function
+-	# is a compound command that incurs a subshell. Therefore, the
+-	# prior state of the option does not need to be recalled.
++	# Disable pathname expansion. The definition of this function is a compound
++	# command that executes from within  a subshell. Therefore, the prior state
++	# of the option does not need to be recalled.
+ 	set -f
+-	for opt in ${cmdline}; do
+-		gentoo_opt=${opt#gentoo=}
+-		if [ "${opt}" != "${gentoo_opt}" ]; then
+-			case ,${gentoo_opt}, in
+-				*,"$1",*) return 0
++	for opt in ${cmdline:-}; do
++		gentoo_opt="${opt#gentoo=}"
++		if [ "${opt:-}" != "${gentoo_opt:-}" ]; then
++			# ${opt} originally started with 'gentoo=', which has now been
++			# stripped...
++			case ",${gentoo_opt}," in
++				*,"${1:-}",*)
++					return 0
++					;;
+ 			esac
+ 		fi
+ 	done
++
+ 	return 1
+ )
+ 
+@@ -367,35 +394,36 @@
+ #   return 0 if any of the files/dirs are newer than
+ #   the reference file
+ #
+-#   EXAMPLE: if is_older_than a.out *.o ; then ...
+-is_older_than()
+-{
+-	local ref has_gfind
++#   EXAMPLE: if is_older_than a.out *.o; then ...
++#
++is_older_than() {
++	local ref='' has_gfind='' line=''
+ 
+-	if [ -e "$1" ]; then
+-		ref=$1
++	if [ -e "${1:-}" ]; then
++		ref="${1}"
+ 	else
+-		ref=
++		ref=''
+ 	fi
+-	[ "$#" -gt 0 ] && shift
++	[ $(( ${#} )) -gt 0 ] && shift
+ 
+-	# Consult the hash table in the present shell, prior to forking.
+-	hash gfind 2>/dev/null; has_gfind=$(( $? == 0 ))
++	# Consult the hash table in the present shell, prior to forking...
++	hash gfind 2>/dev/null && has_gfind=1
+ 
+-	for path; do
+-		if [ -e "${path}" ]; then
+-			printf '%s\0' "${path}"
++	# 'read -r line' will exit with a non-zero return-code if provided with no
++	# input...
++	for path in "${@:-}"; do
++		if [ -e "${path:-}" ]; then
++			printf '%s\0' "${path:-}"
+ 		fi
+-	done |
+-	{
+-		set -- -L -files0-from - ${ref:+-newermm} ${ref:+"${ref}"} -printf '\n' -quit
+-		if [ "${has_gfind}" -eq 1 ]; then
+-			gfind "$@"
++	done | {
++		set -- -L -files0-from - ${ref:+"-newermm"} ${ref:+"${ref}"} \
++			-printf '\n' -quit
++		if [ $(( has_gfind )) -eq 1 ]; then
++			gfind "${@:-}"
+ 		else
+-			find "$@"
++			find "${@:-}"
+ 		fi
+-	} |
+-	read -r line
++	} | read -r line
+ }
+ 
+ # This is the main script, please add all functions above this point!
+@@ -404,14 +432,17 @@
+ EINFO_QUIET="${EINFO_QUIET:-no}"
+ EINFO_VERBOSE="${EINFO_VERBOSE:-no}"
+ 
++EERROR_QUIET="${EERROR_QUIET:-no}"
++
+ # Should we use color?
+ RC_NOCOLOR="${RC_NOCOLOR:-no}"
+ # Can the terminal handle endcols?
+-RC_ENDCOL="yes"
++RC_ENDCOL='yes'
+ 
+ # Default values for e-message indentation and dots
+ RC_INDENTATION=''
+ RC_DEFAULT_INDENT=2
++# shellcheck disable=SC2034
+ RC_DOT_PATTERN=''
+ 
+ # If either STDOUT or STDERR is not a tty, disable coloured output. A useful
+@@ -419,54 +450,76 @@
+ # act as they should. For example, ewarn prints to STDOUT whereas eerror prints
+ # to STDERR. For now, this is a reasonable compromise.
+ if [ ! -t 1 ] || [ ! -t 2 ]; then
+-	RC_NOCOLOR="yes"
+-	RC_ENDCOL="no"
++	RC_NOCOLOR='yes'
++	RC_ENDCOL='no'
+ fi
+ 
+-for arg in "$@" ; do
+-	case "${arg}" in
++for arg in "${@:-}"; do
++	case "${arg:-}" in
+ 		# Lastly check if the user disabled it with --nocolor argument
+ 		--nocolor|--nocolour|-nc|-C)
+-			RC_NOCOLOR="yes"
++			RC_NOCOLOR='yes'
+ 			break
+ 			;;
+ 	esac
+ done
+ 
+-# Setup COLS and ENDCOL so eend can line up the [ ok ]
+-COLS="${COLUMNS:-0}"            # bash's internal COLUMNS variable
+-[ "${COLS}" -eq 0 ] && \
+-        COLS="$(set -- $(stty size 2>/dev/null) ; printf "$2\n")"
+-[ -z "${COLS}" ] && COLS=80
+-[ "${COLS}" -gt 0 ] || COLS=80	# width of [ ok ] == 7
++# Setup COLS and ENDCOL so eend can line up the '[ ok ]'
++# ${COLUMNS} is the shell's internal viewport-width variable...
++COLS="${COLUMNS:-0}"
++# shellcheck disable=SC2046
++if [ $(( COLS )) -eq 0 ]; then
++	COLS="$(
++		set -- $( stty size 2>/dev/null )
++		printf '%s\n' "${2:-}"
++	)"
++fi
++if [ -z "${COLS:-}" ]; then
++	COLS=80
++fi
++if ! [ $(( COLS )) -gt 0 ]; then
++	COLS=80
++fi
++if [ $(( COLS )) -lt 8 ]; then
++	COLS=8
++fi
+ 
+-if ! yesno "${RC_ENDCOL}"; then
++# Width of '[ ok ]' == 7...
++if ! yesno "${RC_ENDCOL:-}"; then
+ 	ENDCOL=''
+ elif hash tput 2>/dev/null; then
+-	ENDCOL="$(tput cuu1)$(tput cuf $(( COLS - 8 )) )"
++	ENDCOL="$( tput cuu1 )$( tput cuf $(( COLS - 8 )) )"
+ else
+ 	ENDCOL='\033[A\033['$(( COLS - 8 ))'C'
+ fi
+ 
+ # Setup the colors so our messages all look pretty
+ if yesno "${RC_NOCOLOR}"; then
+-	unset -v BAD BRACKET GOOD HILITE NORMAL WARN
+-elif { hash tput && tput colors >/dev/null; } 2>/dev/null; then
+-	genfuncs_bold=$(tput bold) genfuncs_norm=$(tput sgr0)
+-	BAD="${genfuncs_norm}${genfuncs_bold}$(tput setaf 1)"
+-	BRACKET="${genfuncs_norm}${genfuncs_bold}$(tput setaf 4)"
+-	GOOD="${genfuncs_norm}${genfuncs_bold}$(tput setaf 2)"
+-	HILITE="${genfuncs_norm}${genfuncs_bold}$(tput setaf 6)"
+-	NORMAL="${genfuncs_norm}"
+-	WARN="${genfuncs_norm}${genfuncs_bold}$(tput setaf 3)"
++	BAD=''
++	BRACKET=''
++	GOOD=''
++	HILITE=''
++	NORMAL=''
++	WARN=''
++elif { hash tput && tput colors >/dev/null ; } 2>/dev/null; then
++	genfuncs_bold="$( tput bold )"
++	genfuncs_norm="$( tput sgr0 )"
++
++	BAD="${genfuncs_norm:-}${genfuncs_bold:-}$( tput setaf 1 )"
++	BRACKET="${genfuncs_norm:-}${genfuncs_bold:-}$( tput setaf 4 )"
++	GOOD="${genfuncs_norm:-}${genfuncs_bold:-}$( tput setaf 2 )"
++	HILITE="${genfuncs_norm:-}${genfuncs_bold:-}$( tput setaf 6 )"
++	NORMAL="${genfuncs_norm:-}"
++	WARN="${genfuncs_norm:-}${genfuncs_bold:-}$( tput setaf 3 )"
++
+ 	unset -v genfuncs_bold genfuncs_norm
+ else
+-	BAD=$(printf '\033[31;01m')
+-	BRACKET=$(printf '\033[34;01m')
+-	GOOD=$(printf '\033[32;01m')
+-	HILITE=$(printf '\033[36;01m')
+-	NORMAL=$(printf '\033[0m')
+-	WARN=$(printf '\033[33;01m')
++	BAD="$( printf '\033[31;01m' )"
++	BRACKET="$( printf '\033[34;01m' )"
++	GOOD="$( printf '\033[32;01m' )"
++	HILITE="$( printf '\033[36;01m' )"
++	NORMAL="$( printf '\033[0m' )"
++	WARN="$( printf '\033[33;01m' )"
+ fi
+ 
+-# vim:ts=4
++# vi: set noet sw=4 ts=4:
