@@ -504,6 +504,8 @@ used to build perl)
     * Fix inclusion when unbound variable checking is enabled
 * sys-apps/groff
     * Fix for building on ARM
+* sys-apps/kbd
+    * Add dependency on flex via app-alternatives/lex
 * ~~sys-apps/portage~~
     * ~~Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory~~
     * ~~Prevent binary merges from failing due to assumptions about build files being present~~
