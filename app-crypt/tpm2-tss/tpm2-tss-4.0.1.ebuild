@@ -11,7 +11,7 @@ SRC_URI="https://github.com/tpm2-software/${PN}/releases/download/${PV}/${P}.tar
 
 LICENSE="BSD-2"
 SLOT="0/4"
-KEYWORDS="amd64 arm ~arm64 ~loong ~ppc64 ~riscv x86"
+KEYWORDS="amd64 arm arm64 ~loong ppc64 ~riscv x86"
 IUSE="doc +fapi mbedtls +openssl +policy static-libs systemd test +tmpfiles udev"
 
 RESTRICT="!test? ( test )"
