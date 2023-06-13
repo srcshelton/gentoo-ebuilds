@@ -384,6 +384,8 @@ used to build perl)
     * Explicitly depend on 'grep that handles long lines and -e' (although the real issue could be that somehow GNU `grep` _was_ installed during bootsrapping, but `libpcre` wasn't?)
 * ~~app-crypt/gnupg~~
     * ~~Fix clang compilation errors~~
+* app-crypt/libb2
+    * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-crypt/libb2 is built
 * app-containers/docker
     * Allow more fine-grained control over optional features
 * app-containers/lxc
@@ -526,7 +528,7 @@ used to build perl)
 * sys-power/apcupsd
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
-    * Provide more flexibility with finer-grained USE flags
+    * Provide more flexibility with finer-grained USE-flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
 * ~~sys-process/cronbase~~
@@ -534,7 +536,7 @@ used to build perl)
 * virtual/bitcoin-leveldb
     * Be more flexible about necessary dependencies
 * virtual/mta
-    * Add optional USE flags to control which MTA will be installed
+    * Add optional USE-flags to control which MTA will be installed
 * virtual/os-headers
     * Also accept sys-kernel/raspberrypi-headers as an acceptable os-header
 * virtual/tmpfiles
