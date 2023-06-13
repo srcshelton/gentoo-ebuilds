@@ -402,6 +402,8 @@ used to build perl)
     * Make `tmpfiles` installation optional
 * app-portage/elt-patches
     * Respect 'ROOT' variable when installing
+* app-portage/portage-utils
+    * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-portage/portage-utils is built
 * dev-db/mongodb
     * Add firefox source to Allow building on ARM
 * dev-db/mysql-init-scripts
