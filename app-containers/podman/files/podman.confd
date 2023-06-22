@@ -5,7 +5,7 @@
 #LOG_LEVEL="error"
 
 # Sets the API service daemon socket
-#SOCKET="unix:/run/${RC_SVCNAME}/podman.sock"
+#SOCKET="unix:/var/run/${RC_SVCNAME}/podman.sock"
 
 # Configure the user[:group] the API service daemon will run as
 #RUN_AS_USER="root:root"
