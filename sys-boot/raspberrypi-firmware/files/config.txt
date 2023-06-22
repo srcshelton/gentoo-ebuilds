@@ -10,7 +10,7 @@
 
 # Supported conditional filters:
 # [all] [none] [pi1] [pi2] [pi3] [pi3+] [pi4] [pi400] [cm4] [cm4s] [pi0]
-# [pi0w] [pi02] [board-type=<type>] [EDID=<name>] [0x<serial number>]
+# [pi0w] [pi02] [board-type=<type>] [EDID=<name>] [0x<serial number>]
 # [gpio<pin>=<0|1>] [tryboot]
 #
 # Raspberry Pi 4-only filters:
@@ -40,7 +40,7 @@
 #
 # https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#fail-safe-os-updates-tryboot
 #
-# Invoke 'tryboot' mode with:
+# Invoke 'tryboot' mode with:
 #
 #     sudo reboot "0 tryboot"
 #
@@ -55,7 +55,7 @@
 #tryboot_a_b=0
 [all]
 
-# Common Options:
+# Common Options:
 # ==============
 # https://www.raspberrypi.com/documentation/computers/config_txt.html#common-options
 #
@@ -91,9 +91,11 @@ arm_boost=1
 # ============
 # https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options
 #
-#start_file=<start.elf,start_x.elf,start_db.elf,start4.elf,start4x.elf,start4db.elf,start4cd.elf>
-#fixup_file=<fixup.dat,fixup_x.dat,fixup_db.dat,fixup_cd.dat,fixup4.dat,fixup4x.dat,fixup4db.dat,fixup4cd.dat>
-# start?cd.elf and fixup?cd.dat are 'cut-down' versions
+#start_file=<start.elf,start_x.elf,start_db.elf,start4.elf,start4x.elf,start4db.elf>
+#fixup_file=<fixup.dat,fixup_x.dat,fixup_db.dat,fixup4.dat,fixup4x.dat,fixup4db.dat>
+# start?cd.elf and fixup?cd.dat are 'cut-down' versions, but cannoy be
+# selected with start_file and fixup_file - they are only used when
+# 'gpu_mem=16' is specified
 #start_x=0
 # Implies start_file=start_x.elf, fixup_file=fixup_x.dat
 # Required for camera module operation
