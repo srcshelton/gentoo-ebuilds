@@ -93,7 +93,7 @@ arm_boost=1
 #
 #start_file=<start.elf,start_x.elf,start_db.elf,start4.elf,start4x.elf,start4db.elf>
 #fixup_file=<fixup.dat,fixup_x.dat,fixup_db.dat,fixup4.dat,fixup4x.dat,fixup4db.dat>
-# start?cd.elf and fixup?cd.dat are 'cut-down' versions, but cannoy be
+# start?cd.elf and fixup?cd.dat are 'cut-down' versions, but cannot be
 # selected with start_file and fixup_file - they are only used when
 # 'gpu_mem=16' is specified
 #start_x=0
