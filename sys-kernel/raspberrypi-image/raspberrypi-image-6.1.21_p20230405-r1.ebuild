@@ -9,11 +9,12 @@ DESCRIPTION="Raspberry Pi (all versions) kernel and modules"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+64bit +devicetree +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s"
+IUSE="+64bit +devicetree +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io"
 REQUIRED_USE="
 	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s )
-	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s )
 	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s ) )
+	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s )
+	rpi-cm4-io? ( rpi-cm4 )
 "
 
 RESTRICT="binchecks mirror strip"
@@ -303,9 +304,11 @@ src_install() {
 			)
 		fi
 		if use rpi-all || use rpi-cm4 || use rpi-cm4s; then
-			files+=( # <- Syntax
-				bcm2711-rpi-cm4-io.dtb
-			)
+			if use rpi-all || use rpi-cm4-io; then
+				files+=( # <- Syntax
+					bcm2711-rpi-cm4-io.dtb
+				)
+			fi
 			if use rpi-all || use rpi-cm4; then
 				files+=( # <- Syntax
 					bcm2711-rpi-cm4.dtb
