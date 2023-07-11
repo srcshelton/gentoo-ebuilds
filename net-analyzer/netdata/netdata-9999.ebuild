@@ -59,6 +59,8 @@ case "${PV}" in
 	1.31.0)	GIT_COMMIT="2f130c01aa487d2541a9f3045ff9970f91cc4fc9" ;;
 	# ...
 	1.37.1)	GIT_COMMIT="562101d64137a4c6b3310d4a2fed4a1da1bfce8d" ;;
+	# ...
+	1.40.0)	GIT_COMMIT="f0b61365cacbbdc382bb986027680988bf4c0d16" ;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"
@@ -99,6 +101,7 @@ RDEPEND="
 		dev-libs/openssl:=
 	)
 	dev-libs/libuv:=
+	dev-libs/libyaml
 	cloud? ( dev-libs/protobuf:= )
 	compression? ( sys-libs/zlib )
 	fping? ( >=net-analyzer/fping-4.0 )
