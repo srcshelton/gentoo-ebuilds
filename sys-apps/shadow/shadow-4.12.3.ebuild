@@ -36,7 +36,7 @@ COMMON_DEPEND="
 	xattr? ( sys-apps/attr:0= )
 "
 DEPEND="${COMMON_DEPEND}
-	>=sys-kernel/linux-headers-4.14
+	|| ( >=sys-kernel/raspberrypi-headers-4.14 >=sys-kernel/linux-headers-4.14 )
 "
 RDEPEND="${COMMON_DEPEND}
 	!<sys-apps/man-pages-5.11-r1
