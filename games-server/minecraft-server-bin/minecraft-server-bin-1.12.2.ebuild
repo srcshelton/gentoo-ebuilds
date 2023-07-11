@@ -39,7 +39,7 @@ src_install() {
 	usermod -d "${p}" minecraft
 
 	insinto "${p}"
-	newins "${DISTDIR}"/"${MY_PN}.${PV}.jar" "${PN%-bin}.jar"
+	newins "${DISTDIR}/${MY_PN}.${PV}.jar" "${PN%-bin}.jar"
 	insinto "${p}"/conf
 	doins "${FILESDIR}"/server.properties
 	doins "${FILESDIR}"/eula.txt

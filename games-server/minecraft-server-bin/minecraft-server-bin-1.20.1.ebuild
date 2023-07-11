@@ -5,7 +5,7 @@ EAPI=7
 
 MY_PN="${PN%-bin}"
 MY_PN="${MY_PN//-/_}"
-MY_HASH='35139deedbd5182953cf1caa23835da59ca3d7cd'
+MY_HASH='84194a2f286ef7c14ed7ce0090dba59902951553'
 
 DESCRIPTION="Minecraft: Java Edition Multiplayer Server"
 HOMEPAGE="https://minecraft.net/en-us/download/server"
@@ -32,8 +32,7 @@ src_unpack() {
 }
 
 src_install() {
-	local p
-	p="/opt/${PN%-bin}-${PV}"
+	local p="/opt/${PN%-bin}-${PV}"
 
 	dodir "${p}"/conf
 
