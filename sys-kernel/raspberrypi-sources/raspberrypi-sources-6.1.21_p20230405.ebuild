@@ -35,7 +35,7 @@ SRC_URI="
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
-IUSE="+64bit rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s"
+IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s"
 REQUIRED_USE="
 	|| ( rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s )
 	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s ) )
@@ -115,28 +115,9 @@ universal_unpack() {
 	find . -iname "*~" -exec rm {} \; 2>/dev/null
 }
 
-#src_unpack() {
-#	default
-#
-#	unpack_set_extraversion
-#
-#	# remove all backup files
-#	find . -iname "*~" -exec rm {} \; 2>/dev/null
-#}
-
 src_prepare() {
 	default
 	kernel-2_src_prepare
-
-	## kernel-2_src_prepare doesn't apply PATCHES()
-	#handle_genpatches --set-unipatch-list
-	#[[ -n ${UNIPATCH_LIST} || -n ${UNIPATCH_LIST_DEFAULT} || -n ${UNIPATCH_LIST_GENPATCHES} ]] && \
-	#	unipatch "${UNIPATCH_LIST_DEFAULT} ${UNIPATCH_LIST_GENPATCHES} ${UNIPATCH_LIST}"
-	#
-	#unpack_fix_install_path
-	#
-	## Setup xmakeopts and cd into sourcetree.
-	#env_setup_xmakeopts
 }
 
 src_install() {
