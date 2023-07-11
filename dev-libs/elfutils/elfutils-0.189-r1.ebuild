@@ -4,7 +4,7 @@
 EAPI=8
 
 VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/elfutils.gpg
-inherit flag-o-matic usr-ldscript verify-sig multilib-minimal
+inherit autotools flag-o-matic usr-ldscript verify-sig multilib-minimal
 
 DESCRIPTION="Libraries/utilities to handle ELF objects (drop in replacement for libelf)"
 HOMEPAGE="https://sourceware.org/elfutils/"
@@ -14,7 +14,7 @@ SRC_URI="https://sourceware.org/elfutils/ftp/${PV}/${P}.tar.bz2
 
 LICENSE="|| ( GPL-2+ LGPL-3+ ) utils? ( GPL-3+ )"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha ~amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc ~x86 ~amd64-linux ~x86-linux"
 IUSE="bzip2 lzma nls static-libs test +utils zstd"
 RESTRICT="!test? ( test )"
 
@@ -43,6 +43,8 @@ BDEPEND="
 
 PATCHES=(
 	"${WORKDIR}"/${PN}-0.187-patches/
+	"${FILESDIR}"/${P}-configure-bashisms.patch
+	"${FILESDIR}"/${P}-clang16-tests.patch
 )
 
 src_unpack() {
@@ -60,6 +62,9 @@ src_prepare() {
 	if use elibc_musl; then
 		eapply "${WORKDIR}"/${PN}-0.187-patches/musl/
 	fi
+
+	# Only here for ${P}-configure-bashisms.patch, delete on next bump!
+	eautoreconf
 
 	if ! use static-libs; then
 		sed -i -e '/^lib_LIBRARIES/s:=.*:=:' -e '/^%.os/s:%.o$::' lib{asm,dw,elf}/Makefile.in || die
