@@ -29,8 +29,7 @@ COMMON_DEPEND="
 	pcap? ( net-libs/libpcap )
 "
 DEPEND="${COMMON_DEPEND}
-	virtual/os-headers
-	>=sys-kernel/linux-headers-4.4:0
+	|| ( >=sys-kernel/raspberrypi-headers-4.4:0 >=sys-kernel/linux-headers-4.4:0 )
 "
 BDEPEND="
 	virtual/pkgconfig
