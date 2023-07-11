@@ -41,7 +41,7 @@ DEPEND="${COMMON_DEPEND}
 		virtual/libcrypt[static-libs]
 		selinux? ( sys-libs/libselinux[static-libs(+)] )
 	)
-	sys-kernel/linux-headers"
+	virtual/os-headers"
 BDEPEND="virtual/pkgconfig"
 RDEPEND="${COMMON_DEPEND}"
 

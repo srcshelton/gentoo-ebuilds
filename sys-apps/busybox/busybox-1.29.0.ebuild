@@ -29,7 +29,7 @@ COMMON_DEPEND="!static? ( selinux? ( sys-libs/libselinux ) )
 	pam? ( sys-libs/pam )"
 DEPEND="${COMMON_DEPEND}
 	static? ( selinux? ( sys-libs/libselinux[static-libs(+)] ) )
-	>=sys-kernel/linux-headers-2.6.39"
+	|| ( >=sys-kernel/raspberrypi-headers-2.6.39 >=sys-kernel/linux-headers-2.6.39 )"
 RDEPEND="${COMMON_DEPEND}
 	mdev? ( !<sys-apps/openrc-0.13 )"
 
