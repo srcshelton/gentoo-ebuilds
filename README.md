@@ -40,6 +40,14 @@ packages and miscellaneous fixes.
 * www-apps/rpi-monitor
     * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 
+# Allow sys-kernel/raspberrypi-headers as alternative to sys-kernel/linux-headers
+
+* net-misc/lksctp-tools
+* sys-apps/flashrom
+* sys-fs/btrfs-progs
+* sys-libs/libcap
+* sys-libs/liburing
+
 # Fixes for compiling prefix packages on macOS 10.13 (High Sierra) and later
 
 For the High Sierra release, Apple have fixed a known vulnerability by causing
