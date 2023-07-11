@@ -29,6 +29,7 @@ RDEPEND="
 	${DEPEND}
 	app-misc/ca-certificates
 "
+# CMake is used for bundled deps
 BDEPEND="
 	dev-util/cmake
 	sys-devel/bc
