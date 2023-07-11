@@ -58,7 +58,7 @@ RDEPEND="
 "
 DEPEND="${RDEPEND}
 	virtual/os-headers
-	kernel_linux? ( !prefix-guest? ( >=sys-kernel/linux-headers-5.1 ) )
+	kernel_linux? ( !prefix-guest? ( || ( >=sys-kernel/raspberrypi-headers-5.1 >=sys-kernel/linux-headers-5.1 ) ) )
 	static? ( ${LIB_DEPEND} )
 "
 RDEPEND="${RDEPEND}
@@ -192,6 +192,7 @@ src_configure() {
 		--datadir="${EPREFIX%/}"/usr/share/openssh
 		--with-privsep-path="${EPREFIX%/}"/var/empty
 		--with-privsep-user=sshd
+		--with-hardening
 		$(use_with audit audit linux)
 		$(use_with kerberos kerberos5 "${EPREFIX%/}"/usr)
 		$(use_with ldns)
@@ -202,7 +203,6 @@ src_configure() {
 		$(use_with security-key security-key-builtin)
 		$(use_with ssl openssl)
 		$(use_with ssl ssl-engine)
-		$(use_with !elibc_Cygwin hardening) #659210
 	)
 
 	if use elibc_musl; then
