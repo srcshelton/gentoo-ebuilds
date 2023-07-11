@@ -15,7 +15,7 @@ if [[ ${PV} == "9999" ]]; then
 	inherit git-r3
 else
 	SRC_URI="https://build.openvpn.net/downloads/releases/${P}.tar.xz"
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~mips ppc ppc64 ~riscv ~sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86"
 fi
 
 LICENSE="GPL-2"
@@ -58,10 +58,6 @@ RDEPEND="${CDEPEND}
 if [[ ${PV} = "9999" ]]; then
 	BDEPEND+=" dev-python/docutils"
 fi
-
-PATCHES=(
-	"${FILESDIR}"/openvpn-2.5.0-auth-pam-missing-header.patch
-)
 
 pkg_setup() {
 	local CONFIG_CHECK="~TUN"
