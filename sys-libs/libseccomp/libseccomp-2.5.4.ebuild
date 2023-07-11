@@ -32,7 +32,7 @@ REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 # version here, just be safe and pull in the latest stable ones. bug #551248
 RDEPEND="python? ( ${PYTHON_DEPS} )"
 DEPEND="${RDEPEND}
-	>=sys-kernel/linux-headers-5.15"
+	|| ( >=sys-kernel/raspberrypi-headers-5.15 >=sys-kernel/linux-headers-5.15 )"
 BDEPEND="${RDEPEND}
 	dev-util/gperf
 	python? ( dev-python/cython[${PYTHON_USEDEP}] )"
