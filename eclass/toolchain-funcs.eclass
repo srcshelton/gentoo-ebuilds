@@ -713,16 +713,7 @@ tc-ninja_magic_to_arch() {
 		frv*)		echo frv;;
 		hexagon*)	echo hexagon;;
 		hppa*)		ninj parisc hppa;;
-		i?86*)
-			# Starting with linux-2.6.24, the 'x86_64' and 'i386'
-			# trees have been unified into 'x86'.
-			# FreeBSD still uses i386
-			if [[ ${type} == "kern" && ${host} == *freebsd* ]] ; then
-				echo i386
-			else
-				echo x86
-			fi
-			;;
+		i?86*)		echo x86;;
 		ia64*)		echo ia64;;
 		loongarch*)	ninj loongarch loong;;
 		m68*)		echo m68k;;
@@ -756,7 +747,6 @@ tc-ninja_magic_to_arch() {
 					;;
 		tile*)		echo tile;;
 		vax*)		echo vax;;
-		x86_64*freebsd*) echo amd64;;
 		x86_64*)
 			# Starting with linux-2.6.24, the 'x86_64' and 'i386'
 			# trees have been unified into 'x86'.
@@ -1107,7 +1097,7 @@ gen_usr_ldscript() {
 	case ${CTARGET:-${CHOST}} in
 	*-darwin*) ;;
 	*-android*) return 0 ;;
-	*linux*|*-freebsd*|*-openbsd*|*-netbsd*)
+	*linux*)
 		use prefix && return 0 ;;
 	*) return 0 ;;
 	esac
