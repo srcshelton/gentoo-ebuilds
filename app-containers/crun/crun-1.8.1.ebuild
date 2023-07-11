@@ -30,7 +30,7 @@ DEPEND="
 	dev-util/gperf
 	sys-devel/gettext
 	sys-devel/libtool
-	sys-kernel/linux-headers
+	virtual/os-headers
 "
 RDEPEND="${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-container )"

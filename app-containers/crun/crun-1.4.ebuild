@@ -34,7 +34,7 @@ DEPEND="
 	dev-vcs/git
 	sys-devel/gettext
 	sys-devel/libtool
-	sys-kernel/linux-headers
+	virtual/os-headers
 "
 RDEPEND="${COMMON_DEPEND}"
 BDEPEND="

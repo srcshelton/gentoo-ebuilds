@@ -28,7 +28,7 @@ DEPEND="
 	dev-util/gperf
 	sys-devel/gettext
 	sys-devel/libtool
-	sys-kernel/linux-headers
+	virtual/os-headers
 	virtual/pkgconfig
 "
 RDEPEND="${COMMON_DEPEND}"
