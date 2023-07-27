@@ -4,7 +4,7 @@
 EAPI=8
 
 inherit bash-completion-r1 go-module linux-info
-GIT_COMMIT="04965f1198104afafd22197a479bd15c9b43148e"
+GIT_COMMIT="d0de60bbf34d7e97d08f8652abf794c3b66e47a1"
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
