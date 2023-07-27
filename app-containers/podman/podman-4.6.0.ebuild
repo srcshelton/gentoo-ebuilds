@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-EGIT_COMMIT="9eef30051c83f62816a1772a743e5f1271b196d7"
+EGIT_COMMIT="38e6fab9664c6e59b66e73523b307a56130316ae"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -16,7 +16,7 @@ LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
 KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
-IUSE="apparmor +bash-completion btrfs -cgroup-hybrid fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
+IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
 
@@ -83,10 +83,6 @@ CONFIG_CHECK="
 	~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH ~XFRM_ALGO ~XFRM_USER
 	~IPVLAN
 	~MACVLAN ~DUMMY
-
-	~OVERLAY_FS ~!OVERLAY_FS_REDIRECT_DIR
-	~EXT4_FS_SECURITY
-	~EXT4_FS_POSIX_ACL
 "
 
 ERROR_KEYS="CONFIG_KEYS: is mandatory"
@@ -171,6 +167,12 @@ pkg_setup() {
 		CONFIG_CHECK+="
 			~BTRFS_FS
 			~BTRFS_FS_POSIX_ACL
+		"
+	else
+		CONFIG_CHECK+="
+			~OVERLAY_FS ~!OVERLAY_FS_REDIRECT_DIR
+			~EXT4_FS_SECURITY
+			~EXT4_FS_POSIX_ACL
 		"
 	fi
 
@@ -271,6 +273,9 @@ src_compile() {
 src_install() {
 	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
 
+	if ! use experimental; then
+		rm "${ED}"/usr/libexec/podman/podmansh
+	fi
 	if ! use systemd; then
 		rm "${ED}"/usr/libexec/podman/quadlet
 	fi
