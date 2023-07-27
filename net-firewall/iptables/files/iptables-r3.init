@@ -47,9 +47,11 @@ set_table_policy() {
 
 checkkernel() {
 	if [ ! -e ${iptables_proc} ] ; then
-		eerror "Your kernel lacks ${iptables_name} support, please load"
-		eerror "appropriate modules and try again."
-		return 1
+		if [[ "$( readlink -f "${iptables_bin}" )" != *-nft-* ]]; then
+			eerror "Your kernel lacks ${iptables_name} support, please load"
+			eerror "appropriate modules and try again."
+			return 1
+		fi
 	fi
 	return 0
 }
@@ -78,22 +80,34 @@ stop_pre() {
 }
 
 stop() {
+	local -a tables=()
+	local table
+	local -i has_errors=0
+
 	if [ "${SAVE_ON_STOP}" = "yes" ] ; then
 		save || return 1
 	fi
 
 	ebegin "Stopping firewall"
-	local has_errors=0 a
-	for a in $(cat ${iptables_proc}) ; do
-		set_table_policy $a ACCEPT
-		[ $? -ne 0 ] && has_errors=1
+	if [ -e "${iptables_proc}" ]; then
+		readarray -t tables < "${iptables_proc}"
+	else
+		readarray -t tables < <( ${iptables_bin}-save | grep '^*' | sed 's/^.//' )
+	fi
+	if (( ${#tables[@]} )); then
+		for table in "${tables[@]}"; do
+			set_table_policy "${table}" ACCEPT ||
+				has_errors=1
 
-		${iptables_bin} --wait ${iptables_lock_wait_time} -F -t $a
-		[ $? -ne 0 ] && has_errors=1
+			${iptables_bin} --wait ${iptables_lock_wait_time} \
+					-F -t "${table}" ||
+				has_errors=1
 
-		${iptables_bin} --wait ${iptables_lock_wait_time} -X -t $a
-		[ $? -ne 0 ] && has_errors=1
-	done
+			${iptables_bin} --wait ${iptables_lock_wait_time} \
+					-X -t "${table}" ||
+				has_errors=1
+		done
+	fi
 	eend ${has_errors}
 }
 
