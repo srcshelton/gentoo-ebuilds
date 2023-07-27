@@ -229,7 +229,7 @@ src_test() {
 
 	addwrite /dev/full
 	#export RUN_EXPENSIVE_TESTS="yes"
-	#export FETISH_GROUPS="portage wheel"
+	#export COREUTILS_GROUPS="portage wheel"
 	PATH="${T}/mount-wrappers:${PATH}" gl_public_submodule_commit= \
 		emake -k check VERBOSE=yes
 }
@@ -256,7 +256,7 @@ src_install() {
 		# Move critical binaries into /bin (common scripts)
 		local com="basename chroot cut dir dirname du env expr head mkfifo
 			mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
-		mv ${com} ../../bin/ || die "could not move common binaries from /usr/bin to /bin"
+		mv ${com} ../../bin/ || die "Could not move common binaries from /usr/bin to /bin"
 
 		# Create a symlink for uname in /usr/bin/ since autotools requires it,
 		# as long as /bin resolves to a different directory than /usr/bin.
@@ -277,3 +277,5 @@ pkg_postinst() {
 	ewarn "You should also re-source your shell settings for LS_COLORS"
 	ewarn "  changes, such as: source /etc/profile"
 }
+
+# vi: set diffopt=filler,iwhite:
