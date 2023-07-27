@@ -39,7 +39,8 @@ BDEPEND="sys-apps/acl
 
 PATCHES=(
 	"${FILESDIR}/${PN}-4.0.0-Dont-install-files-into-run.patch"
-)
+	"${FILESDIR}/${PN}-4.0.1-Make-sysusers-and-tmpfiles-optional.patch"
+	)
 
 pkg_setup() {
 	local CONFIG_CHECK=" \
@@ -51,7 +52,6 @@ pkg_setup() {
 
 src_prepare() {
 	default
-
 	eautoreconf
 }
 
@@ -81,7 +81,6 @@ multilib_src_configure() {
 
 multilib_src_install() {
 	default
-
 	keepdir /var/lib/tpm2-tss/system/keystore
 
 	if ! use udev; then
