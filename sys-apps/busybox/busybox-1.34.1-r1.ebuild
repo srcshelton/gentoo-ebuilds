@@ -322,7 +322,7 @@ src_install() {
 		doins examples/udhcp/udhcpd.conf
 	fi
 	if busybox_config_enabled ASH && ! use make-symlinks; then
-		dosym8 -r /bin/busybox /bin/ash
+		dosym -r /bin/busybox /bin/ash
 	fi
 	if busybox_config_enabled CROND; then
 		newconfd "${FILESDIR}"/crond.confd busybox-crond

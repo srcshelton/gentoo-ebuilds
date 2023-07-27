@@ -3,9 +3,9 @@
 
 # See `man savedconfig.eclass` for info on how to use USE=savedconfig.
 
-EAPI=7
+EAPI=8
 
-inherit eapi8-dosym flag-o-matic savedconfig toolchain-funcs
+inherit flag-o-matic savedconfig toolchain-funcs
 
 DESCRIPTION="Utilities for rescue and embedded systems"
 HOMEPAGE="https://www.busybox.net/"
@@ -16,12 +16,13 @@ if [[ ${PV} == "9999" ]] ; then
 else
 	MY_P="${PN}-${PV/_/-}"
 	SRC_URI="https://www.busybox.net/downloads/${MY_P}.tar.bz2"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 fi
+S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-2" # GPL-2 only
 SLOT="0"
-IUSE="debug doc examples ipv6 livecd make-symlinks math mdev -pam selinux sep-usr static syslog systemd"
+IUSE="debug doc examples livecd make-symlinks math mdev -pam selinux sep-usr static syslog systemd"
 # FIXME: Cheat a bit here - skip this test when rebuilding stage3, which we'll
 #        re-use the 'livecd' flag to indicate!
 REQUIRED_USE="!livecd? ( pam? ( !static ) )"
@@ -44,8 +45,6 @@ DEPEND="${COMMON_DEPEND}
 	virtual/os-headers"
 BDEPEND="virtual/pkgconfig"
 RDEPEND="${COMMON_DEPEND}"
-
-S="${WORKDIR}/${MY_P}"
 
 busybox_config_option() {
 	local flag=$1 ; shift
@@ -79,8 +78,9 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-1.26.2-bb.patch
 	"${FILESDIR}"/${PN}-1.34.1-skip-selinux-search.patch
 
-	"${FILESDIR}"/${PN}-1.36.0-ed-memcpy-overlapping.patch
 	"${FILESDIR}"/${PN}-1.36.0-fortify-source-3-fixdep.patch
+
+	# "${FILESDIR}"/${P}-*.patch
 )
 
 src_prepare() {
@@ -193,14 +193,6 @@ src_configure() {
 	busybox_config_option '"/var/run"' PID_FILE_PATH
 	busybox_config_option '"/var/run/ifstate"' IFUPDOWN_IFSTATE_PATH
 
-	# disable ipv6 applets
-	if ! use ipv6; then
-		busybox_config_option n FEATURE_IPV6
-		busybox_config_option n TRACEROUTE6
-		busybox_config_option n PING6
-		busybox_config_option n UDHCPC6
-	fi
-
 	busybox_config_option $(usex static n pam) PAM
 	busybox_config_option static STATIC
 	busybox_config_option syslog {K,SYS}LOGD LOGGER
@@ -278,16 +270,19 @@ src_install() {
 	fi
 	if use mdev ; then
 		# Don't use get_libdir for mdev scripts...
+		#dodir /$(get_libdir)/mdev/
 		dodir /lib/mdev/
 		use make-symlinks || dosym /bin/bb /sbin/mdev
 		#cp "${S}"/examples/mdev_fat.conf "${ED}"/etc/mdev.conf || die
 		#if [[ ! "$(get_libdir)" == "lib" ]]; then
-		#	sed -i -e "s:/lib/:/$(get_libdir)/:g" "${ED}"/etc/mdev.conf || die #831251 - replace lib with lib64 where appropriate
+		#	#831251 - replace lib with lib64 where appropriate
+		#	sed -i -e "s:/lib/:/$(get_libdir)/:g" "${ED}"/etc/mdev.conf || die
 		#fi
 		cp "${FILESDIR}"/mdev.conf "${ED}"/etc/mdev.conf
 		newdoc "${S}"/examples/mdev_fat.conf mdev.conf || die
 
 		# Don't use get_libdir for mdev scripts...
+		#exeinto /$(get_libdir)/mdev/
 		exeinto /lib/mdev/
 		doexe "${FILESDIR}"/mdev/*
 
@@ -338,14 +333,12 @@ src_install() {
 	if use make-symlinks; then
 		# bundle up the symlink files for use later
 		emake DESTDIR="${ED}" install
-		rm _install/bin/busybox || die
-
 		# for compatibility, provide /usr/bin/env
 		mkdir -p _install/usr/bin || die
 		if [[ ! -e _install/usr/bin/env ]]; then
 			ln -s /bin/env _install/usr/bin/env || die
 		fi
-
+		rm _install/bin/busybox || die
 		tar cf busybox-links.tar -C _install . || die
 		insinto /usr/share/${PN}
 		doins busybox-links.tar
@@ -395,10 +388,10 @@ pkg_postinst() {
 
 		ebegin "Extracting busybox symlinks from '${T}/busybox-links.tar' to '${ROOT}/'"
 
-		mkdir "${T}"/_install &&
-			tar xf "${T}"/busybox-links.tar -C "${T}"/_install &&
-			test -d "${T}"/_install &&
-			rm "${T}"/busybox-links.tar || die
+		mkdir _install &&
+			tar xf busybox-links.tar -C _install &&
+			test -d _install &&
+			rm busybox-links.tar || die
 
 		# 907432: cp -n returns error if it skips any file, but that is
 		# expected here
@@ -431,7 +424,7 @@ pkg_postinst() {
 				(( ok++ ))
 				eend 0
 			fi
-		done < <( find -P "${T}"/_install/ -type l )
+		done < <( find -P _install/ -type l )
 
 		if eend ${bad} "Installed ${ok} symlinks, skipped ${skipped} symlinks, failed to install ${bad} symlinks"; then
 			if (( skipped )); then
@@ -439,8 +432,8 @@ pkg_postinst() {
 			fi
 		fi
 
+		rm -rf _install
 		popd >/dev/null
-		rm -rf "${T}/_install"
 		rmdir --parents --ignore-fail-on-non-empty "${T}"
 	fi
 
