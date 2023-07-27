@@ -18,13 +18,13 @@ IUSE="clang native-cflags openmp static-libs"
 BDEPEND="
 	openmp? (
 		clang? ( sys-devel/clang-runtime:*[openmp] )
-		!clang? ( >=sys-devel/gcc-4.2:*[openmp] )
+		!clang? ( sys-devel/gcc:*[openmp] )
 	)
 "
 RDEPEND="
 	openmp? (
 		clang? ( sys-libs/libomp:= )
-		!clang? ( >=sys-devel/gcc-4.2:*[openmp] )
+		!clang? ( sys-devel/gcc:*[openmp] )
 	)
 "
 
@@ -34,15 +34,15 @@ PATCHES=( "${FILESDIR}/${P}-distcc.patch" )
 
 # We don't need these functions given the 'openmp?' BDEPEND stanza above... and
 # this form breaks any multi-package merge where 'gcc' is installed with openmp
-# support in the same operation as but prior to building libb2...
+# support in the same operation as - but prior to - building libb2...
 #
 #pkg_pretend() {
 #	[[ ${MERGE_TYPE} != binary ]] && use openmp && tc-check-openmp
 #}
-#
-#pkg_setup() {
-#	[[ ${MERGE_TYPE} != binary ]] && use openmp && tc-check-openmp
-#}
+
+pkg_setup() {
+	[[ ${MERGE_TYPE} != binary ]] && use openmp && tc-check-openmp
+}
 
 src_prepare() {
 	default
