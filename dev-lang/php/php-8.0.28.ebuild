@@ -1,13 +1,13 @@
 # Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="8"
+EAPI="7"
 
 WANT_AUTOMAKE="none"
 
 inherit autotools flag-o-matic systemd
 
-MY_PV=${PV/_rc/RC}
+MY_PV=${PV/_rc/rc}
 DESCRIPTION="The PHP language runtime engine"
 HOMEPAGE="https://www.php.net/"
 SRC_URI="https://www.php.net/distributions/${P}.tar.xz"
@@ -21,7 +21,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
+KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~ia64 ~mips ~ppc ~ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
 
 S="${WORKDIR}/${PN}-${MY_PV}"
 
@@ -99,7 +99,7 @@ COMMON_DEPEND="
 	sodium? ( dev-libs/libsodium:=[-minimal] )
 	spell? ( >=app-text/aspell-0.50 )
 	sqlite? ( >=dev-db/sqlite-3.7.6.3 )
-	ssl? ( >=dev-libs/openssl-1.0.2:0= )
+	ssl? ( >=dev-libs/openssl-1.0.1:0= <dev-libs/openssl-3.0 )
 	tidy? ( app-text/htmltidy )
 	tokyocabinet? ( dev-db/tokyocabinet )
 	truetype? ( =media-libs/freetype-2* )
@@ -111,8 +111,6 @@ COMMON_DEPEND="
 	zip? ( >=dev-libs/libzip-1.2.0:= )
 	zlib? ( >=sys-libs/zlib-1.2.0.4:0= )
 "
-
-IDEPEND=">=app-eselect/eselect-php-0.9.7[apache2?,fpm?]"
 
 RDEPEND="${COMMON_DEPEND}
 	virtual/mta
@@ -127,12 +125,14 @@ DEPEND="${COMMON_DEPEND}
 	app-arch/xz-utils
 	>=sys-devel/bison-3.0.1"
 
-BDEPEND="virtual/pkgconfig"
+BDEPEND="virtual/pkgconfig
+	>=app-eselect/eselect-php-0.9.7[apache2?,fpm?]"
 
 PHP_MV="$(ver_cut 1)"
 
 PATCHES=(
 	"${FILESDIR}/php-iodbc-header-location.patch"
+	"${FILESDIR}/php80-firebird-warnings.patch"
 )
 
 php_install_ini() {
@@ -351,7 +351,10 @@ src_configure() {
 	fi
 
 	# MySQL support
-	our_conf+=( $(use_with mysqli mysqli "mysqlnd") )
+	local mysqllib="mysqlnd"
+	local mysqlilib="mysqlnd"
+
+	our_conf+=( $(use_with mysqli mysqli "${mysqlilib}") )
 
 	local mysqlsock="${EPREFIX}/var/run/mysqld/mysqld.sock"
 	if use mysql || use mysqli ; then
@@ -386,7 +389,7 @@ src_configure() {
 	if use pdo ; then
 		our_conf+=(
 			$(use_with mssql pdo-dblib "${EPREFIX}/usr")
-			$(use_with mysql pdo-mysql "mysqlnd")
+			$(use_with mysql pdo-mysql "${mysqllib}")
 			$(use_with postgres pdo-pgsql)
 			$(use_with sqlite pdo-sqlite)
 			$(use_with firebird pdo-firebird "${EPREFIX}/usr")
@@ -641,9 +644,9 @@ src_test() {
 	fi
 
 	SKIP_ONLINE_TESTS=1 REPORT_EXIT_STATUS=1 "${TEST_PHP_EXECUTABLE}" -n  -d \
-		"session.save_path=${T}" \
-		"${WORKDIR}/sapis-build/cli/run-tests.php" -n -q -d \
-		"session.save_path=${T}"
+					  "session.save_path=${T}" \
+					  "${WORKDIR}/sapis-build/cli/run-tests.php" -n -q -d \
+					  "session.save_path=${T}"
 
 	for name in ${EXPECTED_TEST_FAILURES}; do
 		mv "${name}.out" "${name}.out.orig" 2>/dev/null || die
