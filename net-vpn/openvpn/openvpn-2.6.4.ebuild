@@ -19,7 +19,7 @@ fi
 LICENSE="GPL-2"
 SLOT="0"
 
-IUSE="dco down-root examples inotify iproute2 +lz4 +lzo mbedtls +openssl pam pkcs11 +plugins selinux systemd test"
+IUSE="dco down-root examples inotify iproute2 +lz4 +lzo mbedtls +openssl pam pkcs11 +plugins selinux systemd test +tmpfiles"
 
 RESTRICT="!test? ( test )"
 REQUIRED_USE="
