@@ -492,6 +492,8 @@ used to build perl)
     * Allow net-ftp/tftp-hpa to be installed at the same time, so long as only one tftp server is enabled
 * ~~net-libs/neon~~
     * ~~Patch trivial typo which prevents `writev` from being defined~~
+* net-misc/aria2
+    * Prevent dev-libs/jemalloc 'lazy-lock' option from causing aria2 to segfault
 * net-misc/dhcp
     * Enhance chroot support in init script
 * net-misc/socat
