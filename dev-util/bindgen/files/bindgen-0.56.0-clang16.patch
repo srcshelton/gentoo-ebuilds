@@ -1,0 +1,144 @@
+From 99f3bddd3e85cfe97a0800910310dd88f88c4e5b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Emilio=20Cobos=20=C3=81lvarez?= <emilio@crisal.io>
+Date: Tue, 18 Oct 2022 02:17:18 +0200
+Subject: [PATCH] clang: Detect anonymous items explicitly, rather than relying
+ on empty names.
+
+In Clang 16, anonymous items may return names like
+`(anonymous union at ..)` rather than empty names.
+
+The right way to detect them is using clang_Cursor_isAnonymous.
+
+Fixes #2312
+Closes #2316
+
+Co-Authored-by: Patrick Walton <pcwalton@fb.com>
+---
+ bindgen/clang.rs   |  5 +++++
+ bindgen/ir/comp.rs |  3 +--
+ bindgen/ir/ty.rs   | 27 +++++++++++++++++----------
+ 3 files changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/bindgen/clang.rs b/bindgen/clang.rs
+index ae140520bd..32a25449bc 100644
+--- a/src/clang.rs
++++ b/src/clang.rs
+@@ -54,6 +54,11 @@ impl Cursor {
+         unsafe { clang_isDeclaration(self.kind()) != 0 }
+     }
+ 
++    /// Is this cursor's referent an anonymous record or so?
++    pub fn is_anonymous(&self) -> bool {
++        unsafe { clang_Cursor_isAnonymous(self.x) != 0 }
++    }
++
+     /// Get this cursor's referent's spelling.
+     pub fn spelling(&self) -> String {
+         unsafe { cxstring_into_string(clang_getCursorSpelling(self.x)) }
+diff --git a/bindgen/ir/comp.rs b/bindgen/ir/comp.rs
+index f44c5d6725..039742a48d 100644
+--- a/src/ir/comp.rs
++++ b/src/ir/comp.rs
+@@ -1372,8 +1372,7 @@ impl CompInfo {
+ 
+                     // A declaration of an union or a struct without name could
+                     // also be an unnamed field, unfortunately.
+-                    if cur.spelling().is_empty() &&
+-                        cur.kind() != CXCursor_EnumDecl
++                    if cur.is_anonymous() && cur.kind() != CXCursor_EnumDecl
+                     {
+                         let ty = cur.cur_type();
+                         let offset = cur.offset_of_field().ok();
+diff --git a/bindgen/ir/ty.rs b/bindgen/ir/ty.rs
+index 6a3fd0e8c8..9edc43d419 100644
+--- a/src/ir/ty.rs
++++ b/src/ir/ty.rs
+@@ -737,7 +737,12 @@ impl Type {
+ 
+         let layout = ty.fallible_layout(ctx).ok();
+         let cursor = ty.declaration();
+-        let mut name = cursor.spelling();
++        let is_anonymous = cursor.is_anonymous();
++        let mut name = if is_anonymous {
++            None
++        } else {
++            Some(cursor.spelling()).filter(|n| !n.is_empty())
++        };
+ 
+         debug!(
+             "from_clang_ty: {:?}, ty: {:?}, loc: {:?}",
+@@ -771,7 +776,7 @@ impl Type {
+             if is_canonical_objcpointer && is_template_type_param {
+                 // Objective-C generics are just ids with fancy name.
+                 // To keep it simple, just name them ids
+-                name = "id".to_owned();
++                name = Some("id".to_owned());
+             }
+         }
+ 
+@@ -900,7 +905,7 @@ impl Type {
+                                         return Err(ParseError::Recurse);
+                                     }
+                                 } else {
+-                                    name = location.spelling();
++                                    name = Some(location.spelling());
+                                 }
+ 
+                                 let complex = CompInfo::from_ty(
+@@ -942,7 +947,7 @@ impl Type {
+                                                 CXType_Typedef
+                                             );
+ 
+-                                            name = current.spelling();
++                                            name = Some(location.spelling());
+ 
+                                             let inner_ty = cur
+                                                 .typedef_type()
+@@ -1126,10 +1131,10 @@ impl Type {
+                 CXType_Enum => {
+                     let enum_ = Enum::from_ty(ty, ctx).expect("Not an enum?");
+ 
+-                    if name.is_empty() {
++                    if !is_anonymous {
+                         let pretty_name = ty.spelling();
+                         if clang::is_valid_identifier(&pretty_name) {
+-                            name = pretty_name;
++                            name = Some(pretty_name);
+                         }
+                     }
+ 
+@@ -1144,12 +1149,12 @@ impl Type {
+                     )
+                     .expect("Not a complex type?");
+ 
+-                    if name.is_empty() {
++                    if !is_anonymous {
+                         // The pretty-printed name may contain typedefed name,
+                         // but may also be "struct (anonymous at .h:1)"
+                         let pretty_name = ty.spelling();
+                         if clang::is_valid_identifier(&pretty_name) {
+-                            name = pretty_name;
++                            name = Some(pretty_name);
+                         }
+                     }
+ 
+@@ -1189,7 +1194,9 @@ impl Type {
+                 CXType_ObjCClass | CXType_ObjCInterface => {
+                     let interface = ObjCInterface::from_ty(&location, ctx)
+                         .expect("Not a valid objc interface?");
+-                    name = interface.rust_name();
++                    if !is_anonymous {
++                        name = Some(interface.rust_name());
++                    }
+                     TypeKind::ObjCInterface(interface)
+                 }
+                 CXType_Dependent => {
+@@ -1207,7 +1214,7 @@ impl Type {
+             }
+         };
+ 
+-        let name = if name.is_empty() { None } else { Some(name) };
++        name = name.filter(|n| !n.is_empty());
+ 
+         let is_const = ty.is_const() ||
+             (ty.kind() == CXType_ConstantArray &&

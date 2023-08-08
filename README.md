@@ -446,6 +446,8 @@ used to build perl)
     * ~~Add optional dsa, ecdsa, gost, private-key dependencies~~
 * dev-perl/libwww-perl
     * Add missing Mozilla::CA dependency for correct SSL operation
+* dev-util/bindgen
+    * Add patch required to build with sys-devel/clang-16 and later
 * mail-filter/libmilter
     * Add sys-devel/m4 dependency
 * mail-filter/opendkim
