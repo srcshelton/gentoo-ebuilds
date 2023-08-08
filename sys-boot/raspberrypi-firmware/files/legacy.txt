@@ -8,86 +8,95 @@
 # Legacy Options:
 # ==============
 # https://www.raspberrypi.com/documentation/computers/config_txt.html#legacy-options
-#
 
 # Memory Options:
 # --------------
-#
-#gpu_mem=<64|76>
-# 64MB for systems with <=1GB RAM, 76MB otherwise
-# 16MB minimum, which disables some features
-#gpu_mem_256=128
-#gpu_mem_512=384
-#gpu_mem_1024=<512, 76 on [rpi4]
-#total_mem=
-# Reduce amout of memory, e.g. to make a 4GB system act like a 1GB one
+
 #disable_l2cache=<0|1>
-# Enable/Disable GPU L2 cache
-# 0 for BCM2835, 1 for BCM2836, BCM2837, and BCM2711 (which have CPU L2)
+#  Enable/Disable GPU L2 cache
+#  0 for BCM2835, 1 for BCM2836, BCM2837, and BCM2711 (which have CPU L2)
 
 # Licence Key and Codec Options:
 # -----------------------------
 #
 #decode_MPG2=<key[,key...]>
 #decode_WVC1=<key[,key...]>
-# Not available on [pi4] and later
+#  Not available on [pi4] and later
 
 # Video Options:
 # -------------
-#
+
 #hdmi_safe=1
-# Sets:
-#  hdmi_force_hotplug=1
-#  hdmi_ignore_edid=0xa5000080
-#  config_hdmi_boost=4
-#  hdmi_group=2
-#  hdmi_mode=4
-#  disable_overscan=0
-#  overscan_left=24
-#  overscan_right=24
-#  overscan_top=24
-#  overscan_bottom=24
+#  Sets:
+#    hdmi_force_hotplug=1
+#    hdmi_ignore_edid=0xa5000080
+#    config_hdmi_boost=4
+#    hdmi_group=2
+#    hdmi_mode=4
+#    disable_overscan=0
+#    overscan_left=24
+#    overscan_right=24
+#    overscan_top=24
+#    overscan_bottom=24
+
 #hdmi_ignore_edid=0xa5000080
+
 #hdmi_edid_file=0
-# Read EDID data from 'edid.dat'
+#  Read EDID data from 'edid.dat'
+
 #hdmi_edid_filename:<0|1>=<file.edid>
-# Requires hdmi_edid_file=1
+#  Requires hdmi_edid_file=1
+
 #hdmi_force_edid_audio=0
+
 #hdmi_ignore_edid_audio=0
-# Default output to headphone jack
+#  Default output to headphone jack
+
 #hdmi_force_edid_3d=0
 #hdmi_ignore_cec_init=0
 #hdmi_ignore_cec=0
 #cec_osd_name=Raspberry Pi
 #hdmi_pixel_encoding-<0..4>
+
 #hdmi_max_pixel_freq=
-# Use, e.g. 200000000 to disable 4k modes as out-of-range
+#  Use, e.g. 200000000 to disable 4k modes as out-of-range
+
 #hdmi_blanking=0
-# hdmi_blanking=1 unimplemented on [pi4]
+#  hdmi_blanking=1 unimplemented on [pi4]
+
 #hdmi_drive=<1|2>
-# 1: DVI, no audio; 2: HDMI, audio enabled
+#  1: DVI, no audio; 2: HDMI, audio enabled
+
 #config_hdmi_boost=5
-# Range 0..11, [pi1] uses 2, ignored on [pi4]
+#  Range 0..11, [pi1] uses 2, ignored on [pi4]
+
 #hdmi_group=0
-# 0: Auto; 1: CEA; 2: DMT
+#  0: Auto; 1: CEA; 2: DMT
+
 #hdmi_mode=<1..107 with hdmi_group=1; 1..86 with hdmi_group=2>
-# Certain modes are [pi4] only and require core_freq_min=600, core_freq=600
-# Before [pi4], limit is 1920x1200@60Hz
-# [pi4] limit is 4096x2160@60HZ or 2x4096x2160@30Hz
+#  Certain modes are [pi4] only and require core_freq_min=600, core_freq=600
+#  Before [pi4], limit is 1920x1200@60Hz
+#  [pi4] limit is 4096x2160@60HZ or 2x4096x2160@30Hz
+
 #hdmi_timings=<hap> <hspo> <hfp> <hspu> <hbp> <val> <vspo> <vfp> <vspu> <vbp> <vsoa> <vsob> <pr> <fr> <i> <pf> <ar>
 #hdmi_force_mode=0
 #edid_content_type=<0..4>
 #hdmi_cvt=<width> <height> <framerate> <aspect> <margins> <interlace> <rb>
 
+
 # sdtv is unavailable on [pi400]
 #
+
 #sdtv_mode=0
-# Valid values: 0, 1, 2, 3, 16, 18
+#  Valid values: 0, 1, 2, 3, 16, 18
+
 #sdtv_aspect=1
-# Valid values: 1, 2, 3
+#  Valid values: 1, 2, 3
+
 #sdtv_disable_colourburst=0
+
 #enable_tvout=<0|1>
-# 0 for [pi4] and [pi400], 1 otherwise
+#  0 for [pi4] and [pi400], 1 otherwise
 
 #ignore_lcd=0
 #display_default_lcd=1
@@ -97,8 +106,9 @@
 #enable_dpi_lcd=0
 #dpi_group=
 #dpi_mode=
+
 #dpi_output_format=
-# See equivalent hdmi_* settings
+#  See equivalent hdmi_* settings
 
 #hdmi_force_hotplug=0
 #hdmi_ignore_hotplug=0
@@ -111,36 +121,47 @@
 #framebuffer_height=
 #max_framebuffer_height=
 #max_framebuffer_width=
+
 #framebuffer_depth=16
-# Valid values: 8, 16, 24, 32
+#  Valid values: 8, 16, 24, 32
+
 #framebuffer_ignore_alpha=0
-# May be required for framebuffer_depth=32
+#  May be required for framebuffer_depth=32
+
 #framebuffer_priority=
-# 0: main LCD; 1: secondary LCD; 2: HDMI0; 3: Composite; 7: HDMI1
+#  0: main LCD; 1: secondary LCD; 2: HDMI0; 3: Composite; 7: HDMI1
+
 #max_framebuffers=1
-# Valid values: 0, 1, 2
-# Set to 0 to save memory by preventing framebuffer creation
+#  Valid values: 0, 1, 2
+#  Set to 0 to save memory by preventing framebuffer creation
+
 #test_mode=0
+
 #display_hdmi_rotate=0
-# Valid values: 0, 1, 2, 3, 0x10000, 0x20000
+#  Valid values: 0, 1, 2, 3, 0x10000, 0x20000
+
 #display_lcd_rotate=
 #display_rotate=
 #disable_fw_kms_setup=0
 
 #dispmanx_offline=0
 
+
 # Camera Settings:
 # ---------------
-#
+
 #disable_camera_led=0
 #awb_auto_is_greyworld=0
 
+
 # Miscellaneous Options:
 # ---------------------
-#
+
 #avoid_warnings=0
-# 1: disable warning overlays; 2: additionally allow low-voltage turbo
+#  1: disable warning overlays; 2: additionally allow low-voltage turbo
+
 #logging_level=0
 #max_usb_current=<deprecated>
+
 
 # vi: set syntax=cfg colorcolumn=78,98:
