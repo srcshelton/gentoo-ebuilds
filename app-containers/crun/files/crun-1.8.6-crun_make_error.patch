@@ -1,0 +1,27 @@
+From 080e56021ee3e2d4b9054fdb6134f49b4d6d9c7b Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Thu, 27 Jul 2023 21:56:12 +0200
+Subject: [PATCH] features: use exported function libcrun_make_error
+
+the crun_make_error function is not exported.
+
+Closes: https://github.com/containers/crun/issues/1250
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ src/oci_features.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/oci_features.c b/src/oci_features.c
+index 1283932e9..b02b457b5 100644
+--- a/src/oci_features.c
++++ b/src/oci_features.c
+@@ -212,7 +212,7 @@ crun_command_features (struct crun_global_arguments *global_args, int argc, char
+   // Prepare the JSON output
+   json_gen = yajl_gen_alloc (NULL);
+   if (json_gen == NULL)
+-    return crun_make_error (err, errno, "Failed to initialize json structure");
++    return libcrun_make_error (err, 0, "Failed to initialize json structure");
+ 
+   yajl_gen_config (json_gen, yajl_gen_beautify, 1); // Optional: Enable pretty formatting
+ 
