@@ -310,6 +310,8 @@ used to build perl)
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.0.x
 * dev-php/PEAR-Net\_LDAP3
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
+* dev-php/symfony-mbstring
+    * Required by dev-php/ZxcvbnPhp-1.3.1
 * dev-php/ZxcvbnPhp
     * To replace the bundled libraries which are supplied with mail-client/roundcube-1.4.x
 * ~~dev-python/ansible-lint~~
