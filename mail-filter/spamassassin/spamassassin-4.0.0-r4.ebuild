@@ -17,7 +17,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
-KEYWORDS="amd64 arm arm64 ~hppa ~ia64 ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="amd64 arm ~arm64 ~hppa ~ia64 ~loong ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="+berkdb cron dkim dmarc extracttext geoip idn ipv6 largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode"
 RESTRICT="!test? ( test )"
 
@@ -97,10 +97,6 @@ PERL_RUN_DEPEND="
 
 DEPEND="ssl? ( dev-libs/openssl:0= )"
 EXTRACTTEXT_DEPEND="extracttext? ( app-text/poppler app-text/tesseract )"
-# autoconf issue, see bug #899782
-# Can also use Perl::Critic::Policy::Perlsecret,
-# Perl::Critic::Policy::TestingAndDebugging::ProhibitNoStrict,
-# for which no ebuilds currently exist
 BDEPEND="${PERL_BUILD_DEPEND}
 	dev-lang/perl:=
 	|| ( >sys-devel/autoconf-2.71-r5 <sys-devel/gcc-13 )
@@ -131,6 +127,7 @@ PATCHES=(
 	"${FILESDIR}/4.0.0-tests-dnsbl_subtests.t.patch"
 	"${FILESDIR}/4.0.0-tests-strip2.t.patch"
 	"${FILESDIR}/4.0.0-DnsResolver-udpsize.patch"
+	"${FILESDIR}/4.0.0-sa-update-rdatastr.patch"
 )
 
 # There are a few renames and use-dependent ones in src_install as well.
