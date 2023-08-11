@@ -4,11 +4,12 @@
 EAPI=8
 
 DISTUTILS_OPTIONAL=1
-PYTHON_COMPAT=( python3_{9..11} )
+DISTUTILS_USE_PEP517=setuptools
+PYTHON_COMPAT=( python3_{10..11} )
 VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
 inherit distutils-r1 edo linux-info systemd verify-sig
 
-DESCRIPTION="Linux kernel (3.13+) firewall, NAT and packet mangling tools"
+DESCRIPTION="Linux kernel firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
 
 if [[ ${PV} =~ ^[9]{4,}$ ]]; then
@@ -25,21 +26,19 @@ fi
 # See COPYING: new code is GPL-2+, existing code is GPL-2
 LICENSE="GPL-2 GPL-2+"
 SLOT="0/1"
-IUSE="debug doc +gmp json libedit +modern-kernel python +readline static-libs systemd test xtables"
+IUSE="debug doc +gmp json libedit python +readline static-libs systemd test xtables"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:=
-	>=net-libs/libnftnl-1.2.5:=
+	>=net-libs/libnftnl-1.2.6:=
 	gmp? ( dev-libs/gmp:= )
 	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
 	readline? ( sys-libs/readline:= )
 	xtables? ( >=net-firewall/iptables-1.6.1:= )
 "
-
 DEPEND="${RDEPEND}"
-
 BDEPEND+="
 	sys-devel/flex
 	virtual/pkgconfig
@@ -47,25 +46,13 @@ BDEPEND+="
 		app-text/asciidoc
 		>=app-text/docbook2X-0.8.8-r4
 	)
-	python? ( ${PYTHON_DEPS} )
+	python? ( ${DISTUTILS_DEPS} )
 "
 
 REQUIRED_USE="
 	python? ( ${PYTHON_REQUIRED_USE} )
 	libedit? ( !readline )
 "
-
-pkg_setup() {
-	if kernel_is ge 3 13; then
-		if use modern-kernel && kernel_is lt 3 18; then
-			eerror "The modern-kernel USE flag requires kernel version 3.18 or newer to work properly."
-		fi
-		CONFIG_CHECK="~NF_TABLES"
-		linux-info_pkg_setup
-	else
-		eerror "This package requires kernel version 3.13 or newer to work properly."
-	fi
-}
 
 src_prepare() {
 	default
@@ -145,12 +132,10 @@ src_install() {
 	mv "${ED}"/etc/nftables/osf "${ED}"/usr/share/doc/${PF}/skels/osf || die
 	rmdir "${ED}"/etc/nftables || die
 
-	local mksuffix="$(usex modern-kernel '-mk' '')"
-
 	exeinto /usr/libexec/${PN}
-	newexe "${FILESDIR}"/libexec/${PN}${mksuffix}.sh ${PN}.sh
-	newconfd "${FILESDIR}"/${PN}${mksuffix}.confd ${PN}
-	newinitd "${FILESDIR}"/${PN}${mksuffix}.init-r1 ${PN}
+	newexe "${FILESDIR}/libexec/${PN}-mk.sh" "${PN}.sh"
+	newconfd "${FILESDIR}/${PN}-mk.confd" "${PN}"
+	newinitd "${FILESDIR}/${PN}-mk.init-r1" "${PN}"
 	keepdir /var/lib/nftables
 
 	use systemd && systemd_dounit "${FILESDIR}"/systemd/${PN}-restore.service
