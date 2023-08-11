@@ -5,7 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..12} )
 VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/torproject.org.asc
-inherit python-any-r1 readme.gentoo-r1 systemd verify-sig
+inherit edo python-any-r1 readme.gentoo-r1 systemd verify-sig
 
 MY_PV="$(ver_rs 4 -)"
 MY_PF="${PN}-${MY_PV}"
@@ -28,13 +28,16 @@ else
 	S="${WORKDIR}/${MY_PF}"
 
 	if [[ ${PV} != *_alpha* && ${PV} != *_beta* && ${PV} != *_rc* ]]; then
-		KEYWORDS="amd64 arm arm64 ~hppa ~mips ppc ppc64 ~riscv ~sparc x86 ~ppc-macos"
+		KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86 ~ppc-macos"
 	fi
 
-	BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-tor-20220216 )"
+	BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-tor-20230727 )"
 fi
 
-LICENSE="BSD GPL-2"
+# BSD in general, but for PoW, needs --enable-gpl (GPL-3 per --version)
+# We also already had GPL-2 listed here for the init script, but obviously
+# that's different from the actual binary.
+LICENSE="BSD GPL-2 GPL-3"
 SLOT="0"
 IUSE="caps doc lzma +man scrypt seccomp selinux +server systemd test tor-hardening zstd"
 RESTRICT="!test? ( test )"
@@ -121,6 +124,13 @@ src_configure() {
 		--enable-pic
 		--disable-restart-debugging
 
+		# Unless someone asks & has a compelling reason, just always
+		# build in GPL mode for pow, given we don't want yet another USE
+		# flag combination to have to test just for the sake of it.
+		# (PoW requires GPL.)
+		--enable-gpl
+		--enable-module-pow
+
 		# This option is enabled by default upstream w/ zstd, surprisingly.
 		# zstd upstream says this shouldn't be relied upon and it may
 		# break API & ABI at any point, so Tor tries to fake static-linking
@@ -143,6 +153,19 @@ src_configure() {
 	)
 
 	econf "${myeconfargs[@]}"
+}
+
+src_test() {
+	local skip_tests=(
+		# Fails in sandbox
+		:sandbox/open_filename
+		:sandbox/openat_filename
+	)
+
+	# The makefile runs these by parallel by chunking them with a script
+	# but that means we lose verbosity and can't skip individual tests easily
+	# either.
+	edo ./src/test/test --verbose "${skip_tests[@]}"
 }
 
 src_install() {
