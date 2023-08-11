@@ -2,10 +2,12 @@ acct-group
 acct-user
 app-accessibility
 app-admin
+app-alternatives
 app-antivirus
 app-arch
 app-containers
 app-crypt
+app-editors
 app-eselect
 app-misc
 app-pda
@@ -13,6 +15,7 @@ app-portage
 app-shells
 dev-db
 dev-embedded
+dev-java
 dev-lang
 dev-libs
 dev-perl
@@ -32,6 +35,7 @@ net-dialup
 net-dns
 net-firewall
 net-fs
+net-ftp
 net-im
 net-libs
 net-mail
@@ -39,6 +43,7 @@ net-misc
 net-nds
 net-p2p
 net-print
+net-proxy
 net-vpn
 net-wireless
 sys-apps
