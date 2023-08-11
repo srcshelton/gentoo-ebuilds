@@ -148,6 +148,10 @@ src_prepare() {
 }
 
 src_configure() {
+	# On alpha at least, gnulib (as of 9.3) can't seem to figure out we need
+	# _F_O_B=64: https://debbugs.gnu.org/64123
+	append-lfs-flags
+
 	local myconf=(
 		--with-packager="Gentoo"
 		--with-packager-version="${PVR} (p${PATCH_VER:-0})"
@@ -255,7 +259,7 @@ src_install() {
 
 		# Move critical binaries into /bin (common scripts)
 		local com="basename chroot cut dir dirname du env expr head mkfifo
-			mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
+		           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 		mv ${com} ../../bin/ || die "Could not move common binaries from /usr/bin to /bin"
 
 		# Create a symlink for uname in /usr/bin/ since autotools requires it,
