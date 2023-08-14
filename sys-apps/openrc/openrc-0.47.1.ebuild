@@ -33,6 +33,7 @@ DEPEND="${COMMON_DEPEND}
 	virtual/os-headers
 	ncurses? ( virtual/pkgconfig )"
 RDEPEND="${COMMON_DEPEND}
+	acct-group/uucp
 	bash? ( app-shells/bash )
 	!prefix? (
 		sysv-utils? (
@@ -87,6 +88,25 @@ src_prepare() {
 		eapply "${FILESDIR}/${PN}-0.46-rc.conf.patch" || die "rc.conf.in eapply failed"
 		eapply "${FILESDIR}/${PN}-0.43.5-init.d.patch" || die "init.d eapply failed"
 	fi
+
+	local replacement='var/run/openrc'
+	if ! use vanilla; then
+		replacement='lib/rc/init.d'
+	fi
+	while read -r f; do
+		ebegin "Patching file '${f#./}', updating '/run' reference to '/${replacement}'"
+		sed \
+				-e "s|run/openrc|${replacement}|g" \
+				-i "${f}"
+		eend ${?} "Patch failed: ${?}" ||
+			return ${?}
+	done < <(
+		find . -type f -exec grep -H '/run/openrc' {} + |
+			grep -v "/${replacement}" |
+			cut -d ':' -f 1 |
+			sort |
+			uniq
+	)
 }
 
 src_configure() {
@@ -146,7 +166,7 @@ src_install() {
 
 		# Restore now-integrated script
 		exeinto /lib/rc/sh
-		newexe "${FILESDIR}"/${PN}-0.13.7-init-common-post.sh init-common-post.sh
+		newexe "${FILESDIR}"/${P}-init-common-post.sh init-common-post.sh
 
 		use compat && dosym rc-service /sbin/service
 	fi

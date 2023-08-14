@@ -1,6 +1,15 @@
 --- a/sh/init.sh.Linux.in
 +++ b/sh/init.sh.Linux.in
-@@ -58,31 +58,80 @@ sys="$(openrc --sys)"
+@@ -45,7 +45,7 @@ unset f
+ 
+ if $mountproc; then
+ 	ebegin "Mounting /proc"
+-	if ! fstabinfo --mount /proc; then
++	if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /proc; then
+ 		mount -n -t proc -o noexec,nosuid,nodev proc /proc
+ 	fi
+ 	eend $?
+@@ -58,47 +58,104 @@ sys="$(openrc --sys)"
  if [ ! -d /run ]; then
  	if [ "$sys" = VSERVER ]; then
  		if [ -e /run ]; then
@@ -12,8 +21,8 @@
 -		eerror "The /run directory does not exist. Unable to continue."
 -		return 1
 +		#eerror "The /run directory does not exist. Unable to continue."
-+		#return 1
-+		:
++		#exit 1
++
 +		# awk may live in /usr...
 +		if command -v awk >/dev/null 2>&1; then
 +			boot_services="$( rc-status -Ca 2>/dev/null | awk -e "$( cat <<-'EOF'
@@ -41,17 +50,17 @@
 +			[ -d /var ] && ! [ -w /var ]
 +		then
 +			run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
-+			if ! mountinfo -q /var/run; then
++			if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/run; then
 +				ebegin "Mounting /var/run"
-+				if ! fstabinfo --mount /var/run; then
++				if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/run; then
 +					if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /var/run; then
 +						eerror "Unable to mount tmpfs on /var/run."
 +					fi
 +				fi
 +			fi
-+			if ! mountinfo -q /var/lock; then
++			if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/lock; then
 +				ebegin "Mounting /var/lock"
-+				if ! fstabinfo --mount /var/lock; then
++				if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/lock; then
 +					if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /var/lock; then
 +						eerror "Unable to mount tmpfs on /var/lock"
 +					fi
@@ -74,10 +83,10 @@
 +if [ -d /run ]; then
 +	if [ "$sys" = VSERVER ]; then
 +		rm -rf /run/*
-+	elif ! mountinfo -q /run; then
++	elif ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /run; then
 +		ebegin "Mounting /run"
 +		run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
-+		if ! fstabinfo --mount /run; then
++		if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /run; then
 +			if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /run; then
 +				eerror "Unable to mount tmpfs on /run."
 +				eerror "Can't continue."
@@ -97,24 +106,31 @@
  
  # Try to mount xenfs as early as possible, otherwise rc_sys() will always
  # return RC_SYS_XENU and will think that we are in a domU while it's not.
-@@ -94,10 +144,14 @@ if grep -Eq "[[:space:]]+xenfs$" /proc/f
+ if grep -Eq "[[:space:]]+xenfs$" /proc/filesystems; then
+ 	ebegin "Mounting xenfs"
+-	if ! fstabinfo --mount /proc/xen; then
++	if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /proc/xen; then
+ 		mount -n -t xenfs xenfs /proc/xen -o nosuid,nodev,noexec
+ 	fi
  	eend $?
  fi
  
--if [ -e "$RC_LIBEXECDIR"/cache/softlevel ]; then
--	cp -p "$RC_LIBEXECDIR"/cache/* "$RC_SVCDIR" 2>/dev/null
-+. "$RC_LIBEXECDIR"/sh/init-common-post.sh
++. "${RC_LIBEXECDIR}"/sh/init-common-post.sh
 +
+ if [ -e "$RC_LIBEXECDIR"/cache/softlevel ]; then
+ 	cp -p "$RC_LIBEXECDIR"/cache/* "$RC_SVCDIR" 2>/dev/null
+ fi
+ 
+-echo sysinit >"$RC_SVCDIR"/softlevel
+-[ -x /sbin/restorecon ] && /sbin/restorecon -rF /run
++echo 'sysinit' >"$RC_SVCDIR"/softlevel
 +if [ -x /sbin/restorecon ]; then
 +	if [ -d /run ]; then
 +		/sbin/restorecon -rF /run
 +	else
 +		/sbin/restorecon -rF /var/run
 +	fi
- fi
- 
--echo sysinit >"$RC_SVCDIR"/softlevel
--[ -x /sbin/restorecon ] && /sbin/restorecon -rF /run
++fi
  exit 0
 --- a/src/librc/rc.h.in
 +++ b/src/librc/rc.h.in
@@ -125,7 +141,8 @@
 +/*
  #elif defined(__linux__) || (defined(__FreeBSD_kernel__) && \
  		defined(__GLIBC__)) || defined(__GNU__)
- #define RC_SVCDIR               "/run/openrc"
+-#define RC_SVCDIR               "/run/openrc"
++#define RC_SVCDIR               "/var/run/openrc"
 +*/
  #else
  #define RC_SVCDIR               RC_LIBEXECDIR "/init.d"
@@ -144,7 +161,16 @@
  		esac
  		rm -f -- "$x"
  	done
-@@ -181,11 +182,11 @@ start()
+@@ -174,7 +175,7 @@ start()
+ 	else
+ 		extra=/var/run
+ 	fi
+-	for x in /var/log /tmp $extra; do
++	for x in /var/log /var/lock /tmp $extra; do
+ 		if ! [ -d $x ]; then
+ 			if ! mkdir -p $x; then
+ 				eend 1 "failed to create needed directory $x"
+@@ -183,11 +184,11 @@ start()
  		fi
  	done
  
@@ -154,10 +180,24 @@
 -		clean_run
 -	fi
 +	#if [ "$RC_UNAME" = Linux -a -d /run ]; then
-+	#	migrate_to_run	/var/lock /run/lock
-+	#	migrate_to_run	/var/run /run
++	#	migrate_to_run /var/lock /run/lock
++	#	migrate_to_run /var/run /run
 +	#	clean_run
 +	#fi
  
  	if checkpath -W /var/run; then
  		ebegin "Creating user login records"
+@@ -200,6 +201,13 @@ start()
+ 		eend 0
+ 
+ 		mountinfo -q -f tmpfs /var/run || cleanup_var_run_dir
++
++		[ -L /var/run/lock ] && rm /var/run/lock
++		[ -d /var/run/lock ] && rmdir /var/run/lock
++		[ -d /var/run/lock ] || ln -s ../lock /var/run/lock
++		awk '/lock/ { print $2 }' /etc/fstab 2>/dev/null |
++				grep -Fq '/var/lock' &&
++			mount /var/lock
+ 	fi
+ 
+ 	# Clean up /tmp directories
