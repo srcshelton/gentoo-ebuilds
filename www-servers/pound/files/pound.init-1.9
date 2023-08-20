@@ -7,10 +7,12 @@ depend() {
 }
 
 start() {
-	ebegin "Starting pound"
 	if [ ! -f "/etc/pound.cfg" ]; then
-		eend 1 "configfile /etc/pound.cfg not found."
+		eerror "configfile /etc/pound.cfg not found."
+		return 1
 	fi
+
+	ebegin "Starting pound"
 	start-stop-daemon --quiet --start --exec /usr/sbin/pound -- -f /etc/pound.cfg -p /var/run/pound.pid
 	eend $?
 }
