@@ -13,7 +13,7 @@ S="${WORKDIR}"/${P}/build/meson
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0/1"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
-IUSE="+lzma lz4 +parallel static-libs test zlib"
+IUSE="+lzma lz4 +contrib static-libs test zlib"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -50,7 +50,7 @@ multilib_src_configure() {
 		-Ddefault_library=$(multilib_native_usex static-libs both shared)
 
 		$(meson_native_true bin_programs)
-		$(meson_native_true bin_contrib)
+		$(use contrib && meson_native_true bin_contrib)
 		$(meson_use test bin_tests)
 
 		$(meson_native_use_feature zlib)
@@ -68,7 +68,7 @@ multilib_src_install() {
 
 	if multilib_is_native_abi; then
 		gen_usr_ldscript -a zstd
-		if ! use parallel; then
+		if ! use contrib && [[ -e "${ED}"/usr/bin/pzstd ]]; then
 			rm "${ED}"/usr/bin/pzstd
 		fi
 	fi
