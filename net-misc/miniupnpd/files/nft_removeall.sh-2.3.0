@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Undo the things nft_init.sh did
+#
+# Do not disturb other existing structures in nftables, e.g. those created by
+# firewalld
+#
+# By default, TABLE and NAT_TABLE are set to 'filter'
+
+. "$( dirname "${0}" )/functions.sh"
+
+if "${NFT}" --check list table inet "${TABLE}" >/dev/null 2>&1; then
+	# Do *not* delete the entire FILTER table, this removes all nft-backed
+	# xtables rules!
+	#
+	# then remove the table itself
+	#echo "Remove miniupnpd table"
+	#"${NFT}" delete table inet "${TABLE}"
+
+	if "${NFT}" --check list chain "${TABLE}" "${CHAIN}" >/dev/null 2>&1; then
+		echo "  * Removing miniupnpd chain from '${TABLE}' table"
+		"${NFT}" delete chain "${TABLE}" "${CHAIN}"
+	fi
+fi
+
+if [ "${TABLE}" != "${NAT_TABLE}" ]; then
+	if "${NFT}" --check list table inet "${NAT_TABLE}" >/dev/null 2>&1; then
+		# Do *not* delete the entire FILTER table, this removes all nft-backed
+		# xtables rules!
+		#
+		# then remove the table itself
+		#echo "Remove miniupnpd nat table"
+		#"${NFT}" delete table inet "${NAT_TABLE}"
+		if "${NFT}" --check list chain "${NAT_TABLE}" "${PREROUTING_CHAIN}" >/dev/null 2>&1; then
+			echo "  * Removing miniupnpd pre-routing chain from '${NAT_TABLE}' table"
+			"${NFT}" delete chain "${NAT_TABLE}" "${PREROUTING_CHAIN}"
+		fi
+		if "${NFT}" --check list chain "${NAT_TABLE}" "${POSTROUTING_CHAIN}" >/dev/null 2>&1; then
+			echo "  * Removing miniupnpd pcp peer chain from '${NAT_TABLE}' table"
+			"${NFT}" delete chain "${NAT_TABLE}" "${POSTROUTING_CHAIN}"
+		fi
+	fi
+fi

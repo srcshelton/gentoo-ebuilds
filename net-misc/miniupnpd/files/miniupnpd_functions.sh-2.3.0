@@ -1,0 +1,40 @@
+#! /bin/sh
+
+if ! NFT="$( command -v nft 2>/dev/null )"; then
+	echo >&2 "Can't find 'nft' binary"
+	exit 1
+fi
+
+: "${TABLE:="filter"}"
+: "${NAT_TABLE="filter"}"
+: "${CHAIN="MINIUPNPD"}"
+: "${PREROUTING_CHAIN="MINIUPNPD-PREROUTING"}"
+: "${POSTROUTING_CHAIN="MINIUPNPD-POSTROUTING"}"
+
+while getopts ":t:n:c:p:r:" opt; do
+	case "${opt:-}" in
+		t)
+			TABLE="${OPTARG}"
+			;;
+		n)
+			NAT_TABLE="${OPTARG}"
+			;;
+		c)
+			CHAIN="${OPTARG}"
+			;;
+		p)
+			PREROUTING_CHAIN="${OPTARG}"
+			;;
+		r)
+			POSTROUTING_CHAIN="${OPTARG}"
+			;;
+		'?')
+			echo >&2 "Invalid option: '-${OPTARG}'"
+			exit 1
+			;;
+		:)
+			echo >&2 "Option '-${OPTARG}' requires an argument"
+			exit 1
+			;;
+	esac
+done

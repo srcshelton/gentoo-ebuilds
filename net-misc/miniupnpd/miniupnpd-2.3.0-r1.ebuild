@@ -83,7 +83,7 @@ src_install() {
 	exeinto /etc/miniupnpd
 	if ! use nftables; then
 		newexe "${FILESDIR}"/iptables_init.sh-1.12 iptables_init.sh
-		newexe "${FILESDIR}"/iptables_removeall.sh-1.11 iptables_removeall.sh
+		newexe "${FILESDIR}"/iptables_removeall.sh-1.12 iptables_removeall.sh
 		newexe "${FILESDIR}"/ip6tables_init.sh-1.3 ip6tables_init.sh
 		newexe "${FILESDIR}"/ip6tables_removeall.sh-1.2 ip6tables_removeall.sh
 		insinto /etc/miniupnpd
