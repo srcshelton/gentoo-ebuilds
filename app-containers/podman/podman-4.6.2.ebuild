@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-EGIT_COMMIT="38e6fab9664c6e59b66e73523b307a56130316ae"
+EGIT_COMMIT="5db42e86862ef42c59304c38aa583732fd80f178"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
