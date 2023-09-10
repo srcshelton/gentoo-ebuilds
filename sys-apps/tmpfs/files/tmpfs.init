@@ -1,81 +1,97 @@
 #!/sbin/openrc-run
-# Copyright (c) 2010-2013 Stuart Shelton
+# Copyright (c) 2010-2023 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-extra_commands="forceunmount forceumount commit"
+extra_commands='forceunmount forceumount commit'
 
-OVERLAY_ROOT=""
-MP=""
+# Older versions of OpenRC used to allow the configuration of ${svcmount}
+# ('yes' or 'no') and ${svcdir} ('/var/lib/init.d') which would only be mounted
+# when [ "${svcmount}" = 'yes ].  However, modern versions always mount the
+# equivalent tmpfs on '/lib/rc/init.d'
+#svcmount=no
+#svcdir=/var/lib/init.d
+
+OVERLAY_ROOT=''
+MP=''
 
 getconf() {
-	local svc x val
-	svc="${1}" ; shift
+	local svc='' x='' val=''
+	svc="${1:-}" ; [ $(( ${#} )) -eq 0 ] || shift
 
 	[ -n "${svc:-}" ] || return 255
 
-	[ "${DEBUG:-0}" != "0" ] && einfo "DEBUG: svc is '${svc}'"
+	veinfo "DEBUG: svc is '${svc}'"
 
 	x="OVERLAY_ROOT_${svc}"
-	val="$( eval echo "\$${x}" )"
+	eval val="\${${x}}"
 	if [ -n "${val:-}" ]; then
 		OVERLAY_ROOT="${val}"
 
 		x="${svc}_PATH"
-		val="$( eval echo "\$${x}" )"
+		eval val="\${${x}}"
 		if [ -n "${val:-}" ]; then
 			MP="${val}"
 		fi
 	fi
 
-	if [ "${DEBUG:-0}" != "0" ]; then
-		einfo "DEBUG: OVERLAY_ROOT is '${OVERLAY_ROOT}'"
-		einfo "DEBUG: MP is '${MP}'"
-	fi
+	veinfo "DEBUG: OVERLAY_ROOT is '${OVERLAY_ROOT}'"
+	veinfo "DEBUG: MP is '${MP}'"
 
-	if ! [ -n "${MP}" ] && [ -d "/${MP}" ]; then
-		eerror "Cannot find directory '${MP}'"
+	if ! [ -n "${MP:-}" -a -d "/${MP}" ]; then
+		eerror "Cannot find directory '${MP:-}'"
 		return 1
 	fi
 } # getconf
 
 movesvcmount() {
-	local action dir code
-	action="${1}" ; shift
-	dir="${1}"; shift
+	local action='' dir=''
+	local -i code=0
+
+	action="${1:-}" ; [ $(( ${#} )) -eq 0 ] || shift
+	dir="${1:-}"; [ $(( ${#} )) -eq 0 ] || shift
 
 	[ -n "${svcdir:-}" ] || return 255
 
-	{ [ -n "${action:-}" ] && echo "${action}" | grep -Eq '(save|restore)' ; } || return 255
-	[ 'restore' = "${action}" ] && { { [ -n "${dir}" ] && [ -d "${dir}" ] ; } || return 255 ; }
+	case "${action:-}" in
+		save)
+			;;
+		restore)
+			[ -n "${dir}" -a -d "${dir}" ] || return 255 ;;
+		*)
+			return 255 ;;
+	esac
 
 	# OpenRC provides ${svcmount}...
-
 	case "${action}" in
 		save)
-			[ -n "${MP:-}" ] || return 255
-			[ -n "${svcmount:-}" ] || return 255
+			[ -n "${MP:-}" -a -n "${svcmount:-}" ] || return 255
 
-			if echo "${MP}" | grep -q 'var'; then
-				[ $(( DEBUG )) -ne 0 ] && einfo "DEBUG: /\$MP is /var or below ..." >&2
-				if [ "${svcmount}" = "yes" ]; then
+			if
+					echo "${MP}" | grep -q 'var' &&
+					echo "${svcmount}" | grep -q 'var'
+			then
+				veinfo "DEBUG: /\$MP and \$svcmount are /var or below ..." >&2
+				if [ "${svcmount}" = 'yes' ]; then
 					ebegin "Moving '${svcdir}' mount" >&2
 
-					tmpdir="$( mktemp --tmpdir -d )"
-					code=${?}
-					if [ $(( code )) -ne 0 ]; then
-						eend ${code} "Could not create temporary directory: ${code}" >&2
+					if ! tmpdir="$( mktemp --tmpdir -d )"; then
+						code=${?}
+						eend ${code} "Could not create temporary directory:" \
+							"${code}" >&2
+
 						return ${code}
 					fi
 
-					mount --move "${svcdir}" "${tmpdir}"
-					code=${?}
-					if [ $(( code )) -ne 0 ]; then
+					if ! mount --move "${svcdir}" "${tmpdir}"; then
+						code=${?}
 						eend ${code} "Move failed: ${code}" >&2
+
 						rmdir "${tmpdir}" 2>/dev/null
+
 						return ${code}
 					fi
 
-					eend
+					eend 0
 				fi
 			fi
 
@@ -86,13 +102,16 @@ movesvcmount() {
 		restore)
 			ebegin "Moving '${svcdir}' mount" >&2
 			mkdir -p "${svcdir}" >/dev/null
-			mount --move "${dir}" "${svcdir}"
-			code=${?}
-			eend ${code} "Move failed: ${code}" >&2
+			if ! mount --move "${dir}" "${svcdir}"; then
+				code=${?}
+				eend ${code} "'mount --move' failed: ${code}" >&2
 
-			rmdir "${tmpdir}" 2>/dev/null
+				rmdir "${tmpdir}" 2>/dev/null
 
-			return ${code}
+				return ${code}
+			fi
+
+			return 0
 			;;
 
 		*)
@@ -105,106 +124,119 @@ movesvcmount() {
 } # movesvcmount
 
 unbindtmpfs() {
-	local code=1 pid
-	declare -i pid
+	local -i code=0 pid=0 count=0
 
-	[ -n "${OVERLAY_ROOT}" ] || return 255
-	[ -n "${MP}" ] || return 255
+	[ -n "${OVERLAY_ROOT:-}" -a -n "${MP:-}" ] || return 255
 
 	ebegin "Unmounting '/${MP}' ('${OVERLAY_ROOT}/${MP}')"
 
-	[ $(( DEBUG )) -ne 0 ] && einfo "DEBUG: Current mounts" && mount
+	# Guard with (( DEBUG )) check to prevent expensive processing being
+	# carried out for output which will never be seen...
+	[ $(( DEBUG )) -ge 1 ] && veinfo "DEBUG: Current mounts: $( mount )" || :
 	umount -f "/${MP}" >/dev/null 2>&1
-	[ $(( DEBUG )) -ne 0 ] && einfo "DEBUG: New mounts" && mount
+	[ $(( DEBUG )) -ge 1 ] && veinfo "DEBUG: New mounts: $( mount )" || :
 
 	if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
-		code=0
-	else
-		if ! [ -x "$( command -v lsof )" ]; then
-			code=1
-		else
-			ewarn "umount failed; attempting to kill tasks locking '/${MP}'"
-
-			local count=0
-
-			while [ -n "$( lsof -Xt "/${MP}" )" ] && [ $(( count )) -lt 5 ]; do
-				for pid in $( lsof -Xt "/${MP}" ); do
-					ps ${pid} >/dev/null && kill -TERM ${pid} && [ $(( DEBUG )) -ne 0 ] && einfo "Sending TERM signal to PID ${pid}"
-				done
-
-				sleep 0.5
-
-				: $(( count = count + 1 ))
-			done
-
-			count=0
-
-			while [ -n "$( lsof -Xt "/${MP}" )" ] && [ $(( count )) -lt 3 ]; do
-				for pid in $( lsof -Xt "/${MP}" ); do
-					ps ${pid} >/dev/null && kill -KILL ${pid} && [ $(( DEBUG )) -ne 0 ] && einfo "Sending KILL signal to PID ${pid}"
-				done
-
-				sleep 1
-
-				: $(( count = count + 1 ))
-			done
-
-			umount -f "/${MP}" >/dev/null 2>&1
-
-			if mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
-				code=1
-			else
-				code=0
-			fi
-		fi
+		eend 0
+		return 0
 	fi
-	eend ${code} "umount failed: ${code}"
+
+	if ! [ -x "$( command -v lsof )" ]; then
+		eend 1 "'lsof' binary not present, cannot locate tasks to kill"
+		return 1
+	fi
+
+	ewarn "umount failed; attempting to kill tasks locking '/${MP}'"
+
+	while [ -n "$( lsof -Xt "/${MP}" )" ] && [ $(( count )) -lt 5 ]; do
+		for pid in $( lsof -Xt "/${MP}" ); do
+			ps ${pid} >/dev/null &&
+				kill -TERM ${pid} &&
+				veinfo "Sending TERM signal to PID ${pid}"
+		done
+
+		sleep 0.5
+
+		: $(( count = count + 1 ))
+	done
+
+	count=0
+
+	while [ -n "$( lsof -Xt "/${MP}" )" ] && [ $(( count )) -lt 3 ]; do
+		for pid in $( lsof -Xt "/${MP}" ); do
+			ps ${pid} >/dev/null &&
+				kill -KILL ${pid} &&
+				veinfo "Sending KILL signal to PID ${pid}"
+		done
+
+		sleep 1
+
+		: $(( count = count + 1 ))
+	done
+
+	if ! umount -f "/${MP}" >/dev/null 2>&1; then
+		code=${?}
+		eend ${code} "umount failed: ${code}"
+	elif mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
+		code=1
+		eend ${code} "umount succeeded, but '/${MP}' is still mounted"
+	fi
 
 	return ${code}
 } # unbindtmpfs
 
 restoredata() {
-	local destination="${1}" ; shift
-	local message="to" options="" code=1
+	local message='to' options='' code=0
+	local destination="${1:-}" ; [ $(( ${#} )) -eq 0 ] || shift
 
-	[ -n "${OVERLAY_ROOT}" ] || return 255
-	[ -n "${MP}" ] || return 255
+	[ -n "${OVERLAY_ROOT}" -a -n "${MP}" ] || return 255
 
-
-	if [ -z "${destination}" ]; then
+	if [ -z "${destination:-}" ]; then
 		destination="/${MP}"
-		message="back to"
+		message='back to'
 	fi
 
 	if ! [ -d "${OVERLAY_ROOT}/${MP}" ]; then
 		eerror "'${OVERLAY_ROOT}/${MP}' does not exist or is not mounted"
-		[ $(( DEBUG )) -ne 0 ] && einfo "'${OVERLAY_ROOT}/' contains:" && ls -lAR "${OVERLAY_ROOT}/"
+		[ $(( DEBUG )) -ge 1 ] && veinfo "'${OVERLAY_ROOT}/' contains: $( # <- Syntax
+			ls -lAR "${OVERLAY_ROOT}/"
+		)" || :
 
-		code=1
-	else
-		# We won't process EXCLUDEs here - we always
-		# want to back-up *everything*...
-		if [ -x "$( command -v rsync )" ]; then
-			ebegin "Synchronising '${OVERLAY_ROOT}' ${message} '${destination}'"
-			[ $(( DEBUG )) -ne 0 ] && options="-vvn" || options="-q"
-			rsync ${options} -caHAXSx --super --delete --delete-before "${OVERLAY_ROOT}/${MP}/" "${destination}/"
-			eend ${?} "rsync failed: ${?}"
+		return 1
+	fi
+
+	# We won't process EXCLUDEs here - we always want to
+	# restore *everything*...
+	if [ -x "$( command -v rsync )" ]; then
+		ebegin "Synchronising '${OVERLAY_ROOT}' ${message} '${destination}'"
+		if [ $(( DEBUG )) -ge 1 ]; then
+			options="-vvn"
 		else
-			ebegin "Copying '${OVERLAY_ROOT}' ${message} '${destination}'"
-			mv "${destination}" "${destination}.old"
-			[ $(( DEBUG )) -ne 0 ] && options="-v"
-			cp ${options} -ax --sparse=always "${OVERLAY_ROOT}/${MP}/" "${destination}"
-			code=${?}
-			eend ${code} "File-copy failed: ${code}"
-
-			if [ $(( code )) -ne 0 ]; then
-				rm -rf "${destination}.old"
-			else
-				rm -rf "${destination}"
-				mv "${destination}.old" "${destination}"
-			fi
+			options="-q"
 		fi
-		code=0
+		rsync ${options} -caHAXSx --super --delete --delete-before \
+			"${OVERLAY_ROOT}/${MP}/" \
+			"${destination}/"
+		code=${?}
+		eend ${code} "rsync failed: ${code}"
+	else
+		ebegin "Copying '${OVERLAY_ROOT}' ${message} '${destination}'"
+		mv "${destination}" "${destination}.old"
+		if [ $(( DEBUG )) -ge 1 ]; then
+			options="-v"
+		fi
+		cp ${options} -ax --sparse=always \
+			"${OVERLAY_ROOT}/${MP}/" \
+			"${destination}"
+		code=${?}
+		eend ${code} "File-copy failed: ${code}"
+
+		if [ $(( code )) -ge 1 ]; then
+			rm -rf "${destination}"
+			mv "${destination}.old" "${destination}"
+		else
+			rm -rf "${destination}.old"
+		fi
 	fi
 
 	return ${code}
@@ -213,233 +245,351 @@ restoredata() {
 depend() {
 	local mp="${SVCNAME#*.}" x svc
 
-	. /etc/conf.d/tmpfs
-
-	before bootmisc
-	before logger
-	need localmount
-
-	x="RC_NEED_${mp}"
-	svc="$( eval echo "\$${x}" )"
-	[ -n "${svc}" ] && need "${svc}"
-	x="RC_USE_${mp}"
-	svc="$( eval echo "\$${x}" )"
-	[ -n "${svc}" ] && use "${svc}"
-	x="RC_AFTER_${mp}"
-	svc="$( eval echo "\$${x}" )"
-	[ -n "${svc}" ] && after "${svc}"
+	for dependency in after need use before; do
+		x="RC_$( echo "${dependency}" | tr 'a-z' 'A-Z' )_${mp}"
+		eval svc="\${${x}}"
+		case "${dependency}" in
+			before)
+				for x in bootmisc logger; do
+					case " ${svc} " in
+						" ${x} ") : ;;
+						*) svc="${x}${svc:+" ${svc}"}"
+					esac
+				done
+				;;
+			need)
+				for x in localmount; do
+					case " ${svc} " in
+						" ${x} ") : ;;
+						*) svc="${x}${svc:+" ${svc}"}"
+					esac
+				done
+				;;
+		esac
+		veinfo "Service '${mp}': ${dependency} '${svc:-}'"
+		[ -z "${svc:-}" ] || eval "${dependency} ${svc}"
+	done
 }
 
 start() {
-	case "${SVCNAME}" in
-	tmpfs)
-		eerror "${SVCNAME} is not meant to be called directly"
-		return 1
-		;;
-	*)
-		local x svc exclude="" fstab="" fs="" fsmp="" fstype="" fsopt="" code=1
-
-		x="${SVCNAME#*.}_EXCLUDE"
-		svc="$( eval echo "\$${x}" )"
-		if [ -n "${svc}" ]; then
-			exclude="${svc}"
-		fi
-		x="${SVCNAME#*.}_FSTAB"
-		svc="$( eval echo "\$${x}" )"
-		if [ -n "${svc}" ]; then
-			fstab="${svc}"
-			if [ -n "${fstab}" ]; then
-				fs="$( printf '%s' "${fstab}" | cut -d' ' -f 1 )"
-				fsmp="$( printf '%s' "${fstab}" | cut -d' ' -f 2 )"
-				fstype="$( printf '%s' "${fstab}" | cut -d' ' -f 3 )"
-				fsopt="$( printf '%s' "${fstab}" | cut -d' ' -f 4 )"
-				if [ -n "${fs}" ] && [ -n "${fsmp}" ] && [ -n "${fstype}" ]; then
-					if ! mount | grep -q "^${fs} on ${fsmp} type ${fstype} "; then
-						ebegin "Mounting '${fs}' on ${fsmp}"
-						if [ -n "${fsopt}" ]; then
-							mount -t "${fstype}" "${fs}" "${fsmp}" -o "${fsopt}"
-						else
-							mount -t "${fstype}" "${fs}" "${fsmp}"
-						fi
-						eend ${?}
-					fi
-				fi
-			fi
-		fi
-		unset fsopt fstype fsmp fs fstab
-
-		getconf "${SVCNAME#*.}" || return ${?}
-
-		if mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
-			eerror "'/${MP}' is already mounted! "
-			return 1
-		fi
-
-		if ! [ -d "${OVERLAY_ROOT}" ]; then
-			eerror "'${OVERLAY_ROOT}' does not exist or is not mounted"
-		else
-			ebegin "Remounting '/$MP' to tmpfs"
-			eindent
-
-			if [ -d "${OVERLAY_ROOT}/${MP}.old" ]; then
-				rm -rf "${OVERLAY_ROOT}/${MP}.old"
-			fi
-
-			local tmpdir movesvcdir
-			declare -i movesvcdir
-
-			tmpdir="$( movesvcmount save )"
-			movesvcdir=${?}
-			[ $(( DEBUG )) -ne 0 ] && einfo "DEBUG: movesvcdir is ${movesvcdir}"
-
-			ebegin "Mirroring '/${MP}' to '${OVERLAY_ROOT}'"
-
-			if [ -x "$( command -v rsync )" ]; then
-				if [ -n "${exclude}" ]; then
-					local element
-					for element in ${exclude}; do
-						options="${options} --exclude ${element}"
-					done
-					unset element
-				fi
-				if [ $(( DEBUG )) -ne 0 ]; then
-					options="-vvn ${options}"
-					einfo "Additional options are '${options}'"
-				else
-					options="-q ${options}"
-				fi
-				mkdir -p "${OVERLAY_ROOT}/${MP}/"
-				rsync -caHAXSx --super --delete --delete-before ${options} "/${MP}/" "${OVERLAY_ROOT}/${MP}/"
-				code=${?}
-				eend ${code} "rsync failed: ${code}"
-			else
-				if [ -d "${OVERLAY_ROOT}/${MP}" ]; then
-					mv "${OVERLAY_ROOT}/${MP}" "${OVERLAY_ROOT}/${MP}.old"
-				fi
-				local options=""
-				[ $(( DEBUG )) -ne 0 ] && options="-v"
-				cp ${options} -ax --sparse=always "/${MP}/" "${OVERLAY_ROOT}/${MP}"
-				code=${?}
-				if [ -n "${exclude}" ]; then
-					local element
-					for element in ${exclude}; do
-						# This is safe, as we've copied the original
-						# directory out of the way just above...
-						if [ -d "${OVERLAY_ROOT}/${MP}/${element#/}" ]; then
-							rm -r "${OVERLAY_ROOT:?}/${MP:?}/${element#/}"/* 2>/dev/null
-						elif [ -e "${OVERLAY_ROOT}/${MP}/${element#/}" ]; then
-							rm -r "${OVERLAY_ROOT:?}/${MP:?}/${element#/}" 2>/dev/null
-						fi
-					done
-					unset element
-				fi
-				eend ${code} "File-copy failed: ${code}"
-			fi
-
-			if ! [ $(( code )) -ne 0 ]; then
-				ebegin "Mounting '${OVERLAY_ROOT}/${MP}' on '/${MP}'"
-				mount --rbind "${OVERLAY_ROOT}/${MP}/" "/${MP}"
-				code=${?}
-				eend ${code} "Mount failed: ${code}"
-			fi
-
-			if [ $(( movesvcdir )) -ne 0 ]; then
-				movesvcmount restore "${tmpdir}"
-				code=${?}
-			fi
-
-			if ! [ $(( code )) -ne 0 ]; then
-				if [ -n "$( lsof -Xt "/${MP}" )" ]; then
-					ebegin "Sending HUP signal to all processes using /${MP}"
-					kill -HUP $( lsof -Xt "/${MP}" )
-					eend
-				fi
-			fi
-
-			eoutdent
-			eend
-		fi
-
-		return ${code}
-		;;
-	esac
-}
-
-stop() {
+	local x='' svc='' exclude='' fstab='' fs='' fsmp='' fstype='' fsopt=''
+	local tmpdir=''
+	local -i code=1 movesvcdir=1
 	#export DEBUG=1
 
-	case "${SVCNAME}" in
-	tmpfs)
+	if [ "${SVCNAME:-}" = 'tmpfs' ]; then
 		eerror "${SVCNAME} is not meant to be called directly"
 		return 1
-		;;
-	*)
-		local code=1 pid n
+	fi
 
-		getconf "${SVCNAME#*.}" || return ${?}
+	x="${SVCNAME#*.}_EXCLUDE"
+	eval svc="\${${x}}"
+	if [ -n "${svc:-}" ]; then
+		exclude="${svc}"
+	fi
 
-		if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
-			eerror "'/${MP}' is not mounted from tmpfs! "
-			return 1
+	x="${SVCNAME#*.}_FSTAB"
+	eval svc="\${${x}}"
+	if [ -n "${svc:-}" ]; then
+		fstab="${svc}"
+		if [ -n "${fstab:-}" ]; then
+			# Avoid early-boot use of 'awk'...
+			fs="$( printf '%s' "${fstab}" | cut -d' ' -f 1 )"
+			fsmp="$( printf '%s' "${fstab}" | cut -d' ' -f 2 )"
+			fstype="$( printf '%s' "${fstab}" | cut -d' ' -f 3 )"
+			fsopt="$( printf '%s' "${fstab}" | cut -d' ' -f 4 )"
+
+			if [ -n "${fs:-}" ] && [ -n "${fsmp:-}" ] && [ -n "${fstype:-}" ]; then
+				if ! mount | grep -q "^${fs} on ${fsmp} type ${fstype} "; then
+					ebegin "Mounting '${fs}' on ${fsmp}"
+					if [ -n "${fsopt:-}" ]; then
+						mount -t "${fstype}" "${fs}" "${fsmp}" -o "${fsopt}"
+					else
+						mount -t "${fstype}" "${fs}" "${fsmp}"
+					fi
+					code=${?}
+					eend ${code} "Mount command 'mount -t ${fstype} ${fs}" \
+							"${fsmp}${fsopt:+" ${fsopt}"}' failed: ${code}" ||
+						return ${code}
+				fi
+			fi
 		fi
+	fi
+	unset fsopt fstype fsmp fs fstab
 
-		ebegin "Restoring working-set from '${OVERLAY_ROOT}' back to '/$MP'"
+	if ! getconf "${SVCNAME#*.}"; then
+		code=${?}
+		eerror "getconf() failed for service '${SVCNAME#*.}': ${code}"
+		return ${code}
+	fi
+
+	if mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
+		eerror "'/${MP}' is already mounted"
+		return 1
+	fi
+
+	if ! [ -d "${OVERLAY_ROOT}" ]; then
+		eerror "'${OVERLAY_ROOT}' does not exist or is not mounted"
+	else
+		ebegin "Remounting '/$MP' to tmpfs"
 		eindent
 
-		sync
-
-		local tmpdir movesvcdir
-		declare -i movesvcdir
+		if [ -d "${OVERLAY_ROOT}/${MP}.old" ]; then
+			rm -rf "${OVERLAY_ROOT}/${MP}.old"
+		fi
 
 		tmpdir="$( movesvcmount save )"
 		movesvcdir=${?}
-		[ $(( DEBUG )) -ne 0 ] && einfo "DEBUG: movesvcdir is ${movesvcdir}"
+		veinfo "DEBUG: movesvcdir is ${movesvcdir}"
+		case ${movesvcdir} in
+			255)
+				#eerror "Service directory '${svcdir:-}', service mount" \
+				#	"flag (${svcmount:-}), or mount-point '${MP:-}'" \
+				#	"aren't set"
+				:
+				;;
+			254)
+				eerror "Unreachable statement reached processing service" \
+					"directory restore operation"
+				;;
+			1)
+				eerror "Error saving service directory '${svcdir:-}':" \
+					"${movesvcdir}"
+				;;
+			0)
+				:
+				;;
+			*)
+				eerror "Unknown error saving directory '${svcdir:-}':" \
+					"${movesvcdir}"
+				;;
+		esac
 
-		unbindtmpfs
-		code=${?}
+		ebegin "Mirroring '/${MP}' to '${OVERLAY_ROOT}'"
 
-		# This is causing lock-ups on shutdown...
-		#[ $(( DEBUG )) -ne 0 ] && sleep 1 && [ -d "${OVERLAY_ROOT}/${MP}" ] && einfo "DEBUG: OVERLAY_ROOT/mp '${OVERLAY_ROOT}/$MP' exists"
-
-		sleep 0.1
-
-		if ! [ $(( code )) -ne 0 ]; then
-			restoredata
+		if [ -x "$( command -v rsync )" ]; then
+			if [ -n "${exclude}" ]; then
+				local element
+				for element in ${exclude}; do
+					options="${options} --exclude ${element}"
+				done
+				unset element
+			fi
+			if [ $(( DEBUG )) -ge 1 ]; then
+				options="-vvn ${options}"
+				veinfo "Additional options are '${options}'"
+			else
+				options="-q ${options}"
+			fi
+			mkdir -p "${OVERLAY_ROOT}/${MP}/"
+			rsync -caHAXSx --super --delete --delete-before ${options} \
+				"/${MP}/" \
+				"${OVERLAY_ROOT}/${MP}/"
 			code=${?}
+			eend ${code} "rsync failed: ${code}"
+		else
+			if [ -d "${OVERLAY_ROOT}/${MP}" ]; then
+				mv "${OVERLAY_ROOT}/${MP}" "${OVERLAY_ROOT}/${MP}.old"
+			fi
+			local options=""
+			if [ $(( DEBUG )) -ge 1 ]; then
+				options="-v"
+			fi
+			cp ${options} -ax --sparse=always "/${MP}/" "${OVERLAY_ROOT}/${MP}"
+			code=${?}
+			if [ -n "${exclude}" ]; then
+				local element
+				for element in ${exclude}; do
+					# This is safe, as we've copied the original
+					# directory out of the way just above...
+					if [ -d "${OVERLAY_ROOT}/${MP}/${element#/}" ]; then
+						rm -r "${OVERLAY_ROOT:?}/${MP:?}/${element#/}"/* \
+							2>/dev/null
+					elif [ -e "${OVERLAY_ROOT}/${MP}/${element#/}" ]; then
+						rm -r "${OVERLAY_ROOT:?}/${MP:?}/${element#/}" \
+							2>/dev/null
+					fi
+				done
+				unset element
+			fi
+			unset options
+			eend ${code} "File-copy failed: ${code}"
 		fi
 
-		if ! [ $(( code )) -ne 0 ] && [ $(( movesvcdir )) -ne 0 ]; then
+		if ! [ $(( code )) -ge 1 ]; then
+			ebegin "Mounting '${OVERLAY_ROOT}/${MP}' on '/${MP}'"
+			mount --rbind "${OVERLAY_ROOT}/${MP}/" "/${MP}"
+			code=${?}
+			eend ${code} "Mount failed: ${code}"
+		fi
+
+		if [ $(( movesvcdir )) -eq 0 ]; then
 			movesvcmount restore "${tmpdir}"
 			code=${?}
+			case ${code} in
+				255)
+					eerror "Service directory backup '${tmpdir:-}' isn't set" \
+						"or doesn't exist"
+					;;
+				254)
+					eerror "Unreachable statement reached processing service" \
+						"directory restore operation"
+					;;
+				1)
+					eerror "Error restoring service directory" \
+						"'${svcdir:-}' from '${tmpdir:-}' ${code}"
+					;;
+				0)
+					:
+					;;
+				*)
+					eerror "Unknown restoring directory '${svcdir:-}'" \
+						"from '${tmpdir:-}' ${code}"
+					;;
+			esac
 		fi
 
-		if [ $(( code )) -ne 0 ] && [ $((movesvcdir )) -ne 0 ]; then
-			if [ -w /proc/sysrq-trigger ]; then
-				ewarn "We were unable to remount the in-memory service directory"
-				ewarn "to '${svcdir}'."
-				eerror "This is very bad, and this machine must now be forcibly restarted ..."
-
-				: $(( n = 1 ))
-				while [ $(( n < 6 )) -ne 0 ]; do
-					printf '%s' "\a"
-					sleep 0.1 >/dev/null 2>&1 || sleep 1 >/dev/null 2>&1
-					printf '%s' "\a"
-					sleep 1
-					: $(( n = n + 1 ))
-				done
-
-				echo 's' > /proc/sysrq-trigger
-				echo 'u' > /proc/sysrq-trigger
-				echo 'b' > /proc/sysrq-trigger
+		if ! [ $(( code )) -ge 1 ]; then
+			if [ -n "$( lsof -Xt "/${MP}" )" ]; then
+				ebegin "Sending HUP signal to all processes using /${MP}"
+				kill -HUP $( lsof -Xt "/${MP}" )
+				eend
 			fi
 		fi
 
 		eoutdent
 		eend ${code}
+	fi
 
+	return ${code}
+}
+
+stop() {
+	#export DEBUG=1
+
+	local tmpdir=''
+	local -i code=0 movesvcdir=1 pid=0 n=0
+
+	if [ "${SVCNAME:-}" = 'tmpfs' ]; then
+		eerror "${SVCNAME} is not meant to be called directly"
+		return 1
+	fi
+
+	if ! getconf "${SVCNAME#*.}"; then
+		code=${?}
+		eerror "getconf() failed for service '${SVCNAME#*.}': ${code}"
 		return ${code}
-		;;
+	fi
+
+	if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
+		eerror "'/${MP}' is not mounted from tmpfs"
+		return 1
+	fi
+
+	ebegin "Restoring working-set from '${OVERLAY_ROOT}' back to '/$MP'"
+	eindent
+
+	sync
+
+	tmpdir="$( movesvcmount save )"
+	movesvcdir=${?}
+	veinfo "DEBUG: movesvcdir is ${movesvcdir}"
+	case ${movesvcdir} in
+		255)
+			#eerror "Service directory '${svcdir:-}', service mount flag" \
+			#	"(${svcmount:-}), or mount-point '${MP:-}' aren't set"
+			:
+			;;
+		254)
+			eerror "Unreachable statement reached processing service" \
+				"directory restore operation"
+			;;
+		1)
+			eerror "Error saving service directory '${svcdir:-}':" \
+				"${movesvcdir}"
+			;;
+		0)
+			:
+			;;
+		*)
+			eerror "Unknown error saving directory '${svcdir:-}':" \
+				"${movesvcdir}"
+			;;
 	esac
+
+	unbindtmpfs
+	code=${?}
+
+	# This is causing lock-ups on shutdown...
+	#if [ $(( DEBUG )) -ge 1 ]; then
+	#	sleep 1
+	#	[ ! -d "${OVERLAY_ROOT}/${MP}" ] ||
+	#		veinfo "DEBUG: OVERLAY_ROOT/mp '${OVERLAY_ROOT}/$MP' exists"
+	#fi
+
+	sleep 0.1
+
+	if ! [ $(( code )) -ge 1 ]; then
+		restoredata
+		code=${?}
+	fi
+
+	if [ $(( movesvcdir )) -eq 0 ]; then
+		if ! [ $(( code )) -ge 1 ]; then
+			movesvcmount restore "${tmpdir}"
+			code=${?}
+			case ${code} in
+				255)
+					eerror "Service directory backup '${tmpdir:-}' isn't set" \
+						"or doesn't exist"
+					;;
+				254)
+					eerror "Unreachable statement reached processing service" \
+						"directory restore operation"
+					;;
+				1)
+					eerror "Error restoring service directory" \
+						"'${svcdir:-}' from '${tmpdir:-}' ${code}"
+					;;
+				0)
+					:
+					;;
+				*)
+					eerror "Unknown restoring directory '${svcdir:-}'" \
+						"from '${tmpdir:-}' ${code}"
+					;;
+			esac
+		fi
+
+		if [ $(( code )) -ge 1 ]; then
+			ewarn "We were unable to remount the in-memory service directory"
+			ewarn "to '${svcdir}'."
+			eerror "This host must now be forcibly restarted ..."
+
+			if [ -w /proc/sysrq-trigger ]; then
+				n=1
+				while [ $(( n )) -lt 6 ]; do
+					printf '%s' '\a'
+					sleep 0.1 >/dev/null 2>&1 || sleep 1 >/dev/null 2>&1
+					printf '%s' '\a'
+					sleep 1
+					n=$(( n + 1 ))
+				done
+
+				printf 's' > /proc/sysrq-trigger
+				printf 'u' > /proc/sysrq-trigger
+				printf 'b' > /proc/sysrq-trigger
+			else
+				eerror "Fatal error but '/proc/sysrq-trigger' not" \
+					"writable - please reboot"
+			fi
+		fi
+	fi
+
+	eoutdent
+	eend ${code}
+
+	return ${code}
 }
 
 forceunmount() {
@@ -447,124 +597,180 @@ forceunmount() {
 }
 
 forceumount() {
-	# Enable contents to be saved even if the host OS doesn't think the service is running...
+	# Enable contents to be saved even if the host OS doesn't think the service
+	# is running...
 	#export DEBUG=1
 
-	case "${SVCNAME}" in
-	tmpfs)
+	local tmpdir=''
+	local -i code=1 movesvcdir=1
+
+	if [ "${SVCNAME:-}" = 'tmpfs' ]; then
 		eerror "${SVCNAME} is not meant to be called directly"
 		return 1
-		;;
-	*)
-		local code=1 movesvcdir=0
+	fi
 
-		getconf "${SVCNAME#*.}" || return ${?}
-
-		ebegin "Unconditionally restoring working-set from '${OVERLAY_ROOT}' back to '/$MP'"
-		eindent
-
-		if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
-			einfo "'/${MP}' is not currently mounted from tmpfs! "
-			code=0
-		else
-			local tmpdir movesvcdir
-			declare -i movesvcdir
-
-			tmpdir="$( movesvcmount save )"
-			movesvcdir=${?}
-			[ $(( DEBUG )) -ne 0 ] && einfo "DEBUG: movesvcdir is ${movesvcdir}"
-
-			unbindtmpfs
-			code=${?}
-		fi
-
-		if ! [ $(( code )) -ne 0 ]; then
-			restoredata
-			code=${?}
-		fi
-
-		if [ $(( movesvcdir )) -ne 0 ]; then
-			movesvcmount restore "${tmpdir}"
-			code=${?}
-		fi
-
-		eoutdent
-		eend ${code}
-
+	if ! getconf "${SVCNAME#*.}"; then
+		code=${?}
+		eerror "getconf() failed for service '${SVCNAME#*.}': ${code}"
 		return ${code}
-		;;
-	esac
+	fi
+
+	ebegin "Unconditionally restoring working-set from '${OVERLAY_ROOT}'" \
+		"back to '/$MP'"
+	eindent
+
+	if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
+		ewarn "'/${MP}' is not currently mounted from tmpfs"
+		code=0
+	else
+		tmpdir="$( movesvcmount save )"
+		movesvcdir=${?}
+		veinfo "DEBUG: movesvcdir is ${movesvcdir}"
+		case ${movesvcdir} in
+			255)
+				#eerror "Service directory '${svcdir:-}', service mount" \
+				#	"flag (${svcmount:-}), or mount-point '${MP:-}'" \
+				#	"aren't set"
+				:
+				;;
+			254)
+				eerror "Unreachable statement reached processing service" \
+					"directory restore operation"
+				;;
+			1)
+				eerror "Error saving service directory '${svcdir:-}':" \
+					"${movesvcdir}"
+				;;
+			0)
+				:
+				;;
+			*)
+				eerror "Unknown error saving directory '${svcdir:-}':" \
+					"${movesvcdir}"
+				;;
+		esac
+
+		unbindtmpfs
+		code=${?}
+	fi
+
+	if ! [ $(( code )) -ge 1 ]; then
+		restoredata
+		code=${?}
+	fi
+
+	if [ $(( movesvcdir )) -eq 0 ]; then
+		movesvcmount restore "${tmpdir}"
+		code=${?}
+		case ${code} in
+			255)
+				#eerror "Service directory backup '${tmpdir:-}' isn't set" \
+				#	"or doesn't exist"
+				:
+				;;
+			254)
+				eerror "Unreachable statement reached processing service" \
+					"directory restore operation"
+				;;
+			1)
+				eerror "Error restoring service directory '${svcdir:-}'" \
+					"from '${tmpdir:-}' ${code}"
+				;;
+			0)
+				:
+				;;
+			*)
+				eerror "Unknown restoring directory '${svcdir:-}'" \
+					"from '${tmpdir:-}' ${code}"
+				;;
+		esac
+	fi
+
+	eoutdent
+	eend ${code}
+
+	return ${code}
 }
 
 commit() {
-	case "${SVCNAME}" in
-	tmpfs)
+	local list='' mounts='' mountpoint='' tmpdir='' subdir=''
+	local -i code=1 pid=0
+
+	if [ "${SVCNAME:-}" = 'tmpfs' ]; then
 		eerror "${SVCNAME} is not meant to be called directly"
 		return 1
-		;;
-	*)
-		local code=1 pid mounts mountpoint tmpdir subdir
+	fi
 
-		getconf "${SVCNAME#*.}" || return ${?}
-
-		if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
-			eerror "'/${MP}' is not mounted from tmpfs! "
-			return 1
-		fi
-
-		ebegin "Synchronising working-set from '${OVERLAY_ROOT}' to '/$MP'"
-		eindent
-
-		sync
-
-		mounts="$( grep -Ev "bind| (cgroup|debugfs|devpts|nfs|proc|rootfs|securityfs|sysfs|tmpfs) " /proc/mounts | cut -d' ' -f 2 )"
-
-		# Walk up the directory tree to find where ${MP} is mounted upon
-		mountpoint="/${MP}"
-		while [ "${mountpoint}" != "/" ]; do
-			if printf '%s' "${mounts}" | grep -oqw "${mountpoint}"; then
-				# We've found the relevant mountpoint
-				break
-			else
-				# Step back one...
-				mountpoint="$( dirname "${mountpoint}" )"
-			fi
-		done
-
-		tmpdir="$( mktemp --tmpdir -d )"
+	if ! getconf "${SVCNAME#*.}"; then
 		code=${?}
-		if [ $(( code )) -ne 0 ]; then
-			eend ${code} "Could not create temporary directory: ${code}"
-			return ${code}
+		eerror "getconf() failed for service '${SVCNAME#*.}': ${code}"
+		return ${code}
+	fi
+
+	if ! mount | grep -Eq " on /${MP} type (none|tmpfs) "; then
+		eerror "'/${MP}' is not mounted from tmpfs"
+		return 1
+	fi
+
+	ebegin "Synchronising working-set from '${OVERLAY_ROOT}' to '/$MP'"
+	eindent
+
+	sync
+
+	list='cgroup|debugfs|devpts|nfs|proc|rootfs|securityfs|sysfs|tmpfs'
+	mounts="$( # <- Syntax
+		grep -Ev "bind| (${list}) " /proc/mounts |
+		cut -d' ' -f 2
+	)"
+	unset list
+
+	# Walk up the directory tree to find where ${MP} is mounted upon
+	mountpoint="/${MP}"
+	while [ "${mountpoint}" != '/' ]; do
+		if printf '%s' "${mounts}" | grep -oqw "${mountpoint}"; then
+			# We've found the relevant mountpoint
+			break
+		else
+			# Step back one...
+			mountpoint="$( dirname "${mountpoint}" )"
 		fi
-		mount --bind "${mountpoint}" "${tmpdir}"
+	done
+
+	if ! tmpdir="$( mktemp --tmpdir -d )"; then
 		code=${?}
-		if [ $(( code )) -ne 0 ]; then
-			rmdir "${tmpdir}" >/dev/null 2>&1
-			eend ${code} "Could not mount filesystem '${mountpoint}' on temporary directory: ${code}"
-			return ${code}
-		fi
+		eend ${code} "Could not create temporary directory: ${code}"
+		return ${code}
+	fi
+	mount --bind "${mountpoint}" "${tmpdir}"
+	code=${?}
+	if [ $(( code )) -ge 1 ]; then
+		rmdir "${tmpdir}" >/dev/null 2>&1
+		eend ${code} "Could not mount filesystem '${mountpoint}' on" \
+			"temporary directory: ${code}"
+		return ${code}
+	fi
 
-		# Determine the path of ${MP} relative to its ${mountpoint}
-		subdir="/${MP}"
-		subdir="${subdir#${mountpoint}}"
-		subdir="${subdir#/}"
-		if ! [ -d "${tmpdir}"/"${subdir}" ]; then
-			umount -f "${tmpdir}" >/dev/null 2>&1
-			rmdir "${tmpdir}" >/dev/null 2>&1
-			eend 1 "Unable to determine bind-mounted path for '/${MP}' on '${tmpdir}' (got '${tmpdir}/${subdir}')"
-			return 1
-		fi
-
-		restoredata "${tmpdir}/${subdir}"
-
+	# Determine the path of ${MP} relative to its ${mountpoint}
+	subdir="/${MP}"
+	subdir="${subdir#"${mountpoint}"}"
+	subdir="${subdir#/}"
+	if ! [ -d "${tmpdir}/${subdir}" ]; then
 		umount -f "${tmpdir}" >/dev/null 2>&1
 		rmdir "${tmpdir}" >/dev/null 2>&1
+		eend 1 "Unable to determine bind-mounted path for '/${MP}' on" \
+			"'${tmpdir}' (got '${tmpdir}/${subdir}')"
+		return 1
+	fi
 
-		eoutdent
-		eend ${code}
+	restoredata "${tmpdir}/${subdir}"
 
-		return ${code}
-		;;
-	esac
+	umount -f "${tmpdir}" >/dev/null 2>&1
+	rmdir "${tmpdir}" >/dev/null 2>&1
+
+	eoutdent
+	eend ${code}
+
+	return ${code}
 }
+
+# vi: set noet sw=4 ts=4:

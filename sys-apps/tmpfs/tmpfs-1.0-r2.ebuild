@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2015 Stuart Shelton
+# Copyright (c) 2010-2023 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
@@ -15,8 +15,6 @@ RDEPEND="sys-process/lsof"
 
 S="${WORKDIR}"
 
-QA_RUN_ALLOWED="/etc/conf.d/tmpfs"
-
 src_install() {
 	newconfd "${FILESDIR}"/"${PN}".conf "${PN}"
 	newinitd "${FILESDIR}"/"${PN}".init "${PN}"
@@ -25,7 +23,7 @@ src_install() {
 	doexe "${FILESDIR}"/"${PN}".stop
 
 	if use examples; then
-		dodir /mnt/ram
+		keepdir /mnt/ram
 		dosym tmpfs /etc/init.d/tmpfs.ram
 	fi
 }
