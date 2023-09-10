@@ -7,7 +7,7 @@ PATCHSET=4
 
 WANT_AUTOMAKE=none
 
-inherit autotools eutils
+inherit autotools
 
 DESCRIPTION="Extremely simple MTA to get mail off the system to a Mailhub"
 HOMEPAGE="ftp://ftp.debian.org/debian/pool/main/s/ssmtp/"
