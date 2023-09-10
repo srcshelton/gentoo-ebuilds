@@ -5,7 +5,7 @@
  # for more details"
  
 -if [ -z "${UID}" ] ; then
-+if [ -n "${UID}" ] ; then
++if [ -n "${UID:-}" ] ; then
 +	user_id="${UID}"
 +else
  	# id lives in /usr/bin which might not be mounted
@@ -13,7 +13,7 @@
  		user_id=$(id -u)
  	else
 -		[ "${USER}" = "root" ] && user_id=0
-+		if [ "${USER}" = "root" ]; then
++		if [ "${USER:-}" = 'root' ]; then
 +			user_id=0
 +		else
 +			user_id=65534

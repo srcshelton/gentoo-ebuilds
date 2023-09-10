@@ -22,6 +22,10 @@ BDEPEND="
 RDEPEND="${BDEPEND}
 	!<dev-java/java-config-2.2"
 
+PATCHES=(
+	"${FILESDIR}"/java-config-2.sh.in.patch
+)
+
 src_install() {
 	default
 	keepdir /etc/ssl/certs/java/
