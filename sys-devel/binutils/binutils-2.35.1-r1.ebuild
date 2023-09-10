@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit eutils flag-o-matic gnuconfig libtool multilib toolchain-funcs
+inherit flag-o-matic gnuconfig libtool multilib toolchain-funcs
 
 DESCRIPTION="Tools necessary to build programs"
 HOMEPAGE="https://sourceware.org/binutils/"
