@@ -5,6 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{8..10} )
 
+# Can drop autotools/eautoreconf after next release & glibc patch gone
 inherit autotools git-r3 python-any-r1
 
 CRUN_COMMIT='fafb556f09e6ffd4690c452ff51856b880c089f1'

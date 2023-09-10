@@ -48,7 +48,6 @@ RESTRICT="test"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
-	"${FILESDIR}/${P}-crun_make_error.patch"
 )
 
 DOCS=( README.md )
