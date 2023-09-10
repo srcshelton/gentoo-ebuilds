@@ -18,7 +18,7 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 else
 	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.xz
 		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.xz.sig )"
-	KEYWORDS="~amd64 ~arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
+	KEYWORDS="amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
 	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 fi
 
@@ -191,7 +191,6 @@ pkg_preinst() {
 		eerror "Your currently loaded ruleset cannot be parsed by the newly built instance of"
 		eerror "nft. This probably means that there is a regression introduced by v${PV}."
 		eerror "(To make the ebuild fail instead of warning, set NFTABLES_ABORT_ON_RELOAD_FAILURE=1.)"
-
 		if [[ -n "${NFTABLES_ABORT_ON_RELOAD_FAILURE}" ]] ; then
 			die "Aborting because of failed nft reload!"
 		fi
