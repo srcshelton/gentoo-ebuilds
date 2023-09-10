@@ -34,7 +34,7 @@ RDEPEND="${DEPEND}"
 S="${WORKDIR}/bpftune-${EGIT_COMMIT}"
 
 FILECAPS=(
-	'cap_pbf,cap_tracing=+pe' usr/sbin/bpftune
+	'cap_pbf,cap_tracing+ep' usr/sbin/bpftune
 )
 
 pkg_setup() {
