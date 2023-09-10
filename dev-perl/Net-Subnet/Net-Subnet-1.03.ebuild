@@ -6,7 +6,7 @@ EAPI=7
 MY_PN=Net-Subnet
 DIST_AUTHOR=JUERD
 
-inherit perl-module eutils
+inherit perl-module
 
 DESCRIPTION="Fast IP-in-subnet matcher for IPv4 and IPv6, CIDR or mask"
 
