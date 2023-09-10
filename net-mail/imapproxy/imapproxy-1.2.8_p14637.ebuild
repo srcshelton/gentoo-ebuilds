@@ -8,7 +8,7 @@
 EAPI=7
 
 WANT_AUTOCONF="2.1"
-inherit autotools eutils toolchain-funcs
+inherit autotools toolchain-funcs
 
 DESCRIPTION="Proxy IMAP transactions between an IMAP client and an IMAP server"
 HOMEPAGE="https://sourceforge.net/projects/squirrelmail/"
