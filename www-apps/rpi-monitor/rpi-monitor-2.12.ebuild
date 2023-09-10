@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit eutils webapp
+inherit webapp
 
 DESCRIPTION="RPi-Monitor - always keep an eye on your Raspberry Pi"
 HOMEPAGE="http://rpi-experiences.blogspot.fr"
