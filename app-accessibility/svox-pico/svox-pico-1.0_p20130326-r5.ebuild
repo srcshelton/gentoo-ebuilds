@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools eutils
+inherit autotools
 
 MYPV="${PV/_p/+git}"
 [[ "${PR}" == "r0" ]] && MYPR="" || MYPR="${PR}"
