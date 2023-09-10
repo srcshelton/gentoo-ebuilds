@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit eutils flag-o-matic libtool toolchain-funcs usr-ldscript multilib-minimal
+inherit flag-o-matic libtool toolchain-funcs usr-ldscript multilib-minimal
 
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
