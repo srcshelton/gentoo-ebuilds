@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools db-use eutils systemd tmpfiles
+inherit autotools db-use systemd tmpfiles
 
 DESCRIPTION="A milter providing DKIM signing and verification"
 HOMEPAGE="http://opendkim.org/"
