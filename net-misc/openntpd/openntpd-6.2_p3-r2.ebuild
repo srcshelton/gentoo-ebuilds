@@ -41,6 +41,8 @@ src_prepare() {
 	#sed -i 's:/var/run/ntpd:/run/ntpd:g' src/ntpctl.8 src/ntpd.8 || die
 	#sed -i 's:LOCALSTATEDIR "/run/ntpd:"/run/ntpd:' src/ntpd.h || die
 
+	# fix ntpd.sock patch (with change needed to prevent use of /var/lib/run/openntpd/ntpd.sock)
+	sed -i 's:LOCALSTATEDIR "/run/ntpd.sock":"/var/run/ntpd.sock":' src/ntpd.h || die
 	# fix ntpd.drift path
 	sed -i 's:/var/db/ntpd.drift:/var/lib/openntpd/ntpd.drift:g' src/ntpd.8 || die
 	sed -i 's:"/db/ntpd.drift":"/openntpd/ntpd.drift":' src/ntpd.h || die
