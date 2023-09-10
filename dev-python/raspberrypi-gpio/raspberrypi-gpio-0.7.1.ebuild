@@ -4,7 +4,7 @@
 EAPI=7
 PYTHON_COMPAT=( python3_{8..11} )
 
-inherit distutils-r1 eutils
+inherit distutils-r1
 
 MY_PN='RPi.GPIO'
 
