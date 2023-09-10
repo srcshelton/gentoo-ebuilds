@@ -2,7 +2,6 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit eutils
 
 COMMIT_HASH='b846569efca0b0258ad6ba8041624489e9048e6b'
 DESCRIPTION="A http/https reverse-proxy and load-balancer"
