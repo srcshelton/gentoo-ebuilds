@@ -6,12 +6,12 @@ SUBSLOT="18"
 
 JAVA_PKG_OPT_USE="jdbc"
 
-inherit cmake eutils flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
+inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 # Patch version
 PATCH_SET=( https://dev.gentoo.org/~{whissi,dlan}/dist/${PN}/${PN}-10.6.5-patches-04.tar.xz )
 
-SRC_URI="mirror://mariadb/${PN}-${PV}/source/${P}.tar.gz
+SRC_URI="mirror://mariadb/${P}/source/${P}.tar.gz
 	${PATCH_SET[@]}"
 
 HOMEPAGE="https://mariadb.org/"
