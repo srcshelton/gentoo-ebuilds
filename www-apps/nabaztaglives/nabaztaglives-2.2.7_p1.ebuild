@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit eutils webapp
+inherit webapp
 
 LANGUAGES="l10n_de l10n_en l10n_es l10n_fr l10n_it l10n_ja l10n_us"
 
