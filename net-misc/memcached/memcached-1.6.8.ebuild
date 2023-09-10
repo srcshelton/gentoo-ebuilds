@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit autotools eutils flag-o-matic systemd
+inherit autotools flag-o-matic systemd
 
 MY_PV="${PV/_rc/-rc}"
 MY_P="${PN}-${MY_PV}"
