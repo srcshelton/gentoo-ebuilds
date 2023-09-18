@@ -112,62 +112,71 @@ arm_boost=1
 # https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options
 
 
+# start?cd.elf and fixup?cd.dat are 'cut-down' versions, but cannot be
+# selected with start_file and fixup_file - they are only used when
+# 'gpu_mem=16' is specified
+#
 #start_file=<start.elf,start_x.elf,start_db.elf,start4.elf,start4x.elf,start4db.elf>
 #fixup_file=<fixup.dat,fixup_x.dat,fixup_db.dat,fixup4.dat,fixup4x.dat,fixup4db.dat>
-#  start?cd.elf and fixup?cd.dat are 'cut-down' versions, but cannot be
-#  selected with start_file and fixup_file - they are only used when
-#  'gpu_mem=16' is specified
 
+# Implies start_file=start_x.elf, fixup_file=fixup_x.dat
+# Required for camera module operation
+#
 #start_x=0
-#  Implies start_file=start_x.elf, fixup_file=fixup_x.dat
-#  Required for camera module operation
 
+# Implies start_file=start_db.elf, fixup_file=fixup_db.dat
+#
 #start_debug=0
-#  Implies start_file=start_db.elf, fixup_file=fixup_db.dat
 
 #disable_commandline_tags=0
 #cmdline=cmdline.txt
 #kernel=<kernel.img,kernel7.img,kernel7l.img,kernel8.img>
 
+# Defaults to 1 on [pi4], [pi400], [cm4], [cm4s], 0 otherwise;
+# Supported on [pi3]/[pi02] and above
+#
 #arm_64bit=<0|1>
-#  Defaults to 1 on [pi4], [pi400], [cm4], [cm4s], 0 otherwise;
-#  Supported on [pi3]/[pi02] and above
 
 #arm_control=<deprecated>
 #armstub=<filename>
 
+# 0x0 if kernel_old is set, otherwise 0x8000 for 32bit, 0x200000 for 64bit
+#
 #kernel_address=<0x0|0x8000|0x200000>
-#  0x0 if kernel_old is set, otherwise 0x8000 for 32bit, 0x200000 for 64bit
 
 #kernel_old=0
 #ramfsfile=<comma-separated-filename-list>
 #ramfsaddr=
 
+# N.B.: No '=' sign needed
+#
 #initramfs <comma-separated-filename-list> <0x00800000|followkernel>
-#  N.B.: No '=' sign needed
 
 #init_uart_baud=115200
 #init_uart_clock=48000000
 
+# Delay in bootcode.bin (e.g. to give HDMI displays a chance to power-up and
+# supply an EDID)
+#
 #bootcode_delay=0
-#  Delay in bootcode.bin (e.g. to give HDMI displays a chance to power-up and
-#  supply an EDID)
 
+# Total delay in start.elf = (1000 x boot_delay) + boot_delay_ms
 #boot_delay=1
 #boot_delay_ms=0
-#  Total delay in start.elf = (1000 x boot_delay) + boot_delay_ms
 
 #disable_poe_fan=0
 #disable_splash=0
 
+# Requires 'console=serial0' in cmdline.txt
+# Uses GPIOs 14 and 15 (pins 8 and 10 on the 40-pin header)
+#
 #enable_uart=0
-#  Requires 'console=serial0' in cmdline.txt
-#  Uses GPIOs 14 and 15 (pins 8 and 10 on the 40-pin header)
 
 #force_eeprom_read=1
 
+# Requires that '${os_prefix}${overlay_prefix}README' exist
+#
 #os_prefix=/
-#  Requires that '${os_prefix}${overlay_prefix}README' exist
 
 [pi4]
 #arm_peri_high=0
@@ -179,17 +188,20 @@ otg_mode=1
 otg_mode=1
 [all]
 
+# e.g. dtoverlay=disable-bt -> dtoverlay=${os_prefix}${overlay_prefix}disable-bt.dtbo
+# Requires that '${os_prefix}${overlay_prefix}README' exist
+#
 #overlay_prefix=overlays/
-#  e.g. dtoverlay=disable-bt -> dtoverlay=${os_prefix}${overlay_prefix}disable-bt.dtbo
-#  Requires that '${os_prefix}${overlay_prefix}README' exist
 
+# Accessible from 'sudo vcdbg log msg', greatly increases boot time
+#
 #sha256=0
-#  Accessible from 'sudo vcdbg log msg', greatly increases boot time
 
 #uart_2ndstage=0
 
+# If <1>, set 'os_prefix=upstream/' and search for upstream dtb names
+#
 #upstream_kernel=0
-#  If <1>, set 'os_prefix=upstream/' and search for upstream dtb names
 
 
 # GPIO Control:
@@ -199,8 +211,9 @@ otg_mode=1
 
 #gpio=<set of pins>=<ip,op,a0-a5,dh,dl,pu,pd,pn,np>
 
+# Sets Alt4 mode for pins 22-27 (i.e. 'gpio=22-27=a4')
+#
 #enable_jtag_gpio=0
-#  Sets Alt4 mode for pins 22-27 (i.e. 'gpio=22-27=a4')
 
 
 # Overclocking Options:
@@ -222,16 +235,17 @@ include legacy.txt
 # Memory Options:
 # --------------
 
+# 64MB for systems with <=1GB RAM, 76MB otherwise
+# 16MB minimum, which disables some features
+#
 #gpu_mem=<64|76>
-#  64MB for systems with <=1GB RAM, 76MB otherwise
-#  16MB minimum, which disables some features
 
 #gpu_mem_256=128
 #gpu_mem_512=384
 #gpu_mem_1024=<512, 76 on [rpi4]
 
+# Reduce amout of memory, e.g. to make a 4GB system act like a 1GB one
+#
 #total_mem=
-#  Reduce amout of memory, e.g. to make a 4GB system act like a 1GB one
-
 
 # vi: set syntax=cfg colorcolumn=78,98:

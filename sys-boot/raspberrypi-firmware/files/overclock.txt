@@ -14,14 +14,16 @@
 #arm_freq=<700 [pi1] to 1800 [pi400]>
 #arm_freq_min=<700 [pi1] to 600 [pi4]>
 
+# Sets core_freq, h264_freq, isp_freq, v3d_freq and hevc_freq
+#
 #gpu_freq=<250 [pi1] to 500 [pi4]>
 #gpu_freq_min=250
-#  Sets core_freq, h264_freq, isp_freq, v3d_freq and hevc_freq
 
+# Drives L2 cache and memory bus on [pi1], [pi0], [pi0w]
+# minor SDRAM benefit on [pi2], [pi3]
+#
 #core_freq=<250 [pi1] to 500 [pi4] (550 with hdmi_enable_4kp60)>
 #core_freq_min=<250 [pi1] to 200 [pi4]>
-#  Drives L2 cache and memory bus on [pi1], [pi0], [pi0w]
-#  minor SDRAM benefit on [pi2], [pi3]
 
 #h264_freq=<250 [pi1] to 500 [pi4]>
 #h264_freq_min=250
@@ -29,51 +31,62 @@
 #isp_freq=<250 [pi1] to 500 [pi4]>
 #isp_freq_min=250
 
+# h264, ISP, and v3d share a PLL and so must have related frequencies
+#
 #v3d_freq=<250 [pi1] to 500 [pi4]>
 #v3d_freq_min=250
-#  h264, ISP, and v3d share a PLL and so must have related frequencies
 
+# [pi4], [pi400], [cm4], [cm4s] only
 #hevc_freq=500
-#  [pi4], [pi400], [cm4], [cm4s] only
 
 #sdram_freq_min=<400 [pi1] to 3200 [pi4]>
 
+# Simple constant added to the result of the DVFS (Dynamic Voltage/Frequency
+# Scaling) calculation
+# (micro-Volts)
+#
+#over_voltage_delta=0
+
+# 1.35V, 1.2V on [pi1]; range is -16..8 for 0.95V to 1.55V (0.8V to 1.4V on
+# [pi1]) in 0.025V steps
+# Values > 6 are only allowed for force_turbo=1 (which sets the warranty bit
+# if over_voltage_* > 0)
+#
 #over_voltage=0
 #over_voltage_min=0
-#  1.35V, 1.2V on [pi1]; range is -16..8 for 0.95V to 1.55V (0.8V to 1.4V on
-#  [pi1]) in 0.025V steps
-#  Values > 6 are only allowed for force_turbo=1 (which sets the warranty bit
-#  if over_voltage_* > 0)
 
+# Sets over_voltage_sdram_c, over_voltage_sdram_i, over_voltage_sdram_p to
+# the same value
+# -16..8 equates to 0.8V..1.4V in 0.025V steps, default (=0) 1.2V
+#
 #over_voltage_sdram=0
 #over_voltage_sdram_c=0
 #over_voltage_sdram_i=0
 #over_voltage_sdram_p=0
-#  Sets over_voltage_sdram_c, over_voltage_sdram_i, over_voltage_sdram_p to
-#  the same value
-#  -16..8 equates to 0.8V..1.4V in 0.025V steps, default (=0) 1.2V
 
 #temp_limit=85
 
+# Force turbo frequencies even when ARM cores not busy
+# Sets warranty bit if over_voltage_* are non-zero
 #force_turbo=0
-#  Force turbo frequencies even when ARM cores not busy
-#  Sets warranty bit if over_voltage_* are non-zero
 
+# See https://forums.raspberrypi.com/viewtopic.php?f=29&t=6201&start=425#p180099
+# (seconds), limit 60
+#
 #initial_turbo=0
-#  (seconds), limit 60
-#  See https://forums.raspberrypi.com/viewtopic.php?f=29&t=6201&start=425#p180099
 
+# Set OTP bit which prevents warranty bit from being able to be set via
+# over_voltage_*
+#
 #never_over_voltage=0
-#  Set OTP bit which prevents warranty bit from being able to be set via
-#  over_voltage_*
 
+# [pi2]/[pi3] prevent GPU from using turbo mode
+#
 #disable_auto_turbo=0
-#  [pi2]/[pi3] prevent GPU from using turbo mode
 
 [pi3+]
+# drops arm_freq from 1400 to 1200, maximum of 70
 #temp_soft_limit=60
-#  drops arm_freq from 1400 to 1200, maximum of 70
 [all]
-
 
 # vi: set syntax=cfg colorcolumn=78,98:
