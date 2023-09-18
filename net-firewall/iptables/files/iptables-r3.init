@@ -2,178 +2,218 @@
 # Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
+# shellcheck disable=SC2034
 extra_commands="check save panic"
 extra_started_commands="reload"
 
 iptables_lock_wait_time=${IPTABLES_LOCK_WAIT_TIME:-"60"}
-iptables_lock_wait_interval=${IPTABLES_LOCK_WAIT_INTERVAL:-"1000"}
 
-iptables_name=${SVCNAME}
-case ${iptables_name} in
+iptables_name="${SVCNAME:-}"
+case "${iptables_name}" in
 	iptables|ip6tables) ;;
 	*) iptables_name="iptables" ;;
 esac
 
 iptables_bin="/sbin/${iptables_name}"
-case ${iptables_name} in
+# shellcheck disable=SC2153
+case "${iptables_name}" in
 	iptables)  iptables_proc="/proc/net/ip_tables_names"
-	           iptables_save=${IPTABLES_SAVE};;
+	           iptables_save="${IPTABLES_SAVE:-}" ;;
 	ip6tables) iptables_proc="/proc/net/ip6_tables_names"
-	           iptables_save=${IP6TABLES_SAVE};;
+	           iptables_save="${IP6TABLES_SAVE:-}" ;;
 esac
 
 depend() {
-	need localmount #434774
+	# bug #434774
+	need localmount
 	before net
 }
 
-set_table_policy() {
-	local has_errors=0 chains table=$1 policy=$2
-	case ${table} in
-		nat)    chains="PREROUTING POSTROUTING OUTPUT";;
-		mangle) chains="PREROUTING INPUT FORWARD OUTPUT POSTROUTING";;
-		filter) chains="INPUT FORWARD OUTPUT";;
-		*)      chains="";;
+_set_table_policy() {
+	local chains='' chain=''
+	local has_errors=0
+
+	local table="${1:-}" policy="${2:-}"
+
+	[ -n "${table:-}" ] || return 1
+	[ -n "${policy:-}" ] || return 1
+
+	case "${table:-}" in
+		nat)    chains='PREROUTING POSTROUTING OUTPUT' ;;
+		mangle) chains='PREROUTING INPUT FORWARD OUTPUT POSTROUTING' ;;
+		filter) chains='INPUT FORWARD OUTPUT' ;;
+		*)      chains='' ;;
 	esac
 
-	local chain
-	for chain in ${chains} ; do
-		${iptables_bin} --wait ${iptables_lock_wait_time} -t ${table} -P ${chain} ${policy}
-		[ $? -ne 0 ] && has_errors=1
+	for chain in ${chains:-} ; do
+		"${iptables_bin}" \
+				--wait ${iptables_lock_wait_time:-} \
+				--table "${table}" \
+				--policy "${chain}" "${policy}" ||
+			has_errors=1
 	done
 
 	return ${has_errors}
-}
+} # _set_table_policy
 
-checkkernel() {
-	if [ ! -e ${iptables_proc} ] ; then
-		if [[ "$( readlink -f "${iptables_bin}" )" != *-nft-* ]]; then
+_checkkernel() {
+	if [ ! -e "${iptables_proc:-}" ] ; then
+		if ! \
+				readlink -f "${iptables_bin}" 2>/dev/null |
+					grep -Fq -- '-nft-'
+		then
 			eerror "Your kernel lacks ${iptables_name} support, please load"
 			eerror "appropriate modules and try again."
 			return 1
 		fi
 	fi
 	return 0
-}
+} # _checkkernel
 
-checkconfig() {
-	if [ -z "${iptables_save}" -o ! -f "${iptables_save}" ] ; then
+_checkconfig() {
+	if [ -z "${iptables_save:-}" ] || ! [ -f "${iptables_save}" ] ; then
 		eerror "Not starting ${iptables_name}.  First create some rules then run:"
 		eerror "/etc/init.d/${iptables_name} save"
 		return 1
 	fi
 	return 0
-}
+} # _checkconfig
 
-start_pre() {
-	checkconfig || return 1
-}
+_checkrules() {
+	ebegin "Checking ${iptables_name} rules"
+	# shellcheck disable=SC2086
+	"${iptables_bin}-restore" --test ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
+	eend ${?} "${iptables_bin}-restore failed: ${?}"
+} # _checkrules
 
-start() {
-	ebegin "Loading ${iptables_name} state and starting firewall"
-	${iptables_bin}-restore --wait ${iptables_lock_wait_time} ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
-	eend $?
-}
+_flush() {
+	local tables='' table=''
+	local has_errors=0
 
-stop_pre() {
-	checkkernel || return 1
-}
-
-stop() {
-	local -a tables=()
-	local table
-	local -i has_errors=0
-
-	if [ "${SAVE_ON_STOP}" = "yes" ] ; then
-		save || return 1
+	local set_table_policy="${1:-}"
+	if [ -n "${set_table_policy}" ]; then
+		set_table_policy="${set_table_policy#--set-table-policy=}"
 	fi
 
-	ebegin "Stopping firewall"
-	if [ -e "${iptables_proc}" ]; then
-		readarray -t tables < "${iptables_proc}"
+	if [ -e "${iptables_proc:-}" ]; then
+		tables="$( cat "${iptables_proc}" )"
 	else
-		readarray -t tables < <( ${iptables_bin}-save | grep '^*' | sed 's/^.//' )
+		tables="$( "${iptables_bin}-save" | grep '^\*' | sed 's/^.//' )"
 	fi
-	if (( ${#tables[@]} )); then
-		for table in "${tables[@]}"; do
-			set_table_policy "${table}" ACCEPT ||
+	if [ -n "${tables:-}" ]; then
+		for table in ${tables}; do
+			if [ "${set_table_policy:-}" = 'ACCEPT' ]; then
+				_set_table_policy "${table}" ACCEPT ||
+					has_errors=1
+			fi
+
+			"${iptables_bin}" \
+					--wait ${iptables_lock_wait_time:-} \
+					--flush --table "${table}" ||
 				has_errors=1
 
-			${iptables_bin} --wait ${iptables_lock_wait_time} \
-					-F -t "${table}" ||
+			"${iptables_bin}" \
+					--wait ${iptables_lock_wait_time:-} \
+					--delete-chain --table "${table}" ||
 				has_errors=1
 
-			${iptables_bin} --wait ${iptables_lock_wait_time} \
-					-X -t "${table}" ||
-				has_errors=1
+			if [ "${set_table_policy:-}" = 'DROP' ]; then
+				if ! [ "${table}" = 'nat' ]; then
+					# The "nat" table is not intended for filtering, the use of DROP is therefore inhibited.
+					_set_table_policy "${table}" DROP ||
+						has_errors=1
+				fi
+			fi
 		done
 	fi
-	eend ${has_errors}
-}
+	return $(( has_errors ))
+} # _flush
 
-reload() {
-	checkkernel || return 1
-	checkrules || return 1
-	ebegin "Flushing firewall"
-	local has_errors=0 a
-	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} --wait ${iptables_lock_wait_time} -F -t $a
-		[ $? -ne 0 ] && has_errors=1
-
-		${iptables_bin} --wait ${iptables_lock_wait_time} -X -t $a
-		[ $? -ne 0 ] && has_errors=1
-	done
-	eend ${has_errors}
-
-	start
-}
-
-checkrules() {
-	ebegin "Checking rules"
-	${iptables_bin}-restore --test ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
-	eend $?
-}
 
 check() {
 	# Short name for users of init.d script.
-	checkrules
-}
+	_checkrules
+} # check
 
 save() {
+	[ -n "${iptables_save:-}" ] || return 1
+	[ -n "${iptables_bin:-}" ] || return 1
+
 	ebegin "Saving ${iptables_name} state"
-	checkpath -q -d "$(dirname "${iptables_save}")"
+	checkpath -q -d "$( dirname "${iptables_save}" )"
 	checkpath -q -m 0600 -f "${iptables_save}"
-	${iptables_bin}-save ${SAVE_RESTORE_OPTIONS} > "${iptables_save}"
-	eend $?
-}
+	# shellcheck disable=SC2086
+	"${iptables_bin}-save" ${SAVE_RESTORE_OPTIONS} > "${iptables_save}"
+	eend ${?} "${iptables_bin}-save failed to write '${iptables_save}': ${?}"
+} # save
 
 panic() {
+	local tables='' table=''
+	local has_errors=0
+
+	[ -n "${iptables_bin:-}" ] || return 1
+
 	# use iptables autoload capability to load at least all required
 	# modules and filter table
-	${iptables_bin} --wait ${iptables_lock_wait_time} -S >/dev/null
-	if [ $? -ne 0 ] ; then
+	if ! \
+			"${iptables_bin}" \
+				--wait ${iptables_lock_wait_time:-} \
+				--list-rules >/dev/null
+	then
 		eerror "${iptables_bin} failed to load"
 		return 1
 	fi
 
-	if service_started ${iptables_name}; then
-		rc-service ${iptables_name} stop
+	if service_started "${iptables_name}"; then
+		rc-service "${iptables_name}" stop
 	fi
 
-	local has_errors=0 a
-	ebegin "Dropping all packets"
-	for a in $(cat ${iptables_proc}) ; do
-		${iptables_bin} --wait ${iptables_lock_wait_time} -F -t $a
-		[ $? -ne 0 ] && has_errors=1
+	ebegin "Dropping all ${iptables_name} packets"
+	_flush --set-table-policy=DROP
+	eend ${?} "${iptables_bin} failed to flush firewall rules"
+} # panic
 
-		${iptables_bin} --wait ${iptables_lock_wait_time} -X -t $a
-		[ $? -ne 0 ] && has_errors=1
 
-		if [ "${a}" != "nat" ]; then
-			# The "nat" table is not intended for filtering, the use of DROP is therefore inhibited.
-			set_table_policy $a DROP
-			[ $? -ne 0 ] && has_errors=1
-		fi
-	done
-	eend ${has_errors}
+start_pre() {
+	_checkconfig || return 1
+}
+
+start() {
+	ebegin "Loading ${iptables_name} state and starting firewall"
+	# shellcheck disable=SC2086
+	"${iptables_bin}-restore" \
+		--wait ${iptables_lock_wait_time:-} \
+		${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
+	eend ${?} "${iptables_bin}-restore failed to load rules from '${iptables_save}': ${?}"
+}
+
+reload() {
+	local tables='' table=''
+	local has_errors=0
+
+	_checkkernel || return 1
+	_checkrules || return 1
+
+	ebegin "Flushing ${iptables_name} firewall"
+	_flush
+	eend ${has_errors} "${iptables_bin} failed to perform firewall rules cleanup"
+
+	start
+}
+
+stop_pre() {
+	_checkkernel || return 1
+}
+
+stop() {
+	local tables='' table=''
+	local has_errors=0
+
+	if [ "${SAVE_ON_STOP:-}" = 'yes' ] ; then
+		save || return 1
+	fi
+
+	ebegin "Stopping ${iptables_name} firewall"
+	_flush --set-table-policy=ACCEPT
+	eend ${has_errors} "${iptables_bin} failed to perform firewall rules cleanup"
 }

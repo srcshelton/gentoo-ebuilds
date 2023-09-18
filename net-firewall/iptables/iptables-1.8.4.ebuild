@@ -106,11 +106,11 @@ src_install() {
 
 	keepdir /var/lib/iptables
 	newinitd "${FILESDIR}"/${PN}-r2.init iptables
-	newconfd "${FILESDIR}"/${PN}-r1.confd iptables
+	newconfd "${FILESDIR}"/${PN}.confd iptables
 	if use ipv6 ; then
 		keepdir /var/lib/ip6tables
 		dosym iptables /etc/init.d/ip6tables
-		newconfd "${FILESDIR}"/ip6tables-r1.confd ip6tables
+		newconfd "${FILESDIR}"/ip6tables.confd ip6tables
 	fi
 
 	if use nftables; then

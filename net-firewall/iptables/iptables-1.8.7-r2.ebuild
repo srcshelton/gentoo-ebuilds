@@ -113,9 +113,9 @@ src_install() {
 
 	keepdir /var/lib/ip{,6}tables
 	newinitd "${FILESDIR}"/${PN}-r2.init iptables
-	newconfd "${FILESDIR}"/${PN}-r1.confd iptables
+	newconfd "${FILESDIR}"/${PN}.confd iptables
 	dosym iptables /etc/init.d/ip6tables
-	newconfd "${FILESDIR}"/ip6tables-r1.confd ip6tables
+	newconfd "${FILESDIR}"/ip6tables.confd ip6tables
 
 	if use nftables; then
 		# Bug 647458
