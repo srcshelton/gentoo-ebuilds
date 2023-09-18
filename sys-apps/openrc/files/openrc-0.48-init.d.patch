@@ -1,0 +1,200 @@
+--- a/init.d/fsck.in
++++ b/init.d/fsck.in
+@@ -21,14 +21,14 @@ depend()
+ }
+ 
+ _abort() {
+-	yesno ${fsck_abort_on_errors:-yes} && rc-abort
++	yesno "${fsck_abort_on_errors:-yes}" && rc-abort
+ 	return 1
+ }
+ 
+ # We should only reboot when first booting
+ _reboot() {
+-	if [ "$RC_RUNLEVEL" = "$RC_BOOTLEVEL" ]; then
+-		reboot "$@"
++	if [ "${RC_RUNLEVEL}" = "${RC_BOOTLEVEL}" ]; then
++		reboot "${@}"
+ 		_abort || return 1
+ 	fi
+ }
+@@ -40,83 +40,107 @@ _forcefsck()
+ 
+ start()
+ {
+-	local fsck_opts= p= check_extra=
++	local fsck_opts='' p='' check_extra=''
+ 
+ 	if [ -e /fastboot ]; then
+ 		ewarn "Skipping fsck due to /fastboot"
+ 		return 0
+ 	fi
+ 	if _forcefsck; then
+-		fsck_opts="$fsck_opts -f"
++		fsck_opts="${fsck_opts} -f"
+ 		check_extra="(check forced)"
+-	elif ! yesno ${fsck_on_battery:-YES} && ! on_ac_power; then
++	elif ! yesno "${fsck_on_battery:-yes}" && ! on_ac_power; then
+ 		ewarn "Skipping fsck due to not being on AC power"
+ 		return 0
+ 	fi
+ 
+-	if [ -n "$fsck_passno" ]; then
+-		check_extra="[passno $fsck_passno] $check_extra"
+-		if [ -n "$fsck_mnt" ]; then
++	if [ -n "${fsck_passno:-}" ]; then
++		check_extra="[passno ${fsck_passno}] ${check_extra}"
++		if [ -n "${fsck_mnt:-}" ]; then
+ 			eerror "Only 1 of fsck_passno and fsck_mnt must be set!"
+ 			return 1
+ 		fi
+ 	fi
+-	ebegin "Checking local filesystems $check_extra"
++	ebegin "Checking local filesystems ${check_extra}"
+ 	# Append passno mounts
+-	for p in $fsck_passno; do
+-		local IFS="$_IFS"
+-		case "$p" in
+-			[0-9]*) p="=$p";;
++	for p in ${fsck_passno}; do
++		local IFS="${_IFS}"
++		case "${p}" in
++			[0-9]*) p="=${p}";;
+ 		esac
+-		set -- "$@" $(fstabinfo --passno "$p")
++		# shellcheck disable=SC2046
++		set -- "${@}" $(fstabinfo --passno "${p}")
+ 		unset IFS
+ 	done
+ 	# Append custom mounts
+-	for m in $fsck_mnt ; do
+-		local IFS="$_IFS"
+-		set -- "$@" "$m"
++	for m in ${fsck_mnt} ; do
++		local IFS="${_IFS}"
++		set -- "${@}" "${m}"
+ 		unset IFS
+ 	done
+ 
+ 	if [ "$RC_UNAME" = Linux ]; then
+-		local skiptypes
+-		skiptypes=$(printf 'no%s,' ${net_fs_list} ${extra_net_fs_list})
++		local skiptypes=''
++		# shellcheck disable=SC2086
++		skiptypes=$(printf 'no%s,' ${net_fs_list:-} ${extra_net_fs_list:-})
+ 		[ "${skiptypes}" = "no," ] && skiptypes=""
+-		fsck_opts="$fsck_opts -C0 -T -t ${skiptypes}noopts=_netdev"
+-		if [ -z "$fsck_passno" -a -z "$fsck_mnt" ]; then
+-			fsck_args=${fsck_args:--A -p}
++		fsck_opts="${fsck_opts} -C0 -T -t ${skiptypes}noopts=_netdev"
++		if [ -z "${fsck_passno}" ] && [ -z "${fsck_mnt}" ]; then
++			fsck_args="${fsck_args:-"-A -p"}"
+ 			if echo 2>/dev/null >/.test.$$; then
+ 				rm -f /.test.$$
+-				fsck_opts="$fsck_opts -R"
++				fsck_opts="${fsck_opts} -R"
+ 			fi
+ 		fi
+ 	fi
+ 
++	local rc=1
++
+ 	trap : INT QUIT
+-	fsck ${fsck_args:--p} $fsck_opts "$@"
+-	case $? in
+-	0)	eend 0; return 0;;
+-	1)	ewend 1 "Filesystems repaired"; return 0;;
+-	2|3)	if [ "$RC_UNAME" = Linux ]; then
+-		 	ewend 1 "Filesystems repaired, but reboot needed"
+-	         	_reboot -f
+-		else
+-			ewend 1 "Filesystems still have errors;" \
+-				"manual fsck required"
+-			_abort
+-		fi;;
+-	4)	if [ "$RC_UNAME" = Linux ]; then
+-			ewend 1 "Filesystem errors left uncorrected, aborting"
+-			_abort
+-		else
+-		 	ewend 1 "Filesystems repaired, but reboot needed"
+-			_reboot
+-		fi;;
+-	8)	ewend 1 "Operational error"; return 0;;
+-	12)	ewend 1 "fsck interrupted";;
+-	*)	eend 2 "Filesystems couldn't be fixed";;
++	# shellcheck disable=SC2086
++	fsck ${fsck_args:-"-p"} ${fsck_opts} "${@}"
++	case ${?} in
++		0)	eend 0; rc=0;;
++		1)	ewend 1 "Filesystems repaired"; rc=0;;
++		2|3)	if [ "$RC_UNAME" = Linux ]; then
++				ewend 1 "Filesystems repaired, but reboot needed"
++				_reboot -f
++			else
++				ewend 1 "Filesystems still have errors;" \
++					"manual fsck required"
++				_abort
++			fi;;
++		4)	if [ "$RC_UNAME" = Linux ]; then
++				ewend 1 "Filesystem errors left uncorrected, aborting"
++				_abort
++			else
++				ewend 1 "Filesystems repaired, but reboot needed"
++				_reboot
++			fi;;
++		8)	ewend 1 "Operational error"; rc=0;;
++		12)	ewend 1 "fsck interrupted";;
++		*)	eend 2 "Filesystems couldn't be fixed";;
+ 	esac
+-	_abort || return 1
++	if [ $(( rc )) -eq 1 ]; then
++		_abort || return 1
++	fi
++
++	if [ -x /sbin/btrfsck ] && [ -n "$( fstabinfo -t btrfs -qq )" ]; then
++		einfo "btrfs filesystems and utilities present:"
++		local fs=''
++		for fs in $( fstabinfo -t btrfs 2>/dev/null ); do
++			einfo "... btrfs filesystem '${fs}' found"
++			if mountinfo --quiet --nonetdev "${fs}"; then
++				ebegin "Checking local btrfs filesystem '${fs}'"
++				/sbin/btrfsck --readonly --progress --qgroup-report "${fs}"
++				case ${?} in
++					0) eend 0;;
++					*) ewend 1 "btrfsck failed: ${?}";;
++				esac
++			fi
++		done
++	fi
++	return ${rc}
+ }
+ 
+ stop()
+@@ -126,6 +150,6 @@ stop()
+ 	_reboot() { return 0; }
+ 	_forcefsck() { return 1; }
+ 
+-	yesno $fsck_shutdown && start
++	yesno "${fsck_shutdown:-no}" && start
+ 	return 0
+ }
+--- a/init.d/local.in
++++ b/init.d/local.in
+@@ -29,13 +29,15 @@ start()
+ 	eindent
+ 	for file in "${local_d_dir}"/*.start; do
+ 		if [ -x "${file}" ]; then
+-			vebegin "Executing \"${file}\""
++			#vebegin "Executing \"${file}\""
++			ebegin "Executing \"${file}\""
+ 			eval "${file}" $redirect
+ 			retval=$?
+ 			if [ ${retval} -ne 0 ]; then
+ 				has_errors=1
+ 			fi
+-			veend ${retval} "Execution of \"${file}\" failed."
++			#veend ${retval} "Execution of \"${file}\" failed."
++			eend ${retval} "Execution of \"${file}\" failed."
+ 		fi
+ 	done
+ 	eoutdent

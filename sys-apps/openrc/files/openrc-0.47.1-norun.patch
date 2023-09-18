@@ -187,17 +187,19 @@
  
  	if checkpath -W /var/run; then
  		ebegin "Creating user login records"
-@@ -200,6 +201,13 @@ start()
+@@ -200,6 +201,15 @@ start()
  		eend 0
  
  		mountinfo -q -f tmpfs /var/run || cleanup_var_run_dir
 +
-+		[ -L /var/run/lock ] && rm /var/run/lock
-+		[ -d /var/run/lock ] && rmdir /var/run/lock
++		[ -L /var/run/lock ] && rm /var/run/lock 2>/dev/null
++		[ -d /var/run/lock ] && rmdir /var/run/lock 2>/dev/null
 +		[ -d /var/run/lock ] || ln -s ../lock /var/run/lock
-+		awk '/lock/ { print $2 }' /etc/fstab 2>/dev/null |
-+				grep -Fq '/var/lock' &&
-+			mount /var/lock
++		if ! mount | grep -Fq -- ' /var/lock '; then
++			awk '/lock/ { print $2 }' /etc/fstab 2>/dev/null |
++					grep -Fq '/var/lock' &&
++				mount /var/lock
++		fi
  	fi
  
  	# Clean up /tmp directories

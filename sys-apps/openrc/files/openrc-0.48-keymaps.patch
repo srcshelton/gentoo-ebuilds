@@ -1,0 +1,26 @@
+--- a/init.d/keymaps.in
++++ b/init.d/keymaps.in
+@@ -53,19 +53,20 @@ start()
+ 	ebegin "Setting keyboard mode [$msg]"
+ 	n=1
+ 	while [ $n -le $ttyn ]; do
+-		kbd_mode $kmode -C $ttydev$n
++		/usr/bin/kbd_mode $kmode -C $ttydev$n
+ 		: $(( n += 1 ))
+ 	done
+ 	eend 0
+ 
+ 	ebegin "Loading key mappings [$keymap]"
+-	loadkeys -q $wkeys $keymap $extended_keymaps
++	/usr/bin/loadkeys -q $wkeys $keymap $extended_keymaps
+ 	eend $? "Error loading key mappings" || return $?
+ 
+ 	if yesno $fix_euro; then
+ 		ebegin "Fixing font for euro symbol"
+ 		# Fix some fonts displaying the Euro, #173528.
+-		echo "altgr keycode 18 = U+20AC" | loadkeys -q -
++		echo "altgr keycode 18 = U+20AC" |
++			/usr/bin/loadkeys -q -
+ 		eend $?
+ 	fi
+ 	return 0
