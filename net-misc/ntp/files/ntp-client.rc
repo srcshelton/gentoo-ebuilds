@@ -9,7 +9,7 @@ depend() {
 }
 
 checkconfig() {
-	if ! type "${NTPCLIENT_CMD}" >/dev/null 2>&1 ; then
+	if ! command -v "${NTPCLIENT_CMD}" >/dev/null 2>&1 ; then
 		eerror "Please edit /etc/conf.d/ntp-client"
 		eerror "Unable to locate the client command ${NTPCLIENT_CMD}!"
 		return 1
@@ -23,9 +23,20 @@ checkconfig() {
 }
 
 start() {
+	local rc=0
+
 	checkconfig || return $?
 
 	ebegin "Setting clock via the NTP client '${NTPCLIENT_CMD}'"
-	"${NTPCLIENT_CMD}" ${NTPCLIENT_OPTS}
-	eend $? "Failed to set clock"
+	"${NTPCLIENT_CMD}" -s ${NTPCLIENT_OPTS:-} ||
+		rc=${?}
+	eend ${rc} "Failed to set clock: ${rc}"
+
+	if [ $(( rc )) -ne 0 ]; then
+		ebegin "'${NTPCLIENT_CMD}' debug diagnosis:"
+		"${NTPCLIENT_CMD}" -d ${NTPCLIENT_OPTS:-}
+		eend 1
+	fi
+
+	return ${rc}
 }
