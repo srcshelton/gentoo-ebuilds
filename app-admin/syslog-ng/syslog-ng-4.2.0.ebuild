@@ -36,6 +36,7 @@ RDEPEND="
 	python? (
 		${PYTHON_DEPS}
 		$(python_gen_cond_dep '
+			dev-python/requests[${PYTHON_USEDEP}]
 			dev-python/setuptools[${PYTHON_USEDEP}]
 		')
 	)
