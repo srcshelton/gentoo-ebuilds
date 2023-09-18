@@ -6,7 +6,7 @@ EGIT_COMMIT="5db42e86862ef42c59304c38aa583732fd80f178"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
-COMMON_VERSION='0.55.4'
+COMMON_VERSION='0.56.0'
 
 DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
 HOMEPAGE="https://github.com/containers/podman/"
@@ -181,6 +181,13 @@ pkg_setup() {
 
 src_prepare() {
 	local -a makefile_sed_args=()
+	local f=''
+
+	# test/e2e/build/containerignore-symlink/.dockerignore
+	touch "${T}"/private_file
+	rm test/e2e/build/containerignore-symlink/.dockerignore &&
+		ln -s "${T}"/private_file \
+			test/e2e/build/containerignore-symlink/.dockerignore
 
 	default
 
@@ -241,7 +248,8 @@ src_prepare() {
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . |
-		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
+		xargs -r -- sed -ri \
+			-e 's|([^r])/run/|\1/var/run/|g ; s|^/run/|/var/run/|g' || die
 }
 
 src_compile() {

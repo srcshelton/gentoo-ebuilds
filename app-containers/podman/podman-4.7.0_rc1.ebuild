@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-EGIT_COMMIT="f3069b3ff48e30373c33b3f5976f15abf8cfee20"
+EGIT_COMMIT="7845dd175aad05e0217eb357982030f8d2776fb8"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
@@ -15,7 +15,7 @@ SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
 
-KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
 #RESTRICT="mirror test network-sandbox"
 RESTRICT="mirror test"
@@ -181,6 +181,13 @@ pkg_setup() {
 
 src_prepare() {
 	local -a makefile_sed_args=()
+	local f=''
+
+	# test/e2e/build/containerignore-symlink/.dockerignore
+	touch "${T}"/private_file
+	rm test/e2e/build/containerignore-symlink/.dockerignore &&
+		ln -s "${T}"/private_file \
+			test/e2e/build/containerignore-symlink/.dockerignore
 
 	default
 
@@ -241,7 +248,8 @@ src_prepare() {
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . |
-		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
+		xargs -r -- sed -ri \
+			-e 's|([^r])/run/|\1/var/run/|g ; s|^/run/|/var/run/|g' || die
 }
 
 src_compile() {
