@@ -441,6 +441,8 @@ used to build perl)
     * Remove obselete update script and 'wget' dependency
 * dev-libs/glib
     * Prevent binary merges from failing due to assumptions about build files being present
+* dev-libs/libbpf
+    * Fix build/runtime dependencies
 * dev-libs/libcgroup
     * Handle existing mountpoints and correct init scripts
 * dev-libs/libusb
