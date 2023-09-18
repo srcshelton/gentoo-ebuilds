@@ -1,27 +1,27 @@
 # Copyright 2004-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
-PYTHON_COMPAT=( python3_{9..10} )
+PYTHON_COMPAT=( python3_{10..11} )
 # NEED_BOOTSTRAP is for developers to quickly generate a tarball
 # for publishing to the tree.
 NEED_BOOTSTRAP="no"
-inherit eapi8-dosym flag-o-matic multibuild multilib python-any-r1 toolchain-funcs multilib-minimal
+inherit flag-o-matic multibuild multilib python-any-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="Extended crypt library for descrypt, md5crypt, bcrypt, and others"
 HOMEPAGE="https://github.com/besser82/libxcrypt"
 if [[ ${NEED_BOOTSTRAP} == "yes" ]] ; then
 	inherit autotools
-	SRC_URI="https://github.com/besser82/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	SRC_URI="https://github.com/besser82/libxcrypt/releases/download/v${PV}/${P}.tar.xz"
 else
 	SRC_URI="https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${P}-autotools.tar.xz"
 fi
 
 LICENSE="LGPL-2.1+ public-domain BSD BSD-2"
 SLOT="0/1"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="+compat split-usr static-libs +system test headers-only"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 ~sparc x86"
+IUSE="+compat headers-only split-usr static-libs +system test"
 REQUIRED_USE="split-usr? ( system )"
 RESTRICT="!test? ( test )"
 
@@ -37,19 +37,23 @@ is_cross() {
 	[[ "${#enabled_abis[@]}" -le 1 ]] && [[ ${CHOST} != ${CTARGET} ]]
 }
 
-DEPEND="system? (
+DEPEND="
+	system? (
 		elibc_glibc? (
 			${CATEGORY}/glibc[-crypt(+)]
 			!${CATEGORY}/glibc[crypt(+)]
 		)
 		elibc_musl? (
+			${CATEGORY}/musl[-crypt(+)]
 			!${CATEGORY}/musl[crypt(+)]
 		)
 	)
 "
 RDEPEND="${DEPEND}"
-BDEPEND="dev-lang/perl
-	test? ( $(python_gen_any_dep 'dev-python/passlib[${PYTHON_USEDEP}]') )"
+BDEPEND="
+	dev-lang/perl
+	test? ( $(python_gen_any_dep 'dev-python/passlib[${PYTHON_USEDEP}]') )
+"
 
 python_check_deps() {
 	python_has_version "dev-python/passlib[${PYTHON_USEDEP}]"
@@ -68,7 +72,7 @@ pkg_pretend() {
 
 pkg_setup() {
 	MULTIBUILD_VARIANTS=(
-		$(usex compat 'xcrypt_compat' '')
+		$(usev compat 'xcrypt_compat')
 		xcrypt_nocompat
 	)
 
@@ -150,15 +154,15 @@ get_xcprefix() {
 get_xclibdir() {
 	printf -- "%s/%s/%s/%s\n" \
 		"$(get_xcprefix)" \
-		"$(usex split-usr '' '/usr')" \
+		"$(usev !split-usr '/usr')" \
 		"$(get_libdir)" \
-		"$(usex system '' 'xcrypt')"
+		"$(usev !system 'xcrypt')"
 }
 
 get_xcincludedir() {
 	printf -- "%s/usr/include/%s\n" \
 		"$(get_xcprefix)" \
-		"$(usex system '' 'xcrypt')"
+		"$(usev !system 'xcrypt')"
 }
 
 get_xcmandir() {
@@ -190,13 +194,6 @@ multilib_src_configure() {
 		else
 			export CC="${CTARGET}-gcc"
 		fi
-	fi
-
-	if use elibc_musl; then
-		# musl declares getcontext and swapcontext in ucontext.h,
-		# but does not implement them in libc.
-		# https://bugs.gentoo.org/838172
-		myconf+=( ac_cv_header_ucontext_h=no )
 	fi
 
 	case "${MULTIBUILD_ID}" in

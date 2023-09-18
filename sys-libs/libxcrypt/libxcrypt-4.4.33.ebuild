@@ -309,7 +309,7 @@ multilib_src_install() {
 							local libdir_no_prefix=$(get_xclibdir)
 							libdir_no_prefix=${libdir_no_prefix#${EPREFIX}}
 							libdir_no_prefix=${libdir_no_prefix%/usr}
-							dosym8 -r "/$(get_libdir)/${lib_file_target}" "/usr/${libdir_no_prefix}/${lib_file_basename}"
+							dosym -r "/$(get_libdir)/${lib_file_target}" "/usr/${libdir_no_prefix}/${lib_file_basename}"
 						done
 
 						rm "${D}"$(get_xclibdir)/*$(get_libname) || die "Removing symlinks in incorrect location failed"
