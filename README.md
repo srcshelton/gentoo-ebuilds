@@ -262,6 +262,8 @@ used to build perl)
     * SVOX Pico TTS (aka 'pico2wave'), required by \>www-apps/nabaztaglives-2.2.0
 * app-admin/checkrestart-ng
     * A pure-shell tool to check for updated binaries and libraries
+* app-admin/mei-amt-check
+    * Add updated version
 * app-admin/openrc-restart-crashed
     * Check for services with status 'crashed', and optionally restart specified services
 * ~~app-editors/vim-core~~
