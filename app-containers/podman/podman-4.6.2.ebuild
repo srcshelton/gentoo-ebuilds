@@ -282,10 +282,18 @@ src_install() {
 	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
 
 	if ! use experimental; then
-		rm "${ED}"/usr/libexec/podman/podmansh
+		rm \
+			"${ED}"/usr/bin/podmansh \
+			"${ED}"/usr/share/man/man1/podmansh.1
 	fi
 	if ! use systemd; then
-		rm "${ED}"/usr/libexec/podman/quadlet
+		rm \
+			"${ED}"/usr/libexec/podman/quadlet \
+			"${ED}"/usr/share/man/man5/quadlet.5 \
+			"${ED}"/usr/share/man/man5/podman-systemd.unit.5
+	fi
+	if ! use rootless; then
+		rm "${ED}"/usr/libexec/podman/rootlessport
 	fi
 
 	insinto /etc/containers
