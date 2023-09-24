@@ -1,0 +1,35 @@
+From b9cc389aabf14379685e4582c3275c23f5a9d0bc Mon Sep 17 00:00:00 2001
+From: NaofumiHonda <honda@math.sci.hokudai.ac.jp>
+Date: Tue, 22 Aug 2023 00:17:45 +0900
+Subject: [PATCH] Clear sysattr cache if a null pointer is passed (#255)
+
+* Clear sysattr cache if a null pointer is passed
+
+* remove tabs
+---
+ src/libudev/libudev-device.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/src/libudev/libudev-device.c b/src/libudev/libudev-device.c
+index ac67ce846..d6bc4032a 100644
+--- a/src/libudev/libudev-device.c
++++ b/src/libudev/libudev-device.c
+@@ -1557,9 +1557,15 @@ _public_ int udev_device_set_sysattr_value(struct udev_device *udev_device, cons
+         dev = udev_device;
+         if (sysattr == NULL)
+                 return -EINVAL;
+-        if (value == NULL)
+-                value_len = 0;
+-        else
++        if (value == NULL) {
++                struct udev_list_entry *list_entry;
++
++                list_entry = udev_list_get_entry(&udev_device->sysattr_value_list);
++                list_entry = udev_list_entry_get_by_name(list_entry, sysattr);
++                if (list_entry != NULL)
++                        udev_list_entry_delete(list_entry);
++                goto out;
++        } else
+                 value_len = strlen(value);
+ 
+         strscpyl(path, sizeof(path), udev_device_get_syspath(dev), "/", sysattr, NULL);

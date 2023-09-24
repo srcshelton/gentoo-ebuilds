@@ -369,6 +369,8 @@ used to build perl)
     * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
 * sys-boot/raspberrypi-boot
     * 'rpiboot' and associated firmware
+* sys-fs/eudev
+    * Retain tree-cleaned upstream package
 * sys-kernel/raspberrypi-headers
     * Kernel headers from Raspberry Pi sources
 * sys-process/stalld
