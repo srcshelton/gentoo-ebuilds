@@ -110,6 +110,7 @@ src_prepare() {
 	sed -i -r \
 		-e "/\/lib/s#/lib([: \"/]|$)#/$(get_libdir)\1#" \
 		configure.ac || die
+	# " # <- Syntax
 
 	rm configure || die
 
