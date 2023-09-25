@@ -390,6 +390,8 @@ used to build perl)
 
 # Modified ebuilds
 
+* acct-user/postfix
+    * Allow optional 'milter' group membership
 * app-admin/cpulimit
     * Fix use of 'inline' (rather than 'static inline')
 * app-admin/eselect
