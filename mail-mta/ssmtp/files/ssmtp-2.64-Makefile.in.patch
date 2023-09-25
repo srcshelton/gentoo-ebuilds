@@ -1,0 +1,11 @@
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -83,7 +83,7 @@ uninstall-sendmail: uninstall
+ 
+ # Binaries:
+ ssmtp: $(OBJS)
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o ssmtp $(OBJS) $(LIBS)
++	$(CC) $(CFLAGS) $(LDFLAGS) -o ssmtp $(OBJS) $(LIBS) $(LDFLAGS)
+ 
+ .PHONY: clean
+ clean:

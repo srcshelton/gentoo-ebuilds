@@ -66,6 +66,10 @@ src_prepare() {
 	eapply "${WORKDIR}"/patches/0120_all_aliases.patch
 	eapply -p0 "${WORKDIR}"/patches/0130_all_garbage-writes.patch
 
+	eapply "${FILESDIR}"/ssmtp-2.64-Makefile.in.patch
+	eapply "${FILESDIR}"/ssmtp-2.64-ssmtp.conf.5.patch
+	eapply "${FILESDIR}"/ssmtp-2.64-debian.patch
+
 	# let's start by not using configure.in anymore as future autoconf
 	# versions will not support it.
 	mv configure.in configure.ac || die

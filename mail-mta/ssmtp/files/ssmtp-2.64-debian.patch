@@ -1,0 +1,106 @@
+--- a/ssmtp.c
++++ b/ssmtp.c
+@@ -369,6 +369,11 @@ bool_t standardise(char *str, bool_t *li
+ 	if((p = strchr(str, '\n'))) {
+ 		*p = (char)NULL;
+ 		*linestart = True;
++
++		/* If the line ended in "\r\n", then drop the '\r' too */
++		sl = strlen(str);
++		if(sl >= 1 && str[sl - 1] == '\r')
++			str[sl - 1] = (char)NULL;
+ 	}
+ 	return(leadingdot);
+ }
+@@ -738,9 +743,6 @@ void header_save(char *str)
+ 		if(override_from == True) {
+ 			uad = from_strip(ht->string);
+ 		}
+-		else {
+-			return;
+-		}
+ #endif
+ 		have_from = True;
+ 	}
+@@ -811,6 +813,14 @@ void header_parse(FILE *stream)
+ 		}
+ 		len++;
+ 
++		if(l == '\r' && c == '\n') {
++			/* Properly handle input that already has "\r\n"
++				line endings; see https://bugs.debian.org/584162 */
++			l = (len >= 2 ? *(q - 2) : '\n');
++			q--;
++			len--;
++		}
++
+ 		if(l == '\n') {
+ 			switch(c) {
+ 				case ' ':
+@@ -833,7 +843,9 @@ void header_parse(FILE *stream)
+ 						if((q = strrchr(p, '\n'))) {
+ 							*q = (char)NULL;
+ 						}
+-						header_save(p);
++						if(len > 0) {
++							header_save(p);
++						}
+ 
+ 						q = p;
+ 						len = 0;
+@@ -843,35 +855,12 @@ void header_parse(FILE *stream)
+ 
+ 		l = c;
+ 	}
+-	if(in_header) {
+-		if(l == '\n') {
+-			switch(c) {
+-				case ' ':
+-				case '\t':
+-						/* Must insert '\r' before '\n's embedded in header
+-						   fields otherwise qmail won't accept our mail
+-						   because a bare '\n' violates some RFC */
+-						
+-						*(q - 1) = '\r';	/* Replace previous \n with \r */
+-						*q++ = '\n';		/* Insert \n */
+-						len++;
+-						
+-						break;
+-
+-				case '\n':
+-						in_header = False;
+-
+-				default:
+-						*q = (char)NULL;
+-						if((q = strrchr(p, '\n'))) {
+-							*q = (char)NULL;
+-						}
+-						header_save(p);
+-
+-						q = p;
+-						len = 0;
+-			}
++	if(in_header && l == '\n') {
++		/* Got EOF while reading the header */
++		if((q = strrchr(p, '\n'))) {
++			*q = (char)NULL;
+ 		}
++		header_save(p);
+ 	}
+ 	(void)free(p);
+ }
+@@ -1366,8 +1355,12 @@ fd_getc() -- Read a character from an fd
+ ssize_t fd_getc(int fd, void *c)
+ {
+ #ifdef HAVE_SSL
+-	if(use_tls == True) { 
+-		return(SSL_read(ssl, c, 1));
++	if(use_tls == True) {
++		int attempt = 3;
++		int ret = 0;
++		while (attempt-- > 0 && ret == 0)
++			ret = SSL_read(ssl, c, 1);
++		return ret;
+ 	}
+ #endif
+ 	return(read(fd, c, 1));
