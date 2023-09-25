@@ -19,7 +19,7 @@ DEPEND="reports? ( dev-perl/DBI )
 	|| ( mail-filter/libmilter mail-mta/sendmail )"
 RDEPEND="${DEPEND}
 	!milter? ( acct-user/opendmarc )
-	milter? ( acct-user/milter )
+	milter? ( acct-user/milter acct-user/postfix[milter] )
 	reports? (
 		dev-perl/DBD-mysql
 		dev-perl/HTTP-Message
