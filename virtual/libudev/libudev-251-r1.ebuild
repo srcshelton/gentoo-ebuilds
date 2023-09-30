@@ -9,24 +9,18 @@ DESCRIPTION="Virtual for libudev providers"
 
 SLOT="0/1"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="+eudev sticky-tags systemd"
+IUSE="+libeudev sticky-tags systemd"
 REQUIRED_USE="
-	?? ( eudev systemd )
-	eudev? ( !sticky-tags )
+	?? ( libeudev systemd )
+	libeudev? ( !sticky-tags )
 "
 
 # eudev does not provide v251 APIs, see
 # https://github.com/eudev-project/eudev/issues/249
 RDEPEND="
-	!systemd? (
-		eudev? ( || (
-			sys-fs/eudev[${MULTILIB_USEDEP}]
-			sys-libs/libeudev[${MULTILIB_USEDEP}]
-		) )
-		!eudev? ( || (
-			sys-fs/udev[${MULTILIB_USEDEP}]
-			sys-apps/systemd-utils[udev,${MULTILIB_USEDEP}]
-		) )
-	)
-	systemd? ( >=sys-apps/systemd-251:0/2[${MULTILIB_USEDEP}] )
+	libeudev? ( sys-libs/libeudev[${MULTILIB_USEDEP}] )
+	!libeudev? ( || (
+		systemd? ( >=sys-apps/systemd-251:0/2[${MULTILIB_USEDEP}] )
+		!systemd? ( sys-apps/systemd-utils[udev,${MULTILIB_USEDEP}] )
+	) )
 "
