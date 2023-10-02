@@ -323,7 +323,7 @@ used to build perl)
 * ~~dev-python/noxspellserver~~
 * ~~dev-python/pathspec~~
 * ~~dev-python/pre-commit~~ (see `dev-vcs/pre-commit`)
-* dev-ruby/CFPropertyList
+* ~~dev-ruby/CFPropertyList~~
 * dev-util/ltrace
     * The ltrace project hasn't made a release in a long time, but we can pull-in more recent commits
 * ~~dev-util/yamllint~~
