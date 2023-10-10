@@ -31,7 +31,7 @@ LICENSE="POSTGRESQL GPL-2"
 DESCRIPTION="PostgreSQL RDBMS"
 HOMEPAGE="https://www.postgresql.org/"
 
-IUSE="debug doc icu kerberos ldap llvm lz4 nls pam perl python +readline selinux +server ssl static-libs systemd tcl threads uuid xml zlib zstd"
+IUSE="debug doc icu kerberos ldap llvm lz4 nls pam perl python +readline selinux +server ssl static-libs systemd tcl uuid xml zlib zstd"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )"
 
@@ -138,7 +138,6 @@ src_configure() {
 		--sysconfdir="${PO}/etc/postgresql-${SLOT}" \
 		--with-system-tzdata="${PO}/usr/share/zoneinfo" \
 		$(use_enable debug) \
-		$(use_enable threads thread-safety) \
 		$(use_with icu) \
 		$(use_with kerberos gssapi) \
 		$(use_with ldap) \
@@ -157,14 +156,12 @@ src_configure() {
 		$(use_with zlib) \
 		$(use_with zstd) \
 		$(use_enable nls)"
-
 	if use alpha; then
 		myconf+=" --disable-spinlocks"
 	else
 		# Should be the default but just in case
 		myconf+=" --enable-spinlocks"
 	fi
-
 	econf ${myconf}
 }
 
