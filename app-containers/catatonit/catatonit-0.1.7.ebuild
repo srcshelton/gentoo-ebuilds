@@ -8,7 +8,7 @@ inherit autotools
 DESCRIPTION="A container init that is so simple it's effectively brain-dead"
 HOMEPAGE="https://github.com/openSUSE/catatonit"
 SRC_URI="https://github.com/openSUSE/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz
-	https://github.com/openSUSE/catatonit/pull/19.patch -> ${P}-automake.patch"
+	https://github.com/openSUSE/catatonit/pull/18.patch -> ${P}-automake.patch"
 RESTRICT="mirror"
 
 LICENSE="GPL-3+"
