@@ -1,17 +1,23 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
-inherit go-module
-
-KEYWORDS="~amd64"
-DESCRIPTION="containers/storage library"
+DESCRIPTION="Default config and docs related to Containers' storage"
 HOMEPAGE="https://github.com/containers/storage"
-LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT"
+
+if [[ ${PV} == *9999* ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/containers/storage.git"
+else
+	SRC_URI="https://github.com/containers/storage/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	S="${WORKDIR}/${P#containers-}"
+	KEYWORDS="~amd64 ~arm64 ~riscv"
+fi
+
+LICENSE="Apache-2.0"
 SLOT="0"
 IUSE="btrfs +device-mapper test"
-SRC_URI="https://github.com/containers/storage/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 RDEPEND="
 	btrfs? ( sys-fs/btrfs-progs )
 	device-mapper? ( sys-fs/lvm2:= )"
@@ -24,7 +30,9 @@ DEPEND="${RDEPEND}
 	)"
 RESTRICT="test"
 
-S=${WORKDIR}/${P#containers-}
+PATCHES=(
+	"${FILESDIR}"/system-md2man-path.patch
+)
 
 src_prepare() {
 	default
@@ -32,12 +40,16 @@ src_prepare() {
 	sed -e 's|: install\.tools|:|' -i Makefile || die
 
 	[[ -f hack/btrfs_tag.sh ]] || die
-	use btrfs || { echo -e "#!/bin/sh\necho exclude_graphdriver_btrfs" > \
-		"hack/btrfs_tag.sh" || die; }
+	if ! use btrfs ; then
+		echo -e "#!/bin/sh\necho exclude_graphdriver_btrfs" > \
+			"hack/btrfs_tag.sh" || die
+	fi
 
 	[[ -f hack/libdm_tag.sh ]] || die
-	use device-mapper || { echo -e "#!/bin/sh\necho btrfs_noversion exclude_graphdriver_devicemapper" > \
-		"hack/libdm_tag.sh" || die; }
+	if ! use device-mapper ; then
+		echo -e "#!/bin/sh\necho btrfs_noversion exclude_graphdriver_devicemapper" > \
+			"hack/libdm_tag.sh" || die
+	fi
 }
 
 src_compile() {
@@ -45,14 +57,19 @@ src_compile() {
 	emake GOMD2MAN=go-md2man FFJSON= containers-storage docs
 }
 
+src_test() {
+	env -u GOFLAGS unshare -m emake local-test-unit || die
+}
+
 src_install() {
+	emake DESTDIR="${D}" -C docs install
 	dobin "${PN}"
+
 	while read -r -d ''; do
 		mv "${REPLY}" "${REPLY%.1}" || die
 	done < <(find "${S}/docs" -name '*.[[:digit:]].1' -print0)
 	find "${S}/docs" -name '*.[[:digit:]]' -exec doman '{}' + || die
-}
 
-src_test() {
-	env -u GOFLAGS unshare -m emake local-test-unit || die
+	insinto /etc/containers
+	doins storage.conf
 }
