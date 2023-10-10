@@ -32,8 +32,8 @@ RESTRICT="test"
 rundir="/dev/.mdadm"
 
 PATCHES=(
-	"${FILESDIR}/${PN}"-3.4-sysmacros.patch #580188
-	"${FILESDIR}/${PN}"-4.2-in_initrd-collision.patch #830461
+	"${FILESDIR}/${PN}-3.4-sysmacros.patch" #580188
+	"${FILESDIR}/${PN}-4.2-in_initrd-collision.patch" #830461
 )
 
 mdadm_emake() {
