@@ -30,15 +30,13 @@ KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ~ppc ppc64 ~riscv ~s39
 #IUSE_CONTRIB="kerberos kinit pbkdf2 sha2 smbkrb5passwd"
 #IUSE_CONTRIB="${IUSE_CONTRIB} cxx"
 IUSE="argon2 autoca +cleartext crypt cxx debug experimental gnutls iodbc ipv6 kerberos kinit minimal odbc overlays pbkdf2 perl samba sasl selinux sha2 smbkrb5passwd ssl static-libs +syslog systemd tcpd test +tmpfiles"
-RESTRICT="!test? ( test )"
-
-RESTRICT="!test? ( test )"
 REQUIRED_USE="cxx? ( sasl )
 	pbkdf2? ( ssl )
 	test? ( cleartext sasl )
 	autoca? ( !gnutls )
 	?? ( test minimal )
 	kerberos? ( ?? ( kinit smbkrb5passwd ) )"
+RESTRICT="!test? ( test )"
 
 # openssl is needed to generate lanman-passwords required by samba
 COMMON_DEPEND="
