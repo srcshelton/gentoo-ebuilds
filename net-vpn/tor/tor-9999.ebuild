@@ -47,14 +47,14 @@ BDEPEND="${BDEPEND}
 "
 COMMON_DEPEND="
 	>=dev-libs/libevent-2.1.12-r1:=[ssl]
+	dev-libs/openssl:=[-bindist(-)]
 	sys-libs/zlib
 	caps? ( sys-libs/libcap )
-	dev-libs/openssl:=[-bindist(-)]
 	lzma? ( app-arch/xz-utils )
 	scrypt? ( app-crypt/libscrypt )
 	seccomp? ( >=sys-libs/libseccomp-2.4.1 )
-	systemd? ( sys-apps/systemd )
-	zstd? ( app-arch/zstd )
+	systemd? ( sys-apps/systemd:= )
+	zstd? ( app-arch/zstd:= )
 "
 RDEPEND="
 	acct-user/tor
@@ -130,14 +130,6 @@ src_configure() {
 		# (PoW requires GPL.)
 		--enable-gpl
 		--enable-module-pow
-
-		# This option is enabled by default upstream w/ zstd, surprisingly.
-		# zstd upstream says this shouldn't be relied upon and it may
-		# break API & ABI at any point, so Tor tries to fake static-linking
-		# to make it work, but then requires a rebuild on any new zstd version
-		# even when its standard ABI hasn't changed.
-		# See bug #727406 and bug #905708.
-		--disable-zstd-advanced-apis
 
 		$(use_enable man asciidoc)
 		$(use_enable man manpage)
