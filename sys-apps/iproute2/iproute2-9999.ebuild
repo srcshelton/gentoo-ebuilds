@@ -5,7 +5,7 @@ EAPI=8
 
 inherit edo toolchain-funcs
 
-if [[ ${PV} == "9999" ]] ; then
+if [[ "${PV}" == '9999' ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git"
 	inherit git-r3
 else
@@ -18,7 +18,7 @@ HOMEPAGE="https://wiki.linuxfoundation.org/networking/iproute2"
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="atm berkdb bpf caps elf +iptables libbsd minimal nfs selinux split-usr"
+IUSE="atm berkdb bpf caps elf +iptables minimal nfs selinux split-usr"
 # Needs root
 RESTRICT="test"
 
@@ -32,7 +32,6 @@ RDEPEND="
 	caps? ( sys-libs/libcap )
 	elf? ( virtual/libelf:= )
 	iptables? ( >=net-firewall/iptables-1.4.20:= )
-	libbsd? ( dev-libs/libbsd )
 	nfs? ( net-libs/libtirpc:= )
 	selinux? ( sys-libs/libselinux )
 "
@@ -50,9 +49,9 @@ BDEPEND="
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-3.1.0-mtu.patch # bug #291907
-	"${FILESDIR}"/${PN}-5.12.0-configure-nomagic.patch # bug #643722
-	#"${FILESDIR}"/${PN}-5.1.0-portability.patch
+	"${FILESDIR}"/${PN}-5.12.0-configure-nomagic-nolibbsd.patch # bug #643722 & 911727
 	"${FILESDIR}"/${PN}-5.7.0-mix-signal.h-include.patch
+	"${FILESDIR}"/${PN}-6.4.0-disable-libbsd-fallback.patch # bug #911727
 )
 
 src_prepare() {
@@ -60,7 +59,7 @@ src_prepare() {
 
 	# Fix version if necessary
 	local versionfile="include/version.h"
-	if [[ "${PV}" != 9999 ]] && ! grep -Fq "${PV}" ${versionfile} ; then
+	if [[ "${PV}" != '9999' ]] && ! grep -Fq "${PV}" ${versionfile} ; then
 		einfo "Fixing version string"
 		sed "s@\"[[:digit:]\.]\+\"@\"${PV}\"@" \
 			-i ${versionfile} || die
@@ -139,10 +138,6 @@ src_configure() {
 		sed -i -e '/HAVE_SELINUX/d' config.mk || die
 	fi
 
-	if ! use libbsd ; then
-		sed -i -e '/HAVE_LIBBSD/d' config.mk || die
-	fi
-
 	# ... then switch on/off requested features via USE flags
 	# (this is only useful if the test did not set other things, per bug #643722)
 	# N.B. Keep in sync with ifs above, or refactor to be unified.
@@ -161,7 +156,6 @@ src_configure() {
 	IP_CONFIG_SETNS := ${setns}
 	# Use correct iptables dir, bug #144265, bug #293709
 	IPT_LIB_DIR   := $(use iptables && ${PKG_CONFIG} xtables --variable=xtlibdir)
-	HAVE_LIBBSD   := $(usex libbsd y n)
 	EOF
 }
 
