@@ -8,7 +8,6 @@ inherit flag-o-matic gnuconfig libtool toolchain-funcs usr-ldscript multilib-min
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
 
-MANUAL_PV=${MY_PV}
 MANUAL_PV=6.2.1
 
 MY_P=${PN}-${MY_PV}
