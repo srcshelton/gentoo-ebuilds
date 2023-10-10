@@ -46,7 +46,7 @@ src_install() {
 		install
 
 	dodir /usr/libexec/podman
-	ln -s ../../bin/conmon "${ED}"/usr/libexec/podman/conmon || die
+	dosym -r /bin/conmon /usr/libexec/podman/conmon || die
 
 	dodoc README.md
 }
