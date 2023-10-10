@@ -9,8 +9,6 @@ MY_PN=${PN}mail
 MY_PV=${PV/_/-}
 MY_P=${MY_PN}-${MY_PV}
 
-#PHAR="2.4.1"
-
 DESCRIPTION="A browser-based multilingual IMAP client with an application-like user interface"
 HOMEPAGE="https://roundcube.net"
 
@@ -76,7 +74,7 @@ else
 fi
 
 src_unpack() {
-	local file
+	#local file
 
 	if [[ "${PV}" == *9999* ]]; then
 		git-r3_src_unpack
