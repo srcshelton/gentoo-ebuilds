@@ -539,6 +539,8 @@ used to build perl)
     * Fix for building on ARM
 * sys-apps/kbd
     * Add dependency on flex via app-alternatives/lex
+* sys-apps/locale-gen
+    * Fix operation with sys-libs/glibc 'compile-locales' USE-flag enabled
 * sys-apps/pciutils
     * Update and modernise init script
 * ~~sys-apps/portage~~
