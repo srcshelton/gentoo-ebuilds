@@ -1349,15 +1349,16 @@ run_locale_gen() {
 	# if the host locales.gen contains no entries, we'll install everything
 	local root="${1}"
 	local inplace=""
+	local -i rc=0
 
 	if [[ "${root}" == "--inplace-glibc" ]] ; then
 		inplace="--inplace-glibc"
 		root="${2}"
 	fi
 
-	local locale_list="${root%/}/etc/locale.gen"
+	local locale_list="${EROOT%/}/etc/locale.gen"
 
-	pushd "${ED}/$(get_libdir)" >/dev/null
+	pushd "${ED}/$(get_libdir)" >/dev/null || return 1
 
 	if [[ -z $(locale-gen --list --config "${locale_list}") ]] ; then
 		[[ -z "${inplace}" ]] && ewarn "Generating all locales; edit /etc/locale.gen to save time/space"
@@ -1375,9 +1376,9 @@ run_locale_gen() {
 	set -- locale-gen ${inplace} --jobs "${mygenjobs}" --config "${locale_list}" \
 		--destdir "${root}"
 	echo "$@"
-	"$@"
+	"$@" || rc=${?}
 
-	popd >/dev/null
+	popd >/dev/null && return ${rc}
 }
 
 glibc_do_src_install() {
@@ -1605,7 +1606,7 @@ glibc_do_src_install() {
 
 	# Generate all locales if this is a native build as locale generation
 	if use compile-locales && ! is_crosscompile ; then
-		run_locale_gen --inplace-glibc "${ED}/"
+		run_locale_gen --inplace-glibc "${ED}/" || die "run_locale_gen failed: ${?}"
 	fi
 }
 
@@ -1728,7 +1729,9 @@ pkg_postinst() {
 	fi
 
 	if ! is_crosscompile && [[ -z "${ROOT:-}" || "${ROOT}" == '/' ]] ; then
-		use compile-locales || run_locale_gen "${EROOT%/}/"
+		if ! use compile-locales; then
+			run_locale_gen "${EROOT%/}/" || die "run_locale_gen failed: ${?}"
+		fi
 	fi
 
 	upgrade_warning
