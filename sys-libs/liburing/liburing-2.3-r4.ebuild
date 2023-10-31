@@ -23,7 +23,7 @@ IUSE="examples static-libs test"
 RESTRICT="!test? ( test )"
 
 # At least installed headers need <linux/*>, bug #802516
-DEPEND="|| ( >=sys-kernel/raspberrypi-headers-5.1 =sys-kernel/linux-headers-5.1 )"
+DEPEND="|| ( >=sys-kernel/raspberrypi-headers-5.1 >=sys-kernel/linux-headers-5.1 )"
 
 PATCHES=(
 	# https://bugs.gentoo.org/891633
