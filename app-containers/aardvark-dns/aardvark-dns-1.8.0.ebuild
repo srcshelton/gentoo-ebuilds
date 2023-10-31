@@ -171,7 +171,9 @@ src_prepare() {
 
 src_install() {
 	cargo_src_install
+	dodir /usr/bin
+	mv "${ED}/usr/libexec/podman/${PN}" "${ED}/usr/bin"
 
 	dodir /usr/libexec/podman
-	dosym -r /bin/"${PN}" /usr/libexec/podman/"${PN}" || die
+	dosym -r "/usr/bin/${PN}" "/usr/libexec/podman/${PN}" || die
 }
