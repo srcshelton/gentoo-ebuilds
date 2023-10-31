@@ -2,22 +2,23 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+ETYPE="sources"
+K_WANT_GENPATCHES="base extras experimental"
+K_GENPATCHES_VER="65"
 
 CKV="${PV%_p*}"
 
-ETYPE=sources
 #K_DEFCONFIG="bcmrpi_defconfig" # Set below...
 K_SECURITY_UNSUPPORTED=1
 #
 #EXTRAVERSION="-${PN}/-*" # Set below...
+K_NODRYRUN=1  # Fail early rather than trying -p0 to -p5, seems to fix unipatch()!
 K_NOSETEXTRAVERSION=1
 K_NOUSENAME=1
 K_NOUSEPR=1
 
 K_EXP_GENPATCHES_NOUSE=1
-K_GENPATCHES_VER="$(ver_cut 3)"
 K_DEBLOB_AVAILABLE=0
-K_WANT_GENPATCHES="base extras"
 
 H_SUPPORTEDARCH="arm arm64"
 K_FROM_GIT=1
@@ -26,7 +27,9 @@ inherit kernel-2 linux-info
 detect_version
 detect_arch
 
-MY_PV="1.${PV#*_p}"
+#ECLASS_DEBUG_OUTPUT="on"
+
+MY_PV="stable_${PV#*_p}"
 
 DESCRIPTION="Raspberry Pi kernel sources"
 HOMEPAGE="https://github.com/raspberrypi/linux"
@@ -44,15 +47,6 @@ REQUIRED_USE="
 "
 
 PATCHES=( "${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch" )
-
-UNIPATCH_EXCLUDE="
-	10*
-	15*
-	1700
-	2000
-	29*
-	3000
-	4567"
 
 S="${WORKDIR}/linux-${MY_PV}"
 
@@ -117,6 +111,12 @@ universal_unpack() {
 	# remove all backup files
 	find . -iname "*~" -exec rm {} \; 2>/dev/null
 }
+
+src_unpack() {
+	# We expect unipatch to fail :(
+	$( kernel-2_src_unpack ) || :
+}
+
 
 src_prepare() {
 	default
