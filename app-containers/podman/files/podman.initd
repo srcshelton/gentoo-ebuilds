@@ -8,6 +8,7 @@ RUN_PATH="/var/run/${RC_SVCNAME}"
 : ${LOG_LEVEL:=error}
 : ${RUN_AS_USER:=root:root}
 : ${SOCKET:=unix:/var/run/${RC_SVCNAME}/podman.sock}
+: ${SOCKET_TIMEOUT:=5}
 pidfile="${RUN_PATH}/${RC_SVCNAME}.pid"
 command="/usr/bin/podman"
 command_args="--log-level ${LOG_LEVEL} system service -t 0 ${SOCKET}"
@@ -17,4 +18,20 @@ start_stop_daemon_args="--stdout ${LOG_PATH}/${RC_SVCNAME}.log --stderr ${LOG_PA
 start() {
 	checkpath -o "${RUN_AS_USER}" -d "${RUN_PATH}" "${LOG_PATH}"
 	default_start
+
+	if ! [ "${SOCKET#unix:}" = "${SOCKET}" ]; then
+		if echo "${RUN_AS_USER%:root}" | grep -Fq -- ':'; then
+			ebegin "Updating permissions on socket '${SOCKET#*:}'"
+			if ! ewaitfile ${SOCKET_TIMEOUT} "${SOCKET#*:}"; then
+				eend 1 "Socket '${SOCKET#*:}' was not created" \
+					" within ${SOCKET_TIMEOUT} seconds"
+			else
+				if ! chmod g+rw "${SOCKET#*:}"; then
+					eend 1 "Failed to set group" \
+						"permissions on socket" \
+						"'${SOCKET#*:}': ${?}"
+				fi
+			fi
+		fi
+	fi
 }

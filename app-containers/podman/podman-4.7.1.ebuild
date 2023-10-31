@@ -2,30 +2,33 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-EGIT_COMMIT="ef83eeb9c7482826672f3efa12db3d61c88df6c4"
+#EGIT_COMMIT="ef83eeb9c7482826672f3efa12db3d61c88df6c4"
 
 inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
 
-COMMON_VERSION='0.56.0'
+#COMMON_VERSION='0.56.0'
 
-DESCRIPTION="Library and podman tool for running OCI-based containers in Pods"
-HOMEPAGE="https://github.com/containers/podman/"
-SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz
-	https://github.com/containers/common/archive/v${COMMON_VERSION}.tar.gz -> containers-common-${COMMON_VERSION}.tar.gz"
+DESCRIPTION="A tool for managing OCI containers and pods with Docker-compatible CLI"
+HOMEPAGE="https://github.com/containers/podman/ https://podman.io/"
+
+if [[ ${PV} == *9999* ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/containers/podman.git"
+else
+	SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz"
+	#	https://github.com/containers/common/archive/v${COMMON_VERSION}.tar.gz -> containers-common-${COMMON_VERSION}.tar.gz"
+	KEYWORDS="~amd64 ~arm64 ~riscv"
+fi
+
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-
-KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
-IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completion +fuse +init +rootless selinux systemd +tmpfiles zsh-completion"
-#RESTRICT="mirror test network-sandbox"
+IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completion +fuse +init +rootless +seccomp selinux +sqlite systemd +tmpfiles wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
 	>=app-containers/conmon-2.0.24
-	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
-	!cgroup-hybrid? ( app-containers/crun )
-	dev-db/sqlite:=
+	>=app-containers/containers-common-0.56.0
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	|| (
@@ -34,12 +37,15 @@ COMMON_DEPEND="
 	)
 	sys-apps/shadow:=
 	sys-fs/lvm2
-	sys-libs/libseccomp:=
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
+	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
+	!cgroup-hybrid? ( app-containers/crun )
 	rootless? ( || ( app-containers/slirp4netns app-containers/passt ) )
-	selinux? ( sys-libs/libselinux:= )
+	seccomp? ( sys-libs/libseccomp:= )
+	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
+	sqlite? ( dev-db/sqlite:= )
 "
 BDEPEND="
 	dev-go/go-md2man
@@ -47,12 +53,20 @@ BDEPEND="
 	sys-apps/findutils
 	sys-apps/grep
 	sys-apps/sed
-	systemd? ( sys-apps/systemd )"
+	systemd? ( sys-apps/systemd )
+"
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	fuse? ( sys-fs/fuse-overlayfs )
 	init? ( app-containers/catatonit )
-	selinux? ( sec-policy/selinux-podman )"
+	selinux? ( sec-policy/selinux-podman )
+	systemd? ( sys-apps/systemd:= )
+	wrapper? ( !app-containers/docker-cli )
+"
+
+PATCHES=(
+	"${FILESDIR}/seccomp-toggle-4.7.0.patch"
+)
 
 S="${WORKDIR}/${P/_/-}"
 
@@ -95,11 +109,6 @@ ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gath
 ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
 ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
 ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
-
-#PATCHES=(
-#	"${FILESDIR}/${PN}-4.0.0-buildah-timeout.patch"
-#	"${FILESDIR}/${PN}-4.0.0-dev-warning.patch"
-#)
 
 pkg_setup() {
 	if kernel_is lt 3 10; then
@@ -181,7 +190,7 @@ pkg_setup() {
 
 src_prepare() {
 	local -a makefile_sed_args=()
-	local f=''
+	local file='' feature=''
 
 	# test/e2e/build/containerignore-symlink/.dockerignore
 	touch "${T}"/private_file
@@ -193,58 +202,44 @@ src_prepare() {
 
 	# Disable installation of python modules here, since those are
 	# installed by separate ebuilds.
-	makefile_sed_args=(
-		-e '/^GIT_.*/d'
-		-e 's/$(GO) build/$(GO) build -v -work -x/'
-		-e 's/^\(install:.*\) install\.python$/\1/'
-	)
+	#makefile_sed_args=(
+	#	-e '/^GIT_.*/d'
+	#	-e 's/$(GO) build/$(GO) build -v -work -x/'
+	#	-e 's/^\(install:.*\) install\.python$/\1/'
+	#)
 
-	use systemd || makefile_sed_args+=(
-		-e '/install.*SYSTEMDDIR/ s:^:#:'
-		-e '/install.*TMPFILESDIR/ s:^:#:'
-		-e 's/^\(install:.*\) install\.systemd$/\1/'
-	)
+	#use systemd || makefile_sed_args+=(
+	#	-e '/install.*SYSTEMDDIR/ s:^:#:'
+	#	-e 's/^\(install:.*\) install\.systemd$/\1/'
+	#)
+	#use tmpfiles || makefile_sed_args+=(
+	#	-e '/install.*TMPFILESDIR/ s:^:#:'
+	#)
 
-	has_version -b '>=dev-lang/go-1.13.9' ||
-		makefile_sed_args+=(-e 's:GO111MODULE=off:GO111MODULE=on:')
+	#has_version -b '>=dev-lang/go-1.13.9' ||
+	#	makefile_sed_args+=(-e 's:GO111MODULE=off:GO111MODULE=on:')
 
-	sed "${makefile_sed_args[@]}" -i Makefile || die
+	#sed "${makefile_sed_args[@]}" -i Makefile || die
 
-	[[ -f hack/apparmor_tag.sh ]] || die
-	if use apparmor; then
-		echo -e "#!/bin/sh\\necho apparmor" > \
-			hack/apparmor_tag.sh || die
-	else
-		echo -e "#!/bin/sh\\ntrue" > \
-			hack/apparmor_tag.sh || die
-	fi
+	for file in apparmor btrfs_installed btrfs selinux systemd; do
+		[[ -f "hack/${file}_tag.sh" ]] || die
+	done
 
-	[[ -f hack/btrfs_installed_tag.sh ]] || die
-	if use btrfs; then
-		echo -e "#!/bin/sh\\ntrue" > \
-			hack/btrfs_installed_tag.sh || die
-	else
-		echo -e "#!/bin/sh\\necho exclude_graphdriver_btrfs" > \
-			hack/btrfs_installed_tag.sh || die
-	fi
+	for feature in apparmor selinux systemd; do
+		cat <<-EOF > "hack/${feature}_tag.sh" || die
+			#!/bin/sh
+			$(usex "${feature}" "echo ${feature}" 'true')
+		EOF
+	done
 
-	[[ -f hack/selinux_tag.sh ]] || die
-	if use selinux; then
-		echo -e "#!/bin/sh\\necho selinux" > \
-			hack/selinux_tag.sh || die
-	else
-		echo -e "#!/bin/sh\\ntrue" > \
-			hack/selinux_tag.sh || die
-	fi
-
-	[[ -f hack/systemd_tag.sh ]] || die
-	if use systemd; then
-		echo -e "#!/bin/sh\\necho systemd" > \
-			hack/systemd_tag.sh || die
-	else
-		echo -e "#!/bin/sh\\ntrue" > \
-			hack/systemd_tag.sh || die
-	fi
+	cat <<-EOF > hack/btrfs_installed_tag.sh || die
+		#!/bin/sh
+		$(usex 'btrfs' 'true' 'echo exclude_graphdriver_btrfs')
+	EOF
+	cat <<-EOF > hack/btrfs_tag.sh || die
+		#!/bin/sh
+		$(usex 'btrfs' 'true' 'echo exclude_graphdriver_btrfs btrfs_noversion')
+	EOF
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . |
@@ -264,22 +259,30 @@ src_compile() {
 	#fi
 
 	# Filter unsupported linker flags
-	filter-flags '-Wl,*'
+	#filter-flags '-Wl,*'
 
-	go-md2man -in "${WORKDIR}/common-${COMMON_VERSION}/docs/containers.conf.5.md" -out "${T}/containers.conf.5"
+	#go-md2man -in "${WORKDIR}/common-${COMMON_VERSION}/docs/containers.conf.5.md" -out "${T}/containers.conf.5"
 
-	export -n GOCACHE GOPATH XDG_CACHE_HOME
-	GOBIN="${S}/bin" \
-		emake all \
+	#export -n GOCACHE GOPATH XDG_CACHE_HOME
+	#GOBIN="${S}/bin" \
+	emake \
 			PREFIX="${EPREFIX}/usr" \
-			GIT_BRANCH=master \
-			GIT_BRANCH_CLEAN=master \
-			COMMIT_NO="${EGIT_COMMIT}" \
-			GIT_COMMIT="${EGIT_COMMIT}"
+			BUILDFLAGS="-v -work -x" \
+			GOMD2MAN="go-md2man" \
+			BUILD_SECCOMP="$(usex seccomp)" \
+		all $(usev wrapper docker-docs)
+
+			#GIT_BRANCH=master \
+			#GIT_BRANCH_CLEAN=master \
+			#COMMIT_NO="${EGIT_COMMIT}" \
+			#GIT_COMMIT="${EGIT_COMMIT}"
 }
 
 src_install() {
-	emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
+	emake \
+			PREFIX="${EPREFIX}/usr" \
+			DESTDIR="${D}" \
+		install $(usev wrapper install.docker-full)
 
 	if ! use experimental; then
 		rm \
@@ -296,22 +299,10 @@ src_install() {
 		rm "${ED}"/usr/libexec/podman/rootlessport
 	fi
 
-	insinto /etc/containers
-	newins test/registries.conf registries.conf.example
-	newins test/policy.json policy.json.example
-
 	if has_version -r '>=app-containers/cni-plugins-0.8.6'; then
 		insinto /etc/cni/net.d
 		doins cni/87-podman-bridge.conflist
 	fi
-
-	# Migrated to containers/common ...
-	insinto /usr/share/containers
-	#doins vendor/github.com/containers/common/pkg/seccomp/seccomp.json
-	newins "${WORKDIR}/common-${COMMON_VERSION}/pkg/seccomp/seccomp.json" seccomp.json
-
-	insinto /etc/containers
-	newins vendor/github.com/containers/storage/storage.conf storage.conf.example
 
 	newconfd "${FILESDIR}"/podman.confd podman
 	newinitd "${FILESDIR}"/podman.initd podman
@@ -331,7 +322,7 @@ src_install() {
 		doins completions/fish/*
 	fi
 
-	doman "${T}"/*.[15]
+	#doman "${T}"/*.[15]
 
 	keepdir /var/lib/containers
 }
@@ -346,7 +337,7 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
-	use tmpfiles && tmpfiles_process podman.conf
+	use tmpfiles && tmpfiles_process podman.conf $(usev wrapper podman-docker.conf)
 
 	local want_newline=false
 	if [[ ! ( -e ${EROOT%/*}/etc/containers/policy.json && -e ${EROOT%/*}/etc/containers/registries.conf ) ]]; then

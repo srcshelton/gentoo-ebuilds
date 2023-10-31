@@ -21,6 +21,7 @@ IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completio
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
+	!app-containers/containers-common
 	app-crypt/gpgme:=
 	>=app-containers/conmon-2.0.24
 	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )

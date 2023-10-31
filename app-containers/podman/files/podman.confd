@@ -7,5 +7,8 @@
 # Sets the API service daemon socket
 #SOCKET="unix:/var/run/${RC_SVCNAME}/podman.sock"
 
+# How long, in seconds, to wait for the daemon socket to appear
+#SOCKET_TIMEOUT=5
+
 # Configure the user[:group] the API service daemon will run as
 #RUN_AS_USER="root:root"
