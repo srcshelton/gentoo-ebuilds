@@ -3,7 +3,8 @@
 
 EAPI=8
 
-MY_PV="1.20230405"
+KV_MINOR="58"
+MY_PV="stable_20231024"
 ETYPE="headers"
 H_SUPPORTEDARCH="arm arm64"
 inherit kernel-2
@@ -12,7 +13,7 @@ detect_version
 PATCH_PV=${PV} # to ease testing new versions against not existing patches
 PATCH_VER="0"
 PATCH_DEV="sam"
-SRC_URI="https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz
+SRC_URI="https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz -> raspberrypi-sources-${PV}.${KV_MINOR}_p${MY_PV#*_}.tar.gz
 	${PATCH_VER:+https://dev.gentoo.org/~${PATCH_DEV}/distfiles/sys-kernel/linux-headers/gentoo-headers-${PATCH_PV}-${PATCH_VER}.tar.xz}"
 S="${WORKDIR}/linux-${MY_PV}"
 
