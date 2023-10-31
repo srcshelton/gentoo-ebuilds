@@ -302,10 +302,11 @@ pkg_postinst() {
 			if [ "${ROOT}" != '/' ]; then
 				local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
 			fi
-			"${ROOT}"/usr/sbin/rndc-confgen -a
-			# rndc-confgen always creates files in /etc/bind/...
-			chown root:named /etc/bind/rndc.key || die
-			chmod 0640 /etc/bind/rndc.key || die
+			if "${ROOT}"/usr/sbin/rndc-confgen -a; then
+				# rndc-confgen always creates files in /etc/bind/...
+				chown root:named /etc/bind/rndc.key || die
+				chmod 0640 /etc/bind/rndc.key || die
+			fi
 			if [ -f /etc/bind/rndc.key ] && [ ! -f "${ROOT}"/etc/bind/rndc.key ]; then
 				cp -a /etc/bind/rndc.key "${ROOT}"/etc/bind/rndc.key
 			fi
