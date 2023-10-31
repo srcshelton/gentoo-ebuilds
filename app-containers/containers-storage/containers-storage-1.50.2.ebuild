@@ -22,12 +22,15 @@ RDEPEND="
 	btrfs? ( sys-fs/btrfs-progs )
 	device-mapper? ( sys-fs/lvm2:= )"
 DEPEND="${RDEPEND}
-	dev-go/go-md2man
 	test? (
 		sys-fs/btrfs-progs
 		sys-fs/lvm2
 		sys-apps/util-linux
 	)"
+BDEPEND="
+	dev-go/go-md2man
+	dev-lang/go
+"
 RESTRICT="test"
 
 PATCHES=(
