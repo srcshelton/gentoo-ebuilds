@@ -1,0 +1,11 @@
+--- a/go.sum
++++ b/go.sum
+@@ -528,7 +528,7 @@ github.com/iancoleman/strcase v0.0.0-201
+ github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
+ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
+ github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
+-github.com/ilyam8/hashstructure v1.1.0 h1:N8t8hzzKLf2Da87XgC/DBYqXUmSbclgx+2cZxS5/klU=
++github.com/ilyam8/hashstructure v1.1.0 h1:o3hpiGa1yergDO4AlUVBJGNvCEeaD+Ynu0OWYxee0iA=
+ github.com/ilyam8/hashstructure v1.1.0/go.mod h1:LoLuwBSNpZOi3eTMfAqe2i4oW9QkI08e6g1Pci9h7hs=
+ github.com/imdario/mergo v0.3.4/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
+ github.com/imdario/mergo v0.3.8/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=

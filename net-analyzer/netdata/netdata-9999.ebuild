@@ -61,6 +61,8 @@ case "${PV}" in
 	1.37.1)	GIT_COMMIT="562101d64137a4c6b3310d4a2fed4a1da1bfce8d" ;;
 	# ...
 	1.40.0)	GIT_COMMIT="f0b61365cacbbdc382bb986027680988bf4c0d16" ;;
+	# ...
+	1.43.0)	GIT_COMMIT="250a04cd7d6f08d7e2b4b47276f25686d4e816b1" ;;
 esac
 
 DESCRIPTION="Linux real time system monitoring, done right!"

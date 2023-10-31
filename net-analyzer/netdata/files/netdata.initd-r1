@@ -1,39 +1,57 @@
 #!/sbin/openrc-run
 
 # The user netdata is configured to run as.
-# If you edit its configuration file to set a different
-# user, set it here too, to have its files switch ownership
+#
+# If you edit the netdata configuration file to set a different user then also
+# make that change here too, to update file ownership...
+#
 : "${NETDATA_OWNER:=netdata:netdata}"
 
-# The URL to download netdata config.
+# The URL from which to download the netdata configuration.
+#
 : "${NETDATA_CONFIG_URL:=http://localhost:19999/netdata.conf}"
 
-# The timeout in seconds to wait for netdata
-# to save its database on disk and exit.
+# The timeout in seconds to wait for netdata to save its database to disk and
+# exit.
+#
 : "${NETDATA_WAIT_EXIT_TIMEOUT:=15}"
 
-# When set to 1, if netdata does not exit in
-# NETDATA_WAIT_EXIT_TIMEOUT, we will force it
-# to exit.
+# When set to 1, if netdata does not exit in NETDATA_WAIT_EXIT_TIMEOUT seconds
+# then force it to exit.
+#
 : "${NETDATA_FORCE_EXIT:=0}"
 
-# Netdata will use these services, only if they
-# are enabled to start.
+# Specify the path to the pidfile to be used when running in the
+# background.
+#
+: "${NETDATA_PIDFILE:=/var/run/netdata/netdata.pid}"
+
+# Netdata will use these services, only if they are installed and set to start.
+#
 : "${NETDATA_START_AFTER_SERVICES:=apache2 squid nginx mysql named opensips upsd hostapd postfix lm_sensors}"
 
+description="Netdata system monitoring agent"
+
+description_getconf="Save active configuration to /tmp/netdata.conf"
+description_reload="Reload health configuration"
+description_rotate="Reopen log files"
+description_save="Force sync of database to disk"
 extra_started_commands="getconf reload rotate save"
-pidfile="/var/run/netdata.pid"
+
 config_dir="${NETDATA_INSTALL_PATH:-}/etc/netdata"
-command="${NETDATA_INSTALL_PATH:-}/usr/sbin/netdata"
+pidfile="${NETDATA_PIDFILE}"
+command_prefix="/usr/sbin"
+command="${NETDATA_INSTALL_PATH:-}${command_prefix}/netdata"
 command_background="yes"
 command_args="-P ${pidfile} ${NETDATA_EXTRA_ARGS}"
-# start_stop_daemon_args="-u ${NETDATA_OWNER}"
-start_stop_daemon_args=""
+command_args_foreground="-D"
+#start_stop_daemon_args="-u ${NETDATA_OWNER}"
+
 required_files="${config_dir}/netdata.conf"
 if [ "${NETDATA_FORCE_EXIT}" -eq 1 ]; then
-    retry="TERM/${NETDATA_WAIT_EXIT_TIMEOUT}/KILL/1"
+	retry="TERM/${NETDATA_WAIT_EXIT_TIMEOUT}/KILL/1"
 else
-    retry="TERM/${NETDATA_WAIT_EXIT_TIMEOUT}"
+	retry="TERM/${NETDATA_WAIT_EXIT_TIMEOUT}"
 fi
 
 depend() {
@@ -43,12 +61,13 @@ depend() {
 }
 
 start_pre() {
-	local -i rc=0
+	local rc=0
 
 	checkpath -o "${NETDATA_OWNER}" -m 0770 -d \
-		/var/cache/netdata		   \
-		/var/lib/netdata		   \
-		/var/lib/netdata/registry
+		/var/cache/netdata \
+		/var/lib/netdata \
+		/var/lib/netdata/registry \
+		/var/run/netdata
 	: $(( rc += ${?} ))
 	checkpath -o "${NETDATA_OWNER}" -m 0775 -d \
 		/var/log/netdata
@@ -58,15 +77,16 @@ start_pre() {
 }
 
 start_post() {
-	local -i rc=0
+	local rc=0
 
 	if ! [ -f "${config_dir}"/netdata.conf ]; then
 		ebegin "Downloading default configuration to '${config_dir}/netdata.conf'"
 		#sleep 2
-		curl -s -o "${config_dir}"/netdata.conf.new "${NETDATA_CONFIG_URL}"
-		rc=$?
-		if [ 0 -eq ${rc} ] && [ -s "${config_dir}"/netdata.conf.new ]; then
-			mv "${config_dir}"/netdata.conf{.new,}
+		curl -s -o "${config_dir}"/netdata.conf.new "${NETDATA_CONFIG_URL}" ||
+			rc=$?
+		if [ 0 -eq $(( rc )) ] && [ -s "${config_dir}"/netdata.conf.new ]; then
+			mv "${config_dir}"/netdata.conf.new \
+				"${config_dir}"/netdata.conf
 		else
 			rc=1
 			rm "${config_dir}"/netdata.conf.new 2>/dev/null
@@ -76,47 +96,79 @@ start_post() {
 }
 
 getconf() {
-	ebegin "Downloading configuration from netdata to /tmp/netdata.conf"
-	curl -o /tmp/netdata.conf "${NETDATA_CONFIG_URL}"
-	eend ${?}
+	local msg="Downloading configuration from netdata to /tmp/netdata.conf"
+
+	if command -v curl >/dev/null 2>&1; then
+		ebegin "${msg}"
+		curl -o /tmp/netdata.conf "${NETDATA_CONFIG_URL}"
+		eend ${?}
+	elif command -v wget >/dev/null 2>&1; then
+		ebegin "${msg}"
+		wget -O /tmp/netdata.conf "${NETDATA_CONFIG_URL}"
+		eend ${?}
+	else
+		eerror "Neither 'curl' nor 'wget' appear to be installed -" \
+			"cannot fetch configuration"
+		return 1
+	fi
+}
+
+run_cmd() {
+	cmd="${1}"
+	msg="${2}"
+	failmsg="${3}"
+	signal="${4}"
+
+	ebegin "${msg}"
+	if [ "${NETDATA_USE_NETDATACLI}" = '1' ]; then
+		"${command_prefix}/netdatacli" "${cmd}" >/dev/null
+	#elif [ "${supervisor}" = "supervise-daemon" ]; then
+	#	supervise-daemon "${RC_SVCNAME}" --signal "${signal}"
+	else
+		start-stop-daemon --signal "${signal}" --pidfile "${pidfile}"
+	fi
+	eend ${?} "${failmsg}"
 }
 
 reload() {
-	ebegin "Reloading Netdata"
-	start-stop-daemon --signal SIGUSR2 --pidfile "${pidfile}"
-	eend $? "Failed to reload Netdata"
+	run_cmd reload-health \
+		"Reloading Netdata health configuration" \
+		"Failed to reload Netdata health configuration" \
+		SIGUSR2
 }
 
 rotate() {
-	ebegin "Rotating Netdata logs"
-	start-stop-daemon --signal SIGHUP --pidfile "${pidfile}"
-	eend $? "Failed to rotate Netdata logs"
+	run_cmd reopen-logs \
+		"Reopening Netdata log files" \
+		"Failed to reopen Netdata log files" \
+		SIGHUP
 }
 
 save() {
-	ebegin "Saving Netdata database"
-	start-stop-daemon --signal SIGUSR1 --pidfile "${pidfile}"
-	eend $? "Failed to save Netdata database"
+	run_cmd save-database \
+		"Saving Netdata database" \
+		"Failed to save Netdata database" \
+		SIGUSR1
 }
 
 stop_post() {
-	local -i rc=1 count=0 sigkill=0
+	local rc=1 count=0 sigkill=0
 
 	ebegin "Waiting for netdata to save its database"
 	while [ -f "${pidfile}" ]; do
-		if [ ${count} -gt ${NETDATA_WAIT_EXIT_TIMEOUT} ]; then
+		if [ $(( count )) -gt ${NETDATA_WAIT_EXIT_TIMEOUT} ]; then
 			sigkill=1
 			break
 		fi
 
-		: $(( count += 1 ))
+		: $(( count = count + 1 ))
 		kill -0 "$( < "${pidfile}" )" 2>/dev/null
 		rc=${?}
-		[ 0 -eq ${rc} ] && sleep 1
+		[ 0 -eq $(( rc )) ] && sleep 1
 	done
 	eend ${sigkill}
 
-	if [ 1 -eq ${sigkill} ] && [ -f "${pidfile}" ]; then
+	if [ 1 -eq $(( sigkill )) ] && [ -f "${pidfile}" ]; then
 		ebegin "Netdata is taking too long to exit, forcing it to quit"
 		kill -SIGKILL "$( cat "${pidfile}" )" 2>/dev/null
 		eend ${?}
