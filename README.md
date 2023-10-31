@@ -234,13 +234,15 @@ used to build perl)
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/milter
     * Consistent group for mail filters
-* acct-group/nogroup-0
+* acct-group/nogroup
     * 'nogroup' appears to no longer being included in service builds?
+* acct-group/podman
+    * Allow podman socket to be group-writable
 * acct-group/socat
     * Privilege-separation account as recommended by net-misc/socat maintainers
 * acct-group/ssmtp
     * Privilege-separation account
-* acct-group/sys-0
+* acct-group/sys
     * 'sys' appears to no longer being included in service builds (as GID 3)?
 * acct-group/tcpdump
     * Privilege-separation account
@@ -252,7 +254,7 @@ used to build perl)
     * Consistent user for mail filters
 * acct-user/mysql
     * Add user to 'hugetlb' group
-* acct-user/nobody-0
+* acct-user/nobody
     * 'nobody' appears to no longer being included in service builds?
 * acct-user/redis
     * Add user to 'hugetlb' group
@@ -390,6 +392,8 @@ used to build perl)
 
 # Modified ebuilds
 
+* acct-user/netdata
+    * Allow optional 'podman' group membership
 * acct-user/postfix
     * Allow optional 'milter' group membership
 * app-admin/cpulimit
