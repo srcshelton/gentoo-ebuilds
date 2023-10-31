@@ -5,7 +5,7 @@ EAPI=8
 
 inherit systemd toolchain-funcs
 
-if [[ "${PV}" == '9999' ]]; then
+if [[ ${PV} == 9999 ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/NetworkConfiguration/dhcpcd.git"
 else
@@ -15,7 +15,7 @@ else
 	SRC_URI="https://github.com/NetworkConfiguration/dhcpcd/releases/download/v${PV}/${MY_P}.tar.xz"
 	S="${WORKDIR}/${MY_P}"
 
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 fi
 
 DESCRIPTION="A fully featured, yet light weight RFC2131 compliant DHCP client"
@@ -23,13 +23,11 @@ HOMEPAGE="https://github.com/NetworkConfiguration/dhcpcd/ https://roy.marples.na
 
 LICENSE="BSD-2 BSD ISC MIT"
 SLOT="0"
-IUSE="chroot debug +embedded ipv6 privsep systemd +udev"
-REQUIRED_USE="chroot? ( privsep )"
+IUSE="debug +embedded ipv6 privsep systemd +udev"
 
-COMMON_DEPEND="udev? ( virtual/udev )"
-DEPEND="${COMMON_DEPEND}"
+DEPEND="udev? ( virtual/udev )"
 RDEPEND="
-	${COMMON_DEPEND}
+	${DEPEND}
 	privsep? (
 		acct-group/dhcpcd
 		acct-user/dhcpcd
@@ -38,9 +36,9 @@ RDEPEND="
 
 src_configure() {
 	local myeconfargs=(
-		--dbdir="${EPREFIX}/var/lib/dhcpcd"
-		--libexecdir="${EPREFIX}/lib/dhcpcd"
-		--localstatedir="${EPREFIX}/var"
+		--dbdir="${EPREFIX%/}/var/lib/dhcpcd"
+		--libexecdir="${EPREFIX%/}/lib/dhcpcd"
+		--localstatedir="${EPREFIX%/}/var"
 		--prefix="${EPREFIX}"
 		--with-hook=ntp.conf
 		$(use_enable debug)
@@ -48,7 +46,7 @@ src_configure() {
 		$(use_enable ipv6)
 		$(use_enable privsep)
 		$(usex elibc_glibc '--with-hook=yp.conf' '')
-		--rundir="${EPREFIX}/var/run/dhcpcd"
+		--rundir="${EPREFIX%/}/var/run/dhcpcd"
 		$(usex privsep '--privsepuser=dhcpcd' '')
 		$(usex udev '' '--without-dev --without-udev')
 		CC="$(tc-getCC)"
@@ -66,8 +64,8 @@ src_install() {
 pkg_postinst() {
 	local dbdir="${EROOT%/}"/var/lib/dhcpcd old_files=()
 
-	local old_old_duid="${EROOT}"/var/lib/dhcpcd/dhcpcd.duid
-	local old_duid="${EROOT}"/etc/dhcpcd.duid
+	local old_old_duid="${EROOT%/}"/var/lib/dhcpcd/dhcpcd.duid
+	local old_duid="${EROOT%/}"/etc/dhcpcd.duid
 	local new_duid="${dbdir}"/duid
 	if [[ -e "${old_old_duid}" ]] ; then
 		# Upgrade the duid file to the new format if needed
@@ -115,26 +113,6 @@ pkg_postinst() {
 		[[ -e "${dbdir}/${new_lease}" ]] && continue
 		cp "${lease}" "${dbdir}/${new_lease}"
 	done
-
-	# dhcpcd-9 introduced privesep support in a chroot
-	if use chroot ; then
-		local dhcpcd_libdir="/var/lib/dhcpcd"
-		local chroot_base="${EROOT}/var/gaol/dhcpcd"
-		local chroot_dir="${chroot_base}${dhcpcd_libdir}"
-		local chroot_retval=0
-		# Set up proper chroot.
-		if [[ ! -e "${chroot_dir}" ]] ; then
-			mkdir -p "${chroot_dir}" || chroot_retval=1
-			cp -a "${EROOT}${dhcpcd_libdir}" "${chroot_dir}" || chroot_retval=1
-			chown -R dhcpcd:dhcpcd "${chroot_dir}" || chroot_retval=1
-		elif [[ ! -d "${chroot_dir}" ]] ; then
-			ewarn "${chroot_dir} is not a directory!"
-			ewarn "Did not set up ${PN} chroot!"
-		fi
-		if [[ "${chroot_retval}" -ne 0 ]] ; then
-			ewarn "There were issues setting up ${PN} chroot."
-		fi
-	fi
 
 	# Warn about removing stale files
 	if [[ -n "${old_files[@]}" ]] ; then
