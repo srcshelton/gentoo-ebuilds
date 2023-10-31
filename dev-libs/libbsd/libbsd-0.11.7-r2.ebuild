@@ -18,7 +18,7 @@ IUSE="static-libs"
 
 RDEPEND="app-crypt/libmd[${MULTILIB_USEDEP}]"
 DEPEND="${RDEPEND}
-	>=sys-kernel/linux-headers-3.17
+	|| ( >=sys-kernel/raspberrypi-headers-3.17 >=sys-kernel/linux-headers-3.17 )
 "
 BDEPEND="verify-sig? ( sec-keys/openpgp-keys-guillemjover )"
 
@@ -60,5 +60,10 @@ multilib_src_install() {
 		then
 			sed -i "s|${EPREFIX}/|/|g" "${ldscript}" || die
 		fi
+
+		# pkg-config can't find the libbsd .pc files by default :(
+		dodir /usr/$(get_libdir)/pkgconfig &&
+			mv "${ED}"/$(get_libdir)/pkgconfig/* "${ED}"/usr/$(get_libdir)/pkgconfig/ &&
+			rmdir "${ED}"/$(get_libdir)/pkgconfig || die
 	fi
 }
