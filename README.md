@@ -824,8 +824,9 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-process/audit
     * Add `zos` USE-flag to prevent building of z/OS-specific `zos-remote` plugin and tools, with many non-root library dependencies
 
-# Make systemd unit installation optional
+# Make systemd unit installation or additional resources optional
 
+* app-containers/containers-common
 * mail-filter/postgrey
 * mail-mta/nullmailer
 * net-proxy/privoxy
