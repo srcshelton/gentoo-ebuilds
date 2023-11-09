@@ -5,8 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{9..11} )
 
-# Can drop autotools/eautoreconf after next release & glibc patch gone
-inherit autotools python-any-r1
+inherit python-any-r1
 
 DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
@@ -14,7 +13,7 @@ SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.xz
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv"
+KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv"
 IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
 
 COMMON_DEPEND="
@@ -22,7 +21,6 @@ COMMON_DEPEND="
 	dev-libs/libgcrypt:=
 	caps? ( sys-libs/libcap )
 	criu? ( >=sys-process/criu-3.15 )
-	seccomp? ( sys-libs/libseccomp )
 	systemd? ( sys-apps/systemd:= )
 "
 DEPEND="
@@ -30,9 +28,11 @@ DEPEND="
 	dev-util/gperf
 	sys-devel/gettext
 	sys-devel/libtool
+	sys-libs/libseccomp
 	virtual/os-headers
 "
 RDEPEND="${COMMON_DEPEND}
+	seccomp? ( sys-libs/libseccomp )
 	selinux? ( sec-policy/selinux-container )"
 BDEPEND="
 	${PYTHON_DEPS}
@@ -47,7 +47,9 @@ BDEPEND="
 # required to create linux "containers".
 RESTRICT="test"
 
-PATCHES=( "${FILESDIR}"/${PN}-1.0-run.patch )
+PATCHES=(
+	"${FILESDIR}/${PN}-1.0-run.patch"
+)
 
 DOCS=( README.md )
 
@@ -60,8 +62,6 @@ src_prepare() {
 		crun.1 \
 		crun.1.md \
 	|| die "'/run' replacement failed: ${?}"
-
-	eautoreconf
 }
 
 src_configure() {
@@ -93,7 +93,4 @@ src_install() {
 	fi
 
 	einstalldocs
-
-	#einfo "Cleaning up .la files"
-	find "${ED}" -name '*.la' -delete || die
 }
