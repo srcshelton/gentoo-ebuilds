@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="ccaecfcbc907d70a7aa870a6650887b901b25b82" # "There is a crack in everything. That's how the light gets in."
+RUNC_COMMIT="18a0cb0f32bcac2ecc9a10f327d282759c144dab" # "Śruba, przykręcona we śnie, nie zmieni sytuacji, jaka panuje na jawie."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
