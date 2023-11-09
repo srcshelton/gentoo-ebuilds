@@ -10,7 +10,7 @@ EAPI=8
 
 CMAKE_DOCS_PREBUILT_DEV=sam
 #CMAKE_DOCS_VERSION=$(ver_cut 1-3)
-CMAKE_DOCS_VERSION=3.26.4
+CMAKE_DOCS_VERSION=3.27.0
 # Default to generating docs (inc. man pages) if no prebuilt; overridden later
 # See bug #784815
 CMAKE_DOCS_USEFLAG="+doc"
@@ -47,9 +47,9 @@ else
 			https://github.com/Kitware/CMake/releases/download/v$(ver_cut 1-3)/${MY_P}-SHA-256.txt.asc
 		)"
 
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+		KEYWORDS="~alpha ~amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 
-		BDEPEND="verify-sig? ( sec-keys/openpgp-keys-bradking )"
+		BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-bradking-20230817 )"
 	fi
 fi
 
@@ -59,7 +59,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="BSD"
 SLOT="0"
-IUSE="doc emacs ncurses qt5 test"
+IUSE="dap doc emacs gui ncurses qt6 test"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -71,13 +71,17 @@ RDEPEND="
 	>=net-misc/curl-7.21.5[ssl]
 	sys-libs/zlib
 	virtual/pkgconfig
+	dap? ( dev-cpp/cppdap )
 	emacs? ( >=app-editors/emacs-23.1:* )
-	ncurses? ( sys-libs/ncurses:0= )
-	qt5? (
-		dev-qt/qtcore:5
-		dev-qt/qtgui:5
-		dev-qt/qtwidgets:5
+	gui? (
+		!qt6? (
+			dev-qt/qtcore:5
+			dev-qt/qtgui:5
+			dev-qt/qtwidgets:5
+		)
+		qt6? ( dev-qt/qtbase:6[gui,widgets] )
 	)
+	ncurses? ( sys-libs/ncurses:= )
 "
 DEPEND="${RDEPEND}"
 BDEPEND+="
@@ -92,23 +96,18 @@ SITEFILE="50${PN}-gentoo.el"
 
 PATCHES=(
 	# Prefix
-	"${FILESDIR}"/${PN}-3.16.0_rc4-darwin-bundle.patch
-	"${FILESDIR}"/${PN}-3.14.0_rc3-prefix-dirs.patch
-	"${FILESDIR}"/${PN}-3.19.1-darwin-gcc.patch
+	"${FILESDIR}"/${PN}-3.27.0_rc1-0001-Don-t-use-.so-for-modules-on-darwin-macos.-Use-.bund.patch
+	"${FILESDIR}"/${PN}-3.27.0_rc1-0002-Set-some-proper-paths-to-make-cmake-find-our-tools.patch
+	# Misc
+	"${FILESDIR}"/${PN}-3.27.0_rc1-0003-Prefer-pkgconfig-in-FindBLAS.patch
+	"${FILESDIR}"/${PN}-3.27.0_rc1-0004-Ensure-that-the-correct-version-of-Qt-is-always-used.patch
+	"${FILESDIR}"/${PN}-3.27.0_rc1-0005-Respect-Gentoo-s-Python-eclasses.patch
+	"${FILESDIR}"/${PN}-3.27.0_rc1-0006-Filter-out-distcc-warnings-to-avoid-confusing-CMake.patch
 
-	# Handle gentoo packaging in find modules
-	"${FILESDIR}"/${PN}-3.17.0_rc1-FindBLAS.patch
-	# Next patch needs to be reworked
-	#"${FILESDIR}"/${PN}-3.17.0_rc1-FindLAPACK.patch
-	"${FILESDIR}"/${PN}-3.5.2-FindQt4.patch
-
-	# Respect python eclasses
-	"${FILESDIR}"/${PN}-2.8.10.2-FindPythonLibs.patch
-	"${FILESDIR}"/${PN}-3.9.0_rc2-FindPythonInterp.patch
-
-	"${FILESDIR}"/${PN}-3.18.0-filter_distcc_warning.patch # bug 691544
-
-	# upstream fixes (can usually be removed with a version bump)
+	# Upstream fixes (can usually be removed with a version bump)
+	# pkgconf
+	# fixes https://github.com/pkgconf/pkgconf/issues/317
+	"${FILESDIR}"/${PN}-3.27.4-0001-FindPkgConfig-ignore-whitespace-separators-in-versio.patch
 )
 
 cmake_src_bootstrap() {
@@ -199,6 +198,7 @@ src_configure() {
 
 	local mycmakeargs=(
 		-DCMAKE_USE_SYSTEM_LIBRARIES=ON
+		-DCMake_ENABLE_DEBUGGER=$(usex dap)
 		-DCMAKE_DOC_DIR=/share/doc/${PF}
 		-DCMAKE_MAN_DIR=/share/man
 		-DCMAKE_DATA_DIR=/share/${PN}
@@ -206,8 +206,10 @@ src_configure() {
 		-DSPHINX_HTML=$(usex doc)
 		-DBUILD_CursesDialog="$(usex ncurses)"
 		-DBUILD_TESTING=$(usex test)
+		-DBUILD_QtDialog=$(usex gui)
 	)
-	use qt5 && mycmakeargs+=( -DBUILD_QtDialog=ON )
+
+	use gui && mycmakeargs+=( -DCMake_QT_MAJOR_VERSION=$(usex qt6 6 5) )
 
 	cmake_src_configure
 
@@ -315,7 +317,7 @@ src_install() {
 pkg_postinst() {
 	use emacs && elisp-site-regen
 
-	if use qt5; then
+	if use gui; then
 		xdg_icon_cache_update
 		xdg_desktop_database_update
 		xdg_mimeinfo_database_update
@@ -325,7 +327,7 @@ pkg_postinst() {
 pkg_postrm() {
 	use emacs && elisp-site-regen
 
-	if use qt5; then
+	if use gui; then
 		xdg_icon_cache_update
 		xdg_desktop_database_update
 		xdg_mimeinfo_database_update
