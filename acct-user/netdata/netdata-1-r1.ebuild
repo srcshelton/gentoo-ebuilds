@@ -6,18 +6,24 @@ EAPI=7
 inherit acct-user
 
 DESCRIPTION="User for net-analyzer/netdata"
-IUSE="podman"
+IUSE="podman ssl"
 
 ACCT_USER_ID=290
 ACCT_USER_GROUPS=( netdata )
 ACCT_USER_HOME=/var/empty
 
-RDEPEND="podman? ( acct-group/podman )"
+RDEPEND="
+	podman? ( acct-group/podman )
+	ssl? ( acct-group/wheel )
+"
 
 acct-user_add_deps
 
 pkg_setup() {
 	if use podman; then
 		ACCT_USER_GROUPS+=( podman )
+	fi
+	if use ssl; then
+		ACCT_USER_GROUPS+=( wheel )
 	fi
 }
