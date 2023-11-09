@@ -3,11 +3,11 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..11} )
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/coreutils.asc
 inherit flag-o-matic python-any-r1 toolchain-funcs verify-sig
 
-MY_PATCH="${PN}-9.0_p20220409-patches-01"
+MY_PATCH="${PN}-9.4-patches"
 DESCRIPTION="Standard GNU utilities (chmod, cp, dd, ls, sort, tr, head, wc, who,...)"
 HOMEPAGE="https://www.gnu.org/software/coreutils/"
 
@@ -17,7 +17,7 @@ if [[ ${PV} == 9999 ]] ; then
 elif [[ ${PV} == *_p* ]] ; then
 	# Note: could put this in devspace, but if it's gone, we don't want
 	# it in tree anyway. It's just for testing.
-	MY_SNAPSHOT="$(ver_cut 1-2).18-ffd62"
+	MY_SNAPSHOT="$(ver_cut 1-2).156-b3afb"
 	SRC_URI="https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz -> ${P}.tar.xz"
 	SRC_URI+=" verify-sig? ( https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz.sig -> ${P}.tar.xz.sig )"
 	S="${WORKDIR}"/${PN}-${MY_SNAPSHOT}
@@ -27,7 +27,7 @@ else
 		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )
 	"
 
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
+	KEYWORDS="~alpha ~amd64 arm ~arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc ~x86 ~x86-linux"
 fi
 
 SRC_URI+=" !vanilla? ( https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${MY_PATCH}.tar.xz )"
@@ -102,14 +102,14 @@ src_unpack() {
 }
 
 src_prepare() {
+	# TODO: past 2025, we may need to add our own hack for bug #907474.
 	local PATCHES=(
 		# Upstream patches
-		"${FILESDIR}"/${P}-cp-parents-preserve-permissions.patch
-		"${FILESDIR}"/${P}-old-kernel-copy_file_range.patch
+		"${FILESDIR}"/${P}-gnulib-openssl-1.1.patch
 	)
 
-	if ! use vanilla && [[ -d "${WORKDIR}"/patch ]] ; then
-		PATCHES+=( "${WORKDIR}"/patch )
+	if ! use vanilla && [[ -d "${WORKDIR}"/${MY_PATCH} ]] ; then
+		PATCHES+=( "${WORKDIR}"/${MY_PATCH} )
 	fi
 
 	default
@@ -128,9 +128,6 @@ src_prepare() {
 		configure \
 		|| die
 
-	# Just for ${P}-old-kernel-copy_file_range.patch
-	touch aclocal.m4 configure.ac Makefile.in gnulib-tests/Makefile.in configure || die
-
 	# Since we've patched many .c files, the make process will try to
 	# re-build the manpages by running `./bin --help`.  When doing a
 	# cross-compile, we can't do that since 'bin' isn't a native bin.
@@ -148,10 +145,9 @@ src_prepare() {
 }
 
 src_configure() {
-	# On alpha at least, gnulib (as of 9.3) can't seem to figure out we need
-	# _F_O_B=64: https://debbugs.gnu.org/64123
-	append-lfs-flags
-
+	# TODO: in future (>9.4?), we may want to wire up USE=systemd:
+	# still experimental at the moment, but:
+	# https://git.savannah.gnu.org/cgit/coreutils.git/commit/?id=85edb4afbd119fb69a0d53e1beb71f46c9525dd0
 	local myconf=(
 		--with-packager="Gentoo"
 		--with-packager-version="${PVR} (p${PATCH_VER:-0})"
@@ -161,7 +157,7 @@ src_configure() {
 		# hostname    - net-tools
 		--enable-install-program="arch,$(usev hostname),$(usev kill),$(usev stdbuf),$(usev uptime)"
 		--enable-no-install-program="groups,$(usev !hostname),$(usev !kill),$(usev !stdbuf),su,$(usev !uptime)"
-		$(usex caps '' --disable-libcap)
+		$(usev !caps --disable-libcap)
 		$(use_enable nls)
 		$(use_enable acl)
 		$(use_enable multicall single-binary)
