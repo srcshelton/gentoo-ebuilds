@@ -82,12 +82,9 @@ BDEPEND="
 
 PATCHES=(
 	"${FILESDIR}/${PN}-9.3_p1-GSSAPI-dns.patch" #165444 integrated into gsskex
-	"${FILESDIR}/${PN}-9.3_p1-openssl-ignore-status.patch"
 	"${FILESDIR}/${PN}-9.3_p1-disable-conch-interop-tests.patch"
 	"${FILESDIR}/${PN}-9.3_p1-fix-putty-tests.patch"
 	"${FILESDIR}/${PN}-9.3_p1-deny-shmget-shmat-shmdt-in-preauth-privsep-child.patch"
-	"${FILESDIR}/${PN}-9.3_p1-gss-use-HOST_NAME_MAX.patch" #834044
-	"${FILESDIR}/${PN}-9.3_p1-openssl-version-compat-check.patch"
 	"${FILESDIR}/${PN}-9.3_p2-zlib-1.3.patch" #912766
 )
 
@@ -101,6 +98,9 @@ pkg_pretend() {
 	done
 
 	if [[ -n ${enabled_eol_flags} && ${OPENSSH_EOL_USE_FLAGS_I_KNOW_WHAT_I_AM_DOING} != yes ]]; then
+		# Skip for binary packages entirely because of environment saving, bug #907892
+		[[ ${MERGE_TYPE} == binary ]] && return
+
 		ewarn "net-misc/openssh does not support USE='${enabled_eol_flags%,}' anymore."
 		ewarn "The Base system team *STRONGLY* recommends you not rely on this functionality,"
 		ewarn "since these USE flags required third-party patches that often trigger bugs"
