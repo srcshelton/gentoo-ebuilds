@@ -4,14 +4,16 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{10..11} )
-VERIFY_SIG_OPENPGP_KEY_PATH=${BROOT}/usr/share/openpgp-keys/unbound.net.asc
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/unbound.net.asc
 inherit autotools flag-o-matic python-single-r1 systemd verify-sig multilib-minimal
 
 MY_P=${PN}-${PV/_/}
 DESCRIPTION="A validating, recursive and caching DNS resolver"
 HOMEPAGE="https://unbound.net/ https://nlnetlabs.nl/projects/unbound/about/"
-SRC_URI="https://nlnetlabs.nl/downloads/unbound/${MY_P}.tar.gz
-	verify-sig? ( https://nlnetlabs.nl/downloads/unbound/${MY_P}.tar.gz.asc )"
+SRC_URI="
+	https://nlnetlabs.nl/downloads/unbound/${MY_P}.tar.gz
+	verify-sig? ( https://nlnetlabs.nl/downloads/unbound/${MY_P}.tar.gz.asc )
+"
 S="${WORKDIR}"/${MY_P}
 
 LICENSE="BSD GPL-2"
@@ -25,7 +27,8 @@ RESTRICT="!test? ( test )"
 # and doesn't make it possible to easily install the library without
 # the executables. MULTILIB_USEDEP may be dropped once build system
 # is fixed.
-CDEPEND="acct-group/unbound
+DEPEND="
+	acct-group/unbound
 	acct-user/unbound
 	>=dev-libs/expat-2.1.0-r3[${MULTILIB_USEDEP}]
 	>=dev-libs/libevent-2.0.21:0=[${MULTILIB_USEDEP}]
@@ -43,7 +46,8 @@ CDEPEND="acct-group/unbound
 	redis? ( dev-libs/hiredis:= )
 	systemd? ( sys-apps/systemd )
 "
-BDEPEND="virtual/pkgconfig
+BDEPEND="
+	virtual/pkgconfig
 	python? ( dev-lang/swig )
 	test? (
 		net-libs/ldns[examples(-)]
@@ -52,8 +56,8 @@ BDEPEND="virtual/pkgconfig
 	)
 	verify-sig? ( sec-keys/openpgp-keys-unbound )
 "
-DEPEND="${CDEPEND}"
-RDEPEND="${CDEPEND}
+RDEPEND="
+	${DEPEND}
 	net-dns/dnssec-root
 	selinux? ( sec-policy/selinux-bind )
 "
