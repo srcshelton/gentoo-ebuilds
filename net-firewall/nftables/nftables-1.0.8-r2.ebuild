@@ -6,7 +6,7 @@ EAPI=8
 DISTUTILS_OPTIONAL=1
 DISTUTILS_USE_PEP517=setuptools
 PYTHON_COMPAT=( python3_{10..11} )
-VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/netfilter.org.asc
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/netfilter.org.asc
 inherit distutils-r1 edo linux-info systemd usr-ldscript verify-sig
 
 DESCRIPTION="Linux kernel firewall, NAT and packet mangling tools"
@@ -16,8 +16,10 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	inherit autotools git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
 else
-	SRC_URI="https://netfilter.org/projects/nftables/files/${P}.tar.xz
-		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.xz.sig )"
+	SRC_URI="
+		https://netfilter.org/projects/nftables/files/${P}.tar.xz
+		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.xz.sig )
+	"
 	KEYWORDS="amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
 	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 fi
