@@ -678,6 +678,7 @@ tc-ninja_magic_to_arch() {
 	case ${host} in
 		aarch64*)	echo arm64;;
 		alpha*)		echo alpha;;
+		arc*)		echo arc;;
 		arm*)		echo arm;;
 		avr*)		_tc_echo_kernel_alias avr32 avr;;
 		bfin*)		_tc_echo_kernel_alias blackfin bfin;;
@@ -766,6 +767,8 @@ tc-endian() {
 		aarch64*be)	echo big;;
 		aarch64)	echo little;;
 		alpha*)		echo little;;
+		arc*b*)		echo big;;
+		arc*)		echo little;;
 		arm*b*)		echo big;;
 		arm*)		echo little;;
 		cris*)		echo little;;
