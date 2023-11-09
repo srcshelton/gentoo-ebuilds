@@ -3,7 +3,7 @@
 
 EAPI=8
 
-VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/openssl.org.asc
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/openssl.org.asc
 inherit edo flag-o-matic linux-info multilib multiprocessing preserve-libs toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
 DESCRIPTION="Robust, full-featured Open Source Toolkit for the Transport Layer Security (TLS)"
@@ -212,7 +212,7 @@ multilib_src_configure() {
 multilib_src_compile() {
 	emake build_sw
 
-	if multilib_is_native_abi ; then
+	if multilib_is_native_abi; then
 		emake build_docs
 	fi
 }
@@ -224,16 +224,16 @@ multilib_src_test() {
 }
 
 multilib_src_install() {
-	emake DESTDIR="${D}" install_sw
-	if use fips ; then
-		emake DESTDIR="${D}" install_fips
+	emake DESTDIR="${D}" -j1 install_sw
+	if use fips; then
+		emake DESTDIR="${D}" -j1 install_fips
 		# Regen this in pkg_preinst, bug 900625
 		rm "${ED}${SSL_CNF_DIR}"/fipsmodule.cnf || die
 	fi
 
-	if multilib_is_native_abi ; then
-		emake DESTDIR="${D}" install_ssldirs
-		emake DESTDIR="${D}" DOCDIR='$(INSTALLTOP)'/share/doc/${PF} install_docs
+	if multilib_is_native_abi; then
+		emake DESTDIR="${D}" -j1 install_ssldirs
+		emake DESTDIR="${D}" DOCDIR='$(INSTALLTOP)'/share/doc/${PF} -j1 install_docs
 	fi
 
 	# This is crappy in that the static archives are still built even
@@ -270,7 +270,7 @@ multilib_src_install_all() {
 }
 
 pkg_preinst() {
-	if use fips ; then
+	if use fips; then
 		# Regen fipsmodule.cnf, bug 900625
 		ebegin "Running openssl fipsinstall"
 		"${ED}/usr/bin/openssl" fipsinstall -quiet \
