@@ -6,12 +6,14 @@ EAPI=8
 # Dropped these because blank as of 3.02
 #PLOCALES="de es fi fr hu id pl"
 PLOCALES="de es fr pl"
-VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/sysvinit.asc
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/sysvinit.asc
 inherit flag-o-matic plocale toolchain-funcs verify-sig
 
 DESCRIPTION="/sbin/init - parent of all processes"
 HOMEPAGE="https://savannah.nongnu.org/projects/sysvinit"
 # https://github.com/slicer69/sysvinit/issues/12
+
+
 SRC_URI="https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz
 	verify-sig? ( https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz.sig )"
 S="${WORKDIR}/${P/_*}"
