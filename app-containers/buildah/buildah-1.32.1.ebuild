@@ -5,30 +5,45 @@ EAPI=8
 
 inherit bash-completion-r1 go-module linux-info
 GIT_COMMIT="bfd436d159059b45d770a0fc62386c9e0b9bdbb1"
+COMMIT_NO="${GIT_COMMIT}"
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
-SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
-SLOT="0"
-KEYWORDS="~amd64 ~arm64"
-IUSE="btrfs doc selinux systemd test"
-RESTRICT="mirror test"
 
-DEPEND="
+SLOT="0"
+IUSE="apparmor bash-completion btrfs doc +seccomp selinux systemd test"
+RESTRICT="mirror test"
+EXTRA_DOCS=(
+	"CHANGELOG.md"
+	"CONTRIBUTING.md"
+	"install.md"
+	"troubleshooting.md"
+	"docs/tutorials"
+)
+
+if [[ ${PV} == 9999* ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/containers/buildah.git"
+else
+	SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
+	KEYWORDS="~amd64 ~arm64"
+fi
+
+RDEPEND="
 	app-crypt/gpgme:=
 	app-containers/skopeo
 	dev-libs/libgpg-error:=
 	dev-libs/libassuan:=
 	sys-apps/shadow:=
 	sys-fs/lvm2:=
-	sys-libs/libseccomp:=
+	apparmor? ( sys-libs/libapparmor:= )
 	btrfs? ( sys-fs/btrfs-progs )
+	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sys-libs/libselinux:= )
 	systemd? ( sys-apps/systemd )
 "
-RDEPEND="${DEPEND}"
+DEPEND="${RDEPEND}"
 
 pkg_setup() {
 	local CONFIG_CHECK=""
@@ -53,50 +68,69 @@ pkg_setup() {
 src_prepare() {
 	default
 
-	[[ -f selinux_tag.sh ]] || die
-	use selinux || { echo -e "#!/bin/sh\\ntrue" > \
-		selinux_tag.sh || die; }
+	# ensure all  necessary files are there
+	local file
+	for file in \
+		btrfs_installed_tag.sh \
+		btrfs_tag.sh \
+		selinux_tag.sh \
+		docs/Makefile \
+		hack/apparmor_tag.sh \
+		hack/libsubid_tag.sh \
+		hack/systemd_tag.sh
+	do
+		[[ -f "${file}" ]] || die
+	done
+
+	sed -i -e "s|/usr/local|${EPREFIX}/usr|g" Makefile docs/Makefile || die
+	printf '#!/bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
+
+	cat <<-EOF > hack/apparmor_tag.sh || die
+	#!/bin/sh
+	$(usex apparmor 'echo apparmor' echo)
+	EOF
+
+	use seccomp || {
+		cat <<-'EOF' > "${T}/disable_seccomp.patch"
+		 --- a/Makefile
+		 +++ b/Makefile
+		 @@ -5 +5 @@
+		 -SECURITYTAGS ?= seccomp $(APPARMORTAG)
+		 +SECURITYTAGS ?= $(APPARMORTAG)
+		EOF
+		eapply "${T}/disable_seccomp.patch" || die
+	}
+
+	cat <<-EOF > hack/systemd_tag.sh || die
+	#!/usr/bin/env bash
+	$(usex systemd 'echo systemd' echo)
+	EOF
+
+	printf "#!/bin/sh\n echo" > btrfs_installed_tag.sh || die
+	cat <<-EOF > btrfs_tag.sh || die
+	#!/bin/sh
+	$(usex btrfs echo 'echo exclude_graphdriver_btrfs btrfs_noversion')
+	EOF
+
+	use test || {
+		cat <<-'EOF' > "${T}/disable_tests.patch"
+		--- a/Makefile
+		+++ b/Makefile
+		@@ -54 +54 @@
+		-all: bin/buildah bin/imgtype bin/copy bin/tutorial docs
+		+all: bin/buildah docs
+		EOF
+		eapply "${T}/disable_tests.patch" || die
+	}
+
+	use selinux || {
+		printf '#!/bin/sh\ntrue' > selinux_tag.sh || die
+	}
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
-
-	[[ -f hack/systemd_tag.sh ]] || die
-	if use systemd; then
-		echo -e '#!/bin/sh\necho systemd' > \
-			hack/systemd_tag.sh || die
-	else
-		echo -e '#!/bin/sh\necho' > \
-			hack/systemd_tag.sh || die
-	fi
-
-	[[ -f btrfs_installed_tag.sh ]] || die
-	[[ -f btrfs_tag.sh ]] || die
-	if use btrfs; then
-		echo -e '#!/bin/sh\necho btrfs_noversion' > \
-			btrfs_tag.sh || die
-		#echo -e "#!/bin/sh\\ntrue" > \
-		#	btrfs_installed_tag.sh || die
-	else
-		echo -e "#!/bin/sh\\necho exclude_graphdriver_btrfs" > \
-			btrfs_installed_tag.sh || die
-	fi
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . |
 		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
-
-	if ! use test; then
-		cat <<-'EOF' > "${T}/Makefile.patch"
-			--- Makefile
-			+++ Makefile
-			@@ -54 +54 @@
-			-all: bin/buildah bin/imgtype bin/copy bin/tutorial docs
-			+all: bin/buildah docs
-		EOF
-		eapply -p0 "${T}/Makefile.patch"
-	fi
-}
-
-src_compile() {
-	emake GIT_COMMIT=${GIT_COMMIT} all
 }
 
 src_test() {
@@ -104,9 +138,8 @@ src_test() {
 }
 
 src_install() {
-	use doc && dodoc CHANGELOG.md CONTRIBUTING.md README.md install.md troubleshooting.md
-	use doc && dodoc -r docs/tutorials
-	doman docs/*.1
-	dobin bin/${PN}
-	dobashcomp contrib/completions/bash/buildah
+	emake DESTDIR="${D}" install
+	use bash-completion && dobashcomp contrib/completions/bash/buildah
+	einstalldocs
+	use doc && dodoc -r "${EXTRA_DOCS[@]}"
 }
