@@ -29,6 +29,7 @@ HOMEPAGE="https://www.cups.org/ https://github.com/OpenPrinting/cups"
 LICENSE="Apache-2.0"
 SLOT="0"
 IUSE="acl dbus debug kerberos openssl pam selinux +ssl static-libs systemd test usb X xinetd zeroconf"
+REQUIRED_USE="openssl? ( ssl )"
 
 # As of 2.4.2, they don't actually seem to be interactive (they pass some flags
 # by default to input for us), but they fail on some greyscale issue w/ poppler?
