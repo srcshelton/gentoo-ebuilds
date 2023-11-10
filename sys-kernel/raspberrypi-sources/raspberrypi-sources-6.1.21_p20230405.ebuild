@@ -37,10 +37,10 @@ SRC_URI="
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
-IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s"
+IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s rpi5"
 REQUIRED_USE="
-	|| ( rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s )
-	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s ) )
+	|| ( rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 )
+	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
 "
 
 PATCHES=( "${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch" )
@@ -79,21 +79,21 @@ pkg_setup() {
 
 	if use 64bit; then
 		kernel='kernel8'
-		if use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
+		if use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s || use rpi5; then
 			config='bcm2711_defconfig'
-		elif use rpi02 || use rpi3 || use rpi-cm3; then
+		elif use rpi3 || use rpi-cm3 || use rpi02; then
 			config='bcmrpi3_defconfig'
 		else
 			ewarn "Unknown 64-bit architecture - configuring kernel with 'defconfig' only"
 		fi
 	else
-		if use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
+		if use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s || use rpi5; then
 			kernel='kernel7l'
 			config='bcm2711_defconfig'
 		elif use rpi2 || use rpi-cm2 || use rpi3 || use rpi-cm3 || use rpi02; then
 			kernel='kernel7'
 			config='bcm2709_defconfig'
-		elif use rpi0 || use rpi1 || use rpi-cm; then
+		elif use rpi1 || use rpi-cm || use rpi0; then
 			kernel='kernel'
 			config='bcmrpi_defconfig'
 		else
