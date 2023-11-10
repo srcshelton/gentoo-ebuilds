@@ -9,11 +9,12 @@ DESCRIPTION="Raspberry Pi (all versions) kernel and modules"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+64bit +devicetree +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io"
+IUSE="+64bit +devicetree +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io rpi5"
 REQUIRED_USE="
-	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s )
-	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s ) )
-	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s )
+	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 )
+	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
+	devicetree? ( !rpi5 )
+	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s !rpi5 )
 	rpi-cm4-io? ( rpi-cm4 )
 "
 
@@ -141,7 +142,7 @@ src_install() {
 	for f in boot/*.img; do
 		case "${f}" in
 			boot/kernel.img)
-				if use rpi-all || use rpi0 || use rpi1 || use rpi-cm; then
+				if use rpi-all || use rpi1 || use rpi-cm || use rpi0; then
 					einfo "Installing 'kernel.img' for BCM2835 (Raspberry Pi Zero, Raspberry Pi) ..."
 					doins "${f}"
 				fi
@@ -153,7 +154,7 @@ src_install() {
 				fi
 				;;
 			boot/kernel7l.img)
-				if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
+				if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s || use rpi5; then
 					if use rpi-all || ! use 64bit; then
 						einfo "Installing 'kernel7l.img' for BCM2711 (Raspberry Pi 4 LPAE 32bit) ..."
 						doins "${f}"
@@ -188,7 +189,7 @@ src_install() {
 				;;
 			*-v7l+)
 				[[ -z "${ver}" ]] && ver="$( basename "${f}" | sed 's/-v7l+$//' )"
-				if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
+				if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s || use rpi5; then
 					if use rpi-all || ! use 64bit; then
 						einfo "Installing kernel modules '${f#modules/}' for BCM2711 (Raspberry Pi 4 LPAE 32bit) ..."
 						doins -r "${f}"
@@ -204,7 +205,7 @@ src_install() {
 				;;
 			*+)
 				[[ -z "${ver}" ]] && ver="$( basename "${f}" | sed 's/+$//' )"
-				if use rpi-all || use rpi0 || use rpi1 || use rpi-cm; then
+				if use rpi-all || use rpi1 || use rpi-cm || use rpi0; then
 					einfo "Installing kernel modules '${f#modules/}' for BCM2835 (Raspberry Pi Zero, Raspberry Pi) ..."
 					doins -r "${f}"
 				fi
@@ -229,7 +230,7 @@ src_install() {
 			[[ -e extra/System8.map ]] && newins extra/System8.map "System.map-${ver}-v8+"
 			f="${f:+${f}, }System.map-${ver}-v8+"
 		fi
-		if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
+		if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s || use rpi5; then
 			if use rpi-all || ! use 64bit; then
 				[[ -e extra/System7l.map ]] && newins extra/System7l.map "System.map-${ver}-v7l+"
 				f="${f:+${f}, }System.map-${ver}-v7l+"
@@ -239,7 +240,7 @@ src_install() {
 			[[ -e extra/System7.map ]] && newins extra/System7.map "System.map-${ver}-v7+"
 			f="${f:+${f}, }System.map-${ver}-v7+"
 		fi
-		if use rpi-all || use rpi0 || use rpi1 || use rpi-cm; then
+		if use rpi-all || use rpi1 || use rpi-cm || use rpi0; then
 			[[ -e extra/System.map ]] && newins extra/System.map "System.map-${ver}+"
 			f="${f:+${f}, }System.map-${ver}+"
 		fi
