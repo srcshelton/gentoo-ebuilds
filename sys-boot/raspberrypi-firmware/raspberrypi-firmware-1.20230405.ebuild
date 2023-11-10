@@ -25,12 +25,13 @@ HOMEPAGE="https://github.com/raspberrypi/firmware"
 
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+64bit -devicetree -kernel +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io"
+IUSE="+64bit -devicetree -kernel +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io rpi5"
 REQUIRED_USE="
-	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s )
-	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s ) )
+	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 )
+	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
+	devicetree? ( !rpi5 )
 	kernel? ( devicetree )
-	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s )
+	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s !rpi5 )
 	rpi-cm4-io? ( rpi-cm4 )
 "
 
@@ -145,13 +146,11 @@ src_install() {
 	#
 	if
 			use rpi-all ||
+			use rpi1 || use rpi-cm ||
 			use rpi0 ||
-			use rpi02 ||
-			use rpi1 ||
-			use rpi2 ||
-			use rpi-cm2 ||
-			use rpi3 ||
-			use rpi-cm3
+			use rpi2 || use rpi-cm2 ||
+			use rpi3 || use rpi-cm3 ||
+			use rpi02
 	then
 		files+=( # <- Syntax
 			bootcode.bin
@@ -168,9 +167,8 @@ src_install() {
 
 	if
 			use rpi-all ||
-			use rpi4 ||
-			use rpi400 ||
-			use rpi-cm4
+			use rpi4 || use rpi-cm4 || use rpi-cm4s ||
+			use rpi400
 	then
 		files+=( # <- Syntax
 			fixup4cd.dat
@@ -200,8 +198,8 @@ src_install() {
 		if
 				use rpi-all ||
 				use rpi2 || use rpi-cm2 ||
-				use rpi02 ||
-				use rpi3 || use rpi-cm3
+				use rpi3 || use rpi-cm3 ||
+				use rpi02
 		then
 			files+=( # <- Syntax
 				kernel7.img
@@ -211,7 +209,8 @@ src_install() {
 		if
 				use rpi-all ||
 				use rpi4 || use rpi-cm4 || use rpi-cm4s ||
-				use rpi400
+				use rpi400 ||
+				use rpi5
 		then
 			if use 64bit; then
 				files+=( # <- Syntax
@@ -242,12 +241,6 @@ src_install() {
 				bcm2708-rpi-cm.dtb
 			)
 		fi
-		if use rpi-all || use rpi0; then
-			files+=( # <- Syntax
-				bcm2708-rpi-zero.dtb
-				bcm2708-rpi-zero-w.dtb
-			)
-		fi
 		if use rpi-all || use rpi2; then
 			files+=( # <- Syntax
 				bcm2709-rpi-2-b.dtb
@@ -257,6 +250,12 @@ src_install() {
 		if use rpi-all || use rpi-cm2; then
 			files+=( # <- Syntax
 				bcm2709-rpi-cm2.dtb
+			)
+		fi
+		if use rpi-all || use rpi0; then
+			files+=( # <- Syntax
+				bcm2708-rpi-zero.dtb
+				bcm2708-rpi-zero-w.dtb
 			)
 		fi
 		if use rpi-all || use rpi3; then
