@@ -19,7 +19,7 @@ S="${WORKDIR}"
 LICENSE="BSD rpi-eeprom"
 SLOT="0"
 KEYWORDS="arm arm64"
-IUSE="-old-firmware rpi5 systemd"
+IUSE="-old-firmware rpi5 systemd tools"
 REQUIRED_USE="${PYTHON_REQUIRED_USE}
 	old-firmware? ( !rpi5 )"
 
@@ -34,7 +34,7 @@ RDEPEND="${PYTHON_DEPS}
 		>=media-libs/raspberrypi-userland-bin-1.20201022
 	)"
 
-QA_PREBUILT="lib/firmware/raspberrypi/bootloader/*/*.bin"
+QA_PREBUILT="lib/firmware/raspberrypi/bootloader/*/*.bin usr/sbin/vl805"
 
 src_prepare() {
 	default
@@ -54,8 +54,12 @@ src_install() {
 
 	python_scriptinto /usr/sbin
 	python_foreach_impl python_newscript rpi-eeprom-config rpi-eeprom-config
+	use tools && python_foreach_impl python_newscript tools/rpi-bootloader-key-convert rpi-bootloader-key-convert
 
 	dosbin rpi-eeprom-update rpi-eeprom-digest
+	use tools && dosbin tools/rpi-otp-private-key
+	use tools && [[ "${ARCH}" == 'arm' ]] && dosbin tools/vl805
+
 	keepdir /var/lib/raspberrypi/bootloader/backup
 
 	insinto /lib/firmware/raspberrypi/bootloader
