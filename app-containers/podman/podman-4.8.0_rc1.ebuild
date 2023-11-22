@@ -199,11 +199,11 @@ src_prepare() {
 	default
 
 	# assure necessary files are present
-	for file in apparmor btrfs_installed btrfs selinux systemd; do
-		[[ -f "hack/${file}_tag.sh" ]] || die
+	for file in apparmor btrfs_installed btrfs systemd; do
+		[[ -f "hack/${file}_tag.sh" ]] || die "File '${file}_tag.sh' missing"
 	done
 
-	for feature in apparmor selinux systemd; do
+	for feature in apparmor systemd; do
 		cat <<-EOF > "hack/${feature}_tag.sh" || die
 			#!/bin/sh
 			$(usex "${feature}" "echo ${feature}" 'true')
