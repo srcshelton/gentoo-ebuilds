@@ -9,7 +9,6 @@ SCONS_MIN_VERSION="3.3.1"
 CHECKREQS_DISK_BUILD="2400M"
 CHECKREQS_DISK_USR="512M" # Less if stripped binaries are installed
 CHECKREQS_MEMORY="1024M"
-CHECKREQS_MEMORY_LTO="16384M"
 
 inherit check-reqs flag-o-matic multiprocessing pax-utils python-any-r1 scons-utils systemd toolchain-funcs
 
@@ -83,10 +82,6 @@ python_check_deps() {
 }
 
 pkg_pretend() {
-	use lto && export CHECKREQS_MEMORY="${CHECKREQS_MEMORY_LTO}"
-
-	check-reqs_pkg_pretend
-
 	if [[ -n ${REPLACING_VERSIONS} ]]; then
 		if ver_test "$REPLACING_VERSIONS" -lt 4.2; then
 			ewarn "To upgrade from a version earlier than the 4.2-series, you must"
@@ -96,13 +91,6 @@ pkg_pretend() {
 			ewarn "Be sure to set featureCompatibilityVersion to 4.2 before upgrading."
 		fi
 	fi
-}
-
-pkg_setup() {
-	use lto && export CHECKREQS_MEMORY="${CHECKREQS_MEMORY_LTO}"
-
-	check-reqs_pkg_setup
-	python-any-r1_pkg_setup
 }
 
 src_prepare() {
