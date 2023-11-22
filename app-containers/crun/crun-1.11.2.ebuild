@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..11} )
 
 inherit python-any-r1
 
@@ -42,16 +42,12 @@ BDEPEND="
 	virtual/pkgconfig
 "
 
-# the crun test suite is comprehensive to the extent that tests will fail
-# within a sandbox environment, due to the nature of the privileges
-# required to create linux "containers".
-RESTRICT="test"
-
 PATCHES=(
+	# merged upstream: https://github.com/containers/crun/pull/1345
+	# drop when we get 1.11.3
+	"${FILESDIR}/${P}-caps.patch"
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
-
-DOCS=( README.md )
 
 src_prepare() {
 	default
@@ -93,4 +89,15 @@ src_install() {
 	fi
 
 	einstalldocs
+
+	einfo "Cleaning up .la files"
+	find "${ED}" -name '*.la' -delete || die
+}
+
+# the crun test suite is comprehensive to the extent that tests will fail
+# within a sandbox environment, due to the nature of the privileges
+# required to create linux "containers".
+# due to this we disable most of the core test suite by unsetting PYTHON_TESTS
+src_test() {
+	emake check PYTHON_TESTS=
 }
