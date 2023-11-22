@@ -4,15 +4,13 @@
 EAPI=8
 
 inherit bash-completion-r1 go-module linux-info
-GIT_COMMIT="bfd436d159059b45d770a0fc62386c9e0b9bdbb1"
-COMMIT_NO="${GIT_COMMIT}"
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 
 SLOT="0"
-IUSE="apparmor bash-completion btrfs doc +seccomp selinux systemd test"
+IUSE="apparmor bash-completion btrfs doc +seccomp systemd test"
 RESTRICT="mirror test"
 EXTRA_DOCS=(
 	"CHANGELOG.md"
@@ -31,6 +29,7 @@ else
 fi
 
 RDEPEND="
+	app-containers/containers-common
 	app-crypt/gpgme:=
 	dev-libs/libgpg-error:=
 	dev-libs/libassuan:=
@@ -38,7 +37,6 @@ RDEPEND="
 	apparmor? ( sys-libs/libapparmor:= )
 	btrfs? ( sys-fs/btrfs-progs )
 	seccomp? ( sys-libs/libseccomp:= )
-	selinux? ( sys-libs/libselinux:= )
 	systemd? ( sys-apps/systemd )
 "
 DEPEND="${RDEPEND}"
@@ -71,13 +69,12 @@ src_prepare() {
 	for file in \
 		btrfs_installed_tag.sh \
 		btrfs_tag.sh \
-		selinux_tag.sh \
 		docs/Makefile \
 		hack/apparmor_tag.sh \
 		hack/libsubid_tag.sh \
 		hack/systemd_tag.sh
 	do
-		[[ -f "${file}" ]] || die
+		[[ -f "${file}" ]] || die "Required file '${file}' missing"
 	done
 
 	sed -i -e "s|/usr/local|${EPREFIX}/usr|g" Makefile docs/Makefile || die
@@ -121,14 +118,19 @@ src_prepare() {
 		eapply "${T}/disable_tests.patch" || die
 	}
 
-	use selinux || {
-		printf '#!/bin/sh\ntrue' > selinux_tag.sh || die
-	}
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
 	# Fix run path...
 	grep -Rl '[^r]/run/' . |
 		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
+}
+
+src_compile() {
+	# For non-live versions, prevent git operations which causes sandbox violations
+	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
+	[[ ${PV} != 9999* ]] && export COMMIT_NO="" GIT_COMMIT=""
+
+	default
 }
 
 src_test() {
