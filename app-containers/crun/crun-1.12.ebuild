@@ -15,6 +15,7 @@ LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv"
 IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
+RESTRICT="mirror"
 
 COMMON_DEPEND="
 	>=dev-libs/yajl-2.0.0:=
@@ -43,9 +44,6 @@ BDEPEND="
 "
 
 PATCHES=(
-	# merged upstream: https://github.com/containers/crun/pull/1345
-	# drop when we get 1.11.3
-	"${FILESDIR}/${P}-caps.patch"
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
 
