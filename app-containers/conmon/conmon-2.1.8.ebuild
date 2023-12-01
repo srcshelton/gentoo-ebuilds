@@ -13,7 +13,7 @@ if [[ ${PV} == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/conmon.git"
 else
 	SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
+	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
 	EGIT_COMMIT="00e08f4a9ca5420de733bf542b930ad58e1a7e7d"
 fi
 
@@ -33,7 +33,11 @@ PATCHES=(
 
 src_prepare() {
 	default
-	if ! use systemd; then
+	if use systemd; then
+		sed \
+			-e 's|shell $(PKG_CONFIG) --exists libsystemd.* && echo "0"|shell echo "0"|g;' \
+			-i Makefile || die
+	else
 		sed \
 			-e 's|shell $(PKG_CONFIG) --exists libsystemd.* && echo "0"|shell echo "1"|g;' \
 			-i Makefile || die
