@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit linux-info mount-boot savedconfig multiprocessing
+inherit linux-info mount-boot multiprocessing savedconfig
 
 # In case this is a real snapshot, fill in commit below.
 # For normal, tagged releases, leave blank
@@ -19,7 +19,7 @@ else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~amd64"
+	KEYWORDS="~amd64 ~arm ~arm64 ~riscv ~sparc ~x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -318,8 +318,8 @@ src_install() {
 	fi
 
 	# create config file
-	echo "# Remove files that shall not be installed from this list." > "${S}"/${PN}.conf.dist || die
-	find * ! -type d >> "${S}"/${PN}.conf.dist || die
+	echo "# Remove files that shall not be installed from this list." > "${S}"/${PN}.conf || die
+	find * ! -type d >> "${S}"/${PN}.conf || die
 
 	if ! use savedconfig; then
 		mv "${S}/${PN}.conf.dist" "${S}/${PN}.conf"
@@ -380,10 +380,11 @@ src_install() {
 
 		echo ; ebegin "Removing all files not listed in saved config"
 		grep -qv '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
-		find ! -type d -printf "%P\n" \
-			| grep -Fvx -f <( grep -v '^#' "${S}/${PN}.conf" \
-				|| die "grep failed, empty config file?" ) \
-			| xargs -d '\n' --no-run-if-empty rm
+		find ! -type d -printf "%P\n" |
+			grep -Fvx -f <(
+				grep -v '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
+			) |
+			xargs -d '\n' --no-run-if-empty rm -v
 		#eend $? || die
 	fi
 
@@ -408,10 +409,9 @@ src_install() {
 			# skip symlinks pointing to directories
 			[[ -d ${f} ]] && continue
 
-			target=$(readlink "${f}")
-			[[ $? -eq 0 ]] || die
-			ln -sf "${target}".${ext} "${f}" || die
-			mv -T "${f}" "${f}".${ext} || die
+			target=$(readlink "${f}") || die
+			ln -sf "${target}.${ext}" "${f}" || die
+			mv -T "${f}" "${f}.${ext}" || die
 		done < <(find . -type l -print0) || die
 
 		find . -type f ! -path "./amd-ucode/*" -print0 | \
@@ -469,3 +469,5 @@ pkg_postrm() {
 	# Don't forget to umount /boot if it was previously mounted by us.
 	use initramfs && mount-boot_pkg_postrm
 }
+
+# vi: set diffopt=filler,iwhite:
