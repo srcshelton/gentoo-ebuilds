@@ -3,16 +3,16 @@
 
 EAPI=8
 
-DESCRIPTION="Common config files and docs for Containers eco-system"
+DESCRIPTION="Common config files and docs for Containers stack"
 HOMEPAGE="https://github.com/containers/common"
 
-if [[ ${PV} == *9999* ]]; then
+if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/common.git"
 else
 	SRC_URI="https://github.com/containers/common/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P#containers-}"
-	KEYWORDS="amd64 arm64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
@@ -27,7 +27,10 @@ RDEPEND="
 	net-firewall/nftables
 	net-firewall/iptables[nftables]
 	|| ( app-containers/crun app-containers/runc )
-	|| ( >=app-containers/netavark-1.6.0[dns] >=app-containers/cni-plugins-0.9.1 )
+	|| (
+		>=app-containers/netavark-1.6.0[dns]
+		>=app-containers/cni-plugins-0.9.1
+	)
 "
 
 BDEPEND="
@@ -37,10 +40,10 @@ BDEPEND="
 src_prepare() {
 	default
 
-	[[ -f docs/Makefile ]] || die
-	sed -i -e 's|/usr/local|/usr|g;' docs/Makefile || die
+	[[ -f docs/Makefile && -f Makefile ]] || die
+	sed -i -e 's|/usr/local|/usr|g;' docs/Makefile Makefile || die
 
-	eapply "${FILESDIR}/fix-warnings.patch"
+	# add comments to mounts.conf
 	eapply "${FILESDIR}/examplify-mounts-conf.patch"
 }
 
@@ -49,7 +52,7 @@ src_compile() {
 }
 
 src_install() {
-	emake DESTDIR="${D}" install
+	emake DESTDIR="${ED}" install
 
 	insinto /etc/containers
 	# https://github.com/containers/skopeo/raw/main/default-policy.json
@@ -62,6 +65,10 @@ src_install() {
 	insinto /usr/share/containers
 	doins pkg/seccomp/seccomp.json pkg/subscriptions/mounts.conf
 
-	keepdir /etc/containers/certs.d /etc/containers/oci/hooks.d /var/lib/containers/sigstore
+	keepdir /etc/containers/certs.d /var/lib/containers/sigstore
+
+	# Surely this should belong to app-containers/cni-plugins?
+	#keepdir /etc/containers/oci/hooks.d
+
 	use systemd && keepdir /etc/containers/systemd
 }
