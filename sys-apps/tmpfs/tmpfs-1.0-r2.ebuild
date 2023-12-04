@@ -23,7 +23,6 @@ src_install() {
 	doexe "${FILESDIR}"/"${PN}".stop
 
 	if use examples; then
-		keepdir /mnt/ram
 		dosym tmpfs /etc/init.d/tmpfs.ram
 	fi
 }
@@ -34,9 +33,15 @@ pkg_postinst() {
 	einfo
 
 	if use examples; then
-		einfo "The directory /mnt/ram has been created and /etc/init.d/tmpfs.ram"
-		einfo "has been created.  In order to make use of this, perform the"
-		einfo "following actions:"
+		if mkdir -p /mnt/ram >/dev/null 2>&1; then
+			einfo "The directory /mnt/ram has been created and /etc/init.d/tmpfs.ram"
+			einfo "has been created.  In order to make use of this, perform the"
+			einfo "following actions:"
+		else
+			ewarn "You must manually create the directory '/mnt/ram'."
+			einfo "The init script /etc/init.d/tmpfs.ram has been created.  In order"
+			einfo "to make use of this, perform the following actions:"
+		fi
 		einfo
 		einfo "    sudo rc-update add tmpfs.ram boot"
 		einfo "    sudo /etc/init.d/tmpfs.ram start"
