@@ -3,13 +3,14 @@
 
 EAPI=8
 
-[[ ${PV} == *9999* ]] || CRATES="${PN}@${PV}"
+[[ ${PV} == 9999* ]] || CRATES="${PN}@${PV}"
 
 inherit cargo systemd
 
 DESCRIPTION="A container network stack"
 HOMEPAGE="https://github.com/containers/netavark"
-if [[ "${PV}" == *'9999'* ]]; then
+
+if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/netavark.git"
 else
@@ -17,7 +18,7 @@ else
 		https://github.com/containers/netavark/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz
 		${CARGO_CRATE_URIS}
 	"
-	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 fi
 LICENSE="Apache-2.0 Apache-2.0-with-LLVM-exceptions BSD BSD-2 Boost-1.0 MIT Unicode-DFS-2016 Unlicense ZLIB"
 SLOT="0"
@@ -35,7 +36,7 @@ QA_PRESTRIPPED="
 ECARGO_VENDOR="${WORKDIR}/vendor"
 
 src_unpack() {
-	if [[ ${PV} == *9999* ]]; then
+	if [[ ${PV} == 9999* ]]; then
 		git-r3_src_unpack
 		cargo_live_src_unpack
 	else
@@ -55,6 +56,7 @@ src_compile() {
 	emake docs
 }
 
+# Following is needed because we want to use `make install` instead of `cargo install` (exported by cargo.eclass)
 src_install() {
 	default
 }
