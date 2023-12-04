@@ -194,10 +194,12 @@ src_prepare() {
 	default
 
 	# assure necessary files are present
+	local file
 	for file in apparmor btrfs_installed btrfs systemd; do
 		[[ -f "hack/${file}_tag.sh" ]] || die "File '${file}_tag.sh' missing"
 	done
 
+	local feature
 	for feature in apparmor systemd; do
 		cat <<-EOF > "hack/${feature}_tag.sh" || die
 			#!/bin/sh
@@ -225,6 +227,7 @@ src_compile() {
 	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
 	[[ ${PV} != 9999* ]] && export COMMIT_NO="" GIT_COMMIT=""
 
+	# BUILD_SECCOMP is used in the patch to toggle seccomp
 	emake \
 			PREFIX="${EPREFIX}/usr" \
 			BUILDFLAGS="-v -work -x" \

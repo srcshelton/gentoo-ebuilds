@@ -13,7 +13,7 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/podman.git"
 else
 	SRC_URI="https://github.com/containers/podman/archive/v${PV/_/-}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="~amd64 ~arm64 ~riscv"
+	KEYWORDS="amd64 arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
@@ -42,9 +42,6 @@ COMMON_DEPEND="
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 	sqlite? ( dev-db/sqlite:= )
 "
-	# Presumably for thin-provisioning, which podman no longer supports?
-	#sys-fs/lvm2
-
 BDEPEND="
 	dev-go/go-md2man
 	dev-vcs/git
@@ -199,10 +196,12 @@ src_prepare() {
 	default
 
 	# assure necessary files are present
+	local file
 	for file in apparmor btrfs_installed btrfs selinux systemd; do
 		[[ -f "hack/${file}_tag.sh" ]] || die
 	done
 
+	local feature
 	for feature in apparmor selinux systemd; do
 		cat <<-EOF > "hack/${feature}_tag.sh" || die
 			#!/bin/sh
@@ -230,6 +229,7 @@ src_compile() {
 	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
 	[[ ${PV} != 9999* ]] && export COMMIT_NO="" GIT_COMMIT=""
 
+	# BUILD_SECCOMP is used in the patch to toggle seccomp
 	emake \
 			PREFIX="${EPREFIX}/usr" \
 			BUILDFLAGS="-v -work -x" \
@@ -298,15 +298,6 @@ pkg_postinst() {
 	use tmpfiles && tmpfiles_process podman.conf $(usev wrapper podman-docker.conf)
 
 	local want_newline=false
-	if [[ ! ( -e ${EROOT%/*}/etc/containers/policy.json && -e ${EROOT%/*}/etc/containers/registries.conf ) ]]; then
-		elog "You need to create the following config files:"
-		elog "/etc/containers/registries.conf"
-		elog "/etc/containers/policy.json"
-		elog "To copy over default examples, use:"
-		elog "cp /etc/containers/registries.conf{.example,}"
-		elog "cp /etc/containers/policy.json{.example,}"
-		want_newline=true
-	fi
 	if [[ ${PODMAN_ROOTLESS_UPGRADE} == true ]] ; then
 		${want_newline} && elog ""
 		elog "For rootless operation, you need to configure subuid/subgid"
@@ -318,4 +309,4 @@ pkg_postinst() {
 	fi
 }
 
-# vi: set diffopt=iwhite,filler:
+# vi: set diffopt=filler,iwhite:
