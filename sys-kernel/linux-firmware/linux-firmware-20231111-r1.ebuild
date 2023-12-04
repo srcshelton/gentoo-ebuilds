@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-inherit linux-info mount-boot savedconfig multiprocessing
+inherit linux-info mount-boot multiprocessing savedconfig 
 
 # In case this is a real snapshot, fill in commit below.
 # For normal, tagged releases, leave blank
@@ -19,7 +19,7 @@ else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~amd64"
+	KEYWORDS="~amd64 ~arm ~arm64 ~ia64 ~m68k ~riscv ~sparc ~x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -64,6 +64,7 @@ RDEPEND="!savedconfig? (
 	)"
 
 QA_PREBUILT="*"
+PATCHES=( "${FILESDIR}/${PN}-remove-rdfind-dep-and-use.patch" )
 
 pkg_setup() {
 	if use compress-xz || use compress-zstd ; then
@@ -99,6 +100,8 @@ src_unpack() {
 }
 
 src_prepare() {
+
+	use deduplicate && export LINUX_FIRMWARE_DO_DEDUPE=1
 	default
 
 	find . -type f -not -perm 0644 -print0 \
@@ -277,7 +280,7 @@ src_prepare() {
 }
 
 src_install() {
-	./copy-firmware.sh $(usex deduplicate '' '--ignore-duplicates') -v "${ED}/lib/firmware" || die
+	./copy-firmware.sh -v "${ED}/lib/firmware" || die
 
 	pushd "${ED}/lib/firmware" &>/dev/null || die
 
@@ -319,8 +322,8 @@ src_install() {
 	fi
 
 	# create config file
-	echo "# Remove files that shall not be installed from this list." > "${S}"/${PN}.conf.dist || die
-	find * ! -type d >> "${S}"/${PN}.conf.dist || die
+	echo "# Remove files that shall not be installed from this list." > "${S}"/${PN}.conf || die
+	find * ! -type d >> "${S}"/${PN}.conf || die
 
 	if ! use savedconfig; then
 		mv "${S}/${PN}.conf.dist" "${S}/${PN}.conf"
@@ -381,10 +384,11 @@ src_install() {
 
 		echo ; ebegin "Removing all files not listed in saved config"
 		grep -qv '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
-		find ! -type d -printf "%P\n" \
-			| grep -Fvx -f <( grep -v '^#' "${S}/${PN}.conf" \
-				|| die "grep failed, empty config file?" ) \
-			| xargs -d '\n' --no-run-if-empty rm
+		find ! -type d -printf "%P\n" |
+			grep -Fvx -f <(
+				grep -v '^#' "${S}/${PN}.conf" || die "grep failed, empty config file?"
+			) |
+			xargs -d '\n' --no-run-if-empty rm -v
 		#eend $? || die
 	fi
 
@@ -409,10 +413,9 @@ src_install() {
 			# skip symlinks pointing to directories
 			[[ -d ${f} ]] && continue
 
-			target=$(readlink "${f}")
-			[[ $? -eq 0 ]] || die
-			ln -sf "${target}".${ext} "${f}" || die
-			mv -T "${f}" "${f}".${ext} || die
+			target=$(readlink "${f}") || die
+			ln -sf "${target}.${ext}" "${f}" || die
+			mv -T "${f}" "${f}.${ext}" || die
 		done < <(find . -type l -print0) || die
 
 		find . -type f ! -path "./amd-ucode/*" -print0 | \
@@ -470,3 +473,5 @@ pkg_postrm() {
 	# Don't forget to umount /boot if it was previously mounted by us.
 	use initramfs && mount-boot_pkg_postrm
 }
+
+# vi: set diffopt=filler,iwhite:
