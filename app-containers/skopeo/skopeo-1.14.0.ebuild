@@ -6,7 +6,7 @@ COMMIT="6abf96bb82666fbb3d4ad9faf1812e5ae2d31a74"
 
 inherit bash-completion-r1 go-module
 
-DESCRIPTION="Command line utility foroperations on container images and image repositories"
+DESCRIPTION="Command line utility for operations on container images and image repositories"
 HOMEPAGE="https://github.com/containers/skopeo"
 SRC_URI="https://github.com/containers/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 
