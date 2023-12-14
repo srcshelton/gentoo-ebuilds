@@ -38,10 +38,5 @@ src_compile() {
 src_install() {
 	exeinto /opt/cni/bin
 	doexe bin/*
-	dodoc README.md
-	local i
-	for i in plugins/{meta/{bandwidth,firewall,flannel,portmap,sbr,tuning},main/{bridge,host-device,ipvlan,loopback,macvlan,ptp,vlan},ipam/{dhcp,host-local,static},sample}; do
-		newdoc README.md ${i##*/}.README.md
-	done
 	newinitd "${FILESDIR}"/cni-dhcp.initd cni-dhcp
 }
