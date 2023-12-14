@@ -18,7 +18,7 @@ RDEPEND="sys-libs/pam
 	selinux? ( sys-libs/libselinux )"
 
 DEPEND="${RDEPEND}
-	prevent-removal? ( sys-kernel/linux-headers )"
+	prevent-removal? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )"
 
 src_prepare() {
 	default
