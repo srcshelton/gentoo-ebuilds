@@ -64,7 +64,6 @@ RDEPEND="!savedconfig? (
 	)"
 
 QA_PREBUILT="*"
-PATCHES=( "${FILESDIR}/${PN}-remove-rdfind-dep-and-use.patch" )
 
 pkg_setup() {
 	if use compress-xz || use compress-zstd ; then
@@ -101,7 +100,6 @@ src_unpack() {
 
 src_prepare() {
 
-	use deduplicate && export LINUX_FIRMWARE_DO_DEDUPE=1
 	default
 
 	find . -type f -not -perm 0644 -print0 \
@@ -280,7 +278,8 @@ src_prepare() {
 }
 
 src_install() {
-	./copy-firmware.sh -v "${ED}/lib/firmware" || die
+	use deduplicate || LINUX_FIRMWARE_DEDUPE_ARG="--ignore-duplicates"
+	./copy-firmware.sh -v "${LINUX_FIRMWARE_DEDUPE_ARG:-}" "${ED}/lib/firmware" || die
 
 	pushd "${ED}/lib/firmware" &>/dev/null || die
 
