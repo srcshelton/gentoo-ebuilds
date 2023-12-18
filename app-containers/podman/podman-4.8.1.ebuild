@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit bash-completion-r1 flag-o-matic go-module linux-info tmpfiles
+inherit flag-o-matic go-module linux-info tmpfiles
 
 DESCRIPTION="A tool for managing OCI containers and pods with Docker-compatible CLI"
 HOMEPAGE="https://github.com/containers/podman/ https://podman.io/"
@@ -196,7 +196,8 @@ src_prepare() {
 	# assure necessary files are present
 	local file
 	for file in apparmor btrfs_installed btrfs systemd; do
-		[[ -f "hack/${file}_tag.sh" ]] || die "File '${file}_tag.sh' missing"
+		[[ -f "hack/${file}_tag.sh" ]] ||
+			die "File '${file}_tag.sh' missing"
 	done
 
 	local feature
@@ -240,7 +241,8 @@ src_install() {
 	emake \
 			PREFIX="${EPREFIX}/usr" \
 			DESTDIR="${D}" \
-		install $(usev wrapper install.docker-full)
+		install install.completions \
+			$(usex wrapper 'install.docker-full' '')
 
 	if ! use experimental; then
 		rm \
@@ -268,16 +270,14 @@ src_install() {
 	insinto /etc/logrotate.d
 	newins "${FILESDIR}/podman.logrotated" podman
 
-	use bash-completion && dobashcomp completions/bash/*
-
-	if use zsh-completion; then
-		insinto /usr/share/zsh/site-functions
-		doins completions/zsh/*
+	if ! use bash-completion; then
+		rm -r "${ED}"/usr/share/bash-completion/completions
 	fi
-
-	if use fish-completion; then
-		insinto /usr/share/fish/vendor_completions.d
-		doins completions/fish/*
+	if ! use zsh-completion; then
+		rm -r "${ED}"/usr/share/zsh/site-functions
+	fi
+	if ! use fish-completion; then
+		rm -r "${ED}"/usr/share/fish/vendor_completions.d
 	fi
 
 	keepdir /var/lib/containers
