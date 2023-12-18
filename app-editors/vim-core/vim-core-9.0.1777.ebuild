@@ -130,7 +130,7 @@ src_configure() {
 	export ac_cv_prog_STRIP="$(type -P true ) faking strip"
 
 	local myconf=(
-		--with-modified-by=Gentoo-${PVR}
+		--with-modified-by="Gentoo-${PVR} (RIP Bram)"
 		--enable-gui=no
 		--without-x
 		--disable-darwin
