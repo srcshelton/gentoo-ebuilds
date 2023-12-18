@@ -260,7 +260,7 @@ src_configure() {
 	fi
 
 	econf \
-		--with-modified-by=Gentoo-${PVR} \
+		--with-modified-by="Gentoo-${PVR} (RIP Bram)" \
 		"${myconf[@]}"
 }
 
