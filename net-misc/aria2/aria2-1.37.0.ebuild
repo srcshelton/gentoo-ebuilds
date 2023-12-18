@@ -81,7 +81,8 @@ RDEPEND="
 	)
 "
 
-DEPEND="${RDEPEND}
+DEPEND="
+	${RDEPEND}
 	test? ( >=dev-util/cppunit-1.12.0:0 )
 "
 RDEPEND+="
@@ -186,6 +187,11 @@ src_install() {
 
 	dobashcomp doc/bash_completion/aria2c
 	use scripts && dobin doc/xmlrpc/aria2{mon,rpc}
+}
 
-	find "${ED}" -name '*.la' -delete || die
+pkg_postinst() {
+	if use xmlrpc; then
+		elog "If you would like to use the additional aria2mon and aria2rpc tools,"
+		elog "you need to have \033[1mdev-lang/ruby\033[0m installed."
+	fi
 }
