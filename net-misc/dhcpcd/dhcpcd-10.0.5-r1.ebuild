@@ -34,6 +34,10 @@ RDEPEND="
 	)
 "
 
+PATCHES=(
+	"${FILESDIR}"/10.0.5
+)
+
 src_configure() {
 	local myeconfargs=(
 		--dbdir="${EPREFIX%/}/var/lib/dhcpcd"
