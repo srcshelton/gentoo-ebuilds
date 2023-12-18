@@ -30,7 +30,7 @@ elif [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
 	S="${WORKDIR}"/${MY_P}
 fi
 
-inherit toolchain
+inherit toolchain usr-ldscript
 
 if tc_is_live ; then
 	# Needs to be after inherit (for now?), bug #830908
