@@ -3,10 +3,11 @@
 
 EAPI=8
 
-inherit bash-completion-r1 go-module linux-info
+inherit go-module linux-info
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
+
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 
 SLOT="0"
@@ -29,15 +30,15 @@ else
 fi
 
 RDEPEND="
+	systemd? ( sys-apps/systemd )
+	btrfs? ( sys-fs/btrfs-progs )
+	seccomp? ( sys-libs/libseccomp:= )
+	apparmor? ( sys-libs/libapparmor:= )
 	app-containers/containers-common
 	app-crypt/gpgme:=
 	dev-libs/libgpg-error:=
 	dev-libs/libassuan:=
 	sys-apps/shadow:=
-	apparmor? ( sys-libs/libapparmor:= )
-	btrfs? ( sys-fs/btrfs-progs )
-	seccomp? ( sys-libs/libseccomp:= )
-	systemd? ( sys-apps/systemd )
 "
 DEPEND="${RDEPEND}"
 
@@ -138,8 +139,8 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${ED}" install
-	use bash-completion && dobashcomp contrib/completions/bash/buildah
+	emake DESTDIR="${ED}" install \
+		$(usex bash-completion 'install.completions' '')
 	einstalldocs
 	use doc && dodoc -r "${EXTRA_DOCS[@]}"
 }

@@ -40,6 +40,9 @@ RDEPEND="
 	systemd? ( sys-apps/systemd )
 "
 DEPEND="${RDEPEND}"
+PATCHES=(
+	"${FILESDIR}"/fix-non-amd64-build-1.33.2.patch
+)
 
 pkg_setup() {
 	local CONFIG_CHECK=""
