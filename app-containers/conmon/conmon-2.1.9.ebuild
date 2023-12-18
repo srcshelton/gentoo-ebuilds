@@ -14,7 +14,7 @@ if [[ ${PV} == *9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
-	EGIT_COMMIT="00e08f4a9ca5420de733bf542b930ad58e1a7e7d"
+	EGIT_COMMIT="3a9715d28cb4cf0e671dfbc4211d4458534db189"
 fi
 
 LICENSE="Apache-2.0"
@@ -29,6 +29,7 @@ DEPEND="${RDEPEND}
 BDEPEND="dev-go/go-md2man"
 PATCHES=(
 	"${FILESDIR}/conmon-2.1.8-Makefile.patch"
+	"${FILESDIR}/conmon-2.1.9-conn_sock.c.patch"
 )
 
 src_prepare() {
@@ -62,6 +63,7 @@ src_compile() {
 
 src_install() {
 	default
+
 	dodir /usr/libexec/podman
 	dosym -r /usr/bin/"${PN}" /usr/libexec/podman/conmon || die
 }
