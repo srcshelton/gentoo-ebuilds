@@ -66,7 +66,22 @@ COMMON_DEPEND="
 	)
 "
 
-BDEPEND="${COMMON_DEPEND}"
+# There seems to be a really weird arm64-specific issue whereby merging
+# app-misc/ca-certificates-20230311.3.90 will fail with:
+# >>> Safely unmerging already-installed instance...
+#
+# Process Process-<xxx>:
+# Traceback (most recent call last):
+#   File "/usr/lib/python3.11/site-packages/portage/dbapi/vartree.py", line 787, in aux_get
+#       mydir_stat = os.stat(mydir)
+#                        ^^^^^^^^^^^^^^
+#                        FileNotFoundError: [Errno 2] No such file or directory: '/var/db/pkg/dev-python/gentoo-common-1'
+#
+# ... this is likely to be unrelated to dev-python/gentoo-common, but we can at
+# least see whether this helps?
+#
+BDEPEND="${COMMON_DEPEND}
+	dev-python/gentoo-common"
 if ! ${PRECOMPILED} ; then
 	BDEPEND+=" ${PYTHON_DEPS}"
 else
