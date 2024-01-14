@@ -14,7 +14,7 @@ S="${WORKDIR}/${MY_PN}-release-${PV}"
 
 LICENSE="BSD"
 SLOT="0/17"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ppc ppc64 ~riscv sparc x86 ~amd64-linux"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv sparc x86 ~amd64-linux"
 IUSE="blocking-tcp +client debug examples +reuseaddr +server +ssl static-libs +tools +webserver"
 REQUIRED_USE="!server? ( !webserver )"
 
