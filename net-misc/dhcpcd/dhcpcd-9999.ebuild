@@ -36,6 +36,17 @@ RDEPEND="
 	)
 "
 
+QA_CONFIG_IMPL_DECL_SKIP=(
+	# These don't exist on Linux/glibc (bug #900264)
+	memset_explicit
+	memset_s
+	setproctitle
+	strtoi
+	consttime_memequal
+	SHA256_Init
+	hmac
+)
+
 src_configure() {
 	local myeconfargs=(
 		--dbdir="${EPREFIX}/var/lib/dhcpcd"
