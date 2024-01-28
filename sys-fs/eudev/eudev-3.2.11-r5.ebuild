@@ -57,7 +57,7 @@ RDEPEND="${DEPEND}
 BDEPEND="dev-util/gperf
 	virtual/os-headers
 	virtual/pkgconfig
-	>=sys-devel/make-3.82-r4
+	>=dev-build/make-3.82-r4
 	test? ( app-text/tree dev-lang/perl )"
 PDEPEND=">=sys-fs/udev-init-scripts-26"
 
