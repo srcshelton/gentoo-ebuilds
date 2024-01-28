@@ -1,0 +1,2 @@
+d /var/run/pppd
+L /var/run/pppd/lock - - - - ../../lock
