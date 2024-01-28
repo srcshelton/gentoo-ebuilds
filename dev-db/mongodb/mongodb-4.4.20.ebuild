@@ -1,9 +1,9 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
 
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..11} )
 
 SCONS_MIN_VERSION="3.3.1"
 CHECKREQS_DISK_BUILD="2400M"
@@ -43,7 +43,7 @@ DEPEND="${RDEPEND}
 	${PYTHON_DEPS}
 	sys-libs/ncurses:0=
 	sys-libs/readline:0=
-	debug? ( dev-util/valgrind )"
+	debug? ( dev-debug/valgrind )"
 BDEPEND="
 	$(python_gen_any_dep '
 		test? ( dev-python/pymongo[${PYTHON_USEDEP}] dev-python/requests[${PYTHON_USEDEP}] )
