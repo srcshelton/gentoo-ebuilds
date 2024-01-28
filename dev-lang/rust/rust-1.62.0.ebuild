@@ -5,8 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{8..11} )
 
-inherit bash-completion-r1 check-reqs estack flag-o-matic llvm multiprocessing \
-	multilib multilib-build python-any-r1 rust-toolchain toolchain-funcs verify-sig
+inherit bash-completion-r1 check-reqs estack flag-o-matic llvm multilib multilib-build multiprocessing python-any-r1 rust-toolchain toolchain-funcs verify-sig
 
 if [[ ${PV} = *beta* ]]; then
 	betaver=${PV//*beta}
@@ -41,7 +40,7 @@ LLVM_TARGET_USEDEPS=${ALL_LLVM_TARGETS[@]/%/(-)?}
 
 LICENSE="|| ( MIT Apache-2.0 ) BSD-1 BSD-2 BSD-4 UoI-NCSA"
 
-IUSE="clippy cpu_flags_x86_sse2 debug dist doc miri nightly parallel-compiler profiler rls rustfmt rust-src system-bootstrap system-llvm test wasm ${ALL_LLVM_TARGETS[*]}"
+IUSE="big-endian clippy cpu_flags_x86_sse2 debug dist doc miri nightly parallel-compiler profiler rls rustfmt rust-src system-bootstrap system-llvm test wasm ${ALL_LLVM_TARGETS[*]}"
 
 # Please keep the LLVM dependency block separate. Since LLVM is slotted,
 # we need to *really* make sure we're not pulling more than one slot
@@ -95,7 +94,7 @@ BDEPEND="${PYTHON_DEPS}
 	system-bootstrap? ( ${BOOTSTRAP_DEPEND} )
 	!system-llvm? (
 		>=dev-util/cmake-3.13.4
-		dev-util/ninja
+		dev-build/ninja
 	)
 	test? ( sys-devel/gdb )
 	verify-sig? ( sec-keys/openpgp-keys-rust )
@@ -157,6 +156,7 @@ VERIFY_SIG_OPENPGP_KEY_PATH=${BROOT}/usr/share/openpgp-keys/rust.asc
 PATCHES=(
 	"${FILESDIR}"/1.55.0-ignore-broken-and-non-applicable-tests.patch
 	"${FILESDIR}"/1.61.0-gentoo-musl-target-specs.patch
+	"${FILESDIR}"/1.62.0-Signals.h-gcc-13.patch
 )
 
 S="${WORKDIR}/${MY_P}-src"
