@@ -15,7 +15,9 @@ S="${WORKDIR}/linux-${PV}/tools/usb/${PN}"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64 ~x86"
-IUSE="doc tcpd"
+# Add USE='build' to prevent kernel-2.eclass pulling-in a number of unnecessary
+# runtime dependencies...
+IUSE="+build doc tcpd"
 
 RDEPEND="
 	>=dev-libs/glib-2.6
