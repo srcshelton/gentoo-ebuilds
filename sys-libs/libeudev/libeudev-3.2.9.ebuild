@@ -34,7 +34,7 @@ BDEPEND="${COMMON_DEPEND}
 	dev-util/gperf
 	virtual/os-headers
 	virtual/pkgconfig
-	>=sys-devel/make-3.82-r4
+	>=dev-build/make-3.82-r4
 	|| ( >=sys-kernel/raspberrypi-headers-${KV_min} >=sys-kernel/linux-headers-${KV_min} )
 	>=dev-util/intltool-0.50
 	test? ( app-text/tree dev-lang/perl )"
