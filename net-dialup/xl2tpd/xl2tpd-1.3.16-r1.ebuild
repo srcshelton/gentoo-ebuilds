@@ -14,12 +14,15 @@ SLOT="0"
 KEYWORDS="amd64 ~arm arm64 ~loong ~mips ~ppc ppc64 ~riscv x86"
 IUSE="+kernel systemd +tmpfiles"
 
+COMMON_DEPEND="
+	net-libs/libpcap"
+
 DEPEND="
-	net-libs/libpcap
+	${COMMON_DEPEND}
 	>=sys-kernel/linux-headers-2.6"
 
 RDEPEND="
-	${DEPEND}
+	${COMMON_DEPEND}
 	net-dialup/ppp"
 
 DOCS=( CREDITS README.md BUGS CHANGES TODO doc/README.patents )
