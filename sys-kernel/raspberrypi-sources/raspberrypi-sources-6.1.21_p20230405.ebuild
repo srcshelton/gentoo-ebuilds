@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -15,7 +15,8 @@ K_NOUSENAME=1
 K_NOUSEPR=1
 
 K_EXP_GENPATCHES_NOUSE=1
-K_GENPATCHES_VER="$(ver_cut 3)"
+#K_GENPATCHES_VER="$(ver_cut 3)"
+K_GENPATCHES_VER="25"
 K_DEBLOB_AVAILABLE=0
 K_WANT_GENPATCHES="base extras"
 
@@ -37,7 +38,7 @@ SRC_URI="
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
-IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s rpi5"
+IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s"
 REQUIRED_USE="
 	|| ( rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 )
 	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
