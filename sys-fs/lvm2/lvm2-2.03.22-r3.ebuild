@@ -13,7 +13,7 @@ S="${WORKDIR}/${PN^^}.${PV}"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="amd64 ~arm arm64 ~loong ~mips ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
 IUSE="+lvm readline sanlock selinux static static-libs systemd thin +tmpfiles +udev valgrind"
 REQUIRED_USE="
 	static? ( !systemd !udev )
@@ -40,16 +40,16 @@ RDEPEND="
 	>=sys-apps/baselayout-2.2
 	lvm? (
 		virtual/tmpfiles
-		thin? ( <sys-block/thin-provisioning-tools-1.0.0 )
+		thin? ( >=sys-block/thin-provisioning-tools-1.0.6 )
 	)
 "
 # note: thin-0.3.0 is required to avoid --disable-thin_check_needs_check
 DEPEND="
 	${DEPEND_COMMON}
 	static? (
+		sys-apps/util-linux[static-libs]
 		lvm? (
 			dev-libs/libaio[static-libs]
-			sys-apps/util-linux[static-libs]
 			readline? ( sys-libs/readline[static-libs] )
 		)
 		selinux? ( sys-libs/libselinux[static-libs] )
@@ -68,6 +68,7 @@ PATCHES=(
 	# For upstream -- review and forward:
 	"${FILESDIR}"/${PN}-2.03.20-dmeventd-no-idle-exit.patch
 	"${FILESDIR}"/${PN}-2.03.20-freopen-musl.patch
+	"${FILESDIR}"/${PN}-2.03.22-autoconf-2.72-egrep.patch
 )
 
 pkg_setup() {
@@ -194,19 +195,22 @@ src_test() {
 }
 
 src_install() {
-	local INSTALL_TARGETS=(
-		# full LVM2
-		$(usev lvm "install")
-		$(usev tmpfiles "install_tmpfiles_configuration")
-		# install systemd related files only when requested, bug #522430
-		$(usev $(usex lvm systemd lvm) \
-			"SYSTEMD_GENERATOR_DIR=$(systemd_get_systemgeneratordir) install_systemd_units install_systemd_generators"
-		)
+	local targets=()
+	if use lvm; then
+		targets+=( install )
+		if use tmpfiles; then
+			targets+=( install_tmpfiles_configuration )
+		fi
+		if use systemd; then
+			# install systemd related files only when requested, bug #522430
+			targets+=( install_systemd_units )
+		fi
+	else
+		targets+=( install_device-mapper )
+	fi
 
-		# install dm unconditionally
-		install_device-mapper
-	)
-	emake V=1 DESTDIR="${D}" "${INSTALL_TARGETS[@]}"
+	# -j1 for bug #918125
+	emake -j1 V=1 DESTDIR="${D}" "${targets[@]}"
 
 	newinitd "${FILESDIR}"/device-mapper.rc-r3 device-mapper
 	newconfd "${FILESDIR}"/device-mapper.conf-r4 device-mapper
