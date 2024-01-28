@@ -95,7 +95,7 @@ _flush() {
 		set_table_policy="${set_table_policy#--set-table-policy=}"
 	fi
 
-	if [ -e "${iptables_proc:-}" ]; then
+	if [ -f "${iptables_proc:-}" ] && [ -s "${iptables_proc:-}" ]; then
 		tables="$( cat "${iptables_proc}" )"
 	else
 		tables="$( "${iptables_bin}-save" | grep '^\*' | sed 's/^.//' )"
