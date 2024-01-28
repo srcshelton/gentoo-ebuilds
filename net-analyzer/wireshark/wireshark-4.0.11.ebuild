@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -15,17 +15,25 @@ if [[ ${PV} == *9999* ]] ; then
 	EGIT_REPO_URI="https://gitlab.com/wireshark/wireshark"
 	inherit git-r3
 else
-	SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz"
+	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/wireshark.asc
+	inherit verify-sig
+
+	SRC_URI="
+		https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz
+		verify-sig? ( https://www.wireshark.org/download/SIGNATURES-${PV}.txt -> ${P}-signatures.txt )
+	"
 	S="${WORKDIR}/${P/_/}"
 
 	if [[ ${PV} != *_rc* ]] ; then
 		KEYWORDS="amd64 arm arm64 ~hppa ~ia64 ppc64 ~riscv x86"
 	fi
+
+	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-wireshark )"
 fi
 
 LICENSE="GPL-2"
 SLOT="0/${PV}"
-IUSE="androiddump bcg729 brotli +capinfos +captype ciscodump crypt +dftest doc dpauxmon +dumpcap +editcap -gui http2 ilbc kerberos libxml2 lto lua lz4 maxminddb +mergecap +minizip +netlink opus +pcap +plugins qt6 +randpkt +randpktdump +reordercap sbc sdjournal selinux +sharkd smi snappy spandsp sshdump ssl test +text2pcap tfshark +tshark +udpdump wifi zlib +zstd"
+IUSE="androiddump bcg729 brotli +capinfos +captype ciscodump crypt +dftest doc dpauxmon +dumpcap +editcap -gui http2 ilbc kerberos libxml2 lua lz4 maxminddb +mergecap +minizip +netlink opus +plugins +pcap qt6 +randpkt +randpktdump +reordercap sbc selinux +sharkd smi snappy spandsp sshdump ssl sdjournal test +text2pcap tfshark +tshark +udpdump wifi zlib +zstd"
 
 REQUIRED_USE="
 	lua? ( ${LUA_REQUIRED_USE} )
@@ -97,14 +105,14 @@ DEPEND="
 # TODO: 4.0.0_rc1 release notes say:
 # "Perl is no longer required to build Wireshark, but may be required to build some source code files and run code analysis checks."
 BDEPEND="
+	${BDEPEND}
 	${PYTHON_DEPS}
 	dev-lang/perl
-	sys-devel/bison
-	sys-devel/flex
+	app-alternatives/lex
 	sys-devel/gettext
 	virtual/pkgconfig
 	doc? (
-		app-doc/doxygen
+		app-text/doxygen
 		dev-ruby/asciidoctor
 	)
 	gui? (
@@ -146,6 +154,23 @@ pkg_setup() {
 	python-any-r1_pkg_setup
 }
 
+src_unpack() {
+	if [[ ${PV} == *9999* ]] ; then
+		git-r3_src_unpack
+	else
+		if use verify-sig ; then
+			cd "${DISTDIR}" || die
+			verify-sig_verify_signed_checksums \
+				${P}-signatures.txt \
+				openssl-dgst \
+				${P}.tar.xz
+			cd "${WORKDIR}" || die
+		fi
+
+		default
+	fi
+}
+
 src_configure() {
 	local mycmakeargs
 
@@ -174,7 +199,9 @@ src_configure() {
 		-i tools/macos-setup.sh \
 		|| die "Could not remove sysroot/SDK injection from macOS setup script: ${?}"
 
-	! use lto && filter-lto
+	# crashes at runtime
+	# https://bugs.gentoo.org/754021
+	filter-lto
 
 	mycmakeargs+=(
 		-DPython3_EXECUTABLE="${PYTHON}"
@@ -219,7 +246,8 @@ src_configure() {
 		-DENABLE_ILBC=$(usex ilbc)
 		-DENABLE_KERBEROS=$(usex kerberos)
 		-DENABLE_LIBXML2=$(usex libxml2)
-		-DENABLE_LTO=$(usex lto)
+		# only appends -flto
+		-DENABLE_LTO=OFF
 		-DENABLE_LUA=$(usex lua)
 		-DENABLE_LZ4=$(usex lz4)
 		-DENABLE_MINIZIP=$(usex minizip)
