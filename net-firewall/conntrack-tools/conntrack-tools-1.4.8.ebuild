@@ -4,12 +4,14 @@
 EAPI=8
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/netfilter.org.asc
-inherit autotools linux-info systemd verify-sig
+inherit linux-info systemd verify-sig
 
 DESCRIPTION="Connection tracking userspace tools"
 HOMEPAGE="https://conntrack-tools.netfilter.org"
-SRC_URI="https://www.netfilter.org/projects/conntrack-tools/files/${P}.tar.bz2
-	verify-sig? ( https://www.netfilter.org/projects/conntrack-tools/files/${P}.tar.bz2.sig )"
+SRC_URI="
+	https://www.netfilter.org/projects/conntrack-tools/files/${P}.tar.xz
+	verify-sig? ( https://www.netfilter.org/projects/conntrack-tools/files/${P}.tar.xz.sig )
+"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -44,12 +46,6 @@ BDEPEND="
 	verify-sig? ( sec-keys/openpgp-keys-netfilter )
 "
 
-PATCHES=(
-	"${FILESDIR}"/${PN}-1.4.5-0001-Makefile.am-don-t-suppress-various-warnings.patch
-	"${FILESDIR}"/${PN}-1.4.5-0002-Fix-Wstrict-prototypes.patch
-	"${FILESDIR}"/${PN}-1.4.5-0003-Fix-Wimplicit-function-declaration.patch
-)
-
 pkg_setup() {
 	linux-info_pkg_setup
 
@@ -80,9 +76,6 @@ src_prepare() {
 
 	# bug #474858
 	#sed -i -e 's:/var/lock:/run/lock:' doc/stats/conntrackd.conf || die
-
-	# Drop once Clang 16 patches merged (implicit func decl, etc)
-	eautoreconf
 }
 
 src_configure() {
