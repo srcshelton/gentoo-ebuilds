@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -26,7 +26,7 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/buildah.git"
 else
 	SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 arm64"
+	KEYWORDS="~amd64 ~arm64"
 fi
 
 RDEPEND="
@@ -41,6 +41,9 @@ RDEPEND="
 	sys-apps/shadow:=
 "
 DEPEND="${RDEPEND}"
+PATCHES=(
+	"${FILESDIR}"/fix-non-amd64-build-1.33.2.patch
+)
 
 pkg_setup() {
 	local CONFIG_CHECK=""
@@ -79,10 +82,10 @@ src_prepare() {
 	done
 
 	sed -i -e "s|/usr/local|${EPREFIX}/usr|g" Makefile docs/Makefile || die
-	printf '#! /bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
+	printf '#!/bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
 
 	cat <<-EOF > hack/apparmor_tag.sh || die
-	#! /bin/sh
+	#!/bin/sh
 	$(usex apparmor 'echo apparmor' echo)
 	EOF
 
@@ -102,9 +105,9 @@ src_prepare() {
 	$(usex systemd 'echo systemd' echo)
 	EOF
 
-	printf '#! /bin/sh\necho' > btrfs_installed_tag.sh || die
+	printf "#!/bin/sh\n echo" > btrfs_installed_tag.sh || die
 	cat <<-EOF > btrfs_tag.sh || die
-	#! /bin/sh
+	#!/bin/sh
 	$(usex btrfs echo 'echo exclude_graphdriver_btrfs btrfs_noversion')
 	EOF
 
@@ -122,9 +125,6 @@ src_prepare() {
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
 	# Fix run path...
-	grep -Rl '/run/lock' . |
-		xargs -r -- sed -ri \
-			-e 's|/run/lock|/var/lock|g' || die
 	grep -Rl '[^r]/run/' . |
 		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
 }
