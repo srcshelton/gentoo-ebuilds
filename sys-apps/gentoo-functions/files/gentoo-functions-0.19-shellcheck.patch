@@ -142,7 +142,7 @@
  	fi
  
  	return 0
-@@ -87,135 +103,134 @@
+@@ -87,135 +103,135 @@
  #
  #    show an informative message (without a newline)
  #
@@ -174,7 +174,8 @@
 -	einfon "$*\n"
 -	LAST_E_CMD="einfo"
 +einfo() {
-+	einfon "${*:-}\\n"
++	einfon "${*:-}"
++	printf '\n'
 +	LAST_E_CMD='einfo'
  	return 0
  }
