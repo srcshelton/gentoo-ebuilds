@@ -9,7 +9,13 @@
  		mount -n -t proc -o noexec,nosuid,nodev proc /proc
  	fi
  	eend $?
-@@ -58,47 +58,104 @@ sys="$(openrc --sys)"
+@@ -55,50 +55,119 @@ fi
+ # Read more about /run at https://lwn.net/Articles/436012
+ sys="$(openrc --sys)"
+ 
++run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
++lock_mount_opts="mode=1777,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
++
  if [ ! -d /run ]; then
  	if [ "$sys" = VSERVER ]; then
  		if [ -e /run ]; then
@@ -27,7 +33,7 @@
 +		if command -v awk >/dev/null 2>&1; then
 +			boot_services="$( rc-status -Ca 2>/dev/null | awk -e "$( cat <<-'EOF'
 +					BEGIN { doprint = 0 } ;
-+					/^Runlevel: / {
++					/^(Dynamic )?Runlevel: / {
 +						doprint = 0 ;
 +						( "boot" == $2 || "sysinit" == $2 ) && doprint = 2
 +					} ;
@@ -39,7 +45,7 @@
 +			boot_services="$( rc-status -Ca 2>/dev/null |
 +				sed -r '/^Runlevel: / s/^(.*)$/Runlevel: \n\1/' |
 +				sed -nr '/^Runlevel: (sysinit|boot)/,/^(Dynamic )?Runlevel: /p' |
-+				grep -v '^Runlevel:' |
++				grep -Ev '^(Dynamic )?Runlevel: ' |
 +				sed 's/^ \+// ; s/ .*$//'
 +			)"
 +		fi
@@ -49,7 +55,6 @@
 +				grep -Eq "dmeventd|lvm|device-mapper" >/dev/null 2>&1 &&
 +			[ -d /var ] && ! [ -w /var ]
 +		then
-+			run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
 +			if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/run; then
 +				ebegin "Mounting /var/run"
 +				if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/run; then
@@ -57,14 +62,16 @@
 +						eerror "Unable to mount tmpfs on /var/run."
 +					fi
 +				fi
++				eend $?
 +			fi
 +			if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/lock; then
 +				ebegin "Mounting /var/lock"
 +				if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/lock; then
-+					if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /var/lock; then
++					if ! mount -t tmpfs -o ${lock_mount_opts} tmpfs /var/lock; then
 +						eerror "Unable to mount tmpfs on /var/lock"
 +					fi
 +				fi
++				eend $?
 +			fi
 +		fi
  	fi
@@ -85,7 +92,6 @@
 +		rm -rf /run/*
 +	elif ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /run; then
 +		ebegin "Mounting /run"
-+		run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
 +		if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /run; then
 +			if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /run; then
 +				eerror "Unable to mount tmpfs on /run."
@@ -98,6 +104,15 @@
 -	eend
 +	checkpath -d -m 0775 -o root:uucp /run/lock
 +else
++	if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/lock; then
++		ebegin "Mounting /var/lock"
++		if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/lock; then
++			if ! mount -t tmpfs -o ${lock_mount_opts} tmpfs /var/lock; then
++				eerror "Unable to mount tmpfs on /var/lock"
++			fi
++		fi
++		eend $?
++	fi
 +	[ -w /var ] && checkpath -d -m 0775 -o root:uucp /var/lock
  fi
  
@@ -187,7 +202,7 @@
  
  	if checkpath -W /var/run; then
  		ebegin "Creating user login records"
-@@ -200,6 +201,15 @@ start()
+@@ -200,6 +201,19 @@ start()
  		eend 0
  
  		mountinfo -q -f tmpfs /var/run || cleanup_var_run_dir
@@ -195,10 +210,14 @@
 +		[ -L /var/run/lock ] && rm /var/run/lock 2>/dev/null
 +		[ -d /var/run/lock ] && rmdir /var/run/lock 2>/dev/null
 +		[ -d /var/run/lock ] || ln -s ../lock /var/run/lock
-+		if ! mount | grep -Fq -- ' /var/lock '; then
-+			awk '/lock/ { print $2 }' /etc/fstab 2>/dev/null |
-+					grep -Fq '/var/lock' &&
++		if ! mount | grep -Fq -- ' on /var/lock '; then
++			if awk '/lock/ { print $2 }' /etc/fstab 2>/dev/null |
++					grep -Fq -- '/var/lock'
++			then
 +				mount /var/lock
++			else
++				mount -t tmpfs -o mode=1777,nosuid,nodev,noexec,size=1M,strictatime tmpfs /var/lock
++			fi
 +		fi
  	fi
  
