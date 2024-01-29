@@ -1,0 +1,14 @@
+--- a/fs/shiftfs.c
++++ b/fs/shiftfs.c
+@@ -1577,9 +1577,10 @@
+ 	return ret;
+ }
+ 
+-static bool in_ioctl_whitelist(int flag, unsigned long arg)
++static bool in_ioctl_whitelist(int in_flag, unsigned long arg)
+ {
+ 	void __user *argp = (void __user *)arg;
++	u64 flag = (u64)in_flag;
+ 	u64 flags = 0;
+ 
+ 	switch (flag) {
