@@ -588,6 +588,8 @@ used to build perl)
     * Add optional USE-flags to control which MTA will be installed
 * virtual/os-headers
     * Also accept sys-kernel/raspberrypi-headers as an acceptable os-header
+* virtual/rust
+    * Add 'binary' USE-flag to require dev-lang/rust-bin in place of dev-lang/rust, which now requires more than 8GB of memory to link
 * virtual/tmpfiles
     * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 * ~~x11-drivers/nvidia-drivers~~
