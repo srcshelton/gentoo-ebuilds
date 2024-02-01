@@ -1,0 +1,57 @@
+# shellcheck shell=bash
+
+# Ensure that binaries installed to the root filesystem are not dependent on
+# libraries installed in /usr/lib*
+
+run_check() {
+	type -pf file >/dev/null 2>&1 || return 1
+	type -pf ldd >/dev/null 2>&1 || return 1
+
+	local libdir="$( grep -- '^/lib' /etc/ld.so.conf | sort -rV | head -n 1 )"
+
+	if [[ -d "${ED%/}"/bin || -d "${ED%/}"/sbin || -d "${ED%/}${libdir}" ]] &&
+		! [[ -L "${ED%/}${libdir}" ]]
+	then
+		local -A list=()
+		local -a files=()
+
+		while read -r i; do
+			if [[ "$( file "${i}" )" == *' dynamically linked'* ]]; then
+				if ldd "${i}" | grep -Fv -- 'libsandbox.so' | grep -Fq -- "/usr/${libdir#/}"; then
+					edf="${i#"${ED%/}/"}"
+					#echo "DEBUG: i is '${i}'"
+					#echo "DEBUG: edf is '${edf}'"
+					#echo "DEBUG: QA_XLINK_ALLOWED is '${QA_XLINK_ALLOWED[*]:-}'"
+					if ! grep -q " ${edf#/} " <<<" ${QA_XLINK_ALLOWED[*]:-} "; then
+						eqawarn "${edf}: $( # <- Syntax
+							ldd "${i}" |
+								grep -Fv -- 'libsandbox.so' |
+								grep -F -- "/usr/${libdir#/}" |
+								sed "s|^${ED%/}|| ; s/([^)]\+)$//"
+						)"
+						list["${edf}"]=1
+					fi
+					unset edf
+				fi
+			fi
+		done < <( # <- Syntax
+			for dir in "${ED%/}"/bin/ "${ED%/}"/sbin/ "${ED%/}${libdir}"; do
+				if [[ -d "${dir}" ]]; then
+					find "${dir}" -type f -print
+				fi
+			done
+		)
+		files=( "${!list[@]}" )
+
+		if [[ -n "${files[*]:-}" ]]; then
+			eqawarn "Repo QA Notice: binaries linked across filesystems between root and /usr:"
+			eqatag -v sep-usr-xlink "${files[@]/#//}"
+			die "Aborting due to Repo QA concerns: ${#files[@]} binaries are cross-filesystem linked"
+		fi
+	fi
+}
+
+run_check
+:  # guarantee successful exit
+
+# vi: set ft=sh syntax=bash:
