@@ -766,6 +766,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Add `uniq` to the list of binaries moved to `/bin`, as some init scripts (such as `device-mapper`) rely on it being present during early-boot
 * sys-apps/gawk
     * Install to `/bin` rather than `/usr/bin`, for init scripts which invoke `awk`
+* sys-apps/irqbalance
+    * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-apps/openrc
     * Add optional `USE="varrun"` flag to allow 'run' directory to remain as '/var/run'
 * sys-fs/cryptsetup
