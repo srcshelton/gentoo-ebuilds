@@ -207,8 +207,9 @@ tc-getTARGET_CPP() {
 tc-export() {
 	local var
 	for var in "$@" ; do
-		[[ $(type -t "tc-get${var}") != "function" ]] && die "tc-export: invalid export variable '${var}'"
-		"tc-get${var}" > /dev/null
+		[[ $(type -t "tc-get${var}") != "function" ]] &&
+			die "tc-export: invalid export variable '${var}'"
+		"tc-get${var}" >/dev/null
 	done
 }
 
@@ -229,7 +230,7 @@ tc-cpp-is-true() {
 	local CONDITION=${1}
 	shift
 
-	$(tc-getTARGET_CPP) "${@}" -P - <<-EOF >/dev/null 2>&1
+	$(tc-getTARGET_CPP) "${@}" -P - <<-EOF &>/dev/null
 		#if ${CONDITION}
 		true
 		#else
@@ -247,7 +248,7 @@ tc-cpp-is-true() {
 tc-detect-is-softfloat() {
 	# If fetching CPP falls back to the default (gcc -E) then fail
 	# detection as this may not be the correct toolchain.
-	[[ $(tc-getTARGET_CPP) == "gcc -E" ]] && return 1
+	[[ $(tc-getTARGET_CPP 2>/dev/null) == "gcc -E" ]] && return 1
 
 	case ${CTARGET:-${CHOST}} in
 		# Avoid autodetection for bare-metal targets. bug #666896
@@ -456,22 +457,24 @@ tc-ld-is-gold() {
 	local -x LC_ALL=C
 
 	# First check the linker directly.
-	out=$($(tc-getLD "$@") --version 2>&1)
-	if [[ ${out} == *"GNU gold"* ]] ; then
-		return 0
-	fi
+	if type -pf $(tc-getLD "$@") &>/dev/null; then
+		out=$($(tc-getLD "$@") --version 2>&1)
+		if [[ ${out} == *"GNU gold"* ]] ; then
+			return 0
+		fi
 
-	# Then see if they're selecting gold via compiler flags.
-	# Note: We're assuming they're using LDFLAGS to hold the
-	# options and not CFLAGS/CXXFLAGS.
-	local base="${T}/test-tc-gold"
-	cat <<-EOF > "${base}.c"
-	int main(void) { return 0; }
-	EOF
-	out=$($(tc-getCC "$@") ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} -Wl,--version "${base}.c" -o "${base}" 2>&1)
-	rm -f "${base}"*
-	if [[ ${out} == *"GNU gold"* ]] ; then
-		return 0
+		# Then see if they're selecting gold via compiler flags.
+		# Note: We're assuming they're using LDFLAGS to hold the
+		# options and not CFLAGS/CXXFLAGS.
+		local base="${T}/test-tc-gold"
+		cat <<-EOF > "${base}.c"
+		int main(void) { return 0; }
+		EOF
+		out=$($(tc-getCC "$@") ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} -Wl,--version "${base}.c" -o "${base}" 2>&1)
+		rm -f "${base}"*
+		if [[ ${out} == *"GNU gold"* ]] ; then
+			return 0
+		fi
 	fi
 
 	# No gold here!
@@ -489,22 +492,24 @@ tc-ld-is-lld() {
 	local -x LC_ALL=C
 
 	# First check the linker directly.
-	out=$($(tc-getLD "$@") --version 2>&1)
-	if [[ ${out} == *"LLD"* ]] ; then
-		return 0
-	fi
+	if type -pf $(tc-getLD "$@") &>/dev/null; then
+		out=$($(tc-getLD "$@") --version 2>&1)
+		if [[ ${out} == *"LLD"* ]] ; then
+			return 0
+		fi
 
-	# Then see if they're selecting lld via compiler flags.
-	# Note: We're assuming they're using LDFLAGS to hold the
-	# options and not CFLAGS/CXXFLAGS.
-	local base="${T}/test-tc-lld"
-	cat <<-EOF > "${base}.c"
-	int main(void) { return 0; }
-	EOF
-	out=$($(tc-getCC "$@") ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} -Wl,--version "${base}.c" -o "${base}" 2>&1)
-	rm -f "${base}"*
-	if [[ ${out} == *"LLD"* ]] ; then
-		return 0
+		# Then see if they're selecting lld via compiler flags.
+		# Note: We're assuming they're using LDFLAGS to hold the
+		# options and not CFLAGS/CXXFLAGS.
+		local base="${T}/test-tc-lld"
+		cat <<-EOF > "${base}.c"
+		int main(void) { return 0; }
+		EOF
+		out=$($(tc-getCC "$@") ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} -Wl,--version "${base}.c" -o "${base}" 2>&1)
+		rm -f "${base}"*
+		if [[ ${out} == *"LLD"* ]] ; then
+			return 0
+		fi
 	fi
 
 	# No lld here!
@@ -530,6 +535,9 @@ tc-ld-force-bfd() {
 		# They aren't using gold or lld, so nothing to do!
 		return
 	fi
+
+	# We should only reach this point if we do actually have a linker
+	# installed!
 
 	ewarn "Forcing usage of the BFD linker"
 
@@ -565,7 +573,7 @@ _tc-has-openmp() {
 		return ret;
 	}
 	EOF
-	$(tc-getCC "$@") -fopenmp "${base}.c" -o "${base}" >&/dev/null
+	$(tc-getCC "$@") -fopenmp "${base}.c" -o "${base}" &>/dev/null
 	local ret=$?
 	rm -f "${base}"*
 	return ${ret}
@@ -658,7 +666,7 @@ tc-has-tls() {
 
 	: "${flags:=-fPIC -shared -Wl,-z,defs}"
 	[[ $1 == -* ]] && shift
-	$(tc-getCC "$@") ${flags} "${base}.c" -o "${base}" >&/dev/null
+	$(tc-getCC "$@") ${flags} "${base}.c" -o "${base}" &>/dev/null
 	local ret=$?
 	rm -f "${base}"*
 	return ${ret}
@@ -794,15 +802,15 @@ tc-endian() {
 # @RETURN: keyword identifying the compiler: gcc, clang, pathcc, unknown
 tc-get-compiler-type() {
 	local code='
-#if defined(__PATHSCALE__)
-	HAVE_PATHCC
-#elif defined(__clang__)
-	HAVE_CLANG
-#elif defined(__GNUC__)
-	HAVE_GCC
-#endif
-'
-	local res=$($(tc-getCPP "$@") -E -P - <<<"${code}")
+		#if defined(__PATHSCALE__)
+			HAVE_PATHCC
+		#elif defined(__clang__)
+			HAVE_CLANG
+		#elif defined(__GNUC__)
+			HAVE_GCC
+		#endif
+	'
+	local res=$($(tc-getCPP "$@") -E -P - <<<"${code}" 2>/dev/null)
 
 	case ${res} in
 		*HAVE_PATHCC*)	echo pathcc;;
@@ -829,7 +837,7 @@ tc-is-clang() {
 # compilers rather than maintaining a --version flag matrix, bug #335943.
 _gcc_fullversion() {
 	local ver="$1"; shift
-	set -- $($(tc-getCPP "$@") -E -P - <<<"__GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__")
+	set -- $($(tc-getCPP "$@") -E -P - <<<"__GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__" 2>/dev/null)
 	eval echo "${ver}"
 }
 
@@ -862,7 +870,7 @@ gcc-micro-version() {
 # Internal func. Based on _gcc_fullversion() above.
 _clang_fullversion() {
 	local ver="$1"; shift
-	set -- $($(tc-getCPP "$@") -E -P - <<<"__clang_major__ __clang_minor__ __clang_patchlevel__")
+	set -- $($(tc-getCPP "$@") -E -P - <<<"__clang_major__ __clang_minor__ __clang_patchlevel__" 2>/dev/null)
 	eval echo "${ver}"
 }
 
@@ -895,7 +903,7 @@ clang-micro-version() {
 # Returns the installation directory - internal toolchain
 # function for use by _gcc-specs-exists (for flag-o-matic).
 _gcc-install-dir() {
-	echo "$(LC_ALL=C $(tc-getCC) -print-search-dirs 2> /dev/null |\
+	echo "$(LC_ALL=C $(tc-getCC) -print-search-dirs 2>/dev/null |
 		awk '$1=="install:" {print $2}')"
 }
 # Returns true if the indicated specs file exists - internal toolchain
@@ -917,13 +925,13 @@ _gcc-specs-exists() {
 _gcc-specs-directive_raw() {
 	local cc=$(tc-getCC)
 	local specfiles=$(LC_ALL=C ${cc} -v 2>&1 | awk '$1=="Reading" {print $NF}')
-	${cc} -dumpspecs 2> /dev/null | cat - ${specfiles} | awk -v directive=$1 \
-'BEGIN	{ pspec=""; spec=""; outside=1 }
-$1=="*"directive":"  { pspec=spec; spec=""; outside=0; next }
-	outside || NF==0 || ( substr($1,1,1)=="*" && substr($1,length($1),1)==":" ) { outside=1; next }
-	spec=="" && substr($0,1,1)=="+" { spec=pspec " " substr($0,2); next }
-	{ spec=spec $0 }
-END	{ print spec }'
+	${cc} -dumpspecs 2>/dev/null | cat - ${specfiles} | awk -v directive=$1 \
+		'BEGIN	{ pspec=""; spec=""; outside=1 }
+		$1=="*"directive":"  { pspec=spec; spec=""; outside=0; next }
+			outside || NF==0 || ( substr($1,1,1)=="*" && substr($1,length($1),1)==":" ) { outside=1; next }
+			spec=="" && substr($0,1,1)=="+" { spec=pspec " " substr($0,2); next }
+			{ spec=spec $0 }
+		END	{ print spec }'
 	return 0
 }
 
@@ -1088,7 +1096,7 @@ gen_usr_ldscript() {
 	# OUTPUT_FORMAT gives hints to the linker as to what binary format
 	# is referenced ... makes multilib saner
 	local flags=( ${CFLAGS} ${LDFLAGS} -Wl,--verbose )
-	if $(tc-getLD) --version | grep -q 'GNU gold' ; then
+	if type -pf $(tc-getLD) &>/dev/null && $(tc-getLD) --version | grep -q 'GNU gold' ; then
 		# If they're using gold, manually invoke the old bfd, bug #487696
 		local d="${T}/bfd-linker"
 		mkdir -p "${d}"
@@ -1146,9 +1154,9 @@ gen_usr_ldscript() {
 			[[ -n ${nowrite} ]] && chmod u-w "${ED}${libdir}/${tlib}"
 			# Now as we don't use GNU binutils and our linker doesn't
 			# understand linker scripts, just create a symlink.
-			pushd "${ED}/usr/${libdir}" > /dev/null
+			pushd "${ED}/usr/${libdir}" >/dev/null
 			ln -snf "../../${libdir}/${tlib}" "${lib}"
-			popd > /dev/null
+			popd >/dev/null
 			;;
 		*)
 			if ${auto} ; then
@@ -1193,15 +1201,16 @@ gen_usr_ldscript() {
 #
 # If the library is not recognized, the function returns 1.
 tc-get-cxx-stdlib() {
-	local code='#include <ciso646>
+	local code='
+		#include <ciso646>
 
-#if defined(_LIBCPP_VERSION)
-	HAVE_LIBCXX
-#elif defined(__GLIBCXX__)
-	HAVE_LIBSTDCPP
-#endif
-'
-	local res=$(
+		#if defined(_LIBCPP_VERSION)
+			HAVE_LIBCXX
+		#elif defined(__GLIBCXX__)
+			HAVE_LIBSTDCPP
+		#endif
+	'
+	local res=$( # <- Syntax
 		$(tc-getCXX) ${CPPFLAGS} ${CXXFLAGS} -x c++ -E -P - \
 			<<<"${code}" 2>/dev/null
 	)
@@ -1249,14 +1258,14 @@ tc-get-c-rtlib() {
 # @FUNCTION: tc-get-ptr-size
 # @RETURN: Size of a pointer in bytes for CHOST (e.g. 4 or 8).
 tc-get-ptr-size() {
-	$(tc-getCPP) -P - <<< __SIZEOF_POINTER__ ||
+	$(tc-getCPP) -P - <<< __SIZEOF_POINTER__ 2>/dev/null ||
 		die "Could not determine CHOST pointer size"
 }
 
 # @FUNCTION: tc-get-build-ptr-size
 # @RETURN: Size of a pointer in bytes for CBUILD (e.g. 4 or 8).
 tc-get-build-ptr-size() {
-	$(tc-getBUILD_CPP) -P - <<< __SIZEOF_POINTER__ ||
+	$(tc-getBUILD_CPP) -P - <<< __SIZEOF_POINTER__ 2>/dev/null ||
 		die "Could not determine CBUILD pointer size"
 }
 
@@ -1267,15 +1276,15 @@ tc-is-lto() {
 
 	case $(tc-get-compiler-type) in
 		clang)
-			$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" || die
+			$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null || die
 			# If LTO is used, clang will output bytecode and llvm-bcanalyzer
 			# will run successfully.  Otherwise, it will output plain object
 			# file and llvm-bcanalyzer will exit with error.
 			llvm-bcanalyzer "${f}" &>/dev/null && return 0
 			;;
 		gcc)
-			$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" || die
-			[[ $($(tc-getREADELF) -S "${f}") == *.gnu.lto* ]] && return 0
+			$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null || die
+			[[ $($(tc-getREADELF) -S "${f}" 2>/dev/null) == *.gnu.lto* ]] && return 0
 			;;
 	esac
 	return 1

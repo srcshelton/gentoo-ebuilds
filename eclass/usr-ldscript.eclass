@@ -108,7 +108,7 @@ gen_usr_ldscript() {
 	# OUTPUT_FORMAT gives hints to the linker as to what binary format
 	# is referenced ... makes multilib saner
 	local flags=( ${CFLAGS} ${LDFLAGS} -Wl,--verbose )
-	if $(tc-getLD) --version | grep -q 'GNU gold' ; then
+	if type -pf $(tc-getLD) &>/dev/null && $(tc-getLD) --version | grep -q 'GNU gold' ; then
 		# If they're using gold, manually invoke the old bfd. #487696
 		local d="${T}/bfd-linker"
 		mkdir -p "${d}"
@@ -167,9 +167,9 @@ gen_usr_ldscript() {
 			fi
 			# Now as we don't use GNU binutils and our linker doesn't
 			# understand linker scripts, just create a symlink.
-			pushd "${ed}/usr/${libdir}" > /dev/null
+			pushd "${ed}/usr/${libdir}" >/dev/null
 			ln -snf "../../${libdir}/${tlib}" "${lib}"
-			popd > /dev/null
+			popd >/dev/null
 			;;
 		*)
 			if ${auto}; then
