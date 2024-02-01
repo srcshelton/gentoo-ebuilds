@@ -582,6 +582,8 @@ used to build perl)
     * Provide more flexibility with finer-grained USE-flags
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
+* sys-process/btop
+    * Provide option to exclude desktop files and themes
 * ~~sys-process/cronbase~~
     * ~~Add consistent group and user dependencies~~
 * virtual/bitcoin-leveldb
