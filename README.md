@@ -535,6 +535,8 @@ used to build perl)
     * Filter `-funsafe-math-optimizations`, which prevents wget from building on ARM
 * net-nds/openldap
     * If /etc/init.d/tmpfiles.setup isn't active, `/var/run/openldap` is never created yet the ebuild still attempts to set permissions upon it...
+* net-vpn/libreswan
+    * Make raspberrypi-headers || linux-headers a build-time dependency only
 * net-vpn/tor
     * Remove hard dependency on asciidoc
 * sys-apps/baselayout-java

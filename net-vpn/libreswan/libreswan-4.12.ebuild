@@ -46,7 +46,7 @@ RDEPEND="${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-ipsec )
 "
 DEPEND="${COMMON_DEPEND}
-	>=sys-kernel/linux-headers-4.19
+	|| ( >=sys-kernel/raspberrypi-headers-4.19 >=sys-kernel/linux-headers-4.19 )
 	elibc_musl? ( sys-libs/queue-standalone )
 "
 
