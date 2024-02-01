@@ -396,6 +396,8 @@ used to build perl)
     * Allow optional 'podman' group membership
 * acct-user/postfix
     * Allow optional 'milter' group membership
+* app-admin/cancd
+    * Provide re-written v0.2.2 in place of Oracle v0.1.0
 * app-admin/cpulimit
     * Fix use of 'inline' (rather than 'static inline')
 * app-admin/eselect

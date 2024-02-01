@@ -1,0 +1,31 @@
+--- a/cancd.c
++++ b/cancd.c
+@@ -39,6 +39,7 @@
+ #include <semaphore.h>
+ #include <signal.h>
+ #include <stdarg.h>
++#include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -656,7 +657,19 @@ static void print_usage(int rc)
+ {
+ 	FILE *output = rc ? stderr : stdout;
+ 
+-	fprintf(output, "Usage: " PROGNAME " [-l <log_prefix>] [-o <log_name_format>] [-p <port>]\n" "       " PROGNAME " -h\n" "       " PROGNAME " -V\n");
++	fprintf(output, "Usage: " PROGNAME " [-l <log_prefix>] [-o <log_name_format>] [-p <port>]\n"
++		"       " PROGNAME " -h\n"
++		"       " PROGNAME " -V\n"
++		"\n"
++		"'log_name_format' is a strftime(3) string using %%Q to represent the IP address\n"
++		"of the source host.\n"
++		"\n"
++		"e.g. '-o %%Q/%%Y-%%m-%%d-%%H:%%M/log' would write output from host 10.0.0.1 to\n"
++		"<log_prefix>/10.0.0.1/2005-10-01-15:30/log\n"
++		"\n"
++		"'log_name_format' defaults to '%%Q.log'\n"
++		"'log_prefix' defaults to '/var/crash'\n"
++	);
+ 
+ 	exit(rc);
+ }
