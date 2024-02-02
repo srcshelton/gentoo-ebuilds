@@ -26,7 +26,7 @@ RDEPEND="${PYTHON_DEPS}
 DEPEND="${RDEPEND}
 	sys-libs/binutils-libs"
 BDEPEND="
-	sys-devel/autoconf-archive
+	dev-build/autoconf-archive
 	virtual/pkgconfig"
 RDEPEND+="
 	acct-user/distcc

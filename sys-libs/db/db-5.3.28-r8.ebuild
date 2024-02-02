@@ -39,7 +39,7 @@ DEPEND="tcl? ( >=dev-lang/tcl-8.5.15-r1:0=[${MULTILIB_USEDEP}] )
 	test? ( >=dev-lang/tcl-8.5.15-r1:0=[${MULTILIB_USEDEP}] )"
 RDEPEND="tcl? ( >=dev-lang/tcl-8.5.15-r1:0=[${MULTILIB_USEDEP}] )"
 # bug #841698
-BDEPEND="sys-devel/autoconf-archive"
+BDEPEND="dev-build/autoconf-archive"
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/db${SLOT}/db.h

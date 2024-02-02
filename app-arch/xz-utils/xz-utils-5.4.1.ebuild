@@ -18,7 +18,7 @@ if [[ ${PV} == 9999 ]] ; then
 	inherit git-r3 autotools
 
 	# bug #272880 and bug #286068
-	BDEPEND="sys-devel/gettext >=sys-devel/libtool-2"
+	BDEPEND="sys-devel/gettext >=dev-build/libtool-2"
 else
 	VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/lassecollin.asc
 	inherit verify-sig

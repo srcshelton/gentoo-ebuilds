@@ -44,7 +44,7 @@ DEPEND="${RDEPEND}"
 BDEPEND="
 	doc? (
 		dev-util/gtk-doc
-		dev-util/gtk-doc-am
+		dev-build/gtk-doc-am
 	)
 	lzma? ( virtual/pkgconfig )
 	python? (

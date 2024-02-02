@@ -22,7 +22,7 @@ SLOT="0"
 
 DEPEND="
 	sys-devel/autogen
-	sys-devel/libtool
+	dev-build/libtool
 "
 
 src_prepare() {

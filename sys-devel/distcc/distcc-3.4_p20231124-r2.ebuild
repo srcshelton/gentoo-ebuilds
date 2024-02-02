@@ -33,7 +33,7 @@ DEPEND="${COMMON_DEPEND}
 	sys-libs/binutils-libs
 "
 BDEPEND="${PYTHON_DEPS}
-	sys-devel/autoconf-archive
+	dev-build/autoconf-archive
 	virtual/pkgconfig
 "
 RDEPEND="${COMMON_DEPEND}

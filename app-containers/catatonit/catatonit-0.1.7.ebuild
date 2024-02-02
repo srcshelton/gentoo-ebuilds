@@ -17,7 +17,7 @@ KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
 
 DEPEND="
 	sys-devel/autogen
-	sys-devel/libtool
+	dev-build/libtool
 "
 
 PATCHES=(

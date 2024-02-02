@@ -111,7 +111,7 @@ DEPEND="
 "
 
 BDEPEND="
-	sys-devel/autoconf
+	dev-build/autoconf
 "
 
 S="${WORKDIR}/jdk${SLOT}u-jdk-${MY_PV}"

@@ -62,7 +62,7 @@ RDEPEND="
 DEPEND="${RDEPEND}"
 # configure runs the Lua interpreter
 BDEPEND="
-	sys-devel/autoconf
+	dev-build/autoconf
 	|| ( sys-apps/net-tools[hostname] sys-apps/coreutils[hostname] sys-apps/busybox[make-symlinks] )
 	lua? ( ${LUA_DEPS} )
 	nls? ( sys-devel/gettext )

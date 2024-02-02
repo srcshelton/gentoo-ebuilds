@@ -28,7 +28,7 @@ DEPEND="
 	${COMMON_DEPEND}
 	dev-util/gperf
 	sys-devel/gettext
-	sys-devel/libtool
+	dev-build/libtool
 	virtual/os-headers
 "
 RDEPEND="${COMMON_DEPEND}

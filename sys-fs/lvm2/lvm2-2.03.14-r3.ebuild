@@ -44,7 +44,7 @@ DEPEND="${DEPEND_COMMON}
 		>=sys-apps/util-linux-2.16[static-libs]
 	)"
 BDEPEND="
-	sys-devel/autoconf-archive
+	dev-build/autoconf-archive
 	virtual/pkgconfig
 "
 

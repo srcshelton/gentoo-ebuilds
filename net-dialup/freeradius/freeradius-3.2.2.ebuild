@@ -4,7 +4,7 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{9..11} )
-AUTOTOOLS_DEPEND=">=sys-devel/autoconf-2.69"
+AUTOTOOLS_DEPEND=">=dev-build/autoconf-2.69"
 inherit autotools pam python-single-r1 systemd
 
 MY_PN=${PN}-server

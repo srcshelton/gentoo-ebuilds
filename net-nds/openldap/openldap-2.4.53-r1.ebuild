@@ -60,7 +60,7 @@ COMMON_DEPEND="
 	)
 	sasl? ( dev-libs/cyrus-sasl:= )
 	!minimal? (
-		sys-devel/libtool
+		dev-build/libtool
 		sys-libs/e2fsprogs-libs
 		>=dev-db/lmdb-0.9.18:=
 		tcpd? ( sys-apps/tcp-wrappers )

@@ -90,7 +90,7 @@ RDEPEND="${RDEPEND}
 "
 BDEPEND="
 	virtual/pkgconfig
-	sys-devel/autoconf
+	dev-build/autoconf
 	verify-sig? ( sec-keys/openpgp-keys-openssh )
 "
 

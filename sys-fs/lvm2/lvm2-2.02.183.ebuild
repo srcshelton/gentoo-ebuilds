@@ -40,7 +40,7 @@ RDEPEND="${DEPEND_COMMON}
 DEPEND="${DEPEND_COMMON}
 	virtual/pkgconfig
 	>=sys-devel/binutils-2.20.1-r1
-	sys-devel/autoconf-archive
+	dev-build/autoconf-archive
 	static? (
 		selinux? ( sys-libs/libselinux[static-libs] )
 		udev? ( >=sys-fs/eudev-3.1.2[static-libs] )

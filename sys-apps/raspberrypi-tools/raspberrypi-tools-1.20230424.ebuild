@@ -17,7 +17,7 @@ KEYWORDS="-* arm64 arm"
 IUSE="devicetree -otp -tools"
 
 BDEPEND="
-	>=dev-util/cmake-3.10
+	>=dev-build/cmake-3.10
 	sys-apps/dtc
 	sys-apps/sed
 "

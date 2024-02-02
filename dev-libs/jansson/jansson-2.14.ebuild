@@ -15,7 +15,7 @@ KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv 
 IUSE="doc static-libs"
 
 BDEPEND="doc? ( dev-python/sphinx )
-	>=sys-devel/automake-1.16"
+	>=dev-build/automake-1.16"
 
 PATCHES=( "${FILESDIR}/${P}-test-symbols.patch" )
 

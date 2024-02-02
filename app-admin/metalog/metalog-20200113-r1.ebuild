@@ -16,7 +16,7 @@ IUSE="systemd unicode"
 RDEPEND=">=dev-libs/libpcre-3.4"
 DEPEND="${RDEPEND}"
 BDEPEND="
-	sys-devel/autoconf-archive
+	dev-build/autoconf-archive
 	virtual/pkgconfig"
 
 S="${WORKDIR}/${PN}-${P}"

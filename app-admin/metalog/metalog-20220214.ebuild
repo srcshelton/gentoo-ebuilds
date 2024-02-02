@@ -17,7 +17,7 @@ IUSE="systemd unicode"
 
 RDEPEND="dev-libs/libpcre2"
 DEPEND="${RDEPEND}"
-BDEPEND="sys-devel/autoconf-archive
+BDEPEND="dev-build/autoconf-archive
 	virtual/pkgconfig"
 
 PATCHES=(

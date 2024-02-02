@@ -40,7 +40,7 @@ CDEPEND="acct-group/clamav
 
 # We need at least autoconf-2.69-r5 because that's the first (patched)
 # version of it in Gentoo that supports ./configure --runstatedir.
-BDEPEND=">=sys-devel/autoconf-2.69-r5
+BDEPEND=">=dev-build/autoconf-2.69-r5
 	virtual/pkgconfig"
 
 DEPEND="${CDEPEND}

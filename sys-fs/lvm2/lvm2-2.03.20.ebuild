@@ -51,7 +51,7 @@ DEPEND="${DEPEND_COMMON}
 		selinux? ( sys-libs/libselinux[static-libs] )
 	)"
 BDEPEND="
-	sys-devel/autoconf-archive
+	dev-build/autoconf-archive
 	virtual/pkgconfig"
 
 PATCHES=(

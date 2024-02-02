@@ -99,7 +99,7 @@ DEPEND="ssl? ( dev-libs/openssl:0= )"
 EXTRACTTEXT_DEPEND="extracttext? ( app-text/poppler app-text/tesseract )"
 BDEPEND="${PERL_BUILD_DEPEND}
 	dev-lang/perl:=
-	|| ( >sys-devel/autoconf-2.71-r5 <sys-devel/gcc-13 )
+	|| ( >dev-build/autoconf-2.71-r5 <sys-devel/gcc-13 )
 	verify-sig? ( sec-keys/openpgp-keys-spamassassin )
 	test? (
 		${PERL_RUN_DEPEND}

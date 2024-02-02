@@ -15,7 +15,7 @@ KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 s
 IUSE="doc split-usr static-libs"
 
 BDEPEND="doc? ( dev-python/sphinx )
-	>=sys-devel/automake-1.16"
+	>=dev-build/automake-1.16"
 
 PATCHES=(
 	# dev-libs/jansson-2.13.1[doc]: fails to build with >=sphinx-3.0, #731668

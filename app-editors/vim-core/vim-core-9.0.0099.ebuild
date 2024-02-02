@@ -28,7 +28,7 @@ IUSE="acl minimal nls"
 
 # ncurses is only needed by ./configure, so no subslot operator required
 DEPEND=">=sys-libs/ncurses-5.2-r2:0"
-BDEPEND="sys-devel/autoconf
+BDEPEND="dev-build/autoconf
 	|| ( sys-apps/net-tools[hostname] sys-apps/coreutils[hostname] sys-apps/busybox[make-symlinks] )"
 # Avoid icon file collision, bug #673880
 RDEPEND="!<app-editors/vim-8.2.4328-r1"

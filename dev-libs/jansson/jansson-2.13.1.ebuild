@@ -16,7 +16,7 @@ IUSE="doc split-usr static-libs"
 
 # dev-libs/jansson-2.13.1[doc]: fails to build with >=sphinx-3.0, #731668
 BDEPEND="doc? ( <dev-python/sphinx-3.0.0 )
-	>=sys-devel/automake-1.16"
+	>=dev-build/automake-1.16"
 
 #src_prepare() {
 #	default

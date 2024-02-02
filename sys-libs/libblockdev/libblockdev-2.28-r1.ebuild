@@ -12,7 +12,7 @@ if [[ "${PV}" == *9999 ]] ; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/storaged-project/libblockdev.git"
 	BDEPEND="
-		sys-devel/autoconf-archive
+		dev-build/autoconf-archive
 	"
 else
 	MY_PV="${PV}-1"
@@ -59,7 +59,7 @@ DEPEND="
 # TODO: relax libbytesize condition once it has gained py3.11 support
 BDEPEND+="
 	virtual/libudev
-	dev-util/gtk-doc-am
+	dev-build/gtk-doc-am
 	gtk-doc? ( dev-util/gtk-doc )
 	introspection? ( >=dev-libs/gobject-introspection-1.3.0 )
 	test? (

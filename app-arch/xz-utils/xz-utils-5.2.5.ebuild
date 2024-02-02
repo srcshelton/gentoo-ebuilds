@@ -12,7 +12,7 @@ if [[ ${PV} == "9999" ]] ; then
 	EGIT_REPO_URI="https://git.tukaani.org/xz.git"
 	inherit git-r3 autotools
 	SRC_URI=""
-	BDEPEND="sys-devel/gettext dev-vcs/cvs >=sys-devel/libtool-2" #272880 286068
+	BDEPEND="sys-devel/gettext dev-vcs/cvs >=dev-build/libtool-2" #272880 286068
 else
 	MY_P="${PN/-utils}-${PV/_}"
 	SRC_URI="https://tukaani.org/xz/${MY_P}.tar.gz"

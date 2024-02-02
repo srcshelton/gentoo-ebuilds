@@ -26,7 +26,7 @@ LICENSE="vim"
 SLOT="0"
 IUSE="acl minimal nls"
 
-BDEPEND="sys-devel/autoconf
+BDEPEND="dev-build/autoconf
 	|| ( sys-apps/net-tools[hostname] sys-apps/coreutils[hostname] sys-apps/busybox[make-symlinks] )"
 # Avoid icon file collision, bug #673880
 RDEPEND="!!<app-editors/gvim-8.1.0648

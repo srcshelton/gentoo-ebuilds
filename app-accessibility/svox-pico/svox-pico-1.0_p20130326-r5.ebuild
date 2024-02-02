@@ -20,7 +20,7 @@ IUSE=""
 
 DEPEND="sys-apps/help2man
 	dev-libs/popt
-	sys-devel/libtool"
+	dev-build/libtool"
 
 WANT_AUTOMAKE="1.11"
 

@@ -14,7 +14,7 @@ KEYWORDS="~amd64 ~x86"
 
 DEPEND="
 	sys-devel/autogen
-	sys-devel/libtool
+	dev-build/libtool
 "
 
 src_configure() {

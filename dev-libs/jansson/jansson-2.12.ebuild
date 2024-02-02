@@ -16,7 +16,7 @@ IUSE="doc split-usr static-libs"
 
 BDEPEND="
 	doc? ( >=dev-python/sphinx-1.0.4 )
-	>=sys-devel/automake-1.16"
+	>=dev-build/automake-1.16"
 
 src_prepare() {
 	default
