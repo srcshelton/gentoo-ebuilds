@@ -10,22 +10,22 @@ run_check() {
 		then
 			if
 				sed 's/#.*$//' "${ED%/}"/etc/{init,conf}.d/* 2>/dev/null |
-						grep '/run/' |
-						grep -v '/var/run/' |
-						grep -q '/run/'
+						grep -F -- '/run/' |
+						grep -Fv -- '/var/run/' |
+						grep -Fq -- '/run/'
 			then
 				local -A list=()
 				local -a files=()
 
 				while read -r i; do
-					if ! grep -q " /${i#"${ED%/}/"} " <<<" ${QA_RUN_ALLOWED[*]:-} "; then
+					if ! grep -Fq -- " /${i#"${ED%/}/"} " <<<" ${QA_RUN_ALLOWED[*]:-} "; then
 						list["${i#"${ED%/}/"}"]=1
 					fi
 				done < <(
-					grep -H '/run/' "${ED%/}"/etc/{init,conf}.d/* 2>/dev/null |
+					grep -FH -- '/run/' "${ED%/}"/etc/{init,conf}.d/* 2>/dev/null |
 						sed 's/#.*$//' |
-						grep -v '/var/run/' |
-						grep '/run/' |
+						grep -Fv -- '/var/run/' |
+						grep -F -- '/run/' |
 						cut -d':' -f 1
 				)
 				files=( "${!list[@]}" )
@@ -33,6 +33,15 @@ run_check() {
 				if [[ -n "${files[*]:-}" ]]; then
 					eqawarn "Repo QA Notice: files referencing /run:"
 					eqatag -v using-run "${files[@]/#//}"
+					eqawarn
+					local file='' line=''
+					for file in "${files[@]}"; do
+						grep -FH -- '/run/' "${ED%/}/${file}" | while read -r line; do
+							eqawarn "${line}"
+						done
+					done
+					unset line file
+					eqawarn
 					die "Aborting due to Repo QA concerns: ${#files[@]} files reference /run"
 				fi
 			fi
