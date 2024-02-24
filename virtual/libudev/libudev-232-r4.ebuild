@@ -13,9 +13,9 @@ IUSE="static-libs systemd"
 
 RDEPEND="
 	!systemd? ( || (
+		>=sys-libs/libeudev-3.2.9:0/0[${MULTILIB_USEDEP},static-libs(-)?]
 		>=sys-fs/eudev-3.2.9:0/0[${MULTILIB_USEDEP},static-libs(-)?]
 		>=sys-fs/udev-232:0/0[${MULTILIB_USEDEP},static-libs(-)?]
-		>=sys-libs/libeudev-3.2.9:0/0[${MULTILIB_USEDEP},static-libs(-)?]
 	) )
 	systemd? ( >=sys-apps/systemd-232:0/2[${MULTILIB_USEDEP},static-libs(-)?] )
 "
