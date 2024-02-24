@@ -300,7 +300,7 @@ pkg_config() {
 	local best="$( best_version "${CATEGORY}/${PN}" )"
 	local file='' dest='' path='' name=''
 
-	if use lib-only; then
+	if use lib-only || use split-usr; then
 		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
@@ -315,7 +315,8 @@ pkg_config() {
 			done
 			for file in libatomic; do
 				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -exec rm -v {} +
-				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -print0 | xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
+				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -print0 |
+					xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
 				gen_usr_ldscript --live -a "${file#lib}"
 			done
 

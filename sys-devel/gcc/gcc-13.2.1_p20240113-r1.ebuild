@@ -1,36 +1,73 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 TOOLCHAIN_PATCH_DEV="sam"
-TOOLCHAIN_PATCH_SUFFIX="xz"
-PATCH_VER="7"
-PATCH_GCC_VER="11.3.0"
-MUSL_VER="1"
-MUSL_GCC_VER="11.3.0"
+PATCH_GCC_VER="13.2.0"
+PATCH_VER="12"
+MUSL_VER="2"
+MUSL_GCC_VER="13.2.0"
+
+if [[ ${PV} == *.9999 ]] ; then
+	MY_PV_2=$(ver_cut 2)
+	MY_PV_3=1
+	if [[ ${MY_PV_2} == 0 ]] ; then
+		MY_PV_2=0
+		MY_PV_3=0
+	else
+		MY_PV_2=$((${MY_PV_2} - 1))
+	fi
+
+	# e.g. 12.2.9999 -> 12.1.1
+	TOOLCHAIN_GCC_PV=$(ver_cut 1).${MY_PV_2}.${MY_PV_3}
+elif [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
+	# Cheesy hack for RCs
+	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 5)
+	MY_P=${PN}-${MY_PV}
+	GCC_TARBALL_SRC_URI="mirror://gcc/snapshots/${MY_PV}/${MY_P}.tar.xz"
+	TOOLCHAIN_SET_S=no
+	S="${WORKDIR}"/${MY_P}
+fi
 
 inherit toolchain usr-ldscript
 
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+if tc_is_live ; then
+	# Needs to be after inherit (for now?), bug #830908
+	EGIT_BRANCH=releases/gcc-$(ver_cut 1)
+elif [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
+	# Don't keyword live ebuilds
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 sparc x86"
+fi
+
 IUSE="-lib-only"
 
-# Technically only if USE=hardened *too* right now, but no point in complicating it further.
-# If GCC is enabling CET by default, we need glibc to be built with support for it.
-# bug #830454
-RDEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )
-	!=sys-devel/gcc-libs-${PV}"
-DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )
-	>=app-portage/elt-patches-20170815"
-BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
-	>=app-portage/elt-patches-20170815
-	sys-apps/texinfo
-	sys-devel/flex"
+if [[ ${CATEGORY} != cross-* ]] ; then
+	# Technically only if USE=hardened *too* right now, but no point in complicating it further.
+	# If GCC is enabling CET by default, we need glibc to be built with support for it.
+	# bug #830454
+	COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
+	RDEPEND="${COMMON_DEPEND}
+		!sys-devel/gcc-libs:${SLOT}"
+	DEPEND="${COMMON_DEPEND}"
+	BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
+		sys-apps/texinfo
+		sys-devel/flex"
+fi
 
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
 src_prepare() {
+	local p upstreamed_patches=(
+		# add them here
+	)
+	for p in "${upstreamed_patches[@]}"; do
+		rm -v "${WORKDIR}/patch/${p}" || die
+	done
+
 	toolchain_src_prepare
+
+	eapply "${FILESDIR}"/${PN}-13-fix-cross-fixincludes.patch
 
 	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
@@ -92,6 +129,8 @@ src_prepare() {
 			einfo "... none found"
 		fi
 	fi
+
+	eapply_user
 }
 
 src_install() {
@@ -102,27 +141,27 @@ src_install() {
 	if use lib-only; then
 		einfo "Removing non-library directories ..."
 
-		mv "${ED%/}/usr/share/gcc-data/${CHOST:-fail}/${PV%_p*}" "${T}"/data || die
-		mv "${ED%/}/usr/lib/gcc/${CHOST:-fail}/${PV%_p*}" "${T}"/lib || die
-		mv "${ED%/}/usr/libexec/gcc/${CHOST:-fail}/${PV%_p*}" "${T}"/libexec || die
+		mv "${ED%/}/usr/share/gcc-data/${CHOST:-fail}/$(ver_cut 1)" "${T}"/data || die
+		mv "${ED%/}/usr/lib/gcc/${CHOST:-fail}/$(ver_cut 1)" "${T}"/lib || die
+		mv "${ED%/}/usr/libexec/gcc/${CHOST:-fail}/$(ver_cut 1)" "${T}"/libexec || die
 
 		rm -r "${ED}"/*
 
 		mkdir -p "${ED%/}/usr/lib/gcc/${CHOST}" "${ED%/}/usr/libexec/gcc/${CHOST}" "${ED%/}/usr/share/gcc-data/${CHOST}" || die
-		mv "${T}"/data "${ED%/}/usr/share/gcc-data/${CHOST}/${PV%_p*}" || die
-		mv "${T}"/lib "${ED%/}/usr/lib/gcc/${CHOST}/${PV%_p*}" || die
-		mv "${T}"/libexec "${ED%/}/usr/libexec/gcc/${CHOST}/${PV%_p*}" || die
+		mv "${T}"/data "${ED%/}/usr/share/gcc-data/${CHOST}/$(ver_cut 1)" || die
+		mv "${T}"/lib "${ED%/}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" || die
+		mv "${T}"/libexec "${ED%/}/usr/libexec/gcc/${CHOST}/$(ver_cut 1)" || die
 
-		pushd "${ED%/}/usr/lib/gcc/${CHOST}/${PV%_p*}" >/dev/null || die
+		pushd "${ED%/}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" >/dev/null || die
 		rm -r include include-fixed plugin/include
 		rm *.o *.a *.spec *.la plugin/gtype.state
 		popd >/dev/null || die
 
-		pushd "${ED%/}/usr/libexec/gcc/${CHOST}/${PV%_p*}" >/dev/null || die
+		pushd "${ED%/}/usr/libexec/gcc/${CHOST}/$(ver_cut 1)" >/dev/null || die
 		find . -mindepth 1 -maxdepth 1 -not -name '*.so' -exec rm -r {} +
 		popd >/dev/null || die
 
-		keepdir "/usr/${CHOST}/gcc-bin/${PV%_p*}"
+		keepdir "/usr/${CHOST}/gcc-bin/$(ver_cut 1)"
 
 		einfo "Writing static gcc-config configuration ..."
 
@@ -135,13 +174,13 @@ src_install() {
 				gcc.config)
 					dest="/etc/env.d/${PN}/config-${CHOST}" ;;
 				gcc.defs)
-					dest="/etc/env.d/${PN}/${CHOST}-${PV%_p*}" ;;
+					dest="/etc/env.d/${PN}/${CHOST}-$(ver_cut 1)" ;;
 				*)
 					die "Unknown file '${file}'" ;;
 			esac
 			sed <"${FILESDIR}/${file}" \
 					-e "s/%CHOST%/${CHOST}/g" \
-					-e "s/%PV%/${PV%_p*}/g" \
+					-e "s/%PV%/$(ver_cut 1)/g" \
 				>"${T}/${file}" || die "Failed templating file '${file}': ${?}"
 			insinto "$( dirname "${dest}" )"
 			newins "${T}/${file}" "$( basename "${dest}" )" || die "Writing gcc-config data to '${dest}' failed: ${?}"
@@ -184,7 +223,7 @@ pkg_preinst() {
 				gcc.config)
 					src="/etc/env.d/${PN}/config-${CHOST}" ;;
 				gcc.defs)
-					src="/etc/env.d/${PN}/${CHOST}-${PV%_p*}" ;;
+					src="/etc/env.d/${PN}/${CHOST}-$(ver_cut 1)" ;;
 				*)
 					die "Unknown file '${file}'" ;;
 			esac
@@ -243,7 +282,7 @@ pkg_postinst() {
 				gcc.config)
 					dest="/etc/env.d/${PN}/config-${CHOST}" ;;
 				gcc.defs)
-					dest="/etc/env.d/${PN}/${CHOST}-${PV%_p*}" ;;
+					dest="/etc/env.d/${PN}/${CHOST}-$(ver_cut 1)" ;;
 				*)
 					die "Unknown file '${file}'" ;;
 			esac
@@ -269,15 +308,15 @@ pkg_config() {
 			for file in libstdc++ libgcc_s; do
 				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -exec rm -v {} +
 				pkg_postinst_fix_so \
-						"${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" \
+						"${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
 						"${file}" \
 						"${EROOT}/usr/$(get_libdir)" \
-						"../lib/gcc/${CHOST}/${PV%_p*}" ||
+						"../lib/gcc/${CHOST}/$(ver_cut 1)" ||
 					die "Couldn't link library '${file}.so'*"
 			done
 			for file in libatomic; do
 				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -exec rm -v {} +
-				find "${EROOT}/usr/lib/gcc/${CHOST}/${PV%_p*}" -name "${file}.so*" -print0 |
+				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -print0 |
 					xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
 				gen_usr_ldscript --live -a "${file#lib}"
 			done
