@@ -572,6 +572,8 @@ used to build perl)
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
 * sys-devel/autogen
     * Add required `WANT_AUTOMAKE` directive and inherit `autotools` eclass
+* sys-fs/udisks
+    * Make HTML documentation optional
 * sys-kernel/gentoo-sources
     * Fix USE='experimental' shiftfs compilation with clang
 * sys-kernel/linux-firmware
