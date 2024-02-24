@@ -56,7 +56,7 @@ IUSE_PROGRAMMERS="
 	+serprog
 	+stlinkv3-spi
 	+usbblaster-spi"
-IUSE="atahpt atapromise +atavia +buspirate-spi +ch341a-spi +dediprog +developerbox-spi +digilent-spi +dirtyjtag-spi +drkaiser +dummy +ft2232-spi +gfxnvidia +internal +internal-dmi +it8212 jlink-spi +linux-mtd +linux-spi mediatek-i2c-spi mstarddc-spi +nic3com +nicintel +nicintel-eeprom +nicintel-spi nicnatsemi +nicrealtek +ogp-spi parade-lspcon +pickit2-spi +pony-spi +raiden-debug-spi +rayer-spi realtek-mst-i2c-spi +satamv +satasii +serprog +stlinkv3-spi test tools +usbblaster-spi"
+IUSE="${IUSE_PROGRAMMERS} +internal-dmi test tools"
 
 RESTRICT="!test? ( test )"
 
@@ -97,7 +97,9 @@ DEPEND="${COMMON}
 	mstarddc-spi? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
 	parade-lspcon? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
 	realtek-mst-i2c-spi? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )"
-BDEPEND="test? ( dev-util/cmocka )"
+BDEPEND="
+	dev-build/cmake
+	test? ( dev-util/cmocka )"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.3.0_spi-master.patch
