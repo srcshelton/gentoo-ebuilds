@@ -137,9 +137,16 @@ src_unpack() {
 src_prepare() {
 	default
 
-	sed -e 's|/run/|/var/run/|' \
-		-i disk-utils/fsck.* term-utils/agetty.c lib*/src/*P.h misc-utils/*.8 \
-	|| die
+	sed \
+			-e 's|/run|/var/run|' \
+			-i sys-utils/switch_root.c \
+		|| die
+	sed \
+			-e 's|/run/|/var/run/| ; s|/var/var/run/|/var/run/|' \
+			-i disk-utils/fsck.* include/pathnames.h libmount/python/tab.c login-utils/* misc-utils/* po-man/*o sys-utils/*.8* term-utils/agetty.* \
+		|| die
+
+	echo 'complete -F _last_module lastb' >> bash-completion/last
 
 	if use test ; then
 		# Known-failing tests
@@ -407,7 +414,8 @@ multilib_src_install_all() {
 	# keep bash completion for "su" command which shadow package does not
 	# provide.
 
-	local ver=$(tools/git-version-gen .tarballversion)
+	local ver=$(tools/git-version-gen .tarballversion) ||
+		die "tools/git-version-gen failed: ${?}"
 	local major=$(ver_cut 1 ${ver})
 	local minor=$(ver_cut 2 ${ver})
 	local release=$(ver_cut 3 ${ver})
