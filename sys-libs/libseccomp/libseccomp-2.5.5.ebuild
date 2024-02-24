@@ -17,7 +17,7 @@ if [[ ${PV} == *9999 ]] ; then
 	inherit autotools git-r3
 else
 	SRC_URI="https://github.com/seccomp/libseccomp/releases/download/v${PV}/${P}.tar.gz
-		experimental-loong? ( https://dev.gentoo.org/~xen0n/distfiles/${P}-loongarch64-20220425.patch.xz )"
+		experimental-loong? ( https://dev.gentoo.org/~xen0n/distfiles/${P}-loongarch64-20231204.patch.xz )"
 	KEYWORDS="-* amd64 arm arm64 hppa ~loong ~mips ppc ppc64 ~riscv ~s390 x86 ~amd64-linux ~x86-linux"
 fi
 
@@ -40,11 +40,12 @@ BDEPEND="${RDEPEND}
 PATCHES=(
 	"${FILESDIR}"/libseccomp-python-shared.patch
 	"${FILESDIR}"/libseccomp-2.5.3-skip-valgrind.patch
+	"${FILESDIR}"/libseccomp-2.5.5-which-hunt.patch
 )
 
 src_prepare() {
 	if use experimental-loong; then
-		PATCHES+=( "${WORKDIR}/${P}-loongarch64-20220425.patch" )
+		PATCHES+=( "${WORKDIR}/${P}-loongarch64-20231204.patch" )
 	fi
 
 	default
