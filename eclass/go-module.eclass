@@ -390,11 +390,13 @@ go-module_src_unpack() {
 		die "Please update this ebuild"
 	else
 		default
-		if [[ ! -d "${S}"/vendor ]]; then
-			cd "${S}"
-			local nf
+		if [[ ! -d "${GO_MODULE_SOURCE_DIR:-"${S}"}"/vendor ]]; then
+			ewarn "Directory '${GO_MODULE_SOURCE_DIR:-"${S}"}/vendor' was not created"
+			cd "${GO_MODULE_SOURCE_DIR:-"${S}"}"
+			local nf=''
 			[[ -n ${NONFATAL_VERIFY} ]] && nf=nonfatal
-			${nf} ego mod verify
+			${nf} ego mod verify ||
+				eerror "go mod verify failed: ${?}"
 		fi
 	fi
 
@@ -488,7 +490,7 @@ _go-module_src_unpack_verify_gosum() {
 		die "go-module_set_globals must be called in global scope"
 	fi
 
-	cd "${S}" || die "cd failed"
+	cd "${GO_MODULE_SOURCE_DIR:-"${S}"}" || die "cd failed"
 
 	# Cleanup the modules before starting anything else
 	# This will print 'downloading' messages, but it's accessing content from
@@ -516,10 +518,10 @@ go-module_live_vendor() {
 		die "${FUNCNAME} only allowed in live ebuilds"
 	[[ "${EBUILD_PHASE}" == unpack ]] ||
 		die "${FUNCNAME} only allowed in src_unpack"
-	[[ -d "${S}"/vendor ]] &&
+	[[ -d "${GO_MODULE_SOURCE_DIR:-"${S}"}"/vendor ]] &&
 		die "${FUNCNAME} only allowed when upstream isn't vendoring"
 
-	pushd "${S}" >& /dev/null || die
+	pushd "${GO_MODULE_SOURCE_DIR:-"${S}"}" >& /dev/null || die
 	ego mod vendor
 	popd >& /dev/null || die
 }
