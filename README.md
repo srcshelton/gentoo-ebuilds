@@ -428,6 +428,8 @@ used to build perl)
     * Make `tmpfiles` installation optional
 * app-portage/elt-patches
     * Respect 'ROOT' variable when installing
+* app-portage/gentoolkit
+    * Include fix for https://bugs.gentoo.org/923439
 * app-portage/portage-utils
     * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-portage/portage-utils is built
 * app-text/sgml-common

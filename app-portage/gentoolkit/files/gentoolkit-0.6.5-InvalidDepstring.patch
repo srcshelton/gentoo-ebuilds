@@ -1,0 +1,93 @@
+From 18b66e32bca9f6299d968a0ee66c607e1b5d14fe Mon Sep 17 00:00:00 2001
+From: Brian Dolbec <dolsen@gentoo.org>
+Date: Sun, 4 Feb 2024 13:00:49 -0800
+Subject: [PATCH 1/2] eclean: output InvalidDepstring info in findPackages
+
+Add try/except pair to _deps_equal() calls to output relavent details
+causing the exception in order to aid the user to fix the issue.
+
+Bug: https://bugs.gentoo.org/923439
+Signed-off-by: Brian Dolbec <dolsen@gentoo.org>
+---
+ pym/gentoolkit/eclean/search.py | 37 +++++++++++++++++++++++++--------
+ 1 file changed, 28 insertions(+), 9 deletions(-)
+
+diff --git a/pym/gentoolkit/eclean/search.py b/pym/gentoolkit/eclean/search.py
+index 2eebcfd..424be70 100644
+--- a/pym/gentoolkit/eclean/search.py
++++ b/pym/gentoolkit/eclean/search.py
+@@ -17,6 +17,7 @@
+ from portage.dep import Atom, use_reduce
+ from portage.dep._slot_operator import strip_slots
+ from portage.dep.libc import find_libc_deps, strip_libc_deps
++from portage.exception import InvalidDependString
+ 
+ import gentoolkit.pprinter as pp
+ from gentoolkit.eclean.exclude import (
+@@ -656,15 +657,33 @@ def findPackages(
+             binpkg_metadata = dict(zip(keys, bin_dbapi.aux_get(cpv, keys)))
+             ebuild_metadata = dict(zip(keys, port_dbapi.aux_get(cpv, keys)))
+ 
+-            if _deps_equal(
+-                " ".join(binpkg_metadata[key] for key in dep_keys),
+-                binpkg_metadata["EAPI"],
+-                " ".join(ebuild_metadata[key] for key in dep_keys),
+-                ebuild_metadata["EAPI"],
+-                libc_deps,
+-                frozenset(binpkg_metadata["USE"].split()),
+-            ):
+-                continue
++            deps_binpkg = " ".join(binpkg_metadata[key] for key in dep_keys)
++            deps_ebuild = " ".join(ebuild_metadata[key] for key in dep_keys)
++            try:
++                if _deps_equal(
++                    deps_binpkg,
++                    binpkg_metadata["EAPI"],
++                    deps_ebuild,
++                    ebuild_metadata["EAPI"],
++                    libc_deps,
++                    frozenset(binpkg_metadata["USE"].split()),
++                ):
++                    continue
++            except InvalidDependString as er:
++                print(
++                    pp.error("findPackages: InvalidDependString found for: %s" % cpv),
++                    file=sys.stderr,
++                )
++                print(
++                    pp.error("findPackages: deps_binpkg: %s" % deps_binpkg),
++                    file=sys.stderr,
++                )
++                print(
++                    pp.error("findPackages: deps_ebuild: %s" % deps_ebuild),
++                    file=sys.stderr,
++                )
++                print(pp.error(er))
++                exit(1)
+ 
+         if destructive and var_dbapi.cpv_exists(cpv):
+             # Exclude if an instance of the package is installed due to
+
+From 8b81d8dee6a6f8b4d5a53826a04f4459bf8bd5ba Mon Sep 17 00:00:00 2001
+From: Brian Dolbec <dolsen@gentoo.org>
+Date: Sun, 4 Feb 2024 19:21:33 -0800
+Subject: [PATCH 2/2] enalyze/rebuild.py: black cleanup
+
+Signed-off-by: Brian Dolbec <dolsen@gentoo.org>
+---
+ pym/gentoolkit/enalyze/rebuild.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/pym/gentoolkit/enalyze/rebuild.py b/pym/gentoolkit/enalyze/rebuild.py
+index 074e2f5..f4a348a 100644
+--- a/pym/gentoolkit/enalyze/rebuild.py
++++ b/pym/gentoolkit/enalyze/rebuild.py
+@@ -167,7 +167,7 @@ def __init__(self):
+             "pretend": False,
+             "prefix": False,
+             "portage": True,
+-            "slot": False
++            "slot": False,
+             # "unset": False
+         }
+         self.module_opts = {
