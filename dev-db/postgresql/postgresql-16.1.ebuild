@@ -47,7 +47,7 @@ CDEPEND="
 	sys-apps/less
 	virtual/libintl
 	icu? ( dev-libs/icu:= )
-	kerberos? ( virtual/krb5 )
+	kerberos? ( app-crypt/mit-krb5 )
 	ldap? ( net-nds/openldap:= )
 	llvm? (
 		<sys-devel/llvm-18:=
