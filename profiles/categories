@@ -13,6 +13,8 @@ app-misc
 app-pda
 app-portage
 app-shells
+app-text
+dev-build
 dev-db
 dev-embedded
 dev-java
