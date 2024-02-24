@@ -31,7 +31,8 @@ RDEPEND="
 DEPEND="${RDEPEND}"
 BDEPEND="
 	dev-lang/perl
-	sys-apps/texinfo"
+	sys-apps/texinfo
+	sys-devel/m4"
 
 DOCS=( BUG-REPORT ChangeLog MORE.STUFF NEWS PROBLEMS PROJECTS README TODO )
 
