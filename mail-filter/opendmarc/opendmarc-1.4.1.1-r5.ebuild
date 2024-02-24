@@ -65,10 +65,10 @@ src_install() {
 
 	# create config file
 	sed \
-		-e "s:^# UserID .*$:UserID ${config_user}:" \
-		-e "s:^# PidFile .*:PidFile ${EPREFIX}/var/run/opendmarc/opendmarc.pid:" \
-		-e '/^# Socket /s:^# ::' \
-		"${S}"/opendmarc/opendmarc.conf.sample \
-		> "${ED}"/etc/opendmarc/opendmarc.conf \
-		|| die
+				-e "s:^# UserID .*$:UserID ${config_user}:" \
+				-e "s:^# PidFile .*:PidFile ${EPREFIX}/var/run/opendmarc/opendmarc.pid:" \
+				-e '/^# Socket /s:^# ::' \
+			"${S}"/opendmarc/opendmarc.conf.sample \
+				> "${ED}"/etc/opendmarc/opendmarc.conf ||
+		die
 }
