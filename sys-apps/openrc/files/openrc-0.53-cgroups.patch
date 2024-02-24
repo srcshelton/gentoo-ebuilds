@@ -1,0 +1,18 @@
+--- a/sh/rc-cgroup.sh
++++ b/sh/rc-cgroup.sh
+@@ -190,7 +190,14 @@ cgroup2_set_limits()
+ 	local cgroup_path
+ 	cgroup_path="$(cgroup2_find_path)"
+ 	[ -z "${cgroup_path}" ] && return 0
+-	mountinfo -q "${cgroup_path}"|| return 0
++	# With cgroups2 and Before service 'cgroups' is started, $cgroup_path
++	# will exist as an empty mountpoint, and so 'mkdir' below will fail
++	# noisily... but we also don't want to hide real errors or encode more
++	# than the minimum of magic...
++	[ "${RC_SVCNAME}" = 'cgroups' ] &&
++		[ ! -r "${cgroup_path}/cgroup.controllers" ] &&
++			return 0
++	mountinfo -q "${cgroup_path}" || return 0
+ 	rc_cgroup_path="${cgroup_path}/openrc.${RC_SVCNAME}"
+ 	[ ! -d "${rc_cgroup_path}" ] && mkdir "${rc_cgroup_path}"
+ 	[ -f "${rc_cgroup_path}"/cgroup.procs ] &&
