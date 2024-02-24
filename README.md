@@ -430,6 +430,8 @@ used to build perl)
     * Respect 'ROOT' variable when installing
 * app-portage/portage-utils
     * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-portage/portage-utils is built
+* app-text/sgml-common
+    * Check that 'sgml-docbook.cat' exists before trying to modify it
 * dev-db/mongodb
     * ~~Add firefox source to Allow building on ARM~~
     * Add net-misc/curl and python dependencies, update prerequisite checks when building with USE='lto'
