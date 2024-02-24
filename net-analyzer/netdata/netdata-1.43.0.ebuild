@@ -1958,7 +1958,7 @@ src_install() {
 
 	rmdir -p "${ED}"/var/log "${ED}"/var/cache 2>/dev/null
 
-	for dir in log/netdata cache/netdata lib/netdata/registry $(usex cloud 'lib/netdata/cloud.d' ''); do
+	for dir in log/netdata lib/netdata/registry $(usex cloud 'lib/netdata/cloud.d' ''); do
 		keepdir "/var/${dir}" || die
 		fowners -Rc netdata:netdata "/var/${dir}" || die
 	done

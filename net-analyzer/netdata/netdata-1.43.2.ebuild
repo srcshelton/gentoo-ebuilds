@@ -1730,7 +1730,7 @@ HOMEPAGE="https://github.com/netdata/netdata
 
 LICENSE="GPL-3+ MIT BSD"
 SLOT="0"
-IUSE="bind caps cloud +compression cpu_flags_x86_sse2 cups +dbengine dhcp dovecot +go ipmi +jsonc +lto mongodb mysql nfacct nodejs nvme podman postgres prometheus +python sensors systemd tor xen"
+IUSE="bind cloud +compression cpu_flags_x86_sse2 cups +dbengine dhcp dovecot +go ipmi +jsonc +lto mongodb mysql nfacct nodejs nvme podman postgres prometheus +python sensors systemd tor xen"
 REQUIRED_USE="
 	bind? ( go )
 	dhcp? ( go )
@@ -1761,8 +1761,8 @@ RDEPEND="
 	net-misc/curl
 	net-misc/wget
 	sys-apps/util-linux
+	sys-libs/libcap
 	sys-libs/zlib
-	caps? ( sys-libs/libcap )
 	cloud? ( dev-libs/protobuf:= )
 	cups? ( net-print/cups )
 	dbengine? (
@@ -1958,7 +1958,7 @@ src_install() {
 
 	rmdir -p "${ED}"/var/log "${ED}"/var/cache 2>/dev/null
 
-	for dir in log/netdata cache/netdata lib/netdata/registry $(usex cloud 'lib/netdata/cloud.d' ''); do
+	for dir in log/netdata lib/netdata/registry $(usex cloud 'lib/netdata/cloud.d' ''); do
 		keepdir "/var/${dir}" || die
 		fowners -Rc netdata:netdata "/var/${dir}" || die
 	done
