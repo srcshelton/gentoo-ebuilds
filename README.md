@@ -543,6 +543,8 @@ used to build perl)
     * Fix UID logic
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
+* sys-apps/fwupd
+    * Add USE-flag requirements to sys-apps/flashrom dependency
 * sys-apps/gentoo-functions
     * Fix inclusion when unbound variable checking is enabled
 * sys-apps/groff
