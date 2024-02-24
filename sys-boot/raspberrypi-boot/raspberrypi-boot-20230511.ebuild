@@ -24,6 +24,10 @@ RDEPEND="${DEPEND}"
 
 S="${WORKDIR}/usbboot-${EGIT_COMMIT}"
 
+PATCHES=( #
+	"${FILESDIR}"/rpiboot-custom-flags.patch
+)
+
 src_install() {
 	newdoc Readme.md README.md
 	if use pdf; then

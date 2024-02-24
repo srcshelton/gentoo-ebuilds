@@ -30,6 +30,10 @@ RDEPEND="${DEPEND}"
 
 S="${WORKDIR}/usbboot-${EGIT_COMMIT}"
 
+PATCHES=( #
+	"${FILESDIR}"/rpiboot-custom-flags.patch
+)
+
 src_install() {
 	local model=''
 	local -i ins_rpi=0 ins_rpi4=0 ins_rpi5=0
@@ -65,11 +69,10 @@ src_install() {
 		doins bootcode4.bin msd/start4.elf
 	fi
 	if use tools; then
-		doins -r rpi-imager-embedded
+		doins -r rpi-imager-embedded mass-storage-gadget
 		if use 64bit; then
 			doins -r mass-storage-gadget64
-		else
-			doins -r mass-storage-gadget
+			doins bootfiles.bin
 		fi
 	fi
 
