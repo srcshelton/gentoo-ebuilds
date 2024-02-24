@@ -17,7 +17,16 @@ run_check() {
 
 		while read -r i; do
 			if [[ "$( file "${i}" )" == *' dynamically linked'* ]]; then
-				if ldd "${i}" | grep -Fv -- 'libsandbox.so' | grep -Fq -- "/usr/${libdir#/}"; then
+				# We don't actually want to validate the new package files
+				# against the existing ROOT='/' files, as there could be
+				# differences in whether SOs are installed to root or usr...
+				#
+				#LDLP="${ED}/usr/${libdir}:${ED}/${libdir}${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
+				LDLP="${ED}/usr/${libdir}:${ED}/${libdir}"
+				if LD_LIBRARY_PATH="${LDLP}" ldd "${i}" |
+						grep -Fv -- 'libsandbox.so' |
+						grep -Fq -- "/usr/${libdir#/}"
+				then
 					edf="${i#"${ED%/}/"}"
 					#echo "DEBUG: i is '${i}'"
 					#echo "DEBUG: edf is '${edf}'"
