@@ -792,6 +792,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Maintain compatibility with releases prior to 3.3.11 by keeping `sysctl` in `/sbin`
 * virtual/libudev
     * Allow sys-libs/libeudev to satisfy `virtual/libudev` dependency
+* virtual/udev
+    * Allow sys-fs/eudev to satisfy `virtual/udev` dependency
 
 # Fixes for binaries and libraries which are installed to the root filesystem, but link to libraries originally installed to `/usr`
 (... previously controlled by the `sep-usr` USE-flag, now using standardised `split-usr`)
