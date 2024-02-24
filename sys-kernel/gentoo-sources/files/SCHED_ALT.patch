@@ -1,0 +1,11 @@
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -846,7 +846,7 @@ menuconfig SCHED_ALT
+ 	bool "Alternative CPU Schedulers"
+ 	default y
+ 	help
+-	  This feature enable alternative CPU scheduler"
++	  This feature enables the use of alternative CPU schedulers
+ 
+ if SCHED_ALT
+ 
