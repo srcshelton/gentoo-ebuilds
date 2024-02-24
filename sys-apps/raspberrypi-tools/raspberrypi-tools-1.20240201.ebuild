@@ -1,11 +1,11 @@
-# Copyright 2023 Stuart Shelton
+# Copyright 2023-2024 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-EGIT_COMMIT="d43fef7714551e17661f2a805d7ee077ae9a7777"
+EGIT_COMMIT="e43a8e2b90405bf99678d629fc3b42a4337e35bb"
 EGIT_REPO="utils"
 
-inherit cmake
+inherit bash-completion-r1 cmake
 
 DESCRIPTION="Raspberry Pi tools"
 HOMEPAGE="https://github.com/raspberrypi/utils"
@@ -14,7 +14,7 @@ SRC_URI="https://github.com/raspberrypi/${EGIT_REPO}/archive/${EGIT_COMMIT}.tar.
 LICENSE="BSD"
 SLOT="0"
 KEYWORDS="-* arm64 arm"
-IUSE="devicetree -otp -tools"
+IUSE="bash-completion devicetree -otp -tools"
 
 BDEPEND="
 	>=dev-build/cmake-3.10
@@ -26,12 +26,13 @@ RDEPEND="
 	tools? (
 		app-admin/sudo
 		dev-embedded/rpi-eeprom
-		media-libs/raspberrypi-userland
 		sys-apps/fbset
 		sys-apps/raspberrypi-gpio
 		sys-apps/usbutils
 	)
 "
+#	tools? ( media-libs/raspberrypi-userland )
+# FIXME: media-libs/raspberrypi-userland is deprecated - what here depends on it?
 
 S="${WORKDIR}/${EGIT_REPO}-${EGIT_COMMIT}"
 DOCS=()
@@ -78,6 +79,8 @@ src_compile() {
 }
 
 src_install() {
+	local bc_src='' bc_dst=''
+
 	cmake_src_install
 
 	insinto /etc
@@ -91,6 +94,16 @@ src_install() {
 	if use otp; then
 		newdoc otpset/README.md otpset.md
 	fi
+
+	rm -r "${ED}"/usr/share/bash-completion/ || die
+	if use bash-completion; then
+		for bc_src in */*-completion.bash; do
+			bc_dst=${bc_src%-completion.bash}
+			newbashcomp "${bc_src}" "${bc_dst##*/}"
+		done
+	fi
+
+	[[ -d "${ED}"/usr/lib ]] && rmdir "${ED}"/usr/lib
 }
 
 pkg_postinst() {

@@ -56,7 +56,7 @@ src_prepare() {
 		"${sed_cmds[@]}" \
 		-i CMakeLists.txt
 
-	sed -n -e '1N;2N;3N;4N;5N;/\napt-cache .*$/{N;N;N;N;N;d};P;N;D'
+	sed -n -e '1N;2N;3N;4N;5N;/\napt-cache .*$/{N;N;N;N;N;d};P;N;D' \
 		-i raspinfo/raspinfo
 
 	rm README.md
