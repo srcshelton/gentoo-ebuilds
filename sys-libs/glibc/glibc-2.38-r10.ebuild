@@ -6,7 +6,7 @@ EAPI=8
 # Bumping notes: https://wiki.gentoo.org/wiki/Project:Toolchain/sys-libs/glibc
 # Please read & adapt the page as necessary if obsolete.
 
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 TMPFILES_OPTIONAL=1
 
 inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
@@ -19,7 +19,7 @@ SLOT="2.2"
 EMULTILIB_PKG="true"
 
 # Gentoo patchset (ignored for live ebuilds)
-PATCH_VER=11
+PATCH_VER=10
 PATCH_DEV=dilfridge
 
 # gcc mulitilib bootstrap files version
@@ -38,7 +38,7 @@ MIN_PAX_UTILS_VER="1.3.3"
 if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc ~x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
 		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz
 	"
@@ -178,6 +178,8 @@ XFAIL_TEST_LIST=(
 	tst-system
 	tst-strerror
 	tst-strsignal
+	# Fails with certain PORTAGE_NICENESS/PORTAGE_SCHEDULING_POLICY
+	tst-sched1
 )
 
 XFAIL_NSPAWN_TEST_LIST=(
@@ -200,7 +202,6 @@ XFAIL_NSPAWN_TEST_LIST=(
 
 	# These fail if --suppress-sync and/or low priority is set
 	tst-sync_file_range
-	tst-sched1
 	test-errno
 )
 
@@ -456,6 +457,10 @@ setup_flags() {
 	# ld can't use -r & --relax at the same time, bug #788901
 	# https://sourceware.org/PR27837
 	filter-ldflags '-Wl,--relax'
+
+	# Flag added for cross-prefix, but causes ldconfig to segfault. Not needed
+	# anyway because glibc already handles this by itself.
+	filter-ldflags '-Wl,--dynamic-linker=*'
 
 	# some weird software relies on sysv hashes in glibc, bug 863863, bug 864100
 	# we have to do that here already so mips can filter it out again :P
@@ -966,7 +971,7 @@ src_prepare() {
 
 	cd "${S}" || die
 
-	eapply "${FILESDIR}/${P}-ldd.bash.in.patch" || die
+	eapply "${FILESDIR}/${PN}-2.37-ldd.bash.in.patch" || die
 
 	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
@@ -980,7 +985,7 @@ src_prepare() {
 		(( LD64l = ${#LD64} + 1 ))
 
 		# In order for this to work, LD64 and LDx32 must share a common root of
-		# LD32.  If this is not the case, then sysdeps/unix/sysv/linux/x86_64/dl-cache.h
+		# LD32.  If this is not the case, then sysdeps/x86_64/dl-cache.h
 		# will need to be re-implemented.
 
 		local LDx32s="${LDx32#${LD32}}"
@@ -1034,12 +1039,12 @@ src_prepare() {
 			-e "/ memcmp /{s:len >= 4 :len >= ${LD32l} : ; s: 4, \"/lib\", 4): ${LD32l}, \"/${LD32}\", ${LD32l}):}" \
 			-e "/memcpy /{s:len, \"64\", 3):len, \"${LD64s}\", $(( ${#LD64s} + 1 ))):}" \
 			-e "/memcpy /{s:len, \"x32\", 4):len, \"${LDx32s}\", $(( ${#LDx32s} + 1 ))):}" \
-				sysdeps/unix/sysv/linux/x86_64/dl-cache.h \
+				sysdeps/x86_64/dl-cache.h \
 			|| die 'dl-cache.h modification failed'
 
 		einfo "dl-cache.h now contains:"
 		einfo "$(
-			cat sysdeps/unix/sysv/linux/x86_64/dl-cache.h |
+			cat sysdeps/x86_64/dl-cache.h |
 			sed 's/^/  /g'
 		)"
 
@@ -1116,6 +1121,7 @@ glibc_do_configure() {
 	myconf+=(
 		--disable-werror
 		--enable-bind-now
+		--enable-fortify-source
 		--build=${CBUILD_OPT:-${CBUILD}}
 		--host=${CTARGET_OPT:-${CTARGET}}
 		$(use_enable profile)
@@ -1147,15 +1153,10 @@ glibc_do_configure() {
 		# https://bugs.gentoo.org/753740
 		libc_cv_complocaledir='${exec_prefix}/lib/locale'
 
-		# -march= option tricks build system to infer too
-		# high ISA level: https://sourceware.org/PR27318
-		libc_cv_include_x86_isa_level=no
-
-		# Explicit override of https://sourceware.org/PR27991
-		# exposes a bug in glibc's configure:
-		# https://sourceware.org/PR27991
-		libc_cv_have_x86_lahf_sahf=no
-		libc_cv_have_x86_movbe=no
+		# On aarch64 there is no way to override -mcpu=native, and if
+		# the current cpu does not support SVE configure fails.
+		# Let's boldly assume our toolchain can always build SVE instructions.
+		libc_cv_aarch64_sve_asm=yes
 
 		${EXTRA_ECONF}
 	)
@@ -1195,7 +1196,7 @@ glibc_do_configure() {
 	# add x32 to it, gcc/glibc don't yet support x32.
 	#
 	if [[ -n ${GCC_BOOTSTRAP_VER} ]] && use multilib-bootstrap ; then
-		echo 'main(){}' > "${T}"/test.c
+		echo 'int main(void){}' > "${T}"/test.c || die
 		if ! $(tc-getCC ${CTARGET}) ${CFLAGS} ${LDFLAGS} "${T}"/test.c -Wl,-emain -lgcc 2>/dev/null ; then
 			sed -i -e '/^CC = /s:$: -B$(objdir)/../'"gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}/${ABI}:" config.make || die
 		fi
@@ -1265,7 +1266,15 @@ glibc_headers_configure() {
 		popd >/dev/null
 	fi
 
+	local myconf=()
+
 	case ${CTARGET} in
+	aarch64*)
+		# The configure checks fail during cross-build, so disable here
+		# for headers-only
+		myconf+=(
+			--disable-mathvec
+		) ;;
 	riscv*)
 		# RISC-V interrogates the compiler to determine which target to
 		# build.  If building the headers then we don't strictly need a
@@ -1284,7 +1293,6 @@ glibc_headers_configure() {
 		) ;;
 	esac
 
-	local myconf=()
 	myconf+=(
 		--disable-sanity-checks
 		--enable-hacker-mode
@@ -1368,7 +1376,7 @@ glibc_src_test() {
 	# we give the tests a bit more time to avoid spurious
 	# bug reports on slow arches
 
-	SANDBOX_ON=0 LD_PRELOAD= TIMEOUTFACTOR=16 emake ${myxfailparams} check
+	SANDBOX_ON=0 LD_PRELOAD= TIMEOUTFACTOR=32 emake ${myxfailparams} check
 }
 
 src_test() {
@@ -1399,8 +1407,11 @@ run_locale_gen() {
 	pushd "${ED}"/$(get_libdir) >/dev/null || return 1
 
 	if [[ -z $(locale-gen --list --config "${locale_list}") ]] ; then
-		[[ -z ${inplace} ]] && ewarn "Generating all locales; edit /etc/locale.gen to save time/space"
-		locale_list="${root%/}/usr/share/i18n/SUPPORTED"
+		#[[ -z ${inplace} ]] && ewarn "Generating all locales; edit /etc/locale.gen to save time/space"
+		#locale_list="${root%/}/usr/share/i18n/SUPPORTED"
+		[[ -z ${inplace} ]] && ewarn "Generating US & GB locales; edit /etc/locale.gen to customise further"
+		grep -e '^en_GB' -e '^en_US' "${root%/}/usr/share/i18n/SUPPORTED" >"${T}"/locale.list
+		locale_list="${T}"/locale.list
 	fi
 
 	# bug 736794: we need to be careful with the parallelization... the number
@@ -1762,6 +1773,21 @@ pkg_preinst() {
 	fi
 }
 
+glibc_refresh_ldconfig() {
+	if [[ ${MERGE_TYPE} == buildonly ]]; then
+		return
+	fi
+
+	# Version check could be added to avoid unnecessary work, but ldconfig
+	# should finish quickly enough to not matter.
+	ebegin "Refreshing ld.so.cache"
+	ldconfig -i
+	if ! eend $?; then
+		ewarn "Failed to refresh the ld.so.cache for you. Some programs may be broken"
+		ewarn "before you manually do so (ldconfig -i)."
+	fi
+}
+
 pkg_postinst() {
 	# nothing to do if just installing headers
 	just_headers && return
@@ -1772,6 +1798,17 @@ pkg_postinst() {
 	fi
 
 	if ! is_crosscompile && [[ -z "${ROOT:-}" || "${ROOT}" == '/' ]] ; then
+		# glibc-2.38+ on loong has ldconfig support added, but the ELF e_flags
+		# handling has changed as well, which means stale ldconfig auxiliary
+		# cache entries and failure to lookup libgcc_s / libstdc++ (breaking
+		# every C++ application) / libgomp etc., among other breakages.
+		#
+		# To fix this, simply refresh the ld.so.cache without using the
+		# auxiliary cache if we're natively installing on loong. This should
+		# be done relatively soon because we want to minimize the breakage
+		# window for the affected programs.
+		use loong && glibc_refresh_ldconfig
+
 		if ! use compile-locales; then
 			run_locale_gen "${EROOT%/}/" || die "run_locale_gen failed: ${?}"
 		fi
