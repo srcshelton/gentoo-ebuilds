@@ -50,7 +50,7 @@ src_configure() {
 		$(use_enable ipv6)
 		$(use_enable privsep)
 		$(usex elibc_glibc '--with-hook=yp.conf' '')
-		--rundir=$(usex kernel_linux "${EPREFIX}/run/dhcpcd" "${EPREFIX}/var/run/dhcpcd")
+		--rundir="${EPREFIX%/}/var/run/dhcpcd"
 		$(usex privsep '--privsepuser=dhcpcd' '')
 		$(usex udev '' '--without-dev --without-udev')
 		CC="$(tc-getCC)"
