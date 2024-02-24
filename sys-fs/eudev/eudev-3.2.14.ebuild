@@ -16,7 +16,7 @@ else
 	S="${WORKDIR}"/${PN}-${MY_PV}
 
 	if [[ ${PV} != *_pre* ]] ; then
-		KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 	fi
 fi
 
@@ -30,7 +30,7 @@ RESTRICT="!test? ( test )"
 
 DEPEND="
 	>=sys-apps/util-linux-2.20
-	>=sys-kernel/linux-headers-${KV_MIN}
+	|| ( >=sys-kernel/raspberrypi-headers-${KV_MIN} >=sys-kernel/linux-headers-${KV_MIN} )
 	virtual/libcrypt:=
 	kmod? ( >=sys-apps/kmod-16 )
 	selinux? ( >=sys-libs/libselinux-2.1.9 )
@@ -70,10 +70,6 @@ BDEPEND="
 	)
 "
 PDEPEND=">=sys-fs/udev-init-scripts-26"
-
-PATCHES=(
-	"${FILESDIR}/${PN}-3.2.12-sysattr_cache.patch"
-)
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/udev.h

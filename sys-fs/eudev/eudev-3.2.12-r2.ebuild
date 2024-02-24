@@ -5,18 +5,18 @@ EAPI=8
 
 KV_MIN=2.6.39
 
-inherit linux-info toolchain-funcs udev multilib-minimal
+inherit autotools linux-info toolchain-funcs udev multilib-minimal
 
 if [[ ${PV} = 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/eudev-project/eudev.git"
-	inherit autotools git-r3
+	inherit git-r3
 else
 	MY_PV=${PV/_pre/-pre}
 	SRC_URI="https://github.com/eudev-project/eudev/releases/download/v${MY_PV}/${PN}-${MY_PV}.tar.gz"
 	S="${WORKDIR}"/${PN}-${MY_PV}
 
 	if [[ ${PV} != *_pre* ]] ; then
-		KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 	fi
 fi
 
@@ -54,7 +54,6 @@ RDEPEND="
 	acct-group/tty
 	acct-group/usb
 	acct-group/video
-	sys-apps/hwdata
 	!sys-apps/systemd-utils[udev]
 	!sys-fs/udev
 	!sys-apps/systemd
@@ -72,7 +71,8 @@ BDEPEND="
 PDEPEND=">=sys-fs/udev-init-scripts-26"
 
 PATCHES=(
-	"${FILESDIR}/${PN}-3.2.12-sysattr_cache.patch"
+	"${FILESDIR}/${P}-sysattr_cache.patch"
+	"${FILESDIR}/${P}-sticky-tags.patch"
 )
 
 MULTILIB_WRAPPED_HEADERS=(
@@ -114,9 +114,8 @@ src_prepare() {
 	sed -e 's/GROUP="dialout"/GROUP="uucp"/' -i rules/*.rules \
 		|| die "failed to change group dialout to uucp"
 
-	if [[ ${PV} == 9999* ]] ; then
-		eautoreconf
-	fi
+	# Required for the sticky-tags patch
+	eautoreconf
 }
 
 multilib_src_configure() {
@@ -238,7 +237,7 @@ pkg_postinst() {
 		fi
 	done
 
-	#if has_version 'sys-apps/hwids[udev]'; then
+	if has_version 'sys-apps/hwids[udev]'; then
 		udevadm hwdb --update --root="${ROOT}"
 
 		# https://cgit.freedesktop.org/systemd/systemd/commit/?id=1fab57c209035f7e66198343074e9cee06718bda
@@ -247,7 +246,7 @@ pkg_postinst() {
 		if [[ ${rvres} == doit* ]] && [[ -z ${ROOT} ]] && [[ ${PV} != "9999" ]]; then
 			udevadm control --reload
 		fi
-	#fi
+	fi
 
 	if [[ ${rvres} != doitnew ]]; then
 		ewarn
