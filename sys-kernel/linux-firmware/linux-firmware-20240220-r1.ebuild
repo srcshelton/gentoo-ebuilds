@@ -29,12 +29,13 @@ LICENSE="GPL-2 GPL-2+ GPL-3 BSD MIT || ( MPL-1.1 GPL-2 )
 	redistributable? ( linux-fw-redistributable BSD-2 BSD BSD-4 ISC MIT )
 	unknown-license? ( all-rights-reserved )"
 SLOT="0"
-IUSE="compress-xz compress-zstd deduplicate initramfs +redistributable savedconfig unknown-license"
+IUSE="bindist compress-xz compress-zstd deduplicate initramfs +redistributable savedconfig unknown-license"
 REQUIRED_USE="initramfs? ( redistributable )
 	?? ( compress-xz compress-zstd )
 	savedconfig? ( !deduplicate )"
 
 RESTRICT="binchecks strip test
+	!bindist? ( bindist )
 	unknown-license? ( bindist )"
 
 BDEPEND="initramfs? ( app-alternatives/cpio )
@@ -64,6 +65,11 @@ RDEPEND="!savedconfig? (
 	)"
 
 QA_PREBUILT="*"
+PATCHES=( "${FILESDIR}"/${PN}-copy-firmware-r3.patch )
+
+pkg_pretend() {
+	use initramfs && mount-boot_pkg_pretend
+}
 
 pkg_setup() {
 	if use compress-xz || use compress-zstd ; then
@@ -80,10 +86,6 @@ pkg_setup() {
 		fi
 		linux-info_pkg_setup
 	fi
-}
-
-pkg_pretend() {
-	use initramfs && mount-boot_pkg_pretend
 }
 
 src_unpack() {
@@ -138,8 +140,9 @@ src_prepare() {
 	# whitelist of misc files
 	local misc_files=(
 		copy-firmware.sh
+		README.md
 		WHENCE
-		README
+		LICEN[CS]E.*
 	)
 
 	# whitelist of images with a free software license
@@ -278,37 +281,30 @@ src_prepare() {
 }
 
 src_install() {
-	use deduplicate || LINUX_FIRMWARE_DEDUPE_ARG="--ignore-duplicates"
-	./copy-firmware.sh -v "${LINUX_FIRMWARE_DEDUPE_ARG:-}" "${ED}/lib/firmware" || die
 
-	pushd "${ED}/lib/firmware" &>/dev/null || die
-
-	# especially use !redistributable will cause some broken symlinks
-	einfo "Removing broken symlinks ..."
-	find * -xtype l -print -delete || die
+	local LINUX_FIRMWARE_SAVED_CONFIG_FILES=''
+	local FW_OPTIONS=( "-v" )
 
 	if use savedconfig; then
 		if [[ -s "${S}/${PN}.conf" ]]; then
 			local files_to_keep="${T}/files_to_keep.lst"
 			grep -v '^#' "${S}/${PN}.conf" 2>/dev/null > "${files_to_keep}" || die
 			[[ -s "${files_to_keep}" ]] || die "grep failed, empty config file?"
-
-			einfo "Applying USE=savedconfig; Removing all files not listed in config ..."
-			find ! -type d -printf "%P\n" \
-				| grep -Fvx -f "${files_to_keep}" \
-				| xargs -d '\n' --no-run-if-empty rm -v
-
-			if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-				die "Find failed to print installed files"
-			elif [[ ${PIPESTATUS[1]} -eq 2 ]]; then
-				# grep returns exit status 1 if no lines were selected
-				# which is the case when we want to keep all files
-				die "Grep failed to select files to keep"
-			elif [[ ${PIPESTATUS[2]} -ne 0 ]]; then
-				die "Failed to remove files not listed in config"
-			fi
+			LINUX_FIRMWARE_SAVED_CONFIG_FILES=$(<${files_to_keep})
+			LINUX_FIRMWARE_SAVED_CONFIG_FILES="${LINUX_FIRMWARE_SAVED_CONFIG_FILES//$'\n'/ }"
+			FW_OPTIONS+=( "--firmware-list" "${LINUX_FIRMWARE_SAVED_CONFIG_FILES[@]}" )
 		fi
 	fi
+
+	! use deduplicate && FW_OPTIONS+=( "--ignore-duplicates" )
+	FW_OPTIONS+=( "${ED}/lib/firmware" )
+	./copy-firmware.sh "${FW_OPTIONS[@]}"
+
+	pushd "${ED}/lib/firmware" &>/dev/null || die
+
+	# especially use !redistributable will cause some broken symlinks
+	einfo "Removing broken symlinks ..."
+	find * -xtype l -print -delete || die
 
 	# remove empty directories, bug #396073
 	find -type d -empty -delete || die
