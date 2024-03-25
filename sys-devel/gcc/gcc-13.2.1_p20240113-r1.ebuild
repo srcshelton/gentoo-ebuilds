@@ -9,6 +9,8 @@ PATCH_VER="12"
 MUSL_VER="2"
 MUSL_GCC_VER="13.2.0"
 
+PARALLEL_MEMORY_MIN=6
+
 if [[ ${PV} == *.9999 ]] ; then
 	MY_PV_2=$(ver_cut 2)
 	MY_PV_3=1
@@ -30,7 +32,7 @@ elif [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
 	S="${WORKDIR}"/${MY_P}
 fi
 
-inherit toolchain usr-ldscript
+inherit flag-o-matic toolchain usr-ldscript
 
 if tc_is_live ; then
 	# Needs to be after inherit (for now?), bug #830908
@@ -131,6 +133,36 @@ src_prepare() {
 	fi
 
 	eapply_user
+}
+
+src_configure() {
+	if (( ( $( # <- Syntax
+			head /proc/meminfo |
+				grep -m 1 '^MemAvailable:' |
+				awk '{ print $2 }'
+		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
+	then
+		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
+			ewarn "make.conf or environment contains parallel build directive,"
+			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
+		fi
+		ewarn "Lowering make parallelism for low-memory build-host ..."
+		if ! [[ -n "${MAKEOPTS:-}" ]]; then
+			export MAKEOPTS='-j1'
+		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
+			export MAKEOPTS="-j1 ${MAKEOPTS}"
+		else
+			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
+		fi
+		if test-flag-CCLD '-Wl,--no-keep-memory'; then
+			ewarn "Instructing 'ld' to use less memory ..."
+			append-ldflags '-Wl,--no-keep-memory'
+		fi
+		ewarn "Disabling LTO support ..."
+		filter-lto
+	fi
+
+	toolchain_src_configure
 }
 
 src_install() {
