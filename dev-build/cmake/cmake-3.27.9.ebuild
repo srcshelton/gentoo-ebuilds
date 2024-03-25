@@ -3,6 +3,8 @@
 
 EAPI=8
 
+PARALLEL_MEMORY_MIN=2
+
 # Generate using https://github.com/thesamesam/sam-gentoo-scripts/blob/main/niche/generate-cmake-docs
 # Set to 1 if prebuilt, 0 if not
 # (the construct below is to allow overriding from env for script)
@@ -47,7 +49,7 @@ else
 			https://github.com/Kitware/CMake/releases/download/v$(ver_cut 1-3)/${MY_P}-SHA-256.txt.asc
 		)"
 
-		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 
 		BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-bradking-20230817 )"
 	fi
@@ -110,6 +112,38 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-3.27.4-0001-FindPkgConfig-ignore-whitespace-separators-in-versio.patch
 )
 
+# Since cmake_src_bootstrap() might be called to build code which also suffers
+# from memory-bloat when built in paralle, we need to apply these tests in
+# multipe locations...
+#
+adjust_parallelism() {
+	ewarn "Confirming maximum safe parallelism ..."
+
+	if (( ( $( # <- Syntax
+			head /proc/meminfo |
+				grep -m 1 '^MemAvailable:' |
+				awk '{ print $2 }'
+		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
+	then
+		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
+			ewarn "make.conf or environment contains parallel build directive,"
+			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
+		fi
+		ewarn "Lowering make parallelism for low-memory build-host ..."
+		if ! [[ -n "${MAKEOPTS:-}" ]]; then
+			export MAKEOPTS='-j1'
+		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
+			export MAKEOPTS="-j1 ${MAKEOPTS}"
+		else
+			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
+		fi
+		if test-flag-CCLD '-Wl,--no-keep-memory'; then
+			ewarn "Instructing 'ld' to use less memory ..."
+			append-ldflags '-Wl,--no-keep-memory'
+		fi
+	fi
+}
+
 cmake_src_bootstrap() {
 	# disable running of cmake in bootstrap command
 	sed -i \
@@ -121,6 +155,8 @@ cmake_src_bootstrap() {
 		sed -i -e 's/execinfo\.h/blablabla.h/' \
 			Source/kwsys/CMakeLists.txt || die
 	fi
+
+	adjust_parallelism
 
 	# bootstrap script isn't exactly /bin/sh compatible
 	tc-env_build ${CONFIG_SHELL:-sh} ./bootstrap \
@@ -195,6 +231,8 @@ src_configure() {
 	# ODR warnings, bug #858335
 	# https://gitlab.kitware.com/cmake/cmake/-/issues/20740
 	filter-lto
+
+	adjust_parallelism
 
 	local mycmakeargs=(
 		-DCMAKE_USE_SYSTEM_LIBRARIES=ON
