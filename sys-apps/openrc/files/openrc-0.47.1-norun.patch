@@ -142,7 +142,7 @@
 +if [ -x /sbin/restorecon ]; then
 +	if [ -d /run ]; then
 +		/sbin/restorecon -rF /run
-+	else
++	elif [ -d /var/run ]; then
 +		/sbin/restorecon -rF /var/run
 +	fi
 +fi

@@ -74,7 +74,7 @@ src_prepare() {
 
 	if ! use vanilla; then
 		if use varrun ; then
-			eapply "${FILESDIR}/${PN}-0.47.1-norun.patch" || die "no-run eapply failed"
+			eapply "${FILESDIR}/${PN}-0.53-norun.patch" || die "no-run eapply failed"
 		else
 			eapply -p0 -- "${FILESDIR}/${PN}-0.12.4-bootmisc.in.patch" || die "bootmisc.in eapply failed"
 		fi
@@ -84,6 +84,8 @@ src_prepare() {
 		eapply "${FILESDIR}/${PN}-0.46-rc.conf.patch" || die "rc.conf.in eapply failed"
 		eapply "${FILESDIR}/${PN}-0.48-init.d.patch" || die "init.d eapply failed"
 		eapply "${FILESDIR}/${PN}-0.48-keymaps.patch" || die "keymaps.in eapply failed"
+		eapply "${FILESDIR}/${PN}-0.53-init.d.patch" || die "init.d eapply failed"
+		eapply "${FILESDIR}/${PN}-0.53-net-online.patch" || die "net-online eapply failed"
 	fi
 
 	local replacement='var/run/openrc'
@@ -91,11 +93,11 @@ src_prepare() {
 		replacement='lib/rc/init.d'
 	fi
 	while read -r f; do
-		ebegin "Patching file '${f#./}', updating '/run' reference to '/${replacement}'"
+		ebegin "Patching file '${f#./}', updating '/run/openrc' references to '/${replacement}'"
 		sed \
-				-e "s|run/openrc|${replacement}|g" \
-				-i "${f}"
-		eend ${?} "Patch failed: ${?}" ||
+			-e "s|run/openrc|${replacement}|g" \
+			-i "${f}"
+		eend ${?} "Replacement failed: ${?}" ||
 			return ${?}
 	done < <(
 		find . -type f -exec grep -H '/run/openrc' {} + |
@@ -107,6 +109,28 @@ src_prepare() {
 				-e 'src/openrc-shutdown/openrc-shutdown.c' \
 				-e 'src/librc/rc.h.in'
 	)
+	f='src/openrc-shutdown/openrc-shutdown.c'
+	ebegin "Patching file '${f}', updating '/run' references to '/var/run' and '/dev'"
+	sed \
+		-e 's|/run/openrc-shutdown.pid|/var/run/openrc-shutdown.pid|' \
+		-e 's|/run/initctl|/dev/initctl|' \
+		-i "${f}"
+	eend ${?} "Replacement failed: ${?}" ||
+		return ${?}
+	f='src/openrc-shutdown/sysvinit.c'
+	ebegin "Patching file '${f}', updating '/run' references to '/dev'"
+	sed \
+		-e 's|/run/initctl|/dev/initctl|' \
+		-i "${f}"
+	eend ${?} "Replacement failed: ${?}" ||
+		return ${?}
+	f='service-script-guide.md'
+	ebegin "Patching file '${f}', updating '/run' references to '/var/run'"
+	sed \
+		-e 's|/run/|/var/run/|' \
+		-i "${f}"
+	eend ${?} "Replacement failed: ${?}" ||
+		return ${?}
 }
 
 src_configure() {
@@ -151,19 +175,6 @@ src_install() {
 	keepdir /lib/rc/tmp
 
 	if ! use vanilla; then
-		# Install updated /etc/init.d/root script, allowing /etc/fstab options to
-		# determine mount options for the root filesystem
-		newinitd "${FILESDIR}"/root-r3.initd root
-
-		# Install updated /etc/init.d/localmount script, to run:
-		#  `btrfs devices scan`
-		# ... before attempting to mount local btrfs filesystems
-		newinitd "${FILESDIR}"/localmount-r5.initd localmount
-
-		# Make devtmpfs size explicitly customisable
-		newinitd "${FILESDIR}"/devfs.initd devfs
-		newconfd "${FILESDIR}"/devfs.confd devfs
-
 		# Restore now-integrated script
 		exeinto /lib/rc/sh
 		newexe "${FILESDIR}"/${PN}-0.47.1-init-common-post.sh init-common-post.sh

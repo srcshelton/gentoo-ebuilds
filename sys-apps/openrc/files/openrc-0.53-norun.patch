@@ -1,0 +1,783 @@
+--- a/sh/init.sh.Linux.in
++++ b/sh/init.sh.Linux.in
+@@ -45,7 +45,7 @@ unset f
+ 
+ if $mountproc; then
+ 	ebegin "Mounting /proc"
+-	if ! fstabinfo --mount /proc; then
++	if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /proc; then
+ 		mount -n -t proc -o noexec,nosuid,nodev proc /proc
+ 	fi
+ 	eend $?
+@@ -55,50 +55,121 @@ fi
+ # Read more about /run at https://lwn.net/Articles/436012
+ sys="$(openrc --sys)"
+ 
++#run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
++run_mount_opts="mode=0755,nodev,noexec,nosuid,size=64M,strictatime"
++lock_mount_opts="uid=root,gid=uucp,mode=1777,nodev,noexec,nosuid,size=1M,strictatime"
++
+ if [ ! -d /run ]; then
+ 	if [ "$sys" = VSERVER ]; then
+ 		if [ -e /run ]; then
+-		rm -rf /run
++			rm -rf /run
+ 		fi
+ 		mkdir /run
+ 	else
+-		eerror "The /run directory does not exist. Unable to continue."
+-		return 1
++		#eerror "The /run directory does not exist. Unable to continue."
++		#exit 1
++
++		# awk may live in /usr...
++		if command -v awk >/dev/null 2>&1; then
++			boot_services="$( rc-status -Ca 2>/dev/null | awk -e "$( cat <<-'EOF'
++					BEGIN { doprint = 0 } ;
++					/^(Dynamic )?Runlevel: / {
++						doprint = 0 ;
++						( "boot" == $2 || "sysinit" == $2 ) && doprint = 2
++					} ;
++					( 1 == doprint ) { print $1 } ;
++					( 2 == doprint ) { doprint = 1 }
++				EOF
++			)" )"
++		else
++			boot_services="$( rc-status -Ca 2>/dev/null |
++				sed -r '/^Runlevel: / s/^(.*)$/Runlevel: \n\1/' |
++				sed -nr '/^Runlevel: (sysinit|boot)/,/^(Dynamic )?Runlevel: /p' |
++				grep -Ev '^(Dynamic )?Runlevel: ' |
++				sed 's/^ \+// ; s/ .*$//'
++			)"
++		fi
++
++		if
++			echo "${boot_services:-lvm}" |
++				grep -Eq "dmeventd|lvm|device-mapper" >/dev/null 2>&1 &&
++			[ -d /var ] && ! [ -w /var ]
++		then
++			if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/run; then
++				ebegin "Mounting /var/run (for lvm/dmeventd/device-mapper)"
++				if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/run; then
++					if ! mount -t tmpfs -o ${run_mount_opts} runtmpfs /var/run; then
++						eerror "Unable to mount tmpfs on /var/run."
++					fi
++				fi
++				eend $?
++			fi
++			if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/lock; then
++				ebegin "Mounting /var/lock (for lvm/dmeventd/device-mapper)"
++				if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/lock; then
++					if ! mount -t tmpfs -o ${lock_mount_opts} locktmpfs /var/lock; then
++						eerror "Unable to mount tmpfs on /var/lock"
++					fi
++				fi
++				eend $?
++			fi
++		fi
+ 	fi
+ fi
+ 
+-if [ "$sys" = VSERVER ]; then
+-	rm -rf /run/*
+-elif ! mountinfo -q /run; then
+-	ebegin "Mounting /run"
+-	run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
+-	if ! fstabinfo --mount /run; then
+-		if ! mount -t tmpfs -o ${run_mount_opts} tmpfs /run; then
+-			eerror "Unable to mount tmpfs on /run."
+-			eerror "Can't continue."
+-			exit 1
++if [ -d /run ]; then
++	if [ "$sys" = VSERVER ]; then
++		rm -rf /run/*
++	elif ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /run; then
++		ebegin "Mounting /run"
++		if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /run; then
++			if ! mount -t tmpfs -o ${run_mount_opts} runtmpfs /run; then
++				eerror "Unable to mount tmpfs on /run."
++				eerror "Can't continue."
++				exit 1
++			fi
+ 		fi
++		eend
+ 	fi
+-	eend
++	checkpath -d -m 0775 -o root:uucp /run/lock
++else
++	if ! "${RC_LIBEXECDIR}"/bin/mountinfo -q /var/lock; then
++		ebegin "Mounting /var/lock"
++		if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /var/lock; then
++			if ! mount -t tmpfs -o ${lock_mount_opts} locktmpfs /var/lock; then
++				eerror "Unable to mount tmpfs on /var/lock"
++			fi
++		fi
++		eend $?
++	fi
++	#[ -w /var ] && checkpath -d -m 0775 -o root:uucp /var/lock
++	checkpath -d -m 0775 -o root:uucp /var/lock
+ fi
+ 
+ checkpath -d "$RC_SVCDIR"
+-checkpath -d -m 0775 -o root:uucp /run/lock
+ 
+ # Try to mount xenfs as early as possible, otherwise rc_sys() will always
+ # return RC_SYS_XENU and will think that we are in a domU while it's not.
+ if grep -Eq "[[:space:]]+xenfs$" /proc/filesystems; then
+ 	ebegin "Mounting xenfs"
+-	if ! fstabinfo --mount /proc/xen; then
++	if ! "${RC_LIBEXECDIR}"/bin/fstabinfo --mount /proc/xen; then
+ 		mount -n -t xenfs xenfs /proc/xen -o nosuid,nodev,noexec
+ 	fi
+ 	eend $?
+ fi
+ 
++. "${RC_LIBEXECDIR}"/sh/init-common-post.sh
++
+ if [ -e "$RC_LIBEXECDIR"/cache/softlevel ]; then
+ 	cp -p "$RC_LIBEXECDIR"/cache/* "$RC_SVCDIR" 2>/dev/null
+ fi
+ 
+-echo sysinit >"$RC_SVCDIR"/softlevel
+-[ -x /sbin/restorecon ] && /sbin/restorecon -rF /run
++echo 'sysinit' >"$RC_SVCDIR"/softlevel
++if [ -x /sbin/restorecon ]; then
++	if [ -d /run ]; then
++		/sbin/restorecon -rF /run
++	else
++		/sbin/restorecon -rF /var/run
++	fi
++fi
+ exit 0
+--- a/src/librc/rc.h.in
++++ b/src/librc/rc.h.in
+@@ -28,9 +28,11 @@ extern "C" {
+ #define RC_LIBEXECDIR           "@LIBEXECDIR@"
+ #if defined(PREFIX)
+ #define RC_SVCDIR               RC_LIBEXECDIR "/init.d"
++/*
+ #elif defined(__linux__) || (defined(__FreeBSD_kernel__) && \
+ 		defined(__GLIBC__)) || defined(__GNU__)
+-#define RC_SVCDIR               "/run/openrc"
++#define RC_SVCDIR               "/var/run/openrc"
++*/
+ #else
+ #define RC_SVCDIR               RC_LIBEXECDIR "/init.d"
+ #endif
+--- a/init.d/bootmisc.in
++++ b/init.d/bootmisc.in
+@@ -1,4 +1,4 @@
+-#!@SBINDIR@/openrc-run
++#!/sbin/openrc-run
+ # Copyright (c) 2007-2015 The OpenRC Authors.
+ # See the Authors file at the top-level directory of this distribution and
+ # https://github.com/OpenRC/openrc/blob/HEAD/AUTHORS
+@@ -87,8 +87,9 @@ cleanup_var_run_dir()
+ 		case "$x" in
+ 			*.pid)
+ 				start-stop-daemon --test --quiet \
+-				--stop --pidfile "$x" && continue
+-			;;
++						--stop --pidfile "$x" >/dev/null 2>&1 &&
++					continue
++				;;
+ 		esac
+ 		rm -f -- "$x"
+ 	done
+@@ -174,7 +175,7 @@ start()
+ 	else
+ 		extra=/var/run
+ 	fi
+-	for x in /var/log /tmp $extra; do
++	for x in /var/log /var/lock /tmp $extra; do
+ 		if ! [ -d $x ]; then
+ 			if ! mkdir -p $x; then
+ 				eend 1 "failed to create needed directory $x"
+@@ -183,11 +184,11 @@ start()
+ 		fi
+ 	done
+ 
+-	if [ "$RC_UNAME" = Linux -a -d /run ]; then
+-		migrate_to_run	/var/lock /run/lock
+-		migrate_to_run	/var/run /run
+-		clean_run
+-	fi
++	#if [ "$RC_UNAME" = Linux -a -d /run ]; then
++	#	migrate_to_run /var/lock /run/lock
++	#	migrate_to_run /var/run /run
++	#	clean_run
++	#fi
+ 
+ 	if checkpath -W /var/run; then
+ 		ebegin "Creating user login records"
+@@ -200,12 +201,75 @@ start()
+ 		eend 0
+ 
+ 		mountinfo -q -f tmpfs /var/run || cleanup_var_run_dir
++
++		[ -L /var/run/lock ] &&
++			rm /var/run/lock 2>/dev/null
++		[ -d /var/run/lock ] &&
++			rmdir /var/run/lock 2>/dev/null
++		[ -d /var/run/lock ] ||
++			ln -s ../lock /var/run/lock
++	fi
++
++	if [ -n "$( fstabinfo -o /var/lock )" ]; then
++		local rc=0
++
++		ebegin "Migrating /var/lock to use options from /etc/fstab"
++
++		# We have (custom?) mount options for /var/lock in /etc/fstab,
++		# but running "mount ... -o remount,..." seems to be failling
++		# so instead we'll try to replace the original mount with a new
++		# one as atomically as possible...
++		#
++		until [ $(( rc )) -eq 1 ]; do
++			rc=1
++
++			if ! mkdir /var/run/.lock; then
++				rc=${?}
++				eerror "mkdir() on '/var/run/.lock' failed: ${rc}"
++				break
++			fi
++
++			local mopt="$( fstabinfo -m /var/lock )"
++			mopt="$( echo "${mopt}" | sed 's|/var/lock$|/var/run/.lock|' )"
++			if ! mount --no-mtab ${mopt}; then
++				rc=${?}
++				eerror "Mounting '/var/run/.lock' failed: ${rc}"
++				break
++			fi
++			unset mopt
++
++			# 'mv' would be more reliable, but the non-atomic period would be
++			# longer...
++			if ! find -L /var/lock/ \
++						-mindepth 1 \
++						-maxdepth 1 \
++						-xtype d,f,l \
++						-print0 |
++					xargs -0rI'{}' \
++						cp -ax --no-dereference {} /var/run/.lock/
++			then
++				rc=${?}
++				eerror "Migrating '/var/lock' to '/var/run/.lock'" \
++					"failed: ${rc}"
++				break
++			fi
++
++			# Non-atomic section!
++			umount -f /var/lock &&
++				mount --no-mtab --move /var/run/.lock /var/lock &&
++				rmdir /var/run/.lock &&
++				rc=0
++
++			break
++		done
++		eend ${rc} "'/var/lock' migration failed: ${rc}"
+ 	fi
+ 
+ 	# Clean up /tmp directories
+ 	local tmp=
+ 	for tmp in ${clean_tmp_dirs:-${wipe_tmp_dirs-/tmp}}; do
+-		mountinfo -q -f tmpfs "$tmp" || cleanup_tmp_dir "$tmp"
++		mountinfo -q -f tmpfs "$tmp" ||
++			cleanup_tmp_dir "$tmp"
+ 	done
+ 
+ 	if checkpath -W /tmp; then
+@@ -258,4 +322,4 @@ stop()
+ 	return 0
+ }
+ 
+-# vim: ft=sh
++# vi: set ft=sh sw=4 ts=4:
+--- a/init.d/localmount.in
++++ b/init.d/localmount.in
+@@ -11,123 +11,429 @@
+ 
+ description="Mounts disks and swap according to /etc/fstab."
+ 
+-depend()
+-{
+-	need fsck root
+-	use lvm modules
+-	after clock lvm modules
++depend() {
++	need fsck
++	use lvm modules root
++	after clock lvm modules root
+ 	keyword -docker -jail -lxc -prefix -systemd-nspawn -vserver
+ }
+ 
+-start()
+-{
++_move_mp() {
++	local stage="${1:-}" src="${2:-}" via="${3:-}"
++	local fs='' mp='' rc=0 cached_data='' cached_via=0
++
++	[ -n "${stage:-}" ] || return 1
++	[ -n "${src:-}" ] || return 1
++	case "${stage}" in
++		--pre|pre)
++			stage='pre' ;;
++		--post|post)
++			stage='post' ;;
++		--clean|--cleanup|clean|cleanup)
++			stage='clean' ;;
++		*)
++			eerror "_move_mp(): Unrecognised stage '${stage}'"
++			return 1
++			;;
++	esac
++
++	fs="$( echo "${src}" | cut -d'/' -f 2 )"
++	mp="$( echo "${src}" | cut -d'/' -f 3 )"
++	[ -z "${mp:-}" ] && mp='root'
++
++	if [ -s "${RC_SVCDIR}/_move_mp_${fs}_${mp}" ]; then
++		local cached_data=''
++		cached_data="$( cat "${RC_SVCDIR}/_move_mp_${fs}_${mp}" )"
++		if [ -z "${via:-}" ]; then
++			via="${cached_data:-}"
++			cached_via=1
++		elif [ "${cached_data:-}" != "${via}" ]; then
++			ewarn "Stored migration staging directory '${cached_data:-}'" \
++				"overridden by parameter '${via}'"
++		fi
++		unset cached_data
++	fi
++	
++	local rt=''
++
++	# No cached location file (or the file was empty)...
++	if [ -z "${via:-}" ]; then
++		for rt in tmp mnt; do
++			if checkpath -W "/${rt}/."; then
++				break
++			fi
++		done
++		via="/${rt}/.${fs}.mnt"
++	fi
++
++	if [ "${stage}" = 'clean' ]; then
++		grep -q -- " ${via} " /proc/self/mounts &&
++			umount --lazy "${via}" 2>/dev/null
++		[ -f "${RC_SVCDIR}/_move_mp_${fs}_${mp}" ] &&
++			rm "${RC_SVCDIR}/_move_mp_${fs}_${mp}"
++		[ -d "${via}" ] &&
++			rmdir "${via}" 2>/dev/null
++		return ${?}
++	fi
++
++	if yesno "${RC_GOINGDOWN:-}" &&
++			[ "${stage}" = 'pre' ] &&
++			[ -d "${via}" ]
++	then
++		rt="$( # <- Syntax
++			df -a "$( readlink -e "${via}/.." )" |
++				tail -n +2 |
++				awk '{ print $1 }'
++		)"
++		if [ "${rt:-}" != '/dev/root' ]; then
++			ewarn "Mountpoint '${src}' migration staging directory '${via}'" \
++				"is located on '${rt}' rather than the root filesystem, and" \
++				"may be unmounted before the staged content is restored"
++		fi
++	fi
++
++	unset rt
++	local vp=''
++
++	if [ $(( cached_via )) -eq 0 ]; then
++		vp="${via}"
++	else
++		vp="$( readlink -m "${via}/.." 2>/dev/null )"
++	fi
++
++	if ! mountinfo -q "${vp}"; then
++		if [ "${stage}" = 'pre' ]; then
++			if ! mkdir -p "${vp}" ||
++				! mount -t tmpfs "${fs}tmpfs" "${vp}" -o 'size=1k'
++			then
++				eerror "_move_mp(): Failed to create temporary mountpoint" \
++					"at '${vp}': ${?}"
++				return 1
++			fi
++		elif [ "${stage}" = 'post' ]; then
++			eerror "_move_mp(): Temporary mountpoint '${vp}' no longer" \
++				"exists in '${stage}' stage"
++			return 1
++		fi
++	fi
++
++	if [ $(( cached_via )) -eq 0 ]; then
++		# e.g. /tmp/.var.mnt -> /tmp/.var.mnt/run
++		via="${vp}/${mp}"
++		printf '%s' "${via}" > "${RC_SVCDIR}/_move_mp_${fs}_${mp}"
++	fi
++
++	unset vp
++
++	if [ "${stage}" = 'pre' ]; then
++		if mountinfo -q "${src}"; then
++			ebegin "Moving ${src}"
++			mkdir "${via}" &&
++				mount --no-mtab --move "${src}" "${via}"
++			eend ${?} "Failed to move '${src}' mount to '${via}': ${?}" ||
++				rc=${?}
++		#else
++		#	:
++		fi
++	elif [ "${stage}" = 'post' ]; then
++		if yesno "${RC_GOINGDOWN:-}"; then
++			# We're shutting-down/rebooting...
++			#
++			if mountinfo -q "/${fs}"; then
++				ewarn "Filesystem '/${fs}' is still mounted - dropping" \
++					"initial mount"
++				rc=1
++			fi
++		else
++			# We're starting-up...
++			#
++			if ! mountinfo -q "/${fs}"; then
++				ewarn "Filesystem '/${fs}' isn't mounted - dropping" \
++					"initial mount"
++				rc=1
++			fi
++		fi
++
++		if [ $(( rc )) -eq 0 ]; then
++			if ! [ -d  "${src}" ]; then
++				ewarn "Directory '${src}' doesn't exist - dropping" \
++					"initial mount"
++				rc=1
++			else
++				if ! mount --no-mtab --move "${via}" "${src}" 2>/dev/null
++				then
++					eerror "Failed to move '${via}' to '${src}': ${?}"
++					rc=1
++				fi
++			fi
++		fi
++		_move_mp --clean "${src}" "${via}" ||
++			rc=${?}
++	fi
++
++	return ${rc}
++}  # _move_mp
++
++start() {
+ 	# Mount local filesystems in /etc/fstab.
+ 	# The types variable must start with no, and must be a type
+-	local critical= types="noproc" x= no_netdev= rc=
+-	for x in $net_fs_list $extra_net_fs_list; do
++	local critical='' types='noproc' x='' no_netdev='' rc=''
++
++	for x in ${net_fs_list:-} ${extra_net_fs_list:-}; do
+ 		types="${types},${x}"
+ 	done
+ 
+-	if [ "$RC_UNAME" = Linux ]; then
+-		no_netdev="-O no_netdev"
++	if [ "${RC_UNAME}" = 'Linux' ]; then
++		no_netdev='-O no_netdev'
+ 		if mountinfo -q /usr; then
+-			touch "$RC_SVCDIR"/usr_premounted
++			touch "${RC_SVCDIR}"/usr_premounted
+ 		fi
+ 	fi
++	if fstabinfo -q -t btrfs; then
++		if [ -x /sbin/btrfs ]; then
++			grep -q -- 'btrfs' /proc/filesystems >/dev/null 2>&1 ||
++				/sbin/modprobe 'btrfs' >/dev/null 2>&1
++
++			ebegin "Scanning for btrfs filesystem components"
++			local output=''
++			output="$( /sbin/btrfs device scan 2>&1 )"
++			eend ${?} "${output:-}"
++			unset output
++		fi
++	fi
++	if fstabinfo -q /var && ! mountinfo -q /var; then
++		if mountinfo -q /var/run || mountinfo -q /var/lock; then
++			ebegin "Migrating inital mounts to separate /var filesystem"
++			eindent
++
++			if mountinfo -q /var/run; then
++				touch "${RC_SVCDIR}"/var_run_premounted
++
++				einfo "Migrating inital 'run' mount to separate /var" \
++					"filesystem ..."
++
++				_move_mp --pre /var/run
++			fi
++			if mountinfo -q /var/lock; then
++				touch "${RC_SVCDIR}"/var_lock_premounted
++
++				einfo "Migrating inital 'lock' mount to separate /var" \
++					"filesystem ..."
++
++				_move_mp --pre /var/lock
++			fi
++
++			if ! mount /var; then
++				eerror "Failed to mount /var: ${?}"
++			else
++				[ -e "${RC_SVCDIR}"/var_run_premounted ] &&
++					_move_mp --post /var/run
++				[ -e "${RC_SVCDIR}"/var_lock_premounted ] &&
++					_move_mp --post /var/lock
++			fi
++			_move_mp --clean /var
++
++			eoutdent
++			eend ${?} "Mount migration failed: ${?}"
++		fi
++	fi
++
+ 	ebegin "Mounting local filesystems"
+-	mount -at "$types" $no_netdev
+-	eend $? "Some local filesystem failed to mount"
+-	rc=$?
+-	if [ -z "$critical_mounts" ]; then
++	# Avoid 'failed to update userspace mount table' warnings...
++	if fstabinfo -q -t hugetlbfs; then
++		local line=''
++		fstabinfo -t hugetlbfs -m | while read -r line; do
++			mount --no-mtab ${line}
++		done
++		unset line
++	fi
++	mount -at "${types}" ${no_netdev:-}
++	eend ${?} "Some local filesystem failed to mount" ||
++		rc=${?}
++
++	if [ -z "${critical_mounts:-}" ]; then
+ 		rc=0
+ 	else
+ 		for x in ${critical_mounts}; do
+-		fstabinfo -q $x || continue
+-		if ! mountinfo -q $x; then
+-			critical=x
+-			eerror "Failed to mount $x"
++		fstabinfo -q "${x}" || continue
++		if ! mountinfo -q "${x}"; then
++			critical='x'
++			eerror "Failed to mount '${x}'"
+ 		fi
+ 		done
+-		[ -z "$critical" ] && rc=0
++		[ -z "${critical:-}" ] && rc=0
+ 	fi
+-	return $rc
++
++	return ${rc}
+ }
+ 
+-stop()
+-{
+-	yesno $RC_GOINGDOWN || return 0
++stop() {
++	local rc_svcdir='' no_umounts_r='' x=''
++
++	yesno "${RC_GOINGDOWN:-}" || return 0
++
+ 	# We never unmount / or /dev or $RC_SVCDIR
+ 
+ 	# Bug 381783
+-	local rc_svcdir=$(printf '%s\n' "$RC_SVCDIR" | sed 's:/lib\(32\|64\)\?/:/lib(32|64)?/:g')
++	rc_svcdir="$( # <- Syntax
++		printf '%s\n' "${RC_SVCDIR}" |
++			sed 's:/lib\(32\|64\)\?/:/lib(32|64)?/:g'
++	)"
+ 
+-	local x= no_umounts_r="/|/dev|/dev/.*|${rc_svcdir}"
+-	no_umounts_r="${no_umounts_r}|/bin|/sbin|/lib(32|64)?|/libexec"
++	no_umounts_r="/|/dev|/dev/.*|${rc_svcdir}|/bin|/sbin|/lib(32|64)?|/libexec"
+ 	# RC_NO_UMOUNTS is an env var that can be set by plugins
+-	local IFS="$IFS:"
+-	for x in $no_umounts $RC_NO_UMOUNTS; do
+-		no_umounts_r="$no_umounts_r|$x"
++	local IFS="${IFS}:" x=''
++	for x in ${no_umounts:-} ${RC_NO_UMOUNTS:-}; do
++		no_umounts_r="${no_umounts_r}|${x}"
+ 	done
++	unset x
+ 
+-	if [ "$RC_UNAME" = Linux ]; then
+-		no_umounts_r="$no_umounts_r|/proc|/proc/.*|/run|/sys|/sys/.*"
+-		if [ -e "$rc_svcdir"/usr_premounted ]; then
+-			no_umounts_r="$no_umounts_r|/usr"
++	if [ "${RC_UNAME}" = 'Linux' ]; then
++		no_umounts_r="${no_umounts_r}|/proc|/proc/.*|/var/lock|/var/run|/run"
++		no_umounts_r="${no_umounts_r}|/sys|/sys/.*"
++		if [ -e "${RC_SVCDIR}"/usr_premounted ]; then
++			no_umounts_r="${no_umounts_r}|/usr"
++		fi
++		if [ -e "${RC_SVCDIR}"/var_run_premounted ] ||
++				[ -e "${RC_SVCDIR}"/var_lock_premounted ]
++		then
++			no_umounts_r="${no_umounts_r}|/var"
+ 		fi
+ 	fi
+-	no_umounts_r="^($no_umounts_r)$"
++	no_umounts_r="^(${no_umounts_r})$"
+ 
+ 	# Flush all pending disk writes now
+ 	sync
+ 
+-	. "$RC_LIBEXECDIR"/sh/rc-mount.sh
++	. "${RC_LIBEXECDIR}"/sh/rc-mount.sh
+ 
+-	if [ "$RC_UNAME" = Linux ] && [ -d /sys/fs/aufs ] ; then
++	if [ "${RC_UNAME}" = 'Linux' ] && [ -d /sys/fs/aufs ] ; then
+ 		#if / is aufs we remount it noxino during shutdown
+ 		if mountinfo -q -f '^aufs$' / ; then
+ 			mount -o remount,noxino,rw /
+ 			sync
+ 		fi
+ 
+-		local aufs_branch aufs_mount_point aufs_si_id aufs_br_id branches
++		local aufs_si_dir=''
+ 		for aufs_si_dir in /sys/fs/aufs/si*; do
+ 			[ -d "${aufs_si_dir}" ] || continue
+-			aufs_si_id="si=${aufs_si_dir#/sys/fs/aufs/si_}"
+-			aufs_mount_point="$(mountinfo -o ${aufs_si_id})"
+-			branches="$aufs_si_dir/br[0-9] $aufs_si_dir/br[0-9][0-9] $aufs_si_dir/br[0-9][0-9][0-9]"
+-			for x in $branches; do
++
++			local aufs_si_id='' aufs_mount_point='' branches='' x=''
++			aufs_si_id="si=${aufs_si_dir#"/sys/fs/aufs/si_"}"
++			aufs_mount_point="$( mountinfo -o "${aufs_si_id}" )"
++			branches="${aufs_si_dir}/br[0-9] ${aufs_si_dir}/br[0-9][0-9]"
++			branches="${branches} ${aufs_si_dir}/br[0-9][0-9][0-9]"
++			for x in ${branches}; do
+ 				[ -e "${x}" ] || continue
+-				aufs_branch=$(sed 's/=.*//g' $x)
+-				eindent
+-				if ! mount -o "remount,del:$aufs_branch" "$aufs_mount_point" > /dev/null 2>&1; then
+-					ewarn "Failed to remove branch $aufs_branch from aufs" \
+-					"$aufs_mount_point"
++
++				local aufs_branch=''
++				aufs_branch="$( sed 's/=.*//g' "${x}" )"
++				if ! mount -o "remount,del:${aufs_branch}" \
++						"${aufs_mount_point}" >/dev/null 2>&1
++				then
++					eindent
++					ewarn "Failed to remove branch '${aufs_branch}' from" \
++						"aufs mountpoint '${aufs_mount_point}'"
++					eoutdent
+ 				fi
+-				eoutdent
++				unset aufs_branch
+ 				sync
+ 			done
++			unset x branches aufs_mount_point aufs_si_id
+ 		done
++		unset aufs_si_dir
+ 	fi
+ 
+ 	# Umount loop devices
+ 	einfo "Unmounting loop devices"
+ 	eindent
+-	do_unmount "umount -d" --skip-point-regex "$no_umounts_r" \
++	do_unmount "umount -d" --skip-point-regex "${no_umounts_r}" \
+ 		--node-regex "^/dev/loop"
+ 	eoutdent
+ 
+ 	# Now everything else, except network filesystems as the
+ 	# network should be down by this point.
++	#
+ 	einfo "Unmounting filesystems"
+ 	eindent
+-	local fs=
+-	for x in $net_fs_list $extra_net_fs_list; do
+-		fs="$fs${fs:+|}$x"
++
++	# ... although having said that, we still appear to have NFS mounts
++	# present, so let's deal with those first!
++	#
++	local fs=''
++	for fs in $( mountinfo -f '^nfs$' ); do
++		if mountinfo -q "${fs}"; then
++			ebegin "Unmounting NFS filesystem ${fs} ..."
++			umount --force --lazy "${fs}" 2>/dev/null
++			eend ${?} "umount failed: ${?}"
++		fi
+ 	done
+-	[ -n "$fs" ] && fs="^($fs)$"
+-	do_unmount umount --skip-point-regex "$no_umounts_r" \
+-		"${fs:+--skip-fstype-regex}" $fs --nonetdev
++	for fs in '/tmp'; do
++		if mountinfo -q "${fs}"; then
++			ebegin "Unmounting ${fs} ..."
++			umount --no-mtab --lazy "${fs}" 2>/dev/null
++			eend ${?} "umount failed: ${?}"
++		fi
++	done
++	unset fs
++
++	if [ -e "${RC_SVCDIR}"/var_run_premounted ] ||
++			[ -e "${RC_SVCDIR}"/var_lock_premounted ]
++	then
++		if grep -q -- ' /var ' /proc/self/mounts; then
++			[ -e "${RC_SVCDIR}"/var_run_premounted ] &&
++				_move_mp --pre /var/run
++			[ -e "${RC_SVCDIR}"/var_lock_premounted ] &&
++				_move_mp --pre /var/lock
++
++			# We have to try /really hard/ to ensure that /var is actually
++			# umounted here...
++			#
++			ebegin "Unmounting /var and all dependent mounts"
++			umount --all-targets --recursive /var 2>/dev/null
++			# Skip calling 'umount --force', since it only applies to NFS and
++			# all NFS mounts should have been removed above...
++			#grep -q -- ' /var ' /proc/self/mounts &&
++			#	umount --all-targets --recursive --force /var 2>/dev/null
++			grep -q -- ' /var ' /proc/self/mounts &&
++				umount --all-targets --recursive --lazy /var 2>/dev/null
++			grep -q -- ' /var ' /proc/self/mounts &&
++				umount --all-targets --read-only /var 2>/dev/null
++			#do_unmount umount /var --nonetdev
++
++			if ! grep -q -- ' /var ' /proc/self/mounts; then
++				[ -e "${RC_SVCDIR}"/var_run_premounted ] &&
++					_move_mp --post /var/run
++				[ -e "${RC_SVCDIR}"/var_lock_premounted ] &&
++					_move_mp --post /var/lock
++				eend 0
++			else
++				eend 1 "/var is still mounted - failed to migrate mountpoints:"
++				eindent
++				local x=''
++				grep -- ' /var' /proc/self/mounts | while read -r x; do
++					eerror "${x}"
++				done
++				unset x
++				eoutdent
++			fi
++			_move_mp --clean /var
++		fi
++	fi
++
++	local fs='' x=''
++	for x in ${net_fs_list:-} ${extra_net_fs_list:-}; do
++		fs="${fs:+"${fs}|"}${x}"
++	done
++	unset x
++	[ -n "${fs}" ] && fs="^(${fs})$"
++	do_unmount umount --skip-point-regex "${no_umounts_r}" \
++		"${fs:+"--skip-fstype-regex"}" ${fs} --nonetdev
++	unset fs
++
+ 	eoutdent
+ 
+ 	return 0
+ }
++
++# vi: set sw=4 ts=4:

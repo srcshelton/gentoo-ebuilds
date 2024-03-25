@@ -1,0 +1,281 @@
+--- a/init.d/root.in
++++ b/init.d/root.in
+@@ -21,6 +21,23 @@ depend()
+ start()
+ {
+ 	case ",$(fstabinfo -o /)," in
++		*,remount,*)
++			ebegin "Remounting root filesystem with fstab options"
++			local fsopts=",$(fstabinfo -o /),"
++			fsopts="$(echo "$fsopts" | sed 's/,remount,/,/ ; s/^,// ; s/,$//')"
++			case "$RC_UNAME" in
++				Linux)
++					mount -n -o remount,${fsopts} /
++				;;
++				*)
++					mount -u -o ${fsopts} /
++				;;
++			esac
++			eend $? "Root filesystem could not be remounted"
++			if [ $?  -eq 0 ] && checkpath -W /; then
++				rm -f /fastboot /forcefsck
++			fi
++		;;
+ 		*,ro,*)
+ 		;;
+ 		*)
+@@ -49,7 +66,9 @@ start()
+ 	local mountpoint
+ 	for mountpoint in $(fstabinfo); do
+ 		case "${mountpoint}" in
+-			/*) # Don't remount swap etc.
++			/)
++			;;
++			/*)
+ 				mountinfo -q "${mountpoint}" && \
+ 					fstabinfo --remount "${mountpoint}"
+ 			;;
+--- a/init.d/netmount.in
++++ b/init.d/netmount.in
+@@ -20,7 +20,7 @@ depend()
+ 			*) mywant="$mywant nfsclient"; break ;;
+ 		esac
+ 	done
+-	after root
++	after root net net-online
+  	config /etc/fstab
+ 	want $mywant
+ 	use afc-client amd openvpn
+@@ -70,7 +70,7 @@ stop()
+ 		fs="$fs${fs:+,}$x"
+ 	done
+ 	if [ -n "$fs" ]; then
+-		umount -at $fs || eerror "Failed to simply unmount filesystems"
++		umount -at $fs || veerror "Failed to simply unmount filesystems"
+ 	fi
+ 
+ 	eindent
+--- a/init.d/devfs.in
++++ b/init.d/devfs.in
+@@ -11,131 +11,148 @@
+ 
+ description="Set up the /dev directory"
+ 
+-depend()
+-{
++depend() {
+ 	provide dev-mount
+ 	before dev
+ 	keyword -docker -prefix -systemd-nspawn -vserver
+ }
+ 
+-mount_dev()
+-{
+-	local action conf_d_dir devfstype msg mountopts
++mount_dev() {
++	local action='' conf_d_dir='' devfstype='' msg='' mountopts=''
++
+ 	action='--mount'
+ 	conf_d_dir="${RC_SERVICE%/*/*}/conf.d"
+ 	msg='Mounting'
+ 	# Some devices require exec, https://bugs.gentoo.org/92921
+ 	# Users with such requirements can use an fstab entry for /dev
+ 	mountopts="noexec,nosuid,mode=0755"
+-	if yesno ${skip_mount_dev:-no} ; then
++
++	if yesno "${skip_mount_dev:-"no"}" ; then
+ 		einfo "/dev will not be mounted due to user request"
++
+ 		return 0
+ 	fi
+ 	if mountinfo -q /dev; then
+ 		action='--remount'
+-		mountopts="remount,$mountopts"
++		mountopts="remount${mountopts:+",${mountopts}"}"
+ 		msg='Remounting'
+ 	fi
++
+ 	if fstabinfo -q /dev; then
+-		ebegin "$msg /dev according to fstab"
+-		fstabinfo -q $action /dev
+-		eend $?
+-		return 0
++		ebegin "${msg} /dev according to fstab"
++		fstabinfo -q ${action} /dev
++		eend ${?}
++
++		return ${?}
+ 	fi
+ 
+ 	if grep -q devtmpfs /proc/filesystems; then
+-		devfstype=devtmpfs
+-		mountopts="$mountopts,size=1M"
++		devfstype='devtmpfs'
++		mountopts="${mountopts},size=${devfs_size:-1M}"
+ 	elif grep -q tmpfs /proc/filesystems; then
+-		devfstype=tmpfs
+-		mountopts="$mountopts,size=1M"
++		devfstype='tmpfs'
++		mountopts="${mountopts},size=${devfs_size:-1M}"
+ 	fi
+-	if [ -n "$devfstype" ]; then
+-		ebegin "$msg $devfstype on /dev"
+-		mount -n -t "$devfstype" dev /dev -o "$mountopts"
+-		eend $?
+-	else
+-		ewarn "This kernel does not have devtmpfs or tmpfs support, and there"
+-		ewarn "is no entry for /dev in fstab."
+-		ewarn "This means /dev will not be mounted."
+-		ewarn "To avoid this message, set CONFIG_DEVTMPFS or CONFIG_TMPFS to y"
+-		ewarn "in your kernel configuration or see ${conf_d_dir}/${RC_SVCNAME}"
++	if [ -n "${devfstype}" ]; then
++		ebegin "${msg} ${devfstype} on /dev"
++		mount -n -t "${devfstype}" devtmpfs /dev -o "${mountopts}"
++		eend ${?}
++
++		return ${?}
+ 	fi
+-	return 0
++
++	ewarn "This kernel does not have devtmpfs or tmpfs support, and there"
++	ewarn "is no entry for /dev in fstab."
++	ewarn "This means /dev will not be mounted."
++	ewarn "To avoid this message, set CONFIG_DEVTMPFS or CONFIG_TMPFS to 'y'"
++	ewarn "in your kernel configuration or see ${conf_d_dir}/${RC_SVCNAME}"
++
++	return 1
+ }
+ 
+-seed_dev()
+-{
++seed_dev() {
++	local fs=''
++
+ 	# Seed /dev with some things that we know we need
+ 
+ 	if [ "${RC_SYS}" != LXC ]; then
+-		# creating /dev/console, /dev/tty and /dev/tty1 to be able to write
+-		# to $CONSOLE with/without bootsplash before udevd creates it
++		# creating /dev/console, /dev/tty and /dev/tty1 to be able to
++		# write to $CONSOLE with/without bootsplash before udevd
++		# creates it
+ 		[ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
+-		[ -c /dev/tty1 ] || mknod -m 620 /dev/tty1 c 4 1
+-		[ -c /dev/tty ] || mknod -m 666 /dev/tty c 5 0
++		[ -c /dev/tty1    ] || mknod -m 620 /dev/tty1    c 4 1
++		[ -c /dev/tty     ] || mknod -m 666 /dev/tty     c 5 0
+ 
+ 		# udevd will dup its stdin/stdout/stderr to /dev/null
+ 		# and we do not want a file which gets buffered in ram
+-		[ -c /dev/null ] || mknod -m 666 /dev/null c 1 3
++		[ -c /dev/null    ] || mknod -m 666 /dev/null    c 1 3
+ 
+ 		# so udev can add its start-message to dmesg
+-		[ -c /dev/kmsg ] || mknod -m 660 /dev/kmsg c 1 11
++		[ -c /dev/kmsg    ] || mknod -m 660 /dev/kmsg    c 1 11
+ 	fi
+ 
+ 	# extra symbolic links not provided by default
+-	[ -e /dev/fd ] || ln -snf /proc/self/fd /dev/fd
+-	[ -e /dev/stdin ] || ln -snf /proc/self/fd/0 /dev/stdin
+-	[ -e /dev/stdout ] || ln -snf /proc/self/fd/1 /dev/stdout
+-	[ -e /dev/stderr ] || ln -snf /proc/self/fd/2 /dev/stderr
+-	[ -e /proc/kcore ] && ln -snf /proc/kcore /dev/core
++	[ -e /dev/fd      ] || ln -snf /proc/self/fd    /dev/fd
++	[ -e /dev/stdin   ] || ln -snf /proc/self/fd/0  /dev/stdin
++	[ -e /dev/stdout  ] || ln -snf /proc/self/fd/1  /dev/stdout
++	[ -e /dev/stderr  ] || ln -snf /proc/self/fd/2  /dev/stderr
++	[ -e /proc/kcore  ] && ln -snf /proc/kcore      /dev/core
+ 
+ 	# Mount required directories as user may not have them in /etc/fstab
+ 	for x in \
+-		"mqueue /dev/mqueue 1777 ,nodev mqueue" \
+-		"devpts /dev/pts 0755 ,gid=5,mode=0620,ptmxmode=0666 devpts" \
+-		"tmpfs /dev/shm 1777 ,nodev,mode=1777 shm" \
+-	; do
+-		set -- $x
++		'mqueue  /dev/mqueue  1777  ,nodev                          mqueue' \
++		'devpts  /dev/pts     0755  ,gid=5,mode=0620,ptmxmode=0666  devpts' \
++		'tmpfs   /dev/shm     1777  ,nodev,mode=1777                shm'
++	#    ${1}    ${2}         ${3}  ${4}                            ${5}
++	do
++		set -- ${x}
+ 		grep -q "\s\+${1}$" /proc/filesystems || continue
+-		mountinfo -q $2 && continue
++		mountinfo -q "${2}" && continue
+ 
+-		if [ ! -d $2 ]; then
+-			mkdir -m $3 -p $2 >/dev/null 2>&1 || \
+-				ewarn "Could not create $2!"
++		if [ ! -d "${2}" ]; then
++			mkdir -m "${3}" -p "${2}" >/dev/null 2>&1 ||
++				ewarn "Could not create system mount-point" \
++					"directory '${2}': ${?}"
+ 		fi
+ 
+-		if [ -d $2 ]; then
+-			ebegin "Mounting $2"
+-			if ! fstabinfo --mount $2; then
+-				mount -n -t $1 -o noexec,nosuid$4 $5 $2
++		if [ -d "${2}" ]; then
++			fs="${5}"
++			if [[ "${1}" == 'tmpfs' && "${5}" != 'tmpfs' ]]; then
++				fs="${5}tmpfs"
+ 			fi
+-			eend $?
++			ebegin "Mounting ${2}"
++			if ! fstabinfo --mount "${2}"; then
++				mount -n -t "${1}" -o "noexec,nosuid${4}" "${fs}" "${2}"
++			fi
++			eend ${?} "Failed to mount '${5}' on '${2}': ${?}"
+ 		fi
+ 	done
+-	[ -e /dev/pts/ptmx ] && \
+-		[ ! -L /dev/ptmx ] && \
+-		ln -s pts/ptmx /dev/ptmx.new && \
+-		{
+-			mv /dev/ptmx.new /dev/ptmx || rm /dev/ptmx.new
+-		}
++
++	if [ -e /dev/pts/ptmx ] && [ ! -L /dev/ptmx ]; then
++		if ln -s pts/ptmx /dev/ptmx.new; then
++			mv /dev/ptmx.new /dev/ptmx
++		else
++			rm /dev/ptmx.new
++		fi
++	fi
+ }
+ 
+-restorecon_dev()
+-{
++restorecon_dev() {
+ 	if [ -x /sbin/restorecon ]; then
+ 		ebegin "Restoring SELinux contexts in /dev"
+ 		restorecon -rF /dev >/dev/null 2>&1
+-		eend $?
++		eend ${?} "restorecon failed: ${?}"
+ 	fi
+ 
+ 	return 0
+ }
+ 
+-start()
+-{
++start() {
+ 	mount_dev
+ 	seed_dev
+ 	restorecon_dev
++
+ 	return 0
+ }
++
++# vi: set sw=4 ts=4 ft=sh:
+--- a/conf.d/devfs
++++ b/conf.d/devfs
+@@ -6,3 +6,6 @@
+ #
+ # Set this to yes if you do not want OpenRC to attempt to mount /dev.
+ # skip_mount_dev="NO"
++
++# How large should the (dev)tmpfs mount be?
++devfs_size="4M"

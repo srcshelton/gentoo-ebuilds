@@ -1,0 +1,210 @@
+--- a/init.d/net-online.in
++++ b/init.d/net-online.in
+@@ -11,67 +11,127 @@
+ 
+ description="Delays until the network is online or a specific timeout"
+ 
+-depend()
+-{
++depend() {
+ 	after modules net
+ 	need sysfs
+ 	provide network-online
+ 	keyword -docker -jail -lxc -openvz -prefix -systemd-nspawn -uml -vserver
+ }
+ 
+-get_interfaces()
+-{
+-	local ifname iftype
++get_interfaces() {
++	local ifname='' iftype=''
++
+ 	for ifname in /sys/class/net/*; do
+ 		[ -h "${ifname}" ] || continue
+-		read iftype < ${ifname}/type
+-		[ "$iftype" = "1" ] && printf "%s " ${ifname##*/}
++
++		read -r iftype < "${ifname}/type"
++		[ "${iftype}" = '1' ] &&
++			printf "%s " "${ifname##*"/"}"
+ 	done
+ }
+ 
+-start ()
+-{
+-	local carriers configured dev gateway ifcount infinite
+-	local carrier operstate rc
++start () {
++	#extern interfaces include_ping_test ping_test_host timeout
++	local dev='' infinite='false' carrier='' operstate=''
++	local carriers=0 configured=0 ifcount=0 rc=0 rc4=0 rc6=0 stop=0
+ 
+-	ebegin "Checking to see if the network is online"
+-	rc=0
+-	interfaces=${interfaces:-$(get_interfaces)}
++	interfaces="${interfaces:-"$( get_interfaces )"}"
+ 	timeout=${timeout:-120}
+- [ $timeout -eq 0 ] && infinite=true || infinite=false
+- while $infinite || [ $timeout -gt 0 ]; do
+-	carriers=0
+-	configured=0
+-	ifcount=0
+- 	for dev in ${interfaces}; do
+-		: $((ifcount += 1))
+-		read carrier < /sys/class/net/$dev/carrier 2> /dev/null ||
+-			carrier=
+-		[ "$carrier" = 1 ] && : $((carriers += 1))
+-		read operstate < /sys/class/net/$dev/operstate 2> /dev/null ||
+-			operstate=
+-		[ "$operstate" = up ] && : $((configured += 1))
+-	done
+-	[ $configured -eq $ifcount ] && [ $carriers -ge 1 ] && break
+-	sleep 1
+-	: $((timeout -= 1))
+- done
+- ! $infinite && [ $timeout -eq 0 ] && rc=1
+- include_ping_test=${include_ping_test:-${ping_default_gateway}}
+- if [ -n "${ping_default_gateway}" ]; then
+- ewarn "ping_default_gateway is deprecated, please use include_ping_test"
+- fi
+- if [ $rc -eq 0 ] && yesno ${include_ping_test:-no}; then
+- 	ping_test_host="${ping_test_host:-google.com}"
+- 	if [ -n "$ping_test_host" ]; then
+-		while $infinite || [ $timeout -gt 0 ]; do
+-			ping -c 1 $ping_test_host > /dev/null 2>&1
+-			rc=$?
+-			[ $rc -eq 0 ] && break
+-			sleep 1
+-			: $((timeout -= 1))
++
++	[ $((timeout)) -eq 0 ] &&
++		infinite='true'
++
++	ebegin "Checking to see if the network is online"
++
++	while ${infinite} || [ $((timeout)) -gt 0 ]; do
++		carriers=0
++		configured=0
++		ifcount=0
++		for dev in ${interfaces}; do
++			if [ -d "/sys/class/net/${dev}" ]; then
++				: $((ifcount += 1))
++				read -r carrier <"/sys/class/net/${dev}/carrier" 2>/dev/null ||
++					carrier=''
++				[ "${carrier}" = '1' ] &&
++					: $((carriers += 1))
++				read -r operstate <"/sys/class/net/${dev}/operstate" 2>/dev/null ||
++					operstate=''
++				[ "${operstate}" = 'up' ] &&
++					: $((configured += 1))
++			fi
+ 		done
++		[ $((configured)) -eq ${ifcount} ] &&
++			[ $((carriers)) -ge 1 ] &&
++				break
++		sleep 1
++		: $((timeout -= 1))
++	done
++
++	! ${infinite} && [ $((timeout)) -eq 0 ] &&
++		rc=1
++	[ $((rc)) -eq 0 ] &&
++		einfo "Network interface(s) '${interfaces}' report operational" \
++			"state 'up'"
++
++	include_ping_test="${include_ping_test:-"${ping_default_gateway}"}"
++	if [ -n "${ping_default_gateway:-}" ]; then
++		ewarn "ping_default_gateway is deprecated, please use" \
++			"include_ping_test"
++	fi
++	if [ $((rc)) -eq 0 ] && yesno "${include_ping_test:-"no"}"; then
++		ping_test_host="${ping_test_host:-"google.com"}"
++		if [ -n "${ping_test_host:-}" ]; then
++			stop=0
++			while ${infinite} || [ $((timeout)) -gt 0 ]; do
++				if ! [ $((stop & 1)) -eq 1 ]; then
++					ping -c 1 -4 "${ping_test_host}" >/dev/null 2>&1
++					rc4=${?}
++					if [ $((rc4)) -eq 0 ]; then
++						eindent
++						einfo "IPv4 networking is" \
++							"online"
++						eoutdent
++						: $((stop |= 1))
++					fi
++				fi
++
++				if ! [ $((stop & 2)) -eq 2 ]; then
++					ping -c 1 -6 "${ping_test_host}" >/dev/null 2>&1
++					rc6=${?}
++					if [ $((rc6)) -eq 0 ]; then
++						eindent
++						einfo "IPv6 networking is" \
++							"online"
++						eoutdent
++						: $((stop |= 2))
++					fi
++				fi
++
++				[ $((stop)) -eq 3 ] &&
++					break
++				sleep 1
++				: $((timeout -= 1))
++			done
++		fi
++	fi
++	eindent
++	if [ $((rc4)) -ne 0 ]; then
++		if yesno "${want_online_ipv4:-"yes"}"; then
++			eerror "IPv4 networking is offline"
++		else
++			ewarn "IPv4 networking is offline"
++			rc4=0
++		fi
++	fi
++	if [ $((rc6)) -ne 0 ]; then
++		if yesno "${want_online_ipv6:-"yes"}"; then
++			eerror "IPv6 networking is offline"
++		else
++			ewarn "IPv6 networking is offline"
++			rc6=0
++		fi
+ 	fi
+- fi
+- eend $rc "The network is offline"
++	eoutdent
++	: $((rc = rc4 + rc6 + rc))
++	eend ${rc} "The network is offline"
+ }
+--- a/conf.d/net-online
++++ b/conf.d/net-online
+@@ -1,18 +1,26 @@
+-# The interfaces setting controls which interfaces the net-online
++# The 'interfaces' setting controls which interfaces the net-online
+ # service considers in deciding whether the network is active. The
+ # default is all interfaces that support ethernet.
+ #interfaces=""
+ 
+ # This setting controls whether a ping test is included in the test for
+ # network connectivity after all interfaces are active.
+-#include_ping_test=no
++#include_ping_test="no"
+ 
+ # This setting is the host to attempt to ping if the above is yes.
+ # The default is google.com.
+-#ping_test_host=some.host.name
++#ping_test_host="some.host.name"
+ 
+ # The timeout setting controls how long the net-online service waits
+ # for the network to be configured.
+ # The default is 120 seconds.
+ # if this is set to 0, the wait is infinite.
+ #timeout=120
++
++# Does IPv4 networking need to be running in order for this service to
++# start successfully?
++#want_online_ipv4="yes"
++
++# Does IPv6 networking need to be running in order for this service to
++# start successfully?
++#want_online_ipv6="yes"
