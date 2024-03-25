@@ -13,10 +13,10 @@ if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/aardvark-dns.git"
 else
-	SRC_URI="https://github.com/containers/aardvark-dns/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz
-		${CARGO_CRATE_URIS}"
+	SRC_URI="${CARGO_CRATE_URIS}
+		https://github.com/containers/aardvark-dns/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
 	RESTRICT="mirror"
-	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 fi
 
 LICENSE="0BSD Apache-2.0 Apache-2.0-with-LLVM-exceptions MIT Unlicense Unicode-DFS-2016 ZLIB"
