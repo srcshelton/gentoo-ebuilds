@@ -244,6 +244,10 @@ src_install() {
 	newdoc README README.download
 	cd doc || die
 	dodoc HOWTO README* WISHLIST *.txt
+
+	if use elibc_musl; then
+		QA_CONFIG_IMPL_DECL_SKIP+=( sgetsgent )
+	fi
 }
 
 pkg_preinst() {
