@@ -25,20 +25,23 @@ HOMEPAGE="https://github.com/eudev-project/eudev"
 
 LICENSE="LGPL-2.1 MIT GPL-2"
 SLOT="0"
-IUSE="+kmod rule-generator selinux static-libs test"
+IUSE="+init +kmod rule-generator selinux static-libs test"
 RESTRICT="!test? ( test )"
 
-DEPEND="
+COMMON_DEPEND="
 	>=sys-apps/util-linux-2.20
-	|| ( >=sys-kernel/raspberrypi-headers-${KV_MIN} >=sys-kernel/linux-headers-${KV_MIN} )
 	virtual/libcrypt:=
 	kmod? ( >=sys-apps/kmod-16 )
 	selinux? ( >=sys-libs/libselinux-2.1.9 )
 	!sys-apps/gentoo-systemd-integration
 	!sys-apps/systemd
 "
+DEPEND="
+	${COMMON_DEPEND}
+	|| ( >=sys-kernel/raspberrypi-headers-${KV_MIN} >=sys-kernel/linux-headers-${KV_MIN} )
+"
 RDEPEND="
-	${DEPEND}
+	${COMMON_DEPEND}
 	acct-group/audio
 	acct-group/cdrom
 	acct-group/dialout
@@ -69,7 +72,7 @@ BDEPEND="
 		dev-lang/perl
 	)
 "
-PDEPEND=">=sys-fs/udev-init-scripts-26"
+PDEPEND="init? ( >=sys-fs/udev-init-scripts-26 )"
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/udev.h
@@ -89,9 +92,13 @@ pkg_pretend() {
 }
 
 pkg_setup() {
-	CONFIG_CHECK="~BLK_DEV_BSG ~DEVTMPFS ~!IDE ~INOTIFY_USER ~!SYSFS_DEPRECATED ~!SYSFS_DEPRECATED_V2 ~SIGNALFD ~EPOLL ~FHANDLE ~NET ~UNIX"
+	CONFIG_CHECK="~BLK_DEV_BSG ~DEVTMPFS ~INOTIFY_USER ~SIGNALFD ~EPOLL ~FHANDLE ~NET ~UNIX" # ~!IDE
 	linux-info_pkg_setup
 	get_running_version
+
+	if kernel_is lt 6.4.0; then
+		CONFIG_CHECK="${CONFIG_CHECK} ~!SYSFS_DEPRECATED ~!SYSFS_DEPRECATED_V2"
+	fi
 
 	# These are required kernel options, but we don't error out on them
 	# because you can build under one kernel and run under another.
