@@ -21,6 +21,10 @@ packages and miscellaneous fixes.
 * net-dns/bind
 * net-libs/glib-networking
 
+# Fixes to reduce/disable parallelism on low-memory systems
+
+* net-libs/libtorrent-rasterbar
+
 # Raspberry Pi tools and utilities
 
 * dev-python/raspberrypi-gpio
