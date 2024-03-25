@@ -19,26 +19,22 @@ fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completion +fuse +init +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs experimental fish-completion +fuse +init +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	app-crypt/gpgme:=
 	>=app-containers/conmon-2.0.24
 	>=app-containers/containers-common-0.56.0
+	app-containers/crun
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	|| (
-		>=app-containers/netavark-1.6.0[dns]
-		>=app-containers/cni-plugins-0.8.6
-	)
+	>=app-containers/netavark-1.6.0[dns]
 	sys-apps/shadow:=
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
-	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
-	!cgroup-hybrid? ( app-containers/crun )
-	rootless? ( || ( app-containers/slirp4netns app-containers/passt ) )
+	rootless? ( app-containers/passt )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "
