@@ -5,8 +5,9 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..12} )
 
-inherit bash-completion-r1 check-reqs estack flag-o-matic llvm multiprocessing \
-	multilib multilib-build python-any-r1 rust-toolchain toolchain-funcs verify-sig
+PARALLEL_MEMORY_MIN=4
+
+inherit bash-completion-r1 check-reqs estack flag-o-matic llvm multilib multilib-build multiprocessing python-any-r1 rust-toolchain toolchain-funcs verify-sig
 
 if [[ ${PV} = *beta* ]]; then
 	betaver=${PV//*beta}
@@ -298,6 +299,30 @@ src_prepare() {
 
 src_configure() {
 	filter-lto # https://bugs.gentoo.org/862109 https://bugs.gentoo.org/866231
+
+	if (( ( $( # <- Syntax
+			head /proc/meminfo |
+				grep -m 1 '^MemAvailable:' |
+				awk '{ print $2 }'
+		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
+	then
+		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
+			ewarn "make.conf or environment contains parallel build directive,"
+			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
+		fi
+		ewarn "Lowering make parallelism for low-memory build-host ..."
+		if ! [[ -n "${MAKEOPTS:-}" ]]; then
+			export MAKEOPTS='-j1'
+		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
+			export MAKEOPTS="-j1 ${MAKEOPTS}"
+		else
+			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
+		fi
+		if test-flag-CCLD '-Wl,--no-keep-memory'; then
+			ewarn "Instructing 'ld' to use less memory ..."
+			append-ldflags '-Wl,--no-keep-memory'
+		fi
+	fi
 
 	local rust_target="" rust_targets="" arch_cflags
 
