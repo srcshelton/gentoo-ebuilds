@@ -5,14 +5,14 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..11} )
 
-inherit bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
+inherit autotools bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
 MY_PV="${PV/_/-}"
 MY_P="${PN}-${MY_PV}"
 
 if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git"
-	inherit autotools git-r3
+	inherit git-r3
 else
 	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/karelzak.asc
 	inherit verify-sig
@@ -138,8 +138,12 @@ src_prepare() {
 	default
 
 	sed \
+			-e '/lockpath/s|/run/fsck/|/var/lock/fsck|' \
+			-i disk-utils/fsck.c \
+		|| die
+	sed \
 			-e 's|/run|/var/run|' \
-			-i sys-utils/switch_root.c \
+			-i libblkid/src/blkidP.h libmount/src/mountP.h misc-utils/blkid.8* sys-utils/switch_root.* term-utils/agetty.8 \
 		|| die
 	sed \
 			-e 's|/run/|/var/run/| ; s|/var/var/run/|/var/run/|' \
