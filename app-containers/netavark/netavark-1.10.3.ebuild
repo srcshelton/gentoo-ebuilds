@@ -14,12 +14,10 @@ if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/netavark.git"
 else
-	SRC_URI="
-		https://github.com/containers/netavark/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz
-		${CARGO_CRATE_URIS}
-	"
+	SRC_URI="${CARGO_CRATE_URIS}
+		https://github.com/containers/netavark/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
 	RESTRICT="mirror"
-	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 fi
 LICENSE="Apache-2.0 Apache-2.0-with-LLVM-exceptions BSD BSD-2 Boost-1.0 MIT Unicode-DFS-2016 Unlicense ZLIB"
 SLOT="0"
