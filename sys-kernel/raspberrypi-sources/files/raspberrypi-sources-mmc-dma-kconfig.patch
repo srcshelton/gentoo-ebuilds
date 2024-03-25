@@ -1,0 +1,11 @@
+--- a/drivers/mmc/host/Kconfig
++++ b/drivers/mmc/host/Kconfig
+@@ -26,7 +26,7 @@ config MMC_BCM2835_DMA
+ 
+ config MMC_BCM2835_PIO_DMA_BARRIER
+ 	int "Block count limit for PIO transfers"
+-	depends on MMC_BCM2835_MMC && MMC_BCM2835_DMA
++	depends on MMC_BCM2835_MMC
+ 	range 0 256
+ 	default 2
+ 	help

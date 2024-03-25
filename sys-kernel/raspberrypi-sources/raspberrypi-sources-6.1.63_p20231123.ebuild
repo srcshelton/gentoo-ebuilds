@@ -46,7 +46,11 @@ REQUIRED_USE="
 	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
 "
 
-PATCHES=( "${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch" )
+PATCHES=(
+	"${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch"
+	"${FILESDIR}/${PN}-mmc-dma-kconfig.patch"
+	"${FILESDIR}/${PN}-pcie-brcmstb.c.patch"
+)
 
 S="${WORKDIR}/linux-${MY_PV}"
 
