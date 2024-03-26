@@ -6,11 +6,13 @@ EAPI=8
 # Dropped these because blank as of 3.02
 #PLOCALES="de es fi fr hu id pl"
 PLOCALES="de es fr pl"
-inherit flag-o-matic plocale toolchain-funcs
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/sysvinit.asc
+inherit flag-o-matic plocale toolchain-funcs verify-sig
 
 DESCRIPTION="/sbin/init - parent of all processes"
 HOMEPAGE="https://github.com/slicer69/sysvinit/tree/3.09"
-SRC_URI="https://github.com/slicer69/sysvinit/archive/refs/heads/3.09.tar.gz -> ${P}.tar.gz"
+SRC_URI="https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz
+	verify-sig? ( https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz.sig )"
 S="${WORKDIR}/${P/_*}"
 
 LICENSE="GPL-2"
@@ -39,7 +41,10 @@ RDEPEND="
 	selinux? ( sec-policy/selinux-shutdown )
 "
 # po4a is for man page translations
-BDEPEND="nls? ( app-text/po4a )"
+BDEPEND="
+	nls? ( app-text/po4a )
+	verify-sig? ( >=sec-keys/openpgp-keys-sysvinit-20220413 )
+"
 
 PATCHES=(
 	# bug #158615
