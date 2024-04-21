@@ -5,23 +5,23 @@
 
 # add zeros to device or bus
 add_zeros () {
-	case "$( echo "${1:-}" | wc -L )" in
-		1)	echo "00${1}" ;;
-		2)	echo "0${1}" ;;
-		*)	echo "${1:-}"
+	case "$(echo "$1" | wc -L)" in
+		1)	echo "00$1" ;;
+		2)	echo "0$1" ;;
+		*)	echo "$1"
 	esac
 	exit 0
 }
 
 
 # bus and device dirs in /sys
-USB_PATH="$( echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).[0-9]/usb\1/' )"
-USB_PATH="$( find /sys/devices -type d -name "${USB_PATH}" )"
-USB_DEV_DIR="$( echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).\([0-9]\)/\1-\2/' )"
+USB_PATH=$(echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).[0-9]/usb\1/')
+USB_PATH=$(find /sys/devices -type d -name "${USB_PATH}")
+USB_DEV_DIR=$(echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).\([0-9]\)/\1-\2/')
 
 # dir names in /dev
-BUS="$( add_zeros "$( echo "${MDEV}" | sed -e 's/^usbdev\([0-9]\).[0-9]/\1/' )" )"
-USB_DEV="$( add_zeros "$( echo "${MDEV}" | sed -e 's/^usbdev[0-9].\([0-9]\)/\1/' )" )"
+BUS=$(add_zeros "$(echo "${MDEV}" | sed -e 's/^usbdev\([0-9]\).[0-9]/\1/')")
+USB_DEV=$(add_zeros "$(echo "${MDEV}" | sed -e 's/^usbdev[0-9].\([0-9]\)/\1/')")
 
 
 # try to load the proper driver for usb devices
@@ -46,7 +46,7 @@ case "${ACTION}" in
 		if [ -d "${USB_PATH}/${USB_DEV_DIR}" ]; then
 			for i in "${USB_PATH}/${USB_DEV_DIR}"/*/modalias ; do
 				modprobe -r "$(cat "$i")" 2>/dev/null
-			done
+		done
 		fi
 		# unload usb bus driver. Does this make sense?
 		# what happens, if two usb devices are plugged in

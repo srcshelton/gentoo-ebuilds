@@ -22,14 +22,12 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-2" # GPL-2 only
 SLOT="0"
-IUSE="debug doc examples livecd make-symlinks math mdev -pam selinux sep-usr static syslog systemd"
-# FIXME: Cheat a bit here - skip this test when rebuilding stage3, which we'll
-#        re-use the 'livecd' flag to indicate!
-REQUIRED_USE="!livecd? ( pam? ( !static ) )"
+IUSE="debug livecd make-symlinks math mdev pam selinux sep-usr static syslog systemd"
+REQUIRED_USE="pam? ( !static )"
 RESTRICT="test"
 
 # TODO: Could make pkgconfig conditional on selinux? bug #782829
-COMMON_DEPEND="
+RDEPEND="
 	!static? (
 		virtual/libc
 		virtual/libcrypt:=
@@ -37,14 +35,16 @@ COMMON_DEPEND="
 	)
 	pam? ( sys-libs/pam )
 "
-DEPEND="${COMMON_DEPEND}
+DEPEND="${RDEPEND}
 	static? (
 		virtual/libcrypt[static-libs]
 		selinux? ( sys-libs/libselinux[static-libs(+)] )
 	)
-	virtual/os-headers"
-BDEPEND="virtual/pkgconfig"
-RDEPEND="${COMMON_DEPEND}"
+	sys-kernel/linux-headers
+"
+BDEPEND="
+	virtual/pkgconfig
+"
 
 DISABLE_AUTOFORMATTING=yes
 DOC_CONTENTS='
@@ -64,7 +64,10 @@ busybox_config_option() {
 		*) expr="s:.*\<CONFIG_$1\>.*:CONFIG_$1=${flag}:g" ;;
 		esac
 		sed -i -e "${expr}" .config || die
-		einfo "$(grep "CONFIG_$1[= ]" .config || echo "Could not find CONFIG_$1 ...")"
+		einfo "$( # <- Syntax
+			grep "CONFIG_$1[= ]" .config ||
+				echo "Could not find CONFIG_$1 ..."
+		)"
 		shift
 	done
 }
@@ -78,6 +81,7 @@ busybox_config_enabled() {
 	esac
 }
 
+# patches go here!
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.26.2-bb.patch
 	"${FILESDIR}"/${PN}-1.34.1-skip-selinux-search.patch
@@ -112,13 +116,6 @@ src_prepare() {
 
 	# Print all link lines too
 	sed -i -e 's:debug=false:debug=true:' scripts/trylink || die
-
-	# Enable additional debugging output for mdev...
-	if use debug; then
-		sed \
-			-e 's:^#define DEBUG_LVL 2$:#define DEBUG_LVL 3:' \
-			-i util-linux/mdev.c || die "Unable to increase mdev debug level"
-	fi
 }
 
 src_configure() {
@@ -150,7 +147,6 @@ src_configure() {
 	busybox_config_option n BUILD_LIBBUSYBOX
 	busybox_config_option n FEATURE_CLEAN_UP
 	busybox_config_option n MONOTONIC_SYSCALL
-	busybox_config_option n START_STOP_DAEMON # busybox SSD is not compatible with Gentoo SSD...
 	busybox_config_option n USE_PORTABLE_CODE
 	busybox_config_option n WERROR
 	# CONFIG_MODPROBE_SMALL=y disables depmod.c and uses a smaller one that
@@ -171,18 +167,15 @@ src_configure() {
 	# calls its applets by default without looking up in PATH.
 	# This also enables users to disable a builtin by deleting the
 	# corresponding symlink.
-	# FEATURE_SH_STANDALONE requires FEATURE_PREFER_APPLETS, and causes
-	# busybox to exec /proc/self/exe where possible.
-	# If FEATURE_PREFER_APPLETS is enabled then busybox will always use its own
-	# applets instead of any on-disk binary, resulting in a loss of
-	# compatibililty in sed, mount, and others - which breaks things in
-	# entirely non-obvious ways, especially since there's no way to detect
-	# that this is the case :(
-	#
-	#if use make-symlinks; then
+	if use make-symlinks; then
 		busybox_config_option n FEATURE_PREFER_APPLETS
-		busybox_config_option n FEATURE_SH_STANDALONE
-	#fi
+		#busybox_config_option n FEATURE_SH_STANDALONE
+	fi
+
+	# Furthermore, app-alternatives/sh blocks busybox built with
+	# FEATURE_SH_STANDALONE from being used as system bin/sh - so let's just
+	# disable it completely!
+	busybox_config_option n FEATURE_SH_STANDALONE
 
 	# If these are not set and we are using a busybox setup
 	# all calls to system() will fail.
@@ -194,7 +187,7 @@ src_configure() {
 	busybox_config_option '"/var/run"' PID_FILE_PATH
 	busybox_config_option '"/var/run/ifstate"' IFUPDOWN_IFSTATE_PATH
 
-	busybox_config_option $(usex static n pam) PAM
+	busybox_config_option pam PAM
 	busybox_config_option static STATIC
 	busybox_config_option syslog {K,SYS}LOGD LOGGER
 	busybox_config_option systemd FEATURE_SYSTEMD
@@ -270,33 +263,24 @@ src_install() {
 		dosym busybox /bin/bb
 	fi
 	if use mdev ; then
-		# Don't use get_libdir for mdev scripts...
-		#dodir /$(get_libdir)/mdev/
-		dodir /lib/mdev/
+		dodir /$(get_libdir)/mdev/
 		use make-symlinks || dosym /bin/bb /sbin/mdev
-		#cp "${S}"/examples/mdev_fat.conf "${ED}"/etc/mdev.conf || die
-		#if [[ ! "$(get_libdir)" == "lib" ]]; then
-		#	#831251 - replace lib with lib64 where appropriate
-		#	sed -i -e "s:/lib/:/$(get_libdir)/:g" "${ED}"/etc/mdev.conf || die
-		#fi
-		cp "${FILESDIR}"/mdev.conf "${ED}"/etc/mdev.conf
-		newdoc "${S}"/examples/mdev_fat.conf mdev.conf || die
+		cp "${S}"/examples/mdev_fat.conf "${ED}"/etc/mdev.conf || die
+		if [[ ! "$(get_libdir)" == "lib" ]]; then
+			#831251 - replace lib with lib64 where appropriate
+			sed -i -e "s:/lib/:/$(get_libdir)/:g" "${ED}"/etc/mdev.conf || die
+		fi
 
-		# Don't use get_libdir for mdev scripts...
-		#exeinto /$(get_libdir)/mdev/
-		exeinto /lib/mdev/
+		exeinto /$(get_libdir)/mdev/
 		doexe "${FILESDIR}"/mdev/*
 
 		newinitd "${FILESDIR}"/mdev.initd mdev
-
-		insinto /etc/logrotate.d
-		newins "${FILESDIR}/mdev.logrotate" mdev
 	fi
 	if use livecd ; then
 		dosym busybox /bin/vi
 	fi
 
-	# add busybox daemons, bug #444718
+	# add busybox daemon's, bug #444718
 	if busybox_config_enabled FEATURE_NTPD_SERVER; then
 		newconfd "${FILESDIR}"/ntpd.confd busybox-ntpd
 		newinitd "${FILESDIR}"/ntpd.initd busybox-ntpd
@@ -314,7 +298,8 @@ src_install() {
 		newinitd "${FILESDIR}"/watchdog.initd busybox-watchdog
 	fi
 	if busybox_config_enabled UDHCPC; then
-		sed -i 's:$((metric++)):$metric; metric=$((metric + 1)):' examples/udhcp/simple.script || die #801535
+		sed -e 's:$((metric++)):$metric; metric=$((metric + 1)):' \
+			-i examples/udhcp/simple.script || die #801535
 		local path=$(busybox_config_enabled UDHCPC_DEFAULT_SCRIPT)
 		exeinto "${path%/*}"
 		newexe examples/udhcp/simple.script "${path##*/}"
@@ -331,113 +316,56 @@ src_install() {
 		newinitd "${FILESDIR}"/crond.initd busybox-crond
 	fi
 
-	if use make-symlinks; then
-		# bundle up the symlink files for use later
-		emake DESTDIR="${ED}" install
-		# for compatibility, provide /usr/bin/env
-		mkdir -p _install/usr/bin || die
-		if [[ ! -e _install/usr/bin/env ]]; then
-			ln -s /bin/env _install/usr/bin/env || die
-		fi
-		rm _install/bin/busybox || die
-		tar cf busybox-links.tar -C _install . || die
-		insinto /usr/share/${PN}
-		doins busybox-links.tar
+	# bundle up the symlink files for use later
+	emake DESTDIR="${ED}" install
+	# for compatibility, provide /usr/bin/env
+	mkdir -p _install/usr/bin || die
+	if [[ ! -e _install/usr/bin/env ]]; then
+		ln -s /bin/env _install/usr/bin/env || die
 	fi
+	rm _install/bin/busybox || die
+	tar cf busybox-links.tar -C _install . || : #;die
+	insinto /usr/share/${PN}
+	use make-symlinks && doins busybox-links.tar
 
-	dodoc README
-	use doc && dodoc AUTHORS TODO
+	dodoc AUTHORS README TODO
 
 	cd docs || die
 	doman busybox.1
-	if use doc; then
-		docinto txt
-		dodoc *.txt
-		docinto pod
-		dodoc *.pod
-		docinto html
-		dodoc *.html
-	fi
+	docinto txt
+	dodoc *.txt
+	docinto pod
+	dodoc *.pod
+	docinto html
+	dodoc *.html
 
-	if use examples; then
-		cd ../examples || die
-		docinto examples
-		dodoc inittab depmod.pl *.conf *.script undeb unrpm
+	cd ../examples || die
+	docinto examples
+	dodoc inittab depmod.pl *.conf *.script undeb unrpm
 
-		cd ../networking || die
-		dodoc httpd_indexcgi.c httpd_post_upload.cgi
-	fi
+	cd ../networking || die
+	dodoc httpd_indexcgi.c httpd_post_upload.cgi
 
 	readme.gentoo_create_doc
 }
 
 pkg_preinst() {
 	if use make-symlinks ; then
-		mv "${ED}/usr/share/${PN}/busybox-links.tar" "${T}"/ &&
-			rmdir \
-					--parents --ignore-fail-on-non-empty \
-				"${ED}/usr/share/${PN}" || die
+		mv "${ED}"/usr/share/${PN}/busybox-links.tar "${T}"/ || die
 	fi
 }
 
 pkg_postinst() {
-	local file=''
-	local -i ok=0 skipped=0 bad=0
-
 	savedconfig_pkg_postinst
 
 	if use make-symlinks ; then
-		pushd "${T}" >/dev/null|| die
-
-		ebegin "Extracting busybox symlinks from '${T}/busybox-links.tar' to '${ROOT}/'"
-
-		mkdir _install &&
-			tar xf busybox-links.tar -C _install &&
-			test -d _install &&
-			rm busybox-links.tar || die
-
+		cd "${T}" || die
+		mkdir _install
+		tar xf busybox-links.tar -C _install || die
 		# 907432: cp -n returns error if it skips any file, but that is
 		# expected here
-		# TODO: check if a new coreutils release has a replacement
-		# option
-		#cp -nvpPR _install/* "${ROOT}"/
-		while read -r file; do
-			if ! [[ -L "${file}" ]]; then
-				ewarn "Source file '${file}' does not exist"
-				(( bad++ ))
-				continue
-			fi
-			if [[ -e "${ROOT}/${file#*_install/}" ]]; then
-				if [[ -L "${ROOT}/${file#*_install/}" ]]; then
-					ewarn "Destination symlink '${ROOT}/${file#*_install/}' already exists"
-				else
-					ewarn "Destination file '${ROOT}/${file#*_install/}' already exists"
-				fi
-				(( skipped++ ))
-				continue
-			fi
-
-			ebegin "Copying '${file}' to '${ROOT}/${file#*_install/}'"
-			if ! cp -nvpPR "${file}" "${ROOT}/${file#*_install/}"; then
-				# What is 'x' here?!
-				# It appears to be the ebuild stage...
-				eend ${?} "copying '${file}' link to '${ROOT}/${file#*_install/}' for ${x} failed: ${?}"
-				(( bad++ ))
-			else
-				(( ok++ ))
-				eend 0
-			fi
-		done < <( find -P _install/ -type l )
-
-		if eend ${bad} "Installed ${ok} symlinks, skipped ${skipped} symlinks, failed to install ${bad} symlinks"; then
-			if (( skipped )); then
-				ewarn "Installed ${ok} symlinks, skipped ${skipped} symlinks"
-			fi
-		fi
-
-		rm -rf _install
-		popd >/dev/null
-		rmdir --parents --ignore-fail-on-non-empty "${T}"
+		# TODO: check if a new coreutils release has a replacement option
+		cp -nvpPR _install/* "${ROOT}"/
 	fi
 
 	if use sep-usr ; then
