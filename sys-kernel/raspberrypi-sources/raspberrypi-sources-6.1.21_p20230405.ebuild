@@ -44,7 +44,7 @@ REQUIRED_USE="
 	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
 "
 
-PATCHES=( "${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch" )
+PATCHES=( "${FILESDIR}/${PN}-6.1.21-gentoo-Kconfig.patch" )
 
 UNIPATCH_EXCLUDE="
 	10*

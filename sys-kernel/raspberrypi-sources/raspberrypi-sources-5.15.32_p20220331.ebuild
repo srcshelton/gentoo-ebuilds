@@ -31,7 +31,7 @@ KEYWORDS="arm arm64"
 IUSE="-rpi0 -rpi1 +rpi2 rpi3 rpi4"
 REQUIRED_USE="^^ ( rpi0 rpi1 rpi2 rpi3 rpi4 )"
 
-PATCHES=("${FILESDIR}"/${PN}-$(ver_cut 1-3)-gentoo-kconfig.patch)
+PATCHES=("${FILESDIR}"/${PN}-$(ver_cut 1-3)-gentoo-Kconfig.patch)
 
 UNIPATCH_EXCLUDE="
 	10*

@@ -1,0 +1,55 @@
+From a4aac7be96271609a85334a314f3546723271106 Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.com>
+Date: Thu, 18 Apr 2024 14:53:50 +0100
+Subject: [PATCH 1/2] fixup! Add dwc_otg driver
+
+Make USB_DWCOTG depend on USB=y to fix potential build failures.
+
+See: https://github.com/raspberrypi/linux/issues/6059
+
+Signed-off-by: Phil Elwell <phil@raspberrypi.com>
+---
+ drivers/usb/host/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
+index 4228565fed857..fdd73e4d4ad88 100644
+--- a/drivers/usb/host/Kconfig
++++ b/drivers/usb/host/Kconfig
+@@ -680,7 +680,7 @@ config USB_RENESAS_USBHS_HCD
+ 
+ config USB_DWCOTG
+ 	bool "Synopsis DWC host support"
+-	depends on USB && (FIQ || ARM64)
++	depends on USB=y && (FIQ || ARM64)
+ 	help
+ 	  The Synopsis DWC controller is a dual-role
+ 	  host/peripheral/OTG ("On The Go") USB controllers.
+
+From bd388e0d715566a53638d9fe438314cf2f9e915b Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.com>
+Date: Thu, 18 Apr 2024 14:55:50 +0100
+Subject: [PATCH 2/2] fixup! bcm2708 framebuffer driver
+
+Make CONFIG_FB_BCM2708 select CONFIG_FB_DEVICE, to avoid potential build
+problems.
+
+See: https://github.com/raspberrypi/linux/issues/6059
+
+Signed-off-by: Phil Elwell <phil@raspberrypi.com>
+---
+ drivers/video/fbdev/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/video/fbdev/Kconfig b/drivers/video/fbdev/Kconfig
+index 3aea3b30a9b0c..50074ee176558 100644
+--- a/drivers/video/fbdev/Kconfig
++++ b/drivers/video/fbdev/Kconfig
+@@ -64,6 +64,7 @@ config FB_MACMODES
+ config FB_BCM2708
+ 	tristate "BCM2708 framebuffer support"
+ 	depends on FB && RASPBERRYPI_FIRMWARE
++	select FB_DEVICE
+ 	select FB_CFB_FILLRECT
+ 	select FB_CFB_COPYAREA
+ 	select FB_CFB_IMAGEBLIT

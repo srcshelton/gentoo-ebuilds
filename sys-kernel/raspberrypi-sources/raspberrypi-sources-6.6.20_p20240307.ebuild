@@ -3,8 +3,8 @@
 
 EAPI=8
 ETYPE="sources"
-K_WANT_GENPATCHES="base extras experimental"
-K_GENPATCHES_VER="82"
+K_WANT_GENPATCHES="extras experimental"
+K_GENPATCHES_VER="26"
 
 CKV="${PV%_p*}"
 
@@ -29,12 +29,12 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-MY_PV="stable_${PV#*_p}"
+EGIT_COMMIT="6f16847710cc0502450788b9f12f0a14d3429668"
 
 DESCRIPTION="Raspberry Pi kernel sources"
 HOMEPAGE="https://github.com/raspberrypi/linux"
 SRC_URI="
-	https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz -> ${P}.tar.gz
+	https://github.com/raspberrypi/linux/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz
 	${GENPATCHES_URI}
 "
 RESTRICT=mirror
@@ -47,12 +47,13 @@ REQUIRED_USE="
 "
 
 PATCHES=(
-	"${FILESDIR}/${PN}-6.1.21-gentoo-Kconfig.patch"
+	"${FILESDIR}/${P}-Kconfig.patch"
 	"${FILESDIR}/${PN}-mmc-dma-Kconfig.patch"
 	"${FILESDIR}/${PN}-pcie-brcmstb.c.patch"
 )
 
-S="${WORKDIR}/linux-${MY_PV}"
+#S="${WORKDIR}/linux-${EGIT_COMMIT}"
+S="${WORKDIR}/linux-${CKV}"
 
 pkg_setup() {
 	local kernel='' config='' version='' i=''
@@ -115,7 +116,11 @@ pkg_setup() {
 }
 
 universal_unpack() {
+	cd "${WORKDIR}" || die
 	unpack "${P}.tar.gz"
+
+	mv "linux-${EGIT_COMMIT}" "linux-${KV_FULL}"
+	cd "${S}" || die
 
 	# remove all backup files
 	find . -iname "*~" -exec rm {} \; 2>/dev/null
@@ -136,9 +141,9 @@ src_install() {
 	# e.g. linux-raspberrypi-kernel_1.20200601-1 -> linux-4.19.118-raspberrypi-r1
 	dodir /usr/src
 	if [[ "${PR}" != 'r0' ]]; then
-		mv "${S}" "${ED}/usr/src/linux-${PV%_p*}-raspberrypi-${PR}"
+		mv "${S}" "${ED}/usr/src/linux-${CKV}-raspberrypi-${PR}"
 	else
-		mv "${S}" "${ED}/usr/src/linux-${PV%_p*}-raspberrypi"
+		mv "${S}" "${ED}/usr/src/linux-${CKV}-raspberrypi"
 	fi
 }
 
@@ -146,7 +151,7 @@ pkg_postinst() {
 	kernel-2_pkg_postinst
 
 	if use symlink; then
-		ln -snf "linux-${PV%_p*}-raspberrypi" "${EROOT}"/usr/src/linux || die
+		ln -snf "linux-${CKV}-raspberrypi" "${EROOT}"/usr/src/linux || die
 	fi
 }
 

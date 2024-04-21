@@ -47,8 +47,8 @@ REQUIRED_USE="
 "
 
 PATCHES=(
-	"${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch"
-	"${FILESDIR}/${PN}-mmc-dma-kconfig.patch"
+	"${FILESDIR}/${PN}-6.1.21-gentoo-Kconfig.patch"
+	"${FILESDIR}/${PN}-mmc-dma-Kconfig.patch"
 	"${FILESDIR}/${PN}-pcie-brcmstb.c.patch"
 )
 
