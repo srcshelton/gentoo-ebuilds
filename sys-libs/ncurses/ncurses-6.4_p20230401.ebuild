@@ -111,13 +111,40 @@ PATCHES=(
 )
 
 # We can't use get_libdir(), sort, or head/tail here :(
+#QA_XLINK_ALLOWED=(
+#	lib/libncursestw.so.${MY_PV}
+#	lib/libncursest.so.${MY_PV}
+#	lib32/libncursestw.so.${MY_PV}
+#	lib32/libncursest.so.${MY_PV}
+#	lib64/libncursestw.so.${MY_PV}
+#	lib64/libncursest.so.${MY_PV}
+#)
+# QA_XLINK_ALLOWED (currently) has to allow-list binaries and libraries which
+# link across mountpoints, not the destination links :(
 QA_XLINK_ALLOWED=(
-	lib/libncursestw.so.${MY_PV}
-	lib/libncursest.so.${MY_PV}
-	lib32/libncursestw.so.${MY_PV}
-	lib32/libncursest.so.${MY_PV}
-	lib64/libncursestw.so.${MY_PV}
+	usr/bin/clear
+	usr/bin/infocmp
+	usr/bin/tabs
+	usr/bin/tic
+	usr/bin/toe
+	usr/bin/tput
+	usr/bin/tset
+	lib64/libncurses.so.${MY_PV}
+	lib64/libncursesw.so.${MY_PV}
 	lib64/libncursest.so.${MY_PV}
+	lib64/libncursestw.so.${MY_PV}
+	usr/lib64/libform.so.${MY_PV}
+	usr/lib64/libformw.so.${MY_PV}
+	usr/lib64/libformt.so.${MY_PV}
+	usr/lib64/libformtw.so.${MY_PV}
+	usr/lib64/libmenu.so.${MY_PV}
+	usr/lib64/libmenuw.so.${MY_PV}
+	usr/lib64/libmenut.so.${MY_PV}
+	usr/lib64/libmenutw.so.${MY_PV}
+	usr/lib64/libpanel.so.${MY_PV}
+	usr/lib64/libpanelw.so.${MY_PV}
+	usr/lib64/libpanelt.so.${MY_PV}
+	usr/lib64/libpaneltw.so.${MY_PV}
 )
 
 src_unpack() {
