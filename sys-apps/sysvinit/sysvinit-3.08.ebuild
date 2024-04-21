@@ -147,7 +147,7 @@ src_compile() {
 }
 
 src_install() {
-	emake -C src install ROOT="${D}"
+	emake -C src install ROOT="${ED}"
 	dodoc README doc/*
 
 	insinto /etc
