@@ -8,6 +8,7 @@ PATCH_GCC_VER="12.3.0"
 PATCH_VER="2"
 MUSL_VER="1"
 MUSL_GCC_VER="12.3.0"
+PYTHON_COMPAT=( python3_{10..11} )
 
 PARALLEL_MEMORY_MIN=6
 
@@ -52,7 +53,7 @@ if [[ ${CATEGORY} != cross-* ]] ; then
 	RDEPEND="${COMMON_DEPEND}
 		!sys-devel/gcc-libs:${SLOT}"
 	DEPEND="${COMMON_DEPEND}"
-	BDEPEND=">=${CATEGORY}/binutils-2.30[cet(-)?]
+	BDEPEND="amd64? ( >=${CATEGORY}/binutils-2.30[cet(-)?] )
 		sys-apps/texinfo
 		sys-devel/flex"
 fi
