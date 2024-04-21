@@ -174,7 +174,14 @@ arm_boost=1
 
 #force_eeprom_read=1
 
-# Requires that '${os_prefix}${overlay_prefix}README' exist
+# os_prefix is an optional setting that allows you to choose between multiple
+# versions of the kernel and Device Tree files installed on the same card.
+# Any value in os_prefix is prepended to (stuck in front of) the name of any
+# operating system files loaded by the firmware, where "operating system
+# files" is defined to mean kernels, initramfs, cmdline.txt, .dtbs and
+# overlays. The prefix would commonly be a directory name, but it could also
+# be part of the filename such as "test-". For this reason, directory
+# prefixes must include the trailing / character.
 #
 #os_prefix=/
 
@@ -188,7 +195,12 @@ otg_mode=1
 otg_mode=1
 [all]
 
+# Specifies a subdirectory/prefix from which to load overlays - defaults to
+# 'overlays/' (note the trailing '/'). If used in conjunction with os_prefix,
+# the os_prefix comes before the overlay_prefix.
+#
 # e.g. dtoverlay=disable-bt -> dtoverlay=${os_prefix}${overlay_prefix}disable-bt.dtbo
+#
 # Requires that '${os_prefix}${overlay_prefix}README' exist
 #
 #overlay_prefix=overlays/
