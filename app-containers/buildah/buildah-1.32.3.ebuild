@@ -1,20 +1,21 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-inherit go-module linux-info
+inherit bash-completion-r1 go-module linux-info
 
 DESCRIPTION="A tool that facilitates building OCI images"
 HOMEPAGE="https://github.com/containers/buildah"
-
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 
 SLOT="0"
-IUSE="apparmor bash-completion btrfs doc +seccomp systemd test"
+IUSE="apparmor bash-completion btrfs doc +seccomp selinux systemd test"
 RESTRICT="mirror test"
 EXTRA_DOCS=(
 	"CHANGELOG.md"
+	"CONTRIBUTING.md"
+	"install.md"
 	"troubleshooting.md"
 	"docs/tutorials"
 )
@@ -24,19 +25,20 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/buildah.git"
 else
 	SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 ~arm64"
+	KEYWORDS="amd64 arm64"
 fi
 
 RDEPEND="
-	systemd? ( sys-apps/systemd )
-	btrfs? ( sys-fs/btrfs-progs )
-	seccomp? ( sys-libs/libseccomp:= )
-	apparmor? ( sys-libs/libapparmor:= )
 	app-containers/containers-common
 	app-crypt/gpgme:=
 	dev-libs/libgpg-error:=
 	dev-libs/libassuan:=
 	sys-apps/shadow:=
+	apparmor? ( sys-libs/libapparmor:= )
+	btrfs? ( sys-fs/btrfs-progs )
+	seccomp? ( sys-libs/libseccomp:= )
+	selinux? ( sys-libs/libselinux:= )
+	systemd? ( sys-apps/systemd )
 "
 DEPEND="${RDEPEND}"
 
@@ -68,13 +70,13 @@ src_prepare() {
 	for file in \
 		btrfs_installed_tag.sh \
 		btrfs_tag.sh \
+		selinux_tag.sh \
 		docs/Makefile \
 		hack/apparmor_tag.sh \
 		hack/libsubid_tag.sh \
 		hack/systemd_tag.sh
 	do
-		[[ -f "${file}" ]] ||
-			die "Required file '${file}' missing"
+		[[ -f "${file}" ]] || die
 	done
 
 	sed -i -e "s|/usr/local|${EPREFIX}/usr|g" Makefile docs/Makefile || die
@@ -118,6 +120,9 @@ src_prepare() {
 		eapply "${T}/disable_tests.patch" || die
 	}
 
+	use selinux || {
+		printf '#!/bin/sh\ntrue' > selinux_tag.sh || die
+	}
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
 	# Fix run path...
@@ -138,8 +143,8 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${ED}" install \
-		$(usex bash-completion 'install.completions' '')
+	emake DESTDIR="${D}" install
+	use bash-completion && dobashcomp contrib/completions/bash/buildah
 	einstalldocs
 	use doc && dodoc -r "${EXTRA_DOCS[@]}"
 }
