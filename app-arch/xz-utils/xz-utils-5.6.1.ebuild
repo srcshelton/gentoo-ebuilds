@@ -35,7 +35,7 @@ else
 	"
 
 	if [[ ${PV} != *_alpha* && ${PV} != *_beta* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 	fi
 
 	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-jiatan )"
@@ -47,9 +47,9 @@ DESCRIPTION="Utils for managing LZMA compressed files"
 HOMEPAGE="https://tukaani.org/xz/"
 
 # See top-level COPYING file as it outlines the various pieces and their licenses.
-LICENSE="public-domain LGPL-2.1+ GPL-2+"
+LICENSE="0BSD LGPL-2.1+ GPL-2+ doc? ( CC-BY-SA-4.0 )"
 SLOT="0"
-IUSE="doc +extra-filters nls pgo static-libs"
+IUSE="cpu_flags_arm_crc32 doc +extra-filters nls pgo static-libs"
 
 BDEPEND="${BDEPEND} sys-apps/grep"
 
@@ -71,6 +71,7 @@ multilib_src_configure() {
 		$(multilib_native_use_enable doc)
 		$(use_enable nls)
 		$(use_enable static-libs static)
+		$(use_enable cpu_flags_arm_crc32 arm64-crc32)
 	)
 
 	if ! multilib_is_native_abi ; then
