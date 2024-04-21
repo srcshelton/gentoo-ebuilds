@@ -23,11 +23,6 @@ IDEPEND="
 	)
 "
 
-PATCHES=(
-	# Backport of upstream PR 648. Remove after 1.3.0
-	"${FILESDIR}/${P}-configurable-fortification.patch"
-)
-
 pkg_setup() {
 	if [[ "${MERGE_TYPE}" != "binary" ]]; then
 		if tc-is-clang ; then
