@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit autotools db flag-o-matic multilib toolchain-funcs usr-ldscript multilib-minimal
+inherit autotools db flag-o-matic multilib toolchain-funcs multilib-minimal  # usr-ldscript
 
 # Number of official patches
 #PATCHNO=`echo ${PV}|sed -e "s,\(.*_p\)\([0-9]*\),\2,"`
