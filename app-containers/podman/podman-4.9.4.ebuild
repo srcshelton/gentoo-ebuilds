@@ -229,22 +229,25 @@ src_prepare() {
 }
 
 src_compile() {
+	export PREFIX="${EPREFIX}/usr"
+
+	# bug 906073
+	use elibc_musl && export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
+
 	# For non-live versions, prevent git operations which causes sandbox violations
 	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
 	[[ ${PV} != 9999* ]] && export COMMIT_NO="" GIT_COMMIT=""
 
 	# BUILD_SECCOMP is used in the patch to toggle seccomp
 	emake \
-			PREFIX="${EPREFIX}/usr" \
 			BUILDFLAGS="-v -work -x" \
 			GOMD2MAN="go-md2man" \
-			BUILD_SECCOMP="$(usex seccomp)" \
-		all $(usev wrapper docker-docs)
+			BUILD_SECCOMP="$(usev seccomp)" \
+		all $(usex wrapper 'docker-docs' '')
 }
 
 src_install() {
 	emake \
-			PREFIX="${EPREFIX}/usr" \
 			DESTDIR="${D}" \
 		install install.completions \
 			$(usex wrapper 'install.docker-full' '')
@@ -298,7 +301,7 @@ pkg_preinst() {
 }
 
 pkg_postinst() {
-	use tmpfiles && tmpfiles_process podman.conf $(usev wrapper podman-docker.conf)
+	use tmpfiles && tmpfiles_process podman.conf $(usex wrapper 'podman-docker.conf' '')
 
 	local want_newline=false
 	if [[ ${PODMAN_ROOTLESS_UPGRADE} == true ]] ; then

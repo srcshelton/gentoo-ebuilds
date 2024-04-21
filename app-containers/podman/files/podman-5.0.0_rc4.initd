@@ -1,0 +1,39 @@
+#!/sbin/openrc-run
+# Copyright 2015-2024 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+description="Podman API Service"
+
+LOG_PATH="/var/log/${RC_SVCNAME}"
+output_log="${LOG_PATH}/${RC_SVCNAME}.log"
+error_log="${LOG_PATH}/${RC_SVCNAME}.log"
+RUN_PATH="/var/run/${RC_SVCNAME}"
+pidfile="${RUN_PATH}/${RC_SVCNAME}.pid"
+
+command_user="${RUN_AS_USER:="root:root"}"
+command="/usr/bin/podman"
+command_args="--log-level ${LOG_LEVEL:-"error"} system service --time 0 ${SOCKET:="unix://${RUN_PATH}/${RC_SVCNAME}.sock"}"
+command_background="true"
+start_stop_daemon_args="--stdout ${output_log} --stderr ${error_log} --user ${RUN_AS_USER}"
+
+start_pre() {
+	checkpath -o "${RUN_AS_USER}" -d "${RUN_PATH}" "${LOG_PATH}"
+}
+
+start_post() {
+	if ! [ "${SOCKET#unix:}" = "${SOCKET}" ]; then
+		if echo "${RUN_AS_USER%:root}" | grep -Fq -- ':'; then
+			ebegin "Updating permissions on socket '${SOCKET#*:}'"
+			if ! ewaitfile ${SOCKET_TIMEOUT:=5} "${SOCKET#*:}"; then
+				eend 1 "Socket '${SOCKET#*:}' was not created" \
+					" within ${SOCKET_TIMEOUT} seconds"
+			else
+				if ! chmod g+rw "${SOCKET#*:}"; then
+					eend 1 "Failed to set group" \
+						"permissions on socket" \
+						"'${SOCKET#*:}': ${?}"
+				fi
+			fi
+		fi
+	fi
+}
