@@ -12,7 +12,7 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/storage/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P#containers-}"
-	KEYWORDS="amd64 ~arm64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
@@ -76,7 +76,7 @@ src_compile() {
 		export -n GOCACHE GOPATH XDG_CACHE_HOME #678856
 		emake GOMD2MAN=go-md2man FFJSON= containers-storage docs
 	else
-		emake -C docs containers-storage.conf.5
+		emake -C docs GOMD2MAN=go-md2man containers-storage.conf.5
 	fi
 }
 
