@@ -1,4 +1,4 @@
-# Copyright 2019-2023 Gentoo Authors
+# Copyright 2019-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -9,13 +9,22 @@ inherit python-any-r1
 
 DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
-SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.xz"
+
+if [[ "$PV" == *9999* ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
+else
+	SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.xz"
+	KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv"
+fi
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv"
 IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
-RESTRICT="mirror"
+# the crun test suite is comprehensive to the extent that tests will fail
+# within a sandbox environment, due to the nature of the privileges
+# required to create linux "containers".
+RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	>=dev-libs/yajl-2.0.0:=
@@ -26,9 +35,9 @@ COMMON_DEPEND="
 "
 DEPEND="
 	${COMMON_DEPEND}
+	dev-build/libtool
 	dev-util/gperf
 	sys-devel/gettext
-	dev-build/libtool
 	sys-libs/libseccomp
 	virtual/os-headers
 "
@@ -47,16 +56,18 @@ PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
 
-src_prepare() {
-	default
-
-	sed -ri \
-		-e 's|([=B*])/run|\1/var/run|' \
-		src/libcrun/status.c \
-		crun.1 \
-		crun.1.md \
-	|| die "'/run' replacement failed: ${?}"
-}
+# Should be handled by patch above...
+#
+#src_prepare() {
+#	default
+#
+#	sed -ri \
+#		-e 's|([=B*])/run|\1/var/run|' \
+#		src/libcrun/status.c \
+#		crun.1 \
+#		crun.1.md \
+#	|| die "'/run' replacement failed: ${?}"
+#}
 
 src_configure() {
 	local myeconfargs=(
