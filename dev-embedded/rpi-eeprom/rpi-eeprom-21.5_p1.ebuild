@@ -20,10 +20,8 @@ LICENSE="BSD rpi-eeprom"
 SLOT="0"
 KEYWORDS="arm arm64"
 IUSE="-old-firmware rpi5 systemd tools"
-REQUIRED_USE="
-	${PYTHON_REQUIRED_USE}
-	old-firmware? ( !rpi5 )
-"
+REQUIRED_USE="${PYTHON_REQUIRED_USE}
+	old-firmware? ( !rpi5 )"
 
 BDEPEND="sys-apps/help2man"
 DEPEND="${PYTHON_DEPS}"
@@ -32,7 +30,7 @@ RDEPEND="${PYTHON_DEPS}
 	sys-apps/pciutils
 	sys-devel/binutils
 	|| (
-		dev-embedded/raspberrypi-utils
+		sys-apps/raspberrypi-tools
 		>=media-libs/raspberrypi-userland-0_pre20201022
 		>=media-libs/raspberrypi-userland-bin-1.20201022
 	)"
@@ -101,17 +99,15 @@ src_install() {
 	ln -s default "${ED}"/lib/firmware/raspberrypi/bootloader/critical
 
 	help2man -N \
-			--version-string="${PV}" --help-option="-h" \
-			--name="Bootloader EEPROM configuration tool for the Raspberry Pi 4B" \
-			--output=rpi-eeprom-config.1 ./rpi-eeprom-config ||
-		die "Failed to create manpage for rpi-eeprom-config"
+		--version-string="${PV}" --help-option="-h" \
+		--name="Bootloader EEPROM configuration tool for the Raspberry Pi 4B" \
+		--output=rpi-eeprom-config.1 ./rpi-eeprom-config || die "Failed to create manpage for rpi-eeprom-config"
 
 	help2man -N \
-			--version-string="${PV}" --help-option="-h" \
-			--name="Checks whether the Raspberry Pi bootloader EEPROM is \
-				up-to-date and updates the EEPROM" \
-			--output=rpi-eeprom-update.1 ./rpi-eeprom-update ||
-		die "Failed to create manpage for rpi-eeprom-update"
+		--version-string="${PV}" --help-option="-h" \
+		--name="Checks whether the Raspberry Pi bootloader EEPROM is \
+			up-to-date and updates the EEPROM" \
+		--output=rpi-eeprom-update.1 ./rpi-eeprom-update || die "Failed to create manpage for rpi-eeprom-update"
 
 	doman rpi-eeprom-update.1 rpi-eeprom-config.1
 
@@ -140,5 +136,3 @@ pkg_postinst() {
 	elog 'FIRMWARE_RELEASE_STATUS="critical|stable|beta" determines'
 	elog 'which release track you get. "critical" is recommended and the default.'
 }
-
-# vi: set diffopt=filler,iwhite:
