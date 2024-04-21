@@ -4,4 +4,4 @@
 -/usr/share/rhel/secrets:/run/secrets
 +# Refer to containers-mounts.conf(5)
 +# Example:
-+# /usr/share/rhel/secrets:/run/secrets
++# /usr/share/rhel/secrets:/var/run/secrets
