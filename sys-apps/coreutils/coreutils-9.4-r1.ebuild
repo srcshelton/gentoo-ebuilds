@@ -27,7 +27,7 @@ else
 		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )
 	"
 
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~x86-linux"
 fi
 
 SRC_URI+=" !vanilla? ( https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${MY_PATCH}.tar.xz )"
@@ -111,6 +111,8 @@ src_prepare() {
 	local PATCHES=(
 		# Upstream patches
 		"${FILESDIR}"/${P}-gnulib-openssl-1.1.patch
+		"${FILESDIR}"/${P}-CVE-2024-0684.patch
+		"${FILESDIR}"/${P}-gnulib-clang-18-c23-stdckdint.patch
 	)
 
 	if ! use vanilla && [[ -d "${WORKDIR}"/${MY_PATCH} ]] ; then
