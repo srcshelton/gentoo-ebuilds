@@ -14,7 +14,7 @@ SRC_URI="https://www.kernel.org/pub/linux/utils/raid/mdadm/${P/_/-}.tar.xz
 LICENSE="GPL-2"
 SLOT="0"
 [[ "${PV}" = *_rc* ]] || \
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
 IUSE="static systemd +udev"
 
 REQUIRED_USE="static? ( !udev )"
@@ -34,6 +34,7 @@ rundir="/dev/.mdadm"
 PATCHES=(
 	"${FILESDIR}/${PN}-3.4-sysmacros.patch" #580188
 	"${FILESDIR}/${PN}-4.2-in_initrd-collision.patch" #830461
+	"${FILESDIR}/${PN}-4.2-mdadm_env.patch" #628968
 )
 
 mdadm_emake() {
@@ -114,6 +115,7 @@ src_install() {
 }
 
 pkg_postinst() {
+	use udev && udev_reload
 	if use systemd && ! systemd_is_booted; then
 		if [[ -z ${REPLACING_VERSIONS} ]] ; then
 			# Only inform people the first time they install.
@@ -122,4 +124,8 @@ pkg_postinst() {
 			elog "	rc-update add mdraid boot"
 		fi
 	fi
+}
+
+pkg_postrm() {
+	use udev && udev_reload
 }
