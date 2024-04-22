@@ -25,7 +25,7 @@ HOMEPAGE="https://github.com/eudev-project/eudev"
 
 LICENSE="LGPL-2.1 MIT GPL-2"
 SLOT="0"
-IUSE="+init +kmod rule-generator selinux static-libs test"
+IUSE="-init -kmod predictable-ifnames -rule-generator selinux static-libs test udev"
 RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
@@ -187,7 +187,7 @@ multilib_src_test() {
 	if multilib_is_native_abi ; then
 		addread /sys
 		addwrite /dev
-		addwrite /run
+		addwrite /var/run
 
 		default
 	fi
@@ -204,20 +204,26 @@ multilib_src_install() {
 multilib_src_install_all() {
 	find "${ED}" -name '*.la' -delete || die
 
-	insinto /lib/udev/rules.d
-	doins "${FILESDIR}"/40-gentoo.rules
+	if use udev; then
+		insinto "$(get_udevdir)"/rules.d
+		doins "${FILESDIR}"/40-gentoo.rules
 
-	use rule-generator && doinitd "${FILESDIR}"/udev-postmount
+		use rule-generator && doinitd "${FILESDIR}"/udev-postmount
+		if ! use predictable-ifnames; then
+			dodir /etc/udev/rules.d
+			touch "${ED}"/etc/udev/rules.d/80-net-name-slot.rules
+		fi
+	fi
 }
 
 pkg_postrm() {
-	udev_reload
+	use udev && udev_reload
 }
 
 pkg_postinst() {
-	udev_reload
+	use udev && udev_reload
 
-	mkdir -p "${EROOT}"/run
+	#mkdir -p "${EROOT}"/var/run
 
 	# "losetup -f" is confused if there is an empty /dev/loop/, Bug #338766
 	# So try to remove it here (will only work if empty).
@@ -242,13 +248,13 @@ pkg_postinst() {
 	done
 
 	#if has_version 'sys-apps/hwids[udev]'; then
-		udevadm hwdb --update --root="${ROOT}"
+		use udev && udevadm hwdb --update --root="${ROOT}"
 
 		# https://cgit.freedesktop.org/systemd/systemd/commit/?id=1fab57c209035f7e66198343074e9cee06718bda
 		# reload database after it has be rebuilt, but only if we are not upgrading
 		# also pass if we are -9999 since who knows what hwdb related changes there might be
 		if [[ ${rvres} == doit* ]] && [[ -z ${ROOT} ]] && [[ ${PV} != "9999" ]]; then
-			udevadm control --reload
+			use udev && udevadm control --reload
 		fi
 	#fi
 
@@ -259,7 +265,7 @@ pkg_postinst() {
 		ewarn "\t/etc/init.d/udev --nodeps restart"
 	fi
 
-	if use rule-generator && \
+	if use rule-generator &&
 			[[ -x $(type -P rc-update) ]] &&
 			rc-update show |
 				grep udev-postmount |
