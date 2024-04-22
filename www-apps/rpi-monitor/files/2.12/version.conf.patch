@@ -1,5 +1,5 @@
---- src/etc/rpimonitor/template/version.conf.dist	2015-03-14 14:52:23.219612000 +0000
-+++ src/etc/rpimonitor/template/version.conf	2015-03-14 15:48:29.459612000 +0000
+--- a/src/etc/rpimonitor/template/version.conf
++++ b/src/etc/rpimonitor/template/version.conf
 @@ -9,6 +9,7 @@
  #  - num of pkg upgradable   - yes      - no
  #  - list of pkg upgradable  - yes      - no

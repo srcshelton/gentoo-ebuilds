@@ -1,5 +1,5 @@
---- src/etc/rpimonitor/template/sdcard.conf.dist	2015-03-14 15:25:17.659612000 +0000
-+++ src/etc/rpimonitor/template/sdcard.conf	2015-03-14 15:47:41.519612000 +0000
+--- a/src/etc/rpimonitor/template/sdcard.conf
++++ b/src/etc/rpimonitor/template/sdcard.conf
 @@ -7,49 +7,50 @@
  #  - boot total              - yes      - yes
  #  - boot used               - yes      - yes

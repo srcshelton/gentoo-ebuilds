@@ -1,5 +1,5 @@
---- src/usr/bin/rpimonitord
-+++ src/usr/bin/rpimonitord
+--- a/src/usr/bin/rpimonitord
++++ b/src/usr/bin/rpimonitord
 @@ -79,9 +79,9 @@
    my ($path,$file) = /(.*)\/([^\/]*)$/;
  

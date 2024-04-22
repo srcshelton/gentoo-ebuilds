@@ -1,5 +1,5 @@
---- src/usr/share/rpimonitor/web/addons/top3/top3.html.dist	2016-08-16 23:06:56.000000000 +0100
-+++ src/usr/share/rpimonitor/web/addons/top3/top3.html	2016-05-18 23:44:56.279889987 +0100
+--- a/src/usr/share/rpimonitor/web/addons/top3/top3.html
++++ b/src/usr/share/rpimonitor/web/addons/top3/top3.html
 @@ -9,16 +9,15 @@
      <h3 class="panel-title">Top3 addons</h3>
    </div>

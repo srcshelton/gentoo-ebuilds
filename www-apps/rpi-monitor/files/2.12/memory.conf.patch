@@ -1,5 +1,5 @@
---- src/etc/rpimonitor/template/memory.conf.dist	2015-03-14 15:13:47.409612000 +0000
-+++ src/etc/rpimonitor/template/memory.conf	2015-03-14 15:46:38.469612000 +0000
+--- a/src/etc/rpimonitor/template/memory.conf
++++ b/src/etc/rpimonitor/template/memory.conf
 @@ -6,34 +6,88 @@
  #  - memory free              - yes      - yes
  #  - memory available         - yes      - yes

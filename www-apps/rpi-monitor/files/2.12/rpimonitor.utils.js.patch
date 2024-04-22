@@ -1,5 +1,5 @@
---- src/usr/share/rpimonitor/web/js/rpimonitor.utils.js.dist	2016-04-05 23:07:58.289840545 +0100
-+++ src/usr/share/rpimonitor/web/js/rpimonitor.utils.js	2016-04-05 23:11:16.037918553 +0100
+--- a/src/usr/share/rpimonitor/web/js/rpimonitor.utils.js
++++ b/src/usr/share/rpimonitor/web/js/rpimonitor.utils.js
 @@ -73,7 +73,13 @@ function KMG(value, initPre){
  }
  

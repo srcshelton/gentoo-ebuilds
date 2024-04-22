@@ -28,7 +28,7 @@ RDEPEND="
 	|| ( ( virtual/perl-JSON-PP dev-perl/JSON-Any ) dev-perl/JSON )
 	dev-perl/File-Which
 	dev-perl/IPC-ShareLite
-	media-libs/raspberrypi-userland"
+	|| ( sys-apps/raspberrypi-tools media-libs/raspberrypi-userland )"
 
 S="${WORKDIR}/RPi-Monitor-${PV}"
 
@@ -38,6 +38,8 @@ PATCHES="
 
 src_prepare() {
 	local patch
+
+	default
 
 	cp src/etc/rpimonitor/template/raspbian.conf src/etc/rpimonitor/template/gentoo.conf
 
@@ -49,7 +51,7 @@ src_prepare() {
 			"${WORKDIR}"/patches/*.patch
 	fi
 	for patch in "${WORKDIR}"/patches/*.patch; do
-		epatch "${patch}" || die "epatch failed"
+		eapply "${patch}" || die "eapply failed"
 	done
 
 	# Fix version string...

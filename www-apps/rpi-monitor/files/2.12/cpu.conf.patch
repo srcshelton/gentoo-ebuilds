@@ -1,5 +1,5 @@
---- src/etc/rpimonitor/template/cpu.conf.dist	2016-08-23 20:11:00.603785424 +0100
-+++ src/etc/rpimonitor/template/cpu.conf	2016-08-23 20:24:22.135113789 +0100
+--- a/src/etc/rpimonitor/template/cpu.conf
++++ b/src/etc/rpimonitor/template/cpu.conf
 @@ -7,47 +7,55 @@
  #  - cpu load 1, 5, 15       - yes      - yes
  #  - cpu scaling governor    - yes      - no

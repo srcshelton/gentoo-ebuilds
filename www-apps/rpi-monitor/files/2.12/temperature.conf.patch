@@ -1,5 +1,5 @@
---- src/etc/rpimonitor/template/temperature.conf
-+++ src/etc/rpimonitor/template/temperature.conf
+--- a/src/etc/rpimonitor/template/temperature.conf
++++ b/src/etc/rpimonitor/template/temperature.conf
 @@ -4,22 +4,22 @@
  #  Information               Status     Statistics
  #  - cpu temperature         - yes      - yes
