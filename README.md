@@ -839,6 +839,7 @@ x32 profiles, and that these variables only affect multilib systems.
     * Move 'nfsdcltrack', with many non-root library dependencies, to `/usr/sbin`
 * net-libs/libnfnetlink
 * net-libs/libpcap
+* net-libs/libtirpc
 * sys-apps/file
     * Move `libmagic.so` to the root filesystem, for app-editors/nano
 * sys-apps/shadow
