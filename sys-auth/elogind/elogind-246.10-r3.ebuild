@@ -6,7 +6,7 @@ EAPI=7
 if [[ ${PV} = *9999* ]]; then
 	EGIT_BRANCH="v241-stable"
 	EGIT_REPO_URI="https://github.com/elogind/elogind.git"
-	inherit linux-info meson pam udev xdg-utils
+	inherit git-r3
 else
 	SRC_URI="https://github.com/${PN}/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
@@ -19,7 +19,7 @@ HOMEPAGE="https://github.com/elogind/elogind"
 
 LICENSE="CC0-1.0 LGPL-2.1+ public-domain"
 SLOT="0"
-IUSE="+acl audit -cgroup-hybrid debug doc +pam +policykit selinux test"
+IUSE="+acl audit -cgroup-hybrid debug doc +pam +policykit selinux test udev"
 RESTRICT="!test? ( test )"
 
 BDEPEND="
@@ -107,6 +107,12 @@ src_install() {
 	DOCS+=( src/libelogind/sd-bus/GVARIANT-SERIALIZATION )
 
 	meson_src_install
+
+	if ! use udev; then
+		if [[ -d "${ED}$(get_udevdir)" ]]; then
+			rm -r "${ED}$(get_udevdir)" || die
+		fi
+	fi
 
 	newinitd "${FILESDIR}"/${PN}.init-r1 ${PN}
 
