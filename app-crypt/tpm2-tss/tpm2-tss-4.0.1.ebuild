@@ -86,8 +86,8 @@ multilib_src_install() {
 	keepdir /var/lib/tpm2-tss/system/keystore
 
 	if ! use udev; then
-		rm "${ED}/$(get_udevdir)"/rules.d/60-*
-		rmdir -p "${ED}/$(get_udevdir)"/rules.d 2>/dev/null
+		rm "${ED}$(get_udevdir)"/rules.d/60-*
+		rmdir -p "${ED}$(get_udevdir)"/rules.d 2>/dev/null
 	fi
 	if ! use tmpfiles; then
 		rm -rf "${ED}"/usr/lib/tmpfiles.d
