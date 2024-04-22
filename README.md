@@ -821,6 +821,7 @@ x32 profiles, and that these variables only affect multilib systems.
     * Required by mkfs.xfs - perhaps this should be moved to /usr/sbin/ instead?
 * dev-libs/jansson
 * dev-libs/json-c
+* dev-libs/libaio
 * dev-libs/libbsd
 * dev-libs/libgcrypt
 * dev-libs/libgpg-error
