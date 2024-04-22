@@ -69,8 +69,8 @@ src_install() {
 	rm -rf "${D}"/dev
 
 	if ! use udev; then
-		rm "${ED}"/$(get_udevdir)/rules.d/99-fuse.rules
-		rmdir -p "${ED}"/$(get_udevdir)/rules.d
+		rm "${ED}$(get_udevdir)"/rules.d/99-fuse.rules
+		rmdir -p "${ED}$(get_udevdir)"/rules.d
 	fi
 
 	dodir /etc
