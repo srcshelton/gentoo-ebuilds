@@ -23,7 +23,7 @@ src_install() {
 	if use udev; then
 		udev_newrules util/udev.rules 99-fuse.rules
 	else
-		rmdir -p "${ED}"/$(get_udevdir)/rules.d
+		rmdir -p "${ED}$(get_udevdir)"/rules.d
 	fi
 
 	if use kernel_linux ; then
