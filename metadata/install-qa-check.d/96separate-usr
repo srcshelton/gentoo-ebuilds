@@ -21,21 +21,23 @@ run_check() {
 				# against the existing ROOT='/' files, as there could be
 				# differences in whether SOs are installed to root or usr...
 				#
-				#LDLP="${ED}/usr/${libdir}:${ED}/${libdir}${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
-				LDLP="${ED}/usr/${libdir}:${ED}/${libdir}"
+				#LDLP="${ED%/}/usr${libdir}:${ED%/}${libdir}${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
+				LDLP="${ED%/}/usr${libdir}:${ED%/}${libdir}"
 				if LD_LIBRARY_PATH="${LDLP}" ldd "${i}" |
 						grep -Fv -- 'libsandbox.so' |
-						grep -Fq -- "/usr/${libdir#/}"
+						grep -Fq -- "/usr${libdir}"
 				then
 					edf="${i#"${ED%/}/"}"
 					#echo "DEBUG: i is '${i}'"
 					#echo "DEBUG: edf is '${edf}'"
 					#echo "DEBUG: QA_XLINK_ALLOWED is '${QA_XLINK_ALLOWED[*]:-}'"
-					if ! grep -q " ${edf#/} " <<<" ${QA_XLINK_ALLOWED[*]:-} "; then
+					if [[ "${QA_XLINK_ALLOWED:-}" != '*' ]] &&
+							! grep -q " ${edf#/} " <<<" ${QA_XLINK_ALLOWED[*]:-} "
+					then
 						eqawarn "${edf}: $( # <- Syntax
 							ldd "${i}" |
 								grep -Fv -- 'libsandbox.so' |
-								grep -F -- "/usr/${libdir#/}" |
+								grep -F -- "/usr${libdir}" |
 								sed "s|^${ED%/}|| ; s/([^)]\+)$//"
 						)"
 						list["${edf}"]=1
@@ -45,7 +47,7 @@ run_check() {
 			fi
 		done < <( # <- Syntax
 			for dir in "${ED%/}"/bin/ "${ED%/}"/sbin/ "${ED%/}${libdir}"; do
-				if [[ -d "${dir}" ]]; then
+				if [[ -d "${dir}" && ! -L "${dir}" ]]; then
 					find "${dir}" -type f -print
 				fi
 			done
