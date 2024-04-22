@@ -70,18 +70,24 @@ src_prepare() {
 	cmake_src_prepare
 }
 
-src_configure() {
-	cmake_src_configure
-}
+#src_configure() {
+#	cmake_src_configure
+#}
 
-src_compile() {
-	cmake_src_compile
-}
+#src_compile() {
+#	cmake_src_compile
+#}
 
 src_install() {
 	local bc_src='' bc_dst=''
 
 	cmake_src_install
+
+	dodir /usr/sbin
+	for sbin in vcmailbox vclog vcgencmd pinctrl eepflash.sh otpset; do
+		[[ -e "${ED}/usr/bin/${sbin}" ]] &&
+			mv "${ED}/usr/bin/${sbin}" "${ED}"/usr/sbin/
+	done
 
 	insinto /etc
 	doins "${T}"/rpi-issue
