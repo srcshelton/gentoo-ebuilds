@@ -853,6 +853,7 @@ x32 profiles, and that these variables only affect multilib systems.
     * Move 'pdata\_tools', with many non-root library dependencies, to `/usr/sbin`
 * sys-fs/cryptsetup
 * sys-libs/libcap-ng
+* sys-libs/readline
 * sys-libs/slang
 * sys-libs/talloc
 * sys-libs/zlib
