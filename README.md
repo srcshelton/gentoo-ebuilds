@@ -841,6 +841,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * net-libs/libpcap
 * net-libs/libtirpc
 * sys-apps/acl
+* sys-apps/attr
 * sys-apps/file
     * Move `libmagic.so` to the root filesystem, for app-editors/nano
 * sys-apps/shadow
