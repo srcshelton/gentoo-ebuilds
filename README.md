@@ -846,6 +846,7 @@ x32 profiles, and that these variables only affect multilib systems.
     * Move `libmagic.so` to the root filesystem, for app-editors/nano
 * sys-apps/shadow
     * Also avoid building 'su' unless specifically requested, as it is also provided by `sys-apps/util-linux`
+* sys-apps/tcp-wrappers
 * sys-apps/util-linux
     * Add `libfdisk.so` to the list of libraries relocated to root
 * sys-block/thin-provisioning-tools
