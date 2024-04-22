@@ -54,7 +54,8 @@ DEPEND="${BDEPEND}"
 # the library (libfoo.so), as ldconfig should usually update it
 # correctly to point to the latest version of the library present.
 gen_usr_ldscript() {
-	local lib libdir="$(get_libdir)" output_format='' auto='false' suffix="$(get_libname)" ed="${ED:-}"
+	local lib libdir="$(get_libdir)" output_format='' auto='false'
+	local suffix="$(get_libname)" ed="${ED:-}"
 	local -i preexisting=0
 
 	tc-is-static-only && return
@@ -77,11 +78,20 @@ gen_usr_ldscript() {
 	*-darwin*) ;;
 	*-android*) return 0 ;;
 	*linux*)
-		use split-usr || return 0
+		if ! use split-usr; then
+			if -L "/${libdir}"; then
+				eerror "gen_usr_ldscript called from usr-ldscript.eclass" \
+					"without 'split-usr' USE-flag"
+				eerror "set, but with /${libdir} as a symlink"
+				die "split-usr sanity check failed"
+			fi
+			return 0
+		fi
 		;;
 	*) return 0 ;;
 	esac
 
+	# Used by sys-devel/gcc pkg_config() when processing libatomic...
 	if [[ "${1}" == "--live" ]] ; then
 		ed="${ROOT:-}"
 		ed="${ed%/}"
@@ -108,15 +118,19 @@ gen_usr_ldscript() {
 	# OUTPUT_FORMAT gives hints to the linker as to what binary format
 	# is referenced ... makes multilib saner
 	local flags=( ${CFLAGS} ${LDFLAGS} -Wl,--verbose )
-	if type -pf $(tc-getLD) &>/dev/null && $(tc-getLD) --version | grep -q 'GNU gold' ; then
+	if type -pf $(tc-getLD) &>/dev/null &&
+			$(tc-getLD) --version | grep -q 'GNU gold'
+	then
 		# If they're using gold, manually invoke the old bfd. #487696
 		local d="${T}/bfd-linker"
 		mkdir -p "${d}"
-		ln -sf "$( type -P "${CHOST}-ld.bfd" )" "${d}"/ld
+		ln -sf "$(type -P "${CHOST}-ld.bfd")" "${d}"/ld
 		flags+=( -B"${d}" )
 	fi
-	output_format=$($(tc-getCC) "${flags[@]}" 2>&1 | sed -n 's/^OUTPUT_FORMAT("\([^"]*\)",.*/\1/p')
-	[[ -n ${output_format} ]] && output_format="OUTPUT_FORMAT ( ${output_format} )"
+	output_format=$($(tc-getCC) "${flags[@]}" 2>&1 |
+		sed -n 's/^OUTPUT_FORMAT("\([^"]*\)",.*/\1/p')
+	[[ -n ${output_format} ]] &&
+		output_format="OUTPUT_FORMAT ( ${output_format} )"
 
 	for lib in "$@" ; do
 		local tlib
@@ -126,7 +140,9 @@ gen_usr_ldscript() {
 			# Ensure /lib/${lib} exists to avoid dangling scripts/symlinks.
 			# This especially is for AIX where $(get_libname) can return ".a",
 			# so /lib/${lib} might be moved to /usr/lib/${lib} (by accident).
-			[[ -r ${ed}/${libdir}/${lib} ]] || die "Unable to read non-automatic source library '${ed}/${libdir}/${lib}': ${?}"
+			[[ -r ${ed}/${libdir}/${lib} ]] ||
+				die 'Unable to read non-automatic source library' \
+					"'${ed}/${libdir}/${lib}': ${?}"
 		fi
 
 		case ${CTARGET:-${CHOST}} in
@@ -140,10 +156,12 @@ gen_usr_ldscript() {
 			tlib=${tlib##*/}
 
 			if ${auto} ; then
-				mv "${ed}"/usr/${libdir}/${lib%${suffix}}.*${suffix#.} "${ed}"/${libdir}/ || die
+				mv "${ed}/usr/${libdir}/${lib%${suffix}}.*${suffix#.}" \
+					"${ed}/${libdir}/" || die
 				# some install_names are funky: they encode a version
 				if [[ ${tlib} != ${lib%${suffix}}.*${suffix#.} ]] ; then
-					mv "${ed}"/usr/${libdir}/${tlib%${suffix}}.*${suffix#.} "${ed}"/${libdir}/ || die
+					mv "${ed}/usr/${libdir}/${tlib%${suffix}}.*${suffix#.}" \
+						"${ed}/${libdir}/" || die
 				fi
 				rm -f "${ed}"/${libdir}/${lib}
 			fi
@@ -156,7 +174,7 @@ gen_usr_ldscript() {
 			# Make sure we don't lose the specific version, so just modify the
 			# existing install_name
 			if [[ ! -w "${ed}/${libdir}/${tlib}" ]] ; then
-				chmod u+w "${ed}/${libdir}/${tlib}" || die # needed to write to it
+				chmod u+w "${ed}/${libdir}/${tlib}" || die # needed to write
 				local nowrite=yes
 			fi
 			install_name_tool \
@@ -176,39 +194,48 @@ gen_usr_ldscript() {
 				if ! [[ -s "${ed}/usr/${libdir}/${lib}" ]]; then
 					die "file '${ed}/usr/${libdir}/${lib}' is missing"
 				fi
-				tlib="$( scanelf -qF'%S#F' "${ed}/usr/${libdir}/${lib}" )"
+				tlib="$(scanelf -qF'%S#F' "${ed}/usr/${libdir}/${lib}")"
 				if [[ -z "${tlib:-}" ]]; then
 					if ! type -P file >/dev/null 2>&1; then
 						ewarn "command 'file' not found"
 					fi
 					if
 						file "${ed}/usr/${libdir}/${lib}" 2>/dev/null |
-							grep -q -- 'ASCII text$' ||
-						grep -aq -- 'GNU ld script' "${ed}/usr/${libdir}/${lib}"
+								grep -q -- 'ASCII text$' ||
+							grep -aq -- 'GNU ld script' \
+								"${ed}/usr/${libdir}/${lib}"
 					then
-						ewarn "file '${ed}/usr/${libdir}/${lib}' is already a linker script"
+						ewarn "file '${ed}/usr/${libdir}/${lib}' is already" \
+							"a linker script"
 						if [[ -x "${ed}/usr/${libdir}/${lib}" ]] && (( $(
-								find "${ed}/${libdir}"/ -name "${tlib}*" -print 2>/dev/null | wc -l
+								find "${ed}/${libdir}"/ \
+										-name "${tlib}*" \
+										-print 2>/dev/null |
+									wc -l
 						) )); then
 							return 0
 						else
 							#
 							# libbsd is now writing a linker script in order to
 							# pull-in libmd for MD5 operations...
-							if grep -q -- '/usr/' "${ed}/usr/${libdir}/${lib}"; then
+							if grep -q -- '/usr/' "${ed}/usr/${libdir}/${lib}"
+							then
 								sed -e 's|/usr/|/|g' \
 									-i "${ed}/usr/${libdir}/${lib}"
-								ewarn "Existing linker-script updated - new content:"
+								ewarn "Existing linker-script updated - new" \
+									"content:"
 								ewarn "$( cat "${ed}/usr/${libdir}/${lib}" )"
 								preexisting=1
 							else
-								die "However, the library does not appear to have been correctly relocated"
+								die "However, the library does not appear to" \
+									"have been correctly relocated"
 							fi
 						fi
 					fi
 					if ! (( preexisting )); then
 						die "unable to read SONAME from ${lib}" \
-							"('scanelf -qF'%S#F' \"${ed}/usr/${libdir}/${lib}\"' returned '$(
+							"('scanelf -qF'%S#F'" \
+							"\"${ed}/usr/${libdir}/${lib}\"' returned '$(
 								scanelf -qF'%S#F' "${ed}"/usr/${libdir}/${lib}
 							)': ${?})"
 					fi
@@ -245,7 +272,8 @@ gen_usr_ldscript() {
 			;;
 		esac
 		if ! (( preexisting )); then
-			chmod a+x "${ed}/usr/${libdir}/${lib}" || die "could not change perms on ${lib}"
+			chmod a+x "${ed}/usr/${libdir}/${lib}" ||
+				die "could not change perms on ${lib}"
 		fi
 	done
 }

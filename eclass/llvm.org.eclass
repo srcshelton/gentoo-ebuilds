@@ -72,14 +72,11 @@ if [[ -z ${_LLVM_SOURCE_TYPE+1} ]]; then
 			_LLVM_SOURCE_TYPE=snapshot
 
 			case ${PV} in
-				19.0.0_pre20240224)
-					EGIT_COMMIT=60a904b2ad9842b93cc5fa0ad5bda5e22c550b7e
+				19.0.0_pre20240322)
+					EGIT_COMMIT=f3cfe016c5d8429c0dccfa6f85442e2ea0d45a58
 					;;
-				19.0.0_pre20240218)
-					EGIT_COMMIT=3496927edcd0685807351ba88a7e2cfb006e1c0d
-					;;
-				19.0.0_pre20240210)
-					EGIT_COMMIT=8884ba43a8485bebef5c4d41e7ed457e3fa84f07
+				19.0.0_pre20240316)
+					EGIT_COMMIT=6d3cec01a6c29fa4e51ba129fa13dbf55d2b928e
 					;;
 				*)
 					die "Unknown snapshot: ${PV}"
@@ -299,6 +296,9 @@ llvm.org_set_globals() {
 					;;
 				17*)
 					LLVM_MANPAGE_DIST="llvm-17.0.1-manpages.tar.bz2"
+					;;
+				18*)
+					LLVM_MANPAGE_DIST="llvm-18.1.0-manpages.tar.bz2"
 					;;
 			esac
 		fi
