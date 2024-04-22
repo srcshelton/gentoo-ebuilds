@@ -25,7 +25,7 @@ HOMEPAGE="https://github.com/eudev-project/eudev"
 
 LICENSE="LGPL-2.1 MIT GPL-2"
 SLOT="0"
-IUSE="-init -kmod predictable-ifnames -rule-generator selinux static-libs test udev"
+IUSE="hwdb -init -kmod predictable-ifnames -rule-generator selinux static-libs test udev"
 RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
@@ -79,6 +79,8 @@ MULTILIB_WRAPPED_HEADERS=(
 )
 
 pkg_pretend() {
+	use udev || return
+
 	ewarn
 	ewarn "As of 2013-01-29, ${PN} provides the new interface renaming functionality,"
 	ewarn "as described in the URL below:"
@@ -204,7 +206,11 @@ multilib_src_install() {
 multilib_src_install_all() {
 	find "${ED}" -name '*.la' -delete || die
 
-	if use udev; then
+	if ! use udev; then
+		rm -r "${ED}"/usr/share/man "${ED}"/sbin "${ED}"/bin
+		[[ -d "${ED}$(get_udevdir)" ]] && rm -r "${ED}$(get_udevdir)"
+		use hwdb || rm -r "${ED}"/etc/udev
+	else
 		insinto "$(get_udevdir)"/rules.d
 		doins "${FILESDIR}"/40-gentoo.rules
 
@@ -213,6 +219,7 @@ multilib_src_install_all() {
 			dodir /etc/udev/rules.d
 			touch "${ED}"/etc/udev/rules.d/80-net-name-slot.rules
 		fi
+		use hwdb || rm -r "${ED}"/etc/udev/hwdb.d
 	fi
 }
 
@@ -221,64 +228,66 @@ pkg_postrm() {
 }
 
 pkg_postinst() {
-	use udev && udev_reload
+	if use udev; then
+		udev_reload
 
-	#mkdir -p "${EROOT}"/var/run
+		#mkdir -p "${EROOT}"/var/run
 
-	# "losetup -f" is confused if there is an empty /dev/loop/, Bug #338766
-	# So try to remove it here (will only work if empty).
-	rmdir "${EROOT}"/dev/loop 2>/dev/null
-	if [[ -d ${EROOT}/dev/loop ]]; then
-		ewarn "Please make sure your remove /dev/loop,"
-		ewarn "else losetup may be confused when looking for unused devices."
-	fi
+		# "losetup -f" is confused if there is an empty /dev/loop/, Bug #338766
+		# So try to remove it here (will only work if empty).
+		rmdir "${EROOT}"/dev/loop 2>/dev/null
+		if [[ -d ${EROOT}/dev/loop ]]; then
+			ewarn "Please make sure your remove /dev/loop,"
+			ewarn "else losetup may be confused when looking for unused devices."
+		fi
 
-	# REPLACING_VERSIONS should only ever have zero or 1 values but in case it doesn't,
-	# process it as a list.  We only care about the zero case (new install) or the case where
-	# the same version is being re-emerged.  If there is a second version, allow it to abort.
-	local rv rvres=doitnew
-	for rv in ${REPLACING_VERSIONS} ; do
-		if [[ ${rvres} == doit* ]]; then
-			if [[ ${rv%-r*} == ${PV} ]]; then
-				rvres=doit
-			else
-				rvres=${rv}
+		# REPLACING_VERSIONS should only ever have zero or 1 values but in case it doesn't,
+		# process it as a list.  We only care about the zero case (new install) or the case where
+		# the same version is being re-emerged.  If there is a second version, allow it to abort.
+		local rv rvres=doitnew
+		for rv in ${REPLACING_VERSIONS} ; do
+			if [[ ${rvres} == doit* ]]; then
+				if [[ ${rv%-r*} == ${PV} ]]; then
+					rvres=doit
+				else
+					rvres=${rv}
+				fi
 			fi
+		done
+
+		#if has_version 'sys-apps/hwids[udev]'; then
+			udevadm hwdb --update --root="${ROOT}"
+
+			# https://cgit.freedesktop.org/systemd/systemd/commit/?id=1fab57c209035f7e66198343074e9cee06718bda
+			# reload database after it has be rebuilt, but only if we are not upgrading
+			# also pass if we are -9999 since who knows what hwdb related changes there might be
+			if [[ ${rvres} == doit* ]] && [[ -z ${ROOT} ]] && [[ ${PV} != "9999" ]]; then
+				udevadm control --reload
+			fi
+		#fi
+
+		if [[ ${rvres} != doitnew ]]; then
+			ewarn
+			ewarn "You need to restart eudev as soon as possible to make the"
+			ewarn "upgrade go into effect:"
+			ewarn "\t/etc/init.d/udev --nodeps restart"
 		fi
-	done
 
-	#if has_version 'sys-apps/hwids[udev]'; then
-		use udev && udevadm hwdb --update --root="${ROOT}"
-
-		# https://cgit.freedesktop.org/systemd/systemd/commit/?id=1fab57c209035f7e66198343074e9cee06718bda
-		# reload database after it has be rebuilt, but only if we are not upgrading
-		# also pass if we are -9999 since who knows what hwdb related changes there might be
-		if [[ ${rvres} == doit* ]] && [[ -z ${ROOT} ]] && [[ ${PV} != "9999" ]]; then
-			use udev && udevadm control --reload
+		if use rule-generator &&
+				[[ -x $(type -P rc-update) ]] &&
+				rc-update show |
+					grep udev-postmount |
+					grep -qsv 'boot\|default\|sysinit'
+		then
+			ewarn
+			ewarn "Please add the udev-postmount init script to your default runlevel"
+			ewarn "to ensure the legacy rule-generator functionality works as reliably"
+			ewarn "as possible."
+			ewarn "\trc-update add udev-postmount default"
 		fi
-	#fi
 
-	if [[ ${rvres} != doitnew ]]; then
-		ewarn
-		ewarn "You need to restart eudev as soon as possible to make the"
-		ewarn "upgrade go into effect:"
-		ewarn "\t/etc/init.d/udev --nodeps restart"
+		elog
+		elog "For more information on eudev on Gentoo, writing udev rules, and"
+		elog "fixing known issues visit: https://wiki.gentoo.org/wiki/Eudev"
 	fi
-
-	if use rule-generator &&
-			[[ -x $(type -P rc-update) ]] &&
-			rc-update show |
-				grep udev-postmount |
-				grep -qsv 'boot\|default\|sysinit'
-	then
-		ewarn
-		ewarn "Please add the udev-postmount init script to your default runlevel"
-		ewarn "to ensure the legacy rule-generator functionality works as reliably"
-		ewarn "as possible."
-		ewarn "\trc-update add udev-postmount default"
-	fi
-
-	elog
-	elog "For more information on eudev on Gentoo, writing udev rules, and"
-	elog "fixing known issues visit: https://wiki.gentoo.org/wiki/Eudev"
 }
