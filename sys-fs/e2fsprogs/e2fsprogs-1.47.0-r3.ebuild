@@ -170,9 +170,9 @@ multilib_src_install_all() {
 }
 
 pkg_postinst() {
-	udev_reload
+	use udev && udev_reload
 }
 
 pkg_postrm() {
-	udev_reload
+	use udev && udev_reload
 }
