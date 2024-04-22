@@ -854,6 +854,7 @@ x32 profiles, and that these variables only affect multilib systems.
 
 # Make systemd unit installation or additional resources optional
 
+* app-admin/logrotate
 * app-containers/containers-common
 * mail-filter/postgrey
 * mail-mta/nullmailer
