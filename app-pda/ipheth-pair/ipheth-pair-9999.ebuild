@@ -28,8 +28,8 @@ src_install() {
 	emake -C ipheth-pair DESTDIR="${ED}" UDEV_RULES_PATH="$(get_udevdir)" install || die
 
 	if ! use udev; then
-		rm "${ED}"/$(get_udevdir)/rules.d/90-iphone-tether.rules
-		rmdir -p "${ED}"/$(get_udevdir)/rules.d
+		rm "${ED}$(get_udevdir)"/rules.d/90-iphone-tether.rules
+		rmdir -p "${ED}$(get_udevdir)"/rules.d
 	fi
 }
 
