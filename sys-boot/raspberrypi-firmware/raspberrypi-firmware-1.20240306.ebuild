@@ -470,6 +470,8 @@ pkg_config() {
 		fi
 	done
 
+	eend 0
+
 	if use devicetree && [[ -d "${boot}"/overlays.old ]]; then
 		if ! diff -qr "${boot}"/overlays{.old,}; then
 			ewarn "Overlay differences:"
