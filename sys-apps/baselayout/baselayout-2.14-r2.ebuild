@@ -1,7 +1,7 @@
 # Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit multilib prefix
 
@@ -242,6 +242,18 @@ src_install() {
 	emake \
 		DESTDIR="${ED}" \
 		install
+
+	# Fix /{etc,usr/lib}/os-release symlinks, given that the os-release(5) man-
+	# page states:
+	#
+	#   it is important that the file is available from earliest boot on, and
+	#   hence must be located on the root file system
+	#
+	if [[ -f "${ED}"/usr/lib/os-release && -L "${ED}"/etc/os-release ]]; then
+		rm "${ED}"/etc/os-release
+		mv "${ED}"/usr/lib/os-release "${ED}"/etc/os-release
+		dosym -r /etc/os-release /usr/lib/os-release
+	fi
 
 	if [[ ${CHOST} == *-darwin* ]] ; then
 		# add SDK path which contains development manpages
