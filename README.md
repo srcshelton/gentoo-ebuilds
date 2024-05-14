@@ -829,6 +829,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * dev-libs/libnl
 * dev-libs/libpcre
 * dev-libs/libpcre2
+* dev-libs/libpwquality
 * dev-libs/libunistring
 * dev-libs/mini-xml
 * dev-libs/mpfr
