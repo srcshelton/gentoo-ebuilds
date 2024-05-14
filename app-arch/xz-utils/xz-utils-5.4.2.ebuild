@@ -1,12 +1,12 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # Remember: we cannot leverage autotools in this ebuild in order
 #           to avoid circular deps with autotools
 
-EAPI=7
+EAPI=8
 
-inherit libtool multilib preserve-libs usr-ldscript multilib-minimal
+inherit flag-o-matic libtool multilib preserve-libs toolchain-funcs usr-ldscript multilib-minimal
 
 if [[ ${PV} == 9999 ]] ; then
 	# Per tukaani.org, git.tukaani.org is a mirror of github and
@@ -25,11 +25,11 @@ else
 
 	MY_P="${PN/-utils}-${PV/_}"
 	SRC_URI="
-		https://github.com/tukaani-project/xz/releases/download/v${PV}/${MY_P}.tar.gz
+		https://github.com/tukaani-project/xz/releases/download/v${PV/_}/${MY_P}.tar.gz
 		mirror://sourceforge/lzmautils/${MY_P}.tar.gz
 		https://tukaani.org/xz/${MY_P}.tar.gz
 		verify-sig? (
-			https://github.com/tukaani-project/xz/releases/download/v${PV}/${MY_P}.tar.gz.sig
+			https://github.com/tukaani-project/xz/releases/download/v${PV/_}/${MY_P}.tar.gz.sig
 			https://tukaani.org/xz/${MY_P}.tar.gz.sig
 		)
 	"
@@ -49,13 +49,9 @@ HOMEPAGE="https://tukaani.org/xz/"
 # See top-level COPYING file as it outlines the various pieces and their licenses.
 LICENSE="public-domain LGPL-2.1+ GPL-2+"
 SLOT="0"
-IUSE="doc +extra-filters nls static-libs"
+IUSE="doc +extra-filters nls pgo static-libs"
 
 BDEPEND="${BDEPEND} sys-apps/grep"
-
-PATCHES=(
-	"${FILESDIR}"/${P}-Wsign-conversion.patch
-)
 
 src_prepare() {
 	default
@@ -105,6 +101,27 @@ multilib_src_configure() {
 	fi
 
 	ECONF_SOURCE="${S}" econf "${myconf[@]}"
+}
+
+multilib_src_compile() {
+	# -fprofile-partial-training because upstream note the test suite isn't
+	# super comprehensive
+	# See https://documentation.suse.com/sbp/all/html/SBP-GCC-10/index.html#sec-gcc10-pgo
+	local pgo_generate_flags=$(usev pgo "-fprofile-update=atomic -fprofile-dir=${T}/${ABI}-pgo -fprofile-generate=${T}/${ABI}-pgo $(test-flags-CC -fprofile-partial-training)")
+	local pgo_use_flags=$(usev pgo "-fprofile-use=${T}/${ABI}-pgo -fprofile-dir=${T}/${ABI}-pgo $(test-flags-CC -fprofile-partial-training)")
+
+	emake CFLAGS="${CFLAGS} ${pgo_generate_flags}"
+
+	if use pgo ; then
+		emake CFLAGS="${CFLAGS} ${pgo_generate_flags}" -k check
+
+		if tc-is-clang; then
+			llvm-profdata merge "${T}"/${ABI}-pgo --output="${T}"/${ABI}-pgo/default.profdata || die
+		fi
+
+		emake clean
+		emake CFLAGS="${CFLAGS} ${pgo_use_flags}"
+	fi
 }
 
 multilib_src_install() {
