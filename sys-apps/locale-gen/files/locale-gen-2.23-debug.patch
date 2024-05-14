@@ -1,0 +1,46 @@
+--- a/locale-gen
++++ b/locale-gen
+@@ -280,6 +280,7 @@
+ 					-A "${ALIAS}" \
+ 					--prefix "${DESTDIR%${EPREFIX}/}/" \
+ 					"${locale}" 2>&1
++				ret=$?
+ 			else
+ 				# We assume that the current directory is "${ED}"/$(get_libdir),
+ 				# see the glibc ebuild, function glibc_sanity_check(), for why.
+@@ -291,8 +292,12 @@
+ 					-A "${ALIAS}" \
+ 					--prefix "${DESTDIR%${EPREFIX}/}/" \
+ 					"${locale}" 2>&1
++				ret=$?
++				if ! (( ret )); then
++					echo >&2 "FATAL: Running 'ld-*.so' from '${PWD}' failed: ${ret}"
++					echo >&2 "       Matching SOs: $( ls -l *.so )"
++				fi
+ 			fi
+-			ret=$?
+ 			[[ -n ${output} ]] && eend ${ret}
+ 			exit ${ret}
+ 		)
+@@ -406,6 +411,7 @@
+ 						--add-to-archive "${LOC}" \
+ 						--replace \
+ 						--prefix "${DESTDIR%${EPREFIX}/}/"
++					ret=$?
+ 				else
+ 					# We assume that the current directory is "${ED}"/$(get_libdir),
+ 					# see the glibc ebuild, function glibc_sanity_check(), for why.
+@@ -414,8 +420,12 @@
+ 						--add-to-archive "${LOC}" \
+ 						--replace \
+ 						--prefix "${DESTDIR%${EPREFIX}/}/"
++					ret=$?
++					if ! (( ret )); then
++						echo >&2 "FATAL: Running 'ld-*.so' from '${PWD}' failed: ${ret}"
++						echo >&2 "       Matching SOs: $( ls -l *.so )"
++					fi
+ 				fi
+-				ret=$?
+ 				if [[ -n ${output} ]] ; then
+ 					echo "${x}"
+ 				elif [[ ${ret} -ne 0 ]] ; then

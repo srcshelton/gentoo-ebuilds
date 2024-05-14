@@ -25,6 +25,10 @@ RDEPEND="
 	!<sys-libs/glibc-2.37-r3
 "
 
+PATCHES=(
+	"${FILESDIR}/${P}-debug.patch"
+)
+
 src_prepare() {
 	default
 	eprefixify locale-gen
