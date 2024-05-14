@@ -22,7 +22,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-2" # GPL-2 only
 SLOT="0"
-IUSE="debug livecd make-symlinks math mdev pam selinux sep-usr static syslog systemd"
+IUSE="debug livecd make-symlinks math mdev +openrc pam selinux sep-usr static syslog systemd"
 REQUIRED_USE="pam? ( !static )"
 RESTRICT="test"
 
@@ -40,7 +40,7 @@ DEPEND="${RDEPEND}
 		virtual/libcrypt[static-libs]
 		selinux? ( sys-libs/libselinux[static-libs(+)] )
 	)
-	sys-kernel/linux-headers
+	virtual/os-headers
 "
 BDEPEND="
 	virtual/pkgconfig
@@ -233,6 +233,19 @@ src_configure() {
 		busybox_config_option n ${opt}
 	done
 
+	# See https://github.com/OpenRC/openrc/blob/master/BUSYBOX.md
+	if use openrc; then
+		for opt in \
+			START_STOP_DAEMON \
+			MOUNT UMOUNT \
+			SWAPONOFF \
+			SETFONT \
+			BB_SYSCTL
+		do
+			busybox_config_option n ${opt}
+		done
+	fi
+
 	emake -j1 oldconfig > /dev/null
 }
 
@@ -263,15 +276,18 @@ src_install() {
 		dosym busybox /bin/bb
 	fi
 	if use mdev ; then
-		dodir /$(get_libdir)/mdev/
+		# N.B. Explicitly not lib64 (from `get_libdir`):
+		#dodir /$(get_libdir)/mdev/
+		dodir /lib/mdev/
 		use make-symlinks || dosym /bin/bb /sbin/mdev
 		cp "${S}"/examples/mdev_fat.conf "${ED}"/etc/mdev.conf || die
-		if [[ ! "$(get_libdir)" == "lib" ]]; then
-			#831251 - replace lib with lib64 where appropriate
-			sed -i -e "s:/lib/:/$(get_libdir)/:g" "${ED}"/etc/mdev.conf || die
-		fi
-
-		exeinto /$(get_libdir)/mdev/
+		#if [[ ! "$(get_libdir)" == "lib" ]]; then
+		#	#831251 - replace lib with lib64 where appropriate
+		#	sed -i -e "s:/lib/:/$(get_libdir)/:g" "${ED}"/etc/mdev.conf || die
+		#fi
+		#
+		#exeinto /$(get_libdir)/mdev/
+		exeinto /lib/mdev/
 		doexe "${FILESDIR}"/mdev/*
 
 		newinitd "${FILESDIR}"/mdev.initd mdev

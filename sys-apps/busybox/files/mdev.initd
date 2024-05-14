@@ -19,9 +19,25 @@ find_mdev()
 
 populate_mdev()
 {
-	ebegin "Populating /dev with existing devices with mdev -s"
+	local rc=0
+
+	ebegin "Populating '/dev' with existing devices using \"mdev -s\""
 	$(find_mdev) -s
-	eend $?
+	rc=$?
+
+	for i in /sys/class/net/*/uevent; do
+		[ -w "$i" ] && printf 'add' >"$i"
+	done
+	for i in /sys/bus/usb/devices/*; do
+		case "${i##*/}" in
+			[0-9]*-[0-9]*)
+				[ -w "$i"/uevent ] && printf 'add' >"$i"/uevent
+				;;
+		esac
+	done
+
+	eend $rc
+
 	return 0
 }
 
@@ -31,10 +47,28 @@ seed_dev()
 	if [ -d /lib/mdev/devices ] ; then
 		cp -RPp /lib/mdev/devices/* /dev 2>/dev/null
 	fi
+
+}
+
+mount_it()
+{
+	if fstabinfo --quiet /dev ; then
+		mount -n /dev
+	else
+		# Some devices require 'exec', Bug #92921
+		mount -n -t devtmpfs -o "exec,nosuid,mode=0755,size=1M" mdev /dev
+	fi
 }
 
 start()
 {
+	# Setup temporary storage for /dev
+	if [ -r /proc/mounts ] && ! grep -Eq "^[^ ]+ /dev (dev)?tmpfs" /proc/mounts; then
+		ebegin "Mounting /dev for mdev"
+		mount_it
+		eend $?
+	fi
+
 	seed_dev
 
 	# Setup hotplugging (if possible)
@@ -42,6 +76,10 @@ start()
 		ebegin "Setting up mdev as hotplug agent"
 		echo $(find_mdev) > /proc/sys/kernel/hotplug
 		eend 0
+	else
+		eerror "Kernel lacks uevent helper support"
+		eerror "No mdev rules will be processed when new devices are hotplugged"
+		ewarn "Recompile your kernel with 'CONFIG_UEVENT_HELPER=y' to resolve this issue"
 	fi
 
 	if get_bootparam "nocoldplug" ; then
