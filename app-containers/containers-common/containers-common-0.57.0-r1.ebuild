@@ -12,7 +12,7 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/common/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P#containers-}"
-	KEYWORDS="amd64 ~arm64 ~riscv"
+	KEYWORDS="amd64 arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
@@ -20,7 +20,7 @@ SLOT="0"
 IUSE="systemd"
 RESTRICT="mirror test"
 RDEPEND="
-	<app-containers/containers-image-5.29.2
+	>=app-containers/containers-image-5.29.2
 	app-containers/containers-storage
 	app-containers/containers-shortnames
 	!<app-containers/podman-4.5.0-r1
@@ -53,14 +53,6 @@ src_compile() {
 
 src_install() {
 	emake DESTDIR="${ED}" install
-
-	insinto /etc/containers
-	# https://github.com/containers/skopeo/raw/main/default-policy.json
-	doins pkg/config/containers.conf "${FILESDIR}/policy.json"
-
-	insinto /etc/containers/registries.d
-	# https://github.com/containers/skopeo/raw/main/default.yaml
-	doins "${FILESDIR}/default.yaml"
 
 	insinto /usr/share/containers
 	doins pkg/seccomp/seccomp.json pkg/subscriptions/mounts.conf
