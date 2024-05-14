@@ -3,19 +3,20 @@
 
 EAPI=8
 
-KV_MINOR="73"
-MY_PV="stable_20240124"
+KV_MINOR="28"
+MY_PV="20240423"
+#EGIT_COMMIT="6f16847710cc0502450788b9f12f0a14d3429668"
 ETYPE="headers"
 H_SUPPORTEDARCH="arm arm64"
 inherit kernel-2
 detect_version
 
 PATCH_PV=${PV} # to ease testing new versions against not existing patches
-PATCH_VER="0"
+PATCH_VER="1"
 PATCH_DEV="sam"
-SRC_URI="https://github.com/raspberrypi/linux/archive/${MY_PV}.tar.gz -> raspberrypi-sources-${PV}.${KV_MINOR}_p${MY_PV#*_}.tar.gz
+SRC_URI="https://github.com/raspberrypi/linux/archive/${EGIT_COMMIT:-"${PY_PV}"}.tar.gz -> raspberrypi-sources-${PV}.${KV_MINOR}_p${MY_PV#*_}.tar.gz
 	${PATCH_VER:+https://dev.gentoo.org/~${PATCH_DEV}/distfiles/sys-kernel/linux-headers/gentoo-headers-${PATCH_PV}-${PATCH_VER}.tar.xz}"
-S="${WORKDIR}/linux-${MY_PV}"
+S="${WORKDIR}/linux-${EGIT_COMMIT:-"stable_${MY_PV}"}"
 
 KEYWORDS="arm arm64"
 
