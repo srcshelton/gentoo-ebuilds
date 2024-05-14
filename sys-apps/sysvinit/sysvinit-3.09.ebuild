@@ -10,7 +10,7 @@ VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/sysvinit.asc
 inherit flag-o-matic plocale toolchain-funcs verify-sig
 
 DESCRIPTION="/sbin/init - parent of all processes"
-HOMEPAGE="https://github.com/slicer69/sysvinit/tree/3.09"
+HOMEPAGE="https://github.com/slicer69/sysvinit"
 SRC_URI="https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz
 	verify-sig? ( https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz.sig )"
 S="${WORKDIR}/${P/_*}"
@@ -18,7 +18,7 @@ S="${WORKDIR}/${P/_*}"
 LICENSE="GPL-2"
 SLOT="0"
 if [[ ${PV} != *beta* ]] ; then
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
 fi
 IUSE="ibm nls selinux static"
 
