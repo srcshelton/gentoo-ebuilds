@@ -6,7 +6,7 @@ EAPI=8
 # Keep an eye on Fedora's packaging (https://src.fedoraproject.org/rpms/libcap-ng/tree/rawhide) for patches
 # Same maintainer in Fedora as upstream
 PYTHON_COMPAT=( python3_{10..12} )
-inherit autotools flag-o-matic libtool python-r1 usr-ldscript
+inherit autotools flag-o-matic libtool out-of-source-utils python-r1 usr-ldscript
 
 DESCRIPTION="POSIX 1003.1e capabilities"
 HOMEPAGE="https://people.redhat.com/sgrubb/libcap-ng/"
@@ -27,6 +27,8 @@ BDEPEND="python? ( >=dev-lang/swig-2 )"
 
 PATCHES=(
 	"${FILESDIR}"/${P}-swig.patch
+	# https://bugs.gentoo.org/928450
+	"${FILESDIR}"/${P}-slibtool.patch
 )
 
 src_prepare() {
