@@ -188,6 +188,10 @@ src_install() {
 	newbashcomp btrfs-completion btrfs
 
 	use python && python_optimize
+
+	if [[ -d "${ED}"/lib/udev ]]; then
+		rmdir --ignore-fail-on-non-empty --parents "${ED}"/lib/udev
+	fi
 }
 
 pkg_postinst() {
