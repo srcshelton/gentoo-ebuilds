@@ -60,7 +60,7 @@ case "${EAPI}" in
 *) die "API is undefined for EAPI ${EAPI}" ;;
 esac
 
-IUSE="tmpfiles"
+IUSE="+tmpfiles"
 
 # @ECLASS_VARIABLE: TMPFILES_OPTIONAL
 # @PRE_INHERIT
