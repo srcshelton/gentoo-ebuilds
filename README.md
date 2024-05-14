@@ -657,6 +657,8 @@ directory is an additional QA check which reports an error if files deployed to
 * net-mail/dovecot
 * net-misc/dhcpcd
 * net-misc/iperf
+* net-misc/kea
+    * Also prevent unnecessary files being installed, but always install configuration files to `/etc`
 * net-misc/memcached
 * net-misc/minidlna
 * net-misc/ndisc6
