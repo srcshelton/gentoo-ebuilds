@@ -35,7 +35,7 @@ COMMON_DEPEND="
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
-	rootless? ( || ( app-containers/slirp4netns app-containers/passt ) )
+	rootless? ( || ( app-containers/slirp4netns net-misc/passt ) )
 	selinux? ( sys-libs/libselinux:= )
 "
 BDEPEND="

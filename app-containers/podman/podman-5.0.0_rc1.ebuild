@@ -40,7 +40,7 @@ COMMON_DEPEND="
 	btrfs? ( sys-fs/btrfs-progs )
 	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
 	!cgroup-hybrid? ( app-containers/crun )
-	rootless? ( || ( app-containers/slirp4netns app-containers/passt ) )
+	rootless? ( || ( app-containers/slirp4netns net-misc/passt ) )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "

@@ -26,18 +26,18 @@ IUSE="apparmor +bash-completion btrfs experimental fish-completion +fuse +rootle
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
-	app-crypt/gpgme:=
 	>=app-containers/conmon-2.1.10
 	>=app-containers/containers-common-0.58.0-r1
 	app-containers/crun
+	>=app-containers/netavark-1.6.0[dns]
+	app-crypt/gpgme:=
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	>=app-containers/netavark-1.6.0[dns]
 	sys-apps/shadow:=
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
-	rootless? ( app-containers/passt )
+	rootless? ( net-misc/passt )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "

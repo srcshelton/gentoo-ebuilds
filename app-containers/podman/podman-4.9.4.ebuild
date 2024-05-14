@@ -3,7 +3,9 @@
 
 EAPI=8
 
-inherit go-module linux-info tmpfiles
+PYTHON_COMPAT=( python3_{11,12} )
+
+inherit go-module linux-info python-any-r1 tmpfiles
 
 DESCRIPTION="A tool for managing OCI containers and pods with Docker-compatible CLI"
 HOMEPAGE="https://github.com/containers/podman/ https://podman.io/"
@@ -15,7 +17,7 @@ else
 	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
 	if [[ ${PV} != *rc* ]] ; then
-		KEYWORDS="~amd64 ~arm64 ~riscv"
+		KEYWORDS="amd64 arm64 ~riscv"
 	fi
 fi
 
@@ -40,11 +42,12 @@ COMMON_DEPEND="
 	btrfs? ( sys-fs/btrfs-progs )
 	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
 	!cgroup-hybrid? ( app-containers/crun )
-	rootless? ( || ( app-containers/slirp4netns app-containers/passt ) )
+	rootless? ( || ( app-containers/slirp4netns net-misc/passt ) )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "
 BDEPEND="
+	${PYTHON_DEPS}
 	dev-go/go-md2man
 	dev-vcs/git
 	sys-apps/findutils
@@ -181,6 +184,7 @@ pkg_setup() {
 	fi
 
 	linux-info_pkg_setup
+	python-any-r1_pkg_setup
 }
 
 src_prepare() {
@@ -236,7 +240,8 @@ src_compile() {
 
 	# For non-live versions, prevent git operations which causes sandbox violations
 	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
-	[[ ${PV} != 9999* ]] && export COMMIT_NO="" GIT_COMMIT=""
+	[[ ${PV} != 9999* ]] &&
+		export COMMIT_NO="" GIT_COMMIT="" EPOCH_TEST_COMMIT=""
 
 	# BUILD_SECCOMP is used in the patch to toggle seccomp
 	emake \
@@ -272,11 +277,22 @@ src_install() {
 		doins cni/87-podman-bridge.conflist
 	fi
 
-	newconfd "${FILESDIR}"/podman.confd podman
-	newinitd "${FILESDIR}"/podman.initd podman
+	if use !systemd; then
+		newconfd "${FILESDIR}"/podman-5.0.0_rc4.confd podman
+		newinitd "${FILESDIR}"/podman-5.0.0_rc4.initd podman
 
-	insinto /etc/logrotate.d
-	newins "${FILESDIR}/podman.logrotated" podman
+		newinitd "${FILESDIR}"/podman-restart-5.0.0_rc4.initd podman-restart
+		newconfd "${FILESDIR}"/podman-restart-5.0.0_rc4.confd podman-restart
+
+		newinitd "${FILESDIR}"/podman-clean-transient-5.0.0_rc6.initd podman-clean-transient
+		newconfd "${FILESDIR}"/podman-clean-transient-5.0.0_rc6.confd podman-clean-transient
+
+		exeinto /etc/cron.daily
+		newexe "${FILESDIR}"/podman-auto-update-5.0.0.cron podman-auto-update
+
+		insinto /etc/logrotate.d
+		newins "${FILESDIR}/podman.logrotated" podman
+	fi
 
 	if ! use bash-completion; then
 		rm -r "${ED}"/usr/share/bash-completion/completions

@@ -37,7 +37,7 @@ COMMON_DEPEND="
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
-	rootless? ( app-containers/passt )
+	rootless? ( net-misc/passt )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "
