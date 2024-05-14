@@ -44,8 +44,9 @@ packages and miscellaneous fixes.
 * www-apps/rpi-monitor
     * Raspberry Pi monitoring web-interface from [rpi-experiences.blogspot.fr](http://rpi-experiences.blogspot.fr/)
 
-# Allow sys-kernel/raspberrypi-headers as alternative to sys-kernel/linux-headers
+# Allow sys-kernel/raspberrypi-headers (or virtual/os-headers) as alternative to sys-kernel/linux-headers
 
+* dev-debug/strace
 * net-misc/lksctp-tools
 * sys-apps/flashrom
 * sys-fs/btrfs-progs
