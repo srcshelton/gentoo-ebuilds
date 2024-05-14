@@ -775,6 +775,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Support for gawk installed in `/bin`
 * app-eselect/eselect-awk
     * Support for (g)awk installed in `/bin`
+* net-misc/netifrc
+    * Avoid installing udev rules unless `USE="udev"` is specified
 * net-wireless/bluez
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-apps/coreutils
@@ -783,6 +785,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Install to `/bin` rather than `/usr/bin`, for init scripts which invoke `awk`
 * sys-apps/irqbalance
     * Avoid installing udev rules unless `USE="udev"` is specified
+* sys-apps/nvme-cli
+    * Remove extraneous udev elements if not required
 * sys-apps/openrc
     * Add optional `USE="varrun"` flag to allow 'run' directory to remain as '/var/run'
 * sys-fs/cryptsetup
@@ -797,8 +801,6 @@ x32 profiles, and that these variables only affect multilib systems.
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-fs/mdadm
     * Restore previous boot-time functionality, add support for module-loading from `/etc/mdadm/mdmod.conf`
-* net-misc/netifrc
-    * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-libs/libeudev
     * Provide `libudev` only without (e)udev daemon, for builds which require only the library component of udev
 * sys-process/procps
