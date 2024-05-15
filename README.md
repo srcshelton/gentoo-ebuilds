@@ -211,8 +211,8 @@ used to build perl)
     * git live ebuild for updated libimobiledevice tools
 * app-pda/libimobiledevice-glue
     * git live ebuild for updated libimobiledevice shared library
-* app-pda/libplist
-    * git live ebuild for updated plist library
+* ~~app-pda/libplist~~
+    * ~~git live ebuild for updated plist library~~
 * app-pda/libusbmuxd
     * git live ebuild for split libusbmuxd/usbmuxd library
 * app-pda/usbmuxd
