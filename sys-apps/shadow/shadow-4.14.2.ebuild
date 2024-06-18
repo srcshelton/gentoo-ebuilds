@@ -43,14 +43,6 @@ DEPEND="
 "
 RDEPEND="
 	${COMMON_DEPEND}
-	!<sys-apps/man-pages-5.11-r1
-	!=sys-apps/man-pages-5.12-r0
-	!=sys-apps/man-pages-5.12-r1
-	nls? (
-		!<app-i18n/man-pages-it-5.06-r1
-		!<app-i18n/man-pages-ja-20180315-r1
-		!<app-i18n/man-pages-ru-5.03.2390.2390.20191017-r1
-	)
 	pam? ( >=sys-auth/pambase-20150213 )
 	su? ( !sys-apps/util-linux[su(-)] )
 "
@@ -86,7 +78,7 @@ src_configure() {
 		--with-bcrypt
 		--with-yescrypt
 		$(use_enable nls)
-		# TODO: wire up upstream for elogind too
+		# TODO: wire up upstream for elogind too (bug #931119)
 		$(use_enable systemd logind)
 		$(use_with acl)
 		$(use_with audit)
