@@ -1,0 +1,180 @@
+--- a/elf/ldd.bash.in
++++ b/elf/ldd.bash.in
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/bin/sh
+ # Copyright (C) 1996-2024 Free Software Foundation, Inc.
+ # This file is part of the GNU C Library.
+ 
+@@ -23,10 +23,16 @@
+ # variable LD_TRACE_LOADED_OBJECTS to a non-empty value.
+ 
+ # We should be able to find the translation right at the beginning.
+-TEXTDOMAIN=libc
+-TEXTDOMAINDIR=@TEXTDOMAINDIR@
++export TEXTDOMAIN=libc
++export TEXTDOMAINDIR=@TEXTDOMAINDIR@
+ 
+-RTLDLIST=@RTLD@
++# Check if gettext exists...
++if ! command -v gettext >/dev/null 2>&1; then
++  # ...if not, create a dummy function that returns the input verbatim
++  gettext() { printf '%s' "${1}" ; }
++fi
++
++RTLDLIST="@RTLD@"
+ warn=
+ bind_now=
+ verbose=
+@@ -35,25 +41,29 @@ while test $# -gt 0; do
+   case "$1" in
+   --vers | --versi | --versio | --version)
+     echo 'ldd @PKGVERSION@@VERSION@'
+-    printf $"Copyright (C) %s Free Software Foundation, Inc.
++    # shellcheck disable=SC2059
++    printf "$( gettext 'Copyright (C) %s Free Software Foundation, Inc.
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+-" "2024"
+-    printf $"Written by %s and %s.
+-" "Roland McGrath" "Ulrich Drepper"
++' )" "2024"
++    # shellcheck disable=SC2059
++    printf "$( gettext '"Written by %s and %s.
++' )" "Roland McGrath" "Ulrich Drepper"
+     exit 0
+     ;;
+   --h | --he | --hel | --help)
+-    echo $"Usage: ldd [OPTION]... FILE...
++    # shellcheck disable=SC2005
++    echo "$( gettext 'Usage: ldd [OPTION]... FILE...
+       --help              print this help and exit
+       --version           print version information and exit
+   -d, --data-relocs       process data relocations
+   -r, --function-relocs   process data and function relocations
+   -u, --unused            print unused direct dependencies
+   -v, --verbose           print all information
+-"
+-    printf $"For bug reporting instructions, please see:\\n%s.\\n" \
+-      "@REPORT_BUGS_TO@"
++' )"
++    # shellcheck disable=SC2059
++    printf "$( gettext 'For bug reporting instructions, please see:\n%s.\n' )" \
++      '@REPORT_BUGS_TO@'
+     exit 0
+     ;;
+   -d | --d | --da | --dat | --data | --data- | --data-r | --data-re | \
+@@ -77,15 +87,17 @@ warranty; not even for MERCHANTABILITY o
+     shift
+     ;;
+   --v | --ve | --ver)
+-    echo >&2 $"ldd: option \`$1' is ambiguous"
++    # shellcheck disable=SC2005
++    echo >&2 "$( gettext "ldd: option \`${1}' is ambiguous" )"
+     exit 1
+     ;;
+-  --)		# Stop option processing.
++  --) # Stop option processing.
+     shift; break
+     ;;
+   -*)
+-    echo >&2 'ldd:' $"unrecognized option" "\`$1'"
+-    echo >&2 $"Try \`ldd --help' for more information."
++    echo >&2 'ldd:' "$( gettext "unrecognized option" "\`${1}'" )"
++    # shellcheck disable=SC2005
++    echo >&2 "$( gettext "Try \`ldd --help' for more information." )"
+     exit 1
+     ;;
+   *)
+@@ -113,7 +125,7 @@ fi
+ # subshell compound list (using "(...)") to prevent parameter assignments from
+ # affecting the calling shell execution environment.
+ try_trace() (
+-  output=$(eval $add_env '"$@"' 2>&1; rc=$?; printf 'x'; exit $rc)
++  output=$(eval "$add_env" '"$@"' 2>&1; rc=$?; printf 'x'; exit $rc)
+   rc=$?
+   printf '%s' "${output%x}"
+   return $rc
+@@ -121,8 +133,9 @@ try_trace() (
+ 
+ case $# in
+ 0)
+-  echo >&2 'ldd:' $"missing file arguments"
+-  echo >&2 $"Try \`ldd --help' for more information."
++  echo >&2 'ldd:' "$( gettext 'missing file arguments' )"
++  # shellcheck disable=SC2005
++  echo >&2 "$( gettext "Try \`ldd --help' for more information." )"
+   exit 1
+   ;;
+ 1)
+@@ -144,43 +157,50 @@ for file do
+      ;;
+   esac
+   if test ! -e "$file"; then
+-    echo "ldd: ${file}:" $"No such file or directory" >&2
++    echo "ldd: ${file}:" "$( gettext 'No such file or directory' )" >&2
+     result=1
+   elif test ! -f "$file"; then
+-    echo "ldd: ${file}:" $"not regular file" >&2
++    echo "ldd: ${file}:" "$( gettext 'not regular file' )" >&2
+     result=1
+   elif test -r "$file"; then
+-    test -x "$file" || echo 'ldd:' $"\
+-warning: you do not have execution permission for" "\`$file'" >&2
++    test -x "$file" || echo 'ldd:' "$(
++      gettext ' warning: you do not have execution permission for'
++    )" "\`$file'" >&2
+     RTLD=
+     ret=1
+     for rtld in ${RTLDLIST}; do
+-      if test -x $rtld; then
+-	verify_out=`${rtld} --verify "$file"`
+-	ret=$?
+-	case $ret in
+-	[02]) RTLD=${rtld}; break;;
+-	esac
++      if test -x "${rtld}"; then
++        # Used for ${add_env} and evaluated when try_trace() is called
++		#
++        # shellcheck disable=SC2034
++        verify_out="$( ${rtld} --verify "$file" )"
++        ret=$?
++        case $ret in
++          [02]) RTLD="${rtld}"; break;;
++        esac
+       fi
+     done
+     case $ret in
+     1)
+       # This can be a non-ELF binary or no binary at all.
+       nonelf "$file" || {
+-	echo $"	not a dynamic executable" >&2
+-	result=1
++        # WARNING! Embedded tab...
++        # shellcheck disable=SC2005
++        echo "$( gettext '	not a dynamic executable' )" >&2
++        result=1
+       }
+       ;;
+     0|2)
+-      try_trace "$RTLD" "$file" || result=1
++      try_trace "${RTLD}" "$file" || result=1
+       ;;
+     *)
+-      echo 'ldd:' ${RTLD} $"exited with unknown exit code" "($ret)" >&2
++      # shellcheck disable=SC2005
++      echo 'ldd:' "${RTLD}" "$( gettext 'exited with unknown exit code' )" "($ret)" >&2 # " # <- Syntax
+       exit 1
+       ;;
+     esac
+   else
+-    echo 'ldd:' $"error: you do not have read permission for" "\`$file'" >&2
++    echo 'ldd:' "$( gettext 'error: you do not have read permission for' )" "\`$file'" >&2
+     result=1
+   fi
+ done
+@@ -189,3 +209,4 @@ exit $result
+ # Local Variables:
+ #  mode:ksh
+ # End:
++# vi: set et sw=2 ts=2:
