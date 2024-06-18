@@ -48,7 +48,7 @@ run_check() {
 		done < <( # <- Syntax
 			for dir in "${ED%/}"/bin/ "${ED%/}"/sbin/ "${ED%/}${libdir}"; do
 				if [[ -d "${dir}" && ! -L "${dir}" ]]; then
-					find "${dir}" -type f -print
+					find -L "${dir}" -type f ! -xtype l -print
 				fi
 			done
 		)
