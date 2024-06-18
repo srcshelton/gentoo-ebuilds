@@ -15,16 +15,12 @@ if [[ "$PV" == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
 else
 	SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.xz"
-	KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv"
+	KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv"
 fi
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
 IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
-# the crun test suite is comprehensive to the extent that tests will fail
-# within a sandbox environment, due to the nature of the privileges
-# required to create linux "containers".
-RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	>=dev-libs/yajl-2.0.0:=
@@ -40,6 +36,7 @@ DEPEND="
 	sys-devel/gettext
 	sys-libs/libseccomp
 	virtual/os-headers
+	elibc_musl? ( sys-libs/argp-standalone[static-libs] )
 "
 RDEPEND="${COMMON_DEPEND}
 	seccomp? ( sys-libs/libseccomp )
@@ -51,6 +48,11 @@ BDEPEND="
 	sys-apps/sed
 	virtual/pkgconfig
 "
+
+# the crun test suite is comprehensive to the extent that tests will fail
+# within a sandbox environment, due to the nature of the privileges
+# required to create linux "containers".
+RESTRICT="mirror test"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
@@ -90,14 +92,6 @@ src_compile() {
 	if use man ; then
 		emake generate-man
 	fi
-}
-
-# the crun test suite is comprehensive to the extent that tests will fail
-# within a sandbox environment, due to the nature of the privileges
-# required to create linux "containers".
-# due to this we disable most of the core test suite by unsetting PYTHON_TESTS
-src_test() {
-	emake check PYTHON_TESTS=
 }
 
 src_install() {
