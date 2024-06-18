@@ -1,9 +1,9 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 PYTHON_REQ_USE="threads(+),xml(+)"
 inherit flag-o-matic linux-info pam python-single-r1 systemd tmpfiles waf-utils multilib-minimal
 
@@ -16,13 +16,13 @@ if [[ ${PV} == *_rc* ]]; then
 	SRC_URI="https://download.samba.org/pub/samba/rc/${MY_P}.tar.gz"
 else
 	SRC_URI="https://download.samba.org/pub/samba/stable/${MY_P}.tar.gz"
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ppc ppc64 ~riscv sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~ppc ppc64 ~riscv ~sparc x86"
 fi
 S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-3"
 SLOT="0"
-IUSE="acl addc ads ceph client cluster cpu_flags_x86_aes cups debug fam glusterfs gpg iprint json ldap llvm-libunwind pam profiling-data python quota +regedit selinux snapper spotlight syslog systemd system-heimdal +system-mitkrb5 test +tmpfiles unwind winbind zeroconf"
+IUSE="acl addc ads ceph client cluster cups debug fam glusterfs gpg iprint json ldap llvm-libunwind pam profiling-data python quota +regedit selinux snapper spotlight syslog systemd system-heimdal +system-mitkrb5 test unwind winbind zeroconf"
 
 REQUIRED_USE="${PYTHON_REQUIRED_USE}
 	addc? ( json python !system-mitkrb5 winbind )
@@ -52,9 +52,9 @@ MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/samba-4.0/ctdb_version.h
 )
 
-TALLOC_VERSION="2.4.0"
-TDB_VERSION="1.4.8"
-TEVENT_VERSION="0.14.1"
+TALLOC_VERSION="2.4.1"
+TDB_VERSION="1.4.9"
+TEVENT_VERSION="0.15.0"
 
 COMMON_DEPEND="
 	>=app-arch/libarchive-3.1.2:=[${MULTILIB_USEDEP}]
@@ -66,8 +66,8 @@ COMMON_DEPEND="
 	dev-perl/Parse-Yapp
 	>=net-libs/gnutls-3.4.7:=[${MULTILIB_USEDEP}]
 	>=sys-fs/e2fsprogs-1.46.4-r51[${MULTILIB_USEDEP}]
-	>=sys-libs/ldb-2.7.2:=[ldap(+)?,${MULTILIB_USEDEP}]
-	<sys-libs/ldb-2.8.0:=[ldap(+)?,${MULTILIB_USEDEP}]
+	>=sys-libs/ldb-2.8.0:=[ldap(+)?,${MULTILIB_USEDEP}]
+	<sys-libs/ldb-2.9.0:=[ldap(+)?,${MULTILIB_USEDEP}]
 	sys-libs/libcap[${MULTILIB_USEDEP}]
 	sys-libs/liburing:=[${MULTILIB_USEDEP}]
 	sys-libs/ncurses:=
@@ -107,6 +107,7 @@ COMMON_DEPEND="
 	snapper? ( sys-apps/dbus )
 	system-heimdal? ( >=app-crypt/heimdal-1.5[-ssl(-),${MULTILIB_USEDEP}] )
 	system-mitkrb5? ( >=app-crypt/mit-krb5-1.19[${MULTILIB_USEDEP}] )
+	!system-heimdal? ( !system-mitkrb5? ( sys-apps/keyutils[${MULTILIB_USEDEP}] ) )
 	systemd? ( sys-apps/systemd:= )
 	unwind? (
 		llvm-libunwind? ( sys-libs/llvm-libunwind:= )
@@ -143,7 +144,6 @@ BDEPEND="${PYTHON_DEPS}
 PATCHES=(
 	"${FILESDIR}"/${PN}-4.18.4-pam.patch
 	"${FILESDIR}"/ldb-2.5.2-skip-wav-tevent-check.patch
-	"${FILESDIR}"/cmocka-config_h.patch
 )
 
 CONFDIR="${FILESDIR}/4.4"
@@ -259,7 +259,6 @@ multilib_src_configure() {
 		--nopyc
 		--nopyo
 		--without-winexe
-		--accel-aes=$(usex cpu_flags_x86_aes intelaesni none)
 		$(multilib_native_use_with acl acl-support)
 		$(multilib_native_usex addc '' '--without-ad-dc')
 		$(multilib_native_use_with ads)

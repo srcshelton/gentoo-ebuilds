@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 PYTHON_REQ_USE="threads(+),xml(+)"
 inherit flag-o-matic linux-info pam python-single-r1 systemd tmpfiles waf-utils multilib-minimal
 
@@ -143,6 +143,7 @@ BDEPEND="${PYTHON_DEPS}
 PATCHES=(
 	"${FILESDIR}"/${PN}-4.18.4-pam.patch
 	"${FILESDIR}"/ldb-2.5.2-skip-wav-tevent-check.patch
+	"${FILESDIR}"/cmocka-config_h.patch
 )
 
 CONFDIR="${FILESDIR}/4.4"
