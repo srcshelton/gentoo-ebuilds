@@ -59,4 +59,10 @@ src_compile() {
 # Following is needed because we want to use `make install` instead of `cargo install` (exported by cargo.eclass)
 src_install() {
 	default
+
+	dodir /usr/bin
+	mv "${ED}/usr/libexec/podman/${PN}" "${ED}/usr/bin"
+
+	dodir /usr/libexec/podman
+	dosym -r "/usr/bin/${PN}" "/usr/libexec/podman/${PN}" || die
 }
