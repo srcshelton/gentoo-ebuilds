@@ -20,7 +20,7 @@ fi
 
 LICENSE="LGPL-2.1+ public-domain BSD BSD-2"
 SLOT="0/1"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="+compat headers-only split-usr static-libs +system test"
 REQUIRED_USE="split-usr? ( system )"
 RESTRICT="!test? ( test )"
@@ -172,8 +172,9 @@ multilib_src_configure() {
 
 	local -a myconf=(
 		--disable-werror
+		#--prefix="${MYPREFIX}/usr"
 		--libdir="${mylibdir}"
-		--includedir="${MYPREFIX}/usr/include$(usex system '' /xcrypt)"
+		--includedir="${MYPREFIX}/usr/include$(usex system '' '/xcrypt')"
 		--with-pkgconfigdir="${MYPREFIX}/usr/$(get_libdir)/pkgconfig"
 		--with-sysroot="${MYSYSROOT}"
 	)
