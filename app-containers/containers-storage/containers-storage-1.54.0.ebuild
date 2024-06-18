@@ -12,21 +12,19 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/storage/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P#containers-}"
-	KEYWORDS="amd64 arm64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="btrfs -device-mapper test tool"
+IUSE="btrfs test tool"
 REQUIRED_USE="
 	btrfs? ( tool )
-	device-mapper? ( tool )
 	test? ( tool )
 "
 
 RDEPEND="
-	btrfs? ( sys-fs/btrfs-progs )
-	device-mapper? ( sys-fs/lvm2:= )"
+	btrfs? ( sys-fs/btrfs-progs )"
 DEPEND="${RDEPEND}
 	tool? ( sys-apps/shadow:= )
 	test? (
@@ -54,7 +52,6 @@ src_prepare() {
 
 		for file in \
 			hack/btrfs_tag.sh \
-			hack/libdm_tag.sh \
 			hack/libsubid_tag.sh
 		do
 			[[ -f "${file}" ]] || die "Required file '${file}' missing"
@@ -62,10 +59,6 @@ src_prepare() {
 		if ! use btrfs ; then
 			printf '#!/bin/sh\necho exclude_graphdriver_btrfs' > \
 				hack/btrfs_tag.sh || die
-		fi
-		if ! use device-mapper ; then
-			printf '#!/bin/sh\necho btrfs_noversion exclude_graphdriver_devicemapper' > \
-				hack/libdm_tag.sh || die
 		fi
 		printf '#!/bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
 	fi
