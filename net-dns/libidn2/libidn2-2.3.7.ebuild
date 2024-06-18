@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit toolchain-funcs usr-ldscript verify-sig multilib-minimal
+inherit libtool toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
 DESCRIPTION="An implementation of the IDNA2008 specifications (RFCs 5890, 5891, 5892, 5893)"
 HOMEPAGE="
@@ -35,6 +35,11 @@ BDEPEND="
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/libidn.asc
 
+src_prepare() {
+	default
+	elibtoolize
+}
+
 multilib_src_configure() {
 	local myconf=(
 		CC_FOR_BUILD="$(tc-getBUILD_CC)"
@@ -56,5 +61,6 @@ multilib_src_install() {
 	if multilib_is_native_abi; then
 		gen_usr_ldscript -a idn2
 	fi
+
 	find "${ED}" -name '*.la' -delete || die
 }
