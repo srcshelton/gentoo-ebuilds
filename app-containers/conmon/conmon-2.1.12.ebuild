@@ -28,11 +28,6 @@ RDEPEND="dev-libs/glib:=
 DEPEND="${RDEPEND}"
 BDEPEND="dev-go/go-md2man"
 
-PATCHES=(
-	# https://github.com/containers/conmon/pull/507
-	"${DISTDIR}"/${PN}-2.1.11-make-docs-target-not-depend-on-install.tools.patch
-)
-
 src_prepare() {
 	# https://github.com/containers/conmon/pull/505
 	echo "${PV}" > VERSION || die
