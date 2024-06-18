@@ -3,11 +3,11 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/coreutils.asc
 inherit flag-o-matic python-any-r1 toolchain-funcs verify-sig
 
-MY_PATCH="${PN}-9.4-patches"
+MY_PATCH="${PN}-9.5-patches"
 DESCRIPTION="Standard GNU utilities (chmod, cp, dd, ls, sort, tr, head, wc, who,...)"
 HOMEPAGE="https://www.gnu.org/software/coreutils/"
 
@@ -17,7 +17,7 @@ if [[ ${PV} == 9999 ]] ; then
 elif [[ ${PV} == *_p* ]] ; then
 	# Note: could put this in devspace, but if it's gone, we don't want
 	# it in tree anyway. It's just for testing.
-	MY_SNAPSHOT="$(ver_cut 1-2).156-b3afb"
+	MY_SNAPSHOT="$(ver_cut 1-2).185-541b02"
 	SRC_URI="https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz -> ${P}.tar.xz"
 	SRC_URI+=" verify-sig? ( https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz.sig -> ${P}.tar.xz.sig )"
 	S="${WORKDIR}"/${PN}-${MY_SNAPSHOT}
@@ -27,7 +27,7 @@ else
 		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )
 	"
 
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86 ~x86-linux"
 fi
 
 SRC_URI+=" !vanilla? ( https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${MY_PATCH}.tar.xz )"
@@ -82,6 +82,8 @@ RDEPEND+="
 QA_CONFIG_IMPL_DECL_SKIP=(
 	# gnulib FPs (bug #898370)
 	unreachable MIN alignof static_assert
+	# ... and on musl
+	_exit fpurge statvfs64 re_set_syntax re_compile_pattern re_search re_match
 )
 
 pkg_setup() {
@@ -110,9 +112,6 @@ src_prepare() {
 	# TODO: past 2025, we may need to add our own hack for bug #907474.
 	local PATCHES=(
 		# Upstream patches
-		"${FILESDIR}"/${P}-gnulib-openssl-1.1.patch
-		"${FILESDIR}"/${P}-CVE-2024-0684.patch
-		"${FILESDIR}"/${P}-gnulib-clang-18-c23-stdckdint.patch
 	)
 
 	if ! use vanilla && [[ -d "${WORKDIR}"/${MY_PATCH} ]] ; then
