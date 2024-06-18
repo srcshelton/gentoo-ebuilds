@@ -5,7 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{11,12} )
 
-inherit go-module linux-info python-any-r1 tmpfiles toolchain-funcs
+inherit go-module linux-info python-any-r1 tmpfiles
 
 DESCRIPTION="A tool for managing OCI containers and pods with Docker-compatible CLI"
 HOMEPAGE="https://github.com/containers/podman/ https://podman.io/"
@@ -16,33 +16,28 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
-	if [[ ${PV} != *rc* ]] ; then
-		KEYWORDS="amd64 arm64 ~riscv"
-	fi
+	[[ ${PV} != *rc* ]] &&
+		KEYWORDS="~amd64 ~arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs -cgroup-hybrid experimental fish-completion +fuse +init +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs experimental fish-completion +fuse +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
+	>=app-containers/conmon-2.1.10
+	>=app-containers/containers-common-0.58.0-r1
+	app-containers/crun
+	>=app-containers/netavark-1.6.0[dns]
 	app-crypt/gpgme:=
-	>=app-containers/conmon-2.0.24
-	>=app-containers/containers-common-0.56.0
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
-	|| (
-		>=app-containers/netavark-1.6.0[dns]
-		>=app-containers/cni-plugins-0.8.6
-	)
 	sys-apps/shadow:=
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
-	cgroup-hybrid? ( >=app-containers/runc-1.0.0_rc6  )
-	!cgroup-hybrid? ( app-containers/crun )
-	rootless? ( || ( app-containers/slirp4netns net-misc/passt ) )
+	rootless? ( net-misc/passt )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "
@@ -57,16 +52,16 @@ BDEPEND="
 "
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
+	app-containers/catatonit
 	fuse? ( sys-fs/fuse-overlayfs )
-	init? ( app-containers/catatonit )
 	selinux? ( sec-policy/selinux-podman )
 	systemd? ( sys-apps/systemd:= )
 	wrapper? ( !app-containers/docker-cli )
 "
 
-PATCHES=(
-	"${FILESDIR}/seccomp-toggle-4.7.0.patch"
-)
+#PATCHES=(
+#	"${FILESDIR}/seccomp-toggle-4.7.0.patch"
+#)
 
 pkg_setup() {
 	# Inherited from docker-20.10.22 ...
@@ -191,15 +186,19 @@ src_prepare() {
 	local -a makefile_sed_args=()
 	local file='' feature=''
 
-	# test/e2e/build/containerignore-symlink/.dockerignore
-	touch "${T}"/private_file
-	rm test/e2e/build/containerignore-symlink/.dockerignore &&
-		ln -s "${T}"/private_file \
-			test/e2e/build/containerignore-symlink/.dockerignore
+	if ! use seccomp; then
+		ewarn "Disabling 'seccomp' support may prevent podman from starting if"
+		ewarn "any seccomp-related settings exist beneath /etc/containers/"
+
+		# Only conditionally apply this patch, as seccomp support is being
+		# affected by its presence...
+		#
+		#eapply "${FILESDIR}/seccomp-toggle-4.7.0.patch"
+	fi
 
 	default
 
-	# assure necessary files are present
+	# Ensure necessary files are present...
 	local file
 	for file in apparmor btrfs_installed btrfs systemd; do
 		[[ -f "hack/${file}_tag.sh" ]] ||
@@ -235,19 +234,10 @@ src_prepare() {
 src_compile() {
 	export PREFIX="${EPREFIX}/usr"
 
-	# bug 906073
-	use elibc_musl && export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
-
 	# For non-live versions, prevent git operations which causes sandbox violations
 	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
 	[[ ${PV} != 9999* ]] &&
 		export COMMIT_NO="" GIT_COMMIT="" EPOCH_TEST_COMMIT=""
-
-	# Use proper pkg-config to get gpgme cflags and ldflags when
-	# cross-compiling, bug 930982.
-	if tc-is-cross-compiler; then
-		tc-export PKG_CONFIG
-	fi
 
 	# BUILD_SECCOMP is used in the patch to toggle seccomp
 	emake \
