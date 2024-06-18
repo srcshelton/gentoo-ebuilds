@@ -17,7 +17,7 @@ SRC_URI="https://people.redhat.com/sgrubb/audit/${P}.tar.gz"
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
 IUSE="gssapi io-uring ldap python static-libs systemd test zos"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
@@ -40,9 +40,6 @@ BDEPEND="python? ( dev-lang/swig )"
 CONFIG_CHECK="~AUDIT"
 
 PATCHES=(
-	# See bug #836702 before removing / verify builds fine w/ USE=python
-	# with latest kernel headers.
-	"${FILESDIR}"/${PN}-3.0.8-linux-headers-5.17.patch
 	"${FILESDIR}"/${PN}-3.0.8-musl-malloc.patch
 )
 
@@ -160,6 +157,14 @@ multilib_src_install_all() {
 	if [[ -f "${ED}"/sbin/audisp-remote ]] ; then
 		dodir /usr/sbin
 		mv "${ED}"/{sbin,usr/sbin}/audisp-remote || die
+	fi
+
+	if ! use systemd; then
+		if [[ -d "${ED}"/usr/libexec/initscripts/legacy-actions/auditd ]]; then
+			rm -r "${ED}"/usr/libexec/initscripts/legacy-actions/auditd
+			rmdir --ignore-fail-on-non-empty --parents \
+				"${ED}"/usr/libexec/initscripts/legacy-actions
+		fi
 	fi
 
 	# Gentoo rules
