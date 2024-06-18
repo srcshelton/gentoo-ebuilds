@@ -40,11 +40,8 @@ DEPEND="${RDEPEND}
 		virtual/libcrypt[static-libs]
 		selinux? ( sys-libs/libselinux[static-libs(+)] )
 	)
-	virtual/os-headers
-"
-BDEPEND="
-	virtual/pkgconfig
-"
+	virtual/os-headers"
+BDEPEND="virtual/pkgconfig"
 
 DISABLE_AUTOFORMATTING=yes
 DOC_CONTENTS='
@@ -93,9 +90,6 @@ PATCHES=(
 
 src_prepare() {
 	default
-	unset KBUILD_OUTPUT #88088
-	append-flags -fno-strict-aliasing #310413
-	use ppc64 && append-flags -mminimal-toc #130943
 
 	cp "${FILESDIR}"/ginit.c init/ || die
 
@@ -104,13 +98,6 @@ src_prepare() {
 		-e 's:[[:space:]]?-(Werror|Os|Oz|falign-(functions|jumps|loops|labels)=1|fomit-frame-pointer)\>::g' \
 		-i Makefile.flags || die
 	sed \
-		-e "/^CROSS_COMPILE/s:=.*:= ${CHOST}-:" \
-		-e "/^AR\>/s:=.*:= $(tc-getAR):" \
-		-e "/^CC\>/s:=.*:= $(tc-getCC):" \
-		-e "/^HOSTCC/s:=.*:= $(tc-getBUILD_CC):" \
-		-e "/^PKG_CONFIG\>/s:=.*:= $(tc-getPKG_CONFIG):" \
-		-i Makefile || die
-	sed \
 		-e 's:-static-libgcc::' \
 		-i Makefile.flags || die
 
@@ -118,13 +105,34 @@ src_prepare() {
 	sed -i -e 's:debug=false:debug=true:' scripts/trylink || die
 }
 
+bbmake() {
+	local args=(
+		V=1
+		CROSS_COMPILE="${CHOST}-"
+		AR="${AR}"
+		CC="${CC}"
+		HOSTCC="${BUILD_CC}"
+		HOSTCFLAGS="${BUILD_CFLAGS}"
+		PKG_CONFIG="${PKG_CONFIG}"
+	)
+	emake "${args[@]}" "$@"
+}
+
 src_configure() {
+	tc-export AR CC BUILD_CC PKG_CONFIG
+
+	tc-is-cross-compiler || BUILD_CFLAGS=${CFLAGS}
+	BUILD_CFLAGS+=" -D_FILE_OFFSET_BITS=64" #930513
+
+	append-flags -fno-strict-aliasing #310413
+	use ppc64 && append-flags -mminimal-toc #130943
+
 	# check for a busybox config before making one of our own.
 	# if one exist lets return and use it.
 
 	restore_config .config
 	if [ -f .config ]; then
-		yes "" | emake -j1 -s oldconfig >/dev/null
+		yes "" | bbmake -j1 oldconfig
 		return 0
 	else
 		ewarn "Could not locate user configfile, so we will save a default one"
@@ -133,11 +141,11 @@ src_configure() {
 	# setting SKIP_SELINUX skips searching for selinux at this stage. We don't
 	# need to search now in case we end up not needing it after all.
 	# setup the config file
-	emake -j1 -s allyesconfig SKIP_SELINUX=$(usex selinux n y) >/dev/null #620918
+	bbmake -j1 allyesconfig SKIP_SELINUX=$(usex selinux n y) #620918
 	# nommu forces a bunch of things off which we want on #387555
 	busybox_config_option n NOMMU
 	sed -i '/^#/d' .config
-	yes "" | emake -j1 -s oldconfig SKIP_SELINUX=$(usex selinux n y) >/dev/null #620918
+	yes "" | bbmake -j1 oldconfig SKIP_SELINUX=$(usex selinux n y) #620918
 
 	# now turn off stuff we really don't want
 	busybox_config_option n DMALLOC
@@ -173,8 +181,8 @@ src_configure() {
 	fi
 
 	# Furthermore, app-alternatives/sh blocks busybox built with
-	# FEATURE_SH_STANDALONE from being used as system bin/sh - so let's just
-	# disable it completely!
+	# FEATURE_SH_STANDALONE from being used as system bin/sh - so let's
+	# just disable it completely!
 	busybox_config_option n FEATURE_SH_STANDALONE
 
 	# If these are not set and we are using a busybox setup
@@ -246,17 +254,17 @@ src_configure() {
 		done
 	fi
 
-	emake -j1 oldconfig > /dev/null
+	bbmake -j1 oldconfig
 }
 
 src_compile() {
 	unset KBUILD_OUTPUT #88088
 	export SKIP_STRIP=y
 
-	emake V=1 busybox
+	bbmake busybox
 
 	# bug #701512
-	emake V=1 doc
+	bbmake doc
 }
 
 src_install() {
@@ -333,7 +341,7 @@ src_install() {
 	fi
 
 	# bundle up the symlink files for use later
-	emake DESTDIR="${ED}" install
+	bbmake DESTDIR="${ED}" install
 	# for compatibility, provide /usr/bin/env
 	mkdir -p _install/usr/bin || die
 	if [[ ! -e _install/usr/bin/env ]]; then
