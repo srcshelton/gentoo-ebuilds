@@ -1,7 +1,7 @@
 # Copyright 1999-2020 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI="7"
+EAPI="8"
 
 DESCRIPTION="Realistic PHP password strength estimate library based on Zxcvbn JS"
 HOMEPAGE="https://github.com/bjeavons/zxcvbn-php"
@@ -15,7 +15,14 @@ KEYWORDS="~amd64 ~x86"
 #RESTRICT="test"
 
 RDEPEND="
-	|| ( dev-lang/php:8.1= dev-lang/php:8.0= dev-lang/php:7.2= )
+	|| (
+		dev-lang/php:8.4=
+		dev-lang/php:8.3=
+		dev-lang/php:8.2=
+		dev-lang/php:8.1=
+		dev-lang/php:8.0=
+		dev-lang/php:7.2=
+	)
 	dev-php/symfony-mbstring
 "
 #DEPEND="
@@ -26,6 +33,11 @@ RDEPEND="
 #	)
 #"
 # 'test' needs php-coveralls/php-coveralls
+
+PATCHES=(
+	"${FILESDIR}"/factorial_as_float.patch
+	"${FILESDIR}"/php8-4_implicit_nulls.patch
+)
 
 S="${WORKDIR}/zxcvbn-php-${PV}"
 

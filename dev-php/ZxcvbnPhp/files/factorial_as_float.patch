@@ -1,0 +1,23 @@
+From 73aac00948da3be6e0dfd2998f6a9833f90d2930 Mon Sep 17 00:00:00 2001
+From: George Carrette <gcarrette@wayfair.com>
+Date: Wed, 5 Apr 2023 11:05:54 -0400
+Subject: [PATCH] Declare factorial as returning a float in order to fix issue
+ 74
+
+---
+ src/Scorer.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Scorer.php b/src/Scorer.php
+index 7cbd258..4698261 100644
+--- a/src/Scorer.php
++++ b/src/Scorer.php
+@@ -260,7 +260,7 @@ protected function unwind(int $n): array
+      * @param int $n
+      * @return int
+      */
+-    protected function factorial(int $n): int
++    protected function factorial(int $n): float
+     {
+         if ($n < 2) {
+             return 1;

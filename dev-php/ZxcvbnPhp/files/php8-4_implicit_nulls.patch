@@ -1,0 +1,22 @@
+From e13d409c2b82e62ae04d7c3fbc72c345204c7b96 Mon Sep 17 00:00:00 2001
+From: Xon <635541+Xon@users.noreply.github.com>
+Date: Sat, 23 Mar 2024 13:55:57 +0800
+Subject: [PATCH] php 8.4 compatibility
+
+---
+ src/Matchers/ReverseDictionaryMatch.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Matchers/ReverseDictionaryMatch.php b/src/Matchers/ReverseDictionaryMatch.php
+index c7b86b6..af90b32 100644
+--- a/src/Matchers/ReverseDictionaryMatch.php
++++ b/src/Matchers/ReverseDictionaryMatch.php
+@@ -54,7 +54,7 @@ public function getFeedback(bool $isSoleMatch): array
+         return $feedback;
+     }
+ 
+-    public static function mbStrRev(string $string, string $encoding = null): string
++    public static function mbStrRev(string $string, ?string $encoding = null): string
+     {
+         if ($encoding === null) {
+             $encoding = mb_detect_encoding($string) ?: 'UTF-8';
