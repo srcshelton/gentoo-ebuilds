@@ -5,7 +5,7 @@ EAPI=8
 
 # Uncomment when introducing a patch which touches configure
 RSYNC_NEEDS_AUTOCONF=1
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 inherit flag-o-matic prefix python-single-r1 systemd
 
 DESCRIPTION="File transfer program to keep remote files into sync"
@@ -27,7 +27,7 @@ else
 		SRC_DIR="src-previews"
 	else
 		SRC_DIR="src"
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 	fi
 
 	SRC_URI="https://rsync.samba.org/ftp/rsync/${SRC_DIR}/${P/_/}.tar.gz
@@ -75,12 +75,6 @@ if [[ ${PV} == *9999 ]] ; then
 else
 	BDEPEND+=" verify-sig? ( sec-keys/openpgp-keys-waynedavison )"
 fi
-
-PATCHES=(
-	"${FILESDIR}"/${P}-flist-memcmp-ub.patch
-	"${FILESDIR}"/${P}-fortify-source-3.patch
-	"${FILESDIR}"/${PN}-3.2.7-ipv6-configure-c99.patch
-)
 
 pkg_setup() {
 	# - USE=examples needs Python itself at runtime, but nothing else
