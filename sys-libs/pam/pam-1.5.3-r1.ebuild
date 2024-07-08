@@ -49,6 +49,10 @@ PATCHES=(
 	"${FILESDIR}/${P}-termios.patch"
 )
 
+QA_XLINK_ALLOWED=(
+	lib64/security/pam_userdb.so
+)
+
 src_prepare() {
 	default
 	touch ChangeLog || die
@@ -145,11 +149,19 @@ pkg_postinst() {
 	ewarn "after any update. While unfortunate this is a limit of the"
 	ewarn "implementation of PAM and the software, and it requires you to"
 	ewarn "restart the software manually after the update."
-	ewarn ""
-	ewarn "You can get a list of such software running a command like"
+	ewarn
+	ewarn "You can get a list of such software running a command such as:"
 	ewarn "  lsof / | grep -E -i 'del.*libpam\\.so'"
-	ewarn ""
+	ewarn
 	ewarn "Alternatively, simply reboot your system."
+
+	if use split-usr; then
+		ewarn
+		ewarn "PAM rules which make use of 'pam_userdb.so' may fail until the"
+		ewarn "/usr filesystem is mounted, as /lib64/security/pam_userdb.so"
+		ewarn "links to /usr/lib64/libdb-5.2.so, which cannot be relocated"
+		ewarn "without causing constant preserved-library warnings."
+	fi
 
 	# The pam_unix module needs to check the password of the user which requires
 	# read access to /etc/shadow only.
