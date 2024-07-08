@@ -48,7 +48,7 @@ run_check() {
 		done < <( # <- Syntax
 			for dir in "${ED%/}"/bin/ "${ED%/}"/sbin/ "${ED%/}${libdir}"; do
 				if [[ -d "${dir}" && ! -L "${dir}" ]]; then
-					find -L "${dir}" -type f ! -xtype l -print
+					find -L "${dir}" -type f ! -xtype l -print | grep -v "^${ED%/}/usr/"
 				fi
 			done
 		)
