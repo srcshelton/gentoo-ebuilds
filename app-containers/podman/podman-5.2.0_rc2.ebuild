@@ -48,6 +48,7 @@ BDEPEND="
 	sys-apps/findutils
 	sys-apps/grep
 	sys-apps/sed
+	|| ( >=sys-kernel/raspberrypi-headers-5.2 >=sys-kernel/linux-headers-5.2 )
 	systemd? ( sys-apps/systemd )
 "
 DEPEND="${COMMON_DEPEND}"
@@ -60,7 +61,7 @@ RDEPEND="${COMMON_DEPEND}
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-togglable-seccomp.patch"
+	"${FILESDIR}/${PN}-5.1.1-togglable-seccomp.patch"
 )
 
 pkg_setup() {
@@ -91,78 +92,37 @@ pkg_setup() {
 		~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH ~XFRM_ALGO ~XFRM_USER
 		~IPVLAN
 		~MACVLAN ~DUMMY
+
+		~VIRTIO_FS
 	"
 
 	local ERROR_KEYS="CONFIG_KEYS: is mandatory"
-	local ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
-	local ERROR_RESOURCE_COUNTERS="CONFIG_RESOURCE_COUNTERS: is optional for container statistics gathering"
+	local ERROR_VIRTIO_FS="CONFIG_VIRTIO_FS: is mandatory"
 
 	local ERROR_BLK_CGROUP="CONFIG_BLK_CGROUP: is optional for container statistics gathering"
-	local ERROR_IOSCHED_CFQ="CONFIG_IOSCHED_CFQ: is optional for container statistics gathering"
 	local ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gathering"
 	local ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
 	local ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
 	local ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
-	if kernel_is lt 3 10; then
-		ewarn ""
-		ewarn "Using podman with kernels older than 3.10 is unstable and unsupported."
-		ewarn " - http://docs.docker.com/engine/installation/binaries/#check-kernel-dependencies"
-	fi
-
-	if kernel_is le 3 18; then
-		CONFIG_CHECK+="
-			~RESOURCE_COUNTERS
-		"
-	fi
-
-	if kernel_is le 3 13; then
-		CONFIG_CHECK+="
-			~NETPRIO_CGROUP
-		"
-	else
-		CONFIG_CHECK+="
-			~CGROUP_NET_PRIO
-		"
-	fi
-
-	if kernel_is lt 4 5; then
-		CONFIG_CHECK+="
-			~MEMCG_KMEM
-		"
-		ERROR_MEMCG_KMEM="CONFIG_MEMCG_KMEM: is optional"
-	fi
-
-	if kernel_is lt 4 7; then
-		CONFIG_CHECK+="
-			~DEVPTS_MULTIPLE_INSTANCES
-		"
-	fi
-
-	if kernel_is lt 5 1; then
-		CONFIG_CHECK+="
-			~NF_NAT_IPV4
-			~IOSCHED_CFQ
-			~CFQ_GROUP_IOSCHED
-		"
-	fi
-
 	if kernel_is lt 5 2; then
-		CONFIG_CHECK+="
-			~NF_NAT_NEEDED
-		"
+		ewarn
+		ewarn "podman 5.2.0 and above now require the kernel mount API, which"
+		ewarn "was introduced in linux-5.2"
 	fi
 
 	if kernel_is lt 5 8; then
 		CONFIG_CHECK+="
 			~MEMCG_SWAP_ENABLED
 		"
+		local ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
 	fi
 
 	if kernel_is lt 6 1; then
 		CONFIG_CHECK+="
 			~MEMCG_SWAP
 		"
+		local ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
 	fi
 
 	if use btrfs; then

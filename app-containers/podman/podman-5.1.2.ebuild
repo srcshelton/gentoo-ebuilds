@@ -60,7 +60,7 @@ RDEPEND="${COMMON_DEPEND}
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-togglable-seccomp.patch"
+	"${FILESDIR}/${PN}-5.1.1-togglable-seccomp.patch"
 )
 
 pkg_setup() {
