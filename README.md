@@ -308,6 +308,7 @@ used to build perl)
 * ~~dev-perl/Net-SDP~~
 * dev-perl/Net-Subnet
 * dev-perl/Net-Twitter-Lite
+* dev-perl/pixelserv
 * ~~dev-perl/POE-Component-Client-Ping~~
 * ~~dev-perl/Proc-PID-File~~
 * ~~dev-perl/Sub-Infix~~
