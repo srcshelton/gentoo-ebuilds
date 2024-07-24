@@ -1,4 +1,0 @@
-# Configuration to create /var/run/nscd directory
-# Used as part of systemd's tmpfiles
-
-d /var/run/nscd 0755 root root

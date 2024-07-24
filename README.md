@@ -69,7 +69,7 @@ to `${EPREFIX}/etc/portage/patches/All/`.
 Two affected packages which use an older `vasnprintf()` implementation which is
 incompatible with the supplied patch are as follows:
 
-* dev-util/pkgconfig
+* ~~dev-util/pkgconfig~~
 * dev-vcs/cvs
 
 ... which are explicitly patched in an overlay package.
@@ -178,8 +178,8 @@ used to build perl)
     * Remove macOS '-isysroot' argument which broke macOS builds attempting to use SDK library stubs
 * ~~sys-apps/baselayout-prefix~~
     * ~~Add missing `run_applets` prototype~~
-* sys-apps/darwin-miscutils
-    * Add missing `md.c` prototypes and `#include`s
+* ~~sys-apps/darwin-miscutils~~
+    * ~~Add missing `md.c` prototypes and `#include`s~~
 * ~~sys-apps/gptfdisk~~
     * ~~Allow `gdisk` to build on darwin (there's a separate `Makefile` for this platform which doesn't use `libuuid`) and ensure appropriate compiler is used~~
 * sys-apps/help2man
@@ -344,8 +344,8 @@ used to build perl)
     * ~~Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old~~
 * net-libs/libupnp
     * Add more recent libupnp-1.6.20 and forked libupnp-1.8.0 releases, both with [mjg59](https://twitter.com/mjg59/status/755062671418929152)'s [POST](http://seclists.org/oss-sec/2016/q3/118) patch applied
-* net-libs/nDPI
-    * Add further nDPI releases, to try to sync against ntopng (which is closely tied to nDPI but is fragile and doesn't declare version compatibility)
+* ~~net-libs/nDPI~~
+    * ~~Add further nDPI releases, to try to sync against ntopng (which is closely tied to nDPI but is fragile and doesn't declare version compatibility)~~
 * net-mail/davmail-bin
     * Java Microsoft Exchange <-> IMAP connector
 * net-mail/imapproxy
@@ -372,8 +372,8 @@ used to build perl)
 * ~~sys-auth/yubipam~~
     * ~~PAM authentication module for YubiKey hardware~~
     * See `sys-auth/pam_yubico`
-* sys-boot/grub-legacy
-    * Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...
+* ~~sys-boot/grub-legacy~~
+    * ~~Snapshot of grub-0.97 for systems where simplicity trumps technical correctness...~~
 * sys-boot/raspberrypi-boot
     * 'rpiboot' and associated firmware
 * sys-fs/eudev
@@ -795,8 +795,8 @@ x32 profiles, and that these variables only affect multilib systems.
     * Make 'udev' an optional dependency, controlled by `USE="udev"`
 * sys-fs/e2fsprogs
     * Avoid installing udev rules unless `USE="udev"` is specified
-* sys-fs/fuse
-    * Avoid installing udev rules unless `USE="udev"` is specified
+* ~~sys-fs/fuse~~
+    * ~~Avoid installing udev rules unless `USE="udev"` is specified~~
 * sys-fs/fuse-common
     * Avoid installing udev rules unless `USE="udev"` is specified
 * sys-fs/lvm2

@@ -17,7 +17,7 @@ else
 	SRC_URI="${CARGO_CRATE_URIS}
 		https://github.com/containers/netavark/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
 	RESTRICT="mirror"
-	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 fi
 LICENSE="Apache-2.0 Apache-2.0-with-LLVM-exceptions BSD BSD-2 Boost-1.0 MIT Unicode-DFS-2016 Unlicense ZLIB"
 SLOT="0"
@@ -46,7 +46,7 @@ src_unpack() {
 
 src_prepare() {
 	default
-	sed -i -e "s|m0755 bin|m0755 target/$(usex debug debug release)|g;" Makefile || die
+	sed -i -e "s|m0755 bin|m0755 $(cargo_target_dir)|g;" Makefile || die
 }
 
 src_compile() {

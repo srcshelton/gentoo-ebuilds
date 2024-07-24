@@ -1,0 +1,17 @@
+--- a/bashrc
++++ b/bashrc
+@@ -1,4 +1,4 @@
+-# /etc/bash/bashrc
++# @GENTOO_PORTAGE_EPREFIX@/etc/bash/bashrc
+ 
+ # Proceed no further in the case of a non-interactive shell.
+ if [[ $- != *i* ]]; then
+@@ -22,7 +22,7 @@ PROMPT_COMMAND=()
+ # Don't let the user influence the order of sourcing for bash 5.3 or greater.
+ unset -v GLOBSORT
+ 
+-for _ in /etc/bash/bashrc.d/*; do
++for _ in @GENTOO_PORTAGE_EPREFIX@/etc/bash/bashrc.d/*; do
+ 	if [[ $_ == *.@(bash|sh) && -r $_ ]]; then
+ 		source "$_"
+ 	fi

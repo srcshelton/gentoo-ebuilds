@@ -16,7 +16,7 @@ else
 	SRC_URI="${CARGO_CRATE_URIS}
 		https://github.com/containers/aardvark-dns/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
 	RESTRICT="mirror"
-	KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 fi
 
 LICENSE="0BSD Apache-2.0 Apache-2.0-with-LLVM-exceptions MIT Unlicense Unicode-DFS-2016 ZLIB"
@@ -38,9 +38,7 @@ src_unpack() {
 
 src_prepare() {
 	default
-	sed -i \
-		-e "s|m0755 bin|m0755 target/$(usex debug debug release)|g;" \
-		Makefile || die
+	sed -i -e "s|m0755 bin|m0755 $(cargo_target_dir)|g;" Makefile || die
 }
 
 src_install() {
