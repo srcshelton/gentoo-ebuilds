@@ -186,10 +186,18 @@ src_install() {
 		if ! use arm64; then
 			rm "${ED}"/usr/bin/{mmal_vc_diag,vcsmem} || die
 		fi
-		rm "${ED}"/usr/bin/{vchiq_test,vcmailbox} || die
+		rm "${ED}"/usr/bin/vchiq_test || die
 	fi
+	ewarn "'vcmailbox' is now provided by sys-apps/raspberrypi-tools"
+	rm "${ED}"/usr/bin/vcmailbox || die
 
 	for bin in mmal_vc_diag vcgencmd vchiq_test vcmailbox vcsmem; do
+		case "${bin}" in
+			vcgencmd)
+				ewarn "'vcgencmd' is now provided by sys-apps/raspberrypi-tools"
+				continue
+				;;
+		esac
 		if [[ -e "${ED}/usr/bin/${bin}" ]]; then
 			{ dosbin "${ED}/usr/bin/${bin}" && rm "${ED}/usr/bin/${bin}" ; } || die
 		fi
@@ -226,20 +234,21 @@ pkg_postinst() {
 	fi
 
 	ewarn
-	ewarn "The data in this package is ancient and deprecated"
-	ewarn "Please migrate to sys-apps/raspberrypi-tools"
+	ewarn "The data in this package is ancient and deprecated:"
+	ewarn "Please migrate to sys-apps/raspberrypi-tools."
 	ewarn
 
 	elog "The package ${PN} only includes open-source Raspberry Pi"
 	elog "utilities:"
 	elog
-	elog "sys-apps/raspberrypi-utilities-armv6 provides 32-bit closed-source components"
-	elog "such as the VideoCore IV debugging tool 'vcdbg';"
+	elog "sys-apps/raspberrypi-utilities-armv6 provides 32-bit closed-source"
+	elog "components such as the VideoCore IV debugging tool 'vcdbg';"
 	elog "sys-apps/raspberrypi-tools provides a 64-bit equivalent, 'vclog'."
 	elog
-	elog "The 'dtoverlay' source exists in both this package's repo as well as that of"
-	elog "sys-apps/raspberrypi-tools - the latter is more recently updated, and so the"
-	elog "binary from this package is no longer installed."
+	elog "The 'dtmerge', 'dtoverlay', 'dtparam', 'vcgencmd' and 'vcmailbox'"
+	elog "sources exist in both this package's repo as well as that of"
+	elog "sys-apps/raspberrypi-tools - the latter is more recently updated,"
+	elog "and so the binaries from this package are no longer installed."
 }
 
 # vi: set diffopt=iwhite,filler:
