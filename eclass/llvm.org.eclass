@@ -72,11 +72,14 @@ if [[ -z ${_LLVM_SOURCE_TYPE+1} ]]; then
 			_LLVM_SOURCE_TYPE=snapshot
 
 			case ${PV} in
-				19.0.0_pre20240525)
-					EGIT_COMMIT=7dc2f6602212bf0a0433c157b70e4fc0d70bb730
+				19.0.0_pre20240706)
+					EGIT_COMMIT=0b9f2847da79298ed09c29493245113f02b32d9f
 					;;
-				19.0.0_pre20240518)
-					EGIT_COMMIT=702198fc9ac5dba392f9d9ba7c56467996343c0a
+				19.0.0_pre20240630)
+					EGIT_COMMIT=022d15c0039fc1cfaa3cc2eb1a45b71bbb21fadd
+					;;
+				19.0.0_pre20240623)
+					EGIT_COMMIT=3ae6755719c6dfc07761b4e9bdac8c86bcb41734
 					;;
 				*)
 					die "Unknown snapshot: ${PV}"

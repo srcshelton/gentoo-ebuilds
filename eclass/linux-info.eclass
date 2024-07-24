@@ -38,7 +38,6 @@ _LINUX_INFO_ECLASS=1
 # A Couple of env vars are available to effect usage of this eclass
 # These are as follows:
 
-
 # @ECLASS_VARIABLE: CHECKCONFIG_DONOTHING
 # @USER_VARIABLE
 # @DEFAULT_UNSET
@@ -87,7 +86,6 @@ KERNEL_DIR="${KERNEL_DIR:-${ROOT%/}/usr/src/linux}"
 # CONFIG_CHECK="CFG" with ERROR_<CFG>="Error Message" will die
 # CONFIG_CHECK="~CFG" with ERROR_<CFG>="Error Message" calls eerror without dying
 # CONFIG_CHECK="~CFG" with WARNING_<CFG>="Warning Message" calls ewarn without dying
-
 
 # @ECLASS_VARIABLE: KBUILD_OUTPUT
 # @DEFAULT_UNSET
@@ -731,7 +729,6 @@ linux-info_get_any_version() {
 		die "Unable to determine any Linux Kernel version, please report a bug"
 	fi
 }
-
 
 # ebuild check functions
 # ---------------------------------------
