@@ -1,0 +1,36 @@
+From 9bb623fd1eb1d377f13b9cac1789731675410ef5 Mon Sep 17 00:00:00 2001
+From: kvic-z <kvic-z@users.noreply.github.com>
+Date: Mon, 12 Jul 2021 16:22:26 +0000
+Subject: [PATCH] This change fixes tracker #39: certificate generation issue
+
+Some country level top-level domains (ccTLDs) have their 'top level'
+domains defined under the ccTLDs. For example, '.co.uk' is a 'top-level'
+domain in the UK where a wild-card certificate '*.co.uk' is invalid.
+This is similar to '.com' where a wild-card certificate '*.com' is
+invalid.
+
+With this change, a website e.g. 'xyz.co.uk' will have a certificate
+generated with domain 'xyz.co.uk', without further reduction and no
+wild-card domains included.
+
+Browsers such as Google Chrome is able to precisely detect 'top-level'
+domains under ccTLDs. To keep the logic simple inside pixelserv-tls,
+and not to slow down processing speed, we assume all 'sub-domains' under
+ccTLDs are 'top-level' domains under a given ccTLD.
+---
+ certs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/certs.c b/certs.c
+index e50a6ae..4a7f89d 100644
+--- a/certs.c
++++ b/certs.c
+@@ -724,7 +724,7 @@ static int tls_servername_cb(SSL *ssl, int *ad, void *arg) {
+         tld = pem_file + 1;
+         pem_file = strchr(tld, '.');
+     }
+-    if (dot_count <= 1 || (dot_count == 3 && atoi(tld) > 0)) {
++    if (dot_count <= 1 || (dot_count == 2 && strlen(tld) == 2) || (dot_count == 3 && atoi(tld) > 0)) {
+         pem_file = srv_name;
+         strncat(full_pem_path, srv_name, PIXELSERV_MAX_PATH - len);
+         len += strlen(srv_name);

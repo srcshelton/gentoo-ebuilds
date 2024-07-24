@@ -13,10 +13,9 @@ RESTRICT="mirror"
 LICENSE="GPL-3"
 SLOT="0"
 KEYWORDS="amd64 arm x86"
-#IUSE=""
 
-#DEPEND=""
-#RDEPEND="${DEPEND}"
+DEPEND="<dev-libs/openssl-3:="
+RDEPEND="${DEPEND}"
 
 S="${WORKDIR}/${PN}-tls-${PV}"
 
