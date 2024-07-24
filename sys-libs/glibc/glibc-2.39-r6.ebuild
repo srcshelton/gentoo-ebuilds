@@ -40,7 +40,7 @@ HOMEPAGE="https://www.gnu.org/software/libc/"
 if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa -ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa -ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
 		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 fi
@@ -51,7 +51,7 @@ SRC_URI="${SRC_URI}
 
 LICENSE="LGPL-2.1+ BSD HPND ISC inner-net rc PCRE"
 SLOT="2.2"
-IUSE="audit caps cet compile-locales +crypt custom-cflags doc gd hash-sysv-compat headers-only -minimal +multiarch multilib multilib-bootstrap nscd perl profile selinux +ssp stack-realign +static-libs suid systemd systemtap test -timezone-tools +tmpfiles vanilla"
+IUSE="audit caps cet compile-locales custom-cflags doc gd hash-sysv-compat headers-only -minimal +multiarch multilib multilib-bootstrap nscd perl profile selinux +ssp stack-realign +static-libs suid systemd systemtap test -timezone-tools +tmpfiles vanilla"
 
 # Here's how the cross-compile logic breaks down ...
 #  CTARGET - machine that will target the binaries
@@ -528,11 +528,14 @@ setup_flags() {
 	# dealing with CET in ld.so. So if CET is supposed to be
 	# disabled for glibc, be explicit about it.
 	if ! use cet; then
-		if use amd64 || use x86; then
-			append-flags '-fcf-protection=none'
-		elif use arm64; then
-			append-flags '-mbranch-protection=none'
-		fi
+		case ${ABI}-${CTARGET} in
+			amd64-x86_64-*|x32-x86_64-*-*-gnux32)
+				append-flags '-fcf-protection=none'
+				;;
+			arm64-aarch64*)
+				append-flags '-mbranch-protection=none'
+				;;
+		esac
 	fi
 }
 
@@ -840,7 +843,7 @@ sanity_prechecks() {
 	# we test for...
 	if ! is_crosscompile ; then
 		if use amd64 && use multilib && [[ ${MERGE_TYPE} != "binary" ]] ; then
-			ebegin "Checking that IA32 emulation is enabled in the running kernel"
+			ebegin "Checking if the system can execute 32-bit binaries"
 			echo 'int main(){return 0;}' > "${T}/check-ia32-emulation.c"
 			local STAT
 			if ${CC-${CHOST}-gcc} ${CFLAGS_x86} "${T}/check-ia32-emulation.c" -o "${T}/check-ia32-emulation.elf32"; then
@@ -854,7 +857,11 @@ sanity_prechecks() {
 			fi
 			rm -f "${T}/check-ia32-emulation.elf32"
 			eend $STAT
-			[[ $STAT -eq 0 ]] || die "CONFIG_IA32_EMULATION must be enabled in the kernel to compile a multilib glibc."
+			if [[ $STAT -ne 0 ]]; then
+				eerror "Ensure that CONFIG_IA32_EMULATION is enabled in the kernel."
+				eerror "Seek support otherwise."
+				die "Unable to execute 32-bit binaries"
+			fi
 		fi
 
 	fi
@@ -1162,7 +1169,6 @@ glibc_do_configure() {
 		--libexecdir='$(libdir)'/misc/glibc
 		--with-bugurl=https://bugs.gentoo.org/
 		--with-pkgversion="$(glibc_banner)"
-		$(use_enable crypt)
 		$(use_multiarch || echo --disable-multi-arch)
 		$(use_enable systemtap)
 		$(use_enable nscd)
@@ -1318,7 +1324,6 @@ glibc_headers_configure() {
 		--host=${CTARGET_OPT:-${CTARGET}}
 		--with-headers=$(build_eprefix)$(alt_build_headers)
 		--prefix="$(host_eprefix)/usr"
-		$(use_enable crypt)
 		${EXTRA_ECONF}
 	)
 
@@ -1792,7 +1797,7 @@ pkg_preinst() {
 	# Keep around libcrypt so that Perl doesn't break when merging libxcrypt
 	# (libxcrypt is the new provider for now of libcrypt.so.{1,2}).
 	# bug #802207
-	if ! use crypt && has_version "${CATEGORY}/${PN}[crypt]" && ! has preserve-libs ${FEATURES}; then
+	if has_version "${CATEGORY}/${PN}[crypt]" && ! has preserve-libs ${FEATURES}; then
 		PRESERVED_OLD_LIBCRYPT=1
 		cp -p "${EROOT}/$(get_libdir)/libcrypt$(get_libname 1)" \
 			"${T}/libcrypt$(get_libname 1)" || die
