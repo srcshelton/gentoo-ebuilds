@@ -2,7 +2,7 @@
     sharedscripts
     missingok
     notifempty
-    create 0640 ulogd
+    create 0640 ulogd ulogd
     postrotate
 	/etc/init.d/ulogd --quiet status && /etc/init.d/ulogd reopen >/dev/null 2>&1
     endscript
