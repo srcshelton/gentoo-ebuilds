@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 PARALLEL_MEMORY_MIN=4
 
 inherit cmake flag-o-matic llvm llvm.org multilib prefix python-single-r1 toolchain-funcs multilib-minimal
