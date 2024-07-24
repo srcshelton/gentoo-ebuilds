@@ -7,7 +7,7 @@ EAPI=8
 # check Fedora's packaging (https://src.fedoraproject.org/rpms/audit/tree/rawhide)
 # on bumps (or if hitting a bug) to see what they've done there.
 
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 
 inherit autotools linux-info python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
@@ -17,7 +17,7 @@ SRC_URI="https://people.redhat.com/sgrubb/audit/${P}.tar.gz"
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="gssapi io-uring ldap python static-libs systemd test zos"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
@@ -35,7 +35,13 @@ DEPEND="
 	|| ( >=sys-kernel/raspberrypi-headers-2.6.34 >=sys-kernel/linux-headers-2.6.34 )
 	test? ( dev-libs/check )
 "
-BDEPEND="python? ( dev-lang/swig )"
+BDEPEND="python? (
+			dev-lang/swig
+			$(python_gen_cond_dep '
+				dev-python/setuptools[${PYTHON_USEDEP}]
+			' python3_12)
+		)
+"
 
 CONFIG_CHECK="~AUDIT"
 

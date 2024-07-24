@@ -7,7 +7,7 @@ EAPI=8
 # check Fedora's packaging (https://src.fedoraproject.org/rpms/audit/tree/rawhide)
 # on bumps (or if hitting a bug) to see what they've done there.
 
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 
 inherit autotools linux-info python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
@@ -35,7 +35,13 @@ DEPEND="
 	|| ( >=sys-kernel/raspberrypi-headers-2.6.34 >=sys-kernel/linux-headers-2.6.34 )
 	test? ( dev-libs/check )
 "
-BDEPEND="python? ( dev-lang/swig )"
+BDEPEND="python? (
+			dev-lang/swig
+			$(python_gen_cond_dep '
+				dev-python/setuptools[${PYTHON_USEDEP}]
+			' python3_12)
+		)
+"
 
 CONFIG_CHECK="~AUDIT"
 
