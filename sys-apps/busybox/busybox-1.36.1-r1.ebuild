@@ -119,6 +119,9 @@ bbmake() {
 }
 
 src_configure() {
+	unset KBUILD_OUTPUT #88088
+	export SKIP_STRIP=y
+
 	tc-export AR CC BUILD_CC PKG_CONFIG
 
 	tc-is-cross-compiler || BUILD_CFLAGS=${CFLAGS}
@@ -258,9 +261,6 @@ src_configure() {
 }
 
 src_compile() {
-	unset KBUILD_OUTPUT #88088
-	export SKIP_STRIP=y
-
 	bbmake busybox
 
 	# bug #701512
