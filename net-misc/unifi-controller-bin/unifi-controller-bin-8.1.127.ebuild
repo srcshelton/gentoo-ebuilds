@@ -47,7 +47,7 @@ DEPEND="
 
 RDEPEND="
 	${DEPEND}
-	<dev-db/mongodb-5
+	<dev-db/mongodb-7.1
 	sys-libs/libcap
 	virtual/jre:17
 "
