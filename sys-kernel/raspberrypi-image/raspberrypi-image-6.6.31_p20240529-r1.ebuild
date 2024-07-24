@@ -148,12 +148,14 @@ src_install() {
 				if use rpi-all || use rpi1 || use rpi-cm || use rpi0; then
 					einfo "Installing 'kernel.img' for BCM2835 (Raspberry Pi Zero, Raspberry Pi) ..."
 					doins "${f}"
+					files+=( "${f}" )
 				fi
 				;;
 			boot/kernel7.img)
 				if use rpi-all || use rpi2 || use rpi-cm2 || use rpi3 || use rpi-cm3 || use rpi02; then
 					einfo "Installing 'kernel7.img' for BCM2836 & BCM2837 (Raspberry Pi 2, Raspberry Pi 3, Raspberry Pi Zero 2 32bit) ..."
 					doins "${f}"
+					files+=( "${f}" )
 				fi
 				;;
 			boot/kernel7l.img)
@@ -161,6 +163,7 @@ src_install() {
 					if use rpi-all || ! use 64bit; then
 						einfo "Installing 'kernel7l.img' for BCM2711 (Raspberry Pi 4/5 LPAE 32bit) ..."
 						doins "${f}"
+						files+=( "${f}" )
 					fi
 				fi
 				;;
@@ -169,6 +172,7 @@ src_install() {
 					if use rpi-all || ! use 64bit; then
 						einfo "Installing 'kernel8.img' for BCM2836, BCM2837, BCM2711 (Raspberry Pi 2+ 64bit) ..."
 						doins "${f}"
+						files+=( "${f}" )
 					fi
 				fi
 				;;
@@ -176,6 +180,7 @@ src_install() {
 				if use rpi-all || use rpi5 || use rpi-cm5; then
 					einfo "Installing 'kernel_2712.img' for BCM2712 (Raspberry Pi 5 64bit, 16k pages) ..."
 					doins "${f}"
+					files+=( "${f}" )
 				fi
 				;;
 			*)
@@ -186,6 +191,10 @@ src_install() {
 				;;
 		esac
 	done
+	if ! (( ${#files[@]} )); then
+		die "Failed to install any known kernel image - please check ebuild logic"
+	fi
+	files=()
 
 	# Install kernel modules
 	#
@@ -201,6 +210,7 @@ src_install() {
 					einfo "Installing kernel modules '${f#modules/}' for BCM2836 & BCM2837 (Raspberry Pi 2, Raspberry Pi 3, Raspberry Pi Zero 2 32bit) ..."
 					doins -r "${f}"
 					dosym "/lib/modules/$( basename "${f}" )" "${FIRMWARE_DIR}/modules-$( basename "${f}" )"
+					files+=( "${f}" )
 				fi
 				;;
 			*-v7l+)
@@ -210,6 +220,7 @@ src_install() {
 						einfo "Installing kernel modules '${f#modules/}' for BCM2711 (Raspberry Pi 4 LPAE 32bit) ..."
 						doins -r "${f}"
 						dosym "/lib/modules/$( basename "${f}" )" "${FIRMWARE_DIR}/modules-$( basename "${f}" )"
+						files+=( "${f}" )
 					fi
 				fi
 				;;
@@ -220,6 +231,7 @@ src_install() {
 						einfo "Installing kernel modules '${f#modules/}' for BCM2836+ (Raspberry Pi 2+ 64bit) ..."
 						doins -r "${f}"
 						dosym "/lib/modules/$( basename "${f}" )" "${FIRMWARE_DIR}/modules-$( basename "${f}" )"
+						files+=( "${f}" )
 					fi
 				fi
 				;;
@@ -229,6 +241,7 @@ src_install() {
 					einfo "Installing kernel modules '${f#modules/}' for BCM2712 (Raspberry Pi 5 64bit, 16k pages) ..."
 					doins -r "${f}"
 					dosym "/lib/modules/$( basename "${f}" )" "${FIRMWARE_DIR}/modules-$( basename "${f}" )"
+					files+=( "${f}" )
 				fi
 				;;
 			*+)
@@ -237,6 +250,7 @@ src_install() {
 					einfo "Installing kernel modules '${f#modules/}' for BCM2835 (Raspberry Pi Zero, Raspberry Pi) ..."
 					doins -r "${f}"
 					dosym "/lib/modules/$( basename "${f}" )" "${FIRMWARE_DIR}/modules-$( basename "${f}" )"
+					files+=( "${f}" )
 				fi
 				;;
 			*)
@@ -250,6 +264,10 @@ src_install() {
 				;;
 		esac
 	done
+	if ! (( ${#files[@]} )); then
+		die "Failed to install any known kernel modules - please check ebuild logic"
+	fi
+	files=()
 
 	# There's little or no standardisation in regards to where System.map
 	# should live, and the only two common locations seem to be /boot and /
@@ -260,6 +278,7 @@ src_install() {
 			if [[ -e extra/System_2712.map ]]; then
 				newins extra/System_2712.map "System.map-${ver}-v8-16k+"
 				f="${f:+${f}, }System.map-${ver}-v8-16k+"
+				files+=( 'extra/System_2712.map' )
 			fi
 			if use extras; then
 				newins extra/Module_2712.symvers "Module.symvers-${ver}-v8-16k+"
@@ -271,6 +290,7 @@ src_install() {
 				if [[ -e extra/System8.map ]]; then
 					newins extra/System8.map "System.map-${ver}-v8+"
 					f="${f:+${f}, }System.map-${ver}-v8+"
+					files+=( 'extra/System8.map' )
 				fi
 				if use extras; then
 					newins extra/Module8.symvers "Module.symvers-${ver}-v8+"
@@ -283,6 +303,7 @@ src_install() {
 				if [[ -e extra/System7l.map ]]; then
 					newins extra/System7l.map "System.map-${ver}-v7l+"
 					f="${f:+${f}, }System.map-${ver}-v7l+"
+					files+=( 'extra/System7l.map' )
 				fi
 				if use extras; then
 					newins extra/Module7l.symvers "Module.symvers-${ver}-v7l+"
@@ -295,6 +316,7 @@ src_install() {
 				if [[ -e extra/System7.map ]]; then
 					newins extra/System7.map "System.map-${ver}-v7+"
 					f="${f:+${f}, }System.map-${ver}-v7+"
+					files+=( 'extra/System7.map' )
 				fi
 				if use extras; then
 					newins extra/Module7.symvers "Module.symvers-${ver}-v7+"
@@ -306,6 +328,7 @@ src_install() {
 			if [[ -e extra/System.map ]]; then
 				newins extra/System.map "System.map-${ver}+"
 				f="${f:+${f}, }System.map-${ver}+"
+				files+=( 'extra/System.map' )
 			fi
 			if use extras; then
 				newins extra/Module8.symvers "Module.symvers-${ver}+"
@@ -321,6 +344,10 @@ src_install() {
 		xargs -r -n 1 einfo '   ' <<<"${f}"
 		einfo "... as appropriate."
 	fi
+	if ! (( ${#files[@]} )); then
+		ewarn "Failed to install any 'System.map' file - please check ebuild logic"
+	fi
+	files=()
 
 	# Install Device Tree overlays ...
 	if use devicetree; then
@@ -415,6 +442,11 @@ src_install() {
 				)
 			fi
 		fi
+
+		if ! (( ${#files[@]} )); then
+			die "Failed to install any Devicetree files - please check ebuild logic"
+		fi
+
 		insinto "${FIRMWARE_DIR}"
 		pushd boot >/dev/null || die
 		doins -r "${files[@]}" overlays
@@ -422,52 +454,12 @@ src_install() {
 	fi
 }
 
-pkg_preinst() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}"
-
-	if use os-prefix; then
-		boot="${boot}/${PV}"
-	fi
-
-	mkdir -p "${boot}"
-	#touch "${boot}/.keep_${CATEGORY}_${PN}-${SLOT:-0}"
-	if use devicetree; then
-		mkdir -p "${boot}"/overlays
-	#	touch "${boot}/overlays/.keep_${CATEGORY}_${PN}-${SLOT:-0}"
-	fi
-
-	mount-boot_pkg_preinst
-}
-
 pkg_postinst() {
+	mount-boot_pkg_postinst
+
 	if [[ "${MERGE_TYPE}" != "buildonly" ]]; then
 		pkg_config
 	fi
-
-	mount-boot_pkg_postinst
-}
-
-pkg_postrm() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}" file=''
-	local -a files=()
-
-	if use os-prefix; then
-		boot="${boot}/${PV}"
-	fi
-
-	#files=( "${boot}/.keep_${CATEGORY}_${PN}-${SLOT:-0}" )
-	#if use devicetree; then
-	#	files+=( "${boot}/overlays/.keep_${CATEGORY}_${PN}-${SLOT:-0}" )
-	#fi
-
-	for file in "${files[@]}"; do
-		if [[ -e "${file}" && -f "${file}" && ! -s "${file}" ]]; then
-			rm "${file}"
-			rmdir --ignore-fail-on-non-empty -p "${boot}" || :
-		fi
-	done
-
-	mount-boot_pkg_postrm
 }
 
 pkg_config() {
@@ -475,7 +467,9 @@ pkg_config() {
 
 	if use os-prefix; then
 		boot="${boot}/${PV}"
+		mkdir -p "${boot}"
 	fi
+	#touch "${boot}/.keep_${CATEGORY}_${PN}-${SLOT:-0}"
 
 	ebegin "Deploying Raspberry Pi kernel ${PV} from" \
 		"${FIRMWARE_DIR} to ${boot}"
@@ -492,6 +486,7 @@ pkg_config() {
 			eend ${?} "Failed to copy 'overlays' directory: ${?}"
 			return ${?}
 		fi
+		#touch "${boot}/overlays/.keep_${CATEGORY}_${PN}-${SLOT:-0}"
 		if ! [[ -e "${boot}/overlays/README" ]]; then
 			eend "Marker file '${boot}/overlays/README' is missing"
 			return 1
