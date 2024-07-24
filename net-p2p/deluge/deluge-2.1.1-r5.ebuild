@@ -16,7 +16,7 @@ if [[ ${PV} == 9999 ]]; then
 	EGIT_REPO_URI="https://git.deluge-torrent.org/${PN}"
 else
 	SRC_URI="http://download.deluge-torrent.org/source/$(ver_cut 1-2)/${P}.tar.xz"
-	KEYWORDS="amd64 ~arm ~arm64 ~ppc ~riscv x86"
+	KEYWORDS="amd64 ~arm ~arm64 ~riscv x86"
 fi
 
 LICENSE="GPL-2"
@@ -54,10 +54,7 @@ RDEPEND="
 		dev-python/pyxdg[${PYTHON_USEDEP}]
 		dev-python/rencode[${PYTHON_USEDEP}]
 		dev-python/setproctitle[${PYTHON_USEDEP}]
-		|| (
-			>=dev-python/twisted-17.1.0[ssl(-),${PYTHON_USEDEP}]
-			>=dev-python/twisted-17.1.0[crypt(-),${PYTHON_USEDEP}]
-		)
+		>=dev-python/twisted-17.1.0[ssl(-),${PYTHON_USEDEP}]
 		>=dev-python/zope-interface-4.4.2[${PYTHON_USEDEP}]
 		dev-python/mako[${PYTHON_USEDEP}]
 	')
