@@ -14,7 +14,7 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/common/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P#containers-}"
-	KEYWORDS="amd64 arm64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
@@ -29,7 +29,7 @@ RDEPEND="
 	>=app-containers/crun-1.14.3
 	net-firewall/iptables[nftables]
 	>=app-containers/netavark-1.10.3[dns]
-	|| ( net-firewall/nftables net-firewall/iptables[nftables] )
+	net-firewall/nftables
 	fuse? ( >=sys-fs/fuse-overlayfs-1.13 )
 	rootless? ( >=net-misc/passt-2024.03.20 )
 "
