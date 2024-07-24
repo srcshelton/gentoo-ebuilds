@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -44,6 +44,11 @@ src_compile() {
 src_install() {
 	exeinto /opt/cni/bin
 	doexe bin/*
+	dodoc README.md
+	local i
+	for i in plugins/{meta/{bandwidth,firewall,flannel,portmap,sbr,tuning},main/{bridge,host-device,ipvlan,loopback,macvlan,ptp,vlan},ipam/{dhcp,host-local,static},sample}; do
+		newdoc README.md ${i##*/}.README.md
+	done
 	use systemd && systemd_dounit plugins/ipam/dhcp/systemd/cni-dhcp.{service,socket}
 	newinitd "${FILESDIR}"/cni-dhcp.initd cni-dhcp
 }
