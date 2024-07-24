@@ -1,7 +1,7 @@
 # Copyright (c) 2010-2023 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=6
 
 DESCRIPTION="Mirror segments of a filesystem to a memory-based backing store"
 HOMEPAGE="https://github.com/srcshelton/tmpfs"

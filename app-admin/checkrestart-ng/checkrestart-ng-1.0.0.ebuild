@@ -1,7 +1,7 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=6
 
 DESCRIPTION="Report on or restart updated services on SysV/OpenRC-based systems"
 HOMEPAGE="https://github.com/srcshelton/checkrestart"

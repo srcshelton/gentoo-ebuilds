@@ -1,7 +1,7 @@
 # Copyright 2016-2018 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=5
+EAPI=6
 
 DESCRIPTION="Report and optionally restart crashed OpenRC services"
 HOMEPAGE="https://github.com/srcshelton/openrc-restart-crashed"

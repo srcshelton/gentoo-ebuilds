@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Id: 04b27a2471afc8fc4fa9d00520bd604d1fd69572 $
 
-EAPI=5
+EAPI=6
 
 case "${PV//./-}" in
 	10-2-2-1)
