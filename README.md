@@ -776,8 +776,8 @@ x32 profiles, and that these variables only affect multilib systems.
 
 * app-alternatives/awk
     * Support for gawk installed in `/bin`
-* app-eselect/eselect-awk
-    * Support for (g)awk installed in `/bin`
+* ~~app-eselect/eselect-awk~~
+    * ~~Support for (g)awk installed in `/bin`~~
 * net-misc/netifrc
     * Avoid installing udev rules unless `USE="udev"` is specified
 * net-wireless/bluez
