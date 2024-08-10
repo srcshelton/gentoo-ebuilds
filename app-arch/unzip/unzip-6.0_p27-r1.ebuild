@@ -70,7 +70,7 @@ src_configure() {
 		i?86*-dragonfly*)    TARGET="freebsd" ;; # mislabelled bsd with x86 asm
 		*bsd* | *dragonfly*) TARGET="bsd" ;;
 		*-darwin*)           TARGET="macosx"; append-cppflags "-DNO_LCHMOD" ;;
-		*-solaris*)          TARGET="generic" ;;
+		*-solaris*)          TARGET="linux_noasm" ;;
 		mips-sgi-irix*)      TARGET="sgi"; append-cppflags "-DNO_LCHMOD" ;;
 		*-interix3*)         TARGET="gcc"; append-flags "-DUNIX"; append-cppflags "-DNO_LCHMOD" ;;
 		*-interix*)          TARGET="gcc"; append-flags "-DUNIX -DNO_LCHMOD" ;;
@@ -85,6 +85,7 @@ src_configure() {
 	append-flags -std=gnu89
 
 	[[ ${CHOST} == *linux* ]] && append-cppflags -DNO_LCHMOD
+	[[ ${CHOST} == *-solaris* ]] && append-cppflags -DNO_LCHMOD -DBSD4_4
 	use bzip2 && append-cppflags -DUSE_BZIP2
 	use unicode && append-cppflags -DUNICODE_SUPPORT -DUNICODE_WCHAR -DUTF8_MAYBE_NATIVE -DUSE_ICONV_MAPPING
 
