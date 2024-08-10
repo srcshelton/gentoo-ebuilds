@@ -34,7 +34,7 @@ else
 	[[ -z ${PATCH_VER} ]] || SRC_URI="${SRC_URI}
 		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/binutils-${PATCH_BINUTILS_VER}-patches-${PATCH_VER}.tar.xz"
 	SLOT=$(ver_cut 1-2)
-	KEYWORDS="~alpha amd64 ~arm arm64 hppa ~ia64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 #
@@ -549,25 +549,30 @@ pkg_postinst() {
 }
 
 pkg_postrm() {
-	local current_profile=$(binutils-config -c ${CTARGET})
+	# If both binutils and binutils-config are being removed, then by this
+	# stage, binutils-config may already have gone...
+	#
+	if command -v binutils-config >/dev/null 2>&1; then
+		local current_profile=$(binutils-config -c ${CTARGET})
 
-	# If no other versions exist, then uninstall for this
-	# target ... otherwise, switch to the newest version
-	# Note: only do this if this version is unmerged.  We
-	#       rerun binutils-config if this is a remerge, as
-	#       we want the mtimes on the symlinks updated (if
-	#       it is the same as the current selected profile)
-	if [[ ! -e ${EPREFIX}${BINPATH}/ld ]] && [[ ${current_profile} == ${CTARGET}-${PV} ]] ; then
-		local choice=$(binutils-config -l | grep ${CTARGET} | awk '{print $2}')
-		choice=${choice//$'\n'/ }
-		choice=${choice/* }
-		if [[ -z ${choice} ]] ; then
-			binutils-config -u ${CTARGET}
-		else
-			binutils-config ${choice}
+		# If no other versions exist, then uninstall for this
+		# target ... otherwise, switch to the newest version
+		# Note: only do this if this version is unmerged.  We
+		#       rerun binutils-config if this is a remerge, as
+		#       we want the mtimes on the symlinks updated (if
+		#       it is the same as the current selected profile)
+		if [[ ! -e ${EPREFIX}${BINPATH}/ld ]] && [[ ${current_profile} == ${CTARGET}-${PV} ]] ; then
+			local choice=$(binutils-config -l | grep ${CTARGET} | awk '{print $2}')
+			choice=${choice//$'\n'/ }
+			choice=${choice/* }
+			if [[ -z ${choice} ]] ; then
+				binutils-config -u ${CTARGET}
+			else
+				binutils-config ${choice}
+			fi
+		elif [[ $(CHOST=${CTARGET} binutils-config -c) == ${CTARGET}-${PV} ]] ; then
+			binutils-config ${CTARGET}-${PV}
 		fi
-	elif [[ $(CHOST=${CTARGET} binutils-config -c) == ${CTARGET}-${PV} ]] ; then
-		binutils-config ${CTARGET}-${PV}
 	fi
 }
 
