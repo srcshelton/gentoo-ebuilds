@@ -6,7 +6,7 @@ EAPI=8
 inherit autotools
 
 DESCRIPTION="A tiny bespoke webserver for adblock with HTTP/1.1 and HTTPS support"
-HOMEPAGE="https://kazoo.ga/pixelserv-tls/"
+HOMEPAGE="https://github.com/kvic-z/pixelserv-tls"
 SRC_URI="https://github.com/kvic-z/pixelserv-tls/archive/${PV}.tar.gz -> ${PF}.tar.gz"
 RESTRICT="mirror"
 
