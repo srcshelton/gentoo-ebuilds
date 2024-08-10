@@ -263,7 +263,7 @@ src_install() {
 			systemd_install_serviced "${FILESDIR}"/dhcrelay6.service.conf
 		fi
 
-		sed -i "s:#@slapd@:$(usex ldap slapd ''):" "${ED}"/etc/init.d/* || die #442560
+		sed -i "s: #@slapd@:$(usex ldap ' slapd' ''):" "${ED}"/etc/init.d/* || die #442560
 	fi
 
 	# the default config files aren't terribly useful #384087
