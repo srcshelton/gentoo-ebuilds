@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -41,7 +41,7 @@ SRC_URI="
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
-IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s rpi5"
+IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s"
 REQUIRED_USE="
 	|| ( rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 )
 	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 ) )
@@ -50,6 +50,7 @@ REQUIRED_USE="
 PATCHES=(
 	"${FILESDIR}/${PN}-mmc-dma-Kconfig.patch"
 	"${FILESDIR}/${PN}-pcie-brcmstb.c.patch"
+	#"${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch"
 )
 
 S="${WORKDIR}/linux-${MY_PV:-"${CKV}"}"
