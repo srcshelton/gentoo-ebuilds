@@ -12,20 +12,33 @@ SRC_URI="https://downloads.sourceforge.net/apcupsd/${P}.tar.gz"
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 ~arm ~arm64 ppc ~riscv x86"
-IUSE="cgi dumb +modbus +net +powerchute selinux +smart snmp systemd tmpfiles udev +usb"
+IUSE="cgi dumb +modbus +net +powerchute selinux +smart snmp systemd tmpfiles +tools udev +usb"
 
-DEPEND=">=sys-apps/util-linux-2.23[tty-helpers(-)]
+COMMON_DEPEND="
 	cgi? ( >=media-libs/gd-1.8.4 )
 	modbus? ( usb? ( virtual/libusb:0 ) )
-	snmp? ( >=net-analyzer/net-snmp-5.7.2 )"
+	snmp? ( >=net-analyzer/net-snmp-5.7.2 )
+"
 
-RDEPEND="${DEPEND}
+# apcupsd requires 'shutdown', 'wall', sendmail...
+DEPEND="${COMMON_DEPEND}
 	virtual/mailx
-	selinux? ( sec-policy/selinux-apcupsd )"
+	>=sys-apps/util-linux-2.23[tty-helpers(-)]
+	|| (
+		sys-apps/sysvinit
+		>=sys-apps/openrc-0.48[sysv-utils(-)]
+		sys-apps/openrc-navi[sysv-utils(-)]
+		sys-apps/s6-linux-init[sysv-utils(-)]
+		sys-apps/systemd[sysv-utils(-)]
+	)
+"
 
-CONFIG_CHECK="~USB_HIDDEV ~HIDRAW"
-ERROR_USB_HIDDEV="CONFIG_USB_HIDDEV:	needed to access USB-attached UPSes"
-ERROR_HIDRAW="CONFIG_HIDRAW:		needed to access USB-attached UPSes"
+# ... but we don't necessarily want these in, e.g., a container where we're
+# primarily after the CGI components
+RDEPEND="${COMMON_DEPEND}
+	selinux? ( sec-policy/selinux-apcupsd )
+	tools? ( ${DEPEND} )
+"
 
 DOCS=( ChangeLog ReleaseNotes )
 HTML_DOCS=( doc/manual )
@@ -40,6 +53,11 @@ PATCHES=(
 )
 
 pkg_setup() {
+	local CONFIG_CHECK="~USB_HIDDEV ~HIDRAW"
+
+	local ERROR_USB_HIDDEV="CONFIG_USB_HIDDEV:	needed to access USB-attached UPSes"
+	local ERROR_HIDRAW="CONFIG_HIDRAW:		needed to access USB-attached UPSes"
+
 	if use kernel_linux && use usb && linux_config_exists ; then
 		check_extra_config
 	fi

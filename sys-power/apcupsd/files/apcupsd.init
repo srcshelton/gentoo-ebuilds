@@ -20,10 +20,15 @@ depend() {
 }
 
 start_pre() {
-	if [ -e /var/lock/apcupsd/LCK.. ]; then
-		ebegin "Removing stale lock-file '/var/lock/apcupsd/LCK..'"
-		rm /var/lock/apcupsd/LCK..
-		eend $?
+	if [ -d /var/lock/apcupsd ]; then
+		if [ -e /var/lock/apcupsd/LCK.. ]; then
+			ebegin "Removing stale lock-file" \
+				"'/var/lock/apcupsd/LCK..'"
+			rm /var/lock/apcupsd/LCK..
+			eend $?
+		fi
+	else
+		mkdir -p /var/lock/apcupsd
 	fi
 	if [ -e "${APCUPSD_POWERFAILFILE}" ] ; then
 		ebegin "Removing stale state-file '${APCUPSD_POWERFAILFILE}'"
