@@ -197,6 +197,22 @@ QA_XLINK_ALLOWED=(
 	usr/bin/toe
 	usr/bin/tput
 	usr/bin/tset
+	lib/libncurses.so.${MY_PV}
+	lib/libncursesw.so.${MY_PV}
+	lib/libncursest.so.${MY_PV}
+	lib/libncursestw.so.${MY_PV}
+	usr/lib/libform.so.${MY_PV}
+	usr/lib/libformw.so.${MY_PV}
+	usr/lib/libformt.so.${MY_PV}
+	usr/lib/libformtw.so.${MY_PV}
+	usr/lib/libmenu.so.${MY_PV}
+	usr/lib/libmenuw.so.${MY_PV}
+	usr/lib/libmenut.so.${MY_PV}
+	usr/lib/libmenutw.so.${MY_PV}
+	usr/lib/libpanel.so.${MY_PV}
+	usr/lib/libpanelw.so.${MY_PV}
+	usr/lib/libpanelt.so.${MY_PV}
+	usr/lib/libpaneltw.so.${MY_PV}
 	lib64/libncurses.so.${MY_PV}
 	lib64/libncursesw.so.${MY_PV}
 	lib64/libncursest.so.${MY_PV}
