@@ -45,7 +45,7 @@ S="${WORKDIR}/${MY_P}"
 # 3-clause BSD license
 LICENSE="ISC BSD"
 SLOT="0"
-IUSE="gcrypt ldap nls offensive pam sasl +secure-path selinux +sendmail skey ssl sssd"
+IUSE="+editor gcrypt ldap nls offensive pam sasl +secure-path selinux +sendmail skey ssl sssd"
 
 DEPEND="
 	sys-libs/zlib:=
@@ -68,7 +68,7 @@ DEPEND="
 RDEPEND="
 	${DEPEND}
 	>=app-misc/editor-wrapper-3
-	virtual/editor
+	editor? ( virtual/editor )
 	ldap? ( dev-lang/perl )
 	pam? ( sys-auth/pambase )
 	selinux? ( sec-policy/selinux-sudo )
