@@ -8,7 +8,7 @@ inherit linux-info meson optfeature systemd udev
 DESCRIPTION="Distribute hardware interrupts across processors on a multiprocessor system"
 HOMEPAGE="https://github.com/Irqbalance/irqbalance"
 SRC_URI="https://github.com/Irqbalance/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-S="${WORKDIR}"/${P}/contrib
+S="${WORKDIR}/${P}/contrib"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -39,11 +39,13 @@ pkg_setup() {
 }
 
 src_prepare() {
+	local f=''
+
 	default
 
 	(
-		cd "${WORKDIR}"/${P} || die
-		eapply "${FILESDIR}"/${P}-drop-protectkerneltunables.patch
+		cd "${WORKDIR}/${P}" || die
+		eapply "${FILESDIR}/${P}-drop-protectkerneltunables.patch"
 	)
 
 	# Follow systemd policies
@@ -51,7 +53,18 @@ src_prepare() {
 	sed \
 		-e 's/ $IRQBALANCE_ARGS//' \
 		-e '/EnvironmentFile/d' \
-		-i "${WORKDIR}"/${P}/misc/irqbalance.service || die
+		-i "${WORKDIR}/${P}/misc/irqbalance.service" || die
+
+	# Fix use of '/run/'
+
+	for f in "${WORKDIR}/${P}/irqbalance.h" \
+			"${WORKDIR}/${P}/ui/irqbalance-ui.h"
+	do
+		sed \
+				-s '/SOCKET_TMPFS/s|/run/|/var/run/|' \
+				-i "${f}" ||
+			die "sed failed on file '${f}': ${?}"
+	done
 }
 
 src_configure() {
