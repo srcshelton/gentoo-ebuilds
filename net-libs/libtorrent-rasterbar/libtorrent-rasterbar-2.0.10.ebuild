@@ -3,9 +3,7 @@
 
 EAPI=8
 
-# no 3.12 for now
-# https://github.com/arvidn/libtorrent/commit/785969574cfe925098f50b7e5d9ae2a9f2a9d0cf
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 
 PARALLEL_MEMORY_MIN=4
 
@@ -108,18 +106,11 @@ src_test() {
 	CMAKE_SKIP_TESTS=(
 		# Needs running UPnP server
 		"test_upnp"
-		# Missing files in 2.0.9 release archive
-		# https://github.com/arvidn/libtorrent/issues/7567
-		"test_create_torrent"
-		# Certificates outdated
-		# https://github.com/arvidn/libtorrent/issues/7565
-		"test_ssl"
 		# Fragile to parallelization
 		# https://bugs.gentoo.org/854603#c1
 		"test_utp"
-		# Fails in tmpfs
-		# https://github.com/arvidn/libtorrent/issues/7566
-		"test_copy_file"
+		# Flaky test, fails randomly
+		"test_remove_torrent"
 	)
 
 	LD_LIBRARY_PATH="${BUILD_DIR}:${LD_LIBRARY_PATH}" cmake_src_test
