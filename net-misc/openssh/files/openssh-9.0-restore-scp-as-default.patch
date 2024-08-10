@@ -1,0 +1,103 @@
+--- a/scp.0
++++ b/scp.0
+@@ -11,9 +11,9 @@
+ DESCRIPTION
+      scp copies files between hosts on a network.
+ 
+-     scp uses the SFTP protocol over a ssh(1) connection for data transfer,
+-     and uses the same authentication and provides the same security as a
+-     login session.
++     scp uses the SCP or SFTP protocols over a ssh(1) connection for data
++     transfer, and uses the same authentication and provides the same security
++     as a login session.
+ 
+      scp will ask for passwords or passphrases if they are needed for
+      authentication.
+@@ -79,10 +79,11 @@
+              Limits the used bandwidth, specified in Kbit/s.
+ 
+      -O      Use the legacy SCP protocol for file transfers instead of the
+-             SFTP protocol.  Forcing the use of the SCP protocol may be
+-             necessary for servers that do not implement SFTP, for backwards-
+-             compatibility for particular filename wildcard patterns and for
+-             expanding paths with a M-bM-^@M-^X~M-bM-^@M-^Y prefix for older SFTP servers.
++             SFTP protocol.  Using the SCP protocol may be necessary for
++             servers that do not implement SFTP, for backwards-compatibility
++             with particular filename wildcard patterns and for expanding paths
++             with a M-bM-^@M-^X~M-bM-^@M-^Y prefix for older SFTP servers.
++             (See also the -s flag)
+ 
+      -o ssh_option
+              Can be used to pass options to ssh in the format used in
+@@ -176,6 +177,9 @@
+              Name of program to use for the encrypted connection.  The program
+              must understand ssh(1) options.
+ 
++     -s      Force use of the SFTP protocol for file transfers instead of the
++             legacy SCP protocol.
++
+      -T      Disable strict filename checking.  By default when copying files
+              from a remote host to a local directory scp checks that the
+              received filenames match those requested on the command-line to
+@@ -216,9 +220,6 @@
+      scp is based on the rcp program in BSD source code from the Regents of
+      the University of California.
+ 
+-     Since OpenSSH 9.0, scp has used the SFTP protocol for transfers by
+-     default.
+-
+ AUTHORS
+      Timo Rinne <tri@iki.fi>
+      Tatu Ylonen <ylo@cs.hut.fi>
+--- a/scp.1
++++ b/scp.1
+@@ -35,7 +35,7 @@
+ copies files between hosts on a network.
+ .Pp
+ .Nm
+-uses the SFTP protocol over a
++uses the SCP or SFTP protocols over a
+ .Xr ssh 1
+ connection for data transfer, and uses the same authentication and provides
+ the same security as a login session.
+@@ -144,7 +144,7 @@
+ Limits the used bandwidth, specified in Kbit/s.
+ .It Fl O
+ Use the legacy SCP protocol for file transfers instead of the SFTP protocol.
+-Forcing the use of the SCP protocol may be necessary for servers that do
++Using the SCP protocol may be necessary for servers that do
+ not implement SFTP, for backwards-compatibility for particular filename
+ wildcard patterns and for expanding paths with a
+ .Sq ~
+@@ -259,6 +259,9 @@
+ The program must understand
+ .Xr ssh 1
+ options.
++.It Fl s
++Force use of the SFTP protocol for file transfers instead of the legacy SCP
++protocol.
+ .It Fl T
+ Disable strict filename checking.
+ By default when copying files from a remote host to a local directory
+@@ -308,10 +311,6 @@
+ is based on the rcp program in
+ .Bx
+ source code from the Regents of the University of California.
+-.Pp
+-Since OpenSSH 9.0,
+-.Nm
+-has used the SFTP protocol for transfers by default.
+ .Sh AUTHORS
+ .An Timo Rinne Aq Mt tri@iki.fi
+ .An Tatu Ylonen Aq Mt ylo@cs.hut.fi
+--- a/scp.c
++++ b/scp.c
+@@ -474,7 +474,7 @@
+ 	const char *errstr;
+ 	extern char *optarg;
+ 	extern int optind;
+-	enum scp_mode_e mode = MODE_SFTP;
++	enum scp_mode_e mode = MODE_SCP;
+ 	char *sftp_direct = NULL;
+ 	long long llv;
+ 

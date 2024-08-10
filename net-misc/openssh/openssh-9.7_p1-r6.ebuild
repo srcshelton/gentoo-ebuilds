@@ -81,6 +81,7 @@ PATCHES=(
 	"${FILESDIR}/${PN}-9.7_p1-config-tweaks.patch"
 	"${FILESDIR}/${PN}-9.6_p1-CVE-2024-6387.patch"
 	"${FILESDIR}/${PN}-9.6_p1-chaff-logic.patch"
+	"${FILESDIR}/${PN}-9.0-restore-scp-as-default.patch"
 )
 
 pkg_pretend() {
