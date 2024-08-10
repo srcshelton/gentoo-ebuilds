@@ -15,7 +15,7 @@ SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
-IUSE="+ambient apparmor +bash-completion hardened +kmem +man +seccomp selinux test"
+IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
 
 # sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070
 DEPEND="
@@ -33,7 +33,7 @@ RDEPEND="
 # dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
 BDEPEND="
 	>=dev-lang/go-1.20
-	<dev-lang/go-1.22
+	|| ( >=dev-lang/go-1.22.4 <dev-lang/go-1.22 )
 	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils
@@ -62,16 +62,18 @@ src_compile() {
 		-L${ESYSROOT}/usr/$(get_libdir)"
 
 	# build up optional flags
+	#
+	# (no)kmem support was removed in v1.0.0-rc94 - kernel memory is ignored
+	# apparmor & selinux are default-enabled since v1.0.0-rc93, but we still
+	# want to control the resulting dependencies...
 	local options=(
-		$(usev ambient)
 		$(usev apparmor)
 		$(usev seccomp)
 		$(usev selinux)
-		$(usex kmem '' 'nokmem')
 	)
 
 	myemakeargs=(
-		BUILDTAGS="${options[*]}"
+		EXTRA_BUILDTAGS="${options[*]}"
 		COMMIT="${RUNC_COMMIT}"
 	)
 

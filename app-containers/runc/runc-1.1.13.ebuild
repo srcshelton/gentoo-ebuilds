@@ -8,14 +8,15 @@ RUNC_COMMIT="58aa9203c123022138b22cf96540c284876a7910" # "There is no certainty 
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
-HOMEPAGE="http://github.com/opencontainers/runc/"
+HOMEPAGE="https://github.com/opencontainers/runc/"
 MY_PV="${PV/_/-}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
+S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
-IUSE="+ambient apparmor +bash-completion hardened +kmem +man +seccomp selinux test"
+IUSE="+apparmor +bash-completion hardened +kmem +man +seccomp selinux test"
 
 DEPEND="seccomp? ( sys-libs/libseccomp )"
 
@@ -40,8 +41,6 @@ BDEPEND="
 # majority of tests pass
 RESTRICT+=" test"
 
-S="${WORKDIR}/${PN}-${MY_PV}"
-
 src_prepare() {
 	default
 
@@ -51,16 +50,14 @@ src_prepare() {
 
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
-	export CGO_CFLAGS="-I${ESYSROOT}/usr/include"
-	export CGO_LDFLAGS="$(usex hardened '-fno-PIC ' '')
+	CGO_CFLAGS+=" -I${ESYSROOT}/usr/include"
+	CGO_LDFLAGS+=" $(usex hardened '-fno-PIC ' '')
 		-L${ESYSROOT}/usr/$(get_libdir)"
 
 	# build up optional flags
 	local options=(
-		$(usev ambient)
 		$(usev apparmor)
 		$(usev seccomp)
-		$(usev selinux)
 		$(usex kmem '' 'nokmem')
 	)
 
