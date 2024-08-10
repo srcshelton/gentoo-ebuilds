@@ -177,7 +177,7 @@ src_install() {
 	fi
 
 	if ! use devicetree; then
-		rm "${ED}"/usr/bin/{dtoverlay,dtoverlay-post,dtoverlay-pre,dtparam} || die
+		rm "${ED}"/usr/bin/{dtoverlay-pre,dtoverlay-post} || die
 	fi
 	# dtmerge is now provided by sys-apps/raspberrypi-tools
 	rm "${ED}"/usr/bin/dtmerge "${ED}"/usr/man/man1/dtmerge.1*|| die
