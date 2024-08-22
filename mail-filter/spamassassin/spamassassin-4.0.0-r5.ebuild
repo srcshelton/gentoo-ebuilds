@@ -17,7 +17,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~ppc ~ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="amd64 arm arm64 ~hppa ~ia64 ~loong ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="+berkdb cron dkim dmarc extracttext geoip idn ipv6 largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode"
 RESTRICT="!test? ( test )"
 
@@ -184,7 +184,6 @@ src_configure() {
 		DATADIR="${EPREFIX}/usr/share/spamassassin" \
 		PERL_BIN="${EPREFIX}/usr/bin/perl" \
 		ENABLE_SSL="$(usex ssl)" \
-		DESTDIR="${D}" \
 		|| die 'failed to create a Makefile using Makefile.PL'
 	# 'DATADIR' is not a known MakeMaker parameter name.
 	# 'ENABLE_SSL' is not a known MakeMaker parameter name.
