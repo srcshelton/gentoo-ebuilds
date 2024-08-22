@@ -7,10 +7,13 @@
 
 . "$( dirname "${0}" )/functions.sh"
 
-if "${NFT}" --check list table inet "${TABLE}" >/dev/null 2>&1; then
-	echo " * NFT table '${TABLE}' already exists"
-	exit 0
-fi
+# nft_removeall.sh no longer deletes the entire FILTER table, as this removes
+# all nft-backed xtables rules!
+#
+#if "${NFT}" --check list table inet "${TABLE}" >/dev/null 2>&1; then
+#	echo " * NFT table '${TABLE}' already exists"
+#	exit 0
+#fi
 
 ruleset=''
 if ! ruleset="$( mktemp -q --tmpdir miniupnpd.XXXXXXXX )"; then
@@ -28,7 +31,7 @@ cat > "${ruleset}" <<-EOF
 	table inet ${TABLE} {
 		chain forward {
 			type filter hook forward priority 0;
-			policy drop;
+			policy accept;
 
 			# miniupnpd
 			jump ${CHAIN}

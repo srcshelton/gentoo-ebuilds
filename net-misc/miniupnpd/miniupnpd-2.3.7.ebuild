@@ -49,6 +49,13 @@ BDEPEND="
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/miniupnp.asc
 
+PATCHES=(
+	"${FILESDIR}/${P}-ipv6_pinhole.patch"
+	"${FILESDIR}/${P}-parse_rule_nat.patch"
+	"${FILESDIR}/${P}-install.patch"
+	"${FILESDIR}/${P}-description.patch"
+)
+
 src_prepare() {
 	default
 
