@@ -1,0 +1,581 @@
+#!/sbin/openrc-run
+# Copyright 1999-2013 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+
+# shellcheck shell=ash
+
+# shellcheck disable=SC2034
+extra_commands="load save update reset"
+extra_started_commands="reload"
+
+IPSET_SAVE=${IPSET_SAVE:-/var/lib/ipset/rules-save}
+ipset_name_regex='^[-_.a-zA-Z0-9]+$'
+
+depend() {
+	before iptables ip6tables
+}
+
+checkconfig() {
+	if [ ! -f "${IPSET_SAVE}" ] ; then
+		eerror "Not starting ${SVCNAME}. First create some rules" \
+			"then run:"
+		eerror "  /etc/init.d/${SVCNAME} save"
+		return 1
+	fi
+	return 0
+}
+
+_update() {
+	local method="${1:-"load"}"
+
+	local list_file='' header='' saved_header=''
+	local replace=0 multiset=0 strip_ipv4=0 loadsuccess=0
+
+	# shellcheck disable=SC2120
+	__process_ipset_list () {
+		local name="${1:-}"
+		local file="${2:-"${list_file:-}"}"
+		local defn="${3:-"${header:-}"}"
+		local replace="${4:-"${replace:-}"}"
+		local multiset="${5:-"${multiset:-}"}"
+		local strip_ipv4="${6:-"${strip_ipv4:-}"}"
+
+		local addprefix=0
+		local type=''
+
+		if [ -z "${name:-}" ]; then
+			name="${file%".list"}"
+			name="$( basename "${name}" )"
+		fi
+		# Sets have a maximum name length of 31 characters, but we need
+		# to use two of these for a temporary '_t' suffix...
+		if [ $(( ${#name} )) -gt 29 ]; then
+			eerror "Set name '${name}' is longer than 29" \
+				"characters"
+			return 1
+		fi
+
+		type="$( echo "${defn}" | awk '{print $1}' )"
+
+		#veinfo "Called __process_ipset_list() with name '${name}'," \
+		#	"multiset ${multiset}, strip_ipv4 ${strip_ipv4}"
+
+		# TODO: Merge these two (very similar) cases...
+		#
+		if [ $(( replace )) -eq 1 ]; then
+			if ! eval "ipset create ${name} ${defn} -exist -quiet"
+			then
+				ewarn "Failed to (re)create ipset for" \
+					"'${name}' with definition '${defn}'"
+			fi
+			if ! eval "ipset create ${name}_t ${defn} -quiet"
+			then
+				eerror "Failed to create temporary ipset for" \
+					"'${name}' with definition '${defn}'"
+				return 1
+			fi
+			vebegin "Temporary ipset for '${name}'"
+			[ "${EINFO_VERBOSE}" ] && eindent
+
+			local _line=''
+			sed 's/#.*$//' "${file}" |
+					grep -v -- '^\s*$' |
+					while read -r _line
+			do
+				# If we're loading data into an 'inet6' set,
+				# then strip-off any leading IPv4 addresses...
+				if [ $(( strip_ipv4 & 0x1 )) -ne 0 ]; then
+					veinfo "Stripping IPv4 address" \
+						"'${_line%%,*}' from entry" \
+						"'${_line}' for IPv6 set" \
+						"'${name%"_t"}..."
+					_line="$( # <- Syntax
+						echo "${_line}" |
+							cut -d',' -f 2-
+					)"
+				fi
+				
+				if eval "ipset add ${name}_t ${_line}"
+				then
+					: veinfo "Added entry '${_line}'"
+				else
+					[ "${EINFO_VERBOSE}" ] && eoutdent
+					veend ${?}
+					eerror "'ipset add' failed for data" \
+						"'${_line}'"
+					ipset destroy "${name}_t" -quiet
+					return 1
+				fi
+			done
+			unset _line
+			[ "${EINFO_VERBOSE}" ] && eoutdent
+			veend 0
+			if ! ipset swap "${name}_t" "${name}"; then
+				eerror "Failed to swap temporary ipset into" \
+					"'${name}'"
+				ipset destroy "${name}_t" -quiet
+				return 1
+			fi
+			if ! ipset destroy "${name}_t" -quiet; then
+				ewarn "Failed to destroy temporary ipset for" \
+					"'${name}'"
+			fi
+			einfo "Successfully created or replaced ipset" \
+				"'${name}' (counters have been reset)"
+		else  # update
+			if ! eval "ipset create ${name} ${defn} -exist -quiet"
+			then
+				ewarn "Failed to (re)create ipset for" \
+					"'${name}' with definition '${defn}'"
+				if ! eval "ipset create ${name}_t ${defn} -quiet"
+				then
+					eerror "Failed to create temporary" \
+						"ipset for '${name}' with" \
+						"definition '${defn}'"
+					return 1
+				fi
+				name="${name}_t"
+			fi
+
+			# Ensure that a CIDR-less IP address has a '/32' IPv4
+			# prefix added...
+			if echo "${type}" | grep -q -- ':net$'; then
+				addprefix=1
+			fi
+
+			local _line=''
+			sed 's/#.*$//' "${file}" |
+					grep -v -- '^\s*$' |
+					while read -r _line
+			do
+				# If we're loading data into an 'inet6' set,
+				# then strip-off any leading IPv4 addresses...
+				if [ $(( strip_ipv4 & 0x1 )) -ne 0 ]; then
+					veinfo "Stripping IPv4 address" \
+						"'${_line%%,*}' from entry" \
+						"'${_line}' for IPv6 set" \
+						"'${name%"_t"}..."
+					_line="$( # <- Syntax
+						echo "${_line}" |
+							cut -d',' -f 2-
+					)"
+				fi
+				
+				if [ $(( addprefix )) -eq 1 ]; then
+					if ! echo "${_line}" |
+							grep -Fq -- '/'
+					then
+						_line="${_line}/32"
+					fi
+				fi
+				if eval "ipset add ${name} ${_line} -exist"
+				then
+					: veinfo "Updated entry '${_line}'"
+				else
+					eerror "'ipset add' failed for data" \
+						"'${_line}'"
+					return 1
+				fi
+			done
+			unset _line
+			if [ "${name}" = "${name%"_t"}_t" ]; then
+				name="${name%"_t"}"
+				if ! ipset swap "${name}_t" "${name}"
+				then
+					eerror "Failed to swap temporary" \
+						"ipset into '${name}'"
+					ipset destroy "${name}_t" -quiet
+					return 1
+				fi
+				if ! ipset destroy "${name}_t" -quiet
+				then
+					ewarn "Failed to destroy temporary" \
+						"ipset for '${name}'"
+				fi
+			fi
+			einfo "Successfully created or updated ipset" \
+				"'${name%"_t"}'"
+		fi
+
+		return 0
+	}
+
+	# In `(da|a)?sh`, process substitution isn't possible without using
+	# named-pipes [1], which is too much for an init script.  So we'll have
+	# to use a fragile for-loop over find results instead...
+	#
+	# [1] https://stackoverflow.com/a/62519122
+	#
+	# shellcheck disable=SC2044
+	for list_file in $( # <- Syntax
+			find "$( dirname "${IPSET_SAVE}" )" \
+					-type f \
+					-name '*.list' |
+				sort -V
+	)
+	do
+		replace=0
+		multiset=0
+		strip_ipv4=0
+
+		name=''
+		saved_header=''
+		header="$( # <- Syntax
+			head -n 1 "${list_file}" |
+				sed 's/^#//'
+		)"
+		if ! echo "${header}" |
+				grep -Eq -- '^(replace|update)\s+(name\s[^[:space:]]+\s)?(list|hash|bitmap):'
+		then
+			ewarn "Skipping file '${list_file}' without valid" \
+				"header"
+			continue
+		else
+			# See whether the first argument is 'replace' or
+			# 'update', and then strip this leading token from the
+			# remaining header(s)...
+			if echo "${header}" |
+				awk '{print $1}' |
+				grep -qx -- 'replace'
+			then
+				replace=1
+			fi
+			if echo "${header}" |
+				grep -Fq -m 1 -- '!'
+			then
+				multiset=1
+				veinfo "multiset is ${multiset} for file" \
+					"'${list_file}' ..."
+			fi
+			header="$( # <- Syntax
+				echo "${header}" |
+					xargs -rn 1 |
+					tail -n +2 |
+					xargs -r
+			)"
+			veinfo "Processing header '${header}' ..."
+
+			# This should be expanding correctly AFAIK, but we seem
+			# to need to manually expand the spaces...
+			for header in $( # <- Syntax
+					echo "${header}" |
+						xargs -r -d'!' -n 1 |
+						sed \
+							-e 's/^\s\+//' \
+							-e 's/\s\+$//' \
+							-e 's/\s\+/_/g'
+				)
+			do
+				header="$( echo "${header}" | sed 's/_/ /g' )"
+				veinfo "Read header element '${header}' from" \
+					"file '${list_file}'"
+				if [ "$( # <- Syntax
+						echo "${header}" |
+							awk '{print $1}'
+					)" = 'name' ]
+				then
+					name="$( # <- Syntax
+						echo "${header}" |
+							awk '{print $2}'
+					)"
+					veinfo "Header element contained" \
+						"name '${name}' ..."
+					header="$( # <- Syntax
+						echo "${header}" |
+							xargs -rn 1 |
+							tail -n +3 |
+							xargs -r
+					)"
+					veinfo "Remaining header is" \
+						"'${header:-}'"
+					if [ -z "${header:-}" ]; then
+						if [ -n "${saved_header:-}" ]
+						then
+							veinfo "Header empty," \
+								"using saved" \
+								"value..."
+							header="${saved_header}"
+						else
+							ewarn "Found name '${name}' in file '${list_file}'" \
+								"as first entry with no following definition"
+							continue
+						fi
+					fi
+					veinfo "Using set name '${name}'," \
+						"definition is '${header}'"
+				fi
+				[ -z "${saved_header:-}" ] &&
+					saved_header="${header}"
+
+
+				# If we're using the same data for IPv4 and
+				# IPv6 lists, then strip IPv4/IPv6 addresses
+				# respectively...
+				#
+				# N.B. The IPv4 header must come before any
+				#      which require stripping!
+				#
+				# Logic:
+				# IP ('family inet' or 'family inet6' for hash
+				# type sets only, unspecified for bitmaps)
+				# parameters are always the first or third
+				# field.  If we change family between headers
+				# or drop an IP field, then remove initial
+				# and final IP(s), e.g.
+				#
+				# bitmap:ip        -> (invalid)
+				# bitmap:ip,mac    -> hash:mac (1)
+				# hash:ip          -> (invalid)
+				# hash:ip,mac      -> hash:mac
+				# hash:ip,mark     -> (invalid)
+				# hash:ip,port     -> bitmap:port (1)
+				# hash:ip,port,ip  -> bitmap:port (1)
+				# hash:ip,port,net -> hash:net,port,net (2)
+				#
+				# (1) Involves a type conversion: may be
+				#     fragile
+				# (2) Valid with inital net of 0.0.0.0/0
+				#
+				# shellcheck disable=SC2119
+				if [ $(( multiset )) -eq 1 ] &&
+						[ $(( strip_ipv4 )) -ge 2 ]
+				then
+					#veinfo "Checking whether to strip" \
+					#	"IPv4 for follow-on entry..."
+					if [ $(( strip_ipv4 & 0x8 )) -ne 0 ]; then
+						if echo "${header}" |
+								grep -q -- '^hash:mac\s'
+						then
+							: $(( strip_ipv4 = strip_ipv4 | 0x1 ))
+						fi
+					elif [ $(( strip_ipv4 & 0x2 )) -ne 0 ]; then
+						if echo "${header}" |
+								grep -q \
+									-e '^hash:mac\s' \
+									-e '^bitmap:port\s' \
+									-e '^hash:net,port,net\s' \
+									
+						then
+							: $(( strip_ipv4 = strip_ipv4 | 0x1 ))
+						fi
+					fi
+					#veinfo "Updated 'strip_ipv4' to" \
+					#	"${strip_ipv4} (1)"
+				fi
+				if ! __process_ipset_list "${name:-}"; then
+					loadsuccess=1
+				fi
+				if [ $(( multiset )) -eq 1 ] &&
+						[ $(( strip_ipv4 )) -eq 0 ]
+				then
+					#veinfo "Checking whether to strip" \
+					#	"IPv4 for following entries" \
+					#	"given header '${header}' ..."
+
+					# strip_ipv4:
+					#
+					# 0 - Don't strip
+					# 1 - Strip (and reset to '2' after)
+					# 2 - Have seen 'hash' IPv4 family or
+					#     field, but don't strip yet (set
+					#     after processing the non-IPv4
+					#     header)
+					# 4 - Have seen 'hash' IPv6 family or
+					#     field, but don't strip yet (set
+					#     after processing the non-IPv6
+					#     header)
+					#     N.B. Not implemented
+					# 8 - Have seen 'bitmap' field, but
+					#     don't strip yet (set after
+					#     processing the non-IPv4 header)
+					#
+					if echo "${header}" |
+							grep -q -- '^bitmap:ip,mac\s'
+					then
+						: $(( strip_ipv4 += 8 ))
+						#veinfo "Found multiset" \
+						#	"entry with original" \
+						#	"type 'bitmap:ip,mac'"
+					elif echo "${header}" |
+							grep -Eq -- '\sfamily\s+inet(\s|$)'
+					then
+						: $(( strip_ipv4 += 2 ))
+						#veinfo "Found multiset" \
+						#	"entry with original" \
+						#	"family 'inet'"
+					elif echo "${header}" |
+							grep -Eq -- '\sfamily\s+inet6(\s|$)'
+					then
+						: $(( strip_ipv4 += 4 ))
+						#veinfo "Found multiset" \
+						#	"entry with original" \
+						#	"family 'inet6'"
+					elif echo "${header}" |
+							grep -Eq -- 'hash:ip,(mac\s|port(\s|,))'
+					then
+						# Catch instances without a
+						# specified family...
+						: $(( strip_ipv4 += 2 ))
+						#veinfo "Found multiset" \
+						#	"entry with original" \
+						#	"type 'hash:ip,(mac" \
+						#	"or port)'"
+					fi
+					#veinfo "Updated 'strip_ipv4' to" \
+					#	"${strip_ipv4} (2)"
+				fi
+				: $(( strip_ipv4 = strip_ipv4 & ~0x1 ))
+				#veinfo "strip_ipv4 is ${strip_ipv4}"
+			done
+		fi
+	done
+
+	if ! [ $(( loadsuccess )) -eq 0 ]; then
+		eerror "Some ipsets failed to ${method}"
+		return 1
+	fi
+
+	return 0
+}
+
+start() {
+	checkconfig || return 1
+
+	if [ -f "${IPSET_SAVE}" ] ; then
+		ebegin "Loading ipset session"
+		ipset restore < "${IPSET_SAVE}"
+		eend $?
+	fi
+
+	#_update 'load'
+}
+
+load() {
+	update
+}
+
+update() {
+	if service_started ipset; then
+		_update 'update'
+	else
+		_update 'load'
+	fi
+}
+
+stop() {
+	# check if there are any references to current sets
+
+	if ! ipset list | gawk '
+		($1 == "References:") { refcnt += $2 }
+		($1 == "Type:" && $2 == "list:set") { set = 1 }
+		(scan) { if ($0 != "") setcnt++; else { scan = 0; set = 0 } }
+		(set && $1 == "Members:") {scan = 1}
+		END { if ((refcnt - setcnt) > 0) exit 1 }
+	'; then
+		eerror "ipset is in use, can't stop"
+		return 1
+	fi
+
+	if [ "${SAVE_ON_STOP}" = "yes" ] ; then
+		save || return 1
+	fi
+
+	ebegin "Removing kernel IP sets"
+	ipset flush
+	ipset destroy
+	eend $?
+}
+
+reset() {
+	stop
+}
+
+reload() {
+	ebegin "Reloading ipsets"
+
+	# Loading sets from a save file is only additive (there is no
+	# automatic flushing or replacing). And, we can not remove sets
+	# that are currently used in existing iptables rules.
+	#
+	# Instead, we create new temp sets for any set that is already
+	# in use, and then atomically swap them into place.
+	#
+	# XXX: This does not clean out previously used ipsets that are
+	# not in the new saved policy--it can't, because they may still
+	# be referenced in the current iptables rules.
+
+	# Build a list of all currently used sets (if any);
+	# also make sure all sets' names are fully supported.
+	IFS_O=$IFS
+	NEWLINE='
+'
+	local IFS=$NEWLINE
+	for running_ipset in $(ipset -n list) ; do
+		if ! echo "${running_ipset}" |
+				grep -Eq -- "${ipset_name_regex}"
+		then
+			eend 1 "Running set name ('$running_ipset') does not" \
+				"match regex '${ipset_name_regex}'"
+			return 1
+		fi
+		running_ipset_list="$running_ipset_list $running_ipset"
+	done
+	IFS=$IFS_O
+	running_ipset_list="${running_ipset_list# }"
+
+	# Check the configured suffix, and make sure there are no collisions
+	if test -z "${TEMP_SUFFIX}" ; then
+		eend 1 "TEMP_SUFFIX cannot be empty"
+		return 1
+	fi
+
+	# Make sure TEMP_SUFFIX uses only known-safe characters.
+	if ! echo "${TEMP_SUFFIX}" | grep -Eq -- "${ipset_name_regex}" ; then
+		eend 1 "TEMP_SUFFIX pattern ('$TEMP_SUFFIX') does not match" \
+			"regex '${ipset_name_regex}'"
+		return 1
+	fi
+	# We don't block ., but it must be escaped.
+	temp_suffix_regex=$(echo "${TEMP_SUFFIX}" | sed 's/\./\\./g')
+
+	if echo "$running_ipset_list" |
+			grep -Eq -- "${temp_suffix_regex}( |$)"
+	then
+		eend 1 "Existing set(s) match TEMP_SUFFIX pattern" \
+			"('${TEMP_SUFFIX}'), cannot continue"
+		return 1
+	fi
+
+	# Build a regular expression that matches those set names.
+	running_ipset_list_regex="$( # <- Syntax
+		echo "$running_ipset_list" |
+			tr -s ' ' '|'
+	)"
+
+	# Load up sets from the save file, but rename any set that already
+	# exists to a temporary name that we will swap later.
+	if ! sed -r "s/^(create|add) (${running_ipset_list_regex}) /\1 \2${temp_suffix_regex} /" \
+				"${IPSET_SAVE}" |
+			ipset restore
+	then
+		eend $? "Failed to load new ipsets"
+	fi
+
+	# Now for every set name that currently exists, atomically swap it
+	# with the temporary new one we created, and then destroy the old set.
+	for ipset_name in ${running_ipset_list} ; do
+		ipset swap "${ipset_name}" "${ipset_name}${TEMP_SUFFIX}" ||
+			eend $? "Failed to swap in new ipset $ipset_name"
+		ipset destroy "${ipset_name}${TEMP_SUFFIX}" ||
+			eend $? "Failed to delete obsolete ipset" \
+				"${ipset_name}${TEMP_SUFFIX}"
+	done
+	eend 0
+}
+
+save() {
+	ebegin "Saving ipset session"
+	checkpath --file --mode 0600 "${IPSET_SAVE}"
+		ipset -output save list > "${IPSET_SAVE}"
+	eend $?
+}
