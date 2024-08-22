@@ -858,6 +858,7 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-apps/tcp-wrappers
 * sys-apps/util-linux
     * Add `libfdisk.so` to the list of libraries relocated to root
+* sys-auth/passwdqc
 * sys-block/thin-provisioning-tools
     * Move 'pdata\_tools', with many non-root library dependencies, to `/usr/sbin`
 * sys-fs/cryptsetup
