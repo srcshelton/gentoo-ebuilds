@@ -7,7 +7,7 @@ VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/openssl.org.asc
 inherit edo flag-o-matic linux-info multilib multiprocessing preserve-libs toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
 DESCRIPTION="Robust, full-featured Open Source Toolkit for the Transport Layer Security (TLS)"
-HOMEPAGE="https://www.openssl.org/"
+HOMEPAGE="https://openssl-library.org/"
 
 MY_P=${P/_/-}
 
