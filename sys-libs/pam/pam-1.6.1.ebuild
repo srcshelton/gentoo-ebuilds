@@ -114,7 +114,13 @@ multilib_src_install() {
 	emake DESTDIR="${D}" install \
 		sepermitlockdir="${EPREFIX%/}/var/run/sepermit"
 
-	gen_usr_ldscript -a pam pam_misc pamc
+	if use split-usr; then
+		ebegin "Relocating libraries 'pam', 'pam_misc', and 'pamc' to root filesystem"
+		gen_usr_ldscript -a pam pam_misc pamc
+		eend ${?} "gen_usr_ldscript() failed: ${?}" || die
+		ls -l "${ED}/$(get_libdir)/"
+		ls -l "${ED}/usr/$(get_libdir)/"
+	fi
 }
 
 multilib_src_install_all() {
