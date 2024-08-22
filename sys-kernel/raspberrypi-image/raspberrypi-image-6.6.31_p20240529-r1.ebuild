@@ -17,7 +17,6 @@ REQUIRED_USE="
 	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s !rpi5 !rpi-cm5 )
 	rpi-cm4-io? ( || ( rpi-cm4 rpi-cm5 ) )
 	rpi-cm5-io? ( rpi-cm5 )
-	rpi-cm5? ( || ( rpi-cm4-io rpi-cm5-io ) )
 "
 
 RESTRICT="binchecks mirror strip"
@@ -145,40 +144,45 @@ src_install() {
 	for f in boot/*.img; do
 		case "${f}" in
 			boot/kernel.img)
+				einfo "Found '${f}' ..."
 				if use rpi-all || use rpi1 || use rpi-cm || use rpi0; then
-					einfo "Installing 'kernel.img' for BCM2835 (Raspberry Pi Zero, Raspberry Pi) ..."
+					elog "Installing 'kernel.img' for BCM2835 (Raspberry Pi Zero, Raspberry Pi) ..."
 					doins "${f}"
 					files+=( "${f}" )
 				fi
 				;;
 			boot/kernel7.img)
+				einfo "Found '${f}' ..."
 				if use rpi-all || use rpi2 || use rpi-cm2 || use rpi3 || use rpi-cm3 || use rpi02; then
-					einfo "Installing 'kernel7.img' for BCM2836 & BCM2837 (Raspberry Pi 2, Raspberry Pi 3, Raspberry Pi Zero 2 32bit) ..."
+					elog "Installing 'kernel7.img' for BCM2836 & BCM2837 (Raspberry Pi 2, Raspberry Pi 3, Raspberry Pi Zero 2 32bit) ..."
 					doins "${f}"
 					files+=( "${f}" )
 				fi
 				;;
 			boot/kernel7l.img)
+				einfo "Found '${f}' ..."
 				if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
 					if use rpi-all || ! use 64bit; then
-						einfo "Installing 'kernel7l.img' for BCM2711 (Raspberry Pi 4/5 LPAE 32bit) ..."
+						elog "Installing 'kernel7l.img' for BCM2711 (Raspberry Pi 4/5 LPAE 32bit) ..."
 						doins "${f}"
 						files+=( "${f}" )
 					fi
 				fi
 				;;
 			boot/kernel8.img)
+				einfo "Found '${f}' ..."
 				if use rpi-all || use rpi4 || use rpi400 || use rpi-cm4 || use rpi-cm4s; then
-					if use rpi-all || ! use 64bit; then
-						einfo "Installing 'kernel8.img' for BCM2836, BCM2837, BCM2711 (Raspberry Pi 2+ 64bit) ..."
+					if use rpi-all || use 64bit; then
+						elog "Installing 'kernel8.img' for BCM2836, BCM2837, BCM2711 (Raspberry Pi 2+ 64bit) ..."
 						doins "${f}"
 						files+=( "${f}" )
 					fi
 				fi
 				;;
 			boot/kernel_2712.img)
+				einfo "Found '${f}' ..."
 				if use rpi-all || use rpi5 || use rpi-cm5; then
-					einfo "Installing 'kernel_2712.img' for BCM2712 (Raspberry Pi 5 64bit, 16k pages) ..."
+					elog "Installing 'kernel_2712.img' for BCM2712 (Raspberry Pi 5 64bit, 16k pages) ..."
 					doins "${f}"
 					files+=( "${f}" )
 				fi
@@ -341,7 +345,9 @@ src_install() {
 
 		einfo "You should create a symlink from /System.map to ${boot}/System.map"
 		einfo "and from ${boot}/System.map to one of:"
+		einfo
 		xargs -r -n 1 einfo '   ' <<<"${f}"
+		einfo
 		einfo "... as appropriate."
 	fi
 	if ! (( ${#files[@]} )); then
