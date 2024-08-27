@@ -1,4 +1,4 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -6,6 +6,13 @@ EAPI=8
 ETYPE="sources"
 K_NOUSENAME=1
 inherit autotools kernel-2
+
+# Most recent changes:
+#
+#   06042d7
+#   0c7f35d
+#
+# (both added 29th May 2023 against Linux-6.4-rc4)
 
 DESCRIPTION="Userspace utilities for a general USB device sharing system over IP networks"
 HOMEPAGE="https://www.kernel.org/"
