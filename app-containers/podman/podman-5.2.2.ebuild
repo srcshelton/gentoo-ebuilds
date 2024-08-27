@@ -17,7 +17,7 @@ else
 	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
 	[[ ${PV} != *rc* ]] &&
-		KEYWORDS="~amd64 ~arm64 ~loong ~riscv"
+		KEYWORDS="~amd64 ~arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
@@ -26,6 +26,10 @@ IUSE="apparmor +bash-completion btrfs experimental fish-completion +fuse +rootle
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
+	>=app-containers/conmon-2.1.10
+	>=app-containers/containers-common-0.58.0-r1
+	app-containers/crun
+	>=app-containers/netavark-1.6.0[dns]
 	app-crypt/gpgme:=
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
@@ -33,6 +37,7 @@ COMMON_DEPEND="
 
 	apparmor? ( sys-libs/libapparmor )
 	btrfs? ( sys-fs/btrfs-progs )
+	rootless? ( net-misc/passt )
 	seccomp? ( sys-libs/libseccomp:= )
 	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "
@@ -48,61 +53,84 @@ BDEPEND="
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	app-containers/catatonit
-	>=app-containers/conmon-2.1.10
-	>=app-containers/containers-common-0.58.0-r1
-	app-containers/crun
-	>=app-containers/netavark-1.6.0[dns]
 	fuse? ( sys-fs/fuse-overlayfs )
-	rootless? ( net-misc/passt )
 	selinux? ( sec-policy/selinux-podman )
 	systemd? ( sys-apps/systemd:= )
 	wrapper? ( !app-containers/docker-cli )
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-togglable-seccomp.patch"
+	"${FILESDIR}/${PN}-5.1.1-togglable-seccomp.patch"
 )
 
 pkg_setup() {
-	# Inherited from docker-20.10.22 ...
+	# Inherited from app-containers/docker-27.0.3...
+	#
+	# this is based on "contrib/check-config.sh" from upstream's sources
+	# required features
+	#
+	# N.B. The docker ebuild specifies checks over multiple blocks :(
 	local CONFIG_CHECK="
 		~NAMESPACES ~NET_NS ~PID_NS ~IPC_NS ~UTS_NS
 		~CGROUPS ~CGROUP_CPUACCT ~CGROUP_DEVICE ~CGROUP_FREEZER ~CGROUP_SCHED ~CPUSETS ~MEMCG
-		~CGROUP_NET_PRIO
 		~KEYS
 		~VETH ~BRIDGE ~BRIDGE_NETFILTER
-		~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE ~NETFILTER_XT_MARK
-		~NETFILTER_NETLINK ~NETFILTER_XT_MATCH_ADDRTYPE ~NETFILTER_XT_MATCH_CONNTRACK ~NETFILTER_XT_MATCH_IPVS
+		~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE
+		~NETFILTER_XT_MATCH_ADDRTYPE
+		~NETFILTER_XT_MATCH_CONNTRACK
+		~NETFILTER_XT_MATCH_IPVS
+		~NETFILTER_XT_MARK
 		~IP_NF_NAT ~NF_NAT
 		~POSIX_MQUEUE
 
 		~USER_NS
-		~SECCOMP
 		~CGROUP_PIDS
+
+		~!LEGACY_VSYSCALL_NATIVE
+		~!LEGACY_VSYSCALL_NONE
 
 		~BLK_CGROUP ~BLK_DEV_THROTTLING
 		~CGROUP_PERF
 		~CGROUP_HUGETLB
-		~NET_CLS_CGROUP
+		~NET_CLS_CGROUP ~CGROUP_NET_PRIO
 		~CFS_BANDWIDTH ~FAIR_GROUP_SCHED
-		~IP_VS ~IP_VS_PROTO_TCP ~IP_VS_PROTO_UDP ~IP_VS_NFCT ~IP_VS_RR
+		~IP_NF_TARGET_REDIRECT
+		~IP_VS
+		~IP_VS_NFCT
+		~IP_VS_PROTO_TCP
+		~IP_VS_PROTO_UDP
+		~IP_VS_RR
 
-		~VXLAN
-		~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH ~XFRM_ALGO ~XFRM_USER
+		~EXT4_FS ~EXT4_FS_SECURITY ~EXT4_FS_POSIX_ACL
+
+		~VXLAN ~BRIDGE_VLAN_FILTERING
+		~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH
+		~XFRM ~XFRM_ALGO ~XFRM_USER ~INET_ESP
+
 		~IPVLAN
 		~MACVLAN ~DUMMY
+
+		~NF_NAT_FTP ~NF_CONNTRACK_FTP ~NF_NAT_TFTP ~NF_CONNTRACK_TFTP
+
+		~OVERLAY_FS
+	"
+	# Additional checks, not performed by app-containers/docker...
+	CONFIG_CHECK+="
+		~NETFILTER_NETLINK
 	"
 
 	local ERROR_KEYS="CONFIG_KEYS: is mandatory"
-	local ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
-	local ERROR_RESOURCE_COUNTERS="CONFIG_RESOURCE_COUNTERS: is optional for container statistics gathering"
 
-	local ERROR_BLK_CGROUP="CONFIG_BLK_CGROUP: is optional for container statistics gathering"
-	local ERROR_IOSCHED_CFQ="CONFIG_IOSCHED_CFQ: is optional for container statistics gathering"
-	local ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gathering"
-	local ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
-	local ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
-	local ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
+	local WARNING_LEGACY_VSYSCALL_NONE="CONFIG_LEGACY_VSYSCALL_NONE enabled: Containers with <=glibc-2.13 will not work"
+	local WARNING_BLK_CGROUP="CONFIG_BLK_CGROUP: is optional for container statistics gathering"
+	local WARNING_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
+	local WARNING_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gathering"
+	local WARNING_IOSCHED_CFQ="CONFIG_IOSCHED_CFQ: is optional for container statistics gathering"
+	local WARNING_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
+	local WARNING_POSIX_MQUEUE="CONFIG_POSIX_MQUEUE: is required for bind-mounting /dev/mqueue into containers"
+	local WARNING_RESOURCE_COUNTERS="CONFIG_RESOURCE_COUNTERS: is optional for container statistics gathering"
+	local WARNING_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
+	local WARNING_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 	if kernel_is lt 3 10; then
 		ewarn ""
@@ -130,20 +158,25 @@ pkg_setup() {
 		CONFIG_CHECK+="
 			~MEMCG_KMEM
 		"
-		ERROR_MEMCG_KMEM="CONFIG_MEMCG_KMEM: is optional"
+		local WARNING_MEMCG_KMEM="CONFIG_MEMCG_KMEM: is optional"
 	fi
 
-	if kernel_is lt 4 7; then
+	if kernel_is lt 4 9; then
 		CONFIG_CHECK+="
 			~DEVPTS_MULTIPLE_INSTANCES
+		"
+	fi
+
+	if kernel_is lt 5; then
+		CONFIG_CHECK+="
+			~IOSCHED_CFQ
+			~CFQ_GROUP_IOSCHED
 		"
 	fi
 
 	if kernel_is lt 5 1; then
 		CONFIG_CHECK+="
 			~NF_NAT_IPV4
-			~IOSCHED_CFQ
-			~CFQ_GROUP_IOSCHED
 		"
 	fi
 
@@ -153,9 +186,21 @@ pkg_setup() {
 		"
 	fi
 
+	if kernel_is le 5 3; then
+		CONFIG_CHECK+="
+			~INET_XFRM_MODE_TRANSPORT
+		"
+	fi
+
 	if kernel_is lt 5 8; then
 		CONFIG_CHECK+="
 			~MEMCG_SWAP_ENABLED
+		"
+	fi
+
+	if kernel_is lt 5 19; then
+		CONFIG_CHECK+="
+			~LEGACY_VSYSCALL_EMULATE
 		"
 	fi
 
@@ -165,16 +210,35 @@ pkg_setup() {
 		"
 	fi
 
+	# N.B. 'ge'
+	if kernel_is ge 4 15; then
+		CONFIG_CHECK+="
+			~CGROUP_BPF
+		"
+	fi
+
+	if use apparmor; then
+		CONFIG_CHECK+="
+			~SECURITY_APPARMOR
+		"
+	fi
+
 	if use btrfs; then
 		CONFIG_CHECK+="
 			~BTRFS_FS
 			~BTRFS_FS_POSIX_ACL
 		"
-	else
+	fi
+
+	if use seccomp; then
 		CONFIG_CHECK+="
-			~OVERLAY_FS ~!OVERLAY_FS_REDIRECT_DIR
-			~EXT4_FS_SECURITY
-			~EXT4_FS_POSIX_ACL
+			~SECCOMP ~SECCOMP_FILTER
+		"
+	fi
+
+	if use selinux; then
+		CONFIG_CHECK+="
+			~SECURITY_SELINUX
 		"
 	fi
 
