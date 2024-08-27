@@ -56,7 +56,7 @@ mount_it()
 		mount -n /dev
 	else
 		# Some devices require 'exec', Bug #92921
-		mount -n -t devtmpfs -o "exec,nosuid,mode=0755,size=1M" mdev /dev
+		mount -n -t devtmpfs -o "exec,nosuid,mode=0755,size=8M" mdev /dev
 	fi
 }
 
