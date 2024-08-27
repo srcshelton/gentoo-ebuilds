@@ -14,7 +14,7 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz
 		https://github.com/Flowdalic/conmon/commit/ff8794c5bc0805cc430229728befde16da47b68c.patch -> ${PN}-2.1.11-make-docs-target-not-depend-on-install.tools.patch"
-	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~loong ~ppc64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
@@ -44,7 +44,7 @@ src_prepare() {
 
 src_compile() {
 	tc-export CC PKG_CONFIG
-	export PREFIX="${EPREFIX}/usr" GOMD2MAN=go-md2man
+	export PREFIX="${EPREFIX}/usr" GOMD2MAN="$(command -v go-md2man)"
 	default
 }
 
