@@ -3,6 +3,7 @@
 
 EAPI="8"
 
+USE_PHP="php8-1 php8-2"
 DESCRIPTION="Realistic PHP password strength estimate library based on Zxcvbn JS"
 HOMEPAGE="https://github.com/bjeavons/zxcvbn-php"
 SRC_URI="https://github.com/bjeavons/zxcvbn-php/archive/${PV}.tar.gz -> ${P}.tar.gz"
@@ -15,14 +16,6 @@ KEYWORDS="~amd64 ~x86"
 #RESTRICT="test"
 
 RDEPEND="
-	|| (
-		dev-lang/php:8.4=
-		dev-lang/php:8.3=
-		dev-lang/php:8.2=
-		dev-lang/php:8.1=
-		dev-lang/php:8.0=
-		dev-lang/php:7.2=
-	)
 	dev-php/symfony-mbstring
 "
 #DEPEND="
