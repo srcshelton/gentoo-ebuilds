@@ -156,8 +156,8 @@ used to build perl)
 * dev-libs/jemalloc
     * Correct library version used when calling `install_name_tool`
     * Don't use (64-bit) assembly when `__ILP32__` is defined
-* dev-libs/libksba
-    * Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code
+* ~~dev-libs/libksba~~
+    * ~~Override `-Wall` CFLAG by adding clang `#pragma`s to problematic code~~
 * ~~dev-libs/liblinear~~
     * ~~Update Makefile to build correctly on darwin~~
 * ~~dev-libs/libxslt~~
@@ -196,8 +196,8 @@ used to build perl)
     * Additional fixes for darwin
 * sys-libs/db
     * Prevent clang builtins error due to `__atomic_compare_exchange` function
-* sys-libs/gdbm
-    * Ensure that all functions are defined before being called
+* ~~sys-libs/gdbm~~
+    * ~~Ensure that all functions are defined before being called~~
 * ~~sys-libs/readline~~
     * ~~Ensure that `<sys/ioctl.h>` header is included on darwin~~
 
@@ -391,8 +391,8 @@ used to build perl)
     * OpenNAB Nabaztag server software
 * www-apps/siriproxy
     * Web interface for 'Three Little Pigs' fork of SiriProxy
-* www-servers/3dm2
-    * 3ware 3DM2 RAID controller web interface for 3w-xxxx, 3w-9xxx and 3w-sas controllers
+* ~~www-servers/3dm2~~
+    * ~~3ware 3DM2 RAID controller web interface for 3w-xxxx, 3w-9xxx and 3w-sas controllers~~
 * www-servers/pound
     * Third-party Zevenet pound-2.8a, which builds against modern OpenSSL
 

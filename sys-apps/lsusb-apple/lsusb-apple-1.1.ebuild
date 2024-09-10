@@ -1,8 +1,7 @@
 # Copyright 1999-2016 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 2e63d0a1fae13f5d80da5b3cc72dc42850f23fd6 $
 
-EAPI=6
+EAPI=8
 
 COMMIT="9da9755fed9f9279366aa262a4c81166fd283dac"
 DESCRIPTION="lsusb command for Mac OS X"
