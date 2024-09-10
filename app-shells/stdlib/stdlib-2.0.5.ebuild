@@ -1,7 +1,7 @@
 # Copyright 1999-2017 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
+EAPI=8
 
 DESCRIPTION="Standard functions library for bash"
 HOMEPAGE="https://github.com/srcshelton/stdlib.sh"
