@@ -485,6 +485,8 @@ used to build perl)
     * Fix build/runtime dependencies
 * dev-util/bindgen
     * Add patch required to build with sys-devel/clang-16 and later
+* mail-filter/dcc
+    * Add app-crypt/libmd dependency
 * mail-filter/libmilter
     * Add sys-devel/m4 dependency
 * mail-filter/opendkim
@@ -504,7 +506,7 @@ used to build perl)
 * ~~net-analyzer/ntopng~~
     * ~~Remove some of the more onerous limitations from the community edition, use source from `3.0-stable` branch rather than `3.0` tag~~
 * net-analyzer/openbsd-netcat
-    * Add dev-libs/libbsd as a build dependency
+    * Add dev-libs/libbsd dependency
 * net-analyzer/speedtest-cli
     * Remove unnecessary run-time dependency on dev-python/setuptools
 * ~~net-analyzer/suricata~~
