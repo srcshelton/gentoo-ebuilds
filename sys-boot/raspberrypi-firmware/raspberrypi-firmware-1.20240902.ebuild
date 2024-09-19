@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -9,7 +9,7 @@ DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+64bit -devicetree -kernel +rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io rpi5 rpi-cm5 rpi-cm5-io"
+IUSE="+64bit -devicetree -kernel rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 +rpi-all rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4-io rpi-cm4s rpi-cm5 rpi-cm5-io"
 REQUIRED_USE="
 	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi-cm5 )
 	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi-cm5 ) )
