@@ -1,0 +1,33 @@
+--- a/init.d/net.lo.in
++++ b/init.d/net.lo.in
+@@ -914,4 +914,30 @@ stop()
+ 	return 0
+ }
+ 
++status()
++{
++	local rc=0
++
++	default_status
++	rc=${?}
++
++	local IFACE=''
++	local IFVAR=''
++	local _wireguard==''
++	IFACE=$(get_interface)
++	IFVAR=$(shell_var "${IFACE}")
++
++	eval _wireguard="\$wireguard_${IFVAR}"
++	if [ -n "${_wireguard}" ]; then
++		if [ $(( $( id -u ) )) -eq 0 ] &&
++				_program_available wg >/dev/null
++		then
++			echo
++			wg show "${IFACE}" | sed 's/^/   /'
++		fi
++	fi
++
++	return ${rc}
++}
++
+ # vim:filetype=gentoo-init-d:

@@ -38,6 +38,10 @@ BDEPEND="
 	kernel_linux? ( virtual/pkgconfig )
 "
 
+PATCHES=(
+	"${FILESDIR}/${P}-wireguard_status.patch"
+)
+
 src_prepare() {
 	if [[ "${PV}" == '9999' ]] ; then
 		local ver="git-${EGIT_VERSION:0:6}"
