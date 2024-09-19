@@ -7,7 +7,7 @@ EAPI=8
 # check Fedora's packaging (https://src.fedoraproject.org/rpms/audit/tree/rawhide)
 # on bumps (or if hitting a bug) to see what they've done there.
 
-PYTHON_COMPAT=( python3_{10..12} )
+PYTHON_COMPAT=( python3_{10..13} )
 
 inherit autotools linux-info python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
@@ -17,7 +17,7 @@ SRC_URI="https://people.redhat.com/sgrubb/audit/${P}.tar.gz"
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~ia64 ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="gssapi io-uring ldap python static-libs systemd test zos"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
@@ -35,24 +35,26 @@ DEPEND="
 	|| ( >=sys-kernel/raspberrypi-headers-2.6.34 >=sys-kernel/linux-headers-2.6.34 )
 	test? ( dev-libs/check )
 "
-BDEPEND="python? (
-			dev-lang/swig
-			$(python_gen_cond_dep '
-				dev-python/setuptools[${PYTHON_USEDEP}]
-			' python3_12)
-		)
+BDEPEND="
+	python? (
+		dev-lang/swig
+		$(python_gen_cond_dep '
+			dev-python/setuptools[${PYTHON_USEDEP}]
+		' python3_12)
+	)
 "
 
 CONFIG_CHECK="~AUDIT"
-
-PATCHES=(
-	"${FILESDIR}"/${PN}-3.0.8-musl-malloc.patch
-)
 
 QA_CONFIG_IMPL_DECL_SKIP=(
 	# missing on musl. Uses handrolled AC_LINK_IFELSE but fails at link time
 	# for older compilers regardless. bug #898828
 	strndupa
+)
+
+PATCHES=(
+	"${FILESDIR}/${P}-implicit-builtin-functions.patch"
+	"${FILESDIR}/${P}-null-deref.patch"
 )
 
 src_prepare() {
@@ -71,16 +73,16 @@ src_prepare() {
 multilib_src_configure() {
 	local -a myeconfargs=(
 		--sbindir="${EPREFIX}"/sbin
+		--localstatedir="${EPREFIX}"/var
+		--runstatedir="${EPREFIX}"/var/run
 		$(use_enable gssapi gssapi-krb5)
 		$(use_enable zos zos-remote)
 		$(use_enable static-libs static)
-		$(use_with io-uring io_uring)
 		$(use_with arm)
 		$(use_with arm64 aarch64)
-		--enable-systemd
+		$(use_with io-uring io_uring)
 		--without-golang
 		--without-libwrap
-		--without-python
 		--without-python3
 	)
 
