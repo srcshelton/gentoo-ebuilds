@@ -4,7 +4,7 @@
 EAPI=8
 
 EGIT_COMMIT="5a146ca7929468474ca54d3f76dcd0e6e54279e9"
-EGIT_SUBMODULE_COMMIT="ef2fc67d235d037b2b468813e646e20890fcea07"
+EGIT_SUBMODULE_COMMIT="4c5aebdb200bc9a2ffd2a0158efffb9603c33be7"
 
 # Initial space is significant...
 #RPI32_MODELS=" rpi0 rpi1 rpi-cm rpi2 rpi-cm2"
