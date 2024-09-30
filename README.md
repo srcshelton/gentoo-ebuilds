@@ -529,6 +529,8 @@ used to build perl)
     * Fix some crazy inconsistencies in output which were breaking `ebtables-save` and `ebtables-restore`
     * Set appropriate maximum buffer sizes to prevent `ebtables-restore` from segfaulting when loading more than 2kbytes of data from a single statement
     * Add Debian patch to correct the use of `RETURN` as a module target
+* net-firewall/firehol
+    * Correct obsolete CONFIG\_CHECK value which was blocking build, and correct required dependencies
 * net-firewall/ipset
     * Update default init script to handle more complex load/update operations
 * net-ftp/tftp-hpa
