@@ -467,6 +467,8 @@ used to build perl)
     * Handle existing mountpoints and correct init scripts
 * dev-libs/libusb
     * Remove relocation of libusb-1.0.so from /usr to / due to external dependencies
+* dev-libs/simdjson
+    * Fix upstream typo, add portage-level control of CPU features
 * ~~dev-libs/yajl~~
     * ~~Bump to EAPI=7 for BDEPEND/RDEPEND build-dependency improvements~~
 * ~~dev-perl/DBI-Shell~~
