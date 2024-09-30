@@ -1,0 +1,18 @@
+Build fails with: g++: error: PROTOBUF_USE_DLLS: linker input file not found:
+No such file or directory
+
+This is because 'PROTOBUF_USE_DLLS' is added bare to the g++ invocation. The
+reason why is not clear.
+
+Partially-reverts: https://github.com/netdata/netdata/commit/2a04a06569cec70da71d04a58954a030384b4cf7
+diff --git a/packaging/cmake/Modules/NetdataProtobuf.cmake b/packaging/cmake/Modules/NetdataProtobuf.cmake
+--- a/packaging/cmake/Modules/NetdataProtobuf.cmake
++++ b/packaging/cmake/Modules/NetdataProtobuf.cmake
+@@ -194,6 +194,6 @@ function(netdata_add_protobuf _target)
+             target_include_directories(${_target} PRIVATE ${PROTOBUF_INCLUDE_DIRS})
+         endif()
+ 
+-        target_compile_options(${_target} PRIVATE ${PROTOBUF_CFLAGS_OTHER})
++        target_compile_definitions(${_target} PRIVATE ${PROTOBUF_CFLAGS_OTHER})
+         target_link_libraries(${_target} PRIVATE ${PROTOBUF_LIBRARIES})
+ endfunction()

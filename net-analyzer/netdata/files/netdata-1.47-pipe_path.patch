@@ -1,0 +1,42 @@
+From 92df75edb129d2241b205316ba2522a3a9c0d1b2 Mon Sep 17 00:00:00 2001
+From: "Austin S. Hemmelgarn" <austin@netdata.cloud>
+Date: Thu, 19 Sep 2024 07:41:11 -0400
+Subject: [PATCH] Use `/var/run/netdata` for the netdatacli pipe.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The current approach using `/tmp` is problematic because:
+
+1. The fact that `/tmp` is world writable _and_ we don’t do rigorous
+   checks before trying to use the current path means that it’s trivial
+   for _ANY USER ON THE SYSTEM_ to effect a DoS attack on netdatacli
+   usage by simply touching `/tmp/netdata-ipc` while Netdata is not
+   running.
+2. `/tmp` is not universally presented as a unified hierarchy shared
+   between all users, and it’s becoming more common to use a split
+   approach because of issues like the above mentioned DoS opportunity.
+3. `/tmp` is not where this should have been in the first place since
+   it’s not a temporary file but a runtime file.
+
+`/var/run/netdata` was chosen as it is the default location for our
+pidfile, and thus can be counted on to exist on a standard install.
+
+This also updates the name of the pipe itself to be consistent with what
+we use on Windows.
+---
+ src/daemon/pipename.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/daemon/pipename.c b/src/daemon/pipename.c
+index 70b6a25b4280cf..a32f6bebaf7092 100644
+--- a/src/daemon/pipename.c
++++ b/src/daemon/pipename.c
+@@ -12,6 +12,6 @@ const char *daemon_pipename(void) {
+ #ifdef _WIN32
+     return "\\\\?\\pipe\\netdata-cli";
+ #else
+-    return "/tmp/netdata-ipc";
++    return "/var/run/netdata/netdata-cli";
+ #endif
+ }
