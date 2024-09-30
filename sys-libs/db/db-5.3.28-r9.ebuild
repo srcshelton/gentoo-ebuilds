@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
-inherit autotools db flag-o-matic multilib toolchain-funcs multilib-minimal  # usr-ldscript
+inherit autotools db flag-o-matic multilib toolchain-funcs multilib-minimal
 
 # Number of official patches
 #PATCHNO=`echo ${PV}|sed -e "s,\(.*_p\)\([0-9]*\),\2,"`
@@ -29,7 +29,7 @@ done
 
 LICENSE="Sleepycat"
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="cxx doc -sep-usr tcl test"
 
 REQUIRED_USE="test? ( tcl )"
