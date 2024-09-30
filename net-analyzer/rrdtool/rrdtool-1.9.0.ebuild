@@ -4,7 +4,7 @@
 EAPI=8
 
 LUA_COMPAT=( lua5-{1..4} luajit )
-PYTHON_COMPAT=( python3_{9..12} )
+PYTHON_COMPAT=( python3_{9..13} )
 DISTUTILS_EXT=1
 DISTUTILS_OPTIONAL="true"
 DISTUTILS_SINGLE_IMPL="true"
@@ -18,13 +18,12 @@ DESCRIPTION="A data logging and graphing system for time series data"
 HOMEPAGE="https://oss.oetiker.ch/rrdtool/"
 SRC_URI="
 	https://github.com/oetiker/${PN}-1.x/releases/download/v${PV}/${P}.tar.gz
-	https://dev.gentoo.org/~conikost/distfiles/patches/${PN}-1.8.0-gcc14.patch.gz
 "
 S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-2"
 SLOT="0/8.0.0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
 IUSE="dbi doc examples graph lua perl python rados rrdcached rrdcgi ruby static-libs tcl tcpd test"
 
 RESTRICT="!test? ( test )"
@@ -77,8 +76,6 @@ BDEPEND="
 PATCHES=(
 	"${FILESDIR}"/${PN}-1.7.0-disable-rrd_graph-cgi.patch
 	"${FILESDIR}"/${PN}-1.7.1-configure.ac.patch
-	"${FILESDIR}"/${PN}-1.8.0-configure-clang16.patch
-	"${WORKDIR}"/${PN}-1.8.0-gcc14.patch
 )
 
 pkg_setup() {
