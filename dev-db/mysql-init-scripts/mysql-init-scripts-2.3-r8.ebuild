@@ -12,7 +12,7 @@ S=${WORKDIR}
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="s6 systemd +tmpfiles"
 
 # This _will_ break with MySQL 5.0, 4.x, 3.x
