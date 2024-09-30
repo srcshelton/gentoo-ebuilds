@@ -70,10 +70,10 @@ PATCHES=( "${FILESDIR}"/${PN}-copy-firmware-r4.patch )
 
 pkg_pretend() {
 	if use initramfs; then
-		if [[ -z ${ROOT} ]] && use dist-kernel; then
-			# Check, but don't die because we can fix the problem and then
-			# emerge --config ... to re-run installation.
-			nonfatal mount-boot_check_status
+		if use dist-kernel; then
+			# Check, but don't die because we can fix the problem
+			# and then emerge --config ... to re-run installation.
+			[[ -z ${ROOT} ]] && nonfatal mount-boot_check_status
 		else
 			mount-boot_pkg_pretend
 		fi
@@ -396,12 +396,12 @@ src_install() {
 		# Install installkernel/kernel-install hooks for non-dracut
 		# initramfs generators that don't bundled the microcode
 		dobin "${T}/make-amd-ucode-img"
-		exeinto /usr/lib/kernel/preinst.d
-		doexe "${FILESDIR}/35-amd-microcode.install"
-		exeinto /usr/lib/kernel/install.d
-		doexe "${FILESDIR}/35-amd-microcode-systemd.install"
+			exeinto /usr/lib/kernel/preinst.d
+			doexe "${FILESDIR}/35-amd-microcode.install"
+			exeinto /usr/lib/kernel/install.d
+			doexe "${FILESDIR}/35-amd-microcode-systemd.install"
 
-		if ! use dist-kernel; then
+		if use initramfs && ! use dist-kernel; then
 			insinto /boot
 			doins "${S}"/amd-uc.img
 		fi
