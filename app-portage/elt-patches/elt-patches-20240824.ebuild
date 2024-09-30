@@ -27,22 +27,8 @@ SLOT="0"
 # The 'check' target currently wants network access to fetch libtool tarballs.
 RESTRICT="test"
 
-RDEPEND="
-	app-shells/bash
-	sys-apps/coreutils
-	sys-apps/findutils
-	sys-apps/gentoo-functions
-	sys-apps/sed
-	sys-devel/patch
-"
+RDEPEND="sys-apps/gentoo-functions"
 BDEPEND="app-arch/xz-utils"
-
-src_prepare() {
-	default
-
-	sed -i eltpatch.in \
-		-e 's|^#!/bin/bash$|#! /usr/bin/env bash|' || die
-}
 
 src_compile() {
 	emake rootprefix="${EPREFIX}" libdirname="$(get_libdir)"
