@@ -16,9 +16,13 @@ if [[ ${PV} == 9999 ]] ; then
 
 	inherit git-r3
 else
-	SRC_URI="mirror://openssl/source/${MY_P}.tar.gz
-		verify-sig? ( mirror://openssl/source/${MY_P}.tar.gz.asc )"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+	SRC_URI="
+		https://github.com/openssl/openssl/releases/download/${P}/${P}.tar.gz
+		verify-sig? (
+			https://github.com/openssl/openssl/releases/download/${P}/${P}.tar.gz.asc
+		)
+	"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 fi
 
 S="${WORKDIR}"/${MY_P}
@@ -40,7 +44,8 @@ BDEPEND="
 		app-alternatives/bc
 		sys-process/procps
 	)
-	verify-sig? ( <sec-keys/openpgp-keys-openssl-20240920 )"
+	verify-sig? ( >=sec-keys/openpgp-keys-openssl-20240920 )
+"
 
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}"
@@ -48,11 +53,6 @@ PDEPEND="app-misc/ca-certificates"
 
 MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/openssl/configuration.h
-)
-
-PATCHES=(
-	"${FILESDIR}"/${P}-CVE-2024-2511.patch
-	"${FILESDIR}"/${P}-p11-segfault.patch
 )
 
 pkg_setup() {
