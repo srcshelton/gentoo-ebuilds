@@ -53,6 +53,7 @@ COMMON_DEPEND="${PYTHON_DEPS}
 	app-arch/xz-utils
 	>=dev-libs/glib-2.68:2
 	>=dev-libs/json-glib-1.6.0
+	dev-libs/libassuan:=
 	>=dev-libs/libgudev-232:=
 	>=dev-libs/libjcat-0.1.4[gpg,pkcs7]
 	>=dev-libs/libxmlb-0.3.6:=[introspection?]
