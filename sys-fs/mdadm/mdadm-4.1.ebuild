@@ -52,7 +52,7 @@ mdadm_emake() {
 	fi
 
 	if use systemd; then
-		args+=( SYSTEMD_DIR="$(systemd_get_unitdir)" )
+		args+=( SYSTEMD_DIR="$(systemd_get_systemunitdir)" )
 	else
 		args+=( RUN_DIR="${rundir}" )
 		args+=( MAP_DIR="${rundir}" )
