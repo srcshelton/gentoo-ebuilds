@@ -4,7 +4,7 @@
 # @ECLASS: toolchain-funcs.eclass
 # @MAINTAINER:
 # Toolchain Ninjas <toolchain@gentoo.org>
-# @SUPPORTED_EAPIS: 6 7 8
+# @SUPPORTED_EAPIS: 7 8
 # @BLURB: functions to query common info about the toolchain
 # @DESCRIPTION:
 # The toolchain-funcs aims to provide a complete suite of functions
@@ -17,10 +17,6 @@ if [[ -z ${_TOOLCHAIN_FUNCS_ECLASS} ]]; then
 _TOOLCHAIN_FUNCS_ECLASS=1
 
 case ${EAPI} in
-	6)
-		ewarn "${CATEGORY}/${PF}: ebuild uses ${ECLASS} with deprecated EAPI ${EAPI}!"
-		ewarn "${CATEGORY}/${PF}: Support will be removed on 2024-10-08. Please port to newer EAPI."
-		;;
 	7|8) ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
@@ -696,26 +692,13 @@ _tc-has-openmp() {
 # }
 # @CODE
 tc-check-openmp() {
-	case "${EAPI}" in
-		6)
-			if tc-is-gcc; then
-				has_version --host-root 'sys-devel/gcc[openmp]' &&
-					return 0
-			elif tc-is-clang; then
-				has_version --host-root 'sys-devel/clang-runtime[openmp]' &&
-					return 0
-			fi
-			;;
-		*)
-			if tc-is-gcc; then
-				has_version -b 'sys-devel/gcc[openmp]' &&
-					return 0
-			elif tc-is-clang; then
-				has_version -b 'sys-devel/clang-runtime[openmp]' &&
-					return 0
-			fi
-			;;
-	esac
+	if tc-is-gcc; then
+		has_version -b 'sys-devel/gcc[openmp]' &&
+			return 0
+	elif tc-is-clang; then
+		has_version -b 'sys-devel/clang-runtime[openmp]' &&
+			return 0
+	fi
 
 	if use openmp; then
 		ewarn "The installed toolchain is not built with 'openmp' support,"

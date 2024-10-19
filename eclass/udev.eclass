@@ -4,7 +4,7 @@
 # @ECLASS: udev.eclass
 # @MAINTAINER:
 # systemd@gentoo.org
-# @SUPPORTED_EAPIS: 5 6 7 8
+# @SUPPORTED_EAPIS: 7 8
 # @BLURB: Default eclass for determining udev directories.
 # @DESCRIPTION:
 # Default eclass for determining udev directories.
@@ -40,10 +40,6 @@ if [[ -z ${_UDEV_ECLASS} ]]; then
 _UDEV_ECLASS=1
 
 case ${EAPI} in
-	6)
-		ewarn "${CATEGORY}/${PF}: ebuild uses ${ECLASS} with deprecated EAPI ${EAPI}!"
-		ewarn "${CATEGORY}/${PF}: Support will be removed on 2024-10-08. Please port to newer EAPI."
-		;;
 	7|8) ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
@@ -52,11 +48,7 @@ inherit toolchain-funcs
 
 IUSE="udev"
 
-if [[ ${EAPI} == [56] ]]; then
-	DEPEND="virtual/pkgconfig"
-else
-	BDEPEND="virtual/pkgconfig"
-fi
+BDEPEND="virtual/pkgconfig"
 
 # @FUNCTION: _udev_get_udevdir
 # @INTERNAL
@@ -77,7 +69,7 @@ _udev_get_udevdir() {
 # @DESCRIPTION:
 # Use the short version $(get_udevdir) instead!
 udev_get_udevdir() {
-	debug-print-function ${FUNCNAME} "${@}"
+	debug-print-function ${FUNCNAME} "$@"
 
 	eerror "This ebuild should be using the get_udevdir() function instead of the deprecated udev_get_udevdir()"
 	die "Deprecated function call: udev_get_udevdir(), please report to (overlay) maintainers."
@@ -89,7 +81,7 @@ udev_get_udevdir() {
 # This function always succeeds, even if udev is not installed.
 # The fallback value is set to /lib/udev
 get_udevdir() {
-	debug-print-function ${FUNCNAME} "${@}"
+	debug-print-function ${FUNCNAME} "$@"
 
 	echo "$(_udev_get_udevdir)"
 }
@@ -99,7 +91,7 @@ get_udevdir() {
 # @DESCRIPTION:
 # Install udev rule(s). Uses doins, thus it is fatal.
 udev_dorules() {
-	debug-print-function ${FUNCNAME} "${@}"
+	debug-print-function ${FUNCNAME} "$@"
 
 	use udev || return 0
 
@@ -115,7 +107,7 @@ udev_dorules() {
 # @DESCRIPTION:
 # Install udev rule with a new name. Uses newins, thus it is fatal.
 udev_newrules() {
-	debug-print-function ${FUNCNAME} "${@}"
+	debug-print-function ${FUNCNAME} "$@"
 
 	use udev || return 0
 
@@ -134,7 +126,7 @@ udev_newrules() {
 udev_reload() {
 	use udev || return 0
 
-	if [[ -n ${ROOT%/} ]]; then
+	if [[ -n "${ROOT%/}" ]]; then
 		return 0
 	fi
 
