@@ -466,7 +466,7 @@ pkg_postinst() {
 }
 
 pkg_config() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}"
+	local boot="${RASPBERRYPI_BOOT:-"${ROOT%/}/boot"}"
 
 	if use os-prefix; then
 		boot="${boot}/${PV}"
@@ -475,7 +475,7 @@ pkg_config() {
 	#touch "${boot}/.keep_${CATEGORY}_${PN}-${SLOT:-0}"
 
 	ebegin "Deploying Raspberry Pi kernel ${PV} from" \
-		"${FIRMWARE_DIR} to ${boot}"
+		"${ROOT%/}${FIRMWARE_DIR} to ${boot}"
 
 	set -o pipefail >/dev/null 2>&1
 	if use devicetree; then
@@ -485,7 +485,7 @@ pkg_config() {
 				return ${?}
 			fi
 		fi
-		if ! cp -r "${FIRMWARE_DIR}/overlays" "${boot}/"; then
+		if ! cp -r "${ROOT%/}${FIRMWARE_DIR}/overlays" "${boot}/"; then
 			eend ${?} "Failed to copy 'overlays' directory: ${?}"
 			return ${?}
 		fi
@@ -495,7 +495,7 @@ pkg_config() {
 			return 1
 		fi
 	fi
-	if ! find "${FIRMWARE_DIR}" \
+	if ! find "${ROOT%/}${FIRMWARE_DIR}" \
 				-mindepth 1 \
 				-maxdepth 1 \
 				-type f \
