@@ -586,6 +586,8 @@ used to build perl)
     * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
 * sys-auth/pam\_mktemp
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
+* sys-cluster/mpich
+    * Update to mpich-4.2.3 and update configure options
 * ~~sys-devel/autogen~~
     * ~~Add required `WANT_AUTOMAKE` directive and inherit `autotools` eclass~~
 * sys-fs/udisks
