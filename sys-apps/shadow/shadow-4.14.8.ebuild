@@ -34,6 +34,7 @@ COMMON_DEPEND="
 	)
 	systemd? ( sys-apps/systemd:= )
 	xattr? ( sys-apps/attr:= )
+	!<sys-libs/glibc-2.38
 "
 DEPEND="
 	${COMMON_DEPEND}
