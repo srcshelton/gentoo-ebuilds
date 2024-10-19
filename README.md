@@ -381,6 +381,8 @@ used to build perl)
     * Retain tree-cleaned upstream package
 * sys-kernel/raspberrypi-headers
     * Kernel headers from Raspberry Pi sources
+* sys-power/clr-power
+    * Intel Clear Linux power optimisation tool
 * sys-process/stalld
     * Red Hat thread-booster
 * ~~www-apps/heatmiser~~

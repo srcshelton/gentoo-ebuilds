@@ -1,0 +1,91 @@
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -5,13 +5,7 @@
+ AM_CPPFLAGS = -I$(top_srcdir)/include/
+ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+ 
+-systemdsystemunitdir = @SYSTEMD_SYSTEMUNITDIR@
+-systemdsystemunit_DATA = clr-power.service clr-power.timer clr-power-rfkill.service
+-
+-DISTCHECK_CONFIGURE_FLAGS = \
+-		--with-systemdsystemunitdir=$(DESTDIR)$(SYSTEMDSYSTEMUNITDIR)
+-
+-EXTRA_DIST = $(systemdsystemunit_DATA) man/clr_power.1.md man/clr-power-tweaks.conf.5.md
++EXTRA_DIST = man/clr_power.1.md man/clr-power-tweaks.conf.5.md
+ 
+ dist_man_MANS = man/clr_power.1 man/clr-power-tweaks.conf.5
+ 
+--- a/configure.ac
++++ b/configure.ac
+@@ -34,15 +34,6 @@
+ 
+ AC_CONFIG_HEADERS([config.h])
+ 
+-PKG_CHECK_MODULES([SYSTEMD], [systemd])
+-
+-AC_ARG_WITH([systemdsystemunitdir], AS_HELP_STRING([--with-systemdsystemunitdir=DIR],[path to systemd system service directory]), [path_systemdsystemunit=${withval}],
+-	[path_systemdsystemunit="`$PKG_CONFIG --variable=systemdsystemunitdir systemd`"])
+-if (test -n "${path_systemdsystemunit}"); then
+-SYSTEMD_SYSTEMUNITDIR="${path_systemdsystemunit}"
+-AC_SUBST(SYSTEMD_SYSTEMUNITDIR)
+-fi
+-
+ AC_CONFIG_FILES([Makefile])
+ 
+ AC_OUTPUT
+--- a/man/clr_power.1
++++ b/man/clr_power.1
+@@ -16,7 +16,7 @@
+ \fB\fBclr_power\fR\fR adjusts power and performance in the operating system by setting runtime kernel and device parameters in the proc(5) filesystem\. \fB\fBclr_power\fR\fR operates with built\-in default values\. Values can be added or changed in user\-defined \fBclr\-power\-tweaks\.conf(5)\fR file\.
+ .
+ .P
+-\fB\fBclr_power\fR\fR applies settings and immediately exits after it is started\. It can act as a daemon that enforces settings with the included systemd files\.
++\fB\fBclr_power\fR\fR applies settings and immediately exits after it is started\.
+ .
+ .P
+ The program handles server and desktop\-like systems differently and will set values based on whether a system is a server platform or a desktop platform\. Most systems will be assumed a server, and if it can\'t be determined what type of platform the system is, treated as a server platform\. By default, systems with CPU\'s that identify as \fBCore(TM)\fR, \fBCeleron\fR and \fBPentium\fR are treated as desktop systems, and systems with CPU\'s that identify as \fBXeon\fR are treated as server systems\.
+@@ -36,15 +36,6 @@
+ .SH "FILES"
+ .
+ .IP "\(bu" 4
+-\fIclr\-power\.service\fR systemd service unit that executes \fBclr_power\fR\.
+-.
+-.IP "\(bu" 4
+-\fIclr\-power\.timer\fR systemd timer that periodically executes the \fIclr\-power\.service\fR to enforce settings\.
+-.
+-.IP "\(bu" 4
+-\fIclr\-power\-rfkill\.service\fR systemd service that stops bluetooth devices at boot to prevent power drain\.
+-.
+-.IP "\(bu" 4
+ \fI/etc/clr\-power\-tweaks\.conf\fR Optional user\-defined configuration file to override or att values\. See clr\-power\-tweaks\.conf(5) for more information\.
+ .
+ .IP "" 0
+--- a/man/clr_power.1.md
++++ b/man/clr_power.1.md
+@@ -13,8 +13,7 @@
+ **`clr_power`** operates with built-in default values. Values can be added or
+ changed in user-defined **clr-power-tweaks.conf(5)** file.
+ 
+-**`clr_power`** applies settings and immediately exits after it is started. It
+-can act as a daemon that enforces settings with the included systemd files.
++**`clr_power`** applies settings and immediately exits after it is started.
+ 
+ The program handles server and desktop-like systems differently and
+ will set values based on whether a system is a server platform or a
+@@ -43,16 +42,6 @@
+ 
+ ## FILES
+ 
+-- *clr-power.service*
+-  systemd service unit that executes **clr_power**.
+-
+-- *clr-power.timer*
+-  systemd timer that periodically executes the *clr-power.service* to enforce
+-  settings.
+-
+-- *clr-power-rfkill.service*
+-  systemd service that stops bluetooth devices at boot to prevent power drain.
+-
+ - */etc/clr-power-tweaks.conf*
+   Optional user-defined configuration file to override or att values. See
+   clr-power-tweaks.conf(5) for more information.

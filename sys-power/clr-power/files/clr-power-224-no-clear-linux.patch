@@ -1,0 +1,29 @@
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1,5 +1,5 @@
+ bin_PROGRAMS = clr_power
+-clr_power_SOURCES = src/main.c src/lib.c src/pci.c src/ethernet.c src/usb.c src/gfx.c src/verifytime.c src/server.c src/cpu.c \ 
++clr_power_SOURCES = src/main.c src/lib.c src/pci.c src/ethernet.c src/usb.c src/gfx.c src/server.c src/cpu.c \ 
+ 		    include/clr_power.h include/pci-good.h include/usb-good.h src/data.h  src/mm.c
+ 
+ AM_CPPFLAGS = -I$(top_srcdir)/include/
+--- a/include/clr_power.h
++++ b/include/clr_power.h
+@@ -23,7 +23,6 @@
+ extern void do_usb_pm(void);
+ extern void do_gfx_pm(void);
+ extern void do_cpu_pm(void);
+-extern void verify_time(void);
+ extern int is_server(void);
+ extern void do_zero_pages(void);
+ #endif
+--- a/src/main.c
++++ b/src/main.c
+@@ -129,7 +129,6 @@
+ 	do_pci_pm();
+ 	do_gfx_pm();
+ 	do_cpu_pm();
+-	verify_time();
+ 
+ 	/* user tweaks or overrides */
+ 	FILE *f = fopen("/etc/clr-power-tweaks.conf", "r");
