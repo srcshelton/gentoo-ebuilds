@@ -594,6 +594,8 @@ used to build perl)
     * Make build less noisy
 * sys-cluster/mpich
     * Update to mpich-4.2.3 and update configure options
+* sys-cluster/openmpi
+    * Add missing sys-devel/flex dependency
 * ~~sys-devel/autogen~~
     * ~~Add required `WANT_AUTOMAKE` directive and inherit `autotools` eclass~~
 * sys-fs/udisks
