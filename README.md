@@ -559,6 +559,8 @@ used to build perl)
     * Make raspberrypi-headers || linux-headers a build-time dependency only
 * net-vpn/tor
     * Remove hard dependency on asciidoc
+* sci-libs/blis
+    * Disable LTO
 * sys-apps/baselayout-java
     * Fix UID logic
 * sys-apps/busybox
@@ -890,3 +892,4 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-apps/rng-tools
 * sys-block/zram-init
 
+<!-- vi: set et sw=4 ts=4 -->
