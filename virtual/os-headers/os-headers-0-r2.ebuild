@@ -30,62 +30,92 @@ REQUIRED_USE="
 RDEPEND="
 	!prefix-guest? (
 		kernel_linux? ( || (
+			!arm? ( sys-kernel/linux-headers:0 )
+			!arm64? ( sys-kernel/linux-headers:0 )
 			rpi-all? ( || (
 				sys-kernel/raspberrypi-headers:0
 				sys-kernel/linux-headers:0
 			) )
-			rpi0? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi02? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi1? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi-cm? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi2? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi-cm2? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi3? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi-cm3? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi4? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi400? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi-cm4? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			rpi5? ( || (
-				sys-kernel/raspberrypi-headers:0
-				sys-kernel/linux-headers:0
-			) )
-			sys-kernel/linux-headers:0
+			!rpi-all? (
+				rpi0? ( || (
+					sys-kernel/raspberrypi-headers:0
+					sys-kernel/linux-headers:0
+				) )
+				!rpi0? (
+					rpi02? ( || (
+						sys-kernel/raspberrypi-headers:0
+						sys-kernel/linux-headers:0
+					) )
+					!rpi02? (
+						rpi1? ( || (
+							sys-kernel/raspberrypi-headers:0
+							sys-kernel/linux-headers:0
+						) )
+						!rpi1? (
+							rpi-cm? ( || (
+								sys-kernel/raspberrypi-headers:0
+								sys-kernel/linux-headers:0
+							) )
+							!rpi-cm? (
+								rpi2? ( || (
+									sys-kernel/raspberrypi-headers:0
+									sys-kernel/linux-headers:0
+								) )
+								!rpi2? (
+									rpi-cm2? ( || (
+										sys-kernel/raspberrypi-headers:0
+										sys-kernel/linux-headers:0
+									) )
+									!rpi-cm2? (
+										rpi3? ( || (
+											sys-kernel/raspberrypi-headers:0
+											sys-kernel/linux-headers:0
+										) )
+										!rpi3? (
+											rpi-cm3? ( || (
+												sys-kernel/raspberrypi-headers:0
+												sys-kernel/linux-headers:0
+											) )
+											!rpi-cm3? (
+												rpi4? ( || (
+													sys-kernel/raspberrypi-headers:0
+													sys-kernel/linux-headers:0
+												) )
+												!rpi4? (
+													rpi400? ( || (
+														sys-kernel/raspberrypi-headers:0
+														sys-kernel/linux-headers:0
+													) )
+													!rpi400? (
+														rpi-cm4? ( || (
+															sys-kernel/raspberrypi-headers:0
+															sys-kernel/linux-headers:0
+														) )
+														!rpi-cm4? (
+															rpi5? ( || (
+																sys-kernel/raspberrypi-headers:0
+																sys-kernel/linux-headers:0
+															) )
+															!rpi5? (
+																sys-kernel/linux-headers:0
+															)
+														)
+													)
+												)
+											)
+										)
+									)
+								)
+							)
+						)
+					)
+				)
+			)
 		) )
 	)
 	prefix-guest? (
 		!sys-kernel/linux-headers
 	)
 "
+
+# vi: set noet sw=2 ts=2:
