@@ -24,7 +24,11 @@ run_check() {
 				#LDLP="${ED%/}/usr${libdir}:${ED%/}${libdir}${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
 				LDLP="${ED%/}/usr${libdir}:${ED%/}${libdir}"
 				if LD_LIBRARY_PATH="${LDLP}" ldd "${i}" |
-						grep -Fv -e 'libsandbox.so' -e 'libgcc_s.so.1' |
+						grep -Fv \
+							-e 'libsandbox.so' \
+							-e 'libgcc_s.so.1' \
+							-e 'libgomp.so.1' \
+							-e '/usr/lib/gcc/' |
 						grep -Fq -- "/usr${libdir}"
 				then
 					edf="${i#"${ED%/}/"}"
@@ -36,7 +40,11 @@ run_check() {
 					then
 						eqawarn "${edf}: $( # <- Syntax
 							LD_LIBRARY_PATH="${LDLP}" ldd "${i}" |
-								grep -Fv -e 'libsandbox.so' -e 'libgcc_s.so.1' |
+								grep -Fv \
+									-e 'libsandbox.so' \
+									-e 'libgcc_s.so.1' \
+									-e 'libgomp.so.1' \
+									-e '/usr/lib/gcc/' |
 								grep -F -- "/usr${libdir}" |
 								sed "s|^${ED%/}|| ; s/([^)]\+)$//"
 						)"
