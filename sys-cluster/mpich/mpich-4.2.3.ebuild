@@ -6,12 +6,16 @@ EAPI=7
 FORTRAN_NEEDED=fortran
 FORTRAN_STANDARD="77 90"
 
-inherit fortran-2 multilib-minimal flag-o-matic
+# Defaults to '3', reduce for a quicker build...
+EBUILD_MPICH_YAKSA_DEPTH='2'
+
+inherit autotools fortran-2 flag-o-matic multilib-minimal
 
 MY_PV=${PV/_/}
 DESCRIPTION="A high performance and portable MPI implementation"
 HOMEPAGE="https://www.mpich.org/"
-SRC_URI="https://www.mpich.org/static/downloads/${PV}/${P}.tar.gz"
+SRC_URI="https://www.mpich.org/static/downloads/${PV}/${P}.tar.gz
+	https://raw.githubusercontent.com/pmodels/mpich/refs/tags/v${PV}/README.vin -> ${P}.README.vin"
 S="${WORKDIR}"/${PN}-${MY_PV}
 
 LICENSE="mpich2"
@@ -38,6 +42,8 @@ DEPEND="
 "
 RDEPEND="
 	${COMMON_DEPEND}
+	app-shells/bash
+	sys-devel/gcc
 	!sys-cluster/mpich2
 	!sys-cluster/openmpi
 	!sys-cluster/nullmpi
@@ -75,6 +81,14 @@ src_prepare() {
 	#cd src/pm/hydra/mpl; eautoreconf; cd -
 	#cd src/pm/hydra; eautoreconf; cd -
 	#eautoreconf
+
+	if [ -n "${EBUILD_MPICH_YAKSA_DEPTH:-}" ]; then
+		cp "${DISTDIR}/${P}.README.vin" "${S}/README.vin" || die
+		sed -re "/early_returns = func.'earlyreturn'.\.split.',.s.'./ s|\('(,.s.)'\)|(r'\1')|" \
+		    -i "${S}/maint/local_python/binding_c.py" || die
+		${S}/autogen.sh -yaksa-depth=${EBUILD_MPICH_YAKSA_DEPTH} || die
+		eautoreconf || die
+	fi
 }
 
 multilib_src_configure() {
@@ -108,6 +122,7 @@ multilib_src_configure() {
 	# GCC 10 compatibility workaround
 	# bug #725842
 	append-fflags $(test-flags-FC -fallow-argument-mismatch)
+	append-flags -fno-associative-math
 
 	export MPICHLIB_CFLAGS="${CFLAGS}"
 	export MPICHLIB_CPPFLAGS="${CPPFLAGS}"

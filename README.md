@@ -593,7 +593,7 @@ used to build perl)
 * sys-cluster/hpl
     * Make build less noisy
 * sys-cluster/mpich
-    * Update to mpich-4.2.3 and update configure options
+    * Add required app-shells/bash and sys-devel/gcc dependencies, filter breaking CFLAG, add 'yaksa-depth' option for faster builds
 * sys-cluster/openmpi
     * Add missing sys-devel/flex dependency
 * ~~sys-devel/autogen~~
