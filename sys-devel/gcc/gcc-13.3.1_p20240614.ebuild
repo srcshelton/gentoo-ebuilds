@@ -138,6 +138,8 @@ src_prepare() {
 }
 
 src_configure() {
+	local flag
+
 	if (( ( $( # <- Syntax
 			head /proc/meminfo |
 				grep -m 1 '^MemAvailable:' |
@@ -157,10 +159,18 @@ src_configure() {
 		else
 			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
 		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
+		if test-flag-CC '-Wa,--reduce-memory-overheads'; then
+			ewarn "Instructing 'as' to use less memory ..."
+			append-ldflags '-Wa,--reduce-memory-overheads'
 		fi
+		for flag in no-keep-memory reduce-memory-overheads \
+			no-map-whole-files no-mmap-output-file
+		do
+			if test-flag-CCLD "-Wl,--${flag}"; then
+				ewarn "Instructing 'ld' to use less memory with '--${flag}' ..."
+				append-ldflags "-Wl,--${flag}"
+			fi
+		done
 		ewarn "Disabling LTO support ..."
 		filter-lto
 	fi
