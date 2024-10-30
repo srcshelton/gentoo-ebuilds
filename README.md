@@ -604,6 +604,8 @@ used to build perl)
     * Fix USE='experimental' shiftfs compilation with clang
 * sys-kernel/linux-firmware
     * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
+* sys-kernel/linux-headers
+    * Block co-existence with sys-kernel/raspberrypi-headers
 * sys-libs/libblockdev
     * Add undeclared libudev dependency
 * sys-libs/libhugetlbfs
