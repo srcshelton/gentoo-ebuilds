@@ -12,19 +12,21 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="https://github.com/containers/storage/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P#containers-}"
-	KEYWORDS="~amd64 ~arm64 ~loong ~riscv"
+	KEYWORDS="amd64 arm64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="btrfs test tool"
+IUSE="btrfs -device-mapper test tool"
 REQUIRED_USE="
 	btrfs? ( tool )
+	device-mapper? ( tool )
 	test? ( tool )
 "
 
 RDEPEND="
-	btrfs? ( sys-fs/btrfs-progs )"
+	btrfs? ( sys-fs/btrfs-progs )
+	device-mapper? ( sys-fs/lvm2:= )"
 DEPEND="${RDEPEND}
 	tool? ( sys-apps/shadow:= )
 	test? (
@@ -52,6 +54,7 @@ src_prepare() {
 
 		for file in \
 			hack/btrfs_tag.sh \
+			hack/libdm_tag.sh \
 			hack/libsubid_tag.sh
 		do
 			[[ -f "${file}" ]] || die "Required file '${file}' missing"
@@ -59,6 +62,10 @@ src_prepare() {
 		if ! use btrfs ; then
 			printf '#!/bin/sh\necho exclude_graphdriver_btrfs' > \
 				hack/btrfs_tag.sh || die
+		fi
+		if ! use device-mapper ; then
+			printf '#!/bin/sh\necho btrfs_noversion exclude_graphdriver_devicemapper' > \
+				hack/libdm_tag.sh || die
 		fi
 		printf '#!/bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
 	fi
@@ -69,7 +76,7 @@ src_compile() {
 		export -n GOCACHE GOPATH XDG_CACHE_HOME #678856
 		emake GOMD2MAN=go-md2man FFJSON= containers-storage docs
 	else
-		emake -C docs GOMD2MAN=go-md2man containers-storage.conf.5
+		emake -C docs containers-storage.conf.5
 	fi
 }
 
