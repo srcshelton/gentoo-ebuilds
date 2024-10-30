@@ -4,7 +4,8 @@
 EAPI=8
 
 LUA_COMPAT=( lua5-{1..2} )
-PYTHON_COMPAT=( python3_{10..12} )
+# TODO: check cmake/modules/UseAsn2Wrs.cmake for 3.12
+PYTHON_COMPAT=( python3_{10..13} )
 
 inherit cmake fcaps flag-o-matic lua-single python-any-r1 qmake-utils
 
@@ -18,14 +19,12 @@ else
 	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/wireshark.asc
 	inherit verify-sig
 
-	SRC_URI="
-		https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz
-		verify-sig? ( https://www.wireshark.org/download/SIGNATURES-${PV}.txt -> ${P}-signatures.txt )
-	"
+	SRC_URI="https://www.wireshark.org/download/src/all-versions/${P/_/}.tar.xz
+		verify-sig? ( https://www.wireshark.org/download/SIGNATURES-${PV}.txt -> ${P}-signatures.txt )"
 	S="${WORKDIR}/${P/_/}"
 
 	if [[ ${PV} != *_rc* ]] ; then
-		KEYWORDS="amd64 ~arm arm64 ~hppa ~riscv ~x86"
+		KEYWORDS="amd64 arm arm64 ~hppa ~loong ppc64 ~riscv x86"
 	fi
 
 	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-wireshark )"
@@ -137,8 +136,7 @@ RDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}/${PN}-2.6.0-redhat.patch"
-	"${FILESDIR}/${PN}-4.2.5-http2-test.patch"
+	"${FILESDIR}"/${P}-cares.patch
 )
 
 python_check_deps() {
@@ -209,6 +207,10 @@ src_configure() {
 
 		# Force bundled lemon (bug 933119)
 		-DLEMON_EXECUTABLE=
+
+		-DRPMBUILD_EXECUTABLE=
+		-DGIT_EXECUTABLE=
+		-DENABLE_CCACHE=OFF
 
 		$(use androiddump && use pcap && echo -DEXTCAP_ANDROIDDUMP_LIBPCAP=yes)
 		$(usex gui LRELEASE=$(qt5_get_bindir)/lrelease '')
@@ -336,10 +338,32 @@ src_install() {
 	fi
 }
 
-pkg_postinst() {
+pkg_preinst() {
 	# Removed to prevent IDEPEND dependency on dev-util/desktop-file-utils
-	#use gui && xdg_pkg_postinst
+	#
+	#xdg_pkg_preinst
 
+	use gui || return 0
+
+	local f
+
+	XDG_ECLASS_DESKTOPFILES=()
+	while IFS= read -r -d '' f; do
+		XDG_ECLASS_DESKTOPFILES+=( ${f} )
+	done < <(cd "${ED}" && find 'usr/share/applications' -type f -print0 2>/dev/null)
+
+	XDG_ECLASS_ICONFILES=()
+	while IFS= read -r -d '' f; do
+		XDG_ECLASS_ICONFILES+=( ${f} )
+	done < <(cd "${ED}" && find 'usr/share/icons' -type f -print0 2>/dev/null)
+
+	XDG_ECLASS_MIMEINFOFILES=()
+	while IFS= read -r -d '' f; do
+		XDG_ECLASS_MIMEINFOFILES+=( ${f} )
+	done < <(cd "${ED}" && find 'usr/share/mime' -type f -print0 2>/dev/null)
+}
+
+pkg_postinst() {
 	# Add group for users allowed to sniff.
 	chgrp pcap "${EROOT}"/usr/bin/dumpcap
 
@@ -352,4 +376,54 @@ pkg_postinst() {
 	ewarn "NOTE: To capture traffic with wireshark as normal user you have to"
 	ewarn "add yourself to the pcap group. This security measure ensures"
 	ewarn "that only trusted users are allowed to sniff your traffic."
+
+	# Removed to prevent IDEPEND dependency on dev-util/desktop-file-utils
+	#
+	#xdg_pkg_postinst
+
+	use gui || return 0
+
+	if [[ ${#XDG_ECLASS_DESKTOPFILES[@]} -gt 0 ]]; then
+		xdg_desktop_database_update
+	else
+		debug-print "No .desktop files to add to database"
+	fi
+
+	if [[ ${#XDG_ECLASS_ICONFILES[@]} -gt 0 ]]; then
+		xdg_icon_cache_update
+	else
+		debug-print "No icon files to add to cache"
+	fi
+
+	if [[ ${#XDG_ECLASS_MIMEINFOFILES[@]} -gt 0 ]]; then
+		xdg_mimeinfo_database_update
+	else
+		debug-print "No mime info files to add to database"
+	fi
+}
+
+pkg_postrm() {
+	# Removed to prevent IDEPEND dependency on dev-util/desktop-file-utils
+	#
+	#xdg_pkg_postrm
+
+	use gui || return 0
+
+	if [[ ${#XDG_ECLASS_DESKTOPFILES[@]} -gt 0 ]]; then
+		xdg_desktop_database_update
+	else
+		debug-print "No .desktop files to add to database"
+	fi
+
+	if [[ ${#XDG_ECLASS_ICONFILES[@]} -gt 0 ]]; then
+		xdg_icon_cache_update
+	else
+		debug-print "No icon files to add to cache"
+	fi
+
+	if [[ ${#XDG_ECLASS_MIMEINFOFILES[@]} -gt 0 ]]; then
+		xdg_mimeinfo_database_update
+	else
+		debug-print "No mime info files to add to database"
+	fi
 }

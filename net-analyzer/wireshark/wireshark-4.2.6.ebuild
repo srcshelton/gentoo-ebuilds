@@ -7,7 +7,7 @@ LUA_COMPAT=( lua5-{1..2} )
 # TODO: check cmake/modules/UseAsn2Wrs.cmake for 3.12
 PYTHON_COMPAT=( python3_{10..13} )
 
-inherit cmake fcaps flag-o-matic lua-single python-any-r1 qmake-utils xdg
+inherit cmake fcaps flag-o-matic lua-single python-any-r1 qmake-utils
 
 DESCRIPTION="Network protocol analyzer (sniffer)"
 HOMEPAGE="https://www.wireshark.org/"
@@ -139,7 +139,7 @@ python_check_deps() {
 	use test || return 0
 
 	python_has_version -b "dev-python/pytest[${PYTHON_USEDEP}]" &&
-		 python_has_version -b "dev-python/pytest-xdist[${PYTHON_USEDEP}]"
+		python_has_version -b "dev-python/pytest-xdist[${PYTHON_USEDEP}]"
 }
 
 pkg_setup() {
