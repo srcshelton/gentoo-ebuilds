@@ -544,6 +544,8 @@ used to build perl)
     * Correct obsolete CONFIG\_CHECK value which was blocking build, and correct required dependencies
 * net-firewall/ipset
     * Update default init script to handle more complex load/update operations
+* net-firewall/xtables-addons
+    * Fix dependencies, install to correct locations, update to latest release
 * net-ftp/tftp-hpa
     * Allow net-ftp/uftpd to be installed at the same time, so long as only one tftp server is enabled
 * net-ftp/uftpd
