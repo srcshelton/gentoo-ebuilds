@@ -526,11 +526,11 @@ get_version() {
 
 	local tmplocal
 
-	[[ -n ${SKIP_KERNEL_CHECK} ]] && return
+	[[ -n "${SKIP_KERNEL_CHECK:-}" ]] && return 0
 
 	# No need to execute this twice assuming KV_FULL is populated.
 	# We can force by unsetting KV_FULL.
-	[[ -n "${KV_FULL}" ]] && return 0
+	[[ -n "${KV_FULL:-}" ]] && return 0
 
 	# If we don't know KV_FULL, then we need to.
 	# Make sure KV_DIR isn't set since we need to work it out via KERNEL_DIR.
