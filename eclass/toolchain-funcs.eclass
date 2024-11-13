@@ -1254,17 +1254,30 @@ tc-get-build-ptr-size() {
 tc-is-lto() {
 	local f="${T}/test-lto.o"
 	local -i ret=1
+	local -i rc=0
 
 	case $(tc-get-compiler-type) in
 		clang)
-			$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null || die
+			if ! $(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null; then
+				rc=${?}
+				$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<""
+				if ! [[ -s "${f}" ]]; then
+					die "$(tc-getCC) failed: ${rc}"
+				fi
+			fi
 			# If LTO is used, clang will output bytecode and llvm-bcanalyzer
 			# will run successfully.  Otherwise, it will output plain object
 			# file and llvm-bcanalyzer will exit with error.
 			llvm-bcanalyzer "${f}" >/dev/null 2>&1 && ret=0
 			;;
 		gcc)
-			$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null || die
+			if ! $(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null; then
+				rc=${?}
+				$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<""
+				if ! [[ -s "${f}" ]]; then
+					die "$(tc-getCC) failed: ${rc}"
+				fi
+			fi
 			[[ $($(tc-getREADELF) -S "${f}" 2>/dev/null) == *.gnu.lto* ]] &&
 				ret=0
 			;;
