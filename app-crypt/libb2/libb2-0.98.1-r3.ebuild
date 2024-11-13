@@ -13,7 +13,7 @@ SRC_URI="https://github.com/BLAKE2/libb2/archive/${GITHASH}.tar.gz -> ${P}.tar.g
 LICENSE="CC0-1.0"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
-IUSE="clang native-cflags openmp static-libs"
+IUSE="-clang native-cflags openmp static-libs"
 
 # We can't call toolchain-funcs.eclass functions here, and we don't know
 # whether $CC is gcc or clang (as the USE-flag only sets the runtime
@@ -28,8 +28,8 @@ IUSE="clang native-cflags openmp static-libs"
 #"
 BDEPEND="
 	openmp? (
-		sys-devel/clang-runtime:*[openmp]
 		sys-devel/gcc:*[openmp]
+		sys-devel/clang-runtime:*[openmp]
 	)
 "
 RDEPEND="
