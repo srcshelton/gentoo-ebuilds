@@ -130,7 +130,12 @@ src_configure() {
 	[[ ${CHOST} == *-solaris* ]] && append-flags -D__EXTENSIONS__
 
 	# Enabling '-ffast-math' is known to cause problems.
-	filter-flags -ffast-math
+	#
+	# N.B. '-Ofast' enables '-ffast-math', so simply filtering '-ffast-math' is
+	#      not sufficient.
+	#
+	#filter-flags -ffast-math
+	append-flags -fno-finite-math-only
 
 	# We will handle Lua bindings ourselves, upstream is not multi-impl-ready
 	# and their Lua-detection logic depends on having the right version of the Lua
