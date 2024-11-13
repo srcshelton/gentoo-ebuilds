@@ -289,9 +289,14 @@ tc_has_feature() {
 	has "$1" "${TC_FEATURES[@]}"
 }
 
+# Exclude kgcc64 (which is only keyworded for HPPA, and previously MIPS), with
+# the only other matching package names being sys-devel/gcc-apple (which
+# inherits toolschain-funcs.eclass but not toolchain.eclass) and
+# sys-devel/gcc-config which inherits neither :o
+#
 if [[ ${PN} != kgcc64 && ${PN} != gcc-* ]] ; then
 	IUSE+=" debug +cxx"
-	IUSE+=" +fortran" TC_FEATURES+=( fortran )
+	IUSE+=" fortran" TC_FEATURES+=( fortran )
 	IUSE+=" doc hardened multilib objc"
 	IUSE+=" pgo"
 	IUSE+=" objc-gc" TC_FEATURES+=( objc-gc )
@@ -307,7 +312,7 @@ if [[ ${PN} != kgcc64 && ${PN} != gcc-* ]] ; then
 
 	IUSE+=" fixed-point"
 	IUSE+=" go"
-	IUSE+=" +sanitize"  TC_FEATURES+=( sanitize )
+	IUSE+=" sanitize"  TC_FEATURES+=( sanitize )
 	IUSE+=" graphite" TC_FEATURES+=( graphite )
 	IUSE+=" ada" TC_FEATURES+=( ada )
 	IUSE+=" vtv"
@@ -345,7 +350,7 @@ fi
 #---->> DEPEND <<----
 
 RDEPEND="
-	sys-libs/zlib
+	!lib-only? ( sys-libs/zlib )
 	virtual/libiconv
 	nls? ( virtual/libintl )
 "
@@ -1944,6 +1949,15 @@ gcc_do_filter_flags() {
 
 		# New in GCC 14.
 		filter-flags -Walloc-size
+	fi
+
+	if ver_test -lt 15.1 ; then
+		filter-flags -fdiagnostics-explain-harder -fdiagnostics-details
+	fi
+
+	if is_d ; then
+		# bug #940750
+		filter-flags -Warray-bounds
 	fi
 
 	# Please use USE=lto instead (bug #906007).
