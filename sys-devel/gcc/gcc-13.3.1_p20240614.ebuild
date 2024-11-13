@@ -61,6 +61,16 @@ fi
 
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
+pkg_pretend() {
+	if is-flagq -fopenmp; then
+		if ! _tc_use_if_iuse openmp; then
+			die "CFLAGS contains '-fopenmp' but USE flags do not contain 'openmp'"
+		fi
+	fi
+
+	toolchain_pkg_pretend
+}
+
 src_prepare() {
 	local p upstreamed_patches=(
 		# add them here
@@ -350,7 +360,7 @@ pkg_config() {
 		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
-			for file in libstdc++ libgcc_s; do
+			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' ''); do
 				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -exec rm -v {} +
 				pkg_postinst_fix_so \
 						"${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
