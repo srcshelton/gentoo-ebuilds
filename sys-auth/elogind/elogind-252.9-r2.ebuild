@@ -14,7 +14,7 @@ else
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
-inherit linux-info meson pam python-any-r1 udev xdg-utils
+inherit flag-o-matic linux-info meson pam python-any-r1 udev xdg-utils
 
 DESCRIPTION="The systemd project's logind, extracted to a standalone package"
 HOMEPAGE="https://github.com/elogind/elogind"
@@ -91,6 +91,10 @@ src_prepare() {
 }
 
 src_configure() {
+	filter-flags -ffast-math -ffinite-math-only
+	replace-flags -Ofast -O3
+	append-flags -fno-fast-math -fno-finite-math-only
+
 	if use cgroup-hybrid; then
 		cgroupmode="hybrid"
 	else
