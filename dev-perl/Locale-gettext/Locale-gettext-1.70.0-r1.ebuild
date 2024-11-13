@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -21,6 +21,9 @@ BDEPEND="${RDEPEND}
 	virtual/perl-ExtUtils-MakeMaker
 "
 
-PATCHES=("${FILESDIR}/${P}-no-dot-inc.patch")
+PATCHES=(
+	"${FILESDIR}/${P}-no-dot-inc.patch"
+	"${FILESDIR}/${P}-tests.patch"
+)
 
 S="${WORKDIR}/${PN}-${DIST_VERSION}"
