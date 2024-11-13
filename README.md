@@ -609,6 +609,8 @@ used to build perl)
     * Add missing sys-devel/flex dependency
 * ~~sys-devel/autogen~~
     * ~~Add required `WANT_AUTOMAKE` directive and inherit `autotools` eclass~~
+* sys-devel/bpf-toolchain
+    * Fix dependencies and bad CFLAG filtering of upstream source
 * sys-fs/udisks
     * Make HTML documentation optional
 * sys-kernel/gentoo-sources
