@@ -24,7 +24,7 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/buildah.git"
 else
 	SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 arm64"
+	KEYWORDS="~amd64 ~arm64"
 fi
 
 RDEPEND="
@@ -40,11 +40,6 @@ RDEPEND="
 "
 DEPEND="${RDEPEND}"
 BDEPEND="dev-go/go-md2man"
-
-PATCHES=(
-	"${FILESDIR}"/dont-call-as-directly-upstream-pr-5436.patch
-	"${FILESDIR}"/softcode-strip-upstream-pr-5446.patch
-)
 
 pkg_setup() {
 	local CONFIG_CHECK=""
@@ -116,10 +111,10 @@ src_prepare() {
 		cat <<-'EOF' > "${T}/disable_tests.patch"
 		--- a/Makefile
 		+++ b/Makefile
-		@@ -54 +54 @@
-		-all: bin/buildah bin/imgtype bin/copy bin/tutorial docs
+		@@ -56 +56 @@
+		-all: bin/buildah bin/imgtype bin/copy bin/inet bin/tutorial docs
 		+all: bin/buildah docs
-		@@ -123 +123 @@
+		@@ -122 +122 @@
 		-docs: install.tools ## build the docs on the host
 		+docs: ## build the docs on the host
 		EOF
@@ -143,7 +138,6 @@ src_compile() {
 
 	tc-export AS LD STRIP
 	export GOMD2MAN="$(command -v go-md2man)"
-	export SELINUXOPT=
 	default
 }
 
@@ -152,7 +146,7 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${ED}" SELINUXOPT= install \
+	emake DESTDIR="${ED}" install \
 		$(usex bash-completion 'install.completions' '')
 	einstalldocs
 	use doc && dodoc -r "${EXTRA_DOCS[@]}"

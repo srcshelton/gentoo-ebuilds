@@ -143,6 +143,7 @@ src_compile() {
 
 	tc-export AS LD STRIP
 	export GOMD2MAN="$(command -v go-md2man)"
+	export SELINUXOPT=
 	default
 }
 
@@ -151,7 +152,7 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${ED}" install \
+	emake DESTDIR="${ED}" SELINUXOPT= install \
 		$(usex bash-completion 'install.completions' '')
 	einstalldocs
 	use doc && dodoc -r "${EXTRA_DOCS[@]}"
