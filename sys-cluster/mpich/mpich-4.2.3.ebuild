@@ -122,6 +122,9 @@ multilib_src_configure() {
 	# GCC 10 compatibility workaround
 	# bug #725842
 	append-fflags $(test-flags-FC -fallow-argument-mismatch)
+	if is-flagq -fassociative-math; then
+		filter-flags -fassociative-math
+	fi
 	append-flags -fno-associative-math
 
 	export MPICHLIB_CFLAGS="${CFLAGS}"
