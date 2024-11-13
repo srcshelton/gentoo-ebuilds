@@ -245,6 +245,20 @@ src_prepare() {
 	grep -Rl '[^r]/run/' . |
 		xargs -r -- sed -ri \
 			-e 's|([^r])/run/|\1/var/run/|g ; s|^/run/|/var/run/|g' || die
+	grep -ER '/run($|[^a-z])' . |
+		grep -Fv -e 'var/run' -e 'pkg/systemd' -e '/test/' -e '/resource.go' |
+		cut -d':' -f 1 |
+		sort |
+		uniq |
+		while read -r f; do
+			local tab="$( printf '\t' )"
+			local schar="\"\`' (_=/:"
+			local echar="/, \`_.\")"
+			sed -ri "s!(^|:22|host|\.com|UID|\[:port\]|[${schar}]|${tab})/run([${echar}]|$)!\1/var/run\2!g" "${f}"
+		done
+
+	# Check with:
+	#
 }
 
 src_compile() {

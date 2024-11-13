@@ -244,12 +244,14 @@ src_compile() {
 			BUILDFLAGS="-v -work -x" \
 			GOMD2MAN="go-md2man" \
 			EXTRA_BUILDTAGS="$(usev seccomp)" \
+			SELINUXOPT= \
 		all $(usex wrapper 'docker-docs' '')
 }
 
 src_install() {
 	emake \
 			DESTDIR="${D}" \
+			SELINUXOPT= \
 		install install.completions \
 			$(usex wrapper 'install.docker-full' '')
 
