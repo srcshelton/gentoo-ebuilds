@@ -10,7 +10,8 @@ VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/sysvinit.asc
 inherit flag-o-matic plocale toolchain-funcs verify-sig
 
 DESCRIPTION="/sbin/init - parent of all processes"
-HOMEPAGE="https://github.com/slicer69/sysvinit"
+HOMEPAGE="https://savannah.nongnu.org/projects/sysvinit
+	https://github.com/slicer69/sysvinit"
 SRC_URI="https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz
 	verify-sig? ( https://github.com/slicer69/sysvinit/releases/download/${PV}/${P}.tar.xz.sig )"
 S="${WORKDIR}/${P/_*}"
