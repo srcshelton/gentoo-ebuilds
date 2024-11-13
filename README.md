@@ -449,6 +449,8 @@ used to build perl)
     * Only install support for requested service-managers
 * dev-db/opendbx
     * Add missing sys-libs/readline run-time dependency
+* dev-debug/dtrace
+    * Fix hard-coded 'awk' path
 * ~~dev-java/commons-daemon~~
     * ~~Add additional include path to allow building with Oracle JDK 8 and above~~
 * dev-java/openjdk
