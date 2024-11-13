@@ -99,12 +99,20 @@ pkg_setup() {
 
 src_prepare() {
 	default
+
 	# bug 657108, 782631
 	#elibtoolize
 	eautoreconf
 
 	# Bug #727244
 	append-cflags -fasynchronous-unwind-tables
+
+	# no-semantic-interposition causes "Error: Auth worker sees different
+	# passdbs/userdbs than auth server. Maybe config just changed and this goes
+	# away automatically?"
+	#
+	filter-flags -fno-semantic-interposition
+	append-flags -fsemantic-interposition
 }
 
 src_configure() {
