@@ -25,6 +25,13 @@ packages and miscellaneous fixes.
 
 * net-libs/libtorrent-rasterbar
 
+# -ffast-math/aggressive optimisation fixes
+
+* dev-lang/duktape
+* dev-scheme/guile
+* sys-apps/xinetd
+* sys-auth/polkit
+
 # Raspberry Pi tools and utilities
 
 * dev-python/raspberrypi-gpio
