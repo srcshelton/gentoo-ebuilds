@@ -363,17 +363,31 @@ src_install() {
 	insinto "${FIRMWARE_DIR}"
 
 	for f in "${repofiles[@]}"; do
+		[ -e "${FILESDIR}/${f}" ] ||
+			die "About to call 'doins' on non-existant file '${FILESDIR}/${f}'"
 		doins "${FILESDIR}/${f}"
 	done
-	ebegin "Installing files"
-	for f in "${files[@]}"; do
-		einfo "${f}"
-	done
+
+	# Since the RPi5 (and later?) has embedded firmware, there may be nothing
+	# to install here!
+	if (( ${#files[@]} > 0 )); then
+		ebegin "Installing files"
+		for f in "${files[@]}"; do
+			[ -e "${f}" ] ||
+				die "About to call 'doins' on non-existant file '${f}'"
+			einfo "${f}"
+		done
+		doins -r "${files[@]}"
+	fi
 	eend 0
-	doins -r "${files[@]}"
 	use devicetree && doins -r overlays
 
 	# config-protect config.txt and cmdline.txt
+	for f in "${T}"/config.txt "${FILESDIR}"/overclock.txt \
+			"${FILESDIR}"/legacy.txt "${FILESDIR}"/cmdline.txt
+	do
+		[ -e "${f}" ] || die "About to call 'doins' on non-existant file '${f}'"
+	done
 	doins "${T}"/config.txt
 	doins "${FILESDIR}"/overclock.txt
 	doins "${FILESDIR}"/legacy.txt
@@ -397,18 +411,22 @@ pkg_preinst() {
 		if [[ -z "${REPLACING_VERSIONS}" ]] ; then
 			local msg=""
 
-			if [[ -e "${ED}"/boot/cmdline.txt ]] && [[ -e /boot/cmdline.txt ]] ; then
+			if [[ -e "${ED}"/boot/cmdline.txt ]] &&
+					[[ -e /boot/cmdline.txt ]]
+			then
 				msg+="/boot/cmdline.txt "
 			fi
 
-			if [[ -e "${ED}${boot}"/config.txt ]] && [[ -e "${boot}"/config.txt ]] ; then
+			if [[ -e "${ED}${boot}"/config.txt ]] &&
+					[[ -e "${boot}"/config.txt ]]
+			then
 				msg+="${boot}/config.txt "
 			fi
 
 			if [[ -n "${msg}" ]] ; then
 				msg="This package installs the following files: ${msg}."
-				msg="${msg} Please backup and remove your local verions prior to installation"
-				msg="${msg} and merge your changes afterwards."
+				msg="${msg} Please backup and remove your local verions prior"
+				msg="${msg} to installation and merge your changes afterwards."
 				msg="${msg} Further updates will be CONFIG_PROTECTed."
 				die "${msg}"
 			fi
