@@ -18,14 +18,12 @@ elif [[ ${PV} == *_p* ]] ; then
 	# Note: could put this in devspace, but if it's gone, we don't want
 	# it in tree anyway. It's just for testing.
 	MY_SNAPSHOT="$(ver_cut 1-2).185-541b02"
-	SRC_URI="https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz -> ${P}.tar.xz"
-	SRC_URI+=" verify-sig? ( https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz.sig -> ${P}.tar.xz.sig )"
+	SRC_URI="https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz -> ${P}.tar.xz
+		verify-sig? ( https://www.pixelbeat.org/cu/coreutils-${MY_SNAPSHOT}.tar.xz.sig -> ${P}.tar.xz.sig )"
 	S="${WORKDIR}"/${PN}-${MY_SNAPSHOT}
 else
-	SRC_URI="
-		mirror://gnu/${PN}/${P}.tar.xz
-		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )
-	"
+	SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
+		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )"
 
 	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~x86-linux"
 fi
@@ -294,7 +292,7 @@ src_install() {
 
 		# Move critical binaries into /bin (common scripts)
 		local com="basename chroot cut dir dirname du env expr head mkfifo
-		           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
+			mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 		mv ${com} ../../bin/ || die "Could not move common binaries from /usr/bin to /bin"
 
 		# Create a symlink for uname in /usr/bin/ since autotools requires it,
