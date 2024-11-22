@@ -21,8 +21,13 @@ BDEPEND="
 	sys-apps/dtc
 	sys-apps/sed
 "
+# FIXME:  media-libs/raspberrypi-userland is deprecated - what here depends on
+#         it?
+# Update: /usr/lib64/libdtovl.so is required by /usr/bin/dtmerge &
+#         /usr/bin/dtoverlay
 RDEPEND="
 	!sys-apps/raspberrypi-utilities-armv6
+	media-libs/raspberrypi-userland
 	tools? (
 		app-admin/sudo
 		dev-embedded/rpi-eeprom
@@ -31,8 +36,6 @@ RDEPEND="
 		sys-apps/usbutils
 	)
 "
-#	tools? ( media-libs/raspberrypi-userland )
-# FIXME: media-libs/raspberrypi-userland is deprecated - what here depends on it?
 
 S="${WORKDIR}/${EGIT_REPO}-${EGIT_COMMIT}"
 DOCS=()
@@ -69,14 +72,6 @@ src_prepare() {
 
 	cmake_src_prepare
 }
-
-#src_configure() {
-#	cmake_src_configure
-#}
-
-#src_compile() {
-#	cmake_src_compile
-#}
 
 src_install() {
 	local bc_src='' bc_dst=''
