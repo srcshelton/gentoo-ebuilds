@@ -15,7 +15,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="MPL-2.0"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
 IUSE="+caps dnsrps dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server static-libs systemd test +tools xml"
 REQUIRED_USE="
 	dnsrps? ( server )
@@ -131,10 +131,11 @@ src_install() {
 	dodoc CHANGES README.md
 
 	if use tools && ! use server; then
-		# This isn't going to be as easy(!) as it looked - the build-tree
-		# contents are now actually libtool wrapper scripts, and so rather than
-		# installing what we need we actually need to do a full installation
-		# and then remove the superfluous elements :(
+		# This isn't going to be as easy(!) as it looked - the
+		# build-tree contents are now actually libtool wrapper scripts,
+		# and so rather than installing what we need we actually need
+		# to do a full installation and then remove the superfluous
+		# elements :(
 		#
 
 		# Required libraries:
@@ -414,8 +415,8 @@ pkg_config() {
 	fi
 
 	if [ "${CHROOT_GEOIP:-0}" -eq 1 ]; then
-		# The 'geoip2' USE flag no longer exists - let's assume it is now the
-		# default option...
+		# The 'geoip2' USE flag no longer exists - let's assume it is
+		# now the default option...
 		#
 		#if use geoip; then
 		#	mkdir -m 0755 -p ${CHROOT}/usr/share/GeoIP || die
