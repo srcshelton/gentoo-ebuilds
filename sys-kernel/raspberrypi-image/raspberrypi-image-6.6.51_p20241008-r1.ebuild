@@ -31,6 +31,7 @@ RDEPEND="
 	devicetree? ( !sys-boot/raspberrypi-firmware[devicetree] )
 	!devicetree? ( sys-boot/raspberrypi-firmware[devicetree] )
 	!sys-boot/raspberrypi-firmware[kernel]
+	!sys-kernel/linux-firmware[compress-xz]
 "
 
 if [[ "${PV}" == '9999' ]]; then
