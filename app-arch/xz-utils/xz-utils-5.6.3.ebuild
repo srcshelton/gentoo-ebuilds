@@ -8,18 +8,22 @@ EAPI=8
 
 inherit flag-o-matic libtool multilib preserve-libs toolchain-funcs usr-ldscript multilib-minimal
 
-if [[ ${PV} == 9999 ]] ; then
-	# Per tukaani.org, git.tukaani.org is a mirror of github and
-	# may be behind.
-	EGIT_REPO_URI="
-		https://github.com/tukaani-project/xz
-		https://git.tukaani.org/xz.git
-	"
-	inherit git-r3 autotools
-
-	# bug #272880 and bug #286068
-	BDEPEND="sys-devel/gettext >=dev-build/libtool-2"
-else
+# portage seems to brokenly think that app-arch/xz-utils non-live builds also
+# depend on app-portage/elt-patches via sys-devel/gettext, creating a circular
+# dependency.  Let's see whether we can avoid this madness?
+#
+#if [[ ${PV} == 9999 ]] ; then
+#	# Per tukaani.org, git.tukaani.org is a mirror of github and
+#	# may be behind.
+#	EGIT_REPO_URI="
+#		https://github.com/tukaani-project/xz
+#		https://git.tukaani.org/xz.git
+#	"
+#	inherit git-r3 autotools
+#
+#	# bug #272880 and bug #286068
+#	BDEPEND="sys-devel/gettext >=dev-build/libtool-2"
+#else
 	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/lassecollin.asc
 	inherit verify-sig
 
@@ -41,7 +45,7 @@ else
 	BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-lassecollin-20240529 )"
 
 	S="${WORKDIR}/${MY_P}"
-fi
+#fi
 
 DESCRIPTION="Utils for managing LZMA compressed files"
 HOMEPAGE="https://tukaani.org/xz/"
