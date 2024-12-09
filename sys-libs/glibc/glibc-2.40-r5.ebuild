@@ -40,7 +40,7 @@ HOMEPAGE="https://www.gnu.org/software/libc/"
 if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
 		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 fi
@@ -153,10 +153,14 @@ if [[ ${CATEGORY} == cross-* ]] ; then
 	)"
 	[[ ${CATEGORY} == *-linux* ]] && DEPEND+=" ${CATEGORY}/linux-headers"
 else
-	BDEPEND+="
-		>=sys-devel/binutils-2.27
-		>=sys-devel/gcc-6.2
-	"
+	# Both <sys-devel/binutils-2.27 and <sys-devel/gcc-6.2 are long
+	# tree-cleaned, and yet these dependencies are causing unresolvable
+	# circular dependencies: they should be entirely safe to remove.
+	#
+	#BDEPEND+="
+	#	>=sys-devel/binutils-2.27
+	#	>=sys-devel/gcc-6.2
+	#"
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
 		>=net-dns/libidn2-2.3.0
