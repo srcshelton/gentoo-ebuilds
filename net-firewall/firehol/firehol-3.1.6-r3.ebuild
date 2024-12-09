@@ -25,8 +25,9 @@ RDEPEND="net-firewall/iptables
 		net-firewall/ipset
 	)"
 BEPEND="${RDEPEND}
+	|| ( sys-apps/util-linux[logger] app-admin/sysklogd[logger] )
 	app-arch/gzip
-	|| ( sys-apps/util-linux[logger] app-admin/sysklogd[logger] )"
+	virtual/logger"
 
 pkg_setup() {
 	local CONFIG_CHECK=" \
