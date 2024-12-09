@@ -11,18 +11,22 @@ if [[ ${PV} == *9999 ]] ; then
 	inherit git-r3
 else
 	# ... from packaging/cmake/Modules/NetdataEBPFLegacy.cmake
-	EBPF_CO_RE_VERSION="v1.4.5.1"
-	EBPF_VERSION="v1.4.5.1"
-	LIBBPF_VERSION="1.4.5p_netdata"
+	EBPF_CO_RE_VERSION="v1.5.0"
+	EBPF_VERSION="v1.5.0"
+	# ... from _libbpf_tag in packaging/cmake/Modules/NetdataLibBPF.cmake
+	LIBBPF_VERSION="1.5.0p_netdata"
+	# ... from src/go/go.sum
+	GO_VENDOR_VERSION="1.47.1"
+
 	EBPF_CO_RE_TARBALL="netdata-ebpf-co-re-glibc-${EBPF_CO_RE_VERSION}.tar.xz"
 	EBPF_TARBALL="netdata-kernel-collector-glibc-${EBPF_VERSION}.tar.xz"
-	LIBBPF_TARBALL="${LIBBPF_VERSION}.tar.gz"  # N.B. 1.4.5 only lacks an initial 'v' :(
+	LIBBPF_TARBALL="v${LIBBPF_VERSION}.tar.gz"  # N.B. 1.4.5 only lacks an initial 'v' :(
 	SRC_URI="
 		https://github.com/netdata/${PN}/releases/download/v${PV}/${PN}-v${PV}.tar.gz -> ${P}.tar.gz
 		https://github.com/netdata/ebpf-co-re/releases/download/${EBPF_CO_RE_VERSION}/${EBPF_CO_RE_TARBALL}
 		https://github.com/netdata/kernel-collector/releases/download/${EBPF_VERSION}/${EBPF_TARBALL}
 		https://github.com/netdata/libbpf/archive/${LIBBPF_TARBALL} -> ${PN}-libbpf-${LIBBPF_TARBALL}
-		https://github.com/srcshelton/netdata/releases/download/v${PV}/${P}-vendor.tar.xz
+		https://github.com/srcshelton/netdata/releases/download/v${GO_VENDOR_VERSION}/${PN}-${GO_VENDOR_VERSION}-vendor.tar.xz
 	"
 	S="${WORKDIR}/${PN}-v${PV}"
 	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv ~x86"
@@ -64,12 +68,14 @@ RDEPEND="
 	)
 	net-analyzer/tcpdump
 	net-analyzer/traceroute
+	net-firewall/firehol
 	net-firewall/ipset
 	net-firewall/iptables
 	net-libs/libwebsockets
 	net-misc/bridge-utils
 	net-misc/curl
 	net-misc/wget
+	sys-apps/coreutils
 	sys-apps/logwatch
 	sys-apps/util-linux
 	sys-libs/libcap
@@ -125,8 +131,12 @@ RDEPEND="
 	)
 	python? (
 		${PYTHON_DEPS}
-		$(python_gen_cond_dep 'dev-python/pyyaml[${PYTHON_USEDEP}]')
 		$(python_gen_cond_dep 'dev-python/dnspython[${PYTHON_USEDEP}]')
+		$(python_gen_cond_dep 'dev-python/numpy[${PYTHON_USEDEP}]')
+		$(python_gen_cond_dep 'dev-python/pandas[${PYTHON_USEDEP}]')
+		$(python_gen_cond_dep 'dev-python/python-ldap[${PYTHON_USEDEP}]')
+		$(python_gen_cond_dep 'dev-python/pyyaml[${PYTHON_USEDEP}]')
+		$(python_gen_cond_dep 'dev-python/requests[${PYTHON_USEDEP}]')
 		mysql? ( $(python_gen_cond_dep 'dev-python/mysqlclient[${PYTHON_USEDEP}]') )
 		postgres? ( $(python_gen_cond_dep 'dev-python/psycopg:2[${PYTHON_USEDEP}]') )
 		tor? ( $(python_gen_cond_dep 'net-libs/stem[${PYTHON_USEDEP}]') )
@@ -157,6 +167,7 @@ PATCHES=(
 	"${FILESDIR}"/netdata-1.46.3-ebpf.patch
 	"${FILESDIR}"/netdata-1.47-pipe_path.patch
 	"${FILESDIR}"/netdata-1.47-no_external_libbpf.patch
+	"${FILESDIR}"/netdata-dlib-global_optimization-add-template-argument-list.patch
 )
 
 FILECAPS=(
@@ -196,7 +207,7 @@ src_unpack() {
 			"${P}.tar.gz")
 				unpack "${item}"
 				;;
-			"${P}-vendor.tar.xz")
+			"${PN}-${GO_VENDOR_VERSION}-vendor.tar.xz")
 				tar -xa --no-same-owner \
 						-f "${DISTDIR}/${item}" \
 						-C "${PN}-v${PV}"/src/ ||
@@ -267,10 +278,6 @@ src_prepare() {
 
 	cmake_src_prepare
 }
-
-PATCHES=(
-	"${FILESDIR}"/${PN}-dlib-global_optimization-add-template-argument-list.patch
-)
 
 src_configure() {
 	# -Werror=strict-aliasing
@@ -348,6 +355,9 @@ src_install() {
 	insinto /etc/cron.d
 	#doins "${ED}"/usr/$(get_libdir)/netdata/system/cron/netdata-updater-daily
 	doins "${ED}"/usr/lib/netdata/system/cron/netdata-updater-daily
+
+	insinto /etc/netdata
+	doexe "${FILESDIR}"/edit-config
 
 	#rm -r "${ED}"/usr/share/netdata/web/old
 	rm \

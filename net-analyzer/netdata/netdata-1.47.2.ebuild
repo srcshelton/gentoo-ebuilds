@@ -275,6 +275,10 @@ src_prepare() {
 	cmake_src_prepare
 }
 
+PATCHES=(
+	"${FILESDIR}"/${PN}-dlib-global_optimization-add-template-argument-list.patch
+)
+
 src_configure() {
 	# -Werror=strict-aliasing
 	# https://bugs.gentoo.org/927174
