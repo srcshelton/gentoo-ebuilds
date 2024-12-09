@@ -24,11 +24,13 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
+# Attempt to resolve a circular dependency with app-arch/xz-utils...
+IUSE="-no-xz-utils"
 # The 'check' target currently wants network access to fetch libtool tarballs.
 RESTRICT="test"
 
 RDEPEND="sys-apps/gentoo-functions"
-BDEPEND="app-arch/xz-utils"
+BDEPEND="!no-xz-utils? ( app-arch/xz-utils )"
 
 src_compile() {
 	emake rootprefix="${EPREFIX}" libdirname="$(get_libdir)"
