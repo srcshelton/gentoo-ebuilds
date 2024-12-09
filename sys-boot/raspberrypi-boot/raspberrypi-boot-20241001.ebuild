@@ -8,7 +8,7 @@ EGIT_SUBMODULE_COMMIT="c8fffcda5ae0f923857a73fedbeb07e81d2eb813"
 
 RPI_MODELS=" rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3"
 RPI4_MODELS=" rpi4 rpi400 rpi-cm4 rpi-cm4s"
-RPI5_MODULES=" rpi5 rpi-cm5"
+RPI5_MODULES=" rpi5 rpi500 rpi-cm5"
 
 DESCRIPTION="Raspberry Pi USB Device Boot Code"
 HOMEPAGE="https://github.com/raspberrypi/usbboot"
