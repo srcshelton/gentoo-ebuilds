@@ -61,6 +61,7 @@ PATCHES=(
 	# Needed when compiling with clang
 	"${FILESDIR}"/${PN}-5.1.29-rename-atomic-compare-exchange.patch
 	"${FILESDIR}"/${PN}-5.3.28-clang16.patch
+	"${FILESDIR}"/${PN}-4.8.30-tls-configure.patch
 )
 
 src_prepare() {
