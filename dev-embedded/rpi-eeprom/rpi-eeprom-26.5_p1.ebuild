@@ -19,11 +19,11 @@ S="${WORKDIR}"
 LICENSE="BSD rpi-eeprom"
 SLOT="0"
 KEYWORDS="arm arm64"
-IUSE="-old-firmware rpi5 systemd tools"
-REQUIRED_USE="
-	${PYTHON_REQUIRED_USE}
+IUSE="-old-firmware rpi5 rpi500 rpi-cm5 systemd tools"
+REQUIRED_USE="${PYTHON_REQUIRED_USE}
 	old-firmware? ( !rpi5 )
-"
+	old-firmware? ( !rpi500 )
+	old-firmware? ( !rpi-cm5 )"
 
 BDEPEND="sys-apps/help2man"
 DEPEND="${PYTHON_DEPS}"
@@ -66,7 +66,7 @@ src_install() {
 	keepdir /var/lib/raspberrypi/bootloader/backup
 
 	insinto /lib/firmware/raspberrypi/bootloader
-	if use rpi5; then
+	if use rpi5 || use rpi500 || use rpi-cm5; then
 		for dir in default latest; do
 			doins -r firmware-2712/${dir}
 		done
