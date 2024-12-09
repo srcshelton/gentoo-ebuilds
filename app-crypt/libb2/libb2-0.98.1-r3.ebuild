@@ -1,7 +1,7 @@
 # Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit autotools flag-o-matic toolchain-funcs multilib-minimal
 
@@ -20,18 +20,20 @@ IUSE="-clang native-cflags openmp static-libs"
 # dependencies), so the least-bad option may be to over-extend the BDEPEND
 # requirements and at least not break :o
 #
-#BDEPEND="
-#	openmp? (
-#		clang? ( sys-devel/clang-runtime:*[openmp] )
-#		!clang? ( sys-devel/gcc:*[openmp] )
-#	)
-#"
+# ... but we can check this later, as we do for openmp/graphite USE flags.
+#
 BDEPEND="
 	openmp? (
-		sys-devel/gcc:*[openmp]
-		sys-devel/clang-runtime:*[openmp]
+		clang? ( sys-devel/clang-runtime:*[openmp] )
+		!clang? ( sys-devel/gcc:*[openmp] )
 	)
 "
+#BDEPEND="
+#	openmp? ( || (
+#		sys-devel/gcc:*[openmp]
+#		sys-devel/clang-runtime:*[openmp]
+#	) )
+#"
 RDEPEND="
 	openmp? (
 		clang? ( sys-libs/libomp:= )
@@ -50,6 +52,18 @@ PATCHES=( "${FILESDIR}/${P}-distcc.patch" )
 #pkg_pretend() {
 #	[[ ${MERGE_TYPE} != binary ]] && use openmp && tc-check-openmp
 #}
+
+pkg_pretend() {
+	if tc-is-gcc; then
+		if use clang; then
+			die "${P} is using clang dependencies but being built with gcc"
+		fi
+	elif tc-is-clang; then
+		if ! use clang; then
+			die "${P} is using gcc dependencies but being built with clang"
+		fi
+	fi
+}
 
 pkg_setup() {
 	[[ ${MERGE_TYPE} != binary ]] && use openmp && tc-check-openmp
