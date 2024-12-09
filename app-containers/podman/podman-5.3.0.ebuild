@@ -17,7 +17,7 @@ else
 	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
 	[[ ${PV} != *rc* ]] &&
-		KEYWORDS="amd64 arm64 ~loong ~riscv"
+		KEYWORDS="~amd64 ~arm64 ~loong ~riscv"
 fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
@@ -281,14 +281,14 @@ src_compile() {
 			BUILDFLAGS="-v -work -x" \
 			GOMD2MAN="go-md2man" \
 			EXTRA_BUILDTAGS="$(usev seccomp)" \
-			SELINUXOPT= \
+			SELINUXOPT='' \
 		all $(usex wrapper 'docker-docs' '')
 }
 
 src_install() {
 	emake \
 			DESTDIR="${D}" \
-			SELINUXOPT= \
+			SELINUXOPT='' \
 		install install.completions \
 			$(usex wrapper 'install.docker-full' '')
 
