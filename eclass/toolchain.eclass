@@ -70,7 +70,13 @@ is_crosscompile() {
 # General purpose version check. Without a second argument, matches
 # up to minor version (x.x.x).
 tc_version_is_at_least() {
-	ver_test "${2:-${GCC_RELEASE_VER}}" -ge "$1"
+	if [[ -n "${GCC_RELEASE_VER:-}" ]]; then
+		ver_test "${2:-${GCC_RELEASE_VER}}" -ge "$1"
+	else
+		# Don't abort from minimum version checks when sys-devel/gcc is not
+		# present...
+		return 0
+	fi
 }
 
 # @FUNCTION: tc_version_is_between
@@ -157,14 +163,19 @@ tc_version_is_between() {
 # @INTERNAL
 # @DESCRIPTION:
 # Internal variable representing (spoofed) GCC version.
-GCC_PV=${TOOLCHAIN_GCC_PV:-${PV}}
+GCC_PV=${TOOLCHAIN_GCC_PV}
+if [[ -z "${GCC_PV}" && "${PN:-}" == 'gcc' ]]; then
+	GCC_PV=${PV}
+fi
 
 # @ECLASS_VARIABLE: GCC_PVR
 # @INTERNAL
 # @DESCRIPTION:
 # Full GCC version including revision.
-GCC_PVR=${GCC_PV}
-[[ ${PR} != "r0" ]] && GCC_PVR=${GCC_PVR}-${PR}
+GCC_PVR=${GCC_PV:-}
+if [[ -n "${GCC_PVR:-}" ]]; then
+	[[ ${PR} != "r0" ]] && GCC_PVR=${GCC_PVR}-${PR}
+fi
 
 # @ECLASS_VARIABLE: GCC_RELEASE_VER
 # @INTERNAL
@@ -173,28 +184,38 @@ GCC_PVR=${GCC_PV}
 # It's an internal representation of gcc version used for:
 # - versioned paths on disk
 # - 'gcc -dumpversion' output. Must always match <digit>.<digit>.<digit>.
-GCC_RELEASE_VER=$(ver_cut 1-3 ${GCC_PV})
+if [[ -n "${GCC_PV:-}" ]]; then
+	GCC_RELEASE_VER=$(ver_cut 1-3 ${GCC_PV})
+fi
 
 # @ECLASS_VARIABLE: GCC_BRANCH_VER
 # @INTERNAL
 # @DESCRIPTION:
 # GCC branch version.
-GCC_BRANCH_VER=$(ver_cut 1-2 ${GCC_PV})
+if [[ -n "${GCC_PV:-}" ]]; then
+	GCC_BRANCH_VER=$(ver_cut 1-2 ${GCC_PV})
+fi
 # @ECLASS_VARIABLE: GCCMAJOR
 # @INTERNAL
 # @DESCRIPTION:
 # Major GCC version.
-GCCMAJOR=$(ver_cut 1 ${GCC_PV})
+if [[ -n "${GCC_PV:-}" ]]; then
+	GCCMAJOR=$(ver_cut 1 ${GCC_PV})
+fi
 # @ECLASS_VARIABLE: GCCMINOR
 # @INTERNAL
 # @DESCRIPTION:
 # Minor GCC version.
-GCCMINOR=$(ver_cut 2 ${GCC_PV})
+if [[ -n "${GCC_PV:-}" ]]; then
+	GCCMINOR=$(ver_cut 2 ${GCC_PV})
+fi
 # @ECLASS_VARIABLE: GCCMICRO
 # @INTERNAL
 # @DESCRIPTION:
 # GCC micro version.
-GCCMICRO=$(ver_cut 3 ${GCC_PV})
+if [[ -n "${GCC_PV:-}" ]]; then
+	GCCMICRO=$(ver_cut 3 ${GCC_PV})
+fi
 # @ECLASS_VARIABLE: GCC_RUN_FIXINCLUDES
 # @INTERNAL
 # @DESCRIPTION:
@@ -258,7 +279,11 @@ fi
 # Require minimum gcc version to simplify assumptions.
 # Normally we would require gcc-6+ (based on sys-devel/gcc)
 # but we still have sys-devel/gcc-apple-4.2.1_p5666.
-tc_version_is_at_least 8 || die "${ECLASS}: ${GCC_RELEASE_VER} is too old."
+if [[ -n "${GCC_RELEASE_VER:-}" ]]; then
+	tc_version_is_at_least 8 || die "${ECLASS}: ${GCC_RELEASE_VER} is too old."
+else
+	ewarn "${ECLASS}: GCC_RELEASE_VER is not set."
+fi
 
 PREFIX=${TOOLCHAIN_PREFIX:-${EPREFIX}/usr}
 
@@ -340,6 +365,7 @@ if [[ ${PN} != kgcc64 && ${PN} != gcc-* ]] ; then
 	# it was disabled in 13.
 	tc_version_is_at_least 14.0.0_pre20230423 ${PV} && IUSE+=" rust" TC_FEATURES+=( rust )
 	tc_version_is_at_least 14.2.1_p20241026 ${PV} && IUSE+=" time64"
+	tc_version_is_at_least 15.0.0_pre20241124 ${PV} && IUSE+=" libdiagnostics"
 fi
 
 if tc_version_is_at_least 10; then
@@ -412,16 +438,18 @@ if tc_has_feature valgrind ; then
 fi
 
 if [[ ${PN} != gnat-gpl ]] && tc_has_feature ada ; then
-	BDEPEND+="
-		ada? (
-			|| (
-				sys-devel/gcc:${SLOT}[ada]
-				<sys-devel/gcc-${SLOT}[ada]
-				<dev-lang/ada-bootstrap-${SLOT}
-				dev-lang/gnat-gpl[ada]
+	if [[ -n "${SLOT:-}" ]]; then
+		BDEPEND+="
+			ada? (
+				|| (
+					sys-devel/gcc:${SLOT}[ada]
+					<sys-devel/gcc-${SLOT}[ada]
+					<dev-lang/ada-bootstrap-${SLOT}
+					dev-lang/gnat-gpl[ada]
+				)
 			)
-		)
-	"
+		"
+	fi
 fi
 
 # TODO: Add a pkg_setup & pkg_pretend check for whether the active compiler
@@ -430,7 +458,9 @@ if tc_has_feature d && tc_version_is_at_least 12.0 ; then
 	# D in 12+ is self-hosting and needs D to bootstrap.
 	# TODO: package some binary we can use, like for Ada
 	# bug #840182
-	BDEPEND+=" d? ( || ( sys-devel/gcc:${SLOT}[d(-)] <sys-devel/gcc-${SLOT}[d(-)] <sys-devel/gcc-12[d(-)] ) )"
+	if [[ -n "${SLOT:-}" ]]; then
+		BDEPEND+=" d? ( || ( sys-devel/gcc:${SLOT}[d(-)] <sys-devel/gcc-${SLOT}[d(-)] <sys-devel/gcc-12[d(-)] ) )"
+	fi
 fi
 
 if tc_has_feature rust && tc_version_is_at_least 14.0.0_pre20230421 ; then
@@ -1072,7 +1102,7 @@ toolchain_src_configure() {
 
 	downgrade_arch_flags
 	gcc_do_filter_flags
-	if tc_version_is_at_least 14.2.1_p20241026 ${PV}; then
+	if [[ ${PN} != kgcc64 && ${PN} != gcc-* ]] && tc_version_is_at_least 14.2.1_p20241026 ${PV}; then
 		append-cppflags "-D_GENTOO_TIME64_FORCE=$(usex time64 1 0)"
 	fi
 
@@ -1192,11 +1222,13 @@ toolchain_src_configure() {
 		if grep -q "experimental" gcc/DEV-PHASE ; then
 			# Tell users about the non-obvious behavior here so they don't think
 			# e.g. the next GCC release is super slow to compile things.
-			ewarn "Unreleased GCCs default to extra runtime checks even with USE=-debug,"
-			ewarn "matching upstream default behavior. We recommend keeping these enabled."
-			ewarn "The checks (sometimes substantially) increase build time but provide important protection"
-			ewarn "from potential miscompilations (wrong code) by turning them into build-time errors."
-			ewarn "To override (not recommended), set: GCC_CHECKS_LIST=\"release\"."
+			if ! use debug ; then
+				ewarn "Unreleased GCCs default to extra runtime checks even with USE=-debug,"
+				ewarn "matching upstream default behavior. We recommend keeping these enabled."
+				ewarn "The checks (sometimes substantially) increase build time but provide important protection"
+				ewarn "from potential miscompilations (wrong code) by turning them into build-time errors."
+				ewarn "To override (not recommended), set: GCC_CHECKS_LIST=\"release\"."
+			fi
 
 			# - USE=debug for pre-releases: yes,extra,rtl (stornger than USE=debug for releases)
 			# - USE=-debug for pre-releases: yes,extra (following upstream default)
@@ -1595,6 +1627,7 @@ toolchain_src_configure() {
 
 		enable_cet_for 'x86_64' 'gnu' 'cet'
 		enable_cet_for 'aarch64' 'gnu' 'standard-branch-protection'
+		[[ ${CTARGET} == i[34567]86-* ]] && confgcc+=( --disable-cet )
 	fi
 
 	if in_iuse systemtap ; then
@@ -1736,8 +1769,8 @@ toolchain_src_configure() {
 		gcc_shell="${BROOT}"/bin/sh
 	fi
 
-	if is_jit ; then
-		einfo "Configuring JIT gcc"
+	if is_jit || _tc_use_if_iuse libdiagnostics ; then
+		einfo "Configuring shared gcc for JIT/libdiagnostics"
 
 		local confgcc_jit=(
 			"${confgcc[@]}"
@@ -1761,8 +1794,10 @@ toolchain_src_configure() {
 			--disable-nls
 			--disable-objc-gc
 			--disable-systemtap
+
 			--enable-host-shared
 			--enable-languages=jit
+
 			# Might be used for the just-built GCC. Easier to just
 			# respect USE=graphite here in case the user passes some
 			# graphite flags rather than try strip them out.
@@ -1770,6 +1805,10 @@ toolchain_src_configure() {
 			$(use_with zstd)
 			--with-system-zlib
 		)
+
+		if tc_version_is_at_least 15.0.0_pre20241124 ${PV} ; then
+			confgcc_jit+=( $(use_enable libdiagnostics) )
+		fi
 
 		if tc_version_is_at_least 13.1 ; then
 			confgcc_jit+=( --disable-fixincludes )
@@ -2273,10 +2312,6 @@ toolchain_src_test() {
 		# and we want to be sure it works.
 		GCC_TESTS_CFLAGS+=" -fno-stack-clash-protection"
 		GCC_TESTS_CXXFLAGS+=" -fno-stack-clash-protection"
-
-		# configure defaults to '-O2 -g' and some tests expect it
-		# accordingly.
-		GCC_TESTS_CFLAGS+=" -g"
 
 		# TODO: Does this handle s390 (-m31) correctly?
 		# TODO: What if there are multiple ABIs like x32 too?
