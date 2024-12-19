@@ -3,7 +3,7 @@
 
 EAPI=8
 
-LLVM_COMPAT=( 18 )
+LLVM_COMPAT=( 19 )
 PYTHON_COMPAT=( python3_{10..13} )
 
 RUST_MAX_VER=${PV}
@@ -24,7 +24,6 @@ else
 	KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
 fi
 
-RUST_STAGE0_VERSION="1.$(($(ver_cut 2) - 1)).1"
 DESCRIPTION="Systems programming language from Mozilla"
 HOMEPAGE="https://www.rust-lang.org/"
 
@@ -44,7 +43,7 @@ LLVM_TARGET_USEDEPS=${ALL_LLVM_TARGETS[@]/%/(-)?}
 LICENSE="|| ( MIT Apache-2.0 ) BSD BSD-1 BSD-2 BSD-4"
 SLOT="${PV}"
 
-IUSE="big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind lto miri nightly parallel-compiler rust-analyzer rust-src rustfmt system-llvm test wasm ${ALL_LLVM_TARGETS[*]}"
+IUSE="big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind llvm_targets_AArch64 llvm_targets_AMDGPU llvm_targets_ARC llvm_targets_ARM llvm_targets_AVR llvm_targets_BPF llvm_targets_CSKY llvm_targets_DirectX llvm_targets_Hexagon llvm_targets_Lanai llvm_targets_LoongArch llvm_targets_M68k llvm_targets_Mips llvm_targets_MSP430 llvm_targets_NVPTX llvm_targets_PowerPC llvm_targets_RISCV llvm_targets_Sparc llvm_targets_SPIRV llvm_targets_SystemZ llvm_targets_VE llvm_targets_WebAssembly llvm_targets_X86 llvm_targets_XCore llvm_targets_Xtensa lto miri nightly parallel-compiler rust-analyzer rustfmt rust-src system-llvm test wasm"
 
 LLVM_DEPEND=()
 # splitting usedeps needed to avoid CI/pkgcheck's UncheckableDep limitation
@@ -137,10 +136,7 @@ PATCHES=(
 	"${FILESDIR}"/1.74.1-cross-compile-libz.patch
 	#"${FILESDIR}"/1.72.0-bump-libc-deps-to-0.2.146.patch  # pending refresh
 	"${FILESDIR}"/1.67.0-doc-wasm.patch
-	"${FILESDIR}"/1.79.0-revert-8c40426.patch
-	"${FILESDIR}/1.81.0-backport-bug937164.patch"
-	"${FILESDIR}/1.81.0-backport-llvm-pr101761.patch"
-	"${FILESDIR}/1.81.0-backport-llvm-pr101766.patch"
+	"${FILESDIR}"/1.82.0-dwarf-llvm-assertion.patch
 )
 
 clear_vendor_checksums() {
@@ -219,6 +215,21 @@ pkg_setup() {
 		export LLVM_LINK_SHARED=1
 		export RUSTFLAGS="${RUSTFLAGS} -Lnative=$("${llvm_config}" --libdir)"
 	fi
+}
+
+src_prepare() {
+	# Rust baselines to Pentium4 on x86, this patch lowers the baseline to
+	# i586 when sse2 is not set.
+	if use x86; then
+		if ! use cpu_flags_x86_sse2; then
+			eapply "${FILESDIR}/1.82.0-i586-baseline.patch"
+			#grep -Flr 'cmd.args.push("-march=i686"' . |
+			#	xargs sed  -i 's/march=i686/-march=i586/g' ||
+			#	die
+		fi
+	fi
+
+	default
 }
 
 src_configure() {
@@ -594,6 +605,8 @@ src_test() {
 src_install() {
 	DESTDIR="${D}" "${EPYTHON}" ./x.py install -vv --config="${S}"/config.toml -j$(makeopts_jobs) || die
 
+	docompress /usr/lib/${PN}/${PV}/share/man/
+
 	# bug #689562, #689160
 	rm -v "${ED}/usr/lib/${PN}/${PV}/etc/bash_completion.d/cargo" || die
 	rmdir -v "${ED}/usr/lib/${PN}/${PV}"/etc{/bash_completion.d,} || die
@@ -674,6 +687,7 @@ src_install() {
 		echo /usr/lib/rust/libexec >> "${T}/provider-${P}"
 		echo /usr/bin/rust-analyzer >> "${T}/provider-${P}"
 	fi
+
 	insinto /etc/env.d/rust
 	doins "${T}/provider-${P}"
 
