@@ -3,6 +3,10 @@
 
 EAPI=7
 
+# There's no standard way of versioning the point releases upstream
+# make anyway, so while this was added for RC versions, it's fine
+# in general.
+QA_PKGCONFIG_VERSION=$(ver_cut 1-2)
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/chetramey.asc
 inherit flag-o-matic multilib preserve-libs toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
@@ -14,57 +18,74 @@ MY_PV="${MY_PV/_/-}"
 MY_P="${PN}-${MY_PV}"
 MY_PATCHES=()
 
+is_release() {
+	case ${PV} in
+		9999|*_alpha*|*_beta*|*_rc*)
+			return 1
+			;;
+		*)
+			return 0
+			;;
+	esac
+}
+
 [[ ${PV} != *_p* ]] && PLEVEL=0
 
 DESCRIPTION="Another cute console display library"
-HOMEPAGE="https://tiswww.case.edu/php/chet/readline/rltop.html"
+HOMEPAGE="https://tiswww.case.edu/php/chet/readline/rltop.html
+	https://git.savannah.gnu.org/cgit/readline.git"
 
-case ${PV} in
-	*_alpha*|*_beta*|*_rc*)
-		SRC_URI+=" ftp://ftp.cwru.edu/pub/bash/${MY_P}.tar.gz"
-		SRC_URI+=" verify-sig? ( ftp://ftp.cwru.edu/pub/bash/${MY_P}.tar.gz.sig )"
-	;;
+if [[ ${PV} == 9999 ]] ; then
+	EGIT_REPO_URI="https://git.savannah.gnu.org/git/readline.git"
+	EGIT_BRANCH=devel
+	inherit git-r3
+elif is_release ; then
+	SRC_URI="mirror://gnu/${PN}/${MY_P}.tar.gz
+		https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/readline-8.1-rlfe-c99.patch.xz
+		verify-sig? ( mirror://gnu/${PN}/${MY_P}.tar.gz.sig )"
 
-	*)
-		SRC_URI="mirror://gnu/${PN}/${MY_P}.tar.gz"
-		SRC_URI+=" https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/readline-8.1-rlfe-c99.patch.xz"
-		SRC_URI+=" verify-sig? ( mirror://gnu/${PN}/${MY_P}.tar.gz.sig )"
+	if [[ ${PLEVEL} -gt 0 ]] ; then
+		# bash-5.1 -> bash51
+		my_p="${PN}$(ver_rs 1-2 '' $(ver_cut 1-2))"
 
-		if [[ ${PLEVEL} -gt 0 ]] ; then
-			# bash-5.1 -> bash51
-			my_p=${PN}$(ver_rs 1-2 '' $(ver_cut 1-2))
+		patch_url=
+		my_patch_index=
 
-			patch_url=
-			my_patch_index=
+		upstream_url_base="mirror://gnu/readline"
+		mirror_url_base="ftp://ftp.cwru.edu/pub/readline"
 
-			upstream_url_base="mirror://gnu/bash"
-			mirror_url_base="ftp://ftp.cwru.edu/pub/bash"
+		for ((my_patch_index=1; my_patch_index <= ${PLEVEL} ; my_patch_index++)) ; do
+			printf -v mangled_patch_ver ${my_p}-%03d ${my_patch_index}
+			patch_url="${upstream_url_base}/${MY_P}-patches/${mangled_patch_ver}"
 
-			for ((my_patch_index=1; my_patch_index <= ${PLEVEL} ; my_patch_index++)) ; do
-				printf -v mangled_patch_ver ${my_p}-%03d ${my_patch_index}
-				patch_url="${upstream_url_base}/${MY_P}-patches/${mangled_patch_ver}"
+			SRC_URI+=" ${patch_url}"
+			SRC_URI+=" verify-sig? ( ${patch_url}.sig )"
 
-				SRC_URI+=" ${patch_url}"
-				SRC_URI+=" verify-sig? ( ${patch_url}.sig )"
+			# Add in the mirror URL too.
+			SRC_URI+=" ${patch_url/${upstream_url_base}/${mirror_url_base}}"
+			SRC_URI+=" verify-sig? ( ${patch_url/${upstream_url_base}/${mirror_url_base}}.sig )"
 
-				# Add in the mirror URL too.
-				SRC_URI+=" ${patch_url/${upstream_url_base}/${mirror_url_base}}"
-				SRC_URI+=" verify-sig? ( ${patch_url/${upstream_url_base}/${mirror_url_base}}.sig )"
+			MY_PATCHES+=( "${DISTDIR}"/${mangled_patch_ver} )
+		done
 
-				MY_PATCHES+=( "${DISTDIR}"/${mangled_patch_ver} )
-			done
-
-			unset my_p patch_url my_patch_index upstream_url_base mirror_url_base
-		fi
-	;;
-esac
+		unset my_p patch_url my_patch_index upstream_url_base mirror_url_base
+	fi
+else
+	SRC_URI="mirror://gnu/${PN}/${MY_P}.tar.gz ftp://ftp.cwru.edu/pub/readline/${MY_P}.tar.gz
+		verify-sig? ( mirror://gnu/${PN}/${MY_P}.tar.gz.sig ftp://ftp.cwru.edu/pub/readline/${MY_P}.tar.gz.sig )"
+fi
 
 S="${WORKDIR}/${MY_P}"
 
+if ! is_release ; then
+	inherit autotools
+fi
+
 LICENSE="GPL-3+"
 SLOT="0/8"  # subslot matches SONAME major
-[[ ${PV} == *_rc* ]] || \
-KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+if is_release ; then
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+fi
 IUSE="static-libs +unicode utils"
 
 RDEPEND=">=sys-libs/ncurses-5.9-r3:=[static-libs?,unicode(+)?,${MULTILIB_USEDEP}]"
@@ -76,9 +97,12 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-5.0-no_rpath.patch
 	"${FILESDIR}"/${PN}-7.0-headers.patch
 	"${FILESDIR}"/${PN}-8.0-headers.patch
-	"${FILESDIR}"/${PN}-8.0-darwin-shlib-versioning.patch
-	"${FILESDIR}"/${PN}-8.1-windows-signals.patch
 	"${WORKDIR}"/${PN}-8.1-rlfe-c99.patch
+	# Not needed with 8.3 which drops < C89 compat
+	"${FILESDIR}"/${PN}-8.2-c23.patch
+
+	# TODO: rebase
+	#"${FILESDIR}"/${PN}-8.0-darwin-shlib-versioning.patch
 )
 
 src_unpack() {
@@ -109,6 +133,8 @@ src_prepare() {
 
 	default
 
+	is_release || eautoreconf
+
 	if use prefix && [[ ! -x "${BROOT}"/usr/bin/pkg-config ]] ; then
 		# If we're bootstrapping, make a guess. We don't have pkg-config
 		# around yet. bug #818103.
@@ -122,8 +148,8 @@ src_prepare() {
 			ncurses_libs+=" -ltinfo${ncurses_libs_suffix}"
 		fi
 	else
-		# Force ncurses linking. #71420
-		# Use pkg-config to get the right values. #457558
+		# Force ncurses linking, bug #71420.
+		# Use pkg-config to get the right values, bug #457558.
 		local ncurses_libs=$($(tc-getPKG_CONFIG) ncurses$(usex unicode w '') --libs)
 	fi
 
@@ -134,11 +160,12 @@ src_prepare() {
 		-e "/^[[:space:]]*LIBS=.-lncurses/s:-lncurses:${ncurses_libs}:" \
 		examples/rlfe/configure || die
 
-	# fix building under Gentoo/FreeBSD; upstream FreeBSD deprecated
+	# Fix building under Gentoo/FreeBSD; upstream FreeBSD deprecated
 	# objformat for years, so we don't want to rely on that.
 	sed -i -e '/objformat/s:if .*; then:if true; then:' support/shobj-conf || die
 
-	ln -s ../.. examples/rlfe/readline || die # for local readline headers
+	# For local readline headers
+	ln -s ../.. examples/rlfe/readline || die
 }
 
 src_configure() {
@@ -146,13 +173,13 @@ src_configure() {
 	# incompatible with C23.
 	append-cflags $(test-flags-CC -std=gnu17)
 
-	# fix implicit decls with widechar funcs
+	# Fix implicit decls with widechar funcs
 	append-cppflags -D_GNU_SOURCE
 	# https://lists.gnu.org/archive/html/bug-readline/2010-07/msg00013.html
 	append-cppflags -Dxrealloc=_rl_realloc -Dxmalloc=_rl_malloc -Dxfree=_rl_free
 
-	# Make sure configure picks a better ar than `ar`. #484866
-	export ac_cv_prog_AR=$(tc-getAR)
+	# Make sure configure picks a better ar than `ar`, bug #484866
+	export ac_cv_prog_AR="$(tc-getAR)"
 
 	# Force the test since we used sed above to force it.
 	export bash_cv_termcap_lib=ncurses
@@ -161,9 +188,10 @@ src_configure() {
 	# In cases where the C library doesn't support wide characters, readline
 	# itself won't work correctly, so forcing the answer below should be OK.
 	if tc-is-cross-compiler ; then
-		export bash_cv_func_sigsetjmp='present'
-		export bash_cv_func_ctype_nonascii='yes'
-		export bash_cv_wcwidth_broken='no' #503312
+		export bash_cv_func_sigsetjmp="present"
+		export bash_cv_func_ctype_nonascii="yes"
+		# bug #503312
+		export bash_cv_wcwidth_broken="no"
 	fi
 
 	# This is for rlfe, but we need to make sure LDFLAGS doesn't change
@@ -179,14 +207,16 @@ multilib_src_configure() {
 		--with-curses
 		$(use_enable static-libs static)
 	)
+
 	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"
 
 	if use utils && multilib_is_native_abi && ! tc-is-cross-compiler ; then
-		# code is full of AC_TRY_RUN()
+		# Code is full of AC_TRY_RUN()
 		mkdir -p examples/rlfe || die
 		cd examples/rlfe || die
+
 		ECONF_SOURCE="${S}"/examples/rlfe \
-		econf --cache-file="${BUILD_DIR}"/config.cache
+			econf --cache-file="${BUILD_DIR}"/config.cache
 	fi
 }
 
@@ -194,7 +224,7 @@ multilib_src_compile() {
 	emake
 
 	if use utils && multilib_is_native_abi && ! tc-is-cross-compiler ; then
-		# code is full of AC_TRY_RUN()
+		# Code is full of AC_TRY_RUN()
 		cd examples/rlfe || die
 		local l
 		for l in readline history ; do
@@ -219,13 +249,14 @@ multilib_src_install() {
 
 multilib_src_install_all() {
 	HTML_DOCS="doc/history.html doc/readline.html doc/rluserman.html" einstalldocs
+
 	dodoc USAGE
 	docinto ps
 	dodoc doc/*.ps
 }
 pkg_preinst() {
 	# bug #29865
-	# Reappeared in #595324 with paludis so keeping this for now...
+	# Reappeared in bug #595324 with paludis so keeping this for now...
 	preserve_old_lib \
 		/$(get_libdir)/lib{history,readline}$(get_libname 4) \
 		/$(get_libdir)/lib{history,readline}$(get_libname 5) \
