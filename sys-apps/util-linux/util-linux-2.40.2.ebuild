@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..12} )
+PYTHON_COMPAT=( python3_{10..13} )
 TMPFILES_OPTIONAL=1
 
 inherit autotools bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd tmpfiles toolchain-funcs usr-ldscript multilib-minimal
