@@ -21,7 +21,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="audit berkdb debug examples nis selinux +tmpfiles"
 
 BDEPEND="
@@ -170,3 +170,5 @@ pkg_postinst() {
 	# read access to /etc/shadow only.
 	fcaps cap_dac_override sbin/unix_chkpwd
 }
+
+# vi: set diffopt=filler,iwhite:
