@@ -31,6 +31,7 @@ RDEPEND="
 	' 3.10)
 "
 BDEPEND="
+	${RDEPEND}
 	app-alternatives/ninja
 	>=dev-python/cython-0.29.34[${PYTHON_USEDEP}]
 	test? (
