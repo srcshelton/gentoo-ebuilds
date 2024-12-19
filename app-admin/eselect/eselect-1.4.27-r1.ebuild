@@ -23,6 +23,7 @@ IUSE="doc emacs vim-syntax"
 DEPEND="sys-apps/coreutils
 	sys-apps/sed"
 RDEPEND="${DEPEND}
+	app-shells/bash
 	sys-apps/file
 	sys-libs/ncurses:0"
 BDEPEND="doc? ( dev-python/docutils )"
