@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="7cb363254b69e10320360b63fb73e0ffb5da7bf2" # "Specialization is for insects."
+RUNC_COMMIT="0d37cfd4b557771e555a184d5a78d0ed4bdb79a5" # "Winter is not a season, it's a celebration."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
