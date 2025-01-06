@@ -22,7 +22,6 @@ src_compile() {
 }
 
 src_install() {
-	#emake DESTDIR="${D}" PREFIX="${EPREFIX}/usr" install
-	emake DESTDIR="${D}" install
+	emake DESTDIR="${ED}" PREFIX="usr" install
 	dodoc CHANGELOG README
 }
