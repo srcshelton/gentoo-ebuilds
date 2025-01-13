@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -28,6 +28,7 @@ IUSE="debug doc elogind selinux static-libs systemd test valgrind X"
 RESTRICT="!test? ( test )"
 
 BDEPEND="
+	${PYTHON_DEPS}
 	acct-user/messagebus
 	app-text/xmlto
 	app-text/docbook-xml-dtd:4.4
@@ -51,10 +52,7 @@ COMMON_DEPEND="
 DEPEND="
 	${COMMON_DEPEND}
 	dev-libs/expat
-	test? (
-		${PYTHON_DEPS}
-		>=dev-libs/glib-2.40:2
-	)
+	test? ( >=dev-libs/glib-2.40:2[${MULTILIB_USEDEP}] )
 	valgrind? ( >=dev-debug/valgrind-3.6 )
 	X? ( x11-base/xorg-proto )
 "
@@ -75,7 +73,8 @@ PATCHES=(
 )
 
 pkg_setup() {
-	use test && python-any-r1_pkg_setup
+	# Python interpeter required unconditionally (bug #932517)
+	python-any-r1_pkg_setup
 
 	if use kernel_linux; then
 		CONFIG_CHECK="~EPOLL"
