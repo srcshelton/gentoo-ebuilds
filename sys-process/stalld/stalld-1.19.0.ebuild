@@ -18,7 +18,7 @@ RDEPEND="app-shells/bash"
 DEPEND="
 	dev-libs/libbpf
 	dev-util/bpftool
-	sys-devel/clang[llvm_targets_bpf]
+	llvm-core/clang[llvm_targets_bpf]
 	virtual/linux-sources
 	|| ( >=sys-kernel/linux-headers-5.8 >=sys-kernel/raspberrypi-headers-5.8 )
 	amd64? ( sys-libs/glibc[multilib] )

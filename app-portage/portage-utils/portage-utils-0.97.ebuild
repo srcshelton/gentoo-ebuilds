@@ -31,7 +31,7 @@ COMMON_DEPEND="
 BDEPEND="
 	virtual/pkgconfig
 	openmp? (
-		clang? ( sys-devel/clang-runtime:*[openmp] )
+		clang? ( llvm-core/clang-runtime:*[openmp] )
 		!clang? ( sys-devel/gcc:*[openmp] )
 	)"
 DEPEND="${COMMON_DEPEND}
@@ -44,11 +44,11 @@ DEPEND="${COMMON_DEPEND}
 	)"
 RDEPEND="${COMMON_DEPEND}
 	openmp? (
-		clang? ( sys-libs/libomp:= )
+		clang? ( llvm-runtimes/openmp )
 		!clang? ( sys-devel/gcc:*[openmp] )
 	)"
 
-# bug #898362, gnulib check explicitly looks for MIN in some headers
+# bug #898362, gnulib explicit checks
 QA_CONFIG_IMPL_DECL_SKIP=(
 	"MIN"
 	"unreachable"

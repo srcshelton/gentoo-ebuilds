@@ -4,7 +4,7 @@
 EAPI=8
 
 LUA_COMPAT=( luajit )
-PYTHON_COMPAT=( python3_{9..12} )
+PYTHON_COMPAT=( python3_{10..12} )
 LLVM_MAX_SLOT=18
 
 inherit cmake linux-info llvm lua-single python-r1 toolchain-funcs
@@ -29,13 +29,13 @@ RESTRICT="test"
 RDEPEND="
 	>=dev-libs/elfutils-0.166:=
 	>=dev-libs/libbpf-1.2.0:=[static-libs(-)]
-	<sys-devel/clang-$((${LLVM_MAX_SLOT} + 1)):=
+	<llvm-core/clang-$((${LLVM_MAX_SLOT} + 1)):=
 	${PYTHON_DEPS}
 	lua? ( ${LUA_DEPS} )
 "
 DEPEND="
 	${RDEPEND}
-	|| ( sys-kernel/linux-headers sys-kernel/raspberrypi-headers )
+	virtual/os-headers
 	$(python_gen_cond_dep '
 		dev-python/setuptools[${PYTHON_USEDEP}]
 	')
@@ -50,7 +50,8 @@ DEPEND="
 "
 BDEPEND="
 	app-arch/zip
-	<sys-devel/llvm-$((${LLVM_MAX_SLOT} + 1)):=[llvm_targets_BPF(+)]
+	<llvm-core/clang-$((${LLVM_MAX_SLOT} + 1)):=
+	<llvm-core/llvm-$((${LLVM_MAX_SLOT} + 1)):=[llvm_targets_BPF(+)]
 	virtual/pkgconfig
 "
 

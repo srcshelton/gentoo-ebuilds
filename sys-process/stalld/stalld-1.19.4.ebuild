@@ -21,7 +21,7 @@ DEPEND="
 	bpf? (
 		dev-libs/libbpf
 		dev-util/bpftool
-		sys-devel/clang[llvm_targets_bpf]
+		llvm-core/clang[llvm_targets_bpf]
 		amd64? ( sys-libs/glibc[multilib] )
 	)
 	virtual/linux-sources

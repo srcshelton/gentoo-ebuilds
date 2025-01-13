@@ -16,6 +16,7 @@ app-shells
 app-text
 dev-build
 dev-db
+dev-debug
 dev-embedded
 dev-java
 dev-lang
@@ -23,9 +24,12 @@ dev-libs
 dev-perl
 dev-php
 dev-python
+dev-scheme
 dev-util
 dev-vcs
 games-server
+llvm-core
+llvm-runtimes
 mail-client
 mail-filter
 mail-mta
@@ -47,10 +51,12 @@ net-print
 net-proxy
 net-vpn
 net-wireless
+sci-libs
 sys-apps
 sys-auth
 sys-block
 sys-boot
+sys-cluster
 sys-devel
 sys-fs
 sys-kernel

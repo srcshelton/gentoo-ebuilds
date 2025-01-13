@@ -16,8 +16,8 @@ SLOT="0"
 KEYWORDS="~amd64"
 
 BDEPEND="
-	>=sys-devel/llvm-11
-	>=sys-devel/clang-11
+	>=llvm-core/llvm-11
+	>=llvm-core/clang-11
 	dev-python/docutils
 "
 DEPEND="

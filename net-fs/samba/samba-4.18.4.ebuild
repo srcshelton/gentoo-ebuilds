@@ -109,7 +109,7 @@ COMMON_DEPEND="
 	system-mitkrb5? ( >=app-crypt/mit-krb5-1.19[${MULTILIB_USEDEP}] )
 	systemd? ( sys-apps/systemd:= )
 	unwind? (
-		llvm-libunwind? ( sys-libs/llvm-libunwind:= )
+		llvm-libunwind? ( llvm-runtimes/libunwind:= )
 		!llvm-libunwind? ( sys-libs/libunwind:= )
 	)
 	zeroconf? ( net-dns/avahi[dbus] )

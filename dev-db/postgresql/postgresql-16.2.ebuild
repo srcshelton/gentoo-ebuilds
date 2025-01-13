@@ -50,8 +50,8 @@ CDEPEND="
 	kerberos? ( app-crypt/mit-krb5 )
 	ldap? ( net-nds/openldap:= )
 	llvm? (
-		<sys-devel/llvm-18:=
-		<sys-devel/clang-18:=
+		<llvm-core/llvm-18:=
+		<llvm-core/clang-18:=
 	)
 	lz4? ( app-arch/lz4 )
 	pam? ( sys-libs/pam )

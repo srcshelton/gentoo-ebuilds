@@ -24,9 +24,9 @@ IUSE="-clang native-cflags openmp static-libs"
 #
 BDEPEND="
 	clang? (
-		sys-devel/clang
-		sys-devel/lld
-		openmp? ( sys-devel/clang-runtime:*[openmp] )
+		llvm-core/clang
+		llvm-core/lld
+		openmp? ( llvm-core/clang-runtime:*[openmp] )
 	)
 	!clang? (
 		openmp? ( sys-devel/gcc:*[openmp] )
@@ -34,7 +34,7 @@ BDEPEND="
 "
 RDEPEND="
 	openmp? (
-		clang? ( sys-libs/libomp:= )
+		clang? ( llvm-runtimes/openmp:= )
 		!clang? ( sys-devel/gcc:*[openmp] )
 	)
 "

@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -37,7 +37,7 @@ COMMON_DEPEND="
 BDEPEND="
 	virtual/pkgconfig
 	openmp? (
-		clang? ( sys-devel/clang-runtime:*[openmp] )
+		clang? ( llvm-core/clang-runtime:*[openmp] )
 		!clang? ( sys-devel/gcc:*[openmp] )
 	)"
 DEPEND="${COMMON_DEPEND}
@@ -56,7 +56,7 @@ DEPEND="${COMMON_DEPEND}
 	)"
 RDEPEND="${COMMON_DEPEND}
 	openmp? (
-		clang? ( sys-libs/libomp:= )
+		clang? ( llvm-runtimes/openmp )
 		!clang? ( sys-devel/gcc:*[openmp] )
 	)"
 

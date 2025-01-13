@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -24,20 +24,20 @@ IUSE="-clang native-cflags openmp static-libs"
 #
 BDEPEND="
 	openmp? (
-		clang? ( sys-devel/clang-runtime:*[openmp] )
-		!clang? ( sys-devel/gcc:*[openmp] )
+		clang? ( llvm-core/clang-runtime:*[openmp] )
+		!clang? ( >=sys-devel/gcc-4.2:*[openmp] )
 	)
 "
 #BDEPEND="
 #	openmp? ( || (
 #		sys-devel/gcc:*[openmp]
-#		sys-devel/clang-runtime:*[openmp]
+#		llvm-core/clang-runtime:*[openmp]
 #	) )
 #"
 RDEPEND="
 	openmp? (
-		clang? ( sys-libs/libomp:= )
-		!clang? ( sys-devel/gcc:*[openmp] )
+		clang? ( llvm-runtimes/openmp:= )
+		!clang? ( >=sys-devel/gcc-4.2:*[openmp] )
 	)
 "
 
@@ -54,13 +54,15 @@ PATCHES=( "${FILESDIR}/${P}-distcc.patch" )
 #}
 
 pkg_pretend() {
-	if tc-is-gcc; then
-		if use clang; then
-			die "${P} is using clang dependencies but being built with gcc"
-		fi
-	elif tc-is-clang; then
-		if ! use clang; then
-			die "${P} is using gcc dependencies but being built with clang"
+	if [[ "${MERGE_TYPE:-}" != 'binary' ]]; then
+		if tc-is-gcc; then
+			if use clang; then
+				die "${P} is using clang dependencies but being built with gcc"
+			fi
+		elif tc-is-clang; then
+			if ! use clang; then
+				die "${P} is using gcc dependencies but being built with clang"
+			fi
 		fi
 	fi
 }

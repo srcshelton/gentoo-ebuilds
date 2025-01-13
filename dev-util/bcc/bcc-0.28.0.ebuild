@@ -29,7 +29,7 @@ RESTRICT="test"
 RDEPEND="
 	>=dev-libs/elfutils-0.166:=
 	>=dev-libs/libbpf-0.7.0:=[static-libs(-)]
-	<sys-devel/clang-$((${LLVM_MAX_SLOT} + 1)):=
+	<llvm-core/clang-$((${LLVM_MAX_SLOT} + 1)):=
 	${PYTHON_DEPS}
 	lua? ( ${LUA_DEPS} )
 "
@@ -50,7 +50,7 @@ DEPEND="
 "
 BDEPEND="
 	app-arch/zip
-	<sys-devel/llvm-$((${LLVM_MAX_SLOT} + 1)):=[llvm_targets_BPF(+)]
+	<llvm-core/llvm-$((${LLVM_MAX_SLOT} + 1)):=[llvm_targets_BPF(+)]
 	virtual/pkgconfig
 "
 
