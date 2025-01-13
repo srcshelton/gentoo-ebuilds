@@ -20,7 +20,7 @@ else
 		https://netfilter.org/projects/nftables/files/${P}.tar.xz
 		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.xz.sig )
 	"
-	KEYWORDS="amd64 arm arm64 hppa ~loong ~mips ppc ppc64 ~riscv sparc x86"
+	KEYWORDS="amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv sparc x86"
 	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
 fi
 
@@ -32,7 +32,7 @@ RESTRICT="!test? ( test )"
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:=
-	>=net-libs/libnftnl-1.2.7:=
+	>=net-libs/libnftnl-1.2.8:=
 	gmp? ( dev-libs/gmp:= )
 	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
@@ -60,10 +60,6 @@ pkg_setup() {
 	local CONFIG_CHECK="~NF_TABLES"
 	linux-info_pkg_setup
 }
-
-PATCHES=(
-	"${FILESDIR}"/nftables-1.1.0-revert-firewalld-breaking-change.patch
-)
 
 src_prepare() {
 	default
@@ -141,7 +137,7 @@ src_install() {
 	if ! use doc && [[ ! ${PV} =~ ^[9]{4,}$ ]]; then
 		# Deploy a pre-generated man-page to avoid docbook2X dependency...
 		newman "${FILESDIR}/man-pages/${PN}-1.0.9-libnftables.3" libnftables.3
-		newman "${FILESDIR}/man-pages/${P}-libnftables-json.5" libnftables-json.5
+		newman "${FILESDIR}/man-pages/${PN}-1.1.0-libnftables-json.5" libnftables-json.5
 		newman "${FILESDIR}/man-pages/${P}-nft.8" nft.8
 
 		pushd doc >/dev/null || die
