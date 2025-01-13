@@ -81,6 +81,9 @@ src_configure() {
 	# bug #915670
 	unset LD_LIBRARY_PATH
 
+	# https://marc.info/?l=postfix-users&m=173542420611213&w=2 (bug #945733)
+	append-cflags -std=gnu17
+
 	for name in CDB LDAP LMDB MONGODB MYSQL PCRE PGSQL SDBM SQLITE
 	do
 		local AUXLIBS_${name}=""
