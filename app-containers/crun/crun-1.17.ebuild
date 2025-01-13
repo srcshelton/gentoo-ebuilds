@@ -53,16 +53,16 @@ PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
 
-src_prepare() {
-	default
-
-	sed -ri \
-		-e 's|([=B*])/run|\1/var/run|' \
-		src/libcrun/status.c \
-		crun.1 \
-		crun.1.md \
-	|| die "'/run' replacement failed: ${?}"
-}
+#src_prepare() {
+#	default
+#
+#	sed -ri \
+#		-e 's|([=B*])/run|\1/var/run|' \
+#		src/libcrun/status.c \
+#		crun.1 \
+#		crun.1.md \
+#	|| die "'/run' replacement failed: ${?}"
+#}
 
 src_configure() {
 	local myeconfargs=(
