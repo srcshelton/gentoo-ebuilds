@@ -36,7 +36,7 @@ IUSE="argon2 autoca +cleartext crypt cxx debug experimental gnutls iodbc kerbero
 REQUIRED_USE="
 	cxx? ( sasl )
 	pbkdf2? ( ssl )
-	test? ( cleartext sasl )
+	test? ( cleartext sasl debug )
 	autoca? ( !gnutls )
 	?? ( test minimal )
 	kerberos? ( ?? ( kinit smbkrb5passwd ) )
