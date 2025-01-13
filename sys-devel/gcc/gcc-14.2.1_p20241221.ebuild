@@ -5,27 +5,16 @@ EAPI=8
 
 TOOLCHAIN_PATCH_DEV="sam"
 TOOLCHAIN_HAS_TESTS=1
-PATCH_GCC_VER="13.2.0"
-PATCH_VER="14"
-MUSL_VER="2"
-MUSL_GCC_VER="13.2.0"
+PATCH_GCC_VER="14.2.0"
+PATCH_VER="7"
+CLEAR_PATCH_VER="1920"
+MUSL_VER="1"
+MUSL_GCC_VER="14.1.0"
 PYTHON_COMPAT=( python3_{10..12} )
 
 PARALLEL_MEMORY_MIN=6
 
-if [[ ${PV} == *.9999 ]] ; then
-	MY_PV_2=$(ver_cut 2)
-	MY_PV_3=1
-	if [[ ${MY_PV_2} == 0 ]] ; then
-		MY_PV_2=0
-		MY_PV_3=0
-	else
-		MY_PV_2=$((${MY_PV_2} - 1))
-	fi
-
-	# e.g. 12.2.9999 -> 12.1.1
-	TOOLCHAIN_GCC_PV=$(ver_cut 1).${MY_PV_2}.${MY_PV_3}
-elif [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
+if [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
 	# Cheesy hack for RCs
 	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 5)
 	MY_P=${PN}-${MY_PV}
@@ -40,15 +29,20 @@ if tc_is_live ; then
 	# Needs to be after inherit (for now?), bug #830908
 	EGIT_BRANCH=releases/gcc-$(ver_cut 1)
 elif [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
-	# Don't keyword live ebuilds
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	# m68k doesnt build (ICE, bug 932733)
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
+
+SRC_URI="${SRC_URI}
+	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz"
 
 IUSE="-lib-only"
 
 if [[ ${CATEGORY} != cross-* ]] ; then
-	# Technically only if USE=hardened *too* right now, but no point in complicating it further.
-	# If GCC is enabling CET by default, we need glibc to be built with support for it.
+	# Technically only if USE=hardened *too* right now, but no point in
+	# complicating it further.
+	# If GCC is enabling CET by default, we need glibc to be built with support
+	# for it.
 	# bug #830454
 	COMMON_DEPEND="elibc_glibc? ( sys-libs/glibc[cet(-)?] )"
 	RDEPEND="${COMMON_DEPEND}
@@ -61,20 +55,55 @@ fi
 
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
 
+pkg_pretend() {
+	if is-flagq -fopenmp; then
+		if ! _tc_use_if_iuse openmp; then
+			ewarn "CFLAGS contains '-fopenmp' but USE flags do not contain" \
+				"'openmp'"
+			ewarn "Filtering flags '-fopenmp' ..."
+			filter-flags -fopenmp
+		fi
+	fi
+
+	toolchain_pkg_pretend
+}
+
 src_prepare() {
-	local p upstreamed_patches=(
+	local f='' d=''
+	local -a upstreamed_patches=(
 		# add them here
 	)
-	for p in "${upstreamed_patches[@]}"; do
-		rm -v "${WORKDIR}/patch/${p}" || die
+	for f in "${upstreamed_patches[@]}"; do
+		rm -v "${WORKDIR}/patch/${f}" || die
 	done
 
 	toolchain_src_prepare
 
-	eapply "${FILESDIR}"/${PN}-13-fix-cross-fixincludes.patch
+	eapply "${FILESDIR}/${PN}-13-fix-cross-fixincludes.patch"
+	eapply "${FILESDIR}/gcc-14.2.1_p20241221-arm-Revert-arm-MVE-intrinsics-Fix-support-for-predicate-.patch"
 
-	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
-		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
+	# Apply additional Clear Linux patches, if present...
+	# (%patch0 brings gcc from ${SLOT}.1.0 to the actual release)
+	if [[ -d "${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}" ]]; then
+		d="${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}"
+		grep '^%patch' "${d}/${PN}.spec" |
+			awk '{print $1}' |
+			grep -v '^%patch0' |
+			while read -r f; do
+				grep -i "^${f#"%"}\s*:" "${d}/${PN}.spec"
+			done |
+			awk '{print $3}' |
+			while read -r f; do
+				nonfatal eapply "${d}/${f}" ||
+					ewarn "Clear Linux ${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}" \
+						"patch '${f}' failed to apply: ${?}"
+			done
+	fi
+
+	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]
+	then
+		einfo "Architecture is 'amd64' - adjusting default paths for" \
+			"potential custom x32 ABI library paths"
 
 		local LD32="$( get_abi_LIBDIR x86 )"
 		local LDx32="$( get_abi_LIBDIR x32 )"
@@ -85,42 +114,44 @@ src_prepare() {
 		einfo "  Long-mode 32-bit libraries in '${LDx32:=libx32}'"
 		einfo "  64-bit libraries in '${LD64:=lib64}'"
 
-		sed -i \
-			-e "/^#define GLIBC_DYNAMIC_LINKER32 /{s:/lib/:/${LD32}/:}" \
-			-e "/^#define GLIBC_DYNAMIC_LINKERX32 /{s:/libx32/:/${LDx32}/:}" \
-			-e "/^#define GLIBC_DYNAMIC_LINKER64 /{s:/lib64/:/${LD64}/:}" \
-				gcc/config/i386/linux64.h \
-			|| die 'linux64.h patch failed'
+		sed \
+				-e "/^#define GLIBC_DYNAMIC_LINKER32 /{s:/lib/:/${LD32}/:}" \
+				-e "/^#define GLIBC_DYNAMIC_LINKERX32 /{s:/libx32/:/${LDx32}/:}" \
+				-e "/^#define GLIBC_DYNAMIC_LINKER64 /{s:/lib64/:/${LD64}/:}" \
+				-i gcc/config/i386/linux64.h ||
+			die 'linux64.h patch failed'
 		einfo "Using the following GLIBC_DYNAMIC_LINKER defines:"
 		einfo "$(
 			grep -F 'GLIBC_DYNAMIC_LINKER' gcc/config/i386/linux64.h |
-			sed 's/^/  /g'
+				sed 's/^/  /g'
 		)"
 
-		sed -i \
-			-e "s:/lib has i386 libraries.$:/${LD32} has i386 libraries.:" \
-			-e "s:/lib64 has x86-64 libraries.$:/${LD64} has x86-64 libraries.:" \
-			-e "s:/libx32 has x32 libraries.$:/${LDx32} has x32 libraries.:" \
-			-e "/^MULTILIB_OSDIRNAMES[+ ]= m64=/{s:=../lib64\\$:=../${LD64}$:}" \
-			-e "/^MULTILIB_OSDIRNAMES[+ ]= m32=/{s:=\$(if \$(wildcard \$(shell echo \$(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)\\$:../${LD32}$:}" \
-			-e "/^MULTILIB_OSDIRNAMES[+ ]= mx32=/{s:=../libx32\\$:=../${LDx32}$:}" \
-				gcc/config/i386/t-linux64 \
-			|| die 't-linux64 patch failed'
-		einfo "Using the following MULTILIB_OSDIRNAMES definitions:"
-		einfo "$(
-			grep -A $( wc -l < gcc/config/i386/t-linux64 ) -m 1 '^# To support' gcc/config/i386/t-linux64 |
-			grep -v -e '^comma=' -e '^MULTILIB_OPTIONS' -e '^MULTILIB_DIRNAMES' |
-			sed 's/^/  /g'
-		)"
+		for f in linux gnu; do
+			sed \
+					-e "s:/lib has i386 libraries.$:/${LD32} has i386 libraries.:" \
+					-e "s:/lib64 has x86-64 libraries.$:/${LD64} has x86-64 libraries.:" \
+					-e "s:/libx32 has x32 libraries.$:/${LDx32} has x32 libraries.:" \
+					-e "/^MULTILIB_OSDIRNAMES[+ ]= m64=/{s:=../lib64\\$:=../${LD64}$:}" \
+					-e "/^MULTILIB_OSDIRNAMES[+ ]= m32=/{s:=\$(if \$(wildcard \$(shell echo \$(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)\\$:../${LD32}$:}" \
+					-e "/^MULTILIB_OSDIRNAMES[+ ]= mx32=/{s:=../libx32\\$:=../${LDx32}$:}" \
+					-i "gcc/config/i386/t-${f}64" ||
+				die "t-${f}64 patch failed"
+			einfo "Using the following MULTILIB_OSDIRNAMES definitions in gcc/config/i386/t-${f}64:"
+			einfo "$(
+				grep -A $( wc -l < gcc/config/i386/t-${f}64 ) -m 1 '^# To support' gcc/config/i386/t-${f}64 |
+					grep -v -e '^comma=' -e '^MULTILIB_OPTIONS' -e '^MULTILIB_DIRNAMES' |
+					sed 's/^/  /g'
+			)"
+		done
 
-		sed -i \
-			-e "/^const char \*__gnat_default_libgcc_subdir = \"libx32\";$/{s:\"libx32\":\"${LDx32}\":}" \
-				gcc/ada/link.c \
-			|| die 'link.c patch failed'
+		sed \
+				-e "/^const char \*__gnat_default_libgcc_subdir = \"libx32\";$/{s:\"libx32\":\"${LDx32}\":}" \
+				-i gcc/ada/link.c ||
+			die 'link.c patch failed'
 		einfo "Using the following GNAT/ADA declarations:"
 		einfo "$(
 			grep '__gnat_default_libgcc_subdir.*lib[36x]' gcc/ada/link.c |
-			sed 's/^/  /g'
+				sed 's/^/  /g'
 		)"
 
 		einfo "Checking for further 'x32' references ..."
@@ -128,7 +159,7 @@ src_prepare() {
 		if [[ -n "${output}" ]]; then
 			ewarn "Further x32 references detected:"
 			ewarn "${output}"
-			sleep 10
+			die "x32 references detected"
 		else
 			einfo "... none found"
 		fi
@@ -138,6 +169,8 @@ src_prepare() {
 }
 
 src_configure() {
+	local flag
+
 	if (( ( $( # <- Syntax
 			head /proc/meminfo |
 				grep -m 1 '^MemAvailable:' |
@@ -146,7 +179,8 @@ src_configure() {
 	then
 		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
 			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
+			ewarn "memory usage may be increased" \
+				"(or adjust \$EMERGE_DEFAULT_OPTS)"
 		fi
 		ewarn "Lowering make parallelism for low-memory build-host ..."
 		if ! [[ -n "${MAKEOPTS:-}" ]]; then
@@ -156,10 +190,18 @@ src_configure() {
 		else
 			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
 		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
+		if test-flag-CC '-Wa,--reduce-memory-overheads'; then
+			ewarn "Instructing 'as' to use less memory ..."
+			append-ldflags '-Wa,--reduce-memory-overheads'
 		fi
+		for flag in no-keep-memory reduce-memory-overheads \
+			no-map-whole-files no-mmap-output-file
+		do
+			if test-flag-CCLD "-Wl,--${flag}"; then
+				ewarn "Instructing 'ld' to use less memory with '--${flag}' ..."
+				append-ldflags "-Wl,--${flag}"
+			fi
+		done
 		ewarn "Disabling LTO support ..."
 		filter-lto
 	fi

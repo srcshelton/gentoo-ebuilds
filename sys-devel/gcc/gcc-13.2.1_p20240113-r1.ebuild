@@ -338,8 +338,9 @@ pkg_config() {
 		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
-			for file in libstdc++ libgcc_s; do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -exec rm -v {} +
+			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' ''); do
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
+					-exec rm -v {} +
 				pkg_postinst_fix_so \
 						"${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
 						"${file}" \
@@ -348,8 +349,9 @@ pkg_config() {
 					die "Couldn't link library '${file}.so'*"
 			done
 			for file in libatomic; do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -exec rm -v {} +
-				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -print0 |
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
+					-exec rm -v {} +
+				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -type f -name "${file}.so*" -print0 |
 					xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
 				gen_usr_ldscript --live -a "${file#lib}"
 			done

@@ -5,10 +5,10 @@ EAPI=8
 
 TOOLCHAIN_PATCH_DEV="sam"
 TOOLCHAIN_HAS_TESTS=1
-PATCH_GCC_VER="13.2.0"
-PATCH_VER="14"
-MUSL_VER="2"
+PATCH_GCC_VER="13.3.0"
 MUSL_GCC_VER="13.2.0"
+PATCH_VER="2"
+MUSL_VER="2"
 PYTHON_COMPAT=( python3_{10..12} )
 
 PARALLEL_MEMORY_MIN=6
@@ -60,6 +60,16 @@ if [[ ${CATEGORY} != cross-* ]] ; then
 fi
 
 LIB_ONLY_GCC_CONFIG_FILES=( gcc-ld.so.conf gcc.env gcc.config gcc.defs )
+
+pkg_pretend() {
+	if is-flagq -fopenmp; then
+		if ! _tc_use_if_iuse openmp; then
+			die "CFLAGS contains '-fopenmp' but USE flags do not contain 'openmp'"
+		fi
+	fi
+
+	toolchain_pkg_pretend
+}
 
 src_prepare() {
 	local p upstreamed_patches=(
@@ -138,6 +148,8 @@ src_prepare() {
 }
 
 src_configure() {
+	local flag
+
 	if (( ( $( # <- Syntax
 			head /proc/meminfo |
 				grep -m 1 '^MemAvailable:' |
@@ -146,7 +158,8 @@ src_configure() {
 	then
 		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
 			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
+			ewarn "memory usage may be increased" \
+				"(or adjust \$EMERGE_DEFAULT_OPTS)"
 		fi
 		ewarn "Lowering make parallelism for low-memory build-host ..."
 		if ! [[ -n "${MAKEOPTS:-}" ]]; then
@@ -156,10 +169,18 @@ src_configure() {
 		else
 			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
 		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
+		if test-flag-CC '-Wa,--reduce-memory-overheads'; then
+			ewarn "Instructing 'as' to use less memory ..."
+			append-ldflags '-Wa,--reduce-memory-overheads'
 		fi
+		for flag in no-keep-memory reduce-memory-overheads \
+			no-map-whole-files no-mmap-output-file
+		do
+			if test-flag-CCLD "-Wl,--${flag}"; then
+				ewarn "Instructing 'ld' to use less memory with '--${flag}' ..."
+				append-ldflags "-Wl,--${flag}"
+			fi
+		done
 		ewarn "Disabling LTO support ..."
 		filter-lto
 	fi
@@ -340,8 +361,7 @@ pkg_config() {
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
 			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' ''); do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
-					-exec rm -v {} +
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -exec rm -v {} +
 				pkg_postinst_fix_so \
 						"${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
 						"${file}" \
@@ -350,9 +370,8 @@ pkg_config() {
 					die "Couldn't link library '${file}.so'*"
 			done
 			for file in libatomic; do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
-					-exec rm -v {} +
-				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -type f -name "${file}.so*" -print0 |
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -exec rm -v {} +
+				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -print0 |
 					xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
 				gen_usr_ldscript --live -a "${file#lib}"
 			done
