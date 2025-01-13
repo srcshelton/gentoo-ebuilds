@@ -673,6 +673,50 @@ _tc-has-openmp() {
 	return ${ret}
 }
 
+# @FUNCTION: tc-check-min_ver
+# @USAGE: <gcc or clang> <minimum version>
+# @DESCRIPTION:
+# Minimum version of active GCC or Clang to require.
+#
+# You should test for any necessary minimum version in pkg_pretend in order to
+# warn the user of required toolchain changes.  You must still check for it at
+# build-time, e.g.
+# @CODE
+# pkg_pretend() {
+#	[[ ${MERGE_TYPE} != binary ]] && tc-check-min_ver gcc 13.2.0
+# }
+#
+# pkg_setup() {
+#	[[ ${MERGE_TYPE} != binary ]] && tc-check-min_ver gcc 13.2.0
+# }
+# @CODE
+tc-check-min_ver() {
+	do_check() {
+		debug-print "Compiler version check for ${1}"
+		debug-print "Detected: ${2}"
+		debug-print "Required: ${3}"
+		if ver_test ${2} -lt ${3}; then
+			eerror "Your current compiler is too old for this package!"
+			die "Active compiler is too old for this package (found ${1} ${2})."
+		fi
+	}
+
+	case ${1} in
+		gcc)
+			tc-is-gcc || return
+			do_check GCC $(gcc-version) ${2}
+			;;
+		clang)
+			tc-is-clang || return
+			do_check Clang $(clang-version) ${2}
+			;;
+		*)
+			eerror "Unknown first parameter for ${FUNCNAME} - must be gcc or clang"
+			die "${FUNCNAME}: Parameter ${1} unknown"
+			;;
+	esac
+}
+
 # @FUNCTION: tc-check-openmp
 # @DESCRIPTION:
 # Test for OpenMP support with the current compiler and error out with
@@ -696,7 +740,7 @@ tc-check-openmp() {
 		has_version -b 'sys-devel/gcc[openmp]' &&
 			return 0
 	elif tc-is-clang; then
-		has_version -b 'sys-devel/clang-runtime[openmp]' &&
+		has_version -b 'llvm-core/clang-runtime[openmp]' &&
 			return 0
 	fi
 
@@ -716,8 +760,8 @@ tc-check-openmp() {
 			eerror "Enable OpenMP support by building sys-devel/gcc with" \
 				"USE=\"openmp\"."
 		elif tc-is-clang; then
-			eerror "OpenMP support in sys-devel/clang is provided by" \
-				"sys-libs/libomp."
+			eerror "OpenMP support in llvm-core/clang is provided by" \
+				"llvm-runtimes/openmp."
 		fi
 
 		die "Active compiler does not have required support for OpenMP"
@@ -750,10 +794,10 @@ tc-has-tls() {
 	case "${CHOST}" in
 		*-darwin*)
 			# bug #612370
-			: "${flags:=-dynamiclib}"
+			: "${flags:="-dynamiclib"}"
 			;;
 		*)
-			: "${flags:=-fPIC -shared -Wl,-z,defs}"
+			: "${flags:="-fPIC -shared -Wl,-z,defs"}"
 			;;
 	esac
 	[[ $1 == -* ]] && shift
@@ -1026,13 +1070,15 @@ _gcc-specs-exists() {
 _gcc-specs-directive_raw() {
 	local cc=$(tc-getCC)
 	local specfiles=$(LC_ALL=C ${cc} -v 2>&1 | awk '$1=="Reading" {print $NF}')
-	${cc} -dumpspecs 2>/dev/null | cat - ${specfiles} | awk -v directive="$1" \
-		'BEGIN	{ pspec=""; spec=""; outside=1 }
-		$1=="*"directive":"  { pspec=spec; spec=""; outside=0; next }
-			outside || NF==0 || ( substr($1,1,1)=="*" && substr($1,length($1),1)==":" ) { outside=1; next }
-			spec=="" && substr($0,1,1)=="+" { spec=pspec " " substr($0,2); next }
-			{ spec=spec $0 }
-		END	{ print spec }'
+	${cc} -dumpspecs 2>/dev/null |
+		cat - ${specfiles} |
+		awk -v directive="$1" \
+			'BEGIN	{ pspec=""; spec=""; outside=1 }
+				$1=="*"directive":"  { pspec=spec; spec=""; outside=0; next }
+				outside || NF==0 || ( substr($1,1,1)=="*" && substr($1,length($1),1)==":" ) { outside=1; next }
+				spec=="" && substr($0,1,1)=="+" { spec=pspec " " substr($0,2); next }
+				{ spec=spec $0 }
+			END	{ print spec }'
 	return 0
 }
 
@@ -1175,7 +1221,7 @@ gen_usr_ldscript() {
 # If the library is identified, the function returns 0 and prints one
 # of the following:
 #
-# - ``libc++`` for ``sys-libs/libcxx``
+# - ``libc++`` for ``llvm-runtimes/libcxx``
 # - ``libstdc++`` for ``sys-devel/gcc``'s libstdc++
 #
 # If the library is not recognized, the function returns 1.
@@ -1213,7 +1259,7 @@ tc-get-cxx-stdlib() {
 # If the runtime is identifed, the function returns 0 and prints one
 # of the following:
 #
-# - ``compiler-rt`` for ``sys-libs/compiler-rt``
+# - ``compiler-rt`` for ``llvm-runtimes/compiler-rt``
 # - ``libgcc`` for ``sys-devel/gcc``'s libgcc
 #
 # If the runtime is not recognized, the function returns 1.
@@ -1258,7 +1304,8 @@ tc-is-lto() {
 
 	case $(tc-get-compiler-type) in
 		clang)
-			if ! $(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null; then
+			if ! $(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null
+			then
 				rc=${?}
 				$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<""
 				if ! [[ -s "${f}" ]]; then
@@ -1271,7 +1318,8 @@ tc-is-lto() {
 			llvm-bcanalyzer "${f}" >/dev/null 2>&1 && ret=0
 			;;
 		gcc)
-			if ! $(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null; then
+			if ! $(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<"" 2>/dev/null
+			then
 				rc=${?}
 				$(tc-getCC) ${CFLAGS} -c -o "${f}" -x c - <<<""
 				if ! [[ -s "${f}" ]]; then

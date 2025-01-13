@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: toolchain.eclass
@@ -76,7 +76,9 @@ is_crosscompile() {
 # up to minor version (x.x.x).
 tc_version_is_at_least() {
 	if [[ -n "${GCC_RELEASE_VER:-}" ]]; then
-		ver_test "${2:-${GCC_RELEASE_VER}}" -ge "$1"
+		# Maintain original indentation to make comparison to upstream more
+		# simple...
+	ver_test "${2:-${GCC_RELEASE_VER}}" -ge "$1"
 	else
 		# Don't abort from minimum version checks when sys-devel/gcc is not
 		# present...
@@ -123,7 +125,7 @@ tc_version_is_between() {
 # @USER_VARIABLE
 # @DESCRIPTION:
 # Slot to compare test results with. Defaults to current slot.
-: "${GCC_TESTS_COMPARISON_SLOT:=${SLOT}}"
+: "${GCC_TESTS_COMPARISON_SLOT:=${SLOT:-10}}"
 
 # @ECLASS_VARIABLE: GCC_TESTS_IGNORE_NO_BASELINE
 # @DEFAULT_UNSET
@@ -179,7 +181,7 @@ fi
 # Full GCC version including revision.
 GCC_PVR=${GCC_PV:-}
 if [[ -n "${GCC_PVR:-}" ]]; then
-	[[ ${PR} != "r0" ]] && GCC_PVR=${GCC_PVR}-${PR}
+[[ ${PR} != "r0" ]] && GCC_PVR=${GCC_PVR}-${PR}
 fi
 
 # @ECLASS_VARIABLE: GCC_RELEASE_VER
@@ -190,7 +192,7 @@ fi
 # - versioned paths on disk
 # - 'gcc -dumpversion' output. Must always match <digit>.<digit>.<digit>.
 if [[ -n "${GCC_PV:-}" ]]; then
-	GCC_RELEASE_VER=$(ver_cut 1-3 ${GCC_PV})
+GCC_RELEASE_VER=$(ver_cut 1-3 ${GCC_PV})
 fi
 
 # @ECLASS_VARIABLE: GCC_BRANCH_VER
@@ -198,34 +200,34 @@ fi
 # @DESCRIPTION:
 # GCC branch version.
 if [[ -n "${GCC_PV:-}" ]]; then
-	GCC_BRANCH_VER=$(ver_cut 1-2 ${GCC_PV})
+GCC_BRANCH_VER=$(ver_cut 1-2 ${GCC_PV})
 fi
 # @ECLASS_VARIABLE: GCCMAJOR
 # @INTERNAL
 # @DESCRIPTION:
 # Major GCC version.
 if [[ -n "${GCC_PV:-}" ]]; then
-	GCCMAJOR=$(ver_cut 1 ${GCC_PV})
+GCCMAJOR=$(ver_cut 1 ${GCC_PV})
 fi
 # @ECLASS_VARIABLE: GCCMINOR
 # @INTERNAL
 # @DESCRIPTION:
 # Minor GCC version.
 if [[ -n "${GCC_PV:-}" ]]; then
-	GCCMINOR=$(ver_cut 2 ${GCC_PV})
+GCCMINOR=$(ver_cut 2 ${GCC_PV})
 fi
 # @ECLASS_VARIABLE: GCCMICRO
 # @INTERNAL
 # @DESCRIPTION:
 # GCC micro version.
 if [[ -n "${GCC_PV:-}" ]]; then
-	GCCMICRO=$(ver_cut 3 ${GCC_PV})
+GCCMICRO=$(ver_cut 3 ${GCC_PV})
 fi
 # @ECLASS_VARIABLE: GCC_RUN_FIXINCLUDES
 # @INTERNAL
 # @DESCRIPTION:
 # Controls whether fixincludes should be used.
-GCC_RUN_FIXINCLUDES=0
+: "${GCC_RUN_FIXINCLUDES:=0}"
 
 tc_use_major_version_only() {
 	local use_major_version_only=0
@@ -285,7 +287,7 @@ fi
 # Normally we would require gcc-6+ (based on sys-devel/gcc)
 # but we still have sys-devel/gcc-apple-4.2.1_p5666.
 if [[ -n "${GCC_RELEASE_VER:-}" ]]; then
-	tc_version_is_at_least 8 || die "${ECLASS}: ${GCC_RELEASE_VER} is too old."
+tc_version_is_at_least 8 || die "${ECLASS}: ${GCC_RELEASE_VER} is too old."
 else
 	ewarn "${ECLASS}: GCC_RELEASE_VER is not set."
 fi
@@ -444,12 +446,17 @@ fi
 
 if [[ ${PN} != gnat-gpl ]] && tc_has_feature ada ; then
 	if [[ -n "${SLOT:-}" ]]; then
+		ada_bootstrap_dep="<dev-lang/ada-bootstrap-${SLOT}"
+		if tc_use_major_version_only ; then
+			ada_bootstrap_dep="<dev-lang/ada-bootstrap-$((SLOT+1))"
+		fi
+
 		BDEPEND+="
 			ada? (
 				|| (
 					sys-devel/gcc:${SLOT}[ada]
 					<sys-devel/gcc-${SLOT}[ada]
-					<dev-lang/ada-bootstrap-${SLOT}
+					${ada_bootstrap_dep}
 					dev-lang/gnat-gpl[ada]
 				)
 			)
@@ -464,7 +471,7 @@ if tc_has_feature d && tc_version_is_at_least 12.0 ; then
 	# TODO: package some binary we can use, like for Ada
 	# bug #840182
 	if [[ -n "${SLOT:-}" ]]; then
-		BDEPEND+=" d? ( || ( sys-devel/gcc:${SLOT}[d(-)] <sys-devel/gcc-${SLOT}[d(-)] <sys-devel/gcc-12[d(-)] ) )"
+	BDEPEND+=" d? ( || ( sys-devel/gcc:${SLOT}[d(-)] <sys-devel/gcc-${SLOT}[d(-)] <sys-devel/gcc-12[d(-)] ) )"
 	fi
 fi
 
@@ -711,6 +718,11 @@ toolchain_src_prepare() {
 
 	eapply_user
 
+	# Workaround -march=native not working for stage1 with non-GCC (bug #933772).
+	if ! tc-is-gcc && [[ "${CFLAGS}${CXXFLAGS}" == *-march=native* ]] ; then
+		CLANG_DISABLE_CET_HACK=1
+	fi
+
 	if ! use vanilla ; then
 		tc_enable_hardened_gcc
 	fi
@@ -739,7 +751,7 @@ toolchain_src_prepare() {
 
 	gnuconfig_update
 
-	if ! use prefix-guest && [[ -n ${EPREFIX} ]] ; then
+	if ! is_crosscompile && ! use prefix-guest && [[ -n ${EPREFIX} ]] ; then
 		einfo "Prefixifying dynamic linkers..."
 		for f in gcc/config/*/*linux*.h ; do
 			ebegin "  Updating ${f}"
@@ -872,7 +884,7 @@ setup_multilib_osdirnames() {
 		powerpc64*-linux*) config="rs6000" ;;
 		sparc64*-linux*)   config="sparc" ;;
 		s390x*-linux*)     config="s390" ;;
-		*)	               return 0 ;;
+		*)                 return 0 ;;
 	esac
 	config+="/t-linux64"
 
@@ -944,7 +956,7 @@ _find_bootstrap_gcc_with() {
 	_get_bootstrap_gcc_info bootstrap_gcc_pkg bootstrap_gcc_bin_base
 
 	local min_slot max_slot
-	if tc-is-cross-compiler ; then
+	if tc-is-cross-compiler && [[ -n "${SLOT:-}" ]]; then
 		min_slot="${SLOT}"
 		max_slot="${SLOT}"
 	else
@@ -955,7 +967,7 @@ _find_bootstrap_gcc_with() {
 	fi
 
 	local candidate result
-	for candidate in ${SLOT} $(seq $((${SLOT} - 1)) -1 ${min_slot}) $(seq $((${SLOT} + 1)) ${max_slot}) ; do
+	for candidate in ${SLOT:-10} $(seq $((${SLOT:-10} - 1)) -1 ${min_slot}) $(seq $((${SLOT:-10} + 1)) ${max_slot}) ; do
 		has_version -b "${bootstrap_gcc_pkg}:${candidate}" || continue
 
 		ebegin "Testing ${bootstrap_gcc_pkg}:${candidate} for ${pretty_use}"
@@ -1006,13 +1018,24 @@ toolchain_setup_ada() {
 	# As a penultimate resort, try dev-lang/ada-bootstrap.
 	if ver_test ${ada_bootstrap} -gt ${PV} || [[ -z ${ada_bootstrap} ]] ; then
 		ebegin "Testing fallback dev-lang/ada-bootstrap for Ada"
-		if has_version -b "<dev-lang/ada-bootstrap-${SLOT}" ; then
-			# TODO: Figure out ada-bootstrap versioning/slots
+		# XXX: This can be cleaned up like BDEPEND for tc_use_major_version_only
+		# once we only support such versions.
+		if has_version -b "=dev-lang/ada-bootstrap-${SLOT:-10}*" ||
+				has_version -b "<dev-lang/ada-bootstrap-${SLOT:-10}"
+		then
+			# Workaround the old scheme
+			if has_version -b "=dev-lang/ada-bootstrap-0_p2021*" ; then
+				ada_bootstrap=10
+			else
+				local latest_ada_bootstrap=$(best_version -b "<dev-lang/ada-bootstrap-${SLOT:-15}")
+				latest_ada_bootstrap="${latest_ada_bootstrap#dev-lang/ada-bootstrap-}"
+				latest_ada_bootstrap=$(ver_cut 1 ${latest_ada_bootstrap})
+				ada_bootstrap="${latest_ada_bootstrap}"
 
-			#local latest_ada_bootstrap=$(best_version -b "<dev-lang/ada-bootstrap-${SLOT}")
-			#latest_ada_bootstrap="${latest_ada_bootstrap#dev-lang/ada-bootstrap-}"
-			#latest_ada_bootstrap=$(ver_cut 1 ${latest_ada_bootstrap})
-			ada_bootstrap="10"
+				export ADA_INCLUDE_PATH="${BROOT}/usr/lib/ada-bootstrap/usr/lib/gcc/${CHOST}/${ada_bootstrap}/adainclude::${ADA_INCLUDE_PATH}"
+				export ADA_OBJECTS_PATH="${BROOT}/usr/lib/ada-bootstrap/usr/lib/gcc/${CHOST}/${ada_bootstrap}/adalib:${ADA_OBJECTS_PATH}"
+			fi
+
 			ada_bootstrap_type=ada-bootstrap
 			ada_bootstrap_bin_dir="${BROOT}/usr/lib/ada-bootstrap/bin"
 
@@ -1121,19 +1144,26 @@ toolchain_setup_ada() {
 
 	# Create bin wrappers because not all of the build system respects
 	# GNATBIND or GNATMAKE.
-	mkdir "${T}"/ada-wrappers || die
-	local tool
-	for tool in gnat{,bind,chop,clean,kr,link,ls,make,name,prep} ; do
-		cat <<-EOF > "${T}"/ada-wrappers/${tool} || die
-		#!/bin/sh
-		exec "${ada_bootstrap_bin_dir}"/${CHOST}-${tool} "\$@"
-		EOF
+	_toolchain_make_gnat_wrappers() {
+		mkdir "${T}"/ada-wrappers || die
+		local tool
+		for tool in gnat{,bind,chop,clean,kr,link,ls,make,name,prep} ; do
+			cat <<-EOF > "${T}"/ada-wrappers/${tool} || die
+			#!/bin/sh
+			exec "${ada_bootstrap_bin_dir}"/${CHOST}-${tool} "\$@"
+			EOF
 
-		export "${tool^^}"="${T}"/ada-wrappers/${tool}
-	done
-	chmod +x "${T}"/ada-wrappers/gnat{,bind,chop,clean,kr,link,ls,make,name,prep} || die
+			export "${tool^^}"="${T}"/ada-wrappers/${tool}
+		done
+		chmod +x "${T}"/ada-wrappers/gnat{,bind,chop,clean,kr,link,ls,make,name,prep} || die
 
-	export PATH="${T}/ada-wrappers:${old_path}"
+		export PATH="${T}/ada-wrappers:${old_path}"
+	}
+
+	# Only make the wrappers for native builds. For cross, we can't
+	# do it as CBUILD vs CHOST will get mixed up then.
+	! tc-is-cross-compiler && _toolchain_make_gnat_wrappers
+
 	export CC="$(tc-getCC) -specs=${T}/ada.spec"
 }
 
@@ -1183,11 +1213,6 @@ toolchain_src_configure() {
 	if ! tc_version_is_at_least 11 && [[ $(gcc-major-version) -ge 12 ]] ; then
 		# https://gcc.gnu.org/PR105695 (bug #849359)
 		export ac_cv_std_swap_in_utility=no
-	fi
-
-	# Workaround -march=native not working for stage1 with non-GCC (bug #933772).
-	if ! tc-is-gcc && [[ "${CFLAGS}${CXXFLAGS}" == *-march=native* ]] ; then
-		CLANG_DISABLE_CET_HACK=1
 	fi
 
 	local flag
@@ -1345,8 +1370,13 @@ toolchain_src_configure() {
 	confgcc+=( --enable-lto )
 
 	# Build compiler itself using LTO
-	if tc_version_is_at_least 9.1 && _tc_use_if_iuse lto ; then
-		BUILD_CONFIG_TARGETS+=( bootstrap-lto )
+	if _tc_use_if_iuse lto ; then
+		# GCC 11 at least has a -Wlto-type-mismatch issue with Ada
+		if ! tc_version_is_at_least 12.1 && is_ada ; then
+			:;
+		elif tc_version_is_at_least 9.1 ; then
+			BUILD_CONFIG_TARGETS+=( bootstrap-lto )
+		fi
 	fi
 
 	if tc_version_is_at_least 12 && _tc_use_if_iuse cet && [[ -z ${CLANG_DISABLE_CET_HACK} && ${CTARGET} == x86_64-*-gnu* ]] ; then
@@ -1671,8 +1701,9 @@ toolchain_src_configure() {
 	[[ ${CTARGET} == *-darwin* ]] && \
 		confgcc+=( --enable-version-specific-runtime-libs )
 
+	# Linux specifically here for bug #946397.
 	# TODO: amdgcn-amdhsa?
-	[[ ${CTARGET} == x86_64* ]] && confgcc+=(
+	[[ ${CTARGET} == x86_64*-*-linux-* ]] && confgcc+=(
 		--enable-offload-defaulted
 		--enable-offload-targets=nvptx-none
 	)
@@ -1805,7 +1836,7 @@ toolchain_src_configure() {
 		fi
 
 		case ${CBUILD}-${CHOST}-${CTARGET} in
-			*i686-w64-mingw32*|*x86_64-w64-mingw32*)
+			*-w*-mingw*)
 				# config/i386/t-cygming requires fixincludes (bug #925204)
 				GCC_RUN_FIXINCLUDES=1
 				;;
@@ -2474,7 +2505,7 @@ toolchain_src_test() {
 	# than nothing. We start with 10 for the fallback as the first version
 	# we started using --with-major-version-only.
 	local possible_slot
-	for possible_slot in "${GCC_TESTS_COMPARISON_SLOT}" $(seq ${SLOT} -1 10) ; do
+	for possible_slot in "${GCC_TESTS_COMPARISON_SLOT}" $(seq ${SLOT:-10} -1 10) ; do
 		[[ -f "${GCC_TESTS_COMPARISON_DIR}/${possible_slot}/${CHOST}.xfail" ]] && break
 	done
 	if [[ ${possible_slot} != "${GCC_TESTS_COMPARISON_SLOT}" ]] ; then
@@ -2530,11 +2561,7 @@ toolchain_src_install() {
 
 	if [[ ${GCC_RUN_FIXINCLUDES} == 0 ]] ; then
 		# We remove the generated fixincludes, as they can cause things to break
-		# (ncurses, openssl, etc).  We do not prevent them from being built, as
-		# in the following commit which we revert:
-		# https://sources.gentoo.org/cgi-bin/viewvc.cgi/gentoo-x86/eclass/toolchain.eclass?r1=1.647&r2=1.648
-		# This is because bsd userland needs fixedincludes to build gcc, while
-		# linux does not.  Both can dispose of them afterwards.
+		# (ncurses, openssl, etc).
 		while read x ; do
 			grep -q 'It has been auto-edited by fixincludes from' "${x}" \
 				&& rm -f "${x}"
@@ -2554,8 +2581,6 @@ toolchain_src_install() {
 		pushd "${WORKDIR}"/build-jit > /dev/null || die
 		S="${WORKDIR}"/build-jit emake DESTDIR="${D}" -j1 install
 
-		# Punt some tools which are really only useful while building gcc
-		find "${ED}" -name install-tools -prune -type d -exec rm -rf "{}" \; || die
 		# This one comes with binutils
 		find "${ED}" -name libiberty.a -delete || die
 
@@ -2578,8 +2603,6 @@ toolchain_src_install() {
 	# - https://gcc.gnu.org/PR109898
 	S="${WORKDIR}"/build emake DESTDIR="${D}" -j1 install
 
-	# Punt some tools which are really only useful while building gcc
-	find "${ED}" -name install-tools -prune -type d -exec rm -rf "{}" \; || die
 	# This one comes with binutils
 	find "${ED}" -name libiberty.a -delete || die
 
@@ -2650,7 +2673,7 @@ toolchain_src_install() {
 	#  - "${D}${LIBPATH}"
 	# As dostrip does not specify host to override ${CHOST} tools just skip
 	# non-native binary stripping.
-	is_crosscompile && dostrip -x "${LIBPATH}"
+	is_crosscompile && dostrip -x "${LIBPATH#"${EPREFIX}"}"
 
 	cd "${S}" || die
 	if is_crosscompile; then
@@ -2814,8 +2837,10 @@ gcc_movelibs() {
 		mv "${ED}"/usr/nvptx-none/lib/mgomp/mptx-3.1/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/mgomp/mptx-3.1/
 		mv "${ED}"/usr/lib/gcc/nvptx-none/${GCCMAJOR}/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/ || die
 		mv "${ED}"/usr/lib/gcc/nvptx-none/${GCCMAJOR}/mgomp/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/mgomp/ || die
-		mv "${ED}"/usr/lib/gcc/nvptx-none/${GCCMAJOR}/mptx-3.1/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/mptx-3.1/ || die
-		mv "${ED}"/usr/lib/gcc/nvptx-none/${GCCMAJOR}/mgomp/mptx-3.1/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/mgomp/mptx-3.1/ || die
+		# Nonfatal because the multilib variants change: see r15-5975-g86b3a7532d56f7 and r15-6029-gd4e1f7cfdb8375
+		# TODO: Should we enable all of them unconditionally? Expose it somehow (USE_EXPAND?)?
+		mv "${ED}"/usr/lib/gcc/nvptx-none/${GCCMAJOR}/mptx-3.1/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/mptx-3.1/
+		mv "${ED}"/usr/lib/gcc/nvptx-none/${GCCMAJOR}/mgomp/mptx-3.1/*.{a,spec} "${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/accel/nvptx-none/mgomp/mptx-3.1/
 	fi
 
 	# We remove directories separately to avoid this case:
@@ -2923,6 +2948,7 @@ toolchain_pkg_preinst() {
 		# after unmerged. Also useful for historical records and tracking
 		# down regressions a while after they first appeared, but were only
 		# just reported.
+		if [[ -n "${SLOT:-}" ]]; then
 		einfo "Copying test results to ${GCC_TESTS_COMPARISON_DIR}/${SLOT}/${CHOST}.xfail for future comparison"
 		(
 			mkdir -p "${GCC_TESTS_COMPARISON_DIR}/${SLOT}" || die
@@ -2932,6 +2958,7 @@ toolchain_pkg_preinst() {
 				cp -v "${T}"/${CHOST}.xfail "${GCC_TESTS_COMPARISON_DIR}/${SLOT}" || die
 			fi
 		)
+		fi
 	fi
 }
 
@@ -2968,6 +2995,12 @@ toolchain_pkg_postrm() {
 			rm -f "${EROOT}"/usr/bin/${CTARGET}-{gcc,{g,c}++}{,32,64}
 		fi
 		return 0
+	else
+		# Removed the last GCC installed (bug #906040)
+		if ! has_version "sys-devel/gcc" && has_version "sys-devel/clang" ; then
+			einfo "Last GCC version removed. Cleaning up ${EROOT}/etc/clang/gentoo-gcc-install.cfg."
+			echo > "${EROOT}"/etc/clang/gentoo-gcc-install.cfg
+		fi
 	fi
 
 	# gcc stopped installing .la files fixer in June 2020.
