@@ -27,6 +27,7 @@ DEPEND="
 
 RDEPEND="
 	${DEPEND}
+	!app-emulation/docker-runc
 	selinux? ( sec-policy/selinux-container )
 "
 
@@ -49,14 +50,14 @@ src_prepare() {
 	default
 
 	# Fix run path...
-	grep -Rl '[^r]/run/' . | xargs -r -- sed -ri -e 's|([ "=/])/run|\1/var/run|' || die
+	grep -Rl '[^r]/run/' . |
+		xargs -r -- sed -ri -e 's|([ "=/>*])/run|\1/var/run|' || die
 }
 
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
-	export CGO_CFLAGS="${CGO_CFLAGS:-} -I${ESYSROOT}/usr/include"
-	export CGO_LDFLAGS="${CGO_LDFLAGS:-} $(usex hardened '-fno-PIC ' '')
-		-L${ESYSROOT}/usr/$(get_libdir)"
+	CGO_CFLAGS="${CGO_CFLAGS:+"${CGO_CFLAGS} "}-I${ESYSROOT}/usr/include"
+	CGO_LDFLAGS="${CGO_LDFLAGS:+"${CGO_LDFLAGS} "}$(usex hardened '-fno-PIC ' '') -L${ESYSROOT:-}/usr/$(get_libdir)"
 
 	# build up optional flags
 	#

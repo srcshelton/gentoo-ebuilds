@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="0b9fa21be2bcba45f6d9d748b4bcf70cfbffbc19" # "No existe una escuela que enseñe a vivir."
+RUNC_COMMIT="d7735e388ef5eecbd60d93bfbe5afe0f3fbc8a6b" # "No existe una escuela que enseñe a vivir."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
@@ -50,14 +50,14 @@ src_prepare() {
 	default
 
 	# Fix run path...
-	grep -Rl '[^r]/run/' . | xargs -r -- sed -ri -e 's|([ "=/])/run|\1/var/run|' || die
+	grep -Rl '[^r]/run/' . |
+		xargs -r -- sed -ri -e 's|([ "=/>*])/run|\1/var/run|' || die
 }
 
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
-	export CGO_CFLAGS="-I${ESYSROOT}/usr/include"
-	export CGO_LDFLAGS="$(usex hardened '-fno-PIC ' '')
-		-L${ESYSROOT}/usr/$(get_libdir)"
+	CGO_CFLAGS="${CGO_CFLAGS:+"${CGO_CFLAGS} "}-I${ESYSROOT}/usr/include"
+	CGO_LDFLAGS="${CGO_LDFLAGS:+"${CGO_LDFLAGS} "}$(usex hardened '-fno-PIC ' '') -L${ESYSROOT:-}/usr/$(get_libdir)"
 
 	# build up optional flags
 	#
