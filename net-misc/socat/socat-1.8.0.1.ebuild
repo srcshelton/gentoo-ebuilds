@@ -49,6 +49,10 @@ src_test() {
 }
 
 src_install() {
+	if use elibc_musl; then
+		QA_CONFIG_IMPL_DECL_SKIP=( getprotobynumber_r )
+	fi
+
 	default
 
 	fowners :socat /usr/bin/socat
