@@ -27,12 +27,12 @@ S="${WORKDIR}/plugins-${PV}"
 src_prepare() {
 	default
 
-	sed -ri \
-		-e 's|([="])/run|\1/var/run|' \
+	sed -re 's|([="])/run|\1/var/run|' -i \
 		plugins/ipam/dhcp/main.go \
 		plugins/ipam/dhcp/systemd/cni-dhcp.socket \
 		plugins/meta/tuning/tuning.go \
 		vendor/github.com/godbus/dbus/v5/conn_other.go \
+		vendor/github.com/opencontainers/selinux/go-selinux/selinux_linux.go \
 		vendor/github.com/vishvananda/netns/netns_linux.go \
 	|| die "'/run' replacement failed: ${?}"
 }
