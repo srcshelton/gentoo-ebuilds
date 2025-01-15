@@ -293,6 +293,8 @@ used to build perl)
 * app-containers/wa-linux-agent
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
+* dev-embedded/picotool
+    * Follow upstream releases more closely
 * dev-embedded/rpi-eeprom
     * Follow raspbian releases more closely
 * ~~dev-perl/B-Lint~~
