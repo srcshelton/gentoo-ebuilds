@@ -8,7 +8,7 @@ DISTUTILS_OPTIONAL=1
 DISTUTILS_USE_PEP517=setuptools
 PYTHON_COMPAT=( python3_{10..12} )
 
-inherit distutils-r1 multilib-minimal
+inherit distutils-r1 usr-ldscript multilib-minimal
 
 DESCRIPTION="High level interface to Linux seccomp filter"
 HOMEPAGE="https://github.com/seccomp/libseccomp"
@@ -111,8 +111,15 @@ multilib_src_compile() {
 multilib_src_install() {
 	emake DESTDIR="${D}" install
 
-	if multilib_is_native_abi && use python ; then
-		distutils-r1_src_install
+	if multilib_is_native_abi ; then
+		if use python ; then
+			distutils-r1_src_install
+		fi
+
+		if use split-usr; then
+			# need the libs in /
+			gen_usr_ldscript -a seccomp
+		fi
 	fi
 }
 
