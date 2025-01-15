@@ -582,6 +582,8 @@ used to build perl)
     * Fix UID logic
 * sys-apps/busybox
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
+* sys-apps/dtc
+    * Add missing dev-python/setuptools dependency
 * sys-apps/fwupd
     * Add USE-flag requirements to sys-apps/flashrom dependency
 * sys-apps/gentoo-functions
