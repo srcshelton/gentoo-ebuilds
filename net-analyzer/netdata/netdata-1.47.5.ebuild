@@ -172,11 +172,9 @@ PATCHES=(
 
 FILECAPS=(
 	'cap_dac_read_search,cap_sys_ptrace+ep'
-	'usr/libexec/netdata/plugins.d/apps.plugin'
-	'usr/libexec/netdata/plugins.d/debugfs.plugin'
-
+		'usr/libexec/netdata/plugins.d/apps.plugin'
+		'usr/libexec/netdata/plugins.d/debugfs.plugin'
 	--
-
 	'cap_net_raw'
 		'usr/libexec/netdata/plugins.d/go.d.plugin'
 )
