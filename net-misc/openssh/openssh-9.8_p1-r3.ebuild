@@ -81,6 +81,7 @@ PATCHES=(
 	"${FILESDIR}/${PN}-9.7_p1-config-tweaks.patch"
 	"${FILESDIR}/${PN}-9.8_p1-musl-connect.patch"
 	"${FILESDIR}/${PN}-9.8_p1-inetd.patch"
+	"${FILESDIR}/${PN}-9.0-restore-scp-as-default.patch"
 )
 
 pkg_pretend() {
