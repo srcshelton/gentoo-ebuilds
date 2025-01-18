@@ -390,6 +390,8 @@ used to build perl)
     * clang/LLVM loop optimiser
 * sys-fs/eudev
     * Retain tree-cleaned upstream package
+* sys-fs/composefs
+    * 'compose' filesystem tool for containers
 * sys-kernel/raspberrypi-headers
     * Kernel headers from Raspberry Pi sources
 * sys-power/clr-power
