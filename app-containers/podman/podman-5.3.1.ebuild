@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -22,7 +22,7 @@ fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs experimental fish-completion +fuse +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fuse +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
@@ -54,6 +54,7 @@ BDEPEND="
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	app-containers/catatonit
+	composefs? ( sys-fs/composefs[fuse] )
 	fuse? ( sys-fs/fuse-overlayfs )
 	selinux? ( sec-policy/selinux-podman )
 	systemd? ( sys-apps/systemd:= )
