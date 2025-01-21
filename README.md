@@ -603,12 +603,16 @@ used to build perl)
 * ~~sys-apps/portage~~
     * ~~Prevent `ebuild ... digest` from aborting if the owner of the category directory differs from that of the package directory~~
     * ~~Prevent binary merges from failing due to assumptions about build files being present~~
+* sys-apps/systemd
+    * Filter breaking CFLAGS
+* sys-apps/systemd-utils
+    * Filter breaking CFLAGS
+* sys-apps/sysvinit
+    * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
 * ~~sys-apps/usbutils~~
     * ~~Revert changes which make usbutils dependent on udev~~
 * sys-apps/util-linux
     * Add static libary dependencies, use `/var/run` in place of `/run`
-* sys-apps/sysvinit
-    * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
 * sys-auth/pam\_mktemp
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
 * sys-cluster/hpl
