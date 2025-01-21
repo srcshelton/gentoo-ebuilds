@@ -29,8 +29,8 @@ DEPEND_COMMON="
 		sys-apps/util-linux
 		readline? ( sys-libs/readline:= )
 		sanlock? ( sys-cluster/sanlock )
-		systemd? ( sys-apps/systemd:= )
 	)
+	systemd? ( sys-apps/systemd:= )
 "
 # /run is now required for locking during early boot. /var cannot be assumed to
 # be available -- thus, pull in recent enough baselayout for /run.
