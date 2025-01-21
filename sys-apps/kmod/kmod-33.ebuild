@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit autotools bash-completion-r1 libtool
+inherit autotools bash-completion-r1 libtool usr-ldscript
 
 DESCRIPTION="Library and tools for managing linux kernel modules"
 HOMEPAGE="https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git"
@@ -18,7 +18,7 @@ fi
 
 LICENSE="LGPL-2"
 SLOT="0"
-IUSE="debug doc +lzma pkcs7 split-usr static-libs +tools +zlib +zstd"
+IUSE="debug doc +lzma pkcs7 split-usr static-libs systemd +tools +zlib +zstd"
 
 # Upstream does not support running the test suite with custom configure flags.
 # I was also told that the test suite is intended for kmod developers.
@@ -123,6 +123,11 @@ src_install() {
 		for cmd in lsmod modinfo; do
 			dosym kmod /bin/${cmd}
 		done
+	fi
+
+	if use systemd; then
+		# bin/udevadm: libkmod.so.2 => /usr/lib64/libkmod.so.2
+		gen_usr_ldscript -a kmod
 	fi
 
 	cat <<-EOF > "${T}"/usb-load-ehci-first.conf

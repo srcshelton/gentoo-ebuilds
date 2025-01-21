@@ -425,6 +425,8 @@ used to build perl)
     * eselect requires app-shells/bash
 * app-admin/rasdaemon
     * Align ebuild USE-flags to `configure` options, allow use without perl sqlite modules
+* app-arch/lz4
+    * Avoid cross-linked library if using sys-apps/systemd
 * app-arch/xz-utils
     * Explicitly depend on 'grep that handles long lines and -e' (although the real issue could be that somehow GNU `grep` _was_ installed during bootsrapping, but `libpcre` wasn't?)
 * ~~app-crypt/gnupg~~
@@ -596,6 +598,8 @@ used to build perl)
     * Add dependency on flex via app-alternatives/lex
 * sys-apps/keyutils
     * Correct file permissions on 'libkeyutils.pc'
+* sys-apps/kmod
+    * Avoid cross-linked library if using sys-apps/systemd
 * sys-apps/locale-gen
     * Fix operation with sys-libs/glibc 'compile-locales' USE-flag enabled
 * sys-apps/pciutils
@@ -722,7 +726,6 @@ directory is an additional QA check which reports an error if files deployed to
 * sys-apps/earlyoom
 * sys-apps/haveged
 * sys-apps/iproute2
-* sys-apps/kmod
 * sys-apps/lm\_sensors
 * ~~sys-apps/portage~~
     * ~~A mountpoint-check has been added for `/run`, but Python's `os.path.ismount()` seems unreliable even when this path is corrected, so a work-around has been added...~~
