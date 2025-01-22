@@ -28,6 +28,7 @@ run_check() {
 							-e 'libsandbox.so' \
 							-e 'libgcc_s.so.1' \
 							-e 'libgomp.so.1' \
+							-e '/usr/lib64/systemd/' \
 							-e '/usr/lib/gcc/' |
 						grep -Fq -- "/usr${libdir}"
 				then
@@ -44,6 +45,7 @@ run_check() {
 									-e 'libsandbox.so' \
 									-e 'libgcc_s.so.1' \
 									-e 'libgomp.so.1' \
+									-e '/usr/lib64/systemd/' \
 									-e '/usr/lib/gcc/' |
 								grep -F -- "/usr${libdir}" |
 								sed "s|^${ED%/}|| ; s/([^)]\+)$//"
