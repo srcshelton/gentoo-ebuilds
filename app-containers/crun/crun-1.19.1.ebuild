@@ -1,4 +1,4 @@
-# Copyright 2019-2024 Gentoo Authors
+# Copyright 2019-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -53,16 +53,16 @@ PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
 
-src_prepare() {
-	default
-
-	sed -ri \
-		-e 's|([=B*])/run|\1/var/run|' \
-		src/libcrun/status.c \
-		crun.1 \
-		crun.1.md \
-	|| die "'/run' replacement failed: ${?}"
-}
+#src_prepare() {
+#	default
+#
+#	sed -ri \
+#		-e 's|([=B*])/run|\1/var/run|' \
+#		src/libcrun/status.c \
+#		crun.1 \
+#		crun.1.md \
+#	|| die "'/run' replacement failed: ${?}"
+#}
 
 src_configure() {
 	local myeconfargs=(
