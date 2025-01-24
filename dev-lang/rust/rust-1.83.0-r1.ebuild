@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -135,10 +135,10 @@ VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/rust.asc
 
 PATCHES=(
 	"${FILESDIR}"/1.78.0-musl-dynamic-linking.patch
-	"${FILESDIR}"/1.74.1-cross-compile-libz.patch
+	"${FILESDIR}"/1.83.0-cross-compile-libz.patch
 	#"${FILESDIR}"/1.72.0-bump-libc-deps-to-0.2.146.patch  # pending refresh
 	"${FILESDIR}"/1.67.0-doc-wasm.patch
-	"${FILESDIR}"/1.82.0-dwarf-llvm-assertion.patch
+	"${FILESDIR}"/1.83.0-dwarf-llvm-assertion.patch
 )
 
 clear_vendor_checksums() {
@@ -776,8 +776,13 @@ pkg_postinst() {
 		elog "for convenience they are installed under /usr/bin/rust-{gdb,lldb}-${PV}."
 	fi
 
-	optfeature "Emacs support" "app-emacs/rust-mode"
-	optfeature "Vim support" "app-vim/rust-vim"
+	if has_version app-editors/emacs; then
+		optfeature "emacs support for rust" app-emacs/rust-mode
+	fi
+
+	if has_version app-editors/gvim || has_version app-editors/vim; then
+		optfeature "vim support for rust" app-vim/rust-vim
+	fi
 }
 
 pkg_postrm() {
