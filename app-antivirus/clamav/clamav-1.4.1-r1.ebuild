@@ -210,7 +210,7 @@ COMMON_DEPEND="
 # which is not supported on selinux #911589
 BDEPEND="
 	virtual/pkgconfig
-	>=virtual/rust-1.71
+	|| ( >=dev-lang/rust-1.71 >=dev-lang/rust-bin-1.71 )
 	doc? ( app-text/doxygen )
 	test? (
 		${PYTHON_DEPS}
