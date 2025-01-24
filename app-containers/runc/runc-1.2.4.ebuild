@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -15,7 +15,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
+KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv ~x86"
 IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
 
 # sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070
@@ -28,6 +28,7 @@ DEPEND="
 RDEPEND="
 	${DEPEND}
 	selinux? ( sec-policy/selinux-container )
+	!app-emulation/docker-runc
 "
 
 # dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
@@ -54,8 +55,8 @@ src_prepare() {
 
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
-	export CGO_CFLAGS="${CGO_CFLAGS:-} -I${ESYSROOT}/usr/include"
-	export CGO_LDFLAGS="${CGO_LDFLAGS:-} $(usex hardened '-fno-PIC ' '')
+	CGO_CFLAGS="${CGO_CFLAGS:-} -I${ESYSROOT}/usr/include"
+	CGO_LDFLAGS="${CGO_LDFLAGS:-} $(usex hardened '-fno-PIC ' '')
 		-L${ESYSROOT}/usr/$(get_libdir)"
 
 	# build up optional flags
