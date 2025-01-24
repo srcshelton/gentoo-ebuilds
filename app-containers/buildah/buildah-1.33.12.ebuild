@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -32,7 +32,7 @@ RDEPEND="
 	btrfs? ( sys-fs/btrfs-progs )
 	seccomp? ( sys-libs/libseccomp:= )
 	apparmor? ( sys-libs/libapparmor:= )
-	>=app-containers/containers-common-0.58.0-r1
+	app-containers/containers-common
 	app-crypt/gpgme:=
 	dev-libs/libgpg-error:=
 	dev-libs/libassuan:=
@@ -40,6 +40,10 @@ RDEPEND="
 "
 DEPEND="${RDEPEND}"
 BDEPEND="dev-go/go-md2man"
+
+PATCHES=(
+	"${T}"/dont-call-as-directly-upstream-pr-5436.patch
+)
 
 pkg_setup() {
 	local CONFIG_CHECK=""
@@ -62,6 +66,34 @@ pkg_setup() {
 }
 
 src_prepare() {
+	cat <<'EOF' > "${T}/dont-call-as-directly-upstream-pr-5436.patch"
+--- a/Makefile
++++ b/Makefile
+@@ -10,6 +10,8 @@
+ BASHINSTALLDIR = $(PREFIX)/share/bash-completion/completions
+ BUILDFLAGS := -tags "$(BUILDTAGS)"
+ BUILDAH := buildah
++AS ?= as
++STRIP ?= strip
+
+ GO := go
+ GO_LDFLAGS := $(shell if $(GO) version|grep -q gccgo; then echo "-gccgoflags"; else echo "-ldflags"; fi)
+@@ -72,11 +74,11 @@
+ bin/buildah: $(SOURCES) cmd/buildah/*.go internal/mkcw/embed/entrypoint.gz
+	$(GO_BUILD) $(BUILDAH_LDFLAGS) $(GO_GCFLAGS) "$(GOGCFLAGS)" -o $@ $(BUILDFLAGS) ./cmd/buildah
+
+-ifneq ($(shell as --version | grep x86_64),)
++ifneq ($(shell $(AS) --version | grep x86_64),)
+ internal/mkcw/embed/entrypoint: internal/mkcw/embed/entrypoint.s
+	$(AS) -o $(patsubst %.s,%.o,$^) $^
+	$(LD) -o $@ $(patsubst %.s,%.o,$^)
+-	strip $@
++	$(STRIP) $@
+ else
+ .PHONY: internal/mkcw/embed/entrypoint
+ endif
+EOF
+
 	default
 
 	# ensure all  necessary files are there
@@ -74,14 +106,15 @@ src_prepare() {
 		hack/libsubid_tag.sh \
 		hack/systemd_tag.sh
 	do
-		[[ -f "${file}" ]] || die "Required file '${file}' missing"
+		[[ -f "${file}" ]] ||
+			die "Required file '${file}' missing"
 	done
 
 	sed -i -e "s|/usr/local|${EPREFIX}/usr|g" Makefile docs/Makefile || die
-	printf '#! /bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
+	printf '#!/bin/sh\necho libsubid' > hack/libsubid_tag.sh || die
 
 	cat <<-EOF > hack/apparmor_tag.sh || die
-	#! /bin/sh
+	#!/bin/sh
 	$(usex apparmor 'echo apparmor' echo)
 	EOF
 
@@ -101,9 +134,9 @@ src_prepare() {
 	$(usex systemd 'echo systemd' echo)
 	EOF
 
-	printf '#! /bin/sh\necho' > btrfs_installed_tag.sh || die
+	printf "#!/bin/sh\n echo" > btrfs_installed_tag.sh || die
 	cat <<-EOF > btrfs_tag.sh || die
-	#! /bin/sh
+	#!/bin/sh
 	$(usex btrfs echo 'echo exclude_graphdriver_btrfs btrfs_noversion')
 	EOF
 
@@ -111,10 +144,10 @@ src_prepare() {
 		cat <<-'EOF' > "${T}/disable_tests.patch"
 		--- a/Makefile
 		+++ b/Makefile
-		@@ -56 +56 @@
-		-all: bin/buildah bin/imgtype bin/copy bin/inet bin/tutorial docs
+		@@ -54 +54 @@
+		-all: bin/buildah bin/imgtype bin/copy bin/tutorial docs
 		+all: bin/buildah docs
-		@@ -122 +122 @@
+		@@ -123 +123 @@
 		-docs: install.tools ## build the docs on the host
 		+docs: ## build the docs on the host
 		EOF
@@ -124,9 +157,6 @@ src_prepare() {
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
 	# Fix run path...
-	grep -Rl '/run/lock' . |
-		xargs -r -- sed -ri \
-			-e 's|/run/lock|/var/lock|g' || die
 	grep -Rl '[^r]/run/' . |
 		xargs -r -- sed -re 's|([^r])/run/|\1/var/run/|g' -i || die
 }
@@ -138,7 +168,6 @@ src_compile() {
 
 	tc-export AS LD STRIP
 	export GOMD2MAN="$(command -v go-md2man)"
-	export SELINUXOPT=
 	default
 }
 
@@ -147,7 +176,7 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${ED}" SELINUXOPT= install \
+	emake DESTDIR="${ED}" install \
 		$(usex bash-completion 'install.completions' '')
 	einstalldocs
 	use doc && dodoc -r "${EXTRA_DOCS[@]}"

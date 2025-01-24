@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -111,10 +111,10 @@ src_prepare() {
 		cat <<-'EOF' > "${T}/disable_tests.patch"
 		--- a/Makefile
 		+++ b/Makefile
-		@@ -56 +56 @@
-		-all: bin/buildah bin/imgtype bin/copy bin/inet bin/tutorial docs
+		@@ -54 +54 @@
+		-all: bin/buildah bin/imgtype bin/copy bin/tutorial docs
 		+all: bin/buildah docs
-		@@ -122 +122 @@
+		@@ -123 +123 @@
 		-docs: install.tools ## build the docs on the host
 		+docs: ## build the docs on the host
 		EOF
