@@ -95,7 +95,7 @@ LICENSE="BSD"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv"
 
-DEPEND="virtual/rust[rustfmt]"
+DEPEND="|| ( dev-lang/rust[rustfmt] dev-lang/rust-bin[rustfmt] )"
 RDEPEND="${DEPEND}
 	llvm-core/clang:="
 
