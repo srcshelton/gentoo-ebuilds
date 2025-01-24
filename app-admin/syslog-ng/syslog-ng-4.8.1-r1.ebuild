@@ -12,7 +12,7 @@ SRC_URI="https://github.com/syslog-ng/syslog-ng/releases/download/${P}/${P}.tar.
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 IUSE="amqp caps dbi geoip2 grpc http json kafka mongodb mqtt pacct python redis smtp snmp spoof-source systemd tcpd test"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
 	test? ( python )"
@@ -69,6 +69,7 @@ DOCS=(
 )
 PATCHES=(
 	"${FILESDIR}"/${PN}-3.28.1-net-snmp.patch
+	"${FILESDIR}"/${PN}-4.8.1-kmsg-invalid-argument.patch
 )
 
 pkg_setup() {
@@ -184,7 +185,7 @@ src_install() {
 	keepdir /etc/syslog-ng/patterndb.d /var/lib/syslog-ng
 	find "${D}" -name '*.la' -delete || die
 
-	use python && python_optimize
+	use python && python_optimize "${ED}/usr/$(get_libdir)/syslog-ng/python"
 }
 
 pkg_postinst() {
