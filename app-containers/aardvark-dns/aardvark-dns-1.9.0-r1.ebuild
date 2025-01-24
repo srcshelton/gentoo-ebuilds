@@ -24,7 +24,7 @@ QA_FLAGS_IGNORED="usr/libexec/podman/${PN}"
 QA_PRESTRIPPED="usr/libexec/podman/${PN}"
 ECARGO_VENDOR="${WORKDIR}/vendor"
 
-BDEPEND=">=virtual/rust-1.70.0"
+BDEPEND="|| ( >=dev-lang/rust-1.70.0 >=dev-lang/rust-bin-1.70.0 )"
 
 src_unpack() {
 	if [[ ${PV} == 9999* ]]; then
