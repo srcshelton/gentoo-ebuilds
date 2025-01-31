@@ -15,7 +15,7 @@
  
 +#run_mount_opts="mode=0755,nosuid,nodev,nr_inodes=800k,size=20%,strictatime"
 +run_mount_opts="mode=0755,nodev,noexec,nosuid,size=64M,strictatime"
-+lock_mount_opts="uid=root,gid=uucp,mode=1777,nodev,noexec,nosuid,size=1M,strictatime"
++lock_mount_opts="uid=root,gid=uucp,mode=1777,nodev,noexec,nosuid,size=4M,strictatime"
 +
  if [ ! -d /run ]; then
  	if [ "$sys" = VSERVER ]; then
