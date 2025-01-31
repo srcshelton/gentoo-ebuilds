@@ -383,7 +383,7 @@ pkg_config() {
 		else
 			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' ''); do
 				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
-					-exec rm -v {} +
+						-exec rm -v {} +
 				pkg_postinst_fix_so \
 						"${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
 						"${file}" \
@@ -392,11 +392,20 @@ pkg_config() {
 					die "Couldn't link library '${file}.so'*"
 			done
 			for file in libatomic; do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
-					-exec rm -v {} +
-				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -type f -name "${file}.so*" -print0 |
-					xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
-				gen_usr_ldscript --live -a "${file#lib}"
+				# Is libatomic built on all platforms?
+				if $(( $( # <- Syntax
+						find "${EROOT}/usr/lib/gcc/${CHOST/}$(ver_cut 1)" -name "${file}.so*" -type f \
+								-print |
+							wc -l
+					) ))
+				then
+					find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
+							-exec rm -v {} +
+					find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -type f \
+							-print0 |
+						xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
+					gen_usr_ldscript --live -a "${file#lib}"
+				fi
 			done
 
 		fi
