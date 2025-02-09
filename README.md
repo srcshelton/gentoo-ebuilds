@@ -295,6 +295,8 @@ used to build perl)
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
 * dev-embedded/picotool
     * Follow upstream releases more closely
+* dev-embedded/rkdeveloptool
+    * Patched, opensource version of Rockchip upgrade\_tool
 * dev-embedded/rpi-eeprom
     * Follow raspbian releases more closely
 * ~~dev-perl/B-Lint~~
