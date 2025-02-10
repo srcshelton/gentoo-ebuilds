@@ -33,7 +33,7 @@ RDEPEND="${DEPEND}"
 S="${WORKDIR}/bpftune-${EGIT_COMMIT}"
 
 FILECAPS=(
-	'cap_pbf,cap_tracing+ep' usr/sbin/bpftune
+	'cap_bpf,cap_perfmon+ep' usr/sbin/bpftune
 )
 
 pkg_setup() {
@@ -73,6 +73,6 @@ pkg_postinst() {
 		fcaps_pkg_postinst
 	else
 		elog "Please set CAP_BPF and CAP_TRACING on the bpftune binary"
-		elog "  e.g. setcap cap_pbf,cap_tracing=+ep /usr/sbin/bpftune"
+		elog "  e.g. setcap cap_bpf,cap_perfmon=+ep /usr/sbin/bpftune"
 	fi
 }
