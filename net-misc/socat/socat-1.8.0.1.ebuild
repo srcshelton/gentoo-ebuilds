@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -13,7 +13,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
+KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos"
 IUSE="doc ipv6 readline ssl tcpd tools"
 
 DEPEND="
@@ -49,19 +49,21 @@ src_test() {
 }
 
 src_install() {
-	if use elibc_musl; then
-		QA_CONFIG_IMPL_DECL_SKIP=( getprotobynumber_r )
-	fi
-
 	default
+
+	if use doc; then
+		docinto html
+		dodoc doc/*.html doc/*.css
+	fi
 
 	fowners :socat /usr/bin/socat
 	fperms 0750 /usr/bin/socat
 
 	use tools || rm "${ED}/usr/bin/filan" "${ED}/usr/bin/procan"
 
-	if use doc; then
-		docinto html
-		dodoc doc/*.html doc/*.css
+	if use elibc_musl; then
+		QA_CONFIG_IMPL_DECL_SKIP=( getprotobynumber_r )
 	fi
 }
+
+# vi: set diffopt=filler,iwhite:
