@@ -619,6 +619,8 @@ used to build perl)
     * Filter breaking CFLAGS
 * sys-apps/sysvinit
     * Don't force `initctl` into a (auto-created) `/run` directory if not on FreeBSD
+* sys-apps/tuned
+    * Add version 2.25.0
 * ~~sys-apps/usbutils~~
     * ~~Revert changes which make usbutils dependent on udev~~
 * sys-apps/util-linux
