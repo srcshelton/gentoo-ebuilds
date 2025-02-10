@@ -44,11 +44,15 @@ src_prepare() {
 	sed \
 			-i "${MY_P}/rpi-eeprom-update" \
 			-e 's:/etc/default/rpi-eeprom-update:/etc/conf.d/rpi-eeprom-update:' ||
-		die "Failed sed on rpi-eeprom-update"
+		die "sed failed on 'rpi-eeprom-update'"
 	sed \
 			-i "debian/rpi-eeprom.rpi-eeprom-update.service" \
 			-e 's:/usr/bin/rpi-eeprom-update:/usr/sbin/rpi-eeprom-update:' ||
-		die "Failed sed on rpi-eeprom.rpi-eeprom-update.service"
+		die "sed failed on 'rpi-eeprom.rpi-eeprom-update.service'"
+	sed \
+			-i "${MY_P}/rpi-eeprom-update-default" \
+			-e '/FIRMWARE_ROOT/s:/usr/lib/firmware/:/lib/firmware/:' ||
+		die "sed failed on 'rpi-eeprom-update-default'"
 }
 
 src_install() {
@@ -102,7 +106,7 @@ src_install() {
 
 	help2man -N \
 		--version-string="${PV}" --help-option="-h" \
-		--name="Bootloader EEPROM configuration tool for the Raspberry Pi 4B" \
+		--name="Bootloader EEPROM configuration tool for the Raspberry Pi 4B+" \
 		--output=rpi-eeprom-config.1 ./rpi-eeprom-config || die "Failed to create manpage for rpi-eeprom-config"
 
 	help2man -N \
