@@ -2298,6 +2298,8 @@ gcc_do_make() {
 
 	local emakeargs=(
 		LDFLAGS="${LDFLAGS}"
+		# TODO: Can we replace this with --enable-version-specific-runtime-libs
+		# these days?
 		LIBPATH="${LIBPATH}"
 	)
 
@@ -2781,7 +2783,9 @@ gcc_movelibs() {
 	# code to run on the target.
 	if is_crosscompile ; then
 		dodir "${HOSTLIBPATH#${EPREFIX}}"
-		mv "${ED}"/usr/$(get_libdir)/libcc1* "${D}${HOSTLIBPATH}" || die
+		# XXX: Ideally, we'd use $(get_libdir) here, but it's
+		# not right for cross. See bug #942573 and bug #794181.
+		mv "${ED}"/usr/lib*/libcc1* "${D}${HOSTLIBPATH}" || die
 	fi
 
 	# libgccjit gets installed to /usr/lib, not /usr/$(get_libdir). Probably
