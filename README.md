@@ -488,6 +488,8 @@ used to build perl)
     * Handle existing mountpoints and correct init scripts
 * dev-libs/libusb
     * Remove relocation of libusb-1.0.so from /usr to / due to external dependencies
+* dev-libs/nss
+    * 'shlibsign' must be executed with the build-time (rather than host) libraries
 * dev-libs/simdjson
     * Fix upstream typo, add portage-level control of CPU features
 * ~~dev-libs/yajl~~
