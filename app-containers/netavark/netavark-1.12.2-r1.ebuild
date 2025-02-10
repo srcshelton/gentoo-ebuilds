@@ -25,7 +25,7 @@ SLOT="0"
 IUSE="+dns systemd"
 
 BDEPEND="dev-go/go-md2man
-	dev-libs/protobuf[protoc]
+	dev-libs/protobuf[protoc(+)]
 	|| ( >=dev-lang/rust-1.70.0 >=dev-lang/rust-bin-1.70.0 )"
 RDEPEND="dns? ( app-containers/aardvark-dns )"
 
