@@ -394,8 +394,12 @@ used to build perl)
     * Retain tree-cleaned upstream package
 * sys-fs/composefs
     * 'compose' filesystem tool for containers
+* sys-kernel/mixtile-sources
+    * Mixtile-flavoured Rockchip kernel source
 * sys-kernel/raspberrypi-headers
     * Kernel headers from Raspberry Pi sources
+* sys-kernel/rockchip-headers
+    * Kernel headers from Rockchip sources
 * sys-power/clr-power
     * Intel Clear Linux power optimisation tool
 * sys-process/stalld
