@@ -1,0 +1,39 @@
+diff --git a/README b/README
+index a07c2fe..bb1a9e4 100644
+--- a/README
++++ b/README
+@@ -17,7 +17,7 @@ Look at autossh.host for an example wrapper script.
+ 
+ Usage
+ -----
+-	autossh [-M <port>[:echo_port]] [-f] [SSH OPTIONS]
++	autossh [-V] [-f] -M <monitor_port[:echo_port]> [SSH OPTIONS]
+ 
+ Description
+ -----------
+@@ -40,9 +40,9 @@ situations where using an echo service may not be possible.
+ 
+ autossh has only three arguments of its own:
+ 
+- -M <port>[:echo_port], to specify the base monitoring port to use, or
+-	alternatively, to specify the monitoring port and echo service
+-	port to use. 
++ -M <monitor_port[:echo_port]>, to specify the base monitoring port
++	to use or alternatively, to specify the monitoring port and echo
++	service port to use.
+ 
+ 	When no echo service port is specified, this port and the port 
+ 	immediately above it (port# + 1) should be something nothing 
+diff --git a/autossh.c b/autossh.c
+index e2e3b84..faceaf7 100644
+--- a/autossh.c
++++ b/autossh.c
+@@ -188,7 +188,7 @@ void
+ usage(int code)
+ {
+ 	fprintf(code ? stderr : stdout,
+-	    "usage: %s [-V] [-M monitor_port[:echo_port]] [-f] [SSH_OPTIONS]\n", 
++	    "usage: %s [-V] [-f] -M <monitor_port[:echo_port]> [SSH_OPTIONS]\n", 
+ 	    __progname);
+ 	if (code) {
+ 		fprintf(stderr, "\n");

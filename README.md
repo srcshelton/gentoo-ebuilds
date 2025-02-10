@@ -568,6 +568,8 @@ used to build perl)
     * ~~Patch trivial typo which prevents `writev` from being defined~~
 * net-misc/aria2
     * Prevent dev-libs/jemalloc 'lazy-lock' option from causing aria2 to segfault
+* net-misc/autossh
+    * Add upstream patch to clarify command-line arguments
 * net-misc/dhcp
     * Enhance chroot support in init script
 * net-misc/socat
