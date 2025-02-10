@@ -20,7 +20,7 @@ S="${WORKDIR}/${PARCH}"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 # Probably want to drop ssl defaulting to on in a future version.
 IUSE="abi_mips_n32 audit debug kerberos ldns legacy-ciphers libedit livecd pam +pie security-key selinux +ssl static systemd test xmss"
 
@@ -79,9 +79,10 @@ PATCHES=(
 	"${FILESDIR}/${PN}-9.4_p1-Allow-MAP_NORESERVE-in-sandbox-seccomp-filter-maps.patch"
 	"${FILESDIR}/${PN}-9.6_p1-fix-xmss-c99.patch"
 	"${FILESDIR}/${PN}-9.7_p1-config-tweaks.patch"
-	"${FILESDIR}/${PN}-9.8_p1-musl-connect.patch"
-	"${FILESDIR}/${PN}-9.8_p1-inetd.patch"
-	"${FILESDIR}/${PN}-9.0-restore-scp-as-default.patch"
+	# Backports from upstream release branch
+	"${FILESDIR}/${PV}"
+	# Our own backports
+	"${FILESDIR}/${P}-x-forwarding-slow.patch"
 )
 
 pkg_pretend() {
