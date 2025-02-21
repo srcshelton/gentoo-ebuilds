@@ -5,7 +5,7 @@ EAPI=7
 
 inherit acct-user
 
-DESCRIPTION="User for net-analyzer/netdata"
+DESCRIPTION="user for net-analyzer/netdata"
 IUSE="podman ssl"
 
 ACCT_USER_ID=290
