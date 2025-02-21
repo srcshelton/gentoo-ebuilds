@@ -5,7 +5,16 @@ EAPI=8
 
 inherit acct-group
 
-DESCRIPTION="Group for mail-mta/ssmtp"
+DESCRIPTION="group for mail-mta/ssmtp"
+IUSE="-compat"
 
 ACCT_GROUP_ID=125  # Pre-standardisation
 #ACCT_GROUP_ID="299"  # Official GID
+
+pkg_setup() {
+	if use compat; then
+		ACCT_USER_ID=125
+	else
+		ACCT_USER_ID=299
+	fi
+}
