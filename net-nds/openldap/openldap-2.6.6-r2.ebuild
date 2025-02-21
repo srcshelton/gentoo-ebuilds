@@ -524,7 +524,10 @@ multilib_src_configure() {
 			myconf+=( --with-tls="openssl" )
 		fi
 	else
-		myconf+=( --with-tls="no" )
+		myconf+=(
+			--with-tls="no"
+			--disable-otp
+		)
 	fi
 
 	tc-export AR CC CXX
@@ -806,6 +809,13 @@ multilib_src_install() {
 
 		dosbin "${S}"/contrib/slapd-tools/statslog
 		newdoc "${S}"/contrib/slapd-tools/README README.statslog
+	fi
+
+	if [[ -d "${ED}"/var/run ]]; then
+		rmdir --ignore-fail-on-non-empty --parents "${ED}"/var/run 2>/dev/null || die
+		if [[ -d "${ED}"/var/run ]]; then
+			die "Cannot remove contents of '/var/run'"
+		fi
 	fi
 
 	if ! use static-libs ; then
