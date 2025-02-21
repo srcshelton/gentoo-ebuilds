@@ -128,6 +128,10 @@ src_configure() {
 	# for now: https://marc.info/?l=pgsql-bugs&m=173185132906874&w=2
 	append-cflags -std=gnu17
 
+	filter-flags -ffast-math
+	replace-flags -Ofast -O3
+	append-flags -fno-fast-math
+
 	case ${CHOST} in
 		*-darwin*|*-solaris*)
 			use nls && append-libs intl
