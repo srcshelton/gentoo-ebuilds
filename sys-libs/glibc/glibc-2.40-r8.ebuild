@@ -15,6 +15,9 @@ EMULTILIB_PKG="true"
 PATCH_VER=8
 PATCH_DEV=dilfridge
 
+# Clear Linux patchset
+CLEAR_PATCH_VER="697"
+
 # gcc mulitilib bootstrap files version
 GCC_BOOTSTRAP_VER=20201208
 
@@ -47,7 +50,8 @@ fi
 
 SRC_URI="${SRC_URI}
 	multilib-bootstrap? ( https://dev.gentoo.org/~dilfridge/distfiles/gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz )
-	systemd? ( https://gitweb.gentoo.org/proj/toolchain/glibc-systemd.git/snapshot/glibc-systemd-${GLIBC_SYSTEMD_VER}.tar.gz )"
+	systemd? ( https://gitweb.gentoo.org/proj/toolchain/glibc-systemd.git/snapshot/glibc-systemd-${GLIBC_SYSTEMD_VER}.tar.gz )
+	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${PV}-${CLEAR_PATCH_VER}.tar.gz -> ${P}-${CLEAR_PATCH_VER}.tar.gz"
 
 LICENSE="LGPL-2.1+ BSD HPND ISC inner-net rc PCRE"
 SLOT="2.2"
@@ -953,6 +957,7 @@ src_unpack() {
 
 		cd "${WORKDIR}" || die
 		unpack glibc-${PV}-patches-${PATCH_VER}.tar.xz
+		unpack glibc-${PV}-${CLEAR_PATCH_VER}.tar.gz
 	fi
 
 	cd "${WORKDIR}" || die
@@ -962,7 +967,8 @@ src_unpack() {
 # src_prepare
 
 src_prepare() {
-	local patchsetname
+	local f='' d='' line=''
+	local patchsetname=''
 
 	setup_env
 
@@ -977,7 +983,49 @@ src_prepare() {
 		fi
 		einfo "Applying Gentoo Glibc patchset ${patchsetname}"
 		eapply "${WORKDIR}"/patches
-		einfo "Done."
+		einfo "Gentoo Glibc patchset ${patchsetname} done"
+
+		# Apply additional Clear Linux patches, if present...
+		# (%patch1 brings gcc from 2.40 release to the latest patch release)
+		d="${WORKDIR}/${P}-${CLEAR_PATCH_VER}"
+		if [[ -d "${d}" ]]; then
+			einfo "Applying Clear Linux patches from '${d#"${WORKDIR%/}/"}' ..."
+			grep '^%patch' "${d}/${PN}.spec" |
+				awk '{print $1}' |
+				grep -Ev '^%patch(1|8|9|26|28)$' |
+				while read -r f; do
+					grep -i "^${f#"%"}\s*:" "${d}/${PN}.spec"
+				done |
+				cut -d':' -f 2- |
+				awk '{print $1}' |
+				while read -r f; do
+					if grep -q \
+							-e '-march' -e '-mcpu' -e '-mtune' \
+							-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
+						"${d}/${f}"
+					then
+						ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
+							"patch '${f}' forces Intel architecture"
+						grep -C 3 \
+									-e '-march' -e '-mcpu' -e '-mtune' \
+									-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
+								"${d}/${f}" |
+							while read -r line; do
+								ewarn "${line}"
+							done
+						ewarn
+					fi
+					if patch -R -p1 -s -f --dry-run < "${d}/${f}" >/dev/null 2>&1
+					then
+						einfo "Patch '${f}' previous applied, skipping"
+					else
+						nonfatal eapply "${d}/${f}" ||
+							ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
+								"patch '${f}' failed to apply: ${?}"
+					fi
+				done
+		fi
+		unset line f d
 	fi
 
 	default
@@ -1413,6 +1461,13 @@ run_locale_gen() {
 		return 0
 	fi
 
+	#if use compile-locales; then
+	#	einfo "'use compile-locales' is set so I expect to be running from [glibc_do_]src_install() ..."
+	#else
+	#	einfo "'use compile-locales' is not set so I expect to be running from pkg_postinst() ..."
+	#fi
+	#einfo "... we are actually running from '${EBUILD_PHASE:-}' (${EBUILD_PHASE_FUNC:-})"
+
 	if [[ "${root}" == "--inplace-glibc" ]] ; then
 		inplace="--inplace-glibc"
 		root="$2"
@@ -1420,10 +1475,48 @@ run_locale_gen() {
 
 	# Use $EROOT /etc/locale.gen rather than the one from 'root' (which will
 	# always be a default)...
+	#
 	#local locale_list="${root%/}/etc/locale.gen"
 	local locale_list="${EROOT%/}/etc/locale.gen"
 
-	pushd "${ED}"/$(get_libdir) >/dev/null || return 1
+	# What appears to be happening is that sys-apps/locale-gen installs the
+	# locale-gen script to /usr/sbin/ but, when this function comes to be
+	# executed, PATH consists of python/ebuild-specific actually elements then
+	# ends with '/usr/local/sbin:/usr/local/bin:/usr/bin:/sbin:/bin:/opt/bin'
+	# so '/usr/sbin' somehow seems to be missing?!
+	#
+	#if ! type -pf locale-gen >/dev/null 2>&1; then
+	#	eerror "Cannot locate 'locale-gen' in PATH '${PATH:-}'"
+	#	has_version -b sys-apps/locale_gen
+	#	eerror "  has_depend -b sys-apps/locale-gen: ${?}"
+	#	has_version -d sys-apps/locale_gen
+	#	eerror "  has_depend -d sys-apps/locale-gen: ${?}"
+	#	has_version -r sys-apps/locale_gen
+	#	eerror "  has_depend -r sys-apps/locale-gen: ${?}"
+	#	local d=''
+	#	for root in ${ROOT:-} /; do
+	#		for d in $( # <- Syntax
+	#				find "${root%/}/var/db/pkg/sys-apps" \
+	#					-mindepth 1 \
+	#					-maxdepth 1 \
+	#					-name 'locale-gen-*' \
+	#					-type d
+	#			)
+	#		do
+	#			echo
+	#			echo "${d%/}/CONTENTS:" | sed 's/^/    /'
+	#			sed 's/^/    /' "${d%/}/CONTENTS"
+	#		done
+	#	done
+	#	return 1
+	#fi
+
+	if ! pushd "${ED%/}"/$(get_libdir) >/dev/null; then
+		eerror "Cannot chdir() to '${ED%/}/$(get_libdir)': ${?}"
+		return 1
+	fi
+
+	local PATH="${PATH%:}:/usr/sbin"
 
 	if [[ -z $(locale-gen --list --config "${locale_list}") ]] ; then
 		#[[ -z ${inplace} ]] && ewarn "Generating all locales; edit /etc/locale.gen to save time/space"
@@ -1435,8 +1528,8 @@ run_locale_gen() {
 
 	# bug 736794: we need to be careful with the parallelization... the
 	# number of processors saved in the environment of a binary package may
-	# strongly differ from the number of processes available during
-	# postinst
+	# strongly differ from the number of processes available during postinst
+	#
 	local mygenjobs="$(makeopts_jobs)"
 	if [[ "${EMERGE_FROM}" == "binary" ]] ; then
 		mygenjobs="$(nproc)"
