@@ -5,7 +5,8 @@ EAPI=7
 
 inherit acct-user
 
-DESCRIPTION="user for tcpdump"
+DESCRIPTION="user for net-analyzer/tcpdump"
+
 ACCT_USER_ID=473
 ACCT_USER_GROUPS=( tcpdump )
 
