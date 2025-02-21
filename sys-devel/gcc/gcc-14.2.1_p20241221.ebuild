@@ -7,7 +7,7 @@ TOOLCHAIN_PATCH_DEV="sam"
 TOOLCHAIN_HAS_TESTS=1
 PATCH_GCC_VER="14.2.0"
 PATCH_VER="7"
-CLEAR_PATCH_VER="1920"
+CLEAR_PATCH_VER="1937"
 MUSL_VER="1"
 MUSL_GCC_VER="14.1.0"
 PYTHON_COMPAT=( python3_{10..12} )
@@ -34,7 +34,7 @@ elif [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
 fi
 
 SRC_URI="${SRC_URI}
-	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz"
+	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz -> ${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz"
 
 IUSE="-lib-only"
 
@@ -69,7 +69,7 @@ pkg_pretend() {
 }
 
 src_prepare() {
-	local f='' d=''
+	local f='' d='' line=''
 	local -a upstreamed_patches=(
 		# add them here
 	)
@@ -84,21 +84,46 @@ src_prepare() {
 
 	# Apply additional Clear Linux patches, if present...
 	# (%patch0 brings gcc from ${SLOT}.1.0 to the actual release)
-	if [[ -d "${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}" ]]; then
-		d="${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}"
+	d="${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}"
+	if [[ -d "${d}" ]]; then
+		einfo "Applying Clear Linux patches from '${d#"${WORKDIR%/}/"}' ..."
 		grep '^%patch' "${d}/${PN}.spec" |
 			awk '{print $1}' |
-			grep -v '^%patch0' |
+			grep -v '^%patch0$' |
 			while read -r f; do
 				grep -i "^${f#"%"}\s*:" "${d}/${PN}.spec"
 			done |
-			awk '{print $3}' |
+			cut -d':' -f 2- |
+			awk '{print $1}' |
 			while read -r f; do
-				nonfatal eapply "${d}/${f}" ||
-					ewarn "Clear Linux ${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}" \
-						"patch '${f}' failed to apply: ${?}"
+				[[ "${f}" == 'spr-default-tuning.patch' ]] && continue
+				if grep -q \
+						-e '-march' -e '-mcpu' -e '-mtune' \
+						-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
+					"${d}/${f}"
+				then
+					ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
+						"patch '${f}' forces Intel architecture"
+					grep -C 3 \
+								-e '-march' -e '-mcpu' -e '-mtune' \
+								-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
+							"${d}/${f}" |
+						while read -r line; do
+							ewarn "${line}"
+						done
+					ewarn
+				fi
+				if patch -R -p1 -s -f --dry-run < "${d}/${f}" >/dev/null 2>&1
+				then
+					einfo "Patch '${f}' previous applied, skipping"
+				else
+					nonfatal eapply "${d}/${f}" ||
+						ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
+							"patch '${f}' failed to apply: ${?}"
+				fi
 			done
 	fi
+	unset line f d
 
 	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]
 	then
