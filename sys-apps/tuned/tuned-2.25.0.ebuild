@@ -15,10 +15,8 @@ LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64"
 
-IUSE="bash-completion +dbus gtk ppd +tmpfiles +server systemd-boot"
-REQUIRED_USE="${PYTHON_REQUIRED_USE}
-	server? ( dbus )
-	"
+IUSE="bash-completion +dbus gtk ppd +tmpfiles +server +systemtap systemd-boot"
+REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
 DEPEND="
 	${PYTHON_DEPS}
@@ -47,11 +45,10 @@ RDEPEND="
 	ppd? ( !sys-power/power-profiles-daemon )
 	server? (
 		app-emulation/virt-what
-		dev-debug/systemtap
+		systemtap? ( dev-debug/systemtap )
 		sys-apps/ethtool
 		sys-power/powertop
-	)
-	"
+	)"
 
 RESTRICT="test"
 
@@ -94,10 +91,10 @@ src_prepare() {
 	sed -i \
 		-e '/PID_FILE/s:/run/tuned:/var/run/tuned:' \
 			tests/beakerlib/bz1798183-RFE-support-post-loaded-profile/runtest.sh || die
-	sed -i \
+	sed \
 		-e '/sysctl/s:/run/sysctl\.d:/lib/sysctl\.d:' \
 		-e '/sock/s:/run/tuned:/var/run/tuned:' \
-			tuned-main.conf || die
+			tuned-main.conf > "${T}"/tuned-main.conf || die
 	sed -i \
 		-e 's:/run/tuned:/var/run/tuned:' \
 			tuned.service tuned.spec tuned.tmpfiles || die
@@ -123,9 +120,20 @@ src_install() {
 			"${ED%/}/usr/share/doc/${P}/TODO" ||
 		die
 
+	insinto /etc/tuned/
 	if ! use dbus; then
 		rm -r "${ED%/}/usr/share/polkit-1" "${ED%/}/usr/share/dbus-1" || die
+		awk --assign i=0 \
+			'/^# enable_dbus = 1$/ && !i {print "enable_dbus = 0"; i=1} 1' \
+			"${T}"/tuned-main.conf |
+		awk --assign i=0 \
+			'/^# enable_unix_socket = 0$/ && !i {print "enable_unix_socket = 1"; i=1} 1' |
+		newins - tuned-main.conf
+	else
+		doins "${T}"/tuned-main.conf
 	fi
+	[[ -s "${ED%/}"/etc/tuned/tuned-main.conf ]] ||
+		die "Failed to create /etc/tuned/tuned-main.conf"
 
 	if use ppd; then
 		emake DESTDIR="${D}" install-ppd
