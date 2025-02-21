@@ -158,8 +158,14 @@ BDEPEND="
 	go? (
 		app-arch/unzip
 		>=dev-lang/go-1.22
-		arm? ( sys-devel/binutils[gold] )
-		arm64? ( sys-devel/binutils[gold] )
+		arm? ( || (
+			>=sys-devel/binutils-2.41
+			sys-devel/binutils[gold]
+		) )
+		arm64? ( || (
+			>=sys-devel/binutils-2.41
+			sys-devel/binutils[gold]
+		) )
 	)"
 
 PATCHES=(
