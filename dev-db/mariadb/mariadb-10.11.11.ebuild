@@ -3,7 +3,6 @@
 
 EAPI=8
 SUBSLOT="18"
-PATCHES="mariadb-10.11.10"
 
 JAVA_PKG_OPT_USE="jdbc"
 
@@ -13,7 +12,7 @@ DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PATCHES}-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.11.10-patches-01.tar.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -22,7 +21,7 @@ S="${WORKDIR}/mysql"
 LICENSE="GPL-2 LGPL-2.1+"
 SLOT="$(ver_cut 1-2)/${SUBSLOT:-0}"
 KEYWORDS="~amd64 ~arm ~arm64 ~loong ~ppc ~ppc64 ~riscv ~x86"
-IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
+IUSE="+backup bindist columnstore cracklib debug extraengine galera -hashicorp innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
 
 RESTRICT="!bindist? ( bindist ) !test? ( test )"
 
@@ -220,10 +219,32 @@ src_prepare() {
 	eapply_user
 
 	_disable_plugin() {
-		echo > "${S}/plugin/${1}/CMakeLists.txt" || die
+		local plugin="${1}"
+
+		if [[ -d "${S}/plugin/${plugin}" && -s "${S}/plugin/${plugin}/CMakeLists.txt" ]]; then
+			echo > "${S}/plugin/${plugin}/CMakeLists.txt" || die
+		else
+			eerror "plugin '${plugin}' does not exist in '${S}/plugin'"
+			ewarn "Available plugins:"
+			ls -1d "${S}/plugin/*/" | while read -r plugin; do
+				ewarn "  ${plugin%/}"
+			done
+			die "plugin '${plugin}' does not exist in '${S}/plugin'"
+		fi
 	}
 	_disable_engine() {
-		echo > "${S}/storage/${1}/CMakeLists.txt" || die
+		local engine="${1}"
+
+		if [[ -d "${S}/storage/${engine}" && -s "${S}/storage/${engine}/CMakeLists.txt" ]]; then
+			echo > "${S}/storage/${engine}/CMakeLists.txt" || die
+		else
+			eerror "engine '${engine}' does not exist in '${S}/storage'"
+			ewarn "Available engines:"
+			ls -1d "${S}/storage/*/" | while read -r engine; do
+				ewarn "  ${engine%/}"
+			done
+			die "engine '${engine}' does not exist in '${S}/storage'"
+		fi
 	}
 
 	if use jemalloc; then
@@ -232,11 +253,21 @@ src_prepare() {
 		echo "TARGET_LINK_LIBRARIES(mariadbd LINK_PUBLIC tcmalloc)" >> "${S}/sql/CMakeLists.txt"
 	fi
 
-	local plugin
-	local server_plugins=( handler_socket auth_socket feedback metadata_lock_info
+	local plugin=''
+	local -a disable_plugins=() server_plugins=() test_plugins=()
+	if ! use hashicorp; then
+		disable_plugins=(
+			# Requires libcurl
+			hashicorp_key_management
+		)
+	fi
+	server_plugins=( handler_socket auth_socket feedback metadata_lock_info
 				locale_info qc_info server_audit sql_errlog auth_ed25519 )
-	local test_plugins=( audit_null auth_examples daemon_example fulltext
+	test_plugins=( audit_null auth_examples daemon_example fulltext
 				debug_key_management example_key_management versioning )
+	for plugin in "${disable_plugins[@]}" ; do
+		_disable_plugin "${plugin}"
+	done
 	if ! use server; then # These plugins are for the server
 		for plugin in "${server_plugins[@]}" ; do
 			_disable_plugin "${plugin}"

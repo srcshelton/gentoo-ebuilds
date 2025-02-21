@@ -3,7 +3,6 @@
 
 EAPI=8
 SUBSLOT="18"
-PATCHES="mariadb-10.6.20"
 
 JAVA_PKG_OPT_USE="jdbc"
 
@@ -13,7 +12,7 @@ DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PATCHES}-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6.20-patches-01.tar.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
