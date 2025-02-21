@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -17,12 +17,12 @@ else
 	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
 	[[ ${PV} != *rc* ]] &&
-		KEYWORDS="~amd64 ~arm64 ~riscv"
+		KEYWORDS="~amd64 ~arm64 ~loong ~riscv"
 fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs experimental fish-completion +fuse +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fuse +rootless +seccomp selinux systemd +tmpfiles wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
@@ -43,17 +43,18 @@ COMMON_DEPEND="
 "
 BDEPEND="
 	${PYTHON_DEPS}
+	>=dev-lang/go-1.22:=
 	dev-go/go-md2man
 	dev-vcs/git
 	sys-apps/findutils
 	sys-apps/grep
 	sys-apps/sed
-	virtual/os-headers:50200
 	systemd? ( sys-apps/systemd )
 "
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="${COMMON_DEPEND}
 	app-containers/catatonit
+	composefs? ( sys-fs/composefs[fuse] )
 	fuse? ( sys-fs/fuse-overlayfs )
 	selinux? ( sec-policy/selinux-podman )
 	systemd? ( sys-apps/systemd:= )
@@ -65,50 +66,85 @@ PATCHES=(
 )
 
 pkg_setup() {
-	# Inherited from docker-20.10.22 ...
+	# Inherited from app-containers/docker-27.0.3...
+	#
+	# This is based on "contrib/check-config.sh" from upstream's sources
+	# required features
+	#
+	# N.B. The docker ebuild specifies checks over multiple blocks :(
 	local CONFIG_CHECK="
 		~NAMESPACES ~NET_NS ~PID_NS ~IPC_NS ~UTS_NS
 		~CGROUPS ~CGROUP_CPUACCT ~CGROUP_DEVICE ~CGROUP_FREEZER ~CGROUP_SCHED ~CPUSETS ~MEMCG
-		~CGROUP_NET_PRIO
 		~KEYS
 		~VETH ~BRIDGE ~BRIDGE_NETFILTER
-		~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE ~NETFILTER_XT_MARK
-		~NETFILTER_NETLINK ~NETFILTER_XT_MATCH_ADDRTYPE ~NETFILTER_XT_MATCH_CONNTRACK ~NETFILTER_XT_MATCH_IPVS
+		~IP_NF_FILTER ~IP_NF_TARGET_MASQUERADE
+		~NETFILTER_XT_MATCH_ADDRTYPE
+		~NETFILTER_XT_MATCH_CONNTRACK
+		~NETFILTER_XT_MATCH_IPVS
+		~NETFILTER_XT_MARK
 		~IP_NF_NAT ~NF_NAT
 		~POSIX_MQUEUE
 
 		~USER_NS
-		~SECCOMP
 		~CGROUP_PIDS
+
+		~!LEGACY_VSYSCALL_NATIVE
+		~!LEGACY_VSYSCALL_NONE
 
 		~BLK_CGROUP ~BLK_DEV_THROTTLING
 		~CGROUP_PERF
 		~CGROUP_HUGETLB
-		~NET_CLS_CGROUP
+		~NET_CLS_CGROUP ~CGROUP_NET_PRIO
 		~CFS_BANDWIDTH ~FAIR_GROUP_SCHED
-		~IP_VS ~IP_VS_PROTO_TCP ~IP_VS_PROTO_UDP ~IP_VS_NFCT ~IP_VS_RR
+		~IP_NF_TARGET_REDIRECT
+		~IP_VS
+		~IP_VS_NFCT
+		~IP_VS_PROTO_TCP
+		~IP_VS_PROTO_UDP
+		~IP_VS_RR
 
-		~VXLAN
-		~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH ~XFRM_ALGO ~XFRM_USER
+		~OVERLAY_FS ~!OVERLAY_FS_REDIRECT_DIR
+		~EXT4_FS ~EXT4_FS_SECURITY ~EXT4_FS_POSIX_ACL
+
+		~VXLAN ~BRIDGE_VLAN_FILTERING
+		~CRYPTO ~CRYPTO_AEAD ~CRYPTO_GCM ~CRYPTO_SEQIV ~CRYPTO_GHASH
+		~XFRM ~XFRM_ALGO ~XFRM_USER ~INET_ESP
+
 		~IPVLAN
 		~MACVLAN ~DUMMY
 
-		~VIRTIO_FS
+		~NF_NAT_FTP ~NF_CONNTRACK_FTP ~NF_NAT_TFTP ~NF_CONNTRACK_TFTP
+
+		~OVERLAY_FS
+	"
+	# Additional checks, not performed by app-containers/docker...
+	CONFIG_CHECK+="
+		~NETFILTER_NETLINK
 	"
 
 	local ERROR_KEYS="CONFIG_KEYS: is mandatory"
-	local ERROR_VIRTIO_FS="CONFIG_VIRTIO_FS: is mandatory"
 
-	local ERROR_BLK_CGROUP="CONFIG_BLK_CGROUP: is optional for container statistics gathering"
-	local ERROR_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gathering"
-	local ERROR_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
-	local ERROR_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
-	local ERROR_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
+	local WARNING_LEGACY_VSYSCALL_NONE="CONFIG_LEGACY_VSYSCALL_NONE enabled: Containers with <=glibc-2.13 will not work"
+	local WARNING_BLK_CGROUP="CONFIG_BLK_CGROUP: is optional for container statistics gathering"
+	local WARNING_CFS_BANDWIDTH="CONFIG_CFS_BANDWIDTH: is optional for container statistics gathering"
+	local WARNING_CGROUP_PERF="CONFIG_CGROUP_PERF: is optional for container statistics gathering"
+	local WARNING_IOSCHED_CFQ="CONFIG_IOSCHED_CFQ: is optional for container statistics gathering"
+	local WARNING_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
+	local WARNING_POSIX_MQUEUE="CONFIG_POSIX_MQUEUE: is required for bind-mounting /dev/mqueue into containers"
+	local WARNING_RESOURCE_COUNTERS="CONFIG_RESOURCE_COUNTERS: is optional for container statistics gathering"
+	local WARNING_XFRM_ALGO="CONFIG_XFRM_ALGO: is optional for secure networks"
+	local WARNING_XFRM_USER="CONFIG_XFRM_USER: is optional for secure networks"
 
 	if kernel_is lt 5 2; then
 		ewarn
 		ewarn "podman 5.2.0 and above now require the kernel mount API, which"
 		ewarn "was introduced in linux-5.2"
+	fi
+
+	if kernel_is le 5 3; then
+		CONFIG_CHECK+="
+			~INET_XFRM_MODE_TRANSPORT
+		"
 	fi
 
 	if kernel_is lt 5 8; then
@@ -118,6 +154,12 @@ pkg_setup() {
 		local ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
 	fi
 
+	if kernel_is lt 5 19; then
+		CONFIG_CHECK+="
+			~LEGACY_VSYSCALL_EMULATE
+		"
+	fi
+
 	if kernel_is lt 6 1; then
 		CONFIG_CHECK+="
 			~MEMCG_SWAP
@@ -125,16 +167,35 @@ pkg_setup() {
 		local ERROR_MEMCG_SWAP="CONFIG_MEMCG_SWAP: is required if you wish to limit swap usage of containers"
 	fi
 
+	# N.B. 'ge'
+	if kernel_is ge 4 15; then
+		CONFIG_CHECK+="
+			~CGROUP_BPF
+		"
+	fi
+
+	if use apparmor; then
+		CONFIG_CHECK+="
+			~SECURITY_APPARMOR
+		"
+	fi
+
 	if use btrfs; then
 		CONFIG_CHECK+="
 			~BTRFS_FS
 			~BTRFS_FS_POSIX_ACL
 		"
-	else
+	fi
+
+	if use seccomp; then
 		CONFIG_CHECK+="
-			~OVERLAY_FS ~!OVERLAY_FS_REDIRECT_DIR
-			~EXT4_FS_SECURITY
-			~EXT4_FS_POSIX_ACL
+			~SECCOMP ~SECCOMP_FILTER
+		"
+	fi
+
+	if use selinux; then
+		CONFIG_CHECK+="
+			~SECURITY_SELINUX
 		"
 	fi
 
@@ -147,8 +208,10 @@ src_prepare() {
 	local file='' feature=''
 
 	if ! use seccomp; then
-		ewarn "Disabling 'seccomp' support may prevent podman from starting if"
-		ewarn "any seccomp-related settings exist beneath /etc/containers/"
+		ewarn "Disabling 'seccomp' support may prevent podman from" \
+			"starting if"
+		ewarn "any seccomp-related settings exist beneath" \
+			"/etc/containers/"
 	fi
 
 	default
@@ -184,15 +247,30 @@ src_prepare() {
 	grep -Rl '[^r]/run/' . |
 		xargs -r -- sed -ri \
 			-e 's|([^r])/run/|\1/var/run/|g ; s|^/run/|/var/run/|g' || die
+	grep -ER '/run($|[^a-z])' . |
+		grep -Fv -e 'var/run' -e 'pkg/systemd' -e '/test/' -e '/resource.go' |
+		cut -d':' -f 1 |
+		sort |
+		uniq |
+		while read -r f; do
+			local tab="$( printf '\t' )"
+			local schar="\"\`' (_=/:"
+			local echar="/, \`_.\")"
+			sed -ri "s!(^|:22|host|\.com|UID|\[:port\]|[${schar}]|${tab})/run([${echar}]|$)!\1/var/run\2!g" "${f}"
+		done
+
+	# Check with:
+	#
+	#grep -ER '/run($|[^a-z])' "${WORKDIR}" | grep -Fv -e 'var/run' -e 'pkg/systemd' -e '/test/' -e '/resource.go' | grep -F '/run'
 }
 
 src_compile() {
-	export PREFIX="${EPREFIX}/usr"
+	local PREFIX="${EPREFIX}/usr"
 
 	# For non-live versions, prevent git operations which causes sandbox violations
 	# https://github.com/gentoo/gentoo/pull/33531#issuecomment-1786107493
 	[[ ${PV} != 9999* ]] &&
-		export COMMIT_NO="" GIT_COMMIT="" EPOCH_TEST_COMMIT=""
+		local COMMIT_NO="" GIT_COMMIT="" EPOCH_TEST_COMMIT=""
 
 	# Use proper pkg-config to get gpgme cflags and ldflags when
 	# cross-compiling, bug 930982.
@@ -204,28 +282,36 @@ src_compile() {
 			BUILDFLAGS="-v -work -x" \
 			GOMD2MAN="go-md2man" \
 			EXTRA_BUILDTAGS="$(usev seccomp)" \
+			SELINUXOPT= \
 		all $(usex wrapper 'docker-docs' '')
 }
 
 src_install() {
 	emake \
+			PREFIX="${EPREFIX}/usr" \
 			DESTDIR="${D}" \
+			SELINUXOPT= \
 		install install.completions \
 			$(usex wrapper 'install.docker-full' '')
 
 	if ! use experimental; then
 		rm \
 			"${ED}"/usr/bin/podmansh \
-			"${ED}"/usr/share/man/man1/podmansh.1
+			"${ED}"/usr/share/man/man1/podmansh.1 || die
 	fi
 	if ! use systemd; then
 		rm \
 			"${ED}"/usr/libexec/podman/quadlet \
 			"${ED}"/usr/share/man/man5/quadlet.5 \
-			"${ED}"/usr/share/man/man5/podman-systemd.unit.5
+			"${ED}"/usr/share/man/man5/podman-systemd.unit.5 || die
+		rm -r "${ED}"/usr/lib/systemd || die
 	fi
 	if ! use rootless; then
-		rm "${ED}"/usr/libexec/podman/rootlessport
+		rm "${ED}"/usr/libexec/podman/rootlessport || die
+	fi
+
+	if use !tmpfiles; then
+		rm -r "${ED%/}/usr/lib/tmpfiles.d" || die
 	fi
 
 	if has_version -r '>=app-containers/cni-plugins-0.8.6'; then
@@ -251,13 +337,13 @@ src_install() {
 	fi
 
 	if ! use bash-completion; then
-		rm -r "${ED}"/usr/share/bash-completion/completions
+		rm -r "${ED}"/usr/share/bash-completion/completions || die
 	fi
 	if ! use zsh-completion; then
-		rm -r "${ED}"/usr/share/zsh/site-functions
+		rm -r "${ED}"/usr/share/zsh/site-functions || die
 	fi
 	if ! use fish-completion; then
-		rm -r "${ED}"/usr/share/fish/vendor_completions.d
+		rm -r "${ED}"/usr/share/fish/vendor_completions.d || die
 	fi
 
 	keepdir /var/lib/containers

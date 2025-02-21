@@ -48,7 +48,7 @@ BDEPEND="
 	sys-apps/findutils
 	sys-apps/grep
 	sys-apps/sed
-	|| ( >=sys-kernel/raspberrypi-headers-5.2 >=sys-kernel/linux-headers-5.2 )
+	virtual/os-headers:50200
 	systemd? ( sys-apps/systemd )
 "
 DEPEND="${COMMON_DEPEND}"
