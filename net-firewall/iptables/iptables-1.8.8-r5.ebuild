@@ -27,7 +27,7 @@ COMMON_DEPEND="
 "
 DEPEND="
 	${COMMON_DEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-4.4:0 >=sys-kernel/linux-headers-4.4:0 )
+	virtual/os-headers:40400
 "
 BDEPEND="
 	virtual/pkgconfig

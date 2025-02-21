@@ -25,7 +25,7 @@ RDEPEND="
 	virtual/libudev
 	tcpd? ( sys-apps/tcp-wrappers )"
 DEPEND="${RDEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-3.17 >=sys-kernel/linux-headers-3.17 )"
+	virtual/os-headers:31700"
 BDEPEND="virtual/pkgconfig"
 
 src_unpack() {

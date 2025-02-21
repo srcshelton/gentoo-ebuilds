@@ -37,7 +37,7 @@ RDEPEND="
 # We require newer linux-headers for ipset support (bug #549948) and some defines (bug #553876)
 DEPEND="
 	${RDEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-3.16 >=sys-kernel/linux-headers-3.16 )
+	virtual/os-headers:31600
 "
 BDEPEND="
 	app-arch/xz-utils

@@ -91,12 +91,12 @@ RDEPEND="${COMMON}
 	!internal-dmi? ( sys-apps/dmidecode )"
 DEPEND="${COMMON}
 	sys-apps/diffutils
-	linux-mtd? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
-	linux-spi? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
-	mediatek-i2c-spi? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
-	mstarddc-spi? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
-	parade-lspcon? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )
-	realtek-mst-i2c-spi? ( || ( sys-kernel/raspberrypi-headers sys-kernel/linux-headers ) )"
+	linux-mtd? ( virtual/os-headers )
+	linux-spi? ( virtual/os-headers )
+	mediatek-i2c-spi? ( virtual/os-headers )
+	mstarddc-spi? ( virtual/os-headers )
+	parade-lspcon? ( virtual/os-headers )
+	realtek-mst-i2c-spi? ( virtual/os-headers )"
 BDEPEND="test? ( dev-util/cmocka )"
 
 DOCS=( README Documentation/ )

@@ -58,7 +58,7 @@ RDEPEND="
 "
 DEPEND="
 	${RDEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-5.10 >=sys-kernel/linux-headers-5.10 )
+	virtual/os-headers:51000
 	convert? ( sys-apps/acl )
 	static? (
 		dev-libs/lzo:2[static-libs(+)]

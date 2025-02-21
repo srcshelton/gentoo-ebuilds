@@ -37,7 +37,7 @@ COMMON_DEPEND="
 "
 DEPEND="
 	${COMMON_DEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-4.14 >=sys-kernel/linux-headers-4.14 )
+	virtual/os-headers:41400
 "
 RDEPEND="
 	${COMMON_DEPEND}

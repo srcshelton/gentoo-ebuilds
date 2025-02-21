@@ -30,12 +30,12 @@ COMMON_DEPEND=">=sys-apps/util-linux-2.20
 		!<=app-emulation/emul-linux-x86-baselibs-20130224-r7
 		!app-emulation/emul-linux-x86-baselibs[-abi_x86_32(-)]
 	)"
+# Keep the virtual/os-headers SLOT in sync. with KV_min changes.
 BDEPEND="${COMMON_DEPEND}
 	dev-util/gperf
-	virtual/os-headers
 	virtual/pkgconfig
 	>=dev-build/make-3.82-r4
-	|| ( >=sys-kernel/raspberrypi-headers-${KV_min} >=sys-kernel/linux-headers-${KV_min} )
+	virtual/os-headers:20639
 	>=dev-util/intltool-0.50
 	test? ( app-text/tree dev-lang/perl )"
 

@@ -17,7 +17,7 @@ RESTRICT="!test? ( test )"
 
 RDEPEND=""
 DEPEND="!prefix? ( || (
-		>=sys-kernel/raspberrypi-headers-2.6.11 >=sys-kernel/linux-headers-2.6.11
+		virtual/os-headers:20611
 	) )"
 
 PATCHES=(

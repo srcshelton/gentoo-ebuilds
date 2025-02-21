@@ -32,7 +32,7 @@ RDEPEND="
 "
 DEPEND="
 	${RDEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-2.6.34 >=sys-kernel/linux-headers-2.6.34 )
+	virtual/os-headers:20634
 	test? ( dev-libs/check )
 "
 BDEPEND="

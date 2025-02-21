@@ -36,9 +36,10 @@ COMMON_DEPEND="
 	!sys-apps/gentoo-systemd-integration
 	!sys-apps/systemd
 "
+# Keep the virtual/os-headers SLOT in sync. with KV_MIN changes.
 DEPEND="
 	${COMMON_DEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-${KV_MIN} >=sys-kernel/linux-headers-${KV_MIN} )
+	virtual/os-headers:20639
 "
 RDEPEND="
 	${COMMON_DEPEND}
@@ -65,7 +66,6 @@ RDEPEND="
 "
 BDEPEND="
 	dev-util/gperf
-	virtual/os-headers
 	virtual/pkgconfig
 	test? (
 		app-text/tree

@@ -26,7 +26,7 @@ RDEPEND="
 	sys-libs/zlib
 	virtual/libelf"
 DEPEND="${RDEPEND}
-	|| ( sys-kernel/linux-headers sys-kernel/raspberrypi-headers )"
+	virtual/os-headers:0"
 BDEPEND="virtual/pkgconfig"
 
 PATCHES=(

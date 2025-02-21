@@ -19,7 +19,7 @@ IUSE="static-libs"
 RDEPEND="app-crypt/libmd[${MULTILIB_USEDEP}]"
 DEPEND="
 	${RDEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-3.17 >=sys-kernel/linux-headers-3.17 )
+	virtual/os-headers:31700
 "
 BDEPEND="verify-sig? ( sec-keys/openpgp-keys-guillemjover )"
 

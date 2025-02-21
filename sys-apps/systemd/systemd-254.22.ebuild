@@ -88,7 +88,7 @@ COMMON_DEPEND="
 
 # Newer linux-headers needed by ia64, bug #480218
 DEPEND="${COMMON_DEPEND}
-	|| ( >=sys-kernel/raspberrypi-headers-${MINKV} >=sys-kernel/linux-headers-${MINKV} )
+	virtual/os-headers:${MINKV/.}00
 "
 
 PEFILE_DEPEND='dev-python/pefile[${PYTHON_USEDEP}]'
