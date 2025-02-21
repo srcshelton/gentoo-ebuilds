@@ -5,5 +5,6 @@ EAPI=7
 
 inherit acct-group
 
-DESCRIPTION="Group for app-containers/podman socket"
+DESCRIPTION="group for app-containers/podman socket"
+
 ACCT_GROUP_ID=49  # After docker(48)
