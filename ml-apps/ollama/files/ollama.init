@@ -1,0 +1,34 @@
+#!/sbin/openrc-run
+# Copyright 1999-2025 Gentoo Authors
+# Distributed under the terms of the GNU General Public License, v2
+
+description="Ollama"
+command_user="ollama"
+command_group="ollama"
+pidfile="/var/run/ollama/ollama.pid"
+log="/var/log/ollama/ollama.log"
+output_log="${log}"
+error_log="${log}"
+command="/usr/bin/ollama"
+command_args="serve -1 ${log} -2 ${log}"
+command_background="yes"
+directory="/var/lib/ollama"
+
+# Ollama allows cross-origin requests from 127.0.0.1 and 0.0.0.0 by default.
+# Additional origins can be configured with OLLAMA_ORIGINS.
+#
+#export OLLAMA_ORIGINS="<ip>"
+
+start_pre() {
+	local dir=''
+
+	for dir in "${pidfile}" "{log}"; do
+		dir="$( dirname "${dir}" )"
+		if ! checkpath -o "${command_user}:${command_group}" \
+				"${pidfile}"
+		then
+			eerror "Cannot create directory '${dir}': ${?}"
+			return 1
+		fi
+	done
+}

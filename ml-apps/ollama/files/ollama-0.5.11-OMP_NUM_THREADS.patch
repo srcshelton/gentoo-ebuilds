@@ -1,0 +1,24 @@
+diff --git a/llm/server.go b/llm/server.go
+index 640c6816320..0c5ac838a93 100644
+--- a/llm/server.go
++++ b/llm/server.go
+@@ -161,7 +161,18 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapter
+ 		params = append(params, "--mmproj", projectors[0])
+ 	}
+ 
+-	defaultThreads := systemInfo.GetOptimalThreadCount()
++	defaultThreads := 0
++	OMP_NUM_THREADS := os.Getenv("OMP_NUM_THREADS")
++	if OMP_NUM_THREADS != "" {
++		var err error
++		defaultThreads, err = strconv.Atoi(OMP_NUM_THREADS)
++		if err != nil {
++			return nil, fmt.Errorf("unable to convert environment variable 'OMP_NUM_THREADS' to valid thread count: %v", err)
++		}
++	}
++	if defaultThreads == 0 {
++		defaultThreads = systemInfo.GetOptimalThreadCount()
++	}
+ 	if opts.NumThread > 0 {
+ 		params = append(params, "--threads", strconv.Itoa(opts.NumThread))
+ 	} else if defaultThreads > 0 {

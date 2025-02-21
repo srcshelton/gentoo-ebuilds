@@ -248,6 +248,8 @@ used to build perl)
     * Consistent group for mail filters
 * acct-group/nogroup
     * 'nogroup' appears to no longer being included in service builds?
+* acct-group/ollama
+    * Privilege-separation account
 * acct-group/podman
     * Allow podman socket to be group-writable
 * acct-group/socat
@@ -268,6 +270,8 @@ used to build perl)
     * Add user to 'hugetlb' group
 * acct-user/nobody
     * 'nobody' appears to no longer being included in service builds?
+* acct-user/ollama
+    * Privilege-separation account
 * acct-user/redis
     * Add user to 'hugetlb' group
 * acct-user/tcpdump
@@ -352,6 +356,8 @@ used to build perl)
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
 * media-sound/logitechmediaserver-bin
     * Stuart Hickinbottom's Squeezebox Server ebuild, updated for Perl 5.22 and with minor optimisations
+* ml-apps/ollama
+    * Machine Learning Large Language Model runner
 * ~~net-libs/libhtp~~
     * ~~Add more recent libhtp-0.5.21 release, to prevent net-analyzer/suricata-3.1 from complaining about libhtp being too old~~
 * net-libs/libupnp
