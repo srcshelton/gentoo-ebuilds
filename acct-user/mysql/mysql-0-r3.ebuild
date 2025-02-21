@@ -5,8 +5,11 @@ EAPI=8
 
 inherit acct-user
 
-DESCRIPTION="User for dev-db/mysql & dev-db/mariadb"
+SLOT="0"
+
+DESCRIPTION="user for dev-db/mysql & dev-db/mariadb"
+
 ACCT_USER_ID=60
 ACCT_USER_GROUPS=( mysql hugetlb )
+
 acct-user_add_deps
-SLOT="0"
