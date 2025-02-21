@@ -20,7 +20,6 @@ REQUIRED_USE="
 
 DEPEND="
 	dev-libs/libtraceevent
-	sqlite? ( dev-db/sqlite )
 	elibc_musl? ( sys-libs/argp-standalone )
 "
 RDEPEND="
@@ -32,7 +31,11 @@ RDEPEND="
 	sys-apps/dmidecode
 	selinux? ( sec-policy/selinux-rasdaemon )
 "
-BDEPEND="sys-devel/gettext"
+# rasdaemon requires sqlite3 to build even if it is not enabled...
+BDEPEND="
+	dev-db/sqlite
+	sys-devel/gettext
+"
 
 pkg_setup() {
 	linux-info_pkg_setup
@@ -103,7 +106,7 @@ src_configure() {
 			--enable-devlink
 			--enable-diskerror
 			--enable-memory-failure
-			--enable cxl
+			--enable-cxl
 			--enable-abrt-report
 			--enable-hisi-ns-decode
 			--enable-amp-ns-decode
