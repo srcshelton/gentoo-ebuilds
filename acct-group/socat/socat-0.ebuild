@@ -5,5 +5,6 @@ EAPI=7
 
 inherit acct-group
 
-DESCRIPTION="group for socat"
+DESCRIPTION="group for net-misc/socat"
+
 ACCT_GROUP_ID=83
