@@ -5,7 +5,9 @@ EAPI=8
 
 inherit acct-user
 
-DESCRIPTION="User for dev-db/redis"
+DESCRIPTION="user for dev-db/redis"
+
 ACCT_USER_ID=75
 ACCT_USER_GROUPS=( redis hugetlb )
+
 acct-user_add_deps
