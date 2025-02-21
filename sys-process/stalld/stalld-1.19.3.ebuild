@@ -16,16 +16,14 @@ KEYWORDS="amd64 ~loong x86"
 IUSE="bpf"
 
 RDEPEND="app-shells/bash"
-# USE='multilib' is needed on amd64 as all eBPF code is 32-bit
 DEPEND="
 	bpf? (
 		dev-libs/libbpf
 		dev-util/bpftool
-		llvm-core/clang[llvm_targets_bpf]
-		amd64? ( sys-libs/glibc[multilib] )
+		llvm-core/clang[llvm_targets_BPF]
 	)
 	virtual/linux-sources
-	|| ( >=sys-kernel/linux-headers-5.8 >=sys-kernel/raspberrypi-headers-5.8 )
+	virtual/os-headers:50800
 "
 
 pkg_setup() {

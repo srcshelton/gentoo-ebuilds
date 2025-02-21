@@ -18,10 +18,9 @@ RDEPEND="app-shells/bash"
 DEPEND="
 	dev-libs/libbpf
 	dev-util/bpftool
-	llvm-core/clang[llvm_targets_bpf]
+	llvm-core/clang[llvm_targets_BPF]
 	virtual/linux-sources
-	|| ( >=sys-kernel/linux-headers-5.8 >=sys-kernel/raspberrypi-headers-5.8 )
-	amd64? ( sys-libs/glibc[multilib] )
+	virtual/os-headers:50800
 "
 
 CONFIG_CHECK="SCHED_DEBUG DEBUG_INFO_BTF"
