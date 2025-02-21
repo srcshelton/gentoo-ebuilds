@@ -83,10 +83,10 @@ if [[ ! ${GO_OPTIONAL} ]]; then
 	# unconditionally force 'gold' for arm* builds, and remove this override
 	# once dev-lang/go itself is updated...
 	#if has_version -b '>=dev-lang/go-1.19.6' && has_version -b '<=dev-lang/go-1.21.0'; then
-		BDEPEND+="
-			arm? ( sys-devel/binutils[gold] )
-			arm64? ( sys-devel/binutils[gold] )
-		"
+	#	BDEPEND+="
+	#		arm? ( sys-devel/binutils[gold] )
+	#		arm64? ( sys-devel/binutils[gold] )
+	#	"
 	#fi
 fi
 
