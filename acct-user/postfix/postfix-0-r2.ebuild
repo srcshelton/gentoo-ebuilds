@@ -5,7 +5,7 @@ EAPI=7
 
 inherit acct-user
 
-DESCRIPTION="User for mail-mta/postfix"
+DESCRIPTION="user for mail-mta/postfix"
 IUSE="+milter opendkim"
 
 ACCT_USER_ID=207
