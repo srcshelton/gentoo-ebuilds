@@ -5,7 +5,8 @@ EAPI=8
 
 inherit acct-user
 
-DESCRIPTION="User for net-misc/memcached"
+DESCRIPTION="user for net-misc/memcached"
+
 ACCT_USER_ID=441
 ACCT_USER_GROUPS=( memcached hugetlb )
 
