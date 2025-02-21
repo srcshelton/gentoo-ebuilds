@@ -23,7 +23,10 @@ BDEPEND="
 	app-arch/xz-utils
 	dev-lang/perl
 "
-RDEPEND="!sys-kernel/raspberrypi-headers"
+RDEPEND="
+	!sys-kernel/raspberrypi-headers
+	!sys-kernel/rockchip-headers
+"
 
 src_unpack() {
 	# Avoid kernel-2_src_unpack
