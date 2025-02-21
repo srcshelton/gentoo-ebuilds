@@ -116,40 +116,29 @@ src_install() {
 }
 
 pkg_postinst() {
-	# Symlink creation here as the links do not belong to gawk, but to any awk
-	if has_version app-admin/eselect && has_version app-eselect/eselect-awk ; then
-		eselect awk update ifunset
-	else
-		local l
-		for l in \
-				"${EROOT}"/usr/share/man/man1/gawk.1* \
-				"${EROOT}"$( usex split-usr '' '/usr' )/bin/gawk
-		do
-			if [[ -e "${l}" ]] && ! [[ -e "${l/gawk/awk}" ]] ; then
-				ln -s "${l##*/}" "${l/gawk/awk}" ||
-					ewarn "Not creating '${l/gawk/awk}' symlink: file" \
-						"already exists"
-			fi
-		done
-
-		if ! [[ -e "${EROOT}"/bin/awk ]] ; then
-			# /bin might not exist yet (stage1)
-			[[ -d "${EROOT}"/bin ]] || mkdir "${EROOT}"/bin || die
-
-			if use split-usr; then
-				ln -s gawk "${EROOT}"/bin/awk || ewarn "Not creating" \
-					"'${EROOT%/}/bin/awk' symlink: file already exists"
-			else
-				ln -s ../usr/bin/gawk "${EROOT}"/bin/awk || ewarn "Not" \
-					"creating '${EROOT%/}/bin/awk' symlink: file already" \
-					"exists"
-			fi
+	local l
+	for l in \
+			"${EROOT}"/usr/share/man/man1/gawk.1* \
+			"${EROOT}"$( usex split-usr '' '/usr' )/bin/gawk
+	do
+		if [[ -e "${l}" ]] && ! [[ -e "${l/gawk/awk}" ]] ; then
+			ln -s "${l##*/}" "${l/gawk/awk}" ||
+				ewarn "Not creating '${l/gawk/awk}' symlink: file" \
+					"already exists"
 		fi
-	fi
-}
+	done
 
-pkg_postrm() {
-	if has_version app-admin/eselect && has_version app-eselect/eselect-awk ; then
-		eselect awk update ifunset
+	if ! [[ -e "${EROOT}"/bin/awk ]] ; then
+		# /bin might not exist yet (stage1)
+		[[ -d "${EROOT}"/bin ]] || mkdir "${EROOT}"/bin || die
+
+		if use split-usr; then
+			ln -s gawk "${EROOT}"/bin/awk || ewarn "Not creating" \
+				"'${EROOT%/}/bin/awk' symlink: file already exists"
+		else
+			ln -s ../usr/bin/gawk "${EROOT}"/bin/awk || ewarn "Not" \
+				"creating '${EROOT%/}/bin/awk' symlink: file already" \
+				"exists"
+		fi
 	fi
 }
