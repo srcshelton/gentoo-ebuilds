@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -50,6 +50,7 @@ BDEPEND="
 PATCHES=(
 	# bug #158615
 	"${FILESDIR}/${PN}-3.08-shutdown-single.patch"
+	"${FILESDIR}/${PN}-3.12-delete-moved-programs.patch"
 )
 
 src_prepare() {
@@ -64,23 +65,23 @@ src_prepare() {
 		-e '/^override CFLAGS +=/s/ -D_FORTIFY_SOURCE=2//' \
 		src/Makefile || die
 
-	# last/lastb/mesg/mountpoint/sulogin/utmpdump/wall have moved to util-linux
-	sed -i -r \
-		-e '/^(USR)?S?BIN/s:\<(last|lastb|mesg|mountpoint|sulogin|utmpdump|wall)\>::g' \
-		-e '/^MAN[18]/s:\<(last|lastb|mesg|mountpoint|sulogin|utmpdump|wall)[.][18]\>::g' \
-		src/Makefile || die
+	## last/lastb/mesg/mountpoint/sulogin/utmpdump/wall have moved to util-linux
+	#sed -i -r \
+	#	-e '/^(USR)?S?BIN/s:\<(last|lastb|mesg|mountpoint|sulogin|utmpdump|wall)\>::g' \
+	#	-e '/^MAN[18]/s:\<(last|lastb|mesg|mountpoint|sulogin|utmpdump|wall)[.][18]\>::g' \
+	#	src/Makefile || die
 
-	# pidof has moved to >=procps-3.3.9
-	sed -i -r \
-		-e '/\/bin\/pidof/d' \
-		-e '/^MAN8/s:\<pidof.8\>::g' \
-		src/Makefile || die
+	## pidof has moved to >=procps-3.3.9
+	#sed -i -r \
+	#	-e '/\/bin\/pidof/d' \
+	#	-e '/^MAN8/s:\<pidof.8\>::g' \
+	#	src/Makefile || die
 
-	# logsave is already in e2fsprogs
-	sed -i -r \
-		-e '/^(USR)?S?BIN/s:\<logsave\>::g' \
-		-e '/^MAN8/s:\<logsave.8\>::g' \
-		src/Makefile || die
+	## logsave is already in e2fsprogs
+	#sed -i -r \
+	#	-e '/^(USR)?S?BIN/s:\<logsave\>::g' \
+	#	-e '/^MAN8/s:\<logsave.8\>::g' \
+	#	src/Makefile || die
 
 	# Revert use of /run/initctl back to /dev/initctl
 	local file
