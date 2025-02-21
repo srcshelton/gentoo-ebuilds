@@ -700,6 +700,7 @@ directory is an additional QA check which reports an error if files deployed to
 * app-admin/ulogd
 * app-containers/cni-plugins
 * app-containers/containerd
+* app-containers/podman-tui
 * app-crypt/tpm2-tss
 * app-misc/screen
 * dev-db/postgresql
