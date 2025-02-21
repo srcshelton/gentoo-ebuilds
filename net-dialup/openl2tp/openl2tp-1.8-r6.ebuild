@@ -3,10 +3,10 @@
 
 EAPI=7
 
-inherit linux-info
+inherit flag-o-matic linux-info
 
 DESCRIPTION="Userspace tools for kernel L2TP implementation"
-HOMEPAGE="http://www.openl2tp.org/"
+HOMEPAGE="https://github.com/Distrotech/openl2tp"
 SRC_URI="mirror://sourceforge/openl2tp/${P}.tar.gz"
 
 LICENSE="GPL-2"
@@ -58,13 +58,18 @@ src_prepare() {
 src_configure() {
 	myconf=""
 
-	use client	|| myconf+=" L2TP_FEATURE_LAC_SUPPORT=n
-							 L2TP_FEATURE_LAIC_SUPPORT=n
-							 L2TP_FEATURE_LAOC_SUPPORT=n "
+	filter-flags -Wimplicit-function-declaration
+	append-flags -Wno-implicit-function-declaration
 
-	use server	|| myconf+=" L2TP_FEATURE_LNS_SUPPORT=n
-							 L2TP_FEATURE_LNIC_SUPPORT=n
-							 L2TP_FEATURE_LNOC_SUPPORT=n "
+	use client	|| myconf+="
+		L2TP_FEATURE_LAC_SUPPORT=n
+		L2TP_FEATURE_LAIC_SUPPORT=n
+		L2TP_FEATURE_LAOC_SUPPORT=n "
+
+	use server	|| myconf+="
+		L2TP_FEATURE_LNS_SUPPORT=n
+		L2TP_FEATURE_LNIC_SUPPORT=n
+		L2TP_FEATURE_LNOC_SUPPORT=n "
 
 	use rpc		|| myconf+=" L2TP_FEATURE_RPC_MANAGEMENT=n "
 
