@@ -33,7 +33,7 @@ RDEPEND="
 	>=dev-libs/elfutils-0.166:=
 	>=dev-libs/libbpf-1.2.0:=
 	dev-libs/libffi:=
-	sys-kernel/linux-headers
+	virtual/os-headers:0
 	sys-libs/ncurses:=[tinfo]
 	$(llvm_gen_dep '
 		llvm-core/clang:${LLVM_SLOT}=
@@ -48,7 +48,6 @@ RDEPEND="
 "
 DEPEND="
 	${RDEPEND}
-	|| ( sys-kernel/linux-headers sys-kernel/raspberrypi-headers )
 	python? ( $(python_gen_cond_dep '
 		dev-python/setuptools[${PYTHON_USEDEP}]
 	') )
@@ -117,6 +116,11 @@ src_prepare() {
 	done
 
 	sed -i '/#include <error.h>/d' examples/cpp/KModRetExample.cc || die
+
+	# C++ One Definition Rule [-Werror=odr] violations
+	rm -r examples/cpp/pyperf || die
+	sed -e '/add_subdirectory(pyperf)/d' \
+		-i examples/cpp/CMakeLists.txt || die
 
 	use static-libs || PATCHES+=( "${FILESDIR}/bcc-0.31.0-dont-install-static-libs.patch" )
 

@@ -35,7 +35,7 @@ RDEPEND="
 "
 DEPEND="
 	${RDEPEND}
-	|| ( sys-kernel/linux-headers sys-kernel/raspberrypi-headers )
+	virtual/os-headers:0
 	$(python_gen_cond_dep '
 		dev-python/setuptools[${PYTHON_USEDEP}]
 	')
