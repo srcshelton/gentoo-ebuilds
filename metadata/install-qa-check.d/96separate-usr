@@ -4,10 +4,12 @@
 # libraries installed in /usr/lib*
 
 run_check() {
+	local libdir='' ldlp=''
+
 	type -pf file >/dev/null 2>&1 || return 1
 	type -pf ldd >/dev/null 2>&1 || return 1
 
-	local libdir="$( grep -- '^/lib' /etc/ld.so.conf | sort -rV | head -n 1 )"
+	libdir="$( grep -- '^/lib' /etc/ld.so.conf | sort -rV | head -n 1 )"
 
 	if [[ -d "${ED%/}"/bin || -d "${ED%/}"/sbin || -d "${ED%/}${libdir}" ]] &&
 		! [[ -L "${ED%/}${libdir}" ]]
@@ -21,9 +23,9 @@ run_check() {
 				# against the existing ROOT='/' files, as there could be
 				# differences in whether SOs are installed to root or usr...
 				#
-				#LDLP="${ED%/}/usr${libdir}:${ED%/}${libdir}${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
-				LDLP="${ED%/}/usr${libdir}:${ED%/}${libdir}"
-				if LD_LIBRARY_PATH="${LDLP}" ldd "${i}" |
+				#ldlp="${ED%/}/usr${libdir}:${ED%/}${libdir}${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
+				ldlp="${ED%/}/usr${libdir}:${ED%/}${libdir}"
+				if LD_LIBRARY_PATH="${ldlp}" ldd "${i}" |
 						grep -Fv \
 							-e 'libsandbox.so' \
 							-e 'libgcc_s.so.1' \
@@ -32,7 +34,7 @@ run_check() {
 							-e '/usr/lib/gcc/' |
 						grep -Fq -- "/usr${libdir}"
 				then
-					edf="${i#"${ED%/}/"}"
+					local edf="${i#"${ED%/}/"}"
 					#echo "DEBUG: i is '${i}'"
 					#echo "DEBUG: edf is '${edf}'"
 					#echo "DEBUG: QA_XLINK_ALLOWED is '${QA_XLINK_ALLOWED[*]:-}'"
@@ -40,7 +42,7 @@ run_check() {
 							! grep -q " ${edf#/} " <<<" ${QA_XLINK_ALLOWED[*]:-} "
 					then
 						eqawarn "${edf}: $( # <- Syntax
-							LD_LIBRARY_PATH="${LDLP}" ldd "${i}" |
+							LD_LIBRARY_PATH="${ldlp}" ldd "${i}" |
 								grep -Fv \
 									-e 'libsandbox.so' \
 									-e 'libgcc_s.so.1' \
@@ -56,6 +58,8 @@ run_check() {
 				fi
 			fi
 		done < <( # <- Syntax
+			local dir=''
+
 			for dir in "${ED%/}"/bin/ "${ED%/}"/sbin/ "${ED%/}${libdir}"; do
 				if [[ -d "${dir}" && ! -L "${dir}" ]]; then
 					find -L "${dir}" -type f ! -xtype l -print | grep -v "^${ED%/}/usr/"
