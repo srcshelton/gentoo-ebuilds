@@ -18,7 +18,6 @@ fi
 
 LICENSE="|| ( GPL-2+ Apache-2.0 ) LGPL-2+"
 SLOT="0"
-KEYWORDS="~amd64 ~arm64"
 IUSE="fuse +man"
 
 BDEPEND="
