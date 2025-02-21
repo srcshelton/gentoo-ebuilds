@@ -482,6 +482,8 @@ used to build perl)
     * ~~Add additional include path to allow building with Oracle JDK 8 and above~~
 * dev-java/openjdk
     * Add missing sys-devel/autoconf dependency
+* dev-lang/go
+    * Don't force 'gold' linker on ARM(64) when fixed sys-devel/binutils is present
 * dev-lang/mono
     * Fix DEPEND/BDEPEND to add virtual/linux-sources and dev-build/cmake respectively
 * ~~dev-lang/perl~~
