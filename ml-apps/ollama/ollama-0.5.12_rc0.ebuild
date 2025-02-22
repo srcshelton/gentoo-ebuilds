@@ -40,6 +40,9 @@ X86_CPU_FLAGS=(
 )
 CPU_FLAGS=("${X86_CPU_FLAGS[@]/#/cpu_flags_x86_}")
 IUSE="${CPU_FLAGS[*]} blas cuda +debug mkl rocm"  # opencl vulkan
+REQUIRED_USE="
+	mkl? ( amd64 )
+"
 
 DEPEND="
 	cuda? (
@@ -103,12 +106,15 @@ src_unpack() {
 }
 
 src_prepare() {
+	local backend=''
+
 	cmake_src_prepare
 
-	sed -e '/set(GGML_CCACHE/s/ON/OFF/g' -i CMakeLists.txt || die
+	sed -e '/set(GGML_CCACHE/{s/ON/OFF/g}' -i CMakeLists.txt || die
+
 	if use !debug; then
-		sed -e '/var mode string = gin\./s/gin\.DebugMode/gin.ReleaseMode/' \
-			-e '/mode = gin\./s/gin\.DebugMode/gin.ReleaseMode/' \
+		sed -e '/var mode string = gin\./{s/gin\.DebugMode/gin.ReleaseMode}/' \
+			-e '/mode = gin\./{s/gin\.DebugMode/gin.ReleaseMode/}' \
 			-i server/routes.go || die
 	fi
 
@@ -116,7 +122,7 @@ src_prepare() {
 	if use amd64; then
 		# sandybridge    AVX
 		if ! use cpu_flags_x86_avx; then
-			sed -e "/ggml_add_cpu_backend_variant(sandybridge/s/^/# /g" \
+			sed -e "/ggml_add_cpu_backend_variant(sandybridge/{s/^/# /g}" \
 				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 		fi
 
@@ -126,7 +132,7 @@ src_prepare() {
 			! use cpu_flags_x86_avx2 ||
 			! use cpu_flags_x86_fma3
 		then
-			sed -e "/ggml_add_cpu_backend_variant(haswell/s/^/# /g" \
+			sed -e "/ggml_add_cpu_backend_variant(haswell/{s/^/# /g}" \
 				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 		fi
 
@@ -137,7 +143,7 @@ src_prepare() {
 			! use cpu_flags_x86_fma3 ||
 			! use cpu_flags_x86_avx512f
 		then
-			sed -e "/ggml_add_cpu_backend_variant(skylakex/s/^/# /g" \
+			sed -e "/ggml_add_cpu_backend_variant(skylakex/{s/^/# /g}" \
 				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 		fi
 
@@ -150,7 +156,7 @@ src_prepare() {
 			! use cpu_flags_x86_avx512vbmi ||
 			! use cpu_flags_x86_avx512_vnni
 		then
-			sed -e "/ggml_add_cpu_backend_variant(icelake/s/^/# /g" \
+			sed -e "/ggml_add_cpu_backend_variant(icelake/{s/^/# /g}" \
 				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 		fi
 
@@ -161,7 +167,7 @@ src_prepare() {
 			! use cpu_flags_x86_fma3 ||
 			! use cpu_flags_x86_avx_vnni
 		then
-			sed -e "/ggml_add_cpu_backend_variant(alderlake/s/^/# /g" \
+			sed -e "/ggml_add_cpu_backend_variant(alderlake/{s/^/# /g}" \
 				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 		fi
 
@@ -177,9 +183,16 @@ src_prepare() {
 			! use cpu_flags_x86_amx_tile ||
 			! use cpu_flags_x86_amx_int8
 		then
-			sed -e "/ggml_add_cpu_backend_variant(sapphirerapids/s/^/# /g" \
+			sed -e "/ggml_add_cpu_backend_variant(sapphirerapids/{s/^/# /g}" \
 				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 		fi
+	else # use amd64
+		for backend in sandybridge haswell skylakex icelake alderlake \
+				sapphirerapids
+		do
+			sed -e "/ggml_add_cpu_backend_variant(${backend}/{s/^/# /g}" \
+				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
+		done
 	fi
 
 	if use cuda; then
@@ -197,9 +210,24 @@ src_prepare() {
 
 src_configure() {
 	# See https://github.com/ggerganov/llama.cpp/pull/7154#issuecomment-2144542197
+	#
+	# N.B. -mdaz-ftz is x86-specific...
+	#
 	filter-flags -ffast-math -ffinite-math-only -fno-math-errno
 	replace-flags -Ofast -O3
-	append-flags -fno-fast-math -fno-finite-math-only -fmath-errno -mdaz-ftz
+	append-flags -fno-fast-math -fno-finite-math-only -fmath-errno
+	if use amd64; then
+		append-flags -mdaz-ftz
+	fi
+
+	# https://github.com/nlohmann/json/issues/4116
+	#
+	# LTO should likely be disabled because of these issues, but since they
+	# seem to be limited to the JSON parser (where errors would presumably be
+	# obvious), let's first try to see whether we can get by with LTO and
+	# fatal errors disabled...
+	#
+	filter-flags -Werror=odr -Werror=lto-type-mismatch
 
 	local mycmakeargs=(
 		-DGGML_CCACHE="no"
