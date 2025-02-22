@@ -24,7 +24,7 @@ inherit toolchain-funcs
 # @DESCRIPTION:
 # Return all the flag variables that our high level functions operate on.
 all-flag-vars() {
-	echo {ADA,C,CGO_C,CGO_CXX,CGO_F,CPP,CXX,CCAS,F,FC,LD}FLAGS
+	echo {ADA,C,CGO_C,CGO_CPP,CGO_CXX,CGO_F,CGO_LD,CPP,CXX,CCAS,F,FC,LD}FLAGS
 }
 
 # @FUNCTION: setup-allowed-flags
@@ -245,7 +245,8 @@ _filter-var() {
 # @FUNCTION: filter-flags
 # @USAGE: <flags>
 # @DESCRIPTION:
-# Remove particular <flags> from {C,CGO_C,CGO_CXX,CGO_F,CPP,CXX,CCAS,F,FC,LD}FLAGS.  Accepts shell globs.
+# Remove particular <flags> from {ADA,C,CGO_C,CGO_CPP,CGO_CXX,CGO_F,CGO_LD, ...
+# ... CPP,CXX,CCAS,F,FC,LD}FLAGS (via all-flag-vars()).  Accepts shell globs.
 filter-flags() {
 	_filter-hardened "$@"
 	local v
