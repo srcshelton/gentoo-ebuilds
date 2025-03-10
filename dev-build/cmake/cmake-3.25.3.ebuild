@@ -237,7 +237,7 @@ src_configure() {
 			eend 0
 		fi
 
-		# Try to ensure that we search for libraries from the specified LIBDIR
+		# Try to ensure that we search for libraries from the specified LIBDIR
 		# first...
 		local file
 		while read -r file; do

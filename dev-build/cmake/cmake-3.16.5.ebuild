@@ -190,7 +190,7 @@ src_configure() {
 		eend 0
 	fi
 	if use amd64 && [[ ${ABI} == "x32" ]]; then
-		# Try to ensure that we search for libraries from the specified LIBDIR
+		# Try to ensure that we search for libraries from the specified LIBDIR
 		# first...
 		local file
 		while read -r file; do
