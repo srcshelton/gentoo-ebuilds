@@ -5,18 +5,18 @@ EAPI=8
 
 TOOLCHAIN_PATCH_DEV="sam"
 TOOLCHAIN_HAS_TESTS=1
-PATCH_GCC_VER="14.2.0"
+PATCH_GCC_VER="$(ver_cut 1-2).0"
 PATCH_VER="7"
-CLEAR_PATCH_VER="1937"
+CLEAR_PATCH_VER="$(ver_cut 4)"
 MUSL_VER="1"
-MUSL_GCC_VER="14.1.0"
+MUSL_GCC_VER="$(ver_cut 1).1.0"
 PYTHON_COMPAT=( python3_{10..12} )
 
 PARALLEL_MEMORY_MIN=6
 
 if [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
 	# Cheesy hack for RCs
-	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 5)
+	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 6)
 	MY_P=${PN}-${MY_PV}
 	GCC_TARBALL_SRC_URI="mirror://gcc/snapshots/${MY_PV}/${MY_P}.tar.xz"
 	TOOLCHAIN_SET_S=no
@@ -35,6 +35,7 @@ fi
 
 SRC_URI="${SRC_URI}
 	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz -> ${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz"
+RESTRICT="mirror"
 
 IUSE="-lib-only"
 

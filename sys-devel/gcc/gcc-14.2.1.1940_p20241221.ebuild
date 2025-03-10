@@ -5,18 +5,18 @@ EAPI=8
 
 TOOLCHAIN_PATCH_DEV="sam"
 TOOLCHAIN_HAS_TESTS=1
-PATCH_GCC_VER="14.2.0"
-PATCH_VER="3"
-CLEAR_PATCH_VER="1912"
+PATCH_GCC_VER="$(ver_cut 1-2).0"
+PATCH_VER="7"
+CLEAR_PATCH_VER="$(ver_cut 4)"
 MUSL_VER="1"
-MUSL_GCC_VER="14.1.0"
+MUSL_GCC_VER="$(ver_cut 1).1.0"
 PYTHON_COMPAT=( python3_{10..12} )
 
 PARALLEL_MEMORY_MIN=6
 
 if [[ -n ${TOOLCHAIN_GCC_RC} ]] ; then
 	# Cheesy hack for RCs
-	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 5)
+	MY_PV=$(ver_cut 1).$((($(ver_cut 2) + 1))).$((($(ver_cut 3) - 1)))-RC-$(ver_cut 6)
 	MY_P=${PN}-${MY_PV}
 	GCC_TARBALL_SRC_URI="mirror://gcc/snapshots/${MY_PV}/${MY_P}.tar.xz"
 	TOOLCHAIN_SET_S=no
@@ -34,7 +34,8 @@ elif [[ -z ${TOOLCHAIN_USE_GIT_PATCHES} ]] ; then
 fi
 
 SRC_URI="${SRC_URI}
-	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz"
+	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz -> ${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}.tar.gz"
+RESTRICT="mirror"
 
 IUSE="-lib-only"
 
@@ -69,7 +70,7 @@ pkg_pretend() {
 }
 
 src_prepare() {
-	local f='' d=''
+	local f='' d='' line=''
 	local -a upstreamed_patches=(
 		# add them here
 	)
@@ -80,24 +81,50 @@ src_prepare() {
 	toolchain_src_prepare
 
 	eapply "${FILESDIR}/${PN}-13-fix-cross-fixincludes.patch"
+	eapply "${FILESDIR}/gcc-14.2.1_p20241221-arm-Revert-arm-MVE-intrinsics-Fix-support-for-predicate-.patch"
 
 	# Apply additional Clear Linux patches, if present...
 	# (%patch0 brings gcc from ${SLOT}.1.0 to the actual release)
-	if [[ -d "${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}" ]]; then
-		d="${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}"
+	d="${WORKDIR}/${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}"
+	if [[ -d "${d}" ]]; then
+		einfo "Applying Clear Linux patches from '${d#"${WORKDIR%/}/"}' ..."
 		grep '^%patch' "${d}/${PN}.spec" |
 			awk '{print $1}' |
-			grep -v '^%patch0' |
+			grep -v '^%patch0$' |
 			while read -r f; do
 				grep -i "^${f#"%"}\s*:" "${d}/${PN}.spec"
 			done |
-			awk '{print $3}' |
+			cut -d':' -f 2- |
+			awk '{print $1}' |
 			while read -r f; do
-				nonfatal eapply "${d}/${f}" ||
-					ewarn "Clear Linux ${PN}-${SLOT}.1.0-${CLEAR_PATCH_VER}" \
-						"patch '${f}' failed to apply: ${?}"
+				[[ "${f}" == 'spr-default-tuning.patch' ]] && continue
+				if grep -q \
+						-e '-march' -e '-mcpu' -e '-mtune' \
+						-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
+					"${d}/${f}"
+				then
+					ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
+						"patch '${f}' forces Intel architecture"
+					grep -C 3 \
+								-e '-march' -e '-mcpu' -e '-mtune' \
+								-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
+							"${d}/${f}" |
+						while read -r line; do
+							ewarn "${line}"
+						done
+					ewarn
+				fi
+				if patch -R -p1 -s -f --dry-run < "${d}/${f}" >/dev/null 2>&1
+				then
+					einfo "Patch '${f}' previous applied, skipping"
+				else
+					nonfatal eapply "${d}/${f}" ||
+						ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
+							"patch '${f}' failed to apply: ${?}"
+				fi
 			done
 	fi
+	unset line f d
 
 	if [[ "${ARCH}" == 'amd64' && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]
 	then
@@ -381,7 +408,8 @@ pkg_config() {
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
 			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' ''); do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l -exec rm -v {} +
+				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
+						-exec rm -v {} +
 				pkg_postinst_fix_so \
 						"${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
 						"${file}" \
@@ -390,10 +418,20 @@ pkg_config() {
 					die "Couldn't link library '${file}.so'*"
 			done
 			for file in libatomic; do
-				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -exec rm -v {} +
-				find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -print0 |
-					xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
-				gen_usr_ldscript --live -a "${file#lib}"
+				# Is libatomic built on all platforms?
+				if $(( $( # <- Syntax
+						find "${EROOT}/usr/lib/gcc/${CHOST/}$(ver_cut 1)" -name "${file}.so*" -type f \
+								-print |
+							wc -l
+					) ))
+				then
+					find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
+							-exec rm -v {} +
+					find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -type f \
+							-print0 |
+						xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
+					gen_usr_ldscript --live -a "${file#lib}"
+				fi
 			done
 
 		fi
