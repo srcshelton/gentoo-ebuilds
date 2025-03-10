@@ -29,6 +29,26 @@ DEPEND="
 	dev-libs/openssl
 "
 
+pkg_setup() {
+	local CONFIG_CHECK="EROFS_FS"
+
+	local ERROR_EROFS_FS="Kernel option 'EROFS_FS' *must* be enabled for composefs to operate"
+
+	# Validate setup if package will be merged...
+	#
+	# Only three options are provided here - 'buildonly', 'binary' and 'source'
+	#
+	# 'binary' only applies when deploying a pre-built package whilst
+	# 'buildonly' only applies if we're not deploying the package immediately
+	# once built.  So the check below has to be against 'binary' and we'll work
+	# with the assumption that host deployments will all be from pre-built
+	# packages.
+	#
+	if [[ "${MERGE_TYPE}" == 'binary' ]]; then
+		linux-info_pkg_setup
+	fi
+}
+
 src_configure() {
 	local -a emesonargs=(
 		--default-library=shared
