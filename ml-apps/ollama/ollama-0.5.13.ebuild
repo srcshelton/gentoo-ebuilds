@@ -3,10 +3,8 @@
 
 EAPI=8
 
-MY_PV="${PV/_r/-r}"
-
-GO_VENDOR_VERSION="0.5.11"
-ROCM_VERSION=6.3.2
+GO_VENDOR_VERSION="${PV}"
+ROCM_VERSION=6.3.3
 inherit cmake cuda flag-o-matic go-module rocm systemd toolchain-funcs
 
 DESCRIPTION="Get up and running with Llama 3, Mistral, Gemma, and other language models."
@@ -17,7 +15,7 @@ if [[ ${PV} == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/ollama/ollama.git"
 else
 	SRC_URI="
-		https://github.com/ollama/${PN}/archive/refs/tags/v${MY_PV}.tar.gz -> ${P}.tar.gz
+		https://github.com/ollama/${PN}/archive/refs/tags/v${PV}.tar.gz -> ${P}.tar.gz
 		https://github.com/srcshelton/ollama/releases/download/v${GO_VENDOR_VERSION}/${PN}-${GO_VENDOR_VERSION}-vendor.tar.xz"
 	KEYWORDS="~amd64 ~arm64"
 fi
@@ -39,9 +37,12 @@ X86_CPU_FLAGS=(
 	amx_int8
 )
 CPU_FLAGS=("${X86_CPU_FLAGS[@]/#/cpu_flags_x86_}")
-IUSE="${CPU_FLAGS[*]} blas cuda +debug mkl rocm"  # opencl vulkan
+IUSE="${CPU_FLAGS[*]} blas cuda +debug minimal mkl multiarch rocm"  # opencl vulkan
 REQUIRED_USE="
+	?? ( minimal multiarch )
+	minimal? ( amd64 )
 	mkl? ( amd64 )
+	multiarch? ( amd64 )
 "
 
 DEPEND="
@@ -63,7 +64,7 @@ DEPEND="
 
 BDEPEND="
 	>=dev-build/cmake-3.21
-	>=dev-lang/go-1.23.4
+	>=dev-lang/go-1.24.0
 "
 
 RDEPEND="
@@ -73,8 +74,7 @@ RDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-include-cstdint.patch"
-	"${FILESDIR}/${P}-OMP_NUM_THREADS.patch"
+	"${FILESDIR}/${PN}-0.5.11-OMP_NUM_THREADS.patch"
 )
 
 src_unpack() {
@@ -106,7 +106,10 @@ src_unpack() {
 }
 
 src_prepare() {
-	local backend=''
+	local -a archs=()
+	local arch=''
+
+	archs=( sandybridge haswell skylakex icelake alderlake sapphirerapids )
 
 	cmake_src_prepare
 
@@ -119,91 +122,110 @@ src_prepare() {
 	fi
 
 	# See ml/backend/ggml/ggml/src/CMakeLists.txt
-	if use amd64; then
-		# sandybridge    AVX
-		if ! use cpu_flags_x86_avx; then
-			sed -e "/ggml_add_cpu_backend_variant(sandybridge/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
+	if ! use amd64; then
+		sed -e '/set(GGML_CPU_ALL_VARIANTS/{s/ON/OFF/g}' -i CMakeLists.txt ||
+			die
+	else  # ^ use !amd64 | use amd64 v
+		local -A keep_backends=()
+		local backend=''
+
+		if use cpu_flags_x86_avx; then
+			if use cpu_flags_x86_f16c && use cpu_flags_x86_avx2 &&
+					use cpu_flags_x86_fma3
+			then
+				if ! use cpu_flags_x86_avx512f; then
+					if use cpu_flags_x86_avx_vnni; then
+						# AVX F16C AVX2 FMA AVX_VNNI
+						keep_backends['alderlake']=1
+						[[ -z "${backend:-}" ]] && backend='alderlake'
+					fi
+				else
+					if use cpu_flags_x86_avx512vbmi &&
+								use cpu_flags_x86_avx512_vnni
+					then
+						if use cpu_flags_x86_avx512_bf16 &&
+								use cpu_flags_x86_amx_tile &&
+								use cpu_flags_x86_amx_int8
+						then
+							# AVX F16C AVX2 FMA AVX512 AVX512_VBMI AVX512_VNNI
+							# AVX512_BF16 AMX_TILE AMX_INT8
+							keep_backends['sapphirerapids']=1
+							[[ -z "${backend:-}" ]] && backend='sapphirerapids'
+						fi
+						# AVX F16C AVX2 FMA AVX512 AVX512_VBMI AVX512_VNNI
+						keep_backends['icelake']=1
+						[[ -z "${backend:-}" ]] && backend='icelake'
+					fi
+					# AVX F16C AVX2 FMA AVX512
+					keep_backends['skylakex']=1
+					[[ -z "${backend:-}" ]] && backend='skylakex'
+				fi
+				# AVX F16C AVX2 FMA
+				keep_backends['haswell']=1
+				[[ -z "${backend:-}" ]] && backend='haswell'
+			fi
+			# AVX
+			keep_backends['sandybridge']=1
+			[[ -z "${backend:-}" ]] && backend='sandybridge'
 		fi
 
-		# haswell        AVX F16C AVX2 FMA
-		if ! use cpu_flags_x86_avx ||
-			! use cpu_flags_x86_f16c ||
-			! use cpu_flags_x86_avx2 ||
-			! use cpu_flags_x86_fma3
-		then
-			sed -e "/ggml_add_cpu_backend_variant(haswell/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
-		fi
-
-		# skylakex       AVX F16C AVX2 FMA AVX512
-		if ! use cpu_flags_x86_avx ||
-			! use cpu_flags_x86_f16c ||
-			! use cpu_flags_x86_avx2 ||
-			! use cpu_flags_x86_fma3 ||
-			! use cpu_flags_x86_avx512f
-		then
-			sed -e "/ggml_add_cpu_backend_variant(skylakex/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
-		fi
-
-		# icelake        AVX F16C AVX2 FMA AVX512 AVX512_VBMI AVX512_VNNI
-		if ! use cpu_flags_x86_avx ||
-			! use cpu_flags_x86_f16c ||
-			! use cpu_flags_x86_avx2 ||
-			! use cpu_flags_x86_fma3 ||
-			! use cpu_flags_x86_avx512f ||
-			! use cpu_flags_x86_avx512vbmi ||
-			! use cpu_flags_x86_avx512_vnni
-		then
-			sed -e "/ggml_add_cpu_backend_variant(icelake/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
-		fi
-
-		# alderlake      AVX F16C AVX2 FMA AVX_VNNI
-		if ! use cpu_flags_x86_avx ||
-			! use cpu_flags_x86_f16c ||
-			! use cpu_flags_x86_avx2 ||
-			! use cpu_flags_x86_fma3 ||
-			! use cpu_flags_x86_avx_vnni
-		then
-			sed -e "/ggml_add_cpu_backend_variant(alderlake/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
-		fi
-
-		# sapphirerapids AVX F16C AVX2 FMA AVX512 AVX512_VBMI AVX512_VNNI AVX512_BF16 AMX_TILE AMX_INT8
-		if ! use cpu_flags_x86_avx ||
-			! use cpu_flags_x86_f16c ||
-			! use cpu_flags_x86_avx2 ||
-			! use cpu_flags_x86_fma3 ||
-			! use cpu_flags_x86_avx512f ||
-			! use cpu_flags_x86_avx512vbmi ||
-			! use cpu_flags_x86_avx512_vnni ||
-			! use cpu_flags_x86_avx512_bf16 ||
-			! use cpu_flags_x86_amx_tile ||
-			! use cpu_flags_x86_amx_int8
-		then
-			sed -e "/ggml_add_cpu_backend_variant(sapphirerapids/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
-		fi
-	else # use amd64
-		for backend in sandybridge haswell skylakex icelake alderlake \
-				sapphirerapids
-		do
-			sed -e "/ggml_add_cpu_backend_variant(${backend}/{s/^/# /g}" \
-				-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
-		done
-	fi
+		# USE='minimal'   - install best-fit backend for build host;
+		# USE='multiarch' - install all backends;
+		# ... otherwise   - install all backends up to build host best-fit.
+		#
+		if use multiarch; then
+			for arch in "${archs[@]}"; do
+				einfo "Enabling optimised support for '${arch}'" \
+					"architecture ..."
+			done
+		else  # ^ use multiarch | use !multiarch v
+			if [[ -z "${backend:-}" ]]; then
+				ewarn "Disabling optimised support for all architectures ..."
+			sed \
+					-e '/set(GGML_CPU_ALL_VARIANTS/{s/ON/OFF/g}' \
+					-i CMakeLists.txt ||
+				die
+			else  # ^ -z "${backend:-}" | -n "${backend:-}" v
+				if use minimal; then
+					for arch in "${archs[@]}"; do
+						if [[ "${arch}" == "${backend:-}" ]]; then
+							einfo "Enabling optimised support for '${arch}'" \
+								"architecture ..."
+						else
+							ewarn "Disabling optimised support for '${arch}'" \
+								"architecture ..."
+							sed -e "/ggml_add_cpu_backend_variant(${arch}/{s/^/# /g}" \
+								-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
+						fi
+					done
+				else  # ^ use minimal | use !minimal v
+					for arch in "${archs[@]}"; do
+						if [[ -n "${keep_backends["${arch}"]:-}" ]]; then
+							einfo "Enabling optimised support for '${arch}'" \
+								"architecture ..."
+						else
+							ewarn "Disabling optimised support for '${arch}'" \
+								"architecture ..."
+							sed -e "/ggml_add_cpu_backend_variant(${arch}/{s/^/# /g}" \
+								-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
+						fi
+					done
+				fi   # use !minimal
+			fi  # -n "${backend:-}"
+		fi  # use !multiarch
+	fi  # use amd64
 
 	if use cuda; then
 		cuda_src_prepare
 	fi
 
 	if use rocm; then
-		# --hip-version gets appended to the compile flags which isn't a known flag.
-		# This causes rocm builds to fail because -Wunused-command-line-argument is turned on.
+		# --hip-version gets appended to the compile flags which isn't a known
+		# flag.  This causes rocm builds to fail because
+		# -Wunused-command-line-argument is turned on.
+		#
 		find "${S}" -name ".go" \
-				-exec sed -i "s/ -Wno-unused-command-line-argument / /g" {} + ||
+				-exec sed -i "s/ -Wunused-command-line-argument / -Wno-unused-command-line-argument /g" {} + ||
 			die
 	fi
 }
@@ -249,13 +271,9 @@ src_configure() {
 
 	if use blas; then
 		if use mkl; then
-			mycmakeargs+=(
-				-DGGML_BLAS_VENDOR="Intel"
-			)
+			mycmakeargs+=( -DGGML_BLAS_VENDOR="Intel" )
 		else
-			mycmakeargs+=(
-				-DGGML_BLAS_VENDOR="Generic"
-			)
+			mycmakeargs+=( -DGGML_BLAS_VENDOR="Generic" )
 		fi
 	fi
 
@@ -266,23 +284,17 @@ src_configure() {
 
 		cuda_add_sandbox -w
 	else
-		mycmakeargs+=(
-			-DCMAKE_CUDA_COMPILER="NOTFOUND"
-		)
+		mycmakeargs+=( -DCMAKE_CUDA_COMPILER="NOTFOUND" )
 	fi
 
 	if use rocm; then
-		mycmakeargs+=(
-			-DCMAKE_HIP_PLATFORM="amd"
-		)
+		mycmakeargs+=( -DCMAKE_HIP_PLATFORM="amd" )
 		local -x HIP_ARCHS="$(get_amdgpu_flags)"
 		local -x HIP_PATH="${EPREFIX}/usr"
 
 		check_amdgpu
 	else
-		mycmakeargs+=(
-			-DCMAKE_HIP_COMPILER="NOTFOUND"
-		)
+		mycmakeargs+=( -DCMAKE_HIP_COMPILER="NOTFOUND" )
 	fi
 
 	cmake_src_configure
@@ -337,7 +349,9 @@ src_install() {
 
 	if use cuda; then
 		# remove the copied cuda files...
-		rm "${ED}/usr/lib/ollama"/cuda_*/libcu*.so* || die
+		#
+		# Update: This may no longer be necessary?
+		rm -f "${ED}/usr/lib/ollama"/cuda_*/libcu*.so*
 	fi
 
 	doinitd "${FILESDIR}"/ollama.init
