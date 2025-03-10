@@ -72,14 +72,14 @@ CDEPEND="
 "
 
 DEPEND="${CDEPEND}
-sys-devel/bison
-app-alternatives/lex
-nls? ( sys-devel/gettext )
-xml? ( virtual/pkgconfig )
+	sys-devel/bison
+	app-alternatives/lex
+	nls? ( sys-devel/gettext )
+	xml? ( virtual/pkgconfig )
 "
 
 RDEPEND="${CDEPEND}
-selinux? ( sec-policy/selinux-postgresql )
+	selinux? ( sec-policy/selinux-postgresql )
 "
 
 # Openjade, docbook, XML, and XSLT are needed to generate manpages and
@@ -127,6 +127,10 @@ src_configure() {
 	# Fails to build with C23, fallback to the old default in < GCC 15
 	# for now: https://marc.info/?l=pgsql-bugs&m=173185132906874&w=2
 	append-cflags -std=gnu17
+
+	filter-flags -ffast-math
+	replace-flags -Ofast -O3
+	append-flags -fno-fast-math
 
 	case ${CHOST} in
 		*-darwin*|*-solaris*)
@@ -252,10 +256,10 @@ src_install() {
 	# Make slot specific links to programs
 	local f bn
 	for f in $(
-		find "${ED}/usr/$(get_libdir)/postgresql-${SLOT}/bin" \
-			-mindepth 1 \
-			-maxdepth 1
-	)
+			find "${ED}/usr/$(get_libdir)/postgresql-${SLOT}/bin" \
+				-mindepth 1 \
+				-maxdepth 1
+		)
 	do
 		bn=$(basename "${f}")
 		dosym "../$(get_libdir)/postgresql-${SLOT}/bin/${bn}" \
@@ -476,5 +480,3 @@ src_test() {
 		ewarn 'Skipping.'
 	fi
 }
-
-# vi: set diffopt=filler,iwhiteall:
