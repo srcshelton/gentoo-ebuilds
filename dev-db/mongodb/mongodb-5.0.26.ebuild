@@ -18,6 +18,7 @@ MY_P=mongo-${MY_PV}
 DESCRIPTION="A high-performance, open source, schema-free document-oriented database"
 HOMEPAGE="https://www.mongodb.com"
 SRC_URI="https://github.com/mongodb/mongo/archive/refs/tags/${MY_PV}.tar.gz -> ${P}.gh.tar.gz"
+S="${WORKDIR}/${MY_P}"
 
 LICENSE="Apache-2.0 SSPL-1"
 SLOT="0"
@@ -80,8 +81,6 @@ PATCHES=(
 	"${FILESDIR}/${PN}-5.0.26-scons.patch"
 	"${FILESDIR}/${PN}-5.0.26-mozjs-remove-unused-constructor.patch"
 )
-
-S="${WORKDIR}/${MY_P}"
 
 python_check_deps() {
 	python_has_version -b ">=dev-build/scons-3.1.1[${PYTHON_USEDEP}]" &&
@@ -149,7 +148,7 @@ src_configure() {
 	)
 
 	use arm64 && scons_opts+=( --use-hardware-crc32=off ) # Bug 701300
-	use amd64 && scons_opts+=( --experimental-optimization=-sandybridge ) # Bug 890294
+	use amd64 && ! use cpu_flags_x86_avx && scons_opts+=( --experimental-optimization=-sandybridge ) # Bug 890294
 	use debug && scons_opts+=( --dbg=on )
 	use kerberos && scons_opts+=( --use-sasl-client )
 
@@ -166,10 +165,12 @@ src_configure() {
 		 scons_opts+=( --linker=bfd )
 	fi
 
-	# respect mongoDB upstream's basic recommendations
+	# respect mongoDB upstream's basic recommendations:
+	# "Avoid using optimization levels or codegen options (like -march=native)
+	# that result in the use of vectorized operations in v8."
 	# see bug #536688 and #526114
 	if ! use debug; then
-		filter-flags '-m*'
+		filter-flags '-march=*' '-mcpu=*' '-mtune=*'
 		filter-flags '-O?'
 	fi
 
@@ -177,6 +178,8 @@ src_configure() {
 }
 
 src_compile() {
+	addpredict '/usr/lib/python*/__pycache__'
+
 	PREFIX="${EPREFIX}/usr" ./buildscripts/scons.py "${scons_opts[@]}" install-core || die
 }
 
