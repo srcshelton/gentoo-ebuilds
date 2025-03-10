@@ -6,13 +6,13 @@ SUBSLOT="18"
 
 JAVA_PKG_OPT_USE="jdbc"
 
-inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
+inherit cmake eapi9-ver flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.5-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${P}-patches-01.tar.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -261,10 +261,14 @@ src_prepare() {
 			hashicorp_key_management
 		)
 	fi
-	server_plugins=( handler_socket auth_socket feedback metadata_lock_info
-				locale_info qc_info server_audit sql_errlog auth_ed25519 )
-	test_plugins=( audit_null auth_examples daemon_example fulltext
-				debug_key_management example_key_management versioning )
+	server_plugins=(
+		handler_socket auth_socket feedback metadata_lock_info
+		locale_info qc_info server_audit sql_errlog auth_ed25519
+	)
+	test_plugins=(
+		audit_null auth_examples daemon_example fulltext
+		debug_key_management example_key_management versioning
+	)
 	for plugin in "${disable_plugins[@]}" ; do
 		_disable_plugin "${plugin}"
 	done
@@ -620,12 +624,12 @@ src_test() {
 	disabled_tests+=( "perfschema.nesting;23458;Known to be broken" )
 	disabled_tests+=( "perfschema.prepared_statements;0;Broken test suite" )
 	disabled_tests+=( "perfschema.privilege_table_io;27045;Sporadically failing test" )
-	disabled_tests+=( "plugins.auth_ed25519;0;Needs client libraries built" )
 	disabled_tests+=( "plugins.cracklib_password_check;0;False positive due to varying policies" )
 	disabled_tests+=( "plugins.two_password_validations;0;False positive due to varying policies" )
 	disabled_tests+=( "roles.acl_statistics;0;False positive due to a user count mismatch caused by previous test" )
 	disabled_tests+=( "spider.*;0;Fails with network sandbox" )
 	disabled_tests+=( "sys_vars.wsrep_on_without_provider;25625;Known to be broken" )
+	disabled_tests+=( "sysschema.v_privileges_by_table_by_level;0;Fails with network sandbox, see MDEV-36030")
 
 	if ! use latin1 ; then
 		disabled_tests+=( "funcs_1.is_columns_mysql;0;Requires USE=latin1" )
@@ -825,15 +829,10 @@ pkg_postinst() {
 			elog "--wsrep-new-cluster to the options in /etc/conf.d/mysql for one node."
 			elog "This option should then be removed for subsequent starts."
 			einfo
-			if [[ -n "${REPLACING_VERSIONS}" ]] ; then
-				local rver
-				for rver in ${REPLACING_VERSIONS} ; do
-					if ver_test "${rver}" -lt "10.4.0" ; then
-						ewarn "Upgrading galera from a previous version requires admin restart of the entire cluster."
-						ewarn "Please refer to https://mariadb.com/kb/en/library/changes-improvements-in-mariadb-104/#galera-4"
-						ewarn "for more information"
-					fi
-				done
+			if ver_replacing -lt "10.4.0" ; then
+				ewarn "Upgrading galera from a previous version requires admin restart of the entire cluster."
+				ewarn "Please refer to https://mariadb.com/kb/en/library/changes-improvements-in-mariadb-104/#galera-4"
+				ewarn "for more information"
 			fi
 		fi
 	fi

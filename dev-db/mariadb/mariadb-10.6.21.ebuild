@@ -6,13 +6,14 @@ SUBSLOT="18"
 
 JAVA_PKG_OPT_USE="jdbc"
 
-inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
+inherit cmake eapi9-ver flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
 	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6.20-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6-columnstore-with-boost-1.85.patch.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -114,7 +115,10 @@ RDEPEND="${COMMON_DEPEND}
 	!<virtual/libmysqlclient-18-r1
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
-		columnstore? ( dev-db/mariadb-connector-c )
+		columnstore? (
+			dev-db/mariadb-connector-c
+			!dev-libs/thrift
+		)
 		extraengine? ( jdbc? ( >=virtual/jre-1.8 ) )
 		galera? (
 			sys-apps/iproute2
@@ -217,6 +221,7 @@ src_prepare() {
 	eapply "${WORKDIR}"/mariadb-patches
 	eapply "${FILESDIR}"/${PN}-10.6.11-gssapi.patch
 	eapply "${FILESDIR}"/${PN}-10.6.12-gcc-13.patch
+	eapply "${WORKDIR}"/${PN}-10.6-columnstore-with-boost-1.85.patch
 
 	eapply_user
 
@@ -365,6 +370,12 @@ src_configure() {
 		mycmakeargs+=( -DWITH_SSL=system -DCLIENT_PLUGIN_SHA256_PASSWORD=STATIC )
 	else
 		mycmakeargs+=( -DWITH_SSL=bundled )
+	fi
+
+	if use systemtap && has_version "dev-debug/systemtap[-dtrace-symlink(+)]" ; then
+		mycmakeargs+=(
+			-DDTRACE="${BROOT}"/usr/bin/stap-dtrace
+		)
 	fi
 
 	# bfd.h is only used starting with 10.1 and can be controlled by NOT_FOR_DISTRIBUTION
@@ -788,15 +799,10 @@ pkg_postinst() {
 			elog "--wsrep-new-cluster to the options in /etc/conf.d/mysql for one node."
 			elog "This option should then be removed for subsequent starts."
 			einfo
-			if [[ -n "${REPLACING_VERSIONS}" ]] ; then
-				local rver
-				for rver in ${REPLACING_VERSIONS} ; do
-					if ver_test "${rver}" -lt "10.4.0" ; then
-						ewarn "Upgrading galera from a previous version requires admin restart of the entire cluster."
-						ewarn "Please refer to https://mariadb.com/kb/en/library/changes-improvements-in-mariadb-104/#galera-4"
-						ewarn "for more information"
-					fi
-				done
+			if ver_replacing -lt "10.4.0" ; then
+				ewarn "Upgrading galera from a previous version requires admin restart of the entire cluster."
+				ewarn "Please refer to https://mariadb.com/kb/en/library/changes-improvements-in-mariadb-104/#galera-4"
+				ewarn "for more information"
 			fi
 		fi
 	fi

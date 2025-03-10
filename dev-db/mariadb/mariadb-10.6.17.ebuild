@@ -10,7 +10,8 @@ inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolcha
 
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="mirror://mariadb/${PN}-${PV}/source/${P}.tar.gz
-	https://github.com/hydrapolic/gentoo-dist/raw/master/mariadb/mariadb-10.6.16-patches-01.tar.xz"
+	https://github.com/hydrapolic/gentoo-dist/raw/master/mariadb/mariadb-10.6.16-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6-columnstore-with-boost-1.85.patch.xz"
 
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 LICENSE="GPL-2 LGPL-2.1+"
@@ -110,7 +111,10 @@ RDEPEND="${COMMON_DEPEND}
 	!<virtual/libmysqlclient-18-r1
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
-		columnstore? ( dev-db/mariadb-connector-c )
+		columnstore? (
+			dev-db/mariadb-connector-c
+			!dev-libs/thrift
+		)
 		extraengine? ( jdbc? ( >=virtual/jre-1.8 ) )
 		galera? (
 			sys-apps/iproute2
@@ -214,6 +218,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/${PN}-10.6.11-gssapi.patch
 	eapply "${FILESDIR}"/${PN}-10.6.12-gcc-13.patch
 	eapply "${FILESDIR}"/${PN}-10.6.17-libxml-2.12.patch
+	eapply "${WORKDIR}"/${PN}-10.6-columnstore-with-boost-1.85.patch
 
 	eapply_user
 
