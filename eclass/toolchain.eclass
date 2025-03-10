@@ -76,7 +76,7 @@ is_crosscompile() {
 # up to minor version (x.x.x).
 tc_version_is_at_least() {
 	if [[ -n "${GCC_RELEASE_VER:-}" ]]; then
-		# Maintain original indentation to make comparison to upstream more
+		# Maintain original indentation to make comparison to upstream more
 		# simple...
 	ver_test "${2:-${GCC_RELEASE_VER}}" -ge "$1"
 	else
@@ -459,7 +459,6 @@ if [[ ${PN} != gnat-gpl ]] && tc_has_feature ada ; then
 					sys-devel/gcc:${SLOT}[ada]
 					<sys-devel/gcc-${SLOT}[ada]
 					<dev-lang/ada-bootstrap-$((${SLOT} + 1))
-					dev-lang/gnat-gpl[ada]
 				)
 			)
 		"
@@ -472,7 +471,6 @@ if [[ ${PN} != gnat-gpl ]] && tc_has_feature ada ; then
 					sys-devel/gcc:${SLOT}[ada]
 					<sys-devel/gcc-${SLOT}[ada]
 					<dev-lang/ada-bootstrap-${SLOT}
-					dev-lang/gnat-gpl[ada]
 				)
 			)
 		"
