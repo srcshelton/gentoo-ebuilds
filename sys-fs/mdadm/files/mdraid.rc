@@ -8,7 +8,7 @@ depend() {
 }
 
 start() {
-	local mdadm_conf mdmod_conf mods mod dev timeout device node output # devs
+	local mdadm_conf mdmod_conf mods mod dev timeout device node output # devs
 	declare -i timeout
 
 	mdadm_conf="/etc/mdadm/mdadm.conf"
