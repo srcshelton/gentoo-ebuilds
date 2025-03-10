@@ -1,11 +1,11 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-KV_MINOR="62"
-MY_PV="20241126"
-EGIT_COMMIT="dd2394360860d15146c96635796a75b05bb32b61"
+KV_MINOR="74"
+MY_PV="20250127"
+EGIT_COMMIT="a18d9ced4965462cb7b3b4252ada440395105308"
 ETYPE="headers"
 H_SUPPORTEDARCH="arm arm64"
 inherit kernel-2
