@@ -271,10 +271,7 @@ multilib_src_configure() {
 
 		meson_src_configure
 		meson_src_compile
-		# We already provide a prefix in ${T} above. Blank DESTDIR
-		# as it may be set in the environment by Portage (though not
-		# guaranteed in src_configure).
-		meson_src_install --destdir ""
+		meson_src_install --destdir "${T}/bootstrap-gi-prefix"
 
 		popd || die
 
