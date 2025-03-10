@@ -21,7 +21,7 @@ REQUIRED_USE="kerberos? ( ssl )
 	lua? ( ${LUA_REQUIRED_USE} )
 	webdav? ( sqlite )"
 
-# This makes no sense: libgamin blocks fam, and virtual/fam includes either fam
+# This makes no sense: libgamin blocks fam, and virtual/fam includes either fam
 # or libgamin - so this depenency forces fam via libgamin and exlcudes fam
 # entirely.
 #BDEPEND="dev-libs/libgamin
