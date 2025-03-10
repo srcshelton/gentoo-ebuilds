@@ -26,6 +26,8 @@ DEPEND="
 	virtual/os-headers:50800
 "
 
+S="${WORKDIR}/${PN}-v${PV}"
+
 pkg_setup() {
 	local CONFIG_CHECK="SCHED_DEBUG"
 	use bpf && CONFIG_CHECK+=" DEBUG_INFO_BTF"
@@ -33,12 +35,20 @@ pkg_setup() {
 	local ERROR_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
 	local ERROR_DEBUG_INFO_BTF="Kernel option 'CONFIG_DEBUG_INFO_BTF' *must* be enabled for stalld to compile"
 
-	if [[ "${MERGE_TYPE}" != "buildonly" ]]; then # Validate setup if package will be merged...
+	# Validate setup if package will be merged...
+	#
+	# Only three options are provided here - 'buildonly', 'binary' and 'source'
+	#
+	# 'binary' only applies when deploying a pre-built package whilst
+	# 'buildonly' only applies if we're not deploying the package immediately
+	# once built.  So the check below has to be against 'binary' and we'll work
+	# with the assumption that host deployments will all be from pre-built
+	# packages.
+	#
+	if [[ "${MERGE_TYPE}" == 'binary' ]]; then
 		linux-info_pkg_setup
 	fi
 }
-
-S="${WORKDIR}/${PN}-v${PV}"
 
 src_prepare() {
 	# As of (unreleased) v1.19.6 and 1.19.7 (versioned as 1.19.6),
