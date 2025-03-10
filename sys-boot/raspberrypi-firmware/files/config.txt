@@ -19,17 +19,20 @@
 
 
 # Supported conditional filters:
-#   [all] [none] [pi1] [pi2] [pi3] [pi3+] [pi4] [pi400] [cm4] [cm4s] [pi0]
-#   [pi0w] [pi02] [board-type=<type>] [EDID=<name>] [0x<serial number>]
-#   [gpio<pin>=<0|1>] [tryboot]
+#   [pi1] [pi2] [pi3] [pi3+] [pi4] [pi5] [pi400] [pi500]
+#   [cm1] [cm3] [cm3+] [cm4] [cm4s] [cm5] [pi0] [pi0w] [pi02]
+#   [board-type=<type>] [EDID=<name>] [0x<serial number>] [gpio<pin>=<0|1>]
+#   [all] [none] [tryboot]
 #
 # Raspberry Pi 4-only filters:
 #   [HDMI:<0|1>]
 #
-# Raspberry Pi Zero W will see sections filtered by [pi0] and [pi0w],
-# Raspberry Pi 3B+ will see [pi3] and [pi3+], Raspberry Pi 400 will see [pi4]
-# and [pi400].  A directive set in [pi4] could be reverted in [pi400] to
-# avoid affecting Raspberry Pi 400 systems.
+# Raspberry Pi Zero W ([pi0]) will see sections filtered by [pi0] and [pi0w];
+# Raspberry Pi Zero 2 W ([pi02]) will see sections filtered by [pi0], [pi0w]
+# and [pi02]; Raspberry Pi 3B+ will see [pi3] and [pi3+]; Raspberry Pi 400
+# will see [pi4] and [pi400], etc.
+# A directive set in [pi4] could be reverted in [pi400] to avoid affecting
+# Raspberry Pi 400 systems.
 #
 # A monitor's name to be used as a parameter to the [EDID=*] filter can be
 # found from a running system connected to the monitor in question from
@@ -89,6 +92,7 @@
 #camera_auto_detect=0
 #display_auto_detect=0
 #dtoverlay=
+# See https://raw.githubusercontent.com/raspberrypi/firmware/master/boot/overlays/README
 #dtparam=
 
 [pi4]
@@ -132,8 +136,9 @@ arm_boost=1
 #cmdline=cmdline.txt
 #kernel=<kernel.img,kernel7.img,kernel7l.img,kernel8.img>
 
-# Defaults to 1 on [pi4], [pi400], [cm4], [cm4s], 0 otherwise;
-# Supported on [pi3]/[pi02] and above
+# Defaults to 1 on [pi4], [pi400], [cm4], [cm4s], [pi5], [pi500], [cm5];
+# 0 otherwise;
+# Supported on [pi3]/[pi02] and above.
 #
 #arm_64bit=<0|1>
 
