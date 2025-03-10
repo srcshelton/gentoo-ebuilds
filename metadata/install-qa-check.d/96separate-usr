@@ -57,7 +57,7 @@ run_check() {
 					unset edf
 				fi
 			fi
-		done < <( # <- Syntax
+		done < <( # <- Syntax
 			local dir=''
 
 			for dir in "${ED%/}"/bin/ "${ED%/}"/sbin/ "${ED%/}${libdir}"; do

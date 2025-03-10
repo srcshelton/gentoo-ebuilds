@@ -84,7 +84,7 @@ _checkrules() {
 	# shellcheck disable=SC2086
 	"${iptables_bin}-restore" --test ${SAVE_RESTORE_OPTIONS} < "${iptables_save}"
 	eend ${?} "${iptables_bin}-restore failed: ${?}"
-} # _checkrules
+} # _checkrules
 
 _flush() {
 	local tables='' table=''
@@ -133,7 +133,7 @@ _flush() {
 check() {
 	# Short name for users of init.d script.
 	_checkrules
-} # check
+} # check
 
 save() {
 	[ -n "${iptables_save:-}" ] || return 1
@@ -171,7 +171,7 @@ panic() {
 	ebegin "Dropping all ${iptables_name} packets"
 	_flush --set-table-policy=DROP
 	eend ${?} "${iptables_bin} failed to flush firewall rules"
-} # panic
+} # panic
 
 
 start_pre() {

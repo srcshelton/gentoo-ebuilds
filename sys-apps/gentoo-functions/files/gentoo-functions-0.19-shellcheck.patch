@@ -675,7 +675,7 @@
 +fi
  
 -if ! yesno "${RC_ENDCOL}"; then
-+# Width of '[ ok ]' == 7...
++# Width of '[ ok ]' == 7...
 +if ! yesno "${RC_ENDCOL:-}"; then
  	ENDCOL=''
  elif hash tput 2>/dev/null; then

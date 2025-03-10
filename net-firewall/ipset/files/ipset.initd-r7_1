@@ -200,7 +200,7 @@ _update() {
 		return 0
 	}
 
-	# In `(da|a)?sh`, process substitution isn't possible without using
+	# In `(da|a)?sh`, process substitution isn't possible without using
 	# named-pipes [1], which is too much for an init script.  So we'll have
 	# to use a fragile for-loop over find results instead...
 	#
@@ -220,7 +220,7 @@ _update() {
 
 		name=''
 		saved_header=''
-		header="$( # <- Syntax
+		header="$( # <- Syntax
 			head -n 1 "${list_file}" |
 				sed 's/^#//'
 		)"
