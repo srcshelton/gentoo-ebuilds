@@ -3,6 +3,8 @@
 
 EAPI=8
 
+MY_P="${P%"_p"*}"
+
 inherit autotools udev
 
 #EGIT_COMMIT="46bb4c073624226c3f05b37b9ecc50bbcf543f5a"
@@ -23,11 +25,11 @@ DEPEND="virtual/libusb"
 RDEPEND="${CDEPEND}"
 
 PATCHES=(
-	"${FILESDIR}/${P}-LOADER_OPTION-index.patch"
-	"${FILESDIR}/${P}-mingw-w64.patch"
-	"${FILESDIR}/${P}-rockusb.rules.patch"
-	"${FILESDIR}/${P}-CMakeLists.txt.patch"
-	"${FILESDIR}/${P}-README.md.patch"
+	"${FILESDIR}/${MY_P}-LOADER_OPTION-index.patch"
+	"${FILESDIR}/${MY_P}-mingw-w64.patch"
+	"${FILESDIR}/${MY_P}-rockusb.rules.patch"
+	"${FILESDIR}/${MY_P}-CMakeLists.txt.patch"
+	"${FILESDIR}/${MY_P}-README.md.patch"
 
 )
 
