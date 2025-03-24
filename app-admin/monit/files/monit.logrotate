@@ -1,7 +1,7 @@
 /var/log/monit.log {
 	compress
 	copytruncate
-	create 0640 root
+	create 0640 root root
 	daily
 	missingok
 	notifempty
