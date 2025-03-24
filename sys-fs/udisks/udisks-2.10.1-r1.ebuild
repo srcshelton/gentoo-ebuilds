@@ -1,7 +1,7 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 inherit autotools bash-completion-r1 linux-info systemd tmpfiles udev xdg-utils
 
 DESCRIPTION="Daemon providing interfaces to work with storage devices"
@@ -10,28 +10,25 @@ SRC_URI="https://github.com/storaged-project/udisks/releases/download/${P}/${P}.
 
 LICENSE="LGPL-2+ GPL-2+"
 SLOT="2"
-KEYWORDS="ppc ~sparc"
-IUSE="acl +daemon debug doc elogind +introspection lvm nls selinux systemd tmpfiles udev vdo zram"
+KEYWORDS="~alpha amd64 arm arm64 ~loong ~mips ppc64 ~riscv x86"
+IUSE="acl +daemon debug doc elogind +introspection lvm nls selinux systemd +tmpfiles udev"
 
 REQUIRED_USE="
 	?? ( elogind systemd )
 	elogind? ( daemon )
 	systemd? ( daemon )
-	zram? ( systemd )
 "
 
 # See configure.ac file for the required min version
-BLOCKDEV_MIN_VER="2.25"
+BLOCKDEV_MIN_VER="3.0"
 
-# <libblockdev-3 dep for bug #910077, should go away with udisks-2.10
 COMMON_DEPEND="
-	>=sys-auth/polkit-0.114
-	>=sys-libs/libblockdev-${BLOCKDEV_MIN_VER}:=[cryptsetup,lvm?,vdo(-)?]
-	<sys-libs/libblockdev-3[cryptsetup,lvm?,vdo(-)?]
+	>=sys-auth/polkit-0.114[daemon]
+	>=sys-libs/libblockdev-${BLOCKDEV_MIN_VER}:=[cryptsetup,lvm?,nvme]
 	virtual/udev
 	acl? ( virtual/acl )
 	daemon? (
-		>=dev-libs/glib-2.50:2
+		>=dev-libs/glib-2.68:2
 		>=dev-libs/libatasmart-0.19
 		>=dev-libs/libgudev-165:=
 	)
@@ -39,7 +36,6 @@ COMMON_DEPEND="
 	introspection? ( >=dev-libs/gobject-introspection-1.30:= )
 	lvm? ( sys-fs/lvm2 )
 	systemd? ( >=sys-apps/systemd-209 )
-	zram? ( >=sys-libs/libblockdev-${BLOCKDEV_MIN_VER}[kbd(-)] )
 "
 # util-linux -> mount, umount, swapon, swapoff (see also #403073)
 RDEPEND="${COMMON_DEPEND}
@@ -56,6 +52,8 @@ BDEPEND="
 	>=dev-build/gtk-doc-am-1.3
 	virtual/pkgconfig
 	nls? ( >=sys-devel/gettext-0.19.8 )
+	dev-libs/gobject-introspection-common
+	dev-build/autoconf-archive
 "
 # If adding a eautoreconf, then these might be needed at buildtime:
 # dev-libs/gobject-introspection-common
@@ -64,7 +62,12 @@ BDEPEND="
 DOCS=( AUTHORS HACKING NEWS README.md )
 
 PATCHES=(
-	"${FILESDIR}/${P}-undefined.patch" # 782061
+	"${FILESDIR}/${P}-BLKRRPART_harder.patch"
+	"${FILESDIR}/${P}-targetcli_config.json_netif_timeout.patch"
+	"${FILESDIR}/${P}-udiskslinuxmanager_use_after_free.patch"
+	"${FILESDIR}/${P}-udiskslinuxblock_survive_missing_fstab.patch"
+
+	"${FILESDIR}/${PN}-2.10.1-slibtool-export-dynamic.patch"
 )
 
 pkg_setup() {
@@ -106,10 +109,7 @@ src_configure() {
 		$(use_enable debug)
 		$(use_enable introspection)
 		$(use_enable lvm lvm2)
-		$(use_enable lvm lvmcache)
 		$(use_enable nls)
-		$(use_enable vdo)
-		$(use_enable zram)
 	)
 	econf "${myeconfargs[@]}"
 }
@@ -139,9 +139,6 @@ pkg_preinst() {
 
 pkg_postinst() {
 	use !udev || udev_reload
-
-	# TODO: obsolete with tmpfiles_process?
-	# mkdir -p "${EROOT}"/run #415987
 
 	use !tmpfiles || tmpfiles_process udisks2.conf
 
