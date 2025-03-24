@@ -62,6 +62,8 @@ run_make() {
 		LIBDM_BUILD_TAG="$(usex device-mapper '' 'libdm_no_deferred_remove exclude_graphdriver_devicemapper')" \
 		LIBSUBID_BUILD_TAG="$(usex rootless 'libsubid' '')" \
 		PREFIX="${EPREFIX}/usr" \
+		EXTRA_LDFLAGS="-bindnow -s -w" \
+		GOFLAGS="-trimpath" \
 		$@
 }
 
