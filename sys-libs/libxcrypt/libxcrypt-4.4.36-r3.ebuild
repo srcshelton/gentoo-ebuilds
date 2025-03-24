@@ -1,4 +1,4 @@
-# Copyright 2004-2024 Gentoo Authors
+# Copyright 2004-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -118,6 +118,14 @@ src_configure() {
 	MYSYSROOT="${ESYSROOT}"
 
 	if target_is_not_host; then
+		# Hack to work around missing TARGET_CC support.
+		# See bug 949976.
+		if tc-is-clang; then
+			export CC="${CTARGET}-clang"
+		else
+			export CC="${CTARGET}-gcc"
+		fi
+
 		local CHOST="${CTARGET}"
 
 		MYPREFIX=
@@ -128,19 +136,15 @@ src_configure() {
 		multilib_env
 		ABI="${DEFAULT_ABI}"
 
-		tc-getCC >/dev/null
-		if [[ ${CC} != ${CHOST}-* ]]; then
-			unset CC
-			tc-getCC >/dev/null
-		fi
-
 		strip-unsupported-flags
 	fi
 
 	if use headers-only; then
-		# Nothing is compiled here which would affect the headers for the target.
-		# So forcing CC is sane.
+		# Nothing is compiled which would affect the headers, so we set
+		# CC and PKG_CONFIG to ensure configure passes without
+		# defaulting to the unprefixed host variants e.g. "pkg-config"
 		local -x CC="$(tc-getBUILD_CC)"
+		local -x PKG_CONFIG="false"
 	fi
 
 	# Avoid possible "illegal instruction" errors with gold
