@@ -391,7 +391,7 @@ pkg_postinst() {
 		ewarn "before starting clamav for the first time."
 	fi
 
-	 if ! systemd_is_booted ; then
+	if ! systemd_is_booted ; then
 		ewarn "This version of ClamAV provides separate OpenRC services"
 		ewarn "for clamd, freshclam, clamav-milter, and clamonacc. The"
 		ewarn "clamd service now starts only the clamd daemon itself. You"

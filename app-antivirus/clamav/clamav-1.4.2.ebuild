@@ -10,8 +10,8 @@ LLVM_MAX_SLOT=13
 PYTHON_COMPAT=( python3_{11..13} )
 
 CRATES="
-	adler@1.0.2
 	adler32@1.2.0
+	adler@1.0.2
 	aho-corasick@1.1.3
 	android-tzdata@0.1.1
 	android_system_properties@0.1.5
@@ -23,9 +23,9 @@ CRATES="
 	bitflags@2.5.0
 	block-buffer@0.10.4
 	bumpalo@3.16.0
-	bytemuck@1.15.0
+	bytemuck@1.21.0
 	byteorder@1.5.0
-	bytes@1.6.0
+	bytes@1.9.0
 	bzip2-rs@0.1.2
 	cbindgen@0.25.0
 	cc@1.0.97
@@ -59,11 +59,11 @@ CRATES="
 	half@2.4.1
 	hashbrown@0.12.3
 	heck@0.4.1
-	hex@0.4.3
 	hex-literal@0.4.1
+	hex@0.4.3
 	home@0.5.9
-	iana-time-zone@0.1.60
 	iana-time-zone-haiku@0.1.2
+	iana-time-zone@0.1.60
 	image@0.24.9
 	indexmap@1.9.3
 	inflate@0.4.5
@@ -95,11 +95,11 @@ CRATES="
 	proc-macro2@1.0.81
 	qoi@0.4.1
 	quote@1.0.36
-	rayon@1.10.0
 	rayon-core@1.12.1
-	regex@1.10.4
+	rayon@1.10.0
 	regex-automata@0.4.6
 	regex-syntax@0.8.3
+	regex@1.10.4
 	rustc-hash@1.1.0
 	rustdct@0.7.1
 	rustfft@6.2.0
@@ -119,8 +119,8 @@ CRATES="
 	syn@1.0.109
 	syn@2.0.60
 	tempfile@3.10.1
-	thiserror@1.0.59
 	thiserror-impl@1.0.59
+	thiserror@1.0.59
 	tiff@0.9.1
 	tinyvec@1.6.0
 	toml@0.5.11
@@ -130,11 +130,11 @@ CRATES="
 	unicode-segmentation@1.11.0
 	uuid@1.8.0
 	version_check@0.9.4
-	wasm-bindgen@0.2.92
 	wasm-bindgen-backend@0.2.92
-	wasm-bindgen-macro@0.2.92
 	wasm-bindgen-macro-support@0.2.92
+	wasm-bindgen-macro@0.2.92
 	wasm-bindgen-shared@0.2.92
+	wasm-bindgen@0.2.92
 	weezl@0.1.8
 	which@4.4.2
 	widestring@1.1.0
@@ -157,7 +157,7 @@ declare -A GIT_CRATES=(
 	[onenote_parser]="https://github.com/Cisco-Talos/onenote.rs;29c08532252b917543ff268284f926f30876bb79;onenote.rs-%commit%"
 )
 
-inherit cargo cmake flag-o-matic llvm python-any-r1 systemd tmpfiles
+inherit cargo cmake eapi9-ver flag-o-matic llvm python-any-r1 systemd tmpfiles
 
 MY_P=${P//_/-}
 
@@ -171,7 +171,7 @@ LICENSE="Apache-2.0 BSD GPL-2 ISC MIT MPL-2.0 Unicode-DFS-2016 ZLIB"
 # 0/sts (short term support) if not an LTS release
 SLOT="0/sts"
 if [[ ${PV} != *_rc* ]] ; then
-	KEYWORDS="~alpha amd64 arm arm64 ppc ppc64 ~riscv ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos"
+	KEYWORDS="~alpha ~amd64 arm arm64 ~ppc ppc64 ~riscv ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos"
 fi
 
 IUSE="+clamapp clamonacc doc experimental jit libclamav-only milter rar selinux systemd +system-mspack test"
@@ -223,7 +223,7 @@ RDEPEND="${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-clamav )"
 
 PATCHES=(
-	"${FILESDIR}/${P}-pointer-types.patch"
+	"${FILESDIR}/${PN}-1.4.1-pointer-types.patch"
 )
 
 python_check_deps() {
@@ -397,7 +397,7 @@ pkg_postinst() {
 		ewarn "should add freshclam (and perhaps clamav-milter) to any"
 		ewarn "runlevels that previously contained clamd."
 	else
-		if [[ -n "${REPLACING_VERSIONS}" ]] && ver_test "${REPLACING_VERSIONS}" -le 1.3.1; then
+		if ver_replacing -le 1.3.1; then
 			ewarn "From 1.3.1-r1 the Gentoo-provided systemd services have been"
 			ewarn "Retired in favour of using the units shipped by upstream."
 			ewarn "Ensure that any required services are configured and started."
