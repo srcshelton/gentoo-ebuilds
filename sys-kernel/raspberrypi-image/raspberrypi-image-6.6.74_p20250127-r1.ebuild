@@ -142,6 +142,17 @@ src_install() {
 	# Install kernel(s) ...
 	insinto "${FIRMWARE_DIR}"
 
+	# See https://www.raspberrypi.com/documentation/computers/linux_kernel.html#native-build-configuration
+	#
+	# 64-bit:
+	#  bcm2711/kernel8		Raspberry Pi 3, 3+, Zero 2, 4
+	#  bcm2712/kernel_2712	Raspberry Pi 5
+	#
+	# 32-bit:
+	#  bcmrpi/kernel		Raspberry Pi 1, Zero
+	#  bcm2709/kernel7		Raspberry Pi 2, 3, 3+, Zero 2
+	#  bcm2711/kernel7l		Raspberry Pi 4
+	#
 	for f in boot/*.img; do
 		case "${f}" in
 			boot/kernel.img)
