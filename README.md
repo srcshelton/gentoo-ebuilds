@@ -673,6 +673,8 @@ used to build perl)
     * Fix paths in ebuild and make build documentation optional
 * sys-process/btop
     * Provide option to exclude desktop files and themes
+* sys-process/ctop
+    * Add Go optimisation flags and ensure they're honoured
 * ~~sys-process/cronbase~~
     * ~~Add consistent group and user dependencies~~
 * virtual/bitcoin-leveldb
