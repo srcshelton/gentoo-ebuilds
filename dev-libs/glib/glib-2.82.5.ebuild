@@ -1,17 +1,17 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 PYTHON_REQ_USE="xml(+)"
 PYTHON_COMPAT=( python3_{10..13} )
 
-inherit gnome.org gnome2-utils linux-info meson-multilib multilib python-any-r1 toolchain-funcs xdg
+inherit eapi9-ver gnome.org gnome2-utils linux-info meson-multilib multilib python-any-r1 toolchain-funcs xdg
 
 DESCRIPTION="The GLib library of C routines"
 HOMEPAGE="https://www.gtk.org/"
 
 INTROSPECTION_PN="gobject-introspection"
-INTROSPECTION_PV="1.80.1"
+INTROSPECTION_PV="1.82.0"
 INTROSPECTION_P="${INTROSPECTION_PN}-${INTROSPECTION_PV}"
 SRC_URI="${SRC_URI}
 	introspection? ( mirror://gnome/sources/gobject-introspection/${INTROSPECTION_PV%.*}/gobject-introspection-${INTROSPECTION_PV}.tar.${GNOME_TARBALL_SUFFIX} )"
@@ -20,7 +20,7 @@ INTROSPECTION_BUILD_DIR="${WORKDIR}/${INTROSPECTION_P}-build"
 
 LICENSE="LGPL-2.1+"
 SLOT="2"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+KEYWORDS="~alpha ~amd64 arm arm64 ~hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 IUSE="dbus debug doc +elf +introspection +mime selinux static-libs sysprof systemtap test utils xattr"
 RESTRICT="!test? ( test )"
 
@@ -91,13 +91,12 @@ MULTILIB_CHOST_TOOLS=(
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-2.64.1-mark-gdbus-server-auth-test-flaky.patch
-	"${FILESDIR}"/${P}-tests-autoptr-ffi.patch
 )
 
 python_check_deps() {
 	if use introspection ; then
 		python_has_version "dev-python/packaging[${PYTHON_USEDEP}]" &&
-		python_has_version "dev-python/setuptools[${PYTHON_USEDEP}]"
+			python_has_version "dev-python/setuptools[${PYTHON_USEDEP}]"
 	else
 		python_has_version "dev-python/packaging[${PYTHON_USEDEP}]"
 	fi
@@ -196,11 +195,6 @@ src_prepare() {
 	# Link the glib source to the introspection subproject directory so it can be built there first
 	if use introspection ; then
 		ln -s "${S}" "${INTROSPECTION_SOURCE_DIR}/subprojects/glib"
-
-		# bug #946578
-		cd "${INTROSPECTION_SOURCE_DIR}" || die
-		eapply "${FILESDIR}"/glib-2.80.5-gobject-introspection-1.80.patch
-		cd "${S}" || die
 	fi
 
 	default
@@ -440,12 +434,10 @@ pkg_postinst() {
 		ewarn
 	fi
 
-	for v in ${REPLACING_VERSIONS}; do
-		if ver_test "$v" "-lt" "2.63.6"; then
-			ewarn "glib no longer installs the gio-launch-desktop binary. You may need"
-			ewarn "to restart your session for \"Open With\" dialogs to work."
-		fi
-	done
+	if ver_replacing "-lt" "2.63.6"; then
+		ewarn "glib no longer installs the gio-launch-desktop binary. You may need"
+		ewarn "to restart your session for \"Open With\" dialogs to work."
+	fi
 }
 
 pkg_postrm() {
