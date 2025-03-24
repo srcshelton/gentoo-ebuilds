@@ -102,7 +102,7 @@ index 28850f7af5a1..1faa118c30de 100644
 +	    !is_valid_ether_addr(&ethaddr[id * ETH_ALEN])) {
 +		dev_err(tp_to_dev(tp), "%s: rk_vendor_read eth mac address failed (%d)\n",
 +			__func__, ret);
-+		random_ether_addr(&ethaddr[id * ETH_ALEN]);
++		eth_random_addr(&ethaddr[id * ETH_ALEN]);
 +		memcpy(addr, &ethaddr[id * ETH_ALEN], ETH_ALEN);
 +		dev_err(tp_to_dev(tp), "%s: generate random eth mac address: %pM\n", __func__, addr);
 +
