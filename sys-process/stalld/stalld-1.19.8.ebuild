@@ -29,12 +29,6 @@ DEPEND="
 S="${WORKDIR}/${PN}-v${PV}"
 
 pkg_setup() {
-	local CONFIG_CHECK="SCHED_DEBUG"
-	use bpf && CONFIG_CHECK+=" DEBUG_INFO_BTF"
-
-	local ERROR_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
-	local ERROR_DEBUG_INFO_BTF="Kernel option 'CONFIG_DEBUG_INFO_BTF' *must* be enabled for stalld to compile"
-
 	# Validate setup if package will be merged...
 	#
 	# Only three options are provided here - 'buildonly', 'binary' and 'source'
@@ -46,6 +40,12 @@ pkg_setup() {
 	# packages.
 	#
 	if [[ "${MERGE_TYPE}" == 'binary' ]]; then
+		local CONFIG_CHECK="SCHED_DEBUG"
+		use bpf && CONFIG_CHECK+=" DEBUG_INFO_BTF"
+
+		local ERROR_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
+		local ERROR_DEBUG_INFO_BTF="Kernel option 'CONFIG_DEBUG_INFO_BTF' *must* be enabled for stalld to compile"
+
 		linux-info_pkg_setup
 	fi
 }
