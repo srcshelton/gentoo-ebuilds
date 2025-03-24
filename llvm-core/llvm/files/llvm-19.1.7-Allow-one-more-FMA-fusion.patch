@@ -1,0 +1,10 @@
+--- a/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
++++ b/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
+@@ -16123,6 +16123,7 @@ SDValue DAGCombiner::visitFSUBForFMAComb
+ 
+   const SDNodeFlags Flags = N->getFlags();
+   bool AllowFusionGlobally = (Options.AllowFPOpFusion == FPOpFusion::Fast ||
++                              Options.AllowFPOpFusion == FPOpFusion::Standard ||
+                               Options.UnsafeFPMath || HasFMAD);
+ 
+   // If the subtraction is not contractable, do not combine.
