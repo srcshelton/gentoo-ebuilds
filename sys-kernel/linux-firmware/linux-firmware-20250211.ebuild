@@ -82,7 +82,8 @@ pkg_pretend() {
 		if use dist-kernel; then
 			# Check, but don't die because we can fix the problem
 			# and then emerge --config ... to re-run installation.
-			[[ -z ${ROOT} ]] && nonfatal mount-boot_check_status
+			[[ -z "${ROOT:-}" || "${ROOT}" == '/' ]] &&
+				nonfatal mount-boot_check_status
 		else
 			mount-boot_pkg_pretend
 		fi
@@ -453,7 +454,8 @@ pkg_postinst() {
 
 	if use initramfs; then
 		if use dist-kernel; then
-			[[ -z ${ROOT} ]] && dist-kernel_reinstall_initramfs "${KV_DIR}" "${KV_FULL}"
+			[[ -z "${ROOT:-}" || "${ROOT}" == '/' ]] &&
+				dist-kernel_reinstall_initramfs "${KV_DIR}" "${KV_FULL}" --all
 		else
 			# Don't forget to umount /boot if it was previously mounted by us.
 			mount-boot_pkg_postinst
