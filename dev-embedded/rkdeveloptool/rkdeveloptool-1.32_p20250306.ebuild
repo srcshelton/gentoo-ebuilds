@@ -28,7 +28,7 @@ PATCHES=(
 	"${FILESDIR}/${MY_P}-rockusb.rules.patch-r1"
 	"${FILESDIR}/${MY_P}-CMakeLists.txt.patch"
 	"${FILESDIR}/${MY_P}-README.md.patch-r1"
-
+	#"${FILESDIR}/${MY_P}-CHANGE_STORAGE.patch"  # rockchip-linux, @304f073
 )
 
 src_prepare() {

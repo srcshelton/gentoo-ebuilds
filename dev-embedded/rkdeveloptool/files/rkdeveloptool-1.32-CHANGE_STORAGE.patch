@@ -1,0 +1,251 @@
+From 554066a0898de0aaf5ea9a5157753dd09ab9c0ef Mon Sep 17 00:00:00 2001
+From: Arnaud Mouiche <arnaud.mouiche@invoxia.com>
+Date: Sun, 9 Feb 2025 14:50:52 +0100
+Subject: [PATCH] Add the capability to change the storage (eMMC, SD,
+ SPINOR...).
+
+Implemented by reverse engineering of windows RKDevTool USB transactions.
+The naming of operations (eg. READ_STORAGE, CHANGE_STORAGE) are
+pure speculation, but the result is effective.
+Also, the numbering of storage device (eg. 1=eMMC, 2=SD, 9=SPINOR) may be
+dependent of the SOC.
+
+Developed and tested on rk3588 (Radxa Rock 5 ITX)
+
+Example of usage:
+  rkdeveloptool db rk3588_spl_loader_v1.15.113.bin
+  # select the SPINOR
+  rkdeveloptool cs 9
+  # clear the whole SPINOR device
+  rkdeveloptool ef
+
+  # write an image starting at block 0
+  rkdeveloptool wl 0 /tmp/spinor_image.bin
+---
+ RKComm.cpp | 91 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ RKComm.h   |  4 +++
+ main.cpp   | 60 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 155 insertions(+)
+
+diff --git a/RKComm.cpp b/RKComm.cpp
+index 1538f65..2738618 100644
+--- a/RKComm.cpp
++++ b/RKComm.cpp
+@@ -197,12 +197,14 @@ void CRKUsbComm::InitializeCBW(PCBW pCBW, USB_OPERATION_CODE code)
+ 		case READ_CHIP_INFO:
+ 		case READ_EFUSE:
+ 		case READ_CAPABILITY:
++		case READ_STORAGE:
+ 			pCBW->ucCBWFlags= DIRECTION_IN;
+ 			pCBW->ucCBWCBLength = 0x06;
+ 			break;
+ 		case DEVICE_RESET:		/* Reset Device		: 0xff */
+ 		case ERASE_SYSTEMDISK:
+ 		case SET_RESET_FLAG:
++		case CHANGE_STORAGE:
+ 			pCBW->ucCBWFlags = DIRECTION_OUT;
+ 			pCBW->ucCBWCBLength = 0x06;
+ 			break;
+@@ -554,6 +556,95 @@ int CRKUsbComm::RKU_ResetDevice(BYTE bySubCode)
+ 	return ERR_SUCCESS;
+ }
+ 
++int CRKUsbComm::RKU_ChangeStorage(BYTE storage)
++{
++    if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
++        if (m_log) {
++            m_log->Record("Error:RKU_ChangeStorage failed,device not support");
++        }
++        return ERR_DEVICE_NOT_SUPPORT;
++    }
++
++	CBW cbw;
++	CSW csw;
++
++	InitializeCBW(&cbw, CHANGE_STORAGE);
++	cbw.cbwcb.ucReserved = storage;
++
++	if(!RKU_Write((BYTE *)&cbw, sizeof(CBW)))
++	{
++		printf("AMO: ERR_DEVICE_WRITE_FAILED\n");
++		return ERR_DEVICE_WRITE_FAILED;
++	}
++
++	if(!RKU_Read((BYTE *)&csw, sizeof(CSW)))
++	{
++		return ERR_DEVICE_READ_FAILED;
++	}
++
++	if( !UFI_CHECK_SIGN(cbw, csw) ) {
++		bool bRet;
++		bRet = RKU_ClearBuffer(cbw, csw);
++		if (!bRet) {
++			return ERR_CMD_NOTMATCH;
++		}
++	}
++
++	if(csw.ucCSWStatus == 1)
++		return ERR_FAILED;
++
++	return ERR_SUCCESS;
++}
++
++int CRKUsbComm::RKU_ReadStorage(BYTE* storage)
++{
++    if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
++        if (m_log) {
++            m_log->Record("Error:RKU_ReadCapability failed,device not support");
++        }
++        return ERR_DEVICE_NOT_SUPPORT;
++    }
++
++	CBW cbw;
++	CSW csw;
++	DWORD dwRead;
++
++	InitializeCBW(&cbw, READ_STORAGE);
++	cbw.dwCBWTransferLength = 4;
++
++	if(!RKU_Write((BYTE*)&cbw, sizeof(CBW)))
++	{
++		return ERR_DEVICE_WRITE_FAILED;
++	}
++
++	DWORD storage_bits;
++	dwRead = RKU_Read_EX((BYTE*)&storage_bits, sizeof(storage_bits));
++
++	if(dwRead != 4)
++	{
++		return ERR_DEVICE_READ_FAILED;
++	}
++
++	if(!RKU_Read((BYTE*)&csw, sizeof(CSW)))
++	{
++		return ERR_DEVICE_READ_FAILED;
++	}
++
++	if( !UFI_CHECK_SIGN(cbw, csw) )
++		return ERR_CMD_NOTMATCH;
++
++	/* search the bit index */
++	*storage = 255;
++	for (unsigned i=0; i < 32; i++) {
++		if (storage_bits & (1<<i)) {
++			*storage = i;
++			break;
++		}
++	}
++	return ERR_SUCCESS;
++}
++
++
+ int CRKUsbComm::RKU_TestDeviceReady(DWORD *dwTotal, DWORD *dwCurrent, BYTE bySubCode)
+ {
+     if ((m_deviceDesc.emUsbType != RKUSB_LOADER) && (m_deviceDesc.emUsbType != RKUSB_MASKROM)) {
+diff --git a/RKComm.h b/RKComm.h
+index e1e5df1..36388b6 100644
+--- a/RKComm.h
++++ b/RKComm.h
+@@ -49,6 +49,8 @@ typedef enum {
+ 		WRITE_NEW_EFUSE = 0x23,
+ 		READ_NEW_EFUSE = 0x24,
+ 		ERASE_LBA=0x25,
++		CHANGE_STORAGE = 0x2A,
++		READ_STORAGE = 0x2B,
+ 		READ_CAPABILITY=0xAA,
+ 		DEVICE_RESET = 0xFF
+ } USB_OPERATION_CODE;
+@@ -142,6 +144,8 @@ class CRKUsbComm:public CRKComm
+ {
+ public:
+ 	virtual	int RKU_EraseBlock(BYTE ucFlashCS, DWORD dwPos, DWORD dwCount, BYTE ucEraseType);
++	virtual int RKU_ChangeStorage(BYTE storage);
++	virtual int RKU_ReadStorage(BYTE *storage);
+ 	virtual int RKU_ReadChipInfo(BYTE *lpBuffer);
+ 	virtual int RKU_ReadFlashID(BYTE *lpBuffer);
+ 	virtual int RKU_ReadCapability(BYTE *lpBuffer);
+diff --git a/main.cpp b/main.cpp
+index 72bd94b..7f3cb14 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -56,6 +56,7 @@ void usage()
+ 	printf("EraseFlash:\t\tef \r\n");
+ 	printf("TestDevice:\t\ttd\r\n");
+ 	printf("ResetDevice:\t\trd [subcode]\r\n");
++	printf("ChangeStorage:\t\tcs [storage: 1=EMMC, 2=SD, 9=SPINOR]\r\n");
+ 	printf("ReadFlashID:\t\trid\r\n");
+ 	printf("ReadFlashInfo:\t\trfi\r\n");
+ 	printf("ReadChipInfo:\t\trci\r\n");
+@@ -2263,6 +2264,52 @@ bool reset_device(STRUCT_RKDEVICE_DESC &dev, BYTE subCode = RST_NONE_SUBCODE)
+ 	return bSuccess;
+ }
+ 
++bool change_storage(STRUCT_RKDEVICE_DESC &dev, BYTE storage)
++{
++	if (!check_device_type(dev, RKUSB_LOADER | RKUSB_MASKROM))
++		return false;
++	CRKUsbComm *pComm = NULL;
++	bool bRet, bSuccess = false;
++	int iRet;
++	pComm =  new CRKUsbComm(dev, g_pLogObject, bRet);
++	if (bRet) {
++		iRet = pComm->RKU_ChangeStorage(storage);
++		if (iRet != ERR_SUCCESS) {
++			if (g_pLogObject)
++				g_pLogObject->Record("Error: RKU_ChangeStorage failed, err=%d", iRet);
++			printf("Change Storage failed!\r\n");
++			goto failed;
++		}
++		/* No error is returned if the selected storage is not available.
++		 * Read back the current storage to know if the change is effective.
++		 */
++		BYTE current_storage;
++		iRet = pComm->RKU_ReadStorage(&current_storage);
++		if (iRet != ERR_SUCCESS) {
++			if (g_pLogObject)
++				g_pLogObject->Record("Error: RKU_ReadStorage failed, err=%d", iRet);
++			printf("Change Storage failed!\r\n");
++			goto failed;
++		}
++		if (storage == current_storage) {
++		    bSuccess = true;
++		    printf("Change Storage OK.\r\n");
++		} else {
++		    printf("Change Storage failed! Storage %u is not available.\r\n", storage);
++		}
++	} else {
++		printf("Change Storage quit, creating comm object failed!\r\n");
++	}
++failed:
++	if (pComm) {
++		delete pComm;
++		pComm = NULL;
++	}
++	return bSuccess;
++}
++
++
++
+ bool read_flash_id(STRUCT_RKDEVICE_DESC &dev)
+ {
+ 	CRKUsbComm *pComm = NULL;
+@@ -3136,6 +3183,19 @@ bool handle_command(int argc, char* argv[], CRKScan *pScan)
+ 				}
+ 			}
+ 		}
++	} else if(strcmp(strCmd.c_str(), "CS") == 0) {
++		if (argc != 3)
++			printf("Parameter of [CS] command is invalid, please check help!\r\n");
++		else {
++			UINT uiSubCode;
++			char *pszEnd;
++			uiSubCode = strtoul(argv[2], &pszEnd, 0);
++			if (*pszEnd)
++				printf("Storage is invalid, please check!\r\n");
++			else {
++				bSuccess = change_storage(dev, uiSubCode);
++			}
++		}
+ 	} else if(strcmp(strCmd.c_str(), "TD") == 0) {
+ 		bSuccess = test_device(dev);
+ 	} else if (strcmp(strCmd.c_str(), "RID") == 0) {//Read Flash ID
