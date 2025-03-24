@@ -5,7 +5,7 @@ EAPI=8
 
 inherit go-module linux-info
 
-RUNC_COMMIT="59923ef18c98053ddb1acf23ecba10344056c28e" # "Мороз и солнце; день чудесный!"
+RUNC_COMMIT="e89a29929c775025419ab0d218a43588b4c12b9a" # "Hasta la victoria, siempre."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
@@ -34,7 +34,7 @@ RDEPEND="
 
 # dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
 BDEPEND="
-	>=dev-lang/go-1.22.4
+	>=dev-lang/go-1.23.0
 	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils
