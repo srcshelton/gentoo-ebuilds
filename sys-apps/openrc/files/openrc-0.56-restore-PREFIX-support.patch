@@ -1,0 +1,76 @@
+Revert the following:
+
+From 50a338b96a5a6e6774c39dbff961426ccb1b4aa6 Mon Sep 17 00:00:00 2001
+From: William Hubbs <w.d.hubbs@gmail.com>
+Date: Fri, 20 Sep 2024 10:55:16 -0500
+Subject: [PATCH] librc: remove gentoo prefix support
+
+---
+ src/librc/librc.c | 24 ++----------------------
+ src/librc/rc.h.in |  8 ++------
+ 2 files changed, 4 insertions(+), 28 deletions(-)
+
+From 723fa1eac1a8687764cac0e8a05d4e32b54ed00c Mon Sep 17 00:00:00 2001
+From: William Hubbs <w.d.hubbs@gmail.com>
+Date: Fri, 20 Sep 2024 10:23:17 -0500
+Subject: [PATCH] remove RC_PREFIX environment variable
+
+This was only used in gentoo prefix installations which we no longer
+support.
+---
+ man/openrc-run.8  | 3 ---
+ src/shared/misc.c | 4 ----
+ 2 files changed, 7 deletions(-)
+
+
+--- man/openrc-run.8
++++ man/openrc-run.8
+@@ -563,6 +563,9 @@ Default runlevel chosen. Default is defa
+ .It Va RC_SYS
+ A special variable to describe the system more.
+ Possible values are OPENVZ, XENU, XEN0, UML and VSERVER.
++.It Va RC_PREFIX
++In a Gentoo Prefix installation, this variable contains the prefix
++offset. Otherwise it is undefined.
+ .It Va RC_UNAME
+ The result of `uname -s`.
+ .It Va RC_CMD
+--- src/shared/misc.c
++++ src/shared/misc.c
+@@ -204,6 +204,10 @@ env_config(void)
+ 	if (sys)
+ 		setenv("RC_SYS", sys, 1);
+ 
++#ifdef PREFIX
++	setenv("RC_PREFIX", RC_PREFIX, 1);
++#endif
++
+ 	/* Some scripts may need to take a different code path if
+ 	   Linux/FreeBSD, etc
+ 	   To save on calling uname, we store it in an environment variable */
+--- src/librc/rc.h.in
++++ src/librc/rc.h.in
+@@ -22,9 +22,13 @@
+ extern "C" {
+ #endif
+ 
++#define RC_PREFIX "@PREFIX@"
+ #define RC_SYSCONFDIR		"@SYSCONFDIR@"
+-#define RC_LIBEXECDIR           "@RC_LIBEXECDIR@"
+-#if defined(__linux__) || (defined(__FreeBSD_kernel__) && \
++#define RC_LIBDIR               "@PREFIX@/@LIB@/rc"
++#define RC_LIBEXECDIR           "@LIBEXECDIR@"
++#if defined(PREFIX)
++#define RC_SVCDIR               RC_LIBEXECDIR "/init.d"
++#elif defined(__linux__) || (defined(__FreeBSD_kernel__) && \
+ 		defined(__GLIBC__)) || defined(__GNU__)
+ #define RC_SVCDIR               "/run/openrc"
+ #else
+@@ -341,6 +345,7 @@ bool rc_service_daemons_crashed(const ch
+ #define RC_SYS_NONE    ""
+ #define RC_SYS_OPENVZ  "OPENVZ"
+ #define RC_SYS_LXC     "LXC"
++#define RC_SYS_PREFIX  "PREFIX"
+ #define RC_SYS_RKT  "RKT"
+ #define RC_SYS_SYSTEMD_NSPAWN "SYSTEMD-NSPAWN"
+ #define RC_SYS_UML     "UML"
