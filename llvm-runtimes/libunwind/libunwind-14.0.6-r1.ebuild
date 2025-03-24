@@ -18,10 +18,11 @@ RESTRICT="!test? ( test )"
 RDEPEND="
 	!sys-libs/libunwind
 "
-# llvm-6 for new lit options
+# llvm-6 for new lit options;
+# For <llvm-15, llvm-runtimes/compiler-rt has a full-version SLOT...
 DEPEND="
 	>=llvm-core/llvm-6
-	llvm-runtimes/compiler-rt:${LLVM_MAJOR}
+	llvm-runtimes/compiler-rt:${LLVM_VERSION}
 "
 BDEPEND="
 	!test? (
