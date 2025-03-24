@@ -12,7 +12,7 @@ TMPFILES_OPTIONAL=1
 EMULTILIB_PKG="true"
 
 # Gentoo patchset (ignored for live ebuilds)
-PATCH_VER="1"
+PATCH_VER="8"
 PATCH_DEV="dilfridge"
 
 # Clear Linux patchset
@@ -47,7 +47,7 @@ S="${WORKDIR}/${MY_P}"
 if [[ ${MY_PV} == 9999* ]]; then
 	inherit git-r3
 else
-	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 	SRC_URI="mirror://gnu/glibc/${MY_P}.tar.xz
 		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${MY_P}-patches-${PATCH_VER}.tar.xz"
 fi
@@ -126,7 +126,6 @@ BDEPEND="
 	test? (
 		dev-lang/perl
 		>=net-dns/libidn2-2.3.0
-		sys-apps/gawk[mpfr]
 	)
 "
 COMMON_DEPEND="
@@ -198,7 +197,6 @@ XFAIL_TEST_LIST=(
 
 	# Fails with certain PORTAGE_NICENESS/PORTAGE_SCHEDULING_POLICY
 	tst-sched1
-	tst-sched_setattr
 
 	# Fails regularly, unreliable
 	tst-valgrind-smoke
@@ -212,7 +210,6 @@ XFAIL_NSPAWN_TEST_LIST=(
 	# upstream, as systemd-nspawn's default seccomp whitelist is too strict.
 	# https://sourceware.org/PR30603
 	test-errno-linux
-	tst-aarch64-pkey
 	tst-bz21269
 	tst-mlock2
 	tst-ntp_gettime
@@ -311,13 +308,9 @@ do_run_test() {
 		# ignore build failures when installing a binary package #324685
 		do_compile_test "" "$@" 2>/dev/null || return 0
 	else
-		ebegin "Performing simple compile test for ABI=${ABI}"
 		if ! do_compile_test "" "$@" ; then
 			ewarn "Simple build failed ... assuming this is desired #324685"
-			eend 1
 			return 0
-		else
-			eend 0
 		fi
 	fi
 
@@ -510,6 +503,10 @@ setup_flags() {
 	#  include/libc-symbols.h:75:3: #error "glibc cannot be compiled without optimization"
 	# https://sourceware.org/glibc/wiki/FAQ#Why_do_I_get:.60.23error_.22glibc_cannot_be_compiled_without_optimization.22.27.2C_when_trying_to_compile_GNU_libc_with_GNU_CC.3F
 	replace-flags -O0 -O1
+
+	# glibc handles this internally already where it's appropriate;
+	# can't always have SSP when we're the ones setting it up, etc
+	filter-flags '-fstack-protector*'
 
 	# Similar issues as with SSP. Can't inject yourself that early.
 	filter-flags '-fsanitize=*'
@@ -953,18 +950,12 @@ src_unpack() {
 	use multilib-bootstrap && unpack gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz
 
 	if [[ ${MY_PV} == 9999* ]] ; then
-		EGIT_REPO_URI="
-			https://anongit.gentoo.org/git/proj/toolchain/glibc-patches.git
-			https://github.com/gentoo/glibc-patches.git
-		"
+		EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/toolchain/glibc-patches.git"
 		EGIT_CHECKOUT_DIR=${WORKDIR}/patches-git
 		git-r3_src_unpack
 		mv patches-git/9999 patches || die
-		EGIT_REPO_URI="
-			https://sourceware.org/git/glibc.git
-			https://git.sr.ht/~sourceware/glibc
-			https://gitlab.com/x86-glibc/glibc.git
-		"
+
+		EGIT_REPO_URI="https://sourceware.org/git/glibc.git"
 		EGIT_CHECKOUT_DIR=${S}
 		git-r3_src_unpack
 	else
