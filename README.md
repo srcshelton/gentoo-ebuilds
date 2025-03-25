@@ -679,10 +679,12 @@ used to build perl)
     * ~~Add consistent group and user dependencies~~
 * virtual/bitcoin-leveldb
     * Be more flexible about necessary dependencies
+* virtual/linux-sources
+    * Also accept sys-kernel/mixtile-sources, sys-kernel/raspberrypi-sources as acceptable linux-sources
 * virtual/mta
     * Add optional USE-flags to control which MTA will be installed
 * virtual/os-headers
-    * Also accept sys-kernel/raspberrypi-headers as an acceptable os-header
+    * Also accept sys-kernel/raspberrypi-headers, sys-kernel/rockchip-headers as acceptable os-headers
 * virtual/rust
     * Add 'binary' USE-flag to require dev-lang/rust-bin in place of dev-lang/rust, which now requires more than 8GB of memory to link
 * virtual/tmpfiles
