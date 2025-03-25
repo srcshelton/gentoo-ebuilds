@@ -735,6 +735,7 @@ toolchain_src_prepare() {
 	# Workaround -march=native not working for stage1 with non-GCC (bug #933772).
 	if ! tc-is-gcc && [[ "${CFLAGS}${CXXFLAGS}" == *-march=native* ]] ; then
 		CLANG_DISABLE_CET_HACK=1
+		filter-flags '-march=native'
 	fi
 
 	if ! use vanilla ; then
@@ -2145,7 +2146,7 @@ gcc_do_filter_flags() {
 	# https://gcc.gnu.org/PR100431
 	filter-flags -Werror=format-security
 
-	if ver_test -lt 10.1 ; then
+	if ver_test -lt 11.1 ; then
 		filter-flags '-fdiagnostics-urls=*'
 		filter-flags '-Wstringop-overread'
 	fi
