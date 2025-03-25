@@ -689,6 +689,8 @@ used to build perl)
     * Provide an option _not_ to use systemd's tmpfiles system (directly or via `sys-apps/opentmpfiles`)
 * ~~x11-drivers/nvidia-drivers~~
     * ~~Only start nVidia System Management Interface if valid for the host system~~
+* x11-libs/libXt
+    * Add explicit LIBTOOL\_DEPEND dependency which should always be present due to xorg-3 -> libtool inheritence, but seems to be ignored with sys-apps/portage-3.0.67
 
 # Fixes for ebuilds using `/run`
 (... rather than `/var/run`)
