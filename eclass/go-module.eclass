@@ -103,13 +103,21 @@ export GOCACHE="${T}/go-build"
 # See "go help environment" for information on this setting
 export GOMODCACHE="${WORKDIR}/go-mod"
 
-# The following go flags should be used for all builds.
-# -buildmode=pie builds position independent executables
-# -buildvcs=false omits version control information
-# -modcacherw makes the build cache read/write
-# -v prints the names of packages as they are compiled
-# -x prints commands as they are executed
-export GOFLAGS="-buildvcs=false -modcacherw -v -x"
+# The following go flags  should be used for all builds:
+#   -buildmode=pie        builds position independent executables
+#   -buildvcs=false       omits version control information
+#   -modcacherw           makes the build cache read/write
+#   -v prints             the names of packages as they are compiled
+#   -x prints             commands as they are executed
+# Additional flags:
+#   -trimpath			  remove extraneous path prefixes
+#   -tags osusergo,netgo  use native Go routines instead of linking to C
+#                         libraries
+# LDFLAGS:
+#   -bindnow			  enable full RELRO on ELF targets
+#   -s                    omit the symbol table and debug information
+#   -w                    omit the DWARF symbol table
+export GOFLAGS="-buildvcs=false -modcacherw -v -x -trimpath '-ldflags=-bindnow -s -w' -tags=osusergo,netgo"
 
 # Do not complain about CFLAGS etc since go projects do not use them.
 QA_FLAGS_IGNORED='.*'
@@ -260,9 +268,15 @@ go-module_set_globals() {
 		exts=()
 		local errormsg=''
 		case "${modfile}" in
-			'') exts=( zip ) ;;
-			'go.mod'|'/go.mod') exts=( mod ) ;;
-			*) errormsg="Unknown modfile: line='${line}', modfile='${modfile}'" ;;
+			'')
+				exts=( zip )
+				;;
+			'go.mod'|'/go.mod')
+				exts=( mod )
+				;;
+			*)
+				errormsg="Unknown modfile: line='${line}', modfile='${modfile}'"
+				;;
 		esac
 
 		# If it was a bad entry, restart the loop
@@ -272,8 +286,10 @@ go-module_set_globals() {
 			continue
 		fi
 
-		# Encode the name(path) of a Golang module in the format expected by Goproxy.
-		# Upper letters are replaced by their lowercase version with a '!' prefix.
+		# Encode the name(path) of a Golang module in the format expected by
+		# Goproxy.
+		# Upper letters are replaced by their lowercase version with a '!'
+		# prefix.
 		# The transformed result of 'module' is stored in the '_dir' variable.
 		#
 		## Python:
@@ -371,13 +387,15 @@ go-module_setup_proxy() {
 # Sets up GOFLAGS for the system and then unpacks based on the following rules:
 # 1. If EGO_SUM is set, unpack the base tarball(s) and set up the
 #    local go proxy.  This mode is deprecated.
-# 2. Otherwise, if EGO_VENDOR is set, bail out, as this functionality was removed.
+# 2. Otherwise, if EGO_VENDOR is set, bail out, as this functionality was
+#    removed.
 # 3. Otherwise, call 'ego mod verify' and then do a normal unpack.
 # Set compile env via go-env.
 go-module_src_unpack() {
-	if use amd64 || use arm || use arm64 ||
-		( use ppc64 && [[ $(tc-endian) == "little" ]] ) || use s390 || use x86; then
-			GOFLAGS="-buildmode=pie ${GOFLAGS}"
+	if use amd64 || use arm || use arm64 || use s390 || use x86 ||
+			( use ppc64 && [[ $(tc-endian) == "little" ]] )
+	then
+		GOFLAGS="-buildmode=pie ${GOFLAGS}"
 	fi
 	GOFLAGS="${GOFLAGS} -p=$(makeopts_jobs)"
 	if [[ "${#EGO_SUM[@]}" -gt 0 ]]; then
@@ -391,7 +409,8 @@ go-module_src_unpack() {
 	else
 		default
 		if [[ ! -d "${GO_MODULE_SOURCE_DIR:-"${S}"}"/vendor ]]; then
-			ewarn "Directory '${GO_MODULE_SOURCE_DIR:-"${S}"}/vendor' was not created"
+			ewarn "Directory '${GO_MODULE_SOURCE_DIR:-"${S}"}/vendor' was" \
+				"not created - running 'go mod verify' ..."
 			cd "${GO_MODULE_SOURCE_DIR:-"${S}"}"
 			local nf=''
 			[[ -n ${NONFATAL_VERIFY} ]] && nf=nonfatal
