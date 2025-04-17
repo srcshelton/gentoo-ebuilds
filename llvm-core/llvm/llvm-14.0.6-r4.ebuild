@@ -4,7 +4,7 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{9..11} )
-inherit cmake llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
+inherit cmake flag-o-matic llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="Low Level Virtual Machine"
 HOMEPAGE="https://llvm.org/"
@@ -176,6 +176,14 @@ src_prepare() {
 
 	# Verify that the ebuild is up-to-date
 	check_uptodate
+
+	if use arm || use arm64; then
+		# llvm-core/llvm-14.0.6 triggers errors with -Werror=odr (on arm64, at
+		# least), so let's disable LTO and this warning on this old version of
+		# LLVM
+		#
+		filter-lto
+	fi
 
 	llvm.org_src_prepare
 
