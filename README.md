@@ -375,6 +375,8 @@ used to build perl)
     * Ubiquiti Networks' UniFi Controller software
 * sys-apps/bpftune
     * Oracle's bpftune system auto-tuning tool
+* sys-apps/corefreq
+    * 'top'-like CPU monitor
 * sys-apps/lsusb-apple
     * Jose L. Honorato's 'lsusb' for macOS
 * sys-apps/raspberrypi-gpio
