@@ -402,12 +402,13 @@ pkg_postinst() {
 pkg_config() {
 	local best="$( best_version "${CATEGORY}/${PN}" )"
 	local file='' dest='' path='' name=''
+	local -Ai linked=()
 
 	if use lib-only || use split-usr; then
 		if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
 			einfo "Not updating library directory, latest version is '${best}' (this is '${CATEGORY}/${PF}')"
 		else
-			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' ''); do
+			for file in libstdc++ libgcc_s $(usex openmp 'libgomp' '') $(usex fortran 'libgfortran' ''); do
 				find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
 						-exec rm -v {} +
 				pkg_postinst_fix_so \
@@ -416,24 +417,25 @@ pkg_config() {
 						"${EROOT}/usr/$(get_libdir)" \
 						"../lib/gcc/${CHOST}/$(ver_cut 1)" ||
 					die "Couldn't link library '${file}.so'*"
+				linked["${file}"]=1
 			done
 			for file in libatomic; do
-				# Is libatomic built on all platforms?
-				if $(( $( # <- Syntax
-						find "${EROOT}/usr/lib/gcc/${CHOST/}$(ver_cut 1)" -name "${file}.so*" -type f \
-								-print |
-							wc -l
-					) ))
+				if compgen -G "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)/${file}.so*" >/dev/null 2>&1
 				then
-					find "${EROOT}/usr/$(get_libdir)" -name "${file}.so*" -type l \
-							-exec rm -v {} +
-					find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" -name "${file}.so*" -type f \
-							-print0 |
-						xargs -0rI '{}' cp -av {} "${EROOT}/usr/$(get_libdir)/"
-					gen_usr_ldscript --live -a "${file#lib}"
+					find "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)" \
+							-name "${file}.so*" -print0 |
+						xargs -0rI '{}' cp -av '{}' "${EROOT}/usr/$(get_libdir)/"
+					if [[ -e "${EROOT}/usr/lib/gcc/${CHOST}/$(ver_cut 1)/${file}.so" ]]
+					then
+						gen_usr_ldscript --live -a "${file#lib}"
+						linked["${file}"]=1
+					fi
+				fi
+				if [[ -z "${linked["${file}"]:-}" || "${linked["${file}"]:-}" != '1' ]]
+				then
+					ewarn "Couldn't link library '${file}.so'*"
 				fi
 			done
-
 		fi
 	fi
 }
