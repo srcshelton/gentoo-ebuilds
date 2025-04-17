@@ -1,0 +1,12 @@
+--- a/bin/phase-helpers.sh
++++ b/bin/phase-helpers.sh
+@@ -942,6 +942,9 @@
+ 
+ if ___eapi_has_einstalldocs; then
+ 	einstalldocs() {
++		[[ ${EBUILD_PHASE} == install ]] || \
++			eqawarn "QA Notice: einstalldocs() called during invalid phase: ${EBUILD_PHASE}"
++
+ 		(
+ 			if [[ $(declare -p DOCS 2>/dev/null) != *=* ]]; then
+ 				local d

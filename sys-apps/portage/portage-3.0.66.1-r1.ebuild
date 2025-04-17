@@ -90,7 +90,8 @@ PDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${P}-webrsync.patch
+	"${FILESDIR}/${PN}-3.0.0-einstalldocs.patch"
+	"${FILESDIR}/${P}-webrsync.patch"
 )
 
 pkg_pretend() {
