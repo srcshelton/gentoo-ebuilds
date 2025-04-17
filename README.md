@@ -522,6 +522,8 @@ used to build perl)
     * Remove unnecessary run-time dependency on dev-python/setuptools
 * dev-python/meson-python
     * Add missing app-alternatives/ninja dependency for required dev-build/ninja
+* dev-python/multiarch
+    * Add 'multiarch' USE flag and attempt to build only for the native CPU unless set
 * dev-util/bcc
     * Fix build/runtime dependencies
 * dev-util/bindgen
