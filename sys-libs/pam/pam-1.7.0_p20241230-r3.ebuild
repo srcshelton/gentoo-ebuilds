@@ -35,13 +35,23 @@ fi
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
-IUSE="audit berkdb debug elogind examples nis nls selinux systemd +tmpfiles"
-REQUIRED_USE="?? ( elogind systemd )"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+# Avoid pam[systemd] -> systemd -> pam circular dependency...
+IUSE="audit berkdb debug elogind examples nis nls selinux pam-systemd +tmpfiles"
+REQUIRED_USE="?? ( elogind pam-systemd )"
 
 # meson.build specifically checks for bison and then byacc
 # also requires xsltproc
+#
+# Something appears to be (more) broken in sys-apps/portage-3.0.67 - as with
+# util-linux-2.40.2, the *DEPENDS dependencies from inherited classes are being
+# ignored, leading to build failures :(
+#
+# Manually adding 'dev-build/ninja' to work-around this...
+#
 BDEPEND+="
+	>=dev-build/ninja-1.8.2
+
 	|| ( sys-devel/bison dev-util/byacc )
 	app-text/docbook-xsl-ns-stylesheets
 	dev-libs/libxslt
@@ -57,7 +67,7 @@ DEPEND="
 	!berkdb? ( sys-libs/gdbm:=[${MULTILIB_USEDEP}] )
 	elogind? ( >=sys-auth/elogind-254 )
 	selinux? ( >=sys-libs/libselinux-2.2.2-r4[${MULTILIB_USEDEP}] )
-	systemd? ( >=sys-apps/systemd-254:= )
+	pam-systemd? ( >=sys-apps/systemd-254:= )
 	nis? (
 		net-libs/libnsl:=[${MULTILIB_USEDEP}]
 		>=net-libs/libtirpc-0.2.4-r2:=[${MULTILIB_USEDEP}]
@@ -131,7 +141,7 @@ multilib_src_configure() {
 		# TODO: lastlog is enabled again for now by us as elogind support
 		# wasn't available at first. Even then, disabling lastlog will
 		# probably need a news item.
-		$(meson_native_use_feature systemd logind)
+		$(meson_native_use_feature pam-systemd logind)
 		$(meson_native_use_feature elogind)
 		$(meson_feature !elibc_musl pam_lastlog)
 	)
