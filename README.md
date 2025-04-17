@@ -518,6 +518,8 @@ used to build perl)
     * ~~Add optional dsa, ecdsa, gost, private-key dependencies~~
 * dev-perl/libwww-perl
     * Add missing Mozilla::CA dependency for correct SSL operation
+* dev-python/cffi
+    * Remove unnecessary run-time dependency on dev-python/setuptools
 * dev-python/meson-python
     * Add missing app-alternatives/ninja dependency for required dev-build/ninja
 * dev-util/bcc
