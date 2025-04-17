@@ -39,15 +39,26 @@ pkg_setup() {
 	# with the assumption that host deployments will all be from pre-built
 	# packages.
 	#
-	if [[ "${MERGE_TYPE}" == 'binary' ]]; then
-		local CONFIG_CHECK="SCHED_DEBUG"
-		use bpf && CONFIG_CHECK+=" DEBUG_INFO_BTF"
+	#if [[ "${MERGE_TYPE}" == 'binary' ]]; then
+
+	# Update:
+	#
+	# In general, most checks should be non-fatal. The only time fatal checks
+	# should be used is for building kernel modules or cases that a compile
+	# will fail without the option.
+	#
+	# Dealing with the lack of granulairty in linux-info_pkg_setup checks was
+	# getting to be a PITA, so let's make these requirements explicitly
+	# non-fatal...
+	#
+		local CONFIG_CHECK="~SCHED_DEBUG"
+		use bpf && CONFIG_CHECK+=" ~DEBUG_INFO_BTF"
 
 		local ERROR_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
 		local ERROR_DEBUG_INFO_BTF="Kernel option 'CONFIG_DEBUG_INFO_BTF' *must* be enabled for stalld to compile"
 
 		linux-info_pkg_setup
-	fi
+	#fi
 }
 
 src_prepare() {
