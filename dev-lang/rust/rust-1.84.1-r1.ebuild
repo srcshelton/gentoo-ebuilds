@@ -27,10 +27,8 @@ fi
 DESCRIPTION="Systems programming language from Mozilla"
 HOMEPAGE="https://www.rust-lang.org/"
 
-SRC_URI="
-	https://static.rust-lang.org/dist/${SRC}
-	verify-sig? ( https://static.rust-lang.org/dist/${SRC}.asc )
-"
+SRC_URI="https://static.rust-lang.org/dist/${SRC}
+	verify-sig? ( https://static.rust-lang.org/dist/${SRC}.asc )"
 S="${WORKDIR}/${MY_P}-src"
 
 # keep in sync with llvm ebuild of the same version as bundled one.
@@ -69,6 +67,7 @@ BDEPEND="${PYTHON_DEPS}
 		>=sys-devel/gcc-4.7[cxx]
 		>=llvm-core/clang-3.5
 	)
+	lto? ( $(llvm_gen_dep 'llvm-core/lld:${LLVM_SLOT}') )
 	!system-llvm? (
 		>=dev-build/cmake-3.13.4
 		app-alternatives/ninja
@@ -182,6 +181,9 @@ pre_build_checks() {
 	eshopts_pop
 	M=$(( $(usex doc 256 0) + ${M} ))
 	CHECKREQS_DISK_BUILD=${M}M check-reqs_pkg_${EBUILD_PHASE}
+	if (( M > ( PARALLEL_MEMORY_MIN * 1024 ) )); then
+		PARALLEL_MEMORY_MIN=$(( ( M + 512 ) / 1024 ))
+	fi
 }
 
 llvm_check_deps() {
@@ -233,15 +235,22 @@ src_prepare() {
 		if ! use cpu_flags_x86_sse2; then
 			eapply "${FILESDIR}/1.82.0-i586-baseline.patch"
 			#grep -rl cmd.args.push\(\"-march=i686\" . |
-			#	xargs sed  -i 's/march=i686/-march=i586/g' ||
+			#		xargs sed  -i 's/march=i686/-march=i586/g' ||
 			#	die
 		fi
+	fi
+
+	if use lto && tc-is-clang && ! tc-ld-is-lld; then
+		export RUSTFLAGS+=" -C link-arg=-fuse-ld=lld"
 	fi
 
 	default
 }
 
 src_configure() {
+	local arg='' previous='' optimise='true'
+	local -a flags=()
+
 	if tc-is-cross-compiler; then
 		export PKG_CONFIG_ALLOW_CROSS=1
 		export PKG_CONFIG_PATH="${ESYSROOT}/usr/$(get_libdir)/pkgconfig"
@@ -257,6 +266,9 @@ src_configure() {
 				awk '{ print $2 }'
 		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
 	then
+		use lto &&
+			die "Cannot build without at least ${PARALLEL_MEMORY_MIN}GB free memory with USE='lto'"
+
 		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
 			ewarn "make.conf or environment contains parallel build directive,"
 			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
@@ -273,6 +285,33 @@ src_configure() {
 			ewarn "Instructing 'ld' to use less memory ..."
 			append-ldflags '-Wl,--no-keep-memory'
 		fi
+		einfo "Initial RUSTFLAGS='${RUSTFLAGS}'"
+		for arg in ${RUSTFLAGS:-}; do
+			if [[ -n "${previous:-}" ]]; then
+				arg="${previous} ${arg}"
+				previous=''
+			fi
+
+			case "${arg:-}" in
+				"-C"|"-L")								previous="${arg}" ;;
+				"-Lnative="*|"-L native="*)				flags+=( "${arg}" ) ;;
+				"-C link-arg=-Wl,-O"*)					flags+=( "${arg%[0-2]}0" ) ;;
+				"-C link-arg=-Wl,-z,separate-code")		: ;;
+				"-C link-arg=-Wl,-z,"*)					: ;;
+				"-C link-arg=-Wl,--as-needed")			flags+=( "${arg}" ) ;;
+				"-C link-arg=-Wl,--enable-new-dtags")	: ;;
+				"-C link-arg=-Wl,--sort-common")		: ;;
+				"-C link-arg=-fuse-ld=lld")				: ;;
+				"-C opt-level="*)						flags+=( "${arg%[0-3sz]}0" ) ;;
+				"-C strip="*)							flags+=( "${arg}" ) ;;
+				"-C target-cpu="*|"target-cpu="*)		flags+=( "${arg}" ) ;;
+				*)										ewarn "Dropping unknown RUSTFLAG '${arg}'" ;;
+			esac
+		done
+		export RUSTFLAGS="${flags[*]}"
+		einfo "Filtered RUSTFLAGS='${RUSTFLAGS}'"
+		unset flags
+		optimise='false'
 	fi
 
 	local rust_target="" rust_targets="" arch_cflags
@@ -321,7 +360,7 @@ src_configure() {
 		profile = "dist"
 		[llvm]
 		download-ci-llvm = false
-		optimize = $(toml_usex !debug)
+		optimize = $(toml_usex !debug $(echo "${optimise}") false)
 		release-debuginfo = $(toml_usex debug)
 		assertions = $(toml_usex debug)
 		ninja = true
@@ -390,7 +429,7 @@ src_configure() {
 		[rust]
 		# https://github.com/rust-lang/rust/issues/54872
 		codegen-units-std = 1
-		optimize = true
+		optimize = $(echo "${optimise}")
 		debug = $(toml_usex debug)
 		debug-assertions = $(toml_usex debug)
 		debug-assertions-std = $(toml_usex debug)
@@ -402,18 +441,21 @@ src_configure() {
 		backtrace = true
 		incremental = false
 		$(if ! tc-is-cross-compiler; then
-			echo "default-linker = \"$(tc-getCC)\""
+			echo "default-linker = \"${CHOST}-cc\""
 		fi)
 		parallel-compiler = $(toml_usex parallel-compiler)
 		channel = "$(usex nightly nightly stable)"
 		description = "gentoo"
 		rpath = true
 		verbose-tests = true
-		optimize-tests = $(toml_usex !debug)
+		optimize-tests = $(toml_usex !debug $(echo "${optimise}") false)
 		codegen-tests = true
 		dist-src = false
 		remap-debuginfo = true
 		lld = $(usex system-llvm false $(toml_usex wasm))
+		$(if use lto && tc-is-clang ; then
+			echo "use-lld = true"
+		fi)
 		# only deny warnings if doc+wasm are NOT requested, documenting stage0 wasm std fails without it
 		# https://github.com/rust-lang/rust/issues/74976
 		# https://github.com/rust-lang/rust/issues/76526
@@ -532,7 +574,7 @@ src_configure() {
 		# becomes 'target = ["powerpc64le-unknown-linux-gnu","aarch64-unknown-linux-gnu"]'
 
 		rust_targets="${rust_targets},\"${cross_rust_target}\""
-		sed -i "/^target = \[/ s#\[.*\]#\[${rust_targets}\]#" config.toml || die
+		sed -i "/^target = \[/ s:\[.*\]:\[${rust_targets}\]:" config.toml || die
 
 		ewarn
 		ewarn "Enabled ${cross_rust_target} rust target"
