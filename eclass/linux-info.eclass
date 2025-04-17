@@ -287,15 +287,15 @@ getfilevar() {
 # This is done with sed matching an expression only. If the variable is
 # defined, you will run into problems. See getfilevar for those cases.
 getfilevar_noexec() {
-	local ERROR basefname basedname mycat myARCH="${ARCH}"
-	ERROR=0
+	local basefname basedname mycat myARCH="${ARCH}"
+	local -i ERROR=0
 	mycat='cat'
 
 	[[ -z "${1}" ]] && ERROR=1
 	[[ ! -f "${2}" ]] && ERROR=1
 	[[ "${2%.gz}" != "${2}" ]] && mycat='zcat'
 
-	if [[ "${ERROR}" == 1 ]]; then
+	if (( ERROR )); then
 		echo -e "\n"
 		eerror "getfilevar_noexec requires 2 variables, with the second a valid file."
 		eerror "   getfilevar_noexec <VARIABLE> <CONFIGFILE>"
@@ -868,8 +868,22 @@ check_extra_config() {
 		local location='/var/lib/portage/eclass/linux-info'
 		local dir="${ED:-"${PORTAGE_TMPDIR%"/"}/portage/${CATEGORY}/${PF}/image/${EPREFIX:+"${EPREFIX%"/"}/"}"}"
 		dir="${dir%"/"}/${location#"/"}"
-		local name="${PN}-${SLOT//\//_}"
-		if mkdir -p "${dir}" && touch "${dir}/${name}"; then
+		local name="${PN}-${SLOT//\//_}" components='/'
+		until [[ -d "${dir}" ]]; do
+			if ! [[ -d "${components}" ]]; then
+				mkdir "${components}" ||
+					die "mkdir() on '${components}' failed: ${?}"
+				# Some ebuilds, such as dev-libs/glib, build and install
+				# dependencies from src_configure - which causes issues if
+				# we've already run and created root-owned directories which
+				# other portage helpers (einstalldocs in the case above) can't
+				# then write to, since they run as portage:portage :(
+				chmod 0777 "${components}" ||
+					die "chmod() on '${components}' failed: ${?}"
+			fi
+			components="${components%"/"}/$( cut -d'/' -f 2 <<<"${dir#"${components%/}"}" )"
+		done
+		if touch "${dir}/${name}"; then
 			printf $'IUSE=%s\nUSE=%s\n\n' > "${dir}/${name}" \
 				"${IUSE:-}" \
 				"${USE:-}"
@@ -884,7 +898,8 @@ check_extra_config() {
 				fi
 			done < <(
 					# The original logic below only allows for 'CHECK',
-					# '~CHECK', '!CHECK', or '~!CHECK'...
+					# '~CHECK', '!CHECK', or '~!CHECK' (e.g. '~' must preceed
+					# '!')...
 					xargs -rn 1 <<<"${CONFIG_CHECK}" |
 						sed 's/^~// ; s/^!//' |
 						sed 's/^/ERROR_/'

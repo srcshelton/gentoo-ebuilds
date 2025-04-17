@@ -374,6 +374,7 @@ if [[ ${PN} != kgcc64 && ${PN} != gcc-* ]] ; then
 	tc_version_is_at_least 14.0.0_pre20230423 ${PV} && IUSE+=" rust" TC_FEATURES+=( rust )
 	tc_version_is_at_least 14.2.1_p20241026 ${PV} && IUSE+=" time64"
 	tc_version_is_at_least 15.0.0_pre20241124 ${PV} && IUSE+=" libgdiagnostics"
+	tc_version_is_at_least 15.0.1_pre20250316 ${PV} && IUSE+=" cobol"
 fi
 
 if tc_version_is_at_least 10; then
@@ -1282,7 +1283,7 @@ toolchain_src_configure() {
 
 	local GCC_LANG="c"
 	is_cxx && GCC_LANG+=",c++"
-	is_d   && GCC_LANG+=",d"
+	is_d   && GCC_LANG+=",d" confgcc+=( --enable-libphobos )
 	is_go  && GCC_LANG+=",go"
 	if is_objc || is_objcxx ; then
 		GCC_LANG+=",objc"
@@ -1297,6 +1298,7 @@ toolchain_src_configure() {
 	is_f77 && GCC_LANG+=",f77"
 	is_f95 && GCC_LANG+=",f95"
 	is_ada && GCC_LANG+=",ada"
+	is_cobol && GCC_LANG+=",cobol"
 	is_modula2 && GCC_LANG+=",m2"
 	is_rust && GCC_LANG+=",rust"
 
@@ -1871,6 +1873,11 @@ toolchain_src_configure() {
 		else
 			confgcc+=( --disable-fixincludes )
 		fi
+	fi
+
+	if [[ ${CTARGET} != *-darwin* ]] && tc_version_is_at_least 14.1 ; then
+		# This allows passing -stdlib-=libc++ at runtime.
+		confgcc+=( --with-gxx-libcxx-include-dir="${ESYSROOT}"/usr/include/c++/v1 )
 	fi
 
 	# TODO: Ignore RCs here (but TOOLCHAIN_IS_RC isn't yet an eclass var)
@@ -2642,7 +2649,7 @@ toolchain_src_install() {
 	cd "${D}"${BINPATH} || die
 	# Ugh: we really need to auto-detect this list.
 	#      It's constantly out of date.
-	for x in cpp gcc gccrs g++ c++ gcov gdc g77 gfortran gccgo gnat* ; do
+	for x in cpp gcc gccrs g++ c++ gcobol gcov gdc g77 gfortran gccgo gnat* ; do
 		# For some reason, g77 gets made instead of ${CTARGET}-g77...
 		# this should take care of that
 		if [[ -f ${x} ]] ; then
@@ -2679,6 +2686,13 @@ toolchain_src_install() {
 				mv ${x} ${x}-${GCCMAJOR} || die
 			done
 		fi
+	fi
+
+	# Hack for C++ modules
+	if ! is_crosscompile && tc_version_is_at_least 15.0.1_pre20250316 ${PV}; then
+		# PR19266 (bug #948394)
+		sed -i -e "s,\.\./lib/gcc/${CHOST}/${GCCMAJOR}/include/,include/," \
+			"${ED}"/usr/lib/gcc/${CHOST}/${GCCMAJOR}/libstdc++.modules.json || die
 	fi
 
 	# As gcc installs object files built against both ${CHOST} and ${CTARGET}
@@ -3184,6 +3198,11 @@ is_objc() {
 is_objcxx() {
 	gcc-lang-supported 'obj-c++' || return 1
 	_tc_use_if_iuse cxx && _tc_use_if_iuse objc++
+}
+
+is_cobol() {
+	gcc-lang-supported cobol || return 1
+	_tc_use_if_iuse cobol
 }
 
 is_modula2() {

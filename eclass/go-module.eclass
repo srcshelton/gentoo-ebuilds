@@ -103,7 +103,7 @@ export GOCACHE="${T}/go-build"
 # See "go help environment" for information on this setting
 export GOMODCACHE="${WORKDIR}/go-mod"
 
-# The following go flags  should be used for all builds:
+# The following go flags should be used for all builds:
 #   -buildmode=pie        builds position independent executables
 #   -buildvcs=false       omits version control information
 #   -modcacherw           makes the build cache read/write
@@ -112,12 +112,12 @@ export GOMODCACHE="${WORKDIR}/go-mod"
 # Additional flags:
 #   -trimpath			  remove extraneous path prefixes
 #   -tags osusergo,netgo  use native Go routines instead of linking to C
-#                         libraries
+#                         libraries: fragile, breaks several builds :(
 # LDFLAGS:
 #   -bindnow			  enable full RELRO on ELF targets
 #   -s                    omit the symbol table and debug information
 #   -w                    omit the DWARF symbol table
-export GOFLAGS="-buildvcs=false -modcacherw -v -x -trimpath '-ldflags=-bindnow -s -w' -tags=osusergo,netgo"
+export GOFLAGS="-buildvcs=false -modcacherw -v -x -trimpath '-ldflags=-bindnow -s -w'"
 
 # Do not complain about CFLAGS etc since go projects do not use them.
 QA_FLAGS_IGNORED='.*'

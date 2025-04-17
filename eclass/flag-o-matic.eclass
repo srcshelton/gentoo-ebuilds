@@ -276,6 +276,8 @@ filter-lfs-flags() {
 filter-lto() {
 	[[ $# -ne 0 ]] && die "filter-lto takes no arguments"
 	filter-flags '-flto*' -fwhole-program-vtables '-fsanitize=cfi*'
+	# Also filter error-promotion for LTO-related warnings...
+	filter-flags -Werror=odr -Werror=lto-type-mismatch
 }
 
 # @FUNCTION: filter-ldflags
