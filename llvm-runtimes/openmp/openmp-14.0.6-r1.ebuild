@@ -84,6 +84,7 @@ pkg_setup() {
 
 multilib_src_configure() {
 	# LTO causes issues in other packages building, #870127
+	append-flags -fno-strict-aliasing
 	filter-lto
 
 	# LLVM_ENABLE_ASSERTIONS=NO does not guarantee this for us, #614844
