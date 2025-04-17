@@ -14,7 +14,7 @@ if [[ ${PV} == 9999 ]] ; then
 else
 	SRC_URI="https://github.com/${PN}/${PN}/releases/download/v${PV}/${P}.tar.xz
 		verify-sig? ( https://github.com/${PN}/${PN}/releases/download/v${PV}/${P}.tar.xz.asc )"
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 fi
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/strace.asc
@@ -38,7 +38,6 @@ LIB_DEPEND="
 DEPEND="
 	static? ( ${LIB_DEPEND} )
 	aio? ( >=dev-libs/libaio-0.3.106 )
-	virtual/os-headers
 "
 RDEPEND="
 	!static? ( ${LIB_DEPEND//\[static-libs(+)]} )
@@ -82,14 +81,18 @@ src_configure() {
 	local myeconfargs=(
 		--disable-gcc-Werror
 
-		# Don't require mpers support on non-multilib systems. #649560
+		# Don't require mpers support on non-multilib systems (bug #649560)
 		--enable-mpers=check
+
+		# We don't want to pin to exact linux-headers versions (bug #950309)
+		--enable-bundled=yes
 
 		$(use_enable static)
 		$(use_with unwind libunwind)
 		$(use_with elfutils libdw)
 		$(use_with selinux libselinux)
 	)
+
 	econf "${myeconfargs[@]}"
 }
 
