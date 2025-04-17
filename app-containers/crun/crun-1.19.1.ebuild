@@ -15,7 +15,7 @@ if [[ "$PV" == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
 else
 	SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.gz"
-	KEYWORDS="~amd64 ~arm ~arm64 ~loong ~ppc64 ~riscv"
+	KEYWORDS="amd64 ~arm arm64 ~loong ppc64 ~riscv"
 	RESTRICT="mirror"
 fi
 
@@ -87,18 +87,6 @@ src_compile() {
 	fi
 }
 
-src_install() {
-	emake "DESTDIR=${D}" install-exec
-	if use man ; then
-		emake "DESTDIR=${D}" install-man
-	fi
-
-	einstalldocs
-
-	einfo "Cleaning up .la files"
-	find "${ED}" -name '*.la' -delete || die
-}
-
 src_test() {
 	emake check-TESTS -C libocispec
 
@@ -112,4 +100,16 @@ src_test() {
 		"tests/test_oci_features"
 	)
 	emake check-TESTS TESTS="${supported_tests[*]}"
+}
+
+src_install() {
+	emake "DESTDIR=${D}" install-exec
+	if use man ; then
+		emake "DESTDIR=${D}" install-man
+	fi
+
+	einstalldocs
+
+	einfo "Cleaning up .la files"
+	find "${ED}" -name '*.la' -delete || die
 }
