@@ -5,7 +5,7 @@ EAPI=8
 PYTHON_REQ_USE="xml(+)"
 PYTHON_COMPAT=( python3_{10..13} )
 
-inherit eapi9-ver gnome.org gnome2-utils linux-info meson-multilib multilib python-any-r1 toolchain-funcs xdg
+inherit eapi9-ver gnome2-utils gnome.org linux-info meson-multilib multilib python-any-r1 toolchain-funcs xdg
 
 DESCRIPTION="The GLib library of C routines"
 HOMEPAGE="https://www.gtk.org/"
@@ -20,7 +20,7 @@ INTROSPECTION_BUILD_DIR="${WORKDIR}/${INTROSPECTION_P}-build"
 
 LICENSE="LGPL-2.1+"
 SLOT="2"
-KEYWORDS="~alpha ~amd64 arm arm64 ~hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 IUSE="dbus debug doc +elf +introspection +mime selinux static-libs sysprof systemtap test utils xattr"
 RESTRICT="!test? ( test )"
 
@@ -238,8 +238,8 @@ multilib_src_configure() {
 			-Dglib:xattr=false
 			-Dglib:libmount=disabled
 			-Dglib:man-pages=disabled
-			-Dglib:dtrace=false
-			-Dglib:systemtap=false
+			-Dglib:dtrace=disabled
+			-Dglib:systemtap=disabled
 			-Dglib:sysprof=disabled
 			-Dglib:documentation=false
 			-Dglib:tests=false
@@ -265,7 +265,10 @@ multilib_src_configure() {
 
 		meson_src_configure
 		meson_src_compile
-		meson_src_install --destdir "${T}/bootstrap-gi-prefix"
+		# We already provide a prefix in ${T} above. Blank DESTDIR
+		# as it may be set in the environment by Portage (though not
+		# guaranteed in src_configure).
+		meson_src_install --destdir ""
 
 		popd || die
 
@@ -307,8 +310,8 @@ multilib_src_configure() {
 		$(meson_use xattr)
 		-Dlibmount=enabled # only used if host_system == 'linux'
 		-Dman-pages=enabled
-		$(meson_use systemtap dtrace)
-		$(meson_use systemtap)
+		$(meson_feature systemtap dtrace)
+		$(meson_feature systemtap)
 		$(meson_feature sysprof)
 		$(meson_use doc documentation)
 		$(meson_use test tests)
