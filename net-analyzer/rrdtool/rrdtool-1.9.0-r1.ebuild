@@ -1,13 +1,13 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
 LUA_COMPAT=( lua5-{1..4} luajit )
-PYTHON_COMPAT=( python3_{8..10} )
-
+PYTHON_COMPAT=( python3_{10..13} )
+DISTUTILS_EXT=1
 DISTUTILS_OPTIONAL="true"
-DISTUTILS_SINGLE_IMPL="true"
+DISTUTILS_USE_PEP517="setuptools"
 GENTOO_DEPEND_ON_PERL="no"
 MY_P="${P/_/-}"
 
@@ -15,22 +15,24 @@ inherit autotools distutils-r1 flag-o-matic lua perl-module
 
 DESCRIPTION="A data logging and graphing system for time series data"
 HOMEPAGE="https://oss.oetiker.ch/rrdtool/"
-SRC_URI="https://github.com/oetiker/${PN}-1.x/releases/download/v${PV}/${P}.tar.gz"
-S="${WORKDIR}/${MY_P}"
+# upstream dist doesnt include python tests
+SRC_URI="
+	https://github.com/oetiker/rrdtool-1.x/archive/refs/tags/v${PV}.tar.gz -> ${P}.gh.tar.gz
+"
+S="${WORKDIR}/rrdtool-1.x-${PV}"
 
 LICENSE="GPL-2"
 SLOT="0/8.0.0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~ia64 ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~x86-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="dbi doc examples graph lua perl python rados rrdcached rrdcgi ruby static-libs tcl tcpd test"
 
 RESTRICT="!test? ( test )"
+
+# perl? ( graph ) bug #940931
 REQUIRED_USE="
+	perl? ( graph )
 	python? ( ${PYTHON_REQUIRED_USE} )
-	lua? (
-		${LUA_REQUIRED_USE}
-		test? ( graph )
-	)
-	test? ( rrdcached )
+	lua? ( ${LUA_REQUIRED_USE} )
 "
 
 PDEPEND="ruby? ( ~dev-ruby/rrdtool-bindings-${PV} )"
@@ -61,23 +63,21 @@ DEPEND="${RDEPEND}"
 BDEPEND="
 	sys-apps/groff
 	virtual/pkgconfig
-	virtual/awk
-	python? ( $(python_gen_cond_dep 'dev-python/setuptools[${PYTHON_USEDEP}]') )
+	app-alternatives/awk
+	python? (
+		${DISTUTILS_DEPS}
+		$(python_gen_cond_dep 'dev-python/setuptools[${PYTHON_USEDEP}]')
+	)
 	test? (
-		sys-devel/bc
+		app-alternatives/bc
 		lua? ( ${LUA_DEPS} )
 	)
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-1.4.9-disable-rrd_graph-perl.patch
 	"${FILESDIR}"/${PN}-1.7.0-disable-rrd_graph-cgi.patch
 	"${FILESDIR}"/${PN}-1.7.1-configure.ac.patch
 )
-
-pkg_setup() {
-	use python && python-single-r1_pkg_setup
-}
 
 src_prepare() {
 	default
@@ -100,12 +100,32 @@ src_prepare() {
 
 	sed "${mysedargs[@]}" || die
 
-	# Makefile needs to be adjusted for disabling 'graph' feature
 	if ! use graph ; then
+		# Makefile needs to be adjusted for disabling 'graph' feature
 		local mysedargs=(
-			-e '2s:rpn1::; 2s:rpn2::; 6s:create-with-source-4::;'
-			-e '7s:xport1::; 7s:dcounter1::; 7s:vformatter1::'
-			-e 's|graph1||g'
+			-e '/^TESTS =/,/^$/ {
+				s:rpn[0-9]*::g;
+				s:create-with-source-4::;
+				s:xport1::;
+				s:dcounter1::;
+				s:vformatter1::;
+				s:graph[0-9]*::g;
+			}'
+			-i tests/Makefile.am
+		)
+
+		sed "${mysedargs[@]}" || die
+
+		# Remove graph test from lua
+		sed -i -e '/Testing rrd.graphv/,$ d' bindings/lua/test.lua{,50}.bottom || die
+	fi
+
+	# Makefile needs to be adjusted for disabling 'rrdcached' feature
+	if ! use rrdcached ; then
+		local mysedargs=(
+			-e '/^TESTS =/,/^$/ {
+				s:list1::;
+			}'
 			-i tests/Makefile.am
 		)
 
@@ -124,7 +144,12 @@ src_configure() {
 	[[ ${CHOST} == *-solaris* ]] && append-flags -D__EXTENSIONS__
 
 	# Enabling '-ffast-math' is known to cause problems.
-	filter-flags -ffast-math
+	#
+	# N.B. '-Ofast' enables '-ffast-math', so simply filtering '-ffast-math' is
+	#      not sufficient.
+	#
+	#filter-flags -ffast-math
+	append-flags -fno-finite-math-only
 
 	# We will handle Lua bindings ourselves, upstream is not multi-impl-ready
 	# and their Lua-detection logic depends on having the right version of the Lua
@@ -133,12 +158,12 @@ src_configure() {
 		--disable-lua
 		--disable-ruby
 		--disable-ruby-site-install
+		--disable-python
 		$(usex !dbi '--disable-libdbi' '')
 		$(usex !examples '--disable-examples' '')
 		$(use_enable graph rrd_graph)
 		$(use_enable perl perl-site-install)
 		$(use_enable perl)
-		$(use_enable python)
 		$(usex !rados '--disable-librados' '')
 		$(usex !rrdcached '--disable-rrdcached' '')
 		$(use_enable rrdcgi)
@@ -192,12 +217,32 @@ lua_src_test() {
 	popd || die
 }
 
+python_test() {
+	LD_LIBRARY_PATH="${S}/src/.libs:${LD_LIBRARY_PATH}" eunittest
+}
+
 src_test() {
 	export LC_ALL=C
 	default
 
 	if use lua; then
 		lua_foreach_impl lua_src_test
+	fi
+
+	if use perl; then
+		pushd bindings/perl-shared >/dev/null || die
+		LD_LIBRARY_PATH="${S}/src/.libs:${LD_LIBRARY_PATH}" perl-module_src_test
+		popd >/dev/null || die
+		pushd bindings/perl-piped >/dev/null || die
+		LD_LIBRARY_PATH="${S}/src/.libs:${LD_LIBRARY_PATH}" perl-module_src_test
+		popd >/dev/null || die
+	fi
+
+	if use python && use graph ; then
+		# All tests explicitly use graph
+		pushd bindings/python >/dev/null || die
+		distutils-r1_src_test
+		popd >/dev/null || die
 	fi
 }
 
@@ -213,11 +258,6 @@ lua_src_install() {
 	emake "${myemakeargs[@]}" install
 
 	popd || die
-}
-
-python_install() {
-	cd bindings/python || die
-	distutils-r1_python_install
 }
 
 src_install() {
