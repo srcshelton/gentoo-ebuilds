@@ -471,6 +471,8 @@ used to build perl)
     * Include fix for https://bugs.gentoo.org/923439
 * app-portage/portage-utils
     * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-portage/portage-utils is built
+* app-shells/gentoo-bashcomp
+    * Fix (\_comp\_)\_split\_longopt) syntax error
 * app-text/sgml-common
     * Check that 'sgml-docbook.cat' exists before trying to modify it
 * dev-db/mongodb
@@ -649,6 +651,8 @@ used to build perl)
     * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-auth/pam\_mktemp
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
+* sys-boot/grub
+    * Fix (\_comp\_)\_split\_longopt) syntax error
 * sys-cluster/hpl
     * Make build less noisy
 * sys-cluster/mpich
