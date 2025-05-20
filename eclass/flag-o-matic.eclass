@@ -24,7 +24,7 @@ inherit toolchain-funcs
 # @DESCRIPTION:
 # Return all the flag variables that our high level functions operate on.
 all-flag-vars() {
-	echo {ADA,C,CGO_C,CGO_CPP,CGO_CXX,CGO_F,CGO_LD,CPP,CXX,CCAS,F,FC,LD}FLAGS
+	echo {ADA,C,CGO_C,CGO_CPP,CGO_CXX,CGO_F,CGO_LD,CPP,CXX,CCAS,F,FC,GDC,LD}FLAGS
 }
 
 # @FUNCTION: setup-allowed-flags
@@ -77,7 +77,7 @@ _setup-allowed-flags() {
 		-ggdb '-ggdb[0-9]'
 		-gdwarf '-gdwarf-*'
 		-gstabs -gstabs+
-		-gz
+		-gz '-gz=*'
 		-glldb
 		'-fdebug-default-version=*'
 
@@ -246,7 +246,8 @@ _filter-var() {
 # @USAGE: <flags>
 # @DESCRIPTION:
 # Remove particular <flags> from {ADA,C,CGO_C,CGO_CPP,CGO_CXX,CGO_F,CGO_LD, ...
-# ... CPP,CXX,CCAS,F,FC,LD}FLAGS (via all-flag-vars()).  Accepts shell globs.
+# ... CPP,CXX,CCAS,F,FC,GDC,LD}FLAGS (via all-flag-vars()).
+# Accepts shell globs.
 filter-flags() {
 	_filter-hardened "$@"
 	local v

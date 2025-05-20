@@ -21,8 +21,6 @@ case ${EAPI} in
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
 
-inherit multilib
-
 # tc-getPROG <VAR [search vars]> <default> [tuple]
 _tc-getPROG() {
 	local tuple=$1
@@ -1205,16 +1203,6 @@ tc-enables-ssp-all() {
 	tc-cpp-is-true "defined(__SSP_ALL__)" ${CPPFLAGS} ${CFLAGS} ${CXXFLAGS}
 }
 
-
-# @FUNCTION: gen_usr_ldscript
-# @USAGE: [-a] <list of libs to create linker scripts for>
-# @DESCRIPTION:
-# This function is deprecated. Use the version from
-# usr-ldscript.eclass instead.
-gen_usr_ldscript() {
-	die "${FUNCNAME}: Please migrate to usr-ldscript.eclass"
-}
-
 # @FUNCTION: tc-get-cxx-stdlib
 # @DESCRIPTION:
 # Attempt to identify the C++ standard library used by the compiler.
@@ -1227,7 +1215,11 @@ gen_usr_ldscript() {
 # If the library is not recognized, the function returns 1.
 tc-get-cxx-stdlib() {
 	local code="$( cat <<-EOF
-		#include <ciso646>
+		#if __cplusplus >= 202002L
+			#include <version>
+		#else
+			#include <ciso646>
+		#endif
 
 		#if defined(_LIBCPP_VERSION)
 			HAVE_LIBCXX
