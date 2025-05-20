@@ -405,6 +405,8 @@ used to build perl)
     * 'rpiboot' and associated firmware
 * sys-devel/polly
     * clang/LLVM loop optimiser
+* sys-firmware/raspberrypi-wifi-ucode
+    * Add more recent raspberrypi-wifi-ucode-20240709.2\_p3 release
 * sys-fs/eudev
     * Retain tree-cleaned upstream package
 * sys-fs/composefs
