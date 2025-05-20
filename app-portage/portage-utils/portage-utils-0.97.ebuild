@@ -35,6 +35,7 @@ BDEPEND="
 		!clang? ( sys-devel/gcc:*[openmp] )
 	)"
 DEPEND="${COMMON_DEPEND}
+	virtual/os-headers
 	qmanifest? (
 		static? (
 			app-crypt/gpgme[static-libs]
