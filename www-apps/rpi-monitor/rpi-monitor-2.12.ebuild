@@ -1,7 +1,7 @@
-# Copyright (c) 2016 Stuart Shelton <stuart@shelton.me>
+# Copyright (c) 2016-2025 Stuart Shelton <stuart@shelton.me>
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit webapp
 
@@ -16,7 +16,8 @@ SLOT="0"
 KEYWORDS="-* arm arm64"
 IUSE="httpd tools"
 
-DEPEND="app-admin/webapp-config"
+BDEPEND="app-admin/webapp-config"
+IDEPEND="app-admin/webapp-config"
 RDEPEND="
 	httpd? (
 		virtual/httpd-cgi
