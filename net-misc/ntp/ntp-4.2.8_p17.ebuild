@@ -39,7 +39,7 @@ RDEPEND="${COMMON_DEPEND}
 	!net-misc/ntpsec
 	!openntpd? ( !net-misc/openntpd )
 "
-PDEPEND="openntpd? ( || ( net-misc/openntpd container/openntpd ) )"
+PDEPEND="openntpd? ( || ( net-misc/openntpd container-services/openntpd ) )"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-4.2.8-ipc-caps.patch # bug #533966
