@@ -58,6 +58,7 @@ DEPEND="${COMMON_DEPEND}
 	elibc_musl? ( sys-libs/queue-standalone )
 "
 RDEPEND="${COMMON_DEPEND}
+	acct-group/nobody
 	!net-libs/libnfsidmap
 	selinux? (
 		sec-policy/selinux-rpc
