@@ -21,8 +21,9 @@ packages and miscellaneous fixes.
 * net-dns/bind
 * net-libs/glib-networking
 
-# Fixes to reduce/disable parallelism on low-memory systems
+# Fixes to reduce/disable build parallelism on low-memory systems
 
+* media-libs/harfbuzz
 * net-libs/libtorrent-rasterbar
 
 # -ffast-math/aggressive optimisation fixes
