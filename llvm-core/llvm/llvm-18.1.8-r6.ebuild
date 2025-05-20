@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -21,7 +21,7 @@ HOMEPAGE="https://llvm.org/"
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="${LLVM_MAJOR}/${LLVM_SOABI}"
 KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv sparc x86 ~amd64-linux ~arm64-macos ~ppc-macos ~x64-macos"
-IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi test xml z3 zstd"
+IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi ncurses test xml z3 zstd"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -33,6 +33,7 @@ RDEPEND="
 	exegesis? ( dev-libs/libpfm:= )
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=dev-libs/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
+	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
 	xml? ( dev-libs/libxml2:2=[${MULTILIB_USEDEP}] )
 	z3? ( >=sci-mathematics/z3-4.7.1:0=[${MULTILIB_USEDEP}] )
 	zstd? ( app-arch/zstd:=[${MULTILIB_USEDEP}] )
@@ -62,12 +63,9 @@ PDEPEND="
 	binutils-plugin? ( >=llvm-core/llvmgold-${LLVM_MAJOR} )
 "
 
-PATCHES=(
-	"${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch"
-)
-
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
+LLVM_PATCHSET=${PV}-r6
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 
@@ -194,11 +192,6 @@ src_prepare() {
 	check_uptodate
 
 	llvm.org_src_prepare
-
-	if has_version ">=sys-libs/glibc-2.40"; then
-		# https://github.com/llvm/llvm-project/issues/100791
-		rm -r test/tools/llvm-exegesis/X86/latency || die
-	fi
 }
 
 get_distribution_components() {
@@ -318,7 +311,6 @@ get_distribution_components() {
 			llvm-xray
 			obj2yaml
 			opt
-			reduce-chunk-list
 			sancov
 			sanstats
 			split-file
@@ -424,6 +416,7 @@ multilib_src_configure() {
 
 		-DLLVM_ENABLE_FFI=$(usex libffi)
 		-DLLVM_ENABLE_LIBEDIT=$(usex libedit)
+		-DLLVM_ENABLE_TERMINFO=$(usex ncurses)
 		-DLLVM_ENABLE_LIBXML2=$(usex xml)
 		-DLLVM_ENABLE_ASSERTIONS=$(usex debug)
 		-DLLVM_ENABLE_LIBPFM=$(usex exegesis)
@@ -493,6 +486,10 @@ multilib_src_configure() {
 	fi
 
 	use kernel_Darwin && mycmakeargs+=(
+		# On Macos prefix, Gentoo doesn't split sys-libs/ncurses to libtinfo and
+		# libncurses, but llvm tries to use libtinfo before libncurses, and ends up
+		# using libtinfo (actually, libncurses.dylib) from system instead of prefix
+		-DTerminfo_LIBRARIES=-lncurses
 		# Use our libtool instead of looking it up with xcrun
 		-DCMAKE_LIBTOOL="${EPREFIX}/usr/bin/${CHOST}-libtool"
 	)
