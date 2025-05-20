@@ -427,6 +427,8 @@ used to build perl)
 
 # Modified ebuilds
 
+* acct-group/dialout
+    * Add 'compat' USE flag to avoid clashing with macOS 'staff' group for NFS/SMB share hosts
 * acct-user/netdata
     * Allow optional 'podman' group membership
 * acct-user/postfix
