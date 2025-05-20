@@ -382,6 +382,8 @@ used to build perl)
     * Oracle's bpftune system auto-tuning tool
 * sys-apps/corefreq
     * 'top'-like CPU monitor
+* sys-apps/hwinfo
+    * Add more recent hwinfo-24.0 release
 * sys-apps/lsusb-apple
     * Jose L. Honorato's 'lsusb' for macOS
 * sys-apps/raspberrypi-gpio
