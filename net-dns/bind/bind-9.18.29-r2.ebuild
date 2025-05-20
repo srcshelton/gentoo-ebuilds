@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -15,7 +15,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="MPL-2.0"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="+caps dnsrps dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server static-libs systemd test +tools xml"
 REQUIRED_USE="
 	dnsrps? ( server )
@@ -133,7 +133,7 @@ src_install() {
 	if use tools && ! use server; then
 		# This isn't going to be as easy(!) as it looked - the
 		# build-tree contents are now actually libtool wrapper scripts,
-		# and so rather than installing what we need we actually need
+		# and so rather than installing what we need we actually have
 		# to do a full installation and then remove the superfluous
 		# elements :(
 		#
@@ -256,7 +256,8 @@ src_install() {
 	keepdir /var/state/bind/{pri,sec,dyn} /var/log/named
 
 	# /etc/bind is set to root:named by acct-user/named
-	fowners root:named /{etc,var/state}/bind /var/log/named /var/state/bind/{sec,pri,dyn}
+	fowners root:named /{etc,var/state}/bind /var/log/named \
+		/var/state/bind/{sec,pri,dyn}
 	fowners root:named /etc/bind/{bind.keys,named.conf,named.conf.auth}
 	fperms 0640 /etc/bind/{bind.keys,named.conf,named.conf.auth}
 	fperms 0750 /etc/bind /var/state/bind/pri
@@ -329,12 +330,17 @@ pkg_postinst() {
 
 	CHROOT=$(source "${EROOT}"/etc/conf.d/named 2>/dev/null; echo ${CHROOT})
 	if [ -n "${CHROOT:-}" ]; then
-		elog "NOTE: As of net-dns/bind-9.4.3_p5-r1 the chroot part of the init-script got some major changes!"
-		elog "To enable the old behaviour (without using mount) uncomment the"
+		elog "NOTE: As of net-dns/bind-9.4.3_p5-r1 the chroot part" \
+			"of the init-script got some major changes!"
+		elog "To enable the old behaviour (without using mount)" \
+			"uncomment the"
 		elog "CHROOT_NOMOUNT option in your /etc/conf.d/named config."
-		elog "If you decide to use the new/default method, ensure to make backup"
-		elog "first and merge your existing configs/zones to /etc/bind and"
-		elog "/var/state/bind because bind will now mount the needed directories into"
+		elog "If you decide to use the new/default method, ensure to" \
+			"make backup"
+		elog "first and merge your existing configs/zones to" \
+			"/etc/bind and"
+		elog "/var/state/bind because bind will now mount the" \
+			"needed directories into"
 		elog "the chroot dir."
 	fi
 
@@ -350,8 +356,8 @@ pkg_postinst() {
 			"current configuration specifies a"
 		ewarn "root hints file - usually called named.cache - bind" \
 			"will not start as it will not be able"
-		ewarn "to find the specified file. Best practice is to delete" \
-			"the offending lines that"
+		ewarn "to find the specified file. Best practice is to" \
+			"delete the offending lines that"
 		ewarn "reference named.cache file from your configuration."
 	fi
 }
@@ -388,7 +394,8 @@ pkg_config() {
 	mkdir -m 0750 -p ${CHROOT} || die
 	mkdir -m 0755 -p ${CHROOT}/{dev,etc,var/log,var/run} || die
 	mkdir -m 0750 -p ${CHROOT}/etc/bind || die
-	mkdir -m 0770 -p ${CHROOT}/var/{state/bind,log/named} ${CHROOT}/var/run/named/ || die
+	mkdir -m 0770 -p ${CHROOT}/var/{state/bind,log/named} \
+		${CHROOT}/var/run/named/ || die
 
 	chown root:named \
 		${CHROOT} \
