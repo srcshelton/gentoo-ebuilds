@@ -376,6 +376,8 @@ used to build perl)
 * net-misc/pixelserv
 * net-misc/unifi-controller-bin
     * Ubiquiti Networks' UniFi Controller software
+* sys-apps/adaptivemm
+    * Oracle's adaptivemm memory-reclaim auto-tuning tool
 * sys-apps/bpftune
     * Oracle's bpftune system auto-tuning tool
 * sys-apps/corefreq

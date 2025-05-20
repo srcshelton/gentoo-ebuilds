@@ -1,0 +1,298 @@
+--- a/src/adaptivemmd.c
++++ b/src/adaptivemmd.c
+@@ -76,8 +76,8 @@
+ /*
+  * Possible locations for configuration files
+  */
+-#define CONFIG_FILE1		"/etc/sysconfig/adaptivemmd"
+-#define CONFIG_FILE2		"/etc/default/adaptivemmd"
++#define CONFIG_FILE1		"/etc/adaptivemmd.conf"
++#define CONFIG_FILE2		"/etc/sysconfig/adaptivemmd"
+ 
+ #define FS_FIELDS	2
+ #define MAX_NUMANODES	1024
+@@ -103,7 +103,7 @@
+ 
+ unsigned long min_wmark[MAX_NUMANODES], low_wmark[MAX_NUMANODES];
+ unsigned long high_wmark[MAX_NUMANODES], managed_pages[MAX_NUMANODES];
+-unsigned long total_free_pages, total_cache_pages, total_hugepages, base_psize;
++unsigned long total_free_pages, total_cache_pages, base_psize, total_hugepages;
+ long compaction_rate, reclaim_rate;
+ struct lsq_struct page_lsq[MAX_NUMANODES][MAX_ORDER];
+ struct lsq_struct fs_lsq[FS_FIELDS];
+@@ -350,7 +350,7 @@
+ {
+ 	DIR *dp;
+ 	struct dirent *ep;
+-	unsigned long newhpages = 0;
++	long newhpages = 0;
+ 	int rc = -1;
+ 
+ 	dp = opendir(HUGEPAGESINFO);
+@@ -380,7 +380,7 @@
+ 	if (newhpages) {
+ 		unsigned long tmp;
+ 
+-		tmp = abs(newhpages - total_hugepages);
++		tmp = llabs(newhpages - total_hugepages);
+ 		/*
+ 		 * If number of hugepages changes from 0 to a
+ 		 * positive number, percentage calculation will
+@@ -412,8 +412,9 @@
+ #define ZONE_LOW	"low"
+ #define ZONE_HIGH	"high"
+ #define ZONE_MNGD	"managed"
+-#define ZONE_PGST	"pagesets"
+-int update_zone_watermarks()
++#define ZONE_PROT	"protection:"
++
++void update_zone_watermarks()
+ {
+ 	FILE *fp = NULL;
+ 	size_t len = 256;
+@@ -422,15 +423,18 @@
+ 
+ 	fp = fopen(ZONEINFO, "r");
+ 	if (!fp)
+-		return 0;
++		goto out_free;
+ 
+ 	while ((fgets(line, len, fp) != NULL)) {
+ 		if (strncmp(line, "Node", 4) == 0) {
+ 			char node[FLDLEN], zone[FLDLEN], zone_name[FLDLEN];
+ 			int nid;
+-			unsigned long min, low, high, managed;
++			unsigned long min = 0;
++			unsigned long low = 0;
++			unsigned long high = 0;
++			unsigned long managed = 0;
+ 
+-			if (sscanf(line, "%s %d, %s %8s\n", node, &nid, zone, zone_name) <= 0)
++			if (sscanf(line, "%s %d, %s %11s\n", node, &nid, zone, zone_name) <= 0)
+ 				goto out;
+ 			if ((current_node == -1) || (current_node != nid)) {
+ 				current_node = nid;
+@@ -449,10 +453,6 @@
+ 			 * Ignore pages in DMA zone for x86 and x86-64.
+ 			 */
+ 			if (!skip_dmazone || (strncmp("DMA", zone_name, FLDLEN) != 0)) {
+-				/*
+-				 * We found the normal zone. Now look for
+-				 * line "pages free"
+-				 */
+ 				if (fgets(line, len, fp) == NULL)
+ 					goto out;
+ 
+@@ -473,7 +473,7 @@
+ 						high = val;
+ 					if (strncmp(name, ZONE_MNGD, sizeof(ZONE_MNGD)) == 0)
+ 						managed = val;
+-					if (strncmp(name, ZONE_PGST, sizeof(ZONE_PGST)) == 0)
++					if (strncmp(name, ZONE_PROT, sizeof(ZONE_PROT)) == 0)
+ 						break;
+ 				}
+ 
+@@ -486,9 +486,9 @@
+ 	}
+ 
+ out:
+-	free(line);
+ 	fclose(fp);
+-	return 0;
++out_free:
++	free(line);
+ }
+ 
+ /*
+@@ -635,14 +635,15 @@
+ 	FILE *fp = NULL;
+ 	size_t len = 100;
+ 	char *line = malloc(len);
+-	unsigned long val, reclaimed;
++	unsigned long val = 0;
++	unsigned long reclaimed = 0;
+ 	char desc[100];
+ 
+ 	fp = fopen(VMSTAT, "r");
+ 	if (!fp)
+-		return 0;
++		goto out;
+ 
+-	total_cache_pages = reclaimed = 0;
++	total_cache_pages = 0;
+ 	while ((fgets(line, len, fp) != NULL)) {
+ 		if (sscanf(line, "%s %lu\n", desc, &val) <= 0)
+ 			break;
+@@ -658,8 +659,9 @@
+ 			total_cache_pages += val;
+ 	}
+ 
+-	free(line);
+ 	fclose(fp);
++out:
++	free(line);
+ 	return reclaimed;
+ }
+ 
+@@ -681,6 +683,10 @@
+ 	 * Hugepages should not be taken into account for watermark
+ 	 * calculations since they are not reclaimable
+ 	 */
++	if (total_hugepages > total_managed) {
++		log_err("More hugepages (%lu) than managed pages (%lu)", total_hugepages, total_managed);
++		return;
++	}
+ 	total_managed -= total_hugepages;
+ 	if (total_managed == 0) {
+ 		log_info(1, "Number of managed non-huge pages is 0");
+@@ -876,7 +882,7 @@
+ 
+ 	log_info(1, "Adjusting watermarks. Current watermark scale factor = %s", scaled_wmark);
+ 	if (dry_run)
+-		goto out;
++		return;
+ 
+ 	log_info(1, "New watermark scale factor = %ld", scaled_watermark);
+ 	sprintf(scaled_wmark, "%ld\n", scaled_watermark);
+@@ -898,29 +904,31 @@
+ static int check_permissions(void)
+ {
+ 	int fd;
+-	char tmpstr[40];
++	char tmpstr[40] = {0};
+ 
+ 	/*
+ 	 * Make sure running kernel supports watermark_scale_factor file
+ 	 */
+ 	if ((fd = open(RESCALE_WMARK, O_RDONLY)) == -1) {
+-		fprintf(stderr, "Can not open "RESCALE_WMARK" (%s)", strerror(errno));
++		fprintf(stderr, "Can not open "RESCALE_WMARK" (%s)\n", strerror(errno));
+ 		return 0;
+ 	}
+ 
+ 	/* Can we write to this file */
+ 	if (read(fd, tmpstr, sizeof(tmpstr)) < 0) {
+-		fprintf(stderr, "Can not read "RESCALE_WMARK" (%s)", strerror(errno));
++		fprintf(stderr, "Can not read "RESCALE_WMARK" (%s)\n", strerror(errno));
++		close(fd);
+ 		return 0;
+ 	}
+ 	close(fd);
+ 	if ((fd = open(RESCALE_WMARK, O_WRONLY)) == -1) {
+-		fprintf(stderr, "Can not open "RESCALE_WMARK" (%s)", strerror(errno));
++		fprintf(stderr, "Can not open "RESCALE_WMARK" (%s)\n", strerror(errno));
+ 		return 0;
+ 	}
+ 
+ 	if (write(fd, tmpstr, strlen(tmpstr)) < 0) {
+-		fprintf(stderr, "Can not write to "RESCALE_WMARK" (%s)", strerror(errno));
++		fprintf(stderr, "Can not write to "RESCALE_WMARK" (%s)\n", strerror(errno));
++		close(fd);
+ 		return 0;
+ 	}
+ 	close(fd);
+@@ -990,6 +998,14 @@
+ 
+ 			for (i = 0; i < MAX_NUMANODES; i++)
+ 				total_managed += managed_pages[i];
++			if (total_managed == 0) {
++				log_info(1, "Number of managed pages is 0");
++				return;
++			}
++			if (total_hugepages > total_managed) {
++				log_err("More hugepages (%lu) than managed pages %lu)", total_hugepages, total_managed);
++				return;
++			}
+ 			reclaimable_pages = total_managed - total_hugepages;
+ 			val = (reclaimable_pages * neg_dentry_pct)/total_managed;
+ 			/*
+@@ -1821,7 +1837,7 @@
+ 			 * instead to doing it through adaptivemmd
+ 			 */
+ 			if (val > MAX_NEGDENTRY)
+-				log_err("Bad value for negative dentry cap = %d (>%d). Proceeding with default of %d", val, MAX_NEGDENTRY, neg_dentry_pct);
++				log_err("Bad value for negative dentry cap = %ld (>%d). Proceeding with default of %d", val, MAX_NEGDENTRY, neg_dentry_pct);
+ 			else if (val < 1)
+ 				neg_dentry_pct = 1;
+ 			else
+@@ -1918,26 +1934,6 @@
+ 	signal(SIGTERM, mysig);
+ 	signal(SIGHUP, mysig);
+ 
+-	/* Check if an instance is running already */
+-	lockfd = open(LOCKFILE, O_RDWR|O_CREAT|O_EXCL, 0644);
+-	if (lockfd < 0) {
+-		if (errno == EEXIST)
+-			fprintf(stderr, "Lockfile %s exists. Another daemon may be running. Exiting now", LOCKFILE);
+-		else
+-			fprintf(stderr, "Failed to open lockfile %s", LOCKFILE);
+-		bailout(1);
+-	} else {
+-		del_lock = 1;
+-		ftruncate(lockfd, 0);
+-	}
+-
+-	snprintf(tmpbuf, TMPCHARBUFSIZE, "%ld\n", (long)getpid());
+-	if (write(lockfd, (const void *)tmpbuf, strlen(tmpbuf)) < 0) {
+-		fprintf(stderr, "Failed to write PID to lockfile %s", LOCKFILE);
+-		close(lockfd);
+-		bailout(1);
+-	}
+-
+ 	if (errflag) {
+ 		help_msg(argv[0]);
+ 		bailout(1);
+@@ -1948,10 +1944,32 @@
+ 		bailout(1);
+ 	}
+ 
++	if (!dry_run) {
++		/* Check if an instance is running already */
++		lockfd = open(LOCKFILE, O_RDWR|O_CREAT|O_EXCL, 0644);
++		if (lockfd < 0) {
++			if (errno == EEXIST)
++				fprintf(stderr, "Lockfile %s exists. Another daemon may be running. Exiting now\n", LOCKFILE);
++			else
++				fprintf(stderr, "Failed to open lockfile %s\n", LOCKFILE);
++			bailout(1);
++		} else {
++			del_lock = 1;
++			ftruncate(lockfd, 0);
++		}
++
++		snprintf(tmpbuf, TMPCHARBUFSIZE, "%ld\n", (long)getpid());
++		if (write(lockfd, (const void *)tmpbuf, strlen(tmpbuf)) < 0) {
++			fprintf(stderr, "Failed to write PID to lockfile %s\n", LOCKFILE);
++			close(lockfd);
++			bailout(1);
++		}
++	}
++
+ 	/* Become a daemon unless -d was specified */
+ 	if (!debug_mode)
+ 		if (daemon(0, 0) != 0) {
+-			fprintf(stderr, "Failed to become daemon. %s", strerror(errno));
++			fprintf(stderr, "Failed to become daemon. %s\n", strerror(errno));
+ 			bailout(1);
+ 		}
+ 
+@@ -2000,6 +2018,10 @@
+ 
+ 		for (i = 0; i < MAX_NUMANODES; i++)
+ 			total_managed += managed_pages[i];
++		if (total_managed == 0) {
++			log_err("Number of managed pages is 0");
++			bailout(1);
++		}
+ 		maxwsf = (maxgap * 10000UL * 1024UL * 1024UL * 1024UL)/(total_managed * getpagesize());
+ 	}
+ 	mywsf = maxwsf;
+@@ -2009,7 +2031,7 @@
+ 	 */
+ 	base_psize = getpagesize()/1024;
+ 
+-	pr_info("adaptivemmd "VERSION" started (verbose=%d, aggressiveness=%d, maxgap=%d)", verbose, aggressiveness, maxgap);
++	pr_info("adaptivemmd "VERSION" started (verbose=%d, aggressiveness=%d, maxgap=%lu)", verbose, aggressiveness, maxgap);
+ 	one_time_initializations();
+ 
+ 	while (1) {
