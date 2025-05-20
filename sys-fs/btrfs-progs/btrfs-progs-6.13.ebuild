@@ -179,8 +179,9 @@ src_install() {
 
 	newbashcomp btrfs-completion btrfs
 
-	if [[ -d "${ED}"/lib/udev ]]; then
-		rmdir --ignore-fail-on-non-empty --parents "${ED}"/lib/udev
+	use udev || rm "${ED}"/lib/udev/rules.d/*.rules
+	if [[ -d "${ED}"/lib/udev/rules.d ]]; then
+		rmdir --ignore-fail-on-non-empty --parents "${ED}"/lib/udev/rules.d
 	fi
 }
 
