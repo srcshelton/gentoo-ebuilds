@@ -4,7 +4,7 @@
 EAPI=8
 ETYPE="sources"
 K_WANT_GENPATCHES="extras experimental"
-K_GENPATCHES_VER="24"
+K_GENPATCHES_VER="29"
 
 CKV="${PV%_p*}"
 
@@ -29,7 +29,7 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-EGIT_COMMIT="cd231d4775b14f228606c09f219b48308f6ab3aa"  # ... why is keeping two repos in sync so hard for the Raspberry Pi Foundation?! :(
+EGIT_COMMIT="3dd2c2c507c271d411fab2e82a2b3b7e0b6d3f16"  # ... why is keeping two repos in sync so hard for the Raspberry Pi Foundation?! :(
 MY_PV="stable_${PV#*_p}"
 
 DESCRIPTION="Raspberry Pi kernel sources"
