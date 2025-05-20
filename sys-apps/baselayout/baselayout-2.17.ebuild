@@ -260,6 +260,12 @@ src_install() {
 		DESTDIR="${ED}" \
 		install
 
+	if [[ -d "${ED}"/lib/sysctl.d ]]; then
+		dodir /etc/sysctl.d
+		mv "${ED}"/lib/sysctl.d/*.conf "${ED}"/etc/sysctl.d/
+		rmdir "${ED}"/lib/sysctl.d || die
+	fi
+
 	# Fix /{etc,usr/lib}/os-release symlinks, given that the os-release(5)
 	# man-page states:
 	#
