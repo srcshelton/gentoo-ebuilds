@@ -411,6 +411,10 @@ used to build perl)
     * Retain tree-cleaned upstream package
 * sys-fs/composefs
     * 'compose' filesystem tool for containers
+* sys-kernel/cix-headers
+    * Kernel headers from CIX sources
+* sys-kernel/cix-sources
+    * CIX-flavoured kernel source
 * sys-kernel/mixtile-sources
     * Mixtile-flavoured Rockchip kernel source
 * sys-kernel/raspberrypi-headers
