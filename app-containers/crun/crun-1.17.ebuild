@@ -5,7 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..13} )
 
-inherit python-any-r1
+inherit libtool python-any-r1
 
 DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
@@ -63,6 +63,11 @@ PATCHES=(
 #		crun.1.md \
 #	|| die "'/run' replacement failed: ${?}"
 #}
+
+src_prepare() {
+	default
+	elibtoolize
+}
 
 src_configure() {
 	local myeconfargs=(
