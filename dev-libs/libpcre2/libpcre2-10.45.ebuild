@@ -4,7 +4,7 @@
 EAPI=8
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/nicholaswilson.asc
-inherit libtool multilib toolchain-funcs usr-ldscript verify-sig multilib-minimal
+inherit dot-a libtool multilib toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
 MY_P="pcre2-${PV/_rc/-RC}"
 
@@ -55,6 +55,11 @@ src_prepare() {
 	elibtoolize
 }
 
+src_configure() {
+	use static-libs && lto-guarantee-fat
+	multilib-minimal_src_configure
+}
+
 multilib_src_configure() {
 	local myeconfargs=(
 		--enable-pcre2-8
@@ -102,6 +107,7 @@ multilib_src_install() {
 
 multilib_src_install_all() {
 	find "${ED}" -type f -name "*.la" -delete || die
+	strip-lto-bytecode
 
 	if ! use doc; then
 		rm -r "${ED%/}/usr/share/doc/${PF}/html" || die
