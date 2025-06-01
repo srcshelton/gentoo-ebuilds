@@ -67,6 +67,16 @@ mdadm_emake() {
 	emake "${args[@]}"
 }
 
+src_prepare() {
+	if [[ -s "${WORKDIR}"/debian/patches/debian/0012-bin-directory.patch ]]; then
+		rm "${WORKDIR}"/debian/patches/debian/0012-bin-directory.patch || die
+	else
+		die "Could not remove Debian '0012-bin-directory.patch' - aborting to save host system"
+	fi
+
+	default
+}
+
 src_compile() {
 	use static && append-ldflags -static
 
