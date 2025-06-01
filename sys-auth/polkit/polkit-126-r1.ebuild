@@ -3,50 +3,45 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..11} )
-inherit meson pam pax-utils python-any-r1 systemd xdg-utils
+PYTHON_COMPAT=( python3_{10..13} )
+inherit meson pam pax-utils python-any-r1 systemd tmpfiles xdg-utils
 
 DESCRIPTION="Policy framework for controlling privileges for system-wide services"
 HOMEPAGE="https://www.freedesktop.org/wiki/Software/polkit https://github.com/polkit-org/polkit"
-if [[ ${PV} == *_p* ]] ; then
+if [[ ${PV} == 9999 ]] ; then
+	EGIT_REPO_URI="https://github.com/polkit-org/polkit"
+	inherit git-r3
+elif [[ ${PV} == *_p* ]] ; then
 	# Upstream don't make releases very often. Test snapshots throughly
 	# and review commits, but don't shy away if there's useful stuff there
 	# we want.
 	MY_COMMIT=""
-	SRC_URI="https://gitlab.freedesktop.org/polkit/polkit/-/archive/${MY_COMMIT}/polkit-${MY_COMMIT}.tar.bz2 -> ${P}.tar.bz2"
+	SRC_URI="https://github.com/polkit-org/polkit/archive/${MY_COMMIT}.tar.gz -> ${P}.tar.gz"
 
 	S="${WORKDIR}"/${PN}-${MY_COMMIT}
 else
-	SRC_URI="https://gitlab.freedesktop.org/polkit/polkit/-/archive/${PV}/${P}.tar.bz2"
+	SRC_URI="https://github.com/polkit-org/polkit/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
 fi
 
 LICENSE="LGPL-2"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="examples gtk +introspection kde pam selinux systemd test"
-# https://gitlab.freedesktop.org/polkit/polkit/-/issues/181 for test restriction
-RESTRICT="!test? ( test ) test"
-
-# This seems to be fixed with 121?
-#if [[ ${PV} == *_p* ]] ; then
-#	RESTRICT="!test? ( test )"
-#else
-#	# Tests currently don't work with meson in the dist tarballs. See
-#	#  https://gitlab.freedesktop.org/polkit/polkit/-/issues/144
-#	RESTRICT="test"
-#fi
+if [[ ${PV} != 9999 ]] ; then
+	KEYWORDS="~alpha ~amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
+fi
+IUSE="+daemon examples gtk +introspection kde nls pam selinux systemd test"
+RESTRICT="!test? ( test )"
 
 BDEPEND="
 	acct-user/polkitd
 	app-text/docbook-xml-dtd:4.1.2
 	app-text/docbook-xsl-stylesheets
-	dev-libs/glib
+	>=dev-libs/glib-2.32
 	dev-libs/gobject-introspection-common
 	dev-libs/libxslt
 	dev-util/glib-utils
-	sys-devel/gettext
 	virtual/pkgconfig
 	introspection? ( >=dev-libs/gobject-introspection-0.6.2 )
+	nls? ( sys-devel/gettext )
 	test? (
 		$(python_gen_any_dep '
 			dev-python/dbus-python[${PYTHON_USEDEP}]
@@ -57,7 +52,7 @@ BDEPEND="
 DEPEND="
 	>=dev-libs/glib-2.32:2
 	dev-libs/expat
-	dev-lang/duktape:=
+	daemon? ( dev-lang/duktape:= )
 	pam? (
 		sys-auth/pambase
 		sys-libs/pam
@@ -87,8 +82,9 @@ QA_MULTILIB_PATHS="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${P}-mozjs-JIT.patch
-	"${FILESDIR}"/${P}-pkexec-uninitialized.patch
+	"${FILESDIR}"/${P}-elogind.patch
+	"${FILESDIR}"/${P}-realpath.patch
+	"${FILESDIR}"/${P}-musl.patch
 )
 
 python_check_deps() {
@@ -104,7 +100,8 @@ src_prepare() {
 	default
 
 	# bug #401513
-	sed -i -e 's|unix-group:wheel|unix-user:0|' src/polkitbackend/*-default.rules || die
+	sed -i -e 's|unix-group:@PRIVILEGED_GROUP@|unix-user:@PRIVILEGED_GROUP@|' \
+		src/polkitbackend/*-default.rules.in || die
 }
 
 src_configure() {
@@ -121,13 +118,14 @@ src_configure() {
 		-Dgtk_doc=false
 		-Dman=true
 		-Dos_type=gentoo
-		-Dsession_tracking="$(usex systemd libsystemd-login libelogind)"
+		-Dpam_module_dir=$(getpam_mod_dir)
+		-Dprivileged_group=0
+		-Dsession_tracking="$(usex systemd logind elogind)"
 		-Dsystemdsystemunitdir="$(systemd_get_systemunitdir)"
-		-Djs_engine=duktape
-		-Dlibs-only=false
+		$(meson_use !daemon libs-only)
 		$(meson_use introspection)
+		$(meson_use nls gettext)
 		$(meson_use test tests)
-		$(usex pam "-Dpam_module_dir=$(getpam_mod_dir)" '')
 	)
 	meson_src_configure
 }
@@ -136,25 +134,32 @@ src_compile() {
 	meson_src_compile
 
 	# Required for polkitd on hardened/PaX due to spidermonkey's JIT
-	pax-mark mr src/polkitbackend/.libs/polkitd test/polkitbackend/.libs/polkitbackendjsauthoritytest
+	#pax-mark mr src/polkitbackend/.libs/polkitd test/polkitbackend/.libs/polkitbackendjsauthoritytest
 }
 
 src_install() {
 	meson_src_install
+
+	# acct-user/polkitd installs its own (albeit with a different filename)
+	rm -rf "${ED}"/usr/lib/sysusers.d || die
 
 	if use examples ; then
 		docinto examples
 		dodoc src/examples/{*.c,*.policy*}
 	fi
 
-	if [[ ${EUID} == 0 ]]; then
-		diropts -m 0700 -o polkitd
+	if use daemon; then
+		if [[ ${EUID} == 0 ]]; then
+			diropts -m 0700 -o polkitd
+		fi
+		keepdir /etc/polkit-1/rules.d
 	fi
-	keepdir /etc/polkit-1/rules.d
 }
 
 pkg_postinst() {
-	if [[ ${EUID} == 0 ]]; then
+	tmpfiles_process polkit-tmpfiles.conf
+
+	if use daemon && [[ ${EUID} == 0 ]]; then
 		chmod 0700 "${EROOT}"/{etc,usr/share}/polkit-1/rules.d
 		chown polkitd "${EROOT}"/{etc,usr/share}/polkit-1/rules.d
 	fi
