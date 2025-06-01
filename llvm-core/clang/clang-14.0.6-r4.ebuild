@@ -4,8 +4,7 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{9..10} )
-inherit cmake llvm llvm.org multilib multilib-minimal \
-	prefix python-single-r1 toolchain-funcs
+inherit cmake llvm llvm.org multilib prefix python-single-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="C language family frontend for LLVM"
 HOMEPAGE="https://llvm.org/"
