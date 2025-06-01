@@ -1,8 +1,8 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-PYTHON_COMPAT=( python3_{9..12} )
+PYTHON_COMPAT=( python3_{11..13} )
 
 inherit cmake fcaps flag-o-matic go-module linux-info python-single-r1 systemd
 
@@ -139,7 +139,6 @@ RDEPEND="
 		$(python_gen_cond_dep 'dev-python/requests[${PYTHON_USEDEP}]')
 		mysql? ( $(python_gen_cond_dep 'dev-python/mysqlclient[${PYTHON_USEDEP}]') )
 		postgres? ( $(python_gen_cond_dep 'dev-python/psycopg:2[${PYTHON_USEDEP}]') )
-		tor? ( $(python_gen_cond_dep 'net-libs/stem[${PYTHON_USEDEP}]') )
 	)
 	qos? ( sys-apps/iproute2 )
 	sensors? ( sys-apps/lm-sensors )
