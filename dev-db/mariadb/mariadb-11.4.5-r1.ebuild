@@ -12,8 +12,7 @@ DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6.20-patches-01.tar.xz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6-columnstore-with-boost-1.85.patch.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${P}-patches-01.tar.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -21,8 +20,8 @@ S="${WORKDIR}/mysql"
 
 LICENSE="GPL-2 LGPL-2.1+"
 SLOT="$(ver_cut 1-2)/${SUBSLOT:-0}"
-KEYWORDS="amd64 ~arm ~arm64 ~hppa ~loong ~ppc ~ppc64 ~riscv ~s390 x86"
-IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
+KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~loong ~ppc ~ppc64 ~riscv ~s390 ~x86"
+IUSE="+backup bindist columnstore cracklib debug extraengine galera -hashicorp innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
 
 RESTRICT="!bindist? ( bindist ) !test? ( test )"
 
@@ -33,7 +32,17 @@ REQUIRED_USE="jdbc? ( extraengine server !static )
 
 # Be warned, *DEPEND are version-dependant
 # These are used for both runtime and compiletime
+#
+# libfmt-10 contains a bug which was fixed in libfmt-11, see
+# https://jira.mariadb.org/browse/MDEV-32815, bug 946074
+# libfmt-11.1 works with FMT_STATIC_THOUSANDS_SEPARATOR
+# differently, bug 946924
 COMMON_DEPEND="
+	dev-libs/libfmt:=
+	|| (
+		<dev-libs/libfmt-10
+		=dev-libs/libfmt-11.0*
+	)
 	>=dev-libs/libpcre2-10.34:=
 	sys-libs/ncurses:0=
 	>=sys-libs/zlib-1.2.3:0=
@@ -93,14 +102,11 @@ DEPEND="${COMMON_DEPEND}
 	static? ( sys-libs/ncurses[static-libs] )
 "
 RDEPEND="${COMMON_DEPEND}
-	!dev-db/mysql !dev-db/mariadb-galera !dev-db/percona-server !dev-db/mysql-cluster
-	!dev-db/mariadb:0
-	!dev-db/mariadb:5.5
-	!dev-db/mariadb:10.1
-	!dev-db/mariadb:10.2
+	!dev-db/mysql !dev-db/percona-server
 	!dev-db/mariadb:10.3
 	!dev-db/mariadb:10.4
 	!dev-db/mariadb:10.5
+	!dev-db/mariadb:10.6
 	!dev-db/mariadb:10.7
 	!dev-db/mariadb:10.8
 	!dev-db/mariadb:10.9
@@ -110,15 +116,9 @@ RDEPEND="${COMMON_DEPEND}
 	!dev-db/mariadb:11.1
 	!dev-db/mariadb:11.2
 	!dev-db/mariadb:11.3
-	!dev-db/mariadb:11.4
-	!<virtual/mysql-5.6-r11
-	!<virtual/libmysqlclient-18-r1
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
-		columnstore? (
-			dev-db/mariadb-connector-c
-			!dev-libs/thrift
-		)
+		columnstore? ( dev-db/mariadb-connector-c )
 		extraengine? ( jdbc? ( >=virtual/jre-1.8 ) )
 		galera? (
 			sys-apps/iproute2
@@ -132,12 +132,6 @@ RDEPEND="${COMMON_DEPEND}
 # For other stuff to bring us in
 # dev-perl/DBD-MariaDB is needed by some scripts installed by MySQL
 PDEPEND="perl? ( dev-perl/DBD-MariaDB )"
-
-QA_CONFIG_IMPL_DECL_SKIP=(
-	# These don't exist on Linux
-	pthread_threadid_np
-	getthrid
-)
 
 mysql_init_vars() {
 	MY_SHAREDSTATEDIR=${MY_SHAREDSTATEDIR="${EPREFIX}/usr/share/mariadb"}
@@ -221,15 +215,36 @@ src_prepare() {
 	eapply "${WORKDIR}"/mariadb-patches
 	eapply "${FILESDIR}"/${PN}-10.6.11-gssapi.patch
 	eapply "${FILESDIR}"/${PN}-10.6.12-gcc-13.patch
-	eapply "${WORKDIR}"/${PN}-10.6-columnstore-with-boost-1.85.patch
 
 	eapply_user
 
 	_disable_plugin() {
-		echo > "${S}/plugin/${1}/CMakeLists.txt" || die
+		local plugin="${1}"
+
+		if [[ -d "${S}/plugin/${plugin}" && -s "${S}/plugin/${plugin}/CMakeLists.txt" ]]; then
+			echo > "${S}/plugin/${plugin}/CMakeLists.txt" || die
+		else
+			eerror "plugin '${plugin}' does not exist in '${S}/plugin'"
+			ewarn "Available plugins:"
+			ls -1d "${S}/plugin/*/" | while read -r plugin; do
+				ewarn "  ${plugin%/}"
+			done
+			die "plugin '${plugin}' does not exist in '${S}/plugin'"
+		fi
 	}
 	_disable_engine() {
-		echo > "${S}/storage/${1}/CMakeLists.txt" || die
+		local engine="${1}"
+
+		if [[ -d "${S}/storage/${engine}" && -s "${S}/storage/${engine}/CMakeLists.txt" ]]; then
+			echo > "${S}/storage/${engine}/CMakeLists.txt" || die
+		else
+			eerror "engine '${engine}' does not exist in '${S}/storage'"
+			ewarn "Available engines:"
+			ls -1d "${S}/storage/*/" | while read -r engine; do
+				ewarn "  ${engine%/}"
+			done
+			die "engine '${engine}' does not exist in '${S}/storage'"
+		fi
 	}
 
 	if use jemalloc; then
@@ -238,11 +253,25 @@ src_prepare() {
 		echo "TARGET_LINK_LIBRARIES(mariadbd LINK_PUBLIC tcmalloc)" >> "${S}/sql/CMakeLists.txt"
 	fi
 
-	local plugin
-	local server_plugins=( handler_socket auth_socket feedback metadata_lock_info
-				locale_info qc_info server_audit sql_errlog auth_ed25519 )
-	local test_plugins=( audit_null auth_examples daemon_example fulltext
-				debug_key_management example_key_management versioning )
+	local plugin=''
+	local -a disable_plugins=() server_plugins=() test_plugins=()
+	if ! use hashicorp; then
+		disable_plugins=(
+			# Requires libcurl
+			hashicorp_key_management
+		)
+	fi
+	server_plugins=(
+		handler_socket auth_socket feedback metadata_lock_info
+		locale_info qc_info server_audit sql_errlog auth_ed25519
+	)
+	test_plugins=(
+		audit_null auth_examples daemon_example fulltext
+		debug_key_management example_key_management versioning
+	)
+	for plugin in "${disable_plugins[@]}" ; do
+		_disable_plugin "${plugin}"
+	done
 	if ! use server; then # These plugins are for the server
 		for plugin in "${server_plugins[@]}" ; do
 			_disable_plugin "${plugin}"
@@ -337,6 +366,7 @@ src_configure() {
 		-DWITH_COMMENT="Gentoo Linux ${PF}"
 		-DWITH_UNIT_TESTS=$(usex test ON OFF)
 		-DWITH_LIBEDIT=0
+		-DWITH_LIBFMT=system
 		-DWITH_ZLIB=system
 		-DWITHOUT_LIBWRAP=1
 		-DENABLED_LOCAL_INFILE=1
@@ -356,9 +386,9 @@ src_configure() {
 		-DSUFFIX_INSTALL_DIR=""
 		-DWITH_UNITTEST=OFF
 		-DWITHOUT_CLIENTLIBS=YES
-		-DCLIENT_PLUGIN_DIALOG=OFF
+		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
 		-DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
-		-DCLIENT_PLUGIN_CLIENT_ED25519=OFF
+		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
 		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
 		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
 	)
@@ -596,12 +626,12 @@ src_test() {
 	disabled_tests+=( "perfschema.nesting;23458;Known to be broken" )
 	disabled_tests+=( "perfschema.prepared_statements;0;Broken test suite" )
 	disabled_tests+=( "perfschema.privilege_table_io;27045;Sporadically failing test" )
-	disabled_tests+=( "plugins.auth_ed25519;0;Needs client libraries built" )
 	disabled_tests+=( "plugins.cracklib_password_check;0;False positive due to varying policies" )
 	disabled_tests+=( "plugins.two_password_validations;0;False positive due to varying policies" )
 	disabled_tests+=( "roles.acl_statistics;0;False positive due to a user count mismatch caused by previous test" )
 	disabled_tests+=( "spider.*;0;Fails with network sandbox" )
 	disabled_tests+=( "sys_vars.wsrep_on_without_provider;25625;Known to be broken" )
+	disabled_tests+=( "sysschema.v_privileges_by_table_by_level;0;Fails with network sandbox, see MDEV-36030")
 
 	if ! use latin1 ; then
 		disabled_tests+=( "funcs_1.is_columns_mysql;0;Requires USE=latin1" )
@@ -1303,6 +1333,8 @@ pkg_config() {
 	cmd=(
 		"${mysql_binary}"
 		--no-defaults
+		# Skip SSL for client connections, see bug #951865
+		--skip-ssl
 		"--socket='${socket}'"
 		-hlocalhost
 		"-e \"${sql}\""
