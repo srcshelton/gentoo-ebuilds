@@ -633,6 +633,8 @@ used to build perl)
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-apps/dtc
     * Add missing dev-python/setuptools dependency
+* sys-apps/ed
+    * Forcibly unset '-z max-page-size', to prevent binary size bloating on the root filesystem
 * sys-apps/fwupd
     * Add USE-flag requirements to sys-apps/flashrom dependency
 * sys-apps/gentoo-functions
