@@ -31,6 +31,13 @@ multilib_src_configure() {
 	# Filter out -flto flags as they break getfacl/setfacl binaries (bug #667372)
 	filter-lto
 
+	if use amd64 || use x86 || use amd64-linux || use x86-linux; then
+		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
+		# to 6.1MB each :o
+		#
+		filter-ldflags *-z,max-page-size=*
+	fi
+
 	local myeconfargs=(
 		--bindir="${EPREFIX}"/bin
 		--libexecdir="${EPREFIX}"/usr/$(get_libdir)
