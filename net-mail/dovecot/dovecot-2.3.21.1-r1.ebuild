@@ -108,9 +108,12 @@ src_prepare() {
 	# Bug #727244
 	append-cflags -fasynchronous-unwind-tables
 
+	# Can be dropped with 2.4.x (bug #947906)
+	append-cflags -std=gnu17
+
 	# no-semantic-interposition causes "Error: Auth worker sees different
-	# passdbs/userdbs than auth server. Maybe config just changed and this goes
-	# away automatically?"
+	# passdbs/userdbs than auth server. Maybe config just changed and this
+	# goes away automatically?"
 	#
 	filter-flags -fno-semantic-interposition
 	append-flags -fsemantic-interposition
@@ -174,8 +177,8 @@ src_configure() {
 		${conf}
 
 	if use sieve || use managesieve; then
-		# The sieve plugin needs this file to be built to determine the plugin
-		# directory and the list of libraries to link to.
+		# The sieve plugin needs this file to be built to determine the
+		# plugin directory and the list of libraries to link to.
 		emake dovecot-config
 		cd "../dovecot-${major_minor}-pigeonhole-${sieve_version}" || die "cd failed"
 		econf \
