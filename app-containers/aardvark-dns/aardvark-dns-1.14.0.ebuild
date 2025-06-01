@@ -1,4 +1,4 @@
-# Copyright 2023-2024 Gentoo Authors
+# Copyright 2023-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -16,7 +16,7 @@ else
 	SRC_URI="${CARGO_CRATE_URIS}
 		https://github.com/containers/aardvark-dns/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
 	RESTRICT="mirror"
-	KEYWORDS="~amd64 ~arm64 ~loong ~ppc64 ~riscv"
+	KEYWORDS="amd64 arm64 ~loong ~ppc64 ~riscv"
 fi
 
 LICENSE="0BSD Apache-2.0 Apache-2.0-with-LLVM-exceptions MIT Unlicense Unicode-DFS-2016 ZLIB"
