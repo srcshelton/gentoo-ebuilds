@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit optfeature systemd toolchain-funcs
+inherit flag-o-matic optfeature systemd toolchain-funcs
 
 if [[ ${PV} == 9999 ]]; then
 	inherit git-r3
@@ -57,6 +57,13 @@ PATCHES=(
 )
 
 src_configure() {
+	if use amd64 || use x86 || use amd64-linux || use x86-linux; then
+		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
+		# to 6.1MB each :o
+		#
+		filter-ldflags *-z,max-page-size=*
+	fi
+
 	local myeconfargs=(
 		--dbdir="${EPREFIX%/}/var/lib/dhcpcd"
 		--libexecdir="${EPREFIX%/}/lib/dhcpcd"
