@@ -72,8 +72,10 @@
 
 # See https://forums.raspberrypi.com/viewtopic.php?f=29&t=6201&start=425#p180099
 # (seconds), limit 60
+# Since https://github.com/raspberrypi/firmware/commit/4f43ba2, set to 60 by
+# default
 #
-#initial_turbo=0
+#initial_turbo=60
 
 # Set OTP bit which prevents warranty bit from being able to be set via
 # over_voltage_*

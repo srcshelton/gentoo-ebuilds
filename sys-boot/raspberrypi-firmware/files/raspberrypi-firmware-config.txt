@@ -906,7 +906,9 @@ kernel=kernel/kernel7.img
 # Enables turbo mode from boot for the given value in seconds (up to 60) or
 # until cpufreq sets a frequency.
 # Can help with sdcard corruption if overclocked
-#initial_turbo=0
+# Since https://github.com/raspberrypi/firmware/commit/4f43ba2, set to 60 by
+# default
+#initial_turbo=60
 
 # Overheat protection. Sets clocks and voltages to default when the SoC reaches
 # this Celsius value. Setting this higher than 85 voids warranty.
