@@ -9,7 +9,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..13} )
 
-inherit autotools linux-info python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
+inherit autotools flag-o-matic linux-info python-r1 systemd toolchain-funcs usr-ldscript multilib-minimal
 
 DESCRIPTION="Userspace utilities for storing and processing auditing records"
 HOMEPAGE="https://people.redhat.com/sgrubb/audit/"
@@ -66,6 +66,13 @@ src_prepare() {
 }
 
 multilib_src_configure() {
+	if use amd64 || use x86; then
+		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
+		# to 6.1MB each :o
+		#
+		filter-ldflags *-z,max-page-size=*
+	fi
+
 	local -a myeconfargs=(
 		--sbindir="${EPREFIX}"/sbin
 		--localstatedir="${EPREFIX}"/var
