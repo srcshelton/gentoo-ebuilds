@@ -1,0 +1,11 @@
+--- a/bfd/compress.c
++++ b/bfd/compress.c
+@@ -658,7 +658,7 @@
+ 					   compressed_size,
+ 					   input_buffer,
+ 					   uncompressed_size,
+-					   ZSTD_CLEVEL_DEFAULT);
++					   ZSTD_maxCLevel());
+ 	  if (ZSTD_isError (compressed_size))
+ 	    {
+ 	      bfd_release (abfd, buffer);
