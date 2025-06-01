@@ -1,9 +1,9 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-inherit usr-ldscript multilib-minimal
+inherit dot-a usr-ldscript multilib-minimal
 
 if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.savannah.gnu.org/git/${PN}.git"
@@ -42,6 +42,8 @@ src_prepare() {
 }
 
 multilib_src_configure() {
+	use static-libs && lto-guarantee-fat
+
 	local myeconfargs=(
 		--bindir="${EPREFIX}"/bin
 		--libexecdir="${EPREFIX}"/usr/$(get_libdir)
@@ -73,5 +75,6 @@ multilib_src_install_all() {
 		find "${ED}" -name '*.la' -delete || die
 	fi
 
+	strip-lto-bytecode
 	einstalldocs
 }
