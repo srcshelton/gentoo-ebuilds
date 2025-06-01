@@ -208,10 +208,8 @@ src_prepare() {
 
 	if [[ ${PV} == 9999 ]] ; then
 		po/update-potfiles
-		eautoreconf
-	else
-		elibtoolize
 	fi
+	eautoreconf
 }
 
 python_configure() {
@@ -367,6 +365,13 @@ multilib_src_configure() {
 
 src_configure() {
 	append-lfs-flags
+
+	# Setting e.g. -Wl,-z,max-page-size=0x200000 causes ~50k binaries to expand
+	# to ~6.1MB, causing sys-apps/util-linux installations to be in the region
+	# of ~1GB instead of ~8MB :o
+	#
+	filter-ldflags *-z,max-page-size=*
+
 	multilib-minimal_src_configure
 }
 
