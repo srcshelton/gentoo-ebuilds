@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -161,7 +161,7 @@ multilib_src_compile() {
 	)
 
 	# Take care of nspr settings #436216
-	local myCPPFLAGS="${CPPFLAGS} $($(tc-getPKG_CONFIG) nspr --cflags)"
+	local myCPPFLAGS="${CPPFLAGS} $($(tc-getPKG_CONFIG) nspr --cflags) -D_FILE_OFFSET_BITS=64"
 	unset NSPR_INCLUDE_DIR
 
 	export NSS_ALLOW_SSLKEYLOGFILE=1
@@ -220,7 +220,7 @@ multilib_src_compile() {
 
 	# Build the host tools first.
 	LDFLAGS="${BUILD_LDFLAGS}" \
-	XCFLAGS="${BUILD_CFLAGS}" \
+	XCFLAGS="${BUILD_CFLAGS} -D_FILE_OFFSET_BITS=64" \
 	NSPR_LIB_DIR="${T}/fakedir" \
 	emake -C coreconf \
 		CC="$(tc-getBUILD_CC)" \
@@ -231,7 +231,7 @@ multilib_src_compile() {
 	local d=""
 	for d in . lib/dbm ; do
 		CPPFLAGS="${myCPPFLAGS}" \
-		XCFLAGS="${CFLAGS} ${CPPFLAGS}" \
+		XCFLAGS="${CFLAGS} ${CPPFLAGS} -D_FILE_OFFSET_BITS=64" \
 		NSPR_LIB_DIR="${T}/fakedir" \
 		emake "${makeargs[@]}" -C ${d} OS_TEST="$(nssarch)"
 	done
@@ -428,6 +428,20 @@ multilib_src_install() {
 }
 
 pkg_postinst() {
+	if [[ -n "${ROOT}" ]]; then
+		elog "You appear to to be installing in a seperate \$ROOT"
+		elog "to complete the setup and re-sign libraries please run:"
+		elog "emerge --config '=${CATEGORY}/${PF}'"
+	else
+		sign_libraries
+	fi
+}
+
+pkg_config() {
+	sign_libraries
+}
+
+sign_libraries() {
 	multilib_pkg_postinst() {
 		local shlibsign='' candidate=''
 		local -i rc=0
