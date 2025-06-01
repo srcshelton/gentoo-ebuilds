@@ -581,6 +581,8 @@ used to build perl)
     * Prevent build from incorrectly creating `/run` directory
 * net-dns/dnscrypt-proxy
     * Move binary to /sbin
+* net-nds/rpcbind
+    * Forcibly unset '-z max-page-size', to prevent binary size bloating on the root filesystem
 * ~~net-dns/dnstop~~
     * ~~build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support~~
 * net-firewall/ebtables
