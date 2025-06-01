@@ -72,14 +72,11 @@ if [[ -z ${_LLVM_SOURCE_TYPE+1} ]]; then
 			_LLVM_SOURCE_TYPE=snapshot
 
 			case ${PV} in
-				21.0.0_pre20250415)
-					EGIT_COMMIT=1cf9f764ac41fb3492e10c78640dd50e616388db
+				21.0.0_pre20250517)
+					EGIT_COMMIT=aaaae99663dbb220c6c27fa9cacf93fcb8f20e7c
 					;;
-				21.0.0_pre20250412)
-					EGIT_COMMIT=fa4ac19f0fc937e30fd7711dad98d0fcdb34f8ba
-					;;
-				21.0.0_pre20250405)
-					EGIT_COMMIT=f3e6473df46fd920e09e06e57a5549eb8e3a8bd3
+				21.0.0_pre20250510)
+					EGIT_COMMIT=fcb4bda9dcfcdb64d8b069e8416c75d7a1a62e52
 					;;
 				*)
 					die "Unknown snapshot: ${PV}"
@@ -270,7 +267,7 @@ llvm.org_set_globals() {
 			fi
 			BDEPEND+="
 				verify-sig? (
-					>=sec-keys/openpgp-keys-llvm-18.1.6
+					>=sec-keys/openpgp-keys-llvm-20.1.5
 				)
 			"
 			VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/llvm.asc
