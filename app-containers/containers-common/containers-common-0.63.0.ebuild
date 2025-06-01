@@ -30,7 +30,7 @@ RDEPEND="
 	>=app-containers/netavark-1.12.0[dns]
 	|| ( net-firewall/nftables net-firewall/iptables[nftables] )
 	rootless? ( >=net-misc/passt-2024.09.06 )
-	fuse? ( >=sys-fs/fuse-overlayfs-1.13 )
+	fuse? ( >=sys-fs/fuse-overlayfs-1.14 )
 "
 
 BDEPEND="
@@ -58,6 +58,7 @@ src_prepare() {
 
 src_compile() {
 	emake docs
+	touch {images,layers}.lock || die
 }
 
 src_install() {
@@ -71,6 +72,16 @@ src_install() {
 
 	# Surely this should belong to app-containers/cni-plugins?
 	#keepdir /etc/containers/oci/hooks.d
+
+	# Self-managed by individual applications (which might be configured
+	# for a different directory)?
+	#
+	#diropts -m0700
+	#dodir /usr/lib/containers/storage/overlay-{images,layers}
+	#for i in images layers; do
+	#	insinto /usr/lib/containers/storage/overlay-"${i}"
+	#	doins "${i}".lock
+	#done
 
 	use systemd && keepdir /etc/containers/systemd
 }
