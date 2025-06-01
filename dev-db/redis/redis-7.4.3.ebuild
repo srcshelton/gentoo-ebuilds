@@ -13,11 +13,11 @@ HOMEPAGE="
 	https://redis.io
 	https://github.com/redis/redis
 "
-SRC_URI="https://download.redis.io/releases/${P}.tar.gz"
+SRC_URI="https://github.com/redis/redis/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="Boost-1.0 SSPL-1"
 SLOT="0/$(ver_cut 1-2)"
-KEYWORDS="amd64 ~arm arm64 ~hppa ~loong ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
+KEYWORDS="amd64 ~arm ~arm64 ~hppa ~loong ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~amd64-linux ~x86-linux"
 IUSE="+jemalloc selinux ssl systemd tcmalloc test +tmpfiles"
 RESTRICT="!test? ( test )"
 
