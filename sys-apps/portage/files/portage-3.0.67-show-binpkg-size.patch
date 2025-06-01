@@ -1,0 +1,52 @@
+--- a/lib/_emerge/Binpkg.py
++++ b/lib/_emerge/Binpkg.py
+@@ -304,17 +304,37 @@
+             self.wait()
+             return
+ 
++        binpkgsize = None
++        if self._pkg_path is not None and os.path.exists(self._pkg_path):
++            try:
++                binpkgsize = os.path.getsize(self._pkg_path)
++            except OSError:
++                pass
++
++        binpkgsize_msg = ""
++        if binpkgsize is not None:
++            if binpkgsize == 0:
++                binpkgsize_msg = " (0 KiB)"
++            else:
++                kib_size = binpkgsize / 1024.0
++                binpkgsize_msg = f" ({int(kib_size):n} KiB)"
++
+         msg = " === ({} of {}) Merging Binary ({}::{})".format(
+             pkg_count.curval,
+             pkg_count.maxval,
+             pkg.cpv,
+             pkg_path,
+         )
++        if getattr(self.opts, 'verbose', False) and binpkgsize_msg:
++            msg += binpkgsize_msg
++
+         short_msg = "emerge: ({} of {}) {} Merge Binary".format(
+             pkg_count.curval,
+             pkg_count.maxval,
+             pkg.cpv,
+         )
++        if getattr(self.opts, 'verbose', False) and binpkgsize_msg:
++            short_msg += binpkgsize_msg
+         logger.log(msg, short_msg=short_msg)
+ 
+         phase = "clean"
+--- a/lib/_emerge/resolver/output.py
++++ b/lib/_emerge/resolver/output.py
+@@ -331,6 +331,9 @@
+                     if myfetchfile not in self.myfetchlist:
+                         mysize += myfilesdict[myfetchfile]
+                         self.myfetchlist.add(myfetchfile)
++                if pkg.type_name == "binary" and mysize == 0:
++                    if pkg.cpv.file_size and pkg.cpv.file_size > 0:
++                        mysize += pkg.cpv.file_size
+                 if pkg_info.ordered:
+                     self.counters.totalsize += mysize
+             self.verboseadd += localized_size(mysize)

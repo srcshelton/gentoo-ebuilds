@@ -90,7 +90,9 @@ PDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-3.0.67-nicer-depend-phase-output.patch
+	"${FILESDIR}/${PN}-3.0.67-nicer-depend-phase-output.patch"
+	"${FILESDIR}/${PN}-3.0.67-show-binpkg-size.patch"
+	"${FILESDIR}/${PN}-3.0.67-relaxed-deps.patch"
 )
 
 pkg_pretend() {

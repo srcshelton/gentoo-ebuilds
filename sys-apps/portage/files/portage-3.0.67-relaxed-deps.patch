@@ -1,0 +1,263 @@
+--- a/lib/_emerge/depgraph.py
++++ b/lib/_emerge/depgraph.py
+@@ -7747,7 +7747,28 @@
+                         # incorrect choices in || deps like bug #351828.
+ 
+                         if not self._pkg_visibility_check(pkg, autounmask_level):
+-                            continue
++                            if not onlydeps or not parent is None:
++                                continue
++                            else: # onlydeps and parent is None:
++                                # Check masking reasons for 'pkg'
++                                maskreasons = portage.package.ebuild.getmaskingstatus._getmaskingstatus(
++                                    pkg, self._frozen_config.pkgsettings[pkg.root], self._frozen_config.roots[pkg.root], use=self._pkg_use_enabled(pkg)
++                                )
++
++                                if not maskreasons: # Should not happen if not visible
++                                    continue
++
++                                exclude_pkg = False
++                                for reason in maskreasons:
++                                    if reason.unmask_hint is None: # e.g. EAPI mask, invalid, corrupt
++                                        exclude_pkg = True
++                                        break
++                                    # See portage.package.ebuild.getmaskingstatus
++                                    if reason.unmask_hint.key not in ("unstable keyword", "missing keyword", "p_mask"):
++                                        exclude_pkg = True
++                                        break
++                                if exclude_pkg:
++                                    continue
+ 
+                         # Enable upgrade or downgrade to a version
+                         # with visible KEYWORDS when the installed
+@@ -9951,6 +9972,11 @@
+             mygraph.difference_update(selected_nodes)
+ 
+             for node in selected_nodes:
++                # Skip root --onlydeps packages that are not part of a cycle.
++                # If they are part of a cycle, they might need to be built.
++                if node.onlydeps and node.depth == 0 and not (cycle_digraph and node in cycle_digraph):
++                    continue
++
+                 if isinstance(node, Package) and node.operation == "nomerge":
+                     continue
+ 
+--- /dev/null
++++ b/lib/portage/tests/emerge/test_onlydeps_masked.py
+@@ -0,0 +1,216 @@
++# Copyright 2025 Gentoo Authors
++# Distributed under the terms of the GNU General Public License v2
++
++from portage.tests.emerge.test_actions import EmergeTestCase
++
++class OnlyDepsMaskedTargetTestCase(EmergeTestCase):
++    """
++    Tests for emerge --onlydeps behavior with a masked target package.
++    """
++
++    def test_onlydeps_masked_target_behavior(self):
++        """
++        Verify that --onlydeps installs only stable dependencies of a
++        masked target, and not the unstable dependencies or the target itself.
++        """
++        # Setup a new repository for this test
++        repo_config = self.add_ebuild_repository()
++
++        # Add ebuilds
++        self.add_ebuild(repo_config, "masked-target/masked-target-1.0.0", {
++            "KEYWORDS": "~amd64", # Assuming amd64 is the test architecture
++            "DEPEND": "stable-dep/stable-dep unstable-dep/unstable-dep",
++        })
++        self.add_ebuild(repo_config, "stable-dep/stable-dep-1.0.0", {
++            "KEYWORDS": "amd64",
++        })
++        self.add_ebuild(repo_config, "unstable-dep/unstable-dep-1.0.0", {
++            "KEYWORDS": "~amd64",
++        })
++
++        # Execute emerge --onlydeps
++        # emerge_ok will assert that the command itself runs without error.
++        self.emerge_ok(["--onlydeps", "=masked-target/masked-target-1.0.0"])
++
++        # Assertions
++        # Check the vartree for installed packages
++        self.assertInstalledPackages(
++            # Expected to be installed
++            (("stable-dep/stable-dep-1.0.0", True),),
++            # Expected NOT to be installed
++            (("unstable-dep/unstable-dep-1.0.0", False),
++             ("masked-target/masked-target-1.0.0", False),)
++        )
++
++        # An alternative way to assert, if assertInstalledPackages is not flexible enough
++        # or for individual checks:
++        # self.assertInstalled("=stable-dep/stable-dep-1.0.0")
++        # self.assertNotInstalled("=unstable-dep/unstable-dep-1.0.0")
++        # self.assertNotInstalled("=masked-target/masked-target-1.0.0")
++
++    def test_onlydeps_package_mask_target_behavior(self):
++        """
++        Verify that --onlydeps installs only stable dependencies of a
++        package.masked target, and not the unstable dependencies or the target itself.
++        """
++        # Setup a new repository for this test
++        repo_config = self.add_ebuild_repository()
++
++        # Add ebuilds - target is stable here, but will be masked by package.mask
++        self.add_ebuild(repo_config, "masked-target/masked-target-1.0.0", {
++            "KEYWORDS": "amd64", 
++            "DEPEND": "stable-dep/stable-dep unstable-dep/unstable-dep",
++        })
++        self.add_ebuild(repo_config, "stable-dep/stable-dep-1.0.0", {
++            "KEYWORDS": "amd64",
++        })
++        self.add_ebuild(repo_config, "unstable-dep/unstable-dep-1.0.0", {
++            # This one is unstable, so it shouldn't be pulled by --onlydeps
++            # if the target is treated as masked.
++            "KEYWORDS": "~amd64", 
++        })
++
++        # Mask the target package
++        self.add_config_file("etc/portage/package.mask", "masked-target/masked-target")
++
++        # Execute emerge --onlydeps
++        self.emerge_ok(["--onlydeps", "=masked-target/masked-target-1.0.0"])
++
++        # Assertions
++        self.assertInstalledPackages(
++            (("stable-dep/stable-dep-1.0.0", True),),
++            (("unstable-dep/unstable-dep-1.0.0", False),
++             ("masked-target/masked-target-1.0.0", False),)
++        )
++        
++    def test_onlydeps_mixed_deps_masked_target_behavior(self):
++        """
++        Target is masked by KEYWORDS.
++        It depends on:
++        - stable-dep1 (stable)
++        - unstable-dep2 (unstable)
++        - stable-masked-dep3 (stable, but masked by package.mask) - should not be installed
++        - unstable-masked-dep4 (unstable, masked by package.mask) - should not be installed
++        - stable-unmasked-by-acceptkw5 (stable, masked by profile, unmasked by package.accept_keywords) - should be installed
++        - unstable-unmasked-by-acceptkw6 (~arch, masked by profile, unmasked by package.accept_keywords) - should NOT be installed by --onlydeps
++        """
++        repo_config = self.add_ebuild_repository()
++
++        self.add_ebuild(repo_config, "masked-target/masked-target-1.0.0", {
++            "KEYWORDS": "~amd64",
++            "DEPEND": """
++                stable-dep1/stable-dep1
++                unstable-dep2/unstable-dep2
++                stable-masked-dep3/stable-masked-dep3
++                unstable-masked-dep4/unstable-masked-dep4
++                stable-unmasked-by-acceptkw5/stable-unmasked-by-acceptkw5
++                unstable-unmasked-by-acceptkw6/unstable-unmasked-by-acceptkw6
++            """,
++        })
++        self.add_ebuild(repo_config, "stable-dep1/stable-dep1-1.0.0", {"KEYWORDS": "amd64"})
++        self.add_ebuild(repo_config, "unstable-dep2/unstable-dep2-1.0.0", {"KEYWORDS": "~amd64"})
++        self.add_ebuild(repo_config, "stable-masked-dep3/stable-masked-dep3-1.0.0", {"KEYWORDS": "amd64"})
++        self.add_ebuild(repo_config, "unstable-masked-dep4/unstable-masked-dep4-1.0.0", {"KEYWORDS": "~amd64"})
++        
++        # These two are "stable" in terms of their ebuild KEYWORDS, but let's imagine they are from a repo
++        # that is masked by the profile itself (e.g. via a repo-level package.mask or a negative keyword in profile)
++        # For the test, we simulate this by adding them to package.mask and then selectively unmasking via package.accept_keywords
++        self.add_ebuild(repo_config, "stable-unmasked-by-acceptkw5/stable-unmasked-by-acceptkw5-1.0.0", {"KEYWORDS": "amd64"})
++        self.add_ebuild(repo_config, "unstable-unmasked-by-acceptkw6/unstable-unmasked-by-acceptkw6-1.0.0", {"KEYWORDS": "~amd64"})
++
++
++        # Mask specific dependencies
++        self.add_config_file("etc/portage/package.mask", """
++stable-masked-dep3/stable-masked-dep3
++unstable-masked-dep4/unstable-masked-dep4
++stable-unmasked-by-acceptkw5/stable-unmasked-by-acceptkw5
++unstable-unmasked-by-acceptkw6/unstable-unmasked-by-acceptkw6
++""")
++        
++        # Unmask stable-unmasked-by-acceptkw5 via package.accept_keywords (it's stable, so just the atom is enough)
++        # unstable-unmasked-by-acceptkw6 is also unmasked, but it's ~amd64, so --onlydeps should not pull it.
++        self.add_config_file("etc/portage/package.accept_keywords", """
++stable-unmasked-by-acceptkw5/stable-unmasked-by-acceptkw5
++unstable-unmasked-by-acceptkw6/unstable-unmasked-by-acceptkw6 ~amd64
++""")
++
++        self.emerge_ok(["--onlydeps", "=masked-target/masked-target-1.0.0"])
++
++        self.assertInstalledPackages(
++            (
++                ("stable-dep1/stable-dep1-1.0.0", True),
++                ("stable-unmasked-by-acceptkw5/stable-unmasked-by-acceptkw5-1.0.0", True),
++            ),
++            (
++                ("masked-target/masked-target-1.0.0", False),
++                ("unstable-dep2/unstable-dep2-1.0.0", False),
++                ("stable-masked-dep3/stable-masked-dep3-1.0.0", False),
++                ("unstable-masked-dep4/unstable-masked-dep4-1.0.0", False),
++                ("unstable-unmasked-by-acceptkw6/unstable-unmasked-by-acceptkw6-1.0.0", False),
++            )
++        )
++        
++    def test_onlydeps_masked_target_no_deps(self):
++        """
++        Verify that --onlydeps for a masked target with no dependencies
++        installs nothing.
++        """
++        repo_config = self.add_ebuild_repository()
++        self.add_ebuild(repo_config, "masked-solo/masked-solo-1.0.0", {
++            "KEYWORDS": "~amd64",
++        })
++
++        self.emerge_ok(["--onlydeps", "=masked-solo/masked-solo-1.0.0"])
++        self.assertInstalledPackages(
++            (), # Nothing expected to be installed
++            (("masked-solo/masked-solo-1.0.0", False),)
++        )
++
++    def test_onlydeps_package_mask_target_no_deps(self):
++        """
++        Verify that --onlydeps for a package.masked target with no dependencies
++        installs nothing.
++        """
++        repo_config = self.add_ebuild_repository()
++        self.add_ebuild(repo_config, "masked-solo/masked-solo-1.0.0", {
++            "KEYWORDS": "amd64", # Stable, but will be masked
++        })
++        self.add_config_file("etc/portage/package.mask", "masked-solo/masked-solo")
++
++        self.emerge_ok(["--onlydeps", "=masked-solo/masked-solo-1.0.0"])
++        self.assertInstalledPackages(
++            (), 
++            (("masked-solo/masked-solo-1.0.0", False),)
++        )
++
++    def test_onlydeps_unmasked_target_installs_all_deps(self):
++        """
++        Verify that --onlydeps for an *unmasked* target installs all its
++        dependencies (stable and unstable) but not the target itself.
++        This test is a control to ensure the --onlydeps logic itself is working
++        as generally expected, and the masking is the key factor in other tests.
++        """
++        repo_config = self.add_ebuild_repository()
++        self.add_ebuild(repo_config, "unmasked-target/unmasked-target-1.0.0", {
++            "KEYWORDS": "amd64", # Stable and unmasked
++            "DEPEND": "stable-dep/stable-dep unstable-dep/unstable-dep",
++        })
++        self.add_ebuild(repo_config, "stable-dep/stable-dep-1.0.0", {
++            "KEYWORDS": "amd64",
++        })
++        self.add_ebuild(repo_config, "unstable-dep/unstable-dep-1.0.0", {
++            "KEYWORDS": "~amd64",
++        })
++        
++        # Unstable dep needs to be accepted to be installed by --onlydeps
++        self.add_config_file("etc/portage/package.accept_keywords", "unstable-dep/unstable-dep ~amd64")
++
++        self.emerge_ok(["--onlydeps", "=unmasked-target/unmasked-target-1.0.0"])
++
++        self.assertInstalledPackages(
++            (
++                ("stable-dep/stable-dep-1.0.0", True),
++                ("unstable-dep/unstable-dep-1.0.0", True), # Should be installed as target is not masked
++            ),
++            (("unmasked-target/unmasked-target-1.0.0", False),)
++        )
