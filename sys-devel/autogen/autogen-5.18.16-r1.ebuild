@@ -3,7 +3,7 @@
 
 EAPI=7
 
-WANT_AUTOMAKE=1.16
+WANT_AUTOMAKE="latest"
 
 inherit autotools toolchain-funcs
 
