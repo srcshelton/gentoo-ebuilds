@@ -45,6 +45,11 @@ src_prepare() {
 }
 
 src_configure() {
+	if [[ -z "${ABI:-}" ]]; then
+		die "Upstream kernel-2.eclass unsets 'ABI', breaking any non-kernel" \
+			"packages inheriting this eclass :("
+	fi
+
 	econf \
 		$(usev !tcpd --without-tcp-wrappers) \
 		--with-usbids-dir="${EPREFIX}"/usr/share/hwdata
