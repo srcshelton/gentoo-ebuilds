@@ -25,7 +25,9 @@ fi
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test +trust-helper xattr"
+# 'dedupdebug' and 'installsources' are optional portage FEATURES with
+# additional dependencies...
+IUSE="apidoc build dedupdebug doc gentoo-dev installsources +ipc +native-extensions +rsync-verify selinux test +trust-helper xattr"
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 RESTRICT="!test? ( test )"
 
@@ -40,9 +42,15 @@ BDEPEND="
 		dev-python/sphinx[${PYTHON_USEDEP}]
 		dev-python/sphinx-epytext[${PYTHON_USEDEP}]
 	)
+	dedupdebug? (
+		sys-devel/dwz
+	)
 	doc? (
 		~app-text/docbook-xml-dtd-4.4
 		app-text/xmlto
+	)
+	installsources? (
+		dev-util/debugedit
 	)
 	test? (
 		dev-python/pytest-xdist[${PYTHON_USEDEP}]
@@ -91,8 +99,9 @@ PDEPEND="
 
 PATCHES=(
 	"${FILESDIR}/${PN}-3.0.67-nicer-depend-phase-output.patch"
-	"${FILESDIR}/${PN}-3.0.67-show-binpkg-size.patch"
-	"${FILESDIR}/${PN}-3.0.67-relaxed-deps.patch"
+	# Unclear whether these (AI-generated) patches are working at all :(
+	#"${FILESDIR}/${PN}-3.0.67-show-binpkg-size.patch"
+	#"${FILESDIR}/${PN}-3.0.67-relaxed-deps.patch"
 )
 
 pkg_pretend() {
