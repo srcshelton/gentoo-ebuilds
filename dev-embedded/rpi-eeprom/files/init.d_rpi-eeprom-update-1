@@ -4,9 +4,10 @@
 
 # Set configuration in /etc/conf.d/rpi-eeprom-update
 
-description="Raspberry Pi 4 bootloader and VL805 USB controller updater"
+description="Raspberry Pi 4/5 bootloader and VL805 USB controller updater"
 command="/usr/sbin/rpi-eeprom-update"
 command_args="-a"
+start_inactive="yes"
 
 depend() {
 	need localmount
@@ -14,5 +15,5 @@ depend() {
 
 stop() {
         # Nothing to stop
-        return 0;
+        return 0
 }
