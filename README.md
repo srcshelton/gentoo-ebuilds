@@ -672,6 +672,8 @@ used to build perl)
     * Add static libary dependencies, use `/var/run` in place of `/run`
 * sys-auth/pam\_mktemp
     * Create user temporary directories under '/var/tmp/' rather than under '/tmp/', to guard against running out of space on the root filesystem
+* sys-block/mmc-utils
+    * Update to latest release
 * sys-boot/grub
     * Fix (\_comp\_)\_split\_longopt) syntax error
 * sys-cluster/hpl
