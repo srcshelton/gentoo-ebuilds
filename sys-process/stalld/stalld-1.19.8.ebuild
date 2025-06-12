@@ -54,8 +54,8 @@ pkg_setup() {
 		local CONFIG_CHECK="~SCHED_DEBUG"
 		use bpf && CONFIG_CHECK+=" ~DEBUG_INFO_BTF"
 
-		local ERROR_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
-		local ERROR_DEBUG_INFO_BTF="Kernel option 'CONFIG_DEBUG_INFO_BTF' *must* be enabled for stalld to compile"
+		local WARNING_SCHED_DEBUG="Kernel option 'CONFIG_SCHED_DEBUG' *must* be enabled for stalld to operate"
+		local WARNING_DEBUG_INFO_BTF="Kernel option 'CONFIG_DEBUG_INFO_BTF' *must* be enabled for stalld to compile"
 
 		linux-info_pkg_setup
 	#fi
