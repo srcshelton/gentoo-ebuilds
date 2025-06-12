@@ -65,7 +65,7 @@ RDEPEND="
 # this package is being rebuilt even when a valid binary exists and secondly,
 # then this happens the dev-build/automake dependency is not being fulfilled :(
 BDEPEND="
-	dev-build/automake:1.16
+	|| ( >=dev-build/automake-1.18:1.18 >=dev-build/automake-1.17-r1:1.17 )
 	virtual/pkgconfig
 	nls? (
 		app-text/po4a

@@ -5,7 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..13} )
 TMPFILES_OPTIONAL=1
-WANT_AUTOMAKE="1.16"
+WANT_AUTOMAKE="latest"
 
 inherit autotools bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd tmpfiles toolchain-funcs usr-ldscript multilib-minimal
 
