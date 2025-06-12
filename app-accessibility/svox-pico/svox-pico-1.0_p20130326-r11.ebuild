@@ -22,7 +22,7 @@ DEPEND="sys-apps/help2man
 	dev-libs/popt
 	dev-build/libtool"
 
-WANT_AUTOMAKE="1.11"
+WANT_AUTOMAKE="latest"
 
 # svox-pico-1.0_p20130326-r5 -> svox-1.0+git20130326
 S="${WORKDIR}"/"${PN%-pico}-${MYPV}"
