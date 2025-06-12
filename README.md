@@ -603,6 +603,8 @@ used to build perl)
     * Allow net-ftp/uftpd to be installed at the same time, so long as only one tftp server is enabled
 * net-ftp/uftpd
     * Allow net-ftp/tftp-hpa to be installed at the same time, so long as only one tftp server is enabled
+* net-libs/libslirp
+    * Update to latest release
 * ~~net-libs/neon~~
     * ~~Patch trivial typo which prevents `writev` from being defined~~
 * net-libs/ngtcp2
