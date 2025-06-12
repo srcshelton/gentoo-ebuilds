@@ -23,7 +23,7 @@ S="${WORKDIR}/${MY_P}"
 LICENSE="MPL-2.0 BSD SSLeay GPL-2" # GPL-2 only for init script
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-IUSE="+client ipv6 ldap selinux +server ssl systemd +tmpfiles vim-syntax"
+IUSE="-client ipv6 ldap -keama selinux +server ssl systemd +tmpfiles vim-syntax"
 
 BDEPEND="
 	acct-group/dhcp
@@ -184,6 +184,10 @@ src_configure() {
 	# bug #720806, bug #801592
 	append-atomic-flags
 
+	# Fails on certain (ARM64?) platforms
+	filter-flags -ftree-vectorize
+	append-flags -fno-tree-vectorize
+
 	local myeconfargs=(
 		--enable-paranoia
 		--enable-early-chroot
@@ -201,7 +205,13 @@ src_configure() {
 	cd bind/bind-*/ || die
 	local el
 	eval econf \
-		$(for el in $(awk '/^bindconfig/,/^$/ {print}' ../Makefile.in) ; do if [[ ${el} =~ ^-- ]] ; then printf ' %s' ${el//\\} ; fi ; done | sed 's,@\([[:alpha:]]\+\)dir@,${binddir}/\1,g') \
+		$( # <- Syntax
+				for el in $(awk '/^bindconfig/,/^$/ {print}' ../Makefile.in); do
+					if [[ ${el} =~ ^-- ]]; then
+						printf ' %s' ${el//\\}
+					fi
+				done | sed 's,@\([[:alpha:]]\+\)dir@,${binddir}/\1,g'
+			) \
 		--with-randomdev=/dev/random \
 		--disable-symtable \
 		--without-make-clean
@@ -212,13 +222,29 @@ src_compile() {
 	emake -C bind/bind-*/lib install
 	# then build standard dhcp code
 	emake AR="$(tc-getAR)"
-	emake -C keama AR="$(tc-getAR)"
+	use keama && emake -C keama AR="$(tc-getAR)"
 }
 
 src_install() {
 	default
 
-	emake -C keama DESTDIR="${D}" install
+	# Sanity check...
+	if use server; then
+		if ! tc-is-cross-compiler; then
+			local -x LD_LIBRARY_PATH="${ED%/}/$(get_libdir):${ED%/}/usr/$(get_libdir)${LD_LIBRARY_PATH:+":${LD_LIBRARY_PATH}"}"
+			if ! ( "${ED}"/usr/bin/omshell </dev/null >/dev/null 2>&1 ) 2>/dev/null; then
+				eerror "${PN} RUNTIME_CHECKs failed:"
+				local error=''
+				local -i rc=0
+				( error="$( "${ED}"/usr/bin/omshell </dev/null 2>&1 )" ) 2>/dev/null ||
+					rc=${?}
+				eerror "${error} (${rc})"
+				die "Aborting due to sanity-check failure"
+			fi
+		fi
+	fi
+
+	use keama && emake -C keama DESTDIR="${D}" install
 
 	dodoc README RELNOTES doc/{api+protocol,IANA-arp-parameters}
 	docinto html
