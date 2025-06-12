@@ -20,7 +20,7 @@ S="${WORKDIR}/mysql"
 
 LICENSE="GPL-2 LGPL-2.1+"
 SLOT="$(ver_cut 1-2)/${SUBSLOT:-0}"
-KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~loong ~ppc ~ppc64 ~riscv ~s390 ~x86"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~loong ~ppc ~ppc64 ~riscv ~s390 ~x86"
 IUSE="+backup bindist columnstore cracklib debug extraengine galera -hashicorp innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
 
 RESTRICT="!bindist? ( bindist ) !test? ( test )"
@@ -38,10 +38,9 @@ REQUIRED_USE="jdbc? ( extraengine server !static )
 # libfmt-11.1 works with FMT_STATIC_THOUSANDS_SEPARATOR
 # differently, bug 946924
 COMMON_DEPEND="
-	dev-libs/libfmt:=
 	|| (
-		<dev-libs/libfmt-10
-		=dev-libs/libfmt-11.0*
+		<dev-libs/libfmt-10:=
+		=dev-libs/libfmt-11.0*:=
 	)
 	>=dev-libs/libpcre2-10.34:=
 	sys-libs/ncurses:0=
@@ -342,8 +341,6 @@ src_configure() {
 	# x32 trips over unsigned int* -> long unsigned int* in lzo/lzo1x.h :(
 	#use abi_x86_x32 &&
 	#	append-cxxflags -fpermissive
-
-	CMAKE_BUILD_TYPE="RelWithDebInfo"
 
 	# debug hack wrt #497532
 	local mycmakeargs=(
