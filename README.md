@@ -509,6 +509,8 @@ used to build perl)
     * ~~Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS~~
 * dev-lang/perl
     * Don't require app-admin/perl-cleaner with USE='minimal'
+* dev-lang/ruby
+    * Disable LTO
 * dev-libs/geoip
     * Remove obselete update script and 'wget' dependency
 * dev-libs/glib
