@@ -20,6 +20,7 @@ else
 	RUST_MIN_VER="$(ver_cut 1).$(($(ver_cut 2) - 1)).0"
 fi
 
+# No longer builds on systems with <8GB RAM, even with these adjustments :(
 PARALLEL_MEMORY_MIN=8
 
 inherit check-reqs estack flag-o-matic llvm-r1 multilib multilib-build multiprocessing optfeature python-any-r1 rust rust-toolchain toolchain-funcs verify-sig
