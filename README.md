@@ -613,6 +613,8 @@ used to build perl)
     * Add upstream patch to clarify command-line arguments
 * net-misc/dhcp
     * Enhance chroot support in init script
+* net-misc/ipv6calc
+    * Update to latest release
 * net-misc/socat
     * Use privilege-separation group for security, make HTML documentation and additional tools optional installs
 * net-misc/tor
