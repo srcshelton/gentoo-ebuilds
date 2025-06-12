@@ -298,8 +298,10 @@ esac
 HOMEPAGE="https://www.kernel.org/ https://wiki.gentoo.org/wiki/Kernel ${HOMEPAGE}"
 : "${LICENSE:="GPL-2"}"
 
-# No need to run scanelf/strip on kernel sources/headers (bug #134453).
-RESTRICT="binchecks strip"
+if [[ "${CATEGORY}" == 'sys-kernel' ]]; then
+	# No need to run scanelf/strip on kernel sources/headers (bug #134453).
+	RESTRICT="binchecks strip"
+fi
 
 # set LINUX_HOSTCFLAGS if not already set
 : "${LINUX_HOSTCFLAGS:="-Wall -Wstrict-prototypes -Os -fomit-frame-pointer -I${S}/include"}"
@@ -1529,8 +1531,9 @@ kernel-2_pkg_postinst() {
 # if necessary
 
 kernel-2_pkg_setup() {
-
-	ABI="${KERNEL_ABI}"
+	if [[ "${CATEGORY}" == 'sys-kernel' ]]; then
+		ABI="${KERNEL_ABI}"
+	fi
 	if [[ ${ETYPE} != sources && ${ETYPE} != headers ]]; then
 		eerror "Unknown ETYPE=\"${ETYPE}\", must be \"sources\" or \"headers\""
 		die "Unknown ETYPE=\"${ETYPE}\", must be \"sources\" or \"headers\""
