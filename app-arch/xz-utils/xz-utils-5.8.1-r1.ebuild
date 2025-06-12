@@ -71,6 +71,11 @@ src_prepare() {
 
 src_configure() {
 	use static-libs && lto-guarantee-fat
+
+	if tc-ld-is-lld ; then
+		export LDFLAGS="${LDFLAGS} -Wl,--undefined-version"
+	fi
+
 	multilib-minimal_src_configure
 }
 
