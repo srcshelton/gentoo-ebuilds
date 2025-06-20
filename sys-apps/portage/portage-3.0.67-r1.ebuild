@@ -3,7 +3,7 @@
 
 EAPI=7
 
-PYTHON_COMPAT=( pypy3 pypy3_11 python3_{10..13} )
+PYTHON_COMPAT=( pypy3_11 python3_{11..13} )
 PYTHON_REQ_USE='bzip2(+),threads(+)'
 TMPFILES_OPTIONAL=1
 
@@ -99,8 +99,9 @@ PDEPEND="
 
 PATCHES=(
 	"${FILESDIR}/${PN}-3.0.67-nicer-depend-phase-output.patch"
+
 	# Unclear whether these (AI-generated) patches are working at all :(
-	#"${FILESDIR}/${PN}-3.0.67-show-binpkg-size.patch"
+	"${FILESDIR}/${PN}-3.0.67-show-binpkg-size.patch"
 	#"${FILESDIR}/${PN}-3.0.67-relaxed-deps.patch"
 )
 

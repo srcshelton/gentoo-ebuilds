@@ -1,52 +1,193 @@
 --- a/lib/_emerge/Binpkg.py
 +++ b/lib/_emerge/Binpkg.py
-@@ -304,17 +304,37 @@
-             self.wait()
-             return
+@@ -52,6 +52,14 @@
+         "_pkg_allocated_path",
+     )
  
-+        binpkgsize = None
-+        if self._pkg_path is not None and os.path.exists(self._pkg_path):
-+            try:
-+                binpkgsize = os.path.getsize(self._pkg_path)
-+            except OSError:
-+                pass
++    @staticmethod
++    def get_binpkg_size(bintree, cpv):
++        """
++        Return the size of the binary package file for the given CPV,
++        or 0 if not found. Only compressed file size is returned.
++        """
++        return bintree.get_binpkg_size(cpv)
 +
-+        binpkgsize_msg = ""
-+        if binpkgsize is not None:
-+            if binpkgsize == 0:
-+                binpkgsize_msg = " (0 KiB)"
-+            else:
-+                kib_size = binpkgsize / 1024.0
-+                binpkgsize_msg = f" ({int(kib_size):n} KiB)"
-+
-         msg = " === ({} of {}) Merging Binary ({}::{})".format(
-             pkg_count.curval,
-             pkg_count.maxval,
-             pkg.cpv,
-             pkg_path,
-         )
-+        if getattr(self.opts, 'verbose', False) and binpkgsize_msg:
-+            msg += binpkgsize_msg
-+
-         short_msg = "emerge: ({} of {}) {} Merge Binary".format(
-             pkg_count.curval,
-             pkg_count.maxval,
-             pkg.cpv,
-         )
-+        if getattr(self.opts, 'verbose', False) and binpkgsize_msg:
-+            short_msg += binpkgsize_msg
-         logger.log(msg, short_msg=short_msg)
- 
-         phase = "clean"
+     def _writemsg_level(self, msg, level=0, noiselevel=0):
+         self.scheduler.output(
+             msg,
+--- a/lib/_emerge/resolver/output_helpers.py
++++ b/lib/_emerge/resolver/output_helpers.py
+@@ -95,7 +95,8 @@ class _PackageCounters:
+         self.uninst = 0
+         self.blocks = 0
+         self.blocks_satisfied = 0
+-        self.totalsize = 0
++        self.downloadsize = 0
++        self.binpkgsize = 0
+         self.restrict_fetch = 0
+         self.restrict_fetch_satisfied = 0
+         self.interactive = 0
+@@ -143,7 +145,9 @@ class _PackageCounters:
+         myoutput.append(", ".join(details))
+         if total_installs != 0:
+             myoutput.append(")")
+-        myoutput.append(f", Size of downloads: {localized_size(self.totalsize)}")
++        myoutput.append(f", Size of downloads: {localized_size(self.downloadsize)}")
++        if self.binpkgsize != 0:
++            myoutput.append(f", Size of binary packages: {localized_size(self.binpkgsize)}")
+         if self.restrict_fetch:
+             myoutput.append(f"\nFetch Restriction: {self.restrict_fetch} package")
+             if self.restrict_fetch > 1:
+#--- a/lib/_emerge/resolver/output.py
+#+++ b/lib/_emerge/resolver/output.py
+#@@ -304,7 +304,6 @@ class Display:
+#         Modifies class globals: self.myfetchlist, self.counters.totalsize,
+#                 self.verboseadd, repoadd_set.
+#         """
+#-        mysize = 0
+#         if pkg.type_name in ("binary", "ebuild") and pkg_info.merge:
+#             db = pkg.root_config.trees[
+#                 pkg.root_config.pkg_tree_map[pkg.type_name]
+#@@ -327,13 +326,33 @@ class Display:
+#             if myfilesdict is None:
+#                 myfilesdict = "[empty/missing/bad digest]"
+#             else:
+#-                for myfetchfile in myfilesdict:
+#-                    if myfetchfile not in self.myfetchlist:
+#-                        mysize += myfilesdict[myfetchfile]
+#-                        self.myfetchlist.add(myfetchfile)
+#-                if pkg_info.ordered:
+#-                    self.counters.totalsize += mysize
+#-            self.verboseadd += localized_size(mysize)
+#+                downloaded = 0
+#+                needed = 0
+#+                for myfetchfile, size in myfilesdict.items():
+#+                    distfile_path = os.path.join(db.settings["DISTDIR"],
+#+                          myfetchfile)
+#+                    if os.path.exists(distfile_path):
+#+                        downloaded += size
+#+                    elif myfetchfile not in self.myfetchlist:
+#+                        needed += size
+#+                        if pkg.type_name == "ebuild" and pkg_info.merge:
+#+                            self.myfetchlist.add(myfetchfile)
+#+                self.counters.totalsize += downloaded + needed
+#+                # If there's a binpkg for this ebuild, display its size instead
+#+                if pkg.type_name == "binary" and pkg_info.merge:
+#+                    from _emerge.Binpkg import Binpkg
+#+                    bintree = pkg.root_config.trees.get("bintree")
+#+                    binpkg_size = Binpkg.get_binpkg_size(bintree, pkg.cpv)
+#+                    self.verboseadd += localized_size(binpkg_size)
+#+                    if pkg_info.ordered:
+#+                        self.counters.binpkgsize += binpkg_size
+#+                elif pkg.type_name == "ebuild" and pkg_info.merge:
+#+                        self.verboseadd += localized_size(downloaded + needed)
+#+                        if needed != 0:
+#+                            self.verboseadd += (f" ({localized_size(needed)} "
+#+                                  "remaining)")
+#+                        if pkg_info.ordered:
+#+                            self.counters.downloadsize += needed
+# 
+#         if self.quiet_repo_display:
+#             # overlay verbose
 --- a/lib/_emerge/resolver/output.py
 +++ b/lib/_emerge/resolver/output.py
-@@ -331,6 +331,9 @@
-                     if myfetchfile not in self.myfetchlist:
-                         mysize += myfilesdict[myfetchfile]
+@@ -304,15 +304,19 @@ class Display:
+         Modifies class globals: self.myfetchlist, self.counters.totalsize,
+                 self.verboseadd, repoadd_set.
+         """
+-        mysize = 0
+-        if pkg.type_name in ("binary", "ebuild") and pkg_info.merge:
++        # If there's a binpkg for this ebuild, display its size instead
++        if pkg.type_name == "binary" and pkg_info.merge:
++            from _emerge.Binpkg import Binpkg
++            bintree = pkg.root_config.trees.get("bintree")
++            binpkg_size = Binpkg.get_binpkg_size(bintree, pkg.cpv)
++            self.verboseadd += localized_size(binpkg_size)
++            if pkg_info.ordered:
++                self.counters.binpkgsize += binpkg_size
++        elif pkg.type_name == "ebuild" and pkg_info.merge:
+             db = pkg.root_config.trees[
+                 pkg.root_config.pkg_tree_map[pkg.type_name]
+             ].dbapi
+-            kwargs = {}
+-            if pkg.type_name == "ebuild":
+-                kwargs["useflags"] = pkg_info.use
+-                kwargs["myrepo"] = pkg.repo
++            kwargs = {"useflags": pkg_info.use, "myrepo": pkg.repo}
+             myfilesdict = None
+             try:
+                 myfilesdict = db.getfetchsizes(pkg.cpv, **kwargs)
+@@ -327,13 +332,23 @@ class Display:
+             if myfilesdict is None:
+                 myfilesdict = "[empty/missing/bad digest]"
+             else:
+-                for myfetchfile in myfilesdict:
+-                    if myfetchfile not in self.myfetchlist:
+-                        mysize += myfilesdict[myfetchfile]
++                downloaded = 0
++                needed = 0
++                allfiles = set(myfilesdict)
++                for myfetchfile, size in myfilesdict.items():
++                    distfile_path = os.path.join(db.settings["DISTDIR"],
++                          myfetchfile)
++                    if os.path.exists(distfile_path):
++                        downloaded += size
++                    elif myfetchfile not in self.myfetchlist:
++                        needed += size
                          self.myfetchlist.add(myfetchfile)
-+                if pkg.type_name == "binary" and mysize == 0:
-+                    if pkg.cpv.file_size and pkg.cpv.file_size > 0:
-+                        mysize += pkg.cpv.file_size
++                self.verboseadd += localized_size(downloaded + needed)
++                if downloaded != 0 and needed != 0:
++                    self.verboseadd += (f" ({localized_size(needed)} "
++                          "remaining)")
                  if pkg_info.ordered:
-                     self.counters.totalsize += mysize
-             self.verboseadd += localized_size(mysize)
+-                    self.counters.totalsize += mysize
+-            self.verboseadd += localized_size(mysize)
++                    self.counters.downloadsize += needed
+ 
+         if self.quiet_repo_display:
+             # overlay verbose
+--- a/lib/portage/dbapi/bintree.py
++++ b/lib/portage/dbapi/bintree.py
+@@ -72,6 +72,7 @@
+ import textwrap
+ import time
+ import traceback
++import urllib.request
+ import warnings
+ from gzip import GzipFile
+ from itertools import chain
+@@ -2516,6 +2517,34 @@
+                 uri = metadata["PKGINDEX_URI"]
+         return uri
+ 
++    def get_binpkg_size(self, cpv):
++        """
++        Returns the compressed size (in bytes) of the binary package for the
++        given cpv. Tries local file first; if not present and binhost is
++        remote, tries HTTP(S) HEAD.
++        Returns 0 if size cannot be determined.
++        """
++        binpkg_path = self.getname(cpv)
++        if binpkg_path and os.path.exists(binpkg_path):
++            return os.path.getsize(binpkg_path)
++        # Try remote HEAD request if PORTAGE_BINHOST is set and uses http(s)
++        binhost = getattr(self, "settings", None)
++        if binhost is not None:
++            binhost = binhost.get("PORTAGE_BINHOST")
++        if binhost and binhost.startswith("http"):
++            filename = os.path.basename(binpkg_path) if binpkg_path else None
++            if filename:
++                url = binhost.rstrip("/") + "/" + filename
++                try:
++                    req = urllib.request.Request(url, method="HEAD")
++                    with urllib.request.urlopen(req) as resp:
++                        size = resp.getheader("Content-Length")
++                        if size is not None:
++                            return int(size)
++                except Exception:
++                    pass
++        return 0
++
+     def gettbz2(self, pkgname):
+         """Fetches the package from a remote site, if necessary.  Attempts to
+         resume if the file appears to be partially downloaded."""
