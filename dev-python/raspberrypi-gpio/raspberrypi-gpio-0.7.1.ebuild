@@ -1,7 +1,7 @@
 # Copyright 2015-2021 Stuart Shelton
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 PYTHON_COMPAT=( python3_{8..13} )
 
 DISTUTILS_USE_PEP517='setuptools'
