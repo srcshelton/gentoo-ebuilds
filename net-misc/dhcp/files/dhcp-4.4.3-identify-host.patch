@@ -1,0 +1,80 @@
+--- a/server/failover.c
++++ b/server/failover.c
+@@ -613,7 +613,12 @@ isc_result_t dhcp_failover_link_signal (
+ 		   some kind of bogus situation, so just drop the
+ 		   connection. */
+ 		if (!link -> state_object) {
+-			log_info ("failover: connect: no matching state.");
++			const char *peer_ip = "<unknown>";
++			if (c && c->type == omapi_type_connection) {
++				struct sockaddr_in *sin = &((omapi_connection_object_t *)c)->remote_addr;
++				peer_ip = inet_ntoa(sin->sin_addr);
++			}
++			log_info ("failover: connect: no matching state from %s.", peer_ip);
+ 			omapi_disconnect (c, 1);
+ 			link -> state = dhcp_flink_disconnected;
+ 			return DHCP_R_INVALIDARG;
+@@ -1134,7 +1139,37 @@ isc_result_t dhcp_failover_listener_sign
+ 		}
+ 	}
+ 	if (!state) {
+-		log_info ("failover: listener: no matching state");
++		char peer_addr[INET_ADDRSTRLEN];
++		struct sockaddr_in *sin = &c -> remote_addr;
++		inet_ntop(AF_INET, &sin -> sin_addr, peer_addr, sizeof peer_addr);
++		// Compose candidate list
++		dhcp_failover_state_t *fs;
++		char candidates[1024] = {0};
++		size_t offset = 0;
++		for (fs = failover_states; fs; fs = fs -> next) {
++			struct data_string ds;
++			memset(&ds, 0, sizeof ds);
++			const char *addrstr = "<unresolved>";
++			unsigned short port = 0;
++			if (fs -> partner.address &&
++			    evaluate_option_cache(&ds, NULL, NULL, NULL, NULL, NULL,
++			        &global_scope, fs -> partner.address, MDL) &&
++			    ds.len == sizeof(struct in_addr)) {
++				static char addrbuf[INET_ADDRSTRLEN];
++				inet_ntop(AF_INET, ds.data, addrbuf, sizeof addrbuf);
++				addrstr = addrbuf;
++				data_string_forget(&ds, MDL);
++			}
++			port = fs->partner.port;
++			offset += snprintf(candidates + offset, (sizeof candidates) - offset,
++			    "%s%s (%s:%u)", (offset ? ", " : ""), fs->name, addrstr, port);
++			if (offset >= (sizeof candidates) - 1)
++				break;
++		}
++		log_info("failover: listener: no matching state for peer at %s:%d.",
++		    peer_addr, ntohs(sin -> sin_port));
++		log_info("failover: listener: configured failover peers: [%s]",
++		    candidates);
+ 		omapi_disconnect ((omapi_object_t *)c, 1);
+ 		return(ISC_R_NOTFOUND);
+ 	}
+--- a/server/mdb6.c
++++ b/server/mdb6.c
+@@ -2442,8 +2442,20 @@ mark_hosts_unavailable_support(const voi
+ 		return ISC_R_SUCCESS;
+ 	}
+ 	if (fixed_addr.len != 16) {
+-		log_error("mark_hosts_unavailable: "
+-			  "host address is not 128 bits.");
++		char host_addr_str[INET6_ADDRSTRLEN];
++		const char *addr_txt = NULL;
++		int family = AF_INET6;
++		if (fixed_addr.len == 4) {
++			family = AF_INET;
++		}
++		addr_txt = inet_ntop(family, fixed_addr.data, host_addr_str,
++		  sizeof(host_addr_str));
++		if (!addr_txt) {
++			// Fall back to hex
++			addr_txt = print_hex_1(fixed_addr.len, fixed_addr.data, 60);
++		}
++		log_error("mark_hosts_unavailable: host address '%s' is not 128 bits in"
++		  " length", addr_txt);
+ 		return ISC_R_SUCCESS;
+ 	}
+ 	memcpy(&addr, fixed_addr.data, 16);

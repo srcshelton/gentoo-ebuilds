@@ -76,6 +76,9 @@ PATCHES=(
 
 	# Possible upstream candidates
 	"${WORKDIR}/dhcp-4.4.3-patches/${PN}-4.4.3-configure-clang16.patch"
+
+	# More informative logging
+	"${FILESDIR}/${PN}-4.4.3-identify-host.patch"
 )
 
 src_unpack() {

@@ -1,0 +1,31 @@
+--- a/server/failover.c
++++ b/server/failover.c
+@@ -613,7 +613,12 @@ isc_result_t dhcp_failover_link_signal (
+ 		   some kind of bogus situation, so just drop the
+ 		   connection. */
+ 		if (!link -> state_object) {
+-			log_info ("failover: connect: no matching state.");
++			const char *peer_ip = "<unknown>";
++			if (c && c->type == omapi_type_connection) {
++				struct sockaddr_in *sin = &((omapi_connection_object_t *)c)->remote_addr;
++				peer_ip = inet_ntoa(sin->sin_addr);
++			}
++			log_info ("failover: connect: no matching state from %s.", peer_ip);
+ 			omapi_disconnect (c, 1);
+ 			link -> state = dhcp_flink_disconnected;
+ 			return DHCP_R_INVALIDARG;
+@@ -1134,7 +1139,13 @@ isc_result_t dhcp_failover_listener_sign
+ 		}
+ 	}
+ 	if (!state) {
+-		log_info ("failover: listener: no matching state");
++		const char *peer_ip = "<unknown>";
++		const char *local_ip = "<unknown>";
++		struct sockaddr_in *sin = &((omapi_connection_object_t *)c)->remote_addr;
++		peer_ip = inet_ntoa(sin->sin_addr);
++		sin = &((omapi_connection_object_t *)c)->local_addr;
++		local_ip = inet_ntoa(sin->sin_addr);
++		log_info ("failover: listener: no matching state from %s to %s.", peer_ip, local_ip);
+ 		omapi_disconnect ((omapi_object_t *)c, 1);
+ 		return(ISC_R_NOTFOUND);
+ 	}
