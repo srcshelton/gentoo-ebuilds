@@ -7,14 +7,13 @@ MY_PV="${PV//_p/-P}"
 MY_PV="${MY_PV/_/-}"
 MY_P="${PN}-${MY_PV}"
 
+PYTHON_COMPAT=( python3_{11..13} )
+inherit autotools fcaps flag-o-matic python-single-r1 systemd tmpfiles
+
 DESCRIPTION="High-performance production grade DHCPv4 & DHCPv6 server"
 HOMEPAGE="https://www.isc.org/kea/"
 
-PYTHON_COMPAT=( python3_{11..12} )
-
-inherit autotools fcaps flag-o-matic python-single-r1 systemd tmpfiles
-
-if [[ ${PV} = 9999* ]] ; then
+if [[ ${PV} == *9999* ]] ; then
 	inherit git-r3
 	EGIT_REPO_URI="https://gitlab.isc.org/isc-projects/kea.git"
 else
@@ -27,15 +26,17 @@ else
 		fi
 	fi
 fi
+S="${WORKDIR}/${MY_P}"
 
 LICENSE="ISC BSD SSLeay GPL-2" # GPL-2 only for init script
 SLOT="0"
-IUSE="benchmark debug doc examples filecaps mysql +openssl postgres +shell systemd tmpfiles test"
+IUSE="benchmark debug doc examples filecaps mysql +openssl postgres +samples +shell systemd tmpfiles test"
+
+REQUIRED_USE="shell? ( ${PYTHON_REQUIRED_USE} )"
 RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
-	acct-group/dhcp
-	<dev-libs/boost-1.85:=
+	>=dev-libs/boost-1.85:=
 	dev-libs/log4cplus
 	doc? (
 		$(python_gen_cond_dep '
@@ -53,12 +54,9 @@ DEPEND="${COMMON_DEPEND}
 	test? ( dev-cpp/gtest )
 "
 RDEPEND="${COMMON_DEPEND}
+	acct-group/dhcp
 	acct-user/dhcp"
 BDEPEND="virtual/pkgconfig"
-
-REQUIRED_USE="shell? ( ${PYTHON_REQUIRED_USE} )"
-
-S="${WORKDIR}/${MY_P}"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-2.2.0-openssl-version.patch
@@ -101,10 +99,11 @@ src_configure() {
 		--disable-install-configurations
 		--disable-rpath
 		--disable-static
-		--disable-generate-messages
+		--enable-generate-messages
 		--localstatedir="${EPREFIX}/var"
 		--runstatedir="${EPREFIX}/var/run"
 		--without-werror
+		--with-log4cplus
 		$(use_enable benchmark perfdhcp)
 		$(use_enable debug)
 		$(use_enable doc generate-docs)
@@ -132,15 +131,17 @@ src_install() {
 	newconfd "${FILESDIR}"/${PN}-confd-r1 ${PN}
 	newinitd "${FILESDIR}"/${PN}-initd-r1 ${PN}
 
-	diropts -m 0750 -o root -g dhcp
-	dodir /etc/kea
-	insopts -m 0640 -o root -g dhcp
-	insinto /etc/kea
-	for f in ctrl-agent ddns-server dhcp4 dhcp6; do
-		sed -e "s|@libdir@|/$(get_libdir)|g ; s|@localestatedir@|/var|g" \
-			"${FILESDIR}/${PN}-${f}.conf" > "${T}/${PN}-${f}.conf"
-		doins "${T}/${PN}-${f}.conf"
-	done
+	if use samples; then
+		diropts -m 0750 -o root -g dhcp
+		dodir /etc/kea
+		insopts -m 0640 -o root -g dhcp
+		insinto /etc/kea
+		for f in ctrl-agent ddns-server dhcp4 dhcp6; do
+			sed -e "s|@libdir@|/$(get_libdir)|g ; s|@localestatedir@|/var|g" \
+				"${FILESDIR}/${PN}-${f}.conf" > "${T}/${PN}-${f}.conf"
+			doins "${T}/${PN}-${f}.conf"
+		done
+	fi
 
 	if use systemd; then
 		systemd_dounit "${FILESDIR}"/${PN}-ctrl-agent.service
@@ -159,6 +160,5 @@ src_install() {
 
 pkg_postinst() {
 	use tmpfiles && tmpfiles_process ${PN}.conf
-
 	fcaps cap_net_bind_service,cap_net_raw=+ep usr/sbin/kea-dhcp{4,6}
 }

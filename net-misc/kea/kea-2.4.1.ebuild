@@ -22,7 +22,7 @@ else
 	# odd minor version = development release
 	if [[ $(( $(ver_cut 2) % 2 )) -ne 1 ]] ; then
 		if ! [[ "${PV}" == *_beta* || "${PV}" == *_rc* ]] ; then
-			 KEYWORDS="~amd64 ~arm64 ~x86"
+			 KEYWORDS="amd64 arm arm64 x86"
 		fi
 	fi
 fi
@@ -36,7 +36,7 @@ REQUIRED_USE="shell? ( ${PYTHON_REQUIRED_USE} )"
 RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
-	dev-libs/boost:=
+	<dev-libs/boost-1.85:=
 	dev-libs/log4cplus
 	doc? (
 		$(python_gen_cond_dep '
