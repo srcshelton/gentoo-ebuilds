@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # shellcheck shell=bash
@@ -9,7 +9,7 @@
 # kernel@gentoo.org
 # @AUTHOR:
 # Original author: John Mylchreest <johnm@gentoo.org>
-# @SUPPORTED_EAPIS: 6 7 8
+# @SUPPORTED_EAPIS: 7 8
 # @BLURB: eclass used for accessing kernel related information
 # @DESCRIPTION:
 # This eclass is used as a central eclass for accessing kernel
@@ -32,7 +32,7 @@
 # get_running_version
 
 case ${EAPI} in
-	6|7|8) ;;
+	7|8) ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
 
@@ -183,13 +183,6 @@ KERNEL_DIR="${KERNEL_DIR:-${ROOT%/}/usr/src/linux}"
 
 # And to ensure all the weirdness with crosscompile
 inherit toolchain-funcs
-[[ ${EAPI} == 6 ]] && inherit eapi7-ver
-
-# bug #75034
-case ${ARCH} in
-	ppc)	BUILD_FIXES="${BUILD_FIXES} TOUT=${T}/.tmp_gas_check";;
-	ppc64)	BUILD_FIXES="${BUILD_FIXES} TOUT=${T}/.tmp_gas_check";;
-esac
 
 # @FUNCTION: set_arch_to_kernel
 # @DESCRIPTION:
@@ -249,7 +242,7 @@ qeerror() { qout eerror "${@}" ; }
 # is done by including the 'configfile', and printing the variable with Make.
 # It WILL break if your makefile has missing dependencies!
 getfilevar() {
-	local basefname='' basedname='' myARCH="${ARCH}"
+	local basefname='' basedname=''
 	local -i ERROR=0
 
 	[[ -z "${1:-}" ]] && ERROR=1
@@ -262,7 +255,6 @@ getfilevar() {
 	else
 		basefname="$(basename "${2}")"
 		basedname="$(dirname "${2}")"
-		unset ARCH
 
 		# We use nonfatal because we want the caller to take care of things
 		# #373151
@@ -272,10 +264,10 @@ getfilevar() {
 		# shellcheck disable=SC2086
 		echo -e "e:\\n\\t@echo \$(${1})\\ninclude ${basefname}" | \
 			nonfatal emake -C "${basedname}" --no-print-directory M="${T}" \
-			dot-config=0 need-config= need-compiler= \
-			${BUILD_FIXES} -s -f - 2>/dev/null
-
-		ARCH="${myARCH}"
+				KBUILD_OUTPUT='' \
+			ARCH="$(tc-arch-kernel)" \
+				dot-config=0 need-config='' need-compiler='' \
+				-s -f - 2>/dev/null
 	fi
 }
 
@@ -287,7 +279,7 @@ getfilevar() {
 # This is done with sed matching an expression only. If the variable is
 # defined, you will run into problems. See getfilevar for those cases.
 getfilevar_noexec() {
-	local basefname basedname mycat myARCH="${ARCH}"
+	local basefname='' basedname='' mycat=''
 	local -i ERROR=0
 	mycat='cat'
 
@@ -519,25 +511,6 @@ kernel_is() {
 		"${1:-${KV_MAJOR:-0}}.${2:-${KV_MINOR:-0}}.${3:-${KV_PATCH:-0}}"
 }
 
-# @FUNCTION: get_makefile_extract_function
-# @INTERNAL
-# @DESCRIPTION:
-# Check if the Makefile is valid for direct parsing.
-# Check status results:
-# - PASS, use 'getfilevar' to extract values
-# - FAIL, use 'getfilevar_noexec' to extract values
-# The check may fail if:
-# - make is not present
-# - corruption exists in the kernel makefile
-get_makefile_extract_function() {
-	[[ -n ${SKIP_KERNEL_CHECK} ]] && return
-	local a='' b='' mkfunc='getfilevar'
-	a="$(getfilevar VERSION "${KERNEL_MAKEFILE}")"
-	b="$(getfilevar_noexec VERSION "${KERNEL_MAKEFILE}")"
-	[[ "${a}" != "${b}" ]] && mkfunc='getfilevar_noexec'
-	echo "${mkfunc}"
-}
-
 # @ECLASS_VARIABLE: get_version_warning_done
 # @INTERNAL
 # @DESCRIPTION:
@@ -562,7 +535,7 @@ get_version() {
 		die "${FUNCNAME[0]}() called on non-Linux system, please fix the ebuild"
 	fi
 
-	local tmplocal
+	local tmplocal=''
 
 	[[ -n "${SKIP_KERNEL_CHECK:-}" ]] && return 0
 
@@ -623,21 +596,6 @@ get_version() {
 		return 1
 	fi
 
-	# OK so now we know our sources directory, but they might be using
-	# KBUILD_OUTPUT, and we need this for .config and localversions-*
-	# so we better find it, eh?
-	#
-	# Do we pass KBUILD_OUTPUT on the CLI?
-	local OUTPUT_DIR=${KBUILD_OUTPUT}
-
-	if [[ -z ${OUTPUT_DIR} ]]; then
-		# Decide the function used to extract makefile variables.
-		local mkfunc=$(get_makefile_extract_function "${KERNEL_MAKEFILE}")
-
-		# And if we didn't pass it, we can take a nosey in the Makefile.
-		OUTPUT_DIR=$(${mkfunc} KBUILD_OUTPUT "${KERNEL_MAKEFILE}")
-	fi
-
 	# And contrary to existing functions, I feel we shouldn't trust the
 	# directory name to find version information as this seems insane.
 	# So we parse ${KERNEL_MAKEFILE}.
@@ -656,27 +614,55 @@ get_version() {
 		return 1
 	fi
 
-	[[ -d "${OUTPUT_DIR}" ]] && KV_OUT_DIR="${OUTPUT_DIR}"
-	if [[ -n "${KV_OUT_DIR}" ]]; then
+	# Assume there is no local version to begin with.
+	KV_FULL="${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}"
+
+	# There may be separate source and output directories. Has the user set
+	# KBUILD_OUTPUT? If not, automatically fall back to finding the most
+	# relevant output directory. If so, but it doesn't exist, don't fall back
+	# as that's probably undesirable.
+	if [[ -n "${KBUILD_OUTPUT:-}" ]]; then
+		if [[ -d "${KBUILD_OUTPUT}" ]]; then
+			KV_OUT_DIR=${KBUILD_OUTPUT}
+		else
+			die "KBUILD_OUTPUT is set to ${KBUILD_OUTPUT} but it doesn't exist"
+		fi
+	else
+		for KV_OUT_DIR in "${SYSROOT}" "${ROOT}" ""; do
+			# We cannot use the local version to find the output directory
+			# because that is where it is written to.
+			KV_OUT_DIR+="/lib/modules/${KV_FULL}/build"
+			# build is often a symlink. This function is usually run in
+			# pkg_setup as root, so fully resolve it now in case the
+			# unprivileged user doesn't have permission to do it later. If we
+			# don't have permission now, then this will fall back to KV_DIR
+			# below, which is probably where the build symlink points to
+			# anyway.
+			KV_OUT_DIR=$(realpath -q -e "${KV_OUT_DIR}") && break
+		done
+	fi
+
+	if [[ -d ${KV_OUT_DIR} ]]; then
 		qeinfo "Found kernel object directory:"
 		qeinfo "    ${KV_OUT_DIR}"
+	else
+		# Just use KV_DIR as a last resort.
+		KV_OUT_DIR="${KV_DIR:-}"
 	fi
-	# and if we STILL have not got it, then we better just set it to KV_DIR
-	KV_OUT_DIR="${KV_OUT_DIR:-${KV_DIR}}"
 
 	# Grab the kernel release from the output directory.
 	# TODO: we MUST detect kernel.release being out of date, and 'return 1'
 	#       from this function.
 	if [[ -s "${KV_OUT_DIR}"/include/config/kernel.release ]]; then
-		KV_LOCAL=$(<"${KV_OUT_DIR}"/include/config/kernel.release)
+		KV_LOCAL="$(<"${KV_OUT_DIR}"/include/config/kernel.release)"
 	elif [[ -s "${KV_OUT_DIR}"/.kernelrelease ]]; then
-		KV_LOCAL=$(<"${KV_OUT_DIR}"/.kernelrelease)
+		KV_LOCAL="$(<"${KV_OUT_DIR}"/.kernelrelease)"
 	else
-		KV_LOCAL=
+		KV_LOCAL=''
 	fi
 
 	# KV_LOCAL currently contains the full release; discard the first bits.
-	tmplocal="${KV_LOCAL#"${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}"}"
+	local tmplocal="${KV_LOCAL#"${KV_FULL}"}"
 
 	# If the updated local version was not changed, the tree is not prepared.
 	# Clear out KV_LOCAL in that case.
@@ -688,27 +674,8 @@ get_version() {
 		KV_LOCAL="${tmplocal}"
 	fi
 
-	# and in newer versions, we can also pull LOCALVERSION if it is set.
-	# but before we do this, we need to find if we use a different object
-	# directory.
-	# This *WILL* break if the user is using localversions, but we assume it
-	# was caught before this if they are.
-	if [[ -z ${OUTPUT_DIR} ]] ; then
-		# Try to locate a kernel that is most relevant for us.
-		local OUTPUT_PATH="/lib/modules/${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}"
-		for OUTPUT_DIR in "${SYSROOT%/}" "${ROOT%/}" "" ; do
-			if [[ -e "${OUTPUT_DIR}${OUTPUT_PATH}${KV_LOCAL}/build" ]] ; then
-				OUTPUT_DIR+="${OUTPUT_PATH}${KV_LOCAL}/build"
-				break
-			elif [[ -e "${OUTPUT_DIR}${OUTPUT_PATH}/build" ]] ; then
-				OUTPUT_DIR+="${OUTPUT_PATH}/build"
-				break
-			fi
-		done
-	fi
-
-	# And we should set KV_FULL to the full expanded version
-	KV_FULL="${KV_MAJOR}.${KV_MINOR}.${KV_PATCH}${KV_EXTRA}${KV_LOCAL}"
+	# Append the local version now that we (maybe) have it.
+	KV_FULL+="${KV_LOCAL}"
 
 	qeinfo "Found sources for kernel version:"
 	qeinfo "    ${KV_FULL}"
@@ -740,9 +707,9 @@ get_running_version() {
 	# This handles a variety of weird kernel versions.  Make sure to update
 	# tests/linux-info_get_running_version.sh if you want to change this.
 	local kv_full=${KV_FULL//[-+_]*}
-	KV_MAJOR=$(ver_cut 1 "${kv_full}")
-	KV_MINOR=$(ver_cut 2 "${kv_full}")
-	KV_PATCH=$(ver_cut 3 "${kv_full}")
+	KV_MAJOR="$(ver_cut 1 "${kv_full}")"
+	KV_MINOR="$(ver_cut 2 "${kv_full}")"
+	KV_PATCH="$(ver_cut 3 "${kv_full}")"
 	KV_EXTRA="${KV_FULL#"${KV_MAJOR}.${KV_MINOR}${KV_PATCH:+".${KV_PATCH}"}"}"
 	: "${KV_PATCH:=0}"
 
