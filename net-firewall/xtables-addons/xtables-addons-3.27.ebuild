@@ -12,7 +12,7 @@ XTABLES_MODULES=(
 	lscan pknock psd quota2
 )
 
-MODULES_KERNEL_MIN=4.15
+MODULES_KERNEL_MIN=5.4
 
 DESCRIPTION="iptables extensions not yet accepted in the main kernel"
 HOMEPAGE="
@@ -34,8 +34,7 @@ XTABLES_SCRIPTS_DEPEND="
 	virtual/perl-Getopt-Long
 "
 DEPEND=">net-firewall/iptables-1.6.0:="
-RDEPEND="
-	${DEPEND}
+RDEPEND="${DEPEND}
 	xtables_addons_asn? ( ${XTABLES_SCRIPTS_DEPEND} )
 	xtables_addons_geoip? ( ${XTABLES_SCRIPTS_DEPEND} )
 "
@@ -48,6 +47,7 @@ pkg_setup() {
 		CONFIG_CHECK+=" ~TEXTSEARCH_BM"
 		local ERROR_TEXTSEARCH_BM="CONFIG_TEXTSEARCH_BM: is not set but is needed to use xt_ipp2p"
 	fi
+
 	if use xtables_addons_pknock; then
 		CONFIG_CHECK+=" ~CONNECTOR"
 		local ERROR_CONNECTOR="CONFIG_CONNECTOR: is not set but is needed to receive userspace
@@ -74,19 +74,16 @@ src_prepare() {
 
 src_configure() {
 	# Uses CFLAGS for tools, and it may mismatch with the kernel's CC
-	# FIXME?: ideally would want to build tools with normal CC
 	#use modules && CC=${KERNEL_CC} strip-unsupported-flags
 
 	local econfargs=(
-		# TODO?: should move to ${EPREFIX}/usr + use default libexecdir
-		# by now (matching documentation), but could be a disruptive
-		# change for users with xt_asn/geoip_* paths they may have
-		# hardcoded in scripts
-		#--prefix="${EPREFIX:-/}"
-		#--libexecdir="${EPREFIX}"/$(get_libdir)
 		--libdir="${EPREFIX%/}/usr/$(get_libdir)"
 		--libexecdir="${EPREFIX%/}/usr/libexec"
 		$(usex modules --with-kbuild="${KV_OUT_DIR}" --without-kbuild)
+
+		# Needed for cross-compiling and to avoid a clash with the
+		# Gentoo ARCH.
+		ARCH="$(tc-arch-kernel)"
 	)
 
 	econf "${econfargs[@]}"
