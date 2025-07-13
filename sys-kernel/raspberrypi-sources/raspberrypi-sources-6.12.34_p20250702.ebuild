@@ -29,10 +29,7 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-# This release is stable_20250428 in the 'linux' repo but 1.20250430 in the
-# 'firmware' repo... why is keeping two repos in sync so hard for the
-# Raspberry Pi Foundation?! :(
-EGIT_COMMIT="3dd2c2c507c271d411fab2e82a2b3b7e0b6d3f16"
+#EGIT_COMMIT=""  # ... why is keeping two repos in sync so hard for the Raspberry Pi Foundation?! :(
 MY_PV="stable_${PV#*_p}"
 
 DESCRIPTION="Raspberry Pi kernel sources"
