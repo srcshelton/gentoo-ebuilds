@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..13} )
+PYTHON_COMPAT=( python3_{11..14} )
 
 PARALLEL_MEMORY_MIN=4
 
@@ -21,7 +21,7 @@ HOMEPAGE="https://llvm.org/"
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="${LLVM_MAJOR}/${LLVM_SOABI}"
 KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv sparc x86 ~amd64-linux ~arm64-macos ~ppc-macos ~x64-macos"
-IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi ncurses test xml z3 zstd"
+IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi test xml z3 zstd"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -33,7 +33,6 @@ RDEPEND="
 	exegesis? ( dev-libs/libpfm:= )
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=dev-libs/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
-	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
 	xml? ( dev-libs/libxml2:2=[${MULTILIB_USEDEP}] )
 	z3? ( >=sci-mathematics/z3-4.7.1:0=[${MULTILIB_USEDEP}] )
 	zstd? ( app-arch/zstd:=[${MULTILIB_USEDEP}] )
@@ -64,12 +63,11 @@ PDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch"
+	"${FILESDIR}/${PN}-${LLVM_MAJOR}.1.0-Allow-one-more-FMA-fusion.patch"
 )
 
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
-LLVM_PATCHSET=${PV}-r6
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 
@@ -105,18 +103,23 @@ check_uptodate() {
 		has "${i}" "${prod_targets[@]}" || exp_targets+=( "${i}" )
 	done
 
+	local outdated
 	if [[ ${exp_targets[*]} != ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]} ]]; then
-		eqawarn "ALL_LLVM_EXPERIMENTAL_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]}"
-		eqawarn "Expected: ${exp_targets[*]}"
-		eqawarn
+		eerror "ALL_LLVM_EXPERIMENTAL_TARGETS are outdated!"
+		eerror "    Have: ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]}"
+		eerror "Expected: ${exp_targets[*]}"
+		eerror
+		outdated=1
 	fi
 
 	if [[ ${prod_targets[*]} != ${ALL_LLVM_PRODUCTION_TARGETS[*]} ]]; then
-		eqawarn "ALL_LLVM_PRODUCTION_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
-		eqawarn "Expected: ${prod_targets[*]}"
+		eerror "ALL_LLVM_PRODUCTION_TARGETS are outdated!"
+		eerror "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
+		eerror "Expected: ${prod_targets[*]}"
+		outdated=1
 	fi
+
+	[[ ${outdated} ]] && die "Update ALL_LLVM*_TARGETS"
 }
 
 check_distribution_components() {
@@ -136,6 +139,9 @@ check_distribution_components() {
 					# TableGen lib + deps
 					LLVMDemangle|LLVMSupport|LLVMTableGen)
 						;;
+					# for mlir-tblgen
+					LLVMCodeGenTypes)
+						;;
 					# used by lldb
 					LLVMDebuginfod)
 						;;
@@ -153,6 +159,10 @@ check_distribution_components() {
 					# used only w/ USE=doc
 					docs-llvm-html)
 						use doc || continue
+						;;
+					# used only w/ USE=debuginfd
+					llvm-debuginfod)
+						use debuginfod || continue
 						;;
 				esac
 
@@ -177,9 +187,10 @@ check_distribution_components() {
 		done
 
 		if [[ ${#add[@]} -gt 0 || ${#remove[@]} -gt 0 ]]; then
-			eqawarn "get_distribution_components() is outdated!"
-			eqawarn "   Add: ${add[*]}"
-			eqawarn "Remove: ${remove[*]}"
+			eerror "get_distribution_components() is outdated!"
+			eerror "   Add: ${add[*]}"
+			eerror "Remove: ${remove[*]}"
+			die "Update get_distribution_components()!"
 		fi
 		cd - >/dev/null || die
 	fi
@@ -218,6 +229,8 @@ get_distribution_components() {
 		LLVMDemangle
 		LLVMSupport
 		LLVMTableGen
+		# mlir-tblgen
+		LLVMCodeGenTypes
 
 		# testing libraries
 		llvm_gtest
@@ -254,8 +267,10 @@ get_distribution_components() {
 			llvm-c-test
 			llvm-cat
 			llvm-cfi-verify
+			llvm-cgdata
 			llvm-config
 			llvm-cov
+			llvm-ctxprof-util
 			llvm-cvtres
 			llvm-cxxdump
 			llvm-cxxfilt
@@ -315,6 +330,7 @@ get_distribution_components() {
 			llvm-xray
 			obj2yaml
 			opt
+			reduce-chunk-list
 			sancov
 			sanstats
 			split-file
@@ -420,7 +436,6 @@ multilib_src_configure() {
 
 		-DLLVM_ENABLE_FFI=$(usex libffi)
 		-DLLVM_ENABLE_LIBEDIT=$(usex libedit)
-		-DLLVM_ENABLE_TERMINFO=$(usex ncurses)
 		-DLLVM_ENABLE_LIBXML2=$(usex xml)
 		-DLLVM_ENABLE_ASSERTIONS=$(usex debug)
 		-DLLVM_ENABLE_LIBPFM=$(usex exegesis)
@@ -490,10 +505,6 @@ multilib_src_configure() {
 	fi
 
 	use kernel_Darwin && mycmakeargs+=(
-		# On Macos prefix, Gentoo doesn't split sys-libs/ncurses to libtinfo and
-		# libncurses, but llvm tries to use libtinfo before libncurses, and ends up
-		# using libtinfo (actually, libncurses.dylib) from system instead of prefix
-		-DTerminfo_LIBRARIES=-lncurses
 		# Use our libtool instead of looking it up with xcrun
 		-DCMAKE_LIBTOOL="${EPREFIX}/usr/bin/${CHOST}-libtool"
 	)

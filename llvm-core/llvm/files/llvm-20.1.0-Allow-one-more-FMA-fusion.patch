@@ -1,0 +1,25 @@
+From 1b12b2ec6786df3c9ee3f9a22a6604468d7d9473 Mon Sep 17 00:00:00 2001
+From: William Douglas <william.douglas@intel.com>
+Date: Thu, 6 Mar 2025 11:32:04 -0800
+Subject: [PATCH 2/7] Allow one more FMA fusion
+
+Signed-off-by: William Douglas <william.douglas@intel.com>
+---
+ llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp b/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
+index 9d0456848..aa3ac5d88 100644
+--- a/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
++++ b/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
+@@ -16323,6 +16323,7 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
+     return SDValue();
+ 
+   bool AllowFusionGlobally = (Options.AllowFPOpFusion == FPOpFusion::Fast ||
++                              Options.AllowFPOpFusion == FPOpFusion::Standard ||
+                               Options.UnsafeFPMath || HasFMAD);
+   // If the addition is not contractable, do not combine.
+   if (!AllowFusionGlobally && !N->getFlags().hasAllowContract())
+-- 
+2.47.1
+

@@ -63,6 +63,10 @@ PDEPEND="
 	binutils-plugin? ( >=llvm-core/llvmgold-${LLVM_MAJOR} )
 "
 
+PATCHES=(
+	"${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch"
+)
+
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
 LLVM_PATCHSET=${PV}

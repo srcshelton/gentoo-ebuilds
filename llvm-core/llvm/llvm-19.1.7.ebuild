@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{11..13} )
 
 PARALLEL_MEMORY_MIN=4
 
@@ -63,7 +63,7 @@ PDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch"
+	"${FILESDIR}/${PN}-18.1.8-Allow-one-more-FMA-fusion.patch"
 )
 
 LLVM_COMPONENTS=( llvm cmake third-party )
