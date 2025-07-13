@@ -176,13 +176,13 @@ multilib_src_install() {
 		fi
 
 		dosbin saslauthd/testsaslauthd
+		keepdir /etc/sasl2
+
 	fi
 }
 
 multilib_src_install_all() {
 	doman man/*
-
-	keepdir /etc/sasl2
 
 	# Reset docinto to default value (bug #674296)
 	docinto
@@ -232,14 +232,11 @@ pkg_config() {
 
 		einfo "Generating an empty sasldb2 with correct permissions ..."
 
-		tc-is-cross-compiler && { cd "${WORKDIR}/${P}-build" || die ; }
-		export SASL_PATH=plugins/.libs
-
-		utils/saslpasswd2 -f "${EROOT}/etc/sasl2/sasldb2-empty" \
+		saslpasswd2 -f "${EROOT}/etc/sasl2/sasldb2-empty" \
 				-p login <<<'p' ||
 			die "Failed to generate sasldb2"
 
-		utils/saslpasswd2 -f "${EROOT}/etc/sasl2/sasldb2-empty" \
+		saslpasswd2 -f "${EROOT}/etc/sasl2/sasldb2-empty" \
 				-d login ||
 			die "Failed to delete temp user"
 
@@ -248,6 +245,8 @@ pkg_config() {
 
 		chmod 0640 "${EROOT}/etc/sasl2/sasldb2-empty" ||
 			die "Failed to chmod ${EROOT}/etc/sasl2/sasldb2"
+
+		cp -av "${EROOT}"/etc/sasl2/sasldb2{-empty,} || die
 	else
 		ewarn "You appear to already have a '${EROOT%/}/etc/sasl2/sasldb2' file"
 		ewarn "Backup and remove this file in order to create a clean database"
@@ -255,17 +254,10 @@ pkg_config() {
 }
 
 pkg_postinst() {
-	if use tmpfiles; then
-		tmpfiles_process "${PN}.conf"
-	fi
+	use !tmpfiles || tmpfiles_process "${PN}.conf"
 
 	if [[ "${MERGE_TYPE}" != 'binary' ]] ; then
 		( use berkdb || use gdbm ) && pkg_config
-	fi
-	if ( use berkdb || use gdbm ) &&
-			[[ ! -f "${EROOT}/etc/sasl2/sasldb2" ]]
-	then
-		cp -av "${EROOT}"/etc/sasl2/sasldb2{-empty,} || die
 	fi
 
 	if use authdaemond ; then
