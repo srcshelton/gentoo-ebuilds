@@ -177,10 +177,8 @@ src_configure() {
 	append-flags -fno-strict-aliasing
 
 	# Avoid a compile error with certain USE flag combinations when
-	# using std=gnu23, bug #945643.
-	# The socks code has a function prototype without parameters,
-	# bug #945502
-	append-flags -std=gnu17
+	# using std=gnu23, bug #945643 and bug #945502
+	append-cflags -std=gnu17
 
 	# Workaround for bug #938302
 	if use systemtap && has_version "dev-debug/systemtap[-dtrace-symlink(+)]" ; then
