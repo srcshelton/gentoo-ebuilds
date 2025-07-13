@@ -3,8 +3,8 @@
 
 EAPI=8
 
-LLVM_COMPAT=( 19 )
-PYTHON_COMPAT=( python3_{11..13} )
+LLVM_COMPAT=( 20 )
+PYTHON_COMPAT=( python3_{11..14} )
 
 RUST_PATCH_VER=${PVR}
 
@@ -50,7 +50,8 @@ else
 	MY_P="rustc-${PV}"
 	SRC_URI="https://static.rust-lang.org/dist/${MY_P}-src.tar.xz
 		https://gitweb.gentoo.org/proj/rust-patches.git/snapshot/rust-patches-${RUST_PATCH_VER}.tar.bz2
-		verify-sig? ( https://static.rust-lang.org/dist/${MY_P}-src.tar.xz.asc )"
+		verify-sig? ( https://static.rust-lang.org/dist/${MY_P}-src.tar.xz.asc )
+	"
 	S="${WORKDIR}/${MY_P}-src"
 	KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
 fi
@@ -75,7 +76,7 @@ done
 LICENSE="|| ( MIT Apache-2.0 ) BSD BSD-1 BSD-2 BSD-4"
 SLOT="${PV%%_*}" # Beta releases get to share the same SLOT as the eventual stable
 
-IUSE="big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind lto rust-analyzer rustfmt rust-src +system-llvm test wasm ${ALL_LLVM_TARGETS[*]}"
+IUSE="big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind llvm_targets_AArch64 llvm_targets_AMDGPU llvm_targets_ARC llvm_targets_ARM llvm_targets_AVR llvm_targets_BPF llvm_targets_CSKY llvm_targets_DirectX llvm_targets_Hexagon llvm_targets_Lanai llvm_targets_LoongArch llvm_targets_M68k llvm_targets_Mips llvm_targets_MSP430 llvm_targets_NVPTX llvm_targets_PowerPC llvm_targets_RISCV llvm_targets_Sparc llvm_targets_SPIRV llvm_targets_SystemZ llvm_targets_VE llvm_targets_WebAssembly llvm_targets_X86 llvm_targets_XCore llvm_targets_Xtensa lto rust-analyzer rustfmt rust-src +system-llvm test wasm"
 
 if [[ ${PV} = *9999* ]]; then
 	# These USE flags require nightly rust
@@ -93,8 +94,10 @@ done
 LLVM_DEPEND+=( "	wasm? ( $(llvm_gen_dep 'llvm-core/lld:${LLVM_SLOT}') )" )
 LLVM_DEPEND+=( "	$(llvm_gen_dep 'llvm-core/llvm:${LLVM_SLOT}')" )
 
+# dev-libs/oniguruma is used for documentation
 BDEPEND="${PYTHON_DEPS}
 	app-eselect/eselect-rust
+	dev-libs/oniguruma
 	|| (
 		>=sys-devel/gcc-4.7[cxx]
 		>=llvm-core/clang-3.5
@@ -134,7 +137,6 @@ RDEPEND="${DEPEND}
 	dev-lang/rust-common
 	sys-apps/lsb-release
 	!dev-lang/rust:stable
-	!dev-lang/rust:1.86
 	!dev-lang/rust-bin:stable
 "
 
@@ -321,7 +323,7 @@ src_prepare() {
 
 	default
 
-	eapply "${FILESDIR}"/rust-1.86.0-issue-139372-bgo-953956-fix-hardcoded-gnu-linker-flags.patch
+	eapply "${FILESDIR}"/rust-1.87.0-issue-139372-bgo-953956-fix-hardcoded-gnu-linker-flags.patch
 }
 
 src_configure() {
@@ -334,6 +336,12 @@ src_configure() {
 		export OPENSSL_INCLUDE_DIR="${ESYSROOT}/usr/include"
 		export OPENSSL_LIB_DIR="${ESYSROOT}/usr/$(get_libdir)"
 	fi
+
+	# Avoid bundled copies of libraries
+	export RUSTONIG_SYSTEM_LIBONIG=1
+	# Need to check if these can be optional
+	#export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
+	#export LIBSSH2_SYS_USE_PKG_CONFIG=1
 
 	filter-lto # https://bugs.gentoo.org/862109 https://bugs.gentoo.org/866231
 
