@@ -5,8 +5,8 @@ EAPI=8
 
 # Please bump with dev-python/btrfsutil
 
-PYTHON_COMPAT=( python3_{10..13} )
-inherit bash-completion-r1 flag-o-matic python-any-r1 udev
+PYTHON_COMPAT=( python3_{11..13} )
+inherit bash-completion-r1 python-any-r1 udev
 
 if [[ ${PV} == 9999 ]]; then
 	EGIT_REPO_URI="https://github.com/kdave/btrfs-progs.git"
@@ -26,7 +26,7 @@ else
 	S="${WORKDIR}"/${PN}-${MY_PV}
 
 	if [[ ${PV} != *_rc* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv sparc x86"
+		KEYWORDS="~alpha amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv ~sparc x86"
 	fi
 fi
 
@@ -128,13 +128,6 @@ src_prepare() {
 }
 
 src_configure() {
-	if use amd64 || use x86; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
-
 	local myeconfargs=(
 		--bindir="${EPREFIX}"/sbin
 
