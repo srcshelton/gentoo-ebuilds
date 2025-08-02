@@ -30,7 +30,6 @@ RDEPEND=">=dev-libs/libevent-1.4:=
 	ssl? ( >=dev-libs/openssl-1.1.0g:= )"
 DEPEND="${RDEPEND}
 	test? (
-		virtual/perl-Test-Harness
 		>=dev-perl/Cache-Memcached-1.24
 		ssl? ( dev-perl/IO-Socket-SSL )
 	)"
