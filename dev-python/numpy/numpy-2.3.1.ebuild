@@ -20,7 +20,7 @@ HOMEPAGE="
 
 LICENSE="BSD"
 SLOT="0/2"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha ~amd64 arm ~arm64 hppa ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 sparc x86"
 # +lapack because the internal fallbacks are pretty slow. Building without blas
 # is barely supported anyway, see bug #914358.
 IUSE="big-endian +lapack lto +multiarch"
@@ -33,7 +33,7 @@ RDEPEND="
 "
 BDEPEND="
 	${RDEPEND}
-	>=dev-build/meson-1.1.0
+	>=dev-build/meson-1.5.2
 	>=dev-python/cython-3.0.6[${PYTHON_USEDEP}]
 	lapack? (
 		virtual/pkgconfig
@@ -60,9 +60,6 @@ distutils_enable_tests pytest
 
 python_prepare_all() {
 	local PATCHES=(
-		# https://github.com/numpy/numpy/pull/28748
-		# https://github.com/numpy/numpy/pull/28928
-		"${FILESDIR}/${PN}-2.2.5-py314.patch"
 		# https://github.com/google/highway/issues/2577
 		# github.com/google/highway/commit/7cde540171a1718a9bdfa8f896d70e47eb0785d5
 		"${FILESDIR}/${PN}-2.2.6-gcc16.patch"
@@ -91,21 +88,18 @@ python_configure_all() {
 }
 
 python_test() {
+	# don't run tests that require more than 2 GiB of RAM (per process)
+	local -x NPY_AVAILABLE_MEM="2 GiB"
+
 	local EPYTEST_DESELECT=(
 		# Very disk-and-memory-hungry
-		numpy/lib/tests/test_io.py::TestSaveTxt::test_large_zip
 		numpy/lib/tests/test_io.py::TestSavezLoad::test_closing_fid
 		numpy/lib/tests/test_io.py::TestSavezLoad::test_closing_zipfile_after_load
 
 		# Precision problems
 		numpy/_core/tests/test_umath_accuracy.py::TestAccuracy::test_validate_transcendentals
 
-		# Runs the whole test suite recursively, that's just crazy
-		numpy/core/tests/test_mem_policy.py::test_new_policy
-
 		numpy/typing/tests/test_typing.py
-		# Uses huge amount of memory
-		numpy/core/tests/test_mem_overlap.py
 	)
 
 	if [[ $(uname -m) == armv8l ]]; then
