@@ -62,20 +62,24 @@ egetent() {
 	*)
 		# getent does not support -R option, if we are working on a different
 		# ROOT than /, fallback to grep technique.
-		if [[ -z ${ROOT} ]]; then
+		if [[ -z "${ROOT:-}" || "${ROOT}" == '/' ]]; then
 			# ignore nscd output if we're not running as root
 			type -p nscd >/dev/null && nscd -i "${db}" 2>/dev/null
 			getent "${db}" "${key}"
 		else
 			loc="${ROOT}/etc/${db}"
+			# If ROOT is set and the indicated location does not (yet) have the
+			# requested database present, then fall-back to the active system
+			# database (... as opposed to failing immediately)
 			if ! [[ -s "${loc}" ]]; then
-				eerror "user-info:${FUNCNAME[0]}: Database '${loc}' does not exist"
-				# We can do one of two things here - look instead at the
-				# non-ROOT database, or copy the non-ROOT database to ROOT.
-				# The latter makes sense in a build context, but not for a live
-				# system with other entries already defined...
-				touch "${loc}"
-				return 2
+				ewarn "user-info:${FUNCNAME[0]}: Database '${loc}' does not" \
+					"exist, falling-back to '${loc#"${ROOT}"}' ..."
+				loc="${loc#"${ROOT}"}"
+				if ! [[ -s "${loc}" ]]; then
+					eerror "user-info:${FUNCNAME[0]}: Database '${loc}' does" \
+						"not exist"
+					return 2
+				fi
 			fi
 			if [[ ${key} =~ ^[[:digit:]]+$ ]]; then
 				grep -E "^([^:]*:){2}${key}" "${loc}"

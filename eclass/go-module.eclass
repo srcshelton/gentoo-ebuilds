@@ -122,9 +122,6 @@ export GOFLAGS="-buildvcs=false -modcacherw -v -x -trimpath '-ldflags=-bindnow -
 # Do not complain about CFLAGS etc since go projects do not use them.
 QA_FLAGS_IGNORED='.*'
 
-# Go packages should not be stripped with strip(1).
-RESTRICT+=" strip"
-
 # @ECLASS_VARIABLE: EGO_SUM
 # @DEPRECATED: none
 # @DESCRIPTION:
