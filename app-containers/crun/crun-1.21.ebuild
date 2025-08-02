@@ -3,14 +3,14 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{11..14} )
 
-inherit python-any-r1
+inherit libtool python-any-r1
 
-DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
+DESCRIPTION="Fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
 
-if [[ "$PV" == *9999* ]]; then
+if [[ "${PV}" == *9999* ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
 else
@@ -53,19 +53,21 @@ PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
 
-#src_prepare() {
-#	default
-#
+src_prepare() {
+	default
+	elibtoolize
+
 #	sed -ri \
 #		-e 's|([=B*])/run|\1/var/run|' \
 #		src/libcrun/status.c \
 #		crun.1 \
 #		crun.1.md \
 #	|| die "'/run' replacement failed: ${?}"
-#}
+}
 
 src_configure() {
 	local myeconfargs=(
+		#--cache-file="${S}"/config.cache
 		$(use_enable bpf)
 		$(use_enable caps)
 		$(use_enable criu)
@@ -75,6 +77,7 @@ src_configure() {
 		$(use_enable static-libs static)
 		--disable-embedded-yajl
 	)
+
 	econf "${myeconfargs[@]}"
 }
 
@@ -90,7 +93,7 @@ src_compile() {
 src_test() {
 	emake check-TESTS -C libocispec
 
-	# the crun test suite is comprehensive to the extent that tests will fail
+	# The crun test suite is comprehensive to the extent that tests will fail
 	# within a sandbox environment, due to the nature of the privileges
 	# required to create linux "containers".
 	local supported_tests=(
@@ -98,7 +101,8 @@ src_test() {
 		"tests/tests_libcrun_errors"
 		"tests/tests_libcrun_intelrdt"
 	)
-	emake check-TESTS TESTS="${supported_tests[*]}"
+	emake check-TESTS TESTS="${supported_tests[*]}" \
+		CFLAGS="${CFLAGS} -std=gnu17"
 }
 
 src_install() {

@@ -5,7 +5,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{10..13} )
 
-inherit libtool python-any-r1
+inherit python-any-r1
 
 DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
@@ -15,7 +15,7 @@ if [[ "$PV" == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
 else
 	SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.gz"
-	KEYWORDS="amd64 ~arm arm64 ~loong ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm ~arm64 ~loong ~ppc64 ~riscv"
 	RESTRICT="mirror"
 fi
 
@@ -64,14 +64,8 @@ PATCHES=(
 #	|| die "'/run' replacement failed: ${?}"
 #}
 
-src_prepare() {
-	default
-	elibtoolize
-}
-
 src_configure() {
 	local myeconfargs=(
-		#--cache-file="${S}"/config.cache
 		$(use_enable bpf)
 		$(use_enable caps)
 		$(use_enable criu)
