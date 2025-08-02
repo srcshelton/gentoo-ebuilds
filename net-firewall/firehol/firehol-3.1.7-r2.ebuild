@@ -11,7 +11,7 @@ SRC_URI="https://github.com/firehol/firehol/releases/download/v${PV}/${P}.tar.xz
 
 LICENSE="GPL-2"
 SLOT="0"
-IUSE="doc ipset ipv6 systemd"
+IUSE="doc +firehol +fireqos ipset ipv6 link-balancer systemd"
 KEYWORDS="amd64 arm ~arm64 ~ppc ~x86"
 
 # Set the dependency versions to aid cross-compiling. Keep them at their
@@ -27,9 +27,21 @@ RDEPEND="
 	net-misc/iputils[ipv6(+)?]
 	sys-apps/iproute2[-minimal,ipv6(+)?]
 	sys-apps/kmod[tools]
+	firehol? (
+		net-firewall/nfacct
+		virtual/pager
+	)
+	fireqos? (
+		net-analyzer/tcpdump
+	)
 	ipset? (
 		app-arch/gzip
 		net-firewall/ipset
+	)
+	link-balancer? (
+		app-misc/jq
+		app-misc/screen
+		net-misc/whois
 	)
 "
 BDEPEND="${RDEPEND}
@@ -66,23 +78,36 @@ pkg_setup() {
 }
 
 src_configure() {
+	if use fireqos; then
+		export ac_cv_path_TCPDUMP="/usr/sbin/tcpdump"
+	fi
+
 	# This erroneously checks for BASH_VERSION_PATH rather than BASH_VERSION.
 	BASH_VERSION_PATH=${MY_BASH_VERSION} \
 	IPRANGE_VERSION=${MY_IPRANGE_VERSION} \
 	econf \
 		--disable-vnetbuild \
-		$(use_enable ipset update-ipsets) \
 		$(use_enable doc) \
-		$(use_enable ipv6)
+		$(use_enable firehol) \
+		$(use_enable firehol firehol-wizard) \
+		$(use_enable fireqos) \
+		$(use_enable ipset update-ipsets) \
+		$(use_enable ipv6) \
+		$(use_enable link-balancer) \
+		--runstatedir="/var/run"
 }
 
 src_install() {
 	default
 
-	newconfd "${FILESDIR}"/firehol.confd firehol
-	newinitd "${FILESDIR}"/firehol.initd firehol
-	newconfd "${FILESDIR}"/fireqos.confd fireqos
-	newinitd "${FILESDIR}"/fireqos.initd fireqos
-
-	use systemd && systemd_dounit contrib/fire{hol,qos}.service
+	if use firehol; then
+		newconfd "${FILESDIR}"/firehol.confd firehol
+		newinitd "${FILESDIR}"/firehol.initd firehol
+		use systemd && systemd_dounit contrib/firehol.service
+	fi
+	if use fireqos; then
+		newconfd "${FILESDIR}"/fireqos.confd fireqos
+		newinitd "${FILESDIR}"/fireqos.initd fireqos
+		use systemd && systemd_dounit contrib/fireqos.service
+	fi
 }
