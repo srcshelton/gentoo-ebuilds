@@ -30,8 +30,10 @@ COMMON_DEPEND="
 	romio? ( net-fs/nfs-utils )
 "
 
+# 'git' only needed to quieten "not found" output during configure...
 BDEPEND="
 	app-shells/bash
+	dev-vcs/git
 	sys-libs/libunwind:=[${MULTILIB_USEDEP}]
 "
 DEPEND="
@@ -93,6 +95,7 @@ src_prepare() {
 
 multilib_src_configure() {
 	local -a myconf=()
+	local -i have_ltm=0
 
 	# The configure statements can be somewhat confusing, as they
 	# don't all show up in the top level configure, however, they
@@ -127,6 +130,12 @@ multilib_src_configure() {
 	fi
 	append-flags -fno-associative-math
 
+	# configure fails if -Werror=lto-type-mismatch is set in flags
+	if is-flagq '-Werror=lto-type-mismatch'; then
+		filter-flags -Werror=lto-type-mismatch
+		have_ltm=1
+	fi
+
 	export MPICHLIB_CFLAGS="${CFLAGS}"
 	export MPICHLIB_CPPFLAGS="${CPPFLAGS}"
 	export MPICHLIB_CXXFLAGS="${CXXFLAGS}"
@@ -154,6 +163,10 @@ multilib_src_configure() {
 	# Forcing Bash as there's quite a few bashisms in the build system
 	#
 	CONFIG_SHELL="${BROOT}/bin/bash" ECONF_SOURCE=${S} econf "${myconf[@]}"
+
+	if (( have_ltm )); then
+		append-flags -Werror=lto-type-mismatch
+	fi
 }
 
 multilib_src_test() {
