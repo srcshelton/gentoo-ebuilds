@@ -5,9 +5,9 @@ EAPI=8
 
 DISTUTILS_OPTIONAL=1
 DISTUTILS_USE_PEP517=setuptools
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{11..13} )
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/netfilter.org.asc
-inherit distutils-r1 eapi9-ver edo flag-o-matic linux-info systemd usr-ldscript verify-sig
+inherit distutils-r1 eapi9-ver edo linux-info systemd usr-ldscript verify-sig
 
 DESCRIPTION="Linux kernel firewall, NAT and packet mangling tools"
 HOMEPAGE="https://netfilter.org/projects/nftables/"
@@ -16,12 +16,13 @@ if [[ ${PV} =~ ^[9]{4,}$ ]]; then
 	inherit autotools git-r3
 	EGIT_REPO_URI="https://git.netfilter.org/${PN}"
 else
+	inherit libtool
 	SRC_URI="
 		https://netfilter.org/projects/nftables/files/${P}.tar.xz
 		verify-sig? ( https://netfilter.org/projects/nftables/files/${P}.tar.xz.sig )
 	"
-	KEYWORDS="amd64 arm arm64 hppa ~loong ~mips ppc ppc64 ~riscv sparc x86"
-	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-netfilter )"
+	KEYWORDS="amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86"
+	BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-netfilter-20240415 )"
 fi
 
 # See COPYING: new code is GPL-2+, existing code is GPL-2
@@ -32,7 +33,7 @@ RESTRICT="!test? ( test )"
 
 RDEPEND="
 	>=net-libs/libmnl-1.0.4:=
-	>=net-libs/libnftnl-1.2.8:=
+	>=net-libs/libnftnl-1.2.9:=
 	gmp? ( dev-libs/gmp:= )
 	json? ( dev-libs/jansson:= )
 	python? ( ${PYTHON_DEPS} )
@@ -66,6 +67,8 @@ src_prepare() {
 
 	if [[ ${PV} =~ ^[9]{4,}$ ]] ; then
 		eautoreconf
+	else
+		elibtoolize
 	fi
 
 	if use python; then
@@ -76,13 +79,6 @@ src_prepare() {
 }
 
 src_configure() {
-	if use amd64 || use x86; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
-
 	local myeconfargs=(
 		--sbindir="${EPREFIX}"/sbin
 		$(use_enable debug)
@@ -144,7 +140,7 @@ src_install() {
 	if ! use doc && [[ ! ${PV} =~ ^[9]{4,}$ ]]; then
 		# Deploy a pre-generated man-page to avoid docbook2X dependency...
 		newman "${FILESDIR}/man-pages/${PN}-1.0.9-libnftables.3" libnftables.3
-		newman "${FILESDIR}/man-pages/${PN}-1.1.0-libnftables-json.5" libnftables-json.5
+		newman "${FILESDIR}/man-pages/${P}-libnftables-json.5" libnftables-json.5
 		newman "${FILESDIR}/man-pages/${P}-nft.8" nft.8
 
 		pushd doc >/dev/null || die
