@@ -40,7 +40,7 @@ BDEPEND="
 		dev-lang/swig
 		$(python_gen_cond_dep '
 			dev-python/setuptools[${PYTHON_USEDEP}]
-		' python3_12)
+		' python3_12 python3_13)
 	)
 "
 
