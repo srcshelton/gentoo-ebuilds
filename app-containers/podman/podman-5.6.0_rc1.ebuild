@@ -31,6 +31,7 @@ COMMON_DEPEND="
 	app-containers/crun
 	>=app-containers/netavark-1.6.0[dns]
 	app-crypt/gpgme:=
+	>=dev-db/sqlite-3:=
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	sys-apps/shadow:=
@@ -207,7 +208,7 @@ src_prepare() {
 
 	# Ensure necessary files are present...
 	local file
-	for file in apparmor btrfs_installed btrfs systemd; do
+	for file in apparmor btrfs_installed systemd; do
 		[[ -f "hack/${file}_tag.sh" ]] ||
 			die "File '${file}_tag.sh' missing"
 	done
@@ -227,6 +228,11 @@ src_prepare() {
 	cat <<-EOF > hack/btrfs_tag.sh || die
 		#! /bin/sh
 		$(usex 'btrfs' 'true' 'echo exclude_graphdriver_btrfs btrfs_noversion')
+	EOF
+
+	cat <<-EOF > "hack/libsqlite3_tag.sh" || die
+		#! /bin/sh
+		echo libsqlite3
 	EOF
 
 	# Fix run path...
