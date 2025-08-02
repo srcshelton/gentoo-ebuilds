@@ -11,7 +11,7 @@ SRC_URI="https://www.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${PV}/$
 
 LICENSE="GPL-2 BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
 IUSE="archive cron fuse nls static-libs systemd test +tools +udev"
 RESTRICT="!test? ( test )"
 
@@ -64,13 +64,6 @@ src_prepare() {
 }
 
 multilib_src_configure() {
-	if use amd64 || use x86 || use amd64-linux || use x86-linux; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
-
 	# Keep the package from doing silly things, bug #261411
 	export VARTEXFONTS="${T}/fonts"
 
