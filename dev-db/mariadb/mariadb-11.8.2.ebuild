@@ -12,7 +12,7 @@ DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.5-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.7-patches-01.tar.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -34,6 +34,7 @@ REQUIRED_USE="jdbc? ( extraengine server !static )
 # These are used for both runtime and compiletime
 COMMON_DEPEND="
 	dev-libs/libfmt:=
+	dev-libs/lzo:2
 	>=dev-libs/libpcre2-10.34:=
 	sys-libs/ncurses:0=
 	>=sys-libs/zlib-1.2.3:0=
@@ -54,6 +55,7 @@ COMMON_DEPEND="
 			app-arch/snappy:=
 			dev-libs/boost:=
 			dev-libs/libxml2:2=
+			dev-libs/thrift:=
 		)
 		cracklib? ( sys-libs/cracklib:0= )
 		extraengine? (
@@ -64,7 +66,7 @@ COMMON_DEPEND="
 		innodb-bzip2? ( app-arch/bzip2 )
 		innodb-lz4? ( app-arch/lz4 )
 		innodb-lzma? ( app-arch/xz-utils )
-		innodb-lzo? ( dev-libs/lzo )
+		innodb-lzo? ( dev-libs/lzo:2 )
 		innodb-snappy? ( app-arch/snappy:= )
 		kernel_linux? ( sys-libs/liburing:= )
 		mroonga? ( app-text/groonga-normalizer-mysql >=app-text/groonga-7.0.4 )
@@ -84,30 +86,26 @@ COMMON_DEPEND="
 		>=dev-libs/openssl-1.0.0:0=
 	)
 "
-BDEPEND="app-alternatives/yacc
-	>=sys-apps/texinfo-4.7-r1"
+BDEPEND="
+	app-alternatives/yacc
+	>=sys-apps/texinfo-4.7-r1
+	test? (
+		acct-group/mysql
+		acct-user/mysql
+		dev-perl/Net-SSLeay
+		virtual/perl-Getopt-Long
+	)
+"
 DEPEND="${COMMON_DEPEND}
 	server? (
 		extraengine? ( jdbc? ( >=virtual/jdk-1.8 ) )
-		test? ( acct-group/mysql acct-user/mysql )
 	)
 	static? ( sys-libs/ncurses[static-libs] )
 "
 RDEPEND="${COMMON_DEPEND}
-	!dev-db/mysql !dev-db/percona-server
-	!dev-db/mariadb:10.3
-	!dev-db/mariadb:10.4
-	!dev-db/mariadb:10.5
-	!dev-db/mariadb:10.6
-	!dev-db/mariadb:10.7
-	!dev-db/mariadb:10.8
-	!dev-db/mariadb:10.9
-	!dev-db/mariadb:10.10
-	!dev-db/mariadb:10.11
-	!dev-db/mariadb:11.0
-	!dev-db/mariadb:11.1
-	!dev-db/mariadb:11.2
-	!dev-db/mariadb:11.3
+	!<dev-db/mariadb-$(ver_cut 1-2)
+	!dev-db/mysql
+	!dev-db/percona-server
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
 		columnstore? ( dev-db/mariadb-connector-c )
@@ -118,7 +116,11 @@ RDEPEND="${COMMON_DEPEND}
 			sst-rsync? ( sys-process/lsof )
 			sst-mariabackup? ( net-misc/socat[ssl] )
 		)
-		!prefix? ( dev-db/mysql-init-scripts acct-group/mysql acct-user/mysql )
+		!prefix? (
+			acct-group/mysql
+			acct-user/mysql
+			dev-db/mysql-init-scripts
+		)
 	)
 "
 # For other stuff to bring us in
@@ -315,8 +317,6 @@ src_configure() {
 	filter-lto
 	# bug 508724 mariadb cannot use ld.gold
 	tc-ld-is-gold && tc-ld-force-bfd
-	# Bug #114895, bug #110149
-	filter-flags "-O" "-O[01]"
 
 	use elibc_musl && append-flags -D_LARGEFILE64_SOURCE
 
@@ -358,6 +358,7 @@ src_configure() {
 		-DWITH_UNIT_TESTS=$(usex test ON OFF)
 		-DWITH_LIBEDIT=0
 		-DWITH_LIBFMT=system
+		-DWITH_THRIFT=system # for columnstore
 		-DWITH_ZLIB=system
 		-DWITHOUT_LIBWRAP=1
 		-DENABLED_LOCAL_INFILE=1
@@ -377,11 +378,12 @@ src_configure() {
 		-DSUFFIX_INSTALL_DIR=""
 		-DWITH_UNITTEST=OFF
 		-DWITHOUT_CLIENTLIBS=YES
-		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
 		-DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
-		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
-		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
 		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
+		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
+		-DCLIENT_PLUGIN_ZSTD=OFF
 	)
 	if use test ; then
 		mycmakeargs+=( -DINSTALL_MYSQLTESTDIR=share/mariadb/mysql-test )
@@ -600,37 +602,38 @@ src_test() {
 
 	cp "${S}"/mysql-test/unstable-tests "${T}/disabled.def" || die
 
-	local -a disabled_tests
-	disabled_tests+=( "compat/oracle.plugin;0;Needs example plugin which Gentoo disables" )
-	disabled_tests+=( "innodb_gis.1;25095;Known rounding error with latest AMD processors" )
-	disabled_tests+=( "innodb_gis.gis;25095;Known rounding error with latest AMD processors" )
-	disabled_tests+=( "main.gis;25095;Known rounding error with latest AMD processors" )
-	disabled_tests+=( "main.explain_non_select;0;Sporadically failing test" )
-	disabled_tests+=( "main.func_time;0;Dependent on time test was written" )
-	disabled_tests+=( "main.mysql_upgrade;27044;Sporadically failing test" )
-	disabled_tests+=( "main.plugin_auth;0;Needs client libraries built" )
-	disabled_tests+=( "main.selectivity_no_engine;26320;Sporadically failing test" )
-	disabled_tests+=( "main.stat_tables;0;Sporadically failing test" )
-	disabled_tests+=( "main.stat_tables_innodb;0;Sporadically failing test" )
-	disabled_tests+=( "main.upgrade_MDEV-19650;25096;Known to be broken" )
-	disabled_tests+=( "mariabackup.*;0;Broken test suite" )
-	disabled_tests+=( "perfschema.nesting;23458;Known to be broken" )
-	disabled_tests+=( "perfschema.prepared_statements;0;Broken test suite" )
-	disabled_tests+=( "perfschema.privilege_table_io;27045;Sporadically failing test" )
-	disabled_tests+=( "plugins.cracklib_password_check;0;False positive due to varying policies" )
-	disabled_tests+=( "plugins.two_password_validations;0;False positive due to varying policies" )
-	disabled_tests+=( "roles.acl_statistics;0;False positive due to a user count mismatch caused by previous test" )
-	disabled_tests+=( "spider.*;0;Fails with network sandbox" )
-	disabled_tests+=( "sys_vars.wsrep_on_without_provider;25625;Known to be broken" )
-	disabled_tests+=( "sysschema.v_privileges_by_table_by_level;0;Fails with network sandbox, see MDEV-36030")
+	local -a disabled_tests+=(
+		"innodb_gis.1;MDEV-25095;Known rounding error with latest AMD processors"
+		"innodb_gis.gis;MDEV-25095;Known rounding error with latest AMD processors"
+		"main.gis;MDEV-25095;Known rounding error with latest AMD processors"
 
-	if ! use latin1 ; then
-		disabled_tests+=( "funcs_1.is_columns_mysql;0;Requires USE=latin1" )
-		disabled_tests+=( "main.information_schema;0;Requires USE=latin1" )
-		disabled_tests+=( "main.sp2;24177;Requires USE=latin1" )
-		disabled_tests+=( "main.system_mysql_db;0;Requires USE=latin1" )
-		disabled_tests+=( "main.upgrade_MDEV-19650;24178;Requires USE=latin1" )
-	fi
+		# Test which fail in network-sandbox because hostname is set to "localhost"
+		"main.explain_non_select;0;Fails in network-sandbox"
+		"main.information_schema_db;MDEV-37088;Fails in network-sandbox"
+		"main.mariadb-import;MDEV-37087;Fails in network-sandbox"
+		"main.mysql_upgrade;MDEV-27044;Fails in network-sandbox"
+		"main.selectivity_no_engine;MDEV-26320;Fails in network-sandbox"
+		"main.stat_tables;0;Fails in network-sandbox"
+		"main.stat_tables_innodb;0;Fails in network-sandbox"
+		"main.upgrade_MDEV-19650;MDEV-25096;Fails in network-sandbox"
+		"perfschema.privilege_table_io;MDEV-27045;Fails in network-sandbox"
+		"roles.acl_statistics;0;Fails in network-sandbox"
+		"sysschema.v_privileges_by_table_by_level;MDEV-36030;Fails in network-sandbox"
+
+		# Some tests are unable to retrieve HW address
+		"spider.*;MDEV-37098;Fails with network sandbox"
+
+		# 11.8.2 specific issues
+		"main.mysqld--help-aria;0;broken test regex, see MDEV-36668"
+	)
+
+	use latin1 || disabled_tests+=(
+		"funcs_1.is_columns_mysql;0;Requires USE=latin1"
+		"main.information_schema;0;Requires USE=latin1"
+		"main.sp2;24177;Requires USE=latin1"
+		"main.system_mysql_db;0;Requires USE=latin1"
+		"main.upgrade_MDEV-19650;24178;Requires USE=latin1"
+	)
 
 	local test_infos_str test_infos_arr
 	for test_infos_str in "${disabled_tests[@]}" ; do

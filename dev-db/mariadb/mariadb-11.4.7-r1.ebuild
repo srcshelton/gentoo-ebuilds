@@ -12,7 +12,7 @@ DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.5-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.7-patches-01.tar.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -54,6 +54,7 @@ COMMON_DEPEND="
 			app-arch/snappy:=
 			dev-libs/boost:=
 			dev-libs/libxml2:2=
+			dev-libs/thrift:=
 		)
 		cracklib? ( sys-libs/cracklib:0= )
 		extraengine? (
@@ -64,7 +65,7 @@ COMMON_DEPEND="
 		innodb-bzip2? ( app-arch/bzip2 )
 		innodb-lz4? ( app-arch/lz4 )
 		innodb-lzma? ( app-arch/xz-utils )
-		innodb-lzo? ( dev-libs/lzo )
+		innodb-lzo? ( dev-libs/lzo:2 )
 		innodb-snappy? ( app-arch/snappy:= )
 		kernel_linux? ( sys-libs/liburing:= )
 		mroonga? ( app-text/groonga-normalizer-mysql >=app-text/groonga-7.0.4 )
@@ -84,12 +85,19 @@ COMMON_DEPEND="
 		>=dev-libs/openssl-1.0.0:0=
 	)
 "
-BDEPEND="app-alternatives/yacc
-	>=sys-apps/texinfo-4.7-r1"
+BDEPEND="
+	app-alternatives/yacc
+	>=sys-apps/texinfo-4.7-r1
+	test? (
+		acct-group/mysql
+		acct-user/mysql
+		dev-perl/Net-SSLeay
+		virtual/perl-Getopt-Long
+	)
+"
 DEPEND="${COMMON_DEPEND}
 	server? (
 		extraengine? ( jdbc? ( >=virtual/jdk-1.8 ) )
-		test? ( acct-group/mysql acct-user/mysql )
 	)
 	static? ( sys-libs/ncurses[static-libs] )
 "
@@ -118,7 +126,11 @@ RDEPEND="${COMMON_DEPEND}
 			sst-rsync? ( sys-process/lsof )
 			sst-mariabackup? ( net-misc/socat[ssl] )
 		)
-		!prefix? ( dev-db/mysql-init-scripts acct-group/mysql acct-user/mysql )
+		!prefix? (
+			acct-group/mysql
+			acct-user/mysql
+			dev-db/mysql-init-scripts
+		)
 	)
 "
 # For other stuff to bring us in
@@ -315,8 +327,6 @@ src_configure() {
 	filter-lto
 	# bug 508724 mariadb cannot use ld.gold
 	tc-ld-is-gold && tc-ld-force-bfd
-	# Bug #114895, bug #110149
-	filter-flags "-O" "-O[01]"
 
 	use elibc_musl && append-flags -D_LARGEFILE64_SOURCE
 
@@ -358,6 +368,7 @@ src_configure() {
 		-DWITH_UNIT_TESTS=$(usex test ON OFF)
 		-DWITH_LIBEDIT=0
 		-DWITH_LIBFMT=system
+		-DWITH_THRIFT=system # for columnstore
 		-DWITH_ZLIB=system
 		-DWITHOUT_LIBWRAP=1
 		-DENABLED_LOCAL_INFILE=1
@@ -377,11 +388,12 @@ src_configure() {
 		-DSUFFIX_INSTALL_DIR=""
 		-DWITH_UNITTEST=OFF
 		-DWITHOUT_CLIENTLIBS=YES
-		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
 		-DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
-		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
-		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
 		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
+		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
+		-DCLIENT_PLUGIN_ZSTD=OFF
 	)
 	if use test ; then
 		mycmakeargs+=( -DINSTALL_MYSQLTESTDIR=share/mariadb/mysql-test )

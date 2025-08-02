@@ -12,7 +12,8 @@ DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.5-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.11.10-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6-columnstore-with-boost-1.85.patch.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -60,7 +61,6 @@ COMMON_DEPEND="
 			odbc? ( dev-db/unixODBC:0= )
 			xml? ( dev-libs/libxml2:2= )
 		)
-		hashicorp? ( net-misc/curl )
 		innodb-bzip2? ( app-arch/bzip2 )
 		innodb-lz4? ( app-arch/lz4 )
 		innodb-lzma? ( app-arch/xz-utils )
@@ -103,14 +103,17 @@ RDEPEND="${COMMON_DEPEND}
 	!dev-db/mariadb:10.8
 	!dev-db/mariadb:10.9
 	!dev-db/mariadb:10.10
-	!dev-db/mariadb:10.11
 	!dev-db/mariadb:11.0
 	!dev-db/mariadb:11.1
 	!dev-db/mariadb:11.2
 	!dev-db/mariadb:11.3
+	!dev-db/mariadb:11.4
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
-		columnstore? ( dev-db/mariadb-connector-c )
+		columnstore? (
+			dev-db/mariadb-connector-c
+			!dev-libs/thrift
+		)
 		extraengine? ( jdbc? ( >=virtual/jre-1.8 ) )
 		galera? (
 			sys-apps/iproute2
@@ -207,7 +210,7 @@ src_prepare() {
 	eapply "${WORKDIR}"/mariadb-patches
 	eapply "${FILESDIR}"/${PN}-10.6.11-gssapi.patch
 	eapply "${FILESDIR}"/${PN}-10.6.12-gcc-13.patch
-	eapply "${FILESDIR}"/${PN}-11.4.7-gcc-16.patch
+	eapply "${WORKDIR}"/${PN}-10.6-columnstore-with-boost-1.85.patch
 
 	eapply_user
 
@@ -377,9 +380,9 @@ src_configure() {
 		-DSUFFIX_INSTALL_DIR=""
 		-DWITH_UNITTEST=OFF
 		-DWITHOUT_CLIENTLIBS=YES
-		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_DIALOG=OFF
 		-DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
-		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_CLIENT_ED25519=OFF
 		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
 		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
 	)
@@ -617,12 +620,12 @@ src_test() {
 	disabled_tests+=( "perfschema.nesting;23458;Known to be broken" )
 	disabled_tests+=( "perfschema.prepared_statements;0;Broken test suite" )
 	disabled_tests+=( "perfschema.privilege_table_io;27045;Sporadically failing test" )
+	disabled_tests+=( "plugins.auth_ed25519;0;Needs client libraries built" )
 	disabled_tests+=( "plugins.cracklib_password_check;0;False positive due to varying policies" )
 	disabled_tests+=( "plugins.two_password_validations;0;False positive due to varying policies" )
 	disabled_tests+=( "roles.acl_statistics;0;False positive due to a user count mismatch caused by previous test" )
 	disabled_tests+=( "spider.*;0;Fails with network sandbox" )
 	disabled_tests+=( "sys_vars.wsrep_on_without_provider;25625;Known to be broken" )
-	disabled_tests+=( "sysschema.v_privileges_by_table_by_level;0;Fails with network sandbox, see MDEV-36030")
 
 	if ! use latin1 ; then
 		disabled_tests+=( "funcs_1.is_columns_mysql;0;Requires USE=latin1" )
@@ -1324,8 +1327,6 @@ pkg_config() {
 	cmd=(
 		"${mysql_binary}"
 		--no-defaults
-		# Skip SSL for client connections, see bug #951865
-		--skip-ssl
 		"--socket='${socket}'"
 		-hlocalhost
 		"-e \"${sql}\""
