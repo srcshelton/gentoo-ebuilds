@@ -24,7 +24,7 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/buildah.git"
 else
 	SRC_URI="https://github.com/containers/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 arm64"
+	KEYWORDS="~amd64 ~arm64"
 fi
 
 RDEPEND="
@@ -68,7 +68,6 @@ src_prepare() {
 	local file
 	for file in \
 		btrfs_installed_tag.sh \
-		btrfs_tag.sh \
 		docs/Makefile \
 		hack/apparmor_tag.sh \
 		hack/libsubid_tag.sh \
@@ -99,10 +98,6 @@ src_prepare() {
 	#! /bin/sh
 	$(usex btrfs echo 'echo exclude_graphdriver_btrfs btrfs_noversion')
 	EOF
-
-	use test ||
-		eapply "${FILESDIR}/${PN}-1.38.0-disable-tests.patch" ||
-		die
 
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
