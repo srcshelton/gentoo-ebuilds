@@ -10,7 +10,7 @@ if [[ ${PV} == 9999 ]] ; then
 	inherit git-r3
 else
 	SRC_URI="https://www.kernel.org/pub/linux/utils/net/${PN}/${P}.tar.xz"
-	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 fi
 
 DESCRIPTION="kernel routing and traffic control utilities"
@@ -87,13 +87,6 @@ src_prepare() {
 src_configure() {
 	tc-export AR CC PKG_CONFIG
 	lto-guarantee-fat
-
-	if use amd64 || use x86; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
 
 	# This sure is ugly. Should probably move into toolchain-funcs at some point.
 	local setns
