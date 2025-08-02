@@ -13,13 +13,13 @@ if [[ ${PV} == 99999999* ]]; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/${PN}.git"
 else
 	if [[ -n "${MY_COMMIT}" ]]; then
-		SRC_URI="https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/snapshot/${MY_COMMIT}.tar.gz -> ${P}.tar.gz"
-		S="${WORKDIR}/${MY_COMMIT}"
+		SRC_URI="https://gitlab.com/kernel-firmware/linux-firmware/-/archive/${MY_COMMIT}/linux-firmware-${MY_COMMIT}.tar.bz2 -> ${P}.tar.bz2"
+		S="${WORKDIR}/${PN}-${MY_COMMIT}"
 	else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~alpha amd64 ~arm ~arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -29,7 +29,8 @@ LICENSE="GPL-2 GPL-2+ GPL-3 BSD MIT || ( MPL-1.1 GPL-2 )
 	redistributable? ( linux-fw-redistributable BSD-2 BSD BSD-4 ISC MIT )
 	unknown-license? ( all-rights-reserved )"
 SLOT="0"
-IUSE="bindist compress-xz compress-zstd deduplicate dist-kernel initramfs +redistributable unknown-license"
+# firmware_* inclusion based on deployed size under /lib/firmware/...
+IUSE="bindist compress-xz compress-zstd deduplicate dist-kernel +firmware_amd_cpu +firmware_amd_gpu +firmware_qualcomm_net +firmware_qualcomm_platform +firmware_broadcom_net +firmware_broadcom_platform +firmware_intel_gpu +firmware_intel_net +firmware_intel_platform +firmware_mediatek +firmware_marvell +firmware_netronome +firmware_nvidia_gpu +firmware_nvidia_net +firmware_nxp +firmware_realtek initramfs +redistributable unknown-license"
 REQUIRED_USE="initramfs? ( redistributable )
 	?? ( compress-xz compress-zstd )
 	savedconfig? ( !deduplicate )"
@@ -127,8 +128,8 @@ src_prepare() {
 
 	# Stub out this script to avoid errors in the live ebuild
 	cat >check_whence.py<<-EOF
-		#!/bin/sh
-		exit 0
+	#!/bin/sh
+	exit 0
 	EOF
 
 	cp "${FILESDIR}/${PN}-make-amd-ucode-img.bash" "${T}/make-amd-ucode-img" || die
@@ -318,6 +319,71 @@ src_install() {
 
 	pushd "${ED}/lib/firmware" &>/dev/null || die
 
+	if ! use firmware_amd_cpu; then
+		rm -frv amd amd-ucode amdnpu amdtee ||
+			die "Removing AMD CPU firmware failed: ${?}"
+	fi
+	if ! use firmware_amd_gpu; then
+		rm -frv amdgpu radeon ||
+			die "Removing AMD GPU firmware failed: ${?}"
+	fi
+	if ! use firmware_qualcomm_net; then
+		rm -frv ath[369]* ath1[012]k qca ||
+			die "Removing Qualcomm networking firmware failed: ${?}"
+	fi
+	if ! use firmware_qualcomm_platform; then
+		rm -frv qcom ||
+			die "Removing Qualcomm platform firmware failed: ${?}"
+	fi
+	if ! use firmware_broadcom_net; then
+		rm -frv bnx2* tigon ||
+			die "Removing Broadcom networking firmware failed: ${?}"
+	fi
+	if ! use firmware_broadcom_platform; then
+		rm -frv bcrm ||
+			die "Removing Broadcom platform firmware failed: ${?}"
+	fi
+	if ! use firmware_intel_gpu; then
+		rm -frv i915 ||
+			die "Removing Intel GPU firmware failed: ${?}"
+	fi
+	if ! use firmware_intel_net; then
+		rm -frv e100 iwlwifi* ||
+			die "Removing Intel networking firmware failed: ${?}"
+	fi
+	if ! use firmware_intel_platform; then
+		rm -frv intel qat* ||
+			die "Removing Intel platform firmware failed: ${?}"
+	fi
+	if ! use firmware_mediatek; then
+		rm -frv mediatek ||
+			die "Removing MediaTek firmware failed: ${?}"
+	fi
+	if ! use firmware_marvell; then
+		rm -frv mrvl mwl* qed ql* ||
+			die "Removing Marvell firmware failed: ${?}"
+	fi
+	if ! use firmware_netronome; then
+		rm -frv kaweth netronome ||
+			die "Removing Netronome firmware failed: ${?}"
+	fi
+	if ! use firmware_nvidia_gpu; then
+		rm -frv nvidia r128 ||
+			die "Removing NVIDIA GPUfirmware failed: ${?}"
+	fi
+	if ! use firmware_nvidia_net; then
+		rm -frv mellanox ||
+			die "Removing NVIDIA/Mellanox networking firmware failed: ${?}"
+	fi
+	if ! use firmware_nxp; then
+		rm -frv imx dpaa2 ||
+			die "Removing NXP firmware failed: ${?}"
+	fi
+	if ! use firmware_realtek; then
+		rm -frv rt* ||
+			die "Removing Realtek firmware failed: ${?}"
+	fi
+
 	# especially use !redistributable will cause some broken symlinks
 	einfo "Removing broken symlinks ..."
 	find * -xtype l -print -delete || die
@@ -440,6 +506,11 @@ pkg_preinst() {
 	# Fix 'symlink is blocked by a directory' Bug #871315
 	if has_version "<${CATEGORY}/${PN}-20220913-r2" ; then
 		rm -rf "${EROOT}"/lib/firmware/qcom/LENOVO/21BX
+	fi
+
+	# Fix 'symlink is blocked by a directory' https://bugs.gentoo.org/958268#c3
+	if has_version "<${CATEGORY}/${PN}-20250613" ; then
+		rm -rf "${EROOT}"/lib/firmware/nvidia/{ad103,ad104,ad106,ad107}
 	fi
 
 	# Make sure /boot is available if needed.
