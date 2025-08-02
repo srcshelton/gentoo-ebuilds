@@ -197,7 +197,7 @@ src_install() {
 	fperms 0750 /var/l{ib,og}/lighttpd
 
 	if use systemd; then
-		systemd_newunit "${FILESDIR}"/${PN}.service-r2 ${PN}.service
+		systemd_newunit "${FILESDIR}"/${PN}.service-r3 ${PN}.service
 	fi
 	if use tmpfiles; then
 		newtmpfiles "${FILESDIR}"/${PN}.tmpfiles.conf ${PN}.conf
