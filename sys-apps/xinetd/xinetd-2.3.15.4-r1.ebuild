@@ -1,4 +1,4 @@
-# Copyright 1999-2022 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -44,6 +44,9 @@ src_prepare() {
 }
 
 src_configure() {
+	# bug #943856
+	append-cflags -std=gnu17
+
 	econf \
 		$(use_with tcpd libwrap) \
 		$(use_with selinux labeled-networking) \
