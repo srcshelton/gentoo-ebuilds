@@ -1,0 +1,8 @@
+
+# Enable the use of, e.g.,
+#
+#   FIRMWARE='-amd_gpu' emerge sys-kernel/linux-firmware
+#
+USE_EXPAND='firmware'
+
+# vi: set syntax=conf:
