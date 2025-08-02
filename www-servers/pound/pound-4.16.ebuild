@@ -1,9 +1,7 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-
-inherit autotools
 
 DESCRIPTION="An HTTP/HTTPS reverse-proxy and load-balancer"
 HOMEPAGE="https://github.com/graygnuorg/pound"
@@ -11,36 +9,43 @@ SRC_URI="https://github.com/graygnuorg/pound/releases/download/v${PV}/${P}.tar.g
 
 LICENSE="GPL-3+"
 SLOT="0"
-KEYWORDS="amd64 ~hppa ~ppc x86"
+KEYWORDS="~amd64 ~hppa ~x86"
+IUSE="tcmalloc test"
 
-RESTRICT="mirror"
+RESTRICT="mirror
+	!test? ( test )"
 
 DEPEND="
 	acct-group/nogroup
 	acct-user/nobody
 	dev-libs/libpcre2:=
 	dev-libs/openssl:=
+	tcmalloc? ( dev-util/google-perftools )
 "
 RDEPEND="
 	${DEPEND}
 	virtual/libcrypt:=
 "
-
-QA_CONFIG_IMPL_DECL_SKIP=(
-	PCRE2regcomp	# Detecting broken Debian patched PCRE2
-)
-
-src_prepare() {
-	default
-	eautoreconf
-}
+BDEPEND="
+	test? (
+		dev-lang/perl
+		dev-perl/IO-FDPass
+		dev-perl/IO-Socket-SSL
+		dev-perl/JSON
+		dev-perl/Net-SSLeay
+	)
+"
 
 src_configure() {
 	local myconf=(
+		--disable-dynamic-backends
+		--disable-hoard
+		--enable-pcre
+		$(use_enable tcmalloc)
 		--with-owner=nobody
 		--with-group=nogroup
 	)
-	econf ${myconf[@]}
+	econf "${myconf[@]}"
 }
 
 src_install() {
