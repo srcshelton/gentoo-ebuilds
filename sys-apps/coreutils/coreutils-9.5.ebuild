@@ -282,16 +282,20 @@ src_install() {
 		dodir /bin
 
 		# Move critical binaries into /bin (required by FHS)
-		local fhs="cat chgrp chmod chown cp date dd df echo false ln ls
+		local fhs="
+			cat chgrp chmod chown cp date dd df echo false ln ls
 			mkdir mknod mv pwd rm rmdir stty sync true uname
 			$(usev hostname) $(usev kill)"
 
 		# Required by (at least) /etc/init.d/device-mapper
 		fhs+=" uniq md5sum"
+		# Required by (at least) /etc/init.d/cgroups
+		fhs+=" nproc"
 		mv ${fhs} ../../bin/ || die "Could not move essential binaries from /usr/bin to /bin"
 
 		# Move critical binaries into /bin (common scripts)
-		local com="basename chroot cut dir dirname du env expr head mkfifo
+		local com="
+			basename chroot cut dir dirname du env expr head mkfifo
 			mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 		mv ${com} ../../bin/ || die "Could not move common binaries from /usr/bin to /bin"
 
