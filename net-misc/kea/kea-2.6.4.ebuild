@@ -8,7 +8,7 @@ MY_PV="${MY_PV/_/-}"
 MY_P="${PN}-${MY_PV}"
 
 PYTHON_COMPAT=( python3_{11..14} )
-inherit autotools eapi9-ver flag-o-matic python-r1 systemd tmpfiles
+inherit autotools eapi9-ver flag-o-matic python-r1 systemd tmpfiles toolchain-funcs
 
 DESCRIPTION="High-performance production grade DHCPv4 & DHCPv6 server"
 HOMEPAGE="https://www.isc.org/kea/"
@@ -185,6 +185,21 @@ src_test() {
 		# conditional tests for PgSQL
 		Dhcpv*SrvTest.checkConfigFiles
 	)
+
+	if [ $(tc-get-ptr-size) -eq 4 ]; then
+		# see https://bugs.gentoo.org/958171 for reason for skipping these tests
+		GTEST_SKIP_TESTS+=(
+			BigintTest.int128
+			BigintTest.uint128
+			ThreadPoolTest.wait
+			LibDhcpTest.splitOptionNoBufferMultiThreading
+			LibDhcpTest.splitOptionOneByteLeftBufferMultiThreading
+			LibDhcpTest.splitOptionWithSuboptionAtLimitMultiThreading
+			LibDhcpTest.splitLongOptionMultiThreading
+			LibDhcpTest.splitOptionWithSuboptionWhichOverflowMultiThreading
+			LibDhcpTest.splitLongOptionWithLongSuboptionMultiThreading
+		)
+	fi
 
 	local -x GTEST_FILTER
 	[[ -n ${GTEST_SKIP_TESTS[*]} ]] && GTEST_FILTER+="-$( IFS=':'; echo "${GTEST_SKIP_TESTS[*]}")"
