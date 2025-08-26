@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -25,8 +25,10 @@ BDEPEND="
 	${COMMON_DEPEND}
 	virtual/perl-ExtUtils-MakeMaker
 	test? (
+		app-misc/ca-certificates
+		dev-perl/Net-SSLeay
 		>=dev-perl/Test-Needs-0.2.10
-		virtual/perl-Test-Simple
 		dev-perl/Test-RequiresInternet
+		virtual/perl-Test-Simple
 	)
 "
