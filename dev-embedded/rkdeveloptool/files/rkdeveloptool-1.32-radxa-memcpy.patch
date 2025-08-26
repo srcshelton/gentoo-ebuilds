@@ -1,0 +1,36 @@
+From 6f33a584510fed4fffe997dd4c52a5215add646e Mon Sep 17 00:00:00 2001
+From: Stephen Chen <stephen@radxa.com>
+Date: Thu, 22 Sep 2022 16:14:41 +0800
+Subject: [PATCH] fix compilation error
+
+Error log:
+  main.cpp: In function ?bool _Z9mergeBootv.part.0()?:
+  main.cpp:1493:36: error: ?%s? directive output may be truncated writing up to 557 bytes into a region of size 5 [-Werror=format-truncation=]
+   1493 |  snprintf(buffer, sizeof(buffer), "%s", chip);
+      |                                    ^~
+  ......
+   1534 |   chipType = convertChipType(chip + 2);
+      |              ~~~~~~~~~~~~~~~~~~~~~~~~~
+  main.cpp:1493:10: note: ?snprintf? output between 1 and 558 bytes into a destination of size 5
+   1493 |  snprintf(buffer, sizeof(buffer), "%s", chip);
+      |  ~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  cc1plus: all warnings being treated as errors
+
+Signed-off-by: Stephen Chen <stephen@radxa.com>
+---
+ main.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/main.cpp b/main.cpp
+index 72bd94b..800db0b 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -1490,7 +1490,7 @@ static bool saveEntry(FILE* outFile, char* path, rk_entry_type type,
+ static inline uint32_t convertChipType(const char* chip) {
+ 	char buffer[5];
+ 	memset(buffer, 0, sizeof(buffer));
+-	snprintf(buffer, sizeof(buffer), "%s", chip);
++	memcpy(buffer, chip, 4);
+ 	return buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[3];
+ }
+ 
