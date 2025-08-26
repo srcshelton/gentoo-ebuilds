@@ -6,7 +6,7 @@ EAPI=8
 LLVM_COMPAT=( 19 )
 PYTHON_COMPAT=( python3_{11..13} )
 
-RUST_PATCH_VER=${PVR}
+RUST_PATCH_VER="${PVR}-1"
 
 RUST_MAX_VER=${PV%%_*}
 if [[ ${PV} == *9999* ]]; then
@@ -85,7 +85,7 @@ fi
 LLVM_DEPEND=()
 # splitting usedeps needed to avoid CI/pkgcheck's UncheckableDep limitation
 for _x in "${ALL_LLVM_TARGETS[@]}"; do
-	LLVM_DEPEND+=( "	${_x}? ( $(llvm_gen_dep "llvm-core/llvm:\${LLVM_SLOT}[${_x}]") )" )
+	LLVM_DEPEND+=( "	${_x}? ( $(llvm_gen_dep "llvm-core/llvm:\${LLVM_SLOT}[${_x}=]") )" )
 	if [[ -v ALL_RUST_EXPERIMENTAL_TARGETS["${_x}"] ]] ; then
 		ALL_RUST_EXPERIMENTAL_TARGETS["${_x}"]=1
 	fi
@@ -311,6 +311,8 @@ src_prepare() {
 		${CARGO} generate-lockfile --offline || die "Failed to generate lockfiles"
 	fi
 
+	# Commit patches to the appropriate branch in proj/rust-patches.git
+	# then cut a new tag / tarball. Don't add patches to ${FILESDIR}
 	PATCHES=(
 		"${WORKDIR}/rust-patches-${RUST_PATCH_VER}/"
 	)
@@ -320,8 +322,6 @@ src_prepare() {
 	fi
 
 	default
-
-	eapply "${FILESDIR}"/rust-1.86.0-issue-139372-bgo-953956-fix-hardcoded-gnu-linker-flags.patch
 }
 
 src_configure() {
