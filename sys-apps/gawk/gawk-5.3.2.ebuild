@@ -34,10 +34,11 @@ fi
 
 LICENSE="GPL-3+"
 SLOT="0"
-# While tempting to enable mpfr by default as e.g. Fedora do, as of 5.2.x,
-# MPFR support is "on parole" and may be removed:
-# https://www.gnu.org/software/gawk/manual/html_node/MPFR-On-Parole.html.
-IUSE="-compat mpfr nls pma readline split-usr"
+# The gawk docs claim MPFR support is "on parole" and may be removed,
+# https://www.gnu.org/software/gawk/manual/html_node/MPFR-On-Parole.html
+# however this is somewhat outdated information, see
+# https://public-inbox.org/libc-alpha/202412190851.4BJ8psq4404509@freefriends.org/
+IUSE="-compat +mpfr nls pma readline split-usr"
 REQUIRED_USE="compat? ( split-usr )"
 
 RDEPEND="
@@ -86,13 +87,6 @@ src_configure() {
 	# We already BDEPEND on Bison, so just unset YACC rather than
 	# guessing if we need to do yacc.bison or bison -y.
 	unset YACC
-
-	if use amd64 || use x86 || use amd64-linux || use x86-linux; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
 
 	local myeconfargs=(
 		--cache-file="${S}"/config.cache
