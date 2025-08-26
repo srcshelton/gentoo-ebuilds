@@ -9,7 +9,7 @@ PHP_EXT_NEEDED_USE="session(-)?"
 DOCS=( README example.php )
 HTML_DOCS=( memcache.php )
 
-USE_PHP="php8-1 php8-2"
+USE_PHP="php8-1 php8-2 php8-3"
 
 inherit php-ext-pecl-r3
 
