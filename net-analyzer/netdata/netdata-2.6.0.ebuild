@@ -319,6 +319,11 @@ src_prepare() {
 	sed -e 's/JSON-C/dlib/g' \
 		-i packaging/cmake/Modules/NetdataDlib.cmake || die
 
+	# See https://github.com/netdata/netdata/issues/20738
+	filter-flags -ffast-math
+	replace-flags -Ofast -O3
+	append-flags -fno-fast-math
+
 	# Awkwardly, if we want to avoid a configure-time failure or having to
 	# disable sandboxing and run 'git' against an internet repo, we need to
 	# have netdata's fork of libbpf already built and available within the main
