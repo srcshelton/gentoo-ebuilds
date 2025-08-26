@@ -1241,6 +1241,8 @@ toolchain_setup_d() {
 toolchain_src_configure() {
 	BUILD_CONFIG_TARGETS=()
 	is-flagq '-O3' && BUILD_CONFIG_TARGETS+=( bootstrap-O3 )
+	is-flagq '-fsanitize=address' && BUILD_CONFIG_TARGETS+=( bootstrap-asan )
+	is-flagq '-fsanitize=undefined' && BUILD_CONFIG_TARGETS+=( bootstrap-ubsan )
 
 	downgrade_arch_flags
 	gcc_do_filter_flags
@@ -1638,7 +1640,7 @@ toolchain_src_configure() {
 			# If they've explicitly opt-ed in, do hardfloat,
 			# otherwise let the gcc default kick in.
 			case ${CTARGET//_/-} in
-				*-hardfloat-*|*eabihf)
+				*-hardfloat-*|*eabihf*)
 					confgcc+=( --with-float=hard )
 				;;
 			esac
@@ -2220,7 +2222,7 @@ gcc_do_filter_flags() {
 	fi
 
 	if ver_test -lt 16.1 ; then
-		filter-flags -fdiagnostics-details
+		filter-flags '-fdiagnostics-show-context=*'
 	fi
 
 	# Ada: PR116226
