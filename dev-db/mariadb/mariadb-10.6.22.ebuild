@@ -6,13 +6,14 @@ EAPI=8
 SUBSLOT="18"
 JAVA_PKG_OPT_USE="jdbc"
 
-inherit cmake eapi9-ver flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
+inherit cmake flag-o-matic java-pkg-opt-2 multiprocessing prefix systemd toolchain-funcs
 
 DESCRIPTION="An enhanced, drop-in replacement for MySQL"
 HOMEPAGE="https://mariadb.org/"
 SRC_URI="
 	mirror://mariadb/${P}/source/${P}.tar.gz
-	https://dev.gentoo.org/~arkamar/distfiles/${PN}-11.4.7-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6.20-patches-01.tar.xz
+	https://dev.gentoo.org/~arkamar/distfiles/${PN}-10.6-columnstore-with-boost-1.85.patch.xz
 "
 # Shorten the path because the socket path length must be shorter than 107 chars
 # and we will run a mysql server during test phase
@@ -21,7 +22,7 @@ S="${WORKDIR}/mysql"
 LICENSE="GPL-2 LGPL-2.1+"
 SLOT="$(ver_cut 1-2)/${SUBSLOT:-0}"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ppc ppc64 ~riscv ~s390 x86"
-IUSE="+backup bindist columnstore cracklib debug extraengine galera -hashicorp innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
+IUSE="+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl"
 
 RESTRICT="!bindist? ( bindist ) !test? ( test )"
 
@@ -33,7 +34,6 @@ REQUIRED_USE="jdbc? ( extraengine server !static )
 # Be warned, *DEPEND are version-dependant
 # These are used for both runtime and compiletime
 COMMON_DEPEND="
-	dev-libs/libfmt:=
 	>=dev-libs/libpcre2-10.34:=
 	sys-libs/ncurses:0=
 	>=sys-libs/zlib-1.2.3:0=
@@ -54,18 +54,16 @@ COMMON_DEPEND="
 			app-arch/snappy:=
 			dev-libs/boost:=
 			dev-libs/libxml2:2=
-			dev-libs/thrift:=
 		)
 		cracklib? ( sys-libs/cracklib:0= )
 		extraengine? (
 			odbc? ( dev-db/unixODBC:0= )
 			xml? ( dev-libs/libxml2:2= )
 		)
-		hashicorp? ( net-misc/curl )
 		innodb-bzip2? ( app-arch/bzip2 )
 		innodb-lz4? ( app-arch/lz4 )
 		innodb-lzma? ( app-arch/xz-utils )
-		innodb-lzo? ( dev-libs/lzo:2 )
+		innodb-lzo? ( dev-libs/lzo )
 		innodb-snappy? ( app-arch/snappy:= )
 		kernel_linux? ( sys-libs/liburing:= )
 		mroonga? ( app-text/groonga-normalizer-mysql >=app-text/groonga-7.0.4 )
@@ -85,28 +83,24 @@ COMMON_DEPEND="
 		>=dev-libs/openssl-1.0.0:0=
 	)
 "
-BDEPEND="
-	app-alternatives/yacc
-	>=sys-apps/texinfo-4.7-r1
-	test? (
-		acct-group/mysql
-		acct-user/mysql
-		dev-perl/Net-SSLeay
-		virtual/perl-Getopt-Long
-	)
-"
+BDEPEND="app-alternatives/yacc
+	>=sys-apps/texinfo-4.7-r1"
 DEPEND="${COMMON_DEPEND}
 	server? (
 		extraengine? ( jdbc? ( >=virtual/jdk-1.8 ) )
+		test? ( acct-group/mysql acct-user/mysql )
 	)
 	static? ( sys-libs/ncurses[static-libs] )
 "
 RDEPEND="${COMMON_DEPEND}
-	!dev-db/mysql !dev-db/percona-server
+	!dev-db/mysql !dev-db/mariadb-galera !dev-db/percona-server !dev-db/mysql-cluster
+	!dev-db/mariadb:0
+	!dev-db/mariadb:5.5
+	!dev-db/mariadb:10.1
+	!dev-db/mariadb:10.2
 	!dev-db/mariadb:10.3
 	!dev-db/mariadb:10.4
 	!dev-db/mariadb:10.5
-	!dev-db/mariadb:10.6
 	!dev-db/mariadb:10.7
 	!dev-db/mariadb:10.8
 	!dev-db/mariadb:10.9
@@ -116,9 +110,15 @@ RDEPEND="${COMMON_DEPEND}
 	!dev-db/mariadb:11.1
 	!dev-db/mariadb:11.2
 	!dev-db/mariadb:11.3
+	!dev-db/mariadb:11.4
+	!<virtual/mysql-5.6-r11
+	!<virtual/libmysqlclient-18-r1
 	selinux? ( sec-policy/selinux-mysql )
 	server? (
-		columnstore? ( dev-db/mariadb-connector-c )
+		columnstore? (
+			dev-db/mariadb-connector-c
+			!dev-libs/thrift
+		)
 		extraengine? ( jdbc? ( >=virtual/jre-1.8 ) )
 		galera? (
 			sys-apps/iproute2
@@ -126,16 +126,18 @@ RDEPEND="${COMMON_DEPEND}
 			sst-rsync? ( sys-process/lsof )
 			sst-mariabackup? ( net-misc/socat[ssl] )
 		)
-		!prefix? (
-			acct-group/mysql
-			acct-user/mysql
-			dev-db/mysql-init-scripts
-		)
+		!prefix? ( dev-db/mysql-init-scripts acct-group/mysql acct-user/mysql )
 	)
 "
 # For other stuff to bring us in
 # dev-perl/DBD-MariaDB is needed by some scripts installed by MySQL
 PDEPEND="perl? ( dev-perl/DBD-MariaDB )"
+
+QA_CONFIG_IMPL_DECL_SKIP=(
+	# These don't exist on Linux
+	pthread_threadid_np
+	getthrid
+)
 
 mysql_init_vars() {
 	MY_SHAREDSTATEDIR=${MY_SHAREDSTATEDIR="${EPREFIX}/usr/share/mariadb"}
@@ -219,37 +221,16 @@ src_prepare() {
 	eapply "${WORKDIR}"/mariadb-patches
 	eapply "${FILESDIR}"/${PN}-10.6.11-gssapi.patch
 	eapply "${FILESDIR}"/${PN}-10.6.12-gcc-13.patch
-	eapply "${FILESDIR}"/${PN}-11.4.7-gcc-16.patch
+	eapply "${WORKDIR}"/${PN}-10.6-columnstore-with-boost-1.85.patch
+	eapply "${FILESDIR}"/${PN}-10.6.21-debug.patch
 
 	eapply_user
 
 	_disable_plugin() {
-		local plugin="${1}"
-
-		if [[ -d "${S}/plugin/${plugin}" && -s "${S}/plugin/${plugin}/CMakeLists.txt" ]]; then
-			echo > "${S}/plugin/${plugin}/CMakeLists.txt" || die
-		else
-			eerror "plugin '${plugin}' does not exist in '${S}/plugin'"
-			ewarn "Available plugins:"
-			ls -1d "${S}/plugin/*/" | while read -r plugin; do
-				ewarn "  ${plugin%/}"
-			done
-			die "plugin '${plugin}' does not exist in '${S}/plugin'"
-		fi
+		echo > "${S}/plugin/${1}/CMakeLists.txt" || die
 	}
 	_disable_engine() {
-		local engine="${1}"
-
-		if [[ -d "${S}/storage/${engine}" && -s "${S}/storage/${engine}/CMakeLists.txt" ]]; then
-			echo > "${S}/storage/${engine}/CMakeLists.txt" || die
-		else
-			eerror "engine '${engine}' does not exist in '${S}/storage'"
-			ewarn "Available engines:"
-			ls -1d "${S}/storage/*/" | while read -r engine; do
-				ewarn "  ${engine%/}"
-			done
-			die "engine '${engine}' does not exist in '${S}/storage'"
-		fi
+		echo > "${S}/storage/${1}/CMakeLists.txt" || die
 	}
 
 	if use jemalloc; then
@@ -258,25 +239,11 @@ src_prepare() {
 		echo "TARGET_LINK_LIBRARIES(mariadbd LINK_PUBLIC tcmalloc)" >> "${S}/sql/CMakeLists.txt"
 	fi
 
-	local plugin=''
-	local -a disable_plugins=() server_plugins=() test_plugins=()
-	if ! use hashicorp; then
-		disable_plugins=(
-			# Requires libcurl
-			hashicorp_key_management
-		)
-	fi
-	server_plugins=(
-		handler_socket auth_socket feedback metadata_lock_info
-		locale_info qc_info server_audit sql_errlog auth_ed25519
-	)
-	test_plugins=(
-		audit_null auth_examples daemon_example fulltext
-		debug_key_management example_key_management versioning
-	)
-	for plugin in "${disable_plugins[@]}" ; do
-		_disable_plugin "${plugin}"
-	done
+	local plugin
+	local server_plugins=( handler_socket auth_socket feedback metadata_lock_info
+				locale_info qc_info server_audit sql_errlog auth_ed25519 )
+	local test_plugins=( audit_null auth_examples daemon_example fulltext
+				debug_key_management example_key_management versioning )
 	if ! use server; then # These plugins are for the server
 		for plugin in "${server_plugins[@]}" ; do
 			_disable_plugin "${plugin}"
@@ -327,6 +294,8 @@ src_configure() {
 	filter-lto
 	# bug 508724 mariadb cannot use ld.gold
 	tc-ld-is-gold && tc-ld-force-bfd
+	# Bug #114895, bug #110149
+	filter-flags "-O" "-O[01]"
 
 	use elibc_musl && append-flags -D_LARGEFILE64_SOURCE
 
@@ -344,6 +313,8 @@ src_configure() {
 	# x32 trips over unsigned int* -> long unsigned int* in lzo/lzo1x.h :(
 	#use abi_x86_x32 &&
 	#	append-cxxflags -fpermissive
+
+	CMAKE_BUILD_TYPE="RelWithDebInfo"
 
 	# debug hack wrt #497532
 	local mycmakeargs=(
@@ -367,8 +338,6 @@ src_configure() {
 		-DWITH_COMMENT="Gentoo Linux ${PF}"
 		-DWITH_UNIT_TESTS=$(usex test ON OFF)
 		-DWITH_LIBEDIT=0
-		-DWITH_LIBFMT=system
-		-DWITH_THRIFT=system # for columnstore
 		-DWITH_ZLIB=system
 		-DWITHOUT_LIBWRAP=1
 		-DENABLED_LOCAL_INFILE=1
@@ -388,12 +357,11 @@ src_configure() {
 		-DSUFFIX_INSTALL_DIR=""
 		-DWITH_UNITTEST=OFF
 		-DWITHOUT_CLIENTLIBS=YES
+		-DCLIENT_PLUGIN_DIALOG=OFF
 		-DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
-		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
-		-DCLIENT_PLUGIN_CLIENT_ED25519=$(usex test DYNAMIC OFF)
-		-DCLIENT_PLUGIN_DIALOG=$(usex test DYNAMIC OFF)
+		-DCLIENT_PLUGIN_CLIENT_ED25519=OFF
 		-DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC
-		-DCLIENT_PLUGIN_ZSTD=OFF
+		-DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=OFF
 	)
 	if use test ; then
 		mycmakeargs+=( -DINSTALL_MYSQLTESTDIR=share/mariadb/mysql-test )
@@ -629,12 +597,12 @@ src_test() {
 	disabled_tests+=( "perfschema.nesting;23458;Known to be broken" )
 	disabled_tests+=( "perfschema.prepared_statements;0;Broken test suite" )
 	disabled_tests+=( "perfschema.privilege_table_io;27045;Sporadically failing test" )
+	disabled_tests+=( "plugins.auth_ed25519;0;Needs client libraries built" )
 	disabled_tests+=( "plugins.cracklib_password_check;0;False positive due to varying policies" )
 	disabled_tests+=( "plugins.two_password_validations;0;False positive due to varying policies" )
 	disabled_tests+=( "roles.acl_statistics;0;False positive due to a user count mismatch caused by previous test" )
 	disabled_tests+=( "spider.*;0;Fails with network sandbox" )
 	disabled_tests+=( "sys_vars.wsrep_on_without_provider;25625;Known to be broken" )
-	disabled_tests+=( "sysschema.v_privileges_by_table_by_level;0;Fails with network sandbox, see MDEV-36030")
 
 	if ! use latin1 ; then
 		disabled_tests+=( "funcs_1.is_columns_mysql;0;Requires USE=latin1" )
@@ -805,7 +773,7 @@ pkg_postinst() {
 			einfo
 			elog "This install includes the PAM authentication plugin."
 			elog "To activate and configure the PAM plugin, please read:"
-			elog "https://mariadb.com/kb/en/mariadb/pam-authentication-plugin/"
+			elog "https://mariadb.com/docs/server/reference/plugins/authentication-plugins/authentication-with-pluggable-authentication-modules-pam/authentication-plugin-pam"
 			einfo
 			chown mysql:mysql "${EROOT}/usr/$(get_libdir)/mariadb/plugin/auth_pam_tool_dir" || die
 		fi
@@ -834,11 +802,6 @@ pkg_postinst() {
 			elog "--wsrep-new-cluster to the options in /etc/conf.d/mysql for one node."
 			elog "This option should then be removed for subsequent starts."
 			einfo
-			if ver_replacing -lt "10.4.0" ; then
-				ewarn "Upgrading galera from a previous version requires admin restart of the entire cluster."
-				ewarn "Please refer to https://mariadb.com/kb/en/library/changes-improvements-in-mariadb-104/#galera-4"
-				ewarn "for more information"
-			fi
 		fi
 	fi
 
@@ -1336,8 +1299,6 @@ pkg_config() {
 	cmd=(
 		"${mysql_binary}"
 		--no-defaults
-		# Skip SSL for client connections, see bug #951865
-		--skip-ssl
 		"--socket='${socket}'"
 		-hlocalhost
 		"-e \"${sql}\""
