@@ -338,6 +338,9 @@ src_configure() {
 	#use abi_x86_x32 &&
 	#	append-cxxflags -fpermissive
 
+	# Workaround for bug #959423 (https://jira.mariadb.org/browse/MDEV-37148)
+	append-flags -fno-tree-vectorize
+
 	# debug hack wrt #497532
 	local mycmakeargs=(
 		-DCMAKE_C_FLAGS_RELWITHDEBINFO="$(usex debug '' '-DNDEBUG')"

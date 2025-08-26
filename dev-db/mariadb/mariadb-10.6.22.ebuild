@@ -314,6 +314,9 @@ src_configure() {
 	#use abi_x86_x32 &&
 	#	append-cxxflags -fpermissive
 
+	# Workaround for bug #959423 (https://jira.mariadb.org/browse/MDEV-37148)
+	append-flags -fno-tree-vectorize
+
 	CMAKE_BUILD_TYPE="RelWithDebInfo"
 
 	# debug hack wrt #497532
