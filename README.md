@@ -227,6 +227,7 @@ used to build perl)
     * git live ebuild for usbmuxd binaries
 
 # ~~PHP 7.x compatible ebuilds~~
+
 * ~~dev-php/pecl-memcache~~
     * ~~'`--php_targets_php7-0`' must currently be added to `/etc/portage/profile/use.mask`~~
 
@@ -708,6 +709,8 @@ used to build perl)
     * Incorporate patch to allow apcupsd to be bulit against recent SNMP headers;
     * Correct SNMP patch failure of version 3.14.12, make exposed configuration options more flexible;
     * Provide more flexibility with finer-grained USE-flags
+* sys-power/cpupower
+    * Update to match version of latest kernel release
 * sys-power/iasl
     * Fix paths in ebuild and make build documentation optional
 * sys-process/btop
