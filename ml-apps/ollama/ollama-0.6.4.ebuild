@@ -63,7 +63,7 @@ DEPEND="
 "
 
 BDEPEND="
-	>=dev-build/cmake-3.21
+	>=dev-build/cmake-3.31.2
 	>=dev-lang/go-1.24.0
 "
 

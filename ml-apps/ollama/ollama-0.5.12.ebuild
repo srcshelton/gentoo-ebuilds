@@ -4,7 +4,7 @@
 EAPI=8
 
 GO_VENDOR_VERSION="${PV}"
-ROCM_VERSION=6.3.2
+ROCM_VERSION=6.1.2
 inherit cmake cuda flag-o-matic go-module rocm systemd toolchain-funcs
 
 DESCRIPTION="Get up and running with Llama 3, Mistral, Gemma, and other language models."
@@ -63,7 +63,7 @@ DEPEND="
 "
 
 BDEPEND="
-	>=dev-build/cmake-3.21
+	>=dev-build/cmake-3.31.2
 	>=dev-lang/go-1.23.4
 "
 
