@@ -984,6 +984,10 @@ x32 profiles, and that these variables only affect multilib systems.
 * sys-process/audit
     * Add `zos` USE-flag to prevent building of z/OS-specific `zos-remote` plugin and tools, with many non-root library dependencies
 
+# Binaries which need to be present on the root filesystem in order to boot successfully
+
+* sys-apps/dmidecode
+
 # Make systemd unit installation or additional resources optional
 
 * app-admin/logrotate
