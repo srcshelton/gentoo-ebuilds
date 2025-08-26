@@ -12,7 +12,7 @@ TMPFILES_OPTIONAL=1
 EMULTILIB_PKG="true"
 
 # Gentoo patchset (ignored for live ebuilds)
-PATCH_VER="6"
+PATCH_VER="11"
 PATCH_DEV="dilfridge"
 
 # Clear Linux patchset
@@ -35,7 +35,7 @@ MIN_PAX_UTILS_VER="1.3.3"
 # its seccomp filter!). Please double check this!
 MIN_SYSTEMD_VER="254.9-r1"
 
-inherit eapi9-ver flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
+inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
 
 DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
@@ -126,7 +126,6 @@ BDEPEND="
 	test? (
 		dev-lang/perl
 		>=net-dns/libidn2-2.3.0
-		sys-apps/gawk[mpfr]
 	)
 "
 COMMON_DEPEND="
@@ -173,7 +172,7 @@ else
 	#"
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
-		!minimal? ( >=net-dns/libidn2-2.3.0 )
+		>=net-dns/libidn2-2.3.0
 		timezone-tools? ( !sys-libs/timezone-data )
 	"
 	PDEPEND+=" !timezone-tools? ( sys-libs/timezone-data )"
@@ -198,7 +197,6 @@ XFAIL_TEST_LIST=(
 
 	# Fails with certain PORTAGE_NICENESS/PORTAGE_SCHEDULING_POLICY
 	tst-sched1
-	tst-sched_setattr
 
 	# Fails regularly, unreliable
 	tst-valgrind-smoke
@@ -212,7 +210,6 @@ XFAIL_NSPAWN_TEST_LIST=(
 	# upstream, as systemd-nspawn's default seccomp whitelist is too strict.
 	# https://sourceware.org/PR30603
 	test-errno-linux
-	tst-aarch64-pkey
 	tst-bz21269
 	tst-mlock2
 	tst-ntp_gettime
@@ -311,13 +308,9 @@ do_run_test() {
 		# ignore build failures when installing a binary package #324685
 		do_compile_test "" "$@" 2>/dev/null || return 0
 	else
-		ebegin "Performing simple compile test for ABI=${ABI}"
 		if ! do_compile_test "" "$@" ; then
 			ewarn "Simple build failed ... assuming this is desired #324685"
-			eend 1
 			return 0
-		else
-			eend 0
 		fi
 	fi
 
@@ -510,6 +503,10 @@ setup_flags() {
 	#  include/libc-symbols.h:75:3: #error "glibc cannot be compiled without optimization"
 	# https://sourceware.org/glibc/wiki/FAQ#Why_do_I_get:.60.23error_.22glibc_cannot_be_compiled_without_optimization.22.27.2C_when_trying_to_compile_GNU_libc_with_GNU_CC.3F
 	replace-flags -O0 -O1
+
+	# glibc handles this internally already where it's appropriate;
+	# can't always have SSP when we're the ones setting it up, etc
+	filter-flags '-fstack-protector*'
 
 	# Similar issues as with SSP. Can't inject yourself that early.
 	filter-flags '-fsanitize=*'
@@ -916,12 +913,16 @@ upgrade_warning() {
 
 	if [[ ${MERGE_TYPE} != buildonly && -n ${REPLACING_VERSIONS} ]]; then
 		if [[ -z "${ROOT:-}" || "${ROOT}" == '/' ]]; then
-			if ver_replacing -lt $(ver_cut 1-2 ${MY_PV}); then
-				ewarn "After upgrading glibc, please restart all running processes."
-				ewarn "Be sure to include init (telinit u) or systemd (systemctl daemon-reexec)."
-				ewarn "Alternatively, reboot your system."
-				ewarn "(See bug #660556, bug #741116, bug #823756, etc)"
-			fi
+			local oldv newv=$(ver_cut 1-2 ${MY_PV})
+			for oldv in ${REPLACING_VERSIONS}; do
+				if ver_test ${oldv} -lt ${newv}; then
+					ewarn "After upgrading glibc, please restart all running processes."
+					ewarn "Be sure to include init (telinit u) or systemd (systemctl daemon-reexec)."
+					ewarn "Alternatively, reboot your system."
+					ewarn "(See bug #660556, bug #741116, bug #823756, etc)"
+					break
+				fi
+			done
 		fi
 	fi
 }
@@ -949,18 +950,12 @@ src_unpack() {
 	use multilib-bootstrap && unpack gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz
 
 	if [[ ${MY_PV} == 9999* ]] ; then
-		EGIT_REPO_URI="
-			https://anongit.gentoo.org/git/proj/toolchain/glibc-patches.git
-			https://github.com/gentoo/glibc-patches.git
-		"
+		EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/toolchain/glibc-patches.git"
 		EGIT_CHECKOUT_DIR=${WORKDIR}/patches-git
 		git-r3_src_unpack
 		mv patches-git/9999 patches || die
-		EGIT_REPO_URI="
-			https://sourceware.org/git/glibc.git
-			https://git.sr.ht/~sourceware/glibc
-			https://gitlab.com/x86-glibc/glibc.git
-		"
+
+		EGIT_REPO_URI="https://sourceware.org/git/glibc.git"
 		EGIT_CHECKOUT_DIR=${S}
 		git-r3_src_unpack
 	else
@@ -997,7 +992,7 @@ src_prepare() {
 		einfo "Gentoo Glibc patchset ${patchsetname} done"
 
 		# Apply additional Clear Linux patches, if present...
-		# (%patch1 brings gcc from 2.41 release to the latest patch release)
+		# (%patch1 brings gcc from 2.40 release to the latest patch release)
 		d="${WORKDIR}/${MY_P}-${CLEAR_PATCH_VER}"
 		if [[ -d "${d}" ]]; then
 			einfo "Applying Clear Linux patches from '${d#"${WORKDIR%/}/"}' ..."
@@ -1039,13 +1034,6 @@ src_prepare() {
 		unset line f d
 	fi
 
-	case "${CTARGET}" in
-		m68*-aligned-*)
-			einfo "Applying utmp format fix for m68k with -maligned-int"
-			eapply "${FILESDIR}/glibc-2.41-m68k-malign.patch"
-			;;
-	esac
-
 	default
 
 	gnuconfig_update
@@ -1058,7 +1046,7 @@ src_prepare() {
 
 	cd "${S}" || die
 
-	eapply "${FILESDIR}/${PN}-2.41-ldd.bash.in.patch" || die
+	eapply "${FILESDIR}/${PN}-2.39-ldd.bash.in.patch" || die
 
 	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
@@ -1561,10 +1549,8 @@ run_locale_gen() {
 }
 
 glibc_do_src_install() {
-	local builddir="$(builddir nptl)"
-	local binary=''
-
-	cd "${builddir}" || die
+	local builddir=$(builddir nptl)
+	cd "${builddir}"
 
 	emake install_root="${D%/}/$(build_eprefix)$(alt_prefix)" install || die
 
@@ -1776,11 +1762,9 @@ glibc_do_src_install() {
 		use tmpfiles && newtmpfiles nscd/nscd.tmpfiles nscd.conf
 	fi
 
-	# Make key binaries available during system boot...
+	# Make getent available during system boot...
 	dodir /bin
-	for binary in getconf getent; do
-		mv "${ED}/usr/bin/${binary}" "${ED}"/bin/ || die
-	done
+	mv "${ED}"/usr/bin/getent "${ED}"/bin/ || die
 
 	echo 'LDPATH="include ld.so.conf.d/*.conf"' > "${T}"/00glibc
 	doenvd "${T}"/00glibc
@@ -1956,7 +1940,7 @@ pkg_postinst() {
 		# must refresh it. See bug #933282 and GCC's documentation:
 		# https://gcc.gnu.org/onlinedocs/gcc/Fixed-Headers.html
 		#
-		# TODO: Could this be done for cross? Some care would be needed to
+		# TODO: Could this be done for non-cross? Some care would be needed to
 		# pass the right arguments.
 		while IFS= read -r -d $'\0' slot ; do
 			local mkheaders_path="${BROOT}"/usr/libexec/gcc/${CBUILD}/${slot##*/}/install-tools/mkheaders

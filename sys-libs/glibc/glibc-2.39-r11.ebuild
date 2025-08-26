@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -6,23 +6,20 @@ EAPI=8
 # Bumping notes: https://wiki.gentoo.org/wiki/Project:Toolchain/sys-libs/glibc
 # Please read & adapt the page as necessary if obsolete.
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{10..12} )
 TMPFILES_OPTIONAL=1
 
 EMULTILIB_PKG="true"
 
 # Gentoo patchset (ignored for live ebuilds)
-PATCH_VER="6"
-PATCH_DEV="dilfridge"
-
-# Clear Linux patchset
-CLEAR_PATCH_VER="$(ver_cut 4)"
+PATCH_VER=11
+PATCH_DEV=dilfridge
 
 # gcc mulitilib bootstrap files version
-GCC_BOOTSTRAP_VER="20201208"
+GCC_BOOTSTRAP_VER=20201208
 
 # systemd integration version
-GLIBC_SYSTEMD_VER="20210729"
+GLIBC_SYSTEMD_VER=20210729
 
 # Minimum kernel version that glibc requires
 MIN_KERN_VER="3.2.0"
@@ -35,27 +32,22 @@ MIN_PAX_UTILS_VER="1.3.3"
 # its seccomp filter!). Please double check this!
 MIN_SYSTEMD_VER="254.9-r1"
 
-inherit eapi9-ver flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
+inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
 
 DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
 
-MY_PV="$(ver_cut 1-2)"
-MY_P="${PN}-${MY_PV}"
-S="${WORKDIR}/${MY_P}"
-
-if [[ ${MY_PV} == 9999* ]]; then
+if [[ ${PV} == 9999* ]]; then
 	inherit git-r3
 else
 	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
-	SRC_URI="mirror://gnu/glibc/${MY_P}.tar.xz
-		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${MY_P}-patches-${PATCH_VER}.tar.xz"
+	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
+		https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 fi
 
 SRC_URI="${SRC_URI}
 	multilib-bootstrap? ( https://dev.gentoo.org/~dilfridge/distfiles/gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz )
-	systemd? ( https://gitweb.gentoo.org/proj/toolchain/glibc-systemd.git/snapshot/glibc-systemd-${GLIBC_SYSTEMD_VER}.tar.gz )
-	https://github.com/clearlinux-pkgs/${PN}/archive/refs/tags/${MY_PV}-${CLEAR_PATCH_VER}.tar.gz -> ${MY_P}-${CLEAR_PATCH_VER}.tar.gz"
+	systemd? ( https://gitweb.gentoo.org/proj/toolchain/glibc-systemd.git/snapshot/glibc-systemd-${GLIBC_SYSTEMD_VER}.tar.gz )"
 
 LICENSE="LGPL-2.1+ BSD HPND ISC inner-net rc PCRE"
 SLOT="2.2"
@@ -126,7 +118,6 @@ BDEPEND="
 	test? (
 		dev-lang/perl
 		>=net-dns/libidn2-2.3.0
-		sys-apps/gawk[mpfr]
 	)
 "
 COMMON_DEPEND="
@@ -153,8 +144,7 @@ RDEPEND="${COMMON_DEPEND}
 	perl? ( dev-lang/perl )
 "
 
-RESTRICT="!test? ( test )
-	mirror"
+RESTRICT="!test? ( test )"
 
 if [[ ${CATEGORY} == cross-* ]] ; then
 	BDEPEND+=" !headers-only? (
@@ -163,17 +153,13 @@ if [[ ${CATEGORY} == cross-* ]] ; then
 	)"
 	[[ ${CATEGORY} == *-linux* ]] && DEPEND+=" ${CATEGORY}/linux-headers"
 else
-	# Both <sys-devel/binutils-2.27 and <sys-devel/gcc-6.2 are long
-	# tree-cleaned, and yet these dependencies are causing unresolvable
-	# circular dependencies: they should be entirely safe to remove.
-	#
-	#BDEPEND+="
-	#	>=sys-devel/binutils-2.27
-	#	>=sys-devel/gcc-6.2
-	#"
+	BDEPEND+="
+		>=sys-devel/binutils-2.27
+		>=sys-devel/gcc-6.2
+	"
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
-		!minimal? ( >=net-dns/libidn2-2.3.0 )
+		>=net-dns/libidn2-2.3.0
 		timezone-tools? ( !sys-libs/timezone-data )
 	"
 	PDEPEND+=" !timezone-tools? ( sys-libs/timezone-data )"
@@ -198,7 +184,6 @@ XFAIL_TEST_LIST=(
 
 	# Fails with certain PORTAGE_NICENESS/PORTAGE_SCHEDULING_POLICY
 	tst-sched1
-	tst-sched_setattr
 
 	# Fails regularly, unreliable
 	tst-valgrind-smoke
@@ -212,7 +197,6 @@ XFAIL_NSPAWN_TEST_LIST=(
 	# upstream, as systemd-nspawn's default seccomp whitelist is too strict.
 	# https://sourceware.org/PR30603
 	test-errno-linux
-	tst-aarch64-pkey
 	tst-bz21269
 	tst-mlock2
 	tst-ntp_gettime
@@ -270,9 +254,29 @@ build_eprefix() {
 	is_crosscompile && echo "${EPREFIX}"
 }
 
+# We need to be able to set alternative headers for compiling for non-native
+# platform. Will also become useful for testing kernel-headers without screwing
+# up the whole system.
 alt_headers() {
-	echo "$(alt_prefix)/usr/include"
+	echo ${ALT_HEADERS:=$(alt_prefix)/usr/include}
 }
+
+alt_build_headers() {
+	if [[ -z ${ALT_BUILD_HEADERS} ]] ; then
+		ALT_BUILD_HEADERS="$(host_eprefix)$(alt_headers)"
+		if tc-is-cross-compiler ; then
+			ALT_BUILD_HEADERS=${SYSROOT}$(alt_headers)
+			if [[ ! -e ${ALT_BUILD_HEADERS}/linux/version.h ]] ; then
+				local header_path=$(echo '#include <linux/version.h>' \
+					| $(tc-getCPP ${CTARGET}) ${CFLAGS} 2>&1 \
+					| grep -o '[^"]*linux/version.h')
+				ALT_BUILD_HEADERS=${header_path%/linux/version.h}
+			fi
+		fi
+	fi
+	echo "${ALT_BUILD_HEADERS}"
+}
+
 alt_libdir() {
 	echo $(alt_prefix)/$(get_libdir)
 }
@@ -311,13 +315,9 @@ do_run_test() {
 		# ignore build failures when installing a binary package #324685
 		do_compile_test "" "$@" 2>/dev/null || return 0
 	else
-		ebegin "Performing simple compile test for ABI=${ABI}"
 		if ! do_compile_test "" "$@" ; then
 			ewarn "Simple build failed ... assuming this is desired #324685"
-			eend 1
 			return 0
-		else
-			eend 0
 		fi
 	fi
 
@@ -511,6 +511,10 @@ setup_flags() {
 	# https://sourceware.org/glibc/wiki/FAQ#Why_do_I_get:.60.23error_.22glibc_cannot_be_compiled_without_optimization.22.27.2C_when_trying_to_compile_GNU_libc_with_GNU_CC.3F
 	replace-flags -O0 -O1
 
+	# glibc handles this internally already where it's appropriate;
+	# can't always have SSP when we're the ones setting it up, etc
+	filter-flags '-fstack-protector*'
+
 	# Similar issues as with SSP. Can't inject yourself that early.
 	filter-flags '-fsanitize=*'
 
@@ -631,13 +635,13 @@ setup_env() {
 		# Last, we need the settings of the *build* environment, not of the
 		# target environment...
 
-		local current_binutils_path=$(env CHOST="${CBUILD}" ROOT="${BROOT}" binutils-config -B "${CTARGET}")
+		local current_binutils_path=$(env ROOT="${BROOT}" binutils-config -B)
 		local current_gcc_path=$(env ROOT="${BROOT}" gcc-config -B)
 		einfo "Overriding clang configuration, since it won't work here"
 
-		export CC="${current_gcc_path}/${CTARGET}-gcc"
-		export CPP="${current_gcc_path}/${CTARGET}-cpp"
-		export CXX="${current_gcc_path}/${CTARGET}-g++"
+		export CC="${current_gcc_path}/gcc"
+		export CPP="${current_gcc_path}/cpp"
+		export CXX="${current_gcc_path}/g++"
 		export LD="${current_binutils_path}/ld.bfd"
 		export AR="${current_binutils_path}/ar"
 		export AS="${current_binutils_path}/as"
@@ -794,7 +798,7 @@ eend_KV() {
 
 get_kheader_version() {
 	printf '#include <linux/version.h>\nLINUX_VERSION_CODE\n' | \
-	$(tc-getCPP ${CTARGET}) -I "${ESYSROOT}$(alt_headers)" - | \
+	$(tc-getCPP ${CTARGET}) -I "$(build_eprefix)$(alt_build_headers)" - | \
 	tail -n 1
 }
 
@@ -812,10 +816,9 @@ sanity_prechecks() {
 		# versions. We want to block 2.20->2.19, but 2.20-r3->2.20-r2
 		# should be fine. Hopefully we never actually use a r# this
 		# high.
-		if has_version ">${CATEGORY}/${MY_P}_p10000-r10000" ; then
+		if has_version ">${CATEGORY}/${P}-r10000" ; then
 			eerror "Sanity check to keep you from breaking your system:"
 			eerror " Downgrading glibc is not supported and a sure way to destruction."
-			eerror " (has_version \">${CATEGORY}/${MY_P}_p10000-r10000\" returns true)"
 			[[ ${I_ALLOW_TO_BREAK_MY_SYSTEM} = yes ]] || die "Aborting to save your system."
 		fi
 
@@ -916,12 +919,16 @@ upgrade_warning() {
 
 	if [[ ${MERGE_TYPE} != buildonly && -n ${REPLACING_VERSIONS} ]]; then
 		if [[ -z "${ROOT:-}" || "${ROOT}" == '/' ]]; then
-			if ver_replacing -lt $(ver_cut 1-2 ${MY_PV}); then
-				ewarn "After upgrading glibc, please restart all running processes."
-				ewarn "Be sure to include init (telinit u) or systemd (systemctl daemon-reexec)."
-				ewarn "Alternatively, reboot your system."
-				ewarn "(See bug #660556, bug #741116, bug #823756, etc)"
-			fi
+			local oldv newv=$(ver_cut 1-2 ${PV})
+			for oldv in ${REPLACING_VERSIONS}; do
+				if ver_test ${oldv} -lt ${newv}; then
+					ewarn "After upgrading glibc, please restart all running processes."
+					ewarn "Be sure to include init (telinit u) or systemd (systemctl daemon-reexec)."
+					ewarn "Alternatively, reboot your system."
+					ewarn "(See bug #660556, bug #741116, bug #823756, etc)"
+					break
+				fi
+			done
 		fi
 	fi
 }
@@ -948,27 +955,20 @@ pkg_setup() {
 src_unpack() {
 	use multilib-bootstrap && unpack gcc-multilib-bootstrap-${GCC_BOOTSTRAP_VER}.tar.xz
 
-	if [[ ${MY_PV} == 9999* ]] ; then
-		EGIT_REPO_URI="
-			https://anongit.gentoo.org/git/proj/toolchain/glibc-patches.git
-			https://github.com/gentoo/glibc-patches.git
-		"
+	if [[ ${PV} == 9999* ]] ; then
+		EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/toolchain/glibc-patches.git"
 		EGIT_CHECKOUT_DIR=${WORKDIR}/patches-git
 		git-r3_src_unpack
 		mv patches-git/9999 patches || die
-		EGIT_REPO_URI="
-			https://sourceware.org/git/glibc.git
-			https://git.sr.ht/~sourceware/glibc
-			https://gitlab.com/x86-glibc/glibc.git
-		"
+
+		EGIT_REPO_URI="https://sourceware.org/git/glibc.git"
 		EGIT_CHECKOUT_DIR=${S}
 		git-r3_src_unpack
 	else
-		unpack ${MY_P}.tar.xz
+		unpack ${P}.tar.xz
 
 		cd "${WORKDIR}" || die
-		unpack glibc-${MY_PV}-patches-${PATCH_VER}.tar.xz
-		unpack glibc-${MY_PV}-${CLEAR_PATCH_VER}.tar.gz
+		unpack glibc-${PV}-patches-${PATCH_VER}.tar.xz
 	fi
 
 	cd "${WORKDIR}" || die
@@ -978,8 +978,7 @@ src_unpack() {
 # src_prepare
 
 src_prepare() {
-	local f='' d='' line=''
-	local patchsetname=''
+	local patchsetname
 
 	setup_env
 
@@ -987,64 +986,15 @@ src_prepare() {
 	sanity_prechecks
 
 	if ! use vanilla ; then
-		if [[ ${MY_PV} == 9999* ]] ; then
+		if [[ ${PV} == 9999* ]] ; then
 			patchsetname="from git master"
 		else
-			patchsetname="${MY_PV}-${PATCH_VER}"
+			patchsetname="${PV}-${PATCH_VER}"
 		fi
 		einfo "Applying Gentoo Glibc patchset ${patchsetname}"
 		eapply "${WORKDIR}"/patches
-		einfo "Gentoo Glibc patchset ${patchsetname} done"
-
-		# Apply additional Clear Linux patches, if present...
-		# (%patch1 brings gcc from 2.41 release to the latest patch release)
-		d="${WORKDIR}/${MY_P}-${CLEAR_PATCH_VER}"
-		if [[ -d "${d}" ]]; then
-			einfo "Applying Clear Linux patches from '${d#"${WORKDIR%/}/"}' ..."
-			grep '^%patch' "${d}/${PN}.spec" |
-				awk '{print $1}' |
-				grep -Ev '^%patch(1|8|9|26|28)$' |
-				while read -r f; do
-					grep -i "^${f#"%"}\s*:" "${d}/${PN}.spec"
-				done |
-				cut -d':' -f 2- |
-				awk '{print $1}' |
-				while read -r f; do
-					if grep -q \
-							-e '-march' -e '-mcpu' -e '-mtune' \
-							-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
-						"${d}/${f}"
-					then
-						ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
-							"patch '${f}' forces Intel architecture"
-						grep -C 3 \
-									-e '-march' -e '-mcpu' -e '-mtune' \
-									-e 'ivybridge' -e 'sapphirerapids' -e 'silvermont' -e 'westmere' \
-								"${d}/${f}" |
-							while read -r line; do
-								ewarn "${line}"
-							done
-						ewarn
-					fi
-					if patch -R -p1 -s -f --dry-run < "${d}/${f}" >/dev/null 2>&1
-					then
-						einfo "Patch '${f}' previous applied, skipping"
-					else
-						nonfatal eapply "${d}/${f}" ||
-							ewarn "Clear Linux ${d#"${WORKDIR%/}/"}" \
-								"patch '${f}' failed to apply: ${?}"
-					fi
-				done
-		fi
-		unset line f d
+		einfo "Done."
 	fi
-
-	case "${CTARGET}" in
-		m68*-aligned-*)
-			einfo "Applying utmp format fix for m68k with -maligned-int"
-			eapply "${FILESDIR}/glibc-2.41-m68k-malign.patch"
-			;;
-	esac
 
 	default
 
@@ -1058,7 +1008,7 @@ src_prepare() {
 
 	cd "${S}" || die
 
-	eapply "${FILESDIR}/${PN}-2.41-ldd.bash.in.patch" || die
+	eapply "${FILESDIR}/${P}-ldd.bash.in.patch" || die
 
 	if [[ "${ARCH}" == "amd64" && "$( get_abi_LIBDIR x32 )" != 'libx32' ]]; then
 		einfo "Architecture is 'amd64' - adjusting default paths for potential custom x32 ABI library paths"
@@ -1212,7 +1162,7 @@ glibc_do_configure() {
 		--host=${CTARGET_OPT:-${CTARGET}}
 		$(use_enable profile)
 		$(use_with gd)
-		--with-headers="${ESYSROOT}$(alt_headers)"
+		--with-headers=$(build_eprefix)$(alt_build_headers)
 		--prefix="$(host_eprefix)/usr"
 		--sysconfdir="$(host_eprefix)/etc"
 		--localstatedir="$(host_eprefix)/var"
@@ -1375,7 +1325,7 @@ glibc_headers_configure() {
 		--enable-bind-now
 		--build=${CBUILD_OPT:-${CBUILD}}
 		--host=${CTARGET_OPT:-${CTARGET}}
-		--with-headers="${ESYSROOT}$(alt_headers)"
+		--with-headers=$(build_eprefix)$(alt_build_headers)
 		--prefix="$(host_eprefix)/usr"
 		${EXTRA_ECONF}
 	)
@@ -1477,59 +1427,15 @@ run_locale_gen() {
 		return 0
 	fi
 
-	#if use compile-locales; then
-	#	einfo "'use compile-locales' is set so I expect to be running from [glibc_do_]src_install() ..."
-	#else
-	#	einfo "'use compile-locales' is not set so I expect to be running from pkg_postinst() ..."
-	#fi
-	#einfo "... we are actually running from '${EBUILD_PHASE:-}' (${EBUILD_PHASE_FUNC:-})"
-
-
 	if [[ ${EBUILD_PHASE_FUNC} == src_install ]]; then
 		hasversion_opts=( -b )
 	fi
 
 	config="${prefix}/usr/share/i18n/SUPPORTED"
-	# Use $EROOT /etc/locale.gen rather than the one from 'prefix' (which will
+	# Use $EROOT /etc/locale.gen rather than the one from 'root' (which will
 	# always be a default, unless prefix == $EROOT)...
-	#
 	#user_config="${prefix}/etc/locale.gen"
 	user_config="${EROOT%/}/etc/locale.gen"
-
-	# What appears to be happening is that sys-apps/locale-gen installs the
-	# locale-gen script to /usr/sbin/ but, when this function comes to be
-	# executed, PATH consists of python/ebuild-specific actually elements then
-	# ends with '/usr/local/sbin:/usr/local/bin:/usr/bin:/sbin:/bin:/opt/bin'
-	# so '/usr/sbin' somehow seems to be missing?!
-	#
-	#if ! type -pf locale-gen >/dev/null 2>&1; then
-	#	eerror "Cannot locate 'locale-gen' in PATH '${PATH:-}'"
-	#	has_version -b sys-apps/locale_gen
-	#	eerror "  has_depend -b sys-apps/locale-gen: ${?}"
-	#	has_version -d sys-apps/locale_gen
-	#	eerror "  has_depend -d sys-apps/locale-gen: ${?}"
-	#	has_version -r sys-apps/locale_gen
-	#	eerror "  has_depend -r sys-apps/locale-gen: ${?}"
-	#	local d=''
-	#	for root in ${ROOT:-} /; do
-	#		for d in $( # <- Syntax
-	#				find "${root%/}/var/db/pkg/sys-apps" \
-	#					-mindepth 1 \
-	#					-maxdepth 1 \
-	#					-name 'locale-gen-*' \
-	#					-type d
-	#			)
-	#		do
-	#			echo
-	#			echo "${d%/}/CONTENTS:" | sed 's/^/    /'
-	#			sed 's/^/    /' "${d%/}/CONTENTS"
-	#		done
-	#	done
-	#	return 1
-	#fi
-
-	local PATH="${PATH%:}:/usr/sbin"
-
 	if locale-gen --list --config "${user_config}" | read -r; then
 		config="${user_config}"
 	else
@@ -1550,8 +1456,7 @@ run_locale_gen() {
 
 	# bug 736794: we need to be careful with the parallelization... the number
 	# of processors saved in the environment of a binary package may differ
-	# from the number of processes available during postinst
-	#
+	# strongly from the number of processes available during postinst
 	if [[ "${EMERGE_FROM}" != "binary" ]] ; then
 		localegen_args+=( --jobs "$(makeopts_jobs)" )
 	fi
@@ -1561,10 +1466,8 @@ run_locale_gen() {
 }
 
 glibc_do_src_install() {
-	local builddir="$(builddir nptl)"
-	local binary=''
-
-	cd "${builddir}" || die
+	local builddir=$(builddir nptl)
+	cd "${builddir}"
 
 	emake install_root="${D%/}/$(build_eprefix)$(alt_prefix)" install || die
 
@@ -1574,7 +1477,7 @@ glibc_do_src_install() {
 	find "${D}" -name "libnsl.a" -delete
 	find "${D}" -name "libnsl.so" -delete
 
-	# Normally upstream_pv is ${MY_PV}. Live ebuilds are exception, there we need
+	# Normally upstream_pv is ${PV}. Live ebuilds are exception, there we need
 	# to infer upstream version:
 	# '#define VERSION "2.26.90"' -> '2.26.90'
 	local upstream_pv=$(sed -n -r 's/#define VERSION "(.*)"/\1/p' "${S}"/version.h)
@@ -1593,11 +1496,11 @@ glibc_do_src_install() {
 		# Move versioned .a file out of libdir to evade portage QA checks
 		# instead of using gen_usr_ldscript(). We fix ldscript as:
 		# "GROUP ( /usr/lib64/libm-<pv>.a ..." -> "GROUP ( /usr/lib64/glibc-<pv>/libm-<pv>.a ..."
-		sed -i "s@\(libm-${upstream_pv}.a\)@${MY_P}/\1@" \
+		sed -i "s@\(libm-${upstream_pv}.a\)@${P}/\1@" \
 			"${ED}"/$(alt_usrlibdir)/libm.a || die
-		dodir $(alt_usrlibdir)/${MY_P}
+		dodir $(alt_usrlibdir)/${P}
 		mv "${ED}"/$(alt_usrlibdir)/libm-${upstream_pv}.a \
-			"${ED}"/$(alt_usrlibdir)/${MY_P}/libm-${upstream_pv}.a || die
+			"${ED}"/$(alt_usrlibdir)/${P}/libm-${upstream_pv}.a || die
 	fi
 
 	# We configure toolchains for standalone prefix systems with a sysroot,
@@ -1730,9 +1633,6 @@ glibc_do_src_install() {
 		return 0
 	fi
 
-	# Needed by localedef
-	keepdir /var/cache/locale
-
 	# Files for Debian-style locale updating
 	dodir /usr/share/i18n
 	sed \
@@ -1776,11 +1676,9 @@ glibc_do_src_install() {
 		use tmpfiles && newtmpfiles nscd/nscd.tmpfiles nscd.conf
 	fi
 
-	# Make key binaries available during system boot...
+	# Make getent available during system boot...
 	dodir /bin
-	for binary in getconf getent; do
-		mv "${ED}/usr/bin/${binary}" "${ED}"/bin/ || die
-	done
+	mv "${ED}"/usr/bin/getent "${ED}"/bin/ || die
 
 	echo 'LDPATH="include ld.so.conf.d/*.conf"' > "${T}"/00glibc
 	doenvd "${T}"/00glibc
@@ -1795,9 +1693,9 @@ glibc_do_src_install() {
 	rm -f "${ED}"/etc/localtime
 
 	# Generate all locales if this is a native build as locale generation
-	if use compile-locales && ! is_crosscompile && ! run_locale_gen "${ED%/}/"; then
-		die "locale-gen(1) unexpectedly failed during the" \
-			"${EBUILD_PHASE_FUNC} phase: ${?}"
+	if use compile-locales && ! is_crosscompile ; then
+		run_locale_gen --inplace-glibc "${ED}/" ||
+			die "run_locale_gen failed: ${?}"
 	fi
 }
 
@@ -1852,7 +1750,7 @@ glibc_sanity_check() {
 	# symlinks may point to the wrong abi
 	local newldso=$(find . -maxdepth 1 -name 'ld*so.?' -type f -print -quit)
 
-	einfo "Last-minute run tests with ${newldso} in /$(get_libdir) ..."
+	einfo Last-minute run tests with ${newldso} in /$(get_libdir) ...
 
 	local x striptest
 	for x in cal date env free ls true uname uptime ; do
@@ -1947,33 +1845,9 @@ pkg_postinst() {
 		# window for the affected programs.
 		use loong && glibc_refresh_ldconfig
 
-		if ! use compile-locales && ! run_locale_gen "${EROOT%/}/"; then
-			ewarn "locale-gen(1) unexpectedly failed during the" \
-				"${EBUILD_PHASE_FUNC} phase: ${?}"
+		if ! use compile-locales; then
+			run_locale_gen "${EROOT%/}/" || die "run_locale_gen failed: ${?}"
 		fi
-
-		# If fixincludes was/is active for a particular GCC slot, we
-		# must refresh it. See bug #933282 and GCC's documentation:
-		# https://gcc.gnu.org/onlinedocs/gcc/Fixed-Headers.html
-		#
-		# TODO: Could this be done for cross? Some care would be needed to
-		# pass the right arguments.
-		while IFS= read -r -d $'\0' slot ; do
-			local mkheaders_path="${BROOT}"/usr/libexec/gcc/${CBUILD}/${slot##*/}/install-tools/mkheaders
-			local pthread_h="${BROOT}"/usr/lib/gcc/${CBUILD}/${slot##*/}/include-fixed/pthread.h
-			if [[ -x ${mkheaders_path} ]] ; then
-				ebegin "Refreshing fixincludes for ${CBUILD} with gcc-${slot##*/}"
-				${mkheaders_path} -v
-				eend $?
-			elif [[ -f ${pthread_h} ]] ; then
-				# fixincludes might have been enabled in the past for this GCC
-				# slot but not since we fixed toolchain.eclass to install
-				# mkheaders, so we need to manually delete pthread.h at least.
-				ebegin "Deleting stale fixincludes'd pthread.h for ${CBUILD} with gcc-${slot##*/}"
-				mv -v "${pthread_h}" "${pthread_h}.bak"
-				eend $?
-			fi
-		done < <(find "${BROOT}"/usr/libexec/gcc/${CBUILD}/ -mindepth 1 -maxdepth 1 -type d -print0)
 	fi
 
 	upgrade_warning
