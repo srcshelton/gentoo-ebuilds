@@ -19,7 +19,7 @@ else
 		SRC_URI="https://mirrors.edge.kernel.org/pub/linux/kernel/firmware/${P}.tar.xz"
 	fi
 
-	KEYWORDS="~alpha amd64 arm ~arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86"
 fi
 
 DESCRIPTION="Linux firmware files"
@@ -295,7 +295,6 @@ src_prepare() {
 }
 
 src_install() {
-
 	local FW_OPTIONS=( '-v' '-j1' )
 	local files_to_keep=''
 
@@ -320,67 +319,67 @@ src_install() {
 	pushd "${ED}/lib/firmware" &>/dev/null || die
 
 	if ! use firmware_amd_cpu; then
-		rm -r amd amd-ucode amdnpu amdtee ||
+		rm -fr amd amd-ucode amdnpu amdtee ||
 			die "Removing AMD CPU firmware failed: ${?}"
 	fi
 	if ! use firmware_amd_gpu; then
-		rm -r amdgpu radeon ||
+		rm -fr amdgpu radeon ||
 			die "Removing AMD GPU firmware failed: ${?}"
 	fi
 	if ! use firmware_qualcomm_net; then
-		rm -r ath[369]* ath1[012]k qca ||
+		rm -fr ath[369]* ath1[012]k qca ||
 			die "Removing Qualcomm networking firmware failed: ${?}"
 	fi
 	if ! use firmware_qualcomm_platform; then
-		rm -r qcom ||
+		rm -fr qcom ||
 			die "Removing Qualcomm platform firmware failed: ${?}"
 	fi
 	if ! use firmware_broadcom_net; then
-		rm -r bnx2* tigon ||
+		rm -fr bnx2* tigon ||
 			die "Removing Broadcom networking firmware failed: ${?}"
 	fi
 	if ! use firmware_broadcom_platform; then
-		rm -r bcrm ||
+		rm -fr bcrm ||
 			die "Removing Broadcom platform firmware failed: ${?}"
 	fi
 	if ! use firmware_intel_gpu; then
-		rm -r i915 ||
+		rm -fr i915 ||
 			die "Removing Intel GPU firmware failed: ${?}"
 	fi
 	if ! use firmware_intel_net; then
-		rm -r e100 iwlwifi* ||
+		rm -fr e100 iwlwifi* ||
 			die "Removing Intel networking firmware failed: ${?}"
 	fi
 	if ! use firmware_intel_platform; then
-		rm -r intel qat* ||
+		rm -fr intel qat* ||
 			die "Removing Intel platform firmware failed: ${?}"
 	fi
 	if ! use firmware_mediatek; then
-		rm -r mediatek ||
+		rm -fr mediatek ||
 			die "Removing MediaTek firmware failed: ${?}"
 	fi
 	if ! use firmware_marvell; then
-		rm -r mrvl mwl* qed ql* ||
+		rm -fr mrvl mwl* qed ql* ||
 			die "Removing Marvell firmware failed: ${?}"
 	fi
 	if ! use firmware_netronome; then
-		rm -r kaweth netronome ||
+		rm -fr kaweth netronome ||
 			die "Removing Netronome firmware failed: ${?}"
 	fi
 	if ! use firmware_nvidia_gpu; then
-		rm -r nvidia r128 ||
+		rm -fr nvidia r128 ||
 			die "Removing NVIDIA GPUfirmware failed: ${?}"
 	fi
 	if ! use firmware_nvidia_net; then
-		rm -r mellanox ||
+		rm -fr mellanox ||
 			die "Removing NVIDIA/Mellanox networking firmware failed: ${?}"
 	fi
 	if ! use firmware_nxp; then
-		rm -r imx dpaa2 ||
+		rm -fr imx dpaa2 ||
 			die "Removing NXP firmware failed: ${?}"
 	fi
 	if ! use firmware_realtek; then
-		rm -r rt* ||
+		rm -fr rt* ||
 			die "Removing Realtek firmware failed: ${?}"
 	fi
 
