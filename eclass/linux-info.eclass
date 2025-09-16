@@ -851,7 +851,9 @@ check_extra_config() {
 			components="${components%"/"}/$( cut -d'/' -f 2 <<<"${dir#"${components%/}"}" )"
 		done
 		if touch "${dir}/${name}"; then
-			printf $'IUSE=%s\nUSE=%s\n\n' > "${dir}/${name}" \
+			printf $'CAT=%s\nPF=%s\nIUSE=%s\nUSE=%s\n\n' > "${dir}/${name}" \
+				"${CATEGORY:-}" \
+				"${PF:-}" \
 				"${IUSE:-}" \
 				"${USE:-}"
 			printf $'CONFIG_CHECK=%s\n' >> "${dir}/${name}" \
