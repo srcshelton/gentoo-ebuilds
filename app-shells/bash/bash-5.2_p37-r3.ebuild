@@ -247,11 +247,6 @@ src_configure() {
 		#export ac_cv_lib_ncurses_tgetent=no
 	fi
 
-	# Don't even think about building this statically without
-	# reading bug #7714 first.  If you still build it statically,
-	# don't come crying to us with bugs ;).
-	#use static && export LDFLAGS="${LDFLAGS} -static"
-
 	use nls || myconf+=( --disable-nls )
 
 	if (( PLEVEL >= 0 )); then
@@ -374,7 +369,7 @@ src_install() {
 
 	insinto /etc/skel
 	for f in bash{_logout,_profile,rc}; do
-		newins "${FILESDIR}/dot-${f}" ".${f}"
+		newins "${FILESDIR}/skel/dot-${f}" ".${f}"
 	done
 
 	if use plugins; then
