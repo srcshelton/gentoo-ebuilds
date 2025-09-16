@@ -67,6 +67,7 @@ PATCHES=(
 	"${FILESDIR}/${P}-fix-ldap-sasl-pc.patch"
 	"${FILESDIR}/${P}-incompatible-pointer-types.patch"
 	"${FILESDIR}/${P}-vsnprintf-include.patch"
+	"${FILESDIR}/${P}-opendkim-genkey-printf.patch"
 )
 
 pkg_setup() {

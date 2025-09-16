@@ -1,0 +1,19 @@
+--- a/opendkim/opendkim-genkey
++++ b/opendkim/opendkim-genkey
+@@ -141,14 +141,12 @@ if ($status != 0)
+ {
+ 	if ($? & 127)
+ 	{
+-		print STDERR "$progname: openssl died with signal %d\n",
+-		      ($? & 127);
++		printf STDERR ("$progname: openssl died with signal %d\n", ($? & 127));
+ 		exit(1);
+ 	}
+ 	else
+ 	{
+-		print STDERR "$progname: openssl exited with status %d\n",
+-		      ($? >> 8);
++		printf STDERR ("$progname: openssl exited with status %d\n", ($? >> 8));
+ 		exit(1);
+ 	}
+ }
