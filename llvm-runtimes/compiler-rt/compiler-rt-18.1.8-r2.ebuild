@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..13} )
+PYTHON_COMPAT=( python3_{10..13} )
 inherit cmake crossdev flag-o-matic llvm.org llvm-utils python-any-r1
 inherit toolchain-funcs
 
@@ -21,7 +21,7 @@ DEPEND="
 	llvm-core/llvm:${LLVM_MAJOR}
 "
 BDEPEND="
-	~llvm-runtimes/libcxx-${PV}
+	atomic-builtins? ( ~llvm-runtimes/libcxx-${PV} )
 	clang? ( llvm-core/clang:${LLVM_MAJOR} )
 	test? (
 		$(python_gen_any_dep ">=dev-python/lit-15[\${PYTHON_USEDEP}]")
@@ -33,7 +33,6 @@ BDEPEND="
 "
 
 LLVM_COMPONENTS=( compiler-rt cmake llvm/cmake )
-LLVM_TEST_COMPONENTS=( llvm/include/llvm/TargetParser )
 llvm.org_set_globals
 
 python_check_deps() {
@@ -65,9 +64,7 @@ test_compiler() {
 }
 
 src_configure() {
-	if use clang || use test; then
-		llvm_prepend_path -b "${LLVM_MAJOR}"
-	fi
+	llvm_prepend_path "${LLVM_MAJOR}"
 
 	# LLVM_ENABLE_ASSERTIONS=NO does not guarantee this for us, #614844
 	use debug || local -x CPPFLAGS="${CPPFLAGS} -DNDEBUG"
@@ -104,11 +101,9 @@ src_configure() {
 
 	local mycmakeargs=(
 		-DCOMPILER_RT_INSTALL_PATH="${EPREFIX}/usr/lib/clang/${LLVM_MAJOR}"
-		-DLLVM_ROOT="${ESYSROOT}/usr/lib/llvm/${LLVM_MAJOR}"
 
 		-DCOMPILER_RT_EXCLUDE_ATOMIC_BUILTIN=$(usex !atomic-builtins)
 		-DCOMPILER_RT_INCLUDE_TESTS=$(usex test)
-		-DCOMPILER_RT_BUILD_CTX_PROFILE=OFF
 		-DCOMPILER_RT_BUILD_LIBFUZZER=OFF
 		-DCOMPILER_RT_BUILD_MEMPROF=OFF
 		-DCOMPILER_RT_BUILD_ORC=OFF
