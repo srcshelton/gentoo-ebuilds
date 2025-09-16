@@ -689,6 +689,8 @@ used to build perl)
     * ~~Add required `WANT_AUTOMAKE` directive and inherit `autotools` eclass~~
 * sys-devel/bpf-toolchain
     * Fix dependencies and bad CFLAG filtering of upstream source
+* sys-devel/dwz
+    * Add missing sys-devel/binutils(-config) dependencies
 * sys-fs/udisks
     * Make HTML documentation optional
 * sys-kernel/gentoo-sources
