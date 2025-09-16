@@ -297,6 +297,8 @@ used to build perl)
 * app-containers/passt
     * app-containers/slirp4netns replacement for app-containers/podman - see https://github.com/containers/podman/pull/16141
 * app-containers/wa-linux-agent
+* dev-debug/filter-flags
+    * Add means to confirm valid \*FLAGS from in-use compiler
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
 * dev-embedded/picotool
