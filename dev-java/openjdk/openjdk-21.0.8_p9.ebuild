@@ -48,7 +48,7 @@ SRC_URI="
 S="${WORKDIR}/jdk${SLOT}u-jdk-${MY_PV//+/-}"
 
 LICENSE="GPL-2-with-classpath-exception"
-SLOT="${MY_PV%%[.+]*}"
+SLOT="$(ver_cut 1)"
 KEYWORDS="amd64 arm64 ppc64 ~riscv ~x86"
 
 # For lto support status see https://bugs.openjdk.org/browse/JDK-8348848
@@ -113,6 +113,8 @@ DEPEND="
 "
 
 BDEPEND="dev-build/autoconf"
+
+PATCHES=( "${FILESDIR}/openjdk-21.0.8_p9-fixBuild_failure_with_glibc-2.42.patch" )
 
 # The space required to build varies wildly depending on USE flags,
 # ranging from 2GB to 16GB. This function is certainly not exact but
