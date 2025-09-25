@@ -43,7 +43,7 @@ BDEPEND="
 "
 PDEPEND="
 	llvm-core/clang-common
-	~llvm-core/clang-runtime-${PV}
+	~llvm-runtimes/clang-runtime-${PV}
 	default-compiler-rt? (
 		=llvm-runtimes/compiler-rt-${PV%_*}*
 		llvm-libunwind? ( llvm-runtimes/libunwind )
