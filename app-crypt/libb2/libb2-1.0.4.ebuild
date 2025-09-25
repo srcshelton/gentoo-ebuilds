@@ -26,7 +26,7 @@ BDEPEND="
 	clang? (
 		llvm-core/clang
 		llvm-core/lld
-		openmp? ( llvm-core/clang-runtime:*[openmp] )
+		openmp? ( llvm-runtimes/clang-runtime:*[openmp] )
 	)
 	!clang? (
 		openmp? ( sys-devel/gcc:*[openmp] )
