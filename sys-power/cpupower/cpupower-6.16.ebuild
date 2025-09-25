@@ -1,9 +1,9 @@
-# Copyright 2013-2024 Gentoo Authors
+# Copyright 2013-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-inherit systemd toolchain-funcs
+inherit bash-completion-r1 eapi9-ver systemd toolchain-funcs
 
 DESCRIPTION="Shows and sets processor power related values"
 HOMEPAGE="https://www.kernel.org/"
@@ -16,7 +16,7 @@ SRC_URI="https://dev.gentoo.org/~floppym/dist/${P}.tar.xz"
 
 LICENSE="GPL-2"
 SLOT="0/0"
-KEYWORDS="amd64 arm arm64 ~loong ~ppc ~ppc64 ~riscv x86"
+KEYWORDS="~amd64 ~arm ~arm64 ~loong ~ppc ~ppc64 ~riscv ~x86"
 IUSE="nls systemd"
 
 # File collision w/ headers of the deprecated cpufrequtils
@@ -26,19 +26,21 @@ DEPEND="${RDEPEND}
 	nls? ( sys-devel/gettext )"
 
 PATCHES=(
-	"${FILESDIR}"/cpupower-5.4-cflags.patch
+	"${FILESDIR}/cpupower-5.4-cflags.patch"
 )
 
 src_configure() {
 	export bindir="${EPREFIX}/usr/bin"
 	export sbindir="${EPREFIX}/usr/sbin"
 	export mandir="${EPREFIX}/usr/share/man"
-	export includedir="${EPREFIX}/usr/include"
 	export libdir="${EPREFIX}/usr/$(get_libdir)"
+	export libexecdir="${EPREFIX}/usr/libexec"
+	use systemd && export unitdir="$(systemd_get_systemunitdir)"
+	export includedir="${EPREFIX}/usr/include"
 	export localedir="${EPREFIX}/usr/share/locale"
 	export docdir="${EPREFIX}/usr/share/doc/${PF}"
 	export confdir="${EPREFIX}/etc"
-	export bash_completion_dir="${EPREFIX}/usr/share/bash-completion/completions"
+	export bash_completion_dir="$(get_bashcompdir)"
 	export V=1
 	export NLS=$(usex nls true false)
 }
@@ -64,5 +66,13 @@ src_install() {
 	if use systemd; then
 		systemd_dounit "${FILESDIR}"/cpupower-frequency-set.service
 		systemd_install_serviced "${FILESDIR}"/cpupower-frequency-set.service.conf
+	fi
+}
+
+pkg_postinst() {
+	if use systemd && ver_replacing -lt 6.16; then
+		ewarn "Starting with cpupower-1.16, an upstream systemd unit is provided."
+		ewarn "See cpupower.service and /etc/cpupower-service.conf."
+		ewarn "Settings must be migrated manually."
 	fi
 }
