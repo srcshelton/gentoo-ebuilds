@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit edo flag-o-matic toolchain-funcs
+inherit dot-a edo flag-o-matic toolchain-funcs
 
 if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git"
@@ -47,9 +47,7 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-6.10.0-musl-1.patch # bug #936234
 	"${FILESDIR}"/${PN}-6.10.0-musl-2.patch # bug #926341
-	"${FILESDIR}"/${PN}-6.12.0-musl-3.patch # bug #946088
 	"${FILESDIR}"/${PN}-6.9.0-mtu.patch # bug #291907
 	"${FILESDIR}"/${PN}-6.8.0-configure-nomagic-nolibbsd.patch # bug #643722 & #911727
 	"${FILESDIR}"/${PN}-6.8.0-disable-libbsd-fallback.patch # bug #911727
@@ -88,6 +86,10 @@ src_prepare() {
 
 src_configure() {
 	tc-export AR CC PKG_CONFIG
+	lto-guarantee-fat
+
+	tc-export_build_env
+	export CBUILD_CFLAGS=${BUILD_CFLAGS}
 
 	# This sure is ugly. Should probably move into toolchain-funcs at some point.
 	local setns
@@ -212,4 +214,5 @@ src_install() {
 	elif [[ -d "${ED}"/var/lib/arpd ]]; then
 		rmdir --ignore-fail-on-non-empty -p "${ED}"/var/lib/arpd || die
 	fi
+	strip-lto-bytecode
 }
