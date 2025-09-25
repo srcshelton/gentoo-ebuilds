@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{11..13} )
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/coreutils.asc
 inherit flag-o-matic python-any-r1 toolchain-funcs verify-sig
 
@@ -25,7 +25,7 @@ else
 	SRC_URI="mirror://gnu/${PN}/${P}.tar.xz
 		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )"
 
-	KEYWORDS="~alpha ~amd64 arm ~arm64 hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 sparc x86 ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~x86-linux"
 fi
 
 SRC_URI+=" !vanilla? ( https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${MY_PATCH}.tar.xz )"
