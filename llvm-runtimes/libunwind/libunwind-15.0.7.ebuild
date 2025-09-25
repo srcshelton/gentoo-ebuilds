@@ -1,9 +1,9 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{9..11} )
+PYTHON_COMPAT=( python3_{10..11} )
 inherit cmake-multilib flag-o-matic llvm llvm.org python-any-r1 toolchain-funcs
 
 DESCRIPTION="C++ runtime stack unwinder from LLVM"
@@ -11,7 +11,7 @@ HOMEPAGE="https://llvm.org/docs/ExceptionHandling.html"
 
 LICENSE="Apache-2.0-with-LLVM-exceptions || ( UoI-NCSA MIT )"
 SLOT="0"
-KEYWORDS="amd64 arm arm64 ~ppc ppc64 ~riscv sparc x86 ~x64-macos"
+KEYWORDS="amd64 arm arm64 ~ppc ppc64 ~riscv ~sparc x86 ~x64-macos"
 IUSE="+clang debug static-libs test"
 REQUIRED_USE="test? ( clang )"
 RESTRICT="!test? ( test )"
