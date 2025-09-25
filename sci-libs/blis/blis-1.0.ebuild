@@ -1,9 +1,9 @@
-# Copyright 2019-2024 Gentoo Authors
+# Copyright 2019-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{11..13} )
 inherit flag-o-matic python-any-r1 toolchain-funcs
 
 DESCRIPTION="BLAS-like Library Instantiation Software Framework"
@@ -18,7 +18,7 @@ CPU_USE=(
 	cpu_flags_arm_{neon,v7,v8,sve}
 	cpu_flags_x86_{ssse3,avx,fma3,fma4,avx2,avx512vl}
 )
-IUSE="doc eselect-ldso openmp pthread serial static-libs 64bit-index ${CPU_USE[@]}"
+IUSE="64bit-index cpu_flags_arm_neon cpu_flags_arm_sve cpu_flags_arm_v7 cpu_flags_arm_v8 cpu_flags_ppc_vsx cpu_flags_ppc_vsx3 cpu_flags_x86_avx cpu_flags_x86_avx2 cpu_flags_x86_avx512vl cpu_flags_x86_fma3 cpu_flags_x86_fma4 cpu_flags_x86_ssse3 doc eselect-ldso openmp pthread serial static-libs"
 REQUIRED_USE="
 	?? ( openmp pthread serial )
 	?? ( eselect-ldso 64bit-index )"
@@ -41,6 +41,8 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-0.8.1-pkg-config.patch
 	"${FILESDIR}"/${PN}-0.9.0-rpath.patch
 	"${FILESDIR}"/${PN}-1.0-no-helper-headers.patch
+	# https://github.com/flame/blis/pull/874
+	"${FILESDIR}"/${P}-gcc15.patch
 )
 
 get_confname() {
