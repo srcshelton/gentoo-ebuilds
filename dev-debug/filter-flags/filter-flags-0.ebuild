@@ -10,7 +10,7 @@ IUSE="clang"
 
 IDEPEND="clang? (
 		llvm-core/clang
-		llvm-core/clang-runtime
+		llvm-runtimes/clang-runtime
 	)"
 
 LICENSE="GPL-2"
