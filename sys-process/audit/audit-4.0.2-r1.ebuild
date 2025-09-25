@@ -17,7 +17,7 @@ SRC_URI="https://people.redhat.com/sgrubb/audit/${P}.tar.gz"
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~mips ppc ppc64 ~riscv ~s390 sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="gssapi io-uring ldap python static-libs systemd test zos"
 
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
@@ -70,13 +70,6 @@ src_prepare() {
 }
 
 multilib_src_configure() {
-	if use amd64 || use x86; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
-
 	local -a myeconfargs=(
 		--sbindir="${EPREFIX}"/sbin
 		--localstatedir="${EPREFIX}"/var
