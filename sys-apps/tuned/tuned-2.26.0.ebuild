@@ -16,7 +16,7 @@ LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64"
 
-IUSE="bash-completion +dbus gtk ppd +tmpfiles +server +systemtap systemd-boot"
+IUSE="bash-completion +dbus gtk ppd +server systemd-boot +systemtap +tmpfiles"
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
 DEPEND="
