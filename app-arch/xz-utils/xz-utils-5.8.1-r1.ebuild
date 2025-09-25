@@ -39,7 +39,7 @@ inherit dot-a flag-o-matic libtool multilib preserve-libs toolchain-funcs usr-ld
 	"
 
 	if [[ ${PV} != *_alpha* && ${PV} != *_beta* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 	fi
 
 	BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-lassecollin-20250313 )"
