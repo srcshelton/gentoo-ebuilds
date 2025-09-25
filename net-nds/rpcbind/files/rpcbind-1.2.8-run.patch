@@ -1,0 +1,88 @@
+--- a/configure.ac
++++ b/configure.ac
+@@ -32,8 +32,8 @@ AC_ARG_ENABLE([rmtcalls],
+ AM_CONDITIONAL(RMTCALLS, test x$enable_rmtcalls = xyes)
+ 
+ AC_ARG_WITH([statedir],
+-  AS_HELP_STRING([--with-statedir=ARG], [use ARG as state dir @<:@default=/run/rpcbind@:>@])
+-  ,, [with_statedir=/run/rpcbind])
++  AS_HELP_STRING([--with-statedir=ARG], [use ARG as state dir @<:@default=/var/run/rpcbind@:>@])
++  ,, [with_statedir=/var/run/rpcbind])
+ AC_SUBST([statedir], [$with_statedir])
+ 
+ AC_ARG_WITH([rpcuser],
+
+--- a/src/rpcbind.c
++++ b/src/rpcbind.c
+@@ -106,7 +106,7 @@ char *nss_modules = NSS_MODULES_DEFAULT;
+ /* who to suid to if -s is given */
+ #define RUN_AS  "daemon"
+ 
+-#define RPCBINDDLOCK "/run/rpcbind.lock"
++#define RPCBINDDLOCK "/var/lock/rpcbind.lock"
+ 
+ int runasdaemon = 0;
+ int insecure = 0;
+
+--- a/systemd/rpcbind.socket.in
++++ b/systemd/rpcbind.socket.in
+@@ -5,8 +5,8 @@ Wants=rpcbind.target
+ Before=rpcbind.target
+ 
+ [Socket]
+-ListenStream=/run/rpcbind.sock
+-@ABSTRACT_TRUE@ListenStream=@/run/rpcbind.sock
++ListenStream=/var/run/rpcbind.sock
++@ABSTRACT_TRUE@ListenStream=@/var/run/rpcbind.sock
+ 
+ # RPC netconfig can't handle ipv6/ipv4 dual sockets
+ BindIPv6Only=ipv6-only
+
+--- a/systemd/rpcbind.socket
++++ b/systemd/rpcbind.socket
+@@ -5,8 +5,8 @@ Wants=rpcbind.target
+ Before=rpcbind.target
+ 
+ [Socket]
+-ListenStream=/run/rpcbind.sock
+-#ListenStream=@/run/rpcbind.sock
++ListenStream=/var/run/rpcbind.sock
++#ListenStream=@/var/run/rpcbind.sock
+ 
+ # RPC netconfig can't handle ipv6/ipv4 dual sockets
+ BindIPv6Only=ipv6-only
+
+--- a/man/rpcbind-fr.8
++++ b/man/rpcbind-fr.8
+@@ -138,8 +138,8 @@ est redémarré.
+ .Xr rpcbind 3 ,
+ .Xr rpcinfo 8
+ .Sh FILES
+-.Bl -tag -width /run/rpcbind.sock -compact
+-.It Pa /run/rpcbind.sock
++.Bl -tag -width /var/run/rpcbind.sock -compact
++.It Pa /var/run/rpcbind.sock
+ .Sh TRADUCTION
+ Aurelien CHARBON (Sept 2003)
+ .El
+
+--- a/configure
++++ b/configure
+@@ -1424,7 +1424,7 @@ Optional Features:
+ Optional Packages:
+   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+-  --with-statedir=ARG     use ARG as state dir [default=/run/rpcbind]
++  --with-statedir=ARG     use ARG as state dir [default=/var/run/rpcbind]
+ 
+   --with-rpcuser=ARG      use ARG for RPC [default=root]
+ 
+@@ -4646,7 +4646,7 @@ if test ${with_statedir+y}
+ then :
+   withval=$with_statedir;
+ else case e in #(
+-  e) with_statedir=/run/rpcbind ;;
++  e) with_statedir=/var/run/rpcbind ;;
+ esac
+ fi
+ 
