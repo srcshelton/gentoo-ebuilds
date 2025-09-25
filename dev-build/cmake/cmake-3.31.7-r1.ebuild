@@ -48,7 +48,7 @@ else
 			https://github.com/Kitware/CMake/releases/download/v$(ver_cut 1-3)/${MY_P}-SHA-256.txt.asc
 		)"
 
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 
 		BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-bradking-20240902 )"
 	fi
@@ -100,6 +100,7 @@ PATCHES=(
 
 	# Upstream fixes (can usually be removed with a version bump)
 	"${FILESDIR}"/${PN}-3.31.7-hdf5.patch
+	"${FILESDIR}/${PN}-4.1.1-curl-8.16.0.patch"
 )
 
 # Since cmake_src_bootstrap() might be called to build code which also suffers

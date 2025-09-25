@@ -99,6 +99,7 @@ PATCHES=(
 
 	# Upstream fixes (can usually be removed with a version bump)
 	"${FILESDIR}"/${PN}-3.31.6-curl-8.13.0.patch
+	"${FILESDIR}"/${PN}-3.28.5-curl-8.16.0.patch
 )
 
 # Since cmake_src_bootstrap() might be called to build code which also suffers
