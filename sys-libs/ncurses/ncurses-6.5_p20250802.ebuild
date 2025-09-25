@@ -20,7 +20,7 @@ SRC_URI="
 "
 
 GENTOO_PATCH_DEV=sam
-GENTOO_PATCH_PV=6.5_p20250301
+GENTOO_PATCH_PV=6.5_p20250802
 GENTOO_PATCH_NAME=${PN}-${GENTOO_PATCH_PV}-patches
 
 # Populated below in a loop. Do not add patches manually here.
@@ -32,12 +32,13 @@ if [[ ${PV} == *_p* ]] ; then
 	# From upstream README at e.g. https://invisible-island.net/archives/ncurses/6.3/:
 	#
 	#	"At times (generally to mark a relatively stable point), I create a
-	#	rollup 	patch, which consists of all changes from the release through
+	#	rollup patch, which consists of all changes from the release through
 	#	the current date."
 	#
-	# Also, from https://lists.gnu.org/archive/html/bug-ncurses/2019-08/msg00039.html,
-	# the patches are considered to be acceptable to use after some testing.
-	# They are both for development but also bug fixes.
+	# Also, from [1] the patches are considered to be acceptable to use
+	# after some testing. They are both for development but also bug fixes.
+	#
+	# [1] https://lists.gnu.org/archive/html/bug-ncurses/2019-08/msg00039.html,
 	#
 	# This array should contain a list of all the snapshots since the last
 	# release if there's no megapatch available yet.
@@ -87,6 +88,23 @@ if [[ ${PV} == *_p* ]] ; then
 		20250308
 		20250315
 		20250322
+		20250329
+		20250405
+		20250412
+		20250419
+		20250426
+		20250503
+		20250510
+		20250517
+		20250524
+		20250531
+		20250614
+		20250621
+		20250628
+		20250705
+		20250712
+		20250720
+		20250726
 
 		# Latest patch is just _pN = $(ver_cut 4)
 		$(ver_cut 4)
@@ -244,9 +262,6 @@ src_configure() {
 	# bug #214642
 	BUILD_CPPFLAGS+=" -D_GNU_SOURCE"
 
-	# NCURSES_BOOL confusion, see https://lists.gnu.org/archive/html/bug-ncurses/2024-11/msg00010.html
-	append-cflags $(test-flags-CC -std=gnu17)
-
 	# Build the various variants of ncurses -- narrow, wide, and threaded. #510440
 	# Order matters here -- we want unicode/thread versions to come last so that the
 	# binaries in /usr/bin support both wide and narrow.
@@ -354,10 +369,10 @@ do_configure() {
 		--enable-hard-tabs
 		--enable-echo
 		$(use_enable !ada warnings)
-		$(use_with debug assertions)
+		$(use_enable debug assertions)
 		$(use_enable !debug leaks)
-		$(use_with debug expanded)
-		$(use_with !debug macros)
+		$(use_enable debug expanded)
+		$(use_enable !debug macros)
 		$(multilib_native_with progs)
 		$(use_with test tests)
 		$(use_with trace)
