@@ -21,14 +21,16 @@ fi
 S="${WORKDIR}/${MY_P}"
 
 LICENSE="GPL-3"
-SLOT="0"
-IUSE="acl addc ads ceph client cluster cups debug fam glusterfs gpg iprint json ldap llvm-libunwind pam profiling-data python quota +regedit selinux snapper spotlight syslog systemd system-heimdal +system-mitkrb5 test unwind winbind zeroconf"
+SLOT="0/2.10.0"
+IUSE="acl addc ads ceph client cluster cups debug fam glusterfs gpg iprint json ldap llvm-libunwind lmdb pam profiling-data python quota +regedit selinux snapper spotlight syslog systemd system-heimdal +system-mitkrb5 test unwind winbind zeroconf"
 
+# ldap needs ads (bug #941578)
 REQUIRED_USE="${PYTHON_REQUIRED_USE}
 	addc? ( json python !system-mitkrb5 winbind )
 	ads? ( acl ldap python winbind )
 	cluster? ( ads )
 	gpg? ( addc )
+	ldap? ( ads )
 	spotlight? ( json )
 	test? ( python )
 	!ads? ( !addc )
@@ -52,9 +54,9 @@ MULTILIB_WRAPPED_HEADERS=(
 	/usr/include/samba-4.0/ctdb_version.h
 )
 
-TALLOC_VERSION="2.4.2"
-TDB_VERSION="1.4.10"
-TEVENT_VERSION="0.16.1"
+TALLOC_VERSION="2.4.3"
+TDB_VERSION="1.4.13"
+TEVENT_VERSION="0.16.2"
 
 COMMON_DEPEND="
 	>=app-arch/libarchive-3.1.2:=[${MULTILIB_USEDEP}]
@@ -66,8 +68,7 @@ COMMON_DEPEND="
 	dev-perl/Parse-Yapp
 	>=net-libs/gnutls-3.4.7:=[${MULTILIB_USEDEP}]
 	>=sys-fs/e2fsprogs-1.46.4-r51[${MULTILIB_USEDEP}]
-	>=sys-libs/ldb-2.9.2:=[ldap(+)?,${MULTILIB_USEDEP}]
-	<sys-libs/ldb-2.10.0:=[ldap(+)?,${MULTILIB_USEDEP}]
+	!sys-libs/ldb
 	sys-libs/libcap[${MULTILIB_USEDEP}]
 	sys-libs/liburing:=[${MULTILIB_USEDEP}]
 	sys-libs/ncurses:=
@@ -97,9 +98,9 @@ COMMON_DEPEND="
 	gpg? ( app-crypt/gpgme:= )
 	json? ( dev-libs/jansson:= )
 	ldap? ( net-nds/openldap:=[${MULTILIB_USEDEP}] )
+	lmdb? ( >=dev-db/lmdb-0.9.16:=[${MULTILIB_USEDEP}] )
 	pam? ( sys-libs/pam )
 	python? (
-		sys-libs/ldb[python,${PYTHON_SINGLE_USEDEP}]
 		sys-libs/talloc[python,${PYTHON_SINGLE_USEDEP}]
 		sys-libs/tdb[python,${PYTHON_SINGLE_USEDEP}]
 		sys-libs/tevent[python,${PYTHON_SINGLE_USEDEP}]
@@ -144,8 +145,6 @@ BDEPEND="${PYTHON_DEPS}
 PATCHES=(
 	"${FILESDIR}"/${PN}-4.18.4-pam.patch
 	"${FILESDIR}"/ldb-2.5.2-skip-wav-tevent-check.patch
-	"${FILESDIR}"/${P}-dont-use-deprecated-readline-CPPFunction-cast.patch
-	"${FILESDIR}"/${P}-CVE-2025-0620.patch
 )
 
 CONFDIR="${FILESDIR}/4.4"
@@ -206,6 +205,9 @@ src_prepare() {
 	# Ugly hackaround for bug #592502
 	#cp /usr/include/tevent_internal.h "${S}"/lib/tevent/ || die
 
+	# bug #943942
+	append-cflags -std=gnu17
+
 	# WAF
 	multilib_copy_sources
 }
@@ -259,7 +261,6 @@ multilib_src_configure() {
 		--without-winexe
 		$(multilib_native_use_with acl acl-support)
 		$(multilib_native_usex addc '' '--without-ad-dc')
-		$(multilib_native_use_with ads)
 		$(multilib_native_use_enable ceph cephfs)
 		$(multilib_native_use_with cluster cluster-support)
 		$(multilib_native_use_enable cups)
@@ -284,9 +285,12 @@ multilib_src_configure() {
 		$(multilib_native_use_enable zeroconf avahi)
 		$(multilib_native_usex test '--enable-selftest' '')
 		$(usev system-mitkrb5 "--with-system-mitkrb5 ${ESYSROOT}/usr $(multilib_native_usex addc --with-experimental-mit-ad-dc '')")
+		$(use_with ads)
 		$(use_with debug lttng)
 		$(use_with ldap)
 		$(use_with profiling-data)
+		--private-libraries='!ldb'
+		$(usex lmdb '' --without-ldb-lmdb)
 		# bug #683148
 		--jobs 1
 	)
