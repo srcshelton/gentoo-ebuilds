@@ -644,6 +644,8 @@ used to build perl)
     * Add missing dev-python/setuptools dependency
 * sys-apps/ed
     * Forcibly unset '-z max-page-size', to prevent binary size bloating on the root filesystem
+* sys-apps/findutils
+    * Install (g)`xargs` to `/bin` rather than `/usr/bin`, for init scripts which invoke `xargs`
 * sys-apps/fwupd
     * Add USE-flag requirements to sys-apps/flashrom dependency
 * sys-apps/gentoo-functions
