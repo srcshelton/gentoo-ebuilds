@@ -16,7 +16,7 @@ MY_P=${PN}-${MY_PV}
 MY_PATCHES=()
 
 # Determine the patchlevel
-# See ftp://ftp.gnu.org/gnu/bash/bash-5.2-patches/
+# See https://ftp.gnu.org/gnu/bash/bash-5.2-patches/
 case ${PV} in
 	*_p*)
 		PLEVEL=${PV##*_p}
@@ -158,7 +158,7 @@ src_prepare() {
 	# touch utility is invoked for the benefit of config.status.
 	if (( PLEVEL >= 0 )); then
 		rm -rf lib/{readline,termcap}/* || die
-		touch lib/{readline,termcap}/Makefile.in || die
+		touch lib/{readline,termcap}/Makefile.in  || die
 		sed -i -E 's:\$[{(](RL|HIST)_LIBSRC[)}]/[[:alpha:]_-]*\.h::g' Makefile.in || die
 	fi
 
@@ -358,14 +358,18 @@ src_install() {
 
 	insinto /etc/bash
 	doins "${FILESDIR}"/bash_logout
-	my_prefixify bashrc.d "${FILESDIR}"/bashrc-r1 | newins - bashrc
+	my_prefixify bashrc.d "${FILESDIR}"/bashrc-r2 | newins - bashrc
 
 	insinto /etc/bash/bashrc.d
 	my_prefixify DIR_COLORS "${FILESDIR}"/bashrc.d/10-gentoo-color-r2.bash | newins - 10-gentoo-color.bash
 	newins "${FILESDIR}"/bashrc.d/10-gentoo-title-r2.bash 10-gentoo-title.bash
+
 	if [[ ! ${EPREFIX} ]]; then
 		doins "${FILESDIR}"/bashrc.d/15-gentoo-bashrc-check.bash
 	fi
+
+	insinto /etc/profile.d
+	doins "${FILESDIR}/profile.d/00-prompt-command.sh"
 
 	insinto /etc/skel
 	for f in bash{_logout,_profile,rc}; do
@@ -407,7 +411,7 @@ src_install() {
 pkg_preinst() {
 	if [[ -e ${EROOT}/etc/bashrc ]] && [[ ! -d ${EROOT}/etc/bash ]]; then
 		mkdir -p -- "${EROOT}"/etc/bash || die
-		mv -f -- "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/ || die
+		mv -f -- "${EROOT}"/etc/bashrc "${EROOT}"/etc/bash/  || die
 	fi
 }
 
