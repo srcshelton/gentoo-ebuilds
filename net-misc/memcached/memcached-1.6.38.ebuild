@@ -20,19 +20,22 @@ KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 x86 ~
 IUSE="debug sasl seccomp selinux slabs-reassign ssl systemd test"
 RESTRICT="!test? ( test )"
 
-RDEPEND=">=dev-libs/libevent-1.4:=
+RDEPEND="
 	acct-group/memcached
 	acct-user/memcached
+	>=dev-libs/libevent-1.4:=
 	dev-lang/perl
 	sasl? ( dev-libs/cyrus-sasl )
 	seccomp? ( sys-libs/libseccomp )
 	selinux? ( sec-policy/selinux-memcached )
-	ssl? ( >=dev-libs/openssl-1.1.0g:= )"
+	ssl? ( >=dev-libs/openssl-1.1.0g:= )
+"
 DEPEND="${RDEPEND}
 	test? (
 		>=dev-perl/Cache-Memcached-1.24
 		ssl? ( dev-perl/IO-Socket-SSL )
-	)"
+	)
+"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-1.4.0-fix-as-needed-linking.patch"
