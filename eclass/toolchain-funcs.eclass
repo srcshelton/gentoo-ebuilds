@@ -742,7 +742,7 @@ tc-check-openmp() {
 		has_version -b 'sys-devel/gcc[openmp]' &&
 			return 0
 	elif tc-is-clang; then
-		has_version -b 'llvm-core/clang-runtime[openmp]' &&
+		has_version -b 'llvm-runtimes/clang-runtime[openmp]' &&
 			return 0
 	fi
 
