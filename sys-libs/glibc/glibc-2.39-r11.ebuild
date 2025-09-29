@@ -1694,8 +1694,9 @@ glibc_do_src_install() {
 
 	# Generate all locales if this is a native build as locale generation
 	if use compile-locales && ! is_crosscompile ; then
-		run_locale_gen --inplace-glibc "${ED}/" ||
-			die "run_locale_gen failed: ${?}"
+		run_locale_gen "${ED}/" ||
+			die "locale-gen(8) unexpectedly failed during the" \
+				"${EBUILD_PHASE_FUNC} phase: ${?}"
 	fi
 }
 
@@ -1846,7 +1847,10 @@ pkg_postinst() {
 		use loong && glibc_refresh_ldconfig
 
 		if ! use compile-locales; then
-			run_locale_gen "${EROOT%/}/" || die "run_locale_gen failed: ${?}"
+			run_locale_gen "${EROOT%/}/" ||
+				die "locale-gen(8) unexpectedly failed" \
+					"during the ${EBUILD_PHASE_FUNC}" \
+					"phase: ${?}"
 		fi
 	fi
 
