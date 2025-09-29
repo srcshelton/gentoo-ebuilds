@@ -85,6 +85,9 @@ pkg_setup() {
 src_prepare() {
 	eapply "${FILESDIR}"/"${SLOT}"/010*.patch
 	eapply "${FILESDIR}"/"${SLOT}"/013*.patch
+	eapply "${FILESDIR}"/"${SLOT}"/015*.patch
+	eapply "${FILESDIR}"/"${SLOT}"/016*.patch
+	eapply "${FILESDIR}"/"${SLOT}"/017*.patch
 	eapply "${FILESDIR}"/"${SLOT}"/902*.patch
 
 	if use elibc_musl ; then
