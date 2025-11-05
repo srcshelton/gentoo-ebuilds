@@ -24,6 +24,7 @@ BDEPEND="
 	dev-lang/perl
 "
 RDEPEND="
+	!sys-kernel/cix-headers
 	!sys-kernel/raspberrypi-headers
 	!sys-kernel/rockchip-headers
 "
