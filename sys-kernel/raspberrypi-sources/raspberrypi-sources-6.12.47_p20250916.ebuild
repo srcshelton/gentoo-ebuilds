@@ -4,7 +4,7 @@
 EAPI=8
 ETYPE="sources"
 K_WANT_GENPATCHES="extras experimental"
-K_GENPATCHES_VER="39"
+K_GENPATCHES_VER="53"
 
 CKV="${PV%_p*}"
 
