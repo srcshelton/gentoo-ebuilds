@@ -3,9 +3,6 @@
 
 EAPI=8
 
-# Re cleanups:
-# 2.5.x is an LTS release so we want to keep it for a while.
-
 inherit autotools flag-o-matic multilib preserve-libs ssl-cert systemd tmpfiles toolchain-funcs multilib-minimal
 
 MY_PV="$(ver_rs 1-2 _)"
@@ -44,6 +41,8 @@ REQUIRED_USE="
 RESTRICT="!test? ( test )"
 
 SYSTEM_LMDB_VER=0.9.33
+# The user/group are only used for running daemons which are
+# disabled in minimal builds, so elide the accounts too.
 # openssl is needed to generate lanman-passwords required by samba
 COMMON_DEPEND="
 	kernel_linux? ( sys-apps/util-linux )
@@ -58,6 +57,9 @@ COMMON_DEPEND="
 	)
 	sasl? ( dev-libs/cyrus-sasl:= )
 	!minimal? (
+		acct-group/ldap
+		acct-user/ldap
+		acct-user/root
 		dev-libs/libevent:=
 		dev-libs/libltdl
 		sys-fs/e2fsprogs
@@ -88,15 +90,6 @@ DEPEND="
 RDEPEND="
 	${COMMON_DEPEND}
 	selinux? ( sec-policy/selinux-ldap )
-"
-
-# The user/group are only used for running daemons which are
-# disabled in minimal builds, so elide the accounts too.
-BDEPEND="
-	!minimal? (
-		acct-group/ldap
-		acct-user/ldap
-	)
 "
 
 # for tracking versions
