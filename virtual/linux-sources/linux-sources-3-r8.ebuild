@@ -6,11 +6,12 @@ EAPI=7
 DESCRIPTION="Virtual for Linux kernel sources"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
-IUSE="apple firmware raspberrypi rockchip"
+IUSE="apple cix firmware mixtile raspberrypi"
 REQUIRED_USE="
 	apple? ( || ( arm arm64 ) )
+	cix? ( || ( arm arm64 ) )
+	mixtile? ( || ( arm arm64 ) )
 	raspberrypi? ( || ( arm arm64 ) )
-	rockchip? ( || ( arm arm64 ) )
 "
 
 RDEPEND="
@@ -21,31 +22,14 @@ RDEPEND="
 		sys-kernel/vanilla-sources
 	) )
 	!mips? (
-		arm64? (
-			raspberrypi? ( || (
-				sys-kernel/raspberrypi-sources
-				sys-kernel/gentoo-sources
-				sys-kernel/vanilla-sources
-			) )
-			!raspberrypi? (
-				rockchip? (
-					sys-kernel/mixtile-sources
-					sys-kernel/gentoo-sources
-					sys-kernel/vanilla-sources
-				)
-				!rockchip? (
-					apple? (
-						sys-kernel/asahi-sources
-						sys-kernel/gentoo-sources
-						sys-kernel/vanilla-sources
-					)
-					!apple? (
-						sys-kernel/gentoo-sources
-						sys-kernel/vanilla-sources
-					)
-				)
-			)
-		)
+		arm64? ( || (
+			apple? ( sys-kernel/asahi-sources )
+			cix? ( sys-kernel/cix-sources )
+			mixtile? ( sys-kernel/mixtile-sources )
+			raspberrypi? ( sys-kernel/raspberrypi-sources )
+			sys-kernel/gentoo-sources
+			sys-kernel/vanilla-sources
+		) )
 		!arm64? ( || (
 			sys-kernel/gentoo-sources
 			sys-kernel/vanilla-sources
