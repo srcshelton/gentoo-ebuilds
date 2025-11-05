@@ -7,8 +7,9 @@ DESCRIPTION="Virtual for operating system headers"
 SLOT="0"
 # KEYWORDS should match stable sys-kernel/linux-headers
 KEYWORDS="~alpha amd64 arm arm64 hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux"
-IUSE="raspberrypi rockchip"
+IUSE="cix raspberrypi rockchip"
 REQUIRED_USE="
+	cix? ( || ( arm arm64 ) )
 	raspberrypi? ( || ( arm arm64 ) )
 	rockchip? ( || ( arm arm64 ) )
 "
@@ -17,39 +18,19 @@ REQUIRED_USE="
 # sets a different SLOT for cross-building
 RDEPEND="
 	!prefix-guest? (
-		kernel_linux? (
-			!arm? (
-				!arm64? (
-					sys-kernel/linux-headers:0
-				)
-				arm64? (
-					raspberrypi? (
-						sys-kernel/raspberrypi-headers:0
-					)
-					!raspberrypi? (
-						rockchip? (
-							sys-kernel/rockchip-headers:0
-						)
-						!rockchip? (
-							sys-kernel/linux-headers:0
-						)
-					)
-				)
-			)
+		kernel_linux? ( || (
 			arm? (
-				raspberrypi? (
-					sys-kernel/raspberrypi-headers:0
-				)
-				!raspberrypi? (
-					rockchip? (
-						sys-kernel/rockchip-headers:0
-					)
-					!rockchip? (
-						sys-kernel/linux-headers:0
-					)
-				)
+				cix? ( sys-kernel/cix-headers:0 )
+				raspberrypi? ( sys-kernel/raspberrypi-headers:0 )
+				rockchip? ( sys-kernel/rockchip-headers:0 )
 			)
-		)
+			arm64? (
+				cix? ( sys-kernel/cix-headers:0 )
+				raspberrypi? ( sys-kernel/raspberrypi-headers:0 )
+				rockchip? ( sys-kernel/rockchip-headers:0 )
+			)
+			sys-kernel/linux-headers:0
+		) )
 		!kernel_linux? (
 			!sys-kernel/linux-headers
 		)
