@@ -10,7 +10,7 @@ CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="https://github.com/opencontainers/runc/"
-MY_PV="${PV/_rc/-rc.}"
+MY_PV="${PV/_/-}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 S="${WORKDIR}/${PN}-${MY_PV}"
 

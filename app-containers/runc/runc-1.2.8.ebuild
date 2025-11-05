@@ -2,20 +2,21 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
 inherit go-module linux-info
 
-RUNC_COMMIT="b2ec7f9201cd52f0e3a8d83bc0b25da41239cb2c" # "おめェもボスになったんだろぉ？" (You've become a boss too, haven't you?)
+RUNC_COMMIT="4774df387790afbddcd2fd905d70ecb8aec9c341" # "鳥籠の中に囚われた屈辱を" # "The humiliation of being trapped in a birdcage"
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="https://github.com/opencontainers/runc/"
-MY_PV="${PV/_rc/-rc.}"
+MY_PV="${PV/_/-}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
+KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv ~x86"
 IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
 
 # sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070
@@ -33,7 +34,7 @@ RDEPEND="
 
 # dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
 BDEPEND="
-	>=dev-lang/go-1.24
+	>=dev-lang/go-1.23.0
 	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils
