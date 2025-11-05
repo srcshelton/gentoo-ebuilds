@@ -1,0 +1,12 @@
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -2206,7 +2206,9 @@ int vprintk_store(int facility, int leve
+ 	u16 text_len;
+ 	int ret = 0;
+ 	u64 ts_nsec;
++#ifdef CONFIG_PLAT_PRINTK_EXT
+ 	char tmp_buf[100] = {'\0'};
++#endif
+ 	u16 tmp_len = 0;
+ 
+ 	if (!printk_enter_irqsave(recursion_ptr, irqflags))

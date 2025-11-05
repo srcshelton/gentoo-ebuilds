@@ -1,0 +1,23 @@
+diff --git a/net/rfkill/rfkill-wlan.c b/net/rfkill/rfkill-wlan.c
+index 36816a8cf..4ee81a976 100644
+--- a/net/rfkill/rfkill-wlan.c
++++ b/net/rfkill/rfkill-wlan.c
+@@ -116,7 +116,10 @@ static const struct acpi_device_id rfkill_acpi_ids[] = {
+ 	{"CIXH7000", 0 },
+ 	{ },
+ };
+-MODULE_DEVICE_TABLE(acpi, macb_acpi_ids);
++/*
++ * Accidental copy/paste error from drivers/net/ethernet/cadence/macb_main.c?
++ */
++//MODULE_DEVICE_TABLE(acpi, macb_acpi_ids);
+ 
+ static struct platform_driver rfkill_gpio_driver = {
+ 	.probe = rfkill_wlan_probe,
+@@ -132,4 +135,4 @@ module_platform_driver(rfkill_gpio_driver);
+ 
+ MODULE_DESCRIPTION("cix rfkill for wifi");
+ MODULE_AUTHOR("lihua.liu@cixtech.com");
+-MODULE_LICENSE("GPL");
+\ No newline at end of file
++MODULE_LICENSE("GPL");

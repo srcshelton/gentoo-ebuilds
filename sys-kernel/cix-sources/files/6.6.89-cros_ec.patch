@@ -1,0 +1,114 @@
+diff --git a/drivers/platform/chrome/cix_ec/Kconfig b/drivers/platform/chrome/cix_ec/Kconfig
+index cc322f51f..8467b8ce8 100644
+--- a/drivers/platform/chrome/cix_ec/Kconfig
++++ b/drivers/platform/chrome/cix_ec/Kconfig
+@@ -2,5 +2,6 @@
+ config CIX_EC
+ 	tristate "CIX Embedded Controller"
+ 	depends on CROS_EC_I2C
++	select IIO
+ 	help
+-	  If you say Y here, you get support for talking to the CIX EC over an I2C bus.
+\ No newline at end of file
++	  If you say Y here, you get support for talking to the CIX EC over an I2C bus.
+diff --git a/drivers/platform/chrome/cros_ec.c b/drivers/platform/chrome/cros_ec.c
+index bd00b5977..c3ccf9701 100644
+--- a/drivers/platform/chrome/cros_ec.c
++++ b/drivers/platform/chrome/cros_ec.c
+@@ -46,6 +46,7 @@ static irqreturn_t cros_ec_irq_handler(int irq, void *data)
+ 	return IRQ_WAKE_THREAD;
+ }
+ 
++#if !IS_ENABLED(CONFIG_CIX_EC)
+ /**
+  * cros_ec_handle_event() - process and forward pending events on EC
+  * @ec_dev: Device with events to process.
+@@ -78,8 +79,9 @@ static bool cros_ec_handle_event(struct cros_ec_device *ec_dev)
+ 
+ 	return ec_has_more_events;
+ }
++#endif
+ 
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ /**
+  * cix_ec_get_irq_info() - get irq info from EC
+  * @ec_dev: Device which raise the irq
+@@ -121,7 +123,7 @@ int cix_ec_get_irq_info(struct cros_ec_device *ec_dev)
+ irqreturn_t cros_ec_irq_thread(int irq, void *data)
+ {
+ 	struct cros_ec_device *ec_dev = data;
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 	int rc = cix_ec_get_irq_info(ec_dev);
+ 	if (rc < 0)
+ 		return IRQ_NONE;
+@@ -254,7 +256,7 @@ int cros_ec_register(struct cros_ec_device *ec_dev)
+ 		err = devm_request_threaded_irq(dev, ec_dev->irq,
+ 						cros_ec_irq_handler,
+ 						cros_ec_irq_thread,
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 						IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+ #else
+ 						IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+@@ -328,7 +330,7 @@ int cros_ec_register(struct cros_ec_device *ec_dev)
+ 			goto exit;
+ 	}
+ 
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 	/* Maybe EC generates interrupt and EC pulls down gpio before request_irq,
+ 	 * so we must handle the interrupt
+ 	 */
+@@ -530,13 +532,13 @@ EXPORT_SYMBOL(cros_ec_resume_early);
+  */
+ int cros_ec_resume(struct cros_ec_device *ec_dev)
+ {
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 	int ret;
+ #endif
+ 
+ 	cros_ec_resume_early(ec_dev);
+ 	cros_ec_resume_complete(ec_dev);
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 	ret = cix_ec_get_irq_info(ec_dev);
+ 	if (ret < 0)
+ 		dev_err(ec_dev->dev,"Failed: clear interrupts from str wakeup!\n");
+diff --git a/include/linux/platform_data/cros_ec_commands.h b/include/linux/platform_data/cros_ec_commands.h
+index 65b5faa73..074cc7be8 100644
+--- a/include/linux/platform_data/cros_ec_commands.h
++++ b/include/linux/platform_data/cros_ec_commands.h
+@@ -6391,7 +6391,7 @@ struct ec_params_usb_pd_mux_ack {
+ #define EC_LPC_ADDR_OLD_PARAM   EC_HOST_CMD_REGION1
+ #define EC_OLD_PARAM_SIZE       EC_HOST_CMD_REGION_SIZE
+ 
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ /*****************************************************************************/
+ /* Cix EC commands */
+ 
+@@ -6467,7 +6467,7 @@ struct ec_response_ic_error_info
+ #endif /* CONFIG_CIX_EC_EXCEPTION */
+ #endif /* CONFIG_CIX_EC */
+ 
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ #define ec_be16_to_cpu(x) be16_to_cpu(x)
+ #define ec_be32_to_cpu(x) be32_to_cpu(x)
+ #define ec_cpu_to_be16(x) cpu_to_be16(x)
+diff --git a/include/linux/platform_data/cros_ec_proto.h b/include/linux/platform_data/cros_ec_proto.h
+index 198b1445c..06541a2b4 100644
+--- a/include/linux/platform_data/cros_ec_proto.h
++++ b/include/linux/platform_data/cros_ec_proto.h
+@@ -198,7 +198,7 @@ struct cros_ec_device {
+ 	struct platform_device *pd;
+ 
+ 	struct blocking_notifier_head panic_notifier;
+-#ifdef CONFIG_CIX_EC
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 	struct ec_response_int_get_info irq_info;
+ #endif
+ };

@@ -1,0 +1,44 @@
+diff --git a/drivers/thermal/cix/cix_cpu_ipa.c b/drivers/thermal/cix/cix_cpu_ipa.c
+index 103bf54..3799093 100644
+--- a/drivers/thermal/cix/cix_cpu_ipa.c
++++ b/drivers/thermal/cix/cix_cpu_ipa.c
+@@ -10,6 +10,9 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#if defined(MODULE) || !IS_BUILTIN(CONFIG_CIX_THERMAL)
++#include <linux/topology.h>
++#endif
+ 
+ #define REG_OFFSET 0x40
+ 
+@@ -27,7 +28,14 @@ struct cpu_ipa {
+ 
+ static int cix_get_static_power(int cpu)
+ {
++#if IS_BUILTIN(CONFIG_CIX_THERMAL) && !defined(MODULE)
+ 	int pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++#else
++	/*
++	 * Apparently identical but exported for module usage?
++	 */
++	int pcpu = topology_cluster_id(cpu);
++#endif
+ 
+ 	CPU_IPA_INFO *info = ci->regs + pcpu * REG_OFFSET;
+ 
+@@ -36,7 +44,14 @@ static int cix_get_static_power(int cpu)
+ 
+ static int cix_get_dynamic_power(int cpu)
+ {
++#if IS_BUILTIN(CONFIG_CIX_THERMAL) && !defined(MODULE)
+ 	int pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++#else
++	/*
++	 * Apparently identical but exported for module usage?
++	 */
++	int pcpu = topology_cluster_id(cpu);
++#endif
+ 
+ 	CPU_IPA_INFO *info = ci->regs + pcpu * REG_OFFSET;
+ 

@@ -1,0 +1,25 @@
+diff --git a/drivers/watchdog/Kconfig b/drivers/watchdog/Kconfig
+index a436d47bc..2b6f406cb 100644
+--- a/drivers/watchdog/Kconfig
++++ b/drivers/watchdog/Kconfig
+@@ -1051,6 +1051,7 @@ config SKY1_WATCHDOG
+ 	tristate "SKY1 Watchdog"
+ 	depends on ARCH_CIX
+ 	depends on OF
++	select CIX_DST
+ 	select WATCHDOG_CORE
+ 	help
+ 	  This is the driver for the hardware watchdog
+diff --git a/drivers/watchdog/sky1_wdt.c b/drivers/watchdog/sky1_wdt.c
+index 0c40e2b5c..f542f900d 100644
+--- a/drivers/watchdog/sky1_wdt.c
++++ b/drivers/watchdog/sky1_wdt.c
+@@ -398,7 +398,7 @@ static int sky1_wdt_resume(struct device *dev)
+ 	return 0;
+ }
+ 
+-static SIMPLE_DEV_PM_OPS(sky1_wdt_pm_ops, sky1_wdt_suspend,
++static DEFINE_SIMPLE_DEV_PM_OPS(sky1_wdt_pm_ops, sky1_wdt_suspend,
+ 		sky1_wdt_resume);
+ 
+ static const struct of_device_id sky1_wdt_device_of_match[] = {

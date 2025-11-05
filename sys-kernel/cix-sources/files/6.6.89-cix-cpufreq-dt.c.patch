@@ -1,0 +1,24 @@
+diff --git a/drivers/cpufreq/cix-cpufreq-dt.c b/drivers/cpufreq/cix-cpufreq-dt.c
+index dad54512b..061ac0a38 100644
+--- a/drivers/cpufreq/cix-cpufreq-dt.c
++++ b/drivers/cpufreq/cix-cpufreq-dt.c
+@@ -43,7 +43,7 @@ static int cix_cpufreq_read_lut(struct device *cpu_dev,
+ static unsigned int cix_cpufreq_get(unsigned int cpu)
+ {
+ 	struct cpufreq_policy *policy;
+-	unsigned int freq;
++	//unsigned int freq;
+ 	struct cix_cpufreq_data *data;
+ 
+ 	policy = cpufreq_cpu_get_raw(cpu);
+@@ -238,7 +238,9 @@ static int cix_cpufreq_driver_probe(struct platform_device *pdev)
+ 
+ static int cix_cpufreq_driver_remove(struct platform_device *pdev)
+ {
+-	return cpufreq_unregister_driver(&cpufreq_cix_driver);
++	cpufreq_unregister_driver(&cpufreq_cix_driver);
++
++	return 0;
+ }
+ 
+ static const struct of_device_id cix_cpufreq_match[] = {

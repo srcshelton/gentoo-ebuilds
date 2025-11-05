@@ -1,0 +1,63 @@
+diff --git a/drivers/usb/cdns3/cdnsp-plat.c b/drivers/usb/cdns3/cdnsp-plat.c
+index b575f90ec..5b36f74c4 100644
+--- a/drivers/usb/cdns3/cdnsp-plat.c
++++ b/drivers/usb/cdns3/cdnsp-plat.c
+@@ -212,8 +212,8 @@ static int cdnsp_remove(struct platform_device *pdev)
+ 	phy_exit(cdns->usb3_phy);
+ 	return 0;
+ }
+-#ifdef CONFIG_PM
+ 
++#if defined(CONFIG_PM) && defined(CONFIG_PM_SLEEP)
+ static int cdnsp_set_platform_suspend(struct device *dev,
+ 				      bool suspend, bool wakeup)
+ {
+@@ -332,7 +332,6 @@ static int cdnsp_plat_runtime_resume(struct device *dev)
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_PM_SLEEP
+ static int cdnsp_plat_suspend(struct device *dev)
+ {
+ 	struct cdns *cdns = dev_get_drvdata(dev);
+@@ -429,9 +428,6 @@ static int cdnsp_plat_thaw(struct device *dev)
+ 	return 0;
+ }
+ 
+-#endif /* CONFIG_PM_SLEEP */
+-#endif /* CONFIG_PM */
+-
+ static const struct dev_pm_ops cdnsp_pm_ops = {
+         .suspend = cdnsp_plat_suspend,
+         .resume = cdnsp_plat_resume,
+@@ -442,6 +438,8 @@ static const struct dev_pm_ops cdnsp_pm_ops = {
+ 	.runtime_suspend = cdnsp_plat_runtime_suspend,
+ };
+ 
++#endif /* CONFIG_PM && CONFIG_PM_SLEEP */
++
+ #ifdef CONFIG_OF
+ static const struct of_device_id of_cdnsp_match[] = {
+ 	{ .compatible = "cdns,usbssp" },
+@@ -461,15 +459,21 @@ static struct platform_driver cdnsp_driver = {
+ 	.remove 	= cdnsp_remove,
+ 	.driver 	= {
+ 		.name	= "cdns-usbssp",
++#ifdef CONFIG_OF
+ 		.of_match_table = of_match_ptr(of_cdnsp_match),
++#endif
+ 		.acpi_match_table = ACPI_PTR(acpi_cdnsp_match),
++#if defined(CONFIG_PM) && defined(CONFIG_PM_SLEEP)
+ 		.pm = &cdnsp_pm_ops,
++#endif
+ 	},
+ 	/* some users need to wake up the system through a USB device after the system shutting
+ 	 * down, add shutdown callback to suspend the usb controller and config it to D3, and
+ 	 * enable_irq_wake will enable the corresponding bit for USB to wake up the system.
+ 	 */
++#if defined(CONFIG_PM) && defined(CONFIG_PM_SLEEP)
+ 	.shutdown = cdnsp_cdnsp_plat_shutdown,
++#endif
+ };
+ 
+ module_platform_driver(cdnsp_driver);

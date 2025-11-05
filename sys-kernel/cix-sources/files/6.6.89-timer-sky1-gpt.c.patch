@@ -1,0 +1,56 @@
+diff --git a/drivers/clocksource/timer-sky1-gpt.c b/drivers/clocksource/timer-sky1-gpt.c
+index 5e6a15e94..faf2e9ab7 100644
+--- a/drivers/clocksource/timer-sky1-gpt.c
++++ b/drivers/clocksource/timer-sky1-gpt.c
+@@ -147,10 +147,13 @@ static u64 notrace _sky1_gt_counter_read(void)
+ 	return counter;
+ }
+ 
++// See comment in sky1_clocksource_init, below...
++#if 0
+ static u64 notrace sky1_read_sched_clock(void)
+ {
+ 	return sched_clock_reg ? _sky1_gt_counter_read() : 0;
+ }
++#endif
+ 
+ static u64 sky1_gt_clocksource_read(struct clocksource *cs)
+ {
+@@ -172,7 +175,21 @@ static int __init sky1_clocksource_init(struct sky1_timer *sky1tm)
+ 
+ 	sched_clock_reg = reg;
+ 
+-	sched_clock_register(sky1_read_sched_clock, 64, c);
++	/*
++	 * NOTE:
++	 * Historically the driver registered a sched_clock here:
++	 */
++
++	//sched_clock_register(sky1_read_sched_clock, 64, c);
++
++	/*
++	 * sched_clock_register() is marked __init so calling it from a
++	 * non-__init probe produces a modpost section-mismatch warning (and
++	 * would be unsafe if the init section is freed).  We therefore do
++	 * not call sched_clock_register() from the normal probe path.
++	 *
++	 * The driver still registers as a clocksource below.
++	 */
+ 
+ 	return clocksource_register_hz(&clocksource_gpt, c);
+ }
+@@ -390,7 +407,13 @@ static struct platform_driver sky1_timer_driver = {
+ 	},
+ 	.probe = sky1_timer_probe,
+ };
+-module_platform_driver(sky1_timer_driver);
++
++static int __init sky1_timer_init(void)
++{
++	return platform_driver_register(&sky1_timer_driver);
++}
++
++device_initcall(sky1_timer_init);
+ 
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Jerry Zhu <jerry.zhu@cixtech.com>");

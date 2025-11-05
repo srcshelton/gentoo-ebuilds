@@ -1,0 +1,33 @@
+diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
+index 1b7790a5e..348d41028 100644
+--- a/drivers/clk/cix/Kconfig
++++ b/drivers/clk/cix/Kconfig
+@@ -16,19 +16,19 @@ config CIX_CLK_DEBUG
+ 	help
+ 	  Support on-line debug soc clocks from the debugfs interface.
+ 
++config CIX_ACPI_CLK
++        bool "CIX Clock Management API for acpi"
++        depends on ARCH_CIX && ACPI
++        help
++          This provides the clock management API for CIX Technologies, Inc.
++          Say Y if you want to support clock driver.
++
+ config CLK_SKY1_AUDSS
+-	tristate "Cixtech Sky1 Audio Subsystem Clock Driver"
+-	depends on COMMON_CLK_CIX || COMPILE_TEST
++	bool "Cixtech Sky1 Audio Subsystem Clock Driver"
++	depends on (COMMON_CLK_CIX || COMPILE_TEST) && CIX_ACPI_CLK
+ 	help
+ 	    Support for the Audio Subsystem clock controller present on
+ 	    Cixtech Sky1 SoC. Choose M or Y here if you want to build this
+ 	    driver.
+ 
+-config CIX_ACPI_CLK
+-        bool "CIX Clock Management API for acpi"
+-        depends on ARCH_CIX && ACPI
+-        help
+-          This provid the clock management API for CIX Technologies,Inc.
+-          Say Y if you want to supprot clock driver.
+-
+ endmenu

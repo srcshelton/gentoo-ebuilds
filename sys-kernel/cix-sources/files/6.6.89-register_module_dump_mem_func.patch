@@ -1,0 +1,11 @@
+--- a/include/linux/soc/cix/rdr_platform.h
++++ b/include/linux/soc/cix/rdr_platform.h
+@@ -86,7 +86,7 @@ static inline void regs_dump(void)
+ static inline void hisiap_nmi_notify_lpm3(void)
+ {
+ }
+-static inline int register_module_dump_mem_func(rdr_hisiap_dump_func_ptr func,
++static inline int register_module_dump_mem_func(ap_dump_func func,
+ 						const char *module_name,
+ 						dump_mem_module modu)
+ {

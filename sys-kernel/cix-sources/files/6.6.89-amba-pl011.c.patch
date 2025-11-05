@@ -1,0 +1,235 @@
+diff --git a/drivers/tty/serial/amba-pl011.c b/drivers/tty/serial/amba-pl011.c
+index a3e5748..c00db5d 100755
+--- a/drivers/tty/serial/amba-pl011.c
++++ b/drivers/tty/serial/amba-pl011.c
+@@ -143,15 +143,11 @@ struct vendor_data {
+ 	unsigned int (*get_fifosize)(struct amba_device *dev);
+ };
+ 
++#ifdef CONFIG_DMA_ENGINE
+ struct vendor_cix_data {
+-        unsigned int dma_burst;
++	unsigned int dma_burst;
+ };
+ 
+-static unsigned int get_fifosize_arm(struct amba_device *dev)
+-{
+-	return amba_rev(dev) < 3 ? 16 : 32;
+-}
+-
+ /*
+  * due to uart have no signal to notify dma stop,so
+  * use bursts of length 1 transfer for both reads and write,
+@@ -160,6 +156,12 @@ static unsigned int get_fifosize_arm(struct amba_device *dev)
+ static struct  vendor_cix_data vendor_cix = {
+ 	.dma_burst = 1,
+ };
++#endif
++
++static unsigned int get_fifosize_arm(struct amba_device *dev)
++{
++	return amba_rev(dev) < 3 ? 16 : 32;
++}
+ 
+ static struct vendor_data vendor_arm = {
+ 	.reg_offset		= pl011_std_offsets,
+@@ -1644,10 +1646,13 @@ static irqreturn_t pl011_int(int irq, void *dev_id)
+ 	struct uart_amba_port *uap = dev_id;
+ 	unsigned long flags;
+ 	unsigned int status, pass_counter = AMBA_ISR_PASS_LIMIT;
+-	int handled = IRQ_NONE,cru_status = 0;
++	int handled = IRQ_NONE;
+ 
+ 	uart_port_lock_irqsave(&uap->port, &flags);
+ 
++#ifdef CONFIG_DMA_ENGINE
++	int cru_status = 0;
++
+ 	if (uap->use_sky1_dma_pause) {
+ 		if (pl011_dma_rx_running(uap)) {
+ 			regmap_read(uap->fch_cru, TIMEOUT_INTR_STA, &cru_status);
+@@ -1659,6 +1664,7 @@ static irqreturn_t pl011_int(int irq, void *dev_id)
+ 			}
+ 		}
+ 	}
++#endif
+ 	status = pl011_read(uap, REG_RIS) & uap->im;
+ 	if (status) {
+ 		do {
+@@ -1950,8 +1956,10 @@ static void pl011_unthrottle_rx(struct uart_port *port)
+ 	uap->im = UART011_RTIM;
+ 	if (!pl011_dma_rx_running(uap))
+ 		uap->im |= UART011_RXIM;
+-       if(uap->use_sky1_dma_pause)
+-                 uap->im &= ~(UART011_RTIM | UART011_RXIM);
++#ifdef CONFIG_DMA_ENGINE
++	if(uap->use_sky1_dma_pause)
++		uap->im &= ~(UART011_RTIM | UART011_RXIM);
++#endif
+ 
+ 	pl011_write(uap->im, uap, REG_IMSC);
+ 
+@@ -2037,11 +2045,11 @@ static int sbsa_uart_startup(struct uart_port *port)
+ static void pl011_shutdown_channel(struct uart_amba_port *uap,
+ 					unsigned int lcrh)
+ {
+-      unsigned long val;
++	unsigned long val;
+ 
+-      val = pl011_read(uap, lcrh);
+-      val &= ~(UART01x_LCRH_BRK | UART01x_LCRH_FEN);
+-      pl011_write(val, uap, lcrh);
++	val = pl011_read(uap, lcrh);
++	val &= ~(UART01x_LCRH_BRK | UART01x_LCRH_FEN);
++	pl011_write(val, uap, lcrh);
+ }
+ 
+ /*
+@@ -2941,7 +2949,7 @@ static int pl011_probe(struct amba_device *dev, const struct amba_id *id)
+ 	struct uart_amba_port *uap;
+ 	struct vendor_data *vendor = id->data;
+ 	int portnr, ret;
+-	u32 val, timeout;
++	u32 val;
+ 
+ 	portnr = pl011_find_free_port();
+ 	if (portnr < 0)
+@@ -2991,20 +2999,26 @@ static int pl011_probe(struct amba_device *dev, const struct amba_id *id)
+ 	if (ret)
+ 		return ret;
+ 
++#ifdef CONFIG_DMA_ENGINE
+ 	if(of_property_read_bool((&dev->dev)->of_node,"timeout-enable")) {
+ 
+-                uap->fch_cru = syscon_regmap_lookup_by_compatible("sky1,fch_cru");
+-                if (IS_ERR(uap->fch_cru)) {
++		uap->fch_cru = syscon_regmap_lookup_by_compatible("sky1,fch_cru");
++		if (IS_ERR(uap->fch_cru)) {
+ 
+-                /* if find no timeout-enable or fch_cru node,do not start sky1 dma*/
+-                        uap->use_sky1_dma_pause = false;
+-                } else {
+-                       if(of_property_read_u32((&dev->dev)->of_node, "timeout-value",  &timeout) == 0) {
+-                                uap->timeout_value = timeout;
++			/* if find no timeout-enable or fch_cru node,
++			 * do not start sky1 dma
++			 */
++			uap->use_sky1_dma_pause = false;
++		} else {
++			u32 timeout;
++
++			if(of_property_read_u32((&dev->dev)->of_node, "timeout-value",  &timeout) == 0) {
++				uap->timeout_value = timeout;
+ 				uap->use_sky1_dma_pause = true;
+ 			}
+-                }
+-        }
++		}
++	}
++#endif
+ 
+ 	amba_set_drvdata(dev, uap);
+ 	ret = pl011_register_port(uap);
+@@ -3025,20 +3039,20 @@ static void pl011_remove(struct amba_device *dev)
+ #ifdef CONFIG_PM_SLEEP
+ static void pl011_suspend_prepare(struct uart_amba_port *uap)
+ {
+-        uap->need_save_reg[0].reg = REG_IBRD;
+-        uap->need_save_reg[0].value = pl011_read(uap, REG_IBRD);
+-        uap->need_save_reg[1].reg = REG_FBRD;
+-        uap->need_save_reg[1].value = pl011_read(uap, REG_FBRD);
+-        uap->need_save_reg[2].reg = REG_LCRH_RX;
+-        uap->need_save_reg[2].value = pl011_read(uap, REG_LCRH_RX);
+-        uap->need_save_reg[3].reg = REG_CR;
+-        uap->need_save_reg[3].value = pl011_read(uap, REG_CR);
+-        uap->need_save_reg[4].reg = REG_IFLS;
+-        uap->need_save_reg[4].value = pl011_read(uap, REG_IFLS);
+-        uap->need_save_reg[5].reg = REG_IMSC;
+-        uap->need_save_reg[5].value = pl011_read(uap, REG_IMSC);
+-        uap->need_save_reg[6].reg = REG_DMACR;
+-        uap->need_save_reg[6].value = pl011_read(uap, REG_DMACR);
++	uap->need_save_reg[0].reg = REG_IBRD;
++	uap->need_save_reg[0].value = pl011_read(uap, REG_IBRD);
++	uap->need_save_reg[1].reg = REG_FBRD;
++	uap->need_save_reg[1].value = pl011_read(uap, REG_FBRD);
++	uap->need_save_reg[2].reg = REG_LCRH_RX;
++	uap->need_save_reg[2].value = pl011_read(uap, REG_LCRH_RX);
++	uap->need_save_reg[3].reg = REG_CR;
++	uap->need_save_reg[3].value = pl011_read(uap, REG_CR);
++	uap->need_save_reg[4].reg = REG_IFLS;
++	uap->need_save_reg[4].value = pl011_read(uap, REG_IFLS);
++	uap->need_save_reg[5].reg = REG_IMSC;
++	uap->need_save_reg[5].value = pl011_read(uap, REG_IMSC);
++	uap->need_save_reg[6].reg = REG_DMACR;
++	uap->need_save_reg[6].value = pl011_read(uap, REG_DMACR);
+ }
+ 
+ static int pl011_suspend(struct device *dev)
+@@ -3204,15 +3218,15 @@ static int pl011_thaw(struct device *dev)
+ 
+ 	return ret;
+ }
+-#endif
+ 
+ static const struct dev_pm_ops pl011_dev_pm_ops = {
+-        .suspend = pl011_suspend,
+-        .resume = pl011_resume,
+-        .restore = pl011_restore,
+-        .freeze = pl011_freeze,
+-        .thaw = pl011_thaw,
++	.suspend = pl011_suspend,
++	.resume = pl011_resume,
++	.restore = pl011_restore,
++	.freeze = pl011_freeze,
++	.thaw = pl011_thaw,
+ };
++#endif
+ 
+ static int sbsa_uart_probe(struct platform_device *pdev)
+ {
+@@ -3220,7 +3234,6 @@ static int sbsa_uart_probe(struct platform_device *pdev)
+ 	struct resource *r;
+ 	int portnr, ret;
+ 	int baudrate;
+-	int timeout;
+ 
+ 	/*
+ 	 * Check the mandatory baud rate parameter in the DT node early
+@@ -3278,6 +3291,9 @@ static int sbsa_uart_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
++#ifdef CONFIG_DMA_ENGINE
++	int timeout;
++
+ 	if (!device_property_read_u32(&pdev->dev, "timeout-value", &timeout)) {
+ 		uap->fch_cru =
+ 			device_syscon_regmap_lookup_by_property(&pdev->dev, "sky1,fch_cru");
+@@ -3289,6 +3305,7 @@ static int sbsa_uart_probe(struct platform_device *pdev)
+ 		}
+ 		dev_info(&pdev->dev, "use_sky1_dma_pause: %d\n", uap->use_sky1_dma_pause);
+ 	}
++#endif
+ 
+ 	platform_set_drvdata(pdev, uap);
+ 
+@@ -3322,7 +3339,9 @@ static struct platform_driver arm_sbsa_uart_platform_driver = {
+ 	.remove		= sbsa_uart_remove,
+ 	.driver	= {
+ 		.name	= "sbsa-uart",
++#ifdef CONFIG_PM_SLEEP
+ 		.pm	= &pl011_dev_pm_ops,
++#endif
+ 		.of_match_table = of_match_ptr(sbsa_uart_of_match),
+ 		.acpi_match_table = ACPI_PTR(sbsa_uart_acpi_match),
+ 		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
+@@ -3348,7 +3367,9 @@ MODULE_DEVICE_TABLE(amba, pl011_ids);
+ static struct amba_driver pl011_driver = {
+ 	.drv = {
+ 		.name	= "uart-pl011",
++#ifdef CONFIG_PM_SLEEP
+ 		.pm	= &pl011_dev_pm_ops,
++#endif
+ 		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
+ 	},
+ 	.id_table	= pl011_ids,

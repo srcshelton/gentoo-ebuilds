@@ -1,0 +1,4049 @@
+diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+index 1d8347801d78..e6f5b97d88b4 100644
+--- a/arch/arm64/Kconfig.platforms
++++ b/arch/arm64/Kconfig.platforms
+@@ -379,21 +379,22 @@ config ARCH_CIX
+ 	help
+ 	  This enables support for the cixtech SoC family.
+ 
++config ARCH_CIX_EMU_FPGA
++	bool "cixtech SoC family on both EMU and FPGA"
++	depends on BROKEN
++	help
++	  Enable CIX EMU and/or FPGA-specific code.
++
+ config ARCH_CIX_EMU
+ 	bool "cixtech SoC family on EMU"
+-	select ARCH_CIX_EMU_FPGA
++	depends on ARCH_CIX_EMU_FPGA
+ 	help
+ 	  This enables support for the cixtech SoC family on EMU.
+ 
+ config ARCH_CIX_FPGA
+ 	bool "cixtech SoC family on FPGA"
+-	select ARCH_CIX_EMU_FPGA
++	depends on ARCH_CIX_EMU_FPGA
+ 	help
+ 	  This enables support for the cixtech SoC family on FPGA.
+ 
+-config ARCH_CIX_EMU_FPGA
+-	bool "cixtech SoC family on both EMU and FPGA"
+-	help
+-	  Please use this configuration for both EMU and FPGA suitable code.
+-
+ endmenu # "Platform selection"
+diff --git a/arch/arm64/configs/cix.config b/arch/arm64/configs/cix.config
+index a5394640dd8b..36fc4105ae9b 100755
+--- a/arch/arm64/configs/cix.config
++++ b/arch/arm64/configs/cix.config
+@@ -552,3 +552,8 @@ CONFIG_DRM_PANTHOR=m
+ CONFIG_BINFMT_ELF=y
+ CONFIG_BINFMT_SCRIPT=y
+ CONFIG_BINFMT_MISC=y
++
++# aid with debugging
++CONFIG_SECTION_MISMATCH_WARN_ONLY=n
++#CONFIG_WERROR=y
++CONFIG_WERROR=n
+diff --git a/distro/Kconfig b/distro/Kconfig
+index dc7084b19e50..747d3eca6879 100644
+--- a/distro/Kconfig
++++ b/distro/Kconfig
+@@ -174,29 +174,29 @@ if GENTOO_KERNEL_SELF_PROTECTION
+ config GENTOO_KERNEL_SELF_PROTECTION_COMMON
+ 	bool "Enable Kernel Self Protection Project Recommendations"
+ 
+-	depends on GENTOO_LINUX && !ACPI_CUSTOM_METHOD && !COMPAT_BRK && !PROC_KCORE && !COMPAT_VDSO && !KEXEC && !HIBERNATION && !LEGACY_PTYS && !X86_X32_ABI && !MODIFY_LDT_SYSCALL && GCC_PLUGINS && !IOMMU_DEFAULT_DMA_LAZY && !IOMMU_DEFAULT_PASSTHROUGH && IOMMU_DEFAULT_DMA_STRICT && SECURITY && !ARCH_EPHEMERAL_INODES  && RANDSTRUCT_PERFORMANCE
++	depends on GENTOO_LINUX && !ACPI_CUSTOM_METHOD && !COMPAT_BRK && !PROC_KCORE && !COMPAT_VDSO && !KEXEC && !HIBERNATION && !LEGACY_PTYS && !X86_X32_ABI && !MODIFY_LDT_SYSCALL && (!CC_IS_GCC || GCC_PLUGINS) && !IOMMU_DEFAULT_DMA_LAZY && !IOMMU_DEFAULT_PASSTHROUGH && IOMMU_DEFAULT_DMA_STRICT && SECURITY && !ARCH_EPHEMERAL_INODES  && RANDSTRUCT_PERFORMANCE
+ 
+ 	select BUG
+ 	select STRICT_KERNEL_RWX
+ 	select DEBUG_WX
+ 	select STACKPROTECTOR
+ 	select STACKPROTECTOR_STRONG
+-	select STRICT_DEVMEM if DEVMEM=y
+-	select IO_STRICT_DEVMEM if DEVMEM=y
++	select STRICT_DEVMEM if DEVMEM
++	select IO_STRICT_DEVMEM if DEVMEM
+ 	select SYN_COOKIES
+ 	select DEBUG_CREDENTIALS
+ 	select DEBUG_NOTIFIERS
+ 	select DEBUG_LIST
+ 	select DEBUG_SG
+-	select HARDENED_USERCOPY if HAVE_HARDENED_USERCOPY_ALLOCATOR=y
++	select HARDENED_USERCOPY if HAVE_HARDENED_USERCOPY_ALLOCATOR
+ 	select KFENCE if HAVE_ARCH_KFENCE && (!SLAB || SLUB)
+-	select PAGE_TABLE_CHECK if ARCH_SUPPORTS_PAGE_TABLE_CHECK=y && EXCLUSIVE_SYSTEM_RAM=y  
+-	select PAGE_TABLE_CHECK_ENFORCED if PAGE_TABLE_CHECK=y
++	select PAGE_TABLE_CHECK if ARCH_SUPPORTS_PAGE_TABLE_CHECK && EXCLUSIVE_SYSTEM_RAM
++	select PAGE_TABLE_CHECK_ENFORCED if PAGE_TABLE_CHECK
+ 	select RANDOMIZE_KSTACK_OFFSET_DEFAULT if HAVE_ARCH_RANDOMIZE_KSTACK_OFFSET && (INIT_STACK_NONE || !CC_IS_CLANG || CLANG_VERSION>=140000)
+ 	select SECURITY_LANDLOCK
+ 	select SCHED_CORE if SCHED_SMT
+ 	select BUG_ON_DATA_CORRUPTION
+-	select RANDOM_KMALLOC_CACHE if SLUB_TINY=n
++	select RANDOM_KMALLOC_CACHE if !SLUB_TINY
+ 	select SCHED_STACK_END_CHECK
+ 	select SECCOMP if HAVE_ARCH_SECCOMP
+ 	select SECCOMP_FILTER if HAVE_ARCH_SECCOMP_FILTER
+@@ -218,11 +218,11 @@ config GENTOO_KERNEL_SELF_PROTECTION_COMMON
+ 	select FORTIFY_SOURCE
+ 	select SECURITY_DMESG_RESTRICT
+ 	select PANIC_ON_OOPS
+-	select GCC_PLUGIN_LATENT_ENTROPY
+-	select GCC_PLUGIN_STRUCTLEAK
+-	select GCC_PLUGIN_STRUCTLEAK_BYREF_ALL
+-	select GCC_PLUGIN_RANDSTRUCT 
+-	select GCC_PLUGIN_RANDSTRUCT_PERFORMANCE
++	select GCC_PLUGIN_LATENT_ENTROPY if CC_IS_GCC
++	select GCC_PLUGIN_STRUCTLEAK if CC_IS_GCC
++	select GCC_PLUGIN_STRUCTLEAK_BYREF_ALL if CC_IS_GCC
++	select GCC_PLUGIN_RANDSTRUCT  if CC_IS_GCC
++	select GCC_PLUGIN_RANDSTRUCT_PERFORMANCE if CC_IS_GCC
+ 	select ZERO_CALL_USED_REGS if CC_HAS_ZERO_CALL_USED_REGS
+ 
+ 	help
+@@ -236,14 +236,14 @@ config GENTOO_KERNEL_SELF_PROTECTION_X86_64
+ 	depends on !X86_MSR && X86_64 && GENTOO_KERNEL_SELF_PROTECTION
+ 	default n
+ 	
+-	select GCC_PLUGIN_STACKLEAK
+-	select X86_KERNEL_IBT if CC_HAS_IBT=y && HAVE_OBJTOOL=y && (!LD_IS_LLD=n || LLD_VERSION>=140000) 
++	select GCC_PLUGIN_STACKLEAK if CC_IS_GCC
++	select X86_KERNEL_IBT if CC_HAS_IBT && HAVE_OBJTOOL && (!LD_IS_LLD || LLD_VERSION>=140000) 
+ 	select LEGACY_VSYSCALL_NONE
+  	select PAGE_TABLE_ISOLATION
+ 	select RANDOMIZE_BASE
+ 	select RANDOMIZE_MEMORY
+ 	select RELOCATABLE
+-	select X86_USER_SHADOW_STACK if AS_WRUSS=y
++	select X86_USER_SHADOW_STACK if AS_WRUSS
+ 	select VMAP_STACK
+ 
+ 
+@@ -255,19 +255,19 @@ config GENTOO_KERNEL_SELF_PROTECTION_ARM64
+ 
+ 	select ARM64_BTI
+ 	select ARM64_E0PD
+-	select ARM64_EPAN if ARM64_PAN=y
+-	select ARM64_MTE if (ARM64_AS_HAS_MTE=y && ARM64_TAGGED_ADDR_ABI=y ) && ( AS_HAS_ARMV8_5=y ) && ( AS_HAS_LSE_ATOMICS=y ) && ( ARM64_PAN=y )
++	select ARM64_EPAN if ARM64_PAN
++	select ARM64_MTE if ARM64_AS_HAS_MTE && ARM64_TAGGED_ADDR_ABI && AS_HAS_ARMV8_5 && AS_HAS_LSE_ATOMICS && ARM64_PAN
+ 	select ARM64_PTR_AUTH
+-	select ARM64_PTR_AUTH_KERNEL if ( ARM64_PTR_AUTH=y ) && (( CC_HAS_SIGN_RETURN_ADDRESS=y || CC_HAS_BRANCH_PROT_PAC_RET=y ) && AS_HAS_ARMV8_3=y ) && ( LD_IS_LLD=y || LD_VERSION >= 23301 || ( CC_IS_GCC=y && GCC_VERSION < 90100 )) && (CC_IS_CLANG=n || AS_HAS_CFI_NEGATE_RA_STATE=y ) && ((FUNCTION_GRAPH_TRACER=n || DYNAMIC_FTRACE_WITH_ARGS=y ))
+-	select ARM64_BTI_KERNEL if ( ARM64_BTI=y ) && ( ARM64_PTR_AUTH_KERNEL=y ) && ( CC_HAS_BRANCH_PROT_PAC_RET_BTI=y ) && (CC_IS_GCC=n || GCC_VERSION >= 100100 ) && (CC_IS_GCC=n ) && ((FUNCTION_GRAPH_TRACE=n || DYNAMIC_FTRACE_WITH_ARG=y ))
++	select ARM64_PTR_AUTH_KERNEL if ARM64_PTR_AUTH && (CC_HAS_SIGN_RETURN_ADDRESS || CC_HAS_BRANCH_PROT_PAC_RET) && AS_HAS_ARMV8_3 && (LD_IS_LLD || LD_VERSION >= 23301 || (CC_IS_GCC && GCC_VERSION < 90100)) && (!CC_IS_CLANG || AS_HAS_CFI_NEGATE_RA_STATE) && (!FUNCTION_GRAPH_TRACER || DYNAMIC_FTRACE_WITH_ARGS)
++	select ARM64_BTI_KERNEL if ARM64_BTI && ARM64_PTR_AUTH_KERNEL && CC_HAS_BRANCH_PROT_PAC_RET_BTI && (!CC_IS_GCC || GCC_VERSION >= 100100) && !CC_IS_GCC && (!FUNCTION_GRAPH_TRACE || DYNAMIC_FTRACE_WITH_ARG)
+ 	select ARM64_SW_TTBR0_PAN
+ 	select CONFIG_UNMAP_KERNEL_AT_EL0
+-	select GCC_PLUGIN_STACKLEAK
+-	select KASAN_HW_TAGS if HAVE_ARCH_KASAN_HW_TAGS=y
++	select GCC_PLUGIN_STACKLEAK if CC_IS_GCC
++	select KASAN_HW_TAGS if HAVE_ARCH_KASAN_HW_TAGS
+ 	select RANDOMIZE_BASE
+ 	select RELOCATABLE
+-	select SHADOW_CALL_STACK if ARCH_SUPPORTS_SHADOW_CALL_STACK=y && (DYNAMIC_FTRACE_WITH_ARGS=y || DYNAMIC_FTRACE_WITH_REGS=y || FUNCTION_GRAPH_TRACER=n) && MMU=y 
+-	select UNWIND_PATCH_PAC_INTO_SCS if (CC_IS_CLANG=y && CLANG_VERSION >= CONFIG_150000 ) && ( ARM64_PTR_AUTH_KERNEL=y && CC_HAS_BRANCH_PROT_PAC_RET=y ) && ( SHADOW_CALL_STACK=y )
++	select SHADOW_CALL_STACK if ARCH_SUPPORTS_SHADOW_CALL_STACK && MMU && (DYNAMIC_FTRACE_WITH_ARGS || DYNAMIC_FTRACE_WITH_REGS || !FUNCTION_GRAPH_TRACER)
++	select UNWIND_PATCH_PAC_INTO_SCS if CC_IS_CLANG && CLANG_VERSION >= CONFIG_150000 && ARM64_PTR_AUTH_KERNEL && CC_HAS_BRANCH_PROT_PAC_RET && SHADOW_CALL_STACK
+ 	select VMAP_STACK
+ 
+ config GENTOO_KERNEL_SELF_PROTECTION_X86_32
+diff --git a/drivers/acpi/cix_acpi_pd.c b/drivers/acpi/cix_acpi_pd.c
+index d769ba6c127f..421141f997d0 100644
+--- a/drivers/acpi/cix_acpi_pd.c
++++ b/drivers/acpi/cix_acpi_pd.c
+@@ -77,7 +77,7 @@ static int acpi_get_pd_state(struct device *dev, u32 pd_id)
+ {
+ 	acpi_handle handle = ACPI_HANDLE(dev);
+ 	union acpi_object *out_obj, in_obj;
+-	u64 ret;
++	int ret;
+ 	u32 *buf_val;
+ 	union acpi_object args[1] = {
+ 		{ .type = ACPI_TYPE_INTEGER, },
+@@ -93,19 +93,24 @@ static int acpi_get_pd_state(struct device *dev, u32 pd_id)
+ 			&in_obj, ACPI_TYPE_BUFFER);
+ 	if (!out_obj) {
+ 		ret = -EINVAL;
+-		dev_err(dev, "Failed to evaluate DSM object,err!\n");
++		dev_err(dev, "Failed to evaluate DSM object\n");
+ 		return ret;
+ 	}
+ 
+ 	if (out_obj->buffer.type == ACPI_TYPE_BUFFER) {
+ 		buf_val = (u32 *) out_obj->buffer.pointer;
+ 	} else {
+-		ret = AE_ERROR;
++		dev_err(dev, "ACPI DSM returned non-buffer object\n");
++		ret = -EINVAL;
+ 		goto free_acpi_buffer;
+ 	}
+ 
+-	if(buf_val[0] == SUCCESS)
++	if (buf_val[0] == SUCCESS) {
+ 		ret = buf_val[1] & PD_MASK;
++	} else {
++		dev_err(dev, "ACPI DSM returned failure code 0x%x\n", buf_val[0]);
++		ret = -EINVAL;
++	}
+ 
+ free_acpi_buffer:
+ 	ACPI_FREE(out_obj);
+@@ -123,12 +128,14 @@ static int acpi_pd_power(struct device *dev, u32 pd_id, bool power_on)
+ 		state = ACPI_PD_OFF;
+ 
+ 	ret = acpi_pd_config_set(dev, pd_id, state);
++	if (ret)
++		return ret;
+ 
+-	if (!ret)
+-		ret_state = acpi_get_pd_state(dev, pd_id);
++	ret_state = acpi_get_pd_state(dev, pd_id);
+ 	if (state != ret_state)
+ 		return -EIO;
+-	return ret;
++
++	return 0;
+ }
+ 
+ int acpi_pd_off(struct device *dev, u32 pd_id)
+diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
+index f63c0df3228e..fcdc6a6a77ec 100644
+--- a/drivers/acpi/processor_thermal.c
++++ b/drivers/acpi/processor_thermal.c
+@@ -620,3 +620,4 @@ void acpi_processor_thermal_exit(struct acpi_processor *pr,
+ 		pr->cdev = NULL;
+ 	}
+ }
++EXPORT_SYMBOL_GPL(acpi_processor_thermal_exit);
+diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
+index 348d41028e1b..498f63bd6a37 100644
+--- a/drivers/clk/cix/Kconfig
++++ b/drivers/clk/cix/Kconfig
+@@ -5,16 +5,12 @@ menu "Clock support for Cixtech"
+ comment "Clock options for Cixtech CPUs:"
+ 
+ config COMMON_CLK_CIX
+-	tristate "Support for Cix's clock controllers"
++	bool "Support for Cix's clock controllers"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	select REGMAP_MMIO
+ 	select RESET_CONTROLLER
+ 
+-config CIX_CLK_DEBUG
+-	tristate "Cix SoC Clock Debug Driver"
+-	depends on COMMON_CLK_CIX
+-	help
+-	  Support on-line debug soc clocks from the debugfs interface.
++if COMMON_CLK_CIX
+ 
+ config CIX_ACPI_CLK
+         bool "CIX Clock Management API for acpi"
+@@ -24,11 +20,18 @@ config CIX_ACPI_CLK
+           Say Y if you want to support clock driver.
+ 
+ config CLK_SKY1_AUDSS
+-	bool "Cixtech Sky1 Audio Subsystem Clock Driver"
+-	depends on (COMMON_CLK_CIX || COMPILE_TEST) && CIX_ACPI_CLK
++	tristate "Cixtech Sky1 Audio Subsystem Clock Driver"
++	depends on CIX_ACPI_CLK || COMPILE_TEST
+ 	help
+ 	    Support for the Audio Subsystem clock controller present on
+ 	    Cixtech Sky1 SoC. Choose M or Y here if you want to build this
+ 	    driver.
+ 
++config CIX_CLK_DEBUG
++	tristate "Cix SoC Clock Debug Driver"
++	help
++	  Support on-line debug soc clocks from the debugfs interface.
++
++endif # COMMON_CLK_CIX
++
+ endmenu
+diff --git a/drivers/clk/cix/Makefile b/drivers/clk/cix/Makefile
+index c2bd36619c66..ff17e3a34add 100644
+--- a/drivers/clk/cix/Makefile
++++ b/drivers/clk/cix/Makefile
+@@ -1,9 +1,10 @@
+ # SPDX-License-Identifier: GPL-2.0
+ # CIX clocks
+ 
+-obj-$(CONFIG_CLK_SKY1_AUDSS) += clk-sky1-audss.o
+-obj-$(CONFIG_CIX_CLK_DEBUG) += cix-clk-debug.o
++obj-$(CONFIG_COMMON_CLK_CIX) += clk.o
+ 
+ obj-$(CONFIG_CIX_ACPI_CLK) += acpi_clk.o
+ obj-$(CONFIG_CIX_ACPI_CLK) += acpi_scmi_clk.o
+-obj-$(CONFIG_COMMON_CLK_CIX) += clk.o
++
++obj-$(CONFIG_CLK_SKY1_AUDSS) += clk-sky1-audss.o
++obj-$(CONFIG_CIX_CLK_DEBUG) += cix-clk-debug.o
+diff --git a/drivers/clk/cix/acpi_clk.c b/drivers/clk/cix/acpi_clk.c
+index 4cb7c03d16cb..60c44d4312cc 100644
+--- a/drivers/clk/cix/acpi_clk.c
++++ b/drivers/clk/cix/acpi_clk.c
+@@ -417,7 +417,9 @@ int cix_acpi_parse_clkt_handle(acpi_handle handle, const char *name,
+ 
+ 	return ret;
+ }
++#if 0
+ EXPORT_SYMBOL_GPL(cix_acpi_parse_clkt_handle);
++#endif
+ 
+ int cix_acpi_parse_clkt(struct device *dev, const char *cname,
+ 		struct clk_hw *(get_hw)(struct device *, int))
+@@ -475,7 +477,9 @@ static const struct acpi_device_id __maybe_unused cix_acpi_clk_match[] = {
+ 	{ "CIXHA010", 0 },
+ 	{},
+ };
++#if 0
+ MODULE_DEVICE_TABLE(acpi, cix_acpi_clk_match);
++#endif
+ 
+ static struct platform_driver cix_acpi_clk_driver = {
+ 	.driver = {
+@@ -501,6 +505,8 @@ static void __exit cix_acpi_clk_exit(void)
+ }
+ module_exit(cix_acpi_clk_exit);
+ 
++#if 0
+ MODULE_AUTHOR("Copyright 2024 Cix Technology Group Co., Ltd.");
+ MODULE_DESCRIPTION("Cix acpi clock driver");
+ MODULE_LICENSE("GPL v2");
++#endif
+diff --git a/drivers/clk/cix/cix-clk-debug.c b/drivers/clk/cix/cix-clk-debug.c
+index 0e01231b2d5d..78bd98e8c0e2 100755
+--- a/drivers/clk/cix/cix-clk-debug.c
++++ b/drivers/clk/cix/cix-clk-debug.c
+@@ -19,23 +19,6 @@
+ #define pr_fmt(fmt) "clk-debug: " fmt
+ static struct clk *debug_clk;
+ 
+-#ifdef MODULE
+-struct clk *__clk_lookup(const char *name)
+-{
+-	static struct clk* (*func)(const char *name);
+-
+-	if (!func)
+-		func = (void *)kallsyms_lookup_name(__func__);
+-
+-	if (!func) {
+-		pr_err("can't find symbol: %s\n", __func__);
+-		return NULL;
+-	}
+-
+-	return func(name);
+-}
+-#endif
+-
+ static ssize_t parent_write(struct file *file, const char __user *buffer,
+ 			    size_t count, loff_t *ppos)
+ {
+@@ -58,7 +41,7 @@ static ssize_t parent_write(struct file *file, const char __user *buffer,
+ 		return -EINVAL;
+ 	}
+ 
+-	clk = __clk_lookup(clk_name);
++	clk = clk_get_sys(NULL, clk_name);
+ 	if (!clk)
+ 		pr_err("Can't find the clock, have a look in /sys/kernel/debug/clk\n");
+ 
+@@ -209,7 +192,7 @@ static ssize_t clk_write(struct file *file, const char __user *buffer,
+ 		return -EINVAL;
+ 	}
+ 
+-	clk = __clk_lookup(clk_name);
++	clk = clk_get_sys(NULL, clk_name);
+ 	if (clk)
+ 		pr_info("success get %s clock, its rate = %lu, its parent is %s\n",
+ 			clk_name, clk_get_rate(clk),
+diff --git a/drivers/clk/cix/clk.c b/drivers/clk/cix/clk.c
+index ab7e5b5aeaa7..fffe73116c15 100644
+--- a/drivers/clk/cix/clk.c
++++ b/drivers/clk/cix/clk.c
+@@ -3,15 +3,15 @@
+  *Copyright 2024 Cix Technology Group Co., Ltd.
+  */
+ 
++#include <linux/kernel.h>
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/err.h>
+-#include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/init.h>
++#include <linux/slab.h>
+ #include "clk.h"
+ 
+-#ifndef MODULE
+-
+ static bool cix_uart_clocks_keep;
+ static int cix_uart_clocks_enabled;
+ static struct clk **cix_uart_clocks;
+@@ -75,8 +75,3 @@ static int __init cix_clk_disable_uart(void)
+ 	return 0;
+ }
+ late_initcall_sync(cix_clk_disable_uart);
+-#endif
+-
+-MODULE_AUTHOR("Copyright 2024 Cix Technology Group Co., Ltd.");
+-MODULE_DESCRIPTION("Cix clock driver");
+-MODULE_LICENSE("GPL v2");
+diff --git a/drivers/clk/cix/clk.h b/drivers/clk/cix/clk.h
+index 59c9b9275baf..2c16aa6c3dc4 100644
+--- a/drivers/clk/cix/clk.h
++++ b/drivers/clk/cix/clk.h
+@@ -8,11 +8,7 @@
+ 
+ #include <linux/clk-provider.h>
+ 
+-#ifndef MODULE
+ void cix_uart_clocks_register(void);
+-#else
+-static inline void cix_uart_clocks_register(void)
+-{
+-}
+-#endif
++//static int cix_clk_disable_uart(void);
++
+ #endif
+diff --git a/drivers/clk/clk-scmi.c b/drivers/clk/clk-scmi.c
+index 41c172722960..45cd440b53d4 100644
+--- a/drivers/clk/clk-scmi.c
++++ b/drivers/clk/clk-scmi.c
+@@ -256,7 +256,7 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 	if (err)
+ 		return err;
+ 
+-#ifdef CONFIG_ARCH_CIX
++#if IS_ENABLED(CONFIG_CIX_ACPI_CLK)
+ 	if (has_acpi_companion(dev)) {
+ 		void *driver_data = dev_get_drvdata(dev);
+ 
+@@ -266,7 +266,9 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 		if (!IS_ERR_OR_NULL(driver_data))
+ 			dev_set_drvdata(dev, driver_data);
+ 	}
++#endif
+ 
++#if IS_ENABLED(CONFIG_COMMON_CLK_CIX)
+ 	if (!err)
+ 		cix_uart_clocks_register();
+ #endif
+diff --git a/drivers/clocksource/timer-sky1-gpt.c b/drivers/clocksource/timer-sky1-gpt.c
+index c12be842d104..791bba5972a6 100644
+--- a/drivers/clocksource/timer-sky1-gpt.c
++++ b/drivers/clocksource/timer-sky1-gpt.c
+@@ -168,7 +168,7 @@ static struct clocksource clocksource_gpt = {
+ 	.flags	= CLOCK_SOURCE_IS_CONTINUOUS,
+ };
+ 
+-static int __init sky1_clocksource_init(struct sky1_timer *sky1tm)
++static int /* __init */ sky1_clocksource_init(struct sky1_timer *sky1tm)
+ {
+ 	unsigned int c = clk_get_rate(sky1tm->tclk);
+ 	void __iomem *reg = sky1tm->base + FREE_CNT;
+@@ -296,7 +296,7 @@ static irqreturn_t sky1_timer_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static int __init sky1_clockevent_init(struct sky1_timer *sky1tm)
++static int /* __init */ sky1_clockevent_init(struct sky1_timer *sky1tm)
+ {
+ 	struct clock_event_device *ced = &sky1tm->ced;
+ 
+diff --git a/drivers/devfreq/dsu-pctrl-devfreq.c b/drivers/devfreq/dsu-pctrl-devfreq.c
+index 62a5bd1ce5aa..ed84fcae4aab 100644
+--- a/drivers/devfreq/dsu-pctrl-devfreq.c
++++ b/drivers/devfreq/dsu-pctrl-devfreq.c
+@@ -285,6 +285,7 @@ static int dsu_pctrl_set_active_portions(struct device *dev,
+ 	portion_active = ((1UL << portions) - 1) << PORTION_1;
+ 
+ 	arm_smccc_smc(CIX_SIP_DSU_GET_PD, 0, 0, 0, 0, 0, 0, 0, &res);
++	portion_control = 0;
+ 	if (res.a0)
+ 		portion_control = res.a0;
+ 
+diff --git a/drivers/dma-buf/heaps/Kconfig b/drivers/dma-buf/heaps/Kconfig
+index aaae950e8000..475969ca6bda 100644
+--- a/drivers/dma-buf/heaps/Kconfig
++++ b/drivers/dma-buf/heaps/Kconfig
+@@ -17,7 +17,7 @@ config DMABUF_HEAPS_SYSTEM
+ 	  is backed by pages from the buddy allocator. If in doubt, say Y.
+ 
+ config DMABUF_HEAPS_CMA
+-	tristate "DMA-BUF CMA Heap"
++	bool "DMA-BUF CMA Heap"
+ 	depends on DMABUF_HEAPS && DMA_CMA
+ 	help
+ 	  Choose this option to enable dma-buf CMA heap. This heap is backed
+diff --git a/drivers/dma/dma350_ch_drv.h b/drivers/dma/dma350_ch_drv.h
+index 5d21e6e0bf9f..f1f9e5631021 100755
+--- a/drivers/dma/dma350_ch_drv.h
++++ b/drivers/dma/dma350_ch_drv.h
+@@ -69,36 +69,34 @@ extern "C" {
+ 	writel((readl(addr) & ~MSK) | (((uint32_t)(VAL) << POS) & MSK), addr)
+ 
+ /* ARM DMA350 DMA Channel status bits */
+-enum dma350_ch_stat_t {
+-	DMA350_CH_STAT_DONE = DMA350_CH_STATUS_STAT_DONE,
+-	DMA350_CH_STAT_ERR = DMA350_CH_STATUS_STAT_ERR,
+-	DMA350_CH_STAT_DISABLED = DMA350_CH_STATUS_STAT_DISABLED,
+-	DMA350_CH_STAT_STOPPED = DMA350_CH_STATUS_STAT_STOPPED,
+-	DMA350_CH_STAT_SRCTRIGINWAIT = DMA350_CH_STATUS_STAT_SRCTRIGINWAIT,
+-	DMA350_CH_STAT_DESTRIGINWAIT = DMA350_CH_STATUS_STAT_DESTRIGINWAIT,
+-	DMA350_CH_STAT_TRIGOUTACKWAIT = DMA350_CH_STATUS_STAT_TRIGOUTACKWAIT,
+-	DMA350_CH_STAT_ALL =
+-		DMA350_CH_STATUS_STAT_DONE | DMA350_CH_STATUS_STAT_ERR |
+-		DMA350_CH_STATUS_STAT_DISABLED | DMA350_CH_STATUS_STAT_STOPPED |
+-		DMA350_CH_STATUS_STAT_SRCTRIGINWAIT | DMA350_CH_STATUS_STAT_DESTRIGINWAIT |
+-		DMA350_CH_STATUS_STAT_TRIGOUTACKWAIT
+-};
++typedef uint32_t dma350_ch_stat_t;
++#define DMA350_CH_STAT_DONE             DMA350_CH_STATUS_STAT_DONE
++#define DMA350_CH_STAT_ERR              DMA350_CH_STATUS_STAT_ERR
++#define DMA350_CH_STAT_DISABLED         DMA350_CH_STATUS_STAT_DISABLED
++#define DMA350_CH_STAT_STOPPED          DMA350_CH_STATUS_STAT_STOPPED
++#define DMA350_CH_STAT_SRCTRIGINWAIT    DMA350_CH_STATUS_STAT_SRCTRIGINWAIT
++#define DMA350_CH_STAT_DESTRIGINWAIT    DMA350_CH_STATUS_STAT_DESTRIGINWAIT
++#define DMA350_CH_STAT_TRIGOUTACKWAIT   DMA350_CH_STATUS_STAT_TRIGOUTACKWAIT
++#define DMA350_CH_STAT_ALL \
++	(DMA350_CH_STATUS_STAT_DONE | DMA350_CH_STATUS_STAT_ERR | \
++	DMA350_CH_STATUS_STAT_DISABLED | DMA350_CH_STATUS_STAT_STOPPED | \
++	DMA350_CH_STATUS_STAT_SRCTRIGINWAIT | DMA350_CH_STATUS_STAT_DESTRIGINWAIT | \
++	DMA350_CH_STATUS_STAT_TRIGOUTACKWAIT)
+ 
+ /* ARM DMA350 DMA Channel interrupt bits */
+-enum dma350_ch_intr_t {
+-	DMA350_CH_INTREN_DONE = DMA350_CH_INTREN_INTREN_DONE,
+-	DMA350_CH_INTREN_ERR = DMA350_CH_INTREN_INTREN_ERR,
+-	DMA350_CH_INTREN_DISABLED = DMA350_CH_INTREN_INTREN_DISABLED,
+-	DMA350_CH_INTREN_STOPPED = DMA350_CH_INTREN_INTREN_STOPPED,
+-	DMA350_CH_INTREN_SRCTRIGINWAIT = DMA350_CH_INTREN_INTREN_SRCTRIGINWAIT,
+-	DMA350_CH_INTREN_DESTRIGINWAIT = DMA350_CH_INTREN_INTREN_DESTRIGINWAIT,
+-	DMA350_CH_INTREN_TRIGOUTACKWAIT = DMA350_CH_INTREN_INTREN_TRIGOUTACKWAIT,
+-	DMA350_CH_INTREN_ALL =
+-		DMA350_CH_INTREN_INTREN_DONE | DMA350_CH_INTREN_INTREN_ERR |
+-		DMA350_CH_INTREN_INTREN_DISABLED | DMA350_CH_INTREN_INTREN_STOPPED |
+-		DMA350_CH_INTREN_INTREN_SRCTRIGINWAIT |
+-		DMA350_CH_INTREN_INTREN_DESTRIGINWAIT | DMA350_CH_INTREN_INTREN_TRIGOUTACKWAIT
+-};
++typedef uint32_t dma350_ch_intr_t;
++#define DMA350_CH_INTREN_DONE           DMA350_CH_INTREN_INTREN_DONE
++#define DMA350_CH_INTREN_ERR            DMA350_CH_INTREN_INTREN_ERR
++#define DMA350_CH_INTREN_DISABLED       DMA350_CH_INTREN_INTREN_DISABLED
++#define DMA350_CH_INTREN_STOPPED        DMA350_CH_INTREN_INTREN_STOPPED
++#define DMA350_CH_INTREN_SRCTRIGINWAIT  DMA350_CH_INTREN_INTREN_SRCTRIGINWAIT
++#define DMA350_CH_INTREN_DESTRIGINWAIT  DMA350_CH_INTREN_INTREN_DESTRIGINWAIT
++#define DMA350_CH_INTREN_TRIGOUTACKWAIT DMA350_CH_INTREN_INTREN_TRIGOUTACKWAIT
++#define DMA350_CH_INTREN_ALL \
++	(DMA350_CH_INTREN_INTREN_DONE | DMA350_CH_INTREN_INTREN_ERR | \
++	DMA350_CH_INTREN_INTREN_DISABLED | DMA350_CH_INTREN_INTREN_STOPPED | \
++	DMA350_CH_INTREN_INTREN_SRCTRIGINWAIT | \
++	DMA350_CH_INTREN_INTREN_DESTRIGINWAIT | DMA350_CH_INTREN_INTREN_TRIGOUTACKWAIT)
+ 
+ 
+ /* ARM DMA350 DMA Channel XTYPE */
+@@ -435,7 +433,7 @@ void dma350_ch_cmd(void __iomem *addr, uint32_t cmd);
+  * \note This function doesn't check if dev is NULL or if it has been init.
+  */
+ static inline
+-void dma350_ch_enable_intr(void __iomem *addr, enum dma350_ch_intr_t intr);
++void dma350_ch_enable_intr(void __iomem *addr, dma350_ch_intr_t intr);
+ 
+ /**
+  * \brief Disables Interrupt for DMA350 DMA channel
+@@ -448,7 +446,7 @@ void dma350_ch_enable_intr(void __iomem *addr, enum dma350_ch_intr_t intr);
+  * \note This function doesn't check if dev is NULL or if it has been init.
+  */
+ static inline
+-void dma350_ch_disable_intr(void __iomem *addr, enum dma350_ch_intr_t intr);
++void dma350_ch_disable_intr(void __iomem *addr, dma350_ch_intr_t intr);
+ /**
+  * \brief Sets Source Trigger Input Select
+  *
+@@ -631,7 +629,7 @@ void dma350_cmdlink_set_regclear(struct dma350_cmdlink_gencfg_t *cmdlink_cfg);
+  */
+ static inline
+ void dma350_cmdlink_enable_intr(struct dma350_cmdlink_gencfg_t *cmdlink_cfg,
+-	enum dma350_ch_intr_t intr);
++	dma350_ch_intr_t intr);
+ 
+ /**
+  * \brief Disables Interrupt for DMA350 DMA channel in the command structure
+@@ -644,7 +642,7 @@ void dma350_cmdlink_enable_intr(struct dma350_cmdlink_gencfg_t *cmdlink_cfg,
+  */
+ static inline
+ void dma350_cmdlink_disable_intr(struct dma350_cmdlink_gencfg_t *cmdlink_cfg,
+-	enum dma350_ch_intr_t intr);
++	dma350_ch_intr_t intr);
+ 
+ /**
+  * \brief Sets Transfer Enitity Size in the command structure
+@@ -1514,7 +1512,7 @@ void dma350_cmdlink_set_regclear(struct dma350_cmdlink_gencfg_t *cmdlink_cfg)
+ 
+ static inline
+ void dma350_cmdlink_enable_intr(struct dma350_cmdlink_gencfg_t *cmdlink_cfg,
+-				enum dma350_ch_intr_t intr)
++				dma350_ch_intr_t intr)
+ {
+ 	cmdlink_cfg->header |= DMA350_CMDLINK_INTREN_SET;
+ 	cmdlink_cfg->cfg.intren |= intr;
+@@ -1522,7 +1520,7 @@ void dma350_cmdlink_enable_intr(struct dma350_cmdlink_gencfg_t *cmdlink_cfg,
+ 
+ static inline
+ void dma350_cmdlink_disable_intr(struct dma350_cmdlink_gencfg_t *cmdlink_cfg,
+-				enum dma350_ch_intr_t intr)
++				dma350_ch_intr_t intr)
+ {
+ 	cmdlink_cfg->header |= DMA350_CMDLINK_INTREN_SET;
+ 	cmdlink_cfg->cfg.intren &= (~intr);
+@@ -1995,13 +1993,13 @@ void dma350_ch_cmd(void __iomem *addr, uint32_t cmd)
+ }
+ 
+ static inline
+-void dma350_ch_enable_intr(void __iomem *addr, uint32_t intr)
++void dma350_ch_enable_intr(void __iomem *addr, dma350_ch_intr_t intr)
+ {
+ 	writel(readl(addr) | intr, addr);
+ }
+ 
+ static inline
+-void dma350_ch_disable_intr(void __iomem *addr, uint32_t intr)
++void dma350_ch_disable_intr(void __iomem *addr, dma350_ch_intr_t intr)
+ {
+ 	writel(readl(addr) & (~intr), addr);
+ }
+diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
+index 84348f41c674..2e5011c04f41 100644
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -138,7 +138,7 @@ static int cdns_gpio_irq_set_type(struct irq_data *d, unsigned int type)
+ 	if (type == IRQ_TYPE_EDGE_RISING) {
+ 		int_value |= mask;
+ 	} else if (type == IRQ_TYPE_EDGE_FALLING) {
+-		int_value = int_value;
++		int_value &= ~mask;
+ 	} else if (type == IRQ_TYPE_EDGE_BOTH) {
+ 		int_oany |= mask;
+ 	} else if (type == IRQ_TYPE_LEVEL_HIGH) {
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+index b55d17192b41..6ee67847e6c5 100644
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -327,6 +327,7 @@ static int trilin_dp_update_vs_emph_phy_config(struct trilin_dp *dp)
+ 			 DP_TRAIN_PRE_EMPHASIS_SHIFT;
+ 	opts.dp.set_voltages = 1;
+ 
++	ret = -EOPNOTSUPP;
+ 	if (phy->phy_ops)
+ 		ret = phy->phy_ops->configure(dp, &opts);
+ 	return ret;
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+index 0066ae0216cc..67c07508e43e 100644
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -216,7 +216,7 @@ static int trilin_dptx_cix_probe(struct platform_device *pdev)
+ #else
+ 	struct device_node *ports_node, *port_node;
+ 	int i = 0, ret = 0, j = 0;
+-	struct device_node *remote_node;
++	//struct device_node *remote_node;
+ 	struct platform_device *dpu_pdev;
+ 	struct device *master_dpu_dev_0 = NULL;
+ 	struct device *master_dpu_dev_1 = NULL;
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+index 7e7dd99d18e8..89858eddeb89 100644
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -669,15 +669,14 @@ static void trilin_dp_encoder_disable(struct drm_encoder *encoder,
+ 	int rc;
+ 	struct trilin_dp *dp = encoder_to_dp(encoder);
+ 	struct trilin_dp_panel *dp_panel = &dp->dp_panel;
+-	struct drm_crtc *crtc;
+-	struct drm_crtc_state *new_crtc_state;
+ 
+ 	if (!(dp->state & DP_STATE_INITIALIZED)) {
+ 		DP_DEBUG("[not init]");
+ 		return;
+ 	}
+ 
+-	crtc = get_crtc_from_encoder(encoder, state);
++	struct drm_crtc *crtc = get_crtc_from_encoder(encoder, state);
++	struct drm_crtc_state *new_crtc_state = NULL;
+ 	if (crtc)
+ 		new_crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+index ba1a80f81987..6924ea9d7f31 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
++++ b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+@@ -232,7 +232,7 @@ static u32 dp_layer_update_color(struct drm_plane_state *st, u32 __iomem *reg,
+ 	if (kplane_st->ctm) {
+ 		u32 ctm_coeffs[LINLONDP_N_CTM_COEFFS];
+ 
+-		drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
++		linlondp_drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
+ 		linlondp_write_group(reg, LAYER_RGB_RGB_COEFF0,
+ 				     ARRAY_SIZE(ctm_coeffs), ctm_coeffs);
+ 		ctrl |= L_R2R; /* enable RGB2RGB conversion */
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
+index 54c006324b66..9aebee9b589e 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
+@@ -206,12 +206,12 @@ void drm_lut_to_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs,
+ 	coeffs[num] = BIT(LINLONDP_COLOR_PRECISION);
+ }
+ 
+-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs)
++void linlondp_drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs)
+ {
+ 	drm_lut_to_coeffs(lut_blob, coeffs, false);
+ }
+ 
+-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs)
++void linlondp_drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs)
+ {
+ 	struct color_ctm_ext *ctm_ext;
+ 	u32 i;
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
+index 61e871554bde..5411b6630e33 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
+@@ -39,8 +39,8 @@ int linlondp_color_validate(struct linlondp_color_manager *mgr,
+ 
+ void drm_lut_to_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs,
+ 		       bool igamma);
+-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
+-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
++void linlondp_drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
++void linlondp_drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
+ 
+ const s32 *linlondp_select_yuv2rgb_coeffs(u32 color_encoding, u32 color_range);
+ const s32 *linlondp_select_rgb2yuv_coeffs(u32 color_encoding, u32 color_range);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+index 218dad3f1333..548565aae3c6 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -127,7 +127,9 @@ static int linlondp_crtc_prepare(struct linlondp_crtc *kcrtc)
+ 	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(kcrtc->base.state);
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
++#endif
+ 	u32 new_mode;
+ 	int err;
+ 
+@@ -633,10 +635,12 @@ static enum drm_mode_status
+ linlondp_crtc_mode_valid(struct drm_crtc *crtc,
+ 			 const struct drm_display_mode *m)
+ {
+-	struct linlondp_dev *mdev = crtc->dev->dev_private;
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+ 	struct linlondp_pipeline *master = kcrtc->master;
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	struct linlondp_dev *mdev = crtc->dev->dev_private;
+ 	unsigned long min_pxlclk, min_aclk;
++#endif
+ 	u8 pixel_per_cycle = 1;
+ 
+ 	if (m->flags & DRM_MODE_FLAG_INTERLACE)
+@@ -683,7 +687,9 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
+ 				     struct drm_display_mode *adjusted_mode)
+ {
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	unsigned long clk_rate;
++#endif
+ 	u16 hor_divisor = 1;
+ 	u8 pixel_per_cycle = 1;
+ 	bool rebuilt_crtcs = false;
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+index 02ca70c99ed1..47d0e620e98f 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -94,7 +94,7 @@ static void linlondp_debugfs_init(struct linlondp_dev *mdev)
+ static ssize_t core_id_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "0x%08x\n", mdev->chip.core_id);
+ }
+@@ -103,7 +103,7 @@ static DEVICE_ATTR_RO(core_id);
+ static ssize_t config_id_show(struct device *dev, struct device_attribute *attr,
+ 			      char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe = mdev->pipelines[0];
+ 	union linlondp_config_id config_id;
+ 	int i;
+@@ -127,7 +127,7 @@ static DEVICE_ATTR_RO(config_id);
+ static ssize_t aclk_hz_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq);
+ }
+@@ -137,7 +137,7 @@ static ssize_t aclk_freq_fixed_store(struct device *dev,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	long val;
+ 	int err;
+ 
+@@ -160,7 +160,7 @@ static ssize_t aclk_freq_fixed_store(struct device *dev,
+ static ssize_t aclk_freq_fixed_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq_fixed);
+ }
+@@ -171,7 +171,7 @@ static ssize_t smart_aclk_freq_store(struct device *dev,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	long val;
+ 	int err;
+ 
+@@ -189,7 +189,7 @@ static ssize_t smart_aclk_freq_store(struct device *dev,
+ static ssize_t smart_aclk_freq_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%d\n", mdev->smart_aclk_freq ? 1 : 0);
+ }
+@@ -200,7 +200,7 @@ static ssize_t test_pattern_store(struct device *dev,
+ 				  struct device_attribute *attr,
+ 				  const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -222,7 +222,7 @@ static ssize_t test_pattern_show(struct device *dev,
+ 				 struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -245,7 +245,7 @@ static ssize_t crc_enable_store(struct device *dev,
+ 				struct device_attribute *attr, const char *buf,
+ 				size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -267,7 +267,7 @@ static ssize_t crc_enable_show(struct device *dev,
+ 			       struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -290,7 +290,7 @@ static ssize_t dither_enable_store(struct device *dev,
+ 				   struct device_attribute *attr,
+ 				   const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -312,7 +312,7 @@ static ssize_t dither_enable_show(struct device *dev,
+ 				  struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -350,8 +350,8 @@ static struct attribute_group linlondp_sysfs_attr_group = {
+ static int linlondp_parse_pipe_dt(struct linlondp_pipeline *pipe)
+ {
+ 	struct device_node *np = pipe->of_node;
+-	struct clk *clk;
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	struct clk *clk;
+ 	clk = of_clk_get_by_name(np, "pxclk");
+ 	if (IS_ERR(clk)) {
+ 		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
+index 5cae6bc33664..e124b33515d6 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
+@@ -286,7 +286,7 @@ const struct linlondp_dev_funcs *dp_identify(u32 __iomem *reg,
+ struct linlondp_dev *linlondp_dev_create(struct device *dev);
+ void linlondp_dev_destroy(struct linlondp_dev *mdev);
+ 
+-struct linlondp_dev *dev_to_mdev(struct device *dev);
++struct linlondp_dev *linlondp_dev_to_mdev(struct device *dev);
+ 
+ void linlondp_print_events(struct linlondp_events *evts,
+ 			   struct drm_device *dev);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+index ded568db7fe3..e054ab3a2b6f 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+@@ -25,7 +25,7 @@ struct linlondp_drv {
+ 	struct linlondp_kms_dev *kms;
+ };
+ 
+-struct linlondp_dev *dev_to_mdev(struct device *dev)
++struct linlondp_dev *linlondp_dev_to_mdev(struct device *dev)
+ {
+ 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+ 
+@@ -104,6 +104,7 @@ static const struct component_master_ops linlondp_master_ops = {
+ 	.unbind = linlondp_unbind,
+ };
+ 
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ static int compare_of(struct device *dev, void *data)
+ {
+ 	int ret;
+@@ -156,10 +157,17 @@ static void linlondp_add_slave(struct device *master,
+ 		of_node_put(remote);
+ 	}
+ }
++#endif
+ 
+ static int linlondp_platform_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
++#if IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
++
++	pr_info("%s enter. dev.name=%s\n", __func__, dev_name(dev));
++	pr_info("linlondp enable fb is %d", enable_fb);
++	return linlondp_bind(dev);
++#else
+ 	struct component_match *match = NULL;
+ 	struct fwnode_handle *acpi_child;
+ 	struct device_node *of_child;
+@@ -167,7 +175,6 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 
+ 	pr_info("%s enter. dev.name=%s\n", __func__, dev_name(dev));
+ 	pr_info("linlondp enable fb is %d", enable_fb);
+-#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ 	if (has_acpi_companion(dev)) {
+ 		pr_info("%s via acpi.\n", __func__);
+ 		fwnode_for_each_child_node(dev->fwnode, acpi_child) {
+@@ -200,8 +207,6 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 	pr_info("%s end. match=%p\n", __func__, match);
+ 	return component_master_add_with_match(dev, &linlondp_master_ops,
+ 					       match);
+-#else
+-	return linlondp_bind(dev);
+ #endif
+ }
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+index fe6ab5a49275..c1356eb4f9da 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+@@ -387,8 +387,10 @@ struct linlondp_kms_dev *linlondp_kms_attach(struct linlondp_dev *mdev)
+ #endif
+ 	return kms;
+ 
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ free_interrupts:
+ 	drm_kms_helper_poll_fini(drm);
++#endif
+ free_component_binding:
+ 	component_unbind_all(mdev->dev, drm);
+ cleanup_mode_config:
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
+index ba58188c0214..296d3ade8b93 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
+@@ -547,7 +547,7 @@ struct linlondp_plane_state;
+ struct linlondp_crtc_state;
+ struct linlondp_crtc;
+ 
+-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
++void linlondp_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+ 			       bool side_by_side, u16 *hsize, u16 *vsize,
+ 			       bool is_overlap);
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+index 5fef06d02ae6..fc5b3df4e767 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+@@ -682,7 +682,7 @@ static int linlondp_merger_validate(struct linlondp_merger *merger, void *user,
+ 	return err;
+ }
+ 
+-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
++void linlondp_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+ 			       bool side_by_side, u16 *hsize, u16 *vsize,
+ 			       bool is_overlap)
+ {
+@@ -708,7 +708,7 @@ static int linlondp_compiz_set_input(struct linlondp_compiz *compiz,
+ 	u16 compiz_w, compiz_h;
+ 	int idx = dflow->blending_zorder;
+ 
+-	pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
++	linlondp_pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
+ 				  &compiz_w, &compiz_h, true);
+ 	/* check display rect */
+ 	//FIXME
+@@ -777,7 +777,7 @@ static int linlondp_compiz_validate(struct linlondp_compiz *compiz,
+ 
+ 	st = to_compiz_st(c_st);
+ 
+-	pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
++	linlondp_pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
+ 				  &st->hsize, &st->vsize, true);
+ 
+ 	linlondp_component_set_output(&dflow->input, &compiz->base, 0);
+@@ -862,9 +862,9 @@ static int linlondp_improc_validate(struct linlondp_improc *improc,
+ 	}
+ 
+ 	if (kcrtc_st->base.color_mgmt_changed) {
+-		drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
++		linlondp_drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
+ 					 st->fgamma_coeffs);
+-		drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
++		linlondp_drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
+ 	}
+ 
+ 	linlondp_component_add_input(&st->base, &m_dflow->input, 0);
+@@ -1227,7 +1227,7 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ 	u32 disp_end = master->out_x + master->out_w;
+ 	u16 boundary;
+ 
+-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
++	linlondp_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+ 
+ 	if (disp_end <= boundary) {
+ 		/* the master viewport only located in master side, no need
+@@ -1336,7 +1336,7 @@ linlondp_split_sbs_slave_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ {
+ 	u16 boundary;
+ 
+-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
++	linlondp_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+ 
+ 	if (slave->out_x < boundary) {
+ 		DRM_DEBUG_ATOMIC(
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+index 3d6ba799415b..f9f7ce9d9392 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+@@ -22,7 +22,7 @@ static int linlondp_wb_init_data_flow(struct linlondp_layer *wb_layer,
+ 	dflow->out_h = fb->height;
+ 
+ 	/* the write back data comes from the compiz */
+-	pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
++	linlondp_pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
+ 				  false);
+ 	dflow->input.component = &wb_layer->base.pipeline->compiz->base;
+ 	/* compiz doesn't output alpha */
+diff --git a/drivers/gpu/drm/msm/msm_gpu.h b/drivers/gpu/drm/msm/msm_gpu.h
+index eb0c97433e5f..2b2c82b119f9 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.h
++++ b/drivers/gpu/drm/msm/msm_gpu.h
+@@ -13,6 +13,7 @@
+ #include <linux/interconnect.h>
+ #include <linux/pm_opp.h>
+ #include <linux/regulator/consumer.h>
++#include <drm/gpu_scheduler.h>
+ 
+ #include "msm_drv.h"
+ #include "msm_fence.h"
+@@ -347,7 +348,8 @@ struct msm_gpu_perfcntr {
+  * DRM_SCHED_PRIORITY_KERNEL priority level is treated specially in some
+  * cases, so we don't use it (no need for kernel generated jobs).
+  */
+-#define NR_SCHED_PRIORITIES (1 + DRM_SCHED_PRIORITY_HIGH - DRM_SCHED_PRIORITY_LOW)
++#define NR_SCHED_PRIORITIES \
++        (DRM_SCHED_PRIORITY_COUNT - DRM_SCHED_PRIORITY_KERNEL - 1)
+ 
+ /**
+  * struct msm_file_private - per-drm_file context
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 57da84908752..13c416effd64 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -87,11 +87,15 @@
+ #define CREATE_TRACE_POINTS
+ #include "gpu_scheduler_trace.h"
+ 
+-#ifdef CONFIG_LOCKDEP
+-static struct lockdep_map drm_sched_lockdep_map = {
+-	.name = "drm_sched_lockdep_map"
+-};
+-#endif
++/*
++ * Only used when calling alloc_ordered_workqueue_lockdep_map() which appears
++ * to have been introduced in a patch to linux-6.12(!) in August 2024...
++ */
++//#ifdef CONFIG_LOCKDEP
++//static struct lockdep_map drm_sched_lockdep_map = {
++//	.name = "drm_sched_lockdep_map"
++//};
++//#endif
+ 
+ #define to_drm_sched_job(sched_job)		\
+ 		container_of((sched_job), struct drm_sched_job, queue_node)
+@@ -1292,13 +1296,17 @@ int drm_sched_init(struct drm_gpu_scheduler *sched,
+ 		sched->submit_wq = submit_wq;
+ 		sched->own_submit_wq = false;
+ 	} else {
+-#ifdef CONFIG_LOCKDEP
+-		sched->submit_wq = alloc_ordered_workqueue_lockdep_map(name,
+-								       WQ_MEM_RECLAIM,
+-								       &drm_sched_lockdep_map);
+-#else
++/*
++ * alloc_ordered_workqueue_lockdep_map() appears to have been introduced in a
++ * patch to linux-6.12(!) in August 2024...
++ */
++//#ifdef CONFIG_LOCKDEP
++//		sched->submit_wq = alloc_ordered_workqueue_lockdep_map(name,
++//								       WQ_MEM_RECLAIM,
++//								       &drm_sched_lockdep_map);
++//#else
+ 		sched->submit_wq = alloc_ordered_workqueue(name, WQ_MEM_RECLAIM);
+-#endif
++//#endif
+ 		if (!sched->submit_wq)
+ 			return -ENOMEM;
+ 
+diff --git a/drivers/i3c/i3cdev.c b/drivers/i3c/i3cdev.c
+index aedb21f90fb5..ea080a611fcf 100755
+--- a/drivers/i3c/i3cdev.c
++++ b/drivers/i3c/i3cdev.c
+@@ -426,7 +426,7 @@ static void __exit i3cdev_exit(void)
+ 
+ MODULE_AUTHOR("Vitor Soares <Vitor.Soares@synopsys.com>");
+ MODULE_DESCRIPTION("I3C /dev entries driver");
+-MODULE_LICENSE("GPLv2");
++MODULE_LICENSE("GPL v2");
+ 
+ module_init(i3cdev_init);
+ module_exit(i3cdev_exit);
+diff --git a/drivers/i3c/master.c b/drivers/i3c/master.c
+index 5bd2c1c09a31..f287ed0f6ee6 100644
+--- a/drivers/i3c/master.c
++++ b/drivers/i3c/master.c
+@@ -341,6 +341,7 @@ struct bus_type i3c_bus_type = {
+ 	.probe = i3c_device_probe,
+ 	.remove = i3c_device_remove,
+ };
++EXPORT_SYMBOL_GPL(i3c_bus_type);
+ 
+ static enum i3c_addr_slot_status
+ i3c_bus_get_addr_slot_status_mask(struct i3c_bus *bus, u16 addr, u32 mask)
+diff --git a/drivers/iio/magnetometer/mmc5633_i3c.c b/drivers/iio/magnetometer/mmc5633_i3c.c
+index 1250b1c3d839..4975014c9638 100644
+--- a/drivers/iio/magnetometer/mmc5633_i3c.c
++++ b/drivers/iio/magnetometer/mmc5633_i3c.c
+@@ -69,8 +69,8 @@ static int mmc5633_i3c_probe(struct i3c_device *i3cdev)
+ 		.reg_bits = 8,
+ 		.val_bits = 8,
+ 	};
+-	const struct i3c_device_id *id = i3c_device_match_id(i3cdev,
+-							    mmc5633_i3c_ids);
++	//const struct i3c_device_id *id = i3c_device_match_id(i3cdev,
++	//						    mmc5633_i3c_ids);
+ 	struct regmap *regmap;
+ 	regmap = devm_regmap_init_i3c(i3cdev, &mmc5633_i3c_regmap_config);
+ 	if (IS_ERR(regmap)) {
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index 06f0d11fad5d..d25edcf88df2 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -412,23 +412,29 @@ config ARM_SMMU_V3_SVA
+ 	  Say Y here if your system supports SVA extensions such as PCIe PASID
+ 	  and PRI.
+ 
++# These sub-features only compile when built-in
++if ARM_SMMU_V3=y
++
+ config ARM_SMMU_V3_WALK
+ 	bool "ARM SMMU Resource Walk"
+ 	depends on ARM_SMMU_V3
+ 	default n
+ 
++if ARM_SMMU_V3_WALK
++
+ config ARM_SMMU_V3_DEBUG
+ 	bool "ARM SMMU Debug"
+-	depends on ARM_SMMU_V3
+-	select ARM_SMMU_V3_WALK
++	depends on ARM_SMMU_V3_WALK
+ 	default n
+ 
+ config ARM_SMMU_V3_DUMP
+ 	bool "ARM SMMU Dump"
+-	depends on ARM_SMMU_V3
+-	select ARM_SMMU_V3_WALK
++	depends on ARM_SMMU_V3_WALK
+ 	default n
+ 
++endif # ARM_SMMU_V3_WALK
++endif # ARM_SMMU_V3=y
++
+ config S390_IOMMU
+ 	def_bool y if S390 && PCI
+ 	depends on S390 && PCI
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.c
+index 55d3b301b27d..1cd2358c7ee4 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.c
+@@ -10,6 +10,7 @@
+ #include <linux/pci.h>
+ #include "arm-smmu-v3.h"
+ #include "arm-smmu-v3-walk.h"
++#include "arm-smmu-v3-debug.h"
+ 
+ #define smmu_print printk
+ #define NAME_BUF_LEN 64
+@@ -166,7 +167,7 @@ static const struct file_operations smmu_dump_fops = {
+ 	.read = smmu_walk_read,
+ };
+ 
+-static int __init smmu_debug_init(void)
++int arm_smmu_v3_debug_init(void)
+ {
+ 	struct dentry *dir;
+ 
+@@ -182,8 +183,3 @@ static int __init smmu_debug_init(void)
+ 
+ 	return 0;
+ }
+-module_init(smmu_debug_init)
+-
+-MODULE_AUTHOR("Zichar Zhang <zichar.zhang@cixtech.com>");
+-MODULE_DESCRIPTION("SMMU INFO DEBUG");
+-MODULE_LICENSE("GPL v2");
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.h b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.h
+new file mode 100644
+index 000000000000..57fe8cd394e4
+--- /dev/null
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-debug.h
+@@ -0,0 +1,15 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright 2025 Stuart Shelton
++ *
++ * Author: Stuart Shelton <stuart@shelton.me>
++ */
++
++#ifndef __ARM_SMMU_V3_DEBUG_H__
++#define __ARM_SMMU_V3_DEBUG_H__
++
++#include "arm-smmu-v3.h"
++
++int arm_smmu_v3_debug_init(void);
++
++#endif /* __ARM_SMMU_V3_DEBUG_H__ */
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.c
+index 480b6bc4c05a..abcb970d5032 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.c
+@@ -157,7 +157,7 @@ static void smmu_dump_finish(void *data, int status)
+ 		head->status |= SMMU_DUMP_VALID;
+ }
+ 
+-int smmu_master_dump(struct smmu_master_dump_info *info)
++static int smmu_master_dump(struct smmu_master_dump_info *info)
+ {
+ 	struct smmu_dump_head *head;
+ 	struct smmu_master_handle hdl;
+@@ -181,7 +181,6 @@ int smmu_master_dump(struct smmu_master_dump_info *info)
+ 
+ 	return smmu_master_walk(&hdl);
+ }
+-EXPORT_SYMBOL_GPL(smmu_master_dump);
+ 
+ static int smmu_dump(void *dump_addr, unsigned int size)
+ {
+@@ -282,7 +281,7 @@ static const struct file_operations smmu_dump_debug_fops = {
+ };
+ #endif
+ 
+-static int __init smmu_dump_init(void)
++int arm_smmu_v3_dump_init(void)
+ {
+ #ifdef SMMU_DUMP_DEBUG
+ 	struct dentry *dir;
+@@ -299,4 +298,3 @@ static int __init smmu_dump_init(void)
+ 	return register_module_dump_mem_func(smmu_dump,
+ 				"smmu", MODU_SMMU);
+ }
+-module_init(smmu_dump_init);
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.h b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.h
+index d2d6ab0f360a..0323fc9e95f8 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.h
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-dump.h
+@@ -64,6 +64,6 @@ struct smmu_master_dump_info {
+ 	size_t size;
+ };
+ 
+-int smmu_master_dump(struct smmu_master_dump_info *info);
++int arm_smmu_v3_dump_init(void);
+ 
+ #endif /* __ARM_SMMU_V3_DUMP_H__ */
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.c
+index 6a2ad7ce09c4..51ee98ac4055 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.c
+@@ -194,7 +194,6 @@ int smmu_master_walk_register(struct arm_smmu_master *master)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(smmu_master_walk_register);
+ 
+ void smmu_master_walk_unregister(struct arm_smmu_master *master)
+ {
+@@ -211,7 +210,6 @@ void smmu_master_walk_unregister(struct arm_smmu_master *master)
+ 
+ 	return;
+ }
+-EXPORT_SYMBOL_GPL(smmu_master_walk_unregister);
+ 
+ int smmu_master_walk(struct smmu_master_handle *mhdl)
+ {
+@@ -224,11 +222,9 @@ int smmu_master_walk(struct smmu_master_handle *mhdl)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(smmu_master_walk);
+ 
+-static int __init smmu_info_init(void)
++int arm_smmu_v3_walk_init(void)
+ {
+ 	mutex_init(&master_list_lock);
+ 	return 0;
+ }
+-subsys_initcall(smmu_info_init)
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.h b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.h
+index 5c0c5f426aac..0ef3a46bf6bf 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.h
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-walk.h
+@@ -29,5 +29,6 @@ struct smmu_master_handle {
+ int smmu_master_walk_register(struct arm_smmu_master *master);
+ void smmu_master_walk_unregister(struct arm_smmu_master *master);
+ int smmu_master_walk(struct smmu_master_handle *mhdl);
++int arm_smmu_v3_walk_init(void);
+ 
+ #endif /* __ARM_SMMU_V3_WALK_H__ */
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
+index be5b3416e819..33288356c6cc 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
+@@ -27,15 +27,12 @@
+ #include <linux/pci-ats.h>
+ #include <linux/platform_device.h>
+ 
+-#ifdef CONFIG_ARCH_CIX
+-#include <linux/libfdt.h>
+-#include <linux/of_fdt.h>
+-#endif
+-
+ #include "arm-smmu-v3.h"
+ #include "../../dma-iommu.h"
+ #include "../../iommu-sva.h"
+ #include "arm-smmu-v3-walk.h"
++#include "arm-smmu-v3-debug.h"
++#include "arm-smmu-v3-dump.h"
+ 
+ static bool disable_bypass = true;
+ module_param(disable_bypass, bool, 0444);
+@@ -3989,37 +3986,40 @@ static void arm_smmu_iort_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
+ 
+ static void arm_smmu_dt_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
+ {
+-	int node, child;
+-	const void *fdt = initial_boot_params;
+-
+-	if (!fdt)
+-		return;
++	struct device_node *node;
++	struct device_node *child;
++	const __be32 *maps;
++	u32 phandle;
++	struct device_node *np;
++	int index;
++	struct of_phandle_args args;
+ 
+-	node = fdt_path_offset(fdt, "/reserved-memory");
+-	if (node < 0)
++	node = of_find_node_by_path("/reserved-memory");
++	if (!node)
+ 		return;
+ 
+-	fdt_for_each_subnode(child, fdt, node) {
+-		int index = 0;
+-		struct of_phandle_args args;
+-		struct device_node *np;
+-		const __be32 *maps;
+-		u32 phandle;
+-
+-		maps = fdt_getprop(fdt, child, "iommu-addresses", NULL);
++	for_each_child_of_node(node, child) {
++		maps = of_get_property(child, "iommu-addresses", NULL);
+ 		if (!maps)
+ 			continue;
+ 
+ 		phandle = be32_to_cpup(maps);
+ 		np = of_find_node_by_phandle(phandle);
++		if (!np)
++			continue;
+ 
++		index = 0;
+ 		if (!of_parse_phandle_with_args(np,
+ 				"iommus", "#iommu-cells", index, &args)) {
+ 			if (smmu->dev->of_node == args.np && args.args_count > 0)
+ 				arm_smmu_set_ste(smmu, args.args[0], true);
+ 			index++;
+ 		}
++		/* of_find_node_by_phandle increments refcount; drop it */
++		of_node_put(np);
+ 	}
++	/* drop refcount for reserved node */
++	of_node_put(node);
+ }
+ 
+ static void arm_smmu_install_bypass_ste(struct arm_smmu_device *smmu)
+@@ -4254,8 +4254,49 @@ static struct platform_driver arm_smmu_driver = {
+ 	.remove_new = arm_smmu_device_remove,
+ 	.shutdown = arm_smmu_device_shutdown,
+ };
+-module_driver(arm_smmu_driver, platform_driver_register,
+-	      arm_smmu_driver_unregister);
++
++static int __init arm_smmu_v3_init(void)
++{
++	int ret;
++
++#ifdef CONFIG_ARM_SMMU_V3_WALK
++	ret = arm_smmu_v3_walk_init();
++	if (ret) {
++		pr_err("SMMU-v3 walk init failed: %d\n", ret);
++		return ret;
++	}
++#endif
++
++#ifdef CONFIG_ARM_SMMU_V3_DEBUG
++	ret = arm_smmu_v3_debug_init();
++	if (ret) {
++		pr_err("SMMU-v3 debug init failed: %d\n", ret);
++		return ret;
++	}
++#endif
++
++#ifdef CONFIG_ARM_SMMU_V3_DUMP
++	ret = arm_smmu_v3_dump_init();
++	if (ret) {
++		pr_err("SMMU-v3 dump init failed: %d\n", ret);
++		return ret;
++	}
++#endif
++
++	ret = platform_driver_register(&arm_smmu_driver);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static void __exit arm_smmu_v3_exit(void)
++{
++	arm_smmu_driver_unregister(&arm_smmu_driver);
++}
++
++module_init(arm_smmu_v3_init);
++module_exit(arm_smmu_v3_exit);
+ 
+ MODULE_DESCRIPTION("IOMMU API for ARM architected SMMUv3 implementations");
+ MODULE_AUTHOR("Will Deacon <will@kernel.org>");
+diff --git a/drivers/irqchip/irq-sky1-pdc.c b/drivers/irqchip/irq-sky1-pdc.c
+index a33f68b15953..3ec330e69040 100644
+--- a/drivers/irqchip/irq-sky1-pdc.c
++++ b/drivers/irqchip/irq-sky1-pdc.c
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ 
++#include <linux/arm-smccc.h>
+ #include <linux/of_address.h>
+ #include <linux/of_irq.h>
+ #include <linux/slab.h>
+@@ -198,7 +199,7 @@ static int __init sky1_pdc_irqchip_init(struct device_node *node,
+ }
+ 
+ #ifdef CONFIG_ACPI
+-static int __init sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
++static int /* __init */ sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
+ {
+ 	struct irq_domain *domain;
+ 	struct pdcv1_irqchip_data *cd;
+diff --git a/drivers/media/i2c/cix/lt7911uxc/lt7911uxc.c b/drivers/media/i2c/cix/lt7911uxc/lt7911uxc.c
+index 39e31e82e3cf..b65b5d23aa87 100644
+--- a/drivers/media/i2c/cix/lt7911uxc/lt7911uxc.c
++++ b/drivers/media/i2c/cix/lt7911uxc/lt7911uxc.c
+@@ -1234,6 +1234,9 @@ static int lt7911uxc_probe(struct i2c_client *client)
+ 	lt7911uxc->tranning_enable = 0;
+ 	lt7911uxc->active_num = 1;
+ 	lt7911uxc->mbus_fmt_code = LT7911UXC_MEDIA_BUS_FMT;
++
++	sd = &lt7911uxc->sd;
++
+ 	ret = lt7911uxc_parse(lt7911uxc);
+ 	if (ret) {
+ 		v4l2_err(sd, "lt7911uxc_parse failed! err:%d\n", ret);
+@@ -1260,7 +1263,6 @@ static int lt7911uxc_probe(struct i2c_client *client)
+ 	if (ret)
+ 		return ret;
+ 
+-	sd = &lt7911uxc->sd;
+ 	snprintf(sd->name, sizeof(sd->name), "%s", CIX_LT7911UXC_SUBDEV_NAME);
+ 
+ 	v4l2_i2c_subdev_init(sd, client, &lt7911uxc_ops);
+diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
+index 659b6bab4025..32735bd9d531 100644
+--- a/drivers/media/platform/Kconfig
++++ b/drivers/media/platform/Kconfig
+@@ -100,6 +100,7 @@ config CAMERA_ARMCB
+ 
+ config ARENA_FPGA_PLATFORM
+         tristate "Arena FPGA hardware platform"
++	depends on BROKEN
+         default n
+         help
+           Use arena fpga hw platform
+diff --git a/drivers/media/platform/cix/cix_isp/common/armcb_camera_io_drv.c b/drivers/media/platform/cix/cix_isp/common/armcb_camera_io_drv.c
+index 5e10a0f67ce7..ebb2565f7130 100755
+--- a/drivers/media/platform/cix/cix_isp/common/armcb_camera_io_drv.c
++++ b/drivers/media/platform/cix/cix_isp/common/armcb_camera_io_drv.c
+@@ -823,6 +823,7 @@ static long ispmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	return res;
+ }
+ 
++#if 0 /* unused */
+ #ifdef CONFIG_ARENA_FPGA_PLATFORM
+ #define DISP_DDR_BUFFER (1920 * 1080)
+ #define DISP_BUFFER_NUM (12)
+@@ -867,6 +868,7 @@ static int ispmem_clear_disp_buffer(void)
+ 	return res;
+ }
+ #endif
++#endif
+ 
+ static int ispmem_release(struct inode *node, struct file *file)
+ {
+diff --git a/drivers/media/platform/cix/cix_isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/cix_isp/common/armcb_v4l_sd.c
+index c326602dadcc..ad428ad041c3 100755
+--- a/drivers/media/platform/cix/cix_isp/common/armcb_v4l_sd.c
++++ b/drivers/media/platform/cix/cix_isp/common/armcb_v4l_sd.c
+@@ -38,8 +38,8 @@ static int armcb_subdev_register_nodes_async(struct v4l2_subdev *sd)
+ {
+ 	int res = 0;
+ 
+-	if (WARN_ON(!sd) || WARN_ON(!sd->name)) {
+-		LOG(LOG_ERR, "Invalid input v4l2_subdev is NULL");
++	if (WARN_ON(!sd) || WARN_ON(!sd->name[0])) {
++		LOG(LOG_ERR, "Invalid input v4l2_subdev is NULL or has no name");
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/drivers/media/platform/cix/cix_isp/common/system_dma.h b/drivers/media/platform/cix/cix_isp/common/system_dma.h
+index 2350cc95f9bb..3a7132b4ffd6 100755
+--- a/drivers/media/platform/cix/cix_isp/common/system_dma.h
++++ b/drivers/media/platform/cix/cix_isp/common/system_dma.h
+@@ -19,8 +19,10 @@
+ u32 CDMA_Read_Int32(u32 offset);
+ void CDMA_Write_Int32(u32 offset, u32 value);
+ 
++#ifdef CONFIG_ARENA_FPGA_PLATFORM
+ u32 VDMA_Read_Int32(u32 baseaddr, u32 offset);
+ void VDMA_Write_Int32(u32 baseaddr, u32 offset, u32 value);
++#endif
+ 
+ s32 xdma(u32 unRmtAddr, u32 unLocalAddr, u32 unBytes, u32 bLocal2Rmt);
+ 
+diff --git a/drivers/media/platform/cix/cix_isp/platform/armcb_platform.c b/drivers/media/platform/cix/cix_isp/platform/armcb_platform.c
+index 6f833aaa1c45..2b0d68b072c5 100755
+--- a/drivers/media/platform/cix/cix_isp/platform/armcb_platform.c
++++ b/drivers/media/platform/cix/cix_isp/platform/armcb_platform.c
+@@ -53,8 +53,10 @@ void BSP_Init(void)
+ 	armcb_spi_set_hwchnl(0); // TODO: add motor driver sometime after
+ 
+ // HDMI Initialize
++#if 0 /* Headers defining HDMIOUT_RGB444_8BIT etc. are missing */
+ #ifdef CONFIG_ARENA_FPGA_PLATFORM
+ 	armcb_hdmi_init(RES1080P30FPS, RES1080P60FPS, HDMIOUT_RGB444_8BIT);
++#endif
+ #endif
+ 	// Select Source
+ 	regval = armcb_apb2_read_reg(0x0);
+diff --git a/drivers/media/platform/cix/cix_isp/platform/hdmi/system_hdmi.c b/drivers/media/platform/cix/cix_isp/platform/hdmi/system_hdmi.c
+deleted file mode 100755
+index 17e755338e5d..000000000000
+--- a/drivers/media/platform/cix/cix_isp/platform/hdmi/system_hdmi.c
++++ /dev/null
+@@ -1,1337 +0,0 @@
+-/*
+- * Copyright (c) 2021-2021, The Linux Foundation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 and
+- * only version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- */
+-#include <linux/clk.h>
+-#include <linux/init.h>
+-#include <linux/ioctl.h>
+-#include <linux/module.h>
+-#include <linux/of_device.h>
+-#include <linux/platform_device.h>
+-#include <linux/slab.h>
+-#include <linux/types.h>
+-#include <linux/miscdevice.h>
+-#include <linux/i2c.h>
+-#include <linux/delay.h>
+-#include <linux/io.h>
+-#include <asm/io.h>
+-#include "system_logger.h"
+-#include "types_utils.h"
+-#include "system_hdmi.h"
+-#include "system_vdma.h"
+-
+-#ifdef LOG_MODULE
+-#undef LOG_MODULE
+-#define LOG_MODULE LOG_MODULE_COMMON
+-#endif
+-
+-#define ARMCB_HDMI_I2CSEND_BUFLENS_MAX 255
+-
+-extern void armcb_hwchnnel_select(unsigned char hwchnl);
+-extern unsigned char armcb_get_sensor_hwchnl(void);
+-
+-static struct armcb_hdmi_info *p_hdmi_info = NULL;
+-static struct i2c_client *pclient_i2c1 = NULL;
+-
+-static u64 DO_DIV64(u64 mol, u64 den)
+-{
+-	u64 res = mol;
+-	if (den != 0) {
+-		do_div(res, den);
+-	}
+-	return res;
+-}
+-
+-static s32 armcb_hdmi_i2c_read(struct armcb_i2c_transfer *pi2c_transfer, u8 *ucData)
+-{
+-	struct i2c_client *pi2c_client;
+-	s32 res = 0, bufcnt = 2;
+-	u8 buf[2] = {0};
+-
+-	if (!pi2c_transfer) {
+-		LOG(LOG_ERR, "Read pi2c_transfer is NULL");
+-		return -1;
+-	}
+-
+-
+-	armcb_hwchnnel_select(pi2c_transfer->ch );
+-	if (pi2c_transfer->datatype == ARMCN_I2C_TRANS_DATATYPE_REG8DATA8) {
+-		bufcnt = 1;
+-		buf[0] = (pi2c_transfer->usAddr & 0xff);
+-	} else {
+-		bufcnt = 2;
+-		buf[0] = (pi2c_transfer->usAddr >> 8);
+-		buf[1] = (pi2c_transfer->usAddr & 0xff);
+-	}
+-
+-	pi2c_client = pclient_i2c1;
+-	pi2c_client->addr = pi2c_transfer->slvaddr;
+-	res = i2c_master_send(pi2c_client, (s8 *)buf, bufcnt);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "i2c_master_send usAddr(%x) faied", pi2c_transfer->usAddr);
+-		return -1;
+-	}
+-	mdelay(1);
+-	bufcnt = 1;
+-	res = i2c_master_recv(pi2c_client, (char *)ucData, bufcnt);
+-	if (res <= 0) {
+-		LOG(LOG_ERR, "i2c_master_recv ucAddr(%x) faied", pi2c_transfer->usAddr);
+-		return -1;
+-	}
+-
+-	return res;
+-}
+-
+-static s32 armcb_hdmi_i2c_write(struct armcb_i2c_transfer *pi2c_transfer)
+-{
+-	struct i2c_client *pi2c_client;
+-	s32 res = 0, bufcnt = 2;
+-	u8 buf[3] = {0};
+-	if (!pi2c_transfer) {
+-		LOG(LOG_ERR, "Read pi2c_transfer is NULL");
+-		return -1;
+-	}
+-
+-	armcb_hwchnnel_select(pi2c_transfer->ch);
+-	if (pi2c_transfer->datatype == ARMCN_I2C_TRANS_DATATYPE_REG8DATA8) {
+-		bufcnt = 2;
+-		buf[0] = (pi2c_transfer->usAddr & 0xff);
+-		buf[1] = (pi2c_transfer->usData & 0xff);
+-	} else {
+-		bufcnt = 3;
+-		buf[0] = (pi2c_transfer->usAddr >> 8);
+-		buf[1] = (pi2c_transfer->usAddr & 0xff);
+-		buf[2] = (pi2c_transfer->usData & 0xff);
+-	}
+-
+-	pi2c_client = pclient_i2c1;
+-	if (!pi2c_client) {
+-		LOG(LOG_ERR, "pi2c_client is NULL");
+-		return -1;
+-	}
+-	pi2c_client->addr = pi2c_transfer->slvaddr;
+-	res = i2c_master_send(pi2c_client, (s8 *)buf, bufcnt);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "i2c_master_send ch=%d, usAddr(%x) failed",
+-			pi2c_transfer->ch, pi2c_transfer->usAddr);
+-		return -1;
+-	}
+-
+-	return res;
+-}
+-
+-static s32 armcb_i2c_bufferwrite(struct armcb_i2c_transfer *pi2c_transfer, u8 *buff, s32 bufcnt)
+-{
+-	struct i2c_client *pi2c_client;
+-	s32 res = 0, offset = 0;
+-	u8 buf[ARMCB_HDMI_I2CSEND_BUFLENS_MAX] = {0};
+-	if (!pi2c_transfer || !buff) {
+-		LOG(LOG_ERR, "pi2c_transfer or buff is NULL");
+-		return -1;
+-	}
+-
+-
+-	armcb_hwchnnel_select(pi2c_transfer->ch);
+-	if (pi2c_transfer->datatype == ARMCN_I2C_TRANS_DATATYPE_REG8DATA8) {
+-		buf[0] = (pi2c_transfer->usAddr & 0xff);
+-		offset = 1;
+-	} else {
+-		bufcnt = 3;
+-		buf[0] = (pi2c_transfer->usAddr >> 8);
+-		buf[1] = (pi2c_transfer->usAddr & 0xff);
+-		offset = 2;
+-	}
+-
+-	bufcnt += offset;
+-	memcpy(&buf[offset], buff, bufcnt);
+-
+-	pi2c_client = pclient_i2c1;
+-	pi2c_client->addr = pi2c_transfer->slvaddr;
+-	res = i2c_master_send(pi2c_client, (s8 *)buf, bufcnt);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "i2c_master_send usAddr(%x) failed", pi2c_transfer->usAddr);
+-		return -1;
+-	}
+-
+-	return res;
+-}
+-
+-/* HDMI I2C_TRANSFER FUNCTION */
+-s32 armcb_hdmi_i2c_write_8(u8 slvaddr, u8 ucAddr, u8 ucWdat, u8 ch)
+-{
+-	s32 res = 0;
+-	struct armcb_i2c_transfer i2c_transfer;
+-	i2c_transfer.ch = ch;
+-	i2c_transfer.slvaddr = slvaddr;
+-	i2c_transfer.usAddr = (u16)ucAddr;
+-	i2c_transfer.usData = (u16)ucWdat;
+-	i2c_transfer.datatype = ARMCN_I2C_TRANS_DATATYPE_REG8DATA8;
+-	res = armcb_hdmi_i2c_write(&i2c_transfer);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "ucAddr[%x] failed", ucAddr);
+-	}
+-	return res;
+-}
+-
+-s32 armcb_hdmi_i2c_bufferwrite(u8 slvaddr, u8 ucAddr, s32 bufcnt, u8* buff, u8 ch)
+-{
+-	s32 res = 0;
+-	struct armcb_i2c_transfer i2c_transfer;
+-
+-	if (!buff) {
+-		LOG(LOG_ERR, "buff is NULL");
+-		return -1;
+-	}
+-	i2c_transfer.ch = ch;
+-	i2c_transfer.slvaddr = slvaddr;
+-	i2c_transfer.usAddr = (u16)ucAddr;
+-	i2c_transfer.usData = (u16)ucAddr;
+-	i2c_transfer.datatype = ARMCN_I2C_TRANS_DATATYPE_REG8DATA8;
+-	res = armcb_i2c_bufferwrite(&i2c_transfer, buff, bufcnt);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "ucAddr[%x] failed", ucAddr);
+-	}
+-	return res;
+-}
+-
+-s32 armcb_hdmi_i2c_read_8(u8 slvaddr, u8 ucAddr, u8 *ucData, u8 ch)
+-{
+-	s32 res = 0;
+-	struct armcb_i2c_transfer i2c_transfer;
+-	i2c_transfer.ch = ch;
+-	i2c_transfer.slvaddr = slvaddr;
+-	i2c_transfer.usAddr = (u16)ucAddr;
+-	i2c_transfer.datatype = ARMCN_I2C_TRANS_DATATYPE_REG8DATA8;
+-	res = armcb_hdmi_i2c_read(&i2c_transfer, ucData);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "ucAddr[%x] failed", ucAddr);
+-	}
+-	return res;
+-}
+-
+-#define hdmi_i2c_write(id, addr, wdat)             armcb_hdmi_i2c_write_8(id, addr, wdat, armcb_get_sensor_hwchnl())
+-#define hdmi_i2c_writem(id, start, count, pdat)    armcb_hdmi_i2c_bufferwrite(id, start, count, pdat, armcb_get_sensor_hwchnl())
+-#define hdmi_i2c_read(id, addr)                    \
+-    ({u8 ucData = 0;                               \
+-    armcb_hdmi_i2c_read_8(id, addr, &ucData, armcb_get_sensor_hwchnl()); \
+-    ucData;})
+-
+-void hdmi_i2c_regdump(u8 ucId, u8 ucStartAddr, s32 n)
+-{
+-	s32 i;
+-	u8 ucTmp;
+-
+-	for (i = 0; i < n; i++)	{
+-		ucTmp = hdmi_i2c_read(ucId, ucStartAddr++);
+-		LOG(LOG_INFO, "Reg[0x%x]=0x%x on slave 0x%x.", ucStartAddr, ucTmp, (ucId << 1));
+-	}
+-}
+-
+-//---------------------------------------------------------------------------------
+-// Function name: hdmi_ahb_read()
+-// Description  : Read ahb bus through I2C of 8-bit data on 16-bit address.
+-// Parameters   :
+-//   u8  ucId:        I2C slave Id.
+-//   u16 usRegAddr  : Register address.
+-// Return       : None.
+-// Notes        :
+-//---------------------------------------------------------------------------------
+-u8 hdmi_ahb_read(u8 ucId, u16 usRegAddr)
+-{
+-	u8  ucAhbRdBase = 0x18;  // Write data base for AHB access.
+-	u8  ucTmp = 0;
+-
+-	hdmi_i2c_writem(ucId, 0x10, 2, (u8 *)(&usRegAddr)); // Address base for AHB access.
+-
+-	hdmi_i2c_write(ucId, 0x1c, 0x21); // Command reg address.
+-	hdmi_i2c_write(ucId, 0x1c, 0x20); // Command reg address.
+-
+-	if ((usRegAddr & 0x03) < 4 ) {
+-		ucAhbRdBase += (usRegAddr & 0x03);
+-		ucTmp = hdmi_i2c_read(ucId, ucAhbRdBase);
+-	}
+-
+-	return ucTmp;
+-}
+-
+-//---------------------------------------------------------------------------------
+-// Function name: hdmi_ahb_write()
+-// Description  : Write ahb bus through I2C with 8-bit data on 16-bit address.
+-// Parameters   :
+-//   u8  ucId     : I2C slave Id.
+-//   u16 usRegAddr: Register address.
+-//   u8  ucWrData : Write data.
+-// Return       : None.
+-// Notes        :
+-//---------------------------------------------------------------------------------
+-void hdmi_ahb_write(u8 ucId, u16 usRegAddr, u8 ucWrData)
+-{
+-	u8  ucAhbWrBase = 0x14;  // Write data base for AHB access.
+-
+-	hdmi_i2c_writem(ucId, 0x10, 2, (u8 *)(&usRegAddr)); // Address base for AHB access.
+-
+-	if ((usRegAddr & 0x03) < 4) {
+-		ucAhbWrBase += (usRegAddr & 0x03);
+-		hdmi_i2c_write(ucId, ucAhbWrBase, ucWrData);
+-	}
+-
+-	hdmi_i2c_write(ucId, 0x1c, 0x23); // Command reg address.
+-	hdmi_i2c_write(ucId, 0x1c, 0x20); // Command reg address.
+-}
+-
+-#ifdef HDMI_DEBUG
+-void hdmi_debug_dumpreg(u8 slvaddr, u32 idx)
+-{
+-	if (idx == 0) {
+-		LOG(LOG_DEBUG, "read 0x300d = 0x%x", hdmi_ahb_read(slvaddr, 0x300d));
+-		LOG(LOG_DEBUG, "read 0x300b = 0x%x", hdmi_ahb_read(slvaddr, 0x300b));
+-		LOG(LOG_DEBUG, "read 0x3013 = 0x%x", hdmi_ahb_read(slvaddr, 0x3013));
+-		LOG(LOG_DEBUG, "read 0x3079 = 0x%x", hdmi_ahb_read(slvaddr, 0x3079));
+-		LOG(LOG_DEBUG, "read 0x3065 = 0x%x", hdmi_ahb_read(slvaddr, 0x3065));
+-		LOG(LOG_DEBUG, "read 0x30f7 = 0x%x", hdmi_ahb_read(slvaddr, 0x30f7));
+-		LOG(LOG_DEBUG, "read 0x3224 = 0x%x", hdmi_ahb_read(slvaddr, 0x3224));
+-		LOG(LOG_DEBUG, "read 0x33f6 = 0x%x", hdmi_ahb_read(slvaddr, 0x33f6));
+-		LOG(LOG_DEBUG, "read 0x3609 = 0x%x", hdmi_ahb_read(slvaddr, 0x3609));
+-		LOG(LOG_DEBUG, "read 0x360a = 0x%x", hdmi_ahb_read(slvaddr, 0x360a));
+-		LOG(LOG_DEBUG, "read 0x3900 = 0x%x", hdmi_ahb_read(slvaddr, 0x3900));
+-		LOG(LOG_DEBUG, "read 0x3909 = 0x%x", hdmi_ahb_read(slvaddr, 0x3909));
+-		LOG(LOG_DEBUG, "read 0x3b1c = 0x%x", hdmi_ahb_read(slvaddr, 0x3b1c));
+-		LOG(LOG_DEBUG, "read 0x3d20 = 0x%x", hdmi_ahb_read(slvaddr, 0x3d20));
+-		LOG(LOG_DEBUG, "read 0x3d21 = 0x%x", hdmi_ahb_read(slvaddr, 0x3d21));
+-		LOG(LOG_DEBUG, "read 0x3da0 = 0x%x", hdmi_ahb_read(slvaddr, 0x3da0));
+-		LOG(LOG_DEBUG, "read 0x3da1 = 0x%x", hdmi_ahb_read(slvaddr, 0x3da1));
+-	} else {
+-		LOG(LOG_DEBUG, "read 0x36bf = 0x%x", hdmi_ahb_read(slvaddr,0x36bf));
+-		LOG(LOG_DEBUG, "read 0x36c0 = 0x%x", hdmi_ahb_read(slvaddr,0x36c0));
+-		LOG(LOG_DEBUG, "read 0x36c1 = 0x%x", hdmi_ahb_read(slvaddr,0x36c1));
+-		LOG(LOG_DEBUG, "read 0x36c2 = 0x%x", hdmi_ahb_read(slvaddr,0x36c2));
+-		LOG(LOG_DEBUG, "read 0x36c3 = 0x%x", hdmi_ahb_read(slvaddr,0x36c3));
+-		LOG(LOG_DEBUG, "read 0x36c4 = 0x%x", hdmi_ahb_read(slvaddr,0x36c4));
+-		LOG(LOG_DEBUG, "read 0x36c5 = 0x%x", hdmi_ahb_read(slvaddr,0x36c5));
+-		LOG(LOG_DEBUG, "read 0x36c6 = 0x%x", hdmi_ahb_read(slvaddr,0x36c6));
+-		LOG(LOG_DEBUG, "read 0x36c7 = 0x%x", hdmi_ahb_read(slvaddr,0x36c7));
+-		LOG(LOG_DEBUG, "read 0x36c8 = 0x%x", hdmi_ahb_read(slvaddr,0x36c8));
+-		LOG(LOG_DEBUG, "read 0x36c9 = 0x%x", hdmi_ahb_read(slvaddr,0x36c9));
+-		LOG(LOG_DEBUG, "read 0x36ca = 0x%x", hdmi_ahb_read(slvaddr,0x36ca));
+-		LOG(LOG_DEBUG, "read 0x36cb = 0x%x", hdmi_ahb_read(slvaddr,0x36cb));
+-		LOG(LOG_DEBUG, "read 0x36cc = 0x%x", hdmi_ahb_read(slvaddr,0x36cc));
+-		LOG(LOG_DEBUG, "read 0x36cd = 0x%x", hdmi_ahb_read(slvaddr,0x36cd));
+-		LOG(LOG_DEBUG, "read 0x36ce = 0x%x", hdmi_ahb_read(slvaddr,0x36ce));
+-		LOG(LOG_DEBUG, "read 0x36cf = 0x%x", hdmi_ahb_read(slvaddr,0x36cf));
+-		LOG(LOG_DEBUG, "read 0x36df = 0x%x", hdmi_ahb_read(slvaddr,0x36df));
+-	}
+-}
+-#endif
+-
+-static int hdmi_phyhw_init(u32 unHdmiOutFmt)
+-{
+-	u8 ucId2 = FPGA_HDMITX_IIC;
+-
+-	hdmi_ahb_write(ucId2,   0x300d,   0x04); // [2]: PCLK enable.
+-	hdmi_ahb_write(ucId2,   0x300b,   0x01); // [0]: Enable HDMI for TX
+-	hdmi_ahb_write(ucId2,   0x3013,   0x00); // [7:2]: clks bypass. [1]: miso edge, 0/1=falling/rising edge. [0]: mosi edge, 0/1=falling/rising edge.
+-	hdmi_ahb_write(ucId2,   0x3079,   0x06); // [2]: 1=audio split en. [1]: 1=audio pass through.
+-	hdmi_ahb_write(ucId2,   0x3065,   0x05); // [3:2]: 2'b01=pclknx same as pclk. [1:0]: 2'b01=idclk same as pclk.
+-	hdmi_ahb_write(ucId2,   0x30f7,   0x02); // [1]: 1=hmdi mode, 0= DVI mode.
+-	hdmi_ahb_write(ucId2,   0x3224,   0x04); // [3:2]: =2'b01, hdmi_clk is 1x pxl_clk(default); =2'b00, hdmi clk is 0.5*pxl_clk.
+-
+-	hdmi_ahb_write(ucId2,   0x3900,   0x00);
+-
+-	hdmi_ahb_write(ucId2,   0x3b1c,   0x01); // [0]: Configure sync polarity adjustment for datapath 0. ?
+-	hdmi_ahb_write(ucId2,   0x3d20,   0x00); // Color space converter setting0.
+-	hdmi_ahb_write(ucId2,   0x3d21,   0x08); // [3]: Disable saturation.
+-	hdmi_ahb_write(ucId2,   0x3da0,   0x00); // Color space converter setting1.
+-	hdmi_ahb_write(ucId2,   0x3da1,   0x08);
+-
+-	hdmi_ahb_write(ucId2,   0x3909,   0x00); // [1:0]: TXC divided by 1<<[1:0]. 2'b10= divided by 4.
+-	hdmi_ahb_write(ucId2,   0x33f6,   0x30);
+-
+-	switch (unHdmiOutFmt) {
+-		case HDMIOUT_RGB444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,   0x3609, 0x00);  // Input
+-			hdmi_ahb_write(ucId2,   0x360a, 0x00);  // Output
+-			LOG(LOG_INFO, "HDMI output format: RGB444, 8-bit.");
+-			break;
+-		}
+-		case HDMIOUT_YUV444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,   0x3609, 0x01);
+-			hdmi_ahb_write(ucId2,   0x360a, 0x01);
+-			LOG(LOG_INFO, "HDMI output format: YUV444, 8-bit.");
+-			break;
+-		}
+-		case HDMIOUT_YUV422_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,   0x3609, 0x02);
+-			hdmi_ahb_write(ucId2,   0x360a, 0x02);
+-			LOG(LOG_INFO, "HDMI output format: YUV422, 8-bit.");
+-			break;
+-		}
+-		default:
+-		{
+-			LOG(LOG_INFO, "Unsupported HDMI output format %d!", (u32)unHdmiOutFmt);
+-			return -1;
+-		}
+-	}
+-#ifdef HDMI_DEBUG
+-	hdmi_debug_dumpreg(ucId2, 0);
+-#endif
+-	msleep(1);
+-
+-	return 0;
+-}
+-
+-//---------------------------------------------------------------------------------
+-// Function name: hdmiphy_aviinfo720p60()
+-// Description  : Tx avi information.
+-// Parameters   : None.
+-// Return       : None.
+-// Notes        :
+-//---------------------------------------------------------------------------------
+-s32 hdmi_phy_set_fmt_avi720p60(u32 unHdmiOutFmt)
+-{
+-	u8 ucId2=FPGA_HDMITX_IIC;
+-
+-	hdmi_ahb_write(ucId2,  0x36bf, 0x00); //  Buffer 0 select
+-
+-	hdmi_ahb_write(ucId2,  0x36c0, 0x82); //  AVI Packet type 0x82
+-	hdmi_ahb_write(ucId2,  0x36c1, 0x02); //  Version     0x02
+-	hdmi_ahb_write(ucId2,  0x36c2, 0x0d); //  Length      0x0d
+-
+-	switch (unHdmiOutFmt) {
+-		case HDMIOUT_RGB444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x63); //  Check sum
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x00); //  [7:5]: 001=YUV422, 010=YUV444, 000=RGB. [4]: 1=Active aspect ratio information included(0x360e[3:0] is valid)
+-			break;
+-		}
+-		case HDMIOUT_YUV444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x23);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x40);
+-			break;
+-		}
+-		case HDMIOUT_YUV422_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x43);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x20);
+-			break;
+-		}
+-		default:
+-		{
+-			LOG(LOG_INFO, "Unsupported HDMI output format %d!", (u32)unHdmiOutFmt);
+-			return -1;
+-		}
+-	}
+-
+-	hdmi_ahb_write(ucId2,  0x36c5, 0x08); //  [7:6]: c1c0, 01=SMPTE 170M, 10=ITU-R BT.709. [5:4]: M1M0, 00=NoData, 01=4:3, 10=16:9. [3:0]: 1000=Same as picture aspect ratio. 1001=4:3, 1010=16:9
+-	hdmi_ahb_write(ucId2,  0x36c6, 0x00); //
+-	hdmi_ahb_write(ucId2,  0x36c7, 0x04); //  vic 4: 1280x720p60
+-
+-	hdmi_ahb_write(ucId2,  0x36c8, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36c9, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ca, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cb, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cc, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cd, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ce, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cf, 0x00);
+-
+-	hdmi_ahb_write(ucId2,  0x36df, 0xc0); //  bit[7]: Enable, bit[6]: Repeat.
+-
+-	return 0;
+-}
+-
+-s32 hdmi_phy_set_fmt_avi1080p60(u32 unHdmiOutFmt)
+-{
+-	u8 ucId2=FPGA_HDMITX_IIC;
+-
+-	hdmi_ahb_write(ucId2,  0x36bf, 0x00); //  Buffer 0 select
+-	hdmi_ahb_write(ucId2,  0x36c0, 0x82); //  AVI Packet type 0x82
+-	hdmi_ahb_write(ucId2,  0x36c1, 0x02); //  Version     0x02
+-	hdmi_ahb_write(ucId2,  0x36c2, 0x0d); //  Length      0x0d
+-
+-	switch (unHdmiOutFmt) {
+-		case HDMIOUT_RGB444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x57); //  Check sum
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x00); //  [7:5]: 001=YUV422, 010=YUV444, 000=RGB. [4]: 1=Active aspect ratio information included(0x360e[3:0] is valid)
+-			break;
+-		}
+-
+-		case HDMIOUT_YUV444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x17);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x40);
+-			break;
+-		}
+-		case HDMIOUT_YUV422_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x37);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x20);
+-			break;
+-		}
+-		default:
+-		{
+-			LOG(LOG_INFO, "Unsupported HDMI output format %d!", (u32)unHdmiOutFmt);
+-			return -1;
+-		}
+-	}
+-
+-	hdmi_ahb_write(ucId2,  0x36c5, 0x08); //  [7:6]: c1c0, 01=SMPTE 170M, 10=ITU-R BT.709. [5:4]: M1M0, 00=NoData, 01=4:3, 10=16:9. [3:0]: 1000=Same as picture aspect ratio. 1001=4:3, 1010=16:9
+-	hdmi_ahb_write(ucId2,  0x36c6, 0x00); //
+-	hdmi_ahb_write(ucId2,  0x36c7, 0x10); //  vic 16: 1920x1080p60. SMPTE 274M [2]
+-
+-	///-- Below setting for this AVI not necessary.
+-	hdmi_ahb_write(ucId2,  0x36c8, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36c9, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ca, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cb, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cc, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cd, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ce, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cf, 0x00);
+-
+-	hdmi_ahb_write(ucId2,  0x36df, 0xc0); //  bit[7]: Enable, bit[6]: Repeat.
+-
+-#ifdef HDMI_DEBUG
+-	hdmi_debug_dumpreg(ucId2, 1);
+-#endif
+-
+-	return 0;
+-}
+-
+-//---------------------------------------------------------------------------------
+-// Function name: hdmi_phy_set_fmt_avi720p30()
+-// Description  : Tx avi information.
+-// Parameters   : None.
+-// Return       : None.
+-// Notes        :
+-//---------------------------------------------------------------------------------
+-s32 hdmi_phy_set_fmt_avi720p30(u32 unHdmiOutFmt)
+-{
+-	u8 ucId2=FPGA_HDMITX_IIC;
+-
+-	hdmi_ahb_write(ucId2,  0x36bf, 0x00); //  Buffer 0 select
+-	hdmi_ahb_write(ucId2,  0x36c0, 0x82); //  AVI Packet type 0x82
+-	hdmi_ahb_write(ucId2,  0x36c1, 0x02); //  Version     0x02
+-	hdmi_ahb_write(ucId2,  0x36c2, 0x0d); //  Length      0x0d
+-
+-	switch (unHdmiOutFmt) {
+-		case HDMIOUT_RGB444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x29); //  Check sum
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x00); //  [7:5]: 001=YUV422, 010=YUV444, 000=RGB. [4]: 1=Active aspect ratio information included(0x360e[3:0] is valid)
+-			break;
+-		}
+-		case HDMIOUT_YUV444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0xe9);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x40);
+-			break;
+-		}
+-		case HDMIOUT_YUV422_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x09);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x20);
+-			break;
+-		}
+-		default:
+-		{
+-			LOG(LOG_INFO, "Unsupported HDMI output format %d!", (u32)unHdmiOutFmt);
+-			return -1;
+-		}
+-	}
+-
+-	hdmi_ahb_write(ucId2,  0x36c5, 0x08); //  [7:6]: c1c0, 01=SMPTE 170M, 10=ITU-R BT.709. [5:4]: M1M0, 00=NoData, 01=4:3, 10=16:9. [3:0]: 1000=Same as picture aspect ratio. 1001=4:3, 1010=16:9
+-	hdmi_ahb_write(ucId2,  0x36c6, 0x00); //
+-	hdmi_ahb_write(ucId2,  0x36c7, 0x3e); //  vic 62/67: 1280x720p30
+-
+-	hdmi_ahb_write(ucId2,  0x36c8, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36c9, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ca, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cb, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cc, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cd, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ce, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cf, 0x00);
+-
+-	hdmi_ahb_write(ucId2,  0x36df, 0xc0); //  bit[7]: Enable, bit[6]: Repeat.
+-
+-	return 0;
+-}
+-
+-//---------------------------------------------------------------------------------
+-// Function name: hdmi_phy_set_fmt_avi1080i50()
+-// Description  : Tx avi information.
+-// Parameters   : None.
+-// Return       : None.
+-// Notes        :
+-//---------------------------------------------------------------------------------
+-s32 hdmi_phy_set_fmt_avi1080i50(u32 unHdmiOutFmt)
+-{
+-	u8 ucId2=FPGA_HDMITX_IIC;
+-
+-	hdmi_ahb_write(ucId2,  0x36bf, 0x00); //  Buffer 0 select
+-
+-	hdmi_ahb_write(ucId2,  0x36c0, 0x82); //  AVI Packet type 0x82
+-	hdmi_ahb_write(ucId2,  0x36c1, 0x02); //  Version     0x02
+-	hdmi_ahb_write(ucId2,  0x36c2, 0x0d); //  Length      0x0d
+-
+-	switch (unHdmiOutFmt) {
+-		case HDMIOUT_RGB444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x53); //  Check sum
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x00); //  [7:5]: 001=YUV422, 010=YUV444, 000=RGB. [4]: 1=Active aspect ratio information included(0x360e[3:0] is valid)
+-			break;
+-		}
+-		case HDMIOUT_YUV444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x13);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x40);
+-			break;
+-		}
+-		case HDMIOUT_YUV422_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x33);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x20);
+-			break;
+-		}
+-		default:
+-		{
+-			LOG(LOG_INFO, "Unsupported HDMI output format %d!", (u32)unHdmiOutFmt);
+-			return -1;
+-		}
+-	}
+-
+-	hdmi_ahb_write(ucId2,  0x36c5, 0x08); //  [7:6]: c1c0, 01=SMPTE 170M, 10=ITU-R BT.709. [5:4]: M1M0, 00=NoData, 01=4:3, 10=16:9. [3:0]: 1000=Same as picture aspect ratio. 1001=4:3, 1010=16:9
+-	hdmi_ahb_write(ucId2,  0x36c6, 0x00); //
+-	hdmi_ahb_write(ucId2,  0x36c7, 0x14); //  vic 20: 1080I50
+-
+-	hdmi_ahb_write(ucId2,  0x36c8, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36c9, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ca, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cb, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cc, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cd, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ce, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cf, 0x00);
+-
+-	hdmi_ahb_write(ucId2,  0x36df, 0xc0); //  bit[7]: Enable, bit[6]: Repeat.
+-
+-	return 0;
+-}
+-
+-//---------------------------------------------------------------------------------
+-// Function name: hdmi_phy_set_fmt_avi1080p50()
+-// Description  : Tx avi information.
+-// Parameters   : None.
+-// Return       : None.
+-// Notes        :
+-//---------------------------------------------------------------------------------
+-s32 hdmi_phy_set_fmt_avi1080p50(u32 unHdmiOutFmt)
+-{
+-	u8 ucId2=FPGA_HDMITX_IIC;
+-
+-	hdmi_ahb_write(ucId2,  0x36bf, 0x00); //  Buffer 0 select
+-
+-	hdmi_ahb_write(ucId2,  0x36c0, 0x82); //  AVI Packet type 0x82
+-	hdmi_ahb_write(ucId2,  0x36c1, 0x02); //  Version     0x02
+-	hdmi_ahb_write(ucId2,  0x36c2, 0x0d); //  Length      0x0d
+-
+-	switch (unHdmiOutFmt) {
+-		case HDMIOUT_RGB444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x48); //  Check sum
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x00); //  [7:5]: 001=YUV422, 010=YUV444, 000=RGB. [4]: 1=Active aspect ratio information included(0x360e[3:0] is valid)
+-			break;
+-		}
+-		case HDMIOUT_YUV444_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x08);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x40);
+-			break;
+-		}
+-		case HDMIOUT_YUV422_8BIT:
+-		{
+-			hdmi_ahb_write(ucId2,  0x36c3, 0x28);
+-			hdmi_ahb_write(ucId2,  0x36c4, 0x20);
+-			break;
+-		}
+-		default:
+-		{
+-			LOG(LOG_INFO, "Unsupported HDMI output format %d!", (u32)unHdmiOutFmt);
+-			return -1;
+-		}
+-	}
+-
+-	hdmi_ahb_write(ucId2,  0x36c5, 0x08); //  [7:6]: c1c0, 01=SMPTE 170M, 10=ITU-R BT.709. [5:4]: M1M0, 00=NoData, 01=4:3, 10=16:9. [3:0]: 1000=Same as picture aspect ratio. 1001=4:3, 1010=16:9
+-	hdmi_ahb_write(ucId2,  0x36c6, 0x00); //
+-	hdmi_ahb_write(ucId2,  0x36c7, 0x1f); //  vic 31/75: 1080P50. 31 for 16:9, 75 for 4:3. SMPTE 274M [2]
+-
+-	hdmi_ahb_write(ucId2,  0x36c8, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36c9, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ca, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cb, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cc, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cd, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36ce, 0x00);
+-	hdmi_ahb_write(ucId2,  0x36cf, 0x00);
+-
+-	hdmi_ahb_write(ucId2,  0x36df, 0xc0); //  bit[7]: Enable, bit[6]: Repeat.
+-
+-	return 0;
+-}
+-
+-//-------------------------------------------------------------------------
+-// Function name: hdmi_cal_freq()
+-// Description: Calculate the register setting for new freq.
+-//
+-//-------------------------------------------------------------------------
+-s32 hdmi_cal_freq(tFREQSET *ptCurSet, u8 slaveid)
+-{
+-	long long llFdcoMax = 5650000;  // Max of fDCO.
+-	long long llFdcoMin = 4860000;  // Min of fDCO.
+-	u32       llFreqOld = 156250;   // Default freq.
+-	u8        pucHsDivTbl [] = {11, 9, 7, 6, 5, 4};
+-
+-	long long llFreqDiv, llFreqDivNew, llFreqDivHigh, llFreqDivLow;
+-	u64       fFreqRatio;
+-
+-	u8        ucHsDiv, ucN1, ucHsDivNew, ucN1New;
+-	u32       unDivMax, unDivCurrent, i, llTmp, fN1Tmp;
+-
+-	u32       unFreqDivHighOld, unFreqDivLowOld, unFreqKHzNew;
+-	u32       unFreqDivHigh32, unFreqDivLow32;
+-
+-	const u32 bVerbose = 0;
+-	u32       bDataValid;
+-
+-	llFreqOld        = (slaveid != 0x67) ?  297000 : 156250;
+-	ucHsDiv          = ptCurSet->ucHsDiv;
+-	ucN1             = ptCurSet->ucN1;
+-	unFreqDivHighOld = ptCurSet->unFreqHigh;
+-	unFreqDivLowOld  = ptCurSet->unFreqLow;
+-	unFreqKHzNew     = ptCurSet->unTargetFreqKHZ;
+-
+-	if (ucN1 == 0) {
+-		ucN1 = 1;
+-	} else if ((ucN1 & 0x01) != 0) {
+-		ucN1 = ucN1 + 1;
+-	}
+-
+-	llFreqDiv = (((long long)unFreqDivHighOld) << 32) | ((long long)unFreqDivLowOld);
+-
+-	unDivMax = DO_DIV64(llFdcoMax, unFreqKHzNew);
+-	unDivCurrent = DO_DIV64(llFdcoMin, unFreqKHzNew) + 1;
+-
+-	bDataValid   = 0;
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "  HSDV_old =%2d",     ucHsDiv);
+-		LOG(LOG_INFO, "  N_old    =%2d",     ucN1);
+-		LOG(LOG_INFO, "  llFreqDiv=0x%llx",  llFreqDiv);
+-		LOG(LOG_INFO, "  unDivMax=%4d",      (u32)unDivMax);
+-		LOG(LOG_INFO, "  unDivCurrent=%4d",  (u32)unDivCurrent);
+-	}
+-
+-	while (unDivCurrent <= unDivMax) {
+-		for (i = 0; i < 6; i++) {
+-			ucHsDivNew = pucHsDivTbl[i];
+-			llTmp = unDivCurrent/ucHsDivNew;
+-			fN1Tmp = unDivCurrent % ucHsDivNew;
+-
+-			if (fN1Tmp == 0) {
+-				ucN1New = (u8)llTmp;
+-				if ((ucN1New == 1) | ((ucN1New % 2) == 0)) {
+-					bDataValid = 1;
+-				}
+-			}
+-
+-			if (bDataValid == 1) {
+-				break;
+-			}
+-		}
+-
+-		if (bDataValid == 1) {
+-			break;
+-		}
+-
+-		unDivCurrent = unDivCurrent + 1;
+-	}
+-
+-	fFreqRatio = DO_DIV64(unFreqKHzNew*10, llFreqOld);
+-	fFreqRatio = DO_DIV64(fFreqRatio*ucN1New*10, ucN1);
+-	fFreqRatio = DO_DIV64(fFreqRatio*ucHsDivNew*10, ucHsDiv);
+-
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "  llFreqOld=0x%llx", llFreqDiv);
+-		LOG(LOG_INFO, "punch @6 fFreqRatio=%lld", fFreqRatio);
+-		LOG(LOG_INFO, "  ucHsDivNew=%2d", ucHsDivNew);
+-		LOG(LOG_INFO, "  ucN1New=%2d", ucN1New);
+-	}
+-
+-
+-	llFreqDivNew = DO_DIV64(llFreqDiv*fFreqRatio, (1000));
+-
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "  llFreqDivNew=0x%llx", llFreqDivNew);
+-	}
+-	ucHsDivNew    = ucHsDivNew - 4;
+-	if (ucN1New == 1) {
+-		ucN1New = 0;
+-	} else if ((ucN1New & 1) == 0) {
+-		ucN1New = ucN1New - 1;
+-	}
+-
+-	llFreqDivHigh   = llFreqDivNew >> 32;
+-	llFreqDivLow    = llFreqDivNew & (0xffffffff);
+-	unFreqDivHigh32 = (u32)llFreqDivHigh;
+-	unFreqDivLow32  = (u32)llFreqDivLow;
+-
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "  llFreqDivNew   =0x%lld", llFreqDivNew );
+-		LOG(LOG_INFO, "  ucHsDivNew     =%2d",    ucHsDivNew   );
+-		LOG(LOG_INFO, "  ucN1New        =%2d",    ucN1New      );
+-		LOG(LOG_INFO, "  unFreqDivHigh32=0x%x",   (unsigned int)unFreqDivHigh32);
+-		LOG(LOG_INFO, "  unFreqDivLow32 =0x%x",   (unsigned int)unFreqDivLow32);
+-	}
+-
+-	ptCurSet->ucHsDiv         = ucHsDivNew;
+-	ptCurSet->ucN1            = ucN1New;
+-	ptCurSet->unFreqHigh      = unFreqDivHigh32;
+-	ptCurSet->unFreqLow       = unFreqDivLow32;
+-
+-	return 0;
+-}
+-
+-//-------------------------------------------------------------------------
+-// Function name: hdmi_set_phyfreq()
+-// Description:
+-// Parameters:
+-//   U32 unFreqKHz: Target frequency in KHz.
+-// Return:
+-//   Return positives if no error, otherwise, return negatives.
+-//
+-// Notes:
+-//   1. Si570 registers, 7-12 for 50ppm/20ppm,
+-//      13~18 for 7ppm devices freqdiv
+-//      (HS_DIV[2:0], N1[7:0], and RFREQ[37:0]).
+-//        Reg[7/13]: bit[7:5]=HS_DIV[2:0], bit[4:0]=N1[7:2]
+-//        Reg[8/14]: bit[7:6]=N1[1:0], bit[5:0]=RFREQ[37:32]
+-//        {Reg[9/15], Reg[10/16], Reg[11/17], Reg[12/18]}: RFREQ[31:0]
+-//      Refer to spec of si570 P.18 for the program procedure:
+-//        Finit=156.25MHz.
+-//        Read div, calc Fxtal, calc new div, re-program.
+-//      N1 should be 1, 2, 4, 6, ..., 128(1 or even values no more than 128).
+-//-------------------------------------------------------------------------
+-s32 hdmi_set_phyfreq(u32 unFreqKHz)
+-{
+-	u32 unI2CM1to, i, unDivHigh, unDivLow;
+-	u8  ucHsDiv, ucN1, ucSlaveId = 0x67, ucTmp;
+-	tFREQSET curFreqParams;
+-	const u32 bVerbose = 0;
+-	s32 res = 0;
+-
+-	/// Route I2CM1 to HDMI GTH clock source(Si570).
+-	unI2CM1to = armcb_reg_get_int32(0x43C0001C);
+-	armcb_reg_set_int32(0x43C0001C, 0x0);
+-
+-	/// Load current setting in NVM to RAM.
+-	res = hdmi_i2c_write(ucSlaveId, 135, 0x1);
+-	if (res < 0) {
+-		ucSlaveId = 0x55;
+-		res = hdmi_i2c_write(ucSlaveId, 135, 0x1);
+-		LOG(LOG_INFO, "ucSlaveId(%x) new res(%d)", ucSlaveId, res);
+-	}
+-
+-	/// Read out current setting first.
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Previous setting:");
+-	}
+-	ucTmp  = hdmi_i2c_read(ucSlaveId, 13);
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Reg[013]=0x%x:", ucTmp);
+-	}
+-	ucHsDiv = ((ucTmp >> 5) & 0x7) + 4; // + 4: See spec of si570.
+-	ucN1      = (ucTmp << 2) & 0x7c;
+-
+-	ucTmp  = hdmi_i2c_read(ucSlaveId, 14);
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Reg[14]=0x%x:", ucTmp);
+-	}
+-	ucN1 = ucN1 + ((ucTmp >> 6) & 0x03);
+-	unDivHigh = (u32)(ucTmp & 0x3f);
+-
+-	unDivLow = 0;
+-	ucTmp    = hdmi_i2c_read(ucSlaveId, 15);
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Reg[15]=0x%x:", ucTmp);
+-	}
+-	unDivLow = unDivLow | ((((u32)ucTmp) << 24) & 0xff000000);
+-
+-	ucTmp    = hdmi_i2c_read(ucSlaveId, 16);
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Reg[16]=0x%x:", ucTmp);
+-	}
+-	unDivLow = unDivLow | ((((u32)ucTmp) << 16) & 0x00ff0000);
+-
+-	ucTmp    = hdmi_i2c_read(ucSlaveId, 17);
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Reg[17]=0x%x:", ucTmp);
+-	}
+-	unDivLow = unDivLow | ((((u32)ucTmp) << 8) & 0x0000ff00);
+-
+-	ucTmp = hdmi_i2c_read(ucSlaveId, 18);
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "Reg[18]=0x%x:", ucTmp);
+-	}
+-	unDivLow = unDivLow | ((((u32)ucTmp) << 0) & 0x000000ff);
+-
+-	hdmi_i2c_write(ucSlaveId, 135, 0x0);
+-
+-	/// Calculate the new settings.
+-	curFreqParams.ucHsDiv        = ucHsDiv;
+-	curFreqParams.ucN1           = ucN1;
+-	curFreqParams.unFreqHigh     = unDivHigh;
+-	curFreqParams.unFreqLow      = unDivLow;
+-	curFreqParams.unTargetFreqKHZ= unFreqKHz;
+-
+-	hdmi_cal_freq(&curFreqParams, ucSlaveId);
+-
+-	LOG(LOG_DEBUG, "ucHsDiv=%d, ucN1=%d, unFreqHigh=%d, unFreqLow=0x%x, unTargetFreqKHZ=%d",
+-		curFreqParams.ucHsDiv, curFreqParams.ucN1, curFreqParams.unFreqHigh, curFreqParams.unFreqLow, curFreqParams.unTargetFreqKHZ);
+-
+-	if (curFreqParams.unFreqHigh > 0x3F) {
+-		LOG(LOG_ERR, "Calculation for new freq setting error! HS_DIV or N1 should be fine tuned. unFreqHigh=%d", curFreqParams.unFreqHigh);
+-		return -1;
+-	}
+-
+-	ucHsDiv   = curFreqParams.ucHsDiv;
+-	ucN1      = curFreqParams.ucN1;
+-	unDivHigh = curFreqParams.unFreqHigh;
+-	unDivLow  = curFreqParams.unFreqLow;
+-	/// Set new values to change frequency.
+-	ucTmp = hdmi_i2c_read(ucSlaveId, 137);
+-	hdmi_i2c_write(ucSlaveId, 137, ucTmp | 0x10);
+-
+-	msleep(1); // Delay time enough?
+-
+-	ucTmp = (u8)(((ucHsDiv << 5) & 0xE0) | ((ucN1 >> 2) & 0x1F));
+-	hdmi_i2c_write(ucSlaveId, 13, ucTmp);
+-
+-	ucTmp = (u8)((((ucN1 & 0x3) << 6) & 0xC0) | (unDivHigh & 0x3F));
+-	hdmi_i2c_write(ucSlaveId, 14, ucTmp);
+-
+-	ucTmp = (u8)(unDivLow >> 24);
+-	hdmi_i2c_write(ucSlaveId, 15, ucTmp);
+-
+-	ucTmp = (u8)(unDivLow >> 16);
+-	hdmi_i2c_write(ucSlaveId, 16, ucTmp);
+-
+-	ucTmp = (u8)(unDivLow >> 8);
+-	hdmi_i2c_write(ucSlaveId, 17, ucTmp);
+-
+-	ucTmp = (u8)(unDivLow >> 0);
+-	hdmi_i2c_write(ucSlaveId, 18, ucTmp);
+-
+-	if (bVerbose) {
+-		LOG(LOG_INFO, "New setting:");
+-		for (i = 13; i <= 18; i++) {
+-			ucTmp = hdmi_i2c_read(ucSlaveId, i);
+-			LOG(LOG_INFO, "Reg[%2d]=0x%2x", (u32)i, (u32)ucTmp);
+-		}
+-	}
+-
+-	/// Launch new setting to work.
+-	ucTmp = hdmi_i2c_read(ucSlaveId, 137);
+-	hdmi_i2c_write(ucSlaveId, 137, (ucTmp&0xEF));
+-
+-	hdmi_i2c_write(ucSlaveId, 135, 0x40);
+-
+-	/// Re-check the setting.
+-	if (bVerbose) {
+-		msleep(1);
+-		LOG(LOG_INFO, "  Final setting(for check with new setting):");
+-		for (i = 13; i <= 18; i++) {
+-			ucTmp = hdmi_i2c_read(ucSlaveId, i);
+-			LOG(LOG_INFO, "Reg[%2d]=0x%2x", (u32)i, (u32)ucTmp);
+-		}
+-	}
+-
+-	/// Route I2CM1 to original slave.
+-	armcb_reg_set_int32(0x43C0001C, unI2CM1to);
+-	return 0;
+-}
+-
+-/***************************************************************************
+-* Function name: armcb_hdmi_init()
+-* Description  : HDMI output path initialization.
+-* Parameters   :
+-*   u32 unVinMode:  Video input mode, 1280x720 or 1920x1080.
+-*   u32 unDispMode: Video output mode, 1280x720 or 1920x1080.
+-* Return       : None.
+-* Notes        : Originated from hdmiphy_1080p60_en().
+-***************************************************************************/
+-s32 armcb_hdmi_init(u32 uiVinMode, u32 uiDispMode, u32 unHdmiOutFmt)
+-{
+-	u8  ucId1 = FPGA_HDMIPHY_IIC, ucTmp;
+-	u32 unVinHActive, unVinVActive;
+-	const u32 bVerbose = 0;
+-
+-	/// 1. Set htotal/vtotal for video input.
+-	if ((uiVinMode == RES720P30FPS) || (uiVinMode == RES720P60FPS)) {
+-		unVinHActive = 1280;
+-		unVinVActive = 720;
+-	} else if ((uiVinMode == RES1080P30FPS) ||
+-			(uiVinMode == RES1080P60FPS) ||
+-			(uiVinMode == RES1080I50FPS) ||
+-			(uiVinMode == RES1080P50FPS)) {
+-		unVinHActive = 1920;
+-		unVinVActive = 1080;
+-	} else {
+-		LOG(LOG_INFO, "Unsupported Video input mode! %d", uiVinMode);
+-		return -1;
+-	}
+-
+-	disp_vdma_reset();
+-	/// Reset sn65dp159 before changing HDMI PHY clock.
+-	hdmi_i2c_write(ucId1, 0x28, 0x00); // Enable i2c access from PC.
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0x09, 0x0a);
+-	msleep(1);
+-	/// 3. Set proper clock for HDMI PHY according to display resolution.
+-	if ((uiDispMode == RES720P60FPS) || (uiDispMode == RES720P30FPS) || (uiDispMode == RES1080I50FPS)) {
+-		hdmi_set_phyfreq(74250);
+-		LOG(LOG_INFO, "HDMI clock set to 74.25MHz!");
+-	} else if ((uiDispMode == RES1080P60FPS) || (uiDispMode == RES1080P50FPS)) {
+-		hdmi_set_phyfreq(148500);
+-		LOG(LOG_INFO, "HDMI clock set to 148.5MHz!");
+-	} else {
+-		LOG(LOG_INFO, "Unsupported display mode! %d", uiDispMode);
+-		return -1;
+-	}
+-	msleep(1);  // For clock to settle down.
+-
+-	/// 4. Reset HDMI PHY after clock changed.
+-	hdmi_i2c_write(ucId1, 0x01, 0x20);      // Set gth rx reset.
+-	hdmi_i2c_write(ucId1, 0x01, 0x60);      // Set gth tx reset.
+-	hdmi_i2c_write(ucId1, 0x01, 0x61);      // Reset whole system.
+-
+-	hdmi_i2c_write(ucId1, 0x08, 0x55);      // Output CK of 1/2 Fbit on data channels. Output CK of 1/40 Fbit on clock channel.
+-	hdmi_i2c_write(ucId1, 0x09, 0x55);
+-	hdmi_i2c_write(ucId1, 0x0a, 0x55);
+-	hdmi_i2c_write(ucId1, 0x0b, 0x55);
+-	hdmi_i2c_write(ucId1, 0x03, 0xd5);
+-
+-	msleep(1);
+-
+-	hdmi_i2c_write(ucId1, 0x01, 0x60);       // Release reset.
+-	msleep(1);
+-	hdmi_i2c_write(ucId1, 0x01, 0x20);       // Release gth tx reset.
+-	msleep(1);
+-	hdmi_i2c_write(ucId1, 0x01, 0x00);       // Release gth rx reset.
+-	msleep(1);                      // Wait internal reset to complete.
+-
+-	hdmi_i2c_write(ucId1, 0x28, 0x00);       // Enable i2c access from PC.
+-
+-	video_io_enable(unVinHActive, unVinVActive, (u32)uiDispMode);
+-	hdmi_phyhw_init(unHdmiOutFmt);
+-	if (uiDispMode == RES1080P60FPS) {
+-		hdmi_phy_set_fmt_avi1080p60(unHdmiOutFmt);
+-	} else if (uiDispMode == RES720P60FPS) {
+-		hdmi_phy_set_fmt_avi720p60(unHdmiOutFmt);
+-	} else if (uiDispMode == RES720P30FPS) {
+-		hdmi_phy_set_fmt_avi720p30(unHdmiOutFmt);
+-	} else if (uiDispMode == RES1080I50FPS) {
+-		hdmi_phy_set_fmt_avi1080i50(unHdmiOutFmt);
+-	} else if (uiDispMode == RES1080P50FPS) {
+-		hdmi_phy_set_fmt_avi1080p50(unHdmiOutFmt);
+-	} else {
+-		LOG(LOG_INFO, "Unsupported display mode! %d", uiDispMode);
+-		return -2;
+-	}
+-
+-	hdmi_i2c_write(ucId1, 0x00,  0x1e);   // Select HDMI-TX data source.
+-
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0x09,  0x06);  // Bit2=1: Disable auto powndown mode when HPD_SNK is low.
+-	msleep(1);
+-	/// Setting of SN65DP159.
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0xff, 0x00);
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0x0b, 0x99);   // Reg[0x0b]: [7:6]=2'b10, SLEW_CTRL. [4:3]=2'b11, TX_TERM_CTL, 75~150.   [1]=1'b1, TMDS clk 1/40 of bit clk. [0]=1'b1, Disable DDC training.
+-
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0x0a, 0x3d);   // Auto redriver/retimer mode.
+-
+-	hdmi_i2c_write(ucId1, 0x03,  0xff);               // Select output from buffering logic.
+-	/// Setting of TV.
+-	hdmi_i2c_write(ucId1, 0x28, 0x00);    // Enable I2C access to TV CSDC.
+-
+-	if (bVerbose) {
+-		hdmi_i2c_regdump(FPGA_SN65DP159_IIC, 0x09, 7);
+-		hdmi_i2c_regdump(FPGA_SN65DP159_IIC, 0x10, 8);
+-	}
+-
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0x15, 0x10);   // Clear BERT_CNT
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0x16, 0xe0);   // Enable TMDS disparity check on ch1-3(ch0 is clock, excluded)
+-	if (bVerbose) {
+-		hdmi_i2c_regdump(FPGA_SN65DP159_IIC, 0x1a, 6);
+-	}
+-
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0xff, 0x01);
+-	if (bVerbose) {
+-		ucTmp = hdmi_i2c_read(FPGA_SN65DP159_IIC, 0x00);
+-		LOG(LOG_INFO, " Reg[0x00]=0x%x on 0x%x", ucTmp, (FPGA_SN65DP159_IIC << 1)); // bit0: 1=Scrambled data captured.
+-	}
+-	hdmi_i2c_write(FPGA_SN65DP159_IIC, 0xff, 0x00);
+-
+-	msleep(1);
+-	return 0;
+-}
+-EXPORT_SYMBOL(armcb_hdmi_init);
+-
+-void __iomem *armcb_hdmi_get_apb2_base(void)
+-{
+-	return p_hdmi_info->apb2_base_addr;
+-}
+-
+-void __iomem *armcb_hdmi_get_vdma_base(void)
+-{
+-	return p_hdmi_info->vdma_base_addr;
+-}
+-
+-void __iomem *armcb_hdmi_get_vdmasensor_base(void)
+-{
+-	return p_hdmi_info->vdmasensor_base_addr;
+-}
+-
+-void __iomem *armcb_hdmi_get_vdmaisp_base(void)
+-{
+-	return p_hdmi_info->vdmaisp_base_addr;
+-}
+-
+-void __iomem *armcb_hdmi_get_xvtc_base(void)
+-{
+-	return p_hdmi_info->xvtc_base_addr;
+-}
+-
+-u32 armcb_reg_get_int32(u32 phy_addr)
+-{
+-	void __iomem *virt_addr;
+-	u32 reg_val = 0;
+-
+-	/* ioremap: convert phy addr to virtual addr*/
+-	virt_addr = (void __iomem *)ioremap(phy_addr, 4);
+-	reg_val = *(u32 *)virt_addr;
+-	iounmap((void __iomem*)virt_addr);
+-
+-	return reg_val;
+-}
+-
+-void armcb_reg_set_int32(u32 phy_addr, u32 value)
+-{
+-	void __iomem *virt_addr;
+-
+-	/* ioremap: convert phy addr to virtual addr*/
+-	virt_addr = (void __iomem *)ioremap(phy_addr, 4);
+-	/* write value to virtual addr */
+-	*(u32 *)virt_addr = value;
+-	/*read back the value of virtual addr */
+-	iounmap((void __iomem*)virt_addr);
+-}
+-
+-
+-u32 armcb_hdmi_apb2_reg_get(u32 offset)
+-{
+-	volatile void __iomem *g_virt_addr = NULL;
+-	u32 regval = 0;
+-
+-	g_virt_addr = armcb_hdmi_get_apb2_base();
+-	regval = readl(g_virt_addr + offset);
+-
+-	return regval;
+-}
+-
+-void armcb_hdmi_apb2_reg_set(u32 offset, u32 value)
+-{
+-	volatile void __iomem *g_virt_addr = NULL;
+-
+-	g_virt_addr = armcb_hdmi_get_apb2_base();
+-	writel(value, g_virt_addr + offset);
+-}
+-
+-
+-static const struct i2c_device_id armcb_hdmi_id[] = {
+-	{"hdmi-i2c", FPGA_SN65DP159_IIC},
+-	{},
+-};
+-
+-static const struct of_device_id armcb_hdmi_of_match[] = {
+-	{.compatible = "armcb,hdmi"},
+-	{},
+-};
+-
+-static int armcb_hdmi_open(struct inode *node, struct file *file)
+-{
+-	return 0;
+-}
+-
+-static long  armcb_hdmi_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+-{
+-	return 0;
+-}
+-
+-static int  armcb_hdmi_release(struct inode *node, struct file *file)
+-{
+-	return 0;
+-}
+-
+-static struct file_operations  hdmi_dev_fops = {
+-	.owner          = THIS_MODULE,
+-	.open           = armcb_hdmi_open,
+-	.unlocked_ioctl = armcb_hdmi_ioctl,
+-	.release        = armcb_hdmi_release,
+-};
+-
+-static struct miscdevice  hdmi_misc = {
+-	.minor = MISC_DYNAMIC_MINOR,
+-	.name = "armcb-hdmi",
+-	.fops = &hdmi_dev_fops,
+-};
+-
+-static int armcb_hdmi_i2c_probe(struct i2c_client *client)
+-{
+-
+-	int  res          = 0;
+-
+-	if (!client) {
+-		LOG(LOG_ERR, "armcb hdmi client is NULL");
+-		return -EINVAL;
+-	}
+-
+-	pclient_i2c1 = client;
+-
+-	if (misc_register(& hdmi_misc)) {
+-		LOG(LOG_ERR, "failed to register ispmem driver.");
+-		return -ENODEV;
+-	}
+-
+-	p_hdmi_info = devm_kzalloc(&client->dev, sizeof(*p_hdmi_info), GFP_KERNEL);
+-	if (!p_hdmi_info) {
+-		LOG(LOG_ERR, "failed to alloc p_hdmi_info.");
+-		misc_deregister(&hdmi_misc);
+-		return -ENOMEM;
+-	}
+-
+-	p_hdmi_info->apb2_base_addr = devm_ioremap(&client->dev, APB2_REG_BASE, APB2_REG_SIZE);
+-	if (!p_hdmi_info->apb2_base_addr) {
+-		LOG(LOG_WARN, "failed to ioremap apb2 register region.");
+-	}
+-
+-	p_hdmi_info->vdma_base_addr = devm_ioremap(&client->dev, VDMA_REG_DISP_BASE, VDMA_REG_DISP_SIZE);
+-	if (!p_hdmi_info->vdma_base_addr) {
+-		LOG(LOG_WARN, "failed to ioremap vdma register region.");
+-	}
+-
+-	p_hdmi_info->vdmasensor_base_addr = devm_ioremap(&client->dev, VDMA_REG_SENSOR_IN_BASE, VDMA_REG_SENSOR_IN_SIZE);
+-	if (!p_hdmi_info->vdmasensor_base_addr) {
+-		LOG(LOG_WARN, "failed to ioremap vdma_sensor register region.");
+-	}
+-
+-	p_hdmi_info->vdmaisp_base_addr = devm_ioremap(&client->dev, VDMA_REG_ISP_OUT_BASE, VDMA_REG_ISP_OUT_SIZE);
+-	if (!p_hdmi_info->vdmaisp_base_addr) {
+-		LOG(LOG_WARN, "failed to ioremap vdma_isp register region.");
+-	}
+-
+-	p_hdmi_info->xvtc_base_addr = devm_ioremap(&client->dev, XVTC_REG_BASE, XVTC_REG_SIZE);
+-	if (!p_hdmi_info->xvtc_base_addr) {
+-		LOG(LOG_WARN, "failed to ioremap xvtc register region.");
+-	}
+-
+-	p_hdmi_info->pddev = &client->dev;
+-	LOG(LOG_INFO, "armcb hdmi probe success, pclient = 0x%p", client);
+-
+-	return res;
+-
+-}
+-
+-void armcb_hdmi_i2c_remove(struct i2c_client *client)
+-{
+-	struct armcb_hdmi_subdev *phdmi_sd = i2c_get_clientdata(client);
+-
+-	if (phdmi_sd) {
+-		kfree(phdmi_sd);
+-	} else {
+-		LOG(LOG_ERR, "phdmi_sd is NULL !");
+-	}
+-
+-	misc_deregister(&hdmi_misc);
+-	return;
+-}
+-
+-static struct i2c_driver armcb_hdmi_i2c_driver = {
+-	.probe    = armcb_hdmi_i2c_probe,
+-	.remove   = armcb_hdmi_i2c_remove,
+-	.id_table = armcb_hdmi_id,
+-	.driver = {
+-		.name = "armcb-hdmi",
+-		.of_match_table = of_match_ptr(armcb_hdmi_of_match),
+-	},
+-};
+-
+-#ifndef ARMCB_CAM_KO
+-static int __init armcb_hdmi_subdev_init(void)
+-{
+-	int res = 0;
+-
+-	res = i2c_add_driver(&armcb_hdmi_i2c_driver);
+-	if (res) {
+-		LOG(LOG_ERR, "i2c_add_driver failed res(%d)", res);
+-	}
+-
+-	return res;
+-}
+-
+-static void __exit armcb_hdmi_subdev_exit(void)
+-{
+-	i2c_del_driver(&armcb_hdmi_i2c_driver);
+-}
+-
+-module_init(armcb_hdmi_subdev_init);
+-module_exit(armcb_hdmi_subdev_exit);
+-
+-MODULE_DEVICE_TABLE(i2c, armcb_hdmi_id);
+-MODULE_DEVICE_TABLE(of, armcb_hdmi_of_match);
+-MODULE_AUTHOR("Armchina Inc.");
+-MODULE_DESCRIPTION("Armchina hdmi driver");
+-MODULE_LICENSE("GPL v2");
+-#else
+-static void *g_instance = NULL;
+-
+-void *armcb_get_system_hdmi_driver_instance(void)
+-{
+-	if (i2c_add_driver(&armcb_hdmi_i2c_driver) < 0) {
+-		LOG(LOG_ERR, "register hdmi driver failed.\n");
+-		return NULL;
+-	}
+-
+-	g_instance = (void *)&armcb_hdmi_i2c_driver;
+-
+-	return g_instance;
+-}
+-
+-void armcb_system_hdmi_driver_destroy(void)
+-{
+-	if (g_instance) {
+-		i2c_del_driver((struct i2c_driver *)g_instance);
+-	}
+-}
+-#endif
+-
+diff --git a/drivers/media/platform/cix/csi_dma/csi_dma_cap.c b/drivers/media/platform/cix/csi_dma/csi_dma_cap.c
+index 478d315a099c..6c70ff2345e4 100644
+--- a/drivers/media/platform/cix/csi_dma/csi_dma_cap.c
++++ b/drivers/media/platform/cix/csi_dma/csi_dma_cap.c
+@@ -1089,7 +1089,7 @@ static int csi_dma_cap_streamon(struct file *file, void *priv,
+ 	}
+ 
+ 	src_sd = dma_cap->source_subdev;
+-	v4l2_subdev_call(src_sd, core, s_power, 1);
++	ret = v4l2_subdev_call(src_sd, core, s_power, 1);
+ 	if (ret) {
+ 		dev_err(dev, "Call subdev s_power fail!\n");
+ 		mutex_unlock(&dma_cap->lock);
+diff --git a/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_hw.c b/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_hw.c
+index 83e59dc72fc5..015fb69cba7e 100644
+--- a/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_hw.c
++++ b/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_hw.c
+@@ -101,7 +101,6 @@ static int mipi_dphy_config(struct dphy_rx *dphy, u32 data_rate)
+ 	u8 num_lanes = 0;
+ 	u32 PhyVal = 0;
+ 	int loop;
+-	int ret;
+ 
+ 	if (data_rate < HIGH_SPEED_2500M) {
+ 		switch (hw->num_lanes) {
+@@ -354,6 +353,7 @@ static int mipi_dphy_config(struct dphy_rx *dphy, u32 data_rate)
+ 		PhyVal = DPHY_POWER_ISLAND_EN_DATA_VAL;
+ 
+ 		mipi_dphy_write(hw, DPHY_POWER_ISLAND_EN_DATA, PhyVal);
++
+ 		/* step 8 */
+ 		PhyVal = DPHY_POWER_ISLAND_EN_CLK_VAL;
+ 		mipi_dphy_write(hw, DPHY_POWER_ISLAND_EN_CLK, PhyVal);
+@@ -366,13 +366,14 @@ static int mipi_dphy_config(struct dphy_rx *dphy, u32 data_rate)
+ 			if (PhyVal & 0x01) {
+ 				dev_info(dev, "dphy is ready PhyVal = 0x%x\n",
+ 					 PhyVal);
+-				break;
++				return 0;
+ 			}
+ 
+ 			udelay(500);
+ 		}
+ 
+-		return ret;
++		dev_warn(dev, "dphy did not become ready in time\n");
++		return -ETIMEDOUT;
+ 
+ 	} else {
+ 		dev_info(dev, "mipi_dphy lane rate work at 2.5G\n");
+@@ -383,9 +384,9 @@ static int mipi_dphy_config(struct dphy_rx *dphy, u32 data_rate)
+ 		}
+ 
+ 		msleep(100);
+-	}
+ 
+-	return 0;
++		return 0;
++	}
+ }
+ 
+ static int csi2_dphy_hw_stream_on(struct dphy_rx *dphy, unsigned int id,
+@@ -514,7 +515,7 @@ static int mipi_dphy_hw_probe(struct platform_device *pdev)
+ 
+ 	dphy->drv_data = device_get_match_data(dev);
+ 
+-	mipi_dphy_hw_parse(dphy);
++	ret = mipi_dphy_hw_parse(dphy);
+ 
+ 	mutex_init(&dphy->mutex);
+ 
+diff --git a/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_rx.c b/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_rx.c
+index b7b693a6d430..ee624f3b5cd6 100644
+--- a/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_rx.c
++++ b/drivers/media/platform/cix/csi_dma/csi_mipi_dphy_rx.c
+@@ -613,6 +613,7 @@ static int mipi_dphy_dev_rpm_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
+ static int mipi_dphy_dev_suspend(struct device *dev)
+ {
+ 	return pm_runtime_force_suspend(dev);
+@@ -635,6 +636,7 @@ static int mipi_dphy_dev_resume(struct device *dev)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ static const struct dev_pm_ops mipi_dphy_dev_pm_ops = {
+ #ifdef CONFIG_PM_SLEEP
+diff --git a/drivers/media/platform/cix/linlon-aeu/linlon_aeu_hw.c b/drivers/media/platform/cix/linlon-aeu/linlon_aeu_hw.c
+index cb47015652ee..044b9b066965 100755
+--- a/drivers/media/platform/cix/linlon-aeu/linlon_aeu_hw.c
++++ b/drivers/media/platform/cix/linlon-aeu/linlon_aeu_hw.c
+@@ -452,6 +452,7 @@ static int axi_prop_set(void *data, u64 val)
+     switch (linlon_aeu_axi_prop_valid_set(prop, val)) {
+     case 0:
+         linlon_aeu_commit_axi_prop(prop->hw_dev, prop);
++	fallthrough;
+     case 1:
+         break;
+     default:
+diff --git a/drivers/misc/cix/sensor/cix_sensorhub/Kconfig b/drivers/misc/cix/sensor/cix_sensorhub/Kconfig
+index c5cf3138e857..2ab3bf04bd9c 100644
+--- a/drivers/misc/cix/sensor/cix_sensorhub/Kconfig
++++ b/drivers/misc/cix/sensor/cix_sensorhub/Kconfig
+@@ -1,8 +1,7 @@
+ config CIX_KERNEL_SENSORHUB
+-	tristate "CUSTOM KERNEL SENSORHUB support"
++	tristate "CIX SensorHub support"
++	depends on CIX_SENSORHUB
+ 	help
+-	  Kernel space sensor hub driver.
+-	  Define project used all sensor hub sensors.
+-	  The value is combination of sensor hub driver (get data ...etc)
+-	  and sensor hub framework driver (transmit shf info).
++	  Platform driver for the CIX sensorhub hardware.
++	  Interfaces with the CIX sensorhub core framework.
+ 
+diff --git a/drivers/misc/cix/sensor/cix_sensorhub/Makefile b/drivers/misc/cix/sensor/cix_sensorhub/Makefile
+index 9ae7208a9e0e..b92aa72a1ef4 100644
+--- a/drivers/misc/cix/sensor/cix_sensorhub/Makefile
++++ b/drivers/misc/cix/sensor/cix_sensorhub/Makefile
+@@ -1,5 +1,5 @@
+ ccflags-y += -I$(srctree)/drivers/misc/cix/sensor/core
+ ccflags-y += -I$(srctree)/drivers/misc/cix/sensor/scp/include
+ 
+-obj-$(CONFIG_CIX_KERNEL_SENSORHUB) += sensorhub.o
+-sensorhub-objs += sensor_list.o sensorhub_ipi.o cix_sensorhub.o
+\ No newline at end of file
++obj-$(CONFIG_CIX_KERNEL_SENSORHUB) += cix_sensorhub.o
++cix_sensorhub-objs += cix_sensorhub_main.o sensor_list.o sensorhub_ipi.o
+diff --git a/drivers/misc/cix/sensor/cix_sensorhub/cix_sensorhub.c b/drivers/misc/cix/sensor/cix_sensorhub/cix_sensorhub_main.c
+similarity index 99%
+rename from drivers/misc/cix/sensor/cix_sensorhub/cix_sensorhub.c
+rename to drivers/misc/cix/sensor/cix_sensorhub/cix_sensorhub_main.c
+index 680a030c9d38..759e8bb1e4d4 100644
+--- a/drivers/misc/cix/sensor/cix_sensorhub/cix_sensorhub.c
++++ b/drivers/misc/cix/sensor/cix_sensorhub/cix_sensorhub_main.c
+@@ -272,6 +272,7 @@ void cix_nanohub_ipi_handler(int id,
+ 	else
+ 		pr_err("IPI_SENSOR cannot find cmd!\n");
+ }
++EXPORT_SYMBOL(cix_nanohub_ipi_handler);
+ 
+ static void cix_nanohub_get_sensor_info(void)
+ {
+@@ -1891,4 +1892,4 @@ module_init(cix_nanohub_init);
+ module_exit(cix_nanohub_exit);
+ 
+ MODULE_DESCRIPTION("cix sensorhub kernel driver");
+-MODULE_LICENSE("GPL");
+\ No newline at end of file
++MODULE_LICENSE("GPL");
+diff --git a/drivers/misc/cix/sensor/core/Kconfig b/drivers/misc/cix/sensor/core/Kconfig
+index ee5358d84d41..720ad302be3c 100644
+--- a/drivers/misc/cix/sensor/core/Kconfig
++++ b/drivers/misc/cix/sensor/core/Kconfig
+@@ -1,7 +1,6 @@
+ config CIX_SENSORHUB
+-	tristate "sensorhub architecture for CIX package"
++	tristate "CIX sensorhub core framework"
+ 	help
+-	  It support CIX sensorhub architecture.
+-	  If this option is set,
+-	  it will support
+-	  cix sensorhub architecture.
+\ No newline at end of file
++	  Core framework for the CIX sensorhub architecture.
++	  Provides common sensor management and communication layers
++	  used by the CIX sensorhub driver.
+diff --git a/drivers/misc/cix/sensor/test/Kconfig b/drivers/misc/cix/sensor/test/Kconfig
+index 9def1dd2dabe..faa152b3cbba 100644
+--- a/drivers/misc/cix/sensor/test/Kconfig
++++ b/drivers/misc/cix/sensor/test/Kconfig
+@@ -1,5 +1,6 @@
+ config CIX_HF_TEST_CASE
+ 	bool "high frequency manager test demo for Cix package"
++	depends on BROKEN
+ 	default n
+ 	help
+ 	  It support high frequency manager test demo.
+diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+index 2e82f235a4ab..b887514468d9 100644
+--- a/drivers/net/ethernet/realtek/r8126/r8126_n.c
++++ b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+@@ -15269,6 +15269,7 @@ rtl8126_get_l1off_cap_bits(struct rtl8126_private *tp)
+         case CFG_METHOD_2:
+         case CFG_METHOD_3:
+                 l1offCapBits |= (BIT_2 | BIT_3);
++                fallthrough;
+         default:
+                 break;
+         }
+diff --git a/drivers/pci/controller/cadence/pci-sky1-debugfs.c b/drivers/pci/controller/cadence/pci-sky1-debugfs.c
+index 38d62dad637a..e3260ad93eed 100644
+--- a/drivers/pci/controller/cadence/pci-sky1-debugfs.c
++++ b/drivers/pci/controller/cadence/pci-sky1-debugfs.c
+@@ -970,6 +970,8 @@ static void sky1_pcie_set_speed_retrain(struct sky1_pcie *pcie)
+ 			speed = "16 GT/sec";
+ 			break;
+ 		default:
++			dev_warn(pcie->dev, "unexpected link speed code %u\n", val & 0x7);
++			speed = "unknown or invalid";
+ 			break;
+ 		}
+ 		dev_info(pcie->dev, "current link speed is %s\n", speed);
+diff --git a/drivers/pci/controller/cadence/pci-sky1.c b/drivers/pci/controller/cadence/pci-sky1.c
+index 7d0bba677a76..150fd71ff31b 100644
+--- a/drivers/pci/controller/cadence/pci-sky1.c
++++ b/drivers/pci/controller/cadence/pci-sky1.c
+@@ -102,6 +102,8 @@
+ 
+ #define PCIE_RESET_CONFIG_WAIT_MS	100
+ 
++#define SKY1_PCIE_INVALID_READ 0xFFFFFFFF
++
+ static DEFINE_MUTEX(sky1_init_mutex);
+ static DEFINE_MUTEX(sky1_x211_mutex);
+ static atomic_t phy_rst_deassert_cnt = ATOMIC_INIT(0);
+@@ -1778,7 +1780,9 @@ static u32 sky1_phy_readl_phy_status(struct sky1_pcie *pcie, u32 reg)
+ 		base = pcie->rcsu_base + APP_OFFSET_STATUS_REG + STRAP_REG(40);
+ 		break;
+ 	default:
+-		break;
++		dev_err(pcie->dev, "%s: unknown PCIe ID %u\n",
++			__func__, pcie->desc->id);
++		return SKY1_PCIE_INVALID_READ;
+ 	}
+ 
+ 	return readl_relaxed(base + reg);
+@@ -1929,6 +1933,7 @@ int devm_acpi_pci_bridge_init(struct device *dev,
+ 	res = devm_pci_create_bus_range(dev);
+ 	if (!res) {
+ 		dev_err(dev, "acpi pci create bus range fail\n");
++		ret = -ENOMEM;
+ 		goto bus_err;
+ 	}
+ 
+diff --git a/drivers/pci/controller/cadence/pcie-cadence-host.c b/drivers/pci/controller/cadence/pcie-cadence-host.c
+index 4f86ed2cc809..50dbe56ca7d3 100644
+--- a/drivers/pci/controller/cadence/pcie-cadence-host.c
++++ b/drivers/pci/controller/cadence/pcie-cadence-host.c
+@@ -72,9 +72,9 @@ void __iomem *cdns_pci_map_bus(struct pci_bus *bus, unsigned int devfn,
+ 	 * cdns_pcie_host_init_address_translation().
+ 	 */
+ 	if (busn == bridge->busnr + 1)
+-		desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
++		desc0 = CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE0;
+ 	else
+-		desc0 |= CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
++		desc0 = CDNS_PCIE_AT_OB_REGION_DESC0_TYPE_CONF_TYPE1;
+ 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_DESC0(0), desc0);
+ 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_DESC1(0), desc1);
+ 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_CTRL0(0), ctrl0);
+diff --git a/drivers/pci/controller/cadence/pcie-cadence.c b/drivers/pci/controller/cadence/pcie-cadence.c
+index a1f129f81c14..c064e28ea397 100644
+--- a/drivers/pci/controller/cadence/pcie-cadence.c
++++ b/drivers/pci/controller/cadence/pcie-cadence.c
+@@ -157,6 +157,7 @@ void cdns_pcie_set_outbound_region(struct cdns_pcie *pcie, u8 busnr, u8 fn,
+ 		 * need to set the function number.
+ 		 */
+ 		desc1 |= CDNS_PCIE_AT_OB_REGION_DESC1_DEVFN(fn);
++		ctrl0 = 0;
+ 	}
+ 
+ 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_DESC0(r), desc0);
+@@ -192,6 +193,7 @@ void cdns_pcie_set_outbound_region_for_normal_msg(struct cdns_pcie *pcie,
+ 			CDNS_PCIE_AT_OB_REGION_CTRL0_SUPPLY_DEV_FN;
+ 	} else {
+ 		desc1 |= CDNS_PCIE_AT_OB_REGION_DESC1_DEVFN(fn);
++		ctrl0 = 0;
+ 	}
+ 
+ 	/* Set the CPU address */
+diff --git a/drivers/phy/cix/phy-cix-pcie.c b/drivers/phy/cix/phy-cix-pcie.c
+index 21115f2204b6..3563deb9d5c0 100644
+--- a/drivers/phy/cix/phy-cix-pcie.c
++++ b/drivers/phy/cix/phy-cix-pcie.c
+@@ -363,6 +363,7 @@ static int pcie_phy_common_init(struct cix_pcie_phy *pcie_phy)
+ 		ret = regmap_multi_reg_write(pcie_phy->phy_regmap, pcie_x211, ARRAY_SIZE(pcie_x211));
+ 	} else {
+ 		dev_err(pcie_phy->dev, "Invalid Phy Config\n");
++		ret = -EINVAL;
+ 	}
+ 
+ 	if (ret) {
+diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
+index 0a5eb88a227c..71ffcaf2d911 100644
+--- a/drivers/phy/cix/phy-cix-usbdp.c
++++ b/drivers/phy/cix/phy-cix-usbdp.c
+@@ -1467,6 +1467,7 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 	g_status = ioremap(GOP_STATUS_ADDRESS, GOP_STATUS_SIZE);
+ 	if (g_status) {
+ 		gop_value = readb(&g_status->phy_status[id]);
++	  dev_info(dev, "get phy-status:[%d]%d\n", id, gop_value);
+ 		switch(gop_value){
+ 		case USB_ROLE_HOST:
+ 			udphy->phy_reset = false;
+@@ -1486,7 +1487,6 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 		iounmap(g_status);
+ 	}
+ 
+-	dev_info(dev, "get phy-status:[%d]%d\n", id, gop_value);
+ 	if (udphy->phy_reset) {
+ 		dev_info(dev, "phy reset\n");
+ 		reset_control_assert(udphy->reset);
+diff --git a/drivers/platform/chrome/cros_ec_i2c.c b/drivers/platform/chrome/cros_ec_i2c.c
+index 7cad87d3cb44..b7f0f2c4a129 100644
+--- a/drivers/platform/chrome/cros_ec_i2c.c
++++ b/drivers/platform/chrome/cros_ec_i2c.c
+@@ -340,11 +340,13 @@ static int cros_ec_i2c_resume(struct device *dev)
+ #endif
+ 
+ static const struct dev_pm_ops cros_ec_i2c_pm_ops = {
++#ifdef CONFIG_PM_SLEEP
+ #ifdef CONFIG_CIX_EC
+ 	SYSTEM_SLEEP_PM_OPS(cros_ec_i2c_suspend, cros_ec_i2c_resume)
+ #else
+ 	SET_LATE_SYSTEM_SLEEP_PM_OPS(cros_ec_i2c_suspend, cros_ec_i2c_resume)
+ #endif
++#endif // CONFIG_PM_SLEEP
+ };
+ 
+ #ifdef CONFIG_OF
+diff --git a/drivers/platform/chrome/cros_ec_proto.c b/drivers/platform/chrome/cros_ec_proto.c
+index d61eaab89253..f206577003f8 100644
+--- a/drivers/platform/chrome/cros_ec_proto.c
++++ b/drivers/platform/chrome/cros_ec_proto.c
+@@ -872,7 +872,7 @@ EXPORT_SYMBOL(cros_ec_get_next_event);
+  */
+ u32 cros_ec_get_host_event(struct cros_ec_device *ec_dev)
+ {
+-	u32 host_event;
++	u32 host_event = 0;
+ 
+ 	if (!ec_dev->mkbp_event_supported)
+ 		return 0;
+diff --git a/drivers/remoteproc/cix_sfh_rproc.c b/drivers/remoteproc/cix_sfh_rproc.c
+index d812e6299328..3455e1a701a5 100755
+--- a/drivers/remoteproc/cix_sfh_rproc.c
++++ b/drivers/remoteproc/cix_sfh_rproc.c
+@@ -195,7 +195,7 @@ enum cix_sfh_mbox_messages {
+ };
+ 
+ #ifdef CONFIG_HIBERNATION
+-static struct hibernate_rmem_ops cix_rproc_reserve_ops[2] = {NULL}; //for vring0 and vring1
++static struct hibernate_rmem_ops cix_rproc_reserve_ops[2]; //for vring0 and vring1
+ 
+ static void cix_rproc_hibernate_mem_reserve(void)
+ {
+diff --git a/drivers/rtc/rtc-rx8900.c b/drivers/rtc/rtc-rx8900.c
+index 7c0eadd079bc..e517cd1dad29 100755
+--- a/drivers/rtc/rtc-rx8900.c
++++ b/drivers/rtc/rtc-rx8900.c
+@@ -261,6 +261,7 @@ static void rx8900_work(struct work_struct *work)
+ 	struct i2c_client *client = rx8900->client;
+ 	struct mutex *lock = &rx8900->rtc->ops_lock;
+ 	u8 flags;
++	struct irq_data *data;
+ 	struct irq_desc *desc;
+ 
+ 	mutex_lock(lock);
+@@ -318,7 +319,7 @@ static void rx8900_work(struct work_struct *work)
+ 	// acknowledge IRQ
+ 	rx8900_write_reg(client, RX8900_BTC_FLAG, 0x0f & flags);
+ out:
+-	struct irq_data *data = irq_get_irq_data(client->irq);
++	data = irq_get_irq_data(client->irq);
+ 	desc = irq_data_to_desc(data);
+ 	if (!rx8900->exiting && desc && desc->depth)
+ 		enable_irq(client->irq);
+diff --git a/drivers/soc/cix/cix-plat.c b/drivers/soc/cix/cix-plat.c
+index f48e5ffd9de0..a4ab83d1df6c 100644
+--- a/drivers/soc/cix/cix-plat.c
++++ b/drivers/soc/cix/cix-plat.c
+@@ -92,6 +92,7 @@ static int __init parse_gop(char *arg)
+ }
+ early_param("efifb_enable", parse_gop);
+ 
++#ifdef CONFIG_ARM_SMMU_V3
+ static void smmu_pcie_quirks(struct device *dev)
+ {
+ 	struct arm_smmu_master *master;
+@@ -161,6 +162,7 @@ static int smmu_attach_notify(struct notifier_block *nb, unsigned long val,
+ static struct notifier_block smmu_attach_nb = {
+ 	.notifier_call = smmu_attach_notify,
+ };
++#endif
+ 
+ void cix_pcie_io_space_init(void)
+ {
+@@ -179,7 +181,14 @@ int cix_pcie_quirks_init(void)
+ 		return -ENOMEM;
+ 	}
+ 
+-	return register_smmu_attach_notifier(&smmu_attach_nb);
++#ifdef CONFIG_ARM_SMMU_V3
++	if (IS_ENABLED(CONFIG_ARM_SMMU_V3))
++		return register_smmu_attach_notifier(&smmu_attach_nb);
++	else
++		pr_warn("ARM SMMU v3 not enabled; skipping SMMU attach notifier\n");
++#endif
++
++	return 0;
+ }
+ 
+ #ifdef CIX_GOP_RESOURCE_QUIRK
+diff --git a/drivers/soc/cix/cix-suspend.c b/drivers/soc/cix/cix-suspend.c
+index 3629b319d8d0..15dc09867622 100644
+--- a/drivers/soc/cix/cix-suspend.c
++++ b/drivers/soc/cix/cix-suspend.c
+@@ -62,6 +62,7 @@ void suspend_warning_clear(void)
+ }
+ EXPORT_SYMBOL_GPL(suspend_warning_clear);
+ 
++#ifdef CONFIG_HISYSEVENT
+ bool suspend_warning_check(void)
+ {
+ 	struct hiview_hisysevent *event = NULL;
+@@ -90,6 +91,11 @@ bool suspend_warning_check(void)
+ 
+ 	return was_set;
+ }
++#else
++bool suspend_warning_check(void) {
++	return false;
++}
++#endif
+ EXPORT_SYMBOL_GPL(suspend_warning_check);
+ 
+ static int __init suspend_debug_init(void)
+diff --git a/drivers/soc/cix/cix_dst/blackbox/Kconfig b/drivers/soc/cix/cix_dst/blackbox/Kconfig
+index 97789edbeba2..1cc00a9ef2a5 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/Kconfig
++++ b/drivers/soc/cix/cix_dst/blackbox/Kconfig
+@@ -4,7 +4,7 @@ menu "RDR - Running data recorder menu"
+ 
+ config PLAT_BBOX
+ 	bool "kernel run data recorder"
+-	depends on SYSFS
++	depends on SYSFS && EXPERT
+ 	select BCH
+ 	default n
+ 	help
+diff --git a/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_stack.c b/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_stack.c
+index ce80579696c7..69652c9164a1 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_stack.c
++++ b/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_stack.c
+@@ -254,21 +254,26 @@ int stack_dump_init(struct platform_device *pdev, struct rdr_safemem_pool *pool)
+ void stack_last_task_update(int cpu, struct task_struct *task)
+ {
+ 	struct stack_data *stack;
+-	struct vm_struct *vm;
++	//struct vm_struct *vm;
+ 
+ 	if (IS_ERR_OR_NULL(head))
+ 		return;
+ 
++	if (!task || !task->stack)
++		return;
++
+ 	stack = &head->stack[cpu];
+-	strncpy(stack->comm, task->comm, sizeof(task->comm) - 1);
+-	stack->comm[TASK_COMM_LEN - 1] = '\0';
++	strscpy(stack->comm, task->comm, sizeof(stack->comm));
+ 
+-	vm = task->stack_vm_area;
+-	if (IS_ERR_OR_NULL(vm)) {
+-		// vm = find_vm_area(task->stack);
+-		return;
+-	}
+ 	stack->vaddr = (u64)task->stack;
+-	for (int i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
+-		stack->pa[i] = page_to_phys(vm->pages[i]);
++
++	for (int i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
++		void *vaddr = (void *)task->stack + (i * PAGE_SIZE);
++		struct page *page = virt_to_page(vaddr);
++
++		if (!page)
++			continue;  // should never happen for kernel linear mapping
++
++		stack->pa[i] = page_to_phys(page);
++	}
+ }
+diff --git a/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_suspend.c b/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_suspend.c
+index 9c4762e97c38..1973894dd7b7 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_suspend.c
++++ b/drivers/soc/cix/cix_dst/blackbox/platform_ap/rdr_ap_suspend.c
+@@ -79,10 +79,12 @@ static char *suspend_step_name(enum suspend_stat_step step)
+ 
+ void ap_suspend_dump(u32 modid, u32 etype)
+ {
++#if IS_ENABLED(CONFIG_PM_SLEEP)
+ 	struct wakeup_source *ws;
+-	struct wakeup *wake_info;
+ 	unsigned long flags;
+ 	int len = 0;
++#endif
++	struct wakeup *wake_info;
+ 
+ 	if (modid != MODID_AP_SUSPEND_DEVICE_FAIL)
+ 		return;
+@@ -91,11 +93,16 @@ void ap_suspend_dump(u32 modid, u32 etype)
+ 		return;
+ 
+ 	/*save suspend state*/
++#if IS_ENABLED(CONFIG_PM_SLEEP)
+ 	memcpy(&g_suspend_info->stats, &suspend_stats,
+ 	       sizeof(struct suspend_stats));
++#else
++	memcpy(&g_suspend_info->stats, 0, sizeof(struct suspend_stats));
++#endif
+ 
+ 	/*save wake up info*/
+ 	wake_info = &g_suspend_info->wake_info;
++#if IS_ENABLED(CONFIG_PM_SLEEP)
+ 	for_each_wakeup_source(ws) {
+ 		spin_lock_irqsave(&ws->lock, flags);
+ 		len = MIN(MAX_WAKEUP_NAME_LEN - 1, strlen(ws->name));
+@@ -119,6 +126,9 @@ void ap_suspend_dump(u32 modid, u32 etype)
+ 		spin_unlock_irqrestore(&ws->lock, flags);
+ 		wake_info->num++;
+ 	}
++#else
++	wake_info->num = 0;
++#endif
+ 
+ 	g_suspend_info->magic = SUSPEND_MAGIC;
+ }
+diff --git a/drivers/soc/cix/cix_dst/dsm/dsm_test.c b/drivers/soc/cix/cix_dst/dsm/dsm_test.c
+index 9af4fbcef062..83a9c864faaf 100755
+--- a/drivers/soc/cix/cix_dst/dsm/dsm_test.c
++++ b/drivers/soc/cix/cix_dst/dsm/dsm_test.c
+@@ -24,9 +24,11 @@
+ #include <linux/soc/cix/dsm_pub.h>
+ #include "dsm_core.h"
+ 
++#ifndef __KERNEL__
+ #define dsm_log_info(x...) DST_PN(x)
+ #define dsm_log_err(x...) DST_ERR(x)
+ #define dsm_log_debug(x...) DST_DBG(x)
++#endif
+ 
+ #define DSM_TEST_BUFF 16
+ #define DSM_TEST_DEVICE_SUM 5
+diff --git a/drivers/soc/cix/cix_dst/dst_fdleak_main.c b/drivers/soc/cix/cix_dst/dst_fdleak_main.c
+index f662b1de0220..676398928888 100755
+--- a/drivers/soc/cix/cix_dst/dst_fdleak_main.c
++++ b/drivers/soc/cix/cix_dst/dst_fdleak_main.c
+@@ -18,7 +18,9 @@
+  */
+ 
+ #include <linux/soc/cix/dst_fdleak.h>
++#include <linux/compat.h>
+ #include <linux/module.h>
++#include <linux/sched/task_stack.h>
+ #include <asm/ioctls.h>
+ #include <linux/vmalloc.h>
+ #include <linux/mm.h>
+@@ -511,7 +513,11 @@ int fdleak_report(enum fdleak_wp_id wpid, int probe_id)
+ 		return -1;
+ 	}
+ 
++#ifdef CONFIG_COMPAT
+ 	fdleak_table[wpid].is_32bit[idx_pid] = is_compat_task();
++#else
++	fdleak_table[wpid].is_32bit[idx_pid] = 0;
++#endif
+ 	if (fdleak_table[wpid].list[idx_pid] && current->mm) {
+ 		memset(stack_entries, 0, sizeof(stack_entries));
+ 		trace.nr_entries = 0;
+diff --git a/drivers/staging/android/Kconfig b/drivers/staging/android/Kconfig
+index 36f44131eea7..9fa71c7647f0 100755
+--- a/drivers/staging/android/Kconfig
++++ b/drivers/staging/android/Kconfig
+@@ -3,7 +3,7 @@ menu "Android"
+ 
+ config ASHMEM
+ 	bool "Enable the Anonymous Shared Memory Subsystem"
+-	depends on SHMEM
++	depends on SHMEM && EXPERIMENTAL
+ 	help
+ 	  The ashmem subsystem is a new shared memory allocator, similar to
+ 	  POSIX SHM but with different behavior and sporting a simpler
+diff --git a/drivers/staging/hievent/Kconfig b/drivers/staging/hievent/Kconfig
+index b445a2b90a07..67f728b8ba40 100644
+--- a/drivers/staging/hievent/Kconfig
++++ b/drivers/staging/hievent/Kconfig
+@@ -1,12 +1,13 @@
+ # SPDX-License-Identifier: GPL-2.0
+ config HIEVENT
+-	tristate "Enable hievent"
++	tristate "Enable HiSysEvent HiEvent subsystem"
++	depends on ARCH_CIX_EMU_FPGA && EXPERIMENTAL
+ 	help
+-	  hievent buffer manager
++	  Enable the Android OpenHarmony HiEvent event-logging subsystem
+ 
+ config BBOX_BUFFER_SIZE
+ 	int "bbox buffer size"
+ 	depends on HIEVENT
+ 	default 2048
+ 	help
+-	  Define the default ring buffer size of BBOX
+\ No newline at end of file
++	  Define the default ring buffer size of BBOX
+diff --git a/drivers/staging/hisysevent/Kconfig b/drivers/staging/hisysevent/Kconfig
+index a40621cb846a..8bdfbe147257 100644
+--- a/drivers/staging/hisysevent/Kconfig
++++ b/drivers/staging/hisysevent/Kconfig
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ config HISYSEVENT
+-	tristate "Enable hisysevent"
+-	depends on HIEVENT
++	bool "Enable HiSysEvent framework"
++	depends on HIEVENT && EXPERIMENTAL
++	default y if PLAT_BBOX
+ 	help
+-	  Say Y here to enable hisysevent feature support.
++	  Say Y here to enable the Android OpenHarmony HiSysEvent framework.
+diff --git a/drivers/staging/hisysevent/hisysevent_builder.c b/drivers/staging/hisysevent/hisysevent_builder.c
+index 29fd7ee86302..0880950670e1 100644
+--- a/drivers/staging/hisysevent/hisysevent_builder.c
++++ b/drivers/staging/hisysevent/hisysevent_builder.c
+@@ -358,3 +358,4 @@ int hisysevent_builder_build(struct hisysevent_builder *builder,
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(hisysevent_builder_build);
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/staging/hisysevent/hisysevent_raw_data.c b/drivers/staging/hisysevent/hisysevent_raw_data.c
+index 5a5c0946291f..e63faf64a952 100644
+--- a/drivers/staging/hisysevent/hisysevent_raw_data.c
++++ b/drivers/staging/hisysevent/hisysevent_raw_data.c
+@@ -114,3 +114,4 @@ void raw_data_destroy(struct hisysevent_raw_data *raw_data)
+ 	kfree(raw_data);
+ }
+ EXPORT_SYMBOL_GPL(raw_data_destroy);
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/staging/hisysevent/hisysevent_raw_data_encoder.c b/drivers/staging/hisysevent/hisysevent_raw_data_encoder.c
+index a206950aa162..f8e06e178d76 100644
+--- a/drivers/staging/hisysevent/hisysevent_raw_data_encoder.c
++++ b/drivers/staging/hisysevent/hisysevent_raw_data_encoder.c
+@@ -121,3 +121,4 @@ int int64_t_varint_encode(struct hisysevent_raw_data *raw_data, s64 val)
+ 	return signed_varint_encode(raw_data, VARINT, val);
+ }
+ EXPORT_SYMBOL_GPL(int64_t_varint_encode);
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/staging/hisysevent/hiview_hisysevent.c b/drivers/staging/hisysevent/hiview_hisysevent.c
+index b47849bfcd68..20d3f8a9110c 100644
+--- a/drivers/staging/hisysevent/hiview_hisysevent.c
++++ b/drivers/staging/hisysevent/hiview_hisysevent.c
+@@ -3,16 +3,20 @@
+  * Copyright (C) 2022-2023 Huawei Technologies Co., Ltd. All rights reserved.
+  */
+ 
++#include <linux/init.h>
++#include <linux/module.h>
+ #include <dfx/hiview_hisysevent.h>
+ 
+ #ifdef CONFIG_HISYSEVENT
+ 
+ #include <linux/cred.h>
+ #include <linux/ctype.h>
++#include <linux/errno.h>
+ #include <linux/fs.h>
+ #include <linux/module.h>
+ #include <linux/sched.h>
+ #include <linux/slab.h>
++#include <linux/stddef.h>
+ #include <linux/string.h>
+ #include <linux/time.h>
+ #include <linux/types.h>
+@@ -137,4 +141,34 @@ int hisysevent_write(struct hiview_hisysevent *event)
+ }
+ EXPORT_SYMBOL_GPL(hisysevent_write);
+ 
+-#endif /* CONFIG_HISYSEVENT */
+\ No newline at end of file
++#else /* CONFIG_HISYSEVENT */
++
++struct hiview_hisysevent *
++hisysevent_create(const char *domain, const char *name, enum hisysevent_type type)
++{
++	return NULL;
++}
++
++void hisysevent_destroy(struct hiview_hisysevent **event)
++{}
++
++int
++hisysevent_put_integer(struct hiview_hisysevent *event, const char *key, long long value)
++{
++	return -EOPNOTSUPP;
++}
++
++int
++hisysevent_put_string(struct hiview_hisysevent *event, const char *key, const char *value)
++{
++	return -EOPNOTSUPP;
++}
++
++int hisysevent_write(struct hiview_hisysevent *event)
++{
++	return -EOPNOTSUPP;
++}
++
++#endif /* CONFIG_HISYSEVENT */
++
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/staging/hungtask/Kconfig b/drivers/staging/hungtask/Kconfig
+index 4e80dc9fc434..422cbec0a9a2 100755
+--- a/drivers/staging/hungtask/Kconfig
++++ b/drivers/staging/hungtask/Kconfig
+@@ -1,7 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ config DFX_HUNGTASK
+ 	bool "DFX hungtask"
+-	depends on DETECT_HUNG_TASK
++	depends on ARCH_CIX_FPGA && DETECT_HUNG_TASK && EXPERIMENTAL
+ 	default n
+ 	help
+ 	  Base DFX hungtask module
+@@ -11,4 +11,4 @@ config DFX_HUNGTASK_USER
+ 	depends on DFX_HUNGTASK
+ 	default n
+ 	help
+-	  DFX hungtask user watchdog module
+\ No newline at end of file
++	  DFX hungtask user watchdog module
+diff --git a/drivers/thermal/cpufreq_cooling.c b/drivers/thermal/cpufreq_cooling.c
+index d07f96804555..5b2ce74860f2 100644
+--- a/drivers/thermal/cpufreq_cooling.c
++++ b/drivers/thermal/cpufreq_cooling.c
+@@ -179,6 +179,7 @@ static u32 get_load(struct cpufreq_cooling_device *cpufreq_cdev, int cpu,
+ }
+ #endif /* CONFIG_SMP */
+ 
++#ifndef CONFIG_CIX_THERMAL
+ /**
+  * get_dynamic_power() - calculate the dynamic power
+  * @cpufreq_cdev:	&cpufreq_cooling_device for this cdev
+@@ -195,6 +196,7 @@ static u32 get_dynamic_power(struct cpufreq_cooling_device *cpufreq_cdev,
+ 	raw_cpu_power = cpu_freq_to_power(cpufreq_cdev, freq);
+ 	return (raw_cpu_power * cpufreq_cdev->last_load) / 100;
+ }
++#endif
+ 
+ /**
+  * cpufreq_get_requested_power() - get the current power
+@@ -307,7 +309,10 @@ static int cpufreq_power2state(struct thermal_cooling_device *cdev,
+ 			       u32 power, unsigned long *state)
+ {
+ 	unsigned int target_freq;
+-	u32 last_load, normalised_power;
++#ifndef CONFIG_CIX_THERMAL
++	u32 last_load;
++#endif
++	u32 normalised_power;
+ 	struct cpufreq_cooling_device *cpufreq_cdev = cdev->devdata;
+ 	struct cpufreq_policy *policy = cpufreq_cdev->policy;
+ 
+diff --git a/drivers/usb/cdns3/cdnsp-sky1.c b/drivers/usb/cdns3/cdnsp-sky1.c
+index 3d973ec54ede..8de5aafda3ce 100644
+--- a/drivers/usb/cdns3/cdnsp-sky1.c
++++ b/drivers/usb/cdns3/cdnsp-sky1.c
+@@ -452,13 +452,13 @@ static int cdnsp_sky1_drd_init(struct cdnsp_sky1 *data)
+ 
+ static int cdns_sky1_platform_reset(struct device *dev)
+ {
+-	int ret;
+ 	struct device *parent = dev->parent;
+ 	struct cdnsp_sky1 *data = dev_get_drvdata(parent);
+ 
+-	if (data)
+-		ret = cdnsp_sky1_drd_init(data);
+-	return ret;
++	if (!data)
++		return -ENODEV;
++
++	return cdnsp_sky1_drd_init(data);
+ }
+ 
+ static int cdnsp_sky1_u3_disable(struct cdnsp_sky1 *data)
+@@ -471,13 +471,13 @@ static int cdnsp_sky1_u3_disable(struct cdnsp_sky1 *data)
+ 
+ static int cdns_sky1_platform_u3_disable(struct device *dev)
+ {
+-	int ret;
+ 	struct device *parent = dev->parent;
+ 	struct cdnsp_sky1 *data = dev_get_drvdata(parent);
+ 
+-	if (data)
+-		ret = cdnsp_sky1_u3_disable(data);
+-	return ret;
++	if (!data)
++		return -ENODEV;
++
++	return cdnsp_sky1_u3_disable(data);
+ }
+ 
+ static void *sky1_of_get_addr_by_name(struct device_node *parent, char *name)
+diff --git a/drivers/usb/cdns3/core.c b/drivers/usb/cdns3/core.c
+index 2cd9bd8854bf..acb94bf7c2ec 100644
+--- a/drivers/usb/cdns3/core.c
++++ b/drivers/usb/cdns3/core.c
+@@ -120,19 +120,25 @@ static void cdns_top_start_role(struct work_struct *work)
+ 
+ 	cdns_role_stop(cdns);
+ 	mutex_lock(&cdns->plat_reset_mutex);
+-	if (cdns->new_role != USB_ROLE_NONE)
++
++	if (cdns->new_role != USB_ROLE_NONE) {
+ 		ret = cdnsp_platform_reset(cdns->dev);
+-	if (ret) {
+-		mutex_unlock(&cdns->plat_reset_mutex);
+-		mutex_unlock(&cdns->role_mutex);
+-		dev_err(cdns->dev, "failed to platform reset and set role %d\n", cdns->new_role);
+-		cdns->died = true;
+-		goto pm_out;
++		if (ret) {
++			mutex_unlock(&cdns->plat_reset_mutex);
++			mutex_unlock(&cdns->role_mutex);
++			dev_err(cdns->dev, "failed to platform reset and set role %d\n",
++				cdns->new_role);
++			cdns->died = true;
++			goto pm_out;
++		}
++
++		if (cdns->u3_disable)
++			cdnsp_platform_u3_disable(cdns->dev);
++
++		cdns->plat_reset_complete = true;
+ 	}
+-	if (cdns->u3_disable)
+-		cdnsp_platform_u3_disable(cdns->dev);
+-	cdns->plat_reset_complete = true;
+ 	mutex_unlock(&cdns->plat_reset_mutex);
++
+ 	if (cdns->version == CDNSP_CONTROLLER_V2)
+ 		writel(1, &cdns->otg_cdnsp_regs->simulate);
+ 	ret = cdns_role_start(cdns, cdns->new_role);
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+index 95dcffc942b7..3bd4dbed345c 100644
+--- a/drivers/usb/typec/rts5453.c
++++ b/drivers/usb/typec/rts5453.c
+@@ -680,11 +680,13 @@ static void rts5453h_shutdown(struct i2c_client *client)
+ }
+ 
+ static const struct dev_pm_ops rts5453h_pm_ops = {
++#ifdef CONFIG_PM_SLEEP
+         .suspend = rts5453h_suspend,
+         .resume = rts5453h_resume,
+         .freeze = rts5453h_suspend,
+         .thaw = rts5453h_resume,
+         .restore = rts5453h_restore,
++#endif
+ };
+ 
+ MODULE_DEVICE_TABLE(i2c, rts5453h_id);
+diff --git a/drivers/watchdog/sky1_wdt.c b/drivers/watchdog/sky1_wdt.c
+index f542f900dea3..0db0ef68fb69 100644
+--- a/drivers/watchdog/sky1_wdt.c
++++ b/drivers/watchdog/sky1_wdt.c
+@@ -75,7 +75,7 @@ static int sky1_wdt_restart(struct watchdog_device *wdd,
+ 	u32 wcs_val;
+ 
+ 	regmap_read(wdt->regmap_ctrl, SKY1_WDT_WCS_RW, &wcs_val);
+-	if (!wcs_val & SKY1_WDT_WCS_ENABLE) {
++	if (!(wcs_val & SKY1_WDT_WCS_ENABLE)) {
+ 		wcs_val |= SKY1_WDT_WCS_ENABLE;
+ 		regmap_write(wdt->regmap_ctrl, SKY1_WDT_WCS_RW, wcs_val);
+ 	}
+diff --git a/include/dfx/hiview_hisysevent.h b/include/dfx/hiview_hisysevent.h
+index c47d419a2593..f211c96cb132 100644
+--- a/include/dfx/hiview_hisysevent.h
++++ b/include/dfx/hiview_hisysevent.h
+@@ -22,8 +22,6 @@ enum hisysevent_type {
+ 
+ struct hiview_hisysevent;
+ 
+-#ifdef CONFIG_HISYSEVENT
+-
+ struct hiview_hisysevent *
+ hisysevent_create(const char *domain, const char *name, enum hisysevent_type type);
+ void hisysevent_destroy(struct hiview_hisysevent **event);
+@@ -31,37 +29,4 @@ int hisysevent_put_integer(struct hiview_hisysevent *event, const char *key, lon
+ int hisysevent_put_string(struct hiview_hisysevent *event, const char *key, const char *value);
+ int hisysevent_write(struct hiview_hisysevent *event);
+ 
+-#else
+-
+-#include <linux/errno.h>
+-#include <linux/stddef.h>
+-
+-static inline struct hiview_hisysevent *
+-hisysevent_create(const char *domain, const char *name, enum hisysevent_type type)
+-{
+-	return NULL;
+-}
+-
+-static inline void hisysevent_destroy(struct hiview_hisysevent **event)
+-{}
+-
+-static inline int
+-hisysevent_put_integer(struct hiview_hisysevent *event, const char *key, long long value)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline int
+-hisysevent_put_string(struct hiview_hisysevent *event, const char *key, const char *value)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline int hisysevent_write(struct hiview_hisysevent *event)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-#endif /* CONFIG_HISYSEVENT */
+-
+ #endif /* HIVIEW_HISYSEVENT_H */
+diff --git a/include/drm/drm_panel.h b/include/drm/drm_panel.h
+index 802b7be0adfa..a46af0db30c0 100644
+--- a/include/drm/drm_panel.h
++++ b/include/drm/drm_panel.h
+@@ -26,6 +26,7 @@
+ 
+ #include <linux/err.h>
+ #include <linux/errno.h>
++#include <linux/fwnode.h>
+ #include <linux/list.h>
+ #include <linux/mutex.h>
+ 
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 136cc0d39236..ed334a9906ed 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -1559,14 +1559,18 @@ extern void acpi_device_notify_remove(struct device *dev);
+ 				Device Performance States
+   -------------------------------------------------------------------------- */
+ 
++#if IS_BUILTIN(CONFIG_ACPI)
+ int acpi_dev_perf_attach(struct device *dev);
+ int acpi_dev_perf_detach(struct device *dev);
++#endif
+ 
+ #else
+ static inline void acpi_device_notify(struct device *dev) { }
+ static inline void acpi_device_notify_remove(struct device *dev) { }
++#if IS_BUILTIN(CONFIG_ACPI)
+ static int acpi_dev_perf_attach(struct device *dev) { return 0; }
+ static int acpi_dev_perf_detach(struct device *dev) { return 0; }
+ #endif
++#endif
+ 
+ #endif	/*_LINUX_ACPI_H*/
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5f11f9873341..8f4376d2e1ca 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2614,7 +2614,8 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
+ {
+ 	void *tmp = skb_put(skb, len);
+ 
+-	memcpy(tmp, data, len);
++	if (tmp && data && len)
++		memcpy(tmp, data, len);
+ 
+ 	return tmp;
+ }
+diff --git a/include/uapi/linux/i3c/device.h b/include/uapi/linux/i3c/device.h
+index 1164f15e27dd..ece0f6091ced 100644
+--- a/include/uapi/linux/i3c/device.h
++++ b/include/uapi/linux/i3c/device.h
+@@ -1,5 +1,5 @@
+-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+-/*
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
++ *
+  * Copyright (c) 2019 Synopsys, Inc. and/or its affiliates.
+  *
+  * Author: Vitor Soares <vitor.soares@synopsys.com>
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index 13d023bfdbce..574bd563916f 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -512,7 +512,7 @@ int suspend_devices_and_enter(suspend_state_t state)
+ 	error = dpm_suspend_start(PMSG_SUSPEND);
+ 	if (error) {
+ 		pr_err("Some devices failed to suspend, or early wake event detected\n");
+-#ifdef CONFIG_PLAT_BBOX
++#ifdef CONFIG_HISYSEVENT
+ 		if (suspend_warning_check() == false)
+ 			rdr_system_error(MODID_AP_SUSPEND_DEVICE_FAIL, 0, 0);
+ 		else
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index f225698b0764..e2dc3e37fcab 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -1377,7 +1377,8 @@ sub top_of_kernel_tree {
+ 	my ($root) = @_;
+ 
+ 	my @tree_check = (
+-		"COPYING", "CREDITS", "Kbuild", "MAINTAINERS", "Makefile",
++		#"COPYING", "CREDITS",
++		"Kbuild", "MAINTAINERS", "Makefile",
+ 		"README", "Documentation", "arch", "include", "drivers",
+ 		"fs", "init", "ipc", "kernel", "lib", "scripts",
+ 	);
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index b6cecaa3f422..ae8edaf2cf42 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -51,7 +51,7 @@ static bool extra_warn;
+  * Cut off the warnings when there are too many. This typically occurs when
+  * vmlinux is missing. ('make modules' without building vmlinux.)
+  */
+-#define MAX_UNRESOLVED_REPORTS	10
++#define MAX_UNRESOLVED_REPORTS	100
+ static unsigned int nr_unresolved;
+ 
+ /* In kernel, this size is defined in linux/module.h;
+diff --git a/security/integrity/evm/evm_main.c b/security/integrity/evm/evm_main.c
+index 2393230c03aa..5335ba77bd2c 100644
+--- a/security/integrity/evm/evm_main.c
++++ b/security/integrity/evm/evm_main.c
+@@ -461,7 +461,7 @@ static int evm_xattr_change(struct mnt_idmap *idmap,
+ 		goto out;
+ 	}
+ 
+-	if (rc == xattr_value_len)
++	if (xattr_value && xattr_data && rc == xattr_value_len)
+ 		rc = !!memcmp(xattr_value, xattr_data, rc);
+ 	else
+ 		rc = 1;
+diff --git a/sound/pci/hda/hda_cix_ipbloq.c b/sound/pci/hda/hda_cix_ipbloq.c
+index 36f3dbe78963..e5b3b9460d08 100644
+--- a/sound/pci/hda/hda_cix_ipbloq.c
++++ b/sound/pci/hda/hda_cix_ipbloq.c
+@@ -391,7 +391,8 @@ static int cix_ipbloq_hda_config_init_verbs(struct hdac_bus *bus, unsigned int v
+ 	struct snd_card *card = dev_get_drvdata(bus->dev);
+ 	struct azx *chip = card->private_data;
+ 	struct cix_ipbloq_hda *hda = container_of(chip, struct cix_ipbloq_hda, chip);
+-	unsigned int *init_verbs, size;
++	unsigned int *init_verbs = NULL;
++	unsigned int size = 0;
+ 	int i;
+ 
+ 	dev_dbg(bus->dev, "vendor id = 0x%x\n", vendor_id);
+@@ -420,6 +421,11 @@ static int cix_ipbloq_hda_config_init_verbs(struct hdac_bus *bus, unsigned int v
+ 		return -EINVAL;
+ 	}
+ 
++	if (!init_verbs || !size) {
++		dev_err(bus->dev, "no init verbs found for vendor 0x%x\n", vendor_id);
++		return -EINVAL;
++	}
++
+ 	for (i = 0; i < size; i++)
+ 		bus->ops->command(bus,  init_verbs[i]);
+ 
+diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
+index 776eb451c398..d70998c9b817 100644
+--- a/sound/soc/cix/card-utils.c
++++ b/sound/soc/cix/card-utils.c
+@@ -117,7 +117,7 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
+ 	struct dai_link_info *link_info =
+ 		(struct dai_link_info *)((priv->link_info + rtd->num));
+ 	struct snd_soc_dai *codec_dai;
+-	unsigned int mclk, mclk_div, mclk_parent_rate, sample_rate;
++	unsigned int mclk = 0, mclk_div = 0, mclk_parent_rate = 0, sample_rate;
+ 	struct clk *mclk_parent;
+ 	int ret, i;
+ 	u32 val;
+@@ -152,6 +152,10 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
+ 		} else if (sample_rate == 192000) {
+ 			mclk_fs = 128;
+ 			mclk_div = 0;
++		} else {
++			dev_err(rtd->dev, "unsupported multiple-of-8 kHz sample rate: %u\n",
++				sample_rate);
++			return -EINVAL;
+ 		}
+ 
+ 		mclk_parent = link_info->clks[AUDIO_CLK0];
+@@ -171,6 +175,10 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
+ 		} else if (sample_rate == 176400) {
+ 			mclk_fs = 256;
+ 			mclk_div = 0;
++		} else {
++			dev_err(rtd->dev, "unsupported multiple-of-11.025 kHz sample rate: %u\n",
++				sample_rate);
++			return -EINVAL;
+ 		}
+ 
+ 		mclk_parent = link_info->clks[AUDIO_CLK2];

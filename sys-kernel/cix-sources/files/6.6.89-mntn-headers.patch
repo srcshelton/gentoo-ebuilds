@@ -1,0 +1,46 @@
+From 915a940499a619f362d7e4b2203c105313941f88 Mon Sep 17 00:00:00 2001
+From: ZHANG Yuntian <yt@radxa.com>
+Date: Fri, 10 Oct 2025 10:24:04 +0000
+Subject: [PATCH] include: expose CIX MNTN haders
+
+CIX ISP driver currently consumes mntn_public_interface.h, but lives
+outside of the tree. Without those headers in the kernel header package,
+dkms cannot build this module.
+
+Signed-off-by: ZHANG Yuntian <yt@radxa.com>
+Change-Id: Ifa3345164a9e3461a6fbb61f6f645c854e2184ce
+---
+ Makefile                                                        | 2 +-
+ .../soc/cix/ap/platform/sky1/mntn_dump_interface.h              | 0
+ .../soc/cix/ap/platform/sky1/mntn_public_interface.h            | 0
+ .../soc/cix/ap/platform/sky1/mntn_subtype_exception.h           | 0
+ 4 files changed, 1 insertion(+), 1 deletion(-)
+ rename {drivers => include}/soc/cix/ap/platform/sky1/mntn_dump_interface.h (100%)
+ rename {drivers => include}/soc/cix/ap/platform/sky1/mntn_public_interface.h (100%)
+ rename {drivers => include}/soc/cix/ap/platform/sky1/mntn_subtype_exception.h (100%)
+
+diff --git a/Makefile b/Makefile
+index 90d438b87cf93..31adc63470870 100644
+--- a/Makefile
++++ b/Makefile
+@@ -555,7 +555,7 @@ LINUXINCLUDE    := \
+ 		-I$(objtree)/include \
+ 		$(USERINCLUDE)
+ 
+-LINUXINCLUDE += -I$(srctree)/drivers/soc/cix/ap/platform/$(TARGET_SOC_PLATFORM)
++LINUXINCLUDE += -I$(srctree)/include/soc/cix/ap/platform/$(TARGET_SOC_PLATFORM)
+ 
+ KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
+ 
+diff --git a/drivers/soc/cix/ap/platform/sky1/mntn_dump_interface.h b/include/soc/cix/ap/platform/sky1/mntn_dump_interface.h
+similarity index 100%
+rename from drivers/soc/cix/ap/platform/sky1/mntn_dump_interface.h
+rename to include/soc/cix/ap/platform/sky1/mntn_dump_interface.h
+diff --git a/drivers/soc/cix/ap/platform/sky1/mntn_public_interface.h b/include/soc/cix/ap/platform/sky1/mntn_public_interface.h
+similarity index 100%
+rename from drivers/soc/cix/ap/platform/sky1/mntn_public_interface.h
+rename to include/soc/cix/ap/platform/sky1/mntn_public_interface.h
+diff --git a/drivers/soc/cix/ap/platform/sky1/mntn_subtype_exception.h b/include/soc/cix/ap/platform/sky1/mntn_subtype_exception.h
+similarity index 100%
+rename from drivers/soc/cix/ap/platform/sky1/mntn_subtype_exception.h
+rename to include/soc/cix/ap/platform/sky1/mntn_subtype_exception.h

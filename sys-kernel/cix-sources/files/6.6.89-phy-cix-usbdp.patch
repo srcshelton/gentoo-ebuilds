@@ -1,0 +1,13 @@
+diff --git a/drivers/phy/cix/Kconfig b/drivers/phy/cix/Kconfig
+index 815fbbfb1..337c8d81a 100644
+--- a/drivers/phy/cix/Kconfig
++++ b/drivers/phy/cix/Kconfig
+@@ -5,7 +5,7 @@
+ 
+ config PHY_CIX_USBDP
+ 	tristate "Cix USBDP PHY Driver"
+-	depends on OF && HAS_IOMEM
++	depends on OF && HAS_IOMEM && TYPEC
+ 	select GENERIC_PHY
+ 	help
+ 	  Enable this to support the CIX USBDP PHY for TYPEC Connection

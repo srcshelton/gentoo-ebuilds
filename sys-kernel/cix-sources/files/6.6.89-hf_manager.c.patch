@@ -1,0 +1,75 @@
+diff --git a/drivers/misc/cix/sensor/core/hf_manager.c b/drivers/misc/cix/sensor/core/hf_manager.c
+index c6148e156..3adf78d49 100644
+--- a/drivers/misc/cix/sensor/core/hf_manager.c
++++ b/drivers/misc/cix/sensor/core/hf_manager.c
+@@ -19,6 +19,8 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <uapi/linux/sched/types.h>
++#include <linux/sched.h>
++#include <linux/sched/task.h>
+ #include <linux/sched_clock.h>
+ #include <linux/log2.h>
+ 
+@@ -1506,29 +1508,34 @@ static int __init hf_manager_init(void)
+ {
+ 	int ret;
+ 	struct device *dev;
+-	struct sched_param param = { .sched_priority = MAX_RT_PRIO / 2 };
++	//struct sched_param param = { .sched_priority = MAX_RT_PRIO / 2 };
++	struct sched_attr attr = {
++		.sched_policy   = SCHED_FIFO,
++		.sched_priority = MAX_RT_PRIO / 2,
++	};
++	struct task_struct *task;
+ 
+ 	init_hf_core(&hfcore);
+ 
+ 	major = register_chrdev(0, "hf_manager", &hf_manager_fops);
+ 	if (major < 0) {
+-		pr_err("Unable to get major\n");
+ 		ret = major;
++		pr_err("Unable to register major chacter device (%d)\n", ret);
+ 		goto err_exit;
+ 	}
+ 
+ 	hf_manager_class = class_create("hf_manager");
+ 	if (IS_ERR(hf_manager_class)) {
+-		pr_err("Failed to create class\n");
+ 		ret = PTR_ERR(hf_manager_class);
++		pr_err("Failed to create class (%d)\n", ret);
+ 		goto err_chredev;
+ 	}
+ 
+ 	dev = device_create(hf_manager_class, NULL, MKDEV(major, 0),
+ 		NULL, "hf_manager");
+ 	if (IS_ERR(dev)) {
+-		pr_err("Failed to create device\n");
+ 		ret = PTR_ERR(dev);
++		pr_err("Failed to create device (%d)\n", ret);
+ 		goto err_class;
+ 	}
+ 
+@@ -1539,11 +1546,14 @@ static int __init hf_manager_init(void)
+ 	task = kthread_run(kthread_worker_fn,
+ 			&hfcore.kworker, "hf_manager");
+ 	if (IS_ERR(task)) {
+-		pr_err("Failed to create kthread\n");
+ 		ret = PTR_ERR(task);
++		pr_err("Failed to create kthread (%d)\n", ret);
+ 		goto err_device;
+ 	}
+-	sched_setscheduler(task, SCHED_FIFO, &param);
++	//sched_setscheduler(task, SCHED_FIFO, &param);
++	ret = sched_setattr_nocheck(task, &attr);
++	if (ret)
++		pr_warn("Failed to set RT scheduling for hf_manager kthread (%d)\n", ret);
+ 
+ 	return 0;
+ 
+@@ -1569,4 +1579,4 @@ subsys_initcall(hf_manager_init);
+ module_exit(hf_manager_exit);
+ 
+ MODULE_DESCRIPTION("cix high frequency manager");
+-MODULE_LICENSE("GPL V2");
++MODULE_LICENSE("GPL v2");

@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "jerry.zhu" <jerry.zhu@cixtech.com>
+Date: Fri, 18 Apr 2025 14:03:09 +0800
+Subject: [PATCH] DPTSW-16669-1: pwm: remove reset operation
+
+-Remove reset operation in pwm.
+
+Signed-off-by: jerry.zhu <jerry.zhu@cixtech.com>
+Change-Id: I42110d1754a4065c40c1931df022d4bab01b5b64
+---
+ drivers/pwm/pwm-sky1.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/pwm/pwm-sky1.c b/drivers/pwm/pwm-sky1.c
+index 90c643fb1b14..d528248a4ba2 100644
+--- a/drivers/pwm/pwm-sky1.c
++++ b/drivers/pwm/pwm-sky1.c
+@@ -285,10 +285,6 @@ static int pwm_sky1_probe(struct platform_device *pdev)
+ 	if (screen_info.lfb_linelength && (pwmcr & (PWM_MODE|ENABLE|ENPWM)))
+ 		return pwmchip_add(&sky1->chip); /* already init in uefi */
+ 
+-	/* reset pwm */
+-	if (!screen_info.lfb_linelength)
+-		reset_control_reset(sky1->func_reset);
+-
+ 	/* Configure timer to pwm module */
+ 	writel(PWM_MODE, sky1->mmio_base + TCTL);
+ 
+-- 
+2.50.1
+

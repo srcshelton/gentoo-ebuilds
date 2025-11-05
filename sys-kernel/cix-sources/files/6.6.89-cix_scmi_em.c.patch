@@ -1,0 +1,20 @@
+diff --git a/drivers/thermal/cix/cix_scmi_em.c b/drivers/thermal/cix/cix_scmi_em.c
+index 474d5db..a384bc0 100644
+--- a/drivers/thermal/cix/cix_scmi_em.c
++++ b/drivers/thermal/cix/cix_scmi_em.c
+@@ -41,6 +41,7 @@ cix_scmi_get_em_power(struct device *dev, unsigned long *power,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_CIX_SCMI_ENERGY_MODEL
+ int cix_scmi_register_em(struct device *dev)
+ {
+ 	struct em_data_callback em_cb = EM_DATA_CB(cix_scmi_get_em_power);
+@@ -65,6 +66,7 @@ int cix_scmi_register_em(struct device *dev)
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(cix_scmi_register_em);
++#endif
+ 
+ int cix_scmi_em_probe(struct scmi_device *sdev)
+ {

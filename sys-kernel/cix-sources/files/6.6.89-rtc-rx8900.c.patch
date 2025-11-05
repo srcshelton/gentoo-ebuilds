@@ -1,0 +1,45 @@
+diff --git a/drivers/rtc/rtc-rx8900.c b/drivers/rtc/rtc-rx8900.c
+index 5edef5563..7c0eadd07 100755
+--- a/drivers/rtc/rtc-rx8900.c
++++ b/drivers/rtc/rtc-rx8900.c
+@@ -318,7 +318,8 @@ static void rx8900_work(struct work_struct *work)
+ 	// acknowledge IRQ
+ 	rx8900_write_reg(client, RX8900_BTC_FLAG, 0x0f & flags);
+ out:
+-	desc = irq_to_desc(client->irq);
++	struct irq_data *data = irq_get_irq_data(client->irq);
++	desc = irq_data_to_desc(data);
+ 	if (!rx8900->exiting && desc && desc->depth)
+ 		enable_irq(client->irq);
+ 
+@@ -921,6 +922,7 @@ static void rx8900_shutdown(struct i2c_client *client)
+ 	}
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
+ static int rx8900_resume(struct device *dev)
+ {
+ 	struct rx8900_data *rx8900 = dev_get_drvdata(dev);
+@@ -935,7 +937,8 @@ static int rx8900_resume(struct device *dev)
+ 		rx8900->suspended = false;
+ 		spin_unlock_irqrestore(&rx8900->lock, irq_flags);
+ 
+-		desc = irq_to_desc(client->irq);
++		struct irq_data *data = irq_get_irq_data(client->irq);
++		desc = irq_data_to_desc(data);
+ 		if (desc->depth) {
+ 			enable_irq(client->irq);
+ 		}
+@@ -1034,9 +1037,12 @@ static int rx8900_suspend(struct device *dev)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ static const struct dev_pm_ops rx8900_pm_ops = {
++#ifdef CONFIG_PM_SLEEP
+         SET_SYSTEM_SLEEP_PM_OPS(rx8900_suspend, rx8900_resume)
++#endif
+ };
+ 
+ static struct i2c_driver rx8900_driver = {

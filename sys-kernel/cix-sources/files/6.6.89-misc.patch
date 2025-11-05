@@ -1,0 +1,13 @@
+diff --git a/drivers/md/Kconfig b/drivers/md/Kconfig
+index 3ff87cb4d..5957adaf2 100644
+--- a/drivers/md/Kconfig
++++ b/drivers/md/Kconfig
+@@ -190,7 +190,7 @@ config MD_FAULTY
+ 	  The "faulty" module allows for a block device that occasionally returns
+ 	  read or write errors.  It is useful for testing.
+ 
+-	  In unsure, say N.
++	  If unsure, say N.
+ 
+ 
+ config MD_CLUSTER

@@ -1,0 +1,36 @@
+diff --git a/drivers/soc/cix/cix_dst/blackbox/Kconfig b/drivers/soc/cix/cix_dst/blackbox/Kconfig
+index f082a123e..97789edbe 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/Kconfig
++++ b/drivers/soc/cix/cix_dst/blackbox/Kconfig
+@@ -31,14 +31,14 @@ config PLAT_BBOX_TEST
+ 	  rdr exception test.
+ 
+ config PLAT_BBOX_BCH_M
+-	int "bch Galois field order, should be in the range 5-15"
++	int "bch Galois field order, should be in the range 5-15" if PLAT_BBOX
+ 	default 9
+ 	range 5 15
+ 	help
+ 	  Galois field order, should be in the range 5-15
+ 
+ config PLAT_BBOX_BCH_T
+-	int "bch maximum error correction capability, in bits"
++	int "bch maximum error correction capability, in bits" if PLAT_BBOX
+ 	default 4
+ 	help
+ 	  bch maximum error correction capability, in bits
+--- a/include/linux/soc/cix/rdr_pub.h
++++ b/include/linux/soc/cix/rdr_pub.h
+@@ -453,10 +453,12 @@ static inline int rdr_unregister_module_
+ static inline void rdr_system_error(u32 modid, u32 arg1, u32 arg2)
+ {
+ }
++#if 0
+ static inline unsigned int bbox_check_edition(void)
+ {
+ 	return EDITION_USER;
+ }
++#endif
+ static inline int rdr_wait_partition(const char *path, int timeouts, int mode)
+ {
+ 	return 0;

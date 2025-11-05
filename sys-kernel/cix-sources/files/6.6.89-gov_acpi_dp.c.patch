@@ -1,0 +1,71 @@
+diff --git a/drivers/thermal/gov_acpi_dp.c b/drivers/thermal/gov_acpi_dp.c
+index 3e0e754..1cc46c6 100644
+--- a/drivers/thermal/gov_acpi_dp.c
++++ b/drivers/thermal/gov_acpi_dp.c
+@@ -6,8 +6,6 @@
+  */
+ #include <linux/thermal.h>
+ #include <linux/minmax.h>
+-#include <trace/events/thermal.h>
+-#include <linux/minmax.h>
+ #include <linux/units.h>
+ 
+ #include "thermal_core.h"
+@@ -38,12 +36,13 @@ static int get_temp(struct thermal_zone_device *thermal, int *pre_temp, int *cur
+ static int get_trip_temp(struct thermal_zone_device *tz, int trip, int *trip_temp)
+ {
+ 	int ret;
++	struct thermal_trip t;
+ 
+-	ret = tz->ops->get_trip_temp(tz, trip, trip_temp);
++	ret = thermal_zone_get_trip(tz, trip, &t);
+ 	if (ret)
+ 		return ret;
+ 
+-	*trip_temp /= MILLIDEGREE_PER_DEGREE;
++	*trip_temp = t.temperature / MILLIDEGREE_PER_DEGREE;
+ 
+ 	return 0;
+ }
+@@ -54,7 +53,7 @@ static int get_para(struct thermal_zone_device *thermal, int *tc1, int *tc2)
+ 
+ 	*tc1 = tz->trips.passive.tc1;
+ 	*tc2 = tz->trips.passive.tc2;
+-	if (!tc1 || !tc2)
++	if (!*tc1 || !*tc2)
+ 		return -EINVAL;
+ 
+ 	return 0;
+@@ -69,7 +68,11 @@ static int get_delta_performance(struct thermal_instance *instance, int *delta_p
+ 	int trip;
+ 
+ 	tz = instance->tz;
+-	trip = instance->trip;
++
++	if (!instance->trip)
++		return -EINVAL;
++
++	trip = thermal_zone_trip_id(tz, instance->trip);
+ 
+ 	ret = get_para(tz, &tc1, &tc2);
+ 	if (ret)
+@@ -135,11 +138,17 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
+ 	int old_target;
+ 	struct thermal_instance *instance;
+ 	int result;
++	struct thermal_trip t;
+ 
+-	tz->ops->get_trip_type(tz, trip, &trip_type);
++	if (thermal_zone_get_trip(tz, trip, &t) == 0)
++		trip_type = t.type;
++	else
++		return;
+ 
+ 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+-		if (instance->trip != trip)
++		if (!instance->trip)
++			continue;
++		if (thermal_zone_trip_id(tz, instance->trip) != trip)
+ 			continue;
+ 
+ 		if (trip_type == THERMAL_TRIP_ACTIVE) {

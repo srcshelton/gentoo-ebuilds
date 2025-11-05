@@ -1,0 +1,13 @@
+diff --git a/drivers/devfreq/dsu-pctrl-devfreq.c b/drivers/devfreq/dsu-pctrl-devfreq.c
+index 43d532a4c..62a5bd1ce 100644
+--- a/drivers/devfreq/dsu-pctrl-devfreq.c
++++ b/drivers/devfreq/dsu-pctrl-devfreq.c
+@@ -814,7 +814,7 @@ static int dsu_pctrl_resume(struct device *dev)
+ 	return ret;
+ }
+ 
+-static SIMPLE_DEV_PM_OPS(dsu_pctrl_pm, dsu_pctrl_suspend, dsu_pctrl_resume);
++static DEFINE_SIMPLE_DEV_PM_OPS(dsu_pctrl_pm, dsu_pctrl_suspend, dsu_pctrl_resume);
+ 
+ static int dsu_pctrl_devfreq_probe(struct platform_device *pdev)
+ {

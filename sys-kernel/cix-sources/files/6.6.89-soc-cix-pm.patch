@@ -1,0 +1,59 @@
+diff --git a/drivers/soc/cix/cix_ap2se_ipc.c b/drivers/soc/cix/cix_ap2se_ipc.c
+index d38813197..977b6bb04 100644
+--- a/drivers/soc/cix/cix_ap2se_ipc.c
++++ b/drivers/soc/cix/cix_ap2se_ipc.c
+@@ -252,6 +252,7 @@ static int cix_ap2se_ipc_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
+ static int cix_ap2se_ipc_suspend(struct device *dev)
+ {
+ 	struct cix_ap2se_ipc_dev *mdev = dev_get_drvdata(dev);
+@@ -282,6 +283,7 @@ static int cix_ap2se_ipc_resume(struct device *dev)
+ 	mdev->init_status = 1;
+ 	return 0;
+ }
++#endif
+ 
+ static const struct of_device_id cix_ap2se_ipc_of_match[] = {
+ 	{ .compatible = "cix,cix_se2ap_mbox" },
+@@ -290,7 +292,9 @@ static const struct of_device_id cix_ap2se_ipc_of_match[] = {
+ MODULE_DEVICE_TABLE(of, cix_ap2se_ipc_of_match);
+ 
+ static const struct dev_pm_ops cix_ap2se_ipc_pm_ops = {
++#ifdef CONFIG_PM_SLEEP
+ 	SET_SYSTEM_SLEEP_PM_OPS(cix_ap2se_ipc_suspend, cix_ap2se_ipc_resume)
++#endif
+ };
+ 
+ static struct platform_driver cix_ap2se_ipc_driver = {
+diff --git a/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_core_exception_drv.c b/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_core_exception_drv.c
+index 32e56ec13..936d6117e 100644
+--- a/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_core_exception_drv.c
++++ b/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_core_exception_drv.c
+@@ -250,9 +250,10 @@ static int cache_excep_resume(struct device *dev)
+ 	return ret;
+ }
+ 
+-static SIMPLE_DEV_PM_OPS(cache_excep_pm_ops, cache_excep_suspend,
++static DEFINE_SIMPLE_DEV_PM_OPS(cache_excep_pm_ops, cache_excep_suspend,
+ 			 cache_excep_resume);
+ 
++
+ static const struct of_device_id cache_excp_of_ids[] = {
+ 	{ .compatible = "cix,sky1_exception_core_cache" },
+ 	{ }
+diff --git a/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_dsu_exception_drv.c b/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_dsu_exception_drv.c
+index 6069db4a1..c9b84e102 100644
+--- a/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_dsu_exception_drv.c
++++ b/drivers/soc/cix/cix_dst/cache_exception_monitor/cache_dsu_exception_drv.c
+@@ -87,7 +87,7 @@ static int cache_dsu_excep_resume(struct device *dev)
+ 	return 0;
+ }
+ 
+-static SIMPLE_DEV_PM_OPS(cache_dsu_excep_pm_ops, cache_dsu_excep_suspend,
++static DEFINE_SIMPLE_DEV_PM_OPS(cache_dsu_excep_pm_ops, cache_dsu_excep_suspend,
+ 			 cache_dsu_excep_resume);
+ 
+ static const struct of_device_id cache_excp_dsu_of_ids[] = {

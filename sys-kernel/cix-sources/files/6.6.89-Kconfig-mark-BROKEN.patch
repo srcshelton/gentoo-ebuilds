@@ -1,0 +1,72 @@
+diff --git a/drivers/gpu/drm/nouveau/Kconfig b/drivers/gpu/drm/nouveau/Kconfig
+index c52e8096c..c133f1214 100644
+--- a/drivers/gpu/drm/nouveau/Kconfig
++++ b/drivers/gpu/drm/nouveau/Kconfig
+@@ -1,7 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ config DRM_NOUVEAU
+ 	tristate "Nouveau (NVIDIA) cards"
+-	depends on DRM && PCI && MMU
++	depends on DRM && PCI && MMU && BROKEN
+ 	select IOMMU_API
+ 	select FW_LOADER
+ 	select DRM_DISPLAY_DP_HELPER
+diff --git a/drivers/iio/imu/inv_icm42600/Kconfig b/drivers/iio/imu/inv_icm42600/Kconfig
+index 164561cd0..cbdfff8aa 100644
+--- a/drivers/iio/imu/inv_icm42600/Kconfig
++++ b/drivers/iio/imu/inv_icm42600/Kconfig
+@@ -7,7 +7,7 @@ config INV_ICM42600
+ 
+ config INV_ICM42600_I2C
+ 	tristate "InvenSense ICM-426xx I2C driver"
+-	depends on I2C
++	depends on I2C && BROKEN
+ 	select INV_ICM42600
+ 	select REGMAP_I2C
+ 	help
+diff --git a/drivers/soc/cix/sched/Kconfig b/drivers/soc/cix/sched/Kconfig
+index ee4acf37d..4b4ed4512 100755
+--- a/drivers/soc/cix/sched/Kconfig
++++ b/drivers/soc/cix/sched/Kconfig
+@@ -13,6 +13,7 @@ config CIX_SCHED
+ 
+ config CIX_CORE_CTL
+ 	tristate "CIX Core Control with CPU Isolation"
++	depends on BROKEN
+ 	default n
+ 	help
+ 	  This config is for the core control policy with CPU isolation.
+diff --git a/drivers/usb/typec/altmodes/Kconfig b/drivers/usb/typec/altmodes/Kconfig
+index 1a6b5e872..cc6ec756b 100644
+--- a/drivers/usb/typec/altmodes/Kconfig
++++ b/drivers/usb/typec/altmodes/Kconfig
+@@ -4,7 +4,7 @@ menu "USB Type-C Alternate Mode drivers"
+ 
+ config TYPEC_DP_ALTMODE
+ 	tristate "DisplayPort Alternate Mode driver"
+-	depends on DRM
++	depends on DRM && BROKEN
+ 	help
+ 	  DisplayPort USB Type-C Alternate Mode allows DisplayPort
+ 	  displays and adapters to be attached to the USB Type-C
+diff --git a/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig b/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig
+index f680753ae..1b6e1d51b 100755
+--- a/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig
++++ b/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig
+@@ -2,7 +2,7 @@
+ 
+ config PM_EXCEPTION_PROTOCOL
+ 	bool "Enable support for PM exception protocol"
+-	depends on ARM_SCMI_PROTOCOL
++	depends on ARM_SCMI_PROTOCOL && BROKEN
+ 
+ 
+ config PM_EXCEPTION_DRIVER
+@@ -13,6 +13,7 @@ config PM_EXCEPTION_DRIVER
+ config PM_EXCP_DSM_DRIVER
+ 	default n
+ 	bool "Enable support for PM dsm driver"
++	depends on BROKEN
+ 
+ config CIX_EC_EXCEPTION_DRIVER
+ 	default n

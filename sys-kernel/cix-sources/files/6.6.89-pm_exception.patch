@@ -1,0 +1,28 @@
+diff --git a/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig b/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig
+index 1b6e1d51b..8ee5879df 100755
+--- a/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig
++++ b/drivers/soc/cix/cix_dst/pm_exception_monitor/Kconfig
+@@ -8,7 +8,7 @@ config PM_EXCEPTION_PROTOCOL
+ config PM_EXCEPTION_DRIVER
+ 	default n
+ 	bool "Enable support for PM exception driver"
+-	select PM_EXCEPTION_PROTOCOL
++	depends on PM_EXCEPTION_PROTOCOL
+ 
+ config PM_EXCP_DSM_DRIVER
+ 	default n
+@@ -18,3 +18,4 @@ config PM_EXCP_DSM_DRIVER
+ config CIX_EC_EXCEPTION_DRIVER
+ 	default n
+ 	bool "Enable support for EC exception driver"
++	depends on CIX_EC
+--- a/drivers/soc/cix/cix_dst/pm_exception_monitor/pm_exception_ec_drv.c
++++ b/drivers/soc/cix/cix_dst/pm_exception_monitor/pm_exception_ec_drv.c
+@@ -5,6 +5,7 @@
+ 
+ #include <linux/of.h>
+ #include <linux/platform_data/cros_ec_proto.h>
++#include <linux/platform_data/cros_ec_commands.h>
+ #include <linux/platform_device.h>
+ #include "../dst_print.h"
+ 

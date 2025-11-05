@@ -1,0 +1,274 @@
+diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
+index 08e5641df..06bbb03fa 100644
+--- a/drivers/gpu/drm/cix/dptx/Kconfig
++++ b/drivers/gpu/drm/cix/dptx/Kconfig
+@@ -2,6 +2,7 @@
+ config DRM_TRILIN_DPSUB
+ 	tristate "Trilinear Technologies DisplayPort Controller Driver"
+ 	depends on COMMON_CLK && DRM && OF
++	select BACKLIGHT_CLASS_DEVICE
+ 	select DRM_KMS_HELPER
+ 	select DRM_DISPLAY_HELPER
+ 	select DRM_DISPLAY_DP_HELPER
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+index 379e62c54..0066ae021 100644
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -329,7 +329,7 @@ static int trilin_dptx_cix_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PM
++#if defined(CONFIG_PM) && defined(CONFIG_PM_SLEEP)
+ static int trilin_dptx_pm_suspend(struct device *dev)
+ {
+ 	/* TODO */
+@@ -361,22 +361,24 @@ static const struct dev_pm_ops trilin_dptx_pm_ops = {
+ 	//.prepare = trilin_dptx_pm_prepare,
+ 	//.complete = trilin_dptx_pm_complete,
+ };
+-#endif
+ 
+ static void trilin_dptx_cix_shutdown(struct platform_device *pdev)
+ {
+ 	trilin_dptx_pm_suspend(&pdev->dev);
+ }
++#endif
+ 
+ static struct platform_driver trilin_dp_driver = {
+ 	.probe  = trilin_dptx_cix_probe,
+ 	.remove = trilin_dptx_cix_remove,
++#if defined(CONFIG_PM) && defined(CONFIG_PM_SLEEP)
+ 	.shutdown = trilin_dptx_cix_shutdown,
++#endif
+ 	.driver = {
+ 		.name = "trilin-dptx-cix",
+ 		.of_match_table = trilin_dptx_dt_ids,
+ 		.acpi_match_table = ACPI_PTR(trilin_dptx_acpi_ids),
+-#ifdef CONFIG_PM
++#if defined(CONFIG_PM) && defined(CONFIG_PM_SLEEP)
+ 		.pm = &trilin_dptx_pm_ops,
+ #endif
+ 	},
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+index 16412dcd6..02ca70c99 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -488,16 +488,16 @@ fwnode_graph_get_port_by_id(struct fwnode_handle *parent, u32 id)
+ 
+ static int linlondp_parse_pipe_acpi(struct linlondp_pipeline *pipe)
+ {
+-    struct fwnode_handle *np = pipe->fwnode;
++	struct fwnode_handle *np = pipe->fwnode;
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+-    struct clk *clk;
+-    clk = devm_clk_get(to_acpi_data_node(pipe->fwnode)->parent->dev,
+-		       pipe->fwnode->ops->get_name(pipe->fwnode));
+-    if (IS_ERR(clk)) {
+-        DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
+-        return PTR_ERR(clk);
+-    }
+-    pipe->pxlclk = clk;
++	struct clk *clk;
++	clk = devm_clk_get(to_acpi_data_node(pipe->fwnode)->parent->dev,
++			   pipe->fwnode->ops->get_name(pipe->fwnode));
++	if (IS_ERR(clk)) {
++		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
++		return PTR_ERR(clk);
++	}
++	pipe->pxlclk = clk;
+ #endif
+ 	/* enum ports */
+ 	pipe->fwnode_output_links[0] =
+@@ -523,72 +523,72 @@ static int linlondp_parse_pipe_acpi(struct linlondp_pipeline *pipe)
+ 
+ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
+ {
+-    struct platform_device *pdev = to_platform_device(dev);
+-    struct fwnode_handle *child, *np = dev->fwnode;
+-
+-    struct linlondp_pipeline *pipe;
+-    u32 pipe_id = U32_MAX;
+-    const char *tmp_name = NULL;
+-    int ret = -1;
+-
+-    mdev->irq  = platform_get_irq(pdev, 0);
+-    if (mdev->irq < 0) {
+-        DRM_ERROR("could not get IRQ number.\n");
+-        return mdev->irq;
+-    }
+-
+-    ret = 0;
+-    fwnode_for_each_child_node(np, child) {
+-        tmp_name = child->ops->get_name(child);
+-        pr_info("linlondp_parse_acpi node.name=%s\n", tmp_name);
+-
+-        if (strncmp(tmp_name, "pipeline", 8))
+-            continue;
+-
+-        fwnode_property_read_u32(child, "reg", &pipe_id);
+-        pr_info("linlondp_parse_acpi pipeId=%d, n_pipelines=%d\n", pipe_id, mdev->n_pipelines);
+-        if (pipe_id >= mdev->n_pipelines) {
+-            DRM_WARN("Skip the redundant ACPI node: pipeline-%u.\n",
+-                    pipe_id);
+-            continue;
+-        }
+-        mdev->pipelines[pipe_id]->fwnode = child;
+-    }
+-
+-    for (pipe_id = 0; pipe_id < mdev->n_pipelines; pipe_id++) {
+-        pipe = mdev->pipelines[pipe_id];
+-
+-        if (!pipe->fwnode) {
+-            DRM_ERROR("Pipeline-%d doesn't have a ACPI node.\n",
+-                  pipe->id);
+-            return -EINVAL;
+-        }
+-        ret = linlondp_parse_pipe_acpi(pipe);
+-        if (ret)
+-            return ret;
+-    }
+-
+-    ret = device_property_read_u64(dev, "aclk_freq_fixed", (u64 *)&mdev->aclk_freq_fixed);
+-    if (ret)
+-        mdev->aclk_freq_fixed = 0;
+-
+-    mdev->side_by_side = !device_property_read_u32(dev, "side_by_side_master",
+-                           &mdev->side_by_side_master);
+-
+-    ret = device_property_read_u32(dev, "aclk_freq_fixed", (u32 *)&mdev->aclk_freq_fixed);
+-    if (ret)
+-        mdev->aclk_freq_fixed = 0;
+-
+-    if (device_property_present(dev, "smart_aclk_freq"))
+-        mdev->smart_aclk_freq = true;
+-    else
+-        mdev->smart_aclk_freq = false;
+-
+-    ret = device_property_read_u32(dev, "device-id", (u32 *)&mdev->id);
+-    if (ret)
+-        mdev->id = 0;
+-
+-    return 0;
++	struct platform_device *pdev = to_platform_device(dev);
++	struct fwnode_handle *child, *np = dev->fwnode;
++
++	struct linlondp_pipeline *pipe;
++	u32 pipe_id = U32_MAX;
++	const char *tmp_name = NULL;
++	int ret = -1;
++
++	mdev->irq  = platform_get_irq(pdev, 0);
++	if (mdev->irq < 0) {
++		DRM_ERROR("could not get IRQ number.\n");
++		return mdev->irq;
++	}
++
++	ret = 0;
++	fwnode_for_each_child_node(np, child) {
++		tmp_name = child->ops->get_name(child);
++		pr_info("linlondp_parse_acpi node.name=%s\n", tmp_name);
++
++		if (strncmp(tmp_name, "pipeline", 8))
++			continue;
++
++		fwnode_property_read_u32(child, "reg", &pipe_id);
++		pr_info("linlondp_parse_acpi pipeId=%d, n_pipelines=%d\n", pipe_id, mdev->n_pipelines);
++		if (pipe_id >= mdev->n_pipelines) {
++		DRM_WARN("Skip the redundant ACPI node: pipeline-%u.\n",
++			pipe_id);
++			continue;
++		}
++		mdev->pipelines[pipe_id]->fwnode = child;
++	}
++
++	for (pipe_id = 0; pipe_id < mdev->n_pipelines; pipe_id++) {
++		pipe = mdev->pipelines[pipe_id];
++
++		if (!pipe->fwnode) {
++		DRM_ERROR("Pipeline-%d doesn't have a ACPI node.\n",
++			pipe->id);
++			return -EINVAL;
++		}
++		ret = linlondp_parse_pipe_acpi(pipe);
++		if (ret)
++			return ret;
++	}
++
++	ret = device_property_read_u64(dev, "aclk_freq_fixed", (u64 *)&mdev->aclk_freq_fixed);
++	if (ret)
++		mdev->aclk_freq_fixed = 0;
++
++	mdev->side_by_side = !device_property_read_u32(dev, "side_by_side_master",
++			     &mdev->side_by_side_master);
++
++	ret = device_property_read_u32(dev, "aclk_freq_fixed", (u32 *)&mdev->aclk_freq_fixed);
++	if (ret)
++		mdev->aclk_freq_fixed = 0;
++
++	if (device_property_present(dev, "smart_aclk_freq"))
++		mdev->smart_aclk_freq = true;
++	else
++		mdev->smart_aclk_freq = false;
++
++	ret = device_property_read_u32(dev, "device-id", (u32 *)&mdev->id);
++	if (ret)
++		mdev->id = 0;
++
++	return 0;
+ }
+ 
+ static int linlondp_gop_get(void)
+@@ -607,6 +607,7 @@ static int linlondp_gop_get(void)
+ 	return enabled_by_gop;
+ }
+ 
++#if 0
+ static void linlondp_gop_set(void)
+ {
+ 	struct arm_smccc_res res;
+@@ -615,6 +616,7 @@ static void linlondp_gop_set(void)
+ 	arm_smccc_smc(CIX_SIP_DP_GOP_CTRL, SKY1_SIP_DP_GOP_SET,
+ 		      dpu_gop_bit << DPU_GOP_SHIFT, 0, 0, 0, 0, 0, &res);
+ }
++#endif
+ 
+ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+ {
+@@ -637,10 +639,10 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+ 
+ 	mdev->dev = dev;
+ 
+-    err = device_property_read_u32(dev, "enabled_by_gop",
+-                               (u32 *)&mdev->enabled_by_gop);
+-    if (err)
+-        mdev->enabled_by_gop = 0;
++	err = device_property_read_u32(dev, "enabled_by_gop",
++				(u32 *)&mdev->enabled_by_gop);
++	if (err)
++		mdev->enabled_by_gop = 0;
+ 
+ 	is_insmod = linlondp_gop_get();
+ 	if (is_insmod)
+@@ -715,7 +717,7 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+ 	if (!mdev->iommu)
+ 		DRM_INFO("continue without IOMMU support!\n");
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+-		//clk_disable_unprepare(mdev->aclk);
++	//clk_disable_unprepare(mdev->aclk);
+ #endif
+ 	err = sysfs_create_group(&dev->kobj, &linlondp_sysfs_attr_group);
+ 	if (err) {
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+index e932f2dbd..707696d00 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+@@ -22,7 +22,7 @@ static int linlondp_plane_init_data_flow(struct drm_plane_state *st,
+ 	struct drm_framebuffer *fb = st->fb;
+ 	const struct linlondp_format_caps *caps = to_kfb(fb)->format_caps;
+ 	struct linlondp_pipeline *pipe = kplane->layer->base.pipeline;
+-	struct linlondp_dev *mdev = st->plane->dev->dev_private;
++	//struct linlondp_dev *mdev = st->plane->dev->dev_private;
+ 	struct drm_crtc_state *crtc_st;
+ 	struct drm_display_mode *mode;
+ 	struct drm_display_mode *adjusted_mode;

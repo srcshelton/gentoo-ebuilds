@@ -1,0 +1,53 @@
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+index aea7ee676..421d5f65b 100755
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -10,10 +10,33 @@ config SOC_CIX
+ 	  ID and revision etc.
+ 
+ config CIX_CPU_INSTPIPE_FRESH
+-	bool "fresh instpipe in sched_clock"
++	bool
++	help
++	  Legacy symbol kept for compatibility with vendor patches,
++	  selected automatically by CIX_SCHED_CLOCK_ISB_WORKAROUND.
++
++	  Original help text:
++
++	    Say yes will fresh instpipe in sched_clock.
++
++config CIX_SCHED_CLOCK_ISB_WORKAROUND
++	bool "Insert ISB before returning from sched_clock() (was CIX_CPU_INSTPIPE_FRESH)"
+ 	depends on ARCH_CIX
++	select CIX_CPU_INSTPIPE_FRESH
++	default n
+ 	help
+-	  Say yes will fresh instpipe in sched_clock.
++	  Some CPU implementations may return stale values from the cycle
++	  counter if the instruction pipeline is not synchronized before
++	  the read.  Enabling this option inserts an instruction
++	  synchronization barrier (ISB) before returning from sched_clock(),
++	  ensuring that the value is freshly read from hardware.
++
++	  This may slightly increase overhead in timing functions and should
++	  only be enabled if required by the platform vendor or when time
++	  stamps appear inconsistent.
++
++	  If unsure, say N.
++
+ 
+ config CIX_SKY1_SOCINFO
+ 	bool "Cix Sky1 SoC Information driver"
+diff --git a/kernel/time/sched_clock.c b/kernel/time/sched_clock.c
+index 1e183e63c..9806ebaa2 100644
+--- a/kernel/time/sched_clock.c
++++ b/kernel/time/sched_clock.c
+@@ -95,7 +95,7 @@ unsigned long long noinstr sched_clock_noinstr(void)
+ 		res = rd->epoch_ns + cyc_to_ns(cyc, rd->mult, rd->shift);
+ 	} while (raw_read_seqcount_latch_retry(&cd.seq, seq));
+ 
+-#ifdef CONFIG_CIX_CPU_INSTPIPE_FRESH
++#ifdef CONFIG_CIX_SCHED_CLOCK_ISB_WORKAROUND
+ 	isb();
+ #endif
+ 

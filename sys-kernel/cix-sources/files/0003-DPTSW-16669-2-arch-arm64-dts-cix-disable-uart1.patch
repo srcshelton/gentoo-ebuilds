@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "jerry.zhu" <jerry.zhu@cixtech.com>
+Date: Fri, 18 Apr 2025 14:04:38 +0800
+Subject: [PATCH] DPTSW-16669-2: arch: arm64: dts: cix: disable uart1
+
+Because csu_pm use pwm function, disable uart1 device node.
+
+Signed-off-by: jerry.zhu <jerry.zhu@cixtech.com>
+Change-Id: Ia16122f587bc0f86b6a09fb83396dba089a8c825
+---
+ arch/arm64/boot/dts/cix/sky1-evb.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/cix/sky1-evb.dts b/arch/arm64/boot/dts/cix/sky1-evb.dts
+index a7a95c0e1a87..8522a8324378 100755
+--- a/arch/arm64/boot/dts/cix/sky1-evb.dts
++++ b/arch/arm64/boot/dts/cix/sky1-evb.dts
+@@ -2148,7 +2148,7 @@ &uart0{
+         dma-names = "tx","rx";
+ };
+ &uart1{
+-        status = "okay";
++        status = "disabled";
+         pinctrl-names = "default";
+         pinctrl-0 = <&pinctrl_fch_uart1>;
+         dmas = <&fch_dmac 2 4>, <&fch_dmac 3 5>;
+-- 
+2.50.1
+

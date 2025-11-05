@@ -1,0 +1,13 @@
+diff --git a/drivers/char/hw_random/sky1-rng.c b/drivers/char/hw_random/sky1-rng.c
+index fa35051ca..a7d65d254 100644
+--- a/drivers/char/hw_random/sky1-rng.c
++++ b/drivers/char/hw_random/sky1-rng.c
+@@ -84,7 +84,7 @@ static inline void trng_read(struct sky1_rng *hrng, uint8_t *buf, size_t len)
+ 		left_len -= read_len;
+ 	}
+ 
+-	printk("trng_read %d:0x%x\n", len, buf[0]);
++	printk("trng_read %lu:0x%x\n", len, buf[0]);
+ }
+ 
+ static int sky1_rng_init(struct hwrng *rng)

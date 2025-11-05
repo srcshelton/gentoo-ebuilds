@@ -1,0 +1,39 @@
+diff --git a/drivers/remoteproc/cix_sfh_rproc.c b/drivers/remoteproc/cix_sfh_rproc.c
+index af7951c..d812e62 100755
+--- a/drivers/remoteproc/cix_sfh_rproc.c
++++ b/drivers/remoteproc/cix_sfh_rproc.c
+@@ -750,10 +750,14 @@ static int cix_sfh_rproc_addr_init(struct cix_sfh_rproc *rproc_priv)
+ {
+ 	struct device *dev = rproc_priv->dev;
+ 	struct device_node *np = dev->of_node;
++#ifdef CONFIG_PLAT_BBOX
+ 	struct cix_mem_region *mem_reg = rproc_priv->mem_region;
++#endif
+ 	struct cix_sfh_mem *p_mem;
+ 	int err, nph, i;
++#ifdef CONFIG_HIBERNATION
+ 	int r_num = 0;
++#endif
+ 
+ 	nph = of_count_phandle_with_args(np, "memory-region", NULL);
+ 	if (nph <= 0)
+diff --git a/drivers/remoteproc/cix_dsp_rproc.c b/drivers/remoteproc/cix_dsp_rproc.c
+index 563c1c9..4287ba9 100644
+--- a/drivers/remoteproc/cix_dsp_rproc.c
++++ b/drivers/remoteproc/cix_dsp_rproc.c
+@@ -1115,6 +1115,7 @@ static int cix_dsp_rproc_runtime_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
+ static int cix_dsp_rproc_suspend(struct device *dev)
+ {
+ 	struct rproc *rproc = dev_get_drvdata(dev);
+@@ -1200,6 +1201,7 @@ static int cix_dsp_rproc_resume(struct device *dev)
+ 
+ 	return ret;
+ }
++#endif
+ 
+ static const struct dev_pm_ops cix_dsp_rproc_pm_ops = {
+ 	SET_SYSTEM_SLEEP_PM_OPS(cix_dsp_rproc_suspend, cix_dsp_rproc_resume)

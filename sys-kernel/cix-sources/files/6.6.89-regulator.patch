@@ -1,0 +1,52 @@
+diff --git a/drivers/regulator/core.c b/drivers/regulator/core.c
+index 80ef3e3ba..8c443f7b9 100644
+--- a/drivers/regulator/core.c
++++ b/drivers/regulator/core.c
+@@ -5518,12 +5518,13 @@ static int regulator_init_coupling(struct regulator_dev *rdev)
+ 	if (n_phandles == 0)
+ 		return 0;
+ 
+-	if (has_acpi_companion(&rdev->dev))
++	if (has_acpi_companion(&rdev->dev)) {
+ 		if (!fwnode_check_coupling_data(rdev))
+ 			return -EPERM;
+-	else
++	} else {
+ 		if (!of_check_coupling_data(rdev))
+ 			return -EPERM;
++	}
+ 
+ 	mutex_lock(&regulator_list_mutex);
+ 	rdev->coupling_desc.coupler = regulator_find_coupler(rdev);
+diff --git a/drivers/regulator/fwnode_regulator.c b/drivers/regulator/fwnode_regulator.c
+index 1159860ca..4944bfaa6 100644
+--- a/drivers/regulator/fwnode_regulator.c
++++ b/drivers/regulator/fwnode_regulator.c
+@@ -93,7 +93,7 @@ static int fwnode_get_regulation_constraints(struct device *dev,
+ 
+ 	n_phandles = fwnode_count_reference_with_args(np, "regulator-coupled-with",
+ 						NULL);
+-	if (IS_ERR(n_phandles))
++	if (IS_ERR(ERR_PTR(n_phandles)))
+ 		n_phandles = 0;
+ 
+ 	n_phandles = max(n_phandles, 0);
+@@ -712,6 +712,10 @@ struct regulator_dev *fwnode_parse_coupled_regulator(struct regulator_dev *rdev,
+ 	return c_rdev;
+ }
+ 
++// Copy & paste from drivers/regulator/of_regulator.c - there used in
++// of_regulator_bulk_get_all()
++//
++#if 0
+ /*
+  * Check if name is a supply name according to the '*-supply' pattern
+  * return 0 if false
+@@ -734,4 +738,5 @@ static int is_supply_name(const char *name)
+ 		return i;
+ 	}
+ 	return 0;
+-}
+\ No newline at end of file
++}
++#endif

@@ -1,0 +1,50 @@
+diff --git a/drivers/soc/arm/scmi_perf_domain.c b/drivers/soc/arm/scmi_perf_domain.c
+index ef29b222c..239144bf6 100644
+--- a/drivers/soc/arm/scmi_perf_domain.c
++++ b/drivers/soc/arm/scmi_perf_domain.c
+@@ -42,7 +42,7 @@ scmi_pd_set_perf_state(struct generic_pm_domain *genpd, unsigned int state)
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_ARCH_CIX
++#if IS_REACHABLE(CONFIG_ARM_SCMI_PROTOCOL) && defined(CONFIG_ARCH_CIX)
+ int scmi_device_set_freq(struct device *dev, unsigned long freq)
+ {
+ 	struct generic_pm_domain *genpd = pd_to_genpd(dev->pm_domain);
+diff --git a/include/linux/scmi_protocol.h b/include/linux/scmi_protocol.h
+index 9f87e476d..433f6fe47 100644
+--- a/include/linux/scmi_protocol.h
++++ b/include/linux/scmi_protocol.h
+@@ -873,7 +873,7 @@ int scmi_device_opp_table_parse(struct device *dev);
+ unsigned long scmi_device_get_freq(struct device *dev);
+ int scmi_device_set_freq(struct device *dev, unsigned long freq);
+ #endif
+-#else
++#else // !IS_REACHABLE(CONFIG_ARM_SCMI_PROTOCOL)
+ static inline int
+ scmi_driver_register(struct scmi_driver *driver, struct module *owner,
+ 		     const char *mod_name)
+@@ -883,17 +883,20 @@ scmi_driver_register(struct scmi_driver *driver, struct module *owner,
+ 
+ static inline void scmi_driver_unregister(struct scmi_driver *driver) {}
+ 
+-static int scmi_device_opp_table_parse(struct device *dev)
++static inline int
++scmi_device_opp_table_parse(struct device *dev)
+ {
+ 	return -EINVAL;
+ }
+ 
+-unsigned long scmi_device_get_freq(struct device *dev)
++static inline unsigned long
++scmi_device_get_freq(struct device *dev)
+ {
+ 	return -EINVAL;
+ }
+ 
+-int scmi_device_set_freq(struct device *dev, unsigned long freq)
++static inline int
++scmi_device_set_freq(struct device *dev, unsigned long freq)
+ {
+ 	return -EINVAL;
+ }
