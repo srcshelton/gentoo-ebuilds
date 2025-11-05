@@ -12,7 +12,7 @@ SRC_URI="https://github.com/syslog-ng/syslog-ng/releases/download/${P}/${P}.tar.
 
 LICENSE="GPL-2+ LGPL-2.1+"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="amqp caps dbi geoip2 grpc http json kafka mongodb mqtt pacct python redis smtp snmp spoof-source systemd tcpd test"
 REQUIRED_USE="python? ( ${PYTHON_REQUIRED_USE} )
 	test? ( python )"
@@ -130,6 +130,7 @@ src_configure() {
 		--disable-java
 		--disable-java-modules
 		--disable-riemann
+		--disable-stackdump  # 963387
 		--enable-ipv6
 		--enable-manpages
 		--localstatedir=/var/lib/syslog-ng
