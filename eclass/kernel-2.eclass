@@ -101,6 +101,7 @@
 # @DESCRIPTION:
 # same as K_EXTRAEINFO except using ewarn instead of einfo
 
+# N.B.: Unused
 # @ECLASS_VARIABLE: K_FROM_GIT
 # @DEFAULT_UNSET
 # @DESCRIPTION:
@@ -208,19 +209,19 @@
 # @DEFAULT_UNSET
 # @OUTPUT_VARIABLE
 # @DESCRIPTION:
-# Kernel major version from <KV_MAJOR>.<KV_MINOR>.<KV_PATCH
+# Kernel major version from <KV_MAJOR>.<KV_MINOR>.<KV_PATCH>
 
 # @ECLASS_VARIABLE: KV_MINOR
 # @DEFAULT_UNSET
 # @OUTPUT_VARIABLE
 # @DESCRIPTION:
-# Kernel minor version from <KV_MAJOR>.<KV_MINOR>.<KV_PATCH
+# Kernel minor version from <KV_MAJOR>.<KV_MINOR>.<KV_PATCH>
 
 # @ECLASS_VARIABLE: KV_PATCH
 # @DEFAULT_UNSET
 # @OUTPUT_VARIABLE
 # @DESCRIPTION:
-# Kernel patch version from <KV_MAJOR>.<KV_MINOR>.<KV_PATCH
+# Kernel patch version from <KV_MAJOR>.<KV_MINOR>.<KV_PATCH>
 
 # @ECLASS_VARIABLE: LINUX_HOSTCFLAGS
 # @DEFAULT_UNSET
@@ -1407,6 +1408,9 @@ headers___fix() {
 
 kernel-2_src_unpack() {
 	universal_unpack
+
+	[[ $(type -t kernel-2_insert_prepatch) == "function" ]] && kernel-2_insert_prepatch
+
 	debug-print "Doing unipatch"
 
 	# request UNIPATCH_LIST_GENPATCHES in phase since it calls 'use'
