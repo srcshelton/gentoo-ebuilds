@@ -12,7 +12,7 @@ SRC_URI="https://github.com/linux-nvme/nvme-cli/archive/v${PV}.tar.gz -> ${P}.gh
 LICENSE="GPL-2 GPL-2+"
 SLOT="0"
 KEYWORDS="amd64 arm64 ~loong ppc64 ~riscv ~sparc x86"
-IUSE="+json -netapp pdc systemd udev"
+IUSE="bash-completion dracut +json -netapp pdc systemd udev zsh-completion"
 REQUIRED_USE="
 	netapp? ( udev )
 	systemd? ( udev )
@@ -31,6 +31,23 @@ BDEPEND="
 	virtual/pkgconfig
 "
 
+src_prepare() {
+	default
+
+	# Try to adopt standard paths...
+	sed -e '/WDC_REASON_ID_PATH_NAME/ s#usr/local/nvmecli#var/lib/nvme-cli#' \
+		-e '/make the nvmecli dir in/ s#nvmecli#nvme-cli#' \
+		-e '/make the nvme/ s#usr/local#var/lib#' \
+		-e '/save off the error reason identifier/ s#usr/local/nvmecli#var/lib/nvme-cli#' \
+		-i plugins/wdc/wdc-nvme.c || die
+
+	sed -e 's#usr/local/etc#etc#g' \
+		-i Documentation/* || die
+
+	sed -s '/prefix=/ s#usr/local#usr#' \
+		-i meson.build || die
+}
+
 src_configure() {
 	local emesonargs=(
 		-Dversion-tag="${PV}"
@@ -45,13 +62,32 @@ src_configure() {
 }
 
 src_install() {
+	local f=''
+
 	default
 
+	if [[ -d "${ED}"/usr/local ]]; then
+		eerror "ebuild attempted to install into '/usr/local':"
+		find "${ED}"/usr -type f |
+			while read -r f; do
+				eerror "  ${f}"
+			done
+		die "ebuild requires '/usr/local' fix"
+	fi
+
+	if [[ -d "${ED}"/usr/etc ]]; then
+		mv "${ED}"/usr/etc "${ED}"/
+	fi
+
+	if [[ -d "${ED}"/usr/lib/udev ]]; then
+		dodir /lib
+		mv "${ED}"/usr/lib/udev "${ED}"/lib/
+	fi
+
 	if ! use udev; then
-		rm -rf "${ED}"/usr/lib/dracut
 		rm "${ED}"/lib/udev/rules.d/*.rules
 	else
-		if use netapp; then
+		if ! use netapp; then
 			rm "${ED}"/lib/udev/rules.d/*nvmf-netapp.rules
 		fi
 		if ! use systemd; then
@@ -59,6 +95,20 @@ src_install() {
 			rm "${ED}"/lib/udev/rules.d/*nvmf-autoconnect.rules
 		fi
 	fi
+
+	if ! use bash-completion; then
+		rm -rf "${ED}"/usr/share/bash-completion
+	fi
+	if ! use dracut; then
+		rm -rf "${ED}"/usr/lib/dracut
+	fi
+	if ! use systemd; then
+		rm -rf "${ED}"/usr/lib/systemd
+	fi
+	if ! use zsh-completion; then
+		rm -rf "${ED}"/usr/share/zsh
+	fi
+
 	if [[ -d "${ED}"/lib/udev/rules.d ]]; then
 		rmdir --ignore-fail-on-non-empty --parents "${ED}"/lib/udev/rules.d
 	fi
