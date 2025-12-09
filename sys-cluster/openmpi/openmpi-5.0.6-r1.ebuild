@@ -24,7 +24,7 @@ S="${WORKDIR}/${MY_P}"
 LICENSE="BSD"
 SLOT="0"
 KEYWORDS="amd64 -arm arm64 -ppc ppc64 -x86 ~amd64-linux"
-IUSE="cma cuda fortran ipv6 peruse romio valgrind ${IUSE_OPENMPI_FABRICS} ${IUSE_OPENMPI_RM}"
+IUSE="cma cuda fortran ${IUSE_OPENMPI_FABRICS} ${IUSE_OPENMPI_RM} peruse romio valgrind"
 
 REQUIRED_USE="
 	openmpi_rm_slurm? ( !openmpi_rm_pbs )
@@ -112,7 +112,7 @@ src_configure() {
 		#   broken in this release of Open MPI.
 		--disable-heterogeneous
 
-		$(use_enable ipv6)
+		--enable-ipv6
 		$(use_enable peruse)
 		$(use_enable romio io-romio)
 

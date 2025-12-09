@@ -49,7 +49,7 @@ RDEPEND="
 	>=dev-libs/libevent-2.0.22:=[${MULTILIB_USEDEP},threads(+)]
 	dev-libs/libltdl:0[${MULTILIB_USEDEP}]
 	>=sys-apps/hwloc-2.0.2:=[${MULTILIB_USEDEP}]
-	>=sys-libs/zlib-1.2.8-r1[${MULTILIB_USEDEP}]
+	>=virtual/zlib-1.2.8-r1:=[${MULTILIB_USEDEP}]
 	cuda? ( >=dev-util/nvidia-cuda-toolkit-6.5.19-r1:= )
 	openmpi_fabrics_ofed? ( sys-cluster/rdma-core )
 	openmpi_fabrics_knem? ( sys-cluster/knem )
@@ -140,7 +140,7 @@ multilib_src_configure() {
 		$(multilib_native_use_enable openmpi_ofed_features_udcm openib-udcm)
 		$(multilib_native_use_enable openmpi_ofed_features_dynamic-sl openib-dynamic-sl)
 
-		$(multilib_native_use_with cuda cuda "${EPREFIX}"/opt/cuda)
+		$(multilib_native_use_with cuda cuda "${CUDA_PATH:-${ESYSROOT}/opt/cuda}")
 		$(multilib_native_use_with valgrind)
 		$(multilib_native_use_with openmpi_fabrics_ofed verbs "${EPREFIX}"/usr)
 		$(multilib_native_use_with openmpi_fabrics_knem knem "${EPREFIX}"/usr)
