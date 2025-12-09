@@ -4,8 +4,8 @@
 EAPI=8
 
 # The (community-maintained) CMake backend seems broken :(
-#inherit cmake
-inherit fcaps toolchain-funcs xdg
+#inherit cmake fcaps optfeature toolchain-funcs xdg
+inherit fcaps optfeature toolchain-funcs xdg
 
 DESCRIPTION="A monitor of resources"
 HOMEPAGE="https://github.com/aristocratos/btop"
@@ -15,7 +15,7 @@ SRC_URI="
 
 LICENSE="Apache-2.0 MIT"
 SLOT="0"
-KEYWORDS="amd64 ~arm arm64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~sparc x86"
+KEYWORDS="~amd64 ~arm ~arm64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
 IUSE="gpu +gui +man +themes video_cards_amdgpu video_cards_nvidia"
 
 BDEPEND="
@@ -33,7 +33,7 @@ pkg_setup() {
 	if [[ "${MERGE_TYPE}" != "binary" ]]; then
 		if tc-is-clang ; then
 			if [[ "$(clang-major-version)" -lt 16 ]]; then
-				die "sys-process/btop requires >=llvm-runtimes/clang-runtime:16 in order to build."
+				die "sys-process/btop requires >=llvm-core/clang-16.0.0 in order to build."
 			fi
 		elif tc-is-gcc ; then
 			if ! has_version -b '>=sys-devel/gcc-11'; then
@@ -129,4 +129,7 @@ src_install() {
 
 pkg_postinst() {
 	use gui && xdg_pkg_postinst
+
+	optfeature "GPU monitoring support (Radeon GPUs)" dev-util/rocm-smi
+	optfeature "GPU monitoring support (NVIDIA GPUs)" x11-drivers/nvidia-drivers
 }
