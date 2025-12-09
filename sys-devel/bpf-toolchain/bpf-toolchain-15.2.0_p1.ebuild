@@ -13,7 +13,7 @@ inherit edo flag-o-matic toolchain-funcs
 # Do _p1++ rather than revbump on Binutils changes
 # Not using Gentoo patchsets for simplicity, their changes are mostly unneeded here.
 GCC_PV=${PV%_p*}
-BINUTILS_PV=2.44
+BINUTILS_PV=2.45
 
 DESCRIPTION="All-in-one bpf toolchain for building DTrace and systemd without crossdev"
 HOMEPAGE="
