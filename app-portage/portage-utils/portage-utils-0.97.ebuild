@@ -25,7 +25,7 @@ COMMON_DEPEND="
 		!static? (
 			app-crypt/gpgme:=
 			app-crypt/libb2:=
-			sys-libs/zlib:=
+			virtual/zlib:=
 		)
 	)"
 BDEPEND="
@@ -40,7 +40,7 @@ DEPEND="${COMMON_DEPEND}
 		static? (
 			app-crypt/gpgme[static-libs]
 			app-crypt/libb2[static-libs]
-			sys-libs/zlib[static-libs]
+			virtual/zlib:=[static-libs]
 		)
 	)"
 RDEPEND="${COMMON_DEPEND}
