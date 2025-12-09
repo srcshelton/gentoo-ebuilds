@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit autotools eapi9-ver systemd tmpfiles
+inherit autotools eapi9-ver systemd tmpfiles toolchain-funcs
 
 MY_PV="${PV/_p/-P}"
 MY_PV="${MY_PV/_rc/rc}"
@@ -78,6 +78,11 @@ src_prepare() {
 	# Test is (notoriously) slow/resource intensive
 	sed -i -e 's:ISC_TEST_MAIN:int main(void) { exit(77); }:' tests/isc/netmgr_test.c || die
 
+	# Relies on -Wl,--wrap (bug #877741)
+	if tc-is-lto ; then
+		sed -i -e 's:ISC_TEST_MAIN:int main(void) { exit(77); }:' tests/ns/query_test.c || die
+	fi
+
 	sed -ri "/\\\$d\/lib(\/|$)/s:d/lib:d/$(get_libdir):g" \
 		configure || die
 
@@ -131,7 +136,7 @@ src_test() {
 src_install() {
 	default
 
-	dodoc CHANGES README.md
+	dodoc README.md
 
 	if use tools && ! use server; then
 		# This isn't going to be as easy(!) as it looked - the
@@ -180,8 +185,12 @@ src_install() {
 		local cmd=''
 		for cmd in delv dig host nslookup nsupdate; do
 			mv "${T%/}/image/usr/bin/${cmd}" "${ED%/}"/usr/bin/
-			mv "${T%/}/image/usr/share/man/man1/${cmd}.1"* \
-				"${ED}"/usr/share/man/man1/
+			if [[ -s "${T%/}/image/usr/share/man/man1/${cmd}.1" ]]; then
+				mv "${T%/}/image/usr/share/man/man1/${cmd}.1" \
+					"${ED}"/usr/share/man/man1/
+			else
+				ewarn "manpage '/usr/share/man/man1/${cmd}.1' missing"
+			fi
 			if use doc && [[ "${cmd}" == 'nsupdate' ]]; then
 				dodoc "${T%/}/image/usr/share/doc/${PVR}/html/${cmd}.html" ||
 					die
@@ -191,8 +200,12 @@ src_install() {
 				signzone verify
 		do
 			mv "${T%/}/image/usr/bin/dnssec-${cmd}" "${ED%/}"/usr/bin/
-			mv "${T%/}/image/usr/share/man/man1/${cmd}.1"* \
-				"${ED%/}"/usr/share/man/man1/
+			if [[ -s "${T%/}/image/usr/share/man/man1/dnssec-${cmd}.1" ]]; then
+				mv "${T%/}/image/usr/share/man/man1/dnssec-${cmd}.1" \
+					"${ED}"/usr/share/man/man1/
+			else
+				ewarn "manpage '/usr/share/man/man1/dnssec-${cmd}.1' missing"
+			fi
 			if use doc; then
 				dodoc "${T%/}/image/usr/share/doc/${PVR}/html/dnssec-${cmd}.html" ||
 					die
@@ -304,26 +317,31 @@ pkg_postinst() {
 	use tmpfiles && tmpfiles_process named.conf
 
 	if ! [[ -f "${EROOT}/etc/bind/rndc.key" ]]; then
-		if [[ -f "${EROOT}/etc/bind/rndc.conf" ]]; then
+		if [[ -f /etc/bind/rndc.conf ]]; then
+			ewarn "'/etc/bind/rndc.conf' exists - not generating" \
+				"new 'rndc.key'"
+		elif [[ -f "${EROOT}/etc/bind/rndc.conf" ]]; then
 			ewarn "'${EROOT}/etc/bind/rndc.conf' exists - not" \
 				"generating new 'rndc.key'"
 		else
-			if [[ "${ROOT}" != '/' ]]; then
-				local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+			if ! [[ -f /etc/bind/rndc.key ]]; then
+				if [[ "${ROOT}" != '/' ]]; then
+					local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${ROOT%/}/$(get_libdir):${ROOT%/}/usr/$(get_libdir)"
+				fi
+				einfo "Generating rndc.key"
+				if "${EROOT}"/usr/sbin/rndc-confgen -a; then
+					# rndc-confgen always creates files in
+					# /etc/bind/...
+					chown root:named /etc/bind/rndc.key || die
+					chmod 0640 /etc/bind/rndc.key || die
+				fi
 			fi
-		einfo "Generating rndc.key"
-			if "${EROOT}"/usr/sbin/rndc-confgen -a; then
-				# rndc-confgen always creates files in
-				# /etc/bind/...
-				chown root:named /etc/bind/rndc.key || die
-				chmod 0640 /etc/bind/rndc.key || die
-			fi
-			if [[ -f /etc/bind/rndc.key ]] &&
-					[[ ! -f "${ROOT}"/etc/bind/rndc.key ]]
-			then
-				cp -a /etc/bind/rndc.key \
-					"${EROOT}"/etc/bind/rndc.key
-			fi
+		fi
+		if [[ -f /etc/bind/rndc.key ]] &&
+				[[ ! -f "${ROOT}"/etc/bind/rndc.key ]]
+		then
+			cp -a /etc/bind/rndc.key \
+				"${EROOT}"/etc/bind/rndc.key
 		fi
 	fi
 
