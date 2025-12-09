@@ -149,7 +149,7 @@ CRATES="
 
 # Get the commit from the CLAM-2329-new-from-slice branch
 declare -A GIT_CRATES=(
-	[onenote_parser]="https://github.com/Cisco-Talos/onenote.rs;29c08532252b917543ff268284f926f30876bb79;onenote.rs-%commit%"
+	[onenote_parser]='https://github.com/Cisco-Talos/onenote.rs;8b450447e58143004b68dd21c11b710fdb79be92;onenote.rs-%commit%'
 )
 
 inherit cargo cmake eapi9-ver flag-o-matic python-any-r1 systemd tmpfiles
@@ -166,7 +166,7 @@ LICENSE="Apache-2.0 BSD GPL-2 ISC MIT MPL-2.0 Unicode-DFS-2016 ZLIB"
 # 0/sts (short term support) if not an LTS release
 SLOT="0/sts"
 if [[ ${PV} != *_rc* ]] ; then
-	KEYWORDS="~alpha amd64 arm arm64 ppc ppc64 ~riscv ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos"
+	KEYWORDS="~alpha amd64 ~arm arm64 ~ppc ppc64 ~riscv ~sparc ~x86 ~amd64-linux ~x86-linux ~ppc-macos"
 fi
 
 IUSE="+clamapp clamonacc doc experimental libclamav-only milter rar selinux systemd +system-mspack test"
