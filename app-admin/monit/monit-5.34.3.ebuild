@@ -1,4 +1,4 @@
-# Copyright 2025 Gentoo Authors
+# Copyright 2021-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -14,8 +14,7 @@ SLOT="0"
 KEYWORDS="amd64 ~arm ~arm64 ppc ~ppc64 ~riscv x86 ~amd64-linux"
 IUSE="pam ssl systemd"
 
-RDEPEND="
-	sys-libs/zlib:=
+RDEPEND="virtual/zlib:=
 	virtual/libcrypt:=
 	pam? ( sys-libs/pam )
 	ssl? ( dev-libs/openssl:0= )
@@ -27,9 +26,8 @@ BDEPEND="
 "
 
 src_prepare() {
-	sed -i -e '/^INSTALL_PROG/s/-s//' Makefile.in || die
-
 	default
+	sed -i -e '/^INSTALL_PROG/s/-s//' Makefile.in || die
 }
 
 src_configure() {
