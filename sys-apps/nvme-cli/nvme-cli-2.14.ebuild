@@ -21,7 +21,7 @@ REQUIRED_USE="
 RDEPEND="
 	>=sys-libs/libnvme-1.14:=[json?]
 	json? ( dev-libs/json-c:= )
-	sys-libs/zlib:=
+	virtual/zlib:=
 "
 DEPEND="
 	${RDEPEND}
