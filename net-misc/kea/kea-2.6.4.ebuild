@@ -3,10 +3,6 @@
 
 EAPI=8
 
-MY_PV="${PV//_p/-P}"
-MY_PV="${MY_PV/_/-}"
-MY_P="${PN}-${MY_PV}"
-
 PYTHON_COMPAT=( python3_{11..14} )
 inherit autotools eapi9-ver flag-o-matic python-r1 systemd tmpfiles toolchain-funcs
 
@@ -17,16 +13,9 @@ if [[ ${PV} == *9999* ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://gitlab.isc.org/isc-projects/kea.git"
 else
-	SRC_URI="https://downloads.isc.org/isc/kea/${MY_P}.tar.gz
-		https://downloads.isc.org/isc/kea/${MY_PV}/${MY_P}.tar.gz"
-	# odd minor version = development release
-	if [[ $(( $(ver_cut 2) % 2 )) -ne 1 ]] ; then
-		if ! [[ "${PV}" == *_beta* || "${PV}" == *_rc* ]] ; then
-			 KEYWORDS="amd64 arm arm64 x86"
-		fi
-	fi
+	SRC_URI="https://downloads.isc.org/isc/kea/${PV}/${P}.tar.gz"
+	KEYWORDS="amd64 arm arm64 ~x86"
 fi
-S="${WORKDIR}/${MY_P}"
 
 LICENSE="MPL-2.0"
 SLOT="0"
@@ -38,17 +27,11 @@ RESTRICT="!test? ( test )"
 COMMON_DEPEND="
 	>=dev-libs/boost-1.66:=
 	dev-libs/log4cplus:=
-	doc? (
-		$(python_gen_cond_dep '
-			dev-python/sphinx[${PYTHON_USEDEP}]
-			dev-python/sphinx-rtd-theme[${PYTHON_USEDEP}]
-		')
-	)
 	mysql? (
 		app-arch/zstd:=
 		dev-db/mysql-connector-c:=
 		dev-libs/openssl:=
-		sys-libs/zlib:=
+		virtual/zlib:=
 	)
 	!openssl? ( dev-libs/botan:2=[boost] )
 	openssl? ( dev-libs/openssl:0= )
@@ -60,11 +43,21 @@ DEPEND="${COMMON_DEPEND}
 "
 RDEPEND="${COMMON_DEPEND}
 	acct-group/dhcp
-	acct-user/dhcp"
-BDEPEND="virtual/pkgconfig"
+	acct-user/dhcp
+"
+BDEPEND="
+	doc? (
+		$(python_gen_any_dep '
+			dev-python/sphinx[${PYTHON_USEDEP}]
+			dev-python/sphinx-rtd-theme[${PYTHON_USEDEP}]
+		')
+	)
+	virtual/pkgconfig
+"
 
 PATCHES=(
 	"${FILESDIR}"/${PN}-2.2.0-openssl-version.patch
+	"${FILESDIR}"/${P}-boost-1.89.patch
 )
 
 python_check_deps() {
