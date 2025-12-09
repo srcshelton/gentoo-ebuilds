@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -20,9 +20,7 @@ LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="amd64 ~arm arm64 ~ppc ~ppc64 ~sparc x86"
 
-IUSE="debug firebird iodbc kerberos ldap memcached mongodb mysql odbc oracle pam postgres python readline redis samba selinux sqlite ssl systemd"
-
-RESTRICT="firebird? ( bindist )"
+IUSE="debug iodbc kerberos ldap memcached mongodb mysql odbc oracle pam postgres python readline redis samba selinux sqlite ssl systemd"
 
 # NOTE: Temporary freeradius doesn't support linking with mariadb client
 #       libs also if code is compliant, will be available in the next release.
@@ -48,7 +46,6 @@ DEPEND="
 	sys-libs/libcap
 	sys-libs/talloc
 	virtual/libcrypt:=
-	firebird? ( dev-db/firebird )
 	iodbc? ( dev-db/libiodbc )
 	kerberos? ( virtual/krb5 )
 	ldap? ( net-nds/openldap:= )
@@ -129,6 +126,8 @@ src_prepare() {
 	rm -r src/modules/rlm_eap/types/rlm_eap_ikev2 || die
 	# Requires some membership.h
 	rm -r src/modules/rlm_opendirectory || die
+	# Requires firebird
+	rm -r ./src/modules/rlm_sql/drivers/rlm_sql_firebird || die
 	# ?
 	rm -r src/modules/rlm_sql/drivers/rlm_sql_{db2,freetds} || die
 
@@ -166,7 +165,6 @@ src_prepare() {
 
 	usesqldriver mysql
 	usesqldriver postgres postgresql
-	usesqldriver firebird
 	usesqldriver iodbc
 	usesqldriver odbc unixodbc
 	usesqldriver oracle
