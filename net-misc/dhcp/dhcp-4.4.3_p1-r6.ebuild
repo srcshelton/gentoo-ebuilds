@@ -30,7 +30,7 @@ BDEPEND="
 	acct-user/dhcp
 "
 DEPEND="
-	sys-libs/zlib:=
+	virtual/zlib:=
 	client? (
 		kernel_linux? (
 			ipv6? ( sys-apps/iproute2 )
