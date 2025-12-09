@@ -40,7 +40,7 @@ RESTRICT="!test? ( test )"
 
 COMMON_DEPEND="
 	!<net-misc/openssh-9.2_p1-r3
-	tls-compression? ( >=sys-libs/zlib-1.2.8-r1[static-libs(+)?,${MULTILIB_USEDEP}] )
+	tls-compression? ( >=virtual/zlib-1.2.8-r1:=[static-libs(+)?,${MULTILIB_USEDEP}] )
 "
 BDEPEND="
 	app-shells/bash
