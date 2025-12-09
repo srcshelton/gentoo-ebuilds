@@ -9,7 +9,7 @@ SRC_URI="https://github.com/graygnuorg/pound/releases/download/v${PV}/${P}.tar.g
 
 LICENSE="GPL-3+"
 SLOT="0"
-KEYWORDS="amd64 ~hppa x86"
+KEYWORDS="amd64 ~hppa ~ppc x86"
 IUSE="tcmalloc test"
 
 RESTRICT="mirror
@@ -35,6 +35,10 @@ BDEPEND="
 		dev-perl/Net-SSLeay
 	)
 "
+
+PATCHES=(
+	"${FILESDIR}"/${P}-test-threads.patch
+)
 
 src_configure() {
 	local myconf=(
