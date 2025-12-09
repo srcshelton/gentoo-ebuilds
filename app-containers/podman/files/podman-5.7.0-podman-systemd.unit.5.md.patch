@@ -1,0 +1,20 @@
+--- a/docs/source/markdown/podman-systemd.unit.5.md
++++ b/docs/source/markdown/podman-systemd.unit.5.md
+@@ -1730,7 +1730,7 @@ Valid options for `[Build]` are listed b
+ | ForceRM=false                       | --force-rm=false                            |
+ | GlobalArgs=--log-level=debug        | --log-level=debug                           |
+ | GroupAdd=keep-groups                | --group-add=keep-groups                     |
+-| IgnoreFile=/path/to/.customignore   | --ignorefile=/path/to/.customignore         |
++| IgnoreFile=/path/to/\.customignore  | --ignorefile=/path/to/\.customignore        |
+ | ImageTag=localhost/imagename        | --tag=localhost/imagename                   |
+ | Label=label                         | --label=label                               |
+ | Network=host                        | --network=host                              |
+@@ -2148,7 +2148,7 @@ Valid options for `[Artifact]` are liste
+ | Quiet=true                                  | --quiet                                                |
+ | Retry=5                                     | --retry=5                                              |
+ | RetryDelay=10s                              | --retry-delay=10s                                      |
+-| ServiceName=my-artifact                     | Set the systemd service name to my-artifact.service   |
++| ServiceName=my-artifact                     | Set the systemd service name to my-artifact.service    |
+ | TLSVerify=false                             | --tls-verify=false                                     |
+ 
+ ### `Artifact=`

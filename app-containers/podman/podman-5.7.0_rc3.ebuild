@@ -62,6 +62,8 @@ RDEPEND="${COMMON_DEPEND}
 	wrapper? ( !app-containers/docker-cli )
 "
 
+PATCHES="${FILESDIR}/${P}-podman-systemd.unit.5.md.patch"
+
 pkg_setup() {
 	# Inherited from app-containers/docker-27.0.3...
 	#
@@ -274,21 +276,23 @@ src_compile() {
 	fi
 
 	emake \
-			GOFLAGS="-trimpath" \
-			BUILDFLAGS="-v -work -x" \
-			GOMD2MAN="go-md2man" \
-			EXTRA_LDFLAGS="-bindnow -s -w" \
-			SELINUXOPT= \
-		all $(usex wrapper 'docker-docs' '')
+				GOFLAGS="-trimpath" \
+				BUILDFLAGS="-v -work -x" \
+				GOMD2MAN="go-md2man" \
+				EXTRA_LDFLAGS="-bindnow -s -w" \
+				SELINUXOPT= \
+			all $(usex wrapper 'docker-docs' '') ||
+		die "'emake all$(usex wrapper ' docker-docs' '')' failed: ${?}"
 }
 
 src_install() {
 	emake \
-			PREFIX="${EPREFIX}/usr" \
-			DESTDIR="${D}" \
-			SELINUXOPT= \
-		install install.completions \
-			$(usex wrapper 'install.docker-full' '')
+				PREFIX="${EPREFIX}/usr" \
+				DESTDIR="${D}" \
+				SELINUXOPT= \
+			install install.completions \
+				$(usex wrapper 'install.docker-full' '') ||
+		die "'emake install install.completions$(usex wrapper ' install.docker-full' '')' failed: ${?}"
 
 	if ! use experimental; then
 		rm \
