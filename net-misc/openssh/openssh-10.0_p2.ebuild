@@ -8,7 +8,7 @@ inherit autotools eapi9-ver flag-o-matic optfeature pam systemd toolchain-funcs 
 
 # Make it more portable between straight releases
 # and _p? releases.
-PARCH=${P/_}
+PARCH=${PN}-10.0p1
 
 DESCRIPTION="Port of OpenBSD's free SSH release"
 HOMEPAGE="https://www.openssh.com/"
@@ -16,19 +16,21 @@ SRC_URI="
 	mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz
 	verify-sig? ( mirror://openbsd/OpenSSH/portable/${PARCH}.tar.gz.asc )
 "
-S="${WORKDIR}/${PARCH}"
+if [[ ${PV} != 10.0_p2 ]] ; then
+	die "Please restore the old S/PATCHES. 10.0_p2 had a workaround that should be dropped."
+fi
+S="${WORKDIR}/${PN}-10.0p1"
 
 LICENSE="BSD GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 # Probably want to drop ssl defaulting to on in a future version.
-IUSE="abi_mips_n32 agent audit debug kerberos ldns libedit livecd pam +pie security-key selinux +ssl static systemd test xmss"
+IUSE="abi_mips_n32 audit debug kerberos ldns libedit livecd pam security-key selinux +ssl static systemd test xmss"
 
 RESTRICT="!test? ( test )"
 
 REQUIRED_USE="
 	ldns? ( ssl )
-	pie? ( !static )
 	static? ( !kerberos !pam )
 	xmss? ( ssl  )
 	test? ( ssl )
@@ -81,7 +83,7 @@ PATCHES=(
 	"${FILESDIR}/${PN}-9.7_p1-config-tweaks.patch"
 
 	# Backports from upstream release branch
-	#"${FILESDIR}/${PV}"
+	"${FILESDIR}/${PV}"
 
 	# Our own backports
 
@@ -147,11 +149,6 @@ src_prepare() {
 		-e 's:-D_FORTIFY_SOURCE=2::'
 	)
 
-	# The -ftrapv flag ICEs on hppa #505182
-	use hppa && sed_args+=(
-		-e '/CFLAGS/s:-ftrapv:-fdisable-this-test:'
-		-e '/OSSH_CHECK_CFLAG_LINK.*-ftrapv/d'
-	)
 	# _XOPEN_SOURCE causes header conflicts on Solaris
 	[[ ${CHOST} == *-solaris* ]] && sed_args+=(
 		-e 's/-D_XOPEN_SOURCE//'
@@ -199,14 +196,16 @@ src_configure() {
 		#    Clang (bug #872548), ICEs on m68k (bug #920350, gcc PR113086,
 		#    gcc PR104820, gcc PR104817, gcc PR110934)).
 		#
-		# Furthermore, OSSH_CHECK_CFLAG_COMPILE does not use AC_CACHE_CHECK,
-		# so we cannot just disable -fzero-call-used-regs=used.
+		# Furthermore, OSSH_CHECK_CFLAG_COMPILE does not use AC_CACHE_CHECK
+		# util 10.1_p1, so we cannot just disable -fzero-call-used-regs=used.
 		#
 		# Therefore, just pass --without-hardening, given it doesn't negate
 		# our already hardened toolchain defaults, and avoids adding flags
 		# which are known-broken in both Clang and GCC and haven't been
 		# proven reliable.
 		--without-hardening
+		--without-pie
+		--without-stackprotect
 
 		# wtmpdb not yet packaged
 		--without-wtmpdb
@@ -216,7 +215,6 @@ src_configure() {
 		$(use_with ldns)
 		$(use_with libedit)
 		$(use_with pam)
-		$(use_with pie)
 		$(use_with selinux)
 		$(use_with security-key security-key-builtin)
 		$(use_with ssl openssl)
@@ -304,7 +302,7 @@ src_test() {
 	if [[ ${shell} == */nologin ]] || [[ ${shell} == */false ]] ; then
 		ewarn "Running the full OpenSSH testsuite requires a usable shell for the 'portage'"
 		ewarn "user, so we will run a subset only."
-		tests+=( interop-tests )
+		tests+=( interop-tests file-tests unit )
 	else
 		tests+=( tests )
 	fi
@@ -320,10 +318,8 @@ src_install() {
 	dobin contrib/ssh-copy-id
 	newinitd "${FILESDIR}"/sshd-r1.initd sshd
 	newconfd "${FILESDIR}"/sshd-r1.confd sshd
-	if use agent; then
-		exeinto /etc/user/init.d
-		newexe "${FILESDIR}"/ssh-agent.initd ssh-agent
-	fi
+	exeinto /etc/user/init.d
+	newexe "${FILESDIR}"/ssh-agent.initd ssh-agent
 
 	if use pam; then
 		newpamd "${FILESDIR}"/sshd.pam_include.2 sshd
