@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="a00ce11e91eb54c9c1bdfd773d13d4cdd41bb206" # "No tengo miedo al invierno, con tu recuerdo lleno de sol."
+RUNC_COMMIT="a00ce11e91eb54c9c1bdfd773d13d4cdd41bb206" # "No tengo miedo al invierno, con tu recuerdo lleno de sol." (I'm not afraid of winter, with your memory full of sunshine.)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"

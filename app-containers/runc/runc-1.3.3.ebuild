@@ -2,10 +2,9 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-
 inherit go-module linux-info
 
-RUNC_COMMIT="aeabe4e711d903ef0ea86a4155da0f9e00eabd29" # "奴らに支配されていた恐怖を" # "The fear that was under their control"
+RUNC_COMMIT="d842d7719497cc3b774fd71620278ac9e17710e0" # "奴らに支配されていた恐怖を" (The fear that was under their control)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"

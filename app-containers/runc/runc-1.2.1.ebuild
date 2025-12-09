@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="d7735e388ef5eecbd60d93bfbe5afe0f3fbc8a6b" # "No existe una escuela que enseñe a vivir."
+RUNC_COMMIT="d7735e388ef5eecbd60d93bfbe5afe0f3fbc8a6b" # "No existe una escuela que enseñe a vivir." (There is no school that teaches how to live.)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"

@@ -1,32 +1,40 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
 inherit go-module linux-info
 
-RUNC_COMMIT="18a0cb0f32bcac2ecc9a10f327d282759c144dab" # "Śruba, przykręcona we śnie, nie zmieni sytuacji, jaka panuje na jawie." (A screw tightened in a dream will not change the situation that prevails in reality.)
+RUNC_COMMIT="d6d73eb8c60246978da649ffe75ce5c8bca8f856" # "Take me to your heart, take me to your soul."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
-HOMEPAGE="http://github.com/opencontainers/runc/"
+HOMEPAGE="https://github.com/opencontainers/runc/"
 MY_PV="${PV/_/-}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
+S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
-KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv ~x86"
-IUSE="+ambient apparmor +bash-completion hardened +kmem +man +seccomp selinux test"
+KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
+IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
 
-DEPEND="seccomp? ( sys-libs/libseccomp )"
+# sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070
+DEPEND="
+	>=sys-libs/glibc-2.32
+	apparmor? ( sys-libs/libapparmor )
+	seccomp? ( sys-libs/libseccomp )
+"
 
 RDEPEND="
 	${DEPEND}
-	!app-emulation/docker-runc
-	apparmor? ( sys-libs/libapparmor )
 	selinux? ( sec-policy/selinux-container )
+	!app-emulation/docker-runc
 "
 
+# dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
 BDEPEND="
+	>=dev-lang/go-1.23.0
 	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils
@@ -37,9 +45,7 @@ BDEPEND="
 # tests need busybox binary, and portage namespace
 # sandboxing disabled: mount-sandbox pid-sandbox ipc-sandbox
 # majority of tests pass
-RESTRICT+=" test"
-
-S="${WORKDIR}/${PN}-${MY_PV}"
+RESTRICT="test"
 
 src_prepare() {
 	default
@@ -50,17 +56,20 @@ src_prepare() {
 
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
-	export CGO_CFLAGS="-I${ESYSROOT}/usr/include"
-	export CGO_LDFLAGS="$(usex hardened '-fno-PIC ' '')
+	CGO_CFLAGS="${CGO_CFLAGS:-} -I${ESYSROOT}/usr/include"
+	CGO_LDFLAGS="${CGO_LDFLAGS:-} $(usex hardened '-fno-PIC ' '')
 		-L${ESYSROOT}/usr/$(get_libdir)"
 
 	# build up optional flags
+	#
+	# (no)kmem support was removed in v1.0.0-rc94 - kernel memory is
+	# ignored
+	# apparmor & selinux are default-enabled since v1.0.0-rc93, but we
+	# still want to control the resulting dependencies...
 	local options=(
-		$(usev ambient)
 		$(usev apparmor)
 		$(usev seccomp)
 		$(usev selinux)
-		$(usex kmem '' 'nokmem')
 	)
 
 	myemakeargs=(

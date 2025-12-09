@@ -5,7 +5,7 @@ EAPI=8
 
 inherit go-module linux-info
 
-RUNC_COMMIT="e89a29929c775025419ab0d218a43588b4c12b9a" # "Hasta la victoria, siempre."
+RUNC_COMMIT="e89a29929c775025419ab0d218a43588b4c12b9a" # "Hasta la victoria, siempre." (Until victory, always.)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"

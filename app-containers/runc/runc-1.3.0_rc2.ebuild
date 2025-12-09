@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="159c67f8e2233b6cb84a203dc47ed182381b666c" # "Eppur si muove."
+RUNC_COMMIT="159c67f8e2233b6cb84a203dc47ed182381b666c" # "Eppur si muove." (And yet it moves.)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"

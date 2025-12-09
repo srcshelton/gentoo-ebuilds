@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="6c52b3fc541fb26fe8c374d5f58112a0a5dbda66" # "Христос се роди!"
+RUNC_COMMIT="6c52b3fc541fb26fe8c374d5f58112a0a5dbda66" # "Христос се роди!" (Christ is born!)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
