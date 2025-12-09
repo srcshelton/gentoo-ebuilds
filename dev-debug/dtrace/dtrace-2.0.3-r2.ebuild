@@ -32,7 +32,7 @@ DEPEND="
 	net-libs/libpcap
 	>=sys-fs/fuse-3.2.0:3=
 	>=sys-libs/binutils-libs-2.42:=
-	sys-libs/zlib
+	virtual/zlib:=
 	systemd? ( sys-apps/systemd )
 "
 RDEPEND="
@@ -146,8 +146,8 @@ src_configure() {
 		--prefix="${EPREFIX}"/usr
 		--mandir="${EPREFIX}"/usr/share/man
 		--docdir="${EPREFIX}"/usr/share/doc/${PF}
+		$(use_with systemd)
 		HAVE_LIBCTF=yes
-		HAVE_LIBSYSTEMD=$(usex systemd)
 		HAVE_BPFV3=yes
 		HAVE_VALGRIND=$(usex valgrind)
 	)
@@ -177,7 +177,8 @@ src_test() {
 src_install() {
 	emake DESTDIR="${D}" -j1 install $(usev test-install install-test)
 
-	# Stripping the BPF libs breaks them
+	# We want to strip neither the BPF libraries nor libdtrace.so itself
+	# as probes attach to some symbols that would get removed otherwise.
 	dostrip -x "/usr/$(get_libdir)"
 
 	# It's a binary (TODO: move it?)
