@@ -79,7 +79,7 @@ RDEPEND="
 	sys-apps/logwatch
 	sys-apps/util-linux
 	sys-libs/libcap
-	sys-libs/zlib
+	virtual/zlib:=
 	sys-process/iotop
 	virtual/libelf
 	ap? ( net-wireless/iw )

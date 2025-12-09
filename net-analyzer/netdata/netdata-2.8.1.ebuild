@@ -20,11 +20,11 @@ else
 	# ... from _libbpf_tag in packaging/cmake/Modules/NetdataLibBPF.cmake
 	LIBBPF_VERSION="1.6.2p_netdata"
 	# ... release with last change to src/go/go.sum
-	GO_VENDOR_VERSION="2.7.0"
+	GO_VENDOR_VERSION="2.8.0"
 
 	# netdata's proprietary agent.tar.gz is unversioned :(
-	AGENT_ETAG="68f72ddd-cd6131"
-	AGENT_DATE="20251022"
+	AGENT_ETAG="69247684-cef656"
+	AGENT_DATE="20251124"
 
 	# netdata's fork of corrosion-rs/corrosion has tags for, e.g. 'v0.5.0',
 	# 'v0.5.1', etc. - however, they're not using immutable tags and so 'v0.5'
@@ -370,7 +370,7 @@ src_prepare() {
 	# Upstream won't support "extremely long custom compiler and linker flags"
 	# (#21209), and versions 2.7.x are unstable without modifications :(
 	strip-flags
-	tc-export
+	strip-unsupported-flags
 	elog "Stripped CPPFLAGS: '${CPPFLAGS:-}'"
 	elog "Stripped CFLAGS: '${CFLAGS:-}'"
 	elog "Stripped CXXFLAGS: '${CXXFLAGS:-}'"
