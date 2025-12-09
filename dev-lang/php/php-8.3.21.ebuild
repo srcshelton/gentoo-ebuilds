@@ -104,7 +104,7 @@ COMMON_DEPEND="
 	xml? ( >=dev-libs/libxml2-2.12.5:= )
 	xslt? ( dev-libs/libxslt )
 	zip? ( dev-libs/libzip:= )
-	zlib? ( sys-libs/zlib:0= )
+	zlib? ( virtual/zlib:= )
 "
 
 IDEPEND=">=app-eselect/eselect-php-0.9.7[apache2?,fpm?]"
