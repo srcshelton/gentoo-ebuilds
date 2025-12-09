@@ -36,7 +36,7 @@ REQUIRED_USE="jdbc? ( extraengine server !static )
 COMMON_DEPEND="
 	>=dev-libs/libpcre2-10.34:=
 	sys-libs/ncurses:0=
-	>=sys-libs/zlib-1.2.3:0=
+	>=virtual/zlib-1.2.3:=
 	virtual/libcrypt:=
 	!bindist? (
 		sys-libs/binutils-libs:0=
