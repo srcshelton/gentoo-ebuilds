@@ -3,6 +3,7 @@
 
 EAPI=8
 
+# https://pcre2project.github.io/pcre2/project/security/
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/nicholaswilson.asc
 inherit dot-a libtool multilib toolchain-funcs usr-ldscript verify-sig multilib-minimal
 
@@ -38,7 +39,7 @@ DEPEND="
 "
 BDEPEND="
 	virtual/pkgconfig
-	verify-sig? ( sec-keys/openpgp-keys-nicholaswilson )
+	verify-sig? ( >=sec-keys/openpgp-keys-nicholaswilson-20250910 )
 "
 
 MULTILIB_CHOST_TOOLS=(
