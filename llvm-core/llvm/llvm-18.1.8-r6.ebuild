@@ -25,7 +25,7 @@ IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi ncurses tes
 RESTRICT="!test? ( test )"
 
 RDEPEND="
-	sys-libs/zlib:0=[${MULTILIB_USEDEP}]
+	virtual/zlib:=[${MULTILIB_USEDEP}]
 	debuginfod? (
 		net-misc/curl:=
 		dev-cpp/cpp-httplib:=
@@ -69,7 +69,7 @@ PATCHES=(
 
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
-LLVM_PATCHSET=${PV}-r6
+LLVM_PATCHSET=${PV}-r7
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 

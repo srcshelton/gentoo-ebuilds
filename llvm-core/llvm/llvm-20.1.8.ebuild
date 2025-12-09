@@ -24,7 +24,7 @@ IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi test xml z3
 RESTRICT="!test? ( test )"
 
 RDEPEND="
-	sys-libs/zlib:0=[${MULTILIB_USEDEP}]
+	virtual/zlib:=[${MULTILIB_USEDEP}]
 	debuginfod? (
 		net-misc/curl:=
 		dev-cpp/cpp-httplib:=
