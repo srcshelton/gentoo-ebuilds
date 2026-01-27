@@ -1,8 +1,9 @@
-# Copyright 2023-2024 Gentoo Authors
+# Copyright 2023-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
+RUST_MIN_VER="1.87.0"
 [[ ${PV} == 9999* ]] || CRATES="${PN}@${PV}"
 inherit cargo
 
@@ -25,8 +26,6 @@ QA_FLAGS_IGNORED="usr/libexec/podman/${PN}"
 QA_PRESTRIPPED="usr/libexec/podman/${PN}"
 ECARGO_VENDOR="${WORKDIR}/vendor"
 
-BDEPEND="|| ( >=dev-lang/rust-1.70.0 >=dev-lang/rust-bin-1.70.0 )"
-
 src_unpack() {
 	if [[ ${PV} == 9999* ]]; then
 		git-r3_src_unpack
@@ -42,7 +41,7 @@ src_prepare() {
 }
 
 src_install() {
-	export PREFIX="${EPREFIX}"/usr
+	local -x PREFIX="${EPREFIX}"/usr
 	default
 
 	dodir /usr/bin
