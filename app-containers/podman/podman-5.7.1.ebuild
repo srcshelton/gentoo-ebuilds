@@ -63,7 +63,7 @@ RDEPEND="${COMMON_DEPEND}
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-podman-systemd.unit.5.md.patch"
+	"${FILESDIR}/${PN}-5.7.0-podman-systemd.unit.5.md.patch"
 )
 
 pkg_setup() {
