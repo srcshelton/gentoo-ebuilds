@@ -1,27 +1,30 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 ETYPE="sources"
-K_WANT_GENPATCHES="extras experimental"
-K_GENPATCHES_VER="53"
+K_WANT_GENPATCHES="base extras experimental"
+K_GENPATCHES_VER="68"
+#K_BASE_VER="${PV}"
 
 CKV="${PV%_p*}"
 
 #K_DEFCONFIG="bcmrpi_defconfig" # Set below...
 K_SECURITY_UNSUPPORTED=1
-#
-#EXTRAVERSION="-${PN}/-*" # Set below...
-K_NODRYRUN=1  # Fail early rather than trying -p0 to -p5, seems to fix unipatch()!
-K_NOSETEXTRAVERSION=1
-K_NOUSENAME=1
-K_NOUSEPR=1
 
-K_EXP_GENPATCHES_NOUSE=1
+#EXTRAVERSION="-${PN}/-*" # Set below...
+#K_NODRYRUN=1  # Fail early rather than trying -p0 to -p5, seems to fix unipatch()!
+#K_NOSETEXTRAVERSION=1
+#K_NOUSENAME=1
+#K_NOUSEPR=1
+
+# Hide 'experimental' USE flag
+#K_EXP_GENPATCHES_NOUSE=1
 K_DEBLOB_AVAILABLE=0
 
 H_SUPPORTEDARCH="arm arm64"
-K_FROM_GIT=1
+
+DEBIAN_PATCH="pios%2f1%25${PV}-1+rpt1.tar.gz"
 
 inherit kernel-2 linux-info
 detect_version
@@ -29,35 +32,24 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-#EGIT_COMMIT=""  # ... why is keeping two repos in sync so hard for the Raspberry Pi Foundation?! :(
-MY_PV="stable_${PV#*_p}"
-
 DESCRIPTION="Raspberry Pi kernel sources"
 HOMEPAGE="https://github.com/raspberrypi/linux"
 SRC_URI="
-	https://github.com/raspberrypi/linux/archive/${EGIT_COMMIT:-"${MY_PV}"}.tar.gz -> ${P}.tar.gz
-	${GENPATCHES_URI}
+	https://github.com/RPi-Distro/linux-packaging/archive/refs/tags/${DEBIAN_PATCH}
+	${KERNEL_URI} ${GENPATCHES_URI} ${ARCH_URI}
 "
 RESTRICT=mirror
 
 KEYWORDS="arm arm64"
-IUSE="+64bit rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 rpi500 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s rpi-cm5"
+IUSE="+64bit experimental rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 rpi500 rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4s rpi-cm5"
 REQUIRED_USE="
 	|| ( rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi500 rpi-cm5 )
 	64bit? ( || ( rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi500 rpi-cm5 ) )
 "
 
 PATCHES=(
-	"${FILESDIR}/${PN}-mmc-dma-Kconfig.patch"
-	#"${FILESDIR}/${PN}-pcie-brcmstb.c.patch"
-	#"${FILESDIR}/${PN}-6.1.21-gentoo-kconfig.patch"
+	"${WORKDIR}/linux-packaging-pios-1-${PV}-1-rpt1/debian/patches/rpi/rpi.patch"
 )
-
-if [[ -n "${EGIT_COMMIT}" ]]; then
-	S="${WORKDIR}/linux-${CKV}"
-else
-	S="${WORKDIR}/linux-${MY_PV:-"${CKV}"}"
-fi
 
 pkg_setup() {
 	local kernel='' config='' version='' i=''
@@ -79,6 +71,11 @@ pkg_setup() {
 			rpi*) version+="+${i}" ;;
 		esac
 	done
+
+	# Patched configuration definitions:
+	#   arch/arm/configs/bcm2709_defconfig
+	#   arch/arm/configs/bcm2711_defconfig
+	#   arch/arm/configs/bcmrpi_defconfig
 
 	if use 64bit; then
 		kernel='kernel8'
@@ -119,22 +116,11 @@ pkg_setup() {
 	fi
 }
 
-universal_unpack() {
-	cd "${WORKDIR}" || die "chdir() to '${WORKDIR}' failed: ${?}"
-	unpack "${P}.tar.gz"
-
-	if [[ -n "${EGIT_COMMIT}" ]]; then
-		mv "linux-${EGIT_COMMIT}" "linux-${KV_FULL}"
-	fi
-	cd "${S}" || die "chdir() to '${S}' failed: ${?}"
-
-	# remove all backup files
-	find . -iname "*~" -exec rm {} \; 2>/dev/null
-}
-
 src_unpack() {
-	# We expect unipatch to fail :(
-	$( kernel-2_src_unpack ) || :
+	kernel-2_src_unpack
+
+	cd "${WORKDIR}" || die "chdir() to '${WORKDIR}' failed: ${?}"
+	unpack "${DEBIAN_PATCH}"
 }
 
 
@@ -146,7 +132,7 @@ src_prepare() {
 src_install() {
 	# e.g. linux-raspberrypi-kernel_1.20200601-1 -> linux-4.19.118-raspberrypi-r1
 	dodir /usr/src
-	if [[ "${PR}" != 'r0' ]]; then
+	if [[ "${PR:-"r0"}" != 'r0' ]]; then
 		mv "${S}" "${ED}/usr/src/linux-${CKV}-raspberrypi-${PR}"
 	else
 		mv "${S}" "${ED}/usr/src/linux-${CKV}-raspberrypi"
@@ -157,7 +143,7 @@ pkg_postinst() {
 	kernel-2_pkg_postinst
 
 	if use symlink; then
-		if [[ "${PR}" != 'r0' ]]; then
+		if [[ "${PR:-"r0"}" != 'r0' ]]; then
 			ln -snf "linux-${CKV}-raspberrypi-${PR}" "${EROOT}"/usr/src/linux || die
 		else
 			ln -snf "linux-${CKV}-raspberrypi" "${EROOT}"/usr/src/linux || die
