@@ -1,0 +1,52 @@
+#! /bin/sh
+
+if ! NFT="$( command -v nft 2>/dev/null )"; then
+	echo >&2 "Can't find 'nft' binary"
+	exit 1
+fi
+
+: "${TABLE:="filter"}"
+: "${NAT_TABLE="filter"}"
+: "${CHAIN="MINIUPNPD"}"
+: "${PREROUTING_CHAIN="MINIUPNPD-PREROUTING"}"
+: "${POSTROUTING_CHAIN="MINIUPNPD-POSTROUTING"}"
+
+while getopts ":t:n:c:p:r:h" opt; do
+	case "${opt:-}" in
+		't')
+			TABLE="${OPTARG}"
+			;;
+		'n')
+			NAT_TABLE="${OPTARG}"
+			;;
+		'c')
+			CHAIN="${OPTARG}"
+			;;
+		'p')
+			PREROUTING_CHAIN="${OPTARG}"
+			;;
+		'r')
+			POSTROUTING_CHAIN="${OPTARG}"
+			;;
+		'h')
+			echo "Usage: $( basename ${0} ) [options]"
+			echo
+			echo "Options:"
+			echo "  -t table              upnp_table_name in miniupnpd.conf"
+			echo "  -n nat_table          upnp_nat_table_name in miniupnpd.conf"
+			echo "  -c chain              upnp_forward_chain in miniupnpd.conf"
+			echo "  -p nat_chain          upnp_nat_chain in miniupnpd.conf"
+			echo "  -r postrouting_chain  upnp_nat_postrouting_chain in miniupnpd.conf"
+			exit 0
+			;;
+		'?')
+			echo >&2 "Invalid option: '-${OPTARG}'"
+			echo >&2 "To show usage: ${0} -h"
+			exit 1
+			;;
+		':')
+			echo >&2 "Option '-${OPTARG}' requires an argument"
+			exit 1
+			;;
+	esac
+done
