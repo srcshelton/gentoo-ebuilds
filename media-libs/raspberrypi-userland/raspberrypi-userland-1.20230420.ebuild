@@ -1,7 +1,7 @@
 # Copyright 1999-2023 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 #CMAKE_MAKEFILE_GENERATOR='emake'
 EGIT_REPO="userland"
 EGIT_COMMIT="cc1ca18fb0689b01cc2ca2aa4b400dcee624a213"
