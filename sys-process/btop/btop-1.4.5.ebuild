@@ -4,7 +4,7 @@
 EAPI=8
 
 # The (community-maintained) CMake backend seems broken :(
-#inherit cmake fcaps optfeature toolchain-funcs xdg
+#inherit cmake
 inherit fcaps optfeature toolchain-funcs xdg
 
 DESCRIPTION="A monitor of resources"
@@ -15,8 +15,8 @@ SRC_URI="
 
 LICENSE="Apache-2.0 MIT"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~arm64 ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
-IUSE="gpu +gui +man +themes video_cards_amdgpu video_cards_nvidia"
+KEYWORDS="amd64 ~arm arm64 ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~sparc x86"
+IUSE="gpu +gui +man +themes -video_cards_amdgpu -video_cards_nvidia"
 
 BDEPEND="
 	man? ( app-text/lowdown )
