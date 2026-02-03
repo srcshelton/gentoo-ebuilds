@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -8,9 +8,9 @@ inherit mount-boot readme.gentoo-r1
 if [[ "${PV}" == *9999 ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
-				  # only ~200MB of data - the rest is (literally)
-				  # history :(
+	EGIT_CLONE_TYPE="shallow"
+	# The current repo is ~4GB in size, but contains only ~200MB of data - the
+	# rest is (literally) history :(
 	if ! [[ "${PV}" == 9999 ]]; then
 		EGIT_BRANCH="stable"
 	fi

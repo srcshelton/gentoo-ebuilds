@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -33,11 +33,11 @@ RDEPEND="
 "
 
 if [[ "${PV}" == *9999 ]]; then
-	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
-				  # only ~200MB of data - the rest is (literally)
-				  # history :(
 	inherit git-r3
+	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
+	# The current repo is ~4GB in size, but contains only ~200MB of data - the
+	# rest is (literally) history :(
+	EGIT_CLONE_TYPE="shallow"
 	if ! [[ "${PV}" == 9999 ]]; then
 		EGIT_BRANCH="stable"
 	fi

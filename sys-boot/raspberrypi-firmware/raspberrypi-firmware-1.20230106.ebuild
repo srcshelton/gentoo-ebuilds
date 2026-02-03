@@ -8,9 +8,9 @@ inherit mount-boot readme.gentoo-r1
 if [[ "${PV}" == *9999 ]]; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-	EGIT_CLONE_TYPE="shallow" # The current repo is ~4GB in size, but contains
-				  # only ~200MB of data - the rest is (literally)
-				  # history :(
+	# The current repo is ~4GB in size, but contains only ~200MB of data - the
+	# rest is (literally) history :(
+	EGIT_CLONE_TYPE="shallow"
 	if ! [[ "${PV}" == 9999 ]]; then
 		EGIT_BRANCH="stable"
 	fi

@@ -2,6 +2,10 @@
 Various [Gentoo Linux](http://www.gentoo.org/) ebuilds, to provide out-of-tree
 packages and miscellaneous fixes.
 
+# TODO
+
+Investigate extracting `PARALLEL_MEMORY_MIN` handling to a new eclass ...
+
 # Latest versions of podman container management tools
 
 * app-containers/buildah
@@ -586,8 +590,6 @@ used to build perl)
     * Prevent build from incorrectly creating `/run` directory
 * net-dns/dnscrypt-proxy
     * Move binary to /sbin
-* net-nds/rpcbind
-    * Forcibly unset '-z max-page-size', to prevent binary size bloating on the root filesystem
 * ~~net-dns/dnstop~~
     * ~~build correctly against >=libpcap-1.8.0 with (non-optional) IPv6 support~~
 * net-firewall/ebtables
@@ -642,8 +644,8 @@ used to build perl)
     * Updates to make mdev more functional - see [here](http://blog.stuart.shelton.me/archives/891)...
 * sys-apps/dtc
     * Add missing dev-python/setuptools dependency
-* sys-apps/ed
-    * Forcibly unset '-z max-page-size', to prevent binary size bloating on the root filesystem
+* ~~sys-apps/ed~~
+    * ~~Forcibly unset '-z max-page-size', to prevent binary size bloating on the root filesystem~~
 * sys-apps/findutils
     * Install (g)`xargs` to `/bin` rather than `/usr/bin`, for init scripts which invoke `xargs`
 * sys-apps/fwupd
@@ -793,6 +795,7 @@ directory is an additional QA check which reports an error if files deployed to
 * net-misc/openntpd
 * net-misc/radvd
 * net-misc/rsyncd
+* net-nds/rpcbind
 * net-p2p/deluge
 * net-print/cups
 * net-print/cups-filters
