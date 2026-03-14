@@ -412,6 +412,8 @@ used to build perl)
     * 'rpiboot' and associated firmware
 * sys-devel/polly
     * clang/LLVM loop optimiser
+* sys-firmware/cix-sky1-firmware
+    * Add CIX firmware blobs
 * sys-firmware/raspberrypi-wifi-ucode
     * Add more recent raspberrypi-wifi-ucode-20240709.2\_p3 release
 * sys-fs/eudev
