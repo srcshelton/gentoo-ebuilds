@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai>
+Date: Thu, 12 Mar 2026 00:00:00 +0000
+Subject: [PATCH] gpio: cadence: fix PM ops when PM_SLEEP is disabled
+
+LATE_SYSTEM_SLEEP_PM_OPS() always references suspend/resume symbols.
+This driver only defines those callbacks under CONFIG_PM_SLEEP, so
+allnoconfig-style builds can fail with undeclared identifiers.
+
+Use SET_LATE_SYSTEM_SLEEP_PM_OPS() so callbacks are only wired when
+CONFIG_PM_SLEEP is enabled.
+
+---
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -303,7 +303,7 @@
+ #endif
+ 
+ static const struct dev_pm_ops cdns_gpio_pm_ops = {
+-	LATE_SYSTEM_SLEEP_PM_OPS(cdns_gpio_suspend, cdns_gpio_resume)
++	SET_LATE_SYSTEM_SLEEP_PM_OPS(cdns_gpio_suspend, cdns_gpio_resume)
+ };
+ 
+ static int cdns_gpio_probe(struct platform_device *pdev)
+-- 
+2.39.5

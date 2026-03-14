@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai>
+Date: Tue, 10 Mar 2026 00:00:00 +0000
+Subject: [PATCH] cix: fix deps, section mismatch, and clang uninit build failures
+
+Fix multiple build failures in CIX code paths seen with allmodconfig/clang
+and constrained configs:
+
+- Select REGMAP for CIX PHY drivers that use regmap APIs.
+- Require built-in TYPEC for PHY_CIX_USBDP because it calls typec
+  mux/switch APIs from built-in code.
+- Remove __init from sky1 ACPI PDC init callback to avoid section mismatch
+  warnings from runtime probe paths.
+- Fix uninitialized-variable warnings in PCIe PHY and ASoC card helper code
+  that become hard failures under CONFIG_WERROR=y.
+
+---
+--- a/drivers/irqchip/irq-sky1-pdc.c
++++ b/drivers/irqchip/irq-sky1-pdc.c
+@@ -203,7 +203,7 @@
+ }
+ 
+ #ifdef CONFIG_ACPI
+-static int __init sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
++static int sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
+ {
+ 	struct irq_domain *domain;
+ 	struct pdcv1_irqchip_data *cd;
+--- a/drivers/phy/cix/Kconfig
++++ b/drivers/phy/cix/Kconfig
+@@ -4,6 +4,7 @@
+ 	bool "CIX Sky1 PCIe PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on OF
++	select REGMAP
+ 	select GENERIC_PHY
+ 	help
+ 	  Enable this to support the PCIe PHY on CIX Sky1 SoCs.
+@@ -22,6 +23,7 @@
+ 	bool "CIX Sky1 USB3 PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on OF
++	select REGMAP
+ 	select GENERIC_PHY
+ 	help
+ 	  Enable this to support the USB3 PHY on CIX Sky1 SoCs.
+@@ -30,6 +32,8 @@
+ 	bool "CIX Sky1 USB-DP combo PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on OF
++	depends on TYPEC = y
++	select REGMAP
+ 	select GENERIC_PHY
+ 	help
+ 	  Enable this to support the USB-DP combo PHY on CIX Sky1 SoCs.
+--- a/drivers/phy/cix/phy-cix-pcie.c
++++ b/drivers/phy/cix/phy-cix-pcie.c
+@@ -349,7 +349,7 @@
+ 
+ static int pcie_phy_common_init(struct cix_pcie_phy *pcie_phy)
+ {
+-	int ret;
++	int ret = -EINVAL;
+ 
+ 	if (pcie_phy->num_lanes == X8) {
+ 		ret = regmap_multi_reg_write(pcie_phy->phy_regmap, pcie_x8, ARRAY_SIZE(pcie_x8));
+@@ -359,6 +359,7 @@
+ 		ret = regmap_multi_reg_write(pcie_phy->phy_regmap, pcie_x211, ARRAY_SIZE(pcie_x211));
+ 	} else {
+ 		dev_err(pcie_phy->dev, "Invalid Phy Config\n");
++		return ret;
+ 	}
+ 
+ 	if (ret) {
+--- a/sound/soc/cix/card-utils.c
++++ b/sound/soc/cix/card-utils.c
+@@ -167,6 +167,10 @@
+ 		} else if (sample_rate == 192000) {
+ 			mclk_fs = 256;
+ 			mclk_div = 0;
++		} else {
++			dev_err(rtd->dev, "Unsupported sample rate %u for 8kHz clock family\n",
++				sample_rate);
++			return -EINVAL;
+ 		}
+ 
+ 		mclk_parent = link_info->clks[AUDIO_CLK0];
+@@ -186,6 +190,10 @@
+ 		} else if (sample_rate == 176400) {
+ 			mclk_fs = 256;
+ 			mclk_div = 0;
++		} else {
++			dev_err(rtd->dev, "Unsupported sample rate %u for 11.025kHz clock family\n",
++				sample_rate);
++			return -EINVAL;
+ 		}
+ 
+ 		mclk_parent = link_info->clks[AUDIO_CLK2];
+-- 
+2.39.5
