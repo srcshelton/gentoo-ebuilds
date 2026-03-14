@@ -22,7 +22,7 @@ fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fuse +rootless selinux systemd +tmpfiles wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fuse +rootless selinux systemd +tmpfiles user-service wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
@@ -31,7 +31,7 @@ COMMON_DEPEND="
 	app-containers/crun
 	>=app-containers/netavark-1.6.0[dns]
 	app-crypt/gpgme:=
-	>=dev-db/sqlite-3:=
+	dev-db/sqlite:3
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	sys-apps/shadow:=
@@ -337,11 +337,13 @@ src_install() {
 		insinto /etc/logrotate.d
 		newins "${FILESDIR}/podman.logrotated" podman
 
-		exeinto /etc/user/init.d
-		newexe "${FILESDIR}/podman-5.0.0_rc4.user.initd" podman
+		if use user-service; then
+			exeinto /etc/user/init.d
+			newexe "${FILESDIR}/podman-5.0.0_rc4.user.initd" podman
 
-		insinto /etc/user/conf.d
-		newins "${FILESDIR}/podman-5.0.0_rc4.user.confd" podman
+			insinto /etc/user/conf.d
+			newins "${FILESDIR}/podman-5.0.0_rc4.user.confd" podman
+		fi
 	fi
 
 	if ! use bash-completion; then
