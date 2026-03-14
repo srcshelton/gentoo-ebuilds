@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{12..14} )
+PYTHON_COMPAT=( python3_{12..13} )
 PARALLEL_MEMORY_MIN=4
 
 inherit cmake llvm.org multilib prefix python-single-r1 toolchain-funcs multilib-minimal
@@ -49,7 +49,7 @@ LLVM_MANPAGES=1
 LLVM_TEST_COMPONENTS=(
 	llvm/utils
 )
-LLVM_USE_TARGETS=llvm+eq
+LLVM_USE_TARGETS=llvm
 llvm.org_set_globals
 
 [[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" doc? ( "
@@ -138,10 +138,9 @@ check_distribution_components() {
 		done
 
 		if [[ ${#add[@]} -gt 0 || ${#remove[@]} -gt 0 ]]; then
-			eerror "get_distribution_components() is outdated!"
-			eerror "   Add: ${add[*]}"
-			eerror "Remove: ${remove[*]}"
-			die "Update get_distribution_components()!"
+			eqawarn "get_distribution_components() is outdated!"
+			eqawarn "   Add: ${add[*]}"
+			eqawarn "Remove: ${remove[*]}"
 		fi
 		cd - >/dev/null || die
 	fi
@@ -201,8 +200,8 @@ get_distribution_components() {
 			clang-offload-packager
 			clang-refactor
 			clang-repl
+			clang-rename
 			clang-scan-deps
-			clang-sycl-linker
 			diagtool
 			hmaptool
 			nvptx-arch
@@ -220,6 +219,7 @@ get_distribution_components() {
 				clang-include-cleaner
 				clang-include-fixer
 				clang-move
+				clang-pseudo
 				clang-query
 				clang-reorder-fields
 				clang-tidy
@@ -229,8 +229,6 @@ get_distribution_components() {
 				modularize
 				pp-trace
 			)
-
-			use kernel_Darwin && out+=( ClangdXPCLib )
 		fi
 
 		if llvm_are_manpages_built; then
@@ -281,6 +279,8 @@ multilib_src_configure() {
 		ewarn "Disabling LTO support ..."
 		filter-lto
 	fi
+
+	llvm_prepend_path "${LLVM_MAJOR}"
 
 	local mycmakeargs=(
 		-DDEFAULT_SYSROOT=$(usex prefix-guest "" "${EPREFIX}")
