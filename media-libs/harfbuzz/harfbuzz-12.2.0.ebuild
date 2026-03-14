@@ -84,40 +84,7 @@ multilib_src_configure() {
 		$(meson_use experimental experimental_api)
 	)
 
-	if (( ( $( # <- Syntax
-			head /proc/meminfo |
-				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }'
-		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
-	then
-		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
-			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased" \
-				"(or adjust \$EMERGE_DEFAULT_OPTS)"
-		fi
-		ewarn "Lowering make parallelism for low-memory build-host ..."
-		if ! [[ -n "${MAKEOPTS:-}" ]]; then
-			export MAKEOPTS='-j1'
-		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
-			export MAKEOPTS="-j1 ${MAKEOPTS}"
-		else
-			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
-		fi
-		if test-flag-CC '-Wa,--reduce-memory-overheads'; then
-			ewarn "Instructing 'as' to use less memory ..."
-			append-ldflags '-Wa,--reduce-memory-overheads'
-		fi
-		for flag in no-keep-memory reduce-memory-overheads \
-			no-map-whole-files no-mmap-output-file
-		do
-			if test-flag-CCLD "-Wl,--${flag}"; then
-				ewarn "Instructing 'ld' to use less memory with '--${flag}' ..."
-				append-ldflags "-Wl,--${flag}"
-			fi
-		done
-		ewarn "Disabling LTO support ..."
-		filter-lto
-	fi
+	minimise-memory-usage
 
 	meson_src_configure
 }
