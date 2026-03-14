@@ -1,17 +1,19 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-inherit flag-o-matic systemd toolchain-funcs udev usr-ldscript multilib-minimal
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/tytso.asc
+inherit systemd toolchain-funcs udev usr-ldscript verify-sig multilib-minimal
 
 DESCRIPTION="Standard EXT2/EXT3/EXT4 filesystem utilities"
 HOMEPAGE="http://e2fsprogs.sourceforge.net/"
-SRC_URI="https://www.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${PV}/${P}.tar.xz"
+SRC_URI="https://www.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${PV}/${P}.tar.xz
+	verify-sig? ( https://www.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${PV}/${P}.tar.sign )"
 
 LICENSE="GPL-2 BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="archive cron fuse nls static-libs systemd test +tools +udev"
 RESTRICT="!test? ( test )"
 
@@ -33,6 +35,7 @@ BDEPEND="
 	sys-apps/texinfo
 	virtual/pkgconfig
 	nls? ( sys-devel/gettext )
+	verify-sig? ( sec-keys/openpgp-keys-tytso )
 "
 
 MULTILIB_WRAPPED_HEADERS=(
@@ -46,6 +49,16 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-1.47.3-e2scrub-order.patch
 	"${FILESDIR}"/${PN}-1.47.3-fix-logging-redirection.patch
 )
+
+src_unpack() {
+	# Upstream sign the decompressed .tar
+	if use verify-sig ; then
+		verify-sig_uncompress_verify_unpack "${DISTDIR}"/${P}.tar.xz \
+			"${DISTDIR}"/${P}.tar.sign
+	else
+		default
+	fi
+}
 
 src_prepare() {
 	default
