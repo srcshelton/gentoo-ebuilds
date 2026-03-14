@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit autotools linux-info systemd tmpfiles
+inherit autotools dot-a linux-info systemd tmpfiles
 
 DESCRIPTION="Robust and highly flexible tunneling application compatible with many OSes"
 HOMEPAGE="https://community.openvpn.net/ https://openvpn.net"
@@ -11,9 +11,17 @@ HOMEPAGE="https://community.openvpn.net/ https://openvpn.net"
 if [[ ${PV} == "9999" ]]; then
 	EGIT_REPO_URI="https://github.com/OpenVPN/${PN}.git"
 	inherit git-r3
+
+	BDEPEND="dev-python/docutils"
 else
-	SRC_URI="https://build.openvpn.net/downloads/releases/${P}.tar.gz"
+	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/openvpn.asc
+	inherit verify-sig
+
+	SRC_URI="https://build.openvpn.net/downloads/releases/${P}.tar.gz
+		verify-sig? ( https://build.openvpn.net/downloads/releases/${P}.tar.gz.asc )"
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86"
+
+	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-openvpn )"
 fi
 
 LICENSE="GPL-2"
@@ -45,7 +53,7 @@ COMMON_DEPEND="
 	sys-libs/libcap-ng:=
 "
 
-BDEPEND="
+BDEPEND="${BDEPEND}
 	virtual/pkgconfig
 "
 
@@ -60,9 +68,9 @@ RDEPEND="
 	selinux? ( sec-policy/selinux-openvpn )
 "
 
-if [[ ${PV} = "9999" ]]; then
-	BDEPEND+=" dev-python/docutils"
-fi
+PATCHES=(
+	"${FILESDIR}"/${PN}-2.6.17-tests-no-lto.patch
+)
 
 pkg_setup() {
 	local CONFIG_CHECK="~TUN"
@@ -77,6 +85,11 @@ src_prepare() {
 
 src_configure() {
 	local -a myeconfargs
+
+	# See tests-no-lto.patch (done unconditionally to not have the build
+	# vary with and without tests)
+	# Update: If tests aren't significant, then maintain LTO optimisations
+	#lto-guarantee-fat
 
 	if ! use mbedtls; then
 		myeconfargs+=(
@@ -143,6 +156,10 @@ src_install() {
 
 	# https://bugs.gentoo.org/755680#c3
 	doman doc/openvpn.8
+
+	# https://github.com/OpenVPN/openvpn/issues/482 (bug #857648)
+	use tmpfiles &&
+		newtmpfiles distro/systemd/tmpfiles-openvpn.conf openvpn.conf
 }
 
 pkg_postinst() {
