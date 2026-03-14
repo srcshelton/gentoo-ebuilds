@@ -1,10 +1,10 @@
-# Copyright 2024-2025 Gentoo Authors
+# Copyright 2024-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-GO_VENDOR_VERSION="${PV}"
-ROCM_VERSION=6.1.2
+GO_VENDOR_VERSION=0.16.0
+ROCM_VERSION=6.3.3
 inherit cmake cuda flag-o-matic go-module rocm systemd toolchain-funcs
 
 DESCRIPTION="Get up and running with Llama 3, Mistral, Gemma, and other language models."
@@ -64,7 +64,7 @@ DEPEND="
 
 BDEPEND="
 	>=dev-build/cmake-3.31.2
-	>=dev-lang/go-1.23.4
+	>=dev-lang/go-1.24.0
 "
 
 RDEPEND="
@@ -74,8 +74,7 @@ RDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-include-cstdint.patch"
-	"${FILESDIR}/${P}-OMP_NUM_THREADS.patch"
+	"${FILESDIR}/${PN}-0.5.11-OMP_NUM_THREADS.patch"
 )
 
 src_unpack() {
@@ -126,7 +125,7 @@ src_prepare() {
 	if ! use amd64; then
 		sed -e '/set(GGML_CPU_ALL_VARIANTS/{s/ON/OFF/g}' -i CMakeLists.txt ||
 			die
-	else  # ^ use !amd64 | use amd64 v
+	else  # [^] use !amd64 | use amd64 [v]
 		local -A keep_backends=()
 		local backend=''
 
@@ -179,14 +178,14 @@ src_prepare() {
 				einfo "Enabling optimised support for '${arch}'" \
 					"architecture ..."
 			done
-		else  # ^ use multiarch | use !multiarch v
+		else  # [^] use multiarch | use !multiarch [v]
 			if [[ -z "${backend:-}" ]]; then
 				ewarn "Disabling optimised support for all architectures ..."
 			sed \
 					-e '/set(GGML_CPU_ALL_VARIANTS/{s/ON/OFF/g}' \
 					-i CMakeLists.txt ||
 				die
-			else  # ^ -z "${backend:-}" | -n "${backend:-}" v
+			else  # [^] -z "${backend:-}" | -n "${backend:-}" [v]
 				if use minimal; then
 					for arch in "${archs[@]}"; do
 						if [[ "${arch}" == "${backend:-}" ]]; then
@@ -199,7 +198,7 @@ src_prepare() {
 								-i ml/backend/ggml/ggml/src/CMakeLists.txt || die
 						fi
 					done
-				else  # ^ use minimal | use !minimal v
+				else  # [^] use minimal | use !minimal [v]
 					for arch in "${archs[@]}"; do
 						if [[ -n "${keep_backends["${arch}"]:-}" ]]; then
 							einfo "Enabling optimised support for '${arch}'" \

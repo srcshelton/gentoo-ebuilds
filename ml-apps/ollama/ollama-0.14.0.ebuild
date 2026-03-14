@@ -1,4 +1,4 @@
-# Copyright 2024-2025 Gentoo Authors
+# Copyright 2024-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -116,7 +116,7 @@ src_prepare() {
 	sed -e '/set(GGML_CCACHE/{s/ON/OFF/g}' -i CMakeLists.txt || die
 
 	if use !debug; then
-		sed -e '/var mode string = gin\./{s/gin\.DebugMode/gin.ReleaseMode}/' \
+		sed -e '/var mode string = gin\./{s/gin\.DebugMode/gin.ReleaseMode/}' \
 			-e '/mode = gin\./{s/gin\.DebugMode/gin.ReleaseMode/}' \
 			-i server/routes.go || die
 	fi

@@ -1,0 +1,22 @@
+--- a/llm/server.go
++++ b/llm/server.go
+@@ -174,7 +174,18 @@
+ 
+ 	loadRequest := LoadRequest{LoraPath: adapters, KvSize: opts.NumCtx * numParallel, BatchSize: opts.NumBatch, Parallel: numParallel, MultiUserCache: envconfig.MultiUserCache()}
+ 
+-	defaultThreads := systemInfo.ThreadCount
++	defaultThreads := 0
++	OMP_NUM_THREADS := os.Getenv("OMP_NUM_THREADS")
++	if OMP_NUM_THREADS != "" {
++		var err error
++		defaultThreads, err = strconv.Atoi(OMP_NUM_THREADS)
++		if err != nil {
++			return nil, fmt.Errorf("unable to convert environment variable 'OMP_NUM_THREADS' to valid thread count: %v", err)
++		}
++	}
++	if defaultThreads == 0 {
++		defaultThreads = systemInfo.ThreadCount
++	}
+ 	if opts.NumThread > 0 {
+ 		loadRequest.NumThreads = opts.NumThread
+ 	} else if defaultThreads > 0 {

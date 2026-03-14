@@ -116,7 +116,7 @@ src_prepare() {
 	sed -e '/set(GGML_CCACHE/{s/ON/OFF/g}' -i CMakeLists.txt || die
 
 	if use !debug; then
-		sed -e '/var mode string = gin\./{s/gin\.DebugMode/gin.ReleaseMode}/' \
+		sed -e '/var mode string = gin\./{s/gin\.DebugMode/gin.ReleaseMode/}' \
 			-e '/mode = gin\./{s/gin\.DebugMode/gin.ReleaseMode/}' \
 			-i server/routes.go || die
 	fi
