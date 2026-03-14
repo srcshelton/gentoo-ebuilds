@@ -1,18 +1,21 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-inherit dot-a meson-multilib usr-ldscript
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/zstd.asc
+inherit dot-a meson-multilib usr-ldscript verify-sig
 
 DESCRIPTION="zstd fast compression library"
 HOMEPAGE="https://facebook.github.io/zstd/"
-SRC_URI="https://github.com/facebook/zstd/releases/download/v${PV}/${P}.tar.gz"
+SRC_URI="https://github.com/facebook/zstd/releases/download/v${PV}/${P}.tar.gz
+	verify-sig? ( https://github.com/facebook/zstd/releases/download/v${PV}/${P}.tar.gz.sig )
+"
 S="${WORKDIR}"/${P}/build/meson
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0/1"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~arm64-macos ~x64-macos ~x64-solaris"
 IUSE="+contrib lz4 +lzma static-libs test zlib"
 RESTRICT="!test? ( test )"
 
@@ -26,7 +29,8 @@ DEPEND="${RDEPEND}"
 # ninja-utils.eclass which has a BDEPEND for app-alternatives/ninja, dependency
 # resolution for app-arch/zstd is not pulling-in dev-build/ninja with
 # sys-apps/portage-3.0.67 :(
-BDEPEND=">=dev-build/ninja-1.8.2"
+BDEPEND=">=dev-build/ninja-1.8.2
+	verify-sig? ( sec-keys/openpgp-keys-zstd )"
 
 MESON_PATCHES=(
 	# Workaround until Valgrind bugfix lands
