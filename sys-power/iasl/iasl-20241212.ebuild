@@ -64,8 +64,8 @@ aslts_test() {
 	emake install
 	chmod +x $(find bin/ ! -regex 'ERROR_OPCODES|HOW_TO_USE|README' ) || die "chmod bin +x failed"
 
-	# The below Do commands runs the tests twice and then dies if the
-	# results aren't identical.
+	# The below Do commands run the tests twice and then die if the
+	# result isn't identical.
 	Do 1 || die "failed Do 1"
 	Do 2 || die "failed Do 2"
 }
