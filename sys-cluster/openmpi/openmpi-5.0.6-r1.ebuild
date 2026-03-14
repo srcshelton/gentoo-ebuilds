@@ -8,13 +8,13 @@ inherit cuda flag-o-matic fortran-2 libtool
 
 MY_P=${P/-mpi}
 
-IUSE_OPENMPI_FABRICS="
-	openmpi_fabrics_ofed
-	openmpi_fabrics_knem"
-
-IUSE_OPENMPI_RM="
-	openmpi_rm_pbs
-	openmpi_rm_slurm"
+#IUSE_OPENMPI_FABRICS="
+#	openmpi_fabrics_ofed
+#	openmpi_fabrics_knem"
+#
+#IUSE_OPENMPI_RM="
+#	openmpi_rm_pbs
+#	openmpi_rm_slurm"
 
 DESCRIPTION="A high-performance message passing library (MPI)"
 HOMEPAGE="https://www.open-mpi.org"
@@ -23,8 +23,8 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="amd64 -arm arm64 -ppc ppc64 -x86 ~amd64-linux"
-IUSE="cma cuda fortran ${IUSE_OPENMPI_FABRICS} ${IUSE_OPENMPI_RM} peruse romio valgrind"
+KEYWORDS="amd64 -arm arm64 -ppc ppc64 -x86"
+IUSE="cma cuda fortran openmpi_fabrics_knem openmpi_fabrics_ofed openmpi_rm_pbs openmpi_rm_slurm peruse romio valgrind"
 
 REQUIRED_USE="
 	openmpi_rm_slurm? ( !openmpi_rm_pbs )

@@ -29,9 +29,9 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="BSD"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~loong ~ppc ppc64 ~riscv ~sparc x86 ~amd64-linux"
-IUSE="cma cuda cxx fortran ipv6 libompitrace peruse romio valgrind
-	${IUSE_OPENMPI_FABRICS} ${IUSE_OPENMPI_RM} ${IUSE_OPENMPI_OFED_FEATURES}"
+KEYWORDS="~alpha amd64 arm arm64 ~loong ~ppc ppc64 ~riscv ~sparc x86"
+IUSE="cma cuda cxx fortran ipv6 libompitrace openmpi_fabrics_knem openmpi_fabrics_ofed openmpi_ofed_features_control-hdr-padding openmpi_ofed_features_dynamic-sl openmpi_ofed_features_rdmacm openmpi_ofed_features_udcm openmpi_rm_pbs openmpi_rm_slurm peruse romio valgrind"
+#	${IUSE_OPENMPI_FABRICS} ${IUSE_OPENMPI_RM} ${IUSE_OPENMPI_OFED_FEATURES}"
 
 REQUIRED_USE="
 	openmpi_rm_slurm? ( !openmpi_rm_pbs )
