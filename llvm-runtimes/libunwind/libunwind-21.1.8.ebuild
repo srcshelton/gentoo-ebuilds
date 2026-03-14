@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..13} )
+PYTHON_COMPAT=( python3_{11..14} )
 inherit cmake-multilib crossdev flag-o-matic llvm.org llvm-utils python-any-r1 toolchain-funcs
 
 DESCRIPTION="C++ runtime stack unwinder from LLVM"
@@ -26,6 +26,8 @@ DEPEND="
 BDEPEND="
 	clang? (
 		llvm-core/clang:${LLVM_MAJOR}
+		llvm-core/clang-linker-config:${LLVM_MAJOR}
+		llvm-runtimes/clang-rtlib-config:${LLVM_MAJOR}
 	)
 	!test? (
 		${PYTHON_DEPS}
@@ -36,12 +38,20 @@ BDEPEND="
 "
 
 LLVM_COMPONENTS=( runtimes libunwind libcxx llvm/cmake cmake )
-LLVM_TEST_COMPONENTS=( libcxxabi llvm/utils/llvm-lit )
+LLVM_TEST_COMPONENTS=( libc libcxxabi llvm/utils/llvm-lit )
 llvm.org_set_globals
 
 python_check_deps() {
 	use test || return 0
 	python_has_version "dev-python/lit[${PYTHON_USEDEP}]"
+}
+
+test_compiler() {
+	target_is_not_host && return
+	local compiler=${1}
+	shift
+	${compiler} ${CFLAGS} ${LDFLAGS} "${@}" -o /dev/null -x c - \
+		<<<'int main() { return 0; }' &>/dev/null
 }
 
 multilib_src_configure() {
@@ -50,6 +60,25 @@ multilib_src_configure() {
 	fi
 
 	local libdir=$(get_libdir)
+
+	if use arm64; then
+		filter-flags -mbranch-protection=standard
+
+		if use clang || tc-is-clang; then
+			# error: value evaluated as 4611686018427387889 is out of range.
+			ewarn "Reducing optimisations on ${ARCH} due to build failures ..."
+
+			strip-flags
+
+			filter-flags -ffinite-math-only
+			append-flags -fno-finite-math-only
+
+			filter-flags -ffast-math
+			append-flags -fno-fast-math
+
+			strip-unsupported-flags
+		fi
+	fi
 
 	# https://github.com/llvm/llvm-project/issues/56825
 	# also separately bug #863917
@@ -62,9 +91,42 @@ multilib_src_configure() {
 	fi
 
 	if use clang; then
-		local -x CC=${CTARGET}-clang
-		local -x CXX=${CTARGET}-clang++
+		local -x CC=${CTARGET}-clang-${LLVM_MAJOR}
+		local -x CXX=${CTARGET}-clang++-${LLVM_MAJOR}
 		strip-unsupported-flags
+
+		# The full clang configuration might not be ready yet. Use the partial
+		# configuration files that are guaranteed to exist even during initial
+		# installations and upgrades.
+		local flags=(
+			--config="${ESYSROOT}"/etc/clang/"${LLVM_MAJOR}"/gentoo-{rtlib,linker}.cfg
+		)
+		local -x CFLAGS="${CFLAGS} ${flags[@]}"
+		local -x CXXFLAGS="${CXXFLAGS} ${flags[@]}"
+		local -x LDFLAGS="${LDFLAGS} ${flags[@]}"
+	fi
+
+	# Check whether C compiler runtime is available.
+	if ! test_compiler "$(tc-getCC)"; then
+		local nolib_flags=( -nodefaultlibs -lc )
+		if test_compiler "$(tc-getCC)" "${nolib_flags[@]}"; then
+			local -x LDFLAGS="${LDFLAGS} ${nolib_flags[*]}"
+			ewarn "${CC} seems to lack runtime, trying with ${nolib_flags[*]}"
+		elif test_compiler "$(tc-getCC)" "${nolib_flags[@]}" -nostartfiles; then
+			# Avoiding -nostartfiles earlier on for bug #862540,
+			# and set available entry symbol for bug #862798.
+			nolib_flags+=( -nostartfiles -e main )
+			local -x LDFLAGS="${LDFLAGS} ${nolib_flags[*]}"
+			ewarn "${CC} seems to lack runtime, trying with ${nolib_flags[*]}"
+		fi
+	fi
+	# Check whether C++ standard library is available,
+	local nostdlib_flags=( -nostdlib++ )
+	if ! test_compiler "$(tc-getCXX)" &&
+		test_compiler "$(tc-getCXX)" "${nostdlib_flags[@]}"
+	then
+		local -x LDFLAGS="${LDFLAGS} ${nostdlib_flags[*]}"
+		ewarn "${CXX} seems to lack runtime, trying with ${nostdlib_flags[*]}"
 	fi
 
 	# link to compiler-rt
@@ -95,9 +157,10 @@ multilib_src_configure() {
 		-DLIBUNWIND_INCLUDE_TESTS=$(usex test)
 		-DLIBUNWIND_INSTALL_HEADERS=ON
 
-		# support non-native unwinding; given it's small enough,
-		# enable it unconditionally
-		-DLIBUNWIND_ENABLE_CROSS_UNWINDING=ON
+		# cross-unwinding increases unwinding footprint (to account
+		# for the worst case) and causes some breakage on AArch64
+		# https://github.com/llvm/llvm-project/issues/152549
+		-DLIBUNWIND_ENABLE_CROSS_UNWINDING=OFF
 
 		# avoid dependency on libgcc_s if compiler-rt is used
 		-DLIBUNWIND_USE_COMPILER_RT=${use_compiler_rt}
