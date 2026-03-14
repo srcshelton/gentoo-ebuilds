@@ -4,7 +4,7 @@
 EAPI=8
 
 WANT_AUTOMAKE="none"
-POSTGRES_COMPAT=( {15..17} )
+POSTGRES_COMPAT=( {15..18} )
 inherit autotools flag-o-matic multilib postgres systemd
 
 DESCRIPTION="The PHP language runtime engine"
@@ -19,7 +19,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~x64-macos"
+KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~mips ppc ~ppc64 ~riscv ~s390 ~sparc x86 ~x64-macos"
 
 # We can build the following SAPIs in the given order
 SAPIS="embed cli cgi fpm apache2 phpdbg"
