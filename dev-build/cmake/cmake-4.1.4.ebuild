@@ -1,7 +1,9 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
+PARALLEL_MEMORY_MIN=2
 
 # Generate using https://github.com/thesamesam/sam-gentoo-scripts/blob/main/niche/generate-cmake-docs
 # Set to 1 if prebuilt, 0 if not
@@ -9,24 +11,25 @@ EAPI=8
 : ${CMAKE_DOCS_PREBUILT:=1}
 
 CMAKE_DOCS_PREBUILT_DEV=sam
-#CMAKE_DOCS_VERSION=$(ver_cut 1-3)
-CMAKE_DOCS_VERSION=${PV}
+CMAKE_DOCS_VERSION=4.0.0_rc1
 # Default to generating docs (inc. man pages) if no prebuilt; overridden later
 # See bug #784815
 CMAKE_DOCS_USEFLAG="+doc"
+
+CMAKE_QA_COMPAT_SKIP=1 # bug #964514; cmake itself is the last pkg we worry about
 
 # TODO RunCMake.LinkWhatYouUse fails consistently w/ ninja
 # ... but seems fine as of 3.22.3?
 # TODO ... but bootstrap sometimes(?) fails with ninja now. bug #834759.
 CMAKE_MAKEFILE_GENERATOR="emake"
 CMAKE_REMOVE_MODULES_LIST=()
-inherit bash-completion-r1 cmake elisp-common flag-o-matic multiprocessing toolchain-funcs virtualx xdg-utils
+inherit bash-completion-r1 cmake flag-o-matic multiprocessing toolchain-funcs xdg-utils
 
 MY_P="${P/_/-}"
 
 DESCRIPTION="Cross platform Make"
 HOMEPAGE="https://cmake.org/"
-if [[ ${PV} == 9999 ]] ; then
+if [[ ${PV} == *9999* ]] ; then
 	CMAKE_DOCS_PREBUILT=0
 
 	EGIT_REPO_URI="https://gitlab.kitware.com/cmake/cmake.git"
@@ -38,46 +41,45 @@ else
 		SRC_URI+=" !doc? ( https://dev.gentoo.org/~${CMAKE_DOCS_PREBUILT_DEV}/distfiles/${CATEGORY}/${PN}/${PN}-${CMAKE_DOCS_VERSION}-docs.tar.xz )"
 	fi
 
+	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/bradking.asc
+	inherit verify-sig
+
+	SRC_URI+=" verify-sig? (
+		https://cmake.org/files/v$(ver_cut 1-2)/${MY_P}-SHA-256.txt
+		https://cmake.org/files/v$(ver_cut 1-2)/${MY_P}-SHA-256.txt.asc
+		https://github.com/Kitware/CMake/releases/download/v${PV/_/-}/${MY_P}-SHA-256.txt
+		https://github.com/Kitware/CMake/releases/download/v${PV/_/-}/${MY_P}-SHA-256.txt.asc
+	)"
+
 	if [[ ${PV} != *_rc* ]] ; then
-		VERIFY_SIG_OPENPGP_KEY_PATH="${BROOT}"/usr/share/openpgp-keys/bradking.asc
-		inherit verify-sig
-
-		SRC_URI+=" verify-sig? (
-			https://github.com/Kitware/CMake/releases/download/v$(ver_cut 1-3)/${MY_P}-SHA-256.txt
-			https://github.com/Kitware/CMake/releases/download/v$(ver_cut 1-3)/${MY_P}-SHA-256.txt.asc
-		)"
-
-		KEYWORDS="~alpha amd64 arm arm64 hppa ~ia64 ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
-
-		BDEPEND="verify-sig? ( sec-keys/openpgp-keys-bradking )"
+		KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~m68k ~mips ~ppc ppc64 ~riscv ~s390 ~sparc x86 ~arm64-macos ~x64-macos ~x64-solaris"
 	fi
+
+	BDEPEND="verify-sig? ( >=sec-keys/openpgp-keys-bradking-20250904 )"
 fi
 
 [[ ${CMAKE_DOCS_PREBUILT} == 1 ]] && CMAKE_DOCS_USEFLAG="doc"
 
 S="${WORKDIR}/${MY_P}"
 
-LICENSE="CMake"
+LICENSE="BSD"
 SLOT="0"
-IUSE="doc emacs ncurses qt5 test"
+IUSE="dap doc gui ncurses test"
 RESTRICT="!test? ( test )"
 
+# >= 1.51.0-r1 for ppc32 workaround (bug #941738)
 RDEPEND="
 	>=app-arch/libarchive-3.3.3:=
 	app-crypt/rhash:0=
 	>=dev-libs/expat-2.0.1
 	>=dev-libs/jsoncpp-1.9.2-r2:0=
-	>=dev-libs/libuv-1.10.0:=
+	>=dev-libs/libuv-1.51.0-r1:=
 	>=net-misc/curl-7.21.5[ssl]
-	sys-libs/zlib
+	virtual/zlib:=
 	virtual/pkgconfig
-	emacs? ( >=app-editors/emacs-23.1:* )
-	ncurses? ( sys-libs/ncurses:0= )
-	qt5? (
-		dev-qt/qtcore:5
-		dev-qt/qtgui:5
-		dev-qt/qtwidgets:5
-	)
+	dap? ( dev-cpp/cppdap )
+	gui? ( dev-qt/qtbase:6[gui,widgets] )
+	ncurses? ( sys-libs/ncurses:= )
 "
 DEPEND="${RDEPEND}"
 BDEPEND+="
@@ -92,23 +94,16 @@ SITEFILE="50${PN}-gentoo.el"
 
 PATCHES=(
 	# Prefix
-	"${FILESDIR}"/${PN}-3.16.0_rc4-darwin-bundle.patch
-	"${FILESDIR}"/${PN}-3.14.0_rc3-prefix-dirs.patch
-	"${FILESDIR}"/${PN}-3.19.1-darwin-gcc.patch
+	"${FILESDIR}/${PN}-3.27.0_rc1-0001-Don-t-use-.so-for-modules-on-darwin-macos.-Use-.bund.patch"
+	"${FILESDIR}/${PN}-3.27.0_rc1-0002-Set-some-proper-paths-to-make-cmake-find-our-tools.patch"
+	# Misc
+	"${FILESDIR}/${PN}-3.31.6-Prefer-pkgconfig-in-FindBLAS.patch"
+	"${FILESDIR}/${PN}-3.27.0_rc1-0004-Ensure-that-the-correct-version-of-Qt-is-always-used.patch"
+	"${FILESDIR}/${PN}-3.27.0_rc1-0005-Respect-Gentoo-s-Python-eclasses.patch"
+	# Cuda
+	"${FILESDIR}/${PN}-3.30.3-cudahostld.patch"
 
-	# Handle gentoo packaging in find modules
-	"${FILESDIR}"/${PN}-3.17.0_rc1-FindBLAS.patch
-	# Next patch needs to be reworked
-	#"${FILESDIR}"/${PN}-3.17.0_rc1-FindLAPACK.patch
-	"${FILESDIR}"/${PN}-3.5.2-FindQt4.patch
-
-	# Respect python eclasses
-	"${FILESDIR}"/${PN}-2.8.10.2-FindPythonLibs.patch
-	"${FILESDIR}"/${PN}-3.9.0_rc2-FindPythonInterp.patch
-
-	"${FILESDIR}"/${PN}-3.18.0-filter_distcc_warning.patch # bug 691544
-
-	# upstream fixes (can usually be removed with a version bump)
+	# Upstream fixes (can usually be removed with a version bump)
 )
 
 cmake_src_bootstrap() {
@@ -123,11 +118,44 @@ cmake_src_bootstrap() {
 			Source/kwsys/CMakeLists.txt || die
 	fi
 
+	minimise-memory-usage
+
 	# bootstrap script isn't exactly /bin/sh compatible
 	tc-env_build ${CONFIG_SHELL:-sh} ./bootstrap \
 		--prefix="${T}/cmakestrap/" \
 		--parallel=$(makeopts_jobs "${MAKEOPTS}" "$(get_nproc)") \
 		|| die "Bootstrap failed"
+}
+
+pkg_pretend() {
+	if [[ -z ${EPREFIX} ]] ; then
+		local file
+		local errant_files=()
+
+		# See bug #599684 and bug #753581 (at least)
+		for file in /etc/arch-release /etc/redhat-release \
+				/etc/debian_version
+		do
+			if [[ -e ${file} ]]; then
+				errant_files+=( "${file}" )
+			fi
+		done
+
+		# If errant files exist
+		if [[ ${#errant_files[@]} -gt 0 ]]; then
+			eerror "Errant files found!"
+			eerror "The presence of these files is known to" \
+				"confuse CMake's"
+			eerror "library path logic. Please (re)move these" \
+				"files:"
+
+			for file in "${errant_files[@]}"; do
+				eerror " mv ${file} ${file}.bak"
+			done
+
+			die "Stray files found in /etc/, see above message"
+		fi
+	fi
 }
 
 src_unpack() {
@@ -158,6 +186,14 @@ src_prepare() {
 		sed -i -e '/define CMAKE_USE_XCODE/s/XCODE/NO_XCODE/' \
 			-e '/cmGlobalXCodeGenerator.h/d' \
 			Source/cmake.cxx || die
+		# Disable system integration, bug #933744
+		sed -i -e 's/__APPLE__/__DISABLED__/' \
+			Source/cmFindProgramCommand.cxx \
+			Source/CPack/cmCPackGeneratorFactory.cxx || die
+		sed -i -e 's/__MAC_OS_X_VERSION_MIN_REQUIRED/__DISABLED__/' \
+			Source/cmMachO.cxx || die
+		sed -i -e 's:CPack/cmCPack\(Bundle\|DragNDrop\|PKG\|ProductBuild\)Generator.cxx::' \
+			Source/CMakeLists.txt || die
 
 		# Disable isysroot usage with GCC, we've properly instructed
 		# where things are via GCC configuration and ldwrapper
@@ -183,13 +219,9 @@ src_prepare() {
 		-e "s|@GENTOO_PORTAGE_EPREFIX@|${EPREFIX}/|g" \
 		Modules/Platform/{UnixPaths,Darwin}.cmake || die "sed failed"
 
-	if ! has_version -b ">=${CATEGORY}/${PN}-3.13" || ! cmake --version &>/dev/null ; then
-		CMAKE_BINARY="${S}/Bootstrap.cmk/cmake"
-		cmake_src_bootstrap
-	fi
-}
+	## in theory we could handle these flags in src_configure, as we do in many other packages. But we *must*
+	## handle them as part of bootstrapping, sadly.
 
-src_configure() {
 	# Fix linking on Solaris
 	[[ ${CHOST} == *-solaris* ]] && append-ldflags -lsocket -lnsl
 
@@ -197,8 +229,22 @@ src_configure() {
 	# https://gitlab.kitware.com/cmake/cmake/-/issues/20740
 	filter-lto
 
+	# 4.0.0_rc1 is missing this, fails to configure
+	# https://gitlab.kitware.com/cmake/cmake/-/issues/26712
+	touch .clang-tidy Utilities/.clang-tidy || die
+
+	if ! has_version -b ">=${CATEGORY}/${PN}-3.13" || ! cmake --version &>/dev/null ; then
+		CMAKE_BINARY="${S}/Bootstrap.cmk/cmake"
+		cmake_src_bootstrap
+	fi
+}
+
+src_configure() {
+	minimise-memory-usage
+
 	local mycmakeargs=(
 		-DCMAKE_USE_SYSTEM_LIBRARIES=ON
+		-DCMake_ENABLE_DEBUGGER=$(usex dap)
 		-DCMAKE_DOC_DIR=/share/doc/${PF}
 		-DCMAKE_MAN_DIR=/share/man
 		-DCMAKE_DATA_DIR=/share/${PN}
@@ -206,8 +252,10 @@ src_configure() {
 		-DSPHINX_HTML=$(usex doc)
 		-DBUILD_CursesDialog="$(usex ncurses)"
 		-DBUILD_TESTING=$(usex test)
+		-DBUILD_QtDialog=$(usex gui)
 	)
-	use qt5 && mycmakeargs+=( -DBUILD_QtDialog=ON )
+
+	use gui && mycmakeargs+=( -DCMake_QT_MAJOR_VERSION=6 )
 
 	cmake_src_configure
 
@@ -252,11 +300,6 @@ src_configure() {
 	fi
 }
 
-src_compile() {
-	cmake_src_compile
-	use emacs && elisp-compile Auxiliary/cmake-mode.el
-}
-
 src_test() {
 	# Fix OutDir and SelectLibraryConfigurations tests
 	# these are altered thanks to our eclass
@@ -264,10 +307,12 @@ src_test() {
 		"${S}"/Tests/{OutDir,CMakeOnly/SelectLibraryConfigurations}/CMakeLists.txt \
 		|| die
 
+	unset CLICOLOR CLICOLOR_FORCE CMAKE_COMPILER_COLOR_DIAGNOSTICS CMAKE_COLOR_DIAGNOSTICS
+
 	pushd "${BUILD_DIR}" > /dev/null || die
 
 	# Excluded tests:
-	#    BootstrapTest: we actualy bootstrap it every time so why test it.
+	#    BootstrapTest: we actually bootstrap it every time so why test it?
 	#    BundleUtilities: bundle creation broken
 	#    CMakeOnly.AllFindModules: pthread issues
 	#    CTest.updatecvs: which fails to commit as root
@@ -284,7 +329,9 @@ src_test() {
 		-E "(BootstrapTest|BundleUtilities|CMakeOnly.AllFindModules|CompileOptions|CTest.UpdateCVS|Fortran|RunCMake.CompilerLauncher|RunCMake.CPack_(DEB|RPM)|TestUpload|RunCMake.CMP0125)" \
 	)
 
-	virtx cmake_src_test
+	local -x QT_QPA_PLATFORM=offscreen
+
+	cmake_src_test
 }
 
 src_install() {
@@ -293,11 +340,6 @@ src_install() {
 	# If USE=doc, there'll be newly generated docs which we install instead.
 	if ! use doc && [[ ${CMAKE_DOCS_PREBUILT} == 1 ]] ; then
 		doman "${WORKDIR}"/${PN}-${CMAKE_DOCS_VERSION}-docs/man*/*.[0-8]
-	fi
-
-	if use emacs; then
-		elisp-install ${PN} Auxiliary/cmake-mode.el Auxiliary/cmake-mode.elc
-		elisp-site-file-install "${FILESDIR}/${SITEFILE}"
 	fi
 
 	insinto /usr/share/vim/vimfiles/syntax
@@ -313,9 +355,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	use emacs && elisp-site-regen
-
-	if use qt5; then
+	if use gui; then
 		xdg_icon_cache_update
 		xdg_desktop_database_update
 		xdg_mimeinfo_database_update
@@ -323,9 +363,7 @@ pkg_postinst() {
 }
 
 pkg_postrm() {
-	use emacs && elisp-site-regen
-
-	if use qt5; then
+	if use gui; then
 		xdg_icon_cache_update
 		xdg_desktop_database_update
 		xdg_mimeinfo_database_update
