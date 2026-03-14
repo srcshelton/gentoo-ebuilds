@@ -3,11 +3,11 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{11..14} )
 
-inherit python-any-r1
+inherit autotools libtool python-any-r1
 
-DESCRIPTION="A fast and low-memory footprint OCI Container Runtime fully written in C"
+DESCRIPTION="Fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
 
 if [[ "$PV" == *9999* ]]; then
@@ -53,16 +53,26 @@ PATCHES=(
 	"${FILESDIR}/${PN}-1.0-run.patch"
 )
 
-#src_prepare() {
-#	default
-#
+src_prepare() {
+	default
+	elibtoolize
+
+	# https://github.com/containers/crun/pull/1887
+	sed -i -E '/AC_CHECK_HEADERS\(\[error.h/{
+		s/error\.h[[:space:]]*//g
+		a\
+		AC_CHECK_HEADER([error.h], [AC_CHECK_FUNC([error], AC_DEFINE([HAVE_ERROR_H], [1], [Define if error.h is usable]))])
+	}' configure.ac || die
+
+	eautoreconf
+
 #	sed -ri \
 #		-e 's|([=B*])/run|\1/var/run|' \
 #		src/libcrun/status.c \
 #		crun.1 \
 #		crun.1.md \
 #	|| die "'/run' replacement failed: ${?}"
-#}
+}
 
 src_configure() {
 	local myeconfargs=(
@@ -75,6 +85,7 @@ src_configure() {
 		$(use_enable static-libs static)
 		--disable-embedded-yajl
 	)
+
 	econf "${myeconfargs[@]}"
 }
 
@@ -90,7 +101,7 @@ src_compile() {
 src_test() {
 	emake check-TESTS -C libocispec
 
-	# the crun test suite is comprehensive to the extent that tests will fail
+	# The crun test suite is comprehensive to the extent that tests will fail
 	# within a sandbox environment, due to the nature of the privileges
 	# required to create linux "containers".
 	local supported_tests=(
@@ -98,7 +109,7 @@ src_test() {
 		"tests/tests_libcrun_errors"
 		"tests/tests_libcrun_intelrdt"
 	)
-	emake check-TESTS TESTS="${supported_tests[*]}"
+	emake check-TESTS TESTS="${supported_tests[*]}" CFLAGS="${CFLAGS} -std=gnu17"
 }
 
 src_install() {
