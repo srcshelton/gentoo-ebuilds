@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -107,10 +107,9 @@ src_unpack() {
 src_prepare() {
 	# TODO: past 2025, we may need to add our own hack for bug #907474.
 	local PATCHES=(
+		"${FILESDIR}"/${PN}-9.5-skip-readutmp-test.patch
 		# Upstream patches
-		"${FILESDIR}"/${PN}-9.8-no-pclmul.patch
-		"${FILESDIR}"/${P}-tail-offset.patch
-		"${FILESDIR}"/${P}-basenc-base58.patch
+		"${FILESDIR}"/${PN}-9.9-cp-SEEK_HOLE-loop.patch
 	)
 
 	if ! use vanilla && [[ -d "${WORKDIR}"/${MY_PATCH} ]] ; then
