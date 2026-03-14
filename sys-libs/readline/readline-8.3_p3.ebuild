@@ -92,7 +92,6 @@ PATCHES=(
 	"${FILESDIR}"/${PN}-5.0-no_rpath.patch
 	"${FILESDIR}"/${PN}-7.0-headers.patch
 	"${FILESDIR}"/${PN}-8.0-headers.patch
-	"${FILESDIR}"/${PN}-8.3-iwd-crash.patch
 )
 
 src_unpack() {
@@ -126,7 +125,7 @@ src_prepare() {
 
 	#(( PLEVEL < 0 )) && eautoreconf
 
-	if use prefix && [[ ! -x "${BROOT}"/usr/bin/pkg-config ]] ; then
+	if use prefix && [[ -n "${STAGE:-}" || ! -x "${BROOT}"/usr/bin/pkg-config ]] ; then
 		# If we're bootstrapping, make a guess. We don't have pkg-config
 		# around yet. bug #818103.
 		# Incorrectly populating this leads to underlinked libreadline.
