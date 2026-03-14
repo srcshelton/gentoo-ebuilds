@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit flag-o-matic optfeature systemd toolchain-funcs
+inherit optfeature systemd toolchain-funcs
 
 if [[ ${PV} == 9999 ]]; then
 	inherit git-r3
@@ -15,7 +15,7 @@ else
 	SRC_URI="https://github.com/NetworkConfiguration/dhcpcd/releases/download/v${PV}/${MY_P}.tar.xz"
 	S="${WORKDIR}/${MY_P}"
 
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 fi
 
 DESCRIPTION="A fully featured, yet light weight RFC2131 compliant DHCP client"
@@ -58,13 +58,6 @@ PATCHES=(
 )
 
 src_configure() {
-	if use amd64 || use x86 || use amd64-linux || use x86-linux; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
-
 	local myeconfargs=(
 		--dbdir="${EPREFIX%/}/var/lib/dhcpcd"
 		--libexecdir="${EPREFIX%/}/lib/dhcpcd"
