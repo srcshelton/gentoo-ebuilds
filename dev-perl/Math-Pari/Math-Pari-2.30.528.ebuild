@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -16,7 +16,7 @@ SRC_URI="${SRC_URI}
 S_PARI="${WORKDIR}"/pari-${PARI_VER}
 
 SLOT="0"
-KEYWORDS="~alpha amd64 ~hppa ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos"
+KEYWORDS="~alpha amd64 ~hppa ~sparc x86"
 IUSE="abi_x86_x32 elibc_glibc"
 
 # Math::Pari requires that a copy of the pari source in a parallel
@@ -58,6 +58,11 @@ src_configure() {
 	# bug #1234
 	append-cflags -std=gnu17
 
+	# -Werror=strict-aliasing in bundled sci-mathematics/pari code copy
+	# https://bugs.gentoo.org/856112
+	append-flags -fno-strict-aliasing
+	filter-lto
+
 	# Unfortunately the assembly routines math-pari has for SPARC do not appear
 	# to be working at current.  Perl cannot test math-pari or anything that
 	# pulls in the math-pari module as DynaLoader cannot load the resulting
@@ -84,7 +89,10 @@ src_configure() {
 	# context.  We then remove this ASAP since, let's face it, this is
 	# bound to be hugely fragile...
 	if use elibc_glibc; then
-		if use abi_x86_x32 || [[ "$( uname -m )" == "x86_64" && "$( getconf LONG_BIT )" != "64" ]]; then
+		if use abi_x86_x32 || [[
+				"$( uname -m )" == "x86_64" && "$( getconf LONG_BIT )" != "64"
+			]]
+		then
 			export real_perl_path="$( type -pf perl 2>/dev/null )"
 			if [[ -x "${real_perl_path}" ]]; then
 				function perl() {
