@@ -432,6 +432,8 @@ used to build perl)
     * Kernel headers from Rockchip sources
 * sys-power/clr-power
     * Intel Clear Linux power optimisation tool
+* sys-process/bottom
+    * Add newer upstream release
 * sys-process/stalld
     * Red Hat thread-booster
 * ~~www-apps/heatmiser~~
