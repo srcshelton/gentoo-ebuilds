@@ -8,7 +8,7 @@ inherit autotools eapi9-ver flag-o-matic optfeature pam systemd toolchain-funcs 
 
 # Make it more portable between straight releases
 # and _p? releases.
-PARCH=${P/_}
+PARCH="${P/_}"
 
 DESCRIPTION="Port of OpenBSD's free SSH release"
 HOMEPAGE="https://www.openssh.com/"
@@ -22,7 +22,7 @@ LICENSE="BSD GPL-2"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~arm64-macos ~ppc-macos ~x64-macos ~x64-solaris"
 # Probably want to drop ssl defaulting to on in a future version.
-IUSE="abi_mips_n32 agent audit debug kerberos ldns legacy-ciphers libedit livecd pam +pie security-key selinux +ssl static systemd test xmss"
+IUSE="abi_mips_n32 audit debug kerberos ldns legacy-ciphers libedit livecd pam +pie security-key selinux +ssl static systemd test user-service xmss"
 
 RESTRICT="!test? ( test )"
 
@@ -320,7 +320,7 @@ src_install() {
 	dobin contrib/ssh-copy-id
 	newinitd "${FILESDIR}"/sshd-r1.initd sshd
 	newconfd "${FILESDIR}"/sshd-r1.confd sshd
-	if use agent; then
+	if use user-service; then
 		exeinto /etc/user/init.d
 		newexe "${FILESDIR}"/ssh-agent.initd ssh-agent
 	fi
@@ -334,9 +334,11 @@ src_install() {
 
 	rmdir "${ED}"/var/empty || die
 
-	systemd_dounit "${FILESDIR}"/sshd.socket
-	systemd_newunit "${FILESDIR}"/sshd.service.2 sshd.service
-	systemd_newunit "${FILESDIR}"/sshd_at.service.1 'sshd@.service'
+	if use systemd; then
+		systemd_dounit "${FILESDIR}"/sshd.socket
+		systemd_newunit "${FILESDIR}"/sshd.service.2 sshd.service
+		systemd_newunit "${FILESDIR}"/sshd_at.service.1 'sshd@.service'
+	fi
 
 	# Install dropins with explicit mode, bug 906638, 915840
 	diropts -m0755
@@ -395,7 +397,7 @@ pkg_postinst() {
 		ewarn "will not be able to establish new sessions. Restarting sshd over a ssh"
 		ewarn "connection is generally safe."
 	fi
-	if ver_replacing -lt "9.2_p1-r1" && systemd_is_booted; then
+	if ver_replacing -lt "9.2_p1-r1" && use systemd && systemd_is_booted; then
 		ewarn "From openssh-9.2_p1-r1 the supplied systemd unit file defaults to"
 		ewarn "'Restart=on-failure', which causes the service to automatically restart if it"
 		ewarn "terminates with an unclean exit code or signal. This feature is useful for most users,"
@@ -435,7 +437,7 @@ openssh_maybe_restart() {
 		ebegin "Attempting to restart openssh via 'systemctl try-restart sshd'"
 		systemctl try-restart sshd
 		eend $?
-	else # if [[ -d /var/run/openrc ]]; then
+	else # if [[ -d /lib/rc/init.d ]]; then
 		# We don't check for sshd -t here because the OpenRC init script
 		# has a stop_pre() which does checkconfig, i.e. we defer to it
 		# to give nicer output for a failed sanity check.
