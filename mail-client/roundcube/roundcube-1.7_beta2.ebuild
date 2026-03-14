@@ -53,7 +53,7 @@ if [[ ${PV} == *9999 ]] ; then
 else
 	SRC_URI="https://github.com/${PN}/${MY_PN}/releases/download/${MY_PV}/${MY_P}-complete.tar.gz"
 	S="${WORKDIR}/${MY_P}"
-	KEYWORDS="amd64 arm ~hppa ppc ppc64 ~sparc x86"
+	KEYWORDS="~amd64 ~arm ~hppa ~ppc ~ppc64 ~sparc ~x86"
 	RESTRICT="mirror"
 fi
 
