@@ -219,17 +219,19 @@ src_prepare() {
 	while read -r debver; do
 		mv "${debver}" "${S}"/modules/ || die
 	done < <(
-		find "${S}"/usr/lib/modules/ \
-			-mindepth 1 -maxdepth 1 \
-			-type d \
-			-print
+		[[ -d "${S}"/usr/lib/modules/ ]] && \
+			find "${S}"/usr/lib/modules/ \
+				-mindepth 1 -maxdepth 1 \
+				-type d \
+				-print
 
-		find "${S}"/lib/modules/ \
-			-mindepth 1 -maxdepth 1 \
-			-type d \
-			-print
+		[[ -d "${S}"/usr/lib/modules/ ]] && \
+			find "${S}"/lib/modules/ \
+				-mindepth 1 -maxdepth 1 \
+				-type d \
+				-print
 	)
-	rmdir "${S}"/usr/lib/modules "${S}"/lib/modules
+	rmdir "${S}"/usr/lib/modules "${S}"/lib/modules 2>/dev/null || :
 
 	default
 
@@ -321,7 +323,7 @@ src_prepare() {
 				;;
 			'v6')
 				if use rpi-all || { use !64bit && {
-							use rpi2 || use rpi-cm ||
+							use rpi1 || use rpi-cm ||
 							use rpi0
 						}; }
 				then
