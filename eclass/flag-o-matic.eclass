@@ -1,6 +1,9 @@
 # Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
+# shellcheck shell=bash
+# shellcheck disable=SC2086,SC2155,SC2206
+
 # @ECLASS: flag-o-matic.eclass
 # @MAINTAINER:
 # toolchain@gentoo.org
@@ -27,6 +30,15 @@ all-flag-vars() {
 	echo {ADA,C,CGO_C,CGO_CPP,CGO_CXX,CGO_F,CGO_LD,CPP,CXX,CCAS,F,FC,GDC,LD}FLAGS
 }
 
+# @FUNCTION: all-cflag-vars
+# @DESCRIPTION:
+# NON_UPSTREAMED ADDITION!
+# Return all the CFLAGS-like flag variables that our high level functions operate on
+# (excluding {CGO_CPP,CGO_LD,CPP,CCAS,LD}FLAGS).
+all-cflag-vars() {
+	echo {ADA,C,CGO_C,CGO_CXX,CGO_F,CXX,F,FC,GDC}FLAGS
+}
+
 # @FUNCTION: setup-allowed-flags
 # @INTERNAL
 # @DESCRIPTION:
@@ -34,7 +46,7 @@ all-flag-vars() {
 # Note: shell globs and character lists are allowed
 setup-allowed-flags() {
 	[[ ${EAPI} == 7 ]] ||
-		die "Internal function ${FUNCNAME} is not available in EAPI ${EAPI}."
+		die "Internal function ${FUNCNAME[0]} is not available in EAPI ${EAPI}."
 	_setup-allowed-flags "$@"
 }
 
@@ -86,10 +98,22 @@ _setup-allowed-flags() {
 		-fno-ident -fpermissive -frecord-gcc-switches
 		-frecord-command-line
 		'-fdiagnostics*' '-fplugin*'
-		'-W*' -w
+		-w
+		# Clashes with '-Wl,*', below...
+		#'-W*'
+		'-W?[^,]*'
 
 		# CPPFLAGS and LDFLAGS
-		'-[DUILR]*' '-Wl,*'
+		'-[DUILR]*' # '-Wp,*'
+		# Don't blindly accept *all* LDFLAGS...
+		#'-Wl,*'
+		-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs
+		# LTO-related LDFLAGS
+		#-Wl,-z,now -Wl,-z,relro
+		# Other LDFLAGS
+		#-Wl,--enable-new-dtags -Wl,--sort-common -Wl,-z,separate-code
+
+		#'-Wa,*'
 
 		# Linker choice flag
 		'-fuse-ld=*'
@@ -155,9 +179,10 @@ _setup-allowed-flags() {
 	)
 	ALLOWED_FLAGS+=(
 		# Clang-only
-		'--unwindlib=*'
+		'--config=*'
 		'--rtlib=*'
 		'--stdlib=*'
+		'--unwindlib=*'
 	)
 }
 
@@ -194,19 +219,19 @@ _filter-hardened() {
 					continue
 				fi
 
-				is-flagq -fno-stack-protector || append-flags $(test-flags -fno-stack-protector)
+				is-flagq -fno-stack-protector || append-flags "$(test-flags -fno-stack-protector)"
 				;;
 			-fstack-protector-all)
 				if ! gcc-specs-ssp-to-all && ! tc-enables-ssp-all ; then
 					continue
 				fi
 
-				is-flagq -fno-stack-protector || append-flags $(test-flags -fno-stack-protector)
+				is-flagq -fno-stack-protector || append-flags "$(test-flags -fno-stack-protector)"
 				;;
 			-fno-strict-overflow)
 				gcc-specs-nostrict || continue
 
-				is-flagq -fstrict-overflow || append-flags $(test-flags -fstrict-overflow)
+				is-flagq -fstrict-overflow || append-flags "$(test-flags -fstrict-overflow)"
 				;;
 			-D_GLIBCXX_ASSERTIONS|-D_LIBCPP_ENABLE_ASSERTIONS|-D_LIBCPP_ENABLE_HARDENED_MODE)
 				tc-enables-cxx-assertions || continue
@@ -229,17 +254,24 @@ _filter-hardened() {
 # Strings removed are matched as globs, so for example
 # '-O*' would remove -O1, -O2 etc.
 _filter-var() {
-	local f x var=$1 new=()
+	[[ $# -ge 2 ]] ||
+		die "${FUNCNAME[0]} requires at least 2 arguments, got '${*:-}'"
+
+	local var="${1:-}"
 	shift
 
+	local f='' x=''
+	local -a new=()
+
 	for f in ${!var} ; do
-		for x in "$@" ; do
+		for x in "${@}" ; do
 			# Note this should work with globs like -O*
+			# shellcheck disable=SC2053
 			[[ ${f} == ${x} ]] && continue 2
 		done
 		new+=( "${f}" )
 	done
-	export ${var}="${new[*]}"
+	export "${var}=${new[*]}"
 }
 
 # @FUNCTION: filter-flags
@@ -249,10 +281,15 @@ _filter-var() {
 # ... CPP,CXX,CCAS,F,FC,GDC,LD}FLAGS (via all-flag-vars()).
 # Accepts shell globs.
 filter-flags() {
-	_filter-hardened "$@"
-	local v
+	[[ $# -ge 1 ]] ||
+		die "${FUNCNAME[0]} requires at least 1 argument, did you mean" \
+			"strip-flags?"
+
+	local v=''
+
+	_filter-hardened "${@}"
 	for v in $(all-flag-vars) ; do
-		_filter-var ${v} "$@"
+		_filter-var "${v}" "${@}"
 	done
 	return 0
 }
@@ -377,15 +414,47 @@ append-ldflags() {
 # @DESCRIPTION:
 # Add extra <flags> to your current {C,CXX,F,FC}FLAGS.
 append-flags() {
-	[[ $# -eq 0 ]] && return 0
-	case " $* " in
-	*' '-[DIU]*) eqawarn 'Please use append-cppflags for preprocessor flags' ;;
-	*' '-L*|\
-	*' '-Wl,*)  eqawarn 'Please use append-ldflags for linker flags' ;;
+	[[ ${#} -eq 0 ]] && return 0
+
+	case " ${*} " in
+		*' -'[DIU]*)
+			eqawarn 'Please use append-cppflags for preprocessor flags' ;;
+		*' -L'*|*' -Wl,'*)
+			eqawarn 'Please use append-ldflags for linker flags' ;;
 	esac
-	append-cflags "$@"
-	append-cxxflags "$@"
-	append-fflags "$@"
+	append-cflags "${@}"
+	append-cxxflags "${@}"
+	append-fflags "${@}"
+
+	return 0
+}
+
+# @FUNCTION: _replace-flags
+# @USAGE: <flags> <old> <new>
+# @INTERNAL
+# @DESCRIPTION:
+# NON_UPSTREAMED ADDITION!
+# Replace the <old> flag in <flags> with <new>.  Accepts shell globs for <old>.
+_replace-flags() {
+	[[ $# != 3 ]] && die "Usage: _replace-flags <list of flags> <old flag>" \
+		"<new flag>"
+
+	local f var new
+	for var in ${1} ; do
+		# Looping over the flags instead of using a global
+		# substitution ensures that we're working with flag atoms.
+		# Otherwise globs like -O* have the potential to wipe out the
+		# list of flags.
+		new=()
+		for f in ${!var} ; do
+			# Note this should work with globs like -O*
+			# shellcheck disable=SC2053
+			[[ ${f} == ${2} ]] && f=${3}
+			new+=( "${f}" )
+		done
+		export ${var}="${new[*]}"
+	done
+
 	return 0
 }
 
@@ -396,22 +465,19 @@ append-flags() {
 replace-flags() {
 	[[ $# != 2 ]] && die "Usage: replace-flags <old flag> <new flag>"
 
-	local f var new
-	for var in $(all-flag-vars) ; do
-		# Looping over the flags instead of using a global
-		# substitution ensures that we're working with flag atoms.
-		# Otherwise globs like -O* have the potential to wipe out the
-		# list of flags.
-		new=()
-		for f in ${!var} ; do
-			# Note this should work with globs like -O*
-			[[ ${f} == ${1} ]] && f=${2}
-			new+=( "${f}" )
-		done
-		export ${var}="${new[*]}"
-	done
+	_replace-flags "$(all-flag-vars)" "${1}" "${2}"
+}
 
-	return 0
+# @FUNCTION: replace-cflags
+# @USAGE: <old> <new>
+# @DESCRIPTION:
+# NON_UPSTREAMED ADDITION!
+# Replace the <old> flag in CFLAGS-type variables only with <new>.
+# Accepts shell globs for <old>.
+replace-cflags() {
+	[[ $# != 2 ]] && die "Usage: replace-cflags <old flag> <new flag>"
+
+	_replace-flags "$(all-cflag-vars)" "${1}" "${2}"
 }
 
 # @FUNCTION: replace-cpu-flags
@@ -436,10 +502,12 @@ replace-cpu-flags() {
 # @USAGE: <variable> <flag>
 # @INTERNAL
 # @DESCRIPTION:
-# Returns shell true if <flag> is in a given <variable>, else returns shell false.
+# Returns shell true if <flag> is in a given <variable>, else returns shell false.  Accepts shell globs.
 _is_flagq() {
 	local x var="$1[*]"
 	for x in ${!var} ; do
+		# Note this should work with globs like -O*
+		# shellcheck disable=SC2053
 		[[ ${x} == $2 ]] && return 0
 	done
 	return 1
@@ -454,6 +522,8 @@ is-flagq() {
 
 	local var
 	for var in $(all-flag-vars) ; do
+		# Note this should work with globs like -O*
+		# shellcheck disable=SC2053
 		_is_flagq ${var} "$1" && return 0
 	done
 	return 1
@@ -488,35 +558,151 @@ is-ldflag() {
 # @USAGE: <math types>
 # @DESCRIPTION:
 # Remove specified math types from the fpmath flag.  For example, if the user
-# has -mfpmath=sse,386, running `filter-mfpmath sse` will leave the user with
-# -mfpmath=386.
+# has -mfpmath=sse,387 or -mfpmath=sse+387, running `filter-mfpmath sse` will
+# leave the user with -mfpmath=387.
 filter-mfpmath() {
-	local orig_mfpmath new_math prune_math
+	local orig_mfpmath='' new_math='' prune_math=''
 
-	# save the original -mfpmath flag
-	orig_mfpmath=$(get-flag -mfpmath)
-	# get the value of the current -mfpmath flag
-	new_math=$(get-flag mfpmath)
-	# convert "both" to something we can filter
-	new_math=${new_math/both/387,sse}
-	new_math=" ${new_math//[,+]/ } "
+	# save the original -mfpmath flag declaration (e.g. '-mfpmath=sse,387')
+	orig_mfpmath="$(get-flag '-mfpmath')"
+	# get the value of the current -mfpmath flag (e.g. 'sse,387')
+	new_math="$(get-flag 'mfpmath')"
+	# convert "both" to something we can filter (e.g. ' sse 387 ')
+	new_math="${new_math/"both"/"sse,387"}"
+	new_math=" ${new_math//[,+]/" "} "
 	# figure out which math values are to be removed
-	prune_math=""
-	for prune_math in "$@" ; do
-		new_math=${new_math/ ${prune_math} / }
+	for prune_math in "${@}" ; do
+		new_math="${new_math/" ${prune_math} "/" "}"
 	done
-	new_math=$(echo ${new_math})
-	new_math=${new_math// /,}
+	# shellcheck disable=SC2086,SC2116
+	new_math="$(echo ${new_math})"  # Remove leading/trailing spaces
+	new_math="${new_math//" "/","}"
 
-	if [[ -z ${new_math} ]] ; then
-		# if we're removing all user specified math values are
-		# slated for removal, then we just filter the flag
-		filter-flags ${orig_mfpmath}
+	if [[ -z "${new_math:-}" ]] ; then
+		# if all user specified math values are slated for removal, then we
+		# just filter the flag
+		filter-flags "${orig_mfpmath}"
 	else
-		# if we only want to filter some of the user specified
-		# math values, then we replace the current flag
-		replace-flags ${orig_mfpmath} -mfpmath=${new_math}
+		# if we only want to filter some of the user specified math values,
+		# then we replace the current flag
+		replace-flags "${orig_mfpmath}" "-mfpmath=${new_math}"
 	fi
+
+	return 0
+}
+
+# @FUNCTION: minimise-memory-usage
+# @USAGE: [PARALLEL_MEMORY_MIN]
+# @DESCRIPTION:
+# Set appropriate compiler, linker, and make flags to try to minimise to the
+# greatest extent possible the memory footprint of the current bulid.
+minimise-memory-usage() {
+	local flag='' arg='' previous=''
+	local -a flags=()
+	#extern PARALLEL_MEMORY_MIN optimise
+
+	if [[ -z "${PARALLEL_MEMORY_MIN:-}" ]]; then
+		if [[ -n "${1:-}" ]]; then
+			if (( ${#} > 1 )); then
+				die "${BASHFUNC[0]} takes a maximum of one argument"
+			fi
+
+			local -i PARALLEL_MEMORY_MIN
+			(( PARALLEL_MEMORY_MIN = ${1} ))
+		else
+			return 1
+		fi
+	elif [[ -n "${1:-}" ]]; then
+		if (( ${#} > 1 )); then
+			die "${BASHFUNC[0]} takes a maximum of one argument"
+		fi
+
+		ewarn "Overriding global minimum memory ${PARALLEL_MEMORY_MIN}GB" \
+			"with ${1}GB"
+		local -i PARALLEL_MEMORY_MIN
+		(( PARALLEL_MEMORY_MIN = ${1} ))
+	fi
+
+	if (( ( $( # <- Syntax
+				head /proc/meminfo |
+					grep -m 1 '^MemAvailable:' |
+					awk '{ print $2 }'
+			) / ( 1024 * 1024 ) ) >= PARALLEL_MEMORY_MIN ))
+	then
+		return 0
+	fi
+
+	if in_iuse lto && use lto; then
+		die "Cannot build without at least ${PARALLEL_MEMORY_MIN}GB free" \
+			"memory with USE='lto'"
+	else
+		ewarn "Disabling LTO support ..."
+		filter-lto
+	fi
+
+	if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
+		ewarn "make.conf or environment contains parallel build directive,"
+		ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
+	fi
+	ewarn "Lowering make parallelism for low-memory build-host ..."
+	if ! [[ -n "${MAKEOPTS:-}" ]]; then
+		export MAKEOPTS='-j1'
+	elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
+		export MAKEOPTS="-j1 ${MAKEOPTS}"
+	else
+		export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
+	fi
+
+	if test-flag-CC '-Wa,--reduce-memory-overheads'; then
+		ewarn "Instructing 'as' to use less memory ..."
+		append-flags '-Wa,--reduce-memory-overheads'
+	fi
+
+	for flag in no-keep-memory reduce-memory-overheads \
+		no-map-whole-files no-mmap-output-file
+	do
+		if test-flag-CCLD "-Wl,--${flag}"; then
+			ewarn "Instructing 'ld' to use less memory with '--${flag}' ..."
+			append-flags "-Wl,--${flag}"
+			append-ldflags "-Wl,--${flag}"
+		fi
+	done
+
+	if [[ -n "${RUSTFLAGS:-}" ]]; then
+		#einfo "Initial RUSTFLAGS='${RUSTFLAGS}'"
+		for arg in ${RUSTFLAGS:-}; do
+			if [[ -n "${previous:-}" ]]; then
+				arg="${previous} ${arg}"
+				previous=''
+			fi
+
+			case "${arg:-}" in
+				"-C"|"-L")								previous="${arg}" ;;
+				"-Lnative="*|"-L native="*)				flags+=( "${arg}" ) ;;
+				"-C link-arg=-Wl,-O"*)					flags+=( "${arg%[0-2]}0" ) ;;
+				"-C link-arg=-Wl,-z,separate-code")		: ;;
+				"-C link-arg=-Wl,-z,"*)					: ;;
+				"-C link-arg=-Wl,--as-needed")			flags+=( "${arg}" ) ;;
+				"-C link-arg=-Wl,--enable-new-dtags")	: ;;
+				"-C link-arg=-Wl,--sort-common")		: ;;
+				"-C link-arg=-fuse-ld=lld")				: ;;
+				"-C opt-level="*)						flags+=( "${arg%[0-3sz]}0" ) ;;
+				"-C strip="*)							flags+=( "${arg}" ) ;;
+				"-C target-cpu="*|"target-cpu="*)		flags+=( "${arg}" ) ;;
+				*)
+					ewarn "Dropping unknown RUSTFLAG '${arg}'"
+					;;
+			esac
+		done
+		export RUSTFLAGS="${flags[*]}"
+		einfo "Filtered RUSTFLAGS='${RUSTFLAGS}'"
+	fi
+	unset flags
+
+	if [[ -n "${optimise:-}" ]]; then
+		optimise='false'
+	fi
+
 	return 0
 }
 
@@ -526,18 +712,20 @@ filter-mfpmath() {
 # flags returned by all_flag_vars().
 strip-flags() {
 	[[ $# -ne 0 ]] && die "strip-flags takes no arguments"
-	local x y var
 
-	local ALLOWED_FLAGS
+	local x='' y='' var=''
+	local -a ALLOWED_FLAGS=()
 	_setup-allowed-flags
 
 	set -f	# disable pathname expansion
 
 	for var in $(all-flag-vars) ; do
-		local new=()
+		local -a new=()
 
 		for x in ${!var} ; do
 			for y in "${ALLOWED_FLAGS[@]}" ; do
+				# Note this should work with globs like -O*
+				# shellcheck disable=SC2053
 				if [[ ${x} == ${y} ]] ; then
 					new+=( "${x}" )
 					break
@@ -546,17 +734,57 @@ strip-flags() {
 		done
 
 		# In case we filtered out all optimization flags fallback to -O2
-		if _is_flagq ${var} "-O*" && ! _is_flagq new "-O*" ; then
+		if _is_flagq "${var}" '-O*' && ! _is_flagq new '-O*' ; then
 			new+=( -O2 )
 		fi
 
 		if [[ ${!var} != "${new[*]}" ]] ; then
-			einfo "strip-flags: ${var}: changed '${!var}' to '${new[*]}'"
+			einfo "strip-flags: ${var}: changed '${!var}' ..."
+			einfo "strip-flags: ${var}: ... to '${new[*]}'"
 		fi
-		export ${var}="${new[*]}"
+		export "${var}=${new[*]}"
 	done
 
 	set +f	# re-enable pathname expansion
+
+	return 0
+}
+
+# @FUNCTION: strip-rust-flags
+# @DESCRIPTION:
+# Strip RUSTFLAGS of everything except known good/safe flags.
+strip-rust-flags() {
+	local arg=''
+	local -a flags=()
+
+	[[ $# -ne 0 ]] && die "strip-rust-flags takes no arguments"
+
+	if [[ -n "${RUSTFLAGS:-}" ]]; then
+		for arg in ${RUSTFLAGS//-C /-C_}; do
+			case "${arg:-}" in
+				'-C_'*)
+					case "${arg}" in
+						'-C_target-cpu='*) : ;&
+						'-C_strip='*) : ;&
+						'-C_link-arg=-Wl,--as-needed') : ;&
+						'-C_link-arg=-Wl,-z,pack-relative-relocs') : ;&
+						'-C_link-arg=-fuse-ld='*)
+							flags+=( "${arg/-C_/-C }" )
+							;;
+						*)
+							einfo "Dropping RUSTFLAGS flag '${arg/-C_/-C }'"
+							;;
+					esac
+					;;
+				*)
+					flags+=( "${arg}" )
+					;;
+			esac
+		done
+		RUSTFLAGS="${flags[*]}"
+
+		export RUSTFLAGS
+	fi
 
 	return 0
 }
@@ -569,87 +797,95 @@ strip-flags() {
 # else returns shell false.
 test-flag-PROG() {
 	[[ ${EAPI} == 7 ]] ||
-		die "Internal function ${FUNCNAME} is not available in EAPI ${EAPI}."
+		die "Internal function ${FUNCNAME[0]} is not available in EAPI ${EAPI}."
 	_test-flag-PROG "$@"
 }
 
 # @FUNCTION: _test-flag-PROG
-# @USAGE: <compiler> <flag>
+# @USAGE: <compiler> <language> <flag> [more flags...]
 # @INTERNAL
 # @DESCRIPTION:
 # Returns shell true if <flag> is supported by given <compiler>,
 # else returns shell false.
 _test-flag-PROG() {
-	local comp=$1
-	local lang=$2
-	shift 2
-
-	if [[ -z ${comp} ]]; then
-		return 1
+	local comp="${1:-}"
+	local lang="${2:-}"
+	if (( ${#} > 2 )); then
+		shift 2
+	else
+		die "Usage: _test-flag-PROG <compiler> <language> <list of flags>"
 	fi
-	if [[ -z $1 ]]; then
-		return 1
+
+	if [[ -z "${comp:-}" ]]; then
+		die "Internal function ${FUNCNAME[0]} requires a 'compiler' argument"
+	fi
+	if [[ -z "${1:-}" ]]; then
+		die "Internal function ${FUNCNAME[0]} requires at least one 'flag'" \
+			"argument"
 	fi
 
 	# verify selected compiler exists before using it
-	comp=($(tc-get${comp}))
+	# shellcheck disable=SC2207
+	local -a _comp=( $(tc-get${comp}) )
 	# 'comp' can already contain compiler options.
 	# 'type' needs a binary name
-	if ! type -p ${comp[0]} >/dev/null; then
+	if ! type -p "${_comp[0]}" >/dev/null; then
 		return 1
 	fi
 
 	# Set up test file.
-	local in_src in_ext cmdline_extra=()
-	case "${lang}" in
+	local in_src='int main(void) { return 0; }' in_ext=''
+	local -a cmdline_extra=()
+	case "${lang:-}" in
 		# compiler/assembler only
 		c)
 			in_ext='c'
-			in_src='int main(void) { return 0; }'
-			cmdline_extra+=(-xc -c)
+			cmdline_extra+=( -xc -c )
 			;;
 		c++)
 			in_ext='cc'
-			in_src='int main(void) { return 0; }'
-			cmdline_extra+=(-xc++ -c)
+			cmdline_extra+=( -xc++ -c )
 			;;
 		f77)
 			in_ext='f'
 			# fixed source form
 			in_src='      end'
-			cmdline_extra+=(-xf77 -c)
+			cmdline_extra+=( -xf77 -c )
 			;;
 		f95)
 			in_ext='f90'
 			in_src='end'
-			cmdline_extra+=(-xf95 -c)
+			cmdline_extra+=( -xf95 -c )
 			;;
 
 		# C compiler/assembler/linker
 		c+ld)
 			in_ext='c'
-			in_src='int main(void) { return 0; }'
 
-			if is-ldflagq -fuse-ld=* ; then
+			if is-ldflagq '-fuse-ld=*' ; then
 				# Respect linker chosen by user so we don't
 				# end up giving false results by checking
 				# with default linker. bug #832377
-				fuse_ld_value=$(get-flag -fuse-ld=*)
-				cmdline_extra+=(${fuse_ld_value})
+				fuse_ld_value="$(get-flag -fuse-ld=*)"
+				cmdline_extra+=( "${fuse_ld_value}" )
 			fi
 
 			cmdline_extra+=(-xc)
 			;;
 		hip)
 			in_ext='hip'
-			in_src='int main(void) { return 0; }'
-			cmdline_extra+=(-xhip -c)
+			cmdline_extra+=( -xhip -c )
+			;;
+		*)
+			die "Internal function ${FUNCNAME[0]} requires that '${lang}' be" \
+				"a known language (c, c++, f77, f95, c+ld, hip)"
 			;;
 	esac
-	local test_in=${T}/test-flag.${in_ext}
-	local test_out=${T}/test-flag.exe
+	local test_in="${T}/test-flag.${in_ext}"
+	local test_out="${T}/test-flag.exe"
 
-	printf "%s\n" "${in_src}" > "${test_in}" || die "Failed to create '${test_in}'"
+	printf "%s\n" "${in_src}" > "${test_in}" ||
+		die "Internal function ${FUNCNAME[0]} failed to create '${test_in}'"
 
 	# Currently we rely on warning-free output of a compiler
 	# before the flag to see if a flag produces any warnings.
@@ -670,13 +906,13 @@ _test-flag-PROG() {
 	# can break feature detection by CMake or autoconf since
 	# many checks use -Werror internally. See e.g. bug #714742.
 	local cmdline=(
-		"${comp[@]}"
+		"${_comp[@]}"
 		# Clang will warn about unknown gcc flags but exit 0.
 		# Need -Werror to force it to exit non-zero.
 		#
 		# See also bug #712488 and bug #714742.
 		-Werror
-		"$@"
+		"${@}"
 		# -x<lang> options need to go before first source file
 		"${cmdline_extra[@]}"
 
@@ -730,7 +966,7 @@ test-flag-HIPCXX() { _test-flag-PROG HIPCXX hip "$@"; }
 # else returns shell false.
 test-flags-PROG() {
 	[[ ${EAPI} == 7 ]] ||
-		die "Internal function ${FUNCNAME} is not available in EAPI ${EAPI}."
+		die "Internal function ${FUNCNAME[0]} is not available in EAPI ${EAPI}."
 	_test-flags-PROG "$@"
 }
 
@@ -741,28 +977,37 @@ test-flags-PROG() {
 # Returns shell true if <flags> are supported by given <compiler>,
 # else returns shell false.
 _test-flags-PROG() {
-	local comp=$1
-	local flags=()
-	local x
+	local comp="${1:-}"
+	local -a flags=()
+	local x=''
+
+	[[ -z "${comp:-}" ]] && return 1
+	[[ -z "${2:-}" ]] && return 1
 
 	shift
 
-	[[ -z ${comp} ]] && return 1
-
-	while (( $# )); do
-		case "$1" in
+	while (( ${#} )); do
+		case "${1:-}" in
 			# '-B /foo': bug #687198
-			--param|-B)
-				if test-flag-${comp} "$1" "$2"; then
-					flags+=( "$1" "$2" )
+			'--param'|'-B')
+				if test-flag-${comp} "${1}" "${2:-}"; then
+					flags+=( "${1}" "${2}" )
 				fi
-				shift 2
+				if (( ${#} > 2 )); then
+					shift 2
+				else
+					break
+				fi
 				;;
 			*)
-				if test-flag-${comp} "$1"; then
-					flags+=( "$1" )
+				if test-flag-${comp} "${1}"; then
+					flags+=( "${1}" )
 				fi
-				shift 1
+				if (( ${#} > 1 )); then
+					shift
+				else
+					break
+				fi
 				;;
 		esac
 	done
@@ -935,20 +1180,20 @@ append-libs() {
 #
 # If no flags are specified, then default to ${LDFLAGS}.
 raw-ldflags() {
-	local x input="$@"
-	[[ -z ${input} ]] && input=${LDFLAGS}
+	local x='' input="${*:-}"
+	[[ -z "${input:-}" ]] && input="${LDFLAGS:-}"
 	set --
 	for x in ${input} ; do
-		case ${x} in
-		-Wl,*)
-			x=${x#-Wl,}
-			set -- "$@" ${x//,/ }
-			;;
-		*)	# Assume it's a compiler driver flag, so throw it away, bug #441808
-			;;
+		case "${x}" in
+			-Wl,*)
+				x="${x#"-Wl,"}"
+				set -- "${@}" "${x//","/" "}"
+				;;
+			*)	# Assume it's a compiler driver flag, so throw it away, bug #441808
+				;;
 		esac
 	done
-	echo "$@"
+	echo "${*:-}"
 }
 
 # @FUNCTION: no-as-needed
@@ -957,7 +1202,7 @@ no-as-needed() {
 	[[ $# -ne 0 ]] && die "no-as-needed takes no arguments"
 	case $($(tc-getLD) -v 2>&1 </dev/null) in
 		*GNU*) # GNU ld
-		echo "-Wl,--no-as-needed" ;;
+			echo "-Wl,--no-as-needed" ;;
 	esac
 }
 
@@ -994,7 +1239,7 @@ test-compile() {
 			compiler="$(tc-getF77)"
 			filename_in="${T}/test.f"
 			filename_out="${T}/test.o"
-			args+=(${FFFLAGS[@]} -xf77 -c)
+			args+=(${FFLAGS[@]} -xf77 -c)
 			;;
 		f95)
 			compiler="$(tc-getFC)"
@@ -1043,7 +1288,7 @@ test-compile() {
 
 	printf "%s\n" "${code}" > "${filename_in}" || die "Failed to create '${test_in}'"
 
-	"${compiler}" ${args[@]} "${filename_in}" -o "${filename_out}" ${libs[@]} &>/dev/null
+	"${compiler}" "${args[@]}" "${filename_in}" -o "${filename_out}" "${libs[@]}" &>/dev/null
 }
 
 # @FUNCTION: append-atomic-flags
