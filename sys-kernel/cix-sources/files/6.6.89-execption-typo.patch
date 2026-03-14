@@ -1,0 +1,116 @@
+diff --git a/arch/hexagon/mm/vm_fault.c b/arch/hexagon/mm/vm_fault.c
+index 7295ea3..eb94c9b 100644
+--- a/arch/hexagon/mm/vm_fault.c
++++ b/arch/hexagon/mm/vm_fault.c
+@@ -8,7 +8,7 @@
+ /*
+  * Page fault handling for the Hexagon Virtual Machine.
+  * Can also be called by a native port emulating the HVM
+- * execptions.
++ * exceptions.
+  */
+ 
+ #include <asm/traps.h>
+diff --git a/drivers/clk/sprd/ums512-clk.c b/drivers/clk/sprd/ums512-clk.c
+index 9384ecc..1f283ea 100644
+--- a/drivers/clk/sprd/ums512-clk.c
++++ b/drivers/clk/sprd/ums512-clk.c
+@@ -1550,7 +1550,7 @@ static struct sprd_clk_desc ums512_aon_gate_desc = {
+ 
+ /* audcp apb gates */
+ /* Audcp apb clocks configure CLK_IGNORE_UNUSED because these clocks may be
+- * controlled by audcp sys at the same time. It may be cause an execption if
++ * controlled by audcp sys at the same time. It may be cause an exception if
+  * kernel gates these clock.
+  */
+ static SPRD_SC_GATE_CLK_HW(audcp_wdg_eb, "audcp-wdg-eb",
+@@ -1592,7 +1592,7 @@ static const struct sprd_clk_desc ums512_audcpapb_gate_desc = {
+ 
+ /* audcp ahb gates */
+ /* Audcp aphb clocks configure CLK_IGNORE_UNUSED because these clocks may be
+- * controlled by audcp sys at the same time. It may be cause an execption if
++ * controlled by audcp sys at the same time. It may be cause an exception if
+  * kernel gates these clock.
+  */
+ static SPRD_SC_GATE_CLK_HW(audcp_iis0_eb, "audcp-iis0-eb",
+diff --git a/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.c b/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.c
+index 3cc905f..7055904 100755
+--- a/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.c
++++ b/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.c
+@@ -35,9 +35,12 @@ typedef struct {
+ } rdr_exceptiontrace_pdev;
+ 
+ static rdr_exceptiontrace_pdev g_et_pdev = { 0 };
+-static rdr_execption_trace_ops g_exception_ops[RDR_CORE_MAX_INDEX] = {
+-	{ rdr_exception_trace_ap_init, NULL,
+-	  rdr_exception_trace_ap_cleartext_print },
++static rdr_exception_trace_ops g_exception_ops[RDR_CORE_MAX_INDEX] = {
++	{
++		.init      = rdr_exception_trace_ap_init,
++		.analysis  = NULL,
++		.cleartext = rdr_exception_trace_ap_cleartext_print,
++	},
+ };
+ 
+ /*
+diff --git a/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.h b/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.h
+index d6c4a3c..e498b30 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.h
++++ b/drivers/soc/cix/cix_dst/blackbox/exception_trace/rdr_exception_trace.h
+@@ -21,7 +21,7 @@ typedef struct {
+ 	pfn_exception_init_ops init; /* init exception trace */
+ 	pfn_exception_analysis_ops analysis; /* analysis exception trace */
+ 	pfn_cleartext_ops cleartext; /* print exception trace */
+-} rdr_execption_trace_ops;
++} rdr_exception_trace_ops;
+ 
+ int exception_trace_buffer_init(u8 *addr, unsigned int size);
+ 
+diff --git a/drivers/soc/cix/cix_dst/blackbox/rdr_core.c b/drivers/soc/cix/cix_dst/blackbox/rdr_core.c
+index 9db1d1e..8b8aab8 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/rdr_core.c
++++ b/drivers/soc/cix/cix_dst/blackbox/rdr_core.c
+@@ -96,7 +96,7 @@ static void rdr_dump_file(struct rdr_exception_info_s *p_exce_info, u32 mod_id)
+ 	rdr_save_cleartext(false);
+ 	path = rdr_get_logdir_path(false);
+ 	if (!IS_ERR_OR_NULL(path))
+-		rdr_execption_callback(p_exce_info, mod_id, path);
++		rdr_exception_callback(p_exce_info, mod_id, path);
+ }
+ 
+ static void rdr_dump(struct rdr_exception_info_s *p_exce_info, u32 mod_id)
+diff --git a/drivers/soc/cix/cix_dst/blackbox/rdr_exception_core.c b/drivers/soc/cix/cix_dst/blackbox/rdr_exception_core.c
+index 2cf68af..708e1cd 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/rdr_exception_core.c
++++ b/drivers/soc/cix/cix_dst/blackbox/rdr_exception_core.c
+@@ -40,7 +40,7 @@ static void execute_callback(rdr_e_callback cb, u32 argc, void *argv)
+ 	r_cb(argc, argv);
+ }
+ 
+-void rdr_execption_callback(struct rdr_exception_info_s *p_exce_info, u32 argc,
++void rdr_exception_callback(struct rdr_exception_info_s *p_exce_info, u32 argc,
+ 			    void *argv)
+ {
+ 	if (p_exce_info == NULL) {
+@@ -48,7 +48,7 @@ void rdr_execption_callback(struct rdr_exception_info_s *p_exce_info, u32 argc,
+ 		return;
+ 	}
+ 
+-	/*Handle execption callback*/
++	/*Handle exception callback*/
+ 	execute_callback(p_exce_info->e_callback, argc, argv);
+ }
+ 
+diff --git a/drivers/soc/cix/cix_dst/blackbox/rdr_inner.h b/drivers/soc/cix/cix_dst/blackbox/rdr_inner.h
+index 7a1d1a1..233aa12 100644
+--- a/drivers/soc/cix/cix_dst/blackbox/rdr_inner.h
++++ b/drivers/soc/cix/cix_dst/blackbox/rdr_inner.h
+@@ -138,7 +138,7 @@ extern char *rdr_core_name[];
+ 
+ /* blackbox internal function, not used in external modules */
+ void rdr_save_cleartext(bool is_last);
+-void rdr_execption_callback(struct rdr_exception_info_s *p_exce_info, u32 argc,
++void rdr_exception_callback(struct rdr_exception_info_s *p_exce_info, u32 argc,
+ 			    void *argv);
+ struct rdr_exception_info_s *rdr_get_exception_info(u32 modid);
+ void rdr_print_one_exc(struct rdr_exception_info_s *e);

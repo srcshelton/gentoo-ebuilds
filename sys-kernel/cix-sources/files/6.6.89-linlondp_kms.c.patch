@@ -1,0 +1,13 @@
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+index fe6ab5a49275..c9916797f473 100644
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+@@ -24,7 +24,7 @@
+ 
+ DEFINE_DRM_GEM_DMA_FOPS(linlondp_cma_fops);
+ 
+-static bool enable_render = true;
++static bool enable_render = false;
+ module_param(enable_render, bool, 0644);
+ MODULE_PARM_DESC(enable_render, "Enable render node support (true/false)");
+ 

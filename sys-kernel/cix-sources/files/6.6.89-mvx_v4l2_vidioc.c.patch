@@ -1,0 +1,15 @@
+diff --git a/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_vidioc.c
+index a33fbef380a2..050839f8a956 100755
+--- a/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_vidioc.c
+@@ -1518,6 +1518,10 @@ int mvx_v4l2_vidioc_streamoff(struct file *file,
+ 
+     MVX_SESSION_INFO(&vsession->session, "v4l2: Stream off. dir=%u.", dir);
+ 
++    if (vsession->port[dir].vb2_queue.streaming == 0) {
++        return 0;
++    }
++
+     ret = mutex_lock_interruptible(&vsession->mutex);
+     if (ret != 0)
+         return ret;

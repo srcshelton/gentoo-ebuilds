@@ -1,0 +1,296 @@
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+index 51a1269b9a9c..2bdb0db31811 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -25,38 +25,30 @@
+ 
+ static int panthor_clk_init(struct panthor_device *ptdev)
+ {
+-	ptdev->clks.core = devm_clk_get(ptdev->base.dev, NULL);
++	ptdev->clks.core = devm_clk_get(ptdev->base.dev, "gpu_clk_core");
+ 	if (IS_ERR(ptdev->clks.core))
+ 		return dev_err_probe(ptdev->base.dev,
+ 				     PTR_ERR(ptdev->clks.core),
+ 				     "get 'core' clock failed");
+ 
+-	ptdev->clks.stacks = devm_clk_get_optional(ptdev->base.dev, "gpu_clk_stacks");
++	ptdev->clks.stacks = devm_clk_get(ptdev->base.dev, "gpu_clk_stacks");
+ 	if (IS_ERR(ptdev->clks.stacks))
+ 		return dev_err_probe(ptdev->base.dev,
+ 				     PTR_ERR(ptdev->clks.stacks),
+ 				     "get 'stacks' clock failed");
+ 
+-	ptdev->clks.coregroup = devm_clk_get_optional(ptdev->base.dev, "coregroup");
+-	if (IS_ERR(ptdev->clks.coregroup))
++	/* CIX SKY1 needs additional backup clocks */
++	ptdev->clks.backup[0] = devm_clk_get_optional(ptdev->base.dev, "gpu_clk_200M");
++	if (IS_ERR(ptdev->clks.backup[0]))
+ 		return dev_err_probe(ptdev->base.dev,
+-				     PTR_ERR(ptdev->clks.coregroup),
+-				     "get 'coregroup' clock failed");
++						PTR_ERR(ptdev->clks.backup[0]),
++						"get 'gpu_clk_200M' clock failed");
+ 
+-	/* CIX SKY1 needs additional backup clocks */
+-	if (of_device_is_compatible(ptdev->base.dev->of_node, "arm,mali-valhall")) {
+-		ptdev->clks.backup[0] = devm_clk_get_optional(ptdev->base.dev, "gpu_clk_200M");
+-		if (IS_ERR(ptdev->clks.backup[0]))
+-			return dev_err_probe(ptdev->base.dev,
+-					     PTR_ERR(ptdev->clks.backup[0]),
+-					     "get 'gpu_clk_200M' clock failed");
+-
+-		ptdev->clks.backup[1] = devm_clk_get_optional(ptdev->base.dev, "gpu_clk_400M");
+-		if (IS_ERR(ptdev->clks.backup[1]))
+-			return dev_err_probe(ptdev->base.dev,
+-					     PTR_ERR(ptdev->clks.backup[1]),
+-					     "get 'gpu_clk_400M' clock failed");
+-	}
++	ptdev->clks.backup[1] = devm_clk_get_optional(ptdev->base.dev, "gpu_clk_400M");
++	if (IS_ERR(ptdev->clks.backup[1]))
++		return dev_err_probe(ptdev->base.dev,
++						PTR_ERR(ptdev->clks.backup[1]),
++						"get 'gpu_clk_400M' clock failed");
+ 
+ 	drm_info(&ptdev->base, "clock rate = %lu\n", clk_get_rate(ptdev->clks.core));
+ 	return 0;
+@@ -68,7 +60,7 @@ static void panthor_pm_domain_fini(struct panthor_device *ptdev)
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ptdev->pm_domain_devs); i++) {
+ 		if (!ptdev->pm_domain_devs[i])
+-			break;
++			continue;
+ 
+ 		if (ptdev->pm_domain_links[i])
+ 			device_link_del(ptdev->pm_domain_links[i]);
+@@ -82,39 +74,78 @@ static int panthor_pm_domain_init(struct panthor_device *ptdev)
+ 	int err;
+ 	int i, num_domains;
+ 
+-	num_domains = of_count_phandle_with_args(ptdev->base.dev->of_node,
+-						 "power-domains",
+-						 "#power-domain-cells");
++	if (!has_acpi_companion(ptdev->base.dev)) {
++		num_domains = of_count_phandle_with_args(ptdev->base.dev->of_node,
++							"power-domains",
++							"#power-domain-cells");
+ 
+-	/*
+-	 * Single domain is handled by the core, and, if only a single power
+-	 * the power domain is requested, the property is optional.
+-	 */
+-	if (num_domains < 2)
+-		return 0;
+-
+-	if (WARN(num_domains > ARRAY_SIZE(ptdev->pm_domain_devs),
+-			"Too many supplies in compatible structure.\n"))
+-		return -EINVAL;
++		/*
++		* Single domain is handled by the core, and, if only a single power
++		* the power domain is requested, the property is optional.
++		*/
++		if (num_domains < 2)
++			return 0;
++
++		if (WARN(num_domains > ARRAY_SIZE(ptdev->pm_domain_devs),
++				"Too many supplies in compatible structure.\n"))
++			return -EINVAL;
+ 
+-	for (i = 0; i < num_domains; i++) {
+-		ptdev->pm_domain_devs[i] =
+-			dev_pm_domain_attach_by_id(ptdev->base.dev, i);
+-		if (IS_ERR_OR_NULL(ptdev->pm_domain_devs[i])) {
+-			err = PTR_ERR(ptdev->pm_domain_devs[i]) ? : -ENODATA;
+-			ptdev->pm_domain_devs[i] = NULL;
++		for (i = 0; i < num_domains; i++) {
++			ptdev->pm_domain_devs[i] =
++				dev_pm_domain_attach_by_id(ptdev->base.dev, i);
++			if (IS_ERR_OR_NULL(ptdev->pm_domain_devs[i])) {
++				err = PTR_ERR(ptdev->pm_domain_devs[i]) ? : -ENODATA;
++				ptdev->pm_domain_devs[i] = NULL;
++				dev_err(ptdev->base.dev,
++					"failed to get pm-domain %d: %d\n",
++					i, err);
++				goto err;
++			}
++
++			ptdev->pm_domain_links[i] = device_link_add(ptdev->base.dev,
++					ptdev->pm_domain_devs[i], DL_FLAG_PM_RUNTIME |
++					DL_FLAG_STATELESS | DL_FLAG_RPM_ACTIVE);
++			if (!ptdev->pm_domain_links[i]) {
++				dev_err(ptdev->pm_domain_devs[i],
++					"adding device link failed!\n");
++				err = -ENODEV;
++				goto err;
++			}
++		}
++	} else {
++		ptdev->pm_domain_devs[1]= fwnode_dev_pm_domain_attach_by_name(ptdev->base.dev, "perf");
++		if (IS_ERR_OR_NULL(ptdev->pm_domain_devs[1])) {
++			err = PTR_ERR(ptdev->pm_domain_devs[1]) ? : -ENODATA;
++			ptdev->pm_domain_devs[1] = NULL;
+ 			dev_err(ptdev->base.dev,
+-				"failed to get pm-domain %d: %d\n",
+-				i, err);
++				"failed to get acpi perf domain %d\n", err);
+ 			goto err;
+ 		}
+ 
+-		ptdev->pm_domain_links[i] = device_link_add(ptdev->base.dev,
+-				ptdev->pm_domain_devs[i], DL_FLAG_PM_RUNTIME |
+-				DL_FLAG_STATELESS | DL_FLAG_RPM_ACTIVE);
+-		if (!ptdev->pm_domain_links[i]) {
+-			dev_err(ptdev->pm_domain_devs[i],
+-				"adding device link failed!\n");
++		ptdev->pm_domain_links[1] = device_link_add(ptdev->base.dev,
++					ptdev->pm_domain_devs[1], DL_FLAG_PM_RUNTIME |
++					DL_FLAG_STATELESS | DL_FLAG_RPM_ACTIVE);
++		if (!ptdev->pm_domain_links[1]) {
++			dev_err(ptdev->base.dev, "Failed to add device_link to gpu perf domain.\n");
++			err = -ENODEV;
++			goto err;
++		}
++
++		struct fwnode_handle *fwnode = fwnode_find_reference(ptdev->base.dev->fwnode, "power-supply", 0);
++		if (IS_ERR_OR_NULL(fwnode)) {
++			dev_warn(ptdev->base.dev, "Failed to get power-supply property, using single power domain.\n");
++			return 0;
++		}
++		ptdev->pm_domain_devs[0] = bus_find_device_by_fwnode(&platform_bus_type, fwnode);
++		pm_runtime_enable(ptdev->pm_domain_devs[0]);
++		dev_pm_domain_attach(ptdev->pm_domain_devs[0], true);
++		fwnode_handle_put(fwnode);
++
++		ptdev->pm_domain_links[0] = device_link_add(ptdev->base.dev,
++					ptdev->pm_domain_devs[0], DL_FLAG_PM_RUNTIME |
++					DL_FLAG_STATELESS | DL_FLAG_RPM_ACTIVE);
++		if (!ptdev->pm_domain_links[0]) {
++			dev_err(ptdev->base.dev, "Failed to add device_link to gpu power domain.\n");
+ 			err = -ENODEV;
+ 			goto err;
+ 		}
+@@ -567,9 +598,7 @@ int panthor_device_resume(struct device *dev)
+ 	reset_control_deassert(ptdev->gpu_reset);
+ 
+ 	/* CIX SKY1 have custom devfreq, let's force max for now (XXX: devfreq) */
+-	if (of_device_is_compatible(ptdev->base.dev->of_node, "arm,mali-valhall")) {
+-		dev_pm_genpd_set_performance_state(ptdev->pm_domain_devs[1], 1000);
+-	}
++	dev_pm_genpd_set_performance_state(ptdev->pm_domain_devs[1], 1000);
+ 
+ 	ret = panthor_devfreq_resume(ptdev);
+ 	if (ret)
+diff --git a/drivers/gpu/drm/panthor/panthor_device.h b/drivers/gpu/drm/panthor/panthor_device.h
+index ac66a2bc61e7..08fcd164d981 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.h
++++ b/drivers/gpu/drm/panthor/panthor_device.h
+@@ -12,6 +12,7 @@
+ #include <linux/reset.h>
+ #include <linux/sched.h>
+ #include <linux/spinlock.h>
++#include <linux/acpi.h>
+ 
+ #include <drm/drm_device.h>
+ #include <drm/drm_mm.h>
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+index fe7f74ec88ad..87690377c28a 100644
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -1581,6 +1581,11 @@ static const struct of_device_id dt_match[] = {
+ };
+ MODULE_DEVICE_TABLE(of, dt_match);
+ 
++static const struct acpi_device_id kbase_acpi_ids[] = {
++						{ .id = "CIXH5000", .driver_data = 0 },
++						{ /* sentinel */ } };
++MODULE_DEVICE_TABLE(acpi, kbase_acpi_ids);
++
+ static DEFINE_RUNTIME_DEV_PM_OPS(panthor_pm_ops,
+ 				 panthor_device_suspend,
+ 				 panthor_device_resume,
+@@ -1593,6 +1598,7 @@ static struct platform_driver panthor_driver = {
+ 		.name = "panthor",
+ 		.pm = pm_ptr(&panthor_pm_ops),
+ 		.of_match_table = dt_match,
++		.acpi_match_table = ACPI_PTR(kbase_acpi_ids),
+ 		.dev_groups = panthor_groups,
+ 	},
+ };
+diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
+index 8692329ccd2a..18358da795e1 100644
+--- a/drivers/gpu/drm/panthor/panthor_fw.c
++++ b/drivers/gpu/drm/panthor/panthor_fw.c
+@@ -1369,7 +1369,11 @@ int panthor_fw_init(struct panthor_device *ptdev)
+ 	INIT_LIST_HEAD(&fw->sections);
+ 	INIT_DELAYED_WORK(&fw->watchdog.ping_work, panthor_fw_ping_work);
+ 
+-	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "JOB");
++	if (has_acpi_companion(ptdev->base.dev))
++		irq = platform_get_irq(to_platform_device(ptdev->base.dev), 0);
++	else
++		irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "JOB");
++
+ 	if (irq <= 0)
+ 		return -ENODEV;
+ 
+diff --git a/drivers/gpu/drm/panthor/panthor_gpu.c b/drivers/gpu/drm/panthor/panthor_gpu.c
+index 099df73587a3..fe7d7ddf6127 100644
+--- a/drivers/gpu/drm/panthor/panthor_gpu.c
++++ b/drivers/gpu/drm/panthor/panthor_gpu.c
+@@ -222,7 +222,11 @@ int panthor_gpu_init(struct panthor_device *ptdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "GPU");
++	if (has_acpi_companion(ptdev->base.dev))
++		irq = platform_get_irq(to_platform_device(ptdev->base.dev), 2);
++	else
++		irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "GPU");
++
+ 	if (irq < 0)
+ 		return irq;
+ 
+@@ -378,7 +382,6 @@ int panthor_gpu_l2_power_on(struct panthor_device *ptdev)
+ 	}
+ 
+ 	/* CIX SKY1 needs a special PHBA setup before L2 activation */
+-	if (of_device_is_compatible(ptdev->base.dev->of_node, "arm,mali-valhall")) {
+ 		gpu_write(ptdev, GPU_SYSC_PBHA_OVERRIDE(3), 0x22000000);
+ 		gpu_write(ptdev, GPU_SYSC_ALLOC(0), 0x00230000);
+ 		gpu_write(ptdev, GPU_SYSC_ALLOC(1), 0x00000023);
+@@ -395,7 +398,6 @@ int panthor_gpu_l2_power_on(struct panthor_device *ptdev)
+ 		gpu_write(ptdev, 0x307C, 0xFFFFFFFF);
+ 		gpu_write(ptdev, 0x3074, 0xFFFFFFFF);
+ 		gpu_write(ptdev, 0x3068, 0x1);
+-	}
+ 
+ 	return panthor_gpu_power_on(ptdev, L2, 1, 20000);
+ }
+@@ -460,10 +462,8 @@ int panthor_gpu_soft_reset(struct panthor_device *ptdev)
+ 		ptdev->gpu->pending_reqs |= GPU_IRQ_RESET_COMPLETED;
+ 		gpu_write(ptdev, GPU_INT_CLEAR, GPU_IRQ_RESET_COMPLETED);
+ 
+-		if (of_device_is_compatible(ptdev->base.dev->of_node, "arm,mali-valhall")) {
+-			gpu_write(ptdev, GPU_PWR_KEY, GPU_PWR_KEY_UNLOCK);
+-			gpu_write(ptdev, GPU_PWR_OVERRIDE1, 0xFFFFFF);
+-		}
++		gpu_write(ptdev, GPU_PWR_KEY, GPU_PWR_KEY_UNLOCK);
++		gpu_write(ptdev, GPU_PWR_OVERRIDE1, 0xFFFFFF);
+ 
+ 		gpu_write(ptdev, GPU_CMD, GPU_SOFT_RESET);
+ 	}
+diff --git a/drivers/gpu/drm/panthor/panthor_mmu.c b/drivers/gpu/drm/panthor/panthor_mmu.c
+index 734f0a93ee15..cd5d4267c143 100644
+--- a/drivers/gpu/drm/panthor/panthor_mmu.c
++++ b/drivers/gpu/drm/panthor/panthor_mmu.c
+@@ -2713,7 +2713,10 @@ int panthor_mmu_init(struct panthor_device *ptdev)
+ 
+ 	ptdev->mmu = mmu;
+ 
+-	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "MMU");
++	if (has_acpi_companion(ptdev->base.dev))
++		irq = platform_get_irq(to_platform_device(ptdev->base.dev), 1);
++	else
++		irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "MMU");
+ 	if (irq <= 0)
+ 		return -ENODEV;
+ 

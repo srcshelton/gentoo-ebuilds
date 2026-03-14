@@ -2,6 +2,46 @@ diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
 index 3d5d20056..f63c0df32 100644
 --- a/drivers/acpi/processor_thermal.c
 +++ b/drivers/acpi/processor_thermal.c
+@@ -65,7 +65,8 @@ static int phys_package_first_cpu(int cpu)
+ #ifdef CONFIG_CIX_THERMAL
+ static unsigned int cix_get_static_power(int cpu)
+ {
+-	int pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++	//int pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++	int pcpu = cpu;
+ 	unsigned long long temp;
+ 	struct acpi_object_list arg_list;
+ 	union acpi_object arg;
+@@ -76,7 +77,8 @@ static unsigned int cix_get_static_power(int cpu)
+ 	arg_list.pointer = &arg;
+ 	arg.type = ACPI_TYPE_INTEGER;
+ 	arg.integer.value = (u64)pcpu;
+-	if (pcpu > 12) {
++	//if (pcpu > 12) {
++	if (pcpu >= num_possible_cpus()) {
+ 		pr_err("CIX: Invalid CPU[%d %d] for SPRG\n", pcpu, cpu);
+ 		return 0;
+ 	}
+@@ -93,7 +95,8 @@ static unsigned int cix_get_static_power(int cpu)
+ 
+ static unsigned int cix_get_dynamic_power(int cpu)
+ {
+-	int pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++	//int pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++	int pcpu = cpu;
+ 	unsigned long long temp;
+ 	struct acpi_object_list arg_list;
+ 	union acpi_object arg;
+@@ -104,7 +107,8 @@ static unsigned int cix_get_dynamic_power(int cpu)
+ 	arg_list.pointer = &arg;
+ 	arg.type = ACPI_TYPE_INTEGER;
+ 	arg.integer.value = (u64)pcpu;
+-	if (pcpu > 12) {
++	//if (pcpu > 12) {
++	if (pcpu >= num_possible_cpus()) {
+ 		pr_err("CIX: Invalid CPU[%d %d] for DPRG\n", pcpu, cpu);
+ 		return 0;
+ 	}
 @@ -372,6 +372,7 @@ processor_set_cur_state(struct thermal_cooling_device *cdev,
  static int processor_get_requested_power(struct thermal_cooling_device *cdev,
  					 u32 *power)
@@ -56,3 +96,8 @@ index 3d5d20056..f63c0df32 100644
  }
  
  
+@@ -620,3 +620,4 @@ void acpi_processor_thermal_exit(struct acpi_processor *pr,
+ 		pr->cdev = NULL;
+ 	}
+ }
++EXPORT_SYMBOL_GPL(acpi_processor_thermal_exit);

@@ -1,0 +1,449 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai>
+Date: Thu, 12 Mar 2026 00:00:00 +0000
+Subject: [PATCH] drm/cix/linlon-dp: fix symbol clashes and clang -Werror issues
+
+When allyesconfig builds both DRM komeda and CIX linlon-dp as built-in,
+linking vmlinux fails due to duplicate global helper symbols copied from
+komeda into linlon-dp.
+
+Also fix clang -Werror failures seen in allyesconfig/allmodconfig paths by
+keeping config-dependent locals/helpers scoped to the build path that uses
+them, cleaning up misleading indentation, and fixing linlondp plane/crtc
+prototype and CLOCK_FIXED-path unused-variable diagnostics.
+
+These changes keep runtime behavior unchanged while removing link-time and
+compile-time failures across aggressive build matrices.
+
+---
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+@@ -27,7 +27,7 @@
+ 	struct linlondp_kms_dev *kms;
+ };
+ 
+-struct linlondp_dev *dev_to_mdev(struct device *dev)
++struct linlondp_dev *linlondp_dev_to_mdev(struct device *dev)
+ {
+ 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+ 
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
+@@ -289,7 +289,7 @@
+ struct linlondp_dev *linlondp_dev_create(struct device *dev);
+ void linlondp_dev_destroy(struct linlondp_dev *mdev);
+ 
+-struct linlondp_dev *dev_to_mdev(struct device *dev);
++struct linlondp_dev *linlondp_dev_to_mdev(struct device *dev);
+ 
+ void linlondp_print_events(struct linlondp_events *evts,
+ 			   struct drm_device *dev);
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -95,7 +95,7 @@
+ static ssize_t core_id_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "0x%08x\n", mdev->chip.core_id);
+ }
+@@ -104,7 +104,7 @@
+ static ssize_t config_id_show(struct device *dev, struct device_attribute *attr,
+ 			      char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe = mdev->pipelines[0];
+ 	union linlondp_config_id config_id;
+ 	int i;
+@@ -128,7 +128,7 @@
+ static ssize_t aclk_hz_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq);
+ }
+@@ -138,7 +138,7 @@
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	long val;
+ 	int err;
+ 
+@@ -161,7 +161,7 @@
+ static ssize_t aclk_freq_fixed_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq_fixed);
+ }
+@@ -172,7 +172,7 @@
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	long val;
+ 	int err;
+ 
+@@ -190,7 +190,7 @@
+ static ssize_t smart_aclk_freq_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%d\n", mdev->smart_aclk_freq ? 1 : 0);
+ }
+@@ -201,7 +201,7 @@
+ 				  struct device_attribute *attr,
+ 				  const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -223,7 +223,7 @@
+ 				 struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -246,7 +246,7 @@
+ 				struct device_attribute *attr, const char *buf,
+ 				size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -268,7 +268,7 @@
+ 			       struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -291,7 +291,7 @@
+ 				   struct device_attribute *attr,
+ 				   const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -313,7 +313,7 @@
+ 				  struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -351,8 +351,9 @@
+ static int linlondp_parse_pipe_dt(struct linlondp_pipeline *pipe)
+ {
+ 	struct device_node *np = pipe->of_node;
+-	struct clk *clk;
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	struct clk *clk;
++
+ 	clk = of_clk_get_by_name(np, "pxclk");
+ 	if (IS_ERR(clk)) {
+ 		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
+@@ -620,7 +621,7 @@
+ 	return enabled_by_gop;
+ }
+ 
+-static void linlondp_gop_set(void)
++static void __maybe_unused linlondp_gop_set(void)
+ {
+ 	struct arm_smccc_res res;
+ 	int dpu_gop_bit = 1;
+@@ -650,10 +651,11 @@
+ 
+ 	mdev->dev = dev;
+ 
+-    err = device_property_read_u32(dev, "enabled_by_gop",
+-                               (u32 *)&mdev->enabled_by_gop);
+-    if (err)
+-        mdev->enabled_by_gop = 0;
++	err = device_property_read_u32(dev, "enabled_by_gop",
++				       (u32 *)&mdev->enabled_by_gop);
++	if (err) {
++		mdev->enabled_by_gop = 0;
++	}
+ 
+ 	is_insmod = linlondp_gop_get();
+ 	if (is_insmod)
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+@@ -386,8 +386,10 @@
+ #endif
+ 	return kms;
+ 
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ free_interrupts:
+ 	drm_kms_helper_poll_fini(drm);
++#endif
+ free_component_binding:
+ 	component_unbind_all(mdev->dev, drm);
+ cleanup_mode_config:
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
+@@ -206,12 +206,12 @@
+ 	coeffs[num] = BIT(LINLONDP_COLOR_PRECISION);
+ }
+ 
+-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs)
++void linlondp_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs)
+ {
+ 	drm_lut_to_coeffs(lut_blob, coeffs, false);
+ }
+ 
+-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs)
++void linlondp_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs)
+ {
+ 	struct color_ctm_ext *ctm_ext;
+ 	u32 i;
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
+@@ -39,8 +39,8 @@
+ 
+ void drm_lut_to_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs,
+ 		       bool igamma);
+-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
+-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
++void linlondp_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
++void linlondp_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
+ 
+ const s32 *linlondp_select_yuv2rgb_coeffs(u32 color_encoding, u32 color_range);
+ const s32 *linlondp_select_rgb2yuv_coeffs(u32 color_encoding, u32 color_range);
+--- a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
++++ b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+@@ -232,7 +232,7 @@
+ 	if (kplane_st->ctm) {
+ 		u32 ctm_coeffs[LINLONDP_N_CTM_COEFFS];
+ 
+-		drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
++		linlondp_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
+ 		linlondp_write_group(reg, LAYER_RGB_RGB_COEFF0,
+ 				     ARRAY_SIZE(ctm_coeffs), ctm_coeffs);
+ 		ctrl |= L_R2R; /* enable RGB2RGB conversion */
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+@@ -682,7 +682,7 @@
+ 	return err;
+ }
+ 
+-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
++void linlondp_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+ 			       bool side_by_side, u16 *hsize, u16 *vsize,
+ 			       bool is_overlap)
+ {
+@@ -708,7 +708,7 @@
+ 	u16 compiz_w, compiz_h;
+ 	int idx = dflow->blending_zorder;
+ 
+-	pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
++	linlondp_pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
+ 				  &compiz_w, &compiz_h, true);
+ 	/* check display rect */
+ 	//FIXME
+@@ -777,7 +777,7 @@
+ 
+ 	st = to_compiz_st(c_st);
+ 
+-	pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
++	linlondp_pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
+ 				  &st->hsize, &st->vsize, true);
+ 
+ 	linlondp_component_set_output(&dflow->input, &compiz->base, 0);
+@@ -862,9 +862,9 @@
+ 	}
+ 
+ 	if (kcrtc_st->base.color_mgmt_changed) {
+-		drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
++		linlondp_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
+ 					 st->fgamma_coeffs);
+-		drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
++		linlondp_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
+ 	}
+ 
+ 	linlondp_component_add_input(&st->base, &m_dflow->input, 0);
+@@ -1227,7 +1227,7 @@
+ 	u32 disp_end = master->out_x + master->out_w;
+ 	u16 boundary;
+ 
+-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
++	linlondp_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+ 
+ 	if (disp_end <= boundary) {
+ 		/* the master viewport only located in master side, no need
+@@ -1243,8 +1243,7 @@
+ 		u32 src_y = master->in_y;
+ 		u32 src_w = master->in_w;
+ 		u32 src_h = master->in_h;
+-		u32 master_valid_w, slave_valid_w;
+-		u32 h_scaling_ratio = 0;
++			u32 h_scaling_ratio = 0;
+ 
+ #ifdef SBS_NO_OVERLAP_SCALING
+ 		if (master->en_scaling || master->en_img_enhancement) {
+@@ -1275,12 +1274,12 @@
+ 		/* When overlap is needed, ensure we don't fetch outside of the
+ 		 * layer when adding the overlap
+ 		 */
+-		master_valid_w = master->out_w;
+-		slave_valid_w = slave->out_w;
+-
+ #ifdef SBS_NO_OVERLAP_SCALING
+-		master->out_w += min(kcrtc->sbs_overlap, slave_valid_w);
+-		slave->out_w += min(kcrtc->sbs_overlap, master_valid_w);
++			u32 master_valid_w = master->out_w;
++			u32 slave_valid_w = slave->out_w;
++
++			master->out_w += min(kcrtc->sbs_overlap, slave_valid_w);
++			slave->out_w += min(kcrtc->sbs_overlap, master_valid_w);
+ #endif
+ 		if (r90) {
+ 			master->in_h = master->out_w;
+@@ -1336,7 +1335,7 @@
+ {
+ 	u16 boundary;
+ 
+-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
++	linlondp_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+ 
+ 	if (slave->out_x < boundary) {
+ 		DRM_DEBUG_ATOMIC(
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
+@@ -547,7 +547,7 @@
+ struct linlondp_crtc_state;
+ struct linlondp_crtc;
+ 
+-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
++void linlondp_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+ 			       bool side_by_side, u16 *hsize, u16 *vsize,
+ 			       bool is_overlap);
+ 
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+@@ -24,7 +24,7 @@
+ 	dflow->out_h = fb->height;
+ 
+ 	/* the write back data comes from the compiz */
+-	pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
++	linlondp_pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
+ 				  false);
+ 	dflow->input.component = &wb_layer->base.pipeline->compiz->base;
+ 	/* compiz doesn't output alpha */
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+@@ -61,6 +61,11 @@
+ 	}
+ }
+ 
++int linlondp_atomic_replace_property_blob_from_id(
++	struct drm_device *dev, struct drm_property_blob **blob,
++	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
++	bool *replaced);
++
+ static int linlondp_plane_init_data_flow(struct drm_plane_state *st,
+ 					 struct linlondp_crtc_state *kcrtc_st,
+ 					 struct linlondp_data_flow_cfg *dflow)
+@@ -69,7 +74,6 @@
+ 	struct drm_framebuffer *fb = st->fb;
+ 	const struct linlondp_format_caps *caps = to_kfb(fb)->format_caps;
+ 	struct linlondp_pipeline *pipe = kplane->layer->base.pipeline;
+-	struct linlondp_dev *mdev = st->plane->dev->dev_private;
+ 	struct drm_crtc_state *crtc_st;
+ 	struct drm_display_mode *mode;
+ 	struct drm_display_mode *adjusted_mode;
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -128,7 +128,6 @@
+ 	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(kcrtc->base.state);
+-	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
+ 	u32 new_mode;
+ 	int err;
+ 
+@@ -647,28 +646,29 @@
+ linlondp_crtc_mode_valid(struct drm_crtc *crtc,
+ 			 const struct drm_display_mode *m)
+ {
++	if (m->flags & DRM_MODE_FLAG_INTERLACE)
++		return MODE_NO_INTERLACE;
++
++	if (m->clock > 600000 * 2) {
++		DRM_DEBUG_ATOMIC(
++			"engine clk can't satisfy the requirement of %s-clk: %d.\n",
++			m->name, m->clock);
++		return MODE_CLOCK_HIGH;
++	}
++
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	struct linlondp_dev *mdev = crtc->dev->dev_private;
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	unsigned long min_pxlclk, min_aclk;
+ 	u8 pixel_per_cycle = 1;
+ 
+-	if (m->flags & DRM_MODE_FLAG_INTERLACE)
+-		return MODE_NO_INTERLACE;
+-
+ 	if (master->force_pixel_per_cycle != 0)
+ 		pixel_per_cycle = master->force_pixel_per_cycle;
+ 
+ 	if ((m->clock > 600000) && (m->clock < 600000 * 2))
+ 		pixel_per_cycle = 2;
+-	else if (m->clock > 600000 * 2) {
+-		DRM_DEBUG_ATOMIC(
+-			"engine clk can't satisfy the requirement of %s-clk: %d.\n",
+-			m->name, m->clock);
+-		return MODE_CLOCK_HIGH;
+-	}
+ 
+-#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	min_pxlclk = m->clock * 1000;
+ 	if (master->dual_link || (pixel_per_cycle == 2))
+ 		min_pxlclk /= 2;
+@@ -697,7 +697,6 @@
+ 				     struct drm_display_mode *adjusted_mode)
+ {
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+-	unsigned long clk_rate;
+ 	u16 hor_divisor = 1;
+ 	u8 pixel_per_cycle = 1;
+ 	bool rebuilt_crtcs = false;
+@@ -742,6 +741,8 @@
+ 		adjusted_mode->crtc_htotal /= hor_divisor;
+ 	}
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	unsigned long clk_rate;
++
+ 	clk_rate = adjusted_mode->crtc_clock * 1000;
+ 	/* crtc_clock will be used as the linlondp output pixel clock */
+ 	adjusted_mode->crtc_clock =
+-- 
+2.39.5

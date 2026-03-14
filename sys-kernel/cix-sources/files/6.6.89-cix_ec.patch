@@ -1,0 +1,20 @@
+diff --git a/drivers/platform/chrome/cix_ec/Makefile b/drivers/platform/chrome/cix_ec/Makefile
+index cdbf489..d92ec69 100644
+--- a/drivers/platform/chrome/cix_ec/Makefile
++++ b/drivers/platform/chrome/cix_ec/Makefile
+@@ -1,10 +1,10 @@
+ # SPDX-License-Identifier: GPL-2.0
+ 
+-obj-$(CONFIG_CIX_EC)	+= cix_ec_kb_backlight.o
+-obj-$(CONFIG_CIX_EC)	+= cix_ec_lid.o
+-obj-$(CONFIG_CIX_EC)	+= cix_ec_light.o
+-obj-$(CONFIG_CIX_EC)	+= cix_ec_battery.o
++#obj-$(CONFIG_CIX_EC)	+= cix_ec_kb_backlight.o
++#obj-$(CONFIG_CIX_EC)	+= cix_ec_lid.o
++#obj-$(CONFIG_CIX_EC)	+= cix_ec_light.o
++#obj-$(CONFIG_CIX_EC)	+= cix_ec_battery.o
+ obj-$(CONFIG_CIX_EC)	+= cix_ec_gpio.o
+-obj-$(CONFIG_CIX_EC)	+= cix_ec_charge.o
++#obj-$(CONFIG_CIX_EC)	+= cix_ec_charge.o
+ obj-$(CONFIG_CIX_EC)	+= cix_ec_pwrkey.o
+ obj-$(CONFIG_CIX_EC)	+= cix_ec_fan.o

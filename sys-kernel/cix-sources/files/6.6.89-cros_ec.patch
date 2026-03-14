@@ -77,6 +77,47 @@ index bd00b5977..c3ccf9701 100644
  	ret = cix_ec_get_irq_info(ec_dev);
  	if (ret < 0)
  		dev_err(ec_dev->dev,"Failed: clear interrupts from str wakeup!\n");
+diff --git a/drivers/platform/chrome/cros_ec_i2c.c b/drivers/platform/chrome/cros_ec_i2c.c
+index 7cad87d3cb44..b7f0f2c4a129 100644
+--- a/drivers/platform/chrome/cros_ec_i2c.c
++++ b/drivers/platform/chrome/cros_ec_i2c.c
+@@ -340,11 +340,13 @@ static int cros_ec_i2c_resume(struct device *dev)
+ #endif
+ 
+ static const struct dev_pm_ops cros_ec_i2c_pm_ops = {
+-#ifdef CONFIG_CIX_EC
++#ifdef CONFIG_PM_SLEEP
++#if IS_ENABLED(CONFIG_CIX_EC)
+ 	SYSTEM_SLEEP_PM_OPS(cros_ec_i2c_suspend, cros_ec_i2c_resume)
+ #else
+ 	SET_LATE_SYSTEM_SLEEP_PM_OPS(cros_ec_i2c_suspend, cros_ec_i2c_resume)
+ #endif
++#endif // CONFIG_PM_SLEEP
+ };
+ 
+ #ifdef CONFIG_OF
+diff --git a/drivers/platform/chrome/cros_ec_proto.c b/drivers/platform/chrome/cros_ec_proto.c
+index d61eaab89253..f206577003f8 100644
+--- a/drivers/platform/chrome/cros_ec_proto.c
++++ b/drivers/platform/chrome/cros_ec_proto.c
+@@ -872,7 +872,7 @@ EXPORT_SYMBOL(cros_ec_get_next_event);
+  */
+ u32 cros_ec_get_host_event(struct cros_ec_device *ec_dev)
+ {
+-	u32 host_event;
++	u32 host_event = 0;
+ 
+ 	if (!ec_dev->mkbp_event_supported)
+ 		return 0;
+@@ -884,7 +884,7 @@ u32 cros_ec_get_host_event(struct cros_ec_device *ec_dev)
+ 		dev_warn(ec_dev->dev, "Invalid host event size\n");
+ 		return 0;
+ 	}
+-#ifndef CONFIG_CIX_EC
++#if !IS_ENABLED(CONFIG_CIX_EC)
+ 	host_event = get_unaligned_le32(&ec_dev->event_data.data.host_event);
+ #endif
+ 	return host_event;
 diff --git a/include/linux/platform_data/cros_ec_commands.h b/include/linux/platform_data/cros_ec_commands.h
 index 65b5faa73..074cc7be8 100644
 --- a/include/linux/platform_data/cros_ec_commands.h

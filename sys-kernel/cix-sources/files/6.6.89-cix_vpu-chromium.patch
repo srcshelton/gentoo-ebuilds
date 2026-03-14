@@ -1,0 +1,37 @@
+diff --git a/drivers/media/platform/cix/cix_vpu/if/mvx_session.c b/drivers/media/platform/cix/cix_vpu/if/mvx_session.c
+index 8cc41a8384ad..91d3690a93da 100755
+--- a/drivers/media/platform/cix/cix_vpu/if/mvx_session.c
++++ b/drivers/media/platform/cix/cix_vpu/if/mvx_session.c
+@@ -130,10 +130,6 @@ static struct mvx_session_format_map mvx_compressed_fmts[] = {
+       .flags =          V4L2_FMT_FLAG_COMPRESSED,
+       .pixelformat =    V4L2_PIX_FMT_AV1,
+       .description =    "AV1" },
+-    { .format =         MVX_FORMAT_JPEG,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
+-      .pixelformat =    V4L2_PIX_FMT_JPEG,
+-      .description =    "JPEG" },
+     { .format =         MVX_FORMAT_JPEG,
+       .flags =          V4L2_FMT_FLAG_COMPRESSED,
+       .pixelformat =    V4L2_PIX_FMT_MJPEG,
+diff --git a/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_fops.c
+index 2c31a15d34f3..7b551aa98fd6 100755
+--- a/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_fops.c
++++ b/drivers/media/platform/cix/cix_vpu/if/v4l2/mvx_v4l2_fops.c
+@@ -182,10 +182,14 @@ unsigned int mvx_v4l2_poll(struct file *file,
+         revents |= EPOLLPRI;
+ 
+     /* POLLPRI events are handled by Vb2 */
+-    if (vb2_is_streaming(&vsession->port[MVX_DIR_INPUT].vb2_queue) &&
+-        (events & EPOLLOUT))
+-        revents |= vb2_poll(&vsession->port[MVX_DIR_INPUT].vb2_queue,
++    if (vb2_is_streaming(&vsession->port[MVX_DIR_INPUT].vb2_queue))
++    {
++        unsigned int input_revents = vb2_poll(&vsession->port[MVX_DIR_INPUT].vb2_queue,
+                     file, wait);
++        if (events & EPOLLOUT)
++            revents |= input_revents;
++    }
++
+     if (vb2_is_streaming(&vsession->port[MVX_DIR_OUTPUT].vb2_queue) &&
+         (events & (EPOLLIN | EPOLLPRI)))
+         revents |= vb2_poll(&vsession->port[MVX_DIR_OUTPUT].vb2_queue,

@@ -1,0 +1,31 @@
+diff --git a/drivers/media/platform/cix/cix_vpu/mvx_driver.c b/drivers/media/platform/cix/cix_vpu/mvx_driver.c
+index 1efee7f6efdf..2007ff18f05e 100755
+--- a/drivers/media/platform/cix/cix_vpu/mvx_driver.c
++++ b/drivers/media/platform/cix/cix_vpu/mvx_driver.c
+@@ -32,8 +32,8 @@
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/printk.h>
+-#include "mvx_if.h"
+-#include "mvx_dev.h"
++#include "if/mvx_if.h"
++#include "dev/mvx_dev.h"
+ #include "mvx_log_group.h"
+ 
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/cix/cix_vpu/if/mvx_if.c b/drivers/media/platform/cix/cix_vpu/if/mvx_if.c
+index 8a9ce6aa23c3..621a7efbbd81 100755
+--- a/drivers/media/platform/cix/cix_vpu/if/mvx_if.c
++++ b/drivers/media/platform/cix/cix_vpu/if/mvx_if.c
+@@ -41,9 +41,9 @@
+ #include <linux/printk.h>
+ #include <linux/of_device.h>
+ #include <linux/version.h>
+-#include "mvx_ext_if.h"
++#include "v4l2/mvx_ext_if.h"
+ #include "mvx_if.h"
+-#include "mvx_log_group.h"
++#include "../mvx_log_group.h"
+ #include "mvx_firmware.h"
+ #include "mvx_firmware_cache.h"
+ #include "mvx_secure.h"

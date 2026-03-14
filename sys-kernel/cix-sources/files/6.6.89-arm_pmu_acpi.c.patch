@@ -1,0 +1,19 @@
+diff --git a/drivers/perf/arm_pmu_acpi.c b/drivers/perf/arm_pmu_acpi.c
+index 05dda19c5359..3eddf64f0233 100644
+--- a/drivers/perf/arm_pmu_acpi.c
++++ b/drivers/perf/arm_pmu_acpi.c
+@@ -76,6 +76,14 @@ arm_acpi_register_pmu_device(struct platform_device *pdev, u8 len,
+ 	int cpu, this_hetid, hetid, irq, ret;
+ 	u16 this_gsi = 0, gsi = 0;
+ 
++#ifdef CONFIG_ARCH_CIX
++  /*
++   * See https://github.com/radxa-pkg/edk2-cix/issues/4#issuecomment-3636638793
++   */
++  this_gsi = 21;
++  gsi = 21;
++#endif
++
+ 	/*
+ 	 * Ensure that platform device must have IORESOURCE_IRQ
+ 	 * resource to hold gsi interrupt.

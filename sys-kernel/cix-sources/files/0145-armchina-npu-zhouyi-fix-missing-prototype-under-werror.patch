@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai>
+Date: Thu, 12 Mar 2026 00:00:00 +0000
+Subject: [PATCH] armchina/npu/zhouyi: fix missing prototypes under -Werror
+
+Some zhouyi v3.1 reset helpers are only used through local ops tables.
+Keep them file-local to satisfy -Wmissing-prototypes with CONFIG_WERROR=y.
+
+---
+--- a/drivers/misc/armchina-npu/zhouyi/v3_1.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3_1.c
+@@ -332,7 +332,7 @@
+ }
+ #endif
+ 
+-int zhouyi_v3_1_soft_reset(struct aipu_partition *cluster, bool init_regs)
++static int zhouyi_v3_1_soft_reset(struct aipu_partition *cluster, bool init_regs)
+ {
+ 	int ret = 0;
+ 	struct aipu_priv *aipu = cluster->priv;
+--- a/drivers/misc/armchina-npu/zhouyi/v3_1_priv.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3_1_priv.c
+@@ -142,7 +142,7 @@
+ 	}
+ }
+ 
+-int v3_1_global_soft_reset(struct aipu_priv *aipu)
++static int v3_1_global_soft_reset(struct aipu_priv *aipu)
+ {
+ 	return zhouyi_soft_reset(&aipu->reg, PMU_TOP_SOFT_RESET_REG, aipu->reset_delay_us);
+ }
+-- 
+2.39.5

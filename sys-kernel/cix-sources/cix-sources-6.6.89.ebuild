@@ -53,7 +53,7 @@ SRC_URI="
 	${KERNEL_URI} ${GENPATCHES_URI} ${ARCH_URI}"
 
 KEYWORDS="arm arm64"
-IUSE="experimental git"
+IUSE="experimental git npu panthor vpu"
 
 COMMON_DEPEND="
 	sys-libs/binutils-libs
@@ -76,19 +76,21 @@ BDEPEND="${COMMON_DEPEND}
 PATCHES=(
 	"${FILESDIR}/${EGIT_COMMIT_KV}-Kconfig-mark-BROKEN.patch"
 
+	"${FILESDIR}/${EGIT_COMMIT_KV}-mntn-headers.patch"
+
 	"${FILESDIR}/${EGIT_COMMIT_KV}-blackbox.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-check_himntn.patch"
+	"${FILESDIR}/${EGIT_COMMIT_KV}-cix_ec.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-clk-sky1-audss.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-cppc_cpufreq.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-cros_ec.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-drm.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-dst_reboot_reason.patch"
-	"${FILESDIR}/${EGIT_COMMIT_KV}-mntn-headers.patch"
+	"${FILESDIR}/${EGIT_COMMIT_KV}-execption-typo.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-phy-cix-usbdp.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-pm_exception.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-printk.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-regulator.patch"
-	#"${FILESDIR}/${EGIT_COMMIT_KV}-remove-gov_acpi_dp.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-sched_clock-isb.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-scmi.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-sky1_pcie-fixes.patch"
@@ -96,6 +98,7 @@ PATCHES=(
 	"${FILESDIR}/${EGIT_COMMIT_KV}-soc-cix-pm.patch"
 
 	"${FILESDIR}/${EGIT_COMMIT_KV}-amba-pl011.c.patch"
+	"${FILESDIR}/${EGIT_COMMIT_KV}-arm_pmu_acpi.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-cdnsp-plat.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-cix_cpu_ipa.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-cix-cpufreq-dt.c.patch"
@@ -103,6 +106,7 @@ PATCHES=(
 	"${FILESDIR}/${EGIT_COMMIT_KV}-cix_scmi_em.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-dsu-pctrl-devfreq.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-get_current_last_irq.patch"
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-remove-gov_acpi_dp.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-gov_acpi_dp.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-hf_manager.c.patch"
 	"${FILESDIR}/${EGIT_COMMIT_KV}-incompatible-pointer.patch"
@@ -115,12 +119,27 @@ PATCHES=(
 
 	"${FILESDIR}/${EGIT_COMMIT_KV}-misc.patch"
 
+	"${FILESDIR}/${EGIT_COMMIT_KV}-clang-warnings.patch"
+
+	# From https://github.com/RadxaYuntian/nixos-hardware/tree/sky1/cix/sky1/bsp/2025.09/kernel/
 	"${FILESDIR}/0001-DPTSW-16669-0-clocksource-timer-sky1-gpt-remove-rese.patch"
 	"${FILESDIR}/0002-DPTSW-16669-1-pwm-remove-reset-operation.patch"
 	"${FILESDIR}/0003-DPTSW-16669-2-arch-arm64-dts-cix-disable-uart1.patch"
 	"${FILESDIR}/0004-DPTSW-17177-pwm-sky1-remove-pwm-clock-auto-enable-fe.patch"
 
-	"${FILESDIR}/${EGIT_COMMIT_KV}-clang-warnings.patch"
+	# From https://github.com/armbian/linux-cix/
+	"${FILESDIR}/${EGIT_COMMIT_KV}-r8169_main.c.patch"
+	#"${FILESDIR}/6.6.1-mali.patch"
+	#
+	# Moved to src_prepare() under USE flag control...
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-panthor.patch"
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-panthor_fw.c.patch"
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-cix_vpu.patch"
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-cix_vpu-chromium.patch"
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-cix_vpu-fixes.patch"
+	#"${FILESDIR}/${EGIT_COMMIT_KV}-cix_npu.patch"
+	#
+	"${FILESDIR}/${EGIT_COMMIT_KV}-linlondp_kms.c.patch"
 )
 
 #S="${WORKDIR}/kernel-${EGIT_COMMIT}"
@@ -225,6 +244,20 @@ src_prepare() {
 	fi
 
 	default
+
+	if use npu; then
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-cix_npu.patch" || die
+	fi
+	if use vpu; then
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-cix_vpu.patch" || die
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-cix_vpu-chromium.patch" || die
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-cix_vpu-fixes.patch" || die
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-mvx_v4l2_vidioc.c.patch" || die
+	fi
+	if use panthor; then
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-panthor.patch" || die
+		eapply "${FILESDIR}/${EGIT_COMMIT_KV}-panthor_fw.c.patch" || die
+	fi
 
 	if use git && (( ${#PATCHES[@]} )); then
 		set -x

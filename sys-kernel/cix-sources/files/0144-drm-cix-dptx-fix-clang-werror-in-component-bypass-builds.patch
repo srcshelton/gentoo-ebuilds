@@ -1,0 +1,126 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai>
+Date: Thu, 12 Mar 2026 00:00:00 +0000
+Subject: [PATCH] drm/cix/dptx: fix clang -Werror in config-dependent builds
+
+Fix multiple clang diagnostics that become hard failures under
+CONFIG_WERROR=y:
+
+- include <linux/of_platform.h> so of_find_device_by_node() is declared.
+- compile component_ops only when component binding is enabled.
+- drop an unused local node variable and skip null platform lookups.
+- initialize the PHY configure return code on no-op paths.
+- initialize encoder-disable CRTC state pointer before conditional assignment.
+- guard PM callbacks for PM/PM_SLEEP combinations.
+- include the local HDCP tx-state header in hdcp2_tx_state.c so exported
+  helpers have visible prototypes in that translation unit.
+- drop an unused HDCP test vector constant that trips
+  -Wunused-const-variable.
+
+These changes are no-op for functional behavior and only harden
+configuration-dependent compile paths.
+
+---
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -32,6 +32,7 @@
+ #include <linux/pm_runtime.h>
+ #include <linux/phy/phy.h>
+ #include <linux/reset.h>
++#include <linux/of_platform.h>
+ #include <asm/types.h>
+ #include <linux/component.h>
+ #include <linux/of_device.h>
+@@ -199,10 +200,12 @@
+ 		device_link_del(dpsub->link);
+ }
+ 
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ static const struct component_ops trilin_dptx_cix_ops = {
+ 	.bind = trilin_dptx_cix_bind,
+ 	.unbind = trilin_dptx_cix_unbind,
+ };
++#endif
+ 
+ struct linlondp_drv {
+ 	void *mdev;
+@@ -224,7 +227,6 @@
+ #else
+ 	struct device_node *ports_node, *port_node;
+ 	int i = 0, ret = 0, j = 0;
+-	struct device_node *remote_node;
+ 	struct platform_device *dpu_pdev;
+ 	struct device *master_dpu_dev_0 = NULL;
+ 	struct device *master_dpu_dev_1 = NULL;
+@@ -280,6 +282,8 @@
+ 		dpu_pdev = of_find_device_by_node(dev_b_node);
+ 		of_node_put(dev_b_node);
+ 		of_node_put(remote_ep);
++		if (!dpu_pdev)
++			continue;
+ 
+ 		struct linlondp_drv *drv_data = platform_get_drvdata(dpu_pdev);
+
+@@ -369,11 +373,13 @@
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
+ static int trilin_dptx_pm_resume(struct device *dev)
+ {
+ 	dev_info(dev, "%s\n", __func__);
+ 	return 0;
+ }
++#endif
+ 
+ static void trilin_dptx_pm_complete(struct device *dev)
+ {
+@@ -387,4 +393,9 @@
+ 	.complete = trilin_dptx_pm_complete,
+ 	.resume_early = trilin_dptx_pm_resume_early,
+ };
++#else
++static int trilin_dptx_pm_suspend(struct device *dev)
++{
++	return 0;
++}
+ #endif
+ 
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -310,7 +310,7 @@
+ 
+ static int trilin_dp_update_vs_emph_phy_config(struct trilin_dp *dp)
+ {
+-	int ret;
++	int ret = 0;
+ 	u8 train;
+ 	union phy_configure_opts opts = { 0 };
+ 	struct trilin_phy_t *phy = &dp->phy;
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -675,7 +675,7 @@
+ 	struct trilin_dp *dp = encoder_to_dp(encoder);
+ 	struct trilin_dp_panel *dp_panel = &dp->dp_panel;
+ 	struct drm_crtc *crtc;
+-	struct drm_crtc_state *new_crtc_state;
++	struct drm_crtc_state *new_crtc_state = NULL;
+ 
+ 	if (!(dp->state & DP_STATE_INITIALIZED)) {
+ 		DP_DEBUG("[not init]");
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
++++ b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
+@@ -24,10 +24,7 @@
+ #include "cix_hdcp.h"
+ #include "cix_hdcp_ioctl_cmd.h"
+ #include "hdcp2_hw_tx.h"
++#include "hdcp2_tx_state.h"
+ #include "hdcp2_key_drvn_tx.h"
+
+-static const uint8_t test_lc128[] = { 0x93U, 0xceU, 0x5aU, 0x56U, 0xa0U, 0xa1U,
+-				      0xf4U, 0xf7U, 0x3cU, 0x65U, 0x8aU, 0x1bU,
+-				      0xd2U, 0xaeU, 0xf0U, 0xf7U };
+-
+ static const uint8_t product_lc128[] = { 0x93U, 0xceU, 0x5aU, 0x56U, 0xa0U, 0xa1U,
+-- 
+2.39.5

@@ -208,15 +208,6 @@ index d769ba6c127f..421141f997d0 100644
  }
  
  int acpi_pd_off(struct device *dev, u32 pd_id)
-diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
-index f63c0df3228e..fcdc6a6a77ec 100644
---- a/drivers/acpi/processor_thermal.c
-+++ b/drivers/acpi/processor_thermal.c
-@@ -620,3 +620,4 @@ void acpi_processor_thermal_exit(struct acpi_processor *pr,
- 		pr->cdev = NULL;
- 	}
- }
-+EXPORT_SYMBOL_GPL(acpi_processor_thermal_exit);
 diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
 index 348d41028e1b..498f63bd6a37 100644
 --- a/drivers/clk/cix/Kconfig
@@ -1283,6 +1274,15 @@ index 480b6bc4c05a..abcb970d5032 100644
  
  static int smmu_dump(void *dump_addr, unsigned int size)
  {
+@@ -206,7 +206,7 @@ void smmu_dump_debug(void)
+ 	struct cma *cma;
+ 	struct page **pages, *cma_pages;
+ 	unsigned int cnt;
+-	void *vaddr;
++	void *vaddr = NULL;
+ 	int ret, i;
+ 
+ 	cma = dma_contiguous_default_area;
 @@ -282,7 +281,7 @@ static const struct file_operations smmu_dump_debug_fops = {
  };
  #endif
@@ -1375,6 +1375,20 @@ index be5b3416e819..33288356c6cc 100644
  
  static bool disable_bypass = true;
  module_param(disable_bypass, bool, 0444);
+@@ -1688,10 +1688,10 @@ static irqreturn_t arm_smmu_evtq_thread(int irq, void *dev)
+ 			if (!ret || !__ratelimit(&rs))
+ 				continue;
+ 
+-			dev_info(smmu->dev, "event 0x%02x received:\n", id);
++			dev_dbg(smmu->dev, "event 0x%02x received:\n", id);
+ 			for (i = 0; i < ARRAY_SIZE(evt); ++i)
+-				dev_info(smmu->dev, "\t0x%016llx\n",
+-					 (unsigned long long)evt[i]);
++				dev_dbg(smmu->dev, "\t0x%016llx\n",
++					(unsigned long long)evt[i]);
+ 
+ 			cond_resched();
+ 		}
 @@ -3989,37 +3986,40 @@ static void arm_smmu_iort_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
  
  static void arm_smmu_dt_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
@@ -3253,37 +3267,6 @@ index 0a5eb88a227c..71ffcaf2d911 100644
  	if (udphy->phy_reset) {
  		dev_info(dev, "phy reset\n");
  		reset_control_assert(udphy->reset);
-diff --git a/drivers/platform/chrome/cros_ec_i2c.c b/drivers/platform/chrome/cros_ec_i2c.c
-index 7cad87d3cb44..b7f0f2c4a129 100644
---- a/drivers/platform/chrome/cros_ec_i2c.c
-+++ b/drivers/platform/chrome/cros_ec_i2c.c
-@@ -340,11 +340,13 @@ static int cros_ec_i2c_resume(struct device *dev)
- #endif
- 
- static const struct dev_pm_ops cros_ec_i2c_pm_ops = {
-+#ifdef CONFIG_PM_SLEEP
- #ifdef CONFIG_CIX_EC
- 	SYSTEM_SLEEP_PM_OPS(cros_ec_i2c_suspend, cros_ec_i2c_resume)
- #else
- 	SET_LATE_SYSTEM_SLEEP_PM_OPS(cros_ec_i2c_suspend, cros_ec_i2c_resume)
- #endif
-+#endif // CONFIG_PM_SLEEP
- };
- 
- #ifdef CONFIG_OF
-diff --git a/drivers/platform/chrome/cros_ec_proto.c b/drivers/platform/chrome/cros_ec_proto.c
-index d61eaab89253..f206577003f8 100644
---- a/drivers/platform/chrome/cros_ec_proto.c
-+++ b/drivers/platform/chrome/cros_ec_proto.c
-@@ -872,7 +872,7 @@ EXPORT_SYMBOL(cros_ec_get_next_event);
-  */
- u32 cros_ec_get_host_event(struct cros_ec_device *ec_dev)
- {
--	u32 host_event;
-+	u32 host_event = 0;
- 
- 	if (!ec_dev->mkbp_event_supported)
- 		return 0;
 diff --git a/drivers/remoteproc/cix_sfh_rproc.c b/drivers/remoteproc/cix_sfh_rproc.c
 index d812e6299328..3455e1a701a5 100755
 --- a/drivers/remoteproc/cix_sfh_rproc.c
@@ -4047,3 +4030,33 @@ index 776eb451c398..d70998c9b817 100644
  		}
  
  		mclk_parent = link_info->clks[AUDIO_CLK2];
+diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f_uvc.c
+index 6da04fa..84cc3d7 100644
+--- a/drivers/usb/gadget/function/f_uvc.c
++++ b/drivers/usb/gadget/function/f_uvc.c
+@@ -557,6 +557,7 @@ uvc_copy_descriptors(struct uvc_device *uvc, enum usb_device_speed speed)
+ 	/* Count descriptors and compute their size. */
+ 	control_size = 0;
+ 	streaming_size = 0;
++	n_desc = 0;
+ 	bytes = uvc_iad.bLength + uvc_control_intf.bLength
+ 	      + uvc_streaming_intf_alt0.bLength;
+ 
+diff --git a/drivers/clocksource/arm_arch_timer.c b/drivers/clocksource/arm_arch_timer.c
+index 19a200e..83b1fc3 100644
+--- a/drivers/clocksource/arm_arch_timer.c
++++ b/drivers/clocksource/arm_arch_timer.c
+@@ -541,12 +541,11 @@ static
+ bool arch_timer_check_acpi_oem_erratum(const struct arch_timer_erratum_workaround *wa,
+ 				       const void *arg)
+ {
+-	static const struct ate_acpi_oem_info empty_oem_info = {};
+ 	const struct ate_acpi_oem_info *info = wa->id;
+ 	const struct acpi_table_header *table = arg;
+ 
+ 	/* Iterate over the ACPI OEM info array, looking for a match */
+-	while (memcmp(info, &empty_oem_info, sizeof(*info))) {
++	while (info->oem_id[0] || info->oem_table_id[0] || info->oem_revision) {
+ 		if (!memcmp(info->oem_id, table->oem_id, ACPI_OEM_ID_SIZE) &&
+ 		    !memcmp(info->oem_table_id, table->oem_table_id, ACPI_OEM_TABLE_ID_SIZE) &&
+ 		    info->oem_revision == table->oem_revision)
