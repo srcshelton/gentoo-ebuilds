@@ -21,7 +21,7 @@ if [[ ${PV} == *_p* ]] ; then
 	"
 	S="${WORKDIR}/linux-${PN}-${PAM_COMMIT}"
 else
-	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/strace.asc
+	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/pam.asc
 	inherit verify-sig
 
 	SRC_URI="
@@ -30,12 +30,12 @@ else
 	"
 	S="${WORKDIR}/${MY_P}"
 
-	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-strace )"
+	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-pam )"
 fi
 
 LICENSE="|| ( BSD GPL-2 )"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 # Avoid pam[systemd] -> systemd -> pam circular dependency...
 IUSE="audit berkdb debug elogind examples nis nls pam-systemd selinux +tmpfiles"
 REQUIRED_USE="?? ( elogind pam-systemd )"
