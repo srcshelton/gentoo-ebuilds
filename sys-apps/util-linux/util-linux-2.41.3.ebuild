@@ -1,10 +1,11 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
 PYTHON_COMPAT=( python3_{11..14} )
 TMPFILES_OPTIONAL=1
+WANT_AUTOMAKE="latest"
 
 inherit autotools bash-completion-r1 flag-o-matic libtool multiprocessing pam python-r1 systemd tmpfiles toolchain-funcs usr-ldscript multilib-minimal
 
@@ -22,7 +23,7 @@ else
 	inherit verify-sig
 
 	if [[ ${PV} != *_rc* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~arm64-macos"
+		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc ~x86 ~arm64-macos"
 	fi
 
 	SRC_URI="https://www.kernel.org/pub/linux/utils/util-linux/v${PV:0:4}/${MY_P}.tar.xz
@@ -115,12 +116,9 @@ src_unpack() {
 		return
 	fi
 
-	# Upstream sign the decompressed .tar
 	if use verify-sig; then
-		einfo "Unpacking ${MY_P}.tar.xz ..."
-		verify-sig_verify_detached - "${DISTDIR}"/${MY_P}.tar.sign \
-			< <(xz -cd "${DISTDIR}"/${MY_P}.tar.xz | tee >(tar -xf -))
-		assert "Unpack failed"
+		verify-sig_uncompress_verify_unpack "${DISTDIR}"/${MY_P}.tar.xz \
+			"${DISTDIR}"/${MY_P}.tar.sign
 	else
 		default
 	fi
@@ -208,6 +206,9 @@ src_prepare() {
 
 	if [[ ${PV} == 9999 ]] ; then
 		po/update-potfiles
+	#	eautoreconf
+	#else
+	#	elibtoolize
 	fi
 	eautoreconf
 }
