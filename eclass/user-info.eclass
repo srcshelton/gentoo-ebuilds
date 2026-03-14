@@ -5,20 +5,20 @@
 # @MAINTAINER:
 # base-system@gentoo.org (Linux)
 # Michał Górny <mgorny@gentoo.org> (NetBSD)
-# @SUPPORTED_EAPIS: 7 8
+# @SUPPORTED_EAPIS: 7 8 9
 # @BLURB: Read-only access to user and group information
-
-case ${EAPI} in
-	7|8)
-		DEPEND='sys-apps/baselayout'
-		BDEPEND='sys-apps/grep sys-apps/shadow'
-		RDEPEND="${DEPEND} sys-apps/shadow"
-		;;
-	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
-esac
 
 if [[ -z ${_USER_INFO_ECLASS} ]]; then
 _USER_INFO_ECLASS=1
+
+case ${EAPI} in
+	7|8|9) ;;
+	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
+esac
+
+DEPEND='sys-apps/baselayout'
+BDEPEND='sys-apps/grep sys-apps/shadow'
+RDEPEND="${DEPEND} sys-apps/shadow"
 
 # @FUNCTION: egetent
 # @USAGE: <database> <key>
@@ -29,7 +29,7 @@ _USER_INFO_ECLASS=1
 # Supported databases: group passwd
 # Warning: This function can be used only in pkg_* phases when ROOT is valid.
 egetent() {
-	local db=$1 key=$2 loc=''
+	local db="${1}" key="${2}" loc=''
 
 	[[ $# -ge 3 ]] && die "usage: egetent <database> <key>"
 
