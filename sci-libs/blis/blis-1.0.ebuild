@@ -18,7 +18,7 @@ CPU_USE=(
 	cpu_flags_arm_{neon,v7,v8,sve}
 	cpu_flags_x86_{ssse3,avx,fma3,fma4,avx2,avx512vl}
 )
-IUSE="64bit-index cpu_flags_arm_neon cpu_flags_arm_sve cpu_flags_arm_v7 cpu_flags_arm_v8 cpu_flags_ppc_vsx cpu_flags_ppc_vsx3 cpu_flags_x86_avx cpu_flags_x86_avx2 cpu_flags_x86_avx512vl cpu_flags_x86_fma3 cpu_flags_x86_fma4 cpu_flags_x86_ssse3 doc eselect-ldso openmp pthread serial static-libs"
+IUSE="64bit-index doc eselect-ldso openmp pthread serial static-libs ${CPU_USE[@]}"
 REQUIRED_USE="
 	?? ( openmp pthread serial )
 	?? ( eselect-ldso 64bit-index )"
@@ -69,7 +69,7 @@ get_confname() {
 }
 
 src_configure() {
-	local BLIS_FLAGS=()
+	local -a BLIS_FLAGS=()
 
 	# determine flags
 	if use openmp; then
