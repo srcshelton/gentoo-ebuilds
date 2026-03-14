@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit autotools bash-completion-r1 pam systemd
+inherit bash-completion-r1 pam systemd
 
 DESCRIPTION="Monitoring and managing daemons or similar programs running on a Unix system"
 HOMEPAGE="http://mmonit.com/monit/"
@@ -11,7 +11,7 @@ SRC_URI="http://mmonit.com/monit/dist/${P}.tar.gz"
 
 LICENSE="AGPL-3"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 ppc ~ppc64 ~riscv x86 ~amd64-linux"
+KEYWORDS="amd64 ~arm ~arm64 ppc ~ppc64 ~riscv x86"
 IUSE="pam ssl systemd"
 
 RDEPEND="virtual/zlib:=
