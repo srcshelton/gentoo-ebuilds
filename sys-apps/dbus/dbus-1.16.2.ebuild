@@ -3,14 +3,6 @@
 
 EAPI=8
 
-# Be careful with packaging odd-version-number branches!
-#
-# We should at the very least keep stable as an upstream stable branch,
-# possibly even ~arch too, given the note about security releases on their
-# website.
-#
-# See https://www.freedesktop.org/wiki/Software/dbus/#download.
-
 PYTHON_COMPAT=( python3_{11..14} )
 TMPFILES_OPTIONAL=1
 
@@ -22,7 +14,7 @@ SRC_URI="https://dbus.freedesktop.org/releases/dbus/${P}.tar.xz"
 
 LICENSE="|| ( AFL-2.1 GPL-2+ ) Apache-2.0 BSD GPL-2+ LGPL-2.1+ MIT tcltk"
 SLOT="0"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x64-solaris"
+KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~x64-macos ~x64-solaris"
 # TODO: USE=daemon
 IUSE="debug doc elogind selinux static-libs systemd test valgrind X"
 RESTRICT="!test? ( test )"
