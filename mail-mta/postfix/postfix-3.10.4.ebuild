@@ -40,8 +40,7 @@ DEPEND="
 	sasl? (  >=dev-libs/cyrus-sasl-2 )
 	sqlite? ( dev-db/sqlite:3 )
 	ssl? ( >=dev-libs/openssl-1.1.1:0= )
-	tlsrpt? ( net-libs/libtlsrpt )
-	"
+	tlsrpt? ( net-libs/libtlsrpt )"
 
 RDEPEND="${DEPEND}
 	memcached? ( net-misc/memcached )
@@ -62,8 +61,11 @@ RDEPEND="${DEPEND}
 REQUIRED_USE="
 	|| ( berkdb cdb lmdb )
 	ldap-bind? ( ldap sasl )
-	tlsrpt? ( ssl )
-	"
+	tlsrpt? ( ssl )"
+
+PATCHES=(
+	"${FILESDIR}/${P}-postfix-script-warning.patch"
+)
 
 src_prepare() {
 	default

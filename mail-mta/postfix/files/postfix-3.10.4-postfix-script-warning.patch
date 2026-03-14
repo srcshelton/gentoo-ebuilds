@@ -1,0 +1,26 @@
+--- a/conf/postfix-script
++++ b/conf/postfix-script
+@@ -312,6 +312,7 @@ check-warn)
+ 
+ 	find $queue_directory/. $queue_directory/pid \
+ 	    -prune \( -perm -020 -o -perm -002 \) \
++		-not -type l \
+ 	    -exec $WARN group or other writable: {} \;
+ 
+ 	# Check Postfix root-owned directory tree owner/permissions.
+@@ -328,6 +329,7 @@ check-warn)
+ 	    -exec $WARN not owned by root: {} \;
+ 
+ 	find $todo \( -perm -020 -o -perm -002 \) \
++		-not -type l \
+ 	    -exec $WARN group or other writable: {} \;
+ 
+ 	# Check Postfix mail_owner-owned directory tree owner/permissions.
+@@ -336,6 +338,7 @@ check-warn)
+ 	    -exec $WARN not owned by $mail_owner: {} \;
+ 
+ 	find $data_directory/. \( -perm -020 -o -perm -002 \) \
++		-not -type l \
+ 	    -exec $WARN group or other writable: {} \;
+ 
+ 	# Check Postfix mail_owner-owned directory tree owner.
