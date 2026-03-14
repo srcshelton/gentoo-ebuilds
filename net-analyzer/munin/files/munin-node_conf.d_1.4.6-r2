@@ -1,6 +1,5 @@
 # Copyright 1999-2011 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id: 9d8b5afa9673c70d21eacabd54b07fdccf20b3c6 $
 
 # Set to the nice level for daemon
 NICE_LEVEL=1
