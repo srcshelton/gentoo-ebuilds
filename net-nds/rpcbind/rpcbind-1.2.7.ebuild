@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit flag-o-matic systemd
+inherit systemd
 
 DESCRIPTION="portmap replacement which supports RPC over various protocols"
 HOMEPAGE="https://sourceforge.net/projects/rpcbind/"
@@ -39,13 +39,6 @@ src_prepare() {
 }
 
 src_configure() {
-	if use amd64 || use x86; then
-		# With -z,max-page-size=0x200000 set (for x86_64), tiny binaries bloat
-		# to 6.1MB each :o
-		#
-		filter-ldflags *-z,max-page-size=*
-	fi
-
 	local myeconfargs=(
 		--bindir="${EPREFIX}"/sbin
 		--sbindir="${EPREFIX}"/sbin
