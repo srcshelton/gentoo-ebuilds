@@ -3,8 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{12..13} )
-
+PYTHON_COMPAT=( python3_{12..14} )
 PARALLEL_MEMORY_MIN=4
 
 inherit cmake flag-o-matic llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
@@ -62,10 +61,6 @@ PDEPEND="
 	binutils-plugin? ( >=llvm-core/llvmgold-${LLVM_MAJOR} )
 "
 
-PATCHES=(
-	"${FILESDIR}/${PN}-18.1.8-Allow-one-more-FMA-fusion.patch"
-)
-
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
 LLVM_USE_TARGETS=provide
@@ -103,18 +98,23 @@ check_uptodate() {
 		has "${i}" "${prod_targets[@]}" || exp_targets+=( "${i}" )
 	done
 
+	local outdated
 	if [[ ${exp_targets[*]} != ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]} ]]; then
-		eqawarn "ALL_LLVM_EXPERIMENTAL_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]}"
-		eqawarn "Expected: ${exp_targets[*]}"
-		eqawarn
+		eerror "ALL_LLVM_EXPERIMENTAL_TARGETS are outdated!"
+		eerror "    Have: ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]}"
+		eerror "Expected: ${exp_targets[*]}"
+		eerror
+		outdated=1
 	fi
 
 	if [[ ${prod_targets[*]} != ${ALL_LLVM_PRODUCTION_TARGETS[*]} ]]; then
-		eqawarn "ALL_LLVM_PRODUCTION_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
-		eqawarn "Expected: ${prod_targets[*]}"
+		eerror "ALL_LLVM_PRODUCTION_TARGETS are outdated!"
+		eerror "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
+		eerror "Expected: ${prod_targets[*]}"
+		outdated=1
 	fi
+
+	[[ ${outdated} ]] && die "Update ALL_LLVM*_TARGETS"
 }
 
 check_distribution_components() {
@@ -134,6 +134,9 @@ check_distribution_components() {
 					# TableGen lib + deps
 					LLVMDemangle|LLVMSupport|LLVMTableGen)
 						;;
+					# for mlir-tblgen
+					LLVMCodeGenTypes)
+						;;
 					# used by lldb
 					LLVMDebuginfod)
 						;;
@@ -151,6 +154,14 @@ check_distribution_components() {
 					# used only w/ USE=doc
 					docs-llvm-html)
 						use doc || continue
+						;;
+					# used only w/ USE=debuginfd
+					llvm-debuginfod)
+						use debuginfod || continue
+						;;
+					# used only w/ USE=xml
+					llvm-mt)
+						use xml || continue
 						;;
 				esac
 
@@ -175,15 +186,21 @@ check_distribution_components() {
 		done
 
 		if [[ ${#add[@]} -gt 0 || ${#remove[@]} -gt 0 ]]; then
-			eqawarn "get_distribution_components() is outdated!"
-			eqawarn "   Add: ${add[*]}"
-			eqawarn "Remove: ${remove[*]}"
+			eerror "get_distribution_components() is outdated!"
+			eerror "   Add: ${add[*]}"
+			eerror "Remove: ${remove[*]}"
+			die "Update get_distribution_components()!"
 		fi
 		cd - >/dev/null || die
 	fi
 }
 
 src_prepare() {
+	# Breaks on aarch64
+	if use amd64 || use x86; then
+		eapply "${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch" || die
+	fi
+
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
 
@@ -194,11 +211,6 @@ src_prepare() {
 	check_uptodate
 
 	llvm.org_src_prepare
-
-	if has_version ">=sys-libs/glibc-2.40"; then
-		# https://github.com/llvm/llvm-project/issues/100791
-		rm -r test/tools/llvm-exegesis/X86/latency || die
-	fi
 }
 
 get_distribution_components() {
@@ -221,6 +233,8 @@ get_distribution_components() {
 		LLVMDemangle
 		LLVMSupport
 		LLVMTableGen
+		# mlir-tblgen
+		LLVMCodeGenTypes
 
 		# testing libraries
 		llvm_gtest
@@ -236,6 +250,7 @@ get_distribution_components() {
 
 			# utilities
 			llvm-tblgen
+			llvm-test-mustache-spec
 			FileCheck
 			llvm-PerfectShuffle
 			count
@@ -257,8 +272,10 @@ get_distribution_components() {
 			llvm-c-test
 			llvm-cat
 			llvm-cfi-verify
+			llvm-cgdata
 			llvm-config
 			llvm-cov
+			llvm-ctxprof-util
 			llvm-cvtres
 			llvm-cxxdump
 			llvm-cxxfilt
@@ -287,8 +304,8 @@ get_distribution_components() {
 			llvm-mc
 			llvm-mca
 			llvm-ml
+			llvm-ml64
 			llvm-modextract
-			llvm-mt
 			llvm-nm
 			llvm-objcopy
 			llvm-objdump
@@ -347,6 +364,9 @@ get_distribution_components() {
 		use debuginfod && out+=(
 			llvm-debuginfod
 		)
+		use xml && out+=(
+			llvm-mt
+		)
 	fi
 
 	printf "%s${sep}" "${out[@]}"
@@ -357,37 +377,7 @@ multilib_src_configure() {
 		append-cppflags -I"${EPREFIX%/}/usr/include"
 	fi
 
-	if (( ( $( # <- Syntax
-			head /proc/meminfo |
-				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }'
-		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
-	then
-		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
-			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased" \
-				"(or adjust \$EMERGE_DEFAULT_OPTS)"
-		fi
-		ewarn "Lowering make parallelism for low-memory build-host ..."
-		if ! [[ -n "${MAKEOPTS:-}" ]]; then
-			export MAKEOPTS='-j1'
-		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
-			export MAKEOPTS="-j1 ${MAKEOPTS}"
-		else
-			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
-		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
-		fi
-		ewarn "Disabling LTO support ..."
-		filter-lto
-	fi
-
-	if use ppc && tc-is-gcc && [[ $(gcc-major-version) -lt 14 ]]; then
-		# Workaround for bug #880677
-		append-flags $(test-flags-CXX -fno-ipa-sra -fno-ipa-modref -fno-ipa-icf)
-	fi
+	minimise-memory-usage
 
 	# ODR violations (bug #917536, bug #926529). Just do it for GCC for now
 	# to avoid people grumbling. GCC is, anecdotally, more likely to miscompile
@@ -436,9 +426,6 @@ multilib_src_configure() {
 		-DLLVM_ENABLE_HTTPLIB=$(usex debuginfod)
 
 		-DLLVM_HOST_TRIPLE="${CHOST}"
-
-		-DFFI_INCLUDE_DIR="${ffi_cflags#-I}"
-		-DFFI_LIBRARY_DIR="${ffi_ldflags#-L}"
 
 		-DPython3_EXECUTABLE="${PYTHON}"
 
@@ -572,10 +559,46 @@ multilib_src_install_all() {
 }
 
 pkg_postinst() {
+	pkg_config
+
 	elog "You can find additional opt-viewer utility scripts in:"
 	elog "  ${EROOT}/usr/lib/llvm/${LLVM_MAJOR}/share/opt-viewer"
 	elog "To use these scripts, you will need Python along with the following"
 	elog "packages:"
 	elog "  dev-python/pygments (for opt-viewer)"
 	elog "  dev-python/pyyaml (for all of them)"
+}
+
+pkg_config() {
+	local best="$( best_version "${CATEGORY}/${PN}" )"
+	local file=''
+
+	if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
+		einfo "Not updating library directory, latest version is '${best}'" \
+			"(this is '${CATEGORY}/${PF}')"
+
+		return 0
+	fi
+
+	for file in \
+			libLLVM-${LLVM_MAJOR}.so \
+			libLLVM.so \
+			libLLVM.so.${LLVM_SOABI}
+	do
+		if ! [ -e \
+			"${EROOT}/usr/lib/llvm/${LLVM_MAJOR}/$(get_libdir)/${file}" \
+			]
+		then
+			die "Couldn't find ${PN} shared-object '${file}' in path" \
+				"'${EROOT}/usr/lib/llvm/${LLVM_MAJOR}/$(get_libdir)/'"
+		fi
+
+		find "${EROOT}/usr/$(get_libdir)" -name "libLLVM*.so*" -type l \
+				-exec rm -v {} +
+		ln -s "../lib/llvm/${LLVM_MAJOR}/$(get_libdir)/${file}" \
+				"/usr/$(get_libdir)/" ||
+			die "Failed to link '${file}' into '/usr/$(get_libdir)/': ${?}"
+	done
+
+	return 0
 }

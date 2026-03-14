@@ -5,8 +5,6 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{12..13} )
 
-PARALLEL_MEMORY_MIN=4
-
 inherit cmake flag-o-matic llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="Low Level Virtual Machine"
@@ -20,8 +18,8 @@ HOMEPAGE="https://llvm.org/"
 
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="${LLVM_MAJOR}/${LLVM_SOABI}"
-KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
-IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi test xml z3 zstd"
+KEYWORDS="amd64 arm arm64 ~loong ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
+IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi ncurses test xar xml z3 zstd"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -33,6 +31,8 @@ RDEPEND="
 	exegesis? ( dev-libs/libpfm:= )
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=dev-libs/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
+	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
+	xar? ( app-arch/xar )
 	xml? ( dev-libs/libxml2:2=[${MULTILIB_USEDEP}] )
 	z3? ( >=sci-mathematics/z3-4.7.1:0=[${MULTILIB_USEDEP}] )
 	zstd? ( app-arch/zstd:=[${MULTILIB_USEDEP}] )
@@ -47,7 +47,12 @@ BDEPEND="
 	sys-devel/gnuconfig
 	kernel_Darwin? (
 		<llvm-runtimes/libcxx-${LLVM_VERSION}.9999
+		>=sys-devel/binutils-apple-5.1
 	)
+	doc? ( $(python_gen_any_dep '
+		dev-python/recommonmark[${PYTHON_USEDEP}]
+		dev-python/sphinx[${PYTHON_USEDEP}]
+	') )
 	libffi? ( virtual/pkgconfig )
 "
 # There are no file collisions between these versions but having :0
@@ -62,28 +67,16 @@ PDEPEND="
 	binutils-plugin? ( >=llvm-core/llvmgold-${LLVM_MAJOR} )
 "
 
-PATCHES=(
-	"${FILESDIR}/${PN}-18.1.8-Allow-one-more-FMA-fusion.patch"
-)
-
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
+LLVM_PATCHSET=${PV}-r4
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 
-[[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" doc? ( "
-BDEPEND+="
-	$(python_gen_any_dep '
-		dev-python/myst-parser[${PYTHON_USEDEP}]
-		dev-python/sphinx[${PYTHON_USEDEP}]
-	')
-"
-[[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" ) "
-
 python_check_deps() {
-	llvm_are_manpages_built || return 0
+	use doc || return 0
 
-	python_has_version -b "dev-python/myst-parser[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/recommonmark[${PYTHON_USEDEP}]" &&
 	python_has_version -b "dev-python/sphinx[${PYTHON_USEDEP}]"
 }
 
@@ -133,9 +126,6 @@ check_distribution_components() {
 						;;
 					# TableGen lib + deps
 					LLVMDemangle|LLVMSupport|LLVMTableGen)
-						;;
-					# used by lldb
-					LLVMDebuginfod)
 						;;
 					# testing libraries
 					LLVMTestingAnnotations|LLVMTestingSupport)
@@ -194,11 +184,6 @@ src_prepare() {
 	check_uptodate
 
 	llvm.org_src_prepare
-
-	if has_version ">=sys-libs/glibc-2.40"; then
-		# https://github.com/llvm/llvm-project/issues/100791
-		rm -r test/tools/llvm-exegesis/X86/latency || die
-	fi
 }
 
 get_distribution_components() {
@@ -231,9 +216,6 @@ get_distribution_components() {
 
 	if multilib_is_native_abi; then
 		out+=(
-			# library used by lldb
-			LLVMDebuginfod
-
 			# utilities
 			llvm-tblgen
 			FileCheck
@@ -301,8 +283,8 @@ get_distribution_components() {
 			llvm-rc
 			llvm-readelf
 			llvm-readobj
-			llvm-readtapi
 			llvm-reduce
+			llvm-remark-size-diff
 			llvm-remarkutil
 			llvm-rtdyld
 			llvm-sim
@@ -312,13 +294,13 @@ get_distribution_components() {
 			llvm-strings
 			llvm-strip
 			llvm-symbolizer
+			llvm-tapi-diff
 			llvm-tli-checker
 			llvm-undname
 			llvm-windres
 			llvm-xray
 			obj2yaml
 			opt
-			reduce-chunk-list
 			sancov
 			sanstats
 			split-file
@@ -355,33 +337,6 @@ get_distribution_components() {
 multilib_src_configure() {
 	if use prefix; then
 		append-cppflags -I"${EPREFIX%/}/usr/include"
-	fi
-
-	if (( ( $( # <- Syntax
-			head /proc/meminfo |
-				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }'
-		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
-	then
-		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
-			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased" \
-				"(or adjust \$EMERGE_DEFAULT_OPTS)"
-		fi
-		ewarn "Lowering make parallelism for low-memory build-host ..."
-		if ! [[ -n "${MAKEOPTS:-}" ]]; then
-			export MAKEOPTS='-j1'
-		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
-			export MAKEOPTS="-j1 ${MAKEOPTS}"
-		else
-			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
-		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
-		fi
-		ewarn "Disabling LTO support ..."
-		filter-lto
 	fi
 
 	if use ppc && tc-is-gcc && [[ $(gcc-major-version) -lt 14 ]]; then
@@ -424,6 +379,7 @@ multilib_src_configure() {
 
 		-DLLVM_ENABLE_FFI=$(usex libffi)
 		-DLLVM_ENABLE_LIBEDIT=$(usex libedit)
+		-DLLVM_ENABLE_TERMINFO=$(usex ncurses)
 		-DLLVM_ENABLE_LIBXML2=$(usex xml)
 		-DLLVM_ENABLE_ASSERTIONS=$(usex debug)
 		-DLLVM_ENABLE_LIBPFM=$(usex exegesis)
@@ -439,6 +395,8 @@ multilib_src_configure() {
 
 		-DFFI_INCLUDE_DIR="${ffi_cflags#-I}"
 		-DFFI_LIBRARY_DIR="${ffi_ldflags#-L}"
+		# used only for llvm-objdump tool
+		-DLLVM_HAVE_LIBXAR=$(multilib_native_usex xar 1 0)
 
 		-DPython3_EXECUTABLE="${PYTHON}"
 
@@ -493,6 +451,10 @@ multilib_src_configure() {
 	fi
 
 	use kernel_Darwin && mycmakeargs+=(
+		# On Macos prefix, Gentoo doesn't split sys-libs/ncurses to libtinfo and
+		# libncurses, but llvm tries to use libtinfo before libncurses, and ends up
+		# using libtinfo (actually, libncurses.dylib) from system instead of prefix
+		-DTerminfo_LIBRARIES=-lncurses
 		# Use our libtool instead of looking it up with xcrun
 		-DCMAKE_LIBTOOL="${EPREFIX}/usr/bin/${CHOST}-libtool"
 	)

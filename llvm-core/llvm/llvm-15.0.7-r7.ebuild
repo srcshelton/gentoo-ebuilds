@@ -4,9 +4,6 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{12..13} )
-
-PARALLEL_MEMORY_MIN=4
-
 inherit cmake flag-o-matic llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="Low Level Virtual Machine"
@@ -20,19 +17,17 @@ HOMEPAGE="https://llvm.org/"
 
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="${LLVM_MAJOR}/${LLVM_SOABI}"
-KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
-IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi test xml z3 zstd"
+KEYWORDS="amd64 arm arm64 ppc ppc64 ~riscv ~sparc x86 ~x64-macos"
+IUSE="+binutils-plugin debug doc exegesis libedit +libffi ncurses test xar xml z3 zstd"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
 	virtual/zlib:=[${MULTILIB_USEDEP}]
-	debuginfod? (
-		net-misc/curl:=
-		dev-cpp/cpp-httplib:=
-	)
 	exegesis? ( dev-libs/libpfm:= )
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=dev-libs/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
+	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
+	xar? ( app-arch/xar )
 	xml? ( dev-libs/libxml2:2=[${MULTILIB_USEDEP}] )
 	z3? ( >=sci-mathematics/z3-4.7.1:0=[${MULTILIB_USEDEP}] )
 	zstd? ( app-arch/zstd:=[${MULTILIB_USEDEP}] )
@@ -44,10 +39,16 @@ DEPEND="
 BDEPEND="
 	${PYTHON_DEPS}
 	dev-lang/perl
+	>=dev-build/cmake-3.16
 	sys-devel/gnuconfig
 	kernel_Darwin? (
 		<llvm-runtimes/libcxx-${LLVM_VERSION}.9999
+		>=sys-devel/binutils-apple-5.1
 	)
+	doc? ( $(python_gen_any_dep '
+		dev-python/recommonmark[${PYTHON_USEDEP}]
+		dev-python/sphinx[${PYTHON_USEDEP}]
+	') )
 	libffi? ( virtual/pkgconfig )
 "
 # There are no file collisions between these versions but having :0
@@ -62,28 +63,16 @@ PDEPEND="
 	binutils-plugin? ( >=llvm-core/llvmgold-${LLVM_MAJOR} )
 "
 
-PATCHES=(
-	"${FILESDIR}/${PN}-18.1.8-Allow-one-more-FMA-fusion.patch"
-)
-
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
+LLVM_PATCHSET=${PV}-r8
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 
-[[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" doc? ( "
-BDEPEND+="
-	$(python_gen_any_dep '
-		dev-python/myst-parser[${PYTHON_USEDEP}]
-		dev-python/sphinx[${PYTHON_USEDEP}]
-	')
-"
-[[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" ) "
-
 python_check_deps() {
-	llvm_are_manpages_built || return 0
+	use doc || return 0
 
-	python_has_version -b "dev-python/myst-parser[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/recommonmark[${PYTHON_USEDEP}]" &&
 	python_has_version -b "dev-python/sphinx[${PYTHON_USEDEP}]"
 }
 
@@ -133,12 +122,6 @@ check_distribution_components() {
 						;;
 					# TableGen lib + deps
 					LLVMDemangle|LLVMSupport|LLVMTableGen)
-						;;
-					# used by lldb
-					LLVMDebuginfod)
-						;;
-					# testing libraries
-					LLVMTestingAnnotations|LLVMTestingSupport)
 						;;
 					# static libs
 					LLVM*)
@@ -195,10 +178,11 @@ src_prepare() {
 
 	llvm.org_src_prepare
 
-	if has_version ">=sys-libs/glibc-2.40"; then
-		# https://github.com/llvm/llvm-project/issues/100791
-		rm -r test/tools/llvm-exegesis/X86/latency || die
-	fi
+	# unmaintained, python <3.13 removed modules in the test cfg. We don't
+	# build them anyway, so no need to run the test in order to report
+	# "skipped". And llvm 16 removes this from the source anyway.
+	rm -r test/Bindings/Go/ || die
+
 }
 
 get_distribution_components() {
@@ -221,19 +205,10 @@ get_distribution_components() {
 		LLVMDemangle
 		LLVMSupport
 		LLVMTableGen
-
-		# testing libraries
-		llvm_gtest
-		llvm_gtest_main
-		LLVMTestingAnnotations
-		LLVMTestingSupport
 	)
 
 	if multilib_is_native_abi; then
 		out+=(
-			# library used by lldb
-			LLVMDebuginfod
-
 			# utilities
 			llvm-tblgen
 			FileCheck
@@ -263,7 +238,7 @@ get_distribution_components() {
 			llvm-cxxdump
 			llvm-cxxfilt
 			llvm-cxxmap
-			llvm-debuginfo-analyzer
+			llvm-debuginfod
 			llvm-debuginfod-find
 			llvm-diff
 			llvm-dis
@@ -301,9 +276,8 @@ get_distribution_components() {
 			llvm-rc
 			llvm-readelf
 			llvm-readobj
-			llvm-readtapi
 			llvm-reduce
-			llvm-remarkutil
+			llvm-remark-size-diff
 			llvm-rtdyld
 			llvm-sim
 			llvm-size
@@ -312,13 +286,13 @@ get_distribution_components() {
 			llvm-strings
 			llvm-strip
 			llvm-symbolizer
+			llvm-tapi-diff
 			llvm-tli-checker
 			llvm-undname
 			llvm-windres
 			llvm-xray
 			obj2yaml
 			opt
-			reduce-chunk-list
 			sancov
 			sanstats
 			split-file
@@ -344,9 +318,6 @@ get_distribution_components() {
 		use binutils-plugin && out+=(
 			LLVMgold
 		)
-		use debuginfod && out+=(
-			llvm-debuginfod
-		)
 	fi
 
 	printf "%s${sep}" "${out[@]}"
@@ -355,38 +326,6 @@ get_distribution_components() {
 multilib_src_configure() {
 	if use prefix; then
 		append-cppflags -I"${EPREFIX%/}/usr/include"
-	fi
-
-	if (( ( $( # <- Syntax
-			head /proc/meminfo |
-				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }'
-		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
-	then
-		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
-			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased" \
-				"(or adjust \$EMERGE_DEFAULT_OPTS)"
-		fi
-		ewarn "Lowering make parallelism for low-memory build-host ..."
-		if ! [[ -n "${MAKEOPTS:-}" ]]; then
-			export MAKEOPTS='-j1'
-		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
-			export MAKEOPTS="-j1 ${MAKEOPTS}"
-		else
-			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
-		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
-		fi
-		ewarn "Disabling LTO support ..."
-		filter-lto
-	fi
-
-	if use ppc && tc-is-gcc && [[ $(gcc-major-version) -lt 14 ]]; then
-		# Workaround for bug #880677
-		append-flags $(test-flags-CXX -fno-ipa-sra -fno-ipa-modref -fno-ipa-icf)
 	fi
 
 	# ODR violations (bug #917536, bug #926529). Just do it for GCC for now
@@ -417,13 +356,11 @@ multilib_src_configure() {
 		# is that the former list is explicitly verified at cmake time
 		-DLLVM_TARGETS_TO_BUILD=""
 		-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="${LLVM_TARGETS// /;}"
-		-DLLVM_INCLUDE_BENCHMARKS=OFF
-		-DLLVM_INCLUDE_TESTS=ON
 		-DLLVM_BUILD_TESTS=$(usex test)
-		-DLLVM_INSTALL_GTEST=ON
 
 		-DLLVM_ENABLE_FFI=$(usex libffi)
 		-DLLVM_ENABLE_LIBEDIT=$(usex libedit)
+		-DLLVM_ENABLE_TERMINFO=$(usex ncurses)
 		-DLLVM_ENABLE_LIBXML2=$(usex xml)
 		-DLLVM_ENABLE_ASSERTIONS=$(usex debug)
 		-DLLVM_ENABLE_LIBPFM=$(usex exegesis)
@@ -432,13 +369,13 @@ multilib_src_configure() {
 		-DLLVM_ENABLE_Z3_SOLVER=$(usex z3)
 		-DLLVM_ENABLE_ZLIB=FORCE_ON
 		-DLLVM_ENABLE_ZSTD=$(usex zstd FORCE_ON OFF)
-		-DLLVM_ENABLE_CURL=$(usex debuginfod)
-		-DLLVM_ENABLE_HTTPLIB=$(usex debuginfod)
 
 		-DLLVM_HOST_TRIPLE="${CHOST}"
 
 		-DFFI_INCLUDE_DIR="${ffi_cflags#-I}"
 		-DFFI_LIBRARY_DIR="${ffi_ldflags#-L}"
+		# used only for llvm-objdump tool
+		-DLLVM_HAVE_LIBXAR=$(multilib_native_usex xar 1 0)
 
 		-DPython3_EXECUTABLE="${PYTHON}"
 
@@ -446,24 +383,23 @@ multilib_src_configure() {
 		-DOCAMLFIND=NO
 	)
 
-	local suffix=
-	if [[ -n ${EGIT_VERSION} && ${EGIT_BRANCH} != release/* ]]; then
-		# the ABI of the main branch is not stable, so let's include
-		# the commit id in the SOVERSION to contain the breakage
-		suffix+="git${EGIT_VERSION::8}"
-	fi
 	if [[ $(tc-get-cxx-stdlib) == libc++ ]]; then
 		# Smart hack: alter version suffix -> SOVERSION when linking
 		# against libc++. This way we won't end up mixing LLVM libc++
 		# libraries with libstdc++ clang, and the other way around.
-		suffix+="+libcxx"
 		mycmakeargs+=(
+			-DLLVM_VERSION_SUFFIX="libcxx"
 			-DLLVM_ENABLE_LIBCXX=ON
 		)
 	fi
-	mycmakeargs+=(
-		-DLLVM_VERSION_SUFFIX="${suffix}"
-	)
+
+#	Note: go bindings have no CMake rules at the moment
+#	but let's kill the check in case they are introduced
+#	if ! multilib_is_native_abi || ! use go; then
+		mycmakeargs+=(
+			-DGO_EXECUTABLE=GO_EXECUTABLE-NOTFOUND
+		)
+#	fi
 
 	use test && mycmakeargs+=(
 		-DLLVM_LIT_ARGS="$(get_lit_flags)"
@@ -492,10 +428,25 @@ multilib_src_configure() {
 		)
 	fi
 
-	use kernel_Darwin && mycmakeargs+=(
-		# Use our libtool instead of looking it up with xcrun
-		-DCMAKE_LIBTOOL="${EPREFIX}/usr/bin/${CHOST}-libtool"
-	)
+	if tc-is-cross-compiler; then
+		local tblgen="${BROOT}/usr/lib/llvm/${LLVM_MAJOR}/bin/llvm-tblgen"
+		[[ -x "${tblgen}" ]] \
+			|| die "${tblgen} not found or usable"
+		mycmakeargs+=(
+			-DCMAKE_CROSSCOMPILING=ON
+			-DLLVM_TABLEGEN="${tblgen}"
+		)
+	fi
+
+	# workaround BMI bug in gcc-7 (fixed in 7.4)
+	# https://bugs.gentoo.org/649880
+	# apply only to x86, https://bugs.gentoo.org/650506
+	if tc-is-gcc && [[ ${MULTILIB_ABI_FLAG} == abi_x86* ]] &&
+			[[ $(gcc-major-version) -eq 7 && $(gcc-minor-version) -lt 4 ]]
+	then
+		local CFLAGS="${CFLAGS} -mno-bmi"
+		local CXXFLAGS="${CXXFLAGS} -mno-bmi"
+	fi
 
 	# LLVM can have very high memory consumption while linking,
 	# exhausting the limit on 32-bit linker executable
@@ -507,7 +458,7 @@ multilib_src_configure() {
 
 	grep -q -E "^CMAKE_PROJECT_VERSION_MAJOR(:.*)?=${LLVM_MAJOR}$" \
 			CMakeCache.txt ||
-		die "Incorrect version, did you update _LLVM_MAIN_MAJOR?"
+		die "Incorrect version, did you update _LLVM_MASTER_MAJOR?"
 	multilib_is_native_abi && check_distribution_components
 }
 
