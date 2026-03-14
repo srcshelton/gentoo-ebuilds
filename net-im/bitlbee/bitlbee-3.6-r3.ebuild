@@ -21,7 +21,7 @@ HOMEPAGE="https://www.bitlbee.org/"
 LICENSE="GPL-2"
 SLOT="0"
 IUSE_PROTOCOLS="purple twitter +xmpp"
-IUSE="debug +gnutls ipv6 libevent nss otr +plugins purple selinux systemd test twitter xinetd +xmpp"
+IUSE="${IUSE_PROTOCOLS} debug +gnutls ipv6 libevent nss otr +plugins selinux systemd test xinetd"
 RESTRICT="!test? ( test )"
 
 REQUIRED_USE="
