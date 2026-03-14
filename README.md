@@ -497,6 +497,8 @@ used to build perl)
     * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-portage/portage-utils is built
 * app-shells/gentoo-bashcomp
     * Fix (\_comp\_)\_split\_longopt) syntax error
+* app-text/ghostscript-gpl
+    * Add fix for `-fopenmp` as an LDFLAG
 * app-text/sgml-common
     * Check that 'sgml-docbook.cat' exists before trying to modify it
 * dev-db/mongodb
