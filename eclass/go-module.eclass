@@ -78,16 +78,6 @@ if [[ ! ${GO_OPTIONAL} ]]; then
 	# Added here rather than to each affected package, so it can be cleaned up
 	# just once when pkgcheck is improved.
 	BDEPEND+=" app-arch/unzip"
-
-	# FIXME: We can't call has_version() in global scope, so we'll have to
-	# unconditionally force 'gold' for arm* builds, and remove this override
-	# once dev-lang/go itself is updated...
-	#if has_version -b '>=dev-lang/go-1.19.6' && has_version -b '<=dev-lang/go-1.21.0'; then
-	#	BDEPEND+="
-	#		arm? ( sys-devel/binutils[gold] )
-	#		arm64? ( sys-devel/binutils[gold] )
-	#	"
-	#fi
 fi
 
 # Force go to build in module mode.

@@ -1,4 +1,4 @@
-# Copyright 2019-2025 Gentoo Authors
+# Copyright 2019-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: llvm.org.eclass
@@ -57,7 +57,7 @@ LLVM_VERSION=$(ver_cut 1-3)
 # @DESCRIPTION:
 # The major version of current LLVM trunk.  Used to determine
 # the correct branch to use.
-_LLVM_MAIN_MAJOR=22
+_LLVM_MAIN_MAJOR=23
 
 # @ECLASS_VARIABLE: _LLVM_SOURCE_TYPE
 # @INTERNAL
@@ -72,14 +72,8 @@ if [[ -z ${_LLVM_SOURCE_TYPE+1} ]]; then
 			_LLVM_SOURCE_TYPE=snapshot
 
 			case ${PV} in
-				22.0.0_pre20251127)
-					EGIT_COMMIT=8401a8d0be7671fb5089f850a34dc92ad4a2eb12
-					;;
-				22.0.0_pre20251120)
-					EGIT_COMMIT=21c4c1502e3383988ba77eac75b13da7b9426957
-					;;
-				22.0.0_pre20251108)
-					EGIT_COMMIT=0875755f5275dc7a84b1aeb526b7822b47a733c9
+				23.0.0_pre20260125)
+					EGIT_COMMIT=9eaa1ff11ccde52f2e3bf86f253b6b646548c7cc
 					;;
 				*)
 					die "Unknown snapshot: ${PV}"
@@ -257,7 +251,14 @@ llvm.org_set_globals() {
 				EGIT_BRANCH="release/${LLVM_MAJOR}.x"
 			;;
 		tar)
-			if [[ ${LLVM_MAJOR} -ge 19 ]]; then
+			if [[ ${LLVM_MAJOR} -lt 12 ]]; then
+				SRC_URI+="
+					https://github.com/llvm/llvm-project/releases/download/llvmorg-${PV/_/-}/llvm-project-${PV/_/}.tar.xz
+					verify-sig? (
+						https://github.com/llvm/llvm-project/releases/download/llvmorg-${PV/_/-}/llvm-project-${PV/_/}.tar.xz.sig
+					)
+				"
+			elif [[ ${LLVM_MAJOR} -ge 19 ]]; then
 				SRC_URI+="
 					https://github.com/llvm/llvm-project/releases/download/llvmorg-${PV/_/-}/llvm-project-${PV/_/-}.src.tar.xz
 					verify-sig? (
@@ -286,7 +287,7 @@ llvm.org_set_globals() {
 			"
 			;;
 		*)
-			die "Invalid _LLVM_SOURCE_TYPE: ${LLVM_SOURCE_TYPE}"
+			die "Invalid _LLVM_SOURCE_TYPE: ${_LLVM_SOURCE_TYPE}"
 	esac
 
 	S=${WORKDIR}/${LLVM_COMPONENTS[0]}
@@ -429,7 +430,7 @@ llvm.org_src_unpack() {
 			eend ${?}
 			;;
 		*)
-			die "Invalid _LLVM_SOURCE_TYPE: ${LLVM_SOURCE_TYPE}"
+			die "Invalid _LLVM_SOURCE_TYPE: ${_LLVM_SOURCE_TYPE}"
 			;;
 	esac
 

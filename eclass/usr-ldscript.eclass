@@ -9,23 +9,23 @@
 
 case ${EAPI} in
 	7|8) ;;
-	*)
-		# Silence warnings due to sys-apps/util-linux-2.33.2::unifi
+	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
+		## Silence warnings due to sys-apps/util-linux-2.33.2::unifi
+		##
+		## ... there doesn't seem to be any way to find the package repo from
+		## within an eclass?
 		#
-		# ... there doesn't seem to be any way to find the package repo from
-		# within an eclass?
-
-		if
-			[[ "${CATEGORY:-}" == 'sys-apps' ]] &&
-			[[ "${PN:-}" == 'util-linux' ]] &&
-			[[ "${PV:-}" == '2.33.2' ]]
-		then
-			#ewarn "${ECLASS}: EAPI ${EAPI:-0} not supported"
-			return 0
-		else
-			die "${ECLASS}: EAPI ${EAPI:-0} not supported"
-		fi
-		;;
+		#if
+		#	[[ "${CATEGORY:-}" == 'sys-apps' ]] &&
+		#	[[ "${PN:-}" == 'util-linux' ]] &&
+		#	[[ "${PV:-}" == '2.33.2' ]]
+		#then
+		#	#ewarn "${ECLASS}: EAPI ${EAPI:-0} not supported"
+		#	return 0
+		#else
+		#	die "${ECLASS}: EAPI ${EAPI:-0} not supported"
+		#fi
+		#;;
 esac
 
 if [[ -z ${_USR_LDSCRIPT_ECLASS} ]]; then
