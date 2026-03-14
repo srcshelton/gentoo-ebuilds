@@ -27,6 +27,7 @@ Investigate extracting `PARALLEL_MEMORY_MIN` handling to a new eclass ...
 
 # Fixes to reduce/disable build parallelism on low-memory systems
 
+* app-text/doxygen
 * media-libs/harfbuzz
 * net-libs/libtorrent-rasterbar
 
