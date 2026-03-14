@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -17,7 +17,7 @@ S="${WORKDIR}/${MY_P}"
 
 LICENSE="Apache-2.0 GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 ~hppa ~loong ppc ppc64 ~riscv ~s390 ~sparc x86"
+KEYWORDS="amd64 arm arm64 ~hppa ~loong ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="+berkdb cron dkim dmarc extracttext geoip idn ipv6 largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode"
 RESTRICT="!test? ( test )"
 
@@ -53,7 +53,7 @@ PERL_RUN_DEPEND="
 	dkim? ( dev-perl/Mail-DKIM )
 	dmarc? ( dev-perl/Mail-DMARC )
 	geoip? (
-	|| ( dev-perl/GeoIP2 dev-perl/Geo-IP )
+		|| ( dev-perl/GeoIP2 dev-perl/Geo-IP )
 		dev-perl/IP-Country-DB_File
 		|| ( dev-perl/MaxMind-DB-Reader-XS dev-perl/MaxMind-DB-Reader )
 	)
@@ -125,7 +125,6 @@ VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/spamassassin.apache.org.asc
 PATCHES=(
 	"${FILESDIR}/mention-geoip.cf-in-init.pre.patch"
 	"${FILESDIR}/4.0.0-tests-dnsbl_subtests.t_001_load-URIDNSBL.patch"
-	"${FILESDIR}/4.0.1-tests-sa_txrep.t-no-dbm.patch"
 )
 
 # There are a few renames and use-dependent ones in src_install as well.
@@ -367,6 +366,12 @@ pkg_postinst() {
 		elog "If you do not wish to migrate data, you should remove the old"
 		elog "home folder from your system as it is not used."
 	fi
+
+	ewarn "When upgrading from before 4.0.2:"
+	ewarn "   TxRep data when using a SQL backend might be wrong because of"
+	ewarn "   a bug in SpamAssassin 4.0.1, TxRep score can be limited with"
+	ewarn "   new txrep_min_score and txrep_max_score configuration options"
+	ewarn "   or you can remove email entries from TxRep database."
 }
 
 # vi: set diffopt=iwhite,filler:
