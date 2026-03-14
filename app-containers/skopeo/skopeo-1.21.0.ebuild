@@ -2,6 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
 inherit go-module linux-info
 
 DESCRIPTION="Work with remote container images registries"
