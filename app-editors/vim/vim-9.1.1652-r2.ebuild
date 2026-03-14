@@ -6,21 +6,23 @@ EAPI=8
 # Please bump with app-editors/vim-core and app-editors/gvim
 
 VIM_VERSION="9.1"
-VIM_PATCHES_VERSION="9.0.2092"
+VIM_PATCHES_VERSION="9.1.1432"
 
 LUA_COMPAT=( lua5-{1..4} luajit )
 PYTHON_COMPAT=( python3_{11..14} )
 PYTHON_REQ_USE="threads(+)"
 USE_RUBY="ruby31 ruby32"
+GENTOO_DEPEND_ON_PERL=no
 
-inherit bash-completion-r1 desktop flag-o-matic lua-single python-single-r1 ruby-single toolchain-funcs vim-doc xdg-utils
+inherit bash-completion-r1 desktop flag-o-matic lua-single perl-module python-single-r1 ruby-single toolchain-funcs vim-doc xdg-utils
 
 if [[ ${PV} == 9999* ]] ; then
 	inherit git-r3
 	EGIT_REPO_URI="https://github.com/vim/vim.git"
 else
 	SRC_URI="https://github.com/vim/vim/archive/v${PV}.tar.gz -> ${P}.tar.gz
-		https://git.sr.ht/~xxc3nsoredxx/vim-patches/refs/download/vim-${VIM_PATCHES_VERSION}-patches/vim-${VIM_PATCHES_VERSION}-patches.tar.xz"
+		https://gitweb.gentoo.org/proj/vim-patches.git/snapshot/vim-patches-vim-${VIM_PATCHES_VERSION}-patches.tar.bz2"
+		# https://github.com/douglarek/gentoo-vim-patches/releases/download/vim-${VIM_PATCHES_VERSION}-patches/vim-${VIM_PATCHES_VERSION}-patches.tar.gz"
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~arm64-macos ~x64-macos ~x64-solaris"
 fi
 
@@ -29,7 +31,7 @@ HOMEPAGE="https://www.vim.org https://github.com/vim/vim"
 
 LICENSE="vim"
 SLOT="0"
-IUSE="acl crypt cscope debug gpm lua minimal nls perl python racket ruby selinux sound tcl terminal vim-pager X"
+IUSE="${GENTOO_PERL_USESTRING} acl crypt cscope debug gpm lua minimal nls perl python racket ruby selinux sound tcl terminal vim-pager wayland X"
 REQUIRED_USE="
 	lua? ( ${LUA_REQUIRED_USE} )
 	python? ( ${PYTHON_REQUIRED_USE} )
@@ -49,13 +51,17 @@ RDEPEND="
 	)
 	~app-editors/vim-core-${PV}
 	vim-pager? ( app-editors/vim-core[-minimal] )
-	perl? ( dev-lang/perl:= )
+	perl? (
+		${GENTOO_PERL_DEPSTRING}
+		dev-lang/perl:=
+	)
 	python? ( ${PYTHON_DEPS} )
 	racket? ( dev-scheme/racket )
 	ruby? ( ${RUBY_DEPS} )
 	selinux? ( sys-libs/libselinux )
 	sound? ( media-libs/libcanberra )
 	tcl? ( dev-lang/tcl:0= )
+	wayland? ( dev-libs/wayland )
 	X? ( x11-libs/libXt )
 "
 DEPEND="${RDEPEND}
@@ -73,7 +79,7 @@ PDEPEND="!minimal? ( app-vim/gentoo-syntax )"
 if [[ ${PV} != 9999* ]]; then
 	# Gentoo patches to fix runtime issues, cross-compile errors, etc
 	PATCHES=(
-		"${WORKDIR}/vim-${VIM_PATCHES_VERSION}-patches"
+		"${WORKDIR}/vim-patches-vim-${VIM_PATCHES_VERSION}-patches"
 	)
 fi
 
@@ -164,16 +170,6 @@ src_prepare() {
 }
 
 src_configure() {
-
-	# Fix bug #37354: Disallow -funroll-all-loops on amd64
-	# Bug #57859 suggests that we want to do this for all archs
-	filter-flags -funroll-all-loops
-
-	# Fix bug 76331: -O3 causes problems, use -O2 instead. We'll do this for
-	# everyone since previous flag filtering bugs have turned out to affect
-	# multiple archs...
-	replace-flags -O3 -O2
-
 	emake -j1 -C src autoconf
 
 	# This should fix a sandbox violation (see bug #24447). The hvc
@@ -192,6 +188,7 @@ src_configure() {
 			--disable-canberra
 			--disable-acl
 			--enable-gui=no
+			--without-wayland
 			--without-x
 			--disable-darwin
 			--disable-luainterp
@@ -222,6 +219,7 @@ src_configure() {
 			$(use_enable selinux)
 			$(use_enable tcl tclinterp)
 			$(use_enable terminal)
+			$(use_with wayland)
 		)
 
 		# --with-features=huge forces on cscope even if we --disable it. We need
@@ -315,7 +313,12 @@ src_test() {
 	# Hangs.
 	# - Test_spelldump
 	# Hangs.
-	export TEST_SKIP_PAT='\(Test_expand_star_star\|Test_exrc\|Test_job_tty_in_out\|Test_spelldump_bang\|Test_fuzzy_completion_env\|Test_term_mouse_multiple_clicks_to_select_mode\|Test_spelldump\)'
+	# - Test_glvs_*
+	# Depends on local network.
+	export TEST_SKIP_PAT='\(Test_expand_star_star\|Test_exrc\|Test_job_tty_in_out\|Test_spelldump_bang\|Test_fuzzy_completion_env\|Test_term_mouse_multiple_clicks_to_select_mode\|Test_spelldump\|Test_glvs_\)'
+
+	echo "throw 'Skipped: needs X'" > src/testdir/test_clientserver.vim || die
+	echo "throw 'Skipped: needs X'" > src/testdir/test_vim9_builtin.vim || die
 
 	emake -j1 -C src/testdir nongui
 }
