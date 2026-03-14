@@ -1,18 +1,18 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 CHECKREQS_DISK_BUILD="4500M"
 inherit autotools check-reqs flag-o-matic linux-info mono-env pax-utils multilib-minimal
 
-DESCRIPTION="Mono runtime and class libraries, a C# compiler/interpreter"
-HOMEPAGE="https://mono-project.com"
-SRC_URI="https://download.mono-project.com/sources/mono/${P}.tar.xz"
+DESCRIPTION="Mono open source ECMA CLI, C# and .NET implementation"
+HOMEPAGE="https://gitlab.winehq.org/mono/mono"
+SRC_URI="https://dl.winehq.org/mono/sources/mono/${P}.tar.xz"
 
 LICENSE="MIT LGPL-2.1 GPL-2 BSD-4 NPL-1.1 Ms-PL GPL-2-with-linking-exception IDPL"
 SLOT="0"
-KEYWORDS="amd64 ~arm ~arm64 ~ppc ~ppc64 -riscv x86"
+KEYWORDS="amd64 ~arm ~arm64 ~ppc ~ppc64 -riscv ~x86"
 IUSE="doc minimal nls pax-kernel selinux xen"
 
 # Note: mono works incorrect with older versions of libgdiplus
@@ -38,10 +38,8 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-5.12-try-catch.patch
-	"${FILESDIR}"/${PN}-6.12.0.122-disable-automagic-ccache.patch
+	"${FILESDIR}"/${PN}-6.14.1-disable-automagic-ccache.patch
 	"${FILESDIR}"/${PN}-6.12.0.199-configure-c99.patch
-	"${FILESDIR}"/${PN}-6.12.0.199-{,boringssl-}cmake4.patch # bug 957434, fixed in git main branch
 )
 
 pkg_pretend() {
@@ -80,6 +78,9 @@ src_prepare() {
 	fi
 
 	default
+
+	# Does nothing other than spam "git command not found"
+	sed -e '/^LLVM_VERSION :=/d' -i llvm/build.mk || die
 
 	# PATCHES contains configure.ac patch
 	eautoreconf
@@ -123,6 +124,8 @@ multilib_src_install() {
 	# for reference.
 	rm -f "${ED}"/usr/lib/mono/{2.0,4.5}/mscorlib.dll.so || die
 	rm -f "${ED}"/usr/lib/mono/{2.0,4.5}/mcs.exe.so || die
+
+	find "${ED}" -name '*.la' -delete || die
 }
 
 pkg_postinst() {
