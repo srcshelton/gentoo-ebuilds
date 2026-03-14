@@ -24,25 +24,31 @@ src_prepare() {
 	default
 
 	# Fix '/var/run' path...
-	grep -R -e '/run[^cent.]' -e 'run/' "${S}" |
+	grep -R -e '/run[^cent.]' -e 'run/' "${S}" 2>/dev/null |
 			grep -v \
 					-e "github.com[^ '\"]\+/run" \
 					-e "golangci-lint\.run" \
 					-e "https\?://[^ '\"]\+/run" \
 					-e 'bin/run' \
 					-e 'runscript' \
+					-e 'runtime' \
 					-e 'var/run' \
 					-e '//.*/run' |
 			cut -d':' -f 1 |
-			xargs -rI'{}' \
-				sed -i '{}' \
-					-e 's:/run:/var/run:g' ||
+			sort |
+			uniq |
+			grep -v \
+				-e 'podman-tui.spec.rpkg' \
+				-e 'connection_native.go' |
+			xargs -rI'{}' sed -i '{}' \
+				-e 's:/run\([\/"]\):/var/run\1:g' \
+				-e 's:var/var/run:var/run:g' ||
 		die "sed failed: ${?}"
 }
 
 src_compile() {
 	# parse tags from Makefile & make them comma-seperated as space-seperated list is deprecated
-	local BUILDTAGS=$(grep 'BUILDTAGS :=' Makefile | awk -F\" '{ print $2; }' | sed -e 's| |,|g')
+	local BUILDTAGS=$(grep 'BUILDTAGS :=' Makefile | awk -F\" '{ print $2; }' | tr ' ' ',')
 	ego build -tags "${BUILDTAGS}"
 }
 
