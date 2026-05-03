@@ -1,0 +1,29 @@
+wifi: rtw89: check ACPI DSM support before evaluation
+
+Split the rtw89 ACPI DSM guard out of the old aggregate 6.18 Sky1 runtime patch.
+
+---
+diff --git a/drivers/net/wireless/realtek/rtw89/acpi.c b/drivers/net/wireless/realtek/rtw89/acpi.c
+--- a/drivers/net/wireless/realtek/rtw89/acpi.c
++++ b/drivers/net/wireless/realtek/rtw89/acpi.c
+@@ -372,11 +372,18 @@ int rtw89_acpi_evaluate_dsm(struct rtw89_dev *rtwdev,
+ 			    enum rtw89_acpi_dsm_func func,
+ 			    struct rtw89_acpi_dsm_result *res)
+ {
++	acpi_handle handle = ACPI_HANDLE(rtwdev->dev);
+ 	union acpi_object *obj;
+ 	int ret;
+ 
+-	obj = acpi_evaluate_dsm(ACPI_HANDLE(rtwdev->dev), &rtw89_guid,
+-				0, func, NULL);
++	if (!handle || !acpi_has_method(handle, "_DSM") || func >= 64 ||
++	    !acpi_check_dsm(handle, &rtw89_guid, 0, 1ULL << func)) {
++		rtw89_debug(rtwdev, RTW89_DBG_ACPI,
++			    "acpi dsm func %d is unavailable\n", func);
++		return -ENOENT;
++	}
++
++	obj = acpi_evaluate_dsm(handle, &rtw89_guid, 0, func, NULL);
+ 	if (!obj) {
+ 		rtw89_debug(rtwdev, RTW89_DBG_ACPI,
+ 			    "acpi dsm fail to evaluate func: %d\n", func);

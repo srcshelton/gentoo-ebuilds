@@ -1,0 +1,16 @@
+pmdomain: export named genpd attach helper for modular consumers
+
+CIX bus-performance support may be built as a module while the ACPI genpd wiring uses the named genpd attach helper directly. The helper is declared for generic PM-domain users, so export it for GPL modules as well as built-in users.
+
+---
+diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
+--- a/drivers/pmdomain/core.c
++++ b/drivers/pmdomain/core.c
+@@ -3612,6 +3612,7 @@ struct device *genpd_dev_pm_attach_by_name(struct device *dev, const char *name)
+ 
+ 	return genpd_dev_pm_attach_by_id(dev, index);
+ }
++EXPORT_SYMBOL_GPL(genpd_dev_pm_attach_by_name);
+ 
+ static const struct of_device_id idle_state_match[] = {
+ 	{ .compatible = "domain-idle-state", },

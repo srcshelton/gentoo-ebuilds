@@ -1,0 +1,79 @@
+diff --git a/drivers/pnp/system.c b/drivers/pnp/system.c
+--- a/drivers/pnp/system.c
++++ b/drivers/pnp/system.c
+@@ -14,6 +14,7 @@
+ #include <linux/slab.h>
+ #include <linux/kernel.h>
+ #include <linux/ioport.h>
++#include <linux/string.h>
+ 
+ static const struct pnp_device_id pnp_dev_table[] = {
+ 	/* General ID for reserving resources */
+@@ -28,29 +29,58 @@ static void reserve_range(struct pnp_dev *dev, struct resource *r, int port)
+ 	char *regionid;
+ 	const char *pnpid = dev_name(&dev->dev);
+ 	resource_size_t start = r->start, end = r->end;
+-	struct resource *res;
++	struct resource *conflict, *res;
+ 
+ 	regionid = kmalloc(16, GFP_KERNEL);
+ 	if (!regionid)
+ 		return;
+ 
+ 	snprintf(regionid, 16, "pnp %s", pnpid);
+-	if (port)
++	if (port) {
+ 		res = request_region(start, end - start + 1, regionid);
+-	else
+-		res = request_mem_region(start, end - start + 1, regionid);
+-	if (res)
+-		res->flags &= ~IORESOURCE_BUSY;
+-	else
++		if (res)
++			res->flags &= ~IORESOURCE_BUSY;
++		else
++			kfree(regionid);
++
++		dev_info(&dev->dev, "%pR %s reserved\n", r,
++			 res ? "has been" : "could not be");
++		return;
++	}
++
++	res = kzalloc(sizeof(*res), GFP_KERNEL);
++	if (!res) {
+ 		kfree(regionid);
++		return;
++	}
++
++	res->name = regionid;
++	res->start = start;
++	res->end = end;
++	res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
++	conflict = request_resource_conflict(&iomem_resource, res);
++	if (!conflict) {
++		res->flags &= ~IORESOURCE_BUSY;
++		dev_info(&dev->dev, "%pR has been reserved\n", r);
++		return;
++	}
++
++	kfree(res);
++	kfree(regionid);
++
++	if (conflict->name && !strcmp(conflict->name, "PCI ECAM")) {
++		dev_dbg(&dev->dev, "%pR already reserved by %s\n", r,
++			conflict->name ?: "PCI ECAM");
++		return;
++	}
+ 
+ 	/*
+ 	 * Failures at this point are usually harmless. pci quirks for
+ 	 * example do reserve stuff they know about too, so we may well
+ 	 * have double reservations.
+ 	 */
+-	dev_info(&dev->dev, "%pR %s reserved\n", r,
+-		 res ? "has been" : "could not be");
++	dev_info(&dev->dev, "%pR could not be reserved; conflicts with %pR (%s, desc %lu)\n",
++		 r, conflict, conflict->name ?: "unknown", conflict->desc);
+ }
+ 
+ static void reserve_resources_of_dev(struct pnp_dev *dev)

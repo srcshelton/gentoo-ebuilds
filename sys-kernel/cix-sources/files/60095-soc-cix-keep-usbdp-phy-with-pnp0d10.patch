@@ -1,0 +1,37 @@
+soc: cix: keep USB-DP PHY companions alongside PNP0D10
+
+The Sky1 USB ACPI arbitration prefers generic PNP0D10 xHCI controller nodes over overlapping CIX vendor controller nodes.  That suppression was too broad for CIXH2033 USB-DP PHY companion nodes, which own the Type-C mux/orientation-switch provider registration and do not describe the xHCI controller MMIO region.
+
+Let CIXH2033 enumerate even when PNP0D10 exists so the RTS5453 ACPI graph can bind to real Type-C mux/orientation providers while still suppressing the overlapping vendor controller path.
+
+---
+
+diff --git a/drivers/soc/cix/cix-acpi-usb-scan.c b/drivers/soc/cix/cix-acpi-usb-scan.c
+--- a/drivers/soc/cix/cix-acpi-usb-scan.c
++++ b/drivers/soc/cix/cix-acpi-usb-scan.c
+@@ -53,6 +53,11 @@ static bool sky1_usb_vendor_present(void)
+ 	       sky1_usb_acpi_id_present("CIXH2034");
+ }
+ 
++static bool sky1_usb_id_is_non_overlapping_companion(const char *hid)
++{
++	return !strcmp(hid, "CIXH2033");
++}
++
+ static int sky1_usb_scan_attach(struct acpi_device *adev,
+ 				const struct acpi_device_id *id)
+ {
+@@ -68,6 +73,13 @@ static int sky1_usb_scan_attach(struct acpi_device *adev,
+ 		return 0;
+ 	}
+ 
++	if (sky1_usb_id_is_non_overlapping_companion(id->id)) {
++		dev_dbg(&adev->dev,
++			"Sky1 USB: keeping %s companion alongside PNP0D10\n",
++			id->id);
++		return 0;
++	}
++
+ 	if (sky1_usb_acpi_id_present("PNP0D10")) {
+ 		dev_dbg(&adev->dev,
+ 			"Sky1 USB: suppressing %s because PNP0D10 is present\n",

@@ -1,0 +1,24 @@
+usb: typec: rts5453: select Sky1 GPIO IRQ provider on ACPI
+
+The RTS5453 ACPI nodes on Orion O6 carry their interrupt as a GpioInt
+resource from the Sky1 Cadence GPIO controller. If the Type-C driver is
+built in but GPIO_CADENCE is left unset or modular, ACPI cannot translate
+the GPIO interrupt early enough and the I2C client is left deferred with
+"rts5453h: cannot get irq".
+
+Select the Sky1 GPIO IRQ provider and PDC irqchip for CIX ACPI builds so
+the provider is present whenever the RTS5453 ACPI client is enabled.
+
+---
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -115,6 +115,8 @@ config TYPEC_RTS5453
+ 	depends on I2C
+ 	depends on TYPEC
+ 	select REGMAP_I2C
++	select GPIO_CADENCE if ACPI && ARCH_CIX
++	select SKY1_PDC if ACPI && ARCH_CIX
+ 	help
+ 	  Say Y or M here if your system has a Realtek RTS5453H USB Type-C
+ 	  Power Delivery controller. This controller handles USB PD negotiation,

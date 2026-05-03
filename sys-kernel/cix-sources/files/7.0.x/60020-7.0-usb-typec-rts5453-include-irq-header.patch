@@ -1,0 +1,18 @@
+The RTS5453 driver uses irq_set_status_flags() and IRQ_DISABLE_UNLAZY.
+On arm64 these can be pulled in indirectly through linux/interrupt.h, but
+that is not true on every architecture. Include linux/irq.h directly so
+the driver remains buildable in broader test configurations.
+
+Link: https://github.com/cixtech/cix-linux-main/issues/14
+---
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+--- a/drivers/usb/typec/rts5453.c
++++ b/drivers/usb/typec/rts5453.c
+@@ -6,6 +6,7 @@
+ #include <linux/bits.h>
+ #include <linux/bitfield.h>
+ #include <linux/i2c.h>
++#include <linux/irq.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/regmap.h>

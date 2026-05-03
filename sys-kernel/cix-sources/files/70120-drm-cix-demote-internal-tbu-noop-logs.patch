@@ -1,0 +1,26 @@
+The display driver logs a warning when a display block does not integrate an
+internal TBU, but the code path is intentionally a no-op in that case and
+returns success. Demote the message to debug output and describe the action
+being taken rather than presenting the expected hardware topology as a fault.
+
+diff --git a/drivers/gpu/drm/cix/linlon-dp/hw/dp_dev.c b/drivers/gpu/drm/cix/linlon-dp/hw/dp_dev.c
+--- a/drivers/gpu/drm/cix/linlon-dp/hw/dp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/hw/dp_dev.c
+@@ -595,7 +595,7 @@ static int dp_connect_iommu(struct linlondp_dev *mdev)
+ 	int i, ret;
+ 
+ 	if (!dp->integrates_tbu) {
+-		DRM_WARN("Connect mmu without internal TBU!\n");
++		DRM_DEBUG_DRIVER("No internal TBU; skipping display MMU connect\n");
+ 		return 0;
+ 	}
+ 	linlondp_write32_mask(reg, BLK_CONTROL, 0x7, TBU_CONNECT_MODE);
+@@ -625,7 +625,7 @@ static int dp_disconnect_iommu(struct linlondp_dev *mdev)
+ 	int ret;
+ 
+ 	if (!dp->integrates_tbu) {
+-		DRM_WARN("Disconnect mmu without internal TBU!\n");
++		DRM_DEBUG_DRIVER("No internal TBU; skipping display MMU disconnect\n");
+ 		return 0;
+ 	}
+ 

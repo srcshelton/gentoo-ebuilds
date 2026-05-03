@@ -1,0 +1,172 @@
+CIX MVX: fix local symbol visibility and missing prototypes
+
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -392,7 +392,7 @@ static int send_irq(struct mvx_client_session *csession)
+     return ret;
+ }
+ 
+-int soft_irq(struct mvx_client_session *csession)
++static int soft_irq(struct mvx_client_session *csession)
+ {
+     struct mvx_dev_ctx *ctx = csession->ctx;
+     int ret;
+diff --git a/drivers/media/platform/cix/dev/mvx_hwreg.c b/drivers/media/platform/cix/dev/mvx_hwreg.c
+--- a/drivers/media/platform/cix/dev/mvx_hwreg.c
++++ b/drivers/media/platform/cix/dev/mvx_hwreg.c
+@@ -338,8 +338,8 @@ static int lsid_regs_debugfs_init(struct mvx_lsid_hwreg *lsid_hwreg,
+     return 0;
+ }
+ 
+-int debugfs_init(struct mvx_hwreg *hwreg,
+-         struct dentry *parent)
++static int debugfs_init(struct mvx_hwreg *hwreg,
++            struct dentry *parent)
+ {
+     int ret;
+ 
+diff --git a/drivers/media/platform/cix/dev/mvx_scheduler.c b/drivers/media/platform/cix/dev/mvx_scheduler.c
+--- a/drivers/media/platform/cix/dev/mvx_scheduler.c
++++ b/drivers/media/platform/cix/dev/mvx_scheduler.c
+@@ -493,8 +493,8 @@ static const struct file_operations sched_fops = {
+     .release = single_release
+ };
+ 
+-int sched_debugfs_init(struct mvx_sched *sched,
+-               struct dentry *parent)
++static int sched_debugfs_init(struct mvx_sched *sched,
++                  struct dentry *parent)
+ {
+     struct dentry *dentry;
+ 
+@@ -599,8 +599,8 @@ int mvx_sched_session_construct(struct mvx_sched_session *session,
+ void mvx_sched_session_destruct(struct mvx_sched_session *session)
+ {}
+ 
+-void mvx_sched_list_insert_by_priority(struct mvx_sched *sched,
+-                struct mvx_sched_session *session)
++static void mvx_sched_list_insert_by_priority(struct mvx_sched *sched,
++                          struct mvx_sched_session *session)
+ {
+     struct mvx_sched_session *tmp;
+ 
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -1245,9 +1245,9 @@ static const uint8_t qtbl_luma_ref[MVX_FW_QUANT_LEN] = {
+     72, 92, 95, 98, 112, 100, 103, 99
+ };
+ 
+-void generate_quant_tbl(int quality,
+-            const uint8_t qtbl_ref[MVX_FW_QUANT_LEN],
+-            uint8_t qtbl[MVX_FW_QUANT_LEN])
++static void generate_quant_tbl(int quality,
++                   const uint8_t qtbl_ref[MVX_FW_QUANT_LEN],
++                   uint8_t qtbl[MVX_FW_QUANT_LEN])
+ {
+     int i;
+     int q;
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
+@@ -103,9 +103,9 @@ static const struct v4l2_ioctl_ops mvx_v4l2_ioctl_ops = {
+     .vidioc_default                 = mvx_v4l2_vidioc_default
+ };
+ 
+-int mvx_ext_if_register_device(struct mvx_ext_if *ext,
+-             const char *name,
+-             bool is_encoder)
++static int mvx_ext_if_register_device(struct mvx_ext_if *ext,
++                      const char *name,
++                      bool is_encoder)
+ {
+     ext->is_encoder = is_encoder;
+ 
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -1830,7 +1830,6 @@ int mvx_v4l2_vidioc_dqbuf(struct file *file,
+               struct v4l2_buffer *b)
+ {
+     struct mvx_v4l2_session *vsession = file_to_session(file);
+-    struct mvx_ext_if *ctx = vsession->ext;
+     enum mvx_direction dir = V4L2_TYPE_IS_OUTPUT(b->type) ?
+                  MVX_DIR_INPUT : MVX_DIR_OUTPUT;
+     struct mvx_v4l2_port *vport = &vsession->port[dir];
+diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/mvx_log.c
+--- a/drivers/media/platform/cix/mvx_log.c
++++ b/drivers/media/platform/cix/mvx_log.c
+@@ -34,6 +34,7 @@
+  ******************************************************************************/
+ 
+ #include "mvx_log.h"
++#include "mvx_log_group.h"
+ #include "mvx_log_ram.h"
+ 
+ #include <linux/uaccess.h>
+@@ -99,8 +100,6 @@ static const char *const severity_to_kern_level[] = {
+     KERN_DEBUG
+ };
+ 
+-void mvx_log_get_util(struct timer_list *timer);
+-
+ /******************************************************************************
+  * Static functions
+  ******************************************************************************/
+diff --git a/drivers/media/platform/cix/mvx_log_group.c b/drivers/media/platform/cix/mvx_log_group.c
+--- a/drivers/media/platform/cix/mvx_log_group.c
++++ b/drivers/media/platform/cix/mvx_log_group.c
+@@ -35,7 +35,7 @@
+ 
+ #include <linux/vmalloc.h>
+ #include <linux/timer.h>
+-#include "mvx_log.h"
++#include "mvx_log_group.h"
+ 
+ /******************************************************************************
+  * Defines
+@@ -70,7 +70,6 @@ struct mvx_log_group mvx_log_dev;
+ 
+ struct mvx_duration *dur_buf = NULL;
+ #if MVX_USE_UTILIZATION_TIMER
+-void mvx_log_get_util(struct timer_list *timer);
+ DEFINE_TIMER(util_timer, mvx_log_get_util);
+ #endif
+ 
+diff --git a/drivers/media/platform/cix/mvx_log_group.h b/drivers/media/platform/cix/mvx_log_group.h
+--- a/drivers/media/platform/cix/mvx_log_group.h
++++ b/drivers/media/platform/cix/mvx_log_group.h
+@@ -38,6 +38,8 @@
+ 
+ #include "mvx_log.h"
+ 
++struct timer_list;
++
+ /******************************************************************************
+  * Prototypes
+  ******************************************************************************/
+@@ -48,6 +50,12 @@ extern struct mvx_log_group mvx_log_perf;
+ extern struct mvx_log_group mvx_log_session_if;
+ extern struct mvx_log_group mvx_log_dev;
+ 
++/**
++ * mvx_log_get_util() - Update utilization statistics for the log group.
++ * @timer: Timer callback context.
++ */
++void mvx_log_get_util(struct timer_list *timer);
++
+ /****************************************************************************
+  * Exported functions
+  ****************************************************************************/
+diff --git a/drivers/media/platform/cix/mvx_pm_runtime.c b/drivers/media/platform/cix/mvx_pm_runtime.c
+--- a/drivers/media/platform/cix/mvx_pm_runtime.c
++++ b/drivers/media/platform/cix/mvx_pm_runtime.c
+@@ -31,6 +31,7 @@
+ 
+ #include <linux/pm_runtime.h>
+ #include "mvx_log_group.h"
++#include "mvx_pm_runtime.h"
+ 
+ int mvx_pm_runtime_get_sync(struct device *dev)
+ {

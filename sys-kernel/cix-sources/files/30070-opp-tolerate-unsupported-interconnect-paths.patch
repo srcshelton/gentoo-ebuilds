@@ -1,0 +1,24 @@
+diff --git a/drivers/opp/of.c b/drivers/opp/of.c
+--- a/drivers/opp/of.c
++++ b/drivers/opp/of.c
+@@ -476,7 +476,19 @@ int dev_pm_opp_of_find_icc_paths(struct device *dev,
+ 	for (i = 0; i < num_paths; i++) {
+ 		paths[i] = of_icc_get_by_index(dev, i);
+ 		if (IS_ERR(paths[i])) {
+-			ret = dev_err_probe(dev, PTR_ERR(paths[i]), "%s: Unable to get path%d\n", __func__, i);
++			ret = PTR_ERR(paths[i]);
++			/*
++			 * Firmware OPP data may advertise bandwidth values even
++			 * when Linux has no interconnect provider for the path.
++			 * Interconnect votes are optional for OPP users, so keep
++			 * the OPP table usable and behave as if no path existed.
++			 */
++			if (ret == -EOPNOTSUPP) {
++				ret = 0;
++				goto err;
++			}
++
++			ret = dev_err_probe(dev, ret, "%s: Unable to get path%d\n", __func__, i);
+ 			goto err;
+ 		}
+ 	}

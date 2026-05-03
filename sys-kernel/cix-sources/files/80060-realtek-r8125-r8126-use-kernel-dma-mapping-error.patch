@@ -1,0 +1,35 @@
+net: realtek: use real dma_mapping_error helpers in r8125/r8126
+
+The vendor compatibility layer predates modern kernels where dma_mapping_error()
+is a static inline helper rather than a macro.  Do not redefine mapping
+checks to unconditional success on Sky1 kernels.
+
+---
+diff --git a/drivers/net/ethernet/realtek/r8125/r8125.h b/drivers/net/ethernet/realtek/r8125/r8125.h
+--- a/drivers/net/ethernet/realtek/r8125/r8125.h
++++ b/drivers/net/ethernet/realtek/r8125/r8125.h
+@@ -432,10 +432,6 @@ do { \
+ #define PCI_VENDOR_ID_DLINK 0x1186
+ #endif
+ 
+-#ifndef dma_mapping_error
+-#define dma_mapping_error(a,b) 0
+-#endif
+-
+ #ifndef netif_err
+ #define netif_err(a,b,c,d)
+ #endif
+diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/realtek/r8126/r8126.h
+--- a/drivers/net/ethernet/realtek/r8126/r8126.h
++++ b/drivers/net/ethernet/realtek/r8126/r8126.h
+@@ -467,10 +467,6 @@ do { \
+ #define PCI_VENDOR_ID_DLINK 0x1186
+ #endif
+ 
+-#ifndef dma_mapping_error
+-#define dma_mapping_error(a,b) 0
+-#endif
+-
+ #ifndef netif_err
+ #define netif_err(a,b,c,d)
+ #endif

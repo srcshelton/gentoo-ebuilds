@@ -1,0 +1,42 @@
+Subject: [PATCH] dmaengine: arm-dma350: require AUDSS axiclk for remote ACPI instances
+
+The Radxa Orion O6 ACPI tables can expose the AUDSS DMA350 with a same-device unnamed clock lookup before the AUDSS clock controller is available.  That path is not equivalent to the vendor DT, whose audio DMA node uses the AUDSS clock provider with clock-names = "axiclk".
+
+Keep ordinary DMA350 instances using the existing unnamed-clock fallback, but require remote-controlled ACPI instances to resolve the named axiclk before probe proceeds.  Fixed DSDT tables provide that clock and take the normal path; stale or SSDT-only firmware now explicitly defers before any runtime PM or DMA register access with incomplete AUDSS power/clock wiring.
+
+diff --git a/drivers/dma/arm-dma350.c b/drivers/dma/arm-dma350.c
+--- a/drivers/dma/arm-dma350.c
++++ b/drivers/dma/arm-dma350.c
+@@ -1247,19 +1247,30 @@ static int d350_probe(struct platform_device *pdev)
+ 	void __iomem *base;
+ 	u32 reg;
+ 	int ret, nchan, dw, aw, r, p;
+-	bool coherent, memset;
++	bool coherent, memset, remote_acpi;
+ 
+ 	base = devm_platform_ioremap_resource(pdev, 0);
+ 	if (IS_ERR(base))
+ 		return PTR_ERR(base);
+ 
++	remote_acpi = has_acpi_companion(dev) &&
++		      device_property_present(dev, "arm,remote-ctrl");
++
+ 	/* Get clock (optional - some platforms may not have one) */
+ 	clk = devm_clk_get_optional(dev, "axiclk");
+ 	if (IS_ERR(clk))
+ 		return dev_err_probe(dev, PTR_ERR(clk), "Failed to get clock\n");
+ 
+-	/* Fallback to unnamed clock if axiclk not found */
++	/*
++	 * Remote-controlled ACPI instances live in AUDSS and must use the
++	 * AUDSS gate.  Stale firmware may expose an unsafe same-device unnamed
++	 * clock; do not fall back to it before touching DMA registers.
++	 */
+ 	if (!clk) {
++		if (remote_acpi)
++			return dev_err_probe(dev, -EPROBE_DEFER,
++					     "waiting for AUDSS axiclk\n");
++
+ 		clk = devm_clk_get_optional(dev, NULL);
+ 		if (IS_ERR(clk))
+ 			return dev_err_probe(dev, PTR_ERR(clk), "Failed to get clock\n");

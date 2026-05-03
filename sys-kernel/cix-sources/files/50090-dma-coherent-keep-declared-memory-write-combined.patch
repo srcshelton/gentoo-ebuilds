@@ -1,0 +1,25 @@
+ kernel/dma/coherent.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/kernel/dma/coherent.c b/kernel/dma/coherent.c
+--- a/kernel/dma/coherent.c
++++ b/kernel/dma/coherent.c
+@@ -45,14 +45,7 @@ static struct dma_coherent_mem *dma_init_coherent_memory(phys_addr_t phys_addr,
+ 	if (!size)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	/*
+-	 * Try write-combining first for non-cacheable DMA access.
+-	 * Fall back to write-back if the region is System RAM (e.g.
+-	 * firmware-reserved memory not removed from the linear map).
+-	 * On architectures with hardware cache coherency (e.g. ARM64),
+-	 * write-back is safe for DMA-coherent allocations.
+-	 */
+-	mem_base = memremap(phys_addr, size, MEMREMAP_WC | MEMREMAP_WB);
++	mem_base = memremap(phys_addr, size, MEMREMAP_WC);
+ 	if (!mem_base)
+ 		return ERR_PTR(-EINVAL);
+ 
+-- 
+2.50.1 (Apple Git-155)
+

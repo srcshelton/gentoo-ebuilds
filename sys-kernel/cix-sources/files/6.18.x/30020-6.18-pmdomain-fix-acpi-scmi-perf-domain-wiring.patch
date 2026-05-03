@@ -1,0 +1,80 @@
+pmdomain: cix: fix ACPI SCMI perf-domain wiring
+
+Split the 6.18 SCMI performance-domain fixes out of the old aggregate Sky1 ACPI runtime patch.
+
+---
+diff --git a/drivers/pmdomain/arm/scmi_perf_domain.c b/drivers/pmdomain/arm/scmi_perf_domain.c
+--- a/drivers/pmdomain/arm/scmi_perf_domain.c
++++ b/drivers/pmdomain/arm/scmi_perf_domain.c
+@@ -112,15 +112,28 @@ static int match_proto_reg(struct acpi_device *adev, void *data)
+ static struct fwnode_handle *scmi_perf_find_proto_fwnode(struct scmi_device *sdev)
+ {
+ 	struct acpi_device *parent_adev;
++	struct fwnode_handle *fw = dev_fwnode(&sdev->dev);
++	struct fwnode_handle *parent_fw;
+ 	struct proto_fwnode_match match = {
+ 		.protocol_id = sdev->protocol_id,
+ 		.result = NULL,
+ 	};
++	u32 reg;
+ 
+ 	if (sdev->dev.of_node)
+ 		return NULL;
+ 
+-	parent_adev = to_acpi_device_node(dev_fwnode(&sdev->dev));
++	if (fw && is_acpi_device_node(fw) &&
++	    fwnode_property_read_u32(fw, "reg", &reg) == 0 &&
++	    reg == sdev->protocol_id)
++		return fw;
++
++	parent_adev = fw && is_acpi_device_node(fw) ?
++		      to_acpi_device_node(fw) : NULL;
++	parent_fw = sdev->dev.parent ? dev_fwnode(sdev->dev.parent) : NULL;
++	if (!parent_adev && parent_fw && is_acpi_device_node(parent_fw))
++		parent_adev = to_acpi_device_node(parent_fw);
++
+ 	if (!parent_adev)
+ 		return NULL;
+ 
+diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
+--- a/drivers/pmdomain/core.c
++++ b/drivers/pmdomain/core.c
+@@ -6,6 +6,7 @@
+  */
+ #define pr_fmt(fmt) "PM: " fmt
+ 
++#include <linux/acpi.h>
+ #include <linux/delay.h>
+ #include <linux/idr.h>
+ #include <linux/kernel.h>
+@@ -2975,6 +2976,21 @@ void genpd_del_fwnode_provider(struct fwnode_handle *fwnode)
+ }
+ EXPORT_SYMBOL_GPL(genpd_del_fwnode_provider);
+ 
++static bool genpd_fwnode_matches(struct fwnode_handle *provider,
++				 struct fwnode_handle *consumer)
++{
++	if (provider == consumer)
++		return true;
++
++#ifdef CONFIG_ACPI
++	if (is_acpi_device_node(provider) && is_acpi_device_node(consumer))
++		return to_acpi_device_node(provider)->handle ==
++		       to_acpi_device_node(consumer)->handle;
++#endif
++
++	return false;
++}
++
+ /**
+  * genpd_get_from_fwnode_provider() - Look up a PM domain from fwnode providers
+  * @fwnode: Firmware node of the provider (from consumer's reference)
+@@ -2997,7 +3013,7 @@ static struct generic_pm_domain *genpd_get_from_fwnode_provider(
+ 
+ 	mutex_lock(&of_genpd_mutex);
+ 	list_for_each_entry(p, &fwnode_genpd_providers, link) {
+-		if (p->fwnode == fwnode) {
++		if (genpd_fwnode_matches(p->fwnode, fwnode)) {
+ 			if (index < p->data->num_domains &&
+ 			    p->data->domains[index])
+ 				genpd = p->data->domains[index];

@@ -1,0 +1,45 @@
+cpufreq_driver_fast_switch() updates scheduler frequency invariance
+after a successful fast switch by passing the current frequency and
+arch_scale_freq_ref() into arch_set_freq_scale().
+
+Some ACPI CPPC systems expose enough information for the cpufreq driver
+to create valid policies, but not enough for arch topology to derive a
+non-zero frequency reference before the first fast-switch update.  In
+that case topology_set_freq_scale() warns and skips the update even
+though the cpufreq policy already has a valid cpuinfo.max_freq.
+
+Use the policy maximum as a fallback when arch_scale_freq_ref() is not
+available.  This keeps fast switching and scheduler frequency scaling
+enabled, avoids platform-specific quirks, and preserves existing
+behaviour on systems where the architecture reference is populated.
+---
+ drivers/cpufreq/cpufreq.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
+--- a/drivers/cpufreq/cpufreq.c
++++ b/drivers/cpufreq/cpufreq.c
+@@ -2203,7 +2203,7 @@ EXPORT_SYMBOL(cpufreq_unregister_notifier);
+ unsigned int cpufreq_driver_fast_switch(struct cpufreq_policy *policy,
+ 					unsigned int target_freq)
+ {
+-	unsigned int freq;
++	unsigned int freq, max_freq;
+ 	int cpu;
+ 
+ 	target_freq = clamp_val(target_freq, policy->min, policy->max);
+@@ -2213,8 +2213,12 @@ unsigned int cpufreq_driver_fast_switch(struct cpufreq_policy *policy,
+ 		return 0;
+ 
+ 	policy->cur = freq;
+-	arch_set_freq_scale(policy->related_cpus, freq,
+-			    arch_scale_freq_ref(policy->cpu));
++
++	max_freq = arch_scale_freq_ref(policy->cpu);
++	if (!max_freq)
++		max_freq = policy->cpuinfo.max_freq;
++	if (max_freq)
++		arch_set_freq_scale(policy->related_cpus, freq, max_freq);
+ 	cpufreq_stats_record_transition(policy, freq);
+ 
+ 	if (trace_cpu_frequency_enabled()) {

@@ -1,0 +1,22 @@
+LATE_SYSTEM_SLEEP_PM_OPS() always references suspend/resume symbols.
+This driver only defines those callbacks under CONFIG_PM_SLEEP, so
+allnoconfig-style builds can fail with undeclared identifiers.
+
+Use SET_LATE_SYSTEM_SLEEP_PM_OPS() so callbacks are only wired when
+CONFIG_PM_SLEEP is enabled.
+
+---
+diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -321,7 +321,7 @@ static void cdns_gpio_shutdown(struct platform_device *pdev) {}
+ #endif
+ 
+ static const struct dev_pm_ops cdns_gpio_pm_ops = {
+-	LATE_SYSTEM_SLEEP_PM_OPS(cdns_gpio_suspend, cdns_gpio_resume)
++	SET_LATE_SYSTEM_SLEEP_PM_OPS(cdns_gpio_suspend, cdns_gpio_resume)
+ };
+ 
+ static int cdns_gpio_probe(struct platform_device *pdev)
+-- 
+2.39.5

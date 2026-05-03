@@ -1,0 +1,97 @@
+misc: armchina-npu: clean up exported dma-buf sg mappings
+
+The exported NPU dma-buf path allocates and maps an sg_table for each importer
+but never unmaps or frees it through the dma-buf unmap callback.  Allocate
+sg_tables per map, unmap them with the matching DMA API helper, and release
+the sg_table storage when importers unmap the attachment.
+
+---
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
+@@ -3,6 +3,8 @@
+ 
+ #include <linux/version.h>
+ #include <linux/module.h>
++#include <linux/scatterlist.h>
++#include <linux/slab.h>
+ #include "aipu_dma_buf.h"
+ 
+ #if KERNEL_VERSION(4, 19, 0) > LINUX_VERSION_CODE
+@@ -27,10 +29,7 @@ static struct sg_table *aipu_map_dma_buf(struct dma_buf_attachment *attach,
+ 	struct aipu_dma_buf_priv *priv = (struct aipu_dma_buf_priv *)attach->dmabuf->priv;
+ 	struct device *npu = priv->mm->dev;
+ 
+-	if (priv->sgt)
+-		return priv->sgt;
+-
+-	sgt = devm_kmalloc(npu, sizeof(*sgt), GFP_KERNEL);
++	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
+ 	if (!sgt)
+ 		return NULL;
+ 
+@@ -42,25 +41,37 @@ static struct sg_table *aipu_map_dma_buf(struct dma_buf_attachment *attach,
+ 
+ #if KERNEL_VERSION(5, 8, 0) > LINUX_VERSION_CODE
+ 	ret = dma_map_sg(attach->dev, sgt->sgl, sgt->nents, dir);
++	if (!ret) {
+ #else
+ 	ret = dma_map_sgtable(attach->dev, sgt, dir, 0);
+-#endif
+ 	if (ret) {
++#endif
+ 		dev_err(npu, "failed to map sgtable for the attached dev\n");
+-		goto fail;
++		goto free_table;
+ 	}
+ 
+-	priv->sgt = sgt;
+ 	return sgt;
+ 
++free_table:
++	sg_free_table(sgt);
+ fail:
+-	devm_kfree(npu, sgt);
++	kfree(sgt);
+ 	return NULL;
+ }
+ 
+ static void aipu_unmap_dma_buf(struct dma_buf_attachment *attach, struct sg_table *st,
+ 			       enum dma_data_direction dir)
+ {
++	if (!st)
++		return;
++
++#if KERNEL_VERSION(5, 8, 0) > LINUX_VERSION_CODE
++	dma_unmap_sg(attach->dev, st->sgl, st->nents, dir);
++#else
++	dma_unmap_sgtable(attach->dev, st, dir, 0);
++#endif
++	sg_free_table(st);
++	kfree(st);
+ }
+ 
+ static int aipu_dma_buf_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+@@ -228,11 +239,6 @@ int aipu_free_dma_buf(struct aipu_memory_manager *mm, int fd)
+ 	buf.asid = AIPU_BUF_ASID_0;
+ 	ret = aipu_mm_free(mm, &buf, NULL, true);
+ 
+-	if (priv->sgt) {
+-		devm_kfree(mm->dev, priv->sgt);
+-		priv->sgt = NULL;
+-	}
+-
+ 	devm_kfree(mm->dev, priv);
+ 	dma_buf_put(dmabuf);
+ 	return ret;
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.h
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
+@@ -15,7 +15,6 @@ struct aipu_dma_buf_priv {
+ 	u64 dma_pa;   /* the original addr from dma subsystem */
+ 	u64 bytes;
+ 	void *va;
+-	struct sg_table *sgt;
+ };
+ 
+ struct aipu_dma_buf_importer {

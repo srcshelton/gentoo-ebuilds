@@ -1,0 +1,23 @@
+drm: cix: remove unused display Kconfig prompts
+
+diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
+--- a/drivers/gpu/drm/cix/Kconfig
++++ b/drivers/gpu/drm/cix/Kconfig
+@@ -34,17 +34,6 @@ config DRM_LINLONDP_CLOCK_FIXED
+ 	help
+ 	  Choose this if linlondp clocks use fixed frequency
+ 
+-config DRM_TRILIN_DP_CIX
+-	tristate "DRM Support for Trilinear DisplayPort on CiX platforms"
+-	depends on DRM_CIX
+-	help
+-	  Choose this if you want to use DP display on CiX Socs
+-
+-config DRM_CIX_EDP_PANEL
+-	tristate "DRM Support for edp panel on CiX platforms"
+-	help
+-	  Choose this if you want to use edp panel on CiX Socs
+-
+ config DRM_CIX_COMPONENT_BIND_BYPASSED
+ 	bool "DRM bypass component bind operation"
+ 	depends on DRM_CIX

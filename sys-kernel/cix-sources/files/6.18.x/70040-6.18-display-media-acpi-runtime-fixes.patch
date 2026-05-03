@@ -1,0 +1,58 @@
+media/drm: cix: split 6.18 display and VPU ACPI runtime fixes
+
+Split Linlon DP and CIX media ACPI runtime fixes out of the old aggregate 6.18 Sky1 runtime patch.
+
+---
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -21,11 +21,6 @@
+ #include "linlondp_kms.h"
+ #include "linlondp_drm.h"
+ 
+-extern int linlondp_atomic_replace_property_blob_from_id(
+-	struct drm_device *dev, struct drm_property_blob **blob,
+-	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+-	bool *replaced);
+-
+ void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
+ 				    u32 *color_depths, u32 *color_formats)
+ {
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_drm.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_drm.h
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_drm.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_drm.h
+@@ -14,6 +14,8 @@
+ #ifndef _LINLONDP_DRM_H_
+ #define _LINLONDP_DRM_H_
+ 
++#include <linux/types.h>
++
+ enum linlondp_hdr_eotf {
+ 	LINLONDP_HDR_NONE,
+ 	LINLONDP_HDR_ST2084,
+@@ -23,4 +25,12 @@ enum linlondp_hdr_eotf {
+ struct color_ctm_ext {
+ 	uint64_t matrix[12];
+ };
++
++struct drm_device;
++struct drm_property_blob;
++
++int linlondp_atomic_replace_property_blob_from_id(
++	struct drm_device *dev, struct drm_property_blob **blob,
++	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
++	bool *replaced);
+ #endif
+diff --git a/drivers/media/platform/cix/if/mvx_if.c b/drivers/media/platform/cix/if/mvx_if.c
+--- a/drivers/media/platform/cix/if/mvx_if.c
++++ b/drivers/media/platform/cix/if/mvx_if.c
+@@ -137,7 +137,8 @@ struct mvx_if_ops *mvx_if_create(struct device *dev,
+     dma_set_max_seg_size(dev, SZ_2G);
+ 
+ #if (KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE) && IS_ENABLED(CONFIG_OF)
+-    of_dma_configure_id(dev, dev->of_node, 0, NULL);
++    if (dev_of_node(dev))
++        of_dma_configure_id(dev, dev_of_node(dev), 0, NULL);
+ #endif
+ 
+     /* Create device context and store pointer in device private data. */

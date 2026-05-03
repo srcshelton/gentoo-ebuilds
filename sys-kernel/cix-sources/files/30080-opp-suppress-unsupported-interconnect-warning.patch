@@ -1,0 +1,15 @@
+diff --git a/drivers/opp/core.c b/drivers/opp/core.c
+--- a/drivers/opp/core.c
++++ b/drivers/opp/core.c
+@@ -1559,8 +1559,9 @@ static struct opp_table *_allocate_opp_table(struct device *dev, int index)
+ 		if (ret == -EPROBE_DEFER)
+ 			goto remove_opp_dev;
+ 
+-		dev_warn(dev, "%s: Error finding interconnect paths: %d\n",
+-			 __func__, ret);
++		if (ret != -EOPNOTSUPP)
++			dev_warn(dev, "%s: Error finding interconnect paths: %d\n",
++				 __func__, ret);
+ 	}
+ 
+ 	BLOCKING_INIT_NOTIFIER_HEAD(&opp_table->head);

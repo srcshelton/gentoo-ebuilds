@@ -1,0 +1,46 @@
+firmware: arm_scmi: handle ACPI debugfs fallback names
+
+Avoid assuming a DT node is present when formatting SCMI debugfs names for ACPI-backed controllers.
+
+---
+diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driver.c
+--- a/drivers/firmware/arm_scmi/driver.c
++++ b/drivers/firmware/arm_scmi/driver.c
+@@ -2806,7 +2806,7 @@ scmi_txrx_setup(struct scmi_info *info, struct fwnode_handle *fwnode,
+ 			ret = 0;
+ 	}
+ 
+-	if (ret)
++	if (ret && ret != -EPROBE_DEFER)
+ 		dev_err(info->dev,
+ 			"failed to setup channel for protocol:0x%X\n", prot_id);
+ 
+@@ -3023,19 +3023,26 @@ static struct scmi_debug_info *scmi_debugfs_common_setup(struct scmi_info *info)
+ 	char top_dir[16];
+ 	struct dentry *trans, *top_dentry;
+ 	struct scmi_debug_info *dbg;
+-	const char *c_ptr = NULL;
++	const char *c_ptr = NULL, *name;
+ 
+ 	dbg = devm_kzalloc(info->dev, sizeof(*dbg), GFP_KERNEL);
+ 	if (!dbg)
+ 		return NULL;
+ 
+-	dbg->name = kstrdup(fwnode_get_name(info->dev->fwnode), GFP_KERNEL);
++	name = fwnode_get_name(info->dev->fwnode);
++	if (!name)
++		name = dev_name(info->dev);
++
++	dbg->name = kstrdup(name, GFP_KERNEL);
+ 	if (!dbg->name) {
+ 		devm_kfree(info->dev, dbg);
+ 		return NULL;
+ 	}
+ 
+ 	fwnode_property_read_string(info->dev->fwnode, "compatible", &c_ptr);
++	if (!c_ptr)
++		c_ptr = dev_driver_string(info->dev);
++
+ 	dbg->type = kstrdup(c_ptr, GFP_KERNEL);
+ 	if (!dbg->type) {
+ 		kfree(dbg->name);

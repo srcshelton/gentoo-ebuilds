@@ -1,0 +1,16 @@
+net: cadence: use Sky1 ACPI aclk as GEM hclk fallback
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -4512,6 +4512,10 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
+ 	} else {
+ 		*pclk = devm_clk_get(&pdev->dev, "pclk");
+ 		*hclk = devm_clk_get(&pdev->dev, "hclk");
++		if (IS_ERR(*hclk) &&
++		    (PTR_ERR(*hclk) == -ENOENT || PTR_ERR(*hclk) == -ENODEV) &&
++		    acpi_dev_hid_uid_match(ACPI_COMPANION(&pdev->dev), "CIXH7020", NULL))
++			*hclk = devm_clk_get(&pdev->dev, "aclk");
+ 	}
+ 
+ 	if (IS_ERR_OR_NULL(*pclk))

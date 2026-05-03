@@ -1,0 +1,30 @@
+scmi-hwmon registers the SCMI sensors successfully on Sky1 ACPI systems,
+but then tries to bind each temperature sensor into an OF thermal zone.
+ACPI does not provide those OF thermal-zone phandles, so the OF helper
+returns -ENOTSUPP and the driver reports every temperature sensor as a
+misconfigured thermal zone.
+
+Only attempt OF thermal-zone registration when the SCMI device has an OF
+node. This keeps the hwmon sensors available on ACPI and leaves ACPI
+thermal zones to the ACPI thermal framework instead of reporting a false
+DT misconfiguration.
+
+---
+ drivers/hwmon/scmi-hwmon.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/hwmon/scmi-hwmon.c b/drivers/hwmon/scmi-hwmon.c
+--- a/drivers/hwmon/scmi-hwmon.c
++++ b/drivers/hwmon/scmi-hwmon.c
+@@ -203,6 +203,9 @@ static int scmi_thermal_sensor_register(struct device *dev,
+ 	th_sensor->ph = ph;
+ 	th_sensor->info = sensor;
+ 
++	if (!dev->of_node)
++		return 0;
++
+ 	/*
+ 	 * Try to register a temperature sensor with the Thermal Framework:
+ 	 * skip sensors not defined as part of any thermal zone (-ENODEV) but
+-- 
+2.49.0

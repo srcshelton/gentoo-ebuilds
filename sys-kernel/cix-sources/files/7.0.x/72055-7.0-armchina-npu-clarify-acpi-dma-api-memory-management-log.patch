@@ -1,0 +1,30 @@
+misc: armchina-npu: clarify ACPI DMA API memory-management log
+
+On ACPI systems our safe path intentionally avoids the vendor driver's
+preallocated IOVA-region manager and uses the normal DMA API instead. The
+generic "driver mem management is disabled" message reads like a failure even
+though this is the expected ACPI configuration.
+
+Clarify the ACPI/DMA-API case while keeping the existing enabled/disabled
+message for DT and explicit legacy-preallocation testing.
+
+---
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -1304,7 +1304,14 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	if (version > AIPU_ISA_VERSION_ZHOUYI_V1 && mm->res_cnt)
+ 		aipu_mm_set_asid_base(mm);
+ 
+-	dev_info(mm->dev, "driver mem management is %s\n", mm->res_cnt ? "enabled" : "disabled");
++	if (mm->has_iommu && has_acpi_companion(mm->dev) &&
++	    !aipu_acpi_prealloc_iova_regions) {
++		dev_info(mm->dev,
++			 "using DMA API allocations on ACPI; driver-internal preallocated IOVA regions are disabled\n");
++	} else {
++		dev_info(mm->dev, "driver-internal memory-region management is %s\n",
++			 mm->res_cnt ? "enabled" : "disabled");
++	}
+ 
+ finish:
+ 	if (ret)

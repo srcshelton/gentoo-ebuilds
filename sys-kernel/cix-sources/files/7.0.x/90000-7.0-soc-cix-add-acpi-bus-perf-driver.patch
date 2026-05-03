@@ -1,0 +1,468 @@
+soc: cix: add ACPI bus performance driver
+
+Add the ACPI bus-performance driver in its final form, including zero-rate OPP handling, direct SCMI perf-domain consumer attachment, and balanced runtime-PM ownership.
+
+---
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -52,3 +52,20 @@ config CIX_ACPI_GPU_SCAN
+ 	  the CIXH5000 GPU as DMA coherent. The helper makes the ACPI path
+ 	  match the known non-coherent hardware model and stands down when
+ 	  firmware already reports the GPU as non-coherent.
++
++config CIX_BUS_PERF
++	tristate "CIX bus performance state control"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on OF || ACPI
++	depends on PM_GENERIC_DOMAINS
++	depends on PM_OPP
++	default ARCH_CIX
++	help
++	  Enable the CIX Sky1 bus performance control driver. The driver
++	  binds to CI700/MMHUB fabric devices and pins their SCMI
++	  performance domains to the highest advertised OPP by default,
++	  while exposing sysfs controls for bring-up and testing.
++
++	  Sky1 ACPI firmware should expose the CI700 and MMHUB devices as
++	  CIXHA030 and CIXHA031, with "perf" power domains wired to the
++	  SCMI DVFS provider.
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -3,3 +3,4 @@ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
+ obj-$(CONFIG_CIX_ACPI_PCIE_SCAN)	+= cix-acpi-pcie-scan.o
+ obj-$(CONFIG_CIX_ACPI_GPU_SCAN)		+= cix-acpi-gpu-scan.o
++obj-$(CONFIG_CIX_BUS_PERF)		+= cix-bus-perf.o
+diff --git a/drivers/soc/cix/cix-bus-perf.c b/drivers/soc/cix/cix-bus-perf.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-bus-perf.c
+@@ -0,0 +1,426 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX Bus Performance State Control driver
++ *
++ * Minimal driver for controlling CI700/NI700 bus frequency via SCMI
++ * performance domains. Provides sysfs interface for testing bus DVFS.
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ */
++
++#include <linux/acpi.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/pm_domain.h>
++#include <linux/pm_opp.h>
++#include <linux/pm_runtime.h>
++
++struct cix_bus_perf {
++	struct device *dev;
++	struct device *perf_dev;
++	const unsigned long *fallback_levels;
++	unsigned int fallback_level_count;
++	bool using_fallback_levels;
++	bool runtime_pm_enabled;
++	unsigned long cur_freq;
++	unsigned long min_freq;
++	unsigned long max_freq;
++};
++
++static const unsigned long cix_bus_ci700_levels[] = { 1500 };
++static const unsigned long cix_bus_mmhub_levels[] = { 350, 600, 750 };
++
++struct cix_bus_perf_data {
++	const unsigned long *levels;
++	unsigned int level_count;
++};
++
++static const struct cix_bus_perf_data cix_bus_ci700_data = {
++	.levels = cix_bus_ci700_levels,
++	.level_count = ARRAY_SIZE(cix_bus_ci700_levels),
++};
++
++static const struct cix_bus_perf_data cix_bus_mmhub_data = {
++	.levels = cix_bus_mmhub_levels,
++	.level_count = ARRAY_SIZE(cix_bus_mmhub_levels),
++};
++
++static const struct acpi_device_id cix_bus_perf_acpi_match[];
++
++static struct device *cix_bus_opp_dev(struct cix_bus_perf *bp)
++{
++	return bp->perf_dev ?: bp->dev;
++}
++
++static void cix_bus_perf_disable_runtime_pm(struct cix_bus_perf *bp)
++{
++	if (!bp->runtime_pm_enabled)
++		return;
++
++	pm_runtime_disable(cix_bus_opp_dev(bp));
++	bp->runtime_pm_enabled = false;
++}
++
++static unsigned long cix_bus_level_to_freq(unsigned long level)
++{
++	return level * 1000000UL;
++}
++
++static int cix_bus_select_fallback_level(struct cix_bus_perf *bp,
++					 unsigned long *freq,
++					 unsigned int *level)
++{
++	unsigned int i;
++
++	if (!bp->fallback_level_count)
++		return -ENODEV;
++
++	for (i = 0; i < bp->fallback_level_count; i++) {
++		unsigned long level_freq =
++			cix_bus_level_to_freq(bp->fallback_levels[i]);
++
++		if (level_freq >= *freq) {
++			*freq = level_freq;
++			*level = bp->fallback_levels[i];
++			return 0;
++		}
++	}
++
++	*level = bp->fallback_levels[bp->fallback_level_count - 1];
++	*freq = cix_bus_level_to_freq(*level);
++
++	return 0;
++}
++
++static void cix_bus_use_fallback_levels(struct cix_bus_perf *bp,
++					const char *reason)
++{
++	bp->using_fallback_levels = true;
++	bp->min_freq = cix_bus_level_to_freq(bp->fallback_levels[0]);
++	bp->max_freq = cix_bus_level_to_freq(
++		bp->fallback_levels[bp->fallback_level_count - 1]);
++
++	dev_info(bp->dev,
++		 "Using %u firmware-defined performance levels%s%s\n",
++		 bp->fallback_level_count, reason ? ": " : "",
++		 reason ? reason : "");
++}
++
++static struct device *cix_bus_perf_attach_domain(struct device *dev)
++{
++	struct device *perf_dev;
++
++	perf_dev = dev_pm_domain_attach_by_name(dev, "perf");
++	if (!IS_ERR(perf_dev) || PTR_ERR(perf_dev) != -EEXIST ||
++	    !has_acpi_companion(dev))
++		return perf_dev;
++
++	/*
++	 * ACPI devices can already have the generic ACPI PM domain attached to
++	 * the consumer device.  The named SCMI perf genpd is still represented
++	 * as a separate virtual device, so bypass the generic wrapper's
++	 * existing-domain guard and attach the named genpd directly.
++	 */
++	perf_dev = genpd_dev_pm_attach_by_name(dev, "perf");
++	if (!IS_ERR_OR_NULL(perf_dev))
++		dev_info(dev, "attached named ACPI perf domain as %s\n",
++			 dev_name(perf_dev));
++
++	return perf_dev;
++}
++
++static int cix_bus_set_freq(struct cix_bus_perf *bp, unsigned long *freq)
++{
++	struct device *opp_dev = cix_bus_opp_dev(bp);
++	struct dev_pm_opp *opp;
++	unsigned int level;
++	int ret;
++
++	if (bp->using_fallback_levels) {
++		ret = cix_bus_select_fallback_level(bp, freq, &level);
++		if (ret)
++			return ret;
++	} else {
++		opp = dev_pm_opp_find_freq_ceil(opp_dev, freq);
++		if (IS_ERR(opp))
++			return PTR_ERR(opp);
++
++		level = dev_pm_opp_get_level(opp);
++		dev_pm_opp_put(opp);
++	}
++
++	ret = dev_pm_genpd_set_performance_state(opp_dev, level);
++	if (ret)
++		dev_err(bp->dev, "failed to set perf state %u via %s: %d\n",
++			level, dev_name(opp_dev), ret);
++
++	return ret;
++}
++
++static ssize_t cur_freq_show(struct device *dev,
++			     struct device_attribute *attr, char *buf)
++{
++	struct cix_bus_perf *bp = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%lu\n", bp->cur_freq);
++}
++
++static ssize_t cur_freq_store(struct device *dev, struct device_attribute *attr,
++			      const char *buf, size_t count)
++{
++	struct cix_bus_perf *bp = dev_get_drvdata(dev);
++	struct device *opp_dev = cix_bus_opp_dev(bp);
++	unsigned long freq;
++	struct dev_pm_opp *opp;
++	int ret;
++
++	ret = kstrtoul(buf, 0, &freq);
++	if (ret)
++		return ret;
++
++	if (!bp->using_fallback_levels) {
++		/* Find nearest OPP */
++		opp = dev_pm_opp_find_freq_ceil(opp_dev, &freq);
++		if (IS_ERR(opp)) {
++			freq = bp->max_freq;
++			opp = dev_pm_opp_find_freq_floor(opp_dev, &freq);
++			if (IS_ERR(opp))
++				return PTR_ERR(opp);
++		}
++		dev_pm_opp_put(opp);
++	}
++
++	ret = cix_bus_set_freq(bp, &freq);
++	if (ret)
++		return ret;
++
++	bp->cur_freq = freq;
++	dev_info(dev, "Set frequency to %lu Hz\n", freq);
++	return count;
++}
++static DEVICE_ATTR_RW(cur_freq);
++
++static ssize_t control_mode_show(struct device *dev,
++				 struct device_attribute *attr, char *buf)
++{
++	struct cix_bus_perf *bp = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%s\n",
++			  bp->using_fallback_levels ? "firmware-level" : "opp");
++}
++static DEVICE_ATTR_RO(control_mode);
++
++static ssize_t available_frequencies_show(struct device *dev,
++					  struct device_attribute *attr,
++					  char *buf)
++{
++	struct cix_bus_perf *bp = dev_get_drvdata(dev);
++	struct device *opp_dev = cix_bus_opp_dev(bp);
++	struct dev_pm_opp *opp;
++	unsigned long freq = 0;
++	int len = 0;
++
++	if (bp->using_fallback_levels) {
++		unsigned int i;
++
++		for (i = 0; i < bp->fallback_level_count; i++)
++			len += sysfs_emit_at(buf, len, "%lu ",
++				cix_bus_level_to_freq(bp->fallback_levels[i]));
++
++		if (len > 0)
++			buf[len - 1] = '\n';
++
++		return len;
++	}
++
++	while (1) {
++		opp = dev_pm_opp_find_freq_ceil(opp_dev, &freq);
++		if (IS_ERR(opp))
++			break;
++		len += sysfs_emit_at(buf, len, "%lu ", freq);
++		dev_pm_opp_put(opp);
++		freq++;
++	}
++
++	if (len > 0)
++		buf[len - 1] = '\n';
++
++	return len;
++}
++static DEVICE_ATTR_RO(available_frequencies);
++
++static struct attribute *bus_perf_attrs[] = {
++	&dev_attr_cur_freq.attr,
++	&dev_attr_control_mode.attr,
++	&dev_attr_available_frequencies.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(bus_perf);
++
++static int cix_bus_perf_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct cix_bus_perf *bp;
++	const struct cix_bus_perf_data *match_data = NULL;
++	struct dev_pm_opp *opp;
++	unsigned long freq;
++	int ret;
++
++	bp = devm_kzalloc(dev, sizeof(*bp), GFP_KERNEL);
++	if (!bp)
++		return -ENOMEM;
++
++	bp->dev = dev;
++	platform_set_drvdata(pdev, bp);
++
++	if (has_acpi_companion(dev)) {
++		const struct acpi_device_id *id;
++
++		id = acpi_match_device(cix_bus_perf_acpi_match, dev);
++		if (id)
++			match_data = (const struct cix_bus_perf_data *)id->driver_data;
++		if (match_data) {
++			bp->fallback_levels = match_data->levels;
++			bp->fallback_level_count = match_data->level_count;
++		}
++
++		bp->perf_dev = cix_bus_perf_attach_domain(dev);
++		if (IS_ERR(bp->perf_dev)) {
++			ret = PTR_ERR(bp->perf_dev);
++			return dev_err_probe(dev, ret,
++					     "failed to attach perf domain\n");
++		} else if (!bp->perf_dev) {
++			return dev_err_probe(dev, -EPROBE_DEFER,
++					     "perf domain not ready\n");
++		}
++
++		dev_info(dev, "perf domain attach: perf_dev=%s fallback_levels=%u\n",
++			 dev_name(bp->perf_dev), bp->fallback_level_count);
++	}
++
++	dev = cix_bus_opp_dev(bp);
++	if (pm_runtime_enabled(dev)) {
++		dev_dbg(bp->dev, "runtime PM already enabled on %s\n",
++			dev_name(dev));
++	} else {
++		pm_runtime_enable(dev);
++		bp->runtime_pm_enabled = true;
++	}
++
++	ret = pm_runtime_resume_and_get(dev);
++	if (ret) {
++		cix_bus_perf_disable_runtime_pm(bp);
++		goto detach_domain;
++	}
++
++	/* OPPs are owned by the named SCMI perf-domain device under ACPI. */
++	ret = dev_pm_opp_get_opp_count(dev);
++	if (ret <= 0) {
++		if (has_acpi_companion(bp->dev) && bp->fallback_level_count) {
++			cix_bus_use_fallback_levels(bp, "no usable OPP table");
++			ret = bp->fallback_level_count;
++		} else {
++			ret = ret < 0 ? ret : -ENODEV;
++			dev_err_probe(bp->dev, ret,
++				      "No OPPs available from perf domain\n");
++			goto put_runtime;
++		}
++	}
++
++	if (!bp->using_fallback_levels)
++		dev_info(dev, "Found %d OPPs\n", ret);
++
++	/* Get frequency range */
++	if (bp->using_fallback_levels) {
++		bp->min_freq = cix_bus_level_to_freq(bp->fallback_levels[0]);
++		bp->max_freq = cix_bus_level_to_freq(
++			bp->fallback_levels[bp->fallback_level_count - 1]);
++	} else {
++		freq = 0;
++		opp = dev_pm_opp_find_freq_ceil(dev, &freq);
++		if (!IS_ERR(opp)) {
++			bp->min_freq = freq;
++			dev_pm_opp_put(opp);
++		}
++
++		freq = ULONG_MAX;
++		opp = dev_pm_opp_find_freq_floor(dev, &freq);
++		if (!IS_ERR(opp)) {
++			bp->max_freq = freq;
++			dev_pm_opp_put(opp);
++		}
++
++		if (!bp->max_freq && has_acpi_companion(bp->dev) &&
++		    bp->fallback_level_count)
++			cix_bus_use_fallback_levels(bp,
++						    "SCMI OPP rates are zero");
++	}
++
++	/* Pin to max frequency on boot */
++	freq = bp->max_freq;
++	ret = cix_bus_set_freq(bp, &freq);
++	if (ret) {
++		dev_err(bp->dev, "failed to set max frequency: %d\n", ret);
++		goto put_runtime;
++	}
++	bp->cur_freq = freq;
++
++	dev_info(bp->dev, "Frequency range: %lu - %lu Hz (pinned to max)\n",
++		 bp->min_freq, bp->max_freq);
++
++	return 0;
++
++put_runtime:
++	pm_runtime_put(dev);
++	cix_bus_perf_disable_runtime_pm(bp);
++detach_domain:
++	if (bp->perf_dev)
++		dev_pm_domain_detach(bp->perf_dev, false);
++	return ret;
++}
++
++static void cix_bus_perf_remove(struct platform_device *pdev)
++{
++	struct cix_bus_perf *bp = platform_get_drvdata(pdev);
++	struct device *opp_dev = cix_bus_opp_dev(bp);
++
++	pm_runtime_put(opp_dev);
++	cix_bus_perf_disable_runtime_pm(bp);
++	if (bp->perf_dev)
++		dev_pm_domain_detach(bp->perf_dev, false);
++}
++
++#if IS_ENABLED(CONFIG_OF)
++static const struct of_device_id cix_bus_perf_match[] = {
++	{ .compatible = "cix,bus-ci700" },
++	{ .compatible = "cix,bus-ni700" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, cix_bus_perf_match);
++#endif
++
++static const struct acpi_device_id cix_bus_perf_acpi_match[] = {
++	{ "CIXHA030", (kernel_ulong_t)&cix_bus_ci700_data },
++	{ "CIXHA031", (kernel_ulong_t)&cix_bus_mmhub_data },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cix_bus_perf_acpi_match);
++
++static struct platform_driver cix_bus_perf_driver = {
++	.probe = cix_bus_perf_probe,
++	.remove = cix_bus_perf_remove,
++	.driver = {
++		.name = "cix-bus-perf",
++#if IS_ENABLED(CONFIG_OF)
++		.of_match_table = cix_bus_perf_match,
++#endif
++		.acpi_match_table = cix_bus_perf_acpi_match,
++		.dev_groups = bus_perf_groups,
++	},
++};
++module_platform_driver(cix_bus_perf_driver);
++
++MODULE_DESCRIPTION("CIX Bus Performance State Control Driver");
++MODULE_LICENSE("GPL");

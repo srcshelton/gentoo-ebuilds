@@ -1,0 +1,34 @@
+This patch addresses a noisy `ld.lld` warning around the timer-OF table
+sentinel used by `drivers/clocksource/timer-probe.c`.
+
+In Linux `6.18`, `timer-probe.c` is built whenever `CONFIG_TIMER_PROBE=y`.
+That can happen through either `CONFIG_TIMER_OF` or `CONFIG_TIMER_ACPI`, but
+the timer-OF linker table is only emitted when `CONFIG_TIMER_OF=y`.
+
+On ACPI-only builds with `CONFIG_TIMER_ACPI=y` and `CONFIG_TIMER_OF=n`, the
+trailing timer-OF sentinel was still emitted into `__timer_of_table_end` even
+though the linker script intentionally emitted no timer-OF table. `ld.lld`
+then reports the sentinel input section as an orphan:
+
+  vmlinux.o:(__timer_of_table_end) is being placed in '__timer_of_table_end'
+
+Do not create a synthetic timer-OF linker table just to consume the sentinel:
+that changes the ACPI-only link layout for no runtime benefit. Instead, emit
+the sentinel only when the timer-OF table itself is enabled. This preserves the
+existing linker-script behaviour for `CONFIG_TIMER_OF=y` and removes the orphan
+section for ACPI-only builds.
+
+diff --git a/drivers/clocksource/timer-probe.c b/drivers/clocksource/timer-probe.c
+--- a/drivers/clocksource/timer-probe.c
++++ b/drivers/clocksource/timer-probe.c
+@@ -10,8 +10,10 @@
+ 
+ extern struct of_device_id __timer_of_table[];
+ 
++#ifdef CONFIG_TIMER_OF
+ static const struct of_device_id __timer_of_table_sentinel
+ 	__used __section("__timer_of_table_end");
++#endif
+ 
+ void __init timer_probe(void)
+ {

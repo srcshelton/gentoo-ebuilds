@@ -1,0 +1,72 @@
+PCI: strengthen Sky1 ASPM disable for fault-correlated endpoints
+
+Keep the Sky1 ASPM containment for the Samsung NVMe and Realtek RTL8126 endpoints without carrying the temporary SMMU, NVMe, r8126, or link-state diagnostics.  Remove endpoint ASPM capability during header fixup, then clear endpoint and upstream bridge ASPM/L1SS enable bits after enumeration.
+
+---
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -2560,8 +2560,39 @@ static bool cix_sky1_acpi_pcie_platform(void)
+ #endif
+ }
+ 
++static void cix_sky1_clear_config_aspm(struct pci_dev *dev)
++{
++	int l1ss;
++	u32 l1ss_ctl1;
++
++	if (!dev || !pci_is_pcie(dev))
++		return;
++
++	pcie_capability_clear_word(dev, PCI_EXP_LNKCTL,
++				   PCI_EXP_LNKCTL_ASPMC);
++
++	l1ss = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_L1SS);
++	if (!l1ss)
++		return;
++
++	pci_read_config_dword(dev, l1ss + PCI_L1SS_CTL1, &l1ss_ctl1);
++	pci_write_config_dword(dev, l1ss + PCI_L1SS_CTL1,
++			       l1ss_ctl1 & ~PCI_L1SS_CTL1_L1SS_MASK);
++}
++
++static void quirk_cix_sky1_disable_aspm_header(struct pci_dev *dev)
++{
++	if (!cix_sky1_acpi_pcie_platform())
++		return;
++
++	pcie_aspm_remove_cap(dev,
++			     PCI_EXP_LNKCAP_ASPM_L0S | PCI_EXP_LNKCAP_ASPM_L1);
++	cix_sky1_clear_config_aspm(dev);
++}
++
+ static void quirk_cix_sky1_disable_aspm(struct pci_dev *dev)
+ {
++	struct pci_dev *bridge = pci_upstream_bridge(dev);
+ 	int ret;
+ 
+ 	if (!cix_sky1_acpi_pcie_platform())
+@@ -2570,14 +2601,21 @@ static void quirk_cix_sky1_disable_aspm(struct pci_dev *dev)
+ 	ret = pci_disable_link_state(dev, PCIE_LINK_STATE_ALL);
+ 	if (ret)
+ 		pci_warn(dev,
+-			 "CIX Sky1: failed to disable ASPM/ClockPM after SMMU fault correlation: %d\n",
++			 "CIX Sky1: failed to disable ASPM/ClockPM for PCIe/SMMU translation-fault workaround: %d\n",
+ 			 ret);
+ 	else
+ 		pci_info(dev,
+-			 "CIX Sky1: disabling ASPM/ClockPM after SMMU fault correlation\n");
++			 "CIX Sky1: disabling ASPM/ClockPM to avoid PCIe/SMMU translation faults\n");
++
++	cix_sky1_clear_config_aspm(bridge);
++	cix_sky1_clear_config_aspm(dev);
+ }
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_SAMSUNG, 0xa809,
++			 quirk_cix_sky1_disable_aspm_header);
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SAMSUNG, 0xa809,
+ 			quirk_cix_sky1_disable_aspm);
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_REALTEK, 0x8126,
++			 quirk_cix_sky1_disable_aspm_header);
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REALTEK, 0x8126,
+ 			quirk_cix_sky1_disable_aspm);
+ 

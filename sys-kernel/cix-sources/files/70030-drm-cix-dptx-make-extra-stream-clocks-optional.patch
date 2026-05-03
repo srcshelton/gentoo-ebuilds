@@ -1,0 +1,37 @@
+drm: cix: make DPTX higher stream clocks optional under ACPI
+
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -1813,6 +1813,13 @@ static int trilin_dp_ctrl_enable_stream_clocks(struct trilin_dp *dp,
+ 		return -EINVAL;
+ 	}
+ 
++	if (IS_ERR(vid_clk))
++		return PTR_ERR(vid_clk);
++	if (!vid_clk) {
++		DP_DEBUG("stream%d has no clk", dp_panel->stream_id);
++		return 0;
++	}
++
+ 	if (enable)
+ 		clk_prepare_enable(vid_clk);
+ 	else if (__clk_is_enabled(vid_clk))
+@@ -3459,8 +3466,15 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	dpsub->apb_clk = devm_clk_get(dev, "apb_clk");
+ 	dpsub->vid_clk0 = devm_clk_get(dev, "vid_clk0");
+ 	dpsub->vid_clk1 = devm_clk_get(dev, "vid_clk1");
+-	dpsub->vid_clk2 = devm_clk_get(dev, "vid_clk2");
+-	dpsub->vid_clk3 = devm_clk_get(dev, "vid_clk3");
++	dpsub->vid_clk2 = devm_clk_get_optional(dev, "vid_clk2");
++	if (IS_ERR(dpsub->vid_clk2))
++		return dev_err_probe(dev, PTR_ERR(dpsub->vid_clk2),
++				     "failed to get vid_clk2\n");
++
++	dpsub->vid_clk3 = devm_clk_get_optional(dev, "vid_clk3");
++	if (IS_ERR(dpsub->vid_clk3))
++		return dev_err_probe(dev, PTR_ERR(dpsub->vid_clk3),
++				     "failed to get vid_clk3\n");
+ 
+ 	ret = dptx_register_audio_device(dp);
+ 	if (ret)

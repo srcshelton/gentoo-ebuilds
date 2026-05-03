@@ -1,0 +1,36 @@
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -61,13 +61,6 @@ static bool extra_warn __attribute__((unused));
+ bool target_is_big_endian;
+ bool host_is_big_endian;
+ 
+-/*
+- * Cut off the warnings when there are too many. This typically occurs when
+- * vmlinux is missing. ('make modules' without building vmlinux.)
+- */
+-#define MAX_UNRESOLVED_REPORTS	10
+-static unsigned int nr_unresolved;
+-
+ /* In kernel, this size is defined in linux/module.h;
+  * here we use Elf_Addr instead of long for covering cross-compile
+  */
+@@ -1746,7 +1739,7 @@ static void check_exports(struct module *mod)
+ 		const char *basename;
+ 		exp = find_symbol(s->name);
+ 		if (!exp) {
+-			if (!s->weak && nr_unresolved++ < MAX_UNRESOLVED_REPORTS)
++			if (!s->weak)
+ 				modpost_log(!warn_unresolved,
+ 					    "\"%s\" [%s.ko] undefined!\n",
+ 					    s->name, mod->name);
+@@ -2383,9 +2376,5 @@ int main(int argc, char **argv)
+ 		error("Section mismatches detected.\n"
+ 		      "Set CONFIG_SECTION_MISMATCH_WARN_ONLY=y to allow them.\n");
+ 
+-	if (nr_unresolved > MAX_UNRESOLVED_REPORTS)
+-		warn("suppressed %u unresolved symbol warnings because there were too many)\n",
+-		     nr_unresolved - MAX_UNRESOLVED_REPORTS);
+-
+ 	return error_occurred ? 1 : 0;
+ }

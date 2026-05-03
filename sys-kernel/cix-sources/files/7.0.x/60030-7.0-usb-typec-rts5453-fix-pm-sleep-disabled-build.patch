@@ -1,0 +1,24 @@
+The CIX RTS5453 driver only builds its suspend/resume/restore callbacks when
+CONFIG_PM_SLEEP is enabled, while its dev_pm_ops table is declared
+unconditionally. Builds without CONFIG_PM_SLEEP therefore fail because the PM
+table references undeclared callback identifiers.
+
+Keep the existing CIX table layout, but resolve those callback initializers to
+NULL when sleep PM is disabled.
+
+Link: https://github.com/cixtech/cix-linux-main/issues/14
+---
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+--- a/drivers/usb/typec/rts5453.c
++++ b/drivers/usb/typec/rts5453.c
+@@ -760,6 +760,10 @@ static int rts5453h_restore(struct device *dev)
+ 
+ 	return ret;
+ }
++#else
++#define rts5453h_suspend	NULL
++#define rts5453h_resume	NULL
++#define rts5453h_restore	NULL
+ #endif
+ 
+ static void rts5453h_shutdown(struct i2c_client *client)

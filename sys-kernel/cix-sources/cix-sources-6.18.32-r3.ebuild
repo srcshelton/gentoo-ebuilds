@@ -4,7 +4,7 @@
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
-K_GENPATCHES_VER="15"
+K_GENPATCHES_VER="36"
 #K_BASE_VER="${PV}"
 
 K_SECURITY_UNSUPPORTED=1
@@ -110,7 +110,7 @@ src_prepare() {
 
 		case "${pf}" in
 			0065-treewide-Add-ACPI-device-IDs-for-CIX-Sky1-SoC-periph.patch)
-				eapply "${FILESDIR}"/6.18.x/40006-6.18.14-add-remaining-sky1-acpi-device-ids.patch || die
+				eapply "${FILESDIR}"/6.18.x/40005-6.18.32-add-remaining-sky1-acpi-device-ids.patch || die
 				return
 				;;
 		esac
@@ -223,7 +223,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/72090-armchina-npu-clean-up-dmabuf-sg-mappings.patch || die
 	eapply "${FILESDIR}"/72095-armchina-npu-defer-dmabuf-backing-free-to-release.patch || die
 	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
-	eapply "${FILESDIR}"/6.18.x/80081-6.18.14-28-cix-sky1-declare-module-softdeps.patch || die
+	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/6.18.x/90050-6.18-arm64-cix-add-radxa-orion-board-profiles.patch || die
 	fi

@@ -1,0 +1,70 @@
+diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+--- a/drivers/misc/armchina-npu/Kconfig
++++ b/drivers/misc/armchina-npu/Kconfig
+@@ -5,12 +5,12 @@
+ 
+ config ARMCHINA_NPU
+ 	tristate "ArmChina Zhouyi NPU"
+-	depends on OF
++	depends on ACPI || OF
+ 	help
+ 	  Support for ArmChina Zhouyi NPU accelerators.
+ 
+ 	  To compile this driver as a module, choose M here. The module
+-	  will be called aipu.
++	  will be called armchina_npu.
+ 
+ config ARMCHINA_NPU_ARCH_V1
+ 	bool "ArmChina NPU architecture: v1"
+diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/armchina-npu/include/armchina_aipu.h
+--- a/drivers/misc/armchina-npu/include/armchina_aipu.h
++++ b/drivers/misc/armchina-npu/include/armchina_aipu.h
+@@ -539,7 +539,7 @@ struct aipu_group_id_desc {
+  *
+  * @Description
+  *
+- * ioctl to read/write an external register of an AIPU core; works for aipu v1/v2 only.
++ * ioctl to read/write an external register of an AIPU core.
+  */
+ #define AIPU_IOCTL_REQ_IO _IOWR(AIPU_IOCTL_MAGIC, 9, struct aipu_io_req)
+ /**
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -425,7 +425,7 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 		goto npu_probe_failed;
+ 	}
+ 
+-	dev_err(&p_dev->dev, "%s: armchina_aipu_probe done\n", __func__); //TODO dbg
++	dev_dbg(&p_dev->dev, "%s: armchina_aipu_probe done\n", __func__);
+ 
+ #ifdef CONFIG_PM
+     sky1_npu_pm_runtime_put(&p_dev->dev);
+@@ -542,11 +542,14 @@ static const struct of_device_id aipu_of_match[] = {
+ MODULE_DEVICE_TABLE(of, aipu_of_match);
+ #endif
+ 
++#ifdef CONFIG_ACPI
+ static const struct acpi_device_id aipu_acpi_match[] = {
+-							{ .id = "CIXH4000", .driver_data = 0 },
+-							{ /* sentinel */ } };
++	{ .id = "CIXH4000", .driver_data = 0 },
++	{ /* sentinel */ }
++};
+ 
+ MODULE_DEVICE_TABLE(acpi, aipu_acpi_match);
++#endif
+ 
+ static struct platform_driver aipu_platform_driver = {
+ 	.probe = sky1_npu_probe,
+@@ -559,7 +562,9 @@ static struct platform_driver aipu_platform_driver = {
+ #endif /* CONFIG_PM */
+ #ifdef CONFIG_OF
+ 		.of_match_table = of_match_ptr(aipu_of_match),
+-		.acpi_match_table = ACPI_PTR(aipu_acpi_match)
++#endif
++#ifdef CONFIG_ACPI
++		.acpi_match_table = ACPI_PTR(aipu_acpi_match),
+ #endif
+ 	},
+ };

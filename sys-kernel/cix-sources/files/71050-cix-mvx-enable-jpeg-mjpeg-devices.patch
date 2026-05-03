@@ -1,0 +1,551 @@
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -89,61 +89,61 @@ module_param(enable_buffer_dump, bool, 0660);
+  ****************************************************************************/
+ static struct mvx_session_format_map mvx_compressed_fmts[] = {
+     { .format =         MVX_FORMAT_AVS,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_AVS,
+       .description =    "AVS" },
+     { .format =         MVX_FORMAT_AVS2,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_AVS2,
+       .description =    "AVS2" },
+     { .format =         MVX_FORMAT_H263,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_H263,
+       .description =    "H.263" },
+     { .format =         MVX_FORMAT_H264,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_H264,
+       .description =    "H.264" },
+     { .format =         MVX_FORMAT_HEVC,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_HEVC,
+       .description =    "HEVC" },
+     { .format =         MVX_FORMAT_MPEG2,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_MPEG2,
+       .description =    "MPEG-2 ES" },
+     { .format =         MVX_FORMAT_MPEG4,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_MPEG4,
+       .description =    "MPEG-4 part 2 ES" },
+     { .format =         MVX_FORMAT_VC1,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_VC1_ANNEX_G,
+       .description =    "VC-1 (SMPTE 412M Annex G)" },
+     { .format =         MVX_FORMAT_VC1,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_VC1_ANNEX_L,
+       .description =    "VC-1 (SMPTE 412M Annex L)" },
+     { .format =         MVX_FORMAT_VP8,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_VP8,
+       .description =    "VP8" },
+     { .format =         MVX_FORMAT_VP9,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_VP9,
+       .description =    "VP9" },
+     { .format =         MVX_FORMAT_AV1,
+-      .flags =          V4L2_FMT_FLAG_COMPRESSED,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
+       .pixelformat =    V4L2_PIX_FMT_AV1,
+       .description =    "AV1" },
+-//    { .format =         MVX_FORMAT_JPEG,
+-//      .flags =          V4L2_FMT_FLAG_COMPRESSED,
+-//      .pixelformat =    V4L2_PIX_FMT_JPEG,
+-//      .description =    "JPEG" },
+-//    { .format =         MVX_FORMAT_JPEG,
+-//      .flags =          V4L2_FMT_FLAG_COMPRESSED,
+-//      .pixelformat =    V4L2_PIX_FMT_MJPEG,
+-//      .description =    "MJPEG" }
++    { .format =         MVX_FORMAT_JPEG,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
++      .pixelformat =    V4L2_PIX_FMT_JPEG,
++      .description =    "JPEG" },
++    { .format =         MVX_FORMAT_JPEG,
++      .flags =          V4L2_FMT_FLAG_COMPRESSED | V4L2_FMT_FLAG_DYN_RESOLUTION,
++      .pixelformat =    V4L2_PIX_FMT_MJPEG,
++      .description =    "MJPEG" }
+ };
+ 
+ static struct mvx_session_format_map mvx_raw_fmts[] = {
+@@ -3496,7 +3496,8 @@ int mvx_session_construct(struct mvx_session *session,
+                     enum mvx_session_event event,
+                     void *arg),
+               struct dentry *dentry,
+-              bool is_encoder)
++              bool is_encoder,
++              bool is_jpeg)
+ {
+     int i;
+     int ret;
+@@ -3571,6 +3572,7 @@ int mvx_session_construct(struct mvx_session *session,
+     session->fps_d = 1;
+     session->coded_chroma_format = MVX_CHROMA_FORMAT_422;
+     session->is_encoder = is_encoder;
++    session->is_jpeg = is_jpeg;
+     session->enable_buffer_dump = enable_buffer_dump;
+     session->priority = V4L2_SESSION_PRIORITY_DEFAULT;
+     session->intra_ipenalty_angular = MVX_INVALID_VAL;
+@@ -3717,6 +3719,18 @@ void mvx_session_get_formats(struct mvx_session *session,
+     mvx_clear_bit(MVX_FORMAT_RV, &fw_formats);
+     mvx_clear_bit(MVX_FORMAT_AVS, &fw_formats);
+     mvx_clear_bit(MVX_FORMAT_AVS2, &fw_formats);
++    if (!session->is_jpeg) {
++        mvx_clear_bit(MVX_FORMAT_JPEG, &fw_formats);
++    } else {
++        mvx_clear_bit(MVX_FORMAT_H263, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_H264, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_HEVC, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_MPEG2, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_MPEG4, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_VP8, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_VP9, &fw_formats);
++        mvx_clear_bit(MVX_FORMAT_AV1, &fw_formats);
++    }
+     *formats &= fw_formats;
+ }
+ 
+diff --git a/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
+--- a/drivers/media/platform/cix/if/mvx_session.h
++++ b/drivers/media/platform/cix/if/mvx_session.h
+@@ -459,6 +459,7 @@ struct mvx_session {
+     uint32_t force_key_frame;
+     bool pending_switch_out;
+     bool is_encoder;
++    bool is_jpeg;
+     struct timespec64 *ts;
+     struct timespec64 start;
+     uint64_t frame_count;
+@@ -507,7 +508,8 @@ int mvx_session_construct(struct mvx_session *session,
+                     enum mvx_session_event event,
+                     void *arg),
+               struct dentry *dsession,
+-              bool is_encoder);
++              bool is_encoder,
++              bool is_jpeg);
+ 
+ /**
+  * mvx_session_construct - Destruct the session object.
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h b/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h
+--- a/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h
++++ b/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h
+@@ -51,6 +51,8 @@ struct mvx_fw_cache;
+ enum mvx_ext_if_type {
+     MVX_EXT_IF_DECODER = 0,
+     MVX_EXT_IF_ENCODER,
++    MVX_EXT_IF_JPEG_DECODER,
++    MVX_EXT_IF_JPEG_ENCODER,
+     MVX_EXT_IF_COUNT
+ };
+ 
+@@ -62,6 +64,7 @@ struct mvx_ext_if {
+     struct v4l2_device *v4l2_dev;
+     struct dentry *dsessions;
+     bool is_encoder;
++    bool is_jpeg;
+ };
+ 
+ /****************************************************************************
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
+@@ -105,9 +105,11 @@ static const struct v4l2_ioctl_ops mvx_v4l2_ioctl_ops = {
+ 
+ static int mvx_ext_if_register_device(struct mvx_ext_if *ext,
+                       const char *name,
+-                      bool is_encoder)
++                      bool is_encoder,
++                      bool is_jpeg)
+ {
+     ext->is_encoder = is_encoder;
++    ext->is_jpeg = is_jpeg;
+ 
+     /* Video device. */
+     ext->vdev.fops = &mvx_v4l2_fops;
+@@ -146,6 +148,12 @@ int mvx_ext_if_construct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT],
+     ext[MVX_EXT_IF_ENCODER].dev = dev;
+     ext[MVX_EXT_IF_ENCODER].cache = cache;
+     ext[MVX_EXT_IF_ENCODER].client_ops = client_ops;
++    ext[MVX_EXT_IF_JPEG_DECODER].dev = dev;
++    ext[MVX_EXT_IF_JPEG_DECODER].cache = cache;
++    ext[MVX_EXT_IF_JPEG_DECODER].client_ops = client_ops;
++    ext[MVX_EXT_IF_JPEG_ENCODER].dev = dev;
++    ext[MVX_EXT_IF_JPEG_ENCODER].cache = cache;
++    ext[MVX_EXT_IF_JPEG_ENCODER].client_ops = client_ops;
+ 
+     if (IS_ENABLED(CONFIG_DEBUG_FS)) {
+         dsessions = debugfs_create_dir("session", parent);
+@@ -155,6 +163,8 @@ int mvx_ext_if_construct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT],
+ 
+     ext[MVX_EXT_IF_DECODER].dsessions = dsessions;
+     ext[MVX_EXT_IF_ENCODER].dsessions = dsessions;
++    ext[MVX_EXT_IF_JPEG_DECODER].dsessions = dsessions;
++    ext[MVX_EXT_IF_JPEG_ENCODER].dsessions = dsessions;
+ 
+     v4l2_dev = devm_kzalloc(dev, sizeof(*v4l2_dev), GFP_KERNEL);
+     if (v4l2_dev == NULL) {
+@@ -171,9 +181,11 @@ int mvx_ext_if_construct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT],
+ 
+     ext[MVX_EXT_IF_DECODER].v4l2_dev = v4l2_dev;
+     ext[MVX_EXT_IF_ENCODER].v4l2_dev = v4l2_dev;
++    ext[MVX_EXT_IF_JPEG_DECODER].v4l2_dev = v4l2_dev;
++    ext[MVX_EXT_IF_JPEG_ENCODER].v4l2_dev = v4l2_dev;
+ 
+     ret = mvx_ext_if_register_device(&ext[MVX_EXT_IF_DECODER],
+-                    "mvxdec", 0);
++                    "mvxdec", 0, 0);
+     if (ret != 0) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
+                   "Failed to register video decoder device. ret=%d.",
+@@ -185,7 +197,7 @@ int mvx_ext_if_construct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT],
+               ext[MVX_EXT_IF_DECODER].vdev.num);
+ 
+     ret = mvx_ext_if_register_device(&ext[MVX_EXT_IF_ENCODER],
+-                    "mvxenc", 1);
++                    "mvxenc", 1, 0);
+     if (ret != 0) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
+                   "Failed to register video encoder device. ret=%d.",
+@@ -194,10 +206,38 @@ int mvx_ext_if_construct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT],
+     }
+     MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
+               "Encoder registered as /dev/video%d\n",
+-              ext[MVX_EXT_IF_DECODER].vdev.num);
++              ext[MVX_EXT_IF_ENCODER].vdev.num);
++
++    ret = mvx_ext_if_register_device(&ext[MVX_EXT_IF_JPEG_DECODER],
++                    "mvxjpegdec", 0, 1);
++    if (ret != 0) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
++                  "Failed to register video jpeg decoder device. ret=%d.",
++                  ret);
++        goto unregister_enc_device;
++    }
++    MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
++              "JPEG Decoder registered as /dev/video%d\n",
++              ext[MVX_EXT_IF_JPEG_DECODER].vdev.num);
++
++    ret = mvx_ext_if_register_device(&ext[MVX_EXT_IF_JPEG_ENCODER],
++                    "mvxjpegenc", 1, 1);
++    if (ret != 0) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
++                  "Failed to register video jpeg encoder device. ret=%d.",
++                  ret);
++        goto unregister_jpegdec_device;
++    }
++    MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
++              "JPEG Encoder registered as /dev/video%d\n",
++              ext[MVX_EXT_IF_JPEG_ENCODER].vdev.num);
+ 
+     return 0;
+ 
++unregister_jpegdec_device:
++    video_unregister_device(&ext[MVX_EXT_IF_JPEG_DECODER].vdev);
++unregister_enc_device:
++    video_unregister_device(&ext[MVX_EXT_IF_ENCODER].vdev);
+ unregister_dec_device:
+     video_unregister_device(&ext[MVX_EXT_IF_DECODER].vdev);
+ 
+@@ -222,16 +262,22 @@ void mvx_ext_if_destruct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT])
+ 
+     video_unregister_device(&ext[MVX_EXT_IF_ENCODER].vdev);
+     video_unregister_device(&ext[MVX_EXT_IF_DECODER].vdev);
++    video_unregister_device(&ext[MVX_EXT_IF_JPEG_ENCODER].vdev);
++    video_unregister_device(&ext[MVX_EXT_IF_JPEG_DECODER].vdev);
+     if (!IS_ERR_OR_NULL(v4l2_dev)) {
+         v4l2_device_unregister(v4l2_dev);
+         devm_kfree(dev, v4l2_dev);
+         ext[MVX_EXT_IF_ENCODER].v4l2_dev = NULL;
+         ext[MVX_EXT_IF_DECODER].v4l2_dev = NULL;
++        ext[MVX_EXT_IF_JPEG_ENCODER].v4l2_dev = NULL;
++        ext[MVX_EXT_IF_JPEG_DECODER].v4l2_dev = NULL;
+     }
+ 
+     if (IS_ENABLED(CONFIG_DEBUG_FS) && !IS_ERR_OR_NULL(dsessions)) {
+         debugfs_remove_recursive(dsessions);
+         ext[MVX_EXT_IF_ENCODER].dsessions = NULL;
+         ext[MVX_EXT_IF_DECODER].dsessions = NULL;
++        ext[MVX_EXT_IF_JPEG_ENCODER].dsessions = NULL;
++        ext[MVX_EXT_IF_JPEG_DECODER].dsessions = NULL;
+     }
+ }
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+@@ -2179,6 +2179,191 @@ handler_free:
+     return -EINVAL;
+ }
+ 
++int mvx_v4l2_ctrls_init_jpeg_dec(struct v4l2_ctrl_handler *hnd)
++{
++    int ret;
++    struct v4l2_ctrl_config cfg;
++    struct v4l2_ctrl *ctrl;
++
++    ret = v4l2_ctrl_handler_init(hnd, 128);
++    if (ret != 0)
++        return ret;
++
++    memset(&cfg, 0, sizeof(cfg));
++    cfg.id = V4L2_CID_MVE_VIDEO_NALU_FORMAT;
++    cfg.ops = &ctrl_ops;
++    cfg.type = V4L2_CTRL_TYPE_MENU;
++    cfg.name = "nalu format";
++    cfg.max = ARRAY_SIZE(nalu_format_str) - 1;
++    cfg.def = 0;
++    cfg.qmenu = nalu_format_str;
++    ctrl = v4l2_ctrl_new_custom(hnd, &cfg, NULL);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_INTBUF_SIZE,
++        "internal buffer size", 0, INT_MAX, 0, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_FORCE_CHROMA_FORMAT,
++        "force chroma format", -1, INT_MAX, 0, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = v4l2_ctrl_new_std(
++        hnd, &ctrl_ops, V4L2_CID_MIN_BUFFERS_FOR_OUTPUT,
++        1, 32, 1, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
++
++    ctrl = v4l2_ctrl_new_std(
++        hnd, &ctrl_ops, V4L2_CID_MIN_BUFFERS_FOR_CAPTURE,
++        1, 32, 1, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_MAX_BUFFERS_FOR_CAPTURE,
++        "max buffer count to allocate",
++        1, VIDEO_MAX_FRAME, VIDEO_MAX_FRAME, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_DSL_INTERP_MODE,
++        "dsl interp mode",
++        0, 0xff, 0xff, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_DISABLED_FEATURES,
++        "disabled features",
++        0, INT_MAX, 0, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_JOB_FRAMES,
++        "job frames",
++        0, INT_MAX, 1, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_PRIORITY,
++        "priority",
++        0, 3, 2, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ret = v4l2_ctrl_handler_setup(hnd);
++    if (ret != 0)
++        goto handler_free;
++
++    return 0;
++
++handler_free:
++    v4l2_ctrl_handler_free(hnd);
++    return -EINVAL;
++}
++
++int mvx_v4l2_ctrls_init_jpeg_enc(struct v4l2_ctrl_handler *hnd)
++{
++    int ret;
++    struct v4l2_ctrl_config cfg;
++    struct v4l2_ctrl *ctrl;
++
++    ret = v4l2_ctrl_handler_init(hnd, 128);
++    if (ret != 0)
++        return ret;
++
++    memset(&cfg, 0, sizeof(cfg));
++    cfg.id = V4L2_CID_MVE_VIDEO_NALU_FORMAT;
++    cfg.ops = &ctrl_ops;
++    cfg.type = V4L2_CTRL_TYPE_MENU;
++    cfg.name = "nalu format";
++    cfg.max = ARRAY_SIZE(nalu_format_str) - 1;
++    cfg.def = 0;
++    cfg.qmenu = nalu_format_str;
++    ctrl = v4l2_ctrl_new_custom(hnd, &cfg, NULL);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = v4l2_ctrl_new_std(
++        hnd, &ctrl_ops, V4L2_CID_MIN_BUFFERS_FOR_OUTPUT,
++        1, 32, 1, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++    ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
++
++    ctrl = v4l2_ctrl_new_std(
++        hnd, &ctrl_ops, V4L2_CID_MIN_BUFFERS_FOR_CAPTURE,
++        1, 32, 1, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++    ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
++
++    ctrl = v4l2_ctrl_new_std(
++        hnd, &ctrl_ops, V4L2_CID_JPEG_RESTART_INTERVAL,
++        -1, 0xffff, 1, -1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = v4l2_ctrl_new_std(
++        hnd, &ctrl_ops, V4L2_CID_JPEG_COMPRESSION_QUALITY,
++        0, 100, 1, 0);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_JPEG_QUALITY_LUMA,
++        "JPEG compress luma quality",
++        0, 100, 0, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_JPEG_QUALITY_CHROMA,
++        "JPEG compress chroma quality",
++        0, 100, 0, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_JOB_FRAMES,
++        "job frames",
++        0, INT_MAX, 1, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_PRIORITY,
++        "priority",
++        0, 3, 2, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ret = v4l2_ctrl_handler_setup(hnd);
++    if (ret != 0)
++        goto handler_free;
++
++    return 0;
++
++handler_free:
++    v4l2_ctrl_handler_free(hnd);
++    return -EINVAL;
++}
++
+ void mvx_v4l2_ctrls_done(struct v4l2_ctrl_handler *hnd)
+ {
+     v4l2_ctrl_handler_free(hnd);
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h
+@@ -64,6 +64,28 @@ int mvx_v4l2_ctrls_init_dec(struct v4l2_ctrl_handler *hnd);
+  */
+ int mvx_v4l2_ctrls_init_enc(struct v4l2_ctrl_handler *hnd);
+ 
++/**
++ * mvx_v4l2_ctrls_init_jpeg_dec() - Initialize V4L2 control handler for JPEG decoder.
++ * @hnd:    V4L2 control handler.
++ *
++ * This function initializes V4L2 controls for handler @hnd.
++ * Controls set to their default values.
++ *
++ * Return: 0 on success, error code otherwise.
++ */
++int mvx_v4l2_ctrls_init_jpeg_dec(struct v4l2_ctrl_handler *hnd);
++
++/**
++ * mvx_v4l2_ctrls_init_jpeg_enc() - Initialize V4L2 control handler for JPEG encoder.
++ * @hnd:    V4L2 control handler.
++ *
++ * This function initializes V4L2 controls for handler @hnd.
++ * Controls set to their default values.
++ *
++ * Return: 0 on success, error code otherwise.
++ */
++int mvx_v4l2_ctrls_init_jpeg_enc(struct v4l2_ctrl_handler *hnd);
++
+ /**
+  * mvx_v4l2_ctrls_done() - Destroy V4L2 control handler.
+  * @hnd:    V4L2 control handler.
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+@@ -89,10 +89,17 @@ int mvx_v4l2_open(struct file *file)
+     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+     (void)mvx_v4l2_vidioc_s_fmt_vid_cap(file, NULL, &fmt);
+ 
+-    if (ctx->is_encoder)
+-        ret = mvx_v4l2_ctrls_init_enc(&session->v4l2_ctrl);
+-    else
+-        ret = mvx_v4l2_ctrls_init_dec(&session->v4l2_ctrl);
++    if (!ctx->is_jpeg) {
++        if (ctx->is_encoder)
++            ret = mvx_v4l2_ctrls_init_enc(&session->v4l2_ctrl);
++        else
++            ret = mvx_v4l2_ctrls_init_dec(&session->v4l2_ctrl);
++    } else {
++        if (ctx->is_encoder)
++            ret = mvx_v4l2_ctrls_init_jpeg_enc(&session->v4l2_ctrl);
++        else
++            ret = mvx_v4l2_ctrls_init_jpeg_dec(&session->v4l2_ctrl);
++    }
+     if (ret != 0) {
+         MVX_SESSION_WARN(&session->session,
+                  "Failed to register V4L2 controls handler. ret=%x",
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+@@ -587,7 +587,8 @@ int mvx_v4l2_session_construct(struct mvx_v4l2_session *vsession,
+                     &vsession->mutex,
+                     free_session, handle_event,
+                     vsession->dentry,
+-                    ctx->is_encoder);
++                    ctx->is_encoder,
++                    ctx->is_jpeg);
+     if (ret != 0)
+         goto remove_dentry;
+ 

@@ -1,0 +1,262 @@
+soc: cix: align Sky1 SoC-info OPN decode with newer BSP
+
+The ACPI diagnostic Sky1 SoC-info driver was exposing raw OPN fields, but
+the field layout and model IDs came from an older decoder.  The 6.6.89 BSP
+uses a richer OPN layout including product brand, package, core count, and
+part-definition fields, and model IDs 8180/8160/6180.
+
+Keep the driver diagnostic/non-default for Radxa Orion O6, where the OPN cell
+appears to be zero on tested firmware, but decode and log the complete field
+set when useful data is present.
+
+---
+diff --git a/drivers/soc/cix/sky1-socinfo.c b/drivers/soc/cix/sky1-socinfo.c
+--- a/drivers/soc/cix/sky1-socinfo.c
++++ b/drivers/soc/cix/sky1-socinfo.c
+@@ -19,17 +19,40 @@
+ #include <linux/slab.h>
+ #include <linux/sys_soc.h>
+ 
+-/* OPN (Ordering Part Number) field masks */
++/* OPN (Ordering Part Number) field masks, matching the 6.6 BSP decoder. */
++#define OPN_PART_DEFINITION_MASK	GENMASK_ULL(7, 0)
+ #define OPN_REVISION_MASK		GENMASK_ULL(13, 8)
++#define OPN_CORES_MASK			GENMASK_ULL(18, 14)
++#define OPN_PACKAGE_MASK		GENMASK_ULL(23, 19)
+ #define OPN_ROADMAP_MASK		GENMASK_ULL(35, 24)
+ #define OPN_MODEL_MASK			GENMASK_ULL(51, 36)
+ #define OPN_SEGMENT_MASK		GENMASK_ULL(56, 52)
++#define OPN_PRODUCT_BRAND_MASK		GENMASK_ULL(60, 57)
++
++/* Part definition codes */
++#define PART_DEFINITION_GENERAL		0x01
++#define PART_DEFINITION_KMS		0x02
+ 
+ /* Revision codes */
+ #define REVISION_A0			0x08
+ #define REVISION_A1			0x09
+ #define REVISION_B0			0x10
+ #define REVISION_B1			0x11
++#define REVISION_B2			0x12
++#define REVISION_C0			0x18
++#define REVISION_C1			0x19
++
++/* Core-count codes */
++#define CORES_1				0x01
++#define CORES_2				0x02
++#define CORES_3				0x03
++#define CORES_4				0x04
++#define CORES_5				0x05
++#define CORES_6				0x06
++#define CORES_7				0x07
++
++/* Package codes */
++#define PACKAGE_A			0x01
+ 
+ /* Roadmap codes */
+ #define ROADMAP_A11			0x111
+@@ -40,10 +63,9 @@
+ #define ROADMAP_C12			0x312
+ 
+ /* Model codes */
+-#define MODEL_8180			0x3100
+-#define MODEL_2100			0x2100
+-#define MODEL_1100			0x1100
+-#define MODEL_0100			0x0100
++#define MODEL_8180			0x8180
++#define MODEL_8160			0x8160
++#define MODEL_6180			0x6180
+ 
+ /* Segment codes */
+ #define SEGMENT_A			0x01
+@@ -58,6 +80,9 @@
+ #define SEGMENT_W			0x10
+ #define SEGMENT_C			0x11
+ 
++/* Product brand codes */
++#define PRODUCT_BRAND_CIX		0x01
++
+ /* Firmware version offsets in SRAM */
+ #define FW_SE_OFFSET			0x000
+ #define FW_PBL_OFFSET			0x080
+@@ -140,6 +165,15 @@ static bool sky1_acpi_platform_present(void)
+ 	       acpi_dev_found("CIXH2020");
+ }
+ 
++static const char *sky1_part_definition_str(u32 part_definition)
++{
++	switch (part_definition) {
++	case PART_DEFINITION_GENERAL:	return "0A";
++	case PART_DEFINITION_KMS:	return "1A";
++	default:			return "Unknown";
++	}
++}
++
+ static const char *sky1_revision_str(u32 rev)
+ {
+ 	switch (rev) {
+@@ -147,6 +181,31 @@ static const char *sky1_revision_str(u32 rev)
+ 	case REVISION_A1:	return "A1";
+ 	case REVISION_B0:	return "B0";
+ 	case REVISION_B1:	return "B1";
++	case REVISION_B2:	return "B2";
++	case REVISION_C0:	return "C0";
++	case REVISION_C1:	return "C1";
++	default:		return "Unknown";
++	}
++}
++
++static const char *sky1_cores_str(u32 cores)
++{
++	switch (cores) {
++	case CORES_1:		return "1";
++	case CORES_2:		return "2";
++	case CORES_3:		return "3";
++	case CORES_4:		return "4";
++	case CORES_5:		return "5";
++	case CORES_6:		return "6";
++	case CORES_7:		return "7";
++	default:		return "Unknown";
++	}
++}
++
++static const char *sky1_package_str(u32 package)
++{
++	switch (package) {
++	case PACKAGE_A:		return "A";
+ 	default:		return "Unknown";
+ 	}
+ }
+@@ -168,9 +227,8 @@ static const char *sky1_model_str(u32 model)
+ {
+ 	switch (model) {
+ 	case MODEL_8180:	return "8180";
+-	case MODEL_2100:	return "2100";
+-	case MODEL_1100:	return "1100";
+-	case MODEL_0100:	return "0100";
++	case MODEL_8160:	return "8160";
++	case MODEL_6180:	return "6180";
+ 	default:		return "Unknown";
+ 	}
+ }
+@@ -193,6 +251,14 @@ static const char *sky1_segment_str(u32 segment)
+ 	}
+ }
+ 
++static const char *sky1_product_brand_str(u32 product_brand)
++{
++	switch (product_brand) {
++	case PRODUCT_BRAND_CIX:	return "C";
++	default:		return "Unknown";
++	}
++}
++
+ static char *sky1_read_fw_version(struct device *dev, void __iomem *base)
+ {
+ 	char buf[FW_VERSION_MAX_LEN + 1];
+@@ -322,16 +388,29 @@ static void sky1_parse_board_id(struct sky1_socinfo *info)
+ 
+ static void sky1_parse_opn(struct sky1_socinfo *info)
+ {
++	u32 part_definition = FIELD_GET(OPN_PART_DEFINITION_MASK, info->opn);
+ 	u32 revision = FIELD_GET(OPN_REVISION_MASK, info->opn);
++	u32 cores = FIELD_GET(OPN_CORES_MASK, info->opn);
++	u32 package = FIELD_GET(OPN_PACKAGE_MASK, info->opn);
+ 	u32 roadmap = FIELD_GET(OPN_ROADMAP_MASK, info->opn);
+ 	u32 model = FIELD_GET(OPN_MODEL_MASK, info->opn);
+ 	u32 segment = FIELD_GET(OPN_SEGMENT_MASK, info->opn);
++	u32 product_brand = FIELD_GET(OPN_PRODUCT_BRAND_MASK, info->opn);
+ 
+-	info->opn_string = devm_kasprintf(info->dev, GFP_KERNEL, "%s%s%s%s",
++	info->opn_string = devm_kasprintf(info->dev, GFP_KERNEL, "%s%s%s%s%s%s%s%s",
++					  sky1_product_brand_str(product_brand),
+ 					  sky1_segment_str(segment),
+ 					  sky1_model_str(model),
+ 					  sky1_roadmap_str(roadmap),
+-					  sky1_revision_str(revision));
++					  sky1_package_str(package),
++					  sky1_cores_str(cores),
++					  sky1_revision_str(revision),
++					  sky1_part_definition_str(part_definition));
++}
++
++static u32 sky1_opn_part_definition(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_PART_DEFINITION_MASK, info->opn);
+ }
+ 
+ static u32 sky1_opn_revision(const struct sky1_socinfo *info)
+@@ -339,6 +418,16 @@ static u32 sky1_opn_revision(const struct sky1_socinfo *info)
+ 	return FIELD_GET(OPN_REVISION_MASK, info->opn);
+ }
+ 
++static u32 sky1_opn_cores(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_CORES_MASK, info->opn);
++}
++
++static u32 sky1_opn_package(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_PACKAGE_MASK, info->opn);
++}
++
+ static u32 sky1_opn_roadmap(const struct sky1_socinfo *info)
+ {
+ 	return FIELD_GET(OPN_ROADMAP_MASK, info->opn);
+@@ -354,6 +443,11 @@ static u32 sky1_opn_segment(const struct sky1_socinfo *info)
+ 	return FIELD_GET(OPN_SEGMENT_MASK, info->opn);
+ }
+ 
++static u32 sky1_opn_product_brand(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_PRODUCT_BRAND_MASK, info->opn);
++}
++
+ static ssize_t firmware_version_show(struct device *dev,
+ 				     struct device_attribute *attr, char *buf)
+ {
+@@ -409,14 +503,21 @@ static ssize_t cix_opn_raw_show(struct device *dev,
+ 
+ 	return sysfs_emit(buf,
+ 			  "OPN raw: 0x%016llx\n"
+-			  "OPN revision: 0x%x\n"
+-			  "OPN roadmap: 0x%x\n"
+-			  "OPN model: 0x%x\n"
++			  "OPN product brand: 0x%x\n"
+ 			  "OPN segment: 0x%x\n"
++			  "OPN model: 0x%x\n"
++			  "OPN roadmap: 0x%x\n"
++			  "OPN package: 0x%x\n"
++			  "OPN cores: 0x%x\n"
++			  "OPN revision: 0x%x\n"
++			  "OPN part definition: 0x%x\n"
+ 			  "Board ID raw: 0x%04x\n",
+-			  (unsigned long long)info->opn, sky1_opn_revision(info),
+-			  sky1_opn_roadmap(info), sky1_opn_model(info),
+-			  sky1_opn_segment(info), info->board_id_raw);
++			  (unsigned long long)info->opn,
++			  sky1_opn_product_brand(info),
++			  sky1_opn_segment(info), sky1_opn_model(info),
++			  sky1_opn_roadmap(info), sky1_opn_package(info),
++			  sky1_opn_cores(info), sky1_opn_revision(info),
++			  sky1_opn_part_definition(info), info->board_id_raw);
+ }
+ static DEVICE_ATTR_RO(cix_opn_raw);
+ 
+@@ -478,10 +579,12 @@ static int sky1_socinfo_probe(struct platform_device *pdev)
+ 
+ 	sky1_parse_opn(info);
+ 	dev_info(&pdev->dev,
+-		 "raw OPN=0x%016llx revision=0x%x roadmap=0x%x model=0x%x segment=0x%x board_id=0x%04x\n",
+-		 (unsigned long long)info->opn, sky1_opn_revision(info),
+-		 sky1_opn_roadmap(info), sky1_opn_model(info),
+-		 sky1_opn_segment(info), info->board_id_raw);
++		 "raw OPN=0x%016llx brand=0x%x segment=0x%x model=0x%x roadmap=0x%x package=0x%x cores=0x%x revision=0x%x part=0x%x board_id=0x%04x\n",
++		 (unsigned long long)info->opn, sky1_opn_product_brand(info),
++		 sky1_opn_segment(info), sky1_opn_model(info),
++		 sky1_opn_roadmap(info), sky1_opn_package(info),
++		 sky1_opn_cores(info), sky1_opn_revision(info),
++		 sky1_opn_part_definition(info), info->board_id_raw);
+ 
+ 	/* Set up soc_device attributes */
+ 	soc_attr = devm_kzalloc(&pdev->dev, sizeof(*soc_attr), GFP_KERNEL);

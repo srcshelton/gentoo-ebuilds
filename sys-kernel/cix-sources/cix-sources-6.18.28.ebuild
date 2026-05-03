@@ -4,7 +4,7 @@
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
-K_GENPATCHES_VER="15"
+K_GENPATCHES_VER="28"
 #K_BASE_VER="${PV}"
 
 K_SECURITY_UNSUPPORTED=1
@@ -110,7 +110,7 @@ src_prepare() {
 
 		case "${pf}" in
 			0065-treewide-Add-ACPI-device-IDs-for-CIX-Sky1-SoC-periph.patch)
-				eapply "${FILESDIR}"/6.18.x/40006-6.18.14-add-remaining-sky1-acpi-device-ids.patch || die
+				eapply "${FILESDIR}"/6.18.x/40005-6.18.32-add-remaining-sky1-acpi-device-ids.patch || die
 				return
 				;;
 		esac

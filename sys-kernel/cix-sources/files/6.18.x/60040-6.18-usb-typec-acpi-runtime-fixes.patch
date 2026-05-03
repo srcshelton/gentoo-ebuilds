@@ -1,0 +1,405 @@
+usb: cix: split 6.18 ACPI USB and Type-C runtime fixes
+
+Split the CIX CDNSP and RTS5453 ACPI runtime fixes out of the old aggregate 6.18 Sky1 runtime patch.
+
+---
+diff --git a/drivers/usb/cdns3/cdnsp-sky1.c b/drivers/usb/cdns3/cdnsp-sky1.c
+--- a/drivers/usb/cdns3/cdnsp-sky1.c
++++ b/drivers/usb/cdns3/cdnsp-sky1.c
+@@ -482,43 +482,57 @@ static void *sky1_of_get_addr_by_name(struct device_node *parent, char *name)
+ 	return NULL;
+ }
+ 
+-static void *sky1_acpi_get_addr_by_name(struct device *dev, char *name)
++static void __iomem *sky1_acpi_get_addr_by_name(struct device *dev, char *name)
+ {
+ 	struct fwnode_handle *fwnode;
+ 	struct platform_device *pdev;
+ 	struct device *device;
+ 	struct resource *res;
++	void __iomem *regs;
+ 
+ 	fwnode = device_get_next_child_node(dev, NULL);
+ 	if (!fwnode)
+-		return NULL;
++		return ERR_PTR(-EPROBE_DEFER);
+ 
+ 	device = bus_find_device_by_fwnode(&platform_bus_type, fwnode);
++	fwnode_handle_put(fwnode);
+ 	if (!device)
+-		return NULL;
++		return ERR_PTR(-EPROBE_DEFER);
+ 
+ 	pdev = to_platform_device(device);
+-	if (!pdev)
+-		return NULL;
++	if (!pdev) {
++		put_device(device);
++		return ERR_PTR(-ENODEV);
++	}
+ 
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+-	if (!res)
+-		return NULL;
++	if (!res) {
++		put_device(device);
++		return ERR_PTR(-EPROBE_DEFER);
++	}
++
++	regs = ioremap(res->start, resource_size(res));
++	put_device(device);
++	if (!regs)
++		return ERR_PTR(-ENOMEM);
+ 
+-	return ioremap(res->start, resource_size(res));
++	return regs;
+ }
+ 
+-static void *sky1_get_addr_by_name(struct device *dev, char *name)
++static void __iomem *sky1_get_addr_by_name(struct device *dev, char *name)
+ {
+-	if (!ACPI_COMPANION(dev))
+-		return sky1_of_get_addr_by_name(dev->of_node, name);
+-	else
++	if (!ACPI_COMPANION(dev)) {
++		void __iomem *regs = sky1_of_get_addr_by_name(dev->of_node, name);
++
++		return regs ?: ERR_PTR(-ENODEV);
++	} else {
+ 		return sky1_acpi_get_addr_by_name(dev, name);
++	}
+ }
+ 
+ static void sky1_put_addr(void __iomem *regs)
+ {
+-	if (regs)
++	if (!IS_ERR_OR_NULL(regs))
+ 		iounmap(regs);
+ }
+ 
+@@ -588,6 +602,7 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct device_node *node = dev->of_node;
+ 	struct cdnsp_sky1 *data;
++	struct fwnode_handle *child;
+ 	int ret;
+ 	struct cdns3_platform_data *cdns_sky1_pdata;
+ 
+@@ -623,7 +638,11 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, data);
+ 	data->dev = dev;
+ 
+-	ret = of_alias_get_id(dev->of_node, "usb");
++	if (dev->of_node)
++		ret = of_alias_get_id(dev->of_node, "usb");
++	else
++		ret = -ENODEV;
++
+ 	if (ret == -ENODEV) {
+ 		if (device_property_read_u32(dev, "id", &ret))
+ 			ret = -ENODEV;
+@@ -634,12 +653,14 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 	}
+ 	data->id = ret;
+ 
+-	data->usb_syscon = syscon_regmap_lookup_by_phandle(dev->of_node,
+-							"cix,usb_syscon");
+-
+-	if (IS_ERR(data->usb_syscon)) {
+-		/* Make optional for ACPI boot */
+-		dev_dbg(dev, "Unable to get cix,usb_syscon regmap\n");
++	if (dev->of_node) {
++		data->usb_syscon = syscon_regmap_lookup_by_phandle(dev->of_node,
++								"cix,usb_syscon");
++		if (IS_ERR(data->usb_syscon)) {
++			dev_dbg(dev, "Unable to get cix,usb_syscon regmap\n");
++			data->usb_syscon = NULL;
++		}
++	} else {
+ 		data->usb_syscon = NULL;
+ 	}
+ 
+@@ -661,13 +682,20 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 	else
+ 		data->axi_bmax_value = AXI_BMAX_VALUE_DEFAULT;
+ 
++	ret = cdnsp_sky1_check_phy_deps(dev);
++	if (ret)
++		return ret;
++
+ 	data->xhci_base = sky1_get_addr_by_name(dev, "xhci");
+-	if (!data->xhci_base)
++	if (IS_ERR(data->xhci_base))
+ 		return PTR_ERR(data->xhci_base);
+ 
+ 	data->device_base = sky1_get_addr_by_name(dev, "dev");
+-	if (!data->device_base)
+-		return PTR_ERR(data->device_base);
++	if (IS_ERR(data->device_base)) {
++		ret = PTR_ERR(data->device_base);
++		sky1_put_addr(data->xhci_base);
++		return ret;
++	}
+ 
+ 	/*
+ 	 * Pre-validate clocks before drd_init touches hardware.
+@@ -727,16 +755,12 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 	 * Host-only (USB-A) controllers cannot generate PME from D3, so
+ 	 * they must stay active for reliable hot-plug detection.
+ 	 */
+-	{
+-		struct device_node *child;
+-
+-		for_each_child_of_node(node, child) {
+-			if (of_property_read_bool(child, "usb-role-switch")) {
+-				cdns_sky1_pdata->quirks =
+-					CDNS3_DEFAULT_PM_RUNTIME_ALLOW;
+-				of_node_put(child);
+-				break;
+-			}
++	device_for_each_child_node(dev, child) {
++		if (fwnode_property_present(child, "usb-role-switch")) {
++			cdns_sky1_pdata->quirks =
++				CDNS3_DEFAULT_PM_RUNTIME_ALLOW;
++			fwnode_handle_put(child);
++			break;
+ 		}
+ 	}
+ 	if (!ACPI_COMPANION(dev)) {
+@@ -753,8 +777,6 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 		 * like device link.
+ 		 * Just set the platform data here.
+ 		 */
+-		struct fwnode_handle *child;
+-
+ 		device_for_each_child_node(dev, child) {
+ 			const struct acpi_device_id *id;
+ 			struct device *cdev;
+@@ -767,8 +789,7 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 			id = acpi_match_device(cdns_sky1_sub_match, cdev);
+ 			if (id && !cdev->platform_data)
+ 				cdev->platform_data = cdns_sky1_pdata;
+-			else
+-				goto err;
++			put_device(cdev);
+ 		}
+ 	}
+ 
+@@ -777,6 +798,8 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
+ 	pm_runtime_enable(dev);
+ 	return 0;
+ err:
++	sky1_put_addr(data->xhci_base);
++	sky1_put_addr(data->device_base);
+ 	kfree(cdns_sky1_pdata);
+ 	return ret;
+ }
+@@ -787,7 +810,8 @@ static void cdnsp_sky1_remove(struct platform_device *pdev)
+ 	struct cdnsp_sky1 *data = dev_get_drvdata(dev);
+ 
+ 	pm_runtime_get_sync(dev);
+-	of_platform_depopulate(dev);
++	if (!ACPI_COMPANION(dev))
++		of_platform_depopulate(dev);
+ 	sky1_put_addr(data->xhci_base);
+ 	sky1_put_addr(data->device_base);
+ 	reset_control_deassert(data->reset);
+@@ -845,8 +869,6 @@ static int cdnsp_sky1_thaw(struct device *dev)
+ 	dev_dbg(dev, "at func %s\n", __func__);
+ 	return 0;
+ }
+-#endif /* CONFIG_PM */
+-
+ static const struct dev_pm_ops cdnsp_sky1_pm_ops = {
+         .suspend = cdnsp_sky1_system_suspend,
+         .resume = cdnsp_sky1_system_resume,
+@@ -856,6 +878,10 @@ static const struct dev_pm_ops cdnsp_sky1_pm_ops = {
+ 	.runtime_resume = cdnsp_sky1_resume,
+ 	.runtime_suspend = cdnsp_sky1_suspend,
+ };
++#define CDNSP_SKY1_PM_OPS	(&cdnsp_sky1_pm_ops)
++#else
++#define CDNSP_SKY1_PM_OPS	NULL
++#endif /* CONFIG_PM */
+ 
+ static const struct of_device_id cdns_sky1_of_match[] = {
+ 	{ .compatible = "cix,sky1-usbssp", },
+@@ -889,7 +915,7 @@ static struct platform_driver cdnsp_sky1_driver = {
+ 		.name	= "cdnsp-sky1",
+ 		.of_match_table	= cdns_sky1_of_match,
+ 		.acpi_match_table = ACPI_PTR(cdnsp_sky1_acpi_match),
+-		.pm	= &cdnsp_sky1_pm_ops,
++		.pm	= CDNSP_SKY1_PM_OPS,
+ 	},
+ 	.shutdown = cdnsp_sky1_shutdown,
+ };
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -115,6 +115,8 @@ config TYPEC_RTS5453
+ 	depends on I2C
+ 	depends on TYPEC
+ 	select REGMAP_I2C
++	select GPIO_CADENCE if ACPI && ARCH_CIX
++	select SKY1_PDC if ACPI && ARCH_CIX
+ 	help
+ 	  Say Y or M here if your system has a Realtek RTS5453H USB Type-C
+ 	  Power Delivery controller. This controller handles USB PD negotiation,
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+--- a/drivers/usb/typec/rts5453.c
++++ b/drivers/usb/typec/rts5453.c
+@@ -394,22 +394,29 @@ static int rts5453h_typec_get_switch_handles(struct rts5453h *typec,
+ 		return dev_err_probe(dev, PTR_ERR(typec->role_sw), "USB role switch handle is error\n");
+ 
+ 	if (!typec->role_sw || !typec->mux || !typec->ori_sw)
+-		dev_warn(dev, "mux or switch or role switch has not found\n");
++		return dev_err_probe(dev, -ENODEV,
++				     "mux or switch or role switch has not found\n");
+ 
+ 	return 0;
+ }
+ 
+ static void rts5453h_unregister_ports(struct rts5453h *typec)
+ {
+-	if (typec->port) {
++	if (!IS_ERR_OR_NULL(typec->port)) {
+ 		typec->state.alt = NULL;
+ 		typec->state.mode = TYPEC_STATE_USB;
+ 		typec->state.data = NULL;
+-		usb_role_switch_set_role(typec->role_sw, USB_ROLE_NONE);
+-		typec_switch_set(typec->ori_sw, TYPEC_ORIENTATION_NONE);
+-		typec_mux_set(typec->mux, &typec->state);
+-		usb_role_switch_put(typec->role_sw);
++		if (!IS_ERR_OR_NULL(typec->role_sw)) {
++			usb_role_switch_set_role(typec->role_sw, USB_ROLE_NONE);
++			usb_role_switch_put(typec->role_sw);
++			typec->role_sw = NULL;
++		}
++		if (typec->ori_sw)
++			typec_switch_set(typec->ori_sw, TYPEC_ORIENTATION_NONE);
++		if (typec->mux)
++			typec_mux_set(typec->mux, &typec->state);
+ 		typec_unregister_port(typec->port);
++		typec->port = NULL;
+ 	}
+ }
+ 
+@@ -476,14 +483,14 @@ static int rts5453h_init_ports(struct rts5453h *typec)
+ 
+ 		typec->port = typec_register_port(dev, &typec->caps);
+ 		if (IS_ERR(typec->port)) {
+-			dev_err(dev, "Failed to register port\n");
+ 			ret = PTR_ERR(typec->port);
++			dev_err_probe(dev, ret, "failed to register Type-C port\n");
+ 			goto unregister_ports;
+ 		}
+ 
+ 		ret = rts5453h_typec_get_switch_handles(typec, fwnode, dev);
+ 		if (ret) {
+-			dev_err(dev, "No switch control for port \n");
++			dev_err_probe(dev, ret, "failed to get switch control for Type-C port\n");
+ 			goto unregister_ports;
+ 		}
+ 	}
+@@ -522,6 +529,9 @@ static ssize_t disable_pd_interrupt_store(struct device *dev,
+ 
+ 	ret = kstrtobool(buf, &value);
+ 	if (!ret) {
++		if (client->irq <= 0)
++			return -ENXIO;
++
+ 		rts->pd_int_disabled = value;
+ 
+ 		if (value)
+@@ -637,7 +647,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 
+ 	ret = rts5453h_init_ports(rts);
+ 	if (ret)
+-		return -EPROBE_DEFER;
++		return ret;
+ 
+ 	ret = rts5453h_event_handler(rts, 0);
+ 	if (ret) {
+@@ -655,7 +665,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 	mutex_unlock(&rts_lock);
+ 
+ 	INIT_DELAYED_WORK(&rts->irq_work, rts_request_irq_work_fn);
+-	if (client->irq)
++	if (client->irq > 0)
+ 		schedule_delayed_work(&rts->irq_work, msecs_to_jiffies(5));
+ 
+ 	ret = device_create_file(&client->dev, &dev_attr_disable_pd_interrupt);
+@@ -663,7 +673,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 		dev_err(&client->dev, "Failed to create sysfs attribute, ret = %d\n",
+ 			ret);
+ 
+-	device_set_wakeup_capable(&client->dev, true);
++	device_set_wakeup_capable(&client->dev, client->irq > 0);
+ 
+ 	return ret;
+ }
+@@ -679,12 +689,14 @@ static void rts5453h_remove(struct i2c_client *client)
+ 		rts->partner = NULL;
+ 	}
+ 
+-	if (rts->role_sw) {
++	if (!IS_ERR_OR_NULL(rts->role_sw)) {
+ 		usb_role_switch_put(rts->role_sw);
++		rts->role_sw = NULL;
+ 	}
+ 
+-	if (rts->port) {
++	if (!IS_ERR_OR_NULL(rts->port)) {
+ 		typec_unregister_port(rts->port);
++		rts->port = NULL;
+ 	}
+ 
+ 	if (client->irq > 0)
+@@ -716,6 +728,9 @@ static int rts5453h_suspend(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+ 
++	if (client->irq <= 0)
++		return 0;
++
+ 	disable_irq(client->irq);
+ 	if (device_may_wakeup(dev)) {
+ 		enable_irq_wake(client->irq);
+@@ -729,6 +744,9 @@ static int rts5453h_resume(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+ 
++	if (client->irq <= 0)
++		return 0;
++
+ 	if (device_may_wakeup(dev)) {
+ 		disable_irq_wake(client->irq);
+ 		dev_info(&client->dev, "enable irq");
+@@ -744,12 +762,16 @@ static int rts5453h_restore(struct device *dev)
+ 	struct rts5453h *rts = i2c_get_clientdata(client);
+ 	int ret = 0;
+ 
++	if (client->irq <= 0)
++		goto handle_event;
++
+ 	if (device_may_wakeup(dev)) {
+ 		disable_irq_wake(client->irq);
+ 		dev_info(&client->dev, "enable irq");
+ 	}
+ 	enable_irq(client->irq);
+ 
++handle_event:
+ 	/* Re-trigger PD event if PD event occurs during std */
+ 	ret = rts5453h_event_handler(rts, 0);
+ 	if (ret) {
+@@ -759,6 +781,10 @@ static int rts5453h_restore(struct device *dev)
+ 
+ 	return ret;
+ }
++#else
++#define rts5453h_suspend	NULL
++#define rts5453h_resume	NULL
++#define rts5453h_restore	NULL
+ #endif
+ 
+ static void rts5453h_shutdown(struct i2c_client *client)

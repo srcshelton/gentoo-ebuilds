@@ -1,0 +1,46 @@
+drm: cix: expose ACPI-capable display paths under stub-FDT
+
+diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
+--- a/drivers/gpu/drm/cix/Kconfig
++++ b/drivers/gpu/drm/cix/Kconfig
+@@ -10,7 +10,7 @@ config DRM_CIX
+ 
+ config DRM_LINLONDP
+ 	tristate "ARMCHINA LINLON display driver"
+-	depends on DRM && OF
++	depends on DRM && (ACPI || OF)
+ 	depends on COMMON_CLK
+ 	depends on DRM_CIX
+ 	select DRM_KMS_HELPER
+diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
+--- a/drivers/gpu/drm/cix/dptx/Kconfig
++++ b/drivers/gpu/drm/cix/dptx/Kconfig
+@@ -1,7 +1,7 @@
+ #SPDX - License - Identifier : GPL - 2.0 - only
+ config DRM_TRILIN_DPSUB
+ 	tristate "Trilinear Technologies DisplayPort Controller Driver"
+-	depends on COMMON_CLK && DRM && OF
++	depends on COMMON_CLK && DRM && (ACPI || OF)
+ 	select DRM_KMS_HELPER
+ 	select DRM_DISPLAY_HELPER
+ 	select DRM_DISPLAY_DP_HELPER
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -3336,7 +3336,7 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	struct resource *res_dp, *res_phy, *res_rcsu = NULL;
+ 	struct device *dev;
+ 	struct fwnode_handle *fwnode_edp_panel;
+-	struct drm_panel *edp_panel;
++	struct drm_panel *edp_panel = NULL;
+ 	int ret;
+ 	const char *str_prop;
+ 	u32 is_insmod = 0;
+@@ -3356,6 +3356,7 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 				dev_info(dev, "%s, edp-panel %s is found\n", __func__,
+ 					 dev_name(edp_panel->dev));
+ 		}
++		fwnode_handle_put(fwnode_edp_panel);
+ 	}
+ 
+ 	dp = devm_kzalloc(dpsub->dev, sizeof(*dp), GFP_KERNEL);

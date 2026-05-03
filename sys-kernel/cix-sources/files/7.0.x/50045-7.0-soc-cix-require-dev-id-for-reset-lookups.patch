@@ -1,0 +1,23 @@
+soc: cix: require reset lookup consumer device names
+
+reset_controller_add_lookup() requires both provider and dev_id fields.
+Do not register CIX ACPI RSTL entries whose consumer device has not yet
+resolved to a platform device, even when a con_id string is present.
+
+---
+diff --git a/drivers/soc/cix/cix-acpi-resource-lookup.c b/drivers/soc/cix/cix-acpi-resource-lookup.c
+--- a/drivers/soc/cix/cix-acpi-resource-lookup.c
++++ b/drivers/soc/cix/cix-acpi-resource-lookup.c
+@@ -111,7 +111,11 @@ static int reset_lookup_handle(acpi_handle handle,
+ 			devm_kstrdup(dev, el[3].string.pointer, GFP_KERNEL)
+ 			: NULL;
+ 
+-		if (!lookup->provider || (!lookup->dev_id && !lookup->con_id))
++		/*
++		 * reset_controller_add_lookup() matches consumers by dev_name().
++		 * con_id is optional, but provider and dev_id are both required.
++		 */
++		if (!lookup->provider || !lookup->dev_id)
+ 			continue;
+ 
+ 		reset_controller_add_lookup(lookup, 1);

@@ -1,0 +1,12 @@
+diff --git a/drivers/thermal/cix/cix_cpu_ipa.c b/drivers/thermal/cix/cix_cpu_ipa.c
+--- a/drivers/thermal/cix/cix_cpu_ipa.c
++++ b/drivers/thermal/cix/cix_cpu_ipa.c
+@@ -25,7 +25,7 @@
+ 
+ #define REG_OFFSET 0x40
+ #define CIX_CPU_IPA_BASE 0x83bf0300
+-#define CIX_CPU_IPA_SIZE 0x400
++#define CIX_CPU_IPA_SIZE 0x300
+ 
+ struct cpu_ipa_info {
+ 	u32 off_cnt;

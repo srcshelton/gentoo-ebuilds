@@ -1,0 +1,21 @@
+diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driver.c
+--- a/drivers/firmware/arm_scmi/driver.c
++++ b/drivers/firmware/arm_scmi/driver.c
+@@ -2014,9 +2014,14 @@ scmi_common_fastchannel_init(const struct scmi_protocol_handle *ph,
+ 	ph->xops->xfer_put(ph, t);
+ 
+ err_out:
+-	dev_warn(ph->dev,
+-		 "Failed to get FC for protocol %X [MSG_ID:%u / RES_ID:%u] - ret:%d. Using regular messaging.\n",
+-		 pi->proto->id, message_id, domain, ret);
++	if (ret == -EOPNOTSUPP)
++		dev_dbg(ph->dev,
++			"Fastchannel unsupported for protocol %X [MSG_ID:%u / RES_ID:%u]; using regular messaging.\n",
++			pi->proto->id, message_id, domain);
++	else
++		dev_warn(ph->dev,
++			 "Failed to get FC for protocol %X [MSG_ID:%u / RES_ID:%u] - ret:%d. Using regular messaging.\n",
++			 pi->proto->id, message_id, domain, ret);
+ }
+ 
+ #define SCMI_PROTO_FC_RING_DB(w)			\

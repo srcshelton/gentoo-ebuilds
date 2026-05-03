@@ -1,0 +1,44 @@
+diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+--- a/drivers/media/platform/cix/Kconfig
++++ b/drivers/media/platform/cix/Kconfig
+@@ -1,13 +1,14 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ config VIDEO_LINLON
+-	tristate "Linlon VPU support"
++	tristate "CIX/ArmChina Linlon MVX VPU codec support"
+ 	depends on VIDEO_DEV
+ 	select VIDEOBUF2_DMA_SG
+ 	select VIDEOBUF2_MEMOPS
+ 	select VIDEOBUF2_V4L2
+ 	default y
+ 	help
+-	  This enables support for the Linlon VPU family.
++	  This enables support for the CIX/ArmChina Linlon MVX VPU codec
++	  driver, built as the amvx module.
+ 
+ config VIDEO_LINLON_FTRACE
+ 	bool "Send kernel space logs to ftrace"
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -684,7 +684,7 @@ int mvx_v4l2_vidioc_querycap(struct file *file,
+     MVX_SESSION_INFO(&session->session, "v4l2: Query capabilities.");
+ 
+     strscpy(cap->driver, "mvx", sizeof(cap->driver));
+-    strscpy(cap->card, "Linlon Video device", sizeof(cap->card));
++    strscpy(cap->card, "CIX/ArmChina Linlon MVX VPU", sizeof(cap->card));
+     strscpy(cap->bus_info, "platform:mvx", sizeof(cap->bus_info));
+ 
+     cap->capabilities = V4L2_CAP_DEVICE_CAPS |
+diff --git a/drivers/media/platform/cix/mvx_driver.c b/drivers/media/platform/cix/mvx_driver.c
+--- a/drivers/media/platform/cix/mvx_driver.c
++++ b/drivers/media/platform/cix/mvx_driver.c
+@@ -38,7 +38,7 @@
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("ARMChina");
+-MODULE_DESCRIPTION("Tiube VPU Driver.");
++MODULE_DESCRIPTION("CIX/ArmChina Linlon MVX VPU codec driver (amvx).");
+ MODULE_IMPORT_NS("VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver");
+ MODULE_IMPORT_NS("DMA_BUF");
+ 

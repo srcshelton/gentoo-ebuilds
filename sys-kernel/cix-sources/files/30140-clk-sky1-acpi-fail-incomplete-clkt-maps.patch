@@ -1,0 +1,72 @@
+clk: sky1-acpi: fail probe when required CLKT mappings fail
+
+The Sky1 ACPI CLKT provider silently ignored failures for individual clock
+entries and only deferred when no clocks were mapped at all. That allowed
+partial maps to succeed permanently, leaving consumers to fail later in less
+deterministic ways.
+
+Track the first mapping failure, prefer probe deferral when any SCMI clock is
+not ready, and fail the provider probe until all firmware CLKT entries can be
+registered.
+
+---
+diff --git a/drivers/clk/cix/clk-sky1-acpi.c b/drivers/clk/cix/clk-sky1-acpi.c
+--- a/drivers/clk/cix/clk-sky1-acpi.c
++++ b/drivers/clk/cix/clk-sky1-acpi.c
+@@ -26,6 +26,7 @@
+ struct sky1_acpi_clk {
+ 	struct device *dev;
+ 	int mapped;
++	int ret;
+ };
+ 
+ static void sky1_clkdev_drop(void *data)
+@@ -66,9 +67,12 @@ static int sky1_parse_clkt_entry(struct sky1_acpi_clk *priv,
+ 	snprintf(scmi_id, sizeof(scmi_id), "scmi-clk-%llu", clock_id);
+ 	clk = clk_get(NULL, scmi_id);
+ 	if (IS_ERR(clk)) {
++		ret = PTR_ERR(clk);
++		if (ret == -ENOENT)
++			ret = -EPROBE_DEFER;
+ 		dev_dbg(priv->dev, "SCMI clock %llu not available for %s\n",
+ 			clock_id, consumer_name);
+-		return PTR_ERR(clk);
++		return ret;
+ 	}
+ 
+ 	/* Register consumer lookup */
+@@ -103,6 +107,7 @@ static acpi_status sky1_clkt_walk_cb(acpi_handle handle, u32 level,
+ 	const char *consumer_name;
+ 	acpi_status status;
+ 	int i;
++	int ret;
+ 
+ 	status = acpi_evaluate_object(handle, "CLKT", NULL, &buf);
+ 	if (ACPI_FAILURE(status))
+@@ -142,7 +147,14 @@ static acpi_status sky1_clkt_walk_cb(acpi_handle handle, u32 level,
+ 		}
+ 		consumer_name = acpi_dev_name(adev);
+ parse:
+-		sky1_parse_clkt_entry(priv, consumer_name, e);
++		ret = sky1_parse_clkt_entry(priv, consumer_name, e);
++		if (ret) {
++			if (!priv->ret || ret == -EPROBE_DEFER)
++				priv->ret = ret;
++			dev_dbg(priv->dev,
++				"Failed to map CLKT entry %d for %s: %d\n",
++				i, consumer_name, ret);
++		}
+ 	}
+ 
+ out:
+@@ -168,6 +180,10 @@ static int sky1_acpi_clk_probe(struct platform_device *pdev)
+ 		return dev_err_probe(&pdev->dev, -ENODEV,
+ 				     "ACPI namespace walk failed\n");
+ 
++	if (priv->ret)
++		return dev_err_probe(&pdev->dev, priv->ret,
++				     "Failed to map all ACPI clock lookup entries\n");
++
+ 	if (priv->mapped == 0)
+ 		return dev_err_probe(&pdev->dev, -EPROBE_DEFER,
+ 				     "No SCMI clocks mapped yet\n");

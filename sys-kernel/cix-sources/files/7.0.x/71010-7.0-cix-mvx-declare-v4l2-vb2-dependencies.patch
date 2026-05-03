@@ -1,0 +1,13 @@
+diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+--- a/drivers/media/platform/cix/Kconfig
++++ b/drivers/media/platform/cix/Kconfig
+@@ -2,6 +2,9 @@
+ config VIDEO_LINLON
+ 	tristate "Linlon VPU support"
+ 	depends on VIDEO_DEV
++	select VIDEOBUF2_DMA_SG
++	select VIDEOBUF2_MEMOPS
++	select VIDEOBUF2_V4L2
+ 	default y
+ 	help
+ 	  This enables support for the Linlon VPU family.

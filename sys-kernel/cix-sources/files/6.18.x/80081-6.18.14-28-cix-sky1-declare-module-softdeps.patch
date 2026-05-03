@@ -1,0 +1,36 @@
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+@@ -370,3 +370,6 @@ drm_module_platform_driver(linlondp_platform_driver);
+ MODULE_DESCRIPTION("Linlondp KMS driver");
+ MODULE_AUTHOR("ARMChina");
+ MODULE_LICENSE("GPL v2");
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
++MODULE_SOFTDEP("pre: trilin_dpsub");
++#endif
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -1764,3 +1764,6 @@ module_exit(panthor_exit);
+ MODULE_AUTHOR("Panthor Project Developers");
+ MODULE_DESCRIPTION("Panthor DRM Driver");
+ MODULE_LICENSE("Dual MIT/GPL");
++#if IS_ENABLED(CONFIG_ARCH_CIX)
++MODULE_SOFTDEP("pre: scmi_perf_domain");
++#endif
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -573,3 +573,4 @@ static struct platform_driver aipu_platform_driver = {
+ 
+ module_platform_driver(aipu_platform_driver);
+ MODULE_LICENSE("GPL v2");
++MODULE_SOFTDEP("pre: scmi_perf_domain");
+diff --git a/drivers/soc/cix/cix-bus-perf.c b/drivers/soc/cix/cix-bus-perf.c
+--- a/drivers/soc/cix/cix-bus-perf.c
++++ b/drivers/soc/cix/cix-bus-perf.c
+@@ -424,3 +424,4 @@ module_platform_driver(cix_bus_perf_driver);
+ 
+ MODULE_DESCRIPTION("CIX Bus Performance State Control Driver");
+ MODULE_LICENSE("GPL");
++MODULE_SOFTDEP("pre: scmi_perf_domain");
