@@ -1,0 +1,602 @@
+name: Build CIX kernel Debian packages
+
+on:
+  push:
+    paths:
+      - "sys-kernel/cix-sources/**"
+  pull_request:
+    paths:
+      - "sys-kernel/cix-sources/**"
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Create a draft GitHub Release containing the built .deb files"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  UBUNTU_KERNEL_SERIES: noble
+  DEBIAN_FRONTEND: noninteractive
+  CCACHE_DISABLE: "1"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  KBUILD_BUILD_USER: cix
+  KBUILD_BUILD_HOST: github-actions
+
+jobs:
+  discover:
+    name: Select latest cix-sources ebuilds
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@v6
+
+      - name: Build matrix
+        id: matrix
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          selected = {}
+          pattern = re.compile(r"^cix-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$")
+
+          for ebuild in Path("sys-kernel/cix-sources").glob("cix-sources-*.ebuild"):
+              match = pattern.match(ebuild.name)
+              if not match:
+                  continue
+
+              major, minor, patch, revision = match.groups()
+              major_i = int(major)
+              minor_i = int(minor)
+              patch_i = int(patch)
+              revision_i = int(revision or 0)
+
+              if (major_i, minor_i) < (6, 18):
+                  continue
+
+              line = f"{major_i}.{minor_i}"
+              pv = f"{major_i}.{minor_i}.{patch_i}"
+              version = pv if revision_i == 0 else f"{pv}-r{revision_i}"
+              key = (major_i, minor_i, patch_i, revision_i)
+              current = selected.get(line)
+
+              if current is None or key > current["key"]:
+                  selected[line] = {
+                      "key": key,
+                      "line": line,
+                      "pv": pv,
+                      "version": version,
+                      "pr": "r0" if revision_i == 0 else f"r{revision_i}",
+                      "ebuild": str(ebuild),
+                  }
+
+          include = []
+          board_profiles = (
+              {
+                  "board_profile": "o6-acpi",
+                  "board_package": "o6-acpi",
+                  "board_version": "o6.acpi",
+              },
+              {
+                  "board_profile": "o6n-acpi",
+                  "board_package": "o6n-acpi",
+                  "board_version": "o6n.acpi",
+              },
+          )
+          for line in sorted(selected, key=lambda value: tuple(map(int, value.split(".")))):
+              for board in board_profiles:
+                  entry = dict(selected[line])
+                  del entry["key"]
+                  entry.update(board)
+                  include.append(entry)
+
+          matrix = {"include": include}
+          print(json.dumps(matrix, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
+
+  build:
+    name: Build ${{ matrix.version }} ${{ matrix.board_profile }} debs
+    runs-on: ubuntu-24.04-arm
+    needs: discover
+    if: ${{ needs.discover.outputs.matrix != '{"include":[]}' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    env:
+      KERNEL_EBUILD: ${{ matrix.ebuild }}
+      KERNEL_LINE: ${{ matrix.line }}
+      KERNEL_PV: ${{ matrix.pv }}
+      KERNEL_PR: ${{ matrix.pr }}
+      KERNEL_VERSION: ${{ matrix.version }}
+      BOARD_PROFILE: ${{ matrix.board_profile }}
+      BOARD_PACKAGE: ${{ matrix.board_package }}
+      BOARD_VERSION: ${{ matrix.board_version }}
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@v6
+
+      - name: Reclaim runner disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Install kernel build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          apt_options=(
+            -o Acquire::Retries=5
+            -o Acquire::http::No-Cache=true
+            -o Acquire::https::No-Cache=true
+            -o Dpkg::Use-Pty=0
+          )
+
+          disable_third_party_apt_sources() {
+            local source
+
+            shopt -s nullglob
+            for source in /etc/apt/sources.list.d/*; do
+              case "$(basename "${source}")" in
+                ubuntu.sources|ubuntu.list)
+                  continue
+                  ;;
+              esac
+
+              echo "Disabling non-Ubuntu apt source ${source}"
+              sudo mv "${source}" "${source}.disabled"
+            done
+            shopt -u nullglob
+          }
+
+          apt_get_update() {
+            local attempt
+
+            for attempt in 1 2 3; do
+              if sudo apt-get "${apt_options[@]}" update; then
+                return 0
+              fi
+
+              echo "::warning::apt-get update failed on attempt ${attempt}; retrying with fresh package lists"
+              sudo apt-get clean
+              sudo rm -rf /var/lib/apt/lists/*
+              sleep "$((attempt * 10))"
+            done
+
+            sudo apt-get "${apt_options[@]}" update
+          }
+
+          apt_get_install() {
+            local attempt
+
+            for attempt in 1 2 3; do
+              if sudo apt-get "${apt_options[@]}" install -y --no-install-recommends "$@"; then
+                return 0
+              fi
+
+              echo "::warning::apt-get install failed on attempt ${attempt}; refreshing package lists before retrying"
+              sudo apt-get clean
+              sudo rm -rf /var/lib/apt/lists/*
+              sleep "$((attempt * 10))"
+              apt_get_update
+            done
+
+            sudo apt-get "${apt_options[@]}" install -y --no-install-recommends "$@"
+          }
+
+          disable_third_party_apt_sources
+          apt_get_update
+          apt_get_install \
+            bc \
+            bison \
+            build-essential \
+            ca-certificates \
+            cpio \
+            curl \
+            debhelper-compat \
+            dwarves \
+            fakeroot \
+            flex \
+            git \
+            kmod \
+            libdw-dev \
+            libelf-dev \
+            libssl-dev \
+            lsb-release \
+            openssl \
+            patch \
+            python3 \
+            rsync \
+            xz-utils \
+            zstd
+
+          gcc_major="$(gcc -dumpversion | cut -d. -f1)"
+          apt_get_install "gcc-${gcc_major}-plugin-dev" || true
+
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Prepare patched kernel source from ebuild
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo="${GITHUB_WORKSPACE}"
+          manifest="${repo}/sys-kernel/cix-sources/Manifest"
+          work_root="${RUNNER_TEMP}/cix-kernel-${KERNEL_VERSION}-${BOARD_PACKAGE}"
+          distdir="${work_root}/distfiles"
+          source_parent="${work_root}/source"
+          source_dir="${source_parent}/linux-${KERNEL_LINE}"
+          workdir="${work_root}/work"
+          tempdir="${work_root}/tmp"
+          build_dir="${work_root}/build"
+
+          rm -rf "${work_root}"
+          mkdir -p "${distdir}" "${source_parent}" "${workdir}" "${tempdir}" "${build_dir}"
+
+          manifest_field() {
+            local name=$1
+            local field=$2
+            awk -v name="${name}" -v field="${field}" '
+              $1 == "DIST" && $2 == name {
+                for (i = 1; i <= NF; i++) {
+                  if ($i == field) {
+                    print $(i + 1)
+                    exit
+                  }
+                }
+              }
+            ' "${manifest}"
+          }
+
+          verify_manifest_dist() {
+            local name=$1
+            local path="${distdir}/${name}"
+            local sha512
+            local blake2b
+
+            sha512="$(manifest_field "${name}" SHA512 || true)"
+            blake2b="$(manifest_field "${name}" BLAKE2B || true)"
+
+            if [[ -n "${sha512}" ]]; then
+              printf '%s  %s\n' "${sha512}" "${path}" | sha512sum -c -
+            fi
+            if [[ -n "${blake2b}" ]] && command -v b2sum >/dev/null 2>&1; then
+              printf '%s  %s\n' "${blake2b}" "${path}" | b2sum -c -
+            fi
+          }
+
+          fetch_url() {
+            local name=$1
+            shift
+            local url
+            local tmp="${distdir}/${name}.tmp"
+
+            if [[ -s "${distdir}/${name}" ]]; then
+              return
+            fi
+
+            for url in "$@"; do
+              echo "Fetching ${name} from ${url}"
+              if curl -fL --retry 5 --retry-connrefused --connect-timeout 30 --output "${tmp}" "${url}"; then
+                mv "${tmp}" "${distdir}/${name}"
+                verify_manifest_dist "${name}"
+                return
+              fi
+              rm -f "${tmp}"
+            done
+
+            echo "Unable to fetch ${name}" >&2
+            return 1
+          }
+
+          fetch_gentoo_distfile() {
+            local name=$1
+            local blake2b
+            local prefix
+            local urls=()
+
+            blake2b="$(manifest_field "${name}" BLAKE2B || true)"
+            urls+=(
+              "https://dev.gentoo.org/~mpagano/dist/genpatches/${name}"
+              "https://dev.gentoo.org/~alicef/dist/genpatches/${name}"
+            )
+            if [[ -n "${blake2b}" ]]; then
+              prefix="${blake2b:0:2}"
+              urls+=(
+                "https://distfiles.gentoo.org/distfiles/${prefix}/${name}"
+                "https://gentoo.osuosl.org/distfiles/${prefix}/${name}"
+              )
+            fi
+
+            fetch_url "${name}" "${urls[@]}"
+          }
+
+          apply_patch_file() {
+            local patch_file=$1
+            echo "Applying ${patch_file#${repo}/}"
+            patch --batch --forward --no-backup-if-mismatch -p1 -i "${patch_file}"
+          }
+
+          apply_patch_archive() {
+            local archive=$1
+            local archive_tmp
+            archive_tmp="$(mktemp -d "${tempdir}/genpatches.XXXXXX")"
+            tar -xf "${archive}" -C "${archive_tmp}"
+            while IFS= read -r patch_file; do
+              apply_patch_file "${patch_file}"
+            done < <(find "${archive_tmp}" -type f \( -name '*.patch' -o -name '*.diff' \) | sort -V)
+            rm -rf "${archive_tmp}"
+          }
+
+          die() {
+            echo "die: $*" >&2
+            exit 1
+          }
+          eapply() {
+            local patch_file
+            for patch_file in "$@"; do
+              apply_patch_file "${patch_file}"
+            done
+          }
+          eapply_user() { :; }
+          kernel-2_src_prepare() { eapply_user; }
+          kernel-2_pkg_setup() { :; }
+          kernel-2_src_install() { :; }
+          kernel-2_pkg_postinst() { :; }
+          kernel-2_pkg_postrm() { :; }
+          inherit() { :; }
+          detect_version() { :; }
+          detect_arch() { :; }
+          use() {
+            case "$1" in
+              radxa-menu)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+          ewarn() { printf 'warning: %s\n' "$*"; }
+          elog() { printf 'info: %s\n' "$*"; }
+          einfo() { printf 'info: %s\n' "$*"; }
+          unpack() {
+            local archive
+            local archive_path
+            for archive in "$@"; do
+              archive_path="${archive}"
+              [[ -f "${archive_path}" ]] || archive_path="${DISTDIR}/${archive}"
+              [[ -f "${archive_path}" ]] || die "missing archive ${archive}"
+              tar -xf "${archive_path}" -C "${PWD}"
+            done
+          }
+
+          export PN="cix-sources"
+          export PV="${KERNEL_PV}"
+          export PR="${KERNEL_PR}"
+          export P="${PN}-${PV}"
+          export FILESDIR="${repo}/sys-kernel/cix-sources/files"
+          export WORKDIR="${workdir}"
+          export DISTDIR="${distdir}"
+          export T="${tempdir}"
+          export S="${source_dir}"
+          export KV_MAJOR="${KERNEL_LINE%%.*}"
+          export KV_MINOR="${KERNEL_LINE#*.}"
+          export KV_PATCH="${KERNEL_PV##*.}"
+          export CKV="${KERNEL_PV}"
+          export OKV="${KERNEL_LINE}"
+          export KV_FULL="${KERNEL_PV}"
+          export KERNEL_URI=""
+          export GENPATCHES_URI=""
+          export ARCH_URI=""
+
+          # shellcheck source=/dev/null
+          source "${repo}/${KERNEL_EBUILD}"
+
+          kernel_archive="linux-${KERNEL_LINE}.tar.xz"
+          fetch_url "${kernel_archive}" \
+            "https://cdn.kernel.org/pub/linux/kernel/v${KV_MAJOR}.x/${kernel_archive}"
+
+          for genpatch_kind in base extras; do
+            genpatch_archive="genpatches-${KERNEL_LINE}-${K_GENPATCHES_VER}.${genpatch_kind}.tar.xz"
+            fetch_gentoo_distfile "${genpatch_archive}"
+          done
+
+          if [[ -n "${EGIT_CIX_COMMIT:-}" ]]; then
+            cix_short="${EGIT_CIX_COMMIT:0:7}"
+            cix_archive="${PN}-cix-${cix_short}.tar.gz"
+            fetch_url "${cix_archive}" \
+              "https://github.com/cixtech/cix-linux-main/archive/${EGIT_CIX_COMMIT}.tar.gz"
+            for alias in "${P}-cix-${cix_short}.tar.gz"; do
+              [[ "${alias}" == "${cix_archive}" || -e "${distdir}/${alias}" ]] || cp "${distdir}/${cix_archive}" "${distdir}/${alias}"
+            done
+          fi
+
+          if [[ -n "${EGIT_SKY1_COMMIT:-}" ]]; then
+            sky1_short="${EGIT_SKY1_COMMIT:0:7}"
+            if grep -q "^DIST ${PN}-sky1-${sky1_short}.tar.gz " "${manifest}"; then
+              sky1_archive="${PN}-sky1-${sky1_short}.tar.gz"
+            else
+              sky1_archive="${PN}-${sky1_short}.tar.gz"
+            fi
+            fetch_url "${sky1_archive}" \
+              "https://github.com/Sky1-Linux/linux-sky1/archive/${EGIT_SKY1_COMMIT}.tar.gz"
+            for alias in \
+              "${PN}-${sky1_short}.tar.gz" \
+              "${P}-${sky1_short}.tar.gz" \
+              "${PN}-sky1-${sky1_short}.tar.gz" \
+              "${P}-sky1-${sky1_short}.tar.gz"; do
+              [[ "${alias}" == "${sky1_archive}" || -e "${distdir}/${alias}" ]] || cp "${distdir}/${sky1_archive}" "${distdir}/${alias}"
+            done
+          fi
+
+          tar -xf "${distdir}/${kernel_archive}" -C "${source_parent}"
+          cd "${source_dir}"
+
+          for genpatch_kind in base extras; do
+            genpatch_archive="genpatches-${KERNEL_LINE}-${K_GENPATCHES_VER}.${genpatch_kind}.tar.xz"
+            apply_patch_archive "${distdir}/${genpatch_archive}"
+          done
+
+          src_prepare
+
+          rm -rf "${distdir}" "${workdir}" "${tempdir}"
+
+          {
+            echo "work_root=${work_root}"
+            echo "source_dir=${source_dir}"
+            echo "build_dir=${build_dir}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Fetch Ubuntu generic arm64 config and apply Radxa updates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_dir="${{ steps.prepare.outputs.source_dir }}"
+          build_dir="${{ steps.prepare.outputs.build_dir }}"
+          ubuntu_config_tree="${RUNNER_TEMP}/ubuntu-kernel-config-${KERNEL_VERSION}"
+
+          rm -rf "${ubuntu_config_tree}"
+          git clone \
+            --depth=1 \
+            --filter=blob:none \
+            --sparse \
+            "https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/${UBUNTU_KERNEL_SERIES}" \
+            "${ubuntu_config_tree}"
+          (
+            cd "${ubuntu_config_tree}"
+            git sparse-checkout set --no-cone debian.master/config debian/scripts debian/debian.env
+            python3 debian/scripts/misc/annotations \
+              -f debian.master/config/annotations \
+              --arch arm64 \
+              --flavour generic \
+              --export
+          ) > "${build_dir}/.config"
+          rm -rf "${ubuntu_config_tree}"
+
+          python3 "${GITHUB_WORKSPACE}/sys-kernel/cix-sources/files/kconfig_update.py" \
+            --mode update \
+            --kernel-version "${KERNEL_LINE}" \
+            --kernel-tree "${source_dir}" \
+            --board-profile "${BOARD_PROFILE}" \
+            --cix-patches yes \
+            "${build_dir}/.config"
+
+          "${source_dir}/scripts/config" --file "${build_dir}/.config" \
+            --disable DEBUG_INFO \
+            --disable DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT \
+            --disable DEBUG_INFO_DWARF4 \
+            --disable DEBUG_INFO_DWARF5 \
+            --disable DEBUG_INFO_BTF \
+            --disable DEBUG_INFO_BTF_MODULES \
+            --disable DEBUG_INFO_REDUCED \
+            --enable DEBUG_INFO_NONE \
+            --set-str SYSTEM_TRUSTED_KEYS "" \
+            --set-str SYSTEM_REVOCATION_KEYS ""
+
+          make -C "${source_dir}" O="${build_dir}" ARCH=arm64 olddefconfig
+
+      - name: Build Debian packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_dir="${{ steps.prepare.outputs.source_dir }}"
+          build_dir="${{ steps.prepare.outputs.build_dir }}"
+          work_root="${{ steps.prepare.outputs.work_root }}"
+          artifact_dir="${GITHUB_WORKSPACE}/artifacts/${KERNEL_VERSION}-${BOARD_PACKAGE}"
+
+          mkdir -p "${artifact_dir}"
+
+          make -C "${source_dir}" \
+            O="${build_dir}" \
+            ARCH=arm64 \
+            LOCALVERSION="-cix-${BOARD_PACKAGE}" \
+            KDEB_SOURCENAME="linux-cix-${BOARD_PACKAGE}" \
+            KDEB_PKGVERSION="${KERNEL_PV}+cix.${KERNEL_PR}.${BOARD_VERSION}.gha${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
+            -j"$(nproc)" \
+            bindeb-pkg
+
+          find "${work_root}" -maxdepth 2 -type f -name "*.deb" -print -exec mv {} "${artifact_dir}/" \;
+
+          shopt -s nullglob
+          image_debs=( "${artifact_dir}"/linux-image-*cix-"${BOARD_PACKAGE}"*.deb )
+          shopt -u nullglob
+          if (( ${#image_debs[@]} == 0 )); then
+            echo "No linux-image package found for ${BOARD_PACKAGE}" >&2
+            exit 1
+          fi
+
+          for image_deb in "${image_debs[@]}"; do
+            package_root="$(mktemp -d "${RUNNER_TEMP}/linux-image-deb.XXXXXX")"
+            dpkg-deb -R "${image_deb}" "${package_root}"
+
+            install -D -m 0755 \
+              "${GITHUB_WORKSPACE}/sys-kernel/cix-sources/files/kconfig_update.py" \
+              "${package_root}/usr/local/bin/kconfig_update.py"
+
+            (
+              cd "${package_root}"
+              find . -path ./DEBIAN -prune -o -type f -print \
+                | sed 's#^\./##' \
+                | LC_ALL=C sort \
+                | xargs -r md5sum > DEBIAN/md5sums
+            )
+
+            dpkg-deb -b "${package_root}" "${image_deb}"
+            rm -rf "${package_root}"
+          done
+
+          find "${artifact_dir}" -maxdepth 1 -type f -name "*.deb" -print | sort
+
+          test -n "$(find "${artifact_dir}" -maxdepth 1 -type f -name "linux-image-*cix-${BOARD_PACKAGE}*.deb" -print -quit)"
+          test -n "$(find "${artifact_dir}" -maxdepth 1 -type f -name "linux-headers-*cix-${BOARD_PACKAGE}*.deb" -print -quit)"
+
+          rm -rf "${source_dir}" "${build_dir}" "${work_root}"
+
+      - name: Upload Debian package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
+          path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
+          if-no-files-found: error
+
+  release:
+    name: Create draft release
+    runs-on: ubuntu-24.04-arm
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+    steps:
+      - name: Download built package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: cix-kernel-debs-*
+          merge-multiple: true
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: cix-kernel-debs-${{ github.run_number }}
+          name: CIX kernel Debian packages ${{ github.run_number }}
+          draft: true
+          fail_on_unmatched_files: true
+          files: release-assets/*.deb

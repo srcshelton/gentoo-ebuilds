@@ -1,0 +1,19 @@
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -623,15 +623,6 @@ static void buf_finish(struct vb2_buffer *vb)
+     }
+ }
+ 
+-/**
+- * wait_prepare() - Prepare driver for waiting
+- * @q:        Pointer to Vb2 queue.
+- *
+- * Vb2 calls this function when it is about to wait for more buffers to
+- * be received. A driver should release any locks taken while calling Vb2
+- * functions.
+- * This is required to avoid a deadlock.
+- *
+ /**
+  * mvx_vb2_ops - Callbacks for Vb2 framework
+  * Not all possible callbacks are implemented as some of them are optional.

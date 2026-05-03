@@ -1,0 +1,81 @@
+diff --git a/drivers/phy/cix/phy-cix-usb2.c b/drivers/phy/cix/phy-cix-usb2.c
+--- a/drivers/phy/cix/phy-cix-usb2.c
++++ b/drivers/phy/cix/phy-cix-usb2.c
+@@ -31,12 +31,11 @@ static int cix_usb2phy_probe(struct platform_device *pdev)
+ 	struct reset_control *preset;
+ 
+ 	preset = devm_reset_control_get(dev, "preset");
++	if (IS_ERR(preset))
++		return dev_err_probe(dev, PTR_ERR(preset),
++				     "failed to get preset\n");
+ 
+-	if (IS_ERR(preset)) {
+-		dev_err(dev, "%s: failed to get preset\n", __func__);
+-	} else {
+-		reset_control_deassert(preset);
+-	}
++	reset_control_deassert(preset);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/phy/cix/phy-cix-usb3.c b/drivers/phy/cix/phy-cix-usb3.c
+--- a/drivers/phy/cix/phy-cix-usb3.c
++++ b/drivers/phy/cix/phy-cix-usb3.c
+@@ -362,14 +362,14 @@ static int cix_u3phy_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	u3phy->reset = devm_reset_control_get(dev, "reset");
+-	if (IS_ERR(u3phy->reset)) {
+-		dev_err(dev, "%s: failed to get reset\n", __func__);
+-	}
++	if (IS_ERR(u3phy->reset))
++		return dev_err_probe(dev, PTR_ERR(u3phy->reset),
++				     "failed to get reset\n");
+ 
+ 	u3phy->preset = devm_reset_control_get(dev, "preset");
+-	if (IS_ERR(u3phy->preset)) {
+-		dev_err(dev, "%s: failed to get preset\n", __func__);
+-	}
++	if (IS_ERR(u3phy->preset))
++		return dev_err_probe(dev, PTR_ERR(u3phy->preset),
++				     "failed to get preset\n");
+ 
+ 	u3phy->apb_clk = devm_clk_get(dev, "apb_clk");
+ 	if (IS_ERR(u3phy->apb_clk)) {
+@@ -378,9 +378,9 @@ static int cix_u3phy_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	u3phy->ref_clk = devm_clk_get(dev, "ref_clk");
+-	if (IS_ERR(u3phy->apb_clk)) {
+-		dev_err(dev, "phy apb clock not found\n");
+-		return PTR_ERR(u3phy->apb_clk);
++	if (IS_ERR(u3phy->ref_clk)) {
++		dev_err(dev, "phy ref clock not found\n");
++		return PTR_ERR(u3phy->ref_clk);
+ 	}
+ 
+ 	u3phy->base = devm_platform_ioremap_resource(pdev, 0);
+diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
+--- a/drivers/phy/cix/phy-cix-usbdp.c
++++ b/drivers/phy/cix/phy-cix-usbdp.c
+@@ -1454,14 +1454,14 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	udphy->reset = devm_reset_control_get(dev, "reset");
+-	if (IS_ERR(udphy->reset)) {
+-		dev_err(dev, "%s: failed to get reset\n", __func__);
+-	}
++	if (IS_ERR(udphy->reset))
++		return dev_err_probe(dev, PTR_ERR(udphy->reset),
++				     "failed to get reset\n");
+ 
+ 	udphy->preset = devm_reset_control_get(dev, "preset");
+-	if (IS_ERR(udphy->preset)) {
+-		dev_err(dev, "%s: failed to get preset\n", __func__);
+-	}
++	if (IS_ERR(udphy->preset))
++		return dev_err_probe(dev, PTR_ERR(udphy->preset),
++				     "failed to get preset\n");
+ 
+ 	if (!device_property_read_u8(dev, "default_conf", &udphy->next_mode))
+ 		dev_info(dev, "phy init default mode %02x\n", udphy->next_mode);

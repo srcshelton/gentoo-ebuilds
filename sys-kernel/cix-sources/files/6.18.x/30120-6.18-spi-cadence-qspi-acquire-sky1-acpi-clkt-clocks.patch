@@ -1,0 +1,261 @@
+spi: cadence-qspi: acquire Sky1 ACPI CLKT clocks by name
+
+diff --git a/drivers/spi/spi-cadence-quadspi.c b/drivers/spi/spi-cadence-quadspi.c
+--- a/drivers/spi/spi-cadence-quadspi.c
++++ b/drivers/spi/spi-cadence-quadspi.c
+@@ -25,6 +25,7 @@
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/reset.h>
+ #include <linux/sched.h>
+ #include <linux/spi/spi.h>
+@@ -48,6 +49,7 @@ static_assert(CQSPI_MAX_CHIPSELECT <= SPI_DEVICE_CS_CNT_MAX);
+ #define CQSPI_SUPPORT_DEVICE_RESET	BIT(8)
+ #define CQSPI_DISABLE_STIG_MODE		BIT(9)
+ #define CQSPI_DISABLE_RUNTIME_PM	BIT(10)
++#define CQSPI_CIX_SKY1_NAMED_CLKS	BIT(11)
+ 
+ /* Capabilities */
+ #define CQSPI_SUPPORTS_OCTAL		BIT(0)
+@@ -58,6 +60,7 @@ static_assert(CQSPI_MAX_CHIPSELECT <= SPI_DEVICE_CS_CNT_MAX);
+ enum {
+ 	CLK_QSPI_APB = 0,
+ 	CLK_QSPI_AHB,
++	CLK_QSPI_FUNC,
+ 	CLK_QSPI_NUM,
+ };
+ 
+@@ -109,6 +112,7 @@ struct cqspi_st {
+ 	bool			apb_ahb_hazard;
+ 
+ 	bool			is_jh7110; /* Flag for StarFive JH7110 SoC */
++	bool			is_cix_sky1;
+ 	bool			disable_stig_mode;
+ 	refcount_t		refcount;
+ 	refcount_t		inflight_ops;
+@@ -1483,7 +1487,7 @@ static int cqspi_exec_mem_op(struct spi_mem *mem, const struct spi_mem_op *op)
+ 	int ret;
+ 	struct cqspi_st *cqspi = spi_controller_get_devdata(mem->spi->controller);
+ 	struct device *dev = &cqspi->pdev->dev;
+-	const struct cqspi_driver_platdata *ddata = of_device_get_match_data(dev);
++	const struct cqspi_driver_platdata *ddata = cqspi->ddata;
+ 
+ 	if (refcount_read(&cqspi->inflight_ops) == 0)
+ 		return -ENODEV;
+@@ -1819,6 +1823,78 @@ static void cqspi_jh7110_disable_clk(struct platform_device *pdev, struct cqspi_
+ 	clk_disable_unprepare(cqspi->clks[CLK_QSPI_AHB]);
+ 	clk_disable_unprepare(cqspi->clks[CLK_QSPI_APB]);
+ }
++
++static int cqspi_cix_sky1_clk_enable(struct cqspi_st *cqspi)
++{
++	int ret;
++
++	ret = clk_prepare_enable(cqspi->clks[CLK_QSPI_APB]);
++	if (ret)
++		return ret;
++
++	ret = clk_prepare_enable(cqspi->clks[CLK_QSPI_AHB]);
++	if (ret)
++		goto disable_apb_clk;
++
++	ret = clk_prepare_enable(cqspi->clks[CLK_QSPI_FUNC]);
++	if (ret)
++		goto disable_ahb_clk;
++
++	return 0;
++
++disable_ahb_clk:
++	clk_disable_unprepare(cqspi->clks[CLK_QSPI_AHB]);
++disable_apb_clk:
++	clk_disable_unprepare(cqspi->clks[CLK_QSPI_APB]);
++
++	return ret;
++}
++
++static void cqspi_cix_sky1_clk_disable(struct cqspi_st *cqspi)
++{
++	clk_disable(cqspi->clks[CLK_QSPI_FUNC]);
++	clk_disable(cqspi->clks[CLK_QSPI_AHB]);
++	clk_disable(cqspi->clks[CLK_QSPI_APB]);
++}
++
++static void cqspi_cix_sky1_clk_disable_unprepare(struct cqspi_st *cqspi)
++{
++	clk_disable_unprepare(cqspi->clks[CLK_QSPI_FUNC]);
++	clk_disable_unprepare(cqspi->clks[CLK_QSPI_AHB]);
++	clk_disable_unprepare(cqspi->clks[CLK_QSPI_APB]);
++}
++
++static int cqspi_cix_sky1_clk_init(struct platform_device *pdev, struct cqspi_st *cqspi)
++{
++	struct device *dev = &pdev->dev;
++	int ret;
++
++	cqspi->clks[CLK_QSPI_APB] = devm_clk_get(dev, "pclk");
++	if (IS_ERR(cqspi->clks[CLK_QSPI_APB]))
++		return dev_err_probe(dev, PTR_ERR(cqspi->clks[CLK_QSPI_APB]),
++				     "failed to get pclk\n");
++
++	cqspi->clks[CLK_QSPI_AHB] = devm_clk_get(dev, "maclk");
++	if (IS_ERR(cqspi->clks[CLK_QSPI_AHB]))
++		return dev_err_probe(dev, PTR_ERR(cqspi->clks[CLK_QSPI_AHB]),
++				     "failed to get maclk\n");
++
++	cqspi->clks[CLK_QSPI_FUNC] = devm_clk_get(dev, "funcclk");
++	if (IS_ERR(cqspi->clks[CLK_QSPI_FUNC]))
++		return dev_err_probe(dev, PTR_ERR(cqspi->clks[CLK_QSPI_FUNC]),
++				     "failed to get funcclk\n");
++
++	cqspi->clk = cqspi->clks[CLK_QSPI_FUNC];
++
++	ret = cqspi_cix_sky1_clk_enable(cqspi);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to enable clocks\n");
++
++	cqspi->is_cix_sky1 = true;
++
++	return 0;
++}
++
+ static int cqspi_probe(struct platform_device *pdev)
+ {
+ 	const struct cqspi_driver_platdata *ddata;
+@@ -1844,7 +1920,7 @@ static int cqspi_probe(struct platform_device *pdev)
+ 	cqspi->pdev = pdev;
+ 	cqspi->host = host;
+ 	cqspi->is_jh7110 = false;
+-	cqspi->ddata = ddata = of_device_get_match_data(dev);
++	cqspi->ddata = ddata = device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, cqspi);
+ 
+ 	/* Obtain configuration from OF. */
+@@ -1854,12 +1930,18 @@ static int cqspi_probe(struct platform_device *pdev)
+ 		return -ENODEV;
+ 	}
+ 
+-	/* Obtain QSPI clock. */
+-	cqspi->clk = devm_clk_get(dev, NULL);
+-	if (IS_ERR(cqspi->clk)) {
+-		dev_err(dev, "Cannot claim QSPI clock.\n");
+-		ret = PTR_ERR(cqspi->clk);
+-		return ret;
++	/* Obtain QSPI clocks. */
++	if (ddata && (ddata->quirks & CQSPI_CIX_SKY1_NAMED_CLKS)) {
++		ret = cqspi_cix_sky1_clk_init(pdev, cqspi);
++		if (ret)
++			return ret;
++	} else {
++		cqspi->clk = devm_clk_get(dev, NULL);
++		if (IS_ERR(cqspi->clk)) {
++			dev_err(dev, "Cannot claim QSPI clock.\n");
++			ret = PTR_ERR(cqspi->clk);
++			return ret;
++		}
+ 	}
+ 
+ 	/* Obtain and remap controller address. */
+@@ -1892,10 +1974,12 @@ static int cqspi_probe(struct platform_device *pdev)
+ 		return ret;
+ 
+ 
+-	ret = clk_prepare_enable(cqspi->clk);
+-	if (ret) {
+-		dev_err(dev, "Cannot enable QSPI clock.\n");
+-		goto probe_clk_failed;
++	if (!cqspi->is_cix_sky1) {
++		ret = clk_prepare_enable(cqspi->clk);
++		if (ret) {
++			dev_err(dev, "Cannot enable QSPI clock.\n");
++			goto probe_clk_failed;
++		}
+ 	}
+ 
+ 	/* Obtain QSPI reset control */
+@@ -2034,7 +2118,9 @@ static int cqspi_probe(struct platform_device *pdev)
+ 	if (cqspi->is_jh7110)
+ 		cqspi_jh7110_disable_clk(pdev, cqspi);
+ 
+-	if (pm_runtime_get_sync(&pdev->dev) >= 0)
++	if (cqspi->is_cix_sky1)
++		cqspi_cix_sky1_clk_disable_unprepare(cqspi);
++	else if (pm_runtime_get_sync(&pdev->dev) >= 0)
+ 		clk_disable_unprepare(cqspi->clk);
+ probe_clk_failed:
+ 	return ret;
+@@ -2044,9 +2130,8 @@ static void cqspi_remove(struct platform_device *pdev)
+ {
+ 	const struct cqspi_driver_platdata *ddata;
+ 	struct cqspi_st *cqspi = platform_get_drvdata(pdev);
+-	struct device *dev = &pdev->dev;
+ 
+-	ddata = of_device_get_match_data(dev);
++	ddata = cqspi->ddata;
+ 
+ 	refcount_set(&cqspi->refcount, 0);
+ 
+@@ -2060,8 +2145,12 @@ static void cqspi_remove(struct platform_device *pdev)
+ 		dma_release_channel(cqspi->rx_chan);
+ 
+ 	if (!(ddata && (ddata->quirks & CQSPI_DISABLE_RUNTIME_PM)))
+-		if (pm_runtime_get_sync(&pdev->dev) >= 0)
+-			clk_disable(cqspi->clk);
++		if (pm_runtime_get_sync(&pdev->dev) >= 0) {
++			if (cqspi->is_cix_sky1)
++				cqspi_cix_sky1_clk_disable(cqspi);
++			else
++				clk_disable(cqspi->clk);
++		}
+ 
+ 	if (cqspi->is_jh7110)
+ 		cqspi_jh7110_disable_clk(pdev, cqspi);
+@@ -2077,15 +2166,25 @@ static int cqspi_runtime_suspend(struct device *dev)
+ 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
+ 
+ 	cqspi_controller_enable(cqspi, 0);
+-	clk_disable_unprepare(cqspi->clk);
++	if (cqspi->is_cix_sky1)
++		cqspi_cix_sky1_clk_disable_unprepare(cqspi);
++	else
++		clk_disable_unprepare(cqspi->clk);
+ 	return 0;
+ }
+ 
+ static int cqspi_runtime_resume(struct device *dev)
+ {
+ 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
++	int ret;
++
++	if (cqspi->is_cix_sky1)
++		ret = cqspi_cix_sky1_clk_enable(cqspi);
++	else
++		ret = clk_prepare_enable(cqspi->clk);
++	if (ret)
++		return ret;
+ 
+-	clk_prepare_enable(cqspi->clk);
+ 	cqspi_wait_idle(cqspi);
+ 	cqspi_controller_enable(cqspi, 0);
+ 	cqspi_controller_init(cqspi);
+@@ -2131,6 +2230,10 @@ static const struct cqspi_driver_platdata cdns_qspi = {
+ 	.quirks = CQSPI_DISABLE_DAC_MODE,
+ };
+ 
++static const struct cqspi_driver_platdata cix_sky1_qspi = {
++	.quirks = CQSPI_DISABLE_DAC_MODE | CQSPI_CIX_SKY1_NAMED_CLKS,
++};
++
+ static const struct cqspi_driver_platdata k2g_qspi = {
+ 	.quirks = CQSPI_NEEDS_WR_DELAY,
+ };
+@@ -2232,7 +2335,7 @@ MODULE_DEVICE_TABLE(of, cqspi_dt_ids);
+ 
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id cqspi_acpi_ids[] = {
+-	{ "CIXH2002", (kernel_ulong_t)&cdns_qspi },
++	{ "CIXH2002", (kernel_ulong_t)&cix_sky1_qspi },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(acpi, cqspi_acpi_ids);

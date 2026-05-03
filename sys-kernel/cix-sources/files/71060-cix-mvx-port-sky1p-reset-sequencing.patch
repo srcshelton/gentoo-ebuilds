@@ -1,0 +1,116 @@
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -56,6 +56,7 @@
+ #include <linux/devfreq-event.h>
+ #include <linux/scmi_protocol.h>
+ #include <linux/version.h>
++#include <linux/arm-smccc.h>
+ 
+ /*
+  * Mainline devfreq support:
+@@ -101,6 +102,10 @@
+ #define VPU_CORE_ACPI_MEMREPAIR_FUNC    "REPR"
+ #define to_acpi_device(d)  container_of(d, struct acpi_device, dev)
+ 
++#define CIX_SIP_RESTORE_MMHUB_ASNI      0xC2000017
++#define VPU0_ASNI_ID                    6
++#define VPU1_ASNI_ID                    7
++
+ static uint busctrl_ref = MVE_BUSTCTRL_REF_DEFAULT;
+ static uint busctrl_split = MVE_BUSTCTRL_SPLIT_512;
+ module_param(busctrl_ref, uint, 0660);
+@@ -1073,10 +1078,19 @@ static int mvx_switch_qchannel_clock_gating(struct mvx_dev_ctx *ctx, bool enable
+ {
+     uint32_t reg;
+ 
+-    reg = mvx_hwreg_read_rcsu(&ctx->hwreg, MVX_RCSU_HWREG_PGCTRL);
+-    reg = enable ? (reg | MVX_RCSU_HWREG_CLOCK_QCHANNEL_ENABLE) :
+-                   (reg & ~(MVX_RCSU_HWREG_CLOCK_QCHANNEL_ENABLE));
+-    mvx_hwreg_write_rcsu(&ctx->hwreg, MVX_RCSU_HWREG_PGCTRL, reg);
++    if (ctx->hwreg.hw_ver.svn_revision == MVE_SVN_ENPWOFF) {
++        reg = mvx_hwreg_read_rcsu(&ctx->hwreg, MVX_RCSU_HWREG_PGCTRL);
++        reg = enable ? (reg | MVX_RCSU_HWREG_CLOCK_QCHANNEL_ENABLE) :
++                       (reg & ~(MVX_RCSU_HWREG_CLOCK_QCHANNEL_ENABLE));
++        mvx_hwreg_write_rcsu(&ctx->hwreg, MVX_RCSU_HWREG_PGCTRL, reg);
++    } else if (ctx->hwreg.hw_ver.svn_revision == MVE_SVN_4K) {
++        reg = mvx_hwreg_read_rcsu(&ctx->hwreg,
++                      MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_CONTROL);
++        reg = enable ? (reg | MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_ENABLE) :
++                       (reg & ~(MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_ENABLE));
++        mvx_hwreg_write_rcsu(&ctx->hwreg,
++                     MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_CONTROL, reg);
++    }
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "%s enable=%d",
+                         __func__, enable);
+@@ -1202,6 +1216,26 @@ static int mvx_pm_runtime_resume(struct device *dev)
+         mvx_switch_enpwoff(ctx, false);
+     }
+ 
++    if (ctx->hwreg.hw_ver.svn_revision == MVE_SVN_4K) {
++        struct arm_smccc_res res;
++
++        arm_smccc_smc(CIX_SIP_RESTORE_MMHUB_ASNI, VPU0_ASNI_ID,
++                  0, 0, 0, 0, 0, 0, &res);
++        if (res.a0) {
++			MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++				      "Failed to restore VPU0 ASNI: %lu", res.a0);
++            return -EPERM;
++        }
++
++        arm_smccc_smc(CIX_SIP_RESTORE_MMHUB_ASNI, VPU1_ASNI_ID,
++                  0, 0, 0, 0, 0, 0, &res);
++        if (res.a0) {
++			MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++				      "Failed to restore VPU1 ASNI: %lu", res.a0);
++            return -EPERM;
++        }
++    }
++
+     ret = mvx_hw_init(dev);
+     if (ret)
+         return ret;
+diff --git a/drivers/media/platform/cix/dev/mvx_hwreg.c b/drivers/media/platform/cix/dev/mvx_hwreg.c
+--- a/drivers/media/platform/cix/dev/mvx_hwreg.c
++++ b/drivers/media/platform/cix/dev/mvx_hwreg.c
+@@ -152,6 +152,10 @@ static unsigned int get_rcsu_offset(enum mvx_rcsu_hwreg_what what)
+         return 0x300;
+     case MVX_RCSU_HWREG_STRAP_PIN2:
+         return 0x308;
++    case MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_CONTROL:
++        return 0x180;
++    case MVX_RCSU_HWREG_SKY1P_STATUS_REG:
++        return 0x400;
+     default:
+         return 0;
+     }
+diff --git a/drivers/media/platform/cix/dev/mvx_hwreg.h b/drivers/media/platform/cix/dev/mvx_hwreg.h
+--- a/drivers/media/platform/cix/dev/mvx_hwreg.h
++++ b/drivers/media/platform/cix/dev/mvx_hwreg.h
+@@ -88,6 +88,7 @@
+ 
+ /* RCUS pgctrl register distribution */
+ #define MVX_RCSU_HWREG_CLOCK_QCHANNEL_ENABLE        (1 << 0)
++#define MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_ENABLE  (1 << 0)
+ 
+ /* RCUS strap-pin0 register distribution */
+ #define MVX_RCSU_HWREG_DISABLE_AFBC                 (1 << 0)
+@@ -96,7 +97,7 @@
+ #define MVX_RCSU_HWREG_DISABLE_HEVC                 (1 << 3)
+ #define MVX_RCSU_HWREG_PSO_D_M_PWON_SHIFT           4
+ #define MVX_RCSU_HWREG_PSO_D_M_PWON_BITS            8
+-#define MVX_RCSU_HWREG_PSO_D_M_PWON_MASK            ((1 << MVX_RCSU_HWREG_PSO_D_M_ASSERT_BITS) - 1)
++#define MVX_RCSU_HWREG_PSO_D_M_PWON_MASK            ((1 << MVX_RCSU_HWREG_PSO_D_M_PWON_BITS) - 1)
+ #define MVX_RCSU_HWREG_PSO_ACK_ISO_PWON_SHIFT       12
+ #define MVX_RCSU_HWREG_PSO_ACK_ISO_PWON_BITS        8
+ #define MVX_RCSU_HWREG_PSO_ACK_ISO_PWON_MASK        ((1 << MVX_RCSU_HWREG_PSO_ACK_ISO_PWON_BITS) - 1)
+@@ -153,6 +154,8 @@ enum mvx_rcsu_hwreg_what {
+     MVX_RCSU_HWREG_STRAP_PIN0,
+     MVX_RCSU_HWREG_STRAP_PIN1,
+     MVX_RCSU_HWREG_STRAP_PIN2,
++    MVX_RCSU_HWREG_SKY1P_CLOCK_QCHANNEL_CONTROL,
++    MVX_RCSU_HWREG_SKY1P_STATUS_REG,
+     MVX_RCSU_HWREG_WHAT_MAX
+ };
+ 

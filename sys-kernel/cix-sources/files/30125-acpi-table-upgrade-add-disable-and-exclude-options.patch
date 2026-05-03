@@ -1,0 +1,212 @@
+diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
+--- a/drivers/acpi/tables.c
++++ b/drivers/acpi/tables.c
+@@ -412,12 +412,119 @@ static const char table_sigs[][ACPI_NAMESEG_SIZE] __nonstring_array __initconst
+ 
+ #define ACPI_HEADER_SIZE sizeof(struct acpi_table_header)
+ 
++#define ACPI_TABLE_UPGRADE_PATH "kernel/firmware/acpi/"
++#define ACPI_TABLE_UPGRADE_EXCLUDE_LEN 512
++
+ #define NR_ACPI_INITRD_TABLES 64
+ static struct cpio_data __initdata acpi_initrd_files[NR_ACPI_INITRD_TABLES];
+ static DECLARE_BITMAP(acpi_initrd_installed, NR_ACPI_INITRD_TABLES);
+ 
+ #define MAP_CHUNK_SIZE   (NR_FIX_BTMAPS << PAGE_SHIFT)
+ 
++static bool acpi_table_upgrade_disabled __initdata;
++static char acpi_table_upgrade_exclude[ACPI_TABLE_UPGRADE_EXCLUDE_LEN] __initdata;
++
++static int __init acpi_table_upgrade_setup(char *str)
++{
++	if (!str)
++		return -EINVAL;
++
++	if (!strcmp(str, "off") || !strcmp(str, "0") ||
++	    !strcmp(str, "no") || !strcmp(str, "false")) {
++		acpi_table_upgrade_disabled = true;
++	} else if (!strcmp(str, "on") || !strcmp(str, "1") ||
++		   !strcmp(str, "yes") || !strcmp(str, "true")) {
++		acpi_table_upgrade_disabled = false;
++	} else {
++		pr_warn("Table Upgrade: unknown acpi_table_upgrade=%s, expected on/off\n",
++			str);
++	}
++
++	return 0;
++}
++early_param("acpi_table_upgrade", acpi_table_upgrade_setup);
++
++static int __init acpi_table_upgrade_exclude_setup(char *str)
++{
++	if (str && *str) {
++		ssize_t copied;
++
++		copied = strscpy(acpi_table_upgrade_exclude, str,
++				 sizeof(acpi_table_upgrade_exclude));
++		if (copied < 0)
++			pr_warn("Table Upgrade: acpi_table_upgrade.exclude list truncated to %zu bytes\n",
++				sizeof(acpi_table_upgrade_exclude) - 1);
++	}
++
++	return 0;
++}
++early_param("acpi_table_upgrade.exclude", acpi_table_upgrade_exclude_setup);
++
++static bool __init acpi_table_upgrade_token_eq(const char *token, size_t len,
++					       const char *prefix,
++					       const char *name)
++{
++	size_t prefix_len = strlen(prefix);
++	size_t name_len = strlen(name);
++
++	return len == prefix_len + name_len &&
++	       !strncmp(token, prefix, prefix_len) &&
++	       !strncmp(token + prefix_len, name, name_len);
++}
++
++static bool __init acpi_table_upgrade_token_matches(const char *token,
++						    size_t len,
++						    const char *prefix,
++						    const char *name)
++{
++	const char *base = strrchr(name, '/');
++	size_t name_len = strlen(name);
++	size_t base_len;
++
++	base = base ? base + 1 : name;
++	base_len = strlen(base);
++
++	while (len && (*token == ' ' || *token == '\t')) {
++		token++;
++		len--;
++	}
++
++	while (len && (token[len - 1] == ' ' || token[len - 1] == '\t'))
++		len--;
++
++	if (!len)
++		return false;
++
++	if ((len == name_len && !strncmp(token, name, len)) ||
++	    (len == base_len && !strncmp(token, base, len)))
++		return true;
++
++	if (acpi_table_upgrade_token_eq(token, len, prefix, name))
++		return true;
++
++	return token[0] == '/' &&
++	       acpi_table_upgrade_token_eq(token + 1, len - 1, prefix, name);
++}
++
++static bool __init acpi_table_upgrade_is_excluded(const char *prefix,
++						  const char *name)
++{
++	const char *token = acpi_table_upgrade_exclude;
++
++	while (*token) {
++		size_t len = strcspn(token, ",");
++
++		if (acpi_table_upgrade_token_matches(token, len, prefix, name))
++			return true;
++
++		token += len;
++		if (*token == ',')
++			token++;
++	}
++
++	return false;
++}
++
+ void __init acpi_table_upgrade(void)
+ {
+ 	void *data;
+@@ -425,9 +532,13 @@ void __init acpi_table_upgrade(void)
+ 	int sig, no, table_nr = 0, total_offset = 0;
+ 	long offset = 0;
+ 	struct acpi_table_header *table;
+-	char cpio_path[32] = "kernel/firmware/acpi/";
+ 	struct cpio_data file;
+ 
++	if (acpi_table_upgrade_disabled) {
++		pr_info("Table Upgrade: disabled by acpi_table_upgrade=off\n");
++		return;
++	}
++
+ 	if (IS_ENABLED(CONFIG_ACPI_TABLE_OVERRIDE_VIA_BUILTIN_INITRD)) {
+ 		data = __initramfs_start;
+ 		size = __initramfs_size;
+@@ -440,43 +551,66 @@ void __init acpi_table_upgrade(void)
+ 		return;
+ 
+ 	for (no = 0; no < NR_ACPI_INITRD_TABLES; no++) {
+-		file = find_cpio_data(cpio_path, data, size, &offset);
++		bool excluded;
++
++		file = find_cpio_data(ACPI_TABLE_UPGRADE_PATH, data, size,
++				      &offset);
+ 		if (!file.data)
+ 			break;
+ 
+ 		data += offset;
+ 		size -= offset;
++		excluded = acpi_table_upgrade_is_excluded(ACPI_TABLE_UPGRADE_PATH,
++							  file.name);
+ 
+ 		if (file.size < sizeof(struct acpi_table_header)) {
++			if (excluded) {
++				pr_info("Table Upgrade: skip [????-??????-????????] (%s%s): excluded by acpi_table_upgrade.exclude\n",
++					ACPI_TABLE_UPGRADE_PATH, file.name);
++				continue;
++			}
+ 			pr_err("ACPI OVERRIDE: Table smaller than ACPI header [%s%s]\n",
+-				cpio_path, file.name);
++				ACPI_TABLE_UPGRADE_PATH, file.name);
+ 			continue;
+ 		}
+ 
+ 		table = file.data;
+ 
++		if (excluded) {
++			pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x] excluded by acpi_table_upgrade.exclude\n",
++				table->signature, ACPI_TABLE_UPGRADE_PATH,
++				file.name, table->length);
++			pr_info("Table Upgrade: skip [%4.4s-%6.6s-%8.8s] (%s%s)\n",
++				table->signature, table->oem_id,
++				table->oem_table_id, ACPI_TABLE_UPGRADE_PATH,
++				file.name);
++			continue;
++		}
++
+ 		for (sig = 0; sig < ARRAY_SIZE(table_sigs); sig++)
+ 			if (!memcmp(table->signature, table_sigs[sig], 4))
+ 				break;
+ 
+ 		if (sig >= ARRAY_SIZE(table_sigs)) {
+ 			pr_err("ACPI OVERRIDE: Unknown signature [%s%s]\n",
+-				cpio_path, file.name);
++				ACPI_TABLE_UPGRADE_PATH, file.name);
+ 			continue;
+ 		}
+ 		if (file.size != table->length) {
+ 			pr_err("ACPI OVERRIDE: File length does not match table length [%s%s]\n",
+-				cpio_path, file.name);
++				ACPI_TABLE_UPGRADE_PATH, file.name);
+ 			continue;
+ 		}
+ 		if (acpi_table_checksum(file.data, table->length)) {
+ 			pr_err("ACPI OVERRIDE: Bad table checksum [%s%s]\n",
+-				cpio_path, file.name);
++				ACPI_TABLE_UPGRADE_PATH, file.name);
+ 			continue;
+ 		}
+ 
+-		pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x]\n",
+-			table->signature, cpio_path, file.name, table->length);
++		pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x] [%4.4s-%6.6s-%8.8s]\n",
++			table->signature, ACPI_TABLE_UPGRADE_PATH, file.name,
++			table->length, table->signature, table->oem_id,
++			table->oem_table_id);
+ 
+ 		all_tables_size += table->length;
+ 		acpi_initrd_files[table_nr].data = file.data;

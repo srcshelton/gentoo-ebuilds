@@ -1,0 +1,19 @@
+pwm: sky1: fix Kconfig entry indentation
+
+The CIX PWM patch adds " config PWM_SKY1" with a leading space, which is not
+valid Kconfig style and can be parsed incorrectly depending on context. Make it
+a normal top-level config entry.
+
+---
+diff --git a/drivers/pwm/Kconfig b/drivers/pwm/Kconfig
+--- a/drivers/pwm/Kconfig
++++ b/drivers/pwm/Kconfig
+@@ -819,7 +819,7 @@ config PWM_XILINX
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called pwm-xilinx.
+ 
+- config PWM_SKY1
++config PWM_SKY1
+ 	tristate "CIX Sky1 PWM support"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	help

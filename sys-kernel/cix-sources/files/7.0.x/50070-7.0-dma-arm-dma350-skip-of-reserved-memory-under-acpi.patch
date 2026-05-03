@@ -1,0 +1,32 @@
+diff --git a/drivers/dma/arm-dma350.c b/drivers/dma/arm-dma350.c
+--- a/drivers/dma/arm-dma350.c
++++ b/drivers/dma/arm-dma350.c
+@@ -1356,11 +1356,13 @@ static int d350_probe(struct platform_device *pdev)
+ 	dmac->base = base;
+ 	platform_set_drvdata(pdev, dmac);
+ 
+-	/* Initialize reserved memory region if specified in DT */
+-	ret = of_reserved_mem_device_init(dev);
+-	if (ret && ret != -ENODEV && ret != -EINVAL) {
+-		dev_err(dev, "Failed to initialize reserved memory: %d\n", ret);
+-		goto err_pm_put;
++	if (dev->of_node) {
++		/* Initialize reserved memory region if specified in DT */
++		ret = of_reserved_mem_device_init(dev);
++		if (ret && ret != -ENODEV && ret != -EINVAL) {
++			dev_err(dev, "Failed to initialize reserved memory: %d\n", ret);
++			goto err_pm_put;
++		}
+ 	}
+ 
+ 	reg = readl_relaxed(base + DMAINFO + DMA_BUILDCFG1);
+@@ -1560,7 +1562,8 @@ static void d350_remove(struct platform_device *pdev)
+ 		acpi_dma_controller_free(&pdev->dev);
+ 	of_dma_controller_free(pdev->dev.of_node);
+ 	dma_async_device_unregister(&dmac->dma);
+-	of_reserved_mem_device_release(&pdev->dev);
++	if (pdev->dev.of_node)
++		of_reserved_mem_device_release(&pdev->dev);
+ 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
+ }

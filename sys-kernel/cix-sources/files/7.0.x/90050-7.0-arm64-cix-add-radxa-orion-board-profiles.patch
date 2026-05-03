@@ -1,0 +1,193 @@
+diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+--- a/arch/arm64/Kconfig.platforms
++++ b/arch/arm64/Kconfig.platforms
+@@ -134,6 +134,42 @@ config ARCH_CIX
+ 	  This enables support for the Cixtech SoC family,
+ 	  like P1(sky1).
+ 
++menu "Radxa Orion board profiles"
++	depends on ARCH_CIX
++
++config CIX_RADXA_ORION_O6
++	bool "Radxa Orion O6 board profile"
++	help
++	  Enable conservative Kconfig defaults for Radxa Orion O6
++	  systems. This only makes the matching driver preset buckets
++	  visible; the buckets use imply so normal dependency handling
++	  and user overrides are preserved.
++
++config CIX_RADXA_ORION_O6N
++	bool "Radxa Orion O6N board profile"
++	help
++	  Enable conservative Kconfig defaults for Radxa Orion O6N
++	  systems. This intentionally shares the O6 driver buckets until
++	  a board-specific hardware difference is identified.
++
++choice
++	prompt "Radxa Orion firmware interface"
++	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N) && (ACPI || OF)
++	default CIX_RADXA_ORION_ACPI if ACPI
++	default CIX_RADXA_ORION_DT if OF
++
++config CIX_RADXA_ORION_ACPI
++	bool "ACPI firmware interface"
++	depends on ACPI
++
++config CIX_RADXA_ORION_DT
++	bool "Device Tree firmware interface"
++	depends on OF
++
++endchoice
++
++endmenu
++
+ config ARCH_EXYNOS
+ 	bool "Samsung Exynos SoC family"
+ 	select COMMON_CLK_SAMSUNG if OF
+diff --git a/drivers/platform/arm64/Kconfig b/drivers/platform/arm64/Kconfig
+--- a/drivers/platform/arm64/Kconfig
++++ b/drivers/platform/arm64/Kconfig
+@@ -91,3 +91,5 @@ config EC_LENOVO_THINKPAD_T14S
+ 	  Say M or Y here to include this support.
+ 
+ endif # ARM64_PLATFORM_DEVICES
++
++source "drivers/platform/arm64/Kconfig.radxa"
+diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconfig.radxa
+new file mode 100644
+--- /dev/null
++++ b/drivers/platform/arm64/Kconfig.radxa
+@@ -0,0 +1,133 @@
++# SPDX-License-Identifier: GPL-2.0-only
++#
++# Generated CIX/Radxa Orion board presets for Linux 7.0.x.
++# Driver preference for tristates: module.
++# This menu is intentionally conservative and only covers the driver
++# groups we were able to justify from firmware analysis and the validated
++# vendor patch stack.
++
++menu "Radxa Orion hardware driver presets"
++	depends on ARM64_PLATFORM_DEVICES
++	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++
++config CIX_RADXA_ESSENTIAL
++	bool "Essential drivers"
++	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default y
++	imply SERIAL_AMBA_PL011
++	imply SERIAL_AMBA_PL011_CONSOLE
++	imply ARM_SMMU_V3
++	imply PM_OPP
++	imply BLK_DEV_NVME
++	imply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
++	imply ACPI_FAN if CIX_RADXA_ORION_ACPI
++	imply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
++	help
++	  Keep the smallest always-on set that is useful on current
++	  Orion O6/O6N systems.
++
++menu "Optional drivers"
++	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++
++config CIX_RADXA_OPTIONAL_IO
++	tristate "Optional system bus / external I/O drivers"
++	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	imply R8126
++	imply TEE
++	imply OPTEE
++	imply USB_XHCI_HCD
++	imply USB_XHCI_PLATFORM
++	help
++	  Enable the storage, networking, trusted execution, and USB
++	  host drivers that are a reasonable default for Orion O6/O6N
++	  systems.
++
++config CIX_RADXA_OPTIONAL_PLATFORM
++	tristate "Optional platform bus / SoC glue drivers"
++	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	imply TYPEC
++	imply CIX_DDR_LP
++	imply CIX_CPU_IPA
++	imply USB_CDNS_SUPPORT
++	imply USB_CDNSP
++	imply USB_CDNSP_HOST
++	imply USB_CDNSP_SKY1
++	imply PHY_CIX_PCIE
++	imply PHY_CIX_USB2
++	imply PHY_CIX_USB3
++	imply PHY_CIX_USBDP
++	imply SKY1_PDC
++	imply I2C_CADENCE
++	imply GPIO_CADENCE
++	imply ARM_DMA350
++	imply MAILBOX if CIX_RADXA_ORION_ACPI
++	imply ARM_SCMI_PROTOCOL if CIX_RADXA_ORION_ACPI
++	imply ARM_SCMI_TRANSPORT_MAILBOX if CIX_RADXA_ORION_ACPI
++	imply ARM_SCMI_PERF_DOMAIN if CIX_RADXA_ORION_ACPI
++	imply ARM_SCMI_POWER_DOMAIN if CIX_RADXA_ORION_ACPI
++	imply CIX_MBOX if CIX_RADXA_ORION_ACPI
++	imply COMMON_CLK_SCMI if CIX_RADXA_ORION_ACPI
++	imply CLK_SKY1_ACPI if CIX_RADXA_ORION_ACPI
++	imply CIX_ACPI_RESOURCE_LOOKUP if CIX_RADXA_ORION_ACPI
++	imply CIX_BUS_PERF if CIX_RADXA_ORION_ACPI
++	help
++	  Enable the vendor Sky1 platform-resource plumbing used by
++	  the CIX ACPI and DT driver stack. CIX_SKY1_SOCINFO is
++	  intentionally not implied: tested Radxa Orion O6 firmware
++	  leaves the CIX OPN field zero, so that reporter is useful
++	  only when selected deliberately for diagnostics.
++
++config CIX_RADXA_OPTIONAL_DISPLAY
++	tristate "Optional display / GPU drivers"
++	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	imply FW_LOADER_COMPRESS
++	imply FW_LOADER_COMPRESS_XZ
++	imply DRM_PANTHOR
++	imply DRM_CIX
++	imply DRM_LINLONDP
++	imply DRM_TRILIN_DPSUB
++	help
++	  Enable the validated vendor display path for ACPI and DT.
++	  Internal bring-up switches remain outside this preset.
++
++config CIX_RADXA_OPTIONAL_ACCELERATORS
++	tristate "Optional accelerator drivers"
++	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	imply ARMCHINA_NPU
++	imply ARMCHINA_NPU_ARCH_V3
++	imply ARMCHINA_NPU_SOC_SKY1
++	help
++	  Enable accelerator drivers validated for Orion O6/O6N. The NPU
++	  presets include the Sky1 Zhouyi v3 SoC implementation when the
++	  vendor driver stack provides it.
++
++config CIX_RADXA_OPTIONAL_AUDIO
++	tristate "Optional audio drivers"
++	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	imply SND_HDA_CIX_IPBLOQ
++	imply SND_SOC_CIX
++	imply SND_SOC_CDNS_I2S_MC
++	imply SND_SOC_SKY1_SOUND_CARD
++	help
++	  Enable the ACPI-backed vendor audio stack validated for Orion O6.
++
++config CIX_RADXA_EXPERIMENTAL_DSP
++	tristate "Experimental DSP / SOF drivers"
++	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default n
++	imply CIX_DSP
++	imply CIX_DSP_RPROC
++	help
++	  Leave this disabled unless you are intentionally working on
++	  the vendor DSP / SOF enablement path.
++
++endmenu
++
++comment "O6 and O6N currently share the same vendor-backed buckets"
++
++endmenu

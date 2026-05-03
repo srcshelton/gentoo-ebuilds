@@ -1,0 +1,57 @@
+arm64: cix: make the ACPI SCMI clock stack built-in
+
+The Sky1 ACPI clock provider depends on SCMI over the CIX mailbox, and
+the SCMI mailbox transport probes during early ACPI enumeration.  If the
+SCMI core is built-in while the CIX mailbox provider is modular, boot
+falls into avoidable probe deferral until modules are loaded later.
+
+Select the Sky1 ACPI SCMI clock plumbing from a hidden ARCH_CIX/ACPI
+firmware-core symbol, so the mailbox provider, SCMI mailbox transport,
+SCMI clock provider and CLKT lookup provider are built-in together.  Keep
+the lower level dependency direction explicit as well: the CLKT provider
+depends on SCMI-over-CIX-mailbox, not the other way round.
+
+---
+diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
+--- a/drivers/clk/cix/Kconfig
++++ b/drivers/clk/cix/Kconfig
+@@ -1,9 +1,27 @@
+ # SPDX-License-Identifier: GPL-2.0-only
++config CIX_SKY1_ACPI_SCMI_CORE
++	bool
++	depends on ARM64 && ARCH_CIX && ACPI
++	default y
++	select MAILBOX
++	select ARM_SCMI_PROTOCOL
++	select ARM_SCMI_TRANSPORT_MAILBOX
++	select COMMON_CLK_SCMI
++	select CIX_MBOX
++	select CLK_SKY1_ACPI
++	help
++	  Build the Sky1 ACPI SCMI mailbox and CLKT clock lookup stack into
++	  the kernel.  These pieces are firmware-core plumbing on ACPI Sky1
++	  systems and must be available before later platform consumers probe.
+ 
+ config CLK_SKY1_ACPI
+ 	tristate "CIX Sky1 ACPI clock lookup table support"
+ 	depends on ACPI && COMMON_CLK_SCMI
+ 	depends on ARM64
++	depends on MAILBOX
++	depends on ARM_SCMI_PROTOCOL
++	depends on ARM_SCMI_TRANSPORT_MAILBOX
++	depends on CIX_MBOX
+ 	default ARCH_CIX
+ 	help
+ 	  Parses CLKT tables in the CIX Sky1 DSDT to connect ACPI
+diff --git a/drivers/mailbox/Kconfig b/drivers/mailbox/Kconfig
+--- a/drivers/mailbox/Kconfig
++++ b/drivers/mailbox/Kconfig
+@@ -371,7 +371,7 @@ config THEAD_TH1520_MBOX
+ config CIX_MBOX
+         tristate "CIX Mailbox"
+         depends on ARCH_CIX || COMPILE_TEST
+-        depends on OF
++        depends on OF || ACPI
+         help
+           Mailbox implementation for CIX IPC system. The controller supports
+           11 mailbox channels with different operating mode and every channel

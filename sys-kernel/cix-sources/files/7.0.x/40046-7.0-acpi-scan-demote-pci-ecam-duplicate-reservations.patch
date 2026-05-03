@@ -1,0 +1,86 @@
+ACPI: scan: demote duplicate PCI ECAM system reservations
+
+Linux 7.x reserves PNP0C01/PNP0C02 motherboard resources directly from
+drivers/acpi/scan.c instead of only via the legacy PNP system driver.
+Treat conflicts with the PCI ECAM resource as expected duplicate firmware
+descriptions and keep detail for any unexpected conflict.
+
+---
+diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+--- a/drivers/acpi/scan.c
++++ b/drivers/acpi/scan.c
+@@ -24,6 +24,7 @@
+ #include <linux/pgtable.h>
+ #include <linux/crc32.h>
+ #include <linux/dma-direct.h>
++#include <linux/string.h>
+ 
+ #include "internal.h"
+ #include "sleep.h"
+@@ -2460,6 +2461,11 @@ static void acpi_scan_delete_dep_data(struct acpi_dep_data *dep)
+ 	kfree(dep);
+ }
+ 
++static bool acpi_scan_is_pci_ecam_conflict(struct resource *conflict)
++{
++	return conflict && conflict->name && !strcmp(conflict->name, "PCI ECAM");
++}
++
+ static int acpi_scan_clear_dep(struct acpi_dep_data *dep, void *data)
+ {
+ 	struct acpi_device *adev = acpi_get_acpi_dev(dep->consumer);
+@@ -2639,6 +2645,7 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
+ 
+ 	list_for_each_entry(rentry, &resource_list, node) {
+ 		struct resource *res = rentry->res;
++		struct resource *conflict = NULL;
+ 		struct resource *r;
+ 
+ 		/* Skip disabled and invalid resources. */
+@@ -2657,7 +2664,19 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
+ 			}
+ 			r = request_region(res->start, resource_size(res), regionid);
+ 		} else if (resource_type(res) == IORESOURCE_MEM) {
+-			r = request_mem_region(res->start, resource_size(res), regionid);
++			r = kzalloc(sizeof(*r), GFP_KERNEL);
++			if (!r)
++				continue;
++
++			r->name = regionid;
++			r->start = res->start;
++			r->end = res->end;
++			r->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
++			conflict = request_resource_conflict(&iomem_resource, r);
++			if (conflict) {
++				kfree(r);
++				r = NULL;
++			}
+ 		} else {
+ 			continue;
+ 		}
+@@ -2666,13 +2685,24 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
+ 			r->flags &= ~IORESOURCE_BUSY;
+ 			dev_info(&adev->dev, "Reserved %pR\n", r);
+ 			count++;
++		} else if (acpi_scan_is_pci_ecam_conflict(conflict)) {
++			dev_dbg(&adev->dev, "%pR already reserved by PCI ECAM\n",
++				res);
+ 		} else {
+ 			/*
+ 			 * Failures at this point are usually harmless. PCI
+ 			 * quirks, for example, reserve resources they know
+ 			 * about too, so there may well be double reservations.
+ 			 */
+-			dev_info(&adev->dev, "Could not reserve %pR\n", res);
++			if (conflict)
++				dev_info(&adev->dev,
++					 "Could not reserve %pR; conflicts with %pR (%s, desc %lu)\n",
++					 res, conflict,
++					 conflict->name ?: "unknown",
++					 conflict->desc);
++			else
++				dev_info(&adev->dev, "Could not reserve %pR\n",
++					 res);
+ 		}
+ 	}
+ 

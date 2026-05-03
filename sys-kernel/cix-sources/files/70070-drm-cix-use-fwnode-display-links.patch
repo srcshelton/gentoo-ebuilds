@@ -1,0 +1,64 @@
+drm: cix: use fwnode panel links under ACPI stub-FDT
+
+diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
+--- a/drivers/gpu/drm/cix/dptx/Kconfig
++++ b/drivers/gpu/drm/cix/dptx/Kconfig
+@@ -7,6 +7,7 @@ config DRM_TRILIN_DPSUB
+ 	select DRM_DISPLAY_DP_HELPER
+ 	select DRM_DISPLAY_HDMI_HELPER
+ 	select DRM_DP_AUX_CHARDEV
++	select DRM_PANEL_BRIDGE
+ 	select GENERIC_PHY
+ 	select BACKLIGHT_CLASS_DEVICE
+ 	select SND_SOC_HDMI_CODEC if SND_SOC
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -3345,18 +3345,21 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	dev = &pdev->dev;
+ 	fwnode_edp_panel = fwnode_find_reference(dev->fwnode, "edp-panel", 0);
+ 	if (!IS_ERR_OR_NULL(fwnode_edp_panel)) {
+-		struct device_node *np = to_of_node(fwnode_edp_panel);
++		edp_panel = drm_panel_find_by_fwnode(fwnode_edp_panel);
++		fwnode_handle_put(fwnode_edp_panel);
++		if (IS_ERR(edp_panel)) {
++			ret = PTR_ERR(edp_panel);
++			edp_panel = NULL;
+ 
+-		if (np) {
+-			edp_panel = of_drm_find_panel(np);
+-			if (IS_ERR(edp_panel)) {
+-				dev_err(dev, "%s, invalid drm_panel\n", __func__);
+-				return PTR_ERR(edp_panel);
+-			} else
+-				dev_info(dev, "%s, edp-panel %s is found\n", __func__,
+-					 dev_name(edp_panel->dev));
++			if (ret != -ENODEV)
++				return dev_err_probe(dev, ret,
++						     "failed to find edp-panel\n");
++
++			dev_dbg(dev, "edp-panel reference is not available\n");
++		} else {
++			dev_info(dev, "%s, edp-panel %s is found\n", __func__,
++				 dev_name(edp_panel->dev));
+ 		}
+-		fwnode_handle_put(fwnode_edp_panel);
+ 	}
+ 
+ 	dp = devm_kzalloc(dpsub->dev, sizeof(*dp), GFP_KERNEL);
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -165,7 +165,11 @@ static int trilin_dptx_cix_bind(struct device *comp, struct device *master,
+ 	{
+ 		struct drm_bridge *bridge;
+ 
+-		bridge = devm_drm_of_get_bridge(comp, comp->of_node, 2, 0);
++		if (has_acpi_companion(comp))
++			bridge = devm_drm_fwnode_get_panel_bridge(comp, comp->fwnode,
++								   2, 0);
++		else
++			bridge = devm_drm_of_get_bridge(comp, comp->of_node, 2, 0);
+ 		if (IS_ERR(bridge)) {
+ 			if (PTR_ERR(bridge) == -EPROBE_DEFER)
+ 				return -EPROBE_DEFER;

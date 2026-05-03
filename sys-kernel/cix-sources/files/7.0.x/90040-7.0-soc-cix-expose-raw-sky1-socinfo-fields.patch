@@ -1,0 +1,83 @@
+soc: cix: expose raw Sky1 SoC-info decode fields
+
+The vendor DTB confirms the raw OPN nvmem cell and firmware SRAM aperture,
+but not enough semantic information to prove every OPN decode table entry.
+Expose the raw OPN, decoded field values, and board ID through sysfs and
+log them once at probe so the mapping can be reconstructed from real units.
+
+---
+diff --git a/drivers/soc/cix/sky1-socinfo.c b/drivers/soc/cix/sky1-socinfo.c
+--- a/drivers/soc/cix/sky1-socinfo.c
++++ b/drivers/soc/cix/sky1-socinfo.c
+@@ -335,6 +335,26 @@ static void sky1_parse_opn(struct sky1_socinfo *info)
+ 					  sky1_revision_str(revision));
+ }
+ 
++static u32 sky1_opn_revision(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_REVISION_MASK, info->opn);
++}
++
++static u32 sky1_opn_roadmap(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_ROADMAP_MASK, info->opn);
++}
++
++static u32 sky1_opn_model(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_MODEL_MASK, info->opn);
++}
++
++static u32 sky1_opn_segment(const struct sky1_socinfo *info)
++{
++	return FIELD_GET(OPN_SEGMENT_MASK, info->opn);
++}
++
+ static ssize_t firmware_version_show(struct device *dev,
+ 				     struct device_attribute *attr, char *buf)
+ {
+@@ -389,10 +409,32 @@ static ssize_t cix_opn_info_show(struct device *dev,
+ }
+ static DEVICE_ATTR_RO(cix_opn_info);
+ 
++static ssize_t cix_opn_raw_show(struct device *dev,
++				struct device_attribute *attr, char *buf)
++{
++	struct sky1_socinfo *info = sky1_socinfo_sysfs;
++
++	if (!info)
++		return -ENODEV;
++
++	return sysfs_emit(buf,
++			  "OPN raw: 0x%016llx\n"
++			  "OPN revision: 0x%x\n"
++			  "OPN roadmap: 0x%x\n"
++			  "OPN model: 0x%x\n"
++			  "OPN segment: 0x%x\n"
++			  "Board ID raw: 0x%04x\n",
++			  (unsigned long long)info->opn, sky1_opn_revision(info),
++			  sky1_opn_roadmap(info), sky1_opn_model(info),
++			  sky1_opn_segment(info), info->board_id_raw);
++}
++static DEVICE_ATTR_RO(cix_opn_raw);
++
+ static struct attribute *sky1_socinfo_attrs[] = {
+ 	&dev_attr_firmware_version.attr,
+ 	&dev_attr_board_info.attr,
+ 	&dev_attr_cix_opn_info.attr,
++	&dev_attr_cix_opn_raw.attr,
+ 	NULL,
+ };
+ ATTRIBUTE_GROUPS(sky1_socinfo);
+@@ -445,6 +487,11 @@ static int sky1_socinfo_probe(struct platform_device *pdev)
+ 		return dev_err_probe(&pdev->dev, ret, "Failed to read OPN\n");
+ 
+ 	sky1_parse_opn(info);
++	dev_info(&pdev->dev,
++		 "raw OPN=0x%016llx revision=0x%x roadmap=0x%x model=0x%x segment=0x%x board_id=0x%04x\n",
++		 (unsigned long long)info->opn, sky1_opn_revision(info),
++		 sky1_opn_roadmap(info), sky1_opn_model(info),
++		 sky1_opn_segment(info), info->board_id_raw);
+ 
+ 	/* Set up soc_device attributes */
+ 	soc_attr = devm_kzalloc(&pdev->dev, sizeof(*soc_attr), GFP_KERNEL);

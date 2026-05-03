@@ -1,0 +1,164 @@
+phy: cix: enable ACPI stub-FDT PHY enumeration on 6.18
+
+diff --git a/drivers/phy/cix/Kconfig b/drivers/phy/cix/Kconfig
+--- a/drivers/phy/cix/Kconfig
++++ b/drivers/phy/cix/Kconfig
+@@ -3,7 +3,7 @@
+ config PHY_CIX_PCIE
+ 	bool "CIX Sky1 PCIe PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+-	depends on OF
++	depends on ACPI || OF
+ 	select REGMAP
+ 	select GENERIC_PHY
+ 	help
+@@ -14,7 +14,7 @@ config PHY_CIX_PCIE
+ config PHY_CIX_USB2
+ 	bool "CIX Sky1 USB2 PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+-	depends on OF
++	depends on ACPI || OF
+ 	select GENERIC_PHY
+ 	help
+ 	  Enable this to support the USB2 PHY on CIX Sky1 SoCs.
+@@ -22,7 +22,7 @@ config PHY_CIX_USB2
+ config PHY_CIX_USB3
+ 	bool "CIX Sky1 USB3 PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+-	depends on OF
++	depends on ACPI || OF
+ 	select REGMAP
+ 	select GENERIC_PHY
+ 	help
+@@ -31,7 +31,7 @@ config PHY_CIX_USB3
+ config PHY_CIX_USBDP
+ 	tristate "CIX Sky1 USB-DP combo PHY driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+-	depends on OF
++	depends on ACPI || OF
+ 	depends on TYPEC || TYPEC=n
+ 	select REGMAP
+ 	select GENERIC_PHY
+diff --git a/drivers/phy/cix/phy-cix-pcie.c b/drivers/phy/cix/phy-cix-pcie.c
+--- a/drivers/phy/cix/phy-cix-pcie.c
++++ b/drivers/phy/cix/phy-cix-pcie.c
+@@ -560,7 +560,9 @@ static int cix_pcie_phy_probe(struct platform_device *pdev)
+ 		}
+ 
+ 		pcie_phy->num_lanes += pcie_phy->phy_instances[node].num_lanes;
+-		gphy = devm_phy_create(dev, to_of_node(child), &ops);
++		gphy = devm_phy_create(dev,
++				       dev->of_node ? to_of_node(child) : NULL,
++				       &ops);
+ 
+ 		if (IS_ERR(gphy)) {
+ 			ret = PTR_ERR(gphy);
+diff --git a/drivers/phy/cix/phy-cix-usb3.c b/drivers/phy/cix/phy-cix-usb3.c
+--- a/drivers/phy/cix/phy-cix-usb3.c
++++ b/drivers/phy/cix/phy-cix-usb3.c
+@@ -357,7 +357,7 @@ static int cix_u3phy_probe(struct platform_device *pdev)
+ 
+ 	u3phy->cfg = device_get_match_data(dev);
+ 	if (!u3phy->cfg) {
+-		dev_err(dev, "no OF data can be matched with %p node\n", np);
++		dev_err(dev, "no match data can be found for %p node\n", np);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -393,11 +393,15 @@ static int cix_u3phy_probe(struct platform_device *pdev)
+ 		return PTR_ERR(u3phy->phy_regmap);
+ 	}
+ 
+-	u3phy->usbphy_syscon =
+-		syscon_regmap_lookup_by_phandle(dev->of_node,
+-					"cix,usbphy_syscon");
+-	if (IS_ERR(u3phy->usbphy_syscon)) {
+-		dev_dbg(dev, "usbphy syscon not available\n");
++	if (dev->of_node) {
++		u3phy->usbphy_syscon =
++			syscon_regmap_lookup_by_phandle(dev->of_node,
++						"cix,usbphy_syscon");
++		if (IS_ERR(u3phy->usbphy_syscon)) {
++			dev_dbg(dev, "usbphy syscon not available\n");
++			u3phy->usbphy_syscon = NULL;
++		}
++	} else {
+ 		u3phy->usbphy_syscon = NULL;
+ 	}
+ 
+@@ -406,7 +410,7 @@ static int cix_u3phy_probe(struct platform_device *pdev)
+ 	device_for_each_child_node(dev, child_fn) {
+ 		struct phy *phy;
+ 
+-		child_np = to_of_node(child_fn);
++		child_np = dev->of_node ? to_of_node(child_fn) : NULL;
+ 
+ 		if (!strncmp(fwnode_get_name(child_fn), "usb-port", 8)
+ 			|| !strncmp(fwnode_get_name(child_fn), "USB", 3))
+@@ -425,10 +429,12 @@ static int cix_u3phy_probe(struct platform_device *pdev)
+ 		phy_create_lookup(phy, fwnode_get_name(child_fn), dev_name(dev));
+ 	}
+ 
+-	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
+-	if (IS_ERR(phy_provider)) {
+-		dev_err(dev, "failed to register phy provider\n");
+-		goto put_child;
++	if (dev->of_node) {
++		phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
++		if (IS_ERR(phy_provider)) {
++			dev_err(dev, "failed to register phy provider\n");
++			goto put_child;
++		}
+ 	}
+ 
+ 	reset_control_assert(u3phy->reset);
+diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
+--- a/drivers/phy/cix/phy-cix-usbdp.c
++++ b/drivers/phy/cix/phy-cix-usbdp.c
+@@ -1447,7 +1447,10 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 	dev_set_drvdata(dev, udphy);
+ 	udphy->dev = dev;
+ 
+-	id = of_alias_get_id(dev->of_node, "usbdpphy");
++	if (dev->of_node)
++		id = of_alias_get_id(dev->of_node, "usbdpphy");
++	else
++		id = -ENODEV;
+ 	if (id < 0)
+ 		if (device_property_read_u32(dev, "id", &id) < 0)
+ 			id = 0;
+@@ -1455,7 +1458,7 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 
+ 	udphy->cfg = device_get_match_data(dev);
+ 	if (!udphy->cfg) {
+-		dev_err(dev, "no OF data can be matched with %p node\n", np);
++		dev_err(dev, "no match data can be found for %p node\n", np);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1579,7 +1582,7 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 	device_for_each_child_node(dev, child_fn) {
+ 		struct phy *phy;
+ 
+-		child_np = to_of_node(child_fn);
++		child_np = dev->of_node ? to_of_node(child_fn) : NULL;
+ 
+ 		if (!strncmp(fwnode_get_name(child_fn), "dp-port", 7)
+ 			|| !strncmp(fwnode_get_name(child_fn), "UDPP", 4)) {
+@@ -1603,10 +1606,12 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 		phy_create_lookup(phy, fwnode_get_name(child_fn), dev_name(dev));
+ 	}
+ 
+-	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
+-	if (IS_ERR(phy_provider)) {
+-		dev_err(dev, "failed to register phy provider\n");
+-		goto put_child;
++	if (dev->of_node) {
++		phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
++		if (IS_ERR(phy_provider)) {
++			dev_err(dev, "failed to register phy provider\n");
++			goto put_child;
++		}
+ 	}
+ 	if (!device_property_present(dev, "mode-switch")) {
+ 		if (udphy->next_mode == UDPHY_MODE_NONE) {

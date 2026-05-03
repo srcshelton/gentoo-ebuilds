@@ -4,7 +4,7 @@
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
-K_GENPATCHES_VER="15"
+K_GENPATCHES_VER="35"
 #K_BASE_VER="${PV}"
 
 K_SECURITY_UNSUPPORTED=1
@@ -64,7 +64,6 @@ PATCHES=(
 	"${FILESDIR}"/10020-lld-timer-of-table-end-warning.patch
 	"${FILESDIR}"/80000-rtl8126-disable-vpd.patch
 	"${FILESDIR}"/80050-pci-rtl8126-disable-vpd-quietly.patch
-	"${FILESDIR}"/80070-pci-disable-aspm-for-sky1-smmu-faulting-endpoints.patch
 )
 
 pkg_setup() {
@@ -106,7 +105,7 @@ src_prepare() {
 
 		case "${pf}" in
 			0065-treewide-Add-ACPI-device-IDs-for-CIX-Sky1-SoC-periph.patch)
-				eapply "${FILESDIR}"/6.18.x/40006-6.18.14-add-remaining-sky1-acpi-device-ids.patch || die
+				eapply "${FILESDIR}"/6.18.x/40005-6.18.32-add-remaining-sky1-acpi-device-ids.patch || die
 				return
 				;;
 		esac
@@ -161,8 +160,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/6.18.x/50040-6.18.32-pwm-sky1-fix-kconfig-entry.patch || die
 	eapply "${FILESDIR}"/6.18.x/73000-6.18-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
-	eapply "${FILESDIR}"/6.18.x/73010-6.18-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
-	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
 	eapply "${FILESDIR}"/6.18.x/30015-6.18-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
 	eapply "${FILESDIR}"/30030-scmi-demote-unsupported-fastchannel-fallback.patch || die
 	eapply "${FILESDIR}"/30070-opp-tolerate-unsupported-interconnect-paths.patch || die
@@ -195,7 +192,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/80030-cadence-macb-restore-pc302gem-config-scope.patch || die
 	eapply "${FILESDIR}"/80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch || die
 	eapply "${FILESDIR}"/40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch || die
-	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
 	eapply "${FILESDIR}"/6.18.x/30020-6.18-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
 	eapply "${FILESDIR}"/6.18.x/30160-6.18-scmi-handle-acpi-debugfs-fallbacks.patch || die
 	eapply "${FILESDIR}"/6.18.x/50050-6.18-sky1-acpi-runtime-driver-fixes.patch || die
@@ -205,7 +201,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/72050-6.18-armchina-npu-prefer-dma-api-on-acpi.patch || die
 	eapply "${FILESDIR}"/6.18.x/80020-6.18-rtw89-check-acpi-dsm-before-evaluating.patch || die
 	eapply "${FILESDIR}"/6.18.x/90000-6.18-soc-cix-add-acpi-runtime-drivers.patch || die
-	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
 	eapply "${FILESDIR}"/6.18.x/72055-6.18.32-armchina-npu-clarify-acpi-dma-api-memory-management-log.patch || die
 	eapply "${FILESDIR}"/60070-usb-typec-add-provider-fwnode-control-lookups.patch || die
 	eapply "${FILESDIR}"/6.18.x/60120-6.18-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch || die
@@ -217,11 +212,8 @@ src_prepare() {
 	eapply "${FILESDIR}"/72080-armchina-npu-harden-probe-and-runtime-pm-error-handling.patch || die
 	eapply "${FILESDIR}"/72090-armchina-npu-clean-up-dmabuf-sg-mappings.patch || die
 	eapply "${FILESDIR}"/72095-armchina-npu-defer-dmabuf-backing-free-to-release.patch || die
-	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
-	eapply "${FILESDIR}"/6.18.x/80081-6.18.14-28-cix-sky1-declare-module-softdeps.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/6.18.x/90050-6.18-arm64-cix-add-radxa-orion-board-profiles.patch || die
-		eapply "${FILESDIR}"/90055-arm64-cix-tighten-radxa-typec-profile-selections.patch || die
 	fi
 
 	kernel-2_src_prepare

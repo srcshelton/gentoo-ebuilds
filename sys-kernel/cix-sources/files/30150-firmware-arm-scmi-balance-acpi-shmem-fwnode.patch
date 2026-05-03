@@ -1,0 +1,32 @@
+firmware: arm_scmi: balance ACPI shmem fwnode references
+
+fwnode_property_get_reference_args() returns a referenced fwnode. The ACPI
+SCMI shmem path leaked that reference, and also collapsed all reference parse
+errors to -ENODEV. Preserve the original parse error and release the reference
+on both lookup success and failure.
+
+---
+diff --git a/drivers/firmware/arm_scmi/shmem.c b/drivers/firmware/arm_scmi/shmem.c
+--- a/drivers/firmware/arm_scmi/shmem.c
++++ b/drivers/firmware/arm_scmi/shmem.c
+@@ -250,7 +250,7 @@ static void __iomem *shmem_setup_iomap(struct scmi_chan_info *cinfo,
+ 		if (ret) {
+ 			dev_err(cdev, "no SCMI %s shmem reference (idx=%d): %d\n",
+ 				desc, idx, ret);
+-			return IOMEM_ERR_PTR(-ENODEV);
++			return IOMEM_ERR_PTR(ret);
+ 		}
+ 
+ 		/* SHM0/SHM1 are ACPI devices -> platform devices */
+@@ -258,8 +258,10 @@ static void __iomem *shmem_setup_iomap(struct scmi_chan_info *cinfo,
+ 		if (!shmdev) {
+ 			dev_err(cdev, "SCMI %s shmem device not found for %pfw\n",
+ 				desc, args.fwnode);
+-			return IOMEM_ERR_PTR(-ENODEV);
++			fwnode_handle_put(args.fwnode);
++			return IOMEM_ERR_PTR(-EPROBE_DEFER);
+ 		}
++		fwnode_handle_put(args.fwnode);
+ 
+ 		/* Optional sanity check: ACPI provides "compatible"="arm,scmi-shmem" */
+ 		if (device_property_match_string(shmdev, "compatible",

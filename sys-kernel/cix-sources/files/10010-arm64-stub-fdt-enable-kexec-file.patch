@@ -1,0 +1,66 @@
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1603,12 +1603,12 @@ config ARCH_SUPPORTS_KEXEC
+ 	def_bool PM_SLEEP_SMP
+ 
+ config ARCH_SUPPORTS_KEXEC_FILE
+-	def_bool OF
++	def_bool OF || OF_STUB
+ 
+ config ARCH_SELECTS_KEXEC_FILE
+ 	def_bool y
+ 	depends on KEXEC_FILE
+-	select HAVE_IMA_KEXEC if IMA
++	select HAVE_IMA_KEXEC if IMA && OF
+ 
+ config ARCH_SUPPORTS_KEXEC_SIG
+ 	def_bool y
+diff --git a/drivers/of/Makefile b/drivers/of/Makefile
+--- a/drivers/of/Makefile
++++ b/drivers/of/Makefile
+@@ -13,13 +13,13 @@ obj-$(CONFIG_OF_RESOLVE)  += resolver.o
+ obj-$(CONFIG_OF_OVERLAY) += overlay.o
+ obj-$(CONFIG_OF_NUMA) += of_numa.o
+ 
+-ifdef CONFIG_OF
+ ifdef CONFIG_KEXEC_FILE
+ ifdef CONFIG_OF_FLATTREE
+ obj-y	+= kexec.o
+ endif
+ endif
+ 
++ifdef CONFIG_OF
+ obj-$(CONFIG_KUNIT) += of_kunit_helpers.o
+ endif
+ obj-$(CONFIG_OF_KUNIT_TEST) += of_test.o
+diff --git a/include/linux/of.h b/include/linux/of.h
+--- a/include/linux/of.h
++++ b/include/linux/of.h
+@@ -469,11 +469,6 @@ int of_map_id(const struct device_node *np, u32 id,
+ 
+ phys_addr_t of_dma_get_max_cpu_address(struct device_node *np);
+ 
+-struct kimage;
+-void *of_kexec_alloc_and_setup_fdt(const struct kimage *image,
+-				   unsigned long initrd_load_addr,
+-				   unsigned long initrd_len,
+-				   const char *cmdline, size_t extra_fdt_size);
+ #else /* CONFIG_OF */
+ 
+ static inline void of_core_init(void)
+@@ -950,6 +945,14 @@ static inline const void *of_device_get_match_data(const struct device *dev)
+ #define of_match_node(_matches, _node)	NULL
+ #endif /* CONFIG_OF */
+ 
++#if defined(CONFIG_KEXEC_FILE) && defined(CONFIG_OF_FLATTREE)
++struct kimage;
++void *of_kexec_alloc_and_setup_fdt(const struct kimage *image,
++				   unsigned long initrd_load_addr,
++				   unsigned long initrd_len,
++				   const char *cmdline, size_t extra_fdt_size);
++#endif
++
+ /* Default string compare functions, Allow arch asm/prom.h to override */
+ #if !defined(of_compat_cmp)
+ #define of_compat_cmp(s1, s2, l)	strcasecmp((s1), (s2))

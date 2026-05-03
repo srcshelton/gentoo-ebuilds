@@ -1,0 +1,135 @@
+pstore: ramoops: parse firmware-node properties
+
+ACPI PRP0001 devices can describe ramoops with a normal memory resource
+and _DSD device properties, but ramoops only parses platform data or
+Device Tree properties.  Use the generic device property API so ACPI
+firmware nodes can provide the same binding data without board-specific
+module parameters.
+
+Keep the legacy Chromebook reserved-memory fallback limited to OF nodes,
+where the parent-node relationship exists and where the compatibility quirk
+was originally needed.
+
+diff --git a/fs/pstore/ram.c b/fs/pstore/ram.c
+--- a/fs/pstore/ram.c
++++ b/fs/pstore/ram.c
+@@ -20,6 +20,7 @@
+ #include <linux/compiler.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
++#include <linux/property.h>
+ #include <linux/mm.h>
+ 
+ #include "internal.h"
+@@ -615,15 +616,15 @@ static int ramoops_init_prz(const char *name,
+ 	return 0;
+ }
+ 
+-/* Read a u32 from a dt property and make sure it's safe for an int. */
+-static int ramoops_parse_dt_u32(struct platform_device *pdev,
+-				const char *propname,
+-				u32 default_value, u32 *value)
++/* Read a u32 from a device property and make sure it's safe for an int. */
++static int ramoops_parse_prop_u32(struct platform_device *pdev,
++				  const char *propname,
++				  u32 default_value, u32 *value)
+ {
+ 	u32 val32 = 0;
+ 	int ret;
+ 
+-	ret = of_property_read_u32(pdev->dev.of_node, propname, &val32);
++	ret = device_property_read_u32(&pdev->dev, propname, &val32);
+ 	if (ret == -EINVAL) {
+ 		/* field is missing, use default value. */
+ 		val32 = default_value;
+@@ -643,21 +644,19 @@ static int ramoops_parse_dt_u32(struct platform_device *pdev,
+ 	return 0;
+ }
+ 
+-static int ramoops_parse_dt(struct platform_device *pdev,
+-			    struct ramoops_platform_data *pdata)
++static int ramoops_parse_properties(struct platform_device *pdev,
++				    struct ramoops_platform_data *pdata)
+ {
+-	struct device_node *of_node = pdev->dev.of_node;
+-	struct device_node *parent_node;
++	struct device *dev = &pdev->dev;
+ 	struct resource *res;
+ 	u32 value;
+ 	int ret;
+ 
+-	dev_dbg(&pdev->dev, "using Device Tree\n");
++	dev_dbg(dev, "using device properties\n");
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!res) {
+-		dev_err(&pdev->dev,
+-			"failed to locate DT /reserved-memory resource\n");
++		dev_err(dev, "failed to locate memory resource\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -667,19 +666,19 @@ static int ramoops_parse_dt(struct platform_device *pdev,
+ 	 * Setting "unbuffered" is deprecated and will be ignored if
+ 	 * "mem_type" is also specified.
+ 	 */
+-	pdata->mem_type = of_property_read_bool(of_node, "unbuffered");
++	pdata->mem_type = device_property_read_bool(dev, "unbuffered");
+ 	/*
+ 	 * Setting "no-dump-oops" is deprecated and will be ignored if
+ 	 * "max_reason" is also specified.
+ 	 */
+-	if (of_property_read_bool(of_node, "no-dump-oops"))
++	if (device_property_read_bool(dev, "no-dump-oops"))
+ 		pdata->max_reason = KMSG_DUMP_PANIC;
+ 	else
+ 		pdata->max_reason = KMSG_DUMP_OOPS;
+ 
+ #define parse_u32(name, field, default_value) {				\
+-		ret = ramoops_parse_dt_u32(pdev, name, default_value,	\
+-					    &value);			\
++		ret = ramoops_parse_prop_u32(pdev, name, default_value,	\
++					     &value);			\
+ 		if (ret < 0)						\
+ 			return ret;					\
+ 		field = value;						\
+@@ -707,14 +706,18 @@ static int ramoops_parse_dt(struct platform_device *pdev,
+ 	 * we're not a child of "reserved-memory" and mimicking the
+ 	 * expected behavior.
+ 	 */
+-	parent_node = of_get_parent(of_node);
+-	if (!of_node_name_eq(parent_node, "reserved-memory") &&
+-	    !pdata->console_size && !pdata->ftrace_size &&
+-	    !pdata->pmsg_size && !pdata->ecc_info.ecc_size) {
+-		pdata->console_size = pdata->record_size;
+-		pdata->pmsg_size = pdata->record_size;
++	if (dev_of_node(dev)) {
++		struct device_node *parent_node;
++
++		parent_node = of_get_parent(dev->of_node);
++		if (!of_node_name_eq(parent_node, "reserved-memory") &&
++		    !pdata->console_size && !pdata->ftrace_size &&
++		    !pdata->pmsg_size && !pdata->ecc_info.ecc_size) {
++			pdata->console_size = pdata->record_size;
++			pdata->pmsg_size = pdata->record_size;
++		}
++		of_node_put(parent_node);
+ 	}
+-	of_node_put(parent_node);
+ 
+ 	return 0;
+ }
+@@ -738,11 +741,11 @@ static int ramoops_probe(struct platform_device *pdev)
+ 		goto fail_out;
+ 	}
+ 
+-	if (dev_of_node(dev) && !pdata) {
++	if (dev_fwnode(dev) && !pdata) {
+ 		pdata = &pdata_local;
+ 		memset(pdata, 0, sizeof(*pdata));
+ 
+-		err = ramoops_parse_dt(pdev, pdata);
++		err = ramoops_parse_properties(pdev, pdata);
+ 		if (err < 0)
+ 			goto fail_out;
+ 	}

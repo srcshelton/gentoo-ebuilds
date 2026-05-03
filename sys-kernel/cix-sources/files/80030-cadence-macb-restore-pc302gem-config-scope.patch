@@ -1,0 +1,35 @@
+net: cadence: keep pc302 GEM config visible to all users
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -4745,6 +4745,14 @@ static const struct macb_usrio_config macb_default_usrio = {
+ 	.refclk = MACB_BIT(CLKEN),
+ };
+ 
++static const struct macb_config pc302gem_config = {
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.dma_burst_length = 16,
++	.clk_init = macb_clk_init,
++	.init = macb_init,
++	.usrio = &macb_default_usrio,
++};
++
+ #if defined(CONFIG_OF)
+ /* 1518 rounded up */
+ #define AT91ETHER_MAX_RBUFF_SZ	0x600
+@@ -5352,14 +5360,6 @@ static const struct macb_config sama5d3macb_config = {
+ 	.usrio = &macb_default_usrio,
+ };
+ 
+-static const struct macb_config pc302gem_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
+-	.dma_burst_length = 16,
+-	.clk_init = macb_clk_init,
+-	.init = macb_init,
+-	.usrio = &macb_default_usrio,
+-};
+-
+ static const struct macb_config sama5d2_config = {
+ 	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_JUMBO,
+ 	.dma_burst_length = 16,

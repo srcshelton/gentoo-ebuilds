@@ -1,0 +1,33 @@
+PCI: vpd: disable RTL8126 VPD without emitting firmware warnings
+
+The RTL8126 VPD quirk is expected on Orion O6 and only suppresses optional
+VPD access.  Use a quiet helper for this device so normal boots do not look
+like they hit a live PCI firmware error.
+
+---
+diff --git a/drivers/pci/vpd.c b/drivers/pci/vpd.c
+--- a/drivers/pci/vpd.c
++++ b/drivers/pci/vpd.c
+@@ -578,6 +578,13 @@ static void quirk_blacklist_vpd(struct pci_dev *dev)
+ 	dev->vpd.len = PCI_VPD_SZ_INVALID;
+ 	pci_warn(dev, FW_BUG "disabling VPD access (can't determine size of non-standard VPD format)\n");
+ }
++
++static void quirk_disable_vpd(struct pci_dev *dev)
++{
++	dev->vpd.cap = 0;
++	dev->vpd.len = PCI_VPD_SZ_INVALID;
++}
++
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x0060, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x007c, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x0413, quirk_blacklist_vpd);
+@@ -590,7 +597,7 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x002f, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x005d, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x005f, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ATTANSIC, PCI_ANY_ID, quirk_blacklist_vpd);
+-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_REALTEK, 0x8126, quirk_blacklist_vpd);
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_REALTEK, 0x8126, quirk_disable_vpd);
+ /*
+  * The Amazon Annapurna Labs 0x0031 device id is reused for other non Root Port
+  * device types, so the quirk is registered for the PCI_CLASS_BRIDGE_PCI class.

@@ -1,0 +1,95 @@
+soc: cix: ignore disabled ACPI devices during Sky1 model arbitration
+
+The Orion O6 DSDT override keeps duplicate vendor PCIe/USB namespace
+objects present but marks them not present with _STA = 0. acpi_get_devices()
+still sees those namespace objects, so the arbitration helpers should only
+treat ACPI devices as present after ACPI core status evaluation says they
+are present or functional.
+
+Also demote the per-device arbitration messages to debug; the one-time
+handler registration message remains visible.
+
+Use acpi_fetch_acpi_dev() on Linux 7.x; acpi_bus_get_device() is no longer
+available.
+
+---
+diff --git a/drivers/soc/cix/cix-acpi-pcie-scan.c b/drivers/soc/cix/cix-acpi-pcie-scan.c
+--- a/drivers/soc/cix/cix-acpi-pcie-scan.c
++++ b/drivers/soc/cix/cix-acpi-pcie-scan.c
+@@ -22,8 +22,15 @@ static bool sky1_pcie_acpi_detected;
+ static acpi_status sky1_pcie_match_handle(acpi_handle handle, u32 level,
+ 					  void *context, void **ret)
+ {
++	struct acpi_device *adev = acpi_fetch_acpi_dev(handle);
+ 	bool *present = context;
+ 
++	if (!adev)
++		return AE_OK;
++
++	if (!adev->status.present && !adev->status.functional)
++		return AE_OK;
++
+ 	*present = true;
+ 	return AE_CTRL_TERMINATE;
+ }
+@@ -45,15 +52,15 @@ static int sky1_pcie_scan_attach(struct acpi_device *adev,
+ 
+ 	if (!strcmp(id->id, "PNP0A08")) {
+ 		if (sky1_pcie_acpi_id_present("CIXH2020"))
+-			dev_info(&adev->dev,
+-				 "Sky1 PCIe: keeping PNP0A08, suppressing CIXH2020 instead\n");
++			dev_dbg(&adev->dev,
++				"Sky1 PCIe: keeping PNP0A08, suppressing CIXH2020 instead\n");
+ 		return 0;
+ 	}
+ 
+ 	if (sky1_pcie_acpi_id_present("PNP0A08")) {
+-		dev_info(&adev->dev,
+-			 "Sky1 PCIe: suppressing %s because PNP0A08 is present\n",
+-			 id->id);
++		dev_dbg(&adev->dev,
++			"Sky1 PCIe: suppressing %s because PNP0A08 is present\n",
++			id->id);
+ 		return 1;
+ 	}
+ 
+diff --git a/drivers/soc/cix/cix-acpi-usb-scan.c b/drivers/soc/cix/cix-acpi-usb-scan.c
+--- a/drivers/soc/cix/cix-acpi-usb-scan.c
++++ b/drivers/soc/cix/cix-acpi-usb-scan.c
+@@ -22,8 +22,15 @@ static bool sky1_usb_acpi_detected;
+ static acpi_status sky1_usb_match_handle(acpi_handle handle, u32 level,
+ 					 void *context, void **ret)
+ {
++	struct acpi_device *adev = acpi_fetch_acpi_dev(handle);
+ 	bool *present = context;
+ 
++	if (!adev)
++		return AE_OK;
++
++	if (!adev->status.present && !adev->status.functional)
++		return AE_OK;
++
+ 	*present = true;
+ 	return AE_CTRL_TERMINATE;
+ }
+@@ -56,15 +63,15 @@ static int sky1_usb_scan_attach(struct acpi_device *adev,
+ 		if (!sky1_usb_vendor_present())
+ 			return 0;
+ 
+-		dev_info(&adev->dev,
+-			 "Sky1 USB: keeping PNP0D10, suppressing vendor USB model instead\n");
++		dev_dbg(&adev->dev,
++			"Sky1 USB: keeping PNP0D10, suppressing vendor USB model instead\n");
+ 		return 0;
+ 	}
+ 
+ 	if (sky1_usb_acpi_id_present("PNP0D10")) {
+-		dev_info(&adev->dev,
+-			 "Sky1 USB: suppressing %s because PNP0D10 is present\n",
+-			 id->id);
++		dev_dbg(&adev->dev,
++			"Sky1 USB: suppressing %s because PNP0D10 is present\n",
++			id->id);
+ 		return 1;
+ 	}
+ 

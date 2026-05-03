@@ -1,0 +1,68 @@
+PCI: disable ASPM for Sky1 endpoints that fault behind the SMMU
+
+On Radxa Orion O6 / CIX Sky1 ACPI boots, enabling PCIe ASPM exposed
+repeatable arm-smmu-v3 F_TRANSLATION events from the Samsung NVMe
+endpoint (144d:a809) and Realtek RTL8126 endpoint (10ec:8126), both
+writing to IOVA 0.  The same system produced no such SMMU event storm
+with the global pcie_aspm=off boot parameter.
+
+Keep OS ownership of PCIe power management so unaffected links can still use
+ASPM, but disable ASPM and ClockPM for the two observed-faulting endpoint
+IDs when running on the Sky1 ACPI platform identified by the MCFG OEM
+table.  Log the quirk once per matched endpoint so future boots make the
+effective ASPM policy explicit.
+
+---
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -2527,6 +2527,49 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_FREESCALE, 0x0451, quirk_disable_aspm_l0s
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_PASEMI, 0xa002, quirk_disable_aspm_l0s_l1);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_HUAWEI, 0x1105, quirk_disable_aspm_l0s_l1);
+ 
++static bool cix_sky1_acpi_pcie_platform(void)
++{
++#ifdef CONFIG_ACPI
++	struct acpi_table_header *header;
++	bool detected;
++
++	if (acpi_disabled)
++		return false;
++
++	if (ACPI_FAILURE(acpi_get_table(ACPI_SIG_MCFG, 0, &header)))
++		return false;
++
++	detected = !memcmp(header->oem_id, "CIXTEK", 6) &&
++		   !memcmp(header->oem_table_id, "SKY1EDK2", 8);
++	acpi_put_table(header);
++
++	return detected;
++#else
++	return false;
++#endif
++}
++
++static void quirk_cix_sky1_disable_aspm(struct pci_dev *dev)
++{
++	int ret;
++
++	if (!cix_sky1_acpi_pcie_platform())
++		return;
++
++	ret = pci_disable_link_state(dev, PCIE_LINK_STATE_ALL);
++	if (ret)
++		pci_warn(dev,
++			 "CIX Sky1: failed to disable ASPM/ClockPM after SMMU fault correlation: %d\n",
++			 ret);
++	else
++		pci_info(dev,
++			 "CIX Sky1: disabling ASPM/ClockPM after SMMU fault correlation\n");
++}
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SAMSUNG, 0xa809,
++			quirk_cix_sky1_disable_aspm);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REALTEK, 0x8126,
++			quirk_cix_sky1_disable_aspm);
++
+ /*
+  * Some Pericom PCIe-to-PCI bridges in reverse mode need the PCIe Retrain
+  * Link bit cleared after starting the link retrain process to allow this

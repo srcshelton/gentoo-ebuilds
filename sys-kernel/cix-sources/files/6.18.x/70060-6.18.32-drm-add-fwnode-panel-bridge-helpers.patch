@@ -1,0 +1,164 @@
+drm: add fwnode panel bridge helpers
+---
+diff --git a/drivers/gpu/drm/bridge/panel.c b/drivers/gpu/drm/bridge/panel.c
+--- a/drivers/gpu/drm/bridge/panel.c
++++ b/drivers/gpu/drm/bridge/panel.c
+@@ -6,6 +6,7 @@
+ 
+ #include <linux/debugfs.h>
+ #include <linux/export.h>
++#include <linux/property.h>
+ 
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_bridge.h>
+@@ -479,6 +480,53 @@ struct drm_connector *drm_panel_bridge_connector(struct drm_bridge *bridge)
+ }
+ EXPORT_SYMBOL(drm_panel_bridge_connector);
+ 
++/**
++ * devm_drm_fwnode_get_panel_bridge - Return a panel bridge for a fwnode link
++ * @dev: device to tie the bridge lifetime to
++ * @fwnode: firmware node containing the encoder output ports
++ * @port: port in the firmware graph node
++ * @endpoint: endpoint in the firmware graph node
++ *
++ * Given a firmware graph node's port and endpoint number, finds the connected
++ * remote node and creates a drm panel bridge instance if a panel is connected.
++ * Generic bridge lookup remains OF-only because drm_bridge instances currently
++ * expose their DT node, but not a generic fwnode.
++ *
++ * Returns a pointer to the bridge if successful, or an error pointer
++ * otherwise.
++ */
++struct drm_bridge *devm_drm_fwnode_get_panel_bridge(struct device *dev,
++						    const struct fwnode_handle *fwnode,
++						    u32 port, u32 endpoint)
++{
++	struct fwnode_handle *remote;
++	struct fwnode_handle *ep;
++	struct drm_panel *panel;
++	struct drm_bridge *bridge;
++
++	if (!fwnode)
++		return ERR_PTR(-ENODEV);
++
++	ep = fwnode_graph_get_endpoint_by_id(fwnode, port, endpoint, 0);
++	if (!ep)
++		return ERR_PTR(-ENODEV);
++
++	remote = fwnode_graph_get_remote_port_parent(ep);
++	fwnode_handle_put(ep);
++	if (!remote)
++		return ERR_PTR(-ENODEV);
++
++	panel = drm_panel_find_by_fwnode(remote);
++	fwnode_handle_put(remote);
++	if (IS_ERR(panel))
++		return ERR_CAST(panel);
++
++	bridge = devm_drm_panel_bridge_add(dev, panel);
++
++	return bridge;
++}
++EXPORT_SYMBOL(devm_drm_fwnode_get_panel_bridge);
++
+ #ifdef CONFIG_OF
+ /**
+  * devm_drm_of_get_bridge - Return next bridge in the chain
+diff --git a/drivers/gpu/drm/drm_panel.c b/drivers/gpu/drm/drm_panel.c
+--- a/drivers/gpu/drm/drm_panel.c
++++ b/drivers/gpu/drm/drm_panel.c
+@@ -512,11 +512,19 @@ int of_drm_get_panel_orientation(const struct device_node *np,
+ EXPORT_SYMBOL(of_drm_get_panel_orientation);
+ #endif
+ 
+-/* Find panel by fwnode. This should be identical to of_drm_find_panel(). */
+-static struct drm_panel *find_panel_by_fwnode(const struct fwnode_handle *fwnode)
++/**
++ * drm_panel_find_by_fwnode() - Find a panel registered with a fwnode
++ * @fwnode: firmware node associated with the panel device
++ *
++ * Returns: A pointer to the panel if found, or an error pointer otherwise.
++ */
++struct drm_panel *drm_panel_find_by_fwnode(const struct fwnode_handle *fwnode)
+ {
+ 	struct drm_panel *panel;
+ 
++	if (!fwnode)
++		return ERR_PTR(-ENODEV);
++
+ 	if (!fwnode_device_is_available(fwnode))
+ 		return ERR_PTR(-ENODEV);
+ 
+@@ -533,6 +541,7 @@ static struct drm_panel *find_panel_by_fwnode(const struct fwnode_handle *fwnode
+ 
+ 	return ERR_PTR(-EPROBE_DEFER);
+ }
++EXPORT_SYMBOL(drm_panel_find_by_fwnode);
+ 
+ /* Find panel by follower device */
+ static struct drm_panel *find_panel_by_dev(struct device *follower_dev)
+@@ -544,7 +553,7 @@ static struct drm_panel *find_panel_by_dev(struct device *follower_dev)
+ 	if (IS_ERR(fwnode))
+ 		return ERR_PTR(-ENODEV);
+ 
+-	panel = find_panel_by_fwnode(fwnode);
++	panel = drm_panel_find_by_fwnode(fwnode);
+ 	fwnode_handle_put(fwnode);
+ 
+ 	return panel;
+diff --git a/include/drm/drm_bridge.h b/include/drm/drm_bridge.h
+--- a/include/drm/drm_bridge.h
++++ b/include/drm/drm_bridge.h
+@@ -35,6 +35,7 @@
+ 
+ struct cec_msg;
+ struct device_node;
++struct fwnode_handle;
+ 
+ struct drm_bridge;
+ struct drm_bridge_timings;
+@@ -1385,6 +1386,9 @@ struct drm_bridge *devm_drm_panel_bridge_add_typed(struct device *dev,
+ struct drm_bridge *drmm_panel_bridge_add(struct drm_device *drm,
+ 					     struct drm_panel *panel);
+ struct drm_connector *drm_panel_bridge_connector(struct drm_bridge *bridge);
++struct drm_bridge *devm_drm_fwnode_get_panel_bridge(struct device *dev,
++						    const struct fwnode_handle *fwnode,
++						    u32 port, u32 endpoint);
+ #else
+ static inline bool drm_bridge_is_panel(const struct drm_bridge *bridge)
+ {
+@@ -1396,6 +1400,14 @@ static inline int drm_panel_bridge_set_orientation(struct drm_connector *connect
+ {
+ 	return -EINVAL;
+ }
++
++static inline struct drm_bridge *
++devm_drm_fwnode_get_panel_bridge(struct device *dev,
++				 const struct fwnode_handle *fwnode,
++				 u32 port, u32 endpoint)
++{
++	return ERR_PTR(-ENODEV);
++}
+ #endif
+ 
+ #if defined(CONFIG_OF) && defined(CONFIG_DRM_PANEL_BRIDGE)
+diff --git a/include/drm/drm_panel.h b/include/drm/drm_panel.h
+--- a/include/drm/drm_panel.h
++++ b/include/drm/drm_panel.h
+@@ -33,6 +33,7 @@
+ struct backlight_device;
+ struct dentry;
+ struct device_node;
++struct fwnode_handle;
+ struct drm_connector;
+ struct drm_panel_follower;
+ struct drm_panel;
+@@ -337,6 +338,7 @@ void drm_panel_enable(struct drm_panel *panel);
+ void drm_panel_disable(struct drm_panel *panel);
+ 
+ int drm_panel_get_modes(struct drm_panel *panel, struct drm_connector *connector);
++struct drm_panel *drm_panel_find_by_fwnode(const struct fwnode_handle *fwnode);
+ 
+ #if defined(CONFIG_OF) && defined(CONFIG_DRM_PANEL)
+ struct drm_panel *of_drm_find_panel(const struct device_node *np);

@@ -1,0 +1,32 @@
+clk: scmi: keep ACPI SCMI clocks out of disable-unused
+
+The Sky1 ACPI CLKT lookup provider exposes firmware-managed SCMI clocks to
+the common clock framework, but ACPI does not describe every CPU,
+interconnect, PCIe, DDR, and boot-critical consumer.  The 6.18 ACPI clock
+infrastructure therefore marked ACPI SCMI clocks CLK_IGNORE_UNUSED so the
+generic late unused-clock sweep could not turn off firmware-owned resources.
+
+Carry the same protection into the 7.0 CIX SCMI clock path.  Explicit
+consumers can still prepare/enable and unprepare/disable clocks normally, but
+clk_disable_unused() will leave ACPI SCMI clocks in their firmware state.
+
+---
+diff --git a/drivers/clk/clk-scmi.c b/drivers/clk/clk-scmi.c
+--- a/drivers/clk/clk-scmi.c
++++ b/drivers/clk/clk-scmi.c
+@@ -233,6 +233,15 @@ static int scmi_clk_ops_init(struct device *dev, struct scmi_clk *sclk,
+ 		.parent_data = sclk->parent_data,
+ 	};
+ 
++	if (ACPI_COMPANION(dev)) {
++		/*
++		 * ACPI firmware does not describe every consumer of SCMI clocks.
++		 * Keep them controllable by explicit users, but do not let the
++		 * unused-clock sweep turn off firmware-owned boot resources.
++		 */
++		init.flags |= CLK_IGNORE_UNUSED;
++	}
++
+ 	sclk->hw.init = &init;
+ 	ret = devm_clk_hw_register(dev, &sclk->hw);
+ 	if (ret)

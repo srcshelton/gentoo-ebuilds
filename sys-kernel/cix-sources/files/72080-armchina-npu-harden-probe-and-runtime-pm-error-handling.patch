@@ -1,0 +1,84 @@
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -341,26 +341,27 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ 
+ 		dev_info(dev, "AIPU KMD (v%s) probe start...\n", KMD_VERSION);
+ 
+-		platform_set_drvdata(p_dev, aipu);
+-
+ 		ret = init_aipu_priv(aipu, p_dev, &aipu_fops, soc, ops);
+-		if (ret)
++		if (ret) {
++			dev_err(dev, "FAIL TO INIT AIPU.\n");
++			aipu = NULL;
+ 			return ret;
++		}
+ 	}
+ 
+ 	device_property_read_u32(dev, "core-id", &id);
+ 
+ 	WARN_ON(!aipu->ops);
+ 	partition = aipu->ops->create_partitions(aipu, id, p_dev);
+-	if (IS_ERR(partition))
+-		goto out_clean;
+-
+-	goto finish;
+-
+-out_clean:
+-	armchina_aipu_remove(p_dev);
++	if (IS_ERR(partition)) {
++		dev_err(dev, "FAIL TO CREATE PARTITION.\n");
++		deinit_aipu_priv(aipu);
++		aipu = NULL;
++		ret = -EIO;
++	} else {
++		platform_set_drvdata(p_dev, partition);
++	}
+ 
+-finish:
+ 	return ret;
+ }
+ EXPORT_SYMBOL(armchina_aipu_probe);
+@@ -395,17 +396,12 @@ EXPORT_SYMBOL(armchina_aipu_remove);
+ int armchina_aipu_suspend(struct platform_device *p_dev, pm_message_t state)
+ {
+ 	int ret = 0;
+-	struct aipu_job_manager *manager = get_job_manager(aipu->partitions);
++	struct aipu_partition *partition = platform_get_drvdata(p_dev);
+ 
+-	if (!manager) {
+-		pr_err("susppend: npu driver is not ready.\n");
+-		return 0;
+-	}
+-
+-	ret = aipu_job_manager_suspend(get_job_manager(aipu->partitions));
++	ret = aipu_job_manager_suspend(get_job_manager(partition));
+ 
+ 	if (ret == 0 && aipu && aipu->soc_ops && aipu->soc_ops->disable_clk)
+-		aipu->soc_ops->disable_clk(aipu->partitions->dev, aipu->soc);
++		aipu->soc_ops->disable_clk(partition->dev, aipu->soc);
+ 
+ 	return ret;
+ }
+@@ -423,17 +419,12 @@ EXPORT_SYMBOL(armchina_aipu_suspend);
+ int armchina_aipu_resume(struct platform_device *p_dev)
+ {
+ 	int ret = 0;
+-	struct aipu_job_manager *manager = get_job_manager(aipu->partitions);
+-
+-	if (!manager) {
+-		pr_err("resume: npu driver is not ready.\n");
+-		return 0;
+-	}
++	struct aipu_partition *partition = platform_get_drvdata(p_dev);
+ 
+-	ret = aipu_job_manager_resume(get_job_manager(aipu->partitions));
++	ret = aipu_job_manager_resume(get_job_manager(partition));
+ 
+ 	if (ret == 0 && aipu && aipu->soc_ops && aipu->soc_ops->enable_clk)
+-		aipu->soc_ops->enable_clk(aipu->partitions->dev, aipu->soc);
++		aipu->soc_ops->enable_clk(partition->dev, aipu->soc);
+ 
+ 	return ret;
+ }

@@ -1,0 +1,21 @@
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -145,10 +145,14 @@ static int sky1_npu_devfreq_init(struct device *dev, struct cix_aipu_priv *cix_a
+         cix_aipu_priv->opp_pmdomain = dev_pm_domain_attach_by_name(dev, "perf");
+     }
+ 
+-    if (IS_ERR_OR_NULL(cix_aipu_priv->opp_pmdomain)) {
+-        dev_err(dev, "Failed to get perf domain\n");
+-        return -EFAULT;
++    if (IS_ERR(cix_aipu_priv->opp_pmdomain)) {
++        ret = PTR_ERR(cix_aipu_priv->opp_pmdomain);
++        return dev_err_probe(dev, ret, "Failed to get perf domain\n");
+     }
++
++    if (!cix_aipu_priv->opp_pmdomain)
++        return dev_err_probe(dev, -EPROBE_DEFER,
++                             "Failed to get perf domain\n");
+     cix_aipu_priv->opp_dl = device_link_add(dev, cix_aipu_priv->opp_pmdomain,
+                             DL_FLAG_RPM_ACTIVE |
+                             DL_FLAG_PM_RUNTIME |

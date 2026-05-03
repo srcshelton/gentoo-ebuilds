@@ -1,0 +1,523 @@
+usb: typec: clean up RTS5453 ACPI USB-DP integration
+
+Keep the permanent CIX ACPI USB-DP integration separate from generic Type-C lookup helpers: defer until USB-DP providers exist, keep role-switch optional under PNP0D10, share IRQs deterministically, and harden USB-DP child fwnode lookup.
+
+---
+diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
+--- a/drivers/phy/cix/phy-cix-usbdp.c
++++ b/drivers/phy/cix/phy-cix-usbdp.c
+@@ -797,7 +797,7 @@ static int udphy_orien_sw_set(struct typec_switch_dev *sw,
+ 		goto unlock_ret;
+ 	}
+ 
+-	dev_info(udphy->dev, "typec orientation switch: %d\n", orien);
++	dev_dbg(udphy->dev, "typec orientation switch: %d\n", orien);
+ 	udphy->flip = (orien == TYPEC_ORIENTATION_REVERSE) ? true : false;
+ 
+ unlock_ret:
+@@ -849,7 +849,7 @@ static int usbdp_typec_mux_set(struct typec_mux_dev *mux,
+ 
+ 	mutex_lock(&udphy->mutex);
+ 
+-	dev_info(udphy->dev, "usbdp_typec_mux_set mode: %ld\n",
++	dev_dbg(udphy->dev, "usbdp_typec_mux_set mode: %ld\n",
+ 		state->mode);
+ 
+ 	switch(state->mode) {
+@@ -1575,29 +1575,30 @@ static int cix_udphy_probe(struct platform_device *pdev)
+ 
+ 	device_for_each_child_node(dev, child_fn) {
+ 		struct phy *phy;
++		const char *child_name = fwnode_get_name(child_fn);
+ 
+ 		child_np = dev->of_node ? to_of_node(child_fn) : NULL;
+ 
+-		if (!strncmp(fwnode_get_name(child_fn), "dp-port", 7)
+-			|| !strncmp(fwnode_get_name(child_fn), "UDPP", 4)) {
++		if (child_name && (!strncmp(child_name, "dp-port", 7)
++			|| !strncmp(child_name, "UDPP", 4))) {
+ 			phy = devm_phy_create(dev, child_np, &cix_dp_phy_ops);
+ 			udphy->dp_phy = phy;
+ 		}
+-		else if (!strncmp(fwnode_get_name(child_fn), "usb-port", 8)
+-			|| !strncmp(fwnode_get_name(child_fn), "USB", 3))
++		else if (child_name && (!strncmp(child_name, "usb-port", 8)
++			|| !strncmp(child_name, "USB", 3)))
+ 			phy = devm_phy_create(dev, child_np, &cix_u3phy_ops);
+ 		else
+ 			continue;
+ 
+ 		if (IS_ERR(phy)) {
+ 			dev_err(dev, "failed to create phy: %s\n",
+-						fwnode_get_name(child_fn));
++						child_name);
+ 			goto put_child;
+ 		}
+ 
+ 		phy_set_drvdata(phy, udphy);
+ 
+-		phy_create_lookup(phy, fwnode_get_name(child_fn), dev_name(dev));
++		phy_create_lookup(phy, child_name, dev_name(dev));
+ 	}
+ 
+ 	if (dev->of_node) {
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -116,6 +116,7 @@ config TYPEC_RTS5453
+ 	depends on TYPEC
+ 	select REGMAP_I2C
+ 	select GPIO_CADENCE if ACPI && ARCH_CIX
++	select PHY_CIX_USBDP if ACPI && ARCH_CIX
+ 	select SKY1_PDC if ACPI && ARCH_CIX
+ 	help
+ 	  Say Y or M here if your system has a Realtek RTS5453H USB Type-C
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+--- a/drivers/usb/typec/rts5453.c
++++ b/drivers/usb/typec/rts5453.c
+@@ -9,16 +9,15 @@
+ #include <linux/irq.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/property.h>
+ #include <linux/regmap.h>
+ #include <linux/interrupt.h>
+-#include <linux/irq.h>
+ #include <linux/device.h>
+ #include <linux/platform_device.h>
+ #include <linux/err.h>
+ #include <linux/errno.h>
+ #include <linux/list.h>
+ #include <linux/init.h>
+-#include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/timer.h>
+ #include <linux/usb/pd.h>
+@@ -74,6 +73,8 @@ struct rts5453h {
+ 	struct typec_capability caps;
+ 	struct typec_switch *ori_sw;
+ 	struct typec_mux *mux;
++	bool owns_ori_sw;
++	bool owns_mux;
+ 	struct usb_role_switch *role_sw;
+ 	struct typec_altmode p_altmode[ALTMODE_MAX];
+ 	struct typec_port *port;
+@@ -85,6 +86,8 @@ struct rts5453h {
+ 	bool pd_int_disabled;
+ 	struct list_head list;
+ 	struct delayed_work irq_work;
++	bool irq_requesting;
++	bool irq_requested;
+ };
+ 
+ static LIST_HEAD(rts_list);
+@@ -226,7 +229,15 @@ static int rts5453h_typec_port_update(struct rts5453h *typec)
+ 
+ 	if (typec->role != role) {
+ 		typec->role = role;
+-		ret = usb_role_switch_set_role(typec->role_sw, role);
++		if (typec->role_sw) {
++			ret = usb_role_switch_set_role(typec->role_sw, role);
++			if (ret)
++				return ret;
++		} else if (role == USB_ROLE_DEVICE) {
++			dev_warn(typec->dev,
++				 "typec port(%d): device data role requested but no USB role switch is registered\n",
++				 typec->id);
++		}
+ 		if (role == USB_ROLE_DEVICE) {
+ 			typec_set_data_role(typec->port, TYPEC_DEVICE);
+ 		} else {
+@@ -319,7 +330,7 @@ static int rts5453h_event_handler(struct rts5453h *rts, u8 clear_irq)
+ 	if (ret != 0 ) {
+ 		goto i2c_err;
+ 	} else {
+-		dev_info(rts->dev, "typec port(%d):data status = 0x%x , 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
++		dev_dbg(rts->dev, "typec port(%d): data status = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+ 			rts->id, rts->data_status[0], rts->data_status[1], rts->data_status[2], rts->data_status[3], rts->data_status[4], rts->data_status[5]);
+ 	}
+ 
+@@ -384,19 +395,124 @@ static int rts5453h_typec_parse_port_props(struct typec_capability *cap,
+ 	return 0;
+ }
+ 
++static struct fwnode_handle *
++rts5453h_find_remote_control_fwnode(struct fwnode_handle *fwnode,
++				    const char *property)
++{
++	struct fwnode_handle *ep;
++
++	fwnode_graph_for_each_endpoint(fwnode, ep) {
++		struct fwnode_handle *remote;
++
++		remote = fwnode_graph_get_remote_port_parent(ep);
++		if (IS_ERR_OR_NULL(remote)) {
++			continue;
++		}
++
++		if (fwnode_property_present(remote, property)) {
++			fwnode_handle_put(ep);
++			return remote;
++		}
++
++		fwnode_handle_put(remote);
++	}
++
++	return NULL;
++}
++
+ static int rts5453h_typec_get_switch_handles(struct rts5453h *typec,
+ 					 struct fwnode_handle *fwnode,
+ 					 struct device *dev)
+ {
++	struct fwnode_handle *remote;
++	int ret;
++
+ 	typec->mux = typec->port->mux;
+ 	typec->ori_sw = typec->port->sw;
++	typec->owns_mux = false;
++	typec->owns_ori_sw = false;
+ 	typec->role_sw = fwnode_usb_role_switch_get(fwnode);
+-	if (IS_ERR(typec->role_sw))
+-		return dev_err_probe(dev, PTR_ERR(typec->role_sw), "USB role switch handle is error\n");
+-
+-	if (!typec->role_sw || !typec->mux || !typec->ori_sw)
++	if (IS_ERR(typec->role_sw)) {
++		ret = PTR_ERR(typec->role_sw);
++		if (ret == -EPROBE_DEFER)
++			return dev_err_probe(dev, ret,
++					     "USB role switch provider is not registered yet\n");
++		typec->role_sw = NULL;
++	}
++
++	if (!typec->role_sw) {
++		remote = rts5453h_find_remote_control_fwnode(fwnode,
++							     "usb-role-switch");
++		if (remote) {
++			typec->role_sw = usb_role_switch_find_by_fwnode(remote);
++			if (!typec->role_sw)
++				typec->role_sw = fwnode_usb_role_switch_get(remote);
++			fwnode_handle_put(remote);
++			if (IS_ERR(typec->role_sw)) {
++				ret = PTR_ERR(typec->role_sw);
++				if (ret == -EPROBE_DEFER)
++					return dev_err_probe(dev, ret,
++							     "remote USB role switch provider is not registered yet\n");
++				typec->role_sw = NULL;
++			}
++		}
++	}
++	if (!typec->mux) {
++		remote = rts5453h_find_remote_control_fwnode(fwnode,
++							     "mode-switch");
++		if (remote) {
++			struct typec_mux *mux;
++
++			mux = typec_mux_find_by_fwnode(remote);
++			if (!mux)
++				mux = fwnode_typec_mux_get(remote);
++			fwnode_handle_put(remote);
++			if (IS_ERR(mux))
++				return dev_err_probe(dev, PTR_ERR(mux),
++						     "remote Type-C mux handle is error\n");
++			if (!mux)
++				return dev_err_probe(dev, -EPROBE_DEFER,
++						     "remote Type-C mux provider is not registered yet\n");
++			if (mux) {
++				typec->mux = mux;
++				typec->owns_mux = true;
++			}
++		}
++	}
++	if (!typec->ori_sw) {
++		remote = rts5453h_find_remote_control_fwnode(fwnode,
++							     "orientation-switch");
++		if (remote) {
++			struct typec_switch *sw;
++
++			sw = typec_switch_find_by_fwnode(remote);
++			if (!sw)
++				sw = fwnode_typec_switch_get(remote);
++			fwnode_handle_put(remote);
++			if (IS_ERR(sw))
++				return dev_err_probe(dev, PTR_ERR(sw),
++						     "remote orientation switch handle is error\n");
++			if (!sw)
++				return dev_err_probe(dev, -EPROBE_DEFER,
++						     "remote orientation-switch provider is not registered yet\n");
++			if (sw) {
++				typec->ori_sw = sw;
++				typec->owns_ori_sw = true;
++			}
++		}
++	}
++	if (!typec->mux || !typec->ori_sw)
+ 		return dev_err_probe(dev, -ENODEV,
+-				     "mux or switch or role switch has not found\n");
++				     "missing Type-C controls for %s after local and graph lookup: role-switch=%s mux=%s orientation-switch=%s\n",
++				     fwnode_get_name(fwnode) ?: "<unnamed>",
++				     typec->role_sw ? "ok" : "missing",
++				     typec->mux ? "ok" : "missing",
++				     typec->ori_sw ? "ok" : "missing");
++
++	if (!typec->role_sw)
++		dev_info(dev,
++			 "USB role-switch unavailable for %s; continuing with mux/orientation controls but USB data-role switching is disabled\n",
++			 fwnode_get_name(fwnode) ?: "<unnamed>");
+ 
+ 	return 0;
+ }
+@@ -412,10 +528,22 @@ static void rts5453h_unregister_ports(struct rts5453h *typec)
+ 			usb_role_switch_put(typec->role_sw);
+ 			typec->role_sw = NULL;
+ 		}
+-		if (typec->ori_sw)
++		if (!IS_ERR_OR_NULL(typec->ori_sw)) {
+ 			typec_switch_set(typec->ori_sw, TYPEC_ORIENTATION_NONE);
+-		if (typec->mux)
++			if (typec->owns_ori_sw) {
++				typec_switch_put(typec->ori_sw);
++				typec->owns_ori_sw = false;
++			}
++			typec->ori_sw = NULL;
++		}
++		if (!IS_ERR_OR_NULL(typec->mux)) {
+ 			typec_mux_set(typec->mux, &typec->state);
++			if (typec->owns_mux) {
++				typec_mux_put(typec->mux);
++				typec->owns_mux = false;
++			}
++			typec->mux = NULL;
++		}
+ 		typec_unregister_port(typec->port);
+ 		typec->port = NULL;
+ 	}
+@@ -478,11 +606,16 @@ static int rts5453h_init_ports(struct rts5453h *typec)
+ 	}
+ 
+ 	device_for_each_child_node(dev, fwnode) {
++		struct fwnode_handle *port_fwnode;
++
+ 		ret = rts5453h_typec_parse_port_props(&typec->caps, fwnode, dev);
+ 		if (ret < 0)
+ 			goto unregister_ports;
+ 
++		port_fwnode = typec->caps.fwnode;
++		typec->caps.fwnode = NULL;
+ 		typec->port = typec_register_port(dev, &typec->caps);
++		typec->caps.fwnode = port_fwnode;
+ 		if (IS_ERR(typec->port)) {
+ 			ret = PTR_ERR(typec->port);
+ 			dev_err_probe(dev, ret, "failed to register Type-C port\n");
+@@ -530,7 +663,7 @@ static ssize_t disable_pd_interrupt_store(struct device *dev,
+ 
+ 	ret = kstrtobool(buf, &value);
+ 	if (!ret) {
+-		if (client->irq <= 0)
++		if (client->irq <= 0 || !rts->irq_requested)
+ 			return -ENXIO;
+ 
+ 		rts->pd_int_disabled = value;
+@@ -552,7 +685,41 @@ static ssize_t disable_pd_interrupt_store(struct device *dev,
+ 
+ DEVICE_ATTR_RW(disable_pd_interrupt);
+ 
+-static bool is_rts_irq_shared_deivces_all_bound(struct rts5453h *rts)
++enum rts5453h_irq_peer_state {
++	RTS5453H_IRQ_PEER_NONE,
++	RTS5453H_IRQ_PEER_REQUESTING,
++	RTS5453H_IRQ_PEER_REQUESTED,
++};
++
++static bool rts5453h_uses_same_irq(struct rts5453h *a, struct rts5453h *b,
++				   int irq)
++{
++	struct i2c_client *aclient = to_i2c_client(a->dev);
++	struct i2c_client *bclient = to_i2c_client(b->dev);
++
++	return a != b && aclient->adapter == bclient->adapter &&
++	       bclient->irq == irq;
++}
++
++static enum rts5453h_irq_peer_state
++rts5453h_shared_irq_peer_state(struct rts5453h *rts, int irq)
++{
++	struct rts5453h *rt;
++
++	list_for_each_entry(rt, &rts_list, list) {
++		if (!rts5453h_uses_same_irq(rts, rt, irq))
++			continue;
++
++		if (rt->irq_requested)
++			return RTS5453H_IRQ_PEER_REQUESTED;
++		if (rt->irq_requesting)
++			return RTS5453H_IRQ_PEER_REQUESTING;
++	}
++
++	return RTS5453H_IRQ_PEER_NONE;
++}
++
++static bool is_rts_irq_shared_devices_all_bound(struct rts5453h *rts)
+ {
+ 	struct i2c_client *client;
+ 	struct fwnode_handle *child, *gchild;
+@@ -585,32 +752,54 @@ static void rts_request_irq_work_fn(struct work_struct *work)
+ {
+ 	struct rts5453h *rts = container_of(work, struct rts5453h, irq_work.work);
+ 	struct i2c_client *client = to_i2c_client(rts->dev);
++	enum rts5453h_irq_peer_state peer_state;
+ 	int ret;
+ 
+ 	if (client->irq <= 0)
+ 		return;
+ 
+-	if (!is_rts_irq_shared_deivces_all_bound(rts)) {
++	if (!is_rts_irq_shared_devices_all_bound(rts)) {
+ 		schedule_delayed_work(&rts->irq_work, msecs_to_jiffies(5));
+ 		dev_dbg(rts->dev, "irq work scheduled\n");
+ 		return;
+ 	}
+ 
++	mutex_lock(&rts_lock);
++	peer_state = rts5453h_shared_irq_peer_state(rts, client->irq);
++	if (peer_state == RTS5453H_IRQ_PEER_REQUESTED) {
++		mutex_unlock(&rts_lock);
++		dev_dbg(&client->dev,
++			"irq %d already registered by shared RTS5453 peer; using peer IRQ handler\n",
++			client->irq);
++		return;
++	}
++	if (peer_state == RTS5453H_IRQ_PEER_REQUESTING) {
++		mutex_unlock(&rts_lock);
++		schedule_delayed_work(&rts->irq_work, msecs_to_jiffies(5));
++		return;
++	}
++	rts->irq_requesting = true;
++	mutex_unlock(&rts_lock);
++
+ 	irq_set_status_flags(client->irq, IRQ_DISABLE_UNLAZY);
+ 	ret = request_threaded_irq(client->irq, NULL,
+ 				   rts5453h_irq_rts_handle,
+ 				   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+ 				   dev_name(&client->dev), rts);
++	mutex_lock(&rts_lock);
++	rts->irq_requesting = false;
++	if (!ret)
++		rts->irq_requested = true;
++	mutex_unlock(&rts_lock);
+ 	if (ret == -EBUSY) {
+-		/* irq already request in other rts, do nothing here */
+-		dev_info(&client->dev, "irq %d already registerd", client->irq);
++		/* irq already requested in other rts, do nothing here */
++		dev_dbg(&client->dev, "irq %d already registered", client->irq);
+ 	} else if (ret < 0) {
+ 		dev_err(&client->dev, "request irq %d failed %d", client->irq, ret);
+ 	} else {
+-		/* succeed! remove from polling list and handle separately. */
+-		mutex_lock(&rts_lock);
+-		list_del_init(&rts->list);
+-		mutex_unlock(&rts_lock);
++		dev_dbg(&client->dev,
++			"irq %d registered; shared RTS5453 peers remain on polling list\n",
++			client->irq);
+ 	}
+ }
+ 
+@@ -653,6 +842,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 	ret = rts5453h_event_handler(rts, 0);
+ 	if (ret) {
+ 		dev_err(&client->dev, "typec event handling error %d", ret);
++		rts5453h_unregister_ports(rts);
+ 		return ret;
+ 	}
+ 	/*
+@@ -683,6 +873,17 @@ static void rts5453h_remove(struct i2c_client *client)
+ {
+ 	struct rts5453h *rts = i2c_get_clientdata(client);
+ 
++	cancel_delayed_work_sync(&rts->irq_work);
++
++	if (client->irq > 0 && rts->irq_requested)
++		free_irq(client->irq, rts);
++
++	mutex_lock(&rts_lock);
++	list_del_init(&rts->list);
++	rts->irq_requesting = false;
++	rts->irq_requested = false;
++	mutex_unlock(&rts_lock);
++
+ 	device_remove_file(&client->dev, &dev_attr_disable_pd_interrupt);
+ 
+ 	if (rts->partner) {
+@@ -690,22 +891,7 @@ static void rts5453h_remove(struct i2c_client *client)
+ 		rts->partner = NULL;
+ 	}
+ 
+-	if (!IS_ERR_OR_NULL(rts->role_sw)) {
+-		usb_role_switch_put(rts->role_sw);
+-		rts->role_sw = NULL;
+-	}
+-
+-	if (!IS_ERR_OR_NULL(rts->port)) {
+-		typec_unregister_port(rts->port);
+-		rts->port = NULL;
+-	}
+-
+-	if (client->irq > 0)
+-		free_irq(client->irq, rts);
+-
+-	mutex_lock(&rts_lock);
+-	list_del(&rts->list);
+-	mutex_unlock(&rts_lock);
++	rts5453h_unregister_ports(rts);
+ }
+ 
+ static const struct of_device_id rts5453h_of_match[] = {
+@@ -728,8 +914,9 @@ static const struct i2c_device_id rts5453h_id[] = {
+ static int rts5453h_suspend(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
++	struct rts5453h *rts = i2c_get_clientdata(client);
+ 
+-	if (client->irq <= 0)
++	if (client->irq <= 0 || !rts->irq_requested)
+ 		return 0;
+ 
+ 	disable_irq(client->irq);
+@@ -744,8 +931,9 @@ static int rts5453h_suspend(struct device *dev)
+ static int rts5453h_resume(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
++	struct rts5453h *rts = i2c_get_clientdata(client);
+ 
+-	if (client->irq <= 0)
++	if (client->irq <= 0 || !rts->irq_requested)
+ 		return 0;
+ 
+ 	if (device_may_wakeup(dev)) {
+@@ -763,7 +951,7 @@ static int rts5453h_restore(struct device *dev)
+ 	struct rts5453h *rts = i2c_get_clientdata(client);
+ 	int ret = 0;
+ 
+-	if (client->irq <= 0)
++	if (client->irq <= 0 || !rts->irq_requested)
+ 		goto handle_event;
+ 
+ 	if (device_may_wakeup(dev)) {
+@@ -790,7 +978,9 @@ static int rts5453h_restore(struct device *dev)
+ 
+ static void rts5453h_shutdown(struct i2c_client *client)
+ {
+-	if (client->irq) {
++	struct rts5453h *rts = i2c_get_clientdata(client);
++
++	if (client->irq && rts && rts->irq_requested) {
+ 		disable_irq(client->irq);
+ 		if (device_may_wakeup(&client->dev)) {
+ 			enable_irq_wake(client->irq);
+@@ -824,4 +1014,5 @@ static struct i2c_driver rts5453h_i2c_driver = {
+ module_i2c_driver(rts5453h_i2c_driver);
+ MODULE_AUTHOR("Chao Zeng <Chao.Zeng@cixtech.com>");
+ MODULE_LICENSE("GPL v2");
++MODULE_SOFTDEP("pre: gpio-cadence phy-cix-usbdp");
+ MODULE_DESCRIPTION("REALTEK RTS5453H USB PD Controller Driver");

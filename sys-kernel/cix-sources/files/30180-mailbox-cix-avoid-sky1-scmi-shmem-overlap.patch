@@ -1,0 +1,110 @@
+mailbox: cix: avoid Sky1 SCMI shared-memory resource overlap
+
+Vendor ACPI firmware describes some SCMI AP<->PM mailbox windows as a
+larger firmware-owned resource, while the CIX mailbox driver expects SCMI
+users to map the register window at +0x80 and already subtracts that
+offset when shared memory is in use.  Requesting the whole firmware
+resource can therefore fail even though the post-shmem register window is
+usable, preventing MBX6/MBX7 from probing.
+
+Do not key this on ACPI instance numbering or _UID values.  Under ACPI,
+leave fixed firmware and normally requestable resources on the regular
+path.  If the unadjusted resource is busy, probe the +0x80 register
+window and use it only when that adjusted range is independently
+requestable.  Otherwise leave the original resource in place so the
+driver fails normally.
+
+---
+diff --git a/drivers/mailbox/cix-mailbox.c b/drivers/mailbox/cix-mailbox.c
+--- a/drivers/mailbox/cix-mailbox.c
++++ b/drivers/mailbox/cix-mailbox.c
+@@ -7,6 +7,7 @@
+ #include <linux/device.h>
+ #include <linux/err.h>
+ #include <linux/io.h>
++#include <linux/ioport.h>
+ #include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/mailbox_controller.h>
+@@ -100,6 +101,48 @@ struct cix_mbox_priv {
+ 	bool use_shmem;
+ };
+ 
++static bool cix_mbox_resource_available(struct device *dev, struct resource *res)
++{
++	struct resource *region;
++
++	region = request_mem_region(res->start, resource_size(res), dev_name(dev));
++	if (!region)
++		return false;
++
++	release_mem_region(res->start, resource_size(res));
++	return true;
++}
++
++static void cix_mbox_acpi_adjust_resource(struct device *dev,
++					  struct resource *res,
++					  struct resource *mbox_res)
++{
++	struct resource shifted_res;
++
++	if (!ACPI_COMPANION(dev) ||
++	    resource_size(res) <= CIX_SHMEM_OFFSET ||
++	    (res->start & CIX_SHMEM_OFFSET))
++		return;
++
++	if (cix_mbox_resource_available(dev, res))
++		return;
++
++	shifted_res = *res;
++	shifted_res.start += CIX_SHMEM_OFFSET;
++
++	if (!cix_mbox_resource_available(dev, &shifted_res)) {
++		dev_info(dev,
++			 "ACPI mailbox resource %pr is busy; register window %pr is also busy\n",
++			 res, &shifted_res);
++		return;
++	}
++
++	*mbox_res = shifted_res;
++	dev_info(dev,
++		 "ACPI mailbox resource %pr is busy; using register window %pr\n",
++		 res, mbox_res);
++}
++
+ /*
+  * The CIX mailbox supports four types of transfers:
+  * CIX_MBOX_TYPE_DB, CIX_MBOX_TYPE_FAST, CIX_MBOX_TYPE_REG, and CIX_MBOX_TYPE_FIFO.
+@@ -561,6 +604,7 @@ static int cix_mbox_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct cix_mbox_priv *priv;
++	struct resource mbox_res;
+ 	struct resource *res;
+ 	const char *dir_str;
+ 	u32 dir;
+@@ -571,7 +615,14 @@ static int cix_mbox_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	priv->dev = dev;
+-	priv->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
++		return -ENODEV;
++
++	mbox_res = *res;
++	cix_mbox_acpi_adjust_resource(dev, res, &mbox_res);
++
++	priv->base = devm_ioremap_resource(dev, &mbox_res);
+ 	if (IS_ERR(priv->base))
+ 		return PTR_ERR(priv->base);
+ 
+@@ -585,7 +636,7 @@ static int cix_mbox_probe(struct platform_device *pdev)
+ 	 * When the base address of the mailbox is offset by 0x80, it indicates
+ 	 * that shmem is in use.
+ 	 */
+-	priv->use_shmem = !!(res->start & CIX_SHMEM_OFFSET);
++	priv->use_shmem = !!(mbox_res.start & CIX_SHMEM_OFFSET);
+ 
+ 	priv->irq = platform_get_irq(pdev, 0);
+ 	if (priv->irq < 0)

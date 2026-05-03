@@ -1,0 +1,37 @@
+ACPI: scope CIX SCMI _STA override to old-firmware SCMI children
+
+CIX's compatibility quirk force-enables old-firmware SCMI protocol child
+devices with _STA=0, but the HID/UID match alone is broader than the
+commented intent. Only apply the quirk to CIXHA008/CIXHA009 devices below the
+CIXHA006 SCMI controller so similarly named devices elsewhere cannot be
+unhidden accidentally.
+
+Also leave devices alone when firmware already reports a nonzero _STA so the
+compatibility shim self-disables on fixed firmware.
+
+---
+diff --git a/drivers/acpi/sta_quirk.c b/drivers/acpi/sta_quirk.c
+--- a/drivers/acpi/sta_quirk.c
++++ b/drivers/acpi/sta_quirk.c
+@@ -25,12 +25,21 @@ static const struct acpi_device_id cix_scmi_proto_sta_ids[] = {
+ bool acpi_sta_override_firmware_quirk(struct acpi_device *adev,
+ 				       unsigned long long *status)
+ {
++	struct acpi_device *parent;
++
+ 	if (acpi_match_device_ids(adev, cix_scmi_proto_sta_ids))
+ 		return false;
+ 
++	parent = acpi_dev_parent(adev);
++	if (!parent || !acpi_dev_hid_uid_match(parent, "CIXHA006", NULL))
++		return false;
++
+ 	if (!acpi_dev_uid_match(adev, 0))
+ 		return false;
+ 
++	if (*status != 0)
++		return false;
++
+ 	*status = ACPI_STA_DEFAULT;
+ 	return true;
+ }

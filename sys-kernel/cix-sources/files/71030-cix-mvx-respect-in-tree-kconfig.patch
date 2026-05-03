@@ -1,0 +1,17 @@
+diff --git a/drivers/media/platform/cix/Kbuild b/drivers/media/platform/cix/Kbuild
+--- a/drivers/media/platform/cix/Kbuild
++++ b/drivers/media/platform/cix/Kbuild
+@@ -13,10 +13,10 @@ ccflags-y += $(EXTRA_CCFLAGS)
+ 
+ # Amvx module
+ # Use obj-m for out-of-tree DKMS builds, CONFIG_VIDEO_LINLON for in-tree
+-ifeq ($(CONFIG_VIDEO_LINLON),)
+-obj-m := amvx.o
+-else
++ifeq ($(KBUILD_EXTMOD),)
+ obj-$(CONFIG_VIDEO_LINLON) := amvx.o
++else
++obj-m := amvx.o
+ endif
+ 
+ # Add objects for if module.
