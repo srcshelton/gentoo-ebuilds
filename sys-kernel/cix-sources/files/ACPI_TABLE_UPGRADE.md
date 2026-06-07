@@ -10,52 +10,61 @@ Radxa vendor firmware `1.2.1`.
 
 ## Available Profiles
 
-There are two supported choices.
+There are two initramfs source-list profiles: an SSDT-only lower-impact
+profile, and a full profile that layers whole-table replacements on top of the
+same SSDT payloads.
 
-- Supplemental table profile: enable the smaller table-upgrade set. This
-  repairs the captured `_CPC` reference-performance values, updates the Radxa
-  O6 RTS5453 Type-C PD controller nodes to use shared IRQ resources, SCMI
-  mailbox shared-memory windows, GPU coherency attribute,
-  BusPerf fabric performance devices, DSU PMU exposure, an isolated ECTZ
-  critical-trip overlay, a combined DTB/MemoryMap-backed SoC thermal monitor sensor table,
-  DTB-aligned audio DMA/HDA metadata including the HDA `_DMA` translation
-  window, and the PPTT cache topology.
-- DSDT replacement: enable the full replacement profile. This profile includes
-  the same supplemental tables and also supplies a Radxa `1.2.1`-derived `DSDT.aml`
-  with a newer OEM revision, mainline-only PCIe/USB device-model policy, and
-  DTB-aligned eDP backlight brightness levels.
+- SSDT-only profile: enable the smaller table-upgrade set through
+  `initramfs.list` or `--acpi-table-upgrade ssdt`. This profile contains only
+  additive SSDT payloads. It repairs the captured `_CPC` reference-performance
+  values, updates the Radxa O6 RTS5453 Type-C PD controller nodes to use shared
+  IRQ resources, adds SCMI mailbox shared-memory windows, marks the GPU
+  non-coherent, describes BusPerf fabric performance devices, exposes the DSU
+  PMU, keeps the isolated `ECTZ` critical trip overlay, supplies the combined
+  DTB/MemoryMap-backed SoC thermal monitor sensor table, describes the Sky1
+  reboot-reason register, and adds DTB-aligned audio DMA/HDA metadata including
+  the HDA `_DMA` translation window.
+- DSDT/whole-table profile: enable the full replacement profile through
+  `initramfs-dsdt.list` or `--acpi-table-upgrade dsdt`. This profile includes
+  the same SSDT payloads, plus a Radxa `1.2.1`-derived `DSDT.aml` with a newer
+  OEM revision, mainline-only PCIe/USB device-model policy, DTB-aligned eDP
+  backlight brightness levels, and the ACPI `RAOP` ramoops description used by
+  the pstore/ramoops driver. It also adds the replacement `PPTT.aml` cache
+  topology and, when enabled by USE flags, the generated `IORT.aml` SMMU table
+  update.
 
 The DSDT replacement keeps the generic Linux-visible `PNP0A08` PCIe and
 `PNP0D10` USB hierarchies and marks the duplicate vendor-specific CIX/Cadence
-PCIe/USB hierarchy not-present. It does not change CPU numbering, APIC, IORT,
-or the AML CPU topology. The common profile supplies a replacement `PPTT.aml`
-that describes the register-confirmed private L1/L2 caches and shared 12 MiB
-last-level cache.
+PCIe/USB hierarchy not-present. The `DSDT.aml` payload itself does not change
+CPU numbering, APIC, IORT, or the AML CPU topology; those whole-table updates
+are separate payloads included only in the DSDT/whole-table profile.
 
 ## ebuild usage
 
-Build and install the SSDT profile:
+Build and install the SSDT-only profile:
 
 ```sh
 USE=acpi-table-upgrade emerge sys-kernel/cix-sources
 ```
 
-Build and install both profiles, including the DSDT replacement:
+Build and install both profiles, including the full DSDT/whole-table profile:
 
 ```sh
 USE="acpi-table-upgrade acpi-table-upgrade-dsdt" emerge sys-kernel/cix-sources
 ```
 
-The `acpi-table-upgrade` flag adds a build-time dependency on `>=sys-power/iasl-20241212`.
-Two IORT table-upgrade flags are enabled by default and may be disabled
-individually: `acpi-table-upgrade-iort-httu` enables hardware-managed SMMUv3
-access/dirty table updates, and `acpi-table-upgrade-iort-msi` marks the PCIe
-SMMUv3 node's ITS mapping as a valid MSI-domain parent. These are emitted as one
-generated `IORT.aml` when one or both flags are enabled.
+The `acpi-table-upgrade` flag adds a build-time dependency on
+`>=sys-power/iasl-20241212`. Two IORT table-upgrade flags are enabled by
+default and may be disabled individually: `acpi-table-upgrade-iort-httu`
+enables hardware-managed SMMUv3 access/dirty table updates, and
+`acpi-table-upgrade-iort-msi` marks the PCIe SMMUv3 node's ITS mapping as a
+valid MSI-domain parent. The ebuild emits one generated `IORT.aml` into the
+DSDT/whole-table profile when `acpi-table-upgrade-dsdt` is enabled and one or
+both IORT flags are enabled. The SSDT-only profile never includes `IORT.aml`.
 
-During `src_compile`, the ebuild compiles the supplemental-table profile
-and, when requested, the DSDT-replacement profile. The install tree contains the
-ASL sources, compiled AML payloads, and generated initramfs source lists:
+During `src_compile`, the ebuild compiles the SSDT-only profile and, when
+requested, the DSDT/whole-table profile. The install tree contains the ASL
+sources, compiled AML payloads, and generated initramfs source lists:
 
 ```text
 /usr/src/linux-<version>/cix-acpi-table-upgrade/source/orion-o6-radxa-1.2.1/
@@ -65,8 +74,9 @@ ASL sources, compiled AML payloads, and generated initramfs source lists:
 /usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
 ```
 
-`initramfs.list` selects the supplemental-table profile. `initramfs-dsdt.list`
-selects the same supplemental tables plus the full DSDT replacement.
+`initramfs.list` selects the SSDT-only profile. `initramfs-dsdt.list` selects
+the same SSDT payloads plus the DSDT, PPTT, and enabled IORT whole-table
+replacements.
 
 Keep `/usr/src/linux` pointing at the kernel source tree being built if you want
 one reusable `.config` across kernel version bumps. The kernel build resolves
@@ -76,8 +86,8 @@ symlink rather than a path relative to the source tree.
 
 ## Kernel Configuration
 
-For either table-upgrade profile, enable the built-in uncompressed
-initramfs ACPI override path:
+For either table-upgrade profile, enable the built-in uncompressed initramfs
+ACPI override path:
 
 ```text
 CONFIG_BLK_DEV_INITRD=y
@@ -86,7 +96,7 @@ CONFIG_ACPI_TABLE_OVERRIDE_VIA_BUILTIN_INITRD=y
 CONFIG_INITRAMFS_COMPRESSION_NONE=y
 ```
 
-For the supplemental-table profile:
+For the SSDT-only profile:
 
 ```text
 CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/initramfs.list"
@@ -130,54 +140,73 @@ acpi_table_upgrade.exclude=kernel/firmware/acpi/O6TZNP.aml
 acpi_table_upgrade.exclude=/kernel/firmware/acpi/O6TZNP.aml
 ```
 
-This leaves ACPI table upgrade enabled, but skips selected AML files. Entries are
-comma-separated and may be specified as a basename or as the cpio path with or
-without a leading `/`. The kernel still logs discovered candidate AML files, marks
-excluded entries in that discovery line, and emits an explicit `Table Upgrade:
-skip [...] (<path>)` line for each skipped table. Override and install messages
-also include enough table identity to match the action back to the corresponding
-discovery line, which includes the backing cpio path.
+This leaves ACPI table upgrade enabled, but skips selected AML files. Entries
+are comma-separated and may be specified as a basename or as the cpio path with
+or without a leading `/`. The kernel still logs discovered candidate AML files,
+marks excluded entries in that discovery line, and emits an explicit `Table
+Upgrade: skip [...] (<path>)` line for each skipped table. Override and install
+messages also include enough table identity to match the action back to the
+corresponding discovery line, which includes the backing cpio path.
 
-The supplemental SoC thermal sensor zones are now combined in `O6TZSNS.aml`.
-The existing EC thermal-zone critical trip remains separate as `O6ECTZ.aml` so
-it can still be isolated independently from the PMMX.SENG sensor table.
+The supplemental SoC thermal sensor zones are combined in `O6TZSNS.aml`. The
+existing EC thermal-zone critical trip remains separate as `O6ECTZ.aml` so it
+can still be isolated independently from the PMMX.SENG sensor table.
 
 ## kconfig_update.py
 
-The helper can print or apply the same kernel config choices.
+The helper can print `.config` fragments, print update diffs for an existing
+`.config`, or apply those update diffs with `--apply`. In fragment and update
+modes, `--kernel-version` is normally unnecessary because the helper detects the
+kernel version from `KERNEL_TREE/Makefile`.
 
-Supplemental table profile:
+SSDT-only profile:
 
 ```sh
 python3 sys-kernel/cix-sources/files/kconfig_update.py \
   --mode fragment \
-  --kernel-version 7.0 \
   --kernel-tree /usr/src/linux-<version> \
   --board-profile o6-acpi \
   --cix-patches yes \
   --acpi-table-upgrade ssdt
 ```
 
-DSDT replacement:
+DSDT/whole-table profile:
 
 ```sh
 python3 sys-kernel/cix-sources/files/kconfig_update.py \
   --mode fragment \
-  --kernel-version 7.0 \
   --kernel-tree /usr/src/linux-<version> \
   --board-profile o6-acpi \
   --cix-patches yes \
   --acpi-table-upgrade dsdt
 ```
 
-Use `--mode update /path/to/.config` to update an existing config in place. The
-script writes a backup before modifying the target config.
+Print a diff for an existing config without changing it:
+
+```sh
+python3 sys-kernel/cix-sources/files/kconfig_update.py \
+  --mode update \
+  --kernel-tree /usr/src/linux-<version> \
+  --board-profile o6-acpi \
+  --cix-patches yes \
+  --acpi-table-upgrade dsdt \
+  /path/to/.config
+```
+
+Add `--apply` to update the target `.config` file in place. In apply mode, the
+helper writes a backup before overwriting the target config.
 
 ## Validation After Boot
 
 After booting with a table-upgrade profile, check `dmesg` for ACPI override
-messages and for the repaired devices:
+messages and for the repaired devices. For either profile:
 
 ```sh
-dmesg | grep -Ei 'ACPI:.*(upgrade|override)|rts5453|cppc|arm-scmi|GPU|PNP0A08|PNP0D10'
+dmesg | grep -Ei 'ACPI:.*(upgrade|override)|O6RBRR|O6TZSNS|rts5453|cppc|arm-scmi|GPU|PNP0A08|PNP0D10'
+```
+
+For the DSDT/whole-table profile, also check for the whole-table payloads:
+
+```sh
+dmesg | grep -Ei 'ACPI:.*(DSDT|IORT|PPTT|RAOP)|Table Upgrade: override \[(DSDT|IORT|PPTT)'
 ```

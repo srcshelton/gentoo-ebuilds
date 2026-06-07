@@ -55,7 +55,10 @@ COMMON_DEPEND="
 "
 
 BDEPEND="
-	acpi-table-upgrade? ( >=sys-power/iasl-20241212 )
+	acpi-table-upgrade? (
+		=dev-lang/python-3*
+		>=sys-power/iasl-20241212
+	)
 "
 
 PATCHES=(
@@ -276,13 +279,18 @@ src_compile() {
 		local profile=''
 		local source_aml_dir=''
 		local stem=''
+		local -a profiles=( initramfs )
 
 		if [[ "${PR}" != 'r0' ]]; then
 			linux_dir="linux-${CKV}-cix-${PR}"
 		fi
 
+		if use acpi-table-upgrade-dsdt; then
+			profiles+=( initramfs-dsdt )
+		fi
+
 		rm -rf "${output_dir}" || die
-		for profile in initramfs initramfs-dsdt; do
+		for profile in "${profiles[@]}"; do
 			source_aml_dir="${output_dir}/${profile}/kernel/firmware/acpi"
 			installed_aml_dir="/usr/src/${linux_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
 			mkdir -p "${source_aml_dir}" || die
@@ -296,10 +304,20 @@ src_compile() {
 				rm -f "${outbase}.hex" "${outbase}.lst" || die
 			done
 
-			src_compile_iort "${FILESDIR}/acpi-table-upgrade/${VENDOR_FIRMWARE}" \
-				"${source_aml_dir}"
-
 			if [[ "${profile}" == "initramfs-dsdt" ]]; then
+				for asl in "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/pptt/*.asl; do
+					[[ -e "${asl:-}" ]] || continue
+					stem=${asl##*/}
+					stem=${stem%.asl}
+					stem=$(cix_acpi_aml_stem "${stem}") || die
+					outbase="${source_aml_dir}/${stem}"
+					iasl -p "${outbase}" -tc "${asl}" || die "failed to compile ${asl}"
+					rm -f "${outbase}.hex" "${outbase}.lst" || die
+				done
+
+				src_compile_iort "${FILESDIR}/acpi-table-upgrade/${VENDOR_FIRMWARE}" \
+					"${source_aml_dir}"
+
 				for asl in "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/dsdt/*.asl; do
 					stem=${asl##*/}
 					stem=${stem%.asl}
@@ -331,6 +349,7 @@ src_compile() {
 src_install() {
 	local linux_dir=''
 	local profile=''
+	local -a profiles=( initramfs )
 
 	kernel-2_src_install
 
@@ -353,13 +372,20 @@ src_install() {
 		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/ssdt"
 		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/ssdt"
 		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/ssdt/*.asl
+		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/pptt"
+		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/pptt"
+		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/pptt/*.asl
 		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/dsdt"
 		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/dsdt"
 		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/dsdt/*.asl
 		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/iort"
 		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/iort"
 		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/iort/*
-		for profile in initramfs initramfs-dsdt; do
+		if use acpi-table-upgrade-dsdt; then
+			profiles+=( initramfs-dsdt )
+		fi
+
+		for profile in "${profiles[@]}"; do
 			insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade"
 			doins "${T}/cix-acpi-table-upgrade/${profile}.list"
 			dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"

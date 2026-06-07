@@ -565,8 +565,8 @@ def parse_args() -> argparse.Namespace:
         "--acpi-table-upgrade",
         choices=ACPI_TABLE_UPGRADE_CHOICES,
         help=option_help(
-            "For ACPI board profiles, enable either the smaller SSDT override "
-            "set or the full DSDT replacement profile.",
+            "For ACPI board profiles, enable either the lower-impact SSDT-only "
+            "overlay set or the full DSDT and whole-table replacement profile.",
             "none",
         ),
     )

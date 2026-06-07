@@ -55,7 +55,10 @@ COMMON_DEPEND="
 "
 
 BDEPEND="
-	acpi-table-upgrade? ( >=sys-power/iasl-20241212 )
+	acpi-table-upgrade? (
+		=dev-lang/python-3*
+		>=sys-power/iasl-20241212
+	)
 "
 
 PATCHES=(
@@ -317,23 +320,25 @@ src_compile() {
 				"${dst}/initramfs/kernel/firmware/acpi"
 		done
 
-		# Compile static data-table replacements, used by both profiles...
-		for file in "${src}"/pptt/*.asl; do
-			[[ -e "${file:-}" ]] || continue
-			src_compile_asl "${file}" \
-				"${dst}/initramfs/kernel/firmware/acpi"
-		done
-
-		src_compile_iort "${src}" \
-			"${dst}/initramfs/kernel/firmware/acpi"
-
 		if use acpi-table-upgrade-dsdt; then
+			mkdir -p "${dst}/initramfs-dsdt/kernel/firmware/acpi" || die
+			cp "${dst}"/initramfs/kernel/firmware/acpi/*.aml \
+				"${dst}"/initramfs-dsdt/kernel/firmware/acpi
+
+			# Compile whole-table replacements for the full profile only...
+			for file in "${src}"/pptt/*.asl; do
+				[[ -e "${file:-}" ]] || continue
+				src_compile_asl "${file}" \
+					"${dst}/initramfs-dsdt/kernel/firmware/acpi"
+			done
+
+			src_compile_iort "${src}" \
+				"${dst}/initramfs-dsdt/kernel/firmware/acpi"
+
 			for file in "${src}"/dsdt/*.asl; do
 				src_compile_asl "${file}" \
 					"${dst}/initramfs-dsdt/kernel/firmware/acpi"
 			done
-			cp "${dst}"/initramfs/kernel/firmware/acpi/*.aml \
-				"${dst}"/initramfs-dsdt/kernel/firmware/acpi
 			profiles+=( 'initramfs-dsdt' )
 		fi
 
