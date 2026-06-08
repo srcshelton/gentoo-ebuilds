@@ -19,7 +19,6 @@ permissions:
   contents: write
 
 env:
-  UBUNTU_KERNEL_SERIES: noble
   DEBIAN_FRONTEND: noninteractive
   CCACHE_DISABLE: "1"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -82,21 +81,39 @@ jobs:
           board_profiles = (
               {
                   "board_profile": "o6-acpi",
-                  "board_package": "o6-acpi",
-                  "board_version": "o6.acpi",
+                  "board_package_base": "o6-acpi",
+                  "board_version_base": "o6.acpi",
               },
               {
                   "board_profile": "o6n-acpi",
-                  "board_package": "o6n-acpi",
-                  "board_version": "o6n.acpi",
+                  "board_package_base": "o6n-acpi",
+                  "board_version_base": "o6n.acpi",
+              },
+          )
+          config_flavours = (
+              {
+                  "config_flavour": "generic",
+                  "config_package": "generic",
+                  "config_version": "generic",
+              },
+              {
+                  "config_flavour": "generic-64k",
+                  "config_package": "generic-64k",
+                  "config_version": "generic64k",
               },
           )
           for line in sorted(selected, key=lambda value: tuple(map(int, value.split(".")))):
               for board in board_profiles:
-                  entry = dict(selected[line])
-                  del entry["key"]
-                  entry.update(board)
-                  include.append(entry)
+                  for flavour in config_flavours:
+                      entry = dict(selected[line])
+                      del entry["key"]
+                      entry.update({
+                          "board_profile": board["board_profile"],
+                          "board_package": f"{board['board_package_base']}-{flavour['config_package']}",
+                          "board_version": f"{board['board_version_base']}.{flavour['config_version']}",
+                      })
+                      entry.update(flavour)
+                      include.append(entry)
 
           matrix = {"include": include}
           print(json.dumps(matrix, indent=2))
@@ -104,7 +121,7 @@ jobs:
               output.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
 
   build:
-    name: Build ${{ matrix.version }} ${{ matrix.board_profile }} debs
+    name: Build ${{ matrix.version }} ${{ matrix.board_profile }} ${{ matrix.config_flavour }} debs
     runs-on: ubuntu-24.04-arm
     needs: discover
     if: ${{ needs.discover.outputs.matrix != '{"include":[]}' }}
@@ -120,6 +137,7 @@ jobs:
       BOARD_PROFILE: ${{ matrix.board_profile }}
       BOARD_PACKAGE: ${{ matrix.board_package }}
       BOARD_VERSION: ${{ matrix.board_version }}
+      KERNEL_CONFIG_FLAVOUR: ${{ matrix.config_flavour }}
     steps:
       - name: Check out overlay
         uses: actions/checkout@v6
@@ -511,7 +529,7 @@ jobs:
             echo "acpi_table_upgrade_initramfs_source=${acpi_table_upgrade_initramfs_source}"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Fetch Ubuntu generic arm64 config and apply Radxa updates
+      - name: Fetch Ubuntu arm64 config and apply Radxa updates
         shell: bash
         run: |
           set -euo pipefail
@@ -519,24 +537,65 @@ jobs:
           source_dir="${{ steps.prepare.outputs.source_dir }}"
           build_dir="${{ steps.prepare.outputs.build_dir }}"
           ubuntu_config_tree="${RUNNER_TEMP}/ubuntu-kernel-config-${KERNEL_VERSION}"
+          ubuntu_config="${build_dir}/.config"
+          ubuntu_config_tmp="${ubuntu_config}.tmp"
+          kernel_major="${KERNEL_LINE%%.*}"
+          selected_config_source=''
+          ubuntu_config_candidates=()
 
-          rm -rf "${ubuntu_config_tree}"
-          git clone \
-            --depth=1 \
-            --filter=blob:none \
-            --sparse \
-            "https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/${UBUNTU_KERNEL_SERIES}" \
-            "${ubuntu_config_tree}"
-          (
-            cd "${ubuntu_config_tree}"
-            git sparse-checkout set --no-cone debian.master/config debian/scripts debian/debian.env
-            python3 debian/scripts/misc/annotations \
-              -f debian.master/config/annotations \
-              --arch arm64 \
-              --flavour generic \
-              --export
-          ) > "${build_dir}/.config"
-          rm -rf "${ubuntu_config_tree}"
+          if (( kernel_major >= 7 )); then
+            ubuntu_config_candidates+=(
+              "Ubuntu Concept CIX Resolute|https://git.launchpad.net/~ubuntu-concept/ubuntu/+source/linux/+git/cix|ubuntu/resolute"
+              "Ubuntu Resolute|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/resolute|"
+            )
+          else
+            ubuntu_config_candidates+=(
+              "Ubuntu Questing|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/questing|"
+              "Ubuntu Noble|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/noble|"
+            )
+          fi
+
+          for candidate in "${ubuntu_config_candidates[@]}"; do
+            IFS='|' read -r config_name config_repo config_ref <<< "${candidate}"
+            clone_args=(
+              --depth=1
+              --filter=blob:none
+              --sparse
+            )
+            if [[ -n "${config_ref}" ]]; then
+              clone_args+=( --branch "${config_ref}" )
+            fi
+
+            rm -rf "${ubuntu_config_tree}" "${ubuntu_config_tmp}"
+            echo "Trying ${config_name} arm64/${KERNEL_CONFIG_FLAVOUR} kernel config"
+            if ! git clone "${clone_args[@]}" "${config_repo}" "${ubuntu_config_tree}"; then
+              echo "Failed to clone ${config_name}; trying next config source" >&2
+              continue
+            fi
+
+            if (
+              cd "${ubuntu_config_tree}"
+              git sparse-checkout set --no-cone debian.master/config debian/scripts debian/debian.env
+              python3 debian/scripts/misc/annotations \
+                -f debian.master/config/annotations \
+                --arch arm64 \
+                --flavour "${KERNEL_CONFIG_FLAVOUR}" \
+                --export
+            ) > "${ubuntu_config_tmp}"; then
+              mv "${ubuntu_config_tmp}" "${ubuntu_config}"
+              selected_config_source="${config_name}"
+              break
+            fi
+
+            echo "Failed to export ${config_name} arm64/${KERNEL_CONFIG_FLAVOUR}; trying next config source" >&2
+          done
+          rm -rf "${ubuntu_config_tree}" "${ubuntu_config_tmp}"
+
+          if [[ -z "${selected_config_source}" ]]; then
+            echo "Failed to fetch any Ubuntu arm64/${KERNEL_CONFIG_FLAVOUR} kernel config" >&2
+            exit 1
+          fi
+          echo "Using ${selected_config_source} arm64/${KERNEL_CONFIG_FLAVOUR} kernel config"
 
           acpi_table_upgrade_initramfs_source="${{ steps.prepare.outputs.acpi_table_upgrade_initramfs_source }}"
           kconfig_update_args=(
