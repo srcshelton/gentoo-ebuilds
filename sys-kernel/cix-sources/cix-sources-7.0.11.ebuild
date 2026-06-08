@@ -143,6 +143,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
+	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
 	eapply "${FILESDIR}"/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die

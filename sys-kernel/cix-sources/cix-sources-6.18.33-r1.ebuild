@@ -162,6 +162,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
+	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/6.18.x/50040-6.18.32-pwm-sky1-fix-kconfig-entry.patch || die
 	eapply "${FILESDIR}"/6.18.x/73000-6.18-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
 	eapply "${FILESDIR}"/6.18.x/73010-6.18-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die

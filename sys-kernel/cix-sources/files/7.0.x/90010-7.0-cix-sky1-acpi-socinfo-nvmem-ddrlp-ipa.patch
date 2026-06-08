@@ -357,7 +357,7 @@ diff --git a/drivers/soc/cix/cix-ddr-lp.c b/drivers/soc/cix/cix-ddr-lp.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-ddr-lp.c
-@@ -0,0 +1,238 @@
+@@ -0,0 +1,244 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CIX DDR Low Power driver
@@ -386,7 +386,8 @@ new file mode 100644
 +static bool force_enabled;
 +module_param(force_enabled, bool, 0444);
 +MODULE_PARM_DESC(force_enabled,
-+		 "Force-enable the disabled-by-default Sky1 DDR LP test device");
++		 "Force-enable ACPI DDR LP direct TF-A control when firmware does "
++		 "not enumerate it");
 +
 +static bool cix_ddrlp_acpi_boot_without_force(void)
 +{
@@ -558,8 +559,11 @@ new file mode 100644
 +{
 +	int ret;
 +
-+	if (cix_ddrlp_acpi_boot_without_force())
++	if (cix_ddrlp_acpi_boot_without_force()) {
++		pr_err("DDR LP direct TF-A control disabled by default on ACPI; "
++		       "use force_enabled=1 to override firmware enumeration\n");
 +		return -ENODEV;
++	}
 +
 +	ret = platform_driver_register(&cix_ddrlp_driver);
 +	if (ret)
@@ -571,6 +575,8 @@ new file mode 100644
 +			return -ENODEV;
 +		}
 +
++		pr_warn("DDR LP direct TF-A control force-enabled on ACPI; "
++			"overriding firmware enumeration\n");
 +		cix_ddrlp_forced_pdev =
 +			platform_device_register_simple("cix-ddr-lp",
 +							PLATFORM_DEVID_NONE,
