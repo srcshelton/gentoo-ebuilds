@@ -202,6 +202,7 @@ jobs:
           disable_third_party_apt_sources
           apt_get_update
           apt_get_install \
+            acpica-tools \
             bc \
             bison \
             build-essential \
@@ -366,6 +367,10 @@ jobs:
           detect_arch() { :; }
           use() {
             case "$1" in
+              acpi-table-upgrade|acpi-table-upgrade-dsdt|acpi-table-upgrade-iort-httu|acpi-table-upgrade-iort-msi)
+                [[ "${BOARD_PROFILE}" == "o6-acpi" ]]
+                return
+                ;;
               radxa-menu)
                 return 0
                 ;;
@@ -457,12 +462,44 @@ jobs:
 
           src_prepare
 
+          acpi_table_upgrade_initramfs_source=""
+          if [[ "${BOARD_PROFILE}" == "o6-acpi" ]]; then
+            src_compile
+            mkdir -p "${source_dir}/cix-acpi-table-upgrade"
+            cp -a "${tempdir}/cix-acpi-table-upgrade"/. \
+              "${source_dir}/cix-acpi-table-upgrade/"
+
+            for profile in initramfs initramfs-dsdt; do
+              profile_dir="${source_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
+              [[ -d "${profile_dir}" ]] || continue
+
+              {
+                echo 'dir /dev 0755 0 0'
+                echo 'nod /dev/console 0600 0 0 c 5 1'
+                echo 'dir /root 0700 0 0'
+                echo 'dir /kernel 0755 0 0'
+                echo 'dir /kernel/firmware 0755 0 0'
+                echo 'dir /kernel/firmware/acpi 0755 0 0'
+
+                for file in "${profile_dir}"/*.aml; do
+                  [[ -e "${file}" ]] || die "no AML files found in ${profile_dir}"
+                  printf 'file /kernel/firmware/acpi/%s %s 0644 0 0\n' \
+                    "$(basename "${file}")" \
+                    "${file}"
+                done
+              } > "${source_dir}/cix-acpi-table-upgrade/${profile}.list"
+            done
+
+            acpi_table_upgrade_initramfs_source="${source_dir}/cix-acpi-table-upgrade/initramfs-dsdt.list"
+          fi
+
           rm -rf "${distdir}" "${workdir}" "${tempdir}"
 
           {
             echo "work_root=${work_root}"
             echo "source_dir=${source_dir}"
             echo "build_dir=${build_dir}"
+            echo "acpi_table_upgrade_initramfs_source=${acpi_table_upgrade_initramfs_source}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Fetch Ubuntu generic arm64 config and apply Radxa updates
@@ -492,12 +529,24 @@ jobs:
           ) > "${build_dir}/.config"
           rm -rf "${ubuntu_config_tree}"
 
+          acpi_table_upgrade_initramfs_source="${{ steps.prepare.outputs.acpi_table_upgrade_initramfs_source }}"
+          kconfig_update_args=(
+            --mode update
+            --kernel-version "${KERNEL_LINE}"
+            --kernel-tree "${source_dir}"
+            --board-profile "${BOARD_PROFILE}"
+            --cix-patches yes
+            --apply
+          )
+          if [[ -n "${acpi_table_upgrade_initramfs_source}" ]]; then
+            kconfig_update_args+=(
+              --acpi-table-upgrade dsdt
+              --acpi-table-upgrade-initramfs-source "${acpi_table_upgrade_initramfs_source}"
+            )
+          fi
+
           python3 "${GITHUB_WORKSPACE}/sys-kernel/cix-sources/files/kconfig_update.py" \
-            --mode update \
-            --kernel-version "${KERNEL_LINE}" \
-            --kernel-tree "${source_dir}" \
-            --board-profile "${BOARD_PROFILE}" \
-            --cix-patches yes \
+            "${kconfig_update_args[@]}" \
             "${build_dir}/.config"
 
           "${source_dir}/scripts/config" --file "${build_dir}/.config" \
