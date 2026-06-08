@@ -1,12 +1,12 @@
-# Orion O6 ACPI Table Upgrade Support
+# Orion O6/O6N ACPI Table Upgrade Support
 
 Linux can optionally load replacement or supplemental ACPI tables from an
 initramfs. The kernel documentation for this mechanism is:
 
 `Documentation/admin-guide/acpi/initrd_table_override.rst`
 
-The table sources shipped by this package target the Radxa Orion O6 running
-Radxa vendor firmware `1.2.1`.
+The table sources shipped by this package target Radxa Orion O6 and O6N boards
+running Radxa vendor firmware `1.2.1`.
 
 ## Available Profiles
 
@@ -14,26 +14,31 @@ There are two initramfs source-list profiles: an SSDT-only lower-impact
 profile, and a full profile that layers whole-table replacements on top of the
 same SSDT payloads.
 
-- SSDT-only profile: enable the smaller table-upgrade set through
+- SSDT-only profile: enable the smaller table-upgrade set through a board
   `initramfs.list` or `--acpi-table-upgrade ssdt`. This profile contains only
-  additive SSDT payloads. It repairs the captured `_CPC` reference-performance
-  values, updates the Radxa O6 RTS5453 Type-C PD controller nodes to use shared
-  IRQ resources, adds SCMI mailbox shared-memory windows, marks the GPU
-  non-coherent, describes BusPerf fabric performance devices, exposes the DSU
-  PMU, keeps the isolated `ECTZ` critical trip overlay, supplies the combined
-  DTB/MemoryMap-backed SoC thermal monitor sensor table, describes the Sky1
-  reboot-reason register, and adds DTB-aligned audio DMA/HDA metadata including
-  the HDA `_DMA` translation window.
+  additive SSDT payloads. On O6 it repairs the captured `_CPC`
+  reference-performance values, updates the RTS5453 Type-C PD controller nodes
+  to use shared IRQ resources, adds SCMI mailbox shared-memory windows, marks
+  the GPU non-coherent, describes BusPerf fabric performance devices, exposes
+  the DSU PMU, keeps the isolated `ECTZ` critical trip overlay, supplies the
+  combined DTB/MemoryMap-backed SoC thermal monitor sensor table, describes the
+  Sky1 reboot-reason register, and adds DTB-aligned audio DMA/HDA metadata
+  including the HDA `_DMA` translation window. On O6N, the SSDT profile keeps
+  only the overlays that are compatible with the O6N ACPI namespace and leaves
+  O6-only EC, Type-C, audio, and extra thermal-zone overlays out.
 - DSDT/whole-table profile: enable the full replacement profile through
-  `initramfs-dsdt.list` or `--acpi-table-upgrade dsdt`. This profile includes
-  the same SSDT payloads, plus a Radxa `1.2.1`-derived `DSDT.aml` with a newer
-  OEM revision, mainline-only PCIe/USB device-model policy, DTB-aligned eDP
-  backlight brightness levels, and the ACPI `RAOP` ramoops description used by
-  the pstore/ramoops driver. It also adds the replacement `PPTT.aml` cache
-  topology and, when enabled by USE flags, the generated `IORT.aml` SMMU table
-  update.
+  a board `initramfs-dsdt.list` or `--acpi-table-upgrade dsdt`. This profile
+  includes the same board-specific SSDT payloads, plus that board's
+  Radxa-`1.2.1`-derived `DSDT.aml`. On O6, the DSDT replacement carries the
+  newer OEM revision, mainline-only PCIe/USB device-model policy, DTB-aligned
+  eDP backlight brightness levels, and the ACPI `RAOP` ramoops description used
+  by the pstore/ramoops driver. On O6N, the DSDT source is the O6N-compatible
+  base DSDT captured from an O6N `1.2.1` system so the full profile can share
+  the whole-table payload structure without using the O6 DSDT on O6N hardware.
+  Both boards also include the replacement `PPTT.aml` cache topology and, when
+  enabled by USE flags, the generated `IORT.aml` SMMU table update.
 
-The DSDT replacement keeps the generic Linux-visible `PNP0A08` PCIe and
+The O6 DSDT replacement keeps the generic Linux-visible `PNP0A08` PCIe and
 `PNP0D10` USB hierarchies and marks the duplicate vendor-specific CIX/Cadence
 PCIe/USB hierarchy not-present. The `DSDT.aml` payload itself does not change
 CPU numbering, APIC, IORT, or the AML CPU topology; those whole-table updates
@@ -67,16 +72,26 @@ requested, the DSDT/whole-table profile. The install tree contains the ASL
 sources, compiled AML payloads, and generated initramfs source lists:
 
 ```text
-/usr/src/linux-<version>/cix-acpi-table-upgrade/source/orion-o6-radxa-1.2.1/
+/usr/src/linux-<version>/cix-acpi-table-upgrade/source/o6/orion-o6-radxa-1.2.1/
+/usr/src/linux-<version>/cix-acpi-table-upgrade/source/o6n/orion-o6n-radxa-1.2.1/
 /usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs/kernel/firmware/acpi/
 /usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs-dsdt/kernel/firmware/acpi/
 /usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs.list
 /usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs/kernel/firmware/acpi/
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs-dsdt/kernel/firmware/acpi/
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs.list
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs/kernel/firmware/acpi/
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs-dsdt/kernel/firmware/acpi/
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs.list
+/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
 ```
 
-`initramfs.list` selects the SSDT-only profile. `initramfs-dsdt.list` selects
-the same SSDT payloads plus the DSDT, PPTT, and enabled IORT whole-table
-replacements.
+`<board>/initramfs.list` selects the SSDT-only profile for `o6` or `o6n`.
+`<board>/initramfs-dsdt.list` selects the same board-specific SSDT payloads
+plus the DSDT, PPTT, and enabled IORT whole-table replacements. The historical
+top-level `initramfs.list` and `initramfs-dsdt.list` paths remain O6 aliases.
 
 Keep `/usr/src/linux` pointing at the kernel source tree being built if you want
 one reusable `.config` across kernel version bumps. The kernel build resolves
@@ -99,13 +114,15 @@ CONFIG_INITRAMFS_COMPRESSION_NONE=y
 For the SSDT-only profile:
 
 ```text
-CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/initramfs.list"
+CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6/initramfs.list"
+CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6n/initramfs.list"
 ```
 
 For the DSDT-replacement profile:
 
 ```text
-CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/initramfs-dsdt.list"
+CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6/initramfs-dsdt.list"
+CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6n/initramfs-dsdt.list"
 ```
 
 The selected source list includes the kernel's minimal default initramfs
@@ -118,7 +135,7 @@ dir /root 0700 0 0
 dir /kernel 0755 0 0
 dir /kernel/firmware 0755 0 0
 dir /kernel/firmware/acpi 0755 0 0
-file /kernel/firmware/acpi/<table>.aml /usr/src/linux-<version>/cix-acpi-table-upgrade/<profile>/kernel/firmware/acpi/<table>.aml 0644 0 0
+file /kernel/firmware/acpi/<table>.aml /usr/src/linux-<version>/cix-acpi-table-upgrade/<board>/<profile>/kernel/firmware/acpi/<table>.aml 0644 0 0
 ```
 
 ## Boot-Time Controls
@@ -180,6 +197,9 @@ python3 sys-kernel/cix-sources/files/kconfig_update.py \
   --cix-patches yes \
   --acpi-table-upgrade dsdt
 ```
+
+Use `--board-profile o6n-acpi` instead to select the O6N board-specific
+initramfs source list.
 
 Print a diff for an existing config without changing it:
 

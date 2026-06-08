@@ -29,7 +29,8 @@ detect_arch
 
 EGIT_CIX_COMMIT="3aad82491a599648d87ba1c47cec7968862fa165"
 EGIT_SKY1_COMMIT="57e018a398248d7e5e4d798610df79a557c0629f"
-VENDOR_FIRMWARE="orion-o6-radxa-1.2.1"
+VENDOR_FIRMWARE_O6="orion-o6-radxa-1.2.1"
+VENDOR_FIRMWARE_O6N="orion-o6n-radxa-1.2.1"
 
 DESCRIPTION="CIX sources including the Gentoo, CIX & Entropi patchsets for the ${KV_MAJOR}.${KV_MINOR} kernel tree"
 HOMEPAGE="https://github.com/cixtech/cix-linux-main/
@@ -78,41 +79,6 @@ pkg_setup() {
 	ewarn
 
 	kernel-2_pkg_setup
-}
-
-cix_acpi_aml_stem() {
-	case "$1" in
-		orion-o6-audio-dtb-metadata)
-			printf 'O6AUD\n'
-			;;
-		orion-o6-busperf)
-			printf 'O6BPF\n'
-			;;
-		orion-o6-cppc-reference-performance)
-			printf 'O6CPPC\n'
-			;;
-		orion-o6-gpu-noncoherent)
-			printf 'O6GPU\n'
-			;;
-		orion-o6-rts5453-shared-irq)
-			printf 'O6RTS\n'
-			;;
-		orion-o6-scmi-mailbox-window)
-			printf 'O6SCMI\n'
-			;;
-		orion-o6-ectz-critical-trip)
-			printf 'O6ECTZ\n'
-			;;
-		orion-o6-reboot-reason)
-			printf 'O6RBRR\n'
-			;;
-		orion-o6-thermal-sensors)
-			printf 'O6TZSNS\n'
-			;;
-		*)
-			printf '%s\n' "$1"
-			;;
-	esac
 }
 
 src_prepare() {
@@ -251,13 +217,96 @@ src_prepare() {
 	kernel-2_src_prepare
 }
 
-src_compile_iort() {
+_src_compile_asl() {
+	local file="${1:-}"
+	local dest="${2:-}"
+	local prefix=''
+
+	[[ -s "${file:-}" ]] ||
+		die "_src_compile_asl() called on unreadable/empty file '${file:-}'"
+
+	[[ -n "${dest:-}" ]] ||
+		die "_src_compile_asl() called without destination directory"
+
+	[[ -e "${dest}" && ! -d "${dest}" ]] &&
+		die "_src_compile_asl() called invalid destination directory '${dest}'"
+
+	case "$( basename "${file}" | sed 's/\.asl//' )" in
+		'orion-o6-audio-dtb-metadata')
+			prefix='O6AUD'
+			;;
+		'orion-o6-busperf')
+			prefix='O6BPF'
+			;;
+		'orion-o6-cppc-reference-performance')
+			prefix='O6CPPC'
+			;;
+		'orion-o6-dsu-pmu')
+			prefix='O6DSUP'
+			;;
+		'orion-o6-gpu-noncoherent')
+			prefix='O6GPU'
+			;;
+		'orion-o6-rts5453-shared-irq')
+			prefix='O6RTS'
+			;;
+		'orion-o6-scmi-mailbox-window')
+			prefix='O6SCMI'
+			;;
+		'orion-o6-ectz-critical-trip')
+			prefix='O6ECTZ'
+			;;
+		'orion-o6-reboot-reason')
+			prefix='O6RBRR'
+			;;
+		'orion-o6-thermal-sensors')
+			prefix='O6TZSNS'
+			;;
+		'orion-o6n-busperf')
+			prefix='O6NBPF'
+			;;
+		'orion-o6n-cppc-reference-performance')
+			prefix='O6NCPPC'
+			;;
+		'orion-o6n-dsu-pmu')
+			prefix='O6NDSUP'
+			;;
+		'orion-o6n-gpu-noncoherent')
+			prefix='O6NGPU'
+			;;
+		'orion-o6n-reboot-reason')
+			prefix='O6NRBRR'
+			;;
+		'orion-o6n-scmi-mailbox-window')
+			prefix='O6NSCMI'
+			;;
+		'PPTT')
+			prefix='PPTT'
+			;;
+		'DSDT')
+			prefix='DSDT'
+			;;
+		*)
+			die "_src_compile_asl() called with unknown file '${file:-}'"
+			;;
+	esac
+
+	(
+		set -e
+
+		mkdir -p "${dest}" && cd "${dest}"
+
+		iasl -p "${prefix}" -tc "${file}"
+	) || die "'iasl' failed to compile '${file}' (${prefix}): ${?}"
+}
+
+_src_compile_iort() {
 	local src="${1:-}"
 	local dest="${2:-}"
 	local -a args=()
 
 	[[ -s "${src}/iort/IORT.dat" ]] ||
-		die "src_compile_iort() called without source IORT.dat"
+		die "_src_compile_iort() called without source IORT.dat"
 
 	use acpi-table-upgrade-iort-httu && args+=( '--httu' )
 	use acpi-table-upgrade-iort-msi && args+=( '--msi' )
@@ -269,129 +318,179 @@ src_compile_iort() {
 		die "failed to build IORT table-upgrade payload"
 }
 
+_cix_acpi_vendor_firmware() {
+	case "${1:-}" in
+		'o6')
+			printf '%s\n' "${VENDOR_FIRMWARE_O6}"
+			;;
+		'o6n')
+			printf '%s\n' "${VENDOR_FIRMWARE_O6N}"
+			;;
+		*)
+			die "unknown ACPI table-upgrade board '${1:-}'"
+			;;
+	esac
+}
+
+_cix_acpi_write_initramfs_list() {
+	local profile_root="${1:-}"
+	local list_file="${2:-}"
+	local installed_root="${3:-}"
+	local file='' rel=''
+
+	[[ -d "${profile_root}/kernel/firmware/acpi" ]] ||
+		die "missing ACPI table-upgrade profile directory '${profile_root}'"
+
+	mkdir -p "$( dirname "${list_file}" )" || die
+	{
+		echo 'dir /dev 0755 0 0'
+		echo 'nod /dev/console 0600 0 0 c 5 1'
+		echo 'dir /root 0700 0 0'
+		echo 'dir /kernel 0755 0 0'
+		echo 'dir /kernel/firmware 0755 0 0'
+		echo 'dir /kernel/firmware/acpi 0755 0 0'
+
+		for file in "${profile_root}"/kernel/firmware/acpi/*.aml; do
+			[[ -e "${file:-}" ]] ||
+				die "no AML files found in" \
+					"'${profile_root}/kernel/firmware/acpi/'"
+
+			rel="${file#"${profile_root}/"}"
+
+			printf 'file /kernel/firmware/acpi/%s %s/%s 0644 0 0\n' \
+				"$( basename "${file}" )" \
+				"${installed_root%/}" \
+				"${rel}"
+		done
+	} > "${list_file}" ||
+		die "failed to create '${list_file}': ${?}"
+}
+
 src_compile() {
 	if use acpi-table-upgrade; then
-		local aml=''
-		local asl=''
-		local installed_aml_dir=''
-		local linux_dir="linux-${CKV}-cix"
-		local outbase=''
-		local output_dir="${T}/cix-acpi-table-upgrade"
-		local profile=''
-		local source_aml_dir=''
-		local stem=''
-		local -a profiles=( initramfs )
+		local dst="${T}/cix-acpi-table-upgrade"
+		local kernel_dir="/usr/src/linux-${CKV}-cix"
+		local board='' board_dst='' file='' profile='' src='' vendor=''
+		local -a boards=( 'o6' 'o6n' )
+		local -a profiles=()
 
-		if [[ "${PR}" != 'r0' ]]; then
-			linux_dir="linux-${CKV}-cix-${PR}"
+		if [[ "${PR:-"r0"}" != 'r0' ]]; then
+			kernel_dir="${kernel_dir}-${PR}"
 		fi
 
-		if use acpi-table-upgrade-dsdt; then
-			profiles+=( initramfs-dsdt )
-		fi
+		for board in "${boards[@]}"; do
+			vendor="$( _cix_acpi_vendor_firmware "${board}" )"
+			src="${FILESDIR}/acpi-table-upgrade/${vendor}"
+			board_dst="${dst}/${board}"
+			profiles=( 'initramfs' )
 
-		rm -rf "${output_dir}" || die
-		for profile in "${profiles[@]}"; do
-			source_aml_dir="${output_dir}/${profile}/kernel/firmware/acpi"
-			installed_aml_dir="/usr/src/${linux_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
-			mkdir -p "${source_aml_dir}" || die
-
-			for asl in "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/ssdt/*.asl; do
-				stem=${asl##*/}
-				stem=${stem%.asl}
-				stem=$(cix_acpi_aml_stem "${stem}") || die
-				outbase="${source_aml_dir}/${stem}"
-				iasl -p "${outbase}" -tc "${asl}" || die "failed to compile ${asl}"
-				rm -f "${outbase}.hex" "${outbase}.lst" || die
+			# Compile SSDT overlays, used by both profiles.
+			for file in "${src}"/ssdt/*.asl; do
+				_src_compile_asl "${file}" \
+					"${board_dst}/initramfs/kernel/firmware/acpi"
 			done
 
-			if [[ "${profile}" == "initramfs-dsdt" ]]; then
-				for asl in "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/pptt/*.asl; do
-					[[ -e "${asl:-}" ]] || continue
-					stem=${asl##*/}
-					stem=${stem%.asl}
-					stem=$(cix_acpi_aml_stem "${stem}") || die
-					outbase="${source_aml_dir}/${stem}"
-					iasl -p "${outbase}" -tc "${asl}" || die "failed to compile ${asl}"
-					rm -f "${outbase}.hex" "${outbase}.lst" || die
+			if use acpi-table-upgrade-dsdt; then
+				mkdir -p "${board_dst}/initramfs-dsdt/kernel/firmware/acpi" || die
+				cp "${board_dst}"/initramfs/kernel/firmware/acpi/*.aml \
+					"${board_dst}"/initramfs-dsdt/kernel/firmware/acpi
+
+				# Compile whole-table replacements for the full profile only.
+				for file in "${src}"/pptt/*.asl; do
+					[[ -e "${file:-}" ]] || continue
+					_src_compile_asl "${file}" \
+						"${board_dst}/initramfs-dsdt/kernel/firmware/acpi"
 				done
 
-				src_compile_iort "${FILESDIR}/acpi-table-upgrade/${VENDOR_FIRMWARE}" \
-					"${source_aml_dir}"
+				_src_compile_iort "${src}" \
+					"${board_dst}/initramfs-dsdt/kernel/firmware/acpi"
 
-				for asl in "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/dsdt/*.asl; do
-					stem=${asl##*/}
-					stem=${stem%.asl}
-					stem=$(cix_acpi_aml_stem "${stem}") || die
-					outbase="${source_aml_dir}/${stem}"
-					iasl -p "${outbase}" -tc "${asl}" || die "failed to compile ${asl}"
-					rm -f "${outbase}.hex" "${outbase}.lst" || die
+				for file in "${src}"/dsdt/*.asl; do
+					_src_compile_asl "${file}" \
+						"${board_dst}/initramfs-dsdt/kernel/firmware/acpi"
 				done
+				profiles+=( 'initramfs-dsdt' )
 			fi
 
-			{
-				printf 'dir /dev 0755 0 0\n'
-				printf 'nod /dev/console 0600 0 0 c 5 1\n'
-				printf 'dir /root 0700 0 0\n'
-				printf 'dir /kernel 0755 0 0\n'
-				printf 'dir /kernel/firmware 0755 0 0\n'
-				printf 'dir /kernel/firmware/acpi 0755 0 0\n'
+			for profile in "${profiles[@]}"; do
+				_cix_acpi_write_initramfs_list \
+					"${board_dst}/${profile}" \
+					"${dst}/${board}/${profile}.list" \
+					"${kernel_dir%/}/cix-acpi-table-upgrade/${board}/${profile}"
+			done
+		done
 
-				for aml in "${source_aml_dir}"/*.aml; do
-					[[ -e "${aml}" ]] || die "no AML files found in ${source_aml_dir}"
-					printf 'file /kernel/firmware/acpi/%s %s/%s 0644 0 0\n' \
-						"${aml##*/}" "${installed_aml_dir}" "${aml##*/}"
-				done
-			} > "${output_dir}/${profile}.list" || die "failed to create ${output_dir}/${profile}.list"
+		# Compatibility aliases: the historical top-level profile paths select O6.
+		profiles=( 'initramfs' )
+		if use acpi-table-upgrade-dsdt; then
+			profiles+=( 'initramfs-dsdt' )
+		fi
+		for profile in "${profiles[@]}"; do
+			cp -a "${dst}/o6/${profile}" "${dst}/${profile}" || die
+			_cix_acpi_write_initramfs_list \
+				"${dst}/${profile}" \
+				"${dst}/${profile}.list" \
+				"${kernel_dir%/}/cix-acpi-table-upgrade/${profile}"
 		done
 	fi
 }
 
 src_install() {
-	local linux_dir=''
-	local profile=''
-	local -a profiles=( initramfs )
+	local kernel_dir="/usr/src/linux-${CKV}-cix"
+	local board='' file='' profile='' src='' vendor=''
+	local -a boards=( 'o6' 'o6n' )
+	local -a profiles=( 'initramfs' )
 
 	kernel-2_src_install
 
-	# e.g. linux-6.1.75 -> linux-6.1.75-cix-r1
-	dodir /usr/src
-	if [[ "${PR}" != 'r0' ]]; then
-		linux_dir="linux-${CKV}-cix-${PR}"
-		mv "${ED}/usr/src/linux-${CKV}-${PR}"  \
-			"${ED}/usr/src/${linux_dir}" || die
-	else
-		linux_dir="linux-${CKV}-cix"
-		mv "${ED}/usr/src/linux-${CKV}" \
-			"${ED}/usr/src/${linux_dir}" || die
+	# e.g. linux-7.0.9 -> linux-7.0.9-cix-r1
+	if [[ "${PR:-"r0"}" != 'r0' ]]; then
+		kernel_dir="${kernel_dir}-${PR}"
 	fi
+	mv "${ED}/usr/src/linux-${CKV}" "${ED%"/"}/${kernel_dir#"/"}" || die
 
 	if use acpi-table-upgrade; then
-		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade"
-		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade"
-		doins "${FILESDIR}"/ACPI_TABLE_UPGRADE.md
-		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/ssdt"
-		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/ssdt"
-		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/ssdt/*.asl
-		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/pptt"
-		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/pptt"
-		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/pptt/*.asl
-		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/dsdt"
-		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/dsdt"
-		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/dsdt/*.asl
-		dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/iort"
-		insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/source/${VENDOR_FIRMWARE}/iort"
-		doins "${FILESDIR}"/acpi-table-upgrade/"${VENDOR_FIRMWARE}"/iort/*
+		insinto "${kernel_dir}/cix-acpi-table-upgrade"
+		doins "${FILESDIR}/ACPI_TABLE_UPGRADE.md"
+
+		for board in "${boards[@]}"; do
+			vendor="$( _cix_acpi_vendor_firmware "${board}" )"
+			src="${FILESDIR}/acpi-table-upgrade/${vendor}"
+
+			insinto "${kernel_dir}/cix-acpi-table-upgrade/source/${board}/${vendor}/ssdt"
+			doins "${src}"/ssdt/*.asl
+
+			insinto "${kernel_dir}/cix-acpi-table-upgrade/source/${board}/${vendor}/pptt"
+			doins "${src}"/pptt/*.asl
+
+			insinto "${kernel_dir}/cix-acpi-table-upgrade/source/${board}/${vendor}/iort"
+			doins "${src}"/iort/*
+
+			insinto "${kernel_dir}/cix-acpi-table-upgrade/source/${board}/${vendor}/dsdt"
+			doins "${src}"/dsdt/*.asl
+		done
+
 		if use acpi-table-upgrade-dsdt; then
-			profiles+=( initramfs-dsdt )
+			profiles+=( 'initramfs-dsdt' )
 		fi
 
+		for board in "${boards[@]}"; do
+			for profile in "${profiles[@]}"; do
+				insinto "${kernel_dir}/cix-acpi-table-upgrade/${board}"
+				doins "${T}/cix-acpi-table-upgrade/${board}/${profile}.list"
+
+				insinto "${kernel_dir}/cix-acpi-table-upgrade/${board}/${profile}/kernel/firmware/acpi"
+				doins "${T}/cix-acpi-table-upgrade/${board}/${profile}/kernel/firmware/acpi"/*.aml
+			done
+		done
+
+		# Compatibility aliases: the historical top-level profile paths select O6.
 		for profile in "${profiles[@]}"; do
-			insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade"
+			insinto "${kernel_dir}/cix-acpi-table-upgrade"
 			doins "${T}/cix-acpi-table-upgrade/${profile}.list"
-			dodir "/usr/src/${linux_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
-			insinto "/usr/src/${linux_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
-			doins "${T}"/cix-acpi-table-upgrade/"${profile}"/kernel/firmware/acpi/*.aml
+
+			insinto "${kernel_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
+			doins "${T}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"/*.aml
 		done
 	fi
 }
@@ -426,12 +525,19 @@ pkg_postinst() {
 		elog
 		elog "ACPI table-upgrade sources and compiled AML profiles were"
 		elog "installed under /usr/src/${linux_dir}/cix-acpi-table-upgrade."
-		elog "Selectable initramfs source lists are installed at:"
-		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/initramfs.list"
-		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/initramfs-dsdt.list"
+		elog "Board-specific initramfs source lists are installed at:"
+		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6/initramfs.list"
+		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6n/initramfs.list"
+		if use acpi-table-upgrade-dsdt; then
+			elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6/initramfs-dsdt.list"
+			elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6n/initramfs-dsdt.list"
+		fi
+		elog "The historical top-level list paths are retained as O6 aliases."
 		elog "To build them into the kernel, enable the built-in initramfs"
-		elog "ACPI override options and set CONFIG_INITRAMFS_SOURCE to:"
-		elog "  /usr/src/linux/cix-acpi-table-upgrade/${selected_profile}.list"
+		elog "ACPI override options and set CONFIG_INITRAMFS_SOURCE to one"
+		elog "of the board-specific lists, for example:"
+		elog "  /usr/src/linux/cix-acpi-table-upgrade/o6/${selected_profile}.list"
+		elog "  /usr/src/linux/cix-acpi-table-upgrade/o6n/${selected_profile}.list"
 		elog "Keep /usr/src/linux pointing at this source tree before building."
 	fi
 

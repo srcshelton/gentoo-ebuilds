@@ -353,9 +353,9 @@ INITRAMFS_COMPRESSION_SYMBOLS = (
 )
 
 ACPI_TABLE_UPGRADE_CHOICES = ("ssdt", "dsdt")
-ACPI_TABLE_UPGRADE_INITRAMFS_SOURCES = {
-    "ssdt": "/usr/src/linux/cix-acpi-table-upgrade/initramfs.list",
-    "dsdt": "/usr/src/linux/cix-acpi-table-upgrade/initramfs-dsdt.list",
+ACPI_TABLE_UPGRADE_INITRAMFS_SOURCE_FORMATS = {
+    "ssdt": "/usr/src/linux/cix-acpi-table-upgrade/{board}/initramfs.list",
+    "dsdt": "/usr/src/linux/cix-acpi-table-upgrade/{board}/initramfs-dsdt.list",
 }
 
 KERNEL_MEMORY_DEBUG_ENABLED_SYMBOLS = (
@@ -426,6 +426,16 @@ def option_help(description: str, default: str | None = None) -> str:
 
 def warn_ignored(parser: argparse.ArgumentParser, message: str) -> None:
     print(f"{parser.prog}: warning: {message}", file=sys.stderr)
+
+
+def acpi_table_upgrade_board(profile: str) -> str:
+    return profile.split("-", 1)[0]
+
+
+def default_acpi_table_upgrade_initramfs_source(profile: str, upgrade: str) -> str:
+    return ACPI_TABLE_UPGRADE_INITRAMFS_SOURCE_FORMATS[upgrade].format(
+        board=acpi_table_upgrade_board(profile)
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -576,8 +586,8 @@ def parse_args() -> argparse.Namespace:
         help=option_help(
             "Override the 'CONFIG_INITRAMFS_SOURCE' value used with "
             "'--acpi-table-upgrade ssdt' or '--acpi-table-upgrade dsdt'. When "
-            "omitted, the helper chooses the matching initramfs source list "
-            "below the '/usr/src/linux' symlink.",
+            "omitted, the helper chooses the matching board-specific "
+            "initramfs source list below the '/usr/src/linux' symlink.",
             "auto",
         ),
     )
@@ -669,7 +679,9 @@ def parse_args() -> argparse.Namespace:
                 args.acpi_table_upgrade_initramfs_source = None
         elif not args.acpi_table_upgrade_initramfs_source:
             args.acpi_table_upgrade_initramfs_source = (
-                ACPI_TABLE_UPGRADE_INITRAMFS_SOURCES[args.acpi_table_upgrade]
+                default_acpi_table_upgrade_initramfs_source(
+                    args.board_profile, args.acpi_table_upgrade
+                )
             )
 
     if args.mode == "fragment":

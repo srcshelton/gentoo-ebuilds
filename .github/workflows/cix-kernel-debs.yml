@@ -368,7 +368,7 @@ jobs:
           use() {
             case "$1" in
               acpi-table-upgrade|acpi-table-upgrade-dsdt|acpi-table-upgrade-iort-httu|acpi-table-upgrade-iort-msi)
-                [[ "${BOARD_PROFILE}" == "o6-acpi" ]]
+                [[ "${BOARD_PROFILE}" == "o6-acpi" || "${BOARD_PROFILE}" == "o6n-acpi" ]]
                 return
                 ;;
               radxa-menu)
@@ -463,34 +463,43 @@ jobs:
           src_prepare
 
           acpi_table_upgrade_initramfs_source=""
-          if [[ "${BOARD_PROFILE}" == "o6-acpi" ]]; then
+          if [[ "${BOARD_PROFILE}" == "o6-acpi" || "${BOARD_PROFILE}" == "o6n-acpi" ]]; then
             src_compile
             mkdir -p "${source_dir}/cix-acpi-table-upgrade"
             cp -a "${tempdir}/cix-acpi-table-upgrade"/. \
               "${source_dir}/cix-acpi-table-upgrade/"
 
-            for profile in initramfs initramfs-dsdt; do
-              profile_dir="${source_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
-              [[ -d "${profile_dir}" ]] || continue
+            for board in o6 o6n ''; do
+              for profile in initramfs initramfs-dsdt; do
+                if [[ -n "${board}" ]]; then
+                  profile_dir="${source_dir}/cix-acpi-table-upgrade/${board}/${profile}/kernel/firmware/acpi"
+                  list_file="${source_dir}/cix-acpi-table-upgrade/${board}/${profile}.list"
+                else
+                  profile_dir="${source_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
+                  list_file="${source_dir}/cix-acpi-table-upgrade/${profile}.list"
+                fi
+                [[ -d "${profile_dir}" ]] || continue
 
-              {
-                echo 'dir /dev 0755 0 0'
-                echo 'nod /dev/console 0600 0 0 c 5 1'
-                echo 'dir /root 0700 0 0'
-                echo 'dir /kernel 0755 0 0'
-                echo 'dir /kernel/firmware 0755 0 0'
-                echo 'dir /kernel/firmware/acpi 0755 0 0'
+                {
+                  echo 'dir /dev 0755 0 0'
+                  echo 'nod /dev/console 0600 0 0 c 5 1'
+                  echo 'dir /root 0700 0 0'
+                  echo 'dir /kernel 0755 0 0'
+                  echo 'dir /kernel/firmware 0755 0 0'
+                  echo 'dir /kernel/firmware/acpi 0755 0 0'
 
-                for file in "${profile_dir}"/*.aml; do
-                  [[ -e "${file}" ]] || die "no AML files found in ${profile_dir}"
-                  printf 'file /kernel/firmware/acpi/%s %s 0644 0 0\n' \
-                    "$(basename "${file}")" \
-                    "${file}"
-                done
-              } > "${source_dir}/cix-acpi-table-upgrade/${profile}.list"
+                  for file in "${profile_dir}"/*.aml; do
+                    [[ -e "${file}" ]] || die "no AML files found in ${profile_dir}"
+                    printf 'file /kernel/firmware/acpi/%s %s 0644 0 0\n' \
+                      "$(basename "${file}")" \
+                      "${file}"
+                  done
+                } > "${list_file}"
+              done
             done
 
-            acpi_table_upgrade_initramfs_source="${source_dir}/cix-acpi-table-upgrade/initramfs-dsdt.list"
+            board="${BOARD_PROFILE%%-*}"
+            acpi_table_upgrade_initramfs_source="${source_dir}/cix-acpi-table-upgrade/${board}/initramfs-dsdt.list"
           fi
 
           rm -rf "${distdir}" "${workdir}" "${tempdir}"
