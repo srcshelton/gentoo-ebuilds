@@ -44,6 +44,29 @@ PCIe/USB hierarchy not-present. The `DSDT.aml` payload itself does not change
 CPU numbering, APIC, IORT, or the AML CPU topology; those whole-table updates
 are separate payloads included only in the DSDT/whole-table profile.
 
+## Table Payloads
+
+The installed AML filenames below are the files placed in
+`/kernel/firmware/acpi` inside the generated initramfs source lists. Rows marked
+`ssdt, dsdt` are included by both the SSDT-only and DSDT/whole-table profiles.
+Rows marked `dsdt only` are included only by the DSDT/whole-table profile.
+
+| Board(s) | Profile(s) | Installed AML | Table ID/source | Subsystem(s) | Effect |
+| --- | --- | --- | --- | --- | --- |
+| O6 | `ssdt`, `dsdt` | `O6AUD.aml` | `O6AUDMD` / `orion-o6-audio-dtb-metadata.asl` | Audio DMA, HDA, clocks | Aligns O6 audio metadata with the vendor DT layout: makes the `DMA1` reserved-memory entry a `12 MiB` window at `0xd0000000`, removes the legacy HDA `RSVL` carveout, adds the HDA `_DMA` translation window from device DMA `0x00000000`-`0x7fffffff` to CPU physical `0x90000000`-`0x10fffffff`, and points `DMA1.CLKT` at the AUDSS DMAC AXI clock. |
+| O6, O6N | `ssdt`, `dsdt` | `O6BPF.aml`, `O6NBPF.aml` | `O6BPERF`, `O6NBPERF` / `*-busperf.asl` | SCMI performance domains, fabric clocks | Adds `CIXHA030` (`CI70`) and `CIXHA031` (`MMHB`) ACPI devices with SCMI DVFS performance-domain references to domains `10` and `11`, allowing the Linux `CIX_BUS_PERF` driver to bind the CI700 and NI700/MMHUB fabric performance controls. |
+| O6, O6N | `ssdt`, `dsdt` | `O6CPPC.aml`, `O6NCPPC.aml` | `O6CPPC`, `O6NCPPC` / `*-cppc-reference-performance.asl` | CPU performance, CPPC | Repairs `_CPC` `ReferencePerformance` values that stock firmware reports as `1000` for every CPU. The overlay derives replacement values from nominal performance/frequency and the `1 GHz` architectural timer, while leaving CPU topology and numbering unchanged. |
+| O6, O6N | `ssdt`, `dsdt` | `O6DSUP.aml`, `O6NDSUP.aml` | `O6DSUP`, `O6NDSUP` / `*-dsu-pmu.asl` | PMU, CPU cluster observability | Adds the DSU PMU as an `ARMHD500` ACPI device using GSI `34` (`SPI 2`), matching the vendor DTB's shared cluster/L3 PMU description. |
+| O6, O6N | `ssdt`, `dsdt` | `O6GPU.aml`, `O6NGPU.aml` | `O6GPUCCA`, `O6NGPUCA` / `*-gpu-noncoherent.asl` | GPU DMA coherency | Sets `\_SB.GPU._CCA` to `0` so Linux treats Sky1 GPU DMA as non-coherent instead of trusting the stock coherent ACPI metadata. |
+| O6 | `ssdt`, `dsdt` | `O6RTS.aml` | `O6RTSIRQ` / `orion-o6-rts5453-shared-irq.asl` | USB Type-C, RTS5453, GPIO IRQs | Replaces `\_SB.I2C1.PD10._CRS` and `\_SB.I2C1.PD11._CRS` with resources that keep the original I2C addresses `0x30`/`0x31` but mark the shared `\_SB.GPI4` pin `8` interrupt as `Shared`, matching the actual O6 RTS5453 wiring. |
+| O6, O6N | `ssdt`, `dsdt` | `O6SCMI.aml`, `O6NSCMI.aml` | `O6MBX`, `O6NMBX` / `*-scmi-mailbox-window.asl` | SCMI mailbox resources | Replaces `MBX6` and `MBX7` `_CRS` windows so the mailbox register ranges start at `0x06590080` and `0x065a0080`, leaving the leading `0x80` bytes for `SHM0`/`SHM1` and avoiding the stock mailbox/shared-memory resource overlap. |
+| O6 | `ssdt`, `dsdt` | `O6ECTZ.aml` | `O6ECTZ` / `orion-o6-ectz-critical-trip.asl` | ACPI thermal, EC thermal zone | Adds a critical trip point to the stock `\_SB.ECTZ` EC thermal zone by supplying `_CRT = 0x0e80` (`3680 dK`, about `95 C`). This remains separate from the sensor-zone overlay so it can be excluded independently. |
+| O6, O6N | `ssdt`, `dsdt` | `O6RBRR.aml`, `O6NRBRR.aml` | `O6RBRR`, `O6NRBRR` / `*-reboot-reason.asl` | Reboot reason, diagnostics | Adds a `PRP0001` device compatible with `cix,sky1-reboot-reason` over the read-only reboot-reason register at `0x16000500`, allowing the Linux reboot-reason driver to expose the last reset cause. |
+| O6 | `ssdt`, `dsdt` | `O6TZSNS.aml` | `O6TZSNS` / `orion-o6-thermal-sensors.asl` | ACPI thermal, PMMX sensors | Adds PMMX.SENG-backed thermal zones for VPU, GPU bottom/top, SoC bridge, DDR bottom/top, CI700 interconnect, NPU, SoC trace, and two board NTC sensors. Each zone has a critical trip point, a `10` decisecond polling period, and returns `Ones` on PMMX status failure rather than exposing a false temperature. |
+| O6, O6N | `dsdt only` | `DSDT.aml` | board-specific `dsdt/DSDT.asl` | ACPI namespace, PCIe, USB, pstore, display | Replaces the stock DSDT with a board-specific Radxa `1.2.1`-derived DSDT. The O6 payload keeps the generic Linux-visible `PNP0A08` PCIe and `PNP0D10` USB model, suppresses overlapping vendor PCIe/USB controller models, adds/tightens PCIe I/O and memory windows, carries the PCIe `_OSC` handoff policy, exposes the `RAOP` `ramoops` device, and carries the display/backlight metadata cleanup. The O6N payload uses an O6N-compatible DSDT source and does not import O6-only SSDT overlays. |
+| O6, O6N | `dsdt only` | `PPTT.aml` | `pptt/PPTT.asl` | CPU/cache topology | Replaces PPTT with a conservative cache topology model: `32 KiB` L1I + `32 KiB` L1D for A520 cores, `64 KiB` L1I + `64 KiB` L1D plus private `512 KiB` L2 for A720 cores, and shared `12 MiB` L3. It does not renumber CPUs. |
+| O6, O6N | `dsdt only`, optional | `IORT.aml` | generated from `iort/IORT.dat` by `build_iort_upgrade.py` | IOMMU, SMMUv3, MSI domains | Generated only when `acpi-table-upgrade-dsdt` is enabled and at least one IORT USE flag is active. `acpi-table-upgrade-iort-httu` marks SMMUv3 nodes coherent and advertises hardware access/dirty table updates. `acpi-table-upgrade-iort-msi` adds or validates ITS mappings for the Sky1 PCIe and platform SMMUv3 nodes at `0x0b010000` and `0x0b1b0000`, marks their device-ID mapping valid, and avoids Linux falling back to wired IRQs for those SMMU nodes. |
+
 ## ebuild usage
 
 Build and install the SSDT-only profile:
