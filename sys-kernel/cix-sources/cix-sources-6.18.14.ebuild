@@ -226,7 +226,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/80081-6.18.14-28-cix-sky1-declare-module-softdeps.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/6.18.x/90050-6.18-arm64-cix-add-radxa-orion-board-profiles.patch || die
-		eapply "${FILESDIR}"/90055-arm64-cix-tighten-radxa-typec-profile-selections.patch || die
 	fi
 
 	kernel-2_src_prepare
