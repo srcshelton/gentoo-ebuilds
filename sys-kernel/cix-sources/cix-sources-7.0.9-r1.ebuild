@@ -67,6 +67,7 @@ PATCHES=(
 	"${FILESDIR}"/10010-arm64-stub-fdt-enable-kexec-file.patch
 	"${FILESDIR}"/10020-lld-timer-of-table-end-warning.patch
 	"${FILESDIR}"/80000-rtl8126-disable-vpd.patch
+	"${FILESDIR}"/80070-pci-disable-aspm-for-sky1-smmu-faulting-endpoints.patch
 )
 
 pkg_setup() {
@@ -171,10 +172,12 @@ src_prepare() {
 	eapply "${FILESDIR}"/80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch || die
 	eapply "${FILESDIR}"/40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/7.0.x/40046-7.0-acpi-scan-demote-pci-ecam-duplicate-reservations.patch || die
+	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
 	eapply "${FILESDIR}"/7.0.x/40050-7.0-soc-cix-arbitrate-acpi-usb-models.patch || die
 	eapply "${FILESDIR}"/7.0.x/40060-7.0-soc-cix-add-gpu-cca-scan-quirk.patch || die
 	eapply "${FILESDIR}"/7.0.x/40070-7.0-soc-cix-arbitrate-acpi-pcie-models.patch || die
 	eapply "${FILESDIR}"/7.0.x/40080-7.0-soc-cix-ignore-disabled-acpi-models.patch || die
+	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
 	eapply "${FILESDIR}"/7.0.x/90000-7.0-soc-cix-add-acpi-bus-perf-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90010-7.0-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch || die
 	eapply "${FILESDIR}"/7.0.x/90020-7.0-cix-fix-module-modpost-exports.patch || die
@@ -202,6 +205,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30190-clk-scmi-keep-acpi-clocks-enabled.patch || die
 	eapply "${FILESDIR}"/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch || die
 	eapply "${FILESDIR}"/7.0.x/73000-7.0-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
+	eapply "${FILESDIR}"/7.0.x/73010-7.0-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
 	eapply "${FILESDIR}"/7.0.x/50010-7.0-gpio-cadence-restore-match-data-and-skip-init.patch || die
 	eapply "${FILESDIR}"/7.0.x/50020-7.0-irqchip-sky1-pdc-fix-acpi-ioremap-error-path.patch || die
 	eapply "${FILESDIR}"/7.0.x/50030-7.0-mfd-syscon-fix-fwnode-property-lookup-lifetime.patch || die
@@ -212,6 +216,9 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.0.x/50060-7.0-watchdog-sbsa-gwdt-use-control-frame-ping-on-cix-sky1.patch || die
 	eapply "${FILESDIR}"/7.0.x/50070-7.0-dma-arm-dma350-skip-of-reserved-memory-under-acpi.patch || die
 	eapply "${FILESDIR}"/7.0.x/50080-7.0-dma-arm-dma350-skip-unsafe-remote-acpi-probe.patch || die
+	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
+	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
+	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/7.0.x/90050-7.0-arm64-cix-add-radxa-orion-board-profiles.patch || die
 	fi
