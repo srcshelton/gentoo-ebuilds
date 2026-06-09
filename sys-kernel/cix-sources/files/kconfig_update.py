@@ -212,8 +212,10 @@ ALL_PROFILE_DISABLED_SYMBOLS = (
 # merely because CONFIG_OF is disabled.
 OF_DISABLED_SYMBOLS: tuple[str, ...] = ()
 
-PROFILE_CHOICES = ("o6-acpi", "o6-dt", "o6n-acpi", "o6n-dt")
-PROFILE_METAVAR = "{" + ",".join(PROFILE_CHOICES) + "}"
+PUBLIC_PROFILE_CHOICES = ("o6-acpi", "o6-dt", "o6n-acpi")
+HIDDEN_PROFILE_CHOICES = ("o6n-dt",)
+PROFILE_CHOICES = PUBLIC_PROFILE_CHOICES + HIDDEN_PROFILE_CHOICES
+PROFILE_METAVAR = "{" + ",".join(PUBLIC_PROFILE_CHOICES) + "}"
 PROFILE_BOARD_SYMBOLS = {
     "o6-acpi": "CIX_RADXA_ORION_O6",
     "o6-dt": "CIX_RADXA_ORION_O6",
@@ -255,7 +257,7 @@ SUPPORTED_DT_ONLY = (
     ("RTC_DRV_HYM8563", "prefer"),
 )
 
-SUPPORTED_VENDOR_ACPI = (
+SUPPORTED_VENDOR_ACPI_COMMON = (
     ("TYPEC", "always"),
     ("TYPEC_RTS5453", "prefer"),
     ("FW_LOADER_COMPRESS", "always"),
@@ -278,7 +280,6 @@ SUPPORTED_VENDOR_ACPI = (
     ("CIX_ACPI_USB_SCAN", "always"),
     ("CIX_ACPI_GPU_SCAN", "always"),
     ("CIX_BUS_PERF", "prefer"),
-    ("SENSORS_CIX_FAN", "prefer"),
     ("CIX_SKY1_REBOOT_REASON", "prefer"),
     ("CIX_DDR_LP", "prefer"),
     ("CIX_CPU_IPA", "prefer"),
@@ -289,13 +290,33 @@ SUPPORTED_VENDOR_ACPI = (
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
     ("DRM_TRILIN_DPSUB", "prefer"),
+)
+
+SUPPORTED_VENDOR_ACPI_O6 = (
+    # Orion O6 exposes the EC/HWMN fan-control path and HDA/audio hardware
+    # through the firmware paths exercised by the local table upgrades.
+    ("SENSORS_CIX_FAN", "prefer"),
     ("SND_HDA_CIX_IPBLOQ", "prefer"),
     ("SND_SOC_CIX", "prefer"),
     ("SND_SOC_CDNS_I2S_MC", "prefer"),
     ("SND_SOC_SKY1_SOUND_CARD", "prefer"),
 )
 
-SUPPORTED_VENDOR_DT = (
+SUPPORTED_VENDOR_ACPI_O6N = (
+    # Public O6N hardware documentation and the captured stock ACPI/dmesg data
+    # show active CIX/Cadence USB and PCIe PHY devices. Unlike O6, O6N is not
+    # documented as having the EC chip or 3.5mm audio path used by the O6 fan
+    # and HDA presets.
+    ("USB_CDNS_SUPPORT", "prefer"),
+    ("USB_CDNSP", "prefer"),
+    ("USB_CDNSP_HOST", "always"),
+    ("USB_CDNSP_SKY1", "prefer"),
+    ("PHY_CIX_PCIE", "always"),
+    ("PHY_CIX_USB2", "always"),
+    ("PHY_CIX_USB3", "always"),
+)
+
+SUPPORTED_VENDOR_DT_COMMON = (
     ("TYPEC", "always"),
     ("TYPEC_RTS5453", "prefer"),
     ("USB_CDNS_SUPPORT", "prefer"),
@@ -329,7 +350,18 @@ SUPPORTED_VENDOR_DT = (
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
     ("DRM_TRILIN_DPSUB", "prefer"),
+)
+
+SUPPORTED_VENDOR_DT_O6 = (
     ("SND_HDA_CIX_IPBLOQ", "prefer"),
+    ("SND_SOC_CIX", "prefer"),
+    ("SND_SOC_CDNS_I2S_MC", "prefer"),
+    ("SND_SOC_SKY1_SOUND_CARD", "prefer"),
+)
+
+SUPPORTED_VENDOR_DT_O6N = (
+    # The maintained O6N DT enables DP audio through the Sky1 sound-card and
+    # Cadence I2S path, but it does not describe the O6 HDA controller path.
     ("SND_SOC_CIX", "prefer"),
     ("SND_SOC_CDNS_I2S_MC", "prefer"),
     ("SND_SOC_SKY1_SOUND_CARD", "prefer"),
@@ -534,7 +566,6 @@ def parse_args() -> argparse.Namespace:
     config_modes = parser.add_argument_group("'fragment'/'update' options")
     config_modes.add_argument(
         "--board-profile",
-        choices=PROFILE_CHOICES,
         metavar=PROFILE_METAVAR,
         help=option_help(
             "Select the board/firmware profile used to generate '.config' "
@@ -669,6 +700,12 @@ def parse_args() -> argparse.Namespace:
             args.kernel_version = None
         if not args.board_profile:
             parser.error("'--board-profile' is required in 'fragment' and 'update' modes")
+        if args.board_profile not in PROFILE_CHOICES:
+            expected = ", ".join(PUBLIC_PROFILE_CHOICES)
+            parser.error(
+                f"invalid '--board-profile {args.board_profile}'; "
+                f"expected one of: {expected}"
+            )
         if args.with_tpm and not args.prune:
             parser.error("'--with-tpm' requires '--prune'")
         if args.acpi_table_upgrade is not None and not args.board_profile.endswith("-acpi"):
@@ -862,6 +899,8 @@ def insert_radxa_platform_menu(original: str) -> str:
 
 
 def optional_default(active_symbol: str, driver_preference: str) -> str:
+    if " " in active_symbol:
+        active_symbol = f"({active_symbol})"
     if driver_preference == "builtin":
         return f"\tdefault y if {active_symbol}\n"
     return (
@@ -895,8 +934,8 @@ def render_platform_radxa_menu() -> str:
         	bool "Radxa Orion O6N board profile"
         	help
         	  Enable conservative Kconfig defaults for Radxa Orion O6N
-        	  systems. This intentionally shares the O6 driver buckets until
-        	  a board-specific hardware difference is identified.
+        	  systems. O6N keeps common CIX P1 SoC support but has
+        	  board-specific USB, PCIe, audio, and EC/fan-control defaults.
 
         choice
         	prompt "Radxa Orion firmware interface"
@@ -927,12 +966,7 @@ def render_kconfig_radxa(
     available_symbols: set[str],
 ) -> str:
     profile_active = "(CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)"
-    ethernet_symbol = preferred_ethernet_symbol(available_symbols)
-    ethernet_imply = (
-        f"\timply {ethernet_symbol}\n"
-        if ethernet_symbol in available_symbols
-        else ""
-    )
+    ethernet_imply = render_ethernet_implies(available_symbols)
     npu_symbols = (
         "ARMCHINA_NPU",
         "ARMCHINA_NPU_ARCH_V3",
@@ -1000,8 +1034,6 @@ def render_kconfig_radxa(
 
             endmenu
 
-        comment "O6 and O6N currently share the same upstream-supported buckets"
-
         endmenu
             """
         )
@@ -1032,15 +1064,15 @@ def render_kconfig_radxa(
         \timply TYPEC_RTS5453
         \timply CIX_DDR_LP
         \timply CIX_CPU_IPA
-        \timply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT
-        \timply USB_CDNSP if CIX_RADXA_ORION_DT
-        \timply USB_CDNSP_HOST if CIX_RADXA_ORION_DT
+        \timply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
+        \timply USB_CDNSP if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
+        \timply USB_CDNSP_HOST if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
         \timply USB_GADGET if CIX_RADXA_ORION_DT
         \timply USB_CDNSP_GADGET if CIX_RADXA_ORION_DT
-        \timply USB_CDNSP_SKY1 if CIX_RADXA_ORION_DT
-        \timply PHY_CIX_PCIE if CIX_RADXA_ORION_DT
-        \timply PHY_CIX_USB2 if CIX_RADXA_ORION_DT
-        \timply PHY_CIX_USB3 if CIX_RADXA_ORION_DT
+        \timply USB_CDNSP_SKY1 if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
+        \timply PHY_CIX_PCIE if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
+        \timply PHY_CIX_USB2 if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
+        \timply PHY_CIX_USB3 if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
         \tselect PHY_CIX_USBDP if TYPEC && (ACPI || OF)
         \timply SKY1_PDC
         \timply I2C_CADENCE
@@ -1056,14 +1088,16 @@ def render_kconfig_radxa(
         \timply CLK_SKY1_ACPI if CIX_RADXA_ORION_ACPI
         \timply CIX_ACPI_RESOURCE_LOOKUP if CIX_RADXA_ORION_ACPI
         \timply CIX_BUS_PERF if CIX_RADXA_ORION_ACPI
-        \timply SENSORS_CIX_FAN if CIX_RADXA_ORION_ACPI
+        \timply SENSORS_CIX_FAN if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
         \timply CIX_SKY1_REBOOT_REASON if CIX_RADXA_ORION_ACPI
         \thelp
         \t  Enable the vendor Sky1 platform-resource plumbing used by
-        \t  the CIX ACPI and DT driver stack. CIX_SKY1_SOCINFO is
-        \t  intentionally not implied: tested Radxa Orion O6 firmware
-        \t  leaves the CIX OPN field zero, so that reporter is useful
-        \t  only when selected deliberately for diagnostics.
+        \t  the CIX ACPI and DT driver stack. O6N additionally enables
+        \t  the CIX/Cadence USB and PCIe PHY paths seen in its public
+        \t  hardware description and stock ACPI logs. CIX_SKY1_SOCINFO is
+        \t  intentionally not implied: tested Radxa Orion O6/O6N firmware
+        \t  leaves the CIX OPN field zero, so that reporter is useful only
+        \t  when selected deliberately for diagnostics.
 
         config CIX_RADXA_OPTIONAL_DISPLAY
         \ttristate "Optional display / GPU drivers"
@@ -1081,13 +1115,17 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_OPTIONAL_AUDIO
         \ttristate "Optional audio drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
-        \timply SND_HDA_CIX_IPBLOQ
+        \tdepends on CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)
+{render_template_block(optional_default("CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)", driver_preference))}
+        \timply SND_HDA_CIX_IPBLOQ if CIX_RADXA_ORION_O6
         \timply SND_SOC_CIX
         \timply SND_SOC_CDNS_I2S_MC
         \timply SND_SOC_SKY1_SOUND_CARD
         \thelp
-        \t  Enable the ACPI-backed vendor audio stack validated for Orion O6.
+        \t  Enable the vendor audio stack validated for Orion O6 and the
+        \t  DP-audio-oriented DT sound-card path described by the maintained
+        \t  O6N DTS. O6N ACPI leaves these drivers opt-in because the stock
+        \t  ACPI card path has not been shown to bind successfully.
 
         config CIX_RADXA_EXPERIMENTAL_DSP
         \ttristate "Experimental DSP / SOF drivers"
@@ -1100,8 +1138,6 @@ def render_kconfig_radxa(
         \t  the vendor DSP / SOF enablement path.
 
         endmenu
-
-        comment "O6 and O6N currently share the same vendor-backed buckets"
 
         endmenu
         """
@@ -1127,6 +1163,14 @@ def profile_is_acpi(profile: str) -> bool:
     return profile.endswith("-acpi")
 
 
+def profile_is_o6(profile: str) -> bool:
+    return profile.startswith("o6-")
+
+
+def profile_is_o6n(profile: str) -> bool:
+    return profile.startswith("o6n-")
+
+
 def profile_config_symbol_updates(profile: str) -> tuple[tuple[str, str], ...]:
     board_symbol = PROFILE_BOARD_SYMBOLS[profile]
     interface_symbol = PROFILE_INTERFACE_SYMBOLS[profile]
@@ -1138,10 +1182,21 @@ def profile_config_symbol_updates(profile: str) -> tuple[tuple[str, str], ...]:
     )
 
 
-def preferred_ethernet_symbol(available_symbols: set[str]) -> str:
-    if "R8126" in available_symbols:
+def preferred_ethernet_symbol(profile: str, available_symbols: set[str]) -> str:
+    if profile_is_o6(profile) and "R8126" in available_symbols:
         return "R8126"
     return "R8169"
+
+
+def render_ethernet_implies(available_symbols: set[str]) -> str:
+    lines: list[str] = []
+    if "R8126" in available_symbols:
+        lines.append("\timply R8126 if CIX_RADXA_ORION_O6")
+    elif "R8169" in available_symbols:
+        lines.append("\timply R8169 if CIX_RADXA_ORION_O6")
+    if "R8169" in available_symbols:
+        lines.append("\timply R8169 if CIX_RADXA_ORION_O6N")
+    return "\n".join(lines) + ("\n" if lines else "")
 
 
 def supported_symbols_for_profile(
@@ -1150,7 +1205,7 @@ def supported_symbols_for_profile(
     available_symbols: set[str],
 ) -> tuple[tuple[str, str], ...]:
     entries = list(SUPPORTED_COMMON)
-    preferred_eth = preferred_ethernet_symbol(available_symbols)
+    preferred_eth = preferred_ethernet_symbol(profile, available_symbols)
     if preferred_eth in available_symbols:
         entries.append((preferred_eth, "prefer"))
     if profile_is_acpi(profile):
@@ -1158,7 +1213,20 @@ def supported_symbols_for_profile(
     else:
         entries.extend(SUPPORTED_DT_ONLY)
     if include_vendor:
-        entries.extend(SUPPORTED_VENDOR_ACPI if profile_is_acpi(profile) else SUPPORTED_VENDOR_DT)
+        if profile_is_acpi(profile):
+            entries.extend(SUPPORTED_VENDOR_ACPI_COMMON)
+            entries.extend(
+                SUPPORTED_VENDOR_ACPI_O6N
+                if profile_is_o6n(profile)
+                else SUPPORTED_VENDOR_ACPI_O6
+            )
+        else:
+            entries.extend(SUPPORTED_VENDOR_DT_COMMON)
+            entries.extend(
+                SUPPORTED_VENDOR_DT_O6N
+                if profile_is_o6n(profile)
+                else SUPPORTED_VENDOR_DT_O6
+            )
     return tuple(entries)
 
 
@@ -1232,8 +1300,10 @@ def dynamic_disabled_symbols(
             ):
                 disabled.add(symbol)
 
-    if "R8126" in available_symbols:
+    if profile_is_o6(profile) and "R8126" in available_symbols:
         disabled.add("R8169")
+    elif profile_is_o6n(profile):
+        disabled.add("R8126")
 
     if not include_vendor and current.get("CONFIG_I2C_CADENCE") in ("y", "m"):
         disabled.add("I2C_CADENCE")

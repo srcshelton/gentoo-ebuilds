@@ -1,10 +1,11 @@
 diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
 --- a/arch/arm64/Kconfig.platforms
 +++ b/arch/arm64/Kconfig.platforms
-@@ -125,6 +125,42 @@ config ARCH_CIX
+@@ -124,6 +124,42 @@
+ 	help
  	  This enables support for the Cixtech SoC family,
  	  like P1(sky1).
- 
++
 +menu "Radxa Orion board profiles"
 +	depends on ARCH_CIX
 +
@@ -20,8 +21,8 @@ diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
 +	bool "Radxa Orion O6N board profile"
 +	help
 +	  Enable conservative Kconfig defaults for Radxa Orion O6N
-+	  systems. This intentionally shares the O6 driver buckets until
-+	  a board-specific hardware difference is identified.
++	  systems. O6N keeps common CIX P1 SoC support but has
++	  board-specific USB, PCIe, audio, and EC/fan-control defaults.
 +
 +choice
 +	prompt "Radxa Orion firmware interface"
@@ -40,14 +41,13 @@ diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
 +endchoice
 +
 +endmenu
-+
+ 
  config ARCH_EXYNOS
  	bool "Samsung Exynos SoC family"
- 	select COMMON_CLK_SAMSUNG if OF
 diff --git a/drivers/platform/arm64/Kconfig b/drivers/platform/arm64/Kconfig
 --- a/drivers/platform/arm64/Kconfig
 +++ b/drivers/platform/arm64/Kconfig
-@@ -91,3 +91,5 @@ config EC_LENOVO_THINKPAD_T14S
+@@ -91,3 +91,5 @@
  	  Say M or Y here to include this support.
  
  endif # ARM64_PLATFORM_DEVICES
@@ -57,7 +57,7 @@ diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconf
 new file mode 100644
 --- /dev/null
 +++ b/drivers/platform/arm64/Kconfig.radxa
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,143 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +#
 +# Generated CIX/Radxa Orion board presets for Linux 6.18.x.
@@ -82,6 +82,7 @@ new file mode 100644
 +	imply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
 +	imply ACPI_FAN if CIX_RADXA_ORION_ACPI
 +	imply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
++	imply RTC_DRV_HYM8563 if CIX_RADXA_ORION_DT
 +	help
 +	  Keep the smallest always-on set that is useful on current
 +	  Orion O6/O6N systems.
@@ -91,9 +92,10 @@ new file mode 100644
 +
 +config CIX_RADXA_OPTIONAL_IO
 +	tristate "Optional system bus / external I/O drivers"
-+	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	imply R8126
++	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	imply R8126 if CIX_RADXA_ORION_O6
++	imply R8169 if CIX_RADXA_ORION_O6N
 +	imply TEE
 +	imply OPTEE
 +	imply USB_XHCI_HCD
@@ -105,19 +107,22 @@ new file mode 100644
 +
 +config CIX_RADXA_OPTIONAL_PLATFORM
 +	tristate "Optional platform bus / SoC glue drivers"
-+	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
 +	imply TYPEC
++	imply TYPEC_RTS5453
 +	imply CIX_DDR_LP
 +	imply CIX_CPU_IPA
-+	imply USB_CDNS_SUPPORT
-+	imply USB_CDNSP
-+	imply USB_CDNSP_HOST
-+	imply USB_CDNSP_SKY1
-+	imply PHY_CIX_PCIE
-+	imply PHY_CIX_USB2
-+	imply PHY_CIX_USB3
-+	imply PHY_CIX_USBDP
++	imply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	imply USB_CDNSP if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	imply USB_CDNSP_HOST if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	imply USB_GADGET if CIX_RADXA_ORION_DT
++	imply USB_CDNSP_GADGET if CIX_RADXA_ORION_DT
++	imply USB_CDNSP_SKY1 if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	imply PHY_CIX_PCIE if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	imply PHY_CIX_USB2 if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	imply PHY_CIX_USB3 if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
++	select PHY_CIX_USBDP if TYPEC && (ACPI || OF)
 +	imply SKY1_PDC
 +	imply I2C_CADENCE
 +	imply GPIO_CADENCE
@@ -132,17 +137,21 @@ new file mode 100644
 +	imply CLK_SKY1_ACPI if CIX_RADXA_ORION_ACPI
 +	imply CIX_ACPI_RESOURCE_LOOKUP if CIX_RADXA_ORION_ACPI
 +	imply CIX_BUS_PERF if CIX_RADXA_ORION_ACPI
++	imply SENSORS_CIX_FAN if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
++	imply CIX_SKY1_REBOOT_REASON if CIX_RADXA_ORION_ACPI
 +	help
 +	  Enable the vendor Sky1 platform-resource plumbing used by
-+	  the CIX ACPI and DT driver stack. CIX_SKY1_SOCINFO is
-+	  intentionally not implied: tested Radxa Orion O6 firmware
-+	  leaves the CIX OPN field zero, so that reporter is useful
-+	  only when selected deliberately for diagnostics.
++	  the CIX ACPI and DT driver stack. O6N additionally enables
++	  the CIX/Cadence USB and PCIe PHY paths seen in its public
++	  hardware description and stock ACPI logs. CIX_SKY1_SOCINFO is
++	  intentionally not implied: tested Radxa Orion O6/O6N firmware
++	  leaves the CIX OPN field zero, so that reporter is useful only
++	  when selected deliberately for diagnostics.
 +
 +config CIX_RADXA_OPTIONAL_DISPLAY
 +	tristate "Optional display / GPU drivers"
-+	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
++	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
 +	imply FW_LOADER_COMPRESS
 +	imply FW_LOADER_COMPRESS_XZ
 +	imply DRM_PANTHOR
@@ -155,9 +164,8 @@ new file mode 100644
 +
 +config CIX_RADXA_OPTIONAL_ACCELERATORS
 +	tristate "Optional accelerator drivers"
-+	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	imply ARMCHINA_NPU
++	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
 +	imply ARMCHINA_NPU_ARCH_V3
 +	imply ARMCHINA_NPU_SOC_SKY1
 +	help
@@ -167,14 +175,18 @@ new file mode 100644
 +
 +config CIX_RADXA_OPTIONAL_AUDIO
 +	tristate "Optional audio drivers"
-+	default m if MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	default y if !MODULES && (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
-+	imply SND_HDA_CIX_IPBLOQ
++	depends on CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)
++	default m if MODULES && (CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT))
++	default y if !MODULES && (CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT))
++	imply SND_HDA_CIX_IPBLOQ if CIX_RADXA_ORION_O6
 +	imply SND_SOC_CIX
 +	imply SND_SOC_CDNS_I2S_MC
 +	imply SND_SOC_SKY1_SOUND_CARD
 +	help
-+	  Enable the ACPI-backed vendor audio stack validated for Orion O6.
++	  Enable the vendor audio stack validated for Orion O6 and the
++	  DP-audio-oriented DT sound-card path described by the maintained
++	  O6N DTS. O6N ACPI leaves these drivers opt-in because the stock
++	  ACPI card path has not been shown to bind successfully.
 +
 +config CIX_RADXA_EXPERIMENTAL_DSP
 +	tristate "Experimental DSP / SOF drivers"
@@ -187,7 +199,5 @@ new file mode 100644
 +	  the vendor DSP / SOF enablement path.
 +
 +endmenu
-+
-+comment "O6 and O6N currently share the same vendor-backed buckets"
 +
 +endmenu
