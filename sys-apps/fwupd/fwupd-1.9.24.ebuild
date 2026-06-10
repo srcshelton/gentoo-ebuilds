@@ -90,7 +90,7 @@ DEPEND="
 	${COMMON_DEPEND}
 	x11-libs/pango[introspection]
 	amdgpu? (
-		sys-kernel/linux-headers
+		virtual/os-headers
 		x11-libs/libdrm[video_cards_amdgpu]
 	)
 "

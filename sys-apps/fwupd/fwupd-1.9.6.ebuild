@@ -88,7 +88,7 @@ RDEPEND="
 DEPEND="
 	${COMMON_DEPEND}
 	x11-libs/pango[introspection]
-	amdgpu? ( sys-kernel/linux-headers )
+	amdgpu? ( virtual/os-headers )
 "
 
 PATCHES=(
