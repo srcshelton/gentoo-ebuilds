@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -66,6 +66,7 @@ PATCHES=(
 	"${FILESDIR}/${PN}-0.44.7-whitespace.patch"
 	"${FILESDIR}/${PN}-0.41.2-cgroup-race.patch"
 	"${FILESDIR}/${PN}-0.45.2-checkpath-mkdir.patch"
+	"${FILESDIR}/${PN}-0.62-functions.sh.patch"
 )
 
 src_prepare() {
@@ -126,7 +127,7 @@ src_prepare() {
 		fi
 		eapply "${FILESDIR}/${PN}-0.46-init.patch" || die "init eapply failed"
 		eapply -p0 -- "${FILESDIR}/${PN}-0.18.4-devfs.patch" || die "devfs eapply failed"
-		eapply -p0 -- "${FILESDIR}/${PN}-0.19.1-functions.sh.in.patch" || die "functions.sh.in eapply failed"
+		#eapply -p0 -- "${FILESDIR}/${PN}-0.19.1-functions.sh.in.patch" || die "functions.sh.in eapply failed"
 		eapply "${FILESDIR}/${PN}-0.46-rc.conf.patch" || die "rc.conf.in eapply failed"
 		eapply "${FILESDIR}/${PN}-0.48-init.d.patch" || die "init.d eapply failed"
 		eapply "${FILESDIR}/${PN}-0.48-keymaps.patch" || die "keymaps.in eapply failed"
@@ -137,22 +138,22 @@ src_prepare() {
 
 src_configure() {
 	local emesonargs=(
-		--bindir=/bin
-		--sbindir=/sbin
+		--bindir="${EPREFIX:-}/bin"
+		--sbindir="${EPREFIX:-}/sbin"
 		$(meson_feature audit)
 		"-Dbranding=\"Gentoo Linux\""
 		$(meson_use newnet)
 		-Dos=Linux
 		$(meson_use pam)
-		-Dpam_libdir="$(getpam_mod_dir)"
+		-Dpam_libdir="${EPREFIX:-}$(getpam_mod_dir)"
 		$(meson_feature selinux)
-		-Dshell=$(usex bash /bin/bash /bin/sh)
+		-Dshell=$(usex bash "${EPREFIX:-}/bin/bash" "${EPREFIX:-}/bin/sh")
 		$(meson_use sysv-utils sysvinit)
 	)
 	if use split-usr; then
 		emesonargs+=(
-			--libdir=$(get_libdir)
-			--libexecdir=/lib
+			--libdir="$(get_libdir)"
+			--libexecdir="${EPREFIX:-}/lib"
 		)
 	fi
 	# export DEBUG=$(usev debug)
