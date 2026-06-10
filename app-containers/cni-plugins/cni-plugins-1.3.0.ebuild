@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -11,7 +11,7 @@ SRC_URI="https://github.com/containernetworking/plugins/archive/v${PV}.tar.gz ->
 LICENSE="Apache-2.0"
 SLOT="0"
 KEYWORDS="amd64 arm64 ~ppc64 ~riscv"
-IUSE="hardened systemd"
+IUSE="systemd"
 
 BDEPEND="sys-apps/sed"
 RDEPEND="net-firewall/iptables"
@@ -35,7 +35,7 @@ src_prepare() {
 }
 
 src_compile() {
-	CGO_LDFLAGS="$(usex hardened '-fno-PIC ' '')" ./build_linux.sh || die
+	./build_linux.sh || die
 }
 
 src_install() {
