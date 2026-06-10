@@ -5,16 +5,19 @@ EAPI=8
 
 inherit linux-info
 
+EGIT_COMMIT="7994bb015a65ee84f1f9de310999da1b2d015111"
+
 DESCRIPTION="Firmware files for CIX Sky1 SoC (GPU, DSP, VPU)"
 HOMEPAGE="https://github.com/Sky1-Linux/sky1-firmware"
-SRC_URI="https://github.com/Sky1-Linux/${PN#"cix-"}/archive/refs/tags/v${PV}.tar.gz"
+SRC_URI="https://github.com/Sky1-Linux/${PN#"cix-"}/archive/refs/tags/v${PV}.tar.gz
+	https://github.com/cixtech/cix_opensource__vpu_driver/archive/${EGIT_COMMIT}.tar.gz -> ${P}-cixtech-${EGIT_COMMIT}.tar.gz"
 S="${WORKDIR}/${P#"cix-"}/firmware"
 
 # Parent repo states ARM and CIX licences, but doesn't link to these :(
 LICENSE="Arm-Mali"
 SLOT="0"
 KEYWORDS="arm arm64"
-IUSE="compress-xz compress-zstd rtw89"
+IUSE="compress-xz compress-zstd -rtw89 -immortalis-g720"
 REQUIRED_USE="?? ( compress-xz compress-zstd )"
 
 BDEPEND="
@@ -23,6 +26,7 @@ BDEPEND="
 "
 RDEPEND="
 	rtw89? ( !sys-kernel/linux-firmware[-savedconfig] )
+	!immortalis-g720? ( sys-kernel/linux-firmware )
 "
 
 QA_PREBUILT="*"
@@ -68,10 +72,13 @@ pkg_pretend() {
 }
 
 src_install() {
-	insinto /lib/firmware/arm/mali
-	doins arm/mali/mali_csffw.bin
+	if use immortalis-g720; then
+		insinto /lib/firmware/arm/mali/arch12.8
+		doins arm/mali/mali_csffw.bin
 
-	dosym -r /lib/firmware/arm/mali/mali_csffw.bin /lib/firmware/mali_csffw.bin
+		dosym -r /lib/firmware/arm/mali/arch12.8/mali_csffw.bin /lib/firmware/mali_csffw.bin
+		dosym -r /lib/firmware/arm/mali/arch12.8/mali_csffw.bin /lib/firmware/arm/mali/mali_csffw.bin
+	fi
 
 	if use rtw89; then
 		insinto /lib/firmware/rtw89
@@ -79,10 +86,12 @@ src_install() {
 	fi
 
 	insinto /lib/firmware
-	doins dsp_fw.bin *.fwb
+	doins dsp_fw.bin  # *.fwb
+
+	doins "${WORKDIR}/cix_opensource__vpu_driver-${EGIT_COMMIT}/firmware-binaries/"*.fwb
 
 	if use compress-xz; then
-		find "${ED}"/lib/firmware -type f -exec xz {} +
+		find "${ED}"/lib/firmware -type f -exec xz --check=crc32 {} +
 	elif use compress-zstd; then
 		find "${ED}"/lib/firmware -type f -exec zstd {} +
 	fi
