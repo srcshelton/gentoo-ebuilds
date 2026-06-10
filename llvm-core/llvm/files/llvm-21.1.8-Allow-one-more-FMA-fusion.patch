@@ -8,10 +8,10 @@ Signed-off-by: William Douglas <william.douglas@intel.com>
  llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp b/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
+diff --git a/lib/CodeGen/SelectionDAG/DAGCombiner.cpp b/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
 index 9d0456848..aa3ac5d88 100644
---- a/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
-+++ b/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
+--- a/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
++++ b/lib/CodeGen/SelectionDAG/DAGCombiner.cpp
 @@ -16889,7 +16889,9 @@
      return SDValue();
  
