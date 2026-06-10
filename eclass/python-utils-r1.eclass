@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: python-utils-r1.eclass
@@ -27,7 +27,7 @@ if [[ -z ${_PYTHON_UTILS_R1_ECLASS} ]]; then
 _PYTHON_UTILS_R1_ECLASS=1
 
 case ${EAPI} in
-	7|8) ;;
+	7|8) inherit eapi9-pipestatus ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
 
@@ -683,7 +683,7 @@ python_newexe() {
 	local newfn=${2}
 
 	local scriptdir=$(python_get_scriptdir)
-	local d=${scriptdir#${EPREFIX}}
+	local d=${scriptdir#"${EPREFIX}"}
 
 	(
 		dodir "${wrapd}"
@@ -821,7 +821,7 @@ python_domodule() {
 	else
 		# relative to site-packages
 		local sitedir=$(python_get_sitedir)
-		d=${sitedir#${EPREFIX}}/${_PYTHON_MODULEROOT//.//}
+		d=${sitedir#"${EPREFIX}"}/${_PYTHON_MODULEROOT//.//}
 	fi
 
 	if [[ ${EBUILD_PHASE} == install ]]; then
@@ -1235,12 +1235,12 @@ _python_check_occluded_packages() {
 				comm -1 -3 <(
 					find "${fn}" -type f -not -path '*/__pycache__/*' |
 						sort
-					assert
+					pipestatus || die
 				) <(
 					cd "${sitedir}" &&
 						find "${fn}" -type f -not -path '*/__pycache__/*' |
 						sort
-					assert
+					pipestatus || die
 				)
 			)
 

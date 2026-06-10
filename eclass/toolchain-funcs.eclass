@@ -1,10 +1,10 @@
-# Copyright 2002-2025 Gentoo Authors
+# Copyright 2002-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: toolchain-funcs.eclass
 # @MAINTAINER:
 # Toolchain Ninjas <toolchain@gentoo.org>
-# @SUPPORTED_EAPIS: 7 8
+# @SUPPORTED_EAPIS: 7 8 9
 # @BLURB: functions to query common info about the toolchain
 # @DESCRIPTION:
 # The toolchain-funcs aims to provide a complete suite of functions
@@ -17,7 +17,7 @@ if [[ -z ${_TOOLCHAIN_FUNCS_ECLASS} ]]; then
 _TOOLCHAIN_FUNCS_ECLASS=1
 
 case ${EAPI} in
-	7|8) ;;
+	7|8|9) ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
 
@@ -405,6 +405,7 @@ tc-env_build() {
 	PKG_CONFIG=$(tc-getBUILD_PKG_CONFIG) \
 	RANLIB=$(tc-getBUILD_RANLIB) \
 	READELF=$(tc-getBUILD_READELF) \
+	CHOST=${CBUILD:-${CHOST}} \
 	"$@"
 }
 
@@ -448,8 +449,7 @@ tc-env_build() {
 # @CODE
 econf_build() {
 	local CBUILD=${CBUILD:-${CHOST}}
-	econf_env() { CHOST=${CBUILD} econf "$@"; }
-	tc-env_build econf_env "$@"
+	tc-env_build econf "$@"
 }
 
 # @FUNCTION: tc-ld-is-bfd
@@ -1322,7 +1322,7 @@ tc-is-lto() {
 					die "$(tc-getCC) failed: ${rc}"
 				fi
 			fi
-			[[ $($(tc-getREADELF) -S "${f}" 2>/dev/null) == *.gnu.lto* ]] &&
+			[[ $($(tc-getOBJDUMP) -s "${f}" 2>/dev/null) == *.gnu.lto* ]] &&
 				ret=0
 			;;
 	esac
