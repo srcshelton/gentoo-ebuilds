@@ -1,13 +1,15 @@
-#!/bin/sh
+#! /bin/sh
+
+set -u
 
 # MDEV=dvb0.demux1 -> ADAPTER=dvb0 -> N=0
-ADAPTER=${MDEV%.*}
-N=${ADAPTER#dvb}
+ADAPTER="${MDEV%.*}"
+N="${ADAPTER#dvb}"
 # MDEV=dvb0.demux1 -> DEVB_DEV=demux1
-DVB_DEV=${MDEV#*.}
+DVB_DEV="${MDEV#*.}"
 
-case "$ACTION" in
-	add|"")
+case "${ACTION:-"add"}" in
+	add)
 		mkdir -p "dvb/adapter${N}"
 		mv "${MDEV}" "dvb/adapter${N}/${DVB_DEV}"
 		;;

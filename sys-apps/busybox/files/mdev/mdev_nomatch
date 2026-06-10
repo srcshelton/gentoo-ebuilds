@@ -1,4 +1,6 @@
-#!/bin/sh
+#! /bin/sh
+
+set -u
 
 # env ACTION=... DEVPATH=... SUBSYSTEM=... [SEQNUM=...]
 
@@ -6,6 +8,25 @@ LOGFILE="mdev.log"
 ENV="$( env )"
 DATE="$( date +"%s %T.%N" )"
 
-echo -e >>"${LOGFILE}" "${$} ${DATE} mdev_nomatch invoked as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', DEVPATH '$DEVPATH', SUBSYSTEM '$SUBSYSTEM', SEQNUM '$SEQNUM'\n---\n${ENV}\n---\n$( ls -lt /dev/ | head -n 6 | tail -n 3 )\n..."
+# shellcheck disable=SC2116
+fmtstr="$( echo \
+		"%s %s mdev_nomatch invoked as '%s' in '%s'," \
+		"MDEV '%s', ACTION '%s', DEVPATH '%s', SUBSYSTEM '%s'," \
+		"SEQNUM '%d'"
+	)"
+
+# shellcheck disable=SC2012
+printf >>"${LOGFILE}" "${fmtstr}\\n---\\n%s\\n---\\n%s\\n...\\n" \
+	"${$}" \
+	"${DATE}" \
+	"${0}" \
+	"$( pwd )" \
+	"${MDEV:-}" \
+	"${ACTION:-}" \
+	"${DEVPATH:-}" \
+	"${SUBSYSTEM:-}" \
+	"${SEQNUM:-"-1"}" \
+	"${ENV:-}" \
+	"$( ls -lt /dev/ | head -n 6 | tail -n 3 )"
 
 exit 0

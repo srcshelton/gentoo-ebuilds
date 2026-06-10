@@ -1,15 +1,18 @@
-#!/bin/bash
+#! /bin/bash
 
-function log() {
-	local logfile src message
+set -u
+
+log() {
+	local logfile='' src='' message=''
 	local -i written=0
 
 	src="$( basename "${BASH_SOURCE:-}" 2>/dev/null )"
-	message="mdev ${$} $( date +"%T.%N" ) ${src:+${src} }${*}"
+	message="mdev ${$} $( date +"%T.%N" ) ${src:+"${src} "}${*}"
 
 	for logfile in "kmsg" "mdev.log"; do
 		if [[ -w "${logfile}" ]]; then
-			echo >>"${logfile}" "${message}" 2>/dev/null && written=1
+			echo >>"${logfile}" "${message}" 2>/dev/null &&
+				written=1
 		fi
 	done
 	if (( !( written ) )); then
@@ -18,68 +21,104 @@ function log() {
 	fi
 } # log
 
-# Add zeros to device or bus identifiers
-function add_zeros() {
-	case $(( $( echo "${1}" | wc -L ) )) in
-		1)	echo "00${1}"
-			;;
-		2)	echo "0${1}"
-			;;
-		*)	echo "${1}"
-			;;
-	esac
+# Format USB bus and device identifiers as the three-digit /dev/bus/usb names.
+add_zeros() {
+	local value="${1:-}"
 
-	return 0
+	[[ "${value}" =~ ^[0-9]+$ ]] || return 1
+	printf "%03d\n" "$(( 10#${value} ))"
 } # add_zeros
 
-function remove_zeros() {
-	echo $(( 10#${1} ))
+#remove_zeros() {
+#	local value="${1:-}"
+#
+#	[[ "${value}" =~ ^[0-9]+$ ]] || return 1
+#	printf "%d\n" "$(( 10#${value} ))"
+#} # remove_zeros
 
-	return 0
-} # remove_zeros
+read_sysfs_attr() {
+	local path="${1:-}"
+	local attr="${2:-}"
+
+	[[ -r "/sys/${path#"/"}/${attr}" ]] || return 1
+	cat "/sys/${path#"/"}/${attr}"
+} # read_sysfs_attr
+
+find_usb_device_path() {
+	local path="${1:-}"
+
+	while [[ -n "${path:-}" && "${path}" != '/' ]]; do
+		if [[ -r "/sys/${path#"/"}/busnum" &&
+				-r "/sys/${path#"/"}/devnum" ]]
+		then
+			printf "%s\n" "${path}"
+			return 0
+		fi
+		path="${path%/*}"
+	done
+
+	return 1
+} # find_usb_device_path
 
 
 # Environment is inherited from mdev on invocation...
-log "usb helper started as '$0' in '$( pwd )', MDEV '${MDEV}', ACTION '${ACTION}', DEVPATH '${DEVPATH}', SUBSYSTEM '${SUBSYSTEM}', SEQNUM '${SEQNUM}'"
+# shellcheck disable=SC2116,SC2155
+declare msg="$( echo \
+		"usb helper started as '$0' in '$( pwd )'," \
+		"MDEV '${MDEV:-}', ACTION '${ACTION:-}', DEVPATH '${DEVPATH:-}'," \
+		"SUBSYSTEM '${SUBSYSTEM:-}', SEQNUM '${SEQNUM:-}'"
+	)"
+log "${msg}"
+unset msg
 
 [[ -n "${MDEV:-}" ]] || exit 0
 
+case "${SUBSYSTEM:-}" in
+	bluetooth)
+		log "Ignoring Bluetooth HCI class event '${MDEV}'; no USB device node is created for HCI devices"
+		exit 0
+		;;
+esac
+
 #[[ -n "${DEVPATH:-}" ]] || exit 0 # We can now auto-discover
-#[[ "${SUBSYSTEM}" == "usb" ]] || exit 0 # Also allow bluetooth, etc.
+#[[ "${SUBSYSTEM:-}" == 'usb' ]] || exit 0
 
 # e.g. DEVPATH=/devices/pci0000:00/0000:00:0f.4/usb2/2-1, MDEV=2-1
 #  or  DEVPATH=/devices/platform/bcm2708_usb/usb1/1-1/1-1.1, MDEV=1-1.1
 #  or  DEVPATH=/devices/platform/bcm2708_usb/usb1/1-1/1-1.3/1-1.3.4/1-1.3.4.1/1-1.3.4.1:1.0/bluetooth/hci0/hci0:40, MDEV=hci0:40 (which doesn't exist)
 
-declare BUS=""
-declare USB_DEV=""
-declare USB_VENDOR=""
-declare USB_PRODUCT=""
-declare PRODUCT=""
-declare SERIAL=""
-declare MANUFACTURER=""
+declare BUS=''
+declare USB_DEV=''
+declare USB_VENDOR=''
+declare USB_PRODUCT=''
+declare PRODUCT=''
+declare SERIAL=''
+declare MANUFACTURER=''
 declare IPHETH="/usr/bin/ipeth-pair"
 declare MUXD="/usr/sbin/usbmuxd"
 declare MODESWITCH="/usr/sbin/usb_modeswitch"
 
 
-if [[ "${DEVNAME:0:8}" == "bus/usb/" ]]; then
+if [[ "${DEVNAME:-}" == bus/usb/* ]]; then
 	BUS="$( echo "${DEVNAME}" | cut -d'/' -f 3 )"
 	USB_DEV="$( echo "${DEVNAME}" | cut -d'/' -f 4 )"
 
 elif [[ -n "${DEVPATH:-}" ]]; then
-	if [[ ! -e "/sys${DEVPATH}/busnum" ]]; then
-		DEVPATH="$( echo "${DEVPATH}" | grep -o '^.*/[0-9]\+-[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+/' )"
-		DEVPATH="${DEVPATH%/}"
-		if [[ ! -e "/sys${DEVPATH}/busnum" ]]; then
-			log "Could not determine valid 'busnum' for node '${MDEV}' from sysfs path '${DEVPATH}' - aborting"
-			exit 1
-		fi
+	if ! DEVPATH="$( find_usb_device_path "${DEVPATH}" )"; then
+		# shellcheck disable=SC2116
+		msg="$( echo \
+				"Could not find parent USB device for node" \
+				"'${MDEV}' from sysfs path '${DEVPATH:-}' -" \
+				"aborting"
+			)"
+		log "${msg}"
+		unset msg
+		exit 1
 	fi
 
 	if [[ -d "/sys/devices" ]]; then
-		BUS="$( add_zeros "$( cat "/sys${DEVPATH}/busnum" 2>/dev/null )" )"
-		USB_DEV="$( add_zeros "$( cat "/sys${DEVPATH}/devnum" 2>/dev/null )" )"
+		BUS="$(add_zeros "$(read_sysfs_attr "${DEVPATH}" busnum)")"
+		USB_DEV="$(add_zeros "$(read_sysfs_attr "${DEVPATH}" devnum)")"
 	fi
 
 	if [[ -z "${BUS:-}" ]]; then
@@ -88,9 +127,9 @@ elif [[ -n "${DEVPATH:-}" ]]; then
 
 	if [[ -z "${USB_DEV:-}" ]]; then
 		# Some guesswork is involved here...
-		$(( USB_DEV  = $( cut -d'-' -f 1 <<<"${MDEV}" ) ))
-		$(( USB_DEV += $( cut -d'-' -f 2 <<<"${MDEV}" | cut -d'.' -f 1 ) ))
-		$(( USB_DEV += $( cut -d'.' -f 2 <<<"${MDEV}" ) ))
+		(( USB_DEV  = $( cut -d'-' -f 1 <<<"${MDEV}" ) ))
+		(( USB_DEV += $( cut -d'-' -f 2 <<<"${MDEV}" | cut -d'.' -f 1 ) ))
+		(( USB_DEV += $( cut -d'.' -f 2 <<<"${MDEV}" ) ))
 		USB_DEV="$( add_zeros "${USB_DEV}" )"
 	fi
 fi
@@ -130,8 +169,8 @@ else
 fi
 
 
-case "${ACTION}" in
-	add|"")
+case "${ACTION:-"add"}" in
+	add)
 		log "Performing 'add' ACTION"
 
 		# Move USB device node
@@ -183,25 +222,6 @@ case "${ACTION}" in
 			fi
 		fi
 
-		# Handle specific subsystems
-		case "${SUBSYSTEM}" in
-			bluetooth)
-				if [[ ! -d "hci" ]]; then
-					log "WARNING HCI directory 'hci' doesn't exist"
-					if mkdir -p "hci"; then
-						log "mkdir succeeded for 'hci'"
-					else
-						log "mkdir failed for 'hci': ${?}"
-					fi
-				fi
-
-				if [[ -d "hci" ]]; then
-					ln -s "../bus/usb/${BUS}/${USB_DEV}" "hci/${MDEV}"
-					ln -s "hci/${MDEV}" "${MDEV}"
-				fi
-				;;
-		esac
-
 		# Setup iPhone, if present
 		if [[ -x "${MUXD}" && -x "${IPHETH}" ]]; then
 			if [[ -n "${USB_VENDOR:-}" && -n "${USB_PRODUCT:-}" && "${USB_VENDOR}" == "05ac" ]]; then
@@ -216,7 +236,7 @@ case "${ACTION}" in
 
 					if [[ "${conf}" != "${num}" ]]; then
 						log "Forcing device to configuration ${num}"
-						echo "${num}" > "/sys/${DEVPATH}/bConfigurationValue"
+						echo "${num}" > "/sys/${DEVPATH#"/"}/bConfigurationValue"
 					fi
 
 					chown usbmux:usb "bus/usb/${BUS}/${USB_DEV}" >/dev/null 2>&1
@@ -272,6 +292,7 @@ case "${ACTION}" in
 				elif ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:"* >/dev/null 2>&1; then
 					declare -i num
 
+					# shellcheck disable=SC2012
 					num=$(( $( ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:"* 2>/dev/null | wc -l ) ))
 					if (( 1 == num )); then
 						cfgfile="$( ls -1 "/usr/share/usb_modeswitch/${USB_VENDOR}:${USB_PRODUCT}:"* 2>/dev/null )"
@@ -304,15 +325,15 @@ case "${ACTION}" in
 
 				log "usb_modeswitch configuration file '${cfgfile}' matched"
 
-				cmd=( ${MODESWITCH} -W -D -s ${usbmsto} )
+				cmd=( "${MODESWITCH}" -W -D -s "${usbmsto}" )
 				num=$( cat "/sys${DEVPATH}/bNumConfigurations" 2>/dev/null )
 				(( 1 == num )) && cmd+=( -u -1 )
-				cmd+=( -b $((10#${BUS})) -g $((10#${USB_DEV})) )
-				cmd+=( -v ${USB_VENDOR} -p ${USB_PRODUCT} )
+				cmd+=( -b "$((10#${BUS}))" -g "$((10#${USB_DEV}))" )
+				cmd+=( -v "${USB_VENDOR}" -p "${USB_PRODUCT}" )
 				cmd+=( -c "$cfgfile" )
 
 				if [[ -w "/sys/module/usb_storage/parameters/delay_use" ]]; then
-					num=$( cat "/sys/module/usb_storage/parameters/delay_use" 2./dev/null )
+					num=$( cat "/sys/module/usb_storage/parameters/delay_use" 2>/dev/null )
 					if (( num < delay )); then
 						log "Setting usb-storage delay_use value to ${delay} (from ${num}) ..."
 						echo -n "${delay}" > "/sys/module/usb_storage/parameters/delay_use"
@@ -328,11 +349,11 @@ case "${ACTION}" in
 
 				for mod in option huawei_cdc_ncm cdc_ncm cdc-wdm cdc_ether; do
 					log "Attempting to load module '${mod}' ..."
-					log "$( modprobe ${mod} 2>&1 )"
+					log "$( modprobe "${mod}" 2>&1 )"
 				done
 
 				log "${cmd[@]}"
-				log "$( ${cmd[@]} )"
+				log "$( "${cmd[@]}" )"
 
 				unset num usbmsto cmd mod
 
@@ -431,30 +452,6 @@ case "${ACTION}" in
 				fi
 			fi
 		fi
-
-		# Handle specific subsystems
-		case "${SUBSYSTEM}" in
-			bluetooth)
-				if [[ -d "hci" && -e "hci/${MDEV}" ]]; then
-					if rm -f "hci/${MDEV}" 2>/dev/null; then
-						log "rm -f 'hci/${MDEV}' succeeded"
-						if rmdir -p "hci" 2>/dev/null; then
-							log "rmdir -p 'hci' succeeded"
-						else
-							log "rmdir -p 'hci' failed: ${?}"
-						fi
-					else
-						log "rm -f 'hci/${MDEV}' failed: ${?}"
-					fi
-
-					if rm -f "${MDEV}" 2>/dev/null; then
-						log "rm -f '${MDEV}' succeeded"
-					else
-						log "rm -f '${MDEV}' failed: ${?}"
-					fi
-				fi
-				;;
-		esac
 
 		# Remove device node and potential empty directories
 		if rm -f "bus/usb/${BUS}/.${USB_DEV}.id" 2>/dev/null; then

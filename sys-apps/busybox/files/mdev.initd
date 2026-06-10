@@ -43,11 +43,16 @@ populate_mdev()
 
 seed_dev()
 {
-	# copy over any persistent things
+	# Copy over any persistent nodes...
 	if [ -d /lib/mdev/devices ] ; then
 		cp -RPp /lib/mdev/devices/* /dev 2>/dev/null
 	fi
 
+	# Prevent races
+	touch /dev/mdev.seq
+
+	# Create debug log
+	touch /dev/mdev.log
 }
 
 mount_it()

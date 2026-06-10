@@ -1,11 +1,45 @@
 #!/bin/sh
 
+set -u
+
 # env ACTION=... DEVPATH=... SUBSYSTEM=... [SEQNUM=...]
 
 LOGFILE="mdev.log"
 #ENV="$( env )"
 DATE="$( date +"%s %T.%N" )"
 
-echo -e >>"${LOGFILE}" "${$} ${DATE} mdev_debug invoked as '$0' in '$( pwd )', MDEV '$MDEV', ACTION '$ACTION', BUSNUM '$BUSNUM', DEVNUM '$DEVNUM', DEVNAME '$DEVNAME', DEVPATH '$DEVPATH', DEVTYPE '$DEVTYPE', SUBSYSTEM '$SUBSYSTEM', MODALIAS '$MODALIAS', FIRMWARE '$FIRMWARE', MAJOR '$MAJOR', MINOR '$MINOR', TYPE '$TYPE', PRODUCT '$PRODUCT', INTERFACE '$INTERFACE', SEQNUM '$SEQNUM'" # "\n---\n${ENV}\n..."
+# shellcheck disable=SC2116
+fmtstr="$( echo \
+		"%d %s mdev_debug invoked as '%s' in '%s'," \
+		"MDEV '%s', ACTION '%s', BUSNUM '%d'," \
+		"DEVNUM '%d', DEVNAME '%s', DEVPATH '%s', DEVTYPE '%s'," \
+		"SUBSYSTEM '%s', MODALIAS '%s', FIRMWARE '%s'," \
+		"MAJOR '%d', MINOR '%d', TYPE '%s', PRODUCT '%s'," \
+		"INTERFACE '%s', SEQNUM '%d'"
+	)"
+
+# shellcheck disable=SC2059
+printf >>"${LOGFILE}" "${fmtstr}\\n" \
+	"${$}" \
+	"${DATE}" \
+	"${0}" \
+	"$( pwd )" \
+	"${MDEV:-}" \
+	"${ACTION:-}" \
+	"${BUSNUM:-"-1"}" \
+	"${DEVNUM:-"-1"}" \
+	"${DEVNAME:-}" \
+	"${DEVPATH:-}" \
+	"${DEVTYPE:-}" \
+	"${SUBSYSTEM:-}" \
+	"${MODALIAS:-}" \
+	"${FIRMWARE:-}" \
+	"${MAJOR:-"-1"}" \
+	"${MINOR:-"-1"}" \
+	"${TYPE:-}" \
+	"${PRODUCT:-}" \
+	"${INTERFACE:-}" \
+	"${SEQNUM:-"-1"}"
+# "\n---\n${ENV}\n..."
 
 exit 0

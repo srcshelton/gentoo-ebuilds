@@ -1,62 +1,105 @@
-#!/bin/sh
+#! /bin/sh
 
-# script is buggy; until patched just do exit 0
-#exit 0
+set -u
 
-# add zeros to device or bus
-add_zeros () {
-	case "$(echo "$1" | wc -L)" in
-		1)	echo "00$1" ;;
-		2)	echo "0$1" ;;
-		*)	echo "$1"
+# Compatibility helper for old /dev/usbdevBUS.DEV device names.  Modern
+# kernels normally expose USB device nodes as /dev/bus/usb/BBB/DDD; if an old
+# usbdev node appears, move or remove only that node.  Do not modprobe or
+# rmmod shared USB drivers from a per-device mdev helper.
+UNSAFE_LOAD_UNLOAD=0
+
+# Format USB bus and device identifiers as the three-digit /dev/bus/usb names.
+add_zeros() {
+	case "${1:-}" in
+		''|*[!0-9]*) return 1 ;;
 	esac
-	exit 0
-}
+
+	n="${1}"
+	while : ; do
+		case "${n}" in
+			'0'?*)
+				n="${n#0}" ;;
+			*)
+				break ;;
+		esac
+	done
+
+	printf '%03d\n' "${n}"
+
+	unset n
+} # add_zeros
+
+base="${MDEV%%"_"*}"
+case "${base:-}" in
+	'usbdev'*'.'*) : ;;
+	*) exit 0 ;;
+esac
+
+if [ $(( UNSAFE_LOAD_UNLOAD )) -eq 1 ]; then
+	# bus and device dirs in /sys
+	USB_PATH=$( echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).[0-9]/usb\1/' )
+	USB_PATH=$( find /sys/devices -type d -name "${USB_PATH}" )
+	USB_DEV_DIR=$( echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).\([0-9]\)/\1-\2/' )
+fi
 
 
-# bus and device dirs in /sys
-USB_PATH=$(echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).[0-9]/usb\1/')
-USB_PATH=$(find /sys/devices -type d -name "${USB_PATH}")
-USB_DEV_DIR=$(echo "${MDEV}" | sed -e 's/usbdev\([0-9]\).\([0-9]\)/\1-\2/')
+bus="${base#"usbdev"}"
+bus="${bus%%"."*}"
+BUS=$( add_zeros "${bus}" ) || exit 0
+dev="${base#*"."}"
+dev="${dev%%"_"*}"
+USB_DEV=$( add_zeros "${dev}" ) || exit 0
 
-# dir names in /dev
-BUS=$(add_zeros "$(echo "${MDEV}" | sed -e 's/^usbdev\([0-9]\).[0-9]/\1/')")
-USB_DEV=$(add_zeros "$(echo "${MDEV}" | sed -e 's/^usbdev[0-9].\([0-9]\)/\1/')")
-
-
-# try to load the proper driver for usb devices
-case "${ACTION}" in
-	add|"")
-		# load usb bus driver
-		for i in "${USB_PATH}"/*/modalias ; do
-			modprobe "$(cat "$i")" 2>/dev/null
-		done
-		# load usb device driver if existent
-		if [ -d "${USB_PATH}/${USB_DEV_DIR}" ]; then
-			for i in "${USB_PATH}/${USB_DEV_DIR}"/*/modalias ; do
+case "${ACTION:-"add"}" in
+	add)
+		if [ $(( UNSAFE_LOAD_UNLOAD )) -eq 1 ]; then
+			# Load usb bus driver
+			for i in "${USB_PATH}"/*/modalias ; do
 				modprobe "$(cat "$i")" 2>/dev/null
 			done
+			# Load usb device driver if existent
+			if [ -d "${USB_PATH}/${USB_DEV_DIR}" ]; then
+				for i in "${USB_PATH}/${USB_DEV_DIR}"/*/modalias
+				do
+					modprobe "$(cat "$i")" 2>/dev/null
+				done
+			fi
 		fi
-		# move usb device file
-		mkdir -p "bus/usb/${BUS}"
-		mv "${MDEV}" "bus/usb/${BUS}/${USB_DEV}"
+
+		# Move usb device file
+		mkdir -p "bus/usb/${BUS}" || exit 1
+		chown root:usb "bus/usb/${BUS}" 2>/dev/null
+		chmod 755 "bus/usb/${BUS}" 2>/dev/null
+
+		if [ -e "${MDEV}" ] &&
+				[ "${MDEV}" != "bus/usb/${BUS}/${USB_DEV}" ]
+		then
+			mv "${MDEV}" "bus/usb/${BUS}/${USB_DEV}"
+		fi
 		;;
 	remove)
-		# unload device driver, if device dir is existent
-		if [ -d "${USB_PATH}/${USB_DEV_DIR}" ]; then
-			for i in "${USB_PATH}/${USB_DEV_DIR}"/*/modalias ; do
+		if [ $(( UNSAFE_LOAD_UNLOAD )) -eq 1 ]; then
+			# Unload device driver, if device dir is existent
+			if [ -d "${USB_PATH}/${USB_DEV_DIR}" ]; then
+				for i in "${USB_PATH}/${USB_DEV_DIR}"/*/modalias
+				do
+					modprobe -r "$(cat "$i")" 2>/dev/null
+				done
+			fi
+
+			# Unload usb bus driver. Does this make sense?
+			# what happens, if two usb devices are plugged in
+			# and one is removed?
+			for i in "${USB_PATH}"/*/modalias ; do
 				modprobe -r "$(cat "$i")" 2>/dev/null
-		done
+			done
 		fi
-		# unload usb bus driver. Does this make sense?
-		# what happens, if two usb devices are plugged in
-		# and one is removed?
-		for i in "${USB_PATH}"/*/modalias ; do
-			modprobe -r "$(cat "$i")" 2>/dev/null
-		done
-		# remove device file and possible empty dirs
+		# Remove device file and possible empty dirs...
 		rm -f "bus/usb/${BUS}/${USB_DEV}"
-		rmdir "bus/usb/${BUS}/" 2>/dev/null
-		rmdir bus/usb/ 2>/dev/null
-		rmdir bus/ 2>/dev/null
+		rmdir "bus/usb/${BUS}" 2>/dev/null
+		rmdir "bus/usb" 2>/dev/null
+		rmdir "bus" 2>/dev/null
+		;;
 esac
+
+exit 0
