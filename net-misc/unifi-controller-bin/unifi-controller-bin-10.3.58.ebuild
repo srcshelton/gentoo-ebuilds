@@ -31,7 +31,7 @@ IUSE="systemd +tools $( for l in ${PLOCALES}; do echo "l10n_${l/_/-}"; done )" #
 
 # debian control dependencies:
 #  Package: unifi
-#  Version: 10.2.93-33497-1
+#  Version: 10.3.58-34147-1
 #  Section: java
 #  Priority: optional
 #  Architecture: all
@@ -48,6 +48,7 @@ DEPEND="
 
 RDEPEND="
 	${DEPEND}
+	>=dev-db/mongodb-3.6.0
 	<dev-db/mongodb-8.1
 	sys-libs/libcap
 	virtual/jre:25
