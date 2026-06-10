@@ -49,7 +49,7 @@ pkg_postinst() {
 	# so jdk ebuilds can create symlink to in into security directory
 	if [[ ! -f "${EROOT%/}"/etc/ssl/certs/java/cacerts ]]; then
 		if [ "${EROOT:-/}" != '/' ]; then
-			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${EROOT%/}/$(get_libdir):${EROOT%/}/usr/$(get_libdir)"
+			local -x LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+"${LD_LIBRARY_PATH}:"}${EROOT%"/"}/$(get_libdir):${EROOT%"/"}/usr/$(get_libdir)"
 		fi
 		einfo "Generating java cacerts file from system ca-certificates"
 		PATH="${EROOT%/}/usr/bin:${EROOT%/}/bin:${PATH}" env \
@@ -58,7 +58,8 @@ pkg_postinst() {
 					--format=java-cacerts \
 					--filter=ca-anchors \
 					--purpose server-auth \
-				"${EROOT%/}/etc/ssl/certs/java/cacerts" ||
-			die "trust extract failed: ${?}"
+				"${EROOT%"/"}/etc/ssl/certs/java/cacerts" ||
+			ewarn "trust extract failed (with LD_LIBRARY_PATH='${LD_LIBRARY_PATH:-}'): ${?}"
+			elog "Please run 'trust extract --overwrite --format=java-cacerts --filter=ca-anchors --purpose server-auth ${EROOT%"/"}/etc/ssl/certs/java/cacerts' manually"
 	fi
 }
