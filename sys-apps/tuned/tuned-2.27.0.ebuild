@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -15,8 +15,8 @@ SRC_URI="https://github.com/redhat-performance/tuned/archive/v${MY_PV}.tar.gz ->
 LICENSE="GPL-2"
 SLOT="0"
 KEYWORDS="~amd64"
-
 IUSE="bash-completion +dbus gtk ppd +server systemd-boot +systemtap +tmpfiles"
+
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
 DEPEND="
@@ -139,7 +139,7 @@ src_install() {
 		die "Failed to create /etc/tuned/tuned-main.conf"
 
 	if use ppd; then
-		emake DESTDIR="${D}" install-ppd
+		emake DESTDIR="${ED}" install-ppd
 	else
 		rm "${ED%/}/etc/tuned/ppd_base_profile" || die
 	fi
