@@ -35,9 +35,8 @@ src_unpack() {
 
 src_prepare() {
 	local -a PATCHES=()
-	[[ -n ${PATCH_VER} ]] && PATCHES+=( "${WORKDIR}"/${PATCH_PV} )
-	# Fails to apply to RPi sources...
-	#PATCHES+=( "${FILESDIR}"/${PN}-sparc-move-struct-termio-to-asm-termios.h.patch )
+
+	[[ -n "${PATCH_VER}" ]] && PATCHES+=( "${WORKDIR}/${PATCH_PV}" )
 
 	# TODO: May need forward porting to newer versions
 	use elibc_musl && PATCHES+=(
