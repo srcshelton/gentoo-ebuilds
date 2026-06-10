@@ -1,0 +1,30 @@
+--- a/functions.sh
++++ b/functions.sh
+@@ -11,8 +11,8 @@
+ 
+ # The functions shall be compatible with the POSIX-1.2024 Shell and Utilities
+ # (XCU), except where otherwise noted and with the exception that the use of
+-# the local utility is permitted, despite the results of its invocation being
+-# formally unspecified. Should any of the errexit, pipefail or nounset options
++# the 'local' declaration is permitted, despite the results of its invocation
++# being formally unspecified. Should any of 'errexit', 'pipefail' or 'nounset'
+ # be enabled in the shell, the behaviour of gentoo-functions as a whole shall
+ # be unspecified.
+ 
+@@ -28,6 +28,7 @@
+ # PORTAGE_BIN_PATH : used by from_portage()
+ # POSIXLY_CORRECT  : if unset/empty, quote_args() may emit dollar-single-quotes
+ # RC_OPENRC_PID    : used by from_runscript()
++# RC_SVCDIR        : used by has_openrc()
+ # SENTINEL         : can define a value separating two distinct argument lists
+ # SYSTEMD_EXEC_PID : used by from_unit()
+ # YASH_VERSION     : for detecting yash before checking for incompatible options
+@@ -221,7 +222,7 @@
+ #
+ has_openrc()
+ {
+-	test -d /run/openrc
++	test -d "${RC_SVCDIR:-"/lib/rc/init.d"}"
+ }
+ 
+ #
