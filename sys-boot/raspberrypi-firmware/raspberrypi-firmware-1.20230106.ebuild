@@ -1,4 +1,4 @@
-# Copyright 1999-2023 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -37,10 +37,10 @@ RESTRICT="binchecks mirror strip"
 
 QA_PREBUILT="/boot/start*.elf /usr/lib/libelftoolchain.so"
 
-DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
+DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-"/boot"}/config.txt"
 
 pkg_setup() {
-	local state boot="${RASPBERRYPI_BOOT:-/boot}"
+	local state='' boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}"
 
 	einfo "Checking mount-points ..."
 
@@ -96,7 +96,7 @@ src_prepare() {
 }
 
 src_install() {
-	local f boot="${RASPBERRYPI_BOOT:-/boot}" ver
+	local f boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}" ver
 
 	keepdir "${boot}"
 
@@ -139,13 +139,13 @@ src_install() {
 }
 
 pkg_preinst() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}"
+	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}"
 
 	if [[ "${MERGE_TYPE}" != "buildonly" ]]; then
 		if [[ -z "${REPLACING_VERSIONS}" ]] ; then
 			local msg=""
 
-			if [[ -e "${ED}"/boot/cmdline.txt ]] && [[ -e /boot/cmdline.txt ]] ; then
+			if [[ -e "${ED}"/boot/cmdline.txt ]] && [[ -e "${boot}"/cmdline.txt ]] ; then
 				msg+="/boot/cmdline.txt "
 			fi
 

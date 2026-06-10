@@ -9,12 +9,12 @@ DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+64bit -devicetree -kernel rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 +rpi-all rpi-cm rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4-io rpi-cm4s rpi-cm5 rpi-cm5-io"
+IUSE="+64bit -devicetree -kernel +rpi-all rpi0 rpi02 rpi-cm0 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io rpi5 rpi500 rpi-cm5 rpi-cm5-io"
 REQUIRED_USE="
-	|| ( rpi-all rpi0 rpi02 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi-cm5 )
-	64bit? ( || ( rpi-all rpi02 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi-cm5 ) )
+	|| ( rpi-all rpi0 rpi02 rpi-cm0 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi500 rpi-cm5 )
+	64bit? ( || ( rpi-all rpi02 rpi-cm0 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi500 rpi-cm5 ) )
 	kernel? ( devicetree )
-	rpi-all? ( !rpi0 !rpi02 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s !rpi5 !rpi-cm5 )
+	rpi-all? ( !rpi0 !rpi02 !rpi-cm0 !rpi1 !rpi-cm !rpi2 !rpi-cm2 !rpi3 !rpi-cm3 !rpi4 !rpi400 !rpi-cm4 !rpi-cm4s !rpi5 !rpi500 !rpi-cm5 )
 	rpi-cm4-io? ( || ( rpi-cm4 rpi-cm5 ) )
 	rpi-cm5-io? ( rpi-cm5 )
 "
@@ -33,11 +33,11 @@ RDEPEND="
 "
 
 if [[ "${PV}" == *9999 ]]; then
-	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
-	# The current repo is ~4GB in size, but contains only ~200MB of data:
-	# the rest is (literally) history :(
-	EGIT_CLONE_TYPE="shallow"
 	inherit git-r3
+	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
+	# The current repo is ~4GB in size, but contains only ~200MB of data - the
+	# rest is (literally) history :(
+	EGIT_CLONE_TYPE="shallow"
 	if ! [[ "${PV}" == 9999 ]]; then
 		EGIT_BRANCH="stable"
 	fi
@@ -53,7 +53,7 @@ QA_PREBUILT="
 	${FIRMWARE_DIR#/}/start*.elf
 "
 
-DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-"/boot"}/config.txt"
+DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
 
 pkg_setup() {
 	local state='' boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}"
@@ -101,13 +101,13 @@ pkg_setup() {
 }
 
 src_prepare() {
-	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}"
+	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}"
 
 	default
 
 	cp "${FILESDIR}"/config.txt "${T}" || die
 
-	if use rpi5 || use rpi-cm5; then
+	if use rpi5 || use rpi500 || use rpi-cm5; then
 		if grep -Eq -- '^(#.*|\s*)arm_64bit=' "${T}"/config.txt; then
 			sed -i "${T}"/config.txt \
 				-e '/arm_64bit=/d' || die
@@ -130,7 +130,7 @@ src_prepare() {
 }
 
 src_install() {
-	local f='' boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}"
+	local f='' boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}"
 	local -a repofiles=() files=()
 
 	# Ancilliary files...
@@ -152,17 +152,17 @@ src_install() {
 			use rpi0 ||
 			use rpi2 || use rpi-cm2 ||
 			use rpi3 || use rpi-cm3 ||
-			use rpi02
+			use rpi02 || use rpi-cm0
 	then
 		files+=( # <- Syntax
 			bootcode.bin
-			fixup_cd.dat
 			fixup.dat
+			fixup_cd.dat
 			fixup_db.dat
 			fixup_x.dat
+			start.elf
 			start_cd.elf
 			start_db.elf
-			start.elf
 			start_x.elf
 		)
 	fi
@@ -173,30 +173,30 @@ src_install() {
 			use rpi400
 	then
 		files+=( # <- Syntax
-			fixup4cd.dat
 			fixup4.dat
+			fixup4cd.dat
 			fixup4db.dat
 			fixup4x.dat
+			start4.elf
 			start4cd.elf
 			start4db.elf
-			start4.elf
 			start4x.elf
 		)
 	fi
 
 	if
-			{ use rpi5 || use rpi-cm5 ; } && ! {
+			{ use rpi5 || use rpi500 || use rpi-cm5 ; } && ! {
 				use rpi-all ||
 				use rpi1 || use rpi-cm ||
 				use rpi0 ||
 				use rpi2 || use rpi-cm2 ||
 				use rpi3 || use rpi-cm3 ||
-				use rpi02 ||
+				use rpi02 || use rpi-cm0 ||
 				use rpi4 || use rpi-cm4 || use rpi-cm4s ||
 				use rpi400
 			}
 	then
-		# No need to install Broadcom licence when we've no longer installing
+		# No need to install Broadcom licence when we're no longer installing
 		# any of their blobs...
 		files=()
 	fi
@@ -222,7 +222,7 @@ src_install() {
 				use rpi-all ||
 				use rpi2 || use rpi-cm2 ||
 				use rpi3 || use rpi-cm3 ||
-				use rpi02
+				use rpi02 || use rpi-cm0
 		then
 			files+=( # <- Syntax
 				kernel7.img
@@ -237,7 +237,9 @@ src_install() {
 			if use 64bit; then
 				files+=( # <- Syntax
 					kernel8.img
+					kernel8_rt.img
 					$( use kernel && ls -1 ../modules/ | grep -F -- '-v8+' )
+					$( use kernel && ls -1 ../modules/ | grep -F -- '-v8-rt+' )
 				)
 			else
 				files+=( # <- Syntax
@@ -248,7 +250,7 @@ src_install() {
 		fi
 		if
 				use rpi-all ||
-				use rpi5 || use rpi-cm5
+				use rpi5 || use rpi500 || use rpi-cm5
 		then
 			files+=( # <- Syntax
 				kernel_2712.img
@@ -257,14 +259,14 @@ src_install() {
 		fi
 	fi
 
-	# DeviceTree binaries...
+	# Install Device Tree Blobs ...
 	#
 	if use devicetree; then
 		if use rpi-all || use rpi1; then
 			files+=( # <- Syntax
-				bcm2708-rpi-b.dtb
 				bcm2708-rpi-b-plus.dtb
 				bcm2708-rpi-b-rev1.dtb
+				bcm2708-rpi-b.dtb
 			)
 		fi
 		if use rpi-all || use rpi-cm; then
@@ -272,10 +274,17 @@ src_install() {
 				bcm2708-rpi-cm.dtb
 			)
 		fi
+		if use rpi-all || use rpi0; then
+			files+=( # <- Syntax
+				bcm2708-rpi-zero-w.dtb
+				bcm2708-rpi-zero.dtb
+			)
+		fi
 		if use rpi-all || use rpi2; then
 			files+=( # <- Syntax
 				bcm2709-rpi-2-b.dtb
 				bcm2710-rpi-2-b.dtb
+				bcm2836-rpi-2-b.dtb
 			)
 		fi
 		if use rpi-all || use rpi-cm2; then
@@ -283,16 +292,15 @@ src_install() {
 				bcm2709-rpi-cm2.dtb
 			)
 		fi
-		if use rpi-all || use rpi0; then
-			files+=( # <- Syntax
-				bcm2708-rpi-zero.dtb
-				bcm2708-rpi-zero-w.dtb
-			)
-		fi
 		if use rpi-all || use rpi3; then
 			files+=( # <- Syntax
-				bcm2710-rpi-3-b.dtb
 				bcm2710-rpi-3-b-plus.dtb
+				bcm2710-rpi-3-b.dtb
+			)
+		fi
+		if use rpi-all || use rpi-cm0; then
+			files+=( # <- Syntax
+				bcm2710-rpi-cm0.dtb
 			)
 		fi
 		if use rpi-all || use rpi-cm3; then
@@ -302,13 +310,18 @@ src_install() {
 		fi
 		if use rpi-all || use rpi02; then
 			files+=( # <- Syntax
-				bcm2710-rpi-zero-2.dtb
 				bcm2710-rpi-zero-2-w.dtb
+				bcm2710-rpi-zero-2.dtb
 			)
 		fi
 		if use rpi-all || use rpi4; then
 			files+=( # <- Syntax
 				bcm2711-rpi-4-b.dtb
+			)
+		fi
+		if use rpi-all || use rpi400; then
+			files+=( # <- Syntax
+				bcm2711-rpi-400.dtb
 			)
 		fi
 		if use rpi-all || use rpi-cm4 || use rpi-cm4s; then
@@ -328,27 +341,30 @@ src_install() {
 				)
 			fi
 		fi
-		if use rpi-all || use rpi400; then
-			files+=( # <- Syntax
-				bcm2711-rpi-400.dtb
-			)
-		fi
 		if use rpi-all || use rpi5; then
 			files+=( # <- Syntax
 				bcm2712-rpi-5-b.dtb
 				# Raspberry Pi 5 Lite (2GB RAM), with cost-reduced 2712 CPU...
+				bcm2712-d-rpi-5-b.dtb
 				bcm2712d0-rpi-5-b.dtb
+			)
+		fi
+		if use rpi-all || use rpi500; then
+			files+=( # <- Syntax
+				bcm2712-rpi-500.dtb
 			)
 		fi
 		if use rpi-all || use rpi-cm5; then
 			if use rpi-all || use rpi-cm4-io; then
 				files+=( # <- Syntax
 					bcm2712-rpi-cm5-cm4io.dtb
+					bcm2712-rpi-cm5l-cm4io.dtb
 				)
 			fi
 			if use rpi-all || use rpi-cm5-io; then
 				files+=( # <- Syntax
 					bcm2712-rpi-cm5-cm5io.dtb
+					bcm2712-rpi-cm5l-cm5io.dtb
 				)
 			fi
 		fi
@@ -360,20 +376,35 @@ src_install() {
 	#use kernel && keepdir /lib/modules
 
 	# Install firmware blobs ...
+	#
 	insinto "${FIRMWARE_DIR}"
 
 	for f in "${repofiles[@]}"; do
+		[ -e "${FILESDIR}/${f}" ] ||
+			die "About to call 'doins' on non-existant file '${FILESDIR}/${f}'"
 		doins "${FILESDIR}/${f}"
 	done
-	ebegin "Installing files"
-	for f in "${files[@]}"; do
-		einfo "${f}"
-	done
+
+	# Since the RPi5 (and later?) has embedded firmware, there may be nothing
+	# to install here!
+	if (( ${#files[@]} > 0 )); then
+		ebegin "Installing files"
+		for f in "${files[@]}"; do
+			[ -e "${f}" ] ||
+				die "About to call 'doins' on non-existant file '${f}'"
+			einfo "${f}"
+		done
+		doins -r "${files[@]}"
+	fi
 	eend 0
-	doins -r "${files[@]}"
 	use devicetree && doins -r overlays
 
 	# config-protect config.txt and cmdline.txt
+	for f in "${T}"/config.txt "${FILESDIR}"/overclock.txt \
+			"${FILESDIR}"/legacy.txt "${FILESDIR}"/cmdline.txt
+	do
+		[ -e "${f}" ] || die "About to call 'doins' on non-existant file '${f}'"
+	done
 	doins "${T}"/config.txt
 	doins "${FILESDIR}"/overclock.txt
 	doins "${FILESDIR}"/legacy.txt
@@ -397,18 +428,22 @@ pkg_preinst() {
 		if [[ -z "${REPLACING_VERSIONS}" ]] ; then
 			local msg=""
 
-			if [[ -e "${ED}${boot}"/cmdline.txt ]] && [[ -e "${boot}"/cmdline.txt ]] ; then
-				msg+="/boot/cmdline.txt "
+			if [[ -e "${ED}${boot}"/cmdline.txt ]] &&
+					[[ -e "${boot}"/cmdline.txt ]]
+			then
+				msg+="${boot}/cmdline.txt "
 			fi
 
-			if [[ -e "${ED}${boot}"/config.txt ]] && [[ -e "${boot}"/config.txt ]] ; then
+			if [[ -e "${ED}${boot}"/config.txt ]] &&
+					[[ -e "${boot}"/config.txt ]]
+			then
 				msg+="${boot}/config.txt "
 			fi
 
 			if [[ -n "${msg}" ]] ; then
 				msg="This package installs the following files: ${msg}."
-				msg="${msg} Please backup and remove your local verions prior to installation"
-				msg="${msg} and merge your changes afterwards."
+				msg="${msg} Please backup and remove your local verions prior"
+				msg="${msg} to installation and merge your changes afterwards."
 				msg="${msg} Further updates will be CONFIG_PROTECTed."
 				die "${msg}"
 			fi
@@ -427,7 +462,7 @@ pkg_postinst() {
 
 	readme.gentoo_print_elog
 
-	if ! use kernel && ! use devicetree && { use rpi5 || use rpi-cm5 ; }
+	if ! use kernel && ! use devicetree && { use rpi5 || use rpi500 || use rpi-cm5 ; }
 	then
 		ewarn "Raspberry Pi 5-generation devices (and beyond) now incorporate"
 		ewarn "all boot-code and firmware directly into the SoC EEPROM,"

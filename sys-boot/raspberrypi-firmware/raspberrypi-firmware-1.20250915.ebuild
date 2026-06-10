@@ -56,7 +56,7 @@ QA_PREBUILT="
 DOC_CONTENTS="Please customise your Raspberry Pi configuration by editing ${RASPBERRYPI_BOOT:-/boot}/config.txt"
 
 pkg_setup() {
-	local state='' boot="${RASPBERRYPI_BOOT:-/boot}"
+	local state='' boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-"/boot"}"
 
 	einfo "Checking mount-points ..."
 
@@ -101,7 +101,7 @@ pkg_setup() {
 }
 
 src_prepare() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}"
+	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}"
 
 	default
 
@@ -130,7 +130,7 @@ src_prepare() {
 }
 
 src_install() {
-	local f='' boot="${RASPBERRYPI_BOOT:-/boot}"
+	local f='' boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}"
 	local -a repofiles=() files=()
 
 	# Ancilliary files...
@@ -405,7 +405,7 @@ src_install() {
 }
 
 pkg_preinst() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}"
+	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}"
 
 	mkdir -p "${boot}"
 	#touch "${boot}/.keep_${CATEGORY}_${PN}-${SLOT:-0}"
@@ -418,10 +418,10 @@ pkg_preinst() {
 		if [[ -z "${REPLACING_VERSIONS}" ]] ; then
 			local msg=""
 
-			if [[ -e "${ED}"/boot/cmdline.txt ]] &&
-					[[ -e /boot/cmdline.txt ]]
+			if [[ -e "${ED}${boot}"/cmdline.txt ]] &&
+					[[ -e "${boot}"/cmdline.txt ]]
 			then
-				msg+="/boot/cmdline.txt "
+				msg+="${boot}/cmdline.txt "
 			fi
 
 			if [[ -e "${ED}${boot}"/config.txt ]] &&
@@ -462,7 +462,7 @@ pkg_postinst() {
 }
 
 pkg_postrm() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}" file=''
+	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}" file=''
 	local -a files=()
 
 	#files=( "${boot}/.keep_${CATEGORY}_${PN}-${SLOT:-0}" )
@@ -481,7 +481,7 @@ pkg_postrm() {
 }
 
 pkg_config() {
-	local boot="${RASPBERRYPI_BOOT:-/boot}" cfg=''
+	local boot="${ROOT%"/"}${RASPBERRYPI_BOOT:-/boot}" cfg=''
 	local -i s=0
 
 	ebegin "Deploying Raspberry Pi firmware ${PV} from" \
