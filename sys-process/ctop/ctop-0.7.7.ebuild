@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -13,7 +13,6 @@ SRC_URI="https://github.com/bcicen/ctop/archive/v${PV}.tar.gz -> ${P}.tar.gz
 LICENSE="MIT"
 SLOT="0"
 KEYWORDS="~amd64"
-IUSE="hardened"
 
 src_compile() {
 	sed \
@@ -22,7 +21,6 @@ src_compile() {
 		-e 's/ -o / -buildvcs=false -modcacherw -v -x -trimpath -o /' \
 		-i Makefile || die
 
-	export CGO_LDFLAGS="$(usex hardened '-fno-PIC ' '')"
 	emake VERSION="${PV}" BUILD="${PVR}" build
 }
 
