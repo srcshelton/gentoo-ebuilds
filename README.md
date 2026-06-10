@@ -363,6 +363,8 @@ used to build perl)
 * games-server/minecraft-server-bin
 * mail-client/roundcube
     * Roundcube 1.0.0 and Roundcube 1.0.1 have been released, but are not yet in-tree...
+* mail-filter/rspamd
+    * Add updated version
 * media-sound/logitechmediaserver-bin
     * Stuart Hickinbottom's Squeezebox Server ebuild, updated for Perl 5.22 and with minor optimisations
 * ml-apps/ollama
