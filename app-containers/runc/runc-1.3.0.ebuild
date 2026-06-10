@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -17,7 +17,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
-IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
+IUSE="apparmor +bash-completion +man +seccomp selinux test"
 
 # sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070
 DEPEND="
@@ -57,8 +57,7 @@ src_prepare() {
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
 	CGO_CFLAGS="${CGO_CFLAGS:-} -I${ESYSROOT}/usr/include"
-	CGO_LDFLAGS="${CGO_LDFLAGS:-} $(usex hardened '-fno-PIC ' '')
-		-L${ESYSROOT}/usr/$(get_libdir)"
+	CGO_LDFLAGS="${CGO_LDFLAGS:-} -L${ESYSROOT}/usr/$(get_libdir)"
 
 	# build up optional flags
 	#

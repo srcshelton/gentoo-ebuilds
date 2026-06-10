@@ -1,23 +1,22 @@
-# Copyright 1999-2026 Gentoo Authors
+# Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
-
 inherit go-module linux-info
 
-RUNC_COMMIT="e89a29929c775025419ab0d218a43588b4c12b9a" # "Hasta la victoria, siempre." (Until victory, always.)
+RUNC_COMMIT="5d2588d37929b33b933cd7524e7d37d04dc26c0b"  # "憎しみを束ねてもそれは脆い！" (Even if you unite hatred, it's fragile!)
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="https://github.com/opencontainers/runc/"
-MY_PV="${PV/_/-}"
+MY_PV="${PV/_rc/-rc.}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
-KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv ~x86"
-IUSE="apparmor +bash-completion +man +seccomp selinux test"
+KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
+IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
 
 # sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070
 DEPEND="
@@ -34,7 +33,7 @@ RDEPEND="
 
 # dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
 BDEPEND="
-	>=dev-lang/go-1.23.0
+	>=dev-lang/go-1.24
 	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils
@@ -57,7 +56,8 @@ src_prepare() {
 src_compile() {
 	# Taken from app-containers/docker-1.7.0-r1
 	CGO_CFLAGS="${CGO_CFLAGS:-} -I${ESYSROOT}/usr/include"
-	CGO_LDFLAGS="${CGO_LDFLAGS:-} -L${ESYSROOT}/usr/$(get_libdir)"
+	CGO_LDFLAGS="${CGO_LDFLAGS:-} $(usex hardened '-fno-PIC ' '')
+		-L${ESYSROOT}/usr/$(get_libdir)"
 
 	# build up optional flags
 	#
