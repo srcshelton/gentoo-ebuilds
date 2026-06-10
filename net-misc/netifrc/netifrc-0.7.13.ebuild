@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -39,7 +39,8 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}/${P}-wireguard_status.patch"
+	"${FILESDIR}/${PN}-0.7.8-wireguard_status.patch"
+	"${FILESDIR}/${P}-is_ppp.patch"
 )
 
 src_prepare() {
@@ -53,7 +54,11 @@ src_prepare() {
 	default
 
 	# netifrc has been updated to unconditionally use /run :(
-	find "${S}" -type f -exec grep -H '/run/' {} + | cut -d':' -f 1 | sort | uniq | xargs -r sed -i 's|/run/|/var/run/|g'
+	find "${S}" -type f -exec grep -H '/run/' {} + |
+		cut -d':' -f 1 |
+		sort |
+		uniq |
+		xargs -r sed -i 's|/run/|/var/run/|g'
 }
 
 src_compile() {
@@ -73,9 +78,14 @@ src_install() {
 	dodoc README CREDITS FEATURE-REMOVAL-SCHEDULE STYLE TODO
 
 	if ! use udev; then
-		rm "${ED}"/"$(get_udevdir)"/rules.d/90-network.rules || die
-		rm "${ED}"/"$(get_udevdir)"/net.sh || die
-		rmdir -p "${ED}"/"$(get_udevdir)"/rules.d || die
+		rm "${ED}/$(get_udevdir)"/rules.d/90-network.rules || die
+		rm "${ED}/$(get_udevdir)"/net.sh || die
+		rmdir -p --ignore-fail-on-non-empty "${ED}/$(get_udevdir)"/rules.d
+		if [[ -d "${ED}/$(get_udevdir)" ]]; then
+			eerror "Unable to remove directory '$(get_udevdir)'"
+			eerror "$(ls -lAR "${ED}/$(get_udevdir)")"
+			die
+		fi
 	fi
 
 	if ! use systemd; then
@@ -93,7 +103,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	use udev && udev_reload
+	use !udev || udev_reload
 
 	if [[ ! -e "${EROOT}"/etc/conf.d/net && -z ${REPLACING_VERSIONS} ]]; then
 		elog "The network configuration scripts will use dhcp by"
@@ -104,5 +114,5 @@ pkg_postinst() {
 }
 
 pkg_postrm() {
-	use udev && udev_reload
+	use !udev || udev_reload
 }

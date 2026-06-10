@@ -1,0 +1,21 @@
+--- a/net/pppd.sh
++++ b/net/pppd.sh
+@@ -13,7 +13,8 @@
+ 
+ is_ppp()
+ {
+-	[ -e /run/ppp-"${IFACE}".pid ]
++	[ -e /run/pppd/ppp-"${IFACE}".pid ] ||
++		[ -e /run/ppp-"${IFACE}".pid ]
+ }
+ 
+ requote()
+@@ -135,7 +136,7 @@
+ 	${hasmaxfail} || opts="${opts} maxfail 0"
+ 	${haspersist} || opts="${opts} persist"
+ 
+-	# Set linkname because we need /run/ppp-${linkname}.pid
++	# Set linkname because we need /run/(pppd/)ppp-${linkname}.pid
+ 	# This pidfile has the advantage of being there,
+ 	# even if ${IFACE} interface was never started
+ 	opts="linkname ${IFACE} ${opts}"
