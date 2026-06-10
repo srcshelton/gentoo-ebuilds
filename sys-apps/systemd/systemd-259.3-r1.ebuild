@@ -12,7 +12,7 @@ QA_PKGCONFIG_VERSION=$(ver_cut 1)
 
 if [[ ${PV} == 9999 ]]; then
 	EGIT_REPO_URI="https://github.com/systemd/systemd.git"
-	inherit bash-completion-r1 linux-info meson-multilib optfeature pam python-single-r1 secureboot systemd toolchain-funcs udev
+	inherit git-r3
 else
 	MY_PV=${PV/_/-}
 	MY_P=${PN}-${MY_PV}
@@ -20,11 +20,11 @@ else
 	SRC_URI="https://github.com/systemd/${PN}/archive/refs/tags/v${MY_PV}.tar.gz -> ${MY_P}.tar.gz"
 
 	if [[ ${PV} != *rc* ]] ; then
-		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
+		KEYWORDS="amd64 ~s390 ~x86"
 	fi
 fi
 
-inherit bash-completion-r1 linux-info meson-multilib optfeature pam python-single-r1 secureboot systemd toolchain-funcs udev
+inherit branding linux-info meson-multilib optfeature pam python-single-r1 secureboot shell-completion systemd toolchain-funcs udev
 
 DESCRIPTION="System and service manager for Linux"
 HOMEPAGE="https://systemd.io/"
@@ -90,7 +90,7 @@ COMMON_DEPEND="
 
 # Newer linux-headers needed by ia64, bug #480218
 DEPEND="${COMMON_DEPEND}
-	virtual/os-headers:${MINKV/.}00
+	>=virtual/os-headers:${MINKV/.}00
 "
 
 PEFILE_DEPEND='dev-python/pefile[${PYTHON_USEDEP}]'
@@ -125,6 +125,7 @@ RDEPEND="${COMMON_DEPEND}
 	>=acct-user/systemd-resolve-0-r1
 	>=acct-user/systemd-timesync-0-r1
 	>=sys-apps/baselayout-2.2
+	elibc_musl? ( >=sys-libs/musl-1.2.5-r8 )
 	ukify? (
 		${PYTHON_DEPS}
 		$(python_gen_cond_dep "${PEFILE_DEPEND}")
@@ -139,7 +140,6 @@ RDEPEND="${COMMON_DEPEND}
 	)
 	!sysv-utils? ( sys-apps/sysvinit )
 	resolvconf? ( !net-dns/openresolv )
-	!sys-apps/hwids[udev]
 	!sys-auth/nss-myhostname
 	!sys-fs/eudev
 	!sys-fs/udev
@@ -149,6 +149,7 @@ RDEPEND="${COMMON_DEPEND}
 PDEPEND=">=sys-apps/dbus-1.9.8[systemd]
 	>=sys-fs/udev-init-scripts-34
 	policykit? ( sys-auth/polkit )
+	!sysv-utils? ( sys-apps/systemd-initctl )
 	!vanilla? ( sys-apps/gentoo-systemd-integration )"
 
 BDEPEND="
@@ -281,14 +282,11 @@ src_unpack() {
 
 src_prepare() {
 	local PATCHES=(
-		"${FILESDIR}/systemd-258-shared-add-missing-alloc-util.patch"
-		"${FILESDIR}/systemd-258.3-kernel-install-test.patch"
-		"${FILESDIR}/systemd-259-test-echo.patch"
 	)
 
 	if ! use vanilla; then
 		PATCHES+=(
-			"${FILESDIR}/gentoo-journald-audit-r3.patch"
+			"${FILESDIR}/gentoo-journald-audit-r4.patch"
 		)
 	fi
 
@@ -315,10 +313,12 @@ multilib_src_configure() {
 		-Ddocdir="share/doc/${PF}"
 		# default is developer, bug 918671
 		-Dmode=release
-		-Dsupport-url="https://gentoo.org/support/"
+		-Dsupport-url="${BRANDING_OS_SUPPORT_URL}"
 		-Dpamlibdir="$(getpam_mod_dir)"
+		-Dlibc=$(usex elibc_musl musl glibc)
 		# avoid bash-completion dep
 		-Dbashcompletiondir="$(get_bashcompdir)"
+		-Dzshcompletiondir="$(get_zshcompdir)"
 		-Dsplit-bin=false
 		# Disable compatibility with sysvinit
 		-Dsysvinit-path=
@@ -352,7 +352,6 @@ multilib_src_configure() {
 		$(meson_native_use_feature kmod)
 		$(meson_feature lz4)
 		$(meson_feature lzma xz)
-		$(meson_use test tests)
 		$(meson_feature zstd)
 		$(meson_native_use_feature iptables libiptc)
 		$(meson_native_use_feature openssl)
@@ -395,6 +394,13 @@ multilib_src_configure() {
 		$(meson_native_true tmpfiles)
 		$(meson_native_true vconsole)
 	)
+
+	# workaround for bug 969103
+	if [[ ${CHOST} == riscv32* ]] ; then
+		myconf+=( -Dtests=true )
+	else
+		myconf+=( $(meson_use test tests) )
+	fi
 
 	case $(tc-arch) in
 		amd64|arm|arm64|loong|ppc|ppc64|riscv|s390|x86)
