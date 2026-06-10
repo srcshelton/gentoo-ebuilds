@@ -18,7 +18,7 @@ else
 		verify-sig? ( https://sourceware.org/ftp/dwz/releases/${P}.tar.xz.asc )"
 	S="${WORKDIR}/${PN}"
 
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86"
+	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-dwz )"
 fi
 
