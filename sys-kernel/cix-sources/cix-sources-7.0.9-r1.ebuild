@@ -185,6 +185,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.0.x/90040-7.0-soc-cix-expose-raw-sky1-socinfo-fields.patch || die
 	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
 	eapply "${FILESDIR}"/7.0.x/90092-7.0-hwmon-cix-add-acpi-fan-driver.patch || die
+	eapply "${FILESDIR}"/7.0.x/90093-7.0-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
 	eapply "${FILESDIR}"/90096-soc-cix-add-sky1-reboot-reason-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90098-7.0-pstore-ramoops-parse-firmware-node-properties.patch || die
 	eapply "${FILESDIR}"/7.0.x/60010-7.0-usb-cdnsp-sky1-fix-acpi-fwnode-and-pm-paths.patch || die

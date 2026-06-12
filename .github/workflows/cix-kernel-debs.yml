@@ -648,7 +648,7 @@ jobs:
             ARCH=arm64 \
             LOCALVERSION="-cix-${BOARD_PACKAGE}" \
             KDEB_SOURCENAME="linux-cix-${BOARD_PACKAGE}" \
-            KDEB_PKGVERSION="${KERNEL_PV}+cix.${KERNEL_PR}.${BOARD_VERSION}.gha${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
+            KDEB_PKGVERSION="${KERNEL_PV}+cix.${KERNEL_PR}.${BOARD_VERSION}" \
             -j"$(nproc)" \
             bindeb-pkg
 
@@ -669,6 +669,59 @@ jobs:
             install -D -m 0755 \
               "${GITHUB_WORKSPACE}/sys-kernel/cix-sources/files/kconfig_update.py" \
               "${package_root}/usr/local/bin/kconfig_update.py"
+
+            python3 - "${package_root}/DEBIAN/control" <<'PY'
+          import sys
+          from pathlib import Path
+
+          control = Path(sys.argv[1])
+          required_depends = ("kmod", "linux-base", "initramfs-tools | linux-initramfs-tool")
+          lines = control.read_text(encoding="utf-8").splitlines()
+
+          for index, line in enumerate(lines):
+              if not line.startswith("Depends:"):
+                  continue
+
+              existing = line[len("Depends:"):].strip()
+              missing = [dep for dep in required_depends if dep not in existing]
+              if missing:
+                  separator = ", " if existing else " "
+                  lines[index] = f"{line}{separator}{', '.join(missing)}"
+              break
+          else:
+              insert_at = 1
+              for index, line in enumerate(lines):
+                  if line.startswith("Architecture:"):
+                      insert_at = index + 1
+                      break
+              lines.insert(insert_at, f"Depends: {', '.join(required_depends)}")
+
+          control.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+            shopt -s nullglob globstar
+            dtbs=( "${package_root}"/usr/lib/linux-image-*/**/*.dtb )
+            if (( ${#dtbs[@]} > 0 )); then
+              case "${BOARD_PROFILE}" in
+                o6-dt)
+                  for dtb in "${dtbs[@]}"; do
+                    case "${dtb}" in
+                      */usr/lib/linux-image-*/cix/sky1-orion-o6.dtb)
+                        ;;
+                      *)
+                        rm -f "${dtb}"
+                        ;;
+                    esac
+                  done
+                  ;;
+                *)
+                  rm -f "${dtbs[@]}"
+                  ;;
+              esac
+            fi
+            shopt -u nullglob globstar
+
+            find "${package_root}"/usr/lib/linux-image-* -depth -type d -empty -delete 2>/dev/null || true
 
             (
               cd "${package_root}"
