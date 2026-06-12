@@ -34,7 +34,7 @@ diff --git a/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/hwmon/cix-fan.c
-@@ -0,0 +1,347 @@
+@@ -0,0 +1,438 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CIX Sky1 ACPI fan control driver
@@ -49,12 +49,16 @@ new file mode 100644
 +
 +#include <linux/acpi.h>
 +#include <linux/hwmon.h>
++#include <linux/jiffies.h>
 +#include <linux/module.h>
 +#include <linux/mutex.h>
 +#include <linux/platform_device.h>
++#include <linux/sched.h>
 +#include <linux/slab.h>
 +
 +#define CIX_FAN_EC_FAILURE	0xff
++#define CIX_FAN_EC_FAILURE_RETRIES	3
++#define CIX_FAN_LKG_TIMEOUT	(60 * HZ)
 +#define CIX_FAN_EC0_GFPW_PATH	"\\_SB.EC0.GFPW"
 +#define CIX_FAN_HWMN_PATH	"\\_SB.HWMN"
 +#define CIX_FAN_HWMN_GFPW_PATH	"\\_SB.HWMN.GFPW"
@@ -71,8 +75,11 @@ new file mode 100644
 +	acpi_handle pwm_get_handle;
 +	const char *pwm_get_label;
 +	bool pwm_get_needs_args;
-+	struct mutex lock;
++	struct mutex lock;	/* Protects ACPI fan methods and cached state. */
++	unsigned long last_good_pwm_jiffies;
++	unsigned long last_good_pwm_percent;
 +	int pwm_enable;
++	bool has_last_good_pwm;
 +};
 +
 +static int cix_fan_eval_integer(struct cix_fan_data *data, acpi_handle handle,
@@ -129,6 +136,86 @@ new file mode 100644
 +	return 0;
 +}
 +
++static int cix_fan_read_pwm_percent_raw(struct cix_fan_data *data,
++					struct acpi_object_list *args,
++					unsigned long long *duty)
++{
++	return cix_fan_eval_integer(data, data->pwm_get_handle, NULL,
++				    data->pwm_get_label, args, duty);
++}
++
++static void cix_fan_save_last_good_pwm(struct cix_fan_data *data,
++				       unsigned long long duty)
++{
++	data->last_good_pwm_percent = duty;
++	data->last_good_pwm_jiffies = jiffies;
++	data->has_last_good_pwm = true;
++
++	dev_dbg(data->dev,
++		"saved fan last-known-good PWM duty %llu%% for %s[%d]\n",
++		duty, current->comm, current->pid);
++}
++
++static bool cix_fan_last_good_pwm_fresh(struct cix_fan_data *data)
++{
++	return data->has_last_good_pwm &&
++	       time_before_eq(jiffies,
++			      data->last_good_pwm_jiffies +
++			      CIX_FAN_LKG_TIMEOUT);
++}
++
++static int cix_fan_handle_ec_failure(struct cix_fan_data *data,
++				     struct acpi_object_list *args,
++				     unsigned long long *duty,
++				     bool *skip_last_good_save)
++{
++	unsigned long age_ms = 0;
++	int retry;
++	int ret;
++
++	*skip_last_good_save = false;
++
++	for (retry = 1; retry <= CIX_FAN_EC_FAILURE_RETRIES; retry++) {
++		dev_dbg(data->dev,
++			"GFPW(0, 0) returned EC failure value 0xff for %s[%d]; retrying (%d/%d)\n",
++			current->comm, current->pid, retry,
++			CIX_FAN_EC_FAILURE_RETRIES);
++
++		ret = cix_fan_read_pwm_percent_raw(data, args, duty);
++		if (ret)
++			return ret;
++
++		if (*duty != CIX_FAN_EC_FAILURE)
++			return 0;
++	}
++
++	if (data->has_last_good_pwm)
++		age_ms = jiffies_to_msecs(jiffies -
++					  data->last_good_pwm_jiffies);
++
++	if (cix_fan_last_good_pwm_fresh(data)) {
++		*duty = data->last_good_pwm_percent;
++		*skip_last_good_save = true;
++		dev_dbg(data->dev,
++			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; using last-known-good %llu%% (%lu ms old)\n",
++			current->comm, current->pid, CIX_FAN_EC_FAILURE_RETRIES,
++			*duty, age_ms);
++		return 0;
++	}
++
++	if (data->has_last_good_pwm)
++		dev_err(data->dev,
++			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; last-known-good %lu%% expired (%lu ms old)\n",
++			current->comm, current->pid, CIX_FAN_EC_FAILURE_RETRIES,
++			data->last_good_pwm_percent, age_ms);
++	else
++		dev_err(data->dev,
++			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; no last-known-good PWM duty is available\n",
++			current->comm, current->pid, CIX_FAN_EC_FAILURE_RETRIES);
++
++	return -EIO;
++}
++
 +static int cix_fan_get_pwm_percent(struct cix_fan_data *data, long *val)
 +{
 +	union acpi_object argv[] = {
@@ -141,6 +228,7 @@ new file mode 100644
 +	};
 +	unsigned long long duty;
 +	struct acpi_object_list *argp = NULL;
++	bool skip_last_good_save = false;
 +	int ret;
 +
 +	/*
@@ -151,15 +239,15 @@ new file mode 100644
 +	if (data->pwm_get_needs_args)
 +		argp = &args;
 +
-+	ret = cix_fan_eval_integer(data, data->pwm_get_handle, NULL,
-+				   data->pwm_get_label, argp, &duty);
++	ret = cix_fan_read_pwm_percent_raw(data, argp, &duty);
 +	if (ret)
 +		return ret;
 +
 +	if (duty == CIX_FAN_EC_FAILURE) {
-+		dev_warn_ratelimited(data->dev,
-+				     "GFPW(0, 0) returned EC failure value 0xff\n");
-+		return -EIO;
++		ret = cix_fan_handle_ec_failure(data, argp, &duty,
++						&skip_last_good_save);
++		if (ret)
++			return ret;
 +	}
 +
 +	if (duty > 100) {
@@ -170,6 +258,9 @@ new file mode 100644
 +	}
 +
 +	*val = duty;
++	if (!skip_last_good_save)
++		cix_fan_save_last_good_pwm(data, duty);
++
 +	return 0;
 +}
 +

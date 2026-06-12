@@ -216,6 +216,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/60120-6.18-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch || die
 	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
 	eapply "${FILESDIR}"/6.18.x/90092-6.18-hwmon-cix-fan-expose-pwm-duty.patch || die
+	eapply "${FILESDIR}"/6.18.x/90093-6.18-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
 	eapply "${FILESDIR}"/90096-soc-cix-add-sky1-reboot-reason-driver.patch || die
 	eapply "${FILESDIR}"/72020-armchina-npu-fix-runtime-pm-put-build.patch || die
 	eapply "${FILESDIR}"/72070-armchina-npu-add-acpi-resume-complete-hook.patch || die
