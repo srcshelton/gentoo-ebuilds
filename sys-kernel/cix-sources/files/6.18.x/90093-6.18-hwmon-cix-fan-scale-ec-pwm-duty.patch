@@ -1,0 +1,170 @@
+hwmon: cix-fan: scale EC PWM duty codes to hwmon PWM range
+
+The CIX EC reports automatic fan duty as raw setpoint codes rather than a
+0..100 percentage.  Observed values form a 0..128 scale, with 0xff used
+as the EC failure sentinel.  Accept the 0..128 EC range, round it to the
+nearest 5 percent step for stable presentation, and convert to the hwmon
+0..255 PWM range at the ABI boundary.
+
+diff --git a/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
+--- a/drivers/hwmon/cix-fan.c
++++ b/drivers/hwmon/cix-fan.c
+@@ -5,7 +5,7 @@
+  * Copyright (C) 2024 CIX Technology Group Co., Ltd.
+  *
+  * Fan control is exposed by the CIXHA024 ACPI hardware-monitor wrapper:
+- *   GFPW(type, index)       - get PWM duty percentage, 0xff on EC failure
++ *   GFPW(type, index)       - get EC PWM duty code, 0xff on EC failure
+  *   SFPW(duty, type, index) - set PWM duty percentage
+  *   SFMT/SFAT/SFPF          - mute, automatic, performance modes
+  */
+@@ -21,6 +21,8 @@
+ 
+ #define CIX_FAN_EC_FAILURE	0xff
+ #define CIX_FAN_EC_FAILURE_RETRIES	3
++#define CIX_FAN_EC_MAX_DUTY	128
++#define CIX_FAN_PERCENT_STEP	5
+ #define CIX_FAN_LKG_TIMEOUT	(60 * HZ)
+ #define CIX_FAN_EC0_GFPW_PATH	"\\_SB.EC0.GFPW"
+ #define CIX_FAN_HWMN_PATH	"\\_SB.HWMN"
+@@ -40,7 +42,7 @@ struct cix_fan_data {
+ 	bool pwm_get_needs_args;
+ 	struct mutex lock;	/* Protects ACPI fan methods and cached state. */
+ 	unsigned long last_good_pwm_jiffies;
+-	unsigned long last_good_pwm_percent;
++	unsigned long last_good_pwm_raw;
+ 	int pwm_enable;		/* 0=off, 1=full, 2=auto */
+ 	bool has_last_good_pwm;
+ };
+@@ -99,24 +101,46 @@ static int cix_fan_eval_object(struct cix_fan_data *data, const char *method,
+ 	return 0;
+ }
+ 
+-static int cix_fan_read_pwm_percent_raw(struct cix_fan_data *data,
+-					struct acpi_object_list *args,
+-					unsigned long long *duty)
++static int cix_fan_read_pwm_raw(struct cix_fan_data *data,
++				struct acpi_object_list *args,
++				unsigned long long *duty)
+ {
+ 	return cix_fan_eval_integer(data, data->pwm_get_handle, NULL,
+ 				    data->pwm_get_label, args, duty);
+ }
+ 
++static unsigned long cix_fan_raw_to_percent(unsigned long long duty)
++{
++	unsigned long percent;
++
++	percent = DIV_ROUND_CLOSEST((unsigned long)duty * 100,
++				    CIX_FAN_EC_MAX_DUTY);
++	percent = DIV_ROUND_CLOSEST(percent, CIX_FAN_PERCENT_STEP) *
++		  CIX_FAN_PERCENT_STEP;
++	if (percent > 100)
++		percent = 100;
++
++	return percent;
++}
++
++static long cix_fan_raw_to_hwmon_pwm(unsigned long long duty)
++{
++	unsigned long percent = cix_fan_raw_to_percent(duty);
++
++	return DIV_ROUND_CLOSEST(percent * 255, 100);
++}
++
+ static void cix_fan_save_last_good_pwm(struct cix_fan_data *data,
+ 				       unsigned long long duty)
+ {
+-	data->last_good_pwm_percent = duty;
++	data->last_good_pwm_raw = duty;
+ 	data->last_good_pwm_jiffies = jiffies;
+ 	data->has_last_good_pwm = true;
+ 
+ 	dev_dbg(data->dev,
+-		"saved fan last-known-good PWM duty %llu%% for %s[%d]\n",
+-		duty, current->comm, current->pid);
++		"saved fan last-known-good PWM raw duty %llu (%lu%%) for %s[%d]\n",
++		duty, cix_fan_raw_to_percent(duty), current->comm,
++		current->pid);
+ }
+ 
+ static bool cix_fan_last_good_pwm_fresh(struct cix_fan_data *data)
+@@ -144,7 +168,7 @@ static int cix_fan_handle_ec_failure(struct cix_fan_data *data,
+ 			current->comm, current->pid, retry,
+ 			CIX_FAN_EC_FAILURE_RETRIES);
+ 
+-		ret = cix_fan_read_pwm_percent_raw(data, args, duty);
++		ret = cix_fan_read_pwm_raw(data, args, duty);
+ 		if (ret)
+ 			return ret;
+ 
+@@ -157,20 +181,22 @@ static int cix_fan_handle_ec_failure(struct cix_fan_data *data,
+ 					  data->last_good_pwm_jiffies);
+ 
+ 	if (cix_fan_last_good_pwm_fresh(data)) {
+-		*duty = data->last_good_pwm_percent;
++		*duty = data->last_good_pwm_raw;
+ 		*skip_last_good_save = true;
+ 		dev_dbg(data->dev,
+-			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; using last-known-good %llu%% (%lu ms old)\n",
++			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; using last-known-good raw duty %llu (%lu%%, %lu ms old)\n",
+ 			current->comm, current->pid, CIX_FAN_EC_FAILURE_RETRIES,
+-			*duty, age_ms);
++			*duty, cix_fan_raw_to_percent(*duty), age_ms);
+ 		return 0;
+ 	}
+ 
+ 	if (data->has_last_good_pwm)
+ 		dev_err(data->dev,
+-			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; last-known-good %lu%% expired (%lu ms old)\n",
++			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; last-known-good raw duty %lu (%lu%%) expired (%lu ms old)\n",
+ 			current->comm, current->pid, CIX_FAN_EC_FAILURE_RETRIES,
+-			data->last_good_pwm_percent, age_ms);
++			data->last_good_pwm_raw,
++			cix_fan_raw_to_percent(data->last_good_pwm_raw),
++			age_ms);
+ 	else
+ 		dev_err(data->dev,
+ 			"GFPW(0, 0) still returned EC failure value 0xff for %s[%d] after %d retries; no last-known-good PWM duty is available\n",
+@@ -179,7 +205,7 @@ static int cix_fan_handle_ec_failure(struct cix_fan_data *data,
+ 	return -EIO;
+ }
+ 
+-static int cix_fan_get_pwm_percent(struct cix_fan_data *data, long *val)
++static int cix_fan_get_pwm_raw(struct cix_fan_data *data, long *val)
+ {
+ 	union acpi_object argv[] = {
+ 		{ .type = ACPI_TYPE_INTEGER, .integer.value = 0 },
+@@ -202,7 +228,7 @@ static int cix_fan_get_pwm_percent(struct cix_fan_data *data, long *val)
+ 	if (data->pwm_get_needs_args)
+ 		argp = &args;
+ 
+-	ret = cix_fan_read_pwm_percent_raw(data, argp, &duty);
++	ret = cix_fan_read_pwm_raw(data, argp, &duty);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -213,9 +239,9 @@ static int cix_fan_get_pwm_percent(struct cix_fan_data *data, long *val)
+ 			return ret;
+ 	}
+ 
+-	if (duty > 100) {
++	if (duty > CIX_FAN_EC_MAX_DUTY) {
+ 		dev_warn_ratelimited(data->dev,
+-				     "GFPW(0, 0) returned out-of-range duty %llu\n",
++				     "GFPW(0, 0) returned out-of-range raw duty %llu\n",
+ 				     duty);
+ 		return -ERANGE;
+ 	}
+@@ -284,9 +310,9 @@ static int cix_fan_read(struct device *dev, enum hwmon_sensor_types type,
+ 	mutex_lock(&data->lock);
+ 	switch (attr) {
+ 	case hwmon_pwm_input:
+-		ret = cix_fan_get_pwm_percent(data, val);
++		ret = cix_fan_get_pwm_raw(data, val);
+ 		if (!ret)
+-			*val = DIV_ROUND_CLOSEST(*val * 255, 100);
++			*val = cix_fan_raw_to_hwmon_pwm(*val);
+ 		break;
+ 	case hwmon_pwm_enable:
+ 		*val = data->pwm_enable;
