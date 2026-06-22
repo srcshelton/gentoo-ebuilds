@@ -1,0 +1,64 @@
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -604,7 +604,7 @@ static int linlondp_gop_get(void)
+ 	return enabled_by_gop;
+ }
+ 
+-static void linlondp_gop_set(void)
++static void __maybe_unused linlondp_gop_set(void)
+ {
+ 	struct arm_smccc_res res;
+ 	int dpu_gop_bit = 1;
+@@ -634,10 +634,10 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+ 
+ 	mdev->dev = dev;
+ 
+-    err = device_property_read_u32(dev, "enabled_by_gop",
+-                               (u32 *)&mdev->enabled_by_gop);
+-    if (err)
+-        mdev->enabled_by_gop = 0;
++	err = device_property_read_u32(dev, "enabled_by_gop",
++				       (u32 *)&mdev->enabled_by_gop);
++	if (err)
++		mdev->enabled_by_gop = 0;
+ 
+ 	is_insmod = linlondp_gop_get();
+ 	if (is_insmod)
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+@@ -1245,7 +1245,6 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ 		u32 src_y = master->in_y;
+ 		u32 src_w = master->in_w;
+ 		u32 src_h = master->in_h;
+-		u32 master_valid_w, slave_valid_w;
+ 		u32 h_scaling_ratio = 0;
+ 
+ #ifdef SBS_NO_OVERLAP_SCALING
+@@ -1277,10 +1276,10 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ 		/* When overlap is needed, ensure we don't fetch outside of the
+ 		 * layer when adding the overlap
+ 		 */
+-		master_valid_w = master->out_w;
+-		slave_valid_w = slave->out_w;
+-
+ #ifdef SBS_NO_OVERLAP_SCALING
++		u32 master_valid_w = master->out_w;
++		u32 slave_valid_w = slave->out_w;
++
+ 		master->out_w += min(kcrtc->sbs_overlap, slave_valid_w);
+ 		slave->out_w += min(kcrtc->sbs_overlap, master_valid_w);
+ #endif
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+@@ -241,7 +241,7 @@ linlondp_plane_atomic_get_property(struct drm_plane *plane,
+ 	return 0;
+ }
+ 
+-int linlondp_atomic_replace_property_blob_from_id(
++static int linlondp_atomic_replace_property_blob_from_id(
+ 	struct drm_device *dev, struct drm_property_blob **blob,
+ 	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+ 	bool *replaced)

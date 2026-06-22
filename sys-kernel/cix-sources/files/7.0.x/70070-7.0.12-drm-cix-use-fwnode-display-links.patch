@@ -1,0 +1,25 @@
+drm: cix: use fwnode panel links under ACPI stub-FDT
+
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -3471,12 +3471,16 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 		if (IS_ERR(edp_panel)) {
+ 			ret = PTR_ERR(edp_panel);
+ 			fwnode_handle_put(fwnode_edp_panel);
+-			dev_err(dev, "%s, invalid drm_panel\n", __func__);
+-			return ret;
++			edp_panel = NULL;
++			if (ret != -ENODEV)
++				return dev_err_probe(dev, ret,
++						     "failed to find edp-panel\n");
++			dev_dbg(dev, "edp-panel reference is not available\n");
+ 		} else
+ 			dev_info(dev, "%s, edp-panel %s is found\n", __func__,
+ 				 dev_name(edp_panel->dev));
+-		fwnode_handle_put(fwnode_edp_panel);
++		if (edp_panel)
++			fwnode_handle_put(fwnode_edp_panel);
+ 	}
+ 
+ 	dp = devm_kzalloc(dpsub->dev, sizeof(*dp), GFP_KERNEL);

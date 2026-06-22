@@ -1,0 +1,854 @@
+arm64: support stub FDT boot without always enabling OF
+
+Refresh the local stub-FDT support patch for Linux 7.1, where the
+Apple pinctrl OF_GPIO select has already been removed upstream.
+
+---
+diff --git a/arch/arm/mach-bcm/Kconfig b/arch/arm/mach-bcm/Kconfig
+--- a/arch/arm/mach-bcm/Kconfig
++++ b/arch/arm/mach-bcm/Kconfig
+@@ -159,7 +159,7 @@ config ARCH_BCM2835
+ 	select HAVE_ARM_ARCH_TIMER if ARCH_MULTI_V7
+ 	select BCM2835_TIMER
+ 	select PINCTRL
+-	select PINCTRL_BCM2835
++	select PINCTRL_BCM2835 if OF
+ 	select MFD_CORE
+ 	help
+ 	  This enables support for the Broadcom BCM2711 and BCM283x SoCs.
+diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
+--- a/arch/arm/mach-exynos/Kconfig
++++ b/arch/arm/mach-exynos/Kconfig
+@@ -11,7 +11,7 @@ menuconfig ARCH_EXYNOS
+ 	select ARM_AMBA
+ 	select ARM_GIC
+ 	select EXYNOS_IRQ_COMBINER
+-	select COMMON_CLK_SAMSUNG
++	select COMMON_CLK_SAMSUNG if OF
+ 	select EXYNOS_THERMAL
+ 	select EXYNOS_PMU
+ 	select EXYNOS_SROM
+diff --git a/arch/arm/mach-mmp/Kconfig b/arch/arm/mach-mmp/Kconfig
+--- a/arch/arm/mach-mmp/Kconfig
++++ b/arch/arm/mach-mmp/Kconfig
+@@ -17,7 +17,7 @@ config MACH_MMP_DT
+ 	bool "Support MMP (ARMv5) platforms from device tree"
+ 	depends on ARCH_MULTI_V5
+ 	select PINCTRL
+-	select PINCTRL_SINGLE
++	select PINCTRL_SINGLE if OF
+ 	select ARCH_HAS_RESET_CONTROLLER
+ 	select CPU_MOHAWK
+ 	help
+@@ -29,7 +29,7 @@ config MACH_MMP2_DT
+ 	bool "Support MMP2 (ARMv7) platforms from device tree"
+ 	depends on ARCH_MULTI_V7
+ 	select PINCTRL
+-	select PINCTRL_SINGLE
++	select PINCTRL_SINGLE if OF
+ 	select ARCH_HAS_RESET_CONTROLLER
+ 	select CPU_PJ4
+ 	select PM_GENERIC_DOMAINS if PM
+@@ -46,7 +46,7 @@ config MACH_MMP3_DT
+ 	select HAVE_ARM_TWD if SMP
+ 	select CACHE_L2X0
+ 	select PINCTRL
+-	select PINCTRL_SINGLE
++	select PINCTRL_SINGLE if OF
+ 	select ARCH_HAS_RESET_CONTROLLER
+ 	select CPU_PJ4B
+ 	select PM_GENERIC_DOMAINS if PM
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -99,7 +99,7 @@ config ARM64
+ 	select ARCH_HAS_UBSAN
+ 	select ARM_AMBA
+ 	select ARM_ARCH_TIMER
+-	select ARM_GIC
++	select ARM_GIC if OF || ACPI
+ 	select AUDIT_ARCH_COMPAT_GENERIC
+ 	select ARM_GIC_V2M if PCI
+ 	select ARM_GIC_V3
+@@ -241,8 +241,8 @@ config ARM64
+ 	select MODULES_USE_ELF_RELA
+ 	select NEED_DMA_MAP_STATE
+ 	select NEED_SG_DMA_LENGTH
+-	select OF
+-	select OF_EARLY_FLATTREE
++	select OF if !ARM64_ACPI_STUB_FDT
++	select OF_STUB if ARM64_ACPI_STUB_FDT
+ 	select PCI_DOMAINS_GENERIC if PCI
+ 	select PCI_ECAM if (ACPI && PCI)
+ 	select PCI_SYSCALL if PCI
+@@ -1561,7 +1561,7 @@ config HOTPLUG_CPU
+ config NUMA
+ 	bool "NUMA Memory Allocation and Scheduler Support"
+ 	select GENERIC_ARCH_NUMA
+-	select OF_NUMA
++	select OF_NUMA if OF
+ 	select HAVE_SETUP_PER_CPU_AREA
+ 	select NEED_PER_CPU_EMBED_FIRST_CHUNK
+ 	select NEED_PER_CPU_PAGE_FIRST_CHUNK
+@@ -1619,7 +1619,7 @@ config ARCH_SUPPORTS_KEXEC
+ 	def_bool PM_SLEEP_SMP
+ 
+ config ARCH_SUPPORTS_KEXEC_FILE
+-	def_bool y
++	def_bool OF
+ 
+ config ARCH_SELECTS_KEXEC_FILE
+ 	def_bool y
+@@ -2442,14 +2442,22 @@ endchoice
+ config EFI_STUB
+ 	bool
+ 
++config ARM64_ACPI_STUB_FDT
++	bool "ACPI/EFI boot with a stub FDT only"
++	depends on ACPI && EFI
++	help
++	  Enable a reduced arm64 ACPI/EFI boot mode that keeps the minimal
++	  flattened device tree handoff used by the EFI stub, while disabling
++	  the runtime Open Firmware device tree infrastructure.
++
+ config EFI
+ 	bool "UEFI runtime support"
+-	depends on OF && !CPU_BIG_ENDIAN
++	depends on !CPU_BIG_ENDIAN
+ 	depends on KERNEL_MODE_NEON
+ 	select ARCH_SUPPORTS_ACPI
+-	select LIBFDT
++	select LIBFDT if OF || OF_STUB
+ 	select UCS2_STRING
+-	select EFI_PARAMS_FROM_FDT
++	select EFI_PARAMS_FROM_FDT if OF || OF_STUB
+ 	select EFI_RUNTIME_WRAPPERS
+ 	select EFI_STUB
+ 	select EFI_GENERIC_STUB
+diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+--- a/arch/arm64/Kconfig.platforms
++++ b/arch/arm64/Kconfig.platforms
+@@ -61,11 +61,11 @@ if ARCH_BCM
+ 
+ config ARCH_BCM2835
+ 	bool "Broadcom BCM2835 family"
+-	select TIMER_OF
++	select TIMER_OF if OF
+ 	select GPIOLIB
+ 	select MFD_CORE
+ 	select PINCTRL
+-	select PINCTRL_BCM2835
++	select PINCTRL_BCM2835 if OF
+ 	select ARM_AMBA
+ 	select ARM_GIC
+ 	select ARM_TIMER_SP804
+@@ -136,7 +136,7 @@ config ARCH_CIX
+ 
+ config ARCH_EXYNOS
+ 	bool "Samsung Exynos SoC family"
+-	select COMMON_CLK_SAMSUNG
++	select COMMON_CLK_SAMSUNG if OF
+ 	select CLKSRC_EXYNOS_MCT
+ 	select EXYNOS_PM_DOMAINS if PM_GENERIC_DOMAINS
+ 	select EXYNOS_PMU
+@@ -226,7 +226,7 @@ endif
+ config ARCH_MMP
+ 	bool "Marvell MMP SoC Family"
+ 	select PINCTRL
+-	select PINCTRL_SINGLE
++	select PINCTRL_SINGLE if OF
+ 	help
+ 	  This enables support for Marvell MMP SoC family, currently
+ 	  supporting PXA1908 aka IAP140.
+@@ -243,7 +243,7 @@ config ARCH_MVEBU
+ 	select MVEBU_ODMI
+ 	select MVEBU_PIC
+ 	select MVEBU_SEI
+-	select OF_GPIO
++	select OF_GPIO if OF
+ 	select PINCTRL
+ 	select PINCTRL_ARMADA_37XX
+ 	select PINCTRL_ARMADA_AP806
+@@ -373,9 +373,9 @@ config ARCH_STM32
+ 	select PINCTRL
+ 	select ARM_SCMI_PROTOCOL
+ 	select REGULATOR
+-	select REGULATOR_ARM_SCMI
++	select REGULATOR_ARM_SCMI if OF
+ 	select COMMON_CLK_SCMI
+-	select STM32_FIREWALL
++	select STM32_FIREWALL if OF
+ 	help
+ 	  This enables support for ARMv8 based STMicroelectronics
+ 	  STM32 family, including:
+diff --git a/arch/arm64/kernel/cacheinfo.c b/arch/arm64/kernel/cacheinfo.c
+--- a/arch/arm64/kernel/cacheinfo.c
++++ b/arch/arm64/kernel/cacheinfo.c
+@@ -74,7 +74,11 @@ int init_cache_level(unsigned int cpu)
+ 	detect_cache_level(&level, &leaves);
+ 
+ 	if (acpi_disabled) {
++#ifdef CONFIG_OF
+ 		fw_level = of_find_last_cache_level(cpu);
++#else
++		fw_level = 0;
++#endif
+ 	} else {
+ 		ret = acpi_get_cache_info(cpu, &fw_level, NULL);
+ 		if (ret < 0)
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -678,6 +678,7 @@ static void __init acpi_parse_and_init_cpus(void)
+  * cpu logical map array containing MPIDR values related to logical
+  * cpus. Assumes that cpu_logical_map(0) has already been initialized.
+  */
++#ifdef CONFIG_OF
+ static void __init of_parse_and_init_cpus(void)
+ {
+ 	struct device_node *dn;
+@@ -730,6 +731,11 @@ static void __init of_parse_and_init_cpus(void)
+ 		cpu_count++;
+ 	}
+ }
++#else
++static inline void __init of_parse_and_init_cpus(void)
++{
++}
++#endif
+ 
+ /*
+  * Enumerate the possible CPU set from the device tree or ACPI and build the
+diff --git a/drivers/Makefile b/drivers/Makefile
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -141,7 +141,9 @@ obj-y				+= clocksource/
+ obj-$(CONFIG_DCA)		+= dca/
+ obj-$(CONFIG_HID_SUPPORT)	+= hid/
+ obj-$(CONFIG_PPC_PS3)		+= ps3/
+-obj-$(CONFIG_OF)		+= of/
++ifneq ($(CONFIG_OF)$(CONFIG_OF_STUB),)
++obj-y				+= of/
++endif
+ obj-$(CONFIG_SSB)		+= ssb/
+ obj-$(CONFIG_BCMA)		+= bcma/
+ obj-$(CONFIG_VHOST_RING)	+= vhost/
+diff --git a/drivers/firmware/xilinx/zynqmp.c b/drivers/firmware/xilinx/zynqmp.c
+--- a/drivers/firmware/xilinx/zynqmp.c
++++ b/drivers/firmware/xilinx/zynqmp.c
+@@ -451,6 +451,11 @@ int zynqmp_pm_invoke_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...)
+ 	if (num_args > 14)
+ 		return -EINVAL;
+ 
++	if (ret_payload) {
++		for (i = 0; i < PAYLOAD_ARG_CNT; i++)
++			ret_payload[i] = 0;
++	}
++
+ 	va_start(arg_list, num_args);
+ 
+ 	/* Check if feature is supported or not */
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -652,7 +652,7 @@ config GPIO_SAMA5D2_PIOBU
+ 	depends on OF
+ 	depends on MFD_SYSCON
+ 	depends on ARCH_AT91 || COMPILE_TEST
+-	select GPIO_SYSCON
++	select GPIO_SYSCON if OF
+ 	help
+ 	  Say yes here to use the PIOBU pins as GPIOs.
+ 
+diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
+--- a/drivers/irqchip/Kconfig
++++ b/drivers/irqchip/Kconfig
+@@ -7,7 +7,7 @@ config IRQCHIP
+ 
+ config ARM_GIC
+ 	bool
+-	depends on OF
++	depends on OF || ACPI_GENERIC_GSI
+ 	select IRQ_DOMAIN_HIERARCHY
+ 	select GENERIC_IRQ_EFFECTIVE_AFF_MASK if SMP
+ 
+diff --git a/drivers/irqchip/irq-gic.c b/drivers/irqchip/irq-gic.c
+--- a/drivers/irqchip/irq-gic.c
++++ b/drivers/irqchip/irq-gic.c
+@@ -1286,9 +1286,10 @@ early_param("irqchip.gicv2_force_probe", gicv2_force_probe_cfg);
+ 
+ static bool gic_check_eoimode(struct device_node *node, void __iomem **base)
+ {
+-	struct resource cpuif_res;
++	struct resource cpuif_res = { };
+ 
+-	of_address_to_resource(node, 1, &cpuif_res);
++	if (of_address_to_resource(node, 1, &cpuif_res))
++		return false;
+ 
+ 	if (!is_hyp_mode_available())
+ 		return false;
+diff --git a/drivers/of/Kconfig b/drivers/of/Kconfig
+--- a/drivers/of/Kconfig
++++ b/drivers/of/Kconfig
+@@ -16,6 +16,21 @@ menuconfig OF
+ 	  be enabled manually for unittests, overlays or
+ 	  compile-coverage.
+ 
++config OF_STUB
++	bool
++
++config OF_FLATTREE
++	bool
++	depends on OF || OF_STUB
++	select DTC
++	select LIBFDT
++	select CRC32
++
++config OF_EARLY_FLATTREE
++	def_bool (OF || OF_STUB) && !(SPARC || ALPHA || HEXAGON || M68K || PARISC || S390)
++	select DMA_DECLARE_COHERENT if HAS_DMA && HAS_IOMEM
++	select OF_FLATTREE
++
+ if OF
+ 
+ config OF_UNITTEST
+@@ -61,17 +76,6 @@ config OF_ALL_DTBS
+ 
+ 	  If unsure, say N here, but this option is safe to enable.
+ 
+-config OF_FLATTREE
+-	bool
+-	select DTC
+-	select LIBFDT
+-	select CRC32
+-
+-config OF_EARLY_FLATTREE
+-	def_bool OF && !(SPARC || ALPHA || HEXAGON || M68K || PARISC || S390)
+-	select DMA_DECLARE_COHERENT if HAS_DMA && HAS_IOMEM
+-	select OF_FLATTREE
+-
+ config OF_PROMTREE
+ 	bool
+ 
+diff --git a/drivers/of/Makefile b/drivers/of/Makefile
+--- a/drivers/of/Makefile
++++ b/drivers/of/Makefile
+@@ -1,5 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0
+-obj-y = base.o cpu.o device.o module.o platform.o property.o
++obj-$(CONFIG_OF) += base.o cpu.o device.o module.o platform.o property.o
+ obj-$(CONFIG_OF_KOBJ) += kobj.o
+ obj-$(CONFIG_OF_DYNAMIC) += dynamic.o
+ obj-$(CONFIG_OF_FLATTREE) += fdt.o empty_root.dtb.o
+@@ -13,6 +13,7 @@ obj-$(CONFIG_OF_RESOLVE)  += resolver.o
+ obj-$(CONFIG_OF_OVERLAY) += overlay.o
+ obj-$(CONFIG_OF_NUMA) += of_numa.o
+ 
++ifdef CONFIG_OF
+ ifdef CONFIG_KEXEC_FILE
+ ifdef CONFIG_OF_FLATTREE
+ obj-y	+= kexec.o
+@@ -20,6 +21,7 @@ endif
+ endif
+ 
+ obj-$(CONFIG_KUNIT) += of_kunit_helpers.o
++endif
+ obj-$(CONFIG_OF_KUNIT_TEST) += of_test.o
+ obj-$(CONFIG_OF_OVERLAY_KUNIT_TEST) += overlay-test.o
+ overlay-test-y := overlay_test.o kunit_overlay_test.dtbo.o
+diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
+--- a/drivers/of/fdt.c
++++ b/drivers/of/fdt.c
+@@ -79,6 +79,7 @@ bool of_fdt_device_is_available(const void *blob, unsigned long node)
+ 	return false;
+ }
+ 
++#ifdef CONFIG_OF
+ static void *unflatten_dt_alloc(void **mem, unsigned long size,
+ 				       unsigned long align)
+ {
+@@ -451,6 +452,7 @@ void *of_fdt_unflatten_tree(const unsigned long *blob,
+ 	return mem;
+ }
+ EXPORT_SYMBOL_GPL(of_fdt_unflatten_tree);
++#endif /* CONFIG_OF */
+ 
+ /* Everything below here references initial_boot_params directly. */
+ int __initdata dt_root_addr_cells;
+@@ -504,7 +506,8 @@ void __init early_init_fdt_scan_reserved_mem(void)
+ 		return;
+ 
+ 	fdt_reserve_elfcorehdr();
+-	fdt_scan_reserved_mem();
++	if (IS_ENABLED(CONFIG_OF_RESERVED_MEM))
++		fdt_scan_reserved_mem();
+ 
+ 	/* Process header /memreserve/ fields */
+ 	for (n = 0; ; n++) {
+@@ -1199,11 +1202,6 @@ void __init __weak early_init_dt_add_memory_arch(u64 base, u64 size)
+ 	memblock_add(base, size);
+ }
+ 
+-static void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
+-{
+-	return memblock_alloc_or_panic(size, align);
+-}
+-
+ bool __init early_init_dt_verify(void *dt_virt, phys_addr_t dt_phys)
+ {
+ 	if (!dt_virt)
+@@ -1257,6 +1255,12 @@ bool __init early_init_dt_scan(void *dt_virt, phys_addr_t dt_phys)
+ 	return true;
+ }
+ 
++#ifdef CONFIG_OF
++static void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
++{
++	return memblock_alloc_or_panic(size, align);
++}
++
+ static void *__init copy_device_tree(void *fdt)
+ {
+ 	int size;
+@@ -1327,6 +1331,7 @@ void __init unflatten_and_copy_device_tree(void)
+ 
+ 	unflatten_device_tree();
+ }
++#endif /* CONFIG_OF */
+ 
+ #ifdef CONFIG_SYSFS
+ static int __init of_fdt_raw_init(void)
+diff --git a/drivers/pinctrl/Kconfig b/drivers/pinctrl/Kconfig
+--- a/drivers/pinctrl/Kconfig
++++ b/drivers/pinctrl/Kconfig
+@@ -552,7 +552,7 @@ config PINCTRL_STMFX
+ 	depends on HAS_IOMEM
+ 	select GENERIC_PINCONF
+ 	select GPIOLIB_IRQCHIP
+-	select MFD_STMFX
++	select MFD_STMFX if OF
+ 	help
+ 	  Driver for STMicroelectronics Multi-Function eXpander (STMFX)
+ 	  GPIO expander.
+diff --git a/drivers/pinctrl/freescale/Kconfig b/drivers/pinctrl/freescale/Kconfig
+--- a/drivers/pinctrl/freescale/Kconfig
++++ b/drivers/pinctrl/freescale/Kconfig
+@@ -241,6 +241,7 @@ config PINCTRL_IMXRT1050
+ config PINCTRL_IMX91
+ 	tristate "IMX91 pinctrl driver"
+ 	depends on ARCH_MXC
++	depends on OF
+ 	select PINCTRL_IMX
+ 	help
+ 	  Say Y here to enable the imx91 pinctrl driver
+diff --git a/drivers/pinctrl/renesas/Kconfig b/drivers/pinctrl/renesas/Kconfig
+--- a/drivers/pinctrl/renesas/Kconfig
++++ b/drivers/pinctrl/renesas/Kconfig
+@@ -39,13 +39,13 @@ config PINCTRL_RENESAS
+ 	select PINCTRL_PFC_R8A779F0 if ARCH_R8A779F0
+ 	select PINCTRL_PFC_R8A779G0 if ARCH_R8A779G0
+ 	select PINCTRL_PFC_R8A779H0 if ARCH_R8A779H0
+-	select PINCTRL_RZG2L if ARCH_RZG2L
+-	select PINCTRL_RZV2M if ARCH_R9A09G011
+-	select PINCTRL_RZG2L if ARCH_R9A09G047
+-	select PINCTRL_RZG2L if ARCH_R9A09G056
+-	select PINCTRL_RZG2L if ARCH_R9A09G057
+-	select PINCTRL_RZT2H if ARCH_R9A09G077
+-	select PINCTRL_RZT2H if ARCH_R9A09G087
++	select PINCTRL_RZG2L if ARCH_RZG2L && OF
++	select PINCTRL_RZV2M if ARCH_R9A09G011 && OF
++	select PINCTRL_RZG2L if ARCH_R9A09G047 && OF
++	select PINCTRL_RZG2L if ARCH_R9A09G056 && OF
++	select PINCTRL_RZG2L if ARCH_R9A09G057 && OF
++	select PINCTRL_RZT2H if ARCH_R9A09G077 && OF
++	select PINCTRL_RZT2H if ARCH_R9A09G087 && OF
+ 	select PINCTRL_PFC_SH7203 if CPU_SUBTYPE_SH7203
+ 	select PINCTRL_PFC_SH7264 if CPU_SUBTYPE_SH7264
+ 	select PINCTRL_PFC_SH7269 if CPU_SUBTYPE_SH7269
+diff --git a/drivers/pinctrl/sunxi/pinctrl-sunxi.c b/drivers/pinctrl/sunxi/pinctrl-sunxi.c
+--- a/drivers/pinctrl/sunxi/pinctrl-sunxi.c
++++ b/drivers/pinctrl/sunxi/pinctrl-sunxi.c
+@@ -1048,6 +1048,7 @@ static int sunxi_pinctrl_gpio_direction_output(struct gpio_chip *chip,
+ 					    chip->base + offset, false);
+ }
+ 
++#if defined(CONFIG_OF_GPIO)
+ static int sunxi_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
+ 				const struct of_phandle_args *gpiospec,
+ 				u32 *flags)
+@@ -1065,6 +1066,7 @@ static int sunxi_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
+ 
+ 	return pin;
+ }
++#endif
+ 
+ static int sunxi_pinctrl_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
+ {
+@@ -1675,9 +1677,11 @@ int sunxi_pinctrl_init_with_flags(struct platform_device *pdev,
+ 	pctl->chip->direction_output = sunxi_pinctrl_gpio_direction_output;
+ 	pctl->chip->get = sunxi_pinctrl_gpio_get;
+ 	pctl->chip->set = sunxi_pinctrl_gpio_set;
++#if defined(CONFIG_OF_GPIO)
+ 	pctl->chip->of_xlate = sunxi_pinctrl_gpio_of_xlate;
+-	pctl->chip->to_irq = sunxi_pinctrl_gpio_to_irq;
+ 	pctl->chip->of_gpio_n_cells = 3;
++#endif
++	pctl->chip->to_irq = sunxi_pinctrl_gpio_to_irq;
+ 	pctl->chip->can_sleep = false;
+ 	pctl->chip->ngpio = round_up(last_pin, PINS_PER_BANK) -
+ 			    pctl->desc->pin_base;
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -373,7 +373,7 @@ config XLNX_R5_REMOTEPROC
+ 	select ZYNQMP_FIRMWARE
+ 	select RPMSG_VIRTIO
+ 	select MAILBOX
+-	select ZYNQMP_IPI_MBOX
++	select ZYNQMP_IPI_MBOX if OF
+ 	help
+ 	  Say y or m here to support Xilinx R5 remote processors via the remote
+ 	  processor framework.
+diff --git a/drivers/soc/xilinx/Kconfig b/drivers/soc/xilinx/Kconfig
+--- a/drivers/soc/xilinx/Kconfig
++++ b/drivers/soc/xilinx/Kconfig
+@@ -6,7 +6,7 @@ config ZYNQMP_POWER
+ 	depends on PM && ZYNQMP_FIRMWARE
+ 	default y
+ 	select MAILBOX
+-	select ZYNQMP_IPI_MBOX
++	select ZYNQMP_IPI_MBOX if OF
+ 	help
+ 	  Say yes to enable power management support for ZyqnMP SoC.
+ 	  This driver uses firmware driver as an interface for power
+diff --git a/drivers/ufs/host/Kconfig b/drivers/ufs/host/Kconfig
+--- a/drivers/ufs/host/Kconfig
++++ b/drivers/ufs/host/Kconfig
+@@ -74,7 +74,7 @@ config SCSI_UFS_MEDIATEK
+ 	depends on SCSI_UFSHCD_PLATFORM && ARCH_MEDIATEK
+ 	depends on PM
+ 	depends on RESET_CONTROLLER
+-	select PHY_MTK_UFS
++	select PHY_MTK_UFS if OF
+ 	select RESET_TI_SYSCON
+ 	help
+ 	  This selects the Mediatek specific additions to UFSHCD platform driver.
+diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
+--- a/drivers/usb/host/Kconfig
++++ b/drivers/usb/host/Kconfig
+@@ -280,7 +280,7 @@ config USB_EHCI_TEGRA
+ 	depends on ARCH_TEGRA
+ 	select USB_CHIPIDEA
+ 	select USB_CHIPIDEA_HOST
+-	select USB_CHIPIDEA_TEGRA
++	select USB_CHIPIDEA_TEGRA if OF
+ 	select USB_GADGET
+ 	help
+ 	  This option is deprecated now and the driver was removed, use
+diff --git a/include/linux/of.h b/include/linux/of.h
+--- a/include/linux/of.h
++++ b/include/linux/of.h
+@@ -124,10 +124,10 @@ static inline void of_node_init(struct device_node *node)
+ #define of_node_kobj(n) NULL
+ #endif
+ 
+-#ifdef CONFIG_OF_DYNAMIC
++#if defined(CONFIG_OF) && defined(CONFIG_OF_DYNAMIC)
+ extern struct device_node *of_node_get(struct device_node *node);
+ extern void of_node_put(struct device_node *node);
+-#else /* CONFIG_OF_DYNAMIC */
++#else /* CONFIG_OF && CONFIG_OF_DYNAMIC */
+ /* Dummy ref counting routines - to be implemented later */
+ static inline struct device_node *of_node_get(struct device_node *node)
+ {
+@@ -156,6 +156,24 @@ extern struct device_node *of_stdout;
+ 
+ #define OF_BAD_ADDR	((u64)-1)
+ 
++/* Helper to read a big number; size is in cells (not bytes) */
++static inline u64 of_read_number(const __be32 *cell, int size)
++{
++	u64 r = 0;
++
++	for (; size--; cell++)
++		r = (r << 32) | be32_to_cpu(*cell);
++
++	return r;
++}
++
++/* Like of_read_number, but we want an unsigned long result */
++static inline unsigned long of_read_ulong(const __be32 *cell, int size)
++{
++	/* toss away upper bits if unsigned long is smaller than u64 */
++	return of_read_number(cell, size);
++}
++
+ #ifdef CONFIG_OF
+ void of_core_init(void);
+ 
+@@ -232,22 +250,6 @@ extern struct device_node *of_find_all_nodes(struct device_node *prev);
+  * OF address retrieval & translation
+  */
+ 
+-/* Helper to read a big number; size is in cells (not bytes) */
+-static inline u64 of_read_number(const __be32 *cell, int size)
+-{
+-	u64 r = 0;
+-	for (; size--; cell++)
+-		r = (r << 32) | be32_to_cpu(*cell);
+-	return r;
+-}
+-
+-/* Like of_read_number, but we want an unsigned long result */
+-static inline unsigned long of_read_ulong(const __be32 *cell, int size)
+-{
+-	/* toss away upper bits if unsigned long is smaller than u64 */
+-	return of_read_number(cell, size);
+-}
+-
+ #if defined(CONFIG_SPARC)
+ #include <asm/prom.h>
+ #endif
+@@ -1650,7 +1652,7 @@ enum of_reconfig_change {
+ 
+ struct notifier_block;
+ 
+-#ifdef CONFIG_OF_DYNAMIC
++#if defined(CONFIG_OF) && defined(CONFIG_OF_DYNAMIC)
+ extern int of_reconfig_notifier_register(struct notifier_block *);
+ extern int of_reconfig_notifier_unregister(struct notifier_block *);
+ extern int of_reconfig_notify(unsigned long, struct of_reconfig_data *rd);
+@@ -1724,7 +1726,103 @@ int of_changeset_update_prop_string(struct of_changeset *ocs,
+ int of_changeset_add_prop_bool(struct of_changeset *ocs, struct device_node *np,
+ 			       const char *prop_name);
+ 
+-#else /* CONFIG_OF_DYNAMIC */
++#else /* CONFIG_OF && CONFIG_OF_DYNAMIC */
++static inline void of_changeset_init(struct of_changeset *ocs)
++{
++	INIT_LIST_HEAD(&ocs->entries);
++}
++static inline void of_changeset_destroy(struct of_changeset *ocs) { }
++static inline int of_changeset_apply(struct of_changeset *ocs)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_revert(struct of_changeset *ocs)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_action(struct of_changeset *ocs,
++				      unsigned long action,
++				      struct device_node *np,
++				      struct property *prop)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_attach_node(struct of_changeset *ocs,
++					   struct device_node *np)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_detach_node(struct of_changeset *ocs,
++					   struct device_node *np)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_add_property(struct of_changeset *ocs,
++					    struct device_node *np,
++					    struct property *prop)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_remove_property(struct of_changeset *ocs,
++					       struct device_node *np,
++					       struct property *prop)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_update_property(struct of_changeset *ocs,
++					       struct device_node *np,
++					       struct property *prop)
++{
++	return -EINVAL;
++}
++static inline struct device_node *of_changeset_create_node(struct of_changeset *ocs,
++							   struct device_node *parent,
++							   const char *full_name)
++{
++	return NULL;
++}
++static inline int of_changeset_add_prop_string(struct of_changeset *ocs,
++					       struct device_node *np,
++					       const char *prop_name,
++					       const char *str)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_add_prop_string_array(struct of_changeset *ocs,
++						     struct device_node *np,
++						     const char *prop_name,
++						     const char * const *str_array,
++						     size_t sz)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_add_prop_u32_array(struct of_changeset *ocs,
++						  struct device_node *np,
++						  const char *prop_name,
++						  const u32 *array, size_t sz)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_add_prop_u32(struct of_changeset *ocs,
++					    struct device_node *np,
++					    const char *prop_name,
++					    const u32 val)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_update_prop_string(struct of_changeset *ocs,
++						  struct device_node *np,
++						  const char *prop_name,
++						  const char *str)
++{
++	return -EINVAL;
++}
++static inline int of_changeset_add_prop_bool(struct of_changeset *ocs,
++					     struct device_node *np,
++					     const char *prop_name)
++{
++	return -EINVAL;
++}
+ static inline int of_reconfig_notifier_register(struct notifier_block *nb)
+ {
+ 	return -EINVAL;
+@@ -1743,7 +1841,7 @@ static inline int of_reconfig_get_state_change(unsigned long action,
+ {
+ 	return -EINVAL;
+ }
+-#endif /* CONFIG_OF_DYNAMIC */
++#endif /* CONFIG_OF && CONFIG_OF_DYNAMIC */
+ 
+ /**
+  * of_device_is_system_power_controller - Tells if system-power-controller is found for device_node
+diff --git a/include/linux/of_fdt.h b/include/linux/of_fdt.h
+--- a/include/linux/of_fdt.h
++++ b/include/linux/of_fdt.h
+@@ -23,9 +23,18 @@
+ struct device_node;
+ 
+ /* For scanning an arbitrary device-tree at any time */
++#if defined(CONFIG_OF)
+ extern void *of_fdt_unflatten_tree(const unsigned long *blob,
+ 				   struct device_node *dad,
+ 				   struct device_node **mynodes);
++#else
++static inline void *of_fdt_unflatten_tree(const unsigned long *blob,
++					  struct device_node *dad,
++					  struct device_node **mynodes)
++{
++	return NULL;
++}
++#endif
+ 
+ /* TBD: Temporary export of fdt globals - remove when code fully merged */
+ extern int __initdata dt_root_addr_cells;
+@@ -89,8 +98,13 @@ extern const void *of_flat_dt_match_machine(const void *default_match,
+ 		const void * (*get_next_compat)(const char * const**));
+ 
+ /* Other Prototypes */
++#if defined(CONFIG_OF)
+ extern void unflatten_device_tree(void);
+ extern void unflatten_and_copy_device_tree(void);
++#else
++static inline void unflatten_device_tree(void) {}
++static inline void unflatten_and_copy_device_tree(void) {}
++#endif
+ extern void early_init_devtree(void *);
+ extern void early_get_first_memblock_info(void *, phys_addr_t *);
+ #else /* CONFIG_OF_EARLY_FLATTREE */
+diff --git a/include/linux/pinctrl/pinconf-generic.h b/include/linux/pinctrl/pinconf-generic.h
+--- a/include/linux/pinctrl/pinconf-generic.h
++++ b/include/linux/pinctrl/pinconf-generic.h
+@@ -11,6 +11,7 @@
+ #ifndef __LINUX_PINCTRL_PINCONF_GENERIC_H
+ #define __LINUX_PINCTRL_PINCONF_GENERIC_H
+ 
++#include <linux/errno.h>
+ #include <linux/types.h>
+ 
+ #include <linux/pinctrl/machine.h>
+@@ -216,6 +217,7 @@ struct pinconf_generic_params {
+ 	size_t num_values;
+ };
+ 
++#ifdef CONFIG_OF
+ int pinconf_generic_dt_subnode_to_map(struct pinctrl_dev *pctldev,
+ 		struct device_node *np, struct pinctrl_map **map,
+ 		unsigned int *reserved_maps, unsigned int *num_maps,
+@@ -225,6 +227,27 @@ int pinconf_generic_dt_node_to_map(struct pinctrl_dev *pctldev,
+ 		unsigned int *num_maps, enum pinctrl_map_type type);
+ void pinconf_generic_dt_free_map(struct pinctrl_dev *pctldev,
+ 		struct pinctrl_map *map, unsigned int num_maps);
++#else
++static inline int pinconf_generic_dt_subnode_to_map(struct pinctrl_dev *pctldev,
++		struct device_node *np, struct pinctrl_map **map,
++		unsigned int *reserved_maps, unsigned int *num_maps,
++		enum pinctrl_map_type type)
++{
++	return -ENOSYS;
++}
++
++static inline int pinconf_generic_dt_node_to_map(struct pinctrl_dev *pctldev,
++		struct device_node *np_config, struct pinctrl_map **map,
++		unsigned int *num_maps, enum pinctrl_map_type type)
++{
++	return -ENOSYS;
++}
++
++static inline void pinconf_generic_dt_free_map(struct pinctrl_dev *pctldev,
++		struct pinctrl_map *map, unsigned int num_maps)
++{
++}
++#endif
+ 
+ static inline int pinconf_generic_dt_node_to_map_group(struct pinctrl_dev *pctldev,
+ 		struct device_node *np_config, struct pinctrl_map **map,
+diff --git a/include/linux/regulator/consumer.h b/include/linux/regulator/consumer.h
+--- a/include/linux/regulator/consumer.h
++++ b/include/linux/regulator/consumer.h
+@@ -692,6 +692,20 @@ struct regulator *__must_check devm_of_regulator_get_optional(struct device *dev
+ int __must_check of_regulator_bulk_get_all(struct device *dev, struct device_node *np,
+ 					   struct regulator_bulk_data **consumers);
+ #else
++static inline struct regulator *__must_check of_regulator_get(struct device *dev,
++							      struct device_node *node,
++							      const char *id)
++{
++	return ERR_PTR(-ENODEV);
++}
++
++static inline struct regulator *__must_check devm_of_regulator_get(struct device *dev,
++								   struct device_node *node,
++								   const char *id)
++{
++	return ERR_PTR(-ENODEV);
++}
++
+ static inline struct regulator *__must_check of_regulator_get_optional(struct device *dev,
+ 								       struct device_node *node,
+ 								       const char *id)
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -2042,7 +2042,7 @@ config PM_NOTIFIER_ERROR_INJECT
+ 
+ config OF_RECONFIG_NOTIFIER_ERROR_INJECT
+ 	tristate "OF reconfig notifier error injection module"
+-	depends on OF_DYNAMIC && NOTIFIER_ERROR_INJECTION
++	depends on OF && OF_DYNAMIC && NOTIFIER_ERROR_INJECTION
+ 	help
+ 	  This option provides the ability to inject artificial errors to
+ 	  OF reconfig notifier chain callbacks.  It is controlled

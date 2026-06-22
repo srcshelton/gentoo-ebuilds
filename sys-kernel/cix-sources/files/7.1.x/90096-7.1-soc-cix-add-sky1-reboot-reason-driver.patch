@@ -1,0 +1,159 @@
+soc: cix: add Sky1 reboot reason driver on 7.1
+
+Regenerate the Sky1 reboot-reason driver patch against the 7.1 CIX platform
+Kconfig and Makefile context.
+
+---
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -76,6 +76,17 @@ config CIX_SKY1_SOCINFO
+ 	  it only for diagnostics or for platforms known to populate these
+ 	  fields.
+ 
++config CIX_SKY1_REBOOT_REASON
++	tristate "CIX Sky1 reboot reason register"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on OF || ACPI
++	depends on HAS_IOMEM
++	help
++	  Expose the CIX Sky1 reboot reason register through a small read-only
++	  sysfs interface. The register location must be described by firmware,
++	  for example by an ACPI PRP0001 platform device with compatible string
++	  "cix,sky1-reboot-reason".
++
+ config CIX_DDR_LP
+ 	tristate "CIX Sky1 DDR low-power control"
+ 	depends on ARCH_CIX || COMPILE_TEST
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -4,6 +4,7 @@ obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
+ obj-$(CONFIG_CIX_ACPI_PCIE_SCAN)	+= cix-acpi-pcie-scan.o
+ obj-$(CONFIG_CIX_ACPI_GPU_SCAN)		+= cix-acpi-gpu-scan.o
+ obj-$(CONFIG_CIX_SKY1_SOCINFO)		+= sky1-socinfo.o
++obj-$(CONFIG_CIX_SKY1_REBOOT_REASON)	+= sky1-reboot-reason.o
+ obj-$(CONFIG_CIX_DDR_LP)		+= cix-ddr-lp.o
+ obj-$(CONFIG_CIX_BUS_PERF)		+= cix-bus-perf.o
+ obj-$(CONFIG_CIX_DST)			+= cix_dst/
+diff --git a/drivers/soc/cix/sky1-reboot-reason.c b/drivers/soc/cix/sky1-reboot-reason.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/sky1-reboot-reason.c
+@@ -0,0 +1,116 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * CIX Sky1 reboot reason register driver
++ */
++
++#include <linux/io.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++
++#define SKY1_REBOOT_REASON_MASK	0xff
++
++struct sky1_reboot_reason {
++	void __iomem *base;
++};
++
++static unsigned int sky1_reboot_reason_read(struct sky1_reboot_reason *rr)
++{
++	return readl_relaxed(rr->base) & SKY1_REBOOT_REASON_MASK;
++}
++
++static const char *sky1_reboot_reason_name(unsigned int reason)
++{
++	switch (reason) {
++	case 0x00:
++		return "power-on-or-unknown";
++	case 0x01:
++		return "default-exception";
++	case 0x02:
++		return "watchdog-interrupt";
++	case 0x04:
++		return "warm-reset";
++	case 0xff:
++		return "invalid";
++	default:
++		return "unknown";
++	}
++}
++
++static ssize_t raw_reason_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "0x%02x\n", sky1_reboot_reason_read(rr));
++}
++static DEVICE_ATTR_RO(raw_reason);
++
++static ssize_t reason_show(struct device *dev,
++			   struct device_attribute *attr, char *buf)
++{
++	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
++	unsigned int reason = sky1_reboot_reason_read(rr);
++
++	return sysfs_emit(buf, "%s\n", sky1_reboot_reason_name(reason));
++}
++static DEVICE_ATTR_RO(reason);
++
++static struct attribute *sky1_reboot_reason_attrs[] = {
++	&dev_attr_raw_reason.attr,
++	&dev_attr_reason.attr,
++	NULL
++};
++ATTRIBUTE_GROUPS(sky1_reboot_reason);
++
++static int sky1_reboot_reason_probe(struct platform_device *pdev)
++{
++	struct resource *res;
++	struct sky1_reboot_reason *rr;
++	unsigned int reason;
++
++	rr = devm_kzalloc(&pdev->dev, sizeof(*rr), GFP_KERNEL);
++	if (!rr)
++		return -ENOMEM;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
++		return -EINVAL;
++
++	/*
++	 * Firmware may already reserve this always-on diagnostic register as a
++	 * system resource.  Map it read-only for reporting without claiming the
++	 * region a second time.
++	 */
++	rr->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
++	if (!rr->base)
++		return -ENOMEM;
++
++	platform_set_drvdata(pdev, rr);
++
++	reason = sky1_reboot_reason_read(rr);
++	dev_info(&pdev->dev, "last reboot reason: %s (0x%02x)\n",
++		 sky1_reboot_reason_name(reason), reason);
++
++	return 0;
++}
++
++static const struct of_device_id sky1_reboot_reason_of_match[] = {
++	{ .compatible = "cix,sky1-reboot-reason" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sky1_reboot_reason_of_match);
++
++static struct platform_driver sky1_reboot_reason_driver = {
++	.probe = sky1_reboot_reason_probe,
++	.driver = {
++		.name = "sky1-reboot-reason",
++		.of_match_table = sky1_reboot_reason_of_match,
++		.dev_groups = sky1_reboot_reason_groups,
++	},
++};
++module_platform_driver(sky1_reboot_reason_driver);
++
++MODULE_DESCRIPTION("CIX Sky1 reboot reason register driver");
++MODULE_LICENSE("GPL");

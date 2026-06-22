@@ -27,7 +27,7 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-EGIT_CIX_COMMIT="3aad82491a599648d87ba1c47cec7968862fa165"
+EGIT_CIX_COMMIT="759efc09237e7728e2881b3f6083fd80b3106ae3"
 EGIT_SKY1_COMMIT="57e018a398248d7e5e4d798610df79a557c0629f"
 VENDOR_FIRMWARE_O6="orion-o6-radxa-1.2.1"
 VENDOR_FIRMWARE_O6N="orion-o6n-radxa-1.2.1"
@@ -108,11 +108,13 @@ src_prepare() {
 	done
 
 	# These Sky1 patches are additive on top of CIX's native 7.0 queue.
-	eapply "${sky1_patch_dir}"/0007-pinctrl-cix-Update-Sky1-pin-controller.patch || die
+	# Sky1 0007 is superseded by CIX 0048 on the updated 7.0.12 base.
 	eapply "${sky1_patch_dir}"/0013-net-Add-CIX-Sky1-networking-drivers.patch || die
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
 	eapply "${sky1_patch_dir}"/0015-media-cix-Add-Sky1-video-codec-VPU-driver.patch || die
 	eapply "${sky1_patch_dir}"/0016-misc-armchina-npu-Add-Zhouyi-NPU-driver-for-CIX-Sky1.patch || die
+	eapply "${FILESDIR}"/7.0.x/71990-7.0-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	eapply "${FILESDIR}"/71995-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
 	eapply "${FILESDIR}"/7.0.x/50000-7.0-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-7.0-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
 	eapply "${sky1_patch_dir}"/0024-drm-sky1-switch-from-faux_device-to-platform_device.patch || die
@@ -122,32 +124,19 @@ src_prepare() {
 	rm -r "${WORKDIR}/linux-sky1-${EGIT_SKY1_COMMIT}" || die
 
 	eapply "${FILESDIR}"/7.0.x/20010-7.0-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch || die
-	eapply "${FILESDIR}"/70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
-	eapply "${FILESDIR}"/72000-armchina-npu-zhouyi-fix-missing-prototype-under-werror.patch || die
-	eapply "${FILESDIR}"/72010-armchina-npu-fix-acpi-match-and-user-visible-text.patch || die
-	eapply "${FILESDIR}"/72020-armchina-npu-fix-runtime-pm-put-build.patch || die
-	eapply "${FILESDIR}"/7.0.x/72025-7.0-armchina-npu-defer-until-perf-domain-ready.patch || die
-	eapply "${FILESDIR}"/7.0.x/30000-7.0-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
-	eapply "${FILESDIR}"/7.0.x/30015-7.0-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
+	eapply "${FILESDIR}"/7.0.x/70010-7.0.12-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
+	eapply "${FILESDIR}"/7.0.x/30000-7.0.12-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
+	eapply "${FILESDIR}"/7.0.x/30015-7.0.12-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
 	eapply "${FILESDIR}"/30030-scmi-demote-unsupported-fastchannel-fallback.patch || die
 	eapply "${FILESDIR}"/30070-opp-tolerate-unsupported-interconnect-paths.patch || die
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
-	eapply "${FILESDIR}"/7.0.x/72030-7.0-armchina-npu-clean-up-acpi-core-runtime-pm-on-defer.patch || die
-	eapply "${FILESDIR}"/7.0.x/72040-7.0-armchina-npu-guard-missing-iova-cookie.patch || die
-	eapply "${FILESDIR}"/7.0.x/72050-7.0-armchina-npu-prefer-dma-api-on-acpi.patch || die
-	eapply "${FILESDIR}"/7.0.x/72055-7.0-armchina-npu-clarify-acpi-dma-api-memory-management-log.patch || die
-	eapply "${FILESDIR}"/7.0.x/72060-7.0-armchina-npu-drop-invalid-oneshot-irq-flag.patch || die
-	eapply "${FILESDIR}"/72070-armchina-npu-add-acpi-resume-complete-hook.patch || die
-	eapply "${FILESDIR}"/72080-armchina-npu-harden-probe-and-runtime-pm-error-handling.patch || die
-	eapply "${FILESDIR}"/72090-armchina-npu-clean-up-dmabuf-sg-mappings.patch || die
-	eapply "${FILESDIR}"/72095-armchina-npu-defer-dmabuf-backing-free-to-release.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
-	eapply "${FILESDIR}"/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
+	eapply "${FILESDIR}"/7.0.x/30127-7.0.12-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
 	eapply "${FILESDIR}"/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch || die
 	eapply "${FILESDIR}"/7.0.x/80020-7.0-rtw89-check-acpi-dsm-before-evaluating.patch || die
 	eapply "${FILESDIR}"/60000-cix-usb-phy-fail-cleanly-on-missing-resources.patch || die
@@ -160,38 +149,37 @@ src_prepare() {
 	eapply "${FILESDIR}"/71040-cix-mvx-fix-user-visible-names.patch || die
 	eapply "${FILESDIR}"/71050-cix-mvx-enable-jpeg-mjpeg-devices.patch || die
 	eapply "${FILESDIR}"/71060-cix-mvx-port-sky1p-reset-sequencing.patch || die
-	eapply "${FILESDIR}"/70020-cix-display-and-backlight-build-fixes.patch || die
+	eapply "${FILESDIR}"/7.0.x/70020-7.0.12-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/7.0.x/70040-7.0-drm-panthor-drop-unused-gem-device-variable.patch || die
-	eapply "${FILESDIR}"/70050-drm-cix-enable-acpi-stub-fdt-display.patch || die
-	eapply "${FILESDIR}"/70060-drm-add-fwnode-panel-bridge-helpers.patch || die
-	eapply "${FILESDIR}"/70070-drm-cix-use-fwnode-display-links.patch || die
+	eapply "${FILESDIR}"/7.0.x/70050-7.0.12-drm-cix-enable-acpi-stub-fdt-display.patch || die
+	eapply "${FILESDIR}"/7.0.x/70070-7.0.12-drm-cix-use-fwnode-display-links.patch || die
 	eapply "${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch || die
 	eapply "${FILESDIR}"/70090-drm-cix-remove-unused-display-kconfig-prompts.patch || die
-	eapply "${FILESDIR}"/7.0.x/70100-7.0-drm-cix-linlon-dp-fix-clang-warnings.patch || die
-	eapply "${FILESDIR}"/7.0.x/70110-7.0-drm-cix-demote-display-info-logs.patch || die
+	eapply "${FILESDIR}"/7.0.x/70100-7.0.12-drm-cix-linlon-dp-fix-clang-warnings.patch || die
+	eapply "${FILESDIR}"/7.0.x/70110-7.0.12-drm-cix-demote-display-info-logs.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
 	eapply "${FILESDIR}"/80030-cadence-macb-restore-pc302gem-config-scope.patch || die
 	eapply "${FILESDIR}"/80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch || die
 	eapply "${FILESDIR}"/40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/7.0.x/40046-7.0-acpi-scan-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
-	eapply "${FILESDIR}"/7.0.x/40050-7.0-soc-cix-arbitrate-acpi-usb-models.patch || die
-	eapply "${FILESDIR}"/7.0.x/40060-7.0-soc-cix-add-gpu-cca-scan-quirk.patch || die
-	eapply "${FILESDIR}"/7.0.x/40070-7.0-soc-cix-arbitrate-acpi-pcie-models.patch || die
+	eapply "${FILESDIR}"/7.0.x/40050-7.0.12-soc-cix-arbitrate-acpi-usb-models.patch || die
+	eapply "${FILESDIR}"/7.0.x/40060-7.0.12-soc-cix-add-gpu-cca-scan-quirk.patch || die
+	eapply "${FILESDIR}"/7.0.x/40070-7.0.12-soc-cix-arbitrate-acpi-pcie-models.patch || die
 	eapply "${FILESDIR}"/7.0.x/40080-7.0-soc-cix-ignore-disabled-acpi-models.patch || die
 	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
-	eapply "${FILESDIR}"/7.0.x/90000-7.0-soc-cix-add-acpi-bus-perf-driver.patch || die
-	eapply "${FILESDIR}"/7.0.x/90010-7.0-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch || die
-	eapply "${FILESDIR}"/7.0.x/90020-7.0-cix-fix-module-modpost-exports.patch || die
-	eapply "${FILESDIR}"/7.0.x/90030-7.0-cix-cpu-ipa-use-dtb-register-size.patch || die
+	eapply "${FILESDIR}"/7.0.x/90000-7.0.12-soc-cix-add-acpi-bus-perf-driver.patch || die
+	eapply "${FILESDIR}"/7.0.x/90010-7.0.12-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch || die
+	eapply "${FILESDIR}"/7.0.x/90020-7.0.12-cix-fix-module-modpost-exports.patch || die
 	eapply "${FILESDIR}"/7.0.x/90040-7.0-soc-cix-expose-raw-sky1-socinfo-fields.patch || die
 	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
 	eapply "${FILESDIR}"/7.0.x/90092-7.0-hwmon-cix-add-acpi-fan-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90093-7.0-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
-	eapply "${FILESDIR}"/90096-soc-cix-add-sky1-reboot-reason-driver.patch || die
+	eapply "${FILESDIR}"/7.0.x/90096-7.0.12-soc-cix-add-sky1-reboot-reason-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90098-7.0-pstore-ramoops-parse-firmware-node-properties.patch || die
 	eapply "${FILESDIR}"/7.0.x/60010-7.0-usb-cdnsp-sky1-fix-acpi-fwnode-and-pm-paths.patch || die
+	eapply "${FILESDIR}"/7.0.x/60015-7.0.12-usb-cdnsp-sky1-tear-down-host-on-shutdown.patch || die
 	eapply "${FILESDIR}"/7.0.x/60020-7.0-usb-typec-rts5453-include-irq-header.patch || die
 	eapply "${FILESDIR}"/7.0.x/60030-7.0-usb-typec-rts5453-fix-pm-sleep-disabled-build.patch || die
 	eapply "${FILESDIR}"/7.0.x/60040-7.0-phy-cix-enable-acpi-stub-fdt.patch || die
