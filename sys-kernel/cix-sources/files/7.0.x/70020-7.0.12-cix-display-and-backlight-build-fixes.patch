@@ -1,0 +1,33 @@
+CIX display: gate broken virtual encoder and keep ACPI backlight buildable
+
+diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
+--- a/drivers/gpu/drm/cix/Kconfig
++++ b/drivers/gpu/drm/cix/Kconfig
+@@ -23,8 +23,7 @@ config DRM_LINLONDP
+ 
+ config DRM_CIX_VIRTUAL
+ 	tristate "DRM Support for CiX Virtual Encoder"
+-	depends on DRM_CIX
+-	default y
++	depends on DRM_CIX && BROKEN
+ 	help
+ 	  This is a virtual encoder and connector support which is
+ 	  mainly used on EMU and FPGA. Disabled in default.
+diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
+--- a/drivers/video/backlight/pwm_bl.c
++++ b/drivers/video/backlight/pwm_bl.c
+@@ -369,6 +369,14 @@ int pwm_backlight_brightness_default(struct device *dev,
+ }
+ #endif
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id pwm_backlight_acpi_match[] = {
++	{ "CIXH5041", 0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, pwm_backlight_acpi_match);
++#endif
++
+ static bool pwm_backlight_is_linear(struct platform_pwm_backlight_data *data)
+ {
+ 	unsigned int nlevels = data->max_brightness + 1;

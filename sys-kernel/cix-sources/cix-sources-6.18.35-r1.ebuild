@@ -109,8 +109,20 @@ src_prepare() {
 		local pf=$1
 
 		case "${pf}" in
+			0051-PCI-Add-ASPM-quirks-for-Phison-and-Kingston-NVMe-dri.patch)
+				eapply "${FILESDIR}"/6.18.x/0051-6.18.35-PCI-Add-ASPM-quirks-for-Phison-and-Kingston-NVMe-dri.patch || die
+				return
+				;;
 			0065-treewide-Add-ACPI-device-IDs-for-CIX-Sky1-SoC-periph.patch)
 				eapply "${FILESDIR}"/6.18.x/40005-6.18.32-add-remaining-sky1-acpi-device-ids.patch || die
+				return
+				;;
+			0071-mailbox-cix-mailbox-Allow-building-with-ACPI.patch)
+				eapply "${FILESDIR}"/6.18.x/0071-6.18.35-mailbox-cix-mailbox-Allow-building-with-ACPI.patch || die
+				return
+				;;
+			0118-iommu-arm-smmu-v3-Add-ACPI-boot-active-bypass-STEs-f.patch)
+				eapply "${FILESDIR}"/6.18.x/0118-6.18.35-iommu-arm-smmu-v3-Add-ACPI-boot-active-bypass-STEs-f.patch || die
 				return
 				;;
 		esac
@@ -147,6 +159,8 @@ src_prepare() {
 		[[ -n "${pf}" && "${pf}" != \#* ]] || continue
 		sky1_apply_series_patch "${pf}"
 	done < "${sky1_patch_dir}/series"
+	eapply "${FILESDIR}"/6.18.x/71990-6.18-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	eapply "${FILESDIR}"/6.18.x/71995-6.18.35-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
 
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
 
@@ -158,8 +172,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/70005-6.18-drm-cix-linlon-dp-fix-symbol-clashes-and-clang-werror.patch || die
 	eapply "${FILESDIR}"/70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
-	eapply "${FILESDIR}"/72000-armchina-npu-zhouyi-fix-missing-prototype-under-werror.patch || die
-	eapply "${FILESDIR}"/72010-armchina-npu-fix-acpi-match-and-user-visible-text.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
@@ -174,7 +186,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
-	eapply "${FILESDIR}"/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
+	eapply "${FILESDIR}"/6.18.x/30127-6.18.35-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
 	eapply "${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch || die
 	eapply "${FILESDIR}"/30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch || die
 	eapply "${FILESDIR}"/30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch || die
@@ -207,22 +219,15 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/60040-6.18-usb-typec-acpi-runtime-fixes.patch || die
 	eapply "${FILESDIR}"/6.18.x/60096-6.18-phy-cix-usbdp-allow-acpi-selection.patch || die
 	eapply "${FILESDIR}"/6.18.x/70040-6.18-display-media-acpi-runtime-fixes.patch || die
-	eapply "${FILESDIR}"/6.18.x/72050-6.18-armchina-npu-prefer-dma-api-on-acpi.patch || die
 	eapply "${FILESDIR}"/6.18.x/80020-6.18-rtw89-check-acpi-dsm-before-evaluating.patch || die
 	eapply "${FILESDIR}"/6.18.x/90000-6.18-soc-cix-add-acpi-runtime-drivers.patch || die
 	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
-	eapply "${FILESDIR}"/6.18.x/72055-6.18.32-armchina-npu-clarify-acpi-dma-api-memory-management-log.patch || die
 	eapply "${FILESDIR}"/60070-usb-typec-add-provider-fwnode-control-lookups.patch || die
 	eapply "${FILESDIR}"/6.18.x/60120-6.18-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch || die
 	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
 	eapply "${FILESDIR}"/6.18.x/90092-6.18-hwmon-cix-fan-expose-pwm-duty.patch || die
 	eapply "${FILESDIR}"/6.18.x/90093-6.18-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
 	eapply "${FILESDIR}"/90096-soc-cix-add-sky1-reboot-reason-driver.patch || die
-	eapply "${FILESDIR}"/72020-armchina-npu-fix-runtime-pm-put-build.patch || die
-	eapply "${FILESDIR}"/72070-armchina-npu-add-acpi-resume-complete-hook.patch || die
-	eapply "${FILESDIR}"/72080-armchina-npu-harden-probe-and-runtime-pm-error-handling.patch || die
-	eapply "${FILESDIR}"/72090-armchina-npu-clean-up-dmabuf-sg-mappings.patch || die
-	eapply "${FILESDIR}"/72095-armchina-npu-defer-dmabuf-backing-free-to-release.patch || die
 	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
 	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
 	if use radxa-menu; then

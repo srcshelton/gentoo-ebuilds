@@ -1,0 +1,141 @@
+soc: cix: arbitrate ACPI PCIe models on 7.1
+
+Regenerate the CIX ACPI PCIe model arbitration patch against the 7.1 CIX
+platform Kconfig and source context.
+
+---
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -29,6 +29,19 @@ config CIX_ACPI_USB_SCAN
+ 	  one model, the helper either stands down or allows the vendor-only
+ 	  devices to enumerate unchanged.
+ 
++config CIX_ACPI_PCIE_SCAN
++	bool
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI
++	default ARCH_CIX
++	help
++	  Internal ACPI arbitration helper for vendor firmware that exposes
++	  both generic upstream PNP0A08 PCI root bridges and vendor CIXH2020
++	  PCIe companion devices for the same Sky1 controllers. When both
++	  models are present, the arbiter keeps the generic upstream PNP0A08
++	  path and suppresses the overlapping vendor PCIe platform devices.
++	  Firmware that exposes only one model is left unchanged.
++
+ config CIX_ACPI_GPU_SCAN
+ 	bool
+ 	depends on ARCH_CIX || COMPILE_TEST
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -1,5 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
++obj-$(CONFIG_CIX_ACPI_PCIE_SCAN)	+= cix-acpi-pcie-scan.o
+ obj-$(CONFIG_CIX_ACPI_GPU_SCAN)		+= cix-acpi-gpu-scan.o
+ obj-$(CONFIG_CIX_DST)			+= cix_dst/
+diff --git a/drivers/soc/cix/cix-acpi-pcie-scan.c b/drivers/soc/cix/cix-acpi-pcie-scan.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-acpi-pcie-scan.c
+@@ -0,0 +1,97 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ACPI scan handler to arbitrate between generic and vendor PCIe models on
++ * CIX Sky1.
++ *
++ * Vendor Sky1 firmware exposes both generic upstream PNP0A08 PCI root bridges
++ * and CIXH2020 vendor PCIe companion devices for the same hardware. When both
++ * models are present, prefer the generic path and suppress the overlapping
++ * vendor platform devices before the generic ACPI platform bus tries to claim
++ * their PCI window resources. Firmware that exposes only one model is left
++ * unchanged.
++ */
++
++#ifdef CONFIG_ACPI
++
++#include <linux/acpi.h>
++#include <linux/init.h>
++#include <linux/string.h>
++
++static bool sky1_pcie_acpi_detected;
++
++static acpi_status sky1_pcie_match_handle(acpi_handle handle, u32 level,
++					  void *context, void **ret)
++{
++	bool *present = context;
++
++	*present = true;
++	return AE_CTRL_TERMINATE;
++}
++
++static bool sky1_pcie_acpi_id_present(const char *hid)
++{
++	bool present = false;
++
++	acpi_get_devices(hid, sky1_pcie_match_handle, &present, NULL);
++
++	return present;
++}
++
++static int sky1_pcie_scan_attach(struct acpi_device *adev,
++				 const struct acpi_device_id *id)
++{
++	if (!sky1_pcie_acpi_detected)
++		return 0;
++
++	if (!strcmp(id->id, "PNP0A08")) {
++		if (sky1_pcie_acpi_id_present("CIXH2020"))
++			dev_info(&adev->dev,
++				 "Sky1 PCIe: keeping PNP0A08, suppressing CIXH2020 instead\n");
++		return 0;
++	}
++
++	if (sky1_pcie_acpi_id_present("PNP0A08")) {
++		dev_info(&adev->dev,
++			 "Sky1 PCIe: suppressing %s because PNP0A08 is present\n",
++			 id->id);
++		return 1;
++	}
++
++	return 0;
++}
++
++static const struct acpi_device_id sky1_pcie_scan_ids[] = {
++	{ "PNP0A08", 0 },
++	{ "CIXH2020", 0 },
++	{ },
++};
++
++static struct acpi_scan_handler sky1_pcie_scan_handler = {
++	.ids = sky1_pcie_scan_ids,
++	.attach = sky1_pcie_scan_attach,
++};
++
++static int __init sky1_pcie_acpi_init(void)
++{
++	struct acpi_table_header *header;
++
++	if (acpi_disabled)
++		return 0;
++
++	if (ACPI_FAILURE(acpi_get_table(ACPI_SIG_MCFG, 0, &header)))
++		return 0;
++
++	sky1_pcie_acpi_detected = !memcmp(header->oem_id, "CIXTEK", 6) &&
++				  !memcmp(header->oem_table_id, "SKY1EDK2", 8);
++	acpi_put_table(header);
++
++	if (!sky1_pcie_acpi_detected)
++		return 0;
++
++	pr_info("Sky1 PCIe: registering ACPI PCIe arbitration handler\n");
++	return acpi_scan_add_handler(&sky1_pcie_scan_handler);
++}
++/* Must run before subsys_initcall(acpi_init) which creates platform devices */
++arch_initcall(sky1_pcie_acpi_init);
++
++#endif /* CONFIG_ACPI */

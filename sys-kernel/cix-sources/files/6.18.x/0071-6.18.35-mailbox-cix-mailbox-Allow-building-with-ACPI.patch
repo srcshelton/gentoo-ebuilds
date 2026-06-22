@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Entrpi <entrpi@proton.me>
+Date: Fri, 6 Feb 2026 17:43:07 +1100
+Subject: [PATCH] mailbox: cix-mailbox: Allow building with ACPI
+
+The CIX mailbox driver already has an ACPI match table for CIXHA001 but
+Kconfig has depends on OF which prevents it from being selected in
+ACPI-only configurations. Allow building when either OF or ACPI is
+enabled.
+
+---
+diff --git a/drivers/mailbox/Kconfig b/drivers/mailbox/Kconfig
+--- a/drivers/mailbox/Kconfig
++++ b/drivers/mailbox/Kconfig
+@@ -362,7 +362,7 @@ config THEAD_TH1520_MBOX
+ config CIX_MBOX
+         tristate "CIX Mailbox"
+         depends on ARCH_CIX || COMPILE_TEST
+-        depends on OF
++        depends on OF || ACPI
+         help
+           Mailbox implementation for CIX IPC system. The controller supports
+           11 mailbox channels with different operating mode and every channel
