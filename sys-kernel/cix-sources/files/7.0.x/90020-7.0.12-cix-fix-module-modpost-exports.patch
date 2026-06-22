@@ -1,0 +1,177 @@
+diff --git a/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h b/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h
+--- a/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h
++++ b/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h
+@@ -14,6 +14,8 @@
+ #ifndef _LINLONDP_DRM_H_
+ #define _LINLONDP_DRM_H_
+ 
++#include <linux/types.h>
++
+ enum linlondp_hdr_eotf {
+ 	LINLONDP_HDR_NONE,
+ 	LINLONDP_HDR_ST2084,
+@@ -23,4 +25,12 @@ enum linlondp_hdr_eotf {
+ struct color_ctm_ext {
+ 	uint64_t matrix[12];
+ };
++
++struct drm_device;
++struct drm_property_blob;
++
++int linlondp_atomic_replace_property_blob_from_id(
++	struct drm_device *dev, struct drm_property_blob **blob,
++	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
++	bool *replaced);
+ #endif
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -20,11 +20,6 @@
+ #include "linlondp_kms.h"
+ #include "linlondp_drm.h"
+ 
+-extern int linlondp_atomic_replace_property_blob_from_id(
+-	struct drm_device *dev, struct drm_property_blob **blob,
+-	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+-	bool *replaced);
+-
+ void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
+ 				    u32 *color_depths, u32 *color_formats)
+ {
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+@@ -241,7 +241,7 @@ linlondp_plane_atomic_get_property(struct drm_plane *plane,
+ 	return 0;
+ }
+ 
+-static int linlondp_atomic_replace_property_blob_from_id(
++int linlondp_atomic_replace_property_blob_from_id(
+ 	struct drm_device *dev, struct drm_property_blob **blob,
+ 	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+ 	bool *replaced)
+diff --git a/drivers/soc/cix/sky1-socinfo.c b/drivers/soc/cix/sky1-socinfo.c
+--- a/drivers/soc/cix/sky1-socinfo.c
++++ b/drivers/soc/cix/sky1-socinfo.c
+@@ -126,6 +126,7 @@ struct sky1_socinfo {
+ };
+ 
+ static struct platform_device *sky1_socinfo_acpi_pdev;
++static struct sky1_socinfo *sky1_socinfo_sysfs;
+ 
+ static struct resource sky1_socinfo_acpi_resources[] = {
+ 	DEFINE_RES_MEM(SKY1_FW_SRAM_BASE, SKY1_FW_SRAM_SIZE),
+@@ -337,7 +338,10 @@ static void sky1_parse_opn(struct sky1_socinfo *info)
+ static ssize_t firmware_version_show(struct device *dev,
+ 				     struct device_attribute *attr, char *buf)
+ {
+-	struct sky1_socinfo *info = dev_get_drvdata(dev);
++	struct sky1_socinfo *info = sky1_socinfo_sysfs;
++
++	if (!info)
++		return -ENODEV;
+ 
+ 	return sysfs_emit(buf,
+ 			  "SE Version: %s\n"
+@@ -357,7 +361,10 @@ static DEVICE_ATTR_RO(firmware_version);
+ static ssize_t board_info_show(struct device *dev,
+ 			       struct device_attribute *attr, char *buf)
+ {
+-	struct sky1_socinfo *info = dev_get_drvdata(dev);
++	struct sky1_socinfo *info = sky1_socinfo_sysfs;
++
++	if (!info)
++		return -ENODEV;
+ 
+ 	return sysfs_emit(buf,
+ 			  "Board ID: 0x%x\n"
+@@ -373,7 +380,10 @@ static DEVICE_ATTR_RO(board_info);
+ static ssize_t cix_opn_info_show(struct device *dev,
+ 				 struct device_attribute *attr, char *buf)
+ {
+-	struct sky1_socinfo *info = dev_get_drvdata(dev);
++	struct sky1_socinfo *info = sky1_socinfo_sysfs;
++
++	if (!info)
++		return -ENODEV;
+ 
+ 	return sysfs_emit(buf, "%s\n", info->opn_string);
+ }
+@@ -458,13 +468,13 @@ static int sky1_socinfo_probe(struct platform_device *pdev)
+ 	soc_attr->revision = sky1_revision_str(FIELD_GET(OPN_REVISION_MASK, info->opn));
+ 	soc_attr->custom_attr_group = sky1_socinfo_groups[0];
+ 
++	sky1_socinfo_sysfs = info;
+ 	info->soc_dev = soc_device_register(soc_attr);
+-	if (IS_ERR(info->soc_dev))
++	if (IS_ERR(info->soc_dev)) {
++		sky1_socinfo_sysfs = NULL;
+ 		return dev_err_probe(&pdev->dev, PTR_ERR(info->soc_dev),
+ 				     "Failed to register SoC device\n");
+-
+-	/* Store info pointer for sysfs attribute access */
+-	dev_set_drvdata(soc_device_to_device(info->soc_dev), info);
++	}
+ 
+ 	dev_info(&pdev->dev, "CIX Sky1 %s detected (%s, %s)\n",
+ 		 info->opn_string, info->pcb_sku, info->board_revision);
+@@ -477,6 +487,8 @@ static void sky1_socinfo_remove(struct platform_device *pdev)
+ 	struct sky1_socinfo *info = platform_get_drvdata(pdev);
+ 
+ 	soc_device_unregister(info->soc_dev);
++	if (sky1_socinfo_sysfs == info)
++		sky1_socinfo_sysfs = NULL;
+ }
+ 
+ static const struct of_device_id sky1_socinfo_of_match[] = {
+diff --git a/drivers/thermal/cix/cix_cpu_ipa.c b/drivers/thermal/cix/cix_cpu_ipa.c
+--- a/drivers/thermal/cix/cix_cpu_ipa.c
++++ b/drivers/thermal/cix/cix_cpu_ipa.c
+@@ -15,8 +15,13 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/topology.h>
+ #include <asm/cputype.h>
+ 
++#if IS_ENABLED(CONFIG_ARM64) && IS_ENABLED(CONFIG_ACPI)
++#include <asm/acpi.h>
++#endif
++
+ #define REG_OFFSET	0x40
+ #define CIX_CPU_IPA_BASE	0x83bf0300
+ #define CIX_CPU_IPA_SIZE	0x300
+@@ -50,6 +55,24 @@ static bool cpu_ipa_sky1_acpi_present(void)
+ 	       acpi_dev_found("CIXH2020");
+ }
+ 
++static int cix_cpu_power_index(unsigned int cpu)
++{
++#if IS_ENABLED(CONFIG_ARM64) && IS_ENABLED(CONFIG_ACPI)
++	struct acpi_madt_generic_interrupt *gicc;
++
++	if (!acpi_disabled) {
++		gicc = acpi_cpu_get_madt_gicc(cpu);
++		if (gicc)
++			return MPIDR_AFFINITY_LEVEL(gicc->arm_mpidr, 1);
++	}
++#endif
++
++	if (topology_cluster_id(cpu) >= 0)
++		return topology_cluster_id(cpu);
++
++	return cpu;
++}
++
+ static struct cpu_ipa_info *cpu_ipa_info_for_cpu(unsigned int cpu)
+ {
+ 	int pcpu;
+@@ -57,7 +80,7 @@ static struct cpu_ipa_info *cpu_ipa_info_for_cpu(unsigned int cpu)
+ 	if (!cpu_ipa_dev || !cpu_ipa_dev->regs)
+ 		return NULL;
+ 
+-	pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++	pcpu = cix_cpu_power_index(cpu);
+ 	if (pcpu >= CIX_CPU_IPA_CPU_COUNT)
+ 		return NULL;
+ 

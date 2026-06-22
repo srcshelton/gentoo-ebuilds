@@ -113,6 +113,8 @@ src_prepare() {
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
 	eapply "${sky1_patch_dir}"/0015-media-cix-Add-Sky1-video-codec-VPU-driver.patch || die
 	eapply "${sky1_patch_dir}"/0016-misc-armchina-npu-Add-Zhouyi-NPU-driver-for-CIX-Sky1.patch || die
+	eapply "${FILESDIR}"/7.0.x/71990-7.0-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	eapply "${FILESDIR}"/71995-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
 	eapply "${FILESDIR}"/7.0.x/50000-7.0-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-7.0-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
 	eapply "${sky1_patch_dir}"/0024-drm-sky1-switch-from-faux_device-to-platform_device.patch || die
@@ -123,24 +125,11 @@ src_prepare() {
 
 	eapply "${FILESDIR}"/7.0.x/20010-7.0-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch || die
 	eapply "${FILESDIR}"/70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
-	eapply "${FILESDIR}"/72000-armchina-npu-zhouyi-fix-missing-prototype-under-werror.patch || die
-	eapply "${FILESDIR}"/72010-armchina-npu-fix-acpi-match-and-user-visible-text.patch || die
-	eapply "${FILESDIR}"/72020-armchina-npu-fix-runtime-pm-put-build.patch || die
-	eapply "${FILESDIR}"/7.0.x/72025-7.0-armchina-npu-defer-until-perf-domain-ready.patch || die
 	eapply "${FILESDIR}"/7.0.x/30000-7.0-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
 	eapply "${FILESDIR}"/7.0.x/30015-7.0-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
 	eapply "${FILESDIR}"/30030-scmi-demote-unsupported-fastchannel-fallback.patch || die
 	eapply "${FILESDIR}"/30070-opp-tolerate-unsupported-interconnect-paths.patch || die
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
-	eapply "${FILESDIR}"/7.0.x/72030-7.0-armchina-npu-clean-up-acpi-core-runtime-pm-on-defer.patch || die
-	eapply "${FILESDIR}"/7.0.x/72040-7.0-armchina-npu-guard-missing-iova-cookie.patch || die
-	eapply "${FILESDIR}"/7.0.x/72050-7.0-armchina-npu-prefer-dma-api-on-acpi.patch || die
-	eapply "${FILESDIR}"/7.0.x/72055-7.0-armchina-npu-clarify-acpi-dma-api-memory-management-log.patch || die
-	eapply "${FILESDIR}"/7.0.x/72060-7.0-armchina-npu-drop-invalid-oneshot-irq-flag.patch || die
-	eapply "${FILESDIR}"/72070-armchina-npu-add-acpi-resume-complete-hook.patch || die
-	eapply "${FILESDIR}"/72080-armchina-npu-harden-probe-and-runtime-pm-error-handling.patch || die
-	eapply "${FILESDIR}"/72090-armchina-npu-clean-up-dmabuf-sg-mappings.patch || die
-	eapply "${FILESDIR}"/72095-armchina-npu-defer-dmabuf-backing-free-to-release.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
