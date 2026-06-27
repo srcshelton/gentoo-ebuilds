@@ -42,6 +42,7 @@ VENDOR_SYMBOLS = (
     "SND_SOC_SKY1_SOUND_CARD",
     "CIX_DSP",
     "CIX_DSP_RPROC",
+    "VIDEO_CIX_ARMCB_ISP",
     "TYPEC_RTS5453",
     "USB_CDNSP",
     "USB_CDNSP_SKY1",
@@ -229,7 +230,7 @@ PROFILE_INTERFACE_SYMBOLS = {
     "o6n-dt": "CIX_RADXA_ORION_DT",
 }
 DRIVER_PREFERENCE_CHOICES = ("module", "builtin")
-KERNEL_VERSION_CHOICES = ("6.18", "6.19", "7.0")
+KERNEL_VERSION_CHOICES = ("6.18", "6.19", "7.0", "7.1")
 
 SUPPORTED_COMMON = (
     ("EFI", "always"),
@@ -286,6 +287,7 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
     ("ARMCHINA_NPU_SOC_SKY1", "always"),
+    ("VIDEO_CIX_ARMCB_ISP", "prefer"),
     ("DRM_PANTHOR", "prefer"),
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
@@ -346,6 +348,7 @@ SUPPORTED_VENDOR_DT_COMMON = (
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
     ("ARMCHINA_NPU_SOC_SKY1", "always"),
+    ("VIDEO_CIX_ARMCB_ISP", "prefer"),
     ("DRM_PANTHOR", "prefer"),
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
@@ -967,14 +970,15 @@ def render_kconfig_radxa(
 ) -> str:
     profile_active = "(CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)"
     ethernet_imply = render_ethernet_implies(available_symbols)
-    npu_symbols = (
+    accelerator_symbols = (
         "ARMCHINA_NPU",
         "ARMCHINA_NPU_ARCH_V3",
         "ARMCHINA_NPU_SOC_SKY1",
+        "VIDEO_CIX_ARMCB_ISP",
     )
-    npu_imply = "".join(
+    accelerator_imply = "".join(
         f"\timply {symbol}\n"
-        for symbol in npu_symbols
+        for symbol in accelerator_symbols
         if symbol in available_symbols
     )
     header = textwrap.dedent(
@@ -1040,17 +1044,17 @@ def render_kconfig_radxa(
         return header + footer
 
     accelerator_section = ""
-    if npu_imply:
+    if accelerator_imply:
         accelerator_section = (
             "\n"
             "config CIX_RADXA_OPTIONAL_ACCELERATORS\n"
             "\ttristate \"Optional accelerator drivers\"\n"
             f"{optional_default(profile_active, driver_preference)}"
-            f"{npu_imply}"
+            f"{accelerator_imply}"
             "\thelp\n"
-            "\t  Enable accelerator drivers validated for Orion O6/O6N. The NPU\n"
-            "\t  presets include the Sky1 Zhouyi v3 SoC implementation when the\n"
-            "\t  vendor driver stack provides it.\n"
+            "\t  Enable accelerator and media-processing drivers validated for\n"
+            "\t  Orion O6/O6N, including the NPU and ISP paths when the vendor\n"
+            "\t  driver stack provides them.\n"
         )
         accelerator_section = textwrap.indent(accelerator_section.rstrip("\n"), "        ")
 
