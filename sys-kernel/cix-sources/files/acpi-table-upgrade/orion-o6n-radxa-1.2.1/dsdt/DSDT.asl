@@ -47,16 +47,16 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
     Scope (_SB)
     {
         Mutex (DBGM, 0x00)
+        OperationRegion (COMA, SystemMemory, 0x040E0000, 0x0100)
+        Field (COMA, ByteAcc, NoLock, Preserve)
+        {
+            UTXD,   8,
+            Offset (0x18),
+            UTS,    8
+        }
+
         Method (UDBG, 1, Serialized)
         {
-            OperationRegion (COMA, SystemMemory, 0x040E0000, 0x0100)
-            Field (COMA, ByteAcc, NoLock, Preserve)
-            {
-                UTXD,   8, 
-                Offset (0x18), 
-                UTS,    8
-            }
-
             ToHexString (Arg0, Local0)
             Local1 = SizeOf (Local0)
             Local2 = Zero
@@ -3462,7 +3462,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Method (_STA, 0, Serialized)  // _STA: Status
                     {
                         Local0 = MSK0 /* \_SB_.ADSS.ACLK.PPRS.MSK0 */
-                        Local1 = MSK0 /* \_SB_.ADSS.ACLK.PPRS.MSK0 */
                         Local0 &= One
                         If ((Local0 > Zero))
                         {
@@ -6152,7 +6151,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Local0 = GETV (0x34)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -6180,7 +6179,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x39)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -6208,7 +6207,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x3E)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -6661,7 +6660,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 {
                     Local0 = GETV (0x34)
                     Local1 = Zero
-                    Switch (Local0)
+                    Switch (ToInteger (Local0))
                     {
                         Case (Zero)
                         {
@@ -6726,7 +6725,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Local0 = GETV (0x35)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -6750,7 +6749,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x3A)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -6778,7 +6777,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x3F)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -6926,7 +6925,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         Package (0x02)
                         {
                             0x90, 
-                            0xBF
+                            0xAF
                         }
                     }, 
 
@@ -7205,7 +7204,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 {
                     Local0 = GETV (0x35)
                     Local1 = Zero
-                    Switch (Local0)
+                    Switch (ToInteger (Local0))
                     {
                         Case (Zero)
                         {
@@ -7266,7 +7265,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Local0 = GETV (0x36)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -7286,7 +7285,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x3B)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -7314,7 +7313,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x40)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -7723,7 +7722,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Local0 = GETV (0x3C)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -7751,7 +7750,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x41)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -8160,7 +8159,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Local0 = GETV (0x3D)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -8188,7 +8187,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Local0 = GETV (0x42)
                 Local1 = Zero
-                Switch (Local0)
+                Switch (ToInteger (Local0))
                 {
                     Case (Zero)
                     {
@@ -8696,7 +8695,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 {
                     Local0 = GETV (0x36)
                     Local1 = Zero
-                    Switch (Local0)
+                    Switch (ToInteger (Local0))
                     {
                         Case (Zero)
                         {
@@ -11010,7 +11009,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Method (_STA, 0, Serialized)  // _STA: Status
                 {
                     Local0 = MSK0 /* \_SB_.DPU0.PRS0.MSK0 */
-                    Local1 = MSK0 /* \_SB_.DPU0.PRS0.MSK0 */
                     Local0 &= 0x02
                     If ((Local0 > Zero))
                     {
@@ -11392,7 +11390,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Method (_STA, 0, Serialized)  // _STA: Status
                 {
                     Local0 = MSK0 /* \_SB_.DPU1.PRS1.MSK0 */
-                    Local1 = MSK0 /* \_SB_.DPU1.PRS1.MSK0 */
                     Local0 &= 0x02
                     If ((Local0 > Zero))
                     {
@@ -12163,7 +12160,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Method (_STA, 0, Serialized)  // _STA: Status
                 {
                     Local0 = MSK0 /* \_SB_.DPU3.PRS3.MSK0 */
-                    Local1 = MSK0 /* \_SB_.DPU3.PRS3.MSK0 */
                     Local0 &= 0x02
                     If ((Local0 > Zero))
                     {
@@ -12545,7 +12541,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Method (_STA, 0, Serialized)  // _STA: Status
                 {
                     Local0 = MSK0 /* \_SB_.DPU4.PRS4.MSK0 */
-                    Local1 = MSK0 /* \_SB_.DPU4.PRS4.MSK0 */
                     Local0 &= 0x02
                     If ((Local0 > Zero))
                     {
@@ -12631,14 +12626,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Method (_STA, 0, Serialized)  // _STA: Status
             {
                 Return (Zero)
-                If (GETV (0x23))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
             }
 
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
@@ -12662,14 +12649,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Method (_STA, 0, Serialized)  // _STA: Status
             {
                 Return (Zero)
-                If (GETV (0x24))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
             }
 
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
@@ -12693,14 +12672,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Method (_STA, 0, Serialized)  // _STA: Status
             {
                 Return (Zero)
-                If (GETV (0x25))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
             }
 
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
@@ -12724,14 +12695,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Method (_STA, 0, Serialized)  // _STA: Status
             {
                 Return (Zero)
-                If (GETV (0x26))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
             }
 
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
@@ -12755,14 +12718,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Method (_STA, 0, Serialized)  // _STA: Status
             {
                 Return (Zero)
-                If (GETV (0x27))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
             }
 
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
@@ -13632,7 +13587,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Method (_STA, 0, Serialized)  // _STA: Status
                 {
                     Local0 = TMSK /* \_SB_.NPU0.PPRS.TMSK */
-                    Local1 = TMSK /* \_SB_.NPU0.PPRS.TMSK */
                     Local0 &= One
                     If ((Local0 > Zero))
                     {
@@ -13686,7 +13640,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Method (_STA, 0, Serialized)  // _STA: Status
                     {
                         Local0 = MSK0 /* \_SB_.NPU0.CRE0.PRS0.MSK0 */
-                        Local1 = MSK0 /* \_SB_.NPU0.CRE0.PRS0.MSK0 */
                         Local0 &= One
                         If ((Local0 > Zero))
                         {
@@ -13744,7 +13697,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Method (_STA, 0, Serialized)  // _STA: Status
                     {
                         Local0 = MSK1 /* \_SB_.NPU0.CRE1.PRS1.MSK1 */
-                        Local1 = MSK1 /* \_SB_.NPU0.CRE1.PRS1.MSK1 */
                         Local0 &= One
                         If ((Local0 > Zero))
                         {
@@ -13802,7 +13754,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Method (_STA, 0, Serialized)  // _STA: Status
                     {
                         Local0 = MSK2 /* \_SB_.NPU0.CRE2.PRS2.MSK2 */
-                        Local1 = MSK2 /* \_SB_.NPU0.CRE2.PRS2.MSK2 */
                         Local0 &= One
                         If ((Local0 > Zero))
                         {
@@ -19128,7 +19079,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Method (_STA, 0, Serialized)  // _STA: Status
                 {
                     Local0 = MSK0 /* \_SB_.ISPM.PRS0.MSK0 */
-                    Local1 = MSK0 /* \_SB_.ISPM.PRS0.MSK0 */
                     Local0 &= One
                     If ((Local0 > Zero))
                     {
@@ -19670,6 +19620,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
         Name (GNVA, 0xFFFE0000)
         Name (GNVL, 0x004D)
+        OperationRegion (S5R1, SystemMemory, 0x16000504, 0x04)
+        Field (S5R1, DWordAcc, NoLock, Preserve)
+        {
+            S5MK,   32
+        }
+
         Method (GETV, 1, Serialized)
         {
             If ((Arg0 >= 0x4D))
@@ -19690,14 +19646,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
         Method (MVCK, 1, Serialized)
         {
-            OperationRegion (S5R1, SystemMemory, 0x16000504, 0x04)
-            Field (S5R1, DWordAcc, NoLock, Preserve)
-            {
-                MSK0,   32
-            }
-
             Local0 = Arg0
-            Local1 = MSK0 /* \_SB_.MVCK.MSK0 */
+            Local1 = S5MK /* \_SB_.S5MK */
             Local1 = ((Local1 >> Local0) & One)
             Debug = Concatenate (Concatenate (Concatenate (Concatenate ("ACPI debug:arg0=", Arg0), ", MVCK.valid = "), Local1
                 ), "\n")
@@ -19813,6 +19763,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 HLCK = One
             }
+
+            Return (Zero)
         }
 
         Device (TEE0)
@@ -19858,7 +19810,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
         Method (GMTX, 1, Serialized)
         {
             Local0 = Zero
-            Switch (Arg0)
+            Switch (ToInteger (Arg0))
             {
                 Case (0x48)
                 {
@@ -19900,7 +19852,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
         Method (SMTX, 2, Serialized)
         {
-            Switch (Arg0)
+            Switch (ToInteger (Arg0))
             {
                 Case (0x48)
                 {
@@ -20101,12 +20053,16 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         }
 
                     }
+                    Return (Buffer (One)
+                    {
+                         0x00
+                    })
                 }
                 Else
                 {
                     Return (Buffer (One)
                     {
-                         0x00                                             // .
+                         0x00
                     })
                 }
             }

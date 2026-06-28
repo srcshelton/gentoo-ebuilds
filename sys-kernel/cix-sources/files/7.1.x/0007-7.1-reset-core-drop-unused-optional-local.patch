@@ -1,0 +1,11 @@
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -1328,7 +1328,6 @@ struct reset_control *__reset_control_get(struct device *dev, const char *id,
+ {
+ 	bool shared = flags & RESET_CONTROL_FLAGS_BIT_SHARED;
+ 	bool acquired = flags & RESET_CONTROL_FLAGS_BIT_ACQUIRED;
+-	bool optional = flags & RESET_CONTROL_FLAGS_BIT_OPTIONAL;
+ 	struct fwnode_handle *fwnode = dev_fwnode(dev);
+ 
+ 	if (WARN_ON(shared && acquired))

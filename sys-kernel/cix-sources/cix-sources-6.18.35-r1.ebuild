@@ -160,7 +160,13 @@ src_prepare() {
 		sky1_apply_series_patch "${pf}"
 	done < "${sky1_patch_dir}/series"
 	eapply "${FILESDIR}"/6.18.x/71990-6.18-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	eapply "${FILESDIR}"/6.18.x/71991-6.18-armchina-npu-add-missing-v3_2-sources.patch || die
+	eapply "${FILESDIR}"/71992-armchina-npu-use-gpio-consumer-prototypes.patch || die
 	eapply "${FILESDIR}"/6.18.x/71995-6.18.35-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
+	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
+	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
+	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
+	eapply "${FILESDIR}"/6.18.x/71999-6.18-armchina-npu-add-module-metadata.patch || die
 
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
 

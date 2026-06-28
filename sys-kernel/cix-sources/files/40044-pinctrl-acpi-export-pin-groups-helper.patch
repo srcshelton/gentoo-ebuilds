@@ -1,0 +1,16 @@
+diff --git a/drivers/pinctrl/pinctrl-acpi.c b/drivers/pinctrl/pinctrl-acpi.c
+--- a/drivers/pinctrl/pinctrl-acpi.c
++++ b/drivers/pinctrl/pinctrl-acpi.c
+@@ -10,6 +10,7 @@
+ #include "linux/property.h"
+ #include <linux/acpi.h>
+ #include <linux/errno.h>
++#include <linux/export.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/gpio/driver.h>
+ #include <linux/gpio/machine.h>
+@@ -772,3 +773,4 @@ int pinctrl_acpi_get_pin_groups(struct acpi_device *adev,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(pinctrl_acpi_get_pin_groups);

@@ -1,0 +1,66 @@
+diff --git a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+--- a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
++++ b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+@@ -1179,11 +1179,11 @@ static void dp_improc_update(struct linlondp_component *c,
+ 		IPS_CTRL_CHD420 | IPS_CTRL_DITH;
+ 
+ 	/* config color format */
+-	if (st->color_format == DRM_COLOR_FORMAT_YCBCR420)
++	if (st->color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420))
+ 		ctrl |= IPS_CTRL_YUV | IPS_CTRL_CHD422 | IPS_CTRL_CHD420;
+-	else if (st->color_format == DRM_COLOR_FORMAT_YCBCR422)
++	else if (st->color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422))
+ 		ctrl |= IPS_CTRL_YUV | IPS_CTRL_CHD422;
+-	else if (st->color_format == DRM_COLOR_FORMAT_YCBCR444)
++	else if (st->color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444))
+ 		ctrl |= IPS_CTRL_YUV;
+ 
+ 	/* config dither */
+@@ -1265,12 +1265,14 @@ static int dp_improc_init(struct dp_dev *dp, struct block_header *blk,
+ 
+ 	improc = to_improc(c);
+ 	improc->supported_color_depths = BIT(8) | BIT(10);
+-	improc->supported_color_formats = DRM_COLOR_FORMAT_RGB444 |
+-					  DRM_COLOR_FORMAT_YCBCR444 |
+-					  DRM_COLOR_FORMAT_YCBCR422;
++	improc->supported_color_formats =
++		BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444) |
++		BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444) |
++		BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422);
+ 	value = linlondp_read32(reg, BLK_INFO);
+ 	if (value & IPS_INFO_CHD420)
+-		improc->supported_color_formats |= DRM_COLOR_FORMAT_YCBCR420;
++		improc->supported_color_formats |=
++			BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
+ 
+ 	improc->supports_csc = true;
+ 	improc->supports_gamma = true;
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -41,7 +41,7 @@ void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
+ 
+ 	/* connector doesn't config any color_format, use RGB444 as default */
+ 	if (!conn_color_formats)
+-		conn_color_formats = DRM_COLOR_FORMAT_RGB444;
++		conn_color_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444);
+ 
+ 	*color_depths = GENMASK(min_bpc, 0);
+ 	*color_formats = conn_color_formats;
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+@@ -850,10 +850,11 @@ static int linlondp_improc_validate(struct linlondp_improc *improc,
+ 		st->color_format = BIT(__ffs(avail_formats));
+ 
+ 		if (kcrtc_st->output_format) {
+-			st->color_format = kcrtc_st->output_format;
++			st->color_format = BIT(kcrtc_st->output_format);
+ 		}
+ 
+-		if ((st->color_format == DRM_COLOR_FORMAT_YCBCR420) &&
++		if ((st->color_format ==
++		     BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420)) &&
+ 		    (improc->base.pipeline->pixel_per_cycle != 1)) {
+ 			DRM_DEBUG_ATOMIC(
+ 				"420 with non-1ppc out is not supported\n");

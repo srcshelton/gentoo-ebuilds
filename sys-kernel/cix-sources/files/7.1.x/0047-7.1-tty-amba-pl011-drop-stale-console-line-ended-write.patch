@@ -1,0 +1,11 @@
+diff --git a/drivers/tty/serial/amba-pl011.c b/drivers/tty/serial/amba-pl011.c
+--- a/drivers/tty/serial/amba-pl011.c
++++ b/drivers/tty/serial/amba-pl011.c
+@@ -2500,7 +2500,6 @@ static void pl011_console_putchar(struct uart_port *port, unsigned char ch)
+ 	while (pl011_read(uap, REG_FR) & UART01x_FR_TXFF)
+ 		cpu_relax();
+ 	pl011_write(ch, uap, REG_DR);
+-	uap->console_line_ended = (ch == '\n');
+ }
+ 
+ static void

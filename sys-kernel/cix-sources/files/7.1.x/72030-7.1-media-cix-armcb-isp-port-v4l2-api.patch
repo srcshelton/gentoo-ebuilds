@@ -1,0 +1,378 @@
+diff -upNr a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c	2026-06-30 18:24:30.704306000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c	2026-06-30 18:24:30.708188000 +0100
+@@ -171,14 +171,14 @@ static const struct v4l2_subdev_ops armc
+ 	.core = &armcb_isp_subdev_core_ops,
+ };
+ 
+-int armcb_isp_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
++static int armcb_isp_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ {
+ 	int ret = 0;
+ 	/* empty funciton */
+ 	return ret;
+ }
+ 
+-int armcb_isp_subdev_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
++static int armcb_isp_subdev_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ {
+ 	int ret = 0;
+ 	/* empty funciton */
+diff -upNr a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c	2026-06-30 18:24:30.724585000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c	2026-06-30 18:24:30.730399000 +0100
+@@ -1524,7 +1524,6 @@ static int armcb_v4l2_querycap(struct fi
+ static int armcb_v4l2_config_fop_release(struct file *file)
+ {
+ 	armcb_v4l2_config_dev_t *dev = video_drvdata(file);
+-	struct video_device *vdev = video_devdata(file);
+ 	struct v4l2_fh *fh = NULL;
+ 	struct v4l2_event_subscription sub;
+ 	int ret = 0;
+@@ -1541,7 +1540,7 @@ static int armcb_v4l2_config_fop_release
+ 		LOG(LOG_DEBUG,
+ 		    "armcb_fop_release v4l2_event_unsubscribe, ret = %d", ret);
+ 
+-		v4l2_fh_del(fh);
++		v4l2_fh_del(fh, file);
+ 		v4l2_fh_exit(fh);
+ 		kfree(fh);
+ 	}
+@@ -1561,7 +1560,7 @@ static int armcb_v4l2_config_fop_open(st
+ 		return -ENOMEM;
+ 
+ 	v4l2_fh_init(fh, vdev);
+-	v4l2_fh_add(fh);
++	v4l2_fh_add(fh, file);
+ 
+ 	atomic_add(1, &dev->opened);
+ 	return 0;
+@@ -1814,7 +1813,7 @@ static int armcb_v4l2_config_probe(struc
+ 
+ 	/* register v4l2_device */
+ 	snprintf(p_v4l_config_dev->v4l2_dev.name,
+-		 V4L2_DEVICE_NAME_SIZE * sizeof(char), "%s", ARMCB_MODULE_NAME);
++		 sizeof(p_v4l_config_dev->v4l2_dev.name), "%s", ARMCB_MODULE_NAME);
+ 	LOG(LOG_INFO, "armcb config dev name:%s",
+ 	    p_v4l_config_dev->v4l2_dev.name);
+ 	ret = v4l2_device_register(&pdev->dev, &p_v4l_config_dev->v4l2_dev);
+diff -upNr a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c	2026-06-30 18:24:30.744328000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c	2026-06-30 18:24:30.748358000 +0100
+@@ -116,7 +116,7 @@ static char *const g_IspPortToken[] = {
+ 
+ static int armcb_isp_vb2_streamoff(struct file *file);
+ 
+-pid_t isp_getpid(void)
++static pid_t isp_getpid(void)
+ {
+ 	return current->tgid;
+ }
+@@ -138,7 +138,8 @@ struct isp_v4l2_fmt isp_src_formats[] =
+ 	}
+ };
+ 
+-armcb_v4l2_stream_t *armcb_v4l2_get_stream(uint32_t ctx_id, int stream_id)
++#ifndef V4L2_OPT
++static armcb_v4l2_stream_t *armcb_v4l2_get_stream(uint32_t ctx_id, int stream_id)
+ {
+ 	armcb_v4l2_stream_t *pstream = NULL;
+ 
+@@ -146,6 +147,7 @@ armcb_v4l2_stream_t *armcb_v4l2_get_stre
+ 
+ 	return pstream;
+ }
++#endif
+ 
+ /* ----------------------------------------------------------------
+  * stream finder utility function
+@@ -251,80 +253,6 @@ exit:
+ }
+ 
+ extern struct device *mem_dev;
+-void armcb_isp_invalid_cache (struct vb2_buffer *vb,
+-					armcb_v4l2_buffer_t *pbuf)
+-{
+-	struct sg_table sgt0;
+-	struct sg_table sgt1;
+-	struct sg_table *sgt = NULL;
+-	struct device *dev = mem_dev;
+-
+-	void* dma_vaddr_0;
+-	void* dma_vaddr_1;
+-	dma_addr_t dma_addr_0;
+-	dma_addr_t dma_addr_1;
+-	int ret = 0;
+-
+-	if ((!dev) || (pbuf->vvb.vb2_buf.num_planes > MAX_PLANES_NUM))
+-		return;
+-
+-	if ((!vb) || (!pbuf))
+-		return;
+-
+-	dma_vaddr_0 = vb2_plane_vaddr(&pbuf->vvb.vb2_buf, 0);
+-	dma_addr_0 = vb2_dma_contig_plane_dma_addr(vb, 0);
+-
+-	if (!dma_vaddr_0 || dma_addr_0 == 0) {
+-		LOG(LOG_ERR, "plane 0 dma address invalid !");
+-		return;
+-	}
+-
+-	ret = dma_get_sgtable_attrs(dev, &sgt0, dma_vaddr_0, dma_addr_0,
+-			vb->planes[0].length, 0);
+-	if (ret) {
+-		LOG(LOG_ERR, "dma_get_sgtable_attrs plane0 failed: %d\n", ret);
+-		return;
+-	}
+-
+-	dma_sync_sgtable_for_cpu(dev, &sgt0, DMA_FROM_DEVICE);
+-	sgt = &sgt0;
+-	if (!sgt->sgl || sgt->nents == 0) {
+-		LOG(LOG_ERR, "sgt0 is invalid");
+-		sg_free_table(&sgt0);
+-		return;
+-	}
+-	/* free the sg table after flush cache*/
+-	sg_free_table(&sgt0);
+-
+-	if (pbuf->vvb.vb2_buf.num_planes > 1) {
+-		dma_vaddr_1 = vb2_plane_vaddr(&pbuf->vvb.vb2_buf, 1);
+-		dma_addr_1 = vb2_dma_contig_plane_dma_addr(vb, 1);
+-
+-		if (!dma_vaddr_1 || dma_addr_1 == 0) {
+-			LOG(LOG_ERR, "plane 1 dma address invalid !");
+-			return;
+-		}
+-
+-		ret = dma_get_sgtable_attrs(dev, &sgt1, dma_vaddr_1, dma_addr_1,
+-				vb->planes[1].length, 0);
+-		if (ret) {
+-			LOG(LOG_ERR, "dma_get_sgtable_attrs plane0 failed: %d\n", ret);
+-			return;
+-		}
+-
+-		dma_sync_sgtable_for_cpu(dev, &sgt1, DMA_FROM_DEVICE);
+-		sgt = &sgt1;
+-		if (!sgt->sgl || sgt->nents == 0) {
+-			sg_free_table(&sgt1);
+-			return;
+-		}
+-
+-		/* free the sg table after flush cache*/
+-		sg_free_table(&sgt1);
+-	}
+-
+-	return;
+-}
+ 
+ void armcb_isp_put_frame(uint32_t ctx_id, int stream_id, isp_output_port_t port)
+ {
+@@ -499,7 +427,7 @@ static int armcb_v4l2_fh_release(struct
+ 		ret = v4l2_event_unsubscribe(&sp->fh, &sub);
+ 		LOG(LOG_DEBUG,
+ 				"armcb_fop_release v4l2_event_unsubscribe, ret = %d", ret);
+-		v4l2_fh_del(&sp->fh);
++			v4l2_fh_del(&sp->fh, file);
+ 		v4l2_fh_exit(&sp->fh);
+ 		kfree(sp);
+ 	}
+@@ -507,7 +435,7 @@ static int armcb_v4l2_fh_release(struct
+ 	return ret;
+ }
+ 
+-int armcb_disable_irq(void)
++static int armcb_disable_irq(void)
+ {
+ 	int ret = 0;
+ 
+@@ -773,7 +701,7 @@ static int armcb_v4l2_fh_open(struct fil
+ 	file->private_data = &sp->fh;
+ 
+ 	v4l2_fh_init(&sp->fh, &dev->vid_cap_dev);
+-	v4l2_fh_add(&sp->fh);
++	v4l2_fh_add(&sp->fh, file);
+ 
+ 	LOG(LOG_INFO, "%s open v4l2 fp success", dev_name(&vdev->dev));
+ 	return 0;
+@@ -1183,7 +1111,7 @@ static int armcb_v4l2_config_bt601(struc
+ 	return ret;
+ }
+ 
+-int armcb_v4l2_g_fmt_vid_cap_mplane(struct file *file, void *priv,
++static int armcb_v4l2_g_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 					struct v4l2_format *f)
+ {
+ 	int ret = 0;
+@@ -1205,7 +1133,7 @@ int armcb_v4l2_g_fmt_vid_cap_mplane(stru
+ 	return ret;
+ }
+ 
+-int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
++static int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 					struct v4l2_format *f)
+ {
+ 	armcb_v4l2_dev_t *dev = video_drvdata(file);
+@@ -1317,7 +1245,7 @@ int armcb_v4l2_s_fmt_vid_cap_mplane(stru
+ 	return 0;
+ }
+ 
+-int armcb_v4l2_try_fmt_vid_cap_mplane(struct file *file, void *priv,
++static int armcb_v4l2_try_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 					  struct v4l2_format *f)
+ {
+ 	/*empty function*/
+@@ -1428,7 +1356,7 @@ static int armcb_v4l2_dqbuf(struct file
+ 	return rc;
+ }
+ 
+-int armcb_v4l2_enum_fmt_vid_cap(struct file *file, void *priv,
++static int armcb_v4l2_enum_fmt_vid_cap(struct file *file, void *priv,
+ 				   struct v4l2_fmtdesc *f)
+ {
+ 	struct isp_v4l2_fmt *fmt;
+@@ -1623,6 +1551,36 @@ static int armcb_v4l2_s_ctrl(struct file
+ 	return rc;
+ }
+ 
++static int armcb_v4l2_s_ext_ctrls(struct file *file, void *fh,
++				  struct v4l2_ext_controls *ctrls)
++{
++	unsigned int i;
++	int rc;
++
++	if (!ctrls || !ctrls->controls)
++		return -EINVAL;
++
++	if (!fh)
++		fh = file->private_data;
++
++	for (i = 0; i < ctrls->count; i++) {
++		struct v4l2_control ctrl = {
++			.id = ctrls->controls[i].id,
++			.value = ctrls->controls[i].value,
++		};
++
++		rc = armcb_v4l2_s_ctrl(file, fh, &ctrl);
++		if (rc) {
++			ctrls->error_idx = i;
++			return rc;
++		}
++
++		ctrls->controls[i].value = ctrl.value;
++	}
++
++	return 0;
++}
++
+ static int
+ armcb_v4l2_core_subscribe_event(struct v4l2_fh *fh,
+ 				  const struct v4l2_event_subscription *sub)
+@@ -1752,7 +1710,7 @@ static const struct v4l2_ioctl_ops armcb
+ 	.vidioc_g_parm = armcb_g_param,
+ 
+ 	//sync
+-	.vidioc_s_ctrl = armcb_v4l2_s_ctrl,
++	.vidioc_s_ext_ctrls = armcb_v4l2_s_ext_ctrls,
+ };
+ 
+ /*-----------------------------------------------------------------
+diff -upNr a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c	2026-06-30 18:24:30.807642000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c	2026-06-30 18:24:30.817771000 +0100
+@@ -72,7 +72,7 @@ static struct isp_v4l2_fmt *armcb_v4l2_s
+ 	return NULL;
+ }
+ 
+-int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
++static int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
+ 				 struct v4l2_format *f)
+ {
+ 	struct isp_v4l2_fmt *tfmt;
+diff -upNr a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c	2026-06-30 18:24:30.840342000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c	2026-06-30 18:24:30.843995000 +0100
+@@ -166,8 +166,6 @@ static struct vb2_ops armcb_vid_cap_qops
+ 	.queue_setup = armcb_vb2_queue_setup,
+ 	.buf_queue = armcb_vb2_buf_queue,
+ 	.buf_finish = armcb_vb2_buf_finish,
+-	.wait_prepare = vb2_ops_wait_prepare,
+-	.wait_finish = vb2_ops_wait_finish,
+ 
+ 	.start_streaming = cap_vb2_start_streaming,
+ 	.stop_streaming = cap_vb2_stop_streaming,
+@@ -200,7 +198,7 @@ int isp_vb2_queue_init(struct vb2_queue
+ 	q->ops = armcb_vb2_get_q_ops();
+ 	q->mem_ops = armcb_vb2_get_q_mem_ops();
+ 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+-	q->min_buffers_needed = 1;
++	q->min_queued_buffers = 1;
+ 	q->lock = mlock;
+ 	q->dev = mem_dev;
+ #ifndef V4L2_OPT
+diff -upNr a/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c
+--- a/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c	2026-06-30 18:24:30.861884000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c	2026-06-30 18:24:30.867162000 +0100
+@@ -51,7 +51,7 @@ static const char *filename_short(const
+ 	return short_name;
+ }
+ 
+-const char *sys_time_log_cb(void)
++static const char *sys_time_log_cb(void)
+ {
+ 	static char time_buf[32];
+ 	struct rtc_time tm;
+@@ -77,11 +77,11 @@ const char *sys_time_log_cb(void)
+ 	return (const char *)time_buf;
+ }
+ 
+-void _acbcamera_log_write_ext(const char *const func, const char *const file,
+-				  const unsigned int line, const uint32_t log_level,
+-				  const uint32_t log_module,
+-				  const uint32_t ratelimited, const char *const fmt,
+-				  va_list vaa)
++static void _acbcamera_log_write_ext(const char *const func, const char *const file,
++				     const unsigned int line, const uint32_t log_level,
++				     const uint32_t log_module,
++				     const uint32_t ratelimited, const char *const fmt,
++				     va_list vaa)
+ {
+ 	uint32_t size = 0;
+ 	const char *timestamp = NULL;
+diff -upNr a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c	2026-06-30 18:24:30.886638000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c	2026-06-30 18:24:30.890956000 +0100
+@@ -270,9 +270,9 @@ EXIT_RET:
+ }
+ 
+ #ifdef CIX_I2C_ACTUATOR
+-void motor0_remove(struct i2c_client *pcline_dev)
++static void motor0_remove(struct i2c_client *pcline_dev)
+ #else
+-void motor0_remove(struct spi_device *pspi_dev)
++static void motor0_remove(struct spi_device *pspi_dev)
+ #endif
+ {
+ #ifdef CIX_I2C_ACTUATOR
+diff -upNr a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c	2026-06-30 18:24:30.904987000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c	2026-06-30 18:24:30.908907000 +0100
+@@ -199,8 +199,8 @@ static int armcb_register_async_node(str
+ 	return ret;
+ }
+ 
+-int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
+-			   struct armcb_imgsens_subdev *pimgsens_sd)
++static int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
++				  struct armcb_imgsens_subdev *pimgsens_sd)
+ {
+ 	int ret = 0;
+ 
+@@ -545,7 +545,7 @@ EXIT_RET:
+ 	return res;
+ }
+ 
+-void imgsens_remove(struct i2c_client *client)
++static void imgsens_remove(struct i2c_client *client)
+ {
+ 	struct armcb_imgsens_subdev *pimgsens_sd = i2c_get_clientdata(client);
+ 
