@@ -1,0 +1,28 @@
+arm64: cix: guard DMI CPU name hook behind ARCH_CIX
+
+The CIX DMI CPU-name helper is only built when ARCH_CIX is enabled. Avoid a built-in cpuinfo reference when building broader arm64 configurations.
+
+diff --git a/arch/arm64/kernel/cpuinfo.c b/arch/arm64/kernel/cpuinfo.c
+--- a/arch/arm64/kernel/cpuinfo.c
++++ b/arch/arm64/kernel/cpuinfo.c
+@@ -24,7 +24,9 @@
+ #include <linux/sched.h>
+ #include <linux/smp.h>
+ #include <linux/delay.h>
++#ifdef CONFIG_ARCH_CIX
+ #include "cix_dmi.h"
++#endif
+ 
+ /*
+  * In case the boot CPU is hotpluggable, we record its initial state and
+@@ -230,8 +232,10 @@ static int c_show(struct seq_file *m, void *v)
+ 		seq_printf(m, "model name\t: ARMv8 Processor rev %d (%s)\n",
+ 			   MIDR_REVISION(midr), COMPAT_ELF_PLATFORM);
+ 
++#ifdef CONFIG_ARCH_CIX
+ 	else if (get_cpu_name())
+ 		seq_printf(m, "model name\t: %s \n",get_cpu_name());
++#endif
+ 
+ 	seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
+ 		   loops_per_jiffy / (500000UL/HZ),

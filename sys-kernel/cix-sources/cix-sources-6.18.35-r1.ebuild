@@ -63,7 +63,7 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/6.18.x/10000-6.18.32-arm64-stub-fdt.patch
+	"${FILESDIR}"/6.18.x/10000-6.18-arm64-stub-fdt.patch
 	"${FILESDIR}"/10010-arm64-stub-fdt-enable-kexec-file.patch
 	"${FILESDIR}"/10020-lld-timer-of-table-end-warning.patch
 	"${FILESDIR}"/80000-rtl8126-disable-vpd.patch
@@ -114,7 +114,7 @@ src_prepare() {
 				return
 				;;
 			0065-treewide-Add-ACPI-device-IDs-for-CIX-Sky1-SoC-periph.patch)
-				eapply "${FILESDIR}"/6.18.x/40005-6.18.32-add-remaining-sky1-acpi-device-ids.patch || die
+				eapply "${FILESDIR}"/6.18.x/40005-6.18.28-add-remaining-sky1-acpi-device-ids.patch || die
 				return
 				;;
 			0071-mailbox-cix-mailbox-Allow-building-with-ACPI.patch)
@@ -139,7 +139,7 @@ src_prepare() {
 
 		case "${pf##*/}" in
 			0024-phy-add-cix-phy-driver.patch)
-				eapply "${FILESDIR}"/6.18.x/60005-6.18.32-phy-add-cix-phy-driver.patch || die
+				eapply "${FILESDIR}"/6.18.x/60005-6.18-phy-add-cix-phy-driver.patch || die
 				return
 				;;
 		esac
@@ -160,14 +160,20 @@ src_prepare() {
 		sky1_apply_series_patch "${pf}"
 	done < "${sky1_patch_dir}/series"
 	eapply "${FILESDIR}"/6.18.x/71990-6.18-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	eapply "${FILESDIR}"/6.18.x/71991-6.18-armchina-npu-add-missing-v3_2-sources.patch || die
+	eapply "${FILESDIR}"/71992-armchina-npu-use-gpio-consumer-prototypes.patch || die
 	eapply "${FILESDIR}"/6.18.x/71995-6.18.35-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
+	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
+	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
+	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
+	eapply "${FILESDIR}"/6.18.x/71999-6.18-armchina-npu-add-module-metadata.patch || die
 
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
 
 	rm -r "${WORKDIR}/cix-linux-main-${EGIT_CIX_COMMIT}" || die
 	rm -r "${WORKDIR}/linux-sky1-${EGIT_SKY1_COMMIT}" || die
 
-	eapply "${FILESDIR}"/6.18.x/20011-6.18.32-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch || die
+	eapply "${FILESDIR}"/6.18.x/20011-6.18-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch || die
 	eapply "${FILESDIR}"/6.18.x/90070-6.18-sky1-restore-cadence-torrent-dt-binding-header.patch || die
 	eapply "${FILESDIR}"/6.18.x/70005-6.18-drm-cix-linlon-dp-fix-symbol-clashes-and-clang-werror.patch || die
 	eapply "${FILESDIR}"/70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
@@ -176,7 +182,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
-	eapply "${FILESDIR}"/6.18.x/50040-6.18.32-pwm-sky1-fix-kconfig-entry.patch || die
+	eapply "${FILESDIR}"/6.18.x/50040-6.18-pwm-sky1-fix-kconfig-entry.patch || die
 	eapply "${FILESDIR}"/6.18.x/73000-6.18-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
 	eapply "${FILESDIR}"/6.18.x/73010-6.18-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
 	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
@@ -186,7 +192,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
-	eapply "${FILESDIR}"/6.18.x/30127-6.18.35-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
+	eapply "${FILESDIR}"/6.18.x/30127-6.18-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
 	eapply "${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch || die
 	eapply "${FILESDIR}"/30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch || die
 	eapply "${FILESDIR}"/30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch || die
@@ -205,7 +211,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/70020-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/70050-drm-cix-enable-acpi-stub-fdt-display.patch || die
-	eapply "${FILESDIR}"/6.18.x/70060-6.18.32-drm-add-fwnode-panel-bridge-helpers.patch || die
+	eapply "${FILESDIR}"/6.18.x/70060-6.18-drm-add-fwnode-panel-bridge-helpers.patch || die
 	eapply "${FILESDIR}"/70070-drm-cix-use-fwnode-display-links.patch || die
 	eapply "${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch || die
 	eapply "${FILESDIR}"/70090-drm-cix-remove-unused-display-kconfig-prompts.patch || die

@@ -1,0 +1,131 @@
+diff -upNr a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+--- a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c	2026-06-30 17:58:02.921660000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c	2026-06-30 17:58:02.925200000 +0100
+@@ -38,22 +38,22 @@ int csidma_power_status[CSIDMA_NUM] = {
+ 
+ struct cix_vi_hw_dev *cix_vi_hw_info;
+ 
+-void __iomem *cix_ahb_dphy_get_addr_base(int id)
++static void __iomem *cix_ahb_dphy_get_addr_base(int id)
+ {
+ 	return cix_vi_hw_info->ahb_dphy_base_addrs[id];
+ }
+ 
+-void __iomem *cix_ahb_csi_get_addr_base(int id)
++static void __iomem *cix_ahb_csi_get_addr_base(int id)
+ {
+ 	return cix_vi_hw_info->ahb_csi_base_addrs[id];
+ }
+ 
+-void __iomem *cix_ahb_csidma_get_addr_base(int id)
++static void __iomem *cix_ahb_csidma_get_addr_base(int id)
+ {
+ 	return cix_vi_hw_info->ahb_csidma_base_addrs[id];
+ }
+ 
+-void __iomem *cix_ahb_csircsu_get_addr_base(int id)
++static void __iomem *cix_ahb_csircsu_get_addr_base(int id)
+ {
+ 	return cix_vi_hw_info->ahb_csircsu_base_addrs[id];
+ }
+@@ -300,7 +300,7 @@ void cix_ahb_csircsu_write_reg(u32 reg_a
+ 	writel(value, virt_addr + offset);
+ }
+ 
+-void cix_dphy_resets(int id, int enable)
++static void cix_dphy_resets(int id, int enable)
+ {
+ 	int ret;
+ 
+@@ -345,7 +345,7 @@ void cix_dphy_resets(int id, int enable)
+ 	}
+ }
+ 
+-void cix_csi_resets(int id, int enable)
++static void cix_csi_resets(int id, int enable)
+ {
+ 	int ret;
+ 
+@@ -372,7 +372,7 @@ void cix_csi_resets(int id, int enable)
+ 	}
+ }
+ 
+-void cix_csidma_resets(int id, int enable)
++static void cix_csidma_resets(int id, int enable)
+ {
+ 	int ret;
+ 
+diff -upNr a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c	2026-06-30 17:58:02.886391000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c	2026-06-30 17:58:02.890810000 +0100
+@@ -373,20 +373,6 @@ static int ispmem_cma_free(struct file *
+ 	return 0;
+ }
+ 
+-static int ispmem_cma_find_buffer_by_id(int id)
+-{
+-	if (id > cma_buf_ctl.buf_count)
+-		return -1;
+-
+-	if (cma_buf_ctl.bitMap[id] != 1)
+-		return -1;
+-
+-	if (cma_buf_ctl.bufq[id] == NULL)
+-		return -1;
+-
+-	return 0;
+-}
+-
+ static int ispmem_find_cma_by_name(char *name)
+ {
+ 	struct cmamem_block *memory_block = NULL;
+@@ -589,7 +575,7 @@ static int cam_mem_tbl_init(void)
+ 	return ret;
+ }
+ 
+-void cam_mem_buf_force_release(int idx)
++static void cam_mem_buf_force_release(int idx)
+ {
+ 	struct iosys_map map;
+ 
+@@ -756,7 +742,7 @@ static int cam_mem_buf_release(unsigned
+ }
+ 
+ static u32 Global_PowerDone;
+-int armcb_isp_power(int enable, unsigned long arg)
++static int armcb_isp_power(int enable, unsigned long arg)
+ {
+ 	u32 freq[2];
+ 	u64 a_clk_rate;
+@@ -1359,7 +1345,7 @@ MODULE_ALIAS("platform:armchina");
+ MODULE_DESCRIPTION("Arm China ispmem driver");
+ MODULE_LICENSE("GPL v2");
+ #else
+-MODULE_IMPORT_NS(DMA_BUF);
++MODULE_IMPORT_NS("DMA_BUF");
+ static void *g_instance;
+ 
+ void *armcb_get_cam_io_drv_instance(void)
+diff -upNr a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c	2026-06-30 17:58:02.904641000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c	2026-06-30 17:58:02.908151000 +0100
+@@ -39,7 +39,7 @@ static int armcb_subdev_register_nodes_a
+ {
+ 	int res = 0;
+ 
+-	if (WARN_ON(!sd) || WARN_ON(!sd->name)) {
++	if (WARN_ON(!sd) || WARN_ON(!sd->name[0])) {
+ 		LOG(LOG_ERR, "Invalid input v4l2_subdev is NULL");
+ 		return -EINVAL;
+ 	}
+diff -upNr a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h	2026-06-30 17:58:02.939682000 +0100
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h	2026-06-30 17:58:02.943747000 +0100
+@@ -33,7 +33,6 @@
+ #include <media/v4l2-fwnode.h>
+ #include <media/v4l2-mediabus.h>
+ 
+-#define CIX_I2C_ACTUATOR
+ struct armcb_motor_subdev {
+ 	struct mutex imutex;
+ 	spinlock_t sdlock;

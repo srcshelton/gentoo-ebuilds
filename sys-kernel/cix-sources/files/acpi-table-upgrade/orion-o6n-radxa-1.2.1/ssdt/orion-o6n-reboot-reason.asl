@@ -1,7 +1,8 @@
 /** @file
-  Describe the CIX Sky1 reboot-reason register as an ACPI PRP0001 device.
+  Describe the CIX Sky1 reboot-reason registers as an ACPI PRP0001 device.
 
-  The register address matches the CIX firmware PcdRebootReasonRegisterAddr.
+  The first register address matches the CIX firmware PcdRebootReasonRegisterAddr.
+  The second register reports the hardware reset source.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -25,6 +26,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "O6NRBRR", 0x00000001)
             Name (_CRS, ResourceTemplate ()
             {
                 Memory32Fixed (ReadOnly, 0x16000500, 0x00000004)
+                Memory32Fixed (ReadOnly, 0x16000218, 0x00000004)
             })
         }
     }

@@ -6961,7 +6961,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         Package (0x02)
                         {
                             0x90,
-                            0xBF
+                            0xAF
                         }
                     },
 
