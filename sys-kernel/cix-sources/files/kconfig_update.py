@@ -183,6 +183,10 @@ ACPI_SCPI_DISABLED_SYMBOLS = (
 
 ACPI_UPSTREAM_DISABLED_SYMBOLS = (
     "I2C_CADENCE",
+    # The generic PCI power-control driver expects DT regulator descriptions
+    # for slots/endpoints; current Orion ACPI firmware does not provide an
+    # equivalent binding.
+    "PCI_PWRCTRL_GENERIC",
 )
 
 ACPI_VENDOR_DISABLED_SYMBOLS = (
@@ -190,7 +194,56 @@ ACPI_VENDOR_DISABLED_SYMBOLS = (
     "DRM_CIX_COMPONENT_BIND_BYPASSED",
     "TRILIN_DP_HDCP_VALIDATION",
     "PCI_SKY1",
+    "PCI_SKY1_HOST",
+    "PCI_SKY1_HOST_CIX",
     "PCIE_CADENCE_PLAT_HOST",
+)
+
+VENDOR_ENGINEERING_DISABLED_SYMBOLS = (
+    # CIX DST/RDR/blackbox/DSM and exception-monitoring options are
+    # engineering diagnostics, EVB bring-up, or test hooks rather than
+    # production Radxa Orion platform support. Keep them disabled in generated
+    # board profiles unless a developer deliberately carries an out-of-tree
+    # enablement policy.
+    "CIX_DST",
+    "CIX_EC_EXCEPTION_DRIVER",
+    "KERNELDUMP_RESERVED_DESC",
+    "PLAT_AP_HOOK",
+    "PLAT_BBOX",
+    "PLAT_BBOX_TEST",
+    "PLAT_BOOT_POSTCODE",
+    "PLAT_BOOT_TIME",
+    "PLAT_CACHE_EXCEPTION_MONITOR",
+    "PLAT_CACHE_EXCEPTION_MONITOR_TEST",
+    "PLAT_DDR_EXCEPTION_COLLECT",
+    "PLAT_DDR_EXCEPTION_DETECT",
+    "PLAT_DSM",
+    "PLAT_DSM_TEST",
+    "PLAT_FDLEAK",
+    "PLAT_HW_BREAKPOINT",
+    "PLAT_IDM_DETECT",
+    "PLAT_KERNELDUMP",
+    "PLAT_LOGGER",
+    "PLAT_MNTNDUMP",
+    "PLAT_PRINTK_EXT",
+    "PLAT_REBOOT_REASON",
+    "PLAT_SDEI_EXCEPTIONS",
+    "PLAT_SDEI_EXCEPTIONS_TEST",
+    "PLAT_SKY1_AUDIO_TIMEOUT",
+    "PLAT_SKY1_RCSU_GASKET_ERROR",
+    "PLAT_SKY1_SE_PM_CRASH",
+    "PLAT_TEE_EXCEPTIONS",
+    "PLAT_TFA_TRACE",
+    "PLAT_TZC400_DETECT",
+    "PLAT_WAKEUP_SOURCE",
+    "PM_EXCEPTION_DRIVER",
+    "PM_EXCEPTION_PROTOCOL",
+    "PM_EXCP_DSM_DRIVER",
+    "RTC_DRV_RX8900",
+    "SKY1_GPT_TIMER",
+    "SKY1_REBOOT_REASON",
+    "VIDEO_LINLON_FTRACE",
+    "VIDEO_LINLON_PRINT_FILE",
 )
 
 ACPI_USB_MODEL_DISABLED_SYMBOLS = (
@@ -373,6 +426,7 @@ SUPPORTED_VENDOR_DT_O6N = (
 KCONFIG_SYMBOL_RE = re.compile(r"^\s*(?:menu)?config\s+([A-Z0-9_]+)\s*$")
 CONFIG_SET_RE = re.compile(r"^(CONFIG_[A-Z0-9_]+)=(y|m|n)$")
 CONFIG_STRING_RE = re.compile(r'^(CONFIG_[A-Z0-9_]+)="(.*)"$')
+CONFIG_VALUE_RE = re.compile(r"^(CONFIG_[A-Z0-9_]+)=([^\"].*)$")
 CONFIG_UNSET_RE = re.compile(r"^# (CONFIG_[A-Z0-9_]+) is not set$")
 RADXA_SOURCE_LINE = 'source "drivers/platform/arm64/Kconfig.radxa"\n'
 INVOKED_BASENAME = Path(sys.argv[0]).name or Path(__file__).name
@@ -430,6 +484,12 @@ KERNEL_MEMORY_DEBUG_KASAN_CHOICES = (
     "KASAN_SW_TAGS",
     "KASAN_GENERIC",
 )
+
+BUILD_HYGIENE_MINIMUMS = {
+    # Clang can report harmless 1 KiB-class frames in generic crypto helpers;
+    # keep CONFIG_WERROR usable without muting warning classes globally.
+    "FRAME_WARN": 2048,
+}
 
 
 class KconfigHelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -831,7 +891,7 @@ def scan_kconfig_types(tree: Path) -> dict[str, str]:
                 continue
 
             stripped = line.strip()
-            if stripped.startswith(("bool", "tristate", "string")):
+            if stripped.startswith(("bool", "tristate", "string", "int", "hex")):
                 symbol_types[current_symbol] = stripped.split()[0]
                 current_symbol = None
                 continue
@@ -1158,6 +1218,9 @@ def parse_existing_config(path: Path) -> dict[str, str]:
         if match := CONFIG_STRING_RE.match(raw_line):
             settings[match.group(1)] = f'"{match.group(2)}"'
             continue
+        if match := CONFIG_VALUE_RE.match(raw_line):
+            settings[match.group(1)] = match.group(2)
+            continue
         if match := CONFIG_UNSET_RE.match(raw_line):
             settings[match.group(1)] = "n"
     return settings
@@ -1249,6 +1312,7 @@ def disabled_symbols_for_profile(profile: str, include_vendor: bool) -> tuple[st
             disabled.extend(symbol for symbol in ACPI_UPSTREAM_DISABLED_SYMBOLS if symbol not in disabled)
     if include_vendor:
         disabled.extend(symbol for symbol in ALL_PROFILE_DISABLED_SYMBOLS if symbol not in disabled)
+        disabled.extend(symbol for symbol in VENDOR_ENGINEERING_DISABLED_SYMBOLS if symbol not in disabled)
     return tuple(disabled)
 
 
@@ -1393,6 +1457,17 @@ def build_config_updates(
     for symbol, value in updates:
         seen.add(symbol)
 
+    for symbol, minimum in BUILD_HYGIENE_MINIMUMS.items():
+        if symbol not in symbol_types:
+            continue
+        try:
+            current_value = int(current.get(f"CONFIG_{symbol}", "0"), 0)
+        except ValueError:
+            current_value = 0
+        if current_value < minimum and symbol not in seen:
+            updates.append((symbol, str(minimum)))
+            seen.add(symbol)
+
     for symbol, value in profile_config_symbol_updates(profile):
         kind = symbol_types.get(symbol)
         if kind in ("bool", "tristate") and symbol not in seen:
@@ -1532,6 +1607,7 @@ def apply_updates_to_config(original: str, updates: list[tuple[str, str]], profi
         match = (
             CONFIG_SET_RE.match(raw_line)
             or CONFIG_STRING_RE.match(raw_line)
+            or CONFIG_VALUE_RE.match(raw_line)
             or CONFIG_UNSET_RE.match(raw_line)
         )
         if match and match.group(1) in update_map:

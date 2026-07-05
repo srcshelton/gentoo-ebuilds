@@ -106,6 +106,9 @@ src_prepare() {
 	for pf in "${cix_patch_dir}"/*.patch; do
 		eapply "${pf}" || die
 	done
+	eapply "${FILESDIR}"/7.0.x/0034-7.0.12-regulator-fwnode-fix-coupled-count-error-check.patch || die
+	eapply "${FILESDIR}"/7.0.x/0035-7.0.12-regulator-core-brace-acpi-coupling-check.patch || die
+	eapply "${FILESDIR}"/7.0.x/0036-7.0.12-regulator-fwnode-drop-unused-supply-helper.patch || die
 
 	# These Sky1 patches are additive on top of CIX's native 7.0 queue.
 	# Sky1 0007 is superseded by CIX 0048 on the updated 7.0.12 base.
@@ -114,7 +117,12 @@ src_prepare() {
 	eapply "${sky1_patch_dir}"/0015-media-cix-Add-Sky1-video-codec-VPU-driver.patch || die
 	eapply "${sky1_patch_dir}"/0016-misc-armchina-npu-Add-Zhouyi-NPU-driver-for-CIX-Sky1.patch || die
 	eapply "${FILESDIR}"/7.0.x/71990-7.0-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	eapply "${FILESDIR}"/71992-armchina-npu-use-gpio-consumer-prototypes.patch || die
 	eapply "${FILESDIR}"/71995-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
+	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
+	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
+	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
+	eapply "${FILESDIR}"/71999-armchina-npu-add-sky1-priv-init-prototype.patch || die
 	eapply "${FILESDIR}"/7.0.x/50000-7.0-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-7.0-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
 	eapply "${sky1_patch_dir}"/0024-drm-sky1-switch-from-faux_device-to-platform_device.patch || die
@@ -163,17 +171,22 @@ src_prepare() {
 	eapply "${FILESDIR}"/80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch || die
 	eapply "${FILESDIR}"/40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/7.0.x/40046-7.0-acpi-scan-demote-pci-ecam-duplicate-reservations.patch || die
+	eapply "${FILESDIR}"/40044-pinctrl-acpi-export-pin-groups-helper.patch || die
+	eapply "${FILESDIR}"/40049-pinctrl-sky1-drop-unused-debug-show-data.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
 	eapply "${FILESDIR}"/7.0.x/40050-7.0.12-soc-cix-arbitrate-acpi-usb-models.patch || die
 	eapply "${FILESDIR}"/7.0.x/40060-7.0.12-soc-cix-add-gpu-cca-scan-quirk.patch || die
 	eapply "${FILESDIR}"/7.0.x/40070-7.0.12-soc-cix-arbitrate-acpi-pcie-models.patch || die
+	eapply "${FILESDIR}"/40076-soc-cix-hide-dst-engineering-menu.patch || die
 	eapply "${FILESDIR}"/7.0.x/40080-7.0-soc-cix-ignore-disabled-acpi-models.patch || die
 	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
 	eapply "${FILESDIR}"/7.0.x/90000-7.0.12-soc-cix-add-acpi-bus-perf-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90010-7.0.12-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch || die
 	eapply "${FILESDIR}"/7.0.x/90020-7.0.12-cix-fix-module-modpost-exports.patch || die
+	eapply "${FILESDIR}"/70105-drm-cix-linlon-dp-tighten-private-include-flags.patch || die
 	eapply "${FILESDIR}"/7.0.x/90040-7.0-soc-cix-expose-raw-sky1-socinfo-fields.patch || die
 	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
+	eapply "${FILESDIR}"/90046-arm64-cix-guard-dmi-cpu-name-reference.patch || die
 	eapply "${FILESDIR}"/7.0.x/90092-7.0-hwmon-cix-add-acpi-fan-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90093-7.0-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
 	eapply "${FILESDIR}"/7.0.x/90096-7.0.12-soc-cix-add-sky1-reboot-reason-driver.patch || die

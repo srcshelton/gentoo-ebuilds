@@ -1,0 +1,1378 @@
+misc: armchina-npu: restore local Sky1 ACPI DMA and lifetime fixes for pre-6.18.35
+
+Keep the imported CIX userspace ABI while restoring the local ACPI, DMA API,
+probe-deferral, IRQ and dma-buf lifetime fixes needed by the Orion O6/O6N
+ACPI kernel builds.
+
+---
+diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+--- a/drivers/misc/armchina-npu/Kconfig
++++ b/drivers/misc/armchina-npu/Kconfig
+@@ -4,15 +4,17 @@
+ #
+ 
+ config ARMCHINA_NPU
+-	bool "ArmChina Zhouyi NPU"
++	tristate "ArmChina Zhouyi NPU"
++	depends on ACPI || OF
+ 	help
+-	  Say Y if you are using any Zhouyi NPU.
++	  Support for ArmChina Zhouyi NPU accelerators.
+ 
+-	  For other cases, say N.
++	  To compile this driver as a module, choose M here. The module
++	  will be called armchina_npu.
+ 
+ config ARMCHINA_NPU_ARCH_V1
+ 	bool "ArmChina NPU architecture: v1"
+-	select ARMCHINA_NPU
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if the NPU version on your SoC is Zhouyi V1.
+ 
+@@ -20,7 +22,7 @@ config ARMCHINA_NPU_ARCH_V1
+ 
+ config ARMCHINA_NPU_ARCH_V2
+ 	bool "ArmChina NPU architecture: v2"
+-	select ARMCHINA_NPU
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if the NPU version on your SoC is Zhouyi V2 (i.e. Z2/Z3/X1).
+ 
+@@ -28,7 +30,7 @@ config ARMCHINA_NPU_ARCH_V2
+ 
+ config ARMCHINA_NPU_ARCH_V3
+ 	bool "ArmChina NPU architecture: v3"
+-	select ARMCHINA_NPU
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if the NPU version on your SoC is Zhouyi V3.
+ 
+@@ -36,7 +38,7 @@ config ARMCHINA_NPU_ARCH_V3
+ 
+ config ARMCHINA_NPU_ARCH_V3_2
+ 	bool "ArmChina NPU architecture: v3_2"
+-	select ARMCHINA_NPU
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if the NPU version on your SoC is Zhouyi V3_2.
+ 
+@@ -44,6 +46,7 @@ config ARMCHINA_NPU_ARCH_V3_2
+ 
+ config ARMCHINA_NPU_SOC_DEFAULT
+ 	bool "Default SoC APIs"
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if you use the default SoC API implementations provided by ArmChina.
+ 
+@@ -51,6 +54,7 @@ config ARMCHINA_NPU_SOC_DEFAULT
+ 
+ config ARMCHINA_NPU_SOC_R329
+ 	bool "R329 SoC APIs"
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if you use the Allwinner R329 SoC API implementations.
+ 
+@@ -58,7 +62,8 @@ config ARMCHINA_NPU_SOC_R329
+ 
+ config ARMCHINA_NPU_SOC_SKY1
+ 	bool "SKY1 SoC APIs"
++	depends on ARMCHINA_NPU
+ 	help
+ 	  Say Y if you use the CIX SKY1 SoC API implementations.
+ 
+-	  For other SoCs, say N.
+\ No newline at end of file
++	  For other SoCs, say N.
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -8,6 +8,7 @@
+ #include <linux/mm_types.h>
+ #include <linux/sched.h>
+ #include <linux/fs.h>
++#include <linux/mutex.h>
+ #include <linux/uaccess.h>
+ #include <linux/poll.h>
+ #include <linux/compat.h>
+@@ -28,19 +29,49 @@
+ #endif
+ 
+ static struct aipu_priv *aipu;
++static DEFINE_MUTEX(aipu_lock);
++
++static struct aipu_priv *aipu_get_global(void)
++{
++	struct aipu_priv *priv;
++
++	mutex_lock(&aipu_lock);
++	priv = aipu;
++	if (!aipu_priv_get(priv))
++		priv = NULL;
++	mutex_unlock(&aipu_lock);
++
++	return priv;
++}
++
+ extern struct gpio_desc *__must_check devm_gpiod_get_optional(struct device *dev,
+ 						       const char *con_id,
+ 						       enum gpiod_flags flags);
+ 
+ static int aipu_open(struct inode *inode, struct file *filp)
+ {
+-	filp->private_data = aipu;
++	int ret;
++	struct aipu_priv *priv = aipu_get_global();
++
++	if (!priv)
++		return -ENODEV;
++
++	filp->private_data = priv;
++
++#ifdef CONFIG_SKY1
++	sky1_npu_pm_runtime_get_sync(priv->dev);
++#endif
+ 
++	ret = aipu_priv_check_status(priv);
++	if (ret) {
+ #ifdef CONFIG_SKY1
+-	sky1_npu_pm_runtime_get_sync(aipu->dev);
++		sky1_npu_pm_runtime_put(priv->dev);
+ #endif
++		filp->private_data = NULL;
++		aipu_priv_put(priv);
++	}
+ 
+-	return aipu_priv_check_status(aipu);
++	return ret;
+ }
+ 
+ static int aipu_release(struct inode *inode, struct file *filp)
+@@ -48,24 +79,31 @@ static int aipu_release(struct inode *inode, struct file *filp)
+ 	int ret = 0;
+ 	struct aipu_priv *aipu = filp->private_data;
+ 
++	if (!aipu)
++		return 0;
++
+ 	ret = aipu_job_manager_cancel_jobs(&aipu->job_manager, filp);
+ 	if (ret)
+-		return ret;
++		dev_warn(aipu->dev, "failed to cancel jobs during release: %d\n", ret);
+ 
++	aipu_detach_dma_bufs(&aipu->mm, filp);
+ 	aipu_mm_free_buffers(&aipu->mm, filp);
+ 
+ #ifdef CONFIG_SKY1
+ 	sky1_npu_pm_runtime_put(aipu->dev);
+ #endif
+ 
+-	return 0;
++	filp->private_data = NULL;
++	aipu_priv_put(aipu);
++
++	return ret;
+ }
+ 
+ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+ 	int ret = 0;
+ 	struct aipu_priv *aipu = filp->private_data;
+-	struct aipu_job_manager *manager = &aipu->job_manager;
++	struct aipu_job_manager *manager = NULL;
+ 
+ 	u32 partition_cnt = 0;
+ 	struct aipu_partition_cap *partition_cap = NULL;
+@@ -89,6 +127,11 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	struct aipu_bind_buf_desc bind_buf;
+ 	struct aipu_partition *cls;
+ 
++	if (aipu_priv_is_removing(aipu))
++		return -ENODEV;
++
++	manager = &aipu->job_manager;
++
+ 	if (_IOC_TYPE(cmd) != AIPU_IOCTL_MAGIC) {
+ 		dev_err(manager->dev, "aipu: Invalid ioctl magic number %c, right %c\n",
+ 			_IOC_TYPE(cmd), AIPU_IOCTL_MAGIC);
+@@ -212,7 +255,7 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	case AIPU_IOCTL_ALLOC_DMA_BUF:
+ 		if (!copy_from_user(&dmabuf_req, (struct aipu_dma_buf_request __user *)arg,
+ 				    sizeof(dmabuf_req))) {
+-			ret = aipu_alloc_dma_buf(&aipu->mm, &dmabuf_req);
++			ret = aipu_alloc_dma_buf(aipu, &dmabuf_req);
+ 			if (!ret && copy_to_user((struct aipu_dma_buf_request __user *)arg,
+ 						 &dmabuf_req, sizeof(dmabuf_req)))
+ 				ret = -EINVAL;
+@@ -222,7 +265,7 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		break;
+ 	case AIPU_IOCTL_FREE_DMA_BUF:
+ 		if (!copy_from_user(&fd, (int __user *)arg, sizeof(fd)))
+-			ret = aipu_free_dma_buf(&aipu->mm, fd);
++			ret = aipu_free_dma_buf(aipu, fd);
+ 		else
+ 			ret = -EINVAL;
+ 		break;
+@@ -240,7 +283,7 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	case AIPU_IOCTL_ATTACH_DMA_BUF:
+ 		if (!copy_from_user(&dmabuf_info, (struct aipu_dma_buf __user *)arg,
+ 				    sizeof(dmabuf_info))) {
+-			ret = aipu_attach_dma_buf(&aipu->mm, &dmabuf_info);
++			ret = aipu_attach_dma_buf(&aipu->mm, &dmabuf_info, filp);
+ 			if (!ret && copy_to_user((struct aipu_dma_buf __user *)arg,
+ 						 &dmabuf_info, sizeof(dmabuf_info)))
+ 				ret = -EINVAL;
+@@ -250,7 +293,7 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		break;
+ 	case AIPU_IOCTL_DETACH_DMA_BUF:
+ 		if (!copy_from_user(&fd, (int __user *)arg, sizeof(fd)))
+-			ret = aipu_detach_dma_buf(&aipu->mm, fd);
++			ret = aipu_detach_dma_buf(&aipu->mm, fd, filp);
+ 		else
+ 			ret = -EINVAL;
+ 		break;
+@@ -405,6 +448,9 @@ static int aipu_mmap(struct file *filp, struct vm_area_struct *vma)
+ {
+ 	struct aipu_priv *aipu = filp->private_data;
+ 
++	if (aipu_priv_is_removing(aipu))
++		return -ENODEV;
++
+ 	return aipu_mm_mmap_buf(&aipu->mm, vma, filp);
+ }
+ 
+@@ -413,6 +459,9 @@ static unsigned int aipu_poll(struct file *filp, struct poll_table_struct *wait)
+ 	unsigned int mask = 0;
+ 	struct aipu_priv *aipu = filp->private_data;
+ 
++	if (aipu_priv_is_removing(aipu))
++		return POLLERR | POLLHUP;
++
+ 	if (aipu_job_manager_has_end_job(&aipu->job_manager, filp, wait, task_pid_nr(current)))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
+@@ -451,40 +500,53 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ {
+ 	int ret = 0;
+ 	struct device *dev = &p_dev->dev;
++	struct aipu_priv *priv = NULL;
+ 	struct aipu_partition *partition = NULL;
+ 	u32 id = 0;
+ 
+ 	/* create & init aipu priv struct shared by all clusters/cores */
+ 	if (!aipu) {
+-		aipu = devm_kzalloc(dev, sizeof(*aipu), GFP_KERNEL);
+-		if (!aipu)
++		priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++		if (!priv)
+ 			return -ENOMEM;
+ 
+ 		dev_info(dev, "AIPU KMD (v%s) probe start...\n", KMD_VERSION);
+ 
+-		aipu->reset_gpio = devm_gpiod_get_optional(&p_dev->dev, "reset", GPIOD_OUT_LOW);
+-		if (IS_ERR(aipu->reset_gpio)) {
+-			ret = PTR_ERR(aipu->reset_gpio);
++		priv->reset_gpio = devm_gpiod_get_optional(&p_dev->dev, "reset", GPIOD_OUT_LOW);
++		if (IS_ERR(priv->reset_gpio)) {
++			ret = PTR_ERR(priv->reset_gpio);
+ 			dev_warn(&p_dev->dev, "Failed to get reset GPIO.\n");
+-			aipu->reset_gpio = NULL;
++			priv->reset_gpio = NULL;
+ 			//return ret;
+ 		}
+ 
+-		ret = init_aipu_priv(aipu, p_dev, &aipu_fops, soc, ops);
++		ret = init_aipu_priv(priv, p_dev, &aipu_fops, soc, ops);
+ 		if (ret) {
+ 			dev_err(dev, "FAIL TO INIT AIPU.\n");
+-			aipu = NULL;
++			kfree(priv);
+ 			return ret;
+ 		}
++
++		mutex_lock(&aipu_lock);
++		aipu = priv;
++		mutex_unlock(&aipu_lock);
+ 	}
+ 
+-	of_property_read_u32(dev->of_node, "core-id", &id);
++	priv = aipu;
++	device_property_read_u32(dev, "core-id", &id);
+ 
+-	WARN_ON(!aipu->ops);
+-	partition = aipu->ops->create_partitions(aipu, id, p_dev);
++	WARN_ON(!priv->ops);
++	partition = priv->ops->create_partitions(priv, id, p_dev);
+ 	if (IS_ERR(partition)) {
+ 		dev_err(dev, "FAIL TO CREATE PARTITION.\n");
+-		deinit_aipu_priv(aipu);
++		aipu_priv_begin_remove(priv);
++		mutex_lock(&aipu_lock);
++		if (aipu == priv)
++			aipu = NULL;
++		mutex_unlock(&aipu_lock);
++		aipu_priv_drop_driver_ref_and_wait(priv);
++		deinit_aipu_priv(priv);
++		kfree(priv);
+ 		ret = -EIO;
+ 	} else {
+ 		platform_set_drvdata(p_dev, partition);
+@@ -506,9 +568,29 @@ EXPORT_SYMBOL(armchina_aipu_probe);
+  */
+ int armchina_aipu_remove(struct platform_device *p_dev)
+ {
+-	if (!aipu || !aipu->is_init)
++	struct aipu_priv *priv;
++
++	mutex_lock(&aipu_lock);
++	priv = aipu;
++	if (!priv || !priv->is_init) {
++		mutex_unlock(&aipu_lock);
+ 		return 0;
+-	return deinit_aipu_priv(aipu);
++	}
++
++	aipu = NULL;
++	aipu_priv_begin_remove(priv);
++	mutex_unlock(&aipu_lock);
++
++	/*
++	 * Existing file descriptors and exported dma-bufs can still need the
++	 * MM/DMA state for cleanup. Drain those references before platform
++	 * removal can invalidate the backing device state.
++	 */
++	aipu_priv_drop_driver_ref_and_wait(priv);
++	deinit_aipu_priv(priv);
++	kfree(priv);
++
++	return 0;
+ }
+ EXPORT_SYMBOL(armchina_aipu_remove);
+ 
+@@ -564,7 +646,16 @@ EXPORT_SYMBOL(armchina_aipu_resume);
+  */
+ int armchina_aipu_alloc_dma_buf(struct aipu_dma_buf_request *request)
+ {
+-	return aipu_alloc_dma_buf(&aipu->mm, request);
++	int ret;
++	struct aipu_priv *priv = aipu_get_global();
++
++	if (!priv)
++		return -ENODEV;
++
++	ret = aipu_alloc_dma_buf(priv, request);
++	aipu_priv_put(priv);
++
++	return ret;
+ }
+ EXPORT_SYMBOL(armchina_aipu_alloc_dma_buf);
+ 
+@@ -575,6 +666,15 @@ EXPORT_SYMBOL(armchina_aipu_alloc_dma_buf);
+  */
+ int armchina_aipu_free_dma_buf(int fd)
+ {
+-	return aipu_free_dma_buf(&aipu->mm, fd);
++	int ret;
++	struct aipu_priv *priv = aipu_get_global();
++
++	if (!priv)
++		return -ENODEV;
++
++	ret = aipu_free_dma_buf(priv, fd);
++	aipu_priv_put(priv);
++
++	return ret;
+ }
+ EXPORT_SYMBOL(armchina_aipu_free_dma_buf);
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
+@@ -3,7 +3,11 @@
+ 
+ #include <linux/version.h>
+ #include <linux/module.h>
++#include <linux/err.h>
++#include <linux/scatterlist.h>
++#include <linux/slab.h>
+ #include "aipu_dma_buf.h"
++#include "aipu_priv.h"
+ 
+ #if KERNEL_VERSION(4, 19, 0) > LINUX_VERSION_CODE
+ static int aipu_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
+@@ -12,6 +16,11 @@ static int aipu_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
+ static int aipu_dma_buf_attach(struct dma_buf *dmabuf, struct dma_buf_attachment *attach)
+ #endif
+ {
++	struct aipu_dma_buf_priv *priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
++
++	if (aipu_priv_is_removing(priv->aipu))
++		return -ENODEV;
++
+ 	return 0;
+ }
+ 
+@@ -27,10 +36,10 @@ static struct sg_table *aipu_map_dma_buf(struct dma_buf_attachment *attach,
+ 	struct aipu_dma_buf_priv *priv = (struct aipu_dma_buf_priv *)attach->dmabuf->priv;
+ 	struct device *npu = priv->mm->dev;
+ 
+-	if (priv->sgt)
+-		return priv->sgt;
++	if (aipu_priv_is_removing(priv->aipu))
++		return NULL;
+ 
+-	sgt = devm_kmalloc(npu, sizeof(*sgt), GFP_KERNEL);
++	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
+ 	if (!sgt)
+ 		return NULL;
+ 
+@@ -42,25 +51,37 @@ static struct sg_table *aipu_map_dma_buf(struct dma_buf_attachment *attach,
+ 
+ #if KERNEL_VERSION(5, 8, 0) > LINUX_VERSION_CODE
+ 	ret = dma_map_sg(attach->dev, sgt->sgl, sgt->nents, dir);
++	if (!ret) {
+ #else
+-	ret = dma_map_sgtable(attach->dev, sgt, dir, DMA_ATTR_SKIP_CPU_SYNC);
+-#endif
++	ret = dma_map_sgtable(attach->dev, sgt, dir, 0);
+ 	if (ret) {
++#endif
+ 		dev_err(npu, "failed to map sgtable for the attached dev\n");
+-		goto fail;
++		goto free_table;
+ 	}
+ 
+-	priv->sgt = sgt;
+ 	return sgt;
+ 
++free_table:
++	sg_free_table(sgt);
+ fail:
+-	devm_kfree(npu, sgt);
++	kfree(sgt);
+ 	return NULL;
+ }
+ 
+ static void aipu_unmap_dma_buf(struct dma_buf_attachment *attach, struct sg_table *st,
+ 			       enum dma_data_direction dir)
+ {
++	if (!st)
++		return;
++
++#if KERNEL_VERSION(5, 8, 0) > LINUX_VERSION_CODE
++	dma_unmap_sg(attach->dev, st->sgl, st->nents, dir);
++#else
++	dma_unmap_sgtable(attach->dev, st, dir, 0);
++#endif
++	sg_free_table(st);
++	kfree(st);
+ }
+ 
+ static int aipu_dma_buf_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+@@ -69,6 +90,9 @@ static int aipu_dma_buf_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+ 	unsigned long vm_pgoff = 0;
+ 	struct aipu_dma_buf_priv *priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
+ 
++	if (aipu_priv_is_removing(priv->aipu))
++		return -ENODEV;
++
+ 	vm_pgoff = vma->vm_pgoff;
+ 	vma->vm_pgoff = priv->dev_pa >> PAGE_SHIFT;
+ 	ret = aipu_mm_mmap_buf(priv->mm, vma, NULL);
+@@ -85,6 +109,14 @@ static int aipu_dma_vmap(struct dma_buf *dmabuf, struct iosys_map *map)
+ #endif
+ {
+ 	struct aipu_dma_buf_priv *priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
++	if (aipu_priv_is_removing(priv->aipu)) {
++#if KERNEL_VERSION(5, 11, 0) > LINUX_VERSION_CODE
++		return NULL;
++#else
++		return -ENODEV;
++#endif
++	}
++
+ #if KERNEL_VERSION(5, 11, 0) > LINUX_VERSION_CODE
+ 	return priv->va;
+ #else
+@@ -106,6 +138,42 @@ static void aipu_dma_vunmap(struct dma_buf *dmabuf, struct iosys_map *map)
+ 
+ static void aipu_dma_release(struct dma_buf *dmabuf)
+ {
++	struct aipu_dma_buf_priv *priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
++	struct aipu_memory_manager *mm;
++	struct aipu_buf_desc buf;
++	int ret;
++
++	if (!priv)
++		return;
++
++	mm = priv->mm;
++	buf.pa = priv->dev_pa;
++	buf.dev_offset = priv->dev_pa;
++	buf.bytes = priv->bytes;
++	buf.region = AIPU_BUF_REGION_DEFAULT;
++	buf.asid = AIPU_BUF_ASID_0;
++
++	if (mm->has_iommu && mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++#if AIPU_USE_STANDARD_DMA_API_FOR_V3_2
++		buf.exec_id = 0;
++		buf.mode = AIPU_DMA_BUF_FREE_DEFAULT;
++#else
++		buf.exec_id = DMA_BUF_EXEC_ID;
++		buf.mode = AIPU_DMA_BUF_FREE_BOTH;
++#endif
++		ret = aipu_free_dma_iova_phy(mm, &buf, NULL);
++	} else {
++		buf.exec_id = 0;
++		buf.mode = AIPU_DMA_BUF_FREE_DEFAULT;
++		ret = aipu_mm_free(mm, &buf, NULL, true);
++	}
++
++	if (ret)
++		dev_warn(mm->dev, "failed to release exported dma-buf backing store: %d\n", ret);
++
++	aipu_priv_put(priv->aipu);
++	kfree(priv);
++	dmabuf->priv = NULL;
+ }
+ 
+ #if ((KERNEL_VERSION(5, 6, 0) > LINUX_VERSION_CODE) && \
+@@ -143,19 +211,41 @@ static struct dma_buf_ops aipu_dma_buf_ops = {
+ #endif
+ };
+ 
+-int aipu_alloc_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf_request *request)
++static struct dma_buf *aipu_exported_dma_buf_get(int fd)
++{
++	struct dma_buf *dmabuf = dma_buf_get(fd);
++
++	if (IS_ERR(dmabuf))
++		return dmabuf;
++	if (!dmabuf)
++		return ERR_PTR(-EINVAL);
++
++	if (dmabuf->ops != &aipu_dma_buf_ops) {
++		dma_buf_put(dmabuf);
++		return ERR_PTR(-EINVAL);
++	}
++
++	return dmabuf;
++}
++
++int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *request)
+ {
+ 	int ret = 0;
++	struct aipu_memory_manager *mm = NULL;
+ 	struct aipu_buf_request inter_req;
+ 	struct aipu_dma_buf_priv *priv = NULL;
+ 	char *va = NULL;
+ 	struct dma_buf *dmabuf = NULL;
+-	struct aipu_phy_block *block;
++	struct aipu_phy_block *block = NULL;
+ 	DEFINE_DMA_BUF_EXPORT_INFO(exp);
+ 
+-	if (!mm || !request || !request->bytes)
++	if (!aipu || !request || !request->bytes)
+ 		return -EINVAL;
+ 
++	if (!aipu_priv_get(aipu))
++		return -ENODEV;
++
++	mm = &aipu->mm;
+ 	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+ 		memset(&inter_req, 0, sizeof(struct aipu_buf_request));
+ 		inter_req.bytes = request->bytes;
+@@ -183,6 +273,10 @@ int aipu_alloc_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf_reque
+ 		}
+ #else
+ 		block = aipu_get_block_buffer(mm, inter_req.desc.pa, "aipu_alloc_dma_buf");
++		if (!block) {
++			ret = -EFAULT;
++			goto fail;
++		}
+ 		va = block->va;
+ #endif
+ 	} else {
+@@ -207,13 +301,14 @@ int aipu_alloc_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf_reque
+ 		}
+ 	}
+ 
+-	priv = devm_kzalloc(mm->dev, sizeof(*priv), GFP_KERNEL);
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+ 	if (!priv) {
+ 		ret = -ENOMEM;
+ 		goto fail;
+ 	}
+ 
+ 	priv->mm = mm;
++	priv->aipu = aipu;
+ 	priv->dev_pa = inter_req.desc.pa;
+ 	priv->dma_pa = inter_req.desc.pa;
+ 	priv->bytes = inter_req.desc.bytes;
+@@ -226,66 +321,48 @@ int aipu_alloc_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf_reque
+ 
+ 	dmabuf = dma_buf_export(&exp);
+ 	if (IS_ERR(dmabuf)) {
+-		ret = -EINVAL;
++		ret = PTR_ERR(dmabuf);
+ 		goto fail;
+ 	}
+ 
+-	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
++	if (block)
+ 		block->dmabuf = dmabuf;
+ 	request->fd = dma_buf_fd(dmabuf, exp.flags);
++	if (request->fd < 0) {
++		ret = request->fd;
++		dma_buf_put(dmabuf);
++		return ret;
++	}
+ 	return 0;
+ 
+ fail:
+ 	if (priv)
+-		devm_kfree(mm->dev, priv);
++		kfree(priv);
+ 	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
+ 		aipu_free_dma_iova_phy(mm, &inter_req.desc, NULL);
+ 	else
+ 		aipu_mm_free(mm, &inter_req.desc, NULL, true);
++	aipu_priv_put(aipu);
+ 	return ret;
+ }
+ 
+-int aipu_free_dma_buf(struct aipu_memory_manager *mm, int fd)
++int aipu_free_dma_buf(struct aipu_priv *aipu, int fd)
+ {
+ 	int ret = 0;
+-	struct aipu_buf_desc buf;
+ 	struct dma_buf *dmabuf = NULL;
+-	struct aipu_dma_buf_priv *priv = NULL;
+ 
+-	if (!mm || fd <= 0)
++	if (!aipu || fd <= 0)
+ 		return -EINVAL;
+ 
+-	dmabuf = dma_buf_get(fd);
+-	if (!dmabuf) {
+-		dev_err(mm->dev, "can't get dmabuf by fd.\n");
+-		return -EINVAL;
+-	}
+-
+-	priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
+-
+-	buf.pa = priv->dev_pa;
+-	buf.dev_offset = priv->dev_pa;
+-	buf.bytes = priv->bytes;
+-	buf.region = AIPU_BUF_REGION_DEFAULT;
+-	buf.asid = AIPU_BUF_ASID_0;
+-	if(mm->has_iommu && mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-#if AIPU_USE_STANDARD_DMA_API_FOR_V3_2
+-		buf.exec_id = 0;
+-#else
+-		buf.exec_id = DMA_BUF_EXEC_ID;
+-		buf.mode = AIPU_DMA_BUF_FREE_BOTH;
+-#endif
+-	} else {
+-		buf.exec_id = 0;
+-	}
++	dmabuf = aipu_exported_dma_buf_get(fd);
++	if (IS_ERR(dmabuf))
++		return PTR_ERR(dmabuf);
+ 
+-	ret = aipu_free_dma_iova_phy(mm, &buf, NULL);
+-	if (priv->sgt) {
+-		devm_kfree(mm->dev, priv->sgt);
+-		priv->sgt = NULL;
+-	}
+-
+-	devm_kfree(mm->dev, priv);
++	/*
++	 * Exported dma-buf backing storage is released by .release when the
++	 * final dma-buf reference is dropped. Freeing it from this ioctl would
++	 * leave live fds, mmaps or importer attachments pointing at freed memory.
++	 */
+ 	dma_buf_put(dmabuf);
+ 	return ret;
+ }
+@@ -298,9 +375,9 @@ int aipu_get_dma_buf_info(struct aipu_dma_buf *dmabuf_info)
+ 	if (!dmabuf_info || dmabuf_info->fd <= 0)
+ 		return -EINVAL;
+ 
+-	dmabuf = dma_buf_get(dmabuf_info->fd);
+-	if (!dmabuf)
+-		return -EINVAL;
++	dmabuf = aipu_exported_dma_buf_get(dmabuf_info->fd);
++	if (IS_ERR(dmabuf))
++		return PTR_ERR(dmabuf);
+ 
+ 	priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
+ 	dmabuf_info->pa = priv->dev_pa;
+@@ -310,43 +387,57 @@ int aipu_get_dma_buf_info(struct aipu_dma_buf *dmabuf_info)
+ 	return 0;
+ }
+ 
+-int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dmabuf_info)
++int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dmabuf_info,
++			struct file *filp)
+ {
+ 	struct dma_buf *dmabuf = NULL;
+ 	struct dma_buf_attachment *attach = NULL;
+ 	struct sg_table *table = NULL;
+ 	struct aipu_dma_buf_importer *im_buf = NULL;
++	struct aipu_buf_desc desc;
+ 	int ret = 0;
+ 
+-	if (!mm || !dmabuf_info || dmabuf_info->fd <= 0)
++	if (!mm || !dmabuf_info || !filp || dmabuf_info->fd <= 0)
+ 		return -EINVAL;
+ 
+ 	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
++		dmabuf = aipu_exported_dma_buf_get(dmabuf_info->fd);
++		if (IS_ERR(dmabuf))
++			return PTR_ERR(dmabuf);
++
+ 		ret = aipu_copy_block_by_dma_fd(mm, dmabuf_info);
+ 		if(ret)
+-			return ret;
++			goto put_dmabuf;
+ 	} else {
+ 		dmabuf = dma_buf_get(dmabuf_info->fd);
+-		if (!dmabuf)
+-			return -EINVAL;
++		if (IS_ERR_OR_NULL(dmabuf))
++			return dmabuf ? PTR_ERR(dmabuf) : -EINVAL;
++
+ 		attach = dma_buf_attach(dmabuf, mm->dev);
+-		if (!attach)
+-			return -EINVAL;
++		if (IS_ERR_OR_NULL(attach)) {
++			ret = attach ? PTR_ERR(attach) : -EINVAL;
++			goto put_dmabuf;
++		}
+ 
+ 		table = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+-		if (!table)
+-			return -EINVAL;
++		if (IS_ERR_OR_NULL(table)) {
++			ret = table ? PTR_ERR(table) : -ENOMEM;
++			goto detach_dmabuf;
++		}
+ 
+ 		dmabuf_info->pa = sg_dma_address(table->sgl);
+ 		dmabuf_info->bytes = sg_dma_len(table->sgl);
+-		dma_buf_put(dmabuf);
+ 	}
+ 
+-	im_buf = devm_kzalloc(mm->dev, sizeof(*im_buf), GFP_KERNEL);
+-	if (!im_buf)
+-		return -ENOMEM;
++	im_buf = kzalloc(sizeof(*im_buf), GFP_KERNEL);
++	if (!im_buf) {
++		ret = -ENOMEM;
++		goto undo_attach;
++	}
+ 
+ 	im_buf->fd = dmabuf_info->fd;
++	im_buf->filp = filp;
++	im_buf->dmabuf = dmabuf;
+ 	im_buf->attach = attach;
+ 	im_buf->table = table;
+ 	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+@@ -358,45 +449,89 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 	list_add(&im_buf->node, &mm->importer_bufs->node);
+ 	mutex_unlock(&mm->lock);
+ 
+-
+ 	return 0;
++
++undo_attach:
++	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
++		memset(&desc, 0, sizeof(desc));
++		desc.pa = dmabuf_info->pa;
++		desc.bytes = dmabuf_info->bytes;
++		desc.exec_id = DMA_BUF_EXEC_ID;
++		desc.mode = AIPU_DMA_BUF_DETA_IOVA;
++		aipu_free_dma_iova_phy(mm, &desc, NULL);
++	} else {
++		dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
++	}
++detach_dmabuf:
++	if (attach)
++		dma_buf_detach(dmabuf, attach);
++put_dmabuf:
++	dma_buf_put(dmabuf);
++	return ret;
+ }
+ 
+-int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd)
++static void aipu_detach_imported_dma_buf(struct aipu_memory_manager *mm,
++					 struct aipu_dma_buf_importer *im_buf)
++{
++	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
++		im_buf->desc.mode = AIPU_DMA_BUF_DETA_IOVA;
++		aipu_free_dma_iova_phy(mm, &im_buf->desc, NULL);
++	} else {
++		dma_buf_unmap_attachment(im_buf->attach, im_buf->table, DMA_BIDIRECTIONAL);
++		dma_buf_detach(im_buf->dmabuf, im_buf->attach);
++	}
++
++	dma_buf_put(im_buf->dmabuf);
++	kfree(im_buf);
++}
++
++int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd, struct file *filp)
+ {
+ 	struct aipu_dma_buf_importer *im_buf = NULL;
+ 	struct aipu_dma_buf_importer *next = NULL;
+-	struct dma_buf *dmabuf = NULL;
+ 	int ret = -EINVAL;
+ 
+ 	if (!mm || fd <= 0)
+ 		return -EINVAL;
+ 
+-	dmabuf = dma_buf_get(fd);
+-	if (!dmabuf)
+-		return -EINVAL;
+-
+ 	mutex_lock(&mm->lock);
+ 	list_for_each_entry_safe(im_buf, next, &mm->importer_bufs->node, node) {
+-		if (fd == im_buf->fd) {
+-			if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+-				im_buf->desc.mode = AIPU_DMA_BUF_DETA_IOVA;
+-				aipu_free_dma_iova_phy(mm, &im_buf->desc, NULL);
+-			} else {
+-				dma_buf_unmap_attachment(im_buf->attach, im_buf->table, DMA_BIDIRECTIONAL);
+-				dma_buf_detach(dmabuf, im_buf->attach);
+-			}
++		if (fd == im_buf->fd && (!filp || filp == im_buf->filp)) {
+ 			list_del(&im_buf->node);
+-			devm_kfree(mm->dev, im_buf);
+ 			ret = 0;
+ 			break;
+ 		}
+ 	}
+ 	mutex_unlock(&mm->lock);
+-	dma_buf_put(dmabuf);
++
++	if (!ret)
++		aipu_detach_imported_dma_buf(mm, im_buf);
+ 	return ret;
+ }
+ 
++void aipu_detach_dma_bufs(struct aipu_memory_manager *mm, struct file *filp)
++{
++	LIST_HEAD(detach_list);
++	struct aipu_dma_buf_importer *im_buf = NULL;
++	struct aipu_dma_buf_importer *next = NULL;
++
++	if (!mm || !filp)
++		return;
++
++	mutex_lock(&mm->lock);
++	list_for_each_entry_safe(im_buf, next, &mm->importer_bufs->node, node) {
++		if (filp == im_buf->filp)
++			list_move_tail(&im_buf->node, &detach_list);
++	}
++	mutex_unlock(&mm->lock);
++
++	while (!list_empty(&detach_list)) {
++		im_buf = list_first_entry(&detach_list, struct aipu_dma_buf_importer, node);
++		list_del(&im_buf->node);
++		aipu_detach_imported_dma_buf(mm, im_buf);
++	}
++}
++
+ #if KERNEL_VERSION(5, 4, 0) < LINUX_VERSION_CODE
+ #if KERNEL_VERSION(6, 13, 0) > LINUX_VERSION_CODE
+ MODULE_IMPORT_NS(DMA_BUF);
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.h
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
+@@ -9,27 +9,34 @@
+ #include "armchina_aipu.h"
+ #include "aipu_mm.h"
+ 
++struct aipu_priv;
++struct file;
++
+ struct aipu_dma_buf_priv {
+ 	struct aipu_memory_manager *mm;
++	struct aipu_priv *aipu;
+ 	u64 dev_pa;   /* the addr configured into NPU */
+ 	u64 dma_pa;   /* the original addr from dma subsystem */
+ 	u64 bytes;
+ 	void *va;
+-	struct sg_table *sgt;
+ };
+ 
+ struct aipu_dma_buf_importer {
+ 	int fd;
++	struct file *filp;
++	struct dma_buf *dmabuf;
+ 	struct dma_buf_attachment *attach;
+ 	struct sg_table *table;
+ 	struct list_head node;
+ 	struct aipu_buf_desc desc;
+ };
+ 
+-int aipu_alloc_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf_request *request);
+-int aipu_free_dma_buf(struct aipu_memory_manager *mm, int fd);
++int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *request);
++int aipu_free_dma_buf(struct aipu_priv *aipu, int fd);
+ int aipu_get_dma_buf_info(struct aipu_dma_buf *dmabuf_info);
+-int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dmabuf_info);
+-int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd);
++int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dmabuf_info,
++			struct file *filp);
++int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd, struct file *filp);
++void aipu_detach_dma_bufs(struct aipu_memory_manager *mm, struct file *filp);
+ 
+ #endif /* __AIPU_DMA_BUF_H__ */
+diff --git a/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
+--- a/drivers/misc/armchina-npu/aipu_irq.c
++++ b/drivers/misc/armchina-npu/aipu_irq.c
+@@ -65,16 +65,8 @@ struct aipu_irq_object *aipu_create_irq_object(struct device *dev, u32 irqnum, v
+ 
+ 	INIT_WORK(&irq_obj->work, aipu_irq_handler_bottom_half);
+ 
+-	/**
+-	 * Flag IRQF_ONESHOT is used when sharing interrupts with other devices using thread_irq.
+-	 * Remove it if you have no such a usage scenario.
+-	 */
+ 	ret = request_irq(irqnum, aipu_irq_handler_upper_half,
+-#if KERNEL_VERSION(7, 0, 0) > LINUX_VERSION_CODE
+-			  IRQF_ONESHOT | IRQF_SHARED | IRQF_PROBE_SHARED,
+-#else
+ 			  IRQF_SHARED | IRQF_PROBE_SHARED,
+-#endif
+ 			  description, irq_obj->dev);
+ 	if (ret) {
+ 		dev_err(dev, "request_irq failed: irqnum %u, ret %d", irqnum, ret);
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -13,8 +13,10 @@
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
+ #include <linux/iommu.h>
++#include <linux/err.h>
+ #include <linux/bitmap.h>
+ #include <linux/version.h>
++#include <linux/moduleparam.h>
+ #include <linux/iova.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/acpi.h>
+@@ -29,6 +31,11 @@
+ #define IOVA_FREE  false
+ #define IOVA_ALLOC true
+ 
++static bool aipu_acpi_prealloc_iova_regions;
++module_param_named(acpi_prealloc_iova_regions, aipu_acpi_prealloc_iova_regions, bool, 0644);
++MODULE_PARM_DESC(acpi_prealloc_iova_regions,
++		 "Use legacy preallocated IOVA regions on ACPI systems");
++
+ enum iommu_dma_cookie_type {
+ 	IOMMU_DMA_IOVA_COOKIE,
+ 	IOMMU_DMA_MSI_COOKIE,
+@@ -891,6 +898,16 @@ static void add_region_list(struct aipu_memory_manager *mm, int asid,
+ 	mm->ase[asid].cnt++;
+ }
+ 
++static void aipu_mm_set_safe_dma_api_range(struct aipu_memory_manager *mm)
++{
++	mm->dma_mask = 32;
++#if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
++	mm->dev->bus_dma_limit = 0xc0000000;
++#elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
++	mm->dev->bus_dma_mask = 0xc0000000;
++#endif
++}
++
+ static int aipu_mm_reserved_iova_for_never_map(struct aipu_memory_manager *mm, bool flag)
+ {
+ 	struct iommu_domain *iommu_domain = NULL;
+@@ -911,6 +928,11 @@ static int aipu_mm_reserved_iova_for_never_map(struct aipu_memory_manager *mm, b
+ 
+ 		iovad = &mm->iova_domain;
+ 	} else {
++		if (!iommu_domain || !iommu_domain->iova_cookie) {
++			dev_warn(mm->dev, "IOMMU DMA cookie unavailable; skipping IOVA %s\n",
++				 flag ? "reservation" : "release");
++			return -ENODEV;
++		}
+ 		cookie = iommu_domain->iova_cookie;
+ 		iovad = &cookie->iovad;
+ 	}
+@@ -928,6 +950,8 @@ static int aipu_mm_reserved_iova_for_never_map(struct aipu_memory_manager *mm, b
+ 		lo = iova_start >> PAGE_SHIFT;
+ 		hi = (iova_start + iova_len) >> PAGE_SHIFT;
+ 		iova = reserve_iova(iovad, lo, hi - 1);
++		if (!iova)
++			return -ENOMEM;
+ 		if (!flag)
+ 			__free_iova(iovad, iova);
+ 		bus_dma_limit -= 0x100000000;
+@@ -965,12 +989,7 @@ static int aipu_mm_add_iova_region(struct aipu_memory_manager *mm)
+ 
+ 	if (aipu_mm_reserved_iova_for_never_map(mm, IOVA_ALLOC)) {
+ 		dev_err(mm->dev, "fail to reserve iova region for never map.");
+-		mm->dma_mask = 32;
+-#if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
+-		mm->dev->bus_dma_limit = 0xc0000000;
+-#elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+-		mm->dev->bus_dma_mask = 0xc0000000;
+-#endif
++		aipu_mm_set_safe_dma_api_range(mm);
+ 		goto FINISH;
+ 	}
+ 
+@@ -979,12 +998,7 @@ static int aipu_mm_add_iova_region(struct aipu_memory_manager *mm)
+ 						   iova_region_size, 0, asid_idx, NULL, true);
+ 		if (!obj) {
+ 			dev_err(mm->dev, "create iova region failed (ret = %ld)", PTR_ERR(reg));
+-			mm->dma_mask = 32;
+-#if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
+-			mm->dev->bus_dma_limit = 0xc0000000;
+-#elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+-			mm->dev->bus_dma_mask = 0xc0000000;
+-#endif
++			aipu_mm_set_safe_dma_api_range(mm);
+ 			break;
+ 		}
+ 
+@@ -1313,8 +1327,14 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	 *
+ 	 * KMD can accept multiple DRAM regions and/or multiple SRAM regions;
+ 	 */
+-	if (!mm->has_iommu)
++	if (mm->has_iommu && has_acpi_companion(mm->dev) &&
++	    !aipu_acpi_prealloc_iova_regions) {
++		aipu_mm_set_safe_dma_api_range(mm);
++		mm->res_cnt = 0;
++		dev_info(mm->dev, "using DMA API allocation path on ACPI\n");
++	} else if (!mm->has_iommu) {
+ 		mm->res_cnt = aipu_mm_add_reserved_regions(mm);
++	}
+ #if AIPU_USE_STANDARD_DMA_API_FOR_V3_2
+ 	else if (mm->version <= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
+ 		mm->res_cnt = aipu_mm_add_iova_region(mm);
+@@ -1326,7 +1346,10 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	if (version > AIPU_ISA_VERSION_ZHOUYI_V1 && mm->res_cnt)
+ 		aipu_mm_set_asid_base(mm);
+ 
+-	dev_info(mm->dev, "driver mem management is %s\n", mm->res_cnt ? "enabled" : "disabled");
++	dev_info(mm->dev, "using %s on %s; driver-internal preallocated IOVA regions are %s\n",
++		 mm->res_cnt ? "driver-internal IOVA allocation" : "DMA API allocations",
++		 has_acpi_companion(mm->dev) ? "ACPI" : "DT",
++		 mm->res_cnt ? "enabled" : "disabled");
+ finish:
+ 	if (ret)
+ 		aipu_deinit_mm(mm);
+@@ -1665,7 +1688,7 @@ int aipu_mm_free(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf, stru
+ 	return ret;
+ }
+ 
+-void tensor_dcache_inval_poc(void *start, void *end) {
++static void tensor_dcache_inval_poc(void *start, void *end) {
+     uintptr_t line_size, addr_start, addr_end, tmp;
+ 
+     line_size = cache_line_size();
+@@ -2959,8 +2982,8 @@ int aipu_copy_block_by_dma_fd(struct aipu_memory_manager *mm,
+ 		return -EINVAL;
+ 
+ 	dmabuf = dma_buf_get(dmabuf_info->fd);
+-	if (!dmabuf)
+-		return -EINVAL;
++	if (IS_ERR(dmabuf))
++		return PTR_ERR(dmabuf);
+ 
+ 	priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
+ 	dma_buf_put(dmabuf);
+@@ -3008,18 +3031,11 @@ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_requ
+ {
+ 	struct aipu_iova_buffer *buffer = NULL;
+ 	struct aipu_phy_block *block = NULL;
+-	struct iommu_domain *domain;
+-	struct iova_domain *iovad;
+ 	int ret = 0;
+ 
+ 	if (!mm || !buf_req)
+ 		return -EINVAL;
+ 
+-	if (buf_req->alloc_mode != AIPU_DMA_BUF_MALLOC_DEFAULT) {
+-		domain = mm->iommu_domain;
+-		iovad = &mm->iova_domain;
+-	}
+-
+ 	switch (buf_req->alloc_mode) {
+ 	case AIPU_DMA_BUF_MALLOC_DEFAULT:
+ 		//support standard dma api and reserved memory
+@@ -3236,7 +3252,7 @@ int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_bind_buf_
+ 	struct aipu_phy_block *block;
+ 	int ret = 0;
+ 	struct dma_buf *dmabuf = NULL;
+-	struct exporter_dma_buf *exp_buf = dmabuf->priv;
++	struct exporter_dma_buf *exp_buf = NULL;
+ 
+ 	if (!mm || !desc)
+ 		return -EINVAL;
+@@ -3256,17 +3272,20 @@ int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_bind_buf_
+ 	dmabuf = dma_buf_get(desc->fd);
+ 	if(IS_ERR(dmabuf)) {
+ 		dev_err(mm->dev, "fail to get dmabuf from fd.\n");
+-		return -EINVAL;
++		return PTR_ERR(dmabuf);
+ 	}
+ 
+ 	if ((buffer->allocated_size + dmabuf->size) > buffer->iova_size) {
+ 		dev_err(mm->dev, "iova space is not enough for phy memory allcation.");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto put_dmabuf;
+ 	}
+ 
+ 	block = kzalloc(sizeof(*block), GFP_KERNEL);
+-	if (!block)
+-		return -ENOMEM;
++	if (!block) {
++		ret = -ENOMEM;
++		goto put_dmabuf;
++	}
+ 
+ 	exp_buf = dmabuf->priv;
+ 
+@@ -3286,12 +3305,13 @@ int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_bind_buf_
+ 	if (ret) {
+ 		dev_err(mm->dev, "Map block to new iova 0x%llx size 0x%llx FAILED.\n", block->iova_start, block->size);
+ 		aipu_free_phy_block(mm, block);
+-		goto OUT;
++		goto put_dmabuf;
+ 	}
+ 	desc->pa = block->iova_start;
+ 	aipu_cache_invalidate(mm, block->va, block->size);
+ 
+-OUT:
++put_dmabuf:
++	dma_buf_put(dmabuf);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
+--- a/drivers/misc/armchina-npu/aipu_priv.c
++++ b/drivers/misc/armchina-npu/aipu_priv.c
+@@ -12,21 +12,36 @@
+ 
+ static int init_misc_dev(struct aipu_priv *aipu)
+ {
++	int ret;
++
+ 	aipu->misc.minor = MISC_DYNAMIC_MINOR;
+ 	aipu->misc.name = "aipu";
+ 	aipu->misc.fops = aipu->aipu_fops;
+ 	aipu->misc.mode = 0666;
+-	return misc_register(&aipu->misc);
++
++	ret = misc_register(&aipu->misc);
++	if (!ret)
++		aipu->misc_registered = true;
++
++	return ret;
+ }
+ 
+ static void deinit_misc_dev(struct aipu_priv *aipu)
+ {
+-	if (aipu && aipu->misc.fops) {
++	if (aipu && aipu->misc_registered) {
+ 		misc_deregister(&aipu->misc);
+ 		memset(&aipu->misc, 0, sizeof(aipu->misc));
++		aipu->misc_registered = false;
+ 	}
+ }
+ 
++static void aipu_priv_release(struct kref *kref)
++{
++	struct aipu_priv *aipu = container_of(kref, struct aipu_priv, kref);
++
++	complete(&aipu->released);
++}
++
+ /**
+  * @init_aipu_priv() - initialize an input AIPU private data struct
+  * @aipu:  pointer to the aipu private struct to be initialized
+@@ -59,6 +74,11 @@ int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
+ 	aipu->aipu_fops = fops;
+ 	aipu->soc = soc;
+ 	aipu->soc_ops = soc_ops;
++	kref_init(&aipu->kref);
++	init_completion(&aipu->released);
++	mutex_init(&aipu->state_lock);
++	aipu->removing = false;
++	aipu->misc_registered = false;
+ 	aipu->reset_delay_us = AIPU_CONFIG_DEFAULT_RESET_DELAY_US;
+ 
+ 	/* init during partitions creation */
+@@ -142,7 +162,8 @@ int deinit_aipu_priv(struct aipu_priv *aipu)
+ 	if (!aipu)
+ 		return 0;
+ 
+-	aipu->ops->destroy_partitions(aipu);
++	if (aipu->ops)
++		aipu->ops->destroy_partitions(aipu);
+ 	deinit_aipu_job_manager(&aipu->job_manager);
+ 	aipu_deinit_mm(&aipu->mm);
+ 	deinit_misc_dev(aipu);
+@@ -151,6 +172,50 @@ int deinit_aipu_priv(struct aipu_priv *aipu)
+ 	return 0;
+ }
+ 
++bool aipu_priv_get(struct aipu_priv *aipu)
++{
++	bool ret = false;
++
++	if (!aipu)
++		return false;
++
++	mutex_lock(&aipu->state_lock);
++	if (aipu->is_init && !aipu->removing)
++		ret = kref_get_unless_zero(&aipu->kref);
++	mutex_unlock(&aipu->state_lock);
++
++	return ret;
++}
++
++void aipu_priv_put(struct aipu_priv *aipu)
++{
++	if (aipu)
++		kref_put(&aipu->kref, aipu_priv_release);
++}
++
++void aipu_priv_begin_remove(struct aipu_priv *aipu)
++{
++	if (!aipu)
++		return;
++
++	mutex_lock(&aipu->state_lock);
++	WRITE_ONCE(aipu->removing, true);
++	mutex_unlock(&aipu->state_lock);
++
++	deinit_misc_dev(aipu);
++}
++
++bool aipu_priv_is_removing(struct aipu_priv *aipu)
++{
++	return !aipu || READ_ONCE(aipu->removing);
++}
++
++void aipu_priv_drop_driver_ref_and_wait(struct aipu_priv *aipu)
++{
++	aipu_priv_put(aipu);
++	wait_for_completion(&aipu->released);
++}
++
+ /**
+  * @aipu_priv_get_version() - get AIPU hardware version number wrapper
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+diff --git a/drivers/misc/armchina-npu/aipu_priv.h b/drivers/misc/armchina-npu/aipu_priv.h
+--- a/drivers/misc/armchina-npu/aipu_priv.h
++++ b/drivers/misc/armchina-npu/aipu_priv.h
+@@ -4,9 +4,12 @@
+ #ifndef __AIPU_PRIV_H__
+ #define __AIPU_PRIV_H__
+ 
++#include <linux/completion.h>
+ #include <linux/device.h>
+ #include <linux/fs.h>
++#include <linux/kref.h>
+ #include <linux/miscdevice.h>
++#include <linux/mutex.h>
+ #include <linux/types.h>
+ #include "armchina_aipu_soc.h"
+ #include "aipu_irq.h"
+@@ -48,8 +51,13 @@ struct aipu_priv_operations {
+  * @job_manager:   job manager struct
+  * @mm:            memory manager
+  * @ops:           aipu_priv version specific operations
++ * @kref:          lifetime reference for open files and exported dma-bufs
++ * @released:      signals the final lifetime reference has been dropped
++ * @state_lock:    protects removing state against new references
+  * @reset_delay_us: global soft-reset delay time
+  * @is_init:       init flag
++ * @removing:      driver is being unbound and must not accept new work
++ * @misc_registered: misc device has been registered with the driver core
+  * @dbg_reg:	   debugger region
+  * @reset_gpio:	   aipu hw reset gpio
+  * @io_lock:	   lock between rest/abort and io opertion
+@@ -72,9 +80,14 @@ struct aipu_priv {
+ 	struct aipu_job_manager      job_manager;
+ 	struct aipu_memory_manager   mm;
+ 	struct aipu_priv_operations  *ops;
++	struct kref kref;
++	struct completion released;
++	struct mutex state_lock;
+ 	int reset_delay_us;
+ 	int core_reset_delay_us;
+ 	bool is_init;
++	bool removing;
++	bool misc_registered;
+ 	struct io_region dbg_reg;
+ 	struct gpio_desc *reset_gpio;
+ };
+@@ -89,6 +102,11 @@ int aipu_priv_query_partition_capability(struct aipu_priv *aipu, struct aipu_par
+ int aipu_priv_query_capability(struct aipu_priv *aipu, struct aipu_cap *cap);
+ int aipu_priv_io_rw(struct aipu_priv *aipu, struct aipu_io_req *io_req);
+ int aipu_priv_check_status(struct aipu_priv *aipu);
++bool aipu_priv_get(struct aipu_priv *aipu);
++void aipu_priv_put(struct aipu_priv *aipu);
++void aipu_priv_begin_remove(struct aipu_priv *aipu);
++bool aipu_priv_is_removing(struct aipu_priv *aipu);
++void aipu_priv_drop_driver_ref_and_wait(struct aipu_priv *aipu);
+ struct aipu_soc *get_soc(struct aipu_partition *partition);
+ struct aipu_soc_operations *get_soc_ops(struct aipu_partition *partition);
+ struct aipu_job_manager *get_job_manager(struct aipu_partition *partition);
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -142,10 +142,12 @@ static int sky1_npu_devfreq_init(struct device *dev, struct cix_aipu_priv *cix_a
+         cix_aipu_priv->opp_pmdomain = dev_pm_domain_attach_by_name(dev, "perf");
+     }
+ 
+-    if (IS_ERR_OR_NULL(cix_aipu_priv->opp_pmdomain)) {
+-        dev_err(dev, "Failed to get perf domain\n");
+-        return -EFAULT;
++    if (IS_ERR(cix_aipu_priv->opp_pmdomain)) {
++        ret = PTR_ERR(cix_aipu_priv->opp_pmdomain);
++        return dev_err_probe(dev, ret, "Failed to get perf domain\n");
+     }
++    if (!cix_aipu_priv->opp_pmdomain)
++        return dev_err_probe(dev, -EPROBE_DEFER, "Failed to get perf domain\n");
+     cix_aipu_priv->opp_dl = device_link_add(dev, cix_aipu_priv->opp_pmdomain,
+                             DL_FLAG_RPM_ACTIVE |
+                             DL_FLAG_PM_RUNTIME |
+@@ -567,11 +569,14 @@ static const struct of_device_id aipu_of_match[] = {
+ MODULE_DEVICE_TABLE(of, aipu_of_match);
+ #endif
+ 
++#ifdef CONFIG_ACPI
+ static const struct acpi_device_id aipu_acpi_match[] = {
+-							{ .id = "CIXH4000", .driver_data = 0 },
+-							{ /* sentinel */ } };
++	{ .id = "CIXH4000", .driver_data = 0 },
++	{ /* sentinel */ }
++};
+ 
+ MODULE_DEVICE_TABLE(acpi, aipu_acpi_match);
++#endif
+ 
+ static struct platform_driver aipu_platform_driver = {
+ 	.probe = sky1_npu_probe,
+@@ -584,7 +589,9 @@ static struct platform_driver aipu_platform_driver = {
+ #endif /* CONFIG_PM */
+ #ifdef CONFIG_OF
+ 		.of_match_table = of_match_ptr(aipu_of_match),
+-		.acpi_match_table = ACPI_PTR(aipu_acpi_match)
++#endif
++#ifdef CONFIG_ACPI
++		.acpi_match_table = ACPI_PTR(aipu_acpi_match),
+ #endif
+ 	},
+ };

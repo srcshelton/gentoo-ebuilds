@@ -1,0 +1,11 @@
+diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
+--- a/drivers/misc/armchina-npu/Makefile
++++ b/drivers/misc/armchina-npu/Makefile
+@@ -3,6 +3,7 @@
+ subdir-ccflags-y += -I$(src)
+ subdir-ccflags-y += -I$(src)/include
+ subdir-ccflags-y += -I$(src)/zhouyi
++ccflags-y += -DKMD_VERSION=\"1.0.0\"
+ 
+ obj-$(CONFIG_ARMCHINA_NPU) += armchina_npu.o
+ armchina_npu-y := aipu.o aipu_common.o aipu_io.o aipu_irq.o  \

@@ -1,0 +1,33 @@
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -678,3 +678,6 @@ int armchina_aipu_free_dma_buf(int fd)
+ 	return ret;
+ }
+ EXPORT_SYMBOL(armchina_aipu_free_dma_buf);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("ArmChina Zhouyi NPU accelerator driver");
+diff --git a/drivers/misc/armchina-npu/include/cix_sky1_soc.h b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+--- a/drivers/misc/armchina-npu/include/cix_sky1_soc.h
++++ b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+@@ -21,6 +21,7 @@ struct cix_aipu_priv {
+ 	unsigned long current_freq;
+ };
+ 
++struct cix_aipu_priv *sky1_priv_init(struct device *dev);
+ int sky1_npu_pm_runtime_get_sync(struct device *dev);
+ int sky1_npu_pm_runtime_put(struct device *dev);
+ 
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -34,7 +34,7 @@ static struct aipu_soc sky1 = {
+ 
+ static struct cix_aipu_priv *cix_aipu_priv;
+ 
+-struct cix_aipu_priv* sky1_priv_init(struct device *dev)
++struct cix_aipu_priv *sky1_priv_init(struct device *dev)
+ {
+ 	cix_aipu_priv = devm_kzalloc(dev, sizeof(*cix_aipu_priv), GFP_KERNEL);
+ 	if (!cix_aipu_priv)
