@@ -1,0 +1,30 @@
+diff --git a/drivers/clk/cix/clk-sky1-audss.c b/drivers/clk/cix/clk-sky1-audss.c
+--- a/drivers/clk/cix/clk-sky1-audss.c
++++ b/drivers/clk/cix/clk-sky1-audss.c
+@@ -303,13 +303,13 @@ static unsigned long sky1_audss_div_recalc_rate(struct clk_hw *hw,
+ 				   div->flags, div->width);
+ }
+ 
+-static long sky1_audss_div_round_rate(struct clk_hw *hw, unsigned long rate,
+-				      unsigned long *prate)
++static int sky1_audss_div_determine_rate(struct clk_hw *hw,
++					 struct clk_rate_request *req)
+ {
+ 	struct clk_divider *div = to_clk_divider(hw);
+ 
+-	return divider_round_rate(hw, rate, prate, div->table,
+-				  div->width, div->flags);
++	return divider_determine_rate(hw, req, div->table, div->width,
++				      div->flags);
+ }
+ 
+ static int sky1_audss_div_set_rate(struct clk_hw *hw, unsigned long rate,
+@@ -340,7 +340,7 @@ static int sky1_audss_div_set_rate(struct clk_hw *hw, unsigned long rate,
+ 
+ static const struct clk_ops sky1_audss_div_ops = {
+ 	.recalc_rate = sky1_audss_div_recalc_rate,
+-	.round_rate = sky1_audss_div_round_rate,
++	.determine_rate = sky1_audss_div_determine_rate,
+ 	.set_rate = sky1_audss_div_set_rate,
+ };
+ 

@@ -1,0 +1,22 @@
+net: cadence: macb: match 7.1 pc302 callback signatures
+
+Keep pc302gem_config visible to ACPI users while preserving the 7.1 upstream callback model and USRIO configuration.
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -4935,11 +4935,10 @@ static const struct macb_usrio_config at91_default_usrio = {
+ };
+ 
+ static const struct macb_config pc302gem_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
++		MACB_CAPS_USRIO_HAS_MII,
+ 	.dma_burst_length = 16,
+-	.clk_init = macb_clk_init,
+-	.init = macb_init,
+-	.usrio = &macb_default_usrio,
++	.usrio = &at91_default_usrio,
+ };
+ 
+ #if defined(CONFIG_OF)

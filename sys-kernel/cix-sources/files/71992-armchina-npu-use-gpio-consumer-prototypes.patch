@@ -1,0 +1,13 @@
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
+@@ -11,9 +11,6 @@
+ #include "zhouyi.h"
+ #include "v3_2.h"
+ 
+-extern void gpiod_set_value(struct gpio_desc *desc, int value);
+-extern int gpiod_get_value(const struct gpio_desc *desc);
+-
+ static int aipu_init_debugger_reg_v3_2(struct platform_device *p_dev, struct io_region *reg)
+ {
+ 	int ret = 0;

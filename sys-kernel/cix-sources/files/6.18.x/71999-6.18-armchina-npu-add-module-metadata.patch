@@ -1,0 +1,10 @@
+diff -upNr a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c	2026-06-29 09:46:55.689854000 +0100
++++ b/drivers/misc/armchina-npu/aipu.c	2026-06-29 09:46:55.693281000 +0100
+@@ -678,3 +678,6 @@ int armchina_aipu_free_dma_buf(int fd)
+ 	return ret;
+ }
+ EXPORT_SYMBOL(armchina_aipu_free_dma_buf);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("ArmChina Zhouyi NPU accelerator driver");

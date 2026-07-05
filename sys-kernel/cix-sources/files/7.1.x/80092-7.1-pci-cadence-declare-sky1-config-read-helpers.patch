@@ -1,0 +1,14 @@
+diff --git a/drivers/pci/controller/cadence/pcie-cadence.h b/drivers/pci/controller/cadence/pcie-cadence.h
+--- a/drivers/pci/controller/cadence/pcie-cadence.h
++++ b/drivers/pci/controller/cadence/pcie-cadence.h
+@@ -358,6 +358,10 @@ static inline int cdns_pcie_read_cfg_dword(struct cdns_pcie *pcie, int where,
+ 	return PCIBIOS_SUCCESSFUL;
+ }
+ 
++int sky1_cdns_pcie_read_cfg_byte(void __iomem *reg_base, int where, u8 *val);
++int sky1_cdns_pcie_read_cfg_word(void __iomem *reg_base, int where, u16 *val);
++int sky1_cdns_pcie_read_cfg_dword(void __iomem *reg_base, int where, u32 *val);
++
+ /* Root Port register access */
+ static inline void cdns_pcie_rp_writeb(struct cdns_pcie *pcie,
+ 				       u32 reg, u8 value)

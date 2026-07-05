@@ -1,0 +1,18 @@
+diff --git a/drivers/soc/cix/cix_dst/Kconfig b/drivers/soc/cix/cix_dst/Kconfig
+--- a/drivers/soc/cix/cix_dst/Kconfig
++++ b/drivers/soc/cix/cix_dst/Kconfig
+@@ -1,10 +1,11 @@
+ # SPDX-License-Identifier: GPL-2.0
+ 
+-menuconfig CIX_DST
+-	bool "Cix DST support"
++config CIX_DST
++	bool
+ 	default n
+ 	help
+-	  Say yes here to support the cix DST
++	  Internal CIX engineering diagnostic stack. Production kernels should
++	  leave this disabled.
+ 
+ if CIX_DST
+ 
