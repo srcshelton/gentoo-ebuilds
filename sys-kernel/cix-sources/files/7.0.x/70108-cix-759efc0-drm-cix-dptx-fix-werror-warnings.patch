@@ -1,0 +1,169 @@
+diff -upNr a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c	2026-07-06 17:25:18.068531000 +0100
++++ b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c	2026-07-06 17:25:18.124976000 +0100
+@@ -10,6 +10,7 @@
+ #include <linux/string.h>
+ #include <linux/errno.h>
+ #include "cix_hdcp.h"
++#include "cix_hdcp_ioctl.h"
+ #include "cix_hdcp_ioctl_cmd.h"
+ #include "hdcp2_tx_tmr.h"
+ #include "hdcp2_tx_state.h"
+diff -upNr a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c	2026-07-06 17:25:18.079466000 +0100
++++ b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c	2026-07-06 17:25:18.127767000 +0100
+@@ -10,6 +10,7 @@
+ #include <linux/io.h>
+ 
+ #include "cix_hdcp.h"
++#include "hdcp2_tx_tmr.h"
+ 
+ //------------------------------------------------------------------------------
+ //  Time Values:
+@@ -44,7 +45,7 @@
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_init(void *addr)
++static void tmr_hdcp_init(void *addr)
+ {
+ 	writel(0ul, addr);
+ }
+@@ -59,7 +60,7 @@ void tmr_hdcp_init(void *addr)
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
++static void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
+ {
+ 	uint32_t tmr_val = readl(addr);
+ 
+@@ -78,7 +79,7 @@ void tmr_hdcp_set_us(void *addr, uint32_
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_enable(void *addr, bool enable)
++static void tmr_hdcp_enable(void *addr, bool enable)
+ {
+ 	uint32_t tmr_val = readl(addr);
+ 
+@@ -101,7 +102,7 @@ void tmr_hdcp_enable(void *addr, bool en
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_interrupt(void *addr, bool enable)
++static void tmr_hdcp_interrupt(void *addr, bool enable)
+ {
+ 	uint32_t tmr_val = readl(addr);
+ 
+@@ -112,29 +113,6 @@ void tmr_hdcp_interrupt(void *addr, bool
+ 
+ 	writel(tmr_val, addr);
+ }
+-
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_autoreload
+-//  Enable / Disable auto-reload for a specified timer
+-//
+-//  Parameters:
+-//      addr   - timer base address
+-//      enable - enable / disable the auto-reload
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-void tmr_hdcp_autoreload(void *addr, bool enable)
+-{
+-	uint32_t tmr_val = readl(addr);
+-
+-	if (enable == true)
+-		tmr_val |= TMR_HDCP_FLAG_AUTORELOAD;
+-	else
+-		tmr_val &= ~TMR_HDCP_FLAG_AUTORELOAD;
+-
+-	writel(tmr_val, addr);
+-}
+ 
+ //------------------------------------------------------------------------------
+ //  Function: hdcp2_tx_tmr_start
+diff -upNr a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c	2026-07-06 17:25:18.090053000 +0100
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c	2026-07-06 17:25:18.130514000 +0100
+@@ -120,7 +120,6 @@ static void trilin_link_rate_update(stru
+ 	union phy_configure_opts opts = { 0 };
+ 	struct trilin_phy_t *phy = &dp->phy;
+ 	u8 lanes, max_lanes = dp->link_config.max_lanes;
+-	int ret;
+ 
+ 	if (IS_ERR_OR_NULL(phy->base)) {
+ 		lanes = max_lanes;
+@@ -136,7 +135,7 @@ static void trilin_link_rate_update(stru
+ 	opts.dp.set_rate = 1;
+ 
+ 	if (phy->phy_ops)
+-		ret = phy->phy_ops->configure(dp, &opts);
++		phy->phy_ops->configure(dp, &opts);
+ }
+ 
+ /**
+@@ -694,7 +693,7 @@ end:
+  *
+  * Train the link by downshifting the link rate if training is not successful.
+  */
+-int trilin_dp_train_loop(struct trilin_dp *dp)
++static int trilin_dp_train_loop(struct trilin_dp *dp)
+ {
+ 	struct trilin_dp_mode *mode = &dp->mode;
+ 	u8 bw_cur, bw = mode->bw_code;
+@@ -1666,8 +1665,8 @@ int trilin_dp_panel_setup_hdr_sdp(struct
+ 	return 0;
+ }
+ 
+-void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
+-			    struct trilin_dp_panel *dp_panel)
++static void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
++				   struct trilin_dp_panel *dp_panel)
+ {
+ 	struct trilin_connector *conn = dp_panel->connector;
+ 	struct drm_connector *base = &conn->base;
+diff -upNr a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c	2026-07-06 17:25:18.100511000 +0100
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c	2026-07-06 17:25:18.133278000 +0100
+@@ -409,7 +409,7 @@ static int trilin_dp_mst_get_modes(struc
+ 	return ret;
+ }
+ 
+-enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
++static enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
+ 					      struct drm_display_mode *mode)
+ #else
+diff -upNr a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c	2026-07-06 17:25:18.110424000 +0100
++++ b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c	2026-07-06 17:25:18.136030000 +0100
+@@ -657,25 +657,6 @@ static const phy_voltage_conf_t dp_volt_
+ 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+ };
+ 
+-static const phy_voltage_conf_t edp_volt_high_cfg[] = {
+-	{ 0x08A4, 0x0003, 0x0027, 0x0000 }, // swing level == 0
+-	{ 0x08A4, 0x0003, 0x0023, 0x0009 },
+-	{ 0x08A4, 0x0003, 0x001E, 0x0010 },
+-	{ 0x08A4, 0x0003, 0x001A, 0x0015 },
+-	{ 0x08A4, 0x0003, 0x0023, 0x0000 }, // swing level == 1
+-	{ 0x08A4, 0x0003, 0x001E, 0x0008 },
+-	{ 0x08A4, 0x0003, 0x001A, 0x000E },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x001E, 0x0000 }, // swing level == 2
+-	{ 0x08A4, 0x0003, 0x001A, 0x0007 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x001A, 0x0000 }, // swing level == 3
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-};
+-
+ static const phy_voltage_conf_t edp_volt_low_cfg[] = {
+ 	{ 0x08A4, 0x0003, 0x002F, 0x0000 }, // swing level == 0
+ 	{ 0x08A4, 0x0003, 0x002A, 0x000D },

@@ -1,0 +1,16 @@
+diff -upNr a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c	2026-07-06 17:25:18.038484000 +0100
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c	2026-07-06 17:25:18.046619000 +0100
+@@ -1009,9 +1009,9 @@ int trilin_dp_encoder_compute_config(str
+ 	return 0;
+ }
+ 
+-int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
+-				  struct drm_crtc_state *crtc_state,
+-				  struct drm_connector_state *connector_state)
++static int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
++					  struct drm_crtc_state *crtc_state,
++					  struct drm_connector_state *connector_state)
+ {
+ 	struct trilin_dp *dp = encoder_to_dp(encoder);
+ 	struct trilin_connector *conn = &dp->connector;
