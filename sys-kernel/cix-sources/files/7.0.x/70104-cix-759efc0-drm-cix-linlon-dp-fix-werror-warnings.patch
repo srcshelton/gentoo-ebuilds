@@ -1,0 +1,55 @@
+diff -upNr a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c	2026-07-06 17:25:17.993125000 +0100
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c	2026-07-06 17:25:18.015016000 +0100
+@@ -22,7 +22,6 @@ static int linlondp_plane_init_data_flow
+ 	struct drm_framebuffer *fb = st->fb;
+ 	const struct linlondp_format_caps *caps = to_kfb(fb)->format_caps;
+ 	struct linlondp_pipeline *pipe = kplane->layer->base.pipeline;
+-	struct linlondp_dev *mdev = st->plane->dev->dev_private;
+ 	struct drm_crtc_state *crtc_st;
+ 	struct drm_display_mode *mode;
+ 	struct drm_display_mode *adjusted_mode;
+diff -upNr a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c	2026-07-06 17:25:18.006036000 +0100
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c	2026-07-06 17:25:18.018078000 +0100
+@@ -280,8 +280,8 @@ linlondp_wb_connector_create_color_prop(
+ {
+ 	struct drm_device *dev = wb_conn->base.base.dev;
+ 	struct drm_property *prop;
+-	struct drm_prop_enum_list enum_list[max_t(int, DRM_COLOR_ENCODING_MAX,
+-						  DRM_COLOR_RANGE_MAX)];
++	struct drm_prop_enum_list encoding_list[DRM_COLOR_ENCODING_MAX];
++	struct drm_prop_enum_list range_list[DRM_COLOR_RANGE_MAX];
+ 	u32 supported_encoding = BIT(DRM_COLOR_YCBCR_BT601) |
+ 				 BIT(DRM_COLOR_YCBCR_BT709);
+ 	u32 supported_range = BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
+@@ -292,11 +292,11 @@ linlondp_wb_connector_create_color_prop(
+ 	for (i = 0; i < DRM_COLOR_ENCODING_MAX; i++) {
+ 		if ((supported_encoding & BIT(i)) == 0)
+ 			continue;
+-		enum_list[len].type = i;
+-		enum_list[len].name = color_encoding_name[i];
++		encoding_list[len].type = i;
++		encoding_list[len].name = color_encoding_name[i];
+ 		len++;
+ 	}
+-	prop = drm_property_create_enum(dev, 0, "COLOR_ENCODING", enum_list,
++	prop = drm_property_create_enum(dev, 0, "COLOR_ENCODING", encoding_list,
+ 					len);
+ 	if (!prop)
+ 		return -ENOMEM;
+@@ -308,11 +308,11 @@ linlondp_wb_connector_create_color_prop(
+ 	for (i = 0; i < DRM_COLOR_RANGE_MAX; i++) {
+ 		if ((supported_range & BIT(i)) == 0)
+ 			continue;
+-		enum_list[len].type = i;
+-		enum_list[len].name = color_range_name[i];
++		range_list[len].type = i;
++		range_list[len].name = color_range_name[i];
+ 		len++;
+ 	}
+-	prop = drm_property_create_enum(dev, 0, "COLOR_RANGE", enum_list, len);
++	prop = drm_property_create_enum(dev, 0, "COLOR_RANGE", range_list, len);
+ 	if (!prop)
+ 		return -ENOMEM;
+ 	wb_conn->color_range_property = prop;

@@ -1,0 +1,25 @@
+diff -upNr a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c	2026-07-06 17:25:17.960653000 +0100
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c	2026-07-06 17:25:17.968417000 +0100
+@@ -128,7 +128,6 @@ static int trilin_dptx_cix_bind(struct d
+ 	void *np;
+ 	const void *match;
+ 	struct drm_device *drm = master_data;
+-	struct trilin_dptx_pdata *pdata;
+ 	struct trilin_dptx_cix_dev *cix_dptx = dev_get_drvdata(comp);
+ 	struct drm_encoder *encoder;
+ 	struct trilin_dpsub *dpsub;
+@@ -153,13 +152,8 @@ static int trilin_dptx_cix_bind(struct d
+ 
+ 	if (has_acpi_companion(comp)) {
+ 		match = acpi_device_get_match_data(comp);
+-		pdata = (struct trilin_dptx_pdata *)(((struct acpi_device_id *)
+-							      match)
+-							     ->driver_data);
+ 	} else {
+ 		match = of_match_node(trilin_dptx_dt_ids, np);
+-		pdata = (struct trilin_dptx_pdata
+-				 *)(((struct of_device_id *)match)->data);
+ 	}
+ 
+ 	if (unlikely(!match))

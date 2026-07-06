@@ -1,6 +1,6 @@
-soc: cix: add Sky1 reboot reason driver for 7.0.12
+soc: cix: add Sky1 reboot reason driver for the CIX 759efc0 base
 
-Regenerate the Sky1 reboot-reason driver patch against the 7.0.12 CIX
+Regenerate the Sky1 reboot-reason driver patch against the CIX 759efc0 base
 platform Kconfig, Makefile and source context so it applies without fuzz.
 
 ---

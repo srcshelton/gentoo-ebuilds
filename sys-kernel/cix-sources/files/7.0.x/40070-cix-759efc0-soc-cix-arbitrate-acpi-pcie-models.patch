@@ -1,6 +1,6 @@
-soc: cix: arbitrate Sky1 ACPI PCIe generic and vendor models for 7.0.12
+soc: cix: arbitrate Sky1 ACPI PCIe generic and vendor models for the CIX 759efc0 base
 
-Regenerate the Sky1 ACPI PCIe model arbitration patch against the 7.0.12 CIX
+Regenerate the Sky1 ACPI PCIe model arbitration patch against the CIX 759efc0 base
 platform Kconfig, Makefile and source context so it applies without fuzz.
 
 ---
