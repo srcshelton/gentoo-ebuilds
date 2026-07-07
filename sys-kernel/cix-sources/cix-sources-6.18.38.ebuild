@@ -154,6 +154,7 @@ src_prepare() {
 	for pf in "${cix_patch_dir}"/*.patch; do
 		cix_apply_patch "${pf}"
 	done
+	eapply "${FILESDIR}"/6.18.x/0033-regulator-add-acpi-fwnode-support.patch || die
 
 	while read -r pf; do
 		[[ -n "${pf}" && "${pf}" != \#* ]] || continue
@@ -166,6 +167,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
 	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
 	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
+	eapply "${FILESDIR}"/71998-armchina-npu-balance-acpi-core-runtime-pm.patch || die
 	eapply "${FILESDIR}"/6.18.x/71999-armchina-npu-add-module-metadata.patch || die
 
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
@@ -177,6 +179,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/90070-sky1-restore-cadence-torrent-dt-binding-header.patch || die
 	eapply "${FILESDIR}"/6.18.x/70005-drm-cix-linlon-dp-fix-symbol-clashes-and-clang-werror.patch || die
 	eapply "${FILESDIR}"/70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
+	eapply "${FILESDIR}"/6.18.x/70110-drm-cix-dptx-demote-missing-dp-phy-log.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
@@ -193,9 +196,11 @@ src_prepare() {
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
 	eapply "${FILESDIR}"/6.18.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
+	eapply "${FILESDIR}"/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
 	eapply "${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch || die
 	eapply "${FILESDIR}"/30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch || die
 	eapply "${FILESDIR}"/30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch || die
+	eapply "${FILESDIR}"/30155-firmware-arm-scmi-match-only-scmi-bus-devices.patch || die
 	eapply "${FILESDIR}"/30180-mailbox-cix-avoid-sky1-scmi-shmem-overlap.patch || die
 	eapply "${FILESDIR}"/30190-clk-scmi-keep-acpi-clocks-enabled.patch || die
 	eapply "${FILESDIR}"/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch || die
@@ -220,13 +225,16 @@ src_prepare() {
 	eapply "${FILESDIR}"/40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
 	eapply "${FILESDIR}"/6.18.x/30020-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
+	eapply "${FILESDIR}"/6.18.x/30022-pmdomain-decouple-acpi-genpd-from-of.patch || die
 	eapply "${FILESDIR}"/6.18.x/30160-scmi-handle-acpi-debugfs-fallbacks.patch || die
 	eapply "${FILESDIR}"/6.18.x/50050-sky1-acpi-runtime-driver-fixes.patch || die
+	eapply "${FILESDIR}"/6.18.x/50055-dmaengine-arm-dma350-keep-fch-acpi-dma-optional-clocks-optional.patch || die
 	eapply "${FILESDIR}"/6.18.x/60040-usb-typec-acpi-runtime-fixes.patch || die
 	eapply "${FILESDIR}"/6.18.x/60096-phy-cix-usbdp-allow-acpi-selection.patch || die
 	eapply "${FILESDIR}"/6.18.x/70040-display-media-acpi-runtime-fixes.patch || die
 	eapply "${FILESDIR}"/6.18.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch || die
 	eapply "${FILESDIR}"/6.18.x/90000-soc-cix-add-acpi-runtime-drivers.patch || die
+	eapply "${FILESDIR}"/6.18.x/90001-clocksource-sky1-gpt-accept-firmware-clock-names.patch || die
 	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
 	eapply "${FILESDIR}"/60070-usb-typec-add-provider-fwnode-control-lookups.patch || die
 	eapply "${FILESDIR}"/6.18.x/60120-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch || die
