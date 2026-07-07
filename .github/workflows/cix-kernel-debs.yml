@@ -33,7 +33,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Check out overlay
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build matrix
         id: matrix
@@ -140,7 +140,7 @@ jobs:
       KERNEL_CONFIG_FLAVOUR: ${{ matrix.config_flavour }}
     steps:
       - name: Check out overlay
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Reclaim runner disk space
         uses: jlumbroso/free-disk-space@v1.3.1
