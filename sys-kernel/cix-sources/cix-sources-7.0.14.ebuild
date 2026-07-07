@@ -146,6 +146,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
 	eapply "${FILESDIR}"/7.0.x/30127-cix-759efc0-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
+	eapply "${FILESDIR}"/7.0.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
 	eapply "${FILESDIR}"/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch || die
 	eapply "${FILESDIR}"/7.0.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch || die
 	eapply "${FILESDIR}"/60000-cix-usb-phy-fail-cleanly-on-missing-resources.patch || die
@@ -227,6 +228,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.0.x/50060-watchdog-sbsa-gwdt-use-control-frame-ping-on-cix-sky1.patch || die
 	eapply "${FILESDIR}"/7.0.x/50070-dma-arm-dma350-skip-of-reserved-memory-under-acpi.patch || die
 	eapply "${FILESDIR}"/7.0.x/50080-dma-arm-dma350-skip-unsafe-remote-acpi-probe.patch || die
+	eapply "${FILESDIR}"/7.0.x/50085-dma-arm-dma350-keep-fch-acpi-dma-optional-clocks-optional.patch || die
 	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
 	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
 	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
