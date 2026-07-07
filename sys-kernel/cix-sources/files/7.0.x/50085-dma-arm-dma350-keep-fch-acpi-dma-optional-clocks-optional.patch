@@ -1,0 +1,49 @@
+Subject: [PATCH] dmaengine: arm-dma350: keep FCH ACPI DMA optional clocks optional
+
+CIXHA014 is the FCH DMA350 instance. Its firmware node does not
+describe AUDSS clock/reset resources and it is not remote-controlled, so
+treating any missing ACPI clock/reset as an audio-provider ordering
+problem leaves DMA0 permanently deferred.
+
+Keep the provider deferral for the remote-controlled AUDSS DMA instance,
+but allow the ordinary FCH ACPI instance to use the existing optional
+clock/reset path.
+
+diff --git a/drivers/dma/arm-dma350.c b/drivers/dma/arm-dma350.c
+--- a/drivers/dma/arm-dma350.c
++++ b/drivers/dma/arm-dma350.c
+@@ -1277,14 +1277,10 @@ static int d350_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/*
+-	 * Under ACPI, the audio clock controller (CIXH6061) provides clocks
+-	 * via clkdev and also activates the audio power domain during its
+-	 * probe.  If we got no clock, the clock controller hasn't probed
+-	 * yet — defer until it registers its clkdev entries.
++	 * Non-remote ACPI instances, such as FCH DMA0, do not expose
++	 * a clock table.  Keep the optional-clock path for those devices;
++	 * AUDSS DMA is handled by the remote_acpi check above.
+ 	 */
+-	if (!clk && has_acpi_companion(dev))
+-		return dev_err_probe(dev, -EPROBE_DEFER,
+-				     "waiting for audio clock controller\n");
+ 
+ 	/*
+ 	 * Enable runtime PM to activate power domain. The runtime_resume
+@@ -1317,12 +1313,11 @@ static int d350_probe(struct platform_device *pdev)
+ 			goto err_pm_put;
+ 		}
+ 		/*
+-		 * Under ACPI, the audio reset controller (CIXH6062)
+-		 * registers lookup entries during its probe.  If we
+-		 * got NULL, it hasn't probed yet — defer.
++		 * Only the remote AUDSS DMA instance depends on the audio reset
++		 * controller being available before probing.
+ 		 */
+-		if (!rst && has_acpi_companion(dev)) {
+-			dev_info(dev, "waiting for audio reset controller\n");
++		if (!rst && remote_acpi) {
++			dev_info(dev, "waiting for AUDSS reset controller\n");
+ 			ret = -EPROBE_DEFER;
+ 			goto err_pm_put;
+ 		}
