@@ -13,6 +13,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "O6ECTZ", 0x00000001)
 
     Scope (\_SB.ECTZ)
     {
+        Name (_STR, Unicode ("EC"))
         Method (_CRT, 0, NotSerialized) { Return (0x0E80) }
     }
 }

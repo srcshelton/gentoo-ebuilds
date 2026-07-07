@@ -122,6 +122,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
 	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
 	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
+	eapply "${FILESDIR}"/71998-armchina-npu-balance-acpi-core-runtime-pm.patch || die
 	eapply "${FILESDIR}"/71999-armchina-npu-add-sky1-priv-init-prototype.patch || die
 	eapply "${FILESDIR}"/7.0.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
@@ -208,6 +209,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch || die
 	eapply "${FILESDIR}"/30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch || die
 	eapply "${FILESDIR}"/30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch || die
+	eapply "${FILESDIR}"/30155-firmware-arm-scmi-match-only-scmi-bus-devices.patch || die
 	eapply "${FILESDIR}"/7.0.x/30160-scmi-handle-acpi-debugfs-fallbacks.patch || die
 	eapply "${FILESDIR}"/7.0.x/30170-clk-sky1-acpi-select-cix-mailbox-for-scmi.patch || die
 	eapply "${FILESDIR}"/30180-mailbox-cix-avoid-sky1-scmi-shmem-overlap.patch || die

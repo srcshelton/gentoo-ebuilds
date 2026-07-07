@@ -1,0 +1,18 @@
+drm: cix: demote missing DPTX dp_phy fallback log
+
+Some DPTX instances do not expose an external dp_phy reference, but
+the driver continues by registering its built-in USB-DP/eDP PHY helpers.
+Report that valid fallback at debug level so normal boots do not show
+a warning for working display blocks.
+
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -2341,7 +2341,7 @@
+ 		}
+ 
+ 		if (IS_ERR_OR_NULL(phy->base))
+-			DP_WARN("no dp_phy\n");
++			DP_DEBUG("no dp_phy, using built-in DPTX PHY registration\n");
+ 
+ 		trilin_usbdp_phy_register(dp);
+ 		trilin_edp_phy_register(dp);

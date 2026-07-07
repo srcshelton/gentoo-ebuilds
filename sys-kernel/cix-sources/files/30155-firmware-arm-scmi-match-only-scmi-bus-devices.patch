@@ -1,0 +1,31 @@
+firmware: arm_scmi: match only SCMI bus devices by id
+
+Radxa commit 777363029730 (DPTSW-23172) fixes a crash where
+device_find_child() can pass ACPI/platform children to the SCMI child matcher.
+Reject non-SCMI-bus devices before using to_scmi_dev(), and also guard
+against absent SCMI device names before strcmp().
+
+---
+diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
+--- a/drivers/firmware/arm_scmi/bus.c
++++ b/drivers/firmware/arm_scmi/bus.c
+@@ -233,8 +233,18 @@ static int scmi_dev_match(struct device *dev, const struct device_driver *drv)
+ 
+ static int scmi_match_by_id_table(struct device *dev, const void *data)
+ {
+-	struct scmi_device *scmi_dev = to_scmi_dev(dev);
+ 	const struct scmi_device_id *id_table = data;
++	struct scmi_device *scmi_dev;
++
++	if (!id_table || !id_table->name)
++		return 0;
++
++	if (dev->bus != &scmi_bus_type)
++		return 0;
++
++	scmi_dev = to_scmi_dev(dev);
++	if (!scmi_dev->name)
++		return 0;
+ 
+ 	return scmi_dev_match_by_id_table(scmi_dev, id_table);
+ }

@@ -1,0 +1,69 @@
+misc: armchina-npu: quiet and unwind ACPI devfreq deferrals
+
+The Sky1 ACPI probe path enables runtime PM on each NPU core device
+before devfreq initialisation.  If devfreq defers while waiting for the
+SCMI perf domain, probe returns without disabling those child devices,
+so every retry emits "Unbalanced pm_runtime_enable!" for CIXH4010.
+
+Balance already-enabled ACPI core devices on both the devfreq and later
+probe error paths before detaching the domains.  Also preserve the
+dev_err_probe() deferral semantics instead of re-logging -EPROBE_DEFER.
+
+---
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -364,6 +364,23 @@ static struct aipu_soc_operations sky1_ops = {
+ 	.is_aipu_irq = NULL,
+ };
+ 
++static void sky1_npu_disable_acpi_core_runtime_pm(struct device *dev)
++{
++	int i;
++
++	if (!has_acpi_companion(dev))
++		return;
++
++	for (i = 0; i < CIX_NPU_PD_NUM; i++) {
++		if (!cix_aipu_priv->pd_core[i])
++			continue;
++		if (!pm_runtime_enabled(cix_aipu_priv->pd_core[i]))
++			continue;
++
++		pm_runtime_disable(cix_aipu_priv->pd_core[i]);
++	}
++}
++
+ static int sky1_npu_probe(struct platform_device *p_dev)
+ {
+ 	int ret;
+@@ -420,7 +437,7 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ #ifdef CONFIG_ENABLE_DEVFREQ
+ 	ret = sky1_npu_devfreq_init(&p_dev->dev, cix_aipu_priv);
+ 	if (ret) {
+-		dev_err(&p_dev->dev, "aipu devfreq init failed, ret: %d\n", ret);
++		dev_err_probe(&p_dev->dev, ret, "aipu devfreq init failed\n");
+ 		goto devfreq_init_failed;
+ 	}
+ #endif
+@@ -456,11 +473,7 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ npu_probe_failed:
+ 	pm_runtime_put(&p_dev->dev);
+ 
+-    if (has_acpi_companion(&p_dev->dev)) {
+-		for (i = 0; i < CIX_NPU_PD_NUM; i++) {
+-			pm_runtime_disable(cix_aipu_priv->pd_core[i]);
+-		}
+-	}
++	sky1_npu_disable_acpi_core_runtime_pm(&p_dev->dev);
+ 	pm_runtime_disable(&p_dev->dev);
+ 
+ #ifdef CONFIG_ENABLE_DEVFREQ
+@@ -468,6 +481,7 @@ npu_probe_failed:
+ #endif
+ 
+ devfreq_init_failed:
++	sky1_npu_disable_acpi_core_runtime_pm(&p_dev->dev);
+ 	for (i=0; i < CIX_NPU_PD_NUM; i++) {
+ 		dev_pm_domain_detach(cix_aipu_priv->pd_core[i], true);
+ 	}

@@ -2023,7 +2023,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU-B0"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Big Cluster 0 (cores 0,1)"))  // _STR: Description String
         }
 
         ThermalZone (TZB1)
@@ -2093,7 +2093,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU-B1"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Big Cluster 1 (cores 10,11)"))  // _STR: Description String
         }
 
         ThermalZone (TZM0)
@@ -2163,7 +2163,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU-M0"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Middle Cluster 0 (cores 6,7)"))  // _STR: Description String
         }
 
         ThermalZone (TZM1)
@@ -2233,7 +2233,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU-M1"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Middle Cluster 1 (cores 8,9)"))  // _STR: Description String
         }
 
         Method (SPFA, 0, Serialized)
@@ -2333,6 +2333,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Return (0x0A)
             }
+
+            Name (_STR, Unicode ("GPU Average"))  // _STR: Description String
         }
 
         Mutex (MBXM, 0x00)
@@ -4270,14 +4272,14 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Package (0x03)
                 {
                     0x0105, 
-                    "fch_timer_apb_clk", 
+                    "fch_timer_apb_clk",
                     TMR0
                 }, 
 
                 Package (0x03)
                 {
                     0xF2, 
-                    "fch_timer_func_clk", 
+                    "fch_timer_func_clk",
                     TMR0
                 }
             })
@@ -13316,7 +13318,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x07)
+                Package (0x08)
                 {
                     Package (0x02)
                     {
@@ -13363,6 +13365,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         "tzgt", 
                         TZGT
                     }, 
+
+                    Package (0x02)
+                    {
+                        "mali-supply",
+                        GPUP
+                    },
 
                     Package (0x02)
                     {

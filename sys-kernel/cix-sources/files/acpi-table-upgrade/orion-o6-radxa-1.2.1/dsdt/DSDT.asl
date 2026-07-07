@@ -2021,7 +2021,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Big Cluster 0 (CPU 8-9)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Big Cluster 0 (cores 0,1)"))  // _STR: Description String
         }
 
         ThermalZone (TZB1)
@@ -2091,7 +2091,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Big Cluster 1 (CPU 10-11)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Big Cluster 1 (cores 10,11)"))  // _STR: Description String
         }
 
         ThermalZone (TZM0)
@@ -2161,7 +2161,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Mid Cluster 0 (CPU 4-5)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Middle Cluster 0 (cores 6,7)"))  // _STR: Description String
         }
 
         ThermalZone (TZM1)
@@ -2231,7 +2231,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Mid Cluster 1 (CPU 6-7)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU Middle Cluster 1 (cores 8,9)"))  // _STR: Description String
         }
 
         Method (SPFA, 0, Serialized)
@@ -2331,6 +2331,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Return (0x0A)
             }
+
+            Name (_STR, Unicode ("GPU Average"))  // _STR: Description String
         }
 
         Mutex (MBXM, 0x00)
@@ -2571,6 +2573,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 LENG = 0x10
                 MSID = 0x04
                 PRID = 0x11
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2596,9 +2599,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (PRSG, 1, Serialized)
@@ -2635,6 +2638,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 DAT0 = Arg0
                 MSID = 0x05
                 PRID = 0x11
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2660,9 +2664,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (PEFG, 2, Serialized)
@@ -2700,6 +2704,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 DAT1 = Arg1
                 MSID = 0x04
                 PRID = 0x13
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2725,9 +2730,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (CLKG, 1, Serialized)
@@ -2764,6 +2769,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 LENG = 0x08
                 MSID = 0x06
                 PRID = 0x14
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2789,9 +2795,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (CLKS, 3, Serialized)
@@ -2831,6 +2837,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 LENG = 0x14
                 MSID = 0x05
                 PRID = 0x14
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2856,9 +2863,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (CLKD, 2, Serialized)
@@ -2896,6 +2903,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 LENG = 0x0C
                 MSID = 0x04
                 PRID = 0x14
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2921,9 +2929,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (CLKC, 2, Serialized)
@@ -2961,6 +2969,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 LENG = 0x0C
                 MSID = 0x07
                 PRID = 0x14
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -2986,9 +2995,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (SENG, 2, Serialized)
@@ -3026,6 +3035,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 LENG = 0x0C
                 MSID = 0x06
                 PRID = 0x15
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -3051,9 +3061,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
 
             Method (SFMD, 1, Serialized)
@@ -3089,6 +3099,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 DAT0 = Arg0
                 LENG = 0x08
                 MHED = 0x0802
+                Name (RESP, Buffer (0x60){})
                 MSGP = BUFF /* \_SB_.PMMX.BUFF */
                 CFRE = Zero
                 BEEL = One
@@ -3114,10 +3125,10 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     })
                 }
 
-                Local7 = MSGP /* \_SB_.PMMX.MSGP */
+                RESP = MSGP /* \_SB_.PMMX.MSGP */
                 MSGA = Local1
                 Release (MBXM)
-                Return (Local7)
+                Return (RESP)
             }
         }
 
@@ -13371,7 +13382,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */,
-                Package (0x07)
+                Package (0x08)
                 {
                     Package (0x02)
                     {
@@ -13417,6 +13428,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "tzgt",
                         TZGT
+                    },
+
+                    Package (0x02)
+                    {
+                        "mali-supply",
+                        GPUP
                     },
 
                     Package (0x02)

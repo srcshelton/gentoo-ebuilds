@@ -252,6 +252,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch || die
 	eapply "${FILESDIR}"/30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch || die
 	eapply "${FILESDIR}"/30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch || die
+	eapply "${FILESDIR}"/30155-firmware-arm-scmi-match-only-scmi-bus-devices.patch || die
 	eapply "${FILESDIR}"/7.0.x/30160-scmi-handle-acpi-debugfs-fallbacks.patch || die
 	eapply "${FILESDIR}"/7.0.x/30170-clk-sky1-acpi-select-cix-mailbox-for-scmi.patch || die
 	eapply "${FILESDIR}"/30180-mailbox-cix-avoid-sky1-scmi-shmem-overlap.patch || die

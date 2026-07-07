@@ -214,7 +214,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "O6TZSNS", 0x00000001)
                 Return (Ones)
             }
             Method (_TZP, 0, NotSerialized) { Return (0x0A) }
-            Name (_STR, Unicode ("Board NTC 0"))
+            Name (_STR, Unicode ("Board Thermistor 0"))
         }
 
         ThermalZone (TZN1)
@@ -234,7 +234,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "O6TZSNS", 0x00000001)
                 Return (Ones)
             }
             Method (_TZP, 0, NotSerialized) { Return (0x0A) }
-            Name (_STR, Unicode ("Board NTC 1"))
+            Name (_STR, Unicode ("Board Thermistor 1"))
         }
     }
 }
