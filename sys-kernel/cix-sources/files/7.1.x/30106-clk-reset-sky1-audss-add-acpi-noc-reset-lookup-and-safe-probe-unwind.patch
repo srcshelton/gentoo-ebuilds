@@ -1,0 +1,65 @@
+clk/reset: fix Sky1 AUDSS ACPI noc reset and probe unwind
+
+The Orion ACPI tables describe the AUDSS clock controller's noc reset as
+an RST0 reset line, matching the reset name requested by CIX's 6.18/7.0
+clock driver.  The generic CIX ACPI resource lookup can run before CIXH6061
+exists as a platform consumer and therefore misses this early critical
+lookup. Register the lookup from the top-level Sky1 reset provider so
+sky1-audss-clk can acquire its firmware-described noc reset under ACPI.
+
+Also avoid pm_runtime_put_sync() on the AUDSS clock probe error path. If
+probe fails after parent clocks have been disabled, invoking runtime suspend
+can read the AUDSS register block with clocks/power in the wrong state and
+trigger the synchronous external abort seen during 7.1.3 boot.
+
+---
+diff --git a/drivers/clk/cix/clk-sky1-audss.c b/drivers/clk/cix/clk-sky1-audss.c
+--- a/drivers/clk/cix/clk-sky1-audss.c
++++ b/drivers/clk/cix/clk-sky1-audss.c
+@@ -881,8 +881,9 @@ static int sky1_audss_clk_probe(struct platform_device *pdev)
+ err_clks:
+ 	sky1_audss_clks_disable(priv);
+ err_pm:
+-	pm_runtime_put_sync(dev);
+ 	pm_runtime_disable(dev);
++	pm_runtime_set_suspended(dev);
++	pm_runtime_put_noidle(dev);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/reset/reset-sky1.c b/drivers/reset/reset-sky1.c
+--- a/drivers/reset/reset-sky1.c
++++ b/drivers/reset/reset-sky1.c
+@@ -352,6 +352,7 @@ static int sky1_reset_probe(struct platform_device *pdev)
+ 		.reg_stride = 4,
+ 		.name = "src",
+ 	};
++	int ret;
+ 
+ 	sky1src = devm_kzalloc(dev, sizeof(*sky1src), GFP_KERNEL);
+ 	if (!sky1src)
+@@ -379,7 +380,23 @@ static int sky1_reset_probe(struct platform_device *pdev)
+ 	sky1src->rcdev.of_node   = dev->of_node;
+ 	sky1src->rcdev.dev       = dev;
+ 
+-	return devm_reset_controller_register(dev, &sky1src->rcdev);
++	ret = devm_reset_controller_register(dev, &sky1src->rcdev);
++	if (ret)
++		return ret;
++
++	if (has_acpi_companion(dev) && variant == &variant_sky1) {
++		static struct reset_control_lookup lookups[] = {
++			{ .index = SKY1_AUDIO_HIFI5_NOC_RESET_N,
++			  .dev_id = "CIXH6061:00", .con_id = "noc" },
++		};
++		int i;
++
++		for (i = 0; i < ARRAY_SIZE(lookups); i++)
++			lookups[i].provider = dev_name(dev);
++		reset_controller_add_lookup(lookups, ARRAY_SIZE(lookups));
++	}
++
++	return 0;
+ }
+ 
+ static const struct of_device_id sky1_reset_dt_ids[] = {

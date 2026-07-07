@@ -157,6 +157,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
 	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
 	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
+	eapply "${FILESDIR}"/71998-armchina-npu-balance-acpi-core-runtime-pm.patch || die
 	eapply "${FILESDIR}"/71999-armchina-npu-add-sky1-priv-init-prototype.patch || die
 	eapply "${FILESDIR}"/7.0.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
@@ -259,6 +260,8 @@ src_prepare() {
 	eapply "${FILESDIR}"/30190-clk-scmi-keep-acpi-clocks-enabled.patch || die
 	eapply "${FILESDIR}"/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch || die
 	eapply "${FILESDIR}"/7.1.x/30105-clk-sky1-audss-use-determine-rate.patch || die
+	eapply "${FILESDIR}"/7.1.x/30106-clk-reset-sky1-audss-add-acpi-noc-reset-lookup-and-safe-probe-unwind.patch || die
+	eapply "${FILESDIR}"/7.1.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
 	eapply "${FILESDIR}"/7.1.x/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
 	eapply "${FILESDIR}"/7.0.x/73010-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
 	eapply "${FILESDIR}"/7.0.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch || die
@@ -271,6 +274,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.0.x/50060-watchdog-sbsa-gwdt-use-control-frame-ping-on-cix-sky1.patch || die
 	eapply "${FILESDIR}"/7.0.x/50070-dma-arm-dma350-skip-of-reserved-memory-under-acpi.patch || die
 	eapply "${FILESDIR}"/7.0.x/50080-dma-arm-dma350-skip-unsafe-remote-acpi-probe.patch || die
+	eapply "${FILESDIR}"/7.0.x/50085-dma-arm-dma350-keep-fch-acpi-dma-optional-clocks-optional.patch || die
 	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
 	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
 	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
