@@ -1,0 +1,86 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -514,36 +514,53 @@ static int imgsens_probe(struct i2c_client *client)
+ 	i2c_set_clientdata(client, (void *)pimgsens_sd);
+ 
+ 	pimgsens_sd->imgs_inst.pinctrl = devm_pinctrl_get(&client->dev);
+-	if (IS_ERR(pimgsens_sd->imgs_inst.pinctrl))
+-		LOG(LOG_ERR, "can't get pinctrl, bus recovery not supported\n");
++	if (IS_ERR(pimgsens_sd->imgs_inst.pinctrl)) {
++		res = dev_err_probe(dev, PTR_ERR(pimgsens_sd->imgs_inst.pinctrl),
++				    "failed to get camera pinctrl\n");
++		goto EXIT_RET;
++	}
+ 
+ 	pimgsens_sd->imgs_inst.pins_default = pinctrl_lookup_state(
+ 		pimgsens_sd->imgs_inst.pinctrl, PINCTRL_STATE_DEFAULT);
+-	if (IS_ERR(pimgsens_sd->imgs_inst.pins_default))
+-		LOG(LOG_ERR,
+-			"can't get pins_default, bus recovery not supported\n");
++	if (IS_ERR(pimgsens_sd->imgs_inst.pins_default)) {
++		res = dev_err_probe(dev,
++				    PTR_ERR(pimgsens_sd->imgs_inst.pins_default),
++				    "failed to get default pinctrl state\n");
++		goto EXIT_RET;
++	}
+ 
+ 	pimgsens_sd->imgs_inst.pins_sleep =
+ 		pinctrl_lookup_state(pimgsens_sd->imgs_inst.pinctrl, PINCTRL_STATE_SLEEP);
+-	if (IS_ERR(pimgsens_sd->imgs_inst.pins_sleep))
+-		LOG(LOG_ERR,
+-			"can't get pins_sleep, bus recovery not supported\n");
++	if (IS_ERR(pimgsens_sd->imgs_inst.pins_sleep)) {
++		res = dev_err_probe(dev,
++				    PTR_ERR(pimgsens_sd->imgs_inst.pins_sleep),
++				    "failed to get sleep pinctrl state\n");
++		goto EXIT_RET;
++	}
+ 
+-	pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
+-				 pimgsens_sd->imgs_inst.pins_default);
++	res = pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
++				   pimgsens_sd->imgs_inst.pins_default);
++	if (res) {
++		res = dev_err_probe(dev, res,
++				    "failed to select default pinctrl state\n");
++		goto EXIT_RET;
++	}
+ 
+ 	pimgsens_sd->imgs_inst.pwn_gpio =
+ 		devm_gpiod_get(&client->dev, "pwdn", GPIOD_OUT_LOW);
+-	if (PTR_ERR(pimgsens_sd->imgs_inst.pwn_gpio) == -EPROBE_DEFER ||
+-		PTR_ERR(pimgsens_sd->imgs_inst.pwn_gpio) == -EPROBE_DEFER)
+-		LOG(LOG_ERR,
+-			"can't get pwn_gpio pinctrl, bus recovery not supported\n");
++	if (IS_ERR(pimgsens_sd->imgs_inst.pwn_gpio)) {
++		res = dev_err_probe(dev, PTR_ERR(pimgsens_sd->imgs_inst.pwn_gpio),
++				    "failed to get pwdn GPIO\n");
++		goto EXIT_RET;
++	}
++
+ 	pimgsens_sd->imgs_inst.rst_gpio =
+ 		devm_gpiod_get(&client->dev, "reset", GPIOD_OUT_LOW);
+-	if (PTR_ERR(pimgsens_sd->imgs_inst.rst_gpio) == -EPROBE_DEFER ||
+-		PTR_ERR(pimgsens_sd->imgs_inst.rst_gpio) == -EPROBE_DEFER)
+-		LOG(LOG_ERR,
+-			"can't get rst_gpio pinctrl, bus recovery not supported\n");
++	if (IS_ERR(pimgsens_sd->imgs_inst.rst_gpio)) {
++		res = dev_err_probe(dev, PTR_ERR(pimgsens_sd->imgs_inst.rst_gpio),
++				    "failed to get reset GPIO\n");
++		goto EXIT_RET;
++	}
+ 
+ 	res = armcb_imgsens_get_optional_regulator(client,
+ 						  &pimgsens_sd->vsupply_0,
+@@ -628,8 +645,8 @@ static int imgsens_resume(struct device *dev)
+ 	struct armcb_imgsens_subdev *pimgsens_sd = i2c_get_clientdata(client);
+ 	int ret = 0;
+ 
+-	pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
+-				 pimgsens_sd->imgs_inst.pins_default);
++	ret = pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
++				   pimgsens_sd->imgs_inst.pins_default);
+ 	if (ret)
+ 		LOG(LOG_ERR, "Resume: pinctrl set resume failed %d", ret);
+ 

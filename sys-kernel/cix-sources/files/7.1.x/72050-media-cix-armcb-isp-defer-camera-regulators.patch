@@ -1,0 +1,79 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -31,6 +31,37 @@
+ #define LOG_MODULE LOG_MODULE_SENSOR
+ #endif
+ 
++static int armcb_imgsens_get_optional_regulator(struct i2c_client *client,
++						struct regulator **supply,
++						const char *name)
++{
++	struct device *dev = &client->dev;
++	struct regulator *regulator;
++	int ret;
++
++	regulator = devm_regulator_get_optional(dev, name);
++	if (!regulator) {
++		*supply = NULL;
++		return 0;
++	}
++
++	if (IS_ERR(regulator)) {
++		ret = PTR_ERR(regulator);
++		if (ret == -ENODEV || ret == -ENOSYS) {
++			dev_dbg(dev, "optional %s regulator not described\n",
++				name);
++			*supply = NULL;
++			return 0;
++		}
++
++		return dev_err_probe(dev, ret,
++				     "failed to get %s regulator\n", name);
++	}
++
++	*supply = regulator;
++	return 0;
++}
++
+ static int camera_common_powen(struct armcb_imgsens_subdev *pimgsens_sd)
+ {
+ 	int ret = 0;
+@@ -514,19 +545,17 @@ static int imgsens_probe(struct i2c_client *client)
+ 		LOG(LOG_ERR,
+ 			"can't get rst_gpio pinctrl, bus recovery not supported\n");
+ 
+-	pimgsens_sd->vsupply_0 =
+-		devm_regulator_get_optional(&client->dev, "power0");
+-	if (IS_ERR(pimgsens_sd->vsupply_0)) {
+-		dev_info(dev, "no power regulator vsupply_0 found\n");
+-		pimgsens_sd->vsupply_0 = NULL;
+-	}
++	res = armcb_imgsens_get_optional_regulator(client,
++						  &pimgsens_sd->vsupply_0,
++						  "power0");
++	if (res)
++		goto EXIT_RET;
+ 
+-	pimgsens_sd->vsupply_1 =
+-		devm_regulator_get_optional(&client->dev, "power1");
+-	if (IS_ERR(pimgsens_sd->vsupply_1)) {
+-		dev_info(dev, "no power regulator vsupply_1 found\n");
+-		pimgsens_sd->vsupply_1 = NULL;
+-	}
++	res = armcb_imgsens_get_optional_regulator(client,
++						  &pimgsens_sd->vsupply_1,
++						  "power1");
++	if (res)
++		goto EXIT_RET;
+ 
+ 	if (is_acpi_device_node(client->dev.fwnode))
+ 		pimgsens_sd->imgs_inst.mclk = devm_clk_get_optional(&to_acpi_device_node(client->dev.fwnode)->dev, "mclk");
+@@ -540,6 +569,7 @@ static int imgsens_probe(struct i2c_client *client)
+ 	return res;
+ 
+ EXIT_RET:
++	i2c_set_clientdata(client, NULL);
+ 	kfree(pimgsens_sd);
+ 	LOG(LOG_INFO, "failed - ");
+ 	return res;
