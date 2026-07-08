@@ -336,6 +336,7 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     ("CIX_BUS_PERF", "prefer"),
     ("CIX_SKY1_REBOOT_REASON", "prefer"),
     ("CIX_DDR_LP", "prefer"),
+    ("CIX_THERMAL", "prefer"),
     ("CIX_CPU_IPA", "prefer"),
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
@@ -397,6 +398,7 @@ SUPPORTED_VENDOR_DT_COMMON = (
     ("GPIO_CADENCE", "prefer"),
     ("ARM_DMA350", "prefer"),
     ("CIX_DDR_LP", "prefer"),
+    ("CIX_THERMAL", "prefer"),
     ("CIX_CPU_IPA", "prefer"),
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
@@ -1030,6 +1032,7 @@ def render_kconfig_radxa(
 ) -> str:
     profile_active = "(CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)"
     ethernet_imply = render_ethernet_implies(available_symbols)
+    cpu_ipa_imply = render_cpu_ipa_imply(available_symbols)
     accelerator_symbols = (
         "ARMCHINA_NPU",
         "ARMCHINA_NPU_ARCH_V3",
@@ -1127,7 +1130,7 @@ def render_kconfig_radxa(
         \timply TYPEC
         \timply TYPEC_RTS5453
         \timply CIX_DDR_LP
-        \timply CIX_CPU_IPA
+{render_template_block(cpu_ipa_imply)}
         \timply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
         \timply USB_CDNSP if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
         \timply USB_CDNSP_HOST if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
@@ -1264,6 +1267,14 @@ def render_ethernet_implies(available_symbols: set[str]) -> str:
     if "R8169" in available_symbols:
         lines.append("\timply R8169 if CIX_RADXA_ORION_O6N")
     return "\n".join(lines) + ("\n" if lines else "")
+
+
+def render_cpu_ipa_imply(available_symbols: set[str]) -> str:
+    if "CIX_THERMAL" in available_symbols:
+        return "\timply CIX_THERMAL\n"
+    if "CIX_CPU_IPA" in available_symbols:
+        return "\timply CIX_CPU_IPA\n"
+    return ""
 
 
 def supported_symbols_for_profile(

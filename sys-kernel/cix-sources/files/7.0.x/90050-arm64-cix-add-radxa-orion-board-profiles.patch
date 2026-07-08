@@ -57,7 +57,7 @@ diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconf
 new file mode 100644
 --- /dev/null
 +++ b/drivers/platform/arm64/Kconfig.radxa
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,144 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +#
 +# Generated CIX/Radxa Orion board presets for Linux 7.0.x.
@@ -112,7 +112,7 @@ new file mode 100644
 +	imply TYPEC
 +	imply TYPEC_RTS5453
 +	imply CIX_DDR_LP
-+	imply CIX_CPU_IPA
++	imply CIX_THERMAL
 +	imply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
 +	imply USB_CDNSP if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
 +	imply USB_CDNSP_HOST if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
@@ -166,12 +166,13 @@ new file mode 100644
 +	tristate "Optional accelerator drivers"
 +	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
 +	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	imply ARMCHINA_NPU
 +	imply ARMCHINA_NPU_ARCH_V3
 +	imply ARMCHINA_NPU_SOC_SKY1
 +	help
-+	  Enable accelerator drivers validated for Orion O6/O6N. The NPU
-+	  presets include the Sky1 Zhouyi v3 SoC implementation when the
-+	  vendor driver stack provides it.
++	  Enable accelerator and media-processing drivers validated for
++	  Orion O6/O6N, including the NPU and ISP paths when the vendor
++	  driver stack provides them.
 +
 +config CIX_RADXA_OPTIONAL_AUDIO
 +	tristate "Optional audio drivers"

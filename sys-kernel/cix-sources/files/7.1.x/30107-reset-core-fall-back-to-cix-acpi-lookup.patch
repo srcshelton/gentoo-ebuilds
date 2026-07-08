@@ -1,0 +1,25 @@
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+index dd9515a..caebeee 100644
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -1329,12 +1329,18 @@ struct reset_control *__reset_control_get(struct device *dev, const char *id,
+ 	bool shared = flags & RESET_CONTROL_FLAGS_BIT_SHARED;
+ 	bool acquired = flags & RESET_CONTROL_FLAGS_BIT_ACQUIRED;
+ 	struct fwnode_handle *fwnode = dev_fwnode(dev);
++	struct reset_control *rstc;
+ 
+ 	if (WARN_ON(shared && acquired))
+ 		return ERR_PTR(-EINVAL);
+ 
+-	if (fwnode)
+-		return __fwnode_reset_control_get(fwnode, id, index, flags);
++	if (fwnode) {
++		rstc = __fwnode_reset_control_get(fwnode, id, index, flags);
++		if (!IS_ERR_OR_NULL(rstc) || !has_acpi_companion(dev))
++			return rstc;
++		if (IS_ERR(rstc) && PTR_ERR(rstc) != -ENOENT)
++			return rstc;
++	}
+ 
+ 	return __reset_control_get_from_lookup(dev, id, flags);
+ }
