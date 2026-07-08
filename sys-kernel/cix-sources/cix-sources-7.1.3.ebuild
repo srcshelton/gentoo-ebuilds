@@ -204,6 +204,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72060-media-cix-armcb-isp-defer-pinctrl-and-gpios.patch || die
 	eapply "${FILESDIR}"/7.1.x/72070-media-cix-armcb-isp-defer-camera-mclk.patch || die
 	eapply "${FILESDIR}"/7.1.x/72080-media-cix-armcb-isp-fix-vi-hw-csidma-and-irqs.patch || die
+	eapply "${FILESDIR}"/7.1.x/72090-media-cix-armcb-isp-fix-async-fwnode-lifetime.patch || die
 	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/7.0.x/70040-drm-panthor-drop-unused-gem-device-variable.patch || die

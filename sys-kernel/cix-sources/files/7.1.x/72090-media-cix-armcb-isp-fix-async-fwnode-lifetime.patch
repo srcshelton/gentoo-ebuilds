@@ -1,0 +1,84 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -154,10 +154,9 @@ static void armcb_camera_async_unbind(struct v4l2_async_notifier *notifier,
+ 
+ static int
+ armcb_async_notifier_add_devname_subdev(struct v4l2_async_notifier *notifier,
+-					struct fwnode_handle *priv)
++					struct fwnode_handle *fwnode)
+ {
+ 	int ret = 0;
+-	struct fwnode_handle *fwnode = priv;
+ 
+ #if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE)
+ #if (KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE)
+@@ -170,8 +169,6 @@ armcb_async_notifier_add_devname_subdev(struct v4l2_async_notifier *notifier,
+ 		LOG(LOG_ERR, "fail to add asd = %p\n", asd);
+ 		return PTR_ERR(asd);
+ 	}
+-
+-	fwnode_handle_put(priv);
+ #else
+ 	asd = kzalloc(sizeof(*asd), GFP_KERNEL);
+ 	if (!asd) {
+@@ -215,18 +212,31 @@ static int armcb_register_async_node(struct device *pdev,
+ 
+ 	// add sensor subdev
+ 	if (!IS_ERR_OR_NULL(parent_node) && is_sensor) {
+-		(void)armcb_async_notifier_add_devname_subdev(notifier,
+-								  parent_node);
++		ret = armcb_async_notifier_add_devname_subdev(notifier,
++							      parent_node);
++		if (ret)
++			goto out_put_fwnodes;
+ 	}
+ 	// add actuator subdev
+-	if (!IS_ERR(actuator_node)) {
+-		(void)armcb_async_notifier_add_devname_subdev(notifier,
+-								  actuator_node);
++	if (!IS_ERR_OR_NULL(actuator_node)) {
++		ret = armcb_async_notifier_add_devname_subdev(notifier,
++							      actuator_node);
++		if (ret)
++			goto out_put_fwnodes;
+ 	}
+-	if (!IS_ERR(isp_node)) {
+-		(void)armcb_async_notifier_add_devname_subdev(notifier,
+-								  isp_node);
++	if (!IS_ERR_OR_NULL(isp_node)) {
++		ret = armcb_async_notifier_add_devname_subdev(notifier,
++							      isp_node);
++		if (ret)
++			goto out_put_fwnodes;
+ 	}
++
++out_put_fwnodes:
++	if (!IS_ERR_OR_NULL(actuator_node))
++		fwnode_handle_put(actuator_node);
++	if (!IS_ERR_OR_NULL(isp_node))
++		fwnode_handle_put(isp_node);
++
+ 	return ret;
+ }
+ 
+@@ -479,7 +489,8 @@ static int imgsens_probe(struct i2c_client *client)
+ 					true);
+ 	if (res < 0) {
+ 		LOG(LOG_ERR, "attach async node to register failed\n");
+-		return -EINVAL;
++		v4l2_async_nf_cleanup(&adev->dts_notifier);
++		return res;
+ 	}
+ #if (KERNEL_VERSION( 6, 6, 0 ) <= LINUX_VERSION_CODE)
+ 	res = v4l2_async_nf_register(&adev->dts_notifier);
+@@ -488,7 +499,8 @@ static int imgsens_probe(struct i2c_client *client)
+ #endif
+ 	if (res < 0) {
+ 		LOG(LOG_ERR, "register async notifier failed\n");
+-		return -EINVAL;
++		v4l2_async_nf_cleanup(&adev->dts_notifier);
++		return res;
+ 	}
+ 
+ 	pimgsens_sd = kzalloc(sizeof(*pimgsens_sd), GFP_KERNEL);
