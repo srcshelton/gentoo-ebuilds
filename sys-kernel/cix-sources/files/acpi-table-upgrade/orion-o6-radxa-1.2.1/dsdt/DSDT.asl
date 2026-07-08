@@ -14508,8 +14508,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000100,
                 }
                 FixedDMA (0x002A, 0x00FF, Width32bit, )
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
-                    "pinctrl_substrate_i2s5", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
@@ -14640,8 +14638,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000101,
                 }
                 FixedDMA (0x002C, 0x00FF, Width32bit, )
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
-                    "pinctrl_substrate_i2s6", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
@@ -14772,8 +14768,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000102,
                 }
                 FixedDMA (0x002E, 0x00FF, Width32bit, )
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
-                    "pinctrl_substrate_i2s7", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
@@ -14904,8 +14898,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000103,
                 }
                 FixedDMA (0x0030, 0x00FF, Width32bit, )
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
-                    "pinctrl_substrate_i2s8", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {

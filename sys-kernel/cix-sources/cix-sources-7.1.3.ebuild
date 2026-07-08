@@ -199,6 +199,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72010-media-cix-armcb-isp-drop-obsolete-of-gpio-include.patch || die
 	eapply "${FILESDIR}"/7.1.x/72020-media-cix-armcb-isp-fix-module-namespace-and-actuator-define.patch || die
 	eapply "${FILESDIR}"/7.1.x/72030-media-cix-armcb-isp-port-v4l2-api.patch || die
+	eapply "${FILESDIR}"/7.1.x/72040-media-cix-armcb-isp-clean-up-acpi-probe-warnings.patch || die
 	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/7.0.x/70040-drm-panthor-drop-unused-gem-device-variable.patch || die
@@ -222,6 +223,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.0.x/40046-acpi-scan-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/40044-pinctrl-acpi-export-pin-groups-helper.patch || die
 	eapply "${FILESDIR}"/40049-pinctrl-sky1-drop-unused-debug-show-data.patch || die
+	eapply "${FILESDIR}"/7.1.x/40052-pinctrl-sky1-ignore-conflicting-acpi-pin-groups.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
 	eapply "${FILESDIR}"/7.0.x/40050-cix-759efc0-soc-cix-arbitrate-acpi-usb-models.patch || die
 	eapply "${FILESDIR}"/7.0.x/40060-cix-759efc0-soc-cix-add-gpu-cca-scan-quirk.patch || die
@@ -264,7 +266,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/30106-clk-reset-sky1-audss-add-acpi-noc-reset-lookup-and-safe-probe-unwind.patch || die
 	eapply "${FILESDIR}"/7.1.x/30107-reset-core-fall-back-to-cix-acpi-lookup.patch || die
 	eapply "${FILESDIR}"/7.1.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
-	eapply "${FILESDIR}"/7.1.x/30200-driver-core-log-device-shutdown-tail-diagnostic.patch || die
 	eapply "${FILESDIR}"/7.1.x/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
 	eapply "${FILESDIR}"/7.0.x/73010-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
 	eapply "${FILESDIR}"/7.0.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch || die

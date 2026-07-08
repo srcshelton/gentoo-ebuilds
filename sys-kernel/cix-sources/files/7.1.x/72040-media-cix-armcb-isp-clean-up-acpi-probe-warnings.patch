@@ -1,0 +1,54 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+--- a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
++++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+@@ -863,9 +863,8 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 			LOG(LOG_ERR, "Failed to get IRQ resource");
+ 
+ 		ret = devm_request_irq(dev, irq0, mipi_csi2_irq_handler,
+-					   IRQF_ONESHOT | IRQF_SHARED,
+-					   dev_name(dev),
+-					   cix_vi_hw_info->ahb_csi_base_addrs[i]);
++				       IRQF_SHARED, dev_name(dev),
++				       cix_vi_hw_info->ahb_csi_base_addrs[i]);
+ 		if (ret)
+ 			LOG(LOG_ERR, "failed to install irq (%d)", ret);
+ 
+@@ -874,9 +873,8 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 			LOG(LOG_ERR, "Failed to get IRQ error resource");
+ 
+ 		ret = devm_request_irq(dev, irq1, mipi_csi2_err_irq_handler,
+-					   IRQF_ONESHOT | IRQF_SHARED,
+-					   dev_name(dev),
+-					   cix_vi_hw_info->ahb_csi_base_addrs[i]);
++				       IRQF_SHARED, dev_name(dev),
++				       cix_vi_hw_info->ahb_csi_base_addrs[i]);
+ 		if (ret)
+ 			LOG(LOG_ERR, "failed to install irq (%d)", ret);
+ 
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+@@ -1159,8 +1159,10 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 		res = of_reserved_mem_device_init(&pdev->dev);
+ 	}
+ 
+-	if (res)
++	if (res && !(has_acpi_companion(&pdev->dev) && res == -ENODEV))
+ 		LOG(LOG_WARN, "fail to get reserved memory (%d)\n", res);
++	else if (res)
++		LOG(LOG_INFO, "no reserved memory declared by ACPI\n");
+ 
+ 	group = iommu_group_get(cmamem_dev.pddev);
+ 	if (group) {
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -1900,7 +1900,7 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	ret = devm_request_irq(&pdev->dev, isp_irqno, hw_info->isp_isr,
+-			       IRQF_ONESHOT | IRQF_SHARED, pdev->name,
++			       IRQF_SHARED, pdev->name,
+ 			       (void *)p_v4l_config_dev);
+ 	if (ret != 0) {
+ 		ret = -ENXIO;

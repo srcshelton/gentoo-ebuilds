@@ -1,0 +1,146 @@
+diff --git a/drivers/pinctrl/cix/pinctrl-sky1-base.c b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+--- a/drivers/pinctrl/cix/pinctrl-sky1-base.c
++++ b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+@@ -18,6 +18,7 @@
+ #include <linux/regmap.h>
+ #include <linux/acpi.h>
+ #include <linux/platform_device.h>
++#include <linux/string.h>
+ 
+ #include "../core.h"
+ #include "../pinconf.h"
+@@ -31,6 +32,30 @@
+ #define PADS_FUNCS_MASK		(0x3)
+ #define PADS_FUNCS_BITS		(0x7)
+ #define PADS_CONFS_MASK		(0x7f)
++/* Radxa O6 firmware assigns I2S3_MCLK/GPIO081 to both camera pin groups. */
++#define SKY1_ACPI_O6_CAM1_SHARED_MCLK_PIN	65
++
++static bool sky1_acpi_group_is_display_audio_debug(const char *grp)
++{
++	static const char prefix[] = "pinctrl_substrate_i2s";
++	const char *suffix;
++
++	if (!grp || strncmp(grp, prefix, sizeof(prefix) - 1))
++		return false;
++
++	suffix = grp + sizeof(prefix) - 1;
++	if (*suffix < '5' || *suffix > '9')
++		return false;
++
++	suffix++;
++	return !*suffix || !strcmp(suffix, "_dbg");
++}
++
++static bool sky1_acpi_group_pin_is_ignored(const char *grp, unsigned int pin)
++{
++	return grp && !strcmp(grp, "pinctrl_cam1_hw") &&
++		pin == SKY1_ACPI_O6_CAM1_SHARED_MCLK_PIN;
++}
+ 
+ static inline const struct group_desc *sky1_pinctrl_find_group_by_name(
+ 				struct pinctrl_dev *pctldev,
+@@ -160,6 +185,8 @@ static int sky1_acpi_node_to_map(struct pinctrl_dev *pctldev,
+ 	int ret = 0;
+ 
+ 	new_map = kzalloc(sizeof(struct pinctrl_map), GFP_KERNEL);
++	if (!new_map)
++		return -ENOMEM;
+ 
+ 	switch (info->type) {
+ 	case PINCTRL_ACPI_PIN_FUNCTION:
+@@ -205,6 +232,15 @@ static int sky1_acpi_node_to_map(struct pinctrl_dev *pctldev,
+ 			ret = -1;
+ 			goto out_free;
+ 		}
++		if (sky1_acpi_group_is_display_audio_debug(grp)) {
++			dev_dbg(pctldev->dev,
++				"ignore optional ACPI display-audio pin group %s\n",
++				grp);
++			kfree(new_map);
++			*map = NULL;
++			*num_maps_out = 0;
++			return 0;
++		}
+ 		new_map->type = PIN_MAP_TYPE_MUX_GROUP;
+ 		new_map->data.mux.group = grp;
+ 		func = pinmux_generic_get_function(pctldev, function_selector);
+@@ -630,6 +666,7 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 	struct sky1_pin *pin_data;
+ 	unsigned int *pin_array;
+ 	__be16 *vendor;
++	unsigned int pin_count = 0;
+ 	int i, ret;
+ 
+ 	pin_data = devm_kcalloc(spctl->dev, acpi_grp->num_pins,
+@@ -643,24 +680,38 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 
+ 	vendor = (__be16 *)acpi_grp->vendor_data;
+ 	for (i = 0; i < acpi_grp->num_pins; i++) {
+-		struct sky1_pin *pin = &pin_data[i];
+-		pin->pin_id = acpi_grp->pins[i];
+-		pin->offset = be16_to_cpu(*vendor++);
+-		pin->configs = be16_to_cpu(*vendor++);
++		unsigned int pin_id = acpi_grp->pins[i];
++		unsigned int offset = be16_to_cpu(*vendor++);
++		unsigned long configs = be16_to_cpu(*vendor++);
++		struct sky1_pin *pin;
++
++		if (sky1_acpi_group_pin_is_ignored(acpi_grp->name, pin_id)) {
++			dev_dbg(spctl->dev,
++				"ignore duplicate ACPI pin %u from group %s\n",
++				pin_id, acpi_grp->name);
++			continue;
++		}
+ 
++		pin = &pin_data[pin_count];
++		pin->pin_id = pin_id;
++		pin->offset = offset;
++		pin->configs = configs;
+ 		spctl->pin_regs[pin->pin_id] = pin->offset;
+ 		if (pin->offset/4 != pin->pin_id)
+ 			dev_warn(spctl->dev, "pin(%d) and reg(0x%x) unmatched!\n",
+ 				 pin->pin_id, pin->offset);
+-		pin_array[i] = pin->pin_id;
++		pin_array[pin_count++] = pin->pin_id;
+ 
+ 		dev_dbg(spctl->dev, "%s: 0x%x 0x%08lx\n",
+ 			spctl->info->pins[pin->pin_id].name,
+ 			pin->offset, pin->configs);
+ 	}
+ 
++	if (!pin_count)
++		return 0;
++
+ 	ret = pinctrl_generic_add_group(spctl->pctl, devm_kstrdup(spctl->dev, acpi_grp->name, GFP_KERNEL),
+-					 pin_array, acpi_grp->num_pins, pin_data);
++					 pin_array, pin_count, pin_data);
+ 	if (ret < 0)
+ 		dev_err(spctl->dev, "failed to add group %s: %d\n",
+ 			acpi_grp->name, ret);
+diff --git a/drivers/pinctrl/pinctrl-acpi.c b/drivers/pinctrl/pinctrl-acpi.c
+--- a/drivers/pinctrl/pinctrl-acpi.c
++++ b/drivers/pinctrl/pinctrl-acpi.c
+@@ -270,9 +270,9 @@ acpi_pin_resource_to_pinctrl_map(struct pinctrl *p, char *pinctrl_acpi,
+ 				 struct pinctrl_acpi_resource *resource)
+ {
+ 	const struct pinctrl_ops *ops;
+-	struct pinctrl_map *new_map;
++	struct pinctrl_map *new_map = NULL;
+ 	struct pinctrl_dev *pctldev;
+-	unsigned int num_maps;
++	unsigned int num_maps = 0;
+ 	int state_index;
+ 	int ret;
+ #define MAX_NUM_PINTRTL_STATE	(5)
+@@ -295,6 +295,10 @@ acpi_pin_resource_to_pinctrl_map(struct pinctrl *p, char *pinctrl_acpi,
+ 	ret = ops->acpi_node_to_map(pctldev, resource, &new_map, &num_maps);
+ 	if (ret < 0)
+ 		return ret;
++	if (!num_maps) {
++		acpi_free_map(pctldev, new_map, num_maps);
++		return 0;
++	}
+ 
+ 	state_index = resource->state_index;
+ 	ret = device_property_read_string_array(p->dev,
