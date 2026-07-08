@@ -194,6 +194,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71040-cix-mvx-fix-user-visible-names.patch || die
 	eapply "${FILESDIR}"/71050-cix-mvx-enable-jpeg-mjpeg-devices.patch || die
 	eapply "${FILESDIR}"/71060-cix-mvx-port-sky1p-reset-sequencing.patch || die
+	eapply "${FILESDIR}"/7.1.x/71070-cix-mvx-set-scmi-perf-state-for-devfreq.patch || die
 	eapply "${FILESDIR}"/7.1.x/72000-media-cix-add-armcb-isp-acpi-driver.patch || die
 	eapply "${FILESDIR}"/7.1.x/72010-media-cix-armcb-isp-drop-obsolete-of-gpio-include.patch || die
 	eapply "${FILESDIR}"/7.1.x/72020-media-cix-armcb-isp-fix-module-namespace-and-actuator-define.patch || die

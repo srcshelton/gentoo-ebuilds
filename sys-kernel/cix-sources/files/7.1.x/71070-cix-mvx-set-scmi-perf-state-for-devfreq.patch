@@ -1,0 +1,48 @@
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -493,6 +493,36 @@
+  * Mainline devfreq implementation using standard OPP API.
+  * Works with SCMI perf domain which auto-populates OPPs on device attach.
+  */
++static int mvx_devfreq_set_perf_state(struct mvx_dev_ctx *ctx,
++                                      unsigned long *freq)
++{
++    struct dev_pm_opp *opp;
++    unsigned int level;
++    int ret;
++
++    if (!ctx->opp_pmdomain)
++        return -ENODEV;
++
++    opp = dev_pm_opp_find_freq_ceil(ctx->opp_pmdomain, freq);
++    if (IS_ERR(opp))
++        return PTR_ERR(opp);
++
++    level = dev_pm_opp_get_level(opp);
++    dev_pm_opp_put(opp);
++    if (level == OPP_LEVEL_UNSET) {
++        dev_err(ctx->dev, "Perf domain OPP for %lu Hz has no performance level\n",
++                *freq);
++        return -EINVAL;
++    }
++
++    ret = dev_pm_genpd_set_performance_state(ctx->opp_pmdomain, level);
++    if (ret)
++        dev_err(ctx->dev, "Failed to set perf state %u for %lu Hz: %d\n",
++                level, *freq, ret);
++
++    return ret;
++}
++
+ static int mvx_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
+ {
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+@@ -509,7 +539,7 @@
+     dev_pm_opp_put(opp);
+ 
+     pre_freq = ctx->clk ? clk_get_rate(ctx->clk) : 0;
+-    ret = dev_pm_opp_set_rate(dev, *freq);
++    ret = mvx_devfreq_set_perf_state(ctx, freq);
+     if (!ret)
+         atomic_set(&mvx_log_perf.freq, *freq);
+ 
