@@ -1,0 +1,46 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+--- a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
++++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+@@ -796,7 +796,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 		}
+ 		sprintf(buffer, "ahb-csidma%d-size", i);
+ 		ret = fwnode_property_read_u32(
+-			pdev->dev.fwnode, "ahb-csidma0-size",
++			pdev->dev.fwnode, buffer,
+ 			&cix_vi_hw_info->ahb_csidma_size[i]);
+ 		if (ret < 0) {
+ 			cix_vi_hw_info->ahb_csidma_size[i] = 0;
+@@ -860,23 +860,28 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 		/*get irq info*/
+ 		irq0 = platform_get_irq(pdev, i * 2);
+ 		if (irq0 < 0)
+-			LOG(LOG_ERR, "Failed to get IRQ resource");
++			return dev_err_probe(dev, irq0,
++					     "failed to get CSI%d IRQ\n", i);
+ 
+ 		ret = devm_request_irq(dev, irq0, mipi_csi2_irq_handler,
+ 				       IRQF_SHARED, dev_name(dev),
+ 				       cix_vi_hw_info->ahb_csi_base_addrs[i]);
+ 		if (ret)
+-			LOG(LOG_ERR, "failed to install irq (%d)", ret);
++			return dev_err_probe(dev, ret,
++					     "failed to request CSI%d IRQ\n", i);
+ 
+ 		irq1 = platform_get_irq(pdev, i * 2 + 1);
+-		if (!irq1)
+-			LOG(LOG_ERR, "Failed to get IRQ error resource");
++		if (irq1 < 0)
++			return dev_err_probe(dev, irq1,
++					     "failed to get CSI%d error IRQ\n", i);
+ 
+ 		ret = devm_request_irq(dev, irq1, mipi_csi2_err_irq_handler,
+ 				       IRQF_SHARED, dev_name(dev),
+ 				       cix_vi_hw_info->ahb_csi_base_addrs[i]);
+ 		if (ret)
+-			LOG(LOG_ERR, "failed to install irq (%d)", ret);
++			return dev_err_probe(dev, ret,
++					     "failed to request CSI%d error IRQ\n",
++					     i);
+ 
+ 		LOG(LOG_INFO,
+ 			"ahb-csi%d-base=0x%x, ahb-csi%d-size=0x%x ahb_csi%d_base_addr=%p",
