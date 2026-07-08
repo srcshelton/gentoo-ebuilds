@@ -1,0 +1,34 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+@@ -18,6 +18,7 @@
+ #include "media/v4l2-device.h"
+ #include "system_logger.h"
+ #include <linux/delay.h>
++#include <linux/property.h>
+ 
+ #ifdef LOG_MODULE
+ #undef LOG_MODULE
+@@ -44,6 +45,9 @@ static int armcb_subdev_register_nodes_async(struct v4l2_subdev *sd)
+ 		return -EINVAL;
+ 	}
+ 
++	if (!sd->fwnode && sd->dev)
++		sd->fwnode = dev_fwnode(sd->dev);
++
+ 	res = v4l2_async_register_subdev(sd);
+ 	if (res < 0) {
+ 		LOG(LOG_ERR, "v4l2_device_register_subdev failed for %s",
+diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
+--- a/drivers/media/v4l2-core/v4l2-async.c
++++ b/drivers/media/v4l2-core/v4l2-async.c
+@@ -158,6 +158,9 @@ static bool match_fwnode(struct v4l2_async_notifier *notifier,
+ 		return false;
+ 	}
+ 
++	if (IS_ERR_OR_NULL(sd->fwnode))
++		return false;
++
+ 	if (match_fwnode_one(notifier, sd, sd->fwnode, match))
+ 		return true;
+ 

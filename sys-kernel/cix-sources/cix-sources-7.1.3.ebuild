@@ -195,6 +195,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71050-cix-mvx-enable-jpeg-mjpeg-devices.patch || die
 	eapply "${FILESDIR}"/71060-cix-mvx-port-sky1p-reset-sequencing.patch || die
 	eapply "${FILESDIR}"/7.1.x/71070-cix-mvx-set-scmi-perf-state-for-devfreq.patch || die
+	eapply "${FILESDIR}"/7.1.x/71080-cix-mvx-uplift-selected-2026q2-fixes.patch || die
 	eapply "${FILESDIR}"/7.1.x/72000-media-cix-add-armcb-isp-acpi-driver.patch || die
 	eapply "${FILESDIR}"/7.1.x/72010-media-cix-armcb-isp-drop-obsolete-of-gpio-include.patch || die
 	eapply "${FILESDIR}"/7.1.x/72020-media-cix-armcb-isp-fix-module-namespace-and-actuator-define.patch || die
@@ -205,6 +206,9 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72070-media-cix-armcb-isp-defer-camera-mclk.patch || die
 	eapply "${FILESDIR}"/7.1.x/72080-media-cix-armcb-isp-fix-vi-hw-csidma-and-irqs.patch || die
 	eapply "${FILESDIR}"/7.1.x/72090-media-cix-armcb-isp-fix-async-fwnode-lifetime.patch || die
+	eapply "${FILESDIR}"/7.1.x/72095-media-cix-armcb-isp-stabilise-async-fwnodes.patch || die
+	eapply "${FILESDIR}"/7.1.x/72100-media-cix-armcb-isp-uplift-selected-2026q2-fixes.patch || die
+	eapply "${FILESDIR}"/7.1.x/72110-armchina-npu-add-p1-v2-uapi-name-aliases.patch || die
 	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/7.0.x/70040-drm-panthor-drop-unused-gem-device-variable.patch || die

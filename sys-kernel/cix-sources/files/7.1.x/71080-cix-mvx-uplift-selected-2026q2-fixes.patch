@@ -1,0 +1,384 @@
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -147,7 +147,9 @@ struct mvx_dev_ctx {
+     struct device_link *opp_dl;
+     struct devfreq_dev_profile devfreq_profile;
+     struct devfreq *devfreq;
++    bool devfreq_initialized;
+     unsigned long target_freq;
++    struct completion probe_done;
+ };
+ 
+ /**
+@@ -286,7 +288,7 @@ static int update_load(struct mvx_client_session *csession)
+         return 0;
+ 
+     /* Runtime check - ctx->devfreq is NULL if devfreq init failed or was skipped */
+-    if (!ctx->devfreq)
++    if (IS_ERR_OR_NULL(ctx->devfreq) || !ctx->devfreq_initialized)
+         return 0;
+ 
+     ret = update_freq(ctx);
+@@ -399,9 +401,22 @@ static int send_irq(struct mvx_client_session *csession)
+ 
+ static int soft_irq(struct mvx_client_session *csession)
+ {
+-    struct mvx_dev_ctx *ctx = csession->ctx;
++    struct mvx_dev_ctx *ctx;
+     int ret;
+ 
++    if (!csession) {
++        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++                "soft trigger irq, but csession has been released");
++        return -EFAULT;
++    }
++
++    ctx = csession->ctx;
++    if (!ctx) {
++        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++                "soft trigger irq, but context has been released");
++        return -EFAULT;
++    }
++
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO,
+               "%px soft trigger irq. csession=0x%px.",
+               mvx_if_session_to_session(csession->session.isession),
+@@ -429,6 +444,19 @@ static void print_debug(struct mvx_client_session *csession)
+     mvx_sched_print_debug(&ctx->scheduler, &csession->session);
+ }
+ 
++static int wait_probe_done(struct mvx_client_ops *client)
++{
++    struct mvx_dev_ctx *ctx = container_of(client, struct mvx_dev_ctx, client_ops);
++    unsigned long timeout;
++
++    timeout = wait_for_completion_timeout(&ctx->probe_done,
++                          msecs_to_jiffies(10000));
++    if (timeout == 0)
++        return -ETIMEDOUT;
++
++    return 0;
++}
++
+ static struct mvx_dev_ctx *work_to_ctx(struct work_struct *work)
+ {
+     return container_of(work, struct mvx_dev_ctx, work);
+@@ -694,6 +722,8 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+         /* Continue anyway - notifier is optional */
+     }
+ 
++    ctx->devfreq_initialized = true;
++
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO,
+         "%s(): Devfreq enabled with %d OPPs", __func__, i);
+ 
+@@ -731,6 +761,7 @@ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
+     if (ctx->devfreq) {
+         devm_devfreq_unregister_opp_notifier(ctx->dev, ctx->devfreq);
+         devm_devfreq_remove_device(ctx->dev, ctx->devfreq);
++        ctx->devfreq_initialized = false;
+         ctx->devfreq = NULL;
+     }
+     if (ctx->devfreq_profile.max_state > 0) {
+@@ -792,6 +823,7 @@ static int mvx_dev_probe(struct device *dev,
+ 
+     ctx->dev = dev;
+     dev_set_drvdata(dev, ctx);
++    init_completion(&ctx->probe_done);
+ 
+     /* Setup client ops callbacks. */
+     ctx->client_ops.get_hw_ver = get_hw_ver;
+@@ -808,6 +840,7 @@ static int mvx_dev_probe(struct device *dev,
+     ctx->client_ops.update_load = update_load;
+     ctx->client_ops.terminate = terminate;
+     ctx->client_ops.reset_priority = reset_priority;
++    ctx->client_ops.wait_probe_done = wait_probe_done;
+ 
+     /* Create if context. */
+     ctx->if_ops = mvx_if_create(dev, &ctx->client_ops, ctx);
+@@ -950,6 +983,8 @@ static int mvx_dev_probe(struct device *dev,
+               mvx_hwreg_get_nlsid(&ctx->hwreg),
+               dev->id);
+ 
++    complete_all(&ctx->probe_done);
++
+     mvx_pm_runtime_put_sync(ctx->dev);
+     return 0;
+ 
+@@ -992,6 +1027,8 @@ destroy_if:
+     mvx_if_destroy(ctx->if_ops);
+ 
+ free_ctx:
++    complete_all(&ctx->probe_done);
++
+     devm_kfree(dev, ctx);
+     return ret;
+ }
+diff --git a/drivers/media/platform/cix/if/mvx_firmware.c b/drivers/media/platform/cix/if/mvx_firmware.c
+--- a/drivers/media/platform/cix/if/mvx_firmware.c
++++ b/drivers/media/platform/cix/if/mvx_firmware.c
+@@ -599,14 +599,8 @@ int mvx_fw_construct(struct mvx_fw *fw,
+     fw->session = session;
+     fw->client_ops = client_ops;
+     fw->csession = csession;
+-    /**
+-     * Other cores always read firmware instance0 text_data(virtual address
+-     * 0x0000_0000 - 0x0000_00018) at the begining. Therefore, must do map for
+-     * core0(firmware instance0) even thouth disallow it.
+-     */
+-    core_mask |= 1;
+     fw->ncores = fls(core_mask); // used in fw_map(). fls() to make sure all the cores can be mapped
+-    fw->core_mask = core_mask;
++    fw->core_mask = (1 << fw->ncores) - 1; // Ensure all the lower ID cores have firmware mapped
+     fw->fw_bin = fw_bin;
+     mutex_init(&fw->mutex);
+     mutex_init(&fw->rpcmem_mutex);
+diff --git a/drivers/media/platform/cix/if/mvx_if.h b/drivers/media/platform/cix/if/mvx_if.h
+--- a/drivers/media/platform/cix/if/mvx_if.h
++++ b/drivers/media/platform/cix/if/mvx_if.h
+@@ -501,6 +501,13 @@ struct mvx_client_ops {
+      */
+     void (*reset_priority)(struct mvx_client_session *session);
+ 
++    /**
++     * wait_probe_done() - Wait for device probe to complete.
++     *
++     * Return: 0 on success, else error code.
++     */
++    int (*wait_probe_done)(struct mvx_client_ops *client);
++
+ };
+ 
+ /****************************************************************************
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -68,6 +68,11 @@
+ #define MAX_RT_FPS_FRAMES (1 << 9)
+ #define FPS_SKIP_FRAMES 200
+ 
++#define MVX_IS_SUPPORTED_YUV422_FORMAT(format) \
++    ((format) == MVX_FORMAT_YUV422_AFBC_8 || \
++     (format) == MVX_FORMAT_YUV422_YUY2 || \
++     (format) == MVX_FORMAT_YUV422_UYVY)
++
+ /****************************************************************************
+  * Private variables
+  ****************************************************************************/
+@@ -2321,6 +2326,76 @@ static int fw_encoder_setup(struct mvx_session *session)
+     return ret;
+ }
+ 
++static int fw_decoder_set_yuv2rgb_params(struct mvx_session *session)
++{
++    struct mvx_fw_set_option option;
++    int ret;
++
++    if (!mvx_is_rgb24(session->port[MVX_DIR_OUTPUT].format))
++        return 0;
++
++    option.code = MVX_FW_SET_DEC_YUV2RGB_PARAMS;
++
++    if (session->use_cust_color_conv_coef) {
++        memcpy(&option.yuv2rbg_csc_coef, &session->color_conv_coef,
++               sizeof(struct mvx_color_conv_coef));
++        ret = 0;
++    } else {
++        ret = generate_standards_yuv2rgb_coef(session->color_conv_mode,
++                              &option.yuv2rbg_csc_coef);
++    }
++
++    if (ret != 0)
++        return ret;
++
++    ret = fw_set_option(session, &option);
++    if (ret != 0) {
++        MVX_SESSION_WARN(session,
++                 "Failed to set yuv2rgb color conversion mode.");
++        return ret;
++    }
++
++    session->yuv2rgb_configured = true;
++
++    return 0;
++}
++
++static int fw_decoder_apply_yuv2rgb_on_format_change(struct mvx_session *session)
++{
++    int ret;
++
++    if (session->is_encoder || session->yuv2rgb_configured)
++        return 0;
++
++    if (!mvx_is_rgb24(session->port[MVX_DIR_OUTPUT].format))
++        return 0;
++
++    if (!is_fw_loaded(session))
++        return 0;
++
++    if (session->fw_state == MVX_FW_STATE_RUNNING) {
++        ret = fw_state_change(session, MVX_FW_STATE_STOPPED);
++        if (ret != 0)
++            return ret;
++
++        ret = wait_pending(session);
++        if (ret != 0)
++            return ret;
++    }
++
++    ret = fw_flush(session, MVX_DIR_OUTPUT);
++    if (ret != 0)
++        return ret;
++
++    ret = wait_pending(session);
++    if (ret != 0)
++        return ret;
++
++    session->port[MVX_DIR_OUTPUT].received_seq_param = false;
++
++    return fw_decoder_set_yuv2rgb_params(session);
++}
++
+ static int fw_decoder_setup(struct mvx_session *session)
+ {
+     int ret;
+@@ -2426,24 +2501,9 @@ static int fw_decoder_setup(struct mvx_session *session)
+ 
+     if( mvx_is_rgb24(session->port[MVX_DIR_OUTPUT].format))
+     {
+-        option.code = MVX_FW_SET_DEC_YUV2RGB_PARAMS;
+-
+-        if(session->use_cust_color_conv_coef)
+-        {
+-            ret =0;
+-            memcpy(&option.yuv2rbg_csc_coef,&session->color_conv_coef,sizeof(struct mvx_color_conv_coef));
+-        }
+-        else
+-        {
+-            ret =generate_standards_yuv2rgb_coef(session->color_conv_mode,&option.yuv2rbg_csc_coef);
+-        }
+-        if(0==ret)
+-        ret = fw_set_option(session, &option);
+-        if (ret != 0) {
+-            MVX_SESSION_WARN(session,
+-                     "Failed to set yuv2rgb color conversion mode.");
++        ret = fw_decoder_set_yuv2rgb_params(session);
++        if (ret != 0)
+             return ret;
+-        }
+     }
+     if (session->disabled_features != 0 || codec == MVX_FORMAT_AV1) {
+         option.code = MVX_FW_SET_DISABLE_FEATURES;
+@@ -3442,6 +3502,9 @@ static void reset_resolution(struct mvx_session *session,
+         session->orig_width < 144 && session->orig_height < 144) {
+         session->orig_width = *width;
+         session->orig_height = *height;
++    } else if (dir == MVX_DIR_INPUT && session->is_encoder) {
++        session->orig_width = *width;
++        session->orig_height = *height;
+     } else if (session->orig_width >= 144 && session->orig_height >= 144) {
+         *width = session->orig_width;
+         *height = session->orig_height;
+@@ -3761,6 +3824,7 @@ int mvx_session_set_format(struct mvx_session *session,
+ {
+     struct mvx_session_port *port = &session->port[dir];
+     int ret;
++    enum mvx_format old_format = port->format;
+ 
+     if (session->error != 0)
+         return session->error;
+@@ -3847,6 +3911,13 @@ int mvx_session_set_format(struct mvx_session *session,
+         mvx_session_set_nalu_format(session,
+                     MVX_NALU_FORMAT_FOUR_BYTE_LENGTH_FIELD);
+ 
++    if (!session->is_encoder && dir == MVX_DIR_OUTPUT &&
++        mvx_is_rgb24(format) && !mvx_is_rgb24(old_format)) {
++        ret = fw_decoder_apply_yuv2rgb_on_format_change(session);
++        if (ret != 0)
++            return ret;
++    }
++
+     return 0;
+ }
+ 
+@@ -4431,7 +4502,8 @@ static void mvx_handle_pong(struct mvx_session *session, struct mvx_fw_msg *msg)
+     MVX_SESSION_INFO(session, "Firmware rsp: Pong.");
+ }
+ 
+-static void mvx_update_bitdepth(struct mvx_session *session, uint32_t bitdepth)
++static void mvx_update_format(struct mvx_session *session,
++                    uint32_t bitdepth, uint32_t coded_chroma_format)
+ {
+     struct mvx_session_port *p = &session->port[MVX_DIR_OUTPUT];
+     struct mvx_session_format_map *map;
+@@ -4448,6 +4520,24 @@ static void mvx_update_bitdepth(struct mvx_session *session, uint32_t bitdepth)
+     p->old_format = p->format;
+     p->old_pixelformat = p->pixelformat;
+ 
++    if (MVX_IS_SUPPORTED_YUV422_FORMAT(map->format)) {
++        if (coded_chroma_format < MVX_CHROMA_FORMAT_422) {
++            if (map->format == MVX_FORMAT_YUV422_AFBC_8) {
++                p->format = MVX_FORMAT_YUV420_AFBC_8;
++                p->pixelformat = V4L2_PIX_FMT_YUV420_AFBC_8;
++            } else {
++                p->format = MVX_FORMAT_YUV420_NV12;
++                p->pixelformat = V4L2_PIX_FMT_NV12M;
++            }
++            map = mvx_session_find_format(p->pixelformat);
++            if (IS_ERR(map)) {
++                MVX_SESSION_ERR(session, "Find pixelformat(0x%x) fail",
++                        p->pixelformat);
++                return;
++            }
++        }
++    }
++
+     if (bitdepth == map->bitdepth) {
+         return;
+     } else if (bitdepth > map->bitdepth) {
+@@ -4521,7 +4611,8 @@ static void mvx_handle_seq_param(struct mvx_session *session, struct mvx_fw_msg
+     p->in_port_changing |= msg->seq_param.bitdepth_luma != session->bitdepth_luma;
+     p->in_port_changing |= msg->seq_param.bitdepth_chroma != session->bitdepth_chroma;
+     p->in_port_changing |= msg->seq_param.chroma_format != session->coded_chroma_format;
+-    mvx_update_bitdepth(session, msg->seq_param.bitdepth_chroma);
++    mvx_update_format(session, msg->seq_param.bitdepth_chroma,
++              msg->seq_param.chroma_format);
+     session->bitdepth_luma = msg->seq_param.bitdepth_luma;
+     session->bitdepth_chroma = msg->seq_param.bitdepth_chroma;
+     session->coded_chroma_format = msg->seq_param.chroma_format;
+diff --git a/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
+--- a/drivers/media/platform/cix/if/mvx_session.h
++++ b/drivers/media/platform/cix/if/mvx_session.h
+@@ -458,6 +458,7 @@ struct mvx_session {
+     uint32_t job_frames;
+     uint32_t force_key_frame;
+     bool pending_switch_out;
++    bool yuv2rgb_configured;
+     bool is_encoder;
+     bool is_jpeg;
+     struct timespec64 *ts;
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+@@ -61,6 +61,10 @@ int mvx_v4l2_open(struct file *file)
+     struct v4l2_format fmt = { 0 };
+     int ret;
+ 
++    ret = ctx->client_ops->wait_probe_done(ctx->client_ops);
++    if (ret != 0)
++        return -EBUSY;
++
+     session = devm_kzalloc(ctx->dev, sizeof(*session), GFP_KERNEL);
+     if (session == NULL) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+@@ -199,7 +203,8 @@ unsigned int mvx_v4l2_poll(struct file *file,
+         revents |= EPOLLPRI;
+ 
+     /* POLLPRI events are handled by Vb2 */
+-    if (vb2_is_streaming(&vsession->port[MVX_DIR_INPUT].vb2_queue))
++    if (vb2_is_streaming(&vsession->port[MVX_DIR_INPUT].vb2_queue) &&
++        (events & EPOLLOUT))
+         revents |= vb2_poll(&vsession->port[MVX_DIR_INPUT].vb2_queue,
+                     file, wait);
+     if (vb2_is_streaming(&vsession->port[MVX_DIR_OUTPUT].vb2_queue) &&
