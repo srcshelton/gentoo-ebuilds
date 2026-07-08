@@ -262,6 +262,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/30105-clk-sky1-audss-use-determine-rate.patch || die
 	eapply "${FILESDIR}"/7.1.x/30106-clk-reset-sky1-audss-add-acpi-noc-reset-lookup-and-safe-probe-unwind.patch || die
 	eapply "${FILESDIR}"/7.1.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
+	eapply "${FILESDIR}"/7.1.x/30200-driver-core-log-device-shutdown-tail-diagnostic.patch || die
 	eapply "${FILESDIR}"/7.1.x/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
 	eapply "${FILESDIR}"/7.0.x/73010-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
 	eapply "${FILESDIR}"/7.0.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch || die

@@ -1,0 +1,71 @@
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -32,6 +32,7 @@
+ #include <linux/string_helpers.h>
+ #include <linux/swiotlb.h>
+ #include <linux/sysfs.h>
++#include <linux/uaccess.h>
+ 
+ #include "base.h"
+ #include "physical_location.h"
+@@ -4802,9 +4803,48 @@
+ /**
+  * device_shutdown - call ->shutdown() on each device to shutdown.
+  */
++static void device_shutdown_diag(struct list_head *entry)
++{
++	struct list_head entry_copy;
++	struct device dev_copy;
++	struct device *dev = list_entry(entry, struct device, kobj.entry);
++	char name[64] = "<unnamed>";
++	long name_ret = 0;
++	int entry_ret, dev_ret;
++
++	entry_ret = copy_from_kernel_nofault(&entry_copy, entry,
++					     sizeof(entry_copy));
++	dev_ret = copy_from_kernel_nofault(&dev_copy, dev, sizeof(dev_copy));
++
++	if (!dev_ret && dev_copy.kobj.name) {
++		name_ret = strncpy_from_kernel_nofault(name, dev_copy.kobj.name,
++						       sizeof(name));
++		if (name_ret < 0)
++			scnprintf(name, sizeof(name), "<name-err:%ld>",
++				  name_ret);
++		else
++			name[sizeof(name) - 1] = '\0';
++	}
++
++	pr_info("device_shutdown diag: entry=%px entry_ret=%d prev=%px next=%px dev=%px dev_ret=%d name=%s parent=%px bus=%px class=%px driver=%px pm_domain=%px\n",
++		entry, entry_ret,
++		entry_ret ? NULL : entry_copy.prev,
++		entry_ret ? NULL : entry_copy.next,
++		dev, dev_ret, dev_ret ? "<dev-err>" : name,
++		dev_ret ? NULL : dev_copy.parent,
++		dev_ret ? NULL : dev_copy.bus,
++		dev_ret ? NULL : dev_copy.class,
++		dev_ret ? NULL : dev_copy.driver,
++		dev_ret ? NULL : dev_copy.pm_domain);
++
++	if (entry_ret || dev_ret || !entry_copy.prev || !entry_copy.next)
++		pr_emerg("device_shutdown diag: corrupt devices_kset tail before shutdown callback\n");
++}
++
+ void device_shutdown(void)
+ {
+ 	struct device *dev, *parent;
++	struct list_head *entry;
+ 
+ 	wait_for_device_probe();
+ 	device_block_probing();
+@@ -4818,8 +4858,9 @@
+ 	 * devices offline, even as the system is shutting down.
+ 	 */
+ 	while (!list_empty(&devices_kset->list)) {
+-		dev = list_entry(devices_kset->list.prev, struct device,
+-				kobj.entry);
++		entry = devices_kset->list.prev;
++		dev = list_entry(entry, struct device, kobj.entry);
++		device_shutdown_diag(entry);
+ 
+ 		/*
+ 		 * hold reference count of device's parent to
