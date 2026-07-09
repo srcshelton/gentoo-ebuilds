@@ -1,0 +1,44 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+@@ -266,7 +266,7 @@ static int armcb_ispdrv_probe(struct platform_device *pdev)
+ 	return res;
+ 
+ ERR_FREE_RET2:
+-	v4l2_async_unregister_subdev(&p_isp_subdev->isp_sd.sd);
++	armcb_subdev_unregister(&p_isp_subdev->isp_sd);
+ ERR_FREE_RET1:
+ 	devm_kfree(&pdev->dev, p_isp_subdev);
+ 
+@@ -278,12 +278,8 @@ static void armcb_ispdrv_remove(struct platform_device *pdev)
+ {
+ 	struct armcb_isp_subdev *p_ispdev = platform_get_drvdata(pdev);
+ 
+-	if (p_ispdev) {
+-		list_del_init(&p_ispdev->isp_sd.sd.async_list);
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+-		v4l2_device_unregister_subdev(&p_ispdev->isp_sd.sd);
+-#endif
+-	}
++	if (p_ispdev)
++		armcb_subdev_unregister(&p_ispdev->isp_sd);
+ }
+ 
+ static const struct of_device_id armcb_isp_match[] = {
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+@@ -290,12 +290,7 @@ static void motor0_remove(struct spi_device *pspi_dev)
+ 		return;
+ 	}
+ #endif
+-	// the async_list will be added to subdev_list global field again, delete it
+-	// twice
+-	list_del_init(&pmotor_sd->motor_sd.sd.async_list);
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+-	v4l2_device_unregister_subdev(&pmotor_sd->motor_sd.sd);
+-#endif
++	armcb_subdev_unregister(&pmotor_sd->motor_sd);
+ 
+ 	kfree(pmotor_sd);
+ }
