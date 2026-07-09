@@ -210,6 +210,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72096-media-cix-armcb-isp-diagnose-async-fwnodes.patch || die
 	eapply "${FILESDIR}"/7.1.x/72097-media-cix-armcb-isp-repair-ordered-subdev-list.patch || die
 	eapply "${FILESDIR}"/7.1.x/72098-media-cix-armcb-isp-deep-safe-diagnostics.patch || die
+	eapply "${FILESDIR}"/7.1.x/72099-media-cix-armcb-isp-unwind-sensor-probe-registration.patch || die
 	eapply "${FILESDIR}"/7.1.x/72100-media-cix-armcb-isp-uplift-selected-2026q2-fixes.patch || die
 	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
