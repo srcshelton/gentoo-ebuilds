@@ -213,6 +213,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72099-media-cix-armcb-isp-unwind-sensor-probe-registration.patch || die
 	eapply "${FILESDIR}"/7.1.x/72100-media-cix-armcb-isp-uplift-selected-2026q2-fixes.patch || die
 	eapply "${FILESDIR}"/7.1.x/72101-media-cix-armcb-isp-use-subdev-unregister-helper.patch || die
+	eapply "${FILESDIR}"/7.1.x/72102-media-cix-armcb-isp-unwind-camera-instance-on-probe-fail.patch || die
 	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/7.0.x/70040-drm-panthor-drop-unused-gem-device-variable.patch || die
