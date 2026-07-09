@@ -15,15 +15,15 @@ diff --git a/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c b/drivers/me
  	for (; i < ARRAY_SIZE(g_ko_entries); i++) {
  		fn = g_ko_entries[i].init;
 -		if (fn && fn() != NULL)
-+		pr_warn("%s entry init idx=%d fn=%px\n",
-+			ARMCB_ENTRY_CIX_DEEP_DIAG_TAG, i, fn);
++		pr_emerg("%s entry init idx=%d fn=%px\n",
++			 ARMCB_ENTRY_CIX_DEEP_DIAG_TAG, i, fn);
 +		if (fn && fn() != NULL) {
  			g_ko_entries[i].is_init = true;
-+			pr_warn("%s entry init idx=%d ok\n",
-+				ARMCB_ENTRY_CIX_DEEP_DIAG_TAG, i);
++			pr_emerg("%s entry init idx=%d ok\n",
++				 ARMCB_ENTRY_CIX_DEEP_DIAG_TAG, i);
 +		} else {
-+			pr_warn("%s entry init idx=%d skipped-or-failed\n",
-+				ARMCB_ENTRY_CIX_DEEP_DIAG_TAG, i);
++			pr_emerg("%s entry init idx=%d skipped-or-failed\n",
++				 ARMCB_ENTRY_CIX_DEEP_DIAG_TAG, i);
 +		}
  	}
  	return 0;
@@ -107,10 +107,10 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
 -		sd ? sd->name : "<null>", sd ? sd->dev : NULL,
 -		sd ? sd->fwnode : NULL,
 -		sd ? armcb_fwnode_invalid(sd->fwnode) : -1);
-+	pr_warn("%s/%s %s count=%d sd=%px name=%s name_fault=%d dev=%px dev_fault=%d fwnode=%px fwnode_fault=%d fwnode_bad=%d\n",
-+		ARMCB_CIX_DIAG_TAG, ARMCB_CIX_DEEP_DIAG_TAG, stage,
-+		diag_count, sd, name, name_fault, dev, dev_fault, fwnode,
-+		fwnode_fault, fwnode_fault ? -1 : armcb_fwnode_invalid(fwnode));
++	pr_emerg("%s/%s %s count=%d sd=%px name=%s name_fault=%d dev=%px dev_fault=%d fwnode=%px fwnode_fault=%d fwnode_bad=%d\n",
++		 ARMCB_CIX_DIAG_TAG, ARMCB_CIX_DEEP_DIAG_TAG, stage,
++		 diag_count, sd, name, name_fault, dev, dev_fault, fwnode,
++		 fwnode_fault, fwnode_fault ? -1 : armcb_fwnode_invalid(fwnode));
 +}
 +
 +static void armcb_cix_read_sdreg_name(struct armcb_sd_subdev *sdreg,
@@ -166,26 +166,27 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
 -			armcb_sdreg->close_seq);
 +	sd_list_fault = armcb_read_list_head(sd_list, &sd_list_snapshot);
 +	if (sd_list_fault || armcb_list_links_invalid(&sd_list_snapshot)) {
-+		pr_warn("%s reinitialising ordered subdev list head=%px fault=%d next=%px prev=%px sdreg=%px name=%s close_seq=0x%x\n",
-+			ARMCB_CIX_LIST_DIAG_TAG, sd_list, sd_list_fault,
-+			sd_list_fault ? NULL : sd_list_snapshot.next,
-+			sd_list_fault ? NULL : sd_list_snapshot.prev,
-+			armcb_sdreg, sdreg_name,
-+			close_seq);
++		pr_emerg("%s reinitialising ordered subdev list head=%px fault=%d next=%px prev=%px sdreg=%px name=%s close_seq=0x%x\n",
++			 ARMCB_CIX_LIST_DIAG_TAG, sd_list, sd_list_fault,
++			 sd_list_fault ? NULL : sd_list_snapshot.next,
++			 sd_list_fault ? NULL : sd_list_snapshot.prev,
++			 armcb_sdreg, sdreg_name,
++			 close_seq);
  		INIT_LIST_HEAD(sd_list);
  	}
  
 -	if (armcb_list_links_invalid(&armcb_sdreg->list)) {
 -		pr_warn("%s initialising subdev list node sdreg=%px name=%s next=%px prev=%px close_seq=0x%x\n",
-+	node_fault = armcb_read_list_head(&armcb_sdreg->list, &node_snapshot);
-+	if (node_fault || armcb_list_links_invalid(&node_snapshot)) {
-+		pr_warn("%s initialising subdev list node sdreg=%px name=%s fault=%d next=%px prev=%px close_seq=0x%x\n",
- 			ARMCB_CIX_LIST_DIAG_TAG, armcb_sdreg,
+-			ARMCB_CIX_LIST_DIAG_TAG, armcb_sdreg,
 -			armcb_sdreg->sd.name, armcb_sdreg->list.next,
 -			armcb_sdreg->list.prev, armcb_sdreg->close_seq);
-+			sdreg_name, node_fault,
-+			node_fault ? NULL : node_snapshot.next,
-+			node_fault ? NULL : node_snapshot.prev, close_seq);
++	node_fault = armcb_read_list_head(&armcb_sdreg->list, &node_snapshot);
++	if (node_fault || armcb_list_links_invalid(&node_snapshot)) {
++		pr_emerg("%s initialising subdev list node sdreg=%px name=%s fault=%d next=%px prev=%px close_seq=0x%x\n",
++			 ARMCB_CIX_LIST_DIAG_TAG, armcb_sdreg,
++			 sdreg_name, node_fault,
++			 node_fault ? NULL : node_snapshot.next,
++			 node_fault ? NULL : node_snapshot.prev, close_seq);
  		INIT_LIST_HEAD(&armcb_sdreg->list);
  	} else if (!list_empty(&armcb_sdreg->list)) {
  		LOG(LOG_ERR, "failed to add an already listed subdev");
@@ -221,18 +222,19 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
  	}
  
 -	pr_warn("%s register cam_id=%u dev=%px sdreg=%px name=%s close_seq=0x%x ordered_next=%px ordered_prev=%px node_next=%px node_prev=%px\n",
-+	pr_warn("%s register cam_id=%u dev=%px sdreg=%px name=%s close_seq=0x%x ordered_fault=%d ordered_next=%px ordered_prev=%px node_fault=%d node_next=%px node_prev=%px\n",
- 		ARMCB_CIX_LIST_DIAG_TAG, cam_id, parmcb_dev, armcb_sdreg,
+-		ARMCB_CIX_LIST_DIAG_TAG, cam_id, parmcb_dev, armcb_sdreg,
 -		armcb_sdreg ? armcb_sdreg->sd.name : "<null>",
 -		armcb_sdreg ? armcb_sdreg->close_seq : 0,
 -		parmcb_dev->ordered_sd_list.next, parmcb_dev->ordered_sd_list.prev,
 -		armcb_sdreg ? armcb_sdreg->list.next : NULL,
 -		armcb_sdreg ? armcb_sdreg->list.prev : NULL);
-+		sdreg_name, close_seq, ordered_fault,
-+		ordered_fault ? NULL : ordered_snapshot.next,
-+		ordered_fault ? NULL : ordered_snapshot.prev, node_fault,
-+		node_fault ? NULL : node_snapshot.next,
-+		node_fault ? NULL : node_snapshot.prev);
++	pr_emerg("%s register cam_id=%u dev=%px sdreg=%px name=%s close_seq=0x%x ordered_fault=%d ordered_next=%px ordered_prev=%px node_fault=%d node_next=%px node_prev=%px\n",
++		 ARMCB_CIX_LIST_DIAG_TAG, cam_id, parmcb_dev, armcb_sdreg,
++		 sdreg_name, close_seq, ordered_fault,
++		 ordered_fault ? NULL : ordered_snapshot.next,
++		 ordered_fault ? NULL : ordered_snapshot.prev, node_fault,
++		 node_fault ? NULL : node_snapshot.next,
++		 node_fault ? NULL : node_snapshot.prev);
  
  	mutex_lock(&parmcb_dev->ordered_sd_mutex);
  	armcb_add_sd_in_position(armcb_sdreg, &parmcb_dev->ordered_sd_list);
@@ -243,8 +245,8 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drive
  	int res = 0;
  
  	LOG(LOG_INFO, "+");
-+	pr_warn("CIX72098 isp_probe entry pdev=%px dev=%px fwnode=%px id=%d\n",
-+		pdev, &pdev->dev, np, pdev->id);
++	pr_emerg("CIX72098 isp_probe entry pdev=%px dev=%px fwnode=%px id=%d\n",
++		 pdev, &pdev->dev, np, pdev->id);
  	if (!np) {
  		LOG(LOG_ERR, "armcb isp get of node failed !");
  		res = -ENODEV;
@@ -252,8 +254,8 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drive
  	}
  
  	res = armcb_subdev_register(&p_isp_subdev->isp_sd, 0);
-+	pr_warn("CIX72098 isp_probe subdev-register ret=%d sd=%px fwnode=%px dev=%px\n",
-+		res, sd, sd->fwnode, sd->dev);
++	pr_emerg("CIX72098 isp_probe subdev-register ret=%d sd=%px fwnode=%px dev=%px\n",
++		 res, sd, sd->fwnode, sd->dev);
  	if (res < 0) {
  		LOG(LOG_ERR, "isp failed to register sub-device.ret = %d", res);
  		goto ERR_FREE_RET1;
@@ -273,10 +275,10 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  	unsigned int cam_id = 0;
  
  	LOG(LOG_INFO, "+");
-+	pr_warn("%s imgsens_probe entry client=%px dev=%px fwnode=%px\n",
-+		ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, client,
-+		client ? &client->dev : NULL,
-+		client ? client->dev.fwnode : NULL);
++	pr_emerg("%s imgsens_probe entry client=%px dev=%px fwnode=%px\n",
++		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, client,
++		 client ? &client->dev : NULL,
++		 client ? client->dev.fwnode : NULL);
  
  	if (!client) {
  		LOG(LOG_ERR, "armcb imgsens client is NULL");
@@ -290,8 +292,8 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
 +	}
  	res = fwnode_property_read_u32(node, CIX_CAMERA_MODULE_INDEX,
  				   &cam_id);
-+	pr_warn("%s imgsens_probe module-index ret=%d cam_id=%u node=%px\n",
-+		ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, cam_id, node);
++	pr_emerg("%s imgsens_probe module-index ret=%d cam_id=%u node=%px\n",
++		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, cam_id, node);
  
 -	if (WARN_ON(!dev) || WARN_ON(!node)) {
 +	if (WARN_ON(!dev)) {
@@ -302,8 +304,8 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  		LOG(LOG_ERR, "create armcb_dev instance fail");
  		return -ENOMEM;
  	}
-+	pr_warn("%s imgsens_probe instance=%px cam_id=%u\n",
-+		ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, adev, cam_id);
++	pr_emerg("%s imgsens_probe instance=%px cam_id=%u\n",
++		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, adev, cam_id);
  
  	LOG(LOG_INFO, "start configure notifier.");
  #if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
@@ -311,10 +313,10 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  	// register async node to notifier first
  	res = armcb_register_async_node(&client->dev, &adev->dts_notifier,
  					true);
-+	pr_warn("%s imgsens_probe async-node ret=%d notifier=%px waiting_next=%px waiting_prev=%px\n",
-+		ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, &adev->dts_notifier,
-+		adev->dts_notifier.waiting_list.next,
-+		adev->dts_notifier.waiting_list.prev);
++	pr_emerg("%s imgsens_probe async-node ret=%d notifier=%px waiting_next=%px waiting_prev=%px\n",
++		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, &adev->dts_notifier,
++		 adev->dts_notifier.waiting_list.next,
++		 adev->dts_notifier.waiting_list.prev);
  	if (res < 0) {
  		LOG(LOG_ERR, "attach async node to register failed\n");
  		v4l2_async_nf_cleanup(&adev->dts_notifier);
@@ -322,8 +324,8 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  #else
  	res = v4l2_async_nf_register(&adev->v4l2_dev, &adev->dts_notifier);
  #endif
-+	pr_warn("%s imgsens_probe nf-register ret=%d notifier=%px\n",
-+		ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, &adev->dts_notifier);
++	pr_emerg("%s imgsens_probe nf-register ret=%d notifier=%px\n",
++		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, &adev->dts_notifier);
  	if (res < 0) {
  		LOG(LOG_ERR, "register async notifier failed\n");
  		v4l2_async_nf_cleanup(&adev->dts_notifier);
@@ -340,7 +342,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
  
  #include <media/v4l2-async.h>
  #include <media/v4l2-device.h>
-@@ -27,10 +29,115 @@
+@@ -27,10 +29,124 @@
  #include "v4l2-subdev-priv.h"
  
  #define V4L2_ASYNC_CIX_DIAG_TAG "CIX72096"
@@ -439,6 +441,15 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 +	       v4l2_async_ptr_invalid(list->prev);
 +}
 +
++static bool v4l2_async_read_list_head(const struct list_head *list,
++				      struct list_head *snapshot)
++{
++	if (v4l2_async_ptr_invalid(list))
++		return true;
++
++	return copy_from_kernel_nofault(snapshot, list, sizeof(*snapshot));
++}
++
 +static void v4l2_async_read_sd_name(struct v4l2_subdev *sd, char *name,
 +				    size_t name_size)
 +{
@@ -457,7 +468,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
  }
  
  static void
-@@ -41,25 +148,152 @@ v4l2_async_cix_diag_match(const char *stage,
+@@ -41,25 +157,152 @@ v4l2_async_cix_diag_match(const char *stage,
  			  struct v4l2_async_match_desc *match)
  {
  	static int diag_count;
@@ -490,7 +501,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 -		sd ? sd->name : "<null>", sd ? sd->dev : NULL,
 -		sd ? sd->fwnode : NULL,
 -		sd ? v4l2_async_fwnode_invalid(sd->fwnode) : -1,
-+	pr_warn("%s/%s %s count=%d notifier=%px sd=%px sd_name=%s sd_dev=%px sd_dev_fault=%d sd_fwnode=%px sd_fwnode_fault=%d sd_bad=%d sd_arg=%px sd_arg_bad=%d match=%px match_type=%u match_type_fault=%d match_fwnode=%px match_fault=%d match_bad=%d ep_fault=%d ep_next=%px ep_prev=%px asc_fault=%d asc_next=%px asc_prev=%px\n",
++	pr_emerg("%s/%s %s count=%d notifier=%px sd=%px sd_name=%s sd_dev=%px sd_dev_fault=%d sd_fwnode=%px sd_fwnode_fault=%d sd_bad=%d sd_arg=%px sd_arg_bad=%d match=%px match_type=%u match_type_fault=%d match_fwnode=%px match_fault=%d match_bad=%d ep_fault=%d ep_next=%px ep_prev=%px asc_fault=%d asc_next=%px asc_prev=%px\n",
 +		V4L2_ASYNC_CIX_DIAG_TAG, V4L2_ASYNC_CIX_DEEP_DIAG_TAG,
 +		stage, diag_count, notifier, sd, sd_name, sd_dev,
 +		sd_dev_fault, sd_member_fwnode, sd_fwnode_fault,
@@ -554,7 +565,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 +	}
 +
 +	diag_count++;
-+	pr_warn("%s/%s %s count=%d notifier=%px sd=%px sd_name=%s sd_fwnode=%px sd_fwnode_fault=%d sd_bad=%d asc=%px asc_bad=%d asc_sd=%px asc_sd_fault=%d match_type=%u match_type_fault=%d match_fwnode=%px match_fault=%d match_bad=%d asc_entry_fault=%d asc_entry_next=%px asc_entry_prev=%px asc_subdev_fault=%d asc_subdev_next=%px asc_subdev_prev=%px\n",
++	pr_emerg("%s/%s %s count=%d notifier=%px sd=%px sd_name=%s sd_fwnode=%px sd_fwnode_fault=%d sd_bad=%d asc=%px asc_bad=%d asc_sd=%px asc_sd_fault=%d match_type=%u match_type_fault=%d match_fwnode=%px match_fault=%d match_bad=%d asc_entry_fault=%d asc_entry_next=%px asc_entry_prev=%px asc_subdev_fault=%d asc_subdev_next=%px asc_subdev_prev=%px\n",
 +		V4L2_ASYNC_CIX_DIAG_TAG, V4L2_ASYNC_CIX_DEEP_DIAG_TAG,
 +		stage, diag_count, notifier, sd, sd_name, sd_fwnode,
 +		sd_fwnode_fault,
@@ -592,7 +603,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 +			return false;
 +
 +		if (v4l2_async_ptr_invalid(pos)) {
-+			pr_warn("%s endpoint list invalid pos=%px head=%px match=%px\n",
++			pr_emerg("%s endpoint list invalid pos=%px head=%px match=%px\n",
 +				V4L2_ASYNC_CIX_DEEP_DIAG_TAG, pos, head,
 +				match_fwnode);
 +			return false;
@@ -605,7 +616,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 +		    copy_from_kernel_nofault(&entry,
 +					     &ase->async_subdev_endpoint_entry,
 +					     sizeof(entry))) {
-+			pr_warn("%s endpoint list unreadable pos=%px ase=%px match=%px\n",
++			pr_emerg("%s endpoint list unreadable pos=%px ase=%px match=%px\n",
 +				V4L2_ASYNC_CIX_DEEP_DIAG_TAG, pos, ase,
 +				match_fwnode);
 +			return false;
@@ -617,13 +628,13 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 +		pos = entry.next;
 +	}
 +
-+	pr_warn("%s endpoint list walk limit head=%px match=%px\n",
++	pr_emerg("%s endpoint list walk limit head=%px match=%px\n",
 +		V4L2_ASYNC_CIX_DEEP_DIAG_TAG, head, match_fwnode);
 +	return false;
  }
  
  static int v4l2_async_nf_call_bound(struct v4l2_async_notifier *n,
-@@ -131,40 +365,38 @@ match_fwnode_one(struct v4l2_async_notifier *notifier,
+@@ -131,40 +374,38 @@ match_fwnode_one(struct v4l2_async_notifier *notifier,
  		 struct v4l2_async_match_desc *match)
  {
  	struct fwnode_handle *asd_dev_fwnode;
@@ -677,7 +688,7 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
  
  	return ret;
  }
-@@ -173,58 +405,61 @@ static bool match_fwnode(struct v4l2_async_notifier *notifier,
+@@ -173,58 +414,61 @@ static bool match_fwnode(struct v4l2_async_notifier *notifier,
  			 struct v4l2_subdev *sd,
  			 struct v4l2_async_match_desc *match)
  {
@@ -692,8 +703,8 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
  
 -	if (v4l2_async_fwnode_invalid(match->fwnode))
 +	if (v4l2_async_read_match_fwnode(match, &match_fwnode)) {
-+		pr_warn("%s match fwnode unreadable match=%px sd=%px\n",
-+			V4L2_ASYNC_CIX_DEEP_DIAG_TAG, match, sd);
++		pr_emerg("%s match fwnode unreadable match=%px sd=%px\n",
++			 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, match, sd);
  		return false;
 +	}
  
@@ -713,8 +724,8 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
 -				    async_subdev_endpoint_entry) {
 -			bool matched = ase->endpoint == match->fwnode;
 +	if (v4l2_async_read_sd_fwnode(sd, &sd_fwnode)) {
-+		pr_warn("%s sd fwnode unreadable sd=%px match=%px\n",
-+			V4L2_ASYNC_CIX_DEEP_DIAG_TAG, sd, match);
++		pr_emerg("%s sd fwnode unreadable sd=%px match=%px\n",
++			 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, sd, match);
 +		return false;
 +	}
  
@@ -770,27 +781,159 @@ diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2
  }
  
  static LIST_HEAD(subdev_list);
-@@ -241,8 +476,22 @@ v4l2_async_find_match(struct v4l2_async_notifier *notifier,
+@@ -239,10 +483,51 @@ v4l2_async_find_match(struct v4l2_async_notifier *notifier,
+ 		      struct v4l2_subdev *sd,
+ 		      struct v4l2_async_match_desc *match);
  	struct v4l2_async_connection *asc;
- 
- 	list_for_each_entry(asc, &notifier->waiting_list, asc_entry) {
++	struct list_head *head = &notifier->waiting_list;
++	struct list_head *pos = head->next;
++	int i;
++
++	for (i = 0; i < 64; i++) {
 +		enum v4l2_async_match_type match_type = 0;
++		struct list_head entry = {};
++		bool entry_fault;
 +		bool match_type_fault;
 +
++		if (pos == head)
++			return NULL;
++
++		if (v4l2_async_ptr_invalid(pos)) {
++			pr_emerg("%s find-match invalid waiting pos=%px head=%px notifier=%px sd=%px\n",
++				 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, pos, head,
++				 notifier, sd);
++			return NULL;
++		}
++
++		entry_fault = v4l2_async_read_list_head(pos, &entry);
++		if (entry_fault || v4l2_async_list_links_invalid(&entry)) {
++			pr_emerg("%s find-match corrupt waiting pos=%px head=%px notifier=%px sd=%px fault=%d next=%px prev=%px\n",
++				 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, pos, head,
++				 notifier, sd, entry_fault,
++				 entry_fault ? NULL : entry.next,
++				 entry_fault ? NULL : entry.prev);
++			return NULL;
++		}
++
++		asc = list_entry(pos, struct v4l2_async_connection, asc_entry);
 +		v4l2_async_cix_diag_asc("find-match-entry", notifier, sd,
 +					asc);
 +		match_type_fault = v4l2_async_read_match_type(&asc->match,
 +							      &match_type);
 +		if (match_type_fault) {
-+			pr_warn("%s find-match skipping unreadable asc=%px sd=%px notifier=%px\n",
-+				V4L2_ASYNC_CIX_DEEP_DIAG_TAG, asc, sd,
-+				notifier);
++			pr_emerg("%s find-match skipping unreadable asc=%px sd=%px notifier=%px\n",
++				 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, asc, sd,
++				 notifier);
++			pos = entry.next;
 +			continue;
 +		}
-+
+ 
+-	list_for_each_entry(asc, &notifier->waiting_list, asc_entry) {
  		/* bus_type has been verified valid before */
 -		switch (asc->match.type) {
 +		switch (match_type) {
  		case V4L2_ASYNC_MATCH_TYPE_I2C:
  			match = match_i2c;
  			break;
+@@ -250,16 +535,22 @@ v4l2_async_find_match(struct v4l2_async_notifier *notifier,
+ 			match = match_fwnode;
+ 			break;
+ 		default:
+-			/* Cannot happen, unless someone breaks us */
+-			WARN_ON(true);
+-			return NULL;
++			pr_emerg("%s find-match unknown match_type=%u asc=%px sd=%px notifier=%px\n",
++				 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, match_type,
++				 asc, sd, notifier);
++			pos = entry.next;
++			continue;
+ 		}
+ 
+ 		/* match cannot be NULL here */
+ 		if (match(notifier, sd, &asc->match))
+ 			return asc;
++
++		pos = entry.next;
+ 	}
+ 
++	pr_emerg("%s find-match waiting list walk limit head=%px notifier=%px sd=%px\n",
++		 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, head, notifier, sd);
+ 	return NULL;
+ }
+ 
+@@ -486,24 +777,60 @@ v4l2_async_nf_try_all_subdevs(struct v4l2_async_notifier *notifier)
+ {
+ 	struct v4l2_device *v4l2_dev =
+ 		v4l2_async_nf_find_v4l2_dev(notifier);
+-	struct v4l2_subdev *sd;
++	struct list_head *head = &subdev_list;
++	struct list_head *pos;
++	int i;
+ 
+ 	if (!v4l2_dev)
+ 		return 0;
+ 
+ 	dev_dbg(notifier_dev(notifier), "v4l2-async: trying all sub-devices\n");
++	pr_emerg("%s try-all-entry notifier=%px v4l2_dev=%px subdev_head=%px next=%px prev=%px waiting=%px waiting_next=%px waiting_prev=%px\n",
++		 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, notifier, v4l2_dev,
++		 &subdev_list, subdev_list.next, subdev_list.prev,
++		 &notifier->waiting_list, notifier->waiting_list.next,
++		 notifier->waiting_list.prev);
+ 
+ again:
+-	list_for_each_entry(sd, &subdev_list, async_list) {
++	pos = head->next;
++	for (i = 0; i < 64; i++) {
+ 		struct v4l2_async_connection *asc;
++		struct v4l2_subdev *sd;
++		struct list_head entry = {};
++		bool entry_fault;
+ 		int ret;
+ 
++		if (pos == head)
++			return 0;
++
++		if (v4l2_async_ptr_invalid(pos)) {
++			pr_emerg("%s try-all invalid subdev pos=%px head=%px notifier=%px\n",
++				 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, pos, head,
++				 notifier);
++			return -EINVAL;
++		}
++
++		entry_fault = v4l2_async_read_list_head(pos, &entry);
++		if (entry_fault || v4l2_async_list_links_invalid(&entry)) {
++			pr_emerg("%s try-all corrupt subdev pos=%px head=%px notifier=%px fault=%d next=%px prev=%px\n",
++				 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, pos, head,
++				 notifier, entry_fault,
++				 entry_fault ? NULL : entry.next,
++				 entry_fault ? NULL : entry.prev);
++			return -EINVAL;
++		}
++
++		sd = list_entry(pos, struct v4l2_subdev, async_list);
+ 		asc = v4l2_async_find_match(notifier, sd);
+-		if (!asc)
++		if (!asc) {
++			pos = entry.next;
+ 			continue;
++		}
+ 
+ 		dev_dbg(notifier_dev(notifier),
+ 			"v4l2-async: match found, subdev %s\n", sd->name);
++		pr_emerg("%s try-all match sd=%px asc=%px notifier=%px\n",
++			 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, sd, asc, notifier);
+ 
+ 		ret = v4l2_async_match_notify(notifier, v4l2_dev, sd, asc);
+ 		if (ret < 0)
+@@ -522,7 +849,10 @@ again:
+ 		goto again;
+ 	}
+ 
+-	return 0;
++	pr_emerg("%s try-all subdev list walk limit head=%px notifier=%px\n",
++		 V4L2_ASYNC_CIX_DEEP_DIAG_TAG, &subdev_list, notifier);
++
++	return -ELOOP;
+ }
+ 
+ static void v4l2_async_unbind_subdev_one(struct v4l2_async_notifier *notifier,
