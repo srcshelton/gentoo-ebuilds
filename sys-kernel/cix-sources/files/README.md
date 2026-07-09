@@ -3,6 +3,23 @@
 This table documents the local patches applied by the CIX kernel ebuilds and
 version-specific replacements used by newer kernel point releases. Linux 7.1.x reuses the applicable 7.0.x/shared patches unless a 7.1.x-specific replacement is listed.
 
+## Prepared Source Helper
+
+Non-Gentoo users can create a fully patched source tree from a `cix-sources`
+ebuild without unpacking the patch order by hand:
+
+```sh
+sys-kernel/cix-sources/files/create-patched-kernel.sh \
+  sys-kernel/cix-sources/cix-sources-7.1.3.ebuild \
+  ./linux-7.1.3-cix
+```
+
+The helper fetches and verifies the kernel, genpatches, and CIX/Sky1 distfiles,
+then runs the selected ebuild's `src_prepare` logic against the target source
+tree. Use `--force` to replace an existing target directory, `--distdir` to
+reuse downloaded distfiles, and `--use experimental` only when you intentionally
+want the ebuild's optional experimental genpatches.
+
 | Patch number/name | Kernel release(s) | Subsystem(s) | Issue or enhancement |
 | --- | --- | --- | --- |
 | `7.1.x/0005-cix-clk-add-cix-clk-driver.patch`, `7.1.x/0006-cix-reset-add-cix-reset-driver.patch`, `7.1.x/0008-cix-pmdomain-add-acpi-support-to-cix-soc.patch`, `7.1.x/0011-cix-drm-panthor-add-acpi-support-for-cix-p1.patch`, `7.1.x/0024-cix-phy-add-cix-phy-driver.patch`, `7.1.x/0046-cix-tty-amba-pl011-use-driver-from-cix-bsp.patch` | 7.1.x | CIX upstream queue, Clocks, Reset, PM Domains, Panthor, PHY, PL011 | Re-bases the updated CIX 7.0 upstream patch queue for Linux 7.1 source drift: moved top-level Kconfig/Makefile vendor lists, the existing OF-only Sky1 reset driver, pmdomain provider registration changes, Panthor include context, and PL011 console-write drift. CIX mailbox patch `0034` is skipped on 7.1 because the preceding CIX mailbox source already contains the `IRQF_NO_SUSPEND` change. |
