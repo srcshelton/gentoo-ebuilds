@@ -71,7 +71,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/medi
  static int armcb_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
  				 unsigned int *nplanes, unsigned int sizes[],
  				 struct device *alloc_devs[])
-@@ -155,17 +168,49 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
+@@ -155,11 +168,41 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
  static void cap_vb2_stop_streaming(struct vb2_queue *q)
  {
  	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(q);
@@ -115,15 +115,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/medi
  }
  
  static struct vb2_ops armcb_vid_cap_qops = {
- 	.queue_setup = armcb_vb2_queue_setup,
- 	.buf_queue = armcb_vb2_buf_queue,
- 	.buf_finish = armcb_vb2_buf_finish,
-+	.wait_prepare = vb2_ops_wait_prepare,
-+	.wait_finish = vb2_ops_wait_finish,
- 
- 	.start_streaming = cap_vb2_start_streaming,
- 	.stop_streaming = cap_vb2_stop_streaming,
-@@ -198,7 +243,7 @@ int isp_vb2_queue_init(struct vb2_queue *q, struct mutex *mlock,
+@@ -198,7 +241,7 @@ int isp_vb2_queue_init(struct vb2_queue *q, struct mutex *mlock,
  	q->ops = armcb_vb2_get_q_ops();
  	q->mem_ops = armcb_vb2_get_q_mem_ops();
  	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
