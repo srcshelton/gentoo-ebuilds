@@ -1,20 +1,38 @@
 diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 --- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
-@@ -18,6 +18,7 @@
+@@ -18,12 +18,20 @@
  #include "media/v4l2-device.h"
  #include "system_logger.h"
  #include <linux/delay.h>
++#include <linux/err.h>
 +#include <linux/property.h>
++#include <linux/slab.h>
  
  #ifdef LOG_MODULE
  #undef LOG_MODULE
-@@ -44,6 +45,9 @@ static int armcb_subdev_register_nodes_async(struct v4l2_subdev *sd)
+ #define LOG_MODULE LOG_MODULE_COMMON
+ #endif
+ 
++static bool armcb_fwnode_invalid(struct fwnode_handle *fwnode)
++{
++	return IS_ERR(fwnode) || ZERO_OR_NULL_PTR(fwnode);
++}
++
+ #ifndef ARMCB_CAM_KO
+ static void armcb_subdev_unregister_nodes(struct video_device *vdev)
+ {
+@@ -44,6 +52,14 @@ static int armcb_subdev_register_nodes_async(struct v4l2_subdev *sd)
  		return -EINVAL;
  	}
  
-+	if (!sd->fwnode && sd->dev)
++	if (armcb_fwnode_invalid(sd->fwnode) && sd->dev)
 +		sd->fwnode = dev_fwnode(sd->dev);
++
++	if (armcb_fwnode_invalid(sd->fwnode)) {
++		LOG(LOG_ERR, "Invalid fwnode for %s", sd->name);
++		return -EINVAL;
++	}
 +
  	res = v4l2_async_register_subdev(sd);
  	if (res < 0) {
@@ -22,13 +40,57 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
 diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
 --- a/drivers/media/v4l2-core/v4l2-async.c
 +++ b/drivers/media/v4l2-core/v4l2-async.c
-@@ -158,6 +158,9 @@ static bool match_fwnode(struct v4l2_async_notifier *notifier,
+@@ -26,6 +26,11 @@
+ 
+ #include "v4l2-subdev-priv.h"
+ 
++static bool v4l2_async_fwnode_invalid(struct fwnode_handle *fwnode)
++{
++	return IS_ERR(fwnode) || ZERO_OR_NULL_PTR(fwnode);
++}
++
+ static int v4l2_async_nf_call_bound(struct v4l2_async_notifier *n,
+ 				    struct v4l2_subdev *subdev,
+ 				    struct v4l2_async_connection *asc)
+@@ -97,6 +102,10 @@ match_fwnode_one(struct v4l2_async_notifier *notifier,
+ 	struct fwnode_handle *asd_dev_fwnode;
+ 	bool ret;
+ 
++	if (v4l2_async_fwnode_invalid(sd_fwnode) ||
++	    v4l2_async_fwnode_invalid(match->fwnode))
++		return false;
++
+ 	dev_dbg(notifier_dev(notifier),
+ 		"v4l2-async: fwnode match: need %pfw, trying %pfw\n",
+ 		sd_fwnode, match->fwnode);
+@@ -130,9 +139,13 @@ static bool match_fwnode(struct v4l2_async_notifier *notifier,
+ 			 struct v4l2_subdev *sd,
+ 			 struct v4l2_async_match_desc *match)
+ {
++	if (v4l2_async_fwnode_invalid(match->fwnode))
++		return false;
++
+ 	dev_dbg(notifier_dev(notifier),
+ 		"v4l2-async: matching for notifier %pfw, sd fwnode %pfw\n",
+-		dev_fwnode(notifier_dev(notifier)), sd->fwnode);
++		dev_fwnode(notifier_dev(notifier)),
++		v4l2_async_fwnode_invalid(sd->fwnode) ? NULL : sd->fwnode);
+ 
+ 	if (!list_empty(&sd->async_subdev_endpoint_list)) {
+ 		struct v4l2_async_subdev_endpoint *ase;
+@@ -158,11 +171,14 @@ static bool match_fwnode(struct v4l2_async_notifier *notifier,
  		return false;
  	}
  
-+	if (IS_ERR_OR_NULL(sd->fwnode))
++	if (v4l2_async_fwnode_invalid(sd->fwnode))
 +		return false;
 +
  	if (match_fwnode_one(notifier, sd, sd->fwnode, match))
  		return true;
  
+ 	/* Also check the secondary fwnode. */
+-	if (IS_ERR_OR_NULL(sd->fwnode->secondary))
++	if (v4l2_async_fwnode_invalid(sd->fwnode->secondary))
+ 		return false;
+ 
+ 	dev_dbg(notifier_dev(notifier),
