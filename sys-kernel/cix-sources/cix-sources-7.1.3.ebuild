@@ -128,6 +128,7 @@ src_prepare() {
 				eapply "${FILESDIR}"/7.1.x/0035-regulator-core-brace-acpi-coupling-check.patch || die
 				eapply "${FILESDIR}"/7.1.x/0036-regulator-fwnode-drop-unused-supply-helper.patch || die
 				eapply "${FILESDIR}"/7.1.x/0037-regulator-fixed-match-acpi-prp0001-without-of.patch || die
+				eapply "${FILESDIR}"/7.1.x/0038-regulator-fixed-keep-acpi-fixed-rails-enabled.patch || die
 				;;
 			'0034-mailbox-cix-set-IRQF_NO_SUSPEND-for-STR.patch')
 				# Already present in the 7.1 CIX mailbox source after the preceding queue.

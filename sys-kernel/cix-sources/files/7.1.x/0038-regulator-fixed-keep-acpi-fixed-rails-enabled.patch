@@ -1,0 +1,23 @@
+diff --git a/drivers/regulator/fixed.c b/drivers/regulator/fixed.c
+--- a/drivers/regulator/fixed.c
++++ b/drivers/regulator/fixed.c
+@@ -223,6 +223,19 @@ fwnode_get_fixed_voltage_config(struct device *dev,
+ 	init_data = config->init_data;
+ 	init_data->constraints.apply_uV = 0;
+ 
++	/*
++	 * ACPI PRP0001 fixed-regulator descriptions are often board rails
++	 * without a complete regulator consumer graph.  Preserve firmware
++	 * state by default so probing the provider cannot drop rails such as
++	 * PCIe/NVMe power before their real consumers have bound.
++	 */
++	if (has_acpi_companion(dev)) {
++		if (!fwnode_property_present(np, "regulator-boot-on"))
++			init_data->constraints.boot_on = true;
++		if (!fwnode_property_present(np, "regulator-always-on"))
++			init_data->constraints.always_on = true;
++	}
++
+ 	config->supply_name = init_data->constraints.name;
+ 	if (init_data->constraints.min_uV == init_data->constraints.max_uV) {
+ 		config->microvolts = init_data->constraints.min_uV;
