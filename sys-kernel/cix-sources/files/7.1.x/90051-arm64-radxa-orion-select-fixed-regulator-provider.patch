@@ -1,0 +1,11 @@
+diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconfig.radxa
+--- a/drivers/platform/arm64/Kconfig.radxa
++++ b/drivers/platform/arm64/Kconfig.radxa
+@@ -22,6 +22,7 @@ config CIX_RADXA_ESSENTIAL
+ 	imply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
+ 	imply ACPI_FAN if CIX_RADXA_ORION_ACPI
+ 	imply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
++	select REGULATOR_FIXED_VOLTAGE if REGULATOR && CIX_RADXA_ORION_ACPI
+ 	imply RTC_DRV_HYM8563 if CIX_RADXA_ORION_DT
+ 	help
+ 	  Keep the smallest always-on set that is useful on current

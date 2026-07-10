@@ -1033,6 +1033,11 @@ def render_kconfig_radxa(
     profile_active = "(CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)"
     ethernet_imply = render_ethernet_implies(available_symbols)
     cpu_ipa_imply = render_cpu_ipa_imply(available_symbols)
+    fixed_regulator_select = ""
+    if kernel_version == "7.1" and "REGULATOR_FIXED_VOLTAGE" in available_symbols:
+        fixed_regulator_select = (
+            "        \tselect REGULATOR_FIXED_VOLTAGE if REGULATOR && CIX_RADXA_ORION_ACPI\n"
+        )
     accelerator_symbols = (
         "ARMCHINA_NPU",
         "ARMCHINA_NPU_ARCH_V3",
@@ -1070,6 +1075,7 @@ def render_kconfig_radxa(
         \timply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
         \timply ACPI_FAN if CIX_RADXA_ORION_ACPI
         \timply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
+{fixed_regulator_select.rstrip()}
         \timply RTC_DRV_HYM8563 if CIX_RADXA_ORION_DT
         \thelp
         \t  Keep the smallest always-on set that is useful on current

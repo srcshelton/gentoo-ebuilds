@@ -127,6 +127,7 @@ src_prepare() {
 				eapply "${FILESDIR}"/7.1.x/0034-regulator-fwnode-fix-coupled-count-error-check.patch || die
 				eapply "${FILESDIR}"/7.1.x/0035-regulator-core-brace-acpi-coupling-check.patch || die
 				eapply "${FILESDIR}"/7.1.x/0036-regulator-fwnode-drop-unused-supply-helper.patch || die
+				eapply "${FILESDIR}"/7.1.x/0037-regulator-fixed-match-acpi-prp0001-without-of.patch || die
 				;;
 			'0034-mailbox-cix-set-IRQF_NO_SUSPEND-for-STR.patch')
 				# Already present in the 7.1 CIX mailbox source after the preceding queue.
@@ -214,6 +215,8 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72100-media-cix-armcb-isp-uplift-selected-2026q2-fixes.patch || die
 	eapply "${FILESDIR}"/7.1.x/72101-media-cix-armcb-isp-use-subdev-unregister-helper.patch || die
 	eapply "${FILESDIR}"/7.1.x/72102-media-cix-armcb-isp-unwind-camera-instance-on-probe-fail.patch || die
+	eapply "${FILESDIR}"/7.1.x/72103-media-cix-armcb-isp-defer-actuator-until-camera-instance.patch || die
+	eapply "${FILESDIR}"/7.1.x/72104-media-cix-armcb-isp-select-fixed-regulator-provider.patch || die
 	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/7.0.x/70040-drm-panthor-drop-unused-gem-device-variable.patch || die
@@ -298,6 +301,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/7.1.x/90050-arm64-cix-add-radxa-orion-board-profiles.patch || die
+		eapply "${FILESDIR}"/7.1.x/90051-arm64-radxa-orion-select-fixed-regulator-provider.patch || die
 	fi
 
 	kernel-2_src_prepare

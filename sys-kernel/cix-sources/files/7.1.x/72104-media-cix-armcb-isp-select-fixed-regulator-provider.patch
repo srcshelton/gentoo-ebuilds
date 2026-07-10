@@ -1,0 +1,11 @@
+diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+--- a/drivers/media/platform/cix/Kconfig
++++ b/drivers/media/platform/cix/Kconfig
+@@ -38,6 +38,7 @@ config VIDEO_CIX_ARMCB_ISP
+ 	select VIDEOBUF2_DMA_CONTIG
+ 	select VIDEOBUF2_V4L2
+ 	select VIDEOBUF2_VMALLOC
++	select REGULATOR_FIXED_VOLTAGE if ACPI && REGULATOR
+ 	help
+ 	  Enable support for the CIX/ArmChina Sky1 ISP and camera
+ 	  capture pipeline exposed by CIXH3020/CIXH3021/CIXH3023/

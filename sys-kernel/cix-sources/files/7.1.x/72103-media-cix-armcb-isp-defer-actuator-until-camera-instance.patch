@@ -1,0 +1,81 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+@@ -349,6 +349,11 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	bool ordered_fault;
+ 
+ 	LOG(LOG_INFO, "+   %d", cam_id);
++	if (WARN_ON(!armcb_sdreg)) {
++		LOG(LOG_ERR, "Invalid input armcb_sdreg is NULL");
++		return -EINVAL;
++	}
++
+ 	while (retry_count < 20) {
+ 		parmcb_dev = armcb_v4l2_core_get_dev(cam_id);
+ 		if (parmcb_dev != NULL) {
+@@ -359,14 +364,10 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	}
+ 
+ 	if (!parmcb_dev) {
+-		LOG(LOG_ERR, "Invalid input armcb_sbreg is NULL");
+-		return -EINVAL;
++		LOG(LOG_INFO, "camera instance %u is not ready", cam_id);
++		return -EPROBE_DEFER;
+ 	}
+ 
+-	if (WARN_ON(!armcb_sdreg)) {
+-		LOG(LOG_ERR, "Invalid input armcb_sdreg is NULL");
+-		return -EINVAL;
+-	}
+ 	armcb_cix_read_sdreg_name(armcb_sdreg, sdreg_name,
+ 				  sizeof(sdreg_name));
+ 	close_seq = armcb_cix_read_close_seq(armcb_sdreg);
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+@@ -22,6 +22,7 @@
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+ #include <linux/platform_device.h>
++#include <linux/property.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
+ #include <media/videobuf2-v4l2.h>
+@@ -101,8 +102,10 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 	struct v4l2_subdev *sd = &pmotor_sd->motor_sd.sd;
+ #ifdef CIX_I2C_ACTUATOR
+ 	struct i2c_client *pcline_dev = pmotor_sd->pcline_dev;
++	struct device *dev = &pcline_dev->dev;
+ #else
+ 	struct spi_device *spidev = pmotor_sd->pspi_dev;
++	struct device *dev = &spidev->dev;
+ #endif
+ 	int res = 0;
+ 
+@@ -115,8 +118,15 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 	v4l2_set_subdevdata(sd, pmotor_sd);
+ 	snprintf(sd->name, sizeof(sd->name), "motor0");
+ 
+-	res = of_property_read_u32(pmotor_sd->of_node, CIX_CAMERA_MODULE_INDEX,
+-				   &pmotor_sd->cam_id);
++	res = fwnode_property_read_u32(dev_fwnode(dev), CIX_CAMERA_MODULE_INDEX,
++				       &pmotor_sd->cam_id);
++	if (res == -EINVAL || res == -ENODATA) {
++		dev_dbg(dev, "camera module index not described, using 0\n");
++		res = 0;
++	} else if (res) {
++		return dev_err_probe(dev, res,
++				     "failed to read camera module index\n");
++	}
+ 
+ 	LOG(LOG_INFO, "motor id is %d", pmotor_sd->cam_id);
+ 
+@@ -238,6 +248,8 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ #else
+ 	pmotor_sd->pspi_dev = pspi_dev;
+ #endif
++	pmotor_sd->pdev = dev;
++	pmotor_sd->of_node = dev->of_node;
+ 	spin_lock_init(&pmotor_sd->sdlock);
+ 	mutex_init(&pmotor_sd->imutex);
+ 

@@ -1,0 +1,40 @@
+diff --git a/drivers/regulator/fixed.c b/drivers/regulator/fixed.c
+--- a/drivers/regulator/fixed.c
++++ b/drivers/regulator/fixed.c
+@@ -20,6 +20,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+ #include <linux/pm_opp.h>
++#include <linux/property.h>
+ #include <linux/regulator/driver.h>
+ #include <linux/regulator/fixed.h>
+ #include <linux/gpio/consumer.h>
+@@ -263,7 +264,7 @@ static int reg_fixed_voltage_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct fixed_voltage_config *config;
+ 	struct fixed_voltage_data *drvdata;
+-	const struct fixed_dev_type *drvtype = of_device_get_match_data(dev);
++	const struct fixed_dev_type *drvtype = device_get_match_data(dev);
+ 	struct regulator_config cfg = { };
+ 	enum gpiod_flags gflags;
+ 	int ret;
+@@ -392,7 +393,7 @@ static int reg_fixed_voltage_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#if defined(CONFIG_OF)
++#if defined(CONFIG_OF) || defined(CONFIG_ACPI)
+ static const struct fixed_dev_type fixed_voltage_data = {
+ 	.has_enable_clock = false,
+ };
+@@ -429,7 +430,9 @@ static struct platform_driver regulator_fixed_voltage_driver = {
+ 	.driver		= {
+ 		.name		= "reg-fixed-voltage",
+ 		.probe_type	= PROBE_PREFER_ASYNCHRONOUS,
+-		.of_match_table = of_match_ptr(fixed_of_match),
++#if defined(CONFIG_OF) || defined(CONFIG_ACPI)
++		.of_match_table = fixed_of_match,
++#endif
+ 	},
+ };
+ 
