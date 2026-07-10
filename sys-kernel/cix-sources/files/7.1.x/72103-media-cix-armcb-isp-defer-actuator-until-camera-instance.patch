@@ -1,8 +1,8 @@
 diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 --- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
-@@ -349,6 +349,11 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
- 	bool ordered_fault;
+@@ -257,6 +257,11 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	int ret;
  
  	LOG(LOG_INFO, "+   %d", cam_id);
 +	if (WARN_ON(!armcb_sdreg)) {
@@ -13,7 +13,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
  	while (retry_count < 20) {
  		parmcb_dev = armcb_v4l2_core_get_dev(cam_id);
  		if (parmcb_dev != NULL) {
-@@ -359,14 +364,10 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+@@ -267,14 +272,10 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
  	}
  
  	if (!parmcb_dev) {
@@ -27,9 +27,9 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
 -		LOG(LOG_ERR, "Invalid input armcb_sdreg is NULL");
 -		return -EINVAL;
 -	}
- 	armcb_cix_read_sdreg_name(armcb_sdreg, sdreg_name,
- 				  sizeof(sdreg_name));
- 	close_seq = armcb_cix_read_close_seq(armcb_sdreg);
+ 	pvdev = &parmcb_dev->v4l2_dev;
+ 	if (WARN_ON(!pvdev) || WARN_ON(!pvdev->dev)) {
+ 		LOG(LOG_ERR, "Invalid pvdev/dev is NULL");
 diff --git a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
 --- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
 +++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c

@@ -32,11 +32,14 @@ same SSDT payloads.
   Radxa-`1.2.1`-derived `DSDT.aml`. On O6, the DSDT replacement carries the
   newer OEM revision, mainline-only PCIe/USB device-model policy, DTB-aligned
   eDP backlight brightness levels, and the ACPI `RAOP` ramoops description used
-  by the pstore/ramoops driver. On O6N, the DSDT source is the O6N-compatible
-  base DSDT captured from an O6N `1.2.1` system so the full profile can share
-  the whole-table payload structure without using the O6 DSDT on O6N hardware.
-  Both boards also include the replacement `PPTT.aml` cache topology and, when
-  enabled by USE flags, the generated `IORT.aml` SMMU table update.
+  by the pstore/ramoops driver. It also replaces the O6 `ORIONO6` board SSDT so
+  the three fixed USB VBUS regulators consume the `pinctrl_usb0`,
+  `pinctrl_usb4`, and `pinctrl_usb5` groups actually published by `MUX1`. On
+  O6N, the DSDT source is the O6N-compatible base DSDT captured from an O6N
+  `1.2.1` system so the full profile can share the whole-table payload structure
+  without using the O6 DSDT or O6 board SSDT on O6N hardware. Both boards also
+  include the replacement `PPTT.aml` cache topology and, when enabled by USE
+  flags, the generated `IORT.aml` SMMU table update.
 
 The O6 DSDT replacement keeps the generic Linux-visible `PNP0A08` PCIe and
 `PNP0D10` USB hierarchies and marks the duplicate vendor-specific CIX/Cadence
@@ -64,6 +67,7 @@ Rows marked `dsdt only` are included only by the DSDT/whole-table profile.
 | O6, O6N | `ssdt`, `dsdt` | `O6RBRR.aml`, `O6NRBRR.aml` | `O6RBRR`, `O6NRBRR` / `*-reboot-reason.asl` | Reboot reason, diagnostics | Adds a `PRP0001` device compatible with `cix,sky1-reboot-reason` over the read-only reboot-reason registers at `0x16000500` and `0x16000218`, allowing the Linux reboot-reason driver to expose both the software reboot reason and hardware reset source. |
 | O6 | `ssdt`, `dsdt` | `O6TZSNS.aml` | `O6TZSNS` / `orion-o6-thermal-sensors.asl` | ACPI thermal, PMMX sensors | Adds PMMX.SENG-backed thermal zones for VPU, GPU bottom/top, SoC bridge, DDR bottom/top, CI700 interconnect, NPU, SoC trace, and two board NTC sensors. Each zone has a critical trip point, a `10` decisecond polling period, and returns `Ones` on PMMX status failure rather than exposing a false temperature. |
 | O6, O6N | `dsdt only` | `DSDT.aml` | board-specific `dsdt/DSDT.asl` | ACPI namespace, PCIe, USB, pstore, display | Replaces the stock DSDT with a board-specific Radxa `1.2.1`-derived DSDT. The O6 payload keeps the generic Linux-visible `PNP0A08` PCIe and `PNP0D10` USB model, suppresses overlapping vendor PCIe/USB controller models, adds/tightens PCIe I/O and memory windows, carries the PCIe `_OSC` handoff policy, updates the PRC1 `bus-range` property to `0x90` to `0xaf`, exposes the `RAOP` `ramoops` device, adds the standard GPU `mali-supply` alias for the GPUP power resource, keeps PMMX mailbox helper ASL compatible with current ACPICA, fixes stale I2S5-I2S8 pinctrl consumer names to match the firmware-published IOMUX groups, removes the unresolvable I2S9 pinctrl consumer reference, and carries the display/backlight metadata cleanup. The O6N payload uses an O6N-compatible DSDT source and carries the same GPU supply and I2S pinctrl metadata fixes, but does not import O6-only SSDT overlays. |
+| O6 | `dsdt only` | `ORIONO6.aml` | `ORIONO6` / `ssdt-replacement/ORIONO6.asl` | USB VBUS regulators, pinctrl | Replaces the Radxa `1.2.1` O6 board SSDT with an otherwise equivalent OEM-revision-`2` table whose `VUS0`, `VUS4`, and `VUS5` fixed-regulator resources consume the `pinctrl_usb0`, `pinctrl_usb4`, and `pinctrl_usb5` groups published by `MUX1`, rather than the nonexistent `usb_drive_vbus0`, `usb_drive_vbus4`, and `usb_drive_vbus5` groups. The revision bump is required because Linux accepts an initrd table as an upgrade only when its OEM revision is newer than the firmware table. |
 | O6, O6N | `dsdt only` | `PPTT.aml` | `pptt/PPTT.asl` | CPU/cache topology | Replaces PPTT with a conservative cache topology model: `32 KiB` L1I + `32 KiB` L1D for A520 cores, `64 KiB` L1I + `64 KiB` L1D plus private `512 KiB` L2 for A720 cores, and shared `12 MiB` L3. It does not renumber CPUs. |
 | O6, O6N | `dsdt only`, optional | `IORT.aml` | generated from `iort/IORT.dat` by `build_iort_upgrade.py` | IOMMU, SMMUv3, MSI domains | Generated only when `acpi-table-upgrade-dsdt` is enabled and at least one IORT USE flag is active. `acpi-table-upgrade-iort-httu` marks SMMUv3 nodes coherent and advertises hardware access/dirty table updates. `acpi-table-upgrade-iort-msi` adds or validates ITS mappings for the Sky1 PCIe and platform SMMUv3 nodes at `0x0b010000` and `0x0b1b0000`, marks their device-ID mapping valid, and avoids Linux falling back to wired IRQs for those SMMU nodes. |
 
@@ -251,5 +255,5 @@ dmesg | grep -Ei 'ACPI:.*(upgrade|override)|O6RBRR|O6TZSNS|rts5453|cppc|arm-scmi
 For the DSDT/whole-table profile, also check for the whole-table payloads:
 
 ```sh
-dmesg | grep -Ei 'ACPI:.*(DSDT|IORT|PPTT|RAOP)|Table Upgrade: override \[(DSDT|IORT|PPTT)'
+dmesg | grep -Ei 'ACPI:.*(DSDT|IORT|PPTT|ORIONO6|RAOP)|Table Upgrade: override \[(DSDT|IORT|PPTT|SSDT)'
 ```

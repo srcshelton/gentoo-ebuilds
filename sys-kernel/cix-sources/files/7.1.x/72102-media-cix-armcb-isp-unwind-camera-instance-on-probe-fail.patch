@@ -82,16 +82,15 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h b/driver
 diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
 --- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
 +++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
-@@ -446,6 +446,8 @@ static int imgsens_probe(struct i2c_client *client)
+@@ -444,6 +444,7 @@ static int imgsens_probe(struct i2c_client *client)
  	armcb_v4l2_dev_t *adev = NULL;
  	int res = 0;
  	unsigned int cam_id = 0;
-+	const char *fail_stage = "pre-instance";
 +	bool notifier_initialized = false;
  	bool notifier_registered = false;
  	bool subdev_registered = false;
  
-@@ -497,10 +499,12 @@ static int imgsens_probe(struct i2c_client *client)
+@@ -487,6 +488,7 @@ static int imgsens_probe(struct i2c_client *client)
  #else
  	v4l2_async_nf_init(&adev->dts_notifier);
  #endif
@@ -99,13 +98,8 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  	adev->dts_notifier.ops = &async_notifier_ops;
  #endif
  
- 	// register async node to notifier first
-+	fail_stage = "async-node";
- 	res = armcb_register_async_node(&client->dev, &adev->dts_notifier,
+@@ -495,8 +497,7 @@ static int imgsens_probe(struct i2c_client *client)
  					true);
- 	pr_emerg("%s imgsens_probe async-node ret=%d notifier=%px waiting_next=%px waiting_prev=%px\n",
-@@ -509,23 +513,24 @@ static int imgsens_probe(struct i2c_client *client)
- 		 adev->dts_notifier.waiting_list.prev);
  	if (res < 0) {
  		LOG(LOG_ERR, "attach async node to register failed\n");
 -		v4l2_async_nf_cleanup(&adev->dts_notifier);
@@ -113,14 +107,9 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
 +		goto EXIT_RET;
  	}
  #if (KERNEL_VERSION( 6, 6, 0 ) <= LINUX_VERSION_CODE)
-+	fail_stage = "notifier-register";
  	res = v4l2_async_nf_register(&adev->dts_notifier);
- #else
-+	fail_stage = "notifier-register";
- 	res = v4l2_async_nf_register(&adev->v4l2_dev, &adev->dts_notifier);
+@@ -505,8 +506,7 @@ static int imgsens_probe(struct i2c_client *client)
  #endif
- 	pr_emerg("%s imgsens_probe nf-register ret=%d notifier=%px\n",
- 		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, res, &adev->dts_notifier);
  	if (res < 0) {
  		LOG(LOG_ERR, "register async notifier failed\n");
 -		v4l2_async_nf_cleanup(&adev->dts_notifier);
@@ -129,95 +118,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  	}
  	notifier_registered = true;
  
-+	fail_stage = "sensor-alloc";
- 	pimgsens_sd = kzalloc(sizeof(*pimgsens_sd), GFP_KERNEL);
- 	if (!pimgsens_sd) {
- 		LOG(LOG_ERR, "armcb imgsens kzalloc failed");
-@@ -540,6 +545,7 @@ static int imgsens_probe(struct i2c_client *client)
- 	pimgsens_sd->cam_id = cam_id;
- 	pimgsens_sd->power_on = FALSE;
- 
-+	fail_stage = "configure-subdevs";
- 	res = armcb_imgsens_configure_subdevs(pimgsens_sd);
- 	if (res < 0) {
- 		LOG(LOG_ERR, "armcb_imgsens_configure_subdevs failed res(%d)",
-@@ -550,6 +556,7 @@ static int imgsens_probe(struct i2c_client *client)
- 	pimgsens_sd->armcb_v4l2_dev = adev;
- 	i2c_set_clientdata(client, (void *)pimgsens_sd);
- 
-+	fail_stage = "pinctrl-get";
- 	pimgsens_sd->imgs_inst.pinctrl = devm_pinctrl_get(&client->dev);
- 	if (IS_ERR(pimgsens_sd->imgs_inst.pinctrl)) {
- 		res = dev_err_probe(dev, PTR_ERR(pimgsens_sd->imgs_inst.pinctrl),
-@@ -557,6 +564,7 @@ static int imgsens_probe(struct i2c_client *client)
- 		goto EXIT_RET;
- 	}
- 
-+	fail_stage = "pinctrl-default";
- 	pimgsens_sd->imgs_inst.pins_default = pinctrl_lookup_state(
- 		pimgsens_sd->imgs_inst.pinctrl, PINCTRL_STATE_DEFAULT);
- 	if (IS_ERR(pimgsens_sd->imgs_inst.pins_default)) {
-@@ -566,6 +574,7 @@ static int imgsens_probe(struct i2c_client *client)
- 		goto EXIT_RET;
- 	}
- 
-+	fail_stage = "pinctrl-sleep";
- 	pimgsens_sd->imgs_inst.pins_sleep =
- 		pinctrl_lookup_state(pimgsens_sd->imgs_inst.pinctrl, PINCTRL_STATE_SLEEP);
- 	if (IS_ERR(pimgsens_sd->imgs_inst.pins_sleep)) {
-@@ -575,6 +584,7 @@ static int imgsens_probe(struct i2c_client *client)
- 		goto EXIT_RET;
- 	}
- 
-+	fail_stage = "pinctrl-select-default";
- 	res = pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
- 				   pimgsens_sd->imgs_inst.pins_default);
- 	if (res) {
-@@ -583,6 +593,7 @@ static int imgsens_probe(struct i2c_client *client)
- 		goto EXIT_RET;
- 	}
- 
-+	fail_stage = "pwdn-gpio";
- 	pimgsens_sd->imgs_inst.pwn_gpio =
- 		devm_gpiod_get(&client->dev, "pwdn", GPIOD_OUT_LOW);
- 	if (IS_ERR(pimgsens_sd->imgs_inst.pwn_gpio)) {
-@@ -591,6 +602,7 @@ static int imgsens_probe(struct i2c_client *client)
- 		goto EXIT_RET;
- 	}
- 
-+	fail_stage = "reset-gpio";
- 	pimgsens_sd->imgs_inst.rst_gpio =
- 		devm_gpiod_get(&client->dev, "reset", GPIOD_OUT_LOW);
- 	if (IS_ERR(pimgsens_sd->imgs_inst.rst_gpio)) {
-@@ -599,18 +611,21 @@ static int imgsens_probe(struct i2c_client *client)
- 		goto EXIT_RET;
- 	}
- 
-+	fail_stage = "power0-regulator";
- 	res = armcb_imgsens_get_optional_regulator(client,
- 						  &pimgsens_sd->vsupply_0,
- 						  "power0");
- 	if (res)
- 		goto EXIT_RET;
- 
-+	fail_stage = "power1-regulator";
- 	res = armcb_imgsens_get_optional_regulator(client,
- 						  &pimgsens_sd->vsupply_1,
- 						  "power1");
- 	if (res)
- 		goto EXIT_RET;
- 
-+	fail_stage = "mclk";
- 	if (is_acpi_device_node(client->dev.fwnode))
- 		pimgsens_sd->imgs_inst.mclk = devm_clk_get_optional(&to_acpi_device_node(client->dev.fwnode)->dev, "mclk");
- 	else
-@@ -628,13 +643,18 @@ static int imgsens_probe(struct i2c_client *client)
- 	return res;
- 
- EXIT_RET:
-+	pr_emerg("%s imgsens_probe cleanup stage=%s cam_id=%u res=%d adev=%px pimgsens=%px notifier_initialized=%d notifier_registered=%d subdev_registered=%d\n",
-+		 ARMCB_SENSOR_CIX_DEEP_DIAG_TAG, fail_stage, cam_id, res, adev, pimgsens_sd,
-+		 notifier_initialized, notifier_registered, subdev_registered);
+@@ -615,10 +615,12 @@ static int imgsens_probe(struct i2c_client *client)
  	i2c_set_clientdata(client, NULL);
  	if (subdev_registered)
  		armcb_subdev_unregister(&pimgsens_sd->imgsens_sd);

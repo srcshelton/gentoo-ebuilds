@@ -209,10 +209,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72080-media-cix-armcb-isp-fix-vi-hw-csidma-and-irqs.patch || die
 	eapply "${FILESDIR}"/7.1.x/72090-media-cix-armcb-isp-fix-async-fwnode-lifetime.patch || die
 	eapply "${FILESDIR}"/7.1.x/72095-media-cix-armcb-isp-stabilise-async-fwnodes.patch || die
-	eapply "${FILESDIR}"/7.1.x/72096-media-cix-armcb-isp-diagnose-async-fwnodes.patch || die
-	eapply "${FILESDIR}"/7.1.x/72097-media-cix-armcb-isp-repair-ordered-subdev-list.patch || die
-	eapply "${FILESDIR}"/7.1.x/72098-media-cix-armcb-isp-deep-safe-diagnostics.patch || die
-	eapply "${FILESDIR}"/7.1.x/72099-media-cix-armcb-isp-unwind-sensor-probe-registration.patch || die
 	eapply "${FILESDIR}"/7.1.x/72100-media-cix-armcb-isp-uplift-selected-2026q2-fixes.patch || die
 	eapply "${FILESDIR}"/7.1.x/72101-media-cix-armcb-isp-use-subdev-unregister-helper.patch || die
 	eapply "${FILESDIR}"/7.1.x/72102-media-cix-armcb-isp-unwind-camera-instance-on-probe-fail.patch || die
@@ -242,6 +238,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/40044-pinctrl-acpi-export-pin-groups-helper.patch || die
 	eapply "${FILESDIR}"/40049-pinctrl-sky1-drop-unused-debug-show-data.patch || die
 	eapply "${FILESDIR}"/7.1.x/40052-pinctrl-sky1-ignore-conflicting-acpi-pin-groups.patch || die
+	eapply "${FILESDIR}"/7.1.x/40053-pinctrl-sky1-alias-radxa-usb-vbus-groups.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
 	eapply "${FILESDIR}"/7.0.x/40050-cix-759efc0-soc-cix-arbitrate-acpi-usb-models.patch || die
 	eapply "${FILESDIR}"/7.0.x/40060-cix-759efc0-soc-cix-add-gpu-cca-scan-quirk.patch || die
@@ -377,6 +374,9 @@ _src_compile_asl() {
 		'DSDT')
 			prefix='DSDT'
 			;;
+		'ORIONO6')
+			prefix='ORIONO6'
+			;;
 		*)
 			die "_src_compile_asl() called with unknown file '${file:-}'"
 			;;
@@ -500,6 +500,12 @@ src_compile() {
 					_src_compile_asl "${file}" \
 						"${board_dst}/initramfs-dsdt/kernel/firmware/acpi"
 				done
+
+				for file in "${src}"/ssdt-replacement/*.asl; do
+					[[ -e "${file:-}" ]] || continue
+					_src_compile_asl "${file}" \
+						"${board_dst}/initramfs-dsdt/kernel/firmware/acpi"
+				done
 				profiles+=( 'initramfs-dsdt' )
 			fi
 
@@ -559,6 +565,11 @@ src_install() {
 
 			insinto "${kernel_dir}/cix-acpi-table-upgrade/source/${board}/${vendor}/dsdt"
 			doins "${src}"/dsdt/*.asl
+
+			if [[ -d "${src}/ssdt-replacement" ]]; then
+				insinto "${kernel_dir}/cix-acpi-table-upgrade/source/${board}/${vendor}/ssdt-replacement"
+				doins "${src}"/ssdt-replacement/*.asl
+			fi
 		done
 
 		if use acpi-table-upgrade-dsdt; then

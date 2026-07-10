@@ -1,13 +1,14 @@
 diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 --- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
-@@ -18,12 +18,20 @@
+@@ -18,12 +18,66 @@
  #include "media/v4l2-device.h"
  #include "system_logger.h"
  #include <linux/delay.h>
 +#include <linux/err.h>
 +#include <linux/property.h>
 +#include <linux/slab.h>
++#include <linux/uaccess.h>
  
  #ifdef LOG_MODULE
  #undef LOG_MODULE
@@ -16,13 +17,58 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
  
 +static bool armcb_fwnode_invalid(struct fwnode_handle *fwnode)
 +{
-+	return IS_ERR(fwnode) || ZERO_OR_NULL_PTR(fwnode);
++	struct fwnode_handle snapshot;
++
++	if (IS_ERR(fwnode) || ZERO_OR_NULL_PTR(fwnode))
++		return true;
++
++	if (copy_from_kernel_nofault(&snapshot, fwnode, sizeof(snapshot)))
++		return true;
++
++	return IS_ERR(snapshot.ops) || ZERO_OR_NULL_PTR(snapshot.ops);
++}
++
++static bool armcb_list_links_invalid(const struct list_head *list)
++{
++	return !list || ZERO_OR_NULL_PTR(list->next) ||
++	       ZERO_OR_NULL_PTR(list->prev);
++}
++
++static bool armcb_read_list_head(const struct list_head *list,
++				 struct list_head *snapshot)
++{
++	if (!list || ZERO_OR_NULL_PTR(list))
++		return true;
++
++	return copy_from_kernel_nofault(snapshot, list, sizeof(*snapshot));
++}
++
++static bool armcb_list_node_is_linked(struct list_head *node)
++{
++	struct list_head node_snapshot = {};
++	struct list_head next_snapshot = {};
++	struct list_head prev_snapshot = {};
++
++	if (armcb_read_list_head(node, &node_snapshot))
++		return false;
++
++	if (armcb_list_links_invalid(&node_snapshot))
++		return false;
++
++	if (node_snapshot.next == node && node_snapshot.prev == node)
++		return false;
++
++	if (armcb_read_list_head(node_snapshot.next, &next_snapshot) ||
++	    armcb_read_list_head(node_snapshot.prev, &prev_snapshot))
++		return false;
++
++	return next_snapshot.prev == node && prev_snapshot.next == node;
 +}
 +
  #ifndef ARMCB_CAM_KO
  static void armcb_subdev_unregister_nodes(struct video_device *vdev)
  {
-@@ -44,6 +52,14 @@ static int armcb_subdev_register_nodes_async(struct v4l2_subdev *sd)
+@@ -44,6 +98,14 @@ static int armcb_subdev_register_nodes_async(struct v4l2_subdev *sd)
  		return -EINVAL;
  	}
  
@@ -37,6 +83,162 @@ diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/driver
  	res = v4l2_async_register_subdev(sd);
  	if (res < 0) {
  		LOG(LOG_ERR, "v4l2_device_register_subdev failed for %s",
+@@ -147,6 +209,27 @@ static void armcb_add_sd_in_position(struct armcb_sd_subdev *armcb_sdreg,
+ 				     struct list_head *sd_list)
+ {
+ 	struct armcb_sd_subdev *temp_sd = NULL;
++	struct list_head node_snapshot = {};
++	struct list_head sd_list_snapshot = {};
++	bool node_fault;
++	bool sd_list_fault;
++
++	if (!armcb_sdreg || !sd_list) {
++		LOG(LOG_ERR, "Invalid subdev/list");
++		return;
++	}
++
++	sd_list_fault = armcb_read_list_head(sd_list, &sd_list_snapshot);
++	if (sd_list_fault || armcb_list_links_invalid(&sd_list_snapshot))
++		INIT_LIST_HEAD(sd_list);
++
++	node_fault = armcb_read_list_head(&armcb_sdreg->list, &node_snapshot);
++	if (node_fault || armcb_list_links_invalid(&node_snapshot)) {
++		INIT_LIST_HEAD(&armcb_sdreg->list);
++	} else if (!list_empty(&armcb_sdreg->list)) {
++		LOG(LOG_ERR, "failed to add an already listed subdev");
++		return;
++	}
+ 
+ 	LOG(LOG_INFO, "+");
+ 	list_for_each_entry(temp_sd, sd_list, list) {
+@@ -171,6 +254,7 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	armcb_v4l2_dev_t *parmcb_dev = NULL;
+ 	struct v4l2_device *pvdev = NULL;
+ 	int retry_count = 0;
++	int ret;
+ 
+ 	LOG(LOG_INFO, "+   %d", cam_id);
+ 	while (retry_count < 20) {
+@@ -187,6 +271,10 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 		return -EINVAL;
+ 	}
+ 
++	if (WARN_ON(!armcb_sdreg)) {
++		LOG(LOG_ERR, "Invalid input armcb_sdreg is NULL");
++		return -EINVAL;
++	}
+ 	pvdev = &parmcb_dev->v4l2_dev;
+ 	if (WARN_ON(!pvdev) || WARN_ON(!pvdev->dev)) {
+ 		LOG(LOG_ERR, "Invalid pvdev/dev is NULL");
+@@ -197,17 +285,30 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	armcb_add_sd_in_position(armcb_sdreg, &parmcb_dev->ordered_sd_list);
+ 	mutex_unlock(&parmcb_dev->ordered_sd_mutex);
+ 
+-	return armcb_subdev_register_nodes_async(&armcb_sdreg->sd);
++	ret = armcb_subdev_register_nodes_async(&armcb_sdreg->sd);
++	if (ret)
++		armcb_subdev_unregister(armcb_sdreg);
++
++	return ret;
+ }
+ 
+ int armcb_subdev_unregister(struct armcb_sd_subdev *armcb_sdreg)
+ {
++	bool linked;
++
+ 	if (WARN_ON(!armcb_sdreg)) {
+ 		LOG(LOG_ERR, "Invalid pvdev/dev is NULL");
+ 		return -EINVAL;
+ 	}
+ 
+-	v4l2_device_unregister_subdev(&armcb_sdreg->sd);
++	linked = armcb_list_node_is_linked(&armcb_sdreg->list);
++
++	if (linked)
++		list_del_init(&armcb_sdreg->list);
++	else
++		INIT_LIST_HEAD(&armcb_sdreg->list);
++
++	v4l2_async_unregister_subdev(&armcb_sdreg->sd);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -444,6 +444,8 @@ static int imgsens_probe(struct i2c_client *client)
+ 	armcb_v4l2_dev_t *adev = NULL;
+ 	int res = 0;
+ 	unsigned int cam_id = 0;
++	bool notifier_registered = false;
++	bool subdev_registered = false;
+ 
+ 	LOG(LOG_INFO, "+");
+ 
+@@ -456,10 +458,14 @@ static int imgsens_probe(struct i2c_client *client)
+ 
+ 	dev = &client->dev;
+ 	node = client->dev.fwnode;
++	if (!node) {
++		LOG(LOG_ERR, "armcb imgsens node is NULL");
++		return -EINVAL;
++	}
+ 	res = fwnode_property_read_u32(node, CIX_CAMERA_MODULE_INDEX,
+ 				   &cam_id);
+ 
+-	if (WARN_ON(!dev) || WARN_ON(!node)) {
++	if (WARN_ON(!dev)) {
+ 		LOG(LOG_ERR, "armcb imgsens dev/node is NULL");
+ 		return -EINVAL;
+ 	}
+@@ -502,11 +508,13 @@ static int imgsens_probe(struct i2c_client *client)
+ 		v4l2_async_nf_cleanup(&adev->dts_notifier);
+ 		return res;
+ 	}
++	notifier_registered = true;
+ 
+ 	pimgsens_sd = kzalloc(sizeof(*pimgsens_sd), GFP_KERNEL);
+ 	if (!pimgsens_sd) {
+ 		LOG(LOG_ERR, "armcb imgsens kzalloc failed");
+-		return -ENOMEM;
++		res = -ENOMEM;
++		goto EXIT_RET;
+ 	}
+ 	pimgs_inst = &pimgsens_sd->imgs_inst;
+ 	pimgs_inst->pi2c_client = client;
+@@ -522,6 +530,7 @@ static int imgsens_probe(struct i2c_client *client)
+ 			res);
+ 		goto EXIT_RET;
+ 	}
++	subdev_registered = true;
+ 	pimgsens_sd->armcb_v4l2_dev = adev;
+ 	i2c_set_clientdata(client, (void *)pimgsens_sd);
+ 
+@@ -604,6 +613,12 @@ static int imgsens_probe(struct i2c_client *client)
+ 
+ EXIT_RET:
+ 	i2c_set_clientdata(client, NULL);
++	if (subdev_registered)
++		armcb_subdev_unregister(&pimgsens_sd->imgsens_sd);
++	if (notifier_registered) {
++		v4l2_async_nf_unregister(&adev->dts_notifier);
++		v4l2_async_nf_cleanup(&adev->dts_notifier);
++	}
+ 	kfree(pimgsens_sd);
+ 	LOG(LOG_INFO, "failed - ");
+ 	return res;
+@@ -623,10 +638,7 @@ static void imgsens_remove(struct i2c_client *client)
+ 			pimgsens_sd->power_on = FALSE;
+ 		}
+ 
+-		list_del_init(&pimgsens_sd->imgsens_sd.sd.async_list);
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+-		v4l2_device_unregister_subdev(&pimgsens_sd->imgsens_sd.sd);
+-#endif
++		armcb_subdev_unregister(&pimgsens_sd->imgsens_sd);
+ 		kfree(pimgsens_sd);
+ 	} else {
+ 		LOG(LOG_ERR, "pimgsens_sd is NULL !");
 diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
 --- a/drivers/media/v4l2-core/v4l2-async.c
 +++ b/drivers/media/v4l2-core/v4l2-async.c

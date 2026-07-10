@@ -1,0 +1,122 @@
+diff --git a/drivers/pinctrl/cix/pinctrl-sky1-base.c b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+--- a/drivers/pinctrl/cix/pinctrl-sky1-base.c
++++ b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+@@ -659,10 +659,31 @@ sky1_free_acpi_group_desc(struct pinctrl_acpi_group_desc *acpi_grp_desc)
+ 	kfree(acpi_grp_desc);
+ }
+ 
++static const char *sky1_acpi_group_compat_alias(const char *group)
++{
++	static const struct {
++		const char *canonical;
++		const char *alias;
++	} aliases[] = {
++		{ "pinctrl_usb0", "usb_drive_vbus0" },
++		{ "pinctrl_usb4", "usb_drive_vbus4" },
++		{ "pinctrl_usb5", "usb_drive_vbus5" },
++	};
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(aliases); i++)
++		if (!strcmp(group, aliases[i].canonical))
++			return aliases[i].alias;
++
++	return NULL;
++}
++
+ static int
+ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 			       struct sky1_pinctrl *spctl)
+ {
++	const char *compat_alias;
++	char *group_name;
+ 	struct sky1_pin *pin_data;
+ 	unsigned int *pin_array;
+ 	__be16 *vendor;
+@@ -710,11 +731,31 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 	if (!pin_count)
+ 		return 0;
+ 
+-	ret = pinctrl_generic_add_group(spctl->pctl, devm_kstrdup(spctl->dev, acpi_grp->name, GFP_KERNEL),
++	group_name = devm_kstrdup(spctl->dev, acpi_grp->name, GFP_KERNEL);
++	if (!group_name)
++		return -ENOMEM;
++
++	ret = pinctrl_generic_add_group(spctl->pctl, group_name,
+ 					 pin_array, pin_count, pin_data);
+ 	if (ret < 0)
+ 		dev_err(spctl->dev, "failed to add group %s: %d\n",
+ 			acpi_grp->name, ret);
++	if (ret < 0)
++		return ret;
++
++	compat_alias = sky1_acpi_group_compat_alias(acpi_grp->name);
++	if (!compat_alias)
++		return 0;
++
++	group_name = devm_kstrdup(spctl->dev, compat_alias, GFP_KERNEL);
++	if (!group_name)
++		return -ENOMEM;
++
++	ret = pinctrl_generic_add_group(spctl->pctl, group_name,
++					 pin_array, pin_count, pin_data);
++	if (ret < 0)
++		dev_err(spctl->dev, "failed to add compatibility group %s: %d\n",
++			compat_alias, ret);
+ 
+ 	return ret;
+ }
+@@ -733,8 +774,11 @@ static int sky1_pinctrl_probe_acpi(struct platform_device *pdev,
+ 	INIT_LIST_HEAD(&pinctrl_group_list);
+ 	ret = pinctrl_acpi_get_pin_groups(acpi_dev, &pinctrl_group_list);
+ 
+-	list_for_each_entry(acpi_grp, &pinctrl_group_list, list)
++	list_for_each_entry(acpi_grp, &pinctrl_group_list, list) {
+ 		num_groups++;
++		if (sky1_acpi_group_compat_alias(acpi_grp->name))
++			num_groups++;
++	}
+ 
+ 	if (num_groups == 0)
+ 		dev_warn(&pdev->dev, "no pin groups found in ACPI resources\n");
+@@ -747,19 +791,37 @@ static int sky1_pinctrl_probe_acpi(struct platform_device *pdev,
+ 	if (!group_names)
+ 		return -ENOMEM;
+ 
+-	list_for_each_entry(acpi_grp, &pinctrl_group_list, list)
++	list_for_each_entry(acpi_grp, &pinctrl_group_list, list) {
++		const char *compat_alias;
++
+ 		group_names[index++] = devm_kstrdup(spctl->dev, acpi_grp->name, GFP_KERNEL);
++		compat_alias = sky1_acpi_group_compat_alias(acpi_grp->name);
++		if (compat_alias)
++			group_names[index++] = devm_kstrdup(spctl->dev,
++				compat_alias,
++				GFP_KERNEL);
++	}
++	for (index = 0; index < num_groups; index++)
++		if (!group_names[index])
++			return -ENOMEM;
+ 
+ 	pinmux_generic_add_function(pctl, dev_name(&pdev->dev),
+ 				    group_names, num_groups, NULL);
+ 
+ 	list_for_each_entry_safe(acpi_grp, temp, &pinctrl_group_list, list) {
+-		sky1_pinctrl_parse_groups_acpi(acpi_grp, spctl);
++		ret = sky1_pinctrl_parse_groups_acpi(acpi_grp, spctl);
+ 		list_del(&acpi_grp->list);
+ 		sky1_free_acpi_group_desc(acpi_grp);
++		if (ret)
++			break;
+ 	}
+ 
+-	return 0;
++	list_for_each_entry_safe(acpi_grp, temp, &pinctrl_group_list, list) {
++		list_del(&acpi_grp->list);
++		sky1_free_acpi_group_desc(acpi_grp);
++	}
++
++	return ret;
+ }
+ 
+ int sky1_base_pinctrl_probe(struct platform_device *pdev,
