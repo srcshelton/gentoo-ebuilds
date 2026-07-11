@@ -285,6 +285,13 @@ PROFILE_INTERFACE_SYMBOLS = {
 DRIVER_PREFERENCE_CHOICES = ("module", "builtin")
 NPU_ABI_CHOICES = ("r2p0", "r2p2")
 KERNEL_VERSION_CHOICES = ("6.18", "6.19", "7.0", "7.1")
+FIRMWARE_CHOICES = ("auto", "1.2", "1.3")
+FIRMWARE_METAVAR = "{" + ",".join(FIRMWARE_CHOICES) + "}"
+DMI_FIRMWARE_VERSION_PATHS = (
+    Path("/sys/class/dmi/id/bios_version"),
+    Path("/sys/class/dmi/id/product_version"),
+    Path("/sys/class/dmi/id/board_version"),
+)
 
 SUPPORTED_COMMON = (
     ("EFI", "always"),
@@ -448,8 +455,8 @@ INITRAMFS_COMPRESSION_SYMBOLS = (
 
 ACPI_TABLE_UPGRADE_CHOICES = ("ssdt", "dsdt")
 ACPI_TABLE_UPGRADE_INITRAMFS_SOURCE_FORMATS = {
-    "ssdt": "/usr/src/linux/cix-acpi-table-upgrade/{board}/initramfs.list",
-    "dsdt": "/usr/src/linux/cix-acpi-table-upgrade/{board}/initramfs-dsdt.list",
+    "ssdt": "/usr/src/linux/cix-acpi-table-upgrade/{board}/{firmware}/initramfs.list",
+    "dsdt": "/usr/src/linux/cix-acpi-table-upgrade/{board}/{firmware}/initramfs-dsdt.list",
 }
 
 KERNEL_MEMORY_DEBUG_ENABLED_SYMBOLS = (
@@ -528,14 +535,39 @@ def warn_ignored(parser: argparse.ArgumentParser, message: str) -> None:
     print(f"{parser.prog}: warning: {message}", file=sys.stderr)
 
 
+def warn(parser: argparse.ArgumentParser, message: str) -> None:
+    print(f"{parser.prog}: warning: {message}", file=sys.stderr)
+
+
 def acpi_table_upgrade_board(profile: str) -> str:
     return profile.split("-", 1)[0]
 
 
-def default_acpi_table_upgrade_initramfs_source(profile: str, upgrade: str) -> str:
+def acpi_table_upgrade_has_dsdt_profile(profile: str, firmware: str) -> bool:
+    board = acpi_table_upgrade_board(profile)
+    return firmware == "1.2" or (board == "o6" and firmware == "1.3")
+
+
+def default_acpi_table_upgrade_initramfs_source(
+    profile: str, upgrade: str, firmware: str
+) -> str:
     return ACPI_TABLE_UPGRADE_INITRAMFS_SOURCE_FORMATS[upgrade].format(
-        board=acpi_table_upgrade_board(profile)
+        board=acpi_table_upgrade_board(profile),
+        firmware=firmware,
     )
+
+
+def infer_firmware_profile() -> str | None:
+    version_re = re.compile(r"(?<!\d)(1\.[23])(?:\.\d+)?(?!\d)")
+    for path in DMI_FIRMWARE_VERSION_PATHS:
+        try:
+            value = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        match = version_re.search(value)
+        if match:
+            return match.group(1)
+    return None
 
 
 def parse_args() -> argparse.Namespace:
@@ -639,6 +671,19 @@ def parse_args() -> argparse.Namespace:
             "Select the board/firmware profile used to generate '.config' "
             "symbols. Required.",
             "none",
+        ),
+    )
+    config_modes.add_argument(
+        "--firmware",
+        choices=FIRMWARE_CHOICES,
+        default="auto",
+        metavar=FIRMWARE_METAVAR,
+        help=option_help(
+            "Select the Radxa firmware family used for ACPI table-upgrade "
+            "profile paths. 'auto' attempts to infer the firmware family from "
+            "local DMI/sysfs data and falls back to the 1.2 profile when it "
+            "cannot infer a supported value.",
+            "auto",
         ),
     )
     config_modes.add_argument(
@@ -747,6 +792,9 @@ def parse_args() -> argparse.Namespace:
         if args.board_profile:
             warn_ignored(parser, "'--board-profile' ignored in 'patch' mode")
             args.board_profile = None
+        if args.firmware != "auto":
+            warn_ignored(parser, "'--firmware' ignored in 'patch' mode")
+            args.firmware = "auto"
         if args.prune:
             warn_ignored(parser, "'--prune' ignored in 'patch' mode")
             args.prune = False
@@ -794,13 +842,31 @@ def parse_args() -> argparse.Namespace:
         if args.acpi_table_upgrade is not None and not args.board_profile.endswith("-acpi"):
             parser.error("'--acpi-table-upgrade' requires an ACPI board profile")
         if args.acpi_table_upgrade is None:
+            if args.firmware != "auto":
+                warn_ignored(parser, "'--firmware' ignored without '--acpi-table-upgrade'")
+            args.firmware = "n/a"
+        elif args.firmware == "auto":
+            detected_firmware = infer_firmware_profile()
+            if detected_firmware is None:
+                warn(parser, "unable to infer '--firmware auto'; using firmware profile 1.2")
+                args.firmware = "1.2"
+            else:
+                args.firmware = detected_firmware
+        if args.acpi_table_upgrade == "dsdt" and not acpi_table_upgrade_has_dsdt_profile(
+            args.board_profile, args.firmware
+        ):
+            parser.error(
+                "'--acpi-table-upgrade dsdt' is not available for "
+                f"'--board-profile {args.board_profile} --firmware {args.firmware}'"
+            )
+        if args.acpi_table_upgrade is None:
             if args.acpi_table_upgrade_initramfs_source:
                 warn_ignored(parser, "'--acpi-table-upgrade-initramfs-source' ignored without '--acpi-table-upgrade'")
                 args.acpi_table_upgrade_initramfs_source = None
         elif not args.acpi_table_upgrade_initramfs_source:
             args.acpi_table_upgrade_initramfs_source = (
                 default_acpi_table_upgrade_initramfs_source(
-                    args.board_profile, args.acpi_table_upgrade
+                    args.board_profile, args.acpi_table_upgrade, args.firmware
                 )
             )
 
@@ -1623,6 +1689,7 @@ def build_config_updates(
 def render_config_fragment(
     kernel_tree: Path,
     profile: str,
+    firmware: str,
     include_vendor: bool,
     driver_preference: str,
     existing_config: Path | None,
@@ -1654,6 +1721,8 @@ def render_config_fragment(
         f"# ACPI table-upgrade mode: {acpi_table_upgrade or 'disabled'}",
         f"# kernel memory debug profile: {'enabled' if enable_kernel_memory_debug else 'disabled'}",
     ]
+    if firmware != "n/a":
+        fragment_lines.insert(1, f"# firmware profile: {firmware}")
     if acpi_table_upgrade is not None:
         fragment_lines.append(
             f"# ACPI table-upgrade initramfs: {acpi_table_upgrade_initramfs_source}"
@@ -1761,6 +1830,7 @@ def main() -> int:
         fragment = render_config_fragment(
             kernel_tree=kernel_tree,
             profile=args.board_profile,
+            firmware=args.firmware,
             include_vendor=include_vendor,
             driver_preference=args.driver_preference,
             existing_config=target_config,

@@ -1,25 +1,26 @@
 /*
  * Intel ACPI Component Architecture
- * AML/ASL+ Disassembler version 20250404 (64-bit version)
- * Copyright (c) 2000 - 2025 Intel Corporation
+ * AML/ASL+ Disassembler version 20200925 (64-bit version)
+ * Copyright (c) 2000 - 2020 Intel Corporation
  * 
  * Disassembling to symbolic ASL+ operators
  *
- * Disassembly of dsdt.dat
+ * Disassembly of /Users/Stuart/src/o6-1.3.0/dsdt.dat, Thu Jul  9 17:27:27 2026
  *
  * Original Table Header:
  *     Signature        "DSDT"
- *     Length           0x000118C0 (71872)
+ *     Length           0x00011B61 (72545)
  *     Revision         0x02
- *     Checksum         0x5C
+ *     Checksum         0xCA
  *     OEM ID           "CIXTEK"
  *     OEM Table ID     "SKY1EDK2"
  *     OEM Revision     0x00000001 (1)
  *     Compiler ID      "INTL"
  *     Compiler Version 0x20200925 (538970405)
- *
+ */
+/*
  * The replacement DefinitionBlock intentionally uses OEM revision 0x00010001
- * so Linux treats it as newer than the firmware 1.2.1 DSDT.
+ * so Linux treats it as newer than the firmware 1.3 DSDT.
  */
 DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 {
@@ -33,12 +34,14 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
     External (_SB_.GPI3.GPIN, UnknownObj)
     External (_SB_.GPI4.GPIN, UnknownObj)
     External (_SB_.GPI5.GPIN, UnknownObj)
-    External (_SB_.I2C5.PD10, DeviceObj)
+    External (_SB_.I2C1.PD10, DeviceObj)
+    External (_SB_.I2C1.PD11, DeviceObj)
     External (_SB_.PVC0, DeviceObj)
     External (_SB_.PVC1, DeviceObj)
     External (_SB_.PVC2, DeviceObj)
     External (_SB_.PVC3, DeviceObj)
     External (_SB_.PVC4, DeviceObj)
+    External (_SB_.SNDC, DeviceObj)
     External (CPB0, IntObj)
     External (CPB1, IntObj)
     External (CPM0, IntObj)
@@ -2023,7 +2026,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Big Cluster 0 (cores 0,1)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU-B0"))  // _STR: Description String
         }
 
         ThermalZone (TZB1)
@@ -2093,7 +2096,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Big Cluster 1 (cores 10,11)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU-B1"))  // _STR: Description String
         }
 
         ThermalZone (TZM0)
@@ -2163,7 +2166,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Middle Cluster 0 (cores 6,7)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU-M0"))  // _STR: Description String
         }
 
         ThermalZone (TZM1)
@@ -2233,7 +2236,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Return (0x0A)
             }
 
-            Name (_STR, Unicode ("CPU Middle Cluster 1 (cores 8,9)"))  // _STR: Description String
+            Name (_STR, Unicode ("CPU-M1"))  // _STR: Description String
         }
 
         Method (SPFA, 0, Serialized)
@@ -2278,6 +2281,11 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Method (_PSV, 0, NotSerialized)  // _PSV: Passive Temperature
             {
                 Return (0x0DFE)
+            }
+
+            Method (_CRT, 0, NotSerialized)  // _CRT: Critical Temperature
+            {
+                Return (0x0E80)
             }
 
             Method (SWIT, 0, NotSerialized)
@@ -2333,8 +2341,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             {
                 Return (0x0A)
             }
-
-            Name (_STR, Unicode ("GPU Average"))  // _STR: Description String
         }
 
         Mutex (MBXM, 0x00)
@@ -3187,7 +3193,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         }
                     }
                 })
-                Name (CLKA, Package (0x1E)
+                Name (CLKA, Package (0x22)
                 {
                     Package (0x03)
                     {
@@ -3332,8 +3338,36 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x03)
                     {
                         0x24, 
-                        "mclk", 
-                        I2S0
+                        "mclk0", 
+                        SNDC
+                    }, 
+
+                    Package (0x03)
+                    {
+                        0x25, 
+                        "mclk1", 
+                        SNDC
+                    }, 
+
+                    Package (0x03)
+                    {
+                        0x26, 
+                        "mclk2", 
+                        SNDC
+                    }, 
+
+                    Package (0x03)
+                    {
+                        0x27, 
+                        "mclk3", 
+                        SNDC
+                    }, 
+
+                    Package (0x03)
+                    {
+                        0x28, 
+                        "mclk4", 
+                        SNDC
                     }, 
 
                     Package (0x03)
@@ -3583,7 +3617,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "gpio-io-mask", 
-                        Zero
+                        0x20000000
                     }, 
 
                     Package (0x02)
@@ -3976,7 +4010,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "gpio-io-mask", 
-                        0xE0002040
+                        Zero
                     }, 
 
                     Package (0x02)
@@ -4272,14 +4306,14 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 Package (0x03)
                 {
                     0x0105, 
-                    "fch_timer_apb_clk",
+                    "fch_timer_apb_clk", 
                     TMR0
                 }, 
 
                 Package (0x03)
                 {
                     0xF2, 
-                    "fch_timer_func_clk",
+                    "fch_timer_func_clk", 
                     TMR0
                 }
             })
@@ -4301,7 +4335,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_UID, Zero)  // _UID: Unique ID
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If ((Zero && GETV (0x28)))
+                If ((One && GETV (0x28)))
                 {
                     Return (0x0F)
                 }
@@ -4324,16 +4358,40 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 }
                 PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
                     "pinctrl_hda", ResourceConsumer, ,)
+                GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
+                    "\\_SB.GPI3", 0x00, ResourceConsumer, ,
+                    )
+                    {   // Pin list
+                        0x0005
+                    }
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x01)
+                Package (0x03)
                 {
                     Package (0x02)
                     {
                         "cru-ctrl", 
                         ACRU
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "cix,model", 
+                        "CIX SKY1 ORION O6 HDA"
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "pdb-gpios", 
+                        Package (0x04)
+                        {
+                            HDA, 
+                            Zero, 
+                            Zero, 
+                            Zero
+                        }
                     }
                 }
             })
@@ -6239,14 +6297,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x0D))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -6621,14 +6672,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x0D))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -6809,14 +6853,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x0E))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -6901,7 +6938,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x0E)
+                Package (0x0F)
                 {
                     Package (0x02)
                     {
@@ -6995,6 +7032,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                             Zero, 
                             Zero
                         }
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "vcc-pcie-supply", 
+                        PVC1
                     }
                 }
             })
@@ -7065,11 +7108,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     "pcie_reset"
                 }
             })
-            Name (DLKL, Package (0x01)
+            Name (DLKL, Package (0x02)
             {
                 Package (0x03)
                 {
                     PCP1, 
+                    PRC1, 
+                    Zero
+                }, 
+
+                Package (0x03)
+                {
+                    PVC1, 
                     PRC1, 
                     Zero
                 }
@@ -7165,14 +7215,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x0E))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -7345,14 +7388,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x0F))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -7782,14 +7818,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x10))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -7868,13 +7897,19 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
                     {   // Pin list
-                        0x0005
+                        0x0002
+                    }
+                GpioInt (Level, ActiveLow, ExclusiveAndWake, PullUp, 0x0000,
+                    "\\_SB.GPI4", 0x00, ResourceConsumer, ,
+                    )
+                    {   // Pin list
+                        0x0016
                     }
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x0F)
+                Package (0x12)
                 {
                     Package (0x02)
                     {
@@ -7973,7 +8008,31 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "vcc-pcie-supply", 
-                        PVC4
+                        PVC3
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "sky1,re-pwron-ms", 
+                        0x78
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "sky1,str-pwron", 
+                        One
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "wake-gpios", 
+                        Package (0x04)
+                        {
+                            PRC3, 
+                            One, 
+                            Zero, 
+                            Zero
+                        }
                     }
                 }
             })
@@ -8055,7 +8114,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Package (0x03)
                 {
-                    PVC4, 
+                    PVC3, 
                     PRC3, 
                     Zero
                 }
@@ -8219,14 +8278,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x11))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -8305,13 +8357,19 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
                     {   // Pin list
-                        0x0002
+                        0x0005
+                    }
+                GpioInt (Level, ActiveLow, ExclusiveAndWake, PullUp, 0x0000,
+                    "\\_SB.GPI4", 0x00, ResourceConsumer, ,
+                    )
+                    {   // Pin list
+                        0x0013
                     }
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x0F)
+                Package (0x11)
                 {
                     Package (0x02)
                     {
@@ -8410,7 +8468,25 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "vcc-pcie-supply", 
-                        PVC3
+                        PVC4
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "sky1,str-pwron", 
+                        One
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "wake-gpios", 
+                        Package (0x04)
+                        {
+                            PRC4, 
+                            One, 
+                            Zero, 
+                            Zero
+                        }
                     }
                 }
             })
@@ -8492,7 +8568,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Package (0x03)
                 {
-                    PVC3, 
+                    PVC4, 
                     PRC4, 
                     Zero
                 }
@@ -8588,22 +8664,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If (GETV (0x0F))
-                {
-                    Return (0x0F)
-                }
-                ElseIf (GETV (0x10))
-                {
-                    Return (0x0F)
-                }
-                ElseIf (GETV (0x11))
-                {
-                    Return (0x0F)
-                }
-                Else
-                {
-                    Return (Zero)
-                }
+                Return (Zero)
             }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
@@ -10283,15 +10344,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     "dp_rcsu_reset"
                 }
             })
-            Name (DLKL, Package (0x01)
-            {
-                Package (0x03)
-                {
-                    EDP0, 
-                    DP02, 
-                    Zero
-                }
-            })
         }
 
         Device (DP03)
@@ -10739,7 +10791,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x04)
                 {
                     Package (0x02)
                     {
@@ -10757,6 +10809,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "device-id", 
                         Zero
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "cix,linlon-dpu-slave", 
+                        One
                     }
                 }, 
 
@@ -11120,7 +11178,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x04)
                 {
                     Package (0x02)
                     {
@@ -11137,6 +11195,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "device-id", 
+                        One
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "cix,linlon-dpu-slave", 
                         One
                     }
                 }, 
@@ -11501,7 +11565,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x04)
                 {
                     Package (0x02)
                     {
@@ -11519,6 +11583,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "device-id", 
                         0x02
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "cix,linlon-dpu-slave", 
+                        One
                     }
                 }, 
 
@@ -11890,7 +11960,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x04)
                 {
                     Package (0x02)
                     {
@@ -11908,6 +11978,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "device-id", 
                         0x03
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "cix,linlon-dpu-slave", 
+                        One
                     }
                 }, 
 
@@ -12271,7 +12347,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x04)
                 {
                     Package (0x02)
                     {
@@ -12289,6 +12365,12 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "device-id", 
                         0x04
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "cix,linlon-dpu-slave", 
+                        One
                     }
                 }, 
 
@@ -12621,6 +12703,35 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             })
         }
 
+        Device (LNCL)
+        {
+            Name (_HID, "CIXH50C0")  // _HID: Hardware ID
+            Name (_UID, Zero)  // _UID: Unique ID
+            Method (_STA, 0, Serialized)  // _STA: Status
+            {
+                If (((((GETV (0x23) || GETV (0x24)) || GETV (0x25)) || GETV (
+                    0x26)) || GETV (0x27)))
+                {
+                    Return (0x0B)
+                }
+
+                Return (Zero)
+            }
+
+            Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cix,dpu-acpi-paths", 
+                        "\\_SB.DPU0,\\_SB.DPU1,\\_SB.DPU2,\\_SB.DPU3,\\_SB.DPU4"
+                    }
+                }
+            })
+        }
+
         Device (AEU0)
         {
             Name (_HID, "CIXH5011")  // _HID: Hardware ID
@@ -12788,7 +12899,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "brightness-levels", 
-                        Package (0xFF)
+                        Package (0x0100)
                         {
                             Zero, 
                             One, 
@@ -13044,7 +13155,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                             0xFB, 
                             0xFC, 
                             0xFD, 
-                            0xFE
+                            0xFE, 
+                            0xFF
                         }
                     }
                 }
@@ -13368,9 +13480,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                     Package (0x02)
                     {
-                        "mali-supply",
+                        "mali-supply", 
                         GPUP
-                    },
+                    }, 
 
                     Package (0x02)
                     {
@@ -13838,7 +13950,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x04)
+                Package (0x02)
                 {
                     Package (0x02)
                     {
@@ -13854,18 +13966,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                             "tx", 
                             "rx"
                         }
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,mclk-idx", 
-                        Zero
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }
                 }
             })
@@ -13954,7 +14054,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x02)
                 {
                     Package (0x02)
                     {
@@ -13970,12 +14070,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                             "tx", 
                             "rx"
                         }
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }
                 }
             })
@@ -14062,7 +14156,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x03)
+                Package (0x02)
                 {
                     Package (0x02)
                     {
@@ -14073,16 +14167,11 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     Package (0x02)
                     {
                         "dma-names", 
-                        Package (0x01)
+                        Package (0x02)
                         {
+                            "tx", 
                             "rx"
                         }
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }
                 }
             })
@@ -14170,7 +14259,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x06)
+                Package (0x05)
                 {
                     Package (0x02)
                     {
@@ -14203,16 +14292,10 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         0x3C
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }
                 }
             })
-            Name (CLKT, Package (0x04)
+            Name (CLKT, Package (0x02)
             {
                 Package (0x03)
                 {
@@ -14223,22 +14306,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Package (0x03)
                 {
-                    0x4D, 
-                    "audio_clk1", 
-                    I2S3
-                }, 
-
-                Package (0x03)
-                {
                     0x4E, 
                     "audio_clk2", 
-                    I2S3
-                }, 
-
-                Package (0x03)
-                {
-                    0x4F, 
-                    "audio_clk3", 
                     I2S3
                 }
             })
@@ -14310,7 +14379,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x06)
+                Package (0x05)
                 {
                     Package (0x02)
                     {
@@ -14343,16 +14412,10 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         Zero
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }
                 }
             })
-            Name (CLKT, Package (0x04)
+            Name (CLKT, Package (0x02)
             {
                 Package (0x03)
                 {
@@ -14363,22 +14426,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                 Package (0x03)
                 {
-                    0x4D, 
-                    "audio_clk1", 
-                    I2S4
-                }, 
-
-                Package (0x03)
-                {
                     0x4E, 
                     "audio_clk2", 
-                    I2S4
-                }, 
-
-                Package (0x03)
-                {
-                    0x4F, 
-                    "audio_clk3", 
                     I2S4
                 }
             })
@@ -14444,11 +14493,13 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000100,
                 }
                 FixedDMA (0x002A, 0x00FF, Width32bit, )
+                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
+                    "pinctrl_substrate_i2s5", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x07)
+                Package (0x06)
                 {
                     Package (0x02)
                     {
@@ -14481,12 +14532,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         0x0F
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }, 
 
                     Package (0x02)
@@ -14574,11 +14619,13 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000101,
                 }
                 FixedDMA (0x002C, 0x00FF, Width32bit, )
+                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
+                    "pinctrl_substrate_i2s6", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x07)
+                Package (0x06)
                 {
                     Package (0x02)
                     {
@@ -14611,12 +14658,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         0x0F
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }, 
 
                     Package (0x02)
@@ -14683,7 +14724,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_UID, 0x07)  // _UID: Unique ID
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If ((Zero && GETV (0x28)))
+                If ((One && GETV (0x28)))
                 {
                     Return (0x0F)
                 }
@@ -14704,11 +14745,13 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000102,
                 }
                 FixedDMA (0x002E, 0x00FF, Width32bit, )
+                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
+                    "pinctrl_substrate_i2s7", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x07)
+                Package (0x06)
                 {
                     Package (0x02)
                     {
@@ -14741,12 +14784,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         0x0F
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }, 
 
                     Package (0x02)
@@ -14813,7 +14850,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_UID, 0x08)  // _UID: Unique ID
             Method (_STA, 0, Serialized)  // _STA: Status
             {
-                If ((Zero && GETV (0x28)))
+                If ((One && GETV (0x28)))
                 {
                     Return (0x0F)
                 }
@@ -14834,11 +14871,13 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00000103,
                 }
                 FixedDMA (0x0030, 0x00FF, Width32bit, )
+                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
+                    "pinctrl_substrate_i2s8", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x07)
+                Package (0x06)
                 {
                     Package (0x02)
                     {
@@ -14871,12 +14910,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         0x0F
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }, 
 
                     Package (0x02)
@@ -14968,7 +15001,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x07)
+                Package (0x06)
                 {
                     Package (0x02)
                     {
@@ -15001,12 +15034,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     {
                         "cdns,pin-tx-mask", 
                         0x0F
-                    }, 
-
-                    Package (0x02)
-                    {
-                        "cdns,cru-ctrl", 
-                        ACRU
                     }, 
 
                     Package (0x02)
@@ -15674,7 +15701,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                             "remote-endpoint", 
                             Package (0x04)
                             {
-                                ^^I2C5.PD10, 
+                                ^^I2C1.PD10, 
                                 "usbc_con0", 
                                 "port@0", 
                                 "endpoint@0"
@@ -15889,7 +15916,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         "remote-endpoint", 
                         Package (0x04)
                         {
-                            ^I2C5.PD10, 
+                            ^I2C1.PD10, 
                             "usbc_con0", 
                             "port@1", 
                             "endpoint@0"
@@ -15913,7 +15940,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         "remote-endpoint", 
                         Package (0x03)
                         {
-                            ^I2C5.PD10, 
+                            ^I2C1.PD10, 
                             "port@2", 
                             "endpoint@0"
                         }
@@ -16527,7 +16554,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         0x00000132,
                     }
                 })
-                Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
+                Name (_DSD, Package (0x06)  // _DSD: Device-Specific Data
                 {
                     ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
                     Package (0x03)
@@ -16541,13 +16568,79 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                         Package (0x02)
                         {
                             "dr_mode", 
-                            "host"
+                            "otg"
                         }, 
 
                         Package (0x02)
                         {
                             "cdnsp,usb3-phy", 
                             ^^UCP2.USBP
+                        }
+                    }, 
+
+                    ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                    Package (0x01)
+                    {
+                        Package (0x02)
+                        {
+                            "usb-role-switch", 
+                            Zero
+                        }
+                    }, 
+
+                    ToUUID ("dbb8e3e6-5886-4ba6-8795-1319f52a966b") /* Hierarchical Data Extension */, 
+                    Package (0x01)
+                    {
+                        Package (0x02)
+                        {
+                            "port@0", 
+                            "PRT0"
+                        }
+                    }
+                })
+                Name (PRT0, Package (0x04)
+                {
+                    ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                    Package (0x01)
+                    {
+                        Package (0x02)
+                        {
+                            "reg", 
+                            Zero
+                        }
+                    }, 
+
+                    ToUUID ("dbb8e3e6-5886-4ba6-8795-1319f52a966b") /* Hierarchical Data Extension */, 
+                    Package (0x01)
+                    {
+                        Package (0x02)
+                        {
+                            "endpoint@0", 
+                            "EP00"
+                        }
+                    }
+                })
+                Name (EP00, Package (0x02)
+                {
+                    ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                    Package (0x02)
+                    {
+                        Package (0x02)
+                        {
+                            "reg", 
+                            Zero
+                        }, 
+
+                        Package (0x02)
+                        {
+                            "remote-endpoint", 
+                            Package (0x04)
+                            {
+                                ^^I2C1.PD11, 
+                                "usbc_con0", 
+                                "port@0", 
+                                "endpoint@0"
+                            }
                         }
                     }
                 })
@@ -16652,10 +16745,10 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     0x00040000,         // Address Length
                     )
             })
-            Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
+            Name (_DSD, Package (0x06)  // _DSD: Device-Specific Data
             {
                 ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
-                Package (0x04)
+                Package (0x05)
                 {
                     Package (0x02)
                     {
@@ -16671,14 +16764,121 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
                     Package (0x02)
                     {
+                        "svid", 
+                        0xFF01
+                    }, 
+
+                    Package (0x02)
+                    {
                         "default_conf", 
-                        One
+                        0x03
                     }, 
 
                     Package (0x02)
                     {
                         "phy-status", 
                         "usb"
+                    }
+                }, 
+
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                Package (0x02)
+                {
+                    Package (0x02)
+                    {
+                        "orientation-switch", 
+                        Zero
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "mode-switch", 
+                        Zero
+                    }
+                }, 
+
+                ToUUID ("dbb8e3e6-5886-4ba6-8795-1319f52a966b") /* Hierarchical Data Extension */, 
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "port@0", 
+                        "PRT0"
+                    }
+                }
+            })
+            Name (PRT0, Package (0x04)
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "reg", 
+                        Zero
+                    }
+                }, 
+
+                ToUUID ("dbb8e3e6-5886-4ba6-8795-1319f52a966b") /* Hierarchical Data Extension */, 
+                Package (0x02)
+                {
+                    Package (0x02)
+                    {
+                        "endpoint@0", 
+                        "EP00"
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "endpoint@1", 
+                        "EP01"
+                    }
+                }
+            })
+            Name (EP00, Package (0x02)
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                Package (0x02)
+                {
+                    Package (0x02)
+                    {
+                        "reg", 
+                        Zero
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "remote-endpoint", 
+                        Package (0x04)
+                        {
+                            ^I2C1.PD11, 
+                            "usbc_con0", 
+                            "port@1", 
+                            "endpoint@0"
+                        }
+                    }
+                }
+            })
+            Name (EP01, Package (0x02)
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301") /* Device Properties for _DSD */, 
+                Package (0x02)
+                {
+                    Package (0x02)
+                    {
+                        "reg", 
+                        One
+                    }, 
+
+                    Package (0x02)
+                    {
+                        "remote-endpoint", 
+                        Package (0x03)
+                        {
+                            ^I2C1.PD11, 
+                            "port@2", 
+                            "endpoint@0"
+                        }
                     }
                 }
             })
@@ -19621,7 +19821,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
         OperationRegion (S5R1, SystemMemory, 0x16000504, 0x04)
         Field (S5R1, DWordAcc, NoLock, Preserve)
         {
-            S5MK,   32
+            S5M0,   32
         }
 
         Method (GETV, 1, Serialized)
@@ -19645,7 +19845,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
         Method (MVCK, 1, Serialized)
         {
             Local0 = Arg0
-            Local1 = S5MK /* \_SB_.S5MK */
+            Local1 = S5M0 /* \_SB_.S5M0 */
             Local1 = ((Local1 >> Local0) & One)
             Debug = Concatenate (Concatenate (Concatenate (Concatenate ("ACPI debug:arg0=", Arg0), ", MVCK.valid = "), Local1
                 ), "\n")
@@ -19957,113 +20157,6 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             }
 
             Return (Zero)
-        }
-
-        Device (DTPM)
-        {
-            Name (_HID, "MSFT0101" /* TPM 2.0 Security Device */)  // _HID: Hardware ID
-            Name (_CID, "MSFT0101" /* TPM 2.0 Security Device */)  // _CID: Compatible ID
-            Name (_UID, One)  // _UID: Unique ID
-            Name (_STA, 0x0F)  // _STA: Status
-            Method (_CRS, 0, NotSerialized)  // _CRS: Current Resource Settings
-            {
-                Name (RBUF, ResourceTemplate ()
-                {
-                    SpiSerialBusV2 (0x0000, PolarityLow, FourWireMode, 0x08,
-                        ControllerInitiated, 0x0007A120, ClockPolarityLow,
-                        ClockPhaseFirst, "\\_SB.SPI0",
-                        0x00, ResourceConsumer, , Exclusive,
-                        )
-                })
-                Return (RBUF) /* \_SB_.DTPM._CRS.RBUF */
-            }
-
-            OperationRegion (TPMC, SystemMemory, 0x85F01000, 0x0C)
-            Field (TPMC, DWordAcc, NoLock, Preserve)
-            {
-                PPIO,   32, 
-                PPIR,   32, 
-                PPIS,   32
-            }
-
-            Name (PKG2, Package (0x02)
-            {
-                Zero, 
-                Zero
-            })
-            Name (PKG3, Package (0x03)
-            {
-                Zero, 
-                Zero, 
-                Zero
-            })
-            Method (_DSM, 4, Serialized)  // _DSM: Device-Specific Method
-            {
-                If ((Arg0 == ToUUID ("3dddfaa6-361b-4eb4-a424-8d10089d1653") /* Physical Presence Interface */))
-                {
-                    Switch (ToInteger (Arg2))
-                    {
-                        Case (Zero)
-                        {
-                            Return (Buffer (0x02)
-                            {
-                                 0xFF, 0x01                                       // ..
-                            })
-                        }
-                        Case (One)
-                        {
-                            Return ("1.3")
-                        }
-                        Case (0x02)
-                        {
-                            Return (One)
-                        }
-                        Case (0x03)
-                        {
-                            PKG2 [Zero] = Zero
-                            PKG2 [One] = PPIO /* \_SB_.DTPM.PPIO */
-                            Return (PKG2) /* \_SB_.DTPM.PKG2 */
-                        }
-                        Case (0x04)
-                        {
-                            Return (0x02)
-                        }
-                        Case (0x05)
-                        {
-                            PKG3 [Zero] = Zero
-                            PKG3 [One] = PPIR /* \_SB_.DTPM.PPIR */
-                            PKG3 [0x02] = PPIS /* \_SB_.DTPM.PPIS */
-                            Return (PKG3) /* \_SB_.DTPM.PKG3 */
-                        }
-                        Case (0x06)
-                        {
-                            Return (0x03)
-                        }
-                        Case (0x07)
-                        {
-                            Local0 = DerefOf (Arg3 [Zero])
-                            PPIO = Local0
-                            Return (Zero)
-                        }
-                        Case (0x08)
-                        {
-                            Return (0x04)
-                        }
-
-                    }
-                    Return (Buffer (One)
-                    {
-                         0x00
-                    })
-                }
-                Else
-                {
-                    Return (Buffer (One)
-                    {
-                         0x00
-                    })
-                }
-            }
         }
 
         Device (TREE)

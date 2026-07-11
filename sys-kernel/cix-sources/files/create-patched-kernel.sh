@@ -16,6 +16,7 @@ Options:
   --compile-acpi-tables   Compile ACPI table-upgrade AML artifacts.
   --acpi-table-profile P  ACPI table-upgrade profile: ssdt or dsdt (default: dsdt).
   --board-profile P       Report ACPI initramfs list for o6-acpi or o6n-acpi.
+  --firmware VERSION      Select firmware profile 1.2 or 1.3 (default: 1.2).
   --keep-work             Keep the scratch directory after completion.
   -h, --help              Show this help.
 USAGE
@@ -76,15 +77,29 @@ fetch_url() {
 }
 
 fetch_gentoo_distfile() {
+	local mirror_prefix=''
 	local urls=(
 		"https://dev.gentoo.org/~mpagano/dist/genpatches/$1"
 		"https://dev.gentoo.org/~alicef/dist/genpatches/$1"
 	)
 
-	if [[ -n $(manifest_field "$1" BLAKE2B) ]]; then
+	# Gentoo's distfiles layout hashes the filename, not the archive content
+	# recorded in Manifest.  Developer-hosted copies are pruned sooner than
+	# mirrors, so this fallback must use the repository layout hash.
+	if command -v b2sum >/dev/null 2>&1; then
+		mirror_prefix=$(printf '%s' "$1" | b2sum | cut -c 1-2)
+	elif command -v python3 >/dev/null 2>&1; then
+		mirror_prefix=$(python3 -c \
+			'import hashlib, sys; print(hashlib.blake2b(sys.argv[1].encode()).hexdigest()[:2])' \
+			"$1")
+	fi
+
+	if [[ -n $mirror_prefix ]]; then
 		urls+=(
-			"https://distfiles.gentoo.org/distfiles/$(manifest_field "$1" BLAKE2B | cut -c 1-2)/$1"
-			"https://gentoo.osuosl.org/distfiles/$(manifest_field "$1" BLAKE2B | cut -c 1-2)/$1"
+			"https://distfiles.gentoo.org/distfiles/${mirror_prefix}/$1"
+			"https://ftp.osuosl.org/pub/gentoo/distfiles/${mirror_prefix}/$1"
+			"https://ftp.gwdg.de/pub/linux/gentoo/distfiles/${mirror_prefix}/$1"
+			"https://ftp.jaist.ac.jp/pub/Linux/Gentoo/distfiles/${mirror_prefix}/$1"
 		)
 	fi
 
@@ -182,6 +197,7 @@ keep_work=no
 compile_acpi_tables=no
 acpi_table_profile=dsdt
 board_profile=
+firmware_profile=1.2
 acpi_table_upgrade_initramfs_source=
 iasl_min_version=20241212
 work_root=
@@ -238,6 +254,14 @@ while (($#)); do
 				*) fail "--board-profile must be o6-acpi or o6n-acpi" ;;
 			esac
 			;;
+		--firmware)
+			shift
+			(($#)) || fail "--firmware requires 1.2 or 1.3"
+			case $1 in
+				1.2|1.3) firmware_profile=$1 ;;
+				*) fail "--firmware must be 1.2 or 1.3" ;;
+			esac
+			;;
 		-h|--help)
 			usage
 			exit 0
@@ -268,6 +292,9 @@ done
 
 if [[ -n $board_profile && $compile_acpi_tables != yes ]]; then
 	printf 'warning: --board-profile has no effect without --compile-acpi-tables\n' >&2
+fi
+if [[ $firmware_profile != 1.2 && $compile_acpi_tables != yes ]]; then
+	printf 'warning: --firmware has no effect without --compile-acpi-tables\n' >&2
 fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
@@ -363,6 +390,9 @@ if [[ $compile_acpi_tables == yes ]]; then
 	if [[ $acpi_table_profile == dsdt && " ${disabled_use} " == *" acpi-table-upgrade-dsdt "* ]]; then
 		fail "--compile-acpi-tables --acpi-table-profile dsdt conflicts with --disable-use acpi-table-upgrade-dsdt"
 	fi
+	if [[ $acpi_table_profile == dsdt && $board_profile == o6n-acpi && $firmware_profile == 1.3 ]]; then
+		fail "firmware 1.3 has no O6N DSDT profile; use --acpi-table-profile ssdt"
+	fi
 	if ! command -v iasl >/dev/null 2>&1; then
 		fail "--compile-acpi-tables requires ACPICA iasl >= ${iasl_min_version}; install the current ACPICA release when possible"
 	fi
@@ -452,6 +482,17 @@ if [[ $compile_acpi_tables == yes ]]; then
 	mkdir -p -- "${S}/cix-acpi-table-upgrade"
 	cp -a -- "${T}/cix-acpi-table-upgrade"/. "${S}/cix-acpi-table-upgrade/"
 
+	for board in o6 o6n; do
+		for firmware in 1.2 1.3; do
+			for profile in initramfs initramfs-dsdt; do
+				write_initramfs_list \
+					"${S}/cix-acpi-table-upgrade/${board}/${firmware}/${profile}/kernel/firmware/acpi" \
+					"${S}/cix-acpi-table-upgrade/${board}/${firmware}/${profile}.list" \
+					"${target_dir}/cix-acpi-table-upgrade/${board}/${firmware}/${profile}/kernel/firmware/acpi"
+			done
+		done
+	done
+
 	for board in o6 o6n ''; do
 		for profile in initramfs initramfs-dsdt; do
 			if [[ -n $board ]]; then
@@ -471,10 +512,10 @@ if [[ $compile_acpi_tables == yes ]]; then
 	[[ -n $(find "${S}/cix-acpi-table-upgrade" -type f -name '*.aml' -print -quit) ]] || fail "ACPI table compilation produced no AML artifacts"
 
 	if [[ -n $board_profile ]]; then
-		acpi_table_upgrade_initramfs_source="${target_dir}/cix-acpi-table-upgrade/${board_profile%%-*}/initramfs"
+		acpi_table_upgrade_initramfs_source="${target_dir}/cix-acpi-table-upgrade/${board_profile%%-*}/${firmware_profile}/initramfs"
 		[[ $acpi_table_profile == dsdt ]] && acpi_table_upgrade_initramfs_source+="-dsdt"
 		acpi_table_upgrade_initramfs_source+=".list"
-		[[ -s ${S}/cix-acpi-table-upgrade/${board_profile%%-*}/$(basename -- "$acpi_table_upgrade_initramfs_source") ]] || \
+		[[ -s ${S}/cix-acpi-table-upgrade/${board_profile%%-*}/${firmware_profile}/$(basename -- "$acpi_table_upgrade_initramfs_source") ]] || \
 			fail "expected ACPI initramfs list was not produced: ${acpi_table_upgrade_initramfs_source}"
 	fi
 fi

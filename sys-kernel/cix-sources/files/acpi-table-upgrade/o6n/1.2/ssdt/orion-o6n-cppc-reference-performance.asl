@@ -1,7 +1,7 @@
-DefinitionBlock ("", "SSDT", 2, "CIXTEK", "O6CPPC", 0x00000001)
+DefinitionBlock ("", "SSDT", 2, "CIXTEK", "O6NCPPC", 0x00000001)
 {
     /*
-     * Static repair for vendor firmware 1.2.1 CPPC ReferencePerformance.
+     * Static repair for vendor firmware 1.2 CPPC ReferencePerformance.
      *
      * The stock table reports 1000 for every CPU. These values are derived from
      * the existing NominalPerformance and NominalFrequency fields using the

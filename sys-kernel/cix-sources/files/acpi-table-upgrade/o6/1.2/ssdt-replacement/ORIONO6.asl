@@ -6,7 +6,8 @@
  * Disassembling to symbolic ASL+ operators
  *
  * Disassembly of the ORIONO6 SSDT extracted from the Radxa O6 1.2.1
- * cix_flash_all.bin release image.
+ * cix_flash_all.bin release image. The corresponding vendor source is
+ * unchanged through Radxa firmware 1.2.4.
  *
  * Original Table Header:
  *     Signature        "SSDT"
@@ -955,6 +956,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                 CSUM = (0xD4 - Arg0)
                 DUTY = Arg0
                 TRAS (Local0, SizeOf (Local0), Local1, SizeOf (Local1))
+                Return (Zero)
             }
         }
 
@@ -974,7 +976,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
 
             Method (_ON, 0, Serialized)  // _ON_: Power On
             {
-                Switch (\_SB.ECFM)
+                Switch (ToInteger (\_SB.ECFM))
                 {
                     Case (Zero)
                     {
@@ -3241,8 +3243,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
 
             Method (GFPW, 2, Serialized)
             {
-                Local0 = Arg0
-                Local0 = Arg1
                 Return (\_SB.EC0.GFPW ())
             }
 
@@ -3268,8 +3268,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
 
             Method (SFPW, 3, Serialized)
             {
-                Local0 = Arg1
-                Local0 = Arg2
                 \_SB.EC0.SFPW (Arg0)
             }
         }

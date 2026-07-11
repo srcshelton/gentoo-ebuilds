@@ -26,7 +26,7 @@ help:
 		'' \
 		'Variables:' \
 		'  ACT_JOB=discover       Run one job only.' \
-		'  ACT_MATRIX=k:v ...     Filter matrix entries, for example board_package:o6-acpi version:<selected-version>.' \
+		'  ACT_MATRIX=k:v ...     Filter matrix entries, for example board_package:o6-acpi-generic-1.3 version:<selected-version>.' \
 		'  ACT_EXTRA_ARGS=...     Pass extra flags to act.' \
 		'  ACT_RUNTIME=docker     Force container, podman, or docker.' \
 		'  CONTAINER_CPUS=8       CPU allocation for Apple container/podman/docker.' \
