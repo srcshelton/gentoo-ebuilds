@@ -1,10 +1,10 @@
+
 diff --git a/drivers/reset/core.c b/drivers/reset/core.c
-index dd9515a..caebeee 100644
 --- a/drivers/reset/core.c
 +++ b/drivers/reset/core.c
-@@ -1329,12 +1329,18 @@ struct reset_control *__reset_control_get(struct device *dev, const char *id,
- 	bool shared = flags & RESET_CONTROL_FLAGS_BIT_SHARED;
+@@ -1238,12 +1238,18 @@ struct reset_control *__reset_control_get(struct device *dev, const char *id,
  	bool acquired = flags & RESET_CONTROL_FLAGS_BIT_ACQUIRED;
+ 	bool optional = flags & RESET_CONTROL_FLAGS_BIT_OPTIONAL;
  	struct fwnode_handle *fwnode = dev_fwnode(dev);
 +	struct reset_control *rstc;
  
@@ -21,5 +21,5 @@ index dd9515a..caebeee 100644
 +			return rstc;
 +	}
  
- 	return __reset_control_get_from_lookup(dev, id, flags);
+ 	return optional ? NULL : ERR_PTR(-ENOENT);
  }

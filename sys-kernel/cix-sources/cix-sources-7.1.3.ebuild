@@ -128,7 +128,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
 	eapply "${FILESDIR}"/71998-armchina-npu-balance-acpi-core-runtime-pm.patch || die
 	eapply "${FILESDIR}"/71999-armchina-npu-add-sky1-priv-init-prototype.patch || die
-	eapply "${FILESDIR}"/7.0.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
+	eapply "${FILESDIR}"/7.1.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
 	# Sky1 0024 targets an older faux_device display bridge path absent after the updated 7.1 CIX stack.
 	eapply "${sky1_patch_dir}"/0025-mm-add-Mali-GPU-movable_ops-page-type-support.patch || die
@@ -187,7 +187,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/72104-media-cix-armcb-isp-select-fixed-regulator-provider.patch || die
 	eapply "${FILESDIR}"/7.1.x/72105-media-cix-armcb-isp-demote-routine-info-logs.patch || die
 	eapply "${FILESDIR}"/7.1.x/72106-media-cix-armcb-isp-harden-execstart-and-fix-w1-warnings.patch || die
-	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
+	eapply "${FILESDIR}"/7.1.x/70020-cix-19f2947-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
@@ -236,7 +236,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch || die
 	eapply "${FILESDIR}"/7.1.x/30107-reset-core-fall-back-to-cix-acpi-lookup.patch || die
 	eapply "${FILESDIR}"/7.1.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
-	eapply "${FILESDIR}"/7.0.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch || die
+	eapply "${FILESDIR}"/7.1.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch || die
 	eapply "${FILESDIR}"/7.0.x/50020-irqchip-sky1-pdc-fix-acpi-ioremap-error-path.patch || die
 	eapply "${FILESDIR}"/7.0.x/50030-mfd-syscon-fix-fwnode-property-lookup-lifetime.patch || die
 	eapply "${FILESDIR}"/50040-pwm-sky1-fix-kconfig-entry.patch || die

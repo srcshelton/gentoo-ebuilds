@@ -1,0 +1,110 @@
+gpio: cadence: restore AX3000 firmware-preserve match data
+
+CIX's ACPI GPIO support dropped the existing AX3000 OF compatible while
+reworking the Cadence GPIO match data. The AX3000 binding used match data to
+preserve firmware-provided GPIO direction, output, and bypass state, so losing
+the entry can break platform-critical pins on non-CIX DT systems.
+
+CIX's later Sky1 ACPI fix already provides a structured match-data path and
+firmware-preserve flag. Reuse that infrastructure to restore the AX3000
+compatible without reworking the Sky1 PDC integration.
+
+---
+
+
+diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -51,10 +51,26 @@ struct cdns_gpio_saved_regs {
+ 	u32 irq_any_edge;
+ };
+ 
++struct cdns_gpio_quirks {
++	bool skip_init;
++	bool has_sky1_pdc;
++};
++
++static const struct cdns_gpio_quirks cdns_default_quirks = { };
++
++static const struct cdns_gpio_quirks ax3000_gpio_quirks = {
++	.skip_init = true,
++};
++
++static const struct cdns_gpio_quirks sky1_gpio_quirks = {
++	.has_sky1_pdc = true,
++};
++
+ struct cdns_gpio_chip {
+ 	struct gpio_generic_chip gen_gc;
+ 	void __iomem *regs;
+ 	u32 bypass_orig;
++	const struct cdns_gpio_quirks *quirks;
+ 	struct clk *pclk;
+ 	struct reset_control *rst;
+ 	u32 wake_active;
+@@ -334,8 +350,12 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+ 	/* Optional mask of pins that should remain inputs (hardware safety) */
+ 	device_property_read_u32(&pdev->dev, "gpio-io-mask", &io_mask);
+ 
+-	/* Detect Sky1 platform for PDC wake integration */
+-	cgpio->has_sky1_pdc = !!device_get_match_data(&pdev->dev);
++	cgpio->quirks = device_get_match_data(&pdev->dev);
++	if (!cgpio->quirks)
++		cgpio->quirks = &cdns_default_quirks;
++
++	/* Detect Sky1 platform for PDC wake integration. */
++	cgpio->has_sky1_pdc = cgpio->quirks->has_sky1_pdc;
+ 
+ 	/*
+ 	 * Set all pins as inputs by default, otherwise:
+@@ -346,8 +366,9 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+ 	 * Apply io_mask to force certain pins as inputs (hardware safety).
+ 	 */
+ 	dir_prev = ioread32(cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
+-	iowrite32(GENMASK(num_gpios - 1, 0) & ~io_mask,
+-		  cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
++	if (!cgpio->quirks->skip_init)
++		iowrite32(GENMASK(num_gpios - 1, 0) & ~io_mask,
++			  cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
+ 
+ 	config.dev = &pdev->dev;
+ 	config.sz = 4;
+@@ -438,10 +459,12 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+ 
+ 	cgpio->bypass_orig = ioread32(cgpio->regs + CDNS_GPIO_BYPASS_MODE);
+ 
+-	/* Enable gpio outputs, ignored for input direction */
+-	iowrite32(GENMASK(num_gpios - 1, 0),
+-		  cgpio->regs + CDNS_GPIO_OUTPUT_EN);
+-	iowrite32(0, cgpio->regs + CDNS_GPIO_BYPASS_MODE);
++	/* Enable GPIO outputs, ignored for input direction. */
++	if (!cgpio->quirks->skip_init) {
++		iowrite32(GENMASK(num_gpios - 1, 0),
++			  cgpio->regs + CDNS_GPIO_OUTPUT_EN);
++		iowrite32(0, cgpio->regs + CDNS_GPIO_BYPASS_MODE);
++	}
+ 
+ 	platform_set_drvdata(pdev, cgpio);
+ 	return 0;
+@@ -466,16 +489,17 @@ static void cdns_gpio_remove(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id cdns_of_ids[] = {
+-	{ .compatible = "cdns,gpio-r1p02" },
+-	{ .compatible = "cix,sky1-gpio", .data = (void *)1 },
++	{ .compatible = "axiado,ax3000-gpio", .data = &ax3000_gpio_quirks },
++	{ .compatible = "cdns,gpio-r1p02", .data = &cdns_default_quirks },
++	{ .compatible = "cix,sky1-gpio", .data = &sky1_gpio_quirks },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(of, cdns_of_ids);
+ 
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id cdns_acpi_ids[] = {
+-	{ "CIXH1002", 1 },
+-	{ "CIXH1003", 1 },
++	{ "CIXH1002", (kernel_ulong_t)&sky1_gpio_quirks },
++	{ "CIXH1003", (kernel_ulong_t)&sky1_gpio_quirks },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(acpi, cdns_acpi_ids);
