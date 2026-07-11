@@ -1,0 +1,1295 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/Makefile b/drivers/media/platform/cix/armcb-isp/Makefile
+index 8e7a706c2..f00d87ef3 100644
+--- a/drivers/media/platform/cix/armcb-isp/Makefile
++++ b/drivers/media/platform/cix/armcb-isp/Makefile
+@@ -21,6 +21,7 @@ armcb_isp_v4l2-y := \
+ 	common/isp_hw_if/isp_hw_ops.o \
+ 	common/isp_hw_if/isp_hw_utils.o \
+ 	isp/armcb_isp_driver.o \
++	isp/armcb_isp_execstart.o \
+ 	isp/armcb_v4l2_config.o \
+ 	isp/armcb_v4l2_core.o \
+ 	isp/armcb_v4l2_stream.o \
+diff --git a/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
+index 8f0b624ef..5a27da950 100644
+--- a/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
++++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
+@@ -808,10 +808,7 @@ int armcb_isp_hw_apply(struct cmd_buf *cmd, void *client)
+ 	if (ret < 0 && cmd->cmd_type != CMD_TYPE_PROBE) {
+ 		LOG(LOG_ERR, "hw bus:%d type:%d action failed ret:%d! ",
+ 		    cmd->static_info.bus, cmd->cmd_type, ret);
+-		kfree(p_isp_hw_cmd_buf->cmd);
+-		p_isp_hw_cmd_buf->cmd = NULL;
+-		kfree(p_isp_hw_cmd_buf);
+-		p_isp_hw_cmd_buf = NULL;
++		return ret;
+ 	}
+ 
+ 	return ret;
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+new file mode 100644
+index 000000000..03afa1520
+--- /dev/null
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+@@ -0,0 +1,577 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Query running isp_app PID and its argv (same as ps aux | grep isp_app + read args).
++ * Map argument patterns to allowed armcb_isp_v4l2-00..03 (ctx_id bit mask).
++ *
++ * Patterns (matched anywhere in argv string after normalization):
++ *  1) -c | -s 0 | -m 0     -> only -00
++ *  2) *-s 1*               -> only -01  (e.g. -s 1, -s 10)
++ *  3) *-s 2*               -> only -02
++ *  4) *-s 3*               -> only -03
++ *  5) *-m 2*               -> -00 and -01
++ *  6) *-m 3*               -> -00, -01, -02
++ *  7) *-m 4*               -> -00..-03; multi-open: open -00 first
++ *  8) *-m 1*               -> only -00
++ *
++ * Parse priority: -m before -s before -c.  Multiple isp_app: largest PID wins.
++ *
++ * No isp_app process in the system: only the current task whose comm is isp_app
++ * may open video nodes (all ctx 0..3); any other opener is denied.
++ *
++ * isp_app always may open ctx 0..3 (enumerate /dev/video* and QUERYCAP during
++ * startup). Cmdline mask applies only to non-isp_app openers once policy is
++ * loaded. Full process scan is not run during isp_app open (avoids reentrancy).
++ */
++
++#include <linux/atomic.h>
++#include <linux/jhash.h>
++#include <linux/kernel.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/mutex.h>
++#include <linux/sched.h>
++#include <linux/sched/mm.h>
++#include <linux/sched/signal.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++
++#include "system_logger.h"
++#include "armcb_isp_execstart.h"
++
++#ifdef LOG_MODULE
++#undef LOG_MODULE
++#define LOG_MODULE LOG_MODULE_ISP
++#endif
++
++#define ISP_PROCESS_NAME "isp_app"
++#define ISP_CMDLINE_READ_MAX 4096
++
++struct isp_app_info {
++	int pid;
++	unsigned int count;
++	char cmdline[ISP_CMDLINE_READ_MAX];
++};
++
++static DEFINE_MUTEX(armcb_isp_execstart_lock);
++static unsigned int armcb_isp_allowed_ctx_mask;
++static int armcb_isp_app_pid;
++static u64 armcb_isp_process_cache_stamp;
++static bool armcb_isp_process_cache_valid;
++static bool armcb_isp_daemon_running;
++static atomic_t armcb_isp_ctx0_open_refs = ATOMIC_INIT(0);
++
++static bool execstart_ignore;
++
++module_param(execstart_ignore, bool, 0644);
++MODULE_PARM_DESC(execstart_ignore,
++		 "If true, skip isp_app cmdline policy (allow ctx 0-3, no -00-first rule).");
++
++/* Same comm match as armcb_v4l2_core find_user_process_by_name("isp_app"). */
++static bool current_opener_is_isp_app(void)
++{
++	struct task_struct *curr = current;
++
++	if (!curr->mm)
++		return false;
++	return !strcmp(curr->comm, ISP_PROCESS_NAME);
++}
++
++static int execstart_isp_app_pid_get(char *buf, const struct kernel_param *kp)
++{
++	int pid;
++
++	mutex_lock(&armcb_isp_execstart_lock);
++	pid = armcb_isp_app_pid;
++	mutex_unlock(&armcb_isp_execstart_lock);
++
++	return scnprintf(buf, PAGE_SIZE, "%d\n", pid);
++}
++
++static const struct kernel_param_ops execstart_isp_app_pid_ops = {
++	.get = execstart_isp_app_pid_get,
++};
++
++module_param_cb(execstart_isp_app_pid, &execstart_isp_app_pid_ops, NULL, 0444);
++MODULE_PARM_DESC(execstart_isp_app_pid,
++		 "Read-only: PID of isp_app used for cmdline policy (0 if none).");
++
++static unsigned int leading_digit(unsigned int val)
++{
++	while (val >= 10)
++		val /= 10;
++	return val;
++}
++
++/* Option must not be part of a longer flag (e.g. not "--mode"). */
++static bool is_short_option(const char *cmdline, const char *opt, size_t opt_len)
++{
++	if (opt > cmdline && opt[-1] != ' ' && opt[-1] != '\t')
++		return false;
++	if (opt[opt_len] != '\0' && opt[opt_len] != ' ' && opt[opt_len] != '\t' &&
++	    (opt[opt_len] < '0' || opt[opt_len] > '9'))
++		return false;
++	return true;
++}
++
++/*
++ * After "-m" or "-s", parse unsigned value; supports "-s 1" and "-s1".
++ * Returns leading digit of value, or -1 on failure.
++ */
++static int parse_option_leading_digit(const char *cmdline, const char *opt)
++{
++	unsigned int val;
++	int n;
++
++	opt += 2;
++	while (*opt == ' ' || *opt == '\t')
++		opt++;
++	if (*opt < '0' || *opt > '9')
++		return -1;
++	if (sscanf(opt, "%u%n", &val, &n) < 1)
++		return -1;
++	return (int)leading_digit(val);
++}
++
++/*
++ * Match argv patterns 1..8.  * in the spec means substring anywhere in cmdline.
++ */
++static int isp_app_args_to_mask(const char *cmdline)
++{
++	const char *p;
++	int ld;
++
++	if (!cmdline || !*cmdline)
++		return -EINVAL;
++
++	/* Rules 5/6/7/8 and rule 1 (-m 0): *-m N* */
++	p = cmdline;
++	while ((p = strstr(p, "-m"))) {
++		if (!is_short_option(cmdline, p, 2)) {
++			p += 2;
++			continue;
++		}
++		ld = parse_option_leading_digit(cmdline, p);
++		if (ld < 0) {
++			p += 2;
++			continue;
++		}
++		switch (ld) {
++		case 0:
++		case 1:
++			return BIT(0);
++		case 2:
++			return BIT(0) | BIT(1);
++		case 3:
++			return BIT(0) | BIT(1) | BIT(2);
++		case 4:
++			return BIT(0) | BIT(1) | BIT(2) | BIT(3);
++		default:
++			break;
++		}
++		p += 2;
++	}
++
++	/* Rule 1 (-s 0) and rules 2..4: *-s N* */
++	p = cmdline;
++	while ((p = strstr(p, "-s"))) {
++		if (!is_short_option(cmdline, p, 2)) {
++			p += 2;
++			continue;
++		}
++		ld = parse_option_leading_digit(cmdline, p);
++		if (ld < 0) {
++			p += 2;
++			continue;
++		}
++		if (ld >= 0 && ld <= 3)
++			return BIT(ld);
++		p += 2;
++	}
++
++	/* Rule 1: -c */
++	p = cmdline;
++	while ((p = strstr(p, "-c"))) {
++		if (!is_short_option(cmdline, p, 2)) {
++			p += 2;
++			continue;
++		}
++		p += 2;
++		if (*p == '\0' || *p == ' ' || *p == '\t')
++			return BIT(0);
++	}
++
++	return -EINVAL;
++}
++
++static void cmdline_nulls_to_spaces(char *buf, int len)
++{
++	int i;
++
++	if (len <= 0)
++		return;
++
++	while (len > 0 && buf[len - 1] == '\0')
++		len--;
++
++	for (i = 0; i < len; i++) {
++		if (buf[i] == '\0')
++			buf[i] = ' ';
++	}
++	buf[len] = '\0';
++}
++
++static int read_task_cmdline(struct task_struct *task, char *buf, size_t buflen)
++{
++	struct mm_struct *mm;
++	unsigned long arg_start, arg_end;
++	size_t len;
++	int copied;
++
++	buf[0] = '\0';
++
++	mm = get_task_mm(task);
++	if (!mm)
++		return -ESRCH;
++
++	if (!mm->arg_end) {
++		mmput(mm);
++		return -EINVAL;
++	}
++
++	spin_lock(&mm->arg_lock);
++	arg_start = mm->arg_start;
++	arg_end = mm->arg_end;
++	spin_unlock(&mm->arg_lock);
++
++	if (arg_start >= arg_end) {
++		mmput(mm);
++		return -EINVAL;
++	}
++
++	len = arg_end - arg_start;
++	if (len >= buflen)
++		len = buflen - 1;
++
++	copied = access_process_vm(task, arg_start, buf, len, FOLL_FORCE);
++	mmput(mm);
++
++	if (copied <= 0)
++		return -EFAULT;
++
++	cmdline_nulls_to_spaces(buf, copied);
++	return 0;
++}
++
++static bool task_is_isp_app(struct task_struct *task, const char *cmdline)
++{
++	if (strstr(task->comm, ISP_PROCESS_NAME))
++		return true;
++	if (cmdline && strstr(cmdline, ISP_PROCESS_NAME))
++		return true;
++	return false;
++}
++
++static u64 build_cache_stamp(unsigned int count, int pid, const char *cmdline)
++{
++	u32 hash = jhash(cmdline, strlen(cmdline), 0);
++
++	return ((u64)count << 32) | jhash_2words(hash, (u32)pid, 0);
++}
++
++/*
++ * Walk processes like ps+grep isp_app: for each candidate log pid+args,
++ * keep the one with largest PID in @sel.
++ */
++static int query_isp_app_pid_and_args(struct isp_app_info *sel)
++{
++	struct task_struct *p;
++	char *line = NULL;
++	int ret = -ENOENT;
++
++	sel->pid = 0;
++	sel->count = 0;
++	sel->cmdline[0] = '\0';
++
++	line = kzalloc(ISP_CMDLINE_READ_MAX, GFP_KERNEL);
++	if (!line)
++		return -ENOMEM;
++
++	rcu_read_lock();
++	for_each_process(p) {
++		if (p != p->group_leader || !p->mm)
++			continue;
++
++		get_task_struct(p);
++		rcu_read_unlock();
++
++		/* Do not read cmdline of current while it is inside our open() path */
++		if (p == current) {
++			if (task_is_isp_app(p, NULL)) {
++				int pid = task_pid_nr(p);
++
++				sel->count++;
++				if (pid > sel->pid) {
++					sel->pid = pid;
++					sel->cmdline[0] = '\0';
++				}
++			}
++			rcu_read_lock();
++			put_task_struct(p);
++			continue;
++		}
++
++		if (read_task_cmdline(p, line, ISP_CMDLINE_READ_MAX) == 0 &&
++		    task_is_isp_app(p, line)) {
++			int pid = task_pid_nr(p);
++
++			sel->count++;
++			LOG(LOG_INFO,
++			    "isp_execstart: found isp_app pid=%d args='%s'\n",
++			    pid, line);
++
++			if (pid > sel->pid) {
++				sel->pid = pid;
++				strscpy(sel->cmdline, line, sizeof(sel->cmdline));
++			}
++		}
++
++		rcu_read_lock();
++		put_task_struct(p);
++	}
++	rcu_read_unlock();
++
++	kfree(line);
++
++	if (sel->pid > 0)
++		ret = 0;
++
++	return ret;
++}
++
++static void do_refresh_locked(void)
++{
++	struct isp_app_info *sel;
++	u64 stamp;
++	int mask;
++	int err;
++
++	sel = kzalloc(sizeof(*sel), GFP_KERNEL);
++	if (!sel) {
++		armcb_isp_allowed_ctx_mask = 0;
++		armcb_isp_app_pid = 0;
++		armcb_isp_daemon_running = false;
++		armcb_isp_process_cache_valid = false;
++		return;
++	}
++
++	err = query_isp_app_pid_and_args(sel);
++	if (err == -ENOMEM) {
++		armcb_isp_allowed_ctx_mask = 0;
++		armcb_isp_app_pid = 0;
++		armcb_isp_daemon_running = false;
++		armcb_isp_process_cache_valid = false;
++		goto out_free;
++	}
++
++	if (err == -ENOENT) {
++		stamp = 0;
++		if (armcb_isp_process_cache_valid &&
++		    stamp == armcb_isp_process_cache_stamp)
++				goto out_free;
++
++		LOG(LOG_INFO,
++		    "isp_execstart: no isp_app daemon; only isp_app opener allowed\n");
++		armcb_isp_allowed_ctx_mask = 0;
++		armcb_isp_app_pid = 0;
++		armcb_isp_daemon_running = false;
++		goto out_cache;
++	}
++
++	stamp = build_cache_stamp(sel->count, sel->pid, sel->cmdline);
++	if (armcb_isp_process_cache_valid &&
++	    stamp == armcb_isp_process_cache_stamp)
++			goto out_free;
++
++	armcb_isp_app_pid = sel->pid;
++
++	if (sel->cmdline[0] == '\0') {
++		LOG(LOG_INFO,
++		    "isp_execstart: isp_app pid=%d (args deferred), non-isp_app denied until reload\n",
++			    sel->pid);
++		armcb_isp_allowed_ctx_mask = 0;
++		armcb_isp_daemon_running = false;
++		goto out_cache;
++	}
++
++	mask = isp_app_args_to_mask(sel->cmdline);
++	if (mask < 0) {
++		LOG(LOG_ERR,
++		    "isp_execstart: isp_app pid=%d args='%s' -> no rule match\n",
++			    sel->pid, sel->cmdline);
++		armcb_isp_allowed_ctx_mask = 0;
++		armcb_isp_daemon_running = false;
++		goto out_cache;
++	}
++
++	armcb_isp_daemon_running = true;
++	armcb_isp_allowed_ctx_mask = (unsigned int)mask & 0xf;
++	LOG(LOG_INFO,
++	    "isp_execstart: isp_app pid=%d args='%s' -> allowed mask 0x%x\n",
++		    sel->pid, sel->cmdline, armcb_isp_allowed_ctx_mask);
++
++out_cache:
++	armcb_isp_process_cache_stamp = stamp;
++	armcb_isp_process_cache_valid = true;
++out_free:
++	kfree(sel);
++}
++
++void armcb_isp_execstart_refresh_if_needed(void)
++{
++	if (execstart_ignore)
++		return;
++
++	mutex_lock(&armcb_isp_execstart_lock);
++	/*
++	 * isp_app enumerates every /dev/video* with open+QUERYCAP during startup.
++	 * Do not walk tasks / read cmdline while isp_app is in our open() path.
++	 */
++	if (current_opener_is_isp_app()) {
++		if (!armcb_isp_process_cache_valid) {
++			armcb_isp_daemon_running = false;
++			armcb_isp_allowed_ctx_mask = 0;
++			armcb_isp_app_pid = 0;
++			armcb_isp_process_cache_stamp = 0;
++			armcb_isp_process_cache_valid = true;
++		}
++		mutex_unlock(&armcb_isp_execstart_lock);
++		return;
++	}
++	do_refresh_locked();
++	mutex_unlock(&armcb_isp_execstart_lock);
++}
++
++bool armcb_isp_execstart_ctx_allowed(unsigned int ctx_id)
++{
++	unsigned int m;
++
++	if (execstart_ignore)
++		return true;
++
++	if (ctx_id >= 4)
++		return true;
++
++	/* isp_app must open every ISP video node for VIDIOC_QUERYCAP probe */
++	if (current_opener_is_isp_app())
++		return true;
++
++	mutex_lock(&armcb_isp_execstart_lock);
++	if (!armcb_isp_daemon_running) {
++		mutex_unlock(&armcb_isp_execstart_lock);
++		return false;
++	}
++	m = armcb_isp_allowed_ctx_mask & 0xf;
++	mutex_unlock(&armcb_isp_execstart_lock);
++
++	return !!(m & BIT(ctx_id));
++}
++
++bool armcb_isp_execstart_multi_open_order_ok(unsigned int ctx_id)
++{
++	unsigned int m;
++	bool daemon;
++
++	if (execstart_ignore || ctx_id == 0 || ctx_id >= 4)
++		return true;
++
++	if (current_opener_is_isp_app())
++		return true;
++
++	mutex_lock(&armcb_isp_execstart_lock);
++	daemon = armcb_isp_daemon_running;
++	mutex_unlock(&armcb_isp_execstart_lock);
++	if (!daemon)
++		return true;
++
++	m = armcb_isp_execstart_get_allowed_mask() & 0xf;
++	if (!((m & BIT(0)) && (m & ~(BIT(0)))))
++		return true;
++
++	return atomic_read(&armcb_isp_ctx0_open_refs) > 0;
++}
++
++void armcb_isp_execstart_note_ctx0_open(void)
++{
++	atomic_inc(&armcb_isp_ctx0_open_refs);
++}
++
++void armcb_isp_execstart_note_ctx0_release(void)
++{
++	int v;
++
++	v = atomic_dec_return(&armcb_isp_ctx0_open_refs);
++	if (unlikely(v < 0)) {
++		atomic_set(&armcb_isp_ctx0_open_refs, 0);
++		WARN_ONCE(1, "isp_execstart: ctx0 open ref underflow\n");
++	}
++}
++
++unsigned int armcb_isp_execstart_get_allowed_mask(void)
++{
++	unsigned int m;
++
++	mutex_lock(&armcb_isp_execstart_lock);
++	m = armcb_isp_allowed_ctx_mask & 0xf;
++	mutex_unlock(&armcb_isp_execstart_lock);
++	return m;
++}
++
++void armcb_isp_execstart_force_reload(void)
++{
++	mutex_lock(&armcb_isp_execstart_lock);
++	armcb_isp_process_cache_valid = false;
++	do_refresh_locked();
++	mutex_unlock(&armcb_isp_execstart_lock);
++}
++
++static int execstart_allowed_mask_get(char *buf, const struct kernel_param *kp)
++{
++	return scnprintf(buf, PAGE_SIZE, "0x%x\n",
++			 armcb_isp_execstart_get_allowed_mask());
++}
++
++static const struct kernel_param_ops execstart_allowed_mask_ops = {
++	.get = execstart_allowed_mask_get,
++};
++
++module_param_cb(execstart_allowed_mask, &execstart_allowed_mask_ops, NULL, 0444);
++MODULE_PARM_DESC(execstart_allowed_mask,
++		 "Read-only: allowed ctx mask from isp_app pid/args.");
++
++static int execstart_reload_set(const char *val, const struct kernel_param *kp)
++{
++	int err, v;
++
++	err = kstrtoint(val, 0, &v);
++	if (err)
++		return err;
++	if (v)
++		armcb_isp_execstart_force_reload();
++	return 0;
++}
++
++static int execstart_reload_get(char *buf, const struct kernel_param *kp)
++{
++	return scnprintf(buf, PAGE_SIZE,
++			 "write 1 to re-query isp_app pid and args\n");
++}
++
++static const struct kernel_param_ops execstart_reload_ops = {
++	.set = execstart_reload_set,
++	.get = execstart_reload_get,
++};
++
++module_param_cb(execstart_reload, &execstart_reload_ops, NULL, 0644);
++MODULE_PARM_DESC(execstart_reload,
++		 "Write 1 to invalidate cache and re-query isp_app pid/args.");
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
+new file mode 100644
+index 000000000..606d30e09
+--- /dev/null
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
+@@ -0,0 +1,21 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Parse running isp_app process command line arguments and derive allowed V4L2
++ * instance mask (ctx_id 0..3 -> armcb_isp_v4l2-00 .. -03). When the mask is
++ * multi-camera (ctx0 and at least one other ctx allowed), ctx 1..3 require an
++ * open fd on -00 first. See armcb_isp_execstart.c.
++ */
++#ifndef __ARMCB_ISP_EXECSTART_H__
++#define __ARMCB_ISP_EXECSTART_H__
++
++#include <linux/types.h>
++
++void armcb_isp_execstart_refresh_if_needed(void);
++void armcb_isp_execstart_force_reload(void);
++bool armcb_isp_execstart_ctx_allowed(unsigned int ctx_id);
++bool armcb_isp_execstart_multi_open_order_ok(unsigned int ctx_id);
++void armcb_isp_execstart_note_ctx0_open(void);
++void armcb_isp_execstart_note_ctx0_release(void);
++unsigned int armcb_isp_execstart_get_allowed_mask(void);
++
++#endif /* __ARMCB_ISP_EXECSTART_H__ */
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+index 257979e10..c7e2a2641 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -24,6 +24,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/font.h>
+ #include <linux/mutex.h>
++#include <linux/delay.h>
+ #include <linux/platform_device.h>
+ #include <linux/videodev2.h>
+ #include <linux/v4l2-dv-timings.h>
+@@ -945,6 +946,13 @@ void armcb_i7_disable_vin(void)
+ 	armcb_isp_write_reg(I7_VIN_BASE_ADDR + VIN_VIN_REG_40_ADDR, 0x3<<7 | 0x4);
+ }
+ 
++void armcb_i7_disable_interrupt(void)
++{
++	armcb_i7_disable_int();
++	armcb_i7_disable_vin();
++	usleep_range(50000, 55000);
++}
++
+ static inline void armcb_i7_unmask_int(u32 normal_mask, u32 error_mask)
+ {
+ 	armcb_isp_write_reg(I7_INT_MASK_ADDR, normal_mask);
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
+index ab7276c63..ab4c814ed 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
+@@ -82,6 +82,7 @@ int armcb_init_output_addr_by_i7(uint32_t *p_vout_reg1,
+                                     uint32_t *p_vout_reg2, int vout);
+ void armcb_i7_disable_int(void);
+ void armcb_i7_disable_vin(void);
++void armcb_i7_disable_interrupt(void);
+ int destroy_buf_queue(struct vb2_queue *q, enum vb2_buffer_state state);
+ int armcb_get_output_addr_by_outport_i7(uint32_t outport,
+ 		uint32_t *p_vout_reg1, uint32_t *p_vout_reg2);
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+index 2be37a0b5..714868c00 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -22,6 +22,7 @@
+ #include "armcb_v4l2_stream.h"
+ #include "armcb_v4l_sd.h"
+ #include "armcb_vb2.h"
++#include "armcb_isp_execstart.h"
+ #include "asm-generic/errno-base.h"
+ #include "isp_hw_ops.h"
+ #include "linux/types.h"
+@@ -32,6 +33,7 @@
+ #include <linux/font.h>
+ #include <linux/init.h>
+ #include <linux/kernel.h>
++#include <linux/list.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/platform_device.h>
+@@ -415,6 +417,7 @@ static int armcb_v4l2_fh_release(struct file *file)
+ {
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(file->private_data);
+ 	armcb_v4l2_dev_t *dev = video_drvdata(file);
++	struct video_device *vdev = &dev->vid_cap_dev;
+ 	struct v4l2_event_subscription sub;
+ 	int ret = 0;
+ 
+@@ -427,7 +430,31 @@ static int armcb_v4l2_fh_release(struct file *file)
+ 		ret = v4l2_event_unsubscribe(&sp->fh, &sub);
+ 		LOG(LOG_DEBUG,
+ 				"armcb_fop_release v4l2_event_unsubscribe, ret = %d", ret);
+-			v4l2_fh_del(&sp->fh, file);
++		/* Release vb2 queue on close. When vdev->queue==NULL: if s_ctrl
++		 * already released (queue_released_by_s_ctrl), skip to avoid double-release;
++		 * else release our queue to avoid leak when vdev->queue was wrongly set null. */
++		mutex_lock(&dev->queue_lock);
++		if (sp->vb2_q.dev) {
++			if (vdev->queue == &sp->vb2_q) {
++				vdev->queue = NULL;
++				dev->queue_released_by_s_ctrl = 0;
++				vb2_queue_release(&sp->vb2_q);
++			} else if (vdev->queue != NULL) {
++				dev->queue_released_by_s_ctrl = 0;
++				vb2_queue_release(&sp->vb2_q); /* not owner, release our queue */
++			} else {
++				/* vdev->queue == NULL */
++				if (dev->queue_released_by_s_ctrl) {
++					dev->queue_released_by_s_ctrl = 0; /* already released by s_ctrl, skip */
++				} else {
++					/* Abnormal: queue never released, avoid leak */
++					vb2_queue_release(&sp->vb2_q);
++					dev->queue_released_by_s_ctrl = 0;
++				}
++			}
++		}
++		mutex_unlock(&dev->queue_lock);
++		v4l2_fh_del(&sp->fh, file);
+ 		v4l2_fh_exit(&sp->fh);
+ 		kfree(sp);
+ 	}
+@@ -435,16 +462,6 @@ static int armcb_v4l2_fh_release(struct file *file)
+ 	return ret;
+ }
+ 
+-static int armcb_disable_irq(void)
+-{
+-	int ret = 0;
+-
+-	armcb_i7_disable_int();
+-	armcb_i7_disable_vin();
+-
+-	return ret;
+-}
+-
+ static int armcb_release_output_port(void)
+ {
+     int rc = 0, i = 0, j = 0;
+@@ -519,6 +536,28 @@ static int armcb_v4l2_post_streamoff_event(armcb_v4l2_dev_t *dev)
+ 	return 0;
+ }
+ 
++/**
++ * Release one stream slot: clear g_outport_map, stream_id_index, deinit stream,
++ * clear pstreams[stream_id] and stream_mask. Caller must hold dev->queue_lock.
++ */
++static void armcb_v4l2_release_stream_slot(armcb_v4l2_dev_t *dev, int stream_id)
++{
++	armcb_v4l2_stream_t *pstream = dev->pstreams[stream_id];
++	int outport_idx;
++
++	if (!pstream)
++		return;
++	outport_idx = armcb_outport_bits_to_idx(pstream->outport);
++	if (outport_idx >= 0 && outport_idx < ISP_OUTPUT_PORT_MAX)
++		g_outport_map[dev->ctx_id][outport_idx] = NULL;
++	if (pstream->stream_type < V4L2_STREAM_TYPE_MAX)
++		dev->stream_id_index[pstream->stream_type] = -1;
++	armcb_v4l2_stream_deinit(pstream, dev);
++	dev->pstreams[stream_id] = NULL;
++	dev->stream_mask &= ~(1 << stream_id);
++	dev->is_streaming = 0;
++}
++
+ static int armcb_v4l2_fop_release(struct file *file)
+ {
+ 	armcb_v4l2_dev_t *dev = video_drvdata(file);
+@@ -526,7 +565,7 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 	struct vb2_queue *q = vdev->queue;
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(file->private_data);
+ 	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
+-	int outport_idx = -1;
++	bool notify_isp = false;
+ 	int rc = 0;
+ 
+ 	atomic_sub_return(1, &dev->opened);
+@@ -555,28 +594,51 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 			/* The isp_app open the video node twice, and the v4l2 app
+ 			 * open the video node once, so if the really close, there
+ 			 * should left 3 times for close the fd */
+-			if (rc > MAX_DEV_OPEN_NUM)
++			if ((rc > MAX_DEV_OPEN_NUM) && (dev->online_mode))
+ 				goto exit;
+ 
+-			rc = armcb_v4l2_post_streamoff_event(dev);
++			notify_isp = true;
+ 
+ 		} else {
+-			rc = strncmp(dev->v4l2_dev.name, "armcb_isp_v4l2-00",
+-					sizeof(dev->v4l2_dev.name));
+-			if (!rc) {
++			if (!strncmp(dev->v4l2_dev.name, "armcb_isp_v4l2-00",
++				    sizeof(dev->v4l2_dev.name))) {
+ 				/* When do V4L2 streamon case, the 3rd app open the fd,
+ 				 * and then close the fd, it should not impact the stream
+ 				 * on pipeline*/
+ 				rc = atomic_read(&dev->opened);
+ 				LOG(LOG_DEBUG, "%s fd num_cnt: %d \n",
+ 						dev_name(&vdev->dev), rc);
+-				if (rc > MAX_DEV_OPEN_NUM)
++				if ((rc > MAX_DEV_OPEN_NUM) && (dev->online_mode))
+ 					goto exit;
+ 
+-				rc = armcb_v4l2_post_streamoff_event(dev);
++				notify_isp = true;
+ 			}
+ 		}
+ 
++		/* Point only this stream's output to discard buffer to avoid SMMU errors.
++		 * Do not call armcb_v4l2_config_init_update_stream_hw_addr(dev) here:
++		 * that updates all vout ports and would break the other camera's stream. */
++		if (pstream && pstream->outport && discard_buf_addr_dma) {
++			u32 vout_r1 = 0, vout_r2 = 0;
++
++			if (armcb_get_output_addr_by_outport_i7(pstream->outport,
++								&vout_r1, &vout_r2) >= 0) {
++				if (vout_r1)
++					armcb_isp_write_reg(vout_r1, discard_buf_addr_dma);
++				if (vout_r2)
++					armcb_isp_write_reg(vout_r2, discard_buf_addr_dma);
++				}
++			}
++		if (notify_isp)
++			rc = armcb_v4l2_post_streamoff_event(dev);
++
++		/* Clear this stream's state so the next open (e.g. gstreamer re-enter)
++		 * can succeed: otherwise stream_mask / g_outport_map stay set and
++		 * s_fmt fails with outport busy or wrong stream reuse. */
++		mutex_lock(&dev->queue_lock);
++		if (dev->pstreams[sp->stream_id] == pstream)
++			armcb_v4l2_release_stream_slot(dev, sp->stream_id);
++		mutex_unlock(&dev->queue_lock);
+ 		goto exit;
+ 	}
+ 
+@@ -601,26 +663,22 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 
+ 		if(dev->buf_type == q->type) {
+ 			LOG(LOG_DEBUG, " ##### %s, vb2 release\n", dev_name(&vdev->dev));
+-			rc = destroy_buf_queue(q, VB2_BUF_STATE_ERROR);
+-			if(!rc) {
+-				mutex_lock(&dev->queue_lock);
++			mutex_lock(&dev->queue_lock);
++			/* Always stop queue before release to avoid __vb2_queue_cancel WARNING */
++			rc = vb2_streamoff(q, q->type);
++			if (rc == 0) {
++				armcb_v4l2_stream_clear_buffer_lists(pstream);
++			} else {
++				rc = destroy_buf_queue(q, VB2_BUF_STATE_ERROR);
++			}
++			if (!rc) {
+ 				vb2_queue_release(q);
+ 				vdev->queue = NULL;
+-				mutex_unlock(&dev->queue_lock);
++				dev->queue_released_by_s_ctrl = 1; /* so fh_release skips, avoid double-release */
+ 			}
+-			dev->stream_mask &= ~(1 << sp->stream_id);
+-			/* deinit stream */
+-			if (pstream) {
+-				outport_idx = armcb_outport_bits_to_idx(pstream->outport);
+-				if (outport_idx >= 0 && outport_idx < ISP_OUTPUT_PORT_MAX)
+-					g_outport_map[sp->ctx_id][outport_idx] = NULL;
+-				if (pstream->stream_type < V4L2_STREAM_TYPE_MAX)
+-					dev->stream_id_index[pstream->stream_type] = -1;
+-				armcb_v4l2_stream_deinit(pstream, dev);
+-				dev->pstreams[sp->stream_id] = NULL;
+-			}
+-			/*deinit the stream*/
+-			dev->is_streaming = 0;
++
++			armcb_v4l2_release_stream_slot(dev, sp->stream_id);
++			mutex_unlock(&dev->queue_lock);
+ 			goto deinit;
+ 		}
+ 	}
+@@ -646,6 +704,8 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 	}
+ 
+ 	armcb_v4l2_fh_release(file);
++	if (dev->ctx_id == 0)
++		armcb_isp_execstart_note_ctx0_release();
+ 	LOG(LOG_INFO, "release v4l2 fp success");
+ 	return rc;
+ 
+@@ -657,6 +717,8 @@ deinit:
+ exit:
+ 	/* release file handle */
+ 	armcb_v4l2_fh_release(file);
++	if (dev->ctx_id == 0)
++		armcb_isp_execstart_note_ctx0_release();
+ 	LOG(LOG_INFO, "release v4l2 fp success");
+ 	return rc;
+ }
+@@ -730,6 +792,24 @@ static int armcb_v4l2_fop_open(struct file *filp)
+ 	}
+ 
+ normal_mode:
++	/*
++	 * Newest running isp_app cmdline -> allowed armcb_isp_v4l2-00..03 (ctx_id).
++	 * Multi-camera (-m 2/3/4): open -00 before other nodes.
++	 */
++	armcb_isp_execstart_refresh_if_needed();
++	if (!armcb_isp_execstart_ctx_allowed(dev->ctx_id)) {
++		LOG(LOG_ERR,
++		    "%s: camera is not support (isp_app cmdline policy, ctx_id=%u)\n",
++		    dev_name(&vdev->dev), dev->ctx_id);
++		return -EPERM;
++	}
++	if (!armcb_isp_execstart_multi_open_order_ok(dev->ctx_id)) {
++		LOG(LOG_ERR,
++		    "%s: camera is not support (open armcb_isp_v4l2-00 first, multi-camera)\n",
++		    dev_name(&vdev->dev));
++		return -EPERM;
++	}
++
+ 	ret = armcb_v4l2_fh_open(filp);
+ 	if (ret < 0) {
+ 		LOG(LOG_ERR, "Error, file handle open fail (rc=%d)", ret);
+@@ -737,6 +817,8 @@ normal_mode:
+ 	}
+ 
+ 	atomic_add(1, &dev->opened);
++	if (dev->ctx_id == 0)
++		armcb_isp_execstart_note_ctx0_open();
+ 
+ open_fail:
+ 	return ret;
+@@ -1015,14 +1097,15 @@ static int armcb_isp_vb2_streamoff(struct file *file)
+ {
+ 	armcb_v4l2_dev_t *dev = video_drvdata(file);
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+-	struct vb2_queue *q = vdev->queue;
++	struct vb2_queue *q;
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(file->private_data);
+ 	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
+-	int outport_idx = -1;
+ 	int loop;
+ 	int ret = 0;
+ 
+ 	mutex_lock(&dev->queue_lock);
++	/* Read queue under lock so we don't use a stale pointer if close() already released it. */
++	q = vdev->queue;
+ 
+ 	if (!pstream) {
+ 		dev->is_streaming = 0;
+@@ -1038,46 +1121,44 @@ static int armcb_isp_vb2_streamoff(struct file *file)
+ 
+ 	pstream->stream_started = 0;
+ 
+-	/* Check isp_app stream off the isp hardware, then release the buffer*/
+-	if((atomic_read(&dev->stream_on_cnt) == STREAM_ON) && (vdev->queue))
+-	{
+-		/* Revert the dev->stream_on_cnt to -1 for check the isp_app
+-		 * streamon/off status, the file->private_data shoule be the
+-		 * vdev->queue->owner, if not, the vb2_fos_release will not call
+-		 * vb2_queue_release. So the V4L2 alloc buffer release by isp_app
+-		 * need to use vb2_queue_release buffer to avoid this issue.*/
+-		if(dev->buf_type == q->type) {
++	/* s_ctrl(STREAM_OFF) calls this when queue exists (do_vb2). Always run streamoff
++	 * and release so that if the app (e.g. gstreamer) never closes or crashes,
++	 * isp_app can release the queue and avoid leak. fh_release will skip when
++	 * queue_released_by_s_ctrl is set. */
++	if ((atomic_read(&dev->stream_on_cnt) == STREAM_ON) && (vdev->queue) &&
++	    (dev->buf_type == q->type)) {
+ 			/* destroy buf queue*/
+ 			if (!dev->is_streaming) //stream is release.
+ 				goto exit;
+ 
+-			ret = destroy_buf_queue(q, VB2_BUF_STATE_ERROR);
+-			if(!ret) {
++			/* Always stop vb2 queue before release to avoid __vb2_queue_cancel WARNING
++			 * (queue must leave streaming state before vb2_queue_release).
++			 * vb2_streamoff is safe when not streaming (returns -EINVAL, we still release). */
++			ret = vb2_streamoff(q, q->type);
++			if (ret == 0) {
++				/* Buffers already completed by vb2_streamoff; clear driver lists
++				 * without calling vb2_buffer_done again. */
++				armcb_v4l2_stream_clear_buffer_lists(pstream);
++			} else {
++				/* Not streaming or streamoff failed (e.g. -EBUSY owner mismatch):
++				 * complete buffers then release; may trigger __vb2_queue_cancel WARNING
++				 * if queue was still streaming. Ensure same fd does STREAMON and s_ctrl(STREAM_OFF). */
++				if (ret != -EINVAL)
++					LOG(LOG_ERR, "vb2_streamoff failed %d (owner?); release may WARN\n", ret);
++				ret = destroy_buf_queue(q, VB2_BUF_STATE_ERROR);
++			}
++			if (!ret && vdev->queue == q) {
++				/* Always release so leak is avoided if the app never closes (e.g. crash).
++				 * fh_release will skip when queue_released_by_s_ctrl is set. */
+ 				LOG(LOG_INFO, " ##### %s, vb2 release\n", dev_name(&vdev->dev));
+-				vb2_queue_release(q);
+ 				vdev->queue = NULL;
++				dev->queue_released_by_s_ctrl = 1;
++				vb2_queue_release(q);
+ 			}
+ 
+-		}
+-
+-		/*deinit the stream*/
+-		for(loop = 0;loop < V4L2_STREAM_TYPE_MAX;loop++) {
+-			armcb_v4l2_stream_t *pstream = dev->pstreams[loop];
+-			if(pstream != NULL) {
+-				dev->stream_mask &= ~(1 << loop);
+-				/* deinit stream */
+-				if (pstream) {
+-					outport_idx = armcb_outport_bits_to_idx(pstream->outport);
+-					if (outport_idx >= 0 && outport_idx < ISP_OUTPUT_PORT_MAX)
+-						g_outport_map[dev->ctx_id][outport_idx] = NULL;
+-					if (pstream->stream_type < V4L2_STREAM_TYPE_MAX)
+-						dev->stream_id_index[pstream->stream_type] = -1;
+-					armcb_v4l2_stream_deinit(pstream, dev);
+-					dev->pstreams[loop] = NULL;
+-					dev->is_streaming = 0;
+-				}
+-			}
+-		}
++		/* deinit all stream slots */
++		for (loop = 0; loop < V4L2_STREAM_TYPE_MAX; loop++)
++			armcb_v4l2_release_stream_slot(dev, loop);
+ 	}
+ 
+ exit:
+@@ -1476,20 +1557,32 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 
+ 	switch (ctrl->id) {
+ 		case ISP_DAEMON_SET_STREAM_ON:
+-			LOG(LOG_INFO, "devname:%s, ISP_DAEMON_SET_STREAM_ON\n",
+-					dev_name(&vdev->dev));
+-			/* Just frist time and frist few frame use reserved buffer*/
+-			armcb_v4l2_config_init_update_stream_hw_addr(dev);
+-
+-			rc = armcb_isp_hw_apply_list(CMD_TYPE_STREAMON);
+-			atomic_set(&dev->stream_on_cnt, STREAM_ON);
+-			if (rc < 0) {
+-				LOG(LOG_ERR, "armcb_isp_hw_apply_list failed ret(%d)", rc);
++			LOG(LOG_INFO, "devname:%s online_mode:%d, ISP_DAEMON_SET_STREAM_ON\n",
++					dev_name(&vdev->dev), ctrl->value);
++			dev->online_mode = ctrl->value;
++			if (ctrl->value) {
++				/* Live sensor: discard buffers on vout until app queues real buffers */
++				armcb_v4l2_config_init_update_stream_hw_addr(dev);
++				rc = armcb_isp_hw_apply_list(CMD_TYPE_STREAMON);
++				if (rc < 0) {
++					LOG(LOG_ERR, "armcb_isp_hw_apply_list failed ret(%d)", rc);
++				} else {
++					LOG(LOG_INFO, "pstream:%p, armcb_isp_hw_apply_list success",
++							pstream);
++				}
++				atomic_set(&dev->stream_on_cnt, STREAM_ON);
++			} else if (armcb_multi_cam) {
++				/* Multi-cam only: offline ctx wakes GStreamer without touching all VOUTs */
++				rc = 0;
++				atomic_set(&dev->stream_on_cnt, STREAM_ON);
+ 			} else {
+-				LOG(LOG_INFO, "pstream:%p, armcb_isp_hw_apply_list success",
+-						pstream);
++				/* Single-cam: preserve legacy offline STREAMON path */
++				armcb_v4l2_config_init_update_stream_hw_addr(dev);
++				rc = armcb_isp_hw_apply_list(CMD_TYPE_STREAMON);
++				atomic_set(&dev->stream_on_cnt, STREAM_ON);
++				if (rc < 0)
++					LOG(LOG_ERR, "armcb_isp_hw_apply_list failed ret(%d)", rc);
+ 			}
+-			/* Set the streamon done flag to wake the streamon queue */
+ 			dev->streamon_done = 1;
+ 			dev->streamoff_done = 0;
+ 			wake_up_interruptible(&dev->wait_streamon_queue);
+@@ -1506,11 +1599,28 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 			LOG(LOG_INFO,"set the multi camera %d", armcb_multi_cam);
+ 			rc = 0;
+ 			break;
+-		case ISP_DAEMON_SET_STREAM_OFF:
+-			LOG(LOG_INFO, "devname:%s, ISP_DAEMON_SET_STREAM_OFF\n",
++		case ISP_DAEMON_SET_STREAM_OFF: {
++			struct vb2_queue *q_stop;
++			bool do_vb2 = false;
++
++			LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF enter, devname:%s\n",
+ 					dev_name(&vdev->dev));
+-			/*disbale the stream operate ram,if not smmu error maybe occur */
+-			armcb_disable_irq();
++			/* Only isp_app calls this. If the queue (e.g. applied by gstreamer) is not yet
++			 * released, run vb2_streamoff/release here; if already released (queue is null),
++			 * skip vb2. armcb_isp_vb2_streamoff internally checks owner and only releases
++			 * when appropriate. Hardware streamoff is always run. */
++			mutex_lock(&dev->queue_lock);
++			q_stop = vdev->queue;
++			do_vb2 = (q_stop != NULL);
++			if (!q_stop)
++				LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: queue already released, hw streamoff only, skip vb2\n");
++			else
++				LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: queue not released yet, run hw streamoff + vb2 release\n");
++			mutex_unlock(&dev->queue_lock);
++
++			/* Always do hardware streamoff so that ISP is powered down. */
++			LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: run hardware streamoff (disable_irq, STREAMOFF, POWERDOWN)\n");
++			armcb_i7_disable_interrupt();
+ 			rc = armcb_isp_hw_apply_list(CMD_TYPE_STREAMOFF);
+ 			if (rc < 0) {
+ 				LOG(LOG_ERR, "armcb_isp_hw_apply_list failed ret(%d)", rc);
+@@ -1522,14 +1632,20 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 				LOG(LOG_ERR, "armcb_isp_hw_apply_list failed ret(%d)", rc);
+ 				return rc;
+ 			}
+-			armcb_isp_vb2_streamoff(file);
++			/* Wait for hardware to complete any in-flight DMA transactions. */
++			usleep_range(50000, 55000);
++			LOG(LOG_INFO, "Hardware streamoff/powerdown completed");
++			if (do_vb2) {
++				armcb_isp_vb2_streamoff(file);
++				LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: vb2 streamoff done\n");
++			}
+ 			atomic_set(&dev->stream_on_cnt, STREAM_OFF);
+-			/* Set the streamon done flag to wake the streamoff queue */
+ 			atomic_set(&dev->port_idx_release, OUTPORT_IDX_IS_BUSY);
+ 			dev->streamoff_done = 1;
+ 			dev->streamon_done = 0;
+ 			wake_up_interruptible(&dev->wait_streamoff_queue);
+ 			break;
++		}
+ 		case ISP_DAEMON_SET_EXIT:
+ 			LOG(LOG_INFO, "devname:%s, ISP_DAEMON_SET_EXIT",
+ 						dev_name(&vdev->dev));
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
+index d8850d711..2d4e1289a 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
+@@ -106,7 +106,13 @@ typedef struct armcb_v4l2_dev {
+ 	int s_fmt_done;
+ 	int streamon_done;
+ 	int streamoff_done;
++	int online_mode;
+ 	atomic_t daemon_exit;
++
++	/* Set when s_ctrl(STREAM_OFF) path did vb2_queue_release; cleared in fh_release.
++	 * Used so fh_release can skip release when vdev->queue==NULL (already released)
++	 * and still release when vdev->queue wrongly null (avoid leak). */
++	int queue_released_by_s_ctrl;
+ } armcb_v4l2_dev_t;
+ 
+ struct armcb_v4l_dev_info {
+@@ -136,6 +142,11 @@ struct isp_v4l2_fmt {
+ 	u16 flags;
+ };
+ 
++enum on_offline_mode {
++	OFFLINE_MODE = 0,
++	ONLINE_MODE,
++};
++
+ typedef enum {
+ 	ISP_DAEMON_EVENT_START = 100,
+ 	ISP_DAEMON_EVENT_SET_CAM_ID, // 101
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+index 81bad6eff..c439e6f70 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+@@ -187,6 +187,30 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ 	return 0;
+ }
+ 
++/**
++ * armcb_v4l2_stream_clear_buffer_lists - Clear stream buffer lists without
++ * completing buffers. Call only after vb2_streamoff has already completed
++ * buffers (e.g. to avoid double vb2_buffer_done). Caller must hold
++ * appropriate lock (e.g. queue_lock).
++ */
++void armcb_v4l2_stream_clear_buffer_lists(armcb_v4l2_stream_t *pstream)
++{
++	armcb_v4l2_buffer_t *pbuf;
++
++	if (!pstream)
++		return;
++	while (!list_empty(&pstream->stream_buffer_list)) {
++		pbuf = list_first_entry(&pstream->stream_buffer_list,
++					armcb_v4l2_buffer_t, list);
++		list_del(&pbuf->list);
++	}
++	while (!list_empty(&pstream->stream_buffer_list_busy)) {
++		pbuf = list_first_entry(&pstream->stream_buffer_list_busy,
++					armcb_v4l2_buffer_t, list);
++		list_del(&pbuf->list);
++	}
++}
++
+ void
+ armcb_v4l2_stream_buffer_list_release(armcb_v4l2_stream_t *pstream,
+ 				      struct list_head *stream_buffer_list)
+@@ -226,9 +250,12 @@ void armcb_v4l2_stream_deinit(armcb_v4l2_stream_t *pstream,
+ 	/* stop hardware do stream-off first if it's on */
+ 	armcb_v4l2_stream_off(pstream, dev);
+ 
+-	/* release fw_info */
++	/* release buffer lists */
++	armcb_v4l2_stream_buffer_list_release(pstream, &pstream->stream_buffer_list);
++	armcb_v4l2_stream_buffer_list_release(pstream, &pstream->stream_buffer_list_busy);
++
++	/* release stream structure */
+ 	kfree(pstream);
+-	pstream = NULL;
+ }
+ 
+ int armcb_v4l2_stream_on(armcb_v4l2_stream_t *pstream)
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
+index 30707a62a..a4f054b36 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
+@@ -103,6 +103,7 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ int armcb_v4l2_stream_on(armcb_v4l2_stream_t *pstream);
+ int armcb_v4l2_stream_get_format(armcb_v4l2_stream_t *pstream,
+ 				 struct v4l2_format *f);
++void armcb_v4l2_stream_clear_buffer_lists(armcb_v4l2_stream_t *pstream);
+ void armcb_v4l2_stream_buffer_list_release(armcb_v4l2_stream_t *pstream,
+                  struct list_head *stream_buffer_list);
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+index d19d61873..9586e4fbf 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+@@ -14,6 +14,7 @@
+  */
+ #include <linux/errno.h>
+ #include <linux/kernel.h>
++#include <linux/list.h>
+ #include <linux/sched.h>
+ #include <linux/v4l2-dv-timings.h>
+ #include <linux/videodev2.h>
+@@ -29,6 +30,7 @@
+ #include "armcb_vb2.h"
+ #include "system_logger.h"
+ #include <media/videobuf2-dma-contig.h>
++#include <media/videobuf2-core.h>
+ 
+ #ifdef LOG_MODULE
+ #undef LOG_MODULE
+@@ -155,11 +157,41 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
+ static void cap_vb2_stop_streaming(struct vb2_queue *q)
+ {
+ 	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(q);
++	armcb_v4l2_buffer_t *pbuf = NULL;
++	unsigned long flags;
++	unsigned int i;
++
+ 	LOG(LOG_INFO, "function enter");
++	/* Return all driver-held buffers to vb2 so owned_by_drv_count becomes 0.
++	 * Otherwise __vb2_queue_cancel() triggers WARN_ON(owned_by_drv_count). */
++	spin_lock_irqsave(&pstream->slock, flags);
++	//to avoid smmu err
++	armcb_v4l2_config_init_update_stream_hw_addr(NULL);
++	while (!list_empty(&pstream->stream_buffer_list)) {
++		pbuf = list_entry(pstream->stream_buffer_list.next,
++				  armcb_v4l2_buffer_t, list);
++		list_del(&pbuf->list);
++		vb2_buffer_done(&pbuf->vvb.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++	while (!list_empty(&pstream->stream_buffer_list_busy)) {
++		pbuf = list_entry(pstream->stream_buffer_list_busy.next,
++				  armcb_v4l2_buffer_t, list);
++		list_del(&pbuf->list);
++		vb2_buffer_done(&pbuf->vvb.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++	spin_unlock_irqrestore(&pstream->slock, flags);
++
++	/* Fallback: return any queue buffer still ACTIVE (e.g. not in our lists).
++	 * Matches kernel __vb2_queue_cancel fallback so owned_by_drv_count is 0. */
++	for (i = 0; i < vb2_get_num_buffers(q); i++) {
++		struct vb2_buffer *vb = vb2_get_buffer(q, i);
++
++		if (vb && vb->state == VB2_BUF_STATE_ACTIVE)
++			vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
++	}
++
+ 	pstream->stream_started = 0;
+ 	LOG(LOG_INFO, "function exit");
+-
+-	return;
+ }
+ 
+ static struct vb2_ops armcb_vid_cap_qops = {

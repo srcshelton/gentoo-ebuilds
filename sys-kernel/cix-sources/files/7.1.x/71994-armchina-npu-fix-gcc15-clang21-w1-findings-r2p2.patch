@@ -1,0 +1,623 @@
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -481,7 +481,7 @@ static const struct file_operations aipu_fops = {
+ };
+ 
+ /**
+- * @armchina_aipu_probe() - probe operation for platfom driver provided by ArmChina
++ * armchina_aipu_probe - probe operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct.
+  * @soc:   pointer to aipu SoC struct contains soc specific data.
+  *         this argument can be NULL if SoC vendor has no AIPU related soc data structure.
+@@ -557,7 +557,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ EXPORT_SYMBOL(armchina_aipu_probe);
+ 
+ /**
+- * @armchina_aipu_remove() - remove operation for platfom driver provided by ArmChina
++ * armchina_aipu_remove - remove operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct
+  *
+  * This function should be called in a SoC vendor provided xx_aipu_remove() function,
+@@ -595,7 +595,7 @@ int armchina_aipu_remove(struct platform_device *p_dev)
+ EXPORT_SYMBOL(armchina_aipu_remove);
+ 
+ /**
+- * @armchina_aipu_suspend() - suspend operation for platfom driver provided by ArmChina
++ * armchina_aipu_suspend - suspend operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct.
+  * @state: power state device is entering.
+  *
+@@ -617,7 +617,7 @@ int armchina_aipu_suspend(struct platform_device *p_dev, pm_message_t state)
+ EXPORT_SYMBOL(armchina_aipu_suspend);
+ 
+ /**
+- * @armchina_aipu_resume() - resume operation for platfom driver provided by ArmChina
++ * armchina_aipu_resume - resume operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct.
+  *
+  * This function enables the AIPU clock from SoC level with the enable_clk method
+@@ -640,7 +640,7 @@ int armchina_aipu_resume(struct platform_device *p_dev)
+ EXPORT_SYMBOL(armchina_aipu_resume);
+ 
+ /**
+- * @armchina_aipu_alloc_dma_buf() - allocate a dma-buf buffer for other importers
++ * armchina_aipu_alloc_dma_buf - allocate a dma-buf buffer for other importers
+  * @request: buffer allocation request struct.
+  *
+  */
+@@ -660,7 +660,7 @@ int armchina_aipu_alloc_dma_buf(struct aipu_dma_buf_request *request)
+ EXPORT_SYMBOL(armchina_aipu_alloc_dma_buf);
+ 
+ /**
+- * @armchina_aipu_free_dma_buf() - free a dma-buf buffer
++ * armchina_aipu_free_dma_buf - free a dma-buf buffer
+  * @fd: file descriptor related to a buffer allocated by armchina_aipu_alloc_dma_buf.
+  *
+  */
+diff --git a/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
+--- a/drivers/misc/armchina-npu/aipu_io.c
++++ b/drivers/misc/armchina-npu/aipu_io.c
+@@ -5,7 +5,7 @@
+ #include "aipu_io.h"
+ 
+ /**
+- * @init_aipu_ioregion() - initialize struct io_region using physical base address
++ * init_aipu_ioregion - initialize struct io_region using physical base address
+  * @region:    pointer to struct io_region to be initialized
+  * @phys_base: base address of this region
+  * @size:      size of this region
+@@ -34,7 +34,7 @@ int init_aipu_ioregion(struct io_region *region, u64 phys_base, u32 size)
+ }
+ 
+ /**
+- * @deinit_aipu_ioregion() - destroy an AIPU IO region
++ * deinit_aipu_ioregion - destroy an AIPU IO region
+  * @region: pointer to struct io_region initialized in init_aipu_ioregion()
+  */
+ void deinit_aipu_ioregion(struct io_region *region)
+@@ -49,7 +49,7 @@ void deinit_aipu_ioregion(struct io_region *region)
+ }
+ 
+ /**
+- * @aipu_read32() - read AIPU register in word
++ * aipu_read32 - read AIPU register in word
+  * @region: pointer to struct io_region initialized in init_aipu_ioregion()
+  * @offset: AIPU register offset
+  * Return: u32 value in the register or error code
+@@ -68,7 +68,7 @@ int aipu_read32(struct io_region *region, int offset)
+ }
+ 
+ /**
+- * @aipu_write32() - write AIPU register in word
++ * aipu_write32 - write AIPU register in word
+  * @region: pointer to struct io_region initialized in init_aipu_ioregion()
+  * @offset: AIPU register offset
+  * @data:   u32 data to be writen
+diff --git a/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
+--- a/drivers/misc/armchina-npu/aipu_irq.c
++++ b/drivers/misc/armchina-npu/aipu_irq.c
+@@ -35,7 +35,8 @@ static void aipu_irq_handler_bottom_half(struct work_struct *work)
+ }
+ 
+ /**
+- * @aipu_create_irq_object() - initialize an AIPU IRQ object
++ * aipu_create_irq_object - initialize an AIPU IRQ object
++ * @dev:         device that owns the interrupt
+  * @irqnum:      interrupt number
+  * @partition:   aipu_partition struct pointer
+  * @description: irq object description string
+@@ -87,7 +88,7 @@ finish:
+ }
+ 
+ /**
+- * @aipu_destroy_irq_object() - destroy a created aipu_irq_object
++ * aipu_destroy_irq_object - destroy a created aipu_irq_object
+  * @irq_obj: interrupt object created in aipu_create_irq_object()
+  */
+ void aipu_destroy_irq_object(struct aipu_irq_object *irq_obj)
+@@ -105,7 +106,7 @@ void aipu_destroy_irq_object(struct aipu_irq_object *irq_obj)
+ }
+ 
+ /**
+- * @aipu_irq_schedulework() - workqueue schedule API
++ * aipu_irq_schedulework - workqueue schedule API
+  * @irq_obj: interrupt object created in aipu_create_irq_object()
+  */
+ void aipu_irq_schedulework(struct aipu_irq_object *irq_obj)
+@@ -115,7 +116,7 @@ void aipu_irq_schedulework(struct aipu_irq_object *irq_obj)
+ }
+ 
+ /**
+- * @aipu_irq_flush_workqueue() - workqueue flush API
++ * aipu_irq_flush_workqueue - workqueue flush API
+  * @irq_obj: interrupt object created in aipu_create_irq_object()
+  */
+ void aipu_irq_flush_workqueue(struct aipu_irq_object *irq_obj)
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -685,7 +685,7 @@ static int trigger_deferred_job_run(struct aipu_job_manager *manager,
+ }
+ 
+ /**
+- * @init_aipu_job_manager() - initialize an existing job manager struct during driver probe phase
++ * init_aipu_job_manager - initialize an existing job manager struct during driver probe phase
+  * @manager: pointer to the struct job_manager struct to be initialized
+  * @mm: pointer to the struct aipu_memory_manager
+  * @priv: pointer to the struct aipu_priv
+@@ -761,7 +761,7 @@ int init_aipu_job_manager(struct aipu_job_manager *manager, struct aipu_memory_m
+ }
+ 
+ /**
+- * @deinit_aipu_job_manager() - de-init the job manager
++ * deinit_aipu_job_manager - de-init the job manager
+  * @manager: pointer to the struct job_manager initialized in init_aipu_job_manager()
+  */
+ void deinit_aipu_job_manager(struct aipu_job_manager *manager)
+@@ -791,7 +791,7 @@ void deinit_aipu_job_manager(struct aipu_job_manager *manager)
+ }
+ 
+ /**
+- * @aipu_job_manager_set_partitions_info() - set multicore info. while probing
++ * aipu_job_manager_set_partitions_info - set multicore info. while probing
+  * @manager:  pointer to the struct job_manager initialized in init_aipu_job_manager()
+  * @partition_cnt: AIPU core count
+  * @partitions:    pointer to AIPU core struct array
+@@ -812,7 +812,7 @@ void aipu_job_manager_set_partitions_info(struct aipu_job_manager *manager, int
+ }
+ 
+ /**
+- * @aipu_job_manager_scheduler() - schedule a job flushed from userland
++ * aipu_job_manager_scheduler - schedule a job flushed from userland
+  * @manager:  pointer to the struct job_manager initialized in init_aipu_job_manager()
+  * @user_job: pointer to the userspace job descriptor
+  * @filp:     pointer to the device char file
+@@ -1089,7 +1089,7 @@ static bool is_job_abnormal(struct aipu_job *job, int flag,
+ }
+ 
+ /**
+- * @aipu_sched_hqos_job_no_lock() - schedule high qos job
++ * aipu_sched_hqos_job_no_lock - schedule high qos job
+  * @m: pointer to job manager struct
+  */
+ static void aipu_sched_hqos_job_no_lock(struct aipu_job_manager *m)
+@@ -1116,10 +1116,10 @@ static void aipu_sched_hqos_job_no_lock(struct aipu_job_manager *m)
+ }
+ 
+ /**
+- * @aipu_job_manager_irq_upper_half() - aipu interrupt upper half handler
+- * @core:           pointer to the aipu core struct
+- * @exception_flag: exception flag
+- * @info:           pointer to struct job interrupt info. (for v3 only)
++ * aipu_job_manager_irq_upper_half - aipu interrupt upper half handler
++ * @partition: pointer to the AIPU partition
++ * @flag: exception flag
++ * @info: pointer to struct job interrupt info (for v3 only)
+  */
+ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 				     struct job_irq_info *info)
+@@ -1127,7 +1127,6 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_job_manager *manager = NULL;
+ 	struct list_head *h = NULL;
+-	int handled = 0;
+ 	int triggered = 0;
+ 	int ret= 0;
+ 
+@@ -1261,13 +1260,10 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 			if (manager->pools && manager->pools->bind)
+ 				manager->dbg_do_destroy = true;
+ 
+-			handled = 1;
+ 			break;
+ 		}
+ 	}
+ 
+-	/* handled == false means a job was invalidated before done */
+-
+ 	if (!atomic_read(&partition->disable)) {
+ 		//schedule hqos job first
+ 		if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
+@@ -1330,7 +1326,7 @@ static void aipu_job_manager_destroy_command_pool_no_lock(struct aipu_job_manage
+ }
+ 
+ /**
+- * @aipu_sched_pending_job_lock() - schedule pending job after reset/abort
++ * aipu_sched_pending_job_lock - schedule pending job after reset/abort
+  * and also set runing job's status exception
+  * @part: pointer to the aipu partition struct
+  */
+@@ -1374,7 +1370,7 @@ void aipu_sched_pending_job_lock(struct aipu_partition *part)
+ }
+ 
+ /**
+- * @aipu_sched_pending_job_no_lock() - schedule pending job after reset/abort
++ * aipu_sched_pending_job_no_lock - schedule pending job after reset/abort
+  * and also set runing job's status exception
+  * @part: pointer to the aipu partition struct
+  */
+@@ -1411,7 +1407,7 @@ static void aipu_sched_pending_job_no_lock(struct aipu_partition *part)
+ }
+ 
+ /**
+- * @aipu_job_manager_irq_bottom_half() - aipu interrupt bottom half handler
++ * aipu_job_manager_irq_bottom_half - aipu interrupt bottom half handler
+  * @core: pointer to the aipu core struct
+  */
+ void aipu_job_manager_irq_bottom_half(struct aipu_partition *core)
+@@ -1524,7 +1520,6 @@ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ 	int ret = 0;
+ 	unsigned long flags;
+ 	struct aipu_partition *partition = NULL;
+-	struct list_head *h = NULL;
+ 
+ 	if (!manager)
+ 		return -EINVAL;
+@@ -1533,7 +1528,6 @@ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ 		return -ENODEV;
+ 
+ 	partition = &manager->partitions[0];
+-	h = &manager->scheduled_head->node;
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	ret = partition->ops->abort_command_pool(partition, 0);
+@@ -1548,9 +1542,9 @@ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ }
+ 
+ /**
+- * @aipu_job_manager_cancel_jobs() - cancel all jobs flushed for certain user closing fd
+- * @param manager: pointer to the struct job_manager initialized in init_aipu_job_manager()
+- * @param filp: file struct pointer
++ * aipu_job_manager_cancel_jobs - cancel all jobs flushed for certain user closing fd
++ * @manager: pointer to the struct job_manager initialized in init_aipu_job_manager()
++ * @filp: file struct pointer
+  *
+  * Return: 0 on success and error code otherwise.
+  */
+@@ -1624,7 +1618,7 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ }
+ 
+ /**
+- * @aipu_job_manager_invalidate_timeout_job() - invalidate/kill a timeout job
++ * aipu_job_manager_invalidate_timeout_job - invalidate/kill a timeout job
+  * @manager: pointer to the struct job_manager initialized in init_aipu_job_manager()
+  * @job_id:  job ID
+  *
+@@ -1659,7 +1653,7 @@ int aipu_job_manager_invalidate_timeout_job(struct aipu_job_manager *manager, in
+ }
+ 
+ /**
+- * @aipu_job_manager_get_job_status() - get AIPU jobs' statuses after a polling event returns
++ * aipu_job_manager_get_job_status - get AIPU jobs' statuses after a polling event returns
+  * @manager: pointer to the struct job_manager initialized in init_aipu_job_manager()
+  * @job_status: job status array stores statuys info filled by this API
+  * @filp: file struct pointer
+@@ -1749,7 +1743,7 @@ int aipu_job_manager_get_job_status(struct aipu_job_manager *manager,
+ }
+ 
+ /**
+- * @aipu_job_manager_has_end_job() - check if a user thread has end job(s) to query
++ * aipu_job_manager_has_end_job - check if a user thread has end job(s) to query
+  * @manager: pointer to the struct job_manager initialized in init_aipu_job_manager()
+  * @filp: file struct pointer
+  * @wait: wait table struct from kernel
+@@ -2064,4 +2058,4 @@ int aipu_job_manager_free_sflag_id(struct aipu_job_manager *manager,
+ 	mutex_unlock(&manager->id_lock);
+ 
+ 	return 0;
+-}
+\ No newline at end of file
++}
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -1204,7 +1204,7 @@ static void aipu_mm_set_asid_base(struct aipu_memory_manager *mm)
+ }
+ 
+ /**
+- * @aipu_init_mm() - initialize mm module during driver probe phase
++ * aipu_init_mm - initialize mm module during driver probe phase
+  * @mm:      pointer to memory manager struct to be initialized
+  * @p_dev:   pointer to the platform device struct
+  * @version: AIPU ISA version
+@@ -1374,7 +1374,7 @@ finish:
+ }
+ 
+ /**
+- * @aipu_deinit_mm() - de-initialize mm module while kernel module unloading
++ * aipu_deinit_mm - de-initialize mm module while kernel module unloading
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  */
+ int aipu_deinit_mm(struct aipu_memory_manager *mm)
+@@ -1512,7 +1512,7 @@ static bool aipu_mm_check_address_validity(struct aipu_memory_manager *mm,
+ }
+ 
+ /**
+- * @aipu_mm_alloc() - alloc memory buffer for user request
++ * aipu_mm_alloc - alloc memory buffer for user request
+  * @mm:      pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf_req: pointer to buffer request struct from userland
+  * @filp:    pointer to the file struct
+@@ -1671,7 +1671,7 @@ static int aipu_mm_direct_free(struct aipu_memory_manager *mm, struct aipu_mem_r
+ }
+ 
+ /**
+- * @aipu_mm_free() - free buffer allocated by aipu_mm_alloc()
++ * aipu_mm_free - free buffer allocated by aipu_mm_alloc()
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf:  pointer to the buffer descriptor to be released
+  * @filp: pointer to the file struct
+@@ -1755,7 +1755,7 @@ static void tensor_flush_dcache_range(void *start, void *end) {
+ }
+ 
+ /**
+- * @aipu_mm_cache_flush() - invald buffer allocated by aipu_mm_alloc()
++ * aipu_mm_cache_flush - invald buffer allocated by aipu_mm_alloc()
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf:  pointer to the buffer descriptor to be invalid
+  *
+@@ -1786,7 +1786,7 @@ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *bu
+ }
+ 
+ /**
+- * @aipu_mm_cache_invalid() - invald buffer allocated by aipu_mm_alloc()
++ * aipu_mm_cache_invalid - invald buffer allocated by aipu_mm_alloc()
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf:  pointer to the buffer descriptor to be invalid
+  *
+@@ -1817,7 +1817,7 @@ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *
+ }
+ 
+ /**
+- * @aipu_mm_free_buffers() - free all the buffers allocated from one fd
++ * aipu_mm_free_buffers - free all the buffers allocated from one fd
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @filp: pointer to the file struct
+  */
+@@ -1870,7 +1870,7 @@ static int aipu_vma_map_pages(struct vm_area_struct *vma, struct page **pages,
+ }
+ 
+ /**
+- * @aipu_mm_mmap_buf() - mmap an allocated buffer for user thread
++ * aipu_mm_mmap_buf - mmap an allocated buffer for user thread
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  * @vma: pointer to the vm_area_struct
+  * @filp: pointer to the file struct
+@@ -1926,7 +1926,7 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ }
+ 
+ /**
+- * @aipu_mm_disable_sram_allocation() - disable buffer allocations from soc sram
++ * aipu_mm_disable_sram_allocation - disable buffer allocations from soc sram
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  * @filp: pointer to the file struct
+  *
+@@ -1983,7 +1983,7 @@ unlock:
+ }
+ 
+ /**
+- * @aipu_mm_enable_sram_allocation() - enable buffer allocations from soc sram (disabled before)
++ * aipu_mm_enable_sram_allocation - enable buffer allocations from soc sram (disabled before)
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @filp: pointer to the file struct
+  *
+@@ -2017,7 +2017,7 @@ unlock:
+ }
+ 
+ /**
+- * @aipu_mm_get_va() - get the kernel virtual address of an allocated buffer.
++ * aipu_mm_get_va - get the kernel virtual address of an allocated buffer.
+  *                     currently do not support non-tcb va from importers.
+  * @mm:     pointer to memory manager struct initialized in aipu_init_mm()
+  * @dev_pa: device physical address returned by aipu_mm_alloc()
+@@ -2052,7 +2052,7 @@ char *aipu_mm_get_va(struct aipu_memory_manager *mm, u64 dev_pa)
+ }
+ 
+ /**
+- * @aipu_mm_get_tcb() - get the pointer to the TCB of a TCB list.
++ * aipu_mm_get_tcb - get the pointer to the TCB of a TCB list.
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  * @pa: address of the TCB
+  *
+@@ -2084,7 +2084,7 @@ unlock:
+ }
+ 
+ /**
+- * @aipu_mm_set_tcb_tail() - set the pointer to the tail TCB of a TCB list.
++ * aipu_mm_set_tcb_tail - set the pointer to the tail TCB of a TCB list.
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @tail: address of the tail TCB of a TCB list
+  *
+@@ -2113,7 +2113,7 @@ unlock:
+ }
+ 
+ /**
+- * @aipu_mm_link_tcb() - link a TCB list to the tail of an existing TCB list.
++ * aipu_mm_link_tcb - link a TCB list to the tail of an existing TCB list.
+  * @mm:           pointer to memory manager struct initialized in aipu_init_mm()
+  * @prev_tail:    address of the tail TCB of a previous TCB list to be linked
+  * @next_head_32: head address of the next TCB list
+@@ -2127,7 +2127,6 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ 	struct aipu_hold_tcb_buf *htbuf = NULL;
+ 	unsigned long flags;
+ 	int ret = 0;
+-	u32 temp = 0;
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(mm, prev_tail);
+ 	if (!htbuf)
+@@ -2135,7 +2134,6 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ 
+ 	spin_lock_irqsave(&mm->shlock, flags);
+ 	htbuf->hold_tcb->next = next_head_32;
+-	temp = htbuf->hold_tcb->next;
+ 	htbuf->next_head = next_head_32;
+ 	if (htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_PREV)
+ 		htbuf->status = AIPU_MEM_HOLD_TYPE_LINKED;
+@@ -2153,9 +2151,9 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ }
+ 
+ /**
+- * @aipu_mm_unlink_tcb() - unlink a TCB list from an existing TCB list.
++ * aipu_mm_unlink_tcb - unlink a TCB list from an existing TCB list.
+  * @mm:           pointer to memory manager struct initialized in aipu_init_mm()
+- * @prev_tail:    address of the tail TCB of a previous TCB list to be unlinked
++ * @curr_hold:    address of the hold TCB whose previous list is to be unlinked
+  * @free_tcb:     free TCB or not
+  *
+  * Return: 0 on success and error code otherwise.
+@@ -2168,7 +2166,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	struct aipu_buf_desc buf;
+ 	unsigned long flags;
+ 	int ret = 0;
+-	u32 temp = 0;
+ 	int prev_status = -1, prev_index = -1;
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(mm, curr_hold);
+@@ -2188,7 +2185,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	}
+ 	if (prev_htbuf) {
+ 		prev_htbuf->hold_tcb->next = 0;
+-		temp = prev_htbuf->hold_tcb->next;
+ 		if (prev_htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_NEXT) {
+ 			prev_htbuf->status = AIPU_MEM_HOLD_TYPE_IDLE;
+ 		} else if (prev_htbuf->status == AIPU_MEM_HOLD_TYPE_LINKED) {
+@@ -2206,7 +2202,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	tbuf->tail_tcb->next = 0;
+ 	tbuf->dep_job_id = 0;
+ 	tbuf->pinned = false;
+-	temp = tbuf->tail_tcb->next;
+ 	htbuf->prev_head = 0;
+ 	htbuf->prev_tail = 0;
+ 
+@@ -2234,7 +2229,7 @@ unlock:
+ }
+ 
+ /**
+- * @aipu_mm_pin_tcb() - pin a TCB list until it is ready to be freed in a future moment
++ * aipu_mm_pin_tcb - pin a TCB list until it is ready to be freed in a future moment
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @tail: address of the tail TCB of a TCB list
+  */
+diff --git a/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
+--- a/drivers/misc/armchina-npu/aipu_priv.c
++++ b/drivers/misc/armchina-npu/aipu_priv.c
+@@ -43,7 +43,7 @@ static void aipu_priv_release(struct kref *kref)
+ }
+ 
+ /**
+- * @init_aipu_priv() - initialize an input AIPU private data struct
++ * init_aipu_priv - initialize an input AIPU private data struct
+  * @aipu:  pointer to the aipu private struct to be initialized
+  * @p_dev: pointer to the platform device struct
+  * @fops:  pointer to the file_operations struct
+@@ -152,7 +152,7 @@ finish:
+ }
+ 
+ /**
+- * @brief deinit an AIPU private data struct
++ * deinit_aipu_priv - deinitialize an AIPU private data structure
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  *
+  * Return: 0 on success and error code otherwise.
+@@ -217,7 +217,7 @@ void aipu_priv_drop_driver_ref_and_wait(struct aipu_priv *aipu)
+ }
+ 
+ /**
+- * @aipu_priv_get_version() - get AIPU hardware version number wrapper
++ * aipu_priv_get_version - get AIPU hardware version number wrapper
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  *
+  * Return: AIPU ISA version
+@@ -230,7 +230,7 @@ int aipu_priv_get_version(struct aipu_priv *aipu)
+ }
+ 
+ /**
+- * @aipu_priv_get_partition_cnt() - get AIPU partition count
++ * aipu_priv_get_partition_cnt - get AIPU partition count
+  *        For V1/V2, a *partition* represents an AIPU core
+  *        For V3, a *partition* represents a group of AIPU clusters in the same power domain
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+@@ -245,7 +245,7 @@ int aipu_priv_get_partition_cnt(struct aipu_priv *aipu)
+ }
+ 
+ /**
+- * @aipu_priv_query_partition_capability() - query AIPU capability wrapper (per partition)
++ * aipu_priv_query_partition_capability - query AIPU capability wrapper (per partition)
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  * @cap:  pointer to the capability struct
+  *
+@@ -284,7 +284,7 @@ int aipu_priv_query_partition_capability(struct aipu_priv *aipu, struct aipu_par
+ }
+ 
+ /**
+- * @aipu_priv_query_capability() - query AIPU capability wrapper (multi-partition common capability)
++ * aipu_priv_query_capability - query AIPU capability wrapper (multi-partition common capability)
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  * @cap:  pointer to the capability struct
+  *
+@@ -329,7 +329,7 @@ int aipu_priv_query_capability(struct aipu_priv *aipu, struct aipu_cap *cap)
+ }
+ 
+ /**
+- * @aipu_priv_io_rw() - AIPU external register read/write wrapper
++ * aipu_priv_io_rw - AIPU external register read/write wrapper
+  * @aipu:   pointer to the aipu private struct initialized in init_aipu_priv()
+  * @io_req: pointer to the io_req struct
+  *
+@@ -348,7 +348,7 @@ int aipu_priv_io_rw(struct aipu_priv *aipu, struct aipu_io_req *io_req)
+ }
+ 
+ /**
+- * @aipu_priv_check_status() - check if aipu status is ready for usage
++ * aipu_priv_check_status - check if aipu status is ready for usage
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  *
+  * Return: 0 on success and error code otherwise.
+diff --git a/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
+--- a/drivers/misc/armchina-npu/default/default.c
++++ b/drivers/misc/armchina-npu/default/default.c
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+ 
+-/**
++/*
+  * SoC: ArmChina internal Juno platform
+  */
+ 
+diff --git a/drivers/misc/armchina-npu/r329/r329.c b/drivers/misc/armchina-npu/r329/r329.c
+--- a/drivers/misc/armchina-npu/r329/r329.c
++++ b/drivers/misc/armchina-npu/r329/r329.c
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+ 
+-/**
++/*
+  * SoC: Allwinner R329 platform
+  */
+ 
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /* Copyright 2024 Cix Technology Group Co., Ltd. All Rights Reserved.*/
+-/**
++/*
+  * SoC: CIX SKY1 platform
+  */
+ 
+diff --git a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
+--- a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
++++ b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
+@@ -123,7 +123,7 @@ finish:
+ }
+ 
+ /**
+- * @deinit_aipu_core() - deinit a created aipu_partition struct
++ * deinit_aipu_core - deinit a created aipu_partition struct
+  * @core: pointer to struct aipu_common initialized in init_aipu_core()
+  */
+ static void deinit_aipu_core(struct aipu_partition *core)

@@ -1,0 +1,166 @@
+diff --git a/drivers/media/platform/cix/if/mvx_buffer.c b/drivers/media/platform/cix/if/mvx_buffer.c
+--- a/drivers/media/platform/cix/if/mvx_buffer.c
++++ b/drivers/media/platform/cix/if/mvx_buffer.c
+@@ -585,7 +585,7 @@ int mvx_buffer_frame_set(struct mvx_buffer *buf,
+         /* Verify that plane has correct length. */
+         if (plane->filled > 0 && plane->filled != size[i]) {
+             MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
+-                      "Buffer filled length does not match plane size. plane=%i, filled=%zu, size=%u.",
++                      "Buffer filled length does not match plane size. plane=%i, filled=%u, size=%u.",
+                       i, plane->filled, size[i]);
+             //return -ENOMEM;
+         }
+@@ -593,7 +593,7 @@ int mvx_buffer_frame_set(struct mvx_buffer *buf,
+         /* Verify that there is no buffer overflow. */
+         if ((plane->filled + plane->offset) > mvx_buffer_size(buf, i)) {
+             MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                      "Buffer plane size is too small. plane=%i, size=%zu, size=%u.",
++                      "Buffer plane size is too small. plane=%i, size=%u, size=%zu.",
+                       i, size[i], mvx_buffer_size(buf, i));
+             return -ENOMEM;
+         }
+@@ -637,7 +637,7 @@ int mvx_buffer_afbc_set(struct mvx_buffer *buf,
+ 
+     if (size > mvx_buffer_size(buf, plane)) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                  "AFBC buffer too small. buf_size=%zu, size=%u.",
++                  "AFBC buffer too small. buf_size=%u, size=%zu.",
+                   size, mvx_buffer_size(buf, plane));
+         return -ENOMEM;
+     }
+diff --git a/drivers/media/platform/cix/if/mvx_firmware_v2.c b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+--- a/drivers/media/platform/cix/if/mvx_firmware_v2.c
++++ b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+@@ -1238,7 +1238,7 @@ static int get_message_v2(struct mvx_fw *fw,
+         break;
+     default:
+         MVX_LOG_PRINT(&mvx_log_if, code == 0 ? MVX_WAR_LOG_LEVEL : MVX_LOG_WARNING,
+-                  "Unknown fw message code. code=%u, size=%u, rpos = %d, wpos = %d.",
++                  "Unknown fw message code. code=%u, size=%zu, rpos = %d, wpos = %d.",
+                   code, size,
+                   ((struct mve_comm_area_host *)(fw->msg_host))->out_rpos,
+                   ((struct mve_comm_area_mve *)(fw->msg_mve))->out_wpos);
+@@ -3858,7 +3858,7 @@ static void print_debug_v2(struct mvx_fw *fw)
+ 
+         MVX_LOG_PRINT_SESSION(&mvx_log_session_if, MVX_LOG_WARNING,
+                       fw->session,
+-                      "mve -> host queue={rpos=%u, wpos=%u, capacity=%u}, msg={code=%u, size=%u}",
++                      "mve -> host queue={rpos=%u, wpos=%u, capacity=%zd}, msg={code=%u, size=%u}",
+                       rpos, wpos, capacity,
+                       header.code, header.size);
+ 
+@@ -3886,7 +3886,7 @@ static void print_debug_v2(struct mvx_fw *fw)
+ 
+         MVX_LOG_PRINT_SESSION(&mvx_log_session_if, MVX_LOG_WARNING,
+                       fw->session,
+-                      "host -> mve queue={rpos=%u, wpos=%u, capacity=%u}, msg={code=%u, size=%u}",
++                      "host -> mve queue={rpos=%u, wpos=%u, capacity=%zd}, msg={code=%u, size=%u}",
+                       rpos, wpos, capacity,
+                       header.code, header.size);
+ 
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -826,7 +826,7 @@ static int wait_pending(struct mvx_session *session)
+ 
+     if (ret < 0)
+         MVX_SESSION_WARN(session,
+-                 "Wait pending returned error. ret=%d, error=%d, msg_pending=%d.",
++                 "Wait pending returned error. ret=%d, error=%ld, msg_pending=%d.",
+                  ret, session->error, session->fw.msg_pending);
+ 
+     return ret;
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -446,7 +446,7 @@ static void buf_cleanup(struct vb2_buffer *b)
+ 
+     MVX_SESSION_VERBOSE(session,
+                 "v4l2: Cleanup buffer. vb=%px, index=%u, vbuf=%px, type=%u.",
+-                b, b->type, b->index, vbuf);
++                b, b->index, vbuf, b->type);
+ 
+     mvx_v4l2_buffer_destruct(vbuf);
+ }
+diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/mvx_log.c
+--- a/drivers/media/platform/cix/mvx_log.c
++++ b/drivers/media/platform/cix/mvx_log.c
+@@ -722,12 +722,12 @@ static void drain_destruct(struct mvx_log_drain *drain)
+     UNUSED(drain);
+ }
+ 
+-static void drain_dmesg_print(struct mvx_log_drain *drain,
+-                  enum mvx_log_severity severity,
+-                  const char *tag,
+-                  const char *msg,
+-                  const unsigned int n_args,
+-                  ...)
++static __printf(4, 6) void drain_dmesg_print(struct mvx_log_drain *drain,
++                         enum mvx_log_severity severity,
++                         const char *tag,
++                         const char *msg,
++                         const unsigned int n_args,
++                         ...)
+ {
+     va_list args;
+     char fmt[500];
+@@ -870,12 +870,12 @@ static void drain_ram_data(struct mvx_log_drain *drain,
+     wake_up_interruptible(&drain_ram->queue);
+ }
+ 
+-static void drain_ram_print(struct mvx_log_drain *drain,
+-                enum mvx_log_severity severity,
+-                const char *tag,
+-                const char *msg,
+-                const unsigned int n_args,
+-                ...)
++static __printf(4, 6) void drain_ram_print(struct mvx_log_drain *drain,
++                       enum mvx_log_severity severity,
++                       const char *tag,
++                       const char *msg,
++                       const unsigned int n_args,
++                       ...)
+ {
+     char buf[500];
+     va_list args;
+@@ -999,12 +999,12 @@ int mvx_log_drain_ram_add(struct mvx_log *log,
+ }
+ 
+ #ifdef MVX_LOG_FTRACE_ENABLE
+-static void drain_ftrace_print(struct mvx_log_drain *drain,
+-                   enum mvx_log_severity severity,
+-                   const char *tag,
+-                   const char *msg,
+-                   const unsigned int n_args,
+-                   ...)
++static __printf(4, 6) void drain_ftrace_print(struct mvx_log_drain *drain,
++                          enum mvx_log_severity severity,
++                          const char *tag,
++                          const char *msg,
++                          const unsigned int n_args,
++                          ...)
+ {
+     va_list args;
+     char fmt[500];
+diff --git a/drivers/media/platform/cix/mvx_log.h b/drivers/media/platform/cix/mvx_log.h
+--- a/drivers/media/platform/cix/mvx_log.h
++++ b/drivers/media/platform/cix/mvx_log.h
+@@ -173,12 +173,12 @@ struct mvx_log_drain;
+  * @fmt:        Format string.
+  * @n_args:        Number of arguments to format string.
+  */
+-typedef void (*mvx_print_fptr)(struct mvx_log_drain *drain,
+-                   enum mvx_log_severity severity,
+-                   const char *tag,
+-                   const char *fmt,
+-                   const unsigned int n_args,
+-                   ...);
++typedef __printf(4, 6) void (*mvx_print_fptr)(struct mvx_log_drain *drain,
++                          enum mvx_log_severity severity,
++                          const char *tag,
++                          const char *fmt,
++                          const unsigned int n_args,
++                          ...);
+ 
+ /**
+  * mvx_data_fptr() - Function pointer to output binary data.

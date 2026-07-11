@@ -1,0 +1,108 @@
+diff --git a/drivers/media/platform/cix/if/mvx_firmware_v2.c b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+--- a/drivers/media/platform/cix/if/mvx_firmware_v2.c
++++ b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+@@ -1287,10 +1287,7 @@ static int put_buffer_frame(struct mvx_fw *fw,
+     unsigned int strideRot[MVX_BUFFER_NPLANES];
+     unsigned int frame_max_width;
+     unsigned int frame_max_height;
+-    int max_height;
+-    uint32_t scaling_shift = 0;
+     uint32_t rotation = (buf->flags & MVX_BUFFER_FRAME_FLAG_ROTATION_MASK) >> 12;
+-    scaling_shift = (buf->flags & MVX_BUFFER_FRAME_FLAG_SCALING_MASK) >> 14;
+     f.host_handle = (ptrdiff_t)buf;
+     f.user_data_tag = buf->user_data;
+ 
+@@ -1440,9 +1437,7 @@ static int put_buffer_frame(struct mvx_fw *fw,
+         int i;
+ 
+         if (f.frame_flags & MVE_BUFFER_FRAME_FLAG_INTERLACE){
+-            max_height = buf->width;
+             stride_shift = 1;
+-            max_height >>= 1;
+         }
+ #if 0
+         for (i = 0; i < buf->nplanes; i++) {
+@@ -3226,7 +3221,6 @@ static void rpc_mem_alloc(struct mvx_fw *fw,
+     mvx_mmu_va start_va, stop_va;
+     int ret;
+     uint8_t log2_alignment;
+-    uint32_t alignment_pages;
+     uint32_t alignment_bytes;
+     uint32_t size;
+ 
+@@ -3293,7 +3287,6 @@ static void rpc_mem_alloc(struct mvx_fw *fw,
+ 
+     log2_alignment = p->mem_alloc.log2_alignment <= MVE_PAGE_SHIFT ? MVE_PAGE_SHIFT : p->mem_alloc.log2_alignment;
+     alignment_bytes = 1 << log2_alignment;
+-    alignment_pages = alignment_bytes >> MVE_PAGE_SHIFT;
+     size = MVE_PAGE_SIZE * pages->capacity;
+     ret = -EINVAL;
+     va = (start_va + alignment_bytes - 1) & ~(alignment_bytes - 1);
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -2565,8 +2565,6 @@ static int fw_decoder_setup(struct mvx_session *session)
+ static int fw_initial_setup(struct mvx_session *session)
+ {
+     int ret;
+-    enum mvx_direction dir;
+-    enum mvx_format codec;
+     struct mvx_fw_set_option option;
+ 
+     MVX_SESSION_INFO(session, "Firmware initial setup.");
+@@ -2579,9 +2577,6 @@ static int fw_initial_setup(struct mvx_session *session)
+     if (ret != 0)
+         return ret;
+ 
+-    dir = get_bitstream_port(session);
+-    codec = session->port[dir].format;
+-
+     ret = fw_job(session, session->job_frames);
+     if (ret != 0)
+         return ret;
+@@ -5868,7 +5863,6 @@ int mvx_session_set_osd_info(struct mvx_session *session,
+ int mvx_session_set_roi_regions(struct mvx_session *session,
+                    struct mvx_roi_config *roi)
+ {
+-    int ret = 0;
+     int roi_config_num = 0;
+     if (is_fw_loaded(session) == false ||
+         session->port[MVX_DIR_INPUT].is_flushing != false) {
+@@ -5882,14 +5876,12 @@ int mvx_session_set_roi_regions(struct mvx_session *session,
+         }
+         return 0;
+     }
+-    ret = queue_roi_regions(session, roi);
+-    return 0;
++    return queue_roi_regions(session, roi);
+ }
+ 
+ int mvx_session_set_qp_epr(struct mvx_session *session,
+                    struct mvx_buffer_param_qp *qp)
+ {
+-    int ret = 0;
+     int qp_num = 0;
+     if (is_fw_loaded(session) == false ||
+         session->port[MVX_DIR_INPUT].is_flushing != false) {
+@@ -5903,8 +5895,7 @@ int mvx_session_set_qp_epr(struct mvx_session *session,
+         }
+         return 0;
+     }
+-    ret = queue_qp_epr(session, qp);
+-    return 0;
++    return queue_qp_epr(session, qp);
+ }
+ 
+ int mvx_session_set_sei_userdata(struct mvx_session *session,
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+@@ -488,7 +488,7 @@ static void handle_event(struct mvx_session *session,
+         break;
+     }
+     case MVX_SESSION_EVENT_PORT_CHANGED: {
+-        enum mvx_direction dir = (enum mvx_direction)arg;
++        enum mvx_direction dir = (uintptr_t)arg;
+         struct mvx_v4l2_port *vport = &vsession->port[dir];
+         struct mvx_session_port *port = &session->port[dir];
+         const struct v4l2_event event = {

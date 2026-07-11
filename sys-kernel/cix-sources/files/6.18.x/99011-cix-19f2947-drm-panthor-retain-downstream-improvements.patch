@@ -1,0 +1,10 @@
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -1771,3 +1771,6 @@ module_exit(panthor_exit);
+ MODULE_AUTHOR("Panthor Project Developers");
+ MODULE_DESCRIPTION("Panthor DRM Driver");
+ MODULE_LICENSE("Dual MIT/GPL");
++#if IS_ENABLED(CONFIG_ARCH_CIX)
++MODULE_SOFTDEP("pre: scmi_perf_domain");
++#endif

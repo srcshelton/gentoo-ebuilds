@@ -1,0 +1,498 @@
+diff --git a/drivers/pmdomain/arm/scmi_perf_domain.c b/drivers/pmdomain/arm/scmi_perf_domain.c
+--- a/drivers/pmdomain/arm/scmi_perf_domain.c
++++ b/drivers/pmdomain/arm/scmi_perf_domain.c
+@@ -101,15 +101,14 @@ static int match_proto_reg(struct acpi_device *adev, void *data)
+ 
+ /**
+  * scmi_perf_find_proto_fwnode() - Find the protocol-specific ACPI fwnode
+- * @sdev: SCMI device (inherits parent fwnode under ACPI)
++ * @sdev: SCMI device
+  *
+- * Under ACPI, the SCMI device's fwnode points to the parent controller
+- * (e.g. \_SB_.SCMI).  Consumers reference protocol-specific children
++ * Under ACPI, consumers reference protocol-specific children
+  * (e.g. \_SB_.SCMI.DVFS) which have a "reg" property matching the
+- * protocol_id.  These children may have _STA=0 (namespace-only stubs),
+- * so we must use acpi_dev_for_each_child() which iterates all children
+- * including non-present ones, rather than fwnode_for_each_child_node()
+- * which skips them.
++ * protocol_id.  Current SCMI core gives the protocol device that child fwnode
++ * directly, while older/local variants may still give it the parent controller
++ * fwnode.  Support both forms.  When falling back to parent-child lookup, use
++ * acpi_dev_for_each_child() so namespace-only stubs are not skipped.
+  *
+  * Returns the protocol fwnode, or NULL if not found.
+  */
+@@ -117,6 +116,7 @@ static struct fwnode_handle *scmi_perf_find_proto_fwnode(struct scmi_device *sde
+ {
+ 	struct acpi_device *parent_adev;
+ 	struct fwnode_handle *fw = dev_fwnode(&sdev->dev);
++	struct fwnode_handle *parent_fw;
+ 	struct proto_fwnode_match match = {
+ 		.protocol_id = sdev->protocol_id,
+ 		.result = NULL,
+@@ -133,14 +133,15 @@ static struct fwnode_handle *scmi_perf_find_proto_fwnode(struct scmi_device *sde
+ 	 * must be registered on its fwnode, not on a sibling search starting
+ 	 * from the protocol device as if it were the SCMI parent.
+ 	 */
+-	if (fw && !fwnode_property_read_u32(fw, "reg", &reg) &&
++	if (fw && is_acpi_device_node(fw) &&
++	    !fwnode_property_read_u32(fw, "reg", &reg) &&
+ 	    reg == sdev->protocol_id)
+ 		return fw;
+ 
+ 	/* Fallback: walk SCMI controller children (legacy / unusual layout). */
+-	parent_adev = ACPI_COMPANION(sdev->dev.parent);
+-	if (!parent_adev)
+-		parent_adev = to_acpi_device_node(dev_fwnode(sdev->dev.parent));
++	parent_fw = sdev->dev.parent ? dev_fwnode(sdev->dev.parent) : NULL;
++	parent_adev = parent_fw && is_acpi_device_node(parent_fw) ?
++		      to_acpi_device_node(parent_fw) : NULL;
+ 	if (!parent_adev)
+ 		return NULL;
+ 
+@@ -238,7 +239,9 @@ static int scmi_perf_domain_probe(struct scmi_device *sdev)
+ 		struct fwnode_handle *proto_fw;
+ 
+ 		proto_fw = scmi_perf_find_proto_fwnode(sdev);
+-		if (proto_fw) {
++		if (!proto_fw) {
++			dev_warn(dev, "ACPI SCMI perf provider fwnode not found\n");
++		} else {
+ 			ret = genpd_add_fwnode_provider_onecell(proto_fw,
+ 								scmi_pd_data);
+ 			if (ret)
+diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
+--- a/drivers/pmdomain/core.c
++++ b/drivers/pmdomain/core.c
+@@ -6,6 +6,7 @@
+  */
+ #define pr_fmt(fmt) "PM: " fmt
+ 
++#include <linux/acpi.h>
+ #include <linux/delay.h>
+ #include <linux/idr.h>
+ #include <linux/kernel.h>
+@@ -2545,6 +2546,26 @@ int pm_genpd_remove(struct generic_pm_domain *genpd)
+ }
+ EXPORT_SYMBOL_GPL(pm_genpd_remove);
+ 
++/* Protects firmware PM domain provider lists. */
++static DEFINE_MUTEX(of_genpd_mutex);
++/* Used to prevent registering devices before the bus. */
++static bool genpd_bus_registered;
++
++/**
++ * struct fwnode_genpd_provider - Fwnode-based PM domain provider (for ACPI)
++ * @link: Entry in the global list of fwnode genpd providers
++ * @fwnode: The firmware node this provider is associated with
++ * @data: Onecell data containing the domain array
++ */
++struct fwnode_genpd_provider {
++	struct list_head link;
++	struct fwnode_handle *fwnode;
++	struct genpd_onecell_data *data;
++};
++
++/* List of fwnode-based PM domain providers, protected by of_genpd_mutex. */
++static LIST_HEAD(fwnode_genpd_providers);
++
+ #ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ 
+ /*
+@@ -2580,25 +2601,6 @@ struct of_genpd_provider {
+ 
+ /* List of registered PM domain providers. */
+ static LIST_HEAD(of_genpd_providers);
+-/* Mutex to protect the list above. */
+-static DEFINE_MUTEX(of_genpd_mutex);
+-/* Used to prevent registering devices before the bus. */
+-static bool genpd_bus_registered;
+-
+-/**
+- * struct fwnode_genpd_provider - Fwnode-based PM domain provider (for ACPI)
+- * @link: Entry in the global list of fwnode genpd providers
+- * @fwnode: The firmware node this provider is associated with
+- * @data: Onecell data containing the domain array
+- */
+-struct fwnode_genpd_provider {
+-	struct list_head link;
+-	struct fwnode_handle *fwnode;
+-	struct genpd_onecell_data *data;
+-};
+-
+-/* List of fwnode-based PM domain providers, protected by of_genpd_mutex. */
+-static LIST_HEAD(fwnode_genpd_providers);
+ 
+ /**
+  * genpd_xlate_simple() - Xlate function for direct node-domain mapping
+@@ -2917,6 +2919,8 @@ void of_genpd_del_provider(struct device_node *np)
+ }
+ EXPORT_SYMBOL_GPL(of_genpd_del_provider);
+ 
++#endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
++
+ /**
+  * genpd_add_fwnode_provider_onecell() - Register a fwnode-based PM domain provider
+  * @fwnode: Firmware node to associate with this provider
+@@ -2975,6 +2979,21 @@ void genpd_del_fwnode_provider(struct fwnode_handle *fwnode)
+ }
+ EXPORT_SYMBOL_GPL(genpd_del_fwnode_provider);
+ 
++static bool genpd_fwnode_matches(struct fwnode_handle *provider,
++				 struct fwnode_handle *consumer)
++{
++	if (provider == consumer)
++		return true;
++
++#ifdef CONFIG_ACPI
++	if (is_acpi_device_node(provider) && is_acpi_device_node(consumer))
++		return to_acpi_device_node(provider)->handle ==
++		       to_acpi_device_node(consumer)->handle;
++#endif
++
++	return false;
++}
++
+ /**
+  * genpd_get_from_fwnode_provider() - Look up a PM domain from fwnode providers
+  * @fwnode: Firmware node of the provider (from consumer's reference)
+@@ -2997,7 +3016,7 @@ static struct generic_pm_domain *genpd_get_from_fwnode_provider(
+ 
+ 	mutex_lock(&of_genpd_mutex);
+ 	list_for_each_entry(p, &fwnode_genpd_providers, link) {
+-		if (p->fwnode == fwnode) {
++		if (genpd_fwnode_matches(p->fwnode, fwnode)) {
+ 			if (index < p->data->num_domains &&
+ 			    p->data->domains[index])
+ 				genpd = p->data->domains[index];
+@@ -3011,6 +3030,8 @@ static struct generic_pm_domain *genpd_get_from_fwnode_provider(
+ 	return genpd;
+ }
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
++
+ /**
+  * genpd_get_from_provider() - Look-up PM domain
+  * @genpdspec: OF phandle args to use for look-up
+@@ -3190,8 +3211,11 @@ struct generic_pm_domain *of_genpd_remove_last(struct device_node *np)
+ }
+ EXPORT_SYMBOL_GPL(of_genpd_remove_last);
+ 
++#endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
++
+ static void genpd_release_dev(struct device *dev)
+ {
++	fwnode_handle_put(dev->fwnode);
+ 	of_node_put(dev->of_node);
+ 	kfree(dev);
+ }
+@@ -3268,6 +3292,7 @@ static void genpd_dev_pm_sync(struct device *dev)
+ 	genpd_queue_power_off_work(pd);
+ }
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ static int genpd_set_required_opp_dev(struct device *dev,
+ 				      struct device *base_dev)
+ {
+@@ -3386,6 +3411,37 @@ static int __genpd_dev_pm_attach(struct device *dev, struct device *base_dev,
+ 	genpd_remove_device(pd, dev);
+ 	return ret;
+ }
++#endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
++
++static int genpd_get_acpi_power_domain_args(struct device *dev,
++					    unsigned int index,
++					    struct fwnode_reference_args *args)
++{
++	struct fwnode_reference_args onecell_args = {};
++	int ret;
++
++	/*
++	 * Prefer the provider-advertised cell count when present.  Some ACPI
++	 * firmware, including Sky1's SCMI DVFS node, omits the DT-style
++	 * #power-domain-cells property but still encodes a onecell reference as
++	 * Package () { REF, INT }; retry explicitly in that form when the first
++	 * parse found a provider but no arguments.
++	 */
++	ret = fwnode_property_get_reference_args(dev_fwnode(dev),
++			"power-domains", "#power-domain-cells", 0, index, args);
++	if (ret || args->nargs)
++		return ret;
++
++	ret = fwnode_property_get_reference_args(dev_fwnode(dev),
++			"power-domains", NULL, 1, index, &onecell_args);
++	if (ret)
++		return 0;
++
++	fwnode_handle_put(args->fwnode);
++	*args = onecell_args;
++
++	return 0;
++}
+ 
+ /**
+  * __genpd_dev_pm_attach_acpi - ACPI variant of __genpd_dev_pm_attach
+@@ -3398,16 +3454,13 @@ static int __genpd_dev_pm_attach(struct device *dev, struct device *base_dev,
+ static int __genpd_dev_pm_attach_acpi(struct device *dev,
+ 				      struct device *base_dev,
+ 				      unsigned int index,
+-				      unsigned int num_domains,
+ 				      bool power_on)
+ {
+ 	struct fwnode_reference_args pd_args = {};
+ 	struct generic_pm_domain *pd;
+ 	int ret;
+ 
+-	ret = fwnode_property_get_reference_args(dev_fwnode(base_dev),
+-			"power-domains", "#power-domain-cells",
+-			0, index, &pd_args);
++	ret = genpd_get_acpi_power_domain_args(base_dev, index, &pd_args);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -3434,16 +3487,6 @@ static int __genpd_dev_pm_attach_acpi(struct device *dev,
+ 	dev->pm_domain->detach = genpd_dev_pm_detach;
+ 	dev->pm_domain->sync = genpd_dev_pm_sync;
+ 
+-	if (num_domains == 1) {
+-		ret = genpd_set_required_opp_dev(dev, base_dev);
+-		if (ret)
+-			goto err;
+-	}
+-
+-	ret = genpd_set_required_opp(dev, index);
+-	if (ret)
+-		goto err;
+-
+ 	if (power_on) {
+ 		genpd_lock(pd);
+ 		ret = genpd_power_on(pd, 0);
+@@ -3461,12 +3504,9 @@ static int __genpd_dev_pm_attach_acpi(struct device *dev,
+ 	}
+ 
+ 	return 1;
+-
+-err:
+-	genpd_remove_device(pd, dev);
+-	return ret;
+ }
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ /**
+  * genpd_dev_pm_attach - Attach a device to its PM domain using DT.
+  * @dev: Device to attach.
+@@ -3496,6 +3536,7 @@ int genpd_dev_pm_attach(struct device *dev)
+ 	return __genpd_dev_pm_attach(dev, dev, 0, 1, true);
+ }
+ EXPORT_SYMBOL_GPL(genpd_dev_pm_attach);
++#endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
+ 
+ /**
+  * genpd_dev_pm_attach_by_id - Associate a device with one of its PM domains.
+@@ -3521,20 +3562,22 @@ struct device *genpd_dev_pm_attach_by_id(struct device *dev,
+ 	bool use_acpi = false;
+ 	int ret;
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ 	if (dev->of_node) {
+ 		/* DT path: count power-domains phandles */
+ 		num_domains = of_count_phandle_with_args(dev->of_node,
+ 				"power-domains", "#power-domain-cells");
+ 		if (num_domains < 0 || index >= num_domains)
+ 			return NULL;
+-	} else if (dev_fwnode(dev)) {
++	} else
++#endif
++	if (dev_fwnode(dev)) {
+ 		/* ACPI path: count power-domains fwnode references */
+ 		struct fwnode_reference_args args;
+ 
+ 		num_domains = 0;
+-		while (!fwnode_property_get_reference_args(dev_fwnode(dev),
+-				"power-domains", "#power-domain-cells",
+-				0, num_domains, &args)) {
++		while (!genpd_get_acpi_power_domain_args(dev, num_domains,
++							 &args)) {
+ 			fwnode_handle_put(args.fwnode);
+ 			num_domains++;
+ 		}
+@@ -3556,8 +3599,13 @@ struct device *genpd_dev_pm_attach_by_id(struct device *dev,
+ 	dev_set_name(virt_dev, "genpd:%u:%s", index, dev_name(dev));
+ 	virt_dev->bus = &genpd_bus_type;
+ 	virt_dev->release = genpd_release_dev;
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ 	if (dev->of_node)
+ 		virt_dev->of_node = of_node_get(dev->of_node);
++	else
++#endif
++	if (dev_fwnode(dev))
++		virt_dev->fwnode = fwnode_handle_get(dev_fwnode(dev));
+ 
+ 	ret = device_register(virt_dev);
+ 	if (ret) {
+@@ -3566,15 +3614,13 @@ struct device *genpd_dev_pm_attach_by_id(struct device *dev,
+ 	}
+ 
+ 	/* Try to attach the device to the PM domain at the specified index. */
+-	if (use_acpi)
+-	{
+-		virt_dev->fwnode = fwnode_handle_get(dev_fwnode(dev));
+-		ret = __genpd_dev_pm_attach_acpi(virt_dev, dev, index,
+-						 num_domains, false);
+-	}
+-	else
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
++	if (!use_acpi)
+ 		ret = __genpd_dev_pm_attach(virt_dev, dev, index,
+ 					    num_domains, false);
++	else
++#endif
++		ret = __genpd_dev_pm_attach_acpi(virt_dev, dev, index, false);
+ 	if (ret < 1) {
+ 		device_unregister(virt_dev);
+ 		return ret ? ERR_PTR(ret) : NULL;
+@@ -3600,10 +3646,13 @@ struct device *genpd_dev_pm_attach_by_name(struct device *dev, const char *name)
+ {
+ 	int index;
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ 	if (dev->of_node) {
+ 		index = of_property_match_string(dev->of_node,
+ 						 "power-domain-names", name);
+-	} else if (dev_fwnode(dev)) {
++	} else
++#endif
++	if (dev_fwnode(dev)) {
+ 		index = fwnode_property_match_string(dev_fwnode(dev),
+ 						    "power-domain-names", name);
+ 	} else {
+@@ -3617,6 +3666,7 @@ struct device *genpd_dev_pm_attach_by_name(struct device *dev, const char *name)
+ }
+ EXPORT_SYMBOL_GPL(genpd_dev_pm_attach_by_name);
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ static const struct of_device_id idle_state_match[] = {
+ 	{ .compatible = "domain-idle-state", },
+ 	{ }
+@@ -3766,6 +3816,7 @@ void of_genpd_sync_state(struct device_node *np)
+ 	mutex_unlock(&gpd_list_lock);
+ }
+ EXPORT_SYMBOL_GPL(of_genpd_sync_state);
++#endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
+ 
+ static int genpd_provider_probe(struct device *dev)
+ {
+@@ -3781,7 +3832,9 @@ static void genpd_provider_sync_state(struct device *dev)
+ 		break;
+ 
+ 	case GENPD_SYNC_STATE_ONECELL:
++#ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ 		of_genpd_sync_state(dev->of_node);
++#endif
+ 		break;
+ 
+ 	case GENPD_SYNC_STATE_SIMPLE:
+@@ -3839,8 +3892,6 @@ static int __init genpd_bus_init(void)
+ }
+ core_initcall(genpd_bus_init);
+ 
+-#endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
+-
+ 
+ /***        debugfs support        ***/
+ 
+diff --git a/include/linux/pm_domain.h b/include/linux/pm_domain.h
+--- a/include/linux/pm_domain.h
++++ b/include/linux/pm_domain.h
+@@ -456,15 +456,42 @@ struct genpd_onecell_data {
+ 	genpd_xlate_t xlate;
+ };
+ 
++#ifdef CONFIG_PM_GENERIC_DOMAINS
++int genpd_add_fwnode_provider_onecell(struct fwnode_handle *fwnode,
++				      struct genpd_onecell_data *data);
++void genpd_del_fwnode_provider(struct fwnode_handle *fwnode);
++struct device *genpd_dev_pm_attach_by_id(struct device *dev,
++					 unsigned int index);
++struct device *genpd_dev_pm_attach_by_name(struct device *dev,
++					   const char *name);
++#else /* !CONFIG_PM_GENERIC_DOMAINS */
++static inline int genpd_add_fwnode_provider_onecell(struct fwnode_handle *fwnode,
++					struct genpd_onecell_data *data)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void genpd_del_fwnode_provider(struct fwnode_handle *fwnode) {}
++
++static inline struct device *genpd_dev_pm_attach_by_id(struct device *dev,
++						       unsigned int index)
++{
++	return NULL;
++}
++
++static inline struct device *genpd_dev_pm_attach_by_name(struct device *dev,
++							 const char *name)
++{
++	return NULL;
++}
++#endif /* CONFIG_PM_GENERIC_DOMAINS */
++
+ #ifdef CONFIG_PM_GENERIC_DOMAINS_OF
+ int of_genpd_add_provider_simple(struct device_node *np,
+ 				 struct generic_pm_domain *genpd);
+ int of_genpd_add_provider_onecell(struct device_node *np,
+ 				  struct genpd_onecell_data *data);
+ void of_genpd_del_provider(struct device_node *np);
+-int genpd_add_fwnode_provider_onecell(struct fwnode_handle *fwnode,
+-				      struct genpd_onecell_data *data);
+-void genpd_del_fwnode_provider(struct fwnode_handle *fwnode);
+ int of_genpd_add_device(const struct of_phandle_args *args, struct device *dev);
+ int of_genpd_add_subdomain(const struct of_phandle_args *parent_spec,
+ 			   const struct of_phandle_args *subdomain_spec);
+@@ -476,10 +503,6 @@ int of_genpd_parse_idle_states(struct device_node *dn,
+ void of_genpd_sync_state(struct device_node *np);
+ 
+ int genpd_dev_pm_attach(struct device *dev);
+-struct device *genpd_dev_pm_attach_by_id(struct device *dev,
+-					 unsigned int index);
+-struct device *genpd_dev_pm_attach_by_name(struct device *dev,
+-					   const char *name);
+ #else /* !CONFIG_PM_GENERIC_DOMAINS_OF */
+ static inline int of_genpd_add_provider_simple(struct device_node *np,
+ 					struct generic_pm_domain *genpd)
+@@ -495,14 +518,6 @@ static inline int of_genpd_add_provider_onecell(struct device_node *np,
+ 
+ static inline void of_genpd_del_provider(struct device_node *np) {}
+ 
+-static inline int genpd_add_fwnode_provider_onecell(struct fwnode_handle *fwnode,
+-					struct genpd_onecell_data *data)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-static inline void genpd_del_fwnode_provider(struct fwnode_handle *fwnode) {}
+-
+ static inline int of_genpd_add_device(const struct of_phandle_args *args,
+ 				      struct device *dev)
+ {
+@@ -534,18 +549,6 @@ static inline int genpd_dev_pm_attach(struct device *dev)
+ 	return 0;
+ }
+ 
+-static inline struct device *genpd_dev_pm_attach_by_id(struct device *dev,
+-						       unsigned int index)
+-{
+-	return NULL;
+-}
+-
+-static inline struct device *genpd_dev_pm_attach_by_name(struct device *dev,
+-							 const char *name)
+-{
+-	return NULL;
+-}
+-
+ static inline
+ struct generic_pm_domain *of_genpd_remove_last(struct device_node *np)
+ {

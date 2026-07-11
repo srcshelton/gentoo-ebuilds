@@ -1,0 +1,454 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+--- a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
++++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+@@ -494,7 +494,7 @@ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ 			if (clk_prepare_enable(
+ 					cix_vi_hw_info->csi3_pixel_clk)) {
+ 				LOG(LOG_ERR,
+-					"csi3_pixel_clk[%d] enable failed\n");
++					"csi3_pixel_clk enable failed\n");
+ 				goto err_csi_clks;
+ 			}
+ 			break;
+@@ -781,7 +781,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 			&cix_vi_hw_info->ahb_csi_size[i]);
+ 		if (ret < 0) {
+ 			cix_vi_hw_info->ahb_csi_size[i] = 0;
+-			LOG(LOG_ERR, "failed to get ahb-csi-size.", i);
++			LOG(LOG_ERR, "failed to get ahb-csi%d-size.", i);
+ 		}
+ 	}
+ 
+@@ -922,7 +922,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 			if (!cix_vi_hw_info->ahb_csircsu_base_addrs[i]) {
+ 				cix_vi_hw_info->ahb_csircsu_base_addrs[i] = 0;
+ 				LOG(LOG_ERR,
+-					"failed to ioremap ahb-csircsu% register region.",
++					"failed to ioremap ahb-csircsu%d register region.",
+ 					i);
+ 			}
+ 		}
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+@@ -707,37 +707,34 @@ dma_buf_get_failed:
+ 
+ static int cam_mem_buf_release(unsigned long arg)
+ {
+-	int ret = 0;
+-	int idx = 0;
++	int idx;
+ 	struct hw_mem_release_cmd release_cmd;
+ 	struct iosys_map map;
+-	struct sg_table *table;
+ 
+ 	if (copy_from_user(&release_cmd, (void __user *)arg,
+ 				sizeof(struct hw_mem_release_cmd))) {
+ 		LOG(LOG_ERR, "CAM_HW_BUFFER_MAP :copy_from_user error !");
+-		ret = -EINVAL;
++		return -EFAULT;
+ 	}
+ 
+ 	idx = release_cmd.kBufhandle;
+-	map.is_iomem = false;
+-	map.vaddr = (void *)buf_tbl.bufq[idx].kvaddr;
+-	table = buf_tbl.bufq[idx].table;
+-	if (idx >= 0) {
+-		dma_buf_unmap_attachment(buf_tbl.bufq[idx].attachment,
+-					buf_tbl.bufq[idx].table,
+-					DMA_BIDIRECTIONAL);
+-
+-		dma_buf_detach(buf_tbl.bufq[idx].dma,
+-				buf_tbl.bufq[idx].attachment);
+-		dma_buf_vunmap(buf_tbl.bufq[idx].dma, &map);
+-		dma_buf_put(buf_tbl.bufq[idx].dma);
+-		cam_mem_put_bux_idx(idx);
+-	} else {
++	if (idx < 0 || idx >= CAM_MEM_BUFQ_MAX || !buf_tbl.bitMap[idx]) {
+ 		LOG(LOG_ERR, "error buffer idx");
+-		ret = -EINVAL;
++		return -EINVAL;
+ 	}
+ 
++	map.is_iomem = false;
++	map.vaddr = (void *)buf_tbl.bufq[idx].kvaddr;
++	dma_buf_unmap_attachment(buf_tbl.bufq[idx].attachment,
++				 buf_tbl.bufq[idx].table,
++				 DMA_BIDIRECTIONAL);
++
++	dma_buf_detach(buf_tbl.bufq[idx].dma,
++			buf_tbl.bufq[idx].attachment);
++	dma_buf_vunmap(buf_tbl.bufq[idx].dma, &map);
++	dma_buf_put(buf_tbl.bufq[idx].dma);
++	cam_mem_put_bux_idx(idx);
++
+ 	return 0;
+ }
+ 
+@@ -773,8 +770,9 @@ static int armcb_isp_power(int enable, unsigned long arg)
+ 		 *******************freq * 1000*********************/
+ 		a_clk_rate = freq[0] * 1000 * 1000;
+ 		s_clk_rate = freq[1] * 1000 * 1000;
+-		LOG(LOG_DEBUG, "a_clk_rate is  %ld, s_clk_rate is  %ld, !",
+-			a_clk_rate, s_clk_rate);
++		LOG(LOG_DEBUG, "a_clk_rate is %llu, s_clk_rate is %llu, !",
++			(unsigned long long)a_clk_rate,
++			(unsigned long long)s_clk_rate);
+ 		pm_runtime_get_sync(cam_mem_info->pddev);
+ 		clk_set_rate(cam_mem_info->isp_aclk, a_clk_rate);
+ 		clk_set_rate(cam_mem_info->isp_sclk, s_clk_rate);
+@@ -907,7 +905,7 @@ static long ispmem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		res = ispmem_flush_cma_buffer(filp, arg);
+ 		break;
+ 	default:
+-		LOG(LOG_ERR, "unkonw ioctl 0x%x", arg);
++		LOG(LOG_ERR, "unknown ioctl 0x%lx", arg);
+ 		res = -EINVAL;
+ 		break;
+ 	}
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+@@ -339,7 +339,6 @@ static struct v4l2_subdev *armcb_subdev_find(const char *name)
+ void armcb_v4l2_subdev_notify(struct v4l2_subdev *sd, unsigned int notification,
+ 			      void *arg)
+ {
+-	struct v4l2_subdev *subdev = NULL;
+ 	struct armcb_subdev_req *sd_req = NULL;
+ 
+ 	if (WARN_ON(!sd) || WARN_ON(!arg)) {
+@@ -359,7 +358,6 @@ void armcb_v4l2_subdev_notify(struct v4l2_subdev *sd, unsigned int notification,
+ 		sd_req->subdev = armcb_subdev_find(sd_req->name);
+ 		break;
+ 	case ARMCB_SUBDEV_NOTIFY_PUT:
+-		subdev = armcb_subdev_find(sd_req->name);
+ 		break;
+ 	case ARMCB_SUBDEV_NOTIFY_REQ:
+ 		break;
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /*
+- * Query running isp_app PID and its argv (same as ps aux | grep isp_app + read args).
++ * Query running isp_app PID and its argv.
+  * Map argument patterns to allowed armcb_isp_v4l2-00..03 (ctx_id bit mask).
+  *
+  * Patterns (matched anywhere in argv string after normalization):
+@@ -13,7 +13,7 @@
+  *  7) *-m 4*               -> -00..-03; multi-open: open -00 first
+  *  8) *-m 1*               -> only -00
+  *
+- * Parse priority: -m before -s before -c.  Multiple isp_app: largest PID wins.
++ * Parse priority: -m before -s before -c. Multiple isp_app: newest wins.
+  *
+  * No isp_app process in the system: only the current task whose comm is isp_app
+  * may open video nodes (all ctx 0..3); any other opener is denied.
+@@ -49,6 +49,7 @@
+ 
+ struct isp_app_info {
+ 	int pid;
++	u64 start_boottime;
+ 	unsigned int count;
+ 	char cmdline[ISP_CMDLINE_READ_MAX];
+ };
+@@ -61,20 +62,27 @@ static bool armcb_isp_process_cache_valid;
+ static bool armcb_isp_daemon_running;
+ static atomic_t armcb_isp_ctx0_open_refs = ATOMIC_INIT(0);
+ 
+-static bool execstart_ignore;
++static bool execstart_ignore = true;
+ 
+ module_param(execstart_ignore, bool, 0644);
+ MODULE_PARM_DESC(execstart_ignore,
+ 		 "If true, skip isp_app cmdline policy (allow ctx 0-3, no -00-first rule).");
+ 
+-/* Same comm match as armcb_v4l2_core find_user_process_by_name("isp_app"). */
++static bool task_is_isp_app(struct task_struct *task)
++{
++	char comm[TASK_COMM_LEN];
++
++	get_task_comm(comm, task);
++	return !strcmp(comm, ISP_PROCESS_NAME);
++}
++
+ static bool current_opener_is_isp_app(void)
+ {
+ 	struct task_struct *curr = current;
+ 
+ 	if (!curr->mm)
+ 		return false;
+-	return !strcmp(curr->comm, ISP_PROCESS_NAME);
++	return task_is_isp_app(curr);
+ }
+ 
+ static int execstart_isp_app_pid_get(char *buf, const struct kernel_param *kp)
+@@ -263,25 +271,37 @@ static int read_task_cmdline(struct task_struct *task, char *buf, size_t buflen)
+ 	return 0;
+ }
+ 
+-static bool task_is_isp_app(struct task_struct *task, const char *cmdline)
++static u64 build_cache_stamp(const struct isp_app_info *sel)
+ {
+-	if (strstr(task->comm, ISP_PROCESS_NAME))
+-		return true;
+-	if (cmdline && strstr(cmdline, ISP_PROCESS_NAME))
+-		return true;
+-	return false;
++	u32 hash = jhash(sel->cmdline, strlen(sel->cmdline), 0);
++
++	hash = jhash_3words(hash, (u32)sel->pid,
++			    lower_32_bits(sel->start_boottime),
++			    upper_32_bits(sel->start_boottime));
++	return ((u64)sel->count << 32) | hash;
+ }
+ 
+-static u64 build_cache_stamp(unsigned int count, int pid, const char *cmdline)
++static void select_newest_isp_app(struct isp_app_info *sel,
++				  struct task_struct *task, int pid,
++				  const char *cmdline)
+ {
+-	u32 hash = jhash(cmdline, strlen(cmdline), 0);
++	u64 start_boottime = task->start_boottime;
+ 
+-	return ((u64)count << 32) | jhash_2words(hash, (u32)pid, 0);
++	if (start_boottime < sel->start_boottime ||
++	    (start_boottime == sel->start_boottime && pid <= sel->pid))
++		return;
++
++	sel->pid = pid;
++	sel->start_boottime = start_boottime;
++	if (cmdline)
++		strscpy(sel->cmdline, cmdline, sizeof(sel->cmdline));
++	else
++		sel->cmdline[0] = '\0';
+ }
+ 
+ /*
+- * Walk processes like ps+grep isp_app: for each candidate log pid+args,
+- * keep the one with largest PID in @sel.
++ * Walk process leaders whose comm is exactly isp_app. For each candidate,
++ * log pid+args and keep the most recently started one in @sel.
+  */
+ static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+ {
+@@ -290,6 +310,7 @@ static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+ 	int ret = -ENOENT;
+ 
+ 	sel->pid = 0;
++	sel->start_boottime = 0;
+ 	sel->count = 0;
+ 	sel->cmdline[0] = '\0';
+ 
+@@ -299,7 +320,7 @@ static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+ 
+ 	rcu_read_lock();
+ 	for_each_process(p) {
+-		if (p != p->group_leader || !p->mm)
++		if (p != p->group_leader || !p->mm || !task_is_isp_app(p))
+ 			continue;
+ 
+ 		get_task_struct(p);
+@@ -307,22 +328,16 @@ static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+ 
+ 		/* Do not read cmdline of current while it is inside our open() path */
+ 		if (p == current) {
+-			if (task_is_isp_app(p, NULL)) {
+-				int pid = task_pid_nr(p);
+-
+-				sel->count++;
+-				if (pid > sel->pid) {
+-					sel->pid = pid;
+-					sel->cmdline[0] = '\0';
+-				}
+-			}
++			int pid = task_pid_nr(p);
++
++			sel->count++;
++			select_newest_isp_app(sel, p, pid, NULL);
+ 			rcu_read_lock();
+ 			put_task_struct(p);
+ 			continue;
+ 		}
+ 
+-		if (read_task_cmdline(p, line, ISP_CMDLINE_READ_MAX) == 0 &&
+-		    task_is_isp_app(p, line)) {
++		if (read_task_cmdline(p, line, ISP_CMDLINE_READ_MAX) == 0) {
+ 			int pid = task_pid_nr(p);
+ 
+ 			sel->count++;
+@@ -330,10 +345,7 @@ static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+ 			    "isp_execstart: found isp_app pid=%d args='%s'\n",
+ 			    pid, line);
+ 
+-			if (pid > sel->pid) {
+-				sel->pid = pid;
+-				strscpy(sel->cmdline, line, sizeof(sel->cmdline));
+-			}
++			select_newest_isp_app(sel, p, pid, line);
+ 		}
+ 
+ 		rcu_read_lock();
+@@ -388,7 +400,7 @@ static void do_refresh_locked(void)
+ 		goto out_cache;
+ 	}
+ 
+-	stamp = build_cache_stamp(sel->count, sel->pid, sel->cmdline);
++	stamp = build_cache_stamp(sel);
+ 	if (armcb_isp_process_cache_valid &&
+ 	    stamp == armcb_isp_process_cache_stamp)
+ 			goto out_free;
+@@ -529,6 +541,9 @@ unsigned int armcb_isp_execstart_get_allowed_mask(void)
+ 
+ void armcb_isp_execstart_force_reload(void)
+ {
++	if (execstart_ignore)
++		return;
++
+ 	mutex_lock(&armcb_isp_execstart_lock);
+ 	armcb_isp_process_cache_valid = false;
+ 	do_refresh_locked();
+@@ -556,6 +571,8 @@ static int execstart_reload_set(const char *val, const struct kernel_param *kp)
+ 	err = kstrtoint(val, 0, &v);
+ 	if (err)
+ 		return err;
++	if (v && execstart_ignore)
++		return -EBUSY;
+ 	if (v)
+ 		armcb_isp_execstart_force_reload();
+ 	return 0;
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -232,7 +232,6 @@ int destroy_buf_queue(struct vb2_queue *q, enum vb2_buffer_state state)
+ int armcb_v4l2_config_update_stream_vin_addr(armcb_v4l2_stream_t *pstream)
+ {
+ 	armcb_v4l2_buffer_t *pbuf = NULL;
+-	struct v4l2_format *v4l2_fmt = NULL;
+ 	unsigned int vin_daw_reg = 0;
+ 	unsigned int vin_dar_reg = 0;
+ 	unsigned int startaddr = 0;
+@@ -245,7 +244,6 @@ int armcb_v4l2_config_update_stream_vin_addr(armcb_v4l2_stream_t *pstream)
+ 		return -EINVAL;
+ 	}
+ 
+-	v4l2_fmt = &pstream->cur_v4l2_fmt;
+ 	/* try to get an active buffer from vb2 queue  */
+ 	if (!list_empty(&pstream->stream_buffer_list)) {
+ 		pbuf = list_entry(pstream->stream_buffer_list.next,
+@@ -1154,7 +1152,6 @@ static irqreturn_t armcb_I7_isp_isr(s32 irq, void *pdev)
+ 	uint32_t ctx_count = 0;
+ 	struct isp_irq_info irq_info_vout = { 0 };
+ #endif
+-	struct video_device *pvdev = NULL;
+ 	armcb_v4l2_config_dev_t *p_config_dev = (armcb_v4l2_config_dev_t *)pdev;
+ 	struct isp_irq_info irq_info = { 0 };
+ 	i7_frm_cnt_ctrl_t frame_cnt_sel = { 0 };
+@@ -1168,7 +1165,6 @@ static irqreturn_t armcb_I7_isp_isr(s32 irq, void *pdev)
+ 	uint32_t frm_cnt_idx_mask = 0x3;
+ 	unsigned int reg_val = 0;
+ 
+-	pvdev = &p_config_dev->vid_cap_dev;
+ 	irq_info.status = armcb_isp_read_reg(I7_INT_STATUS_ADDR);
+ 
+ 	if (irq_info.status) {
+@@ -1516,8 +1512,9 @@ static int armcb_v4l2_querycap(struct file *file, void *priv,
+ 
+ 	strcpy(cap->driver, "arm-china-isp");
+ 	strcpy(cap->card, "linlon isp");
+-	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+-		 dev->v4l2_dev.name);
++	strscpy(cap->bus_info, "platform:", sizeof(cap->bus_info));
++	strscpy(cap->bus_info + sizeof("platform:") - 1, dev->v4l2_dev.name,
++		sizeof(cap->bus_info) - (sizeof("platform:") - 1));
+ 
+ 	/* V4L2_CAP_VIDEO_CAPTURE_MPLANE */
+ 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_STREAMING |
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -394,8 +394,9 @@ static int armcb_v4l2_querycap(struct file *file, void *priv,
+ 
+ 	strcpy(cap->driver, "arm-china-isp");
+ 	strcpy(cap->card, "linlon isp v4l2");
+-	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+-		 dev->v4l2_dev.name);
++	strscpy(cap->bus_info, "platform:", sizeof(cap->bus_info));
++	strscpy(cap->bus_info + sizeof("platform:") - 1, dev->v4l2_dev.name,
++		sizeof(cap->bus_info) - (sizeof("platform:") - 1));
+ 
+ 	/* V4L2_CAP_VIDEO_CAPTURE_MPLANE */
+ 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_STREAMING |
+@@ -1507,8 +1508,8 @@ int armcb_v4l2_alloc_discard_buffer(u32 reserved_size, struct device *dev)
+ 	discard_buf_size = PAGE_ALIGN(reserved_size);
+ 	discard_dma_handle = dma_handle;
+ 
+-	LOG(LOG_DEBUG, "Allocated: virt=%p, dma=0x%0x, size=%u\n",
+-			discard_buf_addr, discard_buf_addr_dma, reserved_size);
++	LOG(LOG_DEBUG, "Allocated: virt=%p, dma=%pad, size=%u\n",
++		discard_buf_addr, &discard_buf_addr_dma, reserved_size);
+ 
+ 	return rc;
+ }
+diff --git a/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c
+--- a/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c
++++ b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c
+@@ -53,7 +53,7 @@ static const char *filename_short(const char *filename)
+ 
+ static const char *sys_time_log_cb(void)
+ {
+-	static char time_buf[32];
++	static char time_buf[96];
+ 	struct rtc_time tm;
+ 
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+@@ -62,7 +62,8 @@ static const char *sys_time_log_cb(void)
+ 	ktime_get_real_ts64(&tv);
+ 	rtc_time64_to_tm(tv.tv_sec, &tm);
+ 
+-	snprintf(time_buf, 32, "%4d_%02d_%02d %02d:%02d:%02d.%06ld",
++	snprintf(time_buf, sizeof(time_buf),
++		 "%4d_%02d_%02d %02d:%02d:%02d.%06ld",
+ 		 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
+ 		 tm.tm_min, tm.tm_sec, tv.tv_nsec / 1000);
+ #else
+@@ -70,14 +71,16 @@ static const char *sys_time_log_cb(void)
+ 
+ 	do_gettimeofday(&tv);
+ 	rtc_time_to_tm(tv.tv_sec, &tm);
+-	snprintf(time_buf, 32, "%4d_%02d_%02d %02d:%02d:%02d.%06ld",
++	snprintf(time_buf, sizeof(time_buf),
++		 "%4d_%02d_%02d %02d:%02d:%02d.%06ld",
+ 		 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
+ 		 tm.tm_min, tm.tm_sec, tv.tv_usec);
+ #endif
+ 	return (const char *)time_buf;
+ }
+ 
+-static void _acbcamera_log_write_ext(const char *const func, const char *const file,
++static void __printf(7, 0)
++_acbcamera_log_write_ext(const char *const func, const char *const file,
+ 				     const unsigned int line, const uint32_t log_level,
+ 				     const uint32_t log_module,
+ 				     const uint32_t ratelimited, const char *const fmt,
+diff --git a/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h
+--- a/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h
++++ b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h
+@@ -16,6 +16,7 @@
+ #ifndef __SYSTEM_LOGGER_H__
+ #define __SYSTEM_LOGGER_H__
+ 
++#include <linux/compiler_attributes.h>
+ #include <linux/stdarg.h>
+ #include <linux/types.h>
+ 
+@@ -53,7 +54,7 @@ extern uint8_t _acbcamera_output_level;
+ void _acbcamera_log_write(const char *const func, const char *const file,
+ 			  const unsigned int line, const uint32_t log_level,
+ 			  const uint32_t log_module, const uint32_t ratelimited,
+-			  const char *const fmt, ...);
++			  const char *const fmt, ...) __printf(7, 8);
+ 
+ #define ACBCAMERA_LOG_WRITE(level, module, ratelimited, ...)       \
+ 	do {                                                           \

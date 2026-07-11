@@ -1,0 +1,386 @@
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -257,7 +257,7 @@ config GPIO_BY_PINCTRL
+ 
+ config GPIO_CADENCE
+ 	tristate "Cadence GPIO support"
+-	depends on OF
++	depends on OF || ACPI || COMPILE_TEST
+ 	select GPIO_GENERIC
+ 	select GPIOLIB_IRQCHIP
+ 	help
+diff --git a/sound/core/Kconfig b/sound/core/Kconfig
+--- a/sound/core/Kconfig
++++ b/sound/core/Kconfig
+@@ -260,7 +260,7 @@ config SND_VMASTER
+ 
+ config SND_DMA_SGBUF
+ 	def_bool y
+-	depends on X86
++	depends on X86 || ARCH_CIX
+ 
+ config SND_CTL_LED
+ 	tristate
+diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
+--- a/sound/hda/controllers/Kconfig
++++ b/sound/hda/controllers/Kconfig
+@@ -35,6 +35,8 @@ config SND_HDA_CIX_IPBLOQ
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	select SND_HDA
+ 	select SND_HDA_ALIGNED_MMIO
++	select SND_DMA_SGBUF if ARCH_CIX
++	imply GPIO_CADENCE
+ 	help
+ 	  Say Y here to support the HDA controller present in CIX SoCs
+ 
+diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
+--- a/sound/hda/controllers/cix-ipbloq.c
++++ b/sound/hda/controllers/cix-ipbloq.c
+@@ -17,6 +17,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/reset.h>
++#include <linux/sizes.h>
+ #include <linux/string.h>
+ 
+ #include <sound/hda_codec.h>
+@@ -36,11 +37,13 @@
+ #define CIX_HDA_DMA_CPU_START	0x90000000ULL
+ #define CIX_HDA_DMA_DEV_START	0x0ULL
+ #define CIX_HDA_DMA_SIZE	0x80000000ULL
++#define CIX_HDA_STREAM_DMA_MIN_ALLOC	SZ_128K
+ 
+ struct cix_ipbloq_hda {
+ 	struct azx chip;
+ 	struct device *dev;
+ 	void __iomem *regs;
++	struct snd_dma_buffer stream_dma;
+ 
+ 	struct reset_control *reset;
+ 	struct clk_bulk_data clocks[2];
+@@ -50,6 +53,8 @@ struct cix_ipbloq_hda {
+ };
+ 
+ static const struct hda_controller_ops cix_ipbloq_hda_ops;
++static int cix_ipbloq_hda_alloc_stream_pages(struct cix_ipbloq_hda *hda);
++static void cix_ipbloq_hda_free_stream_pages(struct cix_ipbloq_hda *hda);
+ 
+ static int cix_ipbloq_hda_dev_disconnect(struct snd_device *device)
+ {
+@@ -63,13 +68,14 @@ static int cix_ipbloq_hda_dev_disconnect(struct snd_device *device)
+ static int cix_ipbloq_hda_dev_free(struct snd_device *device)
+ {
+ 	struct azx *chip = device->device_data;
++	struct cix_ipbloq_hda *hda = container_of(chip, struct cix_ipbloq_hda, chip);
+ 
+ 	if (azx_bus(chip)->chip_init) {
+ 		azx_stop_all_streams(chip);
+ 		azx_stop_chip(chip);
+ 	}
+ 
+-	azx_free_stream_pages(chip);
++	cix_ipbloq_hda_free_stream_pages(hda);
+ 	azx_free_streams(chip);
+ 	snd_hdac_bus_exit(azx_bus(chip));
+ 
+@@ -88,28 +94,28 @@ static int cix_ipbloq_hda_probe_codec(struct cix_ipbloq_hda *hda)
+ 	err = azx_probe_codecs(chip, 8);
+ 	if (err < 0) {
+ 		dev_err(hda->dev, "probe codecs failed: %d\n", err);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	err = azx_codec_configure(chip);
+ 	if (err < 0) {
+ 		dev_err(hda->dev, "codec configure failed: %d\n", err);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	err = snd_card_register(chip->card);
+ 	if (err < 0) {
+ 		dev_err(hda->dev, "card register failed: %d\n", err);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	chip->running = 1;
+ 
+-	to_hda_bus(bus)->bus_probing = 0;
+-
+ 	snd_hda_set_power_save(&chip->bus, CIX_IPBLOQ_POWER_SAVE_DEFAULT_TIME_MS);
+ 
+-	return 0;
++out:
++	to_hda_bus(bus)->bus_probing = 0;
++	return err;
+ }
+ 
+ static int cix_ipbloq_hda_init(struct cix_ipbloq_hda *hda,
+@@ -158,7 +164,7 @@ static int cix_ipbloq_hda_init(struct cix_ipbloq_hda *hda,
+ 		return err;
+ 	}
+ 
+-	err = azx_alloc_stream_pages(chip);
++	err = cix_ipbloq_hda_alloc_stream_pages(hda);
+ 	if (err < 0) {
+ 		dev_err(hda->dev, "failed to allocate stream pages: %d\n", err);
+ 		return err;
+@@ -355,12 +361,102 @@ static inline int cix_ipbloq_hda_setup_acpi_rsvmem(struct device *dev)
+ }
+ #endif
+ 
++static int cix_ipbloq_hda_alloc_stream_pages(struct cix_ipbloq_hda *hda)
++{
++	struct azx *chip = &hda->chip;
++	struct hdac_bus *bus = azx_bus(chip);
++	struct hdac_stream *s;
++	u8 *area;
++	dma_addr_t addr;
++	size_t offset = 0;
++	size_t posbuf_offset;
++	size_t rb_offset;
++	size_t alloc_size;
++	int dma_type = bus->dma_type ? bus->dma_type : SNDRV_DMA_TYPE_DEV;
++	int num_streams = 0;
++	int err;
++
++	list_for_each_entry(s, &bus->stream_list, list) {
++		offset = ALIGN(offset, SZ_4K);
++		offset += BDL_SIZE;
++		num_streams++;
++	}
++
++	if (WARN_ON(!num_streams))
++		return -EINVAL;
++
++	posbuf_offset = ALIGN(offset, SZ_4K);
++	offset = posbuf_offset + num_streams * 8;
++
++	rb_offset = ALIGN(offset, SZ_4K);
++	offset = rb_offset + PAGE_SIZE;
++
++	alloc_size = max_t(size_t, ALIGN(offset, SZ_4K),
++			   CIX_HDA_STREAM_DMA_MIN_ALLOC);
++
++	err = snd_dma_alloc_pages(dma_type, bus->dev, alloc_size,
++				  &hda->stream_dma);
++	if (err < 0)
++		return err;
++
++	area = hda->stream_dma.area;
++	addr = hda->stream_dma.addr;
++	offset = 0;
++
++	list_for_each_entry(s, &bus->stream_list, list) {
++		offset = ALIGN(offset, SZ_4K);
++		s->bdl.area = area + offset;
++		s->bdl.addr = addr + offset;
++		s->bdl.bytes = BDL_SIZE;
++		offset += BDL_SIZE;
++	}
++
++	bus->posbuf.area = area + posbuf_offset;
++	bus->posbuf.addr = addr + posbuf_offset;
++	bus->posbuf.bytes = num_streams * 8;
++	list_for_each_entry(s, &bus->stream_list, list)
++		s->posbuf = (__le32 *)(bus->posbuf.area + s->index * 8);
++
++	bus->rb.area = area + rb_offset;
++	bus->rb.addr = addr + rb_offset;
++	bus->rb.bytes = PAGE_SIZE;
++
++	return 0;
++}
++
++static void cix_ipbloq_hda_free_stream_pages(struct cix_ipbloq_hda *hda)
++{
++	struct hdac_bus *bus = azx_bus(&hda->chip);
++	struct hdac_stream *s;
++
++	if (!hda->stream_dma.area)
++		return;
++
++	list_for_each_entry(s, &bus->stream_list, list) {
++		s->bdl.area = NULL;
++		s->bdl.addr = 0;
++		s->bdl.bytes = 0;
++		s->posbuf = NULL;
++	}
++
++	bus->posbuf.area = NULL;
++	bus->posbuf.addr = 0;
++	bus->posbuf.bytes = 0;
++	bus->rb.area = NULL;
++	bus->rb.addr = 0;
++	bus->rb.bytes = 0;
++
++	snd_dma_free_pages(&hda->stream_dma);
++	memset(&hda->stream_dma, 0, sizeof(hda->stream_dma));
++}
++
+ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ {
+ 	const unsigned int driver_flags = AZX_DCAPS_PM_RUNTIME;
+ 	struct cix_ipbloq_hda *hda;
+-	struct snd_card *card;
+-	struct azx *chip;
++	struct snd_card *card = NULL;
++	struct azx *chip = NULL;
++	bool local_dma_range_map = false;
+ 	int err;
+ 
+ 	hda = devm_kzalloc(&pdev->dev, sizeof(*hda), GFP_KERNEL);
+@@ -385,10 +481,16 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ 		hda->clocks[hda->nclocks++].id = "per";
+ 	}
+ 	err = devm_clk_bulk_get(hda->dev, hda->nclocks, hda->clocks);
+-	if (err < 0)
+-		return dev_err_probe(hda->dev, err, "failed to get clk, err = %d\n", err);
++	if (err < 0) {
++		if (err == -ENOENT && has_acpi_companion(hda->dev))
++			err = -EPROBE_DEFER;
++		return dev_err_probe(hda->dev, err, "failed to get clk\n");
++	}
+ 
+-	dma_set_mask_and_coherent(hda->dev, DMA_BIT_MASK(32));
++	err = dma_set_mask_and_coherent(hda->dev, DMA_BIT_MASK(32));
++	if (err)
++		return dev_err_probe(hda->dev, err,
++				     "failed to set 32-bit DMA mask\n");
+ 
+ 	/*
+ 	 * Under ACPI, configure DMA address translation for the HDA
+@@ -408,28 +510,33 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ 		map = kcalloc(2, sizeof(*map), GFP_KERNEL);
+ 		if (!map) {
+ 			err = -ENOMEM;
+-			goto out_free_device;
++			goto out_dma_map;
+ 		}
+ 		map[0].cpu_start = CIX_HDA_DMA_CPU_START;
+ 		map[0].dma_start = CIX_HDA_DMA_DEV_START;
+ 		map[0].size = CIX_HDA_DMA_SIZE;
+ 		/* map[1] is zero-initialized sentinel */
+ 		pdev->dev.dma_range_map = map;
++		pdev->dev.bus_dma_limit = CIX_HDA_DMA_DEV_START +
++					   CIX_HDA_DMA_SIZE - 1;
++		local_dma_range_map = true;
+ 	}
+ 
+ 	if (!pdev->dev.dma_mem && pdev->dev.of_node) {
+-	err = of_reserved_mem_device_init(hda->dev);
+-	if (err < 0 && err != -ENODEV) {
+-		dev_err(hda->dev,
+-			"failed to init reserved mem for DMA, err = %d\n", err);
+-		return err;
+-	}
++		err = of_reserved_mem_device_init(hda->dev);
++		if (err < 0 && err != -ENODEV) {
++			dev_err(hda->dev,
++				"failed to init reserved mem for DMA, err = %d\n", err);
++			goto out_dma_map;
++		}
+ 	}
+ 
+ 	err = snd_card_new(hda->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
+ 			   THIS_MODULE, 0, &card);
+-	if (err < 0)
+-		return dev_err_probe(hda->dev, err, "failed to crate card, err = %d\n", err);
++	if (err < 0) {
++		dev_err_probe(hda->dev, err, "failed to create card\n");
++		goto out_dma_map;
++	}
+ 
+ 	err = cix_ipbloq_hda_create(hda, card, driver_flags);
+ 	if (err < 0)
+@@ -438,13 +545,13 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ 	chip = &hda->chip;
+ 	card->private_data = chip;
+ 	dev_set_drvdata(hda->dev, card);
+-	if (IS_ENABLED(CONFIG_ACPI) &&
+-	    !pdev->dev.dma_mem && has_acpi_companion(&pdev->dev)) {
++	if (IS_ENABLED(CONFIG_ACPI) && !pdev->dev.dma_mem &&
++	    has_acpi_companion(&pdev->dev) && !pdev->dev.dma_range_map) {
+ 		err = cix_ipbloq_hda_setup_acpi_rsvmem(&pdev->dev);
+ 		if (err && err != -ENODEV) {
+-			dev_err(&pdev->dev,
+-				"failed to init ACPI reserved mem for DMA, err = %d\n", err);
+-			goto out_free_device;
++			dev_warn(&pdev->dev,
++				 "failed to init optional ACPI reserved DMA pool, using normal DMA: %d\n",
++				 err);
+ 		}
+ 	}
+ 
+@@ -460,8 +567,8 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ 		hda->pdb_gpiod = devm_gpiod_get_optional(&pdev->dev, "pdb",
+ 							 GPIOD_OUT_HIGH);
+ 		if (IS_ERR(hda->pdb_gpiod)) {
+-			err = PTR_ERR(hda->pdb_gpiod);
+-			dev_err(&pdev->dev, "failed to get pdb gpio, err: %d\n", err);
++			err = dev_err_probe(&pdev->dev, PTR_ERR(hda->pdb_gpiod),
++					    "failed to get pdb gpio\n");
+ 			goto out_free_device;
+ 		}
+ 
+@@ -475,25 +582,38 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ 	err = pm_runtime_resume_and_get(hda->dev);
+ 	if (err < 0) {
+ 		dev_err(hda->dev, "runtime resume and get failed, err = %d\n", err);
+-		goto out_free_device;
++		goto out_pm_disable;
+ 	}
+ 
+ 	err = cix_ipbloq_hda_init(hda, chip, pdev);
+ 	if (err < 0)
+-		goto out_free_device;
++		goto out_pm_put;
+ 
+ 	err = cix_ipbloq_hda_probe_codec(hda);
+ 	if (err < 0)
+-		goto out_free_device;
++		goto out_pm_put;
+ 
+ 	pm_runtime_put(hda->dev);
+ 
+ 	return 0;
+ 
++out_pm_put:
++	pm_runtime_put_noidle(hda->dev);
++out_pm_disable:
++	pm_runtime_disable(hda->dev);
+ out_free_device:
+-	snd_device_free(card, chip);
++	dev_set_drvdata(hda->dev, NULL);
++	if (card && chip)
++		snd_device_free(card, chip);
+ out_free_card:
+-	snd_card_free(card);
++	if (card)
++		snd_card_free(card);
++out_dma_map:
++	if (local_dma_range_map) {
++		kfree(pdev->dev.dma_range_map);
++		pdev->dev.dma_range_map = NULL;
++		pdev->dev.bus_dma_limit = DMA_BIT_MASK(64);
++	}
+ 
+ 	return err;
+ }
+@@ -501,8 +621,12 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ static void cix_ipbloq_hda_remove(struct platform_device *pdev)
+ {
+ 	struct snd_card *card = dev_get_drvdata(&pdev->dev);
+-	struct azx *chip = card->private_data;
++	struct azx *chip;
+ 
++	dev_set_drvdata(&pdev->dev, NULL);
++	if (!card)
++		return;
++	chip = card->private_data;
+ 	snd_device_free(card, chip);
+ 	snd_card_free(card);
+ 

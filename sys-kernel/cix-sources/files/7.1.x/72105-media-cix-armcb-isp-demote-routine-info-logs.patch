@@ -1,0 +1,1019 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+index dec344bfd..2be52705d 100644
+--- a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
++++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+@@ -448,7 +448,7 @@ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ 
+ 	csi_id = reg_addr - CSI_POWER_BASE;
+ 	if (value > 0) {
+-		LOG(LOG_INFO, "enable csi%d_sys_clk %d", csi_id, value);
++		LOG(LOG_DEBUG, "enable csi%d_sys_clk %d", csi_id, value);
+ 		ret = clk_prepare_enable(cix_vi_hw_info->csi_sys_clk[csi_id]);
+ 		if (ret < 0) {
+ 			LOG(LOG_ERR, "enable csi%d_sys_clk error", csi_id);
+@@ -570,7 +570,7 @@ static irqreturn_t mipi_csi2_irq_handler(int irq, void *base)
+ 	status = readl(base + MIPI_INFO_IRQS);
+ 	writel(status, base + MIPI_INFO_IRQS);
+ 
+-	pr_info("csi irq enter status %x\n", status);
++	pr_debug("csi irq enter status %x\n", status);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -586,7 +586,7 @@ static irqreturn_t mipi_csi2_err_irq_handler(int irq, void *base)
+ 	dphy_status = readl(base + DPHY_ERR_STATUS_IRQ);
+ 	writel(dphy_status, base + DPHY_ERR_STATUS_IRQ);
+ 
+-	pr_info("CSI ERROR status 0x%08x, DPHY error status 0x%08x\n",
++	pr_err("CSI ERROR status 0x%08x, DPHY error status 0x%08x\n",
+ 		csi_status, dphy_status);
+ 
+ 	return IRQ_HANDLED;
+@@ -615,7 +615,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 	int irq0, irq1;
+ 	int ret;
+ 
+-	LOG(LOG_INFO, "cix vi hw reg  probe enter\n");
++	LOG(LOG_DEBUG, "cix vi hw reg  probe enter\n");
+ 
+ 	cix_vi_hw_info =
+ 		devm_kzalloc(dev, sizeof(struct cix_vi_hw_dev), GFP_KERNEL);
+@@ -836,7 +836,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 					i);
+ 			}
+ 		}
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 			"ahb-dphy%d-base=0x%x, ahb-dphy%d-size=0x%x ahb_dphy%d_base_addr=%p",
+ 			i, cix_vi_hw_info->ahb_dphy_base[i], i,
+ 			cix_vi_hw_info->ahb_dphy_size[i], i,
+@@ -883,7 +883,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 					     "failed to request CSI%d error IRQ\n",
+ 					     i);
+ 
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 			"ahb-csi%d-base=0x%x, ahb-csi%d-size=0x%x ahb_csi%d_base_addr=%p",
+ 			i, cix_vi_hw_info->ahb_csi_base[i], i,
+ 			cix_vi_hw_info->ahb_csi_size[i], i,
+@@ -903,7 +903,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 					i);
+ 			}
+ 		}
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 			"ahb-csidma%d-base=0x%x, ahb-csidma%d-size=0x%x " \
+ 			"ahb_csidma%d_base_addr=%p",
+ 			i, cix_vi_hw_info->ahb_csidma_base[i], i,
+@@ -926,7 +926,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 					i);
+ 			}
+ 		}
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 			"ahb-csircsu%d-base=0x%x, ahb-csircsu%d-size=0x%x " \
+ 			"ahb_csircsu%d_base_addr=%p",
+ 			i, cix_vi_hw_info->ahb_csircsu_base[i], i,
+@@ -938,7 +938,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, cix_vi_hw_info);
+ 
+-	dev_info(dev, "cix hw reg list probe exit\n");
++	dev_dbg(dev, "cix hw reg list probe exit\n");
+ 
+ 	return 0;
+ }
+@@ -947,7 +947,7 @@ static void cix_vi_hw_remove(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 
+-	dev_info(dev, "csi rcsu hw remove enter\n");
++	dev_dbg(dev, "csi rcsu hw remove enter\n");
+ 	mutex_destroy(&cix_vi_hw_info->mutex);
+ }
+ 
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+index 588a397d9..baaebe9e2 100644
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
+@@ -228,13 +228,13 @@ static int ispmem_open(struct inode *node, struct file *file)
+ #ifdef MEM_DEBUG
+ static void ispmem_cma_dump(struct cmamem_block *memory_block)
+ {
+-	LOG(LOG_INFO, "CMA name:   %s", memory_block->name);
+-	LOG(LOG_INFO, "CMA id:     %d", memory_block->id);
+-	LOG(LOG_INFO, "Is  usebuf: %d", memory_block->is_use_buffer);
+-	LOG(LOG_INFO, "PHY Base:   0x%lx", memory_block->phy_addr);
+-	LOG(LOG_INFO, "KER Base:   %p", memory_block->kernel_addr);
+-	LOG(LOG_INFO, "USR Base:   0x%lx", memory_block->usr_addr);
+-	LOG(LOG_INFO, "Length:     0x%x", memory_block->len);
++	LOG(LOG_DEBUG, "CMA name:   %s", memory_block->name);
++	LOG(LOG_DEBUG, "CMA id:     %d", memory_block->id);
++	LOG(LOG_DEBUG, "Is  usebuf: %d", memory_block->is_use_buffer);
++	LOG(LOG_DEBUG, "PHY Base:   0x%lx", memory_block->phy_addr);
++	LOG(LOG_DEBUG, "KER Base:   %p", memory_block->kernel_addr);
++	LOG(LOG_DEBUG, "USR Base:   0x%lx", memory_block->usr_addr);
++	LOG(LOG_DEBUG, "Length:     0x%x", memory_block->len);
+ }
+ #endif
+ 
+@@ -405,7 +405,7 @@ static int ispmem_cma_import(struct file *file, unsigned long arg)
+ 
+ 	//ret = ispmem_cma_find_buffer_by_id(cma_info_temp.id);
+ 	idx = ispmem_find_cma_by_name(cma_info_temp.name);
+-	LOG(LOG_INFO, "ispmem_cma_import idx:%d", idx);
++	LOG(LOG_DEBUG, "ispmem_cma_import idx:%d", idx);
+ 	if(idx >= 0) {
+ 
+ 		memory_block = cma_buf_ctl.bufq[idx];
+@@ -773,7 +773,7 @@ static int armcb_isp_power(int enable, unsigned long arg)
+ 		 *******************freq * 1000*********************/
+ 		a_clk_rate = freq[0] * 1000 * 1000;
+ 		s_clk_rate = freq[1] * 1000 * 1000;
+-		LOG(LOG_INFO, "a_clk_rate is  %ld, s_clk_rate is  %ld, !",
++		LOG(LOG_DEBUG, "a_clk_rate is  %ld, s_clk_rate is  %ld, !",
+ 			a_clk_rate, s_clk_rate);
+ 		pm_runtime_get_sync(cam_mem_info->pddev);
+ 		clk_set_rate(cam_mem_info->isp_aclk, a_clk_rate);
+@@ -1073,7 +1073,7 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 		"ahb-pmctrl_res-base=0x%x, ahb-pmctrl_res-size=0x%x "
+ 		"ahb_pmctrl_res_base_addr=%p",
+ 		cam_mem_info->ahb_pmctrl_res_base,
+@@ -1091,7 +1091,7 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 				"failed to ioremap ahb-rcsuisp0_res register region.");
+ 		}
+ 	}
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 		"ahb-rcsuisp0_res-base=0x%x, ahb-rcsuisp0_res-size=0x%x "
+ 		"ahb_rcsuisp0_res_base_addr=%p",
+ 		cam_mem_info->ahb_rcsuisp0_res_base,
+@@ -1108,7 +1108,7 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 				"failed to ioremap ahb-rcsuisp1_res register region.");
+ 		}
+ 	}
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 		"ahb-rcsuisp1_res-base=0x%x, ahb-rcsuisp1_res-size=0x%x "
+ 		"ahb_rcsuisp1_res_base_addr=%p",
+ 		cam_mem_info->ahb_rcsuisp1_res_base,
+@@ -1125,7 +1125,7 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 				"failed to ioremap apb2 register region.");
+ 		}
+ 	}
+-	LOG(LOG_INFO, "apb2-base=0x%x, apb2-size=0x%x apb2_base_addr=%p",
++	LOG(LOG_DEBUG, "apb2-base=0x%x, apb2-size=0x%x apb2_base_addr=%p",
+ 		cam_mem_info->apb2_base, cam_mem_info->apb2_size,
+ 		cam_mem_info->apb2_base_addr);
+ #endif
+@@ -1162,7 +1162,7 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 	if (res && !(has_acpi_companion(&pdev->dev) && res == -ENODEV))
+ 		LOG(LOG_WARN, "fail to get reserved memory (%d)\n", res);
+ 	else if (res)
+-		LOG(LOG_INFO, "no reserved memory declared by ACPI\n");
++		LOG(LOG_DEBUG, "no reserved memory declared by ACPI\n");
+ 
+ 	group = iommu_group_get(cmamem_dev.pddev);
+ 	if (group) {
+@@ -1170,7 +1170,7 @@ static int armcb_ispmem_probe(struct platform_device *pdev)
+ 		iommu_group_put(group);
+ 	}
+ 
+-	LOG(LOG_INFO, " ISP is%s behind an IOMMU",
++	LOG(LOG_INFO, "ISP is%s behind an IOMMU",
+ 		cmamem_dev.has_iommu ? "" : " not");
+ 
+ 	res = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+@@ -1233,7 +1233,7 @@ MODULE_DEVICE_TABLE(acpi, armcb_ispmem_acpi_match);
+ 
+ static int armcb_ispmem_dev_rpm_suspend(struct device *dev)
+ {
+-	LOG(LOG_INFO, "function enter");
++	LOG(LOG_DEBUG, "function enter");
+ 
+ 	if (!cam_mem_info->isp_sreset || !cam_mem_info->isp_areset ||
+ 		!cam_mem_info->isp_hreset || !cam_mem_info->isp_gdcreset ||
+@@ -1247,7 +1247,7 @@ static int armcb_ispmem_dev_rpm_suspend(struct device *dev)
+ 	reset_control_assert(cam_mem_info->isp_hreset);
+ 	reset_control_assert(cam_mem_info->isp_sreset);
+ 	reset_control_assert(cam_mem_info->isp_areset);
+-	LOG(LOG_INFO, "function exit");
++	LOG(LOG_DEBUG, "function exit");
+ 	return 0;
+ }
+ 
+@@ -1288,13 +1288,13 @@ static int armcb_ispmem_dev_rpm_resume(struct device *dev)
+ #ifdef CONFIG_PM_SLEEP
+ static int armcb_ispmem_dev_suspend(struct device *dev)
+ {
+-	LOG(LOG_INFO, "function enter");
++	LOG(LOG_DEBUG, "function enter");
+ 	return pm_runtime_force_suspend(dev);
+ }
+ 
+ static int armcb_ispmem_dev_resume(struct device *dev)
+ {
+-	LOG(LOG_INFO, "function enter");
++	LOG(LOG_DEBUG, "function enter");
+ 	return pm_runtime_force_resume(dev);
+ }
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+index b6c35ca89..a012d9695 100644
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+@@ -85,7 +85,7 @@ static void armcb_subdev_unregister_nodes(struct video_device *vdev)
+ 
+ 	sd->devnode = NULL;
+ 	kfree(vdev);
+-	LOG(LOG_INFO, "unregister v4l-subdev");
++	LOG(LOG_DEBUG, "unregister v4l-subdev");
+ }
+ #endif
+ 
+@@ -146,7 +146,7 @@ int armcb_camera_async_complete(struct v4l2_async_notifier *notifier)
+ 		vdev->v4l2_dev = v4l2_dev;
+ 		vdev->fops = &v4l2_subdev_fops;
+ 		vdev->release = armcb_subdev_unregister_nodes;
+-		LOG(LOG_INFO, "step6 name(%s) grp_id(%d)", sd->name,
++		LOG(LOG_DEBUG, "step6 name(%s) grp_id(%d)", sd->name,
+ 		    sd->grp_id);
+ 		nr = (sd->grp_id < (u32)ARMCB_SUBDEV_NODE_IDX_END) ?
+ 			     sd->grp_id :
+@@ -179,7 +179,7 @@ int armcb_camera_async_complete(struct v4l2_async_notifier *notifier)
+ 			    vdev->dev.kobj.name);
+ 			goto clean_up;
+ 		}
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 		    "register media entity(id %d, name %s) for subdev node %s, sd %s",
+ 		    sd->entity.graph_obj.id, vdev->entity.name,
+ 		    vdev->dev.kobj.name, vdev->name);
+@@ -231,7 +231,7 @@ static void armcb_add_sd_in_position(struct armcb_sd_subdev *armcb_sdreg,
+ 		return;
+ 	}
+ 
+-	LOG(LOG_INFO, "+");
++	LOG(LOG_DEBUG, "+");
+ 	list_for_each_entry(temp_sd, sd_list, list) {
+ 		if (temp_sd == armcb_sdreg) {
+ 			LOG(LOG_ERR, "failed to add the same subdev ");
+@@ -243,7 +243,7 @@ static void armcb_add_sd_in_position(struct armcb_sd_subdev *armcb_sdreg,
+ 			return;
+ 		}
+ 	}
+-	LOG(LOG_INFO, "-");
++	LOG(LOG_DEBUG, "-");
+ 
+ 	list_add_tail(&armcb_sdreg->list, sd_list);
+ }
+@@ -256,7 +256,7 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	int retry_count = 0;
+ 	int ret;
+ 
+-	LOG(LOG_INFO, "+   %d", cam_id);
++	LOG(LOG_DEBUG, "+   %d", cam_id);
+ 	if (WARN_ON(!armcb_sdreg)) {
+ 		LOG(LOG_ERR, "Invalid input armcb_sdreg is NULL");
+ 		return -EINVAL;
+@@ -272,7 +272,7 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	}
+ 
+ 	if (!parmcb_dev) {
+-		LOG(LOG_INFO, "camera instance %u is not ready", cam_id);
++		LOG(LOG_DEBUG, "camera instance %u is not ready", cam_id);
+ 		return -EPROBE_DEFER;
+ 	}
+ 
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+index 0d8bd84ac..7ce98878b 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+@@ -196,7 +196,7 @@ static int armcb_ispdrv_probe(struct platform_device *pdev)
+ 	struct v4l2_subdev *sd = NULL;
+ 	int res = 0;
+ 
+-	LOG(LOG_INFO, "+");
++	LOG(LOG_DEBUG, "+");
+ 	if (!np) {
+ 		LOG(LOG_ERR, "armcb isp get of node failed !");
+ 		res = -ENODEV;
+@@ -258,7 +258,7 @@ static int armcb_ispdrv_probe(struct platform_device *pdev)
+ 		goto ERR_FREE_RET2;
+ 	}
+ 
+-	LOG(LOG_INFO, "-");
++	LOG(LOG_DEBUG, "-");
+ 	return res;
+ 
+ ERR_FREE_RET2:
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+index 03afa1520..c9abf0929 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+@@ -326,7 +326,7 @@ static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+ 			int pid = task_pid_nr(p);
+ 
+ 			sel->count++;
+-			LOG(LOG_INFO,
++			LOG(LOG_DEBUG,
+ 			    "isp_execstart: found isp_app pid=%d args='%s'\n",
+ 			    pid, line);
+ 
+@@ -380,7 +380,7 @@ static void do_refresh_locked(void)
+ 		    stamp == armcb_isp_process_cache_stamp)
+ 				goto out_free;
+ 
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 		    "isp_execstart: no isp_app daemon; only isp_app opener allowed\n");
+ 		armcb_isp_allowed_ctx_mask = 0;
+ 		armcb_isp_app_pid = 0;
+@@ -396,7 +396,7 @@ static void do_refresh_locked(void)
+ 	armcb_isp_app_pid = sel->pid;
+ 
+ 	if (sel->cmdline[0] == '\0') {
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 		    "isp_execstart: isp_app pid=%d (args deferred), non-isp_app denied until reload\n",
+ 			    sel->pid);
+ 		armcb_isp_allowed_ctx_mask = 0;
+@@ -416,7 +416,7 @@ static void do_refresh_locked(void)
+ 
+ 	armcb_isp_daemon_running = true;
+ 	armcb_isp_allowed_ctx_mask = (unsigned int)mask & 0xf;
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 	    "isp_execstart: isp_app pid=%d args='%s' -> allowed mask 0x%x\n",
+ 		    sel->pid, sel->cmdline, armcb_isp_allowed_ctx_mask);
+ 
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+index c7e2a2641..64e589b7e 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -408,7 +408,7 @@ static void armcb_isp_irq_sol_i5(unsigned int ctx_id)
+ 		/* find stream pointer */
+ 		rc = armcb_v4l2_find_stream(&pstream, ctx_id, i);
+ 		if (rc < 0) {
+-			LOG(LOG_INFO,
++			LOG(LOG_DEBUG,
+ 			    "can't find stream on ctx %d (errno = %d)", ctx_id,
+ 			    rc);
+ 			return;
+@@ -416,7 +416,7 @@ static void armcb_isp_irq_sol_i5(unsigned int ctx_id)
+ 
+ 		/* check if stream is on */
+ 		if (!pstream->stream_started) {
+-			LOG(LOG_INFO,
++			LOG(LOG_DEBUG,
+ 			    "[Stream#%d] stream META is not started yet on ctx %d",
+ 			    pstream->stream_id, ctx_id);
+ 			return;
+@@ -1616,7 +1616,7 @@ armcb_v4l2_config_subscribe_event(struct v4l2_fh *fh,
+ {
+ 	int ret = -1;
+ 
+-	LOG(LOG_INFO, "type:%d id:%d", sub->type, sub->id);
++	LOG(LOG_DEBUG, "type:%d id:%d", sub->type, sub->id);
+ 	ret = v4l2_event_subscribe(fh, sub, CORE_NEVENTS, NULL);
+ 	if (ret < 0)
+ 		LOG(LOG_ERR, "armcb_v4l2_subscribe_event failed ret(%d)", ret);
+@@ -1627,7 +1627,7 @@ static int
+ armcb_v4l2_config_unsubscribe_event(struct v4l2_fh *fh,
+ 				    const struct v4l2_event_subscription *sub)
+ {
+-	LOG(LOG_INFO, "type:%d id:%d", sub->type, sub->id);
++	LOG(LOG_DEBUG, "type:%d id:%d", sub->type, sub->id);
+ 	v4l2_event_unsubscribe(fh, sub);
+ 
+ 	return 0;
+@@ -1822,7 +1822,7 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 	/* register v4l2_device */
+ 	snprintf(p_v4l_config_dev->v4l2_dev.name,
+ 		 sizeof(p_v4l_config_dev->v4l2_dev.name), "%s", ARMCB_MODULE_NAME);
+-	LOG(LOG_INFO, "armcb config dev name:%s",
++	LOG(LOG_DEBUG, "armcb config dev name:%s",
+ 	    p_v4l_config_dev->v4l2_dev.name);
+ 	ret = v4l2_device_register(&pdev->dev, &p_v4l_config_dev->v4l2_dev);
+ 	if (ret) {
+@@ -1867,9 +1867,9 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ #endif
+ 	if (ret < 0)
+ 		goto unreg_dev;
+-	LOG(LOG_INFO, "V4L2 capture device registered as %s",
++	LOG(LOG_INFO, "V4L2 config device registered as %s",
+ 	    video_device_node_name(vfd));
+-	LOG(LOG_INFO, "vfd->name:%s v4l2_dev.name:%s dev_name:%s", vfd->name,
++	LOG(LOG_DEBUG, "vfd->name:%s v4l2_dev.name:%s dev_name:%s", vfd->name,
+ 	    p_v4l_config_dev->v4l2_dev.name, video_device_node_name(vfd));
+ 
+ 	/* register isr function*/
+@@ -1885,7 +1885,7 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 		LOG(LOG_ERR, "failed to get isp hw info.");
+ 		goto exit_ret;
+ 	} else {
+-		LOG(LOG_INFO, "hw_info isp_type=%d", hw_info->type);
++		LOG(LOG_DEBUG, "hw_info isp_type=%d", hw_info->type);
+ 	}
+ 
+ #ifdef QEMU_ON_VEXPRESS
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+index f12af9886..268732c7f 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -472,7 +472,7 @@ static int armcb_release_output_port(void)
+ 			g_outport_map[i][j] = NULL;
+ 	}
+ 
+-    LOG(LOG_INFO, "#### Armcb release all port resource !!!");
++    LOG(LOG_DEBUG, "#### Armcb release all port resource !!!");
+     return rc;
+ }
+ 
+@@ -514,7 +514,7 @@ static int armcb_v4l2_post_streamoff_event(armcb_v4l2_dev_t *dev)
+ 	pData = (unsigned int *)ev.u.data;
+ 	pData[0] = 0xff;
+ 	v4l2_event_queue(&dev->vid_cap_dev, &ev);
+-	LOG(LOG_INFO, "%s, Upload streamoff event", dev_name(&vdev->dev));
++	LOG(LOG_DEBUG, "%s, Upload streamoff event", dev_name(&vdev->dev));
+ 
+ 	atomic_set(&dev->upload_streamoff, 1);
+ 
+@@ -642,7 +642,7 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 		goto exit;
+ 	}
+ 
+-	LOG(LOG_INFO, "##### %s, stream_on_cnt:%d, port_idx_release:%d\n",
++	LOG(LOG_DEBUG, "##### %s, stream_on_cnt:%d, port_idx_release:%d\n",
+ 			dev_name(&vdev->dev),
+ 			atomic_read(&dev->stream_on_cnt),
+ 			atomic_read(&dev->port_idx_release));
+@@ -657,7 +657,7 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 			&& (atomic_read(&dev->port_idx_release) == OUTPORT_IDX_IS_FREE)) {
+ 		rc = find_user_process_by_name("isp_app");
+ 		if(!rc) {
+-			LOG(LOG_INFO, "#### The pid is isp_app !");
++			LOG(LOG_DEBUG, "#### The pid is isp_app !");
+ 			goto exit;
+ 		}
+ 
+@@ -706,7 +706,7 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 	armcb_v4l2_fh_release(file);
+ 	if (dev->ctx_id == 0)
+ 		armcb_isp_execstart_note_ctx0_release();
+-	LOG(LOG_INFO, "release v4l2 fp success");
++	LOG(LOG_DEBUG, "release v4l2 fp success");
+ 	return rc;
+ 
+ deinit:
+@@ -719,7 +719,7 @@ exit:
+ 	armcb_v4l2_fh_release(file);
+ 	if (dev->ctx_id == 0)
+ 		armcb_isp_execstart_note_ctx0_release();
+-	LOG(LOG_INFO, "release v4l2 fp success");
++	LOG(LOG_DEBUG, "release v4l2 fp success");
+ 	return rc;
+ }
+ 
+@@ -765,7 +765,7 @@ static int armcb_v4l2_fh_open(struct file *file)
+ 	v4l2_fh_init(&sp->fh, &dev->vid_cap_dev);
+ 	v4l2_fh_add(&sp->fh, file);
+ 
+-	LOG(LOG_INFO, "%s open v4l2 fp success", dev_name(&vdev->dev));
++	LOG(LOG_DEBUG, "%s open v4l2 fp success", dev_name(&vdev->dev));
+ 	return 0;
+ }
+ 
+@@ -782,7 +782,7 @@ static int armcb_v4l2_fop_open(struct file *filp)
+ 	} else {
+ 		if (atomic_read(&armcb_daemon_ready) == -1)
+ 		{
+-			LOG(LOG_INFO, " %s v4l2 fop open, daemon is %d \n",
++			LOG(LOG_DEBUG, " %s v4l2 fop open, daemon is %d \n",
+ 				dev_name(&vdev->dev), atomic_read(&armcb_daemon_ready));
+ 			ret = armcb_v4l2_check_daemon_status(vdev);
+ 			goto normal_mode;
+@@ -901,7 +901,7 @@ static int armcb_v4l2_sync_s_fmt_event(armcb_v4l2_dev_t *dev)
+ 	if(rc == -ERESTARTSYS)
+ 		LOG(LOG_ERR,"Wait set fmt interrupt by signal, will not sleep.");
+ 
+-	LOG(LOG_INFO, "%s, wait set fmt done *_*: %d", dev_name(&vdev->dev),
++	LOG(LOG_DEBUG, "%s, wait set fmt done *_*: %d", dev_name(&vdev->dev),
+ 			dev->s_fmt_done);
+ 
+ 	dev->s_fmt_done = 0;
+@@ -914,7 +914,7 @@ static int armcb_v4l2_sync_streamon_event(armcb_v4l2_dev_t *dev)
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+ 	int rc = 0;
+ 
+-	LOG(LOG_INFO, "#### %s sync streamon, StreamOn_done:%d\n",
++	LOG(LOG_DEBUG, "#### %s sync streamon, StreamOn_done:%d\n",
+ 			dev_name(&vdev->dev), dev->streamon_done);
+ 
+ 	rc = wait_event_interruptible_timeout(dev->wait_streamon_queue,
+@@ -927,7 +927,7 @@ static int armcb_v4l2_sync_streamon_event(armcb_v4l2_dev_t *dev)
+ 	if(rc == -ERESTARTSYS)
+ 		LOG(LOG_ERR,"Wait streamon interrupt by signal, will not sleep.");
+ 
+-	LOG(LOG_INFO, "%s, wait streamon done *_*: %d", dev_name(&vdev->dev),
++	LOG(LOG_DEBUG, "%s, wait streamon done *_*: %d", dev_name(&vdev->dev),
+ 			dev->streamon_done);
+ 
+ 	dev->streamon_done = 0;
+@@ -1150,7 +1150,7 @@ static int armcb_isp_vb2_streamoff(struct file *file)
+ 			if (!ret && vdev->queue == q) {
+ 				/* Always release so leak is avoided if the app never closes (e.g. crash).
+ 				 * fh_release will skip when queue_released_by_s_ctrl is set. */
+-				LOG(LOG_INFO, " ##### %s, vb2 release\n", dev_name(&vdev->dev));
++				LOG(LOG_DEBUG, " ##### %s, vb2 release\n", dev_name(&vdev->dev));
+ 				vdev->queue = NULL;
+ 				dev->queue_released_by_s_ctrl = 1;
+ 				vb2_queue_release(q);
+@@ -1229,11 +1229,11 @@ static int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 	struct v4l2_event ev;
+ 	unsigned int *pData = NULL;
+ 
+-	LOG(LOG_INFO, "### %s ctx_id:%d stream_id:%d", dev_name(&vdev->dev),
++	LOG(LOG_DEBUG, "### %s ctx_id:%d stream_id:%d", dev_name(&vdev->dev),
+ 			dev->ctx_id, sp->stream_id);
+ 
+ 	if (vb2_is_busy(q)) {
+-		LOG(LOG_INFO, "Buffer is busy and set fmt failed!");
++		LOG(LOG_DEBUG, "Buffer is busy and set fmt failed!");
+ 		return -EBUSY;
+ 	}
+ 
+@@ -1249,7 +1249,7 @@ static int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 		}
+ 	}
+ 
+-	LOG(LOG_INFO, "ctx_id: %d, called for stream id:%d.",
++	LOG(LOG_DEBUG, "ctx_id: %d, called for stream id:%d.",
+ 						dev->ctx_id, sp->stream_id);
+ 
+ 	/* init stream */
+@@ -1450,7 +1450,7 @@ static int armcb_v4l2_enum_fmt_vid_cap(struct file *file, void *priv,
+ 	f->pixelformat = fmt->fourcc;
+ 	f->mbus_code = fmt->mbus_code;
+ 
+-	LOG(LOG_INFO, "function exit : %d", f->pixelformat);
++	LOG(LOG_DEBUG, "function exit : %d", f->pixelformat);
+ 
+ 	return 0;
+ }
+@@ -1557,7 +1557,7 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 
+ 	switch (ctrl->id) {
+ 		case ISP_DAEMON_SET_STREAM_ON:
+-			LOG(LOG_INFO, "devname:%s online_mode:%d, ISP_DAEMON_SET_STREAM_ON\n",
++			LOG(LOG_DEBUG, "devname:%s online_mode:%d, ISP_DAEMON_SET_STREAM_ON\n",
+ 					dev_name(&vdev->dev), ctrl->value);
+ 			dev->online_mode = ctrl->value;
+ 			if (ctrl->value) {
+@@ -1567,7 +1567,7 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 				if (rc < 0) {
+ 					LOG(LOG_ERR, "armcb_isp_hw_apply_list failed ret(%d)", rc);
+ 				} else {
+-					LOG(LOG_INFO, "pstream:%p, armcb_isp_hw_apply_list success",
++					LOG(LOG_DEBUG, "pstream:%p, armcb_isp_hw_apply_list success",
+ 							pstream);
+ 				}
+ 				atomic_set(&dev->stream_on_cnt, STREAM_ON);
+@@ -1590,20 +1590,20 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 		case ISP_DAEMON_SET_FMT:
+ 			/* Set the streamon done flag to wake the s_fmt queue */
+ 			dev->s_fmt_done = ctrl->value;
+-			LOG(LOG_INFO,"set fmt done %d", dev->s_fmt_done);
++			LOG(LOG_DEBUG,"set fmt done %d", dev->s_fmt_done);
+ 			wake_up_interruptible(&dev->wait_fmt_queue);
+ 			rc = 0;
+ 			break;
+ 		case ISP_DAEMON_SET_MULTI_CAM:
+ 			armcb_multi_cam = ctrl->value;
+-			LOG(LOG_INFO,"set the multi camera %d", armcb_multi_cam);
++			LOG(LOG_DEBUG,"set the multi camera %d", armcb_multi_cam);
+ 			rc = 0;
+ 			break;
+ 		case ISP_DAEMON_SET_STREAM_OFF: {
+ 			struct vb2_queue *q_stop;
+ 			bool do_vb2 = false;
+ 
+-			LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF enter, devname:%s\n",
++			LOG(LOG_DEBUG, "ISP_DAEMON_SET_STREAM_OFF enter, devname:%s\n",
+ 					dev_name(&vdev->dev));
+ 			/* Only isp_app calls this. If the queue (e.g. applied by gstreamer) is not yet
+ 			 * released, run vb2_streamoff/release here; if already released (queue is null),
+@@ -1613,13 +1613,13 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 			q_stop = vdev->queue;
+ 			do_vb2 = (q_stop != NULL);
+ 			if (!q_stop)
+-				LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: queue already released, hw streamoff only, skip vb2\n");
++				LOG(LOG_DEBUG, "ISP_DAEMON_SET_STREAM_OFF: queue already released, hw streamoff only, skip vb2\n");
+ 			else
+-				LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: queue not released yet, run hw streamoff + vb2 release\n");
++				LOG(LOG_DEBUG, "ISP_DAEMON_SET_STREAM_OFF: queue not released yet, run hw streamoff + vb2 release\n");
+ 			mutex_unlock(&dev->queue_lock);
+ 
+ 			/* Always do hardware streamoff so that ISP is powered down. */
+-			LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: run hardware streamoff (disable_irq, STREAMOFF, POWERDOWN)\n");
++			LOG(LOG_DEBUG, "ISP_DAEMON_SET_STREAM_OFF: run hardware streamoff (disable_irq, STREAMOFF, POWERDOWN)\n");
+ 			armcb_i7_disable_interrupt();
+ 			rc = armcb_isp_hw_apply_list(CMD_TYPE_STREAMOFF);
+ 			if (rc < 0) {
+@@ -1634,10 +1634,10 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 			}
+ 			/* Wait for hardware to complete any in-flight DMA transactions. */
+ 			usleep_range(50000, 55000);
+-			LOG(LOG_INFO, "Hardware streamoff/powerdown completed");
++			LOG(LOG_DEBUG, "Hardware streamoff/powerdown completed");
+ 			if (do_vb2) {
+ 				armcb_isp_vb2_streamoff(file);
+-				LOG(LOG_INFO, "ISP_DAEMON_SET_STREAM_OFF: vb2 streamoff done\n");
++				LOG(LOG_DEBUG, "ISP_DAEMON_SET_STREAM_OFF: vb2 streamoff done\n");
+ 			}
+ 			atomic_set(&dev->stream_on_cnt, STREAM_OFF);
+ 			atomic_set(&dev->port_idx_release, OUTPORT_IDX_IS_BUSY);
+@@ -1647,7 +1647,7 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 			break;
+ 		}
+ 		case ISP_DAEMON_SET_EXIT:
+-			LOG(LOG_INFO, "devname:%s, ISP_DAEMON_SET_EXIT",
++			LOG(LOG_DEBUG, "devname:%s, ISP_DAEMON_SET_EXIT",
+ 						dev_name(&vdev->dev));
+ 			atomic_set(&dev->daemon_exit, 1);
+ 			wake_up_interruptible(&dev->daemon_exit_queue);
+@@ -1656,7 +1656,7 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 			atomic_set(&armcb_daemon_ready, ctrl->value);
+ 			atomic_set(&dev->daemon_exit, 0);
+ 			wake_up_interruptible(&daemon_ready_queue);
+-			LOG(LOG_INFO,"set the deamon ready %d",
++			LOG(LOG_DEBUG,"set the deamon ready %d",
+ 						atomic_read(&armcb_daemon_ready));
+ 			rc = 0;
+ 			break;
+@@ -1722,7 +1722,7 @@ armcb_v4l2_core_unsubscribe_event(struct v4l2_fh *fh,
+ 	// Queue a empty event to notify userspace
+ 	v4l2_event_queue(fh->vdev, &ev);
+ 
+-	LOG(LOG_INFO, "unsubscribe event: type:%d id:%d", sub->type, sub->id);
++	LOG(LOG_DEBUG, "unsubscribe event: type:%d id:%d", sub->type, sub->id);
+ 	v4l2_event_unsubscribe(fh, sub);
+ 
+ 	return 0;
+@@ -1732,7 +1732,7 @@ armcb_v4l2_core_unsubscribe_event(struct v4l2_fh *fh,
+ static int armcb_v4l2_g_selection(struct file *file, void *fh,
+ 				 struct v4l2_selection *s)
+ {
+-	LOG(LOG_INFO, "enter: target = %d, type = %d",
++	LOG(LOG_DEBUG, "enter: target = %d, type = %d",
+ 		s->target, s->type);
+ 
+ 	/* need fix: hard code for NV12M 1080p fmt */
+@@ -1791,7 +1791,7 @@ static int armcb_g_param(struct file *file, void *fh,
+ 			      struct v4l2_streamparm *a)
+ 
+ {
+-	LOG(LOG_INFO, "g_param enter");
++	LOG(LOG_DEBUG, "g_param enter");
+ 	return 0;
+ }
+ 
+@@ -1874,7 +1874,7 @@ armcb_v4l2_create_instance(struct platform_device *pdev, int ctx_id,
+ 	int ret = 0;
+ 	int i = 0;
+ 
+-	LOG(LOG_INFO, " ctx_id(%d) +", ctx_id);
++	LOG(LOG_DEBUG, " ctx_id(%d) +", ctx_id);
+ 	/* allocate main vivid state structure */
+ 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 	if (!dev) {
+@@ -1909,7 +1909,7 @@ armcb_v4l2_create_instance(struct platform_device *pdev, int ctx_id,
+ 	/* register v4l2_device */
+ 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name), "%s-%02d",
+ 		 ARMCB_MODULE_NAME, ctx_id);
+-	LOG(LOG_INFO, "dev->v4l2_dev.name[%s]", dev->v4l2_dev.name);
++	LOG(LOG_DEBUG, "dev->v4l2_dev.name[%s]", dev->v4l2_dev.name);
+ 	ret = v4l2_device_register(devnode, &dev->v4l2_dev);
+ 	if (ret) {
+ 		kfree(dev);
+@@ -1989,13 +1989,13 @@ armcb_v4l2_create_instance(struct platform_device *pdev, int ctx_id,
+ 			goto unreg_dev;
+ 		LOG(LOG_INFO, "V4L2 capture device registered as %s",
+ 			video_device_node_name(vfd));
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 			"[has_vid_cap] vfd->name[%s] v4l2_dev.name[%s] dev_name[%s]",
+ 			vfd->name, dev->v4l2_dev.name, video_device_node_name(vfd));
+ 	}
+ 
+ 	/* Now that everything is fine, let's add it to device list */
+-	LOG(LOG_INFO, "create video device instance success");
++	LOG(LOG_DEBUG, "create video device instance success");
+ 
+ 	return dev;
+ 
+@@ -2028,7 +2028,7 @@ armcb_v4l2_dev_t *armcb_register_instance(struct platform_device *pdev,
+ 		return NULL;
+ 	}
+ 
+-	LOG(LOG_INFO, "register v4l2 video instance %d %p", cam_id, adev);
++	LOG(LOG_DEBUG, "register v4l2 video instance %d %p", cam_id, adev);
+ 	g_isp_v4l2_devs[cam_id] = adev;
+ 	return adev;
+ }
+@@ -2058,7 +2058,7 @@ static void armcb_destroy_instance(unsigned int cam_id, bool cleanup_notifier)
+ 	media_device_unregister(&dev->mdev);
+ #endif
+ 	v4l2_device_put(&dev->v4l2_dev);
+-	LOG(LOG_INFO, "release armcb instance %d (%p)", cam_id, dev);
++	LOG(LOG_DEBUG, "release armcb instance %d (%p)", cam_id, dev);
+ }
+ 
+ void armcb_unregister_instance(unsigned int cam_id)
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+index c439e6f70..a93e36eae 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+@@ -78,7 +78,7 @@ static int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
+ 	struct isp_v4l2_fmt *tfmt;
+ 	int i;
+ 
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 	    "[Stream#%d] try fmt type: %u, pixelformat: 0x%x, planeNum:%u, width: " \
+ 	    "%u, height: %u, field: %u, pixelformat: 0x%x",
+ 	    pstream->stream_id, f->type, f->fmt.pix_mp.pixelformat,
+@@ -104,7 +104,7 @@ static int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
+ 		f->fmt.pix_mp.width = ISP_V4L2_METADATA_SIZE;
+ 		f->fmt.pix_mp.height = 1;
+ 	} else if (f->fmt.pix_mp.pixelformat == ISP_V4L2_PIX_FMT_STATIS) {
+-		LOG(LOG_INFO,
++		LOG(LOG_DEBUG,
+ 		    "[Stream#%d] format is ISP_V4L2_PIX_FMT_STATIS:0x%08x",
+ 		    pstream->stream_id, ISP_V4L2_PIX_FMT_STATIS);
+ 		f->fmt.pix_mp.width = f->fmt.pix_mp.width;
+@@ -149,7 +149,7 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ {
+ 	armcb_v4l2_stream_t *new_stream = NULL;
+ 	// int current_sensor_preset;
+-	LOG(LOG_INFO, "ctx_id:%d [Stream#%d] Initializing stream ...", ctx_id,
++	LOG(LOG_DEBUG, "ctx_id:%d [Stream#%d] Initializing stream ...", ctx_id,
+ 	    stream_id);
+ 
+ 	/* allocate armcb_v4l2_stream_t */
+@@ -231,7 +231,7 @@ armcb_v4l2_stream_buffer_list_release(armcb_v4l2_stream_t *pstream,
+ 
+ 		vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+ 
+-		LOG(LOG_INFO, "[Stream#%d] vid_cap buffer %d done",
++		LOG(LOG_DEBUG, "[Stream#%d] vid_cap buffer %d done",
+ 		    pstream->stream_id, buf_index);
+ 	}
+ }
+@@ -244,7 +244,7 @@ void armcb_v4l2_stream_deinit(armcb_v4l2_stream_t *pstream,
+ 		return;
+ 	}
+ 
+-	LOG(LOG_INFO, "ctx_id:%d [Stream#%d] Deinitializing stream %p ...",
++	LOG(LOG_DEBUG, "ctx_id:%d [Stream#%d] Deinitializing stream %p ...",
+ 	    pstream->ctx_id, pstream->stream_id, pstream);
+ 
+ 	/* stop hardware do stream-off first if it's on */
+@@ -265,7 +265,7 @@ int armcb_v4l2_stream_on(armcb_v4l2_stream_t *pstream)
+ 		return -EINVAL;
+ 	}
+ 
+-	LOG(LOG_INFO, "ctx_id:%d [Stream#%d] %p called", pstream->ctx_id,
++	LOG(LOG_DEBUG, "ctx_id:%d [Stream#%d] %p called", pstream->ctx_id,
+ 	    pstream->stream_id, pstream);
+ 
+ 	if (pstream->stream_type != V4L2_STREAM_TYPE_META) {
+@@ -292,7 +292,7 @@ void armcb_v4l2_stream_off(armcb_v4l2_stream_t *pstream,
+ 	if (pstream->stream_type == V4L2_STREAM_TYPE_META) {
+ 		while (atomic_read(&pstream->running) > 0)
+ 		{ // metadata has no thread
+-			LOG(LOG_INFO, "[Stream#%d] still running %d !",
++			LOG(LOG_DEBUG, "[Stream#%d] still running %d !",
+ 			    pstream->stream_id, atomic_read(&pstream->running));
+ 			schedule();
+ 		}
+@@ -310,7 +310,7 @@ int armcb_v4l2_stream_get_format(armcb_v4l2_stream_t *pstream,
+ 
+ 	*f = pstream->cur_v4l2_fmt;
+ 
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 	    "[Stream#%d]   - GET fmt - width: %4u, height: %4u, format: 0x%x.",
+ 	    pstream->stream_id, f->fmt.pix_mp.width, f->fmt.pix_mp.height,
+ 	    f->fmt.pix_mp.pixelformat);
+@@ -335,9 +335,9 @@ int armcb_v4l2_stream_set_format(armcb_v4l2_stream_t *pstream,
+ 		return -EINVAL;
+ 	}
+ 
+-	LOG(LOG_INFO, "[Stream#%d] VIDIOC_S_FMT operation", pstream->stream_id);
++	LOG(LOG_DEBUG, "[Stream#%d] VIDIOC_S_FMT operation", pstream->stream_id);
+ 
+-	LOG(LOG_INFO,
++	LOG(LOG_DEBUG,
+ 	    "[Stream#%d]   - SET fmt - width: %4u, height: %4u, format: 0x%x.",
+ 	    pstream->stream_id, f->fmt.pix_mp.width, f->fmt.pix_mp.height,
+ 	    f->fmt.pix_mp.pixelformat);
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+index 9586e4fbf..620c9ecf0 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+@@ -47,8 +47,8 @@ static int armcb_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
+ 	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(vq);
+ 	struct v4l2_format vfmt;
+ 
+-	LOG(LOG_INFO, "Enter id:%d, cnt: %lu.", pstream->stream_id, cnt++);
+-	LOG(LOG_INFO, "vq: %p, *nplanes: %u.", vq, *nplanes);
++	LOG(LOG_DEBUG, "Enter id:%d, cnt: %lu.", pstream->stream_id, cnt++);
++	LOG(LOG_DEBUG, "vq: %p, *nplanes: %u.", vq, *nplanes);
+ 
+ 	// get current format
+ 	if (armcb_v4l2_stream_get_format(pstream, &vfmt) < 0) {
+@@ -161,7 +161,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
+ 	unsigned long flags;
+ 	unsigned int i;
+ 
+-	LOG(LOG_INFO, "function enter");
++	LOG(LOG_DEBUG, "function enter");
+ 	/* Return all driver-held buffers to vb2 so owned_by_drv_count becomes 0.
+ 	 * Otherwise __vb2_queue_cancel() triggers WARN_ON(owned_by_drv_count). */
+ 	spin_lock_irqsave(&pstream->slock, flags);
+@@ -191,7 +191,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
+ 	}
+ 
+ 	pstream->stream_started = 0;
+-	LOG(LOG_INFO, "function exit");
++	LOG(LOG_DEBUG, "function exit");
+ }
+ 
+ static struct vb2_ops armcb_vid_cap_qops = {
+@@ -258,7 +258,7 @@ int isp_vb2_queue_release(struct vb2_queue *q, struct file *file)
+ 			g_outport_map[i][j] = NULL;
+ 	}
+ 
+-	LOG(LOG_INFO, "#### Armcb isp release all resource and exit !!!");
++	LOG(LOG_DEBUG, "#### Armcb isp release all resource and exit !!!");
+ 
+ 	return ret;
+ }
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+index 869ee3ed5..bd39661cb 100644
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+@@ -128,7 +128,7 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 				     "failed to read camera module index\n");
+ 	}
+ 
+-	LOG(LOG_INFO, "motor id is %d", pmotor_sd->cam_id);
++	LOG(LOG_DEBUG, "motor id is %d", pmotor_sd->cam_id);
+ 
+ 	sd->internal_ops = &armcb_motor_sd_internal_ops;
+ 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+@@ -254,7 +254,7 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ 	mutex_init(&pmotor_sd->imutex);
+ 
+ #ifndef CIX_I2C_ACTUATOR
+-	dev_info(dev, "spi motor speed_hz(%d)", pspi_dev->max_speed_hz);
++	dev_dbg(dev, "spi motor speed_hz(%d)", pspi_dev->max_speed_hz);
+ #endif
+ 	res = armcb_motor_configure_subdevs(pmotor_sd);
+ 	if (res < 0) {
+@@ -266,11 +266,11 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ #ifdef CIX_I2C_ACTUATOR
+ 	i2c_set_clientdata(pcline_dev, (void *)pmotor_sd);
+ 
+-	LOG(LOG_INFO, "motor probe scuess , pcline_dev = %p ", pcline_dev);
++	LOG(LOG_DEBUG, "motor probe scuess , pcline_dev = %p ", pcline_dev);
+ #else
+ 	spi_set_drvdata(pspi_dev, pmotor_sd);
+ 
+-	LOG(LOG_INFO, "motor probe scuess , p_spi_dev = %p ", pspi_dev);
++	LOG(LOG_DEBUG, "motor probe scuess , p_spi_dev = %p ", pspi_dev);
+ #endif
+ 	return res;
+ 
+@@ -335,7 +335,7 @@ static int __init armcb_motor_subdev_init(void)
+ {
+ 	int res = 0;
+ 
+-	LOG(LOG_INFO, "+");
++	LOG(LOG_DEBUG, "+");
+ #ifdef CIX_I2C_ACTUATOR
+ 	res = i2c_add_driver(&armcb_motor_i2c_driver);
+ 	if (res)
+@@ -345,7 +345,7 @@ static int __init armcb_motor_subdev_init(void)
+ 	if (res)
+ 		LOG(LOG_ERR, "armcb_motor_spi_driver failed res:%d", res);
+ #endif
+-	LOG(LOG_INFO, "res:%d -", res);
++	LOG(LOG_DEBUG, "res:%d -", res);
+ 
+ 	return res;
+ }
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+index 2675e84a7..346ebbaff 100644
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -262,19 +262,19 @@ static int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
+ 			camera_common_powdn(pimgsens_sd);
+ 		break;
+ 	case IMGS_POWER_REST:
+-		LOG(LOG_INFO, "rst_gpio val is: %d\n",
++		LOG(LOG_DEBUG, "rst_gpio val is: %d\n",
+ 			cmd->settings.ahb_power->bit_mask);
+ 		gpiod_set_value_cansleep(pimgsens_sd->imgs_inst.rst_gpio,
+ 					 cmd->settings.ahb_power->bit_mask);
+ 		break;
+ 	case IMGS_POWER_PWDN:
+-		LOG(LOG_INFO, "pwn_gpio val is: %d",
++		LOG(LOG_DEBUG, "pwn_gpio val is: %d",
+ 			cmd->settings.ahb_power->bit_mask);
+ 		gpiod_set_value_cansleep(pimgsens_sd->imgs_inst.pwn_gpio,
+ 					 cmd->settings.ahb_power->bit_mask);
+ 		break;
+ 	case IMGS_POWER_MCLK:
+-		LOG(LOG_INFO, "MCLK val is: %d\n",
++		LOG(LOG_DEBUG, "MCLK val is: %d\n",
+ 			cmd->settings.ahb_power->bit_mask);
+ 		if (cmd->settings.ahb_power->bit_mask)
+ 			ret = clk_prepare_enable(pimgsens_sd->imgs_inst.mclk);
+@@ -416,7 +416,7 @@ static int imgsens_probe(struct platform_device *pdev)
+ 	u32 cam_id = 0;
+ 	struct device_node *node = &pdeb->dev->of_node;
+ 
+-	LOG(LOG_INFO, "+");
++	LOG(LOG_DEBUG, "+");
+ 	res = of_property_read_u32(node, CIX_CAMERA_MODULE_INDEX, &cam_id);
+ 	adev = armcb_register_instance(NULL, &pdev->dev, cam_id);
+ 	if (adev == NULL) {
+@@ -424,7 +424,7 @@ static int imgsens_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	LOG(LOG_INFO, "-");
++	LOG(LOG_DEBUG, "-");
+ 
+ 	return 0;
+ }
+@@ -448,13 +448,13 @@ static int imgsens_probe(struct i2c_client *client)
+ 	bool notifier_registered = false;
+ 	bool subdev_registered = false;
+ 
+-	LOG(LOG_INFO, "+");
++	LOG(LOG_DEBUG, "+");
+ 
+ 	if (!client) {
+ 		LOG(LOG_ERR, "armcb imgsens client is NULL");
+ 		return -EINVAL;
+ 	} else {
+-		LOG(LOG_INFO, "imgsens   client(%p)", client);
++		LOG(LOG_DEBUG, "imgsens   client(%p)", client);
+ 	}
+ 
+ 	dev = &client->dev;
+@@ -477,7 +477,7 @@ static int imgsens_probe(struct i2c_client *client)
+ 		return -ENOMEM;
+ 	}
+ 
+-	LOG(LOG_INFO, "start configure notifier.");
++	LOG(LOG_DEBUG, "start configure notifier.");
+ #if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+ 	adev->dts_notifier.bound = armcb_camera_async_bound;
+ 	adev->dts_notifier.complete = armcb_camera_async_complete;
+@@ -608,7 +608,7 @@ static int imgsens_probe(struct i2c_client *client)
+ 	if (!pimgsens_sd->imgs_inst.mclk)
+ 		dev_dbg(dev, "optional camera mclk not described\n");
+ 
+-	LOG(LOG_INFO, "scuess - ");
++	LOG(LOG_DEBUG, "scuess - ");
+ 	return res;
+ 
+ EXIT_RET:
+@@ -622,7 +622,7 @@ EXIT_RET:
+ 	if (adev)
+ 		armcb_unregister_instance(cam_id);
+ 	kfree(pimgsens_sd);
+-	LOG(LOG_INFO, "failed - ");
++	LOG(LOG_DEBUG, "failed - ");
+ 	return res;
+ }
+ 
+@@ -636,7 +636,7 @@ static void imgsens_remove(struct i2c_client *client)
+ 				regulator_disable(pimgsens_sd->vsupply_0);
+ 			if (pimgsens_sd->vsupply_1)
+ 				regulator_disable(pimgsens_sd->vsupply_1);
+-			LOG(LOG_INFO, "disable camera power");
++			LOG(LOG_DEBUG, "disable camera power");
+ 			pimgsens_sd->power_on = FALSE;
+ 		}
+ 
+

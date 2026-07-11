@@ -1,0 +1,101 @@
+diff --git a/drivers/clk/cix/clk-sky1-audss.c b/drivers/clk/cix/clk-sky1-audss.c
+--- a/drivers/clk/cix/clk-sky1-audss.c
++++ b/drivers/clk/cix/clk-sky1-audss.c
+@@ -1052,9 +1052,15 @@ static int sky1_audss_clks_get(struct sky1_audss_clks_priv *priv)
+ 
+ 	for (i = 0; i < devtype_data->clk_num; i++) {
+ 		priv->clks[i] = devm_clk_get(priv->dev, devtype_data->clk_names[i]);
+-		if (IS_ERR(priv->clks[i]))
+-			return dev_err_probe(priv->dev, PTR_ERR(priv->clks[i]),
++		if (IS_ERR(priv->clks[i])) {
++			int ret = PTR_ERR(priv->clks[i]);
++
++			if (ret == -ENOENT && has_acpi_companion(priv->dev))
++				ret = -EPROBE_DEFER;
++
++			return dev_err_probe(priv->dev, ret,
+ 					     "failed to get clock %s", devtype_data->clk_names[i]);
++		}
+ 	}
+ 
+ 	return 0;
+@@ -1288,9 +1294,10 @@ static int sky1_audss_clk_probe(struct platform_device *pdev)
+ 		clk_hw_unregister_composite(clk_table[devtype_data->clk_cfg[i].id]);
+ fail_fixed_clk:
+ fail_clks_set:
+-	pm_runtime_put_sync(dev);
+ err_pm:
+ 	pm_runtime_disable(dev);
++	pm_runtime_set_suspended(dev);
++	pm_runtime_put_noidle(dev);
+ 	return ret;
+ }
+ 
+diff --git a/sound/soc/cix/cdns_i2s_mc.c b/sound/soc/cix/cdns_i2s_mc.c
+--- a/sound/soc/cix/cdns_i2s_mc.c
++++ b/sound/soc/cix/cdns_i2s_mc.c
+@@ -946,14 +946,22 @@ static int cdns_i2s_mc_probe(struct platform_device *pdev)
+ 
+ 	i2s_mc_priv->clk_hst = devm_clk_get(&pdev->dev, "hst");
+ 	if (IS_ERR(i2s_mc_priv->clk_hst)) {
+-		dev_err(&pdev->dev, "Failed to get clk_hst clock\n");
+-		return PTR_ERR(i2s_mc_priv->clk_hst);
++		ret = PTR_ERR(i2s_mc_priv->clk_hst);
++		if (ret == -ENOENT && has_acpi_companion(&pdev->dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
++				     "Failed to get clk_hst clock\n");
+ 	}
+ 
+ 	i2s_mc_priv->clk_i2s = devm_clk_get(&pdev->dev, "i2s");
+ 	if (IS_ERR(i2s_mc_priv->clk_i2s)) {
+-		dev_err(&pdev->dev, "Failed to get clk_i2s clock\n");
+-		return PTR_ERR(i2s_mc_priv->clk_i2s);
++		ret = PTR_ERR(i2s_mc_priv->clk_i2s);
++		if (ret == -ENOENT && has_acpi_companion(&pdev->dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
++				     "Failed to get clk_i2s clock\n");
+ 	}
+ 
+ 	for (i = 0; i < AUDIO_CLK_NUM; i++) {
+diff --git a/sound/soc/cix/cdns_i2s_sc.c b/sound/soc/cix/cdns_i2s_sc.c
+--- a/sound/soc/cix/cdns_i2s_sc.c
++++ b/sound/soc/cix/cdns_i2s_sc.c
+@@ -2,6 +2,7 @@
+ // Copyright 2024 Cix Technology Group Co., Ltd.
+ 
+ 
++#include <linux/acpi.h>
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/module.h>
+@@ -998,14 +999,22 @@ static int cdns_i2s_sc_probe(struct platform_device *pdev)
+ 
+ 	i2s_sc_priv->clk_hst = devm_clk_get(&pdev->dev, "hst");
+ 	if (IS_ERR(i2s_sc_priv->clk_hst)) {
+-		dev_err(&pdev->dev, "Failed to get clk_hst clock\n");
+-		return PTR_ERR(i2s_sc_priv->clk_hst);
++		ret = PTR_ERR(i2s_sc_priv->clk_hst);
++		if (ret == -ENOENT && has_acpi_companion(&pdev->dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
++				     "Failed to get clk_hst clock\n");
+ 	}
+ 
+ 	i2s_sc_priv->clk_i2s = devm_clk_get(&pdev->dev, "i2s");
+ 	if (IS_ERR(i2s_sc_priv->clk_i2s)) {
+-		dev_err(&pdev->dev, "Failed to get clk_i2s clock\n");
+-		return PTR_ERR(i2s_sc_priv->clk_i2s);
++		ret = PTR_ERR(i2s_sc_priv->clk_i2s);
++		if (ret == -ENOENT && has_acpi_companion(&pdev->dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
++				     "Failed to get clk_i2s clock\n");
+ 	}
+ 
+ 	for (i = 0; i < AUDIO_CLK_NUM; i++) {

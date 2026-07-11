@@ -1,16 +1,18 @@
 /*
  * Radxa Orion O6 / CIX Sky1 replacement PPTT for Linux ACPI table upgrade.
  * Cache data comes from CLIDR_EL1/CCSIDR_EL1 with FEAT_CCIDX decoding.
+ * The shared 12 MiB cache has an explicit revision-3 Cache ID so Linux can
+ * group CPUs that see it at the same architectural cache level.
  */
 [0004]                          Signature : "PPTT" [Processor Properties Topology Table]
 [0004]                       Table Length : 00000588
 [0001]                           Revision : 03
-[0001]                           Checksum : 2F
+[0001]                           Checksum : C9
 [0006]                             Oem ID : "CIXTEK"
 [0008]                       Oem Table ID : "SKY1EDK2"
-[0004]                       Oem Revision : 01000102
+[0004]                       Oem Revision : 01000103
 [0004]                    Asl Compiler ID : "INTL"
-[0004]              Asl Compiler Revision : 20200925
+[0004]              Asl Compiler Revision : 20260408
 
 
 /* socket: offset 0x0024 */
@@ -293,7 +295,7 @@
 [0001]                      Subtable Type : 01 [Cache Type]
 [0001]                             Length : 1C
 [0002]                           Reserved : 0000
-[0004]              Flags (decoded below) : 0000007F
+[0004]              Flags (decoded below) : 000000FF
                                Size valid : 1
                      Number of Sets valid : 1
                       Associativity valid : 1
@@ -301,7 +303,7 @@
                          Cache Type valid : 1
                        Write Policy valid : 1
                           Line Size valid : 1
-                           Cache ID valid : 0
+                           Cache ID valid : 1
 [0004]                Next Level of Cache : 00000000
 [0004]                               Size : 00C00000
 [0004]                     Number of Sets : 00004000
@@ -311,7 +313,7 @@
                                Cache Type : 2
                              Write Policy : 0
 [0002]                          Line Size : 0040
-[0004]                           Cache ID : 00000000
+[0004]                           Cache ID : 00000001
 
 /* cpu0_l2: offset 0x0208 */
 [0001]                      Subtable Type : 01 [Cache Type]

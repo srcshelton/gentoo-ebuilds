@@ -220,7 +220,6 @@ jobs:
           disable_third_party_apt_sources
           apt_get_update
           apt_get_install \
-            acpica-tools \
             bc \
             bison \
             build-essential \
@@ -250,277 +249,103 @@ jobs:
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
 
+      - name: Install current ACPICA iasl
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          acpica_url=
+          acpica_archive=
+          if curl -fL --retry 5 --retry-connrefused --connect-timeout 30 \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            --output "${RUNNER_TEMP}/acpica-latest-release.json" \
+            "${GITHUB_API_URL:-https://api.github.com}/repos/acpica/acpica/releases/latest"; then
+            if ! read -r acpica_url acpica_archive < <(
+              python3 - "${RUNNER_TEMP}/acpica-latest-release.json" <<'PY'
+          import json
+          import re
+          import sys
+
+          try:
+              with open(sys.argv[1], encoding="utf-8") as release_file:
+                  release = json.load(release_file)
+          except (OSError, json.JSONDecodeError):
+              raise SystemExit(1)
+
+          for asset in release.get("assets", []):
+              if re.fullmatch(r"acpica-unix-\d{8}\.tar\.gz", asset.get("name", "")):
+                  print(asset["browser_download_url"], asset["name"])
+                  break
+          else:
+              raise SystemExit(1)
+          PY
+            ); then
+              echo "::warning::Latest ACPICA release metadata did not include an acpica-unix source asset; using fallback release"
+            fi
+          else
+            echo "::warning::Unable to query latest ACPICA release; using fallback release"
+          fi
+
+          if [[ -z "${acpica_url}" || -z "${acpica_archive}" ]]; then
+            acpica_url="https://github.com/acpica/acpica/releases/download/20260408/acpica-unix-20260408.tar.gz"
+            acpica_archive="${acpica_url##*/}"
+          fi
+          acpica_version="${acpica_archive#acpica-unix-}"
+          acpica_version="${acpica_version%.tar.gz}"
+
+          echo "Building ACPICA iasl ${acpica_version}"
+          curl -fL --retry 5 --retry-connrefused --connect-timeout 30 \
+            --output "${RUNNER_TEMP}/${acpica_archive}" \
+            "${acpica_url}"
+
+          mkdir -p "${RUNNER_TEMP}/acpica-${acpica_version}"
+          tar -xf "${RUNNER_TEMP}/${acpica_archive}" \
+            -C "${RUNNER_TEMP}/acpica-${acpica_version}" \
+            --strip-components=1
+          make -C "${RUNNER_TEMP}/acpica-${acpica_version}" iasl
+          sudo install -m 0755 \
+            "${RUNNER_TEMP}/acpica-${acpica_version}/generate/unix/bin/iasl" \
+            /usr/local/bin/iasl
+          iasl -v
+
       - name: Prepare patched kernel source from ebuild
         id: prepare
         shell: bash
         run: |
           set -euo pipefail
 
-          repo="${GITHUB_WORKSPACE}"
-          manifest="${repo}/sys-kernel/cix-sources/Manifest"
           work_root="${RUNNER_TEMP}/cix-kernel-${KERNEL_VERSION}-${BOARD_PACKAGE}"
-          distdir="${work_root}/distfiles"
-          source_parent="${work_root}/source"
-          source_dir="${source_parent}/linux-${KERNEL_LINE}"
-          workdir="${work_root}/work"
-          tempdir="${work_root}/tmp"
+          source_dir="${work_root}/source/linux-${KERNEL_LINE}"
           build_dir="${work_root}/build"
 
           rm -rf "${work_root}"
-          mkdir -p "${distdir}" "${source_parent}" "${workdir}" "${tempdir}" "${build_dir}"
+          mkdir -p "${build_dir}"
 
-          manifest_field() {
-            local name=$1
-            local field=$2
-            awk -v name="${name}" -v field="${field}" '
-              $1 == "DIST" && $2 == name {
-                for (i = 1; i <= NF; i++) {
-                  if ($i == field) {
-                    print $(i + 1)
-                    exit
-                  }
-                }
-              }
-            ' "${manifest}"
-          }
-
-          verify_manifest_dist() {
-            local name=$1
-            local path="${distdir}/${name}"
-            local sha512
-            local blake2b
-
-            sha512="$(manifest_field "${name}" SHA512 || true)"
-            blake2b="$(manifest_field "${name}" BLAKE2B || true)"
-
-            if [[ -n "${sha512}" ]]; then
-              printf '%s  %s\n' "${sha512}" "${path}" | sha512sum -c -
-            fi
-            if [[ -n "${blake2b}" ]] && command -v b2sum >/dev/null 2>&1; then
-              printf '%s  %s\n' "${blake2b}" "${path}" | b2sum -c -
-            fi
-          }
-
-          fetch_url() {
-            local name=$1
-            shift
-            local url
-            local tmp="${distdir}/${name}.tmp"
-
-            if [[ -s "${distdir}/${name}" ]]; then
-              return
-            fi
-
-            for url in "$@"; do
-              echo "Fetching ${name} from ${url}"
-              if curl -fL --retry 5 --retry-connrefused --connect-timeout 30 --output "${tmp}" "${url}"; then
-                mv "${tmp}" "${distdir}/${name}"
-                verify_manifest_dist "${name}"
-                return
-              fi
-              rm -f "${tmp}"
-            done
-
-            echo "Unable to fetch ${name}" >&2
-            return 1
-          }
-
-          fetch_gentoo_distfile() {
-            local name=$1
-            local blake2b
-            local prefix
-            local urls=()
-
-            blake2b="$(manifest_field "${name}" BLAKE2B || true)"
-            urls+=(
-              "https://dev.gentoo.org/~mpagano/dist/genpatches/${name}"
-              "https://dev.gentoo.org/~alicef/dist/genpatches/${name}"
-            )
-            if [[ -n "${blake2b}" ]]; then
-              prefix="${blake2b:0:2}"
-              urls+=(
-                "https://distfiles.gentoo.org/distfiles/${prefix}/${name}"
-                "https://gentoo.osuosl.org/distfiles/${prefix}/${name}"
-              )
-            fi
-
-            fetch_url "${name}" "${urls[@]}"
-          }
-
-          apply_patch_file() {
-            local patch_file=$1
-            echo "Applying ${patch_file#${repo}/}"
-            patch --batch --forward --no-backup-if-mismatch -p1 -i "${patch_file}"
-          }
-
-          apply_patch_archive() {
-            local archive=$1
-            local archive_tmp
-            archive_tmp="$(mktemp -d "${tempdir}/genpatches.XXXXXX")"
-            tar -xf "${archive}" -C "${archive_tmp}"
-            while IFS= read -r patch_file; do
-              apply_patch_file "${patch_file}"
-            done < <(find "${archive_tmp}" -type f \( -name '*.patch' -o -name '*.diff' \) | sort -V)
-            rm -rf "${archive_tmp}"
-          }
-
-          die() {
-            echo "die: $*" >&2
-            exit 1
-          }
-          eapply() {
-            local patch_file
-            for patch_file in "$@"; do
-              apply_patch_file "${patch_file}"
-            done
-          }
-          eapply_user() { :; }
-          kernel-2_src_prepare() { eapply_user; }
-          kernel-2_pkg_setup() { :; }
-          kernel-2_src_install() { :; }
-          kernel-2_pkg_postinst() { :; }
-          kernel-2_pkg_postrm() { :; }
-          inherit() { :; }
-          detect_version() { :; }
-          detect_arch() { :; }
-          use() {
-            case "$1" in
-              acpi-table-upgrade|acpi-table-upgrade-dsdt|acpi-table-upgrade-iort-httu|acpi-table-upgrade-iort-msi)
-                [[ "${BOARD_PROFILE}" == "o6-acpi" || "${BOARD_PROFILE}" == "o6n-acpi" ]]
-                return
-                ;;
-              radxa-menu)
-                return 0
-                ;;
-              *)
-                return 1
-                ;;
-            esac
-          }
-          ewarn() { printf 'warning: %s\n' "$*"; }
-          elog() { printf 'info: %s\n' "$*"; }
-          einfo() { printf 'info: %s\n' "$*"; }
-          unpack() {
-            local archive
-            local archive_path
-            for archive in "$@"; do
-              archive_path="${archive}"
-              [[ -f "${archive_path}" ]] || archive_path="${DISTDIR}/${archive}"
-              [[ -f "${archive_path}" ]] || die "missing archive ${archive}"
-              tar -xf "${archive_path}" -C "${PWD}"
-            done
-          }
-
-          export PN="cix-sources"
-          export PV="${KERNEL_PV}"
-          export PR="${KERNEL_PR}"
-          export P="${PN}-${PV}"
-          export FILESDIR="${repo}/sys-kernel/cix-sources/files"
-          export WORKDIR="${workdir}"
-          export DISTDIR="${distdir}"
-          export T="${tempdir}"
-          export S="${source_dir}"
-          export KV_MAJOR="${KERNEL_LINE%%.*}"
-          export KV_MINOR="${KERNEL_LINE#*.}"
-          export KV_PATCH="${KERNEL_PV##*.}"
-          export CKV="${KERNEL_PV}"
-          export OKV="${KERNEL_LINE}"
-          export KV_FULL="${KERNEL_PV}"
-          export KERNEL_URI=""
-          export GENPATCHES_URI=""
-          export ARCH_URI=""
-
-          # shellcheck source=/dev/null
-          source "${repo}/${KERNEL_EBUILD}"
-
-          kernel_archive="linux-${KERNEL_LINE}.tar.xz"
-          fetch_url "${kernel_archive}" \
-            "https://cdn.kernel.org/pub/linux/kernel/v${KV_MAJOR}.x/${kernel_archive}"
-
-          for genpatch_kind in base extras; do
-            genpatch_archive="genpatches-${KERNEL_LINE}-${K_GENPATCHES_VER}.${genpatch_kind}.tar.xz"
-            fetch_gentoo_distfile "${genpatch_archive}"
-          done
-
-          if [[ -n "${EGIT_CIX_COMMIT:-}" ]]; then
-            cix_short="${EGIT_CIX_COMMIT:0:7}"
-            cix_archive="${PN}-cix-${cix_short}.tar.gz"
-            fetch_url "${cix_archive}" \
-              "https://github.com/cixtech/cix-linux-main/archive/${EGIT_CIX_COMMIT}.tar.gz"
-            for alias in "${P}-cix-${cix_short}.tar.gz"; do
-              [[ "${alias}" == "${cix_archive}" || -e "${distdir}/${alias}" ]] || cp "${distdir}/${cix_archive}" "${distdir}/${alias}"
-            done
-          fi
-
-          if [[ -n "${EGIT_SKY1_COMMIT:-}" ]]; then
-            sky1_short="${EGIT_SKY1_COMMIT:0:7}"
-            if grep -q "^DIST ${PN}-sky1-${sky1_short}.tar.gz " "${manifest}"; then
-              sky1_archive="${PN}-sky1-${sky1_short}.tar.gz"
-            else
-              sky1_archive="${PN}-${sky1_short}.tar.gz"
-            fi
-            fetch_url "${sky1_archive}" \
-              "https://github.com/Sky1-Linux/linux-sky1/archive/${EGIT_SKY1_COMMIT}.tar.gz"
-            for alias in \
-              "${PN}-${sky1_short}.tar.gz" \
-              "${P}-${sky1_short}.tar.gz" \
-              "${PN}-sky1-${sky1_short}.tar.gz" \
-              "${P}-sky1-${sky1_short}.tar.gz"; do
-              [[ "${alias}" == "${sky1_archive}" || -e "${distdir}/${alias}" ]] || cp "${distdir}/${sky1_archive}" "${distdir}/${alias}"
-            done
-          fi
-
-          tar -xf "${distdir}/${kernel_archive}" -C "${source_parent}"
-          cd "${source_dir}"
-
-          for genpatch_kind in base extras; do
-            genpatch_archive="genpatches-${KERNEL_LINE}-${K_GENPATCHES_VER}.${genpatch_kind}.tar.xz"
-            apply_patch_archive "${distdir}/${genpatch_archive}"
-          done
-
-          src_prepare
+          sys-kernel/cix-sources/files/create-patched-kernel.sh \
+            --force \
+            --compile-acpi-tables \
+            --acpi-table-profile dsdt \
+            --board-profile "${BOARD_PROFILE}" \
+            --work-dir "${work_root}/prepare" \
+            --distdir "${work_root}/distfiles" \
+            "${KERNEL_EBUILD}" \
+            "${source_dir}"
 
           acpi_table_upgrade_initramfs_source=""
           if [[ "${BOARD_PROFILE}" == "o6-acpi" || "${BOARD_PROFILE}" == "o6n-acpi" ]]; then
-            src_compile
-            mkdir -p "${source_dir}/cix-acpi-table-upgrade"
-            cp -a "${tempdir}/cix-acpi-table-upgrade"/. \
-              "${source_dir}/cix-acpi-table-upgrade/"
-
-            for board in o6 o6n ''; do
-              for profile in initramfs initramfs-dsdt; do
-                if [[ -n "${board}" ]]; then
-                  profile_dir="${source_dir}/cix-acpi-table-upgrade/${board}/${profile}/kernel/firmware/acpi"
-                  list_file="${source_dir}/cix-acpi-table-upgrade/${board}/${profile}.list"
-                else
-                  profile_dir="${source_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
-                  list_file="${source_dir}/cix-acpi-table-upgrade/${profile}.list"
-                fi
-                [[ -d "${profile_dir}" ]] || continue
-
-                {
-                  echo 'dir /dev 0755 0 0'
-                  echo 'nod /dev/console 0600 0 0 c 5 1'
-                  echo 'dir /root 0700 0 0'
-                  echo 'dir /kernel 0755 0 0'
-                  echo 'dir /kernel/firmware 0755 0 0'
-                  echo 'dir /kernel/firmware/acpi 0755 0 0'
-
-                  for file in "${profile_dir}"/*.aml; do
-                    [[ -e "${file}" ]] || die "no AML files found in ${profile_dir}"
-                    printf 'file /kernel/firmware/acpi/%s %s 0644 0 0\n' \
-                      "$(basename "${file}")" \
-                      "${file}"
-                  done
-                } > "${list_file}"
-              done
-            done
-
             board="${BOARD_PROFILE%%-*}"
             acpi_table_upgrade_initramfs_source="${source_dir}/cix-acpi-table-upgrade/${board}/initramfs-dsdt.list"
+            acpi_table_upgrade_dir="${source_dir}/cix-acpi-table-upgrade/${board}/initramfs-dsdt/kernel/firmware/acpi"
+
+            test -s "${acpi_table_upgrade_initramfs_source}"
+            test -n "$(find "${acpi_table_upgrade_dir}" -maxdepth 1 -type f -name '*.aml' -print -quit)"
           fi
 
-          rm -rf "${distdir}" "${workdir}" "${tempdir}"
+          rm -rf "${work_root}/distfiles" "${work_root}/prepare"
 
           {
             echo "work_root=${work_root}"

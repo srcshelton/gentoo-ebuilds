@@ -283,6 +283,7 @@ PROFILE_INTERFACE_SYMBOLS = {
     "o6n-dt": "CIX_RADXA_ORION_DT",
 }
 DRIVER_PREFERENCE_CHOICES = ("module", "builtin")
+NPU_ABI_CHOICES = ("r2p0", "r2p2")
 KERNEL_VERSION_CHOICES = ("6.18", "6.19", "7.0", "7.1")
 
 SUPPORTED_COMMON = (
@@ -340,6 +341,7 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     ("CIX_CPU_IPA", "prefer"),
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
+    ("ARMCHINA_NPU_ARCH_V3_2", "always"),
     ("ARMCHINA_NPU_SOC_SKY1", "always"),
     ("VIDEO_CIX_ARMCB_ISP", "prefer"),
     ("DRM_PANTHOR", "prefer"),
@@ -402,6 +404,7 @@ SUPPORTED_VENDOR_DT_COMMON = (
     ("CIX_CPU_IPA", "prefer"),
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
+    ("ARMCHINA_NPU_ARCH_V3_2", "always"),
     ("ARMCHINA_NPU_SOC_SKY1", "always"),
     ("VIDEO_CIX_ARMCB_ISP", "prefer"),
     ("DRM_PANTHOR", "prefer"),
@@ -668,6 +671,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     config_modes.add_argument(
+        "--npu-abi",
+        choices=NPU_ABI_CHOICES,
+        help=option_help(
+            "Select the userspace ABI expected from the ArmChina NPU source "
+            "tree. The helper verifies the source ABI and refuses to generate "
+            "a configuration for a mismatched driver.",
+            "r2p0",
+        ),
+    )
+    config_modes.add_argument(
         "--acpi-table-upgrade",
         choices=ACPI_TABLE_UPGRADE_CHOICES,
         help=option_help(
@@ -743,6 +756,9 @@ def parse_args() -> argparse.Namespace:
         if args.with_tpm:
             warn_ignored(parser, "'--with-tpm' ignored in 'patch' mode")
             args.with_tpm = False
+        if args.npu_abi is not None:
+            warn_ignored(parser, "'--npu-abi' ignored in 'patch' mode")
+            args.npu_abi = None
         if args.acpi_table_upgrade is not None:
             warn_ignored(parser, "'--acpi-table-upgrade' ignored in 'patch' mode")
             args.acpi_table_upgrade = None
@@ -773,6 +789,8 @@ def parse_args() -> argparse.Namespace:
             )
         if args.with_tpm and not args.prune:
             parser.error("'--with-tpm' requires '--prune'")
+        if args.npu_abi is None:
+            args.npu_abi = "r2p0"
         if args.acpi_table_upgrade is not None and not args.board_profile.endswith("-acpi"):
             parser.error("'--acpi-table-upgrade' requires an ACPI board profile")
         if args.acpi_table_upgrade is None:
@@ -870,6 +888,43 @@ def scan_kconfig_symbols(tree: Path) -> set[str]:
             if match:
                 present.add(match.group(1))
     return present
+
+
+def detect_npu_abi(tree: Path) -> str | None:
+    header = tree / "drivers/misc/armchina-npu/include/armchina_aipu.h"
+    if not header.is_file():
+        return None
+
+    text = header.read_text(encoding="utf-8", errors="ignore")
+    r2p2_markers = (
+        "AIPU_ISA_VERSION_ZHOUYI_V3_2_0",
+        "AIPU_ISA_VERSION_ZHOUYI_V3_2_1",
+    )
+    marker_count = sum(marker in text for marker in r2p2_markers)
+    if marker_count:
+        if marker_count != len(r2p2_markers):
+            raise SystemExit(
+                f"error: incomplete R2P2 NPU ABI markers in {header}"
+            )
+        return "r2p2"
+
+    if re.search(r"\bAIPU_ISA_VERSION_ZHOUYI_V3_2\b", text):
+        return "r2p0"
+
+    raise SystemExit(f"error: unable to identify the ArmChina NPU ABI in {header}")
+
+
+def validate_npu_abi(tree: Path, requested: str) -> str | None:
+    detected = detect_npu_abi(tree)
+    if detected is None or detected == requested:
+        return detected
+
+    use_action = "enable" if requested == "r2p2" else "disable"
+    raise SystemExit(
+        f"error: requested NPU ABI {requested}, but {tree} contains {detected}; "
+        f"{use_action} USE=npu-r2p2-abi when reinstalling cix-sources-7.1.3, or "
+        f"pass --npu-abi {detected} if that source ABI is intentional"
+    )
 
 
 def scan_kconfig_types(tree: Path) -> dict[str, str]:
@@ -1577,6 +1632,7 @@ def render_config_fragment(
     acpi_table_upgrade_initramfs_source: str | None,
     rewrite_existing_driver_states: bool,
     enable_kernel_memory_debug: bool,
+    npu_abi: str,
 ) -> str:
     updates, prune_source = build_config_updates(
         kernel_tree=kernel_tree,
@@ -1594,6 +1650,7 @@ def render_config_fragment(
     fragment_lines = [
         f"# Generated CIX/Radxa Orion config fragment for {profile}",
         f"# tristate driver preference: {driver_preference}",
+        f"# NPU userspace ABI: {npu_abi}",
         f"# ACPI table-upgrade mode: {acpi_table_upgrade or 'disabled'}",
         f"# kernel memory debug profile: {'enabled' if enable_kernel_memory_debug else 'disabled'}",
     ]
@@ -1697,6 +1754,8 @@ def main() -> int:
     include_vendor = resolve_vendor_mode(kernel_tree, args.cix_patches)
     available_symbols = scan_kconfig_symbols(kernel_tree)
     target_config = args.target_config.resolve() if args.target_config else None
+    if args.mode in ("fragment", "update"):
+        validate_npu_abi(kernel_tree, args.npu_abi)
 
     if args.mode == "fragment":
         fragment = render_config_fragment(
@@ -1711,6 +1770,7 @@ def main() -> int:
             acpi_table_upgrade_initramfs_source=args.acpi_table_upgrade_initramfs_source,
             rewrite_existing_driver_states=args.rewrite_existing_driver_states,
             enable_kernel_memory_debug=args.enable_kernel_memory_debug,
+            npu_abi=args.npu_abi,
         )
         sys.stdout.write(fragment)
         return 0

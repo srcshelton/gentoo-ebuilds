@@ -1,0 +1,245 @@
+diff --git a/drivers/i2c/busses/i2c-cadence.c b/drivers/i2c/busses/i2c-cadence.c
+--- a/drivers/i2c/busses/i2c-cadence.c
++++ b/drivers/i2c/busses/i2c-cadence.c
+@@ -1551,9 +1551,15 @@ static int cdns_i2c_probe(struct platform_device *pdev)
+ 		 "Cadence I2C at %08lx", (unsigned long)r_mem->start);
+ 
+ 	id->clk = devm_clk_get_enabled(&pdev->dev, NULL);
+-	if (IS_ERR(id->clk))
+-		return dev_err_probe(&pdev->dev, PTR_ERR(id->clk),
++	if (IS_ERR(id->clk)) {
++		ret = PTR_ERR(id->clk);
++		if (ret == -ENOENT &&
++		    acpi_dev_hid_uid_match(ACPI_COMPANION(&pdev->dev), "CIXH200B", NULL))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
+ 				     "input clock not found.\n");
++	}
+ 
+ 	id->reset = devm_reset_control_get_optional_shared(&pdev->dev, NULL);
+ 	if (IS_ERR(id->reset))
+diff --git a/drivers/i3c/master/i3c-master-cdns.c b/drivers/i3c/master/i3c-master-cdns.c
+--- a/drivers/i3c/master/i3c-master-cdns.c
++++ b/drivers/i3c/master/i3c-master-cdns.c
+@@ -5,6 +5,7 @@
+  * Author: Boris Brezillon <boris.brezillon@bootlin.com>
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/bitops.h>
+ #include <linux/clk.h>
+ #include <linux/err.h>
+@@ -19,6 +20,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/property.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
+ #include <linux/workqueue.h>
+@@ -1547,6 +1549,14 @@ static const struct of_device_id cdns_i3c_master_of_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(of, cdns_i3c_master_of_ids);
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id cdns_i3c_master_acpi_ids[] = {
++	{ "CIXH200C", (kernel_ulong_t)&cdns_i3c_devdata },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cdns_i3c_master_acpi_ids);
++#endif
++
+ static int cdns_i3c_master_probe(struct platform_device *pdev)
+ {
+ 	struct cdns_i3c_master *master;
+@@ -1558,7 +1568,7 @@ static int cdns_i3c_master_probe(struct platform_device *pdev)
+ 	if (!master)
+ 		return -ENOMEM;
+ 
+-	master->devdata = of_device_get_match_data(&pdev->dev);
++	master->devdata = device_get_match_data(&pdev->dev);
+ 	if (!master->devdata)
+ 		return -EINVAL;
+ 
+@@ -1637,6 +1647,7 @@ static struct platform_driver cdns_i3c_master = {
+ 	.driver = {
+ 		.name = "cdns-i3c-master",
+ 		.of_match_table = cdns_i3c_master_of_ids,
++		.acpi_match_table = ACPI_PTR(cdns_i3c_master_acpi_ids),
+ 	},
+ };
+ module_platform_driver(cdns_i3c_master);
+diff --git a/drivers/pwm/pwm-sky1.c b/drivers/pwm/pwm-sky1.c
+--- a/drivers/pwm/pwm-sky1.c
++++ b/drivers/pwm/pwm-sky1.c
+@@ -196,14 +196,24 @@ static int pwm_sky1_probe(struct platform_device *pdev)
+ 	sky1 = to_pwm_sky1_chip(chip);
+ 
+ 	sky1->pclk = devm_clk_get(dev, "fch_pwm_apb_clk");
+-	if (IS_ERR(sky1->pclk))
+-		return dev_err_probe(dev, PTR_ERR(sky1->pclk),
++	if (IS_ERR(sky1->pclk)) {
++		ret = PTR_ERR(sky1->pclk);
++		if (ret == -ENOENT && has_acpi_companion(dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(dev, ret,
+ 				     "failed to get apb clock\n");
++	}
+ 
+ 	sky1->tclk = devm_clk_get(dev, "fch_pwm_func_clk");
+-	if (IS_ERR(sky1->tclk))
+-		return dev_err_probe(dev, PTR_ERR(sky1->tclk),
++	if (IS_ERR(sky1->tclk)) {
++		ret = PTR_ERR(sky1->tclk);
++		if (ret == -ENOENT && has_acpi_companion(dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(dev, ret,
+ 				     "failed to get func clock\n");
++	}
+ 
+ 	sky1->func_reset = devm_reset_control_get_optional_shared(dev, "func_reset");
+ 	if (IS_ERR(sky1->func_reset))
+diff --git a/drivers/spi/spi-cadence-quadspi.c b/drivers/spi/spi-cadence-quadspi.c
+--- a/drivers/spi/spi-cadence-quadspi.c
++++ b/drivers/spi/spi-cadence-quadspi.c
+@@ -6,6 +6,7 @@
+ // Copyright Intel Corporation (C) 2019-2020. All rights reserved.
+ // Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com
+ 
++#include <linux/acpi.h>
+ #include <linux/clk.h>
+ #include <linux/completion.h>
+ #include <linux/delay.h>
+@@ -24,6 +25,7 @@
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/reset.h>
+ #include <linux/sched.h>
+ #include <linux/spi/spi.h>
+@@ -49,6 +51,7 @@ static_assert(CQSPI_MAX_CHIPSELECT <= SPI_DEVICE_CS_CNT_MAX);
+ #define CQSPI_DISABLE_RUNTIME_PM	BIT(10)
+ #define CQSPI_NO_INDIRECT_MODE		BIT(11)
+ #define CQSPI_HAS_WR_PROTECT		BIT(12)
++#define CQSPI_CIX_SKY1_NAMED_CLKS	BIT(13)
+ 
+ /* Capabilities */
+ #define CQSPI_SUPPORTS_OCTAL		BIT(0)
+@@ -1808,7 +1811,7 @@ static int cqspi_probe(struct platform_device *pdev)
+ 
+ 	cqspi->pdev = pdev;
+ 	cqspi->host = host;
+-	cqspi->ddata = ddata = of_device_get_match_data(dev);
++	cqspi->ddata = ddata = device_get_match_data(dev);
+ 	platform_set_drvdata(pdev, cqspi);
+ 
+ 	/* Obtain configuration from OF. */
+@@ -1826,9 +1829,21 @@ static int cqspi_probe(struct platform_device *pdev)
+ 
+ 	/* Obtain QSPI clocks. */
+ 	memcpy(&cqspi->clks, &cqspi_clks, sizeof(cqspi->clks));
+-	ret = devm_clk_bulk_get_optional(dev, CLK_QSPI_NUM, cqspi->clks);
+-	if (ret)
+-		return dev_err_probe(dev, ret, "Failed to get clocks\n");
++	if (ddata && (ddata->quirks & CQSPI_CIX_SKY1_NAMED_CLKS)) {
++		cqspi->clks[CLK_QSPI_REF].id = "funcclk";
++		cqspi->clks[CLK_QSPI_APB].id = "pclk";
++		cqspi->clks[CLK_QSPI_AHB].id = "maclk";
++
++		ret = devm_clk_bulk_get(dev, CLK_QSPI_NUM, cqspi->clks);
++		if (ret == -ENOENT && has_acpi_companion(dev))
++			ret = -EPROBE_DEFER;
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to get Sky1 clocks\n");
++	} else {
++		ret = devm_clk_bulk_get_optional(dev, CLK_QSPI_NUM, cqspi->clks);
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to get clocks\n");
++	}
+ 
+ 	if (!cqspi->clks[CLK_QSPI_REF].clk) {
+ 		dev_err(dev, "Cannot claim mandatory QSPI ref clock.\n");
+@@ -2010,10 +2025,9 @@ static void cqspi_remove(struct platform_device *pdev)
+ {
+ 	const struct cqspi_driver_platdata *ddata;
+ 	struct cqspi_st *cqspi = platform_get_drvdata(pdev);
+-	struct device *dev = &pdev->dev;
+ 	int ret = 0;
+ 
+-	ddata = of_device_get_match_data(dev);
++	ddata = cqspi->ddata;
+ 
+ 	spi_unregister_controller(cqspi->host);
+ 
+@@ -2104,6 +2118,10 @@ static const struct cqspi_driver_platdata cdns_qspi = {
+ 	.quirks = CQSPI_DISABLE_DAC_MODE,
+ };
+ 
++static const struct cqspi_driver_platdata cix_sky1_qspi = {
++	.quirks = CQSPI_DISABLE_DAC_MODE | CQSPI_CIX_SKY1_NAMED_CLKS,
++};
++
+ static const struct cqspi_driver_platdata k2g_qspi = {
+ 	.quirks = CQSPI_NEEDS_WR_DELAY,
+ };
+@@ -2209,6 +2227,14 @@ static const struct of_device_id cqspi_dt_ids[] = {
+ 
+ MODULE_DEVICE_TABLE(of, cqspi_dt_ids);
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id cqspi_acpi_ids[] = {
++	{ "CIXH2002", (kernel_ulong_t)&cix_sky1_qspi },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cqspi_acpi_ids);
++#endif
++
+ static struct platform_driver cqspi_platform_driver = {
+ 	.probe = cqspi_probe,
+ 	.remove = cqspi_remove,
+@@ -2216,6 +2242,7 @@ static struct platform_driver cqspi_platform_driver = {
+ 		.name = CQSPI_NAME,
+ 		.pm = pm_ptr(&cqspi_dev_pm_ops),
+ 		.of_match_table = cqspi_dt_ids,
++		.acpi_match_table = ACPI_PTR(cqspi_acpi_ids),
+ 	},
+ };
+ 
+diff --git a/drivers/spi/spi-cadence.c b/drivers/spi/spi-cadence.c
+--- a/drivers/spi/spi-cadence.c
++++ b/drivers/spi/spi-cadence.c
+@@ -7,6 +7,7 @@
+  * based on Blackfin On-Chip SPI Driver (spi_bfin5xx.c)
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/gpio/consumer.h>
+@@ -897,6 +898,14 @@ static const struct of_device_id cdns_spi_of_match[] = {
+ };
+ MODULE_DEVICE_TABLE(of, cdns_spi_of_match);
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id cdns_spi_acpi_match[] = {
++	{ "CIXH2001", 0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cdns_spi_acpi_match);
++#endif
++
+ /* cdns_spi_driver - This structure defines the SPI subsystem platform driver */
+ static struct platform_driver cdns_spi_driver = {
+ 	.probe	= cdns_spi_probe,
+@@ -904,6 +913,7 @@ static struct platform_driver cdns_spi_driver = {
+ 	.driver = {
+ 		.name = CDNS_SPI_NAME,
+ 		.of_match_table = cdns_spi_of_match,
++		.acpi_match_table = ACPI_PTR(cdns_spi_acpi_match),
+ 		.pm = &cdns_spi_dev_pm_ops,
+ 	},
+ };

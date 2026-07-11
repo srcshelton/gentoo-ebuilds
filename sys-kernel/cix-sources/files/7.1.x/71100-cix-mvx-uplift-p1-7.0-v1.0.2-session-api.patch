@@ -1,0 +1,510 @@
+diff --git a/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
+--- a/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
++++ b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
+@@ -1964,6 +1964,8 @@ struct mve_buffer_param
+         #define MVE_BUFFER_PARAM_TYPE_GOP_RESET_LTR_PEROID_DYNAMIC   (28) /* reset ltr peroid dynamiclly */
+         #define MVE_BUFFER_PARAM_TYPE_ENC_STATS                  (29) /* encode stats */
+         #define MVE_BUFFER_PARAM_TYPE_OSD_RECTANGLES             (30) /* osd rectangles */
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_RANGE (36)
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_STEP  (37)
+ 
+     union
+     {
+diff --git a/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
+--- a/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
++++ b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
+@@ -1904,6 +1904,8 @@ struct mve_buffer_param
+         #define MVE_BUFFER_PARAM_TYPE_GOP_RESET_LTR_PEROID_DYNAMIC   (28) /* reset ltr peroid dynamiclly */
+         #define MVE_BUFFER_PARAM_TYPE_ENC_STATS                  (29) /* encode stats */
+         #define MVE_BUFFER_PARAM_TYPE_OSD_RECTANGLES             (30) /* osd rectangles */
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_RANGE (36)
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_STEP  (37)
+ 
+     union
+     {
+diff --git a/drivers/media/platform/cix/if/mvx_firmware.h b/drivers/media/platform/cix/if/mvx_firmware.h
+--- a/drivers/media/platform/cix/if/mvx_firmware.h
++++ b/drivers/media/platform/cix/if/mvx_firmware.h
+@@ -748,6 +748,8 @@ struct mvx_fw_set_option {
+         MVX_FW_SET_ENC_INTER_IPENALTY_ANGULAR,
+         MVX_FW_SET_ENC_INTER_IPENALTY_PLANAR,
+         MVX_FW_SET_ENC_INTER_IPENALTY_DC,
++        MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE,
++        MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP,
+     } code;
+ 
+     /**
+@@ -852,6 +854,8 @@ struct mvx_fw_set_option {
+         uint32_t inter_ipenalty_planar;
+         uint32_t inter_ipenalty_dc;
+         struct mvx_lambda_scale lambda_scale;
++        uint32_t rrc_dqp_range;
++        uint32_t rrc_dqp_step;
+     };
+ };
+ #define MVX_FW_COLOR_DESC_DISPLAY_VALID         0x1
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -767,6 +767,8 @@ static bool is_stream_on(struct mvx_session *session)
+         return session->port[MVX_DIR_INPUT].stream_on;
+ }
+ 
++static int switch_out_rsp(struct mvx_session *session);
++
+ /**
+  * wait_pending() - Wait for procedure to finish.
+  *
+@@ -804,6 +806,7 @@ static int wait_pending(struct mvx_session *session)
+                 msecs_to_jiffies(wait_pending_timeout));
+ 
+             if (ret == 0) {
++                switch_out_rsp(session);
+                 send_event_error(session, -ETIME);
+                 ret = -ETIME;
+                 goto lock_mutex;
+@@ -1699,6 +1702,28 @@ static int fw_encoder_setup(struct mvx_session *session)
+                 return ret;
+             }
+         }
++
++        if (session->rrc_dqp_range != MVX_INVALID_VAL) {
++            option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE;
++            option.rrc_dqp_range = session->rrc_dqp_range;
++            ret = fw_set_option(session, &option);
++            if (ret != 0) {
++                MVX_SESSION_WARN(session,
++                         "Failed to set RRC DQP range.");
++                return ret;
++            }
++        }
++
++        if (session->rrc_dqp_step != MVX_INVALID_VAL) {
++            option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP;
++            option.rrc_dqp_step = session->rrc_dqp_step;
++            ret = fw_set_option(session, &option);
++            if (ret != 0) {
++                MVX_SESSION_WARN(session,
++                         "Failed to set RRC DQP step.");
++                return ret;
++            }
++        }
+     } else {
+         /*
+         //handle JPEG rc
+@@ -1922,7 +1947,8 @@ static int fw_encoder_setup(struct mvx_session *session)
+             session->color_desc.transfer_characteristics != 2 ||
+             session->color_desc.sar_height != 0 || session->color_desc.sar_width != 0 ||
+             session->color_desc.aspect_ratio_idc != 0 ||
+-            session->color_desc.flags != 0) {
++            session->color_desc.flags != 0 ||
++            (!session->disable_timescale && session->fps_d && session->fps_n)) {
+             struct mvx_fw_set_option option;
+ 
+             option.code = MVX_FW_SET_COLOUR_DESC;
+@@ -3587,6 +3613,8 @@ int mvx_session_construct(struct mvx_session *session,
+     session->dentry = dentry;
+     session->port[MVX_DIR_INPUT].buffer_min = 1;
+     session->port[MVX_DIR_OUTPUT].buffer_min = 1;
++    session->port[MVX_DIR_OUTPUT].buffer_min_afbc = 1;
++    session->port[MVX_DIR_OUTPUT].buffer_min_planar = 1;
+     session->port[MVX_DIR_OUTPUT].buffer_max = VIDEO_MAX_FRAME;
+     session->port[MVX_DIR_INPUT].buffer_allocated = 0;//1;
+     session->port[MVX_DIR_OUTPUT].buffer_allocated = 0;//1;
+@@ -3613,6 +3641,8 @@ int mvx_session_construct(struct mvx_session *session,
+     session->port[MVX_DIR_INPUT].roi_config_num = 0;
+     session->port[MVX_DIR_OUTPUT].qp_num = 0;
+     session->port[MVX_DIR_INPUT].qp_num = 0;
++    mutex_init(&session->port[MVX_DIR_OUTPUT].port_changing_mutex);
++    mutex_init(&session->port[MVX_DIR_INPUT].port_changing_mutex);
+     session->crop_left = 0;
+     session->crop_right = 0;
+     session->crop_top = 0;
+@@ -3644,6 +3674,8 @@ int mvx_session_construct(struct mvx_session *session,
+     session->inter_ipenalty_angular = MVX_INVALID_VAL;
+     session->inter_ipenalty_planar = MVX_INVALID_VAL;
+     session->inter_ipenalty_dc = MVX_INVALID_VAL;
++    session->rrc_dqp_range = MVX_INVALID_VAL;
++    session->rrc_dqp_step = MVX_INVALID_VAL;
+ 
+     if (session->enable_buffer_dump == true) {
+         char input_file[64];
+@@ -3860,6 +3892,16 @@ int mvx_session_set_format(struct mvx_session *session,
+         release_fw_bin(session);
+     }
+ 
++    if (dir == MVX_DIR_OUTPUT && !session->is_encoder &&
++        mvx_is_afbc(port->format) != mvx_is_afbc(format)) {
++        mutex_lock(&port->port_changing_mutex);
++        if (mvx_is_afbc(format))
++            port->buffer_min = port->buffer_min_afbc;
++        else
++            port->buffer_min = port->buffer_min_planar;
++        mutex_unlock(&port->port_changing_mutex);
++    }
++
+     /* Update port settings. */
+     port->format = format;
+     port->old_format = format;
+@@ -3983,7 +4025,7 @@ int mvx_session_streamon(struct mvx_session *session,
+     enum mvx_direction bdir;
+     struct mvx_hw_ver hw_ver;
+     enum mvx_direction i;
+-    int ret;
++    int ret = 0;
+ 
+     MVX_SESSION_INFO(session, "Stream on. dir=%u.", dir);
+ 
+@@ -4015,11 +4057,26 @@ int mvx_session_streamon(struct mvx_session *session,
+      * need to send flush message to VPU here to finish port changing.
+      * Otherwise, VPU firmware will get hang.
+      */
+-    if (dir == MVX_DIR_OUTPUT && session->port[dir].in_port_changing) {
+-        return_done_buffers(session, dir);
+-        flush_and_qbufs(session, dir);
+-        session->port[dir].in_port_changing = false;
+-        session->port[dir].hold_off_buffer_done = false;
++    if (dir == MVX_DIR_OUTPUT) {
++        struct mvx_session_port *port = &session->port[dir];
++
++        mutex_lock(&port->port_changing_mutex);
++        if (port->in_port_changing) {
++            if (port->get_format_called) {
++                return_done_buffers(session, dir);
++                ret = flush_and_qbufs(session, dir);
++                port->in_port_changing = false;
++                port->hold_off_buffer_done = false;
++            } else {
++                ret = queue_pending_buffers(session, dir);
++            }
++        }
++        mutex_unlock(&port->port_changing_mutex);
++
++        if (ret != 0 && ret != -EAGAIN) {
++            MVX_SESSION_ERR(session, "Failed to queue pending buffers.");
++            goto disable_port;
++        }
+     }
+ 
+     /* If a firmware binary is already loaded, then we are done. */
+@@ -4157,6 +4214,7 @@ static void mvx_handle_alloc_param (struct mvx_session *session, struct mvx_fw_m
+     struct mvx_session_port *input = &session->port[MVX_DIR_INPUT];
+     struct mvx_session_port *output = &session->port[MVX_DIR_OUTPUT];
+ 
++    mutex_lock(&output->port_changing_mutex);
+     output->in_port_changing = msg->alloc_param.width != session->orig_width;
+     output->in_port_changing |= msg->alloc_param.height != session->orig_height;
+     if (mvx_is_afbc(output->format))
+@@ -4167,7 +4225,9 @@ static void mvx_handle_alloc_param (struct mvx_session *session, struct mvx_fw_m
+     if (output->in_port_changing) {
+         output->received_seq_param = false;
+         output->pending_source_change_event = true;
++        output->get_format_called = false;
+     }
++    mutex_unlock(&output->port_changing_mutex);
+ 
+     session->orig_width = msg->alloc_param.width;
+     session->orig_height = msg->alloc_param.height;
+@@ -4196,7 +4256,7 @@ static void mvx_handle_alloc_param (struct mvx_session *session, struct mvx_fw_m
+         output->afbc_width = msg->alloc_param.afbc_width;
+     }
+ 
+-    if(session->dual_afbc_downscaled && output->interlaced== 0) {
++    if (output->interlaced == 0) {
+         output->afbc_alloc_bytes_downscaled = msg->alloc_param.afbc_alloc_bytes_downscaled;
+         output->afbc_width_in_superblocks_downscaled = msg->alloc_param.afbc_width_in_superblocks_downscaled;
+     } else {
+@@ -4570,9 +4630,20 @@ static void mvx_handle_seq_param(struct mvx_session *session, struct mvx_fw_msg
+                 msg->seq_param.afbc.buffers_min,
+                 p->interlaced);
+ 
++    mutex_lock(&p->port_changing_mutex);
++    p->buffer_min_afbc = msg->seq_param.afbc.buffers_min;
++    p->buffer_min_planar =
++        session->port[MVX_DIR_INPUT].format == MVX_FORMAT_AV1 ?
++        MVX_DECODE_AV1_PLANNAR_BUFFER_NUM : MVX_DECODE_PLANNAR_BUFFER_NUM;
++    if ((uint64_t)p->new_width * p->new_height <= 8192ULL * 8192)
++        p->buffer_min_planar = max(msg->seq_param.planar.buffers_min,
++                      p->buffer_min_planar);
++    else
++        p->buffer_min_planar = msg->seq_param.planar.buffers_min;
++
+     if (mvx_is_afbc(p->format) != false) {
+-        p->in_port_changing |= msg->seq_param.afbc.buffers_min != p->buffer_min;
+-        p->buffer_min = msg->seq_param.afbc.buffers_min;
++        p->in_port_changing |= p->buffer_min_afbc != p->buffer_min;
++        p->buffer_min = p->buffer_min_afbc;
+         //for MVX_FW_CODE_ALLOC_PARAM is send before MVX_FW_CODE_SEQ_PARAM msg
+         if(p->last_interlaced_from_sps != p->interlaced) {
+             //auto detected interlace streams from sps,need update try_format
+@@ -4600,17 +4671,17 @@ static void mvx_handle_seq_param(struct mvx_session *session, struct mvx_fw_msg
+             p->last_interlaced_from_sps =p->interlaced;
+         }
+     } else {
+-        p->in_port_changing |= msg->seq_param.planar.buffers_min != p->buffer_min;
+-        p->buffer_min = session->port[MVX_DIR_INPUT].format == MVX_FORMAT_AV1 ?
+-                                MVX_DECODE_AV1_PLANNAR_BUFFER_NUM : MVX_DECODE_PLANNAR_BUFFER_NUM;
+-        p->buffer_min = p->new_width * p->new_height <= 8192 * 8192 ?
+-                            max(msg->seq_param.planar.buffers_min, p->buffer_min) :
+-                            msg->seq_param.planar.buffers_min;
++        p->in_port_changing |= p->buffer_min_planar != p->buffer_min;
++        p->buffer_min = p->buffer_min_planar;
+     }
+ 
+     p->in_port_changing |= msg->seq_param.bitdepth_luma != session->bitdepth_luma;
+     p->in_port_changing |= msg->seq_param.bitdepth_chroma != session->bitdepth_chroma;
+     p->in_port_changing |= msg->seq_param.chroma_format != session->coded_chroma_format;
++    if (p->in_port_changing)
++        p->get_format_called = false;
++    mutex_unlock(&p->port_changing_mutex);
++
+     mvx_update_format(session, msg->seq_param.bitdepth_chroma,
+               msg->seq_param.chroma_format);
+     session->bitdepth_luma = msg->seq_param.bitdepth_luma;
+@@ -6998,3 +7069,57 @@ int mvx_session_set_enc_inter_ipenalty_dc(struct mvx_session *session, int val)
+ 
+     return 0;
+ }
++
++int mvx_session_set_rrc_dqp_range(struct mvx_session *session, int val)
++{
++    int ret;
++
++    if (session->error != 0)
++        return session->error;
++
++    if (is_fw_loaded(session)) {
++        struct mvx_fw_set_option option = {0};
++
++        option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE;
++        option.rrc_dqp_range = val;
++        ret = fw_set_option(session, &option);
++        if (ret != 0)
++            return ret;
++    }
++
++    session->rrc_dqp_range = val;
++    return 0;
++}
++
++int mvx_session_set_rrc_dqp_step(struct mvx_session *session, int val)
++{
++    int ret;
++
++    if (session->error != 0)
++        return session->error;
++
++    if (is_fw_loaded(session)) {
++        struct mvx_fw_set_option option = {0};
++
++        option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP;
++        option.rrc_dqp_step = val;
++        ret = fw_set_option(session, &option);
++        if (ret != 0)
++            return ret;
++    }
++
++    session->rrc_dqp_step = val;
++    return 0;
++}
++
++int mvx_session_set_enc_disable_timescale(struct mvx_session *session, int val)
++{
++    if (session->error != 0)
++        return session->error;
++
++    if (is_fw_loaded(session))
++        return -EBUSY;
++
++    session->disable_timescale = val;
++    return 0;
++}
+diff --git a/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
+--- a/drivers/media/platform/cix/if/mvx_session.h
++++ b/drivers/media/platform/cix/if/mvx_session.h
+@@ -143,6 +143,8 @@ struct mvx_session_port {
+     unsigned int afbc_width_in_superblocks_downscaled;
+     bool stream_on;
+     unsigned int buffer_min;
++    unsigned int buffer_min_planar;
++    unsigned int buffer_min_afbc;
+     unsigned int buffer_max;
+     unsigned int buffer_count;
+     unsigned int buffer_allocated;
+@@ -170,9 +172,11 @@ struct mvx_session_port {
+     unsigned int afbc_crop_left;
+     unsigned int afbc_crop_top;
+     bool in_port_changing;
++    struct mutex port_changing_mutex;
+     bool hold_off_buffer_done;
+     bool received_seq_param;
+     bool pending_source_change_event;
++    bool get_format_called;
+     unsigned int dump_count;
+     enum mvx_format old_format;
+     unsigned int old_pixelformat;
+@@ -351,6 +355,8 @@ struct mvx_session {
+     uint32_t fps_n;
+     uint32_t fps_d;
+     uint32_t last_fps;
++    uint32_t pause_counter;
++    uint32_t fps_before_pause;
+     struct timespec64 last_timespec;
+     unsigned int target_bitrate;
+     unsigned int maximum_bitrate;
+@@ -477,6 +483,9 @@ struct mvx_session {
+     uint32_t inter_ipenalty_planar;
+     uint32_t inter_ipenalty_dc;
+     struct mvx_lambda_scale lambda_scale;
++    int rrc_dqp_range;
++    int rrc_dqp_step;
++    uint32_t disable_timescale;
+ };
+ 
+ /****************************************************************************
+@@ -1488,6 +1497,9 @@ int mvx_session_set_enc_intra_ipenalty_dc(struct mvx_session *session, int val);
+ int mvx_session_set_enc_inter_ipenalty_angular(struct mvx_session *session, int val);
+ int mvx_session_set_enc_inter_ipenalty_planar(struct mvx_session *session, int val);
+ int mvx_session_set_enc_inter_ipenalty_dc(struct mvx_session *session, int val);
++int mvx_session_set_rrc_dqp_range(struct mvx_session *session, int val);
++int mvx_session_set_rrc_dqp_step(struct mvx_session *session, int val);
++int mvx_session_set_enc_disable_timescale(struct mvx_session *session, int val);
+ /**
+  * mvx_session_update_buffer_count() - Update session port buffer max and min.
+  * @session:    Pointer to session.
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+@@ -957,6 +957,18 @@ static int set_ctrl(struct v4l2_ctrl *ctrl)
+         i32_val = *ctrl->p_new.p_s32;
+         ret = mvx_session_set_enc_inter_ipenalty_dc(session, i32_val);
+         break;
++    case V4L2_CID_MVE_VIDEO_RRC_DQP_RANGE:
++        i32_val = *ctrl->p_new.p_s32;
++        ret = mvx_session_set_rrc_dqp_range(session, i32_val);
++        break;
++    case V4L2_CID_MVE_VIDEO_RRC_DQP_STEP:
++        i32_val = *ctrl->p_new.p_s32;
++        ret = mvx_session_set_rrc_dqp_step(session, i32_val);
++        break;
++    case V4L2_CID_MVE_VIDEO_ENC_DISABLE_TIMESCALE:
++        i32_val = *ctrl->p_new.p_s32;
++        ret = mvx_session_set_enc_disable_timescale(session, i32_val);
++        break;
+     }
+ unlock_mutex:
+     mutex_unlock(&vsession->mutex);
+@@ -1885,32 +1897,6 @@ int mvx_v4l2_ctrls_init_enc(struct v4l2_ctrl_handler *hnd)
+ 
+     ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+ 
+-    ctrl = v4l2_ctrl_new_std(
+-        hnd, &ctrl_ops, V4L2_CID_JPEG_RESTART_INTERVAL,
+-        -1, 0xffff, 1, -1);
+-    if (ctrl == NULL)
+-        goto handler_free;
+-
+-    ctrl = v4l2_ctrl_new_std(
+-        hnd, &ctrl_ops, V4L2_CID_JPEG_COMPRESSION_QUALITY,
+-        0, 100, 1, 0);
+-    if (ctrl == NULL)
+-        goto handler_free;
+-
+-    ctrl = mvx_v4l2_ctrl_new_custom_int(
+-        hnd, V4L2_CID_MVE_VIDEO_JPEG_QUALITY_LUMA,
+-        "JPEG compress luma quality",
+-        0, 100, 0, 1);
+-    if (ctrl == NULL)
+-        goto handler_free;
+-
+-    ctrl = mvx_v4l2_ctrl_new_custom_int(
+-        hnd, V4L2_CID_MVE_VIDEO_JPEG_QUALITY_CHROMA,
+-        "JPEG compress chroma quality",
+-        0, 100, 0, 1);
+-    if (ctrl == NULL)
+-        goto handler_free;
+-
+     ctrl = mvx_v4l2_ctrl_new_custom_int(
+         hnd, V4L2_CID_MVE_VIDEO_INIT_QP_I,
+         "init qp of I frame",
+@@ -2126,10 +2112,6 @@ int mvx_v4l2_ctrls_init_enc(struct v4l2_ctrl_handler *hnd)
+     if (ctrl == NULL)
+         goto handler_free;
+ 
+-    ret = v4l2_ctrl_handler_setup(hnd);
+-    if (ret != 0)
+-        goto handler_free;
+-
+     ctrl = mvx_v4l2_ctrl_new_custom_int(
+         hnd, V4L2_CID_MVE_VIDEO_ENC_INTRA_IPENALTY_ANGULAR,
+         "intra ipenalty angular",
+@@ -2172,6 +2154,31 @@ int mvx_v4l2_ctrls_init_enc(struct v4l2_ctrl_handler *hnd)
+     if (ctrl == NULL)
+         goto handler_free;
+ 
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_RRC_DQP_RANGE,
++        "rrc dqp range",
++        MVX_INVALID_VAL, 25, MVX_INVALID_VAL, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_RRC_DQP_STEP,
++        "rrc dqp step",
++        MVX_INVALID_VAL, 25, MVX_INVALID_VAL, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_ENC_DISABLE_TIMESCALE,
++        "disable timescale in vui",
++        0, 1, 0, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ret = v4l2_ctrl_handler_setup(hnd);
++    if (ret != 0)
++        goto handler_free;
++
+     return 0;
+ 
+ handler_free:
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -813,6 +813,12 @@ static int mvx_v4l2_vidioc_g_fmt_vid(struct file *file,
+     to_v4l2_format(f, f->type, &vport->pix_mp, port->stride, port->size,
+                port->interlaced);
+ 
++    mutex_lock(&port->port_changing_mutex);
++    port->get_format_called = true;
++    port->old_format = port->format;
++    port->old_pixelformat = port->pixelformat;
++    mutex_unlock(&port->port_changing_mutex);
++
+     mutex_unlock(&vsession->mutex);
+ 
+     print_format(&vsession->session, f, "Get format");
+diff --git a/drivers/media/platform/cix/linux/mvx-v4l2-controls.h b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
+--- a/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
++++ b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
+@@ -11,7 +11,7 @@
+  * permitted to do so under the terms of a subsisting license agreement
+  * from Arm Technology (China) Co., Ltd.
+  *
+- * SPDX-License-Identifier: GPL-2.0-only
++ * SPDX-License-Identifier: (GPL-2.0-only WITH Linux-syscall-note)
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -480,6 +480,9 @@ enum v4l2_cid_mve_video {
+     V4L2_CID_MVE_VIDEO_ENC_INTER_IPENALTY_ANGULAR,
+     V4L2_CID_MVE_VIDEO_ENC_INTER_IPENALTY_PLANAR,
+     V4L2_CID_MVE_VIDEO_ENC_INTER_IPENALTY_DC,
++    V4L2_CID_MVE_VIDEO_ENC_DISABLE_TIMESCALE,
++    V4L2_CID_MVE_VIDEO_RRC_DQP_RANGE,
++    V4L2_CID_MVE_VIDEO_RRC_DQP_STEP,
+ };
+ 
+ #define V4L2_SESSION_PRIORITY_PREEMPTION 0

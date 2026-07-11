@@ -1,0 +1,27 @@
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -659,13 +659,22 @@ static int setup_vb2_queue(struct mvx_v4l2_port *vport)
+     q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+     q->allow_zero_bytesused = true;
+     if (vport->dir == MVX_DIR_OUTPUT && mvx_is_frame(vport->port->format))
+-        q->MVX_VB2_MIN_BUFFERS_NEEDED = 8;
++        q->MVX_VB2_MIN_BUFFERS_NEEDED = 0;
+     else
+         q->MVX_VB2_MIN_BUFFERS_NEEDED = 1;
+ 
+     /* Let Vb2 handle mvx_v4l2_buffer allocations. */
+     q->buf_struct_size = sizeof(struct mvx_v4l2_buffer);
+ 
++    /*
++     * Since Linux 7.0 the V4L2 VB2 helpers use q->lock directly when
++     * serialising queue ioctls and waiting for buffers.  The old
++     * wait_prepare/wait_finish callbacks are no longer available.
++     */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
++    q->lock = &vport->vsession->mutex;
++#endif
++
+     ret = vb2_queue_init(q);
+ 
+     return ret;

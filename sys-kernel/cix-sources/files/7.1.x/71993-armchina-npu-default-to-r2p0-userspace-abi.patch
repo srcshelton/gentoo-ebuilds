@@ -1,0 +1,2838 @@
+From 780c2a790ff9972ff9d33f43247291a2bc931a72 Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Fri, 10 Jul 2026 20:07:35 +0100
+Subject: [PATCH] misc: armchina-npu: default to the R2P0 userspace ABI
+
+CIX packages cix-noe-umd 2.0.2 from the R2P0 SDK, while the raw p1_7.0_v6.1.1 driver imported by the kernel patch queue implements the newer R2P2 ABI. The mismatch makes libnoe capability discovery fail with NOE_STATUS_ERROR_DEV_ABNORMAL.
+
+Port the vendor packaging revert from commit 193d3650645b while retaining the local lifetime, ACPI DMA, SCMI devfreq and runtime-PM fixes. This remains a final compatibility overlay so the complete R2P2 implementation can be selected explicitly by omitting it.
+---
+ drivers/misc/armchina-npu/Makefile            |   2 +-
+ drivers/misc/armchina-npu/aipu.c              |  88 ++--
+ drivers/misc/armchina-npu/aipu_common.c       |  21 +-
+ drivers/misc/armchina-npu/aipu_dma_buf.c      |  76 +---
+ drivers/misc/armchina-npu/aipu_dma_buf.h      |   1 -
+ drivers/misc/armchina-npu/aipu_io.c           |   4 +-
+ drivers/misc/armchina-npu/aipu_irq.c          |   5 +-
+ drivers/misc/armchina-npu/aipu_irq.h          |   1 -
+ drivers/misc/armchina-npu/aipu_job_manager.c  | 413 +++++-------------
+ drivers/misc/armchina-npu/aipu_job_manager.h  |   8 +-
+ drivers/misc/armchina-npu/aipu_mm.c           | 210 +++------
+ drivers/misc/armchina-npu/aipu_mm.h           |  16 +-
+ drivers/misc/armchina-npu/aipu_partition.h    |   4 +-
+ drivers/misc/armchina-npu/aipu_priv.c         |  21 +-
+ drivers/misc/armchina-npu/aipu_priv.h         |   5 +-
+ drivers/misc/armchina-npu/aipu_tcb.h          |  76 ----
+ drivers/misc/armchina-npu/default/default.c   |   9 +-
+ .../misc/armchina-npu/include/armchina_aipu.h |  84 +---
+ .../armchina-npu/include/armchina_aipu_soc.h  |   1 +
+ drivers/misc/armchina-npu/sky1/sky1.c         |   2 +-
+ drivers/misc/armchina-npu/zhouyi/v1.c         |   2 -
+ drivers/misc/armchina-npu/zhouyi/v1v2_priv.c  |   1 +
+ drivers/misc/armchina-npu/zhouyi/v2.c         |   2 -
+ drivers/misc/armchina-npu/zhouyi/v3.c         |  35 +-
+ drivers/misc/armchina-npu/zhouyi/v3.h         |  11 +-
+ drivers/misc/armchina-npu/zhouyi/v3_2.c       |  70 +--
+ drivers/misc/armchina-npu/zhouyi/v3_2.h       |   7 +-
+ drivers/misc/armchina-npu/zhouyi/v3_2_priv.c  |  63 +--
+ drivers/misc/armchina-npu/zhouyi/v3_priv.c    |  35 +-
+ drivers/misc/armchina-npu/zhouyi/zhouyi.c     |   4 +-
+ drivers/misc/armchina-npu/zhouyi/zhouyi.h     |   3 +-
+ 31 files changed, 366 insertions(+), 914 deletions(-)
+
+diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
+index 3d92f59..08ecb32 100644
+--- a/drivers/misc/armchina-npu/Makefile
++++ b/drivers/misc/armchina-npu/Makefile
+@@ -3,7 +3,7 @@
+ subdir-ccflags-y += -I$(src)
+ subdir-ccflags-y += -I$(src)/include
+ subdir-ccflags-y += -I$(src)/zhouyi
+-ccflags-y += -DKMD_VERSION=\"1.0.0\"
++ccflags-y += -DKMD_VERSION=\"6.1.1-2\"
+ ccflags-$(CONFIG_ARMCHINA_NPU_SOC_SKY1) += -DCONFIG_SKY1
+ ccflags-$(CONFIG_PM_DEVFREQ) += -DCONFIG_ENABLE_DEVFREQ
+ 
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+index 6b3ba64..2db60f8 100644
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -12,7 +12,6 @@
+ #include <linux/uaccess.h>
+ #include <linux/poll.h>
+ #include <linux/compat.h>
+-#include <linux/gpio/consumer.h>
+ #include <armchina_aipu.h>
+ #include "armchina_aipu_soc.h"
+ #include "aipu_mm.h"
+@@ -43,11 +42,6 @@ static struct aipu_priv *aipu_get_global(void)
+ 
+ 	return priv;
+ }
+-
+-extern struct gpio_desc *__must_check devm_gpiod_get_optional(struct device *dev,
+-						       const char *con_id,
+-						       enum gpiod_flags flags);
+-
+ static int aipu_open(struct inode *inode, struct file *filp)
+ {
+ 	int ret;
+@@ -125,19 +119,12 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	u64 job_id;
+ 	struct aipu_rebind_buf_desc rebind_buf;
+ 	struct aipu_bind_buf_desc bind_buf;
+-	struct aipu_partition *cls;
+ 
+ 	if (aipu_priv_is_removing(aipu))
+ 		return -ENODEV;
+ 
+ 	manager = &aipu->job_manager;
+ 
+-	if (_IOC_TYPE(cmd) != AIPU_IOCTL_MAGIC) {
+-		dev_err(manager->dev, "aipu: Invalid ioctl magic number %c, right %c\n",
+-			_IOC_TYPE(cmd), AIPU_IOCTL_MAGIC);
+-		return -ENOTTY;
+-	}
+-
+ 	switch (cmd) {
+ 	case AIPU_IOCTL_QUERY_CAP:
+ 		ret = aipu_priv_query_capability(aipu, &cap);
+@@ -166,13 +153,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 				buf_req.alloc_mode = AIPU_DMA_BUF_MALLOC_DEFAULT;
+ 
+ 			if (buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_IOVA ||
+-			    buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_BOTH ) {
++			    buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_IOVA_PHY) {
+ 			    ret = aipu_job_manager_alloc_exec_id(manager, &buf_req.exec_id);
+ 			    if (ret)
+ 			    	return ret;
+-			} else if (buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_PHY) {
+-				if (!buf_req.exec_id)
+-					return -EINVAL;
+ 			} else {
+ 				buf_req.exec_id = 0;
+ 			}
+@@ -324,11 +308,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 			ret = -EINVAL;
+ 		break;
+ 	case AIPU_IOCTL_GET_CLUSTER_STATUS:
+-		cls = aipu->partitions;
+ 		if (!copy_from_user(&cluster_status, (struct aipu_cluster_status __user *)arg,
+ 				    sizeof(cluster_status))) {
+-			if (cls && cls->ops->get_partition_status) {
+-				ret = cls->ops->get_partition_status(cls, &cluster_status);
++			if (aipu && aipu->ops && aipu->ops->get_partition_status) {
++				ret = aipu->ops->get_partition_status(aipu, &cluster_status);
+ 				if (!ret && copy_to_user((char __user *)arg, &cluster_status,
+ 							 sizeof(cluster_status)))
+ 					ret = -EINVAL;
+@@ -388,33 +371,6 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		} else
+ 			ret = -EINVAL;
+ 		break;
+-	case AIPU_IOCTL_AIPU_HW_RESET:
+-		cls = aipu->partitions;
+-		if (cls->ops->hw_reset) {
+-			cls->ops->hw_reset(cls);
+-			manager->pools->created = false;
+-			manager->pools->bind = false;
+-			manager->tec_intr_en = false;
+-			aipu_sched_pending_job_lock(cls);
+-		} else {
+-			dev_warn(manager->dev, "hw reset is not supported.\n");
+-		}
+-		ret = 0;
+-		break;
+-	case AIPU_IOCTL_AIPU_SW_RESET:
+-		cls = aipu->partitions;
+-		if (cls->ops->soft_reset) {
+-			ret = cls->ops->soft_reset(cls, true);
+-			if (!ret) {
+-				manager->pools->created = false;
+-				manager->pools->bind = false;
+-				manager->tec_intr_en = false;
+-				aipu_sched_pending_job_lock(cls);
+-			}
+-		} else {
+-			dev_warn(manager->dev, "soft reset is not supported.\n");
+-		}
+-		break;
+ 	case AIPU_IOCTL_BUF_CACHE_INVALID:
+ 		if (!copy_from_user(&desc, (struct buf_desc __user *)arg, sizeof(desc)))
+ 			ret = aipu_mm_cache_invalid(&aipu->mm, &desc);
+@@ -511,18 +467,12 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ 			return -ENOMEM;
+ 
+ 		dev_info(dev, "AIPU KMD (v%s) probe start...\n", KMD_VERSION);
+-
+-		priv->reset_gpio = devm_gpiod_get_optional(&p_dev->dev, "reset", GPIOD_OUT_LOW);
+-		if (IS_ERR(priv->reset_gpio)) {
+-			ret = PTR_ERR(priv->reset_gpio);
+-			dev_warn(&p_dev->dev, "Failed to get reset GPIO.\n");
+-			priv->reset_gpio = NULL;
+-			//return ret;
+-		}
++		platform_set_drvdata(p_dev, priv);
+ 
+ 		ret = init_aipu_priv(priv, p_dev, &aipu_fops, soc, ops);
+ 		if (ret) {
+ 			dev_err(dev, "FAIL TO INIT AIPU.\n");
++			platform_set_drvdata(p_dev, NULL);
+ 			kfree(priv);
+ 			return ret;
+ 		}
+@@ -533,6 +483,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ 	}
+ 
+ 	priv = aipu;
++	platform_set_drvdata(p_dev, priv);
+ 	device_property_read_u32(dev, "core-id", &id);
+ 
+ 	WARN_ON(!priv->ops);
+@@ -540,6 +491,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ 	if (IS_ERR(partition)) {
+ 		dev_err(dev, "FAIL TO CREATE PARTITION.\n");
+ 		aipu_priv_begin_remove(priv);
++		platform_set_drvdata(p_dev, NULL);
+ 		mutex_lock(&aipu_lock);
+ 		if (aipu == priv)
+ 			aipu = NULL;
+@@ -548,8 +500,6 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ 		deinit_aipu_priv(priv);
+ 		kfree(priv);
+ 		ret = -EIO;
+-	} else {
+-		platform_set_drvdata(p_dev, partition);
+ 	}
+ 
+ 	return ret;
+@@ -579,6 +529,7 @@ int armchina_aipu_remove(struct platform_device *p_dev)
+ 
+ 	aipu = NULL;
+ 	aipu_priv_begin_remove(priv);
++	platform_set_drvdata(p_dev, NULL);
+ 	mutex_unlock(&aipu_lock);
+ 
+ 	/*
+@@ -605,13 +556,19 @@ EXPORT_SYMBOL(armchina_aipu_remove);
+  */
+ int armchina_aipu_suspend(struct platform_device *p_dev, pm_message_t state)
+ {
+-	struct aipu_partition *partition = platform_get_drvdata(p_dev);
+ 	int ret = 0;
++	struct aipu_job_manager *manager = get_job_manager(aipu->partitions);
++
++	if (!manager) {
++		pr_err("susppend: npu driver is not ready.\n");
++		return 0;
++	}
+ 
+-	ret = aipu_job_manager_suspend(get_job_manager(partition));
++	ret = aipu_job_manager_suspend(get_job_manager(aipu->partitions));
+ 
+ 	if (ret == 0 && aipu && aipu->soc_ops && aipu->soc_ops->disable_clk)
+-		aipu->soc_ops->disable_clk(partition->dev, aipu->soc);
++		aipu->soc_ops->disable_clk(aipu->partitions->dev, aipu->soc);
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL(armchina_aipu_suspend);
+@@ -627,13 +584,18 @@ EXPORT_SYMBOL(armchina_aipu_suspend);
+  */
+ int armchina_aipu_resume(struct platform_device *p_dev)
+ {
+-	struct aipu_partition *partition = platform_get_drvdata(p_dev);
+ 	int ret = 0;
++	struct aipu_job_manager *manager = get_job_manager(aipu->partitions);
++
++	if (!manager) {
++		pr_err("resume: npu driver is not ready.\n");
++		return 0;
++	}
+ 
+-	ret = aipu_job_manager_resume(get_job_manager(partition));
++	ret = aipu_job_manager_resume(get_job_manager(aipu->partitions));
+ 
+ 	if (ret == 0 && aipu && aipu->soc_ops && aipu->soc_ops->enable_clk)
+-		aipu->soc_ops->enable_clk(partition->dev, aipu->soc);
++		aipu->soc_ops->enable_clk(aipu->partitions->dev, aipu->soc);
+ 
+ 	return ret;
+ }
+diff --git a/drivers/misc/armchina-npu/aipu_common.c b/drivers/misc/armchina-npu/aipu_common.c
+index 93b34fe..575f88d 100644
+--- a/drivers/misc/armchina-npu/aipu_common.c
++++ b/drivers/misc/armchina-npu/aipu_common.c
+@@ -11,7 +11,9 @@
+ #endif
+ 
+ #define MAX_CHAR_SYSFS 4096
++#define KBUF_MAX_SIZE 1024
+ #define ADDR_VALUE 2
++#define ADDR_ONLY  1
+ 
+ #ifdef CONFIG_SYSFS
+ ssize_t aipu_common_ext_register_sysfs_show(struct device *dev,
+@@ -34,7 +36,7 @@ ssize_t aipu_common_ext_register_sysfs_show(struct device *dev,
+ 	    get_soc_ops(partition)->is_clk_enabled &&
+ 	    !get_soc_ops(partition)->is_clk_enabled(dev, get_soc(partition))) {
+ 		return snprintf(buf, MAX_CHAR_SYSFS,
+-				"AIPU is suspended and external registers cannot be read!\n");
++		    "AIPU is suspended and external registers cannot be read!\n");
+ 	}
+ 
+ 	ret += snprintf(tmp, 512, "----------------------------------------------\n");
+@@ -100,6 +102,21 @@ ssize_t aipu_common_ext_register_sysfs_store(struct device *dev,
+ #endif
+ 
+ 	return count;
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
+ }
+ 
+ ssize_t aipu_common_clock_sysfs_show(struct device *dev,
+@@ -118,7 +135,7 @@ ssize_t aipu_common_clock_sysfs_show(struct device *dev,
+ 	    get_soc_ops(partition)->is_clk_enabled &&
+ 	    !get_soc_ops(partition)->is_clk_enabled(dev, get_soc(partition)))
+ 		return snprintf(buf, MAX_CHAR_SYSFS,
+-						"AIPU is in clock gating state and suspended.\n");
++				"AIPU is in clock gating state and suspended.\n");
+ 	else
+ 		return snprintf(buf, MAX_CHAR_SYSFS, "AIPU is in normal working state.\n");
+ }
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+index ce9c50b..c881b99 100644
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
+@@ -153,18 +153,15 @@ static void aipu_dma_release(struct dma_buf *dmabuf)
+ 	buf.region = AIPU_BUF_REGION_DEFAULT;
+ 	buf.asid = AIPU_BUF_ASID_0;
+ 
+-	if (mm->has_iommu && mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (mm->has_iommu && mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ #if AIPU_USE_STANDARD_DMA_API_FOR_V3_2
+ 		buf.exec_id = 0;
+-		buf.mode = AIPU_DMA_BUF_FREE_DEFAULT;
+ #else
+ 		buf.exec_id = DMA_BUF_EXEC_ID;
+-		buf.mode = AIPU_DMA_BUF_FREE_BOTH;
+ #endif
+ 		ret = aipu_free_dma_iova_phy(mm, &buf, NULL);
+ 	} else {
+ 		buf.exec_id = 0;
+-		buf.mode = AIPU_DMA_BUF_FREE_DEFAULT;
+ 		ret = aipu_mm_free(mm, &buf, NULL, true);
+ 	}
+ 
+@@ -246,7 +243,7 @@ int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *requ
+ 		return -ENODEV;
+ 
+ 	mm = &aipu->mm;
+-	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
++	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2 && mm->has_iommu) {
+ 		memset(&inter_req, 0, sizeof(struct aipu_buf_request));
+ 		inter_req.bytes = request->bytes;
+ 		inter_req.align_in_page = 1;
+@@ -258,7 +255,7 @@ int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *requ
+ 		inter_req.alloc_mode = AIPU_DMA_BUF_MALLOC_DEFAULT;
+ #else
+ 		inter_req.exec_id = DMA_BUF_EXEC_ID;
+-		inter_req.alloc_mode = AIPU_DMA_BUF_MALLOC_BOTH;
++		inter_req.alloc_mode = AIPU_DMA_BUF_MALLOC_IOVA_PHY;
+ #endif
+ 		ret = aipu_alloc_dma_iova_phy(mm,  &inter_req, NULL);
+ 		if (ret) {
+@@ -338,7 +335,7 @@ int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *requ
+ fail:
+ 	if (priv)
+ 		kfree(priv);
+-	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
++	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2)
+ 		aipu_free_dma_iova_phy(mm, &inter_req.desc, NULL);
+ 	else
+ 		aipu_mm_free(mm, &inter_req.desc, NULL, true);
+@@ -394,41 +391,30 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 	struct dma_buf_attachment *attach = NULL;
+ 	struct sg_table *table = NULL;
+ 	struct aipu_dma_buf_importer *im_buf = NULL;
+-	struct aipu_buf_desc desc;
+ 	int ret = 0;
+ 
+ 	if (!mm || !dmabuf_info || !filp || dmabuf_info->fd <= 0)
+ 		return -EINVAL;
+ 
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+-		dmabuf = aipu_exported_dma_buf_get(dmabuf_info->fd);
+-		if (IS_ERR(dmabuf))
+-			return PTR_ERR(dmabuf);
++	dmabuf = dma_buf_get(dmabuf_info->fd);
++	if (IS_ERR_OR_NULL(dmabuf))
++		return dmabuf ? PTR_ERR(dmabuf) : -EINVAL;
+ 
+-		ret = aipu_copy_block_by_dma_fd(mm, dmabuf_info);
+-		if(ret)
+-			goto put_dmabuf;
+-	} else {
+-		dmabuf = dma_buf_get(dmabuf_info->fd);
+-		if (IS_ERR_OR_NULL(dmabuf))
+-			return dmabuf ? PTR_ERR(dmabuf) : -EINVAL;
+-
+-		attach = dma_buf_attach(dmabuf, mm->dev);
+-		if (IS_ERR_OR_NULL(attach)) {
+-			ret = attach ? PTR_ERR(attach) : -EINVAL;
+-			goto put_dmabuf;
+-		}
+-
+-		table = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+-		if (IS_ERR_OR_NULL(table)) {
+-			ret = table ? PTR_ERR(table) : -ENOMEM;
+-			goto detach_dmabuf;
+-		}
++	attach = dma_buf_attach(dmabuf, mm->dev);
++	if (IS_ERR_OR_NULL(attach)) {
++		ret = attach ? PTR_ERR(attach) : -EINVAL;
++		goto put_dmabuf;
++	}
+ 
+-		dmabuf_info->pa = sg_dma_address(table->sgl);
+-		dmabuf_info->bytes = sg_dma_len(table->sgl);
++	table = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
++	if (IS_ERR_OR_NULL(table)) {
++		ret = table ? PTR_ERR(table) : -ENOMEM;
++		goto detach_dmabuf;
+ 	}
+ 
++	dmabuf_info->pa = sg_dma_address(table->sgl);
++	dmabuf_info->bytes = sg_dma_len(table->sgl);
++
+ 	im_buf = kzalloc(sizeof(*im_buf), GFP_KERNEL);
+ 	if (!im_buf) {
+ 		ret = -ENOMEM;
+@@ -440,11 +426,6 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 	im_buf->dmabuf = dmabuf;
+ 	im_buf->attach = attach;
+ 	im_buf->table = table;
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+-		im_buf->desc.pa = dmabuf_info->pa;
+-		im_buf->desc.bytes = dmabuf_info->bytes;
+-		im_buf->desc.exec_id = DMA_BUF_EXEC_ID;
+-	}
+ 	mutex_lock(&mm->lock);
+ 	list_add(&im_buf->node, &mm->importer_bufs->node);
+ 	mutex_unlock(&mm->lock);
+@@ -452,16 +433,8 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 	return 0;
+ 
+ undo_attach:
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+-		memset(&desc, 0, sizeof(desc));
+-		desc.pa = dmabuf_info->pa;
+-		desc.bytes = dmabuf_info->bytes;
+-		desc.exec_id = DMA_BUF_EXEC_ID;
+-		desc.mode = AIPU_DMA_BUF_DETA_IOVA;
+-		aipu_free_dma_iova_phy(mm, &desc, NULL);
+-	} else {
++	if (attach && table)
+ 		dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
+-	}
+ detach_dmabuf:
+ 	if (attach)
+ 		dma_buf_detach(dmabuf, attach);
+@@ -473,13 +446,8 @@ put_dmabuf:
+ static void aipu_detach_imported_dma_buf(struct aipu_memory_manager *mm,
+ 					 struct aipu_dma_buf_importer *im_buf)
+ {
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+-		im_buf->desc.mode = AIPU_DMA_BUF_DETA_IOVA;
+-		aipu_free_dma_iova_phy(mm, &im_buf->desc, NULL);
+-	} else {
+-		dma_buf_unmap_attachment(im_buf->attach, im_buf->table, DMA_BIDIRECTIONAL);
+-		dma_buf_detach(im_buf->dmabuf, im_buf->attach);
+-	}
++	dma_buf_unmap_attachment(im_buf->attach, im_buf->table, DMA_BIDIRECTIONAL);
++	dma_buf_detach(im_buf->dmabuf, im_buf->attach);
+ 
+ 	dma_buf_put(im_buf->dmabuf);
+ 	kfree(im_buf);
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
+index 2cca901..50031b2 100644
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.h
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
+@@ -28,7 +28,6 @@ struct aipu_dma_buf_importer {
+ 	struct dma_buf_attachment *attach;
+ 	struct sg_table *table;
+ 	struct list_head node;
+-	struct aipu_buf_desc desc;
+ };
+ 
+ int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *request);
+diff --git a/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
+index 358f8ac..c09f55b 100644
+--- a/drivers/misc/armchina-npu/aipu_io.c
++++ b/drivers/misc/armchina-npu/aipu_io.c
+@@ -19,8 +19,6 @@ int init_aipu_ioregion(struct io_region *region, u64 phys_base, u32 size)
+ 	if (!region || !size)
+ 		return -EINVAL;
+ 
+-	region->phys = phys_base;
+-	region->size = size;
+ 	if (!request_mem_region(phys_base, size, "aipu"))
+ 		return -ENOMEM;
+ 
+@@ -30,6 +28,8 @@ int init_aipu_ioregion(struct io_region *region, u64 phys_base, u32 size)
+ 		return -ENOMEM;
+ 	}
+ 
++	region->phys = phys_base;
++	region->size = size;
+ 	return ret;
+ }
+ 
+diff --git a/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
+index c6b8448..039b5bd 100644
+--- a/drivers/misc/armchina-npu/aipu_irq.c
++++ b/drivers/misc/armchina-npu/aipu_irq.c
+@@ -4,7 +4,6 @@
+ #include <linux/slab.h>
+ #include <linux/interrupt.h>
+ #include <linux/irqreturn.h>
+-#include <linux/device.h>
+ #include <linux/version.h>
+ #include "aipu_irq.h"
+ #include "aipu_partition.h"
+@@ -12,8 +11,8 @@
+ 
+ static irqreturn_t aipu_irq_handler_upper_half(int irq, void *dev_id)
+ {
+-	struct device *dev = dev_id;
+-	struct aipu_partition *partition = dev_get_drvdata(dev);
++	struct aipu_priv *aipu =(((struct device *)dev_id)->driver_data);
++	struct aipu_partition *partition = aipu->partitions;
+ 
+ 	if (partition && partition->ops && partition->ops->upper_half)
+ 		return partition->ops->upper_half(partition);
+diff --git a/drivers/misc/armchina-npu/aipu_irq.h b/drivers/misc/armchina-npu/aipu_irq.h
+index e4f1266..dd1448e 100644
+--- a/drivers/misc/armchina-npu/aipu_irq.h
++++ b/drivers/misc/armchina-npu/aipu_irq.h
+@@ -17,7 +17,6 @@ enum irq_event_type {
+ 	AIPU_IRQ_EVENT_PRINT,
+ 	AIPU_IRQ_EVENT_RESET,
+ 	AIPU_IRQ_EVENT_ABORT,
+-	AIPU_IRQ_EVENT_COREDUMP,
+ };
+ 
+ /**
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+index 8da0218..dbe85bc 100644
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -259,7 +259,7 @@ static bool is_user_job_valid(struct aipu_job_manager *manager, struct aipu_job_
+ 	struct aipu_partition *partition = NULL;
+ 	struct aipu_partition *core = NULL;
+ 
+-	if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		if (manager->version != user_job->aipu_version ||
+ 		    partition_id > 1) {
+ 			dev_err(manager->dev, "invalid version number (%d) or partition ID (%d)",
+@@ -279,7 +279,7 @@ static bool is_user_job_valid(struct aipu_job_manager *manager, struct aipu_job_
+ 			return false;
+ 		}
+ 
+-		if (user_job->exec_flag & AIPU_JOB_EXEC_FLAG_BIND_DISPATCH) {
++		if (user_job->exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH) {
+ 			partition = &manager->partitions[partition_id];
+ 			core_cnt = atomic_read(&partition->clusters[0].en_core_cnt);
+ 			if (core_id >= core_cnt) {
+@@ -393,19 +393,19 @@ enable_tec_intr:
+ 	manager->tec_intr_en = true;
+ }
+ 
+-static int schedule_v3_2_job_no_lock(struct aipu_job_manager *manager, struct aipu_job_desc *desc)
++static int schedule_v3_2_job_no_lock(struct aipu_job_manager *manager, struct aipu_job *job)
+ {
+ 	int ret = 0;
+ 	struct aipu_partition *cluster = &manager->partitions[0];
+ 	int pool_type = ZHOUYI_COMMAND_POOL_PCP;
+-	int partition_id = desc->partition_id;
++	int partition_id = job->desc.partition_id;
+ 	int trigger_type = ZHOUYI_TRIGGER_TYPE_CREATE;
+ 	struct command_pool *pool = &manager->pools[partition_id];
+ 
+-	if (desc->partition_id == AIPU_PARTITION_ID_0) {
++	if (job->desc.partition_id == AIPU_PARTITION_ID_0) {
+ 		pool_type = ZHOUYI_COMMAND_POOL_PCP;
+ 	} else {
+-		dev_err(manager->dev, "invalid partition_id: %d\n", desc->partition_id);
++		dev_err(manager->dev, "invalid partition_id: %d\n", job->desc.partition_id);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -416,13 +416,13 @@ static int schedule_v3_2_job_no_lock(struct aipu_job_manager *manager, struct ai
+ 	else
+ 		trigger_type = ZHOUYI_TRIGGER_TYPE_DISPATCH;
+ 
+-	ret = cluster->ops->reserve(cluster, desc, trigger_type, pool_type);
++	ret = cluster->ops->reserve(cluster, &job->desc, trigger_type, pool_type);
+ 	if (!ret) {
+ 		if (trigger_type == ZHOUYI_TRIGGER_TYPE_CREATE)
+ 			pool->created = true;
+ 
+-		if (desc->exec_flag & AIPU_JOB_EXEC_FLAG_BIND_DISPATCH)
+-			pool->bind = true;
++		if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH)
++			pool->debug = true;
+ 
+ 		if (pool->aborted)
+ 			pool->aborted = false;
+@@ -465,17 +465,17 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 	check_enable_tec_interrupts(manager, job);
+ 
+ 	/**
+-	 * 1. bind-dispatch tasks cannot be linked to any existing command pool.
+-	 * 2. command pool containing bind-dispatch tasks cannot be linked by any task TCB;
+-	 * 3. we must create a new command pool to enable bind-dispatch.
++	 * 1. debug-dispatch tasks cannot be linked to any existing command pool.
++	 * 2. command pool containing debug-dispatch tasks cannot be linked by any task TCB;
++	 * 3. we must create a new command pool to enable debug-dispatch.
+ 	 */
+-	if (pool->bind) {
+-		dev_err(partition->dev, "bind-dispatch command pool cannot be linked");
++	if (pool->debug) {
++		dev_err(partition->dev, "debug-dispatch command pool cannot be linked");
+ 		return -EINVAL;
+ 	}
+ 
+-	if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_BIND_DISPATCH)
+-		trigger_type = ZHOUYI_TRIGGER_TYPE_BIND_DISPATCH;
++	if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH)
++		trigger_type = ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH;
+ 
+ 	/* remove init tcb of single group jobs to make them run in parallel on multi-core */
+ 	if (atomic_read(&partition->clusters[0].en_core_cnt) != 1 &&
+@@ -509,11 +509,11 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 	ret = partition->ops->reserve(partition, &job->desc, trigger_type, 0);
+ 	if (!ret) {
+ 		if (trigger_type == ZHOUYI_TRIGGER_TYPE_CREATE ||
+-		    trigger_type == ZHOUYI_TRIGGER_TYPE_BIND_DISPATCH)
++		    trigger_type == ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH)
+ 			pool->created = true;
+ 
+-		if (trigger_type == ZHOUYI_TRIGGER_TYPE_BIND_DISPATCH)
+-			pool->bind = true;
++		if (trigger_type == ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH)
++			pool->debug = true;
+ 
+ 		if (pool->aborted)
+ 			pool->aborted = false;
+@@ -531,18 +531,6 @@ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_de
+ 	unsigned long flags;
+ 	struct aipu_job *curr, *next;
+ 	bool find = false;
+-	struct aipu_tcb_v32 *tcb;
+-
+-	//if grid disable done interrupt, just do a dispatch and don't maintain kernel job;
+-	if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_1 ) {
+-		tcb = (struct aipu_tcb_v32 *)aipu_mm_get_va(manager->mm, user_job->head_tcb_pa);
+-		if (!(tcb->grid.interrupt_en & EN_DONE_INTR_V3_2)) {
+-			spin_lock_irqsave(&manager->lock, flags);
+-			ret = schedule_v3_2_job_no_lock(manager, user_job);
+-			spin_unlock_irqrestore(&manager->lock, flags);
+-			return ret;
+-		}
+-	}
+ 
+ 	mutex_lock(&manager->wq_lock);
+ 	if (user_job->enable_poll_opt)
+@@ -572,8 +560,8 @@ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_de
+ 	if (do_trigger) {
+ 		kern_job->state = AIPU_JOB_STATE_PENDING;
+ 
+-		if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-			ret = schedule_v3_2_job_no_lock(manager, &kern_job->desc);
++		if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
++			ret = schedule_v3_2_job_no_lock(manager, kern_job);
+ 			if (!ret) {
+ 				list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+ 					if (curr->state == AIPU_JOB_STATE_PENDING) {
+@@ -657,8 +645,8 @@ static int trigger_deferred_job_run(struct aipu_job_manager *manager,
+ 		    curr->desc.job_id == user_job->job_id &&
+ 		    curr->state == AIPU_JOB_STATE_DEFERRED) {
+ 			curr->state = AIPU_JOB_STATE_RUNNING;
+-			if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-				schedule_v3_2_job_no_lock(manager, &curr->desc);
++			if (user_job->aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
++				schedule_v3_2_job_no_lock(manager, curr);
+ 			} else if (user_job->aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+ 				/**
+ 				 * for debugger: it should ensure that the NPUs are free to accept
+@@ -736,7 +724,7 @@ int init_aipu_job_manager(struct aipu_job_manager *manager, struct aipu_memory_m
+ 	memset(&manager->exit_tcb_desc, 0, sizeof(manager->exit_tcb_desc));
+ 
+ 	manager->exec_id = AIPU_EXEC_ID;
+-	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		manager->grid_id = 1;
+ 		manager->group_id_num = 0x7FFF;
+ 		manager->group_id_bmap =
+@@ -782,7 +770,7 @@ void deinit_aipu_job_manager(struct aipu_job_manager *manager)
+ #endif
+ 	manager->is_init = 0;
+ 
+-	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		devm_kfree(manager->dev, manager->group_id_bmap);
+ 		manager->group_id_bmap = NULL;
+ 		devm_kfree(manager->dev, manager->sflag_id_bmap);
+@@ -851,55 +839,29 @@ int aipu_job_manager_scheduler(struct aipu_job_manager *manager, struct aipu_job
+ 	return ret;
+ }
+ 
+-static void aipu_real_time_printk(struct aipu_memory_manager *mm,
+-				  struct job_irq_info *info,
+-				  u64 asid0_base)
++static void aipu_job_manager_real_time_printk(struct aipu_job_manager *manager,
++					      struct aipu_partition *partition,
++					      struct job_irq_info *info)
+ {
+ 	struct aipu_tcb *tcb = NULL;
+ 	char *buf = NULL;
+-	struct aipu_phy_block *blk= NULL;
+-	u64 pa = asid0_base + info->tail_tcbp;
+ 
+ 	if (GET_PRINF_SIZE(info->sig_flag)) {
+ 		/* here: tail TCBP is the exact TCB sending a printf signal */
+-		if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-			blk = aipu_get_block_buffer(mm, pa, "printk");
+-			if (!blk) {
+-				dev_err(mm->dev, "real time printk: no BLK found (0x%llx)\n",
+-					pa);
+-				return;
+-			}
+-
+-			tcb = (struct aipu_tcb *)((char *)(blk->va) + pa - blk->iova_start);
+-			if (!tcb) {
+-				dev_err(mm->dev, "real time printk: no TCB found (0x%llx)\n",
+-					pa);
+-				return;
+-			}
+-			pa = asid0_base + tcb->task.pprint;
+-			buf = (char *)((unsigned long)blk->va + pa - blk->iova_start);
+-			if (buf)
+-				dev_info(mm->dev, "[real-time printk 0x%x] %s",
+-					tcb->task.pprint, buf);
+-			else
+-				dev_err(mm->dev, "real time printk: no pbuf found (0x%x)\n",
+-					tcb->task.pprint);
+-		} else if (mm->version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+-			tcb = aipu_mm_get_tcb(mm, pa);
+-			if (!tcb) {
+-				dev_err(mm->dev, "real time printk: no TCB found (0x%llx)\n",
+-					pa);
+-				return;
+-			}
+-
+-			buf = aipu_mm_get_va(mm, asid0_base + tcb->task.pprint);
+-			if (buf)
+-				dev_info(mm->dev, "[real-time printk 0x%x] %s",
+-					tcb->task.pprint, buf);
+-			else
+-				dev_err(mm->dev, "real time printk: no pbuf found (0x%x)\n",
+-					tcb->task.pprint);
++		tcb = aipu_mm_get_tcb(manager->mm, manager->asid0_base + info->tail_tcbp);
++		if (!tcb) {
++			dev_err(partition->dev, "real time printk: no TCB found (0x%x)\n",
++				info->tail_tcbp);
++			return;
+ 		}
++
++		buf = aipu_mm_get_va(manager->mm, manager->asid0_base + tcb->task.pprint);
++		if (buf)
++			dev_info(partition->dev, "[real-time printk 0x%x] %s",
++				 tcb->task.pprint, buf);
++		else
++			dev_err(partition->dev, "real time printk: no pbuf found (0x%x)\n",
++				tcb->task.pprint);
+ 	}
+ }
+ 
+@@ -1021,18 +983,10 @@ static bool is_curr_irq_job(struct aipu_job *job, struct job_irq_info *info, u64
+ }
+ 
+ static bool is_v3x_job_done_or_excep(struct aipu_job *job, struct job_irq_info *info,
+-					 int flag)
++				     int flag)
+ {
+ 	return info->tail_tcbp == (u32)(job->desc.last_task_tcb_pa - job->desc.asid0_base) &&
+-		   (IS_DONE_IRQ(flag) || IS_EXCEPTION_IRQ(flag));
+-}
+-
+-static bool is_v3_2_1_job_done_or_excep(struct aipu_job *job, struct job_irq_info *info,
+-					 int flag)
+-{
+-	return info->tail_tcbp == (u32)(job->desc.last_task_tcb_pa - job->desc.asid0_base) &&
+-		   info->group_id == job->desc.group_id &&
+-		   (IS_DONE_IRQ(flag) || IS_EXCEPTION_IRQ(flag));
++	       (IS_DONE_IRQ(flag) || IS_EXCEPTION_IRQ(flag));
+ }
+ 
+ static bool do_abortion(int flag, struct job_irq_info *info)
+@@ -1060,18 +1014,13 @@ static bool is_job_end(struct aipu_job *job, struct aipu_partition *partition,
+ 	if (job->state != AIPU_JOB_STATE_RUNNING)
+ 		return false;
+ 
+-	if (job->desc.aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_1){
+-		return is_v3_2_1_job_done_or_excep(job, info, flag) ||
+-			IS_ERROR_IRQ_V3_2(flag) || IS_TIMEOUT_IRQ_V3_2(flag) ||
+-			IS_FAULT_IRQ_V3_2(flag) || do_abortion_V3_2(flag, info);
+-	} else if (job->desc.aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (job->desc.aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3) {
++		return is_v3x_job_done_or_excep(job, info, flag) ||
++			do_abortion(flag, info);
++	} else if (job->desc.aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		return is_v3x_job_done_or_excep(job, info, flag) ||
+ 			IS_ERROR_IRQ_V3_2(flag) || IS_TIMEOUT_IRQ_V3_2(flag) ||
+ 			IS_FAULT_IRQ_V3_2(flag) || do_abortion_V3_2(flag, info);
+-	} else if (job->desc.aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+-		return is_v3x_job_done_or_excep(job, info, flag) ||
+-			do_abortion(flag, info);
+-
+ 	}
+ 
+ 	return job->core_id == partition->id;
+@@ -1082,39 +1031,12 @@ static bool is_job_abnormal(struct aipu_job *job, int flag,
+ {
+ 	if (job->desc.aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3)
+ 		return IS_ABNORMAL(flag) || IS_EXCEPTION_SIGNAL(info->sig_flag);
+-	else if (job->desc.aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
++	else if (job->desc.aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3_2)
+ 		return IS_ABNORMAL_V3_2(flag) || IS_EXCEPTION_SIGNAL_V3_2(info->sig_flag);
+ 
+ 	return flag != 0;
+ }
+ 
+-/**
+- * @aipu_sched_hqos_job_no_lock() - schedule high qos job
+- * @m: pointer to job manager struct
+- */
+-static void aipu_sched_hqos_job_no_lock(struct aipu_job_manager *m)
+-{
+-	struct aipu_job *curr = NULL;
+-	struct aipu_job *next = NULL;
+-	struct list_head *h = NULL;
+-	int ret;
+-
+-	if (unlikely(!m))
+-		return;
+-
+-	h = &m->scheduled_head->node;
+-
+-	list_for_each_entry_safe(curr, next, h, node) {
+-		if (curr->state == AIPU_JOB_STATE_PENDING &&
+-		    (curr->desc.exec_flag & AIPU_JOB_EXEC_FLAG_BIND_DISPATCH ||
+-		     curr->desc.exec_flag & AIPU_JOB_EXEC_FLAG_QOS_FAST)) {
+-			ret = schedule_v3_2_job_no_lock(m, &curr->desc);
+-			if (!ret)
+-				curr->state = AIPU_JOB_STATE_RUNNING;
+-		}
+-	}
+-}
+-
+ /**
+  * @aipu_job_manager_irq_upper_half() - aipu interrupt upper half handler
+  * @core:           pointer to the aipu core struct
+@@ -1126,31 +1048,20 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ {
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_job_manager *manager = NULL;
+-	struct list_head *h = NULL;
+-	int handled = 0;
+ 	int triggered = 0;
++	bool abort_cmdpool = false;
+ 	int ret= 0;
+ 
+ 	if (unlikely(!partition))
+ 		return;
+ 
+ 	manager = get_job_manager(partition);
+-	h = &manager->scheduled_head->node;
+-	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-		if (IS_SIGNAL_IRQ_V3_2(flag) &&
+-		    !IS_EXCEPTION_SIGNAL_V3_2(info->sig_flag)) {
+-			if (IS_PRINTF_SIGNAL_V3_2(info->sig_flag)) {
+-				spin_lock(&manager->lock);
+-				list_for_each_entry(curr, h, node) {
+-					if (is_curr_irq_job(curr, info,
+-					    curr->desc.asid0_base)) {
+-						aipu_real_time_printk(manager->mm,
+-							info, curr->desc.asid0_base);
+-						break;
+-					}
+-				}
+-				spin_unlock(&manager->lock);
+-			}
++
++	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
++		if (IS_SIGNAL_IRQ_V3_2(flag) && !IS_EXCEPTION_SIGNAL_V3_2(info->sig_flag)) {
++			if (IS_PRINTF_SIGNAL_V3_2(info->sig_flag))
++				aipu_job_manager_real_time_printk(manager, partition, info);
++
+ #if AIPU_CONFIG_ENABLE_INTR_PROFILING
+ 			if (IS_PROFILER_SIGNAL_V3_2(info->sig_flag)) {
+ 				pr_info("profiler signal intr...\n");
+@@ -1159,9 +1070,8 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ #endif
+ 			if (IS_COREDUMP_SIGNAL_V3_2(info->sig_flag)) {
+ 				spin_lock(&manager->lock);
+-				list_for_each_entry(curr, h, node) {
+-					if (is_curr_irq_job(curr, info,
+-					    curr->desc.asid0_base)) {
++				list_for_each_entry(curr, &manager->scheduled_head->node, node) {
++					if (is_curr_irq_job(curr, info, curr->desc.asid0_base)) {
+ 						curr->state = AIPU_JOB_STATE_CORED;
+ 						break;
+ 					}
+@@ -1173,8 +1083,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 	} else if (manager->version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+ 		if (IS_SIGNAL_IRQ(flag) && !IS_EXCEPTION_SIGNAL(info->sig_flag)) {
+ 			if (IS_PRINTF_SIGNAL(info->sig_flag))
+-				aipu_real_time_printk(manager->mm, info,
+-					manager->asid0_base);
++				aipu_job_manager_real_time_printk(manager, partition, info);
+ 
+ #if AIPU_CONFIG_ENABLE_INTR_PROFILING
+ 			if (IS_PROFILER_SIGNAL(info->sig_flag)) {
+@@ -1184,7 +1093,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ #endif
+ 			if (IS_COREDUMP_SIGNAL(info->sig_flag)) {
+ 				spin_lock(&manager->lock);
+-				list_for_each_entry(curr, h, node) {
++				list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 					if (is_curr_irq_job(curr, info, manager->asid0_base)) {
+ 						curr->state = AIPU_JOB_STATE_CORED;
+ 						break;
+@@ -1198,35 +1107,30 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 
+ 	spin_lock(&manager->lock);
+ 
+-	/**
+-	 * v3_2 coredump will handle 1 type error
+-	 *  - tec exception (kmd ignore, npu isr triggers coredump signal irq)
+-	 * v3 coredump will handle 2 types error
+-	 *  - tec fault
+-	 *  - tec exception
+-	 * once coredump is enable and fault occurs, driver will not reset anything to save the context
+-	*/
+-	if ((manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && IS_COREDUMP_IRQ_V3_2(flag)) ||
+-		(manager->version == AIPU_ISA_VERSION_ZHOUYI_V3 && IS_COREDUMP_IRQ(flag))) {
+-		list_for_each_entry(curr, h, node) {
++	/* soft reset association irq not in coredump scope */
++	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
++		if (do_abortion_V3_2(flag, info) && manager->pools[partition->id].created){
++			partition->event_type = AIPU_IRQ_EVENT_ABORT;
++			abort_cmdpool = true;
++		}
++	} else if (manager->version == AIPU_ISA_VERSION_ZHOUYI_V3) {
++		if (do_abortion(flag, info))
++			abort_cmdpool = true;
++	}
++
++	if (abort_cmdpool) {
++		list_for_each_entry(curr, &manager->scheduled_head->node, node) {
++			/* coredump irq follows fault irq */
+ 			if (curr->desc.is_coredump_en) {
+-				partition->event_type = AIPU_IRQ_EVENT_COREDUMP;
+ 				spin_unlock(&manager->lock);
+ 				return;
+ 			}
+ 		}
+-	}
+-
+-	if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-		if (do_abortion_V3_2(flag, info) && manager->pools[partition->id].created){
+-			partition->event_type = AIPU_IRQ_EVENT_ABORT;
+-		}
+-	} else if (manager->version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+-		if (do_abortion(flag, info)) {
++		if (manager->version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+ 			ret = partition->ops->abort_command_pool(partition, 0);
+ 			if (!ret && manager->pools) {
+ 				manager->pools[partition->id].aborted = true;
+-				list_for_each_entry(curr, h, node)
++				list_for_each_entry(curr, &manager->scheduled_head->node, node)
+ 					curr->state = AIPU_JOB_STATE_EXCEP;
+ 				spin_unlock(&manager->lock);
+ 				return;
+@@ -1234,7 +1138,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 		}
+ 	}
+ 
+-	list_for_each_entry(curr, h, node) {
++	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 		if (is_job_end(curr, partition, info, flag)) {
+ 			if (unlikely(is_job_abnormal(curr, flag, info)))
+ 				curr->state = AIPU_JOB_STATE_EXCEP;
+@@ -1258,23 +1162,15 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 			if (curr->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SRAM_MUTEX)
+ 				manager->exec_flag &= ~AIPU_JOB_EXEC_FLAG_SRAM_MUTEX;
+ 
+-			if (manager->pools && manager->pools->bind)
++			if (manager->pools && manager->pools->debug)
+ 				manager->dbg_do_destroy = true;
+ 
+-			handled = 1;
+ 			break;
+ 		}
+ 	}
+ 
+-	/* handled == false means a job was invalidated before done */
+-
+ 	if (!atomic_read(&partition->disable)) {
+-		//schedule hqos job first
+-		if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
+-			aipu_sched_hqos_job_no_lock(manager);
+-
+-		//then schedule other jobs;
+-		list_for_each_entry(curr, h, node) {
++		list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 			if (curr->state == AIPU_JOB_STATE_PENDING &&
+ 			    is_job_ok_for_core(partition, &curr->desc)) {
+ 				if (curr->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SRAM_MUTEX) {
+@@ -1314,102 +1210,21 @@ static void aipu_job_manager_destroy_command_pool_no_lock(struct aipu_job_manage
+ 			if (ret == 0) {
+ 				memset(pool->qlist, 0, sizeof(*pool->qlist) * AIPU_JOB_QOS_MAX);
+ 				pool->created = false;
+-				pool->bind = false;
++				pool->debug = false;
+ 				manager->tec_intr_en = false;
+ 				aipu_mm_set_final_htbuf_index(manager->mm, -1);
+ 			}
+-		} else if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++		} else if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 			ret = partition->ops->destroy_command_pool(partition, 0);
+ 			if (ret == 0) {
+ 				manager->tec_intr_en = false;
+ 				pool->created = false;
+-				pool->bind = false;
++				pool->debug = false;
+ 			}
+ 		}
+ 	}
+ }
+ 
+-/**
+- * @aipu_sched_pending_job_lock() - schedule pending job after reset/abort
+- * and also set runing job's status exception
+- * @part: pointer to the aipu partition struct
+- */
+-void aipu_sched_pending_job_lock(struct aipu_partition *part)
+-{
+-	struct aipu_job *curr = NULL;
+-	struct aipu_job *next = NULL;
+-	struct aipu_job_manager *manager = NULL;
+-	struct list_head *h = NULL;
+-	int ret;
+-	unsigned long flags;
+-	struct aipu_partition *partition = NULL;
+-
+-	if (unlikely(!part))
+-		return;
+-
+-	manager = get_job_manager(part);
+-	h = &manager->scheduled_head->node;
+-	partition = &manager->partitions[0];
+-
+-	spin_lock_irqsave(&manager->lock, flags);
+-	list_for_each_entry_safe(curr, next, h, node) {
+-		if (curr->state == AIPU_JOB_STATE_SUCCESS ||
+-		    curr->state == AIPU_JOB_STATE_EXCEP) {
+-			continue;
+-		}
+-
+-		if (curr->state == AIPU_JOB_STATE_PENDING &&
+-		    manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-			ret = schedule_v3_2_job_no_lock(manager, &curr->desc);
+-			if (!ret)
+-				curr->state = AIPU_JOB_STATE_RUNNING;
+-			else
+-				curr->state = AIPU_JOB_STATE_EXCEP;
+-		} else {
+-			curr->state = AIPU_JOB_STATE_EXCEP;
+-		}
+-	}
+-	spin_unlock_irqrestore(&manager->lock, flags);
+-	aipu_job_manager_irq_bottom_half(partition);
+-}
+-
+-/**
+- * @aipu_sched_pending_job_no_lock() - schedule pending job after reset/abort
+- * and also set runing job's status exception
+- * @part: pointer to the aipu partition struct
+- */
+-static void aipu_sched_pending_job_no_lock(struct aipu_partition *part)
+-{
+-	struct aipu_job *curr = NULL;
+-	struct aipu_job *next = NULL;
+-	struct aipu_job_manager *manager = NULL;
+-	struct list_head *h = NULL;
+-	int ret;
+-
+-	if (unlikely(!part))
+-		return;
+-
+-	manager = get_job_manager(part);
+-	h = &manager->scheduled_head->node;
+-
+-	list_for_each_entry_safe(curr, next, h, node) {
+-		if (curr->state == AIPU_JOB_STATE_SUCCESS ||
+-		    curr->state == AIPU_JOB_STATE_EXCEP)
+-			continue;
+-
+-		if (curr->state == AIPU_JOB_STATE_PENDING &&
+-		    manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-			ret = schedule_v3_2_job_no_lock(manager, &curr->desc);
+-			if (!ret)
+-				curr->state = AIPU_JOB_STATE_RUNNING;
+-			else
+-				curr->state = AIPU_JOB_STATE_EXCEP;
+-		} else {
+-			curr->state = AIPU_JOB_STATE_EXCEP;
+-		}
+-	}
+-}
+-
+ /**
+  * @aipu_job_manager_irq_bottom_half() - aipu interrupt bottom half handler
+  * @core: pointer to the aipu core struct
+@@ -1420,61 +1235,51 @@ void aipu_job_manager_irq_bottom_half(struct aipu_partition *core)
+ 	struct aipu_job *next = NULL;
+ 	struct aipu_job_manager *manager = NULL;
+ 	unsigned long flags;
+-	bool do_destroy = false;
+-	struct aipu_priv *aipu = NULL;
+-	int ret;
+-	struct list_head *h = NULL;
+-	struct command_pool *pool = NULL;
++	bool do_destroy = core->version >= AIPU_ISA_VERSION_ZHOUYI_V3;
+ 
+ 	if (unlikely(!core))
+ 		return;
+ 
+ 	manager = get_job_manager(core);
+-	h = &manager->scheduled_head->node;
+-	pool = &manager->pools[core->id];
+-
+-	if(core->version >= AIPU_ISA_VERSION_ZHOUYI_V3)
+-		do_destroy = true;
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 
+ 	//global reset in bottom half and set all job exception
+-	if (core->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (core->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		if (core->event_type == AIPU_IRQ_EVENT_RESET) {
+-			aipu = core->priv;
+-			ret = 0;
+-			if (aipu->reset_gpio)
+-				core->ops->hw_reset(core);
+-			else
+-				ret = core->ops->soft_reset(core, core->reg);
+-
+-			if (ret) {
+-				dev_err(core->dev, "global sw reset fails.\n");
++			if (core->ops->soft_reset(core, core->reg)) {
++				dev_err(core->dev, "global reset fails.\n");
+ 			} else {
++				list_for_each_entry_safe(curr, next,
++							 &manager->scheduled_head->node, node) {
++					if (curr->state == AIPU_JOB_STATE_SUCCESS)
++						continue;
++					curr->state = AIPU_JOB_STATE_EXCEP;
++				}
++
+ 				core->event_type = AIPU_IRQ_EVENT_NONE;
+-				pool->created = false;
+-				pool->bind = false;
++				manager->pools->created = false;
++				manager->pools->debug = false;
+ 				manager->tec_intr_en = false;
+-				aipu_sched_pending_job_no_lock(core);
+ 			}
+ 		} else if (core->event_type == AIPU_IRQ_EVENT_ABORT){
+ 			core->event_type = AIPU_IRQ_EVENT_NONE;
+-
+ 			if (core->ops->abort_command_pool(core, 0)) {
+ 				dev_err(core->dev, "abort cmd pool fails.\n");
+ 			} else {
++				list_for_each_entry_safe(curr, next,
++							&manager->scheduled_head->node, node) {
++					if (curr->state == AIPU_JOB_STATE_SUCCESS)
++						continue;
++					curr->state = AIPU_JOB_STATE_EXCEP;
++				}
+ 				if (manager->pools)
+-					pool->aborted = true;
+-				aipu_sched_pending_job_no_lock(core);
++					manager->pools[core->id].aborted = true;
+ 			}
+-		} else if (core->event_type == AIPU_IRQ_EVENT_COREDUMP) {
+-			core->event_type = AIPU_IRQ_EVENT_NONE;
+-			spin_unlock_irqrestore(&manager->lock, flags);
+-			return;
+ 		}
+ 	}
+ 
+-	list_for_each_entry_safe(curr, next, h, node) {
++	list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+ 		if (curr->state >= AIPU_JOB_STATE_EXCEP && !curr->wake_up &&
+ 		    (curr->desc.aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3 ||
+ 		     curr->core_id == core->id)) {
+@@ -1504,7 +1309,7 @@ void aipu_job_manager_irq_bottom_half(struct aipu_partition *core)
+ 	if (do_destroy)
+ 		aipu_job_manager_destroy_command_pool_no_lock(manager, core, true);
+ 
+-	list_for_each_entry_safe(curr, next, h, node) {
++	list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+ 		if (curr->state >= AIPU_JOB_STATE_EXCEP && !curr->wake_up &&
+ 		    (curr->desc.aipu_version >= AIPU_ISA_VERSION_ZHOUYI_V3 ||
+ 		     curr->core_id == core->id)) {
+@@ -1524,7 +1329,7 @@ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ 	int ret = 0;
+ 	unsigned long flags;
+ 	struct aipu_partition *partition = NULL;
+-	struct list_head *h = NULL;
++	struct aipu_job *curr = NULL;
+ 
+ 	if (!manager)
+ 		return -EINVAL;
+@@ -1533,15 +1338,19 @@ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ 		return -ENODEV;
+ 
+ 	partition = &manager->partitions[0];
+-	h = &manager->scheduled_head->node;
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	ret = partition->ops->abort_command_pool(partition, 0);
+ 	if (!ret && manager->pools)
+ 		manager->pools[partition->id].aborted = true;
+ 
+-	aipu_sched_pending_job_no_lock(partition);
++	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
++		if (curr->state == AIPU_JOB_STATE_SUCCESS)
++			continue;
++		curr->state = AIPU_JOB_STATE_EXCEP;
++	}
+ 	spin_unlock_irqrestore(&manager->lock, flags);
++
+ 	aipu_job_manager_irq_bottom_half(partition);
+ 
+ 	return ret;
+@@ -2064,4 +1873,4 @@ int aipu_job_manager_free_sflag_id(struct aipu_job_manager *manager,
+ 	mutex_unlock(&manager->id_lock);
+ 
+ 	return 0;
+-}
+\ No newline at end of file
++}
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+index d7677c5..4b36c50 100644
+--- a/drivers/misc/armchina-npu/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu/aipu_job_manager.h
+@@ -57,7 +57,6 @@ struct job_irq_info {
+ 	u32 tag_id;
+ 	u32 tail_tcbp;
+ 	u32 sig_flag;
+-	u32 group_id;
+ 	u64 tick_counter;
+ };
+ 
+@@ -134,7 +133,7 @@ struct qos {
+  * @qlist: TCB queue in different QoS lists
+  * @created: is this command pool created
+  * @aborted: is this command pool aborted
+- * @bind:   is this command pool for bind dispatch
++ * @debug:   is this command pool for debug dispatch
+  * @last_exec_flag: execution flag of the last job in this command pool
+  */
+ struct command_pool {
+@@ -142,7 +141,7 @@ struct command_pool {
+ 	struct qos qlist[AIPU_JOB_QOS_MAX];
+ 	bool created;
+ 	bool aborted;
+-	bool bind;
++	bool debug;
+ 	u32  last_exec_flag;
+ };
+ 
+@@ -170,7 +169,7 @@ struct command_pool {
+  * @exit_tcb:        buffer of the exit_TCB
+  * @tick_counter:    atomic lock for tick counter
+  * @is_suspend:      is suspended or not
+- * @dbg_do_destroy:  do destroy flag (enabled after a bind-dispatch job ends)
++ * @dbg_do_destroy:  do destroy flag (enabled after a debug-dispatch job ends)
+  * @tec_intr_en:     is TEC interrupts enabled or not
+  * @grid_id:         the latest grid ID allocated for userspace
+  * @group_id_bmap:   gruop ID bitmap
+@@ -247,5 +246,4 @@ int aipu_job_manager_free_sflag_id(struct aipu_job_manager *manager,
+ 
+ int aipu_job_manager_alloc_exec_id(struct aipu_job_manager *manager,
+ 				  u64 *job_id);
+-void aipu_sched_pending_job_lock(struct aipu_partition *part);
+ #endif /* __AIPU_JOB_MANAGER_H__ */
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+index 5fc830e..0e822d7 100644
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -930,7 +930,7 @@ static int aipu_mm_reserved_iova_for_never_map(struct aipu_memory_manager *mm, b
+ 		return -EINVAL;
+ 
+ 	iommu_domain = mm->iommu_domain;
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (mm->version == AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		iova_len = SZ_512M;
+ 
+ 		iovad = &mm->iova_domain;
+@@ -979,14 +979,9 @@ static int aipu_mm_add_iova_region(struct aipu_memory_manager *mm)
+ 	if (!mm)
+ 		return -EINVAL;
+ 
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
++	if (mm->version == AIPU_ISA_VERSION_ZHOUYI_V3_2)
+ 		iova_region_size = 0xe0000000;
+ 
+-#if defined(CONFIG_ARCH_CIX)
+-	if (mm->version == AIPU_ISA_VERSION_ZHOUYI_V3)
+-		iova_region_size = 0x3ffff000;
+-#endif
+-
+ #if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
+ 	mm->dev->bus_dma_limit = 0x800000000;
+ #elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+@@ -1216,7 +1211,6 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	int ret = 0;
+ 	struct iommu_group *group = NULL;
+ 	int asid = 0;
+-	unsigned long order;
+ 
+ 	if (!mm || !p_dev)
+ 		return -EINVAL;
+@@ -1287,11 +1281,9 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	 * 2: GM is divided half-by-half: for QoS slow & fast tasks, respectively
+ 	 */
+ 	if (version >= AIPU_ISA_VERSION_ZHOUYI_V3) {
+-		ret = of_property_read_u32(mm->dev->of_node, "gm-policy", &mm->gm_policy);
+-		if (ret || mm->gm_policy > AIPU_GM_POLICY_HALF_DIVIDED) {
++		ret = device_property_read_u32(mm->dev, "gm-policy", &mm->gm_policy);
++		if (ret || mm->gm_policy > AIPU_GM_POLICY_HALF_DIVIDED)
+ 			mm->gm_policy = AIPU_GM_POLICY_SHARED;
+-			ret = 0;
+-		}
+ 
+ 		if (IS_ERR(aipu_common_create_attr(mm->dev, &mm->gm_policy_attr, "gm_policy", 0644,
+ 						   aipu_gm_policy_sysfs_show,
+@@ -1311,17 +1303,16 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	if (group) {
+ 		mm->has_iommu = true;
+ 		mm->iommu_domain = iommu_get_domain_for_dev(mm->dev);
+-		if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++		if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 			mm->valid_asid_cnt = 0;
+ 			mm->iova_base = 0x100000000ULL;   // start from 4GB
+ 			mm->iova_size = 0x800000000ULL;  // total szie 32GB
+ 
+-			order = __ffs(mm->iommu_domain->pgsize_bitmap);
+ #if (KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE)
+-			init_iova_domain(&mm->iova_domain, 1UL << order,
++			init_iova_domain(&mm->iova_domain, PAGE_SIZE,
+ 					mm->iova_base >> PAGE_SHIFT);
+ #else
+-			init_iova_domain(&mm->iova_domain, 1UL << order,
++			init_iova_domain(&mm->iova_domain, PAGE_SIZE,
+ 					mm->iova_base >> PAGE_SHIFT,
+ 					DMA_BIT_MASK(36)>>PAGE_SHIFT);
+ #endif
+@@ -1353,7 +1344,7 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 		mm->res_cnt = aipu_mm_add_reserved_regions(mm);
+ 	}
+ #if AIPU_USE_STANDARD_DMA_API_FOR_V3_2
+-	else if (mm->version <= AIPU_ISA_VERSION_ZHOUYI_V3_2_0)
++	else if (mm->version <= AIPU_ISA_VERSION_ZHOUYI_V3_2)
+ 		mm->res_cnt = aipu_mm_add_iova_region(mm);
+ #else
+ 	else if (mm->version <= AIPU_ISA_VERSION_ZHOUYI_V3)
+@@ -1493,7 +1484,7 @@ static bool aipu_mm_check_address_validity(struct aipu_memory_manager *mm,
+ 		lower_bound = asid_base + size_4G - SZ_1G;
+ 		upper_bound = asid_base + size_4G;
+ 
+-		if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++		if (mm->version == AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 			lower_bound += SZ_512M;
+ 		} else {
+ 			if (desc->asid > AIPU_BUF_ASID_0) {
+@@ -1826,7 +1817,7 @@ void aipu_mm_free_buffers(struct aipu_memory_manager *mm, struct file *filp)
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	struct aipu_mem_region_obj *next = NULL;
+ 
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu)
++	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2 && mm->has_iommu)
+ 		aipu_free_all_dma_iova_phy(mm, filp);
+ 
+ 	mutex_lock(&mm->lock);
+@@ -1844,7 +1835,7 @@ void aipu_mm_free_buffers(struct aipu_memory_manager *mm, struct file *filp)
+ }
+ 
+ static int aipu_vma_map_pages(struct vm_area_struct *vma, struct page **pages,
+-				unsigned long num)
++			      unsigned long num)
+ {
+ 	unsigned long count = vma_pages(vma);
+ 	unsigned long uaddr = vma->vm_start;
+@@ -1900,7 +1891,7 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ #else
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+-	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
++	if(mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2 && mm->has_iommu) {
+ 		block = aipu_get_block_buffer(mm, iova, "mmap");
+ 		if(!block)
+ 			return -EINVAL;
+@@ -2027,28 +2018,15 @@ unlock:
+ char *aipu_mm_get_va(struct aipu_memory_manager *mm, u64 dev_pa)
+ {
+ 	struct aipu_mem_region *reg = NULL;
+-	struct aipu_phy_block *blk= NULL;
+-	char * va = NULL;
+ 
+ 	if (!mm)
+ 		return NULL;
+ 
+-	if (mm->version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0 && mm->has_iommu) {
+-		blk = aipu_get_block_buffer(mm, dev_pa, "get va");
+-		if (!blk) {
+-			dev_err(mm->dev, "get va: no BLK found (0x%llx)\n",
+-				dev_pa);
+-			return NULL;
+-		}
+-		va = ((char *)(blk->va) + dev_pa - blk->iova_start);
+-	} else {
+-		reg = aipu_mm_find_region(mm, dev_pa, "get_va");
+-		if (!reg)
+-			return NULL;
+-		va = (char *)((unsigned long)reg->base_va + dev_pa - reg->base_iova);
+-	}
++	reg = aipu_mm_find_region(mm, dev_pa, "get_va");
++	if (!reg)
++		return NULL;
+ 
+-	return va;
++	return (char *)((unsigned long)reg->base_va + dev_pa - reg->base_iova);
+ }
+ 
+ /**
+@@ -2127,7 +2105,6 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ 	struct aipu_hold_tcb_buf *htbuf = NULL;
+ 	unsigned long flags;
+ 	int ret = 0;
+-	u32 temp = 0;
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(mm, prev_tail);
+ 	if (!htbuf)
+@@ -2135,7 +2112,6 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ 
+ 	spin_lock_irqsave(&mm->shlock, flags);
+ 	htbuf->hold_tcb->next = next_head_32;
+-	temp = htbuf->hold_tcb->next;
+ 	htbuf->next_head = next_head_32;
+ 	if (htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_PREV)
+ 		htbuf->status = AIPU_MEM_HOLD_TYPE_LINKED;
+@@ -2168,7 +2144,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	struct aipu_buf_desc buf;
+ 	unsigned long flags;
+ 	int ret = 0;
+-	u32 temp = 0;
+ 	int prev_status = -1, prev_index = -1;
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(mm, curr_hold);
+@@ -2188,7 +2163,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	}
+ 	if (prev_htbuf) {
+ 		prev_htbuf->hold_tcb->next = 0;
+-		temp = prev_htbuf->hold_tcb->next;
+ 		if (prev_htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_NEXT) {
+ 			prev_htbuf->status = AIPU_MEM_HOLD_TYPE_IDLE;
+ 		} else if (prev_htbuf->status == AIPU_MEM_HOLD_TYPE_LINKED) {
+@@ -2206,7 +2180,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	tbuf->tail_tcb->next = 0;
+ 	tbuf->dep_job_id = 0;
+ 	tbuf->pinned = false;
+-	temp = tbuf->tail_tcb->next;
+ 	htbuf->prev_head = 0;
+ 	htbuf->prev_tail = 0;
+ 
+@@ -2635,8 +2608,8 @@ struct aipu_phy_block *aipu_get_block_buffer(struct aipu_memory_manager *mm, u64
+ 	return NULL;
+ }
+ 
+-struct aipu_iova_buffer *aipu_get_iova_buffer_by_exec_id(struct aipu_memory_manager *mm,
+-						u64 exec_id, char* str)
++static struct aipu_iova_buffer *
++aipu_get_iova_buffer_by_exec_id(struct aipu_memory_manager *mm, u64 exec_id, char *str)
+ {
+ 	struct aipu_iova_buffer *buffer = NULL;
+ 
+@@ -2694,9 +2667,8 @@ static struct aipu_iova_buffer* aipu_alloc_iova(struct aipu_memory_manager *mm,
+ 	reserved_iova = ALIGN(buf_req->reserve_iova_size, PAGE_SIZE);
+ 	pfn_hi = (mm->iova_base + mm->iova_size - 1) >> PAGE_SHIFT;
+ 
+-	if ((iova_size + reserved_iova) > mm->iova_size ||
+-	    (iova_size + reserved_iova) > (3UL * SZ_1G + SZ_512M)) {
+-		dev_err(mm->dev, "iova_size is larger than total size or 3.5GB.\n");
++	if ((iova_size + reserved_iova) > mm->iova_size) {
++		dev_err(mm->dev, "iova_size is larger than total size.\n");
+ 		return NULL;
+ 	}
+ 
+@@ -2785,6 +2757,7 @@ static struct page **aipu_dma_alloc_pages(struct device *dev,
+ #else
+ 	order_mask &= (2U << MAX_ORDER) - 1;
+ #endif
++	//pr_info("order_mask 0x%lx\n", order_mask);
+ 	if (!order_mask)
+ 		return NULL;
+ 
+@@ -2835,7 +2808,8 @@ static struct page **aipu_dma_alloc_pages(struct device *dev,
+ 	return pages;
+ }
+ 
+-static int aipu_add_block_into_buffer(struct aipu_iova_buffer *buffer, struct aipu_phy_block *block)
++static int aipu_add_block_into_buffer(struct aipu_iova_buffer *buffer,
++				      struct aipu_phy_block *block)
+ {
+ 	struct aipu_dma_buf_priv *priv;
+ 	if (!buffer || !block)
+@@ -2857,7 +2831,8 @@ static int aipu_add_block_into_buffer(struct aipu_iova_buffer *buffer, struct ai
+ 	return 0;
+ }
+ 
+-static struct aipu_phy_block *aipu_remove_block_node(struct aipu_iova_buffer *buffer, u64 pa)
++static struct aipu_phy_block *
++aipu_remove_block_node(struct aipu_iova_buffer *buffer, u64 pa)
+ {
+ 	struct aipu_phy_block *block = NULL;
+ 	struct aipu_phy_block *tmp;
+@@ -2888,16 +2863,21 @@ static struct aipu_phy_block *aipu_alloc_phy_block(struct aipu_memory_manager *m
+ 	u32 page_count;
+ 	u64 mem_size = 0;
+ 	u64 iova_addr = 0;
+-	unsigned int min_size;
+-	unsigned int alloc_sizes = mm->iommu_domain->pgsize_bitmap;
++	size_t alloc_sizes = PAGE_SIZE;
+ 
+ 	iova_addr = buffer->iova_start + buffer->allocated_size;
+ 	mem_size = ALIGN(buf_req->bytes, PAGE_SIZE);
+ 	page_count = mem_size >> PAGE_SHIFT;
+ 
+-	min_size = alloc_sizes & -alloc_sizes;
+-	if (min_size < PAGE_SIZE)
+-		alloc_sizes |= PAGE_SIZE;
++	/* if (page_count < 32) //0-128K
++		alloc_sizes = PAGE_SIZE; //4KB
++	else //if (page_count < 4096) //128k-16MB
++		alloc_sizes = PAGE_SIZE*16; //128KB
++	else //if (page_count < 16384) //16MB-64MB
++		alloc_sizes = PAGE_SIZE*256; //1MB
++	else //above 64MB
++		alloc_sizes = PAGE_SIZE*512; //2MB
++	*/
+ 
+ 	if ((buffer->allocated_size + buf_req->bytes) > buffer->iova_size) {
+ 		dev_err(mm->dev, "iova space is not enough for phy memory allcation.");
+@@ -2949,9 +2929,9 @@ static void aipu_free_phy_block(struct aipu_memory_manager *mm, struct aipu_phy_
+ }
+ 
+ static int aipu_map_sg_to_iommu(struct aipu_memory_manager *mm,
+-			 	struct aipu_phy_block *block)
++                                struct aipu_phy_block *block)
+ {
+-	size_t mapped_size;
++	int nents_mapped;
+ 
+ 	if (!mm || !block)
+ 		return -EINVAL;
+@@ -2963,22 +2943,15 @@ static int aipu_map_sg_to_iommu(struct aipu_memory_manager *mm,
+ 	}
+ 
+ 	// map to iommu
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+-	mapped_size = iommu_map_sg(mm->iommu_domain, block->iova_start,
+-				   block->sgt.sgl, block->sgt.nents,
+-				   IOMMU_READ | IOMMU_WRITE, GFP_KERNEL);
+-#else
+-	mapped_size = iommu_map_sg(mm->iommu_domain, block->iova_start,
+-				   block->sgt.sgl, block->sgt.nents,
+-				   IOMMU_READ | IOMMU_WRITE);
+-#endif
+-	if (mapped_size < block->size) {
+-		dev_err(mm->dev, "IOMMU mapping failed: mapped=0x%zx iova 0x%llx page count 0x%x\n",
+-			mapped_size, block->iova_start, block->sgt.nents);
++	//mapped_size = iommu_map_sg(mm->iommu_domain, block->iova_start, block->sgt.sgl, block->sgt.nents, IOMMU_READ | IOMMU_WRITE);
++	nents_mapped = dma_map_sg(mm->dev, block->sgt.sgl, block->sgt.nents, DMA_BIDIRECTIONAL);
++	if (nents_mapped <=0 ) {
++		dev_err(mm->dev, "IOMMU mapping failed: nents_mapped=%d\n", nents_mapped);
+ 		sg_free_table(&block->sgt);
+ 		return -ENOMEM;
+ 	}
+ 
++	block->iova_start = sg_dma_address(block->sgt.sgl);
+ 	block->va = vmap(block->pages, block->page_count, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+ 	sg_free_table(&block->sgt);
+ 	//dev_info(mm->dev, "Mapped 0x%llx bytes to IOVA 0x%llx\n",
+@@ -2986,63 +2959,6 @@ static int aipu_map_sg_to_iommu(struct aipu_memory_manager *mm,
+ 	return 0;
+ }
+ 
+-int aipu_copy_block_by_dma_fd(struct aipu_memory_manager *mm,
+-			      struct aipu_dma_buf *dmabuf_info)
+-{
+-	struct dma_buf *dmabuf = NULL;
+-	struct aipu_dma_buf_priv *priv = NULL;
+-	struct aipu_iova_buffer* buffer;
+-	struct aipu_phy_block *block, *new;
+-	int ret = 0;
+-
+-	if (!mm || !dmabuf_info)
+-		return -EINVAL;
+-
+-	dmabuf = dma_buf_get(dmabuf_info->fd);
+-	if (IS_ERR(dmabuf))
+-		return PTR_ERR(dmabuf);
+-
+-	priv = (struct aipu_dma_buf_priv *)dmabuf->priv;
+-	dma_buf_put(dmabuf);
+-	block = aipu_get_block_buffer(mm, priv->dev_pa, "attach get block");
+-	if (!block) {
+-		return -EINVAL;
+-	}
+-
+-	buffer = aipu_get_iova_buffer_by_exec_id(mm, dmabuf_info->exec_id, "dma block malloc iova");
+-	if(!buffer) {
+-		return -EINVAL;
+-	}
+-
+-	new = kzalloc(sizeof(*new), GFP_KERNEL);
+-	if (!new) {
+-		return -ENOMEM;
+-	}
+-	new->pages = block->pages;
+-	new->size = block->size;
+-	new->page_count = block->page_count;
+-	new->sgt.nents = block->page_count;
+-	new->dmabuf = NULL;
+-	INIT_LIST_HEAD(&new->list);
+-	new->bind_memory = true;
+-
+-	//Add block into buffer's list
+-	aipu_add_block_into_buffer(buffer, new);
+-
+-	//map new iova
+-	ret = aipu_map_sg_to_iommu(mm, new);
+-	if (ret) {
+-		dev_err(mm->dev, "Map block iova 0x%llx size 0x%llx FAILED.\n", new->iova_start, new->size);
+-		aipu_remove_block_node(buffer, new->iova_start);
+-		kfree(new);
+-		return -ENOMEM;
+-	}
+-	dmabuf_info->pa = new->iova_start;
+-	dmabuf_info->bytes = new->size;
+-
+-	return ret;
+-}
+-
+ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_req,
+ 		  struct file *filp)
+ {
+@@ -3095,7 +3011,7 @@ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_requ
+ 		aipu_cache_invalidate(mm, block->va, block->size);
+ 		break;
+ 
+-	case AIPU_DMA_BUF_MALLOC_BOTH:
++	case AIPU_DMA_BUF_MALLOC_IOVA_PHY:
+ 		buffer = aipu_alloc_iova(mm, buf_req, filp);
+ 		if (!buffer) {
+ 			dev_err(mm->dev, "Malloc iova size 0x%llx FAILED.\n",  buf_req->bytes + buf_req->reserve_iova_size);
+@@ -3145,7 +3061,7 @@ int aipu_free_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_desc
+ 	if (!desc || !mm)
+ 		return -EINVAL;
+ 
+-	if (!desc->exec_id || desc->mode == AIPU_DMA_BUF_FREE_DEFAULT)
++	if (!desc->exec_id)
+ 		return aipu_mm_free(mm, desc, filp, true);
+ 
+ 	if (desc->exec_id >= AIPU_EXEC_ID)
+@@ -3173,31 +3089,24 @@ int aipu_free_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_desc
+ 				break;
+ 			}
+ 		}
+-
+-		if (free_iova || !buffer->ref_count)
+-			aipu_free_iova(mm, buffer);
+-	//free physical memory or iova for job buffer once
++	//free all for job buffer once
+ 	} else {
+ 		list_for_each_entry_safe(block, tmp, &buffer->phy_blocks, list) {
+ 			if (!block->bind_memory) {
+-				if (desc->mode == AIPU_DMA_BUF_FREE_BOTH  ||
+-				    desc->mode == AIPU_DMA_BUF_FREE_PHY) {
+-					list_del(&block->list);
+-					buffer->ref_count--;
+-					buffer->allocated_size -= block->size;
+-					iommu_unmap(mm->iommu_domain, block->iova_start, block->size);
+-					aipu_free_phy_block(mm, block);
+-				}
++				list_del(&block->list);
++				buffer->ref_count--;
++				buffer->allocated_size -= block->size;
++				iommu_unmap(mm->iommu_domain, block->iova_start, block->size);
++				aipu_free_phy_block(mm, block);
+ 			} else {
+ 				free_iova = false;
+ 			}
+ 		}
+-
+-		if (free_iova && (desc->mode == AIPU_DMA_BUF_FREE_BOTH ||
+-		    desc->mode == AIPU_DMA_BUF_FREE_IOVA))
+-			aipu_free_iova(mm, buffer);
+ 	}
+ 
++	if (free_iova || !buffer->ref_count)
++		aipu_free_iova(mm, buffer);
++
+ 	return 0;
+ }
+ 
+@@ -3213,11 +3122,6 @@ int aipu_rebind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_rebind_
+ 	if (!mm || !desc)
+ 		return -EINVAL;
+ 
+-	if (!mm->has_iommu) {
+-		dev_err(mm->dev, "reserved memory can't support rebind iova.\n");
+-		return -EINVAL;
+-	}
+-
+ 	//handle before iova buffer;
+ 	buffer = aipu_get_iova_buffer(mm, pa_unmap, "rebind dma buffer");
+ 	if (!buffer) {
+@@ -3274,13 +3178,8 @@ int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_bind_buf_
+ 	if (!mm || !desc)
+ 		return -EINVAL;
+ 
+-	if (!mm->has_iommu) {
+-		dev_err(mm->dev, "reserved memory can't support rebind iova.\n");
+-		return -EINVAL;
+-	}
+-
+ 	//bind new iova buffer
+-	buffer = aipu_get_iova_buffer_by_exec_id(mm, exec_id, "bind dma buf");
++	buffer = aipu_get_iova_buffer_by_exec_id(mm, exec_id, "rebind dma buf");
+ 	if (!buffer) {
+ 		return -EINVAL;
+ 	}
+@@ -3364,6 +3263,7 @@ static int aipu_free_all_dma_iova_phy(struct aipu_memory_manager *mm, struct fil
+ 	mutex_unlock(&mm->buffer_mutex);
+ 
+ 	//unmap sg table and free phy memory
++	pr_info("free buffer count %d for CTRL + C\n", buffer_count);
+ 	for (index = 0; index < buffer_count; index++) {
+ 		list_for_each_entry_safe(block, tmp, &pbuf[index]->phy_blocks, list) {
+ 			if (block) {
+diff --git a/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
+index 83591bc..bd1b537 100644
+--- a/drivers/misc/armchina-npu/aipu_mm.h
++++ b/drivers/misc/armchina-npu/aipu_mm.h
+@@ -320,16 +320,8 @@ int aipu_free_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_desc
+ void aipu_cache_flush(struct aipu_memory_manager *mm, void *vaddr, size_t size);
+ void aipu_cache_clean(struct aipu_memory_manager *mm, void *vaddr, size_t size);
+ void aipu_cache_invalidate(struct aipu_memory_manager *mm, void *vaddr, size_t size);
+-struct aipu_phy_block *aipu_get_block_buffer(struct aipu_memory_manager *mm,
+-					     u64 iova, char* str);
+-struct aipu_iova_buffer *aipu_get_iova_buffer_by_exec_id(struct aipu_memory_manager *mm,
+-							 u64 exec_id, char* str);
+-int aipu_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
+-			     struct aipu_rebind_buf_desc *desc,
+-			     struct file *filp);
+-int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm,
+-			   struct aipu_bind_buf_desc *desc,
+-			   struct file *filp);
+-int aipu_copy_block_by_dma_fd(struct aipu_memory_manager *mm,
+-			      struct aipu_dma_buf *dmabuf_info);
++struct aipu_phy_block *aipu_get_block_buffer(struct aipu_memory_manager *mm, u64 iova, char* str);
++struct aipu_iova_buffer *aipu_get_iova_buffer_by_job_id(struct aipu_memory_manager *mm, u64 exec_id, char* str);
++int aipu_rebind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_rebind_buf_desc *desc, struct file *filp);
++int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_bind_buf_desc *desc, struct file *filp);
+ #endif /* __AIPU_MM_H__ */
+diff --git a/drivers/misc/armchina-npu/aipu_partition.h b/drivers/misc/armchina-npu/aipu_partition.h
+index be5a991..8fb9a14 100644
+--- a/drivers/misc/armchina-npu/aipu_partition.h
++++ b/drivers/misc/armchina-npu/aipu_partition.h
+@@ -56,7 +56,6 @@ struct aipu_operations {
+ 	int (*sysfs_show)(struct aipu_partition *aipu, char *buf);
+ #endif
+ 	int (*soft_reset)(struct aipu_partition *aipu, bool init_regs);
+-	void (*hw_reset)(struct aipu_partition *aipu);
+ 	void (*initialize)(struct aipu_partition *aipu);
+ 	int (*destroy_command_pool)(struct aipu_partition *partition, int pool);
+ 	int (*abort_command_pool)(struct aipu_partition *partition, int pool);
+@@ -64,7 +63,6 @@ struct aipu_operations {
+ 	void (*disable_tick_counter)(struct aipu_partition *partition);
+ 	void (*enable_tick_counter)(struct aipu_partition *partition);
+ 	void (*enable_core_cnt)(struct aipu_partition *partition, u32 cluster_id, u32 core_cnt);
+-	int (*get_partition_status)(struct aipu_partition *partition, struct aipu_cluster_status *status);
+ };
+ 
+ /**
+@@ -135,8 +133,8 @@ struct aipu_partition {
+ 	struct cluster_info clusters[8];
+ 	int partition_mode;
+ 	int event_type;
++	struct mutex page_lock; /* protect page selection process */
+ 	struct io_region *dbg_reg;
+-	spinlock_t io_lock;
+ };
+ 
+ /**
+diff --git a/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
+index dd3d390..69438d3 100644
+--- a/drivers/misc/armchina-npu/aipu_priv.c
++++ b/drivers/misc/armchina-npu/aipu_priv.c
+@@ -96,15 +96,13 @@ int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
+ 	aipu->dbg_reg.size = 0;
+ 	aipu->ops = NULL;
+ 
+-	ret = zhouyi_detect_aipu_version(p_dev, &version, &config, &revision);
+-	if (ret)
+-		return ret;
++	zhouyi_detect_aipu_version(p_dev, &version, &config, &revision);
+ 	dev_dbg(aipu->dev, "AIPU core0 ISA version %d, configuration %d\n", version, config);
+ 	aipu->version = version;
+ 	aipu->revision = revision;
+ 
+ #if defined(CONFIG_ARMCHINA_NPU_ARCH_V3_2)
+-	if (version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (version >= AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		aipu->ops = get_v3_2_priv_ops();
+ 		aipu->core_reset_delay_us = AIPU_CONFIG_CORE_RESET_DELAY_US;
+ 	}
+@@ -128,24 +126,21 @@ int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
+ 
+ 	ret = init_misc_dev(aipu);
+ 	if (ret)
+-		goto finish;
++		goto err_handle;
+ 
+ 	ret = aipu_init_mm(&aipu->mm, p_dev, version);
+ 	if (ret)
+-		goto err_init_mm;
++		goto err_handle;
+ 
+ 	ret = init_aipu_job_manager(&aipu->job_manager, &aipu->mm, aipu);
+ 	if (ret)
+-		goto err_init_job_manager;
++		goto err_handle;
+ 
+ 	aipu->is_init = true;
+-	return ret;
++	goto finish;
+ 
+-err_init_job_manager:
+-	aipu_deinit_mm(&aipu->mm);
+-
+-err_init_mm:
+-	deinit_misc_dev(aipu);
++err_handle:
++	deinit_aipu_priv(aipu);
+ 
+ finish:
+ 	return ret;
+diff --git a/drivers/misc/armchina-npu/aipu_priv.h b/drivers/misc/armchina-npu/aipu_priv.h
+index 6ca7f58..6d47f22 100644
+--- a/drivers/misc/armchina-npu/aipu_priv.h
++++ b/drivers/misc/armchina-npu/aipu_priv.h
+@@ -29,7 +29,7 @@ struct aipu_priv_operations {
+ 						    struct platform_device *p_dev);
+ 	void (*destroy_partitions)(struct aipu_priv *aipu);
+ 	int (*global_soft_reset)(struct aipu_priv *aipu);
+-	void (*global_hw_reset)(struct aipu_priv *aipu);
++	int (*get_partition_status)(struct aipu_priv *aipu, struct aipu_cluster_status *status);
+ };
+ 
+ /**
+@@ -59,8 +59,6 @@ struct aipu_priv_operations {
+  * @removing:      driver is being unbound and must not accept new work
+  * @misc_registered: misc device has been registered with the driver core
+  * @dbg_reg:	   debugger region
+- * @reset_gpio:	   aipu hw reset gpio
+- * @io_lock:	   lock between rest/abort and io opertion
+  */
+ struct aipu_priv {
+ 	int version;
+@@ -89,7 +87,6 @@ struct aipu_priv {
+ 	bool removing;
+ 	bool misc_registered;
+ 	struct io_region dbg_reg;
+-	struct gpio_desc *reset_gpio;
+ };
+ 
+ int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
+diff --git a/drivers/misc/armchina-npu/aipu_tcb.h b/drivers/misc/armchina-npu/aipu_tcb.h
+index 9c86092..086813d 100644
+--- a/drivers/misc/armchina-npu/aipu_tcb.h
++++ b/drivers/misc/armchina-npu/aipu_tcb.h
+@@ -121,80 +121,4 @@ struct aipu_tcb {
+ #define IS_TASK_TCB(flag)               (((flag) & 0x3) == TCB_FLAG_TASK_TYPE_TASK)
+ #define IS_GRID_END(flag)               ((flag) & TCB_FLAG_END_TYPE_GRID_END)
+ 
+-struct aipu_tcb_v32
+-{
+-    uint32_t flag;
+-    union {
+-        struct
+-        {
+-            uint32_t next;
+-            uint32_t rsvd0[1];
+-            uint32_t spc;
+-            uint32_t interrupt_en;
+-            uint16_t group_id;
+-            uint16_t grid_id;
+-            uint16_t task_id;
+-            uint16_t warmup_len;
+-            uint16_t grid_dim_x;
+-            uint16_t grid_dim_y;
+-            uint16_t grid_dim_z;
+-            uint16_t group_dim_x;
+-            uint16_t group_dim_y;
+-            uint16_t group_dim_z;
+-            uint16_t group_id_x;
+-            uint16_t group_id_y;
+-            uint16_t group_id_z;
+-            uint16_t task_id_x;
+-            uint16_t task_id_y;
+-            uint16_t task_id_z;
+-            uint32_t sp;
+-            uint32_t pp;
+-            uint32_t dp;
+-            uint32_t cp;
+-            uint32_t pprint;
+-            uint32_t pprofiler;
+-            uint16_t core_id;
+-            uint16_t cluster_id;
+-            uint16_t rsvd1;
+-            uint16_t tec_id;
+-            uint32_t rsvd2[5];
+-            uint32_t dsize;
+-            uint32_t tcbp;
+-            uint32_t global_param;
+-            uint32_t rsvd3;
+-        } task;
+-
+-        union {
+-            struct
+-            {
+-                uint32_t rsvd0;
+-                uint32_t group_num;
+-                uint32_t rsvd1;
+-                uint32_t interrupt_en;
+-                uint16_t group_id;
+-                uint16_t grid_id;
+-                uint32_t rsvd2[6];
+-                uint32_t gm_ctrl;
+-                uint32_t gm_sync;
+-                uint32_t gm_addr_low;
+-                uint32_t gm_addr_high;
+-                uint32_t rsvd3[14];
+-            } grid;
+-
+-            struct
+-            {
+-                uint32_t segmmu_ctrl;
+-                uint32_t segmmu_remap_ctrl0;
+-                uint32_t segmmu_remap_ctrl1;
+-                uint32_t interrupt_en;
+-                uint16_t group_id;
+-                uint16_t grid_id;
+-                uint32_t segmmu_seg_ctrl[16];
+-                uint32_t asids[8];
+-            } group;
+-        };
+-    };
+-    uint16_t group_deps[4];
+-};
+-
+ #endif /* __AIPU_TCB_H__ */
+diff --git a/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
+index 6846e5f..88b983b 100644
+--- a/drivers/misc/armchina-npu/default/default.c
++++ b/drivers/misc/armchina-npu/default/default.c
+@@ -8,7 +8,6 @@
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/of.h>
+-#include <linux/version.h>
+ #include "armchina_aipu_soc.h"
+ 
+ static struct aipu_soc default_soc = {
+@@ -25,6 +24,7 @@ static struct aipu_soc_operations default_ops = {
+ 	.is_aipu_irq = NULL,
+ 	.soc_pm_runtime_get_sync = NULL,
+ 	.soc_pm_runtime_put = NULL,
++	.hw_reset = NULL,
+ };
+ 
+ static int default_probe(struct platform_device *p_dev)
+@@ -32,17 +32,10 @@ static int default_probe(struct platform_device *p_dev)
+ 	return armchina_aipu_probe(p_dev, &default_soc, &default_ops);
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+-static void default_remove(struct platform_device *p_dev)
+-{
+-	armchina_aipu_remove(p_dev);
+-}
+-#else
+ static int default_remove(struct platform_device *p_dev)
+ {
+ 	return armchina_aipu_remove(p_dev);
+ }
+-#endif
+ 
+ static int default_suspend(struct platform_device *p_dev, pm_message_t state)
+ {
+diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/armchina-npu/include/armchina_aipu.h
+index d19adc7..c14b81d 100644
+--- a/drivers/misc/armchina-npu/include/armchina_aipu.h
++++ b/drivers/misc/armchina-npu/include/armchina_aipu.h
+@@ -40,8 +40,7 @@ enum aipu_arch {
+  * @AIPU_ISA_VERSION_ZHOUYI_V2_1: AIPU ISA version is Zhouyi V2 (Z3).
+  * @AIPU_ISA_VERSION_ZHOUYI_V2_2: AIPU ISA version is Zhouyi V2 (X1).
+  * @AIPU_ISA_VERSION_ZHOUYI_V3:   AIPU ISA version is Zhouyi V3.
+- * @AIPU_ISA_VERSION_ZHOUYI_V3_2_0: AIPU ISA version is Zhouyi V3_2, r1p0.
+- * @AIPU_ISA_VERSION_ZHOUYI_V3_2_1: AIPU ISA version is Zhouyi V3_2, r1p1.
++ * @AIPU_ISA_VERSION_ZHOUYI_V3_2: AIPU ISA version is Zhouyi V3_2.
+  *
+  * Zhouyi architecture has multiple ISA versions released.
+  * This enum is used to indicate the ISA version of an AIPU core in the system.
+@@ -53,8 +52,7 @@ enum aipu_isa_version {
+ 	AIPU_ISA_VERSION_ZHOUYI_V2_2	= 4,
+ 	AIPU_ISA_VERSION_ZHOUYI_V3	= 5,
+ 	AIPU_ISA_VERSION_ZHOUYI_V3_1	= 6,
+-	AIPU_ISA_VERSION_ZHOUYI_V3_2_0  = 7,
+-	AIPU_ISA_VERSION_ZHOUYI_V3_2_1	= 8,
++	AIPU_ISA_VERSION_ZHOUYI_V3_2	= 7,
+ };
+ 
+ /**
+@@ -237,7 +235,6 @@ struct aipu_bind_buf_desc {
+  * @exec_id:    [kmd] back executive id to userspace from kmd
+  * @region:     [kmd] this allocated buffer is in memory/SRAM/DTCM/GM region?
+  * @asid:       [kmd] ASID region of this buffer
+- * @mode:       [umd] free memory tpye: iova, phy or both
+  */
+ struct aipu_buf_desc {
+ 	__u64 pa;
+@@ -246,7 +243,6 @@ struct aipu_buf_desc {
+ 	__u64 exec_id;
+ 	__u8  region;
+ 	__u8  asid;
+-	__u32 mode;
+ };
+ 
+ /**
+@@ -254,33 +250,14 @@ struct aipu_buf_desc {
+  * @AIPU_DMA_BUF_MALLOC_DEFAULT:     [aipu v3_2] malloc I/O virtual address and physical memory by standard dma api
+  * @AIPU_DMA_BUF_MALLOC_IOVA:        [aipu v3_2] malloc I/O virtual address only
+  * @AIPU_DMA_BUF_MALLOC_PHY:         [aipu v3_2] malloc physical memory for Allocated I/O virtual address after malloc iova
+- * @AIPU_DMA_BUF_MALLOC_BOTH:        [aipu v3_2] malloc I/O virtual address and physical memory
+- * @AIPU_DMA_BUF_ATTACH_IOVA:        [aipu v3_2] rebind same phy memory to reserved iova when attach dma buffer
++ * @AIPU_DMA_BUF_MALLOC_IOVA_PHY:    [aipu v3_2] malloc I/O virtual address and physical memory
+  */
+ enum aipu_dma_buf_malloc_mode {
+     AIPU_DMA_BUF_MALLOC_DEFAULT = 0,
+     AIPU_DMA_BUF_MALLOC_IOVA = 1,
+     AIPU_DMA_BUF_MALLOC_PHY = 2,
+-    AIPU_DMA_BUF_MALLOC_BOTH = 3,
+-    AIPU_DMA_BUF_ATTACH_IOVA = 4,
++    AIPU_DMA_BUF_MALLOC_IOVA_PHY = 3,
+ };
+-
+-/**
+- * enum aipu_dma_buf_free_mode - dma buffer free mode for smmu scenario
+- * @AIPU_DMA_BUF_FREE_DEFAULT:     [aipu v3_2] free I/O virtual address and physical memory by standard dma api
+- * @AIPU_DMA_BUF_FREE_IOVA:        [aipu v3_2] free all the I/O virtual address of one buffer
+- * @AIPU_DMA_BUF_FREE_PHY:         [aipu v3_2] free all the physical memory blockers of one buffer
+- * @AIPU_DMA_BUF_FREE_BOTH:        [aipu v3_2] free all the I/O virtual address and physical memory
+- * @AIPU_DMA_BUF_DETA_BOTH:        [aipu v3_2] unmap reserved iova when detach dma buffer.
+- */
+-enum aipu_dma_buf_free_mode {
+-    AIPU_DMA_BUF_FREE_DEFAULT = 0,
+-    AIPU_DMA_BUF_FREE_IOVA = 1,
+-    AIPU_DMA_BUF_FREE_PHY = 2,
+-    AIPU_DMA_BUF_FREE_BOTH = 3,
+-    AIPU_DMA_BUF_DETA_IOVA = 4,
+-};
+-
+ /**
+  * struct aipu_buf_request - Buffer allocation request structure.
+  * @bytes:         [must] Buffer size to allocate (in bytes)
+@@ -336,7 +313,7 @@ struct aipu_dma_buf {
+  * @AIPU_JOB_EXEC_FLAG_QOS_FAST:     [aipu v3 only] QoS fast
+  * @AIPU_JOB_EXEC_FLAG_SINGLE_GROUP: [aipu v3 only] the scheduled job is a single group task
+  * @AIPU_JOB_EXEC_FLAG_MULTI_GROUP:  [aipu v3 only] the scheduled job is a multi-groups task
+- * @AIPU_JOB_EXEC_FLAG_BIND_DISPATCH:[aipu v3 only] the job should be scheduled with bind-dispatch
++ * @AIPU_JOB_EXEC_FLAG_DBG_DISPATCH: [aipu v3 only] the job should be scheduled with debug-dispatch
+  * @AIPU_JOB_EXEC_FLAG_SEG_MMU:      [aipu v3 only] the job has configured segment mmu
+  */
+ enum aipu_job_execution_flag {
+@@ -346,7 +323,7 @@ enum aipu_job_execution_flag {
+ 	AIPU_JOB_EXEC_FLAG_QOS_FAST     = 1 << 2,
+ 	AIPU_JOB_EXEC_FLAG_SINGLE_GROUP = 1 << 3,
+ 	AIPU_JOB_EXEC_FLAG_MULTI_GROUP  = 1 << 4,
+-	AIPU_JOB_EXEC_FLAG_BIND_DISPATCH  = 1 << 5,
++	AIPU_JOB_EXEC_FLAG_DBG_DISPATCH  = 1 << 5,
+ 	AIPU_JOB_EXEC_FLAG_SEG_MMU       = 1 << 6,
+ };
+ 
+@@ -364,21 +341,19 @@ enum aipu_job_execution_flag {
+  * @intr_handler_addr: [aipu v1/v2 only, must] Address of the interrupt handler (pa - asid_base)
+  * @data_0_addr:       [aipu v1/v2 only, must] Address of the 0th data buffer (buf_pa - asid_base)
+  * @data_1_addr:       [aipu v1/v2 only, must] Address of the 1th data buffer (buf_pa - asid_base)
++ * @job_id:            [aipu v1/v2 only, must] ID of this job
+  * @enable_prof:       [aipu v1/v2 only, optional] Enable performance profiling counters in SoC
++ * @profile_pa:        [optional] Physical address of the profiler buffer
++ * @profile_sz:        [optional] Size of the profiler buffer (should be 0 if no such a buffer)
++ * @profile_fd:        [aipu v3 only] Profile data file fd
+  * @enable_poll_opt:   [aipu v1/v2 only, optional] Enable optimizations for job status polling
+  * @exec_flag:         [optional] Combinations of execution flags
+  * @dtcm_size_kb:      [aipu v2(x1)only, optional] DTCM size in KB
+- * @is_coredump_en:    [aipu v3 and above only, optional] Coredump is enable or not
+- * @group_id:          [aipu v3_2 and above only, must] group id of tcb chain
+- * @profile_sz:        [optional] Size of the profiler buffer (should be 0 if no such a buffer)
+- * @profile_fd:        [aipu v3 only] Profile data file fd
+- * @profile_pa:        [optional] Physical address of the profiler buffer
+- * @job_id:            [aipu v1/v2 only, must] ID of this job
+  * @head_tcb_pa:       [aipu v3 only, must] base address of the first init TCB of this job
+  * @first_task_tcb_pa: [aipu v3 only, must] base address of the first task TCB of this job
+  * @last_task_tcb_pa:  [aipu v3 only, must] base address of the last task TCB of this job
+  * @tail_tcb_pa:       [aipu v3 only, must] base address of the tail TCB of this job
+-
++ * @is_coredump_en:    [aipu v3 and above only, optional] Coredump is enable or not
+  *
+  * For fields is_defer_run/do_trigger/enable_prof/enable_asid/enable_poll_opt,
+  * set them to be 1/0 to enable/disable the corresponding operations.
+@@ -396,22 +371,20 @@ struct aipu_job_desc {
+ 	__u32 intr_handler_addr;
+ 	__u32 data_0_addr;
+ 	__u32 data_1_addr;
++	__u64 job_id;
+ 	__u32 enable_prof;
++	__s64 profile_fd;
++	__u64 profile_pa;
++	__u32 profile_sz;
+ 	__u32 enable_poll_opt;
+ 	__u32 exec_flag;
+ 	__u32 dtcm_size_kb;
+-	__u32 is_coredump_en;
+-	__u32 group_id;
+-	__u32 profile_sz;
+-	__s64 profile_fd;
+-	__u64 profile_pa;
+-	__u64 job_id;
+ 	__u64 head_tcb_pa;
+ 	__u64 first_task_tcb_pa;
+ 	__u64 last_task_tcb_pa;
+ 	__u64 tail_tcb_pa;
++	__u32 is_coredump_en;
+ 	__u64 asid0_base;
+-
+ };
+ 
+ /**
+@@ -805,40 +778,25 @@ struct aipu_id_desc {
+  * ioctl to request to bind dma shared fd memory to a reserved iova.
+  */
+ #define AIPU_IOCTL_BIND_DMA_BUF _IOWR(AIPU_IOCTL_MAGIC, 29, struct aipu_bind_buf_desc)
++
+ /**
+- * DOC: AIPU_IOCTL_AIPU_HW_RESET
+- *
+- * @Description
+- *
+- * ioctl to request to do a harware reset for v3_2.
+- */
+-#define AIPU_IOCTL_AIPU_HW_RESET _IO(AIPU_IOCTL_MAGIC, 30)
+-/**
+- * DOC: AIPU_IOCTL_AIPU_SW_RESET
+- *
+- * @Description
+- *
+- * ioctl to request to do a top software reset for v3_2.
+- */
+-#define AIPU_IOCTL_AIPU_SW_RESET _IO(AIPU_IOCTL_MAGIC, 31)
+-/**
+- * DOC: AIPU_IOCTL_BUF_CACHE_INVALID
++ * DOC: AIPU_IOCTL_GET_CLUSTER_STATUS
+  *
+  * @Description
+  *
+  * ioctl to request to invalid a coherent buffer allocated by AIPU_IOCTL_REQBUF
+  *
+  */
+-#define AIPU_IOCTL_BUF_CACHE_INVALID _IOW(AIPU_IOCTL_MAGIC, 32, struct aipu_buf_desc)
++#define AIPU_IOCTL_BUF_CACHE_INVALID _IOW(AIPU_IOCTL_MAGIC, 24, struct aipu_buf_desc)
+ 
+ /**
+  * DOC: AIPU_IOCTL_BUF_CACHE_FLUSH
+  *
+  * @Description
+  *
+- * ioctl to request to flush a coherent buffer allocated by AIPU_IOCTL_REQBUF
++ * ioctl to request to invalid a coherent buffer allocated by AIPU_IOCTL_REQBUF
+  *
+  */
+-#define AIPU_IOCTL_BUF_CACHE_FLUSH _IOW(AIPU_IOCTL_MAGIC, 33, struct aipu_buf_desc)
++#define AIPU_IOCTL_BUF_CACHE_FLUSH _IOW(AIPU_IOCTL_MAGIC, 25, struct aipu_buf_desc)
+ 
+ #endif /* __UAPI_MISC_ARMCHINA_AIPU_H__ */
+diff --git a/drivers/misc/armchina-npu/include/armchina_aipu_soc.h b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
+index 51a7d54..dfdb78b 100644
+--- a/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
++++ b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
+@@ -45,6 +45,7 @@ struct aipu_soc_operations {
+ 	bool (*is_aipu_irq)(struct device *dev, struct aipu_soc *soc, int core_id);
+ 	int (*soc_pm_runtime_get_sync)(struct device *dev, struct aipu_soc *soc);
+ 	int (*soc_pm_runtime_put)(struct device *dev, struct aipu_soc *soc);
++	void (*hw_reset)(struct device *dev, struct aipu_soc *soc);
+ };
+ 
+ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+index 2b449a2..da5ca92 100644
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -446,7 +446,7 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 		goto npu_probe_failed;
+ 	}
+ 
+-	dev_dbg(&p_dev->dev, "%s: armchina_aipu_probe done\n", __func__);
++	dev_err(&p_dev->dev, "%s: armchina_aipu_probe done\n", __func__); //TODO dbg
+ 
+ #ifdef CONFIG_PM
+     sky1_npu_pm_runtime_put(&p_dev->dev);
+diff --git a/drivers/misc/armchina-npu/zhouyi/v1.c b/drivers/misc/armchina-npu/zhouyi/v1.c
+index 919061a..8b75241 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v1.c
++++ b/drivers/misc/armchina-npu/zhouyi/v1.c
+@@ -257,14 +257,12 @@ static struct aipu_operations zhouyi_v1_ops = {
+ 	.sysfs_show = zhouyi_v1_sysfs_show,
+ #endif
+ 	.soft_reset = zhouyi_v1_soft_reset,
+-	.hw_reset = NULL,
+ 	.initialize = zhouyi_v1_initialize,
+ 	.destroy_command_pool = zhouyi_v1_destroy_command_pool,
+ 	.abort_command_pool = zhouyi_v1_abort_command_pool,
+ 	.exit_dispatch = zhouyi_v1_exit_dispatch,
+ 	.disable_tick_counter = zhouyi_v1_disable_tick_counter,
+ 	.enable_tick_counter = zhouyi_v1_enable_tick_counter,
+-	.get_partition_status = NULL,
+ };
+ 
+ struct aipu_operations *get_zhouyi_v1_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
+index 551f13a..3128721 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
++++ b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
+@@ -224,6 +224,7 @@ static struct aipu_priv_operations v1v2_priv_ops = {
+ 	.create_partitions = v1v2_create_partitions,
+ 	.destroy_partitions = v1v2_destroy_partitions,
+ 	.global_soft_reset = NULL,
++	.get_partition_status = NULL,
+ };
+ 
+ struct aipu_priv_operations *get_v1v2_priv_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v2.c b/drivers/misc/armchina-npu/zhouyi/v2.c
+index 5d32dac..e243515 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v2.c
++++ b/drivers/misc/armchina-npu/zhouyi/v2.c
+@@ -393,14 +393,12 @@ static struct aipu_operations zhouyi_v2_ops = {
+ 	.sysfs_show = zhouyi_v2_sysfs_show,
+ #endif
+ 	.soft_reset = zhouyi_v2_soft_reset,
+-	.hw_reset = NULL,
+ 	.initialize = zhouyi_v2_initialize,
+ 	.destroy_command_pool = zhouyi_v2_destroy_command_pool,
+ 	.abort_command_pool = zhouyi_v2_abort_command_pool,
+ 	.exit_dispatch = zhouyi_v2_exit_dispatch,
+ 	.disable_tick_counter = zhouyi_v2_disable_tick_counter,
+ 	.enable_tick_counter = zhouyi_v2_enable_tick_counter,
+-	.get_partition_status = NULL,
+ };
+ 
+ struct aipu_operations *get_zhouyi_v2_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3.c b/drivers/misc/armchina-npu/zhouyi/v3.c
+index 9251c95..8ea0190 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3.c
+@@ -198,7 +198,7 @@ static int zhouyi_v3_reserve(struct aipu_partition *partition, struct aipu_job_d
+ 
+ 	if (trigger_type == ZHOUYI_TRIGGER_TYPE_CREATE          ||
+ 	    trigger_type == ZHOUYI_TRIGGER_TYPE_UPDATE_DISPATCH ||
+-	    trigger_type == ZHOUYI_TRIGGER_TYPE_BIND_DISPATCH) {
++	    trigger_type == ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH) {
+ 		aipu_write32(partition->reg, TSM_CMD_SCHD_ADDR_HIGH_REG, udesc->head_tcb_pa >> 32);
+ 		aipu_write32(partition->reg, TSM_CMD_SCHD_ADDR_LOW_REG, (u32)udesc->head_tcb_pa);
+ 	}
+@@ -208,11 +208,11 @@ static int zhouyi_v3_reserve(struct aipu_partition *partition, struct aipu_job_d
+ 
+ 	aipu_write32(partition->reg, TSM_CMD_SCHD_CTRL_INFO_REG, (u16)udesc->job_id);
+ 
+-	if (trigger_type == ZHOUYI_TRIGGER_TYPE_BIND_DISPATCH) {
++	if (trigger_type == ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH) {
+ 		aipu_write32(partition->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG,
+-			     TSM_BIND_DISPATCH_CMD_POOL(partition->id, get_qos(udesc->exec_flag),
++			     TSM_DBG_DISPATCH_CMD_POOL(partition->id, get_qos(udesc->exec_flag),
+ 						       udesc->core_id));
+-		dev_dbg(partition->dev, "bind-dispatch user job 0x%llx", udesc->job_id);
++		dev_dbg(partition->dev, "debug-dispatch user job 0x%llx", udesc->job_id);
+ 	} else {
+ 		aipu_write32(partition->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG,
+ 			     TSM_DISPATCH_CMD_POOL(partition->id, get_qos(udesc->exec_flag)));
+@@ -493,31 +493,6 @@ u64 get_gm_size(u32 val)
+ 	return _val ? (SZ_1M << (_val - 1)) : 512 * SZ_1K;
+ }
+ 
+-static int zhouyi_v3_read_cluster_status(struct aipu_partition *cluster,
+-					 struct aipu_cluster_status *status)
+-{
+-	int i = 1;
+-
+-	if (unlikely(!status))
+-		return -EINVAL;
+-
+-	if (unlikely(!cluster))
+-		return -EINVAL;
+-
+-	spin_lock(&cluster->io_lock);
+-	aipu_write32(cluster->reg, DEBUG_PAGE_SELECTION_REG, SELECT_DEBUG_CORE(0, 0));
+-	status->cluster_status = aipu_read32(cluster->reg, DEBUG_CLUSTER_STATUS);
+-	status->core_status = (aipu_read32(cluster->reg, DEBUG_CORE_STATUS) >> 4) & 0b1;
+-	for (; i < cluster->clusters[0].core_cnt; ++i) {
+-		aipu_write32(cluster->reg, DEBUG_PAGE_SELECTION_REG, SELECT_DEBUG_CORE(0, i));
+-		status->core_status |= (((aipu_read32(cluster->reg, DEBUG_CORE_STATUS) >> 4)
+-								& 0b1) << i);
+-	}
+-	aipu_write32(cluster->reg, DEBUG_PAGE_SELECTION_REG, DISABLE_DEBUG);
+-	spin_unlock(&cluster->io_lock);
+-	return 0;
+-}
+-
+ static struct aipu_operations zhouyi_v3_ops = {
+ 	.get_config = NULL,
+ 	.enable_interrupt = zhouyi_v3_enable_interrupt,
+@@ -533,7 +508,6 @@ static struct aipu_operations zhouyi_v3_ops = {
+ 	.sysfs_show = zhouyi_v3_sysfs_show,
+ #endif
+ 	.soft_reset = zhouyi_v3_soft_reset,
+-	.hw_reset = NULL,
+ 	.initialize = zhouyi_v3_initialize,
+ 	.destroy_command_pool = zhouyi_v3_destroy_command_pool,
+ 	.abort_command_pool = zhouyi_v3_abort_command_pool,
+@@ -541,7 +515,6 @@ static struct aipu_operations zhouyi_v3_ops = {
+ 	.disable_tick_counter = zhouyi_v3_disable_tick_counter,
+ 	.enable_tick_counter = zhouyi_v3_enable_tick_counter,
+ 	.enable_core_cnt = zhouyi_v3_enable_core_cnt,
+-	.get_partition_status = zhouyi_v3_read_cluster_status,
+ };
+ 
+ struct aipu_operations *get_zhouyi_v3_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3.h b/drivers/misc/armchina-npu/zhouyi/v3.h
+index 82c06af..c36d7e7 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3.h
++++ b/drivers/misc/armchina-npu/zhouyi/v3.h
+@@ -77,9 +77,9 @@
+  *         2) R/O for single cluster TSM
+  * [9:8]   Write 0/1/2 to configure the QoS of this pool as slow/fast
+  * [3:0]   Write 0/1/2/3/4/5 to issue command type as:
+- *         none/create/destroy/abort/dispatch/bind-dispatch
++ *         none/create/destroy/abort/dispatch/debug-dispatch
+  */
+-#define _TSM_BIND_CORE(core)                         ((core) << 24)
++#define _TSM_DEBUG_CORE(core)                        ((core) << 24)
+ #define _TSM_POOL(pool)                              ((pool) << 16)
+ #define _TSM_MAP(map)                                ((map) << 12)
+ #define _TSM_QOS(qos)                                ((qos) << 8)
+@@ -87,7 +87,7 @@
+ #define _TSM_DESTROY                                 0x2
+ #define _TSM_ABORT                                   0x3
+ #define _TSM_DISPATCH                                0x4
+-#define _TSM_BIND_DISPATCH                           0x5
++#define _TSM_DEBUG_DISPATCH                          0x5
+ 
+ #define TSM_MAP_SINGLE                              _TSM_MAP(0x0)
+ #define TSM_MAP_ALL                                 _TSM_MAP(0x1)
+@@ -95,8 +95,8 @@
+ #define TSM_DESTROY_CMD_POOL(pool)                  (_TSM_DESTROY | _TSM_POOL(pool))
+ #define TSM_ABORT_CMD_POOL(pool)                    (_TSM_ABORT | _TSM_POOL(pool))
+ #define TSM_DISPATCH_CMD_POOL(pool, qos)            (_TSM_DISPATCH | (qos) | _TSM_POOL(pool))
+-#define TSM_BIND_DISPATCH_CMD_POOL(pool, qos, core)  (_TSM_BIND_DISPATCH | (qos) | \
+-						     _TSM_POOL(pool) | _TSM_BIND_CORE(core))
++#define TSM_DBG_DISPATCH_CMD_POOL(pool, qos, core)  (_TSM_DEBUG_DISPATCH | (qos) | \
++						     _TSM_POOL(pool) | _TSM_DEBUG_CORE(core))
+ 
+ #define TSM_CMD_SCHD_CTRL_HANDLE_REG                0x0
+ 
+@@ -322,7 +322,6 @@
+ #define IS_SERIOUS_ERR(status_32)                   (((status_32) >> 3) & 0x3) /* error or fault */
+ #define GET_INTR_TYPE(status_32)                    ((status_32) & 0x3F)
+ #define IS_IRQ_TO_HANDLE(status_32)                 ((status_32) & 0xF1F)
+-#define IS_COREDUMP_IRQ(status_32)                  (IS_EXCEPTION_IRQ(status_32) || (IS_TEC_IRQ(status_32) && IS_FAULT_IRQ(status_32)))
+ 
+ #define CMD_POOL_INTR_STATUS_REG(id)                (_GET_CMD_POOL_OFFSET(id) + 0xC)
+ 
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
+index d09e3b0..9344faa 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3_2.c
+@@ -155,18 +155,18 @@ static int zhouyi_v3_2_reserve(struct aipu_partition *cluster, struct aipu_job_d
+ 		return ZHOUYI_V3_2_COMMAND_POOL_FULL;
+ 	}
+ 
+-	dev_info(cluster->dev, "[Job 0x%llx] scheduler: TCB head 0x%llx base 0x%llx\n",
+-		 udesc->job_id, udesc->head_tcb_pa, udesc->asid0_base);
++	dev_info(cluster->dev, "[Job 0x%llx] scheduler: TCB head 0x%llx\n",
++		 udesc->job_id, udesc->head_tcb_pa);
+ 
+ 	aipu_write32(cluster->reg, TSM_CMD_SCHD_ADDR_HIGH_REG_V3_2, udesc->head_tcb_pa >> 32);
+ 	aipu_write32(cluster->reg, TSM_CMD_SCHD_ADDR_LOW_REG_V3_2, (u32)udesc->head_tcb_pa);
+ 	aipu_write32(cluster->reg, TSM_COMMAND_SCHEDULE_TCB_NUM_REG_V3_2,
+ 		     ((udesc->tail_tcb_pa - udesc->head_tcb_pa) >> 7) + 1);
+ 
+-	if (udesc->exec_flag & AIPU_JOB_EXEC_FLAG_BIND_DISPATCH) {
++	if (udesc->exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH) {
+ 		aipu_write32(cluster->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2,
+-			     TSM_BIND_DISPATCH_CMD_POOL_V3_2(pool, qos, udesc->core_id));
+-		dev_dbg(cluster->dev, "bind-dispatch user job 0x%llx (0x%llx - 0x%llx, tcbp 0x%llx) core %d",
++			     TSM_DBG_DISPATCH_CMD_POOL_V3_2(pool, qos, udesc->core_id));
++		dev_dbg(cluster->dev, "debug-dispatch user job 0x%llx (0x%llx - 0x%llx, tcbp 0x%llx) core %d",
+ 			udesc->job_id, udesc->head_tcb_pa, udesc->tail_tcb_pa,
+ 			udesc->last_task_tcb_pa, udesc->core_id);
+ 	} else {
+@@ -194,8 +194,7 @@ static void zhouyi_v3_2_print_hw_id_info(struct aipu_partition *cluster)
+ 	u32 iter = 0;
+ 
+ 	dev_info(aipu->dev, "############# ZHOUYI %sAIPU #############",
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_0 ? "V3_2_0 ":
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_1 ? "V3_2_1":"");
++		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2 ? "V3_2 ": "");
+ 	dev_info(aipu->dev, "# Enabled Cluster Count: %d", aipu->cluster_cnt);
+ 
+ 	for (iter = 0; iter < aipu->partition_cnt; iter++) {
+@@ -218,13 +217,11 @@ static int zhouyi_v3_2_io_rw(struct aipu_partition *cluster, struct aipu_io_req
+ 	if (!cluster)
+ 		return -EINVAL;
+ 
+-	//FIX ME, can't access any reg during reset/abort;
+-	spin_lock(&cluster->io_lock);
+ 	if (io_req->reg_type == AIPU_DBG_REG)
+ 		zhouyi_io_rw(cluster->dbg_reg, io_req);
+ 	else if (io_req->offset <= ZHOUYI_V3_2_MAX_REG_OFFSET)
+ 		zhouyi_io_rw(cluster->reg, io_req);
+-	spin_unlock(&cluster->io_lock);
++
+ 	return 0;
+ }
+ 
+@@ -253,7 +250,7 @@ static void zhouyi_v3_2_soft_reset_type(struct aipu_partition *cluster,
+ 		cluster->event_type = AIPU_IRQ_EVENT_RESET;
+ 	} else if (IS_POOL_IRQ_V3_2(status) && (IS_TIMEOUT_IRQ_V3_2(status) ||
+ 				IS_ERROR_IRQ_V3_2(status))) {
+-		dev_err(cluster->dev, "pool error/timeout global reset event status 0x%08x.\n", status);
++		dev_err(cluster->dev, "pool error/timeout global reset event.\n");
+ 		cluster->event_type = AIPU_IRQ_EVENT_RESET;
+ 	}
+ }
+@@ -276,8 +273,6 @@ static int zhouyi_v3_2_upper_half(void *data)
+ 		status = aipu_read32(cluster->reg, INTERRUPT_TYPE_INFO_REG(id));
+ 		info.tail_tcbp = aipu_read32(cluster->reg, INTERRUPT_TCB_PTR_REG(id));
+ 		info.sig_flag = aipu_read32(cluster->reg,  INTERRUPT_SIGNAL_FLAG_REG(id));
+-		info.group_id = GET_INTR_GROUP_ID_V3_2(aipu_read32(cluster->reg,
+-				INTERRUPT_GROUP_ID_REG(id)));
+ 		info.cluster_id = GET_INTR_CLUSTER_ID_V3_2(status);
+ 		info.core_id = GET_INTR_CORE_ID_V3_2(status);
+ 		info.tec_id = GET_INTR_TEC_ID_V3_2(status);
+@@ -358,54 +353,13 @@ static int zhouyi_v3_2_soft_reset(struct aipu_partition *cluster, bool init_regs
+ {
+ 	int ret = 0;
+ 	struct aipu_priv *aipu = cluster->priv;
+-	unsigned long flags;
+ 
+-	/* NOTE: this is a global soft-reset */
+-	spin_lock_irqsave(&cluster->io_lock, flags);
++	/* NOTE: this is a global soft-reset, not per-partition! */
+ 	ret = aipu->ops->global_soft_reset(aipu);
+-	if (!ret)
+-		cluster->ops->initialize(cluster);
+-	spin_unlock_irqrestore(&cluster->io_lock, flags);
+-
+-	return ret;
+-}
++	if (ret)
++		return ret;
+ 
+-static void zhouyi_v3_2_hw_reset(struct aipu_partition *cluster)
+-{
+-	struct aipu_priv *aipu = cluster->priv;
+-	unsigned long flags;
+-
+-	/* NOTE: this is a global hardware reset */
+-	spin_lock_irqsave(&cluster->io_lock, flags);
+-	aipu->ops->global_hw_reset(aipu);
+ 	cluster->ops->initialize(cluster);
+-	spin_unlock_irqrestore(&cluster->io_lock, flags);
+-}
+-
+-static int zhouyi_v3_2_read_cluster_status(struct aipu_partition *cluster,
+-					   struct aipu_cluster_status *status)
+-{
+-	int i = 1;
+-
+-	if (unlikely(!status))
+-		return -EINVAL;
+-
+-	if (unlikely(!cluster))
+-		return -EINVAL;
+-
+-	spin_lock(&cluster->io_lock);
+-	aipu_write32(cluster->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
+-		     SELECT_DEBUG_CORE_V3_2(0, 0));
+-	status->cluster_status = aipu_read32(cluster->reg, DEBUG_CLUSTER_STATUS_V3_2);
+-	status->core_status = (aipu_read32(cluster->reg, DEBUG_CORE_STATUS_V3_2) >> 4) & 0b1;
+-	for (; i < cluster->clusters[0].core_cnt; ++i) {
+-		aipu_write32(cluster->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
+-			     SELECT_DEBUG_CORE_V3_2(0, i));
+-		status->core_status |= (((aipu_read32(cluster->reg, DEBUG_CORE_STATUS_V3_2) >> 4)
+-								& 0b1) << i);
+-	}
+-	aipu_write32(cluster->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG, DISABLE_DEBUG_V3_2);
+-	spin_unlock(&cluster->io_lock);
+ 	return 0;
+ }
+ 
+@@ -423,14 +377,12 @@ static struct aipu_operations zhouyi_v3_2_ops = {
+ 	.sysfs_show = zhouyi_v3_2_sysfs_show,
+ #endif
+ 	.soft_reset = zhouyi_v3_2_soft_reset,
+-	.hw_reset = zhouyi_v3_2_hw_reset,
+ 	.initialize = zhouyi_v3_2_initialize,
+ 	.destroy_command_pool = zhouyi_v3_2_destroy_command_pool,
+ 	.abort_command_pool = zhouyi_v3_2_abort_command_pool,
+ 	.disable_tick_counter = zhouyi_v3_2_disable_tick_counter,
+ 	.enable_tick_counter = zhouyi_v3_2_enable_tick_counter,
+ 	.enable_core_cnt = zhouyi_v3_2_enable_core_cnt,
+-	.get_partition_status = zhouyi_v3_2_read_cluster_status,
+ };
+ 
+ struct aipu_operations *get_zhouyi_v3_2_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.h b/drivers/misc/armchina-npu/zhouyi/v3_2.h
+index d8932c4..1950e7f 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2.h
++++ b/drivers/misc/armchina-npu/zhouyi/v3_2.h
+@@ -106,14 +106,14 @@
+ #define _TSM_DESTROY_V3_2                                 0x2
+ #define _TSM_ABORT_V3_2                                   0x3
+ #define _TSM_DISPATCH_V3_2                                0x4
+-#define _TSM_BIND_DISPATCH_V3_2                           0x5
++#define _TSM_DEBUG_DISPATCH_V3_2                          0x5
+ 
+ #define TSM_MAP_SINGLE_V3_2                              _TSM_MAP_V3_2(0x0)
+ #define TSM_MAP_ALL_V3_2                                 _TSM_MAP_V3_2(0x1)
+ #define TSM_CREATE_CMD_POOL_V3_2(pool, map)              (_TSM_CREATE_V3_2 | _TSM_POOL_V3_2(pool) | (map))
+ #define TSM_DESTROY_CMD_POOL_V3_2(pool)                  (_TSM_DESTROY_V3_2 | _TSM_POOL_V3_2(pool))
+ #define TSM_ABORT_CMD_POOL_V3_2(pool)                    (_TSM_ABORT_V3_2 | _TSM_POOL_V3_2(pool))
+-#define TSM_BIND_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_BIND_DISPATCH_V3_2 | (qos) | \
++#define TSM_DBG_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_DEBUG_DISPATCH_V3_2 | (qos) | \
+ 						     _TSM_POOL_V3_2(pool) | _TSM_DIRECT_CORE_V3_2(core))
+ 
+ #define TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2             0x0
+@@ -410,7 +410,6 @@
+ #define GET_INTR_CLUSTER_ID_V3_2(status_32)           (((status_32) >> 24) & 0xFF)
+ #define GET_INTR_CORE_ID_V3_2(status_32)              (((status_32) >> 20) & 0xF)
+ #define GET_INTR_TEC_ID_V3_2(status_32)               (((status_32) >> 16) & 0xF)
+-#define GET_INTR_GROUP_ID_V3_2(status_32)             ((status_32) & 0xFF)
+ #define IS_POOL_IRQ_V3_2(status_32)                   (((status_32) >> 11) & 0x1)
+ #define IS_CLUSTER_IRQ_V3_2(status_32)                (((status_32) >> 10) & 0x1)
+ #define IS_CORE_IRQ_V3_2(status_32)                   (((status_32) >> 9) & 0x1)
+@@ -425,7 +424,6 @@
+ #define IS_SERIOUS_ERR_V3_2(status_32)                (((status_32) >> 3) & 0x7)
+ #define GET_INTR_TYPE_V3_2(status_32)                 ((status_32) & 0x3F)
+ #define IS_IRQ_TO_HANDLE_V3_2(status_32)              ((status_32) & 0xF1F)
+-#define IS_COREDUMP_IRQ_V3_2(status_32)               (IS_EXCEPTION_IRQ_V3_2(status_32))
+ 
+ #define INTERRUPT_TYPE_INFO_REG(id)                 (_GET_PER_INTERRUPT_REGISTER_OFFSET(id) + 0x0)
+ 
+@@ -459,7 +457,6 @@
+ #define GET_PRINF_SIZE_V3_2(flag)                     ((flag) & 0xFFFF)
+ #define GET_PROFILER_BUF_PA_V3_2(flag)                (((flag) & 0xFFFFF) << 12)
+ 
+-#define INTERRUPT_GROUP_ID_REG(id)               (_GET_PER_INTERRUPT_REGISTER_OFFSET(id) + 0x8)
+ #define INTERRUPT_SIGNAL_FLAG_REG(id)               (_GET_PER_INTERRUPT_REGISTER_OFFSET(id) + 0xc)
+ 
+ #define ZHOUYI_V3_2_MAX_REG_OFFSET                    0x322C
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
+index bdd3d86..70fb694 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
+@@ -3,8 +3,6 @@
+ 
+ #include <linux/platform_device.h>
+ #include <linux/of.h>
+-#include <linux/delay.h>
+-#include <linux/gpio/consumer.h>
+ #include "aipu_priv.h"
+ #include "aipu_partition.h"
+ #include "aipu_common.h"
+@@ -66,7 +64,7 @@ static int init_aipu_cluster(struct aipu_partition *cluster, struct aipu_priv *a
+ 	cluster->irq_obj = cluster->priv->irq_obj;
+ 	cluster->partition_mode = PARTITION_MODE_NONE;
+ 	mutex_init(&cluster->reset_lock);
+-	spin_lock_init(&cluster->io_lock);
++	mutex_init(&cluster->page_lock);
+ 	cluster->ops = get_zhouyi_v3_2_ops();
+ 
+ 	/* unused fields */
+@@ -91,7 +89,7 @@ static int init_aipu_cluster(struct aipu_partition *cluster, struct aipu_priv *a
+ 		cluster->config = 0;
+ 	cluster->clusters[0].tec_cnt = GET_TEC_NUM_V3_2(val);
+ 
+-	if (version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
++	if (version == AIPU_ISA_VERSION_ZHOUYI_V3_2) {
+ 		aipu_write32(&aipu->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
+ 		     SELECT_DEBUG_CORE_V3_2(0, 0));
+ 		val = aipu_read32(cluster->reg, CLUSTER_GM_FEATURE_V3_2(0));
+@@ -126,13 +124,9 @@ static struct aipu_partition *v3_2_create_cluster(struct aipu_priv *aipu,
+ 	if (!aipu || !p_dev)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	ret = zhouyi_detect_aipu_version(p_dev, &version, &config, NULL);
+-	if (ret)
+-		return ERR_PTR(ret);
+-
++	zhouyi_detect_aipu_version(p_dev, &version, &config, NULL);
+ 	dev_info(&p_dev->dev, "AIPU detected: zhouyi%s\n",
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_0 ? "-v3_2_0":
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_1 ? "-v3_2_1":"");
++		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2?"-v3_2":"");
+ 
+ 	WARN_ON(!aipu->is_init);
+ 
+@@ -152,14 +146,11 @@ static struct aipu_partition *v3_2_create_cluster(struct aipu_priv *aipu,
+ 		//return ERR_PTR(ret);
+ 	}
+ 
+-	if (aipu->reset_gpio) {
+-		aipu->ops->global_hw_reset(aipu);
+-	} else {
+-		ret = aipu->ops->global_soft_reset(aipu);
+-		if (ret) {
+-			dev_err(&p_dev->dev, "[init partition] global soft reset failed");
+-			return ERR_PTR(ret);
+-		}
++	/* global soft-reset before per partition config */
++	ret = aipu->ops->global_soft_reset(aipu);
++	if (ret) {
++		dev_err(&p_dev->dev, "[init partition] global soft reset failed");
++		return ERR_PTR(ret);
+ 	}
+ 
+ 	ret = init_aipu_cluster(cluster, aipu, p_dev, version);
+@@ -210,8 +201,6 @@ static void v3_2_destroy_cluster(struct aipu_priv *aipu)
+ 		aipu->dbg_reg.size = 0;
+ 
+ 		for (i = 0; i < aipu->partition_cnt; i++) {
+-			if (!aipu->partitions[i].is_init)
+-				return;
+ 			aipu_common_destroy_attr(aipu->partitions[i].dev,
+ 						 &aipu->partitions[i].reg_attr);
+ 		}
+@@ -223,24 +212,38 @@ static int v3_2_global_soft_reset(struct aipu_priv *aipu)
+ 	return zhouyi_soft_reset(&aipu->reg, PMU_TOP_SOFT_RESET_REG, aipu->reset_delay_us);
+ }
+ 
+-static void v3_2_global_hw_reset(struct aipu_priv *aipu)
++static int zhouyi_v3_2_read_cluster_status(struct aipu_priv *aipu,
++					   struct aipu_cluster_status *status)
+ {
+-	if (aipu && aipu->reset_gpio) {
+-		gpiod_set_value(aipu->reset_gpio, 0);
+-		udelay(1);
+-		gpiod_set_value(aipu->reset_gpio, 1);
+-		udelay(20);
+-		gpiod_set_value(aipu->reset_gpio, 0);
+-		udelay(20);
+-		dev_dbg(aipu->dev, "v3_2 global hw reset finished.\n");
++	int i = 1;
++
++	if (unlikely(!status))
++		return -EINVAL;
++
++	if (unlikely(!aipu))
++		return -EINVAL;
++
++	mutex_lock(&aipu->partitions[0].page_lock);
++	aipu_write32(&aipu->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
++		     SELECT_DEBUG_CORE_V3_2(0, 0));
++	status->cluster_status = aipu_read32(&aipu->reg, DEBUG_CLUSTER_STATUS_V3_2);
++	status->core_status = (aipu_read32(&aipu->reg, DEBUG_CORE_STATUS_V3_2) >> 4) & 0b1;
++	for (; i < aipu->partitions[0].clusters[0].core_cnt; ++i) {
++		aipu_write32(&aipu->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
++			     SELECT_DEBUG_CORE_V3_2(0, i));
++		status->core_status |= (((aipu_read32(&aipu->reg, DEBUG_CORE_STATUS_V3_2) >> 4)
++								& 0b1) << i);
+ 	}
++	aipu_write32(&aipu->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG, DISABLE_DEBUG_V3_2);
++	mutex_unlock(&aipu->partitions[0].page_lock);
++	return 0;
+ }
+ 
+ static struct aipu_priv_operations v3_2_priv_ops = {
+ 	.create_partitions = v3_2_create_cluster,
+ 	.destroy_partitions = v3_2_destroy_cluster,
+ 	.global_soft_reset = v3_2_global_soft_reset,
+-	.global_hw_reset = v3_2_global_hw_reset,
++	.get_partition_status = zhouyi_v3_2_read_cluster_status,
+ };
+ 
+ struct aipu_priv_operations *get_v3_2_priv_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
+index 73a8695..8fdfa95 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3_priv.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
+@@ -27,7 +27,7 @@ static int init_aipu_partition(struct aipu_partition *partition, u32 *clusters,
+ 	partition->reg = &partition->priv->reg;
+ 	partition->irq_obj = partition->priv->irq_obj;
+ 	mutex_init(&partition->reset_lock);
+-	spin_lock_init(&partition->io_lock);
++	mutex_init(&partition->page_lock);
+ 	partition->ops = get_zhouyi_v3_ops();
+ 
+ 	/* unused fields */
+@@ -104,7 +104,7 @@ static struct aipu_partition *v3_create_partitions(struct aipu_priv *aipu,
+ 	 * Both ids of clusters and partitions should be u32 numbered as 0, 1, 2, 3, ...
+ 	 * One cluster should only be within one partition.
+ 	 */
+-	ret = of_property_count_u32_elems(p_dev->dev.of_node, "cluster-partition");
++	ret = device_property_count_u32(&p_dev->dev, "cluster-partition");
+ 	if (ret <= 0) {
+ 		dev_warn(&p_dev->dev, "use the default config (1 cluster)");
+ 		ret = 2;
+@@ -115,9 +115,11 @@ static struct aipu_partition *v3_create_partitions(struct aipu_priv *aipu,
+ 
+ 	cluster_arr = devm_kzalloc(&p_dev->dev, cluster_cnt * 2 * sizeof(u32), GFP_KERNEL);
+ 
+-	/* use default configuration if no cluster-partition presents in dts */
+-	of_property_read_u32_array(p_dev->dev.of_node, "cluster-partition", cluster_arr,
+-				   cluster_cnt * 2);
++	if (device_property_read_u32_array(&p_dev->dev, "cluster-partition", cluster_arr,
++			cluster_cnt * 2)) {
++		dev_err(&p_dev->dev, "check your dts or acpi table: read cluster-partition failed");
++		return ERR_PTR(-EINVAL);
++	}
+ 
+ 	for (iter = 0; iter < cluster_cnt; iter++) {
+ 		if (cluster_arr[2 * iter + 1] > (partition_cnt - 1))
+@@ -214,12 +216,35 @@ static int v3_global_soft_reset(struct aipu_priv *aipu)
+ 	return zhouyi_soft_reset(&aipu->reg, TSM_SOFT_RESET_REG, aipu->reset_delay_us);
+ }
+ 
++static int zhouyi_v3_read_cluster_status(struct aipu_priv *aipu, struct aipu_cluster_status *status)
++{
++	int i = 1;
++
++	if (unlikely(!status))
++		return -EINVAL;
+ 
++	if (unlikely(!aipu))
++		return -EINVAL;
++
++	mutex_lock(&aipu->partitions[0].page_lock);
++	aipu_write32(&aipu->reg, DEBUG_PAGE_SELECTION_REG, SELECT_DEBUG_CORE(0, 0));
++	status->cluster_status = aipu_read32(&aipu->reg, DEBUG_CLUSTER_STATUS);
++	status->core_status = (aipu_read32(&aipu->reg, DEBUG_CORE_STATUS) >> 4) & 0b1;
++	for (; i < aipu->partitions[0].clusters[0].core_cnt; ++i) {
++		aipu_write32(&aipu->reg, DEBUG_PAGE_SELECTION_REG, SELECT_DEBUG_CORE(0, i));
++		status->core_status |= (((aipu_read32(&aipu->reg, DEBUG_CORE_STATUS) >> 4)
++								& 0b1) << i);
++	}
++	aipu_write32(&aipu->reg, DEBUG_PAGE_SELECTION_REG, DISABLE_DEBUG);
++	mutex_unlock(&aipu->partitions[0].page_lock);
++	return 0;
++}
+ 
+ static struct aipu_priv_operations v3_priv_ops = {
+ 	.create_partitions = v3_create_partitions,
+ 	.destroy_partitions = v3_destroy_partitions,
+ 	.global_soft_reset = v3_global_soft_reset,
++	.get_partition_status = zhouyi_v3_read_cluster_status,
+ };
+ 
+ struct aipu_priv_operations *get_v3_priv_ops(void)
+diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.c b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
+index 3a8751d..6cf17cc 100644
+--- a/drivers/misc/armchina-npu/zhouyi/zhouyi.c
++++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
+@@ -130,9 +130,7 @@ int zhouyi_get_hw_version_number(struct io_region *io, int *rev)
+ 	case ZHOUYI_V3_REVISION_ID_R0P3:
+ 		return AIPU_ISA_VERSION_ZHOUYI_V3;
+ 	case ZHOUYI_V3_2_REVISION_ID_R1P0:
+-		return AIPU_ISA_VERSION_ZHOUYI_V3_2_0;
+-	case ZHOUYI_V3_2_REVISION_ID_R2P0:
+-		return AIPU_ISA_VERSION_ZHOUYI_V3_2_1;
++		return AIPU_ISA_VERSION_ZHOUYI_V3_2;
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.h b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
+index 56447be..e8cac9b 100644
+--- a/drivers/misc/armchina-npu/zhouyi/zhouyi.h
++++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
+@@ -34,7 +34,6 @@
+ #define ZHOUYI_V3_REVISION_ID_R0P2            0x10000
+ #define ZHOUYI_V3_REVISION_ID_R0P3            0x10003
+ #define ZHOUYI_V3_2_REVISION_ID_R1P0          0x10210
+-#define ZHOUYI_V3_2_REVISION_ID_R2P0          0x10220
+ 
+ /*
+  * Soft Reset
+@@ -83,7 +82,7 @@
+ #define ZHOUYI_TRIGGER_TYPE_CREATE               0
+ #define ZHOUYI_TRIGGER_TYPE_UPDATE_DISPATCH      1
+ #define ZHOUYI_TRIGGER_TYPE_DISPATCH             2
+-#define ZHOUYI_TRIGGER_TYPE_BIND_DISPATCH        3
++#define ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH       3
+ 
+ int zhouyi_read_status_reg(struct io_region *io);
+ void zhouyi_clear_qempty_interrupt(struct io_region *io);
+-- 
+2.50.1 (Apple Git-155)
+

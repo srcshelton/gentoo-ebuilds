@@ -829,6 +829,113 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                 Return (0xFF)
             }
 
+            Method (GTRP, 0, Serialized)
+            {
+                Local0 = Buffer (0x09)
+                    {
+                        /* 0000 */  0xDA, 0x03, 0xDD, 0x00, 0x20, 0x00, 0x00, 0x00,  // .... ...
+                        /* 0008 */  0x00                                             // .
+                    }
+                Local1 = Buffer (0x0E){}
+                If ((TRAS (Local0, SizeOf (Local0), Local1, SizeOf (Local1)) == Zero))
+                {
+                    CreateWordField (Local1, 0x04, RSLT)
+                    If ((RSLT == Zero))
+                    {
+                        CreateByteField (Local1, 0x0A, RPM0)
+                        CreateByteField (Local1, 0x0B, RPM1)
+                        CreateByteField (Local1, 0x0C, RPM2)
+                        CreateByteField (Local1, 0x0D, RPM3)
+                        Return (((((RPM0 << 0x18) | (RPM1 << 0x10)) |
+                            (RPM2 << 0x08)) | RPM3))
+                    }
+                }
+
+                Return (0xFFFFFFFF)
+            }
+
+            Method (GFRB, 0, Serialized)
+            {
+                Local0 = Buffer (0x0B)
+                    {
+                        /* 0000 */  0xDA, 0x03, 0xE2, 0x00, 0x07, 0x00, 0x00, 0x00,  // ........
+                        /* 0008 */  0x02, 0x10, 0x02                                 // ...
+                    }
+                Local1 = Buffer (0x0C){}
+                If ((TRAS (Local0, SizeOf (Local0), Local1, SizeOf (Local1)) == Zero))
+                {
+                    CreateWordField (Local1, 0x04, RSLT)
+                    If ((RSLT == Zero))
+                    {
+                        CreateByteField (Local1, 0x0A, FAN0)
+                        CreateByteField (Local1, 0x0B, FAN1)
+                        Return (((FAN0 << 0x08) | FAN1))
+                    }
+                }
+
+                Return (0xFFFFFFFF)
+            }
+
+            Method (GFMV, 0, Serialized)
+            {
+                Local0 = Buffer (0x0A)
+                    {
+                        /* 0000 */  0xDA, 0x03, 0xA2, 0x00, 0x08, 0x00, 0x00, 0x00,  // ........
+                        /* 0008 */  0x01, 0x52                                       // .R
+                    }
+                Local1 = Buffer (0x0E){}
+                If ((TRAS (Local0, SizeOf (Local0), Local1, SizeOf (Local1)) == Zero))
+                {
+                    CreateWordField (Local1, 0x04, RSLT)
+                    If ((RSLT == Zero))
+                    {
+                        CreateByteField (Local1, 0x0A, VER0)
+                        CreateByteField (Local1, 0x0B, VER1)
+                        CreateByteField (Local1, 0x0C, VER2)
+                        CreateByteField (Local1, 0x0D, VER3)
+                        Return (((((VER0 << 0x18) | (VER1 << 0x10)) |
+                            (VER2 << 0x08)) | VER3))
+                    }
+                }
+
+                Return (0xFFFFFFFF)
+            }
+
+            Method (GFMD, 0, Serialized)
+            {
+                Local7 = GFMV ()
+                If (((Local7 == 0xFFFFFFFF) || !(Local7 & 0x04)))
+                {
+                    Return (0xFF)
+                }
+
+                Local0 = Buffer (0x0C)
+                    {
+                        /* 0000 */  0xDA, 0x03, 0xA5, 0x00, 0x52, 0x02, 0x00, 0x00,  // ....R...
+                        /* 0008 */  0x03, 0x00, 0x01, 0x00                           // ....
+                    }
+                Local1 = Buffer (0x0B){}
+                If ((TRAS (Local0, SizeOf (Local0), Local1, SizeOf (Local1)) == Zero))
+                {
+                    CreateWordField (Local1, 0x04, RSLT)
+                    If ((RSLT == Zero))
+                    {
+                        CreateByteField (Local1, 0x0A, AUTO)
+                        If ((AUTO == One))
+                        {
+                            Return (0x02)
+                        }
+
+                        If ((AUTO == Zero))
+                        {
+                            Return (One)
+                        }
+                    }
+                }
+
+                Return (0xFF)
+            }
+
             Method (SFPW, 1, Serialized)
             {
                 If ((Arg0 > 0x64))
@@ -3137,6 +3244,26 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                 Local0 = Arg0
                 Local0 = Arg1
                 Return (\_SB.EC0.GFPW ())
+            }
+
+            Method (GTRP, 0, Serialized)
+            {
+                Return (\_SB.EC0.GTRP ())
+            }
+
+            Method (GFRB, 0, Serialized)
+            {
+                Return (\_SB.EC0.GFRB ())
+            }
+
+            Method (GFMV, 0, Serialized)
+            {
+                Return (\_SB.EC0.GFMV ())
+            }
+
+            Method (GFMD, 0, Serialized)
+            {
+                Return (\_SB.EC0.GFMD ())
             }
 
             Method (SFPW, 3, Serialized)

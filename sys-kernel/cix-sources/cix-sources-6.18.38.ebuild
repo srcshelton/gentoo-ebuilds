@@ -27,7 +27,7 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-EGIT_CIX_COMMIT="3aad82491a599648d87ba1c47cec7968862fa165"
+EGIT_CIX_COMMIT="19f2947303670f2e5734d6a96ffc72a80fd9b942"
 EGIT_SKY1_COMMIT="57e018a398248d7e5e4d798610df79a557c0629f"
 VENDOR_FIRMWARE_O6="orion-o6-radxa-1.2.1"
 VENDOR_FIRMWARE_O6N="orion-o6n-radxa-1.2.1"
@@ -154,7 +154,6 @@ src_prepare() {
 	for pf in "${cix_patch_dir}"/*.patch; do
 		cix_apply_patch "${pf}"
 	done
-	eapply "${FILESDIR}"/6.18.x/0033-regulator-add-acpi-fwnode-support.patch || die
 
 	while read -r pf; do
 		[[ -n "${pf}" && "${pf}" != \#* ]] || continue
@@ -177,8 +176,6 @@ src_prepare() {
 
 	eapply "${FILESDIR}"/6.18.x/20011-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch || die
 	eapply "${FILESDIR}"/6.18.x/90070-sky1-restore-cadence-torrent-dt-binding-header.patch || die
-	eapply "${FILESDIR}"/6.18.x/70005-drm-cix-linlon-dp-fix-symbol-clashes-and-clang-werror.patch || die
-	eapply "${FILESDIR}"/70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch || die
 	eapply "${FILESDIR}"/6.18.x/70110-drm-cix-dptx-demote-missing-dp-phy-log.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
@@ -186,8 +183,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/6.18.x/50040-pwm-sky1-fix-kconfig-entry.patch || die
-	eapply "${FILESDIR}"/6.18.x/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch || die
-	eapply "${FILESDIR}"/6.18.x/73010-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch || die
 	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
 	eapply "${FILESDIR}"/6.18.x/30015-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
 	eapply "${FILESDIR}"/30030-scmi-demote-unsupported-fastchannel-fallback.patch || die
@@ -195,8 +190,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
-	eapply "${FILESDIR}"/6.18.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
-	eapply "${FILESDIR}"/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
 	eapply "${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch || die
 	eapply "${FILESDIR}"/30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch || die
 	eapply "${FILESDIR}"/30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch || die
@@ -213,37 +206,38 @@ src_prepare() {
 	eapply "${FILESDIR}"/71040-cix-mvx-fix-user-visible-names.patch || die
 	eapply "${FILESDIR}"/71050-cix-mvx-enable-jpeg-mjpeg-devices.patch || die
 	eapply "${FILESDIR}"/71060-cix-mvx-port-sky1p-reset-sequencing.patch || die
-	eapply "${FILESDIR}"/70020-cix-display-and-backlight-build-fixes.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
-	eapply "${FILESDIR}"/70050-drm-cix-enable-acpi-stub-fdt-display.patch || die
-	eapply "${FILESDIR}"/6.18.x/70060-drm-add-fwnode-panel-bridge-helpers.patch || die
-	eapply "${FILESDIR}"/70070-drm-cix-use-fwnode-display-links.patch || die
 	eapply "${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch || die
-	eapply "${FILESDIR}"/70090-drm-cix-remove-unused-display-kconfig-prompts.patch || die
 	eapply "${FILESDIR}"/80030-cadence-macb-restore-pc302gem-config-scope.patch || die
 	eapply "${FILESDIR}"/80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch || die
 	eapply "${FILESDIR}"/40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
-	eapply "${FILESDIR}"/6.18.x/30020-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
-	eapply "${FILESDIR}"/6.18.x/30022-pmdomain-decouple-acpi-genpd-from-of.patch || die
 	eapply "${FILESDIR}"/6.18.x/30160-scmi-handle-acpi-debugfs-fallbacks.patch || die
 	eapply "${FILESDIR}"/6.18.x/50050-sky1-acpi-runtime-driver-fixes.patch || die
 	eapply "${FILESDIR}"/6.18.x/50055-dmaengine-arm-dma350-keep-fch-acpi-dma-optional-clocks-optional.patch || die
 	eapply "${FILESDIR}"/6.18.x/60040-usb-typec-acpi-runtime-fixes.patch || die
 	eapply "${FILESDIR}"/6.18.x/60096-phy-cix-usbdp-allow-acpi-selection.patch || die
-	eapply "${FILESDIR}"/6.18.x/70040-display-media-acpi-runtime-fixes.patch || die
 	eapply "${FILESDIR}"/6.18.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch || die
-	eapply "${FILESDIR}"/6.18.x/90000-soc-cix-add-acpi-runtime-drivers.patch || die
-	eapply "${FILESDIR}"/6.18.x/90001-clocksource-sky1-gpt-accept-firmware-clock-names.patch || die
-	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
 	eapply "${FILESDIR}"/60070-usb-typec-add-provider-fwnode-control-lookups.patch || die
 	eapply "${FILESDIR}"/6.18.x/60120-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch || die
-	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
 	eapply "${FILESDIR}"/6.18.x/90092-hwmon-cix-fan-expose-pwm-duty.patch || die
 	eapply "${FILESDIR}"/6.18.x/90093-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
-	eapply "${FILESDIR}"/90096-soc-cix-add-sky1-reboot-reason-driver.patch || die
 	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
-	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
+	eapply "${FILESDIR}"/6.18.x/99010-cix-19f2947-drm-display-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99011-cix-19f2947-drm-panthor-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99012-cix-19f2947-acpi-thermal-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99013-cix-19f2947-pmdomain-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99014-cix-19f2947-nvmem-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99015-cix-19f2947-soc-acpi-discovery-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99016-cix-19f2947-soc-bus-performance-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99017-cix-19f2947-soc-ddr-low-power-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99018-cix-19f2947-soc-reboot-reason-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99019-cix-19f2947-socinfo-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99020-cix-19f2947-pci-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99021-cix-19f2947-regulator-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99022-cix-19f2947-media-mvx-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99023-cix-19f2947-npu-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/99024-cix-19f2947-hda-retain-downstream-improvements.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/6.18.x/90050-arm64-cix-add-radxa-orion-board-profiles.patch || die
 	fi

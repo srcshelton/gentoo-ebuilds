@@ -1,6 +1,7 @@
-# Sky1 patches already carried by CIX patches-6.18 for cix-sources-6.18.32-r2.
+# Sky1 patches already carried by the active CIX patches-6.18 queue.
 # src_prepare() replays the Sky1 series but skips these exact filenames.
 # Keep this list in Sky1 series order so future audits can diff it easily.
+0002-pci-cadence-Add-CIX-Sky1-PCIe-host-controller-driver.patch
 0003-arm64-cix-Add-Sky1-infrastructure-drivers.patch
 0004-usb-phy-Add-CIX-Sky1-USB-and-PHY-drivers.patch
 0005-drm-cix-Add-Sky1-display-drivers.patch
@@ -14,6 +15,7 @@
 0022-drm-cix-Add-DRM-bridge-chain-for-PS185-DP-to-HDMI-on.patch
 0023-drm-panthor-Rate-limit-SCMI-perf-domain-DVFS-request.patch
 0027-drm-cix-Fix-DPTX-link-rate-selection-for-optimal-ban.patch
+0043-PCI-cadence-sky1-Add-ASPM-control-and-wakeup-improve.patch
 0044-drm-cix-dptx-Fix-suspend-resume-deadlock-and-improve.patch
 0046-drm-cix-dptx-Use-freezable-workqueue-for-HPD-handlin.patch
 0047-drm-cix-dptx-Improve-PSR-implementation.patch
@@ -27,6 +29,7 @@
 0059-pwm-sky1-Remove-clock-auto-enable-and-probe-reset.patch
 0061-firmware-arm_scmi-Add-ACPI-support-to-transport-driv.patch
 0062-mfd-syscon-Add-ACPI-platform-driver-support.patch
+0063-clocksource-Add-CIX-Sky1-GPT-timer-driver.patch
 0067-gpio-cadence-Fix-IRQ-storm-and-harden-IRQ-handling.patch
 0068-usb-cdns3-Fix-runtime-PM-for-Sky1-USB-controllers.patch
 0069-mailbox-cix-mailbox-Remove-debug-print-statements.patch
@@ -42,6 +45,7 @@
 0080-drivers-Fix-ACPI-boot-failures-for-CIX-Sky1-peripher.patch
 0082-usb-cdns3-Serialize-drd_init-to-prevent-SCMI-mailbox.patch
 0083-sound-hda-cix-ipbloq-Add-ACPI-DMA-range-map-and-rese.patch
+0084-pstore-ramoops-Convert-to-device_property-API-for-AC.patch
 0086-usb-cdns3-Skip-destructive-hardware-reinit-under-ACP.patch
 0087-phy-cix-usbdp-Skip-PHY-reset-under-ACPI-boot.patch
 0090-PCI-sky1-Add-MCFG-quirk-for-CIX-Sky1-Cadence-PCIe-co.patch
@@ -56,6 +60,7 @@
 0099-drm-cix-linlon-dp-clean-up-ACPI-probe-logging-and-gu.patch
 0101-pmdomain-add-fwnode-based-genpd-provider-for-ACPI-po.patch
 0102-remoteproc-cix_dsp_rproc-add-ACPI-boot-support.patch
+0105-PCI-cadence-sky1-skip-regulator-lookup-under-ACPI.patch
 0106-clk-cix-sky1-acpi-use-CLKT-consumer-reference-for-cl.patch
 0107-audio-cix-sky1-enable-HDMI-DisplayPort-audio-output-.patch
 0109-soc-cix-add-ACPI-USB-scan-handler-to-block-PNP0D10.patch

@@ -1,0 +1,622 @@
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -83,7 +83,7 @@
+  * Defines
+  ****************************************************************************/
+ 
+-/**
++/*
+  * Name of the MVx dev device.
+  */
+ #define MVX_DEV_NAME    "amvx_dev"
+@@ -126,6 +126,27 @@ struct mvx_freq_table {
+ 
+ /**
+  * struct mvx_dev_ctx - Private context for the MVx dev device.
++ * @dev: Device represented by this context.
++ * @pmdomains: Attached VPU power-domain devices.
++ * @pmdomains_cnt: Number of entries populated in @pmdomains.
++ * @clk: VPU functional clock.
++ * @rstc: VPU reset control.
++ * @if_ops: Interface operations exposed to the session layer.
++ * @client_ops: Device operations exposed through @if_ops.
++ * @hwreg: Hardware-register access state.
++ * @scheduler: Session scheduler state.
++ * @irq: Host interrupt number.
++ * @work_queue: Workqueue used to process pending virtual-engine interrupts.
++ * @work: Work item that dispatches pending virtual-engine interrupts.
++ * @irqve: Bitmap of logical session IDs with a pending virtual-engine IRQ.
++ * @dentry: Root debugfs directory for the device.
++ * @opp_pmdomain: Named performance domain that owns the VPU OPP table.
++ * @opp_dl: Device link from @dev to @opp_pmdomain.
++ * @devfreq_profile: Devfreq callbacks and frequency table.
++ * @devfreq: Registered devfreq device.
++ * @devfreq_initialized: Whether devfreq registration completed successfully.
++ * @target_freq: Most recently requested devfreq target in Hz.
++ * @probe_done: Completion signalled when probe succeeds or fails.
+  */
+ struct mvx_dev_ctx {
+     struct device *dev;
+@@ -154,6 +175,8 @@ struct mvx_dev_ctx {
+ 
+ /**
+  * struct mvx_client_session - Device session.
++ * @ctx: Device context that owns the session.
++ * @session: Scheduler-visible session state.
+  *
+  * When the if module registers a session this structure is returned.
+  */
+diff --git a/drivers/media/platform/cix/dev/mvx_scheduler.c b/drivers/media/platform/cix/dev/mvx_scheduler.c
+--- a/drivers/media/platform/cix/dev/mvx_scheduler.c
++++ b/drivers/media/platform/cix/dev/mvx_scheduler.c
+@@ -215,7 +215,7 @@ static uint32_t sort_jobs(uint32_t jobqueue,
+     return new_jobqueue;
+ }
+ 
+-/**
++/*
+  * pending list is only updated when sched is locked.
+  * a session can only be added once
+  *
+diff --git a/drivers/media/platform/cix/if/mvx_buffer.c b/drivers/media/platform/cix/if/mvx_buffer.c
+--- a/drivers/media/platform/cix/if/mvx_buffer.c
++++ b/drivers/media/platform/cix/if/mvx_buffer.c
+@@ -42,7 +42,7 @@
+  * Defines
+  ****************************************************************************/
+ 
+-/**
++/*
+  * Each 2x2 pixel square is subsampled. How many samples that are taken depends
+  * on the color format, but typically the luma channel (Y) gets 4 samples and
+  * the luma channels (UV) get 2 or 4 samples.
+@@ -56,6 +56,7 @@
+ /**
+  * get_stride() - Get 3 plane stride for 2x2 pixels square.
+  * @format:    MVX frame format.
++ * @nplanes:   Number of planes required by @format.
+  * @stride:    [plane 0, plane 1, plane 2][x, y] stride.
+  *
+  * Calculate the stride in bytes for each plane for a subsampled (2x2) pixels
+diff --git a/drivers/media/platform/cix/if/mvx_firmware.c b/drivers/media/platform/cix/if/mvx_firmware.c
+--- a/drivers/media/platform/cix/if/mvx_firmware.c
++++ b/drivers/media/platform/cix/if/mvx_firmware.c
+@@ -68,6 +68,8 @@
+ 
+ /**
+  * test_bit_32() - 32 bit version Linux test_bit.
++ * @bit: Bit index to test.
++ * @addr: Base of the 32-bit bitmap.
+  *
+  * Test if bit is set in bitmap array.
+  */
+@@ -79,6 +81,7 @@ static bool test_bit_32(int bit,
+ 
+ /**
+  * get_major_version() - Get firmware major version.
++ * @fw_bin: Firmware binary descriptor.
+  *
+  * Return: Major version.
+  */
+@@ -92,6 +95,7 @@ static unsigned int get_major_version(const struct mvx_fw_bin *fw_bin)
+ 
+ /**
+  * get_minor_version() - Get firmware minor version.
++ * @fw_bin: Firmware binary descriptor.
+  *
+  * Return: Minor version.
+  */
+@@ -105,6 +109,7 @@ static unsigned int get_minor_version(const struct mvx_fw_bin *fw_bin)
+ 
+ /**
+  * fw_unmap() - Remove MMU mappings and release allocated memory.
++ * @fw: Firmware instance whose mappings are released.
+  */
+ static void fw_unmap(struct mvx_fw *fw)
+ {
+@@ -143,6 +148,8 @@ static void fw_unmap(struct mvx_fw *fw)
+ 
+ /**
+  * fw_map_core() - Map pages for the text and BSS segments for one core.
++ * @fw: Firmware instance to map.
++ * @core: Core index whose private firmware regions are mapped.
+  *
+  * This function assumes that the fw instance has been correctly allocated
+  * and instansiated and will therefor not make any NULL pointer checks. It
+@@ -211,6 +218,7 @@ static int fw_map_core(struct mvx_fw *fw,
+ 
+ /**
+  * fw_map() - Map up MMU tables.
++ * @fw: Firmware instance to map into the MVE address space.
+  */
+ static int fw_map(struct mvx_fw *fw)
+ {
+@@ -296,7 +304,7 @@ static int fw_map(struct mvx_fw *fw)
+     return ret;
+ }
+ 
+-/**
++/*
+  * Callbacks and handlers for FW stats.
+  */
+ static int fw_stat_show(struct seq_file *s,
+@@ -463,6 +471,8 @@ static const struct file_operations rpcmem_fops = {
+ 
+ /**
+  * fw_debugfs_init() - Create debugfs entries for mvx_fw.
++ * @fw: Firmware instance represented by the debugfs entries.
++ * @parent: Parent debugfs directory.
+  */
+ static int fw_debugfs_init(struct mvx_fw *fw,
+                struct dentry *parent)
+diff --git a/drivers/media/platform/cix/if/mvx_firmware_cache.c b/drivers/media/platform/cix/if/mvx_firmware_cache.c
+--- a/drivers/media/platform/cix/if/mvx_firmware_cache.c
++++ b/drivers/media/platform/cix/if/mvx_firmware_cache.c
+@@ -75,6 +75,8 @@ static unsigned int kref_read(const struct kref *kref)
+ 
+ /**
+  * test_bit_32() - 32 bit version Linux test_bit.
++ * @bit: Bit index to test.
++ * @addr: Base of the 32-bit bitmap.
+  *
+  * Test if bit is set in bitmap array.
+  */
+@@ -85,7 +87,8 @@ static bool test_bit_32(int bit,
+ }
+ 
+ /**
+- * hw_id_to_name() - Convert HW id to string
++ * hw_id_to_string() - Convert a hardware identifier to its firmware suffix.
++ * @id: MVE hardware identifier.
+  */
+ static const char *hw_id_to_string(enum mvx_hw_id id)
+ {
+@@ -105,6 +108,11 @@ static const char *hw_id_to_string(enum mvx_hw_id id)
+ 
+ /**
+  * get_fw_name() - Return the file name for the requested format and direction.
++ * @filename: Buffer that receives the firmware filename.
++ * @size: Size of @filename in bytes.
++ * @format: Codec format requiring firmware.
++ * @dir: Data direction selecting decoder or encoder firmware.
++ * @hw_ver: Hardware version used to select a compatible firmware image.
+  *
+  * This function will neither check if there is hardware support nor if the
+  * firmware binary is available on the file system.
+@@ -177,6 +185,7 @@ static struct mvx_fw_bin *kobj_to_fw_bin(struct kobject *kobj)
+ 
+ /**
+  * fw_bin_destroy() - Destroy instance of firmware binary.
++ * @kobj: Embedded kobject of the firmware binary being destroyed.
+  */
+ static void fw_bin_destroy(struct kobject *kobj)
+ {
+@@ -199,6 +208,8 @@ static void fw_bin_destroy(struct kobject *kobj)
+ 
+ /**
+  * fw_bin_validate() - Verify that the loaded firmware is a valid binary.
++ * @fw: Firmware image returned by the firmware loader.
++ * @dev: Device for which the image was requested; currently unused.
+  */
+ static int fw_bin_validate(const struct firmware *fw,
+                struct device *dev)
+@@ -225,6 +236,7 @@ static int fw_bin_validate(const struct firmware *fw,
+ 
+ /**
+  * fw_bin_callback() - Call firmware ready callback.
++ * @fw_bin: Firmware descriptor whose asynchronous load has completed.
+  */
+ static void fw_bin_callback(struct mvx_fw_bin *fw_bin)
+ {
+@@ -254,6 +266,8 @@ static void fw_bin_callback(struct mvx_fw_bin *fw_bin)
+ 
+ /**
+  * secure_request_firmware_done() - Firmware load callback routine.
++ * @securefw: Loaded secure-firmware descriptor, or %NULL on failure.
++ * @arg: Firmware binary descriptor supplied with the request.
+  */
+ static void secure_request_firmware_done(struct mvx_secure_firmware *securefw,
+                      void *arg)
+@@ -276,6 +290,8 @@ static void secure_request_firmware_done(struct mvx_secure_firmware *securefw,
+ 
+ /**
+  * request_firmware_done() - Callback routine after firmware has been loaded.
++ * @fw: Loaded firmware image, or %NULL on failure.
++ * @arg: Firmware binary descriptor supplied with the request.
+  */
+ static void request_firmware_done(const struct firmware *fw,
+                   void *arg)
+@@ -344,6 +360,8 @@ static void request_firmware_done(const struct firmware *fw,
+ 
+ /**
+  * hwvercmp() - Compare two hardware versions.
++ * @v1: First hardware version.
++ * @v2: Second hardware version.
+  *
+  * Semantic of this function equivalent to strcmp().
+  */
+@@ -428,6 +446,11 @@ static struct kobj_type fw_bin_ktype = {
+ 
+ /**
+  * fw_bin_create() - Create a new firmware binary instance.
++ * @cache: Cache that will own the firmware descriptor.
++ * @format: Codec format implemented by the firmware.
++ * @dir: Data direction selecting decoder or encoder firmware.
++ * @hw_ver: Hardware version the firmware must support.
++ * @securevideo: Whether to request the image through the secure loader.
+  */
+ static struct mvx_fw_bin *fw_bin_create(struct mvx_fw_cache *cache,
+                     enum mvx_format format,
+@@ -502,6 +525,11 @@ static struct mvx_fw_bin *fw_bin_create(struct mvx_fw_cache *cache,
+ 
+ /**
+  * fw_bin_get() - Get reference to firmware binary.
++ * @cache: Cache to search or populate.
++ * @format: Codec format implemented by the requested firmware.
++ * @dir: Data direction selecting decoder or encoder firmware.
++ * @hw_ver: Hardware version the firmware must support.
++ * @securevideo: Whether secure firmware is required.
+  *
+  * If firmware binary has already been loaded the reference count is increased,
+  * else the function tries to create a new descriptor and load the firmware
+@@ -558,6 +586,9 @@ static struct mvx_fw_cache *kobj_to_fw_cache(struct kobject *kobj)
+ 
+ /**
+  * cache_flush_show() - FW cache flush status is always 0.
++ * @kobj: Firmware-cache kobject being read.
++ * @attr: Flush attribute being read.
++ * @buf: Buffer that receives the status value.
+  */
+ static ssize_t cache_flush_show(struct kobject *kobj,
+                 struct kobj_attribute *attr,
+@@ -568,6 +599,10 @@ static ssize_t cache_flush_show(struct kobject *kobj,
+ 
+ /**
+  * cache_flush_store() - Trigger FW cache flush.
++ * @kobj: Firmware-cache kobject being invalidated.
++ * @attr: Flush attribute being written.
++ * @buf: Userspace input, whose value is intentionally ignored.
++ * @size: Number of input bytes consumed.
+  */
+ static ssize_t cache_flush_store(struct kobject *kobj,
+                  struct kobj_attribute *attr,
+@@ -580,7 +615,7 @@ static ssize_t cache_flush_store(struct kobject *kobj,
+     return size;
+ }
+ 
+-/**
++/*
+  * Sysfs attribute which triggers FW cache flush.
+  */
+ static struct kobj_attribute cache_flush =
+diff --git a/drivers/media/platform/cix/if/mvx_firmware_v2.c b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+--- a/drivers/media/platform/cix/if/mvx_firmware_v2.c
++++ b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+@@ -3468,8 +3468,8 @@ static void rpc_mem_free(struct mvx_fw *fw,
+ 
+ /**
+  * rstrip() - Remove trailing chars from string.
+- * @s:        String to be stripped.
+- * @t:        String containing chars to be stripped.
++ * @str:      String to be stripped in place.
++ * @trim:     NUL-terminated set of characters to strip.
+  *
+  * Return: Pointer to stripped string.
+  */
+diff --git a/drivers/media/platform/cix/if/mvx_if.c b/drivers/media/platform/cix/if/mvx_if.c
+--- a/drivers/media/platform/cix/if/mvx_if.c
++++ b/drivers/media/platform/cix/if/mvx_if.c
+@@ -55,6 +55,15 @@
+ 
+ /**
+  * struct mvx_if_ctx - Device context.
++ * @dev: Device served by this interface instance.
++ * @ext: Per-API external interface instances.
++ * @firmware: Firmware cache shared by the external interfaces.
++ * @client_ops: Device callbacks supplied by the client driver.
++ * @if_ops: Session callbacks exported to the client driver.
++ * @secure: Secure firmware and memory service state.
++ * @kobj: Sysfs object for the interface instance.
++ * @kobj_unregister: Completion signalled when @kobj is released.
++ * @dentry: Root debugfs directory for the interface instance.
+  *
+  * There is one instance of this structure for each device.
+  */
+diff --git a/drivers/media/platform/cix/if/mvx_mmu.c b/drivers/media/platform/cix/if/mvx_mmu.c
+--- a/drivers/media/platform/cix/if/mvx_mmu.c
++++ b/drivers/media/platform/cix/if/mvx_mmu.c
+@@ -91,6 +91,8 @@
+ 
+ /**
+  * struct mvx_mmu_dma_buf - MVX DMA buffer.
++ * @head: Entry in the MMU context's imported-buffer list.
++ * @dmabuf: Imported DMA-BUF object.
+  *
+  * Adds a list head to keep track of DMA buffers.
+  */
+@@ -136,6 +138,7 @@ static unsigned int get_offset(const mvx_mmu_va va)
+ 
+ /**
+  * get_pa() - Return physical address stored in PTE.
++ * @pte: MVE page-table entry to decode.
+  */
+ static phys_addr_t get_pa(const mvx_mmu_pte pte)
+ {
+@@ -147,6 +150,7 @@ static phys_addr_t get_pa(const mvx_mmu_pte pte)
+ 
+ /**
+  * get_attr() - Return attributes stored in PTE.
++ * @pte: MVE page-table entry to decode.
+  */
+ static enum mvx_mmu_attr get_attr(const mvx_mmu_pte pte)
+ {
+@@ -155,6 +159,7 @@ static enum mvx_mmu_attr get_attr(const mvx_mmu_pte pte)
+ 
+ /**
+  * get_ap() - Return access permissions stored in PTE.
++ * @pte: MVE page-table entry to decode.
+  */
+ static enum mvx_mmu_access get_ap(const mvx_mmu_pte pte)
+ {
+@@ -489,7 +494,7 @@ static int stat_open(struct inode *inode,
+     return single_open(file, stat_show, inode->i_private);
+ }
+ 
+-/**
++/*
+  * File operations for debugfs entry.
+  */
+ static const struct file_operations stat_fops = {
+@@ -501,6 +506,8 @@ static const struct file_operations stat_fops = {
+ 
+ /**
+  * pages_seq_start() - Iterator over pages list.
++ * @s: Sequence-file context whose private data identifies the page list.
++ * @pos: Current page index.
+  */
+ static void *pages_seq_start(struct seq_file *s,
+                  loff_t *pos)
+@@ -516,7 +523,10 @@ static void *pages_seq_start(struct seq_file *s,
+ }
+ 
+ /**
+- * pages_seq_start() - Iterator over pages list.
++ * pages_seq_next() - Advance the page-list iterator.
++ * @s: Sequence-file context whose private data identifies the page list.
++ * @v: Current iterator value; unused because @pos carries the index.
++ * @pos: Page index to advance.
+  */
+ static void *pages_seq_next(struct seq_file *s,
+                 void *v,
+@@ -532,14 +542,18 @@ static void *pages_seq_next(struct seq_file *s,
+ }
+ 
+ /**
+- * pages_seq_start() - Iterator over pages list.
++ * pages_seq_stop() - Finish a page-list iteration.
++ * @s: Sequence-file context; no teardown is required.
++ * @v: Final iterator value; unused.
+  */
+ static void pages_seq_stop(struct seq_file *s,
+                void *v)
+ {}
+ 
+ /**
+- * pages_seq_start() - Iterator over pages list.
++ * pages_seq_show() - Emit one page-list entry.
++ * @s: Sequence-file context receiving the entry.
++ * @v: Pointer to the page index returned by the iterator.
+  */
+ static int pages_seq_show(struct seq_file *s,
+               void *v)
+@@ -557,8 +571,8 @@ static int pages_seq_show(struct seq_file *s,
+     return 0;
+ }
+ 
+-/**
+- * mpages_seq_ops - Callbacks used by an iterator over pages list.
++/*
++ * pages_seq_ops - Callbacks used by an iterator over pages list.
+  */
+ static const struct seq_operations pages_seq_ops = {
+     .start = pages_seq_start,
+@@ -569,6 +583,8 @@ static const struct seq_operations pages_seq_ops = {
+ 
+ /**
+  * list_open() - Callback for debugfs entry.
++ * @inode: Debugfs inode whose private data identifies the page list.
++ * @file: File to attach to the sequence iterator.
+  */
+ static int list_open(struct inode *inode,
+              struct file *file)
+@@ -586,7 +602,7 @@ static int list_open(struct inode *inode,
+     return 0;
+ }
+ 
+-/**
++/*
+  * File operations for a debugfs entry.
+  */
+ static const struct file_operations list_fops = {
+diff --git a/drivers/media/platform/cix/if/mvx_secure.c b/drivers/media/platform/cix/if/mvx_secure.c
+--- a/drivers/media/platform/cix/if/mvx_secure.c
++++ b/drivers/media/platform/cix/if/mvx_secure.c
+@@ -111,6 +111,10 @@ void mvx_secure_destruct(struct mvx_secure *secure)
+ 
+ /**
+  * firmware_store() - Firmware sysfs store function.
++ * @kobj: Secure-firmware request receiving the descriptor.
++ * @attr: Firmware attribute being written.
++ * @buf: Binary secure-firmware descriptor supplied by userspace.
++ * @size: Size of the supplied descriptor in bytes.
+  *
+  * Store values from firmware descriptor, get the DMA handle and wake up any
+  * waiting process.
+@@ -145,7 +149,7 @@ static ssize_t firmware_store(struct kobject *kobj,
+ 
+ /**
+  * secure_firmware_release() - Release secure firmware.
+- * kobj:    Pointer to kobject.
++ * @kobj: Embedded kobject of the secure-firmware request being released.
+  */
+ static void secure_firmware_release(struct kobject *kobj)
+ {
+@@ -299,6 +303,7 @@ void mvx_secure_release_firmware(struct mvx_secure_firmware *securefw)
+ 
+ /**
+  * secure_mem_release() - Release the secure memory object.
++ * @kobj: Embedded kobject of the secure-memory request being released.
+  */
+ static void secure_mem_release(struct kobject *kobj)
+ {
+@@ -310,6 +315,10 @@ static void secure_mem_release(struct kobject *kobj)
+ 
+ /**
+  * memory_store() - Memory sysfs store function.
++ * @kobj: Secure-memory request receiving the DMA-BUF descriptor.
++ * @attr: Memory attribute being written.
++ * @buf: Binary file descriptor supplied by userspace.
++ * @size: Size of the supplied descriptor in bytes.
+  *
+  * Store values from memory descriptor, get the DMA handle and wake up any
+  * waiting process.
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -771,6 +771,7 @@ static int switch_out_rsp(struct mvx_session *session);
+ 
+ /**
+  * wait_pending() - Wait for procedure to finish.
++ * @session: Session whose outstanding firmware messages are drained.
+  *
+  * Wait for the number of pending firmware messages to reach 0, or for an error
+  * to happen.
+@@ -842,6 +843,7 @@ static int send_irq(struct mvx_session *session)
+ 
+ /**
+  * switch_in() - Request the client device to switch in the session.
++ * @session: Session to make resident on the hardware.
+  *
+  * Return: 0 on success, else error code.
+  */
+@@ -879,6 +881,8 @@ static int switch_out_rsp(struct mvx_session *session)
+ 
+ /**
+  * fw_send_msg() - Send firmware message and signal IRQ.
++ * @session: Session that owns the firmware queue.
++ * @msg: Message to enqueue for the firmware.
+  *
+  * Return: 0 on success, else error code.
+  */
+@@ -2610,6 +2614,9 @@ static int fw_initial_setup(struct mvx_session *session)
+ 
+ /**
+  * map_buffer() - Memory map buffer to MVE address space.
++ * @session: Session whose MVE address space receives the mapping.
++ * @dir: Session port that owns the buffer.
++ * @buf: Buffer to map.
+  *
+  * Return 0 on success, else error code.
+  */
+@@ -2757,6 +2764,9 @@ static void revert_frame_format(struct mvx_session *session,
+ 
+ /**
+  * queue_buffer() - Put buffer to firmware queue.
++ * @session: Session whose firmware queue receives the buffer.
++ * @dir: Input or output port associated with the buffer.
++ * @buf: Buffer to map and enqueue.
+  *
+  * Return: 0 on success, else error code.
+  */
+@@ -2929,6 +2939,8 @@ static int queue_buffer(struct mvx_session *session,
+ 
+ /**
+  * queue_pending_buffers() - Queue pending buffers.
++ * @session: Session containing the pending-buffer list.
++ * @dir: Port whose pending buffers are forwarded.
+  *
+  * Buffer that are queued when the port is still stream off will be put in the
+  * pending queue. Once both input- and output ports are stream on the pending
+@@ -3022,6 +3034,9 @@ static int queue_pending_buffers(struct mvx_session *session,
+ 
+ /**
+  * return_done_buffers() - Return buffers in done_queue to client.
++ * @session: Session whose completed output buffers are returned.
++ * @dir: Port argument retained for callers; the current implementation always
++ *       drains the output-port queue.
+  *
+  * When resolution changed in non-keyframe, keep frames with the former resolution
+  * in session->buffer_done_queue.
+@@ -3044,6 +3059,10 @@ static void return_done_buffers(struct mvx_session *session,
+ 
+ /**
+  * fw_bin_ready() - Complete firmware configuration.
++ * @bin: Firmware binary whose load request completed.
++ * @arg: Session supplied when the firmware was requested.
++ * @same_thread: Whether the callback runs synchronously in the requesting
++ *               thread and therefore already holds the session mutex.
+  *
+  * The firmware binary load has completed and the firmware configuration can
+  * begin.
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
+@@ -153,6 +153,7 @@ static int buffer_debugfs_init(struct dentry *parent,
+ 
+ /**
+  * get_bytesused() - Get total number of bytes used for Vb2 buffer.
++ * @b: Vb2 buffer whose plane payloads are summed.
+  */
+ static size_t get_bytesused(struct vb2_buffer *b)
+ {
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -623,7 +623,7 @@ static void buf_finish(struct vb2_buffer *vb)
+     }
+ }
+ 
+-/**
++/*
+  * mvx_vb2_ops - Callbacks for Vb2 framework
+  * Not all possible callbacks are implemented as some of them are optional.
+  */
+@@ -639,6 +639,7 @@ const struct vb2_ops mvx_vb2_ops = {
+ 
+ /**
+  * setup_vb2_queue() - Initialize vb2_queue before it can be used by Vb2.
++ * @vport: V4L2 port containing the queue to initialize.
+  */
+ static int setup_vb2_queue(struct mvx_v4l2_port *vport)
+ {
+diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/mvx_log.c
+--- a/drivers/media/platform/cix/mvx_log.c
++++ b/drivers/media/platform/cix/mvx_log.c
+@@ -75,7 +75,7 @@ void mvx_sched_get_realtime_fps(struct list_head *sessions);
+ 
+ #ifdef MVX_LOG_FTRACE_ENABLE
+ 
+-/**
++/*
+  * Map severity to string.
+  */
+ static const char *const severity_to_name[] = {
+@@ -88,7 +88,7 @@ static const char *const severity_to_name[] = {
+ };
+ #endif /* MVX_LOG_FTRACE_ENABLE */
+ 
+-/**
++/*
+  * Map severity to kernel log level.
+  */
+ static const char *const severity_to_kern_level[] = {
+@@ -299,7 +299,7 @@ static ssize_t group_avgfps_read(struct file *file,
+ }
+ 
+ /**
+- * group_avgfps_read() - Read handle function for mvx/group/<group>/rtfps. The
++ * group_rtfps_read() - Read handle function for mvx/group/<group>/rtfps. The
+  *            function returns realtime fps of sessions.
+  * @file:        File pointer.
+  * @user_buffer:    The user space buffer that is read to.

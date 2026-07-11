@@ -144,3 +144,103 @@ diff --git a/drivers/pinctrl/pinctrl-acpi.c b/drivers/pinctrl/pinctrl-acpi.c
  
  	state_index = resource->state_index;
  	ret = device_property_read_string_array(p->dev,
+@@ -362,6 +366,54 @@ static int acpi_pin_config_to_pinctrl_map(struct pinctrl *p, char *pinctrl_acpi,
+ 	return acpi_pin_resource_to_pinctrl_map(p, pinctrl_acpi, &resource);
+ }
+ 
++static int pinctrl_acpi_get_group_selector_quiet(struct pinctrl_dev *pctldev,
++						 const char *pin_group)
++{
++	const struct pinctrl_ops *pctlops = pctldev->desc->pctlops;
++	unsigned int ngroups = pctlops->get_groups_count(pctldev);
++	unsigned int group_selector;
++
++	for (group_selector = 0; group_selector < ngroups; group_selector++) {
++		const char *gname = pctlops->get_group_name(pctldev,
++							    group_selector);
++
++		if (gname && !strcmp(gname, pin_group))
++			return group_selector;
++	}
++
++	return -EINVAL;
++}
++
++static bool pinctrl_acpi_sky1_i2s_debug_alias(const char *group,
++					      char *alias,
++					      size_t alias_len)
++{
++	static const char prefix[] = "pinctrl_substrate_i2s";
++	static const char suffix[] = "_dbg";
++	size_t prefix_len = sizeof(prefix) - 1;
++	const char *tail;
++
++	if (!group || strncmp(group, prefix, prefix_len))
++		return false;
++
++	tail = group + prefix_len;
++	if (*tail < '5' || *tail > '9')
++		return false;
++
++	if (strcmp(tail + 1, suffix))
++		return false;
++
++	if (alias) {
++		if (alias_len < prefix_len + 2)
++			return false;
++
++		memcpy(alias, group, prefix_len + 1);
++		alias[prefix_len + 1] = '\0';
++	}
++
++	return true;
++}
++
+ static int
+ process_pin_config_from_pin_function(struct pinctrl *p,
+ 				     struct acpi_resource_pin_function *ares)
+@@ -540,7 +592,7 @@ process_pin_group_function(struct pinctrl *p,
+ 			   struct acpi_resource_pin_group_function *ares)
+ {
+ 	struct pinctrl_dev *pctl_dev;
+-	struct acpi_device *adev;
++	char compat_group[sizeof("pinctrl_substrate_i2s9")];
+ 	char *pinctrl_acpi;
+ 	char *group;
+ 	int ret;
+@@ -557,10 +609,33 @@ process_pin_group_function(struct pinctrl *p,
+ 		return -ENXIO;
+ 	}
+ 
+-	adev = ACPI_COMPANION(pctl_dev->dev);
+ 	if (ares->vendor_length > 0)
+ 		state_index = ares->vendor_data[0];
+-	gs = pinctrl_get_group_selector(pctl_dev, group);
++
++	gs = pinctrl_acpi_get_group_selector_quiet(pctl_dev, group);
++	if (gs < 0 &&
++	    pinctrl_acpi_sky1_i2s_debug_alias(group, compat_group,
++					      sizeof(compat_group))) {
++		gs = pinctrl_acpi_get_group_selector_quiet(pctl_dev,
++							   compat_group);
++		if (gs >= 0) {
++			dev_dbg(pctl_dev->dev,
++				"use ACPI pin group %s for firmware group %s\n",
++				compat_group, group);
++		} else {
++			dev_dbg(pctl_dev->dev,
++				"ignore optional ACPI display-audio pin group %s\n",
++				group);
++			return 0;
++		}
++	}
++
++	if (gs < 0) {
++		gs = pinctrl_get_group_selector(pctl_dev, group);
++		if (gs < 0)
++			return gs;
++	}
++
+ 	ret = acpi_pin_group_function_to_pinctrl_map(p, pinctrl_acpi,
+ 						     gs,
+ 						     ares->function_number,

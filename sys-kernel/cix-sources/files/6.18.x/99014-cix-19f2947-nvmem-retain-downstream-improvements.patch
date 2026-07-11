@@ -1,0 +1,217 @@
+diff --git a/drivers/nvmem/Kconfig b/drivers/nvmem/Kconfig
+--- a/drivers/nvmem/Kconfig
++++ b/drivers/nvmem/Kconfig
+@@ -63,6 +63,19 @@ config NVMEM_APPLE_SPMI
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called apple-nvmem-spmi.
+ 
++config NVMEM_SKY1
++	tristate "CIX Sky1 eFuse support"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on HAVE_ARM_SMCCC
++	depends on OF || ACPI
++	help
++	  Say y here to enable support for reading the CIX Sky1 eFuse
++	  window through the firmware SMCCC interface. The driver exposes
++	  the OPN cell used by the Sky1 SoC information driver.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called nvmem-sky1.
++
+ config NVMEM_BCM_OCOTP
+ 	tristate "Broadcom On-Chip OTP Controller support"
+ 	depends on ARCH_BCM_IPROC || COMPILE_TEST
+diff --git a/drivers/nvmem/Makefile b/drivers/nvmem/Makefile
+--- a/drivers/nvmem/Makefile
++++ b/drivers/nvmem/Makefile
+@@ -16,6 +16,8 @@ obj-$(CONFIG_NVMEM_APPLE_EFUSES)	+= nvmem-apple-efuses.o
+ nvmem-apple-efuses-y 			:= apple-efuses.o
+ obj-$(CONFIG_NVMEM_APPLE_SPMI)		+= apple_nvmem_spmi.o
+ apple_nvmem_spmi-y			:= apple-spmi-nvmem.o
++obj-$(CONFIG_NVMEM_SKY1)		+= nvmem-sky1.o
++nvmem-sky1-y				:= sky1-nvmem.o
+ obj-$(CONFIG_NVMEM_BCM_OCOTP)		+= nvmem-bcm-ocotp.o
+ nvmem-bcm-ocotp-y			:= bcm-ocotp.o
+ obj-$(CONFIG_NVMEM_BRCM_NVRAM)		+= nvmem_brcm_nvram.o
+diff --git a/drivers/nvmem/sky1-nvmem.c b/drivers/nvmem/sky1-nvmem.c
+new file mode 100644
+index 0000000..67c82d2
+--- /dev/null
++++ b/drivers/nvmem/sky1-nvmem.c
+@@ -0,0 +1,176 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Sky1 NVMEM (eFuse) driver
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ *
++ * Reads efuse data via ARM SMCCC firmware interface.
++ */
++
++#include <linux/arm-smccc.h>
++#include <linux/acpi.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/nvmem-provider.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++
++/* SMC function ID for fuse read request */
++#define SKY1_SIP_FUSE_READ	\
++	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32, \
++			   62, 9)
++
++struct sky1_nvmem {
++	struct device *dev;
++	bool lookups_added;
++};
++
++static struct platform_device *sky1_nvmem_acpi_pdev;
++
++static const struct nvmem_cell_info sky1_nvmem_cells[] = {
++	{
++		.name = "opn",
++		.offset = 0x4dc,
++		.bytes = 8,
++		.nbits = 64,
++	},
++};
++
++static struct nvmem_cell_lookup sky1_nvmem_cell_lookups[] = {
++	{
++		.nvmem_name = "sky1-efuse",
++		.cell_name = "opn",
++		.dev_id = "sky1-socinfo",
++		.con_id = "opn",
++	},
++};
++
++static bool sky1_acpi_platform_present(void)
++{
++	if (!IS_ENABLED(CONFIG_ACPI) || acpi_disabled || of_have_populated_dt())
++		return false;
++
++	return acpi_dev_found("CIXHA010") || acpi_dev_found("CIXH4000") ||
++	       acpi_dev_found("CIXH2020");
++}
++
++static int sky1_nvmem_read(void *context, unsigned int offset,
++			   void *val, size_t bytes)
++{
++	struct sky1_nvmem *priv = context;
++	struct arm_smccc_res res;
++	u8 *buf = val;
++	size_t i;
++
++	for (i = 0; i < bytes; i++) {
++		arm_smccc_smc(SKY1_SIP_FUSE_READ, offset + i, 1,
++			      0, 0, 0, 0, 0, &res);
++		if (res.a0 == 0) {
++			dev_err(priv->dev, "Failed to read fuse at offset %u\n",
++				offset + (unsigned int)i);
++			return -EIO;
++		}
++		buf[i] = res.a1 & 0xff;
++	}
++
++	return 0;
++}
++
++static int sky1_nvmem_probe(struct platform_device *pdev)
++{
++	struct nvmem_config config = {
++		.name = "sky1-efuse",
++		.id = NVMEM_DEVID_NONE,
++		.dev = &pdev->dev,
++		.owner = THIS_MODULE,
++		.cells = sky1_nvmem_cells,
++		.ncells = ARRAY_SIZE(sky1_nvmem_cells),
++		.word_size = 1,
++		.size = 0x500,  /* Total efuse size - OPN at 0x4dc needs 0x4e4 */
++		.read_only = true,
++		.reg_read = sky1_nvmem_read,
++		.add_legacy_fixed_of_cells = true,
++	};
++	struct sky1_nvmem *priv;
++	struct nvmem_device *nvmem;
++
++	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->dev = &pdev->dev;
++	platform_set_drvdata(pdev, priv);
++	config.priv = priv;
++
++	nvmem = devm_nvmem_register(&pdev->dev, &config);
++	if (IS_ERR(nvmem))
++		return PTR_ERR(nvmem);
++
++	if (!dev_of_node(&pdev->dev)) {
++		nvmem_add_cell_lookups(sky1_nvmem_cell_lookups,
++				       ARRAY_SIZE(sky1_nvmem_cell_lookups));
++		priv->lookups_added = true;
++	}
++
++	return 0;
++}
++
++static void sky1_nvmem_remove(struct platform_device *pdev)
++{
++	struct sky1_nvmem *priv = platform_get_drvdata(pdev);
++
++	if (priv->lookups_added)
++		nvmem_del_cell_lookups(sky1_nvmem_cell_lookups,
++				       ARRAY_SIZE(sky1_nvmem_cell_lookups));
++}
++
++static const struct of_device_id sky1_nvmem_of_match[] = {
++	{ .compatible = "cix,sky1-nvmem-fw" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, sky1_nvmem_of_match);
++
++static struct platform_driver sky1_nvmem_driver = {
++	.probe = sky1_nvmem_probe,
++	.remove = sky1_nvmem_remove,
++	.driver = {
++		.name = "sky1-nvmem",
++		.of_match_table = sky1_nvmem_of_match,
++	},
++};
++
++static int __init sky1_nvmem_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&sky1_nvmem_driver);
++	if (ret)
++		return ret;
++
++	if (sky1_acpi_platform_present()) {
++		sky1_nvmem_acpi_pdev =
++			platform_device_register_simple("sky1-nvmem",
++							PLATFORM_DEVID_NONE,
++							NULL, 0);
++		if (IS_ERR(sky1_nvmem_acpi_pdev)) {
++			ret = PTR_ERR(sky1_nvmem_acpi_pdev);
++			sky1_nvmem_acpi_pdev = NULL;
++			platform_driver_unregister(&sky1_nvmem_driver);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++module_init(sky1_nvmem_init);
++
++static void __exit sky1_nvmem_exit(void)
++{
++	platform_device_unregister(sky1_nvmem_acpi_pdev);
++	platform_driver_unregister(&sky1_nvmem_driver);
++}
++module_exit(sky1_nvmem_exit);
++
++MODULE_AUTHOR("Cix Technology Group Co., Ltd.");
++MODULE_DESCRIPTION("Sky1 NVMEM (eFuse) driver");

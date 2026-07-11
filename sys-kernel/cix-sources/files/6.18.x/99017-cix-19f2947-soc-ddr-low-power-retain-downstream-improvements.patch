@@ -1,0 +1,250 @@
+diff --git a/drivers/soc/cix/cix-ddr-lp.c b/drivers/soc/cix/cix-ddr-lp.c
+new file mode 100644
+index 0000000..dba2ffd
+--- /dev/null
++++ b/drivers/soc/cix/cix-ddr-lp.c
+@@ -0,0 +1,244 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX DDR Low Power driver
++ *
++ * Controls DDR self-refresh and power-down states via SMC call to TF-A.
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ */
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/of.h>
++#include <linux/acpi.h>
++#include <linux/arm-smccc.h>
++
++#define CIX_SIP_SET_DDRLP	0xc2000010
++
++struct cix_ddrlp_data {
++	int value;
++	int disable_depth;
++	struct mutex lock;
++};
++
++static struct cix_ddrlp_data *gdd;
++static struct platform_device *cix_ddrlp_forced_pdev;
++static bool force_enabled;
++module_param(force_enabled, bool, 0444);
++MODULE_PARM_DESC(force_enabled,
++		 "Force-enable ACPI DDR LP direct TF-A control when firmware does "
++		 "not enumerate it");
++
++static bool cix_ddrlp_acpi_boot_without_force(void)
++{
++	return IS_ENABLED(CONFIG_ACPI) && !acpi_disabled &&
++	       !of_have_populated_dt() && !force_enabled;
++}
++
++static bool cix_ddrlp_sky1_acpi_present(void)
++{
++	if (!IS_ENABLED(CONFIG_ACPI) || acpi_disabled || of_have_populated_dt())
++		return false;
++
++	return acpi_dev_found("CIXHA010") || acpi_dev_found("CIXH4000") ||
++	       acpi_dev_found("CIXH2020");
++}
++
++static int cix_disable_ddrlp(struct cix_ddrlp_data *dd)
++{
++	struct arm_smccc_res res;
++
++	mutex_lock(&dd->lock);
++	if (dd->disable_depth != 0) {
++		dd->disable_depth++;
++		mutex_unlock(&dd->lock);
++		return 0;
++	}
++
++	arm_smccc_smc(CIX_SIP_SET_DDRLP, 0, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		mutex_unlock(&dd->lock);
++		return -EIO;
++	}
++	dd->disable_depth++;
++	dd->value = 0;
++	mutex_unlock(&dd->lock);
++	return 0;
++}
++
++static int cix_enable_ddrlp(struct cix_ddrlp_data *dd)
++{
++	struct arm_smccc_res res;
++
++	mutex_lock(&dd->lock);
++	if (dd->disable_depth == 0) {
++		mutex_unlock(&dd->lock);
++		return 0;
++	}
++	dd->disable_depth--;
++	if (dd->disable_depth == 0) {
++		arm_smccc_smc(CIX_SIP_SET_DDRLP, 1, 0, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			mutex_unlock(&dd->lock);
++			return -EIO;
++		}
++		dd->value = 1;
++	}
++	mutex_unlock(&dd->lock);
++	return 0;
++}
++
++static int cix_set_ddrlp(int on)
++{
++	if (!gdd)
++		return -ENODEV;
++
++	if (on)
++		return cix_enable_ddrlp(gdd);
++	else
++		return cix_disable_ddrlp(gdd);
++}
++
++static ssize_t on_show(struct device *dev,
++		       struct device_attribute *attr, char *buf)
++{
++	struct cix_ddrlp_data *dd = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%d\n", dd->value);
++}
++
++static ssize_t on_store(struct device *dev, struct device_attribute *attr,
++			const char *buf, size_t count)
++{
++	int ret;
++	int value;
++	struct cix_ddrlp_data *dd = dev_get_drvdata(dev);
++
++	ret = kstrtoint(buf, 0, &value);
++	if (ret)
++		return -EINVAL;
++
++	if (value != 0 && value != 1)
++		return -EINVAL;
++
++	if (value == dd->value)
++		return count;
++
++	ret = cix_set_ddrlp(value);
++	if (ret < 0) {
++		dev_err(dev, "failed to set DDR LP: %d\n", ret);
++		return ret;
++	}
++	return count;
++}
++static DEVICE_ATTR_RW(on);
++
++static struct attribute *ddrlp_attrs[] = {
++	&dev_attr_on.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(ddrlp);
++
++static int cix_ddrlp_probe(struct platform_device *pdev)
++{
++	struct cix_ddrlp_data *cix_ddrlp;
++	struct arm_smccc_res res;
++
++	cix_ddrlp = devm_kzalloc(&pdev->dev, sizeof(*cix_ddrlp), GFP_KERNEL);
++	if (!cix_ddrlp)
++		return -ENOMEM;
++
++	gdd = cix_ddrlp;
++	cix_ddrlp->disable_depth = 0;
++	mutex_init(&cix_ddrlp->lock);
++	platform_set_drvdata(pdev, cix_ddrlp);
++
++	/*
++	 * TF-A's DDR LP handler saves register state on disable and restores
++	 * on enable. We must cycle through disable->enable on init to capture
++	 * the proper boot-time register values, otherwise the first enable
++	 * would restore zeros.
++	 */
++	arm_smccc_smc(CIX_SIP_SET_DDRLP, 0, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_warn(&pdev->dev, "DDR LP disable failed: %ld\n", res.a0);
++	}
++	arm_smccc_smc(CIX_SIP_SET_DDRLP, 1, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_warn(&pdev->dev, "DDR LP enable failed: %ld\n", res.a0);
++	}
++	cix_ddrlp->value = 1;
++
++	dev_info(&pdev->dev, "DDR low power control initialized\n");
++	return 0;
++}
++
++static void cix_ddrlp_remove(struct platform_device *pdev)
++{
++	if (gdd == platform_get_drvdata(pdev))
++		gdd = NULL;
++}
++
++static const struct of_device_id cix_ddrlp_of_match[] = {
++	{ .compatible = "cix,ddr-lp" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, cix_ddrlp_of_match);
++
++static struct platform_driver cix_ddrlp_driver = {
++	.probe = cix_ddrlp_probe,
++	.remove = cix_ddrlp_remove,
++	.driver = {
++		.name = "cix-ddr-lp",
++		.of_match_table = cix_ddrlp_of_match,
++		.dev_groups = ddrlp_groups,
++	},
++};
++
++static int __init cix_ddrlp_init(void)
++{
++	int ret;
++
++	if (cix_ddrlp_acpi_boot_without_force()) {
++		pr_err("DDR LP direct TF-A control disabled by default on ACPI; "
++		       "use force_enabled=1 to override firmware enumeration\n");
++		return -ENODEV;
++	}
++
++	ret = platform_driver_register(&cix_ddrlp_driver);
++	if (ret)
++		return ret;
++
++	if (force_enabled && !of_have_populated_dt()) {
++		if (!cix_ddrlp_sky1_acpi_present()) {
++			platform_driver_unregister(&cix_ddrlp_driver);
++			return -ENODEV;
++		}
++
++		pr_warn("DDR LP direct TF-A control force-enabled on ACPI; "
++			"overriding firmware enumeration\n");
++		cix_ddrlp_forced_pdev =
++			platform_device_register_simple("cix-ddr-lp",
++							PLATFORM_DEVID_NONE,
++							NULL, 0);
++		if (IS_ERR(cix_ddrlp_forced_pdev)) {
++			ret = PTR_ERR(cix_ddrlp_forced_pdev);
++			cix_ddrlp_forced_pdev = NULL;
++			platform_driver_unregister(&cix_ddrlp_driver);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++module_init(cix_ddrlp_init);
++
++static void __exit cix_ddrlp_exit(void)
++{
++	platform_device_unregister(cix_ddrlp_forced_pdev);
++	platform_driver_unregister(&cix_ddrlp_driver);
++}
++module_exit(cix_ddrlp_exit);
++
++MODULE_DESCRIPTION("CIX DDR Low Power Driver");
++MODULE_LICENSE("GPL");

@@ -13,6 +13,9 @@ Options:
   --distdir DIR           Reuse or keep downloaded distfiles in DIR.
   --use FLAGS             Enable additional USE flags, comma or space separated.
   --disable-use FLAGS     Disable USE flags that are enabled by default.
+  --compile-acpi-tables   Compile ACPI table-upgrade AML artifacts.
+  --acpi-table-profile P  ACPI table-upgrade profile: ssdt or dsdt (default: dsdt).
+  --board-profile P       Report ACPI initramfs list for o6-acpi or o6n-acpi.
   --keep-work             Keep the scratch directory after completion.
   -h, --help              Show this help.
 USAGE
@@ -102,6 +105,39 @@ apply_patch_archive() {
 	rm -rf -- "${T}/patches"
 }
 
+write_initramfs_list() {
+	local profile_dir=$1
+	local list_file=$2
+	local final_profile_dir=$3
+	local file
+	local found=no
+
+	[[ -d $profile_dir ]] || return 0
+
+	{
+		echo 'dir /dev 0755 0 0'
+		echo 'nod /dev/console 0600 0 0 c 5 1'
+		echo 'dir /root 0700 0 0'
+		echo 'dir /kernel 0755 0 0'
+		echo 'dir /kernel/firmware 0755 0 0'
+		echo 'dir /kernel/firmware/acpi 0755 0 0'
+
+		for file in "${profile_dir}"/*.aml; do
+			[[ -e $file ]] || continue
+			found=yes
+			printf 'file /kernel/firmware/acpi/%s %s/%s 0644 0 0\n' \
+				"$(basename -- "$file")" \
+				"$final_profile_dir" \
+				"$(basename -- "$file")"
+		done
+	} > "$list_file"
+
+	if [[ $found != yes ]]; then
+		rm -f -- "$list_file"
+		printf 'warning: no AML files found in %s; skipped %s\n' "$profile_dir" "$list_file" >&2
+	fi
+}
+
 die() {
 	fail "die: $*"
 }
@@ -143,6 +179,11 @@ default() {
 
 force=no
 keep_work=no
+compile_acpi_tables=no
+acpi_table_profile=dsdt
+board_profile=
+acpi_table_upgrade_initramfs_source=
+iasl_min_version=20241212
 work_root=
 DISTDIR=
 enabled_use=
@@ -178,6 +219,25 @@ while (($#)); do
 			(($#)) || fail "--disable-use requires one or more flags"
 			disabled_use+=" ${1//,/ }"
 			;;
+		--compile-acpi-tables)
+			compile_acpi_tables=yes
+			;;
+		--acpi-table-profile)
+			shift
+			(($#)) || fail "--acpi-table-profile requires ssdt or dsdt"
+			case $1 in
+				ssdt|dsdt) acpi_table_profile=$1 ;;
+				*) fail "--acpi-table-profile must be ssdt or dsdt" ;;
+			esac
+			;;
+		--board-profile)
+			shift
+			(($#)) || fail "--board-profile requires o6-acpi or o6n-acpi"
+			case $1 in
+				o6-acpi|o6n-acpi) board_profile=$1 ;;
+				*) fail "--board-profile must be o6-acpi or o6n-acpi" ;;
+			esac
+			;;
 		-h|--help)
 			usage
 			exit 0
@@ -205,6 +265,10 @@ done
 for cmd in awk curl patch sha512sum tar; do
 	command -v "$cmd" >/dev/null 2>&1 || fail "required command not found: ${cmd}"
 done
+
+if [[ -n $board_profile && $compile_acpi_tables != yes ]]; then
+	printf 'warning: --board-profile has no effect without --compile-acpi-tables\n' >&2
+fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(cd -- "${script_dir}/../../.." && pwd -P)
@@ -292,6 +356,38 @@ for flag in ${USE:-} ${IUSE:-}; do
 		*) ;;
 	esac
 done
+if [[ $compile_acpi_tables == yes ]]; then
+	if [[ " ${disabled_use} " == *" acpi-table-upgrade "* ]]; then
+		fail "--compile-acpi-tables conflicts with --disable-use acpi-table-upgrade"
+	fi
+	if [[ $acpi_table_profile == dsdt && " ${disabled_use} " == *" acpi-table-upgrade-dsdt "* ]]; then
+		fail "--compile-acpi-tables --acpi-table-profile dsdt conflicts with --disable-use acpi-table-upgrade-dsdt"
+	fi
+	if ! command -v iasl >/dev/null 2>&1; then
+		fail "--compile-acpi-tables requires ACPICA iasl >= ${iasl_min_version}; install the current ACPICA release when possible"
+	fi
+	iasl_version=$(iasl -v 2>&1 | awk '{
+		for (i = 1; i <= NF; i++) {
+			if ($i ~ /^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/) {
+				print $i
+				exit
+			}
+		}
+	}')
+	[[ -n $iasl_version ]] || fail "could not determine iasl version; need ACPICA iasl >= ${iasl_min_version}"
+	if ((10#$iasl_version < iasl_min_version)); then
+		fail "iasl ${iasl_version} is too old; need >= ${iasl_min_version}; install the current ACPICA release when possible"
+	fi
+	command -v python3 >/dev/null 2>&1 || fail "--compile-acpi-tables requires python3"
+	declare -F src_compile >/dev/null || fail "selected ebuild does not define src_compile for ACPI table compilation"
+
+	enabled_use+=" acpi-table-upgrade"
+	if [[ $acpi_table_profile == dsdt ]]; then
+		enabled_use+=" acpi-table-upgrade-dsdt acpi-table-upgrade-iort-httu acpi-table-upgrade-iort-msi"
+	else
+		disabled_use+=" acpi-table-upgrade-dsdt acpi-table-upgrade-iort-httu acpi-table-upgrade-iort-msi"
+	fi
+fi
 
 if declare -F pkg_setup >/dev/null; then
 	pkg_setup
@@ -347,7 +443,48 @@ done
 
 src_prepare
 
+if [[ $compile_acpi_tables == yes ]]; then
+	if ! ( src_compile ); then
+		fail "ACPI table compilation failed"
+	fi
+	[[ -d ${T}/cix-acpi-table-upgrade ]] || fail "ACPI table compilation produced no cix-acpi-table-upgrade directory"
+
+	mkdir -p -- "${S}/cix-acpi-table-upgrade"
+	cp -a -- "${T}/cix-acpi-table-upgrade"/. "${S}/cix-acpi-table-upgrade/"
+
+	for board in o6 o6n ''; do
+		for profile in initramfs initramfs-dsdt; do
+			if [[ -n $board ]]; then
+				write_initramfs_list \
+					"${S}/cix-acpi-table-upgrade/${board}/${profile}/kernel/firmware/acpi" \
+					"${S}/cix-acpi-table-upgrade/${board}/${profile}.list" \
+					"${target_dir}/cix-acpi-table-upgrade/${board}/${profile}/kernel/firmware/acpi"
+			else
+				write_initramfs_list \
+					"${S}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi" \
+					"${S}/cix-acpi-table-upgrade/${profile}.list" \
+					"${target_dir}/cix-acpi-table-upgrade/${profile}/kernel/firmware/acpi"
+			fi
+		done
+	done
+
+	[[ -n $(find "${S}/cix-acpi-table-upgrade" -type f -name '*.aml' -print -quit) ]] || fail "ACPI table compilation produced no AML artifacts"
+
+	if [[ -n $board_profile ]]; then
+		acpi_table_upgrade_initramfs_source="${target_dir}/cix-acpi-table-upgrade/${board_profile%%-*}/initramfs"
+		[[ $acpi_table_profile == dsdt ]] && acpi_table_upgrade_initramfs_source+="-dsdt"
+		acpi_table_upgrade_initramfs_source+=".list"
+		[[ -s ${S}/cix-acpi-table-upgrade/${board_profile%%-*}/$(basename -- "$acpi_table_upgrade_initramfs_source") ]] || \
+			fail "expected ACPI initramfs list was not produced: ${acpi_table_upgrade_initramfs_source}"
+	fi
+fi
+
 rm -rf -- "$target_dir"
 mv -- "$S" "$target_dir"
 
 printf 'Prepared kernel source: %s\n' "$target_dir"
+if [[ -n $acpi_table_upgrade_initramfs_source ]]; then
+	printf 'ACPI table-upgrade initramfs source: %s\n' "$acpi_table_upgrade_initramfs_source"
+elif [[ -d ${target_dir}/cix-acpi-table-upgrade ]]; then
+	printf 'ACPI table-upgrade artifacts: %s\n' "${target_dir}/cix-acpi-table-upgrade"
+fi

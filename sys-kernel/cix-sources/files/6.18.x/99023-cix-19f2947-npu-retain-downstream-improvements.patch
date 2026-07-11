@@ -1,0 +1,8 @@
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -623,3 +623,4 @@ static struct platform_driver aipu_platform_driver = {
+ 
+ module_platform_driver(aipu_platform_driver);
+ MODULE_LICENSE("GPL v2");
++MODULE_SOFTDEP("pre: scmi_perf_domain");
