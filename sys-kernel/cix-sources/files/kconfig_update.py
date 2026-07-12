@@ -260,6 +260,13 @@ ALL_PROFILE_DISABLED_SYMBOLS = (
     "TRILIN_DP_HDCP_VALIDATION",
 )
 
+# These are profile policy decisions, not optional pruning.  Emit them during
+# every fragment/update so configurations inherited from an older forced
+# selection are migrated deterministically.
+PROFILE_POLICY_DISABLED_SYMBOLS = (
+    "CIX_SCMI_ENERGY_MODEL",
+)
+
 # Keep this as a tuple so ACPI stub-FDT-specific disables can be added without
 # changing the fragment/update machinery. The CIX display Kconfig symbols are
 # ACPI-capable after the local 7.0 display fixes, so they are no longer pruned
@@ -1632,6 +1639,12 @@ def build_config_updates(
         kind = symbol_types.get(symbol)
         if kind in ("bool", "tristate") and symbol not in seen:
             updates.append((symbol, value))
+            seen.add(symbol)
+
+    for symbol in PROFILE_POLICY_DISABLED_SYMBOLS:
+        kind = symbol_types.get(symbol)
+        if kind in ("bool", "tristate") and symbol not in seen:
+            updates.append((symbol, "n"))
             seen.add(symbol)
 
     for symbol, force_mode in supported_symbols_for_profile(profile, include_vendor, available_symbols):

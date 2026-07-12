@@ -144,7 +144,9 @@ CPU Energy Model and any later registration failure.
 calls `cix_scmi_register_em()`.  Its generic firmware-node parsing can consume
 DT properties or equivalent ACPI `_DSD` data, but the current CIX display/GPU
 stack has no caller.  It is therefore not selected automatically by
-`CIX_THERMAL`; enabling it alone has no runtime effect.
+`CIX_THERMAL`; enabling it alone has no runtime effect.  Normal
+`kconfig_update.py` fragment and update profiles explicitly disable it so
+an `M` or `Y` inherited from the former forced selection is removed.
 
 ## CIX display configuration
 

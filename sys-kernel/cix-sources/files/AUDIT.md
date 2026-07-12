@@ -47,6 +47,9 @@ problems:
 - Missing optional `SPRG`, `DPRG`, and `PEFG` firmware data is handled
   deterministically.  CPPC frequency scaling remains available when CIX OPP
   discovery fails, while the missing CPU Energy Model is reported explicitly.
+- Normal configuration-profile updates explicitly clear the unused
+  `CIX_SCMI_ENERGY_MODEL` helper, including stale `M` or `Y` values
+  inherited from the former `CIX_THERMAL` selection.
 - The display profiles now include the Sky1 PWM and PWM-backlight providers.
   This closes the deterministic `CIXH5010:02` probe-defer path caused when the
   ACPI eDP panel's `CIXH5041` backlight provider was not built.
