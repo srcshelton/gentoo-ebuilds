@@ -146,6 +146,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
+	eapply "${FILESDIR}"/7.1.x/20045-cpufreq-cppc-handle-cix-energy-model-failures.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
@@ -239,7 +240,8 @@ src_prepare() {
 	eapply "${FILESDIR}"/30190-clk-scmi-keep-acpi-clocks-enabled.patch || die
 	eapply "${FILESDIR}"/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch || die
 	eapply "${FILESDIR}"/7.1.x/30107-reset-core-fall-back-to-cix-acpi-lookup.patch || die
-	eapply "${FILESDIR}"/7.1.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
+	eapply "${FILESDIR}"/7.1.x/30128-acpi-thermal-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/7.1.x/30129-thermal-cix-fix-configuration-dependencies.patch || die
 	eapply "${FILESDIR}"/7.1.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch || die
 	eapply "${FILESDIR}"/7.0.x/50020-irqchip-sky1-pdc-fix-acpi-ioremap-error-path.patch || die
 	eapply "${FILESDIR}"/7.0.x/50030-mfd-syscon-fix-fwnode-property-lookup-lifetime.patch || die
@@ -283,8 +285,6 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.1.x/73020-cix-hda-retain-downstream-improvements.patch || die
 	eapply "${FILESDIR}"/7.1.x/30106-clk-sky1-audss-retain-downstream-improvements.patch || die
 	eapply "${FILESDIR}"/7.1.x/73030-asoc-cix-i2s-retain-downstream-improvements.patch || die
-	eapply "${FILESDIR}"/7.1.x/99020-hwmon-cix-fan-add-optional-ec-diagnostics.patch || die
-
 	kernel-2_src_prepare
 }
 

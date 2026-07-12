@@ -60,7 +60,7 @@ temporary staging device, not the definition of the whole `9xxxx` range.
 | --- | --- |
 | `0000`-`0999` | Direct replacements for a patch with the same vendor or upstream queue ordinal |
 | `10000`-`19999` | Architecture, boot, and core build diagnostics |
-| `20000`-`29999` | Build, Kconfig, compiler, and section-lifetime corrections |
+| `20000`-`29999` | Core CPUFreq/topology, build, Kconfig, compiler, and section-lifetime corrections |
 | `30000`-`39999` | ACPI, firmware, SCMI, clocks, reset, PM domains, and power policy |
 | `40000`-`49999` | Enumeration, resource policy, pinctrl, and model arbitration |
 | `50000`-`59999` | Runtime driver corrections not owned by a narrower range |
@@ -74,8 +74,9 @@ temporary staging device, not the definition of the whole `9xxxx` range.
 | `90000`-`98999` | CIX SoC, platform, board profiles, and platform HWMON |
 | `99000`-`99999` | Temporary, exceptional, or explicitly experimental overlays |
 
-The only current `99xxx` patch is the optional EC diagnostic experiment at
-`7.1.x/99020-hwmon-cix-fan-add-optional-ec-diagnostics.patch`.
+There are currently no active `99xxx` patches.  The former EC fan-diagnostic
+experiment was removed after firmware testing proved only target-RPM readback,
+not an actual tachometer reading or a supported mode-query interface.
 
 Equivalent changes should use the same number across kernel families where
 possible.  Direct follow-ons should be sequential.  Unrelated changes in the
@@ -113,6 +114,53 @@ former `990xx` retention overlays are now assigned to their owning ranges:
 | HDA and I2S retention | `73020` and `73030` |
 | 7.1 compiler findings | subsystem-owned `20072`, `30022`, `40054`, `50022`, `60097`, `70140`, `72107`, `73040`, `80062`, and `90094` |
 
+## CIX thermal configuration
+
+All maintained kernels use `CIX_THERMAL` for the CIX CPU IPA implementation.
+It requires built-in `THERMAL_GOV_POWER_ALLOCATOR` and
+`ACPI_CPPC_CPUFREQ`, in addition to the thermal, CPU-frequency, and Energy
+Model cores.  The ACPI board profiles and `kconfig_update.py` select those
+dependencies explicitly; the DT profile does not select this ACPI-dependent
+driver.
+
+The CIX `SSTP` ACPI method is an optional sustainable-power hint.  Thermal
+zones without it must still register; a zero value lets the power-allocator
+governor estimate sustainable power from attached power actors.  Patch
+`30128` enforces that behaviour for every maintained family.
+
+CIX patch `0042` names each ACPI thermal zone after its firmware bus ID.
+Patch `30128` retains those unique types for thermal-core lookup, sysfs,
+netlink, and tracing, but supplies an independent `acpitz` hwmon type so the
+readings share one adapter.  The retained ACPI `_STR` labels identify every
+input individually.
+
+Patch `30128` also makes absent optional `SPRG` and `DPRG` power methods
+return zero instead of an uninitialised value, and rejects the out-of-range
+Sky1 affinity index 12.  Patch `20045` keeps CPPC frequency scaling available
+if CIX `PEFG` OPP discovery fails, while explicitly reporting the unavailable
+CPU Energy Model and any later registration failure.
+
+`CIX_SCMI_ENERGY_MODEL` is a separate library helper for a device driver that
+calls `cix_scmi_register_em()`.  Its generic firmware-node parsing can consume
+DT properties or equivalent ACPI `_DSD` data, but the current CIX display/GPU
+stack has no caller.  It is therefore not selected automatically by
+`CIX_THERMAL`; enabling it alone has no runtime effect.
+
+## CIX display configuration
+
+The CIX eDP panel described by ACPI depends on the Sky1 PWM provider and the
+generic PWM backlight driver.  The board profiles and `kconfig_update.py`
+therefore select `PWM`, `PWM_SKY1`, `BACKLIGHT_CLASS_DEVICE`, and
+`BACKLIGHT_PWM` with the CIX DRM display stack.  Without `BACKLIGHT_PWM`, the
+`CIXH5041` backlight never registers, the `CIXH5040` panel probe remains
+deferred, and the associated `CIXH5010:02` Linlon DPU cannot bind.
+
+An ACPI-derived DP encoder mask of `possible_crtcs=0x3` is expected: each
+published DP endpoint is connected to both Linlon pipelines.  Patch `70130`
+reports whether this mask came from the ACPI graph, DT, or the real fallback.
+Thus the normal ACPI path is logged as `from ACPI`, rather than being
+misleadingly described as a fallback.
+
 The old display/backlight aggregate was also separated.  Its backlight half
 was removed rather than retained because CIX `19f2947` already supplies the
 `CIXH5041` ACPI match table.  Reapplying it produced a duplicate definition.
@@ -122,6 +170,11 @@ patches in ebuild order, edit the real source, regenerate the diff, and replay
 it with zero fuzz.  Never repair a patch hunk by hand.  If a later patch is
 made redundant, remove it from the queue rather than stacking a corrective
 patch over it.
+
+`create-patched-kernel.sh` passes `--fuzz=0` for files below this package's
+`FILESDIR`.  A successful helper run is therefore also a zero-fuzz assertion
+for our patches, without imposing that policy on Gentoo genpatches or imported
+vendor archives which the ebuild may also pass through `eapply`.
 
 ## Prepared source helper
 

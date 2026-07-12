@@ -32,16 +32,44 @@ problems:
   `19f2947` preimages.  The 6.18 direct replacement for Sky1 `0118` was also
   regenerated against its post-CIX preimage.
 - The temporary `990xx` retention overlays were split by subsystem and moved
-  into their permanent ranges.  Only the explicitly experimental 7.1 EC
-  diagnostics remain in `99xxx`.
+  into their permanent ranges.  The final EC fan-diagnostic experiment was
+  removed after it failed to expose a supported actual-RPM or mode interface;
+  there are now no active `99xxx` patches.
 - The compiler-warning aggregate was split among DRM, HWMON, irqchip, ISP,
   Realtek networking, PHY, pinctrl, PM-domain, PL011, and ASoC owners.
+- The CIX CPU IPA driver no longer rejects ACPI thermal zones which omit the
+  optional `SSTP` sustainable-power hint.  Its Kconfig no longer forces the
+  unused SCMI Energy Model helper, and the board/configuration profiles now
+  select every direct dependency of `CIX_THERMAL` explicitly.
+- ACPI thermal zones retain both their firmware bus-ID thermal types and their
+  individual `_STR` labels.  A separate `acpitz` hwmon type restores the
+  single-adapter grouping without losing thermal-core identity.
+- Missing optional `SPRG`, `DPRG`, and `PEFG` firmware data is handled
+  deterministically.  CPPC frequency scaling remains available when CIX OPP
+  discovery fails, while the missing CPU Energy Model is reported explicitly.
+- The display profiles now include the Sky1 PWM and PWM-backlight providers.
+  This closes the deterministic `CIXH5010:02` probe-defer path caused when the
+  ACPI eDP panel's `CIXH5041` backlight provider was not built.
+- The DP encoder diagnostic now distinguishes ACPI-graph and DT masks from a
+  genuine fallback instead of labelling every non-DT mask as a fallback.
+- The 7.1 NPU R2P0-ABI patch was regenerated after `19f2947` removed its
+  former `v3_2.h` target.  The remaining changes apply to the current source
+  files, followed by the existing R2P0 compatibility fix.
 - Historical-only patches now live below `cix-3aad824` or `cix-759efc0`, with
   a kernel-family or `shared` directory inside the checkpoint.
 
 Clean-room replay of each regenerated split reproduced the intended source
-files exactly.  The Cadence GPIO and PWM backlight objects also compile with
-Clang 19 for arm64 on all three prepared trees.
+files exactly.  The Cadence GPIO, PWM backlight, ACPI thermal, ACPI processor
+power, CPPC CPUFreq, CIX CPU IPA, and CIX DisplayPort objects compile with
+Clang 19 for arm64 on all three prepared trees.  Kernel `olddefconfig` also
+retained built-in `CIX_THERMAL`, its power-allocator and CPPC dependencies,
+left the unused CIX SCMI Energy Model helper disabled, and retained the PWM,
+Sky1 PWM, backlight class, and PWM-backlight display path.
+
+The revised O6 firmware-`1.2` and firmware-`1.3` `ORIONO6` sources compile
+with ACPICA `20260408`: both report zero errors and zero warnings.  The four
+remaining remarks identify intentionally unused arguments in the established
+PWM fan methods.
 
 ## Fuzz policy and result
 

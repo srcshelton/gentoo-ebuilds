@@ -1,0 +1,34 @@
+thermal: cix: separate the unused SCMI energy-model helper
+
+CIX_THERMAL implements CPU IPA and does not call cix_scmi_register_em().
+Do not force the separate GPU-oriented library helper on with CPU IPA.  When
+selected explicitly, require its SCMI performance-domain provider and describe
+its ACPI/DT fwnode support and the need for a real caller.
+
+diff --git a/drivers/thermal/cix/Kconfig b/drivers/thermal/cix/Kconfig
+--- a/drivers/thermal/cix/Kconfig
++++ b/drivers/thermal/cix/Kconfig
+@@ -6,7 +6,6 @@ config CIX_THERMAL
+ 	depends on THERMAL && THERMAL_GOV_POWER_ALLOCATOR
+ 	depends on CPU_FREQ && ENERGY_MODEL
+ 	depends on ACPI_CPPC_CPUFREQ
+-	select CIX_SCMI_ENERGY_MODEL
+ 	help
+ 	  Power allocator (IPA) support for CIX platforms, including the
+ 	  cpu-ipa MMIO driver for per-CPU static/dynamic power, ACPI thermal
+@@ -21,7 +20,12 @@ config CIX_SCMI_ENERGY_MODEL
+ 	depends on ENERGY_MODEL
+ 	depends on CIX_THERMAL
+ 	depends on ARM_SCMI_PROTOCOL
++	depends on ARM_SCMI_PERF_DOMAIN
+ 	help
+-	  It uses SCMI Message Protocol and SCMI performance domain helpers
+-	  to register Energy Model (EM) for Cix platforms. Supports both
+-	  genpd-bound devices and DT-based domain ID parsing.
++	  Provide the cix_scmi_register_em() helper for a device driver that
++	  needs to register an Energy Model from an SCMI performance domain.
++	  The helper obtains the domain from generic firmware-node properties,
++	  so both DT and equivalent ACPI _DSD data are supported.
++
++	  This is a library helper, not a standalone driver. It has no runtime
++	  effect unless a device driver calls cix_scmi_register_em().

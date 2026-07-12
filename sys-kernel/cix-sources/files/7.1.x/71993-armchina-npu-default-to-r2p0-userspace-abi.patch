@@ -1,47 +1,14 @@
-From 780c2a790ff9972ff9d33f43247291a2bc931a72 Mon Sep 17 00:00:00 2001
-From: Codex <codex@local>
-Date: Fri, 10 Jul 2026 20:07:35 +0100
-Subject: [PATCH] misc: armchina-npu: default to the R2P0 userspace ABI
+misc: armchina-npu: default to the R2P0 userspace ABI
 
-CIX packages cix-noe-umd 2.0.2 from the R2P0 SDK, while the raw p1_7.0_v6.1.1 driver imported by the kernel patch queue implements the newer R2P2 ABI. The mismatch makes libnoe capability discovery fail with NOE_STATUS_ERROR_DEV_ABNORMAL.
+CIX packages cix-noe-umd 2.0.2 from the R2P0 SDK, while the imported kernel
+driver implements the newer R2P2 ABI.  Port the vendor packaging revert while
+retaining the local lifetime, ACPI DMA, SCMI devfreq, and runtime-PM fixes.
 
-Port the vendor packaging revert from commit 193d3650645b while retaining the local lifetime, ACPI DMA, SCMI devfreq and runtime-PM fixes. This remains a final compatibility overlay so the complete R2P2 implementation can be selected explicitly by omitting it.
----
- drivers/misc/armchina-npu/Makefile            |   2 +-
- drivers/misc/armchina-npu/aipu.c              |  88 ++--
- drivers/misc/armchina-npu/aipu_common.c       |  21 +-
- drivers/misc/armchina-npu/aipu_dma_buf.c      |  76 +---
- drivers/misc/armchina-npu/aipu_dma_buf.h      |   1 -
- drivers/misc/armchina-npu/aipu_io.c           |   4 +-
- drivers/misc/armchina-npu/aipu_irq.c          |   5 +-
- drivers/misc/armchina-npu/aipu_irq.h          |   1 -
- drivers/misc/armchina-npu/aipu_job_manager.c  | 413 +++++-------------
- drivers/misc/armchina-npu/aipu_job_manager.h  |   8 +-
- drivers/misc/armchina-npu/aipu_mm.c           | 210 +++------
- drivers/misc/armchina-npu/aipu_mm.h           |  16 +-
- drivers/misc/armchina-npu/aipu_partition.h    |   4 +-
- drivers/misc/armchina-npu/aipu_priv.c         |  21 +-
- drivers/misc/armchina-npu/aipu_priv.h         |   5 +-
- drivers/misc/armchina-npu/aipu_tcb.h          |  76 ----
- drivers/misc/armchina-npu/default/default.c   |   9 +-
- .../misc/armchina-npu/include/armchina_aipu.h |  84 +---
- .../armchina-npu/include/armchina_aipu_soc.h  |   1 +
- drivers/misc/armchina-npu/sky1/sky1.c         |   2 +-
- drivers/misc/armchina-npu/zhouyi/v1.c         |   2 -
- drivers/misc/armchina-npu/zhouyi/v1v2_priv.c  |   1 +
- drivers/misc/armchina-npu/zhouyi/v2.c         |   2 -
- drivers/misc/armchina-npu/zhouyi/v3.c         |  35 +-
- drivers/misc/armchina-npu/zhouyi/v3.h         |  11 +-
- drivers/misc/armchina-npu/zhouyi/v3_2.c       |  70 +--
- drivers/misc/armchina-npu/zhouyi/v3_2.h       |   7 +-
- drivers/misc/armchina-npu/zhouyi/v3_2_priv.c  |  63 +--
- drivers/misc/armchina-npu/zhouyi/v3_priv.c    |  35 +-
- drivers/misc/armchina-npu/zhouyi/zhouyi.c     |   4 +-
- drivers/misc/armchina-npu/zhouyi/zhouyi.h     |   3 +-
- 31 files changed, 366 insertions(+), 914 deletions(-)
+The 19f2947 import no longer contains zhouyi/v3_2.h, so this regenerated patch
+deliberately omits the obsolete hunk which previously made 7.1.3 preparation
+fail before compilation.
 
 diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
-index 3d92f59..08ecb32 100644
 --- a/drivers/misc/armchina-npu/Makefile
 +++ b/drivers/misc/armchina-npu/Makefile
 @@ -3,7 +3,7 @@
@@ -54,7 +21,6 @@ index 3d92f59..08ecb32 100644
  ccflags-$(CONFIG_PM_DEVFREQ) += -DCONFIG_ENABLE_DEVFREQ
  
 diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
-index 6b3ba64..2db60f8 100644
 --- a/drivers/misc/armchina-npu/aipu.c
 +++ b/drivers/misc/armchina-npu/aipu.c
 @@ -12,7 +12,6 @@
@@ -260,7 +226,6 @@ index 6b3ba64..2db60f8 100644
  	return ret;
  }
 diff --git a/drivers/misc/armchina-npu/aipu_common.c b/drivers/misc/armchina-npu/aipu_common.c
-index 93b34fe..575f88d 100644
 --- a/drivers/misc/armchina-npu/aipu_common.c
 +++ b/drivers/misc/armchina-npu/aipu_common.c
 @@ -11,7 +11,9 @@
@@ -314,7 +279,6 @@ index 93b34fe..575f88d 100644
  		return snprintf(buf, MAX_CHAR_SYSFS, "AIPU is in normal working state.\n");
  }
 diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
-index ce9c50b..c881b99 100644
 --- a/drivers/misc/armchina-npu/aipu_dma_buf.c
 +++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
 @@ -153,18 +153,15 @@ static void aipu_dma_release(struct dma_buf *dmabuf)
@@ -451,7 +415,7 @@ index ce9c50b..c881b99 100644
  detach_dmabuf:
  	if (attach)
  		dma_buf_detach(dmabuf, attach);
-@@ -473,13 +446,8 @@ put_dmabuf:
+@@ -473,13 +446,8 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
  static void aipu_detach_imported_dma_buf(struct aipu_memory_manager *mm,
  					 struct aipu_dma_buf_importer *im_buf)
  {
@@ -468,7 +432,6 @@ index ce9c50b..c881b99 100644
  	dma_buf_put(im_buf->dmabuf);
  	kfree(im_buf);
 diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
-index 2cca901..50031b2 100644
 --- a/drivers/misc/armchina-npu/aipu_dma_buf.h
 +++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
 @@ -28,7 +28,6 @@ struct aipu_dma_buf_importer {
@@ -480,7 +443,6 @@ index 2cca901..50031b2 100644
  
  int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *request);
 diff --git a/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
-index 358f8ac..c09f55b 100644
 --- a/drivers/misc/armchina-npu/aipu_io.c
 +++ b/drivers/misc/armchina-npu/aipu_io.c
 @@ -19,8 +19,6 @@ int init_aipu_ioregion(struct io_region *region, u64 phys_base, u32 size)
@@ -502,7 +464,6 @@ index 358f8ac..c09f55b 100644
  }
  
 diff --git a/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
-index c6b8448..039b5bd 100644
 --- a/drivers/misc/armchina-npu/aipu_irq.c
 +++ b/drivers/misc/armchina-npu/aipu_irq.c
 @@ -4,7 +4,6 @@
@@ -525,7 +486,6 @@ index c6b8448..039b5bd 100644
  	if (partition && partition->ops && partition->ops->upper_half)
  		return partition->ops->upper_half(partition);
 diff --git a/drivers/misc/armchina-npu/aipu_irq.h b/drivers/misc/armchina-npu/aipu_irq.h
-index e4f1266..dd1448e 100644
 --- a/drivers/misc/armchina-npu/aipu_irq.h
 +++ b/drivers/misc/armchina-npu/aipu_irq.h
 @@ -17,7 +17,6 @@ enum irq_event_type {
@@ -537,7 +497,6 @@ index e4f1266..dd1448e 100644
  
  /**
 diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
-index 8da0218..dbe85bc 100644
 --- a/drivers/misc/armchina-npu/aipu_job_manager.c
 +++ b/drivers/misc/armchina-npu/aipu_job_manager.c
 @@ -259,7 +259,7 @@ static bool is_user_job_valid(struct aipu_job_manager *manager, struct aipu_job_
@@ -558,7 +517,7 @@ index 8da0218..dbe85bc 100644
  			partition = &manager->partitions[partition_id];
  			core_cnt = atomic_read(&partition->clusters[0].en_core_cnt);
  			if (core_id >= core_cnt) {
-@@ -393,19 +393,19 @@ enable_tec_intr:
+@@ -393,19 +393,19 @@ static void check_enable_tec_interrupts(struct aipu_job_manager *manager, struct
  	manager->tec_intr_en = true;
  }
  
@@ -1249,7 +1208,6 @@ index 8da0218..dbe85bc 100644
 \ No newline at end of file
 +}
 diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
-index d7677c5..4b36c50 100644
 --- a/drivers/misc/armchina-npu/aipu_job_manager.h
 +++ b/drivers/misc/armchina-npu/aipu_job_manager.h
 @@ -57,7 +57,6 @@ struct job_irq_info {
@@ -1294,7 +1252,6 @@ index d7677c5..4b36c50 100644
 -void aipu_sched_pending_job_lock(struct aipu_partition *part);
  #endif /* __AIPU_JOB_MANAGER_H__ */
 diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
-index 5fc830e..0e822d7 100644
 --- a/drivers/misc/armchina-npu/aipu_mm.c
 +++ b/drivers/misc/armchina-npu/aipu_mm.c
 @@ -930,7 +930,7 @@ static int aipu_mm_reserved_iova_for_never_map(struct aipu_memory_manager *mm, b
@@ -1410,7 +1367,7 @@ index 5fc830e..0e822d7 100644
  		block = aipu_get_block_buffer(mm, iova, "mmap");
  		if(!block)
  			return -EINVAL;
-@@ -2027,28 +2018,15 @@ unlock:
+@@ -2027,28 +2018,15 @@ int aipu_mm_enable_sram_allocation(struct aipu_memory_manager *mm, struct file *
  char *aipu_mm_get_va(struct aipu_memory_manager *mm, u64 dev_pa)
  {
  	struct aipu_mem_region *reg = NULL;
@@ -1760,7 +1717,6 @@ index 5fc830e..0e822d7 100644
  		list_for_each_entry_safe(block, tmp, &pbuf[index]->phy_blocks, list) {
  			if (block) {
 diff --git a/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
-index 83591bc..bd1b537 100644
 --- a/drivers/misc/armchina-npu/aipu_mm.h
 +++ b/drivers/misc/armchina-npu/aipu_mm.h
 @@ -320,16 +320,8 @@ int aipu_free_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_desc
@@ -1785,7 +1741,6 @@ index 83591bc..bd1b537 100644
 +int aipu_bind_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_bind_buf_desc *desc, struct file *filp);
  #endif /* __AIPU_MM_H__ */
 diff --git a/drivers/misc/armchina-npu/aipu_partition.h b/drivers/misc/armchina-npu/aipu_partition.h
-index be5a991..8fb9a14 100644
 --- a/drivers/misc/armchina-npu/aipu_partition.h
 +++ b/drivers/misc/armchina-npu/aipu_partition.h
 @@ -56,7 +56,6 @@ struct aipu_operations {
@@ -1815,7 +1770,6 @@ index be5a991..8fb9a14 100644
  
  /**
 diff --git a/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
-index dd3d390..69438d3 100644
 --- a/drivers/misc/armchina-npu/aipu_priv.c
 +++ b/drivers/misc/armchina-npu/aipu_priv.c
 @@ -96,15 +96,13 @@ int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
@@ -1868,7 +1822,6 @@ index dd3d390..69438d3 100644
  finish:
  	return ret;
 diff --git a/drivers/misc/armchina-npu/aipu_priv.h b/drivers/misc/armchina-npu/aipu_priv.h
-index 6ca7f58..6d47f22 100644
 --- a/drivers/misc/armchina-npu/aipu_priv.h
 +++ b/drivers/misc/armchina-npu/aipu_priv.h
 @@ -29,7 +29,7 @@ struct aipu_priv_operations {
@@ -1898,7 +1851,6 @@ index 6ca7f58..6d47f22 100644
  
  int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
 diff --git a/drivers/misc/armchina-npu/aipu_tcb.h b/drivers/misc/armchina-npu/aipu_tcb.h
-index 9c86092..086813d 100644
 --- a/drivers/misc/armchina-npu/aipu_tcb.h
 +++ b/drivers/misc/armchina-npu/aipu_tcb.h
 @@ -121,80 +121,4 @@ struct aipu_tcb {
@@ -1983,7 +1935,6 @@ index 9c86092..086813d 100644
 -
  #endif /* __AIPU_TCB_H__ */
 diff --git a/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
-index 6846e5f..88b983b 100644
 --- a/drivers/misc/armchina-npu/default/default.c
 +++ b/drivers/misc/armchina-npu/default/default.c
 @@ -8,7 +8,6 @@
@@ -2021,7 +1972,6 @@ index 6846e5f..88b983b 100644
  static int default_suspend(struct platform_device *p_dev, pm_message_t state)
  {
 diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/armchina-npu/include/armchina_aipu.h
-index d19adc7..c14b81d 100644
 --- a/drivers/misc/armchina-npu/include/armchina_aipu.h
 +++ b/drivers/misc/armchina-npu/include/armchina_aipu.h
 @@ -40,8 +40,7 @@ enum aipu_arch {
@@ -2216,7 +2166,6 @@ index d19adc7..c14b81d 100644
  
  #endif /* __UAPI_MISC_ARMCHINA_AIPU_H__ */
 diff --git a/drivers/misc/armchina-npu/include/armchina_aipu_soc.h b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
-index 51a7d54..dfdb78b 100644
 --- a/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
 +++ b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
 @@ -45,6 +45,7 @@ struct aipu_soc_operations {
@@ -2228,7 +2177,6 @@ index 51a7d54..dfdb78b 100644
  
  int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
 diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
-index 2b449a2..da5ca92 100644
 --- a/drivers/misc/armchina-npu/sky1/sky1.c
 +++ b/drivers/misc/armchina-npu/sky1/sky1.c
 @@ -446,7 +446,7 @@ static int sky1_npu_probe(struct platform_device *p_dev)
@@ -2241,7 +2189,6 @@ index 2b449a2..da5ca92 100644
  #ifdef CONFIG_PM
      sky1_npu_pm_runtime_put(&p_dev->dev);
 diff --git a/drivers/misc/armchina-npu/zhouyi/v1.c b/drivers/misc/armchina-npu/zhouyi/v1.c
-index 919061a..8b75241 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v1.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v1.c
 @@ -257,14 +257,12 @@ static struct aipu_operations zhouyi_v1_ops = {
@@ -2260,7 +2207,6 @@ index 919061a..8b75241 100644
  
  struct aipu_operations *get_zhouyi_v1_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
-index 551f13a..3128721 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
 @@ -224,6 +224,7 @@ static struct aipu_priv_operations v1v2_priv_ops = {
@@ -2272,7 +2218,6 @@ index 551f13a..3128721 100644
  
  struct aipu_priv_operations *get_v1v2_priv_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v2.c b/drivers/misc/armchina-npu/zhouyi/v2.c
-index 5d32dac..e243515 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v2.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v2.c
 @@ -393,14 +393,12 @@ static struct aipu_operations zhouyi_v2_ops = {
@@ -2291,7 +2236,6 @@ index 5d32dac..e243515 100644
  
  struct aipu_operations *get_zhouyi_v2_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3.c b/drivers/misc/armchina-npu/zhouyi/v3.c
-index 9251c95..8ea0190 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v3.c
 @@ -198,7 +198,7 @@ static int zhouyi_v3_reserve(struct aipu_partition *partition, struct aipu_job_d
@@ -2367,7 +2311,6 @@ index 9251c95..8ea0190 100644
  
  struct aipu_operations *get_zhouyi_v3_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3.h b/drivers/misc/armchina-npu/zhouyi/v3.h
-index 82c06af..c36d7e7 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3.h
 +++ b/drivers/misc/armchina-npu/zhouyi/v3.h
 @@ -77,9 +77,9 @@
@@ -2411,7 +2354,6 @@ index 82c06af..c36d7e7 100644
  #define CMD_POOL_INTR_STATUS_REG(id)                (_GET_CMD_POOL_OFFSET(id) + 0xC)
  
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
-index d09e3b0..9344faa 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2.c
 @@ -155,18 +155,18 @@ static int zhouyi_v3_2_reserve(struct aipu_partition *cluster, struct aipu_job_d
@@ -2554,53 +2496,7 @@ index d09e3b0..9344faa 100644
  };
  
  struct aipu_operations *get_zhouyi_v3_2_ops(void)
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.h b/drivers/misc/armchina-npu/zhouyi/v3_2.h
-index d8932c4..1950e7f 100644
---- a/drivers/misc/armchina-npu/zhouyi/v3_2.h
-+++ b/drivers/misc/armchina-npu/zhouyi/v3_2.h
-@@ -106,14 +106,14 @@
- #define _TSM_DESTROY_V3_2                                 0x2
- #define _TSM_ABORT_V3_2                                   0x3
- #define _TSM_DISPATCH_V3_2                                0x4
--#define _TSM_BIND_DISPATCH_V3_2                           0x5
-+#define _TSM_DEBUG_DISPATCH_V3_2                          0x5
- 
- #define TSM_MAP_SINGLE_V3_2                              _TSM_MAP_V3_2(0x0)
- #define TSM_MAP_ALL_V3_2                                 _TSM_MAP_V3_2(0x1)
- #define TSM_CREATE_CMD_POOL_V3_2(pool, map)              (_TSM_CREATE_V3_2 | _TSM_POOL_V3_2(pool) | (map))
- #define TSM_DESTROY_CMD_POOL_V3_2(pool)                  (_TSM_DESTROY_V3_2 | _TSM_POOL_V3_2(pool))
- #define TSM_ABORT_CMD_POOL_V3_2(pool)                    (_TSM_ABORT_V3_2 | _TSM_POOL_V3_2(pool))
--#define TSM_BIND_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_BIND_DISPATCH_V3_2 | (qos) | \
-+#define TSM_DBG_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_DEBUG_DISPATCH_V3_2 | (qos) | \
- 						     _TSM_POOL_V3_2(pool) | _TSM_DIRECT_CORE_V3_2(core))
- 
- #define TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2             0x0
-@@ -410,7 +410,6 @@
- #define GET_INTR_CLUSTER_ID_V3_2(status_32)           (((status_32) >> 24) & 0xFF)
- #define GET_INTR_CORE_ID_V3_2(status_32)              (((status_32) >> 20) & 0xF)
- #define GET_INTR_TEC_ID_V3_2(status_32)               (((status_32) >> 16) & 0xF)
--#define GET_INTR_GROUP_ID_V3_2(status_32)             ((status_32) & 0xFF)
- #define IS_POOL_IRQ_V3_2(status_32)                   (((status_32) >> 11) & 0x1)
- #define IS_CLUSTER_IRQ_V3_2(status_32)                (((status_32) >> 10) & 0x1)
- #define IS_CORE_IRQ_V3_2(status_32)                   (((status_32) >> 9) & 0x1)
-@@ -425,7 +424,6 @@
- #define IS_SERIOUS_ERR_V3_2(status_32)                (((status_32) >> 3) & 0x7)
- #define GET_INTR_TYPE_V3_2(status_32)                 ((status_32) & 0x3F)
- #define IS_IRQ_TO_HANDLE_V3_2(status_32)              ((status_32) & 0xF1F)
--#define IS_COREDUMP_IRQ_V3_2(status_32)               (IS_EXCEPTION_IRQ_V3_2(status_32))
- 
- #define INTERRUPT_TYPE_INFO_REG(id)                 (_GET_PER_INTERRUPT_REGISTER_OFFSET(id) + 0x0)
- 
-@@ -459,7 +457,6 @@
- #define GET_PRINF_SIZE_V3_2(flag)                     ((flag) & 0xFFFF)
- #define GET_PROFILER_BUF_PA_V3_2(flag)                (((flag) & 0xFFFFF) << 12)
- 
--#define INTERRUPT_GROUP_ID_REG(id)               (_GET_PER_INTERRUPT_REGISTER_OFFSET(id) + 0x8)
- #define INTERRUPT_SIGNAL_FLAG_REG(id)               (_GET_PER_INTERRUPT_REGISTER_OFFSET(id) + 0xc)
- 
- #define ZHOUYI_V3_2_MAX_REG_OFFSET                    0x322C
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
-index bdd3d86..70fb694 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
 @@ -3,8 +3,6 @@
@@ -2725,7 +2621,6 @@ index bdd3d86..70fb694 100644
  
  struct aipu_priv_operations *get_v3_2_priv_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
-index 73a8695..8fdfa95 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3_priv.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
 @@ -27,7 +27,7 @@ static int init_aipu_partition(struct aipu_partition *partition, u32 *clusters,
@@ -2798,7 +2693,6 @@ index 73a8695..8fdfa95 100644
  
  struct aipu_priv_operations *get_v3_priv_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.c b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
-index 3a8751d..6cf17cc 100644
 --- a/drivers/misc/armchina-npu/zhouyi/zhouyi.c
 +++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
 @@ -130,9 +130,7 @@ int zhouyi_get_hw_version_number(struct io_region *io, int *rev)
@@ -2813,7 +2707,6 @@ index 3a8751d..6cf17cc 100644
  
  	return 0;
 diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.h b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
-index 56447be..e8cac9b 100644
 --- a/drivers/misc/armchina-npu/zhouyi/zhouyi.h
 +++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
 @@ -34,7 +34,6 @@
@@ -2833,6 +2726,3 @@ index 56447be..e8cac9b 100644
  
  int zhouyi_read_status_reg(struct io_region *io);
  void zhouyi_clear_qempty_interrupt(struct io_region *io);
--- 
-2.50.1 (Apple Git-155)
-

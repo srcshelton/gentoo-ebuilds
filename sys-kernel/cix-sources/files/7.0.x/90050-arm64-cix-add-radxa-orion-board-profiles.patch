@@ -57,7 +57,7 @@ diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconf
 new file mode 100644
 --- /dev/null
 +++ b/drivers/platform/arm64/Kconfig.radxa
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,153 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +#
 +# Generated CIX/Radxa Orion board presets for Linux 7.0.x.
@@ -82,6 +82,12 @@ new file mode 100644
 +	imply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
 +	imply ACPI_FAN if CIX_RADXA_ORION_ACPI
 +	imply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
++	imply THERMAL if CIX_RADXA_ORION_ACPI
++	imply THERMAL_GOV_POWER_ALLOCATOR if CIX_RADXA_ORION_ACPI
++	imply CPU_FREQ if CIX_RADXA_ORION_ACPI
++	imply ENERGY_MODEL if CIX_RADXA_ORION_ACPI
++	imply ACPI_CPPC_CPUFREQ if CIX_RADXA_ORION_ACPI
++	imply CIX_THERMAL if CIX_RADXA_ORION_ACPI
 +	imply RTC_DRV_HYM8563 if CIX_RADXA_ORION_DT
 +	help
 +	  Keep the smallest always-on set that is useful on current
@@ -112,7 +118,6 @@ new file mode 100644
 +	imply TYPEC
 +	imply TYPEC_RTS5453
 +	imply CIX_DDR_LP
-+	imply CIX_THERMAL
 +	imply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
 +	imply USB_CDNSP if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
 +	imply USB_CDNSP_HOST if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
@@ -158,6 +163,10 @@ new file mode 100644
 +	imply DRM_CIX
 +	imply DRM_LINLONDP
 +	imply DRM_TRILIN_DPSUB
++	imply PWM
++	imply PWM_SKY1
++	imply BACKLIGHT_CLASS_DEVICE
++	imply BACKLIGHT_PWM
 +	help
 +	  Enable the validated vendor display path for ACPI and DT.
 +	  Internal bring-up switches remain outside this preset.

@@ -344,7 +344,12 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     ("CIX_BUS_PERF", "prefer"),
     ("CIX_SKY1_REBOOT_REASON", "prefer"),
     ("CIX_DDR_LP", "prefer"),
-    ("CIX_THERMAL", "prefer"),
+    ("THERMAL", "builtin"),
+    ("THERMAL_GOV_POWER_ALLOCATOR", "builtin"),
+    ("CPU_FREQ", "builtin"),
+    ("ENERGY_MODEL", "builtin"),
+    ("ACPI_CPPC_CPUFREQ", "builtin"),
+    ("CIX_THERMAL", "builtin"),
     ("CIX_CPU_IPA", "prefer"),
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
@@ -355,6 +360,10 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
     ("DRM_TRILIN_DPSUB", "prefer"),
+    ("PWM", "builtin"),
+    ("PWM_SKY1", "prefer"),
+    ("BACKLIGHT_CLASS_DEVICE", "prefer"),
+    ("BACKLIGHT_PWM", "prefer"),
 )
 
 SUPPORTED_VENDOR_ACPI_O6 = (
@@ -407,7 +416,6 @@ SUPPORTED_VENDOR_DT_COMMON = (
     ("GPIO_CADENCE", "prefer"),
     ("ARM_DMA350", "prefer"),
     ("CIX_DDR_LP", "prefer"),
-    ("CIX_THERMAL", "prefer"),
     ("CIX_CPU_IPA", "prefer"),
     ("ARMCHINA_NPU", "prefer"),
     ("ARMCHINA_NPU_ARCH_V3", "always"),
@@ -418,6 +426,10 @@ SUPPORTED_VENDOR_DT_COMMON = (
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
     ("DRM_TRILIN_DPSUB", "prefer"),
+    ("PWM", "builtin"),
+    ("PWM_SKY1", "prefer"),
+    ("BACKLIGHT_CLASS_DEVICE", "prefer"),
+    ("BACKLIGHT_PWM", "prefer"),
 )
 
 SUPPORTED_VENDOR_DT_O6 = (
@@ -1154,11 +1166,6 @@ def render_kconfig_radxa(
     profile_active = "(CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)"
     ethernet_imply = render_ethernet_implies(available_symbols)
     cpu_ipa_imply = render_cpu_ipa_imply(available_symbols)
-    fixed_regulator_select = ""
-    if kernel_version == "7.1" and "REGULATOR_FIXED_VOLTAGE" in available_symbols:
-        fixed_regulator_select = (
-            "        \tselect REGULATOR_FIXED_VOLTAGE if REGULATOR && CIX_RADXA_ORION_ACPI\n"
-        )
     accelerator_symbols = (
         "ARMCHINA_NPU",
         "ARMCHINA_NPU_ARCH_V3",
@@ -1196,7 +1203,7 @@ def render_kconfig_radxa(
         \timply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
         \timply ACPI_FAN if CIX_RADXA_ORION_ACPI
         \timply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
-{fixed_regulator_select.rstrip()}
+{render_template_block(cpu_ipa_imply)}
         \timply RTC_DRV_HYM8563 if CIX_RADXA_ORION_DT
         \thelp
         \t  Keep the smallest always-on set that is useful on current
@@ -1257,7 +1264,6 @@ def render_kconfig_radxa(
         \timply TYPEC
         \timply TYPEC_RTS5453
         \timply CIX_DDR_LP
-{render_template_block(cpu_ipa_imply)}
         \timply USB_CDNS_SUPPORT if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
         \timply USB_CDNSP if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
         \timply USB_CDNSP_HOST if CIX_RADXA_ORION_DT || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_ACPI)
@@ -1302,6 +1308,10 @@ def render_kconfig_radxa(
         \timply DRM_CIX
         \timply DRM_LINLONDP
         \timply DRM_TRILIN_DPSUB
+        \timply PWM
+        \timply PWM_SKY1
+        \timply BACKLIGHT_CLASS_DEVICE
+        \timply BACKLIGHT_PWM
         \thelp
         \t  Enable the validated vendor display path for ACPI and DT.
         \t  Internal bring-up switches remain outside this preset.
@@ -1398,7 +1408,19 @@ def render_ethernet_implies(available_symbols: set[str]) -> str:
 
 def render_cpu_ipa_imply(available_symbols: set[str]) -> str:
     if "CIX_THERMAL" in available_symbols:
-        return "\timply CIX_THERMAL\n"
+        dependencies = (
+            "THERMAL",
+            "THERMAL_GOV_POWER_ALLOCATOR",
+            "CPU_FREQ",
+            "ENERGY_MODEL",
+            "ACPI_CPPC_CPUFREQ",
+            "CIX_THERMAL",
+        )
+        return "".join(
+            f"\timply {symbol} if CIX_RADXA_ORION_ACPI\n"
+            for symbol in dependencies
+            if symbol in available_symbols
+        )
     if "CIX_CPU_IPA" in available_symbols:
         return "\timply CIX_CPU_IPA\n"
     return ""

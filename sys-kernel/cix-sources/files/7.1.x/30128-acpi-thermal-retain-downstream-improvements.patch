@@ -75,81 +75,26 @@ diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
 diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 --- a/drivers/acpi/thermal.c
 +++ b/drivers/acpi/thermal.c
-@@ -23,7 +23,9 @@
+@@ -23,6 +23,7 @@
  #include <linux/types.h>
  #include <linux/jiffies.h>
  #include <linux/kmod.h>
 +#include <linux/nls.h>
  #include <linux/reboot.h>
-+#include <linux/sched.h>
+ #include <linux/sched.h>
  #include <linux/device.h>
- #include <linux/thermal.h>
- #include <linux/acpi.h>
-@@ -47,6 +49,9 @@
- #define ACPI_THERMAL_MAX_LIMIT_STR_LEN	65
- 
- #define ACPI_THERMAL_TRIP_PASSIVE	(-1)
-+#define ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES	3
-+#define ACPI_THERMAL_ORION_O6_ECTZ_LKG_TIMEOUT	(60 * HZ)
-+#define ACPI_THERMAL_ORION_O6_ECTZ_PROBE_BOOTSTRAP_DK	2732
- 
- #ifdef CONFIG_CIX_THERMAL
- #define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 4)
-@@ -120,8 +125,13 @@ struct acpi_thermal {
- 	acpi_bus_id name;
- 	unsigned long temp_dk;
- 	unsigned long last_temp_dk;
-+	unsigned long last_good_temp_dk;
-+	unsigned long last_good_temp_jiffies;
- 	unsigned long polling_frequency;
+@@ -130,6 +131,7 @@ struct acpi_thermal {
  	volatile u8 zombie;
-+	bool has_last_good_temp;
-+	bool orion_o6_ectz;
+ 	bool has_last_good_temp;
+ 	bool orion_o6_ectz;
 +	char *label;
  	struct acpi_thermal_trips trips;
  	struct thermal_zone_device *thermal_zone;
  	int kelvin_offset;	/* in millidegrees */
-@@ -137,46 +147,218 @@ struct acpi_thermal {
-                              Thermal Zone Management
-    -------------------------------------------------------------------------- */
+@@ -182,6 +184,46 @@ static int acpi_thermal_read_tmp(struct acpi_thermal *tz,
+ 	return 0;
+ }
  
-+static bool acpi_thermal_is_radxa_orion_o6_ectz(struct acpi_thermal *tz)
-+{
-+	const char *sys_vendor = dmi_get_system_info(DMI_SYS_VENDOR);
-+	const char *product_name = dmi_get_system_info(DMI_PRODUCT_NAME);
-+	const char *board_name = dmi_get_system_info(DMI_BOARD_NAME);
-+	char name[ACPI_NAMESEG_SIZE + 1] = {};
-+	struct acpi_buffer buffer = { sizeof(name), name };
-+
-+	if (!tz || !tz->device)
-+		return false;
-+
-+	if (!sys_vendor || strcmp(sys_vendor, "Radxa Computer (Shenzhen) Co., Ltd."))
-+		return false;
-+
-+	if ((!product_name || strcmp(product_name, "Radxa Orion O6")) &&
-+	    (!board_name || strcmp(board_name, "Radxa Orion O6")))
-+		return false;
-+
-+	if (ACPI_FAILURE(acpi_get_name(tz->device->handle, ACPI_SINGLE_NAME,
-+				       &buffer)))
-+		return false;
-+
-+	return !strcmp(name, "ECTZ");
-+}
-+
-+static int acpi_thermal_read_tmp(struct acpi_thermal *tz,
-+				 unsigned long long *tmp)
-+{
-+	acpi_status status;
-+
-+	status = acpi_evaluate_integer(tz->device->handle, "_TMP", NULL, tmp);
-+	if (ACPI_FAILURE(status))
-+		return -ENODEV;
-+
-+	return 0;
-+}
-+
 +static char *acpi_thermal_get_label(struct acpi_device *device)
 +{
 +	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -190,124 +135,10 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 +	return label;
 +}
 +
-+static void acpi_thermal_save_last_good_tmp(struct acpi_thermal *tz,
-+					    unsigned long long tmp)
-+{
-+	tz->last_good_temp_dk = tmp;
-+	tz->last_good_temp_jiffies = jiffies;
-+	tz->has_last_good_temp = true;
-+
-+	acpi_handle_debug(tz->device->handle,
-+			  "Saved ECTZ last-known-good temperature %llu dK for %s[%d]\n",
-+			  tmp, current->comm, current->pid);
-+}
-+
-+static bool acpi_thermal_last_good_tmp_fresh(struct acpi_thermal *tz)
-+{
-+	return tz->has_last_good_temp &&
-+	       time_before_eq(jiffies, tz->last_good_temp_jiffies +
-+			      ACPI_THERMAL_ORION_O6_ECTZ_LKG_TIMEOUT);
-+}
-+
-+static int acpi_thermal_handle_orion_o6_ectz_zero(struct acpi_thermal *tz,
-+						  unsigned long long *tmp,
-+						  bool *skip_last_good_save)
-+{
-+	unsigned long age_ms = 0;
-+	int ret;
-+	int retry;
-+
-+	*skip_last_good_save = false;
-+
-+	for (retry = 1; retry <= ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES; retry++) {
-+		acpi_handle_debug(tz->device->handle,
-+				  "ECTZ _TMP returned 0 dK for %s[%d]; retrying (%d/%d)\n",
-+				  current->comm, current->pid, retry,
-+				  ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES);
-+
-+		ret = acpi_thermal_read_tmp(tz, tmp);
-+		if (ret)
-+			return ret;
-+
-+		if (*tmp)
-+			return 0;
-+	}
-+
-+	if (tz->has_last_good_temp)
-+		age_ms = jiffies_to_msecs(jiffies - tz->last_good_temp_jiffies);
-+
-+	if (acpi_thermal_last_good_tmp_fresh(tz)) {
-+		*tmp = tz->last_good_temp_dk;
-+		*skip_last_good_save = true;
-+		acpi_handle_debug(tz->device->handle,
-+				  "ECTZ _TMP still returned 0 dK for %s[%d] after %d retries; using last-known-good %llu dK (%lu ms old)\n",
-+				  current->comm, current->pid,
-+				  ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES,
-+				  *tmp, age_ms);
-+		return 0;
-+	}
-+
-+	if (!tz->thermal_zone) {
-+		*tmp = ACPI_THERMAL_ORION_O6_ECTZ_PROBE_BOOTSTRAP_DK;
-+		*skip_last_good_save = true;
-+		acpi_handle_err(tz->device->handle,
-+				"ECTZ _TMP still returned 0 dK for %s[%d] after %d retries; using synthetic %llu dK once to allow thermal-zone probe\n",
-+				current->comm, current->pid,
-+				ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES,
-+				*tmp);
-+		return 0;
-+	}
-+
-+	if (tz->has_last_good_temp)
-+		acpi_handle_err(tz->device->handle,
-+				"ECTZ _TMP still returned 0 dK for %s[%d] after %d retries; last-known-good %lu dK expired (%lu ms old)\n",
-+				current->comm, current->pid,
-+				ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES,
-+				tz->last_good_temp_dk, age_ms);
-+	else
-+		acpi_handle_err(tz->device->handle,
-+				"ECTZ _TMP still returned 0 dK for %s[%d] after %d retries; no last-known-good temperature is available\n",
-+				current->comm, current->pid,
-+				ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES);
-+
-+	return -ENODATA;
-+}
-+
- static int acpi_thermal_get_temperature(struct acpi_thermal *tz)
+ static void acpi_thermal_save_last_good_tmp(struct acpi_thermal *tz,
+ 					    unsigned long long tmp)
  {
--	acpi_status status = AE_OK;
- 	unsigned long long tmp;
-+	bool skip_last_good_save = false;
-+	int ret;
- 
- 	if (!tz)
- 		return -EINVAL;
- 
- 	tz->last_temp_dk = tz->temp_dk;
- 
--	status = acpi_evaluate_integer(tz->device->handle, "_TMP", NULL, &tmp);
--	if (ACPI_FAILURE(status))
--		return -ENODEV;
-+	ret = acpi_thermal_read_tmp(tz, &tmp);
-+	if (ret)
-+		return ret;
-+
-+	if (tz->orion_o6_ectz && !tmp) {
-+		ret = acpi_thermal_handle_orion_o6_ectz_zero(tz, &tmp,
-+							     &skip_last_good_save);
-+		if (ret)
-+			return ret;
-+	}
- 
- 	tz->temp_dk = tmp;
- 
- 	acpi_handle_debug(tz->device->handle, "Temperature is %lu dK\n",
- 			  tz->temp_dk);
- 
-+	if (tz->orion_o6_ectz && !skip_last_good_save)
-+		acpi_thermal_save_last_good_tmp(tz, tmp);
-+
- 	return 0;
+@@ -299,23 +341,24 @@ static int acpi_thermal_get_temperature(struct acpi_thermal *tz)
  }
  
  #ifdef CONFIG_CIX_THERMAL
@@ -339,17 +170,16 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  }
  
  static void acpi_thermal_init_switch_on_temp(struct acpi_thermal *tz,
-@@ -708,6 +890,9 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
- 	struct thermal_zone_params tzp = {};
- 	int result;
- 
-+	tzp.label = tz->label;
-+	tzp.hwmon_type = "acpitz";
-+
+@@ -850,6 +893,8 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
  #ifdef CONFIG_CIX_THERMAL
  	tzp.sustainable_power = tz->sustainable_power;
  #endif
-@@ -864,6 +1049,7 @@ static void acpi_thermal_free_thermal_zone(struct acpi_thermal *tz)
++	tzp.label = tz->label;
++	tzp.hwmon_type = "acpitz";
+ 
+ 	if (trip_count)
+ 		tz->thermal_zone = thermal_zone_device_register_with_trips(
+@@ -1002,6 +1047,7 @@ static void acpi_thermal_free_thermal_zone(struct acpi_thermal *tz)
  	for (i = 0; i < ACPI_THERMAL_MAX_ACTIVE; i++)
  		acpi_handle_list_free(&tz->trips.active[i].trip.devices);
  
@@ -357,16 +187,15 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  	kfree(tz);
  }
  
-@@ -886,6 +1072,8 @@ static int acpi_thermal_add(struct acpi_device *device)
- 		return -ENOMEM;
+@@ -1028,6 +1074,7 @@ static int acpi_thermal_probe(struct platform_device *pdev)
  
  	tz->device = device;
-+	tz->orion_o6_ectz = acpi_thermal_is_radxa_orion_o6_ectz(tz);
+ 	tz->orion_o6_ectz = acpi_thermal_is_radxa_orion_o6_ectz(tz);
 +	tz->label = acpi_thermal_get_label(device);
  	strscpy(tz->name, device->pnp.bus_id);
- 	strscpy(acpi_device_name(device), ACPI_THERMAL_DEVICE_NAME);
- 	strscpy(acpi_device_class(device), ACPI_THERMAL_CLASS);
-@@ -977,9 +1165,7 @@ static int acpi_thermal_add(struct acpi_device *device)
+ 
+ 	acpi_thermal_aml_dependency_fix(tz);
+@@ -1116,9 +1163,7 @@ static int acpi_thermal_probe(struct platform_device *pdev)
  		pr_warn(FW_BUG "No valid trip points!\n");
  
  #ifdef CONFIG_CIX_THERMAL
@@ -389,7 +218,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  };
  
 @@ -66,6 +67,22 @@ temp_input_show(struct device *dev, struct device_attribute *attr, char *buf)
- 	return sprintf(buf, "%d\n", temperature);
+ 	return sysfs_emit(buf, "%d\n", temperature);
  }
  
 +static ssize_t
@@ -412,7 +241,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  temp_crit_show(struct device *dev, struct device_attribute *attr, char *buf)
  {
 @@ -87,6 +104,14 @@ temp_crit_show(struct device *dev, struct device_attribute *attr, char *buf)
- 	return sprintf(buf, "%d\n", temperature);
+ 	return sysfs_emit(buf, "%d\n", temperature);
  }
  
 +static const char *

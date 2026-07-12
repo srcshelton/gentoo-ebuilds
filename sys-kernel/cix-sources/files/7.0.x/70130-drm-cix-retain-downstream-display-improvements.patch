@@ -1,3 +1,9 @@
+drm: cix: retain downstream display improvements
+
+Retain the downstream ACPI and build fixes for the CIX display stack.  Report
+whether the DisplayPort encoder CRTC mask came from ACPI, DT, or the real
+fallback rather than describing every non-DT mask as a fallback.
+
 diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
 --- a/drivers/gpu/drm/cix/Kconfig
 +++ b/drivers/gpu/drm/cix/Kconfig
@@ -500,6 +506,42 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dp
 +	dev_dbg(dev, "%s\n", __func__);
  	return 0;
  }
+ 
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -1350,6 +1350,7 @@ int trilin_dp_drm_init(struct trilin_dpsub *dpsub)
+ 	struct trilin_connector *conn = &dp->connector;
+ 	struct drm_encoder *encoder = &enc->base;
+ 	struct drm_connector *connector = &conn->base;
++	const char *possible_crtcs_source = "fallback";
+ 	int ret;
+ 	int drm_mode_connector = DRM_MODE_CONNECTOR_DisplayPort;
+ 
+@@ -1359,16 +1360,21 @@ int trilin_dp_drm_init(struct trilin_dpsub *dpsub)
+ 	conn->dp = dp;
+ 	conn->type = TRILIN_OUTPUT_DP;
+ 	/* Create the DRM encoder and connector. */
+-	if (dpsub->preset_possible_crtcs)
++	if (dpsub->preset_possible_crtcs) {
+ 		encoder->possible_crtcs = dpsub->preset_possible_crtcs;
+-	else if (dp->dev && dp->dev->of_node)
++		possible_crtcs_source = dp->dev && dp->dev->of_node ?
++					"DT" : "ACPI";
++	} else if (dp->dev && dp->dev->of_node) {
+ 		encoder->possible_crtcs = drm_of_find_possible_crtcs(dp->drm,
+ 								   dp->dev->of_node);
++		if (encoder->possible_crtcs)
++			possible_crtcs_source = "DT";
++	}
+ 	if (!encoder->possible_crtcs)
+ 		encoder->possible_crtcs = TRILIN_DPTX_POSSIBLE_CRTCS_SST;
+ 	DRM_INFO("DP encoder possible_crtcs=0x%x (from %s)\n",
+ 		 encoder->possible_crtcs,
+-		 (dp->dev && dp->dev->of_node) ? "DT" : "fallback");
++		 possible_crtcs_source);
+ 	drm_encoder_init(dp->drm, encoder, &trilin_dp_enc_funcs,
+ 			 DRM_MODE_ENCODER_TMDS, NULL);
  
 diff --git a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
 --- a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c

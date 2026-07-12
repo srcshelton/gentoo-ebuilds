@@ -111,6 +111,11 @@ apply_patch_file() {
 	patch --batch --forward --no-backup-if-mismatch -p1 -i "$1"
 }
 
+apply_local_patch_file() {
+	printf 'Applying %s\n' "$1"
+	patch --batch --forward --fuzz=0 --no-backup-if-mismatch -p1 -i "$1"
+}
+
 apply_patch_archive() {
 	mkdir -p -- "${T}/patches"
 	tar -xf "$1" -C "${T}/patches"
@@ -160,7 +165,10 @@ die() {
 eapply() {
 	local patch_file
 	for patch_file in "$@"; do
-		apply_patch_file "$patch_file"
+		case $patch_file in
+			"${FILESDIR}"/*) apply_local_patch_file "$patch_file" ;;
+			*) apply_patch_file "$patch_file" ;;
+		esac
 	done
 }
 

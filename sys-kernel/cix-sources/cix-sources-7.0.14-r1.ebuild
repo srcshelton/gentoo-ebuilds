@@ -137,12 +137,14 @@ src_prepare() {
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
+	eapply "${FILESDIR}"/7.0.x/20045-cpufreq-cppc-handle-cix-energy-model-failures.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
 	eapply "${FILESDIR}"/7.0.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
-	eapply "${FILESDIR}"/7.0.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
+	eapply "${FILESDIR}"/7.0.x/30128-acpi-thermal-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/30129-thermal-cix-fix-configuration-dependencies.patch || die
 	eapply "${FILESDIR}"/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch || die
 	eapply "${FILESDIR}"/7.0.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch || die
 	eapply "${FILESDIR}"/60000-cix-usb-phy-fail-cleanly-on-missing-resources.patch || die

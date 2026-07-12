@@ -180,6 +180,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
+	eapply "${FILESDIR}"/6.18.x/20045-cpufreq-cppc-handle-cix-energy-model-failures.patch || die
 	eapply "${FILESDIR}"/20050-topology-has-missing-cpufreq-ref.patch || die
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/6.18.x/50040-pwm-sky1-fix-kconfig-entry.patch || die
@@ -233,6 +234,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/70130-drm-cix-retain-downstream-display-improvements.patch || die
 	eapply "${FILESDIR}"/6.18.x/70200-drm-panthor-retain-downstream-improvements.patch || die
 	eapply "${FILESDIR}"/6.18.x/30128-acpi-thermal-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/6.18.x/30129-thermal-cix-fix-configuration-dependencies.patch || die
 	eapply "${FILESDIR}"/6.18.x/30020-pmdomain-retain-downstream-improvements.patch || die
 	eapply "${FILESDIR}"/6.18.x/90010-nvmem-sky1-retain-downstream-improvements.patch || die
 	eapply "${FILESDIR}"/6.18.x/40050-soc-cix-retain-acpi-model-discovery-improvements.patch || die
