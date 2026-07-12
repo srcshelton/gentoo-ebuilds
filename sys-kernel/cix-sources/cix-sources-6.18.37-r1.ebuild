@@ -556,10 +556,17 @@ src_install() {
 pkg_postinst() {
 	kernel-2_pkg_postinst
 
+	elog
 	elog "CIX Sky1 PCIe SMMU ACPI workarounds are applied by the"
 	elog "6.18.x Sky1/CIX patch queue when Sky1 PCIe SMMU hardware is"
 	elog "detected.  This branch does not expose the 7.0.x opt-in"
 	elog "arm-smmu-v3.cix_sky1_pcie_* command-line/module parameters."
+	elog
+	elog "These workarounds take effect only when ACPI/IORT exposes the"
+	elog "Sky1 PCIe SMMU at 0x0b010000."
+	elog "Stock Radxa firmware 1.3.0 omits that SMMU from IORT, so no"
+	elog "automatic PCIe SMMU workaround executes with that firmware."
+	elog "The packaged firmware 1.3 ACPI profiles leave IORT unchanged."
 
 	if use acpi-table-upgrade; then
 		local linux_dir="linux-${PV%_p*}-cix"
@@ -575,19 +582,24 @@ pkg_postinst() {
 		elog
 		elog "ACPI table-upgrade sources and compiled AML profiles were"
 		elog "installed under /usr/src/${linux_dir}/cix-acpi-table-upgrade."
+		elog
 		elog "Firmware-specific board initramfs source lists are installed at:"
 		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6/1.2/${selected_profile}.list"
 		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6n/1.2/${selected_profile}.list"
 		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6/1.3/${selected_profile}.list"
 		elog "  /usr/src/${linux_dir}/cix-acpi-table-upgrade/o6n/1.3/initramfs.list"
+		elog
 		if use acpi-table-upgrade-dsdt; then
 			elog "The O6 1.3 firmware profile includes an O6 DSDT list;"
 			elog "O6N 1.3 remains SSDT-only until an O6N 1.3 DSDT"
 			elog "is qualified."
+			elog
 		fi
 		elog "The unversioned board-specific list paths are retained as"
 		elog "firmware 1.2 aliases."
-		elog "The historical top-level list paths are retained as O6 firmware 1.2 aliases."
+		elog "The historical top-level list paths are retained as O6"
+		elog "firmware 1.2 aliases."
+		elog
 		elog "To build them into the kernel, enable the built-in initramfs"
 		elog "ACPI override options and set CONFIG_INITRAMFS_SOURCE to one"
 		elog "of the firmware-specific board lists, for example:"
