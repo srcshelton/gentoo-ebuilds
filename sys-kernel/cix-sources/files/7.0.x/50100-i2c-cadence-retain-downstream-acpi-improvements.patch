@@ -1,0 +1,21 @@
+diff --git a/drivers/i2c/busses/i2c-cadence.c b/drivers/i2c/busses/i2c-cadence.c
+--- a/drivers/i2c/busses/i2c-cadence.c
++++ b/drivers/i2c/busses/i2c-cadence.c
+@@ -1551,9 +1551,15 @@ static int cdns_i2c_probe(struct platform_device *pdev)
+ 		 "Cadence I2C at %08lx", (unsigned long)r_mem->start);
+ 
+ 	id->clk = devm_clk_get_enabled(&pdev->dev, NULL);
+-	if (IS_ERR(id->clk))
+-		return dev_err_probe(&pdev->dev, PTR_ERR(id->clk),
++	if (IS_ERR(id->clk)) {
++		ret = PTR_ERR(id->clk);
++		if (ret == -ENOENT &&
++		    acpi_dev_hid_uid_match(ACPI_COMPANION(&pdev->dev), "CIXH200B", NULL))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
+ 				     "input clock not found.\n");
++	}
+ 
+ 	id->reset = devm_reset_control_get_optional_shared(&pdev->dev, NULL);
+ 	if (IS_ERR(id->reset))

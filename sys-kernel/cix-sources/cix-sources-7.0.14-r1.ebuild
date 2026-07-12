@@ -117,8 +117,8 @@ src_prepare() {
 	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
 	eapply "${FILESDIR}"/71997-armchina-npu-link-sky1-soc-glue.patch || die
 	eapply "${FILESDIR}"/71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch || die
-	eapply "${FILESDIR}"/71998-armchina-npu-balance-acpi-core-runtime-pm.patch || die
-	eapply "${FILESDIR}"/71999-armchina-npu-add-sky1-priv-init-prototype.patch || die
+	eapply "${FILESDIR}"/71999-armchina-npu-balance-acpi-core-runtime-pm.patch || die
+	eapply "${FILESDIR}"/71989-armchina-npu-add-sky1-priv-init-prototype.patch || die
 	eapply "${FILESDIR}"/7.0.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch || die
 	eapply "${FILESDIR}"/7.0.x/70000-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch || die
 	eapply "${sky1_patch_dir}"/0024-drm-sky1-switch-from-faux_device-to-platform_device.patch || die
@@ -127,9 +127,11 @@ src_prepare() {
 	rm -r "${WORKDIR}/cix-linux-main-${EGIT_CIX_COMMIT}" || die
 	rm -r "${WORKDIR}/linux-sky1-${EGIT_SKY1_COMMIT}" || die
 
-	eapply "${FILESDIR}"/7.0.x/20010-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch || die
-	eapply "${FILESDIR}"/7.0.x/30000-cix-759efc0-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
-	eapply "${FILESDIR}"/7.0.x/30015-cix-759efc0-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
+	eapply "${FILESDIR}"/7.0.x/20010-irqchip-sky1-pdc-fix-section-mismatch.patch || die
+	eapply "${FILESDIR}"/7.0.x/20020-phy-cix-fix-dependencies-and-clang-uninitialised-use.patch || die
+	eapply "${FILESDIR}"/7.0.x/20025-asoc-cix-card-utils-fix-clang-uninitialised-use.patch || die
+	eapply "${FILESDIR}"/7.0.x/30000-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch || die
+	eapply "${FILESDIR}"/7.0.x/30015-pmdomain-export-genpd-dev-pm-attach-by-name.patch || die
 	eapply "${FILESDIR}"/30030-scmi-demote-unsupported-fastchannel-fallback.patch || die
 	eapply "${FILESDIR}"/30070-opp-tolerate-unsupported-interconnect-paths.patch || die
 	eapply "${FILESDIR}"/30080-opp-suppress-unsupported-interconnect-warning.patch || die
@@ -139,7 +141,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch || die
 	eapply "${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch || die
 	eapply "${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch || die
-	eapply "${FILESDIR}"/7.0.x/30127-cix-759efc0-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
+	eapply "${FILESDIR}"/7.0.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch || die
 	eapply "${FILESDIR}"/7.0.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch || die
 	eapply "${FILESDIR}"/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch || die
 	eapply "${FILESDIR}"/7.0.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch || die
@@ -154,7 +156,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/71040-cix-mvx-fix-user-visible-names.patch || die
 	eapply "${FILESDIR}"/71050-cix-mvx-enable-jpeg-mjpeg-devices.patch || die
 	eapply "${FILESDIR}"/71060-cix-mvx-port-sky1p-reset-sequencing.patch || die
-	eapply "${FILESDIR}"/7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch || die
+	eapply "${FILESDIR}"/7.0.x/70020-drm-cix-gate-virtual-encoder-build.patch || die
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
@@ -164,23 +166,26 @@ src_prepare() {
 	eapply "${FILESDIR}"/7.0.x/40046-acpi-scan-demote-pci-ecam-duplicate-reservations.patch || die
 	eapply "${FILESDIR}"/40044-pinctrl-acpi-export-pin-groups-helper.patch || die
 	eapply "${FILESDIR}"/40093-pci-cix-enable-root-port-io-window-assignment.patch || die
-	eapply "${FILESDIR}"/7.0.x/40050-cix-759efc0-soc-cix-arbitrate-acpi-usb-models.patch || die
-	eapply "${FILESDIR}"/7.0.x/40060-cix-759efc0-soc-cix-add-gpu-cca-scan-quirk.patch || die
-	eapply "${FILESDIR}"/7.0.x/40070-cix-759efc0-soc-cix-arbitrate-acpi-pcie-models.patch || die
+	eapply "${FILESDIR}"/7.0.x/40050-soc-cix-arbitrate-acpi-usb-models.patch || die
+	eapply "${FILESDIR}"/7.0.x/40060-soc-cix-add-gpu-cca-scan-quirk.patch || die
+	eapply "${FILESDIR}"/7.0.x/40070-soc-cix-arbitrate-acpi-pcie-models.patch || die
 	eapply "${FILESDIR}"/40076-soc-cix-hide-dst-engineering-menu.patch || die
 	eapply "${FILESDIR}"/7.0.x/40080-soc-cix-ignore-disabled-acpi-models.patch || die
 	eapply "${FILESDIR}"/60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch || die
-	eapply "${FILESDIR}"/7.0.x/90000-cix-759efc0-soc-cix-add-acpi-bus-perf-driver.patch || die
-	eapply "${FILESDIR}"/7.0.x/90010-cix-759efc0-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch || die
+	eapply "${FILESDIR}"/7.0.x/90000-soc-cix-add-acpi-bus-perf-driver.patch || die
+	eapply "${FILESDIR}"/7.0.x/71065-cix-mvx-guard-optional-devfreq-path.patch || die
+	eapply "${FILESDIR}"/7.0.x/71988-armchina-npu-guard-optional-dma-buf-path.patch || die
+	eapply "${FILESDIR}"/7.0.x/90010-cix-sky1-add-acpi-platform-services.patch || die
+	eapply "${FILESDIR}"/7.0.x/90030-thermal-cix-cpu-ipa-support-acpi-resources.patch || die
 	eapply "${FILESDIR}"/70105-drm-cix-linlon-dp-tighten-private-include-flags.patch || die
 	eapply "${FILESDIR}"/7.0.x/90040-soc-cix-expose-raw-sky1-socinfo-fields.patch || die
 	eapply "${FILESDIR}"/90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch || die
 	eapply "${FILESDIR}"/90046-arm64-cix-guard-dmi-cpu-name-reference.patch || die
 	eapply "${FILESDIR}"/7.0.x/90092-hwmon-cix-add-acpi-fan-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/90093-hwmon-cix-fan-scale-ec-pwm-duty.patch || die
-	eapply "${FILESDIR}"/7.0.x/90096-cix-759efc0-soc-cix-add-sky1-reboot-reason-driver.patch || die
+	eapply "${FILESDIR}"/7.0.x/90096-soc-cix-add-sky1-reboot-reason-driver.patch || die
 	eapply "${FILESDIR}"/7.0.x/60010-usb-cdnsp-sky1-fix-acpi-fwnode-and-pm-paths.patch || die
-	eapply "${FILESDIR}"/7.0.x/60015-cix-759efc0-usb-cdnsp-sky1-tear-down-host-on-shutdown.patch || die
+	eapply "${FILESDIR}"/7.0.x/60015-usb-cdnsp-sky1-tear-down-host-on-shutdown.patch || die
 	eapply "${FILESDIR}"/7.0.x/60020-usb-typec-rts5453-include-irq-header.patch || die
 	eapply "${FILESDIR}"/7.0.x/60030-usb-typec-rts5453-fix-pm-sleep-disabled-build.patch || die
 	eapply "${FILESDIR}"/7.0.x/60040-phy-cix-enable-acpi-stub-fdt.patch || die
@@ -211,11 +216,14 @@ src_prepare() {
 	eapply "${FILESDIR}"/50090-dma-coherent-keep-declared-memory-write-combined.patch || die
 	eapply "${FILESDIR}"/80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch || die
 	eapply "${FILESDIR}"/80080-cix-sky1-declare-module-softdeps.patch || die
-	eapply "${FILESDIR}"/7.0.x/99010-cix-19f2947-drm-display-retain-downstream-improvements.patch || die
-	eapply "${FILESDIR}"/7.0.x/99011-cix-19f2947-peripheral-acpi-retain-downstream-improvements.patch || die
-	eapply "${FILESDIR}"/7.0.x/99012-cix-19f2947-regulator-retain-downstream-improvements.patch || die
-	eapply "${FILESDIR}"/7.0.x/99013-cix-19f2947-hda-retain-downstream-improvements.patch || die
-	eapply "${FILESDIR}"/7.0.x/99014-cix-19f2947-soc-audio-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/70130-drm-cix-retain-downstream-display-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/50100-i2c-cadence-retain-downstream-acpi-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/50110-i3c-cadence-retain-downstream-acpi-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/50120-pwm-sky1-retain-downstream-acpi-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/50130-spi-cadence-retain-downstream-acpi-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/50095-regulator-fwnode-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/73020-cix-hda-retain-downstream-improvements.patch || die
+	eapply "${FILESDIR}"/7.0.x/73030-asoc-cix-i2s-retain-downstream-improvements.patch || die
 	if use radxa-menu; then
 		eapply "${FILESDIR}"/7.0.x/90050-arm64-cix-add-radxa-orion-board-profiles.patch || die
 	fi

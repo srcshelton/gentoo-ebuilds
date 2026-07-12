@@ -1,0 +1,60 @@
+sound: hda: cix: keep Cadence GPIO reachable on ACPI
+
+The Orion O6 ACPI tables describe the HDA codec power-down GPIO via a
+GpioIo resource supplied by the CIX Cadence GPIO controller.  The 6.18
+carry patch made that GPIO provider selectable on ACPI systems and had the
+CIX HDA controller softly imply it so the codec GPIO supplier can appear.
+
+Carry the same small protection into the Linux 7.0 CIX HDA path, whose
+controller source was renamed to cix-ipbloq.c.  Also use dev_err_probe()
+for the optional GPIO lookups so supplier deferral is reported through the
+deferred-probe machinery instead of as a hard probe error.
+
+---
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -248,7 +248,7 @@ config GPIO_BRCMSTB
+ 
+ config GPIO_CADENCE
+ 	tristate "Cadence GPIO support"
+-	depends on OF_GPIO
++	depends on OF_GPIO || ACPI || COMPILE_TEST
+ 	select GPIO_GENERIC
+ 	select GPIOLIB_IRQCHIP
+ 	help
+diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
+--- a/sound/hda/controllers/Kconfig
++++ b/sound/hda/controllers/Kconfig
+@@ -35,6 +35,7 @@ config SND_HDA_CIX_IPBLOQ
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	select SND_HDA
+ 	select SND_HDA_ALIGNED_MMIO
++	imply GPIO_CADENCE
+ 	help
+ 	  Say Y here to support the HDA controller present in CIX SoCs
+ 
+diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
+--- a/sound/hda/controllers/cix-ipbloq.c
++++ b/sound/hda/controllers/cix-ipbloq.c
+@@ -842,16 +842,16 @@ static int cix_ipbloq_hda_probe(struct platform_device *pdev)
+ 
+ 	hda->pdb_gpiod = devm_gpiod_get_optional(&pdev->dev, "pdb", GPIOD_OUT_HIGH);
+ 	if (IS_ERR(hda->pdb_gpiod)) {
+-		err = PTR_ERR(hda->pdb_gpiod);
+-		dev_err(&pdev->dev, "failed to get pdb gpio, err: %d\n", err);
++		err = dev_err_probe(&pdev->dev, PTR_ERR(hda->pdb_gpiod),
++				    "failed to get pdb gpio\n");
+ 		goto out_free;
+ 	}
+ 	msleep(20);
+ 
+ 	hda->depop_mute_gpiod = devm_gpiod_get_optional(&pdev->dev, "depop-mute", GPIOD_OUT_HIGH);
+ 	if (IS_ERR(hda->depop_mute_gpiod)) {
+-		err = PTR_ERR(hda->depop_mute_gpiod);
+-		dev_err(&pdev->dev, "failed to get depop gpio, err: %d\n", err);
++		err = dev_err_probe(&pdev->dev, PTR_ERR(hda->depop_mute_gpiod),
++				    "failed to get depop gpio\n");
+ 		goto out_free;
+ 	}
+ 	gpiod_set_value_cansleep(hda->depop_mute_gpiod, 1);

@@ -1,17 +1,7 @@
-dmaengine: arm-dma350: keep FCH ACPI DMA optional clocks optional
-
-CIXHA014 is the FCH DMA350 instance.  Its firmware node does not
-describe AUDSS clock/reset resources and it is not remote-controlled, so
-treating any missing ACPI clock/reset as an audio-provider ordering
-problem leaves DMA0 permanently deferred.
-
-Keep the provider deferral for the remote-controlled AUDSS DMA instance,
-but allow the ordinary FCH ACPI instance to use the existing optional
-clock/reset path.
-
+diff --git a/drivers/dma/arm-dma350.c b/drivers/dma/arm-dma350.c
 --- a/drivers/dma/arm-dma350.c
 +++ b/drivers/dma/arm-dma350.c
-@@ -1277,14 +1277,10 @@
+@@ -1277,14 +1277,10 @@ static int d350_probe(struct platform_device *pdev)
  	}
  
  	/*
@@ -29,7 +19,7 @@ clock/reset path.
  
  	/*
  	 * Enable runtime PM to activate power domain. The runtime_resume
-@@ -1317,12 +1313,11 @@
+@@ -1317,12 +1313,11 @@ static int d350_probe(struct platform_device *pdev)
  			goto err_pm_put;
  		}
  		/*

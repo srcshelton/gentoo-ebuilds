@@ -1,0 +1,13 @@
+diff --git a/drivers/media/platform/cix/if/mvx_if.c b/drivers/media/platform/cix/if/mvx_if.c
+--- a/drivers/media/platform/cix/if/mvx_if.c
++++ b/drivers/media/platform/cix/if/mvx_if.c
+@@ -137,7 +137,8 @@ struct mvx_if_ops *mvx_if_create(struct device *dev,
+     dma_set_max_seg_size(dev, SZ_2G);
+ 
+ #if (KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE) && IS_ENABLED(CONFIG_OF)
+-    of_dma_configure_id(dev, dev->of_node, 0, NULL);
++    if (dev_of_node(dev))
++        of_dma_configure_id(dev, dev_of_node(dev), 0, NULL);
+ #endif
+ 
+     /* Create device context and store pointer in device private data. */

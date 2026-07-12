@@ -1,6 +1,5 @@
 CIX display: gate broken virtual encoder and keep ACPI backlight buildable
 
-
 diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
 --- a/drivers/gpu/drm/cix/Kconfig
 +++ b/drivers/gpu/drm/cix/Kconfig
@@ -17,9 +16,9 @@ diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
 diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
 --- a/drivers/video/backlight/pwm_bl.c
 +++ b/drivers/video/backlight/pwm_bl.c
-@@ -379,6 +379,14 @@ static const struct acpi_device_id pwm_backlight_acpi_match[] = {
- 
- MODULE_DEVICE_TABLE(acpi, pwm_backlight_acpi_match);
+@@ -369,6 +369,14 @@ int pwm_backlight_brightness_default(struct device *dev,
+ }
+ #endif
  
 +#ifdef CONFIG_ACPI
 +static const struct acpi_device_id pwm_backlight_acpi_match[] = {

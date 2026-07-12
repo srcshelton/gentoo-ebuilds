@@ -1,0 +1,26 @@
+diff --git a/drivers/pinctrl/cix/pinctrl-sky1-base.c b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+--- a/drivers/pinctrl/cix/pinctrl-sky1-base.c
++++ b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+@@ -157,9 +157,14 @@ sky1_pinctrl_find_pin_group(struct pinctrl_dev *pctldev,
+ 
+ 	ret = pinmux_generic_get_function_groups(pctldev, selector, &groups,
+ 						 &num_groups);
++	if (ret)
++		return NULL;
++
+ 	for (i = 0; i < num_groups; i++) {
+ 		ret = pinctrl_get_group_pins(pctldev, groups[i], &pins,
+ 					     &num_pins);
++		if (ret)
++			continue;
+ 		if (npins_in != num_pins)
+ 			continue;
+ 		for (j = 0; j < num_pins; j++) {
+@@ -427,6 +432,7 @@ static void sky1_pinconf_group_dbg_show(struct pinctrl_dev *pctldev,
+ 
+ 		name = pin_get_name(pctldev, pin_id);
+ 		ret = sky1_pinconf_get(pctldev, pin_id, &config);
++		if (ret)
+ 			return;
+ 		seq_printf(s, "  %s: 0x%lx\n", name, config);
+ 	}

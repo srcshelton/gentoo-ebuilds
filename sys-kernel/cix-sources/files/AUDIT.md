@@ -1,0 +1,89 @@
+# Maintained CIX kernel audit
+
+Audit date: 2026-07-12.
+
+This is the stable source-preparation set point for Linux 6.18 and newer.  It
+does not cover the legacy 6.1.x or 6.6.x ebuilds.
+
+## Bases tested
+
+| Series | Ebuild | CIX base | Result |
+| --- | --- | --- | --- |
+| 6.18 | `cix-sources-6.18.38` | `19f2947` | Prepared successfully |
+| 7.0 | `cix-sources-7.0.14-r1` | `19f2947` | Prepared successfully |
+| 7.1 | `cix-sources-7.1.3` | `19f2947` | Prepared successfully |
+
+All three preparations used the package helper so the ebuild, rather than a
+reconstructed filename list, controlled patch order.
+
+## Migration corrections
+
+The `759efc0` to `19f2947` review found and corrected these local migration
+problems:
+
+- The 6.18 and 7.0 Cadence GPIO ports instantiated the removed
+  `cdns_gpio_soc_data` type.  All maintained families now use the same
+  explicit quirk model, preserve firmware-owned Sky1 ACPI GPIO state, and
+  retain the AX3000 device-tree match.
+- The old display/backlight patch added a second `CIXH5041` ACPI match table
+  even though `19f2947` already provides it.  The redundant backlight change
+  was removed; the still-needed CIX virtual-encoder gate remains as `70020`.
+- The 7.0 SMMU, display, and GPIO patches were regenerated against their real
+  `19f2947` preimages.  The 6.18 direct replacement for Sky1 `0118` was also
+  regenerated against its post-CIX preimage.
+- The temporary `990xx` retention overlays were split by subsystem and moved
+  into their permanent ranges.  Only the explicitly experimental 7.1 EC
+  diagnostics remain in `99xxx`.
+- The compiler-warning aggregate was split among DRM, HWMON, irqchip, ISP,
+  Realtek networking, PHY, pinctrl, PM-domain, PL011, and ASoC owners.
+- Historical-only patches now live below `cix-3aad824` or `cix-759efc0`, with
+  a kernel-family or `shared` directory inside the checkpoint.
+
+Clean-room replay of each regenerated split reproduced the intended source
+files exactly.  The Cadence GPIO and PWM backlight objects also compile with
+Clang 19 for arm64 on all three prepared trees.
+
+## Fuzz policy and result
+
+No local patch in the latest 7.0 or 7.1 preparation used fuzz.  The final 6.18
+local fuzzy hunk was the direct Sky1 `0118` replacement and has been
+regenerated from its exact preimage.
+
+The logs still contain fuzzy hunks in Gentoo genpatches and in the imported
+Sky1 queue.  Those external patches are reported separately and are not
+downstream patch-file defects in this repository.
+
+## Upstream pull requests
+
+[CIX PR #37][cix-pr-37] is technically coherent and has a positive 7.0.14
+hardware test.
+It replaces shutdown-only mitigations with the normal CDNSP remove path, which
+tears down child xHCI devices before clocks and resets.  We carry that change
+as `60015` in both the 7.0 and 7.1 maintained builds.
+
+[CIX PR #44][cix-pr-44] does not match our current PPTT.  Both describe the
+same broad
+Sky1 split and 12 MiB system cache, but PR #44 adds a shared 2 MiB L2 for the
+four efficiency cores and gives every cache an explicit ID.  Our table links
+those cores directly to the system cache and gives only that shared cache an
+explicit ID.
+
+The Sky1 device-tree source used by this package also links its four
+efficiency cores directly to the 12 MiB cache.  It therefore does not prove
+PR #44's extra shared L2.  No PPTT payload was changed in this audit.  The
+Orange Pi 6 Plus SSDT changes in that pull request are board-specific and must
+not be imported into Orion O6 payloads merely because both boards use Sky1.
+
+## Remaining evidence requirements
+
+The PPTT alternative can be reconsidered when a board-independent source,
+architectural cache-register capture, or authoritative CIX topology document
+proves the 2 MiB shared efficiency-core L2 and its sharing relationship.
+
+This audit proves source preparation, zero local fuzz, regenerated-patch
+replay, and focused compilation.  It is not a substitute for an Orion O6 or
+O6N boot test, suspend/resume test, PCIe endpoint test, or full distribution
+kernel build.
+
+[cix-pr-37]: https://github.com/cixtech/cix-linux-main/pull/37
+[cix-pr-44]: https://github.com/cixtech/cix-linux-main/pull/44

@@ -1,0 +1,27 @@
+diff --git a/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
+--- a/drivers/hwmon/cix-fan.c
++++ b/drivers/hwmon/cix-fan.c
+@@ -208,8 +208,8 @@ static int cix_fan_handle_ec_failure(struct cix_fan_data *data,
+ static int cix_fan_get_pwm_raw(struct cix_fan_data *data, long *val)
+ {
+ 	union acpi_object argv[] = {
+-		{ .type = ACPI_TYPE_INTEGER, .integer.value = 0 },
+-		{ .type = ACPI_TYPE_INTEGER, .integer.value = 0 },
++		{ .integer = { ACPI_TYPE_INTEGER, 0 } },
++		{ .integer = { ACPI_TYPE_INTEGER, 0 } },
+ 	};
+ 	struct acpi_object_list args = {
+ 		.count = ARRAY_SIZE(argv),
+@@ -256,9 +256,9 @@ static int cix_fan_get_pwm_raw(struct cix_fan_data *data, long *val)
+ static int cix_fan_set_pwm_percent(struct cix_fan_data *data, unsigned long duty)
+ {
+ 	union acpi_object argv[] = {
+-		{ .type = ACPI_TYPE_INTEGER, .integer.value = duty },
+-		{ .type = ACPI_TYPE_INTEGER, .integer.value = 0 },
+-		{ .type = ACPI_TYPE_INTEGER, .integer.value = 0 },
++		{ .integer = { ACPI_TYPE_INTEGER, duty } },
++		{ .integer = { ACPI_TYPE_INTEGER, 0 } },
++		{ .integer = { ACPI_TYPE_INTEGER, 0 } },
+ 	};
+ 	struct acpi_object_list args = {
+ 		.count = ARRAY_SIZE(argv),

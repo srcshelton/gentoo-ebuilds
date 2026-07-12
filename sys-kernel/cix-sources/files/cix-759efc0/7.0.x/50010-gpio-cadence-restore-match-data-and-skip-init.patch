@@ -1,0 +1,28 @@
+gpio: cadence: restore AX3000 firmware-preserve match data
+
+CIX's ACPI GPIO support dropped the existing AX3000 OF compatible while
+reworking the Cadence GPIO match data. The AX3000 binding used match data to
+preserve firmware-provided GPIO direction, output, and bypass state, so losing
+the entry can break platform-critical pins on non-CIX DT systems.
+
+CIX's later Sky1 ACPI fix already provides a structured match-data path and
+firmware-preserve flag. Reuse that infrastructure to restore the AX3000
+compatible without reworking the Sky1 PDC integration.
+
+---
+diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -502,7 +502,12 @@ static void cdns_gpio_remove(struct platform_device *pdev)
+ 		clk_disable_unprepare(cgpio->pclk);
+ }
+ 
++static const struct cdns_gpio_soc_data ax3000_soc = {
++	.preserve_firmware_config = true,
++};
++
+ static const struct of_device_id cdns_of_ids[] = {
++	{ .compatible = "axiado,ax3000-gpio", .data = &ax3000_soc },
+ 	{ .compatible = "cdns,gpio-r1p02" },
+ 	/*
+ 	 * DT Sky1 platform: keep existing behavior by default (no preserve),

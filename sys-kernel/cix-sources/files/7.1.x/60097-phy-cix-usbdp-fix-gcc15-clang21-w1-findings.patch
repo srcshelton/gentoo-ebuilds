@@ -1,0 +1,12 @@
+diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
+--- a/drivers/phy/cix/phy-cix-usbdp.c
++++ b/drivers/phy/cix/phy-cix-usbdp.c
+@@ -1069,6 +1069,8 @@ static int udphy_dp_phy_set_rate(struct cix_udphy *udphy,
+ 		ret = regmap_multi_reg_write(udphy->phy_regmap, sky1_udphy_dp_partial_conf,
+ 						ARRAY_SIZE(sky1_udphy_dp_partial_conf));
+ 	}
++	if (ret)
++		return ret;
+ 
+ 	switch (dp->link_rate) {
+ 	case 0x6:  conf = &link_cfg[0]; break;

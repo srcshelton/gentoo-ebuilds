@@ -1,0 +1,37 @@
+diff --git a/drivers/irqchip/irq-sky1-pdc.c b/drivers/irqchip/irq-sky1-pdc.c
+--- a/drivers/irqchip/irq-sky1-pdc.c
++++ b/drivers/irqchip/irq-sky1-pdc.c
+@@ -207,6 +207,8 @@ static int sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
+ {
+ 	struct irq_domain *domain;
+ 	struct pdcv1_irqchip_data *cd;
++	struct resource *res_dp;
++	int ret;
+ 
+ 	cd = kzalloc(sizeof(struct pdcv1_irqchip_data), GFP_KERNEL);
+ 	if (!cd) {
+@@ -215,19 +217,19 @@ static int sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
+ 	}
+ 
+ 	raw_spin_lock_init(&cd->rlock);
+-	struct resource *res_dp = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	res_dp = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	cd->pdc_base = devm_ioremap_resource(&pdev->dev, res_dp);
+-	if (!cd->pdc_base) {
+-		pr_err("%pACPI: unable to map pdc registers\n", pdev);
++	if (IS_ERR(cd->pdc_base)) {
++		ret = PTR_ERR(cd->pdc_base);
++		dev_err(&pdev->dev, "unable to map pdc registers: %d\n", ret);
+ 		kfree(cd);
+-		return -ENOMEM;
++		return ret;
+ 	}
+ 
+ 	domain = acpi_irq_create_hierarchy(0, PDC_MAX_IRQS, pdev->dev.fwnode,
+ 					   &pdcv1_irqchip_data_domain_ops, cd);
+ 
+ 	if (!domain) {
+-		iounmap(cd->pdc_base);
+ 		kfree(cd);
+ 		return -ENOMEM;
+ 	}

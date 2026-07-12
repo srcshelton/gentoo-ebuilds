@@ -1,0 +1,12 @@
+diff --git a/drivers/irqchip/irq-sky1-pdc.c b/drivers/irqchip/irq-sky1-pdc.c
+--- a/drivers/irqchip/irq-sky1-pdc.c
++++ b/drivers/irqchip/irq-sky1-pdc.c
+@@ -136,7 +136,7 @@ static const struct irq_domain_ops pdcv1_irqchip_data_domain_ops = {
+ 	.free           = irq_domain_free_irqs_common,
+ };
+ 
+-static const struct of_device_id pdcv1_of_match[] = {
++static const struct of_device_id pdcv1_of_match[] __maybe_unused = {
+ 	{ .compatible = "cix,sky1-pdc",  .data = (const void *) 2 },
+ 	{ /* END */ }
+ };

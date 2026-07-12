@@ -118,7 +118,14 @@ jobs:
                   "config_version": "generic64k",
               },
           )
+          npu_abi_by_line = {
+              "6.18": "r2p2",
+              "7.0": "r2p2",
+              "7.1": "r2p0",
+          }
           for line in sorted(selected, key=lambda value: tuple(map(int, value.split(".")))):
+              if line not in npu_abi_by_line:
+                  raise SystemExit(f"No expected NPU ABI has been declared for Linux {line}")
               for board in board_profiles:
                   for firmware in firmware_profiles:
                       for flavour in config_flavours:
@@ -128,6 +135,7 @@ jobs:
                               "board_profile": board["board_profile"],
                               "board_package": f"{board['board_package_base']}-{flavour['config_package']}-{firmware['firmware_package']}",
                               "board_version": f"{board['board_version_base']}.{flavour['config_version']}.{firmware['firmware_version']}",
+                              "npu_abi": npu_abi_by_line[line],
                           })
                           entry.update(firmware)
                           if board["board_profile"] == "o6-acpi" and firmware["firmware"] == "1.3":
@@ -164,6 +172,7 @@ jobs:
       ACPI_TABLE_UPGRADE_MODE: ${{ matrix.acpi_table_upgrade }}
       ACPI_INITRAMFS_PROFILE: ${{ matrix.acpi_initramfs_profile }}
       KERNEL_CONFIG_FLAVOUR: ${{ matrix.config_flavour }}
+      NPU_ABI: ${{ matrix.npu_abi }}
     steps:
       - name: Check out overlay
         uses: actions/checkout@v7
@@ -456,6 +465,7 @@ jobs:
             --kernel-tree "${source_dir}"
             --board-profile "${BOARD_PROFILE}"
             --cix-patches yes
+            --npu-abi "${NPU_ABI}"
             --apply
           )
           if [[ -n "${acpi_table_upgrade_initramfs_source}" ]]; then

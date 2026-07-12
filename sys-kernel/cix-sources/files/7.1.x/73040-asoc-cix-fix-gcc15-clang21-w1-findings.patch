@@ -1,0 +1,22 @@
+diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
+--- a/sound/soc/cix/card-utils.c
++++ b/sound/soc/cix/card-utils.c
+@@ -109,16 +109,9 @@ static int cix_dailink_parsing_fmt(struct device_node *np,
+ static bool cix_dailink_status_check(struct device_node *np)
+ {
+ 	const char *status;
+-	int ret;
+-
+-	ret = of_property_read_string(np, "status", &status);
+ 
+-	if (status) {
+-		if (!strcmp(status, "okay") || !strcmp(status, "ok"))
+-			return true;
+-		else
+-			return false;
+-	}
++	if (!of_property_read_string(np, "status", &status))
++		return !strcmp(status, "okay") || !strcmp(status, "ok");
+ 
+ 	return true;
+ }

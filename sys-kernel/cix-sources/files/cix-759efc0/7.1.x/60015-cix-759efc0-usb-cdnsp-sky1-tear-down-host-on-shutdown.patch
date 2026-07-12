@@ -1,0 +1,112 @@
+usb: cdnsp-sky1: tear down host on shutdown
+
+The Sky1 CDNSP shutdown path directly asserted resets and disabled clocks
+while the child xHCI host could still have devices and asynchronous error
+recovery paths live above it.  Reuse the normal remove path for shutdown so
+the host controller and child devices are torn down before clock gating.
+
+---
+diff --git a/drivers/usb/cdns3/cdnsp-sky1.c b/drivers/usb/cdns3/cdnsp-sky1.c
+--- a/drivers/usb/cdns3/cdnsp-sky1.c
++++ b/drivers/usb/cdns3/cdnsp-sky1.c
+@@ -29,7 +29,6 @@
+ #include "../host/xhci.h"
+ #include "../host/xhci-plat.h"
+ 
+-#define GADGET_DEV_NAME_PREFIX	"gadget."
+ #include "cdnsp-sky1.h"
+ 
+ /*
+@@ -908,83 +907,6 @@ static const struct acpi_device_id cdnsp_sky1_acpi_match[] = {
+ };
+ MODULE_DEVICE_TABLE(acpi, cdnsp_sky1_acpi_match);
+ 
+-static int cdnsp_sky1_find_cdns(struct device *dev, void *data)
+-{
+-	struct cdns **cdns_ptr = data;
+-
+-	if (dev->of_node && of_device_is_compatible(dev->of_node, "cdns,usbssp")) {
+-		*cdns_ptr = dev_get_drvdata(dev);
+-		return 1;
+-	}
+-
+-	if (acpi_match_device(cdns_sky1_sub_match, dev)) {
+-		*cdns_ptr = dev_get_drvdata(dev);
+-		return 1;
+-	}
+-	return 0;
+-}
+-
+-static int cdnsp_sky1_find_gadget_match(struct device *dev, void *data)
+-{
+-	struct device **gadget_dev = data;
+-	const char *name = dev_name(dev);
+-
+-	/*
+-	 * The gadget device is registered on the gadget bus with name
+-	 * "gadget.%d" (see usb_add_gadget_udc -> dev_set_name).
+-	 * It sits on the gadget bus and has the function driver bound to it.
+-	 */
+-	if (name && !strncmp(name, GADGET_DEV_NAME_PREFIX,
+-				strlen(GADGET_DEV_NAME_PREFIX))) {
+-		*gadget_dev = dev;
+-		return 1;
+-	}
+-	return 0;
+-}
+-
+-static void cdnsp_sky1_shutdown(struct platform_device *pdev)
+-{
+-	struct device *dev = &pdev->dev;
+-	struct cdnsp_sky1 *data = dev_get_drvdata(dev);
+-	struct cdns *cdns = NULL;
+-	struct device *gadget_dev = NULL;
+-
+-	if (!device_may_wakeup(dev)) {
+-		/*
+-		 * Find the cdns3 child device, then find its gadget device
+-		 * and release the function driver before disabling clocks.
+-		 * This ensures all register accesses in gadget_unbind_driver
+-		 * complete before clocks are turned off.
+-		 */
+-		device_for_each_child(dev, &cdns, cdnsp_sky1_find_cdns);
+-		if (cdns)
+-			device_for_each_child(cdns->dev, &gadget_dev,
+-					      cdnsp_sky1_find_gadget_match);
+-		if (gadget_dev)
+-			device_release_driver(gadget_dev);
+-
+-		if (cdns && cdns->host_dev) {
+-			struct usb_hcd *hcd = platform_get_drvdata(cdns->host_dev);
+-
+-			if (hcd && hcd->irq > 0) {
+-				disable_irq(hcd->irq);
+-				synchronize_irq(hcd->irq);
+-				/*
+-				 * Clear HCD_FLAG_HW_ACCESSIBLE before disable_irq.
+-				 * This prevents usb_hcd_irq from calling xhci_irq
+-				 * (which reads USBSTS) after clocks are disabled.
+-				 */
+-				clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+-			}
+-		}
+-
+-		dev_dbg(dev, "at %s, reset controller\n", __func__);
+-		reset_control_assert(data->reset);
+-		reset_control_assert(data->preset);
+-		sky1_usb_clk_disable_all(dev);
+-	}
+-}
+-
+ static struct platform_driver cdnsp_sky1_driver = {
+ 	.probe		= cdnsp_sky1_probe,
+ 	.remove		= cdnsp_sky1_remove,
+@@ -994,7 +916,7 @@ static struct platform_driver cdnsp_sky1_driver = {
+ 		.acpi_match_table = ACPI_PTR(cdnsp_sky1_acpi_match),
+ 		.pm	= CDNSP_SKY1_PM_OPS,
+ 	},
+-	.shutdown = cdnsp_sky1_shutdown,
++	.shutdown	= cdnsp_sky1_remove,
+ };
+ 
+ module_platform_driver(cdnsp_sky1_driver);

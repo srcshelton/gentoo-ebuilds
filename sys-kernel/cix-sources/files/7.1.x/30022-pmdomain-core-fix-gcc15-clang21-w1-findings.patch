@@ -1,0 +1,14 @@
+diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
+--- a/drivers/pmdomain/core.c
++++ b/drivers/pmdomain/core.c
+@@ -3461,6 +3461,10 @@ static int genpd_get_acpi_power_domain_args(struct device *dev,
+ 
+ /**
+  * __genpd_dev_pm_attach_acpi - ACPI variant of __genpd_dev_pm_attach
++ * @dev: Device to attach to the power domain
++ * @base_dev: Device whose firmware node contains the power-domain reference
++ * @index: Power-domain reference index
++ * @power_on: Whether to power on the domain after attaching
+  *
+  * Uses fwnode_property_get_reference_args() on the base device's "power-domains"
+  * property to resolve the PM domain provider and index, then attaches @dev to

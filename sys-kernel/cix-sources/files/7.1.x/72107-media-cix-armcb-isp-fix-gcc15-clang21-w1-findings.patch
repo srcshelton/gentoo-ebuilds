@@ -1,0 +1,135 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -710,7 +710,7 @@ static void armcb_v4l2_config_queue_event(struct video_device *pvdev,
+ 	v4l2_event_queue(pvdev, &ev);
+ }
+ 
+-/**
++/*
+  * @description: record interrupt mask and mask interrupt
+  * @param {u32} *mask: pointer to interrupt mask
+  * @return {*}
+@@ -721,7 +721,7 @@ static inline void armcb_i5_mask_int(u32 *mask)
+ 	armcb_isp_write_reg(I5_INT_MASK_ADDR, 0xFFFFFFFF);
+ }
+ 
+-/**
++/*
+  * @description: set register mask register to original value
+  * @param {u32} mask: original interrupt mask
+  * @return {*}
+@@ -731,7 +731,7 @@ static inline void armcb_i5_unmask_int(u32 mask)
+ 	armcb_isp_write_reg(I5_INT_MASK_ADDR, mask);
+ }
+ 
+-/**
++/*
+  * @description: i5 clear interupt
+  * @param {u32} status: current interrupt status
+  * @return {*}
+@@ -744,7 +744,7 @@ static inline void armcb_i5_clear_int(u32 status)
+ 	armcb_isp_write_reg(I5_INT_CLEAR_ADDR, 0x0);
+ }
+ 
+-/**
++/*
+  * @description: process afbc error interrupt
+  * @param {isp_irq_info} *pirq_info: pointer to irq information
+  * @return {*}
+@@ -910,7 +910,7 @@ static struct isp_irq_info *armcb_irq_msg_ev_alloc(struct armcb_irq_msg_fh *fh)
+ 	return info;
+ }
+ 
+-/**
++/*
+  * @description: record interrupt mask and mask interrupt
+  * @param {u32} *pnormal_mask: pointer to normal mask
+  * @param {u32} *perror_mask: pointer to error mask
+@@ -924,7 +924,7 @@ static inline void armcb_i7_mask_int(u32 *pnormal_mask, u32 *perror_mask)
+ 	armcb_isp_write_reg(I7_INT_ERR_MASK_ADDR, 0xFFFFFFFF);
+ }
+ 
+-/**
++/*
+  * @description: set register mask register to original value
+  * @param {u32} normal_mask: original normal mask
+  * @param {u32} error_mask: original error mask
+@@ -957,7 +957,7 @@ static inline void armcb_i7_unmask_int(u32 normal_mask, u32 error_mask)
+ 	armcb_isp_write_reg(I7_INT_ERR_MASK_ADDR, error_mask);
+ }
+ 
+-/**
++/*
+  * @description: clear normal interrupt
+  * @param {u32} status: current normal interrupt status
+  * @return {*}
+@@ -969,7 +969,7 @@ static inline void armcb_i7_clear_normal_int(u32 status)
+ 			    status | I7_INT_VIN_EXPX_INT_MASK);
+ }
+ 
+-/**
++/*
+  * @description: clear error interrupt
+  * @param {u32} status: current error interrupt status
+  * @return {*}
+@@ -980,7 +980,7 @@ static inline void armcb_i7_clear_error_int(u32 status)
+ 	armcb_isp_write_reg(I7_INT_ERR_CLEAR_ADDR, status);
+ }
+ 
+-/**
++/*
+  * @description: get sof frame count and update id and frame_cnt_sel
+  * @param {isp_irq_info} *pirq_info: pointer to irq information
+  * @param {i7_index_type_t} *pint_id: pointer to id of interrupt
+@@ -1064,7 +1064,7 @@ static inline void armcb_i7_get_sof_frm_cnt(struct isp_irq_info *pirq_info,
+ 	}
+ }
+ 
+-/**
++/*
+  * @description: get sol and 3a frame count
+  * @param {isp_irq_info} *pirq_info: pointer to irq information
+  * @param {i7_index_type_t} *pint_id: pointer to id of interrupt
+@@ -1096,7 +1096,7 @@ armcb_i7_get_sol_3a_frm_cnt(struct isp_irq_info *pirq_info,
+ 	pirq_info->frm_cnt_3a = armcb_isp_read_reg(I7_INT_3A_FRMCNT_ADDR);
+ }
+ 
+-/**
++/*
+  * @description: get next sol frame count in multi-cam cases
+  * @param {isp_irq_info} *pirq_info: pointer to irq information
+  * @param {i7_index_type_t} *pint_id: pointer to id of interrupt
+@@ -1118,7 +1118,7 @@ armcb_i7_get_nxt_sol_frm_cnt(struct isp_irq_info *pirq_info,
+ 	pirq_info->frm_cnt_nxt_sol = armcb_isp_read_reg(I7_INT_SOL_FRMCNT_ADDR);
+ }
+ 
+-/**
++/*
+  * @description: process afbc error interrupt
+  * @param {isp_irq_info} *pirq_info: pointer to irq information
+  * @return {*}
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -537,7 +537,7 @@ static int armcb_v4l2_post_streamoff_event(armcb_v4l2_dev_t *dev)
+ 	return 0;
+ }
+ 
+-/**
++/*
+  * Release one stream slot: clear g_outport_map, stream_id_index, deinit stream,
+  * clear pstreams[stream_id] and stream_mask. Caller must hold dev->queue_lock.
+  */
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+@@ -189,6 +189,8 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ 
+ /**
+  * armcb_v4l2_stream_clear_buffer_lists - Clear stream buffer lists without
++ * @pstream: stream whose queued buffer lists should be cleared
++ *
+  * completing buffers. Call only after vb2_streamoff has already completed
+  * buffers (e.g. to avoid double vb2_buffer_done). Caller must hold
+  * appropriate lock (e.g. queue_lock).

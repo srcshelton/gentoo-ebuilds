@@ -1,0 +1,168 @@
+diff --git a/drivers/watchdog/sbsa_gwdt.c b/drivers/watchdog/sbsa_gwdt.c
+--- a/drivers/watchdog/sbsa_gwdt.c
++++ b/drivers/watchdog/sbsa_gwdt.c
+@@ -40,6 +40,7 @@
+  * is half of that in the single stage mode.
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/io.h>
+ #include <linux/io-64-nonatomic-lo-hi.h>
+ #include <linux/interrupt.h>
+@@ -47,6 +48,7 @@
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+ #include <linux/platform_device.h>
++#include <linux/string.h>
+ #include <linux/uaccess.h>
+ #include <linux/watchdog.h>
+ #include <asm/arch_timer.h>
+@@ -79,6 +81,9 @@
+ #define SBSA_GWDT_IMPL_SHIFT	0
+ #define SBSA_GWDT_IMPL_MEDIATEK	0x426
+ 
++#define CIX_SKY1_GWDT_CONTROL_BASE	0x16003000ULL
++#define CIX_SKY1_GWDT_REFRESH_BASE	0x16008000ULL
++
+ /**
+  * struct sbsa_gwdt - Internal representation of the SBSA GWDT
+  * @wdd:		kernel watchdog_device structure
+@@ -86,6 +91,8 @@
+  * @version:            store the architecture version
+  * @need_ws0_race_workaround:
+  *			indicate whether to adjust wdd->timeout to avoid a race with WS0
++ * @control_frame_ping:
++ *			reload the watchdog through the control frame on broken refresh frames
+  * @refresh_base:	Virtual address of the watchdog refresh frame
+  * @control_base:	Virtual address of the watchdog control frame
+  */
+@@ -94,6 +101,7 @@ struct sbsa_gwdt {
+ 	u32			clk;
+ 	int			version;
+ 	bool			need_ws0_race_workaround;
++	bool			control_frame_ping;
+ 	void __iomem		*refresh_base;
+ 	void __iomem		*control_base;
+ };
+@@ -147,6 +155,20 @@ static void sbsa_gwdt_reg_write(u64 val, struct sbsa_gwdt *gwdt)
+ 		lo_hi_writeq(val, gwdt->control_base + SBSA_GWDT_WOR);
+ }
+ 
++static void sbsa_gwdt_load_timeout(struct sbsa_gwdt *gwdt,
++				   unsigned int timeout)
++{
++	if (action)
++		sbsa_gwdt_reg_write((u64)gwdt->clk * timeout, gwdt);
++	else
++		/*
++		 * In the single stage mode, The first signal (WS0) is ignored,
++		 * the timeout is (WOR * 2), so the WOR should be configured
++		 * to half value of timeout.
++		 */
++		sbsa_gwdt_reg_write(((u64)gwdt->clk / 2) * timeout, gwdt);
++}
++
+ /*
+  * watchdog operation functions
+  */
+@@ -158,15 +180,7 @@ static int sbsa_gwdt_set_timeout(struct watchdog_device *wdd,
+ 	wdd->timeout = timeout;
+ 	timeout = clamp_t(unsigned int, timeout, 1, wdd->max_hw_heartbeat_ms / 1000);
+ 
+-	if (action)
+-		sbsa_gwdt_reg_write((u64)gwdt->clk * timeout, gwdt);
+-	else
+-		/*
+-		 * In the single stage mode, The first signal (WS0) is ignored,
+-		 * the timeout is (WOR * 2), so the WOR should be configured
+-		 * to half value of timeout.
+-		 */
+-		sbsa_gwdt_reg_write(((u64)gwdt->clk / 2) * timeout, gwdt);
++	sbsa_gwdt_load_timeout(gwdt, timeout);
+ 
+ 	/*
+ 	 * Some watchdog hardware has a race condition where it will ignore
+@@ -221,6 +235,19 @@ static unsigned int sbsa_gwdt_get_timeleft(struct watchdog_device *wdd)
+ static int sbsa_gwdt_keepalive(struct watchdog_device *wdd)
+ {
+ 	struct sbsa_gwdt *gwdt = watchdog_get_drvdata(wdd);
++	unsigned int timeout;
++
++	if (gwdt->control_frame_ping) {
++		/*
++		 * CIX Sky1 firmware advertises a refresh frame, but WRR writes
++		 * do not reload the counter. Reprogram WOR instead, matching
++		 * the control-frame path used by WDIOC_SETTIMEOUT.
++		 */
++		timeout = clamp_t(unsigned int, wdd->timeout, 1,
++				  wdd->max_hw_heartbeat_ms / 1000);
++		sbsa_gwdt_load_timeout(gwdt, timeout);
++		return 0;
++	}
+ 
+ 	/*
+ 	 * Writing WRR for an explicit watchdog refresh.
+@@ -245,6 +272,45 @@ static void sbsa_gwdt_get_version(struct watchdog_device *wdd)
+ 		!action && (impl == SBSA_GWDT_IMPL_MEDIATEK);
+ }
+ 
++static bool sbsa_gwdt_acpi_table_is_cix_sky1(void)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	struct acpi_table_header *gtdt;
++	bool match;
++
++	if (acpi_disabled)
++		return false;
++
++	if (ACPI_FAILURE(acpi_get_table(ACPI_SIG_GTDT, 0, &gtdt)))
++		return false;
++
++	match = !memcmp(gtdt->oem_id, "CIXTEK", 6) &&
++		!memcmp(gtdt->oem_table_id, "SKY1EDK2", 8);
++	acpi_put_table(gtdt);
++
++	return match;
++#else
++	return false;
++#endif
++}
++
++static bool
++sbsa_gwdt_needs_cix_sky1_control_frame_ping(struct platform_device *pdev)
++{
++	const struct resource *cf_res;
++	const struct resource *rf_res;
++
++	if (!sbsa_gwdt_acpi_table_is_cix_sky1())
++		return false;
++
++	cf_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	rf_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++
++	return cf_res && rf_res &&
++		cf_res->start == CIX_SKY1_GWDT_CONTROL_BASE &&
++		rf_res->start == CIX_SKY1_GWDT_REFRESH_BASE;
++}
++
+ static int sbsa_gwdt_start(struct watchdog_device *wdd)
+ {
+ 	struct sbsa_gwdt *gwdt = watchdog_get_drvdata(wdd);
+@@ -319,6 +385,8 @@ static int sbsa_gwdt_probe(struct platform_device *pdev)
+ 	gwdt->clk = arch_timer_get_cntfrq();
+ 	gwdt->refresh_base = rf_base;
+ 	gwdt->control_base = cf_base;
++	gwdt->control_frame_ping =
++		sbsa_gwdt_needs_cix_sky1_control_frame_ping(pdev);
+ 
+ 	wdd = &gwdt->wdd;
+ 	wdd->parent = dev;
+@@ -395,6 +463,8 @@ static int sbsa_gwdt_probe(struct platform_device *pdev)
+ 	dev_info(dev, "Initialized with %ds timeout @ %u Hz, action=%d.%s\n",
+ 		 wdd->timeout, gwdt->clk, action,
+ 		 status & SBSA_GWDT_WCS_EN ? " [enabled]" : "");
++	if (gwdt->control_frame_ping)
++		dev_info(dev, "using CIX Sky1 control-frame ping quirk\n");
+ 
+ 	return 0;
+ }

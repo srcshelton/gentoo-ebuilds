@@ -1,0 +1,139 @@
+diff --git a/drivers/thermal/cix/cix_cpu_ipa.c b/drivers/thermal/cix/cix_cpu_ipa.c
+--- a/drivers/thermal/cix/cix_cpu_ipa.c
++++ b/drivers/thermal/cix/cix_cpu_ipa.c
+@@ -6,16 +6,21 @@
+  */
+ 
+ #include <linux/cix/cpu_ipa.h>
++#include <linux/acpi.h>
+ #include <linux/cpu.h>
+ #include <linux/device.h>
+ #include <linux/export.h>
+ #include <linux/io.h>
++#include <linux/ioport.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <asm/cputype.h>
+ 
+ #define REG_OFFSET	0x40
++#define CIX_CPU_IPA_BASE	0x83bf0300
++#define CIX_CPU_IPA_SIZE	0x300
++#define CIX_CPU_IPA_CPU_COUNT	12
+ 
+ struct cpu_ipa_info {
+ 	u32 off_cnt;
+@@ -30,6 +35,20 @@ struct cpu_ipa {
+ };
+ 
+ static struct cpu_ipa *cpu_ipa_dev;
++static struct platform_device *cpu_ipa_acpi_pdev;
++
++static struct resource cpu_ipa_acpi_resources[] = {
++	DEFINE_RES_MEM(CIX_CPU_IPA_BASE, CIX_CPU_IPA_SIZE),
++};
++
++static bool cpu_ipa_sky1_acpi_present(void)
++{
++	if (!IS_ENABLED(CONFIG_ACPI) || acpi_disabled || of_have_populated_dt())
++		return false;
++
++	return acpi_dev_found("CIXHA010") || acpi_dev_found("CIXH4000") ||
++	       acpi_dev_found("CIXH2020");
++}
+ 
+ static struct cpu_ipa_info *cpu_ipa_info_for_cpu(unsigned int cpu)
+ {
+@@ -39,7 +58,7 @@ static struct cpu_ipa_info *cpu_ipa_info_for_cpu(unsigned int cpu)
+ 		return NULL;
+ 
+ 	pcpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
+-	if (pcpu > 12)
++	if (pcpu >= CIX_CPU_IPA_CPU_COUNT)
+ 		return NULL;
+ 
+ 	return cpu_ipa_dev->regs + pcpu * REG_OFFSET;
+@@ -87,6 +106,39 @@ int cix_get_dynamic_power_cpus(const struct cpumask *cpus)
+ }
+ EXPORT_SYMBOL_GPL(cix_get_dynamic_power_cpus);
+ 
++static ssize_t cpu_power_show(struct device *dev,
++			      struct device_attribute *attr, char *buf)
++{
++	unsigned int cpu;
++	int len = 0;
++	int total_static = 0;
++	int total_dynamic = 0;
++
++	len += sysfs_emit_at(buf, len, "CPU\tStatic(mW)\tDynamic(mW)\n");
++
++	for_each_online_cpu(cpu) {
++		int static_power = cix_get_static_power(cpu);
++		int dynamic_power = cix_get_dynamic_power(cpu);
++
++		len += sysfs_emit_at(buf, len, "%u\t%d\t\t%d\n", cpu,
++				     static_power, dynamic_power);
++		total_static += static_power;
++		total_dynamic += dynamic_power;
++	}
++
++	len += sysfs_emit_at(buf, len, "Total\t%d\t\t%d\n",
++			     total_static, total_dynamic);
++
++	return len;
++}
++static DEVICE_ATTR_RO(cpu_power);
++
++static struct attribute *cpu_ipa_attrs[] = {
++	&dev_attr_cpu_power.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(cpu_ipa);
++
+ static int cpu_ipa_probe(struct platform_device *pdev)
+ {
+ 	struct cpu_ipa *ipa;
+@@ -140,9 +192,42 @@ static struct platform_driver cpu_ipa_platdrv = {
+ 		.name	= "cpu-ipa",
+ 		.pm	= pm_sleep_ptr(&cpu_ipa_pm),
+ 		.of_match_table = cpu_ipa_of_match,
++		.dev_groups = cpu_ipa_groups,
+ 	},
+ };
+-module_platform_driver(cpu_ipa_platdrv);
++
++static int __init cpu_ipa_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&cpu_ipa_platdrv);
++	if (ret)
++		return ret;
++
++	if (cpu_ipa_sky1_acpi_present()) {
++		cpu_ipa_acpi_pdev =
++			platform_device_register_simple("cpu-ipa",
++							PLATFORM_DEVID_NONE,
++							cpu_ipa_acpi_resources,
++							ARRAY_SIZE(cpu_ipa_acpi_resources));
++		if (IS_ERR(cpu_ipa_acpi_pdev)) {
++			ret = PTR_ERR(cpu_ipa_acpi_pdev);
++			cpu_ipa_acpi_pdev = NULL;
++			platform_driver_unregister(&cpu_ipa_platdrv);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++module_init(cpu_ipa_init);
++
++static void __exit cpu_ipa_exit(void)
++{
++	platform_device_unregister(cpu_ipa_acpi_pdev);
++	platform_driver_unregister(&cpu_ipa_platdrv);
++}
++module_exit(cpu_ipa_exit);
+ 
+ MODULE_DESCRIPTION("CIX CPU IPA support driver");
+ MODULE_AUTHOR("Cix Technology Group Co., Ltd.");

@@ -1,0 +1,1061 @@
+diff --git a/drivers/nvmem/Kconfig b/drivers/nvmem/Kconfig
+--- a/drivers/nvmem/Kconfig
++++ b/drivers/nvmem/Kconfig
+@@ -63,6 +63,19 @@ config NVMEM_APPLE_SPMI
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called apple-nvmem-spmi.
+ 
++config NVMEM_SKY1
++	tristate "CIX Sky1 eFuse support"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on HAVE_ARM_SMCCC
++	depends on OF || ACPI
++	help
++	  Say y here to enable support for reading the CIX Sky1 eFuse
++	  window through the firmware SMCCC interface. The driver exposes
++	  the OPN cell used by the Sky1 SoC information driver.
++
++	  This driver can also be built as a module. If so, the module
++	  will be called nvmem-sky1.
++
+ config NVMEM_BCM_OCOTP
+ 	tristate "Broadcom On-Chip OTP Controller support"
+ 	depends on ARCH_BCM_IPROC || COMPILE_TEST
+diff --git a/drivers/nvmem/Makefile b/drivers/nvmem/Makefile
+--- a/drivers/nvmem/Makefile
++++ b/drivers/nvmem/Makefile
+@@ -16,6 +16,8 @@ obj-$(CONFIG_NVMEM_APPLE_EFUSES)	+= nvmem-apple-efuses.o
+ nvmem-apple-efuses-y 			:= apple-efuses.o
+ obj-$(CONFIG_NVMEM_APPLE_SPMI)		+= apple_nvmem_spmi.o
+ apple_nvmem_spmi-y			:= apple-spmi-nvmem.o
++obj-$(CONFIG_NVMEM_SKY1)		+= nvmem-sky1.o
++nvmem-sky1-y				:= sky1-nvmem.o
+ obj-$(CONFIG_NVMEM_BCM_OCOTP)		+= nvmem-bcm-ocotp.o
+ nvmem-bcm-ocotp-y			:= bcm-ocotp.o
+ obj-$(CONFIG_NVMEM_BRCM_NVRAM)		+= nvmem_brcm_nvram.o
+diff --git a/drivers/nvmem/sky1-nvmem.c b/drivers/nvmem/sky1-nvmem.c
+new file mode 100644
+index 0000000..89a5a24
+--- /dev/null
++++ b/drivers/nvmem/sky1-nvmem.c
+@@ -0,0 +1,176 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Sky1 NVMEM (eFuse) driver
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ *
++ * Reads efuse data via ARM SMCCC firmware interface.
++ */
++
++#include <linux/arm-smccc.h>
++#include <linux/acpi.h>
++#include <linux/module.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/nvmem-provider.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++
++/* SMC function ID for fuse read request */
++#define SKY1_SIP_FUSE_READ	\
++	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32, \
++			   62, 9)
++
++struct sky1_nvmem {
++	struct device *dev;
++	bool lookups_added;
++};
++
++static struct platform_device *sky1_nvmem_acpi_pdev;
++
++static const struct nvmem_cell_info sky1_nvmem_cells[] = {
++	{
++		.name = "opn",
++		.offset = 0x4dc,
++		.bytes = 8,
++		.nbits = 64,
++	},
++};
++
++static struct nvmem_cell_lookup sky1_nvmem_cell_lookups[] = {
++	{
++		.nvmem_name = "sky1-efuse",
++		.cell_name = "opn",
++		.dev_id = "sky1-socinfo",
++		.con_id = "opn",
++	},
++};
++
++static bool sky1_acpi_platform_present(void)
++{
++	if (!IS_ENABLED(CONFIG_ACPI) || acpi_disabled || of_have_populated_dt())
++		return false;
++
++	return acpi_dev_found("CIXHA010") || acpi_dev_found("CIXH4000") ||
++	       acpi_dev_found("CIXH2020");
++}
++
++static int sky1_nvmem_read(void *context, unsigned int offset,
++			   void *val, size_t bytes)
++{
++	struct sky1_nvmem *priv = context;
++	struct arm_smccc_res res;
++	u8 *buf = val;
++	size_t i;
++
++	for (i = 0; i < bytes; i++) {
++		arm_smccc_smc(SKY1_SIP_FUSE_READ, offset + i, 1,
++			      0, 0, 0, 0, 0, &res);
++		if (res.a0 == 0) {
++			dev_err(priv->dev, "Failed to read fuse at offset %u\n",
++				offset + (unsigned int)i);
++			return -EIO;
++		}
++		buf[i] = res.a1 & 0xff;
++	}
++
++	return 0;
++}
++
++static int sky1_nvmem_probe(struct platform_device *pdev)
++{
++	struct nvmem_config config = {
++		.name = "sky1-efuse",
++		.id = NVMEM_DEVID_NONE,
++		.dev = &pdev->dev,
++		.owner = THIS_MODULE,
++		.cells = sky1_nvmem_cells,
++		.ncells = ARRAY_SIZE(sky1_nvmem_cells),
++		.word_size = 1,
++		.size = 0x500,  /* Total efuse size - OPN at 0x4dc needs 0x4e4 */
++		.read_only = true,
++		.reg_read = sky1_nvmem_read,
++		.add_legacy_fixed_of_cells = true,
++	};
++	struct sky1_nvmem *priv;
++	struct nvmem_device *nvmem;
++
++	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->dev = &pdev->dev;
++	platform_set_drvdata(pdev, priv);
++	config.priv = priv;
++
++	nvmem = devm_nvmem_register(&pdev->dev, &config);
++	if (IS_ERR(nvmem))
++		return PTR_ERR(nvmem);
++
++	if (!dev_of_node(&pdev->dev)) {
++		nvmem_add_cell_lookups(sky1_nvmem_cell_lookups,
++				       ARRAY_SIZE(sky1_nvmem_cell_lookups));
++		priv->lookups_added = true;
++	}
++
++	return 0;
++}
++
++static void sky1_nvmem_remove(struct platform_device *pdev)
++{
++	struct sky1_nvmem *priv = platform_get_drvdata(pdev);
++
++	if (priv->lookups_added)
++		nvmem_del_cell_lookups(sky1_nvmem_cell_lookups,
++				       ARRAY_SIZE(sky1_nvmem_cell_lookups));
++}
++
++static const struct of_device_id sky1_nvmem_of_match[] = {
++	{ .compatible = "cix,sky1-nvmem-fw" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, sky1_nvmem_of_match);
++
++static struct platform_driver sky1_nvmem_driver = {
++	.probe = sky1_nvmem_probe,
++	.remove = sky1_nvmem_remove,
++	.driver = {
++		.name = "sky1-nvmem",
++		.of_match_table = sky1_nvmem_of_match,
++	},
++};
++
++static int __init sky1_nvmem_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&sky1_nvmem_driver);
++	if (ret)
++		return ret;
++
++	if (sky1_acpi_platform_present()) {
++		sky1_nvmem_acpi_pdev =
++			platform_device_register_simple("sky1-nvmem",
++							PLATFORM_DEVID_NONE,
++							NULL, 0);
++		if (IS_ERR(sky1_nvmem_acpi_pdev)) {
++			ret = PTR_ERR(sky1_nvmem_acpi_pdev);
++			sky1_nvmem_acpi_pdev = NULL;
++			platform_driver_unregister(&sky1_nvmem_driver);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++module_init(sky1_nvmem_init);
++
++static void __exit sky1_nvmem_exit(void)
++{
++	platform_device_unregister(sky1_nvmem_acpi_pdev);
++	platform_driver_unregister(&sky1_nvmem_driver);
++}
++module_exit(sky1_nvmem_exit);
++
++MODULE_AUTHOR("Cix Technology Group Co., Ltd.");
++MODULE_DESCRIPTION("Sky1 NVMEM (eFuse) driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -53,6 +53,40 @@ config CIX_ACPI_GPU_SCAN
+ 	  match the known non-coherent hardware model and stands down when
+ 	  firmware already reports the GPU as non-coherent.
+ 
++config CIX_SKY1_SOCINFO
++	tristate "CIX Sky1 SoC information"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on HAS_IOMEM
++	depends on HAVE_ARM_SMCCC
++	depends on OF || ACPI
++	depends on NVMEM
++	select NVMEM_SKY1
++	select SOC_BUS
++	help
++	  Enable the CIX Sky1 SoC information driver. The driver reports
++	  firmware versions, board information, and the SoC OPN via the
++	  standard SoC bus sysfs interface.
++
++	  On ACPI systems, the driver uses the firmware SRAM aperture and
++	  eFuse SMCCC interface that are described by the vendor Device Tree.
++
++	  On tested Radxa Orion O6 firmware, the OPN eFuse cell reads zero
++	  and the board ID decodes as a CIX reference design rather than the
++	  Radxa board. Do not enable this by default on that hardware; select
++	  it only for diagnostics or for platforms known to populate these
++	  fields.
++
++config CIX_DDR_LP
++	tristate "CIX Sky1 DDR low-power control"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on HAVE_ARM_SMCCC
++	depends on OF || ACPI
++	help
++	  Build the CIX Sky1 DDR low-power control driver. The vendor Device
++	  Tree leaves this device disabled, so the ACPI path intentionally
++	  refuses to load unless the module parameter force_enabled=1 is used
++	  for controlled bring-up testing.
++
+ config CIX_BUS_PERF
+ 	tristate "CIX bus performance state control"
+ 	depends on ARCH_CIX || COMPILE_TEST
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -3,5 +3,7 @@ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
+ obj-$(CONFIG_CIX_ACPI_PCIE_SCAN)	+= cix-acpi-pcie-scan.o
+ obj-$(CONFIG_CIX_ACPI_GPU_SCAN)		+= cix-acpi-gpu-scan.o
++obj-$(CONFIG_CIX_SKY1_SOCINFO)		+= sky1-socinfo.o
++obj-$(CONFIG_CIX_DDR_LP)		+= cix-ddr-lp.o
+ obj-$(CONFIG_CIX_BUS_PERF)		+= cix-bus-perf.o
+ obj-$(CONFIG_CIX_DST)			+= cix_dst/
+diff --git a/drivers/soc/cix/cix-ddr-lp.c b/drivers/soc/cix/cix-ddr-lp.c
+new file mode 100644
+index 0000000..dba2ffd
+--- /dev/null
++++ b/drivers/soc/cix/cix-ddr-lp.c
+@@ -0,0 +1,244 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX DDR Low Power driver
++ *
++ * Controls DDR self-refresh and power-down states via SMC call to TF-A.
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ */
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/of.h>
++#include <linux/acpi.h>
++#include <linux/arm-smccc.h>
++
++#define CIX_SIP_SET_DDRLP	0xc2000010
++
++struct cix_ddrlp_data {
++	int value;
++	int disable_depth;
++	struct mutex lock;
++};
++
++static struct cix_ddrlp_data *gdd;
++static struct platform_device *cix_ddrlp_forced_pdev;
++static bool force_enabled;
++module_param(force_enabled, bool, 0444);
++MODULE_PARM_DESC(force_enabled,
++		 "Force-enable ACPI DDR LP direct TF-A control when firmware does "
++		 "not enumerate it");
++
++static bool cix_ddrlp_acpi_boot_without_force(void)
++{
++	return IS_ENABLED(CONFIG_ACPI) && !acpi_disabled &&
++	       !of_have_populated_dt() && !force_enabled;
++}
++
++static bool cix_ddrlp_sky1_acpi_present(void)
++{
++	if (!IS_ENABLED(CONFIG_ACPI) || acpi_disabled || of_have_populated_dt())
++		return false;
++
++	return acpi_dev_found("CIXHA010") || acpi_dev_found("CIXH4000") ||
++	       acpi_dev_found("CIXH2020");
++}
++
++static int cix_disable_ddrlp(struct cix_ddrlp_data *dd)
++{
++	struct arm_smccc_res res;
++
++	mutex_lock(&dd->lock);
++	if (dd->disable_depth != 0) {
++		dd->disable_depth++;
++		mutex_unlock(&dd->lock);
++		return 0;
++	}
++
++	arm_smccc_smc(CIX_SIP_SET_DDRLP, 0, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		mutex_unlock(&dd->lock);
++		return -EIO;
++	}
++	dd->disable_depth++;
++	dd->value = 0;
++	mutex_unlock(&dd->lock);
++	return 0;
++}
++
++static int cix_enable_ddrlp(struct cix_ddrlp_data *dd)
++{
++	struct arm_smccc_res res;
++
++	mutex_lock(&dd->lock);
++	if (dd->disable_depth == 0) {
++		mutex_unlock(&dd->lock);
++		return 0;
++	}
++	dd->disable_depth--;
++	if (dd->disable_depth == 0) {
++		arm_smccc_smc(CIX_SIP_SET_DDRLP, 1, 0, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			mutex_unlock(&dd->lock);
++			return -EIO;
++		}
++		dd->value = 1;
++	}
++	mutex_unlock(&dd->lock);
++	return 0;
++}
++
++static int cix_set_ddrlp(int on)
++{
++	if (!gdd)
++		return -ENODEV;
++
++	if (on)
++		return cix_enable_ddrlp(gdd);
++	else
++		return cix_disable_ddrlp(gdd);
++}
++
++static ssize_t on_show(struct device *dev,
++		       struct device_attribute *attr, char *buf)
++{
++	struct cix_ddrlp_data *dd = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%d\n", dd->value);
++}
++
++static ssize_t on_store(struct device *dev, struct device_attribute *attr,
++			const char *buf, size_t count)
++{
++	int ret;
++	int value;
++	struct cix_ddrlp_data *dd = dev_get_drvdata(dev);
++
++	ret = kstrtoint(buf, 0, &value);
++	if (ret)
++		return -EINVAL;
++
++	if (value != 0 && value != 1)
++		return -EINVAL;
++
++	if (value == dd->value)
++		return count;
++
++	ret = cix_set_ddrlp(value);
++	if (ret < 0) {
++		dev_err(dev, "failed to set DDR LP: %d\n", ret);
++		return ret;
++	}
++	return count;
++}
++static DEVICE_ATTR_RW(on);
++
++static struct attribute *ddrlp_attrs[] = {
++	&dev_attr_on.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(ddrlp);
++
++static int cix_ddrlp_probe(struct platform_device *pdev)
++{
++	struct cix_ddrlp_data *cix_ddrlp;
++	struct arm_smccc_res res;
++
++	cix_ddrlp = devm_kzalloc(&pdev->dev, sizeof(*cix_ddrlp), GFP_KERNEL);
++	if (!cix_ddrlp)
++		return -ENOMEM;
++
++	gdd = cix_ddrlp;
++	cix_ddrlp->disable_depth = 0;
++	mutex_init(&cix_ddrlp->lock);
++	platform_set_drvdata(pdev, cix_ddrlp);
++
++	/*
++	 * TF-A's DDR LP handler saves register state on disable and restores
++	 * on enable. We must cycle through disable->enable on init to capture
++	 * the proper boot-time register values, otherwise the first enable
++	 * would restore zeros.
++	 */
++	arm_smccc_smc(CIX_SIP_SET_DDRLP, 0, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_warn(&pdev->dev, "DDR LP disable failed: %ld\n", res.a0);
++	}
++	arm_smccc_smc(CIX_SIP_SET_DDRLP, 1, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_warn(&pdev->dev, "DDR LP enable failed: %ld\n", res.a0);
++	}
++	cix_ddrlp->value = 1;
++
++	dev_info(&pdev->dev, "DDR low power control initialized\n");
++	return 0;
++}
++
++static void cix_ddrlp_remove(struct platform_device *pdev)
++{
++	if (gdd == platform_get_drvdata(pdev))
++		gdd = NULL;
++}
++
++static const struct of_device_id cix_ddrlp_of_match[] = {
++	{ .compatible = "cix,ddr-lp" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, cix_ddrlp_of_match);
++
++static struct platform_driver cix_ddrlp_driver = {
++	.probe = cix_ddrlp_probe,
++	.remove = cix_ddrlp_remove,
++	.driver = {
++		.name = "cix-ddr-lp",
++		.of_match_table = cix_ddrlp_of_match,
++		.dev_groups = ddrlp_groups,
++	},
++};
++
++static int __init cix_ddrlp_init(void)
++{
++	int ret;
++
++	if (cix_ddrlp_acpi_boot_without_force()) {
++		pr_err("DDR LP direct TF-A control disabled by default on ACPI; "
++		       "use force_enabled=1 to override firmware enumeration\n");
++		return -ENODEV;
++	}
++
++	ret = platform_driver_register(&cix_ddrlp_driver);
++	if (ret)
++		return ret;
++
++	if (force_enabled && !of_have_populated_dt()) {
++		if (!cix_ddrlp_sky1_acpi_present()) {
++			platform_driver_unregister(&cix_ddrlp_driver);
++			return -ENODEV;
++		}
++
++		pr_warn("DDR LP direct TF-A control force-enabled on ACPI; "
++			"overriding firmware enumeration\n");
++		cix_ddrlp_forced_pdev =
++			platform_device_register_simple("cix-ddr-lp",
++							PLATFORM_DEVID_NONE,
++							NULL, 0);
++		if (IS_ERR(cix_ddrlp_forced_pdev)) {
++			ret = PTR_ERR(cix_ddrlp_forced_pdev);
++			cix_ddrlp_forced_pdev = NULL;
++			platform_driver_unregister(&cix_ddrlp_driver);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++module_init(cix_ddrlp_init);
++
++static void __exit cix_ddrlp_exit(void)
++{
++	platform_device_unregister(cix_ddrlp_forced_pdev);
++	platform_driver_unregister(&cix_ddrlp_driver);
++}
++module_exit(cix_ddrlp_exit);
++
++MODULE_DESCRIPTION("CIX DDR Low Power Driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/soc/cix/sky1-socinfo.c b/drivers/soc/cix/sky1-socinfo.c
+new file mode 100644
+index 0000000..dbbdc09
+--- /dev/null
++++ b/drivers/soc/cix/sky1-socinfo.c
+@@ -0,0 +1,533 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX Sky1 SoC information driver
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ *
++ * Provides SoC identification, firmware version reporting, and board
++ * information via sysfs attributes.
++ */
++
++#include <linux/bitfield.h>
++#include <linux/acpi.h>
++#include <linux/dmi.h>
++#include <linux/io.h>
++#include <linux/module.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/sys_soc.h>
++
++/* OPN (Ordering Part Number) field masks */
++#define OPN_REVISION_MASK		GENMASK_ULL(13, 8)
++#define OPN_ROADMAP_MASK		GENMASK_ULL(35, 24)
++#define OPN_MODEL_MASK			GENMASK_ULL(51, 36)
++#define OPN_SEGMENT_MASK		GENMASK_ULL(56, 52)
++
++/* Revision codes */
++#define REVISION_A0			0x08
++#define REVISION_A1			0x09
++#define REVISION_B0			0x10
++#define REVISION_B1			0x11
++
++/* Roadmap codes */
++#define ROADMAP_A11			0x111
++#define ROADMAP_A12			0x112
++#define ROADMAP_B11			0x211
++#define ROADMAP_B12			0x212
++#define ROADMAP_C11			0x311
++#define ROADMAP_C12			0x312
++
++/* Model codes */
++#define MODEL_8180			0x3100
++#define MODEL_2100			0x2100
++#define MODEL_1100			0x1100
++#define MODEL_0100			0x0100
++
++/* Segment codes */
++#define SEGMENT_A			0x01
++#define SEGMENT_P			0x02
++#define SEGMENT_E			0x03
++#define SEGMENT_F			0x04
++#define SEGMENT_H			0x05
++#define SEGMENT_G			0x06
++#define SEGMENT_D			0x07
++#define SEGMENT_S			0x08
++#define SEGMENT_X			0x09
++#define SEGMENT_W			0x10
++#define SEGMENT_C			0x11
++
++/* Firmware version offsets in SRAM */
++#define FW_SE_OFFSET			0x000
++#define FW_PBL_OFFSET			0x080
++#define FW_ATF_OFFSET			0x100
++#define FW_PM_OFFSET			0x180
++#define FW_TEE_OFFSET			0x200
++#define FW_UEFI_OFFSET			0x280
++#define FW_EC_OFFSET			0x300
++#define FW_BOARD_ID_OFFSET		0x380
++#define FW_PD_OFFSET			0x400
++
++#define FW_VERSION_MAX_LEN		0x7f
++
++/* Firmware SRAM aperture used by the vendor DT cix,sky1-top node. */
++#define SKY1_FW_SRAM_BASE		0x83e01000
++#define SKY1_FW_SRAM_SIZE		0x2000
++
++/* Board ID field masks */
++#define BOARD_ID_PCB_SKU_MASK		(BIT(0) | BIT(1) | BIT(2) | BIT(6))
++#define BOARD_ID_MEM_TYPE_MASK		(BIT(3) | BIT(4) | BIT(5) | BIT(7))
++#define BOARD_ID_REVISION_MASK		GENMASK(9, 8)
++
++/* PCB SKU codes */
++#define PCB_SKU_MERAK			0x0
++#define PCB_SKU_MIZAR			0x1
++#define PCB_SKU_MERAK_DAP		0x2
++#define PCB_SKU_PHECDA_SLT		0x3
++#define PCB_SKU_PHECDA			0x4
++#define PCB_SKU_MEGREZ			0x5
++#define PCB_SKU_PHECDA_DAP		0x6
++
++/* Memory type codes */
++#define MEM_SAMSUNG_LP5_315B_4G_SR	0x0
++#define MEM_HYNIX_LP4X_200B_4G_DR	0x1
++#define MEM_SAMSUNG_LP5X_315B_8G_DR	0x2
++#define MEM_SAMSUNG_LP5_315B_8G_DR	0x3
++#define MEM_SAMSUNG_LP5X_441B_8G_SR_OLD	0x4
++#define MEM_SAMSUNG_LP5_441B_4G_SR	0x5
++#define MEM_SAMSUNG_LP5X_441B_8G_SR_NEW	0x6
++
++struct sky1_socinfo {
++	struct device *dev;
++	void __iomem *sram_base;
++	struct soc_device *soc_dev;
++	u64 opn;
++
++	/* Firmware versions */
++	char *fw_se;
++	char *fw_pbl;
++	char *fw_atf;
++	char *fw_pm;
++	char *fw_tee;
++	char *fw_uefi;
++	char *fw_ec;
++	char *fw_pd;
++
++	/* Board info */
++	u16 board_id_raw;
++	char *pcb_sku;
++	char *pmic;
++	char *memory_type;
++	char *board_revision;
++
++	/* OPN info */
++	char *opn_string;
++};
++
++static struct platform_device *sky1_socinfo_acpi_pdev;
++
++static struct resource sky1_socinfo_acpi_resources[] = {
++	DEFINE_RES_MEM(SKY1_FW_SRAM_BASE, SKY1_FW_SRAM_SIZE),
++};
++
++static bool sky1_acpi_platform_present(void)
++{
++	if (!IS_ENABLED(CONFIG_ACPI) || acpi_disabled || of_have_populated_dt())
++		return false;
++
++	return acpi_dev_found("CIXHA010") || acpi_dev_found("CIXH4000") ||
++	       acpi_dev_found("CIXH2020");
++}
++
++static const char *sky1_revision_str(u32 rev)
++{
++	switch (rev) {
++	case REVISION_A0:	return "A0";
++	case REVISION_A1:	return "A1";
++	case REVISION_B0:	return "B0";
++	case REVISION_B1:	return "B1";
++	default:		return "Unknown";
++	}
++}
++
++static const char *sky1_roadmap_str(u32 roadmap)
++{
++	switch (roadmap) {
++	case ROADMAP_A11:	return "A11";
++	case ROADMAP_A12:	return "A12";
++	case ROADMAP_B11:	return "B11";
++	case ROADMAP_B12:	return "B12";
++	case ROADMAP_C11:	return "C11";
++	case ROADMAP_C12:	return "C12";
++	default:		return "Unknown";
++	}
++}
++
++static const char *sky1_model_str(u32 model)
++{
++	switch (model) {
++	case MODEL_8180:	return "8180";
++	case MODEL_2100:	return "2100";
++	case MODEL_1100:	return "1100";
++	case MODEL_0100:	return "0100";
++	default:		return "Unknown";
++	}
++}
++
++static const char *sky1_segment_str(u32 segment)
++{
++	switch (segment) {
++	case SEGMENT_A:		return "A";
++	case SEGMENT_P:		return "P";
++	case SEGMENT_E:		return "E";
++	case SEGMENT_F:		return "F";
++	case SEGMENT_H:		return "H";
++	case SEGMENT_G:		return "G";
++	case SEGMENT_D:		return "D";
++	case SEGMENT_S:		return "S";
++	case SEGMENT_X:		return "X";
++	case SEGMENT_W:		return "W";
++	case SEGMENT_C:		return "C";
++	default:		return "Unknown";
++	}
++}
++
++static char *sky1_read_fw_version(struct device *dev, void __iomem *base)
++{
++	char buf[FW_VERSION_MAX_LEN + 1];
++	int i;
++
++	for (i = 0; i < FW_VERSION_MAX_LEN; i++) {
++		buf[i] = readb(base + i);
++		if (!buf[i])
++			break;
++	}
++	buf[i] = '\0';
++
++	if (i > 0 && i < FW_VERSION_MAX_LEN)
++		return devm_kasprintf(dev, GFP_KERNEL, "Version %s", buf);
++
++	return devm_kstrdup(dev, "Unknown", GFP_KERNEL);
++}
++
++static char *sky1_read_pd_version(struct device *dev, void __iomem *base)
++{
++	u8 pd1_maj, pd1_min, pd2_maj, pd2_min;
++
++	pd1_maj = readb(base);
++	pd1_min = readb(base + 1);
++	pd2_maj = readb(base + 2);
++	pd2_min = readb(base + 3);
++
++	return devm_kasprintf(dev, GFP_KERNEL,
++			      "PD1 major: 0x%x minor: 0x%x; PD2 major: 0x%x minor: 0x%x",
++			      pd1_maj, pd1_min, pd2_maj, pd2_min);
++}
++
++static void sky1_parse_board_id(struct sky1_socinfo *info)
++{
++	u16 board_id = info->board_id_raw;
++	u32 pcb_sku, mem_type, board_rev;
++
++	/* Extract PCB SKU: bits 0-2, 6 -> remap bit 6 to bit 3 */
++	pcb_sku = (board_id & 0x7) | ((board_id & BIT(6)) >> 3);
++
++	switch (pcb_sku) {
++	case PCB_SKU_MERAK:
++		info->pcb_sku = "MERAK";
++		info->pmic = "MPS5475x3";
++		break;
++	case PCB_SKU_MIZAR:
++		info->pcb_sku = "MIZAR";
++		info->pmic = "MPS5475x3";
++		break;
++	case PCB_SKU_MERAK_DAP:
++		info->pcb_sku = "MERAK_DAP";
++		info->pmic = "MPS5475x3";
++		break;
++	case PCB_SKU_PHECDA_SLT:
++		info->pcb_sku = "PHECDA_SLT";
++		info->pmic = "MP2845x2+DRMOS";
++		break;
++	case PCB_SKU_PHECDA:
++		info->pcb_sku = "PHECDA";
++		info->pmic = "MP2845x2+DRMOS";
++		break;
++	case PCB_SKU_MEGREZ:
++		info->pcb_sku = "MEGREZ";
++		info->pmic = "MPS5475x2+Buckx1";
++		break;
++	case PCB_SKU_PHECDA_DAP:
++		info->pcb_sku = "PHECDA_DAP";
++		info->pmic = "MP2845x2+DRMOS";
++		break;
++	default:
++		info->pcb_sku = "Reserved";
++		info->pmic = "Reserved";
++		break;
++	}
++
++	/* Extract memory type: bits 3-5, 7 -> remap bit 7 to bit 3 */
++	mem_type = ((board_id >> 3) & 0x7) | ((board_id & BIT(7)) >> 4);
++
++	switch (mem_type) {
++	case MEM_SAMSUNG_LP5_315B_4G_SR:
++		info->memory_type = "Samsung LP5 315b 4G Single Rank (K3LKBKB0BM-MGCP)";
++		break;
++	case MEM_HYNIX_LP4X_200B_4G_DR:
++		info->memory_type = "Hynix LP4x 200b 4G Dual Rank (H9HCNNNCPMMLXR-NEE)";
++		break;
++	case MEM_SAMSUNG_LP5X_315B_8G_DR:
++		info->memory_type = "Samsung LP5x 315b 8G Dual Rank (K3KL9L90QM-MGCT)";
++		break;
++	case MEM_SAMSUNG_LP5_315B_8G_DR:
++		info->memory_type = "Samsung LP5 315b 8G Dual Rank (K3LKCKC0BM-MGCP)";
++		break;
++	case MEM_SAMSUNG_LP5X_441B_8G_SR_OLD:
++		info->memory_type = "Samsung LP5x 441b 8G Single Rank (K3KL3L30QM-JGCT 1z nm)";
++		break;
++	case MEM_SAMSUNG_LP5_441B_4G_SR:
++		info->memory_type = "Samsung LP5 441b 4G Single Rank (K3KL1L10GM-JGCT 1a nm)";
++		break;
++	case MEM_SAMSUNG_LP5X_441B_8G_SR_NEW:
++		info->memory_type = "Samsung LP5x 441b 8G Single Rank (K3KL3L30QM-JGCT 1a nm)";
++		break;
++	default:
++		info->memory_type = "Reserved";
++		break;
++	}
++
++	/* Extract board revision: bits 8-9 */
++	board_rev = FIELD_GET(BOARD_ID_REVISION_MASK, board_id);
++
++	switch (board_rev) {
++	case 0:
++		info->board_revision = "Rev A";
++		break;
++	case 1:
++		info->board_revision = "Rev B";
++		break;
++	case 2:
++		info->board_revision = "Rev C";
++		break;
++	case 3:
++		info->board_revision = "Rev D";
++		break;
++	default:
++		info->board_revision = "Unknown";
++		break;
++	}
++}
++
++static void sky1_parse_opn(struct sky1_socinfo *info)
++{
++	u32 revision = FIELD_GET(OPN_REVISION_MASK, info->opn);
++	u32 roadmap = FIELD_GET(OPN_ROADMAP_MASK, info->opn);
++	u32 model = FIELD_GET(OPN_MODEL_MASK, info->opn);
++	u32 segment = FIELD_GET(OPN_SEGMENT_MASK, info->opn);
++
++	info->opn_string = devm_kasprintf(info->dev, GFP_KERNEL, "%s%s%s%s",
++					  sky1_segment_str(segment),
++					  sky1_model_str(model),
++					  sky1_roadmap_str(roadmap),
++					  sky1_revision_str(revision));
++}
++
++static ssize_t firmware_version_show(struct device *dev,
++				     struct device_attribute *attr, char *buf)
++{
++	struct sky1_socinfo *info = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf,
++			  "SE Version: %s\n"
++			  "PBL Version: %s\n"
++			  "ATF Version: %s\n"
++			  "PM Version: %s\n"
++			  "TEE Version: %s\n"
++			  "UEFI Version: %s\n"
++			  "EC Version: %s\n"
++			  "PD Version: %s\n",
++			  info->fw_se, info->fw_pbl, info->fw_atf,
++			  info->fw_pm, info->fw_tee, info->fw_uefi,
++			  info->fw_ec, info->fw_pd);
++}
++static DEVICE_ATTR_RO(firmware_version);
++
++static ssize_t board_info_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct sky1_socinfo *info = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf,
++			  "Board ID: 0x%x\n"
++			  "PCB SKU: %s\n"
++			  "PMIC: %s\n"
++			  "Memory: %s\n"
++			  "Board Revision: %s\n",
++			  info->board_id_raw, info->pcb_sku, info->pmic,
++			  info->memory_type, info->board_revision);
++}
++static DEVICE_ATTR_RO(board_info);
++
++static ssize_t cix_opn_info_show(struct device *dev,
++				 struct device_attribute *attr, char *buf)
++{
++	struct sky1_socinfo *info = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%s\n", info->opn_string);
++}
++static DEVICE_ATTR_RO(cix_opn_info);
++
++static struct attribute *sky1_socinfo_attrs[] = {
++	&dev_attr_firmware_version.attr,
++	&dev_attr_board_info.attr,
++	&dev_attr_cix_opn_info.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(sky1_socinfo);
++
++static int sky1_socinfo_probe(struct platform_device *pdev)
++{
++	struct soc_device_attribute *soc_attr;
++	struct device_node *root;
++	struct sky1_socinfo *info;
++	const char *machine = NULL;
++	int ret;
++
++	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
++	if (!info)
++		return -ENOMEM;
++
++	info->dev = &pdev->dev;
++	platform_set_drvdata(pdev, info);
++
++	/* Map SRAM region containing firmware versions and board info */
++	info->sram_base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(info->sram_base))
++		return PTR_ERR(info->sram_base);
++
++	/* Read firmware versions from SRAM */
++	info->fw_se = sky1_read_fw_version(&pdev->dev,
++					   info->sram_base + FW_SE_OFFSET);
++	info->fw_pbl = sky1_read_fw_version(&pdev->dev,
++					    info->sram_base + FW_PBL_OFFSET);
++	info->fw_atf = sky1_read_fw_version(&pdev->dev,
++					    info->sram_base + FW_ATF_OFFSET);
++	info->fw_pm = sky1_read_fw_version(&pdev->dev,
++					   info->sram_base + FW_PM_OFFSET);
++	info->fw_tee = sky1_read_fw_version(&pdev->dev,
++					    info->sram_base + FW_TEE_OFFSET);
++	info->fw_uefi = sky1_read_fw_version(&pdev->dev,
++					     info->sram_base + FW_UEFI_OFFSET);
++	info->fw_ec = sky1_read_fw_version(&pdev->dev,
++					   info->sram_base + FW_EC_OFFSET);
++	info->fw_pd = sky1_read_pd_version(&pdev->dev,
++					   info->sram_base + FW_PD_OFFSET);
++
++	/* Read and parse board ID */
++	info->board_id_raw = readw(info->sram_base + FW_BOARD_ID_OFFSET);
++	sky1_parse_board_id(info);
++
++	/* Read OPN from NVMEM */
++	ret = nvmem_cell_read_u64(&pdev->dev, "opn", &info->opn);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret, "Failed to read OPN\n");
++
++	sky1_parse_opn(info);
++
++	/* Set up soc_device attributes */
++	soc_attr = devm_kzalloc(&pdev->dev, sizeof(*soc_attr), GFP_KERNEL);
++	if (!soc_attr)
++		return -ENOMEM;
++
++	soc_attr->family = "CIX Sky1";
++
++	/* Get machine name from root DT node */
++	root = of_find_node_by_path("/");
++	if (root) {
++		of_property_read_string(root, "model", &machine);
++		of_node_put(root);
++	}
++	if (!machine)
++		machine = dmi_get_system_info(DMI_PRODUCT_NAME);
++	if (machine)
++		soc_attr->machine = devm_kstrdup(&pdev->dev, machine, GFP_KERNEL);
++
++	soc_attr->soc_id = info->opn_string;
++	soc_attr->revision = sky1_revision_str(FIELD_GET(OPN_REVISION_MASK, info->opn));
++	soc_attr->custom_attr_group = sky1_socinfo_groups[0];
++
++	info->soc_dev = soc_device_register(soc_attr);
++	if (IS_ERR(info->soc_dev))
++		return dev_err_probe(&pdev->dev, PTR_ERR(info->soc_dev),
++				     "Failed to register SoC device\n");
++
++	/* Store info pointer for sysfs attribute access */
++	dev_set_drvdata(soc_device_to_device(info->soc_dev), info);
++
++	dev_info(&pdev->dev, "CIX Sky1 %s detected (%s, %s)\n",
++		 info->opn_string, info->pcb_sku, info->board_revision);
++
++	return 0;
++}
++
++static void sky1_socinfo_remove(struct platform_device *pdev)
++{
++	struct sky1_socinfo *info = platform_get_drvdata(pdev);
++
++	soc_device_unregister(info->soc_dev);
++}
++
++static const struct of_device_id sky1_socinfo_of_match[] = {
++	{ .compatible = "cix,sky1-socinfo" },
++	{ .compatible = "cix,sky1-top" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, sky1_socinfo_of_match);
++
++static struct platform_driver sky1_socinfo_driver = {
++	.probe = sky1_socinfo_probe,
++	.remove = sky1_socinfo_remove,
++	.driver = {
++		.name = "sky1-socinfo",
++		.of_match_table = sky1_socinfo_of_match,
++	},
++};
++
++static int __init sky1_socinfo_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&sky1_socinfo_driver);
++	if (ret)
++		return ret;
++
++	if (sky1_acpi_platform_present()) {
++		sky1_socinfo_acpi_pdev =
++			platform_device_register_simple("sky1-socinfo",
++							PLATFORM_DEVID_NONE,
++							sky1_socinfo_acpi_resources,
++							ARRAY_SIZE(sky1_socinfo_acpi_resources));
++		if (IS_ERR(sky1_socinfo_acpi_pdev)) {
++			ret = PTR_ERR(sky1_socinfo_acpi_pdev);
++			sky1_socinfo_acpi_pdev = NULL;
++			platform_driver_unregister(&sky1_socinfo_driver);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++module_init(sky1_socinfo_init);
++
++static void __exit sky1_socinfo_exit(void)
++{
++	platform_device_unregister(sky1_socinfo_acpi_pdev);
++	platform_driver_unregister(&sky1_socinfo_driver);
++}
++module_exit(sky1_socinfo_exit);
++
++MODULE_AUTHOR("Cix Technology Group Co., Ltd.");
++MODULE_DESCRIPTION("CIX Sky1 SoC information driver");
++MODULE_LICENSE("GPL");

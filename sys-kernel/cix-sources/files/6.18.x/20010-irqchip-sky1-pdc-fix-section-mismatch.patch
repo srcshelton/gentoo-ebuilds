@@ -1,0 +1,12 @@
+diff --git a/drivers/irqchip/irq-sky1-pdc.c b/drivers/irqchip/irq-sky1-pdc.c
+--- a/drivers/irqchip/irq-sky1-pdc.c
++++ b/drivers/irqchip/irq-sky1-pdc.c
+@@ -203,7 +203,7 @@ static int __init sky1_pdc_irqchip_init(struct device_node *node,
+ }
+ 
+ #ifdef CONFIG_ACPI
+-static int __init sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
++static int sky1_acpi_pdc_irqchip_init(struct platform_device *pdev)
+ {
+ 	struct irq_domain *domain;
+ 	struct pdcv1_irqchip_data *cd;

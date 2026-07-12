@@ -1,0 +1,32 @@
+diff --git a/drivers/pwm/pwm-sky1.c b/drivers/pwm/pwm-sky1.c
+--- a/drivers/pwm/pwm-sky1.c
++++ b/drivers/pwm/pwm-sky1.c
+@@ -196,14 +196,24 @@ static int pwm_sky1_probe(struct platform_device *pdev)
+ 	sky1 = to_pwm_sky1_chip(chip);
+ 
+ 	sky1->pclk = devm_clk_get(dev, "fch_pwm_apb_clk");
+-	if (IS_ERR(sky1->pclk))
+-		return dev_err_probe(dev, PTR_ERR(sky1->pclk),
++	if (IS_ERR(sky1->pclk)) {
++		ret = PTR_ERR(sky1->pclk);
++		if (ret == -ENOENT && has_acpi_companion(dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(dev, ret,
+ 				     "failed to get apb clock\n");
++	}
+ 
+ 	sky1->tclk = devm_clk_get(dev, "fch_pwm_func_clk");
+-	if (IS_ERR(sky1->tclk))
+-		return dev_err_probe(dev, PTR_ERR(sky1->tclk),
++	if (IS_ERR(sky1->tclk)) {
++		ret = PTR_ERR(sky1->tclk);
++		if (ret == -ENOENT && has_acpi_companion(dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(dev, ret,
+ 				     "failed to get func clock\n");
++	}
+ 
+ 	sky1->func_reset = devm_reset_control_get_optional_shared(dev, "func_reset");
+ 	if (IS_ERR(sky1->func_reset))

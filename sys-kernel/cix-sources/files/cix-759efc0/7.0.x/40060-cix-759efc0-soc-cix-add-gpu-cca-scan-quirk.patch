@@ -1,0 +1,112 @@
+soc: cix: add Sky1 ACPI GPU coherency scan quirk
+
+CIX's 7.0 Panthor ACPI support adds the CIXH5000 GPU ID, but the prepared
+7.0 queue has no equivalent of the 6.18 Sky1 ACPI GPU scan helper. Vendor
+firmware can report the GPU as DMA coherent via _CCA even though the hardware
+matches the non-coherent DT model.
+
+Add an internal ACPI scan helper that is restricted to Sky1 firmware and
+CIXH5000. It only changes the device when firmware reports coherent DMA, so
+it self-disables when firmware already describes the GPU as non-coherent.
+
+---
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -29,4 +29,15 @@ config CIX_ACPI_USB_SCAN
+ 	  one model, the helper either stands down or allows the vendor-only
+ 	  devices to enumerate unchanged.
+ 
++config CIX_ACPI_GPU_SCAN
++	bool
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI
++	default ARCH_CIX
++	help
++	  Internal ACPI compatibility helper for Sky1 firmware that reports
++	  the CIXH5000 GPU as DMA coherent. The helper makes the ACPI path
++	  match the known non-coherent hardware model and stands down when
++	  firmware already reports the GPU as non-coherent.
++
+ source "drivers/soc/cix/cix_dst/Kconfig"
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -1,4 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
++obj-$(CONFIG_CIX_ACPI_GPU_SCAN)		+= cix-acpi-gpu-scan.o
+ obj-$(CONFIG_CIX_DST)			+= cix_dst/
+diff --git a/drivers/soc/cix/cix-acpi-gpu-scan.c b/drivers/soc/cix/cix-acpi-gpu-scan.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-acpi-gpu-scan.c
+@@ -0,0 +1,67 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ACPI scan helper for the CIX Sky1 GPU coherency description.
++ *
++ * Sky1 firmware may report CIXH5000 as DMA coherent via _CCA even though the
++ * hardware model matches the non-coherent DT description. Correct the ACPI
++ * device flag early enough that the Panthor driver uses the non-coherent DMA
++ * path. Fixed firmware that already reports non-coherent DMA is left alone.
++ */
++
++#ifdef CONFIG_ACPI
++
++#include <linux/acpi.h>
++#include <linux/init.h>
++#include <linux/string.h>
++
++static bool sky1_gpu_acpi_detected;
++
++static int sky1_gpu_scan_attach(struct acpi_device *adev,
++				const struct acpi_device_id *id)
++{
++	if (!sky1_gpu_acpi_detected)
++		return 0;
++
++	if (!adev->flags.coherent_dma)
++		return 0;
++
++	dev_info(&adev->dev,
++		 "Sky1 GPU: overriding _CCA to non-coherent (DT parity)\n");
++	adev->flags.coherent_dma = 0;
++	return 0;
++}
++
++static const struct acpi_device_id sky1_gpu_scan_ids[] = {
++	{ "CIXH5000", 0 },
++	{ },
++};
++
++static struct acpi_scan_handler sky1_gpu_scan_handler = {
++	.ids = sky1_gpu_scan_ids,
++	.attach = sky1_gpu_scan_attach,
++};
++
++static int __init sky1_gpu_acpi_init(void)
++{
++	struct acpi_table_header *header;
++
++	if (acpi_disabled)
++		return 0;
++
++	if (ACPI_FAILURE(acpi_get_table(ACPI_SIG_MCFG, 0, &header)))
++		return 0;
++
++	sky1_gpu_acpi_detected = !memcmp(header->oem_id, "CIXTEK", 6) &&
++				 !memcmp(header->oem_table_id, "SKY1EDK2", 8);
++	acpi_put_table(header);
++
++	if (!sky1_gpu_acpi_detected)
++		return 0;
++
++	pr_info("Sky1 GPU: registering ACPI coherency scan handler\n");
++	return acpi_scan_add_handler(&sky1_gpu_scan_handler);
++}
++/* Must run before subsys_initcall(acpi_init) which creates platform devices */
++arch_initcall(sky1_gpu_acpi_init);
++
++#endif /* CONFIG_ACPI */

@@ -1,23 +1,3 @@
-Rebase Sky1 SMMUv3 ACPI boot-active bypass STE support for the Linux 7.0
-CIX/Gentoo source state so it applies without fuzz.
-
-Also include the small Sky1 PCIe ATS override support needed by the ACPI
-bypass path.  The broader Sky1 miscellaneous patch that originally defined
-ARM_SMMU_OPT_PCIE_ATS_OVERRIDE is not part of the 7.0 queue.
-
-The ACPI Sky1 PCIe boot-bypass STEs and ATS override are opt-in so fixed
-firmware can run the normal upstream path by default.  Boot defaults can be
-provided with arm-smmu-v3.cix_sky1_pcie_boot_bypass=1,
-arm-smmu-v3.cix_sky1_pcie_ats_override=1, or the convenience
-arm-smmu-v3.cix_sky1_pcie_quirks=1 kernel command-line knob.
-
-The same controls are also exposed as module parameters.  When a module
-parameter is explicitly supplied, it overrides the corresponding kernel
-command-line default; fine-grained module parameters can override individual
-halves even when the convenience quirk default is set.  All controls remain
-gated on the Sky1 PCIe SMMU hardware identity.
-
----
 diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
 --- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
 +++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
@@ -245,7 +225,7 @@ diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm
  
  	if (pgtbl_cfg->quirks & IO_PGTABLE_QUIRK_ARM_S2FWB)
  		target->data[1] |= cpu_to_le64(STRTAB_STE_1_S2FWB);
-@@ -4745,6 +4930,90 @@ static void __iomem *arm_smmu_ioremap(struct device *dev, resource_size_t start,
+@@ -4757,6 +4942,90 @@ static void __iomem *arm_smmu_ioremap(struct device *dev, resource_size_t start,
  	return devm_ioremap_resource(dev, &res);
  }
  
@@ -336,7 +316,7 @@ diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm
  static void arm_smmu_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
  {
  	struct list_head rmr_list;
-@@ -4911,6 +5180,9 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
+@@ -4942,6 +5211,9 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
  	/* Check for RMRs and install bypass STEs if any */
  	arm_smmu_rmr_install_bypass_ste(smmu);
  
@@ -344,7 +324,7 @@ diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm
 +	arm_smmu_acpi_apply_sky1_pcie_quirks(smmu);
 +
  	/* Reset the device */
- 	ret = arm_smmu_device_reset(smmu);
+ 	ret = arm_smmu_device_reset(smmu, false);
  	if (ret)
 diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.h b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.h
 --- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.h

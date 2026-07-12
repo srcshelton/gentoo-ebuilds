@@ -1,0 +1,21 @@
+diff --git a/drivers/tty/serial/amba-pl011.c b/drivers/tty/serial/amba-pl011.c
+--- a/drivers/tty/serial/amba-pl011.c
++++ b/drivers/tty/serial/amba-pl011.c
+@@ -180,7 +180,7 @@ static struct vendor_data vendor_arm = {
+ 	.get_fifosize		= get_fifosize_arm,
+ };
+ 
+-static const struct vendor_data vendor_sbsa = {
++static const struct vendor_data vendor_sbsa __maybe_unused = {
+ 	.reg_offset		= pl011_std_offsets,
+ 	.fr_busy		= UART01x_FR_BUSY,
+ 	.fr_dsr			= UART01x_FR_DSR,
+@@ -2468,7 +2468,7 @@ static unsigned int sbsa_uart_get_mctrl(struct uart_port *port)
+ 	return 0;
+ }
+ 
+-static const struct uart_ops sbsa_uart_pops = {
++static const struct uart_ops sbsa_uart_pops __maybe_unused = {
+ 	.tx_empty	= pl011_tx_empty,
+ 	.set_mctrl	= sbsa_uart_set_mctrl,
+ 	.get_mctrl	= sbsa_uart_get_mctrl,

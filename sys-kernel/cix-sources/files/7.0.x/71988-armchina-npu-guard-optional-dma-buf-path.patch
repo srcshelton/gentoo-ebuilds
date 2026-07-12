@@ -1,0 +1,72 @@
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -556,7 +556,14 @@ static struct aipu_mem_region *aipu_mm_create_region(struct aipu_memory_manager
+ 		return reg;
+ 
+ 	if (reserved && !mm->has_iommu) {
+-		ret = of_reserved_mem_device_init_by_idx(reg->dev, mm->dev->of_node, idx);
++		if (!dev_of_node(mm->dev)) {
++			dev_err(reg->dev,
++				"reserved memory requires OF memory-region data without IOMMU\n");
++			ret = -ENODEV;
++			goto err;
++		}
++
++		ret = of_reserved_mem_device_init_by_idx(reg->dev, dev_of_node(mm->dev), idx);
+ 		if (ret) {
+ 			dev_err(reg->dev, "init reserved mem failed: idx %d (%d)\n",
+ 				idx, ret);
+@@ -1032,10 +1039,15 @@ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+ 	u64 offset = 0;
+ 	u32 res_cnt = 0;
+ 
++	if (!dev_of_node(mm->dev)) {
++		dev_info(mm->dev, "reserved-memory regions require OF data; skipping\n");
++		return 0;
++	}
++
+ 	do {
+ 		u64 size = 0;
+ 
+-		np = of_parse_phandle(mm->dev->of_node, "memory-region", idx);
++		np = of_parse_phandle(dev_of_node(mm->dev), "memory-region", idx);
+ 		if (!np)
+ 			break;
+ 
+@@ -1048,23 +1060,27 @@ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+ 			type = AIPU_MEM_REGION_TYPE_DTCM;
+ 		} else {
+ 			dev_err(mm->dev, "invalid memory region name: %s\n", np->name);
++			of_node_put(np);
+ 			continue;
+ 		}
+ 
+ 		/* bypass mapping SoC SRAM if CPU cannot access it */
+ 		if (type == AIPU_MEM_REGION_TYPE_SRAM && !AIPU_CONFIG_HOST_MAP_SRAM) {
+ 			dev_info(mm->dev, "dts: bypass this sram region (cpu cannot access it)\n");
++			of_node_put(np);
+ 			continue;
+ 		}
+ 
+ 		if (type == AIPU_MEM_REGION_TYPE_DTCM && dtcm_cnt == mm->dtcm_max_cnt) {
+ 			dev_err(mm->dev, "dts: bypass this dtcm region for the max_cnt limit\n");
++			of_node_put(np);
+ 			continue;
+ 		}
+ 
+ 		if (type == AIPU_MEM_REGION_TYPE_DTCM &&
+ 		    mm->version == AIPU_ISA_VERSION_ZHOUYI_V1) {
+ 			dev_err(mm->dev, "dts: bypass because v1 does not support dtcm\n");
++			of_node_put(np);
+ 			continue;
+ 		}
+ 
+@@ -1088,6 +1104,7 @@ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+ 		obj = aipu_mm_create_region_object(mm, type, size, offset, idx, NULL, true);
+ 		if (!obj) {
+ 			dev_err(mm->dev, "create new region failed (ret = %ld)", PTR_ERR(reg));
++			of_node_put(np);
+ 			continue;
+ 		}
+ 

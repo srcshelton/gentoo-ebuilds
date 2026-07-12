@@ -1,29 +1,131 @@
-# CIX Kernel Patch Queue
+# CIX kernel patch queue
 
-This table documents the local patches applied by the CIX kernel ebuilds and
-version-specific replacements used by newer kernel point releases. Linux 7.1.x reuses the applicable 7.0.x/shared patches unless a 7.1.x-specific replacement is listed.
+This directory contains the downstream patch queue and support files used by
+`sys-kernel/cix-sources`.  The ebuild is the authority for patch order.  This
+document records the layout and numbering contract needed to keep that order
+comprehensible.
 
-The latest maintained ebuild in each branch is based on CIX commit `19f2947`.
-CIX now provides synchronized native queues for Linux 6.18, 7.0, and 7.1;
-older local patches which are present in those queues are therefore omitted by
-the latest ebuilds. The `99010` and later CIX-retention patches below were
-regenerated from prepared source trees and contain only downstream behavior
-that remained absent or incomplete after the new CIX queues were applied. They
-are divided by subsystem or functional ownership so a future CIX uplift can
-replace or revise one concern without reopening an aggregate catch-all patch.
+Only Linux 6.18 and newer is in the maintained scope described here.  The
+6.1.x and 6.6.x material is legacy and must not be used to infer current queue
+policy.
 
-Patches used only by superseded CIX checkpoints live below a `cix-3aad824` or
-`cix-759efc0` directory at their normal shared or kernel-family level. The
-directory names identify the last CIX checkpoint whose ebuilds still require
-the patch: a patch shared by both old checkpoints is kept under `cix-759efc0`.
-The latest 6.18.x, 7.0.x, and 7.1.x ebuilds do not reference either historical
-directory. Once all ebuilds for a checkpoint are pruned, an unreferenced
-checkpoint directory can therefore be removed as a unit.
+## Maintained bases
 
-## Prepared Source Helper
+The latest maintained ebuild in each series is:
 
-Non-Gentoo users can create a fully patched source tree from a `cix-sources`
-ebuild without unpacking the patch order by hand:
+| Series | Ebuild | CIX base | Sky1 base |
+| --- | --- | --- | --- |
+| 6.18 | `cix-sources-6.18.38` | `19f2947` | `57e018a` |
+| 7.0 | `cix-sources-7.0.14-r1` | `19f2947` | `57e018a` |
+| 7.1 | `cix-sources-7.1.3` | `19f2947` | `57e018a` |
+
+Linux 7.1 reuses a 7.0 patch when the source preimage and required change are
+the same.  A `7.1.x` variant exists when the source context or behaviour is
+different.
+
+## Directory layout
+
+Current downstream patches live in `6.18.x`, `7.0.x`, `7.1.x`, or the shared
+top level.  Patches needed only by superseded CIX bases are contained below:
+
+```text
+cix-3aad824/
+    6.18.x/
+    7.0.x/
+    shared/
+cix-759efc0/
+    7.0.x/
+    7.1.x/
+    shared/
+```
+
+The outer directory records the CIX checkpoint.  The inner directory records
+the kernel family, while `shared` is for a checkpoint-specific patch used by
+more than one family.  Current `19f2947` ebuilds do not reference either
+checkpoint directory.
+
+When the last ebuild based on a checkpoint is removed, its directory can be
+removed as a unit after confirming that no ebuild references it.  Do not put a
+checkpoint hash in the filename of a current patch merely to record its
+ancestry; the commit message and documentation carry that provenance.
+
+## Numbering policy
+
+The numbering model predates the `19f2947` uplift.  Repository history shows
+that `90xxx` was already the durable CIX platform range.  The `99xxx`
+retention overlays first appeared during the `19f2947` migration and were a
+temporary staging device, not the definition of the whole `9xxxx` range.
+
+| Range | Ownership |
+| --- | --- |
+| `0000`-`0999` | Direct replacements for a patch with the same vendor or upstream queue ordinal |
+| `10000`-`19999` | Architecture, boot, and core build diagnostics |
+| `20000`-`29999` | Build, Kconfig, compiler, and section-lifetime corrections |
+| `30000`-`39999` | ACPI, firmware, SCMI, clocks, reset, PM domains, and power policy |
+| `40000`-`49999` | Enumeration, resource policy, pinctrl, and model arbitration |
+| `50000`-`59999` | Runtime driver corrections not owned by a narrower range |
+| `60000`-`69999` | USB, Type-C, and CIX PHY integration |
+| `70000`-`70999` | DRM and display |
+| `71000`-`71899` | CIX MVX video codec |
+| `71900`-`71999` | ArmChina NPU |
+| `72000`-`72999` | CIX ISP and camera |
+| `73000`-`73999` | HDA and ASoC audio |
+| `80000`-`89999` | Networking, PCI, and cross-module ordering |
+| `90000`-`98999` | CIX SoC, platform, board profiles, and platform HWMON |
+| `99000`-`99999` | Temporary, exceptional, or explicitly experimental overlays |
+
+The only current `99xxx` patch is the optional EC diagnostic experiment at
+`7.1.x/99020-hwmon-cix-fan-add-optional-ec-diagnostics.patch`.
+
+Equivalent changes should use the same number across kernel families where
+possible.  Direct follow-ons should be sequential.  Unrelated changes in the
+same range should be spaced apart so that a future prerequisite or follow-on
+can be inserted without renumbering the whole group.
+
+### Vendor ordinals
+
+A low ordinal such as `0047` is valid only when the local file directly
+replaces vendor or upstream patch `0047` in that queue.  The 6.18 replacements
+`0051`, `0071`, and `0118`, and the 7.1 CIX-queue replacement `0046`, follow
+this rule.
+
+The former local PL011 follow-on named `0047` did not replace CIX patch `0047`:
+CIX already supplies its own, unrelated `0047`.  The follow-on is therefore
+numbered `20071`.  If a future local patch really substitutes for the vendor
+`0047`, retaining `0047` would be correct.
+
+## Patch boundaries
+
+Prefer one subsystem or one clearly named functional owner per patch.  A
+thematic group is acceptable when its files jointly implement one behaviour,
+or when splitting it would create many tiny patches without improving
+maintenance.  Examples include the CIX ACPI model-discovery helpers and the
+module soft-dependency declarations.
+
+Do not use a final catch-all patch for unrelated migration leftovers.  The
+former `990xx` retention overlays are now assigned to their owning ranges:
+
+| Concern | Current location |
+| --- | --- |
+| CIX display retention | `70130` |
+| Peripheral ACPI retention | `50100`, `50110`, `50120`, and `50130` |
+| Regulator retention | `50095` |
+| HDA and I2S retention | `73020` and `73030` |
+| 7.1 compiler findings | subsystem-owned `20072`, `30022`, `40054`, `50022`, `60097`, `70140`, `72107`, `73040`, `80062`, and `90094` |
+
+The old display/backlight aggregate was also separated.  Its backlight half
+was removed rather than retained because CIX `19f2947` already supplies the
+`CIXH5041` ACPI match table.  Reapplying it produced a duplicate definition.
+
+When changing a patch, reconstruct its exact source preimage, apply preceding
+patches in ebuild order, edit the real source, regenerate the diff, and replay
+it with zero fuzz.  Never repair a patch hunk by hand.  If a later patch is
+made redundant, remove it from the queue rather than stacking a corrective
+patch over it.
+
+## Prepared source helper
+
+The helper materialises the exact ebuild-driven source tree:
 
 ```sh
 sys-kernel/cix-sources/files/create-patched-kernel.sh \
@@ -31,24 +133,12 @@ sys-kernel/cix-sources/files/create-patched-kernel.sh \
   ./linux-7.1.3-cix
 ```
 
-The helper fetches and verifies the kernel, genpatches, and CIX/Sky1 distfiles,
-then runs the selected ebuild's `src_prepare` logic against the target source
-tree. Use `--force` to replace an existing target directory, `--distdir` to
-reuse downloaded distfiles, and `--use experimental` only when you intentionally
-want the ebuild's optional experimental genpatches. When a developer-hosted
-genpatches archive has been pruned, the helper derives Gentoo's distfiles
-subdirectory from the filename and falls back to the public mirror network.
+It fetches and verifies the kernel, Gentoo genpatches, and CIX/Sky1 archives,
+then executes the selected ebuild's `src_prepare`.  Useful options include
+`--force`, `--distdir`, and `--use`.
 
-Linux 7.1.3 defaults the ArmChina NPU driver to the R2P0 ABI used by
-`cix-noe-umd` 2.0.2 and `libnoe.so.0.6.0`. The imported R2P2 implementation is
-retained behind the off-by-default `npu-r2p2-abi` USE flag. Select it only when
-the userspace runtime is also R2P2-compatible. `kconfig_update.py` likewise
-defaults to `--npu-abi r2p0` and verifies that the selected ABI matches the
-source tree before emitting a fragment or updating a configuration.
-
-ACPI table-upgrade AML artifacts are optional because they require extra tools:
-`python3` and ACPICA `iasl` version `20241212` or newer. Use the current ACPICA
-release where possible. To ask the helper to compile them:
+ACPI table-upgrade payloads require Python and ACPICA `iasl` version 20241212
+or newer.  An explicit request is strict:
 
 ```sh
 sys-kernel/cix-sources/files/create-patched-kernel.sh \
@@ -59,183 +149,45 @@ sys-kernel/cix-sources/files/create-patched-kernel.sh \
   ./linux-7.1.3-cix
 ```
 
-If the ACPI prerequisites are missing, `iasl` is too old, or the compile fails,
-the helper reports an error because `--compile-acpi-tables` was requested
-explicitly.
+Missing tools, an old `iasl`, or an AML compile failure are errors when
+`--compile-acpi-tables` was requested.
 
-| Patch number/name | Kernel release(s) | Subsystem(s) | Issue or enhancement |
-| --- | --- | --- | --- |
-| `6.18.x/99010-cix-19f2947-drm-display-retain-downstream-improvements.patch`, `7.0.x/99010-cix-19f2947-drm-display-retain-downstream-improvements.patch`, `7.1.x/99010-cix-19f2947-drm-display-retain-downstream-improvements.patch` | 6.18.38, 7.0.14-r1, 7.1.3 | DRM, CIX Display | Retains robust fwnode/display lifetime handling, optional DPTX clocks, quieter diagnostics, and the local CIX display/LinlonDP build fixes after CIX `19f2947`. |
-| `6.18.x/99011-cix-19f2947-drm-panthor-retain-downstream-improvements.patch` | 6.18.38 | DRM, Panthor | Retains the Panthor module-ordering declaration still needed by the 6.18 stack. |
-| `6.18.x/99012-cix-19f2947-acpi-thermal-retain-downstream-improvements.patch` | 6.18.38 | ACPI, Thermal, HWMON | Retains the scoped Orion thermal fallback and thermal-hwmon label/lifetime behavior not supplied completely by the native 6.18 queue. |
-| `6.18.x/99013-cix-19f2947-pmdomain-retain-downstream-improvements.patch` | 6.18.38 | PM Domains, SCMI, Runtime PM | Retains balanced ACPI/SCMI performance-domain attachment and probe-unwind behavior. |
-| `6.18.x/99014-cix-19f2947-nvmem-retain-downstream-improvements.patch` | 6.18.38 | NVMEM, CIX Sky1 | Retains the Sky1 NVMEM provider and its 6.18 Kconfig/build integration. |
-| `6.18.x/99015-cix-19f2947-soc-acpi-discovery-retain-downstream-improvements.patch` | 6.18.38 | CIX SoC, ACPI Discovery | Retains the CIX ACPI resource lookup and deterministic GPU, PCIe, and USB model-discovery helpers; it owns the shared CIX SoC Kconfig/Makefile additions required by the following runtime-driver patches. |
-| `6.18.x/99016-cix-19f2947-soc-bus-performance-retain-downstream-improvements.patch` | 6.18.38 | CIX SoC, Bus Performance, Thermal | Retains the CIX bus-performance driver and CPU-IPA thermal integration. |
-| `6.18.x/99017-cix-19f2947-soc-ddr-low-power-retain-downstream-improvements.patch` | 6.18.38 | CIX SoC, DDR Low Power | Retains the opt-in Sky1 DDR low-power policy driver. |
-| `6.18.x/99018-cix-19f2947-soc-reboot-reason-retain-downstream-improvements.patch` | 6.18.38 | CIX SoC, Reboot Reason | Retains the Sky1 reboot-reason platform driver. |
-| `6.18.x/99019-cix-19f2947-socinfo-retain-downstream-improvements.patch` | 6.18.38 | CIX SoC, SoC Info | Retains Sky1 SoC identification and diagnostic field exposure. |
-| `6.18.x/99020-cix-19f2947-pci-retain-downstream-improvements.patch` | 6.18.38 | PCIe, CIX Sky1 | Retains the local Sky1 PCIe resource and cleanup correction. |
-| `6.18.x/99021-cix-19f2947-regulator-retain-downstream-improvements.patch`, `7.0.x/99012-cix-19f2947-regulator-retain-downstream-improvements.patch`, `7.1.x/99012-cix-19f2947-regulator-retain-downstream-improvements.patch` | 6.18.38, 7.0.14-r1, 7.1.3 | Regulator, Fwnode | Retains the local fwnode regulator reference-lifetime correction. |
-| `6.18.x/99022-cix-19f2947-media-mvx-retain-downstream-improvements.patch` | 6.18.38 | Media, CIX MVX | Retains the remaining MVX ACPI/runtime guard needed by 6.18. |
-| `6.18.x/99023-cix-19f2947-npu-retain-downstream-improvements.patch` | 6.18.38 | NPU, ArmChina Zhouyi | Retains the Sky1 NPU probe-ordering correction not present in the native 6.18 queue. |
-| `6.18.x/99024-cix-19f2947-hda-retain-downstream-improvements.patch`, `7.0.x/99013-cix-19f2947-hda-retain-downstream-improvements.patch`, `7.1.x/99013-cix-19f2947-hda-retain-downstream-improvements.patch` | 6.18.38, 7.0.14-r1, 7.1.3 | HDA, GPIO, ACPI | Retains Cadence-GPIO reachability plus the CIX HDA DMA-range, probe, and unwind corrections. |
-| `7.0.x/99011-cix-19f2947-peripheral-acpi-retain-downstream-improvements.patch`, `7.1.x/99011-cix-19f2947-peripheral-acpi-retain-downstream-improvements.patch` | 7.0.14-r1, 7.1.3 | I2C, I3C, PWM, SPI, ACPI | Retains the local ACPI clock/resource and probe-unwind corrections for the Cadence peripheral drivers. |
-| `7.0.x/99014-cix-19f2947-soc-audio-retain-downstream-improvements.patch`, `7.1.x/99014-cix-19f2947-soc-audio-retain-downstream-improvements.patch` | 7.0.14-r1, 7.1.3 | CIX Audio, I2S, AUDSS | Retains the Cadence I2S ACPI/runtime corrections; the 7.1 variant also carries the AUDSS clock probe-unwind fix. CIX `19f2947` supersedes the former provider-side AUDSS `noc` reset lookup with namespace-wide RSTL-to-`_DSD` property injection. |
-| `7.1.x/0037-regulator-fixed-match-acpi-prp0001-without-of.patch`, `7.1.x/0038-regulator-fixed-keep-acpi-fixed-rails-enabled.patch` | 7.1.3 | Regulator, ACPI PRP0001 | Keeps CIX's fixed-regulator provider usable without full OF and preserves firmware state for board rails whose ACPI descriptions omit explicit boot/always-on properties. |
-| `7.1.x/cix-759efc0/0005-cix-clk-add-cix-clk-driver.patch`, `7.1.x/cix-759efc0/0006-cix-reset-add-cix-reset-driver.patch`, `7.1.x/cix-759efc0/0008-cix-pmdomain-add-acpi-support-to-cix-soc.patch`, `7.1.x/cix-759efc0/0011-cix-drm-panthor-add-acpi-support-for-cix-p1.patch`, `7.1.x/cix-759efc0/0024-cix-phy-add-cix-phy-driver.patch`, `7.1.x/0046-cix-tty-amba-pl011-use-driver-from-cix-bsp.patch` | 7.1.1–7.1.2 | CIX upstream queue, Clocks, Reset, PM Domains, Panthor, PHY, PL011 | Re-bases the older CIX 7.0 upstream patch queue for Linux 7.1 source drift. Linux 7.1.3 uses CIX's native `patches-7.1` queue from `19f2947`; only the local PL011 uplift remains separate. |
-| `6.18.x/cix-3aad824/40005-add-remaining-sky1-acpi-device-ids.patch`, `6.18.x/40005-6.18.28-add-remaining-sky1-acpi-device-ids.patch` | 6.18.x | ACPI, Cadence MACB/GEM/QSPI/I3C/SPI, Device IDs | Re-bases the current Sky1/CIX ACPI ID and match-data conversion for the base and later 6.18 point-release contexts used by the CIX+Sky1 import flow. |
-| `7.0.x/cix-3aad824/40050-cix-3aad824-soc-cix-arbitrate-acpi-usb-models.patch`, `7.0.x/40050-cix-759efc0-soc-cix-arbitrate-acpi-usb-models.patch` | 7.0.x | ACPI, USB, Scan Arbitration | Ports the 6.18 deterministic USB ACPI arbitration to Linux 7.0: prefer `PNP0D10` when generic and vendor USB models both exist, while allowing vendor-only firmware. |
-| `7.0.x/cix-3aad824/40060-cix-3aad824-soc-cix-add-gpu-cca-scan-quirk.patch`, `7.0.x/40060-cix-759efc0-soc-cix-add-gpu-cca-scan-quirk.patch` | 7.0.x | ACPI, GPU, Panthor | Adds a Sky1 ACPI GPU scan helper that overrides incorrect coherent-DMA reporting for `CIXH5000` and self-disables when firmware is already non-coherent. |
-| `7.0.x/40070-cix-759efc0-soc-cix-arbitrate-acpi-pcie-models.patch` | 7.0.x | ACPI, PCIe, Scan Arbitration | Ports the 6.18 deterministic PCIe ACPI arbitration to Linux 7.0: prefer generic `PNP0A08` host bridges when generic and vendor `CIXH2020` models both exist, while allowing vendor-only firmware. |
-| `7.0.x/40080-soc-cix-ignore-disabled-acpi-models.patch` | 7.0.x | ACPI, PCIe/USB, Scan Arbitration | Makes Sky1 ACPI model arbitration ignore namespace objects whose evaluated status is not present or functional, matching the DSDT override's duplicate-device suppression model. |
-| `40045-pnp-system-demote-pci-ecam-duplicate-reservations.patch` | 6.18.x, 7.0.x | ACPI, PNP, PCI ECAM | Demotes duplicate PNP0C02 reservations when they conflict with PCI ECAM resources and logs the conflicting owner/descriptor if a non-ECAM conflict remains. |
-| `7.0.x/40046-acpi-scan-demote-pci-ecam-duplicate-reservations.patch` | 7.0.x | ACPI, PCI ECAM | Applies the same duplicate-ECAM demotion to Linux 7.x's direct ACPI system-resource reservation path in `drivers/acpi/scan.c`. |
-| `40044-pinctrl-acpi-export-pin-groups-helper.patch` | 7.0.12+, 7.1.x | Pinctrl, ACPI, Modules | Exports the ACPI pin-group helper added by the CIX pinctrl queue so modular Sky1 pinctrl builds can call it without unresolved-symbol modpost failures. |
-| `40049-pinctrl-sky1-drop-unused-debug-show-data.patch` | 7.0.12+, 7.1.x | Pinctrl, CIX Sky1, WERROR | Drops an unused debug-show local introduced by the CIX ACPI pinctrl path so modular Sky1 pinctrl builds remain clean with `CONFIG_WERROR`. |
-| `40093-pci-cix-enable-root-port-io-window-assignment.patch` | 6.18.x, 7.0.x | PCI, Resource Assignment, CIX Sky1 | Allows CIX Sky1 PCIe root ports to allocate downstream bridge I/O windows from existing translated host apertures, fixing endpoint legacy I/O BAR assignment without changing non-CIX bridges. |
-| `7.0.x/cix-3aad824/90000-cix-3aad824-soc-cix-add-acpi-bus-perf-driver.patch`, `7.0.x/90000-cix-759efc0-soc-cix-add-acpi-bus-perf-driver.patch` | 7.0.x | ACPI, CIX SoC, SCMI Performance Domains | Ports the Sky1 CI700/MMHUB bus performance driver to Linux 7.0, adds ACPI IDs for firmware-exposed SCMI `perf` domains, folds in zero-rate OPP/performance-level handling, direct ACPI SCMI genpd attachment, and balanced runtime-PM ownership. |
-| `6.18.x/cix-3aad824/90000-soc-cix-add-acpi-runtime-drivers.patch` | 6.18.x | ACPI, CIX SoC, NVMEM, Thermal, Bus Perf | Splits the previous 6.18 aggregate runtime-driver port into a subsystem-scoped patch covering Sky1 ACPI resource lookup, USB/PCI/GPU arbitration helpers, NVMEM/SoC-info/CPU-IPA support, DDR-LP policy plumbing, and the CIX bus-performance driver with the same zero-rate OPP, direct SCMI genpd, and runtime-PM fixes as 7.0. |
-| `6.18.x/30015-pmdomain-export-genpd-dev-pm-attach-by-name.patch`, `7.0.x/cix-3aad824/30015-cix-3aad824-pmdomain-export-genpd-dev-pm-attach-by-name.patch`, `7.0.x/30015-cix-759efc0-pmdomain-export-genpd-dev-pm-attach-by-name.patch` | 6.18.x, 7.0.x | PM Domains, GenPD, Build | Exports the named genpd attach helper after the CIX/ACPI genpd wiring so modular bus-performance consumers can use the same helper as built-in code. |
-| `7.0.x/cix-3aad824/90010-cix-3aad824-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch`, `7.0.x/90010-cix-759efc0-cix-sky1-acpi-socinfo-nvmem-ddrlp-ipa.patch` | 7.0.x | ACPI, CIX SoC, NVMEM, NPU/VPU, Thermal | Ports deterministic Sky1 eFuse/NVMEM and SoC-info support to ACPI, guards OF-only NPU/VPU reserved-memory paths, auto-enables the CPU-IPA power monitor on Sky1 ACPI systems, and keeps DDR-LP as an opt-in `force_enabled=1` firmware-policy control. |
-| `7.0.x/90040-soc-cix-expose-raw-sky1-socinfo-fields.patch` | 7.0.x | CIX SoC, SoC Info, NVMEM | Exposes raw Sky1 OPN/board-ID fields through the diagnostic SoC-info path so real hardware values can be compared against vendor decode tables. |
-| `90045-soc-cix-align-sky1-socinfo-opn-decode-with-bsp.patch` | 6.18.x, 7.0.x | CIX SoC, SoC Info, NVMEM | Aligns the Sky1 OPN decoder with the newer BSP field layout and model identifiers while keeping the driver non-default/diagnostic when firmware reports empty OPN data. |
-| `90046-arm64-cix-guard-dmi-cpu-name-reference.patch` | 7.0.12+, 7.1.x | ARM64, CIX DMI, CPU Info | Guards CIX's `/proc/cpuinfo` DMI CPU-name hook behind `ARCH_CIX` so broader arm64 configurations do not retain a built-in reference to a helper object that is not linked. |
-| `7.0.x/cix-3aad824/90020-cix-3aad824-cix-fix-module-modpost-exports.patch`, `7.0.x/cix-759efc0/90020-cix-759efc0-cix-fix-module-modpost-exports.patch` | 7.0.x | Build, DRM, SoC, Thermal | Fixes module builds after the ACPI SoC-info/IPA work by avoiding unexported `soc_device_to_device` and `cpu_logical_map` references, and restores a proper Linlon DP cross-file prototype instead of making the helper static. |
-| `40076-soc-cix-hide-dst-engineering-menu.patch` | 7.0.12+, 7.1.x | CIX SoC, Kconfig, Engineering Diagnostics | Hides the vendor CIX DST/RDR/blackbox/DSM engineering-test menu from production Radxa kernels while keeping the stack disabled by default. |
-| `7.0.x/cix-3aad824/90030-cix-cpu-ipa-use-dtb-register-size.patch` | 7.0.x to 7.0.11 | Thermal, CIX CPU IPA, ACPI | Tightens the ACPI CPU-IPA platform-device resource to the vendor-DTB-confirmed `0x83bf0300`/`0x300` aperture. |
-| `7.0.x/cix-3aad824/30110-cix-acpi-ids-and-clkt-consumer-fixes.patch` | 7.0.x to 7.0.8 | ACPI, HDA/I2S/SPI/I3C/QSPI, Clock Consumers, Device IDs | Ports the deterministic ACPI ID and `CLKT` consumer fixes to Linux 7.0's CIX-native driver layout, including the renamed CIX HDA controller path. |
-| `7.0.x/cix-759efc0/30110-7.0.9-cix-acpi-ids-and-clkt-consumer-fixes.patch` | 7.0.9+ | ACPI, HDA/I2S/SPI/I3C/QSPI, Clock Consumers, Device IDs | Re-bases the deterministic ACPI ID and `CLKT` consumer fixes for Linux 7.0.9 so the Cadence SPI/QSPI context applies without offset or fuzz. |
-| `30130-acpi-scope-cix-scmi-sta-quirk.patch` | 6.18.x, 7.0.x | ACPI, SCMI, Firmware Quirks | Narrows CIX's old-firmware SCMI `_STA` override to SCMI controller children and self-disables when firmware already returns a nonzero `_STA`. |
-| `6.18.x/10000-arm64-stub-fdt.patch` | 6.18.x | ARM64, Boot, EFI/FDT | Allows the CIX/Sky1 ACPI boot path to satisfy ARM64 FDT expectations with a minimal stub on the maintained 6.18 preimage. |
-| `7.0.x/cix-3aad824/10000-arm64-stub-fdt.patch` | 7.0.x to 7.0.8 | ARM64, Boot, EFI/FDT | Re-bases the ARM64 stub-FDT support for Linux 7.0 after the `drivers/mfd/Kconfig` context changed upstream. |
-| `7.0.x/10000-7.0.9-arm64-stub-fdt.patch` | 7.0.9+ | ARM64, Boot, EFI/FDT | Carries the Linux 7.0 stub-FDT support on top of 7.0.9, where the Qualcomm Venus `OF_DYNAMIC` guard is already present upstream. |
-| `7.1.x/10000-arm64-stub-fdt.patch` | 7.1.x | ARM64, Boot, EFI/FDT | Re-bases the ARM64 stub-FDT support for Linux 7.1, where the Apple pinctrl `OF_GPIO` select guarded by the 7.0 patch is already gone upstream. |
-| `10010-arm64-stub-fdt-enable-kexec-file.patch` | 6.18.x, 7.0.x | ARM64, Boot, EFI/FDT, Kexec | Allows ACPI stub-FDT builds to expose `KEXEC_FILE` by treating `OF_STUB` as sufficient for arm64's FDT construction path, building the OF kexec helper for `OF_FLATTREE`, and keeping IMA kexec buffer support gated on full `OF`. |
-| `10020-lld-timer-of-table-end-warning.patch` | 6.18.x, 7.0.x | ARM64, Timer, Build Tooling | Fixes an LLD-related table-boundary warning in the ARM timer path. |
-| `7.0.x/10040-bpf-guard-session-return-btf-id.patch` | 7.0.x | BPF, BTF IDs, Build | Uses `BTF_ID_UNUSED` for `bpf_session_is_return` when `CONFIG_BPF_EVENTS` is disabled, matching the existing `bpf_session_cookie` guard and avoiding unresolved `resolve_btfids` warnings. |
-| `7.0.x/20010-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch` | 7.0.x | Build, CIX Drivers, Clang | Re-bases the `0141` dependency, section mismatch, and Clang fixes for Linux 7.0's CIX PHY Kconfig layout without fuzzy hunks, and makes USB-DP Type-C integration module-reachable. |
-| `6.18.x/20011-cix-fix-deps-section-mismatch-and-clang-uninit-build-fail.patch` | 6.18.x | Build, CIX Drivers, Clang | Re-bases the same fixes for the maintained 6.18 patch stack. |
-| `10030-build-modpost-report-all-unresolved-symbols.patch` | 6.18.x, 7.0.x | Build, Modpost | Removes the unresolved-symbol reporting cap so modpost emits every undefined-symbol diagnostic instead of hiding later failures behind a suppression summary. |
-| `7.0.x/50045-soc-cix-require-dev-id-for-reset-lookups.patch` | 7.0.x | CIX SoC, ACPI Resources, Reset | Suppresses invalid reset-controller lookup registrations unless ACPI resource data provides both the provider and consumer device identifiers required by the reset core. |
-| `7.1.x/30107-reset-core-fall-back-to-cix-acpi-lookup.patch` | 7.1.3 | Reset, ACPI, CIX Resource Lookups | Falls back from an absent firmware-node reset reference to CIX's ACPI lookup table while preserving other lookup errors; the 7.1.3 variant targets the current reset-core layout without fuzzy application. |
-| `30140-clk-sky1-acpi-fail-incomplete-clkt-maps.patch` | 6.18.x, 7.0.x | Clocks, Sky1 CLKT, ACPI, Probe Ordering | Fails the Sky1 ACPI clock provider probe if any required `CLKT` mapping fails, avoiding silent partial clock registration. |
-| `7.0.x/30170-clk-sky1-acpi-select-cix-mailbox-for-scmi.patch`, `7.1.x/30170-clk-sky1-acpi-select-cix-mailbox-for-scmi.patch` | 7.0.x, 7.1.3 | Clocks, Sky1 CLKT, ACPI, SCMI, Mailbox | Allows the CIX mailbox provider on ACPI systems, builds the CIX SCMI mailbox/clock stack in for `ARCH_CIX && ACPI`, and keeps the Sky1 ACPI clock provider's SCMI mailbox dependencies explicit. The 7.1 variant targets CIX `19f2947`'s AUDSS-menu Kconfig layout without fuzzy application. |
-| `30190-clk-scmi-keep-acpi-clocks-enabled.patch` | 6.18.x, 7.0.x | Clocks, SCMI, ACPI, Boot | Marks ACPI SCMI clocks with `CLK_IGNORE_UNUSED` so the late unused-clock sweep cannot gate firmware-owned CPU/interconnect clocks. |
-| `30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch` | 6.18.x, 7.0.x | Firmware, SCMI, Performance Domains | Preserves the firmware-provided sustained frequency/performance ratio when translating SCMI performance levels, avoiding integer multiplier truncation and the resulting rounded-multiplier boot warnings. |
-| `20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch` | 6.18.x, 7.0.x | CPUFreq | Uses policy maximum as a fallback for fast-switch scaling. |
-| `20050-topology-has-missing-cpufreq-ref.patch` | 6.18.x, 7.0.x | CPUFreq, CPU Topology | Repairs a missing CPUFreq reference in topology handling. |
-| `20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch` | 6.18.x, 7.0.x | ACPI, CPUFreq, Module Parameters | Clarifies the `ignore_ppc` module-parameter description so it states that setting the parameter ignores ACPI `_PPC` CPU performance limits. |
-| `7.0.x/50070-dma-arm-dma350-skip-of-reserved-memory-under-acpi.patch` | 7.0.x | DMA, ARM DMA-350, ACPI | Skips OF reserved-memory initialisation and release on ACPI-probed DMA-350 devices, avoiding false `-ENOSYS`/`-ENODEV` reserved-memory warnings while preserving the DT path. |
-| `7.0.x/50080-dma-arm-dma350-skip-unsafe-remote-acpi-probe.patch` | 7.0.x | DMA, ARM DMA-350, ACPI, AUDSS | Keeps remote-controlled ACPI DMA-350 instances safe on stale firmware by requiring the DT-equivalent named `axiclk` before register access; fixed DSDT tables provide `axiclk` so the guard naturally deactivates. |
-| `7.0.x/50085-dma-arm-dma350-keep-fch-acpi-dma-optional-clocks-optional.patch` | 7.0.x, 7.1.x | DMA, ARM DMA-350, ACPI | Stops treating every ACPI DMA-350 without clocks/resets as an AUDSS ordering problem, allowing the ordinary CIXHA014/FCH DMA instance to probe while preserving remote AUDSS deferral. |
-| `70020-cix-display-and-backlight-build-fixes.patch`, `7.0.x/70020-cix-759efc0-cix-display-and-backlight-build-fixes.patch`, `7.1.x/70020-cix-19f2947-cix-display-and-backlight-build-fixes.patch` | 6.18.x, 7.0.x, 7.1.3 | DRM, Backlight, Display | Disables the broken virtual encoder path and keeps ACPI PWM backlight buildable. The 7.1 variant targets CIX `19f2947`'s updated PWM backlight context without fuzzy application. |
-| `70050-drm-cix-enable-acpi-stub-fdt-display.patch`, `7.0.x/cix-759efc0/70050-cix-759efc0-drm-cix-enable-acpi-stub-fdt-display.patch` | 6.18.x, 7.0.x | DRM, CIX Display, ACPI Stub-FDT | Allows CIX Linlon DP and Trilin DPTX display symbols to be selected on ACPI stub-FDT builds and fixes a definite DPTX panel-pointer initialization/lifetime bug. |
-| `70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch` | 6.18.x, 7.0.x | DRM, CIX DPTX, ACPI Clocks | Treats absent DPTX stream 2/3 video clocks as optional and avoids later stream-clock dereferences when ACPI exposes only `vid_clk0/1`. |
-| `70070-drm-cix-use-fwnode-display-links.patch`, `7.0.x/cix-759efc0/70070-cix-759efc0-drm-cix-use-fwnode-display-links.patch` | 6.18.x, 7.0.x | DRM, CIX DPTX, ACPI Stub-FDT | Uses fwnode panel lookup and fwnode graph panel-bridge discovery for CIX DPTX on ACPI, while treating absent or disabled firmware graph data as no panel/bridge instead of inventing topology. |
-| `70010-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch`, `7.0.x/cix-759efc0/70010-cix-759efc0-drm-cix-dptx-fix-clang-werror-in-component-bypass-builds.patch` | 6.18.x, 7.0.x | DRM, CIX DPTX, Clang | Fixes DPTX build failures when component-bypass configurations are selected. |
-| `70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch` | 6.18.x, 7.0.x | DRM, CIX DPTX, Kconfig | Removes the unused `DRM_TRILIN_CADENCE_PHY` prompt; the Linux 7.0 CIX DPTX driver already builds and runtime-selects its eDP or USB-DP Cadence PHY backend by PHY ID. |
-| `70090-drm-cix-remove-unused-display-kconfig-prompts.patch` | 6.18.x, 7.0.x | DRM, CIX DPTX, Kconfig | Removes no-op `DRM_TRILIN_DP_CIX` and `DRM_CIX_EDP_PANEL` prompts; DPTX and the bundled eDP panel helper are actually controlled by `DRM_TRILIN_DPSUB`. |
-| `7.0.x/cix-3aad824/70110-cix-3aad824-drm-cix-demote-display-info-logs.patch`, `7.0.x/cix-759efc0/70110-cix-759efc0-drm-cix-demote-display-info-logs.patch` | 7.0.x | DRM, CIX Display, Logging | Demotes normal CIX display probe, HPD, panel, HDCP, runtime-PM, and PHY fallback progress messages to debug so successful boots stay readable. |
-| `70120-drm-cix-demote-internal-tbu-noop-logs.patch` | 6.18.x, 7.0.x | DRM, CIX Display, Logging | Demotes the expected no-internal-TBU display-MMU no-op message from warning to debug while preserving the successful no-op behaviour. |
-| `7.0.x/cix-3aad824/70100-cix-3aad824-drm-cix-linlon-dp-fix-clang-warnings.patch`, `7.0.x/cix-759efc0/70100-cix-759efc0-drm-cix-linlon-dp-fix-clang-warnings.patch` | 7.0.x | DRM, Linlon DP, Clang | Ports the relevant 6.18 Linlon DP clang cleanups to Linux 7.0, covering the GOP helper, misleading indentation, SBS scratch widths, and plane property blob helper scope. |
-| `7.1.x/cix-759efc0/70102-drm-cix-linlon-dp-use-output-color-format-bitmasks.patch` | 7.1.x | DRM, Linlon DP, Kernel API | Ports Linlon DP colour-format capability checks to Linux 7.1's `DRM_OUTPUT_COLOR_FORMAT_*` bitmask API. |
-| `7.1.x/cix-759efc0/70103-drm-cix-linlon-dp-port-private-objects-to-state-create.patch` | 7.1.x | DRM, Linlon DP, Kernel API | Ports Linlon DP private-object initialisation to Linux 7.1's `atomic_create_state` model for private object state allocation. |
-| `7.1.x/cix-759efc0/70104-drm-cix-linlon-dp-fix-werror-warnings.patch` | 7.1.x | DRM, Linlon DP, WERROR | Removes a stale unused plane local and replaces a writeback colour-property VLA with fixed encoding/range arrays so Linlon DP builds cleanly with `CONFIG_WERROR`. |
-| `7.1.x/cix-759efc0/70106-drm-cix-dptx-use-output-color-format-bitmasks.patch` | 7.1.x | DRM, Trilin DPTX, Kernel API | Ports the Trilin DPTX colour-format selection and bandwidth calculations to Linux 7.1's `DRM_OUTPUT_COLOR_FORMAT_*` bitmask API. |
-| `7.1.x/cix-759efc0/70107-drm-cix-dptx-mark-encoder-atomic-check-static.patch` | 7.1.x | DRM, Trilin DPTX, WERROR | Marks Trilin DPTX's file-local encoder atomic-check callback static so the driver builds cleanly with `CONFIG_WERROR`. |
-| `6.18.x/cix-3aad824/70060-drm-add-fwnode-panel-bridge-helpers.patch` | 6.18.x | DRM, Fwnode, Panel Bridge | Re-bases the fwnode panel lookup and graph panel-bridge helper for the maintained 6.18 DRM header layout. |
-| `70060-drm-add-fwnode-panel-bridge-helpers.patch` | 7.0.x to 7.0.11 | DRM, Fwnode, Panel Bridge | Exposes fwnode panel lookup and adds a fwnode graph panel-bridge helper so ACPI/software-node display links can match DT panel links when firmware supplies real graph data. |
-| `6.18.x/cix-3aad824/70005-drm-cix-linlon-dp-fix-symbol-clashes-and-clang-werror.patch` | 6.18.x | DRM, Linlon DP, Clang | Resolves symbol clashes and Clang `-Werror` failures in the Linlon DP driver. |
-| `7.0.x/cix-759efc0/70040-drm-panthor-drop-unused-gem-device-variable.patch` | 7.0.x | DRM, Panthor, Clang | Drops an unused outer `ptdev` declaration in `should_map_wc()` after Linux 7.0's Panthor coherency check moved the actual use into a nested block. |
-| `6.18.x/cix-3aad824/70040-display-media-acpi-runtime-fixes.patch` | 6.18.x | DRM, Media, ACPI, Clang | Splits the newer 6.18 display/media runtime fixes from the former aggregate patch, including Linlon DP build/runtime cleanup and MVX ACPI guard fixes. |
-| `7.0.x/70000-drm-add-sky1-drm-render-node-bridge-for-cix-sky1-soc.patch` | 7.0.x | DRM, Sky1 Render Node | Re-bases the Sky1 DRM render-node bridge for Linux 7.0, including Sky1/compile-test Kconfig gating. |
-| `7.0.x/50050-edac-a72-skip-of-cpu-scan-under-acpi.patch` | 7.0.x | EDAC, ARM64, ACPI | Skips the Cortex-A72 EDAC OF CPU-node scan on ACPI boots, matching the 6.18 behavior and avoiding one warning per CPU on Sky1 ACPI firmware. |
-| `6.18.x/50050-sky1-acpi-runtime-driver-fixes.patch` | 6.18.x | DMA, EDAC, GPIO, IRQ, MFD, Watchdog, ACPI | Splits the 6.18 Sky1 runtime-driver fixes into one maintenance patch covering ACPI-safe DMA-350 reserved-memory handling, A72 EDAC OF-scan suppression, Cadence GPIO/PDC/syscon resource fixes, and SBSA watchdog control-frame keepalive. |
-| `50090-dma-coherent-keep-declared-memory-write-combined.patch` | 6.18.x, 7.0.x | DMA, Coherent Memory, CIX HDA | Reverts CIX's generic DMA-core write-back `memremap()` fallback while retaining the exported `dma_declare_coherent_memory()` symbol, avoiding unsafe CPU aliases for firmware-reserved coherent pools. |
-| `80030-cadence-macb-restore-pc302gem-config-scope.patch`, `7.1.x/80030-cadence-macb-restore-pc302gem-config-scope.patch` | 6.18.x, 7.0.x, 7.1.x | Ethernet, Cadence MACB/GEM | Restores `pc302gem_config` visibility so ACPI and OF match tables can both reference it; the 7.1 replacement accounts for the newer upstream `pc302gem_config` context. |
-| `7.1.x/80031-cadence-macb-match-pc302gem-callbacks.patch` | 7.1.x | Ethernet, Cadence MACB/GEM, Kernel API | Keeps the 7.1 `pc302gem_config` ACPI-visible while preserving the upstream 7.1 callback signatures and USRIO settings. |
-| `80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch` | 6.18.x, 7.0.x, 7.1.x | Ethernet, Cadence MACB/GEM, ACPI Clocks | Falls back from `hclk` to the Sky1 ACPI `aclk` name for `CIXH7020` GEM devices. |
-| `80000-rtl8126-disable-vpd.patch` | 6.18.x, 7.0.x | Ethernet, Realtek, PCI | Disables problematic RTL8126 VPD access. |
-| `80050-pci-rtl8126-disable-vpd-quietly.patch` | 6.18.x, 7.0.x | Ethernet, Realtek, PCI | Converts the RTL8126 VPD workaround to a quiet capability disable while keeping the device protected without repeated invalid-VPD warnings. |
-| `80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch` | 6.18.x, 7.0.x | Ethernet, Realtek, DMA API | Removes the vendor compatibility shim that redefined `dma_mapping_error()` to unconditional success in the r8125/r8126 headers, restoring the kernel's real DMA map-error checks. |
-| `80070-pci-disable-aspm-for-sky1-smmu-faulting-endpoints.patch` | 6.18.x, 7.0.x | PCI, ASPM, SMMU | Keeps PCIe OS control enabled while disabling ASPM/ClockPM for the Samsung NVMe and RTL8126 endpoints that produced repeatable Sky1 SMMU IOVA-zero translation faults when global ASPM was enabled. |
-| `80075-pci-strengthen-sky1-aspm-disable-for-faulting-endpoints.patch` | 6.18.x, 7.0.x | PCI, ASPM, Sky1 | Strengthens the Sky1 endpoint ASPM containment for Samsung NVMe and Realtek RTL8126 by removing endpoint ASPM capability early and clearing endpoint/root-port ASPM and L1SS enable bits after enumeration, without retaining temporary diagnostics. |
-| `80080-cix-sky1-declare-module-softdeps.patch` | 6.18.32+, 7.0.x | Module Loading, SCMI Performance Domains, DRM, NPU, Bus Perf | Adds explicit `MODULE_SOFTDEP()` declarations for Sky1 modules whose runtime providers are hidden behind SCMI/genpd or DRM component frameworks: CIX bus-perf, ArmChina NPU, and CIX Panthor pre-load `scmi_perf_domain`, while Linlon DP pre-loads the Trilin DPTX component provider in normal component-binding builds. |
-| `6.18.x/cix-3aad824/80081-cix-sky1-declare-module-softdeps.patch` | 6.18.x to 6.18.28 | Module Loading, SCMI Performance Domains, DRM, NPU, Bus Perf | Re-bases the Sky1 module soft-dependency declarations for the older 6.18 point-release Panthor source context while preserving the same provider preload behaviour as `80080`. |
-| `30150-firmware-arm-scmi-balance-acpi-shmem-fwnode.patch` | 6.18.x, 7.0.x | Firmware, SCMI, ACPI Fwnode | Balances ACPI shmem fwnode references and preserves reference-parse error codes in the CIX SCMI transport changes. |
-| `7.0.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch`, `7.1.x/50010-gpio-cadence-restore-match-data-and-skip-init.patch` | 7.0.x, 7.1.3 | GPIO, Cadence, Device IDs | Restores the AX3000 Cadence GPIO compatible and firmware-preserve match data on top of CIX's Sky1 GPIO match-data handling. The 7.1 variant targets CIX `19f2947`'s updated match-table context without fuzzy application. |
-| `20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch` | 6.18.x, 7.0.x | GPIO, Cadence, PM | Fixes PM operation definitions when sleep PM is disabled. |
-| `6.18.x/cix-3aad824/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch` | 6.18.x | HDA, CIX Audio, ACPI, GPIO | Allows Cadence GPIO on ACPI systems and softly implies it from CIX HDA without forcing the GPIO provider driver. |
-| `7.0.x/cix-759efc0/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch`, `7.1.x/cix-759efc0/73000-cix-hda-require-cadence-gpio-on-acpi-systems.patch` | 7.0.x, 7.1.x | HDA, CIX Audio, ACPI, GPIO | Ports the 6.18 CIX HDA/Cadence GPIO ACPI glue to Linux 7.x's renamed `cix-ipbloq.c` path, keeping the GPIO supplier reachable and using deferred-probe-aware GPIO errors; the 7.1 replacement accounts for the newer `GPIO_CADENCE` dependency expression. |
-| `6.18.x/cix-3aad824/73010-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch` | 6.18.x | HDA, CIX Audio, ACPI DMA, ALSA DMA | Consolidates the CIX HDA ACPI DMA work for 6.18: prefers ACPI-provided or locally quirked DMA ranges over the optional `RSVL` coherent pool, propagates synchronous probe failures, suballocates stream bookkeeping from a larger coherent block, and enables ALSA SG DMA buffers. |
-| `7.0.x/cix-759efc0/73010-cix-hda-prefer-acpi-dma-ranges-and-harden-probe.patch` | 7.0.x | HDA, CIX Audio, ACPI DMA, ALSA DMA | Consolidates the CIX HDA ACPI DMA work for 7.0: prefers ACPI-provided or locally quirked DMA ranges over the optional `RSVL` coherent pool, propagates synchronous probe failures, suballocates stream bookkeeping from a larger coherent block, and enables ALSA SG DMA buffers. |
-| `7.0.x/60050-usb-typec-rts5453-select-sky1-gpio-irq-provider.patch` | 7.0.x | USB, Type-C, RTS5453, GPIO, IRQ | Ensures CIX ACPI RTS5453 builds select the Sky1 Cadence GPIO/PDC IRQ provider so ACPI `GpioInt` resources can translate before the Type-C client probes. |
-| `7.0.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch`, `7.1.x/50000-iommu-arm-smmu-v3-add-acpi-boot-active-bypass-stes-for-cix-sky1-pcie.patch` | 7.0.x, 7.1.3 | IOMMU, ARM SMMU, ACPI | Re-bases Sky1 SMMUv3 ACPI boot-active bypass STE support for Linux 7.x; boot defaults use `arm-smmu-v3.cix_sky1_pcie_boot_bypass=1`, `arm-smmu-v3.cix_sky1_pcie_ats_override=1`, or `arm-smmu-v3.cix_sky1_pcie_quirks=1`, while matching module parameters can override those defaults. The 7.1 variant targets the CIX `19f2947` SMMUv3 layout without fuzzy application. |
-| `7.0.x/50020-irqchip-sky1-pdc-fix-acpi-ioremap-error-path.patch` | 7.0.x | IRQ, Sky1 PDC, ACPI | Fixes Sky1 PDC ACPI ioremap error handling and removes invalid manual unmap of devm-managed resources. |
-| `6.18.x/90050-arm64-cix-add-radxa-orion-board-profiles.patch`, `7.0.x/90050-arm64-cix-add-radxa-orion-board-profiles.patch`, `7.1.x/90050-arm64-cix-add-radxa-orion-board-profiles.patch` | 6.18.x, 7.0.x, 7.1.x | Kconfig, ARM64, Radxa Board Profiles | Adds opt-in Radxa Orion O6/O6N board profile selectors under `ARCH_CIX` and conservative driver preset buckets in `drivers/platform/arm64/Kconfig.radxa`, including the ACPI-safe Sky1 SoC-info/NVMEM helpers while keeping optional peripheral buckets on `imply` so dependency handling and user overrides are preserved. |
-| `6.18.x/90070-sky1-restore-cadence-torrent-dt-binding-header.patch` | 6.18.x | DT Bindings, PHY, CIX Sky1 | Restores Cadence Torrent PHY binding headers needed by the 6.18 Sky1 DTS patch set when the broader infrastructure patch is intentionally not applied. |
-| `6.18.x/90092-hwmon-cix-fan-expose-pwm-duty.patch`, `7.0.x/90092-hwmon-cix-add-acpi-fan-driver.patch` | 6.18.x, 7.0.x | HWMON, ACPI, CIX Fan | Exposes the `CIXHA024` ACPI hardware-monitor fan wrapper through hwmon `pwm1` and `pwm1_enable`, retrying transient EC `0xff` PWM-duty reads and using a fresh last-known-good value before reporting an error, while preserving the existing mute/auto/performance controls. |
-| `6.18.x/90093-hwmon-cix-fan-scale-ec-pwm-duty.patch`, `7.0.x/90093-hwmon-cix-fan-scale-ec-pwm-duty.patch` | 6.18.x, 7.0.x | HWMON, ACPI, CIX Fan | Treats EC fan PWM readback as raw `0..128` duty codes, rounds to stable 5% duty steps, and reports standard hwmon `0..255` PWM values. |
-| `7.1.x/99020-hwmon-cix-fan-add-optional-ec-diagnostics.patch` | 7.1.3 | HWMON, ACPI, CIX Fan, Diagnostics | Probes read-only `CIXHA024` AML extensions for target RPM, raw measured-RPM bytes, and auto/manual mode readback. It exposes `fan1_input`, `fan1_fault`, and `fan1_target` only when the corresponding EC response is valid and measured-RPM byte order is unambiguous; firmware without the extensions retains the existing PWM-only interface. |
-| `90096-soc-cix-add-sky1-reboot-reason-driver.patch` | 6.18.x, 7.0.x, 7.1.x | CIX SoC, ACPI PRP0001, Reboot Reason | Adds a small read-only platform driver for the Sky1 reboot-reason registers described by the Orion O6/O6N reboot-reason table-upgrade SSDT. |
-| `7.0.x/cix-759efc0/90098-pstore-ramoops-parse-firmware-node-properties.patch` | 7.0.x | Pstore, Ramoops, ACPI PRP0001 | Teaches `ramoops` to parse generic firmware-node properties so the Orion O6 `RAOP` ACPI table-upgrade node can provide its memory resource and `_DSD` sizing data without module parameters; 6.18 already has the equivalent parser. |
-| `30180-mailbox-cix-avoid-sky1-scmi-shmem-overlap.patch` | 6.18.x, 7.0.x | Mailbox, CIX, ACPI Resources, SCMI | Maps the Sky1 SCMI mailbox register window at +0x80 only when ACPI firmware exposes a busy full mailbox resource but the shifted register window is independently requestable, avoiding fragile ACPI instance/UID matching and self-disabling for fixed firmware or normally requestable resources. |
-| `71000-cix-mvx-build-and-api-fixes.patch` | 6.18.x, 7.0.x | Media, CIX MVX/VPU | Fixes MVX/VPU build and kernel API compatibility issues. |
-| `6.18.x/71010-cix-mvx-declare-v4l2-vb2-dependencies.patch` | 6.18.x | Media, CIX MVX/VPU, Kconfig | Adds the missing videobuf2 V4L2 helper selection on top of Sky1's existing DMA-SG and memops dependency patch. |
-| `7.0.x/71010-cix-mvx-declare-v4l2-vb2-dependencies.patch` | 7.0.x | Media, CIX MVX/VPU, Kconfig | Selects the videobuf2 DMA-SG, memops, and V4L2 helper layers used by `amvx.ko` so its media dependencies are built consistently. |
-| `7.0.x/71020-cix-mvx-fix-nested-comment-warning.patch` | 7.0.x | Media, CIX MVX/VPU, Clang | Removes an orphaned `wait_prepare()` kerneldoc block that caused Clang to warn about nested block comments. |
-| `7.0.x/71025-cix-mvx-fix-vb2-queue-setup-on-linux-7.patch` | 7.0.x, 7.1.x | Media, CIX MVX/VPU, videobuf2 | Supplies the queue lock required by Linux 7 and corrects `min_queued_buffers` for the post-6.8 videobuf2 semantics. |
-| `71030-cix-mvx-respect-in-tree-kconfig.patch` | 6.18.x, 7.0.x | Media, CIX MVX/VPU, Kbuild | Makes in-tree MVX builds obey `CONFIG_VIDEO_LINLON` instead of forcing `amvx.ko` whenever the symbol is disabled. |
-| `71040-cix-mvx-fix-user-visible-names.patch` | 6.18.x, 7.0.x | Media, CIX MVX/VPU, User-visible Strings | Clarifies Kconfig help, module description, and V4L2 card naming so the driver identifies as CIX/ArmChina Linlon MVX and the built module as `amvx`. |
-| `71050-cix-mvx-enable-jpeg-mjpeg-devices.patch` | 6.18.x, 7.0.x | Media, CIX MVX/VPU, JPEG/MJPEG | Enables and advertises the JPEG/MJPEG-oriented MVX codec formats and dynamic-resolution flags carried by the vendor media stack. |
-| `71060-cix-mvx-port-sky1p-reset-sequencing.patch` | 6.18.x, 7.0.x | Media, CIX MVX/VPU, Reset, ACPI | Ports the Sky1P VPU reset and memory-repair sequencing hooks needed by the CIX MVX ACPI runtime path. |
-| `7.1.x/71090-cix-mvx-uplift-p1-7.0-v1.0.2-core-fixes.patch` | 7.1.x | Media, CIX MVX/VPU, Runtime PM, Firmware | Ports the trustworthy core, scheduler, MMU, buffer, and firmware-queue fixes from CIX `p1_7.0_v1.0.2` while retaining the mainline SCMI and DMA APIs. |
-| `7.1.x/71100-cix-mvx-uplift-p1-7.0-v1.0.2-session-api.patch` | 7.1.x | Media, CIX MVX/VPU, V4L2, Firmware ABI | Ports resolution-change serialization, RRC/timescale controls, firmware protocol additions, and corrected encoder-control setup from CIX `p1_7.0_v1.0.2`. |
-| `7.1.x/71110-cix-mvx-fix-w1-warnings.patch` | 7.1.x | Media, CIX MVX/VPU, Build Hygiene | Removes dead vendor calculations, propagates ROI/EPR-QP firmware errors, and makes the port-change event conversion warning-free under `W=1`. |
-| `7.1.x/71111-cix-mvx-annotate-log-format-functions.patch` | 7.1.x | Media, CIX MVX/VPU, Format Checking | Marks the MVX log callback type plus its dmesg, RAM, and optional ftrace drains with their printf argument positions, then fixes the format and argument mismatches exposed across buffer, firmware, session, and V4L2 logging. |
-| `7.1.x/71112-cix-mvx-fix-kernel-doc-warnings.patch` | 7.1.x | Media, CIX MVX/VPU, Documentation | Reconciles stale kernel-doc names, marks ordinary implementation comments correctly, and documents VPU fields and callback parameters from their concrete ownership and data-flow semantics. |
-| `7.0.x/50030-mfd-syscon-fix-fwnode-property-lookup-lifetime.patch` | 7.0.x | MFD, Syscon, Fwnode | Fixes fwnode and device reference lifetime handling in CIX's fwnode-based syscon lookup path. |
-| `6.18.x/71990-armchina-npu-update-to-cix-opensource-driver-abi.patch`, `7.0.x/71990-armchina-npu-update-to-cix-opensource-driver-abi.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, ABI | Refreshes the Sky1 NPU driver from CIX's raw `p1_7.0_v6.1.1` R2P2 source while retaining it as the canonical implementation for later local fixups. |
-| `6.18.x/71991-armchina-npu-add-missing-v3_2-sources.patch` | 6.18.x | NPU, ArmChina Zhouyi, ABI | Adds the Zhouyi v3.2 source files referenced by the 6.18 NPU ABI refresh so the imported driver builds when `ARMCHINA_NPU` is enabled. |
-| `7.1.x/71993-armchina-npu-default-to-r2p0-userspace-abi.patch` | 7.1.3 | NPU, ArmChina Zhouyi, Userspace ABI | Ports CIX packaging commit `193d3650645b` onto the fully fixed local NPU tree, restoring the R2P0 ABI expected by `cix-noe-umd` 2.0.2 while preserving local lifetime, ACPI DMA, SCMI devfreq, and runtime-PM fixes. The ebuild omits this final overlay when `npu-r2p2-abi` is selected. |
-| `7.1.x/71994-armchina-npu-fix-gcc15-clang21-w1-findings-r2p0.patch`, `7.1.x/71994-armchina-npu-fix-gcc15-clang21-w1-findings-r2p2.patch` | 7.1.3 | NPU, ArmChina Zhouyi, Build Hygiene | Keeps both selectable NPU ABI trees kernel-doc clean and removes compiler-visible dead locals under GCC 15 and Clang 21 `W=1`. |
-| `71992-armchina-npu-use-gpio-consumer-prototypes.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, GPIO API, WERROR | Removes stale local GPIO consumer prototypes from the imported NPU source so the driver follows the kernel header API and builds with `CONFIG_WERROR`. |
-| `71995-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, ACPI, DMA API, DMA-BUF, Lifetime | Restores the local Orion O6/O6N ACPI integration on top of the imported driver: modular Kconfig support, ACPI matching, perf-domain probe deferral, DMA API operation on ACPI, IRQ flag cleanup, runtime-PM cleanup, and dma-buf lifetime hardening. |
-| `71996-armchina-npu-define-kmd-version.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, Build Metadata | Defines the kernel-module driver version used by the imported NPU source when building inside the kernel tree. |
-| `71997-armchina-npu-link-sky1-soc-glue.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, Build | Links the Sky1 SoC glue object into `armchina_npu.ko` and restores the Sky1/devfreq compile flags so module metadata and platform-specific hooks are present in modular builds. |
-| `71998-armchina-npu-use-mainline-scmi-opp-devfreq.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, SCMI, Devfreq | Replaces vendor-private SCMI frequency helper calls with the mainline SCMI genpd/OPP `dev_pm_opp_set_rate()` path used by the current kernel trees. |
-| `71998-armchina-npu-balance-acpi-core-runtime-pm.patch` | 6.18.x, 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, ACPI, Runtime PM | Balances ACPI core-device runtime PM on devfreq deferral and later probe failures, preserving `dev_err_probe()` semantics and avoiding repeated `Unbalanced pm_runtime_enable!` messages while the NPU waits for its SCMI performance domain. |
-| `6.18.x/71999-armchina-npu-add-module-metadata.patch` | 6.18.x | NPU, ArmChina Zhouyi, WERROR, Module Metadata | Restores aggregate NPU module metadata so the imported 6.18 driver builds without missing-license failures under strict modpost/`CONFIG_WERROR` configurations; 6.18 keeps the Sky1 private initialisation helper internal to its source file. |
-| `71999-armchina-npu-add-sky1-priv-init-prototype.patch` | 7.0.x, 7.1.x | NPU, ArmChina Zhouyi, WERROR, Module Metadata | Declares the Sky1 private initialisation helper and restores aggregate NPU module metadata so the imported 7.x driver builds without missing-prototype or missing-license failures under strict modpost/`CONFIG_WERROR` configurations. |
-| `7.1.x/72106-media-cix-armcb-isp-harden-execstart-and-fix-w1-warnings.patch` | 7.1.3 | Media, CIX ISP, Process Policy, Build Hygiene | Bypasses the vendor `isp_app` command-line policy by default, selects the newest process by immutable start time when explicitly enabled, hardens its process/cache handling, and fixes actionable ISP `W=1` findings. |
-| `7.1.x/99000-cix-fix-gcc15-clang21-w1-findings.patch` | 7.1.3 | CIX Drivers, Build Hygiene | Fixes actionable GCC 15 and Clang 21 `W=1` findings in the ISP, display, power-domain, fan, pinctrl, PHY, serial, audio, and RTL8126 paths while retaining malformed vendor JSDoc prose as ordinary comments. |
-| `7.0.x/cix-3aad824/30000-cix-3aad824-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch`, `7.0.x/30000-cix-759efc0-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch` | 7.0.x | Power Domains, SCMI Performance Domains, ACPI, NPU | Keeps fwnode genpd providers and the genpd bus available outside the OF-only guard, registers the ACPI SCMI perf-domain provider on the firmware-referenced protocol fwnode, parses Sky1 onecell `{ provider, domain }` ACPI references, and folds in robust ACPI fwnode/handle matching. |
-| `30030-scmi-demote-unsupported-fastchannel-fallback.patch` | 6.18.x, 7.0.x | SCMI, Fast Channels, ACPI | Demotes optional SCMI fast-channel `-EOPNOTSUPP` fallback messages to debug while preserving warnings for malformed or failed fast-channel mappings. |
-| `30070-opp-tolerate-unsupported-interconnect-paths.patch` | 6.18.x, 7.0.x | OPP, Interconnect, ACPI, NPU/GPU | Treats unsupported optional interconnect path discovery as no usable ICC path, avoiding noisy `_allocate_opp_table` warnings while keeping SCMI/OPP frequency tables usable. |
-| `30080-opp-suppress-unsupported-interconnect-warning.patch` | 6.18.x, 7.0.x | OPP, Interconnect, ACPI, NPU/GPU | Suppresses the remaining non-fatal OPP core warning when optional interconnect path discovery reports `-EOPNOTSUPP`, matching the DTB-backed absence of usable interconnect wiring. |
-| `30125-acpi-table-upgrade-add-disable-and-exclude-options.patch` | 6.18.x, 7.0.x | ACPI, Table Upgrade, Diagnostics | Adds early command-line controls to disable ACPI table upgrades entirely with `acpi_table_upgrade=off` or skip selected AML payloads by filename/path with `acpi_table_upgrade.exclude=...`, while logging candidate table identity and backing cpio paths plus explicit skip/install actions. |
-| `6.18.x/cix-3aad824/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch`, `30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch`, `7.0.x/30127-cix-759efc0-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch`, `7.1.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch` | 6.18.x, 7.0.x, 7.1.x | ACPI, Thermal, Orion O6 | Scopes a Radxa Orion O6 `ECTZ` workaround to the stock EC thermal zone, retrying raw `0 dK` `_TMP` reads up to three times, using a 60-second last-known-good value for steady-state failures, and returning a synthetic 2732 dK only during initial thermal-zone probe when no real value has been captured so the zone can register; expired/missing fallback outside probe remains an error instead of exposing `-273 C`. |
-| `30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch`, `7.0.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch`, `7.1.x/30128-acpi-thermal-expose-zone-str-as-hwmon-label.patch` | 6.18.x, 7.0.x, 7.1.x | ACPI, Thermal, HWMON | Carries optional thermal-zone labels through `thermal_zone_params`, exposes them as `tempN_label` in the generic thermal hwmon bridge, and populates ACPI thermal-zone labels from `_STR` so table-upgrade firmware can name `acpitz` sensors without userspace `lm-sensors` configuration. The 7.0.x and 7.1.x variants preserve the ACPI thermal driver's release-specific `thermal_zone_params` paths. |
-| `7.0.x/60040-phy-cix-enable-acpi-stub-fdt.patch` | 7.0.x | PHY, CIX PCIe/USB, ACPI Stub-FDT | Allows the CIX PCIe, USB2, USB3, and USB-DP PHY drivers to be selected under ACPI stub-FDT and keeps ACPI PHY consumers on lookup-based discovery instead of DT-only provider registration. |
-| `6.18.x/cix-3aad824/30020-pmdomain-fix-acpi-scmi-perf-domain-wiring.patch` | 6.18.x | Power Domains, SCMI Performance Domains, ACPI, NPU | Ports the ACPI SCMI perf-domain provider/consumer wiring used on newer 6.18 kernels, including fwnode provider registration, Sky1 onecell ACPI reference parsing, and robust ACPI fwnode/handle matching. |
-| `6.18.x/50040-pwm-sky1-fix-kconfig-entry.patch` | 6.18.x | PWM, Kconfig | Fixes CIX's malformed top-level `PWM_SKY1` Kconfig entry for the maintained 6.18 PWM menu layout. |
-| `50040-pwm-sky1-fix-kconfig-entry.patch` | 7.0.x | PWM, Kconfig | Fixes CIX's malformed top-level `PWM_SKY1` Kconfig entry so the PWM menu parses cleanly. |
-| `6.18.x/30160-scmi-handle-acpi-debugfs-fallbacks.patch`, `7.0.x/30160-scmi-handle-acpi-debugfs-fallbacks.patch` | 6.18.x, 7.0.x | Firmware, SCMI, ACPI, Debugfs | Handles SCMI ACPI debugfs fallback names and probe-defer cases without assuming a DT node is present. |
-| `30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch` | 6.18.x, 7.0.x | SCMI, HWMON, ACPI, Thermal | Prevents SCMI hwmon from using OF thermal-zone paths on ACPI systems. |
-| `7.0.x/60010-usb-cdnsp-sky1-fix-acpi-fwnode-and-pm-paths.patch` | 7.0.x | USB, CDNSP Host, ACPI, PM | Fixes CIX CDNSP ACPI fwnode handling, device-reference lifetime, remove-path cleanup, and PM callback guards. |
-| `7.0.x/60015-cix-759efc0-usb-cdnsp-sky1-tear-down-host-on-shutdown.patch` | 7.0.12+, 7.1.x | USB, CDNSP Host, Shutdown | Integrates CIX PR #37 by reusing the normal CDNSP remove path for shutdown, ensuring child xHCI host devices are torn down before Sky1 clocks/resets are disabled. |
-| `60000-cix-usb-phy-fail-cleanly-on-missing-resources.patch` | 6.18.x, 7.0.x | USB, PHY, ACPI Resources | Makes CIX USB PHY drivers fail cleanly when required resources are unavailable. |
-| `6.18.x/60005-phy-add-cix-phy-driver.patch` | 6.18.x | PHY, CIX | Imports CIX's `patches-6.18/0024` PHY driver for the maintained 6.18 preimage. |
-| `6.18.x/60040-usb-typec-acpi-runtime-fixes.patch` | 6.18.x | USB, CDNSP, RTS5453 Type-C, ACPI, PM | Splits the newer 6.18 USB runtime fixes from the former aggregate patch, covering CDNSP ACPI fwnode/PM cleanup and RTS5453 ACPI build/probe fixes before the shared Type-C provider integration. |
-| `7.0.x/60020-usb-typec-rts5453-include-irq-header.patch` | 7.0.x | USB, RTS5453 Type-C, Build | Re-bases the RTS5453 IRQ header include for Linux 7.0 so it applies without fuzz. |
-| `7.0.x/60030-usb-typec-rts5453-fix-pm-sleep-disabled-build.patch` | 7.0.x | USB, RTS5453 Type-C, Build | Resolves RTS5453 PM callback initializers to `NULL` when `CONFIG_PM_SLEEP` is disabled so non-sleep-PM builds do not reference undefined suspend/resume symbols. |
-| `7.0.x/60060-usb-typec-rts5453-stop-permanent-defer.patch` | 7.0.x | USB, RTS5453 Type-C, Probe Deferral | Stops converting hard Type-C registration or switch-discovery failures into permanent probe deferrals while preserving real provider-driven `-EPROBE_DEFER` results. |
-| `60095-soc-cix-keep-usbdp-phy-with-pnp0d10.patch` | 6.18.x, 7.0.x | USB, ACPI Arbitration, Type-C | Keeps non-overlapping CIXH2033 USB-DP PHY companion nodes enabled alongside generic PNP0D10 xHCI nodes so Type-C mux/orientation providers can register while overlapping vendor controller nodes remain suppressed. |
-| `6.18.x/60096-phy-cix-usbdp-allow-acpi-selection.patch` | 6.18.x | PHY, CIX PCIe/USB, ACPI Stub-FDT, Type-C | Brings the 6.18 CIX PCIe, USB2, USB3, and USB-DP PHY ACPI handling in line with the 7.0 `60040` patch: allow selection under `ACPI || OF`, keep ACPI PHY consumers on lookup-based discovery instead of DT-only provider registration, and avoid unmet `PHY_CIX_USBDP` select warnings when `OF=n`. |
-| `60070-usb-typec-add-provider-fwnode-control-lookups.patch` | 6.18.x, 7.0.x | USB, Type-C Core, ACPI | Adds provider-fwnode lookup helpers for Type-C mux and orientation-switch controls so ACPI graph consumers can bind to controls registered directly by provider drivers. |
-| `6.18.x/60120-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch` | 6.18.x | USB, RTS5453 Type-C, CIX USB-DP, ACPI, IRQ | Consolidates the 6.18 RTS5453/USB-DP ACPI integration: treats USB role-switch as optional under the PNP0D10 host-controller path, registers Type-C ports without passing the ACPI connector fwnode to the Type-C core, defers until USB-DP mux/orientation providers exist, selects/soft-depends on `PHY_CIX_USBDP`, shares RTS5453 IRQs deterministically, demotes status chatter to debug, and hardens USB-DP child fwnode-name handling. |
-| `60120-usb-typec-rts5453-clean-up-acpi-usbdp-integration.patch` | 7.0.x | USB, RTS5453 Type-C, CIX USB-DP, ACPI, IRQ | Consolidates the 7.0 RTS5453/USB-DP ACPI integration: treats USB role-switch as optional under the PNP0D10 host-controller path, registers Type-C ports without passing the ACPI connector fwnode to the Type-C core, defers until USB-DP mux/orientation providers exist, selects/soft-depends on `PHY_CIX_USBDP`, shares RTS5453 IRQs deterministically, demotes status chatter to debug, and hardens USB-DP child fwnode-name handling. |
-| `7.0.x/50060-watchdog-sbsa-gwdt-use-control-frame-ping-on-cix-sky1.patch` | 7.0.x | Watchdog, SBSA GWDT, CIX Sky1 | Quirks the CIX Sky1 GTDT watchdog so keepalive pings reload the counter via the working control-frame path instead of the non-functional refresh-frame WRR path. |
-| `80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch` | 6.18.x, 7.0.x | Wi-Fi, rtw89, Orion O6 | Disables unreliable hardware RF-kill polling on Orion O6. |
-| `6.18.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch`, `7.0.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch` | 6.18.x, 7.0.x | Wi-Fi, rtw89, ACPI DSM | Checks ACPI DSM support before evaluation so absent Orion O6 DSM methods are ignored cleanly. |
+Linux 7.1.3 defaults the ArmChina NPU to the R2P0 userspace ABI used by
+`cix-noe-umd` 2.0.2.  The imported R2P2 implementation remains opt-in through
+`npu-r2p2-abi`.
+
+## Upstream tracking
+
+[CIX PR #37][cix-pr-37] is carried by
+`7.0.x/60015-usb-cdnsp-sky1-tear-down-host-on-shutdown.patch` for both 7.0 and
+7.1.  It reuses the normal remove path during shutdown so xHCI children are
+torn down before Sky1 clocks and resets are disabled.
+
+[CIX PR #44][cix-pr-44] does not currently replace our PPTT.  Its proposed
+topology adds a
+shared 2 MiB efficiency-core L2 and explicit IDs for every cache.  The Sky1
+device-tree source used by this package instead links its four efficiency
+cores directly to the 12 MiB system cache, and it does not prove the proposed
+2 MiB cache.  The payload therefore remains unchanged pending board-independent
+architectural evidence.  See `ACPI_TABLE_UPGRADE.md` for the exact comparison.
+
+## Validation
+
+For maintained releases, a queue change is complete only after:
+
+1. all ebuild-referenced patch files exist;
+2. each latest ebuild completes the helper-driven prepare;
+3. no local patch reports fuzz;
+4. affected objects compile for arm64 in a representative configuration;
+5. `Manifest` is regenerated; and
+6. `git diff --check` and documentation wrapping checks pass.
+
+Gentoo genpatches and the imported Sky1 queue may have their own fuzzy hunks.
+Those should be reported separately and must not be mistaken for local patch
+fuzz.
+
+See `AUDIT.md` for the latest validation set point and
+`ACPI_TABLE_UPGRADE.md` for the firmware payload matrix and deployment rules.
+
+[cix-pr-37]: https://github.com/cixtech/cix-linux-main/pull/37
+[cix-pr-44]: https://github.com/cixtech/cix-linux-main/pull/44

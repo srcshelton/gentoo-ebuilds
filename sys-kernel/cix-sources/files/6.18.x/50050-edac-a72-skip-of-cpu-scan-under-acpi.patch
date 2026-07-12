@@ -1,0 +1,21 @@
+diff --git a/drivers/edac/a72_edac.c b/drivers/edac/a72_edac.c
+--- a/drivers/edac/a72_edac.c
++++ b/drivers/edac/a72_edac.c
+@@ -13,6 +13,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/bitfield.h>
++#include <linux/acpi.h>
+ #include <asm/smp_plat.h>
+ 
+ #include "edac_module.h"
+@@ -187,6 +188,9 @@ static int __init a72_edac_driver_init(void)
+ {
+ 	int cpu;
+ 
++	if (!acpi_disabled)
++		return 0;
++
+ 	for_each_possible_cpu(cpu) {
+ 		struct device_node *np __free(device_node) = of_cpu_device_node_get(cpu);
+ 		if (np) {

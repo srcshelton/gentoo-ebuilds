@@ -126,6 +126,30 @@ scopes from least to most specific and rejects duplicate AML output names.
 | O6, O6N | firmware `1.2`, `dsdt only` | `PPTT.aml` | `shared/1.2/pptt/PPTT.asl` | CPU/cache topology | Replaces PPTT with a conservative cache topology model: `32 KiB` L1I + `32 KiB` L1D for A520 cores, `64 KiB` L1I + `64 KiB` L1D plus private `512 KiB` L2 for A720 cores, and a shared `12 MiB` system cache. The shared cache carries an explicit revision-3 Cache ID so Linux 6.18, 7.0, and 7.1 group CPUs that see it at the same architectural cache level instead of treating every CPU path as a separate cache instance. It does not renumber CPUs. |
 | O6, O6N | `dsdt only`, optional | `IORT.aml` | generated from `iort/IORT.dat` by `build_iort_upgrade.py` | IOMMU, SMMUv3, MSI domains | Generated only when `acpi-table-upgrade-dsdt` is enabled and at least one IORT USE flag is active. `acpi-table-upgrade-iort-httu` marks SMMUv3 nodes coherent and advertises hardware access/dirty table updates. `acpi-table-upgrade-iort-msi` adds or validates ITS mappings for the Sky1 PCIe and platform SMMUv3 nodes at `0x0b010000` and `0x0b1b0000`, marks their device-ID mapping valid, and avoids Linux falling back to wired IRQs for those SMMU nodes. |
 
+### PPTT evidence status
+
+[CIX PR #44][cix-pr-44] proposes a different revision-3 PPTT for another Sky1
+board.  It
+agrees with this payload on the broad CPU grouping, the private A720 L1 and
+512 KiB L2 caches, and the shared 12 MiB system cache.  It differs in two
+material ways:
+
+- it places CPU IDs 2 through 5 behind one shared 2 MiB L2 cache; and
+- it assigns an explicit Cache ID to every cache rather than only to the
+  shared system cache.
+
+The current payload gives CPU IDs 2 through 5 private 32 KiB instruction and
+data caches whose next level is the 12 MiB system cache.  The Sky1
+device-tree source used by this package also links its four efficiency cores
+directly to that system cache and does not describe a 2 MiB shared L2.
+
+PR #44 therefore does not yet prove a correction to this payload.  No PPTT
+change should be made until a board-independent architectural source, a
+cache-register capture with a proven sharing map, or authoritative CIX
+documentation establishes the proposed 2 MiB cache.  The Orange Pi 6 Plus
+SSDT changes in the pull request are board-specific and are not candidates
+for direct use on Orion O6 or O6N.
+
 ## ebuild usage
 
 Build and install the SSDT-only profiles:
@@ -381,7 +405,8 @@ mkdir -p "$OUT"
 dmesg > "$OUT/dmesg.txt" 2>&1 || sudo dmesg > "$OUT/dmesg.txt" 2>&1 || true
 for f in bios_vendor bios_version bios_date product_name product_version \
          board_vendor board_name board_version sys_vendor; do
-  [ -r "/sys/class/dmi/id/$f" ] && cat "/sys/class/dmi/id/$f" > "$OUT/dmi-$f.txt"
+  [ -r "/sys/class/dmi/id/$f" ] && \
+    cat "/sys/class/dmi/id/$f" > "$OUT/dmi-$f.txt"
 done
 sudo acpidump > "$OUT/acpidump.txt"
 sudo cp -a /sys/firmware/acpi/tables "$OUT/sysfs-acpi-tables"
@@ -404,11 +429,15 @@ After booting with a table-upgrade profile, check `dmesg` for ACPI override
 messages and for the repaired devices. For either profile:
 
 ```sh
-dmesg | grep -Ei 'ACPI:.*(upgrade|override)|O6RBRR|O6TZSNS|rts5453|cppc|arm-scmi|GPU|PNP0A08|PNP0D10'
+dmesg | grep -Ei \
+  'ACPI:.*(upgrade|override)|O6RBRR|O6TZSNS|rts5453|cppc|arm-scmi|GPU|PNP0A08|PNP0D10'
 ```
 
 For the DSDT/whole-table profile, also check for the whole-table payloads:
 
 ```sh
-dmesg | grep -Ei 'ACPI:.*(DSDT|IORT|PPTT|ORIONO6|RAOP)|Table Upgrade: override \[(DSDT|IORT|PPTT|SSDT)'
+dmesg | grep -Ei \
+  'ACPI:.*(DSDT|IORT|PPTT|ORIONO6|RAOP)|Table Upgrade: override \[(DSDT|IORT|PPTT|SSDT)'
 ```
+
+[cix-pr-44]: https://github.com/cixtech/cix-linux-main/pull/44

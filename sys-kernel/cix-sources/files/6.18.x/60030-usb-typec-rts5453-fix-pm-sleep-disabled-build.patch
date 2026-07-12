@@ -1,0 +1,170 @@
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -115,6 +115,8 @@ config TYPEC_RTS5453
+ 	depends on I2C
+ 	depends on TYPEC
+ 	select REGMAP_I2C
++	select GPIO_CADENCE if ACPI && ARCH_CIX
++	select SKY1_PDC if ACPI && ARCH_CIX
+ 	help
+ 	  Say Y or M here if your system has a Realtek RTS5453H USB Type-C
+ 	  Power Delivery controller. This controller handles USB PD negotiation,
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+--- a/drivers/usb/typec/rts5453.c
++++ b/drivers/usb/typec/rts5453.c
+@@ -394,22 +394,29 @@ static int rts5453h_typec_get_switch_handles(struct rts5453h *typec,
+ 		return dev_err_probe(dev, PTR_ERR(typec->role_sw), "USB role switch handle is error\n");
+ 
+ 	if (!typec->role_sw || !typec->mux || !typec->ori_sw)
+-		dev_warn(dev, "mux or switch or role switch has not found\n");
++		return dev_err_probe(dev, -ENODEV,
++				     "mux or switch or role switch has not found\n");
+ 
+ 	return 0;
+ }
+ 
+ static void rts5453h_unregister_ports(struct rts5453h *typec)
+ {
+-	if (typec->port) {
++	if (!IS_ERR_OR_NULL(typec->port)) {
+ 		typec->state.alt = NULL;
+ 		typec->state.mode = TYPEC_STATE_USB;
+ 		typec->state.data = NULL;
+-		usb_role_switch_set_role(typec->role_sw, USB_ROLE_NONE);
+-		typec_switch_set(typec->ori_sw, TYPEC_ORIENTATION_NONE);
+-		typec_mux_set(typec->mux, &typec->state);
+-		usb_role_switch_put(typec->role_sw);
++		if (!IS_ERR_OR_NULL(typec->role_sw)) {
++			usb_role_switch_set_role(typec->role_sw, USB_ROLE_NONE);
++			usb_role_switch_put(typec->role_sw);
++			typec->role_sw = NULL;
++		}
++		if (typec->ori_sw)
++			typec_switch_set(typec->ori_sw, TYPEC_ORIENTATION_NONE);
++		if (typec->mux)
++			typec_mux_set(typec->mux, &typec->state);
+ 		typec_unregister_port(typec->port);
++		typec->port = NULL;
+ 	}
+ }
+ 
+@@ -476,14 +483,14 @@ static int rts5453h_init_ports(struct rts5453h *typec)
+ 
+ 		typec->port = typec_register_port(dev, &typec->caps);
+ 		if (IS_ERR(typec->port)) {
+-			dev_err(dev, "Failed to register port\n");
+ 			ret = PTR_ERR(typec->port);
++			dev_err_probe(dev, ret, "failed to register Type-C port\n");
+ 			goto unregister_ports;
+ 		}
+ 
+ 		ret = rts5453h_typec_get_switch_handles(typec, fwnode, dev);
+ 		if (ret) {
+-			dev_err(dev, "No switch control for port \n");
++			dev_err_probe(dev, ret, "failed to get switch control for Type-C port\n");
+ 			goto unregister_ports;
+ 		}
+ 	}
+@@ -522,6 +529,9 @@ static ssize_t disable_pd_interrupt_store(struct device *dev,
+ 
+ 	ret = kstrtobool(buf, &value);
+ 	if (!ret) {
++		if (client->irq <= 0)
++			return -ENXIO;
++
+ 		rts->pd_int_disabled = value;
+ 
+ 		if (value)
+@@ -637,7 +647,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 
+ 	ret = rts5453h_init_ports(rts);
+ 	if (ret)
+-		return -EPROBE_DEFER;
++		return ret;
+ 
+ 	ret = rts5453h_event_handler(rts, 0);
+ 	if (ret) {
+@@ -655,7 +665,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 	mutex_unlock(&rts_lock);
+ 
+ 	INIT_DELAYED_WORK(&rts->irq_work, rts_request_irq_work_fn);
+-	if (client->irq)
++	if (client->irq > 0)
+ 		schedule_delayed_work(&rts->irq_work, msecs_to_jiffies(5));
+ 
+ 	ret = device_create_file(&client->dev, &dev_attr_disable_pd_interrupt);
+@@ -663,7 +673,7 @@ static int rts5453h_probe(struct i2c_client *client)
+ 		dev_err(&client->dev, "Failed to create sysfs attribute, ret = %d\n",
+ 			ret);
+ 
+-	device_set_wakeup_capable(&client->dev, true);
++	device_set_wakeup_capable(&client->dev, client->irq > 0);
+ 
+ 	return ret;
+ }
+@@ -679,12 +689,14 @@ static void rts5453h_remove(struct i2c_client *client)
+ 		rts->partner = NULL;
+ 	}
+ 
+-	if (rts->role_sw) {
++	if (!IS_ERR_OR_NULL(rts->role_sw)) {
+ 		usb_role_switch_put(rts->role_sw);
++		rts->role_sw = NULL;
+ 	}
+ 
+-	if (rts->port) {
++	if (!IS_ERR_OR_NULL(rts->port)) {
+ 		typec_unregister_port(rts->port);
++		rts->port = NULL;
+ 	}
+ 
+ 	if (client->irq > 0)
+@@ -716,6 +728,9 @@ static int rts5453h_suspend(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+ 
++	if (client->irq <= 0)
++		return 0;
++
+ 	disable_irq(client->irq);
+ 	if (device_may_wakeup(dev)) {
+ 		enable_irq_wake(client->irq);
+@@ -729,6 +744,9 @@ static int rts5453h_resume(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+ 
++	if (client->irq <= 0)
++		return 0;
++
+ 	if (device_may_wakeup(dev)) {
+ 		disable_irq_wake(client->irq);
+ 		dev_info(&client->dev, "enable irq");
+@@ -744,12 +762,16 @@ static int rts5453h_restore(struct device *dev)
+ 	struct rts5453h *rts = i2c_get_clientdata(client);
+ 	int ret = 0;
+ 
++	if (client->irq <= 0)
++		goto handle_event;
++
+ 	if (device_may_wakeup(dev)) {
+ 		disable_irq_wake(client->irq);
+ 		dev_info(&client->dev, "enable irq");
+ 	}
+ 	enable_irq(client->irq);
+ 
++handle_event:
+ 	/* Re-trigger PD event if PD event occurs during std */
+ 	ret = rts5453h_event_handler(rts, 0);
+ 	if (ret) {
+@@ -759,6 +781,10 @@ static int rts5453h_restore(struct device *dev)
+ 
+ 	return ret;
+ }
++#else
++#define rts5453h_suspend	NULL
++#define rts5453h_resume	NULL
++#define rts5453h_restore	NULL
+ #endif
+ 
+ static void rts5453h_shutdown(struct i2c_client *client)

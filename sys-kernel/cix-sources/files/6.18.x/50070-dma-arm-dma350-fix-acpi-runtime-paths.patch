@@ -1,0 +1,65 @@
+diff --git a/drivers/dma/arm-dma350.c b/drivers/dma/arm-dma350.c
+--- a/drivers/dma/arm-dma350.c
++++ b/drivers/dma/arm-dma350.c
+@@ -1247,19 +1247,30 @@ static int d350_probe(struct platform_device *pdev)
+ 	void __iomem *base;
+ 	u32 reg;
+ 	int ret, nchan, dw, aw, r, p;
+-	bool coherent, memset;
++	bool coherent, memset, remote_acpi;
+ 
+ 	base = devm_platform_ioremap_resource(pdev, 0);
+ 	if (IS_ERR(base))
+ 		return PTR_ERR(base);
+ 
++	remote_acpi = has_acpi_companion(dev) &&
++		      device_property_present(dev, "arm,remote-ctrl");
++
+ 	/* Get clock (optional - some platforms may not have one) */
+ 	clk = devm_clk_get_optional(dev, "axiclk");
+ 	if (IS_ERR(clk))
+ 		return dev_err_probe(dev, PTR_ERR(clk), "Failed to get clock\n");
+ 
+-	/* Fallback to unnamed clock if axiclk not found */
++	/*
++	 * Remote-controlled ACPI instances live in AUDSS and must use the
++	 * AUDSS gate.  Stale firmware may expose an unsafe same-device unnamed
++	 * clock; do not fall back to it before touching DMA registers.
++	 */
+ 	if (!clk) {
++		if (remote_acpi)
++			return dev_err_probe(dev, -EPROBE_DEFER,
++					     "waiting for AUDSS axiclk\n");
++
+ 		clk = devm_clk_get_optional(dev, NULL);
+ 		if (IS_ERR(clk))
+ 			return dev_err_probe(dev, PTR_ERR(clk), "Failed to get clock\n");
+@@ -1356,11 +1367,13 @@ static int d350_probe(struct platform_device *pdev)
+ 	dmac->base = base;
+ 	platform_set_drvdata(pdev, dmac);
+ 
+-	/* Initialize reserved memory region if specified in DT */
+-	ret = of_reserved_mem_device_init(dev);
+-	if (ret && ret != -ENODEV && ret != -EINVAL) {
+-		dev_err(dev, "Failed to initialize reserved memory: %d\n", ret);
+-		goto err_pm_put;
++	if (dev->of_node) {
++		/* Initialize reserved memory region if specified in DT */
++		ret = of_reserved_mem_device_init(dev);
++		if (ret && ret != -ENODEV && ret != -EINVAL) {
++			dev_err(dev, "Failed to initialize reserved memory: %d\n", ret);
++			goto err_pm_put;
++		}
+ 	}
+ 
+ 	reg = readl_relaxed(base + DMAINFO + DMA_BUILDCFG1);
+@@ -1560,7 +1573,8 @@ static void d350_remove(struct platform_device *pdev)
+ 		acpi_dma_controller_free(&pdev->dev);
+ 	of_dma_controller_free(pdev->dev.of_node);
+ 	dma_async_device_unregister(&dmac->dma);
+-	of_reserved_mem_device_release(&pdev->dev);
++	if (pdev->dev.of_node)
++		of_reserved_mem_device_release(&pdev->dev);
+ 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
+ }
