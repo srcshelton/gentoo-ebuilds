@@ -55,19 +55,22 @@ problems:
   ACPI eDP panel's `CIXH5041` backlight provider was not built.
 - The DP encoder diagnostic now distinguishes ACPI-graph and DT masks from a
   genuine fallback instead of labelling every non-DT mask as a fallback.
-- The 7.1 NPU R2P0-ABI patch was regenerated after `19f2947` removed its
-  former `v3_2.h` target.  The remaining changes apply to the current source
-  files, followed by the existing R2P0 compatibility fix.
+- The `19f2947` NPU import stores its v3.2 register definitions in
+  `v3_1.h` although the driver includes `v3_2.h`.  Patch `71993` now
+  supplies the expected compatibility header and applies the complete R2P0
+  debug-dispatch conversion to the actual definition file.
 - Historical-only patches now live below `cix-3aad824` or `cix-759efc0`, with
   a kernel-family or `shared` directory inside the checkpoint.
 
 Clean-room replay of each regenerated split reproduced the intended source
 files exactly.  The Cadence GPIO, PWM backlight, ACPI thermal, ACPI processor
 power, CPPC CPUFreq, CIX CPU IPA, and CIX DisplayPort objects compile with
-Clang 19 for arm64 on all three prepared trees.  Kernel `olddefconfig` also
-retained built-in `CIX_THERMAL`, its power-allocator and CPPC dependencies,
-left the unused CIX SCMI Energy Model helper disabled, and retained the PWM,
-Sky1 PWM, backlight class, and PWM-backlight display path.
+Clang 19 for arm64 on all three prepared trees.  The complete 7.1 R2P0
+ArmChina NPU composite object also compiles with Clang 19.  Kernel
+`olddefconfig` retained built-in `CIX_THERMAL`, its power-allocator and
+CPPC dependencies, left the unused CIX SCMI Energy Model helper disabled,
+and retained the PWM, Sky1 PWM, backlight class, and PWM-backlight display
+path.
 
 The revised O6 firmware-`1.2` and firmware-`1.3` `ORIONO6` sources compile
 with ACPICA `20260408`: both report zero errors and zero warnings.  The four

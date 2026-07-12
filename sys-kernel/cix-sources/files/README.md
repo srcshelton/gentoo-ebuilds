@@ -211,6 +211,11 @@ Linux 7.1.3 defaults the ArmChina NPU to the R2P0 userspace ABI used by
 `cix-noe-umd` 2.0.2.  The imported R2P2 implementation remains opt-in through
 `npu-r2p2-abi`.
 
+The `19f2947` import places the v3.2 register definitions in a file named
+`v3_1.h`, while the v3.2 driver sources include `v3_2.h`.  The R2P0
+`71993` patch provides that expected compatibility header and keeps the
+debug-dispatch command definitions consistent with its R2P0 source changes.
+
 ## Upstream tracking
 
 [CIX PR #37][cix-pr-37] is carried by
