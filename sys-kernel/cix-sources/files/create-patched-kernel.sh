@@ -113,6 +113,14 @@ apply_patch_file() {
 
 apply_local_patch_file() {
 	printf 'Applying %s\n' "$1"
+	# Apple's patch(1) does not materialise Git rename metadata in the same
+	# way as GNU patch(1), which Portage uses.  Preserve the Portage-shaped
+	# result for local extended Git diffs while retaining strict no-fuzz
+	# application for ordinary patches.
+	if grep -q '^rename from ' "$1" && grep -q '^rename to ' "$1"; then
+		git apply --whitespace=nowarn "$1"
+		return
+	fi
 	patch --batch --forward --fuzz=0 --no-backup-if-mismatch -p1 -i "$1"
 }
 

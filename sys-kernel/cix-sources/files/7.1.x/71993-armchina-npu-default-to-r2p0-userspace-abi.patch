@@ -1,14 +1,11 @@
 misc: armchina-npu: default to the R2P0 userspace ABI
 
-CIX packages cix-noe-umd 2.0.2 from the R2P0 SDK, while the imported
-kernel driver implements the newer R2P2 ABI.  Port the vendor packaging
-revert while retaining the local lifetime, ACPI DMA, SCMI devfreq, and
-runtime-PM fixes.
+CIX packages cix-noe-umd 2.0.2 from the R2P0 SDK, while the imported kernel
+driver implements the newer R2P2 ABI.  Port the vendor packaging revert while
+retaining the local lifetime, ACPI DMA, SCMI devfreq, and runtime-PM fixes.
 
-The 19f2947 import stores its v3.2 register definitions in v3_1.h although
-the driver includes v3_2.h.  Add a compatibility header for the imported
-layout and apply the R2P0 debug-dispatch macro conversion to the real
-definition file.
+The R2P2 import renames the v3.2 register header to v3_2.h.  Keep the R2P0
+debug-dispatch command definitions consistent with the reverted source.
 
 diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
 --- a/drivers/misc/armchina-npu/Makefile
@@ -2355,34 +2352,6 @@ diff --git a/drivers/misc/armchina-npu/zhouyi/v3.h b/drivers/misc/armchina-npu/z
  
  #define CMD_POOL_INTR_STATUS_REG(id)                (_GET_CMD_POOL_OFFSET(id) + 0xC)
  
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3_1.h b/drivers/misc/armchina-npu/zhouyi/v3_1.h
---- a/drivers/misc/armchina-npu/zhouyi/v3_1.h
-+++ b/drivers/misc/armchina-npu/zhouyi/v3_1.h
-@@ -106,14 +106,14 @@
- #define _TSM_DESTROY_V3_2                                 0x2
- #define _TSM_ABORT_V3_2                                   0x3
- #define _TSM_DISPATCH_V3_2                                0x4
--#define _TSM_BIND_DISPATCH_V3_2                           0x5
-+#define _TSM_DEBUG_DISPATCH_V3_2                          0x5
- 
- #define TSM_MAP_SINGLE_V3_2                              _TSM_MAP_V3_2(0x0)
- #define TSM_MAP_ALL_V3_2                                 _TSM_MAP_V3_2(0x1)
- #define TSM_CREATE_CMD_POOL_V3_2(pool, map)              (_TSM_CREATE_V3_2 | _TSM_POOL_V3_2(pool) | (map))
- #define TSM_DESTROY_CMD_POOL_V3_2(pool)                  (_TSM_DESTROY_V3_2 | _TSM_POOL_V3_2(pool))
- #define TSM_ABORT_CMD_POOL_V3_2(pool)                    (_TSM_ABORT_V3_2 | _TSM_POOL_V3_2(pool))
--#define TSM_BIND_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_BIND_DISPATCH_V3_2 | (qos) | \
-+#define TSM_DBG_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_DEBUG_DISPATCH_V3_2 | (qos) | \
- 						     _TSM_POOL_V3_2(pool) | _TSM_DIRECT_CORE_V3_2(core))
- 
- #define TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2             0x0
-@@ -410,7 +410,6 @@
- #define GET_INTR_CLUSTER_ID_V3_2(status_32)           (((status_32) >> 24) & 0xFF)
- #define GET_INTR_CORE_ID_V3_2(status_32)              (((status_32) >> 20) & 0xF)
- #define GET_INTR_TEC_ID_V3_2(status_32)               (((status_32) >> 16) & 0xF)
--#define GET_INTR_GROUP_ID_V3_2(status_32)             ((status_32) & 0xFF)
- #define IS_POOL_IRQ_V3_2(status_32)                   (((status_32) >> 11) & 0x1)
- #define IS_CLUSTER_IRQ_V3_2(status_32)                (((status_32) >> 10) & 0x1)
- #define IS_CORE_IRQ_V3_2(status_32)                   (((status_32) >> 9) & 0x1)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2.c
@@ -2527,20 +2496,33 @@ diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu
  
  struct aipu_operations *get_zhouyi_v3_2_ops(void)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.h b/drivers/misc/armchina-npu/zhouyi/v3_2.h
-new file mode 100644
-index 0000000..154a470
---- /dev/null
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2.h
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2.h
-@@ -0,0 +1,9 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
-+
-+#ifndef __V3_2_COMPAT_H__
-+#define __V3_2_COMPAT_H__
-+
-+#include "v3_1.h"
-+
-+#endif
+@@ -106,14 +106,14 @@
+ #define _TSM_DESTROY_V3_2                                 0x2
+ #define _TSM_ABORT_V3_2                                   0x3
+ #define _TSM_DISPATCH_V3_2                                0x4
+-#define _TSM_BIND_DISPATCH_V3_2                           0x5
++#define _TSM_DEBUG_DISPATCH_V3_2                          0x5
+ 
+ #define TSM_MAP_SINGLE_V3_2                              _TSM_MAP_V3_2(0x0)
+ #define TSM_MAP_ALL_V3_2                                 _TSM_MAP_V3_2(0x1)
+ #define TSM_CREATE_CMD_POOL_V3_2(pool, map)              (_TSM_CREATE_V3_2 | _TSM_POOL_V3_2(pool) | (map))
+ #define TSM_DESTROY_CMD_POOL_V3_2(pool)                  (_TSM_DESTROY_V3_2 | _TSM_POOL_V3_2(pool))
+ #define TSM_ABORT_CMD_POOL_V3_2(pool)                    (_TSM_ABORT_V3_2 | _TSM_POOL_V3_2(pool))
+-#define TSM_BIND_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_BIND_DISPATCH_V3_2 | (qos) | \
++#define TSM_DBG_DISPATCH_CMD_POOL_V3_2(pool, qos, core)  (_TSM_DEBUG_DISPATCH_V3_2 | (qos) | \
+ 						     _TSM_POOL_V3_2(pool) | _TSM_DIRECT_CORE_V3_2(core))
+ 
+ #define TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2             0x0
+@@ -410,7 +410,6 @@
+ #define GET_INTR_CLUSTER_ID_V3_2(status_32)           (((status_32) >> 24) & 0xFF)
+ #define GET_INTR_CORE_ID_V3_2(status_32)              (((status_32) >> 20) & 0xF)
+ #define GET_INTR_TEC_ID_V3_2(status_32)               (((status_32) >> 16) & 0xF)
+-#define GET_INTR_GROUP_ID_V3_2(status_32)             ((status_32) & 0xFF)
+ #define IS_POOL_IRQ_V3_2(status_32)                   (((status_32) >> 11) & 0x1)
+ #define IS_CLUSTER_IRQ_V3_2(status_32)                (((status_32) >> 10) & 0x1)
+ #define IS_CORE_IRQ_V3_2(status_32)                   (((status_32) >> 9) & 0x1)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c

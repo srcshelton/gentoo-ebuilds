@@ -55,10 +55,9 @@ problems:
   ACPI eDP panel's `CIXH5041` backlight provider was not built.
 - The DP encoder diagnostic now distinguishes ACPI-graph and DT masks from a
   genuine fallback instead of labelling every non-DT mask as a fallback.
-- The `19f2947` NPU import stores its v3.2 register definitions in
-  `v3_1.h` although the driver includes `v3_2.h`.  Patch `71993` now
-  supplies the expected compatibility header and applies the complete R2P0
-  debug-dispatch conversion to the actual definition file.
+- The imported NPU ABI update renames its v3.2 register header from
+  `v3_1.h` to `v3_2.h`.  Patch `71993` now applies the complete R2P0
+  debug-dispatch conversion directly to the Portage-produced `v3_2.h`.
 - Historical-only patches now live below `cix-3aad824` or `cix-759efc0`, with
   a kernel-family or `shared` directory inside the checkpoint.
 

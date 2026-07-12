@@ -207,14 +207,17 @@ sys-kernel/cix-sources/files/create-patched-kernel.sh \
 Missing tools, an old `iasl`, or an AML compile failure are errors when
 `--compile-acpi-tables` was requested.
 
+On hosts where `patch(1)` does not implement extended Git renames like GNU
+`patch(1)`, the helper applies local rename-bearing Git diffs with `git apply`.
+This keeps its prepared pathname layout consistent with Portage.
+
 Linux 7.1.3 defaults the ArmChina NPU to the R2P0 userspace ABI used by
 `cix-noe-umd` 2.0.2.  The imported R2P2 implementation remains opt-in through
 `npu-r2p2-abi`.
 
-The `19f2947` import places the v3.2 register definitions in a file named
-`v3_1.h`, while the v3.2 driver sources include `v3_2.h`.  The R2P0
-`71993` patch provides that expected compatibility header and keeps the
-debug-dispatch command definitions consistent with its R2P0 source changes.
+The R2P2 import renames the v3.2 register definitions from `v3_1.h` to
+`v3_2.h`.  The R2P0 `71993` patch applies its debug-dispatch conversion
+directly to that renamed header, matching the pathname produced by Portage.
 
 ## Upstream tracking
 
