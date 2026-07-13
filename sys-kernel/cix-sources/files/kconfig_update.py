@@ -981,6 +981,10 @@ def detect_npu_abi(tree: Path) -> str | None:
         return None
 
     text = header.read_text(encoding="utf-8", errors="ignore")
+    asid_match = re.search(r"\b__u64\s+asid_base\[(\d+)\]\s*;", text)
+    if not asid_match:
+        raise SystemExit(f"error: unable to identify the NPU ASID ABI width in {header}")
+    asid_count = int(asid_match.group(1))
     r2p2_markers = (
         "AIPU_ISA_VERSION_ZHOUYI_V3_2_0",
         "AIPU_ISA_VERSION_ZHOUYI_V3_2_1",
@@ -991,9 +995,20 @@ def detect_npu_abi(tree: Path) -> str | None:
             raise SystemExit(
                 f"error: incomplete R2P2 NPU ABI markers in {header}"
             )
+        if asid_count != 4:
+            raise SystemExit(
+                f"error: R2P2 NPU ABI markers require asid_base[4], but "
+                f"{header} declares asid_base[{asid_count}]"
+            )
         return "r2p2"
 
     if re.search(r"\bAIPU_ISA_VERSION_ZHOUYI_V3_2\b", text):
+        if asid_count != 32:
+            raise SystemExit(
+                f"error: R2P0 NPU ABI markers require asid_base[32] for the "
+                f"0x1a8 capability ioctl, but {header} declares "
+                f"asid_base[{asid_count}]"
+            )
         return "r2p0"
 
     raise SystemExit(f"error: unable to identify the ArmChina NPU ABI in {header}")

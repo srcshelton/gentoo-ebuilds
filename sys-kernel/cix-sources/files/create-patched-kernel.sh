@@ -454,6 +454,10 @@ if [[ -n ${EGIT_CIX_COMMIT:-} ]]; then
 	fetch_url "${PN}-cix-${EGIT_CIX_COMMIT:0:7}.tar.gz" \
 		"https://github.com/cixtech/cix-linux-main/archive/${EGIT_CIX_COMMIT}.tar.gz"
 fi
+if [[ -n ${EGIT_CIX_NPU_COMMIT:-} ]]; then
+	fetch_url "${PN}-cix-npu-${EGIT_CIX_NPU_COMMIT:0:7}.tar.gz" \
+		"https://github.com/cixtech/cix_opensource__npu_driver/archive/${EGIT_CIX_NPU_COMMIT}.tar.gz"
+fi
 if [[ -n ${EGIT_SKY1_COMMIT:-} ]]; then
 	fetch_url "${PN}-sky1-${EGIT_SKY1_COMMIT:0:7}.tar.gz" \
 		"https://github.com/Sky1-Linux/linux-sky1/archive/${EGIT_SKY1_COMMIT}.tar.gz"

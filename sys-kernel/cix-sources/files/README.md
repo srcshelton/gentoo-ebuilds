@@ -121,12 +121,28 @@ It requires built-in `THERMAL_GOV_POWER_ALLOCATOR` and
 `ACPI_CPPC_CPUFREQ`, in addition to the thermal, CPU-frequency, and Energy
 Model cores.  The ACPI board profiles and `kconfig_update.py` select those
 dependencies explicitly; the DT profile does not select this ACPI-dependent
-driver.
+driver.  Building `power_allocator` does not make it the global default;
+patch `30128` selects it only for CIX ACPI zones with a valid `SWIT` range.
 
 The CIX `SSTP` ACPI method is an optional sustainable-power hint.  Thermal
 zones without it must still register; a zero value lets the power-allocator
 governor estimate sustainable power from attached power actors.  Patch
 `30128` enforces that behaviour for every maintained family.
+
+CIX originally published `SWIT` as an additional passive trip.  With the
+normal `step_wise` default, the O6 CPU zones therefore started throttling at
+60 degrees C instead of treating 60 degrees C as the IPA activation point for
+an 85 degrees C control trip.  Patch `30128` retains one firmware `_PSV`
+passive trip, records `SWIT` in its `switch_on_temp`, and assigns that zone to
+`power_allocator`.  Other ACPI zones keep their configured default governor.
+
+CIX also exposed one processor cooling state per CPPC OPP while retaining the
+generic ACPI interpretation of each state as another 20 percent frequency
+reduction.  O6 policies exposing seven or eight states could consequently
+request a zero limit and then underflow the percentage calculation.  Patch
+`30128` maps each CIX state to its corresponding CPPC OPP frequency.  If CIX
+OPP discovery is unavailable, the standard bounded percentage model remains
+the fallback.
 
 CIX patch `0042` names each ACPI thermal zone after its firmware bus ID.
 Patch `30128` retains those unique types for thermal-core lookup, sysfs,
@@ -220,13 +236,21 @@ On hosts where `patch(1)` does not implement extended Git renames like GNU
 `patch(1)`, the helper applies local rename-bearing Git diffs with `git apply`.
 This keeps its prepared pathname layout consistent with Portage.
 
-Linux 7.1.3 defaults the ArmChina NPU to the R2P0 userspace ABI used by
-`cix-noe-umd` 2.0.2.  The imported R2P2 implementation remains opt-in through
-`npu-r2p2-abi`.
+Linux 7.1.3 imports the ArmChina NPU source directly from
+`cixtech/cix_opensource__npu_driver` commit `047b23e`, instead of using the
+legacy Sky1 NPU patch as the source preimage.  It defaults that driver to the
+R2P0 userspace ABI used by `cix-noe-umd` 2.0.2.  The imported R2P2
+implementation remains opt-in through `npu-r2p2-abi`.  The R2P0 overlay
+preserves all 32 ASID entries in `struct aipu_cap`, keeping
+`AIPU_IOCTL_QUERY_CAP` at the `0x1a8` argument size encoded by that userspace
+runtime, and carries both prepare-time and build-time
+size assertions.
 
 The R2P2 import renames the v3.2 register definitions from `v3_1.h` to
 `v3_2.h`.  The R2P0 `71993` patch applies its debug-dispatch conversion
 directly to that renamed header, matching the pathname produced by Portage.
+`kconfig_update.py` also rejects trees whose ISA markers and ASID ABI width do
+not agree.
 
 ## Upstream tracking
 

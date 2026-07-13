@@ -41,6 +41,12 @@ problems:
   optional `SSTP` sustainable-power hint.  Its Kconfig no longer forces the
   unused SCMI Energy Model helper, and the board/configuration profiles now
   select every direct dependency of `CIX_THERMAL` explicitly.
+- The vendor IPA stack no longer publishes `SWIT` as a second passive trip
+  consumed by the default `step_wise` governor.  Valid IPA zones select
+  `power_allocator`, retain `_PSV` as their single control trip, and use
+  `SWIT` only as its activation threshold.  OPP-sized processor cooling
+  states now select their matching CPPC frequencies instead of repeatedly
+  applying the legacy 20 percent reduction.
 - ACPI thermal zones retain both their firmware bus-ID thermal types and their
   individual `_STR` labels.  A separate `acpitz` hwmon type restores the
   single-adapter grouping without losing thermal-core identity.
@@ -72,7 +78,9 @@ ArmChina NPU composite object also compiles with Clang 19.  Kernel
 `olddefconfig` retained built-in `CIX_THERMAL`, its power-allocator and
 CPPC dependencies, left the unused CIX SCMI Energy Model helper disabled,
 and retained the PWM, Sky1 PWM, backlight class, and PWM-backlight display
-path.
+path.  The three maintained trees build the revised ACPI thermal, ACPI
+processor-power, and thermal-hwmon objects with `CIX_THERMAL` enabled; the
+7.1 objects also build with it disabled to cover the generic fallback.
 
 The revised O6 firmware-`1.2` and firmware-`1.3` `ORIONO6` sources compile
 with ACPICA `20260408`: both report zero errors and zero warnings.  The four

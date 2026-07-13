@@ -1,12 +1,3 @@
-misc: armchina-npu: default to the R2P0 userspace ABI
-
-CIX packages cix-noe-umd 2.0.2 from the R2P0 SDK, while the imported kernel
-driver implements the newer R2P2 ABI.  Port the vendor packaging revert while
-retaining the local lifetime, ACPI DMA, SCMI devfreq, and runtime-PM fixes.
-
-The R2P2 import renames the v3.2 register header to v3_2.h.  Keep the R2P0
-debug-dispatch command definitions consistent with the reverted source.
-
 diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
 --- a/drivers/misc/armchina-npu/Makefile
 +++ b/drivers/misc/armchina-npu/Makefile
@@ -30,7 +21,18 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  #include <armchina_aipu.h>
  #include "armchina_aipu_soc.h"
  #include "aipu_mm.h"
-@@ -43,11 +42,6 @@ static struct aipu_priv *aipu_get_global(void)
+@@ -28,6 +27,10 @@
+ #include "cix_sky1_soc.h"
+ #endif
+ 
++/* cix-noe-umd 2.0.2 encodes this size in AIPU_IOCTL_QUERY_CAP. */
++static_assert(sizeof(struct aipu_cap) == 0x1a8,
++	      "R2P0 capability ABI size changed");
++
+ static struct aipu_priv *aipu;
+ static DEFINE_MUTEX(aipu_lock);
+ 
+@@ -43,11 +46,6 @@ static struct aipu_priv *aipu_get_global(void)
  
  	return priv;
  }
@@ -42,7 +44,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  static int aipu_open(struct inode *inode, struct file *filp)
  {
  	int ret;
-@@ -125,19 +119,12 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+@@ -125,19 +123,12 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  	u64 job_id;
  	struct aipu_rebind_buf_desc rebind_buf;
  	struct aipu_bind_buf_desc bind_buf;
@@ -62,7 +64,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  	switch (cmd) {
  	case AIPU_IOCTL_QUERY_CAP:
  		ret = aipu_priv_query_capability(aipu, &cap);
-@@ -166,13 +153,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+@@ -166,13 +157,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  				buf_req.alloc_mode = AIPU_DMA_BUF_MALLOC_DEFAULT;
  
  			if (buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_IOVA ||
@@ -77,7 +79,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  			} else {
  				buf_req.exec_id = 0;
  			}
-@@ -324,11 +308,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+@@ -324,11 +312,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  			ret = -EINVAL;
  		break;
  	case AIPU_IOCTL_GET_CLUSTER_STATUS:
@@ -91,7 +93,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  				if (!ret && copy_to_user((char __user *)arg, &cluster_status,
  							 sizeof(cluster_status)))
  					ret = -EINVAL;
-@@ -388,33 +371,6 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+@@ -388,33 +375,6 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  		} else
  			ret = -EINVAL;
  		break;
@@ -125,7 +127,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  	case AIPU_IOCTL_BUF_CACHE_INVALID:
  		if (!copy_from_user(&desc, (struct buf_desc __user *)arg, sizeof(desc)))
  			ret = aipu_mm_cache_invalid(&aipu->mm, &desc);
-@@ -511,18 +467,12 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+@@ -511,18 +471,12 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
  			return -ENOMEM;
  
  		dev_info(dev, "AIPU KMD (v%s) probe start...\n", KMD_VERSION);
@@ -146,7 +148,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  			kfree(priv);
  			return ret;
  		}
-@@ -533,6 +483,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+@@ -533,6 +487,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
  	}
  
  	priv = aipu;
@@ -154,7 +156,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  	device_property_read_u32(dev, "core-id", &id);
  
  	WARN_ON(!priv->ops);
-@@ -540,6 +491,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+@@ -540,6 +495,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
  	if (IS_ERR(partition)) {
  		dev_err(dev, "FAIL TO CREATE PARTITION.\n");
  		aipu_priv_begin_remove(priv);
@@ -162,7 +164,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  		mutex_lock(&aipu_lock);
  		if (aipu == priv)
  			aipu = NULL;
-@@ -548,8 +500,6 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+@@ -548,8 +504,6 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
  		deinit_aipu_priv(priv);
  		kfree(priv);
  		ret = -EIO;
@@ -171,7 +173,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  	}
  
  	return ret;
-@@ -579,6 +529,7 @@ int armchina_aipu_remove(struct platform_device *p_dev)
+@@ -579,6 +533,7 @@ int armchina_aipu_remove(struct platform_device *p_dev)
  
  	aipu = NULL;
  	aipu_priv_begin_remove(priv);
@@ -179,7 +181,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  	mutex_unlock(&aipu_lock);
  
  	/*
-@@ -605,13 +556,19 @@ EXPORT_SYMBOL(armchina_aipu_remove);
+@@ -605,13 +560,19 @@ EXPORT_SYMBOL(armchina_aipu_remove);
   */
  int armchina_aipu_suspend(struct platform_device *p_dev, pm_message_t state)
  {
@@ -202,7 +204,7 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  	return ret;
  }
  EXPORT_SYMBOL(armchina_aipu_suspend);
-@@ -627,13 +584,18 @@ EXPORT_SYMBOL(armchina_aipu_suspend);
+@@ -627,13 +588,18 @@ EXPORT_SYMBOL(armchina_aipu_suspend);
   */
  int armchina_aipu_resume(struct platform_device *p_dev)
  {
@@ -1993,7 +1995,58 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
  };
  
  /**
-@@ -237,7 +235,6 @@ struct aipu_bind_buf_desc {
+@@ -148,7 +146,7 @@ struct aipu_partition_cap {
+ struct aipu_cap {
+ 	__u32 partition_cnt;
+ 	__u32 asid_cnt;
+-	__u64 asid_base[4];
++	__u64 asid_base[32];
+ 	__u32 is_homogeneous;
+ 	__u64 dtcm_base;
+ 	__u32 dtcm_size;
+@@ -184,12 +182,41 @@ enum aipu_mm_data_type {
+  * @AIPU_BUF_ASID_1: [aipu v2/v3 only] ASID 1 region
+  * @AIPU_BUF_ASID_2: [aipu v2/v3 only] ASID 2 region
+  * @AIPU_BUF_ASID_3: [aipu v3 only] ASID 3 region
++ * @AIPU_BUF_ASID_x: [aipu v3/v3_1 only] ASID 4-31 region
+  */
+ enum aipu_buf_region {
+ 	AIPU_BUF_ASID_0 = 0,
+ 	AIPU_BUF_ASID_1 = 1,
+ 	AIPU_BUF_ASID_2 = 2,
+ 	AIPU_BUF_ASID_3 = 3,
++	AIPU_BUF_ASID_4 = 4,
++	AIPU_BUF_ASID_5 = 5,
++	AIPU_BUF_ASID_6 = 6,
++	AIPU_BUF_ASID_7 = 7,
++	AIPU_BUF_ASID_8 = 8,
++	AIPU_BUF_ASID_9 = 9,
++	AIPU_BUF_ASID_10 = 10,
++	AIPU_BUF_ASID_11 = 11,
++	AIPU_BUF_ASID_12 = 12,
++	AIPU_BUF_ASID_13 = 13,
++	AIPU_BUF_ASID_14 = 14,
++	AIPU_BUF_ASID_15 = 15,
++	AIPU_BUF_ASID_16 = 16,
++	AIPU_BUF_ASID_17 = 17,
++	AIPU_BUF_ASID_18 = 18,
++	AIPU_BUF_ASID_19 = 19,
++	AIPU_BUF_ASID_20 = 20,
++	AIPU_BUF_ASID_21 = 21,
++	AIPU_BUF_ASID_22 = 22,
++	AIPU_BUF_ASID_23 = 23,
++	AIPU_BUF_ASID_24 = 24,
++	AIPU_BUF_ASID_25 = 25,
++	AIPU_BUF_ASID_26 = 26,
++	AIPU_BUF_ASID_27 = 27,
++	AIPU_BUF_ASID_28 = 28,
++	AIPU_BUF_ASID_29 = 29,
++	AIPU_BUF_ASID_30 = 30,
++	AIPU_BUF_ASID_31 = 31,
+ };
+ 
+ /**
+@@ -237,7 +264,6 @@ struct aipu_bind_buf_desc {
   * @exec_id:    [kmd] back executive id to userspace from kmd
   * @region:     [kmd] this allocated buffer is in memory/SRAM/DTCM/GM region?
   * @asid:       [kmd] ASID region of this buffer
@@ -2001,7 +2054,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
   */
  struct aipu_buf_desc {
  	__u64 pa;
-@@ -246,7 +243,6 @@ struct aipu_buf_desc {
+@@ -246,7 +272,6 @@ struct aipu_buf_desc {
  	__u64 exec_id;
  	__u8  region;
  	__u8  asid;
@@ -2009,7 +2062,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
  };
  
  /**
-@@ -254,33 +250,14 @@ struct aipu_buf_desc {
+@@ -254,33 +279,14 @@ struct aipu_buf_desc {
   * @AIPU_DMA_BUF_MALLOC_DEFAULT:     [aipu v3_2] malloc I/O virtual address and physical memory by standard dma api
   * @AIPU_DMA_BUF_MALLOC_IOVA:        [aipu v3_2] malloc I/O virtual address only
   * @AIPU_DMA_BUF_MALLOC_PHY:         [aipu v3_2] malloc physical memory for Allocated I/O virtual address after malloc iova
@@ -2045,7 +2098,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
  /**
   * struct aipu_buf_request - Buffer allocation request structure.
   * @bytes:         [must] Buffer size to allocate (in bytes)
-@@ -336,7 +313,7 @@ struct aipu_dma_buf {
+@@ -336,7 +342,7 @@ struct aipu_dma_buf {
   * @AIPU_JOB_EXEC_FLAG_QOS_FAST:     [aipu v3 only] QoS fast
   * @AIPU_JOB_EXEC_FLAG_SINGLE_GROUP: [aipu v3 only] the scheduled job is a single group task
   * @AIPU_JOB_EXEC_FLAG_MULTI_GROUP:  [aipu v3 only] the scheduled job is a multi-groups task
@@ -2054,7 +2107,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
   * @AIPU_JOB_EXEC_FLAG_SEG_MMU:      [aipu v3 only] the job has configured segment mmu
   */
  enum aipu_job_execution_flag {
-@@ -346,7 +323,7 @@ enum aipu_job_execution_flag {
+@@ -346,7 +352,7 @@ enum aipu_job_execution_flag {
  	AIPU_JOB_EXEC_FLAG_QOS_FAST     = 1 << 2,
  	AIPU_JOB_EXEC_FLAG_SINGLE_GROUP = 1 << 3,
  	AIPU_JOB_EXEC_FLAG_MULTI_GROUP  = 1 << 4,
@@ -2063,7 +2116,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
  	AIPU_JOB_EXEC_FLAG_SEG_MMU       = 1 << 6,
  };
  
-@@ -364,21 +341,19 @@ enum aipu_job_execution_flag {
+@@ -364,21 +370,19 @@ enum aipu_job_execution_flag {
   * @intr_handler_addr: [aipu v1/v2 only, must] Address of the interrupt handler (pa - asid_base)
   * @data_0_addr:       [aipu v1/v2 only, must] Address of the 0th data buffer (buf_pa - asid_base)
   * @data_1_addr:       [aipu v1/v2 only, must] Address of the 1th data buffer (buf_pa - asid_base)
@@ -2090,7 +2143,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
   *
   * For fields is_defer_run/do_trigger/enable_prof/enable_asid/enable_poll_opt,
   * set them to be 1/0 to enable/disable the corresponding operations.
-@@ -396,22 +371,20 @@ struct aipu_job_desc {
+@@ -396,22 +400,20 @@ struct aipu_job_desc {
  	__u32 intr_handler_addr;
  	__u32 data_0_addr;
  	__u32 data_1_addr;
@@ -2118,7 +2171,7 @@ diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/ar
  };
  
  /**
-@@ -805,40 +778,25 @@ struct aipu_id_desc {
+@@ -805,40 +807,25 @@ struct aipu_id_desc {
   * ioctl to request to bind dma shared fd memory to a reserved iova.
   */
  #define AIPU_IOCTL_BIND_DMA_BUF _IOWR(AIPU_IOCTL_MAGIC, 29, struct aipu_bind_buf_desc)
@@ -2736,6 +2789,15 @@ diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.c b/drivers/misc/armchina-n
 diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.h b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
 --- a/drivers/misc/armchina-npu/zhouyi/zhouyi.h
 +++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
+@@ -22,7 +22,7 @@
+ 
+ #define ZHOUYI_AIPU_IDLE_STATUS               0x70000
+ 
+-#define ZHOUYI_ASID_COUNT                     4
++#define ZHOUYI_ASID_COUNT                     32
+ 
+ /*
+  * Revision ID for V1 ~ V3_2
 @@ -34,7 +34,6 @@
  #define ZHOUYI_V3_REVISION_ID_R0P2            0x10000
  #define ZHOUYI_V3_REVISION_ID_R0P3            0x10003

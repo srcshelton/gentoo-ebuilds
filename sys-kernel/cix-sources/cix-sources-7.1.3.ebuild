@@ -29,13 +29,16 @@ detect_arch
 #ECLASS_DEBUG_OUTPUT="on"
 
 EGIT_CIX_COMMIT="19f2947303670f2e5734d6a96ffc72a80fd9b942"
+EGIT_CIX_NPU_COMMIT="047b23e91665008ae7865690da7a3c01dc573af7"
 EGIT_SKY1_COMMIT="57e018a398248d7e5e4d798610df79a557c0629f"
 
 DESCRIPTION="CIX sources including the Gentoo, CIX, Entropi and custom patchsets for the ${KV_MAJOR}.${KV_MINOR} kernel tree"
 HOMEPAGE="https://github.com/cixtech/cix-linux-main/
+	https://github.com/cixtech/cix_opensource__npu_driver/
 	https://github.com/Sky1-Linux/linux-sky1/
 	https://dev.gentoo.org/~alicef/genpatches"
 SRC_URI="https://github.com/cixtech/cix-linux-main/archive/${EGIT_CIX_COMMIT}.tar.gz -> ${PN}-cix-${EGIT_CIX_COMMIT:0:7}.tar.gz
+	https://github.com/cixtech/cix_opensource__npu_driver/archive/${EGIT_CIX_NPU_COMMIT}.tar.gz -> ${PN}-cix-npu-${EGIT_CIX_NPU_COMMIT:0:7}.tar.gz
 	https://github.com/Sky1-Linux/linux-sky1/archive/${EGIT_SKY1_COMMIT}.tar.gz -> ${PN}-sky1-${EGIT_SKY1_COMMIT:0:7}.tar.gz
 	${KERNEL_URI} ${GENPATCHES_URI} ${ARCH_URI}"
 KEYWORDS="arm arm64"
@@ -72,6 +75,61 @@ PATCHES=(
 
 QA_PREBUILT="usr/src/linux-*/tools/testing/selftests/tc-testing/action-ebpf"
 
+_cix_install_npu_source() {
+	local src="${1:-}"
+	local dst="drivers/misc/armchina-npu"
+
+	[[ -d "${src}" ]] || die "missing CIX NPU source directory ${src}"
+	[[ ! -e "${dst}" ]] || die "ArmChina NPU source already exists at ${dst}"
+	cp -a "${src}" "${dst}" || die
+
+	if ! grep -Fq 'source "drivers/misc/armchina-npu/Kconfig"' drivers/misc/Kconfig; then
+		printf '\nsource "drivers/misc/armchina-npu/Kconfig"\n' >> drivers/misc/Kconfig || die
+	fi
+	if ! grep -Fq 'obj-$(CONFIG_ARMCHINA_NPU) += armchina-npu/' drivers/misc/Makefile; then
+		printf '%s\n' 'obj-$(CONFIG_ARMCHINA_NPU) += armchina-npu/' >> drivers/misc/Makefile || die
+	fi
+}
+
+_cix_npu_assert_abi() {
+	local expected="${1:-}"
+	local aipu="drivers/misc/armchina-npu/aipu.c"
+	local header="drivers/misc/armchina-npu/include/armchina_aipu.h"
+	local zhouyi="drivers/misc/armchina-npu/zhouyi/zhouyi.h"
+
+	[[ -s "${aipu}" ]] || die "missing ArmChina NPU core source ${aipu}"
+	[[ -s "${header}" ]] || die "missing ArmChina NPU userspace ABI header ${header}"
+	[[ -s "${zhouyi}" ]] || die "missing ArmChina NPU Zhouyi header ${zhouyi}"
+
+	case "${expected}" in
+		r2p0)
+			grep -Eq "__u64[[:space:]]+asid_base\[32\][[:space:]]*;" "${header}" ||
+				die "ArmChina NPU R2P0 default must expose asid_base[32] for libnoe.so.0.6.0"
+			grep -Eq "#define[[:space:]]+ZHOUYI_ASID_COUNT[[:space:]]+32\b" "${zhouyi}" ||
+				die "ArmChina NPU R2P0 default must keep ZHOUYI_ASID_COUNT at 32"
+			grep -Fq "static_assert(sizeof(struct aipu_cap) == 0x1a8" "${aipu}" ||
+				die "ArmChina NPU R2P0 default must assert the 0x1a8 capability ioctl size"
+			! grep -Eq "AIPU_ISA_VERSION_ZHOUYI_V3_2_[01]\b" "${header}" ||
+				die "ArmChina NPU R2P0 default still contains R2P2 ISA markers"
+			;;
+		r2p2)
+			grep -Eq "__u64[[:space:]]+asid_base\[4\][[:space:]]*;" "${header}" ||
+				die "ArmChina NPU R2P2 ABI must expose asid_base[4]"
+			grep -Eq "#define[[:space:]]+ZHOUYI_ASID_COUNT[[:space:]]+4\b" "${zhouyi}" ||
+				die "ArmChina NPU R2P2 ABI must keep ZHOUYI_ASID_COUNT at 4"
+			grep -Fq "AIPU_ISA_VERSION_ZHOUYI_V3_2_0" "${header}" ||
+				die "ArmChina NPU R2P2 ABI is missing the V3_2_0 ISA marker"
+			grep -Fq "AIPU_ISA_VERSION_ZHOUYI_V3_2_1" "${header}" ||
+				die "ArmChina NPU R2P2 ABI is missing the V3_2_1 ISA marker"
+			! grep -Fq "static_assert(sizeof(struct aipu_cap) == 0x1a8" "${aipu}" ||
+				die "ArmChina NPU R2P2 ABI unexpectedly carries the R2P0 0x1a8 size assertion"
+			;;
+		*)
+			die "unknown ArmChina NPU ABI assertion ${expected}"
+			;;
+	esac
+}
+
 pkg_setup() {
 	ewarn
 	ewarn "${CATEGORY}/${PN} is *not* supported by the Gentoo Kernel Project in"
@@ -89,12 +147,14 @@ src_prepare() {
 	local pf=''
 	local cix_patch_dir="${WORKDIR}/cix-linux-main-${EGIT_CIX_COMMIT}/patches-7.1"
 	local sky1_patch_dir="${WORKDIR}/linux-sky1-${EGIT_SKY1_COMMIT}/patches-rc"
+	local cix_npu_src="${WORKDIR}/cix_opensource__npu_driver-${EGIT_CIX_NPU_COMMIT}/driver/armchina-npu"
 
 	(
 		set -e
 
 		cd "${WORKDIR}"
 		unpack "${PN}-cix-${EGIT_CIX_COMMIT:0:7}.tar.gz"
+		unpack "${PN}-cix-npu-${EGIT_CIX_NPU_COMMIT:0:7}.tar.gz"
 		unpack "${PN}-sky1-${EGIT_SKY1_COMMIT:0:7}.tar.gz"
 	) || die
 
@@ -119,8 +179,7 @@ src_prepare() {
 	eapply "${sky1_patch_dir}"/0013-net-Add-CIX-Sky1-networking-drivers.patch || die
 	eapply "${FILESDIR}"/80060-realtek-r8125-r8126-use-kernel-dma-mapping-error.patch || die
 	eapply "${sky1_patch_dir}"/0015-media-cix-Add-Sky1-video-codec-VPU-driver.patch || die
-	eapply "${sky1_patch_dir}"/0016-misc-armchina-npu-Add-Zhouyi-NPU-driver-for-CIX-Sky1.patch || die
-	eapply "${FILESDIR}"/7.0.x/71990-armchina-npu-update-to-cix-opensource-driver-abi.patch || die
+	_cix_install_npu_source "${cix_npu_src}"
 	eapply "${FILESDIR}"/71992-armchina-npu-use-gpio-consumer-prototypes.patch || die
 	eapply "${FILESDIR}"/71995-armchina-npu-restore-local-acpi-dma-lifetime-fixes.patch || die
 	eapply "${FILESDIR}"/71996-armchina-npu-define-kmd-version.patch || die
@@ -134,6 +193,7 @@ src_prepare() {
 	eapply "${sky1_patch_dir}"/0025-mm-add-Mali-GPU-movable_ops-page-type-support.patch || die
 
 	rm -r "${WORKDIR}/cix-linux-main-${EGIT_CIX_COMMIT}" || die
+	rm -r "${WORKDIR}/cix_opensource__npu_driver-${EGIT_CIX_NPU_COMMIT}" || die
 	rm -r "${WORKDIR}/linux-sky1-${EGIT_SKY1_COMMIT}" || die
 
 	eapply "${FILESDIR}"/7.0.x/20010-irqchip-sky1-pdc-fix-section-mismatch.patch || die
@@ -261,11 +321,14 @@ src_prepare() {
 		eapply "${FILESDIR}"/7.1.x/90051-arm64-radxa-orion-select-fixed-regulator-provider.patch || die
 	fi
 	if ! use npu-r2p2-abi; then
-		# cix-noe-umd 2.0.2 is R2P0; retain the imported R2P2 tree as an opt-in ABI.
+		# cix-noe-umd 2.0.2/libnoe.so.0.6.0 sends a 0x1a8 QUERY_CAP ioctl.
+		# Keep R2P2 as opt-in until a matching userspace runtime is packaged.
 		eapply "${FILESDIR}"/7.1.x/71993-armchina-npu-default-to-r2p0-userspace-abi.patch || die
 		eapply "${FILESDIR}"/7.1.x/71994-armchina-npu-fix-gcc15-clang21-w1-findings-r2p0.patch || die
+		_cix_npu_assert_abi r2p0
 	else
 		eapply "${FILESDIR}"/7.1.x/71994-armchina-npu-fix-gcc15-clang21-w1-findings-r2p2.patch || die
+		_cix_npu_assert_abi r2p2
 	fi
 	eapply "${FILESDIR}"/7.1.x/70140-drm-cix-fix-gcc15-clang21-w1-findings.patch || die
 	eapply "${FILESDIR}"/7.1.x/90094-hwmon-cix-fan-fix-gcc15-clang21-w1-findings.patch || die

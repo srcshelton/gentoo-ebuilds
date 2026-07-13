@@ -5,9 +5,16 @@ independent "acpitz" hwmon type to group the labelled readings under one
 adapter.  This keeps unique types available to thermal APIs, sysfs,
 netlink, and tracing without sacrificing readable sensors output.
 
-Treat SSTP as an optional power-allocation hint.  Make the optional SPRG
-and DPRG power lookups return zero deterministically when firmware omits
-them.  Reject affinity index 12 as out of range for the twelve Sky1 CPUs.
+Treat SSTP as an optional power-allocation hint.  Keep SWIT as the
+power_allocator activation threshold instead of publishing it as a
+second passive trip consumed by step_wise.  Select power_allocator only
+for zones with a valid SWIT range.  Map the CIX OPP-sized processor
+cooling states to their corresponding CPPC frequencies instead of
+applying the legacy 20% reduction repeatedly.
+
+Make the optional SPRG and DPRG power lookups return zero deterministically
+when firmware omits them.  Reject affinity index 12 as out of range for the
+twelve Sky1 CPUs.
 
 diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
 --- a/drivers/acpi/processor_thermal.c
@@ -72,6 +79,52 @@ diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
  		return 0;
  	}
  
+@@ -202,6 +204,7 @@ static int cpufreq_get_cur_state(unsigned int cpu)
+ 
+ static bool cpufreq_update_thermal_limit(unsigned int cpu, struct acpi_processor *pr)
+ {
++	unsigned int state = reduction_step(cpu);
+ 	unsigned long max_freq;
+ 	int ret;
+ 
+@@ -209,9 +212,36 @@ static bool cpufreq_update_thermal_limit(unsigned int cpu, struct acpi_processor
+ 	if (!policy)
+ 		return false;
+ 
++#ifdef CONFIG_CIX_THERMAL
++	/*
++	 * CIX exposes one cooling state per CPPC OPP.  Keep the state-to-
++	 * frequency mapping consistent with processor_state2power() instead
++	 * of applying the legacy percentage reduction to an OPP-sized range.
++	 */
++	if (!state) {
++		max_freq = policy->cpuinfo.max_freq;
++		goto update_qos;
++	}
++
++	if (policy->driver_data) {
++		const struct cppc_cpudata *cpu_data = policy->driver_data;
++
++		if (cpu_data->opp_level_num > 1 &&
++		    state < cpu_data->opp_level_num) {
++			unsigned int index = cpu_data->opp_level_num - state - 1;
++
++			max_freq = cpu_data->opp[index].freq;
++			goto update_qos;
++		}
++	}
++#endif
++	state = min(state, (unsigned int)cpufreq_thermal_max_step);
+ 	max_freq = (policy->cpuinfo.max_freq *
+-		(100 - reduction_step(cpu) * cpufreq_thermal_reduction_pctg)) / 100;
++		(100 - state * cpufreq_thermal_reduction_pctg)) / 100;
+ 
++#ifdef CONFIG_CIX_THERMAL
++update_qos:
++#endif
+ 	ret = freq_qos_update_request(&pr->thermal_req, max_freq);
+ 	if (ret < 0) {
+ 		pr_warn("Failed to update thermal freq constraint: CPU%d (%d)\n",
 diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 --- a/drivers/acpi/thermal.c
 +++ b/drivers/acpi/thermal.c
@@ -85,17 +138,25 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  #include <linux/device.h>
  #include <linux/thermal.h>
  #include <linux/acpi.h>
-@@ -47,6 +49,9 @@
+@@ -47,12 +49,14 @@
  #define ACPI_THERMAL_MAX_LIMIT_STR_LEN	65
  
  #define ACPI_THERMAL_TRIP_PASSIVE	(-1)
 +#define ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES	3
 +#define ACPI_THERMAL_ORION_O6_ECTZ_LKG_TIMEOUT	(60 * HZ)
 +#define ACPI_THERMAL_ORION_O6_ECTZ_PROBE_BOOTSTRAP_DK	2732
++
++#define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 3)
  
  #ifdef CONFIG_CIX_THERMAL
- #define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 4)
-@@ -120,8 +125,13 @@ struct acpi_thermal {
+-#define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 4)
+ #define TEMP_MIN_DECIK			2180
+-#else
+-#define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 3)
+ #endif
+ 
+ /*
+@@ -120,8 +124,13 @@ struct acpi_thermal {
  	acpi_bus_id name;
  	unsigned long temp_dk;
  	unsigned long last_temp_dk;
@@ -109,7 +170,7 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  	struct acpi_thermal_trips trips;
  	struct thermal_zone_device *thermal_zone;
  	int kelvin_offset;	/* in millidegrees */
-@@ -137,46 +147,218 @@ struct acpi_thermal {
+@@ -137,46 +146,218 @@ struct acpi_thermal {
                               Thermal Zone Management
     -------------------------------------------------------------------------- */
  
@@ -339,7 +400,23 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  }
  
  static void acpi_thermal_init_switch_on_temp(struct acpi_thermal *tz,
-@@ -708,6 +890,9 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
+@@ -192,6 +373,15 @@ static void acpi_thermal_init_switch_on_temp(struct acpi_thermal *tz,
+ 	else
+ 		acpi_trip->switch_on_temp_dk = tmp;
+ }
++
++static bool acpi_thermal_use_power_allocator(struct acpi_thermal *tz)
++{
++	const struct acpi_thermal_trip *trip = &tz->trips.passive.trip;
++
++	return trip->temp_dk != THERMAL_TEMP_INVALID &&
++	       trip->switch_on_temp_dk != THERMAL_TEMP_INVALID &&
++	       trip->switch_on_temp_dk < trip->temp_dk;
++}
+ #endif
+ 
+ static int acpi_thermal_get_polling_frequency(struct acpi_thermal *tz)
+@@ -708,8 +898,13 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
  	struct thermal_zone_params tzp = {};
  	int result;
  
@@ -348,8 +425,12 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 +
  #ifdef CONFIG_CIX_THERMAL
  	tzp.sustainable_power = tz->sustainable_power;
++	if (acpi_thermal_use_power_allocator(tz))
++		tzp.governor_name = "power_allocator";
  #endif
-@@ -864,6 +1049,7 @@ static void acpi_thermal_free_thermal_zone(struct acpi_thermal *tz)
+ 
+ 	if (trip_count)
+@@ -864,6 +1059,7 @@ static void acpi_thermal_free_thermal_zone(struct acpi_thermal *tz)
  	for (i = 0; i < ACPI_THERMAL_MAX_ACTIVE; i++)
  		acpi_handle_list_free(&tz->trips.active[i].trip.devices);
  
@@ -357,7 +438,7 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  	kfree(tz);
  }
  
-@@ -886,6 +1072,8 @@ static int acpi_thermal_add(struct acpi_device *device)
+@@ -886,6 +1082,8 @@ static int acpi_thermal_add(struct acpi_device *device)
  		return -ENOMEM;
  
  	tz->device = device;
@@ -366,7 +447,24 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
  	strscpy(tz->name, device->pnp.bus_id);
  	strscpy(acpi_device_name(device), ACPI_THERMAL_DEVICE_NAME);
  	strscpy(acpi_device_class(device), ACPI_THERMAL_CLASS);
-@@ -977,9 +1165,7 @@ static int acpi_thermal_add(struct acpi_device *device)
+@@ -960,26 +1158,11 @@ static int acpi_thermal_add(struct acpi_device *device)
+ 		trip++;
+ 	}
+ 
+-#ifdef CONFIG_CIX_THERMAL
+-	acpi_trip = &tz->trips.passive.trip;
+-	if (acpi_thermal_trip_valid(acpi_trip) &&
+-	    acpi_trip->switch_on_temp_dk != THERMAL_TEMP_INVALID &&
+-	    acpi_trip->switch_on_temp_dk < acpi_trip->temp_dk) {
+-		trip->type = THERMAL_TRIP_PASSIVE;
+-		trip->temperature = acpi_thermal_temp(tz, acpi_trip->switch_on_temp_dk);
+-		trip->switch_on_temp = trip->temperature;
+-		trip->priv = acpi_trip;
+-		trip++;
+-	}
+-#endif
+-
+ 	if (trip == trip_table)
  		pr_warn(FW_BUG "No valid trip points!\n");
  
  #ifdef CONFIG_CIX_THERMAL
