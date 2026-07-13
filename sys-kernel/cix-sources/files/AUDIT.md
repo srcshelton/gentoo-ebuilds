@@ -1,6 +1,6 @@
 # Maintained CIX kernel audit
 
-Audit date: 2026-07-12.
+Audit date: 2026-07-13.
 
 This is the stable source-preparation set point for Linux 6.18 and newer.  It
 does not cover the legacy 6.1.x or 6.6.x ebuilds.
@@ -51,8 +51,11 @@ problems:
   `CIX_SCMI_ENERGY_MODEL` helper, including stale `M` or `Y` values
   inherited from the former `CIX_THERMAL` selection.
 - The display profiles now include the Sky1 PWM and PWM-backlight providers.
-  This closes the deterministic `CIXH5010:02` probe-defer path caused when the
-  ACPI eDP panel's `CIXH5041` backlight provider was not built.
+  CIX `19f2947` also left its generic firmware-property parser under
+  `CONFIG_OF`, so ACPI-only kernels built an `-ENODEV` stub despite the valid
+  `CIXH5041` `_DSD`.  Shared patch `70150` removes that incorrect source gate;
+  together these changes close the deterministic `CIXH5010:02` probe-defer
+  path.
 - The DP encoder diagnostic now distinguishes ACPI-graph and DT masks from a
   genuine fallback instead of labelling every non-DT mask as a fallback.
 - The imported NPU ABI update renames its v3.2 register header from

@@ -157,6 +157,13 @@ therefore select `PWM`, `PWM_SKY1`, `BACKLIGHT_CLASS_DEVICE`, and
 `CIXH5041` backlight never registers, the `CIXH5040` panel probe remains
 deferred, and the associated `CIXH5010:02` Linlon DPU cannot bind.
 
+CIX `19f2947` added the `CIXH5041` ACPI match and converted the backlight
+parser to generic firmware-property calls, but left that parser inside a
+`CONFIG_OF` conditional.  An ACPI-only kernel consequently compiled a stub
+which rejected the valid `_DSD` data with `-ENODEV`.  Patch `70150` builds the
+firmware-property parser independently of Device Tree support while retaining
+the OF match table's original guard.
+
 An ACPI-derived DP encoder mask of `possible_crtcs=0x3` is expected: each
 published DP endpoint is connected to both Linlon pipelines.  Patch `70130`
 reports whether this mask came from the ACPI graph, DT, or the real fallback.
@@ -165,7 +172,9 @@ misleadingly described as a fallback.
 
 The old display/backlight aggregate was also separated.  Its backlight half
 was removed rather than retained because CIX `19f2947` already supplies the
-`CIXH5041` ACPI match table.  Reapplying it produced a duplicate definition.
+`CIXH5041` ACPI match table.  Reapplying it produced a duplicate definition;
+patch `70150` instead fixes the remaining source gating defect without
+duplicating the vendor match table.
 
 When changing a patch, reconstruct its exact source preimage, apply preceding
 patches in ebuild order, edit the real source, regenerate the diff, and replay

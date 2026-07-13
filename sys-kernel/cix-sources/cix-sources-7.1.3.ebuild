@@ -194,6 +194,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch || die
 	eapply "${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
+	eapply "${FILESDIR}"/70150-backlight-pwm-parse-firmware-properties-without-of.patch || die
 	eapply "${FILESDIR}"/7.1.x/80030-cadence-macb-restore-pc302gem-config-scope.patch || die
 	eapply "${FILESDIR}"/7.1.x/80031-cadence-macb-match-pc302gem-callbacks.patch || die
 	eapply "${FILESDIR}"/80040-cadence-macb-use-sky1-acpi-aclk-as-hclk.patch || die

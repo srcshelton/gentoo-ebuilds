@@ -178,6 +178,7 @@ src_prepare() {
 	eapply "${FILESDIR}"/6.18.x/90070-sky1-restore-cadence-torrent-dt-binding-header.patch || die
 	eapply "${FILESDIR}"/6.18.x/70110-drm-cix-dptx-demote-missing-dp-phy-log.patch || die
 	eapply "${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch || die
+	eapply "${FILESDIR}"/70150-backlight-pwm-parse-firmware-properties-without-of.patch || die
 	eapply "${FILESDIR}"/20030-gpio-cadence-fix-pm-ops-when-pm-sleep-is-disabled.patch || die
 	eapply "${FILESDIR}"/20040-cpufreq-fall-back-to-policy-max-for-fast-switch-sca.patch || die
 	eapply "${FILESDIR}"/6.18.x/20045-cpufreq-cppc-handle-cix-energy-model-failures.patch || die
