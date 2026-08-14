@@ -5,17 +5,17 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{11..14} )
 
-inherit autotools libtool python-any-r1
+inherit autotools libtool python-any-r1 flag-o-matic toolchain-funcs
 
 DESCRIPTION="Fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
 
 if [[ "${PV}" == *9999* ]]; then
-	inherit autotools libtool python-any-r1
+	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
 else
 	SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.gz"
-	KEYWORDS="amd64 ~arm arm64 ~loong ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm ~arm64 ~loong ~ppc64 ~riscv"
 	#RESTRICT="mirror"
 fi
 
@@ -24,46 +24,37 @@ SLOT="0"
 IUSE="+bpf +caps criu man +seccomp selinux static-libs systemd"
 
 COMMON_DEPEND="
-	>=dev-libs/yajl-2.0.0:=
-	dev-libs/libgcrypt:=
+	dev-libs/json-c:=
 	caps? ( sys-libs/libcap )
 	criu? ( >=sys-process/criu-3.15 )
+	elibc_musl? ( sys-libs/error-standalone )
 	systemd? ( sys-apps/systemd:= )
 "
-DEPEND="
-	${COMMON_DEPEND}
+DEPEND="${COMMON_DEPEND}
+	dev-build/libtool
 	dev-util/gperf
 	sys-devel/gettext
-	dev-build/libtool
 	sys-libs/libseccomp
 	virtual/os-headers
 "
 RDEPEND="${COMMON_DEPEND}
 	seccomp? ( sys-libs/libseccomp )
-	selinux? ( sec-policy/selinux-container )"
-BDEPEND="
-	${PYTHON_DEPS}
-	man? ( dev-go/go-md2man )
+	selinux? ( sec-policy/selinux-container )
+"
+BDEPEND=" ${PYTHON_DEPS}
 	app-shells/bash
 	sys-apps/sed
 	virtual/pkgconfig
+	man? ( dev-go/go-md2man )
 "
 
 PATCHES=(
-	"${FILESDIR}/${PN}-1.0-run.patch"
+	"${FILESDIR}/${PN}-1.26-run.patch"
 )
 
 src_prepare() {
 	default
 	elibtoolize
-
-	# https://github.com/containers/crun/pull/1887
-	sed -i -E '/AC_CHECK_HEADERS\(\[error.h/{
-		s/error\.h[[:space:]]*//g
-		a\
-		AC_CHECK_HEADER([error.h], [AC_CHECK_FUNC([error], AC_DEFINE([HAVE_ERROR_H], [1], [Define if error.h is usable]))])
-	}' configure.ac || die
-
 	eautoreconf
 
 #	sed -ri \
@@ -75,6 +66,10 @@ src_prepare() {
 }
 
 src_configure() {
+	if use elibc_musl ; then
+		append-cflags "$($(tc-getPKG_CONFIG) --cflags error-standalone)"
+		append-libs "$($(tc-getPKG_CONFIG) --libs error-standalone)"
+	fi
 	local myeconfargs=(
 		$(use_enable bpf)
 		$(use_enable caps)
@@ -83,9 +78,7 @@ src_configure() {
 		$(use_enable systemd)
 		--enable-shared
 		$(use_enable static-libs static)
-		--disable-embedded-yajl
 	)
-
 	econf "${myeconfargs[@]}"
 }
 
@@ -115,6 +108,7 @@ src_test() {
 src_install() {
 	emake "DESTDIR=${D}" install-exec
 	if use man ; then
+		#doman crun.1
 		emake "DESTDIR=${D}" install-man
 	fi
 
