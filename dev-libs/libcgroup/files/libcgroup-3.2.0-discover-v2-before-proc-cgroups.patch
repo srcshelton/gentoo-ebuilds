@@ -1,0 +1,122 @@
+diff --git a/src/api.c b/src/api.c
+--- a/src/api.c
++++ b/src/api.c
+@@ -1586,14 +1586,16 @@ err:
+ 
+ /*
+  * Reads /proc/self/mounts and populates the cgroup v1/v2 mount points into the
+- * global cg_mount_table.
++ * global cg_mount_table.  If @process_v1 is false, only cgroup v2 mounts are
++ * processed and @has_v1 reports whether a legacy mount needs a second pass.
+  * This function should be called with cg_mount_table_lock taken.
+  */
+-static int cgroup_populate_mount_points(char *controllers[CG_CONTROLLER_MAX])
++static int cgroup_populate_mount_points(char *controllers[CG_CONTROLLER_MAX],
++					bool process_v1, bool *has_v1,
++					int *found_mnt)
+ {
+ 	char mntent_buffer[4 * FILENAME_MAX];
+ 	struct mntent *ent, *temp_ent = NULL;
+-	int found_mnt = 0;
+ 	FILE *proc_mount;
+ 	int ret = 0;
+ 
+@@ -1616,6 +1618,12 @@ static int cgroup_populate_mount_points(char *controllers[CG_CONTROLLER_MAX])
+ 				  sizeof(mntent_buffer))) != NULL) {
+ 
+ 		if (strcmp(ent->mnt_type, "cgroup") == 0) {
++			if (has_v1)
++				*has_v1 = true;
++
++			if (!process_v1)
++				continue;
++
+ 			if (controllers[0] == NULL) {
+ 				cgroup_err("cgroup v1 requires /proc/cgroups, check if /proc ");
+ 				cgroup_cont("is mounted with subset=pid option.\n");
+@@ -1623,18 +1631,21 @@ static int cgroup_populate_mount_points(char *controllers[CG_CONTROLLER_MAX])
+ 				goto err;
+ 			}
+ 
+-			ret = cgroup_process_v1_mnt(controllers, ent, &found_mnt);
++			ret = cgroup_process_v1_mnt(controllers, ent, found_mnt);
+ 			if (ret)
+ 				goto err;
+ 
+-			if (found_mnt >= CG_CONTROLLER_MAX)
++			if (*found_mnt >= CG_CONTROLLER_MAX)
+ 				break;
+ 
+ 			continue;
+ 		}
+ 
+ 		if (strcmp(ent->mnt_type, "cgroup2") == 0) {
+-			ret = cgroup_process_v2_mnt(ent, &found_mnt);
++			if (process_v1)
++				continue;
++
++			ret = cgroup_process_v2_mnt(ent, found_mnt);
+ 			if (ret == ECGEOF) {
+ 			/* The controllers file was empty.  Ignore and move on. */
+ 				ret = 0;
+@@ -1644,15 +1655,12 @@ static int cgroup_populate_mount_points(char *controllers[CG_CONTROLLER_MAX])
+ 			if (ret)
+ 				goto err;
+ 
+-			if (found_mnt >= CG_CONTROLLER_MAX)
++			if (*found_mnt >= CG_CONTROLLER_MAX)
+ 				break;
+ 		}
+ 	}
+ 
+-	if (!found_mnt)
+-		ret = ECGROUPNOTMOUNTED;
+-
+-	if (found_mnt >= CG_CONTROLLER_MAX) {
++	if (*found_mnt >= CG_CONTROLLER_MAX) {
+ 		cgroup_err("Mount points exceeds CG_CONTROLLER_MAX");
+ 		ret = ECGMAXVALUESEXCEEDED;
+ 		/*
+@@ -1683,6 +1691,8 @@ err:
+ int cgroup_init(void)
+ {
+ 	static char *controllers[CG_CONTROLLER_MAX];
++	bool has_v1 = false;
++	int found_mnt = 0;
+ 	int ret = 0;
+ 	int i;
+ 
+@@ -1693,13 +1703,30 @@ int cgroup_init(void)
+ 	/* Free global variables filled by previous cgroup_init() */
+ 	cgroup_free_cg_mount_table();
+ 
+-	ret = cgroup_populate_controllers(controllers);
++	/*
++	 * Discover cgroup v2 first.  /proc/cgroups describes only the legacy
++	 * hierarchy and recent kernels warn when it is read for v2 discovery.
++	 */
++	ret = cgroup_populate_mount_points(controllers, false, &has_v1,
++					  &found_mnt);
+ 	if (ret)
+ 		goto unlock_exit;
+ 
+-	ret = cgroup_populate_mount_points(controllers);
+-	if (ret)
++	if (has_v1) {
++		ret = cgroup_populate_controllers(controllers);
++		if (ret)
++			goto unlock_exit;
++
++		ret = cgroup_populate_mount_points(controllers, true, NULL,
++						  &found_mnt);
++		if (ret)
++			goto unlock_exit;
++	}
++
++	if (!found_mnt) {
++		ret = ECGROUPNOTMOUNTED;
+ 		goto unlock_exit;
++	}
+ 
+ 	cgroup_initialized = 1;
+ 

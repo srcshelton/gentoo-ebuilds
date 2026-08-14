@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -12,7 +12,7 @@ SRC_URI="https://github.com/libcgroup/libcgroup/releases/download/v${PV}/${P}.ta
 LICENSE="LGPL-2.1"
 SLOT="0"
 KEYWORDS="amd64 arm arm64 ~ppc ~ppc64 ~riscv x86"
-IUSE="+daemon pam static-libs systemd test +tools"
+IUSE="+daemon pam selinux static-libs systemd test +tools"
 REQUIRED_USE="daemon? ( tools )"
 RESTRICT="!test? ( test ) "
 
@@ -21,7 +21,10 @@ DEPEND="
 	pam? ( sys-libs/pam )
 	systemd? ( sys-apps/systemd:= )
 "
-RDEPEND="${DEPEND}"
+RDEPEND="
+	${DEPEND}
+	selinux? ( sec-policy/selinux-cgroup )
+"
 BDEPEND="
 	sys-devel/bison
 	sys-devel/flex
@@ -29,7 +32,8 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-3.2.0-use-system-gtest.patch
+	"${FILESDIR}/${P}-use-system-gtest.patch"
+	"${FILESDIR}/${P}-discover-v2-before-proc-cgroups.patch"
 )
 
 pkg_setup() {
