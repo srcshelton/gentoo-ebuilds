@@ -136,14 +136,7 @@ pkg_preinst() {
 
 pkg_postinst() {
 	use !udev || udev_reload
-
 	use !tmpfiles || tmpfiles_process udisks2.conf
-
-	# See pkg_postinst() of >=sys-apps/baselayout-2.1-r1. Keep in sync?
-	#if ! grep -qs "^tmpfs.*/run " "${EROOT}"/proc/mounts ; then
-	#	echo
-	#	ewarn "You should reboot the system now to get /run mounted with tmpfs!"
-	#fi
 }
 
 pkg_postrm() {
