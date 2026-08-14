@@ -1,0 +1,1297 @@
+Retain the reviewed ACPI/OF applicability, duplicate-prompt removal,
+firmware-node lifetime, return-value, fixed-clock build, CRTC reporting and
+eDP lifecycle corrections from the CIX display queue. Exclude the fixed-MMIO
+reset, mutable engineering controls and incomplete HDCP test interfaces which
+are handled by the following production-hardening patch.
+
+Demote probe routing, graph topology and CRTC assignment details to DRM or
+device debug output while retaining hardware discovery and actionable failures
+at their existing severities. When the PWM backlight is modular, request it
+before the CIX DisplayPort module so the eDP supplier is available without
+turning the optional backlight into a hard link dependency.
+
+This artifact is mechanically regenerated from the exact Linux 6.18.41 CIX
+preimage immediately after patch 70120.
+
+diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
+--- a/drivers/gpu/drm/cix/Kconfig
++++ b/drivers/gpu/drm/cix/Kconfig
+@@ -10,7 +10,7 @@ config DRM_CIX
+ 
+ config DRM_LINLONDP
+ 	tristate "ARMCHINA LINLON display driver"
+-	depends on DRM && OF
++	depends on DRM && (ACPI || OF)
+ 	depends on COMMON_CLK
+ 	depends on DRM_CIX
+ 	select DRM_KMS_HELPER
+@@ -34,15 +34,4 @@ config DRM_LINLONDP_CLOCK_FIXED
+ 	help
+ 	  Choose this if linlondp clocks use fixed frequency
+ 
+-config DRM_TRILIN_DP_CIX
+-	tristate "DRM Support for Trilinear DisplayPort on CiX platforms"
+-	depends on DRM_CIX
+-	help
+-	  Choose this if you want to use DP display on CiX Socs
+-
+-config DRM_CIX_EDP_PANEL
+-	tristate "DRM Support for edp panel on CiX platforms"
+-	help
+-	  Choose this if you want to use edp panel on CiX Socs
+-
+ source "drivers/gpu/drm/cix/dptx/Kconfig"
+diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
+--- a/drivers/gpu/drm/cix/dptx/Kconfig
++++ b/drivers/gpu/drm/cix/dptx/Kconfig
+@@ -1,12 +1,13 @@
+ #SPDX - License - Identifier : GPL - 2.0 - only
+ config DRM_TRILIN_DPSUB
+ 	tristate "Trilinear Technologies DisplayPort Controller Driver"
+-	depends on COMMON_CLK && DRM && OF
++	depends on COMMON_CLK && DRM && (ACPI || OF)
+ 	select DRM_KMS_HELPER
+ 	select DRM_DISPLAY_HELPER
+ 	select DRM_DISPLAY_DP_HELPER
+ 	select DRM_DISPLAY_HDMI_HELPER
+ 	select DRM_DP_AUX_CHARDEV
++	select DRM_PANEL_BRIDGE
+ 	select GENERIC_PHY
+ 	select SND_SOC_HDMI_CODEC if SND_SOC
+ 	help
+diff --git a/drivers/gpu/drm/cix/dptx/cix_edp_panel.c b/drivers/gpu/drm/cix/dptx/cix_edp_panel.c
+--- a/drivers/gpu/drm/cix/dptx/cix_edp_panel.c
++++ b/drivers/gpu/drm/cix/dptx/cix_edp_panel.c
+@@ -45,6 +45,7 @@
+ #include "cix_edp_panel.h"
+ 
+ /**
++ * struct panel_desc - fixed panel characteristics
+  * @modes: Pointer to array of fixed modes appropriate for this panel.  If
+  *         only one mode then this can just be the address of this the mode.
+  *         NOTE: cannot be used with "timings" and also if this is specified
+@@ -59,6 +60,7 @@
+  * @delay: Structure containing various delay values for this panel.
+  * @bus_format: See MEDIA_BUS_FMT_... defines.
+  * @bus_flags: See DRM_BUS_FLAG_... defines.
++ * @connector_type: DRM connector type represented by the panel.
+  */
+ struct panel_desc {
+ 	const struct drm_display_mode *modes;
+@@ -115,6 +117,7 @@ struct cix_edp_panel {
+ 	bool enabled;
+ 	bool power_invert;
+ 	bool no_hpd;
++	bool supply_enabled;
+ 
+ 	const struct panel_desc *desc;
+ 
+@@ -252,38 +255,56 @@ static int cix_edp_panel_get_non_edid_modes(struct cix_edp_panel *panel,
+ 
+ static int cix_edp_panel_regulator_enable(struct cix_edp_panel *p)
+ {
+-	int err;
++	int enabled;
++	int err = 0;
++
++	if (!p->supply || p->supply_enabled)
++		return 0;
+ 
+ 	if (p->power_invert) {
+-		if (regulator_is_enabled(p->supply) > 0)
+-			regulator_disable(p->supply);
++		enabled = regulator_is_enabled(p->supply);
++		if (enabled < 0)
++			return enabled;
++		if (enabled)
++			err = regulator_disable(p->supply);
+ 	} else {
+-		if (!p->supply)
+-			return -ENODEV;
+-
+ 		err = regulator_enable(p->supply);
+-		if (err < 0)
+-			return err;
+ 	}
++	if (!err)
++		p->supply_enabled = true;
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int cix_edp_panel_regulator_disable(struct cix_edp_panel *p)
+ {
+-	int err;
++	int enabled;
++	int err = 0;
++
++	if (!p->supply || !p->supply_enabled)
++		return 0;
+ 
+ 	if (p->power_invert) {
+-		if (!regulator_is_enabled(p->supply)) {
++		enabled = regulator_is_enabled(p->supply);
++		if (enabled < 0)
++			return enabled;
++		if (!enabled)
+ 			err = regulator_enable(p->supply);
+-			if (err < 0)
+-				return err;
+-		}
+ 	} else {
+-		regulator_disable(p->supply);
++		err = regulator_disable(p->supply);
+ 	}
++	if (!err)
++		p->supply_enabled = false;
+ 
+-	return 0;
++	return err;
++}
++
++static int cix_edp_panel_set_gpio(struct gpio_desc *gpio, int value)
++{
++	if (!gpio)
++		return 0;
++
++	return gpiod_direction_output(gpio, value);
+ }
+ 
+ static int cix_edp_panel_disable(struct drm_panel *panel)
+@@ -291,18 +312,18 @@ static int cix_edp_panel_disable(struct drm_panel *panel)
+ 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
+ 
+ 	if (!p->enabled) {
+-		dev_info(panel->dev, "%s, panel has been disabled\n", __func__);
++		dev_dbg(panel->dev, "%s, panel has been disabled\n", __func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+ 	if (p->desc->delay.disable)
+ 		msleep(p->desc->delay.disable);
+ 
+ 	p->enabled = false;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+ 	return 0;
+ }
+@@ -310,28 +331,45 @@ static int cix_edp_panel_disable(struct drm_panel *panel)
+ static int cix_edp_panel_unprepare(struct drm_panel *panel)
+ {
+ 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
++	int err = 0;
++	int ret;
+ 
+ 	if (!p->prepared) {
+-		dev_info(panel->dev, "%s, panel has been unprepared\n",
+-			 __func__);
++		dev_dbg(panel->dev, "%s, panel has been unprepared\n",
++			__func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+-	gpiod_set_value_cansleep(p->reset_gpio, 1);
+-	gpiod_set_value_cansleep(p->enable_gpio, 0);
++	ret = cix_edp_panel_set_gpio(p->reset_gpio, 1);
++	if (ret) {
++		dev_err(panel->dev, "failed to assert reset GPIO: %d\n", ret);
++		err = ret;
++	}
+ 
+-	cix_edp_panel_regulator_disable(p);
++	ret = cix_edp_panel_set_gpio(p->enable_gpio, 0);
++	if (ret) {
++		dev_err(panel->dev, "failed to disable panel GPIO: %d\n", ret);
++		if (!err)
++			err = ret;
++	}
++
++	ret = cix_edp_panel_regulator_disable(p);
++	if (ret) {
++		dev_err(panel->dev, "failed to disable supply: %d\n", ret);
++		if (!err)
++			err = ret;
++	}
+ 
+ 	if (p->desc->delay.unprepare)
+ 		msleep(p->desc->delay.unprepare);
+ 
+ 	p->prepared = false;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int cix_edp_panel_get_hpd_gpio(struct device *dev,
+@@ -367,11 +405,11 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 	int hpd_asserted;
+ 
+ 	if (p->prepared) {
+-		dev_info(panel->dev, "%s, panel has been prepared\n", __func__);
++		dev_dbg(panel->dev, "%s, panel has been prepared\n", __func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+ 	err = cix_edp_panel_regulator_enable(p);
+ 	if (err < 0) {
+@@ -379,7 +417,11 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 		return err;
+ 	}
+ 
+-	gpiod_set_value_cansleep(p->enable_gpio, 1);
++	err = cix_edp_panel_set_gpio(p->enable_gpio, 1);
++	if (err) {
++		dev_err(panel->dev, "failed to enable panel GPIO: %d\n", err);
++		goto rollback;
++	}
+ 
+ 	delay = p->desc->delay.prepare;
+ 	if (p->no_hpd)
+@@ -391,7 +433,7 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 		if (IS_ERR(p->hpd_gpio)) {
+ 			err = cix_edp_panel_get_hpd_gpio(panel->dev, p, false);
+ 			if (err)
+-				return err;
++				goto rollback;
+ 		}
+ 
+ 		err = readx_poll_timeout(gpiod_get_value_cansleep, p->hpd_gpio,
+@@ -403,25 +445,45 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 		if (err) {
+ 			dev_err(panel->dev, "error waiting for hpd GPIO: %d\n",
+ 				err);
+-			return err;
++			goto rollback;
+ 		}
+ 	}
+ 
+-	gpiod_set_value_cansleep(p->reset_gpio, 1);
++	err = cix_edp_panel_set_gpio(p->reset_gpio, 1);
++	if (err) {
++		dev_err(panel->dev, "failed to assert reset GPIO: %d\n", err);
++		goto rollback;
++	}
+ 
+ 	if (p->desc->delay.reset)
+ 		msleep(p->desc->delay.reset);
+ 
+-	gpiod_set_value_cansleep(p->reset_gpio, 0);
++	err = cix_edp_panel_set_gpio(p->reset_gpio, 0);
++	if (err) {
++		dev_err(panel->dev, "failed to deassert reset GPIO: %d\n", err);
++		goto rollback;
++	}
+ 
+ 	if (p->desc->delay.init)
+ 		msleep(p->desc->delay.init);
+ 
+ 	p->prepared = true;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+ 	return 0;
++
++rollback:
++	if (cix_edp_panel_set_gpio(p->reset_gpio, 1))
++		dev_err(panel->dev, "failed to assert reset GPIO during rollback\n");
++	if (cix_edp_panel_set_gpio(p->enable_gpio, 0))
++		dev_err(panel->dev, "failed to disable panel GPIO during rollback\n");
++	if (cix_edp_panel_regulator_disable(p))
++		dev_err(panel->dev, "failed to disable supply during rollback\n");
++	if (p->desc->delay.unprepare)
++		msleep(p->desc->delay.unprepare);
++
++	return err;
+ }
+ 
+ static int cix_edp_panel_enable(struct drm_panel *panel)
+@@ -429,18 +491,18 @@ static int cix_edp_panel_enable(struct drm_panel *panel)
+ 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
+ 
+ 	if (p->enabled) {
+-		dev_info(panel->dev, "%s, panel has been enabled\n", __func__);
++		dev_dbg(panel->dev, "%s, panel has been enabled\n", __func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+ 	if (p->desc->delay.enable)
+ 		msleep(p->desc->delay.enable);
+ 
+ 	p->enabled = true;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+ 	return 0;
+ }
+@@ -534,19 +596,19 @@ cix_edp_panel_parse_panel_timing_node(struct device *dev,
+ 		dev_err(dev, "Reject override mode: No display_timing found\n");
+ }
+ 
+-static int acpi_drm_get_panel_orientation(const struct device *np,
+-				 enum drm_panel_orientation *orientation)
++static int cix_edp_panel_get_orientation(const struct device *dev,
++					 enum drm_panel_orientation *orientation)
+ {
+-	int rotation, ret;
++	u32 rotation;
++	int ret;
+ 
+-	ret = device_property_read_u32(np, "rotation", &rotation);
+-	if (ret == -EINVAL) {
+-		/* Don't return an error if there's no rotation property. */
++	if (!device_property_present(dev, "rotation")) {
+ 		*orientation = DRM_MODE_PANEL_ORIENTATION_UNKNOWN;
+ 		return 0;
+ 	}
+ 
+-	if (ret < 0)
++	ret = device_property_read_u32(dev, "rotation", &rotation);
++	if (ret)
+ 		return ret;
+ 
+ 	if (rotation == 0)
+@@ -563,6 +625,7 @@ static int acpi_drm_get_panel_orientation(const struct device *np,
+ 	return 0;
+ }
+ 
++#if IS_ENABLED(CONFIG_ACPI)
+ static struct backlight_device *acpi_find_backlight(struct device *dev)
+ {
+ 	struct backlight_device *bd = NULL;
+@@ -619,6 +682,7 @@ static int drm_panel_acpi_backlight(struct drm_panel *panel)
+ 	panel->backlight = backlight;
+ 	return 0;
+ }
++#endif
+ 
+ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc)
+ {
+@@ -626,7 +690,7 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
+ 	struct display_timing dt;
+ 	int err;
+ 
+-	dev_info(dev, "%s, begin\n", __func__);
++	dev_dbg(dev, "%s, begin\n", __func__);
+ 
+ 	panel = devm_kzalloc(dev, sizeof(*panel), GFP_KERNEL);
+ 	if (!panel)
+@@ -643,15 +707,17 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
+ 			return err;
+ 	}
+ 
+-	panel->supply = devm_regulator_get(dev, "power");
++	panel->supply = devm_regulator_get_optional(dev, "power");
+ 	if (IS_ERR(panel->supply)) {
+ 		err = PTR_ERR(panel->supply);
+-		dev_err(dev, "failed to get power regulator: %d\n", err);
+-		return err;
++		if (err != -ENODEV)
++			return dev_err_probe(dev, err,
++					     "failed to get power regulator\n");
++		panel->supply = NULL;
+ 	}
+ 
+ 	panel->enable_gpio =
+-		devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
++		devm_gpiod_get_optional(dev, "enable", GPIOD_ASIS);
+ 	if (IS_ERR(panel->enable_gpio)) {
+ 		err = PTR_ERR(panel->enable_gpio);
+ 		if (err != -EPROBE_DEFER)
+@@ -667,37 +733,38 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
+ 		return err;
+ 	}
+ 
+-	if (has_acpi_companion(dev)) {
+-		err = acpi_drm_get_panel_orientation(dev, &panel->orientation);
+-	} else {
+-		err = of_drm_get_panel_orientation(dev->of_node, &panel->orientation);
+-	}
+-	
++	err = cix_edp_panel_get_orientation(dev, &panel->orientation);
+ 	if (err) {
+-		dev_err(dev, "%p: failed to get orientation %d\n", dev, err);
+-		return err;
++		return dev_err_probe(dev, err, "failed to get orientation\n");
+ 	}
+ 
+ 	panel->power_invert =
+ 		device_property_read_bool(dev, "power-invert");
+ 
+-	if (!of_get_display_timing(dev->of_node, "panel-timing", &dt))
++	if (dev->of_node &&
++	    !of_get_display_timing(dev->of_node, "panel-timing", &dt))
+ 		cix_edp_panel_parse_panel_timing_node(dev, panel, &dt);
+ 
+-	if (desc->bus_format == 0)
+-		dev_warn(dev, "Specify missing bus_format\n");
+-
+-	if (desc->bpc != 6 && desc->bpc != 8)
+-		dev_warn(dev, "Expected bpc in {6,8} but got: %u\n", desc->bpc);
++	if (desc->num_modes || desc->num_timings) {
++		if (!desc->bus_format)
++			dev_warn(dev, "Specify missing bus_format\n");
++		if (desc->bpc != 6 && desc->bpc != 8)
++			dev_warn(dev, "Expected bpc in {6,8} but got: %u\n",
++				 desc->bpc);
++	}
+ 
+ 	drm_panel_init(&panel->base, dev, &cix_edp_panel_funcs,
+ 		       DRM_MODE_CONNECTOR_eDP);
+ 
++#if IS_ENABLED(CONFIG_ACPI)
+ 	if (has_acpi_companion(dev)) {
+ 		err = drm_panel_acpi_backlight(&panel->base);
+ 	} else {
+ 		err = drm_panel_of_backlight(&panel->base);
+ 	}
++#else
++	err = drm_panel_of_backlight(&panel->base);
++#endif
+ 
+ 	if (err) {
+ 		dev_err(dev, "failed to find backlight: %d\n", err);
+@@ -708,7 +775,7 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
+ 
+ 	dev_set_drvdata(dev, panel);
+ 
+-	dev_info(dev, "%s, end\n", __func__);
++	dev_dbg(dev, "%s, end\n", __func__);
+ 
+ 	return 0;
+ 
+@@ -763,14 +830,17 @@ static bool of_child_node_is_present(const struct device_node *node,
+ {
+ 	struct device_node *child;
+ 
++	if (!node)
++		return false;
++
+ 	child = of_get_child_by_name(node, name);
+ 	of_node_put(child);
+ 
+ 	return !!child;
+ }
+ 
+-static int cix_edp_panel_of_get_desc_data(struct device *dev,
+-					  struct panel_desc *desc)
++static int cix_edp_panel_get_desc_data(struct device *dev,
++				       struct panel_desc *desc)
+ {
+ 	struct device_node *np = dev->of_node;
+ 	u32 bus_flags;
+@@ -807,14 +877,14 @@ static int cix_edp_panel_of_get_desc_data(struct device *dev,
+ 		}
+ 	}
+ 
+-	if (desc->num_modes || desc->num_timings) {
+-		of_property_read_u32(np, "bpc", &desc->bpc);
+-		of_property_read_u32(np, "bus-format", &desc->bus_format);
+-		of_property_read_u32(np, "width-mm", &desc->size.width);
+-		of_property_read_u32(np, "height-mm", &desc->size.height);
+-	}
++	device_property_read_u32(dev, "bpc", &desc->bpc);
++	device_property_read_u32(dev, "bus-format", &desc->bus_format);
++	device_property_read_u32(dev, "width-mm", &desc->size.width);
++	device_property_read_u32(dev, "height-mm", &desc->size.height);
+ 
+ 	device_property_read_u32(dev, "prepare-delay-ms", &desc->delay.prepare);
++	device_property_read_u32(dev, "hpd-absent-delay-ms",
++				 &desc->delay.hpd_absent_delay);
+ 	device_property_read_u32(dev, "enable-delay-ms", &desc->delay.enable);
+ 	device_property_read_u32(dev, "disable-delay-ms", &desc->delay.disable);
+ 	device_property_read_u32(dev, "unprepare-delay-ms", &desc->delay.unprepare);
+@@ -839,7 +909,7 @@ static int cix_edp_panel_platform_probe(struct platform_device *pdev)
+ 		if (!d)
+ 			return -ENOMEM;
+ 
+-		err = cix_edp_panel_of_get_desc_data(dev, d);
++		err = cix_edp_panel_get_desc_data(dev, d);
+ 		if (err) {
+ 			dev_err(dev, "failed to get desc data: %d\n", err);
+ 			return err;
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -349,7 +349,7 @@ static void trilin_dp_adjust_train(struct trilin_dp *dp,
+ 
+ static int trilin_dp_update_vs_emph_phy_config(struct trilin_dp *dp)
+ {
+-	int ret;
++	int ret = 0;
+ 	u8 train;
+ 	union phy_configure_opts opts = { 0 };
+ 	struct trilin_phy_t *phy = &dp->phy;
+@@ -2518,7 +2518,7 @@ static void trilin_dp_register_phy(struct trilin_dp *dp)
+ 		}
+ 
+ 		if (IS_ERR_OR_NULL(phy->base))
+-			DP_WARN("no dp_phy\n");
++			DP_DEBUG("no dp_phy, using built-in DPTX PHY registration\n");
+ 
+ 		trilin_usbdp_phy_register(dp);
+ 		trilin_edp_phy_register(dp);
+@@ -3403,16 +3403,17 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 		edp_panel = fwnode_drm_find_panel(fwnode_edp_panel);
+ 		if (IS_ERR(edp_panel)) {
+ 			ret = PTR_ERR(edp_panel);
+-			if (ret == -EPROBE_DEFER)
+-				dev_dbg(dev, "%s, edp-panel not ready, defer probe\n",
+-					__func__);
+-			else
+-				dev_err(dev, "%s, invalid drm_panel: %d\n",
+-					__func__, ret);
+-			return ret;
++			fwnode_handle_put(fwnode_edp_panel);
++			edp_panel = NULL;
++			if (ret != -ENODEV)
++				return dev_err_probe(dev, ret,
++						     "failed to find edp-panel\n");
++			dev_dbg(dev, "edp-panel reference is not available\n");
+ 		} else
+-			dev_info(dev, "%s, edp-panel %s is found\n", __func__,
+-				 dev_name(edp_panel->dev));
++			dev_dbg(dev, "%s, edp-panel %s is found\n", __func__,
++				dev_name(edp_panel->dev));
++		if (edp_panel)
++			fwnode_handle_put(fwnode_edp_panel);
+ 	}
+ 
+ 	dp = devm_kzalloc(dpsub->dev, sizeof(*dp), GFP_KERNEL);
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -32,6 +32,7 @@
+ #include <linux/pm_runtime.h>
+ #include <linux/phy/phy.h>
+ #include <linux/reset.h>
++#include <linux/of_platform.h>
+ #include <asm/types.h>
+ #include <linux/component.h>
+ #include <linux/of_device.h>
+@@ -200,10 +201,12 @@ static void trilin_dptx_cix_unbind(struct device *comp, struct device *master,
+ 		device_link_del(dpsub->link);
+ }
+ 
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ static const struct component_ops trilin_dptx_cix_ops = {
+ 	.bind = trilin_dptx_cix_bind,
+ 	.unbind = trilin_dptx_cix_unbind,
+ };
++#endif
+ 
+ static int trilin_dptx_cix_probe(struct platform_device *pdev)
+ {
+@@ -275,6 +278,11 @@ static int trilin_dptx_pm_resume(struct device *dev)
+ static const struct dev_pm_ops trilin_dptx_pm_ops = {
+ 	SET_SYSTEM_SLEEP_PM_OPS(trilin_dptx_pm_suspend, trilin_dptx_pm_resume)
+ };
++#else
++static int trilin_dptx_pm_suspend(struct device *dev)
++{
++	return 0;
++}
+ #endif
+ 
+ static void trilin_dptx_cix_shutdown(struct platform_device *pdev)
+@@ -323,3 +331,6 @@ MODULE_AUTHOR("Fei Mao <fei.mao@cixtech.com>");
+ MODULE_DESCRIPTION("Cix Platforms DP Driver");
+ MODULE_LICENSE("GPL v2");
+ MODULE_ALIAS("platform:trilin-dptx-cix");
++#if IS_MODULE(CONFIG_BACKLIGHT_PWM)
++MODULE_SOFTDEP("pre: pwm_bl");
++#endif
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -1340,6 +1340,7 @@ int trilin_dp_drm_init(struct trilin_dpsub *dpsub)
+ 	struct trilin_connector *conn = &dp->connector;
+ 	struct drm_encoder *encoder = &enc->base;
+ 	struct drm_connector *connector = &conn->base;
++	const char *possible_crtcs_source = "fallback";
+ 	int ret;
+ 	int drm_mode_connector = DRM_MODE_CONNECTOR_DisplayPort;
+ 
+@@ -1349,16 +1350,21 @@ int trilin_dp_drm_init(struct trilin_dpsub *dpsub)
+ 	conn->dp = dp;
+ 	conn->type = TRILIN_OUTPUT_DP;
+ 	/* Create the DRM encoder and connector. */
+-	if (dpsub->preset_possible_crtcs)
++	if (dpsub->preset_possible_crtcs) {
+ 		encoder->possible_crtcs = dpsub->preset_possible_crtcs;
+-	else if (dp->dev && dp->dev->of_node)
++		possible_crtcs_source = dp->dev && dp->dev->of_node ?
++					"DT" : "ACPI";
++	} else if (dp->dev && dp->dev->of_node) {
+ 		encoder->possible_crtcs = drm_of_find_possible_crtcs(dp->drm,
+ 								   dp->dev->of_node);
++		if (encoder->possible_crtcs)
++			possible_crtcs_source = "DT";
++	}
+ 	if (!encoder->possible_crtcs)
+ 		encoder->possible_crtcs = TRILIN_DPTX_POSSIBLE_CRTCS_SST;
+-	DRM_INFO("DP encoder possible_crtcs=0x%x (from %s)\n",
+-		 encoder->possible_crtcs,
+-		 (dp->dev && dp->dev->of_node) ? "DT" : "fallback");
++	DRM_DEBUG_DRIVER("DP encoder possible_crtcs=0x%x (from %s)\n",
++			 encoder->possible_crtcs,
++			 possible_crtcs_source);
+ 	drm_encoder_init(dp->drm, encoder, &trilin_dp_enc_funcs,
+ 			 DRM_MODE_ENCODER_TMDS, NULL);
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+--- a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
++++ b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+@@ -232,7 +232,7 @@ static u32 dp_layer_update_color(struct drm_plane_state *st, u32 __iomem *reg,
+ 	if (kplane_st->ctm) {
+ 		u32 ctm_coeffs[LINLONDP_N_CTM_COEFFS];
+ 
+-		drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
++		linlondp_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
+ 		linlondp_write_group(reg, LAYER_RGB_RGB_COEFF0,
+ 				     ARRAY_SIZE(ctm_coeffs), ctm_coeffs);
+ 		ctrl |= L_R2R; /* enable RGB2RGB conversion */
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.c
+@@ -206,12 +206,12 @@ void drm_lut_to_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs,
+ 	coeffs[num] = BIT(LINLONDP_COLOR_PRECISION);
+ }
+ 
+-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs)
++void linlondp_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs)
+ {
+ 	drm_lut_to_coeffs(lut_blob, coeffs, false);
+ }
+ 
+-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs)
++void linlondp_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs)
+ {
+ 	struct color_ctm_ext *ctm_ext;
+ 	u32 i;
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_color_mgmt.h
+@@ -39,8 +39,8 @@ int linlondp_color_validate(struct linlondp_color_manager *mgr,
+ 
+ void drm_lut_to_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs,
+ 		       bool igamma);
+-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
+-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
++void linlondp_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
++void linlondp_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
+ 
+ const s32 *linlondp_select_yuv2rgb_coeffs(u32 color_encoding, u32 color_range);
+ const s32 *linlondp_select_rgb2yuv_coeffs(u32 color_encoding, u32 color_range);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -124,7 +124,9 @@ static int linlondp_crtc_prepare(struct linlondp_crtc *kcrtc)
+ 	struct linlondp_dev *mdev = kcrtc->master->mdev;
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(kcrtc->base.state);
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
++#endif
+ 	u32 new_mode;
+ 	int err;
+ 
+@@ -380,8 +382,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 		return;
+ 	}
+ 
+-	dev_info(mdev->dev, "%s enter\n", __func__);
+-
+ 	if (mdev->enabled_by_gop) {
+ 		mdev->enabled_by_gop = 0;
+ 		if (mdev->funcs->gop_mode_changed(mdev, mode)) {
+@@ -396,7 +396,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 
+ 			if (__clk_is_enabled(master->pxlclk)) {
+ 				clk_disable_unprepare(master->pxlclk);
+-				dev_info(mdev->dev, "%s, succeed to disable pxlclk.\n", __func__);
++				dev_dbg(mdev->dev, "%s, succeed to disable pxlclk.\n", __func__);
+ 			}
+ 
+ 			reset_control_assert(mdev->ip_rst);
+@@ -410,7 +410,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 	if (err)
+ 		dev_err(mdev->dev, "%s, failed to enable aclk.\n", __func__);
+ 	else
+-		dev_info(mdev->dev, "%s, succeed to enable aclk.\n", __func__);
++		dev_dbg(mdev->dev, "%s, succeed to enable aclk.\n", __func__);
+ 
+ 	/*
+ 	 * Do not call pm_runtime_enable() here: unbalanced vs cluster bind and
+@@ -444,7 +444,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 	WARN_ON(drm_crtc_vblank_get(crtc));
+ 	linlondp_crtc_do_flush(crtc, old);
+ 
+-	dev_info(mdev->dev, "%s exit\n", __func__);
+ }
+ 
+ void linlondp_crtc_flush_and_wait_for_flip_done(
+@@ -500,7 +499,7 @@ void linlondp_crtc_flush_and_wait_for_flip_done(
+ 			crtc->state->event = NULL;
+ 			if (event) {
+ 				drm_crtc_send_vblank_event(crtc, event);
+-				dev_info(mdev->dev, "Send vblank event manually\n");
++				dev_dbg(mdev->dev, "Send vblank event manually\n");
+ 			}
+ 			spin_unlock_irqrestore(&drm->event_lock, flags);
+ 		}
+@@ -522,10 +521,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
+ 	bool needs_phase2 = false;
+ 	bool needs_slave_phase2 = false;
+ 
+-	/*this log helps for really disabling crtc not self_refresh*/
+-	if (!new_state || !new_state->self_refresh_active)
+-		dev_info(mdev->dev, "%s enter\n", __func__);
+-
+ 	DRM_DEBUG_ATOMIC("CRTC%d_DISABLE: active_pipes: 0x%x, affected: 0x%x\n",
+ 			 drm_crtc_index(crtc), old_st->active_pipes,
+ 			 old_st->affected_pipes);
+@@ -585,7 +580,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
+ 	pm_runtime_put(mdev->dev);
+ 	clk_disable_unprepare(mdev->aclk);
+ 
+-	dev_info(mdev->dev, "%s exit\n", __func__);
+ }
+ 
+ static void linlondp_crtc_atomic_flush(struct drm_crtc *crtc,
+@@ -659,28 +653,28 @@ static enum drm_mode_status
+ linlondp_crtc_mode_valid(struct drm_crtc *crtc,
+ 			 const struct drm_display_mode *m)
+ {
++	if (m->flags & DRM_MODE_FLAG_INTERLACE)
++		return MODE_NO_INTERLACE;
++
++	if (m->clock > 600000 * 2) {
++		DRM_DEBUG_ATOMIC("engine clk can't satisfy the requirement of %s-clk: %d.\n",
++				 m->name, m->clock);
++		return MODE_CLOCK_HIGH;
++	}
++
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+ 	struct linlondp_dev *mdev = kcrtc->master->mdev;
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	unsigned long min_pxlclk, min_aclk;
+ 	u8 pixel_per_cycle = 1;
+ 
+-	if (m->flags & DRM_MODE_FLAG_INTERLACE)
+-		return MODE_NO_INTERLACE;
+-
+ 	if (master->force_pixel_per_cycle != 0)
+ 		pixel_per_cycle = master->force_pixel_per_cycle;
+ 
+ 	if ((m->clock > 600000) && (m->clock < 600000 * 2))
+ 		pixel_per_cycle = 2;
+-	else if (m->clock > 600000 * 2) {
+-		DRM_DEBUG_ATOMIC(
+-			"engine clk can't satisfy the requirement of %s-clk: %d.\n",
+-			m->name, m->clock);
+-		return MODE_CLOCK_HIGH;
+-	}
+ 
+-#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	min_pxlclk = m->clock * 1000;
+ 	if (master->dual_link || (pixel_per_cycle == 2))
+ 		min_pxlclk /= 2;
+@@ -709,7 +703,6 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
+ 				     struct drm_display_mode *adjusted_mode)
+ {
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+-	unsigned long clk_rate;
+ 	u16 hor_divisor = 1;
+ 	u8 pixel_per_cycle = 1;
+ 	bool rebuilt_crtcs = false;
+@@ -754,6 +747,8 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
+ 		adjusted_mode->crtc_htotal /= hor_divisor;
+ 	}
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	unsigned long clk_rate;
++
+ 	clk_rate = adjusted_mode->crtc_clock * 1000;
+ 	/* crtc_clock will be used as the linlondp output pixel clock */
+ 	adjusted_mode->crtc_clock =
+@@ -961,9 +956,9 @@ int linlondp_kms_setup_crtcs(struct linlondp_kms_dev *kms,
+ 			else
+ 				sprintf(str, "None");
+ 
+-			DRM_INFO("CRTC-%d: master(pipe-%d) slave(%s) sbs(%s).\n",
+-				 kms->n_crtcs, master->id, str,
+-				 crtc->side_by_side ? "On" : "Off");
++			DRM_DEBUG("CRTC-%d: master(pipe-%d) slave(%s) sbs(%s).\n",
++				  kms->n_crtcs, master->id, str,
++				  crtc->side_by_side ? "On" : "Off");
+ 
+ 			kms->n_crtcs++;
+ 		}
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -91,7 +91,7 @@ static void linlondp_debugfs_init(struct linlondp_dev *mdev)
+ static ssize_t core_id_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "0x%08x\n", mdev->chip.core_id);
+ }
+@@ -100,7 +100,7 @@ static DEVICE_ATTR_RO(core_id);
+ static ssize_t config_id_show(struct device *dev, struct device_attribute *attr,
+ 			      char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe = mdev->pipelines[0];
+ 	union linlondp_config_id config_id;
+ 	int i;
+@@ -124,7 +124,7 @@ static DEVICE_ATTR_RO(config_id);
+ static ssize_t aclk_hz_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq);
+ }
+@@ -134,7 +134,7 @@ static ssize_t aclk_freq_fixed_store(struct device *dev,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	long val;
+ 	int err;
+ 
+@@ -157,7 +157,7 @@ static ssize_t aclk_freq_fixed_store(struct device *dev,
+ static ssize_t aclk_freq_fixed_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq_fixed);
+ }
+@@ -168,7 +168,7 @@ static ssize_t smart_aclk_freq_store(struct device *dev,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	long val;
+ 	int err;
+ 
+@@ -186,7 +186,7 @@ static ssize_t smart_aclk_freq_store(struct device *dev,
+ static ssize_t smart_aclk_freq_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return sysfs_emit(buf, "%d\n", mdev->smart_aclk_freq ? 1 : 0);
+ }
+@@ -197,7 +197,7 @@ static ssize_t test_pattern_store(struct device *dev,
+ 				  struct device_attribute *attr,
+ 				  const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -219,7 +219,7 @@ static ssize_t test_pattern_show(struct device *dev,
+ 				 struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -242,7 +242,7 @@ static ssize_t crc_enable_store(struct device *dev,
+ 				struct device_attribute *attr, const char *buf,
+ 				size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -264,7 +264,7 @@ static ssize_t crc_enable_show(struct device *dev,
+ 			       struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -287,7 +287,7 @@ static ssize_t dither_enable_store(struct device *dev,
+ 				   struct device_attribute *attr,
+ 				   const char *buf, size_t count)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 	long val;
+@@ -309,7 +309,7 @@ static ssize_t dither_enable_show(struct device *dev,
+ 				  struct device_attribute *attr, char *buf)
+ {
+ 	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+ 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+ 
+@@ -347,8 +347,9 @@ static struct attribute_group linlondp_sysfs_attr_group = {
+ static int linlondp_parse_pipe_dt(struct linlondp_pipeline *pipe)
+ {
+ 	struct device_node *np = pipe->of_node;
+-	struct clk *clk;
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	struct clk *clk;
++
+ 	clk = of_clk_get_by_name(np, "pxclk");
+ 	if (IS_ERR(clk)) {
+ 		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.h
+@@ -292,7 +292,7 @@ const struct linlondp_dev_funcs *dp_identify(u32 __iomem *reg,
+ struct linlondp_dev *linlondp_dev_create(struct device *dev);
+ void linlondp_dev_destroy(struct linlondp_dev *mdev);
+ 
+-struct linlondp_dev *dev_to_mdev(struct device *dev);
++struct linlondp_dev *linlondp_dev_to_mdev(struct device *dev);
+ 
+ void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev,
+ 			   struct linlondp_dev *mdev_for_print_cfg);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+@@ -77,7 +77,7 @@ static bool linlondp_drvdata_is_direct_mdev(struct device *dev)
+ 	return drv && ((struct linlondp_dev *)drv)->dev == dev;
+ }
+ 
+-struct linlondp_dev *dev_to_mdev(struct device *dev)
++struct linlondp_dev *linlondp_dev_to_mdev(struct device *dev)
+ {
+ 	void *drv = dev_get_drvdata(dev);
+ 	struct linlondp_drv *mdrv;
+@@ -209,7 +209,8 @@ static void linlondp_add_acpi_slave(struct device *master,
+ 	remote = fwnode_graph_get_remote_node(np, port, endpoint);
+ 
+ 	if (remote) {
+-		pr_info("%s. remote.name=%s\n", __func__, dev_name(remote->dev));
++		dev_dbg(master, "%s: remote.name=%s\n", __func__,
++			dev_name(remote->dev));
+ 		fwnode_handle_get(remote);
+ 		component_match_add_release(master, match, drm_release_fwnode,
+ 					    compare_of, remote);
+@@ -316,17 +317,17 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 	    linlondp_acpi_is_cluster_dpu_slave(dev))
+ 		return linlondp_dpu_slave_probe(pdev);
+ 
+-	pr_info("%s enter. dev.name=%s\n", __func__, dev_name(dev));
+-	pr_info("linlondp enable fb is %d", enable_fb);
++	dev_dbg(dev, "%s: enable_fb=%d\n", __func__, enable_fb);
+ 	if (has_acpi_companion(dev)) {
+-		pr_info("%s via acpi.\n", __func__);
++		dev_dbg(dev, "%s: using ACPI graph\n", __func__);
+ 		fwnode_for_each_child_node(dev->fwnode, acpi_child) {
+ 			tmp_name = acpi_child->ops->get_name(acpi_child);
+ 			if (strncmp(tmp_name, "pipeline", 8))
+ 				continue;
+ 
+ 			/* add connector */
+-			pr_info("%s enter to add connector.\n", __func__);
++			dev_dbg(dev, "%s: adding ACPI connector for %s\n",
++				__func__, tmp_name);
+ 			linlondp_add_acpi_slave(dev, &match, acpi_child,
+ 						LINLONDP_OF_PORT_OUTPUT, 0);
+ 			linlondp_add_acpi_slave(dev, &match, acpi_child,
+@@ -335,7 +336,7 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 			dev_pm_set_driver_flags(&pdev->dev, DPM_FLAG_NO_DIRECT_COMPLETE);
+ 		}
+ 	} else {
+-		pr_info("%s via dt.\n", __func__);
++		dev_dbg(dev, "%s: using OF graph\n", __func__);
+ 		for_each_available_child_of_node(dev->of_node, of_child) {
+ 			if (of_node_cmp(of_child->name, "pipeline") != 0)
+ 				continue;
+@@ -347,7 +348,11 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 					   LINLONDP_OF_PORT_OUTPUT, 1);
+ 		}
+ 	}
+-	pr_info("%s end. match=%p\n", __func__, match);
++	if (!match)
++		return dev_err_probe(dev, -ENODEV,
++				     "no display pipeline components found\n");
++
++	dev_dbg(dev, "%s: component match %p\n", __func__, match);
+ 	return component_master_add_with_match(dev, &linlondp_master_ops,
+ 					       match);
+ }
+@@ -401,14 +406,14 @@ MODULE_DEVICE_TABLE(acpi, linlondp_acpi_match);
+ 
+ static int __maybe_unused linlondp_rt_pm_suspend(struct device *dev)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return mdev ? linlondp_dev_suspend(mdev) : 0;
+ }
+ 
+ static int __maybe_unused linlondp_rt_pm_resume(struct device *dev)
+ {
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
++	struct linlondp_dev *mdev = linlondp_dev_to_mdev(dev);
+ 
+ 	return mdev ? linlondp_dev_resume(mdev) : 0;
+ }
+@@ -418,8 +423,6 @@ static int __maybe_unused linlondp_pm_suspend(struct device *dev)
+ 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+ 	int res;
+ 
+-	dev_info(dev, "%s\n", __func__);
+-
+ 	if (linlondp_drvdata_is_direct_mdev(dev)) {
+ 		struct linlondp_dev *mdev = dev_get_drvdata(dev);
+ 
+@@ -430,7 +433,7 @@ static int __maybe_unused linlondp_pm_suspend(struct device *dev)
+ 	}
+ 
+ 	if (!mdrv) {
+-		dev_info(dev, "%s, mdrv is null\n", __func__);
++		dev_dbg(dev, "%s, mdrv is null\n", __func__);
+ 		return 0;
+ 	}
+ 
+@@ -448,8 +451,6 @@ static int __maybe_unused linlondp_pm_resume(struct device *dev)
+ {
+ 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+ 
+-	dev_info(dev, "%s\n", __func__);
+-
+ 	if (linlondp_drvdata_is_direct_mdev(dev)) {
+ 		struct linlondp_dev *mdev = dev_get_drvdata(dev);
+ 
+@@ -459,7 +460,7 @@ static int __maybe_unused linlondp_pm_resume(struct device *dev)
+ 	}
+ 
+ 	if (!mdrv) {
+-		dev_info(dev, "%s, mdrv is null\n", __func__);
++		dev_dbg(dev, "%s, mdrv is null\n", __func__);
+ 		return 0;
+ 	}
+ 
+@@ -569,3 +570,6 @@ module_exit(linlondp_mod_exit);
+ MODULE_DESCRIPTION("Linlondp KMS driver");
+ MODULE_AUTHOR("ARMChina");
+ MODULE_LICENSE("GPL v2");
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
++MODULE_SOFTDEP("pre: trilin_dpsub");
++#endif
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+@@ -798,8 +798,10 @@ linlondp_kms_attach_cluster(struct device *component_master_dev,
+ 		goto free_interrupts;
+ 	return kms;
+ 
++#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
+ free_interrupts:
+ 	drm_kms_helper_poll_fini(drm);
++#endif
+ free_component_binding:
+ 	component_unbind_all(kms->component_master, drm);
+ cleanup_mode_config:
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c
+@@ -257,19 +257,19 @@ static void linlondp_pipeline_dump(struct linlondp_pipeline *pipe)
+ 	int id;
+ 	unsigned long avail_comps = pipe->avail_comps;
+ 
+-	DRM_INFO(
++	DRM_DEBUG(
+ 		"Pipeline-%d: n_layers: %d, n_scalers: %d, output: %s  %d PPC\n",
+ 		pipe->id, pipe->n_layers, pipe->n_scalers,
+ 		pipe->dual_link ? "dual-link" : "single-link",
+ 		pipe->pixel_per_cycle);
+ 
+ 	if (pipe->fwnode && is_acpi_data_node(pipe->fwnode)) {
+-		DRM_INFO("    pipe->fwnode: %s.\n",
+-			 pipe->fwnode->ops->get_name(pipe->fwnode) ?: "none");
++		DRM_DEBUG("    pipe->fwnode: %s.\n",
++			  pipe->fwnode->ops->get_name(pipe->fwnode) ?: "none");
+ 
+ 		if (pipe->fwnode_output_port &&
+ 		    is_acpi_data_node(pipe->fwnode_output_port)) {
+-			DRM_INFO(
++			DRM_DEBUG(
+ 				"    pipe->fwnode_output_port: %s.\n",
+ 				pipe->fwnode_output_port->ops->get_name(pipe->fwnode_output_port) ?:
+ 					"none");
+@@ -277,7 +277,7 @@ static void linlondp_pipeline_dump(struct linlondp_pipeline *pipe)
+ 
+ 		if (pipe->fwnode_output_links[0] &&
+ 		    is_acpi_device_node(pipe->fwnode_output_links[0])) {
+-			DRM_INFO(
++			DRM_DEBUG(
+ 				"    output_link[0]: %s.\n",
+ 				pipe->fwnode_output_links[0]->ops->get_name(pipe->fwnode_output_links[0]) ?:
+ 					"none");
+@@ -285,20 +285,20 @@ static void linlondp_pipeline_dump(struct linlondp_pipeline *pipe)
+ 
+ 		if (pipe->fwnode_output_links[1] &&
+ 		    is_acpi_device_node(pipe->fwnode_output_links[1])) {
+-			DRM_INFO(
++			DRM_DEBUG(
+ 				"    output_link[1]: %s.\n",
+ 				pipe->fwnode_output_links[1]->ops->get_name(pipe->fwnode_output_links[1]) ?:
+ 					"none");
+ 		}
+ 	} else {
+-		DRM_INFO("    output_link[0]: %s.\n",
+-			 pipe->of_output_links[0] ?
+-				 pipe->of_output_links[0]->full_name :
+-				 "none");
+-		DRM_INFO("    output_link[1]: %s.\n",
+-			 pipe->of_output_links[1] ?
+-				 pipe->of_output_links[1]->full_name :
+-				 "none");
++		DRM_DEBUG("    output_link[0]: %s.\n",
++			  pipe->of_output_links[0] ?
++				  pipe->of_output_links[0]->full_name :
++				  "none");
++		DRM_DEBUG("    output_link[1]: %s.\n",
++			  pipe->of_output_links[1] ?
++				  pipe->of_output_links[1]->full_name :
++				  "none");
+ 	}
+ 
+ 	for_each_set_bit(id, &avail_comps, 32) {
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.h
+@@ -550,9 +550,9 @@ struct linlondp_plane_state;
+ struct linlondp_crtc_state;
+ struct linlondp_crtc;
+ 
+-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+-			       bool side_by_side, u16 *hsize, u16 *vsize,
+-			       bool is_overlap);
++void linlondp_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
++					bool side_by_side, u16 *hsize,
++					u16 *vsize, bool is_overlap);
+ 
+ struct drm_atomic_state;
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+@@ -699,9 +699,9 @@ static int linlondp_merger_validate(struct linlondp_merger *merger, void *user,
+ 	return err;
+ }
+ 
+-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+-			       bool side_by_side, u16 *hsize, u16 *vsize,
+-			       bool is_overlap)
++void linlondp_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
++					bool side_by_side, u16 *hsize,
++					u16 *vsize, bool is_overlap)
+ {
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(kcrtc_st->base.crtc);
+ 	struct drm_display_mode *m = &kcrtc_st->base.adjusted_mode;
+@@ -728,8 +728,8 @@ static int linlondp_compiz_set_input(struct linlondp_compiz *compiz,
+ 	if (WARN_ON(!drm_st))
+ 		return -EINVAL;
+ 
+-	pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
+-				  &compiz_w, &compiz_h, true);
++	linlondp_pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
++					   &compiz_w, &compiz_h, true);
+ 	/* check display rect */
+ 	//FIXME
+ 	//if ((dflow->out_x + dflow->out_w  - dflow->left_crop > compiz_w) ||
+@@ -800,8 +800,8 @@ static int linlondp_compiz_validate(struct linlondp_compiz *compiz,
+ 
+ 	st = to_compiz_st(c_st);
+ 
+-	pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
+-				  &st->hsize, &st->vsize, true);
++	linlondp_pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
++					   &st->hsize, &st->vsize, true);
+ 
+ 	linlondp_component_set_output(&dflow->input, &compiz->base, 0);
+ 
+@@ -889,9 +889,9 @@ static int linlondp_improc_validate(struct linlondp_improc *improc,
+ 	}
+ 
+ 	if (kcrtc_st->base.color_mgmt_changed) {
+-		drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
+-					 st->fgamma_coeffs);
+-		drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
++		linlondp_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
++					      st->fgamma_coeffs);
++		linlondp_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
+ 	}
+ 
+ 	linlondp_component_add_input(&st->base, &m_dflow->input, 0);
+@@ -1262,7 +1262,7 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ 	u32 disp_end = master->out_x + master->out_w;
+ 	u16 boundary;
+ 
+-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
++	linlondp_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+ 
+ 	if (disp_end <= boundary) {
+ 		/* the master viewport only located in master side, no need
+@@ -1370,7 +1370,7 @@ linlondp_split_sbs_slave_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ {
+ 	u16 boundary;
+ 
+-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
++	linlondp_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+ 
+ 	if (slave->out_x < boundary) {
+ 		DRM_DEBUG_ATOMIC(
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+@@ -22,8 +22,8 @@ static int linlondp_wb_init_data_flow(struct linlondp_layer *wb_layer,
+ 	dflow->out_h = fb->height;
+ 
+ 	/* the write back data comes from the compiz */
+-	pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
+-				  false);
++	linlondp_pipeline_composition_size(kcrtc_st, false, &dflow->in_w,
++					   &dflow->in_h, false);
+ 	dflow->input.component = &wb_layer->base.pipeline->compiz->base;
+ 	/* compiz doesn't output alpha */
+ 	dflow->pixel_blend_mode = DRM_MODE_BLEND_PIXEL_NONE;

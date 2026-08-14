@@ -1,0 +1,326 @@
+diff --git a/drivers/video/backlight/pwm_bl.c b/drivers/video/backlight/pwm_bl.c
+--- a/drivers/video/backlight/pwm_bl.c
++++ b/drivers/video/backlight/pwm_bl.c
+@@ -5,14 +5,18 @@
+  * 2) platform_data being correctly configured
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/delay.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/init.h>
++#include <linux/math64.h>
++#include <linux/overflow.h>
+ #include <linux/platform_device.h>
+ #include <linux/backlight.h>
+ #include <linux/err.h>
++#include <linux/property.h>
+ #include <linux/pwm.h>
+ #include <linux/pwm_backlight.h>
+ #include <linux/regulator/consumer.h>
+@@ -131,7 +135,6 @@ static const struct backlight_ops pwm_backlight_ops = {
+ 	.update_status	= pwm_backlight_update_status,
+ };
+ 
+-#ifdef CONFIG_OF
+ #define PWM_LUMINANCE_SHIFT	16
+ #define PWM_LUMINANCE_SCALE	(1 << PWM_LUMINANCE_SHIFT) /* luminance scale */
+ 
+@@ -215,19 +218,16 @@ int pwm_backlight_brightness_default(struct device *dev,
+ 	return 0;
+ }
+ 
+-static int pwm_backlight_parse_dt(struct device *dev,
+-				  struct platform_pwm_backlight_data *data)
++static int pwm_backlight_parse_firmware(struct device *dev,
++					struct platform_pwm_backlight_data *data)
+ {
+-	struct device_node *node = dev->of_node;
+ 	unsigned int num_levels;
+ 	unsigned int num_steps = 0;
+-	struct property *prop;
+ 	unsigned int *table;
+-	int length;
+ 	u32 value;
+-	int ret;
++	int count, ret;
+ 
+-	if (!node)
++	if (!dev_fwnode(dev))
+ 		return -ENODEV;
+ 
+ 	memset(data, 0, sizeof(*data));
+@@ -236,139 +236,134 @@ static int pwm_backlight_parse_dt(struct device *dev,
+ 	 * These values are optional and set as 0 by default, the out values
+ 	 * are modified only if a valid u32 value can be decoded.
+ 	 */
+-	of_property_read_u32(node, "post-pwm-on-delay-ms",
+-			     &data->post_pwm_on_delay);
+-	of_property_read_u32(node, "pwm-off-delay-ms", &data->pwm_off_delay);
++	device_property_read_u32(dev, "post-pwm-on-delay-ms",
++				 &data->post_pwm_on_delay);
++	device_property_read_u32(dev, "pwm-off-delay-ms",
++				 &data->pwm_off_delay);
+ 
+ 	/*
+ 	 * Determine the number of brightness levels, if this property is not
+ 	 * set a default table of brightness levels will be used.
+ 	 */
+-	prop = of_find_property(node, "brightness-levels", &length);
+-	if (!prop)
++	if (!device_property_present(dev, "brightness-levels"))
+ 		return 0;
+ 
+-	num_levels = length / sizeof(u32);
++	count = device_property_count_u32(dev, "brightness-levels");
++	if (count <= 0)
++		return dev_err_probe(dev, count ?: -EINVAL,
++				     "invalid brightness-levels property\n");
++	num_levels = count;
+ 
+-	/* read brightness levels from DT property */
+-	if (num_levels > 0) {
+-		data->levels = devm_kcalloc(dev, num_levels,
+-					    sizeof(*data->levels), GFP_KERNEL);
+-		if (!data->levels)
+-			return -ENOMEM;
++	/* Read brightness levels from the firmware property. */
++	data->levels = devm_kcalloc(dev, num_levels, sizeof(*data->levels), GFP_KERNEL);
++	if (!data->levels)
++		return -ENOMEM;
+ 
+-		ret = of_property_read_u32_array(node, "brightness-levels",
+-						 data->levels,
+-						 num_levels);
+-		if (ret < 0)
+-			return ret;
++	ret = device_property_read_u32_array(dev, "brightness-levels",
++					     data->levels, num_levels);
++	if (ret < 0)
++		return ret;
+ 
+-		ret = of_property_read_u32(node, "default-brightness-level",
+-					   &value);
+-		if (ret < 0)
+-			return ret;
++	ret = device_property_read_u32(dev, "default-brightness-level",
++				       &value);
++	if (ret < 0)
++		return ret;
+ 
+-		data->dft_brightness = value;
++	data->dft_brightness = value;
++
++	/*
++	 * This property is optional, if is set enables linear interpolation
++	 * between each of the values of brightness levels and creates a new
++	 * pre-computed table.
++	 */
++	device_property_read_u32(dev, "num-interpolated-steps", &num_steps);
++
++	/*
++	 * Make sure that there is at least two entries in the
++	 * brightness-levels table, otherwise we can't interpolate between
++	 * two points.
++	 */
++	if (num_steps) {
++		unsigned int num_input_levels = num_levels;
++		unsigned int i;
++		u32 x1, x2, x, dx;
++		u32 y1, y2;
++		s64 dy;
++
++		if (num_input_levels < 2) {
++			dev_err(dev, "can't interpolate\n");
++			return -EINVAL;
++		}
+ 
+ 		/*
+-		 * This property is optional, if is set enables linear
+-		 * interpolation between each of the values of brightness levels
+-		 * and creates a new pre-computed table.
++		 * Recalculate the number of brightness levels, now taking in
++		 * consideration the number of interpolated steps between two
++		 * levels.
+ 		 */
+-		of_property_read_u32(node, "num-interpolated-steps",
+-				     &num_steps);
++		if (check_mul_overflow(num_input_levels - 1, num_steps,
++				       &num_levels) ||
++		    check_add_overflow(num_levels, 1U, &num_levels))
++			return dev_err_probe(dev, -EOVERFLOW,
++					     "interpolated brightness table is too large\n");
++		dev_dbg(dev, "new number of brightness levels: %u\n",
++			num_levels);
+ 
+ 		/*
+-		 * Make sure that there is at least two entries in the
+-		 * brightness-levels table, otherwise we can't interpolate
+-		 * between two points.
++		 * Create a new table of brightness levels with all the
++		 * interpolated steps.
+ 		 */
+-		if (num_steps) {
+-			unsigned int num_input_levels = num_levels;
+-			unsigned int i;
+-			u32 x1, x2, x, dx;
+-			u32 y1, y2;
+-			s64 dy;
+-
+-			if (num_input_levels < 2) {
+-				dev_err(dev, "can't interpolate\n");
+-				return -EINVAL;
+-			}
++		table = devm_kcalloc(dev, num_levels, sizeof(*table), GFP_KERNEL);
++		if (!table)
++			return -ENOMEM;
+ 
+-			/*
+-			 * Recalculate the number of brightness levels, now
+-			 * taking in consideration the number of interpolated
+-			 * steps between two levels.
+-			 */
+-			num_levels = (num_input_levels - 1) * num_steps + 1;
+-			dev_dbg(dev, "new number of brightness levels: %d\n",
+-				num_levels);
+-
+-			/*
+-			 * Create a new table of brightness levels with all the
+-			 * interpolated steps.
+-			 */
+-			table = devm_kcalloc(dev, num_levels, sizeof(*table),
+-					     GFP_KERNEL);
+-			if (!table)
+-				return -ENOMEM;
+-			/*
+-			 * Fill the interpolated table[x] = y
+-			 * by draw lines between each (x1, y1) to (x2, y2).
+-			 */
+-			dx = num_steps;
+-			for (i = 0; i < num_input_levels - 1; i++) {
+-				x1 = i * dx;
+-				x2 = x1 + dx;
+-				y1 = data->levels[i];
+-				y2 = data->levels[i + 1];
+-				dy = (s64)y2 - y1;
+-
+-				for (x = x1; x < x2; x++) {
+-					table[x] = y1 +
+-						div_s64(dy * (x - x1), dx);
+-				}
++		/*
++		 * Fill the interpolated table[x] = y by drawing lines between
++		 * each (x1, y1) and (x2, y2).
++		 */
++		dx = num_steps;
++		for (i = 0; i < num_input_levels - 1; i++) {
++			u64 delta, magnitude;
++
++			x1 = i * dx;
++			x2 = x1 + dx;
++			y1 = data->levels[i];
++			y2 = data->levels[i + 1];
++			dy = (s64)y2 - y1;
++			magnitude = dy < 0 ? -dy : dy;
++
++			for (x = x1; x < x2; x++) {
++				delta = mul_u64_u64_div_u64(magnitude, x - x1, dx);
++				table[x] = dy < 0 ? y1 - delta : y1 + delta;
+ 			}
+-			/* Fill in the last point, since no line starts here. */
+-			table[x2] = y2;
+-
+-			/*
+-			 * As we use interpolation lets remove current
+-			 * brightness levels table and replace for the
+-			 * new interpolated table.
+-			 */
+-			devm_kfree(dev, data->levels);
+-			data->levels = table;
+ 		}
++		/* Fill in the last point, since no line starts here. */
++		table[x2] = y2;
+ 
+-		data->max_brightness = num_levels - 1;
++		/* Replace the input brightness table with the interpolated one. */
++		devm_kfree(dev, data->levels);
++		data->levels = table;
+ 	}
+ 
++	data->max_brightness = num_levels - 1;
++
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
+ static const struct of_device_id pwm_backlight_of_match[] = {
+ 	{ .compatible = "pwm-backlight" },
+ 	{ }
+ };
+ 
+ MODULE_DEVICE_TABLE(of, pwm_backlight_of_match);
+-#else
+-static int pwm_backlight_parse_dt(struct device *dev,
+-				  struct platform_pwm_backlight_data *data)
+-{
+-	return -ENODEV;
+-}
+-
+-static
+-int pwm_backlight_brightness_default(struct device *dev,
+-				     struct platform_pwm_backlight_data *data,
+-				     unsigned int period)
+-{
+-	return -ENODEV;
+-}
+ #endif
+ 
++static const struct acpi_device_id pwm_backlight_acpi_match[] = {
++	{ "CIXH5041" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, pwm_backlight_acpi_match);
++
+ static bool pwm_backlight_is_linear(struct platform_pwm_backlight_data *data)
+ {
+ 	unsigned int nlevels = data->max_brightness + 1;
+@@ -425,7 +420,7 @@ static int pwm_backlight_initial_power_state(const struct pwm_bl_data *pb)
+ 	 */
+ 
+ 	/* Not booted with device tree or no phandle link to the node */
+-	if (!node || !node->phandle)
++	if (!has_acpi_companion(pb->dev) && (!node || !node->phandle))
+ 		return BACKLIGHT_POWER_ON;
+ 
+ 	/*
+@@ -449,7 +444,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 	int ret;
+ 
+ 	if (!data) {
+-		ret = pwm_backlight_parse_dt(&pdev->dev, &defdata);
++		ret = pwm_backlight_parse_firmware(&pdev->dev, &defdata);
+ 		if (ret < 0)
+ 			return dev_err_probe(&pdev->dev, ret,
+ 					     "failed to find platform data\n");
+@@ -578,6 +573,11 @@ static int pwm_backlight_probe(struct platform_device *pdev)
+ 		 */
+ 		pb->scale = data->max_brightness;
+ 	}
++	if (!pb->scale) {
++		ret = dev_err_probe(&pdev->dev, -EINVAL,
++				    "brightness scale must not be zero\n");
++		goto err_alloc;
++	}
+ 
+ 	pb->lth_brightness = data->lth_brightness * (div_u64(state.period,
+ 				pb->scale));
+@@ -695,6 +695,7 @@ static struct platform_driver pwm_backlight_driver = {
+ 		.name		= "pwm-backlight",
+ 		.pm		= &pwm_backlight_pm_ops,
+ 		.of_match_table	= of_match_ptr(pwm_backlight_of_match),
++		.acpi_match_table = ACPI_PTR(pwm_backlight_acpi_match),
+ 	},
+ 	.probe		= pwm_backlight_probe,
+ 	.remove		= pwm_backlight_remove,

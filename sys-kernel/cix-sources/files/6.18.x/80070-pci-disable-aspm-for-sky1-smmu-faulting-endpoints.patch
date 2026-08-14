@@ -1,0 +1,131 @@
+PCI: contain ASPM on Sky1 endpoints correlated with SMMU faults
+
+On the production Radxa Orion O6, enabling PCIe ASPM correlated with
+repeatable arm-smmu-v3 F_TRANSLATION events from the Samsung 144d:a809
+NVMe and Realtek 10ec:8126 Ethernet endpoints, both targeting IOVA 0.
+The same system did not show the event storm with pcie_aspm=off.  This
+establishes a narrow containment requirement, not root-cause proof.
+
+Keep OS PCIe power management for unaffected links.  On ACPI systems
+whose MCFG identifies the CIX Sky1 platform, remove ASPM capability from
+these two endpoints during header fixup, then disable ASPM/ClockPM and
+clear endpoint and upstream L1SS enable bits after enumeration.  Check
+every direct PCI configuration access so a failed read cannot feed an
+uninitialised value to a write, and report failures without extending the
+quirk to other endpoints or firmware identities.
+
+This complete patch supersedes the former 80075 follow-up.
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -2522,6 +2522,109 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_FREESCALE, 0x0451, quirk_disable_aspm_l0s
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_PASEMI, 0xa002, quirk_disable_aspm_l0s_l1);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_HUAWEI, 0x1105, quirk_disable_aspm_l0s_l1);
+ 
++static bool cix_sky1_acpi_pcie_platform(void)
++{
++#ifdef CONFIG_ACPI
++	struct acpi_table_header *header;
++	bool detected;
++
++	if (acpi_disabled)
++		return false;
++
++	if (ACPI_FAILURE(acpi_get_table(ACPI_SIG_MCFG, 0, &header)))
++		return false;
++
++	detected = !memcmp(header->oem_id, "CIXTEK", 6) &&
++		   !memcmp(header->oem_table_id, "SKY1EDK2", 8);
++	acpi_put_table(header);
++
++	return detected;
++#else
++	return false;
++#endif
++}
++
++static int cix_sky1_clear_config_aspm(struct pci_dev *dev)
++{
++	int l1ss;
++	int ret;
++	u32 l1ss_ctl1;
++
++	if (!dev || !pci_is_pcie(dev))
++		return 0;
++
++	ret = pcie_capability_clear_word(dev, PCI_EXP_LNKCTL,
++					 PCI_EXP_LNKCTL_ASPMC);
++	if (ret)
++		return pcibios_err_to_errno(ret);
++
++	l1ss = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_L1SS);
++	if (!l1ss)
++		return 0;
++
++	ret = pci_read_config_dword(dev, l1ss + PCI_L1SS_CTL1, &l1ss_ctl1);
++	if (ret)
++		return pcibios_err_to_errno(ret);
++
++	ret = pci_write_config_dword(dev, l1ss + PCI_L1SS_CTL1,
++				     l1ss_ctl1 & ~PCI_L1SS_CTL1_L1SS_MASK);
++	return pcibios_err_to_errno(ret);
++}
++
++static void quirk_cix_sky1_disable_aspm_header(struct pci_dev *dev)
++{
++	int ret;
++
++	if (!cix_sky1_acpi_pcie_platform())
++		return;
++
++	pcie_aspm_remove_cap(dev,
++			     PCI_EXP_LNKCAP_ASPM_L0S | PCI_EXP_LNKCAP_ASPM_L1);
++	ret = cix_sky1_clear_config_aspm(dev);
++	if (ret)
++		pci_warn(dev,
++			 "CIX Sky1: failed to clear endpoint ASPM configuration: %d\n",
++			 ret);
++}
++
++static void quirk_cix_sky1_disable_aspm(struct pci_dev *dev)
++{
++	struct pci_dev *bridge = pci_upstream_bridge(dev);
++	int ret;
++
++	if (!cix_sky1_acpi_pcie_platform())
++		return;
++
++	ret = pci_disable_link_state(dev, PCIE_LINK_STATE_ALL);
++	if (ret)
++		pci_warn(dev,
++			 "CIX Sky1: failed to disable ASPM/ClockPM for PCIe/SMMU translation-fault workaround: %d\n",
++			 ret);
++	else
++		pci_dbg(dev,
++			"CIX Sky1: disabling ASPM/ClockPM to avoid PCIe/SMMU translation faults\n");
++
++	ret = cix_sky1_clear_config_aspm(bridge);
++	if (ret)
++		pci_warn(dev,
++			 "CIX Sky1: failed to clear upstream ASPM configuration: %d\n",
++			 ret);
++
++	ret = cix_sky1_clear_config_aspm(dev);
++	if (ret)
++		pci_warn(dev,
++			 "CIX Sky1: failed to clear endpoint ASPM configuration: %d\n",
++			 ret);
++}
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_SAMSUNG, 0xa809,
++			 quirk_cix_sky1_disable_aspm_header);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SAMSUNG, 0xa809,
++			quirk_cix_sky1_disable_aspm);
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_REALTEK, 0x8126,
++			 quirk_cix_sky1_disable_aspm_header);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REALTEK, 0x8126,
++			quirk_cix_sky1_disable_aspm);
++
+ /*
+  * Some Pericom PCIe-to-PCI bridges in reverse mode need the PCIe Retrain
+  * Link bit cleared after starting the link retrain process to allow this

@@ -1,0 +1,714 @@
+diff --git a/drivers/gpu/drm/panthor/panthor_devfreq.c b/drivers/gpu/drm/panthor/panthor_devfreq.c
+--- a/drivers/gpu/drm/panthor/panthor_devfreq.c
++++ b/drivers/gpu/drm/panthor/panthor_devfreq.c
+@@ -4,7 +4,9 @@
+ #include <linux/clk.h>
+ #include <linux/devfreq.h>
+ #include <linux/devfreq_cooling.h>
++#include <linux/property.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_domain.h>
+ #include <linux/pm_opp.h>
+ 
+ #include <drm/drm_managed.h>
+@@ -20,6 +22,12 @@ struct panthor_devfreq {
+ 	/** @devfreq: devfreq device. */
+ 	struct devfreq *devfreq;
+ 
++	/** @profile: Per-device devfreq profile. */
++	struct devfreq_dev_profile profile;
++
++	/** @opp_dev: SCMI performance-domain device used for rate changes. */
++	struct device *opp_dev;
++
+ 	/** @gov_data: Governor data. */
+ 	struct devfreq_simple_ondemand_data gov_data;
+ 
+@@ -45,6 +53,166 @@ struct panthor_devfreq {
+ 	spinlock_t lock;
+ };
+ 
++struct panthor_devfreq_cleanup {
++	struct device *dev;
++	struct device *opp_dev;
++	struct device_link *link;
++	unsigned long *added_freqs;
++	unsigned int num_added;
++	bool detach_opp_dev;
++};
++
++static void panthor_devfreq_remove_opps(struct panthor_devfreq_cleanup *cleanup)
++{
++	while (cleanup->num_added)
++		dev_pm_opp_remove(cleanup->dev,
++				  cleanup->added_freqs[--cleanup->num_added]);
++}
++
++static void panthor_devfreq_cleanup(void *data)
++{
++	struct panthor_devfreq_cleanup *cleanup = data;
++
++	panthor_devfreq_remove_opps(cleanup);
++	if (cleanup->link)
++		device_link_del(cleanup->link);
++	if (cleanup->detach_opp_dev)
++		dev_pm_domain_detach(cleanup->opp_dev, true);
++}
++
++static int panthor_devfreq_set_rate(struct panthor_devfreq *pdevfreq,
++				    struct device *dev, unsigned long freq)
++{
++	struct dev_pm_opp *opp;
++	int ret;
++
++	if (!pdevfreq->opp_dev)
++		return dev_pm_opp_set_rate(dev, freq);
++
++	opp = dev_pm_opp_find_freq_ceil(pdevfreq->opp_dev, &freq);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++
++	ret = dev_pm_opp_set_opp(pdevfreq->opp_dev, opp);
++	dev_pm_opp_put(opp);
++
++	return ret;
++}
++
++static int panthor_devfreq_scmi_init(struct panthor_device *ptdev,
++				     struct panthor_devfreq *pdevfreq)
++{
++	struct panthor_devfreq_cleanup *cleanup;
++	struct device *dev = ptdev->base.dev;
++	struct device *opp_dev = NULL;
++	struct dev_pm_opp *opp;
++	unsigned long freq;
++	int count, i, index, ret;
++	u32 link_flags = DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS |
++			 DL_FLAG_RPM_ACTIVE;
++	bool attached = false;
++
++	if (!panthor_is_cix_sky1(ptdev))
++		return 0;
++
++	index = fwnode_property_match_string(dev_fwnode(dev),
++					     "power-domain-names", "perf");
++	if (index < 0)
++		return 0;
++
++	if (ptdev->pm_domain_list && index < ptdev->pm_domain_list->num_pds) {
++		opp_dev = ptdev->pm_domain_list->pd_devs[index];
++	} else if (dev_pm_opp_get_opp_count(dev) > 0) {
++		opp_dev = dev;
++	} else {
++		opp_dev = dev_pm_domain_attach_by_name(dev, "perf");
++		if (IS_ERR(opp_dev))
++			return PTR_ERR(opp_dev);
++		if (!opp_dev)
++			return -EPROBE_DEFER;
++		attached = true;
++	}
++
++	if (!opp_dev)
++		return -EPROBE_DEFER;
++
++	count = dev_pm_opp_get_opp_count(opp_dev);
++	if (count <= 0) {
++		ret = count < 0 ? count : -EPROBE_DEFER;
++		goto err_detach;
++	}
++
++	cleanup = devm_kzalloc(dev, sizeof(*cleanup), GFP_KERNEL);
++	if (!cleanup) {
++		ret = -ENOMEM;
++		goto err_detach;
++	}
++	cleanup->dev = dev;
++	cleanup->opp_dev = opp_dev;
++	cleanup->detach_opp_dev = attached;
++
++	if (attached) {
++		cleanup->link = device_link_add(dev, opp_dev, link_flags);
++		if (!cleanup->link) {
++			ret = -ENODEV;
++			goto err_detach;
++		}
++	}
++
++	if (opp_dev != dev) {
++		cleanup->added_freqs =
++			devm_kcalloc(dev, count, sizeof(*cleanup->added_freqs),
++				     GFP_KERNEL);
++		if (!cleanup->added_freqs) {
++			ret = -ENOMEM;
++			goto err_remove_opps;
++		}
++
++		for (i = 0, freq = 0; i < count; i++) {
++			opp = dev_pm_opp_find_freq_ceil(opp_dev, &freq);
++			if (IS_ERR(opp)) {
++				ret = PTR_ERR(opp);
++				goto err_remove_opps;
++			}
++			dev_pm_opp_put(opp);
++
++			ret = dev_pm_opp_add(dev, freq, 0);
++			if (ret && ret != -EEXIST)
++				goto err_remove_opps;
++			if (!ret)
++				cleanup->added_freqs[cleanup->num_added++] = freq;
++
++			if (i != count - 1) {
++				if (freq == ULONG_MAX) {
++					ret = -EOVERFLOW;
++					goto err_remove_opps;
++				}
++				freq++;
++			}
++		}
++		if (!cleanup->num_added && dev_pm_opp_get_opp_count(dev) <= 0) {
++			ret = -ENODEV;
++			goto err_remove_opps;
++		}
++	}
++
++	ret = devm_add_action_or_reset(dev, panthor_devfreq_cleanup, cleanup);
++	if (ret)
++		return ret;
++
++	pdevfreq->opp_dev = opp_dev;
++	return dev_pm_opp_get_opp_count(dev);
++
++err_remove_opps:
++	panthor_devfreq_remove_opps(cleanup);
++	if (cleanup->link)
++		device_link_del(cleanup->link);
++err_detach:
++	if (attached)
++		dev_pm_domain_detach(opp_dev, true);
++	return ret;
++}
++
+ static void panthor_devfreq_update_utilization(struct panthor_devfreq *pdevfreq)
+ {
+ 	ktime_t now, last;
+@@ -63,6 +231,8 @@ static void panthor_devfreq_update_utilization(struct panthor_devfreq *pdevfreq)
+ static int panthor_devfreq_target(struct device *dev, unsigned long *freq,
+ 				  u32 flags)
+ {
++	struct panthor_device *ptdev = dev_get_drvdata(dev);
++	struct panthor_devfreq *pdevfreq = ptdev->devfreq;
+ 	struct dev_pm_opp *opp;
+ 	int err;
+ 
+@@ -71,7 +241,7 @@ static int panthor_devfreq_target(struct device *dev, unsigned long *freq,
+ 		return PTR_ERR(opp);
+ 	dev_pm_opp_put(opp);
+ 
+-	err = dev_pm_opp_set_rate(dev, *freq);
++	err = panthor_devfreq_set_rate(pdevfreq, dev, *freq);
+ 
+ 	return err;
+ }
+@@ -153,6 +323,15 @@ int panthor_devfreq_init(struct panthor_device *ptdev)
+ 		return -ENOMEM;
+ 
+ 	ptdev->devfreq = pdevfreq;
++	pdevfreq->profile = panthor_devfreq_profile;
++
++	ret = panthor_devfreq_scmi_init(ptdev, pdevfreq);
++	if (ret < 0)
++		return ret;
++	if (!ret && has_acpi_companion(dev) && panthor_is_cix_sky1(ptdev))
++		return 0;
++	if (pdevfreq->opp_dev)
++		pdevfreq->profile.polling_ms = 100;
+ 
+ 	/*
+ 	 * The power domain associated with the GPU may have already added an
+@@ -218,13 +397,16 @@ int panthor_devfreq_init(struct panthor_device *ptdev)
+ 	if (IS_ERR(opp))
+ 		return PTR_ERR(opp);
+ 
+-	panthor_devfreq_profile.initial_freq = cur_freq;
++	pdevfreq->profile.initial_freq = cur_freq;
+ 
+ 	/*
+ 	 * Set the recommend OPP this will enable and configure the regulator
+ 	 * if any and will avoid a switch off by regulator_late_cleanup()
+ 	 */
+-	ret = dev_pm_opp_set_opp(dev, opp);
++	if (pdevfreq->opp_dev)
++		ret = panthor_devfreq_set_rate(pdevfreq, dev, cur_freq);
++	else
++		ret = dev_pm_opp_set_opp(dev, opp);
+ 	dev_pm_opp_put(opp);
+ 	if (ret) {
+ 		DRM_DEV_ERROR(dev, "Couldn't set recommended OPP\n");
+@@ -246,7 +428,7 @@ int panthor_devfreq_init(struct panthor_device *ptdev)
+ 	pdevfreq->gov_data.upthreshold = 45;
+ 	pdevfreq->gov_data.downdifferential = 5;
+ 
+-	pdevfreq->devfreq = devm_devfreq_add_device(dev, &panthor_devfreq_profile,
++	pdevfreq->devfreq = devm_devfreq_add_device(dev, &pdevfreq->profile,
+ 						    DEVFREQ_GOV_SIMPLE_ONDEMAND,
+ 						    &pdevfreq->gov_data);
+ 	if (IS_ERR(pdevfreq->devfreq)) {
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -4,10 +4,13 @@
+ /* Copyright 2023 Collabora ltd. */
+ 
+ #include <linux/clk.h>
++#include <linux/delay.h>
+ #include <linux/mm.h>
++#include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset.h>
+ 
+@@ -26,6 +29,94 @@
+ #include "panthor_regs.h"
+ #include "panthor_sched.h"
+ 
++bool panthor_is_cix_sky1(struct panthor_device *ptdev)
++{
++	struct device *dev = ptdev->base.dev;
++
++	if (has_acpi_companion(dev))
++		return acpi_dev_hid_uid_match(ACPI_COMPANION(dev),
++						"CIXH5000", NULL);
++
++	return of_device_is_compatible(dev->of_node, "arm,mali-valhall") &&
++	       of_machine_is_compatible("cix,sky1");
++}
++
++static int panthor_sky1_acpi_power_on(struct panthor_device *ptdev)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	static const char * const supply_properties[] = {
++		"mali-supply",
++		"power-supply",
++	};
++	struct device *dev = ptdev->base.dev;
++	struct fwnode_reference_args args;
++	struct acpi_device *supply;
++	unsigned int i;
++	int ret;
++
++	if (!panthor_is_cix_sky1(ptdev) ||
++	    !has_acpi_companion(dev))
++		return 0;
++
++	for (i = 0; i < ARRAY_SIZE(supply_properties); i++) {
++		ret = fwnode_property_get_reference_args(dev_fwnode(dev),
++							 supply_properties[i], NULL, 0, 0,
++							 &args);
++		if (!ret)
++			break;
++		if (ret != -ENOENT)
++			return dev_err_probe(dev, ret,
++				"invalid Sky1 GPU %s reference\n",
++				supply_properties[i]);
++	}
++	if (i == ARRAY_SIZE(supply_properties))
++		return dev_err_probe(dev, -ENODEV,
++				     "Sky1 GPU ACPI power resource is missing\n");
++
++	if (!is_acpi_device_node(args.fwnode)) {
++		fwnode_handle_put(args.fwnode);
++		return dev_err_probe(dev, -EINVAL,
++				     "Sky1 GPU power resource is not an ACPI device\n");
++	}
++
++	supply = to_acpi_device_node(args.fwnode);
++	ret = acpi_device_set_power(supply, ACPI_STATE_D0);
++	fwnode_handle_put(args.fwnode);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to enable Sky1 GPU ACPI power resource\n");
++#endif
++	return 0;
++}
++
++static int panthor_sky1_hw_prepare(struct panthor_device *ptdev)
++{
++	u32 pgctrl;
++	int ret;
++
++	if (!panthor_is_cix_sky1(ptdev))
++		return 0;
++
++	if (ptdev->gpu_reset) {
++		ret = reset_control_assert(ptdev->gpu_reset);
++		if (ret)
++			return dev_err_probe(ptdev->base.dev, ret,
++					     "failed to assert Sky1 GPU reset\n");
++
++		usleep_range(10, 20);
++
++		ret = reset_control_deassert(ptdev->gpu_reset);
++		if (ret)
++			return dev_err_probe(ptdev->base.dev, ret,
++					     "failed to deassert Sky1 GPU reset\n");
++	}
++
++	pgctrl = readl(ptdev->sky1_rcsu_reg + 0x218);
++	writel(pgctrl | BIT(0), ptdev->sky1_rcsu_reg + 0x218);
++
++	return 0;
++}
++
+ static int panthor_gpu_coherency_init(struct panthor_device *ptdev)
+ {
+ 	BUILD_BUG_ON(GPU_COHERENCY_NONE != DRM_PANTHOR_GPU_COHERENCY_NONE);
+@@ -55,12 +146,18 @@ static int panthor_gpu_coherency_init(struct panthor_device *ptdev)
+ static int panthor_clk_init(struct panthor_device *ptdev)
+ {
+ 	ptdev->clks.core = devm_clk_get(ptdev->base.dev, NULL);
++	if (IS_ERR(ptdev->clks.core) && panthor_is_cix_sky1(ptdev) &&
++	    PTR_ERR(ptdev->clks.core) == -ENOENT)
++		ptdev->clks.core = devm_clk_get(ptdev->base.dev, "gpu_clk_core");
+ 	if (IS_ERR(ptdev->clks.core))
+ 		return dev_err_probe(ptdev->base.dev,
+ 				     PTR_ERR(ptdev->clks.core),
+ 				     "get 'core' clock failed");
+ 
+ 	ptdev->clks.stacks = devm_clk_get_optional(ptdev->base.dev, "stacks");
++	if (!ptdev->clks.stacks && panthor_is_cix_sky1(ptdev))
++		ptdev->clks.stacks =
++			devm_clk_get_optional(ptdev->base.dev, "gpu_clk_stacks");
+ 	if (IS_ERR(ptdev->clks.stacks))
+ 		return dev_err_probe(ptdev->base.dev,
+ 				     PTR_ERR(ptdev->clks.stacks),
+@@ -76,14 +173,27 @@ static int panthor_clk_init(struct panthor_device *ptdev)
+ 	return 0;
+ }
+ 
+-static int panthor_init_power(struct device *dev)
++static int panthor_init_power(struct panthor_device *ptdev)
+ {
+-	struct dev_pm_domain_list  *pd_list = NULL;
++	struct device *dev = ptdev->base.dev;
+ 
+ 	if (dev->pm_domain)
+ 		return 0;
+ 
+-	return devm_pm_domain_attach_list(dev, NULL, &pd_list);
++	return devm_pm_domain_attach_list(dev, NULL, &ptdev->pm_domain_list);
++}
++
++static int panthor_resets_init(struct panthor_device *ptdev)
++{
++	struct device *dev = ptdev->base.dev;
++
++	ptdev->gpu_reset =
++		devm_reset_control_get_optional_exclusive(dev, "gpu_reset");
++	if (IS_ERR(ptdev->gpu_reset))
++		return dev_err_probe(ptdev->base.dev, PTR_ERR(ptdev->gpu_reset),
++				     "failed to get Sky1 GPU reset\n");
++
++	return 0;
+ }
+ 
+ void panthor_device_unplug(struct panthor_device *ptdev)
+@@ -189,6 +299,7 @@ static void panthor_device_free_page(struct drm_device *ddev, void *data)
+ 
+ int panthor_device_init(struct panthor_device *ptdev)
+ {
++	struct platform_device *pdev = to_platform_device(ptdev->base.dev);
+ 	u32 *dummy_page_virt;
+ 	struct resource *res;
+ 	struct page *p;
+@@ -243,18 +354,40 @@ int panthor_device_init(struct panthor_device *ptdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = panthor_init_power(ptdev->base.dev);
++	if (panthor_is_cix_sky1(ptdev))
++		dev_pm_set_driver_flags(ptdev->base.dev,
++					DPM_FLAG_NO_DIRECT_COMPLETE);
++
++	ret = panthor_init_power(ptdev);
+ 	if (ret < 0) {
+ 		drm_err(&ptdev->base, "init power domains failed, ret=%d", ret);
+ 		return ret;
+ 	}
+ 
++	ret = panthor_sky1_acpi_power_on(ptdev);
++	if (ret)
++		return ret;
++
+ 	ret = panthor_devfreq_init(ptdev);
+ 	if (ret)
+ 		return ret;
+ 
+-	ptdev->iomem = devm_platform_get_and_ioremap_resource(to_platform_device(ptdev->base.dev),
+-							      0, &res);
++	ret = panthor_resets_init(ptdev);
++	if (ret)
++		return ret;
++
++	if (panthor_is_cix_sky1(ptdev)) {
++		ptdev->sky1_rcsu_reg =
++			devm_platform_ioremap_resource(pdev, 0);
++		if (IS_ERR(ptdev->sky1_rcsu_reg))
++			return PTR_ERR(ptdev->sky1_rcsu_reg);
++
++		ptdev->iomem =
++			devm_platform_get_and_ioremap_resource(pdev, 1, &res);
++	} else {
++		ptdev->iomem =
++			devm_platform_get_and_ioremap_resource(pdev, 0, &res);
++	}
+ 	if (IS_ERR(ptdev->iomem))
+ 		return PTR_ERR(ptdev->iomem);
+ 
+@@ -508,6 +641,9 @@ int panthor_device_resume(struct device *dev)
+ 		return -EINVAL;
+ 
+ 	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_RESUMING);
++	ret = panthor_sky1_acpi_power_on(ptdev);
++	if (ret)
++		goto err_set_suspended;
+ 
+ 	ret = clk_prepare_enable(ptdev->clks.core);
+ 	if (ret)
+@@ -521,6 +657,10 @@ int panthor_device_resume(struct device *dev)
+ 	if (ret)
+ 		goto err_disable_stacks_clk;
+ 
++	ret = panthor_sky1_hw_prepare(ptdev);
++	if (ret)
++		goto err_disable_coregroup_clk;
++
+ 	panthor_devfreq_resume(ptdev);
+ 
+ 	if (panthor_device_is_initialized(ptdev) &&
+@@ -563,6 +703,8 @@ int panthor_device_resume(struct device *dev)
+ 
+ err_suspend_devfreq:
+ 	panthor_devfreq_suspend(ptdev);
++
++err_disable_coregroup_clk:
+ 	clk_disable_unprepare(ptdev->clks.coregroup);
+ 
+ err_disable_stacks_clk:
+diff --git a/drivers/gpu/drm/panthor/panthor_device.h b/drivers/gpu/drm/panthor/panthor_device.h
+--- a/drivers/gpu/drm/panthor/panthor_device.h
++++ b/drivers/gpu/drm/panthor/panthor_device.h
+@@ -6,6 +6,7 @@
+ #ifndef __PANTHOR_DEVICE_H__
+ #define __PANTHOR_DEVICE_H__
+ 
++#include <linux/acpi.h>
+ #include <linux/atomic.h>
+ #include <linux/io-pgtable.h>
+ #include <linux/regulator/consumer.h>
+@@ -115,6 +116,15 @@ struct panthor_device {
+ 	/** @iomem: CPU mapping of the IOMEM region. */
+ 	void __iomem *iomem;
+ 
++	/** @sky1_rcsu_reg: Sky1 RCSU register mapping. */
++	void __iomem *sky1_rcsu_reg;
++
++	/** @gpu_reset: Sky1 GPU reset control. */
++	struct reset_control *gpu_reset;
++
++	/** @pm_domain_list: Virtual devices for firmware-described PM domains. */
++	struct dev_pm_domain_list *pm_domain_list;
++
+ 	/** @clks: GPU clocks. */
+ 	struct {
+ 		/** @core: Core clock. */
+@@ -279,6 +289,7 @@ struct panthor_file {
+ 
+ int panthor_device_init(struct panthor_device *ptdev);
+ void panthor_device_unplug(struct panthor_device *ptdev);
++bool panthor_is_cix_sky1(struct panthor_device *ptdev);
+ 
+ /**
+  * panthor_device_schedule_reset() - Schedules a reset operation
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -1776,15 +1776,25 @@ static const struct panthor_soc_data soc_data_mediatek_mt8196 = {
+ static const struct of_device_id dt_match[] = {
+ 	{ .compatible = "mediatek,mt8196-mali", .data = &soc_data_mediatek_mt8196, },
+ 	{ .compatible = "rockchip,rk3588-mali" },
++	{ .compatible = "arm,mali-valhall" },
+ 	{ .compatible = "arm,mali-valhall-csf" },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, dt_match);
+ 
+-static DEFINE_RUNTIME_DEV_PM_OPS(panthor_pm_ops,
+-				 panthor_device_suspend,
+-				 panthor_device_resume,
+-				 NULL);
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id panthor_acpi_match[] = {
++	{ "CIXH5000", 0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, panthor_acpi_match);
++#endif
++
++static const struct dev_pm_ops panthor_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
++				pm_runtime_force_resume)
++	RUNTIME_PM_OPS(panthor_device_suspend, panthor_device_resume, NULL)
++};
+ 
+ static struct platform_driver panthor_driver = {
+ 	.probe = panthor_probe,
+@@ -1793,6 +1803,7 @@ static struct platform_driver panthor_driver = {
+ 		.name = "panthor",
+ 		.pm = pm_ptr(&panthor_pm_ops),
+ 		.of_match_table = dt_match,
++		.acpi_match_table = ACPI_PTR(panthor_acpi_match),
+ 		.dev_groups = panthor_groups,
+ 	},
+ };
+diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
+--- a/drivers/gpu/drm/panthor/panthor_fw.c
++++ b/drivers/gpu/drm/panthor/panthor_fw.c
+@@ -1445,9 +1445,17 @@ int panthor_fw_init(struct panthor_device *ptdev)
+ 	INIT_LIST_HEAD(&fw->sections);
+ 	INIT_DELAYED_WORK(&fw->watchdog.ping_work, panthor_fw_ping_work);
+ 
+-	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "job");
+-	if (irq <= 0)
+-		return -ENODEV;
++	if (has_acpi_companion(ptdev->base.dev)) {
++		irq = platform_get_irq(to_platform_device(ptdev->base.dev), 0);
++	} else {
++		irq = platform_get_irq_byname_optional(to_platform_device(ptdev->base.dev),
++						       "job");
++		if (irq == -ENXIO)
++			irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev),
++						      "JOB");
++	}
++	if (irq < 0)
++		return irq;
+ 
+ 	ret = panthor_request_job_irq(ptdev, &fw->irq, irq, 0);
+ 	if (ret) {
+diff --git a/drivers/gpu/drm/panthor/panthor_gpu.c b/drivers/gpu/drm/panthor/panthor_gpu.c
+--- a/drivers/gpu/drm/panthor/panthor_gpu.c
++++ b/drivers/gpu/drm/panthor/panthor_gpu.c
+@@ -146,7 +146,15 @@ int panthor_gpu_init(struct panthor_device *ptdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "gpu");
++	if (has_acpi_companion(ptdev->base.dev)) {
++		irq = platform_get_irq(to_platform_device(ptdev->base.dev), 2);
++	} else {
++		irq = platform_get_irq_byname_optional(to_platform_device(ptdev->base.dev),
++						       "gpu");
++		if (irq == -ENXIO)
++			irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev),
++						      "GPU");
++	}
+ 	if (irq < 0)
+ 		return irq;
+ 
+@@ -274,6 +282,18 @@ int panthor_gpu_l2_power_on(struct panthor_device *ptdev)
+ 	panthor_gpu_coherency_set(ptdev);
+ 	panthor_gpu_l2_config_set(ptdev);
+ 
++	if (panthor_is_cix_sky1(ptdev)) {
++		gpu_write(ptdev, GPU_SYSC_PBHA_OVERRIDE(3), 0x22000000);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(0), 0x00230000);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(1), 0x00000023);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(2), 0x00000000);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(3), 0x00000000);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(4), 0x00523222);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(5), 0x00523200);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(6), 0x00000022);
++		gpu_write(ptdev, GPU_SYSC_ALLOC(7), 0x00000032);
++	}
++
+ 	return panthor_gpu_power_on(ptdev, L2, 1, 20000);
+ }
+ 
+@@ -398,4 +418,3 @@ void panthor_gpu_resume(struct panthor_device *ptdev)
+ 	panthor_gpu_irq_resume(&ptdev->gpu->irq, GPU_INTERRUPTS_MASK);
+ 	panthor_hw_l2_power_on(ptdev);
+ }
+-
+diff --git a/drivers/gpu/drm/panthor/panthor_hw.c b/drivers/gpu/drm/panthor/panthor_hw.c
+--- a/drivers/gpu/drm/panthor/panthor_hw.c
++++ b/drivers/gpu/drm/panthor/panthor_hw.c
+@@ -131,6 +131,7 @@ static int overload_shader_present(struct panthor_device *ptdev)
+ static int panthor_gpu_info_init(struct panthor_device *ptdev)
+ {
+ 	unsigned int i;
++	int ret;
+ 
+ 	ptdev->gpu_info.csf_id = gpu_read(ptdev, GPU_CSF_ID);
+ 	ptdev->gpu_info.gpu_rev = gpu_read(ptdev, GPU_REVID);
+@@ -163,7 +164,21 @@ static int panthor_gpu_info_init(struct panthor_device *ptdev)
+ 		ptdev->gpu_info.l2_present = gpu_read64(ptdev, GPU_L2_PRESENT);
+ 	}
+ 
+-	return overload_shader_present(ptdev);
++	ret = overload_shader_present(ptdev);
++	if (ret)
++		return ret;
++
++	if (panthor_is_cix_sky1(ptdev)) {
++		u32 disabled = readl(ptdev->sky1_rcsu_reg + 0x304);
++		u64 present = ~((disabled & 0x0ffffff0) >> 4) & 0x550555;
++
++		ptdev->gpu_info.shader_present &= present;
++		drm_info(&ptdev->base,
++			 "Sky1 shader harvesting: register=%#x present=%#llx\n",
++			 disabled, present);
++	}
++
++	return 0;
+ }
+ 
+ static int panthor_hw_info_init(struct panthor_device *ptdev)
+diff --git a/drivers/gpu/drm/panthor/panthor_mmu.c b/drivers/gpu/drm/panthor/panthor_mmu.c
+--- a/drivers/gpu/drm/panthor/panthor_mmu.c
++++ b/drivers/gpu/drm/panthor/panthor_mmu.c
+@@ -2863,9 +2863,17 @@ int panthor_mmu_init(struct panthor_device *ptdev)
+ 
+ 	ptdev->mmu = mmu;
+ 
+-	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "mmu");
+-	if (irq <= 0)
+-		return -ENODEV;
++	if (has_acpi_companion(ptdev->base.dev)) {
++		irq = platform_get_irq(to_platform_device(ptdev->base.dev), 1);
++	} else {
++		irq = platform_get_irq_byname_optional(to_platform_device(ptdev->base.dev),
++						       "mmu");
++		if (irq == -ENXIO)
++			irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev),
++						      "MMU");
++	}
++	if (irq < 0)
++		return irq;
+ 
+ 	ret = panthor_request_mmu_irq(ptdev, &mmu->irq, irq,
+ 				      panthor_mmu_fault_mask(ptdev, ~0));
+diff --git a/drivers/gpu/drm/panthor/panthor_regs.h b/drivers/gpu/drm/panthor/panthor_regs.h
+--- a/drivers/gpu/drm/panthor/panthor_regs.h
++++ b/drivers/gpu/drm/panthor/panthor_regs.h
+@@ -205,6 +205,9 @@
+ #define   AS_TRANSCFG_XREADABLE				BIT(36)
+ #define AS_FAULTEXTRA(as)				(MMU_AS(as) + 0x38)
+ 
++#define GPU_SYSC_PBHA_OVERRIDE(n)			(0x320 + ((n) * 4))
++#define GPU_SYSC_ALLOC(n)				(0x340 + ((n) * 4))
++
+ #define CSF_GPU_LATEST_FLUSH_ID				0x10000
+ 
+ #define CSF_DOORBELL(i)					(0x80000 + ((i) * 0x10000))

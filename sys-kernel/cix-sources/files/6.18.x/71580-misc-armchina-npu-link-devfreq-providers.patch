@@ -1,0 +1,27 @@
+diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+--- a/drivers/misc/armchina-npu/Kconfig
++++ b/drivers/misc/armchina-npu/Kconfig
+@@ -9,6 +9,7 @@ config ARMCHINA_NPU
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
+ 	depends on DMA_SHARED_BUFFER
++	select DEVFREQ_GOV_USERSPACE if PM_DEVFREQ
+ 	help
+ 	  Support for ArmChina Zhouyi NPU accelerators.
+ 
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -951,5 +951,12 @@ static struct platform_driver aipu_platform_driver = {
+ module_platform_driver(aipu_platform_driver);
+ MODULE_LICENSE("GPL v2");
+ #if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++#if IS_MODULE(CONFIG_DEVFREQ_GOV_USERSPACE) && \
++	IS_MODULE(CONFIG_ARM_SCMI_PERF_DOMAIN)
++MODULE_SOFTDEP("pre: governor_userspace scmi_perf_domain");
++#elif IS_MODULE(CONFIG_DEVFREQ_GOV_USERSPACE)
++MODULE_SOFTDEP("pre: governor_userspace");
++#elif IS_MODULE(CONFIG_ARM_SCMI_PERF_DOMAIN)
+ MODULE_SOFTDEP("pre: scmi_perf_domain");
+ #endif
++#endif

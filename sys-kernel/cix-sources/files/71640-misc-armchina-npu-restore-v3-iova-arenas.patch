@@ -1,0 +1,1436 @@
+Restore the current CIX manager-5/V3 allocation ABI without importing the
+vendor driver's private IOMMU allocator.
+
+Reserve four standard DMA-owned 3 GiB IOVA pools, report their dynamically
+allocated bases as ASIDs, and give each file-owned exec_id a suballocated
+arena.  Implement P1 allocation modes 1--3, exact P1 whole-arena free
+semantics, transactional REBIND, fragmented page linking, and segment-aware
+cache maintenance.  Ordinary mode-0 allocation retains its proven low DMA
+window; the device's wider DMA mask is used only for the opt-in ASID pools.
+
+The existing acpi_prealloc_iova_regions switch remains the qualification gate
+until live O6 testing proves that all four reported bases reach the init TCB
+and that modes 0--3 preserve model results and teardown correctly.  Mode 4 is
+a separate Sky1-lineage extension and is not enabled here.
+
+Provenance: adapted from the ABI and manager-5 behavior in CIX NPU driver
+p1_7.0_v6.2.0 (commit 93a0698fc00d848afefc8e33022d2a2878663677),
+using the standard Linux DMA IOVA API rather than the vendor implementation.
+
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -276,6 +276,8 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	struct aipu_dma_buf dmabuf_info;
+ 	struct aipu_cluster_status cluster_status;
+ 	struct aipu_running_job_query running_job_query;
++	struct aipu_rebind_buf_desc rebind_desc;
++	struct aipu_rebind_transaction *rebind_txn = NULL;
+ 	int fd = 0;
+ 
+ 	struct aipu_partition *cls;
+@@ -331,19 +333,32 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	case AIPU_IOCTL_REQ_BUF:
+ 		if (!copy_from_user(&buf_req, (struct aipu_buf_request __user *)arg,
+ 				    sizeof(buf_req))) {
+-			/* Keep the mixed DMA/raw-IOMMU fixed-IOVA path unreachable. */
+-			if (buf_req.alloc_mode != AIPU_DMA_BUF_MALLOC_DEFAULT)
+-				return -EOPNOTSUPP;
+-			buf_req.exec_id = 0;
+-			buf_req.reserve_iova_size = 0;
+ 			memset(&buf_req.desc, 0, sizeof(buf_req.desc));
++			if (buf_req.alloc_mode > AIPU_DMA_BUF_MALLOC_BOTH) {
++				ret = -EOPNOTSUPP;
++				break;
++			}
++			if (buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_IOVA ||
++			    buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_BOTH) {
++				ret = aipu_job_manager_alloc_exec_id(manager,
++								     &buf_req.exec_id);
++				if (ret)
++					break;
++			} else if (buf_req.alloc_mode == AIPU_DMA_BUF_MALLOC_DEFAULT) {
++				buf_req.exec_id = 0;
++			} else if (!buf_req.exec_id) {
++				ret = -EINVAL;
++				break;
++			}
+ 			ret = aipu_alloc_dma_iova_phy(&aipu->mm, &buf_req, filp);
+ 			if (!ret && copy_to_user((struct aipu_buf_request __user *)arg,
+ 						 &buf_req, sizeof(buf_req))) {
+ 				if (!aipu_job_manager_owner_guard_begin(
+ 					    manager, aipu_file_ctx(filp))) {
+-					aipu_free_dma_iova_phy(&aipu->mm,
+-							   &buf_req.desc, filp);
++					aipu_rollback_dma_iova_phy(&aipu->mm,
++								   &buf_req.desc,
++								   buf_req.alloc_mode,
++								   filp);
+ 					aipu_job_manager_owner_guard_end(manager);
+ 				}
+ 				ret = -EFAULT;
+@@ -541,8 +556,30 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		ret = -EOPNOTSUPP;
+ 		break;
+ 	case AIPU_IOCTL_REBIND_DMA_BUF:
++		if (copy_from_user(&rebind_desc,
++				   (struct aipu_rebind_buf_desc __user *)arg,
++				   sizeof(rebind_desc))) {
++			ret = -EFAULT;
++			break;
++		}
++		ret = aipu_job_manager_owner_guard_begin(manager,
++							 aipu_file_ctx(filp));
++		if (ret)
++			break;
++		ret = aipu_prepare_rebind_dma_iova_phy(&aipu->mm,
++						       &rebind_desc, filp,
++						       &rebind_txn);
++		if (!ret &&
++		    copy_to_user((struct aipu_rebind_buf_desc __user *)arg,
++				 &rebind_desc, sizeof(rebind_desc)))
++			ret = -EFAULT;
++		if (rebind_txn)
++			aipu_finish_rebind_dma_iova_phy(&aipu->mm,
++							rebind_txn, !ret);
++		aipu_job_manager_owner_guard_end(manager);
++		break;
+ 	case AIPU_IOCTL_BIND_DMA_BUF:
+-		/* These commands depend on the disabled fixed-IOVA path above. */
++		/* Safe generic dma-buf-to-existing-arena binding follows separately. */
+ 		ret = -EOPNOTSUPP;
+ 		break;
+ 	default:
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
+@@ -45,8 +45,11 @@ static struct sg_table *aipu_map_dma_buf(struct dma_buf_attachment *attach,
+ 	if (!sgt)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	ret = dma_get_sgtable_attrs(npu, sgt, priv->va, priv->dma_pa,
+-				    priv->bytes, 0);
++	ret = aipu_mm_get_export_sgtable(priv->mm, priv->dev_pa,
++					 priv->bytes, sgt);
++	if (ret == -EOPNOTSUPP)
++		ret = dma_get_sgtable_attrs(npu, sgt, priv->va, priv->dma_pa,
++					    priv->bytes, 0);
+ 	if (ret < 0) {
+ 		dev_err(npu, "failed to get scatterlist from DMA API\n");
+ 		goto fail;
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -783,6 +783,7 @@ int init_aipu_job_manager(struct aipu_job_manager *manager, struct aipu_memory_m
+ 	manager->job_cache = NULL;
+ 	manager->prof_cache = NULL;
+ 	manager->grid_id_bmap = NULL;
++	manager->next_exec_id = AIPU_EXEC_ID_FIRST;
+ 	INIT_LIST_HEAD(&manager->id_allocations);
+ 	manager->mm = mm;
+ 	manager->priv = priv;
+@@ -2618,6 +2619,22 @@ int aipu_job_manager_alloc_grid_id(struct aipu_job_manager *manager,
+ 	return ret ? ret : (int)id;
+ }
+ 
++int aipu_job_manager_alloc_exec_id(struct aipu_job_manager *manager,
++				   u64 *exec_id)
++{
++	if (!manager || !exec_id)
++		return -EINVAL;
++
++	mutex_lock(&manager->id_lock);
++	if (manager->next_exec_id == U64_MAX) {
++		mutex_unlock(&manager->id_lock);
++		return -EOVERFLOW;
++	}
++	*exec_id = manager->next_exec_id++;
++	mutex_unlock(&manager->id_lock);
++	return 0;
++}
++
+ int aipu_job_manager_free_grid_id(struct aipu_job_manager *manager, u16 id,
+ 				  struct aipu_file_ctx *owner)
+ {
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu/aipu_job_manager.h
+@@ -13,6 +13,8 @@
+ #include "aipu_partition.h"
+ #include "aipu_mm.h"
+ 
++#define AIPU_EXEC_ID_FIRST 0x208ULL
++
+ struct aipu_file_ctx;
+ 
+ enum aipu_state_kern {
+@@ -198,6 +200,7 @@ struct command_pool {
+  * @tec_intr_en:     is TEC interrupts enabled or not
+  * @grid_id_bmap:    grid ID bitmap
+  * @grid_id_num:     number of grid IDs available
++ * @next_exec_id:    next process-wide split-allocation execution identifier
+  * @id_allocations:  owner-tagged grid ID allocations
+  * @id_lock:         lock to protect grid IDs
+  */
+@@ -233,6 +236,7 @@ struct aipu_job_manager {
+ 	bool tec_intr_en;
+ 	unsigned long *grid_id_bmap;
+ 	u32 grid_id_num;
++	u64 next_exec_id;
+ 	struct list_head id_allocations;
+ 	struct mutex id_lock; /* Protect grid IDs */
+ };
+@@ -272,6 +276,8 @@ int aipu_job_manager_suspend(struct aipu_job_manager *manager);
+ int aipu_job_manager_resume(struct aipu_job_manager *manager);
+ int aipu_job_manager_alloc_grid_id(struct aipu_job_manager *manager,
+ 				   struct aipu_file_ctx *owner);
++int aipu_job_manager_alloc_exec_id(struct aipu_job_manager *manager,
++				   u64 *exec_id);
+ int aipu_job_manager_free_grid_id(struct aipu_job_manager *manager, u16 id,
+ 				  struct aipu_file_ctx *owner);
+ void aipu_job_manager_free_file_ids(struct aipu_job_manager *manager,
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -18,9 +18,9 @@
+ #include <linux/moduleparam.h>
+ #include <linux/module.h>
+ #include <linux/overflow.h>
+-#include <linux/iova.h>
+ #include <linux/acpi.h>
+ #include <linux/refcount.h>
++#include <linux/sizes.h>
+ #include "config.h"
+ #include "aipu_priv.h"
+ #include "aipu_file.h"
+@@ -29,39 +29,13 @@
+ #include "aipu_dma_buf.h"
+ 
+ #define EXIT_ENCODE_BUF_SIZE (1024)
+-#define IOVA_FREE  false
+-#define IOVA_ALLOC true
++#define AIPU_V3_ASID_BYTES (3ULL * SZ_1G)
++#define AIPU_V3_ASID_SLOT_BYTES SZ_4G
+ 
+ static bool aipu_acpi_prealloc_iova_regions;
+ module_param_named(acpi_prealloc_iova_regions, aipu_acpi_prealloc_iova_regions, bool, 0644);
+ MODULE_PARM_DESC(acpi_prealloc_iova_regions,
+-		 "Use legacy preallocated IOVA regions on ACPI systems");
+-
+-enum iommu_dma_cookie_type {
+-	IOMMU_DMA_IOVA_COOKIE,
+-	IOMMU_DMA_MSI_COOKIE,
+-};
+-
+-#if KERNEL_VERSION(6, 15, 0) > LINUX_VERSION_CODE
+-struct iommu_dma_cookie {
+-	enum iommu_dma_cookie_type	type;
+-	union {
+-		struct iova_domain	iovad;
+-		dma_addr_t		msi_iova;
+-	};
+-	struct list_head		msi_page_list;
+-	struct iommu_domain		*fq_domain;
+-};
+-#else
+-/*
+- * Partial redefinition of the kernel-private struct iommu_dma_cookie
+- * (defined in drivers/iommu/dma-iommu.c). Only the iovad field is accessed
+- * by this driver; it must be at offset 0 to match the kernel's layout.
+- */
+-struct iommu_dma_cookie {
+-	struct iova_domain      iovad;
+-};
+-#endif
++		 "Use DMA-API-owned four-ASID IOVA arenas on IOMMU systems");
+ 
+ struct aipu_vma_ctx {
+ 	struct aipu_memory_manager *mm;
+@@ -71,6 +45,15 @@ struct aipu_vma_ctx {
+ 	refcount_t refs;
+ };
+ 
++struct aipu_rebind_transaction {
++	struct aipu_mem_region *reg;
++	struct aipu_iova_arena *source;
++	struct aipu_iova_arena *destination;
++	dma_addr_t new_iova;
++	size_t new_offset;
++	unsigned long linked_pages;
++};
++
+ static int aipu_mm_free_owner(struct aipu_memory_manager *mm,
+ 			      struct aipu_buf_desc *buf,
+ 			      struct aipu_file_ctx *owner, bool unlock);
+@@ -635,6 +618,44 @@ static void *aipu_mm_vmap_noncontiguous(struct sg_table *sgt, u64 bytes)
+ 	return vaddr;
+ }
+ 
++static void aipu_mm_destroy_arena_mapping(struct aipu_memory_manager *mm,
++					  struct aipu_mem_region *reg)
++{
++	struct aipu_iova_pool *pool;
++	unsigned long i;
++
++	if (reg->mapping_kind != AIPU_MAPPING_IOVA_ARENA)
++		return;
++
++	if (reg->base_va) {
++		vunmap(reg->base_va);
++		reg->base_va = NULL;
++	}
++	if (reg->arena && reg->linked_page_count) {
++		pool = &mm->iova_pools[reg->arena->asid];
++		dma_iova_unlink(mm->dev, &pool->state, reg->arena_offset,
++				reg->linked_page_count << PAGE_SHIFT,
++				DMA_BIDIRECTIONAL, 0);
++		reg->linked_page_count = 0;
++	}
++	for (i = 0; i < reg->phys_page_count; i++)
++		__free_page(reg->phys_pages[i]);
++	kvfree(reg->phys_pages);
++	reg->phys_pages = NULL;
++	reg->phys_page_count = 0;
++	if (reg->arena) {
++		gen_pool_free(reg->arena->allocator, reg->base_iova, reg->bytes);
++		if (WARN_ON(reg->arena->mapped_bytes < reg->bytes))
++			reg->arena->mapped_bytes = 0;
++		else
++			reg->arena->mapped_bytes -= reg->bytes;
++	}
++	if (reg->arena && WARN_ON(!reg->arena->mapping_count))
++		reg->arena = NULL;
++	else if (reg->arena)
++		reg->arena->mapping_count--;
++}
++
+ static void aipu_mm_destroy_region(struct aipu_memory_manager *mm, struct aipu_mem_region *reg)
+ {
+ 	struct aipu_tcb_buf *tbuf = NULL;
+@@ -644,7 +665,10 @@ static void aipu_mm_destroy_region(struct aipu_memory_manager *mm, struct aipu_m
+ 		return;
+ 
+ 	/* release allocation to system */
+-	if (reg->dma_sgt) {
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA) {
++		aipu_mm_destroy_arena_mapping(mm, reg);
++		reg->base_iova = 0;
++	} else if (reg->dma_sgt) {
+ 		if (reg->base_va)
+ 			vunmap(reg->base_va);
+ 		dma_sync_sgtable_for_device(reg->dev, reg->dma_sgt,
+@@ -1154,9 +1178,8 @@ static void add_region_list(struct aipu_memory_manager *mm, int asid,
+ 	mm->ase[asid].cnt++;
+ }
+ 
+-static void aipu_mm_set_safe_dma_api_range(struct aipu_memory_manager *mm)
++static void aipu_mm_set_safe_dma_api_limit(struct aipu_memory_manager *mm)
+ {
+-	mm->dma_mask = 32;
+ #if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
+ 	mm->dev->bus_dma_limit = 0xc0000000;
+ #elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+@@ -1164,96 +1187,418 @@ static void aipu_mm_set_safe_dma_api_range(struct aipu_memory_manager *mm)
+ #endif
+ }
+ 
+-static int aipu_mm_reserved_iova_for_never_map(struct aipu_memory_manager *mm, bool flag)
++static void aipu_mm_set_safe_dma_api_range(struct aipu_memory_manager *mm)
+ {
+-	struct iommu_domain *iommu_domain = NULL;
+-	struct iommu_dma_cookie *cookie = NULL;
+-	struct iova_domain *iovad = NULL;
+-	u64 bus_dma_limit;
+-	unsigned long lo, hi;
+-	struct iova *iova;
+-	unsigned long iova_start;
+-	unsigned long  iova_len = SZ_1G;
++	mm->dma_mask = 32;
++	aipu_mm_set_safe_dma_api_limit(mm);
++}
+ 
+-	if (!mm)
+-		return -EINVAL;
++static void aipu_mm_destroy_iova_pools(struct aipu_memory_manager *mm)
++{
++	int asid;
+ 
+-	iommu_domain = mm->iommu_domain;
+-	if (!iommu_domain || !iommu_domain->iova_cookie) {
+-		dev_warn(mm->dev, "IOMMU DMA cookie unavailable; skipping IOVA %s\n",
+-			 flag ? "reservation" : "release");
+-		return -ENODEV;
++	for (asid = ZHOUYI_ASID_COUNT - 1; asid >= 0; asid--) {
++		struct aipu_iova_pool *pool = &mm->iova_pools[asid];
++
++		if (pool->allocator) {
++			gen_pool_destroy(pool->allocator);
++			pool->allocator = NULL;
++		}
++		if (dma_use_iova(&pool->state)) {
++			dma_iova_free(mm->dev, &pool->state);
++			memset(&pool->state, 0, sizeof(pool->state));
++		}
++		mm->ase[asid].base = U64_MAX;
++		mm->ase[asid].range = 0;
+ 	}
+-	cookie = iommu_domain->iova_cookie;
+-	iovad = &cookie->iovad;
++	mm->iova_arenas_ready = false;
++}
+ 
++static int aipu_mm_init_iova_pools(struct aipu_memory_manager *mm)
++{
++	struct dma_iova_state state;
++	int asid;
++	int next;
++	int ret;
++
++	if (!mm)
++		return -EINVAL;
++
++	mm->dma_mask = 35;
+ #if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
+-	bus_dma_limit = mm->dev->bus_dma_limit;
++	mm->dev->bus_dma_limit = DMA_BIT_MASK(35);
+ #elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+-	bus_dma_limit = mm->dev->bus_dma_mask;
++	mm->dev->bus_dma_mask = DMA_BIT_MASK(35);
+ #endif
+-	if (bus_dma_limit == 0xc0000000 || bus_dma_limit == 0xe0000000)
+-		bus_dma_limit = 0x100000000;
++	ret = dma_set_mask_and_coherent(mm->dev, DMA_BIT_MASK(mm->dma_mask));
++	if (ret)
++		goto err;
+ 
+-	do {
+-		iova_start = bus_dma_limit - iova_len;
+-		lo = iova_start >> PAGE_SHIFT;
+-		hi = (iova_start + iova_len) >> PAGE_SHIFT;
+-		iova = reserve_iova(iovad, lo, hi - 1);
+-		if (!iova)
+-			return -ENOMEM;
+-		if (!flag)
+-			__free_iova(iovad, iova);
+-		bus_dma_limit -= 0x100000000;
+-	} while (bus_dma_limit > 0);
++	for (asid = 0; asid < ZHOUYI_ASID_COUNT; asid++) {
++		struct aipu_iova_pool *pool = &mm->iova_pools[asid];
++
++		if (!dma_iova_try_alloc(mm->dev, &pool->state, 0,
++					AIPU_V3_ASID_BYTES)) {
++			ret = -ENOSPC;
++			goto err;
++		}
++	}
++	for (asid = 0; asid < ZHOUYI_ASID_COUNT - 1; asid++) {
++		for (next = asid + 1; next < ZHOUYI_ASID_COUNT; next++) {
++			if (mm->iova_pools[asid].state.addr <=
++			    mm->iova_pools[next].state.addr)
++				continue;
++			state = mm->iova_pools[asid].state;
++			mm->iova_pools[asid].state = mm->iova_pools[next].state;
++			mm->iova_pools[next].state = state;
++		}
++	}
++
++	for (asid = 0; asid < ZHOUYI_ASID_COUNT; asid++) {
++		struct aipu_iova_pool *pool = &mm->iova_pools[asid];
++
++		if (!IS_ALIGNED(pool->state.addr, AIPU_V3_ASID_SLOT_BYTES)) {
++			dev_err(mm->dev,
++				"ASID %d IOVA base 0x%llx is not 4 GiB aligned\n",
++				asid, (u64)pool->state.addr);
++			ret = -ERANGE;
++			goto err;
++		}
++		if (dma_iova_size(&pool->state) != AIPU_V3_ASID_BYTES) {
++			ret = -ERANGE;
++			goto err;
++		}
+ 
++		pool->allocator = gen_pool_create(PAGE_SHIFT, NUMA_NO_NODE);
++		if (!pool->allocator) {
++			ret = -ENOMEM;
++			goto err;
++		}
++		ret = gen_pool_add(pool->allocator, pool->state.addr,
++				   AIPU_V3_ASID_BYTES, NUMA_NO_NODE);
++		if (ret)
++			goto err;
++
++		mm->ase[asid].base = pool->state.addr;
++		mm->ase[asid].range = AIPU_V3_ASID_BYTES;
++		dev_dbg(mm->dev, "ASID %d: DMA IOVA [0x%llx, 0x%llx)\n",
++			asid, (u64)pool->state.addr,
++			(u64)pool->state.addr + AIPU_V3_ASID_BYTES);
++	}
++
++	mm->valid_asid_cnt = ZHOUYI_ASID_COUNT;
++	mm->iova_arenas_ready = true;
++	/* Keep ordinary DMA API allocations below the proven 3 GiB ceiling. */
++	aipu_mm_set_safe_dma_api_limit(mm);
+ 	return 0;
++
++err:
++	aipu_mm_destroy_iova_pools(mm);
++	aipu_mm_set_safe_dma_api_range(mm);
++	dma_set_mask_and_coherent(mm->dev, DMA_BIT_MASK(mm->dma_mask));
++	mm->valid_asid_cnt = 1;
++	return ret;
+ }
+ 
+-static int aipu_mm_add_iova_region(struct aipu_memory_manager *mm)
++static struct aipu_iova_arena *
++aipu_mm_find_iova_arena_no_lock(struct aipu_memory_manager *mm,
++				struct aipu_file_ctx *owner, u64 exec_id)
+ {
+-	struct aipu_mem_region_obj *obj = NULL;
+-	struct aipu_mem_region *reg = NULL;
+-	int iova_region = 1;
+-	unsigned long iova_region_size = 0x3ffff000;
+-	int asid_idx = 0;
+-	int region_idx = 0;
++	struct aipu_iova_arena *arena;
+ 
+-	if (!mm)
++	if (!exec_id)
++		return NULL;
++	list_for_each_entry(arena, &mm->iova_arenas, node) {
++		if (arena->owner == owner && arena->exec_id == exec_id)
++			return arena;
++	}
++	return NULL;
++}
++
++static void aipu_mm_release_iova_arena_no_lock(struct aipu_memory_manager *mm,
++					       struct aipu_iova_arena *arena)
++{
++	if (!arena)
++		return;
++	if (WARN_ON(arena->mapping_count))
++		return;
++
++	gen_pool_destroy(arena->allocator);
++	gen_pool_free(mm->iova_pools[arena->asid].allocator,
++		      arena->start, arena->bytes);
++	list_del(&arena->node);
++	kfree(arena);
++}
++
++static int aipu_mm_create_iova_arena_no_lock(struct aipu_memory_manager *mm,
++					     struct aipu_file_ctx *owner,
++					     u64 exec_id, u8 asid, u64 bytes,
++					     u64 alignment,
++					     struct aipu_iova_arena **result)
++{
++	struct genpool_data_align data = { .align = alignment };
++	struct aipu_iova_arena *arena;
++	unsigned long start;
++
++	if (!result || !bytes || asid >= mm->valid_asid_cnt ||
++	    !is_power_of_2(alignment) || alignment < PAGE_SIZE)
+ 		return -EINVAL;
++	if (exec_id && aipu_mm_find_iova_arena_no_lock(mm, owner, exec_id))
++		return -EEXIST;
+ 
+-#if (KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE)
+-	mm->dev->bus_dma_limit = 0x800000000;
+-#elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
+-	mm->dev->bus_dma_mask = 0x800000000;
+-#endif
+-	mm->dma_mask = 35;
++	arena = kzalloc_obj(*arena, GFP_KERNEL);
++	if (!arena)
++		return -ENOMEM;
++	start = gen_pool_alloc_algo(mm->iova_pools[asid].allocator, bytes,
++				    gen_pool_first_fit_align, &data);
++	if (!start) {
++		kfree(arena);
++		return -ENOSPC;
++	}
++
++	arena->owner = owner;
++	arena->exec_id = exec_id;
++	arena->start = start;
++	arena->bytes = bytes;
++	arena->asid = asid;
++	arena->allocator = gen_pool_create(PAGE_SHIFT, NUMA_NO_NODE);
++	if (!arena->allocator) {
++		gen_pool_free(mm->iova_pools[asid].allocator, start, bytes);
++		kfree(arena);
++		return -ENOMEM;
++	}
++	if (gen_pool_add(arena->allocator, start, bytes, NUMA_NO_NODE)) {
++		gen_pool_destroy(arena->allocator);
++		gen_pool_free(mm->iova_pools[asid].allocator, start, bytes);
++		kfree(arena);
++		return -ENOMEM;
++	}
++	INIT_LIST_HEAD(&arena->node);
++	list_add_tail(&arena->node, &mm->iova_arenas);
++	*result = arena;
++	return 0;
++}
+ 
+-	if (aipu_mm_reserved_iova_for_never_map(mm, IOVA_ALLOC)) {
+-		dev_err(mm->dev, "fail to reserve iova region for never map.");
+-		aipu_mm_set_safe_dma_api_range(mm);
+-		goto FINISH;
++static int aipu_mm_alloc_arena_pages(struct aipu_memory_manager *mm,
++				     struct aipu_mem_region *reg)
++{
++	unsigned long i;
++
++	reg->phys_page_count = reg->bytes >> PAGE_SHIFT;
++	if (reg->phys_page_count > UINT_MAX)
++		return -E2BIG;
++	reg->phys_pages = kvmalloc_array(reg->phys_page_count,
++					 sizeof(*reg->phys_pages), GFP_KERNEL);
++	if (!reg->phys_pages)
++		return -ENOMEM;
++
++	for (i = 0; i < reg->phys_page_count; i++) {
++		reg->phys_pages[i] = alloc_page(GFP_KERNEL | __GFP_ZERO |
++						__GFP_NOWARN);
++		if (!reg->phys_pages[i]) {
++			reg->phys_page_count = i;
++			return -ENOMEM;
++		}
++	}
++	return 0;
++}
++
++static int aipu_mm_link_arena_region(struct aipu_memory_manager *mm,
++				     struct aipu_mem_region *reg)
++{
++	struct aipu_iova_pool *pool = &mm->iova_pools[reg->arena->asid];
++	unsigned long i;
++	int ret;
++
++	for (i = 0; i < reg->phys_page_count; i++) {
++		ret = dma_iova_link(mm->dev, &pool->state,
++				    page_to_phys(reg->phys_pages[i]),
++				    reg->arena_offset + (i << PAGE_SHIFT),
++				    PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
++		if (ret)
++			return ret;
++		reg->linked_page_count++;
+ 	}
++	ret = dma_iova_sync(mm->dev, &pool->state, reg->arena_offset,
++			    reg->bytes);
++	if (ret)
++		return ret;
+ 
+-	do {
+-		obj = aipu_mm_create_region_object(mm, AIPU_MEM_REGION_TYPE_MEMORY,
+-						   iova_region_size, 0, asid_idx, NULL, true);
+-		if (!obj) {
+-			dev_err(mm->dev, "create iova region failed (ret = %ld)", PTR_ERR(reg));
+-			aipu_mm_set_safe_dma_api_range(mm);
++	for (i = 0; i < reg->phys_page_count; i++)
++		dma_sync_single_for_cpu(mm->dev,
++					reg->base_iova + (i << PAGE_SHIFT),
++					PAGE_SIZE, DMA_BIDIRECTIONAL);
++	reg->base_va = vmap(reg->phys_pages, reg->phys_page_count,
++			    VM_MAP | VM_USERMAP,
++			    pgprot_dmacoherent(PAGE_KERNEL));
++	return reg->base_va ? 0 : -ENOMEM;
++}
++
++static int aipu_mm_map_iova_arena_no_lock(struct aipu_memory_manager *mm,
++					  struct aipu_iova_arena *arena,
++					  struct aipu_buf_request *buf_req,
++					  struct aipu_file_ctx *owner)
++{
++	struct aipu_mem_region_obj *obj;
++	struct aipu_mem_region *reg;
++	struct aipu_tcb_buf *tbuf = NULL;
++	struct genpool_data_align data;
++	u64 rounded_bytes;
++	unsigned long iova;
++	int ret;
++
++	ret = aipu_mm_round_allocation_size(buf_req->bytes, &rounded_bytes, NULL);
++	if (ret)
++		return ret;
++	data.align = (u64)buf_req->align_in_page << PAGE_SHIFT;
++	iova = gen_pool_alloc_algo(arena->allocator, rounded_bytes,
++				   gen_pool_first_fit_align, &data);
++	if (!iova)
++		return -ENOSPC;
++
++	obj = aipu_mm_create_region_object(mm, AIPU_MEM_REGION_TYPE_MEMORY,
++					   0, 0, 0, owner, false);
++	if (!obj) {
++		gen_pool_free(arena->allocator, iova, rounded_bytes);
++		return -ENOMEM;
++	}
++	reg = obj->reg;
++	reg->bytes = rounded_bytes;
++	reg->base_iova = iova;
++	reg->base_pa = reg->base_iova;
++	reg->mapping_kind = AIPU_MAPPING_IOVA_ARENA;
++	reg->arena = arena;
++	reg->arena_offset = reg->base_iova -
++				    mm->iova_pools[arena->asid].state.addr;
++	reg->locked = true;
++	arena->mapping_count++;
++
++	ret = aipu_mm_alloc_arena_pages(mm, reg);
++	if (ret)
++		goto err;
++	ret = aipu_mm_link_arena_region(mm, reg);
++	if (ret)
++		goto err;
++	ret = aipu_mm_alloc_in_region_no_lock(mm, buf_req, reg, owner, &tbuf);
++	if (ret)
++		goto err;
++
++	buf_req->desc.exec_id = arena->exec_id;
++	buf_req->desc.asid = arena->asid;
++	list_add_tail(&obj->list, &mm->mem.head->list);
++	if (tbuf) {
++		unsigned long flags;
++
++		spin_lock_irqsave(&mm->slock, flags);
++		list_add_tail(&tbuf->node, &reg->tcb_buf_head->node);
++		spin_unlock_irqrestore(&mm->slock, flags);
++	}
++	arena->mapped_bytes += rounded_bytes;
++	return 0;
++
++err:
++	aipu_mm_destroy_region_object(mm, obj);
++	return ret;
++}
++
++static int aipu_mm_alloc_from_iova_pools(struct aipu_memory_manager *mm,
++					 struct aipu_buf_request *buf_req,
++					 struct aipu_file_ctx *owner)
++{
++	struct aipu_iova_arena *arena = NULL;
++	u64 alignment;
++	u64 arena_bytes;
++	u64 requested_bytes;
++	int ret;
++
++	if (!mm->iova_arenas_ready || !buf_req->bytes ||
++	    !is_power_of_2(buf_req->align_in_page) ||
++	    buf_req->asid >= mm->valid_asid_cnt)
++		return -EINVAL;
++	alignment = (u64)buf_req->align_in_page << PAGE_SHIFT;
++
++	mutex_lock(&mm->lock);
++	switch (buf_req->alloc_mode) {
++	case AIPU_DMA_BUF_MALLOC_DEFAULT:
++		if (buf_req->exec_id || buf_req->reserve_iova_size) {
++			ret = -EINVAL;
+ 			break;
+ 		}
++		ret = aipu_mm_round_allocation_size(buf_req->bytes,
++						    &arena_bytes, NULL);
++		if (ret)
++			break;
++		ret = aipu_mm_create_iova_arena_no_lock(mm, owner, 0,
++							buf_req->asid,
++							arena_bytes, alignment,
++							&arena);
++		if (ret)
++			break;
++		ret = aipu_mm_map_iova_arena_no_lock(mm, arena, buf_req,
++						     owner);
++		if (ret)
++			aipu_mm_release_iova_arena_no_lock(mm, arena);
++		break;
++
++	case AIPU_DMA_BUF_MALLOC_IOVA:
++	case AIPU_DMA_BUF_MALLOC_BOTH:
++		if (!buf_req->exec_id ||
++		    check_add_overflow(buf_req->bytes,
++				       buf_req->reserve_iova_size,
++				       &requested_bytes)) {
++			ret = -EINVAL;
++			break;
++		}
++		ret = aipu_mm_round_allocation_size(requested_bytes,
++						    &arena_bytes, NULL);
++		if (ret)
++			break;
++		ret = aipu_mm_create_iova_arena_no_lock(mm, owner,
++							buf_req->exec_id,
++							buf_req->asid,
++							arena_bytes, alignment,
++							&arena);
++		if (ret)
++			break;
++		if (buf_req->alloc_mode == AIPU_DMA_BUF_MALLOC_BOTH) {
++			ret = aipu_mm_map_iova_arena_no_lock(mm, arena,
++							     buf_req, owner);
++			if (ret) {
++				aipu_mm_release_iova_arena_no_lock(mm, arena);
++				break;
++			}
++		} else {
++			memset(&buf_req->desc, 0, sizeof(buf_req->desc));
++			buf_req->desc.pa = arena->start;
++			buf_req->desc.dev_offset = arena->start;
++			buf_req->desc.bytes = arena->bytes;
++			buf_req->desc.exec_id = arena->exec_id;
++			buf_req->desc.region = AIPU_BUF_REGION_DEFAULT;
++			buf_req->desc.asid = arena->asid;
++		}
++		break;
+ 
+-		reg = obj->reg;
+-
+-		list_add(&obj->list, &mm->mem.head->list);
+-		add_region_list(mm, asid_idx, reg);
+-		asid_idx++;
+-		region_idx++;
+-	} while (region_idx < iova_region);
++	case AIPU_DMA_BUF_MALLOC_PHY:
++		if (!buf_req->exec_id || buf_req->reserve_iova_size) {
++			ret = -EINVAL;
++			break;
++		}
++		arena = aipu_mm_find_iova_arena_no_lock(mm, owner,
++							buf_req->exec_id);
++		if (!arena || arena->asid != buf_req->asid) {
++			ret = arena ? -EINVAL : -ENOENT;
++			break;
++		}
++		ret = aipu_mm_map_iova_arena_no_lock(mm, arena, buf_req,
++						     owner);
++		break;
+ 
+-FINISH:
+-	return region_idx;
++	default:
++		ret = -EOPNOTSUPP;
++		break;
++	}
++	mutex_unlock(&mm->lock);
++	return ret;
+ }
+ 
+ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+@@ -1448,6 +1793,7 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	INIT_LIST_HEAD(&mm->importer_bufs->node);
+ 	spin_lock_init(&mm->slock);
+ 	spin_lock_init(&mm->shlock);
++	INIT_LIST_HEAD(&mm->iova_arenas);
+ 	mm->default_asid_base = 0;
+ 	mm->default_asid_size = 0xC0000000;
+ 	mm->valid_asid_cnt = 0;
+@@ -1542,25 +1888,31 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	 *
+ 	 * KMD can accept multiple DRAM regions and/or multiple SRAM regions;
+ 	 */
+-	if (mm->has_iommu && has_acpi_companion(mm->dev) &&
+-	    !aipu_acpi_prealloc_iova_regions) {
++	if (mm->has_iommu && aipu_acpi_prealloc_iova_regions) {
++		ret = aipu_mm_init_iova_pools(mm);
++		if (ret) {
++			dev_warn(mm->dev,
++				 "DMA-owned V3 ASID arenas unavailable (%d); using the safe single-ASID path\n",
++				 ret);
++			ret = 0;
++		}
++		mm->res_cnt = 0;
++	} else if (mm->has_iommu) {
+ 		aipu_mm_set_safe_dma_api_range(mm);
+ 		mm->res_cnt = 0;
+-		dev_dbg(mm->dev, "using DMA API allocation path on ACPI\n");
++		dev_dbg(mm->dev, "using DMA API allocation path\n");
+ 	} else if (!mm->has_iommu) {
+ 		mm->res_cnt = aipu_mm_add_reserved_regions(mm);
+-	} else {
+-		mm->res_cnt = aipu_mm_add_iova_region(mm);
+ 	}
+ 
+ 	if (mm->res_cnt)
+ 		aipu_mm_set_asid_base(mm);
+ 
+-	dev_info(mm->dev, "memory mode: %s, %s on %s; preallocated IOVA %s\n",
++	dev_info(mm->dev, "memory mode: %s, %s on %s; V3 ASID arenas %s\n",
+ 		 mm->has_iommu ? "IOMMU" : "direct DMA",
+-		 mm->res_cnt ? "driver-internal IOVA allocation" : "DMA API allocations",
++		 mm->res_cnt ? "reserved-memory allocation" : "DMA API allocations",
+ 		 has_acpi_companion(mm->dev) ? "ACPI" : "DT",
+-		 mm->res_cnt ? "enabled" : "disabled");
++		 mm->iova_arenas_ready ? "enabled" : "disabled");
+ finish:
+ 	if (ret)
+ 		aipu_deinit_mm(mm);
+@@ -1595,6 +1947,8 @@ static void aipu_mm_release_sram_disables_no_lock(struct aipu_memory_manager *mm
+ int aipu_deinit_mm(struct aipu_memory_manager *mm)
+ {
+ 	int id = AIPU_BUF_ASID_0;
++	struct aipu_iova_arena *arena;
++	struct aipu_iova_arena *arena_next;
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	struct aipu_mem_region_obj *next = NULL;
+ 
+@@ -1637,8 +1991,10 @@ int aipu_deinit_mm(struct aipu_memory_manager *mm)
+ 		}
+ 	}
+ 
+-	if (mm->has_iommu)
+-		aipu_mm_reserved_iova_for_never_map(mm, IOVA_FREE);
++	list_for_each_entry_safe(arena, arena_next, &mm->iova_arenas, node)
++		aipu_mm_release_iova_arena_no_lock(mm, arena);
++	if (mm->iova_arenas_ready)
++		aipu_mm_destroy_iova_pools(mm);
+ 	mm->res_cnt = 0;
+ 	if (mm->obj_cache)
+ 		kmem_cache_destroy(mm->obj_cache);
+@@ -1767,6 +2123,8 @@ int aipu_mm_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_r
+ 
+ 	if (mm->gm_policy == AIPU_GM_POLICY_NONE && type == AIPU_MEM_REGION_TYPE_GM)
+ 		type = AIPU_MEM_REGION_TYPE_SRAM;
++	if (mm->iova_arenas_ready && type == AIPU_MEM_REGION_TYPE_MEMORY)
++		return aipu_mm_alloc_from_iova_pools(mm, buf_req, owner);
+ 
+ 	/* Support the smmu dynamic weight buffer allocation. */
+ 	if ((mm->has_iommu && type == AIPU_MEM_REGION_TYPE_MEMORY &&
+@@ -1851,6 +2209,7 @@ int aipu_mm_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_r
+ static int aipu_mm_direct_free(struct aipu_memory_manager *mm, struct aipu_mem_region *reg,
+ 			       bool unlock)
+ {
++	struct aipu_iova_arena *arena;
+ 	struct aipu_tcb_buf *tbuf = NULL;
+ 	u64 iova = 0;
+ 
+@@ -1872,12 +2231,60 @@ static int aipu_mm_direct_free(struct aipu_memory_manager *mm, struct aipu_mem_r
+ 		return DEFERRED_FREE;
+ 
+ 	/* do free */
++	arena = reg->arena;
+ 	aipu_mm_destroy_region_object(mm, reg->obj);
++	if (arena && !arena->exec_id && !arena->mapping_count)
++		aipu_mm_release_iova_arena_no_lock(mm, arena);
+ 
+ 	dev_dbg(mm->dev, "direct free done: iova 0x%llx\n", iova);
+ 	return 0;
+ }
+ 
++static int aipu_mm_destroy_iova_arena_no_lock(struct aipu_memory_manager *mm,
++					      struct aipu_iova_arena *arena)
++{
++	struct aipu_mem_region_obj *obj;
++	struct aipu_mem_region_obj *next;
++	struct aipu_tcb_buf *tbuf;
++
++	if (!arena)
++		return -EINVAL;
++	list_for_each_entry(obj, &mm->mem.head->list, list) {
++		if (obj->reg->arena != arena)
++			continue;
++		if (atomic_read(&obj->reg->map_count))
++			return -EBUSY;
++		tbuf = aipu_mm_find_tbuf_in_region_no_lock(mm, obj->reg,
++							   obj->reg->base_iova);
++		if (aipu_mm_tbuf_busy(mm, tbuf))
++			return -EBUSY;
++	}
++
++	list_for_each_entry_safe(obj, next, &mm->mem.head->list, list) {
++		if (obj->reg->arena == arena)
++			aipu_mm_direct_free(mm, obj->reg, true);
++	}
++	if (WARN_ON(arena->mapping_count))
++		return -EIO;
++	aipu_mm_release_iova_arena_no_lock(mm, arena);
++	return 0;
++}
++
++static int aipu_mm_free_arena_block_no_lock(struct aipu_memory_manager *mm,
++					    struct aipu_file_ctx *owner,
++					    u64 pa)
++{
++	struct aipu_mem_region *reg;
++
++	reg = aipu_mm_find_region_no_lock(mm, pa, "free arena block");
++	if (!reg || reg->mapping_kind != AIPU_MAPPING_IOVA_ARENA ||
++	    reg->base_iova != pa)
++		return -EINVAL;
++	if (owner && reg->owner != owner)
++		return -EPERM;
++	return aipu_mm_direct_free(mm, reg, true);
++}
++
+ /* Free an allocation after validating its stable per-open owner. */
+ static int aipu_mm_free_owner(struct aipu_memory_manager *mm,
+ 			      struct aipu_buf_desc *buf,
+@@ -1989,6 +2396,30 @@ static void tensor_flush_dcache_range(void *start, void *end)
+ 	__asm__ volatile("dsb sy" : : : "memory");
+ }
+ 
++static void aipu_mm_sync_arena_region(struct aipu_mem_region *reg,
++				      u64 offset, u64 bytes, bool for_cpu)
++{
++	u64 end = offset + bytes;
++	unsigned long first = offset >> PAGE_SHIFT;
++	unsigned long last = (end - 1) >> PAGE_SHIFT;
++	unsigned long page;
++
++	for (page = first; page <= last; page++) {
++		u64 page_start = (u64)page << PAGE_SHIFT;
++		u64 start = max(offset, page_start);
++		u64 limit = min(end, page_start + PAGE_SIZE);
++		dma_addr_t iova = reg->base_iova + start;
++
++		if (for_cpu)
++			dma_sync_single_for_cpu(reg->dev, iova, limit - start,
++						DMA_BIDIRECTIONAL);
++		else
++			dma_sync_single_for_device(reg->dev, iova,
++						   limit - start,
++						   DMA_BIDIRECTIONAL);
++	}
++}
++
+ /**
+  * aipu_mm_cache_flush - flush a buffer allocated by aipu_mm_alloc()
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+@@ -2020,7 +2451,9 @@ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *bu
+ 		goto unlock;
+ 
+ 	offset = buf->pa - reg->base_iova;
+-	if (reg->dma_sgt)
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
++		aipu_mm_sync_arena_region(reg, offset, buf->bytes, false);
++	else if (reg->dma_sgt)
+ 		dma_sync_sgtable_for_device(reg->dev, reg->dma_sgt,
+ 					    DMA_BIDIRECTIONAL);
+ 	else if (mm->has_iommu)
+@@ -2063,7 +2496,9 @@ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *
+ 		goto unlock;
+ 
+ 	offset = buf->pa - reg->base_iova;
+-	if (reg->dma_sgt)
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
++		aipu_mm_sync_arena_region(reg, offset, buf->bytes, true);
++	else if (reg->dma_sgt)
+ 		dma_sync_sgtable_for_cpu(reg->dev, reg->dma_sgt,
+ 					 DMA_BIDIRECTIONAL);
+ 	else if (mm->has_iommu)
+@@ -2078,6 +2513,8 @@ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *
+ static void aipu_mm_free_owner_buffers(struct aipu_memory_manager *mm,
+ 				       struct aipu_file_ctx *owner)
+ {
++	struct aipu_iova_arena *arena;
++	struct aipu_iova_arena *arena_next;
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	struct aipu_mem_region_obj *next = NULL;
+ 
+@@ -2095,6 +2532,10 @@ static void aipu_mm_free_owner_buffers(struct aipu_memory_manager *mm,
+ 		if (obj->reg->reserved)
+ 			aipu_mm_free_filp_in_region_no_lock(mm, obj->reg, owner);
+ 	}
++	list_for_each_entry_safe(arena, arena_next, &mm->iova_arenas, node) {
++		if (arena->owner == owner && !arena->mapping_count)
++			aipu_mm_release_iova_arena_no_lock(mm, arena);
++	}
+ 	mutex_unlock(&mm->lock);
+ }
+ 
+@@ -2211,7 +2652,11 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+ 	vma->vm_pgoff = (iova - reg->base_iova) >> PAGE_SHIFT;
+-	if (reg->dma_sgt)
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
++		ret = remap_vmalloc_range_partial(vma, vma->vm_start,
++						  reg->base_va, vma->vm_pgoff,
++						  map_size);
++	else if (reg->dma_sgt)
+ 		ret = dma_mmap_noncontiguous(reg->dev, vma, reg->bytes,
+ 					     reg->dma_sgt);
+ 	else
+@@ -2271,7 +2716,11 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+ 	vma->vm_pgoff = (dev_pa - reg->base_iova) >> PAGE_SHIFT;
+-	if (reg->dma_sgt)
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
++		ret = remap_vmalloc_range_partial(vma, vma->vm_start,
++						  reg->base_va, vma->vm_pgoff,
++						  map_size);
++	else if (reg->dma_sgt)
+ 		ret = dma_mmap_noncontiguous(reg->dev, vma, reg->bytes,
+ 					     reg->dma_sgt);
+ 	else
+@@ -2284,6 +2733,36 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 	return ret;
+ }
+ 
++int aipu_mm_get_export_sgtable(struct aipu_memory_manager *mm, u64 dev_pa,
++			       u64 bytes, struct sg_table *sgt)
++{
++	struct aipu_mem_region *reg;
++	int ret;
++
++	if (!mm || !bytes || !sgt)
++		return -EINVAL;
++
++	mutex_lock(&mm->lock);
++	reg = aipu_mm_find_region_no_lock(mm, dev_pa, "export sgtable");
++	if (!reg) {
++		ret = -EINVAL;
++		goto unlock;
++	}
++	ret = aipu_mm_validate_export_allocation(reg, dev_pa, bytes);
++	if (ret)
++		goto unlock;
++	if (reg->mapping_kind != AIPU_MAPPING_IOVA_ARENA) {
++		ret = -EOPNOTSUPP;
++		goto unlock;
++	}
++	ret = sg_alloc_table_from_pages(sgt, reg->phys_pages,
++					reg->phys_page_count, 0, reg->bytes,
++					GFP_KERNEL);
++unlock:
++	mutex_unlock(&mm->lock);
++	return ret;
++}
++
+ /**
+  * aipu_mm_disable_sram_allocation - disable buffer allocations from soc sram
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+@@ -2701,6 +3180,8 @@ u64 aipu_mm_get_asid_base(struct aipu_memory_manager *mm, u32 asid)
+ 	if (!mm || asid >= ZHOUYI_ASID_COUNT)
+ 		return 0;
+ 
++	if (mm->iova_arenas_ready)
++		return mm->iova_pools[asid].state.addr;
+ 	if (mm->res_cnt)
+ 		return mm->ase[asid].base;
+ 
+@@ -2712,6 +3193,8 @@ u64 aipu_mm_get_asid_size(struct aipu_memory_manager *mm, u32 asid)
+ 	if (!mm || asid >= ZHOUYI_ASID_COUNT)
+ 		return 0;
+ 
++	if (mm->iova_arenas_ready)
++		return dma_iova_size(&mm->iova_pools[asid].state);
+ 	if (mm->res_cnt)
+ 		return mm->ase[asid].range;
+ 
+@@ -2806,6 +3289,12 @@ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm,
+ {
+ 	if (!mm || !buf_req)
+ 		return -EINVAL;
++	if (mm->iova_arenas_ready) {
++		if (buf_req->alloc_mode > AIPU_DMA_BUF_MALLOC_BOTH)
++			return -EOPNOTSUPP;
++		return aipu_mm_alloc_from_iova_pools(mm, buf_req,
++						 aipu_file_ctx(filp));
++	}
+ 	if (buf_req->alloc_mode != AIPU_DMA_BUF_MALLOC_DEFAULT ||
+ 	    buf_req->exec_id || buf_req->reserve_iova_size)
+ 		return -EOPNOTSUPP;
+@@ -2816,10 +3305,188 @@ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm,
+ int aipu_free_dma_iova_phy(struct aipu_memory_manager *mm,
+ 			   struct aipu_buf_desc *desc, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
++	struct aipu_iova_arena *arena;
++	int ret;
++
+ 	if (!mm || !desc)
+ 		return -EINVAL;
+-	if (desc->mode != AIPU_DMA_BUF_FREE_DEFAULT || desc->exec_id)
+-		return -EOPNOTSUPP;
++	if (!mm->iova_arenas_ready) {
++		if (desc->mode != AIPU_DMA_BUF_FREE_DEFAULT || desc->exec_id)
++			return -EOPNOTSUPP;
++		return aipu_mm_free(mm, desc, filp, true);
++	}
++	if (!desc->exec_id)
++		return aipu_mm_free(mm, desc, filp, true);
++
++	mutex_lock(&mm->lock);
++	arena = aipu_mm_find_iova_arena_no_lock(mm, owner, desc->exec_id);
++	if (!arena)
++		ret = -ENOENT;
++	else if (desc->pa < arena->start ||
++		 desc->pa - arena->start >= arena->bytes)
++		ret = -EINVAL;
++	else
++		ret = aipu_mm_destroy_iova_arena_no_lock(mm, arena);
++	mutex_unlock(&mm->lock);
++	return ret;
++}
++
++int aipu_rollback_dma_iova_phy(struct aipu_memory_manager *mm,
++			       struct aipu_buf_desc *desc, u8 alloc_mode,
++			       struct file *filp)
++{
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
++	struct aipu_iova_arena *arena;
++	int ret;
++
++	if (!mm || !desc)
++		return -EINVAL;
++	if (!mm->iova_arenas_ready || alloc_mode == AIPU_DMA_BUF_MALLOC_DEFAULT)
++		return aipu_mm_free(mm, desc, filp, true);
++
++	mutex_lock(&mm->lock);
++	arena = aipu_mm_find_iova_arena_no_lock(mm, owner, desc->exec_id);
++	if (!arena)
++		ret = -ENOENT;
++	else if (alloc_mode == AIPU_DMA_BUF_MALLOC_PHY)
++		ret = aipu_mm_free_arena_block_no_lock(mm, owner, desc->pa);
++	else
++		ret = aipu_mm_destroy_iova_arena_no_lock(mm, arena);
++	mutex_unlock(&mm->lock);
++	return ret;
++}
++
++int aipu_prepare_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
++				     struct aipu_rebind_buf_desc *desc,
++				     struct file *filp,
++				     struct aipu_rebind_transaction **result)
++{
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
++	struct aipu_rebind_transaction *txn;
++	struct aipu_iova_pool *pool;
++	struct aipu_mem_region *reg;
++	struct aipu_tcb_buf *tbuf;
++	struct genpool_data_align data = { .align = PAGE_SIZE };
++	unsigned long iova;
++	unsigned long page;
++	int ret = 0;
++
++	if (!mm || !desc || !owner || !result || !desc->exec_id ||
++	    !mm->iova_arenas_ready)
++		return -EINVAL;
++	txn = kzalloc_obj(*txn, GFP_KERNEL);
++	if (!txn)
++		return -ENOMEM;
++
++	mutex_lock(&mm->lock);
++	reg = aipu_mm_find_region_no_lock(mm, desc->pa_unmap, "rebind source");
++	if (!reg || reg->mapping_kind != AIPU_MAPPING_IOVA_ARENA ||
++	    reg->base_iova != desc->pa_unmap || reg->owner != owner) {
++		ret = reg && reg->owner != owner ? -EPERM : -EINVAL;
++		goto unlock;
++	}
++	txn->destination = aipu_mm_find_iova_arena_no_lock(mm, owner,
++							   desc->exec_id);
++	if (!txn->destination) {
++		ret = -ENOENT;
++		goto unlock;
++	}
++	if (txn->destination == reg->arena || atomic_read(&reg->map_count)) {
++		ret = -EBUSY;
++		goto unlock;
++	}
++	tbuf = aipu_mm_find_tbuf_in_region_no_lock(mm, reg, reg->base_iova);
++	if (tbuf) {
++		ret = -EOPNOTSUPP;
++		goto unlock;
++	}
+ 
+-	return aipu_mm_free(mm, desc, filp, true);
++	iova = gen_pool_alloc_algo(txn->destination->allocator, reg->bytes,
++				   gen_pool_first_fit_align, &data);
++	if (!iova) {
++		ret = -ENOSPC;
++		goto unlock;
++	}
++	txn->reg = reg;
++	txn->source = reg->arena;
++	txn->new_iova = iova;
++	pool = &mm->iova_pools[txn->destination->asid];
++	txn->new_offset = iova - pool->state.addr;
++	for (page = 0; page < reg->phys_page_count; page++) {
++		ret = dma_iova_link(mm->dev, &pool->state,
++				    page_to_phys(reg->phys_pages[page]),
++				    txn->new_offset + (page << PAGE_SHIFT),
++				    PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
++		if (ret)
++			goto unmap;
++		txn->linked_pages++;
++	}
++	ret = dma_iova_sync(mm->dev, &pool->state, txn->new_offset,
++			    reg->bytes);
++	if (ret)
++		goto unmap;
++
++	desc->pa = txn->new_iova;
++	*result = txn;
++	mutex_unlock(&mm->lock);
++	return 0;
++
++unmap:
++	if (txn->linked_pages)
++		dma_iova_unlink(mm->dev, &pool->state, txn->new_offset,
++				txn->linked_pages << PAGE_SHIFT,
++				DMA_BIDIRECTIONAL, 0);
++	gen_pool_free(txn->destination->allocator, txn->new_iova,
++		      reg->bytes);
++unlock:
++	mutex_unlock(&mm->lock);
++	kfree(txn);
++	return ret;
++}
++
++void aipu_finish_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
++				     struct aipu_rebind_transaction *txn,
++				     bool commit)
++{
++	struct aipu_iova_pool *pool;
++	struct aipu_mem_region *reg;
++
++	if (!mm || !txn)
++		return;
++	mutex_lock(&mm->lock);
++	reg = txn->reg;
++	if (!commit) {
++		pool = &mm->iova_pools[txn->destination->asid];
++		dma_iova_unlink(mm->dev, &pool->state, txn->new_offset,
++				txn->linked_pages << PAGE_SHIFT,
++				DMA_BIDIRECTIONAL, 0);
++		gen_pool_free(txn->destination->allocator, txn->new_iova,
++			      reg->bytes);
++		goto unlock;
++	}
++
++	pool = &mm->iova_pools[txn->source->asid];
++	dma_iova_unlink(mm->dev, &pool->state, reg->arena_offset,
++			reg->linked_page_count << PAGE_SHIFT,
++			DMA_BIDIRECTIONAL, 0);
++	gen_pool_free(txn->source->allocator, reg->base_iova, reg->bytes);
++	WARN_ON(txn->source->mapped_bytes < reg->bytes);
++	if (txn->source->mapped_bytes >= reg->bytes)
++		txn->source->mapped_bytes -= reg->bytes;
++	WARN_ON(!txn->source->mapping_count);
++	if (txn->source->mapping_count)
++		txn->source->mapping_count--;
++
++	txn->destination->mapped_bytes += reg->bytes;
++	txn->destination->mapping_count++;
++	reg->arena = txn->destination;
++	reg->arena_offset = txn->new_offset;
++	reg->base_iova = txn->new_iova;
++	reg->base_pa = txn->new_iova;
++	if (!txn->source->exec_id && !txn->source->mapping_count)
++		aipu_mm_release_iova_arena_no_lock(mm, txn->source);
++unlock:
++	mutex_unlock(&mm->lock);
++	kfree(txn);
+ }
+diff --git a/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
+--- a/drivers/misc/armchina-npu/aipu_mm.h
++++ b/drivers/misc/armchina-npu/aipu_mm.h
+@@ -6,6 +6,8 @@
+ 
+ #include <linux/platform_device.h>
+ #include <linux/atomic.h>
++#include <linux/dma-mapping.h>
++#include <linux/genalloc.h>
+ #include <linux/list.h>
+ #include <linux/mutex.h>
+ #include <linux/spinlock.h>
+@@ -45,6 +47,30 @@ enum aipu_mem_hold_tcb_status {
+ struct aipu_mem_region_obj;
+ struct aipu_job;
+ struct aipu_file_ctx;
++struct aipu_rebind_transaction;
++
++enum aipu_mapping_kind {
++	AIPU_MAPPING_DMA_API,
++	AIPU_MAPPING_IOVA_ARENA,
++};
++
++struct aipu_iova_pool {
++	struct dma_iova_state state;
++	struct gen_pool *allocator;
++};
++
++struct aipu_iova_arena {
++	struct list_head node;
++	struct aipu_file_ctx *owner;
++	u64 exec_id;
++	dma_addr_t start;
++	u64 bytes;
++	u64 mapped_bytes;
++	unsigned int mapping_count;
++	u8 asid;
++	struct gen_pool *allocator;
++};
++
+ struct aipu_hold_tcb_buf {
+ 	u64 head;
+ 	int status;
+@@ -146,6 +172,11 @@ struct aipu_virt_page {
+  * @locked: is this region locked (therefore cannot be released) or not
+  * @map_count: number of VMAs mapping this direct allocation
+  * @dma_sgt: page-backed DMA allocation, when used instead of coherent DMA
++ * @mapping_kind: DMA API or explicit dma_iova arena mapping
++ * @arena: arena containing an explicit IOVA mapping
++ * @arena_offset: offset of this mapping in the pool's dma_iova_state
++ * @phys_pages: pages linked into an explicit IOVA mapping
++ * @phys_page_count: number of pages in phys_pages
+  */
+ struct aipu_mem_region {
+ 	enum aipu_mem_region_type type;
+@@ -168,6 +199,12 @@ struct aipu_mem_region {
+ 	bool locked;
+ 	atomic_t map_count;
+ 	struct sg_table *dma_sgt;
++	enum aipu_mapping_kind mapping_kind;
++	struct aipu_iova_arena *arena;
++	size_t arena_offset;
++	struct page **phys_pages;
++	unsigned long phys_page_count;
++	unsigned long linked_page_count;
+ };
+ 
+ /**
+@@ -233,6 +270,9 @@ struct aipu_sram_disable_per_fd {
+  * @reg_cache: slab cache of the regions
+  * @tbuf_cache: slab cache of the tcb descriptors
+  * @importer_bufs: buffers from dma-buf importer(s)
++ * @iova_pools: DMA-API-owned per-ASID IOVA reservations
++ * @iova_arenas: per-open execution arenas suballocated from iova_pools
++ * @iova_arenas_ready: all four IOVA pools were reserved successfully
+  */
+ struct aipu_memory_manager {
+ 	int version;
+@@ -262,6 +302,9 @@ struct aipu_memory_manager {
+ 	struct aipu_hold_tcb_buf *hold_tcb_head;
+ 	u64 dma_mask;
+ 	struct iommu_domain *iommu_domain;
++	struct aipu_iova_pool iova_pools[ZHOUYI_ASID_COUNT];
++	struct list_head iova_arenas;
++	bool iova_arenas_ready;
+ };
+ 
+ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev, int version);
+@@ -282,6 +325,8 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 			      struct vm_area_struct *vma, u64 dev_pa,
+ 			      u64 bytes);
++int aipu_mm_get_export_sgtable(struct aipu_memory_manager *mm, u64 dev_pa,
++			       u64 bytes, struct sg_table *sgt);
+ int aipu_mm_disable_sram_allocation(struct aipu_memory_manager *mm, struct file *filp);
+ int aipu_mm_enable_sram_allocation(struct aipu_memory_manager *mm, struct file *filp);
+ void aipu_mm_get_asid(struct aipu_memory_manager *mm, struct aipu_cap *cap);
+@@ -314,4 +359,14 @@ void aipu_mm_set_final_htbuf_index(struct aipu_memory_manager *mm, int index);
+ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_req,
+ 		  struct file *filp);
+ int aipu_free_dma_iova_phy(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf, struct file *filp);
++int aipu_rollback_dma_iova_phy(struct aipu_memory_manager *mm,
++			       struct aipu_buf_desc *buf, u8 alloc_mode,
++			       struct file *filp);
++int aipu_prepare_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
++				     struct aipu_rebind_buf_desc *desc,
++				     struct file *filp,
++				     struct aipu_rebind_transaction **txn);
++void aipu_finish_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
++				     struct aipu_rebind_transaction *txn,
++				     bool commit);
+ #endif /* __AIPU_MM_H__ */

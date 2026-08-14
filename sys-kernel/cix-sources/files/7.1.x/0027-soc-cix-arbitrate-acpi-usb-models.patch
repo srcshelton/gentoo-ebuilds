@@ -1,0 +1,149 @@
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -47,3 +47,17 @@ config CIX_HIFI5_FIRMWARE_SOF
+ 	  the CIX SOF firmware and codec-free topology installed.
+ 
+ endchoice
++
++config CIX_ACPI_USB_SCAN
++	bool
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI
++	default ARCH_CIX
++	help
++	  Internal ACPI arbitration helper for vendor firmware that exposes
++	  both generic upstream PNP0D10 and vendor CIXH2030-CIXH2034 USB
++	  devices for the same Sky1 controller. When both models are present,
++	  the arbiter prefers the generic upstream PNP0D10 path and suppresses
++	  the overlapping vendor USB devices. With firmware that exposes only
++	  one model, the helper either stands down or allows the vendor-only
++	  devices to enumerate unchanged.
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -1,3 +1,4 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_HIFI5_COMMON)		+= cix-hifi5.o
++obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
+diff --git a/drivers/soc/cix/cix-acpi-usb-scan.c b/drivers/soc/cix/cix-acpi-usb-scan.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-acpi-usb-scan.c
+@@ -0,0 +1,115 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ACPI scan handler to arbitrate between generic and vendor USB models on
++ * CIX Sky1.
++ *
++ * Vendor Sky1 firmware exposes both generic upstream PNP0D10 (xHCI) and
++ * CIXH2030-CIXH2034 (vendor USB wrapper/controller/PHY companions) for the
++ * same hardware. Custom firmware may expose only one model. When both models
++ * are present, prefer the generic path and suppress the overlapping vendor
++ * USB devices. When only the vendor model is present, allow those vendor
++ * devices to enumerate unchanged.
++ */
++
++#ifdef CONFIG_ACPI
++
++#include <linux/acpi.h>
++#include <linux/init.h>
++#include <linux/string.h>
++
++static acpi_status sky1_usb_match_handle(acpi_handle handle, u32 level,
++					 void *context, void **ret)
++{
++	unsigned long long sta;
++	bool *present = context;
++
++	if (ACPI_FAILURE(acpi_bus_get_status_handle(handle, &sta)))
++		return AE_OK;
++
++	if (!(sta & (ACPI_STA_DEVICE_PRESENT | ACPI_STA_DEVICE_FUNCTIONING)))
++		return AE_OK;
++
++	*present = true;
++	return AE_CTRL_TERMINATE;
++}
++
++static bool sky1_usb_acpi_id_present(const char *hid)
++{
++	bool present = false;
++
++	acpi_get_devices(hid, sky1_usb_match_handle, &present, NULL);
++
++	return present;
++}
++
++static bool sky1_usb_vendor_present(void)
++{
++	return sky1_usb_acpi_id_present("CIXH2030") ||
++	       sky1_usb_acpi_id_present("CIXH2031") ||
++	       sky1_usb_acpi_id_present("CIXH2032") ||
++	       sky1_usb_acpi_id_present("CIXH2033") ||
++	       sky1_usb_acpi_id_present("CIXH2034");
++}
++
++static bool sky1_usb_id_is_non_overlapping_companion(const char *hid)
++{
++	return !strcmp(hid, "CIXH2033");
++}
++
++static int sky1_usb_scan_attach(struct acpi_device *adev,
++				const struct acpi_device_id *id)
++{
++	if (!strcmp(id->id, "PNP0D10")) {
++		if (!sky1_usb_vendor_present())
++			return 0;
++
++		dev_dbg(&adev->dev,
++			"Sky1 USB: keeping PNP0D10, suppressing vendor USB model instead\n");
++		return 0;
++	}
++
++	if (sky1_usb_id_is_non_overlapping_companion(id->id)) {
++		dev_dbg(&adev->dev,
++			"Sky1 USB: keeping %s companion alongside PNP0D10\n",
++			id->id);
++		return 0;
++	}
++
++	if (sky1_usb_acpi_id_present("PNP0D10")) {
++		dev_dbg(&adev->dev,
++			"Sky1 USB: suppressing %s because PNP0D10 is present\n",
++			id->id);
++		return 1;
++	}
++
++	return 0;
++}
++
++static const struct acpi_device_id sky1_usb_scan_ids[] = {
++	{ "PNP0D10", 0 },
++	{ "CIXH2030", 0 },
++	{ "CIXH2031", 0 },
++	{ "CIXH2032", 0 },
++	{ "CIXH2033", 0 },
++	{ "CIXH2034", 0 },
++	{ },
++};
++
++static struct acpi_scan_handler sky1_usb_scan_handler = {
++	.ids = sky1_usb_scan_ids,
++	.attach = sky1_usb_scan_attach,
++};
++
++static int __init sky1_usb_acpi_init(void)
++{
++	if (acpi_disabled)
++		return 0;
++
++	pr_info("Sky1 USB: registering ACPI USB arbitration handler\n");
++	return acpi_scan_add_handler(&sky1_usb_scan_handler);
++}
++
++/* Must run before subsys_initcall(acpi_init) which creates platform devices */
++arch_initcall(sky1_usb_acpi_init);
++
++#endif /* CONFIG_ACPI */

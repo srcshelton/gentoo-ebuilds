@@ -9,7 +9,6 @@ unhidden accidentally.
 Also leave devices alone when firmware already reports a nonzero _STA so the
 compatibility shim self-disables on fixed firmware.
 
----
 diff --git a/drivers/acpi/sta_quirk.c b/drivers/acpi/sta_quirk.c
 --- a/drivers/acpi/sta_quirk.c
 +++ b/drivers/acpi/sta_quirk.c

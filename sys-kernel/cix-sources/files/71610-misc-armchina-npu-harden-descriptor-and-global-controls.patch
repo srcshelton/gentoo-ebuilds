@@ -1,0 +1,642 @@
+Harden the CIX Sky1 NPU descriptor envelope and global controls.
+
+Validate the documented V3 head/first/last TCB types after pinning the
+submitting file's allocation.  Keep destructive controls privileged and
+account tick-counter requests per open file.  Reject the timeout-job ioctl
+on V3, where the public ABI defines it as unsupported, and refuse a
+file-local close abort while the shared command pool contains another
+file's work.  Restore the R2P0 ABI's V3 debug-dispatch operation with
+validated flags and core selection, an isolated idle command pool, and
+complete pool-state rollback when hardware reservation fails.
+
+The public descriptor schema does not define every nested payload pointer.
+Mapped TCBs remain writable after submission.  This change therefore does
+not claim complete validation of a hostile userspace descriptor graph.
+
+Provenance: overlay-created from the audited Arm China R2P0 and R2P1
+sources.
+
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu.c b/drivers/misc/armchina-npu-r2p0/aipu.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu.c
+@@ -103,6 +103,7 @@ static int aipu_release(struct inode *inode, struct file *filp)
+ 		aipu_priv_put(aipu);
+ 		return 0;
+ 	}
++	aipu_job_manager_clear_tick_counter(&aipu->job_manager);
+ 	aipu_detach_dma_bufs(&aipu->mm, filp);
+ 	aipu_mm_free_buffers(&aipu->mm, filp);
+ 
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+@@ -245,12 +245,18 @@ static void delete_job_queue(struct aipu_job_manager *manager, struct aipu_job *
+ 
+ inline bool is_job_version_match(struct aipu_partition *core, struct aipu_job_desc *user_job)
+ {
+-	if (core->arch == user_job->aipu_arch && user_job->version_compatible)
++	if (core->arch != user_job->aipu_arch)
++		return false;
++
++	if (user_job->version_compatible)
+ 		return true;
+ 
+-	return (core->arch == user_job->aipu_arch) &&
+-		(core->version == user_job->aipu_version) &&
+-		(core->config == user_job->aipu_config);
++	if (core->version != user_job->aipu_version)
++		return false;
++
++	/* The configuration number is defined only for Zhouyi v1/v2 jobs. */
++	return core->version >= AIPU_ISA_VERSION_ZHOUYI_V3 ||
++		core->config == user_job->aipu_config;
+ }
+ 
+ inline bool is_job_ok_for_core(struct aipu_partition *core, struct aipu_job_desc *user_job)
+@@ -272,8 +278,12 @@ inline bool is_job_ok_for_core(struct aipu_partition *core, struct aipu_job_desc
+ 
+ static bool is_user_job_valid(struct aipu_job_manager *manager, struct aipu_job_desc *user_job)
+ {
+-	int partition_id = user_job->partition_id;
+-	int core_id = user_job->core_id;
++	const u32 v3_exec_mask = AIPU_JOB_EXEC_FLAG_SRAM_MUTEX |
++		AIPU_JOB_EXEC_FLAG_QOS_SLOW | AIPU_JOB_EXEC_FLAG_QOS_FAST |
++		AIPU_JOB_EXEC_FLAG_SINGLE_GROUP | AIPU_JOB_EXEC_FLAG_MULTI_GROUP |
++		AIPU_JOB_EXEC_FLAG_DBG_DISPATCH | AIPU_JOB_EXEC_FLAG_SEG_MMU;
++	u32 partition_id = user_job->partition_id;
++	u32 core_id = user_job->core_id;
+ 	int core_cnt = 0;
+ 	struct aipu_partition *partition = NULL;
+ 	struct aipu_partition *core = NULL;
+@@ -292,17 +302,31 @@ static bool is_user_job_valid(struct aipu_job_manager *manager, struct aipu_job_
+ 	/* for v3: partition->clusters->cores arch */
+ 	if (user_job->aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+ 		if (manager->version != AIPU_ISA_VERSION_ZHOUYI_V3 ||
+-		    partition_id >= manager->partition_cnt) {
+-			dev_err(manager->dev, "invalid version number (%d) or partition ID (%d)",
++		    partition_id >= (u32)manager->partition_cnt) {
++			dev_err(manager->dev, "invalid version number (%d) or partition ID (%u)",
+ 				user_job->aipu_version, partition_id);
+ 			return false;
+ 		}
++		if (user_job->version_compatible || user_job->exec_flag & ~v3_exec_mask ||
++		    (user_job->exec_flag & AIPU_JOB_EXEC_FLAG_QOS_SLOW &&
++		     user_job->exec_flag & AIPU_JOB_EXEC_FLAG_QOS_FAST) ||
++		    (user_job->exec_flag & AIPU_JOB_EXEC_FLAG_SINGLE_GROUP &&
++		     user_job->exec_flag & AIPU_JOB_EXEC_FLAG_MULTI_GROUP)) {
++			dev_err(manager->dev,
++				"invalid v3 execution flags or compatibility mode\n");
++			return false;
++		}
+ 
++		partition = &manager->partitions[partition_id];
++		if (!is_job_ok_for_core(partition, user_job))
++			return false;
+ 		if (user_job->exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH) {
+-			partition = &manager->partitions[partition_id];
++			if (partition->cluster_cnt != 1)
++				return false;
+ 			core_cnt = atomic_read(&partition->clusters[0].en_core_cnt);
+-			if (core_id >= core_cnt) {
+-				dev_err(partition->dev, "invalid core ID (%d) >= enabled core count (%d)",
++			if (core_cnt <= 0 || core_id >= (u32)core_cnt) {
++				dev_err(partition->dev,
++					"invalid core ID (%u) >= enabled core count (%d)",
+ 					core_id, core_cnt);
+ 				return false;
+ 			}
+@@ -454,14 +478,24 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ {
+ 	int ret = 0;
+ 	int trigger_type = 0;
+-	int partition_id = job->desc.partition_id;
+-	struct aipu_partition *partition = &manager->partitions[partition_id];
+-	struct command_pool *pool = &manager->pools[partition_id];
++	u32 partition_id = job->desc.partition_id;
++	struct aipu_partition *partition;
++	struct command_pool *pool;
+ 	struct qos *qlist = NULL;
++	struct qos old_qlist;
+ 	struct aipu_hold_tcb_buf *htbuf = NULL;
+-
+-	if (!pool)
++	u32 old_last_exec_flag;
++	u64 old_head_tcb_pa;
++	bool old_created;
++	bool old_aborted;
++	bool old_debug;
++	bool old_tec_intr_en;
++
++	if (!manager->partitions || !manager->pools ||
++	    partition_id >= (u32)manager->partition_cnt)
+ 		return -EINVAL;
++	partition = &manager->partitions[partition_id];
++	pool = &manager->pools[partition_id];
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(manager->mm, job->curr_hold_tcb);
+ 	if (!htbuf) {
+@@ -473,6 +507,13 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 		qlist = &pool->qlist[AIPU_JOB_QOS_SLOW];
+ 	else
+ 		qlist = &pool->qlist[AIPU_JOB_QOS_FAST];
++	old_qlist = *qlist;
++	old_created = pool->created;
++	old_aborted = pool->aborted;
++	old_debug = pool->debug;
++	old_last_exec_flag = pool->last_exec_flag;
++	old_head_tcb_pa = job->desc.head_tcb_pa;
++	old_tec_intr_en = manager->tec_intr_en;
+ 
+ 	if (!pool->created)
+ 		trigger_type = ZHOUYI_TRIGGER_TYPE_CREATE;
+@@ -481,8 +522,6 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 	else
+ 		trigger_type = ZHOUYI_TRIGGER_TYPE_DISPATCH;
+ 
+-	check_enable_tec_interrupts(manager, job);
+-
+ 	/**
+ 	 * 1. debug-dispatch tasks cannot be linked to any existing command pool.
+ 	 * 2. command pool containing debug-dispatch tasks cannot be linked by any task TCB;
+@@ -490,17 +529,26 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 	 */
+ 	if (pool->debug) {
+ 		dev_err(partition->dev, "debug-dispatch command pool cannot be linked");
+-		return -EINVAL;
++		return -EBUSY;
+ 	}
+ 
+-	if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH)
++	if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH) {
++		if (pool->created || pool->qlist[AIPU_JOB_QOS_SLOW].pool_head ||
++		    pool->qlist[AIPU_JOB_QOS_FAST].pool_head) {
++			dev_err(partition->dev,
++				"debug-dispatch requires an idle command pool\n");
++			return -EBUSY;
++		}
+ 		trigger_type = ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH;
++	}
+ 
+ 	/* remove init tcb of single group jobs to make them run in parallel on multi-core */
+-	if (atomic_read(&partition->clusters[0].en_core_cnt) != 1 &&
++	if (trigger_type == ZHOUYI_TRIGGER_TYPE_DISPATCH &&
++	    atomic_read(&partition->clusters[0].en_core_cnt) != 1 &&
++	    IS_ALIGNED(job->desc.first_task_tcb_pa, SZ_4K) &&
+ 	    pool->last_exec_flag & AIPU_JOB_EXEC_FLAG_SINGLE_GROUP &&
+-	    job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SINGLE_GROUP  &&
+-	    !(pool->last_exec_flag & AIPU_JOB_EXEC_FLAG_SEG_MMU)   &&
++	    job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SINGLE_GROUP &&
++	    !(pool->last_exec_flag & AIPU_JOB_EXEC_FLAG_SEG_MMU) &&
+ 	    !(job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SEG_MMU))
+ 		job->desc.head_tcb_pa = job->desc.first_task_tcb_pa;
+ 
+@@ -521,12 +569,13 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 	qlist->curr_head = job->desc.head_tcb_pa;
+ 	qlist->curr_tail = htbuf->head;
+ 	qlist->tail_tcb  = htbuf->hold_tcb;
+-	aipu_mm_set_final_htbuf_index(manager->mm, htbuf->index);
+ 	pool->last_exec_flag = job->desc.exec_flag;
+ 	dev_dbg(partition->dev, "final htcb index %d status %d.\n", htbuf->index, htbuf->status);
+ 
++	check_enable_tec_interrupts(manager, job);
+ 	ret = partition->ops->reserve(partition, &job->desc, trigger_type, 0);
+ 	if (!ret) {
++		aipu_mm_set_final_htbuf_index(manager->mm, htbuf->index);
+ 		if (trigger_type == ZHOUYI_TRIGGER_TYPE_CREATE ||
+ 		    trigger_type == ZHOUYI_TRIGGER_TYPE_DEBUG_DISPATCH)
+ 			pool->created = true;
+@@ -536,6 +585,19 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ 
+ 		if (pool->aborted)
+ 			pool->aborted = false;
++	} else {
++		aipu_mm_unlink_tcb(manager->mm, job->curr_hold_tcb, false);
++		job->curr_hold_tcb = 0;
++		*qlist = old_qlist;
++		pool->created = old_created;
++		pool->aborted = old_aborted;
++		pool->debug = old_debug;
++		pool->last_exec_flag = old_last_exec_flag;
++		job->desc.head_tcb_pa = old_head_tcb_pa;
++		if (!old_tec_intr_en && manager->tec_intr_en) {
++			partition->ops->enable_interrupt(partition, false);
++			manager->tec_intr_en = false;
++		}
+ 	}
+ 
+ 	return ret;
+@@ -544,11 +606,14 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_desc *user_job,
+ 			    struct file *filp, int do_trigger)
+ {
+-	int ret = 0;
++	struct aipu_tcb *first_tcb;
++	struct aipu_tcb *head_tcb;
+ 	struct aipu_job *kern_job = NULL;
++	struct aipu_tcb *last_tcb;
+ 	struct aipu_thread_wait_queue *queue = NULL;
+ 	unsigned long flags;
+ 	bool listed = false;
++	int ret = 0;
+ 
+ 	mutex_lock(&manager->wq_lock);
+ 	if (user_job->enable_poll_opt)
+@@ -569,10 +634,36 @@ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_de
+ 	}
+ 	mutex_unlock(&manager->wq_lock);
+ 
++	if (user_job->aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3 &&
++	    (!user_job->head_tcb_pa ||
++	    user_job->head_tcb_pa > user_job->first_task_tcb_pa ||
++	    user_job->first_task_tcb_pa > user_job->last_task_tcb_pa ||
++	    user_job->last_task_tcb_pa > user_job->tail_tcb_pa ||
++	    !IS_ALIGNED(user_job->head_tcb_pa, SZ_4K) ||
++	    !IS_ALIGNED(user_job->head_tcb_pa, sizeof(struct aipu_tcb)) ||
++	    !IS_ALIGNED(user_job->first_task_tcb_pa, sizeof(struct aipu_tcb)) ||
++	    !IS_ALIGNED(user_job->last_task_tcb_pa, sizeof(struct aipu_tcb)) ||
++	    !IS_ALIGNED(user_job->tail_tcb_pa, sizeof(struct aipu_tcb)))) {
++		ret = -EINVAL;
++		goto fail_job;
++	}
+ 	ret = aipu_mm_pin_job_tcb(manager->mm, filp, user_job->head_tcb_pa,
+ 				  user_job->tail_tcb_pa, &kern_job->tcb_mapping);
+ 	if (ret)
+ 		goto fail_job;
++	if (user_job->aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3) {
++		/* Validate the documented V3 envelope after pinning its owner's allocation. */
++		head_tcb = aipu_mm_get_tcb(manager->mm, user_job->head_tcb_pa);
++		first_tcb = aipu_mm_get_tcb(manager->mm, user_job->first_task_tcb_pa);
++		last_tcb = aipu_mm_get_tcb(manager->mm, user_job->last_task_tcb_pa);
++		if (!head_tcb || !first_tcb || !last_tcb ||
++		    !IS_INIT_TCB(READ_ONCE(head_tcb->flag)) ||
++		    !IS_TASK_TCB(READ_ONCE(first_tcb->flag)) ||
++		    !IS_TASK_TCB(READ_ONCE(last_tcb->flag))) {
++			ret = -EINVAL;
++			goto fail_job;
++		}
++	}
+ 
+ 	if (user_job->aipu_version == AIPU_ISA_VERSION_ZHOUYI_V3) {
+ 		ret = aipu_mm_hold_tcb_buf_alloc(manager->mm, kern_job);
+@@ -850,10 +941,9 @@ int aipu_job_manager_scheduler(struct aipu_job_manager *manager, struct aipu_job
+ 
+ 	if (unlikely(!manager || !user_job || !filp))
+ 		return -EINVAL;
+-	if (user_job->enable_prof ||
+-	    (user_job->exec_flag & AIPU_JOB_EXEC_FLAG_DBG_DISPATCH)) {
++	if (user_job->enable_prof) {
+ 		dev_dbg(manager->dev,
+-			"unsupported legacy engineering job controls requested\n");
++			"unsupported legacy bandwidth profiling requested\n");
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+@@ -1733,32 +1823,74 @@ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu
+ 
+ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
+ {
++	struct aipu_partition *partition;
++
+ 	if (!manager)
+ 		return -EINVAL;
+ 
+-	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3 || !atomic_read(&manager->tick_counter))
++	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3)
+ 		return 0;
++	if (!manager->partitions || manager->partition_cnt < 1)
++		return -ENODEV;
++	partition = &manager->partitions[0];
++	if (!partition->ops || !partition->ops->disable_tick_counter)
++		return -EOPNOTSUPP;
+ 
++	mutex_lock(&manager->op_lock);
++	if (!atomic_read(&manager->tick_counter))
++		goto unlock;
+ 	if (atomic_dec_and_test(&manager->tick_counter))
+-		manager->partitions[0].ops->disable_tick_counter(&manager->partitions[0]);
++		partition->ops->disable_tick_counter(partition);
++unlock:
++	mutex_unlock(&manager->op_lock);
+ 
+ 	return 0;
+ }
+ 
+ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
+ {
++	struct aipu_partition *partition;
++
+ 	if (!manager)
+ 		return -EINVAL;
+ 
+ 	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3)
+ 		return 0;
++	if (!manager->partitions || manager->partition_cnt < 1)
++		return -ENODEV;
++	partition = &manager->partitions[0];
++	if (!partition->ops || !partition->ops->enable_tick_counter)
++		return -EOPNOTSUPP;
+ 
++	mutex_lock(&manager->op_lock);
++	if (atomic_read(&manager->tick_counter) == INT_MAX) {
++		mutex_unlock(&manager->op_lock);
++		return -EOVERFLOW;
++	}
+ 	if (atomic_inc_return(&manager->tick_counter) == 1)
+-		manager->partitions[0].ops->enable_tick_counter(&manager->partitions[0]);
++		partition->ops->enable_tick_counter(partition);
++	mutex_unlock(&manager->op_lock);
+ 
+ 	return 0;
+ }
+ 
++void aipu_job_manager_clear_tick_counter(struct aipu_job_manager *manager)
++{
++	struct aipu_partition *partition;
++
++	if (!manager || manager->version < AIPU_ISA_VERSION_ZHOUYI_V3 ||
++	    !manager->partitions || manager->partition_cnt < 1)
++		return;
++	partition = &manager->partitions[0];
++	if (!partition->ops || !partition->ops->disable_tick_counter)
++		return;
++
++	mutex_lock(&manager->op_lock);
++	if (atomic_xchg(&manager->tick_counter, 0))
++		partition->ops->disable_tick_counter(partition);
++	mutex_unlock(&manager->op_lock);
++}
++
+ int aipu_job_manager_config_clusters(struct aipu_job_manager *manager,
+ 				     struct aipu_config_clusters *cfg)
+ {
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+@@ -230,6 +230,7 @@ int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager);
+ void aipu_job_manager_idle_guard_end(struct aipu_job_manager *manager);
+ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager);
+ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager);
++void aipu_job_manager_clear_tick_counter(struct aipu_job_manager *manager);
+ int aipu_job_manager_config_clusters(struct aipu_job_manager *manager,
+ 				     struct aipu_config_clusters *cfg);
+ int aipu_job_manager_suspend(struct aipu_job_manager *manager);
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -106,6 +106,8 @@ static int aipu_cancel_file_jobs(struct aipu_file_ctx *ctx, struct file *filp)
+ 	if (!ret || manager->version < AIPU_ISA_VERSION_ZHOUYI_V3 ||
+ 	    !manager->partitions || manager->partition_cnt < 1)
+ 		return ret;
++	if (ret == -EBUSY)
++		return ret;
+ 
+ 	/* A failed pool abort leaves the shared engine faulted; reset it globally. */
+ 	part = &manager->partitions[0];
+@@ -124,6 +126,7 @@ static void aipu_finish_file_release(struct aipu_file_ctx *ctx,
+ 	struct aipu_priv *aipu = ctx->aipu;
+ 	int ret;
+ 
++	aipu_job_manager_release_tick_counter(&aipu->job_manager, ctx);
+ 	aipu_detach_dma_bufs(&aipu->mm, filp);
+ 	aipu_job_manager_free_file_ids(&aipu->job_manager, ctx);
+ 	WRITE_ONCE(ctx->released, true);
+@@ -260,6 +263,7 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+ 	int ret = 0;
+ 	int abi_bit;
++	struct aipu_file_ctx *ctx = aipu_file_ctx(filp);
+ 	struct aipu_priv *aipu = aipu_file_priv(filp);
+ 	struct aipu_job_manager *manager = NULL;
+ 
+@@ -382,6 +386,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		aipu_job_manager_finish_job_status(manager, &status_snapshot, !ret);
+ 		break;
+ 	case AIPU_IOCTL_KILL_TIMEOUT_JOB:
++		if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3) {
++			ret = -EOPNOTSUPP;
++			break;
++		}
+ 		if (!copy_from_user(&job_id, (u32 __user *)arg, sizeof(job_id)))
+ 			ret = aipu_job_manager_invalidate_timeout_job(manager, job_id, filp);
+ 		else
+@@ -413,11 +421,11 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		break;
+ 	case AIPU_IOCTL_DISABLE_TICK_COUNTER:
+ 		ret = capable(CAP_SYS_ADMIN) ?
+-			aipu_job_manager_disable_tick_counter(manager) : -EPERM;
++			aipu_job_manager_disable_tick_counter(manager, ctx) : -EPERM;
+ 		break;
+ 	case AIPU_IOCTL_ENABLE_TICK_COUNTER:
+ 		ret = capable(CAP_SYS_ADMIN) ?
+-			aipu_job_manager_enable_tick_counter(manager) : -EPERM;
++			aipu_job_manager_enable_tick_counter(manager, ctx) : -EPERM;
+ 		break;
+ 	case AIPU_IOCTL_CONFIG_CLUSTERS:
+ 		if (!capable(CAP_SYS_ADMIN)) {
+diff --git a/drivers/misc/armchina-npu/aipu_file.h b/drivers/misc/armchina-npu/aipu_file.h
+--- a/drivers/misc/armchina-npu/aipu_file.h
++++ b/drivers/misc/armchina-npu/aipu_file.h
+@@ -24,6 +24,7 @@ struct aipu_file_ctx {
+ 	struct work_struct cleanup_work;
+ 	struct delayed_work close_work;
+ 	unsigned long abi_mask;
++	unsigned int tick_counter_refs;
+ 	bool released;
+ };
+ 
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -577,8 +577,13 @@ static int pin_job_tcb_allocation(struct aipu_job_manager *manager,
+ 				  struct aipu_job *job, struct file *filp)
+ {
+ 	struct aipu_job_desc *desc = &job->desc;
++	struct aipu_tcb *first;
++	struct aipu_tcb *head;
++	struct aipu_tcb *last;
+ 	u64 tcb_count;
++	u64 offset;
+ 	size_t tcb_bytes;
++	int ret;
+ 
+ 	if (desc->aipu_version < AIPU_ISA_VERSION_ZHOUYI_V3)
+ 		return 0;
+@@ -600,9 +605,27 @@ static int pin_job_tcb_allocation(struct aipu_job_manager *manager,
+ 		return -E2BIG;
+ 
+ 	desc->asid0_base = manager->asid0_base;
+-	return aipu_mm_pin_job_tcb(manager->mm, filp, desc->head_tcb_pa,
+-				   desc->tail_tcb_pa, tcb_bytes,
+-				   &job->tcb_mapping);
++	ret = aipu_mm_pin_job_tcb(manager->mm, filp, desc->head_tcb_pa,
++				  desc->tail_tcb_pa, tcb_bytes,
++				  &job->tcb_mapping);
++	if (ret || desc->aipu_version != AIPU_ISA_VERSION_ZHOUYI_V3)
++		return ret;
++
++	/* Validate the documented V3 envelope after pinning its owner's allocation. */
++	offset = desc->head_tcb_pa - job->tcb_mapping.dev_pa;
++	head = (struct aipu_tcb *)((u8 *)job->tcb_mapping.va + offset);
++	offset = desc->first_task_tcb_pa - job->tcb_mapping.dev_pa;
++	first = (struct aipu_tcb *)((u8 *)job->tcb_mapping.va + offset);
++	offset = desc->last_task_tcb_pa - job->tcb_mapping.dev_pa;
++	last = (struct aipu_tcb *)((u8 *)job->tcb_mapping.va + offset);
++	if (!IS_INIT_TCB(READ_ONCE(head->flag)) ||
++	    !IS_TASK_TCB(READ_ONCE(first->flag)) ||
++	    !IS_TASK_TCB(READ_ONCE(last->flag))) {
++		aipu_mm_unpin_job_tcb(manager->mm, &job->tcb_mapping);
++		return -EINVAL;
++	}
++
++	return 0;
+ }
+ 
+ static int get_available_core_no_lock(struct aipu_job_manager *manager, struct aipu_job *job)
+@@ -2293,6 +2316,26 @@ static bool aipu_owner_has_active_job(struct aipu_job_manager *manager,
+ 	return found;
+ }
+ 
++static bool aipu_pool_has_foreign_job(struct aipu_job_manager *manager,
++				      struct aipu_file_ctx *owner, u32 id)
++{
++	struct aipu_job *job;
++	unsigned long flags;
++	bool found = false;
++
++	/* A V3 pool abort invalidates every non-reapable job in the pool. */
++	spin_lock_irqsave(&manager->lock, flags);
++	list_for_each_entry(job, &manager->scheduled_head->node, node) {
++		if (job->owner == owner || aipu_job_is_reapable(job) ||
++		    job->desc.partition_id != id)
++			continue;
++		found = true;
++		break;
++	}
++	spin_unlock_irqrestore(&manager->lock, flags);
++	return found;
++}
++
+ /* The caller serializes this operation with manager->op_lock. */
+ static int aipu_abort_cmd_pool(struct aipu_job_manager *manager, u32 pool_id)
+ {
+@@ -2522,6 +2565,11 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 	for (id = 0; id < (u32)manager->partition_cnt; id++) {
+ 		if (!aipu_owner_has_active_job(manager, owner, false, 0, id))
+ 			continue;
++		if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3 &&
++		    aipu_pool_has_foreign_job(manager, owner, id)) {
++			ret = -EBUSY;
++			goto clear_canceling;
++		}
+ 		if (manager->version >= AIPU_ISA_VERSION_ZHOUYI_V3)
+ 			ret = aipu_abort_cmd_pool(manager, id);
+ 		else
+@@ -2899,11 +2947,12 @@ int aipu_job_manager_get_running_job_thread(struct aipu_job_manager *manager,
+ 	return 0;
+ }
+ 
+-int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
++int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager,
++					  struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_partition *partition;
+ 
+-	if (!manager)
++	if (!manager || !owner)
+ 		return -EINVAL;
+ 
+ 	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3)
+@@ -2915,10 +2964,11 @@ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
+ 		return -EOPNOTSUPP;
+ 
+ 	mutex_lock(&manager->op_lock);
+-	if (!atomic_read(&manager->tick_counter)) {
++	if (!owner->tick_counter_refs) {
+ 		mutex_unlock(&manager->op_lock);
+ 		return 0;
+ 	}
++	owner->tick_counter_refs--;
+ 	if (atomic_dec_and_test(&manager->tick_counter)) {
+ 		mutex_lock(&manager->hw_lock);
+ 		partition->ops->disable_tick_counter(partition);
+@@ -2929,11 +2979,12 @@ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
+ 	return 0;
+ }
+ 
+-int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
++int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager,
++					 struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_partition *partition;
+ 
+-	if (!manager)
++	if (!manager || !owner)
+ 		return -EINVAL;
+ 
+ 	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3)
+@@ -2949,6 +3000,7 @@ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
+ 		mutex_unlock(&manager->op_lock);
+ 		return -EOVERFLOW;
+ 	}
++	owner->tick_counter_refs++;
+ 	if (atomic_inc_return(&manager->tick_counter) == 1) {
+ 		mutex_lock(&manager->hw_lock);
+ 		partition->ops->enable_tick_counter(partition);
+@@ -2959,6 +3011,39 @@ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
+ 	return 0;
+ }
+ 
++void aipu_job_manager_release_tick_counter(struct aipu_job_manager *manager,
++					   struct aipu_file_ctx *owner)
++{
++	struct aipu_partition *partition;
++	unsigned int refs;
++	int remaining;
++
++	if (!manager || !owner || manager->version < AIPU_ISA_VERSION_ZHOUYI_V3 ||
++	    !manager->partitions || manager->partition_cnt < 1)
++		return;
++	partition = &manager->partitions[0];
++	if (!partition->ops || !partition->ops->disable_tick_counter)
++		return;
++
++	mutex_lock(&manager->op_lock);
++	refs = owner->tick_counter_refs;
++	owner->tick_counter_refs = 0;
++	if (!refs)
++		goto unlock;
++	remaining = atomic_sub_return(refs, &manager->tick_counter);
++	if (WARN_ON(remaining < 0)) {
++		atomic_set(&manager->tick_counter, 0);
++		remaining = 0;
++	}
++	if (!remaining) {
++		mutex_lock(&manager->hw_lock);
++		partition->ops->disable_tick_counter(partition);
++		mutex_unlock(&manager->hw_lock);
++	}
++unlock:
++	mutex_unlock(&manager->op_lock);
++}
++
+ static int config_clusters_no_lock(struct aipu_job_manager *manager,
+ 				   const struct aipu_config_clusters *cfg)
+ {
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu/aipu_job_manager.h
+@@ -271,8 +271,12 @@ bool aipu_job_manager_has_end_job(struct aipu_job_manager *manager, struct file
+ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu_hw_status *hw);
+ int aipu_job_manager_get_running_job_thread(struct aipu_job_manager *manager, struct aipu_running_job_query *query);
+ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager);
+-int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager);
+-int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager);
++int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager,
++					  struct aipu_file_ctx *owner);
++int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager,
++					 struct aipu_file_ctx *owner);
++void aipu_job_manager_release_tick_counter(struct aipu_job_manager *manager,
++					   struct aipu_file_ctx *owner);
+ int aipu_job_manager_config_clusters(struct aipu_job_manager *manager,
+ 				     struct aipu_config_clusters *cfg);
+ int aipu_job_manager_suspend(struct aipu_job_manager *manager);

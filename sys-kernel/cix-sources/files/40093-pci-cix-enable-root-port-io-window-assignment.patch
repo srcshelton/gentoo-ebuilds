@@ -4,8 +4,6 @@ Sky1 firmware provides translated host I/O apertures for the PCIe root buses, bu
 
 Scope the fix to CIX Sky1 root ports and only when the parent bus already exposes an I/O resource, then mark the standard bridge I/O window as assignable so normal PCI resource sizing/programming can handle the endpoint BARs.
 
----
-
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c

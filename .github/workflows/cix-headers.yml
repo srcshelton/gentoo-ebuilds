@@ -1,0 +1,66 @@
+name: Validate CIX userspace headers
+
+on:
+  push:
+    paths:
+      - ".github/scripts/cix-headers/**"
+      - ".github/workflows/cix-headers.yml"
+      - "sys-kernel/cix-headers/**"
+      - "sys-kernel/cix-sources/**"
+  pull_request:
+    paths:
+      - ".github/scripts/cix-headers/**"
+      - ".github/workflows/cix-headers.yml"
+      - "sys-kernel/cix-headers/**"
+      - "sys-kernel/cix-sources/**"
+  workflow_dispatch:
+
+concurrency:
+  group: cix-headers-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Compare retained CIX and Gentoo UAPI
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    container:
+      image: gentoo/stage3:latest@sha256:2fb4d12e05d99f54ca805653687d96bc79370ee333e314229436bc383e504622
+    env:
+      FEATURES: "-ipc-sandbox -network-sandbox -pid-sandbox"
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Fetch current Gentoo repository snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          emerge-webrsync
+
+      - name: Record validation environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -a
+          cat /etc/gentoo-release
+          cat /var/db/repos/gentoo/metadata/timestamp
+          gcc --version | head -1
+          ebuild --version
+
+      - name: Build, compare, and consume retained headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          work_root="/var/tmp/cix-headers-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          distdir="/var/cache/distfiles/cix-headers-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'rm -rf "${work_root}" "${distdir}"' EXIT
+
+          GENTOO_REPO=/var/db/repos/gentoo \
+          DISTDIR="${distdir}" \
+            .github/scripts/cix-headers/validate-cix-headers.sh \
+              "${GITHUB_WORKSPACE}" \
+              "${work_root}"

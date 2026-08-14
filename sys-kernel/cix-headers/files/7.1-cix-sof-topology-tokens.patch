@@ -1,0 +1,28 @@
+diff --git a/include/uapi/sound/sof/tokens.h b/include/uapi/sound/sof/tokens.h
+--- a/include/uapi/sound/sof/tokens.h
++++ b/include/uapi/sound/sof/tokens.h
+@@ -232,4 +232,24 @@
+ #define SOF_TKN_AMD_ACP_SDW_RATE		2100
+ #define SOF_TKN_AMD_ACP_SDW_CH			2101
+ 
++/* CIX I2S single-channel controller */
++#define SOF_TKN_CIX_I2S_SC_RATE			2200
++#define SOF_TKN_CIX_I2S_SC_CHANNELS		2201
++#define SOF_TKN_CIX_I2S_SC_FORMAT		2202
++#define SOF_TKN_CIX_I2S_SC_MCLK_ID		2203
++#define SOF_TKN_CIX_I2S_SC_MCLK_FS		2204
++#define SOF_TKN_CIX_I2S_SC_PLAYBACK_DMA_CH	2205
++#define SOF_TKN_CIX_I2S_SC_CAPTURE_DMA_CH	2206
++
++/* CIX I2S multi-channel controller */
++#define SOF_TKN_CIX_I2S_MC_RATE			2300
++#define SOF_TKN_CIX_I2S_MC_CHANNELS		2301
++#define SOF_TKN_CIX_I2S_MC_FORMAT		2302
++#define SOF_TKN_CIX_I2S_MC_MCLK_ID		2303
++#define SOF_TKN_CIX_I2S_MC_MCLK_FS		2304
++#define SOF_TKN_CIX_I2S_MC_PLAYBACK_DMA_CH	2305
++#define SOF_TKN_CIX_I2S_MC_CAPTURE_DMA_CH	2306
++#define SOF_TKN_CIX_I2S_MC_PIN_RX_MASK		2307
++#define SOF_TKN_CIX_I2S_MC_PIN_TX_MASK		2308
++
+ #endif

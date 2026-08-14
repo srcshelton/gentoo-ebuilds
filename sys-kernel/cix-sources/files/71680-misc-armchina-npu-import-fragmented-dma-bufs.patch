@@ -1,0 +1,129 @@
+Import fragmented page-backed DMA-BUFs through one owned device-visible IOVA.
+
+Retain the existing single-device-extent fast path.  Where a valid attachment
+maps as multiple DMA extents, collect only page-backed System-RAM pages, link
+them transactionally into a standard DMA IOVA allocation, and preserve the
+attachment mapping and exact teardown metadata until detach.  Non-page-backed
+and peer-to-peer exporters remain explicitly unsupported.
+
+Provenance: restores the fragmented imported-DMA-BUF ABI boundary without
+assuming that a physically fragmented SG table is device-contiguous.
+
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
+@@ -478,15 +478,6 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 		ret = table ? PTR_ERR(table) : -ENOMEM;
+ 		goto detach_dmabuf;
+ 	}
+-	if (table->nents != 1 || sg_dma_len(table->sgl) < dmabuf->size) {
+-		ret = -EOPNOTSUPP;
+-		dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
+-		goto detach_dmabuf;
+-	}
+-
+-	dmabuf_info->pa = sg_dma_address(table->sgl);
+-	dmabuf_info->bytes = dmabuf->size;
+-
+ 	im_buf = kzalloc(sizeof(*im_buf), GFP_KERNEL);
+ 	if (!im_buf) {
+ 		ret = -ENOMEM;
+@@ -498,12 +489,58 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 	im_buf->dmabuf = dmabuf;
+ 	im_buf->attach = attach;
+ 	im_buf->table = table;
++	if (table->nents == 1 && sg_dma_len(table->sgl) >= dmabuf->size) {
++		dmabuf_info->pa = sg_dma_address(table->sgl);
++	} else {
++		unsigned long page;
++
++		if (!mm->has_iommu) {
++			ret = -EOPNOTSUPP;
++			goto free_importer;
++		}
++		ret = aipu_dma_buf_collect_pages(table, dmabuf->size,
++						 &im_buf->pages,
++						 &im_buf->page_count);
++		if (ret)
++			goto free_importer;
++		if (!dma_iova_try_alloc(mm->dev, &im_buf->iova, 0,
++					dmabuf->size)) {
++			ret = -ENOSPC;
++			goto free_importer;
++		}
++		im_buf->has_iova = true;
++		for (page = 0; page < im_buf->page_count; page++) {
++			ret = dma_iova_link(mm->dev, &im_buf->iova,
++					    page_to_phys(im_buf->pages[page]),
++					    page << PAGE_SHIFT, PAGE_SIZE,
++					    DMA_BIDIRECTIONAL,
++					    DMA_ATTR_SKIP_CPU_SYNC);
++			if (ret)
++				goto free_importer;
++			im_buf->linked_page_count++;
++		}
++		ret = dma_iova_sync(mm->dev, &im_buf->iova, 0,
++				    dmabuf->size);
++		if (ret)
++			goto free_importer;
++		dmabuf_info->pa = im_buf->iova.addr;
++	}
++	dmabuf_info->bytes = dmabuf->size;
+ 	mutex_lock(&mm->lock);
+ 	list_add(&im_buf->node, &mm->importer_bufs->node);
+ 	mutex_unlock(&mm->lock);
+ 
+ 	return 0;
+ 
++free_importer:
++	if (im_buf->linked_page_count)
++		dma_iova_unlink(mm->dev, &im_buf->iova, 0,
++				im_buf->linked_page_count << PAGE_SHIFT,
++				DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
++	if (im_buf->has_iova)
++		dma_iova_free(mm->dev, &im_buf->iova);
++	kvfree(im_buf->pages);
++	kfree(im_buf);
+ undo_attach:
+ 	dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
+ detach_dmabuf:
+@@ -595,9 +632,16 @@ int aipu_bind_dma_buf(struct aipu_memory_manager *mm,
+ static void aipu_detach_imported_dma_buf(struct aipu_memory_manager *mm,
+ 					 struct aipu_dma_buf_importer *im_buf)
+ {
++	if (im_buf->linked_page_count)
++		dma_iova_unlink(mm->dev, &im_buf->iova, 0,
++				im_buf->linked_page_count << PAGE_SHIFT,
++				DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
++	if (im_buf->has_iova)
++		dma_iova_free(mm->dev, &im_buf->iova);
+ 	dma_buf_unmap_attachment(im_buf->attach, im_buf->table, DMA_BIDIRECTIONAL);
+ 	dma_buf_detach(im_buf->dmabuf, im_buf->attach);
+ 
++	kvfree(im_buf->pages);
+ 	dma_buf_put(im_buf->dmabuf);
+ 	kfree(im_buf);
+ }
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.h
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
+@@ -5,6 +5,7 @@
+ #define __AIPU_DMA_BUF_H__
+ 
+ #include <linux/dma-buf.h>
++#include <linux/dma-mapping.h>
+ #include <linux/list.h>
+ #include <linux/workqueue.h>
+ #include "armchina_aipu.h"
+@@ -40,6 +41,11 @@ struct aipu_dma_buf_importer {
+ 	struct dma_buf *dmabuf;
+ 	struct dma_buf_attachment *attach;
+ 	struct sg_table *table;
++	struct dma_iova_state iova;
++	struct page **pages;
++	unsigned long page_count;
++	unsigned long linked_page_count;
++	bool has_iova;
+ 	struct list_head node;
+ 	struct aipu_buf_desc desc;
+ };

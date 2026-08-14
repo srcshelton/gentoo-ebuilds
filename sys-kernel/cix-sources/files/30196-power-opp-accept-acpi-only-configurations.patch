@@ -1,0 +1,14 @@
+diff --git a/drivers/opp/core.c b/drivers/opp/core.c
+--- a/drivers/opp/core.c
++++ b/drivers/opp/core.c
+@@ -1555,6 +1555,10 @@ static struct opp_table *_allocate_opp_table(struct device *dev, int index)
+ 
+ 	/* Find interconnect path(s) for the device */
+ 	ret = dev_pm_opp_of_find_icc_paths(dev, opp_table);
++	/* ACPI-only kernels have no OF interconnect paths to discover. */
++	if (ret == -EOPNOTSUPP && !IS_ENABLED(CONFIG_OF))
++		ret = 0;
++
+ 	if (ret) {
+ 		if (ret == -EPROBE_DEFER)
+ 			goto remove_opp_dev;

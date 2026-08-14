@@ -1,0 +1,26 @@
+The reset worker is deliberately scheduled during normal resume as well as
+after a transmit timeout, so its generic message must not report every resume
+as an error. Log the routine reset at debug level and retain an error at the
+actual timeout call site with kernel-idiomatic wording.
+
+diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+--- a/drivers/net/ethernet/realtek/r8126/r8126_n.c
++++ b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+@@ -13025,7 +13025,7 @@ static void rtl8126_reset_task(struct work_struct *work)
+             !test_and_clear_bit(R8126_FLAG_TASK_RESET_PENDING, tp->task_flags))
+                 goto out_unlock;
+ 
+-        netdev_err(dev, "Device reseting!\n");
++        netdev_dbg(dev, "Resetting device\n");
+ 
+         netif_carrier_off(dev);
+         netif_tx_disable(dev);
+@@ -13163,7 +13163,7 @@ rtl8126_tx_timeout(struct net_device *dev)
+ {
+         struct rtl8126_private *tp = netdev_priv(dev);
+ 
+-        netdev_err(dev, "Transmit timeout reset Device!\n");
++        netdev_err(dev, "Transmit timeout, scheduling device reset\n");
+ 
+         /* Let's wait a bit while any (async) irq lands on */
+         rtl8126_schedule_reset_work(tp);

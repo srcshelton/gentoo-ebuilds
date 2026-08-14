@@ -1,0 +1,387 @@
+diff --git a/drivers/misc/armchina-npu/include/cix_sky1_soc.h b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+--- a/drivers/misc/armchina-npu/include/cix_sky1_soc.h
++++ b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+@@ -5,6 +5,7 @@
+ 
+ #include <linux/reset.h>
+ #include <linux/clk.h>
++#include <linux/devfreq.h>
+ #include "aipu_priv.h"
+ 
+ #define CIX_NPU_PD_MAX_NUM				(3)
+@@ -29,6 +30,13 @@ struct cix_aipu_priv {
+ 	bool is_acpi;
+ 	bool saved_ignore_children;
+ 	bool ignore_children_changed;
++	struct device *opp_pmdomain;
++	struct device_link *opp_dl;
++	struct devfreq_dev_profile devfreq_profile;
++	struct devfreq *devfreq;
++	u32 synthetic_opp_count;
++	bool opp_notifier_registered;
++	unsigned long desired_freq;
+ };
+ 
+ struct cix_aipu_priv *sky1_priv_init(struct device *dev);
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -11,7 +11,10 @@
+ #include <linux/reset.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/pm_domain.h>
++#include <linux/devfreq.h>
++#include <linux/pm_opp.h>
+ #include <linux/acpi.h>
++#include <linux/property.h>
+ #include <linux/mutex.h>
+ #include <linux/string.h>
+ #include <linux/version.h>
+@@ -69,6 +72,302 @@ static void sky1_priv_release(struct cix_aipu_priv *priv)
+ 	mutex_unlock(&cix_aipu_lock);
+ }
+ 
++#if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++static int sky1_npu_devfreq_target(struct device *dev, unsigned long *freq,
++				   u32 flags)
++{
++	struct cix_aipu_priv *priv = sky1_priv_get(dev);
++	struct dev_pm_opp *opp;
++	unsigned long previous;
++	int ret;
++
++	if (!priv || !priv->opp_pmdomain)
++		return -ENODEV;
++
++	opp = devfreq_recommended_opp(dev, freq, flags);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++	dev_pm_opp_put(opp);
++
++	opp = dev_pm_opp_find_freq_exact(priv->opp_pmdomain, *freq, true);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++	dev_pm_opp_put(opp);
++
++	previous = READ_ONCE(priv->desired_freq);
++	ret = dev_pm_opp_set_rate(priv->opp_pmdomain, *freq);
++	if (!ret)
++		WRITE_ONCE(priv->desired_freq, *freq);
++
++	dev_dbg(dev, "target=%lu, previous=%lu, desired=%lu\n",
++		*freq, previous, READ_ONCE(priv->desired_freq));
++
++	return ret;
++}
++
++static int sky1_npu_devfreq_get_cur_freq(struct device *dev,
++					 unsigned long *freq)
++{
++	struct cix_aipu_priv *priv = sky1_priv_get(dev);
++
++	if (!priv)
++		return -ENODEV;
++
++	*freq = READ_ONCE(priv->desired_freq);
++	dev_dbg(dev, "desired frequency: %lu\n", *freq);
++
++	return 0;
++}
++
++static int sky1_npu_devfreq_get_dev_status(struct device *dev,
++					   struct devfreq_dev_status *stat)
++{
++	struct cix_aipu_priv *priv = sky1_priv_get(dev);
++
++	if (!priv)
++		return -ENODEV;
++
++	memset(stat, 0, sizeof(*stat));
++	stat->current_frequency = READ_ONCE(priv->desired_freq);
++
++	return 0;
++}
++
++static void sky1_npu_remove_consumer_opps(struct cix_aipu_priv *priv)
++{
++	struct devfreq_dev_profile *profile = &priv->devfreq_profile;
++
++	while (priv->synthetic_opp_count) {
++		priv->synthetic_opp_count--;
++		dev_pm_opp_remove(priv->dev,
++				  profile->freq_table[priv->synthetic_opp_count]);
++	}
++
++	kfree(profile->freq_table);
++	memset(profile, 0, sizeof(*profile));
++	WRITE_ONCE(priv->desired_freq, 0);
++}
++
++static void sky1_npu_devfreq_remove(struct device *dev,
++				    struct cix_aipu_priv *priv)
++{
++	if (priv->opp_notifier_registered) {
++		devfreq_unregister_opp_notifier(dev, priv->devfreq);
++		priv->opp_notifier_registered = false;
++	}
++
++	if (priv->devfreq) {
++		devfreq_remove_device(priv->devfreq);
++		priv->devfreq = NULL;
++	}
++
++	sky1_npu_remove_consumer_opps(priv);
++
++	if (priv->opp_dl) {
++		device_link_del(priv->opp_dl);
++		priv->opp_dl = NULL;
++	}
++	if (priv->opp_pmdomain) {
++		dev_pm_domain_detach(priv->opp_pmdomain, true);
++		priv->opp_pmdomain = NULL;
++	}
++}
++
++static bool sky1_npu_devfreq_error_is_fatal(int ret)
++{
++	return ret == -EPROBE_DEFER || ret == -ENOMEM || ret == -ENOSPC;
++}
++
++static int sky1_npu_devfreq_fail(struct device *dev,
++				 struct cix_aipu_priv *priv, int ret,
++				 const char *reason)
++{
++	sky1_npu_devfreq_remove(dev, priv);
++
++	if (sky1_npu_devfreq_error_is_fatal(ret))
++		return dev_err_probe(dev, ret, "%s\n", reason);
++
++	dev_info(dev, "%s (%pe); using firmware-default fixed performance\n",
++		 reason, ERR_PTR(ret));
++	return 0;
++}
++
++static int sky1_npu_read_opp_table(struct device *table_dev,
++				   struct device *supplier,
++				   unsigned long *freq_table, int count)
++{
++	struct dev_pm_opp *opp;
++	unsigned long freq = 0;
++	int ret;
++	int i;
++
++	for (i = 0; i < count; i++) {
++		opp = dev_pm_opp_find_freq_ceil(table_dev, &freq);
++		if (IS_ERR(opp))
++			return PTR_ERR(opp);
++		freq = dev_pm_opp_get_freq(opp);
++		dev_pm_opp_put(opp);
++		if (!freq)
++			return -EINVAL;
++
++		if (supplier) {
++			opp = dev_pm_opp_find_freq_exact(supplier, freq, true);
++			if (IS_ERR(opp))
++				return PTR_ERR(opp);
++			dev_pm_opp_put(opp);
++		}
++
++		freq_table[i] = freq;
++		if (i + 1 < count && ++freq == 0)
++			return -ERANGE;
++	}
++
++	ret = dev_pm_opp_get_opp_count(table_dev);
++	return ret == count ? 0 : -EAGAIN;
++}
++
++static int sky1_npu_add_consumer_opps(struct cix_aipu_priv *priv,
++				      int supplier_count)
++{
++	struct devfreq_dev_profile *profile = &priv->devfreq_profile;
++	int ret;
++	int i;
++
++	ret = sky1_npu_read_opp_table(priv->opp_pmdomain, NULL,
++				      profile->freq_table, supplier_count);
++	if (ret)
++		return ret;
++
++	/* Do not merge a table which appeared after the initial count. */
++	if (dev_pm_opp_get_opp_count(priv->dev) != -ENODEV)
++		return -EAGAIN;
++
++	for (i = 0; i < supplier_count; i++) {
++		ret = dev_pm_opp_add(priv->dev, profile->freq_table[i], 0);
++		if (ret)
++			return ret;
++		priv->synthetic_opp_count++;
++	}
++
++	if (dev_pm_opp_get_opp_count(priv->dev) != supplier_count ||
++	    dev_pm_opp_get_opp_count(priv->opp_pmdomain) != supplier_count)
++		return -EAGAIN;
++
++	return 0;
++}
++
++static int sky1_npu_devfreq_init(struct device *dev,
++				 struct cix_aipu_priv *priv)
++{
++	struct devfreq_dev_profile *profile = &priv->devfreq_profile;
++	int consumer_count;
++	int profile_count;
++	int supplier_count;
++	int ret;
++
++	if (has_acpi_companion(dev)) {
++		int idx;
++
++		/* The ACPI general PM domain already occupies dev->pm_domain. */
++		idx = fwnode_property_match_string(dev_fwnode(dev),
++						   "power-domain-names", "perf");
++		if (idx < 0)
++			return sky1_npu_devfreq_fail(dev, priv, idx,
++						      "failed to find NPU perf domain index");
++		priv->opp_pmdomain = genpd_dev_pm_attach_by_id(dev, idx);
++	} else {
++		priv->opp_pmdomain = dev_pm_domain_attach_by_name(dev, "perf");
++	}
++	if (IS_ERR(priv->opp_pmdomain)) {
++		ret = PTR_ERR(priv->opp_pmdomain);
++		priv->opp_pmdomain = NULL;
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "failed to attach NPU perf domain");
++	}
++	if (!priv->opp_pmdomain)
++		return sky1_npu_devfreq_fail(dev, priv, -ENODEV,
++						      "NPU perf domain is unavailable");
++
++	priv->opp_dl = device_link_add(dev, priv->opp_pmdomain,
++				       DL_FLAG_RPM_ACTIVE |
++				       DL_FLAG_PM_RUNTIME |
++				       DL_FLAG_STATELESS);
++	if (IS_ERR_OR_NULL(priv->opp_dl)) {
++		ret = priv->opp_dl ? PTR_ERR(priv->opp_dl) : -ENOMEM;
++		priv->opp_dl = NULL;
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "failed to link NPU perf domain");
++	}
++
++	supplier_count = dev_pm_opp_get_opp_count(priv->opp_pmdomain);
++	if (supplier_count <= 0) {
++		ret = supplier_count ?: -ENODEV;
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "NPU perf domain has no usable OPP table");
++	}
++
++	consumer_count = dev_pm_opp_get_opp_count(dev);
++	if (consumer_count > 0) {
++		profile_count = consumer_count;
++	} else if (consumer_count == -ENODEV) {
++		profile_count = supplier_count;
++	} else {
++		ret = consumer_count ?: -EINVAL;
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "NPU consumer OPP table is unusable");
++	}
++
++	profile->freq_table = kcalloc(profile_count,
++				      sizeof(*profile->freq_table), GFP_KERNEL);
++	if (!profile->freq_table)
++		return sky1_npu_devfreq_fail(dev, priv, -ENOMEM,
++					      "failed to allocate NPU OPP table");
++
++	if (consumer_count > 0) {
++		ret = sky1_npu_read_opp_table(dev, priv->opp_pmdomain,
++					      profile->freq_table, consumer_count);
++		if (!ret && dev_pm_opp_get_opp_count(priv->opp_pmdomain) !=
++			    supplier_count)
++			ret = -EAGAIN;
++	} else {
++		ret = sky1_npu_add_consumer_opps(priv, supplier_count);
++	}
++	if (ret)
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "NPU OPP metadata is inconsistent");
++
++	profile->initial_freq = profile->freq_table[profile_count - 1];
++	profile->max_state = profile_count;
++	profile->polling_ms = 50;
++	profile->target = sky1_npu_devfreq_target;
++	profile->get_dev_status = sky1_npu_devfreq_get_dev_status;
++	profile->get_cur_freq = sky1_npu_devfreq_get_cur_freq;
++	WRITE_ONCE(priv->desired_freq, profile->initial_freq);
++
++	priv->devfreq = devfreq_add_device(dev, profile,
++					   DEVFREQ_GOV_USERSPACE, NULL);
++	if (IS_ERR(priv->devfreq)) {
++		ret = PTR_ERR(priv->devfreq);
++		priv->devfreq = NULL;
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "failed to add NPU devfreq device");
++	}
++
++	ret = devfreq_register_opp_notifier(dev, priv->devfreq);
++	if (ret)
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "failed to register NPU OPP notifier");
++	priv->opp_notifier_registered = true;
++
++	ret = dev_pm_opp_set_rate(priv->opp_pmdomain, profile->initial_freq);
++	if (ret)
++		return sky1_npu_devfreq_fail(dev, priv, ret,
++					      "failed to select initial NPU OPP");
++
++	return 0;
++}
++#endif
++
+ int sky1_npu_pm_runtime_get_sync(struct device *dev)
+ {
+ #ifdef CONFIG_PM
+@@ -363,6 +662,14 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 	if (ret)
+ 		goto release_priv;
+ 
++#if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++	ret = sky1_npu_devfreq_init(dev, priv);
++	if (ret) {
++		dev_err(dev, "aipu devfreq init failed, ret: %d\n", ret);
++		goto detach_domains;
++	}
++#endif
++
+ #ifdef CONFIG_PM
+ 	pm_runtime_get_noresume(dev);
+ 	pm_runtime_set_active(dev);
+@@ -396,6 +703,11 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 
+ 	pm_runtime_disable(dev);
+ 
++#if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++	sky1_npu_devfreq_remove(dev, priv);
++#endif
++
++detach_domains:
+ 	sky1_npu_detach_pd(priv);
+ release_priv:
+ 	sky1.priv = NULL;
+@@ -419,6 +731,10 @@ static void sky1_npu_remove(struct platform_device *p_dev)
+ 	/* File and dma-buf cleanup may still invoke Sky1 runtime PM. */
+ 	armchina_aipu_remove(p_dev);
+ 
++#if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++	sky1_npu_devfreq_remove(&p_dev->dev, priv);
++#endif
++
+ #ifdef CONFIG_PM
+ 	pm_runtime_disable(&p_dev->dev);
+ #endif /* CONFIG_PM */
+@@ -553,3 +869,6 @@ static struct platform_driver aipu_platform_driver = {
+ 
+ module_platform_driver(aipu_platform_driver);
+ MODULE_LICENSE("GPL v2");
++#if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++MODULE_SOFTDEP("pre: scmi_perf_domain");
++#endif

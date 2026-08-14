@@ -1,0 +1,47 @@
+Expose the connector ELD through the HDMI codec so ALSA derives the sink's
+actual channel constraints instead of probing unsupported layouts. Always
+disable the DPTX audio block during shutdown, including after unplug.
+
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c
+@@ -97,15 +97,26 @@ static int dptx_audio_startup(struct device *dev, void *data)
+ 
+ static void dptx_audio_shutdown(struct device *dev, void *data)
+ {
+-	struct trilin_dp *dp = (struct trilin_dp *)data;
++	struct trilin_dp *dp = data;
+ 	struct dptx_audio *dp_audio = &dp->dp_audio;
+ 
+-	if (!trilin_dp_plugged_status(dp))
+-		return;
+-
++	trilin_dp_write(dp, TRILIN_DPTX_SEC0_AUDIO_ENABLE, 0);
+ 	dp_audio->running = false;
+ }
+ 
++static int dptx_audio_get_eld(struct device *dev, void *data, u8 *buf,
++			      size_t len)
++{
++	struct trilin_dp *dp = data;
++	struct drm_connector *connector = &dp->connector.base;
++
++	mutex_lock(&connector->eld_mutex);
++	memcpy(buf, connector->eld, min(sizeof(connector->eld), len));
++	mutex_unlock(&connector->eld_mutex);
++
++	return 0;
++}
++
+ static int dptx_audio_hw_params(struct device *dev, void *data,
+ 				struct hdmi_codec_daifmt *daifmt,
+ 				struct hdmi_codec_params *params)
+@@ -179,6 +190,7 @@ const struct hdmi_codec_ops dptx_audio_codec_ops = {
+ 	.hw_params = dptx_audio_hw_params,
+ 	.audio_startup = dptx_audio_startup,
+ 	.audio_shutdown = dptx_audio_shutdown,
++	.get_eld = dptx_audio_get_eld,
+ 	.get_dai_id = dptx_audio_get_dai_id,
+-	.hook_plugged_cb = dptx_audio_hook_plugged_cb
++	.hook_plugged_cb = dptx_audio_hook_plugged_cb,
+ };

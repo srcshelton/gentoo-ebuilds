@@ -1,0 +1,302 @@
+Expose the existing firmware scratch byte and optional PMCTRL_S5
+power-reason byte as read-only diagnostics. Preserve the warning that
+firmware scratch can be stale across an ordinary reset.
+
+The public CIX material does not define the complete power-reason enum.
+Mark the inherited interpretations with an assumed- prefix and keep
+unmapped values unknown. CIX EDK2 reads the same register, masks its low
+three bits, and treats 0x07 as the four-second power-button override, so
+use that source-backed mapping instead of the previous CSU watchdog label.
+Do not invent a replacement meaning for 0x06.
+
+diff --git a/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason b/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason
+new file mode 100644
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason
+@@ -0,0 +1,36 @@
++What:		/sys/bus/platform/devices/*/firmware_scratch_raw
++Date:		July 2026
++Contact:	Gentoo CIX kernel maintainers
++Description:
++		Read-only hexadecimal value from the low byte of the CIX Sky1
++		firmware scratch register described by the device's first memory
++		resource. Firmware may leave this value unchanged across an ordinary
++		reset, so it must not be treated as a guaranteed last-reset cause.
++
++What:		/sys/bus/platform/devices/*/firmware_scratch_reason
++Date:		July 2026
++Contact:	Gentoo CIX kernel maintainers
++Description:
++		Read-only diagnostic decoding of firmware_scratch_raw. Known values
++		are power-on-or-unknown, default-exception, watchdog-interrupt,
++		warm-reset and invalid; all other values are reported as unknown.
++
++What:		/sys/bus/platform/devices/*/hardware_reason_raw
++Date:		July 2026
++Contact:	Gentoo CIX kernel maintainers
++Description:
++		Read-only hexadecimal value from the optional CIX Sky1 hardware
++		reset-reason register described by the device's second memory
++		resource. The file is absent when firmware omits that resource.
++
++What:		/sys/bus/platform/devices/*/hardware_reason
++Date:		July 2026
++Contact:	Gentoo CIX kernel maintainers
++Description:
++		Read-only diagnostic decoding of hardware_reason_raw. The file is
++		absent when firmware omits the hardware-reason resource. Labels with
++		the assumed- prefix are provisional interpretations rather than a
++		stable hardware specification; hardware_reason_raw remains
++		authoritative. CIX firmware independently identifies low-three-bit
++		value 0x07 as the four-second power-button override. Value 0x06 and
++		all other unmapped values are reported as unknown.
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -1,5 +1,17 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ 
++config CIX_SKY1_REBOOT_REASON
++	tristate "CIX Sky1 firmware scratch diagnostics"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on OF || ACPI
++	help
++	  Expose the current Sky1 firmware scratch value and an optional
++	  hardware reset-reason register as read-only sysfs diagnostics.
++
++	  Firmware does not guarantee that the scratch value always describes
++	  the immediately preceding reset. Enable this only for diagnostics on
++	  systems whose firmware provides a dedicated platform device.
++
+ config CIX_ACPI_RESOURCE_LOOKUP
+ 	bool "CIX ACPI resource lookup driver"
+ 	depends on ARCH_CIX || COMPILE_TEST
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -1,4 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
++obj-$(CONFIG_CIX_SKY1_REBOOT_REASON)	+= sky1-reboot-reason.o
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_HIFI5_COMMON)		+= cix-hifi5.o
+ obj-$(CONFIG_CIX_ACPI_PCIE_SCAN)		+= cix-acpi-pcie-scan.o
+diff --git a/drivers/soc/cix/sky1-reboot-reason.c b/drivers/soc/cix/sky1-reboot-reason.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/sky1-reboot-reason.c
+@@ -0,0 +1,215 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * CIX Sky1 firmware scratch diagnostics driver
++ */
++
++#include <linux/errno.h>
++#include <linux/io.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++
++#define SKY1_REBOOT_REASON_MASK		0xff
++#define SKY1_HW_REBOOT_REASON_MASK	0xff
++
++struct sky1_reboot_reason {
++	void __iomem *scratch_base;
++	void __iomem *hw_base;
++};
++
++static unsigned int sky1_reboot_reason_read(void __iomem *base, u32 mask)
++{
++	return readl_relaxed(base) & mask;
++}
++
++static const char *sky1_firmware_scratch_name(unsigned int reason)
++{
++	switch (reason) {
++	case 0x00:
++		return "power-on-or-unknown";
++	case 0x01:
++		return "default-exception";
++	case 0x02:
++		return "watchdog-interrupt";
++	case 0x04:
++		return "warm-reset";
++	case 0xff:
++		return "invalid";
++	default:
++		return "unknown";
++	}
++}
++
++static const char *sky1_hw_reboot_reason_name(unsigned int reason)
++{
++	switch (reason) {
++	case 0x00:
++		return "assumed-rsmrst";
++	case 0x01:
++		return "assumed-str";
++	case 0x02:
++		return "assumed-sd";
++	case 0x03:
++		return "assumed-watchdog-second-timeout";
++	case 0x04:
++		return "assumed-warm-reset";
++	case 0x05:
++		return "assumed-external-reset";
++	case 0x07:
++		return "assumed-power-button-override";
++	default:
++		return "unknown";
++	}
++}
++
++static ssize_t firmware_scratch_raw_show(struct device *dev,
++					 struct device_attribute *attr, char *buf)
++{
++	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "0x%02x\n",
++			  sky1_reboot_reason_read(rr->scratch_base,
++						  SKY1_REBOOT_REASON_MASK));
++}
++static DEVICE_ATTR_RO(firmware_scratch_raw);
++
++static ssize_t firmware_scratch_reason_show(struct device *dev,
++					    struct device_attribute *attr,
++					    char *buf)
++{
++	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
++	unsigned int reason;
++
++	reason = sky1_reboot_reason_read(rr->scratch_base,
++					 SKY1_REBOOT_REASON_MASK);
++
++	return sysfs_emit(buf, "%s\n", sky1_firmware_scratch_name(reason));
++}
++static DEVICE_ATTR_RO(firmware_scratch_reason);
++
++static ssize_t hardware_reason_raw_show(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
++{
++	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "0x%02x\n",
++			  sky1_reboot_reason_read(rr->hw_base,
++						  SKY1_HW_REBOOT_REASON_MASK));
++}
++static DEVICE_ATTR_RO(hardware_reason_raw);
++
++static ssize_t hardware_reason_show(struct device *dev,
++				    struct device_attribute *attr, char *buf)
++{
++	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
++	unsigned int reason;
++
++	reason = sky1_reboot_reason_read(rr->hw_base,
++					 SKY1_HW_REBOOT_REASON_MASK);
++
++	return sysfs_emit(buf, "%s\n", sky1_hw_reboot_reason_name(reason));
++}
++static DEVICE_ATTR_RO(hardware_reason);
++
++static struct attribute *sky1_firmware_scratch_attrs[] = {
++	&dev_attr_firmware_scratch_raw.attr,
++	&dev_attr_firmware_scratch_reason.attr,
++	NULL,
++};
++
++static const struct attribute_group sky1_firmware_scratch_group = {
++	.attrs = sky1_firmware_scratch_attrs,
++};
++
++static struct attribute *sky1_hardware_reason_attrs[] = {
++	&dev_attr_hardware_reason_raw.attr,
++	&dev_attr_hardware_reason.attr,
++	NULL,
++};
++
++static const struct attribute_group sky1_hardware_reason_group = {
++	.attrs = sky1_hardware_reason_attrs,
++};
++
++static int sky1_reboot_reason_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct resource *res;
++	struct sky1_reboot_reason *rr;
++	unsigned int reason;
++	int ret;
++
++	rr = devm_kzalloc(dev, sizeof(*rr), GFP_KERNEL);
++	if (!rr)
++		return -ENOMEM;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res || resource_size(res) < sizeof(u32))
++		return -EINVAL;
++
++	/*
++	 * Firmware may already reserve these always-on diagnostic registers as
++	 * system resources. Map them read-only for reporting without claiming
++	 * the regions a second time.
++	 */
++	rr->scratch_base = devm_ioremap(dev, res->start, resource_size(res));
++	if (!rr->scratch_base)
++		return -ENOMEM;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	if (res) {
++		if (resource_size(res) < sizeof(u32))
++			return -EINVAL;
++
++		rr->hw_base = devm_ioremap(dev, res->start,
++					   resource_size(res));
++		if (!rr->hw_base)
++			return -ENOMEM;
++	}
++
++	platform_set_drvdata(pdev, rr);
++
++	ret = devm_device_add_group(dev, &sky1_firmware_scratch_group);
++	if (ret)
++		return ret;
++
++	if (rr->hw_base) {
++		ret = devm_device_add_group(dev, &sky1_hardware_reason_group);
++		if (ret)
++			return ret;
++	}
++
++	reason = sky1_reboot_reason_read(rr->scratch_base,
++					 SKY1_REBOOT_REASON_MASK);
++	dev_info(dev, "firmware scratch value: %s (0x%02x; may be stale)\n",
++		 sky1_firmware_scratch_name(reason), reason);
++
++	if (rr->hw_base) {
++		reason = sky1_reboot_reason_read(rr->hw_base,
++						 SKY1_HW_REBOOT_REASON_MASK);
++		dev_info(dev, "hardware reset reason: %s (0x%02x)\n",
++			 sky1_hw_reboot_reason_name(reason), reason);
++	}
++
++	return 0;
++}
++
++static const struct of_device_id sky1_reboot_reason_of_match[] = {
++	{ .compatible = "cix,sky1-reboot-reason" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sky1_reboot_reason_of_match);
++
++static struct platform_driver sky1_reboot_reason_driver = {
++	.probe = sky1_reboot_reason_probe,
++	.driver = {
++		.name = "sky1-reboot-reason",
++		.of_match_table = sky1_reboot_reason_of_match,
++	},
++};
++module_platform_driver(sky1_reboot_reason_driver);
++
++MODULE_DESCRIPTION("CIX Sky1 firmware scratch diagnostics driver");
++MODULE_LICENSE("GPL");

@@ -1,0 +1,275 @@
+diff --git a/drivers/acpi/pptt.c b/drivers/acpi/pptt.c
+--- a/drivers/acpi/pptt.c
++++ b/drivers/acpi/pptt.c
+@@ -418,7 +418,7 @@ static void update_cache_properties(struct cacheinfo *this_leaf,
+ 		found_cache_v1 = ACPI_ADD_PTR(struct acpi_pptt_cache_v1,
+ 	                                      found_cache, sizeof(struct acpi_pptt_cache));
+ 		this_leaf->id = found_cache_v1->cache_id;
+-		this_leaf->attributes |= CACHE_ID;
++		this_leaf->attributes |= CACHE_ID | CACHE_ID_GLOBAL;
+ 	}
+ }
+ 
+diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
+--- a/drivers/base/cacheinfo.c
++++ b/drivers/base/cacheinfo.c
+@@ -21,6 +21,8 @@
+ #include <linux/smp.h>
+ #include <linux/sysfs.h>
+ 
++#include "cacheinfo_internal.h"
++
+ /* pointer to per cpu cacheinfo */
+ static DEFINE_PER_CPU(struct cpu_cacheinfo, ci_cpu_cacheinfo);
+ #define ci_cacheinfo(cpu)	(&per_cpu(ci_cpu_cacheinfo, cpu))
+@@ -37,9 +39,29 @@ struct cpu_cacheinfo *get_cpu_cacheinfo(unsigned int cpu)
+ 	return ci_cacheinfo(cpu);
+ }
+ 
+-static inline bool cache_leaves_are_shared(struct cacheinfo *this_leaf,
+-					   struct cacheinfo *sib_leaf)
++static bool cache_id_is_global(const struct cacheinfo *leaf)
++{
++	return (leaf->attributes & (CACHE_ID | CACHE_ID_GLOBAL)) ==
++		(CACHE_ID | CACHE_ID_GLOBAL);
++}
++
++bool cacheinfo_cache_leaves_are_shared(const struct cacheinfo *this_leaf,
++				       const struct cacheinfo *sib_leaf)
+ {
++	if (this_leaf->type != sib_leaf->type)
++		return false;
++
++	/*
++	 * A globally unique firmware ID identifies a physical cache even if
++	 * heterogeneous CPUs reach it at different relative levels.
++	 */
++	if (cache_id_is_global(this_leaf) && cache_id_is_global(sib_leaf))
++		return this_leaf->id == sib_leaf->id;
++
++	/* Other cache IDs and firmware tokens are only level-local. */
++	if (this_leaf->level != sib_leaf->level)
++		return false;
++
+ 	/*
+ 	 * For non DT/ACPI systems, assume unique level 1 caches,
+ 	 * system-wide shared caches for all other levels.
+@@ -79,7 +101,7 @@ bool last_level_cache_is_shared(unsigned int cpu_x, unsigned int cpu_y)
+ 	llc_x = per_cpu_cacheinfo_idx(cpu_x, cache_leaves(cpu_x) - 1);
+ 	llc_y = per_cpu_cacheinfo_idx(cpu_y, cache_leaves(cpu_y) - 1);
+ 
+-	return cache_leaves_are_shared(llc_x, llc_y);
++	return cacheinfo_cache_leaves_are_shared(llc_x, llc_y);
+ }
+ 
+ #ifdef CONFIG_OF
+@@ -422,16 +444,8 @@ static int cache_shared_cpu_map_setup(unsigned int cpu)
+ 			for (sib_index = 0; sib_index < cache_leaves(i); sib_index++) {
+ 				sib_leaf = per_cpu_cacheinfo_idx(i, sib_index);
+ 
+-				/*
+-				 * Comparing cache IDs only makes sense if the leaves
+-				 * belong to the same cache level of same type. Skip
+-				 * the check if level and type do not match.
+-				 */
+-				if (sib_leaf->level != this_leaf->level ||
+-				    sib_leaf->type != this_leaf->type)
+-					continue;
+-
+-				if (cache_leaves_are_shared(this_leaf, sib_leaf)) {
++				if (cacheinfo_cache_leaves_are_shared(this_leaf,
++								      sib_leaf)) {
+ 					cpumask_set_cpu(cpu, &sib_leaf->shared_cpu_map);
+ 					cpumask_set_cpu(i, &this_leaf->shared_cpu_map);
+ 					break;
+@@ -463,16 +477,8 @@ static void cache_shared_cpu_map_remove(unsigned int cpu)
+ 			for (sib_index = 0; sib_index < cache_leaves(sibling); sib_index++) {
+ 				sib_leaf = per_cpu_cacheinfo_idx(sibling, sib_index);
+ 
+-				/*
+-				 * Comparing cache IDs only makes sense if the leaves
+-				 * belong to the same cache level of same type. Skip
+-				 * the check if level and type do not match.
+-				 */
+-				if (sib_leaf->level != this_leaf->level ||
+-				    sib_leaf->type != this_leaf->type)
+-					continue;
+-
+-				if (cache_leaves_are_shared(this_leaf, sib_leaf)) {
++				if (cacheinfo_cache_leaves_are_shared(this_leaf,
++								      sib_leaf)) {
+ 					cpumask_clear_cpu(cpu, &sib_leaf->shared_cpu_map);
+ 					cpumask_clear_cpu(sibling, &this_leaf->shared_cpu_map);
+ 					break;
+diff --git a/drivers/base/cacheinfo_internal.h b/drivers/base/cacheinfo_internal.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/base/cacheinfo_internal.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _DRIVERS_BASE_CACHEINFO_INTERNAL_H
++#define _DRIVERS_BASE_CACHEINFO_INTERNAL_H
++
++#include <linux/cacheinfo.h>
++
++bool cacheinfo_cache_leaves_are_shared(const struct cacheinfo *this_leaf,
++				       const struct cacheinfo *sib_leaf);
++
++#endif /* _DRIVERS_BASE_CACHEINFO_INTERNAL_H */
+diff --git a/drivers/base/test/.kunitconfig b/drivers/base/test/.kunitconfig
+--- a/drivers/base/test/.kunitconfig
++++ b/drivers/base/test/.kunitconfig
+@@ -1,2 +1,3 @@
+ CONFIG_KUNIT=y
+ CONFIG_DM_KUNIT_TEST=y
++CONFIG_CACHEINFO_KUNIT_TEST=y
+diff --git a/drivers/base/test/Kconfig b/drivers/base/test/Kconfig
+--- a/drivers/base/test/Kconfig
++++ b/drivers/base/test/Kconfig
+@@ -18,3 +18,13 @@ config DRIVER_PE_KUNIT_TEST
+ 	tristate "KUnit Tests for property entry API" if !KUNIT_ALL_TESTS
+ 	depends on KUNIT
+ 	default KUNIT_ALL_TESTS
++
++config CACHEINFO_KUNIT_TEST
++	bool "KUnit tests for cacheinfo sharing" if !KUNIT_ALL_TESTS
++	depends on KUNIT
++	default KUNIT_ALL_TESTS
++	help
++	  Test cacheinfo's physical-cache identity rules, including firmware
++	  cache IDs that are globally unique across the relative cache levels
++	  reported by heterogeneous CPUs.
++	  If unsure, say N.
+diff --git a/drivers/base/test/Makefile b/drivers/base/test/Makefile
+--- a/drivers/base/test/Makefile
++++ b/drivers/base/test/Makefile
+@@ -6,3 +6,5 @@ obj-$(CONFIG_DM_KUNIT_TEST)	+= platform-device-test.o
+ 
+ obj-$(CONFIG_DRIVER_PE_KUNIT_TEST) += property-entry-test.o
+ CFLAGS_property-entry-test.o += $(DISABLE_STRUCTLEAK_PLUGIN)
++
++obj-$(CONFIG_CACHEINFO_KUNIT_TEST) += cacheinfo-test.o
+diff --git a/drivers/base/test/cacheinfo-test.c b/drivers/base/test/cacheinfo-test.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/base/test/cacheinfo-test.c
+@@ -0,0 +1,98 @@
++// SPDX-License-Identifier: GPL-2.0
++#include <kunit/test.h>
++
++#include "../cacheinfo_internal.h"
++
++static struct cacheinfo cacheinfo_test_leaf(unsigned int level,
++					    enum cache_type type,
++					    unsigned int id,
++					    unsigned int attributes)
++{
++	return (struct cacheinfo) {
++		.level = level,
++		.type = type,
++		.id = id,
++		.attributes = attributes,
++	};
++}
++
++static void cacheinfo_global_id_cross_level_test(struct kunit *test)
++{
++	struct cacheinfo l2 = cacheinfo_test_leaf(2, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID | CACHE_ID_GLOBAL);
++	struct cacheinfo l3 = cacheinfo_test_leaf(3, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID | CACHE_ID_GLOBAL);
++
++	KUNIT_EXPECT_TRUE(test, cacheinfo_cache_leaves_are_shared(&l2, &l3));
++}
++
++static void cacheinfo_level_local_id_cross_level_test(struct kunit *test)
++{
++	struct cacheinfo l2 = cacheinfo_test_leaf(2, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID);
++	struct cacheinfo l3 = cacheinfo_test_leaf(3, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID);
++
++	KUNIT_EXPECT_FALSE(test, cacheinfo_cache_leaves_are_shared(&l2, &l3));
++}
++
++static void cacheinfo_global_id_mismatch_test(struct kunit *test)
++{
++	struct cacheinfo l2 = cacheinfo_test_leaf(2, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID | CACHE_ID_GLOBAL);
++	struct cacheinfo l3 = cacheinfo_test_leaf(3, CACHE_TYPE_UNIFIED, 8,
++						  CACHE_ID | CACHE_ID_GLOBAL);
++
++	KUNIT_EXPECT_FALSE(test, cacheinfo_cache_leaves_are_shared(&l2, &l3));
++}
++
++static void cacheinfo_global_id_type_mismatch_test(struct kunit *test)
++{
++	struct cacheinfo data = cacheinfo_test_leaf(2, CACHE_TYPE_DATA, 7,
++						    CACHE_ID | CACHE_ID_GLOBAL);
++	struct cacheinfo unified = cacheinfo_test_leaf(3, CACHE_TYPE_UNIFIED, 7,
++						       CACHE_ID | CACHE_ID_GLOBAL);
++
++	KUNIT_EXPECT_FALSE(test,
++			   cacheinfo_cache_leaves_are_shared(&data, &unified));
++}
++
++static void cacheinfo_one_global_id_cross_level_test(struct kunit *test)
++{
++	struct cacheinfo l2 = cacheinfo_test_leaf(2, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID | CACHE_ID_GLOBAL);
++	struct cacheinfo l3 = cacheinfo_test_leaf(3, CACHE_TYPE_UNIFIED, 7,
++						  CACHE_ID);
++
++	KUNIT_EXPECT_FALSE(test, cacheinfo_cache_leaves_are_shared(&l2, &l3));
++}
++
++static void cacheinfo_global_flag_without_id_test(struct kunit *test)
++{
++	struct cacheinfo l2 = cacheinfo_test_leaf(2, CACHE_TYPE_UNIFIED, 0,
++						  CACHE_ID_GLOBAL);
++	struct cacheinfo l3 = cacheinfo_test_leaf(3, CACHE_TYPE_UNIFIED, 0,
++						  CACHE_ID_GLOBAL);
++
++	KUNIT_EXPECT_FALSE(test, cacheinfo_cache_leaves_are_shared(&l2, &l3));
++}
++
++static struct kunit_case cacheinfo_test_cases[] = {
++	KUNIT_CASE(cacheinfo_global_id_cross_level_test),
++	KUNIT_CASE(cacheinfo_level_local_id_cross_level_test),
++	KUNIT_CASE(cacheinfo_global_id_mismatch_test),
++	KUNIT_CASE(cacheinfo_global_id_type_mismatch_test),
++	KUNIT_CASE(cacheinfo_one_global_id_cross_level_test),
++	KUNIT_CASE(cacheinfo_global_flag_without_id_test),
++	{}
++};
++
++static struct kunit_suite cacheinfo_test_suite = {
++	.name = "cacheinfo-sharing",
++	.test_cases = cacheinfo_test_cases,
++};
++
++kunit_test_suite(cacheinfo_test_suite);
++
++MODULE_DESCRIPTION("KUnit tests for cacheinfo sharing");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/cacheinfo.h b/include/linux/cacheinfo.h
+--- a/include/linux/cacheinfo.h
++++ b/include/linux/cacheinfo.h
+@@ -22,7 +22,8 @@ extern unsigned int coherency_max_size;
+ 
+ /**
+  * struct cacheinfo - represent a cache leaf node
+- * @id: This cache's id. It is unique among caches with the same (type, level).
++ * @id: This cache's id. It is unique among caches with the same (type, level),
++ *	unless CACHE_ID_GLOBAL is set.
+  * @type: type of the cache - data, inst or unified
+  * @level: represents the hierarchy in the multi-level cache
+  * @coherency_line_size: size of each cache line usually representing
+@@ -67,6 +68,7 @@ struct cacheinfo {
+ #define CACHE_ALLOCATE_POLICY_MASK	\
+ 	(CACHE_READ_ALLOCATE | CACHE_WRITE_ALLOCATE)
+ #define CACHE_ID		BIT(4)
++#define CACHE_ID_GLOBAL		BIT(5)
+ 	void *fw_token;
+ 	bool disable_sysfs;
+ 	void *priv;

@@ -1,0 +1,186 @@
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -622,6 +622,36 @@ static int aipu_mm_init_pages(struct aipu_memory_manager *mm, struct aipu_mem_re
+ 	return 0;
+ }
+ 
++static void *aipu_mm_vmap_noncontiguous(struct sg_table *sgt, u64 bytes)
++{
++	struct sg_page_iter piter;
++	unsigned long count = bytes >> PAGE_SHIFT;
++	struct page **pages;
++	unsigned long i = 0;
++	void *vaddr;
++
++	pages = kvmalloc_array(count, sizeof(*pages), GFP_KERNEL);
++	if (!pages)
++		return NULL;
++
++	for_each_sgtable_page(sgt, &piter, 0) {
++		if (WARN_ON(i == count)) {
++			vaddr = NULL;
++			goto out;
++		}
++		pages[i++] = sg_page_iter_page(&piter);
++	}
++	if (WARN_ON(i != count)) {
++		vaddr = NULL;
++		goto out;
++	}
++
++	vaddr = vmap(pages, count, VM_MAP, pgprot_dmacoherent(PAGE_KERNEL));
++out:
++	kvfree(pages);
++	return vaddr;
++}
++
+ static void aipu_mm_destroy_region(struct aipu_memory_manager *mm, struct aipu_mem_region *reg)
+ {
+ 	struct aipu_tcb_buf *tbuf = NULL;
+@@ -631,7 +661,17 @@ static void aipu_mm_destroy_region(struct aipu_memory_manager *mm, struct aipu_m
+ 		return;
+ 
+ 	/* release allocation to system */
+-	if (reg->base_va) {
++	if (reg->dma_sgt) {
++		if (reg->base_va)
++			vunmap(reg->base_va);
++		dma_sync_sgtable_for_device(reg->dev, reg->dma_sgt,
++					    DMA_BIDIRECTIONAL);
++		dma_free_noncontiguous(reg->dev, reg->bytes, reg->dma_sgt,
++				       DMA_BIDIRECTIONAL);
++		reg->dma_sgt = NULL;
++		reg->base_va = NULL;
++		reg->base_iova = 0;
++	} else if (reg->base_va) {
+ 		dma_free_attrs(reg->dev, reg->bytes, reg->base_va, reg->base_pa, reg->attrs);
+ 		reg->base_va = NULL;
+ 		reg->base_iova = 0;
+@@ -732,11 +772,48 @@ static struct aipu_mem_region *aipu_mm_create_region(struct aipu_memory_manager
+ 		}
+ 	}
+ 
+-	va = dma_alloc_attrs(reg->dev, reg->bytes, &reg->base_pa, GFP_KERNEL, reg->attrs);
+-	if (!va) {
+-		dev_err(reg->dev, "dma_alloc_attrs failed: idx %d (bytes: 0x%llx, attrs %ld)\n",
+-			idx, reg->bytes, reg->attrs);
+-		goto err;
++	if (!reserved && mm->has_iommu &&
++	    mm->version == AIPU_ISA_VERSION_ZHOUYI_V3 &&
++	    has_acpi_companion(mm->dev) && !aipu_acpi_prealloc_iova_regions) {
++		reg->dma_sgt = dma_alloc_noncontiguous(reg->dev, reg->bytes,
++						   DMA_BIDIRECTIONAL,
++						   GFP_KERNEL | __GFP_ZERO,
++						   DMA_ATTR_ALLOC_SINGLE_PAGES);
++		if (!reg->dma_sgt) {
++			dev_err(reg->dev,
++				"page-backed DMA allocation failed: bytes 0x%llx\n",
++				reg->bytes);
++			goto err;
++		}
++		reg->base_pa = sg_dma_address(reg->dma_sgt->sgl);
++
++		/*
++		 * Allocation zeroing uses cacheable linear aliases.  Complete the
++		 * initial device ownership transition before returning the mapping
++		 * to the CPU so stale zero-filled lines cannot later overwrite NPU
++		 * DMA output, then expose only non-cacheable kernel and userspace
++		 * mappings for the allocation's lifetime.
++		 */
++		dma_sync_sgtable_for_device(reg->dev, reg->dma_sgt,
++					    DMA_BIDIRECTIONAL);
++		dma_sync_sgtable_for_cpu(reg->dev, reg->dma_sgt,
++					 DMA_BIDIRECTIONAL);
++		va = aipu_mm_vmap_noncontiguous(reg->dma_sgt, reg->bytes);
++		if (!va) {
++			dev_err(reg->dev,
++				"page-backed DMA vmap failed: bytes 0x%llx\n",
++				reg->bytes);
++			goto err;
++		}
++	} else {
++		va = dma_alloc_attrs(reg->dev, reg->bytes, &reg->base_pa,
++				     GFP_KERNEL, reg->attrs);
++		if (!va) {
++			dev_err(reg->dev,
++				"dma_alloc_attrs failed: idx %d (bytes: 0x%llx, attrs %ld)\n",
++				idx, reg->bytes, reg->attrs);
++			goto err;
++		}
+ 	}
+ 	reg->base_va = va;
+ 	if ((u64)reg->base_pa < reg->host_aipu_offset) {
+@@ -2069,7 +2146,10 @@ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *bu
+ 		goto unlock;
+ 
+ 	offset = buf->pa - reg->base_iova;
+-	if (mm->has_iommu)
++	if (reg->dma_sgt)
++		dma_sync_sgtable_for_device(reg->dev, reg->dma_sgt,
++					    DMA_BIDIRECTIONAL);
++	else if (mm->has_iommu)
+ 		tensor_flush_dcache_range((char *)reg->base_va + offset,
+ 					  (char *)reg->base_va + offset + buf->bytes);
+ 
+@@ -2109,7 +2189,10 @@ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *
+ 		goto unlock;
+ 
+ 	offset = buf->pa - reg->base_iova;
+-	if (mm->has_iommu)
++	if (reg->dma_sgt)
++		dma_sync_sgtable_for_cpu(reg->dev, reg->dma_sgt,
++					 DMA_BIDIRECTIONAL);
++	else if (mm->has_iommu)
+ 		tensor_dcache_inval_poc((char *)reg->base_va + offset,
+ 					(char *)reg->base_va + offset + buf->bytes);
+ 
+@@ -2256,8 +2339,12 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+ 	vma->vm_pgoff = (iova - reg->base_iova) >> PAGE_SHIFT;
+-	ret = dma_mmap_attrs(reg->dev, vma, reg->base_va, reg->base_pa,
+-			     reg->bytes, reg->attrs);
++	if (reg->dma_sgt)
++		ret = dma_mmap_noncontiguous(reg->dev, vma, reg->bytes,
++					     reg->dma_sgt);
++	else
++		ret = dma_mmap_attrs(reg->dev, vma, reg->base_va, reg->base_pa,
++				     reg->bytes, reg->attrs);
+ 	vma->vm_pgoff = iova >> PAGE_SHIFT;
+ 	if (ret) {
+ 		dev_err(mm->dev, "dma mmap failed at iova 0x%llx: %d\n", iova, ret);
+@@ -2312,8 +2399,12 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+ 	vma->vm_pgoff = (dev_pa - reg->base_iova) >> PAGE_SHIFT;
+-	ret = dma_mmap_attrs(reg->dev, vma, reg->base_va, reg->base_pa,
+-			     reg->bytes, reg->attrs);
++	if (reg->dma_sgt)
++		ret = dma_mmap_noncontiguous(reg->dev, vma, reg->bytes,
++					     reg->dma_sgt);
++	else
++		ret = dma_mmap_attrs(reg->dev, vma, reg->base_va, reg->base_pa,
++				     reg->bytes, reg->attrs);
+ 	vma->vm_pgoff = 0;
+ 
+ unlock:
+diff --git a/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
+--- a/drivers/misc/armchina-npu/aipu_mm.h
++++ b/drivers/misc/armchina-npu/aipu_mm.h
+@@ -183,6 +183,7 @@ struct aipu_virt_page {
+  * @obj: pointer to the region object
+  * @locked: is this region locked (therefore cannot be released) or not
+  * @map_count: number of VMAs mapping this direct allocation
++ * @dma_sgt: page-backed DMA allocation, when used instead of coherent DMA
+  */
+ struct aipu_mem_region {
+ 	enum aipu_mem_region_type type;
+@@ -204,6 +205,7 @@ struct aipu_mem_region {
+ 	struct aipu_mem_region_obj *obj;
+ 	bool locked;
+ 	atomic_t map_count;
++	struct sg_table *dma_sgt;
+ };
+ 
+ /**

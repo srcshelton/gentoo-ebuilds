@@ -171,7 +171,7 @@ diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
 +			pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x] excluded by acpi_table_upgrade.exclude\n",
 +				table->signature, ACPI_TABLE_UPGRADE_PATH,
 +				file.name, table->length);
-+			pr_info("Table Upgrade: skip [%4.4s-%6.6s-%8.8s] (%s%s)\n",
++			pr_info("Table Upgrade: skip [%.4s-%.6s-%.8s] (%s%s)\n",
 +				table->signature, table->oem_id,
 +				table->oem_table_id, ACPI_TABLE_UPGRADE_PATH,
 +				file.name);
@@ -203,7 +203,7 @@ diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
  
 -		pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x]\n",
 -			table->signature, cpio_path, file.name, table->length);
-+		pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x] [%4.4s-%6.6s-%8.8s]\n",
++		pr_info("%4.4s ACPI table found in initrd [%s%s][0x%x] [%.4s-%.6s-%.8s]\n",
 +			table->signature, ACPI_TABLE_UPGRADE_PATH, file.name,
 +			table->length, table->signature, table->oem_id,
 +			table->oem_table_id);

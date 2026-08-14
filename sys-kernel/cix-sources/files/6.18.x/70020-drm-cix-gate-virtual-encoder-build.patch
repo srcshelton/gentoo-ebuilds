@@ -1,0 +1,13 @@
+diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
+--- a/drivers/gpu/drm/cix/Kconfig
++++ b/drivers/gpu/drm/cix/Kconfig
+@@ -23,8 +23,7 @@ config DRM_LINLONDP
+ 
+ config DRM_CIX_VIRTUAL
+ 	tristate "DRM Support for CiX Virtual Encoder"
+-	depends on DRM_CIX
+-	default y
++	depends on DRM_CIX && BROKEN
+ 	help
+ 	  This is a virtual encoder and connector support which is
+ 	  mainly used on EMU and FPGA. Disabled in default.

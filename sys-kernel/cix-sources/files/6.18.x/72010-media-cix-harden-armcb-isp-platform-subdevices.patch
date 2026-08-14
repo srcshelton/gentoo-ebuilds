@@ -1,0 +1,3235 @@
+diff --git a/drivers/media/platform/cix/armcb-isp/Makefile b/drivers/media/platform/cix/armcb-isp/Makefile
+--- a/drivers/media/platform/cix/armcb-isp/Makefile
++++ b/drivers/media/platform/cix/armcb-isp/Makefile
+@@ -22,7 +22,6 @@ armcb_isp_v4l2-y := \
+ 	common/isp_hw_if/isp_hw_utils.o \
+ 	common/system_dma.o \
+ 	isp/armcb_isp_driver.o \
+-	isp/armcb_isp_execstart.o \
+ 	isp/armcb_v4l2_config.o \
+ 	isp/armcb_v4l2_core.o \
+ 	isp/armcb_v4l2_stream.o \
+diff --git a/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c b/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c
+--- a/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c
++++ b/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c
+@@ -20,6 +20,7 @@
+ #include "armcb_sensor.h"
+ #include "armcb_v4l2_config.h"
+ #include "cix_vi_hw.h"
++#include "isp_hw_ops.h"
+ #include "linux/kern_levels.h"
+ #include "linux/kernel.h"
+ 
+@@ -34,7 +35,7 @@ struct armcb_ko_entry {
+ };
+ 
+ #ifndef V4L2_OPT
+-struct armcb_ko_entry g_ko_entries[] = {
++static struct armcb_ko_entry g_ko_entries[] = {
+ 	// 1.init cfg driver(video0) firstly
+ 	{ armcb_get_v4l2_cfg_driver_instance,    armcb_v4l2_cfg_driver_destroy,    NULL, false },
+ 	// 2.init other v4l2 sub devices
+@@ -45,7 +46,7 @@ struct armcb_ko_entry g_ko_entries[] = {
+ 	{ cix_vi_hw_instance,                    cix_vi_hw_destroy,                NULL, false },
+ };
+ #else
+-struct armcb_ko_entry g_ko_entries[] = {
++static struct armcb_ko_entry g_ko_entries[] = {
+ 	// 1.init cfg driver(video0) firstly
+ 	{ armcb_get_cam_io_drv_instance,         armcb_cam_io_drv_destroy,         NULL, false },
+ 	{ armcb_get_v4l2_cfg_driver_instance,    armcb_v4l2_cfg_driver_destroy,    NULL, false },
+@@ -59,36 +60,49 @@ struct armcb_ko_entry g_ko_entries[] = {
+ 
+ static int __init armcb_isp_submodules_init(void)
+ {
+-	int i = 0;
++	int i;
+ 	init_func fn;
+ 
+-	for (; i < ARRAY_SIZE(g_ko_entries); i++) {
++	for (i = 0; i < ARRAY_SIZE(g_ko_entries); i++) {
+ 		fn = g_ko_entries[i].init;
+-		if (fn && fn() != NULL)
+-			g_ko_entries[i].is_init = true;
++		if (!fn)
++			continue;
++
++		g_ko_entries[i].priv = fn();
++		if (!g_ko_entries[i].priv)
++			goto rollback;
++		g_ko_entries[i].is_init = true;
+ 	}
+ 	return 0;
++
++rollback:
++	armcb_isp_hw_release_queued();
++	while (--i >= 0) {
++		if (!g_ko_entries[i].is_init || !g_ko_entries[i].exit)
++			continue;
++		g_ko_entries[i].exit();
++		g_ko_entries[i].is_init = false;
++		g_ko_entries[i].priv = NULL;
++	}
++	/* Catch any instance left by a probe that did not complete. */
++	armcb_cam_instance_destroy();
++
++	return -ENODEV;
+ }
+ 
+ static void __exit armcb_isp_submodule_exit(void)
+ {
+-	int i = 0;
+-	exit_func fn = NULL;
+-#if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE)
+-	armcb_cam_instance_destroy();
+-#endif
+-	i = ARRAY_SIZE(g_ko_entries) - 1;
++	int i;
+ 
+-	for (; i >= 0; i--) {
+-		fn = g_ko_entries[i].exit;
+-		if (fn) {
+-			pr_err("destroy enter %d.\n", i);
+-			fn();
+-		}
++	armcb_isp_hw_release_queued();
++	for (i = ARRAY_SIZE(g_ko_entries) - 1; i >= 0; i--) {
++		if (!g_ko_entries[i].is_init || !g_ko_entries[i].exit)
++			continue;
++		g_ko_entries[i].exit();
++		g_ko_entries[i].is_init = false;
++		g_ko_entries[i].priv = NULL;
+ 	}
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+ 	armcb_cam_instance_destroy();
+-#endif
+ }
+ 
+ module_init(armcb_isp_submodules_init);
+diff --git a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+--- a/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
++++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
+@@ -40,22 +40,40 @@ struct cix_vi_hw_dev *cix_vi_hw_info;
+ 
+ static void __iomem *cix_ahb_dphy_get_addr_base(int id)
+ {
+-	return cix_vi_hw_info->ahb_dphy_base_addrs[id];
++	struct cix_vi_hw_dev *info = READ_ONCE(cix_vi_hw_info);
++
++	return info && id >= 0 && id < DPHY_NUM ?
++		info->ahb_dphy_base_addrs[id] : NULL;
+ }
+ 
+ static void __iomem *cix_ahb_csi_get_addr_base(int id)
+ {
+-	return cix_vi_hw_info->ahb_csi_base_addrs[id];
++	struct cix_vi_hw_dev *info = READ_ONCE(cix_vi_hw_info);
++
++	return info && id >= 0 && id < CSI_NUM ?
++		info->ahb_csi_base_addrs[id] : NULL;
+ }
+ 
+ static void __iomem *cix_ahb_csidma_get_addr_base(int id)
+ {
+-	return cix_vi_hw_info->ahb_csidma_base_addrs[id];
++	struct cix_vi_hw_dev *info = READ_ONCE(cix_vi_hw_info);
++
++	return info && id >= 0 && id < CSIDMA_NUM ?
++		info->ahb_csidma_base_addrs[id] : NULL;
+ }
+ 
+ static void __iomem *cix_ahb_csircsu_get_addr_base(int id)
+ {
+-	return cix_vi_hw_info->ahb_csircsu_base_addrs[id];
++	struct cix_vi_hw_dev *info = READ_ONCE(cix_vi_hw_info);
++
++	return info && id >= 0 && id < DPHY_NUM ?
++		info->ahb_csircsu_base_addrs[id] : NULL;
++}
++
++static bool cix_vi_reg_valid(void __iomem *base, u32 offset, u32 size)
++{
++	return base && !(offset & (sizeof(u32) - 1)) && size >= sizeof(u32) &&
++	       offset <= size - sizeof(u32);
+ }
+ 
+ u32 cix_ahb_dphy_read_reg(u32 reg_addr)
+@@ -79,6 +97,10 @@ u32 cix_ahb_dphy_read_reg(u32 reg_addr)
+ 	}
+ 
+ 	virt_addr = cix_ahb_dphy_get_addr_base(phy_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_dphy_size[phy_id]))
++		return U32_MAX;
+ 	/* Ensure read order to prevent hardware register access reordering */
+ 	rmb();
+ 	reg_val = readl(virt_addr + offset);
+@@ -106,6 +128,10 @@ void cix_ahb_dphy_write_reg(u32 reg_addr, u32 value)
+ 	}
+ 
+ 	virt_addr = cix_ahb_dphy_get_addr_base(phy_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_dphy_size[phy_id]))
++		return;
+ 	/* Ensure write order to prevent hardware register access reordering */
+ 	wmb();
+ 	writel(value, virt_addr + offset);
+@@ -139,6 +165,10 @@ u32 cix_ahb_csi_read_reg(u32 reg_addr)
+ 	}
+ 
+ 	virt_addr = cix_ahb_csi_get_addr_base(csi_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_csi_size[csi_id]))
++		return U32_MAX;
+ 	/* Ensure read order to prevent hardware register access reordering */
+ 	rmb();
+ 	reg_val = readl(virt_addr + offset);
+@@ -173,6 +203,10 @@ void cix_ahb_csi_write_reg(u32 reg_addr, u32 value)
+ 	}
+ 
+ 	virt_addr = cix_ahb_csi_get_addr_base(csi_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_csi_size[csi_id]))
++		return;
+ 	/* Ensure write order to prevent hardware register access reordering */
+ 	wmb();
+ 	writel(value, virt_addr + offset);
+@@ -207,6 +241,10 @@ u32 cix_ahb_csidma_read_reg(u32 reg_addr)
+ 	}
+ 
+ 	virt_addr = cix_ahb_csidma_get_addr_base(csidma_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_csidma_size[csidma_id]))
++		return U32_MAX;
+ 	/* Ensure read order to prevent hardware register access reordering */
+ 	rmb();
+ 	reg_val = readl(virt_addr + offset);
+@@ -242,6 +280,10 @@ void cix_ahb_csidma_write_reg(u32 reg_addr, u32 value)
+ 	}
+ 
+ 	virt_addr = cix_ahb_csidma_get_addr_base(csidma_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_csidma_size[csidma_id]))
++		return;
+ 	/* Ensure write order to prevent hardware register access reordering */
+ 	wmb();
+ 	writel(value, virt_addr + offset);
+@@ -268,6 +310,10 @@ u32 cix_ahb_csircsu_read_reg(u32 reg_addr)
+ 	}
+ 
+ 	virt_addr = cix_ahb_csircsu_get_addr_base(csircsu_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_csircsu_size[csircsu_id]))
++		return U32_MAX;
+ 	/* Ensure read order to prevent hardware register access reordering */
+ 	rmb();
+ 	reg_val = readl(virt_addr + offset);
+@@ -295,6 +341,10 @@ void cix_ahb_csircsu_write_reg(u32 reg_addr, u32 value)
+ 	}
+ 
+ 	virt_addr = cix_ahb_csircsu_get_addr_base(csircsu_id);
++	if (!cix_vi_hw_info ||
++	    !cix_vi_reg_valid(virt_addr, offset,
++			      cix_vi_hw_info->ahb_csircsu_size[csircsu_id]))
++		return;
+ 	/* Ensure write order to prevent hardware register access reordering */
+ 	wmb();
+ 	writel(value, virt_addr + offset);
+@@ -409,8 +459,15 @@ void cix_enable_dphy_clk(u32 reg_addr, u32 value)
+ 	u16 dhpy_id;
+ 	int ret;
+ 
++	if (!READ_ONCE(cix_vi_hw_info) || reg_addr < DPHY_POWER_BASE ||
++	    reg_addr > DPHY_POWER_END)
++		return;
+ 	dhpy_id = reg_addr - DPHY_POWER_BASE;
++	if (dhpy_id >= DPHY_NUM)
++		return;
+ 	if (value > 0) {
++		if (dphy_power_status[dhpy_id] == POWER_ON)
++			return;
+ 		ret = clk_prepare_enable(cix_vi_hw_info->phy_psm_clk[dhpy_id]);
+ 		if (ret < 0) {
+ 			LOG(LOG_ERR, "enable phy%d_psm_clk error",
+@@ -422,16 +479,18 @@ void cix_enable_dphy_clk(u32 reg_addr, u32 value)
+ 		if (ret < 0) {
+ 			LOG(LOG_ERR, "enable phy%d_apb_clk error",
+ 				dhpy_id);
++			clk_disable_unprepare(
++				cix_vi_hw_info->phy_psm_clk[dhpy_id]);
+ 			goto err_phy_clks;
+ 		}
+ 		cix_dphy_resets(dhpy_id, POWER_ON);
+ 		dphy_power_status[dhpy_id] = POWER_ON;
+ 	} else {
+ 		if (dphy_power_status[dhpy_id] == POWER_ON) {
+-			clk_disable_unprepare(
+-				cix_vi_hw_info->phy_psm_clk[dhpy_id]);
+ 			clk_disable_unprepare(
+ 				cix_vi_hw_info->phy_apb_clk[dhpy_id]);
++			clk_disable_unprepare(
++				cix_vi_hw_info->phy_psm_clk[dhpy_id]);
+ 			cix_dphy_resets(dhpy_id, POWER_OFF);
+ 		}
+ 		dphy_power_status[dhpy_id] = POWER_OFF;
+@@ -444,22 +503,36 @@ void cix_enable_dphy_clk(u32 reg_addr, u32 value)
+ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ {
+ 	u16 csi_id;
++	int enabled_pixels = 0;
++	bool p_enabled = false;
++	bool sys_enabled = false;
+ 	int i, ret;
+ 
++	if (!READ_ONCE(cix_vi_hw_info) || reg_addr < CSI_POWER_BASE ||
++	    reg_addr > CSI_POWER_END)
++		return;
+ 	csi_id = reg_addr - CSI_POWER_BASE;
++	if (csi_id >= CSI_NUM)
++		return;
+ 	if (value > 0) {
++		if (csi_power_status[csi_id] == POWER_ON) {
++			clk_set_rate(cix_vi_hw_info->csi_sys_clk[csi_id], value);
++			return;
++		}
+ 		LOG(LOG_INFO, "enable csi%d_sys_clk %d", csi_id, value);
+ 		ret = clk_prepare_enable(cix_vi_hw_info->csi_sys_clk[csi_id]);
+ 		if (ret < 0) {
+ 			LOG(LOG_ERR, "enable csi%d_sys_clk error", csi_id);
+ 			goto err_csi_clks;
+ 		}
++		sys_enabled = true;
+ 
+ 		ret = clk_prepare_enable(cix_vi_hw_info->csi_p_clk[csi_id]);
+ 		if (ret < 0) {
+ 			LOG(LOG_ERR, "enable csi%d_p_clk error", csi_id);
+ 			goto err_csi_clks;
+ 		}
++		p_enabled = true;
+ 		switch (csi_id) {
+ 		case 0:
+ 			for (i = 0; i < 4; i++) {
+@@ -470,6 +543,7 @@ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ 						i);
+ 					goto err_csi_clks;
+ 				}
++				enabled_pixels++;
+ 			}
+ 			break;
+ 		case 1:
+@@ -478,6 +552,7 @@ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ 				LOG(LOG_ERR, "csi1_pixel_clk enable failed\n");
+ 				goto err_csi_clks;
+ 			}
++			enabled_pixels = 1;
+ 			break;
+ 		case 2:
+ 			for (i = 0; i < 4; i++) {
+@@ -488,27 +563,26 @@ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ 						i);
+ 					goto err_csi_clks;
+ 				}
++				enabled_pixels++;
+ 			}
+ 			break;
+ 		case 3:
+ 			if (clk_prepare_enable(
+ 					cix_vi_hw_info->csi3_pixel_clk)) {
+-				LOG(LOG_ERR,
+-					"csi3_pixel_clk[%d] enable failed\n");
++				LOG(LOG_ERR, "csi3_pixel_clk enable failed\n");
+ 				goto err_csi_clks;
+ 			}
++			enabled_pixels = 1;
+ 			break;
+ 		}
+ 
+-		clk_set_rate(cix_vi_hw_info->csi_sys_clk[csi_id], value);
++		ret = clk_set_rate(cix_vi_hw_info->csi_sys_clk[csi_id], value);
++		if (ret)
++			goto err_csi_clks;
+ 		cix_csi_resets(csi_id, POWER_ON);
+ 		csi_power_status[csi_id] = POWER_ON;
+ 	} else {
+ 		if (csi_power_status[csi_id] == POWER_ON) {
+-			clk_disable_unprepare(
+-				cix_vi_hw_info->csi_sys_clk[csi_id]);
+-			clk_disable_unprepare(
+-				cix_vi_hw_info->csi_p_clk[csi_id]);
+ 			switch (csi_id) {
+ 			case 0:
+ 				for (i = 0; i < 4; i++)
+@@ -531,12 +605,40 @@ void cix_set_csi_clk_rate(u32 reg_addr, u32 value)
+ 					cix_vi_hw_info->csi3_pixel_clk);
+ 				break;
+ 			}
++			clk_disable_unprepare(
++				cix_vi_hw_info->csi_p_clk[csi_id]);
++			clk_disable_unprepare(
++				cix_vi_hw_info->csi_sys_clk[csi_id]);
+ 			cix_csi_resets(csi_id, POWER_OFF);
+ 		}
+ 		csi_power_status[csi_id] = POWER_OFF;
+ 	}
+ 	return;
+ err_csi_clks:
++	switch (csi_id) {
++	case 0:
++		while (enabled_pixels--)
++			clk_disable_unprepare(
++				cix_vi_hw_info->csi0_pixel_clk[enabled_pixels]);
++		break;
++	case 1:
++		if (enabled_pixels)
++			clk_disable_unprepare(cix_vi_hw_info->csi1_pixel_clk);
++		break;
++	case 2:
++		while (enabled_pixels--)
++			clk_disable_unprepare(
++				cix_vi_hw_info->csi2_pixel_clk[enabled_pixels]);
++		break;
++	case 3:
++		if (enabled_pixels)
++			clk_disable_unprepare(cix_vi_hw_info->csi3_pixel_clk);
++		break;
++	}
++	if (p_enabled)
++		clk_disable_unprepare(cix_vi_hw_info->csi_p_clk[csi_id]);
++	if (sys_enabled)
++		clk_disable_unprepare(cix_vi_hw_info->csi_sys_clk[csi_id]);
+ 	LOG(LOG_ERR, "enable csi%d  clk failed", csi_id);
+ }
+ void cix_enable_csidma_clk(u32 reg_addr, u32 value)
+@@ -544,13 +646,22 @@ void cix_enable_csidma_clk(u32 reg_addr, u32 value)
+ 	u16 csidma_id;
+ 	int ret;
+ 
++	if (!READ_ONCE(cix_vi_hw_info) || reg_addr < CSIDMA_POWER_BASE ||
++	    reg_addr > CSIDMA_POWER_END)
++		return;
+ 	csidma_id = reg_addr - CSIDMA_POWER_BASE;
++	if (csidma_id >= CSIDMA_NUM)
++		return;
+ 	if (value > 0) {
++		if (csidma_power_status[csidma_id] == POWER_ON)
++			return;
+ 		ret = clk_prepare_enable(
+ 			cix_vi_hw_info->csidma_apbclk[csidma_id]);
+-		if (ret < 0)
++		if (ret < 0) {
+ 			LOG(LOG_ERR, "enable csidma%d_apbclk error",
+ 				csidma_id);
++			return;
++		}
+ 		cix_csidma_resets(csidma_id, POWER_ON);
+ 		csidma_power_status[csidma_id] = POWER_ON;
+ 	} else {
+@@ -606,9 +717,15 @@ static const struct acpi_device_id cix_vi_hw_acpi_match[] = {
+ };
+ MODULE_DEVICE_TABLE(acpi, cix_vi_hw_acpi_match);
+ 
++static void cix_vi_hw_clear_global(void *data)
++{
++	cmpxchg(&cix_vi_hw_info, data, NULL);
++}
++
+ static int cix_vi_hw_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
++	struct cix_vi_hw_dev *info;
+ 
+ 	int i;
+ 	char buffer[64], clk_name[32], reset_name[32];
+@@ -617,12 +734,16 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 
+ 	LOG(LOG_INFO, "cix vi hw reg  probe enter\n");
+ 
+-	cix_vi_hw_info =
+-		devm_kzalloc(dev, sizeof(struct cix_vi_hw_dev), GFP_KERNEL);
+-	if (!cix_vi_hw_info)
++	info = devm_kzalloc(dev, sizeof(*info), GFP_KERNEL);
++	if (!info)
+ 		return -ENOMEM;
++	if (cmpxchg(&cix_vi_hw_info, NULL, info))
++		return -EBUSY;
++	ret = devm_add_action_or_reset(dev, cix_vi_hw_clear_global, info);
++	if (ret)
++		return ret;
+ 
+-	cix_vi_hw_info->dev = dev;
++	info->dev = dev;
+ 
+ 	for (i = 0; i < DPHY_NUM; i++) {
+ 		sprintf(clk_name, "phy%d_psmclk", i);
+@@ -796,7 +917,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 		}
+ 		sprintf(buffer, "ahb-csidma%d-size", i);
+ 		ret = fwnode_property_read_u32(
+-			pdev->dev.fwnode, "ahb-csidma0-size",
++			pdev->dev.fwnode, buffer,
+ 			&cix_vi_hw_info->ahb_csidma_size[i]);
+ 		if (ret < 0) {
+ 			cix_vi_hw_info->ahb_csidma_size[i] = 0;
+@@ -850,35 +971,42 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 				&pdev->dev, cix_vi_hw_info->ahb_csi_base[i],
+ 				cix_vi_hw_info->ahb_csi_size[i]);
+ 			if (!cix_vi_hw_info->ahb_csi_base_addrs[i]) {
+-				cix_vi_hw_info->ahb_csi_base_addrs[i] = 0;
+-				LOG(LOG_ERR,
+-					"failed to ioremap ahb-csi%d register region.",
+-					i);
++				return dev_err_probe(dev, -ENOMEM,
++						     "failed to map CSI%d registers\n",
++						     i);
+ 			}
+ 		}
++		if (!cix_vi_hw_info->ahb_csi_base_addrs[i]) {
++			dev_dbg(dev, "CSI%d register window is not described\n", i);
++			continue;
++		}
+ 
+ 		/*get irq info*/
+ 		irq0 = platform_get_irq(pdev, i * 2);
+ 		if (irq0 < 0)
+-			LOG(LOG_ERR, "Failed to get IRQ resource");
++			return dev_err_probe(dev, irq0,
++					     "failed to get CSI%d IRQ\n", i);
+ 
+ 		ret = devm_request_irq(dev, irq0, mipi_csi2_irq_handler,
+-					   IRQF_ONESHOT | IRQF_SHARED,
++					   IRQF_SHARED,
+ 					   dev_name(dev),
+ 					   cix_vi_hw_info->ahb_csi_base_addrs[i]);
+ 		if (ret)
+-			LOG(LOG_ERR, "failed to install irq (%d)", ret);
++			return dev_err_probe(dev, ret,
++					     "failed to request CSI%d IRQ\n", i);
+ 
+ 		irq1 = platform_get_irq(pdev, i * 2 + 1);
+-		if (!irq1)
+-			LOG(LOG_ERR, "Failed to get IRQ error resource");
++		if (irq1 < 0)
++			return dev_err_probe(dev, irq1,
++					     "failed to get CSI%d error IRQ\n", i);
+ 
+ 		ret = devm_request_irq(dev, irq1, mipi_csi2_err_irq_handler,
+-					   IRQF_ONESHOT | IRQF_SHARED,
++					   IRQF_SHARED,
+ 					   dev_name(dev),
+ 					   cix_vi_hw_info->ahb_csi_base_addrs[i]);
+ 		if (ret)
+-			LOG(LOG_ERR, "failed to install irq (%d)", ret);
++			return dev_err_probe(dev, ret,
++					     "failed to request CSI%d error IRQ\n", i);
+ 
+ 		LOG(LOG_INFO,
+ 			"ahb-csi%d-base=0x%x, ahb-csi%d-size=0x%x ahb_csi%d_base_addr=%p",
+@@ -919,7 +1047,7 @@ static int cix_vi_hw_probe(struct platform_device *pdev)
+ 			if (!cix_vi_hw_info->ahb_csircsu_base_addrs[i]) {
+ 				cix_vi_hw_info->ahb_csircsu_base_addrs[i] = 0;
+ 				LOG(LOG_ERR,
+-					"failed to ioremap ahb-csircsu% register region.",
++					"failed to ioremap ahb-csircsu%d register region.",
+ 					i);
+ 			}
+ 		}
+@@ -945,7 +1073,7 @@ static void cix_vi_hw_remove(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 
+ 	dev_info(dev, "csi rcsu hw remove enter\n");
+-	mutex_destroy(&cix_vi_hw_info->mutex);
++	platform_set_drvdata(pdev, NULL);
+ }
+ 
+ static struct platform_driver cix_vi_hw_driver = {
+@@ -971,9 +1099,11 @@ void *cix_vi_hw_instance(void)
+ 
+ void cix_vi_hw_destroy(void)
+ {
+-	if (g_instance)
++	if (g_instance) {
+ 		platform_driver_unregister(
+ 			(struct platform_driver *)g_instance);
++		g_instance = NULL;
++	}
+ }
+ 
+ MODULE_AUTHOR("Cix Semiconductor, Inc.");
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
+@@ -128,6 +128,8 @@ int armcb_camera_async_complete(struct v4l2_async_notifier *notifier)
+ 		LOG(LOG_ERR, "media device register failed (ret=%d)", ret);
+ 		return ret;
+ 	}
++	container_of(v4l2_dev, armcb_v4l2_dev_t, v4l2_dev)->media_registered =
++		true;
+ #endif
+ 	return ret;
+ 
+@@ -171,8 +173,14 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	armcb_v4l2_dev_t *parmcb_dev = NULL;
+ 	struct v4l2_device *pvdev = NULL;
+ 	int retry_count = 0;
++	int ret;
+ 
+ 	LOG(LOG_INFO, "+   %d", cam_id);
++	if (!armcb_sdreg)
++		return -EINVAL;
++	if (armcb_sdreg->ordered || armcb_sdreg->async_registered)
++		return -EBUSY;
++
+ 	while (retry_count < 20) {
+ 		parmcb_dev = armcb_v4l2_core_get_dev(cam_id);
+ 		if (parmcb_dev != NULL) {
+@@ -183,8 +191,8 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 	}
+ 
+ 	if (!parmcb_dev) {
+-		LOG(LOG_ERR, "Invalid input armcb_sbreg is NULL");
+-		return -EINVAL;
++		LOG(LOG_INFO, "camera instance %u is not ready", cam_id);
++		return -EPROBE_DEFER;
+ 	}
+ 
+ 	pvdev = &parmcb_dev->v4l2_dev;
+@@ -193,11 +201,25 @@ int armcb_subdev_register(struct armcb_sd_subdev *armcb_sdreg,
+ 		return -EIO;
+ 	}
+ 
++	INIT_LIST_HEAD(&armcb_sdreg->list);
+ 	mutex_lock(&parmcb_dev->ordered_sd_mutex);
+ 	armcb_add_sd_in_position(armcb_sdreg, &parmcb_dev->ordered_sd_list);
++	armcb_sdreg->ordered_lock = &parmcb_dev->ordered_sd_mutex;
++	armcb_sdreg->ordered = true;
+ 	mutex_unlock(&parmcb_dev->ordered_sd_mutex);
+ 
+-	return armcb_subdev_register_nodes_async(&armcb_sdreg->sd);
++	ret = armcb_subdev_register_nodes_async(&armcb_sdreg->sd);
++	if (!ret) {
++		armcb_sdreg->async_registered = true;
++		return 0;
++	}
++
++	mutex_lock(armcb_sdreg->ordered_lock);
++	list_del_init(&armcb_sdreg->list);
++	mutex_unlock(armcb_sdreg->ordered_lock);
++	armcb_sdreg->ordered = false;
++	armcb_sdreg->ordered_lock = NULL;
++	return ret;
+ }
+ 
+ int armcb_subdev_unregister(struct armcb_sd_subdev *armcb_sdreg)
+@@ -207,7 +229,18 @@ int armcb_subdev_unregister(struct armcb_sd_subdev *armcb_sdreg)
+ 		return -EINVAL;
+ 	}
+ 
+-	v4l2_device_unregister_subdev(&armcb_sdreg->sd);
++	if (armcb_sdreg->async_registered) {
++		v4l2_async_unregister_subdev(&armcb_sdreg->sd);
++		armcb_sdreg->async_registered = false;
++	}
++
++	if (armcb_sdreg->ordered) {
++		mutex_lock(armcb_sdreg->ordered_lock);
++		list_del_init(&armcb_sdreg->list);
++		mutex_unlock(armcb_sdreg->ordered_lock);
++		armcb_sdreg->ordered = false;
++		armcb_sdreg->ordered_lock = NULL;
++	}
+ 	return 0;
+ }
+ 
+@@ -217,7 +250,11 @@ static struct v4l2_subdev *armcb_subdev_find(const char *name)
+ 	struct v4l2_subdev *subdevI = NULL;
+ 	struct v4l2_subdev *subdevO = NULL;
+ 	armcb_v4l2_dev_t *parmcb_dev = armcb_v4l2_core_get_dev(0);
+-	struct v4l2_device *pvdev = &parmcb_dev->v4l2_dev;
++	struct v4l2_device *pvdev;
++
++	if (!parmcb_dev)
++		return NULL;
++	pvdev = &parmcb_dev->v4l2_dev;
+ 
+ 	spin_lock_irqsave(&pvdev->lock, flags);
+ 
+@@ -237,7 +274,6 @@ static struct v4l2_subdev *armcb_subdev_find(const char *name)
+ void armcb_v4l2_subdev_notify(struct v4l2_subdev *sd, unsigned int notification,
+ 			      void *arg)
+ {
+-	struct v4l2_subdev *subdev = NULL;
+ 	struct armcb_subdev_req *sd_req = NULL;
+ 
+ 	if (WARN_ON(!sd) || WARN_ON(!arg)) {
+@@ -257,7 +293,6 @@ void armcb_v4l2_subdev_notify(struct v4l2_subdev *sd, unsigned int notification,
+ 		sd_req->subdev = armcb_subdev_find(sd_req->name);
+ 		break;
+ 	case ARMCB_SUBDEV_NOTIFY_PUT:
+-		subdev = armcb_subdev_find(sd_req->name);
+ 		break;
+ 	case ARMCB_SUBDEV_NOTIFY_REQ:
+ 		break;
+diff --git a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h
+--- a/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h
++++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h
+@@ -76,6 +76,9 @@ struct armcb_sd_subdev {
+ 	struct v4l2_subdev sd;
+ 	int close_seq;
+ 	struct list_head list;
++	struct mutex *ordered_lock;
++	bool ordered;
++	bool async_registered;
+ };
+ 
+ struct armcb_subdev_req {
+diff --git a/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
+--- a/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
++++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
+@@ -22,6 +22,10 @@
+ #include "system_logger.h"
+ 
+ #include "cix_vi_hw.h"
++#include <linux/compat.h>
++#include <linux/overflow.h>
++#include <linux/sizes.h>
++#include <linux/uaccess.h>
+ 
+ #ifdef LOG_MODULE
+ #undef LOG_MODULE
+@@ -29,15 +33,18 @@
+ #endif
+ 
+ #define SOF_TIMEOUT (2000)
++#define ARMCB_CMD_MAX_COUNT 4096U
++#define ARMCB_CMD_MAX_SIZE SZ_1M
+ 
+ static unsigned char is_stream_on_list_init;
+ static unsigned char is_stream_off_list_init;
+ static unsigned char is_stream_powerdown_list_init;
+ static unsigned int hw_apply_entry_cnt;
+ static unsigned int hw_apply_cam_flag;
+-static struct list_head streamon_list;
+-static struct list_head streamoff_list;
+-static struct list_head powerdown_list;
++static LIST_HEAD(streamon_list);
++static LIST_HEAD(streamoff_list);
++static LIST_HEAD(powerdown_list);
++static DEFINE_MUTEX(hw_apply_lock);
+ 
+ static unsigned int count_bits(unsigned int n)
+ {
+@@ -50,6 +57,123 @@ static unsigned int count_bits(unsigned int n)
+ 	return count;
+ }
+ 
++static int armcb_isp_cmd_size(const struct cmd_buf *cmd, size_t *size)
++{
++	size_t count;
++	size_t element_size;
++	size_t payload_size;
++	size_t minimum_size;
++
++	if (cmd->static_info.camId >= ARMCB_MAX_DEVS ||
++	    cmd->static_info.dev >= DRV_DEV_MAX ||
++	    cmd->static_info.bus >= HW_BUS_MAX ||
++	    cmd->static_info.trigger_cond >= CMD_COND_MAX ||
++	    cmd->status >= CMD_STATUS_MAX || cmd->cmd_type >= CMD_TYPE_MAX ||
++	    !cmd->cmd_cnt || cmd->cmd_cnt > ARMCB_CMD_MAX_COUNT ||
++	    cmd->static_info.max_cmd_cnt > ARMCB_CMD_MAX_COUNT ||
++	    (cmd->static_info.max_cmd_cnt &&
++	     cmd->cmd_cnt > cmd->static_info.max_cmd_cnt))
++		return -EINVAL;
++
++	count = cmd->cmd_cnt;
++	switch (cmd->static_info.bus) {
++	case HW_BUS_I2C:
++		element_size = sizeof(struct cmd_i2c_setting);
++		break;
++	case HW_BUS_SPI:
++		element_size = sizeof(struct cmd_spi_setting);
++		break;
++	case HW_BUS_AHB:
++		element_size = sizeof(struct cmd_ahb_setting);
++		break;
++	case HW_BUS_AHB_POWER:
++		element_size = sizeof(struct cmd_ahb_power_setting);
++		break;
++	case HW_BUS_DMA_REG:
++	case HW_BUS_XDMA_REG:
++		count = max_t(size_t, cmd->static_info.max_buf_num, 1);
++		if (count > ARMCB_CMD_MAX_COUNT ||
++		    check_mul_overflow(count, sizeof(struct cmd_dma_reg_buf),
++				       &payload_size) ||
++		    check_add_overflow(
++			    payload_size,
++			    offsetof(struct cmd_dma_reg_setting, dma_buf),
++			    &payload_size))
++			return -EOVERFLOW;
++		goto add_header;
++	case HW_BUS_DMA_SRAM:
++	case HW_BUS_XDMA_SRAM:
++		count = max_t(size_t, cmd->static_info.max_buf_num, 1);
++		if (count > ARMCB_CMD_MAX_COUNT ||
++		    check_mul_overflow(count, sizeof(unsigned int),
++				       &payload_size) ||
++		    check_add_overflow(
++			    payload_size,
++			    offsetof(struct cmd_dma_sram_setting, dma_buf),
++			    &payload_size))
++			return -EOVERFLOW;
++		goto add_header;
++	default:
++		return -EINVAL;
++	}
++
++	if (check_mul_overflow(count, element_size, &payload_size))
++		return -EOVERFLOW;
++
++add_header:
++	if (check_add_overflow(offsetof(struct cmd_buf, settings), payload_size,
++			       &minimum_size))
++		return -EOVERFLOW;
++	minimum_size = ALIGN(minimum_size, __alignof__(struct cmd_buf));
++	if (minimum_size > ARMCB_CMD_MAX_SIZE ||
++	    cmd->static_info.buf_size < minimum_size ||
++	    cmd->static_info.buf_size > ARMCB_CMD_MAX_SIZE)
++		return -EMSGSIZE;
++
++	*size = cmd->static_info.buf_size;
++	return 0;
++}
++
++int armcb_isp_cmd_import(const void __user *arg, struct cmd_buf **cmd,
++			 size_t *size)
++{
++	struct cmd_buf header = {};
++	struct cmd_buf *copy;
++	size_t first_size;
++	size_t copied_size;
++	int ret;
++
++	if (!arg || !cmd || !size)
++		return -EINVAL;
++	/* The legacy command embeds native pointers and has no compat layout. */
++	if (in_compat_syscall())
++		return -EOPNOTSUPP;
++	if (copy_from_user(&header, arg, offsetof(struct cmd_buf, settings)))
++		return -EFAULT;
++	ret = armcb_isp_cmd_size(&header, &first_size);
++	if (ret)
++		return ret;
++
++	copy = memdup_user(arg, first_size);
++	if (IS_ERR(copy))
++		return PTR_ERR(copy);
++	ret = armcb_isp_cmd_size(copy, &copied_size);
++	if (ret || copied_size != first_size) {
++		kfree(copy);
++		return ret ?: -EAGAIN;
++	}
++	copy->static_info.sName[sizeof(copy->static_info.sName) - 1] = '\0';
++	*cmd = copy;
++	*size = copied_size;
++	return 0;
++}
++
++int armcb_isp_cmd_export(void __user *arg, const struct cmd_buf *cmd,
++			 size_t size)
++{
++	return copy_to_user(arg, cmd, size) ? -EFAULT : 0;
++}
++
+ /// Apply I2C cmd
+ static int armcb_i2c_apply(struct cmd_buf *cmd, void *clinet)
+ {
+@@ -620,31 +744,38 @@ int armcb_isp_hw_apply_list(enum cmd_type type)
+ 	struct isp_hw_cmd_buf *hw_cmd_buf = NULL;
+ 	struct isp_hw_cmd_buf *hw_cmd_buf_next = NULL;
+ 	struct list_head *cmd_list = NULL;
++	LIST_HEAD(run_list);
+ 
++	mutex_lock(&hw_apply_lock);
+ 	switch (type) {
+ 	case CMD_TYPE_STREAMON:
+-		hw_apply_entry_cnt--;
++		if (hw_apply_entry_cnt)
++			hw_apply_entry_cnt--;
+ 		if (is_stream_on_list_init && !hw_apply_entry_cnt) {
+-			cmd_list = &streamon_list;
++			list_splice_init(&streamon_list, &run_list);
++			cmd_list = &run_list;
+ 			is_stream_on_list_init = 0;
+ 			hw_apply_cam_flag = 0;
+ 		}
+ 		break;
+ 	case CMD_TYPE_STREAMOFF:
+ 		if (is_stream_off_list_init) {
+-			cmd_list = &streamoff_list;
++			list_splice_init(&streamoff_list, &run_list);
++			cmd_list = &run_list;
+ 			is_stream_off_list_init = 0;
+ 		}
+ 		break;
+ 	case CMD_TYPE_POWERDOWN:
+ 		if (is_stream_powerdown_list_init) {
+-			cmd_list = &powerdown_list;
++			list_splice_init(&powerdown_list, &run_list);
++			cmd_list = &run_list;
+ 			is_stream_powerdown_list_init = 0;
+ 		}
+ 		break;
+ 	default:
+ 		break;
+ 	}
++	mutex_unlock(&hw_apply_lock);
+ 
+ 	if (cmd_list) {
+ 		list_for_each_entry_safe(hw_cmd_buf, hw_cmd_buf_next, cmd_list,
+@@ -721,6 +852,32 @@ int armcb_isp_hw_apply_list(enum cmd_type type)
+ 	return ret;
+ }
+ 
++static void armcb_isp_hw_free_list(struct list_head *list)
++{
++	struct isp_hw_cmd_buf *entry;
++	struct isp_hw_cmd_buf *next;
++
++	list_for_each_entry_safe(entry, next, list, list) {
++		list_del(&entry->list);
++		kfree(entry->cmd);
++		kfree(entry);
++	}
++}
++
++void armcb_isp_hw_release_queued(void)
++{
++	mutex_lock(&hw_apply_lock);
++	armcb_isp_hw_free_list(&streamon_list);
++	armcb_isp_hw_free_list(&streamoff_list);
++	armcb_isp_hw_free_list(&powerdown_list);
++	is_stream_on_list_init = 0;
++	is_stream_off_list_init = 0;
++	is_stream_powerdown_list_init = 0;
++	hw_apply_entry_cnt = 0;
++	hw_apply_cam_flag = 0;
++	mutex_unlock(&hw_apply_lock);
++}
++
+ /// Process ISP HW cmd
+ int armcb_isp_hw_apply(struct cmd_buf *cmd, void *client)
+ {
+@@ -766,6 +923,7 @@ int armcb_isp_hw_apply(struct cmd_buf *cmd, void *client)
+ 		memcpy(p_isp_hw_cmd_buf->cmd, cmd, cmd->static_info.buf_size);
+ 
+ 		p_isp_hw_cmd_buf->client = client;
++		INIT_LIST_HEAD(&p_isp_hw_cmd_buf->list);
+ 
+ 		LOG(LOG_DEBUG,
+ 		    "cam %u, cmd_type %u, cnt %u, order %u, bus %u, dev %u, size %u, addr "
+@@ -779,7 +937,8 @@ int armcb_isp_hw_apply(struct cmd_buf *cmd, void *client)
+ 		    p_isp_hw_cmd_buf->cmd->static_info.buf_size,
+ 		    p_isp_hw_cmd_buf);
+ 
+-		/// already sort in userspace
++		/* Already sorted in userspace; protect the shared deferred lists. */
++		mutex_lock(&hw_apply_lock);
+ 		switch (cmd->cmd_type) {
+ 		case CMD_TYPE_STREAMON:
+ 		case CMD_TYPE_POST_STREAMON:
+@@ -813,6 +972,7 @@ int armcb_isp_hw_apply(struct cmd_buf *cmd, void *client)
+ 		default:
+ 			break;
+ 		}
++		mutex_unlock(&hw_apply_lock);
+ 
+ 		return ret;
+ 	}
+diff --git a/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h
+--- a/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h
++++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h
+@@ -39,7 +39,12 @@ struct isp_hw_cmd_buf {
+ int armcb_isp_hw_read(struct isp_hw_req *req, void *argv);
+ int armcb_isp_hw_write(struct isp_hw_req *req, void *argv);
+ int armcb_isp_hw_apply_list(enum cmd_type type);
++void armcb_isp_hw_release_queued(void);
+ int armcb_isp_hw_apply(struct cmd_buf *cmd, void *client);
++int armcb_isp_cmd_import(const void __user *arg, struct cmd_buf **cmd,
++			 size_t *size);
++int armcb_isp_cmd_export(void __user *arg, const struct cmd_buf *cmd,
++			 size_t size);
+ int armcb_sys_bus_test(struct perf_bus_params *puser_bus_params);
+ 
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
+@@ -17,7 +17,7 @@
+ #include "armcb_register.h"
+ #include "isp_hw_ops.h"
+ #include "system_logger.h"
+-#include <linux/of_address.h>
++#include <linux/io.h>
+ 
+ #ifdef LOG_MODULE
+ #undef LOG_MODULE
+@@ -28,20 +28,32 @@
+ 
+ static struct armcb_isp_subdev *p_isp_subdev;
+ 
++static bool armcb_isp_offset_valid(struct armcb_isp_subdev *isp,
++				   unsigned int offset, bool gdc)
++{
++	resource_size_t size;
++	void __iomem *base;
++
++	if (!isp || (offset & (sizeof(u32) - 1)))
++		return false;
++	base = gdc ? isp->reg_base2 : isp->reg_base;
++	size = gdc ? isp->reg_size2 : isp->reg_size;
++	return base && size >= sizeof(u32) && offset <= size - sizeof(u32);
++}
++
+ unsigned int armcb_isp_read_reg(unsigned int offset)
+ {
+ 	unsigned int reg_val = 0;
+ #ifndef QEMU_ON_VEXPRESS
+-	void __iomem *virt_addr = p_isp_subdev->reg_base;
++	struct armcb_isp_subdev *isp = READ_ONCE(p_isp_subdev);
+ 
+-	if (virt_addr != NULL) {
+-		/* Ensure read order to prevent hardware register access reordering */
+-		rmb();
++	if (armcb_isp_offset_valid(isp, offset, false)) {
+ #ifndef ARMCB_CAM_DEBUG
+-		reg_val = readl(virt_addr + offset);
++		reg_val = readl(isp->reg_base + offset);
+ #endif
+ 	} else {
+-		LOG(LOG_ERR, "read isp reg failed !");
++		LOG_RATELIMITED(LOG_ERR, "invalid ISP register offset 0x%x",
++				offset);
+ 	}
+ #endif
+ 	return reg_val;
+@@ -51,14 +63,13 @@ unsigned int armcb_isp_read_reg2(unsigned int offset)
+ {
+ 	unsigned int reg_val = 0;
+ #ifndef QEMU_ON_VEXPRESS
+-	void __iomem *virt_addr = p_isp_subdev->reg_base2;
++	struct armcb_isp_subdev *isp = READ_ONCE(p_isp_subdev);
+ 
+-	if (virt_addr != NULL) {
+-		/* Ensure read order to prevent hardware register access reordering */
+-		rmb();
+-		reg_val = readl(virt_addr + offset);
++	if (armcb_isp_offset_valid(isp, offset, true)) {
++		reg_val = readl(isp->reg_base2 + offset);
+ 	} else {
+-		LOG(LOG_ERR, "read isp reg failed !");
++		LOG_RATELIMITED(LOG_ERR, "invalid GDC register offset 0x%x",
++				offset);
+ 	}
+ #endif
+ 	return reg_val;
+@@ -67,16 +78,15 @@ unsigned int armcb_isp_read_reg2(unsigned int offset)
+ void armcb_isp_write_reg(unsigned int offset, unsigned int value)
+ {
+ #ifndef QEMU_ON_VEXPRESS
+-	void __iomem *virt_addr = p_isp_subdev->reg_base;
++	struct armcb_isp_subdev *isp = READ_ONCE(p_isp_subdev);
+ 
+-	if (virt_addr != NULL) {
+-		/* Ensure write order to prevent hardware register access reordering */
+-		wmb();
++	if (armcb_isp_offset_valid(isp, offset, false)) {
+ #ifndef ARMCB_CAM_DEBUG
+-		writel(value, virt_addr + offset);
++		writel(value, isp->reg_base + offset);
+ #endif
+ 	} else {
+-		LOG(LOG_ERR, "read isp reg failed !");
++		LOG_RATELIMITED(LOG_ERR, "invalid ISP register offset 0x%x",
++				offset);
+ 	}
+ #endif
+ }
+@@ -84,14 +94,13 @@ void armcb_isp_write_reg(unsigned int offset, unsigned int value)
+ void armcb_isp_write_reg2(unsigned int offset, unsigned int value)
+ {
+ #ifndef QEMU_ON_VEXPRESS
+-	void __iomem *virt_addr = p_isp_subdev->reg_base2;
++	struct armcb_isp_subdev *isp = READ_ONCE(p_isp_subdev);
+ 
+-	if (virt_addr != NULL) {
+-		/* Ensure write order to prevent hardware register access reordering */
+-		wmb();
+-		writel(value, virt_addr + offset);
++	if (armcb_isp_offset_valid(isp, offset, true)) {
++		writel(value, isp->reg_base2 + offset);
+ 	} else {
+-		LOG(LOG_ERR, "read isp reg failed !");
++		LOG_RATELIMITED(LOG_ERR, "invalid GDC register offset 0x%x",
++				offset);
+ 	}
+ #endif
+ }
+@@ -99,26 +108,22 @@ void armcb_isp_write_reg2(unsigned int offset, unsigned int value)
+ static int armcb_isp_parse(struct armcb_isp_subdev *pisp_sd)
+ {
+ 	struct platform_device *ppdev = pisp_sd->ppdev;
+-	int res = 0;
+ 	struct resource *rsr;
+ 
+-	rsr = platform_get_resource(ppdev, IORESOURCE_MEM, 0);
+-	pisp_sd->reg_base = devm_ioremap_resource(&ppdev->dev, rsr);
+-	if (pisp_sd->reg_base == 0) {
+-		res = -ENXIO;
+-		LOG(LOG_ERR, "failed to get and map isp base");
+-		goto EXIT_RET;
+-	}
+-
+-	rsr = platform_get_resource(ppdev, IORESOURCE_MEM, 1);
+-	pisp_sd->reg_base2 = devm_ioremap_resource(&ppdev->dev, rsr);
+-	if (pisp_sd->reg_base2 == 0) {
+-		res = -ENXIO;
+-		LOG(LOG_ERR, "failed to get and map isp base");
+-		goto EXIT_RET;
+-	}
+-EXIT_RET:
+-	return res;
++	pisp_sd->reg_base = devm_platform_get_and_ioremap_resource(ppdev, 0,
++								     &rsr);
++	if (IS_ERR(pisp_sd->reg_base))
++		return dev_err_probe(&ppdev->dev, PTR_ERR(pisp_sd->reg_base),
++				     "failed to map ISP registers\n");
++	pisp_sd->reg_size = resource_size(rsr);
++
++	pisp_sd->reg_base2 = devm_platform_get_and_ioremap_resource(ppdev, 1,
++								      &rsr);
++	if (IS_ERR(pisp_sd->reg_base2))
++		return dev_err_probe(&ppdev->dev, PTR_ERR(pisp_sd->reg_base2),
++				     "failed to map GDC registers\n");
++	pisp_sd->reg_size2 = resource_size(rsr);
++	return 0;
+ }
+ 
+ static long armcb_isp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
+@@ -129,16 +134,25 @@ static long armcb_isp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
+ 
+ 	switch (cmd) {
+ 	case ARMCB_VIDIOC_APPLY_CMD: {
+-		struct cmd_buf *pcmd_buf = (struct cmd_buf *)arg;
+-
+-		res |= armcb_isp_hw_apply(pcmd_buf, pisp_sd);
++		struct cmd_buf *pcmd_buf;
++		size_t size;
++		int copy_res;
++
++		res = armcb_isp_cmd_import((void __user *)arg, &pcmd_buf,
++					   &size);
++		if (res)
++			break;
++		res = armcb_isp_hw_apply(pcmd_buf, pisp_sd);
++		copy_res = armcb_isp_cmd_export((void __user *)arg, pcmd_buf,
++						 size);
++		kfree(pcmd_buf);
++		if (!res)
++			res = copy_res;
+ 		break;
+ 	}
+ 	case ARMCB_VIDIOC_SYS_BUS_TEST: {
+-		struct perf_bus_params *puser_bus_params =
+-			(struct perf_bus_params *)arg;
+-		res |= armcb_sys_bus_test(puser_bus_params);
+-
++		/* Engineering-only arbitrary MMIO benchmarking is not a safe ABI. */
++		res = -EOPNOTSUPP;
+ 		break;
+ 	}
+ 	default:
+@@ -171,14 +185,16 @@ static const struct v4l2_subdev_ops armcb_isp_subdev_ops = {
+ 	.core = &armcb_isp_subdev_core_ops,
+ };
+ 
+-int armcb_isp_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
++static int armcb_isp_subdev_open(struct v4l2_subdev *sd,
++				 struct v4l2_subdev_fh *fh)
+ {
+ 	int ret = 0;
+ 	/* empty funciton */
+ 	return ret;
+ }
+ 
+-int armcb_isp_subdev_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
++static int armcb_isp_subdev_close(struct v4l2_subdev *sd,
++				  struct v4l2_subdev_fh *fh)
+ {
+ 	int ret = 0;
+ 	/* empty funciton */
+@@ -193,7 +209,8 @@ static const struct v4l2_subdev_internal_ops armcb_isp_sd_internal_ops = {
+ static int armcb_ispdrv_probe(struct platform_device *pdev)
+ {
+ 	struct fwnode_handle *np = pdev->dev.fwnode;
+-	struct v4l2_subdev *sd = NULL;
++	struct armcb_isp_subdev *isp;
++	struct v4l2_subdev *sd;
+ 	int res = 0;
+ 
+ 	LOG(LOG_INFO, "+");
+@@ -203,32 +220,30 @@ static int armcb_ispdrv_probe(struct platform_device *pdev)
+ 		goto EXIT_RET;
+ 	}
+ 
+-	p_isp_subdev = devm_kzalloc(&pdev->dev, sizeof(struct armcb_isp_subdev),
+-					GFP_KERNEL);
+-	if (!p_isp_subdev) {
++	isp = devm_kzalloc(&pdev->dev, sizeof(*isp), GFP_KERNEL);
++	if (!isp) {
+ 		res = -ENOMEM;
+ 		goto EXIT_RET;
+ 	}
+ 
+-	p_isp_subdev->ppdev = pdev;
+-	p_isp_subdev->fwnode = np;
+-	p_isp_subdev->id = pdev->id;
+-	p_isp_subdev->isp_sd.close_seq = ARMCB_SD_CLOSE_1ST_CATEGORY | 0x1;
++	isp->ppdev = pdev;
++	isp->fwnode = np;
++	isp->id = pdev->id;
++	isp->isp_sd.close_seq = ARMCB_SD_CLOSE_1ST_CATEGORY | 0x1;
+ 
+-	sd = &p_isp_subdev->isp_sd.sd;
+-	if (!sd) {
+-		LOG(LOG_ERR, "Invalid isp_sd is NULL");
+-		res = -EFAULT;
+-		goto ERR_FREE_RET1;
+-	}
++	res = armcb_isp_parse(isp);
++	if (res)
++		goto EXIT_RET;
+ 
+-	mutex_init(&p_isp_subdev->imutex);
+-	spin_lock_init(&p_isp_subdev->sdlock);
++	mutex_init(&isp->imutex);
++	spin_lock_init(&isp->sdlock);
++	init_waitqueue_head(&isp->state_wait);
+ 
++	sd = &isp->isp_sd.sd;
+ 	v4l2_subdev_init(sd, &armcb_isp_subdev_ops);
+ 
+ 	snprintf(sd->name, sizeof(sd->name), "isp-sub1");
+-	v4l2_set_subdevdata(sd, p_isp_subdev);
++	v4l2_set_subdevdata(sd, isp);
+ 
+ 	sd->internal_ops = &armcb_isp_sd_internal_ops;
+ 	sd->flags |= V4L2_SUBDEV_FL_HAS_EVENTS | V4L2_SUBDEV_FL_HAS_DEVNODE;
+@@ -240,32 +255,29 @@ static int armcb_ispdrv_probe(struct platform_device *pdev)
+ 	res = media_entity_pads_init(&sd->entity, 0, NULL);
+ 	if (res) {
+ 		LOG(LOG_ERR, "isp failed to init media entity. ret = %d", res);
+-		goto ERR_FREE_RET1;
++		goto EXIT_RET;
+ 	}
+ 
+-	res = armcb_subdev_register(&p_isp_subdev->isp_sd, 0);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "isp failed to register sub-device.ret = %d", res);
+-		goto ERR_FREE_RET1;
++	if (cmpxchg(&p_isp_subdev, NULL, isp)) {
++		res = -EBUSY;
++		goto ERR_ENTITY;
+ 	}
+ 
+-	init_waitqueue_head(&p_isp_subdev->state_wait);
+-	platform_set_drvdata(pdev, p_isp_subdev);
+-
+-	res = armcb_isp_parse(p_isp_subdev);
++	res = armcb_subdev_register(&isp->isp_sd, 0);
+ 	if (res < 0) {
+-		LOG(LOG_ERR, "isp failed to parse dt res = %d", res);
+-		goto ERR_FREE_RET2;
++		LOG(LOG_ERR, "isp failed to register sub-device.ret = %d", res);
++		goto ERR_GLOBAL;
+ 	}
+ 
+-	LOG(LOG_INFO, "-");
+-	return res;
++	platform_set_drvdata(pdev, isp);
+ 
+-ERR_FREE_RET2:
+-	v4l2_async_unregister_subdev(&p_isp_subdev->isp_sd.sd);
+-ERR_FREE_RET1:
+-	devm_kfree(&pdev->dev, p_isp_subdev);
++	LOG(LOG_INFO, "-");
++	return 0;
+ 
++ERR_GLOBAL:
++	cmpxchg(&p_isp_subdev, isp, NULL);
++ERR_ENTITY:
++	media_entity_cleanup(&sd->entity);
+ EXIT_RET:
+ 	return res;
+ }
+@@ -275,12 +287,11 @@ static void armcb_ispdrv_remove(struct platform_device *pdev)
+ 	struct armcb_isp_subdev *p_ispdev = platform_get_drvdata(pdev);
+ 
+ 	if (p_ispdev) {
+-		list_del_init(&p_ispdev->isp_sd.sd.async_list);
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+-		v4l2_device_unregister_subdev(&p_ispdev->isp_sd.sd);
+-#endif
++		cmpxchg(&p_isp_subdev, p_ispdev, NULL);
++		armcb_subdev_unregister(&p_ispdev->isp_sd);
++		media_entity_cleanup(&p_ispdev->isp_sd.sd.entity);
++		platform_set_drvdata(pdev, NULL);
+ 	}
+-
+ }
+ 
+ static const struct of_device_id armcb_isp_match[] = {
+@@ -347,8 +358,10 @@ void *armcb_get_isp_driver_instance(void)
+ 
+ void armcb_isp_driver_destroy(void)
+ {
+-	if (g_instance)
++	if (g_instance) {
+ 		platform_driver_unregister(
+ 			(struct platform_driver *)g_instance);
++		g_instance = NULL;
++	}
+ }
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h
+@@ -217,8 +217,10 @@ struct armcb_isp_subdev {
+ 	wait_queue_head_t state_wait;
+ 
+ 	void __iomem *reg_base;
++	resource_size_t reg_size;
+ 
+ 	void __iomem *reg_base2; /// only for gdc
++	resource_size_t reg_size2;
+ };
+ 
+ unsigned int armcb_isp_read_reg(unsigned int offset);
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
+deleted file mode 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
++++ /dev/null
+@@ -1,566 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * Query running isp_app PID and its argv (same as ps aux | grep isp_app + read args).
+- * Map argument patterns to allowed armcb_isp_v4l2-00..03 (ctx_id bit mask).
+- *
+- * Patterns (matched anywhere in argv string after normalization):
+- *  1) -c | -s 0 | -m 0     -> only -00
+- *  2) *-s 1*               -> only -01  (e.g. -s 1, -s 10)
+- *  3) *-s 2*               -> only -02
+- *  4) *-s 3*               -> only -03
+- *  5) *-m 2*               -> -00 and -01
+- *  6) *-m 3*               -> -00, -01, -02
+- *  7) *-m 4*               -> -00..-03; multi-open: open -00 first
+- *  8) *-m 1*               -> only -00
+- *
+- * Parse priority: -m before -s before -c.  Multiple isp_app: largest PID wins.
+- *
+- * No isp_app process in the system: only the current task whose comm is isp_app
+- * may open video nodes (all ctx 0..3); any other opener is denied.
+- *
+- * isp_app always may open ctx 0..3 (enumerate /dev/video* and QUERYCAP during
+- * startup). Cmdline mask applies only to non-isp_app openers once policy is
+- * loaded. Full process scan is not run during isp_app open (avoids reentrancy).
+- */
+-
+-#include <linux/atomic.h>
+-#include <linux/jhash.h>
+-#include <linux/kernel.h>
+-#include <linux/mm.h>
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
+-#include <linux/mutex.h>
+-#include <linux/sched.h>
+-#include <linux/slab.h>
+-#include <linux/string.h>
+-
+-#include "system_logger.h"
+-#include "armcb_isp_execstart.h"
+-
+-#ifdef LOG_MODULE
+-#undef LOG_MODULE
+-#define LOG_MODULE LOG_MODULE_ISP
+-#endif
+-
+-#define ISP_PROCESS_NAME "isp_app"
+-#define ISP_CMDLINE_READ_MAX 4096
+-
+-struct isp_app_info {
+-	int pid;
+-	char cmdline[ISP_CMDLINE_READ_MAX];
+-};
+-
+-static DEFINE_MUTEX(armcb_isp_execstart_lock);
+-static unsigned int armcb_isp_allowed_ctx_mask;
+-static int armcb_isp_app_pid;
+-static u64 armcb_isp_process_cache_stamp;
+-static bool armcb_isp_process_cache_valid;
+-static bool armcb_isp_daemon_running;
+-static atomic_t armcb_isp_ctx0_open_refs = ATOMIC_INIT(0);
+-
+-static bool execstart_ignore;
+-
+-module_param(execstart_ignore, bool, 0644);
+-MODULE_PARM_DESC(execstart_ignore,
+-		 "If true, skip isp_app cmdline policy (allow ctx 0-3, no -00-first rule).");
+-
+-/* Same comm match as armcb_v4l2_core find_user_process_by_name("isp_app"). */
+-static bool current_opener_is_isp_app(void)
+-{
+-	struct task_struct *curr = current;
+-
+-	if (!curr->mm)
+-		return false;
+-	return !strncmp(curr->comm, ISP_PROCESS_NAME, 7);
+-}
+-
+-static int execstart_isp_app_pid_get(char *buf, const struct kernel_param *kp)
+-{
+-	int pid;
+-
+-	mutex_lock(&armcb_isp_execstart_lock);
+-	pid = armcb_isp_app_pid;
+-	mutex_unlock(&armcb_isp_execstart_lock);
+-
+-	return scnprintf(buf, PAGE_SIZE, "%d\n", pid);
+-}
+-
+-static const struct kernel_param_ops execstart_isp_app_pid_ops = {
+-	.get = execstart_isp_app_pid_get,
+-};
+-
+-module_param_cb(execstart_isp_app_pid, &execstart_isp_app_pid_ops, NULL, 0444);
+-MODULE_PARM_DESC(execstart_isp_app_pid,
+-		 "Read-only: PID of isp_app used for cmdline policy (0 if none).");
+-
+-static unsigned int leading_digit(unsigned int val)
+-{
+-	while (val >= 10)
+-		val /= 10;
+-	return val;
+-}
+-
+-/* Option must not be part of a longer flag (e.g. not "--mode"). */
+-static bool is_short_option(const char *cmdline, const char *opt, size_t opt_len)
+-{
+-	if (opt > cmdline && opt[-1] != ' ' && opt[-1] != '\t')
+-		return false;
+-	if (opt[opt_len] != '\0' && opt[opt_len] != ' ' && opt[opt_len] != '\t' &&
+-	    (opt[opt_len] < '0' || opt[opt_len] > '9'))
+-		return false;
+-	return true;
+-}
+-
+-/*
+- * After "-m" or "-s", parse unsigned value; supports "-s 1" and "-s1".
+- * Returns leading digit of value, or -1 on failure.
+- */
+-static int parse_option_leading_digit(const char *cmdline, const char *opt)
+-{
+-	unsigned int val;
+-	int n;
+-
+-	opt += 2;
+-	while (*opt == ' ' || *opt == '\t')
+-		opt++;
+-	if (*opt < '0' || *opt > '9')
+-		return -1;
+-	if (sscanf(opt, "%u%n", &val, &n) < 1)
+-		return -1;
+-	return (int)leading_digit(val);
+-}
+-
+-/*
+- * Match argv patterns 1..8.  * in the spec means substring anywhere in cmdline.
+- */
+-static int isp_app_args_to_mask(const char *cmdline)
+-{
+-	const char *p;
+-	int ld;
+-
+-	if (!cmdline || !*cmdline)
+-		return -EINVAL;
+-
+-	/* Rules 5/6/7/8 and rule 1 (-m 0): *-m N* */
+-	p = cmdline;
+-	while ((p = strstr(p, "-m"))) {
+-		if (!is_short_option(cmdline, p, 2)) {
+-			p += 2;
+-			continue;
+-		}
+-		ld = parse_option_leading_digit(cmdline, p);
+-		if (ld < 0) {
+-			p += 2;
+-			continue;
+-		}
+-		switch (ld) {
+-		case 0:
+-		case 1:
+-			return BIT(0);
+-		case 2:
+-			return BIT(0) | BIT(1);
+-		case 3:
+-			return BIT(0) | BIT(1) | BIT(2);
+-		case 4:
+-			return BIT(0) | BIT(1) | BIT(2) | BIT(3);
+-		default:
+-			break;
+-		}
+-		p += 2;
+-	}
+-
+-	/* Rule 1 (-s 0) and rules 2..4: *-s N* */
+-	p = cmdline;
+-	while ((p = strstr(p, "-s"))) {
+-		if (!is_short_option(cmdline, p, 2)) {
+-			p += 2;
+-			continue;
+-		}
+-		ld = parse_option_leading_digit(cmdline, p);
+-		if (ld < 0) {
+-			p += 2;
+-			continue;
+-		}
+-		if (ld >= 0 && ld <= 3)
+-			return BIT(ld);
+-		p += 2;
+-	}
+-
+-	/* Rule 1: -c */
+-	p = cmdline;
+-	while ((p = strstr(p, "-c"))) {
+-		if (!is_short_option(cmdline, p, 2)) {
+-			p += 2;
+-			continue;
+-		}
+-		p += 2;
+-		if (*p == '\0' || *p == ' ' || *p == '\t')
+-			return BIT(0);
+-	}
+-
+-	return -EINVAL;
+-}
+-
+-static void cmdline_nulls_to_spaces(char *buf, int len)
+-{
+-	int i;
+-
+-	if (len <= 0)
+-		return;
+-
+-	while (len > 0 && buf[len - 1] == '\0')
+-		len--;
+-
+-	for (i = 0; i < len; i++) {
+-		if (buf[i] == '\0')
+-			buf[i] = ' ';
+-	}
+-	buf[len] = '\0';
+-}
+-
+-static int read_task_cmdline(struct task_struct *task, char *buf, size_t buflen)
+-{
+-	struct mm_struct *mm;
+-	unsigned long arg_start, arg_end;
+-	size_t len;
+-	int copied;
+-
+-	buf[0] = '\0';
+-
+-	mm = get_task_mm(task);
+-	if (!mm)
+-		return -ESRCH;
+-
+-	if (!mm->arg_end) {
+-		mmput(mm);
+-		return -EINVAL;
+-	}
+-
+-	spin_lock(&mm->arg_lock);
+-	arg_start = mm->arg_start;
+-	arg_end = mm->arg_end;
+-	spin_unlock(&mm->arg_lock);
+-
+-	if (arg_start >= arg_end) {
+-		mmput(mm);
+-		return -EINVAL;
+-	}
+-
+-	len = arg_end - arg_start;
+-	if (len >= buflen)
+-		len = buflen - 1;
+-
+-	copied = access_process_vm(task, arg_start, buf, len, FOLL_FORCE);
+-	mmput(mm);
+-
+-	if (copied <= 0)
+-		return -EFAULT;
+-
+-	cmdline_nulls_to_spaces(buf, copied);
+-	return 0;
+-}
+-
+-static bool task_is_isp_app(struct task_struct *task, const char *cmdline)
+-{
+-	if (strstr(task->comm, ISP_PROCESS_NAME))
+-		return true;
+-	if (cmdline && strstr(cmdline, ISP_PROCESS_NAME))
+-		return true;
+-	return false;
+-}
+-
+-static u64 build_cache_stamp(unsigned int count, int pid, const char *cmdline)
+-{
+-	u32 hash = jhash(cmdline, strlen(cmdline), 0);
+-
+-	return ((u64)count << 32) | ((u64)hash << 16) | (u32)pid;
+-}
+-
+-/*
+- * Walk processes like ps+grep isp_app: for each candidate log pid+args,
+- * keep the one with largest PID in @sel.
+- */
+-static int query_isp_app_pid_and_args(struct isp_app_info *sel)
+-{
+-	struct task_struct *p;
+-	char *line = NULL;
+-	unsigned int count = 0;
+-	int ret = -ENOENT;
+-
+-	sel->pid = 0;
+-	sel->cmdline[0] = '\0';
+-
+-	line = kzalloc(ISP_CMDLINE_READ_MAX, GFP_KERNEL);
+-	if (!line)
+-		return -ENOMEM;
+-
+-	rcu_read_lock();
+-	for_each_process(p) {
+-		if (p != p->group_leader || !p->mm)
+-			continue;
+-
+-		get_task_struct(p);
+-		rcu_read_unlock();
+-
+-		/* Do not read cmdline of current while it is inside our open() path */
+-		if (p == current) {
+-			if (task_is_isp_app(p, NULL)) {
+-				int pid = task_pid_nr(p);
+-
+-				count++;
+-				if (pid > sel->pid) {
+-					sel->pid = pid;
+-					sel->cmdline[0] = '\0';
+-				}
+-			}
+-			put_task_struct(p);
+-			rcu_read_lock();
+-			continue;
+-		}
+-
+-		if (read_task_cmdline(p, line, ISP_CMDLINE_READ_MAX) == 0 &&
+-		    task_is_isp_app(p, line)) {
+-			int pid = task_pid_nr(p);
+-
+-			count++;
+-			LOG(LOG_INFO,
+-			    "isp_execstart: found isp_app pid=%d args='%s'\n",
+-			    pid, line);
+-
+-			if (pid > sel->pid) {
+-				sel->pid = pid;
+-				strscpy(sel->cmdline, line, sizeof(sel->cmdline));
+-			}
+-		}
+-
+-		put_task_struct(p);
+-		rcu_read_lock();
+-	}
+-	rcu_read_unlock();
+-
+-	kfree(line);
+-
+-	if (sel->pid > 0)
+-		ret = 0;
+-
+-	return ret;
+-}
+-
+-static void do_refresh_locked(void)
+-{
+-	struct isp_app_info sel;
+-	u64 stamp;
+-	int mask;
+-	int err;
+-
+-	err = query_isp_app_pid_and_args(&sel);
+-	if (err == -ENOMEM) {
+-		armcb_isp_allowed_ctx_mask = 0;
+-		armcb_isp_app_pid = 0;
+-		armcb_isp_daemon_running = false;
+-		armcb_isp_process_cache_valid = false;
+-		return;
+-	}
+-
+-	if (err == -ENOENT) {
+-		stamp = 0;
+-		if (armcb_isp_process_cache_valid &&
+-		    stamp == armcb_isp_process_cache_stamp)
+-			return;
+-
+-		LOG(LOG_INFO,
+-		    "isp_execstart: no isp_app daemon; only isp_app opener allowed\n");
+-		armcb_isp_allowed_ctx_mask = 0;
+-		armcb_isp_app_pid = 0;
+-		armcb_isp_daemon_running = false;
+-		goto out_cache;
+-	}
+-
+-	stamp = build_cache_stamp(1, sel.pid, sel.cmdline);
+-	if (armcb_isp_process_cache_valid &&
+-	    stamp == armcb_isp_process_cache_stamp)
+-		return;
+-
+-	armcb_isp_app_pid = sel.pid;
+-
+-	if (sel.cmdline[0] == '\0') {
+-		LOG(LOG_INFO,
+-		    "isp_execstart: isp_app pid=%d (args deferred), non-isp_app denied until reload\n",
+-		    sel.pid);
+-		armcb_isp_allowed_ctx_mask = 0;
+-		armcb_isp_daemon_running = false;
+-		goto out_cache;
+-	}
+-
+-	mask = isp_app_args_to_mask(sel.cmdline);
+-	if (mask < 0) {
+-		LOG(LOG_ERR,
+-		    "isp_execstart: isp_app pid=%d args='%s' -> no rule match\n",
+-		    sel.pid, sel.cmdline);
+-		armcb_isp_allowed_ctx_mask = 0;
+-		armcb_isp_daemon_running = false;
+-		goto out_cache;
+-	}
+-
+-	armcb_isp_daemon_running = true;
+-	armcb_isp_allowed_ctx_mask = (unsigned int)mask & 0xf;
+-	LOG(LOG_INFO,
+-	    "isp_execstart: isp_app pid=%d args='%s' -> allowed mask 0x%x\n",
+-	    sel.pid, sel.cmdline, armcb_isp_allowed_ctx_mask);
+-
+-out_cache:
+-	armcb_isp_process_cache_stamp = stamp;
+-	armcb_isp_process_cache_valid = true;
+-}
+-
+-void armcb_isp_execstart_refresh_if_needed(void)
+-{
+-	if (execstart_ignore)
+-		return;
+-
+-	mutex_lock(&armcb_isp_execstart_lock);
+-	/*
+-	 * isp_app enumerates every /dev/video* with open+QUERYCAP during startup.
+-	 * Do not walk tasks / read cmdline while isp_app is in our open() path.
+-	 */
+-	if (current_opener_is_isp_app()) {
+-		if (!armcb_isp_process_cache_valid) {
+-			armcb_isp_daemon_running = false;
+-			armcb_isp_allowed_ctx_mask = 0;
+-			armcb_isp_app_pid = 0;
+-			armcb_isp_process_cache_stamp = 0;
+-			armcb_isp_process_cache_valid = true;
+-		}
+-		mutex_unlock(&armcb_isp_execstart_lock);
+-		return;
+-	}
+-	do_refresh_locked();
+-	mutex_unlock(&armcb_isp_execstart_lock);
+-}
+-
+-bool armcb_isp_execstart_ctx_allowed(unsigned int ctx_id)
+-{
+-	unsigned int m;
+-
+-	if (execstart_ignore)
+-		return true;
+-
+-	if (ctx_id >= 4)
+-		return true;
+-
+-	/* isp_app must open every ISP video node for VIDIOC_QUERYCAP probe */
+-	if (current_opener_is_isp_app())
+-		return true;
+-
+-	mutex_lock(&armcb_isp_execstart_lock);
+-	if (!armcb_isp_daemon_running) {
+-		mutex_unlock(&armcb_isp_execstart_lock);
+-		return false;
+-	}
+-	m = armcb_isp_allowed_ctx_mask & 0xf;
+-	mutex_unlock(&armcb_isp_execstart_lock);
+-
+-	return !!(m & BIT(ctx_id));
+-}
+-
+-bool armcb_isp_execstart_multi_open_order_ok(unsigned int ctx_id)
+-{
+-	unsigned int m;
+-	bool daemon;
+-
+-	if (execstart_ignore || ctx_id == 0 || ctx_id >= 4)
+-		return true;
+-
+-	if (current_opener_is_isp_app())
+-		return true;
+-
+-	mutex_lock(&armcb_isp_execstart_lock);
+-	daemon = armcb_isp_daemon_running;
+-	mutex_unlock(&armcb_isp_execstart_lock);
+-	if (!daemon)
+-		return true;
+-
+-	m = armcb_isp_execstart_get_allowed_mask() & 0xf;
+-	if (!((m & BIT(0)) && (m & ~(BIT(0)))))
+-		return true;
+-
+-	return atomic_read(&armcb_isp_ctx0_open_refs) > 0;
+-}
+-
+-void armcb_isp_execstart_note_ctx0_open(void)
+-{
+-	if (!execstart_ignore)
+-		atomic_inc(&armcb_isp_ctx0_open_refs);
+-}
+-
+-void armcb_isp_execstart_note_ctx0_release(void)
+-{
+-	int v;
+-
+-	if (execstart_ignore)
+-		return;
+-	v = atomic_dec_return(&armcb_isp_ctx0_open_refs);
+-	if (unlikely(v < 0)) {
+-		atomic_set(&armcb_isp_ctx0_open_refs, 0);
+-		WARN_ONCE(1, "isp_execstart: ctx0 open ref underflow\n");
+-	}
+-}
+-
+-unsigned int armcb_isp_execstart_get_allowed_mask(void)
+-{
+-	unsigned int m;
+-
+-	mutex_lock(&armcb_isp_execstart_lock);
+-	m = armcb_isp_allowed_ctx_mask & 0xf;
+-	mutex_unlock(&armcb_isp_execstart_lock);
+-	return m;
+-}
+-
+-void armcb_isp_execstart_force_reload(void)
+-{
+-	mutex_lock(&armcb_isp_execstart_lock);
+-	armcb_isp_process_cache_valid = false;
+-	do_refresh_locked();
+-	mutex_unlock(&armcb_isp_execstart_lock);
+-}
+-
+-static int execstart_allowed_mask_get(char *buf, const struct kernel_param *kp)
+-{
+-	return scnprintf(buf, PAGE_SIZE, "0x%x\n",
+-			 armcb_isp_execstart_get_allowed_mask());
+-}
+-
+-static const struct kernel_param_ops execstart_allowed_mask_ops = {
+-	.get = execstart_allowed_mask_get,
+-};
+-
+-module_param_cb(execstart_allowed_mask, &execstart_allowed_mask_ops, NULL, 0444);
+-MODULE_PARM_DESC(execstart_allowed_mask,
+-		 "Read-only: allowed ctx mask from isp_app pid/args.");
+-
+-static int execstart_reload_set(const char *val, const struct kernel_param *kp)
+-{
+-	int err, v;
+-
+-	err = kstrtoint(val, 0, &v);
+-	if (err)
+-		return err;
+-	if (v)
+-		armcb_isp_execstart_force_reload();
+-	return 0;
+-}
+-
+-static int execstart_reload_get(char *buf, const struct kernel_param *kp)
+-{
+-	return scnprintf(buf, PAGE_SIZE,
+-			 "write 1 to re-query isp_app pid and args\n");
+-}
+-
+-static const struct kernel_param_ops execstart_reload_ops = {
+-	.set = execstart_reload_set,
+-	.get = execstart_reload_get,
+-};
+-
+-module_param_cb(execstart_reload, &execstart_reload_ops, NULL, 0644);
+-MODULE_PARM_DESC(execstart_reload,
+-		 "Write 1 to invalidate cache and re-query isp_app pid/args.");
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
+deleted file mode 100644
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
++++ /dev/null
+@@ -1,21 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * Parse running isp_app process command line arguments and derive allowed V4L2
+- * instance mask (ctx_id 0..3 -> armcb_isp_v4l2-00 .. -03). When the mask is
+- * multi-camera (ctx0 and at least one other ctx allowed), ctx 1..3 require an
+- * open fd on -00 first. See armcb_isp_execstart.c.
+- */
+-#ifndef __ARMCB_ISP_EXECSTART_H__
+-#define __ARMCB_ISP_EXECSTART_H__
+-
+-#include <linux/types.h>
+-
+-void armcb_isp_execstart_refresh_if_needed(void);
+-void armcb_isp_execstart_force_reload(void);
+-bool armcb_isp_execstart_ctx_allowed(unsigned int ctx_id);
+-bool armcb_isp_execstart_multi_open_order_ok(unsigned int ctx_id);
+-void armcb_isp_execstart_note_ctx0_open(void);
+-void armcb_isp_execstart_note_ctx0_release(void);
+-unsigned int armcb_isp_execstart_get_allowed_mask(void);
+-
+-#endif /* __ARMCB_ISP_EXECSTART_H__ */
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -1030,11 +1030,8 @@ static struct isp_irq_info *armcb_irq_msg_ev_alloc(struct armcb_irq_msg_fh *fh)
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&fh->fh_lock, flags);
+-	if (fh->in_use == fh->elems) {
+-		fh->in_use--;
+-		fh->first = irqev_pos(fh, 1);
+-	} else {
+-		ev = fh->ev_array + fh->in_use;
++	if (fh->in_use < fh->elems) {
++		ev = fh->ev_array + irqev_pos(fh, fh->in_use);
+ 		info = &ev->info;
+ 		fh->in_use++;
+ 		memset(info, 0, sizeof(struct isp_irq_info));
+@@ -1382,10 +1379,11 @@ static irqreturn_t armcb_I7_isp_isr(s32 irq, void *pdev)
+ 
+ 		/*4. post irq event to userspace */
+ 		if (irq_info.status & I7_IRQ_EVENT_POST_MASK) {
+-			bh_info = armcb_irq_msg_ev_alloc(
+-				&p_v4l_config_dev->isr_fh);
+-			memcpy(bh_info, &irq_info, sizeof(struct isp_irq_info));
+-			tasklet_schedule(&p_v4l_config_dev->buffer_done_task);
++			bh_info = armcb_irq_msg_ev_alloc(&p_config_dev->isr_fh);
++			if (bh_info) {
++				memcpy(bh_info, &irq_info, sizeof(*bh_info));
++				tasklet_schedule(&p_config_dev->buffer_done_task);
++			}
+ 		}
+ 
+ 		/*5. restore interrupt mask bit */
+@@ -1866,9 +1864,10 @@ static void armcb_irq_msg_fh_init(struct armcb_irq_msg_fh *fh)
+ 		INIT_LIST_HEAD(&fh->ev_array[idx].fh_node);
+ }
+ 
+-static void buffer_done_i7_handle(struct isp_irq_info *info)
++static void buffer_done_i7_handle(armcb_v4l2_config_dev_t *config,
++				  struct isp_irq_info *info)
+ {
+-	struct video_device *pvdev = &p_v4l_config_dev->vid_cap_dev;
++	struct video_device *pvdev = &config->vid_cap_dev;
+ 	uint32_t ctx_id = ((info->id & 0x3) << 2) | ((info->id >> 2) & 03);
+ 	armcb_v4l2_dev_t *pdev = NULL;
+ 
+@@ -1877,6 +1876,8 @@ static void buffer_done_i7_handle(struct isp_irq_info *info)
+ 		ctx_id = armcb_v4l2_core_find_1st_opened_dev();
+ 
+ 	pdev = armcb_v4l2_core_get_dev(ctx_id);
++	if (!pdev)
++		return;
+ 
+ 	if (atomic_read(&pdev->upload_streamoff) == 1) {
+ 		LOG(LOG_DEBUG, "ctx_id: %d, the stream is off\n", ctx_id);
+@@ -1978,25 +1979,28 @@ static void buffer_done_i7_handle(struct isp_irq_info *info)
+ 
+ static void buffer_done_handler(unsigned long data)
+ {
+-	struct armcb_irq_msg_fh *fh = &p_v4l_config_dev->isr_fh;
+-	struct isp_irq_info *info = NULL;
+-	struct armcb_irq_event *ev = NULL;
+-	struct armcb_irq_event *ev_next = NULL;
++	armcb_v4l2_config_dev_t *config = (void *)data;
++	struct armcb_irq_msg_fh *fh = &config->isr_fh;
++	struct isp_irq_info info;
++	struct armcb_irq_event *ev;
+ 	unsigned long flags;
+-	(void)data;
+-
+-	spin_lock_irqsave(&fh->fh_lock, flags);
+-	list_for_each_entry_safe(ev, ev_next, &fh->avaliable, fh_node) {
+-		info = &ev->info;
+-
+-		/* enqueue the buffer to done queue*/
+-		buffer_done_i7_handle(info);
+ 
+-		list_del(&ev->fh_node);
++	for (;;) {
++		spin_lock_irqsave(&fh->fh_lock, flags);
++		if (list_empty(&fh->avaliable)) {
++			spin_unlock_irqrestore(&fh->fh_lock, flags);
++			break;
++		}
++		ev = list_first_entry(&fh->avaliable, struct armcb_irq_event,
++				      fh_node);
++		info = ev->info;
++		list_del_init(&ev->fh_node);
+ 		fh->in_use--;
+ 		fh->first = irqev_pos(fh, 1);
++		spin_unlock_irqrestore(&fh->fh_lock, flags);
++
++		buffer_done_i7_handle(config, &info);
+ 	}
+-	spin_unlock_irqrestore(&fh->fh_lock, flags);
+ }
+ 
+ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+@@ -2008,6 +2012,9 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ #ifdef QEMU_ON_VEXPRESS
+ 	struct task_struct *interrupt_task = NULL;
+ #endif
++	if (READ_ONCE(p_v4l_config_dev))
++		return -EBUSY;
++
+ 	p_v4l_config_dev = devm_kzalloc(
+ 		&pdev->dev, sizeof(armcb_v4l2_config_dev_t), GFP_KERNEL);
+ 	if (p_v4l_config_dev == NULL) {
+@@ -2017,6 +2024,9 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 
+ 	/* initialize v4l2 config dev */
+ 	p_v4l_config_dev->pvdev = pdev;
++	p_v4l_config_dev->irq = -1;
++	p_v4l_config_dev->err_irq = -1;
++	platform_set_drvdata(pdev, p_v4l_config_dev);
+ 
+ 	/* register v4l2_device */
+ 	snprintf(p_v4l_config_dev->v4l2_dev.name,
+@@ -2083,11 +2093,17 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 
+ 	if (!hw_info) {
+ 		LOG(LOG_ERR, "failed to get isp hw info.");
+-		goto exit_ret;
++		ret = -ENODEV;
++		goto unreg_dev;
+ 	} else {
+ 		LOG(LOG_INFO, "hw_info isp_type=%d", hw_info->type);
+ 	}
+ 
++	armcb_irq_msg_fh_init(&p_v4l_config_dev->isr_fh);
++	tasklet_init(&p_v4l_config_dev->buffer_done_task, buffer_done_handler,
++		     (unsigned long)p_v4l_config_dev);
++	p_v4l_config_dev->tasklet_initialized = true;
++
+ #ifdef QEMU_ON_VEXPRESS
+ 	interrupt_task = kthread_run(armcb_isp_interrupt_task,
+ 				     (void *)p_v4l_config_dev,
+@@ -2100,8 +2116,8 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ #else
+ 	isp_irqno = platform_get_irq(pdev, 0);
+ 
+-	if (isp_irqno <= 0) {
+-		ret = -ENXIO;
++	if (isp_irqno < 0) {
++		ret = isp_irqno;
+ 		LOG(LOG_ERR, "platform_get_irq failed irq(%d) ret(%d)",
+ 		    isp_irqno, ret);
+ 		goto unreg_dev;
+@@ -2113,7 +2129,7 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 			       (void *)p_v4l_config_dev);
+ #else
+ 	ret = devm_request_irq(&pdev->dev, isp_irqno, hw_info->isp_isr,
+-			       IRQF_ONESHOT | IRQF_SHARED, pdev->name,
++			       IRQF_SHARED, pdev->name,
+ 			       (void *)p_v4l_config_dev);
+ #endif
+ 	if (ret != 0) {
+@@ -2121,14 +2137,15 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 		LOG(LOG_ERR, "devm_request_irq failed ret(%d)", ret);
+ 		goto unreg_dev;
+ 	}
++	p_v4l_config_dev->irq = isp_irqno;
+ #endif
+ 
+ 	/*register i7 error isr*/
+ 	if (hw_info->type == ISP_TYPE_I7) {
+ 		isp_irqno = platform_get_irq(pdev, 1);
+ 
+-		if (isp_irqno <= 0) {
+-			ret = -ENXIO;
++		if (isp_irqno < 0) {
++			ret = isp_irqno;
+ 			LOG(LOG_ERR, "platform_get_irq failed irq(%d) ret(%d)",
+ 			    isp_irqno, ret);
+ 			goto unreg_dev;
+@@ -2143,12 +2160,9 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 			LOG(LOG_ERR, "devm_request_irq failed ret(%d)", ret);
+ 			goto unreg_dev;
+ 		}
++		p_v4l_config_dev->err_irq = isp_irqno;
+ 	}
+ 
+-	armcb_irq_msg_fh_init(&p_v4l_config_dev->isr_fh);
+-	tasklet_init(&p_v4l_config_dev->buffer_done_task, buffer_done_handler,
+-		     0UL);
+-
+ #ifdef CONFIG_PLAT_BBOX
+ 	init_completion(&g_rdr_dump_comp);
+ 
+@@ -2158,38 +2172,68 @@ static int armcb_v4l2_config_probe(struct platform_device *pdev)
+ 	if (ret) {
+ 		LOG(LOG_ERR,
+ 		    "cix_isp_rproc_rdr_register_core fail, ret = [%d]\n", ret);
+-		goto err_rproc_add;
++		goto unreg_dev;
+ 	}
+ #endif
+ 
+ #ifdef V4L2_OPT
+ 	ret = armcb_v4l2_alloc_discard_buffer(RESERVED_BUF_SIZE, &pdev->dev);
+-	if (ret < 0)
++	if (ret < 0) {
+ 		LOG(LOG_ERR, "Alloc reserved buffer failed ! \n");
++		goto unreg_dev;
++	}
+ #endif
+-	return ret;
+-err_rproc_add:
++	return 0;
+ unreg_dev:
++	if (p_v4l_config_dev->err_irq >= 0) {
++		devm_free_irq(&pdev->dev, p_v4l_config_dev->err_irq,
++			      p_v4l_config_dev);
++		p_v4l_config_dev->err_irq = -1;
++	}
++	if (p_v4l_config_dev->irq >= 0) {
++		devm_free_irq(&pdev->dev, p_v4l_config_dev->irq,
++			      p_v4l_config_dev);
++		p_v4l_config_dev->irq = -1;
++	}
++	if (p_v4l_config_dev->tasklet_initialized) {
++		tasklet_kill(&p_v4l_config_dev->buffer_done_task);
++		p_v4l_config_dev->tasklet_initialized = false;
++	}
+ 	video_unregister_device(&p_v4l_config_dev->vid_cap_dev);
+-	v4l2_device_put(&p_v4l_config_dev->v4l2_dev);
++	v4l2_device_unregister(&p_v4l_config_dev->v4l2_dev);
+ exit_ret:
+-	devm_kfree(&pdev->dev, p_v4l_config_dev);
++	platform_set_drvdata(pdev, NULL);
++	WRITE_ONCE(p_v4l_config_dev, NULL);
+ 	return ret;
+ }
+ 
+ static void armcb_v4l2_config_remove(struct platform_device *pdev)
+ {
++	armcb_v4l2_config_dev_t *config = platform_get_drvdata(pdev);
++
+ #ifdef CONFIG_PLAT_BBOX
+ 	cix_isp_rproc_rdr_unregister_core();
+ 	cix_isp_rproc_rdr_unregister_exception();
+ #endif
+ 
+-	if (p_v4l_config_dev) {
+-		video_unregister_device(&p_v4l_config_dev->vid_cap_dev);
+-		v4l2_device_put(&p_v4l_config_dev->v4l2_dev);
+-		devm_kfree(&pdev->dev, p_v4l_config_dev);
++	if (config) {
++		if (config->err_irq >= 0) {
++			devm_free_irq(&pdev->dev, config->err_irq, config);
++			config->err_irq = -1;
++		}
++		if (config->irq >= 0) {
++			devm_free_irq(&pdev->dev, config->irq, config);
++			config->irq = -1;
++		}
++		if (config->tasklet_initialized) {
++			tasklet_kill(&config->buffer_done_task);
++			config->tasklet_initialized = false;
++		}
++		cmpxchg(&p_v4l_config_dev, config, NULL);
++		video_unregister_device(&config->vid_cap_dev);
++		v4l2_device_unregister(&config->v4l2_dev);
++		platform_set_drvdata(pdev, NULL);
+ 	}
+-	p_v4l_config_dev = NULL;
+ 
+ #ifdef V4L2_OPT
+ 	int ret = armcb_v4l2_release_discard_buffer(RESERVED_BUF_SIZE,
+@@ -2264,6 +2308,7 @@ void armcb_v4l2_cfg_driver_destroy(void)
+ 	if (g_instance) {
+ 		platform_driver_unregister(
+ 			(struct platform_driver *)g_instance);
++		g_instance = NULL;
+ 	}
+ }
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
+@@ -67,6 +67,9 @@ typedef struct armcb_v4l2_config_dev {
+ 	/* buffer_done_work */
+ 	struct tasklet_struct buffer_done_task;
+ 	struct armcb_irq_msg_fh isr_fh;
++	int irq;
++	int err_irq;
++	bool tasklet_initialized;
+ } armcb_v4l2_config_dev_t;
+ 
+ static inline unsigned int irqev_pos(const struct armcb_irq_msg_fh *fh,
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -23,7 +23,6 @@
+ #include "armcb_v4l2_stream.h"
+ #include "armcb_v4l_sd.h"
+ #include "armcb_vb2.h"
+-#include "armcb_isp_execstart.h"
+ #include "asm-generic/errno-base.h"
+ #include "isp_hw_ops.h"
+ #include "linux/types.h"
+@@ -87,7 +86,7 @@ dma_addr_t discard_dma_handle;
+ 
+ static armcb_v4l2_dev_t *g_isp_v4l2_devs[ARMCB_MAX_DEVS] = { 0 };
+ static uint32_t outport_array[ARMCB_MAX_DEVS][V4L2_STREAM_TYPE_MAX];
+-static int g_adev_idx;
++static DEFINE_MUTEX(g_isp_v4l2_devs_lock);
+ armcb_v4l2_stream_t
+ 	*g_outport_map[ARMCB_MAX_DEVS][ISP_OUTPUT_PORT_MAX] = { 0 };
+ 
+@@ -775,8 +774,6 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 	}
+ 
+ 	armcb_v4l2_fh_release(file);
+-	if (dev->ctx_id == 0)
+-		armcb_isp_execstart_note_ctx0_release();
+ 	LOG(LOG_INFO, "release v4l2 fp success");
+ 	return rc;
+ 
+@@ -788,8 +785,6 @@ static int armcb_v4l2_fop_release(struct file *file)
+ exit:
+ 	/* release file handle */
+ 	armcb_v4l2_fh_release(file);
+-	if (dev->ctx_id == 0)
+-		armcb_isp_execstart_note_ctx0_release();
+ 	LOG(LOG_INFO, "release v4l2 fp success");
+ 	return rc;
+ }
+@@ -863,24 +858,6 @@ static int armcb_v4l2_fop_open(struct file *filp)
+ 	}
+ 
+ normal_mode:
+-	/*
+-	 * Newest running isp_app cmdline -> allowed armcb_isp_v4l2-00..03 (ctx_id).
+-	 * Multi-camera (-m 2/3/4): open -00 before other nodes.
+-	 */
+-	armcb_isp_execstart_refresh_if_needed();
+-	if (!armcb_isp_execstart_ctx_allowed(dev->ctx_id)) {
+-		LOG(LOG_ERR,
+-		    "%s: camera is not support (isp_app cmdline policy, ctx_id=%u)\n",
+-		    dev_name(&vdev->dev), dev->ctx_id);
+-		return -EPERM;
+-	}
+-	if (!armcb_isp_execstart_multi_open_order_ok(dev->ctx_id)) {
+-		LOG(LOG_ERR,
+-		    "%s: camera is not support (open armcb_isp_v4l2-00 first, multi-camera)\n",
+-		    dev_name(&vdev->dev));
+-		return -EPERM;
+-	}
+-
+ 	ret = armcb_v4l2_fh_open(filp);
+ 	if (ret < 0) {
+ 		LOG(LOG_ERR, "Error, file handle open fail (rc=%d)", ret);
+@@ -888,8 +865,6 @@ static int armcb_v4l2_fop_open(struct file *filp)
+ 	}
+ 
+ 	atomic_add(1, &dev->opened);
+-	if (dev->ctx_id == 0)
+-		armcb_isp_execstart_note_ctx0_open();
+ 
+ open_fail:
+ 	return ret;
+@@ -1907,6 +1882,9 @@ static const struct v4l2_ioctl_ops armcb_ioctl_ops = {
+  */
+ armcb_v4l2_dev_t *armcb_v4l2_core_get_dev(uint32_t ctx_id)
+ {
++	if (ctx_id >= ARMCB_MAX_DEVS)
++		return NULL;
++
+ 	LOG(LOG_DEBUG, "get ctx_id:%d pdev:%p", ctx_id,
+ 		g_isp_v4l2_devs[ctx_id]);
+ 	return g_isp_v4l2_devs[ctx_id];
+@@ -1934,6 +1912,9 @@ static void armcb_v4l2_dev_release(struct v4l2_device *v4l2_dev)
+ 		container_of(v4l2_dev, armcb_v4l2_dev_t, v4l2_dev);
+ 
+ 	v4l2_device_unregister(&dev->v4l2_dev);
++#ifdef CONFIG_MEDIA_CONTROLLER
++	media_device_cleanup(&dev->mdev);
++#endif
+ 	kfree(dev);
+ }
+ 
+@@ -1984,6 +1965,9 @@ armcb_v4l2_create_instance(struct platform_device *pdev, int ctx_id,
+ 	LOG(LOG_INFO, "dev->v4l2_dev.name[%s]", dev->v4l2_dev.name);
+ 	ret = v4l2_device_register(devnode, &dev->v4l2_dev);
+ 	if (ret) {
++#ifdef CONFIG_MEDIA_CONTROLLER
++		media_device_cleanup(&dev->mdev);
++#endif
+ 		kfree(dev);
+ 		return NULL;
+ 	}
+@@ -2072,9 +2056,7 @@ armcb_v4l2_create_instance(struct platform_device *pdev, int ctx_id,
+ 	return dev;
+ 
+ unreg_dev:
+-	video_unregister_device(&dev->vid_cap_dev);
+ 	v4l2_device_put(&dev->v4l2_dev);
+-	kfree(dev);
+ 	LOG(LOG_ERR, "create video device instance failed. ret = %d", ret);
+ 	return NULL;
+ }
+@@ -2085,43 +2067,74 @@ armcb_v4l2_dev_t *armcb_register_instance(struct platform_device *pdev,
+ {
+ 	armcb_v4l2_dev_t *adev = NULL;
+ 
+-	if (cam_id + 1 >= ARMCB_MAX_DEVS) {
++	if (cam_id >= ARMCB_MAX_DEVS) {
+ 		LOG(LOG_ERR, "too many instance, current is %d.", cam_id);
+ 		return NULL;
+ 	}
++	mutex_lock(&g_isp_v4l2_devs_lock);
+ 	if (g_isp_v4l2_devs[cam_id] != NULL) {
+ 		LOG(LOG_ERR, "camera %d has probe.", cam_id);
++		mutex_unlock(&g_isp_v4l2_devs_lock);
+ 		return NULL;
+ 	}
+ 
+     adev = armcb_v4l2_create_instance(pdev, cam_id, devnode);
+ 	if (adev == NULL) {
+ 		LOG(LOG_ERR, "too many instance, current is %d.", cam_id);
++		mutex_unlock(&g_isp_v4l2_devs_lock);
+ 		return NULL;
+ 	}
+ 
+ 	LOG(LOG_INFO, "register v4l2 video instance %d %p", cam_id, adev);
+ 	g_isp_v4l2_devs[cam_id] = adev;
++	mutex_unlock(&g_isp_v4l2_devs_lock);
+ 	return adev;
+ }
+ 
++static void armcb_destroy_instance(unsigned int cam_id, bool cleanup_notifier)
++{
++	armcb_v4l2_dev_t *dev;
++
++	if (cam_id >= ARMCB_MAX_DEVS)
++		return;
++
++	mutex_lock(&g_isp_v4l2_devs_lock);
++	dev = g_isp_v4l2_devs[cam_id];
++	g_isp_v4l2_devs[cam_id] = NULL;
++	mutex_unlock(&g_isp_v4l2_devs_lock);
++	if (!dev)
++		return;
++
++	if (cleanup_notifier && dev->dts_notifier_registered) {
++		v4l2_async_nf_unregister(&dev->dts_notifier);
++		dev->dts_notifier_registered = false;
++	}
++	if (cleanup_notifier && dev->dts_notifier_initialized) {
++		v4l2_async_nf_cleanup(&dev->dts_notifier);
++		dev->dts_notifier_initialized = false;
++	}
++
++	video_unregister_device(&dev->vid_cap_dev);
++#ifdef CONFIG_MEDIA_CONTROLLER
++	if (dev->media_registered) {
++		media_device_unregister(&dev->mdev);
++		dev->media_registered = false;
++	}
++#endif
++	LOG(LOG_INFO, "release armcb instance %d (%p)", cam_id, dev);
++	v4l2_device_put(&dev->v4l2_dev);
++}
++
++void armcb_unregister_instance(unsigned int cam_id)
++{
++	armcb_destroy_instance(cam_id, false);
++}
++
+ void armcb_cam_instance_destroy(void)
+ {
+ 	int i = 0;
+ 
+ 	for (; i < ARMCB_MAX_DEVS; i++) {
+-		if (g_isp_v4l2_devs[i] == NULL)
+-			continue;
+-		v4l2_async_nf_unregister(&g_isp_v4l2_devs[i]->dts_notifier);
+-#if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE)
+-		v4l2_async_nf_cleanup(&g_isp_v4l2_devs[i]->dts_notifier);
+-#endif
+-		video_unregister_device(&g_isp_v4l2_devs[i]->vid_cap_dev);
+-		v4l2_device_put(&g_isp_v4l2_devs[i]->v4l2_dev);
+-		media_device_unregister(&g_isp_v4l2_devs[i]->mdev);
+-		LOG(LOG_INFO, "release armcb instance %d (%p)", i,
+-			g_isp_v4l2_devs[i]);
+-		g_isp_v4l2_devs[i] = NULL;
+-	}
+-	g_adev_idx = 0;
++		armcb_destroy_instance(i, true);
++	}
+ }
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
+@@ -94,8 +94,11 @@ typedef struct armcb_v4l2_dev {
+ 
+ 	/* v4l2_subdev async register */
+ 	struct v4l2_async_notifier dts_notifier;
++	bool dts_notifier_initialized;
++	bool dts_notifier_registered;
+ #ifdef CONFIG_MEDIA_CONTROLLER
+ 	struct media_device mdev;
++	bool media_registered;
+ #endif
+ 	void * discard_buf_addr;
+ 	u32 discard_buf_size;
+@@ -193,6 +196,7 @@ armcb_v4l2_dev_t *armcb_v4l2_core_get_dev(uint32_t ctx_id);
+ uint32_t armcb_v4l2_core_find_1st_opened_dev(void);
+ armcb_v4l2_dev_t *armcb_register_instance(struct platform_device *pdev,
+ 					  struct device *devnode, u32 cam_id);
++void armcb_unregister_instance(u32 cam_id);
+ 
+ void armcb_isp_put_frame(uint32_t ctx_id, int stream_type,
+ 			 isp_output_port_t port);
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+@@ -22,6 +22,7 @@
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+ #include <linux/platform_device.h>
++#include <linux/property.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
+ #include <media/videobuf2-v4l2.h>
+@@ -35,29 +36,43 @@ static long armcb_motor_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
+ 	void *arg)
+ {
+ 	struct armcb_motor_subdev *pmotor_sd = v4l2_get_subdevdata(sd);
++	struct cmd_buf *pcmd_buf;
++	size_t size;
++	int copy_res;
++	int res;
++
++	if (!pmotor_sd)
++		return -ENODEV;
+ #ifdef CIX_I2C_ACTUATOR
+ 	struct i2c_client *pcline_dev = pmotor_sd->pcline_dev;
+ #else
+ 	struct spi_device *pspi_dev = pmotor_sd->pspi_dev;
+ #endif
+-	int res = 0;
+ 
+ #ifdef CIX_I2C_ACTUATOR
+-	if (WARN_ON(!pmotor_sd) || WARN_ON(!pcline_dev))
+-		LOG(LOG_ERR, "pmotor_sd/pcline_dev is NULL");
++	if (!pcline_dev)
++		return -ENODEV;
+ #else
+-	if (WARN_ON(!pmotor_sd) || WARN_ON(!pspi_dev))
+-		LOG(LOG_ERR, "pmotor_sd/pspi_dev is NULL");
++	if (!pspi_dev)
++		return -ENODEV;
+ #endif
+ 
+ 	switch (cmd) {
+ 	case ARMCB_VIDIOC_APPLY_CMD: {
+-		struct cmd_buf *pcmd_buf = (struct cmd_buf *)arg;
++		res = armcb_isp_cmd_import((void __user *)arg, &pcmd_buf,
++					   &size);
++		if (res)
++			break;
+ #ifdef CIX_I2C_ACTUATOR
+-		res |= armcb_isp_hw_apply(pcmd_buf, (void *)pcline_dev);
++		res = armcb_isp_hw_apply(pcmd_buf, pcline_dev);
+ #else
+-		res |= armcb_isp_hw_apply(pcmd_buf, (void *)pspi_dev);
++		res = armcb_isp_hw_apply(pcmd_buf, pspi_dev);
+ #endif
++		copy_res = armcb_isp_cmd_export((void __user *)arg, pcmd_buf,
++						 size);
++		kfree(pcmd_buf);
++		if (!res)
++			res = copy_res;
+ 		break;
+ 	}
+ 	default:
+@@ -101,8 +116,10 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 	struct v4l2_subdev *sd = &pmotor_sd->motor_sd.sd;
+ #ifdef CIX_I2C_ACTUATOR
+ 	struct i2c_client *pcline_dev = pmotor_sd->pcline_dev;
++	struct device *dev = &pcline_dev->dev;
+ #else
+ 	struct spi_device *spidev = pmotor_sd->pspi_dev;
++	struct device *dev = &spidev->dev;
+ #endif
+ 	int res = 0;
+ 
+@@ -115,8 +132,16 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 	v4l2_set_subdevdata(sd, pmotor_sd);
+ 	snprintf(sd->name, sizeof(sd->name), "motor0");
+ 
+-	res = of_property_read_u32(pmotor_sd->of_node, CIX_CAMERA_MODULE_INDEX,
+-				   &pmotor_sd->cam_id);
++	res = fwnode_property_read_u32(dev_fwnode(dev), CIX_CAMERA_MODULE_INDEX,
++				       &pmotor_sd->cam_id);
++	if (res == -EINVAL || res == -ENODATA) {
++		dev_dbg(dev, "camera module index not described, using 0\n");
++		pmotor_sd->cam_id = 0;
++		res = 0;
++	} else if (res) {
++		return dev_err_probe(dev, res,
++				     "failed to read camera module index\n");
++	}
+ 
+ 	LOG(LOG_INFO, "motor id is %d", pmotor_sd->cam_id);
+ 
+@@ -137,6 +162,7 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 	res = armcb_subdev_register(&pmotor_sd->motor_sd, pmotor_sd->cam_id);
+ 	if (res) {
+ 		LOG(LOG_ERR, "armcb_subdev_register  failed");
++		media_entity_cleanup(&sd->entity);
+ 		goto EXIT_RET;
+ 	}
+ 
+@@ -238,6 +264,8 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ #else
+ 	pmotor_sd->pspi_dev = pspi_dev;
+ #endif
++	pmotor_sd->pdev = dev;
++	pmotor_sd->of_node = dev->of_node;
+ 	spin_lock_init(&pmotor_sd->sdlock);
+ 	mutex_init(&pmotor_sd->imutex);
+ 
+@@ -270,9 +298,9 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ }
+ 
+ #ifdef CIX_I2C_ACTUATOR
+-void motor0_remove(struct i2c_client *pcline_dev)
++static void motor0_remove(struct i2c_client *pcline_dev)
+ #else
+-void motor0_remove(struct spi_device *pspi_dev)
++static void motor0_remove(struct spi_device *pspi_dev)
+ #endif
+ {
+ #ifdef CIX_I2C_ACTUATOR
+@@ -290,13 +318,14 @@ void motor0_remove(struct spi_device *pspi_dev)
+ 		return;
+ 	}
+ #endif
+-	// the async_list will be added to subdev_list global field again, delete it
+-	// twice
+-	list_del_init(&pmotor_sd->motor_sd.sd.async_list);
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+-	v4l2_device_unregister_subdev(&pmotor_sd->motor_sd.sd);
+-#endif
++	armcb_subdev_unregister(&pmotor_sd->motor_sd);
++	media_entity_cleanup(&pmotor_sd->motor_sd.sd.entity);
+ 
++#ifdef CIX_I2C_ACTUATOR
++	i2c_set_clientdata(pcline_dev, NULL);
++#else
++	spi_set_drvdata(pspi_dev, NULL);
++#endif
+ 	kfree(pmotor_sd);
+ }
+ 
+@@ -389,6 +418,7 @@ void armcb_motor_driver_destroy(void)
+ #else
+ 		spi_unregister_driver((struct spi_driver *)g_instance);
+ #endif
++		g_instance = NULL;
+ 	}
+ }
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -23,6 +23,7 @@
+ #include <media/v4l2-async.h>
+ 
+ #include <linux/gpio/consumer.h>
++#include <linux/delay.h>
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/reset.h>
+ 
+@@ -33,59 +34,61 @@
+ 
+ static int camera_common_powen(struct armcb_imgsens_subdev *pimgsens_sd)
+ {
+-	int ret = 0;
++	int ret;
+ 	struct device *dev = pimgsens_sd->pdev;
+ 
+-	if (!pimgsens_sd->power_on) {
+-		if (pimgsens_sd->vsupply_0) {
+-			ret = regulator_enable(pimgsens_sd->vsupply_0);
+-			if (ret) {
+-				dev_err(dev, "fail to enable cam_v regulator0\n");
+-				regulator_put(pimgsens_sd->vsupply_0);
+-				goto exit;
+-			}
+-		}
++	if (pimgsens_sd->power_on)
++		return 0;
+ 
+-		if (pimgsens_sd->vsupply_1) {
+-			ret = regulator_enable(pimgsens_sd->vsupply_1);
+-			if (ret) {
+-				dev_err(dev, "fail to enable cam_v regulator1\n");
+-				regulator_put(pimgsens_sd->vsupply_1);
+-				goto exit;
+-			}
+-		}
++	if (pimgsens_sd->vsupply_0) {
++		ret = regulator_enable(pimgsens_sd->vsupply_0);
++		if (ret)
++			return dev_err_probe(dev, ret,
++					     "failed to enable power0\n");
++	}
+ 
+-		pimgsens_sd->power_on = TRUE;
++	if (pimgsens_sd->vsupply_1) {
++		ret = regulator_enable(pimgsens_sd->vsupply_1);
++		if (ret) {
++			dev_err_probe(dev, ret, "failed to enable power1\n");
++			if (pimgsens_sd->vsupply_0)
++				regulator_disable(pimgsens_sd->vsupply_0);
++			return ret;
++		}
+ 	}
+-exit:
+-	return ret;
++
++	pimgsens_sd->power_on = TRUE;
++	return 0;
+ }
+ 
+ static int camera_common_powdn(struct armcb_imgsens_subdev *pimgsens_sd)
+ {
+ 	int ret = 0;
++	int err;
+ 	struct device *dev = pimgsens_sd->pdev;
+ 
+-	if (pimgsens_sd->power_on) {
+-		if (pimgsens_sd->vsupply_0) {
+-			ret = regulator_disable(pimgsens_sd->vsupply_0);
+-			if (ret) {
+-				dev_err(dev, "fail to disable cam_v regulator0\n");
+-				goto exit;
+-			}
++	if (!pimgsens_sd->power_on)
++		return 0;
++
++	if (pimgsens_sd->vsupply_1) {
++		err = regulator_disable(pimgsens_sd->vsupply_1);
++		if (err) {
++			dev_err(dev, "failed to disable power1: %d\n", err);
++			ret = err;
+ 		}
++	}
+ 
+-		if (pimgsens_sd->vsupply_1) {
+-			ret = regulator_disable(pimgsens_sd->vsupply_1);
+-			if (ret) {
+-				dev_err(dev, "fail to disable cam_v regulator1\n");
+-				goto exit;
+-			}
++	if (pimgsens_sd->vsupply_0) {
++		err = regulator_disable(pimgsens_sd->vsupply_0);
++		if (err) {
++			dev_err(dev, "failed to disable power0: %d\n", err);
++			if (!ret)
++				ret = err;
+ 		}
++	}
+ 
++	if (!ret)
+ 		pimgsens_sd->power_on = FALSE;
+-	}
+-exit:
+ 	return ret;
+ }
+ 
+@@ -123,11 +126,8 @@ static void armcb_camera_async_unbind(struct v4l2_async_notifier *notifier,
+ 
+ static int
+ armcb_async_notifier_add_devname_subdev(struct v4l2_async_notifier *notifier,
+-					struct fwnode_handle *priv)
++					struct fwnode_handle *fwnode)
+ {
+-	int ret = 0;
+-	struct fwnode_handle *fwnode = priv;
+-
+ #if (KERNEL_VERSION(4, 17, 0) <= LINUX_VERSION_CODE)
+ #if (KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE)
+ 	struct v4l2_async_connection *asd;
+@@ -137,11 +137,8 @@ armcb_async_notifier_add_devname_subdev(struct v4l2_async_notifier *notifier,
+ 	asd = v4l2_async_nf_add_fwnode(notifier, fwnode, typeof(*asd));
+ 	if (IS_ERR(asd)) {
+ 		LOG(LOG_ERR, "fail to add asd = %p\n", asd);
+-		fwnode_handle_put(priv);
+ 		return PTR_ERR(asd);
+ 	}
+-
+-	fwnode_handle_put(priv);
+ #else
+ 	asd = kzalloc(sizeof(*asd), GFP_KERNEL);
+ 	if (!asd) {
+@@ -157,7 +154,7 @@ armcb_async_notifier_add_devname_subdev(struct v4l2_async_notifier *notifier,
+ 	notifier->num_subdevs++;
+ #endif
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int armcb_register_async_node(struct device *pdev,
+@@ -183,25 +180,35 @@ static int armcb_register_async_node(struct device *pdev,
+ 	notifier->num_subdevs = 0;
+ #endif
+ 
+-	// add sensor subdev
++	/* v4l2_async_nf_add_fwnode() takes its own fwnode reference. */
+ 	if (!IS_ERR_OR_NULL(parent_node) && is_sensor) {
+-		(void)armcb_async_notifier_add_devname_subdev(notifier,
+-								  parent_node);
++		ret = armcb_async_notifier_add_devname_subdev(notifier,
++						      parent_node);
++		if (ret)
++			goto out_put_fwnodes;
+ 	}
+-	// add actuator subdev
+-	if (!IS_ERR(actuator_node)) {
+-		(void)armcb_async_notifier_add_devname_subdev(notifier,
+-								  actuator_node);
++	if (!IS_ERR_OR_NULL(actuator_node)) {
++		ret = armcb_async_notifier_add_devname_subdev(notifier,
++						      actuator_node);
++		if (ret)
++			goto out_put_fwnodes;
+ 	}
+-	if (!IS_ERR(isp_node)) {
+-		(void)armcb_async_notifier_add_devname_subdev(notifier,
+-								  isp_node);
++	if (!IS_ERR_OR_NULL(isp_node)) {
++		ret = armcb_async_notifier_add_devname_subdev(notifier, isp_node);
++		if (ret)
++			goto out_put_fwnodes;
+ 	}
++
++out_put_fwnodes:
++	if (!IS_ERR_OR_NULL(actuator_node))
++		fwnode_handle_put(actuator_node);
++	if (!IS_ERR_OR_NULL(isp_node))
++		fwnode_handle_put(isp_node);
+ 	return ret;
+ }
+ 
+-int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
+-			   struct armcb_imgsens_subdev *pimgsens_sd)
++static int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
++				  struct armcb_imgsens_subdev *pimgsens_sd)
+ {
+ 	int ret = 0;
+ 
+@@ -217,25 +224,31 @@ int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
+ 		break;
+ 	case IMGS_POWER_ENABLE:
+ 		if (cmd->settings.ahb_power->bit_mask)
+-			camera_common_powen(pimgsens_sd);
++			ret = camera_common_powen(pimgsens_sd);
+ 		else
+-			camera_common_powdn(pimgsens_sd);
++			ret = camera_common_powdn(pimgsens_sd);
+ 		break;
+ 	case IMGS_POWER_REST:
+ 		LOG(LOG_INFO, "rst_gpio val is: %d\n",
+ 			cmd->settings.ahb_power->bit_mask);
++		if (!pimgsens_sd->imgs_inst.rst_gpio)
++			return -ENODEV;
+ 		gpiod_set_value_cansleep(pimgsens_sd->imgs_inst.rst_gpio,
+ 					 cmd->settings.ahb_power->bit_mask);
+ 		break;
+ 	case IMGS_POWER_PWDN:
+ 		LOG(LOG_INFO, "pwn_gpio val is: %d",
+ 			cmd->settings.ahb_power->bit_mask);
++		if (!pimgsens_sd->imgs_inst.pwn_gpio)
++			return -ENODEV;
+ 		gpiod_set_value_cansleep(pimgsens_sd->imgs_inst.pwn_gpio,
+ 					 cmd->settings.ahb_power->bit_mask);
+ 		break;
+ 	case IMGS_POWER_MCLK:
+ 		LOG(LOG_INFO, "MCLK val is: %d\n",
+ 			cmd->settings.ahb_power->bit_mask);
++		if (!pimgsens_sd->imgs_inst.mclk)
++			return -ENODEV;
+ 		if (cmd->settings.ahb_power->bit_mask)
+ 			ret = clk_prepare_enable(pimgsens_sd->imgs_inst.mclk);
+ 		else
+@@ -243,9 +256,10 @@ int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
+ 		break;
+ 	default:
+ 		LOG(LOG_ERR, "reg_addr is error");
+-		break;
++		return -EINVAL;
+ 	}
+-	msleep((cmd->settings.ahb_power->delay_us) / 1000);
++	if (cmd->settings.ahb_power->delay_us)
++		fsleep(cmd->settings.ahb_power->delay_us);
+ 	return ret;
+ }
+ 
+@@ -258,16 +272,27 @@ static long armcb_imgsens_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
+ 
+ 	switch (cmd) {
+ 	case ARMCB_VIDIOC_APPLY_CMD: {
+-		struct cmd_buf *pcmd_buf = (struct cmd_buf *)arg;
++		struct cmd_buf *pcmd_buf;
++		size_t size;
++		int copy_res;
+ 
++		res = armcb_isp_cmd_import((void __user *)arg, &pcmd_buf,
++					   &size);
++		if (res)
++			break;
+ 		switch (pcmd_buf->static_info.bus) {
+ 		case HW_BUS_AHB_POWER:
+-			res |= armcb_imgsens_hw_apply(pcmd_buf, pimgsens_sd);
++			res = armcb_imgsens_hw_apply(pcmd_buf, pimgsens_sd);
+ 			break;
+ 		default:
+-			res |= armcb_isp_hw_apply(pcmd_buf, client);
++			res = armcb_isp_hw_apply(pcmd_buf, client);
+ 			break;
+ 		}
++		copy_res = armcb_isp_cmd_export((void __user *)arg, pcmd_buf,
++						 size);
++		kfree(pcmd_buf);
++		if (!res)
++			res = copy_res;
+ 		break;
+ 	}
+ 	default:
+@@ -335,6 +360,7 @@ armcb_imgsens_configure_subdevs(struct armcb_imgsens_subdev *pimgsens_sd)
+ 					pimgsens_sd->cam_id);
+ 	if (res) {
+ 		LOG(LOG_ERR, "armcb_subdev_register  failed");
++		media_entity_cleanup(&sd->entity);
+ 		goto EXIT_RET;
+ 	}
+ 
+@@ -395,40 +421,143 @@ static int imgsens_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ #else
++static bool armcb_optional_resource_missing(int ret)
++{
++	return ret == -ENODEV || ret == -ENOENT || ret == -EINVAL;
++}
++
++static int armcb_imgsens_get_resources(struct armcb_imgsens_subdev *sensor)
++{
++	struct armcb_camera_inst *inst = &sensor->imgs_inst;
++	struct device *dev = sensor->pdev;
++	int ret;
++
++	inst->pinctrl = devm_pinctrl_get(dev);
++	if (IS_ERR(inst->pinctrl)) {
++		ret = PTR_ERR(inst->pinctrl);
++		inst->pinctrl = NULL;
++		if (!armcb_optional_resource_missing(ret))
++			return dev_err_probe(dev, ret, "failed to get pinctrl\n");
++	} else {
++		inst->pins_default = pinctrl_lookup_state(inst->pinctrl,
++							  PINCTRL_STATE_DEFAULT);
++		if (IS_ERR(inst->pins_default)) {
++			ret = PTR_ERR(inst->pins_default);
++			inst->pins_default = NULL;
++			if (!armcb_optional_resource_missing(ret))
++				return dev_err_probe(dev, ret,
++						     "failed to get default pin state\n");
++		}
++
++		inst->pins_sleep = pinctrl_lookup_state(inst->pinctrl,
++							PINCTRL_STATE_SLEEP);
++		if (IS_ERR(inst->pins_sleep)) {
++			ret = PTR_ERR(inst->pins_sleep);
++			inst->pins_sleep = NULL;
++			if (!armcb_optional_resource_missing(ret))
++				return dev_err_probe(dev, ret,
++						     "failed to get sleep pin state\n");
++		}
++
++		if (inst->pins_default) {
++			ret = pinctrl_select_state(inst->pinctrl,
++						   inst->pins_default);
++			if (ret)
++				return dev_err_probe(dev, ret,
++						     "failed to select default pin state\n");
++		}
++	}
++
++	inst->pwn_gpio = devm_gpiod_get_optional(dev, "pwdn", GPIOD_OUT_LOW);
++	if (IS_ERR(inst->pwn_gpio))
++		return dev_err_probe(dev, PTR_ERR(inst->pwn_gpio),
++				     "failed to get pwdn GPIO\n");
++
++	inst->rst_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
++	if (IS_ERR(inst->rst_gpio))
++		return dev_err_probe(dev, PTR_ERR(inst->rst_gpio),
++				     "failed to get reset GPIO\n");
++
++	sensor->vsupply_0 = devm_regulator_get_optional(dev, "power0");
++	if (IS_ERR(sensor->vsupply_0)) {
++		ret = PTR_ERR(sensor->vsupply_0);
++		sensor->vsupply_0 = NULL;
++		if (ret != -ENODEV)
++			return dev_err_probe(dev, ret, "failed to get power0\n");
++	}
++
++	sensor->vsupply_1 = devm_regulator_get_optional(dev, "power1");
++	if (IS_ERR(sensor->vsupply_1)) {
++		ret = PTR_ERR(sensor->vsupply_1);
++		sensor->vsupply_1 = NULL;
++		if (ret != -ENODEV)
++			return dev_err_probe(dev, ret, "failed to get power1\n");
++	}
++
++	if (is_acpi_device_node(dev_fwnode(dev)))
++		inst->mclk = devm_clk_get_optional(
++			&to_acpi_device_node(dev_fwnode(dev))->dev, "mclk");
++	else
++		inst->mclk = devm_clk_get_optional(dev, "mclk");
++	if (IS_ERR(inst->mclk))
++		return dev_err_probe(dev, PTR_ERR(inst->mclk),
++				     "failed to get mclk\n");
++
++	return 0;
++}
++
+ static int imgsens_probe(struct i2c_client *client)
+ {
+-	struct armcb_imgsens_subdev *pimgsens_sd = NULL;
+-	struct armcb_camera_inst *pimgs_inst = NULL;
+-	struct device *dev = NULL;
+-	struct fwnode_handle *node = NULL;
+-	armcb_v4l2_dev_t *adev = NULL;
+-	int res = 0;
++	struct armcb_imgsens_subdev *pimgsens_sd;
++	struct device *dev;
++	struct fwnode_handle *node;
++	armcb_v4l2_dev_t *adev;
+ 	unsigned int cam_id = 0;
++	bool subdev_registered = false;
++	int res;
+ 
+ 	LOG(LOG_INFO, "+");
+ 
+ 	if (!client) {
+ 		LOG(LOG_ERR, "armcb imgsens client is NULL");
+ 		return -EINVAL;
+-	} else {
+-		LOG(LOG_INFO, "imgsens   client(%p)", client);
+ 	}
+ 
+ 	dev = &client->dev;
+-	node = client->dev.fwnode;
+-	res = fwnode_property_read_u32(node, CIX_CAMERA_MODULE_INDEX,
+-				   &cam_id);
++	node = dev_fwnode(dev);
++	if (!node)
++		return dev_err_probe(dev, -ENODEV, "missing firmware node\n");
+ 
+-	if (WARN_ON(!dev) || WARN_ON(!node)) {
+-		LOG(LOG_ERR, "armcb imgsens dev/node is NULL");
+-		return -EINVAL;
++	res = fwnode_property_read_u32(node, CIX_CAMERA_MODULE_INDEX,
++				       &cam_id);
++	if (res == -EINVAL || res == -ENODATA) {
++		dev_dbg(dev, "camera module index not described, using 0\n");
++		cam_id = 0;
++	} else if (res) {
++		return dev_err_probe(dev, res,
++				     "failed to read camera module index\n");
+ 	}
+ 
++	pimgsens_sd = kzalloc(sizeof(*pimgsens_sd), GFP_KERNEL);
++	if (!pimgsens_sd)
++		return -ENOMEM;
++
++	pimgsens_sd->imgs_inst.pi2c_client = client;
++	pimgsens_sd->of_node = dev->of_node;
++	pimgsens_sd->pdev = dev;
++	pimgsens_sd->cam_id = cam_id;
++	pimgsens_sd->power_on = FALSE;
++
++	res = armcb_imgsens_get_resources(pimgsens_sd);
++	if (res)
++		goto err_free_sensor;
++
+ 	adev = armcb_register_instance(NULL, dev, cam_id);
+ 	if (adev == NULL) {
+-		LOG(LOG_ERR, "create armcb_dev instance fail");
+-		return -ENOMEM;
++		res = -EBUSY;
++		goto err_free_sensor;
+ 	}
++	pimgsens_sd->armcb_v4l2_dev = adev;
+ 
+ 	LOG(LOG_INFO, "start configure notifier.");
+ #if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+@@ -443,13 +572,14 @@ static int imgsens_probe(struct i2c_client *client)
+ #endif
+ 	adev->dts_notifier.ops = &async_notifier_ops;
+ #endif
++	adev->dts_notifier_initialized = true;
+ 
+ 	// register async node to notifier first
+ 	res = armcb_register_async_node(&client->dev, &adev->dts_notifier,
+ 					true);
+ 	if (res < 0) {
+-		LOG(LOG_ERR, "attach async node to register failed\n");
+-		return -EINVAL;
++		dev_err(dev, "failed to add async matches: %d\n", res);
++		goto err_notifier;
+ 	}
+ #if (KERNEL_VERSION( 6, 6, 0 ) <= LINUX_VERSION_CODE)
+ 	res = v4l2_async_nf_register(&adev->dts_notifier);
+@@ -457,113 +587,64 @@ static int imgsens_probe(struct i2c_client *client)
+ 	res = v4l2_async_nf_register(&adev->v4l2_dev, &adev->dts_notifier);
+ #endif
+ 	if (res < 0) {
+-		LOG(LOG_ERR, "register async notifier failed\n");
+-		return -EINVAL;
++		dev_err(dev, "failed to register async notifier: %d\n", res);
++		goto err_notifier;
+ 	}
+-
+-	pimgsens_sd = kzalloc(sizeof(*pimgsens_sd), GFP_KERNEL);
+-	if (!pimgsens_sd) {
+-		LOG(LOG_ERR, "armcb imgsens kzalloc failed");
+-		return -ENOMEM;
+-	}
+-	pimgs_inst = &pimgsens_sd->imgs_inst;
+-	pimgs_inst->pi2c_client = client;
+-
+-	pimgsens_sd->of_node = client->dev.of_node;
+-	pimgsens_sd->pdev = &client->dev;
+-	pimgsens_sd->cam_id = cam_id;
+-	pimgsens_sd->power_on = FALSE;
++	adev->dts_notifier_registered = true;
+ 
+ 	res = armcb_imgsens_configure_subdevs(pimgsens_sd);
+ 	if (res < 0) {
+ 		LOG(LOG_ERR, "armcb_imgsens_configure_subdevs failed res(%d)",
+ 			res);
+-		goto EXIT_RET;
++		goto err_notifier;
+ 	}
+-	pimgsens_sd->armcb_v4l2_dev = adev;
+-	i2c_set_clientdata(client, (void *)pimgsens_sd);
+-
+-	pimgsens_sd->imgs_inst.pinctrl = devm_pinctrl_get(&client->dev);
+-	if (IS_ERR(pimgsens_sd->imgs_inst.pinctrl))
+-		LOG(LOG_ERR, "can't get pinctrl, bus recovery not supported\n");
+-
+-	pimgsens_sd->imgs_inst.pins_default = pinctrl_lookup_state(
+-		pimgsens_sd->imgs_inst.pinctrl, PINCTRL_STATE_DEFAULT);
+-	if (IS_ERR(pimgsens_sd->imgs_inst.pins_default))
+-		LOG(LOG_ERR,
+-			"can't get pins_default, bus recovery not supported\n");
+-
+-	pimgsens_sd->imgs_inst.pins_sleep =
+-		pinctrl_lookup_state(pimgsens_sd->imgs_inst.pinctrl, PINCTRL_STATE_SLEEP);
+-	if (IS_ERR(pimgsens_sd->imgs_inst.pins_sleep))
+-		LOG(LOG_ERR,
+-			"can't get pins_sleep, bus recovery not supported\n");
+-
+-	pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
+-				 pimgsens_sd->imgs_inst.pins_default);
+-
+-	pimgsens_sd->imgs_inst.pwn_gpio =
+-		devm_gpiod_get(&client->dev, "pwdn", GPIOD_OUT_LOW);
+-	if (PTR_ERR(pimgsens_sd->imgs_inst.pwn_gpio) == -EPROBE_DEFER ||
+-		PTR_ERR(pimgsens_sd->imgs_inst.pwn_gpio) == -EPROBE_DEFER)
+-		LOG(LOG_ERR,
+-			"can't get pwn_gpio pinctrl, bus recovery not supported\n");
+-	pimgsens_sd->imgs_inst.rst_gpio =
+-		devm_gpiod_get(&client->dev, "reset", GPIOD_OUT_LOW);
+-	if (PTR_ERR(pimgsens_sd->imgs_inst.rst_gpio) == -EPROBE_DEFER ||
+-		PTR_ERR(pimgsens_sd->imgs_inst.rst_gpio) == -EPROBE_DEFER)
+-		LOG(LOG_ERR,
+-			"can't get rst_gpio pinctrl, bus recovery not supported\n");
+-
+-	pimgsens_sd->vsupply_0 =
+-		devm_regulator_get_optional(&client->dev, "power0");
+-	if (IS_ERR(pimgsens_sd->vsupply_0)) {
+-		dev_info(dev, "no power regulator vsupply_0 found\n");
+-		pimgsens_sd->vsupply_0 = NULL;
+-	}
+-
+-	pimgsens_sd->vsupply_1 =
+-		devm_regulator_get_optional(&client->dev, "power1");
+-	if (IS_ERR(pimgsens_sd->vsupply_1)) {
+-		dev_info(dev, "no power regulator vsupply_1 found\n");
+-		pimgsens_sd->vsupply_1 = NULL;
+-	}
+-
+-	if (is_acpi_device_node(client->dev.fwnode))
+-		pimgsens_sd->imgs_inst.mclk = devm_clk_get_optional(&to_acpi_device_node(client->dev.fwnode)->dev, "mclk");
+-	else
+-		pimgsens_sd->imgs_inst.mclk = devm_clk_get_optional(&client->dev, "mclk");
+-
+-	if (IS_ERR_OR_NULL(pimgsens_sd->imgs_inst.mclk))
+-		LOG(LOG_ERR, "failed to get cam mclk\n");
++	subdev_registered = true;
++	i2c_set_clientdata(client, pimgsens_sd);
+ 
+-	LOG(LOG_INFO, "scuess - ");
+-	return res;
++	LOG(LOG_INFO, "success - ");
++	return 0;
+ 
+-EXIT_RET:
++err_notifier:
++	if (subdev_registered) {
++		armcb_subdev_unregister(&pimgsens_sd->imgsens_sd);
++		media_entity_cleanup(&pimgsens_sd->imgsens_sd.sd.entity);
++	}
++	if (adev->dts_notifier_registered) {
++		v4l2_async_nf_unregister(&adev->dts_notifier);
++		adev->dts_notifier_registered = false;
++	}
++	if (adev->dts_notifier_initialized) {
++		v4l2_async_nf_cleanup(&adev->dts_notifier);
++		adev->dts_notifier_initialized = false;
++	}
++	armcb_unregister_instance(cam_id);
++err_free_sensor:
+ 	kfree(pimgsens_sd);
+-	LOG(LOG_INFO, "failed - ");
+ 	return res;
+ }
+ 
+-void imgsens_remove(struct i2c_client *client)
++static void imgsens_remove(struct i2c_client *client)
+ {
+ 	struct armcb_imgsens_subdev *pimgsens_sd = i2c_get_clientdata(client);
+ 
+ 	if (pimgsens_sd) {
+-		if (pimgsens_sd->power_on) {
+-			if (pimgsens_sd->vsupply_0)
+-				regulator_disable(pimgsens_sd->vsupply_0);
+-			if (pimgsens_sd->vsupply_1)
+-				regulator_disable(pimgsens_sd->vsupply_1);
+-			LOG(LOG_INFO, "disable camera power");
+-			pimgsens_sd->power_on = FALSE;
++		camera_common_powdn(pimgsens_sd);
++		armcb_subdev_unregister(&pimgsens_sd->imgsens_sd);
++		media_entity_cleanup(&pimgsens_sd->imgsens_sd.sd.entity);
++		if (pimgsens_sd->armcb_v4l2_dev->dts_notifier_registered) {
++			v4l2_async_nf_unregister(
++				&pimgsens_sd->armcb_v4l2_dev->dts_notifier);
++			pimgsens_sd->armcb_v4l2_dev->dts_notifier_registered =
++				false;
+ 		}
+-
+-		list_del_init(&pimgsens_sd->imgsens_sd.sd.async_list);
+-#if (KERNEL_VERSION(4, 17, 0) > LINUX_VERSION_CODE)
+-		v4l2_device_unregister_subdev(&pimgsens_sd->imgsens_sd.sd);
+-#endif
++		if (pimgsens_sd->armcb_v4l2_dev->dts_notifier_initialized) {
++			v4l2_async_nf_cleanup(
++				&pimgsens_sd->armcb_v4l2_dev->dts_notifier);
++			pimgsens_sd->armcb_v4l2_dev->dts_notifier_initialized =
++				false;
++		}
++		armcb_unregister_instance(pimgsens_sd->cam_id);
++		i2c_set_clientdata(client, NULL);
+ 		kfree(pimgsens_sd);
+ 	} else {
+ 		LOG(LOG_ERR, "pimgsens_sd is NULL !");
+@@ -597,10 +678,14 @@ static int imgsens_resume(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+ 	struct armcb_imgsens_subdev *pimgsens_sd = i2c_get_clientdata(client);
+-	int ret = 0;
++	int ret;
+ 
+-	pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
+-				 pimgsens_sd->imgs_inst.pins_default);
++	if (!pimgsens_sd || !pimgsens_sd->imgs_inst.pinctrl ||
++	    !pimgsens_sd->imgs_inst.pins_default)
++		return 0;
++
++	ret = pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
++				   pimgsens_sd->imgs_inst.pins_default);
+ 	if (ret)
+ 		LOG(LOG_ERR, "Resume: pinctrl set resume failed %d", ret);
+ 
+@@ -611,7 +696,11 @@ static int imgsens_suspend(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+ 	struct armcb_imgsens_subdev *pimgsens_sd = i2c_get_clientdata(client);
+-	int ret = 0;
++	int ret;
++
++	if (!pimgsens_sd || !pimgsens_sd->imgs_inst.pinctrl ||
++	    !pimgsens_sd->imgs_inst.pins_sleep)
++		return 0;
+ 
+ 	ret = pinctrl_select_state(pimgsens_sd->imgs_inst.pinctrl,
+ 				 pimgsens_sd->imgs_inst.pins_sleep);
+@@ -683,7 +772,9 @@ void *armcb_get_sensor_driver_instance(void)
+ 
+ void armcb_sensor_driver_destroy(void)
+ {
+-	if (g_instance)
++	if (g_instance) {
+ 		i2c_del_driver((struct i2c_driver *)g_instance);
++		g_instance = NULL;
++	}
+ }
+ #endif

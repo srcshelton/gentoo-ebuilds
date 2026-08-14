@@ -1,0 +1,1307 @@
+Add the Sky1 system, FCH and AUDSS reset providers with ACPI and
+DT support. Validate firmware indices before table access, suppress
+unsafe manual provider unbind, make the mandatory AUDSS NOC provider
+a Kconfig dependency, and keep AUDSS register accesses inside the
+clock supplier runtime-PM lifetime. Retain the exact legacy lookup
+API needed by 6.18 and 7.0; 7.1 uses the native fwnode reset path.
+
+Provenance: System, FCH and ACPI reset adaptations derive from
+cixtech/cix-linux-main@19f2947303670f2e5734d6a96ffc72a80fd9b942
+patches-6.18/0006* (00060-00062 on 7.1). The public
+AUDSS binding/reset identifiers also trace to v9
+at https://patchwork.kernel.org/series/1124659/. Bounds checks,
+dependency corrections, unbind suppression and power/lifetime coupling
+are overlay-created remediation.
+
+diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
+--- a/drivers/clk/cix/Kconfig
++++ b/drivers/clk/cix/Kconfig
+@@ -26,6 +26,7 @@ config CLK_SKY1_AUDSS
+ 	select MFD_SYSCON
+ 	select REGMAP_MMIO
+ 	select RESET_CONTROLLER
++	select RESET_SKY1
+ 	help
+ 	  Support for the Audio Subsystem clock controller present on
+ 	  Cixtech Sky1 SoC. This driver provides mux, divider and gate
+diff --git a/drivers/reset/Kconfig b/drivers/reset/Kconfig
+--- a/drivers/reset/Kconfig
++++ b/drivers/reset/Kconfig
+@@ -398,4 +398,32 @@ source "drivers/reset/sti/Kconfig"
+ source "drivers/reset/hisilicon/Kconfig"
+ source "drivers/reset/tegra/Kconfig"
+ 
++config RESET_SKY1
++	bool "Cix Sky1 reset controller"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI || OF
++	select MFD_SYSCON
++	select REGMAP_MMIO
++	default ARCH_CIX
++	help
++	  Enable the system and FCH reset controllers on Cix Sky1 SoCs.
++	  The S5 controller shares its register map with the system CRU;
++	  the FCH controller maps only its dedicated reset registers.
++	  Both device-tree and ACPI firmware descriptions are supported.
++
++config RESET_SKY1_AUDSS
++	tristate "Cix Sky1 Audio Subsystem reset controller"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI || OF
++	select AUXILIARY_BUS
++	select MFD_SYSCON
++	default CLK_SKY1_AUDSS
++	help
++	  Support for block-level software reset lines in the Cix Sky1
++	  Audio Subsystem (AUDSS) Clock and Reset Unit. Sixteen reset
++	  outputs for audio peripherals are controlled through the CRU
++	  register map. The driver binds as an auxiliary device from the
++	  AUDSS clock driver under DT and as the CIXH6062 platform device
++	  under ACPI. Say M or Y here if you want to build this driver.
++
+ endif
+diff --git a/drivers/reset/Makefile b/drivers/reset/Makefile
+--- a/drivers/reset/Makefile
++++ b/drivers/reset/Makefile
+@@ -49,3 +49,5 @@ obj-$(CONFIG_RESET_UNIPHIER) += reset-uniphier.o
+ obj-$(CONFIG_RESET_UNIPHIER_GLUE) += reset-uniphier-glue.o
+ obj-$(CONFIG_RESET_ZYNQ) += reset-zynq.o
+ obj-$(CONFIG_RESET_ZYNQMP) += reset-zynqmp.o
++obj-$(CONFIG_RESET_SKY1) += reset-sky1.o
++obj-$(CONFIG_RESET_SKY1_AUDSS) += reset-sky1-audss.o
+diff --git a/drivers/reset/core.c b/drivers/reset/core.c
+--- a/drivers/reset/core.c
++++ b/drivers/reset/core.c
+@@ -1128,8 +1128,10 @@ __reset_control_get_from_lookup(struct device *dev, const char *con_id,
+ 			}
+ 
+ 			flags &= ~RESET_CONTROL_FLAGS_BIT_OPTIONAL;
+-
+-			rstc = __reset_control_get_internal(rcdev,
++			if (lookup->index >= rcdev->nr_resets)
++				rstc = ERR_PTR(-EINVAL);
++			else
++				rstc = __reset_control_get_internal(rcdev,
+ 							    lookup->index,
+ 							    flags);
+ 			mutex_unlock(&reset_list_mutex);
+diff --git a/drivers/reset/reset-sky1-audss.c b/drivers/reset/reset-sky1-audss.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/reset/reset-sky1-audss.c
+@@ -0,0 +1,396 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Cix Sky1 Audio Subsystem reset controller driver
++ *
++ * Copyright 2026 Cix Technology Group Co., Ltd.
++ */
++
++#include <dt-bindings/reset/cix,sky1-audss-cru.h>
++
++#include <linux/acpi.h>
++#include <linux/auxiliary_bus.h>
++#include <linux/delay.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
++#include <linux/regmap.h>
++#include <linux/reset-controller.h>
++
++#define SKY1_RESET_SLEEP_MIN_US		50
++#define SKY1_RESET_SLEEP_MAX_US		100
++
++#define AUDSS_SW_RST			0x78
++
++struct sky1_audss_reset_map {
++	unsigned int offset;
++	unsigned int mask;
++};
++
++struct sky1_audss_reset {
++	struct reset_controller_dev rcdev;
++	struct regmap *regmap;
++	const struct sky1_audss_reset_map *map;
++	struct device *pm_dev;
++};
++
++static const struct sky1_audss_reset_map sky1_audss_reset_map[] = {
++	[AUDSS_I2S0_SW_RST]   = { AUDSS_SW_RST, BIT(0) },
++	[AUDSS_I2S1_SW_RST]   = { AUDSS_SW_RST, BIT(1) },
++	[AUDSS_I2S2_SW_RST]   = { AUDSS_SW_RST, BIT(2) },
++	[AUDSS_I2S3_SW_RST]   = { AUDSS_SW_RST, BIT(3) },
++	[AUDSS_I2S4_SW_RST]   = { AUDSS_SW_RST, BIT(4) },
++	[AUDSS_I2S5_SW_RST]   = { AUDSS_SW_RST, BIT(5) },
++	[AUDSS_I2S6_SW_RST]   = { AUDSS_SW_RST, BIT(6) },
++	[AUDSS_I2S7_SW_RST]   = { AUDSS_SW_RST, BIT(7) },
++	[AUDSS_I2S8_SW_RST]   = { AUDSS_SW_RST, BIT(8) },
++	[AUDSS_I2S9_SW_RST]   = { AUDSS_SW_RST, BIT(9) },
++	[AUDSS_WDT_SW_RST]    = { AUDSS_SW_RST, BIT(10) },
++	[AUDSS_TIMER_SW_RST]  = { AUDSS_SW_RST, BIT(11) },
++	[AUDSS_MB0_SW_RST]    = { AUDSS_SW_RST, BIT(12) },
++	[AUDSS_MB1_SW_RST]    = { AUDSS_SW_RST, BIT(13) },
++	[AUDSS_HDA_SW_RST]    = { AUDSS_SW_RST, BIT(14) },
++	[AUDSS_DMAC_SW_RST]   = { AUDSS_SW_RST, BIT(15) },
++};
++
++static struct sky1_audss_reset *
++to_sky1_audss_reset(struct reset_controller_dev *rcdev)
++{
++	return container_of(rcdev, struct sky1_audss_reset, rcdev);
++}
++
++static const struct sky1_audss_reset_map *
++sky1_audss_reset_signal(struct reset_controller_dev *rcdev, unsigned long id)
++{
++	struct sky1_audss_reset *priv = to_sky1_audss_reset(rcdev);
++	const struct sky1_audss_reset_map *signal;
++
++	if (id >= rcdev->nr_resets)
++		return ERR_PTR(-EINVAL);
++
++	signal = &priv->map[id];
++	if (!signal->mask)
++		return ERR_PTR(-EINVAL);
++
++	return signal;
++}
++
++static int sky1_audss_reset_pm_get(struct sky1_audss_reset *priv)
++{
++	if (!priv->pm_dev)
++		return 0;
++
++	return pm_runtime_resume_and_get(priv->pm_dev);
++}
++
++static void sky1_audss_reset_pm_put(struct sky1_audss_reset *priv)
++{
++	if (priv->pm_dev)
++		pm_runtime_put(priv->pm_dev);
++}
++
++static int
++sky1_audss_reset_update(struct sky1_audss_reset *priv,
++			const struct sky1_audss_reset_map *signal, bool assert)
++{
++	unsigned int value;
++
++	value = assert ? 0 : signal->mask;
++
++	return regmap_update_bits(priv->regmap, signal->offset,
++				  signal->mask, value);
++}
++
++static int sky1_audss_reset_set(struct reset_controller_dev *rcdev,
++				unsigned long id, bool assert)
++{
++	struct sky1_audss_reset *priv = to_sky1_audss_reset(rcdev);
++	const struct sky1_audss_reset_map *signal;
++	int ret;
++
++	signal = sky1_audss_reset_signal(rcdev, id);
++	if (IS_ERR(signal))
++		return PTR_ERR(signal);
++
++	ret = sky1_audss_reset_pm_get(priv);
++	if (ret)
++		return ret;
++
++	ret = sky1_audss_reset_update(priv, signal, assert);
++	if (!ret)
++		usleep_range(SKY1_RESET_SLEEP_MIN_US,
++			     SKY1_RESET_SLEEP_MAX_US);
++	sky1_audss_reset_pm_put(priv);
++
++	return ret;
++}
++
++static int sky1_audss_reset_assert(struct reset_controller_dev *rcdev,
++				   unsigned long id)
++{
++	return sky1_audss_reset_set(rcdev, id, true);
++}
++
++static int sky1_audss_reset_deassert(struct reset_controller_dev *rcdev,
++				     unsigned long id)
++{
++	return sky1_audss_reset_set(rcdev, id, false);
++}
++
++static int sky1_audss_reset(struct reset_controller_dev *rcdev,
++			    unsigned long id)
++{
++	struct sky1_audss_reset *priv = to_sky1_audss_reset(rcdev);
++	const struct sky1_audss_reset_map *signal;
++	int ret;
++
++	signal = sky1_audss_reset_signal(rcdev, id);
++	if (IS_ERR(signal))
++		return PTR_ERR(signal);
++
++	ret = sky1_audss_reset_pm_get(priv);
++	if (ret)
++		return ret;
++
++	ret = sky1_audss_reset_update(priv, signal, true);
++	if (ret)
++		goto out_pm_put;
++
++	usleep_range(SKY1_RESET_SLEEP_MIN_US, SKY1_RESET_SLEEP_MAX_US);
++
++	ret = sky1_audss_reset_update(priv, signal, false);
++	if (!ret)
++		usleep_range(SKY1_RESET_SLEEP_MIN_US,
++			     SKY1_RESET_SLEEP_MAX_US);
++
++out_pm_put:
++	sky1_audss_reset_pm_put(priv);
++	return ret;
++}
++
++static int sky1_audss_reset_status(struct reset_controller_dev *rcdev,
++				   unsigned long id)
++{
++	struct sky1_audss_reset *priv = to_sky1_audss_reset(rcdev);
++	const struct sky1_audss_reset_map *signal;
++	unsigned int value;
++	int ret;
++
++	signal = sky1_audss_reset_signal(rcdev, id);
++	if (IS_ERR(signal))
++		return PTR_ERR(signal);
++
++	ret = sky1_audss_reset_pm_get(priv);
++	if (ret)
++		return ret;
++
++	ret = regmap_read(priv->regmap, signal->offset, &value);
++	sky1_audss_reset_pm_put(priv);
++	if (ret)
++		return ret;
++
++	return !(value & signal->mask);
++}
++
++static const struct reset_control_ops sky1_audss_reset_ops = {
++	.reset = sky1_audss_reset,
++	.assert = sky1_audss_reset_assert,
++	.deassert = sky1_audss_reset_deassert,
++	.status = sky1_audss_reset_status,
++};
++
++static int sky1_audss_reset_register(struct device *dev, struct regmap *regmap,
++				     struct device *pm_dev)
++{
++	struct sky1_audss_reset *priv;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->regmap = regmap;
++	priv->map = sky1_audss_reset_map;
++	priv->pm_dev = pm_dev;
++	priv->rcdev.owner = THIS_MODULE;
++	priv->rcdev.nr_resets = ARRAY_SIZE(sky1_audss_reset_map);
++	priv->rcdev.ops = &sky1_audss_reset_ops;
++	priv->rcdev.of_node = dev->of_node;
++	priv->rcdev.dev = dev;
++
++	return devm_reset_controller_register(dev, &priv->rcdev);
++}
++
++static int sky1_audss_reset_aux_probe(struct auxiliary_device *adev,
++				      const struct auxiliary_device_id *id)
++{
++	struct device *dev = &adev->dev;
++	struct regmap *regmap;
++
++	regmap = dev_get_regmap(dev->parent, NULL);
++	if (!regmap)
++		return dev_err_probe(dev, -EPROBE_DEFER,
++				     "failed to get parent regmap\n");
++
++	return sky1_audss_reset_register(dev, regmap, dev->parent);
++}
++
++static const struct auxiliary_device_id sky1_audss_reset_ids[] = {
++	{ .name = "clk_sky1_audss.reset" },
++	{ }
++};
++MODULE_DEVICE_TABLE(auxiliary, sky1_audss_reset_ids);
++
++static struct auxiliary_driver sky1_audss_reset_aux_driver = {
++	.probe = sky1_audss_reset_aux_probe,
++	.id_table = sky1_audss_reset_ids,
++};
++
++static struct regmap *sky1_audss_platform_regmap(struct device *dev)
++{
++	struct device_node *parent;
++	struct regmap *regmap;
++
++	if (has_acpi_companion(dev))
++		return device_syscon_regmap_lookup_by_property(dev, "audss_cru");
++
++	parent = of_get_parent(dev->of_node);
++	if (!parent)
++		return ERR_PTR(-ENODEV);
++
++	regmap = syscon_node_to_regmap(parent);
++	of_node_put(parent);
++
++	return regmap;
++}
++
++static struct device *sky1_audss_reset_acpi_supplier(struct device *dev)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	struct acpi_device *adev;
++	struct device *supplier;
++	acpi_handle handle;
++	acpi_status status;
++	int ret = 0;
++
++	status = acpi_get_handle(ACPI_HANDLE(dev), "^ACLK", &handle);
++	if (ACPI_FAILURE(status))
++		return ERR_PTR(-ENODEV);
++
++	adev = acpi_fetch_acpi_dev(handle);
++	if (!adev)
++		return ERR_PTR(-EPROBE_DEFER);
++
++	supplier = bus_find_device_by_fwnode(&platform_bus_type,
++					     acpi_fwnode_handle(adev));
++	if (!supplier)
++		return ERR_PTR(-EPROBE_DEFER);
++
++	device_lock(supplier);
++	if (supplier->links.status == DL_DEV_UNBINDING) {
++		ret = -EPROBE_DEFER;
++	} else if (!device_link_add(dev, supplier,
++				    DL_FLAG_AUTOPROBE_CONSUMER)) {
++		ret = -EINVAL;
++	} else if (!device_is_bound(supplier) ||
++		   supplier->links.status != DL_DEV_DRIVER_BOUND) {
++		ret = -EPROBE_DEFER;
++	}
++	device_unlock(supplier);
++
++	if (ret) {
++		put_device(supplier);
++		return ERR_PTR(ret);
++	}
++
++	return supplier;
++#else
++	return ERR_PTR(-ENODEV);
++#endif
++}
++
++static void sky1_audss_reset_acpi_clear_dependencies(struct device *dev)
++{
++#ifdef CONFIG_ACPI
++	if (has_acpi_companion(dev))
++		acpi_dev_clear_dependencies(ACPI_COMPANION(dev));
++#endif
++}
++
++static int sky1_audss_reset_platform_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct device *pm_dev = NULL;
++	struct regmap *regmap;
++	int ret;
++
++	regmap = sky1_audss_platform_regmap(dev);
++	if (IS_ERR(regmap))
++		return dev_err_probe(dev, PTR_ERR(regmap),
++				     "failed to get AUDSS CRU regmap\n");
++
++	if (has_acpi_companion(dev)) {
++		pm_dev = sky1_audss_reset_acpi_supplier(dev);
++		if (IS_ERR(pm_dev))
++			return dev_err_probe(dev, PTR_ERR(pm_dev),
++					     "failed to link AUDSS clock supplier\n");
++	}
++
++	ret = sky1_audss_reset_register(dev, regmap, pm_dev);
++	put_device(pm_dev);
++	if (ret)
++		return ret;
++
++	sky1_audss_reset_acpi_clear_dependencies(dev);
++
++	return 0;
++}
++
++static const struct of_device_id sky1_audss_reset_of_match[] = {
++	{ .compatible = "cix,sky1-audss-reset" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sky1_audss_reset_of_match);
++
++static const struct acpi_device_id sky1_audss_reset_acpi_match[] = {
++	{ "CIXH6062", 0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, sky1_audss_reset_acpi_match);
++
++static struct platform_driver sky1_audss_reset_platform_driver = {
++	.probe = sky1_audss_reset_platform_probe,
++	.driver = {
++		.name = "sky1-audss-reset",
++		.suppress_bind_attrs = true,
++		.of_match_table = sky1_audss_reset_of_match,
++		.acpi_match_table = ACPI_PTR(sky1_audss_reset_acpi_match),
++	},
++};
++
++static int __init sky1_audss_reset_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&sky1_audss_reset_platform_driver);
++	if (ret)
++		return ret;
++
++	ret = auxiliary_driver_register(&sky1_audss_reset_aux_driver);
++	if (ret)
++		platform_driver_unregister(&sky1_audss_reset_platform_driver);
++
++	return ret;
++}
++module_init(sky1_audss_reset_init);
++
++static void __exit sky1_audss_reset_exit(void)
++{
++	auxiliary_driver_unregister(&sky1_audss_reset_aux_driver);
++	platform_driver_unregister(&sky1_audss_reset_platform_driver);
++}
++module_exit(sky1_audss_reset_exit);
++
++MODULE_AUTHOR("Joakim Zhang <joakim.zhang@cixtech.com>");
++MODULE_DESCRIPTION("Cix Sky1 Audio Subsystem reset driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/reset/reset-sky1.c b/drivers/reset/reset-sky1.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/reset/reset-sky1.c
+@@ -0,0 +1,537 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ *
++ * CIX System Reset Controller (SRC) driver
++ *
++ * Author: Jerry Zhu <jerry.zhu@cixtech.com>
++ */
++
++#include <linux/acpi.h>
++#include <linux/delay.h>
++#include <linux/device/bus.h>
++#include <linux/device/devres.h>
++#include <linux/ioport.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/reset-controller.h>
++
++#include <dt-bindings/reset/cix,sky1-system-control.h>
++#include <dt-bindings/reset/cix,sky1-s5-system-control.h>
++
++#define SKY1_RESET_SLEEP_MIN_US		50
++#define SKY1_RESET_SLEEP_MAX_US		100
++
++struct sky1_src_signal {
++	unsigned int offset;
++	unsigned int bit;
++};
++
++struct sky1_src_variant {
++	const struct sky1_src_signal *signals;
++	unsigned int signals_num;
++	bool shared_regmap;
++	resource_size_t mmio_size;
++};
++
++struct sky1_src {
++	struct reset_controller_dev rcdev;
++	const struct sky1_src_signal *signals;
++	struct regmap *regmap;
++};
++
++enum {
++	CSU_PM_RESET				= 0x304,
++	SENSORFUSION_RESET			= 0x308,
++	SENSORFUSION_NOC_RESET			= 0x30c,
++	RESET_GROUP0_S0_DOMAIN_0		= 0x400,
++	RESET_GROUP0_S0_DOMAIN_1		= 0x404,
++	RESET_GROUP1_USB_PHYS			= 0x408,
++	RESET_GROUP1_USB_CONTROLLERS		= 0x40c,
++	RESET_GROUP0_RCSU			= 0x800,
++	RESET_GROUP1_RCSU			= 0x804,
++};
++
++static const struct sky1_src_signal sky1_src_signals[] = {
++	/* reset group1 for s0 domain modules */
++	[SKY1_CSU_PM_RESET_N]		= { CSU_PM_RESET, BIT(0) },
++	[SKY1_SENSORFUSION_RESET_N]	= { SENSORFUSION_RESET, BIT(0) },
++	[SKY1_SENSORFUSION_NOC_RESET_N]	= { SENSORFUSION_NOC_RESET, BIT(0) },
++	[SKY1_DDRC_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(0) },
++	[SKY1_GIC_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(1) },
++	[SKY1_CI700_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(2) },
++	[SKY1_SYS_NI700_RESET_N]	= { RESET_GROUP0_S0_DOMAIN_0, BIT(3) },
++	[SKY1_MM_NI700_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(4) },
++	[SKY1_PCIE_NI700_RESET_N]	= { RESET_GROUP0_S0_DOMAIN_0, BIT(5) },
++	[SKY1_GPU_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(6) },
++	[SKY1_NPUTOP_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(7) },
++	[SKY1_NPUCORE0_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(8) },
++	[SKY1_NPUCORE1_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(9) },
++	[SKY1_NPUCORE2_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(10) },
++	[SKY1_VPU_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(11) },
++	[SKY1_ISP_SRESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(12) },
++	[SKY1_ISP_ARESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(13) },
++	[SKY1_ISP_HRESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(14) },
++	[SKY1_ISP_GDCRESET_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(15) },
++	[SKY1_DPU_RESET0_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(16) },
++	[SKY1_DPU_RESET1_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(17) },
++	[SKY1_DPU_RESET2_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(18) },
++	[SKY1_DPU_RESET3_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(19) },
++	[SKY1_DPU_RESET4_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(20) },
++	[SKY1_DP_RESET0_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(21) },
++	[SKY1_DP_RESET1_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(22) },
++	[SKY1_DP_RESET2_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(23) },
++	[SKY1_DP_RESET3_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(24) },
++	[SKY1_DP_RESET4_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(25) },
++	[SKY1_DP_PHY_RST_N]		= { RESET_GROUP0_S0_DOMAIN_0, BIT(26) },
++
++	/* reset group1 for s0 domain modules */
++	[SKY1_AUDIO_HIFI5_RESET_N]	= { RESET_GROUP0_S0_DOMAIN_1, BIT(0) },
++	[SKY1_AUDIO_HIFI5_NOC_RESET_N]	= { RESET_GROUP0_S0_DOMAIN_1, BIT(1) },
++	[SKY1_CSIDPHY_PRST0_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(2) },
++	[SKY1_CSIDPHY_CMNRST0_N]	= { RESET_GROUP0_S0_DOMAIN_1, BIT(3) },
++	[SKY1_CSI0_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(4) },
++	[SKY1_CSIDPHY_PRST1_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(5) },
++	[SKY1_CSIDPHY_CMNRST1_N]	= { RESET_GROUP0_S0_DOMAIN_1, BIT(6) },
++	[SKY1_CSI1_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(7) },
++	[SKY1_CSI2_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(8) },
++	[SKY1_CSI3_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(9) },
++	[SKY1_CSIBRDGE0_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(10) },
++	[SKY1_CSIBRDGE1_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(11) },
++	[SKY1_CSIBRDGE2_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(12) },
++	[SKY1_CSIBRDGE3_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(13) },
++	[SKY1_GMAC0_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(14) },
++	[SKY1_GMAC1_RST_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(15) },
++	[SKY1_PCIE0_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(16) },
++	[SKY1_PCIE1_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(17) },
++	[SKY1_PCIE2_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(18) },
++	[SKY1_PCIE3_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(19) },
++	[SKY1_PCIE4_RESET_N]		= { RESET_GROUP0_S0_DOMAIN_1, BIT(20) },
++
++	/* reset group1 for usb phys */
++	[SKY1_USB_DP_PHY0_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(0) },
++	[SKY1_USB_DP_PHY1_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(1) },
++	[SKY1_USB_DP_PHY2_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(2) },
++	[SKY1_USB_DP_PHY3_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(3) },
++	[SKY1_USB_DP_PHY0_RST_N]		= { RESET_GROUP1_USB_PHYS, BIT(4) },
++	[SKY1_USB_DP_PHY1_RST_N]		= { RESET_GROUP1_USB_PHYS, BIT(5) },
++	[SKY1_USB_DP_PHY2_RST_N]		= { RESET_GROUP1_USB_PHYS, BIT(6) },
++	[SKY1_USB_DP_PHY3_RST_N]		= { RESET_GROUP1_USB_PHYS, BIT(7) },
++	[SKY1_USBPHY_SS_PST_N]			= { RESET_GROUP1_USB_PHYS, BIT(8) },
++	[SKY1_USBPHY_SS_RST_N]			= { RESET_GROUP1_USB_PHYS, BIT(9) },
++	[SKY1_USBPHY_HS0_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(10) },
++	[SKY1_USBPHY_HS1_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(11) },
++	[SKY1_USBPHY_HS2_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(12) },
++	[SKY1_USBPHY_HS3_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(13) },
++	[SKY1_USBPHY_HS4_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(14) },
++	[SKY1_USBPHY_HS5_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(15) },
++	[SKY1_USBPHY_HS6_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(16) },
++	[SKY1_USBPHY_HS7_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(17) },
++	[SKY1_USBPHY_HS8_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(18) },
++	[SKY1_USBPHY_HS9_PRST_N]		= { RESET_GROUP1_USB_PHYS, BIT(19) },
++
++	/* reset group1 for usb controllers */
++	[SKY1_USBC_SS0_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(0) },
++	[SKY1_USBC_SS1_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(1) },
++	[SKY1_USBC_SS2_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(2) },
++	[SKY1_USBC_SS3_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(3) },
++	[SKY1_USBC_SS4_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(4) },
++	[SKY1_USBC_SS5_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(5) },
++	[SKY1_USBC_SS0_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(6) },
++	[SKY1_USBC_SS1_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(7) },
++	[SKY1_USBC_SS2_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(8) },
++	[SKY1_USBC_SS3_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(9) },
++	[SKY1_USBC_SS4_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(10) },
++	[SKY1_USBC_SS5_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(11) },
++	[SKY1_USBC_HS0_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(12) },
++	[SKY1_USBC_HS1_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(13) },
++	[SKY1_USBC_HS2_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(14) },
++	[SKY1_USBC_HS3_PRST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(15) },
++	[SKY1_USBC_HS0_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(16) },
++	[SKY1_USBC_HS1_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(17) },
++	[SKY1_USBC_HS2_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(18) },
++	[SKY1_USBC_HS3_RST_N]		= { RESET_GROUP1_USB_CONTROLLERS, BIT(19) },
++
++	/* reset group0 for rcsu */
++	[SKY1_AUDIO_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(0) },
++	[SKY1_CI700_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(1) },
++	[SKY1_CSI_RCSU0_RESET_N]		= { RESET_GROUP0_RCSU, BIT(2) },
++	[SKY1_CSI_RCSU1_RESET_N]		= { RESET_GROUP0_RCSU, BIT(3) },
++	[SKY1_CSU_PM_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(4) },
++	[SKY1_DDR_BROADCAST_RCSU_RESET_N]	= { RESET_GROUP0_RCSU, BIT(5) },
++	[SKY1_DDR_CTRL_RCSU_0_RESET_N]		= { RESET_GROUP0_RCSU, BIT(6) },
++	[SKY1_DDR_CTRL_RCSU_1_RESET_N]		= { RESET_GROUP0_RCSU, BIT(7) },
++	[SKY1_DDR_CTRL_RCSU_2_RESET_N]		= { RESET_GROUP0_RCSU, BIT(8) },
++	[SKY1_DDR_CTRL_RCSU_3_RESET_N]		= { RESET_GROUP0_RCSU, BIT(9) },
++	[SKY1_DDR_TZC400_RCSU_0_RESET_N]	= { RESET_GROUP0_RCSU, BIT(10) },
++	[SKY1_DDR_TZC400_RCSU_1_RESET_N]	= { RESET_GROUP0_RCSU, BIT(11) },
++	[SKY1_DDR_TZC400_RCSU_2_RESET_N]	= { RESET_GROUP0_RCSU, BIT(12) },
++	[SKY1_DDR_TZC400_RCSU_3_RESET_N]	= { RESET_GROUP0_RCSU, BIT(13) },
++	[SKY1_DP0_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(14) },
++	[SKY1_DP1_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(15) },
++	[SKY1_DP2_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(16) },
++	[SKY1_DP3_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(17) },
++	[SKY1_DP4_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(18) },
++	[SKY1_DPU0_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(19) },
++	[SKY1_DPU1_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(20) },
++	[SKY1_DPU2_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(21) },
++	[SKY1_DPU3_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(22) },
++	[SKY1_DPU4_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(23) },
++	[SKY1_DSU_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(24) },
++	[SKY1_FCH_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(25) },
++	[SKY1_GICD_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(26) },
++	[SKY1_GMAC_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(27) },
++	[SKY1_GPU_RCSU_RESET_N]			= { RESET_GROUP0_RCSU, BIT(28) },
++	[SKY1_ISP_RCSU0_RESET_N]		= { RESET_GROUP0_RCSU, BIT(29) },
++	[SKY1_ISP_RCSU1_RESET_N]		= { RESET_GROUP0_RCSU, BIT(30) },
++	[SKY1_NI700_MMHUB_RCSU_RESET_N]		= { RESET_GROUP0_RCSU, BIT(31) },
++
++	/* reset group1 for rcsu */
++	[SKY1_NPU_RCSU_RESET_N]			= { RESET_GROUP1_RCSU, BIT(0) },
++	[SKY1_NI700_PCIE_RCSU_RESET_N]		= { RESET_GROUP1_RCSU, BIT(1) },
++	[SKY1_PCIE_X421_RCSU_RESET_N]		= { RESET_GROUP1_RCSU, BIT(2) },
++	[SKY1_PCIE_X8_RCSU_RESET_N]		= { RESET_GROUP1_RCSU, BIT(3) },
++	[SKY1_SF_RCSU_RESET_N]			= { RESET_GROUP1_RCSU, BIT(4) },
++	[SKY1_RCSU_SMMU_MMHUB_RESET_N]		= { RESET_GROUP1_RCSU, BIT(5) },
++	[SKY1_RCSU_SMMU_PCIEHUB_RESET_N]	= { RESET_GROUP1_RCSU, BIT(6) },
++	[SKY1_RCSU_SYSHUB_RESET_N]		= { RESET_GROUP1_RCSU, BIT(7) },
++	[SKY1_NI700_SMN_RCSU_RESET_N]		= { RESET_GROUP1_RCSU, BIT(8) },
++	[SKY1_NI700_SYSHUB_RCSU_RESET_N]	= { RESET_GROUP1_RCSU, BIT(9) },
++	[SKY1_RCSU_USB2_HOST0_RESET_N]		= { RESET_GROUP1_RCSU, BIT(10) },
++	[SKY1_RCSU_USB2_HOST1_RESET_N]		= { RESET_GROUP1_RCSU, BIT(11) },
++	[SKY1_RCSU_USB2_HOST2_RESET_N]		= { RESET_GROUP1_RCSU, BIT(12) },
++	[SKY1_RCSU_USB2_HOST3_RESET_N]		= { RESET_GROUP1_RCSU, BIT(13) },
++	[SKY1_RCSU_USB3_TYPEA_DRD_RESET_N]	= { RESET_GROUP1_RCSU, BIT(14) },
++	[SKY1_RCSU_USB3_TYPEC_DRD_RESET_N]	= { RESET_GROUP1_RCSU, BIT(15) },
++	[SKY1_RCSU_USB3_TYPEC_HOST0_RESET_N]	= { RESET_GROUP1_RCSU, BIT(16) },
++	[SKY1_RCSU_USB3_TYPEC_HOST1_RESET_N]	= { RESET_GROUP1_RCSU, BIT(17) },
++	[SKY1_RCSU_USB3_TYPEC_HOST2_RESET_N]	= { RESET_GROUP1_RCSU, BIT(18) },
++	[SKY1_VPU_RCSU_RESET_N]			= { RESET_GROUP1_RCSU, BIT(19) },
++};
++
++static const struct sky1_src_variant variant_sky1 = {
++	.signals = sky1_src_signals,
++	.signals_num = ARRAY_SIZE(sky1_src_signals),
++	.shared_regmap = true,
++};
++
++enum {
++	FCH_SW_RST_FUNC			= 0x8,
++	FCH_SW_RST_BUS			= 0xc,
++	FCH_SW_XSPI			= 0x10,
++};
++
++#define SKY1_FCH_RESET_MMIO_SIZE	(FCH_SW_XSPI + sizeof(u32))
++
++static const struct sky1_src_signal sky1_src_fch_signals[] = {
++	/* resets for fch_sw_rst_func */
++	[SW_I3C0_RST_FUNC_G_N]	= { FCH_SW_RST_FUNC, BIT(0) },
++	[SW_I3C0_RST_FUNC_I_N]	= { FCH_SW_RST_FUNC, BIT(1) },
++	[SW_I3C1_RST_FUNC_G_N]	= { FCH_SW_RST_FUNC, BIT(2) },
++	[SW_I3C1_RST_FUNC_I_N]	= { FCH_SW_RST_FUNC, BIT(3) },
++	[SW_UART0_RST_FUNC_N]	= { FCH_SW_RST_FUNC, BIT(4) },
++	[SW_UART1_RST_FUNC_N]	= { FCH_SW_RST_FUNC, BIT(5) },
++	[SW_UART2_RST_FUNC_N]	= { FCH_SW_RST_FUNC, BIT(6) },
++	[SW_UART3_RST_FUNC_N]	= { FCH_SW_RST_FUNC, BIT(7) },
++	[SW_TIMER_RST_FUNC_N]	= { FCH_SW_RST_FUNC, BIT(20) },
++
++	/* resets for fch_sw_rst_bus */
++	[SW_I3C0_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(0) },
++	[SW_I3C1_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(1) },
++	[SW_DMA_RST_AXI_N]	= { FCH_SW_RST_BUS, BIT(2) },
++	[SW_UART0_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(4) },
++	[SW_UART1_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(5) },
++	[SW_UART2_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(6) },
++	[SW_UART3_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(7) },
++	[SW_SPI0_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(8) },
++	[SW_SPI1_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(9) },
++	[SW_I2C0_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(12) },
++	[SW_I2C1_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(13) },
++	[SW_I2C2_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(14) },
++	[SW_I2C3_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(15) },
++	[SW_I2C4_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(16) },
++	[SW_I2C5_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(17) },
++	[SW_I2C6_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(18) },
++	[SW_I2C7_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(19) },
++	[SW_GPIO_RST_APB_N]	= { FCH_SW_RST_BUS, BIT(21) },
++
++	/* resets for fch_sw_xspi */
++	[SW_XSPI_REG_RST_N]	= { FCH_SW_XSPI, BIT(0) },
++	[SW_XSPI_SYS_RST_N]	= { FCH_SW_XSPI, BIT(1) },
++};
++
++static const struct sky1_src_variant variant_sky1_fch = {
++	.signals = sky1_src_fch_signals,
++	.signals_num = ARRAY_SIZE(sky1_src_fch_signals),
++	.mmio_size = SKY1_FCH_RESET_MMIO_SIZE,
++};
++
++static struct sky1_src *to_sky1_src(struct reset_controller_dev *rcdev)
++{
++	return container_of(rcdev, struct sky1_src, rcdev);
++}
++
++static int sky1_reset_set(struct reset_controller_dev *rcdev,
++			  unsigned long id, bool assert)
++{
++	struct sky1_src *sky1src = to_sky1_src(rcdev);
++	const struct sky1_src_signal *signal;
++	unsigned int value;
++
++	if (id >= rcdev->nr_resets)
++		return -EINVAL;
++
++	signal = &sky1src->signals[id];
++	if (!signal->bit)
++		return -EINVAL;
++
++	value = assert ? 0 : signal->bit;
++
++	return regmap_update_bits(sky1src->regmap,
++				  signal->offset, signal->bit, value);
++}
++
++static int sky1_reset_assert(struct reset_controller_dev *rcdev,
++			     unsigned long id)
++{
++	int ret;
++
++	ret = sky1_reset_set(rcdev, id, true);
++	if (ret)
++		return ret;
++
++	usleep_range(SKY1_RESET_SLEEP_MIN_US,
++		     SKY1_RESET_SLEEP_MAX_US);
++	return 0;
++}
++
++static int sky1_reset_deassert(struct reset_controller_dev *rcdev,
++			       unsigned long id)
++{
++	int ret;
++
++	ret = sky1_reset_set(rcdev, id, false);
++	if (ret)
++		return ret;
++
++	usleep_range(SKY1_RESET_SLEEP_MIN_US,
++		     SKY1_RESET_SLEEP_MAX_US);
++	return 0;
++}
++
++static int sky1_reset(struct reset_controller_dev *rcdev,
++		      unsigned long id)
++{
++	int ret;
++
++	ret = sky1_reset_assert(rcdev, id);
++	if (ret)
++		return ret;
++
++	return sky1_reset_deassert(rcdev, id);
++}
++
++static int sky1_reset_status(struct reset_controller_dev *rcdev,
++			     unsigned long id)
++{
++	struct sky1_src *sky1src = to_sky1_src(rcdev);
++	const struct sky1_src_signal *signal;
++	unsigned int value;
++	int ret;
++
++	if (id >= rcdev->nr_resets)
++		return -EINVAL;
++
++	signal = &sky1src->signals[id];
++	if (!signal->bit)
++		return -EINVAL;
++
++	ret = regmap_read(sky1src->regmap, signal->offset, &value);
++	if (ret)
++		return ret;
++
++	return !(value & signal->bit);
++}
++
++static const struct reset_control_ops sky1_src_ops = {
++	.reset    = sky1_reset,
++	.assert   = sky1_reset_assert,
++	.deassert = sky1_reset_deassert,
++	.status   = sky1_reset_status,
++};
++
++struct sky1_src_regmap_match {
++	struct device *consumer;
++	resource_size_t start;
++	resource_size_t size;
++};
++
++static int sky1_src_match_regmap(struct device *candidate, const void *data)
++{
++	const struct sky1_src_regmap_match *match = data;
++	struct platform_device *pdev = to_platform_device(candidate);
++	struct acpi_device *adev = ACPI_COMPANION(candidate);
++	struct resource *res;
++
++	if (candidate == match->consumer || !adev ||
++	    !acpi_dev_hid_uid_match(adev, "CIXHA018", NULL))
++		return 0;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	return res && res->start == match->start &&
++	       resource_size(res) == match->size;
++}
++
++static struct regmap *sky1_src_shared_regmap(struct device *dev,
++					     struct resource *res)
++{
++	struct sky1_src_regmap_match match = {
++		.consumer = dev,
++		.start = res->start,
++		.size = resource_size(res),
++	};
++	struct device *supplier;
++	struct regmap *regmap;
++
++	supplier = bus_find_device(&platform_bus_type, NULL, &match,
++				   sky1_src_match_regmap);
++	if (!supplier)
++		return ERR_PTR(-EPROBE_DEFER);
++
++	device_lock(supplier);
++	if (supplier->links.status == DL_DEV_UNBINDING) {
++		regmap = ERR_PTR(-EPROBE_DEFER);
++	} else if (!device_link_add(dev, supplier,
++				    DL_FLAG_AUTOPROBE_CONSUMER)) {
++		regmap = ERR_PTR(-EINVAL);
++	} else if (!device_is_bound(supplier) ||
++		   supplier->links.status != DL_DEV_DRIVER_BOUND) {
++		regmap = ERR_PTR(-EPROBE_DEFER);
++	} else {
++		regmap = dev_get_regmap(supplier, NULL);
++		if (!regmap)
++			regmap = ERR_PTR(-EPROBE_DEFER);
++	}
++	device_unlock(supplier);
++
++	put_device(supplier);
++	return regmap;
++}
++
++static struct regmap *sky1_src_private_regmap(struct platform_device *pdev,
++					      struct resource *res,
++					     resource_size_t size)
++{
++	struct device *dev = &pdev->dev;
++	struct resource window = *res;
++	const struct regmap_config config = {
++		.reg_bits = 32,
++		.val_bits = 32,
++		.reg_stride = 4,
++		.max_register = FCH_SW_XSPI,
++		.name = "sky1-reset",
++	};
++	void __iomem *base;
++
++	if (size != SKY1_FCH_RESET_MMIO_SIZE || resource_size(res) < size)
++		return ERR_PTR(-EINVAL);
++
++	window.end = window.start + size - 1;
++	base = devm_ioremap_resource(dev, &window);
++	if (IS_ERR(base))
++		return ERR_CAST(base);
++
++	return devm_regmap_init_mmio(dev, base, &config);
++}
++
++static struct regmap *sky1_src_get_regmap(struct platform_device *pdev,
++					  const struct sky1_src_variant *variant)
++{
++	struct device *dev = &pdev->dev;
++	struct resource *res;
++
++	if (dev->of_node)
++		return syscon_node_to_regmap(dev->of_node);
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
++		return ERR_PTR(-ENOENT);
++
++	if (variant->shared_regmap)
++		return sky1_src_shared_regmap(dev, res);
++
++	return sky1_src_private_regmap(pdev, res, variant->mmio_size);
++}
++
++static int sky1_reset_probe(struct platform_device *pdev)
++{
++	struct sky1_src *sky1src;
++	struct device *dev = &pdev->dev;
++	const struct sky1_src_variant *variant;
++	int ret;
++
++	sky1src = devm_kzalloc(dev, sizeof(*sky1src), GFP_KERNEL);
++	if (!sky1src)
++		return -ENOMEM;
++
++	variant = device_get_match_data(dev);
++	if (!variant)
++		return dev_err_probe(dev, -ENODEV, "missing reset variant\n");
++
++	sky1src->regmap = sky1_src_get_regmap(pdev, variant);
++	if (IS_ERR(sky1src->regmap))
++		return dev_err_probe(dev, PTR_ERR(sky1src->regmap),
++				     "failed to get reset regmap\n");
++
++	sky1src->signals = variant->signals;
++	sky1src->rcdev.owner     = THIS_MODULE;
++	sky1src->rcdev.nr_resets = variant->signals_num;
++	sky1src->rcdev.ops       = &sky1_src_ops;
++	sky1src->rcdev.of_node   = dev->of_node;
++	sky1src->rcdev.dev       = dev;
++
++	ret = devm_reset_controller_register(dev, &sky1src->rcdev);
++	if (ret)
++		return ret;
++
++#ifdef CONFIG_ACPI
++	if (has_acpi_companion(dev))
++		acpi_dev_clear_dependencies(ACPI_COMPANION(dev));
++#endif
++
++	return 0;
++}
++
++static const struct of_device_id sky1_sysreg_of_match[] = {
++	{ .compatible = "cix,sky1-system-control", .data = &variant_sky1_fch },
++	{ .compatible = "cix,sky1-s5-system-control", .data = &variant_sky1 },
++	{ .compatible = "cix,sky1-src-fch", .data = &variant_sky1_fch },
++	{ .compatible = "cix,sky1-src", .data = &variant_sky1 },
++	{},
++};
++MODULE_DEVICE_TABLE(of, sky1_sysreg_of_match);
++
++static const struct acpi_device_id sky1_reset_acpi_match[] = {
++	{ "CIXHA020", .driver_data = (kernel_ulong_t)&variant_sky1 },
++	{ "CIXHA021", .driver_data = (kernel_ulong_t)&variant_sky1_fch },
++	{},
++};
++MODULE_DEVICE_TABLE(acpi, sky1_reset_acpi_match);
++
++static struct platform_driver sky1_reset_driver = {
++	.probe	= sky1_reset_probe,
++	.driver = {
++		.name		= "cix,sky1-rst",
++		.suppress_bind_attrs = true,
++		.of_match_table = sky1_sysreg_of_match,
++		.acpi_match_table = ACPI_PTR(sky1_reset_acpi_match),
++	},
++};
++module_platform_driver(sky1_reset_driver);
++
++MODULE_AUTHOR("Jerry Zhu <jerry.zhu@cixtech.com>");
++MODULE_DESCRIPTION("Cix Sky1 reset driver");
++MODULE_LICENSE("GPL");
+diff --git a/include/dt-bindings/reset/cix,sky1-s5-system-control.h b/include/dt-bindings/reset/cix,sky1-s5-system-control.h
+new file mode 100644
+--- /dev/null
++++ b/include/dt-bindings/reset/cix,sky1-s5-system-control.h
+@@ -0,0 +1,163 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++/* Author: Jerry Zhu <jerry.zhu@cixtech.com> */
++#ifndef DT_BINDING_RESET_CIX_SKY1_S5_SYSTEM_CONTROL_H
++#define DT_BINDING_RESET_CIX_SKY1_S5_SYSTEM_CONTROL_H
++
++/* reset for csu_pm */
++#define SKY1_CSU_PM_RESET_N		0
++#define SKY1_SENSORFUSION_RESET_N	1
++#define SKY1_SENSORFUSION_NOC_RESET_N	2
++
++/* reset group0 for s0 domain modules */
++#define SKY1_DDRC_RESET_N		3
++#define SKY1_GIC_RESET_N		4
++#define SKY1_CI700_RESET_N		5
++#define SKY1_SYS_NI700_RESET_N		6
++#define SKY1_MM_NI700_RESET_N		7
++#define SKY1_PCIE_NI700_RESET_N		8
++#define SKY1_GPU_RESET_N		9
++#define SKY1_NPUTOP_RESET_N		10
++#define SKY1_NPUCORE0_RESET_N		11
++#define SKY1_NPUCORE1_RESET_N		12
++#define SKY1_NPUCORE2_RESET_N		13
++#define SKY1_VPU_RESET_N		14
++#define SKY1_ISP_SRESET_N		15
++#define SKY1_ISP_ARESET_N		16
++#define SKY1_ISP_HRESET_N		17
++#define SKY1_ISP_GDCRESET_N		18
++#define SKY1_DPU_RESET0_N		19
++#define SKY1_DPU_RESET1_N		20
++#define SKY1_DPU_RESET2_N		21
++#define SKY1_DPU_RESET3_N		22
++#define SKY1_DPU_RESET4_N		23
++#define SKY1_DP_RESET0_N		24
++#define SKY1_DP_RESET1_N		25
++#define SKY1_DP_RESET2_N		26
++#define SKY1_DP_RESET3_N		27
++#define SKY1_DP_RESET4_N		28
++#define SKY1_DP_PHY_RST_N		29
++
++/* reset group1 for s0 domain modules */
++#define SKY1_AUDIO_HIFI5_RESET_N	30
++#define SKY1_AUDIO_HIFI5_NOC_RESET_N	31
++#define SKY1_CSIDPHY_PRST0_N		32
++#define SKY1_CSIDPHY_CMNRST0_N		33
++#define SKY1_CSI0_RST_N			34
++#define SKY1_CSIDPHY_PRST1_N		35
++#define SKY1_CSIDPHY_CMNRST1_N		36
++#define SKY1_CSI1_RST_N			37
++#define SKY1_CSI2_RST_N			38
++#define SKY1_CSI3_RST_N			39
++#define SKY1_CSIBRDGE0_RST_N		40
++#define SKY1_CSIBRDGE1_RST_N		41
++#define SKY1_CSIBRDGE2_RST_N		42
++#define SKY1_CSIBRDGE3_RST_N		43
++#define SKY1_GMAC0_RST_N		44
++#define SKY1_GMAC1_RST_N		45
++#define SKY1_PCIE0_RESET_N		46
++#define SKY1_PCIE1_RESET_N		47
++#define SKY1_PCIE2_RESET_N		48
++#define SKY1_PCIE3_RESET_N		49
++#define SKY1_PCIE4_RESET_N		50
++
++/* reset group1 for usb phys */
++#define SKY1_USB_DP_PHY0_PRST_N		51
++#define SKY1_USB_DP_PHY1_PRST_N		52
++#define SKY1_USB_DP_PHY2_PRST_N		53
++#define SKY1_USB_DP_PHY3_PRST_N		54
++#define SKY1_USB_DP_PHY0_RST_N		55
++#define SKY1_USB_DP_PHY1_RST_N		56
++#define SKY1_USB_DP_PHY2_RST_N		57
++#define SKY1_USB_DP_PHY3_RST_N		58
++#define SKY1_USBPHY_SS_PST_N		59
++#define SKY1_USBPHY_SS_RST_N		60
++#define SKY1_USBPHY_HS0_PRST_N		61
++#define SKY1_USBPHY_HS1_PRST_N		62
++#define SKY1_USBPHY_HS2_PRST_N		63
++#define SKY1_USBPHY_HS3_PRST_N		64
++#define SKY1_USBPHY_HS4_PRST_N		65
++#define SKY1_USBPHY_HS5_PRST_N		66
++#define SKY1_USBPHY_HS6_PRST_N		67
++#define SKY1_USBPHY_HS7_PRST_N		68
++#define SKY1_USBPHY_HS8_PRST_N		69
++#define SKY1_USBPHY_HS9_PRST_N		70
++
++/* reset group1 for usb controllers */
++#define SKY1_USBC_SS0_PRST_N		71
++#define SKY1_USBC_SS1_PRST_N		72
++#define SKY1_USBC_SS2_PRST_N		73
++#define SKY1_USBC_SS3_PRST_N		74
++#define SKY1_USBC_SS4_PRST_N		75
++#define SKY1_USBC_SS5_PRST_N		76
++#define SKY1_USBC_SS0_RST_N		77
++#define SKY1_USBC_SS1_RST_N		78
++#define SKY1_USBC_SS2_RST_N		79
++#define SKY1_USBC_SS3_RST_N		80
++#define SKY1_USBC_SS4_RST_N		81
++#define SKY1_USBC_SS5_RST_N		82
++#define SKY1_USBC_HS0_PRST_N		83
++#define SKY1_USBC_HS1_PRST_N		84
++#define SKY1_USBC_HS2_PRST_N		85
++#define SKY1_USBC_HS3_PRST_N		86
++#define SKY1_USBC_HS0_RST_N		87
++#define SKY1_USBC_HS1_RST_N		88
++#define SKY1_USBC_HS2_RST_N		89
++#define SKY1_USBC_HS3_RST_N		90
++
++/* reset group0 for rcsu */
++#define SKY1_AUDIO_RCSU_RESET_N			91
++#define SKY1_CI700_RCSU_RESET_N			92
++#define SKY1_CSI_RCSU0_RESET_N			93
++#define SKY1_CSI_RCSU1_RESET_N			94
++#define SKY1_CSU_PM_RCSU_RESET_N		95
++#define SKY1_DDR_BROADCAST_RCSU_RESET_N		96
++#define SKY1_DDR_CTRL_RCSU_0_RESET_N		97
++#define SKY1_DDR_CTRL_RCSU_1_RESET_N		98
++#define SKY1_DDR_CTRL_RCSU_2_RESET_N		99
++#define SKY1_DDR_CTRL_RCSU_3_RESET_N		100
++#define SKY1_DDR_TZC400_RCSU_0_RESET_N		101
++#define SKY1_DDR_TZC400_RCSU_1_RESET_N		102
++#define SKY1_DDR_TZC400_RCSU_2_RESET_N		103
++#define SKY1_DDR_TZC400_RCSU_3_RESET_N		104
++#define SKY1_DP0_RCSU_RESET_N			105
++#define SKY1_DP1_RCSU_RESET_N			106
++#define SKY1_DP2_RCSU_RESET_N			107
++#define SKY1_DP3_RCSU_RESET_N			108
++#define SKY1_DP4_RCSU_RESET_N			109
++#define SKY1_DPU0_RCSU_RESET_N			110
++#define SKY1_DPU1_RCSU_RESET_N			111
++#define SKY1_DPU2_RCSU_RESET_N			112
++#define SKY1_DPU3_RCSU_RESET_N			113
++#define SKY1_DPU4_RCSU_RESET_N			114
++#define SKY1_DSU_RCSU_RESET_N			115
++#define SKY1_FCH_RCSU_RESET_N			116
++#define SKY1_GICD_RCSU_RESET_N			117
++#define SKY1_GMAC_RCSU_RESET_N			118
++#define SKY1_GPU_RCSU_RESET_N			119
++#define SKY1_ISP_RCSU0_RESET_N			120
++#define SKY1_ISP_RCSU1_RESET_N			121
++#define SKY1_NI700_MMHUB_RCSU_RESET_N		122
++
++/* reset group1 for rcsu */
++#define SKY1_NPU_RCSU_RESET_N			123
++#define SKY1_NI700_PCIE_RCSU_RESET_N		124
++#define SKY1_PCIE_X421_RCSU_RESET_N		125
++#define SKY1_PCIE_X8_RCSU_RESET_N		126
++#define SKY1_SF_RCSU_RESET_N			127
++#define SKY1_RCSU_SMMU_MMHUB_RESET_N		128
++#define SKY1_RCSU_SMMU_PCIEHUB_RESET_N		129
++#define SKY1_RCSU_SYSHUB_RESET_N		130
++#define SKY1_NI700_SMN_RCSU_RESET_N		131
++#define SKY1_NI700_SYSHUB_RCSU_RESET_N		132
++#define SKY1_RCSU_USB2_HOST0_RESET_N		133
++#define SKY1_RCSU_USB2_HOST1_RESET_N		134
++#define SKY1_RCSU_USB2_HOST2_RESET_N		135
++#define SKY1_RCSU_USB2_HOST3_RESET_N		136
++#define SKY1_RCSU_USB3_TYPEA_DRD_RESET_N	137
++#define SKY1_RCSU_USB3_TYPEC_DRD_RESET_N	138
++#define SKY1_RCSU_USB3_TYPEC_HOST0_RESET_N	139
++#define SKY1_RCSU_USB3_TYPEC_HOST1_RESET_N	140
++#define SKY1_RCSU_USB3_TYPEC_HOST2_RESET_N	141
++#define SKY1_VPU_RCSU_RESET_N			142
++
++#endif
+diff --git a/include/dt-bindings/reset/cix,sky1-system-control.h b/include/dt-bindings/reset/cix,sky1-system-control.h
+new file mode 100644
+--- /dev/null
++++ b/include/dt-bindings/reset/cix,sky1-system-control.h
+@@ -0,0 +1,41 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++/* Author: Jerry Zhu <jerry.zhu@cixtech.com> */
++#ifndef DT_BINDING_RESET_CIX_SKY1_SYSTEM_CONTROL_H
++#define DT_BINDING_RESET_CIX_SKY1_SYSTEM_CONTROL_H
++
++/* func reset for sky1 fch */
++#define SW_I3C0_RST_FUNC_G_N	0
++#define SW_I3C0_RST_FUNC_I_N	1
++#define SW_I3C1_RST_FUNC_G_N	2
++#define SW_I3C1_RST_FUNC_I_N	3
++#define SW_UART0_RST_FUNC_N	4
++#define SW_UART1_RST_FUNC_N	5
++#define SW_UART2_RST_FUNC_N	6
++#define SW_UART3_RST_FUNC_N	7
++#define SW_TIMER_RST_FUNC_N	8
++
++/* apb reset for sky1 fch */
++#define SW_I3C0_RST_APB_N	9
++#define SW_I3C1_RST_APB_N	10
++#define SW_DMA_RST_AXI_N	11
++#define SW_UART0_RST_APB_N	12
++#define SW_UART1_RST_APB_N	13
++#define SW_UART2_RST_APB_N	14
++#define SW_UART3_RST_APB_N	15
++#define SW_SPI0_RST_APB_N	16
++#define SW_SPI1_RST_APB_N	17
++#define SW_I2C0_RST_APB_N	18
++#define SW_I2C1_RST_APB_N	19
++#define SW_I2C2_RST_APB_N	20
++#define SW_I2C3_RST_APB_N	21
++#define SW_I2C4_RST_APB_N	22
++#define SW_I2C5_RST_APB_N	23
++#define SW_I2C6_RST_APB_N	24
++#define SW_I2C7_RST_APB_N	25
++#define SW_GPIO_RST_APB_N	26
++
++/* fch rst for xspi */
++#define SW_XSPI_REG_RST_N	27
++#define SW_XSPI_SYS_RST_N	28
++
++#endif
+diff --git a/include/dt-bindings/reset/sky1-reset-audss.h b/include/dt-bindings/reset/sky1-reset-audss.h
+new file mode 100644
+--- /dev/null
++++ b/include/dt-bindings/reset/sky1-reset-audss.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++#ifndef DT_BINDING_RESET_AUDSS_SKY1_H
++#define DT_BINDING_RESET_AUDSS_SKY1_H
++
++#include <dt-bindings/reset/cix,sky1-audss-cru.h>
++
++/* Compatibility names used by the pre-v8 downstream binding. */
++#define AUDSS_I2S0_SW_RST_N	AUDSS_I2S0_SW_RST
++#define AUDSS_I2S1_SW_RST_N	AUDSS_I2S1_SW_RST
++#define AUDSS_I2S2_SW_RST_N	AUDSS_I2S2_SW_RST
++#define AUDSS_I2S3_SW_RST_N	AUDSS_I2S3_SW_RST
++#define AUDSS_I2S4_SW_RST_N	AUDSS_I2S4_SW_RST
++#define AUDSS_I2S5_SW_RST_N	AUDSS_I2S5_SW_RST
++#define AUDSS_I2S6_SW_RST_N	AUDSS_I2S6_SW_RST
++#define AUDSS_I2S7_SW_RST_N	AUDSS_I2S7_SW_RST
++#define AUDSS_I2S8_SW_RST_N	AUDSS_I2S8_SW_RST
++#define AUDSS_I2S9_SW_RST_N	AUDSS_I2S9_SW_RST
++#define AUDSS_WDT_SW_RST_N	AUDSS_WDT_SW_RST
++#define AUDSS_TIMER_SW_RST_N	AUDSS_TIMER_SW_RST
++#define AUDSS_MB0_SW_RST_N	AUDSS_MB0_SW_RST
++#define AUDSS_MB1_SW_RST_N	AUDSS_MB1_SW_RST
++#define AUDSS_HDA_SW_RST_N	AUDSS_HDA_SW_RST
++#define AUDSS_DMAC_SW_RST_N	AUDSS_DMAC_SW_RST
++#define SKY1_AUDSS_SW_RESET_NUM	16
++
++#endif
+diff --git a/include/dt-bindings/reset/sky1-reset-fch.h b/include/dt-bindings/reset/sky1-reset-fch.h
+new file mode 100644
+--- /dev/null
++++ b/include/dt-bindings/reset/sky1-reset-fch.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++#ifndef DT_BINDING_RESET_FCH_SKY1_H
++#define DT_BINDING_RESET_FCH_SKY1_H
++
++#include <dt-bindings/reset/cix,sky1-system-control.h>
++
++/* Compatibility count used by the pre-v8 downstream binding. */
++#define SKY1_FCH_RESET_NUM	29
++
++#endif
+diff --git a/include/dt-bindings/reset/sky1-reset.h b/include/dt-bindings/reset/sky1-reset.h
+new file mode 100644
+--- /dev/null
++++ b/include/dt-bindings/reset/sky1-reset.h
+@@ -0,0 +1,12 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++#ifndef DT_BINDING_RESET_SKY1_H
++#define DT_BINDING_RESET_SKY1_H
++
++#include <dt-bindings/reset/cix,sky1-s5-system-control.h>
++
++/* Compatibility names used by the pre-v8 downstream binding. */
++#define SKY1_SENSORHUB_RESET_N		SKY1_SENSORFUSION_RESET_N
++#define SKY1_SENSORHUB_NOC_RESET_N	SKY1_SENSORFUSION_NOC_RESET_N
++#define SKY1_RESET_NUM			143
++
++#endif

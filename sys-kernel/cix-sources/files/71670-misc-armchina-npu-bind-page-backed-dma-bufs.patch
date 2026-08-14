@@ -1,0 +1,483 @@
+Extend P1 DMA-BUF BIND to validated page-backed System-RAM exporters.
+
+Keep the dma_buf, attachment, mapped SG table, and collected pages alive for
+the complete binding; reject sub-page, zone-device, DMA-only, and peer-to-peer
+layouts that cannot safely be linked into an existing DMA IOVA arena.  Every
+failure path unwinds the attachment and references in reverse order.
+
+Provenance: implements the generic page-backed subset of the public CIX BIND
+ABI without depending on exporter-private structures.  Broader exporter
+support requires a suitable generic DMA-BUF API rather than a CIX cast.
+
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
+@@ -5,6 +5,7 @@
+ #include <linux/module.h>
+ #include <linux/err.h>
+ #include <linux/fdtable.h>
++#include <linux/mm.h>
+ #include <linux/scatterlist.h>
+ #include <linux/slab.h>
+ #include "aipu_dma_buf.h"
+@@ -264,6 +265,12 @@ static void aipu_dma_buf_binding_release_work(struct work_struct *work)
+ 	struct aipu_dma_buf_binding *binding = container_of(work,
+ 		struct aipu_dma_buf_binding, release_work);
+ 
++	if (binding->table)
++		dma_buf_unmap_attachment(binding->attach, binding->table,
++					 DMA_BIDIRECTIONAL);
++	if (binding->attach)
++		dma_buf_detach(binding->dmabuf, binding->attach);
++	kvfree(binding->pages);
+ 	dma_buf_put(binding->dmabuf);
+ 	kfree(binding);
+ 	module_put(THIS_MODULE);
+@@ -275,6 +282,51 @@ void aipu_dma_buf_release_binding(struct aipu_dma_buf_binding *binding)
+ 		return;
+ }
+ 
++static int aipu_dma_buf_collect_pages(struct sg_table *table, size_t bytes,
++				      struct page ***result,
++				      unsigned long *result_count)
++{
++	struct sg_page_iter piter;
++	struct scatterlist *sg;
++	struct page **pages;
++	unsigned long count;
++	unsigned long page = 0;
++	unsigned int entry;
++
++	if (!table || !table->orig_nents || !bytes ||
++	    !IS_ALIGNED(bytes, PAGE_SIZE))
++		return -EOPNOTSUPP;
++	count = bytes >> PAGE_SHIFT;
++	pages = kvmalloc_array(count, sizeof(*pages), GFP_KERNEL);
++	if (!pages)
++		return -ENOMEM;
++
++	for_each_sg(table->sgl, sg, table->orig_nents, entry) {
++		if (!sg_page(sg) || sg->offset ||
++		    !IS_ALIGNED(sg->length, PAGE_SIZE))
++			goto unsupported;
++	}
++	for_each_sgtable_page(table, &piter, 0) {
++		struct page *backing = sg_page_iter_page(&piter);
++
++		if (page == count)
++			goto unsupported;
++		if (!backing || is_zone_device_page(backing))
++			goto unsupported;
++		pages[page++] = backing;
++	}
++	if (page != count)
++		goto unsupported;
++
++	*result = pages;
++	*result_count = count;
++	return 0;
++
++unsupported:
++	kvfree(pages);
++	return -EOPNOTSUPP;
++}
++
+ int aipu_alloc_dma_buf(struct aipu_priv *aipu, struct aipu_dma_buf_request *request)
+ {
+ 	int ret = 0;
+@@ -465,7 +517,7 @@ int aipu_bind_dma_buf(struct aipu_memory_manager *mm,
+ 		      struct aipu_bind_buf_desc *desc, struct file *filp)
+ {
+ 	struct aipu_dma_buf_binding *binding;
+-	struct aipu_dma_buf_priv *priv;
++	struct aipu_dma_buf_priv *priv = NULL;
+ 	struct dma_buf *dmabuf;
+ 	int ret;
+ 
+@@ -475,15 +527,6 @@ int aipu_bind_dma_buf(struct aipu_memory_manager *mm,
+ 	dmabuf = dma_buf_get(desc->fd);
+ 	if (IS_ERR(dmabuf))
+ 		return PTR_ERR(dmabuf);
+-	if (dmabuf->ops != &aipu_dma_buf_ops) {
+-		ret = -EOPNOTSUPP;
+-		goto put_dmabuf;
+-	}
+-	priv = dmabuf->priv;
+-	if (!priv || priv->mm != mm || aipu_priv_is_removing(priv->aipu)) {
+-		ret = -EXDEV;
+-		goto put_dmabuf;
+-	}
+ 	if (!try_module_get(THIS_MODULE)) {
+ 		ret = -ENODEV;
+ 		goto put_dmabuf;
+@@ -497,15 +540,53 @@ int aipu_bind_dma_buf(struct aipu_memory_manager *mm,
+ 	binding->dmabuf = dmabuf;
+ 	INIT_WORK(&binding->release_work, aipu_dma_buf_binding_release_work);
+ 
+-	ret = aipu_mm_bind_exported_dma_buf(mm, desc, filp, priv->dev_pa,
+-					    binding);
++	if (dmabuf->ops == &aipu_dma_buf_ops) {
++		priv = dmabuf->priv;
++		if (!priv || priv->mm != mm ||
++		    aipu_priv_is_removing(priv->aipu)) {
++			ret = -EXDEV;
++			goto free_binding;
++		}
++		ret = aipu_mm_bind_exported_dma_buf(mm, desc, filp,
++						    priv->dev_pa, binding);
++	} else {
++		binding->attach = dma_buf_attach(dmabuf, mm->dev);
++		if (IS_ERR(binding->attach)) {
++			ret = PTR_ERR(binding->attach);
++			binding->attach = NULL;
++			goto free_binding;
++		}
++		binding->table = dma_buf_map_attachment(binding->attach,
++							DMA_BIDIRECTIONAL);
++		if (IS_ERR(binding->table)) {
++			ret = PTR_ERR(binding->table);
++			binding->table = NULL;
++			goto free_binding;
++		}
++		ret = aipu_dma_buf_collect_pages(binding->table, dmabuf->size,
++						 &binding->pages,
++						 &binding->page_count);
++		if (ret)
++			goto free_binding;
++		ret = aipu_mm_bind_page_backed_dma_buf(mm, desc, filp,
++						       binding->pages,
++						       binding->page_count,
++						       dmabuf->size, binding);
++	}
+ 	if (ret) {
+-		kfree(binding);
+-		module_put(THIS_MODULE);
+-		goto put_dmabuf;
++		goto free_binding;
+ 	}
+ 	return 0;
+ 
++free_binding:
++	if (binding->table)
++		dma_buf_unmap_attachment(binding->attach, binding->table,
++					 DMA_BIDIRECTIONAL);
++	if (binding->attach)
++		dma_buf_detach(dmabuf, binding->attach);
++	kvfree(binding->pages);
++	kfree(binding);
++	module_put(THIS_MODULE);
+ put_dmabuf:
+ 	dma_buf_put(dmabuf);
+ 	return ret;
+diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
+--- a/drivers/misc/armchina-npu/aipu_dma_buf.h
++++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
+@@ -16,6 +16,10 @@ struct file;
+ 
+ struct aipu_dma_buf_binding {
+ 	struct dma_buf *dmabuf;
++	struct dma_buf_attachment *attach;
++	struct sg_table *table;
++	struct page **pages;
++	unsigned long page_count;
+ 	struct work_struct release_work;
+ };
+ 
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -635,7 +635,7 @@ static void aipu_mm_destroy_arena_mapping(struct aipu_memory_manager *mm,
+ 		pool = &mm->iova_pools[reg->arena->asid];
+ 		dma_iova_unlink(mm->dev, &pool->state, reg->arena_offset,
+ 				reg->linked_page_count << PAGE_SHIFT,
+-				DMA_BIDIRECTIONAL, 0);
++				DMA_BIDIRECTIONAL, reg->attrs);
+ 		reg->linked_page_count = 0;
+ 	}
+ 	if (!reg->borrowed_backing) {
+@@ -2659,10 +2659,10 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+ 	vma->vm_pgoff = (iova - reg->base_iova) >> PAGE_SHIFT;
+-	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
+-		ret = remap_vmalloc_range_partial(vma, vma->vm_start,
+-						  reg->base_va, vma->vm_pgoff,
+-						  map_size);
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA && !reg->base_va)
++		ret = -EOPNOTSUPP;
++	else if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
++		ret = remap_vmalloc_range(vma, reg->base_va, vma->vm_pgoff);
+ 	else if (reg->dma_sgt)
+ 		ret = dma_mmap_noncontiguous(reg->dev, vma, reg->bytes,
+ 					     reg->dma_sgt);
+@@ -2723,10 +2723,10 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ #endif
+ 	vma->vm_pgoff = (dev_pa - reg->base_iova) >> PAGE_SHIFT;
+-	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
+-		ret = remap_vmalloc_range_partial(vma, vma->vm_start,
+-						  reg->base_va, vma->vm_pgoff,
+-						  map_size);
++	if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA && !reg->base_va)
++		ret = -EOPNOTSUPP;
++	else if (reg->mapping_kind == AIPU_MAPPING_IOVA_ARENA)
++		ret = remap_vmalloc_range(vma, reg->base_va, vma->vm_pgoff);
+ 	else if (reg->dma_sgt)
+ 		ret = dma_mmap_noncontiguous(reg->dev, vma, reg->bytes,
+ 					     reg->dma_sgt);
+@@ -2892,7 +2892,7 @@ char *aipu_mm_get_va(struct aipu_memory_manager *mm, u64 dev_pa)
+ 
+ 	mutex_lock(&mm->lock);
+ 	reg = aipu_mm_find_region_no_lock(mm, dev_pa, "get_va");
+-	if (reg)
++	if (reg && reg->base_va)
+ 		va = (char *)((unsigned long)reg->base_va + dev_pa - reg->base_iova);
+ 	mutex_unlock(&mm->lock);
+ 
+@@ -3424,7 +3424,7 @@ int aipu_prepare_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
+ 		ret = dma_iova_link(mm->dev, &pool->state,
+ 				    page_to_phys(reg->phys_pages[page]),
+ 				    txn->new_offset + (page << PAGE_SHIFT),
+-				    PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
++				    PAGE_SIZE, DMA_BIDIRECTIONAL, reg->attrs);
+ 		if (ret)
+ 			goto unmap;
+ 		txn->linked_pages++;
+@@ -3443,7 +3443,7 @@ int aipu_prepare_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
+ 	if (txn->linked_pages)
+ 		dma_iova_unlink(mm->dev, &pool->state, txn->new_offset,
+ 				txn->linked_pages << PAGE_SHIFT,
+-				DMA_BIDIRECTIONAL, 0);
++				DMA_BIDIRECTIONAL, reg->attrs);
+ 	gen_pool_free(txn->destination->allocator, txn->new_iova,
+ 		      reg->bytes);
+ unlock:
+@@ -3467,7 +3467,7 @@ void aipu_finish_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
+ 		pool = &mm->iova_pools[txn->destination->asid];
+ 		dma_iova_unlink(mm->dev, &pool->state, txn->new_offset,
+ 				txn->linked_pages << PAGE_SHIFT,
+-				DMA_BIDIRECTIONAL, 0);
++				DMA_BIDIRECTIONAL, reg->attrs);
+ 		gen_pool_free(txn->destination->allocator, txn->new_iova,
+ 			      reg->bytes);
+ 		goto unlock;
+@@ -3476,7 +3476,7 @@ void aipu_finish_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
+ 	pool = &mm->iova_pools[txn->source->asid];
+ 	dma_iova_unlink(mm->dev, &pool->state, reg->arena_offset,
+ 			reg->linked_page_count << PAGE_SHIFT,
+-			DMA_BIDIRECTIONAL, 0);
++			DMA_BIDIRECTIONAL, reg->attrs);
+ 	gen_pool_free(txn->source->allocator, reg->base_iova, reg->bytes);
+ 	WARN_ON(txn->source->mapped_bytes < reg->bytes);
+ 	if (txn->source->mapped_bytes >= reg->bytes)
+@@ -3498,46 +3498,31 @@ void aipu_finish_rebind_dma_iova_phy(struct aipu_memory_manager *mm,
+ 	kfree(txn);
+ }
+ 
+-int aipu_mm_bind_exported_dma_buf(struct aipu_memory_manager *mm,
+-				  struct aipu_bind_buf_desc *desc,
+-				  struct file *filp, u64 source_pa,
+-				  struct aipu_dma_buf_binding *binding)
++static int aipu_mm_bind_pages_no_lock(struct aipu_memory_manager *mm,
++				      struct aipu_bind_buf_desc *desc,
++				      struct aipu_file_ctx *owner,
++				      struct aipu_iova_arena *arena,
++				      struct page **pages,
++				      unsigned long page_count, u64 bytes,
++				      void *base_va, unsigned long attrs,
++				      struct aipu_dma_buf_binding *binding,
++				      struct aipu_mem_region **result)
+ {
+-	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct genpool_data_align data = { .align = PAGE_SIZE };
+ 	struct aipu_mem_region_obj *obj = NULL;
+-	struct aipu_iova_arena *arena;
+ 	struct aipu_iova_pool *pool;
+-	struct aipu_mem_region *source;
+ 	struct aipu_mem_region *reg;
+ 	unsigned long iova;
+ 	unsigned long page;
+ 	int ret = 0;
+ 
+-	if (!mm || !desc || !owner || !binding || !desc->exec_id ||
+-	    !mm->iova_arenas_ready)
++	if (!pages || !page_count || !bytes || !IS_ALIGNED(bytes, PAGE_SIZE) ||
++	    page_count != bytes >> PAGE_SHIFT)
+ 		return -EINVAL;
+-
+-	mutex_lock(&mm->lock);
+-	source = aipu_mm_find_region_no_lock(mm, source_pa, "bind source");
+-	if (!source || source->base_iova != source_pa || source->owner ||
+-	    source->mapping_kind != AIPU_MAPPING_IOVA_ARENA ||
+-	    !source->phys_pages || !source->phys_page_count ||
+-	    source->phys_page_count != source->bytes >> PAGE_SHIFT) {
+-		ret = source ? -EOPNOTSUPP : -EINVAL;
+-		goto unlock;
+-	}
+-	arena = aipu_mm_find_iova_arena_no_lock(mm, owner, desc->exec_id);
+-	if (!arena) {
+-		ret = -ENOENT;
+-		goto unlock;
+-	}
+-	iova = gen_pool_alloc_algo(arena->allocator, source->bytes,
++	iova = gen_pool_alloc_algo(arena->allocator, bytes,
+ 				   gen_pool_first_fit_align, &data);
+-	if (!iova) {
+-		ret = -ENOSPC;
+-		goto unlock;
+-	}
++	if (!iova)
++		return -ENOSPC;
+ 
+ 	obj = aipu_mm_create_region_object(mm, AIPU_MEM_REGION_TYPE_MEMORY,
+ 					   0, 0, 0, owner, false);
+@@ -3546,28 +3531,28 @@ int aipu_mm_bind_exported_dma_buf(struct aipu_memory_manager *mm,
+ 		goto free_iova;
+ 	}
+ 	reg = obj->reg;
+-	reg->bytes = source->bytes;
++	reg->bytes = bytes;
+ 	reg->base_iova = iova;
+ 	reg->base_pa = iova;
+-	reg->base_va = source->base_va;
++	reg->base_va = base_va;
+ 	reg->mapping_kind = AIPU_MAPPING_IOVA_ARENA;
+ 	reg->arena = arena;
+ 	reg->arena_offset = iova - mm->iova_pools[arena->asid].state.addr;
+-	reg->phys_pages = source->phys_pages;
+-	reg->phys_page_count = source->phys_page_count;
++	reg->phys_pages = pages;
++	reg->phys_page_count = page_count;
+ 	reg->borrowed_backing = true;
+ 	reg->binding = binding;
++	reg->attrs = attrs;
+ 	reg->locked = true;
+ 	arena->mapped_bytes += reg->bytes;
+ 	arena->mapping_count++;
+ 
+ 	pool = &mm->iova_pools[arena->asid];
+-	aipu_mm_sync_arena_region(source, 0, source->bytes, false);
+ 	for (page = 0; page < reg->phys_page_count; page++) {
+ 		ret = dma_iova_link(mm->dev, &pool->state,
+ 				    page_to_phys(reg->phys_pages[page]),
+ 				    reg->arena_offset + (page << PAGE_SHIFT),
+-				    PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
++				    PAGE_SIZE, DMA_BIDIRECTIONAL, attrs);
+ 		if (ret)
+ 			goto destroy_obj;
+ 		reg->linked_page_count++;
+@@ -3576,27 +3561,94 @@ int aipu_mm_bind_exported_dma_buf(struct aipu_memory_manager *mm,
+ 			    reg->bytes);
+ 	if (ret)
+ 		goto destroy_obj;
+-	aipu_mm_sync_arena_region(reg, 0, reg->bytes, true);
+ 
+ 	list_add_tail(&obj->list, &mm->mem.head->list);
+ 	desc->pa = reg->base_iova;
+-	mutex_unlock(&mm->lock);
++	if (result)
++		*result = reg;
+ 	return 0;
+ 
+ destroy_obj:
+ 	reg->binding = NULL;
+ 	aipu_mm_destroy_region_object(mm, obj);
+-	aipu_mm_sync_arena_region(source, 0, source->bytes, true);
+-	mutex_unlock(&mm->lock);
+ 	return ret;
+ 
+ free_iova:
+-	gen_pool_free(arena->allocator, iova, source->bytes);
++	gen_pool_free(arena->allocator, iova, bytes);
++	return ret;
++}
++
++int aipu_mm_bind_exported_dma_buf(struct aipu_memory_manager *mm,
++				  struct aipu_bind_buf_desc *desc,
++				  struct file *filp, u64 source_pa,
++				  struct aipu_dma_buf_binding *binding)
++{
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
++	struct aipu_mem_region *bound = NULL;
++	struct aipu_iova_arena *arena;
++	struct aipu_mem_region *source;
++	int ret;
++
++	if (!mm || !desc || !owner || !binding || !desc->exec_id ||
++	    !mm->iova_arenas_ready)
++		return -EINVAL;
++
++	mutex_lock(&mm->lock);
++	source = aipu_mm_find_region_no_lock(mm, source_pa, "bind source");
++	if (!source || source->base_iova != source_pa || source->owner ||
++	    source->mapping_kind != AIPU_MAPPING_IOVA_ARENA ||
++	    !source->phys_pages || !source->phys_page_count ||
++	    source->phys_page_count != source->bytes >> PAGE_SHIFT) {
++		ret = source ? -EOPNOTSUPP : -EINVAL;
++		goto unlock;
++	}
++	arena = aipu_mm_find_iova_arena_no_lock(mm, owner, desc->exec_id);
++	if (!arena) {
++		ret = -ENOENT;
++		goto unlock;
++	}
++
++	aipu_mm_sync_arena_region(source, 0, source->bytes, false);
++	ret = aipu_mm_bind_pages_no_lock(mm, desc, owner, arena,
++					 source->phys_pages,
++					 source->phys_page_count, source->bytes,
++					 source->base_va, 0, binding, &bound);
++	if (ret)
++		aipu_mm_sync_arena_region(source, 0, source->bytes, true);
++	else
++		aipu_mm_sync_arena_region(bound, 0, bound->bytes, true);
+ unlock:
+ 	mutex_unlock(&mm->lock);
+ 	return ret;
+ }
+ 
++int aipu_mm_bind_page_backed_dma_buf(struct aipu_memory_manager *mm,
++				     struct aipu_bind_buf_desc *desc,
++				     struct file *filp, struct page **pages,
++				     unsigned long page_count, u64 bytes,
++				     struct aipu_dma_buf_binding *binding)
++{
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
++	struct aipu_iova_arena *arena;
++	int ret;
++
++	if (!mm || !desc || !owner || !binding || !desc->exec_id ||
++	    !mm->iova_arenas_ready)
++		return -EINVAL;
++
++	mutex_lock(&mm->lock);
++	arena = aipu_mm_find_iova_arena_no_lock(mm, owner, desc->exec_id);
++	if (!arena)
++		ret = -ENOENT;
++	else
++		ret = aipu_mm_bind_pages_no_lock(mm, desc, owner, arena, pages,
++						 page_count, bytes, NULL,
++						 DMA_ATTR_SKIP_CPU_SYNC,
++						 binding, NULL);
++	mutex_unlock(&mm->lock);
++	return ret;
++}
++
+ int aipu_mm_unbind_dma_buf(struct aipu_memory_manager *mm, u64 pa,
+ 			   struct file *filp)
+ {
+diff --git a/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
+--- a/drivers/misc/armchina-npu/aipu_mm.h
++++ b/drivers/misc/armchina-npu/aipu_mm.h
+@@ -376,6 +376,11 @@ int aipu_mm_bind_exported_dma_buf(struct aipu_memory_manager *mm,
+ 				  struct aipu_bind_buf_desc *desc,
+ 				  struct file *filp, u64 source_pa,
+ 				  struct aipu_dma_buf_binding *binding);
++int aipu_mm_bind_page_backed_dma_buf(struct aipu_memory_manager *mm,
++				     struct aipu_bind_buf_desc *desc,
++				     struct file *filp, struct page **pages,
++				     unsigned long page_count, u64 bytes,
++				     struct aipu_dma_buf_binding *binding);
+ int aipu_mm_unbind_dma_buf(struct aipu_memory_manager *mm, u64 pa,
+ 			   struct file *filp);
+ #endif /* __AIPU_MM_H__ */

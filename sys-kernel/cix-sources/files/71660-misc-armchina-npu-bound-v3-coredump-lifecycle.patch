@@ -1,0 +1,881 @@
+Restore bounded manager-5/V3 coredump handling in both retained ABI backends.
+
+Attribute fault and completion interrupts to the exact TCB range, distinguish
+waiting, signalled, and completed states, bound the completion wait to five
+seconds, serialize command-pool recovery before jobs are reaped, and prevent
+one coredump job from indefinitely suppressing pool teardown.  The same state
+model also covers close, abort, timeout, and later scheduling decisions.
+
+Provenance: preserves the public CIX V3 coredump ABI and userspace control
+flow, but replaces the vendor driver's cross-job attribution and unbounded
+wait with explicit lifetime and recovery boundaries.  Deliberate hardware
+fault testing remains a separate, explicitly disruptive qualification step.
+
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+@@ -13,6 +13,48 @@
+ #include "zhouyi.h"
+ #include "v3.h"
+ 
++#define AIPU_COREDUMP_TIMEOUT_MS 5000
++
++enum aipu_recovery_event {
++	AIPU_RECOVERY_NONE,
++	AIPU_RECOVERY_ABORT,
++	AIPU_RECOVERY_COREDUMP,
++};
++
++static void aipu_set_terminal_state_no_lock(struct aipu_job_manager *manager,
++					    struct aipu_job *job, int state)
++{
++	job->state = state;
++	if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SRAM_MUTEX)
++		manager->exec_flag &= ~AIPU_JOB_EXEC_FLAG_SRAM_MUTEX;
++}
++
++static void aipu_coredump_timeout_work(struct work_struct *work)
++{
++	struct aipu_job *job = container_of(to_delayed_work(work),
++		struct aipu_job, coredump_timeout_work);
++	struct aipu_job_manager *manager = job->manager;
++	struct aipu_partition *partition = NULL;
++	unsigned long flags;
++
++	spin_lock_irqsave(&manager->lock, flags);
++	if (job->state == AIPU_JOB_STATE_CORED_WAIT &&
++	    manager->partition_cnt == 1 && manager->partitions) {
++		partition = &manager->partitions[0];
++		aipu_set_terminal_state_no_lock(manager, job,
++						AIPU_JOB_STATE_EXCEP);
++		manager->recovery_event = AIPU_RECOVERY_ABORT;
++	}
++	spin_unlock_irqrestore(&manager->lock, flags);
++
++	if (partition) {
++		dev_warn_ratelimited(manager->dev,
++				     "job 0x%llx timed out waiting for a V3 coredump signal\n",
++				     job->desc.job_id);
++		aipu_irq_schedulework(partition->irq_obj);
++	}
++}
++
+ static struct aipu_thread_wait_queue *do_create_thread_wait_queue(int uthread_id, struct file *filp)
+ {
+ 	struct aipu_thread_wait_queue *new_wait_queue =
+@@ -128,6 +170,9 @@ static int init_aipu_job(struct aipu_job_manager *manager, struct aipu_job *job,
+ 	job->sched_time = ns_to_ktime(0);
+ 	job->done_time = ns_to_ktime(0);
+ 	job->wake_up = 0;
++	job->manager = manager;
++	INIT_DELAYED_WORK(&job->coredump_timeout_work,
++			  aipu_coredump_timeout_work);
+ 	job->curr_hold_tcb = 0;
+ 	memset(&job->tcb_mapping, 0, sizeof(job->tcb_mapping));
+ 	job->prof_filp = NULL;
+@@ -147,6 +192,7 @@ static void destroy_aipu_job(struct aipu_job_manager *manager, struct aipu_job *
+ {
+ 	if (WARN_ON(!job))
+ 		return;
++	cancel_delayed_work_sync(&job->coredump_timeout_work);
+ 
+ 	if (job->curr_hold_tcb) {
+ 		aipu_mm_unlink_tcb(manager->mm, job->curr_hold_tcb, false);
+@@ -642,6 +688,7 @@ int init_aipu_job_manager(struct aipu_job_manager *manager, struct aipu_memory_m
+ #endif
+ 	mutex_init(&manager->wq_lock);
+ 	mutex_init(&manager->op_lock);
++	manager->recovery_event = AIPU_RECOVERY_NONE;
+ 	manager->scheduled_head = create_aipu_job(manager, NULL, NULL, NULL);
+ 	if (IS_ERR(manager->scheduled_head)) {
+ 		ret = PTR_ERR(manager->scheduled_head);
+@@ -741,6 +788,9 @@ int aipu_job_manager_set_partitions_info(struct aipu_job_manager *manager, int p
+ int aipu_job_manager_scheduler(struct aipu_job_manager *manager, struct aipu_job_desc *user_job,
+ 			       struct file *filp)
+ {
++	struct aipu_job *job;
++	unsigned long flags;
++	bool quiescing = false;
+ 	int ret = 0;
+ 
+ 	if (unlikely(!manager || !user_job || !filp))
+@@ -761,6 +811,20 @@ int aipu_job_manager_scheduler(struct aipu_job_manager *manager, struct aipu_job
+ 		return -ENODEV;
+ 	}
+ 	mutex_lock(&manager->op_lock);
++	spin_lock_irqsave(&manager->lock, flags);
++	quiescing = manager->recovery_event != AIPU_RECOVERY_NONE;
++	list_for_each_entry(job, &manager->scheduled_head->node, node) {
++		if (job->state == AIPU_JOB_STATE_CORED_WAIT ||
++		    job->state == AIPU_JOB_STATE_CORED_SIGNAL) {
++			quiescing = true;
++			break;
++		}
++	}
++	spin_unlock_irqrestore(&manager->lock, flags);
++	if (quiescing) {
++		ret = -EBUSY;
++		goto unlock;
++	}
+ 
+ 	if (!user_job->is_defer_run)
+ 		ret = schedule_new_job(manager, user_job, filp, 1);
+@@ -773,6 +837,7 @@ int aipu_job_manager_scheduler(struct aipu_job_manager *manager, struct aipu_job
+ 		dev_err(manager->dev,
+ 			"[scheduler] schedule job (0x%llx) failed: is_defer_run %d, do_trigger %d",
+ 			user_job->job_id, user_job->is_defer_run, user_job->do_trigger);
++unlock:
+ 	mutex_unlock(&manager->op_lock);
+ 	return ret;
+ }
+@@ -952,6 +1017,23 @@ static bool is_job_abnormal(struct aipu_job *job, int flag,
+ 	return IS_ABNORMAL(flag) || IS_EXCEPTION_SIGNAL(info->sig_flag);
+ }
+ 
++static struct aipu_job *
++aipu_find_coredump_job_no_lock(struct aipu_job_manager *manager,
++			       struct job_irq_info *info, int state)
++{
++	struct aipu_job *job;
++
++	if (!info)
++		return NULL;
++	list_for_each_entry(job, &manager->scheduled_head->node, node) {
++		if (job->state == state && job->desc.is_coredump_en &&
++		    is_curr_irq_job(job, info, manager->asid0_base))
++			return job;
++	}
++
++	return NULL;
++}
++
+ /**
+  * @aipu_job_manager_irq_upper_half() - aipu interrupt upper half handler
+  * @core:           pointer to the aipu core struct
+@@ -963,7 +1045,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ {
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_job_manager *manager = NULL;
+-	bool abort_cmdpool;
++	bool coredump_matched = false;
+ 
+ 	if (unlikely(!partition))
+ 		return;
+@@ -980,15 +1062,20 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 			aipu_job_manager_real_time_get_pdata(manager, info);
+ 		}
+ #endif
+-		if (IS_COREDUMP_SIGNAL(info->sig_flag)) {
++		if (info && IS_COREDUMP_SIGNAL(info->sig_flag)) {
+ 			spin_lock(&manager->lock);
+-			list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-				if (is_curr_irq_job(curr, info, manager->asid0_base)) {
+-					curr->state = AIPU_JOB_STATE_CORED;
+-					break;
+-				}
++			curr = aipu_find_coredump_job_no_lock(manager, info,
++							      AIPU_JOB_STATE_CORED_WAIT);
++			if (curr) {
++				curr->state = AIPU_JOB_STATE_CORED_SIGNAL;
++				cancel_delayed_work(&curr->coredump_timeout_work);
++				manager->recovery_event = AIPU_RECOVERY_COREDUMP;
++				coredump_matched = true;
+ 			}
+ 			spin_unlock(&manager->lock);
++			if (!coredump_matched)
++				dev_warn_ratelimited(partition->dev,
++						     "unmatched V3 coredump completion signal\n");
+ 		}
+ 		return;
+ 	}
+@@ -996,18 +1083,22 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 	spin_lock(&manager->lock);
+ 
+ 	/* soft reset association irq not in coredump scope */
+-	abort_cmdpool = do_abortion(flag, info);
+-
+-	if (abort_cmdpool) {
+-		list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-			/* coredump irq follows fault irq */
+-			if (curr->desc.is_coredump_en) {
+-				spin_unlock(&manager->lock);
+-				return;
++	if (do_abortion(flag, info)) {
++		curr = aipu_find_coredump_job_no_lock(manager, info,
++						      AIPU_JOB_STATE_RUNNING);
++		if (curr) {
++			curr->state = AIPU_JOB_STATE_CORED_WAIT;
++			if (!schedule_delayed_work(&curr->coredump_timeout_work,
++						   msecs_to_jiffies(AIPU_COREDUMP_TIMEOUT_MS))) {
++				aipu_set_terminal_state_no_lock(manager, curr,
++								AIPU_JOB_STATE_EXCEP);
++				manager->recovery_event = AIPU_RECOVERY_ABORT;
+ 			}
++		} else {
++			manager->recovery_event = AIPU_RECOVERY_ABORT;
+ 		}
+-		partition->ops->abort_command_pool(partition, 0);
+-		manager->pools[partition->id].aborted = true;
++		spin_unlock(&manager->lock);
++		return;
+ 	}
+ 
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+@@ -1041,15 +1132,21 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 	spin_unlock(&manager->lock);
+ }
+ 
+-static void aipu_job_manager_destroy_command_pool_no_lock(struct aipu_job_manager *manager,
+-							  struct aipu_partition *partition,
+-							  bool unlink)
++static bool aipu_job_is_reapable(const struct aipu_job *job)
++{
++	return job->state == AIPU_JOB_STATE_EXCEP ||
++		job->state == AIPU_JOB_STATE_CORED ||
++		job->state == AIPU_JOB_STATE_SUCCESS;
++}
++
++static int aipu_job_manager_destroy_command_pool(struct aipu_job_manager *manager,
++						 struct aipu_partition *partition)
+ {
+ 	struct command_pool *pool;
+ 	int ret = 0;
+ 
+ 	if (!manager || !partition)
+-		return;
++		return -EINVAL;
+ 
+ 	pool = manager->pools;
+ 	if (pool && pool->created) {
+@@ -1057,44 +1154,106 @@ static void aipu_job_manager_destroy_command_pool_no_lock(struct aipu_job_manage
+ 		if (!ret) {
+ 			memset(pool->qlist, 0, sizeof(*pool->qlist) * AIPU_JOB_QOS_MAX);
+ 			pool->created = false;
++			pool->aborted = false;
+ 			pool->debug = false;
+ 			manager->tec_intr_en = false;
+ 			aipu_mm_set_final_htbuf_index(manager->mm, -1);
+ 		}
+ 	}
++
++	return ret;
+ }
+ 
+-/**
+- * @aipu_job_manager_irq_bottom_half() - aipu interrupt bottom half handler
+- * @core: pointer to the aipu core struct
+- */
+-void aipu_job_manager_irq_bottom_half(struct aipu_partition *core)
++static int aipu_job_manager_recover_command_pool(struct aipu_job_manager *manager,
++						 struct aipu_partition *partition)
+ {
+-	struct aipu_job *curr = NULL;
+-	struct aipu_job *next = NULL;
+-	struct aipu_job_manager *manager = NULL;
++	int ret;
++
++	if (!manager->pools || !manager->pools->created)
++		return 0;
++
++	ret = partition->ops->abort_command_pool(partition, 0);
++	if (!ret) {
++		manager->pools->aborted = true;
++		ret = aipu_job_manager_destroy_command_pool(manager, partition);
++	}
++	if (ret)
++		ret = partition->ops->soft_reset(partition, true);
++
++	if (!ret && manager->pools->created) {
++		memset(manager->pools->qlist, 0,
++		       sizeof(*manager->pools->qlist) * AIPU_JOB_QOS_MAX);
++		manager->pools->created = false;
++		manager->pools->aborted = true;
++		manager->pools->debug = false;
++		manager->tec_intr_en = false;
++		aipu_mm_set_final_htbuf_index(manager->mm, -1);
++	}
++
++	return ret;
++}
++
++static void aipu_finish_recovered_jobs_no_lock(struct aipu_job_manager *manager,
++					       int recovery_event)
++{
++	struct aipu_job *job;
++
++	list_for_each_entry(job, &manager->scheduled_head->node, node) {
++		if (recovery_event == AIPU_RECOVERY_COREDUMP &&
++		    job->state == AIPU_JOB_STATE_CORED_SIGNAL) {
++			aipu_set_terminal_state_no_lock(manager, job,
++							AIPU_JOB_STATE_CORED);
++			continue;
++		}
++		if (!aipu_job_is_reapable(job))
++			aipu_set_terminal_state_no_lock(manager, job,
++							AIPU_JOB_STATE_EXCEP);
++	}
++}
++
++static void aipu_job_manager_finish_irq_bottom_half(struct aipu_job_manager *manager,
++						    struct aipu_partition *core)
++{
++	struct aipu_job *curr;
++	struct aipu_job *next;
+ 	unsigned long flags;
++	int recovery_event;
+ 	bool do_destroy = true;
++	int ret = 0;
+ 
+-	if (unlikely(!core))
+-		return;
++	spin_lock_irqsave(&manager->lock, flags);
++	recovery_event = manager->recovery_event;
++	spin_unlock_irqrestore(&manager->lock, flags);
+ 
+-	manager = get_job_manager(core);
++	if (recovery_event != AIPU_RECOVERY_NONE) {
++		ret = aipu_job_manager_recover_command_pool(manager, core);
++		spin_lock_irqsave(&manager->lock, flags);
++		if (!ret) {
++			manager->recovery_event = AIPU_RECOVERY_NONE;
++			aipu_finish_recovered_jobs_no_lock(manager, recovery_event);
++		}
++		spin_unlock_irqrestore(&manager->lock, flags);
++		if (ret) {
++			dev_err_ratelimited(manager->dev,
++					    "failed to recover V3 command pool after coredump/fault: %d\n",
++					    ret);
++			return;
++		}
++	}
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+-
+ 	list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+-		if (curr->state >= AIPU_JOB_STATE_EXCEP && !curr->wake_up) {
++		if (aipu_job_is_reapable(curr) && !curr->wake_up) {
+ 			if (curr->desc.enable_prof)
+ 				curr->pdata.execution_time_ns =
+-				(long)ktime_to_ns(ktime_sub(curr->done_time, curr->sched_time));
++					(long)ktime_to_ns(ktime_sub(curr->done_time,
++								    curr->sched_time));
+ 
+ 			aipu_mm_unlink_tcb(manager->mm, curr->curr_hold_tcb, false);
+ 			curr->curr_hold_tcb = 0;
+ 		}
+ 
+-		/* destroy the v3 command pool if all jobs are done */
+-		if (curr->state < AIPU_JOB_STATE_EXCEP || curr->desc.is_coredump_en)
++		if (!aipu_job_is_reapable(curr))
+ 			do_destroy = false;
+ 	}
+ 
+@@ -1107,23 +1266,42 @@ void aipu_job_manager_irq_bottom_half(struct aipu_partition *core)
+ 		do_destroy = true;
+ 		manager->dbg_do_destroy = false;
+ 	}
++	spin_unlock_irqrestore(&manager->lock, flags);
+ 
+ 	if (do_destroy)
+-		aipu_job_manager_destroy_command_pool_no_lock(manager, core, true);
++		aipu_job_manager_destroy_command_pool(manager, core);
+ 
++	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+-		if (curr->state >= AIPU_JOB_STATE_EXCEP && !curr->wake_up) {
++		if (aipu_job_is_reapable(curr) && !curr->wake_up) {
+ 			wake_up_interruptible(curr->thread_queue);
+ 			curr->wake_up = 1;
+ #ifdef DEBUG
+-			/* debug */
+-			print_core_id(manager->mm, curr->desc.head_tcb_pa, curr->desc.tail_tcb_pa);
++			print_core_id(manager->mm, curr->desc.head_tcb_pa,
++				      curr->desc.tail_tcb_pa);
+ #endif
+ 		}
+ 	}
+ 	spin_unlock_irqrestore(&manager->lock, flags);
+ }
+ 
++/**
++ * @aipu_job_manager_irq_bottom_half() - aipu interrupt bottom half handler
++ * @core: pointer to the aipu core struct
++ */
++void aipu_job_manager_irq_bottom_half(struct aipu_partition *core)
++{
++	struct aipu_job_manager *manager;
++
++	if (unlikely(!core))
++		return;
++
++	manager = get_job_manager(core);
++	mutex_lock(&manager->op_lock);
++	aipu_job_manager_finish_irq_bottom_half(manager, core);
++	mutex_unlock(&manager->op_lock);
++}
++
+ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ {
+ 	int ret = 0;
+@@ -1150,13 +1328,15 @@ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager)
+ 	manager->pools[partition->id].aborted = true;
+ 
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-		if (curr->state == AIPU_JOB_STATE_SUCCESS)
++		if (aipu_job_is_reapable(curr))
+ 			continue;
+-		curr->state = AIPU_JOB_STATE_EXCEP;
++		aipu_set_terminal_state_no_lock(manager, curr,
++						AIPU_JOB_STATE_EXCEP);
+ 	}
++	manager->recovery_event = AIPU_RECOVERY_NONE;
+ 	spin_unlock_irqrestore(&manager->lock, flags);
+ 
+-	aipu_job_manager_irq_bottom_half(partition);
++	aipu_job_manager_finish_irq_bottom_half(manager, partition);
+ 
+ unlock_op:
+ 	mutex_unlock(&manager->op_lock);
+@@ -1176,7 +1356,9 @@ int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager)
+ 	list_for_each_entry(job, &manager->scheduled_head->node, node) {
+ 		if (job->state == AIPU_JOB_STATE_RUNNING ||
+ 		    job->state == AIPU_JOB_STATE_PENDING ||
+-		    job->state == AIPU_JOB_STATE_DEFERRED) {
++		    job->state == AIPU_JOB_STATE_DEFERRED ||
++		    job->state == AIPU_JOB_STATE_CORED_WAIT ||
++		    job->state == AIPU_JOB_STATE_CORED_SIGNAL) {
+ 			busy = true;
+ 			break;
+ 		}
+@@ -1230,7 +1412,9 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 		}
+ 		if (curr->state == AIPU_JOB_STATE_RUNNING ||
+ 		    curr->state == AIPU_JOB_STATE_PENDING ||
+-		    curr->state == AIPU_JOB_STATE_DEFERRED)
++		    curr->state == AIPU_JOB_STATE_DEFERRED ||
++		    curr->state == AIPU_JOB_STATE_CORED_WAIT ||
++		    curr->state == AIPU_JOB_STATE_CORED_SIGNAL)
+ 			active = true;
+ 	}
+ 	pool_created = manager->pools && manager->pools[0].created;
+@@ -1273,6 +1457,7 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 		manager->tec_intr_en = false;
+ 		aipu_mm_set_final_htbuf_index(manager->mm, -1);
+ 	}
++	manager->recovery_event = AIPU_RECOVERY_NONE;
+ 	spin_unlock_irqrestore(&manager->lock, flags);
+ 
+ 	mutex_lock(&manager->wq_lock);
+@@ -1314,7 +1499,9 @@ int aipu_job_manager_invalidate_timeout_job(struct aipu_job_manager *manager, u6
+ 			victim = curr;
+ 			active = curr->state == AIPU_JOB_STATE_RUNNING ||
+ 				 curr->state == AIPU_JOB_STATE_PENDING ||
+-				 curr->state == AIPU_JOB_STATE_DEFERRED;
++				 curr->state == AIPU_JOB_STATE_DEFERRED ||
++				 curr->state == AIPU_JOB_STATE_CORED_WAIT ||
++				 curr->state == AIPU_JOB_STATE_CORED_SIGNAL;
+ 			break;
+ 		}
+ 	}
+@@ -1500,7 +1687,9 @@ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 		/* exception jobs should be cleared and hw is reset */
+ 		if (curr->state == AIPU_JOB_STATE_RUNNING ||
+-		    curr->state == AIPU_JOB_STATE_DEFERRED) {
++		    curr->state == AIPU_JOB_STATE_DEFERRED ||
++		    curr->state == AIPU_JOB_STATE_CORED_WAIT ||
++		    curr->state == AIPU_JOB_STATE_CORED_SIGNAL) {
+ 			hw->status = AIPU_STATUS_BUSY;
+ 			break;
+ 		}
+@@ -1602,7 +1791,9 @@ int aipu_job_manager_config_clusters(struct aipu_job_manager *manager,
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 		if (curr->state == AIPU_JOB_STATE_RUNNING ||
+-		    curr->state == AIPU_JOB_STATE_DEFERRED) {
++		    curr->state == AIPU_JOB_STATE_DEFERRED ||
++		    curr->state == AIPU_JOB_STATE_CORED_WAIT ||
++		    curr->state == AIPU_JOB_STATE_CORED_SIGNAL) {
+ 			ret = -EBUSY;
+ 			dev_err(manager->dev, "config clusters failed: aipu is busy now");
+ 			goto unlock;
+@@ -1620,7 +1811,7 @@ int aipu_job_manager_config_clusters(struct aipu_job_manager *manager,
+ 			goto unlock;
+ 		}
+ 		partition->ops->enable_core_cnt(partition, idx, en_count);
+-		aipu_job_manager_destroy_command_pool_no_lock(manager, partition, true);
++		aipu_job_manager_destroy_command_pool(manager, partition);
+ 	}
+ 
+ 	atomic_set(&manager->is_suspend, !en_count);
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+@@ -9,15 +9,20 @@
+ #include <linux/spinlock.h>
+ #include <linux/wait.h>
+ #include <linux/poll.h>
++#include <linux/workqueue.h>
+ #include <armchina_aipu.h>
+ #include "aipu_partition.h"
+ #include "aipu_mm.h"
+ 
++struct aipu_job_manager;
++
+ enum aipu_state_kern {
+ 	AIPU_JOB_STATE_IDLE,
+ 	AIPU_JOB_STATE_PENDING,
+ 	AIPU_JOB_STATE_DEFERRED,
+ 	AIPU_JOB_STATE_RUNNING,
++	AIPU_JOB_STATE_CORED_WAIT,
++	AIPU_JOB_STATE_CORED_SIGNAL,
+ 	AIPU_JOB_STATE_EXCEP, /* exception */
+ 	AIPU_JOB_STATE_CORED, /* coredump */
+ 	AIPU_JOB_STATE_SUCCESS
+@@ -101,6 +106,8 @@ struct aipu_job {
+ 	ktime_t done_time;
+ 	struct aipu_ext_profiling_data pdata;
+ 	int wake_up;
++	struct aipu_job_manager *manager;
++	struct delayed_work coredump_timeout_work;
+ 	u64 curr_hold_tcb;
+ 	struct aipu_tcb_mapping tcb_mapping;
+ 	struct file *prof_filp;
+@@ -184,6 +191,7 @@ struct aipu_job_manager {
+ 	struct aipu_thread_wait_queue *wait_queue_head;
+ 	struct mutex wq_lock; /* Protect thread wait queue */
+ 	struct mutex op_lock; /* Serialize submissions, cancellation, and exported-buffer release */
++	int recovery_event;
+ 	struct kmem_cache *job_cache;
+ 	struct kmem_cache *prof_cache;
+ 	int is_init;
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -16,6 +16,8 @@
+ #include "zhouyi.h"
+ #include "v3.h"
+ 
++#define AIPU_COREDUMP_TIMEOUT_MS 5000
++
+ static void aipu_job_manager_finish_irq_bottom_half(struct aipu_partition *core,
+ 						     bool process_event,
+ 						     bool keep_quiesced);
+@@ -35,12 +37,14 @@ struct aipu_id_allocation {
+ static bool aipu_job_is_hw_active(const struct aipu_job *job)
+ {
+ 	return job->state == AIPU_JOB_STATE_RUNNING ||
+-		job->state == AIPU_JOB_STATE_CORED;
++		job->state == AIPU_JOB_STATE_CORED_WAIT ||
++		job->state == AIPU_JOB_STATE_CORED_SIGNAL;
+ }
+ 
+ static bool aipu_job_is_reapable(const struct aipu_job *job)
+ {
+ 	return job->state == AIPU_JOB_STATE_EXCEP ||
++		job->state == AIPU_JOB_STATE_CORED ||
+ 		job->state == AIPU_JOB_STATE_SUCCESS;
+ }
+ 
+@@ -152,6 +156,47 @@ static bool aipu_has_pending_event_no_lock(const struct aipu_job_manager *manage
+ 	return false;
+ }
+ 
++static void aipu_set_terminal_state_no_lock(struct aipu_job_manager *manager,
++					    struct aipu_job *job, int state)
++{
++	job->state = state;
++	if (job->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SRAM_MUTEX)
++		manager->exec_flag &= ~AIPU_JOB_EXEC_FLAG_SRAM_MUTEX;
++}
++
++static void aipu_coredump_timeout_work(struct work_struct *work)
++{
++	struct aipu_job *job = container_of(to_delayed_work(work),
++		struct aipu_job, coredump_timeout_work);
++	struct aipu_job_manager *manager = job->manager;
++	struct aipu_partition *partition = NULL;
++	unsigned long flags;
++
++	spin_lock_irqsave(&manager->lock, flags);
++	if (job->state == AIPU_JOB_STATE_CORED_WAIT && !job->canceling &&
++	    job->desc.partition_id < (u32)manager->partition_cnt) {
++		partition = &manager->partitions[job->desc.partition_id];
++		aipu_set_terminal_state_no_lock(manager, job,
++						AIPU_JOB_STATE_EXCEP);
++		aipu_mark_fault_event_no_lock(manager, partition,
++					      AIPU_IRQ_EVENT_ABORT);
++	}
++	spin_unlock_irqrestore(&manager->lock, flags);
++
++	if (partition) {
++		dev_warn_ratelimited(manager->dev,
++				     "job 0x%llx timed out waiting for a V3 coredump signal\n",
++				     job->desc.job_id);
++		aipu_irq_schedulework(partition->irq_obj);
++	}
++}
++
++static bool aipu_start_coredump_timeout(struct aipu_job *job)
++{
++	return schedule_delayed_work(&job->coredump_timeout_work,
++		msecs_to_jiffies(AIPU_COREDUMP_TIMEOUT_MS));
++}
++
+ static struct aipu_thread_wait_queue *
+ do_create_thread_wait_queue(int uthread_id, struct aipu_file_ctx *owner)
+ {
+@@ -275,6 +320,9 @@ static int init_aipu_job(struct aipu_job_manager *manager, struct aipu_job *job,
+ 	job->done_time = ns_to_ktime(0);
+ 	job->wake_up = 0;
+ 	job->canceling = false;
++	job->manager = manager;
++	INIT_DELAYED_WORK(&job->coredump_timeout_work,
++			  aipu_coredump_timeout_work);
+ 	job->curr_hold_tcb = 0;
+ 	memset(&job->tcb_mapping, 0, sizeof(job->tcb_mapping));
+ 	job->prof_filp = NULL;
+@@ -294,6 +342,7 @@ static void destroy_aipu_job(struct aipu_job_manager *manager, struct aipu_job *
+ {
+ 	if (WARN_ON(!job))
+ 		return;
++	cancel_delayed_work_sync(&job->coredump_timeout_work);
+ 
+ 	if (job->curr_hold_tcb) {
+ 		aipu_mm_unlink_tcb(manager->mm, job->curr_hold_tcb, false);
+@@ -437,11 +486,6 @@ static bool is_user_job_valid(struct aipu_job_manager *manager,
+ 	if (manager->version != AIPU_ISA_VERSION_ZHOUYI_V3 ||
+ 	    user_job->aipu_version != AIPU_ISA_VERSION_ZHOUYI_V3)
+ 		return false;
+-	/* The vendor coredump lifecycle has no safe report-without-reap protocol. */
+-	if (user_job->is_coredump_en) {
+-		dev_err(manager->dev, "job coredump mode is not safely supported\n");
+-		return false;
+-	}
+ 	if (user_job->enable_prof) {
+ 		soc_ops = get_soc_ops(&manager->partitions[0]);
+ 		if (!soc_ops || !soc_ops->start_bw_profiling ||
+@@ -1215,6 +1259,26 @@ static bool is_job_abnormal(struct aipu_job *job, int flag,
+ 		(info && IS_EXCEPTION_SIGNAL(info->sig_flag));
+ }
+ 
++static struct aipu_job *
++aipu_find_coredump_job_no_lock(struct aipu_job_manager *manager,
++			       struct aipu_partition *partition,
++			       struct job_irq_info *info, int state)
++{
++	struct aipu_job *job;
++
++	if (!info)
++		return NULL;
++	list_for_each_entry(job, &manager->scheduled_head->node, node) {
++		if (job->state == state && !job->canceling &&
++		    job->desc.is_coredump_en &&
++		    job->desc.partition_id == partition->id &&
++		    is_curr_irq_job(job, info, job->desc.asid0_base))
++			return job;
++	}
++
++	return NULL;
++}
++
+ static void aipu_job_manager_print_signal(struct aipu_job_manager *manager,
+ 					  struct job_irq_info *info)
+ {
+@@ -1252,6 +1316,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_job_manager *manager = NULL;
+ 	struct list_head *h = NULL;
++	bool coredump_matched = false;
+ 
+ 	if (unlikely(!partition))
+ 		return;
+@@ -1272,9 +1337,19 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ #endif
+ 		if (IS_COREDUMP_SIGNAL(info->sig_flag)) {
+ 			spin_lock(&manager->lock);
+-			aipu_mark_fault_event_no_lock(manager, partition,
+-						      AIPU_IRQ_EVENT_ABORT);
++			curr = aipu_find_coredump_job_no_lock(manager, partition, info,
++							      AIPU_JOB_STATE_CORED_WAIT);
++			if (curr) {
++				curr->state = AIPU_JOB_STATE_CORED_SIGNAL;
++				cancel_delayed_work(&curr->coredump_timeout_work);
++				aipu_mark_fault_event_no_lock(manager, partition,
++							      AIPU_IRQ_EVENT_COREDUMP);
++				coredump_matched = true;
++			}
+ 			spin_unlock(&manager->lock);
++			if (!coredump_matched)
++				dev_warn_ratelimited(partition->dev,
++						     "unmatched V3 coredump completion signal\n");
+ 		}
+ 		return;
+ 	}
+@@ -1287,8 +1362,20 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 	}
+ 
+ 	if (do_abortion(flag, info)) {
+-		aipu_mark_fault_event_no_lock(manager, partition,
+-					      AIPU_IRQ_EVENT_ABORT);
++		curr = aipu_find_coredump_job_no_lock(manager, partition, info,
++						      AIPU_JOB_STATE_RUNNING);
++		if (curr) {
++			curr->state = AIPU_JOB_STATE_CORED_WAIT;
++			if (!aipu_start_coredump_timeout(curr)) {
++				aipu_set_terminal_state_no_lock(manager, curr,
++								AIPU_JOB_STATE_EXCEP);
++				aipu_mark_fault_event_no_lock(manager, partition,
++							      AIPU_IRQ_EVENT_ABORT);
++			}
++		} else {
++			aipu_mark_fault_event_no_lock(manager, partition,
++						      AIPU_IRQ_EVENT_ABORT);
++		}
+ 		spin_unlock(&manager->lock);
+ 		return;
+ 	}
+@@ -1373,6 +1460,28 @@ static int aipu_job_manager_destroy_command_pool(struct aipu_job_manager *manage
+ 	return ret;
+ }
+ 
++static void aipu_finish_recovered_jobs_no_lock(struct aipu_job_manager *manager,
++					       struct aipu_partition *partition,
++					       enum irq_event_type event,
++					       bool coredump_event)
++{
++	struct aipu_job *job;
++
++	list_for_each_entry(job, &manager->scheduled_head->node, node) {
++		if (event != AIPU_IRQ_EVENT_RESET &&
++		    job->desc.partition_id != partition->id)
++			continue;
++		if (coredump_event && job->state == AIPU_JOB_STATE_CORED_SIGNAL) {
++			aipu_set_terminal_state_no_lock(manager, job,
++							AIPU_JOB_STATE_CORED);
++			continue;
++		}
++		if (!aipu_job_is_reapable(job))
++			aipu_set_terminal_state_no_lock(manager, job,
++							AIPU_JOB_STATE_EXCEP);
++	}
++}
++
+ static void aipu_job_manager_finish_irq_bottom_half(struct aipu_partition *core,
+ 						     bool process_event,
+ 						     bool keep_quiesced)
+@@ -1387,6 +1496,7 @@ static void aipu_job_manager_finish_irq_bottom_half(struct aipu_partition *core,
+ 	struct list_head *h = NULL;
+ 	struct command_pool *pool = NULL;
+ 	enum irq_event_type event = AIPU_IRQ_EVENT_NONE;
++	bool coredump_event = false;
+ 	bool event_success = false;
+ 	bool reschedule_event = false;
+ 
+@@ -1406,8 +1516,10 @@ static void aipu_job_manager_finish_irq_bottom_half(struct aipu_partition *core,
+ 	if (process_event && pool) {
+ 		event = core->event_type;
+ 		core->event_type = AIPU_IRQ_EVENT_NONE;
+-		if (event == AIPU_IRQ_EVENT_COREDUMP)
++		if (event == AIPU_IRQ_EVENT_COREDUMP) {
++			coredump_event = true;
+ 			event = AIPU_IRQ_EVENT_ABORT;
++		}
+ 	}
+ 	spin_unlock_irqrestore(&manager->lock, flags);
+ 
+@@ -1440,17 +1552,8 @@ static void aipu_job_manager_finish_irq_bottom_half(struct aipu_partition *core,
+ 			}
+ 			if (event == AIPU_IRQ_EVENT_ABORT)
+ 				pool->aborted = true;
+-			list_for_each_entry(curr, h, node) {
+-				if ((event == AIPU_IRQ_EVENT_RESET ||
+-				     curr->desc.partition_id == core->id) &&
+-				    !aipu_job_is_reapable(curr)) {
+-					curr->state = AIPU_JOB_STATE_EXCEP;
+-					if (curr->desc.exec_flag &
+-					    AIPU_JOB_EXEC_FLAG_SRAM_MUTEX)
+-						manager->exec_flag &=
+-							~AIPU_JOB_EXEC_FLAG_SRAM_MUTEX;
+-				}
+-			}
++			aipu_finish_recovered_jobs_no_lock(manager, core, event,
++							   coredump_event);
+ 		}
+ 		/* Keep the successful target closed until cleanup below completes. */
+ 		manager->quiescing = event_success ||
+@@ -1475,7 +1578,7 @@ static void aipu_job_manager_finish_irq_bottom_half(struct aipu_partition *core,
+ 
+ 		/* destroy the v3 command pool if all jobs are done */
+ 		if (curr->desc.partition_id == core->id &&
+-		    (!aipu_job_is_reapable(curr) || curr->desc.is_coredump_en))
++		    !aipu_job_is_reapable(curr))
+ 			do_destroy = false;
+ 	}
+ 
+@@ -1990,6 +2093,9 @@ int aipu_job_manager_take_job_status(struct aipu_job_manager *manager,
+ 			snapshot->status[poll_iter].thread_id = curr->uthread_id;
+ 			if (curr->state == AIPU_JOB_STATE_SUCCESS)
+ 				snapshot->status[poll_iter].state = AIPU_JOB_STATE_DONE;
++			else if (curr->state == AIPU_JOB_STATE_CORED)
++				snapshot->status[poll_iter].state =
++					AIPU_JOB_STATE_COREDUMP;
+ 			else
+ 				snapshot->status[poll_iter].state = AIPU_JOB_STATE_EXCEPTION;
+ 
+@@ -2116,8 +2222,8 @@ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 		/* exception jobs should be cleared and hw is reset */
+ 		if (curr->state == AIPU_JOB_STATE_PENDING ||
+-		    curr->state == AIPU_JOB_STATE_RUNNING ||
+-		    curr->state == AIPU_JOB_STATE_DEFERRED) {
++		    curr->state == AIPU_JOB_STATE_DEFERRED ||
++		    aipu_job_is_hw_active(curr)) {
+ 			hw->status = AIPU_STATUS_BUSY;
+ 			break;
+ 		}
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu/aipu_job_manager.h
+@@ -9,6 +9,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/wait.h>
+ #include <linux/poll.h>
++#include <linux/workqueue.h>
+ #include <armchina_aipu.h>
+ #include "aipu_partition.h"
+ #include "aipu_mm.h"
+@@ -16,12 +17,15 @@
+ #define AIPU_EXEC_ID_FIRST 0x208ULL
+ 
+ struct aipu_file_ctx;
++struct aipu_job_manager;
+ 
+ enum aipu_state_kern {
+ 	AIPU_JOB_STATE_IDLE,
+ 	AIPU_JOB_STATE_PENDING,
+ 	AIPU_JOB_STATE_DEFERRED,
+ 	AIPU_JOB_STATE_RUNNING,
++	AIPU_JOB_STATE_CORED_WAIT,
++	AIPU_JOB_STATE_CORED_SIGNAL,
+ 	AIPU_JOB_STATE_EXCEP, /* exception */
+ 	AIPU_JOB_STATE_CORED, /* coredump */
+ 	AIPU_JOB_STATE_SUCCESS
+@@ -90,6 +94,8 @@ struct profiler {
+  * @pdata: profiling data (enabled by profiling flag in desc)
+  * @wake_up: wake up flag
+  * @canceling: owner operation is quiescing this job; IRQ scheduling must skip it
++ * @manager: manager used by the bounded coredump timeout
++ * @coredump_timeout_work: recovers a fault if no matching dump signal arrives
+  * @prev_tail_tcb: address of the tail TCB of the previous job linking this job (v3 only)
+  * @tcb_mapping: owner-validated allocation pinned for the lifetime of this job
+  * @prof_filp: pointer to a struct file (the profiler data dump file created in user mode)
+@@ -108,6 +114,8 @@ struct aipu_job {
+ 	struct aipu_ext_profiling_data pdata;
+ 	int wake_up;
+ 	bool canceling;
++	struct aipu_job_manager *manager;
++	struct delayed_work coredump_timeout_work;
+ 	u64 curr_hold_tcb;
+ 	struct aipu_tcb_mapping tcb_mapping;
+ 	struct file *prof_filp;

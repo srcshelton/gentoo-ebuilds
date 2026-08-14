@@ -1,255 +1,408 @@
-# Orion O6/O6N ACPI Table Upgrade Support
+# ACPI table upgrades for Radxa Orion O6 and O6N
 
-Linux can optionally load replacement or supplemental ACPI tables from an
-initramfs. The kernel documentation for this mechanism is:
+Linux can load supplemental or replacement ACPI tables from its initramfs.
+This package uses that standard mechanism to correct firmware descriptions and
+expose hardware which Linux can otherwise misconfigure or fail to enumerate.
+It does not modify or flash the board firmware.
 
-`Documentation/admin-guide/acpi/initrd_table_override.rst`
+The profiles in this package target [Radxa Orion O6](https://docs.radxa.com/en/orion/o6)
+and [O6N](https://docs.radxa.com/en/orion/o6n) boards with Radxa firmware
+1.2.1 or a later 1.2.x release, or the exact 1.3.0 release. Do not assume that
+a later 1.3.x release has the same table layout unless it is listed here. The
+1.3.0 profiles do not restore the PCIe SMMU which that firmware disables. The
+kernel mechanism is described in the
+[Linux ACPI initrd table override documentation](https://docs.kernel.org/admin-guide/acpi/initrd_table_override.html).
 
-The table sources shipped by this package target Radxa Orion O6 and O6N boards
-running Radxa vendor firmware `1.2.1`.
+> **Warning:** Select the exact board and firmware family. A table compiled for
+> the wrong board or firmware can hide devices, describe incorrect resources,
+> or prevent boot. Keep a known-good kernel and use `acpi_table_upgrade=off`
+> for a recovery boot.
 
-## Available Profiles
+## Available profiles
 
-There are two initramfs source-list profiles: an SSDT-only lower-impact
-profile, and a full profile that layers whole-table replacements on top of the
-same SSDT payloads.
+An SSDT-only profile adds narrowly scoped supplemental tables. A full profile
+contains the same SSDTs plus replacement tables such as DSDT, PPTT, the O6
+board SSDT, and optionally IORT. The full profile changes more firmware data
+and should be used only for the board and firmware shown.
 
-- SSDT-only profile: enable the smaller table-upgrade set through a board
-  `initramfs.list` or `--acpi-table-upgrade ssdt`. This profile contains only
-  additive SSDT payloads. On O6 it repairs the captured `_CPC`
-  reference-performance values, updates the RTS5453 Type-C PD controller nodes
-  to use shared IRQ resources, adds SCMI mailbox shared-memory windows, marks
-  the GPU non-coherent, describes BusPerf fabric performance devices, exposes
-  the DSU PMU, keeps the isolated `ECTZ` critical trip overlay, supplies the
-  combined DTB/MemoryMap-backed SoC thermal monitor sensor table, describes the
-  Sky1 reboot-reason register, and adds DTB-aligned audio DMA/HDA metadata
-  including the HDA `_DMA` translation window. On O6N, the SSDT profile keeps
-  only the overlays that are compatible with the O6N ACPI namespace and leaves
-  O6-only EC, Type-C, audio, and extra thermal-zone overlays out.
-- DSDT/whole-table profile: enable the full replacement profile through
-  a board `initramfs-dsdt.list` or `--acpi-table-upgrade dsdt`. This profile
-  includes the same board-specific SSDT payloads, plus that board's
-  Radxa-`1.2.1`-derived `DSDT.aml`. On O6, the DSDT replacement carries the
-  newer OEM revision, mainline-only PCIe/USB device-model policy, DTB-aligned
-  eDP backlight brightness levels, and the ACPI `RAOP` ramoops description used
-  by the pstore/ramoops driver. On O6N, the DSDT source is the O6N-compatible
-  base DSDT captured from an O6N `1.2.1` system so the full profile can share
-  the whole-table payload structure without using the O6 DSDT on O6N hardware.
-  Both boards also include the replacement `PPTT.aml` cache topology and, when
-  enabled by USE flags, the generated `IORT.aml` SMMU table update.
+On Linux 7.1, the O6/O6N firmware-1.2 full profile also contains one
+`MPAM.aml` table describing the DSU-120 cache-allocation controller. Linux's
+[arm64 MPAM documentation](https://docs.kernel.org/arch/arm64/mpam.html)
+describes the architecture support and its use of the
+[resctrl interface](https://docs.kernel.org/filesystems/resctrl.html).
+The table is inert when `CONFIG_ARM64_MPAM` is disabled. Enabling that kernel
+option together with `CONFIG_RESCTRL_FS` causes Linux to initialise the MPAM
+hardware and must be followed by the checks below.
 
-The O6 DSDT replacement keeps the generic Linux-visible `PNP0A08` PCIe and
-`PNP0D10` USB hierarchies and marks the duplicate vendor-specific CIX/Cadence
-PCIe/USB hierarchy not-present. The `DSDT.aml` payload itself does not change
-CPU numbering, APIC, IORT, or the AML CPU topology; those whole-table updates
-are separate payloads included only in the DSDT/whole-table profile.
+| Board and firmware | SSDT-only profile | Full profile | Profile embedded in GitHub `.deb` packages |
+| --- | --- | --- | --- |
+| O6, Radxa 1.2.x | 11 AML files | 15 files, or 16 with IORT on Linux 7.1 | Full, with both IORT transformations |
+| O6, Radxa 1.3.0 | 10 AML files | 12 files | Full |
+| O6N, Radxa 1.2.x | 8 AML files | 11 files, or 12 with IORT on Linux 7.1 | Full, with both IORT transformations |
+| O6N, Radxa 1.3.0 | 7 AML files | Not available | SSDT-only |
 
-## Table Payloads
+The `generic` and `generic-64k` package variants use the same ACPI payload.
+Their difference is the kernel page-size/configuration flavour.
 
-The installed AML filenames below are the files placed in
-`/kernel/firmware/acpi` inside the generated initramfs source lists. Rows marked
-`ssdt, dsdt` are included by both the SSDT-only and DSDT/whole-table profiles.
-Rows marked `dsdt only` are included only by the DSDT/whole-table profile.
+### Exact profile contents
 
-| Board(s) | Profile(s) | Installed AML | Table ID/source | Subsystem(s) | Effect |
-| --- | --- | --- | --- | --- | --- |
-| O6 | `ssdt`, `dsdt` | `O6AUD.aml` | `O6AUDMD` / `orion-o6-audio-dtb-metadata.asl` | Audio DMA, HDA, clocks | Aligns O6 audio metadata with the vendor DT layout: makes the `DMA1` reserved-memory entry a `12 MiB` window at `0xd0000000`, removes the legacy HDA `RSVL` carveout, adds the HDA `_DMA` translation window from device DMA `0x00000000`-`0x7fffffff` to CPU physical `0x90000000`-`0x10fffffff`, and points `DMA1.CLKT` at the AUDSS DMAC AXI clock. |
-| O6, O6N | `ssdt`, `dsdt` | `O6BPF.aml`, `O6NBPF.aml` | `O6BPERF`, `O6NBPERF` / `*-busperf.asl` | SCMI performance domains, fabric clocks | Adds `CIXHA030` (`CI70`) and `CIXHA031` (`MMHB`) ACPI devices with SCMI DVFS performance-domain references to domains `10` and `11`, allowing the Linux `CIX_BUS_PERF` driver to bind the CI700 and NI700/MMHUB fabric performance controls. |
-| O6, O6N | `ssdt`, `dsdt` | `O6CPPC.aml`, `O6NCPPC.aml` | `O6CPPC`, `O6NCPPC` / `*-cppc-reference-performance.asl` | CPU performance, CPPC | Repairs `_CPC` `ReferencePerformance` values that stock firmware reports as `1000` for every CPU. The overlay derives replacement values from nominal performance/frequency and the `1 GHz` architectural timer, while leaving CPU topology and numbering unchanged. |
-| O6, O6N | `ssdt`, `dsdt` | `O6DSUP.aml`, `O6NDSUP.aml` | `O6DSUP`, `O6NDSUP` / `*-dsu-pmu.asl` | PMU, CPU cluster observability | Adds the DSU PMU as an `ARMHD500` ACPI device using GSI `34` (`SPI 2`), matching the vendor DTB's shared cluster/L3 PMU description. |
-| O6, O6N | `ssdt`, `dsdt` | `O6GPU.aml`, `O6NGPU.aml` | `O6GPUCCA`, `O6NGPUCA` / `*-gpu-noncoherent.asl` | GPU DMA coherency | Sets `\_SB.GPU._CCA` to `0` so Linux treats Sky1 GPU DMA as non-coherent instead of trusting the stock coherent ACPI metadata. |
-| O6 | `ssdt`, `dsdt` | `O6RTS.aml` | `O6RTSIRQ` / `orion-o6-rts5453-shared-irq.asl` | USB Type-C, RTS5453, GPIO IRQs | Replaces `\_SB.I2C1.PD10._CRS` and `\_SB.I2C1.PD11._CRS` with resources that keep the original I2C addresses `0x30`/`0x31` but mark the shared `\_SB.GPI4` pin `8` interrupt as `Shared`, matching the actual O6 RTS5453 wiring. |
-| O6, O6N | `ssdt`, `dsdt` | `O6SCMI.aml`, `O6NSCMI.aml` | `O6MBX`, `O6NMBX` / `*-scmi-mailbox-window.asl` | SCMI mailbox resources | Replaces `MBX6` and `MBX7` `_CRS` windows so the mailbox register ranges start at `0x06590080` and `0x065a0080`, leaving the leading `0x80` bytes for `SHM0`/`SHM1` and avoiding the stock mailbox/shared-memory resource overlap. |
-| O6 | `ssdt`, `dsdt` | `O6ECTZ.aml` | `O6ECTZ` / `orion-o6-ectz-critical-trip.asl` | ACPI thermal, EC thermal zone | Adds a critical trip point to the stock `\_SB.ECTZ` EC thermal zone by supplying `_CRT = 0x0e80` (`3680 dK`, about `95 C`). This remains separate from the sensor-zone overlay so it can be excluded independently. |
-| O6, O6N | `ssdt`, `dsdt` | `O6RBRR.aml`, `O6NRBRR.aml` | `O6RBRR`, `O6NRBRR` / `*-reboot-reason.asl` | Reboot reason, diagnostics | Adds a `PRP0001` device compatible with `cix,sky1-reboot-reason` over the read-only reboot-reason register at `0x16000500`, allowing the Linux reboot-reason driver to expose the last reset cause. |
-| O6 | `ssdt`, `dsdt` | `O6TZSNS.aml` | `O6TZSNS` / `orion-o6-thermal-sensors.asl` | ACPI thermal, PMMX sensors | Adds PMMX.SENG-backed thermal zones for VPU, GPU bottom/top, SoC bridge, DDR bottom/top, CI700 interconnect, NPU, SoC trace, and two board NTC sensors. Each zone has a critical trip point, a `10` decisecond polling period, and returns `Ones` on PMMX status failure rather than exposing a false temperature. |
-| O6, O6N | `dsdt only` | `DSDT.aml` | board-specific `dsdt/DSDT.asl` | ACPI namespace, PCIe, USB, pstore, display | Replaces the stock DSDT with a board-specific Radxa `1.2.1`-derived DSDT. The O6 payload keeps the generic Linux-visible `PNP0A08` PCIe and `PNP0D10` USB model, suppresses overlapping vendor PCIe/USB controller models, adds/tightens PCIe I/O and memory windows, carries the PCIe `_OSC` handoff policy, exposes the `RAOP` `ramoops` device, and carries the display/backlight metadata cleanup. The O6N payload uses an O6N-compatible DSDT source and does not import O6-only SSDT overlays. |
-| O6, O6N | `dsdt only` | `PPTT.aml` | `pptt/PPTT.asl` | CPU/cache topology | Replaces PPTT with a conservative cache topology model: `32 KiB` L1I + `32 KiB` L1D for A520 cores, `64 KiB` L1I + `64 KiB` L1D plus private `512 KiB` L2 for A720 cores, and shared `12 MiB` L3. It does not renumber CPUs. |
-| O6, O6N | `dsdt only`, optional | `IORT.aml` | generated from `iort/IORT.dat` by `build_iort_upgrade.py` | IOMMU, SMMUv3, MSI domains | Generated only when `acpi-table-upgrade-dsdt` is enabled and at least one IORT USE flag is active. `acpi-table-upgrade-iort-httu` marks SMMUv3 nodes coherent and advertises hardware access/dirty table updates. `acpi-table-upgrade-iort-msi` adds or validates ITS mappings for the Sky1 PCIe and platform SMMUv3 nodes at `0x0b010000` and `0x0b1b0000`, marks their device-ID mapping valid, and avoids Linux falling back to wired IRQs for those SMMU nodes. |
+| Profile | AML files loaded from the built-in initramfs |
+| --- | --- |
+| O6 1.2 SSDT-only | `S1DMACLK.aml`, `S1AUD.aml`, `S1DMAR.aml`, `O6BPERF.aml`, `O6CPPC.aml`, `O6DSUP.aml`, `O6ECTZ.aml`, `O6RTS.aml`, `O6RBRR.aml`, `O6SCMI.aml`, `O6TZSNS.aml` |
+| O6 1.2 full | The eleven files above, plus `DSDT.aml`, `ORIONO6.aml`, `PPTT.aml`, optional `IORT.aml`, and on Linux 7.1 `MPAM.aml` |
+| O6 1.3 SSDT-only | `S1DMACLK.aml`, `S1AUD.aml`, `S1DMAR.aml`, `O6BPERF.aml`, `O6DSUP.aml`, `O6ECTZ.aml`, `O6RTS.aml`, `O6RBRR.aml`, `O6SCMI.aml`, `O6TZSNS.aml` |
+| O6 1.3 full | The ten files above, plus `DSDT.aml` and `ORIONO6.aml` |
+| O6N 1.2 SSDT-only | `S1DMACLK.aml`, `S1AUD.aml`, `S1DMAR.aml`, `O6NBPERF.aml`, `O6NCPPC.aml`, `O6NDSUP.aml`, `O6NRBRR.aml`, `O6NSCMI.aml` |
+| O6N 1.2 full | The eight files above, plus `DSDT.aml`, `PPTT.aml`, optional `IORT.aml`, and on Linux 7.1 `MPAM.aml` |
+| O6N 1.3 SSDT-only | `S1DMACLK.aml`, `S1AUD.aml`, `S1DMAR.aml`, `O6NBPERF.aml`, `O6NDSUP.aml`, `O6NRBRR.aml`, `O6NSCMI.aml` |
 
-## ebuild usage
+## Changes supplied by the tables
 
-Build and install the SSDT-only profile:
+Repository source paths below are relative to
+`sys-kernel/cix-sources/files/acpi-table-upgrade/`. Installed source copies are
+beneath `cix-acpi-table-upgrade/source/`. The table accounts for every retained
+ASL source, both binary IORT inputs, and both IORT generator copies. The Python
+generators are build tools and are not embedded in the kernel image.
+
+| Installed AML | Source input | Applies to | Subsystem and practical benefit |
+| --- | --- | --- | --- |
+| `S1DMACLK.aml` | `shared/shared/ssdt/sky1-audio-dma-clock-name.asl` | Every profile | Names the AUDSS-local DMA1 AXI clock `axiclk`, allowing the DMA350 driver to request the clock by the name it expects. |
+| `S1AUD.aml` | `shared/shared/ssdt/sky1-audio-dma-api.asl` | Every profile | Gives HDA its standard DMA translation on O6 and O6N and neutralises the native DMA1/HDA fixed-pool tuples, which neither reserve memory nor have a retained ACPI consumer. DMA1 and HDA use normal DMA-API allocation instead. |
+| `S1DMAR.aml` | `shared/shared/ssdt/sky1-audss-dma-range.asl` | Every profile | Describes DMA1's standard 32-bit DMA address translation window. The matching kernel refuses to start DMA1 when neither this table nor the native-firmware compatibility property supplies that essential mapping. |
+| `O6CPPC.aml` | `o6/1.2/ssdt/orion-o6-cppc-reference-performance.asl` | O6 1.2 | Repairs per-cluster CPPC reference-performance values so Linux interprets CPU performance levels correctly. O6 firmware 1.3.0 already supplies these values. |
+| `O6NCPPC.aml` | `o6n/1.2/ssdt/orion-o6n-cppc-reference-performance.asl` | O6N 1.2 | Applies the equivalent CPPC reference-performance repair to O6N. |
+| `O6DSUP.aml` | `o6/shared/ssdt/orion-o6-dsu-pmu.asl` | Every O6 profile | Exposes the DSU PMU for shared-cache and CPU-cluster performance monitoring. |
+| `O6NDSUP.aml` | `o6n/shared/ssdt/orion-o6n-dsu-pmu.asl` | Every O6N profile | Exposes the equivalent DSU PMU device on O6N. |
+| `O6BPERF.aml` | `o6/shared/ssdt/orion-o6-busperf.asl` | Every O6 profile | Exposes the firmware CI-700 and multimedia-fabric SCMI performance domains to the CIX bus-performance driver. The driver validates every advertised OPP and provides standard devfreq controls while preserving firmware policy until an administrator selects a frequency or fixed governor. |
+| `O6NBPERF.aml` | `o6n/shared/ssdt/orion-o6n-busperf.asl` | Every O6N profile | Exposes the same Sky1 interconnect performance domains on O6N with identical validation and devfreq policy controls. |
+| `O6RTS.aml` | `o6/shared/ssdt/orion-o6-rts5453-shared-irq.asl` | Every O6 profile | Corrects the two O6 Type-C port functions of one RTS5453H from `Exclusive` to `Shared`: both use the same level-low GPI4 pin 8 interrupt. Their I2C addresses and exclusive I2C-bus resources are unchanged. Linux on the maintained lines already requests two shared handlers independently, so this repairs the firmware contract rather than changing that Linux admission path. O6N exposes only one port function on this pin and does not use the table. |
+| `O6SCMI.aml` | `o6/shared/ssdt/orion-o6-scmi-mailbox-window.asl` | Every O6 profile | Removes mailbox/shared-memory resource overlap and supplies the validated CPU-to-SCMI-domain and power-unit contract used by safe thermal power allocation. The heterogeneous CPU layout maps UIDs 0-1 to SCMI performance domain 4, 2-5 to domain 2, 6-7 to domain 5, 8-9 to domain 6, and 10-11 to domain 3. Invalid metadata causes a safe fallback. |
+| `O6NSCMI.aml` | `o6n/shared/ssdt/orion-o6n-scmi-mailbox-window.asl` | Every O6N profile | Applies the same CPU-to-SCMI-domain and thermal contract to O6N, using the identical SoC CPU layout and safe invalid-metadata fallback. |
+| `O6RBRR.aml` | `o6/shared/ssdt/orion-o6-reboot-reason.asl` | Every O6 profile | Exposes the software reboot reason and hardware reset source through the CIX reboot-reason driver. |
+| `O6NRBRR.aml` | `o6n/shared/ssdt/orion-o6n-reboot-reason.asl` | Every O6N profile | Exposes the equivalent reboot-reason device on O6N. |
+| `O6ECTZ.aml` | `o6/shared/ssdt/orion-o6-ectz-critical-trip.asl` | Every O6 profile | Adds an approximately 98 °C critical trip to the stock EC thermal zone. It is separate so it can be excluded independently. |
+| `O6TZSNS.aml` | `o6/shared/ssdt/orion-o6-thermal-sensors.asl` | Every O6 profile | Exposes VPU, GPU, DDR, interconnect, NPU, trace, and board NTC thermal zones with critical trips and failure-safe temperature reporting. Board-thermistor zero samples receive three bounded re-reads before being reported as unavailable. |
+| `DSDT.aml` | `o6/1.2/dsdt/DSDT.asl` | O6 1.2 full | Provides the generic Linux PCIe/USB device model, corrected resources and bus range, ramoops, GPU supply metadata, and audio, pinctrl, display, and backlight fixes. It retains the five exact PNP0C02 PCI ECAM reservations so the windows remain represented in the ACPI namespace; kernel patch `40046` recognises only the corresponding already-owned duplicate. Active display and Type-C graph links use standard endpoint path strings; graph properties are removed from disabled virtual-display nodes. DMA dimensions remain discoverable from build registers, the unused clock-policy hint and fixed DMA1/HDA pool tuples are omitted, and DMA1 uses `S1DMAR.aml`. The HiFi5 node publishes XAF FIFO mailbox channel 9 and SOF doorbell channel 8 as separate resources, allowing either compile-time owner without sharing a live DSP. |
+| `DSDT.aml` | `o6n/1.2/dsdt/DSDT.asl` | O6N 1.2 full | Provides the O6N-specific generic PCIe and USB device model, corrected PRC1 bus range, ramoops, GPU supply metadata, and audio, pinctrl, display, and backlight corrections without importing O6-only board overlays. It retains the combined PNP0C02 PCI ECAM reservation so the window remains represented in the ACPI namespace; kernel patch `40046` recognises only the corresponding already-owned duplicate. Active graph links use standard endpoint path strings and disabled virtual-display links are omitted. DMA dimensions remain discoverable from build registers, the unused clock-policy hint and fixed DMA1/HDA pool tuples are omitted, and DMA1 uses `S1DMAR.aml`. The HiFi5 node publishes XAF FIFO mailbox channel 9 and SOF doorbell channel 8 as separate resources, allowing either compile-time owner without sharing a live DSP. |
+| `DSDT.aml` | `o6/1.3/dsdt/DSDT.asl` | O6 1.3 full | Starts from Radxa 1.3.0, suppresses duplicate vendor PCIe devices, retains the combined PNP0C02 PCI ECAM reservation for ACPI namespace completeness, and adds the pinctrl, ramoops, eDP-backlight, and canonical active graph corrections. Kernel patch `40046` recognises only the corresponding already-owned duplicate. It removes disabled virtual-display links and omits optional external-pad routes from the internal DisplayPort I2S5--I2S9 codecs. Its native GPU coherency declaration remains authoritative. Unused DMA dimensions, the clock-policy hint, and fixed DMA1/HDA pool tuples are removed; DMA1 uses `S1DMAR.aml`, while the firmware-owned 50 MiB audio HOB is unaffected. The HiFi5 node publishes XAF FIFO mailbox channel 9 and SOF doorbell channel 8 as separate resources. |
+| `ORIONO6.aml` | `o6/1.2/ssdt-replacement/ORIONO6.asl` | O6 1.2 full | Splits each USB over-current input from its VBUS-drive GPIO, publishes the dedicated `usb_drive_vbus0`, `usb_drive_vbus4`, and `usb_drive_vbus5` pin groups expected by the regulators, and expresses the reciprocal Type-C graph links as standard endpoint paths. The firmware-exposed EC PWM fan-control interface is retained. |
+| `ORIONO6.aml` | `o6/1.3/ssdt-replacement/ORIONO6.asl` | O6 1.3 full | Applies the same USB over-current/VBUS-drive group split and canonical Type-C graph links in the firmware-1.3-specific board table while retaining EC PWM fan control. |
+| `PPTT.aml` | `shared/1.2/pptt/PPTT.asl` | O6/O6N 1.2 full | Describes the private CPU caches and shared 12 MiB system cache, including an ID that lets Linux report cache sharing consistently. It does not invent an additional 2 MiB A520 L2. |
+| `MPAM.aml` | `shared/1.2/mpam/MPAM.asl` | O6/O6N 1.2 full profile on Linux 7.1 | Describes the DSU-120 MPAM controller at `0x0f010000` and links it to PPTT Cache ID 1. When arm64 MPAM is enabled, Linux resctrl exposes the six two-way cache-allocation portions of the shared 12 MiB cache. The optional `mbw_prop` resctrl mount mode also exposes its six-bit proportional-bandwidth stride. The table does not claim unavailable CI-700 partitioning or monitoring. Its optional error interrupt remains omitted. |
+| `IORT.aml` | `o6/1.2/iort/IORT.dat` and `o6/1.2/iort/build_iort_upgrade.py` | O6 1.2 full, optional | Generates an upgraded 1.2 IORT. HTTU mode marks SMMUv3 coherent access and advertises hardware access/dirty-table updates; MSI mode supplies valid ITS mappings for the Sky1 PCIe and platform SMMUs. |
+| `IORT.aml` | `o6n/1.2/iort/IORT.dat` and `o6n/1.2/iort/build_iort_upgrade.py` | O6N 1.2 full, optional | Generates the equivalent O6N IORT upgrade. The retained O6 and O6N inputs currently produce the same transformations. |
+
+## Using pre-built Debian or Ubuntu packages
+
+The GitHub workflow embeds the selected AML files in the kernel image through
+`CONFIG_INITRAMFS_SOURCE`. Installing the matching `linux-image` package is
+therefore sufficient; do not copy AML files into the distribution initramfs or
+run the [ACPICA `iasl` compiler](https://github.com/acpica/acpica) separately.
+
+Package names encode the board, firmware family, configuration, and kernel.
+Choose `o6` or `o6n` for the physical board, `1.2` or `1.3` for the installed
+Radxa firmware family, and `generic` unless a 64 KiB page kernel is explicitly
+required. For example, an `o6-acpi-generic-1.2` artifact contains the O6
+firmware-1.2 full profile. Keep the distribution kernel installed, extract one
+matching workflow artifact, and install its image and optional external-module
+headers with:
 
 ```sh
-USE=acpi-table-upgrade emerge sys-kernel/cix-sources
+sudo apt install ./linux-image-*.deb ./linux-headers-*.deb
 ```
 
-Build and install both profiles, including the full DSDT/whole-table profile:
+Do not install the artifact's `linux-libc-dev` merely to test the kernel; that
+would replace the system-wide userspace headers. Confirm that the bootloader
+still offers the known-good distribution kernel before selecting the CIX image.
+
+The image package also installs `/usr/local/bin/kconfig_update.py` for users
+who later configure a kernel source tree. It is not needed merely to boot the
+pre-built kernel.
+
+If the firmware is not a supported Radxa 1.2.x or 1.3.0 release, make the
+first boot with `acpi_table_upgrade=off`. A matching board name alone is not
+proof that an alternative firmware publishes compatible ACPI namespaces and
+resources.
+
+## Using the Gentoo package
+
+The relevant USE flags are:
+
+| USE flag | Effect |
+| --- | --- |
+| `acpi-table-upgrade` | Compiles and installs every SSDT-only board/firmware profile. |
+| `acpi-table-upgrade-dsdt` | Also builds every supported full profile. Requires `acpi-table-upgrade`. |
+| `acpi-table-upgrade-iort-httu` | Adds HTTU attributes to IORT in firmware-1.2 full profiles. |
+| `acpi-table-upgrade-iort-msi` | Adds or validates ITS mappings in IORT in firmware-1.2 full profiles. |
+
+All four flags are enabled by default. The two IORT flags have no effect on an
+SSDT-only profile or a firmware-1.3 profile.
+
+Compile only the SSDT-only payload profiles with:
 
 ```sh
-USE="acpi-table-upgrade acpi-table-upgrade-dsdt" emerge sys-kernel/cix-sources
+USE="acpi-table-upgrade -acpi-table-upgrade-dsdt" \
+  emerge sys-kernel/cix-sources
 ```
 
-The `acpi-table-upgrade` flag adds a build-time dependency on
-`>=sys-power/iasl-20241212`. Two IORT table-upgrade flags are enabled by
-default and may be disabled individually: `acpi-table-upgrade-iort-httu`
-enables hardware-managed SMMUv3 access/dirty table updates, and
-`acpi-table-upgrade-iort-msi` marks the PCIe SMMUv3 node's ITS mapping as a
-valid MSI-domain parent. The ebuild emits one generated `IORT.aml` into the
-DSDT/whole-table profile when `acpi-table-upgrade-dsdt` is enabled and one or
-both IORT flags are enabled. The SSDT-only profile never includes `IORT.aml`.
+Build the full set of supported profiles with:
 
-During `src_compile`, the ebuild compiles the SSDT-only profile and, when
-requested, the DSDT/whole-table profile. The install tree contains the ASL
-sources, compiled AML payloads, and generated initramfs source lists:
+```sh
+USE="acpi-table-upgrade acpi-table-upgrade-dsdt" \
+  emerge sys-kernel/cix-sources
+```
+
+The ebuild always installs the complete ACPI source taxonomy for inspection and
+future builds. The USE flags control which payload profiles and generated
+source lists are compiled and installed beneath:
 
 ```text
-/usr/src/linux-<version>/cix-acpi-table-upgrade/source/o6/orion-o6-radxa-1.2.1/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/source/o6n/orion-o6n-radxa-1.2.1/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs/kernel/firmware/acpi/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs-dsdt/kernel/firmware/acpi/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs.list
-/usr/src/linux-<version>/cix-acpi-table-upgrade/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs/kernel/firmware/acpi/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs-dsdt/kernel/firmware/acpi/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs.list
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs/kernel/firmware/acpi/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs-dsdt/kernel/firmware/acpi/
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs.list
-/usr/src/linux-<version>/cix-acpi-table-upgrade/o6n/initramfs-dsdt.list  # with acpi-table-upgrade-dsdt
+/usr/src/linux-<version>-cix[-rN]/cix-acpi-table-upgrade/
 ```
 
-`<board>/initramfs.list` selects the SSDT-only profile for `o6` or `o6n`.
-`<board>/initramfs-dsdt.list` selects the same board-specific SSDT payloads
-plus the DSDT, PPTT, and enabled IORT whole-table replacements. The historical
-top-level `initramfs.list` and `initramfs-dsdt.list` paths remain O6 aliases.
+Installing those files does not activate a profile. Kernel configuration must
+select one source list:
 
-Keep `/usr/src/linux` pointing at the kernel source tree being built if you want
-one reusable `.config` across kernel version bumps. The kernel build resolves
-relative `CONFIG_INITRAMFS_SOURCE` paths from the build output directory when
-`O=...` is used, so the recommended value uses the stable `/usr/src/linux`
-symlink rather than a path relative to the source tree.
+| Board/firmware | SSDT-only list | Full-profile list |
+| --- | --- | --- |
+| O6 1.2 | `/usr/src/linux/cix-acpi-table-upgrade/o6/1.2/initramfs.list` | `/usr/src/linux/cix-acpi-table-upgrade/o6/1.2/initramfs-dsdt.list` |
+| O6 1.3 | `/usr/src/linux/cix-acpi-table-upgrade/o6/1.3/initramfs.list` | `/usr/src/linux/cix-acpi-table-upgrade/o6/1.3/initramfs-dsdt.list` |
+| O6N 1.2 | `/usr/src/linux/cix-acpi-table-upgrade/o6n/1.2/initramfs.list` | `/usr/src/linux/cix-acpi-table-upgrade/o6n/1.2/initramfs-dsdt.list` |
+| O6N 1.3 | `/usr/src/linux/cix-acpi-table-upgrade/o6n/1.3/initramfs.list` | Not available |
 
-## Kernel Configuration
+Compatibility aliases beneath `o6/` and `o6n/` select the corresponding
+firmware-1.2 lists; the top-level `initramfs.list` and
+`initramfs-dsdt.list` aliases select O6 firmware 1.2. New configurations
+should use the explicit board/firmware paths above so the selection remains
+clear when another profile is added.
 
-For either table-upgrade profile, enable the built-in uncompressed initramfs
-ACPI override path:
+Keep `/usr/src/linux` pointing at the source tree being built. This stable path
+also works for out-of-tree builds using `O=...`.
+
+## Kernel configuration
+
+The required kernel options are:
 
 ```text
 CONFIG_BLK_DEV_INITRD=y
 CONFIG_ACPI_TABLE_UPGRADE=y
 CONFIG_ACPI_TABLE_OVERRIDE_VIA_BUILTIN_INITRD=y
 CONFIG_INITRAMFS_COMPRESSION_NONE=y
+CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/<board>/<firmware>/<profile>.list"
 ```
 
-For the SSDT-only profile:
+`kconfig_update.py` can produce a fragment or update an existing `.config`.
+Specify the firmware explicitly when cross-building: automatic detection uses
+the running machine's DMI data and falls back to firmware 1.2 when it cannot
+identify a supported family.
 
-```text
-CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6/initramfs.list"
-CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6n/initramfs.list"
+For example, update an O6 firmware-1.2 configuration for the full profile:
+
+```sh
+python3 /path/to/gentoo-ebuilds/sys-kernel/cix-sources/files/kconfig_update.py \
+  --mode update \
+  --kernel-tree /usr/src/linux \
+  --board-profile o6-acpi \
+  --hardware-profile full \
+  --with-npu \
+  --firmware 1.2 \
+  --cix-patches yes \
+  --acpi-table-upgrade dsdt \
+  --apply \
+  /path/to/.config
 ```
 
-For the DSDT-replacement profile:
+Use `o6n-acpi` for O6N and `ssdt` for the lower-impact profile. The helper
+rejects the unavailable O6N firmware-1.3 full profile rather than silently
+selecting another table set. `--hardware-profile` controls kernel driver
+breadth independently of the ACPI payload: use `server`, `desktop`, or `full`.
+The NPU is selected separately with `--with-npu`; internal eDP panel and
+touchscreen support use `--with-edp` and `--with-touchscreen` respectively.
+The touchscreen choice currently prepares the upstream
+[Goodix driver](https://github.com/torvalds/linux/blob/v7.1/drivers/input/touchscreen/goodix.c)
+only. The documented O6 panel is a GT911 on firmware-selectable I2C2, but no
+retained table-upgrade profile creates that child and O6N has no equivalent
+board wiring; selecting the option therefore does not by itself make a
+touchscreen appear.
 
-```text
-CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6/initramfs-dsdt.list"
-CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/o6n/initramfs-dsdt.list"
-```
+To expose DSU cache partitioning on Linux 7.1, select the normal
+firmware-1.2 `dsdt` profile, then enable `CONFIG_ARM64_MPAM=y` and
+`CONFIG_RESCTRL_FS=y` in the kernel configuration. `olddefconfig` should derive
+`CONFIG_ARM64_MPAM_RESCTRL_FS=y`. Leaving `CONFIG_ARM64_MPAM` disabled keeps
+the included `MPAM.aml` table inert.
 
-The selected source list includes the kernel's minimal default initramfs
-entries and the ACPI override layout:
+## Boot-time controls
 
-```text
-dir /dev 0755 0 0
-nod /dev/console 0600 0 0 c 5 1
-dir /root 0700 0 0
-dir /kernel 0755 0 0
-dir /kernel/firmware 0755 0 0
-dir /kernel/firmware/acpi 0755 0 0
-file /kernel/firmware/acpi/<table>.aml /usr/src/linux-<version>/cix-acpi-table-upgrade/<board>/<profile>/kernel/firmware/acpi/<table>.aml 0644 0 0
-```
-
-## Boot-Time Controls
-
-The kernel patch queue adds two early command-line controls for diagnostics and
-safe one-off recovery boots:
+To disable all initramfs ACPI table upgrades for one boot, add:
 
 ```text
 acpi_table_upgrade=off
 ```
 
-This disables ACPI table upgrade processing completely, even when AML files are
-built into the kernel image through `CONFIG_INITRAMFS_SOURCE`. The kernel logs
-that table upgrades were disabled before returning from the upgrade scanner.
+This leaves the AML embedded in the image but prevents Linux from loading it.
+The kernel logs that table-upgrade processing was disabled.
+
+With [GNU GRUB](https://www.gnu.org/software/grub/manual/grub/html_node/Menu-entry-editor.html),
+highlight the CIX entry, press `e`, append the parameter to the line beginning
+with `linux`, and press `Ctrl-x` or `F10`. This changes only that boot. Use the
+equivalent temporary command-line edit in another bootloader, or select the
+previously working kernel if recovery is required.
+
+To leave the profile enabled while excluding one or more payloads, add a
+comma-separated list:
 
 ```text
-acpi_table_upgrade.exclude=O6TZNP.aml
-acpi_table_upgrade.exclude=kernel/firmware/acpi/O6TZNP.aml
-acpi_table_upgrade.exclude=/kernel/firmware/acpi/O6TZNP.aml
+acpi_table_upgrade.exclude=O6TZSNS.aml
+acpi_table_upgrade.exclude=O6ECTZ.aml,O6TZSNS.aml
 ```
 
-This leaves ACPI table upgrade enabled, but skips selected AML files. Entries
-are comma-separated and may be specified as a basename or as the cpio path with
-or without a leading `/`. The kernel still logs discovered candidate AML files,
-marks excluded entries in that discovery line, and emits an explicit `Table
-Upgrade: skip [...] (<path>)` line for each skipped table. Override and install
-messages also include enough table identity to match the action back to the
-corresponding discovery line, which includes the backing cpio path.
+An entry may be an AML basename or its initramfs path, with or without a
+leading slash. Linux logs every excluded file. `O6TZSNS.aml` contains the
+supplemental O6 SoC/board sensors; `O6ECTZ.aml` contains the separate EC
+critical trip, so the two thermal changes can be isolated independently.
 
-The supplemental SoC thermal sensor zones are combined in `O6TZSNS.aml`. The
-existing EC thermal-zone critical trip remains separate as `O6ECTZ.aml` so it
-can still be isolated independently from the PMMX.SENG sensor table.
+## Validation after boot
 
-## kconfig_update.py
-
-The helper can print `.config` fragments, print update diffs for an existing
-`.config`, or apply those update diffs with `--apply`. In fragment and update
-modes, `--kernel-version` is normally unnecessary because the helper detects the
-kernel version from `KERNEL_TREE/Makefile`.
-
-SSDT-only profile:
+Check that Linux discovered and installed the intended payloads:
 
 ```sh
-python3 sys-kernel/cix-sources/files/kconfig_update.py \
-  --mode fragment \
-  --kernel-tree /usr/src/linux-<version> \
-  --board-profile o6-acpi \
-  --cix-patches yes \
-  --acpi-table-upgrade ssdt
+sudo dmesg | grep -Ei \
+  'Table Upgrade|ACPI:.*(upgrade|override)|O6(BPERF|CPPC|DSUP|ECTZ|GPU|RTS|RBRR|SCMI|TZSNS)|O6N(BPERF|CPPC|DSUP|GPU|RBRR|SCMI)'
 ```
 
-DSDT/whole-table profile:
+For a full profile, also look for whole-table replacements:
 
 ```sh
-python3 sys-kernel/cix-sources/files/kconfig_update.py \
-  --mode fragment \
-  --kernel-tree /usr/src/linux-<version> \
-  --board-profile o6-acpi \
-  --cix-patches yes \
-  --acpi-table-upgrade dsdt
+sudo dmesg | grep -Ei \
+  'Table Upgrade: override.*(DSDT|IORT|PPTT|ORIONO6)|ACPI:.*(DSDT|IORT|PPTT)'
 ```
 
-Use `--board-profile o6n-acpi` instead to select the O6N board-specific
-initramfs source list.
-
-Print a diff for an existing config without changing it:
+For a kernel built with arm64 MPAM enabled, first confirm that the table,
+controller and resctrl interface agree before creating any resource group.
+Use an ordinary mount for cache allocation alone, or add `-o mbw_prop` before
+creating groups when proportional bandwidth is also required:
 
 ```sh
-python3 sys-kernel/cix-sources/files/kconfig_update.py \
-  --mode update \
-  --kernel-tree /usr/src/linux-<version> \
-  --board-profile o6-acpi \
-  --cix-patches yes \
-  --acpi-table-upgrade dsdt \
-  /path/to/.config
+sudo dmesg | grep -Ei 'ACPI:.*MPAM|mpam|resctrl'
+mountpoint -q /sys/fs/resctrl ||
+  sudo mount -t resctrl resctrl /sys/fs/resctrl
+cat /sys/fs/resctrl/info/L3/cbm_mask
 ```
 
-Add `--apply` to update the target `.config` file in place. In apply mode, the
-helper writes a backup before overwriting the target config.
-
-## Validation After Boot
-
-After booting with a table-upgrade profile, check `dmesg` for ACPI override
-messages and for the repaired devices. For either profile:
+To opt in to proportional bandwidth on an otherwise unmounted filesystem:
 
 ```sh
-dmesg | grep -Ei 'ACPI:.*(upgrade|override)|O6RBRR|O6TZSNS|rts5453|cppc|arm-scmi|GPU|PNP0A08|PNP0D10'
+sudo mount -t resctrl -o mbw_prop resctrl /sys/fs/resctrl
+cat /sys/fs/resctrl/info/MB_PROP/{min_bandwidth,max_bandwidth,bandwidth_gran}
 ```
 
-For the DSDT/whole-table profile, also check for the whole-table payloads:
+The expected `MB_PROP` values are `0`, `63`, and `1`. The schema value is the
+raw hardware stride-minus-one field: zero selects stride one; higher values
+give that group a lower relative share only while bandwidth is contended.
+This is not an absolute bandwidth limit. A first non-zero setting emits a
+one-time kernel warning to draw attention to its workload-dependent performance
+effect. Measure the target workload before retaining a non-zero policy.
 
-```sh
-dmesg | grep -Ei 'ACPI:.*(DSDT|IORT|PPTT|RAOP)|Table Upgrade: override \[(DSDT|IORT|PPTT)'
-```
+The expected cache mask is `3f`: six available portions. Do not continue with
+partitioning if the mask, cache level, CPU affinity, or controller count
+differs. When changing a policy, use bounded workloads, restore every task to
+the root group, remove temporary groups, and confirm the root mask is `3f`
+before ordinary use.
+
+If `dmesg` access is restricted, use `sudo journalctl -k -b`. Record complete
+boot output before drawing conclusions from one missing device: an earlier AML
+load or dependency failure often explains a later probe error.
+
+## Compatibility and limitations
+
+- The firmware-1.2 SSDT and full profiles incorporate the relevant final 1.2.x
+  CPPC corrections. The PRC1 bus-range correction is in the full profile.
+- O6 firmware 1.3.0 already contains the corrected CPPC values, so its profile
+  deliberately omits `O6CPPC.aml`. The O6N 1.3 profile also omits
+  `O6NCPPC.aml` rather than adding replacement values not defined for that
+  profile.
+- O6N firmware 1.3 has no supported DSDT replacement. It is SSDT-only.
+- The O6 firmware-1.3.0 configuration does not expose the PCIe SMMU
+  present in the supported firmware-1.2 IORT. The 1.3 profiles therefore do
+  not replace IORT; a kernel command-line option cannot reconstruct a missing
+  firmware node.
+- The full 1.2 DSDTs retain the vendor's five 16 GiB PCIe MMIO windows. The
+  alternative 32 GiB apertures are not included.
+- Native and full replacement tables report the PCI ECAM windows through
+  PNP0C02 so they remain represented in the ACPI namespace. Kernel patch
+  `40046` only demotes the corresponding duplicate-ownership message when the
+  CIX table identity, PNP0C02 UID, complete five-window or exact
+  combined-window resource form, and conflicting `PCI ECAM` owner all match;
+  every other reservation failure remains visible. It does not inspect a
+  firmware version.
+- Native tables which omit PCI root I/O apertures and the O6 EC thermal
+  zone's valid trip remain firmware defects. The matching full profile supplies
+  the root-bridge resources and `O6ECTZ.aml` supplies the critical trip. The
+  kernel deliberately does not invent either board description when table
+  upgrades are disabled.
+- The replacement PPTT models the A520 private L1 caches, A720 private L1/L2
+  caches, and shared 12 MiB system cache. It does not add the disproved extra
+  2 MiB A520 L2.
+- The Linux 7.1 MPAM table describes only the DSU-local shared cache. It is
+  inert unless arm64 MPAM is enabled. The exposed controller has no monitoring
+  resources, and CI-700 partitioning is unavailable. Device-DMA/fabric
+  partitioning, cache-occupancy monitoring, and bandwidth monitoring are
+  therefore not exposed. Linux 7.1 exposes the DSU's proportional-bandwidth
+  mode only on an explicit `mbw_prop` resctrl mount.
+- Linux respects the GPU `_CCA` value supplied by the active firmware tables.
+  This supports both older shipped non-coherent declarations and newer
+  coherent declarations without importing board policy into the kernel. No
+  kernel override or supplemental GPU SSDT is used.
+- Released Radxa O6 firmware from 1.2.1 through 1.3.0 describes two port
+  functions of one RTS5453H on level-low GPI4 pin 8, but marks both interrupt
+  resources `Exclusive`. `O6RTS.aml` corrects them to `Shared`, matching
+  Radxa's later source fix. The separate I2C-bus resources remain exclusive.
+  O6N describes only one port function on the pin and deliberately does not
+  load this O6-only correction.
+- Released O6 board tables combine each USB over-current input and VBUS-drive
+  GPIO in one `pinctrl_usb*` group while the regulator asks for a missing
+  `usb_drive_vbus*` group. The full O6 profiles use Radxa's later source model:
+  the over-current input remains in `pinctrl_usb*` and GPIO040--GPIO042 become
+  dedicated VBUS-drive groups.
+- I2S5--I2S9 are the internal DisplayPort codec interfaces. Their `_dbg`
+  pin groups are optional external routes, not prerequisites for normal
+  DisplayPort audio. The O6 firmware-1.3 full profile therefore omits the
+  external I2S5--I2S8 consumer resources; I2S9 already had none. Native stock
+  firmware may still log missing `_dbg` groups. Source analysis and Radxa's
+  firmware description identify these as external routes rather than
+  prerequisites for the internal codec path.
+- Standard ACPI `_PSV` trips remain visible to Linux. The private firmware
+  `SWIT` values are not exposed as a second passive trip: doing so caused severe
+  premature throttling with the normal `step_wise` governor.
+- Firmware which exposes only the vendor-specific `CIXH2020` PCIe device model
+  remains a compatibility gap. The maintained path expects the generic
+  `PNP0A08` model used by the supported Radxa profiles.
+- A full `DSDT.aml` replacement does not replace APIC or renumber CPUs. PPTT
+  and IORT are separate payloads and are included only where the profile table
+  above says so.
+
+## Public references and development information
+
+The profile comparisons include the public Radxa package releases
+[`1.2.1` (`dadc5b14`)](https://github.com/radxa-pkg/edk2-cix/commit/dadc5b14b141b9132017cda23abfe6ea82ebaeaa),
+[`1.2.2` (`2e70744d`)](https://github.com/radxa-pkg/edk2-cix/commit/2e70744d095f7146602f0a8c112e8758f78fe675),
+[`1.2.3` (`3b60488d`)](https://github.com/radxa-pkg/edk2-cix/commit/3b60488dc1bb1b3f83c47ec0462f90d3f0e35ad2),
+[`1.2.4` (`e4e8f1cb`)](https://github.com/radxa-pkg/edk2-cix/commit/e4e8f1cbe08f708ba6babed1de02ca553473c981), and
+[`1.3.0` (`39bc6f94`)](https://github.com/radxa-pkg/edk2-cix/commit/39bc6f94a9f503a0b8a92426a5b0f756fadb9917).
+Additional comparison points include the public
+[Radxa platform source at `f8409b5e`](https://github.com/radxa/edk2-platforms/commit/f8409b5e6c665f9a8ec1207953f0f511cc8e6732),
+[CIX platform source at `1a48c652`](https://github.com/cixtech/edk2-platforms/commit/1a48c6523a3225f3ef01b1c91eb3e3dc0dd1857f), and
+[Neol00 alternative firmware at `97b7374f`](https://github.com/Neol00/edk2-cix-unlocked/commit/97b7374f9eb24a80c9dbd41673b0cc9c909c5026).
+
+The later Radxa corrections and maintainer explanations used to re-evaluate
+these profiles are:
+
+- [issue 27](https://github.com/radxa/edk2-platforms/issues/27) and
+  [commit `cdf9d2a5`](https://github.com/radxa/edk2-platforms/commit/cdf9d2a5fa88788c50f2e0997a177895418a4e0c),
+  which split the USB over-current and VBUS-drive pin groups;
+- [issue 28 and its maintainer response](https://github.com/radxa/edk2-platforms/issues/28#issuecomment-4998385505),
+  which identify I2S5--I2S9 as internal DisplayPort codecs and the `_dbg`
+  groups as optional external routes; and
+- [issue 29](https://github.com/radxa/edk2-platforms/issues/29) and
+  [commit `267cde60`](https://github.com/radxa/edk2-platforms/commit/267cde60bbaf94840f709b63e7f118aa7bb40dfb),
+  which confirm the shared RTS5453H interrupt model.

@@ -1,0 +1,664 @@
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2689,6 +2689,7 @@ F:	Documentation/devicetree/bindings/arm/cix.yaml
+ F:	Documentation/devicetree/bindings/mailbox/cix,sky1-mbox.yaml
+ F:	arch/arm64/boot/dts/cix/
+ F:	drivers/mailbox/cix-mailbox.c
++F:	drivers/soc/cix/
+ K:	\bcix\b
+ 
+ ARM/CLKDEV SUPPORT
+diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
+--- a/drivers/soc/Kconfig
++++ b/drivers/soc/Kconfig
+@@ -7,6 +7,7 @@ source "drivers/soc/aspeed/Kconfig"
+ source "drivers/soc/atmel/Kconfig"
+ source "drivers/soc/bcm/Kconfig"
+ source "drivers/soc/canaan/Kconfig"
++source "drivers/soc/cix/Kconfig"
+ source "drivers/soc/cirrus/Kconfig"
+ source "drivers/soc/fsl/Kconfig"
+ source "drivers/soc/fujitsu/Kconfig"
+diff --git a/drivers/soc/Makefile b/drivers/soc/Makefile
+--- a/drivers/soc/Makefile
++++ b/drivers/soc/Makefile
+@@ -8,6 +8,7 @@ obj-y				+= aspeed/
+ obj-$(CONFIG_ARCH_AT91)		+= atmel/
+ obj-y				+= bcm/
+ obj-$(CONFIG_ARCH_CANAAN)	+= canaan/
++obj-y				+= cix/
+ obj-$(CONFIG_EP93XX_SOC)        += cirrus/
+ obj-$(CONFIG_ARCH_DOVE)		+= dove/
+ obj-$(CONFIG_MACH_DOVE)		+= dove/
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/Kconfig
+@@ -0,0 +1,17 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++config CIX_ACPI_RESOURCE_LOOKUP
++	bool "CIX ACPI resource lookup driver"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI
++	depends on RESET_CONTROLLER
++	default ARCH_CIX
++	help
++	  Translate the CIX RSTL, RSNL, DLKL, CLKT and CLKA ACPI tables into
++	  reset lookups, named platform resources and persistent device links.
++	  This is an early, built-in compatibility bridge for CIX firmware;
++	  it is not intended to be built as a module.
++
++	  Required for CIX Sky1 ACPI boot with drivers that use
++	  platform_get_resource_byname(), devm_reset_control_get() or
++	  firmware clock mappings.
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/Makefile
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0-only
++obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
+diff --git a/drivers/soc/cix/cix-acpi-resource-lookup.c b/drivers/soc/cix/cix-acpi-resource-lookup.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-acpi-resource-lookup.c
+@@ -0,0 +1,597 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX ACPI resource bridge
++ *
++ * CIX firmware describes reset lookups, platform-resource names and device
++ * dependencies with the RSTL, RSNL, DLKL, CLKT and CLKA objects.  Translate
++ * those objects early enough for the normal Linux driver APIs to consume them.
++ */
++
++#include <linux/acpi.h>
++#include <linux/device.h>
++#include <linux/kernel.h>
++#include <linux/limits.h>
++#include <linux/list.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/reset-controller.h>
++#include <linux/slab.h>
++
++#define CIX_CLKDEV_CON_ID_LEN	32
++
++struct cix_acpi_link {
++	struct list_head list;
++	struct device *consumer;
++	struct device *supplier;
++};
++
++struct cix_acpi_bridge {
++	struct device *dev;
++	struct device *clock_supplier;
++	struct list_head links;
++};
++
++static DEFINE_MUTEX(cix_acpi_bridge_lock);
++static bool cix_acpi_bridge_initialized;
++
++static struct acpi_device *cix_acpi_obj_to_adev(const union acpi_object *obj)
++{
++	acpi_handle handle;
++
++	if (!obj)
++		return NULL;
++
++	if (obj->type == ACPI_TYPE_LOCAL_REFERENCE) {
++		handle = obj->reference.handle;
++	} else if (obj->type == ACPI_TYPE_STRING) {
++		if (!obj->string.pointer)
++			return NULL;
++		if (ACPI_FAILURE(acpi_get_handle(NULL, obj->string.pointer,
++						 &handle)))
++			return NULL;
++	} else {
++		return NULL;
++	}
++
++	return acpi_fetch_acpi_dev(handle);
++}
++
++/*
++ * The returned platform device owns a reference acquired by
++ * bus_find_device_by_acpi_dev().  Every caller must put_device().
++ */
++static struct device *
++cix_acpi_obj_to_platform_device(const union acpi_object *obj)
++{
++	struct acpi_device *adev = cix_acpi_obj_to_adev(obj);
++
++	if (!adev || !adev->status.present)
++		return NULL;
++
++	return bus_find_device_by_acpi_dev(&platform_bus_type, adev);
++}
++
++static int cix_acpi_link_add(struct cix_acpi_bridge *bridge,
++			     struct device *consumer,
++			     struct device *supplier, u32 flags,
++			     const char *source)
++{
++	struct cix_acpi_link *entry;
++
++	if (consumer == supplier)
++		return 0;
++
++	list_for_each_entry(entry, &bridge->links, list) {
++		if (entry->consumer != consumer || entry->supplier != supplier)
++			continue;
++
++		/*
++		 * A later clock package may add runtime-PM ordering to a link
++		 * already described by DLKL.  Re-adding the pair is how the
++		 * driver core upgrades an existing managed link's PM flags.
++		 */
++		return device_link_add(consumer, supplier, flags) ? 0 : -EINVAL;
++	}
++
++	entry = kzalloc_obj(*entry, GFP_KERNEL);
++	if (!entry)
++		return -ENOMEM;
++
++	if (!device_link_add(consumer, supplier, flags)) {
++		kfree(entry);
++		return -EINVAL;
++	}
++
++	entry->consumer = get_device(consumer);
++	entry->supplier = get_device(supplier);
++	list_add_tail(&entry->list, &bridge->links);
++	dev_dbg(bridge->dev, "%s: %s -> %s\n", source, dev_name(consumer),
++		dev_name(supplier));
++	return 1;
++}
++
++static void cix_acpi_links_free(struct cix_acpi_bridge *bridge)
++{
++	struct cix_acpi_link *entry, *tmp;
++
++	list_for_each_entry_safe(entry, tmp, &bridge->links, list) {
++		list_del(&entry->list);
++		put_device(entry->supplier);
++		put_device(entry->consumer);
++		kfree(entry);
++	}
++}
++
++static void cix_reset_lookup_free(struct reset_control_lookup *lookup)
++{
++	if (!lookup)
++		return;
++
++	kfree(lookup->con_id);
++	kfree(lookup->dev_id);
++	kfree(lookup->provider);
++	kfree(lookup);
++}
++
++/*
++ * Kernels before 7.1 resolve non-DT reset consumers through the reset lookup
++ * list.  The reset core has no remove operation for that list, so successful
++ * entries and their copied names intentionally have kernel lifetime.
++ */
++static int cix_reset_lookup(acpi_handle handle,
++			    const union acpi_object *obj, void *data)
++{
++	struct cix_acpi_bridge *bridge = data;
++	struct acpi_device *owner = acpi_fetch_acpi_dev(handle);
++	unsigned int count = 0;
++	u32 i;
++
++	if (!owner || !owner->status.present)
++		return -ENODEV;
++
++	for (i = 0; i < obj->package.count; i++) {
++		struct reset_control_lookup *lookup;
++		const union acpi_object *child = &obj->package.elements[i];
++		const union acpi_object *el;
++		struct device *consumer = NULL;
++		struct device *provider = NULL;
++		u32 n;
++
++		if (child->type != ACPI_TYPE_PACKAGE)
++			continue;
++
++		n = child->package.count;
++		if (n != 3 && n != 4)
++			continue;
++
++		el = child->package.elements;
++		if ((el[0].type != ACPI_TYPE_LOCAL_REFERENCE &&
++		     el[0].type != ACPI_TYPE_STRING) ||
++		    el[1].type != ACPI_TYPE_INTEGER ||
++		    el[1].integer.value > UINT_MAX ||
++		    (el[2].type != ACPI_TYPE_LOCAL_REFERENCE &&
++		     el[2].type != ACPI_TYPE_STRING) ||
++		    (n == 4 && (el[3].type != ACPI_TYPE_STRING ||
++				 !el[3].string.pointer)))
++			continue;
++
++		provider = cix_acpi_obj_to_platform_device(&el[0]);
++		consumer = cix_acpi_obj_to_platform_device(&el[2]);
++		if (!provider || !consumer)
++			goto put_devices;
++
++		lookup = kzalloc_obj(*lookup, GFP_KERNEL);
++		if (!lookup)
++			goto put_devices;
++
++		lookup->provider = kstrdup(dev_name(provider), GFP_KERNEL);
++		lookup->dev_id = kstrdup(dev_name(consumer), GFP_KERNEL);
++		if (n == 4)
++			lookup->con_id = kstrdup(el[3].string.pointer,
++						 GFP_KERNEL);
++		lookup->index = el[1].integer.value;
++
++		if (!lookup->provider || !lookup->dev_id ||
++		    (n == 4 && !lookup->con_id)) {
++			cix_reset_lookup_free(lookup);
++			goto put_devices;
++		}
++
++		INIT_LIST_HEAD(&lookup->list);
++		reset_controller_add_lookup(lookup, 1);
++		count++;
++
++		dev_dbg(bridge->dev,
++			"RSTL: %s[%u] -> %s:%s\n",
++			lookup->provider, lookup->index, lookup->dev_id,
++			lookup->con_id ?: "<unnamed>");
++
++put_devices:
++		if (consumer)
++			put_device(consumer);
++		if (provider)
++			put_device(provider);
++	}
++
++	return count;
++}
++
++static bool cix_resource_type_valid(u64 type)
++{
++	return type == IORESOURCE_MEM || type == IORESOURCE_IRQ;
++}
++
++static int cix_resource_names(acpi_handle handle,
++			      const union acpi_object *obj, void *data)
++{
++	struct cix_acpi_bridge *bridge = data;
++	struct acpi_device *owner = acpi_fetch_acpi_dev(handle);
++	unsigned int count = 0;
++	u32 i;
++
++	if (!owner || !owner->status.present)
++		return -ENODEV;
++
++	for (i = 0; i < obj->package.count; i++) {
++		const union acpi_object *child = &obj->package.elements[i];
++		const union acpi_object *el;
++		struct device *rdev;
++		struct resource *res;
++		const char *name;
++		u64 index, type;
++
++		if (child->type != ACPI_TYPE_PACKAGE ||
++		    child->package.count != 4)
++			continue;
++
++		el = child->package.elements;
++		if ((el[0].type != ACPI_TYPE_LOCAL_REFERENCE &&
++		     el[0].type != ACPI_TYPE_STRING) ||
++		    el[1].type != ACPI_TYPE_INTEGER ||
++		    el[2].type != ACPI_TYPE_INTEGER ||
++		    el[3].type != ACPI_TYPE_STRING ||
++		    !el[3].string.pointer)
++			continue;
++
++		type = el[1].integer.value;
++		index = el[2].integer.value;
++		if (!cix_resource_type_valid(type) || index > UINT_MAX)
++			continue;
++
++		rdev = cix_acpi_obj_to_platform_device(&el[0]);
++		if (!rdev)
++			continue;
++
++		res = platform_get_resource(to_platform_device(rdev), type,
++					    index);
++		if (!res)
++			goto put_device;
++
++		/*
++		 * platform_device_add() supplies dev_name() as the default
++		 * resource name.  Preserve any more specific name installed by
++		 * firmware or another subsystem.
++		 */
++		if (res->name && strcmp(res->name, dev_name(rdev))) {
++			if (!strcmp(res->name, el[3].string.pointer))
++				count++;
++			else
++				dev_warn(bridge->dev,
++					 "RSNL: refusing to replace %s resource name %s\n",
++					 dev_name(rdev), res->name);
++			goto put_device;
++		}
++
++		/*
++		 * The platform resource has no name teardown.  A devm allocation
++		 * would be freed whenever the target driver unbinds while res->name
++		 * remains live.  Sky1's integrated ACPI namespace is static, so the
++		 * successful copy intentionally has kernel lifetime.
++		 */
++		name = kstrdup(el[3].string.pointer, GFP_KERNEL);
++		if (!name)
++			goto put_device;
++
++		res->name = name;
++		count++;
++		dev_dbg(bridge->dev, "RSNL: %s[0x%llx][%llu] -> %s\n",
++			dev_name(rdev), type, index, name);
++
++put_device:
++		put_device(rdev);
++	}
++
++	return count;
++}
++
++static int cix_device_links(acpi_handle handle,
++			    const union acpi_object *obj, void *data)
++{
++	struct cix_acpi_bridge *bridge = data;
++	struct acpi_device *owner = acpi_fetch_acpi_dev(handle);
++	unsigned int count = 0;
++	int ret;
++	u32 i;
++
++	if (!owner || !owner->status.present)
++		return -ENODEV;
++
++	for (i = 0; i < obj->package.count; i++) {
++		const union acpi_object *child = &obj->package.elements[i];
++		const union acpi_object *el;
++		struct device *consumer = NULL;
++		struct device *supplier = NULL;
++
++		if (child->type != ACPI_TYPE_PACKAGE ||
++		    child->package.count != 3)
++			continue;
++
++		el = child->package.elements;
++		if ((el[0].type != ACPI_TYPE_LOCAL_REFERENCE &&
++		     el[0].type != ACPI_TYPE_STRING) ||
++		    (el[1].type != ACPI_TYPE_LOCAL_REFERENCE &&
++		     el[1].type != ACPI_TYPE_STRING) ||
++		    el[2].type != ACPI_TYPE_INTEGER)
++			continue;
++
++		/*
++		 * Current CIX firmware specifies zero, meaning a managed,
++		 * persistent dependency.  Do not let AML inject arbitrary PM
++		 * or driver-core link flags.
++		 */
++		if (el[2].integer.value)
++			continue;
++
++		supplier = cix_acpi_obj_to_platform_device(&el[0]);
++		consumer = cix_acpi_obj_to_platform_device(&el[1]);
++		if (!supplier || !consumer)
++			goto put_devices;
++
++		ret = cix_acpi_link_add(bridge, consumer, supplier,
++					DL_FLAG_AUTOPROBE_CONSUMER, "DLKL");
++		if (ret < 0) {
++			put_device(consumer);
++			put_device(supplier);
++			return ret;
++		}
++		count += ret;
++
++put_devices:
++		if (consumer)
++			put_device(consumer);
++		if (supplier)
++			put_device(supplier);
++	}
++
++	return count;
++}
++
++static bool cix_clock_entry_valid(const union acpi_object *entry)
++{
++	const union acpi_object *el;
++	size_t len;
++
++	if (entry->type != ACPI_TYPE_PACKAGE || entry->package.count != 3)
++		return false;
++
++	el = entry->package.elements;
++	if (el[0].type != ACPI_TYPE_INTEGER ||
++	    el[0].integer.value > UINT_MAX ||
++	    el[1].type != ACPI_TYPE_STRING || !el[1].string.pointer ||
++	    el[2].type != ACPI_TYPE_LOCAL_REFERENCE)
++		return false;
++
++	len = el[1].string.length;
++	return len < CIX_CLKDEV_CON_ID_LEN &&
++	       strnlen(el[1].string.pointer, len + 1) == len;
++}
++
++static int cix_clock_links(struct cix_acpi_bridge *bridge,
++			   const union acpi_object *obj,
++			   struct device *supplier, const char *source)
++{
++	unsigned int count = 0;
++	u32 i;
++
++	if (!supplier)
++		return 0;
++
++	for (i = 0; i < obj->package.count; i++) {
++		const union acpi_object *entry = &obj->package.elements[i];
++		const union acpi_object *el;
++		struct device *consumer;
++		int ret;
++
++		if (!cix_clock_entry_valid(entry)) {
++			dev_dbg(bridge->dev, "%s: ignored malformed entry %u\n",
++				source, i);
++			continue;
++		}
++
++		el = entry->package.elements;
++		consumer = cix_acpi_obj_to_platform_device(&el[2]);
++		if (!consumer)
++			continue;
++
++		ret = cix_acpi_link_add(bridge, consumer, supplier,
++					DL_FLAG_AUTOPROBE_CONSUMER |
++					DL_FLAG_PM_RUNTIME, source);
++		put_device(consumer);
++		if (ret < 0)
++			return ret;
++		count += ret;
++	}
++
++	return count;
++}
++
++static int cix_scmi_clock_links(acpi_handle handle,
++				const union acpi_object *obj, void *data)
++{
++	struct cix_acpi_bridge *bridge = data;
++
++	return cix_clock_links(bridge, obj, bridge->clock_supplier, "CLKT");
++}
++
++static int cix_audss_clock_links(acpi_handle handle,
++				 const union acpi_object *obj, void *data)
++{
++	struct cix_acpi_bridge *bridge = data;
++	struct acpi_device *owner = acpi_fetch_acpi_dev(handle);
++	struct device *supplier;
++	int ret;
++
++	if (!owner || !owner->status.present)
++		return 0;
++
++	supplier = bus_find_device_by_acpi_dev(&platform_bus_type, owner);
++	if (!supplier)
++		return 0;
++
++	ret = cix_clock_links(bridge, obj, supplier, "CLKA");
++	put_device(supplier);
++	return ret;
++}
++
++static int cix_acpi_eval(acpi_handle handle, const char *name,
++			 int (*callback)(acpi_handle,
++					 const union acpi_object *, void *),
++			 void *data)
++{
++	struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
++	acpi_status status;
++	int ret;
++
++	status = acpi_evaluate_object_typed(handle, (acpi_string)name, NULL,
++					    &output, ACPI_TYPE_PACKAGE);
++	if (ACPI_FAILURE(status))
++		return -ENODEV;
++
++	ret = callback(handle, output.pointer, data);
++	ACPI_FREE(output.pointer);
++	return ret;
++}
++
++static void cix_acpi_process_device(acpi_handle handle,
++				    struct cix_acpi_bridge *bridge)
++{
++	struct acpi_device *adev = acpi_fetch_acpi_dev(handle);
++	int ret;
++
++	if (!adev)
++		return;
++
++	if (adev->status.present) {
++		ret = cix_acpi_eval(handle, "RSTL", cix_reset_lookup, bridge);
++		if (ret < 0 && ret != -ENODEV)
++			dev_warn(bridge->dev,
++				 "RSTL processing failed for %s: %d\n",
++				 acpi_dev_name(adev), ret);
++
++		ret = cix_acpi_eval(handle, "RSNL", cix_resource_names, bridge);
++		if (ret < 0 && ret != -ENODEV)
++			dev_warn(bridge->dev,
++				 "RSNL processing failed for %s: %d\n",
++				 acpi_dev_name(adev), ret);
++
++		ret = cix_acpi_eval(handle, "DLKL", cix_device_links, bridge);
++		if (ret < 0 && ret != -ENODEV)
++			dev_warn(bridge->dev,
++				 "DLKL processing failed for %s: %d\n",
++				 acpi_dev_name(adev), ret);
++	}
++
++	ret = cix_acpi_eval(handle, "CLKT", cix_scmi_clock_links, bridge);
++	if (ret < 0 && ret != -ENODEV)
++		dev_warn(bridge->dev, "CLKT processing failed for %s: %d\n",
++			 acpi_dev_name(adev), ret);
++
++	ret = cix_acpi_eval(handle, "CLKA", cix_audss_clock_links, bridge);
++	if (ret < 0 && ret != -ENODEV)
++		dev_warn(bridge->dev, "CLKA processing failed for %s: %d\n",
++			 acpi_dev_name(adev), ret);
++}
++
++static acpi_status cix_acpi_scan(acpi_handle handle, u32 level,
++				 void *context, void **return_value)
++{
++	cix_acpi_process_device(handle, context);
++	return AE_OK;
++}
++
++static struct device *cix_acpi_clock_supplier(void)
++{
++	struct acpi_device *adev;
++	struct device *dev = NULL;
++
++	adev = acpi_dev_get_first_match_dev("CIXHA010", NULL, -1);
++	if (!adev)
++		return NULL;
++
++	if (adev->status.present)
++		dev = bus_find_device_by_acpi_dev(&platform_bus_type, adev);
++	acpi_dev_put(adev);
++	return dev;
++}
++
++static int cix_acpi_resource_bridge_probe(struct platform_device *pdev)
++{
++	struct cix_acpi_bridge bridge = {
++		.dev = &pdev->dev,
++	};
++	acpi_status status;
++
++	INIT_LIST_HEAD(&bridge.links);
++
++	mutex_lock(&cix_acpi_bridge_lock);
++	if (cix_acpi_bridge_initialized) {
++		mutex_unlock(&cix_acpi_bridge_lock);
++		return 0;
++	}
++	cix_acpi_bridge_initialized = true;
++
++	bridge.clock_supplier = cix_acpi_clock_supplier();
++	status = acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,
++				     ACPI_UINT32_MAX, cix_acpi_scan, NULL,
++				     &bridge, NULL);
++	cix_acpi_links_free(&bridge);
++	if (bridge.clock_supplier)
++		put_device(bridge.clock_supplier);
++	mutex_unlock(&cix_acpi_bridge_lock);
++
++	if (ACPI_FAILURE(status))
++		dev_warn(&pdev->dev, "ACPI namespace walk failed: %s\n",
++			 acpi_format_exception(status));
++	else
++		dev_info(&pdev->dev, "CIX ACPI resource bridge complete\n");
++
++	return 0;
++}
++
++static const struct acpi_device_id cix_acpi_resource_bridge_ids[] = {
++	{ "CIXA1019" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cix_acpi_resource_bridge_ids);
++
++static struct platform_driver cix_acpi_resource_bridge_driver = {
++	.driver = {
++		.name = "cix-acpi-resource-bridge",
++		.acpi_match_table = cix_acpi_resource_bridge_ids,
++		.suppress_bind_attrs = true,
++	},
++	.probe = cix_acpi_resource_bridge_probe,
++};
++
++static int __init cix_acpi_resource_bridge_init(void)
++{
++	if (acpi_disabled)
++		return -ENODEV;
++
++	return platform_driver_register(&cix_acpi_resource_bridge_driver);
++}
++subsys_initcall(cix_acpi_resource_bridge_init);
++
++MODULE_DESCRIPTION("CIX ACPI resource bridge");
++MODULE_LICENSE("GPL");

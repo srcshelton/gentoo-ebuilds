@@ -1,0 +1,2051 @@
+diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+--- a/drivers/misc/armchina-npu/Kconfig
++++ b/drivers/misc/armchina-npu/Kconfig
+@@ -6,6 +6,7 @@
+ config ARMCHINA_NPU
+ 	tristate "ArmChina Zhouyi NPU"
+ 	depends on ARM64
++	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
+ 	depends on DMA_SHARED_BUFFER
+ 	help
+@@ -16,62 +17,14 @@ config ARMCHINA_NPU
+ 
+ if ARMCHINA_NPU
+ 
+-config ARMCHINA_NPU_ARCH_V1
+-	bool "ArmChina NPU architecture: v1"
+-	help
+-	  Say Y if the NPU version on your SoC is Zhouyi V1.
+-
+-	  For other architecture versions, say N.
+-
+-config ARMCHINA_NPU_ARCH_V2
+-	bool "ArmChina NPU architecture: v2"
+-	help
+-	  Say Y if the NPU version on your SoC is Zhouyi V2 (i.e. Z2/Z3/X1).
+-
+-	  For other architecture versions, say N.
+-
+ config ARMCHINA_NPU_ARCH_V3
+-	bool "ArmChina NPU architecture: v3"
+-	help
+-	  Say Y if the NPU version on your SoC is Zhouyi V3.
+-
+-	  For other architecture versions, say N.
+-
+-config ARMCHINA_NPU_ARCH_V3_2
+-	bool "ArmChina NPU architecture: v3_2"
+-	help
+-	  Say Y if the NPU version on your SoC is Zhouyi V3_2.
+-
+-	  For other architecture versions, say N.
+-
+-config ARMCHINA_NPU_ARCH_V1_V2
+-	def_bool ARMCHINA_NPU_ARCH_V1 || ARMCHINA_NPU_ARCH_V2
+-
+-choice
+-	prompt "ArmChina NPU SoC integration"
+-	default ARMCHINA_NPU_SOC_DEFAULT
+-
+-config ARMCHINA_NPU_SOC_DEFAULT
+-	bool "Default SoC APIs"
+-	help
+-	  Say Y if you use the default SoC API implementations provided by ArmChina.
+-
+-	  For other SoCs, say N.
+-
+-config ARMCHINA_NPU_SOC_R329
+-	bool "R329 SoC APIs"
++	def_bool y
+ 	help
+-	  Say Y if you use the Allwinner R329 SoC API implementations.
+-
+-	  For other SoCs, say N.
++	  The maintained CIX P1 integration targets Zhouyi V3 hardware.
+ 
+ config ARMCHINA_NPU_SOC_SKY1
+-	bool "SKY1 SoC APIs"
++	def_bool y
+ 	help
+-	  Say Y if you use the CIX SKY1 SoC API implementations.
+-
+-	  For other SoCs, say N.
+-
+-endchoice
++	  Use the CIX Sky1 SoC integration required by Orion O6 and O6N.
+ 
+ endif
+diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
+--- a/drivers/misc/armchina-npu/Makefile
++++ b/drivers/misc/armchina-npu/Makefile
+@@ -13,5 +13,3 @@ armchina_npu-y := aipu.o aipu_common.o aipu_io.o aipu_irq.o  \
+ 
+ include $(src)/zhouyi/Makefile
+ include $(src)/sky1/Makefile
+-include $(src)/default/Makefile
+-include $(src)/r329/Makefile
+diff --git a/drivers/misc/armchina-npu/default/Makefile b/drivers/misc/armchina-npu/default/Makefile
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/default/Makefile
++++ /dev/null
+@@ -1,5 +0,0 @@
+-# SPDX-License-Identifier: GPL-2.0
+-subdir-ccflags-y += -I$(src)
+-
+-DEFAULT_SOC_FILES := default/default.o
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_DEFAULT) += $(DEFAULT_SOC_FILES)
+\ No newline at end of file
+diff --git a/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/default/default.c
++++ /dev/null
+@@ -1,98 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-/**
+- * SoC: ArmChina internal Juno platform
+- */
+-
+-#include <linux/module.h>
+-#include <linux/platform_device.h>
+-#include <linux/of.h>
+-#include <linux/version.h>
+-#include "armchina_aipu_soc.h"
+-
+-static struct aipu_soc default_soc = {
+-	.priv = NULL,
+-};
+-
+-static struct aipu_soc_operations default_ops = {
+-	.start_bw_profiling = NULL,
+-	.stop_bw_profiling = NULL,
+-	.read_profiling_reg = NULL,
+-	.enable_clk = NULL,
+-	.disable_clk = NULL,
+-	.is_clk_enabled = NULL,
+-	.is_aipu_irq = NULL,
+-	.soc_pm_runtime_get_sync = NULL,
+-	.soc_pm_runtime_put = NULL,
+-};
+-
+-static int default_probe(struct platform_device *p_dev)
+-{
+-	return armchina_aipu_probe(p_dev, &default_soc, &default_ops);
+-}
+-
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+-static void default_remove(struct platform_device *p_dev)
+-{
+-	armchina_aipu_remove(p_dev);
+-}
+-#else
+-static int default_remove(struct platform_device *p_dev)
+-{
+-	return armchina_aipu_remove(p_dev);
+-}
+-#endif
+-
+-static int default_suspend(struct platform_device *p_dev, pm_message_t state)
+-{
+-	return armchina_aipu_suspend(p_dev, state);
+-}
+-
+-static int default_resume(struct platform_device *p_dev)
+-{
+-	return armchina_aipu_resume(p_dev);
+-}
+-
+-#ifdef CONFIG_OF
+-static const struct of_device_id aipu_of_match[] = {
+-	{
+-		.compatible = "armchina,zhouyi-v1",
+-	},
+-	{
+-		.compatible = "armchina,zhouyi-v2",
+-	},
+-	{
+-		.compatible = "armchina,zhouyi-v3",
+-	},
+-	{
+-		.compatible = "armchina,zhouyi-v3_2",
+-	},
+-	{
+-		.compatible = "armchina,zhouyi",
+-	},
+-	{ }
+-};
+-
+-MODULE_DEVICE_TABLE(of, aipu_of_match);
+-#endif
+-
+-static struct platform_driver aipu_platform_driver = {
+-	.probe = default_probe,
+-	.remove = default_remove,
+-	.suspend = default_suspend,
+-	.resume  = default_resume,
+-	.driver = {
+-		.name = "armchina",
+-		.owner = THIS_MODULE,
+-#ifdef CONFIG_OF
+-		.of_match_table = of_match_ptr(aipu_of_match),
+-#endif
+-	},
+-};
+-
+-module_platform_driver(aipu_platform_driver);
+-MODULE_LICENSE("GPL v2");
+-MODULE_AUTHOR("Dejia Shang");
+-MODULE_AUTHOR("Toby Huang");
+-MODULE_DESCRIPTION("ArmChina Zhouyi AI accelerator driver");
+diff --git a/drivers/misc/armchina-npu/r329/Makefile b/drivers/misc/armchina-npu/r329/Makefile
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/r329/Makefile
++++ /dev/null
+@@ -1,5 +0,0 @@
+-# SPDX-License-Identifier: GPL-2.0
+-subdir-ccflags-y += -I$(src)
+-
+-R329_SOC_FILES := r329/r329.o
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_R329) += $(R329_SOC_FILES)
+\ No newline at end of file
+diff --git a/drivers/misc/armchina-npu/r329/r329.c b/drivers/misc/armchina-npu/r329/r329.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/r329/r329.c
++++ /dev/null
+@@ -1,162 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-/**
+- * SoC: Allwinner R329 platform
+- */
+-
+-#include <linux/sizes.h>
+-#include <linux/module.h>
+-#include <linux/platform_device.h>
+-#include <linux/of.h>
+-#include <linux/clk.h>
+-#include "armchina_aipu_soc.h"
+-
+-#define R329_AIPU_CLOCK_RATE   (600 * SZ_1M)
+-
+-static struct aipu_soc r329 = {
+-	.priv = NULL,
+-};
+-
+-static int r329_enable_clk(struct device *dev, struct aipu_soc *soc)
+-{
+-	struct clk *clk_pll_aipu = NULL;
+-	struct clk *clk_aipu = NULL;
+-	struct clk *clk_aipu_slv = NULL;
+-	struct device_node *dev_node = NULL;
+-
+-	WARN_ON(!dev);
+-	dev_node = dev->of_node;
+-
+-	clk_pll_aipu = of_clk_get(dev_node, 0);
+-	if (IS_ERR_OR_NULL(clk_pll_aipu)) {
+-		dev_err(dev, "clk_pll_aipu get failed\n");
+-		return PTR_ERR(clk_pll_aipu);
+-	}
+-
+-	clk_aipu = of_clk_get(dev_node, 1);
+-	if (IS_ERR_OR_NULL(clk_aipu)) {
+-		dev_err(dev, "clk_aipu get failed\n");
+-		return PTR_ERR(clk_aipu);
+-	}
+-
+-	clk_aipu_slv = of_clk_get(dev_node, 2);
+-	if (IS_ERR_OR_NULL(clk_aipu_slv)) {
+-		dev_err(dev, "clk_pll_aipu get failed\n");
+-		return PTR_ERR(clk_aipu_slv);
+-	}
+-
+-	if (clk_set_parent(clk_aipu, clk_pll_aipu)) {
+-		dev_err(dev, "set clk_aipu parent fail\n");
+-		return -EBUSY;
+-	}
+-
+-	if (clk_set_rate(clk_aipu, R329_AIPU_CLOCK_RATE)) {
+-		dev_err(dev, "set clk_aipu rate fail\n");
+-		return -EBUSY;
+-	}
+-
+-	if (clk_prepare_enable(clk_aipu_slv)) {
+-		dev_err(dev, "clk_aipu_slv enable failed\n");
+-		return -EBUSY;
+-	}
+-
+-	if (clk_prepare_enable(clk_aipu)) {
+-		dev_err(dev, "clk_aipu enable failed\n");
+-		return -EBUSY;
+-	}
+-
+-	dev_info(dev, "enable r329 AIPU clock done\n");
+-	return 0;
+-}
+-
+-static int r329_disable_clk(struct device *dev, struct aipu_soc *soc)
+-{
+-	struct clk *clk_aipu = NULL;
+-	struct clk *clk_aipu_slv = NULL;
+-	struct device_node *dev_node = NULL;
+-
+-	WARN_ON(!dev);
+-	dev_node = dev->of_node;
+-
+-	clk_aipu_slv = of_clk_get(dev_node, 2);
+-	if (clk_aipu_slv)
+-		clk_disable_unprepare(clk_aipu_slv);
+-
+-	clk_aipu = of_clk_get(dev_node, 1);
+-	if (clk_aipu)
+-		clk_disable_unprepare(clk_aipu);
+-
+-	dev_info(dev, "disable r329 AIPU clock done\n");
+-	return 0;
+-}
+-
+-static struct aipu_soc_operations r329_ops = {
+-	.start_bw_profiling = NULL,
+-	.stop_bw_profiling = NULL,
+-	.read_profiling_reg = NULL,
+-	.enable_clk = r329_enable_clk,
+-	.disable_clk = r329_disable_clk,
+-	.is_clk_enabled = NULL,
+-	.is_aipu_irq = NULL,
+-	.soc_pm_runtime_get_sync = NULL,
+-	.soc_pm_runtime_put = NULL,
+-};
+-
+-static int r329_probe(struct platform_device *p_dev)
+-{
+-	r329_enable_clk(&p_dev->dev, &r329);
+-	return armchina_aipu_probe(p_dev, &r329, &r329_ops);
+-}
+-
+-static int r329_remove(struct platform_device *p_dev)
+-{
+-	int ret = armchina_aipu_remove(p_dev);
+-
+-	r329_disable_clk(&p_dev->dev, &r329);
+-	return ret;
+-}
+-
+-static int r329_suspend(struct platform_device *p_dev, pm_message_t state)
+-{
+-	return armchina_aipu_suspend(p_dev, state);
+-}
+-
+-static int r329_resume(struct platform_device *p_dev)
+-{
+-	return armchina_aipu_resume(p_dev);
+-}
+-
+-#ifdef CONFIG_OF
+-static const struct of_device_id aipu_of_match[] = {
+-	{
+-		.compatible = "armchina,zhouyi-v1",
+-	},
+-	{
+-		.compatible = "armchina,zhouyi",
+-	},
+-	{
+-		.compatible = "armchina,zhouyiv1aipu",
+-	},
+-	{ }
+-};
+-
+-MODULE_DEVICE_TABLE(of, aipu_of_match);
+-#endif
+-
+-static struct platform_driver aipu_platform_driver = {
+-	.probe = r329_probe,
+-	.remove = r329_remove,
+-	.suspend = r329_suspend,
+-	.resume  = r329_resume,
+-	.driver = {
+-		.name = "armchina",
+-		.owner = THIS_MODULE,
+-#ifdef CONFIG_OF
+-		.of_match_table = of_match_ptr(aipu_of_match),
+-#endif
+-	},
+-};
+-
+-module_platform_driver(aipu_platform_driver);
+-MODULE_LICENSE("GPL v2");
+diff --git a/drivers/misc/armchina-npu/sky1/Makefile b/drivers/misc/armchina-npu/sky1/Makefile
+--- a/drivers/misc/armchina-npu/sky1/Makefile
++++ b/drivers/misc/armchina-npu/sky1/Makefile
+@@ -2,4 +2,4 @@
+ subdir-ccflags-y += -I$(src)
+ 
+ SKY1_SOC_FILES := sky1/sky1.o
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_SKY1) += $(SKY1_SOC_FILES)
+\ No newline at end of file
++armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_SKY1) += $(SKY1_SOC_FILES)
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -308,12 +308,6 @@ static const struct dev_pm_ops cix_sky1_npu_pm_ops = {
+ 
+ #ifdef CONFIG_OF
+ static const struct of_device_id aipu_of_match[] = {
+-	{
+-		.compatible = "armchina,zhouyi-v1",
+-	},
+-	{
+-		.compatible = "armchina,zhouyi-v2",
+-	},
+ 	{
+ 		.compatible = "armchina,zhouyi-v3",
+ 	},
+diff --git a/drivers/misc/armchina-npu/zhouyi/Makefile b/drivers/misc/armchina-npu/zhouyi/Makefile
+--- a/drivers/misc/armchina-npu/zhouyi/Makefile
++++ b/drivers/misc/armchina-npu/zhouyi/Makefile
+@@ -1,13 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ subdir-ccflags-y += -I$(src)
+ 
+-ZHOUYI_V1V2_FILES   := zhouyi/v1v2_priv.o
+-ZHOUYI_V3_FILES     := zhouyi/v3.o zhouyi/v3_priv.o
+-ZHOUYI_V3_2_FILES   := zhouyi/v3_2.o zhouyi/v3_2_priv.o
++ZHOUYI_V3_FILES := zhouyi/v3.o zhouyi/v3_priv.o
+ 
+-armchina_npu-y +=  zhouyi/zhouyi.o
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V1_V2) += $(ZHOUYI_V1V2_FILES)
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V1) += zhouyi/v1.o
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V2) += zhouyi/v2.o
++armchina_npu-y += zhouyi/zhouyi.o
+ armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V3) += $(ZHOUYI_V3_FILES)
+-armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V3_2) += $(ZHOUYI_V3_2_FILES)
+diff --git a/drivers/misc/armchina-npu/zhouyi/v1.c b/drivers/misc/armchina-npu/zhouyi/v1.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v1.c
++++ /dev/null
+@@ -1,273 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-#include <linux/irqreturn.h>
+-#include <linux/bitops.h>
+-#include "aipu_priv.h"
+-#include "zhouyi.h"
+-#include "v1.h"
+-#include "aipu_io.h"
+-#include "aipu_common.h"
+-#include "config.h"
+-
+-static int zhouyi_v1_get_hw_config_number(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		return zhouyi_get_hw_config_number(core->reg);
+-	return 0;
+-}
+-
+-static void zhouyi_v1_enable_interrupt(struct aipu_partition *core, bool en_tec_intr)
+-{
+-	if (likely(core))
+-		aipu_write32(core->reg, ZHOUYI_CTRL_REG_OFFSET,
+-			     ZHOUYI_V1_IRQ_ENABLE_FLAG);
+-}
+-
+-static void zhouyi_v1_disable_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		aipu_write32(core->reg, ZHOUYI_CTRL_REG_OFFSET,
+-			     ZHOUYI_V1_IRQ_DISABLE_FLAG);
+-}
+-
+-static void zhouyi_v1_clear_qempty_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		zhouyi_clear_qempty_interrupt(core->reg);
+-}
+-
+-static void zhouyi_v1_clear_done_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		zhouyi_clear_done_interrupt(core->reg);
+-}
+-
+-static void zhouyi_v1_clear_excep_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		zhouyi_clear_excep_interrupt(core->reg);
+-}
+-
+-static void zhouyi_v1_trigger(struct aipu_partition *core)
+-{
+-	int start_pc = 0;
+-
+-	if (likely(core)) {
+-		start_pc = aipu_read32(core->reg, ZHOUYI_START_PC_REG_OFFSET) & 0xFFFFFFF0;
+-		aipu_write32(core->reg, ZHOUYI_START_PC_REG_OFFSET, start_pc | 0xD);
+-	}
+-}
+-
+-static int zhouyi_v1_reserve(struct aipu_partition *core, struct aipu_job_desc *udesc,
+-			     int do_trigger, int pool)
+-{
+-	unsigned int start_pc = 0;
+-
+-	if (unlikely(!core || !udesc))
+-		return -EINVAL;
+-
+-	/* Load data addr 0 register */
+-	aipu_write32(core->reg, ZHOUYI_DATA_ADDR_0_REG_OFFSET, udesc->data_0_addr);
+-
+-	/* Load data addr 1 register */
+-	aipu_write32(core->reg, ZHOUYI_DATA_ADDR_1_REG_OFFSET, udesc->data_1_addr);
+-
+-	/* Load interrupt PC */
+-	aipu_write32(core->reg, ZHOUYI_INTR_PC_REG_OFFSET, udesc->intr_handler_addr);
+-
+-	/* Load start PC register */
+-	if (do_trigger)
+-		start_pc = udesc->start_pc_addr | 0xD;
+-	else
+-		start_pc = udesc->start_pc_addr;
+-	aipu_write32(core->reg, ZHOUYI_START_PC_REG_OFFSET, start_pc);
+-
+-	dev_dbg(core->dev, "[Job %lld] trigger done: start pc = 0x%x, dreg0 = 0x%x, dreg1 = 0x%x\n",
+-		udesc->job_id, start_pc, udesc->data_0_addr, udesc->data_1_addr);
+-
+-	return 0;
+-}
+-
+-static bool zhouyi_v1_is_idle(struct aipu_partition *core)
+-{
+-	unsigned long val = 0;
+-
+-	if (unlikely(!core))
+-		return false;
+-
+-	val = aipu_read32(core->reg, ZHOUYI_STAT_REG_OFFSET);
+-	return test_bit(16, &val) && test_bit(17, &val) && test_bit(18, &val);
+-}
+-
+-static void zhouyi_v1_print_hw_id_info(struct aipu_partition *core)
+-{
+-	if (unlikely(!core))
+-		return;
+-
+-	dev_info(core->dev, "AIPU Initial Status: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_STAT_REG_OFFSET));
+-
+-	dev_info(core->dev, "########## AIPU CORE %d: ZHOUYI V1 ##########", core->id);
+-	dev_info(core->dev, "# ISA Version Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_ISA_VERSION_REG_OFFSET));
+-	dev_info(core->dev, "# TPC Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_TPC_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# SPU Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_SPU_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# HWA Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_HWA_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Revision ID Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_REVISION_ID_REG_OFFSET));
+-	dev_info(core->dev, "# Memory Hierarchy Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_MEM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Instruction RAM Feature Register:  0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_INST_RAM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# TEC Local SRAM Feature Register:   0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_LOCAL_SRAM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Global SRAM Feature Register:      0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_GLOBAL_SRAM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Instruction Cache Feature Register:0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_INST_CACHE_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Data Cache Feature Register:       0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_DATA_CACHE_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# L2 Cache Feature Register:         0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_L2_CACHE_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "############################################");
+-}
+-
+-static int zhouyi_v1_io_rw(struct aipu_partition *core, struct aipu_io_req *io_req)
+-{
+-	if (unlikely(!io_req))
+-		return -EINVAL;
+-
+-	if (!core || io_req->offset > ZHOUYI_V1_MAX_REG_OFFSET)
+-		return -EINVAL;
+-
+-	zhouyi_io_rw(core->reg, io_req);
+-	return 0;
+-}
+-
+-static int zhouyi_v1_upper_half(void *data)
+-{
+-	int ret = 0;
+-	struct aipu_partition *core = (struct aipu_partition *)data;
+-
+-	if (get_soc_ops(core) &&
+-	    get_soc_ops(core)->is_aipu_irq &&
+-	    !get_soc_ops(core)->is_aipu_irq(core->dev, get_soc(core), core->id))
+-		return IRQ_NONE;
+-
+-	ret = zhouyi_read_status_reg(core->reg);
+-	if (ret & ZHOUYI_IRQ_QEMPTY)
+-		zhouyi_v1_clear_qempty_interrupt(core);
+-
+-	if (ret & ZHOUYI_IRQ_DONE) {
+-		zhouyi_v1_clear_done_interrupt(core);
+-		aipu_job_manager_irq_upper_half(core, 0, NULL);
+-		aipu_irq_schedulework(core->irq_obj);
+-	}
+-
+-	if (ret & ZHOUYI_IRQ_EXCEP) {
+-		zhouyi_v1_clear_excep_interrupt(core);
+-		aipu_job_manager_irq_upper_half(core, aipu_read32(core->reg,
+-								  ZHOUYI_INTR_CAUSE_REG_OFFSET),
+-								  NULL);
+-		aipu_irq_schedulework(core->irq_obj);
+-	}
+-
+-	return IRQ_HANDLED;
+-}
+-
+-static void zhouyi_v1_bottom_half(void *data)
+-{
+-	aipu_job_manager_irq_bottom_half(data);
+-}
+-
+-#ifdef CONFIG_SYSFS
+-static int zhouyi_v1_sysfs_show(struct aipu_partition *core, char *buf)
+-{
+-	int ret = 0;
+-	char tmp[512];
+-
+-	if (unlikely(!core || !buf))
+-		return -EINVAL;
+-
+-	ret += zhouyi_sysfs_show(core->reg, buf);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "Intr Cause Reg",
+-				     ZHOUYI_INTR_CAUSE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "Intr Status Reg",
+-	    ZHOUYI_INTR_STAT_REG_OFFSET);
+-	strcat(buf, tmp);
+-	return ret;
+-}
+-#endif
+-
+-static void zhouyi_v1_initialize(struct aipu_partition *core)
+-{
+-	core->ops->enable_interrupt(core, false);
+-}
+-
+-static int zhouyi_v1_soft_reset(struct aipu_partition *core, bool init_regs)
+-{
+-	if (unlikely(!core))
+-		return -EINVAL;
+-
+-	if (init_regs)
+-		core->ops->initialize(core);
+-	return 0;
+-}
+-
+-static int zhouyi_v1_destroy_command_pool(struct aipu_partition *core, int pool)
+-{
+-	return 0;
+-}
+-
+-static int zhouyi_v1_abort_command_pool(struct aipu_partition *core, int pool)
+-{
+-	return 0;
+-}
+-
+-static int zhouyi_v1_exit_dispatch(struct aipu_partition *partition, u32 job_flag, u64 tcb_pa)
+-{
+-	return 0;
+-}
+-
+-static void zhouyi_v1_disable_tick_counter(struct aipu_partition *partition)
+-{
+-}
+-
+-static void zhouyi_v1_enable_tick_counter(struct aipu_partition *partition)
+-{
+-}
+-
+-static struct aipu_operations zhouyi_v1_ops = {
+-	.get_config = zhouyi_v1_get_hw_config_number,
+-	.enable_interrupt = zhouyi_v1_enable_interrupt,
+-	.disable_interrupt = zhouyi_v1_disable_interrupt,
+-	.trigger = zhouyi_v1_trigger,
+-	.reserve = zhouyi_v1_reserve,
+-	.is_idle = zhouyi_v1_is_idle,
+-	.print_hw_id_info = zhouyi_v1_print_hw_id_info,
+-	.io_rw = zhouyi_v1_io_rw,
+-	.upper_half = zhouyi_v1_upper_half,
+-	.bottom_half = zhouyi_v1_bottom_half,
+-#ifdef CONFIG_SYSFS
+-	.sysfs_show = zhouyi_v1_sysfs_show,
+-#endif
+-	.soft_reset = zhouyi_v1_soft_reset,
+-	.hw_reset = NULL,
+-	.initialize = zhouyi_v1_initialize,
+-	.destroy_command_pool = zhouyi_v1_destroy_command_pool,
+-	.abort_command_pool = zhouyi_v1_abort_command_pool,
+-	.exit_dispatch = zhouyi_v1_exit_dispatch,
+-	.disable_tick_counter = zhouyi_v1_disable_tick_counter,
+-	.enable_tick_counter = zhouyi_v1_enable_tick_counter,
+-	.get_partition_status = NULL,
+-};
+-
+-struct aipu_operations *get_zhouyi_v1_ops(void)
+-{
+-	return &zhouyi_v1_ops;
+-}
+diff --git a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
++++ /dev/null
+@@ -1,232 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-#include <linux/platform_device.h>
+-#include <linux/of.h>
+-#include "aipu_job_manager.h"
+-#include "aipu_mm.h"
+-#include "aipu_priv.h"
+-#include "aipu_common.h"
+-#include "zhouyi.h"
+-#include "v1.h"
+-#include "v2.h"
+-
+-static int init_aipu_core(struct aipu_partition *core, int version, int id, struct aipu_priv *priv,
+-			  struct platform_device *p_dev)
+-{
+-	int ret = 0;
+-
+-	if (!core || !p_dev || !priv)
+-		return -EINVAL;
+-
+-	WARN_ON(core->is_init);
+-	WARN_ON(version != AIPU_ISA_VERSION_ZHOUYI_V1 &&
+-		version != AIPU_ISA_VERSION_ZHOUYI_V2_0 &&
+-		version != AIPU_ISA_VERSION_ZHOUYI_V2_1 &&
+-		version != AIPU_ISA_VERSION_ZHOUYI_V2_2);
+-
+-	core->version = version;
+-	core->id = id;
+-	core->dev = &p_dev->dev;
+-	core->priv = priv;
+-	atomic_set(&core->disable, 0);
+-	snprintf(core->name, sizeof(core->name), "aipu%d", id);
+-	mutex_init(&core->reset_lock);
+-
+-	/* unused fields */
+-	core->cluster_cnt = 0;
+-
+-#ifdef CONFIG_ARMCHINA_NPU_ARCH_V1
+-	if (version == AIPU_ISA_VERSION_ZHOUYI_V1) {
+-		core->max_sched_num = ZHOUYI_V1_MAX_SCHED_JOB_NUM;
+-		core->ops = get_zhouyi_v1_ops();
+-	}
+-#endif
+-
+-#ifdef CONFIG_ARMCHINA_NPU_ARCH_V2
+-	if (version == AIPU_ISA_VERSION_ZHOUYI_V2_0 ||
+-	    version == AIPU_ISA_VERSION_ZHOUYI_V2_1 ||
+-	    version == AIPU_ISA_VERSION_ZHOUYI_V2_2) {
+-		core->max_sched_num = ZHOUYI_V2_MAX_SCHED_JOB_NUM;
+-		core->ops = get_zhouyi_v2_ops();
+-	}
+-#endif
+-
+-	core->reg = devm_kzalloc(core->dev, sizeof(*core->reg), GFP_KERNEL);
+-	if (!core->reg)
+-		return -ENOMEM;
+-
+-	ret = aipu_common_init_reg_irq(p_dev, core, core->reg, &core->irq_obj);
+-	if (ret)
+-		return ret;
+-
+-	get_dtcm(&priv->mm, &core->dtcm_base, &core->dtcm_size);
+-
+-#ifdef CONFIG_SYSFS
+-	if (IS_ERR(aipu_common_create_attr(core->dev, &core->reg_attr, "ext_registers", 0644,
+-					   aipu_common_ext_register_sysfs_show,
+-					   aipu_common_ext_register_sysfs_store))) {
+-		dev_err(core->dev, "[init_core] create sysfs attribute failed: ext_registers");
+-		ret = -EFAULT;
+-		goto init_sysfs_fail;
+-	}
+-
+-	if (priv->soc_ops &&
+-	    priv->soc_ops->enable_clk && priv->soc_ops->disable_clk &&
+-	    IS_ERR(aipu_common_create_attr(core->dev, &core->clk_attr, "soc_clock", 0644,
+-					   aipu_common_clock_sysfs_show,
+-					   aipu_common_clock_sysfs_store))) {
+-		dev_err(core->dev, "[init_core] create sysfs attribute failed: soc_clock");
+-		ret = -EFAULT;
+-		goto init_sysfs_fail;
+-	}
+-
+-	if (IS_ERR(aipu_common_create_attr(core->dev, &core->disable_attr, "disable", 0644,
+-					   aipu_common_disable_sysfs_show,
+-					   aipu_common_disable_sysfs_store))) {
+-		dev_err(core->dev, "[init_core] create sysfs attribute failed: disable");
+-		ret = -EFAULT;
+-		goto init_sysfs_fail;
+-	}
+-#else
+-	core->reg_attr = NULL;
+-	core->clk_attr = NULL;
+-	core->disable_attr = NULL;
+-#endif
+-
+-	core->arch = AIPU_ARCH_ZHOUYI;
+-	core->config = core->ops->get_config(core);
+-	core->reset_delay_us = AIPU_CONFIG_DEFAULT_RESET_DELAY_US;
+-
+-	ret = core->ops->soft_reset(core, true);
+-	if (ret) {
+-		dev_err(core->dev, "[init_core] soft reset failed");
+-		goto soft_reset_fail;
+-	}
+-	core->ops->print_hw_id_info(core);
+-
+-	core->is_init = 1;
+-	goto finish;
+-
+-soft_reset_fail:
+-#ifdef CONFIG_SYSFS
+-init_sysfs_fail:
+-	aipu_common_destroy_attr(core->dev, &core->reg_attr);
+-	aipu_common_destroy_attr(core->dev, &core->clk_attr);
+-	aipu_common_destroy_attr(core->dev, &core->disable_attr);
+-#endif
+-	aipu_destroy_irq_object(core->irq_obj);
+-	deinit_aipu_ioregion(core->reg);
+-
+-finish:
+-	return ret;
+-}
+-
+-/**
+- * @deinit_aipu_core() - deinit a created aipu_partition struct
+- * @core: pointer to struct aipu_common initialized in init_aipu_core()
+- */
+-static void deinit_aipu_core(struct aipu_partition *core)
+-{
+-	if (!core)
+-		return;
+-
+-	core->ops->disable_interrupt(core);
+-	deinit_aipu_ioregion(core->reg);
+-
+-	if (core->irq_obj) {
+-		aipu_destroy_irq_object(core->irq_obj);
+-		core->irq_obj = NULL;
+-	}
+-
+-#ifdef CONFIG_SYSFS
+-	aipu_common_destroy_attr(core->dev, &core->reg_attr);
+-	aipu_common_destroy_attr(core->dev, &core->clk_attr);
+-	aipu_common_destroy_attr(core->dev, &core->disable_attr);
+-#endif
+-	core->is_init = 0;
+-}
+-
+-static struct aipu_partition *v1v2_create_partitions(struct aipu_priv *aipu,
+-						     int id, struct platform_device *p_dev)
+-{
+-	int ret = 0;
+-	struct aipu_partition *partition = NULL;
+-	struct aipu_partition *new_partition_arr = NULL;
+-	int version = 0;
+-	int config = 0;
+-
+-	if (!aipu || !p_dev)
+-		return ERR_PTR(-EINVAL);
+-
+-	WARN_ON(!aipu->is_init);
+-
+-	partition = devm_kzalloc(&p_dev->dev, sizeof(*partition), GFP_KERNEL);
+-	if (!partition)
+-		return ERR_PTR(-ENOMEM);
+-
+-	zhouyi_detect_aipu_version(p_dev, &version, &config, NULL);
+-	if (version == AIPU_ISA_VERSION_ZHOUYI_V1)
+-		dev_info(&p_dev->dev, "AIPU core #%d detected: zhouyi-v1 (z%d-%04d)\n",
+-			 id, version, config);
+-	else if (version == AIPU_ISA_VERSION_ZHOUYI_V2_0 || version == AIPU_ISA_VERSION_ZHOUYI_V2_1)
+-		dev_info(&p_dev->dev, "AIPU core #%d detected: zhouyi-v2 (z%d-%04d)\n",
+-			 id, version, config);
+-	else if (version == AIPU_ISA_VERSION_ZHOUYI_V2_2)
+-		dev_info(&p_dev->dev, "AIPU core #%d detected: zhouyi-v2 (x1-%04d)\n", id, config);
+-	else
+-		return ERR_PTR(-EINVAL);
+-
+-	ret = init_aipu_core(partition, version, id, aipu, p_dev);
+-	if (ret)
+-		return ERR_PTR(ret);
+-
+-	new_partition_arr = kcalloc(aipu->partition_cnt + 1, sizeof(*new_partition_arr),
+-				    GFP_KERNEL);
+-	if (!new_partition_arr) {
+-		partition = ERR_PTR(-ENOMEM);
+-		goto err_handle;
+-	}
+-
+-	if (aipu->partition_cnt) {
+-		WARN_ON(!aipu->partitions);
+-		memcpy(new_partition_arr, aipu->partitions,
+-		       aipu->partition_cnt * sizeof(*new_partition_arr));
+-		kfree(aipu->partitions);
+-		aipu->partitions = NULL;
+-	}
+-
+-	new_partition_arr[aipu->partition_cnt] = *partition;
+-	aipu->partitions = new_partition_arr;
+-	aipu->partition_cnt++;
+-
+-	aipu_job_manager_set_partitions_info(&aipu->job_manager, aipu->partition_cnt,
+-					     aipu->partitions);
+-
+-	goto finish;
+-
+-err_handle:
+-	deinit_aipu_core(partition);
+-
+-finish:
+-	return partition;
+-}
+-
+-static void v1v2_destroy_partitions(struct aipu_priv *aipu)
+-{
+-	int par_iter = 0;
+-
+-	for (par_iter = 0; par_iter < aipu->partition_cnt; par_iter++)
+-		deinit_aipu_core(&aipu->partitions[par_iter]);
+-}
+-
+-static struct aipu_priv_operations v1v2_priv_ops = {
+-	.create_partitions = v1v2_create_partitions,
+-	.destroy_partitions = v1v2_destroy_partitions,
+-	.global_soft_reset = NULL,
+-};
+-
+-struct aipu_priv_operations *get_v1v2_priv_ops(void)
+-{
+-	return &v1v2_priv_ops;
+-}
+diff --git a/drivers/misc/armchina-npu/zhouyi/v2.c b/drivers/misc/armchina-npu/zhouyi/v2.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v2.c
++++ /dev/null
+@@ -1,409 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-#include <linux/irqreturn.h>
+-#include <linux/bitops.h>
+-#include <linux/mutex.h>
+-#include <linux/delay.h>
+-#include "aipu_priv.h"
+-#include "zhouyi.h"
+-#include "v2.h"
+-#include "aipu_io.h"
+-#include "aipu_common.h"
+-#include "config.h"
+-
+-static int zhouyi_v2_get_hw_config_number(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		return zhouyi_get_hw_config_number(core->reg);
+-	return 0;
+-}
+-
+-static void zhouyi_v2_enable_interrupt(struct aipu_partition *core, bool en_tec_intr)
+-{
+-	if (likely(core))
+-		aipu_write32(core->reg, ZHOUYI_CTRL_REG_OFFSET, ZHOUYI_V2_IRQ_ENABLE_FLAG);
+-}
+-
+-static void zhouyi_v2_disable_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		aipu_write32(core->reg, ZHOUYI_CTRL_REG_OFFSET, ZHOUYI_V2_IRQ_DISABLE_FLAG);
+-}
+-
+-static void zhouyi_v2_clear_qempty_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		zhouyi_clear_qempty_interrupt(core->reg);
+-}
+-
+-static void zhouyi_v2_clear_done_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		zhouyi_clear_done_interrupt(core->reg);
+-}
+-
+-static void zhouyi_v2_clear_excep_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		zhouyi_clear_excep_interrupt(core->reg);
+-}
+-
+-static void zhouyi_v2_clear_fault_interrupt(struct aipu_partition *core)
+-{
+-	if (likely(core))
+-		aipu_write32(core->reg, ZHOUYI_STAT_REG_OFFSET, ZHOUYI_IRQ_FAULT);
+-}
+-
+-static void zhouyi_v2_trigger(struct aipu_partition *core)
+-{
+-	int start_pc = 0;
+-
+-	if (likely(core)) {
+-		start_pc = aipu_read32(core->reg, ZHOUYI_START_PC_REG_OFFSET) & 0xFFFFFFF0;
+-		aipu_write32(core->reg, ZHOUYI_START_PC_REG_OFFSET, start_pc | 0xD);
+-	}
+-}
+-
+-static int zhouyi_v2_reserve(struct aipu_partition *core, struct aipu_job_desc *udesc,
+-			     int do_trigger, int pool)
+-{
+-	u32 start_pc = 0;
+-	u32 enable_dtcm = 0;
+-	struct aipu_cap cap;
+-
+-	if (unlikely(!core || !udesc))
+-		return -EINVAL;
+-
+-	aipu_mm_get_asid(&core->priv->mm, &cap);
+-
+-	start_pc = udesc->start_pc_addr;
+-	enable_dtcm = udesc->dtcm_size_kb ? ZHOUYI_V2_DTCM_ENABLE : 0;
+-
+-	/* Load data addr 0 register */
+-	aipu_write32(core->reg, ZHOUYI_DATA_ADDR_0_REG_OFFSET, udesc->data_0_addr);
+-
+-	/* Load data addr 1 register */
+-	aipu_write32(core->reg, ZHOUYI_DATA_ADDR_1_REG_OFFSET, udesc->data_1_addr);
+-
+-	/* Load interrupt PC */
+-	aipu_write32(core->reg, ZHOUYI_INTR_PC_REG_OFFSET, udesc->intr_handler_addr);
+-
+-	/* Load ASE registers */
+-	/* ASE 0 */
+-	aipu_write32(core->reg, AIPU_ADDR_EXT0_CTRL_REG_OFFSET,
+-		     ZHOUYI_V2_ASE_RW_ENABLE | enable_dtcm);
+-	aipu_write32(core->reg, AIPU_ADDR_EXT0_HIGH_BASE_REG_OFFSET, cap.asid_base[AIPU_BUF_ASID_0] >> 32);
+-	aipu_write32(core->reg, AIPU_ADDR_EXT0_LOW_BASE_REG_OFFSET, (u32)cap.asid_base[AIPU_BUF_ASID_0]);
+-	dev_dbg(core->dev, "ASE 0 Ctrl 0x%x, ASE 0 PA 0x%llx",
+-		aipu_read32(core->reg, AIPU_ADDR_EXT0_CTRL_REG_OFFSET),
+-		((u64)aipu_read32(core->reg, AIPU_ADDR_EXT0_HIGH_BASE_REG_OFFSET) << 32) +
+-		 aipu_read32(core->reg, AIPU_ADDR_EXT0_LOW_BASE_REG_OFFSET));
+-	/* ASE 1 */
+-	aipu_write32(core->reg, AIPU_ADDR_EXT1_CTRL_REG_OFFSET,
+-		     ZHOUYI_V2_ASE_READ_ENABLE | enable_dtcm);
+-	aipu_write32(core->reg, AIPU_ADDR_EXT1_HIGH_BASE_REG_OFFSET, cap.asid_base[AIPU_BUF_ASID_1] >> 32);
+-	aipu_write32(core->reg, AIPU_ADDR_EXT1_LOW_BASE_REG_OFFSET, (u32)cap.asid_base[AIPU_BUF_ASID_1]);
+-	dev_dbg(core->dev, "ASE 1 Ctrl 0x%x, ASE 1 PA 0x%llx",
+-		aipu_read32(core->reg, AIPU_ADDR_EXT1_CTRL_REG_OFFSET),
+-		((u64)aipu_read32(core->reg, AIPU_ADDR_EXT1_HIGH_BASE_REG_OFFSET) << 32) +
+-		 aipu_read32(core->reg, AIPU_ADDR_EXT1_LOW_BASE_REG_OFFSET));
+-	/* ASE 2 */
+-	aipu_write32(core->reg, AIPU_ADDR_EXT2_CTRL_REG_OFFSET,
+-		     ZHOUYI_V2_ASE_RW_ENABLE | enable_dtcm);
+-	aipu_write32(core->reg, AIPU_ADDR_EXT2_HIGH_BASE_REG_OFFSET, cap.asid_base[AIPU_BUF_ASID_2] >> 32);
+-	aipu_write32(core->reg, AIPU_ADDR_EXT2_LOW_BASE_REG_OFFSET, (u32)cap.asid_base[AIPU_BUF_ASID_2]);
+-	dev_dbg(core->dev, "ASE 2 Ctrl 0x%x, ASE 0 PA 0x%llx",
+-		aipu_read32(core->reg, AIPU_ADDR_EXT2_CTRL_REG_OFFSET),
+-		((u64)aipu_read32(core->reg,
+-		 AIPU_ADDR_EXT2_HIGH_BASE_REG_OFFSET) << 32) +
+-		 aipu_read32(core->reg, AIPU_ADDR_EXT2_LOW_BASE_REG_OFFSET));
+-
+-	/* Load start PC register */
+-	if (do_trigger)
+-		start_pc |= 0xD;
+-	aipu_write32(core->reg, ZHOUYI_START_PC_REG_OFFSET, start_pc);
+-
+-	dev_dbg(core->dev, "[Job %lld] trigger done: start pc = 0x%x, dreg0 = 0x%x, dreg1 = 0x%x\n",
+-		udesc->job_id, start_pc, udesc->data_0_addr, udesc->data_1_addr);
+-
+-	return 0;
+-}
+-
+-static bool zhouyi_v2_is_idle(struct aipu_partition *core)
+-{
+-	unsigned long val = 0;
+-
+-	if (unlikely(!core))
+-		return false;
+-
+-	val = aipu_read32(core->reg, ZHOUYI_STAT_REG_OFFSET);
+-	return test_bit(16, &val) && test_bit(17, &val) && test_bit(18, &val);
+-}
+-
+-static void zhouyi_v2_print_hw_id_info(struct aipu_partition *core)
+-{
+-	bool is_v2_2 = false;
+-
+-	if (unlikely(!core))
+-		return;
+-
+-	is_v2_2 = core->version == AIPU_ISA_VERSION_ZHOUYI_V2_2;
+-
+-	dev_info(core->dev, "AIPU Initial Status: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_STAT_REG_OFFSET));
+-
+-	dev_info(core->dev, "########## AIPU CORE %d: ZHOUYI %s%d ##########",
+-		 core->id, is_v2_2 ? "X" : "Z", is_v2_2 ? 1 : core->version);
+-	dev_info(core->dev, "# ISA Version Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_ISA_VERSION_REG_OFFSET));
+-	dev_info(core->dev, "# TPC Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_TPC_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# SPU Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_SPU_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# HWA Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_HWA_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Revision ID Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_REVISION_ID_REG_OFFSET));
+-	dev_info(core->dev, "# Memory Hierarchy Feature Register: 0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_MEM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Instruction RAM Feature Register:  0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_INST_RAM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# TEC Local SRAM Feature Register:   0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_LOCAL_SRAM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Global SRAM Feature Register:      0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_GLOBAL_SRAM_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Instruction Cache Feature Register:0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_INST_CACHE_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "# Data Cache Feature Register:       0x%x",
+-		 aipu_read32(core->reg, ZHOUYI_DATA_CACHE_FEATURE_REG_OFFSET));
+-	dev_info(core->dev, "############################################");
+-}
+-
+-static int zhouyi_get_max_reg_offset(struct aipu_partition *core)
+-{
+-	WARN_ON(!core);
+-
+-	if (core->version == AIPU_ISA_VERSION_ZHOUYI_V2_2)
+-		return ZHOUYI_V2_MAX_REG_OFFSET;
+-	return ZHOUYI_V2_MAX_REG_OFFSET;
+-}
+-
+-static int zhouyi_v2_io_rw(struct aipu_partition *core, struct aipu_io_req *io_req)
+-{
+-	if (unlikely(!io_req))
+-		return -EINVAL;
+-
+-	if (!core || io_req->offset > zhouyi_get_max_reg_offset(core))
+-		return -EINVAL;
+-
+-	if (io_req->offset == ZHOUYI_V2_SOFT_RESET_OFFSET &&
+-	    io_req->value & ZHOUYI_LAUNCH_SOFT_RESET) {
+-		WARN_ON(!core->ops);
+-		core->ops->soft_reset(core, true);
+-	} else {
+-		zhouyi_io_rw(core->reg, io_req);
+-	}
+-	return 0;
+-}
+-
+-static void zhouyi_v2_initialize(struct aipu_partition *core)
+-{
+-	core->ops->enable_interrupt(core, false);
+-
+-	if (core->dtcm_size > 0 && core->version == AIPU_ISA_VERSION_ZHOUYI_V2_2) {
+-		aipu_write32(core->reg, ZHOUYI_V2_DTCM_CTRL, core->dtcm_size >> 20);
+-		aipu_write32(core->reg, ZHOUYI_V2_DTCM_HIGH_BASE_ADDR, core->dtcm_base >> 32);
+-		aipu_write32(core->reg, ZHOUYI_V2_DTCM_LOW_BASE_ADDR, (u32)core->dtcm_base);
+-	}
+-}
+-
+-static int zhouyi_soft_reset_no_lock(struct aipu_partition *core, bool init_regs)
+-{
+-	int ret = 0;
+-
+-	WARN_ON(!core);
+-	WARN_ON(!core->ops);
+-
+-	if (core->version == AIPU_ISA_VERSION_ZHOUYI_V2_2)
+-		ret = zhouyi_soft_reset(core->reg, ZHOUYI_V2_SOFT_RESET_OFFSET,
+-					core->reset_delay_us);
+-
+-	if (init_regs)
+-		core->ops->initialize(core);
+-
+-	return ret;
+-}
+-
+-static int zhouyi_v2_upper_half(void *data)
+-{
+-	int ret = 0;
+-	struct aipu_partition *core = (struct aipu_partition *)data;
+-
+-	if (get_soc_ops(core) &&
+-	    get_soc_ops(core)->is_aipu_irq &&
+-	    !get_soc_ops(core)->is_aipu_irq(core->dev, get_soc(core), core->id))
+-		return IRQ_NONE;
+-
+-	ret = zhouyi_read_status_reg(core->reg);
+-	if (ret & ZHOUYI_IRQ_QEMPTY)
+-		zhouyi_v2_clear_qempty_interrupt(core);
+-
+-	if (ret & ZHOUYI_IRQ_DONE) {
+-		zhouyi_v2_clear_done_interrupt(core);
+-		aipu_job_manager_irq_upper_half(core, 0, NULL);
+-		aipu_irq_schedulework(core->irq_obj);
+-	}
+-
+-	if (ret & ZHOUYI_IRQ_EXCEP) {
+-		zhouyi_v2_clear_excep_interrupt(core);
+-		zhouyi_soft_reset_no_lock(core, true);
+-		aipu_job_manager_irq_upper_half(core, 1, NULL);
+-		aipu_irq_schedulework(core->irq_obj);
+-	}
+-
+-	if (ret & ZHOUYI_IRQ_FAULT)
+-		zhouyi_v2_clear_fault_interrupt(core);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-static void zhouyi_v2_bottom_half(void *data)
+-{
+-	aipu_job_manager_irq_bottom_half(data);
+-}
+-
+-#ifdef CONFIG_SYSFS
+-static int zhouyi_v2_sysfs_show(struct aipu_partition *core, char *buf)
+-{
+-	int ret = 0;
+-	char tmp[512];
+-
+-	if (unlikely(!core || !buf))
+-		return -EINVAL;
+-
+-	ret += zhouyi_sysfs_show(core->reg, buf);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "Data Addr 2 Reg",
+-	    AIPU_DATA_ADDR_2_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "Data Addr 3 Reg",
+-	    AIPU_DATA_ADDR_3_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE0 Ctrl Reg",
+-	    AIPU_ADDR_EXT0_CTRL_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE0 High Base Reg",
+-	    AIPU_ADDR_EXT0_HIGH_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE0 Low Base Reg",
+-	    AIPU_ADDR_EXT0_LOW_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE1 Ctrl Reg",
+-	    AIPU_ADDR_EXT1_CTRL_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE1 High Base Reg",
+-	    AIPU_ADDR_EXT1_HIGH_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE1 Low Base Reg",
+-	    AIPU_ADDR_EXT1_LOW_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE2 Ctrl Reg",
+-	    AIPU_ADDR_EXT2_CTRL_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE2 High Base Reg",
+-	    AIPU_ADDR_EXT2_HIGH_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE2 Low Base Reg",
+-	    AIPU_ADDR_EXT2_LOW_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE3 Ctrl Reg",
+-	    AIPU_ADDR_EXT3_CTRL_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE3 High Base Reg",
+-	    AIPU_ADDR_EXT3_HIGH_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(core->reg, tmp, "ASE3 Low Base Reg",
+-	    AIPU_ADDR_EXT3_LOW_BASE_REG_OFFSET);
+-	strcat(buf, tmp);
+-	if (core->version == AIPU_ISA_VERSION_ZHOUYI_V2_2) {
+-		ret += zhouyi_print_reg_info(core->reg, tmp, "DTCM Ctrl Reg",
+-					     ZHOUYI_V2_DTCM_CTRL);
+-		strcat(buf, tmp);
+-		ret += zhouyi_print_reg_info(core->reg, tmp, "DTCM High Base Reg",
+-					     ZHOUYI_V2_DTCM_HIGH_BASE_ADDR);
+-		strcat(buf, tmp);
+-		ret += zhouyi_print_reg_info(core->reg, tmp, "DTCM Low Base Reg",
+-					     ZHOUYI_V2_DTCM_LOW_BASE_ADDR);
+-		strcat(buf, tmp);
+-		ret += zhouyi_print_reg_info(core->reg, tmp, "Soft Reset Reg",
+-					     ZHOUYI_V2_SOFT_RESET_OFFSET);
+-		strcat(buf, tmp);
+-	}
+-	return ret;
+-}
+-#endif
+-
+-static int zhouyi_v2_soft_reset(struct aipu_partition *core, bool init_regs)
+-{
+-	int ret = 0;
+-
+-	WARN_ON(!core);
+-	mutex_lock(&core->reset_lock);
+-	ret = zhouyi_soft_reset_no_lock(core, init_regs);
+-	mutex_unlock(&core->reset_lock);
+-
+-	return ret;
+-}
+-
+-static int zhouyi_v2_destroy_command_pool(struct aipu_partition *core, int pool)
+-{
+-	return 0;
+-}
+-
+-static int zhouyi_v2_abort_command_pool(struct aipu_partition *core, int pool)
+-{
+-	return 0;
+-}
+-
+-static int zhouyi_v2_exit_dispatch(struct aipu_partition *partition, u32 job_flag, u64 tcb_pa)
+-{
+-	return 0;
+-}
+-
+-static void zhouyi_v2_disable_tick_counter(struct aipu_partition *partition)
+-{
+-}
+-
+-static void zhouyi_v2_enable_tick_counter(struct aipu_partition *partition)
+-{
+-}
+-
+-static struct aipu_operations zhouyi_v2_ops = {
+-	.get_config = zhouyi_v2_get_hw_config_number,
+-	.enable_interrupt = zhouyi_v2_enable_interrupt,
+-	.disable_interrupt = zhouyi_v2_disable_interrupt,
+-	.trigger = zhouyi_v2_trigger,
+-	.reserve = zhouyi_v2_reserve,
+-	.is_idle = zhouyi_v2_is_idle,
+-	.print_hw_id_info = zhouyi_v2_print_hw_id_info,
+-	.io_rw = zhouyi_v2_io_rw,
+-	.upper_half = zhouyi_v2_upper_half,
+-	.bottom_half = zhouyi_v2_bottom_half,
+-#ifdef CONFIG_SYSFS
+-	.sysfs_show = zhouyi_v2_sysfs_show,
+-#endif
+-	.soft_reset = zhouyi_v2_soft_reset,
+-	.hw_reset = NULL,
+-	.initialize = zhouyi_v2_initialize,
+-	.destroy_command_pool = zhouyi_v2_destroy_command_pool,
+-	.abort_command_pool = zhouyi_v2_abort_command_pool,
+-	.exit_dispatch = zhouyi_v2_exit_dispatch,
+-	.disable_tick_counter = zhouyi_v2_disable_tick_counter,
+-	.enable_tick_counter = zhouyi_v2_enable_tick_counter,
+-	.get_partition_status = NULL,
+-};
+-
+-struct aipu_operations *get_zhouyi_v2_ops(void)
+-{
+-	return &zhouyi_v2_ops;
+-}
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2.c
++++ /dev/null
+@@ -1,439 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-#include <linux/irqreturn.h>
+-#include <linux/bitops.h>
+-#include <linux/mutex.h>
+-#include <linux/delay.h>
+-#include "aipu_priv.h"
+-#include "zhouyi.h"
+-#include "v3_2.h"
+-#include "aipu_io.h"
+-#include "config.h"
+-
+-static void zhouyi_v3_2_enable_core_cnt(struct aipu_partition *cluster,
+-					u32 cluster_id,
+-					u32 en_core_cnt)
+-{
+-	u32 nums = GET_NUMS_V3_2(aipu_read32(cluster->reg, CLUSTER_CONFIG_REG_V3_2(cluster_id)));
+-	u32 en_aiff_cnt = GET_AIFF_NUM_V3_2(nums);
+-	u32 config = CONFIG_CLUSTER_V3_2(0xf, en_core_cnt, en_aiff_cnt,
+-				       4, cluster->partition_mode);
+-
+-	config |= ((1 << en_core_cnt) - 1) << 24;
+-	aipu_write32(cluster->reg, CLUSTER_CONTROL_REG_V3_2(cluster_id), config);
+-
+-	atomic_set(&cluster->clusters[cluster_id].en_core_cnt, en_core_cnt);
+-	dev_info(cluster->dev, "configure cluster #%u done: en_core_cnt %u (0x%x)\n",
+-		 cluster_id, en_core_cnt, config);
+-}
+-
+-static void zhouyi_v3_2_enable_interrupt(struct aipu_partition *cluster, bool en_tec_intr)
+-{
+-	u32 flag = EN_ALL_LEVEL_INTRS_V3_2 | EN_ALL_TYPE_INTRS_V3_2;
+-
+-	if (en_tec_intr)
+-		flag |= EN_TEC_INTR_V3_2;
+-
+-	dev_dbg(cluster->dev, "configure interrupt flag 0x%x\n", flag);
+-	aipu_write32(cluster->reg, COMMAND_POOL_PCP_INTERRUPT_CONTROL_REG, flag);
+-}
+-
+-static void zhouyi_v3_2_disable_interrupt(struct aipu_partition *cluster)
+-{
+-	aipu_write32(cluster->reg, COMMAND_POOL_PCP_INTERRUPT_CONTROL_REG, DISABLE_ALL_INTRS_V3_2);
+-}
+-
+-static void zhouyi_v3_2_trigger(struct aipu_partition *cluster)
+-{
+-	/* no operation here */
+-}
+-
+-static int zhouyi_v3_2_create_command_pool(struct aipu_partition *cluster, int pool)
+-{
+-	int status = 0;
+-
+-	aipu_write32(cluster->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2,
+-		     TSM_CREATE_CMD_POOL_V3_2(cluster->id, TSM_MAP_SINGLE_V3_2) | pool);
+-
+-	status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-	if (IS_CMD_FAIL_V3_2(status)) {
+-		aipu_write32(cluster->reg, TSM_STATUS_REG_V3_2, CLEAR_CMD_FAIL_V3_2(status));
+-		dev_err(cluster->dev, "create command pool failed\n");
+-		return -EFAULT;
+-	}
+-
+-	return 0;
+-}
+-
+-static int zhouyi_v3_2_abort_command_pool(struct aipu_partition *cluster, int pool)
+-{
+-	int status = 0;
+-	int cnt = 0;
+-	int abort_done_bit = PCP_ABORT_DONE_BIT;
+-	unsigned long irqs = 0;
+-
+-	status = aipu_read32(cluster->reg, TSM_INTERRUPT_STATUS_REG);
+-	if(IS_ALL_CLEAR_IDLE(status))
+-		return -EBUSY;
+-
+-	status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-	if (!IS_ABORT_DONE(status, abort_done_bit)) {
+-		dev_err(cluster->dev, "abort cmd pool twice again.\n");
+-		return -EBUSY;
+-	}
+-
+-	aipu_write32(cluster->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2,
+-		     TSM_ABORT_CMD_POOL_V3_2(cluster->id) | pool);
+-
+-	status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-	if (IS_CMD_FAIL_V3_2(status)) {
+-		dev_err(cluster->dev, "abort command pool failed\n");
+-		aipu_write32(cluster->reg, TSM_STATUS_REG_V3_2, CLEAR_CMD_FAIL_V3_2(status));
+-		return -EFAULT;
+-	}
+-
+-	for (cnt = 0; cnt < 10; cnt++) {
+-		status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-		if (IS_ABORT_DONE(status, abort_done_bit)) {
+-			aipu_write32(cluster->reg, TSM_STATUS_REG_V3_2,
+-				     status & CLEAR_ABORT(abort_done_bit));
+-			irqs = GET_V3_2_IRQS_BITS(aipu_read32(cluster->reg,
+-						  TSM_INTERRUPT_STATUS_REG));
+-			aipu_write32(cluster->reg, TSM_INTERRUPT_STATUS_REG, irqs);
+-			dev_dbg(cluster->dev, "command pool was aborted\n");
+-			return 0;
+-		}
+-
+-		dev_info(cluster->dev, "waiting for abortion done...\n");
+-		udelay(cluster->priv->reset_delay_us);
+-	}
+-
+-	return -EFAULT;
+-}
+-
+-static int zhouyi_v3_2_destroy_command_pool(struct aipu_partition *cluster, int pool)
+-{
+-	int status = 0;
+-
+-	if (pool == ZHOUYI_COMMAND_POOL_PCP) {
+-		if (IS_POOL_BUSY(aipu_read32(cluster->reg, COMMAND_POOL_PCP_STATUS_REG)))
+-			return -EBUSY;
+-	}
+-
+-	aipu_write32(cluster->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2,
+-		     TSM_DESTROY_CMD_POOL_V3_2(cluster->id) | pool);
+-	status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-	if (IS_CMD_FAIL_V3_2(status)) {
+-		aipu_write32(cluster->reg, TSM_STATUS_REG_V3_2, CLEAR_CMD_FAIL_V3_2(status));
+-		dev_err(cluster->dev, "destroy command pool failed\n");
+-		return -EFAULT;
+-	}
+-
+-	dev_dbg(cluster->dev, "command pool was destroyed\n");
+-	return 0;
+-}
+-
+-static int zhouyi_v3_2_reserve(struct aipu_partition *cluster, struct aipu_job_desc *udesc,
+-			       int trigger_type, int pool)
+-{
+-	int ret = 0;
+-	int status = 0;
+-	int qos = get_qos(udesc->exec_flag);
+-
+-	//create pool
+-	if (trigger_type == ZHOUYI_TRIGGER_TYPE_CREATE) {
+-		ret = zhouyi_v3_2_create_command_pool(cluster, pool);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	//dispatch pool
+-	status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-	if (pool == ZHOUYI_COMMAND_POOL_PCP && IS_PCP_FULL(status, qos == TSM_QOS_FAST)) {
+-		dev_info(cluster->dev, "command pool is full\n");
+-		return ZHOUYI_V3_2_COMMAND_POOL_FULL;
+-	}
+-
+-	dev_info(cluster->dev, "[Job 0x%llx] scheduler: TCB head 0x%llx base 0x%llx\n",
+-		 udesc->job_id, udesc->head_tcb_pa, udesc->asid0_base);
+-
+-	aipu_write32(cluster->reg, TSM_CMD_SCHD_ADDR_HIGH_REG_V3_2, udesc->head_tcb_pa >> 32);
+-	aipu_write32(cluster->reg, TSM_CMD_SCHD_ADDR_LOW_REG_V3_2, (u32)udesc->head_tcb_pa);
+-	aipu_write32(cluster->reg, TSM_COMMAND_SCHEDULE_TCB_NUM_REG_V3_2,
+-		     ((udesc->tail_tcb_pa - udesc->head_tcb_pa) >> 7) + 1);
+-
+-	if (udesc->exec_flag & AIPU_JOB_EXEC_FLAG_BIND_DISPATCH) {
+-		aipu_write32(cluster->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2,
+-			     TSM_BIND_DISPATCH_CMD_POOL_V3_2(pool, qos, udesc->core_id));
+-		dev_dbg(cluster->dev, "bind-dispatch user job 0x%llx (0x%llx - 0x%llx, tcbp 0x%llx) core %d",
+-			udesc->job_id, udesc->head_tcb_pa, udesc->tail_tcb_pa,
+-			udesc->last_task_tcb_pa, udesc->core_id);
+-	} else {
+-		aipu_write32(cluster->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2,
+-			     TSM_DISPATCH_CMD_POOL_V3_2(pool, qos));
+-		dev_dbg(cluster->dev, "dispatch user job 0x%llx (0x%llx - 0x%llx, tcbp 0x%llx)",
+-			udesc->job_id, udesc->head_tcb_pa, udesc->tail_tcb_pa,
+-			udesc->last_task_tcb_pa);
+-	}
+-
+-	status = aipu_read32(cluster->reg, TSM_STATUS_REG_V3_2);
+-	if (IS_CMD_FAIL_V3_2(status)) {
+-		aipu_write32(cluster->reg, TSM_STATUS_REG_V3_2, CLEAR_CMD_FAIL_V3_2(status));
+-		dev_err(cluster->dev, "dispatch task failed\n");
+-		return -EINVAL;
+-	}
+-
+-	return 0;
+-}
+-
+-static void zhouyi_v3_2_print_hw_id_info(struct aipu_partition *cluster)
+-{
+-	struct aipu_priv *aipu = cluster->priv;
+-	int version = aipu->version;
+-	u32 iter = 0;
+-
+-	dev_info(aipu->dev, "############# ZHOUYI %sAIPU #############",
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_0 ? "V3_2_0 ":
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_1 ? "V3_2_1":"");
+-	dev_info(aipu->dev, "# Enabled Cluster Count: %d", aipu->cluster_cnt);
+-
+-	for (iter = 0; iter < aipu->partition_cnt; iter++) {
+-		cluster = &aipu->partitions[iter];
+-		dev_info(aipu->dev, "#\n");
+-		dev_info(aipu->dev, "# -- Cluster #%u", cluster->id);
+-		dev_info(aipu->dev, "# Core Count: %d",
+-			 cluster->clusters[0].core_cnt);
+-		dev_info(aipu->dev, "# TEC Count: %d",
+-			 cluster->clusters[0].tec_cnt);
+-	}
+-	dev_info(aipu->dev, "##########################################");
+-}
+-
+-static int zhouyi_v3_2_io_rw(struct aipu_partition *cluster, struct aipu_io_req *io_req)
+-{
+-	if (unlikely(!io_req))
+-		return -EINVAL;
+-
+-	if (!cluster)
+-		return -EINVAL;
+-
+-	//FIX ME, can't access any reg during reset/abort;
+-	spin_lock(&cluster->io_lock);
+-	if (io_req->reg_type == AIPU_DBG_REG)
+-		zhouyi_io_rw(cluster->dbg_reg, io_req);
+-	else if (io_req->offset <= ZHOUYI_V3_2_MAX_REG_OFFSET)
+-		zhouyi_io_rw(cluster->reg, io_req);
+-	spin_unlock(&cluster->io_lock);
+-	return 0;
+-}
+-
+-static void zhouyi_v3_2_disable_tick_counter(struct aipu_partition *cluster)
+-{
+-	aipu_write32(cluster->reg, TICK_COUNTER_CONTROL_STATUS_REG_V3_2, DISABLE_COUNTER_V3_2);
+-}
+-
+-static void zhouyi_v3_2_enable_tick_counter(struct aipu_partition *cluster)
+-{
+-	aipu_write32(cluster->reg, TICK_COUNTER_CONTROL_STATUS_REG_V3_2, ENABLE_COUNTER_V3_2);
+-}
+-
+-static void zhouyi_v3_2_initialize(struct aipu_partition *cluster)
+-{
+-	zhouyi_v3_2_enable_core_cnt(cluster, 0, cluster->clusters[0].core_cnt);
+-	zhouyi_v3_2_enable_interrupt(cluster, false);
+-	zhouyi_v3_2_disable_tick_counter(cluster);
+-}
+-
+-static void zhouyi_v3_2_soft_reset_type(struct aipu_partition *cluster,
+-				     struct job_irq_info *info, int status)
+-{
+-	if (IS_CLUSTER_IRQ_V3_2(status) && IS_FAULT_IRQ_V3_2(status)) {
+-		dev_err(cluster->dev, "cluster fault global reset event.\n");
+-		cluster->event_type = AIPU_IRQ_EVENT_RESET;
+-	} else if (IS_POOL_IRQ_V3_2(status) && (IS_TIMEOUT_IRQ_V3_2(status) ||
+-				IS_ERROR_IRQ_V3_2(status))) {
+-		dev_err(cluster->dev, "pool error/timeout global reset event status 0x%08x.\n", status);
+-		cluster->event_type = AIPU_IRQ_EVENT_RESET;
+-	}
+-}
+-
+-static int zhouyi_v3_2_upper_half(void *data)
+-{
+-	struct aipu_partition *cluster = (struct aipu_partition *)data;
+-	struct job_irq_info info;
+-	u32 status = 0;
+-	unsigned long irqs = 0;
+-	int id = 0;
+-
+-	memset(&info, 0, sizeof(info));
+-
+-	irqs = GET_V3_2_IRQS_BITS(aipu_read32(cluster->reg, TSM_INTERRUPT_STATUS_REG));
+-	for (id = 0; id < TSM_IRQ_MAX_NUM; id++) {
+-		if (!test_bit(id, &irqs))
+-			continue;
+-
+-		status = aipu_read32(cluster->reg, INTERRUPT_TYPE_INFO_REG(id));
+-		info.tail_tcbp = aipu_read32(cluster->reg, INTERRUPT_TCB_PTR_REG(id));
+-		info.sig_flag = aipu_read32(cluster->reg,  INTERRUPT_SIGNAL_FLAG_REG(id));
+-		info.group_id = GET_INTR_GROUP_ID_V3_2(aipu_read32(cluster->reg,
+-				INTERRUPT_GROUP_ID_REG(id)));
+-		info.cluster_id = GET_INTR_CLUSTER_ID_V3_2(status);
+-		info.core_id = GET_INTR_CORE_ID_V3_2(status);
+-		info.tec_id = GET_INTR_TEC_ID_V3_2(status);
+-
+-		if (IS_TEC_IRQ_V3_2(status) && (IS_DONE_IRQ_V3_2(status)))
+-			continue;
+-
+-		//check if do global soft reset
+-		if (IS_RESET(status))
+-			zhouyi_v3_2_soft_reset_type(cluster, &info, status);
+-		else if (IS_TEC_IRQ_V3_2(status) && IS_FAULT_IRQ_V3_2(status))
+-			dev_err(cluster->dev, "TEC Fault Error.\n");
+-		else if (IS_TEC_IRQ_V3_2(status) && IS_EXCEPTION_IRQ_V3_2(status))
+-			dev_err(cluster->dev, "TEC Exception Error.\n");
+-		else if (IS_SIGNAL_IRQ_V3_2(status) && IS_EXCEPTION_SIGNAL_V3_2(info.sig_flag))
+-			dev_err(cluster->dev, "HW/SW Exception Signal.\n");
+-
+-		aipu_job_manager_irq_upper_half(cluster, status, &info);
+-		aipu_irq_schedulework(cluster->irq_obj);
+-	}
+-	aipu_write32(cluster->reg, TSM_INTERRUPT_STATUS_REG, irqs);
+-	irqs = IS_ALL_CLEAR_IDLE(aipu_read32(cluster->reg, TSM_INTERRUPT_STATUS_REG));
+-	if(irqs)
+-		dev_warn(cluster->dev, "Clear entry not idle 0x%lx.\n", irqs);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-static void zhouyi_v3_2_bottom_half(void *data)
+-{
+-	aipu_job_manager_irq_bottom_half(data);
+-}
+-
+-#ifdef CONFIG_SYSFS
+-static int zhouyi_v3_2_sysfs_show(struct aipu_partition *cluster, char *buf)
+-{
+-	int ret = 0;
+-	char tmp[1024];
+-
+-	if (unlikely(!cluster || !buf))
+-		return -EINVAL;
+-
+-	snprintf(tmp, 128, "--- TCB Dispatch ---\n");
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "TCB Address High",
+-				     TSM_CMD_SCHD_ADDR_HIGH_REG_V3_2);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "TCB Address Low",
+-				     TSM_CMD_SCHD_ADDR_LOW_REG_V3_2);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "TCB Number",
+-				     TSM_COMMAND_SCHEDULE_TCB_NUM_REG_V3_2);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "CMD Schedule Ctrl Handle",
+-				     TSM_CMD_SCHD_CTRL_HANDLE_REG_V3_2);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "TSM Status",
+-				     TSM_STATUS_REG_V3_2);
+-	strcat(buf, tmp);
+-
+-	snprintf(tmp, 512, "\n--- Interrupts ---\n");
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "[TSM] Intr Status",
+-				     TSM_INTERRUPT_STATUS_REG);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "[PCP] Pool Status",
+-				     COMMAND_POOL_PCP_STATUS_REG);
+-	strcat(buf, tmp);
+-	ret += zhouyi_print_reg_info(cluster->reg, tmp, "[PCP] Intr Control",
+-				     COMMAND_POOL_PCP_INTERRUPT_CONTROL_REG);
+-	strcat(buf, tmp);
+-
+-	return ret;
+-}
+-#endif
+-
+-static int zhouyi_v3_2_soft_reset(struct aipu_partition *cluster, bool init_regs)
+-{
+-	int ret = 0;
+-	struct aipu_priv *aipu = cluster->priv;
+-	unsigned long flags;
+-
+-	/* NOTE: this is a global soft-reset */
+-	spin_lock_irqsave(&cluster->io_lock, flags);
+-	ret = aipu->ops->global_soft_reset(aipu);
+-	if (!ret)
+-		cluster->ops->initialize(cluster);
+-	spin_unlock_irqrestore(&cluster->io_lock, flags);
+-
+-	return ret;
+-}
+-
+-static void zhouyi_v3_2_hw_reset(struct aipu_partition *cluster)
+-{
+-	struct aipu_priv *aipu = cluster->priv;
+-	unsigned long flags;
+-
+-	/* NOTE: this is a global hardware reset */
+-	spin_lock_irqsave(&cluster->io_lock, flags);
+-	aipu->ops->global_hw_reset(aipu);
+-	cluster->ops->initialize(cluster);
+-	spin_unlock_irqrestore(&cluster->io_lock, flags);
+-}
+-
+-static int zhouyi_v3_2_read_cluster_status(struct aipu_partition *cluster,
+-					   struct aipu_cluster_status *status)
+-{
+-	int i = 1;
+-
+-	if (unlikely(!status))
+-		return -EINVAL;
+-
+-	if (unlikely(!cluster))
+-		return -EINVAL;
+-
+-	spin_lock(&cluster->io_lock);
+-	aipu_write32(cluster->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
+-		     SELECT_DEBUG_CORE_V3_2(0, 0));
+-	status->cluster_status = aipu_read32(cluster->reg, DEBUG_CLUSTER_STATUS_V3_2);
+-	status->core_status = (aipu_read32(cluster->reg, DEBUG_CORE_STATUS_V3_2) >> 4) & 0b1;
+-	for (; i < cluster->clusters[0].core_cnt; ++i) {
+-		aipu_write32(cluster->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
+-			     SELECT_DEBUG_CORE_V3_2(0, i));
+-		status->core_status |= (((aipu_read32(cluster->reg, DEBUG_CORE_STATUS_V3_2) >> 4)
+-								& 0b1) << i);
+-	}
+-	aipu_write32(cluster->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG, DISABLE_DEBUG_V3_2);
+-	spin_unlock(&cluster->io_lock);
+-	return 0;
+-}
+-
+-static struct aipu_operations zhouyi_v3_2_ops = {
+-	.get_config = NULL,
+-	.enable_interrupt = zhouyi_v3_2_enable_interrupt,
+-	.disable_interrupt = zhouyi_v3_2_disable_interrupt,
+-	.trigger = zhouyi_v3_2_trigger,
+-	.reserve = zhouyi_v3_2_reserve,
+-	.print_hw_id_info = zhouyi_v3_2_print_hw_id_info,
+-	.io_rw = zhouyi_v3_2_io_rw,
+-	.upper_half = zhouyi_v3_2_upper_half,
+-	.bottom_half = zhouyi_v3_2_bottom_half,
+-#ifdef CONFIG_SYSFS
+-	.sysfs_show = zhouyi_v3_2_sysfs_show,
+-#endif
+-	.soft_reset = zhouyi_v3_2_soft_reset,
+-	.hw_reset = zhouyi_v3_2_hw_reset,
+-	.initialize = zhouyi_v3_2_initialize,
+-	.destroy_command_pool = zhouyi_v3_2_destroy_command_pool,
+-	.abort_command_pool = zhouyi_v3_2_abort_command_pool,
+-	.disable_tick_counter = zhouyi_v3_2_disable_tick_counter,
+-	.enable_tick_counter = zhouyi_v3_2_enable_tick_counter,
+-	.enable_core_cnt = zhouyi_v3_2_enable_core_cnt,
+-	.get_partition_status = zhouyi_v3_2_read_cluster_status,
+-};
+-
+-struct aipu_operations *get_zhouyi_v3_2_ops(void)
+-{
+-	return &zhouyi_v3_2_ops;
+-}
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
+deleted file mode 100644
+--- a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
++++ /dev/null
+@@ -1,249 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+-
+-#include <linux/platform_device.h>
+-#include <linux/of.h>
+-#include <linux/delay.h>
+-#include <linux/gpio/consumer.h>
+-#include "aipu_priv.h"
+-#include "aipu_partition.h"
+-#include "aipu_common.h"
+-#include "zhouyi.h"
+-#include "v3_2.h"
+-
+-static int aipu_init_debugger_reg_v3_2(struct platform_device *p_dev, struct io_region *reg)
+-{
+-	int ret = 0;
+-	struct resource *res = NULL;
+-	u64 base = 0;
+-	u64 size = 0;
+-
+-	if (!p_dev || !reg)
+-		return -EINVAL;
+-
+-	res = platform_get_resource(p_dev, IORESOURCE_MEM, 1);
+-	if (!res)
+-		return -EINVAL;
+-	dev_dbg(&p_dev->dev, "init aipu debugger IO region: [0x%llx, 0x%llx]\n",
+-		res->start, res->end - res->start + 1);
+-
+-	base = res->start;
+-	size = res->end - res->start + 1;
+-
+-	ret = init_aipu_ioregion(reg, base, size);
+-	if (ret) {
+-		dev_err(&p_dev->dev, "create aipu IO region failed.\n");
+-		return ret;
+-	}
+-	dev_dbg(&p_dev->dev, "init aipu IO region done: [0x%llx, 0x%llx]\n",
+-		base, res->end);
+-	return ret;
+-}
+-
+-static u32 aipu_get_gm_size(u32 val)
+-{
+-    val &= 0x7;
+-    return val ? SZ_1M << (val - 1) : 0;
+-}
+-
+-static int init_aipu_cluster(struct aipu_partition *cluster, struct aipu_priv *aipu,
+-			     struct platform_device *p_dev, int version)
+-{
+-	int ret = 0;
+-	u32 val = 0;
+-	u32 config = 0;
+-
+-	if (!cluster || !aipu || !p_dev)
+-		return -EINVAL;
+-
+-	cluster->id = 0;
+-	cluster->priv = aipu;
+-	cluster->version = version;
+-	cluster->arch = AIPU_ARCH_ZHOUYI;
+-	cluster->dev = &p_dev->dev;
+-	cluster->reg = &cluster->priv->reg;
+-	cluster->dbg_reg = &cluster->priv->dbg_reg;
+-	cluster->irq_obj = cluster->priv->irq_obj;
+-	cluster->partition_mode = PARTITION_MODE_NONE;
+-	mutex_init(&cluster->reset_lock);
+-	spin_lock_init(&cluster->io_lock);
+-	cluster->ops = get_zhouyi_v3_2_ops();
+-
+-	/* unused fields */
+-	cluster->reg_attr = NULL;
+-	cluster->clk_attr = NULL;
+-	cluster->disable_attr = NULL;
+-	cluster->max_sched_num = 0;
+-	cluster->dtcm_base = 0;
+-	cluster->dtcm_size = 0;
+-	atomic_set(&cluster->disable, 0);
+-
+-	cluster->cluster_cnt = 1;
+-	val = aipu_read32(cluster->reg, CLUSTER_CONFIG_REG_V3_2(0));
+-	cluster->clusters[0].core_cnt = GET_AIPU_CORE_NUM_V3_2(val);
+-	atomic_set(&cluster->clusters[0].en_core_cnt, GET_AIPU_CORE_NUM_V3_2(val));
+-	config = GET_AIFF_NUM_V3_2(val);
+-	if (config == 2)
+-		cluster->config = 1304;
+-	else if (config == 1)
+-		cluster->config = 1204;
+-	else
+-		cluster->config = 0;
+-	cluster->clusters[0].tec_cnt = GET_TEC_NUM_V3_2(val);
+-
+-	if (version >= AIPU_ISA_VERSION_ZHOUYI_V3_2_0) {
+-		aipu_write32(&aipu->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG,
+-		     SELECT_DEBUG_CORE_V3_2(0, 0));
+-		val = aipu_read32(cluster->reg, CLUSTER_GM_FEATURE_V3_2(0));
+-		cluster->clusters[0].gm_bytes = aipu_get_gm_size(val);
+-		aipu_write32(&aipu->reg, AHB_INTERNAL_CSR_SELECTION_CTRL_REG, DISABLE_DEBUG_V3_2);
+-		ret = aipu_mm_init_gm(&cluster->priv->mm, cluster->clusters[0].gm_bytes);
+-	}
+-
+-	cluster->ops->initialize(cluster);
+-
+-#ifdef CONFIG_SYSFS
+-	if (IS_ERR(aipu_common_create_attr(cluster->dev, &cluster->reg_attr, "ext_registers",
+-					   0644, aipu_common_ext_register_sysfs_show,
+-					   aipu_common_ext_register_sysfs_store)))
+-		dev_err(cluster->dev, "[init_cluster] init sysfs <ext_registers> failed");
+-
+-#endif
+-
+-	cluster->is_init = true;
+-	return ret;
+-}
+-
+-static struct aipu_partition *v3_2_create_cluster(struct aipu_priv *aipu,
+-						  int id,
+-						  struct platform_device *p_dev)
+-{
+-	int ret = 0;
+-	int version = 0;
+-	int config = 0;
+-	struct aipu_partition *cluster = NULL;
+-
+-	if (!aipu || !p_dev)
+-		return ERR_PTR(-EINVAL);
+-
+-	ret = zhouyi_detect_aipu_version(p_dev, &version, &config, NULL);
+-	if (ret)
+-		return ERR_PTR(ret);
+-
+-	dev_info(&p_dev->dev, "AIPU detected: zhouyi%s\n",
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_0 ? "-v3_2_0":
+-		 version == AIPU_ISA_VERSION_ZHOUYI_V3_2_1 ? "-v3_2_1":"");
+-
+-	WARN_ON(!aipu->is_init);
+-
+-	cluster = devm_kzalloc(&p_dev->dev, sizeof(*cluster), GFP_KERNEL);
+-	if (!cluster)
+-		return ERR_PTR(-ENOMEM);
+-
+-	/* do this before calling init_aipu_cluster() */
+-	ret = aipu_common_init_reg_irq(p_dev, cluster, &aipu->reg, &aipu->irq_obj);
+-	if (ret)
+-		return ERR_PTR(ret);
+-
+-	/*for debugger io region */
+-	ret = aipu_init_debugger_reg_v3_2(p_dev, &aipu->dbg_reg);
+-	if (ret) {
+-		dev_err(&p_dev->dev, "[init debugger] failed, please update fpga and dts.");
+-		//return ERR_PTR(ret);
+-	}
+-
+-	if (aipu->reset_gpio) {
+-		aipu->ops->global_hw_reset(aipu);
+-	} else {
+-		ret = aipu->ops->global_soft_reset(aipu);
+-		if (ret) {
+-			dev_err(&p_dev->dev, "[init partition] global soft reset failed");
+-			return ERR_PTR(ret);
+-		}
+-	}
+-
+-	ret = init_aipu_cluster(cluster, aipu, p_dev, version);
+-	if (ret)
+-		goto init_cluster_fail;
+-
+-	aipu->partitions = cluster;
+-	aipu->partition_cnt = 1;
+-	aipu->cluster_cnt = 1;
+-	aipu_job_manager_set_partitions_info(&aipu->job_manager, aipu->partition_cnt, cluster);
+-	cluster->ops->print_hw_id_info(cluster);
+-	goto finish;
+-
+-init_cluster_fail:
+-	aipu_destroy_irq_object(aipu->irq_obj);
+-	aipu->irq_obj = NULL;
+-	deinit_aipu_ioregion(&aipu->reg);
+-	deinit_aipu_ioregion(&aipu->dbg_reg);
+-	aipu->reg.phys = 0;
+-	aipu->reg.kern = NULL;
+-	aipu->reg.size = 0;
+-	devm_kfree(&p_dev->dev, cluster);
+-	cluster = ERR_PTR(ret);
+-
+-finish:
+-	return cluster;
+-}
+-
+-static void v3_2_destroy_cluster(struct aipu_priv *aipu)
+-{
+-	int i = 0;
+-
+-	if (aipu) {
+-		if (aipu->irq_obj)
+-			aipu_destroy_irq_object(aipu->irq_obj);
+-		aipu->irq_obj = NULL;
+-
+-		if (aipu->reg.kern)
+-			deinit_aipu_ioregion(&aipu->reg);
+-		aipu->reg.kern = NULL;
+-		aipu->reg.phys = 0;
+-		aipu->reg.size = 0;
+-
+-		if (aipu->dbg_reg.kern)
+-			deinit_aipu_ioregion(&aipu->dbg_reg);
+-		aipu->dbg_reg.kern = NULL;
+-		aipu->dbg_reg.phys = 0;
+-		aipu->dbg_reg.size = 0;
+-
+-		for (i = 0; i < aipu->partition_cnt; i++) {
+-			if (!aipu->partitions[i].is_init)
+-				return;
+-			aipu_common_destroy_attr(aipu->partitions[i].dev,
+-						 &aipu->partitions[i].reg_attr);
+-		}
+-	}
+-}
+-
+-static int v3_2_global_soft_reset(struct aipu_priv *aipu)
+-{
+-	return zhouyi_soft_reset(&aipu->reg, PMU_TOP_SOFT_RESET_REG, aipu->reset_delay_us);
+-}
+-
+-static void v3_2_global_hw_reset(struct aipu_priv *aipu)
+-{
+-	if (aipu && aipu->reset_gpio) {
+-		gpiod_set_value(aipu->reset_gpio, 0);
+-		udelay(1);
+-		gpiod_set_value(aipu->reset_gpio, 1);
+-		udelay(20);
+-		gpiod_set_value(aipu->reset_gpio, 0);
+-		udelay(20);
+-		dev_dbg(aipu->dev, "v3_2 global hw reset finished.\n");
+-	}
+-}
+-
+-static struct aipu_priv_operations v3_2_priv_ops = {
+-	.create_partitions = v3_2_create_cluster,
+-	.destroy_partitions = v3_2_destroy_cluster,
+-	.global_soft_reset = v3_2_global_soft_reset,
+-	.global_hw_reset = v3_2_global_hw_reset,
+-};
+-
+-struct aipu_priv_operations *get_v3_2_priv_ops(void)
+-{
+-	return &v3_2_priv_ops;
+-}

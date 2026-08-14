@@ -1,0 +1,158 @@
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -11,6 +11,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/poll.h>
+ #include <linux/compat.h>
++#include <linux/capability.h>
+ #include <linux/gpio/consumer.h>
+ #include <armchina_aipu.h>
+ #include "armchina_aipu_soc.h"
+@@ -178,6 +179,10 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 			ret = -EINVAL;
+ 		break;
+ 	case AIPU_IOCTL_REQ_IO:
++		if (!capable(CAP_SYS_RAWIO)) {
++			ret = -EPERM;
++			break;
++		}
+ 		if (!copy_from_user(&io_req, (struct aipu_io_req __user *)arg, sizeof(io_req))) {
+ 			ret = aipu_priv_io_rw(aipu, &io_req);
+ 			if (!ret &&
+diff --git a/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
+--- a/drivers/misc/armchina-npu/aipu_io.c
++++ b/drivers/misc/armchina-npu/aipu_io.c
+@@ -54,17 +54,24 @@ void deinit_aipu_ioregion(struct io_region *region)
+  * @offset: AIPU register offset
+  * Return: u32 value in the register or error code
+  */
+-int aipu_read32(struct io_region *region, int offset)
++bool aipu_ioregion_valid32(const struct io_region *region, u32 offset)
++{
++	return region && region->kern && region->size >= sizeof(u32) &&
++	       !(offset & (sizeof(u32) - 1)) &&
++	       offset <= region->size - sizeof(u32);
++}
++
++int aipu_read32(struct io_region *region, u32 offset)
+ {
+ 	u32 val = 0;
+ 
+-	if (region && region->kern && offset < region->size) {
+-		val = readl((void __iomem *)((unsigned long)(region->kern) + offset));
+-		pr_debug("[Read AIPU Register]: reg addr: 0x%llx + 0x%x, read back value: 0x%x\n",
+-			 region->phys, offset, val);
+-		return val;
+-	}
+-	return -EINVAL;
++	if (!aipu_ioregion_valid32(region, offset))
++		return -EINVAL;
++
++	val = readl((u8 __iomem *)region->kern + offset);
++	pr_debug("[Read AIPU Register]: reg addr: 0x%llx + 0x%x, read back value: 0x%x\n",
++		 region->phys, offset, val);
++	return val;
+ }
+ 
+ /**
+@@ -73,10 +80,13 @@ int aipu_read32(struct io_region *region, int offset)
+  * @offset: AIPU register offset
+  * @data:   u32 data to be writen
+  */
+-void aipu_write32(struct io_region *region, int offset, unsigned int data)
++int aipu_write32(struct io_region *region, u32 offset, u32 data)
+ {
+-	if (region && region->kern && offset < region->size)
+-		writel((u32)data, (void __iomem *)((unsigned long)(region->kern) + offset));
++	if (!aipu_ioregion_valid32(region, offset))
++		return -EINVAL;
++
++	writel(data, (u8 __iomem *)region->kern + offset);
+ 	pr_debug("[Write AIPU Register]: reg addr: 0x%llx + 0x%x, write value: 0x%x\n",
+-		 region->phys, offset, (u32)data);
++		 region->phys, offset, data);
++	return 0;
+ }
+diff --git a/drivers/misc/armchina-npu/aipu_io.h b/drivers/misc/armchina-npu/aipu_io.h
+--- a/drivers/misc/armchina-npu/aipu_io.h
++++ b/drivers/misc/armchina-npu/aipu_io.h
+@@ -15,13 +15,14 @@
+  */
+ struct io_region {
+ 	u64  phys;
+-	void *kern;
++	void __iomem *kern;
+ 	u32  size;
+ };
+ 
+ int init_aipu_ioregion(struct io_region *region, u64 phys_base, u32 size);
+ void deinit_aipu_ioregion(struct io_region *region);
+-int aipu_read32(struct io_region *region, int offset);
+-void aipu_write32(struct io_region *region, int offset, unsigned int data);
++bool aipu_ioregion_valid32(const struct io_region *region, u32 offset);
++int aipu_read32(struct io_region *region, u32 offset);
++int aipu_write32(struct io_region *region, u32 offset, u32 data);
+ 
+ #endif /* __AIPU_IO_H__ */
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3.c b/drivers/misc/armchina-npu/zhouyi/v3.c
+--- a/drivers/misc/armchina-npu/zhouyi/v3.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3.c
+@@ -279,11 +279,11 @@ static int zhouyi_v3_io_rw(struct aipu_partition *partition, struct aipu_io_req
+ 	if (unlikely(!io_req))
+ 		return -EINVAL;
+ 
+-	if (!partition || io_req->offset > ZHOUYI_V3_MAX_REG_OFFSET)
++	if (!partition || io_req->reg_type != AIPU_HOST_REG ||
++	    io_req->offset > ZHOUYI_V3_MAX_REG_OFFSET)
+ 		return -EINVAL;
+ 
+-	zhouyi_io_rw(partition->reg, io_req);
+-	return 0;
++	return zhouyi_io_rw(partition->reg, io_req);
+ }
+ 
+ static void zhouyi_v3_disable_tick_counter(struct aipu_partition *partition)
+diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.c b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
+--- a/drivers/misc/armchina-npu/zhouyi/zhouyi.c
++++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
+@@ -25,15 +25,20 @@ void zhouyi_clear_excep_interrupt(struct io_region *io)
+ 	aipu_write32(io, ZHOUYI_STAT_REG_OFFSET, ZHOUYI_IRQ_EXCEP);
+ }
+ 
+-void zhouyi_io_rw(struct io_region *io, struct aipu_io_req *io_req)
++int zhouyi_io_rw(struct io_region *io, struct aipu_io_req *io_req)
+ {
+-	if (unlikely(!io || !io_req))
+-		return;
++	if (unlikely(!io_req || !aipu_ioregion_valid32(io, io_req->offset)))
++		return -EINVAL;
+ 
+-	if (io_req->rw == AIPU_IO_READ)
+-		io_req->value = aipu_read32(io, io_req->offset);
+-	else if (io_req->rw == AIPU_IO_WRITE)
+-		aipu_write32(io, io_req->offset, io_req->value);
++	switch (io_req->rw) {
++	case AIPU_IO_READ:
++		io_req->value = (u32)aipu_read32(io, io_req->offset);
++		return 0;
++	case AIPU_IO_WRITE:
++		return aipu_write32(io, io_req->offset, io_req->value);
++	default:
++		return -EINVAL;
++	}
+ }
+ 
+ int zhouyi_detect_aipu_version(struct platform_device *p_dev, int *version, int *config, int *rev)
+diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.h b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
+--- a/drivers/misc/armchina-npu/zhouyi/zhouyi.h
++++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
+@@ -89,7 +89,7 @@ int zhouyi_read_status_reg(struct io_region *io);
+ void zhouyi_clear_qempty_interrupt(struct io_region *io);
+ void zhouyi_clear_done_interrupt(struct io_region *io);
+ void zhouyi_clear_excep_interrupt(struct io_region *io);
+-void zhouyi_io_rw(struct io_region *io, struct aipu_io_req *io_req);
++int zhouyi_io_rw(struct io_region *io, struct aipu_io_req *io_req);
+ int zhouyi_detect_aipu_version(struct platform_device *p_dev, int *version, int *config, int *rev);
+ #ifdef CONFIG_SYSFS
+ int zhouyi_print_reg_info(struct io_region *io, char *buf, const char *name, int offset);

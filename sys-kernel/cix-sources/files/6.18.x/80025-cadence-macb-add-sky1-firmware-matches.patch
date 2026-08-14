@@ -1,0 +1,124 @@
+diff --git a/Documentation/devicetree/bindings/net/cdns,macb.yaml b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+--- a/Documentation/devicetree/bindings/net/cdns,macb.yaml
++++ b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+@@ -52,6 +52,7 @@ properties:
+           - atmel,sama5d3-gem         # Gigabit IP on Atmel sama5d3 SoCs
+           - atmel,sama5d4-gem         # GEM IP (10/100) on Atmel sama5d4 SoCs
+           - cdns,np4-macb             # NP4 SoC devices
++          - cdns,sky1-gem             # CIX Sky1 SoC
+           - microchip,sama7g5-emac    # Microchip SAMA7G5 ethernet interface
+           - microchip,sama7g5-gem     # Microchip SAMA7G5 gigabit ethernet interface
+           - raspberrypi,rp1-gem       # Raspberry Pi RP1 gigabit ethernet interface
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -6,6 +6,7 @@
+  */
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/acpi.h>
+ #include <linux/circ_buf.h>
+ #include <linux/clk-provider.h>
+ #include <linux/clk.h>
+@@ -31,6 +32,7 @@
+ #include <linux/phylink.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/reset.h>
+ #include <linux/slab.h>
+@@ -4534,6 +4536,10 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
+ 	} else {
+ 		*pclk = devm_clk_get(&pdev->dev, "pclk");
+ 		*hclk = devm_clk_get(&pdev->dev, "hclk");
++		if (IS_ERR(*hclk) &&
++		    (PTR_ERR(*hclk) == -ENOENT || PTR_ERR(*hclk) == -ENODEV) &&
++		    acpi_dev_hid_uid_match(ACPI_COMPANION(&pdev->dev), "CIXH7020", NULL))
++			*hclk = devm_clk_get(&pdev->dev, "aclk");
+ 	}
+ 
+ 	if (IS_ERR_OR_NULL(*pclk))
+@@ -4767,6 +4773,14 @@ static const struct macb_usrio_config macb_default_usrio = {
+ 	.refclk = MACB_BIT(CLKEN),
+ };
+ 
++static const struct macb_config pc302gem_config = {
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.dma_burst_length = 16,
++	.clk_init = macb_clk_init,
++	.init = macb_init,
++	.usrio = &macb_default_usrio,
++};
++
+ #if defined(CONFIG_OF)
+ /* 1518 rounded up */
+ #define AT91ETHER_MAX_RBUFF_SZ	0x600
+@@ -5350,14 +5364,6 @@ static const struct macb_config sama5d3macb_config = {
+ 	.usrio = &macb_default_usrio,
+ };
+ 
+-static const struct macb_config pc302gem_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
+-	.dma_burst_length = 16,
+-	.clk_init = macb_clk_init,
+-	.init = macb_init,
+-	.usrio = &macb_default_usrio,
+-};
+-
+ static const struct macb_config sama5d2_config = {
+ 	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_JUMBO,
+ 	.dma_burst_length = 16,
+@@ -5488,6 +5494,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,np4-macb", .data = &np4_config },
+ 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
++	{ .compatible = "cdns,sky1-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,sam9x60-macb", .data = &at91sam9260_config },
+ 	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
+ 	{ .compatible = "atmel,sama5d29-gem", .data = &sama5d29_config },
+@@ -5511,6 +5518,14 @@ static const struct of_device_id macb_dt_ids[] = {
+ MODULE_DEVICE_TABLE(of, macb_dt_ids);
+ #endif /* CONFIG_OF */
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id macb_acpi_match[] = {
++	{ "CIXH7020", (kernel_ulong_t)&pc302gem_config },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, macb_acpi_match);
++#endif
++
+ static const struct macb_config default_gem_config = {
+ 	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE |
+ 		MACB_CAPS_JUMBO |
+@@ -5546,15 +5561,12 @@ static int macb_probe(struct platform_device *pdev)
+ 	if (IS_ERR(mem))
+ 		return PTR_ERR(mem);
+ 
+-	if (np) {
+-		const struct of_device_id *match;
+-
+-		match = of_match_node(macb_dt_ids, np);
+-		if (match && match->data) {
+-			macb_config = match->data;
+-			clk_init = macb_config->clk_init;
+-			init = macb_config->init;
+-		}
++	macb_config = device_get_match_data(&pdev->dev);
++	if (macb_config) {
++		clk_init = macb_config->clk_init;
++		init = macb_config->init;
++	} else {
++		macb_config = &default_gem_config;
+ 	}
+ 
+ 	err = clk_init(pdev, &pclk, &hclk, &tx_clk, &rx_clk, &tsu_clk);
+@@ -6055,6 +6067,7 @@ static struct platform_driver macb_driver = {
+ 	.driver		= {
+ 		.name		= "macb",
+ 		.of_match_table	= of_match_ptr(macb_dt_ids),
++		.acpi_match_table = ACPI_PTR(macb_acpi_match),
+ 		.pm	= &macb_pm_ops,
+ 	},
+ 	.shutdown	= macb_shutdown,

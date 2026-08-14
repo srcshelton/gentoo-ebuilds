@@ -9,10 +9,6 @@ node. This keeps the hwmon sensors available on ACPI and leaves ACPI
 thermal zones to the ACPI thermal framework instead of reporting a false
 DT misconfiguration.
 
----
- drivers/hwmon/scmi-hwmon.c | 3 +++
- 1 file changed, 3 insertions(+)
-
 diff --git a/drivers/hwmon/scmi-hwmon.c b/drivers/hwmon/scmi-hwmon.c
 --- a/drivers/hwmon/scmi-hwmon.c
 +++ b/drivers/hwmon/scmi-hwmon.c
@@ -26,5 +22,3 @@ diff --git a/drivers/hwmon/scmi-hwmon.c b/drivers/hwmon/scmi-hwmon.c
  	/*
  	 * Try to register a temperature sensor with the Thermal Framework:
  	 * skip sensors not defined as part of any thermal zone (-ENODEV) but
--- 
-2.49.0

@@ -1,0 +1,735 @@
+Provenance: mechanically reconstructed from CIX cix-linux-main commit
+19f2947303670f2e5734d6a96ffc72a80fd9b942 and the exact maintained ebuild
+preimage. The overlay version validates Type-C connector ownership and
+state, and initializes the connector-search result before iteration.
+
+diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
+--- a/drivers/usb/typec/Kconfig
++++ b/drivers/usb/typec/Kconfig
+@@ -110,6 +110,22 @@ config TYPEC_WUSB3801
+ 	  If you choose to build this driver as a dynamically linked module, the
+ 	  module will be called wusb3801.ko.
+ 
++config TYPEC_RTS5453
++	tristate "Realtek RTS5453 Type-C PD controller driver"
++	depends on I2C
++	depends on ACPI || OF
++	depends on USB_ROLE_SWITCH || !USB_ROLE_SWITCH
++	select PHY_CIX_USBDP if ACPI && ARCH_CIX
++	select REGMAP_I2C
++	help
++	  Say Y or M here if your system has a Realtek RTS5453H USB Type-C
++	  Power Delivery controller. The controller handles USB PD negotiation
++	  autonomously; this driver reports connector state and controls the
++	  firmware-described USB role, orientation and DisplayPort muxes.
++
++	  If you choose to build this driver as a dynamically linked module, the
++	  module will be called rts5453.ko.
++
+ source "drivers/usb/typec/mux/Kconfig"
+ 
+ source "drivers/usb/typec/altmodes/Kconfig"
+diff --git a/drivers/usb/typec/Makefile b/drivers/usb/typec/Makefile
+--- a/drivers/usb/typec/Makefile
++++ b/drivers/usb/typec/Makefile
+@@ -11,4 +11,5 @@ obj-$(CONFIG_TYPEC_HD3SS3220)	+= hd3ss3220.o
+ obj-$(CONFIG_TYPEC_STUSB160X) 	+= stusb160x.o
+ obj-$(CONFIG_TYPEC_RT1719)	+= rt1719.o
+ obj-$(CONFIG_TYPEC_WUSB3801)	+= wusb3801.o
++obj-$(CONFIG_TYPEC_RTS5453)	+= rts5453.o
+ obj-$(CONFIG_TYPEC)		+= mux/
+diff --git a/drivers/usb/typec/rts5453.c b/drivers/usb/typec/rts5453.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/usb/typec/rts5453.c
+@@ -0,0 +1,690 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Realtek RTS5453H USB Type-C Power Delivery controller
++ *
++ * The controller firmware owns Power Delivery negotiation. This driver reads
++ * its connector-status block and updates the kernel Type-C, USB role and mux
++ * state described by firmware.
++ */
++
++#include <linux/acpi.h>
++#include <linux/bitfield.h>
++#include <linux/i2c.h>
++#include <linux/interrupt.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/usb/role.h>
++#include <linux/usb/typec.h>
++#include <linux/usb/typec_altmode.h>
++#include <linux/usb/typec_dp.h>
++#include <linux/usb/typec_mux.h>
++
++#define RTS5453_REG_CONTROL		0x50
++#define RTS5453_REG_STATUS		0x5f
++#define RTS5453_MAX_REGISTER		0x7f
++
++#define RTS5453_CONTROL_LENGTH		3
++#define RTS5453_STATUS_LENGTH		6
++
++#define RTS5453_CONTROL_I2C_ACK		BIT(2)
++#define RTS5453_CONTROL_HPD_ACK		BIT(5)
++
++#define RTS5453_STATUS_ORIENTATION	BIT(1)
++#define RTS5453_STATUS_USB2		BIT(4)
++#define RTS5453_STATUS_USB3		BIT(5)
++#define RTS5453_STATUS_DEVICE		BIT(7)
++
++#define RTS5453_STATUS_DP		BIT(0)
++#define RTS5453_STATUS_DEBUG_ACCESSORY	BIT(4)
++#define RTS5453_STATUS_HPD_IRQ		BIT(6)
++#define RTS5453_STATUS_HPD_STATE		BIT(7)
++
++#define RTS5453_STATUS_POWER_MASK	GENMASK(1, 0)
++#define RTS5453_STATUS_POWER_SOURCE	BIT(0)
++#define RTS5453_STATUS_POWER_SINK	BIT(1)
++
++struct rts5453 {
++	struct device *dev;
++	struct regmap *regmap;
++	struct mutex lock; /* Serialise status reads and connector updates. */
++
++	struct fwnode_handle *connector;
++	struct typec_capability capability;
++	struct typec_port *port;
++	struct typec_partner *partner;
++	struct typec_partner_desc partner_desc;
++	struct typec_altmode *dp_altmode;
++	struct typec_switch *orientation_switch;
++	struct typec_mux *mux;
++	struct usb_role_switch *role_switch;
++
++	enum usb_role role;
++	enum typec_orientation orientation;
++	unsigned long mux_mode;
++	u32 dp_status;
++	bool state_valid;
++	bool routing_available;
++
++	u8 status[RTS5453_STATUS_LENGTH];
++	u32 id;
++};
++
++static const struct regmap_config rts5453_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = RTS5453_MAX_REGISTER,
++};
++
++#if IS_ENABLED(CONFIG_ACPI)
++static acpi_status rts5453_acpi_device_present(acpi_handle handle, u32 level,
++					       void *context, void **ret)
++{
++	unsigned long long sta;
++	bool *present = context;
++
++	if (ACPI_FAILURE(acpi_bus_get_status_handle(handle, &sta)))
++		return AE_OK;
++
++	if (!(sta & (ACPI_STA_DEVICE_PRESENT | ACPI_STA_DEVICE_FUNCTIONING)))
++		return AE_OK;
++
++	*present = true;
++	return AE_CTRL_TERMINATE;
++}
++
++static bool rts5453_acpi_id_present(const char *hid)
++{
++	bool present = false;
++
++	acpi_get_devices(hid, rts5453_acpi_device_present, &present, NULL);
++	return present;
++}
++#else
++static bool rts5453_acpi_id_present(const char *hid)
++{
++	return false;
++}
++#endif
++
++static struct fwnode_handle *rts5453_find_connector(struct device *dev)
++{
++	struct fwnode_handle *connector = NULL;
++	struct fwnode_handle *child;
++
++	device_for_each_child_node(dev, child) {
++		if (!fwnode_property_present(child, "power-role"))
++			continue;
++
++		if (connector) {
++			fwnode_handle_put(child);
++			fwnode_handle_put(connector);
++			return ERR_PTR(-EINVAL);
++		}
++
++		connector = fwnode_handle_get(child);
++	}
++
++	return connector ?: ERR_PTR(-ENODEV);
++}
++
++static bool rts5453_allow_missing_role_switch(struct rts5453 *rts)
++{
++	return is_acpi_node(rts->connector) &&
++	       rts->capability.data == TYPEC_PORT_DFP &&
++	       rts5453_acpi_id_present("PNP0D10");
++}
++
++static int rts5453_get_role_switch(struct rts5453 *rts)
++{
++	int ret;
++
++	rts->role_switch = fwnode_usb_role_switch_get(rts->connector);
++	if (!IS_ERR_OR_NULL(rts->role_switch))
++		return 0;
++
++	ret = rts->role_switch ? PTR_ERR(rts->role_switch) : -ENODEV;
++	rts->role_switch = NULL;
++
++	if (rts5453_allow_missing_role_switch(rts) &&
++	    (ret == -ENODEV || ret == -EPROBE_DEFER)) {
++		dev_info(rts->dev,
++			 "using fixed-host PNP0D10 path\n");
++		return 0;
++	}
++
++	return dev_err_probe(rts->dev, ret,
++			     "failed to get firmware USB role switch\n");
++}
++
++static int rts5453_get_routing_controls(struct rts5453 *rts)
++{
++	int ret;
++
++	rts->orientation_switch = fwnode_typec_switch_get(rts->connector);
++	if (IS_ERR(rts->orientation_switch)) {
++		ret = PTR_ERR(rts->orientation_switch);
++		rts->orientation_switch = NULL;
++		return dev_err_probe(rts->dev, ret,
++				     "failed to get Type-C orientation switch\n");
++	}
++
++	rts->mux = fwnode_typec_mux_get(rts->connector);
++	if (IS_ERR(rts->mux)) {
++		ret = PTR_ERR(rts->mux);
++		rts->mux = NULL;
++		typec_switch_put(rts->orientation_switch);
++		rts->orientation_switch = NULL;
++		return dev_err_probe(rts->dev, ret,
++				     "failed to get Type-C mux\n");
++	}
++
++	if (!rts->orientation_switch || !rts->mux) {
++		if (is_acpi_node(rts->connector) &&
++		    rts5453_acpi_id_present("CIXH2033")) {
++			typec_switch_put(rts->orientation_switch);
++			typec_mux_put(rts->mux);
++			rts->orientation_switch = NULL;
++			rts->mux = NULL;
++			return dev_err_probe(rts->dev, -EPROBE_DEFER,
++					     "CIX USB/DisplayPort routing provider is not ready\n");
++		}
++
++		dev_warn(rts->dev,
++			 "incomplete Type-C graph; disabling SuperSpeed and DisplayPort routing\n");
++		typec_switch_put(rts->orientation_switch);
++		typec_mux_put(rts->mux);
++		rts->orientation_switch = NULL;
++		rts->mux = NULL;
++		return 0;
++	}
++
++	rts->routing_available = true;
++	return 0;
++}
++
++static int rts5453_register_typec(struct rts5453 *rts)
++{
++	struct typec_altmode_desc desc = {
++		.svid = USB_TYPEC_DP_SID,
++		.mode = USB_TYPEC_DP_MODE,
++		.inactive = true,
++	};
++	int ret;
++
++	rts->connector = rts5453_find_connector(rts->dev);
++	if (IS_ERR(rts->connector)) {
++		ret = PTR_ERR(rts->connector);
++		rts->connector = NULL;
++		return dev_err_probe(rts->dev, ret,
++				     "expected exactly one Type-C connector\n");
++	}
++
++	if (!fwnode_property_present(rts->connector, "data-role"))
++		return dev_err_probe(rts->dev, -EINVAL,
++				     "Type-C connector is missing data-role\n");
++
++	ret = typec_get_fw_cap(&rts->capability, rts->connector);
++	if (ret)
++		return dev_err_probe(rts->dev, ret,
++				     "invalid Type-C connector capabilities\n");
++
++	rts->capability.driver_data = rts;
++	rts->capability.accessory[0] = TYPEC_ACCESSORY_DEBUG;
++
++	ret = rts5453_get_role_switch(rts);
++	if (ret)
++		return ret;
++
++	ret = rts5453_get_routing_controls(rts);
++	if (ret)
++		return ret;
++
++	rts->capability.orientation_aware = rts->routing_available;
++	rts->port = typec_register_port(rts->dev, &rts->capability);
++	if (IS_ERR(rts->port)) {
++		ret = PTR_ERR(rts->port);
++		rts->port = NULL;
++		return dev_err_probe(rts->dev, ret,
++				     "failed to register Type-C port\n");
++	}
++
++	if (!rts->routing_available)
++		return 0;
++
++	desc.roles = rts->capability.data;
++	rts->dp_altmode = typec_port_register_altmode(rts->port, &desc);
++	if (IS_ERR(rts->dp_altmode)) {
++		ret = PTR_ERR(rts->dp_altmode);
++		rts->dp_altmode = NULL;
++		if (ret == -EPROBE_DEFER)
++			return dev_err_probe(rts->dev, ret,
++					     "DisplayPort mux provider is not ready\n");
++
++		dev_warn(rts->dev,
++			 "failed to register DisplayPort altmode (%d); DP routing disabled\n",
++			 ret);
++	}
++
++	return 0;
++}
++
++static bool rts5453_role_supported(struct rts5453 *rts, enum usb_role role)
++{
++	if (role == USB_ROLE_NONE)
++		return true;
++
++	switch (rts->capability.data) {
++	case TYPEC_PORT_DFP:
++		return role == USB_ROLE_HOST;
++	case TYPEC_PORT_UFP:
++		return role == USB_ROLE_DEVICE;
++	case TYPEC_PORT_DRD:
++		return true;
++	}
++
++	return false;
++}
++
++static void rts5453_unregister_partner(struct rts5453 *rts)
++{
++	if (!rts->partner)
++		return;
++
++	typec_unregister_partner(rts->partner);
++	rts->partner = NULL;
++}
++
++static void rts5453_update_partner(struct rts5453 *rts, bool attached,
++				   enum typec_accessory accessory)
++{
++	struct typec_partner *partner;
++
++	if (!attached) {
++		rts5453_unregister_partner(rts);
++		return;
++	}
++
++	if (rts->partner && rts->partner_desc.accessory != accessory)
++		rts5453_unregister_partner(rts);
++
++	if (rts->partner)
++		return;
++
++	rts->partner_desc.accessory = accessory;
++	partner = typec_register_partner(rts->port, &rts->partner_desc);
++	if (IS_ERR(partner)) {
++		dev_err_ratelimited(rts->dev,
++				    "failed to register Type-C partner: %ld\n",
++				    PTR_ERR(partner));
++		return;
++	}
++
++	rts->partner = partner;
++}
++
++static void rts5453_make_mux_state(struct rts5453 *rts, unsigned long mode,
++				   u32 dp_status,
++				   struct typec_mux_state *state,
++				   struct typec_displayport_data *dp_data)
++{
++	*state = (struct typec_mux_state) {
++		.alt = NULL,
++		.mode = mode,
++		.data = NULL,
++	};
++
++	if (mode != TYPEC_DP_STATE_D && mode != TYPEC_DP_STATE_E)
++		return;
++
++	*dp_data = (struct typec_displayport_data) {
++		.status = dp_status,
++		.conf = 0,
++	};
++	state->alt = rts->dp_altmode;
++	state->data = dp_data;
++}
++
++static int rts5453_apply_state(struct rts5453 *rts, const u8 *status)
++{
++	struct typec_displayport_data old_dp_data;
++	struct typec_displayport_data new_dp_data;
++	struct typec_mux_state old_mux_state;
++	struct typec_mux_state new_mux_state;
++	enum typec_accessory accessory = TYPEC_ACCESSORY_NONE;
++	enum typec_orientation orientation = TYPEC_ORIENTATION_NONE;
++	enum usb_role role = USB_ROLE_NONE;
++	unsigned long mode = TYPEC_STATE_SAFE;
++	u32 dp_status = 0;
++	u32 power;
++	bool attached;
++	bool debug_accessory;
++	bool dp_active;
++	bool role_changed;
++	bool orientation_changed;
++	bool mux_changed;
++	int ret;
++
++	power = FIELD_GET(RTS5453_STATUS_POWER_MASK, status[3]);
++	debug_accessory = status[2] & RTS5453_STATUS_DEBUG_ACCESSORY;
++	attached = status[1] & (RTS5453_STATUS_USB2 | RTS5453_STATUS_USB3) ||
++		   status[2] & (RTS5453_STATUS_DP |
++				RTS5453_STATUS_DEBUG_ACCESSORY) ||
++		   power;
++
++	if (debug_accessory) {
++		accessory = TYPEC_ACCESSORY_DEBUG;
++	} else {
++		bool usb2 = status[1] & RTS5453_STATUS_USB2;
++		bool usb3 = status[1] & RTS5453_STATUS_USB3;
++		bool usable_usb = usb2 || (usb3 && rts->routing_available);
++		bool usable_dp = status[2] & RTS5453_STATUS_DP &&
++				 rts->routing_available && rts->dp_altmode;
++
++		if (usable_usb)
++			role = status[1] & RTS5453_STATUS_DEVICE ?
++				USB_ROLE_DEVICE : USB_ROLE_HOST;
++
++		if (usable_dp) {
++			dp_status = DP_STATUS_ENABLED;
++			if (status[2] & RTS5453_STATUS_HPD_STATE)
++				dp_status |= DP_STATUS_HPD_STATE;
++			if (status[2] & RTS5453_STATUS_HPD_IRQ)
++				dp_status |= DP_STATUS_IRQ_HPD;
++			mode = usb3 ? TYPEC_DP_STATE_D : TYPEC_DP_STATE_E;
++		} else if (usb3 && rts->routing_available) {
++			mode = TYPEC_STATE_USB;
++		}
++
++		if (rts->routing_available && (usb3 || usable_dp))
++			orientation = status[1] & RTS5453_STATUS_ORIENTATION ?
++				TYPEC_ORIENTATION_REVERSE :
++				TYPEC_ORIENTATION_NORMAL;
++	}
++
++	if (!rts5453_role_supported(rts, role)) {
++		dev_warn_ratelimited(rts->dev,
++				     "controller reported unsupported USB role %s; disabling data routing\n",
++				     usb_role_string(role));
++		role = USB_ROLE_NONE;
++		orientation = TYPEC_ORIENTATION_NONE;
++		mode = TYPEC_STATE_SAFE;
++		dp_status = 0;
++	}
++
++	if (!rts->role_switch && role == USB_ROLE_DEVICE) {
++		dev_warn_ratelimited(rts->dev,
++				     "device role requested without a USB role switch; disabling data routing\n");
++		role = USB_ROLE_NONE;
++		orientation = TYPEC_ORIENTATION_NONE;
++		mode = TYPEC_STATE_SAFE;
++		dp_status = 0;
++	}
++
++	role_changed = !rts->state_valid || role != rts->role;
++	orientation_changed = !rts->state_valid ||
++			      orientation != rts->orientation;
++	mux_changed = rts->mux && (!rts->state_valid || mode != rts->mux_mode ||
++				    (dp_status & ~DP_STATUS_IRQ_HPD) !=
++				    rts->dp_status ||
++				    dp_status & DP_STATUS_IRQ_HPD);
++
++	if (role_changed && rts->role_switch) {
++		ret = usb_role_switch_set_role(rts->role_switch, role);
++		if (ret)
++			return ret;
++	}
++
++	if (orientation_changed) {
++		ret = typec_set_orientation(rts->port, orientation);
++		if (ret) {
++			typec_set_orientation(rts->port, rts->orientation);
++			goto restore_role;
++		}
++	}
++
++	if (mux_changed) {
++		rts5453_make_mux_state(rts, mode, dp_status, &new_mux_state,
++				       &new_dp_data);
++		ret = typec_mux_set(rts->mux, &new_mux_state);
++		if (ret)
++			goto restore_routing;
++	}
++
++	if (role == USB_ROLE_HOST)
++		typec_set_data_role(rts->port, TYPEC_HOST);
++	else if (role == USB_ROLE_DEVICE)
++		typec_set_data_role(rts->port, TYPEC_DEVICE);
++
++	if (power == RTS5453_STATUS_POWER_SOURCE)
++		typec_set_pwr_role(rts->port, TYPEC_SOURCE);
++	else if (power == RTS5453_STATUS_POWER_SINK)
++		typec_set_pwr_role(rts->port, TYPEC_SINK);
++	else if (power)
++		dev_warn_ratelimited(rts->dev,
++				     "controller reported inconsistent power state %#x\n",
++				     power);
++
++	dp_active = mode == TYPEC_DP_STATE_D || mode == TYPEC_DP_STATE_E;
++	if (rts->dp_altmode)
++		typec_altmode_update_active(rts->dp_altmode, dp_active);
++
++	rts5453_update_partner(rts, attached, accessory);
++
++	rts->role = role;
++	rts->orientation = orientation;
++	rts->mux_mode = mode;
++	rts->dp_status = dp_status & ~DP_STATUS_IRQ_HPD;
++	rts->state_valid = true;
++
++	return 0;
++
++restore_routing:
++	rts5453_make_mux_state(rts, rts->mux_mode, rts->dp_status,
++			       &old_mux_state, &old_dp_data);
++	typec_mux_set(rts->mux, &old_mux_state);
++	if (orientation_changed)
++		typec_set_orientation(rts->port, rts->orientation);
++restore_role:
++	if (role_changed && rts->role_switch)
++		usb_role_switch_set_role(rts->role_switch, rts->role);
++
++	return ret;
++}
++
++static int rts5453_write_control(struct rts5453 *rts, u8 byte1, u8 byte2)
++{
++	u8 control[RTS5453_CONTROL_LENGTH] = { 2, byte1, byte2 };
++
++	return regmap_bulk_write(rts->regmap, RTS5453_REG_CONTROL, control,
++				 RTS5453_CONTROL_LENGTH);
++}
++
++static int rts5453_handle_event(struct rts5453 *rts, bool acknowledge_irq)
++{
++	int update_ret;
++	int ret;
++
++	mutex_lock(&rts->lock);
++
++	if (acknowledge_irq) {
++		ret = rts5453_write_control(rts, RTS5453_CONTROL_I2C_ACK, 0);
++		if (ret)
++			goto out_unlock;
++	}
++
++	ret = regmap_bulk_read(rts->regmap, RTS5453_REG_STATUS, rts->status,
++			       RTS5453_STATUS_LENGTH);
++	if (ret)
++		goto out_unlock;
++
++	dev_dbg(rts->dev, "status %*ph\n", RTS5453_STATUS_LENGTH,
++		rts->status);
++
++	update_ret = rts5453_apply_state(rts, rts->status);
++
++	if (rts->status[2] & RTS5453_STATUS_HPD_IRQ) {
++		ret = rts5453_write_control(rts, 0, RTS5453_CONTROL_HPD_ACK);
++		if (ret)
++			goto out_unlock;
++	}
++
++	ret = update_ret;
++
++out_unlock:
++	mutex_unlock(&rts->lock);
++	return ret;
++}
++
++static irqreturn_t rts5453_irq_thread(int irq, void *data)
++{
++	struct rts5453 *rts = data;
++	int ret;
++
++	ret = rts5453_handle_event(rts, true);
++	if (ret)
++		dev_err_ratelimited(rts->dev,
++				    "failed to handle shared PD interrupt: %d\n",
++				    ret);
++
++	return IRQ_HANDLED;
++}
++
++static void rts5453_unregister_typec(struct rts5453 *rts)
++{
++	struct typec_mux_state state = {
++		.mode = TYPEC_STATE_SAFE,
++	};
++
++	rts5453_unregister_partner(rts);
++
++	if (rts->role_switch)
++		usb_role_switch_set_role(rts->role_switch, USB_ROLE_NONE);
++	if (rts->port)
++		typec_set_orientation(rts->port, TYPEC_ORIENTATION_NONE);
++	if (rts->mux)
++		typec_mux_set(rts->mux, &state);
++
++	if (rts->dp_altmode) {
++		typec_unregister_altmode(rts->dp_altmode);
++		rts->dp_altmode = NULL;
++	}
++	if (rts->port) {
++		typec_unregister_port(rts->port);
++		rts->port = NULL;
++	}
++
++	typec_switch_put(rts->orientation_switch);
++	rts->orientation_switch = NULL;
++	typec_mux_put(rts->mux);
++	rts->mux = NULL;
++	usb_role_switch_put(rts->role_switch);
++	rts->role_switch = NULL;
++	fwnode_handle_put(rts->connector);
++	rts->connector = NULL;
++}
++
++static int rts5453_probe(struct i2c_client *client)
++{
++	struct rts5453 *rts;
++	int ret;
++
++	if (client->irq <= 0)
++		return dev_err_probe(&client->dev,
++				     client->irq < 0 ? client->irq : -EINVAL,
++				     "a working interrupt is required\n");
++
++	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
++		return dev_err_probe(&client->dev, -EOPNOTSUPP,
++				     "adapter does not support raw I2C transfers\n");
++
++	rts = devm_kzalloc(&client->dev, sizeof(*rts), GFP_KERNEL);
++	if (!rts)
++		return -ENOMEM;
++
++	rts->dev = &client->dev;
++	mutex_init(&rts->lock);
++	device_property_read_u32(&client->dev, "id", &rts->id);
++
++	rts->regmap = devm_regmap_init_i2c(client, &rts5453_regmap_config);
++	if (IS_ERR(rts->regmap))
++		return dev_err_probe(&client->dev, PTR_ERR(rts->regmap),
++				     "failed to initialise regmap\n");
++
++	i2c_set_clientdata(client, rts);
++
++	ret = rts5453_register_typec(rts);
++	if (ret)
++		goto err_unregister_typec;
++
++	/* Clear any stale per-controller event before enabling the shared line. */
++	ret = rts5453_handle_event(rts, true);
++	if (ret) {
++		dev_err_probe(&client->dev, ret,
++			      "failed to read initial connector state\n");
++		goto err_unregister_typec;
++	}
++
++	ret = devm_request_threaded_irq(&client->dev, client->irq, NULL,
++					rts5453_irq_thread,
++					IRQF_SHARED | IRQF_ONESHOT,
++					dev_name(&client->dev), rts);
++	if (ret) {
++		dev_err_probe(&client->dev, ret,
++			      "failed to request shared interrupt\n");
++		goto err_unregister_typec;
++	}
++
++	dev_info(&client->dev, "RTS5453H Type-C controller %u registered\n",
++		 rts->id);
++	return 0;
++
++err_unregister_typec:
++	rts5453_unregister_typec(rts);
++	return ret;
++}
++
++static void rts5453_remove(struct i2c_client *client)
++{
++	struct rts5453 *rts = i2c_get_clientdata(client);
++
++	devm_free_irq(&client->dev, client->irq, rts);
++	rts5453_unregister_typec(rts);
++}
++
++static const struct of_device_id rts5453_of_match[] = {
++	{ .compatible = "realtek,rts5453h" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, rts5453_of_match);
++
++static const struct acpi_device_id rts5453_acpi_match[] = {
++	{ "CIXH200D" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, rts5453_acpi_match);
++
++static const struct i2c_device_id rts5453_i2c_ids[] = {
++	{ "rts5453h" },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, rts5453_i2c_ids);
++
++static struct i2c_driver rts5453_driver = {
++	.driver = {
++		.name = "rts5453h",
++		.of_match_table = rts5453_of_match,
++		.acpi_match_table = rts5453_acpi_match,
++	},
++	.probe = rts5453_probe,
++	.remove = rts5453_remove,
++	.id_table = rts5453_i2c_ids,
++};
++module_i2c_driver(rts5453_driver);
++
++MODULE_SOFTDEP("pre: phy-cix-usbdp");
++MODULE_AUTHOR("Chao Zeng <Chao.Zeng@cixtech.com>");
++MODULE_DESCRIPTION("Realtek RTS5453H USB Type-C PD controller driver");
++MODULE_LICENSE("GPL");

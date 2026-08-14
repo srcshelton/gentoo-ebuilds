@@ -1,0 +1,1908 @@
+Share the per-client lifetime and ownership infrastructure used by the NPU
+backends. The reference-counted context may outlive the file. It protects
+hardware quiesce and delayed userspace-VMA teardown. Small callbacks retain
+each backend's distinct command-pool and ABI behavior.
+
+This removes the R2P0 exclusive-open restriction without copying the R2P1
+close worker. Jobs, imported buffers, memory allocations, mappings, tick
+requests and SRAM policy are owned by the common context, so closing one
+client cannot reuse a stale struct file address or clear another client's
+state. R2P0 mappings retain the owner until the final VMA closes and then
+release the complete allocation rather than a mapped subrange.
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -661,6 +661,7 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
+ source "drivers/misc/keba/Kconfig"
+ source "drivers/misc/amd-sbi/Kconfig"
+ source "drivers/misc/rp1/Kconfig"
++source "drivers/misc/armchina-npu-common/Kconfig"
+ source "drivers/misc/armchina-npu/Kconfig"
+ source "drivers/misc/armchina-npu-r2p0/Kconfig"
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -75,5 +75,6 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
+ obj-y				+= keba/
+ obj-y				+= amd-sbi/
+ obj-$(CONFIG_MISC_RP1)		+= rp1/
++obj-$(CONFIG_ARMCHINA_NPU_COMMON) += armchina-npu-common/
+ obj-$(CONFIG_ARMCHINA_NPU)	+= armchina-npu/
+ obj-$(CONFIG_ARMCHINA_NPU_R2P0) += armchina-npu-r2p0/
+diff --git a/drivers/misc/armchina-npu-common/Kconfig b/drivers/misc/armchina-npu-common/Kconfig
+new file mode 100644
+--- /dev/null
++++ b/drivers/misc/armchina-npu-common/Kconfig
+@@ -0,0 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++config ARMCHINA_NPU_COMMON
++	tristate
+diff --git a/drivers/misc/armchina-npu-common/Makefile b/drivers/misc/armchina-npu-common/Makefile
+new file mode 100644
+--- /dev/null
++++ b/drivers/misc/armchina-npu-common/Makefile
+@@ -0,0 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0
++
++obj-$(CONFIG_ARMCHINA_NPU_COMMON) += armchina_npu_common.o
++armchina_npu_common-y := aipu_file.o
+diff --git a/drivers/misc/armchina-npu-common/aipu_file.c b/drivers/misc/armchina-npu-common/aipu_file.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/misc/armchina-npu-common/aipu_file.c
+@@ -0,0 +1,109 @@
++// SPDX-License-Identifier: GPL-2.0
++
++#include <linux/device.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++
++#include "aipu_file.h"
++
++static void aipu_file_ctx_release(struct kref *kref)
++{
++	struct aipu_file_ctx *ctx = container_of(kref, struct aipu_file_ctx, kref);
++
++	ctx->ops->priv_put(ctx->priv);
++	kfree(ctx);
++}
++
++void aipu_file_ctx_get(struct aipu_file_ctx *ctx)
++{
++	if (ctx)
++		kref_get(&ctx->kref);
++}
++EXPORT_SYMBOL_GPL(aipu_file_ctx_get);
++
++void aipu_file_ctx_put(struct aipu_file_ctx *ctx)
++{
++	if (ctx)
++		kref_put(&ctx->kref, aipu_file_ctx_release);
++}
++EXPORT_SYMBOL_GPL(aipu_file_ctx_put);
++
++static void aipu_file_ctx_finish(struct aipu_file_ctx *ctx, struct file *filp)
++{
++	WRITE_ONCE(ctx->released, true);
++	ctx->ops->release(ctx, filp);
++	aipu_file_ctx_put(ctx);
++}
++
++static void aipu_file_ctx_close_work(struct work_struct *work)
++{
++	struct delayed_work *dwork = to_delayed_work(work);
++	struct aipu_file_ctx *ctx = container_of(dwork, struct aipu_file_ctx,
++						 close_work);
++	struct file filp = { .private_data = ctx };
++	struct module *module = ctx->module;
++	int ret;
++
++	ret = ctx->ops->quiesce(ctx, &filp);
++	if (ret) {
++		dev_warn_ratelimited(ctx->ops->dev(ctx->priv),
++				     "deferred release still cannot quiesce hardware: %d\n",
++				     ret);
++		mod_delayed_work(system_long_wq, &ctx->close_work,
++				 msecs_to_jiffies(1000));
++		return;
++	}
++
++	aipu_file_ctx_finish(ctx, &filp);
++	module_put(module);
++}
++
++struct aipu_file_ctx *aipu_file_ctx_alloc(void *priv,
++					  const struct aipu_file_ctx_ops *ops,
++					  struct module *module)
++{
++	struct aipu_file_ctx *ctx;
++
++	if (!priv || !ops || !ops->quiesce || !ops->release ||
++	    !ops->priv_put || !ops->dev)
++		return ERR_PTR(-EINVAL);
++	ctx = kzalloc_obj(*ctx);
++	if (!ctx)
++		return ERR_PTR(-ENOMEM);
++	ctx->priv = priv;
++	ctx->ops = ops;
++	ctx->module = module;
++	kref_init(&ctx->kref);
++	INIT_DELAYED_WORK(&ctx->close_work, aipu_file_ctx_close_work);
++
++	return ctx;
++}
++EXPORT_SYMBOL_GPL(aipu_file_ctx_alloc);
++
++int aipu_file_ctx_close(struct file *filp)
++{
++	struct aipu_file_ctx *ctx = aipu_file_ctx(filp);
++	int ret;
++
++	if (!ctx)
++		return 0;
++	ret = ctx->ops->quiesce(ctx, filp);
++	if (ret) {
++		dev_warn(ctx->ops->dev(ctx->priv),
++			 "deferring release until hardware can be quiesced: %d\n", ret);
++		filp->private_data = NULL;
++		if (WARN_ON(!try_module_get(ctx->module)))
++			return ret;
++		mod_delayed_work(system_long_wq, &ctx->close_work,
++				 msecs_to_jiffies(100));
++		return 0;
++	}
++
++	aipu_file_ctx_finish(ctx, filp);
++	filp->private_data = NULL;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(aipu_file_ctx_close);
++
++MODULE_DESCRIPTION("ArmChina NPU per-client lifetime helpers");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/misc/armchina-npu-common/aipu_file.h b/drivers/misc/armchina-npu-common/aipu_file.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/misc/armchina-npu-common/aipu_file.h
+@@ -0,0 +1,64 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++#ifndef __ARMCHINA_NPU_FILE_H__
++#define __ARMCHINA_NPU_FILE_H__
++
++#include <linux/fs.h>
++#include <linux/kref.h>
++#include <linux/module.h>
++#include <linux/workqueue.h>
++
++struct aipu_file_ctx;
++
++enum aipu_file_abi_bit {
++	AIPU_FILE_ABI_P1,
++};
++
++struct aipu_file_ctx_ops {
++	int (*quiesce)(struct aipu_file_ctx *ctx, struct file *filp);
++	void (*release)(struct aipu_file_ctx *ctx, struct file *filp);
++	void (*priv_put)(void *priv);
++	struct device *(*dev)(void *priv);
++};
++
++/*
++ * Allocation and job ownership must outlive struct file when a shared command
++ * pool prevents an immediate, owner-local close.
++ */
++struct aipu_file_ctx {
++	void *priv;
++	const struct aipu_file_ctx_ops *ops;
++	struct module *module;
++	struct kref kref;
++	struct work_struct cleanup_work;
++	struct delayed_work close_work;
++	unsigned long abi_mask;
++	unsigned int tick_counter_refs;
++	bool released;
++};
++
++struct aipu_file_ctx *aipu_file_ctx_alloc(void *priv,
++					  const struct aipu_file_ctx_ops *ops,
++					  struct module *module);
++void aipu_file_ctx_get(struct aipu_file_ctx *ctx);
++void aipu_file_ctx_put(struct aipu_file_ctx *ctx);
++int aipu_file_ctx_close(struct file *filp);
++
++static inline bool aipu_file_ctx_is_released(const struct aipu_file_ctx *ctx)
++{
++	return ctx && READ_ONCE(ctx->released);
++}
++
++static inline struct aipu_file_ctx *aipu_file_ctx(struct file *filp)
++{
++	return filp ? filp->private_data : NULL;
++}
++
++static inline void *aipu_file_priv(struct file *filp)
++{
++	struct aipu_file_ctx *ctx = aipu_file_ctx(filp);
++
++	return ctx ? ctx->priv : NULL;
++}
++
++#endif /* __ARMCHINA_NPU_FILE_H__ */
+diff --git a/drivers/misc/armchina-npu-r2p0/Kconfig b/drivers/misc/armchina-npu-r2p0/Kconfig
+--- a/drivers/misc/armchina-npu-r2p0/Kconfig
++++ b/drivers/misc/armchina-npu-r2p0/Kconfig
+@@ -2,6 +2,7 @@
+ 
+ config ARMCHINA_NPU_R2P0
+ 	tristate "ArmChina Zhouyi NPU legacy R2P0 backend"
++	select ARMCHINA_NPU_COMMON
+ 	depends on ARM64
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
+diff --git a/drivers/misc/armchina-npu-r2p0/Makefile b/drivers/misc/armchina-npu-r2p0/Makefile
+--- a/drivers/misc/armchina-npu-r2p0/Makefile
++++ b/drivers/misc/armchina-npu-r2p0/Makefile
+@@ -3,6 +3,7 @@
+ subdir-ccflags-y += -I$(src)
+ subdir-ccflags-y += -I$(src)/include
+ subdir-ccflags-y += -I$(src)/zhouyi
++subdir-ccflags-y += -I$(src)/../armchina-npu-common
+ ccflags-y += -DKMD_VERSION=\"1.0.0\"
+ ccflags-y += -DCONFIG_ARMCHINA_NPU_ARCH_V3 -DCONFIG_SKY1
+ ccflags-$(CONFIG_PM_DEVFREQ) += -DCONFIG_ENABLE_DEVFREQ
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu.c b/drivers/misc/armchina-npu-r2p0/aipu.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu.c
+@@ -18,6 +18,7 @@
+ #include "aipu_dma_buf.h"
+ #include "aipu_job_manager.h"
+ #include "aipu_priv.h"
++#include "aipu_file.h"
+ #include "zhouyi.h"
+ #include "config.h"
+ #include <linux/pm_runtime.h>
+@@ -28,6 +29,19 @@
+ static struct aipu_priv *aipu;
+ static DEFINE_MUTEX(aipu_lock);
+ 
++static struct aipu_priv *aipu_get_global(void)
++{
++	struct aipu_priv *priv;
++
++	mutex_lock(&aipu_lock);
++	priv = aipu;
++	if (!aipu_priv_get(priv))
++		priv = NULL;
++	mutex_unlock(&aipu_lock);
++
++	return priv;
++}
++
+ static int aipu_soc_pm_get(struct aipu_priv *priv)
+ {
+ 	if (!priv->soc_ops || !priv->soc_ops->soc_pm_runtime_get_sync)
+@@ -44,37 +58,73 @@ static int aipu_soc_pm_put(struct aipu_priv *priv)
+ 	return priv->soc_ops->soc_pm_runtime_put(priv->dev, priv->soc);
+ }
+ 
++static int aipu_quiesce_file(struct aipu_file_ctx *ctx, struct file *filp)
++{
++	struct aipu_priv *priv = ctx->priv;
++
++	return aipu_job_manager_cancel_jobs(&priv->job_manager, filp);
++}
++
++static void aipu_release_file(struct aipu_file_ctx *ctx, struct file *filp)
++{
++	struct aipu_priv *priv = ctx->priv;
++	int ret;
++
++	aipu_job_manager_release_tick_counter(&priv->job_manager, ctx);
++	aipu_detach_dma_bufs(&priv->mm, filp);
++	aipu_mm_free_buffers(&priv->mm, filp);
++	ret = aipu_soc_pm_put(priv);
++	if (ret)
++		dev_warn(priv->dev, "runtime-PM put during release failed: %d\n", ret);
++	atomic_dec(&priv->open_count);
++}
++
++static void aipu_file_priv_put(void *priv)
++{
++	aipu_priv_put(priv);
++}
++
++static struct device *aipu_file_dev(void *priv)
++{
++	return ((struct aipu_priv *)priv)->dev;
++}
++
++static const struct aipu_file_ctx_ops aipu_file_ops = {
++	.quiesce = aipu_quiesce_file,
++	.release = aipu_release_file,
++	.priv_put = aipu_file_priv_put,
++	.dev = aipu_file_dev,
++};
++
+ static int aipu_open(struct inode *inode, struct file *filp)
+ {
+ 	int ret;
+-	struct aipu_priv *priv;
++	struct aipu_file_ctx *ctx;
++	struct aipu_priv *priv = aipu_get_global();
+ 
+-	mutex_lock(&aipu_lock);
+-	priv = aipu;
+-	if (!aipu_priv_get(priv))
+-		priv = NULL;
+-	mutex_unlock(&aipu_lock);
+ 	if (!priv)
+ 		return -ENODEV;
+-	if (atomic_cmpxchg(&priv->open_count, 0, 1)) {
++	ctx = aipu_file_ctx_alloc(priv, &aipu_file_ops, THIS_MODULE);
++	if (IS_ERR(ctx)) {
++		ret = PTR_ERR(ctx);
+ 		aipu_priv_put(priv);
+-		return -EBUSY;
++		return ret;
+ 	}
+ 
+ 	ret = aipu_soc_pm_get(priv);
+ 	if (ret) {
+-		atomic_set(&priv->open_count, 0);
+-		aipu_priv_put(priv);
++		aipu_file_ctx_put(ctx);
+ 		return ret;
+ 	}
+ 
+-	filp->private_data = priv;
++	filp->private_data = ctx;
+ 	ret = aipu_priv_check_status(priv);
+ 	if (ret) {
+ 		filp->private_data = NULL;
+ 		aipu_soc_pm_put(priv);
+-		atomic_set(&priv->open_count, 0);
+-		aipu_priv_put(priv);
++		aipu_file_ctx_put(ctx);
++	} else {
++		atomic_inc(&priv->open_count);
+ 	}
+ 
+ 	return ret;
+@@ -82,43 +132,14 @@ static int aipu_open(struct inode *inode, struct file *filp)
+ 
+ static int aipu_release(struct inode *inode, struct file *filp)
+ {
+-	int cancel_ret;
+-	int ret;
+-	struct aipu_priv *aipu = filp->private_data;
+-
+-	if (!aipu)
+-		return 0;
+-
+-	cancel_ret = aipu_job_manager_cancel_jobs(&aipu->job_manager, filp);
+-	if (cancel_ret) {
+-		/* DMA-visible memory must outlive hardware that could still access it. */
+-		__module_get(THIS_MODULE);
+-		aipu_priv_begin_remove(aipu);
+-		dev_crit(aipu->dev,
+-			 "hardware quiesce failed (%d); disabling and pinning legacy backend\n",
+-			 cancel_ret);
+-		filp->private_data = NULL;
+-		aipu_priv_put(aipu);
+-		return 0;
+-	}
+-	aipu_job_manager_clear_tick_counter(&aipu->job_manager);
+-	aipu_detach_dma_bufs(&aipu->mm, filp);
+-	aipu_mm_free_buffers(&aipu->mm, filp);
+-
+-	ret = aipu_soc_pm_put(aipu);
+-	if (ret)
+-		dev_warn(aipu->dev, "runtime-PM put during release failed: %d\n", ret);
+-	atomic_set(&aipu->open_count, 0);
+-	aipu_priv_put(aipu);
+-	filp->private_data = NULL;
+-
+-	return 0;
++	return aipu_file_ctx_close(filp);
+ }
+ 
+ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+ 	int ret = 0;
+-	struct aipu_priv *aipu = filp->private_data;
++	struct aipu_file_ctx *ctx = aipu_file_ctx(filp);
++	struct aipu_priv *aipu = aipu_file_priv(filp);
+ 	struct aipu_job_manager *manager = &aipu->job_manager;
+ 
+ 	u32 partition_cnt = 0;
+@@ -239,14 +260,14 @@ static long aipu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 			ret = -EPERM;
+ 			break;
+ 		}
+-		ret = aipu_job_manager_disable_tick_counter(manager);
++		ret = aipu_job_manager_disable_tick_counter(manager, ctx);
+ 		break;
+ 	case AIPU_IOCTL_ENABLE_TICK_COUNTER:
+ 		if (!capable(CAP_SYS_ADMIN)) {
+ 			ret = -EPERM;
+ 			break;
+ 		}
+-		ret = aipu_job_manager_enable_tick_counter(manager);
++		ret = aipu_job_manager_enable_tick_counter(manager, ctx);
+ 		break;
+ 	case AIPU_IOCTL_CONFIG_CLUSTERS:
+ 		if (!capable(CAP_SYS_ADMIN)) {
+@@ -349,7 +370,7 @@ static long aipu_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long
+ 
+ static int aipu_mmap(struct file *filp, struct vm_area_struct *vma)
+ {
+-	struct aipu_priv *aipu = filp->private_data;
++	struct aipu_priv *aipu = aipu_file_priv(filp);
+ 
+ 	return aipu_mm_mmap_buf(&aipu->mm, vma, filp);
+ }
+@@ -357,7 +378,7 @@ static int aipu_mmap(struct file *filp, struct vm_area_struct *vma)
+ static unsigned int aipu_poll(struct file *filp, struct poll_table_struct *wait)
+ {
+ 	unsigned int mask = 0;
+-	struct aipu_priv *aipu = filp->private_data;
++	struct aipu_priv *aipu = aipu_file_priv(filp);
+ 
+ 	if (aipu_job_manager_has_end_job(&aipu->job_manager, filp, wait, task_pid_nr(current)))
+ 		mask |= POLLIN | POLLRDNORM;
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c
+@@ -9,6 +9,7 @@
+ #include <linux/slab.h>
+ #include "aipu_dma_buf.h"
+ #include "aipu_priv.h"
++#include "aipu_file.h"
+ 
+ #if KERNEL_VERSION(4, 19, 0) > LINUX_VERSION_CODE
+ static int aipu_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
+@@ -367,13 +368,14 @@ int aipu_get_dma_buf_info(struct aipu_dma_buf *dmabuf_info)
+ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dmabuf_info,
+ 			struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct dma_buf *dmabuf = NULL;
+ 	struct dma_buf_attachment *attach = NULL;
+ 	struct sg_table *table = NULL;
+ 	struct aipu_dma_buf_importer *im_buf = NULL;
+ 	int ret = 0;
+ 
+-	if (!mm || !dmabuf_info || !filp || dmabuf_info->fd < 0)
++	if (!mm || !dmabuf_info || !owner || dmabuf_info->fd < 0)
+ 		return -EINVAL;
+ 
+ 	dmabuf = dma_buf_get(dmabuf_info->fd);
+@@ -406,7 +408,7 @@ int aipu_attach_dma_buf(struct aipu_memory_manager *mm, struct aipu_dma_buf *dma
+ 	}
+ 
+ 	im_buf->fd = dmabuf_info->fd;
+-	im_buf->owner = filp;
++	im_buf->owner = owner;
+ 	im_buf->dmabuf = dmabuf;
+ 	im_buf->attach = attach;
+ 	im_buf->table = table;
+@@ -435,11 +437,12 @@ static void aipu_detach_imported_dma_buf(struct aipu_dma_buf_importer *im_buf)
+ 
+ int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct aipu_dma_buf_importer *im_buf = NULL;
+ 	struct aipu_dma_buf_importer *next = NULL;
+ 	int ret = -EINVAL;
+ 
+-	if (!mm || fd < 0 || !filp)
++	if (!mm || fd < 0 || !owner)
+ 		return -EINVAL;
+ 	ret = aipu_job_manager_idle_guard_begin(
+ 		&container_of(mm, struct aipu_priv, mm)->job_manager);
+@@ -448,7 +451,7 @@ int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd, struct file *fil
+ 
+ 	mutex_lock(&mm->lock);
+ 	list_for_each_entry_safe(im_buf, next, &mm->importer_bufs->node, node) {
+-		if (fd == im_buf->fd && filp == im_buf->owner) {
++		if (fd == im_buf->fd && owner == im_buf->owner) {
+ 			list_del(&im_buf->node);
+ 			ret = 0;
+ 			break;
+@@ -464,15 +467,16 @@ int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd, struct file *fil
+ 
+ void aipu_detach_dma_bufs(struct aipu_memory_manager *mm, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	LIST_HEAD(detach_list);
+ 	struct aipu_dma_buf_importer *im_buf;
+ 	struct aipu_dma_buf_importer *next;
+ 
+-	if (!mm || !filp)
++	if (!mm || !owner)
+ 		return;
+ 	mutex_lock(&mm->lock);
+ 	list_for_each_entry_safe(im_buf, next, &mm->importer_bufs->node, node) {
+-		if (filp == im_buf->owner)
++		if (owner == im_buf->owner)
+ 			list_move_tail(&im_buf->node, &detach_list);
+ 	}
+ 	mutex_unlock(&mm->lock);
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h
+--- a/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h
++++ b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h
+@@ -11,6 +11,7 @@
+ #include "aipu_mm.h"
+ 
+ struct aipu_priv;
++struct aipu_file_ctx;
+ 
+ struct aipu_dma_buf_priv {
+ 	struct aipu_memory_manager *mm;
+@@ -25,7 +26,7 @@ struct aipu_dma_buf_priv {
+ 
+ struct aipu_dma_buf_importer {
+ 	int fd;
+-	struct file *owner;
++	struct aipu_file_ctx *owner;
+ 	struct dma_buf *dmabuf;
+ 	struct dma_buf_attachment *attach;
+ 	struct sg_table *table;
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+@@ -9,6 +9,7 @@
+ #include <linux/fs.h>
+ #include "aipu_job_manager.h"
+ #include "aipu_priv.h"
++#include "aipu_file.h"
+ #include "aipu_common.h"
+ #include "zhouyi.h"
+ #include "v3.h"
+@@ -55,7 +56,8 @@ static void aipu_coredump_timeout_work(struct work_struct *work)
+ 	}
+ }
+ 
+-static struct aipu_thread_wait_queue *do_create_thread_wait_queue(int uthread_id, struct file *filp)
++static struct aipu_thread_wait_queue *
++do_create_thread_wait_queue(int uthread_id, struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_thread_wait_queue *new_wait_queue =
+ 		kzalloc(sizeof(*new_wait_queue), GFP_KERNEL);
+@@ -64,14 +66,15 @@ static struct aipu_thread_wait_queue *do_create_thread_wait_queue(int uthread_id
+ 		return ERR_PTR(-ENOMEM);
+ 	new_wait_queue->ref_cnt = 0;
+ 	new_wait_queue->uthread_id = uthread_id;
+-	new_wait_queue->filp = filp;
++	new_wait_queue->owner = owner;
+ 	init_waitqueue_head(&new_wait_queue->p_wait);
+ 	INIT_LIST_HEAD(&new_wait_queue->node);
+ 	return new_wait_queue;
+ }
+ 
+ static struct aipu_thread_wait_queue *get_thread_wait_queue(struct aipu_thread_wait_queue *head,
+-							       int uthread_id, struct file *filp)
++							       int uthread_id,
++							       struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_thread_wait_queue *curr = NULL;
+ 
+@@ -80,19 +83,20 @@ static struct aipu_thread_wait_queue *get_thread_wait_queue(struct aipu_thread_w
+ 
+ 	list_for_each_entry(curr, &head->node, node) {
+ 		if ((curr->uthread_id == uthread_id && uthread_id) ||
+-		    (curr->filp == filp && filp))
++		    (curr->owner == owner && owner))
+ 			return curr;
+ 		}
+ 	return ERR_PTR(-EINVAL);
+ }
+ 
+ static struct aipu_thread_wait_queue *create_thread_wait_queue(struct aipu_thread_wait_queue *head,
+-							       int uthread_id, struct file *filp)
++							       int uthread_id,
++							       struct aipu_file_ctx *owner)
+ {
+-	struct aipu_thread_wait_queue *queue = get_thread_wait_queue(head, uthread_id, filp);
++	struct aipu_thread_wait_queue *queue = get_thread_wait_queue(head, uthread_id, owner);
+ 
+ 	if (IS_ERR(queue)) {
+-		queue = do_create_thread_wait_queue(uthread_id, filp);
++		queue = do_create_thread_wait_queue(uthread_id, owner);
+ 		if (!IS_ERR(queue) && head)
+ 		list_add_tail(&queue->node, &head->node);
+ 		else
+@@ -117,7 +121,8 @@ static void delete_wait_queue(struct aipu_thread_wait_queue **wait_queue_head)
+ }
+ 
+ static void delete_thread_wait_queue(struct aipu_thread_wait_queue *head,
+-				     int uthread_id, struct file *filp)
++				     int uthread_id,
++				     struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_thread_wait_queue *curr = NULL;
+ 	struct aipu_thread_wait_queue *next = NULL;
+@@ -145,7 +150,7 @@ static void delete_wait_node(struct aipu_thread_wait_queue **wait_queue_head,
+ 
+ static int init_aipu_job(struct aipu_job_manager *manager, struct aipu_job *job,
+ 			 struct aipu_job_desc *desc, struct aipu_thread_wait_queue *queue,
+-			 struct file *filp)
++			 struct aipu_file_ctx *owner)
+ {
+ 	if (unlikely(!job))
+ 		return -EINVAL;
+@@ -162,7 +167,7 @@ static int init_aipu_job(struct aipu_job_manager *manager, struct aipu_job *job,
+ 		job->thread_queue = NULL;
+ 	}
+ 
+-	job->filp = filp;
++	job->owner = owner;
+ 	job->uthread_id = task_pid_nr(current);
+ 	job->core_id = -1;
+ 	job->state = AIPU_JOB_STATE_IDLE;
+@@ -227,7 +232,8 @@ static void destroy_aipu_job(struct aipu_job_manager *manager, struct aipu_job *
+ 
+ static struct aipu_job *create_aipu_job(struct aipu_job_manager *manager,
+ 					struct aipu_job_desc *desc,
+-					struct aipu_thread_wait_queue *queue, struct file *filp)
++					struct aipu_thread_wait_queue *queue,
++					struct aipu_file_ctx *owner)
+ {
+ 	int ret = 0;
+ 	struct aipu_job *new_aipu_job = NULL;
+@@ -236,7 +242,7 @@ static struct aipu_job *create_aipu_job(struct aipu_job_manager *manager,
+ 	if (unlikely(!new_aipu_job))
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	ret = init_aipu_job(manager, new_aipu_job, desc, queue, filp);
++	ret = init_aipu_job(manager, new_aipu_job, desc, queue, owner);
+ 	if (unlikely(ret)) {
+ 		delete_wait_node(&manager->wait_queue_head, new_aipu_job->thread_queue);
+ 		destroy_aipu_job(manager, new_aipu_job);
+@@ -526,6 +532,7 @@ static int schedule_v3_job_no_lock(struct aipu_job_manager *manager, struct aipu
+ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_desc *user_job,
+ 			    struct file *filp, int do_trigger)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct aipu_tcb *first_tcb;
+ 	struct aipu_tcb *head_tcb;
+ 	struct aipu_job *kern_job = NULL;
+@@ -537,7 +544,7 @@ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_de
+ 
+ 	mutex_lock(&manager->wq_lock);
+ 	if (user_job->enable_poll_opt)
+-		queue = create_thread_wait_queue(manager->wait_queue_head, 0, filp);
++		queue = create_thread_wait_queue(manager->wait_queue_head, 0, owner);
+ 	else
+ 		queue = create_thread_wait_queue(manager->wait_queue_head,
+ 						 task_pid_nr(current), NULL);
+@@ -547,7 +554,7 @@ static int schedule_new_job(struct aipu_job_manager *manager, struct aipu_job_de
+ 		return PTR_ERR(queue);
+ 	}
+ 
+-	kern_job = create_aipu_job(manager, user_job, queue, filp);
++	kern_job = create_aipu_job(manager, user_job, queue, owner);
+ 	if (IS_ERR(kern_job)) {
+ 		mutex_unlock(&manager->wq_lock);
+ 		return PTR_ERR(kern_job);
+@@ -620,13 +627,14 @@ static int trigger_deferred_job_run(struct aipu_job_manager *manager,
+ 				    struct aipu_job_desc *user_job,
+ 				    struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	unsigned long flags;
+ 	struct aipu_job *curr = NULL;
+ 	int ret = -ENOENT;
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-		if (curr->filp == filp && curr->desc.job_id == user_job->job_id &&
++		if (curr->owner == owner && curr->desc.job_id == user_job->job_id &&
+ 		    curr->state == AIPU_JOB_STATE_DEFERRED) {
+ 			/* Debugger must ensure the NPU can accept a deferred job. */
+ 			ret = schedule_v3_job_no_lock(manager, curr);
+@@ -793,7 +801,7 @@ int aipu_job_manager_scheduler(struct aipu_job_manager *manager, struct aipu_job
+ 	bool quiescing = false;
+ 	int ret = 0;
+ 
+-	if (unlikely(!manager || !user_job || !filp))
++	if (unlikely(!manager || !user_job || !aipu_file_ctx(filp)))
+ 		return -EINVAL;
+ 	if (user_job->enable_prof) {
+ 		dev_dbg(manager->dev,
+@@ -1387,6 +1395,7 @@ void aipu_job_manager_idle_guard_end(struct aipu_job_manager *manager)
+  */
+ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	LIST_HEAD(delete_list);
+ 	unsigned long flags;
+ 	struct aipu_job *curr = NULL;
+@@ -1397,7 +1406,7 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 	bool pool_created = false;
+ 	int ret = 0;
+ 
+-	if (!manager || !filp)
++	if (!manager || !owner)
+ 		return -EINVAL;
+ 	if (manager->version != AIPU_ISA_VERSION_ZHOUYI_V3 ||
+ 	    manager->partition_cnt != 1 || !manager->partitions)
+@@ -1406,8 +1415,13 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-		if (curr->filp != filp) {
+-			other_owner = true;
++		if (curr->owner != owner) {
++			if (curr->state == AIPU_JOB_STATE_RUNNING ||
++			    curr->state == AIPU_JOB_STATE_PENDING ||
++			    curr->state == AIPU_JOB_STATE_DEFERRED ||
++			    curr->state == AIPU_JOB_STATE_CORED_WAIT ||
++			    curr->state == AIPU_JOB_STATE_CORED_SIGNAL)
++				other_owner = true;
+ 			continue;
+ 		}
+ 		if (curr->state == AIPU_JOB_STATE_RUNNING ||
+@@ -1419,13 +1433,13 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 	}
+ 	pool_created = manager->pools && manager->pools[0].created;
+ 	spin_unlock_irqrestore(&manager->lock, flags);
+-	if (other_owner) {
++	if (active && other_owner) {
+ 		ret = -EBUSY;
+ 		goto unlock_op;
+ 	}
+ 
+ 	partition = &manager->partitions[0];
+-	if (pool_created) {
++	if (pool_created && !other_owner) {
+ 		if (active)
+ 			ret = partition->ops->abort_command_pool(partition, 0);
+ 		if (!ret)
+@@ -1442,13 +1456,13 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+-		if (curr->filp != filp)
++		if (curr->owner != owner)
+ 			continue;
+ 		if (curr->desc.exec_flag & AIPU_JOB_EXEC_FLAG_SRAM_MUTEX)
+ 			manager->exec_flag &= ~AIPU_JOB_EXEC_FLAG_SRAM_MUTEX;
+ 		list_move_tail(&curr->node, &delete_list);
+ 	}
+-	if (pool_created && manager->pools) {
++	if (pool_created && !other_owner && manager->pools) {
+ 		memset(manager->pools[0].qlist, 0,
+ 		       sizeof(*manager->pools[0].qlist) * AIPU_JOB_QOS_MAX);
+ 		manager->pools[0].created = false;
+@@ -1457,7 +1471,8 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 		manager->tec_intr_en = false;
+ 		aipu_mm_set_final_htbuf_index(manager->mm, -1);
+ 	}
+-	manager->recovery_event = AIPU_RECOVERY_NONE;
++	if (!other_owner)
++		manager->recovery_event = AIPU_RECOVERY_NONE;
+ 	spin_unlock_irqrestore(&manager->lock, flags);
+ 
+ 	mutex_lock(&manager->wq_lock);
+@@ -1466,7 +1481,7 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ 		delete_wait_node(&manager->wait_queue_head, curr->thread_queue);
+ 		destroy_aipu_job(manager, curr);
+ 	}
+-	delete_thread_wait_queue(manager->wait_queue_head, task_pid_nr(current), filp);
++	delete_thread_wait_queue(manager->wait_queue_head, task_pid_nr(current), owner);
+ 	mutex_unlock(&manager->wq_lock);
+ 
+ unlock_op:
+@@ -1484,18 +1499,19 @@ int aipu_job_manager_cancel_jobs(struct aipu_job_manager *manager, struct file *
+ int aipu_job_manager_invalidate_timeout_job(struct aipu_job_manager *manager, u64 job_id,
+ 					    struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_job *victim = NULL;
+ 	unsigned long flags;
+ 	bool active = false;
+ 	int ret;
+ 
+-	if (!manager || !filp)
++	if (!manager || !owner)
+ 		return -EINVAL;
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-		if (curr->filp == filp && curr->desc.job_id == job_id) {
++		if (curr->owner == owner && curr->desc.job_id == job_id) {
+ 			victim = curr;
+ 			active = curr->state == AIPU_JOB_STATE_RUNNING ||
+ 				 curr->state == AIPU_JOB_STATE_PENDING ||
+@@ -1541,6 +1557,7 @@ int aipu_job_manager_invalidate_timeout_job(struct aipu_job_manager *manager, u6
+ int aipu_job_manager_get_job_status(struct aipu_job_manager *manager,
+ 				    struct aipu_job_status_query *job_status, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct aipu_job_status_desc *status = NULL;
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_job *next = NULL;
+@@ -1549,14 +1566,14 @@ int aipu_job_manager_get_job_status(struct aipu_job_manager *manager,
+ 	u32 poll_iter = 0;
+ 	unsigned long flags;
+ 
+-	if (unlikely(!manager || !job_status || !filp || job_status->max_cnt < 1))
++	if (unlikely(!manager || !job_status || !owner || job_status->max_cnt < 1))
+ 		return -EINVAL;
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+ 		if (count == job_status->max_cnt)
+ 			break;
+-		if (curr->state >= AIPU_JOB_STATE_EXCEP && curr->filp == filp &&
++		if (curr->state >= AIPU_JOB_STATE_EXCEP && curr->owner == owner &&
+ 		    (!job_status->of_this_thread ||
+ 		     curr->uthread_id == task_pid_nr(current)))
+ 			count++;
+@@ -1581,7 +1598,7 @@ int aipu_job_manager_get_job_status(struct aipu_job_manager *manager,
+ 	list_for_each_entry_safe(curr, next, &manager->scheduled_head->node, node) {
+ 		if (poll_iter == count)
+ 			break;
+-		if (curr->state < AIPU_JOB_STATE_EXCEP || curr->filp != filp)
++		if (curr->state < AIPU_JOB_STATE_EXCEP || curr->owner != owner)
+ 			continue;
+ 
+ 		if (!job_status->of_this_thread || curr->uthread_id == task_pid_nr(current)) {
+@@ -1642,18 +1659,19 @@ int aipu_job_manager_get_job_status(struct aipu_job_manager *manager,
+ bool aipu_job_manager_has_end_job(struct aipu_job_manager *manager, struct file *filp,
+ 				  struct poll_table_struct *wait, int uthread_id)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	bool ret = false;
+ 	struct aipu_job *curr = NULL;
+ 	struct aipu_thread_wait_queue *wq = NULL;
+ 	unsigned long flags;
+ 
+-	if (unlikely(!manager || !filp))
++	if (unlikely(!manager || !owner))
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&manager->wq_lock);
+ 	list_for_each_entry(wq, &manager->wait_queue_head->node, node) {
+ 		if (wq->ref_cnt &&
+-		    (wq->uthread_id == uthread_id || wq->filp == filp)) {
++		    (wq->uthread_id == uthread_id || wq->owner == owner)) {
+ 			poll_wait(filp, &wq->p_wait, wait);
+ 			break;
+ 		}
+@@ -1662,7 +1680,7 @@ bool aipu_job_manager_has_end_job(struct aipu_job_manager *manager, struct file
+ 
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(curr, &manager->scheduled_head->node, node) {
+-		if (curr->filp == filp &&
++		if (curr->owner == owner &&
+ 		    curr->wake_up == 1 &&
+ 		    (curr->desc.enable_poll_opt || curr->uthread_id == uthread_id)) {
+ 			ret = true;
+@@ -1699,11 +1717,12 @@ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu
+ 	return 0;
+ }
+ 
+-int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
++int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager,
++					  struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_partition *partition;
+ 
+-	if (!manager)
++	if (!manager || !owner)
+ 		return -EINVAL;
+ 
+ 	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3)
+@@ -1715,8 +1734,9 @@ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
+ 		return -EOPNOTSUPP;
+ 
+ 	mutex_lock(&manager->op_lock);
+-	if (!atomic_read(&manager->tick_counter))
++	if (!owner->tick_counter_refs)
+ 		goto unlock;
++	owner->tick_counter_refs--;
+ 	if (atomic_dec_and_test(&manager->tick_counter))
+ 		partition->ops->disable_tick_counter(partition);
+ unlock:
+@@ -1725,11 +1745,12 @@ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager)
+ 	return 0;
+ }
+ 
+-int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
++int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager,
++					 struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_partition *partition;
+ 
+-	if (!manager)
++	if (!manager || !owner)
+ 		return -EINVAL;
+ 
+ 	if (manager->version < AIPU_ISA_VERSION_ZHOUYI_V3)
+@@ -1745,6 +1766,7 @@ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
+ 		mutex_unlock(&manager->op_lock);
+ 		return -EOVERFLOW;
+ 	}
++	owner->tick_counter_refs++;
+ 	if (atomic_inc_return(&manager->tick_counter) == 1)
+ 		partition->ops->enable_tick_counter(partition);
+ 	mutex_unlock(&manager->op_lock);
+@@ -1752,11 +1774,14 @@ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager)
+ 	return 0;
+ }
+ 
+-void aipu_job_manager_clear_tick_counter(struct aipu_job_manager *manager)
++void aipu_job_manager_release_tick_counter(struct aipu_job_manager *manager,
++					   struct aipu_file_ctx *owner)
+ {
+ 	struct aipu_partition *partition;
++	unsigned int refs;
++	int remaining;
+ 
+-	if (!manager || manager->version < AIPU_ISA_VERSION_ZHOUYI_V3 ||
++	if (!manager || !owner || manager->version < AIPU_ISA_VERSION_ZHOUYI_V3 ||
+ 	    !manager->partitions || manager->partition_cnt < 1)
+ 		return;
+ 	partition = &manager->partitions[0];
+@@ -1764,8 +1789,18 @@ void aipu_job_manager_clear_tick_counter(struct aipu_job_manager *manager)
+ 		return;
+ 
+ 	mutex_lock(&manager->op_lock);
+-	if (atomic_xchg(&manager->tick_counter, 0))
++	refs = owner->tick_counter_refs;
++	owner->tick_counter_refs = 0;
++	if (!refs)
++		goto unlock;
++	remaining = atomic_sub_return(refs, &manager->tick_counter);
++	if (WARN_ON(remaining < 0)) {
++		atomic_set(&manager->tick_counter, 0);
++		remaining = 0;
++	}
++	if (!remaining)
+ 		partition->ops->disable_tick_counter(partition);
++unlock:
+ 	mutex_unlock(&manager->op_lock);
+ }
+ 
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+@@ -15,6 +15,7 @@
+ #include "aipu_mm.h"
+ 
+ struct aipu_job_manager;
++struct aipu_file_ctx;
+ 
+ enum aipu_state_kern {
+ 	AIPU_JOB_STATE_IDLE,
+@@ -31,14 +32,14 @@ enum aipu_state_kern {
+ /**
+  * struct waitqueue - maintain the waitqueue for a user thread
+  * @uthread_id: user thread owns this waitqueue
+- * @filp: file struct pointer
++ * @owner: stable per-open context
+  * @ref_cnt: struct reference count
+  * @p_wait: wait queue head for polling
+  * @node: list head struct
+  */
+ struct aipu_thread_wait_queue {
+ 	int uthread_id;
+-	struct file *filp;
++	struct aipu_file_ctx *owner;
+ 	int ref_cnt;
+ 	wait_queue_head_t p_wait;
+ 	struct list_head node;
+@@ -80,7 +81,7 @@ struct profiler {
+  * struct aipu_job - job struct describing a job under scheduling in job manager
+  *        Job status will be tracked as soon as interrupt or user evenets come in.
+  * @uthread_id: ID of user thread scheduled this job
+- * @filp: file struct pointer used when scheduling this job
++ * @owner: stable context that submitted this job
+  * @desc: job descriptor from userland
+  * @core_id: ID of an aipu core this job scheduled on
+  * @thread_queue: wait queue of this job to be waken up
+@@ -96,7 +97,7 @@ struct profiler {
+  */
+ struct aipu_job {
+ 	int uthread_id;
+-	struct file *filp;
++	struct aipu_file_ctx *owner;
+ 	struct aipu_job_desc desc;
+ 	int core_id;
+ 	wait_queue_head_t *thread_queue;
+@@ -230,9 +231,12 @@ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu
+ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager);
+ int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager);
+ void aipu_job_manager_idle_guard_end(struct aipu_job_manager *manager);
+-int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager);
+-int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager);
+-void aipu_job_manager_clear_tick_counter(struct aipu_job_manager *manager);
++int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager,
++					  struct aipu_file_ctx *owner);
++int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager,
++					 struct aipu_file_ctx *owner);
++void aipu_job_manager_release_tick_counter(struct aipu_job_manager *manager,
++					   struct aipu_file_ctx *owner);
+ int aipu_job_manager_config_clusters(struct aipu_job_manager *manager,
+ 				     struct aipu_config_clusters *cfg);
+ int aipu_job_manager_suspend(struct aipu_job_manager *manager);
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_mm.c b/drivers/misc/armchina-npu-r2p0/aipu_mm.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu_mm.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu_mm.c
+@@ -19,13 +19,27 @@
+ #include <linux/overflow.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/acpi.h>
++#include <linux/refcount.h>
+ #include "config.h"
+ #include "aipu_priv.h"
++#include "aipu_file.h"
+ #include "aipu_mm.h"
+ #include "aipu_common.h"
+ #include "aipu_dma_buf.h"
+ 
+ #define EXIT_ENCODE_BUF_SIZE (1024)
++
++struct aipu_vma_ctx {
++	struct aipu_memory_manager *mm;
++	struct aipu_file_ctx *owner;
++	struct aipu_buf_desc desc;
++	atomic_t *map_count;
++	refcount_t refs;
++};
++
++static int aipu_mm_free_owner(struct aipu_memory_manager *mm,
++			      struct aipu_buf_desc *buf,
++			      struct aipu_file_ctx *owner, bool unlock);
+ /*
+  * Partial redefinition of the kernel-private struct iommu_dma_cookie
+  * (defined in drivers/iommu/dma-iommu.c). Only the iovad field is accessed
+@@ -375,7 +389,7 @@ static struct aipu_mem_region *aipu_mm_find_region(struct aipu_memory_manager *m
+ }
+ 
+ static int aipu_mm_validate_allocation(struct aipu_mem_region *reg, u64 iova,
+-				       u64 bytes, struct file *filp)
++				       u64 bytes, struct aipu_file_ctx *owner)
+ {
+ 	u64 offset;
+ 	unsigned long page_no;
+@@ -388,7 +402,7 @@ static int aipu_mm_validate_allocation(struct aipu_mem_region *reg, u64 iova,
+ 		return -EINVAL;
+ 
+ 	if (!reg->reserved)
+-		return filp && reg->filp != filp ? -EACCES : 0;
++		return owner && reg->owner != owner ? -EACCES : 0;
+ 
+ 	page_no = offset >> PAGE_SHIFT;
+ 	if (page_no >= reg->count)
+@@ -396,7 +410,7 @@ static int aipu_mm_validate_allocation(struct aipu_mem_region *reg, u64 iova,
+ 	page = reg->pages[page_no];
+ 	if (!page || !page->contiguous_alloc_len)
+ 		return -EINVAL;
+-	if (filp && page->filp != filp)
++	if (owner && page->owner != owner)
+ 		return -EACCES;
+ 	if (bytes > ((u64)page->contiguous_alloc_len << PAGE_SHIFT) -
+ 		    (offset & ~PAGE_MASK))
+@@ -439,40 +453,54 @@ static struct aipu_tcb_buf *aipu_mm_find_tcb_buf_no_lock(struct aipu_memory_mana
+ 	return tbuf;
+ }
+ 
+-static atomic_t *aipu_mm_get_map_count(struct aipu_mem_region *reg, u64 iova)
++static atomic_t *aipu_mm_get_mapping(struct aipu_mem_region *reg, u64 iova,
++				     struct aipu_buf_desc *desc)
+ {
+ 	struct aipu_virt_page *page;
+ 	unsigned long page_no;
+ 
+-	if (!reg || iova < reg->base_iova)
++	if (!reg || !desc || iova < reg->base_iova)
+ 		return NULL;
+-	if (!reg->reserved)
++	if (!reg->reserved) {
++		desc->pa = reg->base_iova;
++		desc->bytes = reg->bytes;
+ 		return &reg->map_count;
++	}
+ 	page_no = (iova - reg->base_iova) >> PAGE_SHIFT;
+ 	if (page_no >= reg->count)
+ 		return NULL;
+ 	page = reg->pages[page_no];
+ 	if (!page || !page->contiguous_alloc_len)
+ 		return NULL;
++	desc->pa = iova;
++	desc->bytes = (u64)page->contiguous_alloc_len << PAGE_SHIFT;
+ 	return &page->map_count;
+ }
+ 
+ static void aipu_mm_vma_open(struct vm_area_struct *vma)
+ {
+-	atomic_t *map_count = vma->vm_private_data;
++	struct aipu_vma_ctx *ctx = vma->vm_private_data;
+ 
+-	if (WARN_ON(!map_count))
++	if (WARN_ON(!ctx || !ctx->map_count || !ctx->owner))
+ 		return;
+-	atomic_inc(map_count);
++	refcount_inc(&ctx->refs);
++	atomic_inc(ctx->map_count);
++	aipu_file_ctx_get(ctx->owner);
+ }
+ 
+ static void aipu_mm_vma_close(struct vm_area_struct *vma)
+ {
+-	atomic_t *map_count = vma->vm_private_data;
++	struct aipu_vma_ctx *ctx = vma->vm_private_data;
++	bool last_mapping;
+ 
+-	if (WARN_ON(!map_count))
++	if (WARN_ON(!ctx || !ctx->map_count || !ctx->owner))
+ 		return;
+-	atomic_dec(map_count);
++	last_mapping = atomic_dec_and_test(ctx->map_count);
++	if (last_mapping && aipu_file_ctx_is_released(ctx->owner))
++		aipu_mm_free_owner(ctx->mm, &ctx->desc, ctx->owner, true);
++	aipu_file_ctx_put(ctx->owner);
++	if (refcount_dec_and_test(&ctx->refs))
++		kfree(ctx);
+ }
+ 
+ static const struct vm_operations_struct aipu_mm_vm_ops = {
+@@ -643,7 +671,8 @@ static struct aipu_mem_region *aipu_mm_create_region(struct aipu_memory_manager
+ static struct aipu_mem_region_obj *aipu_mm_create_region_object(struct aipu_memory_manager *mm,
+ 								enum aipu_mem_region_type type,
+ 								u64 size, u64 offset, u32 idx,
+-								struct file *filp, bool reserved)
++								struct aipu_file_ctx *owner,
++								bool reserved)
+ {
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 
+@@ -657,7 +686,7 @@ static struct aipu_mem_region_obj *aipu_mm_create_region_object(struct aipu_memo
+ 		return NULL;
+ 	}
+ 
+-	obj->reg->filp = filp;
++	obj->reg->owner = owner;
+ 	INIT_LIST_HEAD(&obj->list);
+ 
+ 	return obj;
+@@ -703,7 +732,8 @@ static int get_free_bitmap_no(struct aipu_memory_manager *mm, struct aipu_mem_re
+ 
+ static int aipu_mm_alloc_in_region_no_lock(struct aipu_memory_manager *mm,
+ 					   struct aipu_buf_request *buf_req,
+-					   struct aipu_mem_region *reg, struct file *filp,
++					   struct aipu_mem_region *reg,
++					   struct aipu_file_ctx *owner,
+ 					   struct aipu_tcb_buf **tbuf_alloc)
+ {
+ 	unsigned long bitmap_no = 0;
+@@ -714,7 +744,7 @@ static int aipu_mm_alloc_in_region_no_lock(struct aipu_memory_manager *mm,
+ 
+ 	/* this allocator is called in both reserved & smmu cases */
+ 
+-	/* filp == NULL means GM initialization or exit TCB allocation */
++	/* owner == NULL means GM initialization or exit TCB allocation */
+ 	if (!mm || !buf_req || !reg || reg->invalid || !tbuf_alloc)
+ 		return -EINVAL;
+ 
+@@ -742,7 +772,7 @@ static int aipu_mm_alloc_in_region_no_lock(struct aipu_memory_manager *mm,
+ 
+ 		/* success */
+ 		reg->pages[bitmap_no]->contiguous_alloc_len = alloc_nr;
+-		reg->pages[bitmap_no]->filp = filp;
++		reg->pages[bitmap_no]->owner = owner;
+ 		reg->pages[bitmap_no]->tid = task_pid_nr(current);
+ 		reg->pages[bitmap_no]->locked = true;
+ 		reg->pages[bitmap_no]->tcb = NULL;
+@@ -769,7 +799,7 @@ static int aipu_mm_alloc_in_region_no_lock(struct aipu_memory_manager *mm,
+ 		 */
+ 		tbuf->alloc_head = dev_pa;
+ 		tbuf->alloc_bytes = dev_size;
+-		tbuf->owner = filp;
++		tbuf->owner = owner;
+ 		tbuf->head = dev_pa;
+ 		tbuf->tail = tbuf->head + dev_size - sizeof(struct aipu_tcb);
+ 		tbuf->tail_tcb = NULL;
+@@ -860,20 +890,23 @@ static int aipu_mm_free_in_region(struct aipu_memory_manager *mm, struct aipu_bu
+ 	return 0;
+ }
+ 
+-static void aipu_mm_free_filp_in_region(struct aipu_memory_manager *mm,
+-					struct aipu_mem_region *reg, struct file *filp)
++static void aipu_mm_free_owner_in_region(struct aipu_memory_manager *mm,
++					 struct aipu_mem_region *reg,
++					 struct aipu_file_ctx *owner)
+ {
+ 	unsigned long i = 0;
+ 	unsigned long offset = 0;
+ 	struct aipu_tcb_buf *tbuf = NULL;
+ 
+-	if (!mm || !reg || !reg->bitmap || !filp)
++	if (!mm || !reg || !reg->bitmap || !owner)
+ 		return;
+ 
+ 	mutex_lock(&mm->lock);
+ 	while ((i = find_next_bit(reg->bitmap, reg->count, offset)) != reg->count) {
++		if (WARN_ON(!reg->pages[i]))
++			break;
+ 		offset = i + reg->pages[i]->contiguous_alloc_len;
+-		if (reg->pages[i] && reg->pages[i]->filp == filp) {
++		if (reg->pages[i]->owner == owner) {
+ 			if (WARN_ON(atomic_read(&reg->pages[i]->map_count)))
+ 				continue;
+ 			reg->pages[i]->locked = false;
+@@ -1477,18 +1510,19 @@ int aipu_deinit_mm(struct aipu_memory_manager *mm)
+ }
+ 
+ static int aipu_mm_direct_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_req,
+-				struct file *filp, struct aipu_tcb_buf **tcb_alloc)
++				struct aipu_file_ctx *owner,
++				struct aipu_tcb_buf **tcb_alloc)
+ {
+ 	int ret = 0;
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	struct aipu_tcb_buf *tcb = NULL;
+ 
+ 	obj = aipu_mm_create_region_object(mm, AIPU_MEM_REGION_TYPE_MEMORY, buf_req->bytes, 0, 0,
+-					   filp, false);
++					   owner, false);
+ 	if (!obj || !obj->reg)
+ 		return -ENOMEM;
+ 
+-	ret = aipu_mm_alloc_in_region_no_lock(mm, buf_req, obj->reg, filp, &tcb);
++	ret = aipu_mm_alloc_in_region_no_lock(mm, buf_req, obj->reg, owner, &tcb);
+ 	if (ret) {
+ 		ret = -ENOMEM;
+ 		goto err;
+@@ -1555,6 +1589,7 @@ static bool aipu_mm_check_address_validity(struct aipu_memory_manager *mm,
+ int aipu_mm_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_req,
+ 		  struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	int ret = 0;
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	int type;
+@@ -1586,7 +1621,7 @@ int aipu_mm_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_r
+ 		type = AIPU_MEM_REGION_TYPE_SRAM;
+ 
+ 	if (!mm->res_cnt) {
+-		ret = aipu_mm_direct_alloc(mm, buf_req, filp, &tbuf);
++		ret = aipu_mm_direct_alloc(mm, buf_req, owner, &tbuf);
+ 		allocated = !ret;
+ 		goto tcb_handle;
+ 	}
+@@ -1600,7 +1635,7 @@ int aipu_mm_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_r
+ alloc:
+ 	list_for_each_entry(obj, &mm->ase[buf_req->asid].head->list, list) {
+ 		if (obj->reg->type == type) {
+-			ret = aipu_mm_alloc_in_region_no_lock(mm, buf_req, obj->reg, filp, &tbuf);
++			ret = aipu_mm_alloc_in_region_no_lock(mm, buf_req, obj->reg, owner, &tbuf);
+ 			if (!ret) {
+ 				allocated = true;
+ 				break;
+@@ -1695,17 +1730,9 @@ static int aipu_mm_direct_free(struct aipu_memory_manager *mm, struct aipu_mem_r
+ 	return 0;
+ }
+ 
+-/**
+- * @aipu_mm_free() - free buffer allocated by aipu_mm_alloc()
+- * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+- * @buf:  pointer to the buffer descriptor to be released
+- * @filp: pointer to the file struct
+- * @unlock: unlock the page or not
+- *
+- * Return: 0 on success and error code otherwise.
+- */
+-int aipu_mm_free(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf, struct file *filp,
+-		 bool unlock)
++static int aipu_mm_free_owner(struct aipu_memory_manager *mm,
++			      struct aipu_buf_desc *buf,
++			      struct aipu_file_ctx *owner, bool unlock)
+ {
+ 	int ret = 0;
+ 	struct aipu_mem_region *reg = NULL;
+@@ -1719,10 +1746,10 @@ int aipu_mm_free(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf, stru
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+-	ret = aipu_mm_validate_allocation(reg, buf->pa, buf->bytes, filp);
++	ret = aipu_mm_validate_allocation(reg, buf->pa, buf->bytes, owner);
+ 	if (ret)
+ 		goto out_unlock;
+-	if (!buf->bytes && filp) {
++	if (!buf->bytes && owner) {
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+@@ -1746,6 +1773,21 @@ int aipu_mm_free(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf, stru
+ 	return ret;
+ }
+ 
++/**
++ * aipu_mm_free() - free buffer allocated by aipu_mm_alloc()
++ * @mm: pointer to memory manager struct initialized in aipu_init_mm()
++ * @buf: pointer to the buffer descriptor to be released
++ * @filp: pointer to the file struct
++ * @unlock: unlock the page or not
++ *
++ * Return: 0 on success and error code otherwise.
++ */
++int aipu_mm_free(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf,
++		 struct file *filp, bool unlock)
++{
++	return aipu_mm_free_owner(mm, buf, aipu_file_ctx(filp), unlock);
++}
++
+ static void tensor_dcache_inval_poc(void *start, void *end)
+ {
+ 	uintptr_t line_size, addr_start, addr_end, tmp;
+@@ -1807,6 +1849,7 @@ static void tensor_flush_dcache_range(void *start, void *end)
+ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf,
+ 			struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	int ret = 0;
+ 	struct aipu_mem_region *reg = NULL;
+ 	u64 offset;
+@@ -1820,7 +1863,7 @@ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *bu
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+-	ret = aipu_mm_validate_allocation(reg, buf->pa, buf->bytes, filp);
++	ret = aipu_mm_validate_allocation(reg, buf->pa, buf->bytes, owner);
+ 	if (ret)
+ 		goto out_unlock;
+ 
+@@ -1844,6 +1887,7 @@ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *bu
+ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf,
+ 			  struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	int ret = 0;
+ 	struct aipu_mem_region *reg = NULL;
+ 	u64 offset;
+@@ -1857,7 +1901,7 @@ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+-	ret = aipu_mm_validate_allocation(reg, buf->pa, buf->bytes, filp);
++	ret = aipu_mm_validate_allocation(reg, buf->pa, buf->bytes, owner);
+ 	if (ret)
+ 		goto out_unlock;
+ 
+@@ -1878,19 +1922,36 @@ int aipu_mm_cache_invalid(struct aipu_memory_manager *mm, struct aipu_buf_desc *
+  */
+ void aipu_mm_free_buffers(struct aipu_memory_manager *mm, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	struct aipu_mem_region_obj *next = NULL;
++	struct aipu_sram_disable_per_fd *disable;
++	struct aipu_sram_disable_per_fd *disable_next;
+ 
++	if (!mm || !owner)
++		return;
++	mutex_lock(&mm->lock);
++	list_for_each_entry_safe(disable, disable_next,
++				 &mm->sram_disable_head->list, list) {
++		if (disable->owner != owner)
++			continue;
++		mm->sram_disable -= disable->cnt;
++		list_del(&disable->list);
++		kfree(disable);
++	}
++	mutex_unlock(&mm->lock);
+ 	if (mm->res_cnt) {
+ 		list_for_each_entry_safe(obj, next, &mm->mem.head->list, list)
+-			aipu_mm_free_filp_in_region(mm, obj->reg, filp);
++			aipu_mm_free_owner_in_region(mm, obj->reg, owner);
+ 
+ 		return;
+ 	}
+ 
+ 	mutex_lock(&mm->lock);
+ 	list_for_each_entry_safe(obj, next, &mm->mem.head->list, list) {
+-		if (obj->reg->filp == filp) {
++		if (obj->reg->owner == owner) {
++			if (atomic_read(&obj->reg->map_count))
++				continue;
+ 			aipu_mm_direct_free(mm, obj->reg, true);
+ 			/* --- reg should not be used below --- */
+ 		}
+@@ -1908,13 +1969,16 @@ void aipu_mm_free_buffers(struct aipu_memory_manager *mm, struct file *filp)
+  */
+ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
++	struct aipu_vma_ctx *vma_ctx;
++	struct aipu_buf_desc desc = {};
+ 	int ret = 0;
+ 	dma_addr_t iova = 0;
+ 	struct aipu_mem_region *reg = NULL;
+ 	atomic_t *map_count;
+ 	u64 map_size;
+ 
+-	if (!mm || !vma || !filp)
++	if (!mm || !vma || !owner)
+ 		return -EINVAL;
+ 	if (vma->vm_pgoff > (U64_MAX >> PAGE_SHIFT))
+ 		return -EINVAL;
+@@ -1930,15 +1994,26 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+-	ret = aipu_mm_validate_allocation(reg, iova, map_size, filp);
++	ret = aipu_mm_validate_allocation(reg, iova, map_size, owner);
+ 	if (ret)
+ 		goto out_unlock;
+-	map_count = aipu_mm_get_map_count(reg, iova);
++	map_count = aipu_mm_get_mapping(reg, iova, &desc);
+ 	if (!map_count) {
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+ 
++	vma_ctx = kzalloc(sizeof(*vma_ctx), GFP_KERNEL);
++	if (!vma_ctx) {
++		ret = -ENOMEM;
++		goto out_unlock;
++	}
++	vma_ctx->mm = mm;
++	vma_ctx->owner = owner;
++	vma_ctx->desc = desc;
++	vma_ctx->map_count = map_count;
++	refcount_set(&vma_ctx->refs, 1);
++
+ 	vma->vm_pgoff = (iova - reg->base_iova) >> PAGE_SHIFT;
+ 
+ #if KERNEL_VERSION(6, 3, 0) <= LINUX_VERSION_CODE || \
+@@ -1953,9 +2028,12 @@ int aipu_mm_mmap_buf(struct aipu_memory_manager *mm, struct vm_area_struct *vma,
+ 			     reg->bytes, reg->attrs);
+ 	if (ret) {
+ 		dev_err(mm->dev, "dma_mmap_attrs failed at iova 0x%llx (ret = %d)", iova, ret);
++		kfree(vma_ctx);
+ 	} else {
++		vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP);
++		aipu_file_ctx_get(owner);
+ 		vma->vm_ops = &aipu_mm_vm_ops;
+-		vma->vm_private_data = map_count;
++		vma->vm_private_data = vma_ctx;
+ 		atomic_inc(map_count);
+ 	}
+ 
+@@ -1988,7 +2066,7 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 		goto unlock;
+ 	}
+ 	if (!reg->reserved) {
+-		if (reg->filp || dev_pa != reg->base_iova || bytes != reg->bytes) {
++		if (reg->owner || dev_pa != reg->base_iova || bytes != reg->bytes) {
+ 			ret = -EPERM;
+ 			goto unlock;
+ 		}
+@@ -1999,7 +2077,7 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ 		}
+ 		page_no = (dev_pa - reg->base_iova) >> PAGE_SHIFT;
+ 		page = page_no < reg->count ? reg->pages[page_no] : NULL;
+-		if (!page || page->filp ||
++		if (!page || page->owner ||
+ 		    ((u64)page->contiguous_alloc_len << PAGE_SHIFT) != bytes) {
+ 			ret = -EPERM;
+ 			goto unlock;
+@@ -2027,12 +2105,13 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+  */
+ int aipu_mm_disable_sram_allocation(struct aipu_memory_manager *mm, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	int ret = 0;
+ 	struct aipu_mem_region_obj *obj = NULL;
+ 	struct aipu_mem_region *reg = NULL;
+ 	struct aipu_sram_disable_per_fd *sram_disable_per_fd = NULL;
+ 
+-	if (!mm || !mm->res_cnt)
++	if (!mm || !owner || !mm->res_cnt)
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&mm->lock);
+@@ -2052,7 +2131,7 @@ int aipu_mm_disable_sram_allocation(struct aipu_memory_manager *mm, struct file
+ 		int found = 0;
+ 
+ 		list_for_each_entry(sram_disable_per_fd, &mm->sram_disable_head->list, list) {
+-			if (sram_disable_per_fd->filp == filp) {
++			if (sram_disable_per_fd->owner == owner) {
+ 				sram_disable_per_fd->cnt++;
+ 				found = 1;
+ 				break;
+@@ -2065,7 +2144,7 @@ int aipu_mm_disable_sram_allocation(struct aipu_memory_manager *mm, struct file
+ 				goto unlock;
+ 			}
+ 			sram_disable_per_fd->cnt++;
+-			sram_disable_per_fd->filp = filp;
++			sram_disable_per_fd->owner = owner;
+ 			list_add(&sram_disable_per_fd->list, &mm->sram_disable_head->list);
+ 		}
+ 		mm->sram_disable++;
+@@ -2084,10 +2163,11 @@ int aipu_mm_disable_sram_allocation(struct aipu_memory_manager *mm, struct file
+  */
+ int aipu_mm_enable_sram_allocation(struct aipu_memory_manager *mm, struct file *filp)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	int ret = 0;
+ 	struct aipu_sram_disable_per_fd *sram_disable_per_fd = NULL;
+ 
+-	if (!mm || !mm->res_cnt)
++	if (!mm || !owner || !mm->res_cnt)
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&mm->lock);
+@@ -2097,7 +2177,7 @@ int aipu_mm_enable_sram_allocation(struct aipu_memory_manager *mm, struct file *
+ 	}
+ 
+ 	list_for_each_entry(sram_disable_per_fd, &mm->sram_disable_head->list, list) {
+-		if (sram_disable_per_fd->filp == filp) {
++		if (sram_disable_per_fd->owner == owner) {
+ 			if (sram_disable_per_fd->cnt)
+ 				sram_disable_per_fd->cnt--;
+ 			break;
+@@ -2311,13 +2391,14 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ int aipu_mm_pin_job_tcb(struct aipu_memory_manager *mm, struct file *filp,
+ 			 u64 head, u64 tail, struct aipu_tcb_mapping *mapping)
+ {
++	struct aipu_file_ctx *owner = aipu_file_ctx(filp);
+ 	struct aipu_mem_region *reg;
+ 	struct aipu_tcb_buf *tbuf;
+ 	unsigned long flags;
+ 	u64 requested_end;
+ 	int ret = 0;
+ 
+-	if (!mm || !filp || !mapping || !head || head > tail ||
++	if (!mm || !owner || !mapping || !head || head > tail ||
+ 	    !IS_ALIGNED(head, sizeof(struct aipu_tcb)) ||
+ 	    !IS_ALIGNED(tail, sizeof(struct aipu_tcb)))
+ 		return -EINVAL;
+@@ -2334,9 +2415,9 @@ int aipu_mm_pin_job_tcb(struct aipu_memory_manager *mm, struct file *filp,
+ 
+ 	spin_lock_irqsave(&mm->slock, flags);
+ 	tbuf = aipu_mm_find_tbuf_in_region_no_lock(mm, reg, head);
+-	if (!tbuf || tbuf->owner != filp || head < tbuf->alloc_head ||
++	if (!tbuf || tbuf->owner != owner || head < tbuf->alloc_head ||
+ 	    requested_end - tbuf->alloc_head > tbuf->alloc_bytes) {
+-		ret = tbuf && tbuf->owner != filp ? -EACCES : -EINVAL;
++		ret = tbuf && tbuf->owner != owner ? -EACCES : -EINVAL;
+ 		goto unlock_tbuf;
+ 	}
+ 	if (tbuf->active_jobs == UINT_MAX) {
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_mm.h b/drivers/misc/armchina-npu-r2p0/aipu_mm.h
+--- a/drivers/misc/armchina-npu-r2p0/aipu_mm.h
++++ b/drivers/misc/armchina-npu-r2p0/aipu_mm.h
+@@ -42,6 +42,7 @@ enum aipu_mem_hold_tcb_status {
+ 
+ struct aipu_mem_region_obj;
+ struct aipu_job;
++struct aipu_file_ctx;
+ struct aipu_hold_tcb_buf {
+ 	u64 head;
+ 	int status;
+@@ -74,7 +75,7 @@ struct aipu_tcb_buf {
+ 	u64 pfn;
+ 	u64 alloc_head;
+ 	u64 alloc_bytes;
+-	struct file *owner;
++	struct aipu_file_ctx *owner;
+ 	u64 head;
+ 	u64 tail;
+ 	int dep_job_id;
+@@ -92,14 +93,14 @@ struct aipu_tcb_mapping {
+ /**
+  * struct aipu_virt_page - virtual page
+  * @tid: ID of thread requested this page (and the following pages)
+- * @filp: filp requested this page
++ * @owner: stable context that owns this page
+  * @contiguous_alloc_len: count of immediately following pages allocated in together
+  * @locked: is this page locked (should not be freed at this moment)
+  * @tcb: reference to a corresponding TCB descriptor
+  */
+ struct aipu_virt_page {
+ 	int tid;
+-	struct file *filp;
++	struct aipu_file_ctx *owner;
+ 	unsigned long contiguous_alloc_len;
+ 	bool locked;
+ 	struct aipu_tcb_buf *tcb;
+@@ -123,7 +124,7 @@ struct aipu_virt_page {
+  * @attrs: attributes for DMA API
+  * @tcb_buf_head: list head of tbuf
+  * @invalid: if this region is invalid (cannot be used) or not
+- * @filp: pointer to struct file requesting this region
++ * @owner: stable context requesting this region
+  * @obj: pointer to the region object
+  * @locked: is this region locked (therefore cannot be released) or not
+  */
+@@ -143,7 +144,7 @@ struct aipu_mem_region {
+ 	unsigned long attrs;
+ 	struct aipu_tcb_buf *tcb_buf_head;
+ 	bool invalid;
+-	struct file *filp;
++	struct aipu_file_ctx *owner;
+ 	struct aipu_mem_region_obj *obj;
+ 	bool locked;
+ 	atomic_t map_count;
+@@ -180,12 +181,12 @@ struct aipu_mem_region_list {
+ /**
+  * struct aipu_sram_disable_per_fd - SRAM disable list records disable operations
+  * @cnt: current total disable operation count
+- * @filp: file opinter
++ * @owner: file context that requested the disable
+  * @list: file pointer list
+  */
+ struct aipu_sram_disable_per_fd {
+ 	int cnt;
+-	struct file *filp;
++	struct aipu_file_ctx *owner;
+ 	struct list_head list;
+ };
+ 
+diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+--- a/drivers/misc/armchina-npu/Kconfig
++++ b/drivers/misc/armchina-npu/Kconfig
+@@ -5,6 +5,7 @@
+ 
+ config ARMCHINA_NPU
+ 	tristate "ArmChina Zhouyi NPU"
++	select ARMCHINA_NPU_COMMON
+ 	depends on ARM64
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
+diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
+--- a/drivers/misc/armchina-npu/Makefile
++++ b/drivers/misc/armchina-npu/Makefile
+@@ -3,6 +3,7 @@
+ subdir-ccflags-y += -I$(src)
+ subdir-ccflags-y += -I$(src)/include
+ subdir-ccflags-y += -I$(src)/zhouyi
++subdir-ccflags-y += -I$(src)/../armchina-npu-common
+ ccflags-y += -DKMD_VERSION=\"1.0.0\"
+ 
+ obj-$(CONFIG_ARMCHINA_NPU) += armchina_npu.o
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -31,26 +31,6 @@
+ static struct aipu_priv *aipu;
+ static DEFINE_MUTEX(aipu_lock);
+ 
+-static void aipu_file_ctx_release(struct kref *kref)
+-{
+-	struct aipu_file_ctx *ctx = container_of(kref, struct aipu_file_ctx, kref);
+-
+-	aipu_priv_put(ctx->aipu);
+-	kfree(ctx);
+-}
+-
+-void aipu_file_ctx_get(struct aipu_file_ctx *ctx)
+-{
+-	if (ctx)
+-		kref_get(&ctx->kref);
+-}
+-
+-void aipu_file_ctx_put(struct aipu_file_ctx *ctx)
+-{
+-	if (ctx)
+-		kref_put(&ctx->kref, aipu_file_ctx_release);
+-}
+-
+ #ifdef CONFIG_COMPAT
+ struct aipu_compat_job_status_query {
+ 	__u32 max_cnt;
+@@ -96,7 +76,7 @@ static int aipu_soc_pm_put(struct aipu_priv *priv)
+ 
+ static int aipu_cancel_file_jobs(struct aipu_file_ctx *ctx, struct file *filp)
+ {
+-	struct aipu_priv *aipu = ctx->aipu;
++	struct aipu_priv *aipu = ctx->priv;
+ 	struct aipu_job_manager *manager = &aipu->job_manager;
+ 	struct aipu_partition *part;
+ 	int ret;
+@@ -116,44 +96,37 @@ static int aipu_cancel_file_jobs(struct aipu_file_ctx *ctx, struct file *filp)
+ 	return aipu_job_manager_cancel_jobs(manager, filp);
+ }
+ 
+-static void aipu_finish_file_release(struct aipu_file_ctx *ctx,
+-				     struct file *filp)
++static void aipu_release_file(struct aipu_file_ctx *ctx, struct file *filp)
+ {
+-	struct aipu_priv *aipu = ctx->aipu;
++	struct aipu_priv *aipu = ctx->priv;
+ 	int ret;
+ 
+ 	aipu_job_manager_release_tick_counter(&aipu->job_manager, ctx);
+ 	aipu_detach_dma_bufs(&aipu->mm, filp);
+ 	aipu_job_manager_free_file_ids(&aipu->job_manager, ctx);
+-	WRITE_ONCE(ctx->released, true);
+ 	aipu_mm_free_buffers(&aipu->mm, filp);
+ 	ret = aipu_soc_pm_put(aipu);
+ 	if (ret)
+ 		dev_warn(aipu->dev, "runtime-PM put during release failed: %d\n", ret);
+-	aipu_file_ctx_put(ctx);
+ }
+ 
+-static void aipu_close_retry_work(struct work_struct *work)
++static void aipu_file_priv_put(void *priv)
+ {
+-	struct delayed_work *dwork = to_delayed_work(work);
+-	struct aipu_file_ctx *ctx = container_of(dwork, struct aipu_file_ctx,
+-						 close_work);
+-	struct file filp = { .private_data = ctx };
+-	int ret;
+-
+-	ret = aipu_cancel_file_jobs(ctx, &filp);
+-	if (ret) {
+-		dev_warn_ratelimited(ctx->aipu->dev,
+-			"deferred release still cannot quiesce hardware: %d\n", ret);
+-		mod_delayed_work(system_long_wq, &ctx->close_work,
+-				 msecs_to_jiffies(1000));
+-		return;
+-	}
++	aipu_priv_put(priv);
++}
+ 
+-	aipu_finish_file_release(ctx, &filp);
+-	module_put(THIS_MODULE);
++static struct device *aipu_file_dev(void *priv)
++{
++	return ((struct aipu_priv *)priv)->dev;
+ }
+ 
++static const struct aipu_file_ctx_ops aipu_file_ops = {
++	.quiesce = aipu_cancel_file_jobs,
++	.release = aipu_release_file,
++	.priv_put = aipu_file_priv_put,
++	.dev = aipu_file_dev,
++};
++
+ static int aipu_open(struct inode *inode, struct file *filp)
+ {
+ 	int ret;
+@@ -162,21 +135,17 @@ static int aipu_open(struct inode *inode, struct file *filp)
+ 
+ 	if (!priv)
+ 		return -ENODEV;
+-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+-	if (!ctx) {
++	ctx = aipu_file_ctx_alloc(priv, &aipu_file_ops, THIS_MODULE);
++	if (IS_ERR(ctx)) {
++		ret = PTR_ERR(ctx);
+ 		aipu_priv_put(priv);
+-		return -ENOMEM;
++		return ret;
+ 	}
+-	ctx->aipu = priv;
+-	kref_init(&ctx->kref);
+ 	aipu_mm_init_file_ctx(ctx);
+-	INIT_DELAYED_WORK(&ctx->close_work, aipu_close_retry_work);
+-	ctx->released = false;
+ 
+ 	ret = aipu_soc_pm_get(priv);
+ 	if (ret) {
+-		kfree(ctx);
+-		aipu_priv_put(priv);
++		aipu_file_ctx_put(ctx);
+ 		return ret;
+ 	}
+ 
+@@ -185,8 +154,7 @@ static int aipu_open(struct inode *inode, struct file *filp)
+ 	if (ret) {
+ 		aipu_soc_pm_put(priv);
+ 		filp->private_data = NULL;
+-		kfree(ctx);
+-		aipu_priv_put(priv);
++		aipu_file_ctx_put(ctx);
+ 	}
+ 
+ 	return ret;
+@@ -194,28 +162,7 @@ static int aipu_open(struct inode *inode, struct file *filp)
+ 
+ static int aipu_release(struct inode *inode, struct file *filp)
+ {
+-	int ret = 0;
+-	struct aipu_file_ctx *ctx = aipu_file_ctx(filp);
+-	struct aipu_priv *aipu = ctx ? ctx->aipu : NULL;
+-
+-	if (!aipu)
+-		return 0;
+-
+-	ret = aipu_cancel_file_jobs(ctx, filp);
+-	if (ret) {
+-		dev_warn(aipu->dev,
+-			 "deferring release until hardware can be quiesced: %d\n", ret);
+-		filp->private_data = NULL;
+-		if (WARN_ON(!try_module_get(THIS_MODULE)))
+-			return ret;
+-		mod_delayed_work(system_long_wq, &ctx->close_work,
+-				 msecs_to_jiffies(100));
+-		return 0;
+-	}
+-
+-	aipu_finish_file_release(ctx, filp);
+-	filp->private_data = NULL;
+-	return 0;
++	return aipu_file_ctx_close(filp);
+ }
+ 
+ static int aipu_ioctl_abi_bit(unsigned int cmd)
+diff --git a/drivers/misc/armchina-npu/aipu_file.h b/drivers/misc/armchina-npu/aipu_file.h
+--- a/drivers/misc/armchina-npu/aipu_file.h
++++ b/drivers/misc/armchina-npu/aipu_file.h
+@@ -1,51 +1,8 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+-/* Copyright (c) 2023-2025 Arm Technology (China) Co. Ltd. */
+ 
+ #ifndef __AIPU_FILE_H__
+ #define __AIPU_FILE_H__
+ 
+-#include <linux/fs.h>
+-#include <linux/kref.h>
+-#include <linux/workqueue.h>
+-
+-struct aipu_priv;
+-
+-enum aipu_file_abi_bit {
+-	AIPU_FILE_ABI_P1,
+-};
+-
+-/*
+- * Allocation and job ownership must outlive struct file when a failed hardware
+- * quiesce forces the driver to retain DMA-visible state during release.
+- */
+-struct aipu_file_ctx {
+-	struct aipu_priv *aipu;
+-	struct kref kref;
+-	struct work_struct cleanup_work;
+-	struct delayed_work close_work;
+-	unsigned long abi_mask;
+-	unsigned int tick_counter_refs;
+-	bool released;
+-};
+-
+-void aipu_file_ctx_get(struct aipu_file_ctx *ctx);
+-void aipu_file_ctx_put(struct aipu_file_ctx *ctx);
+-
+-static inline bool aipu_file_ctx_is_released(const struct aipu_file_ctx *ctx)
+-{
+-	return ctx && READ_ONCE(ctx->released);
+-}
+-
+-static inline struct aipu_file_ctx *aipu_file_ctx(struct file *filp)
+-{
+-	return filp ? filp->private_data : NULL;
+-}
+-
+-static inline struct aipu_priv *aipu_file_priv(struct file *filp)
+-{
+-	struct aipu_file_ctx *ctx = aipu_file_ctx(filp);
+-
+-	return ctx ? ctx->aipu : NULL;
+-}
++#include "../armchina-npu-common/aipu_file.h"
+ 
+ #endif /* __AIPU_FILE_H__ */
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -2552,7 +2552,8 @@ static void aipu_mm_owner_cleanup_work(struct work_struct *work)
+ 		container_of(work, struct aipu_file_ctx, cleanup_work);
+ 
+ 	if (aipu_file_ctx_is_released(owner))
+-		aipu_mm_free_owner_buffers(&owner->aipu->mm, owner);
++		aipu_mm_free_owner_buffers(&((struct aipu_priv *)owner->priv)->mm,
++					   owner);
+ 	aipu_file_ctx_put(owner);
+ 	module_put(THIS_MODULE);
+ }

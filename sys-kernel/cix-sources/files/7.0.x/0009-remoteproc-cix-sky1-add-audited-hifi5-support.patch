@@ -1,0 +1,1502 @@
+diff --git a/Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml b/Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml
+new file mode 100644
+--- /dev/null
++++ b/Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml
+@@ -0,0 +1,80 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/remoteproc/cix,sky1-hifi5.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: CIX Sky1 HiFi5 Audio DSP
++
++maintainers:
++  - CIX Linux Kernel Upstream Group <cix-kernel-upstream@cixtech.com>
++
++description:
++  The CIX Sky1 SoC contains a Cadence HiFi5 DSP used for audio processing.
++  The host controls its clocks and resets, loads an ELF firmware image into
++  the DSP address space and exchanges virtio RPMsg notifications through the
++  CIX mailbox controller.
++
++properties:
++  compatible:
++    const: cix,sky1-hifi5
++
++  dma-coherent: true
++
++  clocks:
++    maxItems: 6
++
++  clock-names:
++    items:
++      - const: clk
++      - const: bclk
++      - const: pbclk
++      - const: sramclk
++      - const: mb0clk
++      - const: mb1clk
++
++  resets:
++    maxItems: 3
++
++  reset-names:
++    items:
++      - const: dsp
++      - const: mb0
++      - const: mb1
++
++  interrupts:
++    maxItems: 1
++    description: DSP watchdog interrupt.
++
++  mboxes:
++    maxItems: 2
++
++  mbox-names:
++    items:
++      - const: tx0
++      - const: rx0
++
++  firmware-name:
++    $ref: /schemas/types.yaml#/definitions/string
++    description: Name of the ELF firmware image in the firmware search path.
++
++  cix,dsp-ctrl:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description: Phandle to the syscon containing the DSP control registers.
++
++required:
++  - compatible
++  - dma-coherent
++  - clocks
++  - clock-names
++  - resets
++  - reset-names
++  - interrupts
++  - mboxes
++  - mbox-names
++  - firmware-name
++  - cix,dsp-ctrl
++
++additionalProperties: false
++
++...
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2687,9 +2687,13 @@ S:	Maintained
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/cix.git
+ F:	Documentation/devicetree/bindings/arm/cix.yaml
+ F:	Documentation/devicetree/bindings/mailbox/cix,sky1-mbox.yaml
++F:	Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml
+ F:	arch/arm64/boot/dts/cix/
++F:	drivers/dma-buf/heaps/cix_dsp_heap.c
+ F:	drivers/mailbox/cix-mailbox.c
++F:	drivers/remoteproc/cix_dsp_rproc.c
+ F:	drivers/soc/cix/
++F:	include/linux/soc/cix/cix_hifi5.h
+ K:	\bcix\b
+ 
+ ARM/CLKDEV SUPPORT
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -15,6 +15,7 @@
+ #include <linux/initrd.h>
+ #include <linux/console.h>
+ #include <linux/cache.h>
++#include <linux/soc/cix/cix_hifi5.h>
+ #include <linux/screen_info.h>
+ #include <linux/init.h>
+ #include <linux/kexec.h>
+@@ -330,6 +331,7 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+ 	}
+ 
+ 	arm64_memblock_init();
++	cix_hifi5_reserve_legacy_aperture();
+ 
+ 	paging_init();
+ 
+diff --git a/drivers/dma-buf/heaps/Kconfig b/drivers/dma-buf/heaps/Kconfig
+--- a/drivers/dma-buf/heaps/Kconfig
++++ b/drivers/dma-buf/heaps/Kconfig
+@@ -12,3 +12,7 @@ config DMABUF_HEAPS_CMA
+ 	  Choose this option to enable dma-buf CMA heap. This heap is backed
+ 	  by the Contiguous Memory Allocator (CMA). If your system has these
+ 	  regions, you should say Y here.
++
++config DMABUF_HEAPS_CIX_DSP
++	bool
++	depends on DMABUF_HEAPS && ARM64
+diff --git a/drivers/dma-buf/heaps/Makefile b/drivers/dma-buf/heaps/Makefile
+--- a/drivers/dma-buf/heaps/Makefile
++++ b/drivers/dma-buf/heaps/Makefile
+@@ -1,3 +1,4 @@
+ # SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_DMABUF_HEAPS_SYSTEM)	+= system_heap.o
+ obj-$(CONFIG_DMABUF_HEAPS_CMA)		+= cma_heap.o
++obj-$(CONFIG_DMABUF_HEAPS_CIX_DSP)	+= cix_dsp_heap.o
+diff --git a/drivers/dma-buf/heaps/cix_dsp_heap.c b/drivers/dma-buf/heaps/cix_dsp_heap.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/dma-buf/heaps/cix_dsp_heap.c
+@@ -0,0 +1,181 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* CIX Sky1 fixed XAF userspace heap. */
++
++#include <linux/acpi.h>
++#include <linux/dma-buf.h>
++#include <linux/dma-heap.h>
++#include <linux/io.h>
++#include <linux/ioport.h>
++#include <linux/mm.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/slab.h>
++#include <linux/soc/cix/cix_hifi5.h>
++
++struct cix_dsp_heap {
++	/* Serializes the single fixed-aperture allocation. */
++	struct mutex lock;
++	bool allocated;
++};
++
++struct cix_dsp_heap_buffer {
++	struct cix_dsp_heap *heap;
++};
++
++static struct sg_table *
++cix_dsp_heap_map_dma_buf(struct dma_buf_attachment *attachment,
++			 enum dma_data_direction direction)
++{
++	return ERR_PTR(-EOPNOTSUPP);
++}
++
++static void
++cix_dsp_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
++			   struct sg_table *table,
++			   enum dma_data_direction direction)
++{
++}
++
++static int cix_dsp_heap_begin_cpu_access(struct dma_buf *dmabuf,
++					 enum dma_data_direction direction)
++{
++	dma_rmb();
++	return 0;
++}
++
++static int cix_dsp_heap_end_cpu_access(struct dma_buf *dmabuf,
++				       enum dma_data_direction direction)
++{
++	dma_wmb();
++	return 0;
++}
++
++static int cix_dsp_heap_mmap(struct dma_buf *dmabuf,
++			     struct vm_area_struct *vma)
++{
++	unsigned long size = vma->vm_end - vma->vm_start;
++
++	if (!(vma->vm_flags & VM_SHARED) || vma->vm_pgoff ||
++	    size != CIX_HIFI5_DMA_SIZE)
++		return -EINVAL;
++
++	vm_flags_set(vma, VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP);
++	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++
++	return remap_pfn_range(vma, vma->vm_start,
++			       PHYS_PFN(CIX_HIFI5_DMA_BASE), size,
++			       vma->vm_page_prot);
++}
++
++static void cix_dsp_heap_release(struct dma_buf *dmabuf)
++{
++	struct cix_dsp_heap_buffer *buffer = dmabuf->priv;
++
++	mutex_lock(&buffer->heap->lock);
++	buffer->heap->allocated = false;
++	mutex_unlock(&buffer->heap->lock);
++	kfree(buffer);
++}
++
++static const struct dma_buf_ops cix_dsp_heap_buf_ops = {
++	.map_dma_buf = cix_dsp_heap_map_dma_buf,
++	.unmap_dma_buf = cix_dsp_heap_unmap_dma_buf,
++	.begin_cpu_access = cix_dsp_heap_begin_cpu_access,
++	.end_cpu_access = cix_dsp_heap_end_cpu_access,
++	.mmap = cix_dsp_heap_mmap,
++	.release = cix_dsp_heap_release,
++};
++
++static struct dma_buf *cix_dsp_heap_allocate(struct dma_heap *dma_heap,
++					     unsigned long len,
++					      u32 fd_flags,
++					      u64 heap_flags)
++{
++	struct cix_dsp_heap *heap = dma_heap_get_drvdata(dma_heap);
++	struct cix_dsp_heap_buffer *buffer;
++	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
++	struct dma_buf *dmabuf;
++
++	if (len != CIX_HIFI5_DMA_SIZE || heap_flags)
++		return ERR_PTR(-EINVAL);
++
++	buffer = kzalloc_obj(*buffer);
++	if (!buffer)
++		return ERR_PTR(-ENOMEM);
++
++	mutex_lock(&heap->lock);
++	if (heap->allocated) {
++		mutex_unlock(&heap->lock);
++		kfree(buffer);
++		return ERR_PTR(-EBUSY);
++	}
++	heap->allocated = true;
++	mutex_unlock(&heap->lock);
++
++	buffer->heap = heap;
++	exp_info.exp_name = dma_heap_get_name(dma_heap);
++	exp_info.ops = &cix_dsp_heap_buf_ops;
++	exp_info.size = len;
++	exp_info.flags = fd_flags;
++	exp_info.priv = buffer;
++
++	dmabuf = dma_buf_export(&exp_info);
++	if (IS_ERR(dmabuf)) {
++		mutex_lock(&heap->lock);
++		heap->allocated = false;
++		mutex_unlock(&heap->lock);
++		kfree(buffer);
++	}
++
++	return dmabuf;
++}
++
++static const struct dma_heap_ops cix_dsp_heap_ops = {
++	.allocate = cix_dsp_heap_allocate,
++};
++
++static bool __init cix_dsp_present(void)
++{
++	struct device_node *np;
++
++	if (acpi_dev_present("CIXH6000", NULL, -1))
++		return true;
++
++	np = of_find_compatible_node(NULL, NULL, "cix,sky1-hifi5");
++	if (!np)
++		return false;
++
++	of_node_put(np);
++	return true;
++}
++
++static int __init cix_dsp_heap_init(void)
++{
++	static struct cix_dsp_heap heap;
++	struct dma_heap_export_info exp_info = {
++		.name = "dsp",
++		.ops = &cix_dsp_heap_ops,
++		.priv = &heap,
++	};
++	struct dma_heap *dma_heap;
++	int ret;
++
++	if (!cix_dsp_present())
++		return 0;
++
++	ret = region_intersects(CIX_HIFI5_DMA_BASE, CIX_HIFI5_DMA_SIZE,
++				IORESOURCE_SYSTEM_RAM, IORES_DESC_NONE);
++	if (ret != REGION_DISJOINT) {
++		pr_warn("CIX HiFi5: not registering DSP heap because it overlaps System RAM\n");
++		return 0;
++	}
++
++	mutex_init(&heap.lock);
++	dma_heap = dma_heap_add(&exp_info);
++	if (IS_ERR(dma_heap))
++		return PTR_ERR(dma_heap);
++
++	pr_info("CIX HiFi5: registered 16 MiB write-combined XAF heap\n");
++	return 0;
++}
++device_initcall(cix_dsp_heap_init);
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -47,6 +47,26 @@ config IMX_DSP_REMOTEPROC
+ 
+ 	  It's safe to say N here.
+ 
++config CIX_DSP_RPROC
++	tristate "CIX Sky1 HiFi5 DSP remoteproc support"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI || OF
++	select CIX_MBOX
++	select CIX_HIFI5_COMMON if ARM64
++	select DMABUF_HEAPS
++	select DMABUF_HEAPS_CIX_DSP if ARM64
++	select MAILBOX
++	select MFD_SYSCON
++	select RPMSG_VIRTIO
++	help
++	  Say y or m here to control the HiFi5 audio DSP in CIX Sky1
++	  systems.  The driver loads an ELF firmware image through the
++	  remoteproc framework and uses the CIX mailbox controller for
++	  RPMsg notifications.
++
++	  Loading this driver does not start the DSP.  Userspace or an
++	  audio client must explicitly boot the registered remote processor.
++
+ config INGENIC_VPU_RPROC
+ 	tristate "Ingenic JZ47xx VPU remoteproc support"
+ 	depends on MIPS || COMPILE_TEST
+diff --git a/drivers/remoteproc/Makefile b/drivers/remoteproc/Makefile
+--- a/drivers/remoteproc/Makefile
++++ b/drivers/remoteproc/Makefile
+@@ -13,6 +13,7 @@ remoteproc-y				+= remoteproc_elf_loader.o
+ obj-$(CONFIG_REMOTEPROC_CDEV)		+= remoteproc_cdev.o
+ obj-$(CONFIG_IMX_REMOTEPROC)		+= imx_rproc.o
+ obj-$(CONFIG_IMX_DSP_REMOTEPROC)	+= imx_dsp_rproc.o
++obj-$(CONFIG_CIX_DSP_RPROC)		+= cix_dsp_rproc.o
+ obj-$(CONFIG_INGENIC_VPU_RPROC)		+= ingenic_rproc.o
+ obj-$(CONFIG_MTK_SCP)			+= mtk_scp.o mtk_scp_ipi.o
+ obj-$(CONFIG_OMAP_REMOTEPROC)		+= omap_remoteproc.o
+diff --git a/drivers/remoteproc/cix_dsp_rproc.c b/drivers/remoteproc/cix_dsp_rproc.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/remoteproc/cix_dsp_rproc.c
+@@ -0,0 +1,804 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * CIX Sky1 HiFi5 remote processor support
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ * Copyright 2026 CIX kernel overlay maintainers
++ */
++
++#include <linux/acpi.h>
++#include <linux/atomic.h>
++#include <linux/completion.h>
++#include <linux/delay.h>
++#include <linux/elf.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/mailbox_client.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/overflow.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/remoteproc.h>
++#include <linux/reset.h>
++#include <linux/soc/cix/cix_hifi5.h>
++#include <linux/workqueue.h>
++
++#include "remoteproc_internal.h"
++
++#define SKY1_HIFI0			0x00
++#define SKY1_HIFI1			0x04
++#define SKY1_HIFI2			0x08
++
++#define SKY1_HIFI1_SELECT_VECTOR	BIT(0)
++#define SKY1_HIFI2_RUN_STALL		BIT(1)
++
++#define CIX_DSP_MBOX_WORDS		2
++#define CIX_DSP_MBOX_BYTES		(CIX_DSP_MBOX_WORDS * sizeof(u32))
++#define CIX_DSP_MBOX_SIZE_MASK		0x7f
++#define CIX_DSP_MBOX_TIMEOUT_MS		100
++#define CIX_DSP_VRING_COUNT		2
++#define CIX_DSP_READY_TIMEOUT_MS	1500
++#define CIX_DSP_VDEV_BUFFER_DA		0x3de08000
++#define CIX_DSP_VDEV_BUFFER_SA		0xcde08000
++#define CIX_DSP_VDEV_BUFFER_SIZE	0x00100000
++#define CIX_DSP_VDEV_BUFFER_OFFSET	\
++	(PAGE_ALIGN(CIX_DSP_VDEV_BUFFER_DA) - CIX_DSP_VDEV_BUFFER_DA)
++#define CIX_DSP_WORKING_DA		0x3e000000
++#define CIX_DSP_WORKING_SIZE		0x01000000
++
++enum cix_dsp_message {
++	CIX_DSP_MSG_READY		= 0xfff0,
++	CIX_DSP_MSG_CRASH		= 0xfff1,
++	CIX_DSP_MSG_SYSTEM_SUSPEND	= 0xfff2,
++	CIX_DSP_MSG_SUSPEND_ACK		= 0xfff3,
++	CIX_DSP_MSG_SYSTEM_RESUME	= 0xfff4,
++	CIX_DSP_MSG_RESUME_ACK		= 0xfff5,
++	CIX_DSP_MSG_STOP		= 0xfff6,
++	CIX_DSP_MSG_STOP_ACK		= 0xfff7,
++};
++
++enum cix_dsp_map_type {
++	CIX_DSP_MAP_IO,
++	CIX_DSP_MAP_DMA_POOL,
++};
++
++struct cix_dsp_region {
++	const char *name;
++	u32 da;
++	phys_addr_t sa;
++	size_t len;
++	enum cix_dsp_map_type type;
++	bool coredump;
++};
++
++/*
++ * The first four ranges are DSP-local memories reached through the Sky1
++ * system address map.  The RPMsg ranges and the 16 MiB DSP working area are
++ * carved from the firmware's reserved audio aperture.  dsp_fw.bin stores its
++ * allocator, RPMsg and resume state in dsp-reserved, so a cold boot must clear
++ * that range before releasing the DSP.  The final 16 MiB shared XAF pool is
++ * owned by the userspace client and is deliberately not mapped here.
++ */
++static const struct cix_dsp_region sky1_dsp_regions[] = {
++	{
++		.name = "iram",
++		.da = 0x20200000,
++		.sa = 0x1c80200000,
++		.len = 0x00020000,
++		.type = CIX_DSP_MAP_IO,
++		.coredump = true,
++	},
++	{
++		.name = "dram0",
++		.da = 0x20220000,
++		.sa = 0x1c80220000,
++		.len = 0x00020000,
++		.type = CIX_DSP_MAP_IO,
++		.coredump = true,
++	},
++	{
++		.name = "dram1",
++		.da = 0x20240000,
++		.sa = 0x1c80240000,
++		.len = 0x00020000,
++		.type = CIX_DSP_MAP_IO,
++		.coredump = true,
++	},
++	{
++		.name = "ext-sram",
++		.da = 0x20400000,
++		.sa = 0x1c80400000,
++		.len = 0x00100000,
++		.type = CIX_DSP_MAP_IO,
++		.coredump = true,
++	},
++	{
++		.name = "vdev0vring0",
++		.da = 0x3de00000,
++		.sa = 0xcde00000,
++		.len = 0x00004000,
++		.type = CIX_DSP_MAP_IO,
++	},
++	{
++		.name = "vdev0vring1",
++		.da = 0x3de04000,
++		.sa = 0xcde04000,
++		.len = 0x00004000,
++		.type = CIX_DSP_MAP_IO,
++	},
++	{
++		.name = "vdev0buffer",
++		/*
++		 * Coherent DMA pools allocate in CPU pages; retain only the
++		 * page-aligned subrange of the firmware's fixed 1 MiB buffer.
++		 */
++		.da = CIX_DSP_VDEV_BUFFER_DA + CIX_DSP_VDEV_BUFFER_OFFSET,
++		.sa = CIX_DSP_VDEV_BUFFER_SA + CIX_DSP_VDEV_BUFFER_OFFSET,
++		.len = PAGE_ALIGN_DOWN(CIX_DSP_VDEV_BUFFER_SIZE -
++				       CIX_DSP_VDEV_BUFFER_OFFSET),
++		.type = CIX_DSP_MAP_DMA_POOL,
++	},
++	{
++		.name = "dsp-reserved",
++		.da = CIX_DSP_WORKING_DA,
++		.sa = 0xce000000,
++		.len = CIX_DSP_WORKING_SIZE,
++		.type = CIX_DSP_MAP_IO,
++	},
++};
++
++struct cix_dsp_rproc {
++	struct device *dev;
++	struct rproc *rproc;
++	struct cix_hifi5_hw hw;
++	struct mbox_client mbox_client;
++	struct mbox_chan *tx_chan;
++	struct mbox_chan *rx_chan;
++	struct completion ready;
++	struct completion response;
++	struct delayed_work vq_work;
++	/* Serializes virtqueue state with the mailbox hard-IRQ callback. */
++	spinlock_t vq_lock;
++	unsigned long vq_pending;
++	bool vq_active;
++	int watchdog_irq;
++	atomic_t watchdog_enabled;
++	atomic_t crashed;
++};
++
++static int cix_dsp_io_mem_alloc(struct rproc *rproc,
++				struct rproc_mem_entry *mem)
++{
++	void __iomem *va;
++
++	va = ioremap_wc(mem->dma, mem->len);
++	if (!va)
++		return -ENOMEM;
++
++	mem->va = (void *)va;
++	mem->is_iomem = true;
++
++	return 0;
++}
++
++static int cix_dsp_io_mem_release(struct rproc *rproc,
++				  struct rproc_mem_entry *mem)
++{
++	if (mem->va)
++		iounmap((void __iomem *)mem->va);
++
++	return 0;
++}
++
++static int cix_dsp_add_carveouts(struct cix_dsp_rproc *priv)
++{
++	struct rproc_mem_entry *entries[ARRAY_SIZE(sky1_dsp_regions)];
++	struct device *dev = priv->dev;
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(sky1_dsp_regions); i++) {
++		const struct cix_dsp_region *region = &sky1_dsp_regions[i];
++		int (*alloc)(struct rproc *rproc,
++			     struct rproc_mem_entry *mem);
++		int (*release)(struct rproc *rproc,
++			       struct rproc_mem_entry *mem);
++
++		switch (region->type) {
++		case CIX_DSP_MAP_IO:
++			alloc = cix_dsp_io_mem_alloc;
++			release = cix_dsp_io_mem_release;
++			break;
++		case CIX_DSP_MAP_DMA_POOL:
++			alloc = NULL;
++			release = NULL;
++			break;
++		default:
++			return -EINVAL;
++		}
++
++		entries[i] = rproc_mem_entry_init(dev, NULL, region->sa,
++						  region->len, region->da,
++						  alloc, release,
++						  region->name);
++		if (!entries[i])
++			goto free_entries;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(sky1_dsp_regions); i++) {
++		const struct cix_dsp_region *region = &sky1_dsp_regions[i];
++
++		rproc_add_carveout(priv->rproc, entries[i]);
++		if (region->coredump)
++			rproc_coredump_add_segment(priv->rproc, region->da,
++						   region->len);
++	}
++
++	return 0;
++
++free_entries:
++	while (i--)
++		kfree(entries[i]);
++
++	return -ENOMEM;
++}
++
++static int cix_dsp_request_mailboxes(struct cix_dsp_rproc *priv);
++
++static void cix_dsp_vq_work(struct work_struct *work)
++{
++	struct cix_dsp_rproc *priv =
++		container_of(to_delayed_work(work), struct cix_dsp_rproc,
++			     vq_work);
++	unsigned long flags;
++	unsigned long pending;
++	unsigned int vqid;
++
++	spin_lock_irqsave(&priv->vq_lock, flags);
++	if (!priv->vq_active || !priv->vq_pending) {
++		spin_unlock_irqrestore(&priv->vq_lock, flags);
++		return;
++	}
++	spin_unlock_irqrestore(&priv->vq_lock, flags);
++
++	/* Remoteproc holds this lock across its start and stop transitions. */
++	if (!mutex_trylock(&priv->rproc->lock)) {
++		schedule_delayed_work(&priv->vq_work, msecs_to_jiffies(1));
++		return;
++	}
++
++	spin_lock_irqsave(&priv->vq_lock, flags);
++	if (!priv->vq_active || priv->rproc->state != RPROC_RUNNING) {
++		spin_unlock_irqrestore(&priv->vq_lock, flags);
++		mutex_unlock(&priv->rproc->lock);
++		return;
++	}
++	pending = priv->vq_pending;
++	priv->vq_pending = 0;
++	spin_unlock_irqrestore(&priv->vq_lock, flags);
++
++	for_each_set_bit(vqid, &pending, CIX_DSP_VRING_COUNT) {
++		if (rproc_vq_interrupt(priv->rproc, vqid) == IRQ_NONE)
++			dev_dbg(priv->dev,
++				"spurious virtqueue notification %u\n", vqid);
++	}
++
++	mutex_unlock(&priv->rproc->lock);
++}
++
++static void cix_dsp_queue_vqs(struct cix_dsp_rproc *priv,
++			      unsigned long pending)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->vq_lock, flags);
++	priv->vq_pending |= pending;
++	if (priv->vq_active)
++		schedule_delayed_work(&priv->vq_work, 0);
++	spin_unlock_irqrestore(&priv->vq_lock, flags);
++}
++
++static void cix_dsp_enable_vqs(struct cix_dsp_rproc *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->vq_lock, flags);
++	priv->vq_active = true;
++	if (priv->vq_pending)
++		schedule_delayed_work(&priv->vq_work, 0);
++	spin_unlock_irqrestore(&priv->vq_lock, flags);
++}
++
++static void cix_dsp_disable_vqs(struct cix_dsp_rproc *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->vq_lock, flags);
++	priv->vq_active = false;
++	priv->vq_pending = 0;
++	spin_unlock_irqrestore(&priv->vq_lock, flags);
++	cancel_delayed_work_sync(&priv->vq_work);
++}
++
++static void cix_dsp_free_mailboxes(struct cix_dsp_rproc *priv)
++{
++	if (priv->rx_chan) {
++		mbox_free_channel(priv->rx_chan);
++		priv->rx_chan = NULL;
++	}
++
++	if (priv->tx_chan) {
++		mbox_free_channel(priv->tx_chan);
++		priv->tx_chan = NULL;
++	}
++}
++
++static int cix_dsp_prepare(struct rproc *rproc)
++{
++	struct cix_dsp_rproc *priv = rproc->priv;
++	int ret;
++
++	ret = cix_hifi5_hw_enable(&priv->hw);
++	if (ret)
++		return dev_err_probe(priv->dev, ret, "failed to prepare DSP\n");
++
++	ret = cix_dsp_request_mailboxes(priv);
++	if (ret)
++		goto disable_resources;
++
++	ret = cix_dsp_add_carveouts(priv);
++	if (ret)
++		goto free_mailboxes;
++
++	return 0;
++
++free_mailboxes:
++	cix_dsp_free_mailboxes(priv);
++disable_resources:
++	cix_hifi5_hw_disable(&priv->hw);
++
++	return dev_err_probe(priv->dev, ret, "failed to prepare DSP\n");
++}
++
++static int cix_dsp_unprepare(struct rproc *rproc)
++{
++	struct cix_dsp_rproc *priv = rproc->priv;
++
++	/* parse_fw failures precede the remoteproc core's resource cleanup. */
++	if (!list_empty(&rproc->carveouts))
++		rproc_resource_cleanup(rproc);
++
++	cix_dsp_disable_vqs(priv);
++
++	if (atomic_xchg(&priv->watchdog_enabled, 0))
++		disable_irq(priv->watchdog_irq);
++
++	cix_dsp_free_mailboxes(priv);
++	cix_hifi5_hw_disable(&priv->hw);
++
++	return 0;
++}
++
++static int cix_dsp_load(struct rproc *rproc, const struct firmware *fw)
++{
++	struct cix_dsp_rproc *priv = rproc->priv;
++	void *dsp_working_mem;
++	u64 bootaddr = rproc->bootaddr;
++	bool is_iomem = false;
++	int ret;
++
++	if (bootaddr != sky1_dsp_regions[0].da) {
++		dev_err(priv->dev, "unsupported DSP entry point %#llx\n",
++			bootaddr);
++		return -EINVAL;
++	}
++
++	ret = reset_control_assert(priv->hw.dsp_reset);
++	if (ret)
++		return ret;
++
++	ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++				 SKY1_HIFI2_RUN_STALL,
++				 SKY1_HIFI2_RUN_STALL);
++	if (ret)
++		return ret;
++
++	/*
++	 * Bit zero selects the alternative reset vector.  The firmware entry
++	 * point is aligned, so the address and selector share this register
++	 * without losing address information.
++	 */
++	ret = regmap_write(priv->hw.ctrl, SKY1_HIFI1,
++			   lower_32_bits(bootaddr));
++	if (ret)
++		return ret;
++
++	ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI1,
++				 SKY1_HIFI1_SELECT_VECTOR,
++				 SKY1_HIFI1_SELECT_VECTOR);
++	if (ret)
++		return ret;
++
++	usleep_range(1, 2);
++
++	ret = reset_control_deassert(priv->hw.dsp_reset);
++	if (ret)
++		return ret;
++
++	dsp_working_mem = rproc_da_to_va(rproc, CIX_DSP_WORKING_DA,
++					 CIX_DSP_WORKING_SIZE, &is_iomem);
++	if (!dsp_working_mem)
++		return dev_err_probe(priv->dev, -ENOMEM,
++				     "DSP working memory is unavailable\n");
++	if (!is_iomem)
++		return dev_err_probe(priv->dev, -EINVAL,
++				     "DSP working memory is not an I/O mapping\n");
++
++	memset_io((void __iomem *)dsp_working_mem, 0,
++		  CIX_DSP_WORKING_SIZE);
++
++	return rproc_elf_load_segments(rproc, fw);
++}
++
++static int cix_dsp_start(struct rproc *rproc)
++{
++	struct cix_dsp_rproc *priv = rproc->priv;
++	unsigned long timeout;
++	int ret;
++
++	cix_dsp_disable_vqs(priv);
++	reinit_completion(&priv->ready);
++	atomic_set(&priv->crashed, 0);
++
++	ret = reset_control_assert(priv->hw.dsp_reset);
++	if (ret)
++		return ret;
++
++	usleep_range(1, 2);
++
++	/*
++	 * Firmware describes the DSP as DMA coherent.  Publish all initialized
++	 * shared memory before releasing the core from reset.
++	 */
++	dma_wmb();
++
++	ret = reset_control_deassert(priv->hw.dsp_reset);
++	if (ret)
++		goto assert_dsp_reset;
++
++	ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++				 SKY1_HIFI2_RUN_STALL, 0);
++	if (ret)
++		goto assert_dsp_reset;
++
++	timeout = wait_for_completion_timeout
++		(&priv->ready, msecs_to_jiffies(CIX_DSP_READY_TIMEOUT_MS));
++	if (timeout) {
++		cix_dsp_enable_vqs(priv);
++		atomic_set(&priv->watchdog_enabled, 1);
++		enable_irq(priv->watchdog_irq);
++		return 0;
++	}
++
++	ret = -ETIMEDOUT;
++	dev_err(priv->dev, "DSP firmware did not report ready\n");
++	regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++			   SKY1_HIFI2_RUN_STALL, SKY1_HIFI2_RUN_STALL);
++
++assert_dsp_reset:
++	reset_control_assert(priv->hw.dsp_reset);
++
++	return ret;
++}
++
++static int cix_dsp_send_control(struct cix_dsp_rproc *priv, u32 command)
++{
++	u32 message[CIX_DSP_MBOX_WORDS] = {
++		CIX_DSP_MBOX_BYTES,
++		command,
++	};
++	int ret;
++
++	ret = mbox_send_message(priv->tx_chan, message);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static int cix_dsp_stop(struct rproc *rproc)
++{
++	struct cix_dsp_rproc *priv = rproc->priv;
++	unsigned long timeout;
++	bool watchdog_was_enabled;
++	int reset_ret;
++	int stall_ret;
++	int ret;
++
++	cix_dsp_disable_vqs(priv);
++
++	watchdog_was_enabled = atomic_xchg(&priv->watchdog_enabled, 0);
++	if (watchdog_was_enabled)
++		disable_irq(priv->watchdog_irq);
++
++	if (!atomic_read(&priv->crashed)) {
++		reinit_completion(&priv->response);
++		ret = cix_dsp_send_control(priv, CIX_DSP_MSG_STOP);
++		if (ret) {
++			dev_warn(priv->dev,
++				 "failed to request a clean DSP stop: %d\n", ret);
++		} else {
++			timeout = wait_for_completion_timeout
++				(&priv->response,
++				 msecs_to_jiffies(CIX_DSP_MBOX_TIMEOUT_MS));
++			if (!timeout)
++				dev_warn(priv->dev,
++					 "DSP did not acknowledge stop; forcing reset\n");
++		}
++	}
++
++	stall_ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++				       SKY1_HIFI2_RUN_STALL,
++				       SKY1_HIFI2_RUN_STALL);
++	if (stall_ret)
++		dev_warn(priv->dev, "failed to stall DSP during stop: %d\n",
++			 stall_ret);
++
++	reset_ret = reset_control_assert(priv->hw.dsp_reset);
++	if (reset_ret) {
++		if (watchdog_was_enabled) {
++			atomic_set(&priv->watchdog_enabled, 1);
++			enable_irq(priv->watchdog_irq);
++		}
++		dev_err(priv->dev, "failed to reset DSP during stop: %d\n",
++			reset_ret);
++		return reset_ret;
++	}
++
++	return 0;
++}
++
++static void cix_dsp_kick(struct rproc *rproc, int vqid)
++{
++	struct cix_dsp_rproc *priv = rproc->priv;
++	u32 message[CIX_DSP_MBOX_WORDS] = {
++		CIX_DSP_MBOX_BYTES,
++		vqid,
++	};
++	int ret;
++
++	if (vqid < 0) {
++		dev_warn_ratelimited(priv->dev,
++				     "refusing invalid virtqueue id %d\n", vqid);
++		return;
++	}
++
++	ret = mbox_send_message(priv->tx_chan, message);
++	if (ret < 0)
++		dev_err_ratelimited(priv->dev,
++				    "failed to notify virtqueue %d: %d\n",
++				    vqid, ret);
++}
++
++static irqreturn_t cix_dsp_watchdog_irq(int irq, void *data)
++{
++	struct cix_dsp_rproc *priv = data;
++
++	if (atomic_xchg(&priv->watchdog_enabled, 0))
++		disable_irq_nosync(irq);
++	if (!atomic_xchg(&priv->crashed, 1))
++		rproc_report_crash(priv->rproc, RPROC_WATCHDOG);
++
++	return IRQ_HANDLED;
++}
++
++static void cix_dsp_mbox_rx(struct mbox_client *client, void *data)
++{
++	struct cix_dsp_rproc *priv =
++		container_of(client, struct cix_dsp_rproc, mbox_client);
++	const u32 *message = data;
++	u32 size;
++	u32 value;
++
++	if (!message) {
++		dev_warn_ratelimited(priv->dev,
++				     "discarding malformed DSP mailbox message\n");
++		return;
++	}
++
++	size = message[0] & CIX_DSP_MBOX_SIZE_MASK;
++
++	/*
++	 * The public CIX DSP firmware's RPMsg path writes its two-word message
++	 * count into the byte-length field.  The mailbox consequently transfers
++	 * only the header, without the virtqueue ID stored in the second word.
++	 * Service both resource-table vrings; a queue with no work returns
++	 * IRQ_NONE.  Control messages use the correct byte length below.
++	 */
++	if (size == CIX_DSP_MBOX_WORDS) {
++		cix_dsp_queue_vqs(priv, GENMASK(CIX_DSP_VRING_COUNT - 1, 0));
++		return;
++	}
++
++	if (size != CIX_DSP_MBOX_BYTES) {
++		dev_warn_ratelimited(priv->dev,
++				     "discarding malformed DSP mailbox message\n");
++		return;
++	}
++
++	value = message[1];
++
++	switch (value) {
++	case CIX_DSP_MSG_READY:
++		complete(&priv->ready);
++		break;
++	case CIX_DSP_MSG_SUSPEND_ACK:
++	case CIX_DSP_MSG_RESUME_ACK:
++	case CIX_DSP_MSG_STOP_ACK:
++		complete(&priv->response);
++		break;
++	case CIX_DSP_MSG_CRASH:
++		if (!atomic_xchg(&priv->crashed, 1))
++			rproc_report_crash(priv->rproc, RPROC_WATCHDOG);
++		break;
++	default:
++		if (value < CIX_DSP_MSG_READY) {
++			if (value >= CIX_DSP_VRING_COUNT) {
++				dev_warn_ratelimited(priv->dev,
++						     "invalid DSP virtqueue notification %u\n",
++						     value);
++				break;
++			}
++
++			cix_dsp_queue_vqs(priv, BIT(value));
++		} else {
++			dev_warn_ratelimited(priv->dev,
++					     "unknown DSP control message %#x\n",
++					     value);
++		}
++		break;
++	}
++}
++
++static int cix_dsp_request_mailboxes(struct cix_dsp_rproc *priv)
++{
++	struct mbox_client *client = &priv->mbox_client;
++	int ret;
++
++	client->dev = priv->dev;
++	client->tx_block = true;
++	client->tx_tout = CIX_DSP_MBOX_TIMEOUT_MS;
++	client->knows_txdone = false;
++	client->rx_callback = cix_dsp_mbox_rx;
++
++	priv->tx_chan = mbox_request_channel_byname(client, "tx0");
++	if (IS_ERR(priv->tx_chan)) {
++		ret = PTR_ERR(priv->tx_chan);
++		priv->tx_chan = NULL;
++		return ret;
++	}
++
++	priv->rx_chan = mbox_request_channel_byname(client, "rx0");
++	if (IS_ERR(priv->rx_chan)) {
++		ret = PTR_ERR(priv->rx_chan);
++		priv->rx_chan = NULL;
++		mbox_free_channel(priv->tx_chan);
++		priv->tx_chan = NULL;
++		return ret;
++	}
++
++	return 0;
++}
++
++static int cix_dsp_system_suspend(struct device *dev)
++{
++	struct rproc *rproc = dev_get_drvdata(dev);
++
++	if (READ_ONCE(rproc->state) == RPROC_RUNNING)
++		return -EBUSY;
++
++	return 0;
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(cix_dsp_pm_ops, cix_dsp_system_suspend, NULL);
++
++static const struct rproc_ops cix_dsp_ops = {
++	.prepare = cix_dsp_prepare,
++	.unprepare = cix_dsp_unprepare,
++	.start = cix_dsp_start,
++	.stop = cix_dsp_stop,
++	.kick = cix_dsp_kick,
++	.load = cix_dsp_load,
++	.parse_fw = rproc_elf_load_rsc_table,
++	.find_loaded_rsc_table = rproc_elf_find_loaded_rsc_table,
++	.sanity_check = rproc_elf_sanity_check,
++	.get_boot_addr = rproc_elf_get_boot_addr,
++};
++
++static int cix_dsp_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct cix_dsp_rproc *priv;
++	const char *firmware;
++	struct rproc *rproc;
++	int ret;
++
++	ret = cix_hifi5_validate_memory(dev);
++	if (ret)
++		return ret;
++
++	ret = device_property_read_string(dev, "firmware-name", &firmware);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "firmware-name property is required\n");
++
++	rproc = devm_rproc_alloc(dev, "cix-dsp-rproc", &cix_dsp_ops, firmware,
++				 sizeof(*priv));
++	if (!rproc)
++		return -ENOMEM;
++
++	priv = rproc->priv;
++	priv->dev = dev;
++	priv->rproc = rproc;
++
++	ret = cix_hifi5_hw_init(dev, &priv->hw);
++	if (ret)
++		return ret;
++
++	priv->watchdog_irq = platform_get_irq(pdev, 0);
++	if (priv->watchdog_irq < 0)
++		return priv->watchdog_irq;
++
++	ret = devm_request_irq(dev, priv->watchdog_irq,
++			       cix_dsp_watchdog_irq, IRQF_NO_AUTOEN,
++			       dev_name(dev), priv);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to request DSP watchdog IRQ\n");
++
++	init_completion(&priv->ready);
++	init_completion(&priv->response);
++	INIT_DELAYED_WORK(&priv->vq_work, cix_dsp_vq_work);
++	spin_lock_init(&priv->vq_lock);
++	atomic_set(&priv->watchdog_enabled, 0);
++	atomic_set(&priv->crashed, 0);
++
++	rproc->auto_boot = false;
++	dev_set_drvdata(dev, rproc);
++
++	ret = devm_rproc_add(dev, rproc);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to register remote processor\n");
++
++	rproc_coredump_set_elf_info(rproc, ELFCLASS32, EM_XTENSA);
++
++	return 0;
++}
++
++static const struct of_device_id cix_dsp_of_match[] = {
++	{ .compatible = "cix,sky1-hifi5" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, cix_dsp_of_match);
++
++static const struct acpi_device_id cix_dsp_acpi_match[] = {
++	{ "CIXH6000" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cix_dsp_acpi_match);
++
++static struct platform_driver cix_dsp_driver = {
++	.probe = cix_dsp_probe,
++	.driver = {
++		.name = "cix-dsp-rproc",
++		.of_match_table = cix_dsp_of_match,
++		.acpi_match_table = cix_dsp_acpi_match,
++		.pm = pm_sleep_ptr(&cix_dsp_pm_ops),
++	},
++};
++module_platform_driver(cix_dsp_driver);
++
++MODULE_DESCRIPTION("CIX Sky1 HiFi5 remote processor driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -329,7 +329,7 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
+ 	size_t size;
+ 
+ 	/* actual size of vring (in bytes) */
+-	size = PAGE_ALIGN(vring_size(rvring->num, rvring->align));
++	size = vring_size(rvring->num, rvring->align);
+ 
+ 	rsc = (void *)rproc->table_ptr + rvdev->rsc_offset;
+ 
+@@ -340,6 +340,9 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
+ 		if (rproc_check_carveout_da(rproc, mem, rsc->vring[i].da, size))
+ 			return -ENOMEM;
+ 	} else {
++		/* DMA allocation still needs a whole number of CPU pages. */
++		size = PAGE_ALIGN(size);
++
+ 		/* Register carveout in list */
+ 		mem = rproc_mem_entry_init(dev, NULL, 0,
+ 					   size, rsc->vring[i].da,
+diff --git a/drivers/remoteproc/remoteproc_virtio.c b/drivers/remoteproc/remoteproc_virtio.c
+--- a/drivers/remoteproc/remoteproc_virtio.c
++++ b/drivers/remoteproc/remoteproc_virtio.c
+@@ -13,6 +13,7 @@
+ #include <linux/dma-map-ops.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/export.h>
++#include <linux/io.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/platform_device.h>
+ #include <linux/remoteproc.h>
+@@ -134,7 +135,10 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
+ 
+ 	/* zero vring */
+ 	size = vring_size(num, rvring->align);
+-	memset(addr, 0, size);
++	if (mem->is_iomem)
++		memset_io((void __iomem *)addr, 0, size);
++	else
++		memset(addr, 0, size);
+ 
+ 	dev_dbg(dev, "vring%d: va %p qsz %d notifyid %d\n",
+ 		id, addr, num, rvring->notifyid);
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -15,3 +15,7 @@ config CIX_ACPI_RESOURCE_LOOKUP
+ 	  Required for CIX Sky1 ACPI boot with drivers that use
+ 	  platform_get_resource_byname(), devm_reset_control_get() or
+ 	  firmware clock mappings.
++
++config CIX_HIFI5_COMMON
++	bool
++	depends on ARM64
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -1,2 +1,3 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
++obj-$(CONFIG_CIX_HIFI5_COMMON)		+= cix-hifi5.o
+diff --git a/drivers/soc/cix/cix-hifi5.c b/drivers/soc/cix/cix-hifi5.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-hifi5.c
+@@ -0,0 +1,192 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* CIX Sky1 HiFi5 shared resource management. */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/export.h>
++#include <linux/init.h>
++#include <linux/ioport.h>
++#include <linux/kstrtox.h>
++#include <linux/memblock.h>
++#include <linux/mfd/syscon.h>
++#include <linux/printk.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/reset.h>
++#include <linux/soc/cix/cix_hifi5.h>
++
++static const char * const cix_hifi5_clock_names[CIX_HIFI5_NUM_CLOCKS] = {
++	"clk",
++	"bclk",
++	"pbclk",
++	"sramclk",
++	"mb0clk",
++	"mb1clk",
++};
++
++static bool cix_hifi5_legacy_reserve_enabled __initdata = true;
++
++int cix_hifi5_validate_memory(struct device *dev)
++{
++	int ret;
++
++	ret = region_intersects(CIX_HIFI5_AUDIO_BASE, CIX_HIFI5_AUDIO_SIZE,
++				IORESOURCE_SYSTEM_RAM, IORES_DESC_NONE);
++	if (ret != REGION_DISJOINT)
++		return dev_err_probe(dev, -EBUSY,
++			"DSP audio aperture overlaps System RAM; on legacy firmware reserve it with cix_hifi5_legacy_reserve=1\n");
++
++	if (device_get_dma_attr(dev) != DEV_DMA_COHERENT)
++		return dev_err_probe(dev, -EOPNOTSUPP,
++				     "cache-coherent DMA is required\n");
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cix_hifi5_validate_memory);
++
++int cix_hifi5_hw_init(struct device *dev, struct cix_hifi5_hw *hw)
++{
++	unsigned int i;
++	int ret;
++
++	for (i = 0; i < ARRAY_SIZE(hw->clks); i++)
++		hw->clks[i].id = cix_hifi5_clock_names[i];
++
++	ret = devm_clk_bulk_get(dev, ARRAY_SIZE(hw->clks), hw->clks);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to get DSP clocks\n");
++
++	hw->dsp_reset = devm_reset_control_get_exclusive(dev, "dsp");
++	if (IS_ERR(hw->dsp_reset))
++		return dev_err_probe(dev, PTR_ERR(hw->dsp_reset),
++				     "failed to get DSP reset\n");
++
++	hw->mb0_reset = devm_reset_control_get_exclusive(dev, "mb0");
++	if (IS_ERR(hw->mb0_reset))
++		return dev_err_probe(dev, PTR_ERR(hw->mb0_reset),
++				     "failed to get mailbox 0 reset\n");
++
++	hw->mb1_reset = devm_reset_control_get_exclusive(dev, "mb1");
++	if (IS_ERR(hw->mb1_reset))
++		return dev_err_probe(dev, PTR_ERR(hw->mb1_reset),
++				     "failed to get mailbox 1 reset\n");
++
++	hw->ctrl = device_syscon_regmap_lookup_by_property(dev, "cix,dsp-ctrl");
++	if (IS_ERR(hw->ctrl))
++		return dev_err_probe(dev, PTR_ERR(hw->ctrl),
++				     "failed to get DSP control regmap\n");
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cix_hifi5_hw_init);
++
++int cix_hifi5_hw_enable(struct cix_hifi5_hw *hw)
++{
++	int ret;
++
++	if (hw->clocks_enabled)
++		return 0;
++
++	ret = clk_bulk_prepare_enable(ARRAY_SIZE(hw->clks), hw->clks);
++	if (ret)
++		return ret;
++	hw->clocks_enabled = true;
++
++	ret = reset_control_assert(hw->dsp_reset);
++	if (ret)
++		goto disable_clocks;
++
++	ret = reset_control_assert(hw->mb0_reset);
++	if (ret)
++		goto disable_clocks;
++
++	ret = reset_control_assert(hw->mb1_reset);
++	if (ret)
++		goto disable_clocks;
++
++	usleep_range(1, 2);
++
++	ret = reset_control_deassert(hw->mb0_reset);
++	if (ret)
++		goto disable_clocks;
++
++	ret = reset_control_deassert(hw->mb1_reset);
++	if (!ret)
++		return 0;
++
++	reset_control_assert(hw->mb0_reset);
++
++disable_clocks:
++	clk_bulk_disable_unprepare(ARRAY_SIZE(hw->clks), hw->clks);
++	hw->clocks_enabled = false;
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(cix_hifi5_hw_enable);
++
++void cix_hifi5_hw_disable(struct cix_hifi5_hw *hw)
++{
++	reset_control_assert(hw->dsp_reset);
++	reset_control_assert(hw->mb1_reset);
++	reset_control_assert(hw->mb0_reset);
++
++	if (hw->clocks_enabled) {
++		clk_bulk_disable_unprepare(ARRAY_SIZE(hw->clks), hw->clks);
++		hw->clocks_enabled = false;
++	}
++}
++EXPORT_SYMBOL_GPL(cix_hifi5_hw_disable);
++
++static int __init cix_hifi5_legacy_reserve(char *arg)
++{
++	bool enable = true;
++	int ret;
++
++	if (arg && *arg) {
++		ret = kstrtobool(arg, &enable);
++		if (ret)
++			return ret;
++	}
++
++	cix_hifi5_legacy_reserve_enabled = enable;
++	return 0;
++}
++early_param("cix_hifi5_legacy_reserve", cix_hifi5_legacy_reserve);
++
++void __init cix_hifi5_reserve_legacy_aperture(void)
++{
++	int ret;
++
++	if (!cix_hifi5_legacy_reserve_enabled) {
++		pr_info("CIX HiFi5: automatic legacy audio-aperture reservation disabled\n");
++		return;
++	}
++
++	if (!memblock_is_region_memory(CIX_HIFI5_AUDIO_BASE,
++				       CIX_HIFI5_AUDIO_SIZE)) {
++		if (memblock_overlaps_region(&memblock.memory,
++					     CIX_HIFI5_AUDIO_BASE,
++					     CIX_HIFI5_AUDIO_SIZE))
++			pr_err("CIX HiFi5: audio aperture is only partly System RAM; refusing legacy reservation\n");
++		else
++			pr_info("CIX HiFi5: audio aperture is already excluded from System RAM\n");
++		return;
++	}
++
++	if (memblock_is_region_reserved(CIX_HIFI5_AUDIO_BASE,
++					CIX_HIFI5_AUDIO_SIZE)) {
++		pr_err("CIX HiFi5: audio aperture overlaps an existing reservation; refusing legacy reservation\n");
++		return;
++	}
++
++	ret = memblock_mark_nomap(CIX_HIFI5_AUDIO_BASE,
++				  CIX_HIFI5_AUDIO_SIZE);
++	if (ret) {
++		pr_err("CIX HiFi5: failed to reserve legacy audio aperture: %d\n",
++		       ret);
++		return;
++	}
++
++	pr_info("CIX HiFi5: reserved legacy 34 MiB audio aperture as non-mapped memory\n");
++}
+diff --git a/include/linux/soc/cix/cix_hifi5.h b/include/linux/soc/cix/cix_hifi5.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/soc/cix/cix_hifi5.h
+@@ -0,0 +1,61 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef __LINUX_SOC_CIX_HIFI5_H__
++#define __LINUX_SOC_CIX_HIFI5_H__
++
++#include <linux/clk.h>
++#include <linux/errno.h>
++#include <linux/init.h>
++#include <linux/types.h>
++
++#define CIX_HIFI5_AUDIO_BASE	0xcde00000ULL
++#define CIX_HIFI5_AUDIO_SIZE	0x02200000ULL
++#define CIX_HIFI5_DMA_BASE	0xcf000000ULL
++#define CIX_HIFI5_DMA_SIZE	0x01000000UL
++#define CIX_HIFI5_NUM_CLOCKS	6
++
++struct device;
++struct regmap;
++struct reset_control;
++
++struct cix_hifi5_hw {
++	struct regmap *ctrl;
++	struct clk_bulk_data clks[CIX_HIFI5_NUM_CLOCKS];
++	struct reset_control *dsp_reset;
++	struct reset_control *mb0_reset;
++	struct reset_control *mb1_reset;
++	bool clocks_enabled;
++};
++
++#ifdef CONFIG_CIX_HIFI5_COMMON
++void __init cix_hifi5_reserve_legacy_aperture(void);
++int cix_hifi5_validate_memory(struct device *dev);
++int cix_hifi5_hw_init(struct device *dev, struct cix_hifi5_hw *hw);
++int cix_hifi5_hw_enable(struct cix_hifi5_hw *hw);
++void cix_hifi5_hw_disable(struct cix_hifi5_hw *hw);
++#else
++static inline void __init cix_hifi5_reserve_legacy_aperture(void)
++{
++}
++
++static inline int cix_hifi5_validate_memory(struct device *dev)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int cix_hifi5_hw_init(struct device *dev,
++				    struct cix_hifi5_hw *hw)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int cix_hifi5_hw_enable(struct cix_hifi5_hw *hw)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void cix_hifi5_hw_disable(struct cix_hifi5_hw *hw)
++{
++}
++#endif
++
++#endif

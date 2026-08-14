@@ -1,0 +1,299 @@
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -39,6 +39,7 @@
+ #include <linux/device.h>
+ #include <linux/err.h>
+ #include <linux/interrupt.h>
++#include <linux/iopoll.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/pm_domain.h>
+ #include <linux/of_address.h>
+@@ -62,11 +63,11 @@
+  * Mainline devfreq support:
+  * - Use dev_pm_domain_attach_by_name() to attach to SCMI perf domain
+  * - SCMI perf domain auto-populates OPPs via attach_dev callback
+- * - Use dev_pm_opp_set_rate() for frequency control
+- * - Use clk_get_rate() to query current frequency
++ * - Use generic power-domain performance states for frequency control
++ * - Read the provider's applied performance state for current frequency
+  *
+  * CIX vendor kernels use scmi_device_opp_table_parse/set_freq/get_freq
+- * which are not available in mainline. Runtime detection is used.
++ * which are not available in mainline.
+  */
+ #include <linux/pm_opp.h>
+ 
+@@ -106,6 +107,10 @@
+ #define VPU0_ASNI_ID                    6
+ #define VPU1_ASNI_ID                    7
+ 
++#define MVX_DEVFREQ_POLL_INTERVAL_US          1000
++/* SCMI represents each transition latency in a 16-bit microsecond field. */
++#define MVX_DEVFREQ_TRANSITION_TIMEOUT_US     100000
++
+ static uint busctrl_ref = MVE_BUSTCTRL_REF_DEFAULT;
+ static uint busctrl_split = MVE_BUSTCTRL_SPLIT_512;
+ module_param(busctrl_ref, uint, 0660);
+@@ -493,12 +498,165 @@ static irqreturn_t irq_top(int irq,
+  * Mainline devfreq implementation using standard OPP API.
+  * Works with SCMI perf domain which auto-populates OPPs on device attach.
+  */
++static int mvx_devfreq_read_perf_state(struct mvx_dev_ctx *ctx,
++				       unsigned int *level,
++				       unsigned long *freq)
++{
++	struct dev_pm_opp *opp;
++	int ret;
++
++	if (!ctx->opp_pmdomain)
++		return -ENODEV;
++
++	ret = dev_pm_genpd_get_performance_state(ctx->opp_pmdomain, level);
++	if (ret)
++		return ret;
++
++	opp = dev_pm_opp_find_level_exact(ctx->opp_pmdomain, *level);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++
++	*freq = dev_pm_opp_get_freq(opp);
++	dev_pm_opp_put(opp);
++
++	return *freq ? 0 : -EINVAL;
++}
++
++static int mvx_devfreq_apply_perf_state(struct mvx_dev_ctx *ctx,
++					unsigned int target_level,
++					unsigned long target_freq,
++					unsigned long *actual_freq)
++{
++	unsigned int actual_level;
++	int read_ret;
++	int ret;
++
++	ret = dev_pm_genpd_set_performance_state(ctx->opp_pmdomain,
++						 target_level);
++	if (ret)
++		return ret;
++
++	/*
++	 * Generic power domains defer a performance-state request while the
++	 * attached device is runtime suspended. The request is restored before
++	 * the device resumes, so the provider must still report the previous
++	 * hardware level here. Accept the queued target without polling; active
++	 * devices continue through the provider-confirmed path below.
++	 */
++	if (pm_runtime_suspended(ctx->opp_pmdomain)) {
++		*actual_freq = target_freq;
++		return 0;
++	}
++
++	/*
++	 * Sky1 firmware can acknowledge a performance-state request before a
++	 * following read reports the new level. Poll for bounded completion so
++	 * devfreq never publishes the previous frequency as the applied result.
++	 */
++	ret = read_poll_timeout(mvx_devfreq_read_perf_state, read_ret,
++				read_ret || actual_level == target_level,
++				MVX_DEVFREQ_POLL_INTERVAL_US,
++				MVX_DEVFREQ_TRANSITION_TIMEOUT_US, false,
++				ctx, &actual_level, actual_freq);
++	if (read_ret)
++		return read_ret;
++
++	return ret;
++}
++
++static int mvx_devfreq_set_perf_state(struct mvx_dev_ctx *ctx,
++				      unsigned long *freq)
++{
++	struct dev_pm_opp *opp;
++	unsigned long previous_freq;
++	unsigned long rollback_freq;
++	unsigned long target_freq = *freq;
++	unsigned int previous_level;
++	unsigned int target_level;
++	int rollback_ret;
++	int ret;
++
++	ret = mvx_devfreq_read_perf_state(ctx, &previous_level,
++					  &previous_freq);
++	if (ret)
++		return ret;
++
++	opp = dev_pm_opp_find_freq_exact(ctx->opp_pmdomain, target_freq, true);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++
++	target_level = dev_pm_opp_get_level(opp);
++	dev_pm_opp_put(opp);
++	if (target_level == OPP_LEVEL_UNSET) {
++		dev_err(ctx->dev,
++			"perf domain OPP for %lu Hz has no performance level\n",
++			target_freq);
++		return -EINVAL;
++	}
++
++	ret = mvx_devfreq_apply_perf_state(ctx, target_level, target_freq, freq);
++	if (!ret)
++		return 0;
++
++	rollback_ret = mvx_devfreq_apply_perf_state(ctx, previous_level,
++						    previous_freq,
++						    &rollback_freq);
++	if (rollback_ret)
++		dev_warn(ctx->dev,
++			 "failed to restore perf state %u after transition error: %d\n",
++			 previous_level, rollback_ret);
++
++	dev_err(ctx->dev, "failed to apply perf state %u for %lu Hz: %d\n",
++		target_level, target_freq, ret);
++	return ret;
++}
++
++static int mvx_devfreq_restore_initial_state(struct mvx_dev_ctx *ctx)
++{
++	struct dev_pm_opp *opp;
++	unsigned long actual_freq;
++	unsigned long initial_freq = ctx->devfreq_profile.initial_freq;
++	unsigned int initial_level;
++	int put_ret;
++	int ret;
++
++	if (!ctx->opp_pmdomain || !initial_freq)
++		return 0;
++
++	opp = dev_pm_opp_find_freq_exact(ctx->opp_pmdomain, initial_freq, true);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++
++	initial_level = dev_pm_opp_get_level(opp);
++	dev_pm_opp_put(opp);
++	if (initial_level == OPP_LEVEL_UNSET)
++		return -EINVAL;
++
++	/*
++	 * A suspended generic power-domain consumer only queues a new vote. Resume
++	 * this virtual SCMI consumer so teardown restores the provider-confirmed
++	 * state which was active before MVX registered, then balance the reference.
++	 */
++	ret = pm_runtime_resume_and_get(ctx->opp_pmdomain);
++	if (ret < 0)
++		return ret;
++
++	ret = mvx_devfreq_apply_perf_state(ctx, initial_level, initial_freq,
++					   &actual_freq);
++	put_ret = pm_runtime_put_sync(ctx->opp_pmdomain);
++	if (!ret && put_ret < 0)
++		ret = put_ret;
++
++	return ret;
++}
++
+ static int mvx_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
+ {
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+     struct dev_pm_opp *opp;
+     unsigned long pre_freq;
+     unsigned long target_freq = *freq;
++	unsigned int pre_level;
+     int ret;
+ 
+     opp = devfreq_recommended_opp(dev, freq, flags);
+@@ -508,8 +666,11 @@ static int mvx_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
+     }
+     dev_pm_opp_put(opp);
+ 
+-    pre_freq = ctx->clk ? clk_get_rate(ctx->clk) : 0;
+-    ret = dev_pm_opp_set_rate(dev, *freq);
++	ret = mvx_devfreq_read_perf_state(ctx, &pre_level, &pre_freq);
++	if (ret)
++		return ret;
++
++	ret = mvx_devfreq_set_perf_state(ctx, freq);
+     if (!ret)
+         atomic_set(&mvx_log_perf.freq, *freq);
+ 
+@@ -522,8 +683,13 @@ static int mvx_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
+ static int mvx_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+ {
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
++	unsigned int level;
++	int ret;
++
++	ret = mvx_devfreq_read_perf_state(ctx, &level, freq);
++	if (ret)
++		return ret;
+ 
+-    *freq = ctx->clk ? clk_get_rate(ctx->clk) : 0;
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_DEBUG, "%s() %ld", __func__, *freq);
+ 
+     return 0;
+@@ -533,10 +699,19 @@ static int mvx_devfreq_get_dev_status(struct device *dev,
+                             struct devfreq_dev_status *stat)
+ {
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
++	unsigned int level;
++	int ret;
++
++	ret = update_freq(ctx);
++	if (ret)
++		return ret;
+ 
+-    update_freq(ctx);
+-    stat->current_frequency = ctx->clk ? clk_get_rate(ctx->clk) : 0;
+-    stat->busy_time = ctx->target_freq;
++	ret = mvx_devfreq_read_perf_state(ctx, &level,
++					  &stat->current_frequency);
++	if (ret)
++		return ret;
++
++	stat->busy_time = min(ctx->target_freq, stat->current_frequency);
+     stat->total_time = stat->current_frequency;
+ 
+     return 0;
+@@ -551,6 +726,7 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+     struct dev_pm_opp *opp;
+     struct devfreq_dev_profile *profile;
+     unsigned long freq;
++	unsigned int initial_level;
+     int opp_count;
+     struct devfreq_simple_ondemand_data *ondemand_data;
+     int i;
+@@ -610,6 +786,14 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+     }
+ 
+     profile = &ctx->devfreq_profile;
++	ret = mvx_devfreq_read_perf_state(ctx, &initial_level,
++					  &profile->initial_freq);
++	if (ret) {
++		MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++			"%s(): Failed to read initial perf state: %d",
++			__func__, ret);
++		goto free_ondemand;
++	}
+ 
+     /* Build freq_table from OPPs on perf domain */
+     profile->freq_table = kmalloc_array(opp_count, sizeof(unsigned long), GFP_KERNEL);
+@@ -693,6 +877,8 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+ 
+ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
+ {
++	int ret;
++
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "%s()", __func__);
+ 
+     if (disable_dfs)
+@@ -703,6 +889,11 @@ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
+         devm_devfreq_remove_device(ctx->dev, ctx->devfreq);
+         ctx->devfreq = NULL;
+     }
++	ret = mvx_devfreq_restore_initial_state(ctx);
++	if (ret)
++		dev_warn(ctx->dev,
++			 "failed to restore initial perf state during removal: %d\n",
++			 ret);
+     if (ctx->devfreq_profile.max_state > 0) {
+         dev_pm_opp_remove_table(ctx->dev);
+         ctx->devfreq_profile.max_state = 0;

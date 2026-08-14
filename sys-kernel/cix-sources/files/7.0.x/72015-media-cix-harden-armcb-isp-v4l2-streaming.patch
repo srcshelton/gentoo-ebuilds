@@ -1,0 +1,1564 @@
+diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+--- a/drivers/media/platform/cix/Kconfig
++++ b/drivers/media/platform/cix/Kconfig
+@@ -42,3 +42,11 @@ config VIDEO_CIX_ARMCB_ISP
+ 	  Enable support for the CIX/ArmChina Sky1 ISP and camera capture
+ 	  pipeline exposed by CIXH3020/CIXH3021/CIXH3023/CIXH3024/
+ 	  CIXH3025/CIXH3026 ACPI devices or equivalent devicetree nodes.
++
++config VIDEO_CIX_ARMCB_ISP_KUNIT_TEST
++	tristate "KUnit tests for CIX ISP buffer state handling"
++	depends on KUNIT
++	depends on VIDEO_CIX_ARMCB_ISP
++	default KUNIT_ALL_TESTS
++	help
++	  Build focused tests for the CIX ISP frame-completion state machine.
+diff --git a/drivers/media/platform/cix/armcb-isp/Makefile b/drivers/media/platform/cix/armcb-isp/Makefile
+--- a/drivers/media/platform/cix/armcb-isp/Makefile
++++ b/drivers/media/platform/cix/armcb-isp/Makefile
+@@ -12,6 +12,9 @@ ccflags-y += -I$(src)/sensor
+ ccflags-y += -I$(src)/sensor/actuator
+ 
+ obj-$(CONFIG_VIDEO_CIX_ARMCB_ISP) += armcb_isp_v4l2.o
++obj-$(CONFIG_VIDEO_CIX_ARMCB_ISP_KUNIT_TEST) += armcb_isp_v4l2_test.o
++
++armcb_isp_v4l2_test-y := isp/armcb_v4l2_buffer_test.o
+ 
+ armcb_isp_v4l2-y := \
+ 	armcb_isp_entry.o \
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h
+@@ -0,0 +1,31 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef __ARMCB_V4L2_BUFFER_H__
++#define __ARMCB_V4L2_BUFFER_H__
++
++#include <linux/types.h>
++
++enum armcb_v4l2_buffer_action {
++	ARMCB_BUFFER_DISCARD_ONLY,
++	ARMCB_BUFFER_RETAIN_AND_DISCARD,
++	ARMCB_BUFFER_COMPLETE,
++	ARMCB_BUFFER_COMPLETE_AND_DISCARD,
++};
++
++/*
++ * SOL programs the newest busy buffer before the preceding frame-done event
++ * is handled. Retain a newly observed singleton for one completion cycle;
++ * complete an older head immediately when a newer tail is already armed.
++ */
++static inline enum armcb_v4l2_buffer_action
++armcb_v4l2_buffer_action(bool empty, bool singular, bool pending_matches)
++{
++	if (empty)
++		return ARMCB_BUFFER_DISCARD_ONLY;
++	if (!singular)
++		return ARMCB_BUFFER_COMPLETE;
++	if (!pending_matches)
++		return ARMCB_BUFFER_RETAIN_AND_DISCARD;
++	return ARMCB_BUFFER_COMPLETE_AND_DISCARD;
++}
++
++#endif
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c
+@@ -0,0 +1,53 @@
++// SPDX-License-Identifier: GPL-2.0
++#include <kunit/test.h>
++#include <linux/module.h>
++
++#include "armcb_v4l2_buffer.h"
++
++static void armcb_empty_uses_discard(struct kunit *test)
++{
++	KUNIT_EXPECT_EQ(test,
++		armcb_v4l2_buffer_action(true, false, false),
++		ARMCB_BUFFER_DISCARD_ONLY);
++}
++
++static void armcb_new_singleton_is_retained(struct kunit *test)
++{
++	KUNIT_EXPECT_EQ(test,
++		armcb_v4l2_buffer_action(false, true, false),
++		ARMCB_BUFFER_RETAIN_AND_DISCARD);
++}
++
++static void armcb_retained_singleton_completes_after_discard(struct kunit *test)
++{
++	KUNIT_EXPECT_EQ(test,
++		armcb_v4l2_buffer_action(false, true, true),
++		ARMCB_BUFFER_COMPLETE_AND_DISCARD);
++}
++
++static void armcb_older_head_completes_with_new_tail(struct kunit *test)
++{
++	KUNIT_EXPECT_EQ(test,
++		armcb_v4l2_buffer_action(false, false, false),
++		ARMCB_BUFFER_COMPLETE);
++	KUNIT_EXPECT_EQ(test,
++		armcb_v4l2_buffer_action(false, false, true),
++		ARMCB_BUFFER_COMPLETE);
++}
++
++static struct kunit_case armcb_v4l2_buffer_cases[] = {
++	KUNIT_CASE(armcb_empty_uses_discard),
++	KUNIT_CASE(armcb_new_singleton_is_retained),
++	KUNIT_CASE(armcb_retained_singleton_completes_after_discard),
++	KUNIT_CASE(armcb_older_head_completes_with_new_tail),
++	{}
++};
++
++static struct kunit_suite armcb_v4l2_buffer_suite = {
++	.name = "armcb-v4l2-buffer",
++	.test_cases = armcb_v4l2_buffer_cases,
++};
++
++kunit_test_suite(armcb_v4l2_buffer_suite);
++
++MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
+@@ -333,42 +333,27 @@ int armcb_get_output_addr_by_outport_i7(uint32_t outport,
+ int destroy_buf_queue(struct vb2_queue *q, enum vb2_buffer_state state)
+ {
+ 	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(q);
+-	armcb_v4l2_buffer_t *pbuf = NULL;
+-	int ret = 0;
+ 
+-	if(!pstream) {
+-		LOG(LOG_ERR,"destroy_buf_queue failed, pstream is null!");
++	if (!pstream) {
++		LOG(LOG_ERR, "destroy_buf_queue failed, pstream is null!");
+ 		return -EINVAL;
+ 	}
+ 
+-	while (!list_empty(&pstream->stream_buffer_list)) {
+-		pbuf = list_entry(pstream->stream_buffer_list.next,
+-				  armcb_v4l2_buffer_t, list);
+-		if(pbuf) {
+-			list_del(&pbuf->list);
+-			vb2_buffer_done(&pbuf->vvb.vb2_buf, state);
+-		}
+-	}
+-	while (!list_empty(&pstream->stream_buffer_list_busy)) {
+-		pbuf = list_entry(pstream->stream_buffer_list_busy.next,
+-				  armcb_v4l2_buffer_t, list);
+-		if (pbuf) {
+-			list_del(&pbuf->list);
+-			vb2_buffer_done(&pbuf->vvb.vb2_buf, state);
+-		}
+-	}
+-
+-	return ret;
++	armcb_v4l2_stream_return_all_buffers(pstream, state);
++	return 0;
+ }
+ 
+ int armcb_v4l2_config_update_stream_vin_addr(armcb_v4l2_stream_t *pstream)
+ {
+ 	armcb_v4l2_buffer_t *pbuf = NULL;
+-	struct v4l2_format *v4l2_fmt = NULL;
++	unsigned long flags;
+ 	unsigned int vin_daw_reg = 0;
+ 	unsigned int vin_dar_reg = 0;
+ 	unsigned int startaddr = 0;
+ 
++	if (!pstream)
++		return -EINVAL;
++
+ 	if (armcb_get_vin_addr_by_outport_i7(pstream->outport, &vin_daw_reg,
+ 					     &vin_dar_reg) < 0) {
+ 		LOG(LOG_DEBUG,
+@@ -377,13 +362,16 @@ int armcb_v4l2_config_update_stream_vin_addr(armcb_v4l2_stream_t *pstream)
+ 		return -EINVAL;
+ 	}
+ 
+-	v4l2_fmt = &pstream->cur_v4l2_fmt;
++	spin_lock_irqsave(&pstream->slock, flags);
++	if (pstream->stopping) {
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		return -ESHUTDOWN;
++	}
+ 	/* try to get an active buffer from vb2 queue  */
+ 	if (!list_empty(&pstream->stream_buffer_list)) {
+-		pbuf = list_entry(pstream->stream_buffer_list.next,
+-				  armcb_v4l2_buffer_t, list);
+-		list_del(&pbuf->list);
+-		list_add_tail(&pbuf->list, &pstream->stream_buffer_list_busy);
++		pbuf = list_first_entry(&pstream->stream_buffer_list,
++					armcb_v4l2_buffer_t, list);
++		list_move_tail(&pbuf->list, &pstream->stream_buffer_list_busy);
+ 	}
+ 
+ 	if (!pbuf) {
+@@ -403,6 +391,7 @@ int armcb_v4l2_config_update_stream_vin_addr(armcb_v4l2_stream_t *pstream)
+ 		armcb_isp_write_reg(vin_daw_reg, startaddr);
+ 		armcb_isp_write_reg(vin_dar_reg, startaddr);
+ 	}
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ 
+ 	return 0;
+ }
+@@ -411,11 +400,15 @@ int armcb_v4l2_config_update_stream_hw_addr(armcb_v4l2_stream_t *pstream)
+ {
+ 	armcb_v4l2_buffer_t *pbuf = NULL;
+ 	struct v4l2_format *v4l2_fmt = NULL;
++	unsigned long flags;
+ 
+ 	unsigned int vout_reg1 = 0;
+ 	unsigned int vout_reg2 = 0;
+ 	unsigned int startaddr = 0;
+ 
++	if (!pstream)
++		return -EINVAL;
++
+ 	if (armcb_get_output_addr_by_outport_i7(pstream->outport, &vout_reg1,
+ 						&vout_reg2) < 0) {
+ 		LOG(LOG_DEBUG,
+@@ -425,15 +418,17 @@ int armcb_v4l2_config_update_stream_hw_addr(armcb_v4l2_stream_t *pstream)
+ 	}
+ 
+ 	v4l2_fmt = &pstream->cur_v4l2_fmt;
++	spin_lock_irqsave(&pstream->slock, flags);
++	if (pstream->stopping) {
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		return -ESHUTDOWN;
++	}
+ 
+ 	/* try to get an active buffer from vb2 queue  */
+ 	if (!list_empty(&pstream->stream_buffer_list)) {
+-		pbuf = list_entry(pstream->stream_buffer_list.next,
+-				  armcb_v4l2_buffer_t, list);
+-		if(pbuf) {
+-			list_del(&pbuf->list);
+-			list_add_tail(&pbuf->list, &pstream->stream_buffer_list_busy);
+-		}
++		pbuf = list_first_entry(&pstream->stream_buffer_list,
++					armcb_v4l2_buffer_t, list);
++		list_move_tail(&pbuf->list, &pstream->stream_buffer_list_busy);
+ 	}
+ 
+ #ifdef V4L2_OPT
+@@ -454,8 +449,10 @@ int armcb_v4l2_config_update_stream_hw_addr(armcb_v4l2_stream_t *pstream)
+ 		}
+ 	} else {
+ 		if((pbuf->vvb.vb2_buf.state != VB2_BUF_STATE_ACTIVE) ||
+-			(!pbuf->vvb.vb2_buf.vb2_queue))
++			(!pbuf->vvb.vb2_buf.vb2_queue)) {
++			spin_unlock_irqrestore(&pstream->slock, flags);
+ 			return 0;
++		}
+ 
+ 		switch (v4l2_fmt->fmt.pix_mp.pixelformat) {
+ 			case V4L2_PIX_FMT_NV21:
+@@ -520,6 +517,7 @@ int armcb_v4l2_config_update_stream_hw_addr(armcb_v4l2_stream_t *pstream)
+ 		}
+ 	}
+ #endif
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ 
+ 	return 0;
+ }
+@@ -534,16 +532,20 @@ static void armcb_isp_irq_sol_i5(unsigned int ctx_id)
+ 	unsigned int vout_reg1 = 0;
+ 	unsigned int vout_reg2 = 0;
+ 	unsigned int startaddr = 0;
++	unsigned long flags;
+ 
+ 	LOG(LOG_DEBUG, "sof ctx_id=%u", ctx_id);
+ 	for (i = 0; i < V4L2_STREAM_TYPE_MAX; i++) {
++		pbuf = NULL;
++		rcu_read_lock();
+ 		/* find stream pointer */
+ 		rc = armcb_v4l2_find_stream(&pstream, ctx_id, i);
+ 		if (rc < 0) {
+ 			LOG(LOG_INFO,
+ 			    "can't find stream on ctx %d (errno = %d)", ctx_id,
+ 			    rc);
+-			return;
++			rcu_read_unlock();
++			continue;
+ 		}
+ 
+ 		/* check if stream is on */
+@@ -551,7 +553,8 @@ static void armcb_isp_irq_sol_i5(unsigned int ctx_id)
+ 			LOG(LOG_INFO,
+ 			    "[Stream#%d] stream META is not started yet on ctx %d",
+ 			    pstream->stream_id, ctx_id);
+-			return;
++			rcu_read_unlock();
++			continue;
+ 		}
+ 
+ 		if (armcb_get_vout_addr_by_outport_i5(
+@@ -559,16 +562,22 @@ static void armcb_isp_irq_sol_i5(unsigned int ctx_id)
+ 			LOG(LOG_ERR,
+ 			    "ctx_id:%d stream_id:%d failed to get vout reg for outport:%d",
+ 			    ctx_id, pstream->stream_id, pstream->outport);
++			rcu_read_unlock();
+ 			continue;
+ 		}
+ 		v4l2_fmt = &pstream->cur_v4l2_fmt;
++		spin_lock_irqsave(&pstream->slock, flags);
++		if (pstream->stopping) {
++			spin_unlock_irqrestore(&pstream->slock, flags);
++			rcu_read_unlock();
++			continue;
++		}
+ 		/* try to get an active buffer from vb2 queue  */
+ 		if (!list_empty(&pstream->stream_buffer_list)) {
+-			pbuf = list_entry(pstream->stream_buffer_list.next,
+-					  armcb_v4l2_buffer_t, list);
+-			list_del(&pbuf->list);
+-			list_add_tail(&pbuf->list,
+-				      &pstream->stream_buffer_list_busy);
++			pbuf = list_first_entry(&pstream->stream_buffer_list,
++						armcb_v4l2_buffer_t, list);
++			list_move_tail(&pbuf->list,
++				       &pstream->stream_buffer_list_busy);
+ 		}
+ 
+ 		if (!pbuf) {
+@@ -585,6 +594,8 @@ static void armcb_isp_irq_sol_i5(unsigned int ctx_id)
+ 		    startaddr) {
+ 			armcb_isp_write_reg(vout_reg1, startaddr);
+ 		}
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		rcu_read_unlock();
+ 	}
+ }
+ 
+@@ -600,15 +611,19 @@ static void armcb_isp_irq_sol_i7(unsigned int ctx_id)
+ 		ctx_id = armcb_v4l2_core_find_1st_opened_dev();
+ 
+ 	pdev = armcb_v4l2_core_get_dev(ctx_id);
++	if (!pdev)
++		return;
+ 
+ 	LOG(LOG_DEBUG, "sof ctx_id=%u", ctx_id);
+ 	for (i = 0; i < V4L2_STREAM_TYPE_MAX; i++) {
++		rcu_read_lock();
+ 		/* find stream pointer */
+ 		rc = armcb_v4l2_find_stream(&pstream, ctx_id, i);
+ 		if (rc < 0) {
+ 			LOG(LOG_DEBUG,
+ 			    "can't find stream on ctx %d (errno = %d)", ctx_id,
+ 			    rc);
++			rcu_read_unlock();
+ 			continue;
+ 		}
+ 
+@@ -619,6 +634,7 @@ static void armcb_isp_irq_sol_i7(unsigned int ctx_id)
+ 			LOG(LOG_DEBUG,
+ 			    "[Stream#%d] stream video is not started yet on ctx %d",
+ 			    pstream->stream_id, ctx_id);
++			rcu_read_unlock();
+ 			continue;
+ 		}
+ 
+@@ -629,6 +645,7 @@ static void armcb_isp_irq_sol_i7(unsigned int ctx_id)
+ 					pstream->stream_id, ctx_id);
+ 			}
+ 		}
++		rcu_read_unlock();
+ 	}
+ }
+ 
+@@ -644,15 +661,19 @@ static void armcb_isp_irq_sof_i7(unsigned int ctx_id)
+ 		ctx_id = armcb_v4l2_core_find_1st_opened_dev();
+ 
+ 	pdev = armcb_v4l2_core_get_dev(ctx_id);
++	if (!pdev)
++		return;
+ 
+ 	LOG(LOG_DEBUG, "sof ctx_id=%u", ctx_id);
+ 	for (i = 0; i < V4L2_STREAM_TYPE_MAX; i++) {
++		rcu_read_lock();
+ 		/* find stream pointer */
+ 		rc = armcb_v4l2_find_stream(&pstream, ctx_id, i);
+ 		if (rc < 0) {
+ 			LOG(LOG_DEBUG,
+ 			    "can't find stream on ctx %d (errno = %d)", ctx_id,
+ 			    rc);
++			rcu_read_unlock();
+ 			continue;
+ 		}
+ 
+@@ -663,6 +684,7 @@ static void armcb_isp_irq_sof_i7(unsigned int ctx_id)
+ 			LOG(LOG_DEBUG,
+ 			    "[Stream#%d] stream video is not started yet on ctx %d",
+ 			    pstream->stream_id, ctx_id);
++			rcu_read_unlock();
+ 			continue;
+ 		}
+ 
+@@ -671,6 +693,7 @@ static void armcb_isp_irq_sof_i7(unsigned int ctx_id)
+ 			    "[Stream#%d] failed to update stream vin addr for cxt_id:%d",
+ 			    pstream->stream_id, ctx_id);
+ 		}
++		rcu_read_unlock();
+ 	}
+ }
+ 
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -19,6 +19,7 @@
+ #include "armcb_isp_driver.h"
+ #include "armcb_platform.h"
+ #include "armcb_register.h"
++#include "armcb_v4l2_buffer.h"
+ #include "armcb_v4l2_config.h"
+ #include "armcb_v4l2_stream.h"
+ #include "armcb_v4l_sd.h"
+@@ -85,7 +86,6 @@ dma_addr_t discard_buf_addr_dma;
+ dma_addr_t discard_dma_handle;
+ 
+ static armcb_v4l2_dev_t *g_isp_v4l2_devs[ARMCB_MAX_DEVS] = { 0 };
+-static uint32_t outport_array[ARMCB_MAX_DEVS][V4L2_STREAM_TYPE_MAX];
+ static DEFINE_MUTEX(g_isp_v4l2_devs_lock);
+ armcb_v4l2_stream_t
+ 	*g_outport_map[ARMCB_MAX_DEVS][ISP_OUTPUT_PORT_MAX] = { 0 };
+@@ -117,9 +117,14 @@ static char *const g_IspPortToken[] = {
+ 	[ISP_OUTPUT_PORT_MAX] = NULL,
+ };
+ 
++static bool armcb_outport_valid(u32 outport)
++{
++	return outport && !(outport & ~GENMASK(ISP_OUTPUT_PORT_MAX - 1, 0));
++}
++
+ static int armcb_isp_vb2_streamoff(struct file *file);
+ 
+-pid_t isp_getpid(void)
++static pid_t isp_getpid(void)
+ {
+ 	return current->tgid;
+ }
+@@ -141,13 +146,15 @@ struct isp_v4l2_fmt isp_src_formats[] = {
+ 	}
+ };
+ 
+-armcb_v4l2_stream_t *armcb_v4l2_get_stream(uint32_t ctx_id, int stream_id)
++static armcb_v4l2_stream_t *armcb_v4l2_get_stream(uint32_t ctx_id,
++					   int stream_id)
+ {
+-	armcb_v4l2_stream_t *pstream = NULL;
++	armcb_v4l2_dev_t *dev = armcb_v4l2_core_get_dev(ctx_id);
+ 
+-	pstream = g_isp_v4l2_devs[ctx_id]->pstreams[stream_id];
++	if (!dev || stream_id < 0 || stream_id >= V4L2_STREAM_TYPE_MAX)
++		return NULL;
+ 
+-	return pstream;
++	return READ_ONCE(dev->pstreams[stream_id]);
+ }
+ 
+ /* ----------------------------------------------------------------
+@@ -156,29 +163,32 @@ armcb_v4l2_stream_t *armcb_v4l2_get_stream(uint32_t ctx_id, int stream_id)
+ int armcb_v4l2_find_stream(armcb_v4l2_stream_t **ppstream, uint32_t ctx_id,
+ 			   int stream_type)
+ {
++	armcb_v4l2_dev_t *dev;
+ 	int stream_id = 0;
+-	*ppstream = NULL;
+ 
+-	if (stream_type >= V4L2_STREAM_TYPE_MAX || stream_type < 0 ||
+-		ctx_id >= ARMCB_MAX_DEVS) {
++	if (!ppstream)
++		return -EINVAL;
++	*ppstream = NULL;
++	if (stream_type >= V4L2_STREAM_TYPE_MAX || stream_type < 0) {
+ 		LOG(LOG_ERR, "stream_id=%d, ctx_id=%d", stream_id, ctx_id);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (g_isp_v4l2_devs[ctx_id] == NULL) {
++	dev = armcb_v4l2_core_get_dev(ctx_id);
++	if (!dev) {
+ 		LOG(LOG_ERR, "ctx %d dev is NULL", ctx_id);
+ 		return -EBUSY;
+ 	}
+ 
+-	stream_id = g_isp_v4l2_devs[ctx_id]->stream_id_index[stream_type];
++	stream_id = READ_ONCE(dev->stream_id_index[stream_type]);
+ 	if (stream_id < 0 || stream_id >= V4L2_STREAM_TYPE_MAX ||
+-		g_isp_v4l2_devs[ctx_id]->pstreams[stream_id] == NULL) {
++		READ_ONCE(dev->pstreams[stream_id]) == NULL) {
+ 		LOG(LOG_DEBUG, "stream_type:%d stream_id:%d", stream_type,
+ 			stream_id);
+ 		return -ENODEV;
+ 	}
+ 
+-	*ppstream = g_isp_v4l2_devs[ctx_id]->pstreams[stream_id];
++	*ppstream = READ_ONCE(dev->pstreams[stream_id]);
+ 	LOG(LOG_DEBUG, "ctx_id=%d stream_id=%d stream=%p", ctx_id, stream_id,
+ 		*ppstream);
+ 
+@@ -191,20 +201,25 @@ int armcb_v4l2_find_ctx_stream_by_outport(uint32_t outport, uint32_t *p_ctx_id,
+ 	uint32_t ctx_id = 0;
+ 	uint32_t stream_id = 0;
+ 
+-	if (outport < 0 || p_ctx_id == NULL || p_stream_id == NULL) {
++	if (!armcb_outport_valid(outport) || !p_ctx_id || !p_stream_id) {
+ 		LOG(LOG_ERR, "invalid parameter");
+ 		return -EINVAL;
+ 	}
+ 
++	rcu_read_lock();
+ 	for (ctx_id = 0; ctx_id < ARMCB_MAX_DEVS; ctx_id++) {
+ 		for (stream_id = 0; stream_id < V4L2_STREAM_TYPE_MAX;
+ 			 stream_id++) {
+-			if (outport & outport_array[ctx_id][stream_id])
++			armcb_v4l2_stream_t *pstream =
++				armcb_v4l2_get_stream(ctx_id, stream_id);
++
++			if (pstream && (outport & READ_ONCE(pstream->outport)))
+ 				goto exit;
+ 		}
+ 	}
+ 
+ 	if (ctx_id == ARMCB_MAX_DEVS) {
++		rcu_read_unlock();
+ 		*p_ctx_id = -1;
+ 		*p_stream_id = -1;
+ 		LOG(LOG_ERR,
+@@ -216,6 +231,7 @@ int armcb_v4l2_find_ctx_stream_by_outport(uint32_t outport, uint32_t *p_ctx_id,
+ exit:
+ 	*p_ctx_id = ctx_id;
+ 	*p_stream_id = stream_id;
++	rcu_read_unlock();
+ 
+ 	LOG(LOG_DEBUG, "success find ctx_id:%d stream_id:%d for outport:%d",
+ 		ctx_id, stream_id, outport);
+@@ -227,17 +243,23 @@ int armcb_v4l2_find_stream_by_outport_ctx(uint32_t outport, uint32_t ctx_id,
+ {
+ 	uint32_t stream_id = 0;
+ 
+-	if (outport < 0 || ctx_id < 0 || p_stream_id == NULL) {
++	if (!armcb_outport_valid(outport) || ctx_id >= ARMCB_MAX_DEVS ||
++	    !p_stream_id || !armcb_v4l2_core_get_dev(ctx_id)) {
+ 		LOG(LOG_ERR, "invalid parameter");
+ 		return -EINVAL;
+ 	}
+ 
++	rcu_read_lock();
+ 	for (stream_id = 0; stream_id < V4L2_STREAM_TYPE_MAX; stream_id++) {
+-		if (outport & outport_array[ctx_id][stream_id])
++		armcb_v4l2_stream_t *pstream =
++			armcb_v4l2_get_stream(ctx_id, stream_id);
++
++		if (pstream && (outport & READ_ONCE(pstream->outport)))
+ 			goto exit;
+ 	}
+ 
+ 	if (stream_id == V4L2_STREAM_TYPE_MAX) {
++		rcu_read_unlock();
+ 		*p_stream_id = -1;
+ 		LOG(LOG_DEBUG,
+ 			"failed to find a valid stream_id for outport:%d and ctx_id:%d",
+@@ -247,6 +269,7 @@ int armcb_v4l2_find_stream_by_outport_ctx(uint32_t outport, uint32_t ctx_id,
+ 
+ exit:
+ 	*p_stream_id = stream_id;
++	rcu_read_unlock();
+ 
+ 	LOG(LOG_DEBUG, "success find stream_id:%d for outport:%d and ctx_id:%d",
+ 		stream_id, outport, ctx_id);
+@@ -329,135 +352,163 @@ void armcb_isp_invalid_cache (struct vb2_buffer *vb,
+ 	return;
+ }
+ 
++static int armcb_v4l2_program_discard(armcb_v4l2_stream_t *pstream)
++{
++	u64 dma_addr = READ_ONCE(discard_buf_addr_dma);
++	u64 second_addr = 0;
++	u32 vout_reg1 = 0;
++	u32 vout_reg2 = 0;
++	u32 plane0_size;
++
++	if (!pstream || !dma_addr || dma_addr > U32_MAX)
++		return -ERANGE;
++	if (armcb_get_output_addr_by_outport_i7(pstream->outport, &vout_reg1,
++					       &vout_reg2) < 0)
++		return -EINVAL;
++
++	plane0_size = pstream->cur_v4l2_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
++	if (vout_reg2 &&
++	    (check_add_overflow(dma_addr, (u64)plane0_size, &second_addr) ||
++	     second_addr > U32_MAX))
++		return -ERANGE;
++
++	if (vout_reg1)
++		armcb_isp_write_reg(vout_reg1, (u32)dma_addr);
++	if (vout_reg2)
++		armcb_isp_write_reg(vout_reg2, (u32)second_addr);
++	return 0;
++}
++
+ void armcb_isp_put_frame(uint32_t ctx_id, int stream_id, isp_output_port_t port)
+ {
+-	int rc = 0;
+-	//unsigned long flags;
+ 	armcb_v4l2_stream_t *pstream = NULL;
+ 	armcb_v4l2_buffer_t *pbuf = NULL;
+-	struct vb2_buffer *vb = NULL;
+-	armcb_v4l2_dev_t *dev = NULL;
++	armcb_v4l2_dev_t *dev;
++	struct vb2_buffer *vb;
++	enum vb2_buffer_state state = VB2_BUF_STATE_ERROR;
++	unsigned long flags;
++	unsigned int i;
++	bool wake = false;
++	enum armcb_v4l2_buffer_action action;
++	int stream_state;
++	int rc;
+ 
+-	static armcb_v4l2_buffer_t *splastbuf;
+-	armcb_v4l2_buffer_t *plastbuf = NULL;
+-	unsigned int vout_reg1 = 0;
+-	unsigned int vout_reg2 = 0;
+-	unsigned int startaddr = 0;
++	if ((unsigned int)port >= ISP_OUTPUT_PORT_MAX) {
++		LOG(LOG_ERR, "invalid output port %d", port);
++		return;
++	}
+ 
++	rcu_read_lock();
+ 	dev = armcb_v4l2_core_get_dev(ctx_id);
++	if (!dev)
++		goto out_rcu;
+ 
+-	if (stream_id < 0 && port < ISP_OUTPUT_PORT_MAX) {
+-		pstream = g_outport_map[ctx_id][port];
++	if (stream_id < 0) {
++		pstream = READ_ONCE(g_outport_map[ctx_id][port]);
+ 	} else {
+-		/* find stream pointer */
+ 		rc = armcb_v4l2_find_stream(&pstream, ctx_id, stream_id);
+ 		if (rc < 0) {
+ 			LOG(LOG_WARN,
+-				"can't find stream on ctx %d stream_id %d (errno = %d)",
+-				ctx_id, stream_id, rc);
+-			return;
++			    "can't find stream on ctx %d stream_id %d (errno = %d)",
++			    ctx_id, stream_id, rc);
++			goto out_rcu;
+ 		}
+ 	}
++	if (!pstream || pstream->ctx_id != ctx_id)
++		goto out_rcu;
+ 
+ 	LOG(LOG_DEBUG,
+-		"ctx_id:%d Stream#%d fmt(%d*%d %d %d) outport(%d %s) streamType(%d) "
+-		"reserved_buf_addr(0x%x)",
+-		ctx_id, pstream->stream_id, pstream->cur_v4l2_fmt.fmt.pix_mp.width,
+-		pstream->cur_v4l2_fmt.fmt.pix_mp.height,
+-		pstream->cur_v4l2_fmt.fmt.pix_mp.pixelformat,
+-		pstream->cur_v4l2_fmt.type, pstream->outport, g_IspPortToken[port],
+-		pstream->stream_type, pstream->reserved_buf_addr);
+-
+-	/* check if stream is on */
+-	if (!pstream || !pstream->stream_started) {
+-		LOG(LOG_DEBUG, "[Stream#%d] is not started yet on ctx %d",
+-			stream_id, ctx_id);
+-		return;
+-	}
+-
+-	LOG(LOG_DEBUG, "ctx_id:%d [Stream#%d] %p", ctx_id, pstream->stream_id,
+-		pstream);
+-
+-	if (atomic_read(&dev->upload_streamoff) == 1)
+-		goto exit;
+-
+-	if (dev->is_streaming == 0)
+-		goto exit;
+-
+-	spin_lock(&dev->slock);
+-	plastbuf = list_last_entry(&(pstream->stream_buffer_list_busy),
+-				   armcb_v4l2_buffer_t, list);
+-
+-	/* try to get an active buffer from vb2 queue  */
+-	if (!list_empty(&pstream->stream_buffer_list_busy)) {
+-		if (!list_is_singular(&pstream->stream_buffer_list_busy) ||
+-			(plastbuf == splastbuf)) {
+-			pbuf = list_entry(pstream->stream_buffer_list_busy.next,
+-					  armcb_v4l2_buffer_t, list);
+-			if(pbuf)
+-				list_del(&pbuf->list);
++	    "ctx_id:%d Stream#%d fmt(%d*%d %d %d) outport(%d %s) streamType(%d)",
++	    ctx_id, pstream->stream_id,
++	    pstream->cur_v4l2_fmt.fmt.pix_mp.width,
++	    pstream->cur_v4l2_fmt.fmt.pix_mp.height,
++	    pstream->cur_v4l2_fmt.fmt.pix_mp.pixelformat,
++	    pstream->cur_v4l2_fmt.type, pstream->outport,
++	    g_IspPortToken[port], pstream->stream_type);
++
++	spin_lock_irqsave(&pstream->slock, flags);
++	stream_state = atomic_read(&dev->stream_on_cnt);
++	if (pstream->stopping || !pstream->stream_started ||
++	    atomic_read(&dev->upload_streamoff) ||
++	    !READ_ONCE(dev->is_streaming) || stream_state == STREAM_OFF ||
++	    stream_state == STREAM_DEFAULT) {
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		goto out_rcu;
++	}
++
++	action = armcb_v4l2_buffer_action(
++		list_empty(&pstream->stream_buffer_list_busy),
++		list_is_singular(&pstream->stream_buffer_list_busy),
++		!list_empty(&pstream->stream_buffer_list_busy) &&
++		pstream->pending_completion == list_first_entry(
++			&pstream->stream_buffer_list_busy,
++			armcb_v4l2_buffer_t, list));
++
++	if (action == ARMCB_BUFFER_DISCARD_ONLY) {
++		pstream->pending_completion = NULL;
++		armcb_v4l2_program_discard(pstream);
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		goto out_rcu;
++	}
++
++	pbuf = list_first_entry(&pstream->stream_buffer_list_busy,
++				armcb_v4l2_buffer_t, list);
++	if (action == ARMCB_BUFFER_RETAIN_AND_DISCARD) {
++		pstream->pending_completion = pbuf;
++		armcb_v4l2_program_discard(pstream);
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		goto out_rcu;
++	}
++	if (action == ARMCB_BUFFER_COMPLETE_AND_DISCARD) {
++		/* Redirect hardware before returning its last programmed buffer. */
++		if (armcb_v4l2_program_discard(pstream)) {
++			spin_unlock_irqrestore(&pstream->slock, flags);
++			goto out_rcu;
+ 		}
++		pstream->pending_completion = NULL;
++	} else if (action == ARMCB_BUFFER_COMPLETE) {
++		pstream->pending_completion = list_last_entry(
++			&pstream->stream_buffer_list_busy,
++			armcb_v4l2_buffer_t, list);
+ 	}
+-
+-	if (!pbuf) {
+-		/// Use reserved buffer to hw output.
+-		LOG(LOG_DEBUG, "[Stream#%d] type: %d no buffers, use reserved buffer",
+-			pstream->stream_id, V4L2_STREAM_TYPE_VIDEO);
+-
+-		if (armcb_get_output_addr_by_outport_i7(pstream->outport,
+-					&vout_reg1, &vout_reg2) < 0) {
+-			LOG(LOG_DEBUG,
+-				"ctx_id:%d stream_id:%d failed to get reg for outport:%d",
+-				pstream->ctx_id, pstream->stream_id, pstream->outport);
+-			spin_unlock(&dev->slock);
+-			return;
+-		}
+-
+-		startaddr = discard_buf_addr_dma;
+-		if (vout_reg1 && startaddr) {
+-			armcb_isp_write_reg(vout_reg1, startaddr);
+-		}
+-		if (vout_reg2 && startaddr) {
+-			armcb_isp_write_reg(vout_reg2, startaddr);
+-		}
+-
+-		spin_unlock(&dev->slock);
+-		goto exit;
+-	}
+-
+-	splastbuf = list_last_entry(&(pstream->stream_buffer_list_busy),
+-					armcb_v4l2_buffer_t, list);
++	list_del_init(&pbuf->list);
++	pstream->completions++;
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ 
+ 	vb = &pbuf->vvb.vb2_buf;
+-	spin_unlock(&dev->slock);
+-
+-	/*To sync the write done interrupts and the active buffer status*/
+-	if((vb->state != VB2_BUF_STATE_ACTIVE) ||
+-		(vb->memory != VB2_MEMORY_MMAP))
+-	{
+-		LOG(LOG_ERR, "VB buffer is not active");
+-		goto exit;
+-	}
+-
+-	if (!pbuf->vvb.vb2_buf.vb2_queue)
+-		goto exit;
+-
+-	if ((atomic_read(&dev->stream_on_cnt) == STREAM_OFF) ||
+-			(atomic_read(&dev->stream_on_cnt) == STREAM_DEFAULT))
+-		goto exit;
+-
+-	vb->planes[0].bytesused = vb->planes[0].length;
+-	vb->planes[1].bytesused = vb->planes[1].length;
+-
+-	/* Invalid cache before CPU read buffer to avoid the cache
+-	 * line issue */
+-	//armcb_isp_invalid_cache(vb, pbuf);
++	if (vb->state != VB2_BUF_STATE_ACTIVE) {
++		LOG(LOG_ERR, "buffer %u is not active (state %u)",
++		    vb->index, vb->state);
++		goto completion_done;
++	}
++	if (!vb->vb2_queue || !vb->num_planes ||
++	    vb->num_planes > VIDEO_MAX_PLANES ||
++	    (vb->memory != VB2_MEMORY_MMAP &&
++	     vb->memory != VB2_MEMORY_USERPTR))
++		goto return_buffer;
++
++	for (i = 0; i < vb->num_planes; i++)
++		vb->planes[i].bytesused = vb->planes[i].length;
+ 	vb->timestamp = ktime_get_ns();
+-	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+-	LOG(LOG_DEBUG, "%s put frame success ctx_id:%d stream_id:%d",
+-               g_IspPortToken[port], ctx_id, stream_id);
+-exit:
+-	return;
++	state = VB2_BUF_STATE_DONE;
++
++return_buffer:
++	vb2_buffer_done(vb, state);
++	LOG(LOG_DEBUG, "%s put frame ctx_id:%d stream_id:%d state:%d",
++	    g_IspPortToken[port], ctx_id, stream_id, state);
++
++completion_done:
++	spin_lock_irqsave(&pstream->slock, flags);
++	if (WARN_ON_ONCE(!pstream->completions))
++		pstream->completions = 0;
++	else
++		pstream->completions--;
++	wake = !pstream->completions;
++	spin_unlock_irqrestore(&pstream->slock, flags);
++	if (wake)
++		wake_up_all(&pstream->completion_wait);
++out_rcu:
++	rcu_read_unlock();
+ }
+ 
+ static int armcb_v4l2_querycap(struct file *file, void *priv,
+@@ -535,20 +586,6 @@ static int armcb_v4l2_fh_release(struct file *file)
+ 	return ret;
+ }
+ 
+-static int armcb_release_output_port(void)
+-{
+-    int rc = 0, i = 0, j = 0;
+-
+-	for(i = 0; i < ARMCB_MAX_DEVS; i++  )
+-	{
+-		for(j = 0; j < ISP_OUTPUT_PORT_MAX; j++)
+-			g_outport_map[i][j] = NULL;
+-	}
+-
+-    LOG(LOG_INFO, "#### Armcb release all port resource !!!");
+-    return rc;
+-}
+-
+ // Get current application PID
+ 
+ static int find_user_process_by_name(const char *name)
+@@ -615,19 +652,26 @@ static int armcb_v4l2_post_streamoff_event(armcb_v4l2_dev_t *dev)
+  */
+ static void armcb_v4l2_release_stream_slot(armcb_v4l2_dev_t *dev, int stream_id)
+ {
+-	armcb_v4l2_stream_t *pstream = dev->pstreams[stream_id];
++	armcb_v4l2_stream_t *pstream;
+ 	int outport_idx;
+ 
++	if (!dev || dev->ctx_id >= ARMCB_MAX_DEVS || stream_id < 0 ||
++	    stream_id >= V4L2_STREAM_TYPE_MAX)
++		return;
++	pstream = READ_ONCE(dev->pstreams[stream_id]);
+ 	if (!pstream)
+ 		return;
+ 	outport_idx = armcb_outport_bits_to_idx(pstream->outport);
+ 	if (outport_idx >= 0 && outport_idx < ISP_OUTPUT_PORT_MAX)
+-		g_outport_map[dev->ctx_id][outport_idx] = NULL;
+-	if (pstream->stream_type < V4L2_STREAM_TYPE_MAX)
+-		dev->stream_id_index[pstream->stream_type] = -1;
+-	armcb_v4l2_stream_deinit(pstream, dev);
+-	dev->pstreams[stream_id] = NULL;
++		WRITE_ONCE(g_outport_map[dev->ctx_id][outport_idx], NULL);
++	if (pstream->stream_type >= 0 &&
++	    pstream->stream_type < V4L2_STREAM_TYPE_MAX)
++		WRITE_ONCE(dev->stream_id_index[pstream->stream_type], -1);
++	WRITE_ONCE(dev->pstreams[stream_id], NULL);
+ 	dev->stream_mask &= ~(1 << stream_id);
++	/* IRQ/tasklet readers hold RCU while using published stream pointers. */
++	synchronize_rcu();
++	armcb_v4l2_stream_deinit(pstream, dev);
+ 	dev->is_streaming = 0;
+ }
+ 
+@@ -637,8 +681,8 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+ 	struct vb2_queue *q = vdev->queue;
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(file->private_data);
+-	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
+-	int outport_idx = -1;
++	armcb_v4l2_stream_t *pstream =
++		armcb_v4l2_get_stream(dev->ctx_id, sp->stream_id);
+ 	int rc = 0;
+ 
+ 	atomic_sub_return(1, &dev->opened);
+@@ -778,7 +822,9 @@ static int armcb_v4l2_fop_release(struct file *file)
+ 	return rc;
+ 
+ deinit:
+-	armcb_release_output_port();
++	mutex_lock(&dev->queue_lock);
++	armcb_v4l2_release_stream_slot(dev, sp->stream_id);
++	mutex_unlock(&dev->queue_lock);
+ 	atomic_set(&dev->stream_on_cnt, STREAM_DEFAULT);
+ 	atomic_set(&dev->port_idx_release, OUTPORT_IDX_DEFAULT);
+ 
+@@ -1078,7 +1124,11 @@ static int armcb_v4l2_streamon(struct file *file, void *priv,
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+ 
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(priv);
+-	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
++	armcb_v4l2_stream_t *pstream =
++		armcb_v4l2_get_stream(dev->ctx_id, sp->stream_id);
++
++	if (!pstream)
++		return -EINVAL;
+ 
+ 	if (dev->is_streaming) {
+ 		LOG(LOG_ERR, "%s streaming is busy\n", dev_name(&vdev->dev));
+@@ -1145,8 +1195,8 @@ static int armcb_isp_vb2_streamoff(struct file *file)
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+ 	struct vb2_queue *q;
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(file->private_data);
+-	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
+-	int outport_idx = -1;
++	armcb_v4l2_stream_t *pstream =
++		armcb_v4l2_get_stream(dev->ctx_id, sp->stream_id);
+ 	int loop;
+ 	int ret = 0;
+ 
+@@ -1166,7 +1216,7 @@ static int armcb_isp_vb2_streamoff(struct file *file)
+ 		goto exit;
+ 	}
+ 
+-	pstream->stream_started = 0;
++	armcb_v4l2_stream_off(pstream, dev);
+ 
+ 	/* s_ctrl(STREAM_OFF) calls this when queue exists (do_vb2). Always run streamoff
+ 	 * and release so that if the app (e.g. gstreamer) never closes or crashes,
+@@ -1267,12 +1317,13 @@ int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 	armcb_v4l2_dev_t *dev = video_drvdata(file);
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(file->private_data);
+-	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
++	armcb_v4l2_stream_t *pstream = NULL;
+ 	struct vb2_queue *q = &sp->vb2_q;
+ 
+ 	int outport_idx = -1;
+ 	int i;
+ 	int rc = 0;
++	bool queue_initialized = false;
+ 	struct v4l2_event ev;
+ 	unsigned int *pData = NULL;
+ 
+@@ -1295,18 +1346,25 @@ int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 			break;
+ 		}
+ 	}
++	if (i == V4L2_STREAM_TYPE_MAX) {
++		vdev->queue = NULL;
++		mutex_unlock(&dev->queue_lock);
++		return -EBUSY;
++	}
+ 
+ 	LOG(LOG_INFO, "ctx_id: %d, called for stream id:%d.",
+ 						dev->ctx_id, sp->stream_id);
+ 
+ 	/* init stream */
+-	armcb_v4l2_stream_init(&dev->pstreams[sp->stream_id], sp->stream_id,
+-				   dev->ctx_id);
+-	pstream = dev->pstreams[sp->stream_id];
+-	if (pstream == NULL) {
+-		LOG(LOG_ERR, "stream alloc failed\n");
++	rc = armcb_v4l2_stream_init(&dev->pstreams[sp->stream_id],
++				    sp->stream_id, dev->ctx_id);
++	pstream = READ_ONCE(dev->pstreams[sp->stream_id]);
++	if (rc || !pstream) {
++		LOG(LOG_ERR, "stream alloc failed: %d\n", rc);
++		dev->stream_mask &= ~(1 << sp->stream_id);
++		vdev->queue = NULL;
+ 		mutex_unlock(&dev->queue_lock);
+-		return -ENOMEM;
++		return rc ?: -ENOMEM;
+ 	}
+ 
+ 	/* init vb2 queue */
+@@ -1315,43 +1373,47 @@ int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 				dev->v4l2_dev.dev);
+ 	if (rc < 0) {
+ 		LOG(LOG_ERR, "Error, vb2 queue init fail (rc=%d)", rc);
+-		//goto vb2_q_fail;
++		goto err_release_stream;
+ 	}
++	queue_initialized = true;
+ 
+ 	/* update stream pointer */
+ 	rc = armcb_v4l2_stream_set_format(pstream, f);
+ 	if (rc < 0) {
+ 		LOG(LOG_ERR, "set format failed.");
+-		mutex_unlock(&dev->queue_lock);
+-		return rc;
++		goto err_release_stream;
+ 	}
+ 
+ 	atomic_set(&dev->port_idx_release, OUTPORT_IDX_IS_FREE);
+-	/* update stream pointer index */
+-	dev->stream_id_index[pstream->stream_type] = pstream->stream_id;
+-	outport_array[sp->ctx_id][sp->stream_id] = pstream->outport;
++	if (pstream->stream_type < 0 ||
++	    pstream->stream_type >= V4L2_STREAM_TYPE_MAX ||
++	    !armcb_outport_valid(pstream->outport)) {
++		rc = -EINVAL;
++		goto err_release_stream;
++	}
+ 	outport_idx = armcb_outport_bits_to_idx(pstream->outport);
+ 	if (outport_idx < 0 || outport_idx >= ISP_OUTPUT_PORT_MAX) {
+ 		rc = -EINVAL;
+ 		LOG(LOG_ERR, "invalid outport idx:%d, bits:%#x\n", outport_idx,
+ 			pstream->outport);
+-		mutex_unlock(&dev->queue_lock);
+-		return rc;
++		goto err_release_stream;
+ 	}
+ 
+-	if (g_outport_map[sp->ctx_id][outport_idx]) {
++	if (READ_ONCE(g_outport_map[sp->ctx_id][outport_idx])) {
+ 		rc = -EINVAL;
+ 		LOG(LOG_ERR, "busy outport idx:%d, bits:%#x\n", outport_idx,
+ 			pstream->outport);
+-		mutex_unlock(&dev->queue_lock);
+-		return rc;
++		goto err_release_stream;
+ 	}
+ 
+ 	/* Cheese or gstreamer support the VGA(640x480) need to support the
+ 	 * BT601, so define the VGA support BT601 */
+ 	rc = armcb_v4l2_config_bt601(&f->fmt.pix_mp);
+ 
+-	g_outport_map[sp->ctx_id][outport_idx] = pstream;
++	/* Publish the fully initialized stream only after every check succeeds. */
++	WRITE_ONCE(dev->stream_id_index[pstream->stream_type],
++		   pstream->stream_id);
++	WRITE_ONCE(g_outport_map[sp->ctx_id][outport_idx], pstream);
+ 	memset(&ev, 0, sizeof(struct v4l2_event));
+ 	ev.id = ISP_DAEMON_EVENT_SET_IMG_SIZE;
+ 	ev.type = V4L2_EVENT_CTRL;
+@@ -1371,6 +1433,15 @@ int armcb_v4l2_s_fmt_vid_cap_mplane(struct file *file, void *priv,
+ 	mutex_unlock(&dev->queue_lock);
+ 
+ 	return 0;
++
++err_release_stream:
++	if (queue_initialized)
++		vb2_queue_release(&sp->vb2_q);
++	armcb_v4l2_release_stream_slot(dev, sp->stream_id);
++	if (vdev->queue == &sp->vb2_q)
++		vdev->queue = NULL;
++	mutex_unlock(&dev->queue_lock);
++	return rc;
+ }
+ 
+ int armcb_v4l2_try_fmt_vid_cap_mplane(struct file *file, void *priv,
+@@ -1599,7 +1670,8 @@ static int armcb_v4l2_s_ctrl(struct file *file, void *fh,
+ 	int rc = -1;
+ 	armcb_v4l2_dev_t *dev = video_drvdata(file);
+ 	struct armcb_isp_v4l2_fh *sp = fh_to_private(fh);
+-	armcb_v4l2_stream_t *pstream = dev->pstreams[sp->stream_id];
++	armcb_v4l2_stream_t *pstream =
++		armcb_v4l2_get_stream(dev->ctx_id, sp->stream_id);
+ 	struct video_device *vdev = &dev->vid_cap_dev;
+ 
+ 	switch (ctrl->id) {
+@@ -1886,8 +1958,8 @@ armcb_v4l2_dev_t *armcb_v4l2_core_get_dev(uint32_t ctx_id)
+ 		return NULL;
+ 
+ 	LOG(LOG_DEBUG, "get ctx_id:%d pdev:%p", ctx_id,
+-		g_isp_v4l2_devs[ctx_id]);
+-	return g_isp_v4l2_devs[ctx_id];
++		READ_ONCE(g_isp_v4l2_devs[ctx_id]));
++	return READ_ONCE(g_isp_v4l2_devs[ctx_id]);
+ }
+ 
+ uint32_t armcb_v4l2_core_find_1st_opened_dev(void)
+@@ -2086,7 +2158,7 @@ armcb_v4l2_dev_t *armcb_register_instance(struct platform_device *pdev,
+ 	}
+ 
+ 	LOG(LOG_INFO, "register v4l2 video instance %d %p", cam_id, adev);
+-	g_isp_v4l2_devs[cam_id] = adev;
++	WRITE_ONCE(g_isp_v4l2_devs[cam_id], adev);
+ 	mutex_unlock(&g_isp_v4l2_devs_lock);
+ 	return adev;
+ }
+@@ -2100,7 +2172,7 @@ static void armcb_destroy_instance(unsigned int cam_id, bool cleanup_notifier)
+ 
+ 	mutex_lock(&g_isp_v4l2_devs_lock);
+ 	dev = g_isp_v4l2_devs[cam_id];
+-	g_isp_v4l2_devs[cam_id] = NULL;
++	WRITE_ONCE(g_isp_v4l2_devs[cam_id], NULL);
+ 	mutex_unlock(&g_isp_v4l2_devs_lock);
+ 	if (!dev)
+ 		return;
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
+@@ -72,12 +72,18 @@ static struct isp_v4l2_fmt *armcb_v4l2_stream_find_format(uint32_t pixelformat)
+ 	return NULL;
+ }
+ 
+-int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
+-				 struct v4l2_format *f)
++static int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
++					struct v4l2_format *f)
+ {
+ 	struct isp_v4l2_fmt *tfmt;
++	u64 line_bits;
++	u64 bytesperline;
++	u64 sizeimage;
+ 	int i;
+ 
++	if (!pstream || !f || f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
++		return -EINVAL;
++
+ 	LOG(LOG_INFO,
+ 	    "[Stream#%d] try fmt type: %u, pixelformat: 0x%x, planeNum:%u, width: " \
+ 	    "%u, height: %u, field: %u, pixelformat: 0x%x",
+@@ -121,6 +127,9 @@ int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
+ 		f->fmt.pix_mp.height = 1080;
+ 	}
+ #endif
++	if (tfmt->fourcc == V4L2_PIX_FMT_NV12M &&
++	    ((f->fmt.pix_mp.width | f->fmt.pix_mp.height) & 1))
++		return -EINVAL;
+ 
+ 	// all stream multiplanar
+ 	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+@@ -129,11 +138,16 @@ int armcb_v4l2_stream_try_format(armcb_v4l2_stream_t *pstream,
+ 	f->fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
+ 
+ 	for (i = 0; i < tfmt->memplanes; i++) {
+-		//hardcode
+-		f->fmt.pix_mp.plane_fmt[i].bytesperline = f->fmt.pix_mp.width;
+-		f->fmt.pix_mp.plane_fmt[i].sizeimage =
+-			f->fmt.pix_mp.height *
+-			f->fmt.pix_mp.plane_fmt[i].bytesperline * tfmt->depth[i] / 8;
++		if (check_mul_overflow((u64)f->fmt.pix_mp.width,
++				       (u64)tfmt->depth[i], &line_bits))
++			return -EOVERFLOW;
++		bytesperline = DIV_ROUND_UP_ULL(line_bits, 8);
++		if (check_mul_overflow((u64)f->fmt.pix_mp.height, bytesperline,
++				       &sizeimage) || bytesperline > U32_MAX ||
++		    sizeimage > U32_MAX)
++			return -EOVERFLOW;
++		f->fmt.pix_mp.plane_fmt[i].bytesperline = bytesperline;
++		f->fmt.pix_mp.plane_fmt[i].sizeimage = sizeimage;
+ 
+ 		memset(f->fmt.pix_mp.plane_fmt[i].reserved, 0,
+ 		       sizeof(f->fmt.pix_mp.plane_fmt[i].reserved));
+@@ -149,6 +163,12 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ {
+ 	armcb_v4l2_stream_t *new_stream = NULL;
+ 	// int current_sensor_preset;
++
++	if (!ppstream || *ppstream || stream_id < 0 ||
++	    stream_id >= V4L2_STREAM_TYPE_MAX || ctx_id < 0 ||
++	    ctx_id >= ARMCB_MAX_DEVS)
++		return -EINVAL;
++
+ 	LOG(LOG_INFO, "ctx_id:%d [Stream#%d] Initializing stream ...", ctx_id,
+ 	    stream_id);
+ 
+@@ -177,6 +197,7 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ 	/* init list */
+ 	INIT_LIST_HEAD(&new_stream->stream_buffer_list);
+ 	INIT_LIST_HEAD(&new_stream->stream_buffer_list_busy);
++	init_waitqueue_head(&new_stream->completion_wait);
+ 
+ 	/* init locks */
+ 	spin_lock_init(&new_stream->slock);
+@@ -187,52 +208,65 @@ int armcb_v4l2_stream_init(armcb_v4l2_stream_t **ppstream, int stream_id,
+ 	return 0;
+ }
+ 
+-/**
++/*
+  * armcb_v4l2_stream_clear_buffer_lists - Clear stream buffer lists without
+  * completing buffers. Call only after vb2_streamoff has already completed
+- * buffers (e.g. to avoid double vb2_buffer_done). Caller must hold
+- * appropriate lock (e.g. queue_lock).
++ * buffers (e.g. to avoid double vb2_buffer_done). The stream lock serializes
++ * this cleanup with queue and completion paths.
+  */
+ void armcb_v4l2_stream_clear_buffer_lists(armcb_v4l2_stream_t *pstream)
+ {
+ 	armcb_v4l2_buffer_t *pbuf;
++	unsigned long flags;
+ 
+ 	if (!pstream)
+ 		return;
++
++	spin_lock_irqsave(&pstream->slock, flags);
+ 	while (!list_empty(&pstream->stream_buffer_list)) {
+ 		pbuf = list_first_entry(&pstream->stream_buffer_list,
+ 					armcb_v4l2_buffer_t, list);
+-		list_del(&pbuf->list);
++		list_del_init(&pbuf->list);
+ 	}
+ 	while (!list_empty(&pstream->stream_buffer_list_busy)) {
+ 		pbuf = list_first_entry(&pstream->stream_buffer_list_busy,
+ 					armcb_v4l2_buffer_t, list);
+-		list_del(&pbuf->list);
++		list_del_init(&pbuf->list);
+ 	}
++	pstream->pending_completion = NULL;
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ }
+ 
+-void
+-armcb_v4l2_stream_buffer_list_release(armcb_v4l2_stream_t *pstream,
+-				      struct list_head *stream_buffer_list)
++void armcb_v4l2_stream_return_all_buffers(armcb_v4l2_stream_t *pstream,
++					  enum vb2_buffer_state state)
+ {
+-	armcb_v4l2_buffer_t *buf;
+-	struct vb2_v4l2_buffer *vvb;
+-	struct vb2_buffer *vb;
+-	unsigned int buf_index;
++	armcb_v4l2_buffer_t *buf, *tmp;
++	unsigned long flags;
++	LIST_HEAD(return_list);
+ 
+-	while (!list_empty(stream_buffer_list)) {
+-		buf = list_entry(stream_buffer_list->next, armcb_v4l2_buffer_t,
+-				 list);
+-		list_del(&buf->list);
+-
+-		vvb = &buf->vvb;
+-		vb = &vvb->vb2_buf;
+-		buf_index = vb->index;
+-
+-		vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
++	if (!pstream)
++		return;
+ 
+-		LOG(LOG_INFO, "[Stream#%d] vid_cap buffer %d done",
+-		    pstream->stream_id, buf_index);
++	spin_lock_irqsave(&pstream->slock, flags);
++	pstream->stopping = true;
++	pstream->stream_started = 0;
++	list_splice_tail_init(&pstream->stream_buffer_list, &return_list);
++	list_splice_tail_init(&pstream->stream_buffer_list_busy, &return_list);
++	pstream->pending_completion = NULL;
++	spin_unlock_irqrestore(&pstream->slock, flags);
++	wait_event(pstream->completion_wait,
++		   !READ_ONCE(pstream->completions));
++
++	list_for_each_entry_safe(buf, tmp, &return_list, list) {
++		struct vb2_buffer *vb = &buf->vvb.vb2_buf;
++
++		list_del_init(&buf->list);
++		if (vb->state == VB2_BUF_STATE_ACTIVE)
++			vb2_buffer_done(vb, state);
++		else
++			LOG(LOG_WARN,
++			    "[Stream#%d] detached buffer %u in state %u",
++			    pstream->stream_id, vb->index, vb->state);
+ 	}
+ }
+ 
+@@ -250,9 +284,8 @@ void armcb_v4l2_stream_deinit(armcb_v4l2_stream_t *pstream,
+ 	/* stop hardware do stream-off first if it's on */
+ 	armcb_v4l2_stream_off(pstream, dev);
+ 
+-	/* release buffer lists */
+-	armcb_v4l2_stream_buffer_list_release(pstream, &pstream->stream_buffer_list);
+-	armcb_v4l2_stream_buffer_list_release(pstream, &pstream->stream_buffer_list_busy);
++	/* Return driver-owned buffers after dropping the stream lock. */
++	armcb_v4l2_stream_return_all_buffers(pstream, VB2_BUF_STATE_ERROR);
+ 
+ 	/* release stream structure */
+ 	kfree(pstream);
+@@ -260,6 +293,8 @@ void armcb_v4l2_stream_deinit(armcb_v4l2_stream_t *pstream,
+ 
+ int armcb_v4l2_stream_on(armcb_v4l2_stream_t *pstream)
+ {
++	unsigned long flags;
++
+ 	if (!pstream) {
+ 		LOG(LOG_ERR, "Null stream passed");
+ 		return -EINVAL;
+@@ -276,13 +311,19 @@ int armcb_v4l2_stream_on(armcb_v4l2_stream_t *pstream)
+ 	}
+ 
+ 	/* control fields update */
++	spin_lock_irqsave(&pstream->slock, flags);
++	pstream->pending_completion = NULL;
++	pstream->stopping = false;
+ 	pstream->stream_started = 1;
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ 	return 0;
+ }
+ 
+ void armcb_v4l2_stream_off(armcb_v4l2_stream_t *pstream,
+                                             armcb_v4l2_dev_t *dev)
+ {
++	unsigned long flags;
++
+ 	if (!pstream) {
+ 		LOG(LOG_ERR, "Null stream passed");
+ 		return;
+@@ -298,6 +339,11 @@ void armcb_v4l2_stream_off(armcb_v4l2_stream_t *pstream,
+ 		}
+ 		atomic_set(&pstream->running, -1);
+ 	}
++
++	spin_lock_irqsave(&pstream->slock, flags);
++	pstream->stopping = true;
++	pstream->stream_started = 0;
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ }
+ 
+ int armcb_v4l2_stream_get_format(armcb_v4l2_stream_t *pstream,
+@@ -343,7 +389,9 @@ int armcb_v4l2_stream_set_format(armcb_v4l2_stream_t *pstream,
+ 	    f->fmt.pix_mp.pixelformat);
+ 
+ 	/* try format first */
+-	armcb_v4l2_stream_try_format(pstream, f);
++	rc = armcb_v4l2_stream_try_format(pstream, f);
++	if (rc)
++		return rc;
+ 
+ 	/* set stream type*/
+ 	switch (f->fmt.pix_mp.pixelformat) {
+@@ -368,8 +416,6 @@ int armcb_v4l2_stream_set_format(armcb_v4l2_stream_t *pstream,
+ 		return -EINVAL;
+ 	}
+ 
+-	/* update format field */
+-	pstream->cur_v4l2_fmt = *f;
+ 	if (armcb_multi_cam)
+ 	{
+ 		switch (pstream->ctx_id) {
+@@ -448,6 +494,8 @@ int armcb_v4l2_stream_set_format(armcb_v4l2_stream_t *pstream,
+ 				break;
+ 		}
+ 	}
++	/* Store the normalized format, including the selected output field. */
++	pstream->cur_v4l2_fmt = *f;
+ 
+ 	LOG(LOG_DEBUG, "[Stream#%d] - New fmt - width: %4u, height: %4u, format: 0x%x, type: " \
+ 	    "%5u. outport: %u[%u]",
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
+@@ -84,6 +84,11 @@ typedef struct _armcb_v4l2_stream_t {
+ 	/* Video buffer field*/
+ 	struct list_head stream_buffer_list;
+ 	struct list_head stream_buffer_list_busy;
++	/* Last programmed buffer retained until hardware advances or discards. */
++	armcb_v4l2_buffer_t *pending_completion;
++	unsigned int completions;
++	bool stopping;
++	wait_queue_head_t completion_wait;
+ 	spinlock_t slock;
+ 
+ 	/* Temporal fields for memcpy */
+@@ -104,6 +109,6 @@ int armcb_v4l2_stream_on(armcb_v4l2_stream_t *pstream);
+ int armcb_v4l2_stream_get_format(armcb_v4l2_stream_t *pstream,
+ 				 struct v4l2_format *f);
+ void armcb_v4l2_stream_clear_buffer_lists(armcb_v4l2_stream_t *pstream);
+-void armcb_v4l2_stream_buffer_list_release(armcb_v4l2_stream_t *pstream,
+-                 struct list_head *stream_buffer_list);
++void armcb_v4l2_stream_return_all_buffers(armcb_v4l2_stream_t *pstream,
++					  enum vb2_buffer_state state);
+ #endif
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
+@@ -47,6 +47,9 @@ static int armcb_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
+ 	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(vq);
+ 	struct v4l2_format vfmt;
+ 
++	if (!pstream)
++		return -EINVAL;
++
+ 	LOG(LOG_INFO, "Enter id:%d, cnt: %lu.", pstream->stream_id, cnt++);
+ 	LOG(LOG_INFO, "vq: %p, *nplanes: %u.", vq, *nplanes);
+ 
+@@ -58,18 +61,28 @@ static int armcb_vb2_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
+ 
+ 	/* we just need to use one plane to store our image */
+ 	if (vfmt.type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+-		if (WARN_ON(vfmt.fmt.pix_mp.num_planes > VIDEO_MAX_PLANES))
+-			goto done;
+-
++		if (!vfmt.fmt.pix_mp.num_planes ||
++		    vfmt.fmt.pix_mp.num_planes > VIDEO_MAX_PLANES)
++			return -EINVAL;
++
++		if (*nplanes) {
++			if (*nplanes != vfmt.fmt.pix_mp.num_planes)
++				return -EINVAL;
++			for (i = 0; i < *nplanes; i++) {
++				if (sizes[i] <
++				    vfmt.fmt.pix_mp.plane_fmt[i].sizeimage)
++					return -EINVAL;
++			}
++			return 0;
++		}
+ 		*nplanes = vfmt.fmt.pix_mp.num_planes;
+ 		for (i = 0; i < vfmt.fmt.pix_mp.num_planes; i++)
+ 			sizes[i] = vfmt.fmt.pix_mp.plane_fmt[i].sizeimage;
+ 	} else {
+ 		LOG(LOG_ERR, "Unsupported buf type :%d", vfmt.type);
+-		goto done;
++		return -EINVAL;
+ 	}
+ 
+-done:
+ 	return 0;
+ }
+ 
+@@ -80,6 +93,16 @@ static void armcb_vb2_buf_finish(struct vb2_buffer *vb)
+ 	vbuf->flags |= V4L2_BUF_FLAG_TIMECODE;
+ }
+ 
++static int armcb_vb2_buf_init(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vvb = to_vb2_v4l2_buffer(vb);
++	armcb_v4l2_buffer_t *buf = container_of(vvb, armcb_v4l2_buffer_t,
++						  vvb);
++
++	INIT_LIST_HEAD(&buf->list);
++	return 0;
++}
++
+ static void armcb_vb2_buf_queue(struct vb2_buffer *vb)
+ {
+ 	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(vb->vb2_queue);
+@@ -87,13 +110,19 @@ static void armcb_vb2_buf_queue(struct vb2_buffer *vb)
+ 	armcb_v4l2_buffer_t *buf = container_of(vvb, armcb_v4l2_buffer_t, vvb);
+ 	unsigned long flags;
+ 
+-	if(pstream) {
+-		spin_lock_irqsave(&pstream->slock, flags);
+-		list_add_tail(&buf->list, &pstream->stream_buffer_list);
+-		spin_unlock_irqrestore(&pstream->slock, flags);
++	if (!pstream) {
++		vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
++		return;
+ 	}
+ 
+-	return;
++	spin_lock_irqsave(&pstream->slock, flags);
++	if (pstream->stopping || WARN_ON_ONCE(!list_empty(&buf->list))) {
++		spin_unlock_irqrestore(&pstream->slock, flags);
++		vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
++		return;
++	}
++	list_add_tail(&buf->list, &pstream->stream_buffer_list);
++	spin_unlock_irqrestore(&pstream->slock, flags);
+ }
+ #ifndef V4L2_OPT
+ static void *armcb_vb2_cma_get_userptr(struct vb2_buffer *vb,
+@@ -156,48 +185,27 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
+ 
+ static void cap_vb2_stop_streaming(struct vb2_queue *q)
+ {
+-	armcb_v4l2_dev_t *dev = container_of(q, armcb_v4l2_dev_t, vb2_q);
+ 	armcb_v4l2_stream_t *pstream = vb2_get_drv_priv(q);
+-	armcb_v4l2_buffer_t *pbuf = NULL;
+-	unsigned long flags;
+-	unsigned int i;
++	armcb_v4l2_dev_t *dev = NULL;
+ 
+ 	LOG(LOG_INFO, "function enter");
++	if (pstream)
++		dev = armcb_v4l2_core_get_dev(pstream->ctx_id);
+ 	/* Return all driver-held buffers to vb2 so owned_by_drv_count becomes 0.
+ 	 * Otherwise __vb2_queue_cancel() triggers WARN_ON(owned_by_drv_count). */
+-	spin_lock_irqsave(&pstream->slock, flags);
+ 	//to avoid smmu err
+ 	if (dev)
+ 		armcb_v4l2_config_init_update_stream_hw_addr(dev);
+-	while (!list_empty(&pstream->stream_buffer_list)) {
+-		pbuf = list_entry(pstream->stream_buffer_list.next,
+-				  armcb_v4l2_buffer_t, list);
+-		list_del(&pbuf->list);
+-		vb2_buffer_done(&pbuf->vvb.vb2_buf, VB2_BUF_STATE_ERROR);
+-	}
+-	while (!list_empty(&pstream->stream_buffer_list_busy)) {
+-		pbuf = list_entry(pstream->stream_buffer_list_busy.next,
+-				  armcb_v4l2_buffer_t, list);
+-		list_del(&pbuf->list);
+-		vb2_buffer_done(&pbuf->vvb.vb2_buf, VB2_BUF_STATE_ERROR);
+-	}
+-	spin_unlock_irqrestore(&pstream->slock, flags);
+-
+-	/* Fallback: return any queue buffer still ACTIVE (e.g. not in our lists).
+-	 * Matches kernel __vb2_queue_cancel fallback so owned_by_drv_count is 0. */
+-	for (i = 0; i < vb2_get_num_buffers(q); i++) {
+-		struct vb2_buffer *vb = vb2_get_buffer(q, i);
++	armcb_v4l2_stream_return_all_buffers(pstream, VB2_BUF_STATE_ERROR);
+ 
+-		if (vb && vb->state == VB2_BUF_STATE_ACTIVE)
+-			vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+-	}
+-
+-	pstream->stream_started = 0;
++	if (pstream)
++		WRITE_ONCE(pstream->stream_started, 0);
+ 	LOG(LOG_INFO, "function exit");
+ }
+ 
+ static struct vb2_ops armcb_vid_cap_qops = {
+ 	.queue_setup = armcb_vb2_queue_setup,
++	.buf_init = armcb_vb2_buf_init,
+ 	.buf_queue = armcb_vb2_buf_queue,
+ 	.buf_finish = armcb_vb2_buf_finish,
+ 	.start_streaming = cap_vb2_start_streaming,
+@@ -245,21 +253,3 @@ int isp_vb2_queue_init(struct vb2_queue *q, struct mutex *mlock,
+ 
+ 	return ret;
+ }
+-
+-extern armcb_v4l2_stream_t *g_outport_map[ARMCB_MAX_DEVS][ISP_OUTPUT_PORT_MAX];
+-
+-int isp_vb2_queue_release(struct vb2_queue *q, struct file *file)
+-{
+-	int ret = 0, i = 0, j = 0;
+-
+-	/* Set the g_outport_map to 0 to avoid the next loop outport is busy*/
+-	for(i = 0; i < ARMCB_MAX_DEVS; i++  )
+-	{
+-		for(j = 0; j < ISP_OUTPUT_PORT_MAX; j++)
+-			g_outport_map[i][j] = NULL;
+-	}
+-
+-	LOG(LOG_INFO, "#### Armcb isp release all resource and exit !!!");
+-
+-	return ret;
+-}
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h
+@@ -33,5 +33,4 @@ int armcb_s_fmt_vid_cap(struct file *file, void *priv, struct v4l2_format *f);
+ 
+ int isp_vb2_queue_init(struct vb2_queue *q, struct mutex *mlock,
+ 		       armcb_v4l2_stream_t *pstream, struct device *dev);
+-int isp_vb2_queue_release(struct vb2_queue *q, struct file *file);
+ #endif

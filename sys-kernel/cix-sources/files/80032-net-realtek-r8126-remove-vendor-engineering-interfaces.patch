@@ -1,0 +1,3264 @@
+Remove the raw-register, PCI-configuration, PHY, EEPROM-write, procfs,
+sysfs and cable-test engineering interfaces from the independently imported
+Realtek R8126 10.016.00 driver. Retain normal networking, RSS, Wake-on-LAN,
+standard ethtool operations and EEPROM reads. Also remove the unconditional
+probe-time licence banner; the source SPDX declarations remain authoritative.
+
+This deletion-only artifact is mechanically regenerated from the exact shared
+post-80031 R8126 source preimage with a minimal diff.
+
+diff --git a/drivers/net/ethernet/realtek/r8126/Kconfig b/drivers/net/ethernet/realtek/r8126/Kconfig
+--- a/drivers/net/ethernet/realtek/r8126/Kconfig
++++ b/drivers/net/ethernet/realtek/r8126/Kconfig
+@@ -11,13 +11,3 @@ config R8126
+ 
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called r8126.
+-
+-config R8126_UNSAFE_DIAGNOSTICS
+-	bool "Enable unsafe RTL8126 vendor diagnostics"
+-	depends on R8126 && EXPERT
+-	help
+-	  Enable the vendor's raw register, PCI configuration, PHY and
+-	  EEPROM access ioctl together with its procfs and sysfs test
+-	  interfaces. These facilities can modify hardware outside normal
+-	  network-driver operations and are not required for networking,
+-	  RSS or wake-on-LAN. Leave this disabled on normal systems.
+diff --git a/drivers/net/ethernet/realtek/r8126/Makefile b/drivers/net/ethernet/realtek/r8126/Makefile
+--- a/drivers/net/ethernet/realtek/r8126/Makefile
++++ b/drivers/net/ethernet/realtek/r8126/Makefile
+@@ -1,7 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-$(CONFIG_R8126) += r8126.o
+ r8126-objs := r8126_n.o rtl_eeprom.o r8126_rss.o
+-r8126-$(CONFIG_R8126_UNSAFE_DIAGNOSTICS) += rtltool.o
+ 
+ ccflags-y += -DCONFIG_R8126_NAPI
+ ccflags-y += -DCONFIG_R8126_VLAN
+diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/realtek/r8126/r8126.h
+--- a/drivers/net/ethernet/realtek/r8126/r8126.h
++++ b/drivers/net/ethernet/realtek/r8126/r8126.h
+@@ -404,16 +404,6 @@ do { \
+ #endif
+ #endif
+ 
+-#if defined(CONFIG_R8126_UNSAFE_DIAGNOSTICS) && \
+-    LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,37)
+-#define ENABLE_R8126_PROCFS
+-#endif
+-
+-#if defined(CONFIG_R8126_UNSAFE_DIAGNOSTICS) && \
+-    LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
+-#define ENABLE_R8126_SYSFS
+-#endif
+-
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+ #define NETIF_F_HW_VLAN_RX	NETIF_F_HW_VLAN_CTAG_RX
+ #define NETIF_F_HW_VLAN_TX	NETIF_F_HW_VLAN_CTAG_TX
+@@ -628,11 +618,6 @@ static inline u32 rtl8126_ethtool_adv_to_mmd_eee_adv_cap2_t(u32 adv)
+ #define MODULENAME "r8126"
+ #define PFX MODULENAME ": "
+ 
+-#define GPL_CLAIM "\
+-r8126  Copyright (C) 2025 Realtek NIC software team <nicfae@realtek.com> \n \
+-This program comes with ABSOLUTELY NO WARRANTY; for details, please see <http://www.gnu.org/licenses/>. \n \
+-This is free software, and you are welcome to redistribute it under certain conditions; see <http://www.gnu.org/licenses/>. \n"
+-
+ #ifdef RTL8126_DEBUG
+ #define assert(expr) \
+         if(!(expr)) {                   \
+@@ -2020,17 +2005,6 @@ enum bits {
+         BIT_31 = (1 << 31)
+ };
+ 
+-#define RTL8126_CP_NUM 4
+-#define RTL8126_MAX_SUPPORT_CP_LEN 110
+-
+-enum rtl8126_cp_status {
+-        rtl8126_cp_normal = 0,
+-        rtl8126_cp_short,
+-        rtl8126_cp_open,
+-        rtl8126_cp_mismatch,
+-        rtl8126_cp_unknown
+-};
+-
+ enum efuse {
+         EFUSE_NOT_SUPPORT = 0,
+         EFUSE_SUPPORT_V1,
+@@ -2183,11 +2157,6 @@ enum r8126_flag {
+         R8126_FLAG_MAX
+ };
+ 
+-enum r8126_sysfs_flag {
+-        R8126_SYSFS_RTL_ADV = 0,
+-        R8126_SYSFS_FLAG_MAX
+-};
+-
+ struct rtl8126_tx_ring {
+         void* priv;
+         struct net_device *netdev;
+@@ -2621,8 +2590,6 @@ struct rtl8126_private {
+         u16 sw_ram_code_ver;
+         u16 hw_ram_code_ver;
+ 
+-        u8 rtk_enable_diag;
+-
+         u8 ShortPacketSwChecksum;
+ 
+         u8 UseSwPaddingShortPkt;
+@@ -2698,17 +2665,6 @@ struct rtl8126_private {
+ 
+         struct ethtool_keee eee;
+ 
+-#ifdef ENABLE_R8126_PROCFS
+-        //Procfs support
+-        struct proc_dir_entry *proc_dir;
+-        struct proc_dir_entry *proc_dir_debug;
+-        struct proc_dir_entry *proc_dir_test;
+-#endif
+-#ifdef ENABLE_R8126_SYSFS
+-        //sysfs support
+-        DECLARE_BITMAP(sysfs_flag, R8126_SYSFS_FLAG_MAX);
+-        u32 testmode;
+-#endif
+         u8 HwSuppRxDescType;
+         u8 InitRxDescType;
+         u16 RxDescLength; //V1 16 Byte V2 32 Bytes
+@@ -2863,11 +2819,7 @@ enum mcfg {
+ #define OTHER_Q_INTR_MASK (RxOK1 | RxDU1)
+ 
+ void rtl8126_mdio_write(struct rtl8126_private *tp, u16 RegAddr, u16 value);
+-void rtl8126_mdio_prot_write(struct rtl8126_private *tp, u32 RegAddr, u32 value);
+-void rtl8126_mdio_prot_direct_write_phy_ocp(struct rtl8126_private *tp, u32 RegAddr, u32 value);
+ u32 rtl8126_mdio_read(struct rtl8126_private *tp, u16 RegAddr);
+-u32 rtl8126_mdio_prot_read(struct rtl8126_private *tp, u32 RegAddr);
+-u32 rtl8126_mdio_prot_direct_read_phy_ocp(struct rtl8126_private *tp, u32 RegAddr);
+ void rtl8126_ephy_write(struct rtl8126_private *tp, int RegAddr, int value);
+ void rtl8126_mac_ocp_write(struct rtl8126_private *tp, u16 reg_addr, u16 value);
+ u16 rtl8126_mac_ocp_read(struct rtl8126_private *tp, u16 reg_addr);
+diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+--- a/drivers/net/ethernet/realtek/r8126/r8126_n.c
++++ b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+@@ -90,16 +90,8 @@
+ 
+ #include "r8126.h"
+ #include "rtl_eeprom.h"
+-#ifdef CONFIG_R8126_UNSAFE_DIAGNOSTICS
+-#include "rtltool.h"
+-#endif
+ #include "r8126_firmware.h"
+ 
+-#ifdef ENABLE_R8126_PROCFS
+-#include <linux/proc_fs.h>
+-#include <linux/seq_file.h>
+-#endif
+-
+ #define FIRMWARE_8126A_2	"rtl_nic/rtl8126a-2.fw"
+ #define FIRMWARE_8126A_3	"rtl_nic/rtl8126a-3.fw"
+ 
+@@ -634,16 +626,6 @@ static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
+ }
+ #endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
+ 
+-static u32 rtl8126_read_thermal_sensor(struct rtl8126_private *tp)
+-{
+-        u16 ts_digout;
+-
+-        ts_digout = rtl8126_mdio_direct_read_phy_ocp(tp, 0xBD84);
+-        ts_digout &= 0x3ff;
+-
+-        return ts_digout;
+-}
+-
+ int rtl8126_dump_tally_counter(struct rtl8126_private *tp, dma_addr_t paddr)
+ {
+         u32 cmd;
+@@ -716,16 +698,6 @@ rtl8126_get_phy_status(struct rtl8126_private *tp)
+         return RTL_R32(tp, PHYstatus);
+ }
+ 
+-static bool
+-rtl8126_sysfs_testmode_on(struct rtl8126_private *tp)
+-{
+-#ifdef ENABLE_R8126_SYSFS
+-        return !!tp->testmode;
+-#else
+-        return 1;
+-#endif
+-}
+-
+ static u32 rtl8126_convert_link_speed(u32 status)
+ {
+         u32 speed = SPEED_UNKNOWN;
+@@ -746,2310 +718,6 @@ static u32 rtl8126_convert_link_speed(u32 status)
+         return speed;
+ }
+ 
+-static void rtl8126_mdi_swap(struct rtl8126_private *tp)
+-{
+-        int i;
+-        u16 reg, val, mdi_reverse;
+-        u16 tps_p0, tps_p1, tps_p2, tps_p3, tps_p3_p0;
+-
+-        switch (tp->mcfg) {
+-        default:
+-                return;
+-        };
+-
+-        tps_p3_p0 = rtl8126_mac_ocp_read(tp, 0xD440) & 0xF000;
+-        tps_p3 = !!(tps_p3_p0 & BIT_15);
+-        tps_p2 = !!(tps_p3_p0 & BIT_14);
+-        tps_p1 = !!(tps_p3_p0 & BIT_13);
+-        tps_p0 = !!(tps_p3_p0 & BIT_12);
+-        mdi_reverse = rtl8126_mac_ocp_read(tp, 0xD442);
+-
+-        if ((mdi_reverse & BIT_5) && tps_p3_p0 == 0xA000)
+-                return;
+-
+-        if (!(mdi_reverse & BIT_5))
+-                val = tps_p0 << 8 |
+-                      tps_p1 << 9 |
+-                      tps_p2 << 10 |
+-                      tps_p3 << 11;
+-        else
+-                val = tps_p3 << 8 |
+-                      tps_p2 << 9 |
+-                      tps_p1 << 10 |
+-                      tps_p0 << 11;
+-
+-        for (i=8; i<12; i++) {
+-                rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, reg);
+-                rtl8126_clear_and_set_eth_phy_ocp_bit(tp,
+-                                                      0xA438,
+-                                                      BIT(i),
+-                                                      val & BIT(i));
+-        }
+-}
+-
+-static int rtl8126_vcd_test(struct rtl8126_private *tp)
+-{
+-        u16 val;
+-        u32 wait_cnt;
+-        int ret = -1;
+-
+-        rtl8126_mdi_swap(tp);
+-
+-        rtl8126_clear_eth_phy_ocp_bit(tp, 0xA422, BIT(0));
+-        rtl8126_set_eth_phy_ocp_bit(tp, 0xA422, 0x00F0);
+-        rtl8126_set_eth_phy_ocp_bit(tp, 0xA422, BIT(0));
+-
+-        wait_cnt = 0;
+-        do {
+-                mdelay(1);
+-                val = rtl8126_mdio_direct_read_phy_ocp(tp, 0xA422);
+-                wait_cnt++;
+-        } while (!(val & BIT_15) && (wait_cnt < 5000));
+-
+-        if (wait_cnt == 5000)
+-                goto exit;
+-
+-        ret = 0;
+-
+-exit:
+-        return ret;
+-}
+-
+-static void rtl8126_get_cp_len(struct rtl8126_private *tp,
+-                               int cp_len[RTL8126_CP_NUM])
+-{
+-        int i;
+-        u32 status;
+-        int tmp_cp_len;
+-
+-        status = rtl8126_get_phy_status(tp);
+-        if (status & LinkStatus) {
+-                if (status & _10bps) {
+-                        tmp_cp_len = -1;
+-                } else if (status & (_100bps | _1000bpsF)) {
+-                        rtl8126_mdio_write(tp, 0x1f, 0x0a88);
+-                        tmp_cp_len = rtl8126_mdio_read(tp, 0x10);
+-                } else if (status & _2500bpsF) {
+-                        rtl8126_mdio_write(tp, 0x1f, 0x0acb);
+-                        tmp_cp_len = rtl8126_mdio_read(tp, 0x15);
+-                        tmp_cp_len >>= 2;
+-                } else
+-                        tmp_cp_len = 0;
+-        } else
+-                tmp_cp_len = 0;
+-
+-        if (tmp_cp_len > 0)
+-                tmp_cp_len &= 0xff;
+-        for (i=0; i<RTL8126_CP_NUM; i++)
+-                cp_len[i] = tmp_cp_len;
+-
+-        rtl8126_mdio_write(tp, 0x1f, 0x0000);
+-
+-        for (i=0; i<RTL8126_CP_NUM; i++)
+-                if (cp_len[i] > RTL8126_MAX_SUPPORT_CP_LEN)
+-                        cp_len[i] = RTL8126_MAX_SUPPORT_CP_LEN;
+-
+-        return;
+-}
+-
+-static int __rtl8126_get_cp_status(u16 val)
+-{
+-        switch (val) {
+-        case 0x0060:
+-                return rtl8126_cp_normal;
+-        case 0x0048:
+-                return rtl8126_cp_open;
+-        case 0x0050:
+-                return rtl8126_cp_short;
+-        case 0x0042:
+-        case 0x0044:
+-                return rtl8126_cp_mismatch;
+-        default:
+-                return rtl8126_cp_normal;
+-        }
+-}
+-
+-static int _rtl8126_get_cp_status(struct rtl8126_private *tp, u8 pair_num)
+-{
+-        u16 val;
+-        int cp_status = rtl8126_cp_unknown;
+-
+-        if (pair_num > 3)
+-                goto exit;
+-
+-        rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, 0x8027 + 4 * pair_num);
+-        val = rtl8126_mdio_direct_read_phy_ocp(tp, 0xA438);
+-
+-        cp_status = __rtl8126_get_cp_status(val);
+-
+-exit:
+-        return cp_status;
+-}
+-
+-static const char * rtl8126_get_cp_status_string(int cp_status)
+-{
+-        switch(cp_status) {
+-        case rtl8126_cp_normal:
+-                return "normal  ";
+-        case rtl8126_cp_short:
+-                return "short   ";
+-        case rtl8126_cp_open:
+-                return "open    ";
+-        case rtl8126_cp_mismatch:
+-                return "mismatch";
+-        default:
+-                return "unknown ";
+-        }
+-}
+-
+-static u16 rtl8126_get_cp_pp(struct rtl8126_private *tp, u8 pair_num)
+-{
+-        u16 pp = 0;
+-
+-        if (pair_num > 3)
+-                goto exit;
+-
+-        rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, 0x8029 + 4 * pair_num);
+-        pp = rtl8126_mdio_direct_read_phy_ocp(tp, 0xA438);
+-
+-        pp &= 0x3fff;
+-        pp /= 80;
+-
+-exit:
+-        return pp;
+-}
+-
+-static void rtl8126_get_cp_status(struct rtl8126_private *tp,
+-                                  int cp_status[RTL8126_CP_NUM],
+-                                  bool poe_mode)
+-{
+-        u32 status;
+-        int i;
+-
+-        status = rtl8126_get_phy_status(tp);
+-        if (status & LinkStatus && !(status & (_10bps | _100bps))) {
+-                for (i=0; i<RTL8126_CP_NUM; i++)
+-                        cp_status[i] = rtl8126_cp_normal;
+-        } else {
+-                /* cannot do vcd when link is on */
+-                rtl8126_vcd_test(tp);
+-
+-                for (i=0; i<RTL8126_CP_NUM; i++)
+-                        cp_status[i] = _rtl8126_get_cp_status(tp, i);
+-        }
+-
+-        if (poe_mode) {
+-                for (i=0; i<RTL8126_CP_NUM; i++) {
+-                        if (cp_status[i] == rtl8126_cp_mismatch)
+-                                cp_status[i] = rtl8126_cp_normal;
+-                }
+-        }
+-}
+-
+-#ifdef ENABLE_R8126_PROCFS
+-/****************************************************************************
+-*   -----------------------------PROCFS STUFF-------------------------
+-*****************************************************************************
+-*/
+-
+-static struct proc_dir_entry *rtl8126_proc;
+-static int proc_init_num = 0;
+-
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-static int proc_get_driver_variable(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        seq_puts(m, "\nDump Driver Variable\n");
+-
+-        rtnl_lock();
+-
+-        seq_puts(m, "Variable\tValue\n----------\t-----\n");
+-        seq_printf(m, "MODULENAME\t%s\n", MODULENAME);
+-        seq_printf(m, "driver version\t%s\n", RTL8126_VERSION);
+-        seq_printf(m, "mcfg\t%d\n", tp->mcfg);
+-        seq_printf(m, "chipset\t%d\n", tp->chipset);
+-        seq_printf(m, "chipset_name\t%s\n", rtl_chip_info[tp->chipset].name);
+-        seq_printf(m, "mtu\t%d\n", dev->mtu);
+-        seq_printf(m, "NUM_RX_DESC\t0x%x\n", tp->rx_ring[0].num_rx_desc);
+-        seq_printf(m, "cur_rx0\t0x%x\n", tp->rx_ring[0].cur_rx);
+-        seq_printf(m, "dirty_rx0\t0x%x\n", tp->rx_ring[0].dirty_rx);
+-        seq_printf(m, "cur_rx1\t0x%x\n", tp->rx_ring[1].cur_rx);
+-        seq_printf(m, "dirty_rx1\t0x%x\n", tp->rx_ring[1].dirty_rx);
+-        seq_printf(m, "cur_rx2\t0x%x\n", tp->rx_ring[2].cur_rx);
+-        seq_printf(m, "dirty_rx2\t0x%x\n", tp->rx_ring[2].dirty_rx);
+-        seq_printf(m, "cur_rx3\t0x%x\n", tp->rx_ring[3].cur_rx);
+-        seq_printf(m, "dirty_rx3\t0x%x\n", tp->rx_ring[3].dirty_rx);
+-        seq_printf(m, "NUM_TX_DESC\t0x%x\n", tp->tx_ring[0].num_tx_desc);
+-        seq_printf(m, "cur_tx0\t0x%x\n", tp->tx_ring[0].cur_tx);
+-        seq_printf(m, "dirty_tx0\t0x%x\n", tp->tx_ring[0].dirty_tx);
+-        seq_printf(m, "cur_tx1\t0x%x\n", tp->tx_ring[1].cur_tx);
+-        seq_printf(m, "dirty_tx1\t0x%x\n", tp->tx_ring[1].dirty_tx);
+-        seq_printf(m, "rx_buf_sz\t0x%x\n", tp->rx_buf_sz);
+-#ifdef ENABLE_PAGE_REUSE
+-        seq_printf(m, "rx_buf_page_order\t0x%x\n", tp->rx_buf_page_order);
+-        seq_printf(m, "rx_buf_page_size\t0x%x\n", tp->rx_buf_page_size);
+-        seq_printf(m, "page_reuse_fail_cnt\t0x%x\n", tp->page_reuse_fail_cnt);
+-#endif //ENABLE_PAGE_REUSE
+-        seq_printf(m, "esd_flag\t0x%x\n", tp->esd_flag);
+-        seq_printf(m, "pci_cfg_is_read\t0x%x\n", tp->pci_cfg_is_read);
+-        seq_printf(m, "rtl8126_rx_config\t0x%x\n", tp->rtl8126_rx_config);
+-        seq_printf(m, "cp_cmd\t0x%x\n", tp->cp_cmd);
+-        seq_printf(m, "intr_mask\t0x%x\n", tp->intr_mask);
+-        seq_printf(m, "timer_intr_mask\t0x%x\n", tp->timer_intr_mask);
+-        seq_printf(m, "wol_enabled\t0x%x\n", tp->wol_enabled);
+-        seq_printf(m, "wol_opts\t0x%x\n", tp->wol_opts);
+-        seq_printf(m, "efuse_ver\t0x%x\n", tp->efuse_ver);
+-        seq_printf(m, "eeprom_type\t0x%x\n", tp->eeprom_type);
+-        seq_printf(m, "autoneg\t0x%x\n", tp->autoneg);
+-        seq_printf(m, "duplex\t0x%x\n", tp->duplex);
+-        seq_printf(m, "speed\t%d\n", tp->speed);
+-        seq_printf(m, "advertising\t0x%llx\n", tp->advertising);
+-        seq_printf(m, "eeprom_len\t0x%x\n", tp->eeprom_len);
+-        seq_printf(m, "cur_page\t0x%x\n", tp->cur_page);
+-        seq_printf(m, "features\t0x%x\n", tp->features);
+-        seq_printf(m, "org_pci_offset_99\t0x%x\n", tp->org_pci_offset_99);
+-        seq_printf(m, "org_pci_offset_180\t0x%x\n", tp->org_pci_offset_180);
+-        seq_printf(m, "issue_offset_99_event\t0x%x\n", tp->issue_offset_99_event);
+-        seq_printf(m, "org_pci_offset_80\t0x%x\n", tp->org_pci_offset_80);
+-        seq_printf(m, "org_pci_offset_81\t0x%x\n", tp->org_pci_offset_81);
+-        seq_printf(m, "use_timer_interrupt\t0x%x\n", tp->use_timer_interrupt);
+-        seq_printf(m, "HwIcVerUnknown\t0x%x\n", tp->HwIcVerUnknown);
+-        seq_printf(m, "NotWrRamCodeToMicroP\t0x%x\n", tp->NotWrRamCodeToMicroP);
+-        seq_printf(m, "NotWrMcuPatchCode\t0x%x\n", tp->NotWrMcuPatchCode);
+-        seq_printf(m, "HwHasWrRamCodeToMicroP\t0x%x\n", tp->HwHasWrRamCodeToMicroP);
+-        seq_printf(m, "sw_ram_code_ver\t0x%x\n", tp->sw_ram_code_ver);
+-        seq_printf(m, "hw_ram_code_ver\t0x%x\n", tp->hw_ram_code_ver);
+-        seq_printf(m, "rtk_enable_diag\t0x%x\n", tp->rtk_enable_diag);
+-        seq_printf(m, "ShortPacketSwChecksum\t0x%x\n", tp->ShortPacketSwChecksum);
+-        seq_printf(m, "UseSwPaddingShortPkt\t0x%x\n", tp->UseSwPaddingShortPkt);
+-        seq_printf(m, "RequireAdcBiasPatch\t0x%x\n", tp->RequireAdcBiasPatch);
+-        seq_printf(m, "AdcBiasPatchIoffset\t0x%x\n", tp->AdcBiasPatchIoffset);
+-        seq_printf(m, "RequireAdjustUpsTxLinkPulseTiming\t0x%x\n", tp->RequireAdjustUpsTxLinkPulseTiming);
+-        seq_printf(m, "SwrCnt1msIni\t0x%x\n", tp->SwrCnt1msIni);
+-        seq_printf(m, "HwSuppNowIsOobVer\t0x%x\n", tp->HwSuppNowIsOobVer);
+-        seq_printf(m, "HwFiberModeVer\t0x%x\n", tp->HwFiberModeVer);
+-        seq_printf(m, "HwFiberStat\t0x%x\n", tp->HwFiberStat);
+-        seq_printf(m, "NicCustLedValue\t0x%x\n", tp->NicCustLedValue);
+-        seq_printf(m, "RequiredSecLanDonglePatch\t0x%x\n", tp->RequiredSecLanDonglePatch);
+-        seq_printf(m, "HwSuppKCPOffloadVer\t0x%x\n", tp->HwSuppKCPOffloadVer);
+-        seq_printf(m, "speed_mode\t0x%x\n", speed_mode);
+-        seq_printf(m, "duplex_mode\t0x%x\n", duplex_mode);
+-        seq_printf(m, "autoneg_mode\t0x%x\n", autoneg_mode);
+-        seq_printf(m, "aspm\t0x%x\n", aspm);
+-        seq_printf(m, "s5wol\t0x%x\n", s5wol);
+-        seq_printf(m, "s5_keep_curr_mac\t0x%x\n", s5_keep_curr_mac);
+-        seq_printf(m, "eee_enable\t0x%x\n", tp->eee.eee_enabled);
+-        seq_printf(m, "hwoptimize\t0x%lx\n", hwoptimize);
+-        seq_printf(m, "proc_init_num\t0x%x\n", proc_init_num);
+-        seq_printf(m, "s0_magic_packet\t0x%x\n", s0_magic_packet);
+-        seq_printf(m, "disable_wol_support\t0x%x\n", disable_wol_support);
+-        seq_printf(m, "enable_double_vlan\t0x%x\n", enable_double_vlan);
+-        seq_printf(m, "eee_giga_lite\t0x%x\n", eee_giga_lite);
+-        seq_printf(m, "HwSuppMagicPktVer\t0x%x\n", tp->HwSuppMagicPktVer);
+-        seq_printf(m, "HwSuppLinkChgWakeUpVer\t0x%x\n", tp->HwSuppLinkChgWakeUpVer);
+-        seq_printf(m, "HwSuppD0SpeedUpVer\t0x%x\n", tp->HwSuppD0SpeedUpVer);
+-        seq_printf(m, "D0SpeedUpSpeed\t0x%x\n", tp->D0SpeedUpSpeed);
+-        seq_printf(m, "HwSuppCheckPhyDisableModeVer\t0x%x\n", tp->HwSuppCheckPhyDisableModeVer);
+-        seq_printf(m, "HwPkgDet\t0x%x\n", tp->HwPkgDet);
+-        seq_printf(m, "HwSuppTxNoCloseVer\t0x%x\n", tp->HwSuppTxNoCloseVer);
+-        seq_printf(m, "EnableTxNoClose\t0x%x\n", tp->EnableTxNoClose);
+-        seq_printf(m, "NextHwDesCloPtr0\t0x%x\n", tp->tx_ring[0].NextHwDesCloPtr);
+-        seq_printf(m, "BeginHwDesCloPtr0\t0x%x\n", tp->tx_ring[0].BeginHwDesCloPtr);
+-        seq_printf(m, "hw_clo_ptr_reg0\t0x%x\n", rtl8126_get_hw_clo_ptr(&tp->tx_ring[0]));
+-        seq_printf(m, "sw_tail_ptr_reg0\t0x%x\n", rtl8126_get_sw_tail_ptr(&tp->tx_ring[0]));
+-        seq_printf(m, "NextHwDesCloPtr1\t0x%x\n", tp->tx_ring[1].NextHwDesCloPtr);
+-        seq_printf(m, "BeginHwDesCloPtr1\t0x%x\n", tp->tx_ring[1].BeginHwDesCloPtr);
+-        seq_printf(m, "hw_clo_ptr_reg1\t0x%x\n", rtl8126_get_hw_clo_ptr(&tp->tx_ring[1]));
+-        seq_printf(m, "sw_tail_ptr_reg1\t0x%x\n", rtl8126_get_sw_tail_ptr(&tp->tx_ring[1]));
+-        seq_printf(m, "InitRxDescType\t0x%x\n", tp->InitRxDescType);
+-        seq_printf(m, "RxDescLength\t0x%x\n", tp->RxDescLength);
+-        seq_printf(m, "num_rx_rings\t0x%x\n", tp->num_rx_rings);
+-        seq_printf(m, "num_tx_rings\t0x%x\n", tp->num_tx_rings);
+-        seq_printf(m, "tot_rx_rings\t0x%x\n", rtl8126_tot_rx_rings(tp));
+-        seq_printf(m, "tot_tx_rings\t0x%x\n", rtl8126_tot_tx_rings(tp));
+-        seq_printf(m, "HwSuppNumRxQueues\t0x%x\n", tp->HwSuppNumRxQueues);
+-        seq_printf(m, "HwSuppNumTxQueues\t0x%x\n", tp->HwSuppNumTxQueues);
+-        seq_printf(m, "EnableRss\t0x%x\n", tp->EnableRss);
+-        seq_printf(m, "EnablePtp\t0x%x\n", tp->EnablePtp);
+-        seq_printf(m, "min_irq_nvecs\t0x%x\n", tp->min_irq_nvecs);
+-        seq_printf(m, "irq_nvecs\t0x%x\n", tp->irq_nvecs);
+-        seq_printf(m, "hw_supp_irq_nvecs\t0x%x\n", tp->hw_supp_irq_nvecs);
+-        seq_printf(m, "ring_lib_enabled\t0x%x\n", tp->ring_lib_enabled);
+-        seq_printf(m, "HwSuppIsrVer\t0x%x\n", tp->HwSuppIsrVer);
+-        seq_printf(m, "HwCurrIsrVer\t0x%x\n", tp->HwCurrIsrVer);
+-        seq_printf(m, "HwSuppMacMcuVer\t0x%x\n", tp->HwSuppMacMcuVer);
+-        seq_printf(m, "MacMcuPageSize\t0x%x\n", tp->MacMcuPageSize);
+-        seq_printf(m, "hw_mcu_patch_code_ver\t0x%llx\n", tp->hw_mcu_patch_code_ver);
+-        seq_printf(m, "bin_mcu_patch_code_ver\t0x%llx\n", tp->bin_mcu_patch_code_ver);
+-#ifdef ENABLE_PTP_SUPPORT
+-        seq_printf(m, "tx_hwtstamp_timeouts\t0x%x\n", tp->tx_hwtstamp_timeouts);
+-        seq_printf(m, "tx_hwtstamp_skipped\t0x%x\n", tp->tx_hwtstamp_skipped);
+-#endif
+-        seq_printf(m, "random_mac\t0x%x\n", tp->random_mac);
+-        seq_printf(m, "org_mac_addr\t%pM\n", tp->org_mac_addr);
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,13)
+-        seq_printf(m, "perm_addr\t%pM\n", dev->perm_addr);
+-#endif
+-        seq_printf(m, "dev_addr\t%pM\n", dev->dev_addr);
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_tally_counter(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        struct rtl8126_counters *counters;
+-        dma_addr_t paddr;
+-
+-        seq_puts(m, "\nDump Tally Counter\n");
+-
+-        rtnl_lock();
+-
+-        counters = tp->tally_vaddr;
+-        paddr = tp->tally_paddr;
+-        if (!counters) {
+-                seq_puts(m, "\nDump Tally Counter Fail\n");
+-                goto out_unlock;
+-        }
+-
+-        rtl8126_dump_tally_counter(tp, paddr);
+-
+-        seq_puts(m, "Statistics\tValue\n----------\t-----\n");
+-        seq_printf(m, "tx_packets\t%lld\n", le64_to_cpu(counters->tx_packets));
+-        seq_printf(m, "rx_packets\t%lld\n", le64_to_cpu(counters->rx_packets));
+-        seq_printf(m, "tx_errors\t%lld\n", le64_to_cpu(counters->tx_errors));
+-        seq_printf(m, "rx_errors\t%d\n", le32_to_cpu(counters->rx_errors));
+-        seq_printf(m, "rx_missed\t%d\n", le16_to_cpu(counters->rx_missed));
+-        seq_printf(m, "align_errors\t%d\n", le16_to_cpu(counters->align_errors));
+-        seq_printf(m, "tx_one_collision\t%d\n", le32_to_cpu(counters->tx_one_collision));
+-        seq_printf(m, "tx_multi_collision\t%d\n", le32_to_cpu(counters->tx_multi_collision));
+-        seq_printf(m, "rx_unicast\t%lld\n", le64_to_cpu(counters->rx_unicast));
+-        seq_printf(m, "rx_broadcast\t%lld\n", le64_to_cpu(counters->rx_broadcast));
+-        seq_printf(m, "rx_multicast\t%d\n", le32_to_cpu(counters->rx_multicast));
+-        seq_printf(m, "tx_aborted\t%d\n", le16_to_cpu(counters->tx_aborted));
+-        seq_printf(m, "tx_underrun\t%d\n", le16_to_cpu(counters->tx_underrun));
+-
+-        seq_printf(m, "tx_octets\t%lld\n", le64_to_cpu(counters->tx_octets));
+-        seq_printf(m, "rx_octets\t%lld\n", le64_to_cpu(counters->rx_octets));
+-        seq_printf(m, "rx_multicast64\t%lld\n", le64_to_cpu(counters->rx_multicast64));
+-        seq_printf(m, "tx_unicast64\t%lld\n", le64_to_cpu(counters->tx_unicast64));
+-        seq_printf(m, "tx_broadcast64\t%lld\n", le64_to_cpu(counters->tx_broadcast64));
+-        seq_printf(m, "tx_multicast64\t%lld\n", le64_to_cpu(counters->tx_multicast64));
+-        seq_printf(m, "tx_pause_on\t%d\n", le32_to_cpu(counters->tx_pause_on));
+-        seq_printf(m, "tx_pause_off\t%d\n", le32_to_cpu(counters->tx_pause_off));
+-        seq_printf(m, "tx_pause_all\t%d\n", le32_to_cpu(counters->tx_pause_all));
+-        seq_printf(m, "tx_deferred\t%d\n", le32_to_cpu(counters->tx_deferred));
+-        seq_printf(m, "tx_late_collision\t%d\n", le32_to_cpu(counters->tx_late_collision));
+-        seq_printf(m, "tx_all_collision\t%d\n", le32_to_cpu(counters->tx_all_collision));
+-        seq_printf(m, "tx_aborted32\t%d\n", le32_to_cpu(counters->tx_aborted32));
+-        seq_printf(m, "align_errors32\t%d\n", le32_to_cpu(counters->align_errors32));
+-        seq_printf(m, "rx_frame_too_long\t%d\n", le32_to_cpu(counters->rx_frame_too_long));
+-        seq_printf(m, "rx_runt\t%d\n", le32_to_cpu(counters->rx_runt));
+-        seq_printf(m, "rx_pause_on\t%d\n", le32_to_cpu(counters->rx_pause_on));
+-        seq_printf(m, "rx_pause_off\t%d\n", le32_to_cpu(counters->rx_pause_off));
+-        seq_printf(m, "rx_pause_all\t%d\n", le32_to_cpu(counters->rx_pause_all));
+-        seq_printf(m, "rx_unknown_opcode\t%d\n", le32_to_cpu(counters->rx_unknown_opcode));
+-        seq_printf(m, "rx_mac_error\t%d\n", le32_to_cpu(counters->rx_mac_error));
+-        seq_printf(m, "tx_underrun32\t%d\n", le32_to_cpu(counters->tx_underrun32));
+-        seq_printf(m, "rx_mac_missed\t%d\n", le32_to_cpu(counters->rx_mac_missed));
+-        seq_printf(m, "rx_tcam_dropped\t%d\n", le32_to_cpu(counters->rx_tcam_dropped));
+-        seq_printf(m, "tdu\t%d\n", le32_to_cpu(counters->tdu));
+-        seq_printf(m, "rdu\t%d\n", le32_to_cpu(counters->rdu));
+-
+-        seq_putc(m, '\n');
+-
+-out_unlock:
+-        rtnl_unlock();
+-
+-        return 0;
+-}
+-
+-static int proc_get_registers(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        int i, n, max = R8126_MAC_REGS_SIZE;
+-        u8 byte_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        void __iomem *ioaddr = tp->mmio_addr;
+-
+-        seq_puts(m, "\nDump MAC Registers\n");
+-        seq_puts(m, "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                seq_printf(m, "\n0x%04x:\t", n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        seq_printf(m, "%02x ", byte_rd);
+-                }
+-        }
+-
+-        max = 0xB00;
+-        for (n = 0xA00; n < max;) {
+-                seq_printf(m, "\n0x%04x:\t", n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        seq_printf(m, "%02x ", byte_rd);
+-                }
+-        }
+-
+-        max = 0xD40;
+-        for (n = 0xD00; n < max;) {
+-                seq_printf(m, "\n0x%04x:\t", n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        seq_printf(m, "%02x ", byte_rd);
+-                }
+-        }
+-
+-        max = 0x2840;
+-        for (n = 0x2800; n < max;) {
+-                seq_printf(m, "\n0x%04x:\t", n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        seq_printf(m, "%02x ", byte_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_all_registers(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        int i, n, max;
+-        u8 byte_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        void __iomem *ioaddr = tp->mmio_addr;
+-        struct pci_dev *pdev = tp->pci_dev;
+-
+-        seq_puts(m, "\nDump All MAC Registers\n");
+-        seq_puts(m, "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        max = pci_resource_len(pdev, 2);
+-
+-        for (n = 0; n < max;) {
+-                seq_printf(m, "\n0x%04x:\t", n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        seq_printf(m, "%02x ", byte_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        seq_printf(m, "\nTotal length:0x%X", max);
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_pcie_phy(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        int i, n, max = R8126_EPHY_REGS_SIZE/2;
+-        u16 word_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        seq_puts(m, "\nDump PCIE PHY\n");
+-        seq_puts(m, "\nOffset\tValue\n------\t-----\n ");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                seq_printf(m, "\n0x%02x:\t", n);
+-
+-                for (i = 0; i < 8 && n < max; i++, n++) {
+-                        word_rd = rtl8126_ephy_read(tp, n);
+-                        seq_printf(m, "%04x ", word_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_eth_phy(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        int i, n, max = R8126_PHY_REGS_SIZE/2;
+-        unsigned long flags;
+-        u16 word_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        seq_puts(m, "\nDump Ethernet PHY\n");
+-        seq_puts(m, "\nOffset\tValue\n------\t-----\n ");
+-
+-        r8126_spin_lock(&tp->phy_lock, flags);
+-
+-        seq_puts(m, "\n####################page 0##################\n ");
+-        rtl8126_mdio_write(tp, 0x1f, 0x0000);
+-        for (n = 0; n < max;) {
+-                seq_printf(m, "\n0x%02x:\t", n);
+-
+-                for (i = 0; i < 8 && n < max; i++, n++) {
+-                        word_rd = rtl8126_mdio_read(tp, n);
+-                        seq_printf(m, "%04x ", word_rd);
+-                }
+-        }
+-
+-        seq_puts(m, "\n####################extra reg##################\n ");
+-        n = 0xA400;
+-        seq_printf(m, "\n0x%02x:\t", n);
+-        for (i = 0; i < 8; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                seq_printf(m, "%04x ", word_rd);
+-        }
+-
+-        n = 0xA410;
+-        seq_printf(m, "\n0x%02x:\t", n);
+-        for (i = 0; i < 3; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                seq_printf(m, "%04x ", word_rd);
+-        }
+-
+-        n = 0xA434;
+-        seq_printf(m, "\n0x%02x:\t", n);
+-        word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-        seq_printf(m, "%04x ", word_rd);
+-
+-        n = 0xA5D0;
+-        seq_printf(m, "\n0x%02x:\t", n);
+-        for (i = 0; i < 4; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                seq_printf(m, "%04x ", word_rd);
+-        }
+-
+-        n = 0xA61A;
+-        seq_printf(m, "\n0x%02x:\t", n);
+-        word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-        seq_printf(m, "%04x ", word_rd);
+-
+-        n = 0xA6D0;
+-        seq_printf(m, "\n0x%02x:\t", n);
+-        for (i = 0; i < 3; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                seq_printf(m, "%04x ", word_rd);
+-        }
+-
+-        r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_extended_registers(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        int i, n, max = R8126_ERI_REGS_SIZE;
+-        u32 dword_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        seq_puts(m, "\nDump Extended Registers\n");
+-        seq_puts(m, "\nOffset\tValue\n------\t-----\n ");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                seq_printf(m, "\n0x%02x:\t", n);
+-
+-                for (i = 0; i < 4 && n < max; i++, n+=4) {
+-                        dword_rd = rtl8126_eri_read(tp, n, 4, ERIAR_ExGMAC);
+-                        seq_printf(m, "%08x ", dword_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_pci_registers(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        int i, n, max = R8126_PCI_REGS_SIZE;
+-        u32 dword_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        seq_puts(m, "\nDump PCI Registers\n");
+-        seq_puts(m, "\nOffset\tValue\n------\t-----\n ");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                seq_printf(m, "\n0x%03x:\t", n);
+-
+-                for (i = 0; i < 4 && n < max; i++, n+=4) {
+-                        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-                        seq_printf(m, "%08x ", dword_rd);
+-                }
+-        }
+-
+-        n = 0x110;
+-        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        seq_printf(m, "\n0x%03x:\t%08x ", n, dword_rd);
+-        n = 0x70c;
+-        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        seq_printf(m, "\n0x%03x:\t%08x ", n, dword_rd);
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_get_temperature(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        u16 ts_digout, tj, fah;
+-        unsigned long flags;
+-
+-        rtnl_lock();
+-
+-        if (!rtl8126_sysfs_testmode_on(tp)) {
+-                seq_puts(m, "\nPlease turn on ""/sys/class/net/<iface>/rtk_adv/testmode"".\n\n");
+-                rtnl_unlock();
+-                return 0;
+-        }
+-
+-        r8126_spin_lock(&tp->phy_lock, flags);
+-
+-        netif_testing_on(dev);
+-        ts_digout = rtl8126_read_thermal_sensor(tp);
+-        netif_testing_off(dev);
+-
+-        r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-        rtnl_unlock();
+-
+-        if (ts_digout <= 512) {
+-                tj = ts_digout / 2;
+-                seq_printf(m, "Cel:%d\n", tj);
+-                fah = tj * (9/5) + 32;
+-                seq_printf(m, "Fah:%d\n", fah);
+-        } else {
+-                tj = (512 - (ts_digout - 512)) / 2;
+-                seq_printf(m, "Cel:-%d\n", tj);
+-                fah = tj * (9/5) + 32;
+-                seq_printf(m, "Fah:-%d\n", fah);
+-        }
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int _proc_get_cable_info(struct seq_file *m, void *v, bool poe_mode)
+-{
+-        int i;
+-        u32 status;
+-        int cp_status[RTL8126_CP_NUM];
+-        int cp_len[RTL8126_CP_NUM] = {0};
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        const char *pair_str[RTL8126_CP_NUM] = {"1-2", "3-6", "4-5", "7-8"};
+-        unsigned long flags;
+-        int ret;
+-
+-        switch (tp->mcfg) {
+-        default:
+-                ret = -EOPNOTSUPP;
+-                goto error_out;
+-        }
+-
+-        rtnl_lock();
+-
+-        if (!rtl8126_sysfs_testmode_on(tp)) {
+-                seq_puts(m, "\nPlease turn on ""/sys/class/net/<iface>/rtk_adv/testmode"".\n\n");
+-                ret = 0;
+-                goto error_unlock;
+-        }
+-
+-        r8126_spin_lock(&tp->phy_lock, flags);
+-
+-        rtl8126_mdio_write(tp, 0x1F, 0x0000);
+-        if (rtl8126_mdio_read(tp, MII_BMCR) & BMCR_PDOWN) {
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                ret = -EIO;
+-                goto error_unlock;
+-        }
+-
+-        netif_testing_on(dev);
+-
+-        status = rtl8126_get_phy_status(tp);
+-        if (status & LinkStatus)
+-                seq_printf(m, "\nlink speed:%d",
+-                           rtl8126_convert_link_speed(status));
+-        else
+-                seq_puts(m, "\nlink status:off");
+-
+-        rtl8126_get_cp_len(tp, cp_len);
+-
+-        rtl8126_get_cp_status(tp, cp_status, poe_mode);
+-
+-        r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-        seq_puts(m, "\npair\tlength\tstatus   \tpp\n");
+-
+-        for (i=0; i<RTL8126_CP_NUM; i++) {
+-                if (cp_len[i] < 0)
+-                        seq_printf(m, "%s\t%s\t%s\t",
+-                                   pair_str[i], "none",
+-                                   rtl8126_get_cp_status_string(cp_status[i]));
+-                else
+-                        seq_printf(m, "%s\t%d\t%s\t",
+-                                   pair_str[i], cp_len[i],
+-                                   rtl8126_get_cp_status_string(cp_status[i]));
+-                if (cp_status[i] == rtl8126_cp_normal)
+-                        seq_printf(m, "none\n");
+-                else
+-                        seq_printf(m, "%dm\n", rtl8126_get_cp_pp(tp, i));
+-        }
+-
+-        netif_testing_off(dev);
+-
+-        seq_putc(m, '\n');
+-
+-        ret = 0;
+-
+-error_unlock:
+-        rtnl_unlock();
+-
+-error_out:
+-        return ret;
+-}
+-
+-static int proc_get_cable_info(struct seq_file *m, void *v)
+-{
+-        return _proc_get_cable_info(m, v, 0);
+-}
+-
+-static int proc_get_poe_cable_info(struct seq_file *m, void *v)
+-{
+-        return _proc_get_cable_info(m, v, 1);
+-}
+-
+-static void _proc_dump_desc(struct seq_file *m, void *desc_base, u32 alloc_size)
+-{
+-        u32 *pdword;
+-        int i;
+-
+-        if (desc_base == NULL ||
+-            alloc_size == 0)
+-                return;
+-
+-        pdword = (u32*)desc_base;
+-        for (i=0; i<(alloc_size/4); i++) {
+-                if (!(i % 4))
+-                        seq_printf(m, "\n%04x ", i);
+-                seq_printf(m, "%08x ", pdword[i]);
+-        }
+-
+-        seq_putc(m, '\n');
+-        return;
+-}
+-
+-static int proc_dump_rx_desc(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int i;
+-
+-        rtnl_lock();
+-
+-        for (i = 0; i < tp->num_rx_rings; i++) {
+-                struct rtl8126_rx_ring *ring = &tp->rx_ring[i];
+-
+-                if (!ring)
+-                        continue;
+-
+-                seq_printf(m, "\ndump rx %d desc:%d\n", i, ring->num_rx_desc);
+-
+-                _proc_dump_desc(m, (void*)ring->RxDescArray, ring->RxDescAllocSize);
+-        }
+-
+-#ifdef ENABLE_LIB_SUPPORT
+-        if (rtl8126_num_lib_rx_rings(tp) > 0) {
+-                for (i = 0; i < tp->HwSuppNumRxQueues; i++) {
+-                        struct rtl8126_ring *lib_ring = &tp->lib_rx_ring[i];
+-                        if (lib_ring->enabled) {
+-                                seq_printf(m, "\ndump lib rx %d desc:%d\n", i,
+-                                           lib_ring->ring_size);
+-                                _proc_dump_desc(m, (void*)lib_ring->desc_addr,
+-                                                lib_ring->desc_size);
+-                        }
+-                }
+-        }
+-#endif //ENABLE_LIB_SUPPORT
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_dump_tx_desc(struct seq_file *m, void *v)
+-{
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int i;
+-
+-        rtnl_lock();
+-
+-        for (i = 0; i < tp->num_tx_rings; i++) {
+-                struct rtl8126_tx_ring *ring = &tp->tx_ring[i];
+-
+-                if (!ring)
+-                        continue;
+-
+-                seq_printf(m, "\ndump tx %d desc:%d\n", i, ring->num_tx_desc);
+-
+-                _proc_dump_desc(m, (void*)ring->TxDescArray, ring->TxDescAllocSize);
+-        }
+-
+-#ifdef ENABLE_LIB_SUPPORT
+-        if (rtl8126_num_lib_tx_rings(tp) > 0) {
+-                for (i = 0; i < tp->HwSuppNumTxQueues; i++) {
+-                        struct rtl8126_ring *lib_ring = &tp->lib_tx_ring[i];
+-                        if (lib_ring->enabled) {
+-                                seq_printf(m, "\ndump lib tx %d desc:%d\n", i,
+-                                           lib_ring->ring_size);
+-                                _proc_dump_desc(m, (void*)lib_ring->desc_addr,
+-                                                lib_ring->desc_size);
+-                        }
+-                }
+-        }
+-#endif //ENABLE_LIB_SUPPORT
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-static int proc_dump_msix_tbl(struct seq_file *m, void *v)
+-{
+-        int i, j;
+-        void __iomem *ioaddr;
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        /* ioremap MMIO region */
+-        ioaddr = ioremap(pci_resource_start(tp->pci_dev, 4), pci_resource_len(tp->pci_dev, 4));
+-        if (!ioaddr)
+-                return -EFAULT;
+-
+-        rtnl_lock();
+-
+-        seq_printf(m, "\ndump MSI-X Table. Total Entry %d. \n", tp->hw_supp_irq_nvecs);
+-
+-        for (i=0; i<tp->hw_supp_irq_nvecs; i++) {
+-                seq_printf(m, "\n%04x ", i);
+-                for (j=0; j<4; j++)
+-                        seq_printf(m, "%08x ",
+-                                   readl(ioaddr + i*0x10 + 4*j));
+-        }
+-
+-        rtnl_unlock();
+-
+-        iounmap(ioaddr);
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
+-#else //LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-
+-static int proc_get_driver_variable(char *page, char **start,
+-                                    off_t offset, int count,
+-                                    int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump Driver Driver\n");
+-
+-        rtnl_lock();
+-
+-        len += snprintf(page + len, count - len,
+-                        "Variable\tValue\n----------\t-----\n");
+-
+-        len += snprintf(page + len, count - len,
+-                        "MODULENAME\t%s\n"
+-                        "driver version\t%s\n"
+-                        "mcfg\t%d\n"
+-                        "chipset\t%d\n"
+-                        "chipset_name\t%s\n"
+-                        "mtu\t%d\n"
+-                        "NUM_RX_DESC\t0x%x\n"
+-                        "cur_rx0\t0x%x\n"
+-                        "dirty_rx0\t0x%x\n"
+-                        "cur_rx1\t0x%x\n"
+-                        "dirty_rx1\t0x%x\n"
+-                        "cur_rx2\t0x%x\n"
+-                        "dirty_rx2\t0x%x\n"
+-                        "cur_rx3\t0x%x\n"
+-                        "dirty_rx3\t0x%x\n"
+-                        "NUM_TX_DESC\t0x%x\n"
+-                        "cur_tx0\t0x%x\n"
+-                        "dirty_tx0\t0x%x\n"
+-                        "cur_tx1\t0x%x\n"
+-                        "dirty_tx1\t0x%x\n"
+-                        "rx_buf_sz\t0x%x\n"
+-#ifdef ENABLE_PAGE_REUSE
+-                        "rx_buf_page_order\t0x%x\n"
+-                        "rx_buf_page_size\t0x%x\n"
+-                        "page_reuse_fail_cnt\t0x%x\n"
+-#endif //ENABLE_PAGE_REUSE
+-                        "esd_flag\t0x%x\n"
+-                        "pci_cfg_is_read\t0x%x\n"
+-                        "rtl8126_rx_config\t0x%x\n"
+-                        "cp_cmd\t0x%x\n"
+-                        "intr_mask\t0x%x\n"
+-                        "timer_intr_mask\t0x%x\n"
+-                        "wol_enabled\t0x%x\n"
+-                        "wol_opts\t0x%x\n"
+-                        "efuse_ver\t0x%x\n"
+-                        "eeprom_type\t0x%x\n"
+-                        "autoneg\t0x%x\n"
+-                        "duplex\t0x%x\n"
+-                        "speed\t%d\n"
+-                        "advertising\t0x%llx\n"
+-                        "eeprom_len\t0x%x\n"
+-                        "cur_page\t0x%x\n"
+-                        "features\t0x%x\n"
+-                        "org_pci_offset_99\t0x%x\n"
+-                        "org_pci_offset_180\t0x%x\n"
+-                        "issue_offset_99_event\t0x%x\n"
+-                        "org_pci_offset_80\t0x%x\n"
+-                        "org_pci_offset_81\t0x%x\n"
+-                        "use_timer_interrupt\t0x%x\n"
+-                        "HwIcVerUnknown\t0x%x\n"
+-                        "NotWrRamCodeToMicroP\t0x%x\n"
+-                        "NotWrMcuPatchCode\t0x%x\n"
+-                        "HwHasWrRamCodeToMicroP\t0x%x\n"
+-                        "sw_ram_code_ver\t0x%x\n"
+-                        "hw_ram_code_ver\t0x%x\n"
+-                        "rtk_enable_diag\t0x%x\n"
+-                        "ShortPacketSwChecksum\t0x%x\n"
+-                        "UseSwPaddingShortPkt\t0x%x\n"
+-                        "RequireAdcBiasPatch\t0x%x\n"
+-                        "AdcBiasPatchIoffset\t0x%x\n"
+-                        "RequireAdjustUpsTxLinkPulseTiming\t0x%x\n"
+-                        "SwrCnt1msIni\t0x%x\n"
+-                        "HwSuppNowIsOobVer\t0x%x\n"
+-                        "HwFiberModeVer\t0x%x\n"
+-                        "HwFiberStat\t0x%x\n"
+-                        "NicCustLedValue\t0x%x\n"
+-                        "RequiredSecLanDonglePatch\t0x%x\n"
+-                        "HwSuppKCPOffloadVer\t0x%x\n"
+-                        "speed_mode\t0x%x\n"
+-                        "duplex_mode\t0x%x\n"
+-                        "autoneg_mode\t0x%x\n"
+-                        "aspm\t0x%x\n"
+-                        "s5wol\t0x%x\n"
+-                        "s5_keep_curr_mac\t0x%x\n"
+-                        "eee_enable\t0x%x\n"
+-                        "hwoptimize\t0x%lx\n"
+-                        "proc_init_num\t0x%x\n"
+-                        "s0_magic_packet\t0x%x\n"
+-                        "disable_wol_support\t0x%x\n"
+-                        "enable_double_vlan\t0x%x\n"
+-                        "eee_giga_lite\t0x%x\n"
+-                        "HwSuppMagicPktVer\t0x%x\n"
+-                        "HwSuppLinkChgWakeUpVer\t0x%x\n"
+-                        "HwSuppD0SpeedUpVer\t0x%x\n"
+-                        "D0SpeedUpSpeed\t0x%x\n"
+-                        "HwSuppCheckPhyDisableModeVer\t0x%x\n"
+-                        "HwPkgDet\t0x%x\n"
+-                        "HwSuppTxNoCloseVer\t0x%x\n"
+-                        "EnableTxNoClose\t0x%x\n"
+-                        "NextHwDesCloPtr0\t0x%x\n"
+-                        "BeginHwDesCloPtr0\t0x%x\n"
+-                        "hw_clo_ptr_reg0\t0x%x\n"
+-                        "sw_tail_ptr_reg0\t0x%x\n"
+-                        "NextHwDesCloPtr1\t0x%x\n"
+-                        "BeginHwDesCloPtr1\t0x%x\n"
+-                        "hw_clo_ptr_reg1\t0x%x\n"
+-                        "sw_tail_ptr_reg1\t0x%x\n"
+-                        "InitRxDescType\t0x%x\n"
+-                        "RxDescLength\t0x%x\n"
+-                        "num_rx_rings\t0x%x\n"
+-                        "num_tx_rings\t0x%x\n"
+-                        "tot_rx_rings\t0x%x\n"
+-                        "tot_tx_rings\t0x%x\n"
+-                        "HwSuppNumRxQueues\t0x%x\n"
+-                        "HwSuppNumTxQueues\t0x%x\n"
+-                        "EnableRss\t0x%x\n"
+-                        "EnablePtp\t0x%x\n"
+-                        "min_irq_nvecs\t0x%x\n"
+-                        "irq_nvecs\t0x%x\n"
+-                        "hw_supp_irq_nvecs\t0x%x\n"
+-                        "ring_lib_enabled\t0x%x\n"
+-                        "HwSuppIsrVer\t0x%x\n"
+-                        "HwCurrIsrVer\t0x%x\n"
+-                        "HwSuppMacMcuVer\t0x%x\n"
+-                        "MacMcuPageSize\t0x%x\n"
+-                        "hw_mcu_patch_code_ver\t0x%llx\n"
+-                        "bin_mcu_patch_code_ver\t0x%llx\n"
+-#ifdef ENABLE_PTP_SUPPORT
+-                        "tx_hwtstamp_timeouts\t0x%x\n"
+-                        "tx_hwtstamp_skipped\t0x%x\n"
+-#endif
+-                        "random_mac\t0x%x\n"
+-                        "org_mac_addr\t%pM\n"
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,13)
+-                        "perm_addr\t%pM\n"
+-#endif
+-                        "dev_addr\t%pM\n",
+-                        MODULENAME,
+-                        RTL8126_VERSION,
+-                        tp->mcfg,
+-                        tp->chipset,
+-                        rtl_chip_info[tp->chipset].name,
+-                        dev->mtu,
+-                        tp->rx_ring[0].num_rx_desc,
+-                        tp->rx_ring[0].cur_rx,
+-                        tp->rx_ring[0].dirty_rx,
+-                        tp->rx_ring[1].cur_rx,
+-                        tp->rx_ring[1].dirty_rx,
+-                        tp->rx_ring[2].cur_rx,
+-                        tp->rx_ring[2].dirty_rx,
+-                        tp->rx_ring[3].cur_rx,
+-                        tp->rx_ring[3].dirty_rx,
+-                        tp->tx_ring[0].num_tx_desc,
+-                        tp->tx_ring[0].cur_tx,
+-                        tp->tx_ring[0].dirty_tx,
+-                        tp->tx_ring[1].cur_tx,
+-                        tp->tx_ring[1].dirty_tx,
+-                        tp->rx_buf_sz,
+-#ifdef ENABLE_PAGE_REUSE
+-                        tp->rx_buf_page_order,
+-                        tp->rx_buf_page_size,
+-                        tp->page_reuse_fail_cnt,
+-#endif //ENABLE_PAGE_REUSE
+-                        tp->esd_flag,
+-                        tp->pci_cfg_is_read,
+-                        tp->rtl8126_rx_config,
+-                        tp->cp_cmd,
+-                        tp->intr_mask,
+-                        tp->timer_intr_mask,
+-                        tp->wol_enabled,
+-                        tp->wol_opts,
+-                        tp->efuse_ver,
+-                        tp->eeprom_type,
+-                        tp->autoneg,
+-                        tp->duplex,
+-                        tp->speed,
+-                        tp->advertising,
+-                        tp->eeprom_len,
+-                        tp->cur_page,
+-                        tp->features,
+-                        tp->org_pci_offset_99,
+-                        tp->org_pci_offset_180,
+-                        tp->issue_offset_99_event,
+-                        tp->org_pci_offset_80,
+-                        tp->org_pci_offset_81,
+-                        tp->use_timer_interrupt,
+-                        tp->HwIcVerUnknown,
+-                        tp->NotWrRamCodeToMicroP,
+-                        tp->NotWrMcuPatchCode,
+-                        tp->HwHasWrRamCodeToMicroP,
+-                        tp->sw_ram_code_ver,
+-                        tp->hw_ram_code_ver,
+-                        tp->rtk_enable_diag,
+-                        tp->ShortPacketSwChecksum,
+-                        tp->UseSwPaddingShortPkt,
+-                        tp->RequireAdcBiasPatch,
+-                        tp->AdcBiasPatchIoffset,
+-                        tp->RequireAdjustUpsTxLinkPulseTiming,
+-                        tp->SwrCnt1msIni,
+-                        tp->HwSuppNowIsOobVer,
+-                        tp->HwFiberModeVer,
+-                        tp->HwFiberStat,
+-                        tp->NicCustLedValue,
+-                        tp->RequiredSecLanDonglePatch,
+-                        tp->HwSuppKCPOffloadVer,
+-                        speed_mode,
+-                        duplex_mode,
+-                        autoneg_mode,
+-                        aspm,
+-                        s5wol,
+-                        s5_keep_curr_mac,
+-                        tp->eee.eee_enabled,
+-                        hwoptimize,
+-                        proc_init_num,
+-                        s0_magic_packet,
+-                        disable_wol_support,
+-                        enable_double_vlan,
+-                        eee_giga_lite,
+-                        tp->HwSuppMagicPktVer,
+-                        tp->HwSuppLinkChgWakeUpVer,
+-                        tp->HwSuppD0SpeedUpVer,
+-                        tp->D0SpeedUpSpeed,
+-                        tp->HwSuppCheckPhyDisableModeVer,
+-                        tp->HwPkgDet,
+-                        tp->HwSuppTxNoCloseVer,
+-                        tp->EnableTxNoClose,
+-                        tp->tx_ring[0].NextHwDesCloPtr,
+-                        tp->tx_ring[0].BeginHwDesCloPtr,
+-                        rtl8126_get_hw_clo_ptr(&tp->tx_ring[0]),
+-                        rtl8126_get_sw_tail_ptr(&tp->tx_ring[0]),
+-                        tp->tx_ring[1].NextHwDesCloPtr,
+-                        tp->tx_ring[1].BeginHwDesCloPtr,
+-                        rtl8126_get_hw_clo_ptr(&tp->tx_ring[1]),
+-                        rtl8126_get_sw_tail_ptr(&tp->tx_ring[1]),
+-                        tp->InitRxDescType,
+-                        tp->RxDescLength,
+-                        tp->num_rx_rings,
+-                        tp->num_tx_rings,
+-                        rtl8126_tot_rx_rings(tp),
+-                        rtl8126_tot_tx_rings(tp),
+-                        tp->HwSuppNumRxQueues,
+-                        tp->HwSuppNumTxQueues,
+-                        tp->EnableRss,
+-                        tp->EnablePtp,
+-                        tp->min_irq_nvecs,
+-                        tp->irq_nvecs,
+-                        tp->hw_supp_irq_nvecs,
+-                        tp->ring_lib_enabled,
+-                        tp->HwSuppIsrVer,
+-                        tp->HwCurrIsrVer,
+-                        tp->HwSuppMacMcuVer,
+-                        tp->MacMcuPageSize,
+-                        tp->hw_mcu_patch_code_ver,
+-                        tp->bin_mcu_patch_code_ver,
+-#ifdef ENABLE_PTP_SUPPORT
+-                        tp->tx_hwtstamp_timeouts,
+-                        tp->tx_hwtstamp_skipped,
+-#endif
+-                        tp->random_mac,
+-                        tp->org_mac_addr,
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,13)
+-                        dev->perm_addr,
+-#endif
+-                        dev->dev_addr);
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_tally_counter(char *page, char **start,
+-                                  off_t offset, int count,
+-                                  int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        struct rtl8126_counters *counters;
+-        dma_addr_t paddr;
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump Tally Counter\n");
+-
+-        rtnl_lock();
+-
+-        counters = tp->tally_vaddr;
+-        paddr = tp->tally_paddr;
+-        if (!counters) {
+-                len += snprintf(page + len, count - len,
+-                                "\nDump Tally Counter Fail\n");
+-                goto out_unlock;
+-        }
+-
+-        rtl8126_dump_tally_counter(tp, paddr);
+-
+-        len += snprintf(page + len, count - len,
+-                        "Statistics\tValue\n----------\t-----\n");
+-
+-        len += snprintf(page + len, count - len,
+-                        "tx_packets\t%lld\n"
+-                        "rx_packets\t%lld\n"
+-                        "tx_errors\t%lld\n"
+-                        "rx_errors\t%d\n"
+-                        "rx_missed\t%d\n"
+-                        "align_errors\t%d\n"
+-                        "tx_one_collision\t%d\n"
+-                        "tx_multi_collision\t%d\n"
+-                        "rx_unicast\t%lld\n"
+-                        "rx_broadcast\t%lld\n"
+-                        "rx_multicast\t%d\n"
+-                        "tx_aborted\t%d\n"
+-                        "tx_underrun\t%d\n"
+-
+-                        "tx_octets\t%lld\n"
+-                        "rx_octets\t%lld\n"
+-                        "rx_multicast64\t%lld\n"
+-                        "tx_unicast64\t%lld\n"
+-                        "tx_broadcast64\t%lld\n"
+-                        "tx_multicast64\t%lld\n"
+-                        "tx_pause_on\t%d\n"
+-                        "tx_pause_off\t%d\n"
+-                        "tx_pause_all\t%d\n"
+-                        "tx_deferred\t%d\n"
+-                        "tx_late_collision\t%d\n"
+-                        "tx_all_collision\t%d\n"
+-                        "tx_aborted32\t%d\n"
+-                        "align_errors32\t%d\n"
+-                        "rx_frame_too_long\t%d\n"
+-                        "rx_runt\t%d\n"
+-                        "rx_pause_on\t%d\n"
+-                        "rx_pause_off\t%d\n"
+-                        "rx_pause_all\t%d\n"
+-                        "rx_unknown_opcode\t%d\n"
+-                        "rx_mac_error\t%d\n"
+-                        "tx_underrun32\t%d\n"
+-                        "rx_mac_missed\t%d\n"
+-                        "rx_tcam_dropped\t%d\n"
+-                        "tdu\t%d\n"
+-                        "rdu\t%d\n",
+-                        le64_to_cpu(counters->tx_packets),
+-                        le64_to_cpu(counters->rx_packets),
+-                        le64_to_cpu(counters->tx_errors),
+-                        le32_to_cpu(counters->rx_errors),
+-                        le16_to_cpu(counters->rx_missed),
+-                        le16_to_cpu(counters->align_errors),
+-                        le32_to_cpu(counters->tx_one_collision),
+-                        le32_to_cpu(counters->tx_multi_collision),
+-                        le64_to_cpu(counters->rx_unicast),
+-                        le64_to_cpu(counters->rx_broadcast),
+-                        le32_to_cpu(counters->rx_multicast),
+-                        le16_to_cpu(counters->tx_aborted),
+-                        le16_to_cpu(counters->tx_underrun),
+-
+-                        le64_to_cpu(counters->tx_octets),
+-                        le64_to_cpu(counters->rx_octets),
+-                        le64_to_cpu(counters->rx_multicast64),
+-                        le64_to_cpu(counters->tx_unicast64),
+-                        le64_to_cpu(counters->tx_broadcast64),
+-                        le64_to_cpu(counters->tx_multicast64),
+-                        le32_to_cpu(counters->tx_pause_on),
+-                        le32_to_cpu(counters->tx_pause_off),
+-                        le32_to_cpu(counters->tx_pause_all),
+-                        le32_to_cpu(counters->tx_deferred),
+-                        le32_to_cpu(counters->tx_late_collision),
+-                        le32_to_cpu(counters->tx_all_collision),
+-                        le32_to_cpu(counters->tx_aborted32),
+-                        le32_to_cpu(counters->align_errors32),
+-                        le32_to_cpu(counters->rx_frame_too_long),
+-                        le32_to_cpu(counters->rx_runt),
+-                        le32_to_cpu(counters->rx_pause_on),
+-                        le32_to_cpu(counters->rx_pause_off),
+-                        le32_to_cpu(counters->rx_pause_all),
+-                        le32_to_cpu(counters->rx_unknown_opcode),
+-                        le32_to_cpu(counters->rx_mac_error),
+-                        le32_to_cpu(counters->tx_underrun32),
+-                        le32_to_cpu(counters->rx_mac_missed),
+-                        le32_to_cpu(counters->rx_tcam_dropped),
+-                        le32_to_cpu(counters->tdu),
+-                        le32_to_cpu(counters->rdu));
+-
+-        len += snprintf(page + len, count - len, "\n");
+-out_unlock:
+-        rtnl_unlock();
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_registers(char *page, char **start,
+-                              off_t offset, int count,
+-                              int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        int i, n, max = R8126_MAC_REGS_SIZE;
+-        u8 byte_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        void __iomem *ioaddr = tp->mmio_addr;
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump MAC Registers\n"
+-                        "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%04x:\t",
+-                                n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%02x ",
+-                                        byte_rd);
+-                }
+-        }
+-
+-        max = 0xB00;
+-        for (n = 0xA00; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%04x:\t",
+-                                n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%02x ",
+-                                        byte_rd);
+-                }
+-        }
+-
+-        max = 0xD40;
+-        for (n = 0xD00; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%04x:\t",
+-                                n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%02x ",
+-                                        byte_rd);
+-                }
+-        }
+-
+-        max = 0x2840;
+-        for (n = 0x2800; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%04x:\t",
+-                                n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%02x ",
+-                                        byte_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_all_registers(char *page, char **start,
+-                                  off_t offset, int count,
+-                                  int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        int i, n, max;
+-        u8 byte_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        void __iomem *ioaddr = tp->mmio_addr;
+-        struct pci_dev *pdev = tp->pci_dev;
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump All MAC Registers\n"
+-                        "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        max = pci_resource_len(pdev, 2);
+-
+-        for (n = 0; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%04x:\t",
+-                                n);
+-
+-                for (i = 0; i < 16 && n < max; i++, n++) {
+-                        byte_rd = readb(ioaddr + n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%02x ",
+-                                        byte_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\nTotal length:0x%X", max);
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_pcie_phy(char *page, char **start,
+-                             off_t offset, int count,
+-                             int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        int i, n, max = R8126_EPHY_REGS_SIZE/2;
+-        u16 word_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump PCIE PHY\n"
+-                        "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%02x:\t",
+-                                n);
+-
+-                for (i = 0; i < 8 && n < max; i++, n++) {
+-                        word_rd = rtl8126_ephy_read(tp, n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%04x ",
+-                                        word_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_eth_phy(char *page, char **start,
+-                            off_t offset, int count,
+-                            int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        int i, n, max = R8126_PHY_REGS_SIZE/2;
+-        unsigned long flags;
+-        u16 word_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump Ethernet PHY\n"
+-                        "Offset\tValue\n------\t-----\n");
+-
+-        r8126_spin_lock(&tp->phy_lock, flags);
+-
+-        len += snprintf(page + len, count - len,
+-                        "\n####################page 0##################\n");
+-        rtl8126_mdio_write(tp, 0x1f, 0x0000);
+-        for (n = 0; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%02x:\t",
+-                                n);
+-
+-                for (i = 0; i < 8 && n < max; i++, n++) {
+-                        word_rd = rtl8126_mdio_read(tp, n);
+-                        len += snprintf(page + len, count - len,
+-                                        "%04x ",
+-                                        word_rd);
+-                }
+-        }
+-
+-        len += snprintf(page + len, count - len,
+-                        "\n####################extra reg##################\n");
+-        n = 0xA400;
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%02x:\t",
+-                        n);
+-        for (i = 0; i < 8; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                len += snprintf(page + len, count - len,
+-                                "%04x ",
+-                                word_rd);
+-        }
+-
+-        n = 0xA410;
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%02x:\t",
+-                        n);
+-        for (i = 0; i < 3; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                len += snprintf(page + len, count - len,
+-                                "%04x ",
+-                                word_rd);
+-        }
+-
+-        n = 0xA434;
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%02x:\t",
+-                        n);
+-        word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-        len += snprintf(page + len, count - len,
+-                        "%04x ",
+-                        word_rd);
+-
+-        n = 0xA5D0;
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%02x:\t",
+-                        n);
+-        for (i = 0; i < 4; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                len += snprintf(page + len, count - len,
+-                                "%04x ",
+-                                word_rd);
+-        }
+-
+-        n = 0xA61A;
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%02x:\t",
+-                        n);
+-        word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-        len += snprintf(page + len, count - len,
+-                        "%04x ",
+-                        word_rd);
+-
+-        n = 0xA6D0;
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%02x:\t",
+-                        n);
+-        for (i = 0; i < 3; i++, n+=2) {
+-                word_rd = rtl8126_mdio_direct_read_phy_ocp(tp, n);
+-                len += snprintf(page + len, count - len,
+-                                "%04x ",
+-                                word_rd);
+-        }
+-
+-        r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_extended_registers(char *page, char **start,
+-                                       off_t offset, int count,
+-                                       int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        int i, n, max = R8126_ERI_REGS_SIZE;
+-        u32 dword_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump Extended Registers\n"
+-                        "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%02x:\t",
+-                                n);
+-
+-                for (i = 0; i < 4 && n < max; i++, n+=4) {
+-                        dword_rd = rtl8126_eri_read(tp, n, 4, ERIAR_ExGMAC);
+-                        len += snprintf(page + len, count - len,
+-                                        "%08x ",
+-                                        dword_rd);
+-                }
+-        }
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_pci_registers(char *page, char **start,
+-                                  off_t offset, int count,
+-                                  int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        int i, n, max = R8126_PCI_REGS_SIZE;
+-        u32 dword_rd;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int len = 0;
+-
+-        len += snprintf(page + len, count - len,
+-                        "\nDump PCI Registers\n"
+-                        "Offset\tValue\n------\t-----\n");
+-
+-        rtnl_lock();
+-
+-        for (n = 0; n < max;) {
+-                len += snprintf(page + len, count - len,
+-                                "\n0x%03x:\t",
+-                                n);
+-
+-                for (i = 0; i < 4 && n < max; i++, n+=4) {
+-                        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-                        len += snprintf(page + len, count - len,
+-                                        "%08x ",
+-                                        dword_rd);
+-                }
+-        }
+-
+-        n = 0x110;
+-        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%03x:\t%08x ",
+-                        n,
+-                        dword_rd);
+-        n = 0x70c;
+-        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        len += snprintf(page + len, count - len,
+-                        "\n0x%03x:\t%08x ",
+-                        n,
+-                        dword_rd);
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_temperature(char *page, char **start,
+-                                off_t offset, int count,
+-                                int *eof, void *data)
+-{
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        u16 ts_digout, tj, fah;
+-        unsigned long flags;
+-        int len = 0;
+-
+-        rtnl_lock();
+-
+-        if (!rtl8126_sysfs_testmode_on(tp)) {
+-                len += snprintf(page + len, count - len,
+-                                "\nPlease turn on ""/sys/class/net/<iface>/rtk_adv/testmode"".\n\n");
+-                goto out_unlock;
+-        }
+-
+-        r8126_spin_lock(&tp->phy_lock, flags);
+-        ts_digout = rtl8126_read_thermal_sensor(tp);
+-        r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-        if (ts_digout <= 512) {
+-                tj = ts_digout / 2;
+-                len += snprintf(page + len, count - len,
+-                                "Cel:%d\n",
+-                                tj);
+-                fah = tj * (9/5) + 32;
+-                len += snprintf(page + len, count - len,
+-                                "Fah:%d\n",
+-                                fah);
+-
+-        } else {
+-                tj = (512 - (ts_digout - 512)) / 2;
+-                len += snprintf(page + len, count - len,
+-                                "Cel:-%d\n",
+-                                tj);
+-                fah = tj * (9/5) + 32;
+-                len += snprintf(page + len, count - len,
+-                                "Fah:-%d\n",
+-                                fah);
+-        }
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-out_unlock:
+-        rtnl_unlock();
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int _proc_get_cable_info(char *page, char **start,
+-                                off_t offset, int count,
+-                                int *eof, void *data,
+-                                bool poe_mode)
+-{
+-        int i;
+-        u32 status;
+-        int len = 0;
+-        struct net_device *dev = data;
+-        int cp_status[RTL8126_CP_NUM] = {0};
+-        int cp_len[RTL8126_CP_NUM] = {0};
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        const char *pair_str[RTL8126_CP_NUM] = {"1-2", "3-6", "4-5", "7-8"};
+-        unsigned long flags;
+-
+-        switch (tp->mcfg) {
+-        default:
+-                return -EOPNOTSUPP;
+-        }
+-
+-        rtnl_lock();
+-
+-        if (!rtl8126_sysfs_testmode_on(tp)) {
+-                len += snprintf(page + len, count - len,
+-                                "\nPlease turn on ""/sys/class/net/<iface>/rtk_adv/testmode"".\n\n");
+-                goto out_unlock;
+-        }
+-
+-        status = rtl8126_get_phy_status(tp);
+-        if (status & LinkStatus)
+-                len += snprintf(page + len, count - len,
+-                                "\nlink speed:%d",
+-                                rtl8126_convert_link_speed(status));
+-        else
+-                len += snprintf(page + len, count - len,
+-                                "\nlink status:off");
+-
+-        r8126_spin_lock(&tp->phy_lock, flags);
+-
+-        rtl8126_get_cp_len(tp, cp_len);
+-
+-        rtl8126_get_cp_status(tp, cp_status, poe_mode);
+-
+-        r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-        len += snprintf(page + len, count - len,
+-                        "\npair\tlength\tstatus   \tpp\n");
+-
+-        for (i=0; i<RTL8126_CP_NUM; i++) {
+-                if (cp_len[i] < 0)
+-                        len += snprintf(page + len, count - len,
+-                                        "%s\t%s\t%s\t",
+-                                        pair_str[i], "none",
+-                                        rtl8126_get_cp_status_string(cp_status[i]));
+-                else
+-                        len += snprintf(page + len, count - len,
+-                                        "%s\t%d\t%s\t",
+-                                        pair_str[i], cp_len[i],
+-                                        rtl8126_get_cp_status_string(cp_status[i]));
+-                if (cp_status[i] == rtl8126_cp_normal)
+-                        len += snprintf(page + len, count - len, "none\n");
+-                else
+-                        len += snprintf(page + len, count - len, "%dm\n",
+-                                        rtl8126_get_cp_pp(tp, i));
+-        }
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-out_unlock:
+-        rtnl_unlock();
+-
+-        *eof = 1;
+-        return len;
+-}
+-
+-static int proc_get_cable_info(char *page, char **start,
+-                               off_t offset, int count,
+-                               int *eof, void *data)
+-{
+-        return _proc_get_cable_info(page, start, offset, count, eof, data, 0);
+-}
+-
+-static int proc_get_poe_cable_info(char *page, char **start,
+-                                   off_t offset, int count,
+-                                   int *eof, void *data)
+-{
+-        return _proc_get_cable_info(page, start, offset, count, eof, data, 1);
+-}
+-
+-static void _proc_dump_desc(char *page, int *page_len, int *count, void *desc_base,
+-                            u32 alloc_size)
+-{
+-        u32 *pdword;
+-        int i, len;
+-
+-        if (desc_base == NULL ||
+-            alloc_size == 0)
+-                return;
+-
+-        len = *page_len;
+-        pdword = (u32*)desc_base;
+-        for (i=0; i<(alloc_size/4); i++) {
+-                if (!(i % 4))
+-                        len += snprintf(page + len, *count - len,
+-                                        "\n%04x ",
+-                                        i);
+-                len += snprintf(page + len, *count - len,
+-                                "%08x ",
+-                                pdword[i]);
+-        }
+-
+-        len += snprintf(page + len, *count - len, "\n");
+-
+-        *page_len = len;
+-        return;
+-}
+-
+-static int proc_dump_rx_desc(char *page, char **start,
+-                             off_t offset, int count,
+-                             int *eof, void *data)
+-{
+-        int i;
+-        int len = 0;
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        rtnl_lock();
+-
+-        for (i = 0; i < tp->num_rx_rings; i++) {
+-                struct rtl8126_rx_ring *ring = &tp->rx_ring[i];
+-
+-                if (!ring)
+-                        continue;
+-
+-                len += snprintf(page + len, count - len,
+-                                "\ndump rx %d desc:%d",
+-                                i, ring->num_rx_desc);
+-
+-                _proc_dump_desc(page, &len, &count,
+-                                ring->RxDescArray,
+-                                ring->RxDescAllocSize);
+-        }
+-
+-#ifdef ENABLE_LIB_SUPPORT
+-        if (rtl8126_num_lib_rx_rings(tp) > 0) {
+-                for (i = 0; i < tp->HwSuppNumRxQueues; i++) {
+-                        struct rtl8126_ring *lib_ring = &tp->lib_rx_ring[i];
+-                        if (lib_ring->enabled) {
+-                                len += snprintf(page + len, count - len,
+-                                                "\ndump lib rx %d desc:%d",
+-                                                i,
+-                                                ring->ring_size);
+-                                _proc_dump_desc(page, &len, &count,
+-                                                (void*)lib_ring->desc_addr,
+-                                                lib_ring->desc_size);
+-                        }
+-                }
+-        }
+-#endif //ENABLE_LIB_SUPPORT
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-
+-        return len;
+-}
+-
+-static int proc_dump_tx_desc(char *page, char **start,
+-                             off_t offset, int count,
+-                             int *eof, void *data)
+-{
+-        int len = 0;
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int i;
+-
+-        rtnl_lock();
+-
+-        for (i = 0; i < tp->num_tx_rings; i++) {
+-                struct rtl8126_tx_ring *ring = &tp->tx_ring[i];
+-
+-                if (!ring)
+-                        continue;
+-
+-                len += snprintf(page + len, count - len,
+-                                "\ndump tx desc:%d",
+-                                ring->num_tx_desc);
+-
+-                _proc_dump_desc(page, &len, &count,
+-                                ring->TxDescArray,
+-                                ring->TxDescAllocSize);
+-        }
+-
+-#ifdef ENABLE_LIB_SUPPORT
+-        if (rtl8126_num_lib_tx_rings(tp) > 0) {
+-                for (i = 0; i < tp->HwSuppNumTxQueues; i++) {
+-                        struct rtl8126_ring *lib_ring = &tp->lib_tx_ring[i];
+-                        if (lib_ring->enabled) {
+-                                len += snprintf(page + len, count - len,
+-                                                "\ndump lib tx %d desc:%d",
+-                                                i,
+-                                                ring->ring_size);
+-                                _proc_dump_desc(page, &len, &count,
+-                                                (void*)lib_ring->desc_addr,
+-                                                lib_ring->desc_size);
+-                        }
+-                }
+-        }
+-#endif //ENABLE_LIB_SUPPORT
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-
+-        return len;
+-}
+-
+-static int proc_dump_msix_tbl(char *page, char **start,
+-                              off_t offset, int count,
+-                              int *eof, void *data)
+-{
+-        int i, j;
+-        int len = 0;
+-        void __iomem *ioaddr;
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        /* ioremap MMIO region */
+-        ioaddr = ioremap(pci_resource_start(tp->pci_dev, 4), pci_resource_len(tp->pci_dev, 4));
+-        if (!ioaddr)
+-                return -EFAULT;
+-
+-        rtnl_lock();
+-
+-        len += snprintf(page + len, count - len,
+-                        "\ndump MSI-X Table. Total Entry %d. \n",
+-                        tp->hw_supp_irq_nvecs);
+-
+-        for (i=0; i<tp->hw_supp_irq_nvecs; i++) {
+-                len += snprintf(page + len, count - len,
+-                                "\n%04x ", i);
+-                for (j=0; j<4; j++)
+-                        len += snprintf(page + len, count - len, "%08x ",
+-                                        readl(ioaddr + i*0x10 + 4*j));
+-        }
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return 0;
+-}
+-
+-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-
+-static void rtl8126_proc_module_init(void)
+-{
+-        //create /proc/net/r8126
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+-        rtl8126_proc = proc_mkdir(MODULENAME, init_net.proc_net);
+-#else
+-        rtl8126_proc = proc_mkdir(MODULENAME, proc_net);
+-#endif
+-        if (!rtl8126_proc)
+-                dprintk("cannot create %s proc entry \n", MODULENAME);
+-}
+-
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-/*
+- * seq_file wrappers for procfile show routines.
+- */
+-static int rtl8126_proc_open(struct inode *inode, struct file *file)
+-{
+-        struct net_device *dev = proc_get_parent_data(inode);
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+-        int (*show)(struct seq_file *, void *) = pde_data(inode);
+-#else
+-        int (*show)(struct seq_file *, void *) = PDE_DATA(inode);
+-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+-
+-        return single_open(file, show, dev);
+-}
+-
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+-static const struct proc_ops rtl8126_proc_fops = {
+-        .proc_open           = rtl8126_proc_open,
+-        .proc_read           = seq_read,
+-        .proc_lseek          = seq_lseek,
+-        .proc_release        = single_release,
+-};
+-#else
+-static const struct file_operations rtl8126_proc_fops = {
+-        .open           = rtl8126_proc_open,
+-        .read           = seq_read,
+-        .llseek         = seq_lseek,
+-        .release        = single_release,
+-};
+-#endif
+-
+-#endif
+-
+-/*
+- * Table of proc files we need to create.
+- */
+-struct rtl8126_proc_file {
+-        char name[16];
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-        int (*show)(struct seq_file *, void *);
+-#else
+-        int (*show)(char *, char **, off_t, int, int *, void *);
+-#endif
+-};
+-
+-static const struct rtl8126_proc_file rtl8126_debug_proc_files[] = {
+-        { "driver_var", &proc_get_driver_variable },
+-        { "tally", &proc_get_tally_counter },
+-        { "registers", &proc_get_registers },
+-        { "registers2", &proc_get_all_registers },
+-        { "pcie_phy", &proc_get_pcie_phy },
+-        { "eth_phy", &proc_get_eth_phy },
+-        { "ext_regs", &proc_get_extended_registers },
+-        { "pci_regs", &proc_get_pci_registers },
+-        { "tx_desc", &proc_dump_tx_desc },
+-        { "rx_desc", &proc_dump_rx_desc },
+-        { "msix_tbl", &proc_dump_msix_tbl },
+-        { "", NULL }
+-};
+-
+-static const struct rtl8126_proc_file rtl8126_test_proc_files[] = {
+-        { "temp", &proc_get_temperature },
+-        { "cdt", &proc_get_cable_info },
+-        { "cdt_poe", &proc_get_poe_cable_info },
+-        { "", NULL }
+-};
+-
+-#define R8126_PROC_DEBUG_DIR "debug"
+-#define R8126_PROC_TEST_DIR "test"
+-
+-static void rtl8126_proc_init(struct net_device *dev)
+-{
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        const struct rtl8126_proc_file *f;
+-        struct proc_dir_entry *dir;
+-
+-        if (!rtl8126_proc)
+-                return;
+-
+-        if (tp->proc_dir_debug || tp->proc_dir_test)
+-                return;
+-
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-        dir = proc_mkdir_data(dev->name, 0, rtl8126_proc, dev);
+-        if (!dir) {
+-                printk("Unable to initialize /proc/net/%s/%s\n",
+-                       MODULENAME, dev->name);
+-                return;
+-        }
+-        tp->proc_dir = dir;
+-        proc_init_num++;
+-
+-        /* create debug entry */
+-        dir = proc_mkdir_data(R8126_PROC_DEBUG_DIR, 0, tp->proc_dir, dev);
+-        if (!dir) {
+-                printk("Unable to initialize /proc/net/%s/%s/%s\n",
+-                       MODULENAME, dev->name, R8126_PROC_DEBUG_DIR);
+-                return;
+-        }
+-
+-        tp->proc_dir_debug = dir;
+-        for (f = rtl8126_debug_proc_files; f->name[0]; f++) {
+-                if (!proc_create_data(f->name, S_IFREG | S_IRUGO, dir,
+-                                      &rtl8126_proc_fops, f->show)) {
+-                        printk("Unable to initialize "
+-                               "/proc/net/%s/%s/%s/%s\n",
+-                               MODULENAME, dev->name, R8126_PROC_DEBUG_DIR,
+-                               f->name);
+-                        return;
+-                }
+-        }
+-
+-        /* create test entry */
+-        dir = proc_mkdir_data(R8126_PROC_TEST_DIR, 0, tp->proc_dir, dev);
+-        if (!dir) {
+-                printk("Unable to initialize /proc/net/%s/%s/%s\n",
+-                       MODULENAME, dev->name, R8126_PROC_TEST_DIR);
+-                return;
+-        }
+-
+-        tp->proc_dir_test = dir;
+-        for (f = rtl8126_test_proc_files; f->name[0]; f++) {
+-                if (!proc_create_data(f->name, S_IFREG | S_IRUGO, dir,
+-                                      &rtl8126_proc_fops, f->show)) {
+-                        printk("Unable to initialize "
+-                               "/proc/net/%s/%s/%s/%s\n",
+-                               MODULENAME, dev->name, R8126_PROC_TEST_DIR,
+-                               f->name);
+-                        return;
+-                }
+-        }
+-#else
+-        dir = proc_mkdir(dev->name, rtl8126_proc);
+-        if (!dir) {
+-                printk("Unable to initialize /proc/net/%s/%s\n",
+-                       MODULENAME, dev->name);
+-                return;
+-        }
+-
+-        tp->proc_dir = dir;
+-        proc_init_num++;
+-
+-        /* create debug entry */
+-        dir = proc_mkdir(R8126_PROC_DEBUG_DIR, tp->proc_dir);
+-        if (!dir) {
+-                printk("Unable to initialize /proc/net/%s/%s/%s\n",
+-                       MODULENAME, dev->name, R8126_PROC_DEBUG_DIR);
+-                return;
+-        }
+-
+-        tp->proc_dir_debug = dir;
+-        for (f = rtl8126_debug_proc_files; f->name[0]; f++) {
+-                if (!create_proc_read_entry(f->name, S_IFREG | S_IRUGO,
+-                                            dir, f->show, dev)) {
+-                        printk("Unable to initialize "
+-                               "/proc/net/%s/%s/%s/%s\n",
+-                               MODULENAME, dev->name, R8126_PROC_DEBUG_DIR,
+-                               f->name);
+-                        return;
+-                }
+-        }
+-
+-        /* create test entry */
+-        dir = proc_mkdir(R8126_PROC_TEST_DIR, tp->proc_dir);
+-        if (!dir) {
+-                printk("Unable to initialize /proc/net/%s/%s/%s\n",
+-                       MODULENAME, dev->name, R8126_PROC_TEST_DIR);
+-                return;
+-        }
+-
+-        tp->proc_dir_test = dir;
+-        for (f = rtl8126_test_proc_files; f->name[0]; f++) {
+-                if (!create_proc_read_entry(f->name, S_IFREG | S_IRUGO,
+-                                            dir, f->show, dev)) {
+-                        printk("Unable to initialize "
+-                               "/proc/net/%s/%s/%s/%s\n",
+-                               MODULENAME, dev->name, R8126_PROC_TEST_DIR,
+-                               f->name);
+-                        return;
+-                }
+-        }
+-#endif
+-}
+-
+-static void rtl8126_proc_remove(struct net_device *dev)
+-{
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        if (tp->proc_dir) {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-                remove_proc_subtree(dev->name, rtl8126_proc);
+-#else
+-                const struct rtl8126_proc_file *f;
+-                struct rtl8126_private *tp = netdev_priv(dev);
+-
+-                if (tp->proc_dir_debug) {
+-                        for (f = rtl8126_debug_proc_files; f->name[0]; f++)
+-                                remove_proc_entry(f->name, tp->proc_dir_debug);
+-                        remove_proc_entry(R8126_PROC_DEBUG_DIR, tp->proc_dir);
+-                }
+-
+-                if (tp->proc_dir_test) {
+-                        for (f = rtl8126_test_proc_files; f->name[0]; f++)
+-                                remove_proc_entry(f->name, tp->proc_dir_test);
+-                        remove_proc_entry(R8126_PROC_TEST_DIR, tp->proc_dir);
+-                }
+-
+-                remove_proc_entry(dev->name, rtl8126_proc);
+-#endif
+-                proc_init_num--;
+-
+-                tp->proc_dir_debug = NULL;
+-                tp->proc_dir_test = NULL;
+-                tp->proc_dir = NULL;
+-        }
+-}
+-
+-#endif //ENABLE_R8126_PROCFS
+-
+-#ifdef ENABLE_R8126_SYSFS
+-/****************************************************************************
+-*   -----------------------------SYSFS STUFF-------------------------
+-*****************************************************************************
+-*/
+-static ssize_t testmode_show(struct device *dev,
+-                             struct device_attribute *attr, char *buf)
+-{
+-        struct net_device *netdev = to_net_dev(dev);
+-        struct rtl8126_private *tp = netdev_priv(netdev);
+-
+-        sprintf(buf, "%u\n", tp->testmode);
+-
+-        return strlen(buf);
+-}
+-
+-static ssize_t testmode_store(struct device *dev,
+-                              struct device_attribute *attr,
+-                              const char *buf, size_t count)
+-{
+-        struct net_device *netdev = to_net_dev(dev);
+-        struct rtl8126_private *tp = netdev_priv(netdev);
+-        u32 testmode;
+-
+-        if (sscanf(buf, "%u\n", &testmode) != 1)
+-                return -EINVAL;
+-
+-        if (tp->testmode != testmode) {
+-                rtnl_lock();
+-                tp->testmode = testmode;
+-                rtnl_unlock();
+-        }
+-
+-        return count;
+-}
+-
+-static DEVICE_ATTR_RW(testmode);
+-
+-static struct attribute *rtk_adv_attrs[] = {
+-        &dev_attr_testmode.attr,
+-        NULL
+-};
+-
+-static struct attribute_group rtk_adv_grp = {
+-        .name = "rtl_adv",
+-        .attrs = rtk_adv_attrs,
+-};
+-
+-static void rtl8126_sysfs_init(struct net_device *dev)
+-{
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-        int ret;
+-
+-        /* init rtl_adv */
+-#ifdef ENABLE_LIB_SUPPORT
+-        tp->testmode = 0;
+-#else
+-        tp->testmode = 1;
+-#endif //ENABLE_LIB_SUPPORT
+-
+-        ret = sysfs_create_group(&dev->dev.kobj, &rtk_adv_grp);
+-        if (ret < 0)
+-                netif_warn(tp, probe, dev, "create rtk_adv_grp fail\n");
+-        else
+-                set_bit(R8126_SYSFS_RTL_ADV, tp->sysfs_flag);
+-}
+-
+-static void rtl8126_sysfs_remove(struct net_device *dev)
+-{
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        if (test_and_clear_bit(R8126_SYSFS_RTL_ADV, tp->sysfs_flag))
+-                sysfs_remove_group(&dev->dev.kobj, &rtk_adv_grp);
+-}
+-#endif //ENABLE_R8126_SYSFS
+-
+ static inline u16 map_phy_ocp_addr(u16 PageNum, u8 RegNum)
+ {
+         u16 OcpPageNum = 0;
+@@ -3106,9 +774,6 @@ void rtl8126_mdio_direct_write_phy_ocp(struct rtl8126_private *tp,
+                                        u16 RegAddr,
+                                        u16 value)
+ {
+-        if (tp->rtk_enable_diag)
+-                return;
+-
+         mdio_real_direct_write_phy_ocp(tp, RegAddr, value);
+ }
+ 
+@@ -3153,26 +818,9 @@ void rtl8126_mdio_write(struct rtl8126_private *tp,
+                         u16 RegAddr,
+                         u16 value)
+ {
+-        if (tp->rtk_enable_diag)
+-                return;
+-
+         mdio_real_write(tp, RegAddr, value);
+ }
+ 
+-void rtl8126_mdio_prot_write(struct rtl8126_private *tp,
+-                             u32 RegAddr,
+-                             u32 value)
+-{
+-        mdio_real_write(tp, RegAddr, value);
+-}
+-
+-void rtl8126_mdio_prot_direct_write_phy_ocp(struct rtl8126_private *tp,
+-                u32 RegAddr,
+-                u32 value)
+-{
+-        mdio_real_direct_write_phy_ocp(tp, RegAddr, value);
+-}
+-
+ static u32 mdio_real_direct_read_phy_ocp(struct rtl8126_private *tp,
+                 u16 RegAddr)
+ {
+@@ -3200,9 +848,6 @@ static u32 mdio_real_direct_read_phy_ocp(struct rtl8126_private *tp,
+ u32 rtl8126_mdio_direct_read_phy_ocp(struct rtl8126_private *tp,
+                                      u16 RegAddr)
+ {
+-        if (tp->rtk_enable_diag)
+-                return 0xffffffff;
+-
+         return mdio_real_direct_read_phy_ocp(tp, RegAddr);
+ }
+ 
+@@ -3239,24 +884,9 @@ static u32 mdio_real_read(struct rtl8126_private *tp,
+ u32 rtl8126_mdio_read(struct rtl8126_private *tp,
+                       u16 RegAddr)
+ {
+-        if (tp->rtk_enable_diag)
+-                return 0xffffffff;
+-
+         return mdio_real_read(tp, RegAddr);
+ }
+ 
+-u32 rtl8126_mdio_prot_read(struct rtl8126_private *tp,
+-                           u32 RegAddr)
+-{
+-        return mdio_real_read(tp, RegAddr);
+-}
+-
+-u32 rtl8126_mdio_prot_direct_read_phy_ocp(struct rtl8126_private *tp,
+-                u32 RegAddr)
+-{
+-        return mdio_real_direct_read_phy_ocp(tp, RegAddr);
+-}
+-
+ static void rtl8126_clear_and_set_eth_phy_bit(struct rtl8126_private *tp, u8  addr, u16 clearmask, u16 setmask)
+ {
+         u16 PhyRegValue;
+@@ -6461,9 +4091,6 @@ static int rtl_nway_reset(struct net_device *dev)
+         struct rtl8126_private *tp = netdev_priv(dev);
+         int ret, bmcr;
+ 
+-        if (unlikely(tp->rtk_enable_diag))
+-                return -EBUSY;
+-
+         /* if autoneg is off, it's an error */
+         rtl8126_mdio_write(tp, 0x1F, 0x0000);
+         bmcr = rtl8126_mdio_read(tp, MII_BMCR);
+@@ -6552,9 +4179,6 @@ rtl_ethtool_get_eee(struct net_device *net, struct ethtool_keee *edata)
+         u32 tx_lpi_timer;
+         u16 val;
+ 
+-        if (unlikely(tp->rtk_enable_diag))
+-                return -EBUSY;
+-
+         r8126_spin_lock(&tp->phy_lock, flags);
+ 
+         /* Get LP advertisement EEE */
+@@ -6599,12 +4223,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_keee *edata)
+                 goto out;
+         }
+ 
+-        if (unlikely(tp->rtk_enable_diag)) {
+-                dev_printk(KERN_WARNING, tp_to_dev(tp), "Diag Enabled\n");
+-                rc = -EBUSY;
+-                goto out;
+-        }
+-
+         if (tp->autoneg != AUTONEG_ENABLE) {
+                 dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE requires autoneg\n");
+                 rc = -EINVAL;
+@@ -6668,9 +4286,6 @@ rtl_ethtool_get_eee(struct net_device *net, struct ethtool_eee *edata)
+         unsigned long flags;
+         u16 val;
+ 
+-        if (unlikely(tp->rtk_enable_diag))
+-                return -EBUSY;
+-
+         r8126_spin_lock(&tp->phy_lock, flags);
+ 
+         /* Get Supported EEE */
+@@ -6723,12 +4338,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
+                 goto out;
+         }
+ 
+-        if (unlikely(tp->rtk_enable_diag)) {
+-                dev_printk(KERN_WARNING, tp_to_dev(tp), "Diag Enabled\n");
+-                rc = -EBUSY;
+-                goto out;
+-        }
+-
+         if (tp->autoneg != AUTONEG_ENABLE) {
+                 dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE requires autoneg\n");
+                 rc = -EINVAL;
+@@ -12726,7 +10335,6 @@ static int ethtool_ioctl(struct ifreq *ifr)
+ static int rtl8126_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
+                                   void __user *data, int cmd)
+ {
+-        struct rtl8126_private *tp = netdev_priv(dev);
+         int ret = 0;
+ 
+         switch (cmd) {
+@@ -12741,17 +10349,6 @@ static int rtl8126_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
+                 break;
+ #endif
+ 
+-#ifdef CONFIG_R8126_UNSAFE_DIAGNOSTICS
+-        case SIOCRTLTOOL:
+-                if (!capable(CAP_SYS_RAWIO)) {
+-                        ret = -EPERM;
+-                        break;
+-                }
+-
+-                ret = rtl8126_tool_ioctl(tp, ifr);
+-                break;
+-#endif
+-
+         default:
+                 ret = -EOPNOTSUPP;
+         }
+@@ -12818,16 +10415,6 @@ rtl8126_do_ioctl(struct net_device *dev,
+                 break;
+ #endif
+ 
+-#ifdef CONFIG_R8126_UNSAFE_DIAGNOSTICS
+-        case SIOCRTLTOOL:
+-                if (!capable(CAP_SYS_RAWIO)) {
+-                        ret = -EPERM;
+-                        break;
+-                }
+-
+-                ret = rtl8126_tool_ioctl(tp, ifr);
+-                break;
+-#endif
+ #endif //LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
+ 
+         default:
+@@ -13062,9 +10649,6 @@ rtl8126_esd_checker(struct rtl8126_private *tp)
+         u32 pci_sn_l;
+         u32 pci_sn_h;
+ 
+-        if (unlikely(tp->rtk_enable_diag))
+-                goto exit;
+-
+         tp->esd_flag = 0;
+ 
+         pci_read_config_byte(pdev, PCI_COMMAND, &cmd);
+@@ -13875,20 +11459,12 @@ rtl8126_init_one(struct pci_dev *pdev,
+         if (rc)
+                 goto err_out;
+ 
+-        printk(KERN_INFO "%s: This product is covered by one or more of the following patents: US6,570,884, US6,115,776, and US6,327,625.\n", MODULENAME);
+-
+         rtl8126_disable_rxdvgate(dev);
+ 
+         device_set_wakeup_enable(&pdev->dev, tp->wol_enabled);
+ 
+         netif_carrier_off(dev);
+ 
+-#ifdef ENABLE_R8126_SYSFS
+-        rtl8126_sysfs_init(dev);
+-#endif /* ENABLE_R8126_SYSFS */
+-
+-        printk("%s", GPL_CLAIM);
+-
+ out:
+         return rc;
+ 
+@@ -13925,18 +11501,11 @@ rtl8126_remove_one(struct pci_dev *pdev)
+ 
+         rtl8126_disable_pci_offset_180(tp);
+ 
+-#ifdef ENABLE_R8126_SYSFS
+-        rtl8126_sysfs_remove(dev);
+-#endif //ENABLE_R8126_SYSFS
+-
+         unregister_netdev(dev);
+ #ifdef  CONFIG_R8126_NAPI
+         rtl8126_del_napi(tp);
+ #endif
+         rtl8126_disable_msi(pdev, tp);
+-#ifdef ENABLE_R8126_PROCFS
+-        rtl8126_proc_remove(dev);
+-#endif
+         if (tp->tally_vaddr != NULL) {
+                 dma_free_coherent(&pdev->dev, sizeof(*tp->tally_vaddr), tp->tally_vaddr, tp->tally_paddr);
+                 tp->tally_vaddr = NULL;
+@@ -14238,9 +11807,6 @@ int rtl8126_open(struct net_device *dev)
+ 
+         retval = -ENOMEM;
+ 
+-#ifdef ENABLE_R8126_PROCFS
+-        rtl8126_proc_init(dev);
+-#endif
+         rtl8126_set_rxbufsize(tp, dev);
+         /*
+          * Rx and Tx descriptors needs 256 bytes alignment.
+@@ -17266,9 +14832,6 @@ static int __init
+ rtl8126_init_module(void)
+ {
+         int ret = 0;
+-#ifdef ENABLE_R8126_PROCFS
+-        rtl8126_proc_module_init();
+-#endif
+ 
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+ 
+@@ -17284,21 +14847,6 @@ static void __exit
+ rtl8126_cleanup_module(void)
+ {
+         pci_unregister_driver(&rtl8126_pci_driver);
+-
+-#ifdef ENABLE_R8126_PROCFS
+-        if (rtl8126_proc) {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-                remove_proc_subtree(MODULENAME, init_net.proc_net);
+-#else
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+-                remove_proc_entry(MODULENAME, init_net.proc_net);
+-#else
+-                remove_proc_entry(MODULENAME, proc_net);
+-#endif  //LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+-#endif  //LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-                rtl8126_proc = NULL;
+-        }
+-#endif
+ }
+ 
+ module_init(rtl8126_init_module);
+diff --git a/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c
+--- a/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c
++++ b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c
+@@ -93,26 +93,6 @@ void rtl8126_eeprom_cleanup(struct rtl8126_private *tp)
+         rtl8126_lower_clock(tp, &x);
+ }
+ 
+-static int rtl8126_eeprom_cmd_done(struct rtl8126_private *tp)
+-{
+-        u8 x;
+-        int i;
+-
+-        rtl8126_stand_by(tp);
+-
+-        for (i = 0; i < 50000; i++) {
+-                x = RTL_R8(tp, Cfg9346);
+-
+-                if (x & Cfg9346_EEDO) {
+-                        udelay(RTL_CLOCK_RATE * 2 * 3);
+-                        return 0;
+-                }
+-                udelay(1);
+-        }
+-
+-        return -1;
+-}
+-
+ //-------------------------------------------------------------------
+ //rtl8126_eeprom_read_sc():
+ //  read one word from eeprom
+@@ -146,54 +126,6 @@ u16 rtl8126_eeprom_read_sc(struct rtl8126_private *tp, u16 reg)
+         return data;
+ }
+ 
+-//-------------------------------------------------------------------
+-//rtl8126_eeprom_write_sc():
+-//  write one word to a specific address in the eeprom
+-//-------------------------------------------------------------------
+-void rtl8126_eeprom_write_sc(struct rtl8126_private *tp, u16 reg, u16 data)
+-{
+-        u8 x;
+-        int addr_sz = 6;
+-        int w_dummy_addr = 4;
+-
+-        if(tp->eeprom_type == EEPROM_TYPE_NONE)
+-                return;
+-
+-        if (tp->eeprom_type==EEPROM_TYPE_93C46) {
+-                addr_sz = 6;
+-                w_dummy_addr = 4;
+-        } else if (tp->eeprom_type==EEPROM_TYPE_93C56) {
+-                addr_sz = 8;
+-                w_dummy_addr = 6;
+-        }
+-
+-        x = Cfg9346_EEM1 | Cfg9346_EECS;
+-        RTL_W8(tp, Cfg9346, x);
+-
+-        rtl8126_shift_out_bits(tp, RTL_EEPROM_EWEN_OPCODE, 5);
+-        rtl8126_shift_out_bits(tp, reg, w_dummy_addr);
+-        rtl8126_stand_by(tp);
+-
+-        rtl8126_shift_out_bits(tp, RTL_EEPROM_ERASE_OPCODE, 3);
+-        rtl8126_shift_out_bits(tp, reg, addr_sz);
+-        if (rtl8126_eeprom_cmd_done(tp) < 0)
+-                return;
+-        rtl8126_stand_by(tp);
+-
+-        rtl8126_shift_out_bits(tp, RTL_EEPROM_WRITE_OPCODE, 3);
+-        rtl8126_shift_out_bits(tp, reg, addr_sz);
+-        rtl8126_shift_out_bits(tp, data, 16);
+-        if (rtl8126_eeprom_cmd_done(tp) < 0)
+-                return;
+-        rtl8126_stand_by(tp);
+-
+-        rtl8126_shift_out_bits(tp, RTL_EEPROM_EWDS_OPCODE, 5);
+-        rtl8126_shift_out_bits(tp, reg, w_dummy_addr);
+-
+-        rtl8126_eeprom_cleanup(tp);
+-        RTL_W8(tp, Cfg9346, 0);
+-}
+-
+ void rtl8126_raise_clock(struct rtl8126_private *tp, u8 *x)
+ {
+         *x = *x | Cfg9346_EESK;
+diff --git a/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h
+--- a/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h
++++ b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h
+@@ -37,17 +37,12 @@
+ 
+ //EEPROM opcodes
+ #define RTL_EEPROM_READ_OPCODE      06
+-#define RTL_EEPROM_WRITE_OPCODE     05
+-#define RTL_EEPROM_ERASE_OPCODE     07
+-#define RTL_EEPROM_EWEN_OPCODE      19
+-#define RTL_EEPROM_EWDS_OPCODE      16
+ 
+ #define RTL_CLOCK_RATE  3
+ 
+ void rtl8126_eeprom_type(struct rtl8126_private *tp);
+ void rtl8126_eeprom_cleanup(struct rtl8126_private *tp);
+ u16 rtl8126_eeprom_read_sc(struct rtl8126_private *tp, u16 reg);
+-void rtl8126_eeprom_write_sc(struct rtl8126_private *tp, u16 reg, u16 data);
+ void rtl8126_shift_out_bits(struct rtl8126_private *tp, int data, int count);
+ u16 rtl8126_shift_in_bits(struct rtl8126_private *tp);
+ void rtl8126_raise_clock(struct rtl8126_private *tp, u8 *x);
+diff --git a/drivers/net/ethernet/realtek/r8126/rtltool.c b/drivers/net/ethernet/realtek/r8126/rtltool.c
+deleted file mode 100644
+--- a/drivers/net/ethernet/realtek/r8126/rtltool.c
++++ /dev/null
+@@ -1,293 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0-only
+-/*
+-################################################################################
+-#
+-# r8126 is the Linux device driver released for Realtek 5 Gigabit Ethernet
+-# controllers with PCI-Express interface.
+-#
+-# Copyright(c) 2025 Realtek Semiconductor Corp. All rights reserved.
+-#
+-# This program is free software; you can redistribute it and/or modify it
+-# under the terms of the GNU General Public License as published by the Free
+-# Software Foundation; either version 2 of the License, or (at your option)
+-# any later version.
+-#
+-# This program is distributed in the hope that it will be useful, but WITHOUT
+-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-# more details.
+-#
+-# You should have received a copy of the GNU General Public License along with
+-# this program; if not, see <http://www.gnu.org/licenses/>.
+-#
+-# Author:
+-# Realtek NIC software team <nicfae@realtek.com>
+-# No. 2, Innovation Road II, Hsinchu Science Park, Hsinchu 300, Taiwan
+-#
+-################################################################################
+-*/
+-
+-/************************************************************************************
+- *  This product is covered by one or more of the following patents:
+- *  US6,570,884, US6,115,776, and US6,327,625.
+- ***********************************************************************************/
+-
+-#include <linux/module.h>
+-#include <linux/version.h>
+-#include <linux/pci.h>
+-#include <linux/netdevice.h>
+-#include <linux/delay.h>
+-#include <linux/in.h>
+-#include <linux/ethtool.h>
+-#include <asm/uaccess.h>
+-#include "r8126.h"
+-#include "rtl_eeprom.h"
+-#include "rtltool.h"
+-
+-int rtl8126_tool_ioctl(struct rtl8126_private *tp, struct ifreq *ifr)
+-{
+-        struct rtltool_cmd my_cmd;
+-        unsigned long flags;
+-        int ret;
+-
+-        if (copy_from_user(&my_cmd, ifr->ifr_data, sizeof(my_cmd)))
+-                return -EFAULT;
+-
+-        ret = 0;
+-        switch (my_cmd.cmd) {
+-        case RTLTOOL_READ_MAC:
+-                if ((my_cmd.offset + my_cmd.len) > pci_resource_len(tp->pci_dev, 2)) {
+-                        ret = -EINVAL;
+-                        break;
+-                }
+-
+-                if (my_cmd.len==1)
+-                        my_cmd.data = readb(tp->mmio_addr+my_cmd.offset);
+-                else if (my_cmd.len==2)
+-                        my_cmd.data = readw(tp->mmio_addr+(my_cmd.offset&~1));
+-                else if (my_cmd.len==4)
+-                        my_cmd.data = readl(tp->mmio_addr+(my_cmd.offset&~3));
+-                else {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-                break;
+-
+-        case RTLTOOL_WRITE_MAC:
+-                if ((my_cmd.offset + my_cmd.len) > pci_resource_len(tp->pci_dev, 2)) {
+-                        ret = -EINVAL;
+-                        break;
+-                }
+-
+-                if (my_cmd.len==1)
+-                        writeb(my_cmd.data, tp->mmio_addr+my_cmd.offset);
+-                else if (my_cmd.len==2)
+-                        writew(my_cmd.data, tp->mmio_addr+(my_cmd.offset&~1));
+-                else if (my_cmd.len==4)
+-                        writel(my_cmd.data, tp->mmio_addr+(my_cmd.offset&~3));
+-                else {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTLTOOL_READ_PHY:
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                my_cmd.data = rtl8126_mdio_prot_read(tp, my_cmd.offset);
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTLTOOL_WRITE_PHY:
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                rtl8126_mdio_prot_write(tp, my_cmd.offset, my_cmd.data);
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                break;
+-
+-        case RTLTOOL_READ_EPHY:
+-                my_cmd.data = rtl8126_ephy_read(tp, my_cmd.offset);
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTLTOOL_WRITE_EPHY:
+-                rtl8126_ephy_write(tp, my_cmd.offset, my_cmd.data);
+-                break;
+-
+-        case RTLTOOL_READ_ERI:
+-                my_cmd.data = 0;
+-                if (my_cmd.len==1 || my_cmd.len==2 || my_cmd.len==4) {
+-                        my_cmd.data = rtl8126_eri_read(tp, my_cmd.offset, my_cmd.len, ERIAR_ExGMAC);
+-                } else {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTLTOOL_WRITE_ERI:
+-                if (my_cmd.len==1 || my_cmd.len==2 || my_cmd.len==4) {
+-                        rtl8126_eri_write(tp, my_cmd.offset, my_cmd.len, my_cmd.data, ERIAR_ExGMAC);
+-                } else {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-                break;
+-
+-        case RTLTOOL_READ_PCI:
+-                my_cmd.data = 0;
+-                if (my_cmd.len==1)
+-                        pci_read_config_byte(tp->pci_dev, my_cmd.offset,
+-                                             (u8 *)&my_cmd.data);
+-                else if (my_cmd.len==2)
+-                        pci_read_config_word(tp->pci_dev, my_cmd.offset,
+-                                             (u16 *)&my_cmd.data);
+-                else if (my_cmd.len==4)
+-                        pci_read_config_dword(tp->pci_dev, my_cmd.offset,
+-                                              &my_cmd.data);
+-                else {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-                break;
+-
+-        case RTLTOOL_WRITE_PCI:
+-                if (my_cmd.len==1)
+-                        pci_write_config_byte(tp->pci_dev, my_cmd.offset,
+-                                              my_cmd.data);
+-                else if (my_cmd.len==2)
+-                        pci_write_config_word(tp->pci_dev, my_cmd.offset,
+-                                              my_cmd.data);
+-                else if (my_cmd.len==4)
+-                        pci_write_config_dword(tp->pci_dev, my_cmd.offset,
+-                                               my_cmd.data);
+-                else {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTLTOOL_READ_EEPROM:
+-                my_cmd.data = rtl8126_eeprom_read_sc(tp, my_cmd.offset);
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTLTOOL_WRITE_EEPROM:
+-                rtl8126_eeprom_write_sc(tp, my_cmd.offset, my_cmd.data);
+-                break;
+-
+-        case RTL_ENABLE_PCI_DIAG:
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                tp->rtk_enable_diag = 1;
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-                dprintk("enable rtk diag\n");
+-                break;
+-
+-        case RTL_DISABLE_PCI_DIAG:
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                tp->rtk_enable_diag = 0;
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-
+-                dprintk("disable rtk diag\n");
+-                break;
+-
+-        case RTL_READ_MAC_OCP:
+-                if (my_cmd.offset % 2)
+-                        return -EOPNOTSUPP;
+-
+-                my_cmd.data = rtl8126_mac_ocp_read(tp, my_cmd.offset);
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-                break;
+-
+-        case RTL_WRITE_MAC_OCP:
+-                if ((my_cmd.offset % 2) || (my_cmd.len != 2))
+-                        return -EOPNOTSUPP;
+-
+-                rtl8126_mac_ocp_write(tp, my_cmd.offset, (u16)my_cmd.data);
+-                break;
+-
+-        case RTL_DIRECT_READ_PHY_OCP:
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                my_cmd.data = rtl8126_mdio_prot_direct_read_phy_ocp(tp, my_cmd.offset);
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTL_DIRECT_WRITE_PHY_OCP:
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                rtl8126_mdio_prot_direct_write_phy_ocp(tp, my_cmd.offset, my_cmd.data);
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                break;
+-
+-#ifdef ENABLE_FIBER_SUPPORT
+-        case RTL_READ_FIBER_PHY:
+-                if (!HW_FIBER_STATUS_CONNECTED(tp)) {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                my_cmd.data = rtl8126_fiber_mdio_read(tp, my_cmd.offset);
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                if (copy_to_user(ifr->ifr_data, &my_cmd, sizeof(my_cmd))) {
+-                        ret = -EFAULT;
+-                        break;
+-                }
+-
+-                break;
+-
+-        case RTL_WRITE_FIBER_PHY:
+-                if (!HW_FIBER_STATUS_CONNECTED(tp)) {
+-                        ret = -EOPNOTSUPP;
+-                        break;
+-                }
+-
+-                r8126_spin_lock(&tp->phy_lock, flags);
+-                rtl8126_fiber_mdio_write(tp, my_cmd.offset, my_cmd.data);
+-                r8126_spin_unlock(&tp->phy_lock, flags);
+-                break;
+-#endif /* ENABLE_FIBER_SUPPORT */
+-
+-        default:
+-                ret = -EOPNOTSUPP;
+-                break;
+-        }
+-
+-        return ret;
+-}
+diff --git a/drivers/net/ethernet/realtek/r8126/rtltool.h b/drivers/net/ethernet/realtek/r8126/rtltool.h
+deleted file mode 100644
+--- a/drivers/net/ethernet/realtek/r8126/rtltool.h
++++ /dev/null
+@@ -1,89 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0-only */
+-/*
+-################################################################################
+-#
+-# r8126 is the Linux device driver released for Realtek 5 Gigabit Ethernet
+-# controllers with PCI-Express interface.
+-#
+-# Copyright(c) 2025 Realtek Semiconductor Corp. All rights reserved.
+-#
+-# This program is free software; you can redistribute it and/or modify it
+-# under the terms of the GNU General Public License as published by the Free
+-# Software Foundation; either version 2 of the License, or (at your option)
+-# any later version.
+-#
+-# This program is distributed in the hope that it will be useful, but WITHOUT
+-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+-# more details.
+-#
+-# You should have received a copy of the GNU General Public License along with
+-# this program; if not, see <http://www.gnu.org/licenses/>.
+-#
+-# Author:
+-# Realtek NIC software team <nicfae@realtek.com>
+-# No. 2, Innovation Road II, Hsinchu Science Park, Hsinchu 300, Taiwan
+-#
+-################################################################################
+-*/
+-
+-/************************************************************************************
+- *  This product is covered by one or more of the following patents:
+- *  US6,570,884, US6,115,776, and US6,327,625.
+- ***********************************************************************************/
+-
+-#ifndef _LINUX_RTLTOOL_H
+-#define _LINUX_RTLTOOL_H
+-
+-#define SIOCRTLTOOL		SIOCDEVPRIVATE+1
+-
+-enum rtl_cmd {
+-        RTLTOOL_READ_MAC=0,
+-        RTLTOOL_WRITE_MAC,
+-        RTLTOOL_READ_PHY,
+-        RTLTOOL_WRITE_PHY,
+-        RTLTOOL_READ_EPHY,
+-        RTLTOOL_WRITE_EPHY,
+-        RTLTOOL_READ_ERI,
+-        RTLTOOL_WRITE_ERI,
+-        RTLTOOL_READ_PCI,
+-        RTLTOOL_WRITE_PCI,
+-        RTLTOOL_READ_EEPROM,
+-        RTLTOOL_WRITE_EEPROM,
+-
+-        RTL_READ_OOB_MAC,
+-        RTL_WRITE_OOB_MAC,
+-
+-        RTL_ENABLE_PCI_DIAG,
+-        RTL_DISABLE_PCI_DIAG,
+-
+-        RTL_READ_MAC_OCP,
+-        RTL_WRITE_MAC_OCP,
+-
+-        RTL_DIRECT_READ_PHY_OCP,
+-        RTL_DIRECT_WRITE_PHY_OCP,
+-
+-        RTL_READ_FIBER_PHY,
+-        RTL_WRITE_FIBER_PHY,
+-
+-        RTLTOOL_INVALID
+-};
+-
+-struct rtltool_cmd {
+-        __u32	cmd;
+-        __u32	offset;
+-        __u32	len;
+-        __u32	data;
+-};
+-
+-enum mode_access {
+-        MODE_NONE=0,
+-        MODE_READ,
+-        MODE_WRITE
+-};
+-
+-#ifdef __KERNEL__
+-int rtl8126_tool_ioctl(struct rtl8126_private *tp, struct ifreq *ifr);
+-#endif
+-
+-#endif /* _LINUX_RTLTOOL_H */

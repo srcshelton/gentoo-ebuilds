@@ -1,0 +1,1962 @@
+diff --git a/drivers/acpi/processor_thermal.c b/drivers/acpi/processor_thermal.c
+--- a/drivers/acpi/processor_thermal.c
++++ b/drivers/acpi/processor_thermal.c
+@@ -12,11 +12,19 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
++#include <linux/cpu.h>
+ #include <linux/cpufreq.h>
++#include <linux/sched/topology.h>
+ #include <linux/acpi.h>
+ #include <acpi/processor.h>
++#include <acpi/cppc_acpi.h>
+ #include <linux/uaccess.h>
+ 
++#ifdef CONFIG_CIX_THERMAL
++#include <asm/cputype.h>
++#include <asm/smp.h>
++#endif
++
+ #include "internal.h"
+ 
+ #ifdef CONFIG_CPU_FREQ
+@@ -41,6 +49,48 @@ static int cpufreq_thermal_reduction_pctg __read_mostly = 20;
+ 
+ static DEFINE_PER_CPU(unsigned int, cpufreq_thermal_reduction_step);
+ 
++#ifdef CONFIG_CIX_THERMAL
++#define reduction_step(cpu) \
++	per_cpu(cpufreq_thermal_reduction_step, cpu)
++
++struct cix_thermal_actor_cache {
++	cpumask_t related_cpus;
++	cpumask_t static_power_cpus;
++	cpumask_t dynamic_power_cpus;
++	cpumask_t policy_load_cpus;
++	u32 static_power;
++	u32 dynamic_power;
++	u32 policy_load;
++	u32 power_mw[CIX_CPPC_THERMAL_MAX_OPPS];
++	unsigned int min_freq;
++	unsigned int max_freq;
++	unsigned int shared_type;
++	unsigned int opp_count;
++	unsigned int freq_khz[CIX_CPPC_THERMAL_MAX_OPPS];
++	bool static_power_valid;
++	bool dynamic_power_valid;
++	bool policy_load_valid;
++	bool frequency_model_valid;
++	bool degraded;
++	bool active;
++};
++
++static DEFINE_PER_CPU(unsigned int, cix_thermal_max_state);
++static DEFINE_PER_CPU(struct cix_thermal_actor_cache, cix_thermal_cache);
++static DEFINE_SPINLOCK(cix_thermal_cache_lock);
++/* Serialize the request lifetime without taking a CPU hotplug lock. */
++static DEFINE_MUTEX(cix_thermal_qos_lock);
++
++static void cix_thermal_actor_snapshot(unsigned int cpu,
++				       struct cix_thermal_actor_cache *model)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	*model = per_cpu(cix_thermal_cache, cpu);
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++}
++#else
+ #define reduction_step(cpu) \
+ 	per_cpu(cpufreq_thermal_reduction_step, phys_package_first_cpu(cpu))
+ 
+@@ -61,15 +111,27 @@ static int phys_package_first_cpu(int cpu)
+ 			return i;
+ 	return 0;
+ }
++#endif
+ 
+ static bool cpu_has_cpufreq(unsigned int cpu)
+ {
+ 	if (!acpi_processor_cpufreq_init)
+ 		return 0;
+ 
+-	struct cpufreq_policy *policy __free(put_cpufreq_policy) = cpufreq_cpu_get(cpu);
++#ifdef CONFIG_CIX_THERMAL
++	struct cix_thermal_actor_cache model;
++
++	cix_thermal_actor_snapshot(cpu, &model);
++	return model.active;
++#else
++	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
++	bool present = policy;
+ 
+-	return policy != NULL;
++	if (policy)
++		cpufreq_cpu_put(policy);
++
++	return present;
++#endif
+ }
+ 
+ static int cpufreq_get_max_state(unsigned int cpu)
+@@ -77,6 +139,10 @@ static int cpufreq_get_max_state(unsigned int cpu)
+ 	if (!cpu_has_cpufreq(cpu))
+ 		return 0;
+ 
++#ifdef CONFIG_CIX_THERMAL
++	return READ_ONCE(per_cpu(cix_thermal_max_state, cpu));
++#endif
++
+ 	return cpufreq_thermal_max_step;
+ }
+ 
+@@ -85,38 +151,83 @@ static int cpufreq_get_cur_state(unsigned int cpu)
+ 	if (!cpu_has_cpufreq(cpu))
+ 		return 0;
+ 
+-	return reduction_step(cpu);
++	return READ_ONCE(reduction_step(cpu));
+ }
+ 
+-static bool cpufreq_update_thermal_limit(unsigned int cpu, struct acpi_processor *pr)
++static bool cpufreq_update_thermal_limit(unsigned int cpu, unsigned int state,
++					 struct acpi_processor *pr)
+ {
+ 	unsigned long max_freq;
+ 	int ret;
+-
++#ifdef CONFIG_CIX_THERMAL
++	struct cix_thermal_actor_cache model;
++#else
+ 	struct cpufreq_policy *policy __free(put_cpufreq_policy) = cpufreq_cpu_get(cpu);
+ 	if (!policy)
+ 		return false;
++#endif
++
++#ifdef CONFIG_CIX_THERMAL
++	/* Keep the selected model and its QoS request in the same lifetime. */
++	mutex_lock(&cix_thermal_qos_lock);
++	cix_thermal_actor_snapshot(cpu, &model);
++	if (!model.active || model.degraded || !model.frequency_model_valid ||
++	    !freq_qos_request_active(&pr->thermal_req)) {
++		mutex_unlock(&cix_thermal_qos_lock);
++		return false;
++	}
+ 
++	if (!state) {
++		max_freq = model.max_freq;
++	} else if (model.opp_count > 1) {
++		if (state >= model.opp_count || !model.freq_khz[state]) {
++			mutex_unlock(&cix_thermal_qos_lock);
++			return false;
++		}
++		max_freq = model.freq_khz[state];
++	} else {
++		state = min_t(unsigned int, state, cpufreq_thermal_max_step);
++		max_freq = (model.max_freq *
++			(100 - state * cpufreq_thermal_reduction_pctg)) / 100;
++	}
++#else
+ 	max_freq = (policy->cpuinfo.max_freq *
+-		(100 - reduction_step(cpu) * cpufreq_thermal_reduction_pctg)) / 100;
++		(100 - state * cpufreq_thermal_reduction_pctg)) / 100;
++#endif
+ 
+ 	ret = freq_qos_update_request(&pr->thermal_req, max_freq);
++#ifdef CONFIG_CIX_THERMAL
++	if (ret >= 0)
++		WRITE_ONCE(reduction_step(cpu), state);
++	mutex_unlock(&cix_thermal_qos_lock);
++#endif
+ 	if (ret < 0) {
+ 		pr_warn("Failed to update thermal freq constraint: CPU%d (%d)\n",
+ 			pr->id, ret);
+ 	}
+ 
+-	return true;
++	return ret >= 0;
+ }
+ 
+ static int cpufreq_set_cur_state(unsigned int cpu, int state)
+ {
+ 	struct acpi_processor *pr;
++#ifndef CONFIG_CIX_THERMAL
+ 	int i;
++#endif
+ 
++#ifdef CONFIG_CIX_THERMAL
++	pr = per_cpu(processors, cpu);
++	if (unlikely(!pr))
++		return -ENODEV;
++
++	if (!cpufreq_update_thermal_limit(cpu, state, pr))
++		return -EINVAL;
++
++	return 0;
++#else
+ 	if (!cpu_has_cpufreq(cpu))
+ 		return 0;
+-
+ 	reduction_step(cpu) = state;
+ 
+ 	/*
+@@ -134,10 +245,11 @@ static int cpufreq_set_cur_state(unsigned int cpu, int state)
+ 		if (unlikely(!freq_qos_request_active(&pr->thermal_req)))
+ 			continue;
+ 
+-		if (!cpufreq_update_thermal_limit(i, pr))
++		if (!cpufreq_update_thermal_limit(i, state, pr))
+ 			return -EINVAL;
+ 	}
+ 	return 0;
++#endif
+ }
+ 
+ static void acpi_thermal_cpufreq_config(void)
+@@ -157,22 +269,314 @@ static void acpi_thermal_cpufreq_config(void)
+ 	cpufreq_thermal_max_step = (100 / cpufreq_pctg) - 2;
+ }
+ 
++#ifdef CONFIG_CIX_THERMAL
++static bool
++cix_thermal_build_policy_model(struct cpufreq_policy *policy,
++			       const struct cpumask *related_cpus,
++			       struct cix_thermal_actor_cache *model)
++{
++	int count, state;
++
++	memset(model, 0, sizeof(*model));
++	cpumask_copy(&model->related_cpus, related_cpus);
++	model->min_freq = policy->cpuinfo.min_freq;
++	model->max_freq = policy->cpuinfo.max_freq;
++	model->shared_type = policy->shared_type;
++	model->frequency_model_valid = model->min_freq && model->max_freq &&
++		model->min_freq <= model->max_freq;
++
++	count = cix_cppc_thermal_opp_count(policy);
++	if (count <= 1 || count > CIX_CPPC_THERMAL_MAX_OPPS)
++		return false;
++
++	for (state = 0; state < count; state++) {
++		if (cix_cppc_thermal_state_to_freq(policy, state,
++						   &model->freq_khz[state]) ||
++		    cix_cppc_thermal_state_to_power(policy, state,
++						    &model->power_mw[state]))
++			return false;
++	}
++
++	/* State zero must be no stricter than the complete policy contract. */
++	if (model->freq_khz[0] != model->max_freq ||
++	    model->freq_khz[count - 1] != model->min_freq)
++		return false;
++
++	model->opp_count = count;
++	return true;
++}
++
++static bool
++cix_thermal_frequency_model_equal(const struct cix_thermal_actor_cache *a,
++				  const struct cix_thermal_actor_cache *b)
++{
++	return a->opp_count == b->opp_count &&
++	       !memcmp(a->freq_khz, b->freq_khz,
++		       a->opp_count * sizeof(a->freq_khz[0]));
++}
++
++static bool
++cix_thermal_policy_identity_equal(const struct cix_thermal_actor_cache *a,
++				  const struct cix_thermal_actor_cache *b)
++{
++	return cpumask_equal(&a->related_cpus, &b->related_cpus) &&
++	       a->shared_type == b->shared_type;
++}
++
++static bool
++cix_thermal_policy_contract_equal(const struct cix_thermal_actor_cache *a,
++				  const struct cix_thermal_actor_cache *b)
++{
++	return cix_thermal_policy_identity_equal(a, b) &&
++	       a->min_freq == b->min_freq && a->max_freq == b->max_freq;
++}
++
++static void
++cix_thermal_refresh_cached_model(const struct cix_thermal_actor_cache *cached,
++				 const struct cix_thermal_actor_cache *model)
++{
++	unsigned long flags;
++	unsigned int cpu;
++
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	for_each_cpu(cpu, &cached->related_cpus) {
++		struct cix_thermal_actor_cache *cache =
++			&per_cpu(cix_thermal_cache, cpu);
++
++		if (!cache->active ||
++		    !cix_thermal_policy_contract_equal(cache, cached) ||
++		    !cix_thermal_frequency_model_equal(cache, cached))
++			continue;
++
++		memcpy(cache->power_mw, model->power_mw,
++		       model->opp_count * sizeof(model->power_mw[0]));
++		cache->degraded = false;
++	}
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++}
++
++static void
++cix_thermal_clear_degraded(const struct cix_thermal_actor_cache *cached)
++{
++	unsigned long flags;
++	unsigned int cpu;
++
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	for_each_cpu(cpu, &cached->related_cpus) {
++		struct cix_thermal_actor_cache *cache =
++			&per_cpu(cix_thermal_cache, cpu);
++
++		if (cache->active &&
++		    cix_thermal_policy_contract_equal(cache, cached) &&
++		    cix_thermal_frequency_model_equal(cache, cached))
++			cache->degraded = false;
++	}
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++}
++
++static void
++cix_thermal_fail_closed(struct cpufreq_policy *policy,
++			const struct cix_thermal_actor_cache *cached)
++{
++	unsigned int state = cached->opp_count > 1 ? cached->opp_count - 1 :
++						 cpufreq_thermal_max_step;
++	unsigned long flags;
++	unsigned int cpu;
++	bool bounded = false;
++
++	/*
++	 * The old requests remain attached to this policy across the lightweight
++	 * CPU-hotplug restart.  Apply the new policy minimum before making the
++	 * cached actor unavailable to power_allocator callbacks.
++	 */
++	mutex_lock(&cix_thermal_qos_lock);
++	for_each_cpu(cpu, &cached->related_cpus) {
++		struct acpi_processor *pr = per_cpu(processors, cpu);
++		int ret;
++
++		if (!pr || !freq_qos_request_active(&pr->thermal_req))
++			continue;
++
++		ret = freq_qos_update_request(&pr->thermal_req,
++					      policy->cpuinfo.min_freq);
++		if (ret < 0)
++			pr_err("Failed to bound restarted CPU%d thermal policy (%d)\n",
++			       cpu, ret);
++		else
++			bounded = true;
++	}
++
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	for_each_cpu(cpu, &cached->related_cpus) {
++		struct cix_thermal_actor_cache *cache =
++			&per_cpu(cix_thermal_cache, cpu);
++
++		if (cache->active)
++			cache->degraded = true;
++	}
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++	for_each_cpu(cpu, &cached->related_cpus)
++		WRITE_ONCE(reduction_step(cpu), state);
++	mutex_unlock(&cix_thermal_qos_lock);
++
++	if (!bounded)
++		pr_crit("CPU%d CIX thermal restart could not install a fail-closed frequency cap\n",
++			policy->cpu);
++
++	for_each_cpu(cpu, &cached->related_cpus) {
++		struct acpi_processor *pr = per_cpu(processors, cpu);
++
++		if (pr && pr->cdev)
++			thermal_cooling_device_update(pr->cdev);
++	}
++}
++
++int acpi_thermal_cpufreq_cix_restart(struct cpufreq_policy *policy)
++{
++	struct cix_thermal_actor_cache cached, model;
++	bool model_valid;
++	bool contract_equal;
++	bool identity_equal;
++
++	cix_thermal_actor_snapshot(policy->cpu, &cached);
++	if (!cached.active)
++		return 0;
++
++	model_valid = cix_thermal_build_policy_model(policy,
++						     policy->cpus, &model);
++	identity_equal = cix_thermal_policy_identity_equal(&cached, &model);
++	contract_equal = cix_thermal_policy_contract_equal(&cached, &model);
++
++	/*
++	 * The cpufreq core has not yet copied policy->cpus into related_cpus or
++	 * rebuilt its per-CPU policy links.  Reject an identity change rather
++	 * than accepting a partially mapped policy.
++	 */
++	if (!identity_equal) {
++		cix_thermal_fail_closed(policy, &cached);
++		pr_err("CPU%d CIX thermal policy CPU mask or shared type changed; rejecting the unsupported restart\n",
++		       policy->cpu);
++		return -EINVAL;
++	}
++
++	/* A generic, non-PEFG cooling device never became a PA power actor. */
++	if (cached.opp_count <= 1 && contract_equal) {
++		if (cached.degraded) {
++			cix_thermal_clear_degraded(&cached);
++			pr_info("CPU%d restored its bounded generic thermal policy contract\n",
++				policy->cpu);
++		}
++		return 0;
++	}
++
++	if (contract_equal) {
++		if (!model_valid && !cached.degraded) {
++			pr_warn("CPU%d retained its last validated CIX thermal model after a transient PEFG failure\n",
++				policy->cpu);
++			return 0;
++		}
++
++		if (model_valid &&
++		    cix_thermal_frequency_model_equal(&cached, &model)) {
++			cix_thermal_refresh_cached_model(&cached, &model);
++			if (cached.degraded)
++				pr_info("CPU%d restored its validated CIX thermal policy contract\n",
++					policy->cpu);
++			return 0;
++		}
++	}
++
++	/*
++	 * An admitted power actor must not silently disappear.  If a restarted
++	 * policy no longer matches its validated model, retain that model for
++	 * comparison and keep the policy at its bounded minimum until a later
++	 * restart proves that the complete contract has returned.
++	 */
++	cix_thermal_fail_closed(policy, &cached);
++	pr_err("CPU%d CIX thermal policy contract changed or remained unverified; retaining a bounded minimum-frequency cap\n",
++	       policy->cpu);
++	return 0;
++}
++
++bool acpi_processor_cix_thermal_actor_usable(unsigned int cpu)
++{
++	struct cix_thermal_actor_cache model;
++
++	if (cpu >= nr_cpu_ids)
++		return false;
++
++	cix_thermal_actor_snapshot(cpu, &model);
++	return model.active && !model.degraded && model.opp_count > 1;
++}
++EXPORT_SYMBOL_NS_GPL(acpi_processor_cix_thermal_actor_usable,
++		     "ACPI_THERMAL");
++
++bool acpi_processor_cix_thermal_same_policy(unsigned int cpu,
++					    unsigned int other_cpu)
++{
++	struct cix_thermal_actor_cache model;
++
++	if (cpu >= nr_cpu_ids || other_cpu >= nr_cpu_ids)
++		return false;
++
++	cix_thermal_actor_snapshot(cpu, &model);
++	return model.active && !model.degraded &&
++	       cpumask_test_cpu(other_cpu, &model.related_cpus);
++}
++EXPORT_SYMBOL_NS_GPL(acpi_processor_cix_thermal_same_policy,
++		     "ACPI_THERMAL");
++#endif
++
+ void acpi_thermal_cpufreq_init(struct cpufreq_policy *policy)
+ {
+ 	unsigned int cpu;
++#ifdef CONFIG_CIX_THERMAL
++	struct cix_thermal_actor_cache model;
++	bool model_valid;
++	unsigned long flags;
++#endif
+ 
+ 	acpi_thermal_cpufreq_config();
+ 
++#ifdef CONFIG_CIX_THERMAL
++	model_valid = cix_thermal_build_policy_model(policy,
++						     policy->related_cpus, &model);
++	if (cix_cppc_thermal_opp_count(policy) > 1 && !model_valid)
++		pr_warn("CPU%d has an inconsistent CIX thermal OPP table; using bounded generic states\n",
++			policy->cpu);
++#endif
+ 	for_each_cpu(cpu, policy->related_cpus) {
+ 		struct acpi_processor *pr = per_cpu(processors, cpu);
++#ifdef CONFIG_CIX_THERMAL
++		struct cix_thermal_actor_cache *cache;
++#endif
+ 		int ret;
+ 
+ 		if (!pr)
+ 			continue;
+ 
++#ifdef CONFIG_CIX_THERMAL
++		mutex_lock(&cix_thermal_qos_lock);
++		spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++		cache = &per_cpu(cix_thermal_cache, cpu);
++		*cache = model;
++		spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++#endif
+ 		ret = freq_qos_add_request(&policy->constraints,
+ 					   &pr->thermal_req,
+ 					   FREQ_QOS_MAX, INT_MAX);
++#ifdef CONFIG_CIX_THERMAL
++		if (!ret) {
++			WRITE_ONCE(per_cpu(cix_thermal_max_state, cpu),
++				   model_valid ? model.opp_count - 1 :
++				   cpufreq_thermal_max_step);
++			WRITE_ONCE(reduction_step(cpu), 0);
++			spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++			cache->active = true;
++			spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++		}
++		mutex_unlock(&cix_thermal_qos_lock);
++#endif
+ 		if (ret < 0) {
+ 			pr_err("Failed to add freq constraint for CPU%d (%d)\n",
+ 			       cpu, ret);
+@@ -186,6 +590,9 @@ void acpi_thermal_cpufreq_init(struct cpufreq_policy *policy)
+ void acpi_thermal_cpufreq_exit(struct cpufreq_policy *policy)
+ {
+ 	unsigned int cpu;
++#ifdef CONFIG_CIX_THERMAL
++	unsigned long flags;
++#endif
+ 
+ 	for_each_cpu(cpu, policy->related_cpus) {
+ 		struct acpi_processor *pr = per_cpu(processors, cpu);
+@@ -193,7 +600,19 @@ void acpi_thermal_cpufreq_exit(struct cpufreq_policy *policy)
+ 		if (!pr)
+ 			continue;
+ 
++#ifdef CONFIG_CIX_THERMAL
++		mutex_lock(&cix_thermal_qos_lock);
++		spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++		per_cpu(cix_thermal_cache, cpu).active = false;
++		spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++		WRITE_ONCE(per_cpu(cix_thermal_max_state, cpu), 0);
++		WRITE_ONCE(reduction_step(cpu), 0);
++		if (freq_qos_request_active(&pr->thermal_req))
++			freq_qos_remove_request(&pr->thermal_req);
++		mutex_unlock(&cix_thermal_qos_lock);
++#else
+ 		freq_qos_remove_request(&pr->thermal_req);
++#endif
+ 
+ 		thermal_cooling_device_update(pr->cdev);
+ 	}
+@@ -277,6 +696,10 @@ processor_set_cur_state(struct thermal_cooling_device *cdev,
+ 	struct acpi_processor *pr;
+ 	int result = 0;
+ 	int max_pstate;
++#ifdef CONFIG_CIX_THERMAL
++	unsigned int old_pstate;
++	int rollback;
++#endif
+ 
+ 	if (!device)
+ 		return -EINVAL;
+@@ -291,21 +714,375 @@ processor_set_cur_state(struct thermal_cooling_device *cdev,
+ 		return -EINVAL;
+ 
+ 	if (state <= max_pstate) {
++#ifdef CONFIG_CIX_THERMAL
++		old_pstate = cpufreq_get_cur_state(pr->id);
++		result = cpufreq_set_cur_state(pr->id, state);
++		if (result)
++			return result;
++
++		if (pr->flags.throttling && pr->throttling.state) {
++			result = acpi_processor_set_throttling(pr, 0, false);
++			if (result) {
++				rollback = cpufreq_set_cur_state(pr->id, old_pstate);
++				if (rollback)
++					pr_crit("CPU%d T-state removal failed (%d), then restoring thermal frequency state %u failed (%d); retaining T-state cooling\n",
++						pr->id, result, old_pstate, rollback);
++			}
++		}
++#else
+ 		if (pr->flags.throttling && pr->throttling.state)
+ 			result = acpi_processor_set_throttling(pr, 0, false);
+ 		cpufreq_set_cur_state(pr->id, state);
++#endif
+ 	} else {
++#ifdef CONFIG_CIX_THERMAL
++		result = cpufreq_set_cur_state(pr->id, max_pstate);
++		if (!result)
++			result = acpi_processor_set_throttling(pr,
++							       state - max_pstate, false);
++#else
+ 		cpufreq_set_cur_state(pr->id, max_pstate);
+ 		result = acpi_processor_set_throttling(pr,
+ 				state - max_pstate, false);
++#endif
+ 	}
+ 	return result;
+ }
+ 
++#ifdef CONFIG_CIX_THERMAL
++#define CIX_SKY1_CPU_COUNT	12
++
++static void
++cix_processor_online_cpus(const struct cix_thermal_actor_cache *model,
++			  struct cpumask *online_cpus)
++{
++	unsigned int cpu;
++
++	cpumask_clear(online_cpus);
++	/*
++	 * Cooling callbacks can run with the cooling-device lock held, so they
++	 * must not nest a CPU-hotplug read lock against policy teardown.  The
++	 * possible mask and logical MPIDR map are stable; cpu_online() is sampled
++	 * locklessly and is therefore an advisory mask for this control interval.
++	 */
++	for_each_cpu(cpu, &model->related_cpus)
++		if (cpu_online(cpu))
++			cpumask_set_cpu(cpu, online_cpus);
++}
++
++static int cix_processor_get_power(unsigned int cpu, const char *method,
++				   u32 *power)
++{
++	struct acpi_object_list args;
++	union acpi_object arg;
++	unsigned long long value;
++	unsigned int firmware_cpu;
++	acpi_status status;
++
++	if (cpu >= nr_cpu_ids || !cpu_possible(cpu))
++		return -ENODEV;
++
++	/* SPRG/DPRG use the physical Sky1 telemetry-record index, not _UID. */
++	firmware_cpu = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
++	if (firmware_cpu >= CIX_SKY1_CPU_COUNT)
++		return -ERANGE;
++
++	arg.type = ACPI_TYPE_INTEGER;
++	arg.integer.value = firmware_cpu;
++	args.count = 1;
++	args.pointer = &arg;
++
++	status = acpi_evaluate_integer(NULL, (acpi_string)method, &args, &value);
++	if (ACPI_FAILURE(status))
++		return status == AE_NOT_FOUND ? -ENODEV : -EIO;
++
++	/* The firmware fields are signed 32-bit values; reject negative data. */
++	if (value > INT_MAX)
++		return -ERANGE;
++
++	*power = value;
++	return 0;
++}
++
++static int cix_processor_get_policy_power(const struct cpumask *online_cpus,
++					  const char *method, u32 *power)
++{
++	u32 total = 0;
++	unsigned int cpu;
++	int ret;
++
++	if (cpumask_empty(online_cpus))
++		return -ENODEV;
++
++	for_each_cpu(cpu, online_cpus) {
++		u32 cpu_power;
++
++		ret = cix_processor_get_power(cpu, method, &cpu_power);
++		if (ret)
++			return ret;
++		if (total > U32_MAX - cpu_power)
++			return -ERANGE;
++
++		total += cpu_power;
++	}
++
++	*power = total;
++	return 0;
++}
++
++static int cix_processor_get_cached_power(const struct cpumask *online_cpus,
++					  unsigned int actor_cpu,
++					  const char *method, bool dynamic,
++					  u32 *power)
++{
++	struct cix_thermal_actor_cache *cache =
++		&per_cpu(cix_thermal_cache, actor_cpu);
++	unsigned long flags;
++	bool used_cache = false;
++	int ret;
++
++	ret = cix_processor_get_policy_power(online_cpus, method, power);
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	if (!cache->active || cache->degraded) {
++		ret = -ENODEV;
++	} else if (!ret) {
++		if (dynamic) {
++			cache->dynamic_power = *power;
++			cpumask_copy(&cache->dynamic_power_cpus, online_cpus);
++			cache->dynamic_power_valid = true;
++		} else {
++			cache->static_power = *power;
++			cpumask_copy(&cache->static_power_cpus, online_cpus);
++			cache->static_power_valid = true;
++		}
++	} else if ((dynamic ? cache->dynamic_power_valid :
++			      cache->static_power_valid) &&
++		   cpumask_equal(dynamic ? &cache->dynamic_power_cpus :
++					 &cache->static_power_cpus,
++			 online_cpus)) {
++		*power = dynamic ? cache->dynamic_power : cache->static_power;
++		used_cache = true;
++		ret = 0;
++	}
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++
++	if (used_cache)
++		pr_warn_ratelimited("CIX CPU%d using cached %s power telemetry\n",
++				    actor_cpu, method);
++	if (!ret)
++		return 0;
++
++	pr_warn_ratelimited("CIX CPU%d %s power telemetry failed (%d)\n",
++			    actor_cpu, method, ret);
++	return ret;
++}
++
++static u32 cix_processor_get_policy_load(const struct cpumask *online_cpus)
++{
++	u32 total_load = 0;
++	unsigned int cpu;
++
++	for_each_cpu(cpu, online_cpus) {
++		unsigned long capacity = arch_scale_cpu_capacity(cpu);
++
++		if (capacity)
++			total_load += min_t(unsigned long,
++					    (sched_cpu_util(cpu) * 100) / capacity,
++					    100);
++	}
++
++	return total_load;
++}
++
++static void cix_processor_cache_policy_load(unsigned int actor_cpu,
++					    const struct cpumask *online_cpus,
++					    u32 policy_load)
++{
++	struct cix_thermal_actor_cache *cache =
++		&per_cpu(cix_thermal_cache, actor_cpu);
++	unsigned long flags;
++
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	if (cache->active && !cache->degraded) {
++		cache->policy_load = policy_load;
++		cpumask_copy(&cache->policy_load_cpus, online_cpus);
++		cache->policy_load_valid = true;
++	}
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++}
++
++static bool cix_processor_cached_policy_load(unsigned int actor_cpu,
++					     const struct cpumask *online_cpus,
++					     u32 *policy_load)
++{
++	struct cix_thermal_actor_cache *cache =
++		&per_cpu(cix_thermal_cache, actor_cpu);
++	unsigned long flags;
++	bool valid;
++
++	spin_lock_irqsave(&cix_thermal_cache_lock, flags);
++	valid = cache->active && !cache->degraded &&
++		cache->policy_load_valid &&
++		cpumask_equal(&cache->policy_load_cpus, online_cpus);
++	if (valid)
++		*policy_load = cache->policy_load;
++	spin_unlock_irqrestore(&cix_thermal_cache_lock, flags);
++
++	return valid;
++}
++
++static int processor_get_requested_power(struct thermal_cooling_device *cdev,
++					 u32 *power)
++{
++	struct acpi_device *device = cdev->devdata;
++	struct cix_thermal_actor_cache model;
++	cpumask_t online_cpus;
++	struct acpi_processor *pr;
++	u32 static_power, dynamic_power, policy_load;
++	int ret;
++
++	if (!device)
++		return -EINVAL;
++
++	pr = acpi_driver_data(device);
++	if (!pr || pr->id >= nr_cpu_ids)
++		return -EINVAL;
++
++	cix_thermal_actor_snapshot(pr->id, &model);
++	if (!model.active || model.degraded || model.opp_count <= 1)
++		return -ENODEV;
++
++	cix_processor_online_cpus(&model, &online_cpus);
++	if (cpumask_empty(&online_cpus)) {
++		*power = 0;
++		return 0;
++	}
++
++	policy_load = cix_processor_get_policy_load(&online_cpus);
++	cix_processor_cache_policy_load(pr->id, &online_cpus, policy_load);
++
++	ret = cix_processor_get_cached_power(&online_cpus, pr->id, "\\_SB.SPRG",
++					     false, &static_power);
++	if (ret)
++		return ret;
++	ret = cix_processor_get_cached_power(&online_cpus, pr->id, "\\_SB.DPRG",
++					     true, &dynamic_power);
++	if (ret)
++		return ret;
++	if (static_power > U32_MAX - dynamic_power)
++		return -ERANGE;
++
++	*power = static_power + dynamic_power;
++	return 0;
++}
++
++static int processor_state2power(struct thermal_cooling_device *cdev,
++				 unsigned long state, u32 *power)
++{
++	struct acpi_device *device = cdev->devdata;
++	struct cix_thermal_actor_cache model;
++	cpumask_t online_cpus;
++	struct acpi_processor *pr;
++	u32 dynamic_power, static_power;
++	u64 dynamic_total;
++	unsigned int num_cpus;
++	int ret;
++
++	if (!device)
++		return -EINVAL;
++
++	pr = acpi_driver_data(device);
++	if (!pr || pr->id >= nr_cpu_ids)
++		return -EINVAL;
++
++	cix_thermal_actor_snapshot(pr->id, &model);
++	if (!model.active || model.degraded || model.opp_count <= 1)
++		return -ENODEV;
++
++	cix_processor_online_cpus(&model, &online_cpus);
++	if (cpumask_empty(&online_cpus)) {
++		*power = 0;
++		return 0;
++	}
++
++	if (state >= model.opp_count)
++		return -EINVAL;
++
++	dynamic_power = model.power_mw[state];
++	num_cpus = cpumask_weight(&online_cpus);
++	ret = cix_processor_get_cached_power(&online_cpus, pr->id, "\\_SB.SPRG",
++					     false, &static_power);
++	if (ret)
++		return ret;
++
++	dynamic_total = (u64)dynamic_power * num_cpus;
++	if (dynamic_total > U32_MAX - static_power)
++		return -ERANGE;
++
++	*power = dynamic_total + static_power;
++	return 0;
++}
++
++static int processor_power2state(struct thermal_cooling_device *cdev,
++				 u32 power, unsigned long *state)
++{
++	struct acpi_device *device = cdev->devdata;
++	struct cix_thermal_actor_cache model;
++	cpumask_t online_cpus;
++	struct acpi_processor *pr;
++	u32 dynamic_budget, last_load, static_power;
++	u64 normalised_power;
++	unsigned int i;
++	int ret;
++
++	if (!device)
++		return -EINVAL;
++
++	pr = acpi_driver_data(device);
++	if (!pr || pr->id >= nr_cpu_ids)
++		return -EINVAL;
++
++	cix_thermal_actor_snapshot(pr->id, &model);
++	if (!model.active || model.degraded || model.opp_count <= 1)
++		return -ENODEV;
++
++	cix_processor_online_cpus(&model, &online_cpus);
++	if (cpumask_empty(&online_cpus)) {
++		*state = 0;
++		return 0;
++	}
++
++	ret = cix_processor_get_cached_power(&online_cpus, pr->id, "\\_SB.SPRG",
++					     false, &static_power);
++	if (ret)
++		return ret;
++
++	dynamic_budget = power > static_power ? power - static_power : 0;
++	if (!cix_processor_cached_policy_load(pr->id, &online_cpus,
++					      &last_load))
++		last_load = cix_processor_get_policy_load(&online_cpus);
++	last_load = last_load ?: 1;
++	normalised_power = div_u64((u64)dynamic_budget * 100,
++				   last_load);
++	dynamic_budget = min_t(u64, normalised_power, U32_MAX);
++
++	for (i = 0; i < model.opp_count; i++)
++		if (dynamic_budget >= model.power_mw[i])
++			break;
++	*state = i == model.opp_count ? model.opp_count - 1 : i;
++	return 0;
++}
++#endif
++
+ const struct thermal_cooling_device_ops processor_cooling_ops = {
+ 	.get_max_state = processor_get_max_state,
+ 	.get_cur_state = processor_get_cur_state,
+ 	.set_cur_state = processor_set_cur_state,
++#ifdef CONFIG_CIX_THERMAL
++	.get_requested_power = processor_get_requested_power,
++	.state2power = processor_state2power,
++	.power2state = processor_power2state,
++#endif
+ };
+ 
+ int acpi_processor_thermal_init(struct acpi_processor *pr,
+diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
+--- a/drivers/acpi/thermal.c
++++ b/drivers/acpi/thermal.c
+@@ -28,12 +28,16 @@
+ #include <linux/sched.h>
+ #include <linux/device.h>
+ #include <linux/devfreq_cooling.h>
++#include <linux/energy_model.h>
+ #include <linux/thermal.h>
+ #include <linux/acpi.h>
+ #include <linux/workqueue.h>
+ #include <linux/uaccess.h>
+ #include <linux/units.h>
+ 
++#include <acpi/cppc_acpi.h>
++#include <acpi/processor.h>
++
+ #include "internal.h"
+ 
+ #define ACPI_THERMAL_CLASS		"thermal_zone"
+@@ -54,6 +58,7 @@
+ #define ACPI_THERMAL_ORION_O6_ECTZ_ZERO_RETRIES	3
+ #define ACPI_THERMAL_ORION_O6_ECTZ_LKG_TIMEOUT	(60 * HZ)
+ #define ACPI_THERMAL_ORION_O6_ECTZ_PROBE_BOOTSTRAP_DK	2732
++#define CIX_THERMAL_MAX_SUSTAINABLE_POWER_MW	(INT_MAX >> 11)
+ 
+ /*
+  * This exception is thrown out in two cases:
+@@ -124,6 +129,12 @@ struct acpi_thermal {
+ 	bool has_last_good_temp;
+ 	bool orion_o6_ectz;
+ 	char *label;
++#ifdef CONFIG_CIX_THERMAL
++	bool cix_power_allocator_candidate;
++	bool cix_power_allocator;
++	unsigned long cix_switch_on_dk;
++	u32 cix_sustainable_power;
++#endif
+ 	struct acpi_thermal_trips trips;
+ 	struct thermal_zone_device *thermal_zone;
+ 	int kelvin_offset;	/* in millidegrees */
+@@ -132,6 +143,150 @@ struct acpi_thermal {
+ 	refcount_t thermal_check_count;
+ };
+ 
++#ifdef CONFIG_CIX_THERMAL
++static bool acpi_thermal_trip_valid(struct acpi_thermal_trip *acpi_trip);
++static int acpi_thermal_temp(struct acpi_thermal *tz, int temp_deci_k);
++
++static bool acpi_thermal_cix_is_processor(struct acpi_device *adev)
++{
++	return adev &&
++	       !strcmp(acpi_device_hid(adev), ACPI_PROCESSOR_DEVICE_HID);
++}
++
++static bool acpi_thermal_cix_cpu_actor_usable(struct acpi_device *adev)
++{
++	struct acpi_processor *pr = acpi_driver_data(adev);
++	u32 power;
++
++	if (!pr || pr->id >= nr_cpu_ids || pr->flags.throttling)
++		return false;
++
++	if (!acpi_processor_cix_thermal_actor_usable(pr->id) ||
++	    IS_ERR_OR_NULL(pr->cdev) ||
++	    !pr->cdev->ops->get_requested_power ||
++	    !pr->cdev->ops->state2power)
++		return false;
++
++	if (pr->cdev->ops->get_requested_power(pr->cdev, &power))
++		return false;
++
++	/* State zero is the largest aggregate power this actor can expose. */
++	return !pr->cdev->ops->state2power(pr->cdev, 0, &power);
++}
++
++static bool acpi_thermal_cix_actor_usable(acpi_handle handle)
++{
++	struct acpi_device *adev = acpi_fetch_acpi_dev(handle);
++	struct em_perf_domain *em;
++	struct device *dev;
++
++	if (!adev)
++		return false;
++
++	if (acpi_thermal_cix_is_processor(adev))
++		return acpi_thermal_cix_cpu_actor_usable(adev);
++
++	dev = acpi_get_first_physical_node(adev);
++	if (!dev)
++		return false;
++
++	em = em_pd_get(dev);
++	return em && em->nr_perf_states > 1 &&
++	       em->flags & EM_PERF_DOMAIN_MICROWATTS;
++}
++
++static bool
++acpi_thermal_cix_cpu_actor_representative(struct acpi_thermal_trip *trip,
++					  struct acpi_device *adev)
++{
++	struct acpi_processor *pr = acpi_driver_data(adev);
++	bool representative = true;
++	unsigned int i;
++
++	if (!pr || pr->id >= nr_cpu_ids)
++		return false;
++
++	if (!acpi_processor_cix_thermal_actor_usable(pr->id))
++		return false;
++
++	for (i = 0; i < trip->devices.count; i++) {
++		struct acpi_device *other_adev;
++		struct acpi_processor *other;
++
++		other_adev = acpi_fetch_acpi_dev(trip->devices.handles[i]);
++		if (!acpi_thermal_cix_is_processor(other_adev))
++			continue;
++
++		other = acpi_driver_data(other_adev);
++		if (!other || other->id >= nr_cpu_ids)
++			continue;
++
++		if (other->id < pr->id &&
++		    acpi_processor_cix_thermal_same_policy(pr->id,
++							   other->id)) {
++			representative = false;
++			break;
++		}
++	}
++
++	return representative;
++}
++
++static void acpi_thermal_init_cix_power_allocator(struct acpi_thermal *tz)
++{
++	struct acpi_thermal_trip *passive = &tz->trips.passive.trip;
++	unsigned long long switch_on, sustainable;
++	bool has_cpu_actor = false;
++	bool has_swit, has_sstp;
++	unsigned int i;
++
++	has_swit = acpi_has_method(tz->device->handle, "SWIT");
++	has_sstp = acpi_has_method(tz->device->handle, "SSTP");
++	tz->cix_power_allocator_candidate = has_swit || has_sstp;
++
++	if (!tz->polling_frequency ||
++	    !acpi_thermal_trip_valid(passive) ||
++	    !has_swit || !has_sstp)
++		return;
++
++	if (ACPI_FAILURE(acpi_evaluate_integer(tz->device->handle, "SWIT",
++					       NULL, &switch_on)) ||
++	    ACPI_FAILURE(acpi_evaluate_integer(tz->device->handle, "SSTP",
++					       NULL, &sustainable)))
++		return;
++
++	/*
++	 * power_allocator shifts twice sustainable power by ten fractional
++	 * bits into signed coefficients while estimating its PID constants.
++	 */
++	if (switch_on >= passive->temp_dk ||
++	    acpi_thermal_temp(tz, switch_on) == THERMAL_TEMP_INVALID ||
++	    acpi_thermal_temp(tz, passive->temp_dk) == THERMAL_TEMP_INVALID ||
++	    sustainable > CIX_THERMAL_MAX_SUSTAINABLE_POWER_MW ||
++	    !sustainable || !passive->devices.count)
++		return;
++
++	for (i = 0; i < passive->devices.count; i++) {
++		struct acpi_device *adev;
++
++		if (!acpi_thermal_cix_actor_usable(passive->devices.handles[i]))
++			return;
++
++		adev = acpi_fetch_acpi_dev(passive->devices.handles[i]);
++		if (acpi_thermal_cix_is_processor(adev))
++			has_cpu_actor = true;
++	}
++
++	if (has_cpu_actor && (!acpi_has_method(NULL, "\\_SB.SPRG") ||
++			      !acpi_has_method(NULL, "\\_SB.DPRG")))
++		return;
++
++	tz->cix_switch_on_dk = switch_on;
++	tz->cix_sustainable_power = sustainable;
++	tz->cix_power_allocator = true;
++}
++#endif
++
+ /* --------------------------------------------------------------------------
+                              Thermal Zone Management
+    -------------------------------------------------------------------------- */
+@@ -748,6 +903,9 @@ static bool acpi_thermal_should_bind_cdev(struct thermal_zone_device *thermal,
+ 	struct acpi_thermal_trip *acpi_trip = trip->priv;
+ 	struct device *cdev_dev = devfreq_cooling_get_device(cdev);
+ 	struct acpi_device *cdev_adev;
++#ifdef CONFIG_CIX_THERMAL
++	struct acpi_thermal *tz = thermal_zone_device_priv(thermal);
++#endif
+ 	int i;
+ 
+ 	cdev_adev = cdev_dev ? ACPI_COMPANION(cdev_dev) : cdev->devdata;
+@@ -756,11 +914,26 @@ static bool acpi_thermal_should_bind_cdev(struct thermal_zone_device *thermal,
+ 	if (!acpi_trip)
+ 		return false;
+ 
++#ifdef CONFIG_CIX_THERMAL
++	if (tz->cix_power_allocator &&
++	    (!cdev->ops->get_requested_power || !cdev->ops->state2power ||
++	     !cdev->ops->power2state))
++		return false;
++#endif
++
+ 	for (i = 0; i < acpi_trip->devices.count; i++) {
+ 		acpi_handle handle = acpi_trip->devices.handles[i];
+ 
+-		if (acpi_fetch_acpi_dev(handle) == cdev_adev)
++		if (acpi_fetch_acpi_dev(handle) == cdev_adev) {
++#ifdef CONFIG_CIX_THERMAL
++			/* Bind one aggregate power actor per shared CPU policy. */
++			if (tz->cix_power_allocator &&
++			    acpi_thermal_cix_is_processor(cdev_adev))
++				return acpi_thermal_cix_cpu_actor_representative(acpi_trip,
++									   cdev_adev);
++#endif
+ 			return true;
++		}
+ 	}
+ 
+ 	return false;
+@@ -812,6 +985,15 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
+ 	};
+ 	int result;
+ 
++#ifdef CONFIG_CIX_THERMAL
++	if (tz->cix_power_allocator) {
++		tzp.governor_name = "power_allocator";
++		tzp.sustainable_power = tz->cix_sustainable_power;
++	} else if (tz->cix_power_allocator_candidate) {
++		tzp.governor_name = "step_wise";
++	}
++#endif
++
+ 	if (trip_count)
+ 		tz->thermal_zone = thermal_zone_device_register_with_trips(
+ 					tz_type, trip_table, trip_count, tz,
+@@ -1021,6 +1203,10 @@ static int acpi_thermal_add(struct acpi_device *device)
+ 
+ 	acpi_thermal_guess_offset(tz, crit_temp);
+ 
++#ifdef CONFIG_CIX_THERMAL
++	acpi_thermal_init_cix_power_allocator(tz);
++#endif
++
+ 	trip = trip_table;
+ 
+ 	if (crit_temp != THERMAL_TEMP_INVALID) {
+@@ -1041,6 +1227,11 @@ static int acpi_thermal_add(struct acpi_device *device)
+ 
+ 		trip->type = THERMAL_TRIP_PASSIVE;
+ 		trip->temperature = acpi_thermal_temp(tz, acpi_trip->temp_dk);
++#ifdef CONFIG_CIX_THERMAL
++		if (tz->cix_power_allocator)
++			trip->switch_on_temp =
++				acpi_thermal_temp(tz, tz->cix_switch_on_dk);
++#endif
+ 		trip->priv = acpi_trip;
+ 		trip++;
+ 	}
+@@ -1272,7 +1463,12 @@ static void __exit acpi_thermal_exit(void)
+ 	destroy_workqueue(acpi_thermal_pm_queue);
+ }
+ 
++#ifdef CONFIG_CIX_THERMAL
++/* CPPC registers at late_initcall(); probe after its policies and EM exist. */
++late_initcall_sync(acpi_thermal_init);
++#else
+ module_init(acpi_thermal_init);
++#endif
+ module_exit(acpi_thermal_exit);
+ 
+ MODULE_IMPORT_NS("ACPI_THERMAL");
+diff --git a/drivers/cpufreq/cppc_cpufreq.c b/drivers/cpufreq/cppc_cpufreq.c
+--- a/drivers/cpufreq/cppc_cpufreq.c
++++ b/drivers/cpufreq/cppc_cpufreq.c
+@@ -18,6 +18,7 @@
+ #include <linux/cpufreq.h>
+ #include <linux/irq_work.h>
+ #include <linux/kthread.h>
++#include <linux/sort.h>
+ #include <linux/time.h>
+ #include <linux/vmalloc.h>
+ #include <uapi/linux/sched/types.h>
+@@ -28,6 +29,346 @@
+ 
+ static struct cpufreq_driver cppc_cpufreq_driver;
+ 
++#ifdef CONFIG_CIX_THERMAL
++struct cix_cppc_opp {
++	u32 perf;
++	u32 power_mw;
++	u32 freq_khz;
++};
++
++struct cix_cppc_thermal_data {
++	u32 count;
++	struct cix_cppc_opp opp[CIX_CPPC_THERMAL_MAX_OPPS];
++};
++
++static int cix_cppc_opp_cmp(const void *a, const void *b)
++{
++	const struct cix_cppc_opp *opp_a = a;
++	const struct cix_cppc_opp *opp_b = b;
++
++	return (opp_a->perf > opp_b->perf) -
++	       (opp_a->perf < opp_b->perf);
++}
++
++static struct cix_cppc_thermal_data *
++cix_cppc_thermal_data(struct cpufreq_policy *policy)
++{
++	const char *driver = cpufreq_get_current_driver();
++	struct cppc_cpudata *cpu_data;
++
++	if (!driver || strcmp(driver, cppc_cpufreq_driver.name))
++		return NULL;
++
++	cpu_data = policy->driver_data;
++	if (!cpu_data)
++		return NULL;
++
++	return cpu_data->cix_thermal;
++}
++
++static int cix_cppc_cpu_uid(unsigned int cpu, u32 *uid)
++{
++	struct acpi_madt_generic_interrupt *gicc;
++
++	if (cpu >= nr_cpu_ids)
++		return -EINVAL;
++
++	gicc = acpi_cpu_get_madt_gicc(cpu);
++	if (!gicc)
++		return -ENODEV;
++
++	*uid = gicc->uid;
++	return 0;
++}
++
++int cix_cppc_thermal_opp_count(struct cpufreq_policy *policy)
++{
++	struct cix_cppc_thermal_data *thermal = cix_cppc_thermal_data(policy);
++
++	return thermal ? thermal->count : -ENODEV;
++}
++
++int cix_cppc_thermal_state_to_freq(struct cpufreq_policy *policy,
++				   unsigned long state, unsigned int *freq)
++{
++	struct cix_cppc_thermal_data *thermal = cix_cppc_thermal_data(policy);
++	unsigned int index;
++
++	if (!thermal)
++		return -ENODEV;
++	if (state >= thermal->count)
++		return -EINVAL;
++
++	index = thermal->count - state - 1;
++	*freq = thermal->opp[index].freq_khz;
++	return 0;
++}
++
++int cix_cppc_thermal_state_to_power(struct cpufreq_policy *policy,
++				    unsigned long state, u32 *power)
++{
++	struct cix_cppc_thermal_data *thermal = cix_cppc_thermal_data(policy);
++	unsigned int index;
++
++	if (!thermal)
++		return -ENODEV;
++	if (state >= thermal->count)
++		return -EINVAL;
++
++	index = thermal->count - state - 1;
++	/* SCMI proves mW; the vendor cpufreq model defines one-CPU cost. */
++	*power = thermal->opp[index].power_mw;
++	return 0;
++}
++
++static int cix_cppc_thermal_policy_domain(struct cpufreq_policy *policy,
++					  u32 *domain)
++{
++	struct acpi_object_list input;
++	union acpi_object param;
++	bool have_domain = false;
++	unsigned int cpu;
++
++	param.type = ACPI_TYPE_INTEGER;
++	input.count = 1;
++	input.pointer = &param;
++
++	for_each_cpu(cpu, policy->cpus) {
++		unsigned long long value;
++		acpi_status status;
++		u32 uid;
++		int ret;
++
++		ret = cix_cppc_cpu_uid(cpu, &uid);
++		if (ret)
++			return ret;
++
++		param.integer.value = uid;
++		status = acpi_evaluate_integer(NULL, "\\_SB.PMMX.PEGM",
++					       &input, &value);
++		if (ACPI_FAILURE(status))
++			return status == AE_NOT_FOUND ? -ENODEV : -EIO;
++		if (value > U32_MAX)
++			return -ERANGE;
++
++		if (!have_domain) {
++			*domain = value;
++			have_domain = true;
++		} else if (*domain != value) {
++			return -EBADMSG;
++		}
++	}
++
++	return have_domain ? 0 : -ENODATA;
++}
++
++static int cix_cppc_thermal_check_power_units(u32 domain)
++{
++	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
++	union acpi_object *object;
++	const u8 *data;
++	acpi_status status;
++	s32 scmi_status;
++	u16 num_domains;
++	u16 flags;
++	int ret;
++
++	status = acpi_evaluate_object(NULL, "\\_SB.PMMX.PEGA", NULL, &buffer);
++	if (ACPI_FAILURE(status)) {
++		ret = status == AE_NOT_FOUND ? -ENODEV : -EIO;
++		goto out;
++	}
++
++	object = buffer.pointer;
++	if (!object || object->type != ACPI_TYPE_BUFFER ||
++	    !object->buffer.pointer || object->buffer.length < 20) {
++		ret = -EBADMSG;
++		goto out;
++	}
++
++	data = object->buffer.pointer;
++	scmi_status = get_unaligned_le32(data);
++	num_domains = get_unaligned_le16(data + 4);
++	flags = get_unaligned_le16(data + 6);
++	/*
++	 * Accept the SCMI v1 milliwatt contract only.  The response contains a
++	 * 16-bit domain count followed by 16-bit flags; flag bit 0 denotes mW,
++	 * while bit 1 denotes the incompatible uW contract in SCMI v3.  Firmware
++	 * PEFG accepts the SCMI domain obtained by mapping each ACPI processor
++	 * UID through the table-upgrade PEGM method.
++	 */
++	if (scmi_status || !num_domains || domain >= num_domains ||
++	    flags != BIT(0))
++		ret = -EBADMSG;
++	else
++		ret = 0;
++
++out:
++	ACPI_FREE(buffer.pointer);
++	return ret;
++}
++
++static struct cix_cppc_thermal_data *
++cix_cppc_thermal_parse(struct cpufreq_policy *policy,
++		       struct cppc_cpudata *cpu_data)
++{
++	struct cix_cppc_thermal_data *thermal;
++	struct acpi_object_list input;
++	union acpi_object params[2];
++	unsigned int expected = UINT_MAX;
++	unsigned int level_index = 0;
++	u32 domain;
++	int ret = -ENODATA;
++
++	ret = cix_cppc_thermal_policy_domain(policy, &domain);
++	if (ret)
++		return ERR_PTR(ret);
++
++	ret = cix_cppc_thermal_check_power_units(domain);
++	if (ret)
++		return ERR_PTR(ret);
++
++	thermal = kzalloc_obj(*thermal, GFP_KERNEL);
++	if (!thermal)
++		return ERR_PTR(-ENOMEM);
++
++	params[0].type = ACPI_TYPE_INTEGER;
++	params[0].integer.value = domain;
++	params[1].type = ACPI_TYPE_INTEGER;
++	input.count = ARRAY_SIZE(params);
++	input.pointer = params;
++
++	for (;;) {
++		struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
++		union acpi_object *object;
++		unsigned int returned, remaining, i;
++		u32 level_counts;
++		const u8 *data;
++		acpi_status status;
++		s32 scmi_status;
++		size_t needed;
++
++		params[1].integer.value = level_index;
++		status = acpi_evaluate_object(NULL, "\\_SB.PMMX.PEFG", &input,
++					      &buffer);
++		if (ACPI_FAILURE(status)) {
++			ret = status == AE_NOT_FOUND ? -ENODEV : -EIO;
++			goto free_buffer;
++		}
++
++		object = buffer.pointer;
++		if (!object || object->type != ACPI_TYPE_BUFFER ||
++		    !object->buffer.pointer || object->buffer.length < 8) {
++			ret = -EBADMSG;
++			goto free_buffer;
++		}
++
++		data = object->buffer.pointer;
++		scmi_status = get_unaligned_le32(data);
++		level_counts = get_unaligned_le32(data + 4);
++		/* Sky1 implements SCMI v1.0: bits 15:12 are reserved. */
++		if (level_counts & GENMASK(15, 12)) {
++			ret = -EBADMSG;
++			goto free_buffer;
++		}
++		returned = level_counts & GENMASK(11, 0);
++		remaining = level_counts >> 16;
++
++		if (scmi_status || !returned ||
++		    returned > CIX_CPPC_THERMAL_MAX_OPPS - thermal->count ||
++		    remaining > CIX_CPPC_THERMAL_MAX_OPPS - thermal->count - returned ||
++		    (expected != UINT_MAX && returned + remaining != expected)) {
++			ret = -EBADMSG;
++			goto free_buffer;
++		}
++
++		needed = 8 + returned * 12;
++		/* Validate all records reported within the padded firmware buffer. */
++		if (object->buffer.length < needed) {
++			ret = -EBADMSG;
++			goto free_buffer;
++		}
++
++		for (i = 0; i < returned; i++) {
++			struct cix_cppc_opp *opp;
++			const u8 *entry = data + 8 + i * 12;
++
++			/* The final u16 is reserved in SCMI performance v1. */
++			if (get_unaligned_le16(entry + 10)) {
++				ret = -EBADMSG;
++				goto free_buffer;
++			}
++
++			opp = &thermal->opp[thermal->count++];
++			opp->perf = get_unaligned_le32(entry);
++			opp->power_mw = get_unaligned_le32(entry + 4);
++			opp->freq_khz =
++				cppc_perf_to_khz(&cpu_data->perf_caps, opp->perf);
++		}
++
++		level_index += returned;
++		expected = remaining;
++		ret = 0;
++
++free_buffer:
++		ACPI_FREE(buffer.pointer);
++		if (ret || !remaining)
++			break;
++	}
++
++	if (ret)
++		goto free_thermal;
++
++	sort(thermal->opp, thermal->count, sizeof(thermal->opp[0]),
++	     cix_cppc_opp_cmp, NULL);
++
++	for (level_index = 0; level_index < thermal->count; level_index++) {
++		struct cix_cppc_opp *opp = &thermal->opp[level_index];
++
++		if (!opp->perf || !opp->power_mw || !opp->freq_khz ||
++		    opp->perf < cpu_data->perf_caps.lowest_perf ||
++		    opp->perf > cpu_data->perf_caps.highest_perf ||
++		    (level_index &&
++		     (opp->perf <= thermal->opp[level_index - 1].perf ||
++		      opp->power_mw <= thermal->opp[level_index - 1].power_mw ||
++		      opp->freq_khz <= thermal->opp[level_index - 1].freq_khz))) {
++			ret = -ERANGE;
++			goto free_thermal;
++		}
++	}
++
++	if (thermal->count < 2) {
++		ret = -ENODATA;
++		goto free_thermal;
++	}
++	if (thermal->opp[0].perf != cpu_data->perf_caps.lowest_perf ||
++	    thermal->opp[thermal->count - 1].perf !=
++		cpu_data->perf_caps.highest_perf) {
++		ret = -ERANGE;
++		goto free_thermal;
++	}
++
++	return thermal;
++
++free_thermal:
++	kfree(thermal);
++	return ERR_PTR(ret);
++}
++
++static int cix_cppc_thermal_init(struct cpufreq_policy *policy)
++{
++	struct cppc_cpudata *cpu_data = policy->driver_data;
++	struct cix_cppc_thermal_data *thermal;
++
++	thermal = cix_cppc_thermal_parse(policy, cpu_data);
++	if (IS_ERR(thermal))
++		return PTR_ERR(thermal);
++
++	cpu_data->cix_thermal = thermal;
++	return 0;
++}
++#endif
++
+ #ifdef CONFIG_ACPI_CPPC_CPUFREQ_FIE
+ static enum {
+ 	FIE_UNSET = -1,
+@@ -352,6 +693,7 @@ static unsigned int cppc_cpufreq_get_transition_delay_us(unsigned int cpu)
+ #if defined(CONFIG_ARM64) && defined(CONFIG_ENERGY_MODEL)
+ 
+ static DEFINE_PER_CPU(unsigned int, efficiency_class);
++static bool cppc_has_efficiency_classes;
+ 
+ /* Create an artificial performance state every CPPC_EM_CAP_STEP capacity unit. */
+ #define CPPC_EM_CAP_STEP	(20)
+@@ -499,6 +841,63 @@ static void cppc_cpufreq_register_em(struct cpufreq_policy *policy)
+ 			cpu_data->shared_cpu_map, 0);
+ }
+ 
++#ifdef CONFIG_CIX_THERMAL
++static int cix_cppc_get_cpu_power(struct device *cpu_dev,
++				  unsigned long *power, unsigned long *khz)
++{
++	struct cpufreq_policy *policy = cpufreq_cpu_get_raw(cpu_dev->id);
++	struct cix_cppc_thermal_data *thermal;
++	unsigned int i;
++
++	if (!policy)
++		return -ENODEV;
++
++	thermal = cix_cppc_thermal_data(policy);
++	if (!thermal)
++		return -ENODEV;
++
++	for (i = 0; i < thermal->count; i++) {
++		u64 power_uw;
++
++		if (*khz > thermal->opp[i].freq_khz)
++			continue;
++
++		/* Convert the vendor model's one-CPU mW cost to EM microwatts. */
++		power_uw = (u64)thermal->opp[i].power_mw * 1000;
++		if (!power_uw || power_uw > ULONG_MAX)
++			return -ERANGE;
++
++		*khz = thermal->opp[i].freq_khz;
++		*power = power_uw;
++		return 0;
++	}
++
++	return -EINVAL;
++}
++
++static void cix_cppc_cpufreq_register_em(struct cpufreq_policy *policy)
++{
++	struct cppc_cpudata *cpu_data = policy->driver_data;
++	struct cix_cppc_thermal_data *thermal = cix_cppc_thermal_data(policy);
++	struct em_data_callback em_cb = EM_DATA_CB(cix_cppc_get_cpu_power);
++
++	if (!thermal) {
++		if (cppc_has_efficiency_classes)
++			cppc_cpufreq_register_em(policy);
++		return;
++	}
++
++	int ret;
++
++	ret = em_dev_register_perf_domain(get_cpu_device(policy->cpu),
++					  thermal->count, &em_cb,
++					  cpu_data->shared_cpu_map, true);
++	if (ret)
++		pr_warn("CPU%d failed to register CIX energy model (%d)\\n",
++			policy->cpu, ret);
++}
++#endif
++
+ static void populate_efficiency_class(void)
+ {
+ 	struct acpi_madt_generic_interrupt *gicc;
+@@ -511,9 +910,13 @@ static void populate_efficiency_class(void)
+ 		bitmap_set(used_classes, class, 1);
+ 	}
+ 
+-	if (bitmap_weight(used_classes, 256) <= 1) {
++	cppc_has_efficiency_classes = bitmap_weight(used_classes, 256) > 1;
++	if (!cppc_has_efficiency_classes) {
+ 		pr_debug("Efficiency classes are all equal (=%d). "
+ 			"No EM registered", class);
++#ifdef CONFIG_CIX_THERMAL
++		cppc_cpufreq_driver.register_em = cix_cppc_cpufreq_register_em;
++#endif
+ 		return;
+ 	}
+ 
+@@ -530,7 +933,11 @@ static void populate_efficiency_class(void)
+ 		}
+ 		index++;
+ 	}
++#ifdef CONFIG_CIX_THERMAL
++	cppc_cpufreq_driver.register_em = cix_cppc_cpufreq_register_em;
++#else
+ 	cppc_cpufreq_driver.register_em = cppc_cpufreq_register_em;
++#endif
+ }
+ 
+ #else
+@@ -577,6 +984,9 @@ static void cppc_cpufreq_put_cpu_data(struct cpufreq_policy *policy)
+ {
+ 	struct cppc_cpudata *cpu_data = policy->driver_data;
+ 
++#ifdef CONFIG_CIX_THERMAL
++	kfree(cpu_data->cix_thermal);
++#endif
+ 	free_cpumask_var(cpu_data->shared_cpu_map);
+ 	kfree(cpu_data);
+ 	policy->driver_data = NULL;
+@@ -657,6 +1067,19 @@ static int cppc_cpufreq_cpu_init(struct cpufreq_policy *policy)
+ 		goto out;
+ 	}
+ 
++#ifdef CONFIG_CIX_THERMAL
++	ret = cix_cppc_thermal_init(policy);
++	if (ret == -ENODEV)
++		pr_info("CPU%d has no CIX thermal power metadata; using bounded generic cooling\n",
++			cpu);
++	else if (ret)
++		pr_warn("CPU%d has invalid CIX thermal power metadata (%d); using bounded generic cooling\n",
++			cpu, ret);
++	ret = acpi_thermal_cpufreq_cix_restart(policy);
++	if (ret)
++		goto out;
++#endif
++
+ 	cppc_cpufreq_cpu_fie_init(policy);
+ 	return 0;
+ 
+diff --git a/drivers/thermal/Kconfig b/drivers/thermal/Kconfig
+--- a/drivers/thermal/Kconfig
++++ b/drivers/thermal/Kconfig
+@@ -174,6 +174,24 @@ config THERMAL_GOV_POWER_ALLOCATOR
+ 	  Enable this to manage platform thermals by dynamically
+ 	  allocating and limiting power to devices.
+ 
++config CIX_THERMAL
++	bool "CIX Sky1 ACPI thermal power allocation"
++	depends on ARCH_CIX && ARM64 && SMP
++	depends on ACPI_PROCESSOR = y && ACPI_THERMAL
++	depends on ACPI_CPPC_CPUFREQ = y
++	depends on THERMAL_GOV_POWER_ALLOCATOR && ENERGY_MODEL
++	select THERMAL_GOV_STEP_WISE
++	help
++	  Enable the CIX Sky1 ACPI thermal power model.  This validates the
++	  firmware CPPC performance-level data, exposes one aggregate processor
++	  power actor per CPU frequency policy, and uses SWIT as the power_allocator
++	  activation threshold without publishing it as another passive trip.
++
++	  ACPI processor and CPPC CPU frequency support must be built in.  The
++	  ACPI thermal-zone driver may be built in or modular.  Non-CPPC CPU
++	  frequency configurations retain the generic bounded ACPI processor
++	  cooling model.
++
+ config CPU_THERMAL
+ 	bool "Generic cpu cooling support"
+ 	depends on THERMAL_OF
+diff --git a/drivers/thermal/gov_power_allocator.c b/drivers/thermal/gov_power_allocator.c
+--- a/drivers/thermal/gov_power_allocator.c
++++ b/drivers/thermal/gov_power_allocator.c
+@@ -53,6 +53,7 @@ static inline s64 div_frac(s64 x, s64 y)
+  * @granted_power:	granted power for this actor
+  * @extra_actor_power:	extra power that this actor can receive
+  * @weighted_req_power:	weighted requested power as input to IPA
++ * @instance:		thermal instance represented by this successful sample
+  */
+ struct power_actor {
+ 	u32 req_power;
+@@ -60,6 +61,7 @@ struct power_actor {
+ 	u32 granted_power;
+ 	u32 extra_actor_power;
+ 	u32 weighted_req_power;
++	struct thermal_instance *instance;
+ };
+ 
+ /**
+@@ -97,6 +99,12 @@ struct power_allocator_params {
+ 	struct power_actor *power;
+ };
+ 
++static int trip_switch_on_temp(const struct thermal_trip *trip)
++{
++	return trip->switch_on_temp > 0 ?
++		trip->switch_on_temp : trip->temperature;
++}
++
+ static bool power_actor_is_valid(struct thermal_instance *instance)
+ {
+ 	return cdev_is_power_actor(instance->cdev);
+@@ -154,8 +162,12 @@ static void estimate_pid_constants(struct thermal_zone_device *tz,
+ 	u32 temperature_threshold = control_temp;
+ 	s32 k_i;
+ 
+-	if (trip_switch_on)
+-		temperature_threshold -= trip_switch_on->temperature;
++	if (trip_switch_on) {
++		int switch_on_temp = trip_switch_on_temp(trip_switch_on);
++
++		if (switch_on_temp < control_temp)
++			temperature_threshold -= switch_on_temp;
++	}
+ 
+ 	/*
+ 	 * estimate_pid_constants() tries to find appropriate default
+@@ -408,6 +420,7 @@ static void allocate_power(struct thermal_zone_device *tz, int control_temp)
+ 	struct power_allocator_params *params = tz->governor_data;
+ 	const struct thermal_trip_desc *td = trip_to_trip_desc(params->trip_max);
+ 	unsigned int num_actors = params->num_actors;
++	unsigned int sampled_actors = 0;
+ 	struct power_actor *power = params->power;
+ 	struct thermal_cooling_device *cdev;
+ 	struct thermal_instance *instance;
+@@ -416,7 +429,7 @@ static void allocate_power(struct thermal_zone_device *tz, int control_temp)
+ 	u32 total_granted_power = 0;
+ 	u32 total_req_power = 0;
+ 	u32 power_range, weight;
+-	int i = 0, ret;
++	int i, ret;
+ 
+ 	if (!num_actors)
+ 		return;
+@@ -425,7 +438,7 @@ static void allocate_power(struct thermal_zone_device *tz, int control_temp)
+ 	memset(power, 0, params->buffer_size);
+ 
+ 	list_for_each_entry(instance, &td->thermal_instances, trip_node) {
+-		struct power_actor *pa = &power[i];
++		struct power_actor *pa = &power[sampled_actors];
+ 
+ 		if (!power_actor_is_valid(instance))
+ 			continue;
+@@ -448,36 +461,37 @@ static void allocate_power(struct thermal_zone_device *tz, int control_temp)
+ 		if (ret)
+ 			continue;
+ 
++		pa->instance = instance;
+ 		total_req_power += pa->req_power;
+ 		max_allocatable_power += pa->max_power;
+ 		total_weighted_req_power += pa->weighted_req_power;
+ 
+-		i++;
++		sampled_actors++;
+ 	}
++	if (!sampled_actors)
++		return;
+ 
+ 	power_range = pid_controller(tz, control_temp, max_allocatable_power);
+ 
+-	divvy_up_power(power, num_actors, total_weighted_req_power,
++	divvy_up_power(power, sampled_actors, total_weighted_req_power,
+ 		       power_range);
+ 
+-	i = 0;
+-	list_for_each_entry(instance, &td->thermal_instances, trip_node) {
++	for (i = 0; i < sampled_actors; i++) {
+ 		struct power_actor *pa = &power[i];
+ 
+-		if (!power_actor_is_valid(instance))
++		instance = pa->instance;
++		ret = power_actor_set_power(instance->cdev, instance,
++					    pa->granted_power);
++		if (ret)
+ 			continue;
+-
+-		power_actor_set_power(instance->cdev, instance,
+-				      pa->granted_power);
+ 		total_granted_power += pa->granted_power;
+ 
+ 		trace_thermal_power_actor(tz, i, pa->req_power,
+ 					  pa->granted_power);
+-		i++;
+ 	}
+ 
+ 	trace_thermal_power_allocator(tz, total_req_power, total_granted_power,
+-				      num_actors, power_range,
++				      sampled_actors, power_range,
+ 				      max_allocatable_power, tz->temperature,
+ 				      control_temp - tz->temperature);
+ }
+@@ -528,7 +542,11 @@ static void get_governor_trips(struct thermal_zone_device *tz,
+ 		params->trip_switch_on = first_passive;
+ 		params->trip_max = last_passive;
+ 	} else if (first_passive) {
+-		params->trip_switch_on = NULL;
++		if (first_passive->switch_on_temp > 0 &&
++		    first_passive->switch_on_temp < first_passive->temperature)
++			params->trip_switch_on = first_passive;
++		else
++			params->trip_switch_on = NULL;
+ 		params->trip_max = first_passive;
+ 	} else {
+ 		params->trip_switch_on = NULL;
+@@ -774,14 +792,18 @@ static void power_allocator_manage(struct thermal_zone_device *tz)
+ {
+ 	struct power_allocator_params *params = tz->governor_data;
+ 	const struct thermal_trip *trip = params->trip_switch_on;
++	int switch_on_temp;
+ 
+ 	lockdep_assert_held(&tz->lock);
+ 
+-	if (trip && tz->temperature < trip->temperature) {
+-		reset_pid_controller(params);
+-		allow_maximum_power(tz);
+-		params->update_cdevs = false;
+-		return;
++	if (trip) {
++		switch_on_temp = trip_switch_on_temp(trip);
++		if (tz->temperature < switch_on_temp) {
++			reset_pid_controller(params);
++			allow_maximum_power(tz);
++			params->update_cdevs = false;
++			return;
++		}
+ 	}
+ 
+ 	if (!params->trip_max)
+diff --git a/include/acpi/cppc_acpi.h b/include/acpi/cppc_acpi.h
+--- a/include/acpi/cppc_acpi.h
++++ b/include/acpi/cppc_acpi.h
+@@ -137,6 +137,8 @@ struct cppc_perf_fb_ctrs {
+ 	u64 wraparound_time;
+ };
+ 
++struct cix_cppc_thermal_data;
++
+ /* Per CPU container for runtime CPPC management. */
+ struct cppc_cpudata {
+ 	struct cppc_perf_caps perf_caps;
+@@ -144,8 +146,27 @@ struct cppc_cpudata {
+ 	struct cppc_perf_fb_ctrs perf_fb_ctrs;
+ 	unsigned int shared_type;
+ 	cpumask_var_t shared_cpu_map;
++#ifdef CONFIG_CIX_THERMAL
++	struct cix_cppc_thermal_data *cix_thermal;
++#endif
+ };
+ 
++#ifdef CONFIG_CIX_THERMAL
++struct cpufreq_policy;
++
++#define CIX_CPPC_THERMAL_MAX_OPPS	16
++
++int cix_cppc_thermal_opp_count(struct cpufreq_policy *policy);
++int cix_cppc_thermal_state_to_freq(struct cpufreq_policy *policy,
++				   unsigned long state, unsigned int *freq);
++int cix_cppc_thermal_state_to_power(struct cpufreq_policy *policy,
++				    unsigned long state, u32 *power);
++int acpi_thermal_cpufreq_cix_restart(struct cpufreq_policy *policy);
++bool acpi_processor_cix_thermal_actor_usable(unsigned int cpu);
++bool acpi_processor_cix_thermal_same_policy(unsigned int cpu,
++					    unsigned int other_cpu);
++#endif
++
+ #ifdef CONFIG_ACPI_CPPC_LIB
+ extern int cppc_get_desired_perf(int cpunum, u64 *desired_perf);
+ extern int cppc_get_nominal_perf(int cpunum, u64 *nominal_perf);
+diff --git a/include/linux/thermal.h b/include/linux/thermal.h
+--- a/include/linux/thermal.h
++++ b/include/linux/thermal.h
+@@ -66,6 +66,7 @@ enum thermal_notify_event {
+  * @temperature: temperature value in miliCelsius
+  * @hysteresis: relative hysteresis in miliCelsius
+  * @type: trip point type
++ * @switch_on_temp: optional power_allocator activation temperature in mC
+  * @priv: pointer to driver data associated with this trip
+  * @flags: flags representing binary properties of the trip
+  */
+@@ -73,6 +74,7 @@ struct thermal_trip {
+ 	int temperature;
+ 	int hysteresis;
+ 	enum thermal_trip_type type;
++	int switch_on_temp;
+ 	u8 flags;
+ 	void *priv;
+ };

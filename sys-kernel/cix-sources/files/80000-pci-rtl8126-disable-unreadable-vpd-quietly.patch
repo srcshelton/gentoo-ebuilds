@@ -1,0 +1,66 @@
+RTL8126 endpoints observed on the Radxa Orion O6 advertise a VPD
+capability which cannot be read. Optional VPD diagnostics then look like
+a live PCI failure even though normal network operation is unaffected.
+
+Disable VPD only when an RTL8126 is installed in an Orion O6 or O6N with
+the exact Radxa DMI vendor and product strings. Keep the quirk quiet and
+leave VPD enabled on all other RTL8126 systems. Enumeration, power
+management, ASPM, MSI and driver binding remain unchanged.
+
+diff --git a/drivers/pci/vpd.c b/drivers/pci/vpd.c
+--- a/drivers/pci/vpd.c
++++ b/drivers/pci/vpd.c
+@@ -7,6 +7,7 @@
+ 
+ #include <linux/pci.h>
+ #include <linux/delay.h>
++#include <linux/dmi.h>
+ #include <linux/export.h>
+ #include <linux/sched/signal.h>
+ #include <linux/unaligned.h>
+@@ -578,6 +579,36 @@ static void quirk_blacklist_vpd(struct pci_dev *dev)
+ 	dev->vpd.len = PCI_VPD_SZ_INVALID;
+ 	pci_warn(dev, FW_BUG "disabling VPD access (can't determine size of non-standard VPD format)\n");
+ }
++
++static const struct dmi_system_id rtl8126_unreadable_vpd_dmi_table[] = {
++	{
++		.ident = "Radxa Orion O6",
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR,
++					"Radxa Computer (Shenzhen) Co., Ltd."),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Radxa Orion O6"),
++		},
++	},
++	{
++		.ident = "Radxa Orion O6N",
++		.matches = {
++			DMI_EXACT_MATCH(DMI_SYS_VENDOR,
++					"Radxa Computer (Shenzhen) Co., Ltd."),
++			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Radxa Orion O6N"),
++		},
++	},
++	{}
++};
++
++static void quirk_disable_rtl8126_vpd(struct pci_dev *dev)
++{
++	if (!dmi_first_match(rtl8126_unreadable_vpd_dmi_table))
++		return;
++
++	dev->vpd.cap = 0;
++	dev->vpd.len = PCI_VPD_SZ_INVALID;
++}
++
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x0060, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x007c, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x0413, quirk_blacklist_vpd);
+@@ -590,6 +621,8 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x002f, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x005d, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LSI_LOGIC, 0x005f, quirk_blacklist_vpd);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ATTANSIC, PCI_ANY_ID, quirk_blacklist_vpd);
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_REALTEK, 0x8126,
++			 quirk_disable_rtl8126_vpd);
+ /*
+  * The Amazon Annapurna Labs 0x0031 device id is reused for other non Root Port
+  * device types, so the quirk is registered for the PCI_CLASS_BRIDGE_PCI class.

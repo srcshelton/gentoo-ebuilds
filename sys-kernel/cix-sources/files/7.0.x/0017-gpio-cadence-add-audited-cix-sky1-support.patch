@@ -1,0 +1,829 @@
+diff --git a/Documentation/devicetree/bindings/gpio/cdns,gpio.yaml b/Documentation/devicetree/bindings/gpio/cdns,gpio.yaml
+--- a/Documentation/devicetree/bindings/gpio/cdns,gpio.yaml
++++ b/Documentation/devicetree/bindings/gpio/cdns,gpio.yaml
+@@ -16,6 +16,7 @@ properties:
+       - items:
+           - enum:
+               - axiado,ax3000-gpio
++              - cix,sky1-gpio
+           - const: cdns,gpio-r1p02
+ 
+   reg:
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -248,7 +248,7 @@ config GPIO_BRCMSTB
+ 
+ config GPIO_CADENCE
+ 	tristate "Cadence GPIO support"
+-	depends on OF_GPIO
++	depends on OF_GPIO || ACPI || COMPILE_TEST
+ 	select GPIO_GENERIC
+ 	select GPIOLIB_IRQCHIP
+ 	help
+diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -9,15 +9,20 @@
+  *  Boris Brezillon <boris.brezillon@free-electrons.com>
+  */
+ 
++#include <linux/acpi.h>
++#include <linux/arm-smccc.h>
+ #include <linux/cleanup.h>
+ #include <linux/clk.h>
+ #include <linux/gpio/driver.h>
+-#include <linux/interrupt.h>
+ #include <linux/gpio/generic.h>
++#include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
++#include <linux/pm.h>
++#include <linux/property.h>
+ #include <linux/spinlock.h>
++#include <linux/suspend.h>
+ 
+ #define CDNS_GPIO_BYPASS_MODE		0x00
+ #define CDNS_GPIO_DIRECTION_MODE	0x04
+@@ -32,24 +37,82 @@
+ #define CDNS_GPIO_IRQ_VALUE		0x28
+ #define CDNS_GPIO_IRQ_ANY_EDGE		0x2c
+ 
++#define SKY1_SIP_GPIO_PDC		0xc2000009
++#define SKY1_SIP_GPIO_PDC_SET_WAKE	0x02
++#define SKY1_GIC_SPI_OFFSET		32
++#define SKY1_S5_GPIO_FIRST_GSI		404
++#define SKY1_S5_GPIO_LAST_GSI		406
++
++struct cdns_gpio_saved_regs {
++	u32 bypass_mode;
++	u32 direction_mode;
++	u32 output_en;
++	u32 output_value;
++	u32 irq_mask;
++	u32 irq_type;
++	u32 irq_value;
++	u32 irq_any_edge;
++};
++
+ struct cdns_gpio_quirks {
+ 	bool skip_init;
++	bool cix_sky1;
++	bool clock_optional;
++};
++
++static const struct cdns_gpio_quirks cdns_default_quirks;
++
++static const struct cdns_gpio_quirks ax3000_gpio_quirks = {
++	.skip_init = true,
++};
++
++static const struct cdns_gpio_quirks sky1_gpio_quirks = {
++	.cix_sky1 = true,
++};
++
++#ifdef CONFIG_ACPI
++static const struct cdns_gpio_quirks sky1_acpi_gpio_quirks = {
++	.skip_init = true,
++	.cix_sky1 = true,
++	.clock_optional = true,
+ };
++#endif
+ 
+ struct cdns_gpio_chip {
+ 	struct gpio_generic_chip gen_gc;
+ 	void __iomem *regs;
+-	u32 bypass_orig;
+ 	const struct cdns_gpio_quirks *quirks;
++	struct cdns_gpio_saved_regs saved_regs;
++	raw_spinlock_t wake_lock;
++	u32 valid_mask;
++	u32 bypass_orig;
++	u32 direction_orig;
++	u32 output_en_orig;
++	u32 output_value_orig;
++	u32 wake_active;
++	u32 pdc_hwirq;
++	int parent_irq;
++	bool has_irq;
++	bool has_sky1_pdc;
++	bool parent_disabled;
++	bool pdc_armed;
++	bool context_saved;
++	bool registered;
+ };
+ 
+-static const struct cdns_gpio_quirks cdns_default_quirks = {
+-	.skip_init = false,
+-};
++#ifdef CONFIG_HAVE_ARM_SMCCC
++static DEFINE_RAW_SPINLOCK(cdns_gpio_pdc_lock);
++#endif
+ 
+-static const struct cdns_gpio_quirks ax3000_gpio_quirks = {
+-	.skip_init = true,
+-};
++static void cdns_gpio_write_valid(struct cdns_gpio_chip *cgpio,
++				  unsigned int reg, u32 value)
++{
++	u32 regval = ioread32(cgpio->regs + reg);
++
++	regval &= ~cgpio->valid_mask;
++	regval |= value & cgpio->valid_mask;
++	iowrite32(regval, cgpio->regs + reg);
++}
+ 
+ static int cdns_gpio_request(struct gpio_chip *chip, unsigned int offset)
+ {
+@@ -83,6 +146,14 @@ static void cdns_gpio_irq_mask(struct irq_data *d)
+ 	gpiochip_disable_irq(chip, irqd_to_hwirq(d));
+ }
+ 
++static void cdns_gpio_irq_ack(struct irq_data *d)
++{
++	struct gpio_chip *chip = irq_data_get_irq_chip_data(d);
++	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
++
++	iowrite32(BIT(d->hwirq), cgpio->regs + CDNS_GPIO_IRQ_STATUS);
++}
++
+ static void cdns_gpio_irq_unmask(struct irq_data *d)
+ {
+ 	struct gpio_chip *chip = irq_data_get_irq_chip_data(d);
+@@ -139,6 +210,71 @@ static int cdns_gpio_irq_set_type(struct irq_data *d, unsigned int type)
+ 	return ret;
+ }
+ 
++static int cdns_gpio_cix_irq_set_type(struct irq_data *d, unsigned int type)
++{
++	struct gpio_chip *chip = irq_data_get_irq_chip_data(d);
++	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
++	u32 int_value;
++	u32 int_type;
++	u32 int_any;
++	u32 mask = BIT(d->hwirq);
++
++	guard(gpio_generic_lock)(&cgpio->gen_gc);
++
++	int_value = ioread32(cgpio->regs + CDNS_GPIO_IRQ_VALUE) & ~mask;
++	int_type = ioread32(cgpio->regs + CDNS_GPIO_IRQ_TYPE) & ~mask;
++	int_any = ioread32(cgpio->regs + CDNS_GPIO_IRQ_ANY_EDGE) & ~mask;
++
++	switch (type) {
++	case IRQ_TYPE_EDGE_RISING:
++		int_value |= mask;
++		irq_set_handler_locked(d, handle_edge_irq);
++		break;
++	case IRQ_TYPE_EDGE_FALLING:
++		irq_set_handler_locked(d, handle_edge_irq);
++		break;
++	case IRQ_TYPE_EDGE_BOTH:
++		int_any |= mask;
++		irq_set_handler_locked(d, handle_edge_irq);
++		break;
++	case IRQ_TYPE_LEVEL_HIGH:
++		int_type |= mask;
++		int_value |= mask;
++		irq_set_handler_locked(d, handle_level_irq);
++		break;
++	case IRQ_TYPE_LEVEL_LOW:
++		int_type |= mask;
++		irq_set_handler_locked(d, handle_level_irq);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	iowrite32(int_value, cgpio->regs + CDNS_GPIO_IRQ_VALUE);
++	iowrite32(int_type, cgpio->regs + CDNS_GPIO_IRQ_TYPE);
++	iowrite32(int_any, cgpio->regs + CDNS_GPIO_IRQ_ANY_EDGE);
++
++	return 0;
++}
++
++static int cdns_gpio_irq_set_wake(struct irq_data *d, unsigned int enable)
++{
++	struct gpio_chip *chip = irq_data_get_irq_chip_data(d);
++	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
++	unsigned long flags;
++	u32 mask = BIT(irqd_to_hwirq(d));
++
++	raw_spin_lock_irqsave(&cgpio->wake_lock, flags);
++	if (enable)
++		cgpio->wake_active |= mask;
++	else
++		cgpio->wake_active &= ~mask;
++	cgpio->wake_active &= cgpio->valid_mask;
++	raw_spin_unlock_irqrestore(&cgpio->wake_lock, flags);
++
++	return 0;
++}
++
+ static void cdns_gpio_irq_handler(struct irq_desc *desc)
+ {
+ 	struct gpio_chip *chip = irq_desc_get_handler_data(desc);
+@@ -149,8 +285,9 @@ static void cdns_gpio_irq_handler(struct irq_desc *desc)
+ 
+ 	chained_irq_enter(irqchip, desc);
+ 
+-	status = ioread32(cgpio->regs + CDNS_GPIO_IRQ_STATUS) &
+-		~ioread32(cgpio->regs + CDNS_GPIO_IRQ_MASK);
++	status = ioread32(cgpio->regs + CDNS_GPIO_IRQ_STATUS);
++	status &= ~ioread32(cgpio->regs + CDNS_GPIO_IRQ_MASK);
++	status &= cgpio->valid_mask;
+ 
+ 	for_each_set_bit(hwirq, &status, chip->ngpio)
+ 		generic_handle_domain_irq(chip->irq.domain, hwirq);
+@@ -167,66 +304,351 @@ static const struct irq_chip cdns_gpio_irqchip = {
+ 	GPIOCHIP_IRQ_RESOURCE_HELPERS,
+ };
+ 
+-static const struct of_device_id cdns_of_ids[] = {
+-	{
+-		.compatible = "axiado,ax3000-gpio",
+-		.data = &ax3000_gpio_quirks
+-	},
+-	{
+-		.compatible = "cdns,gpio-r1p02",
+-		.data = &cdns_default_quirks
+-	},
+-	{ /* sentinel */ },
++static const struct irq_chip cdns_gpio_cix_irqchip = {
++	.name		= "cdns-gpio-cix",
++	.irq_ack	= cdns_gpio_irq_ack,
++	.irq_mask	= cdns_gpio_irq_mask,
++	.irq_unmask	= cdns_gpio_irq_unmask,
++	.irq_set_type	= cdns_gpio_cix_irq_set_type,
++	.irq_set_wake	= cdns_gpio_irq_set_wake,
++	.flags		= IRQCHIP_IMMUTABLE | IRQCHIP_MASK_ON_SUSPEND |
++			  IRQCHIP_ENABLE_WAKEUP_ON_SUSPEND,
++	GPIOCHIP_IRQ_RESOURCE_HELPERS,
+ };
+-MODULE_DEVICE_TABLE(of, cdns_of_ids);
++
++static const struct irq_chip cdns_gpio_cix_pdc_irqchip = {
++	.name		= "cdns-gpio-cix-pdc",
++	.irq_ack	= cdns_gpio_irq_ack,
++	.irq_mask	= cdns_gpio_irq_mask,
++	.irq_unmask	= cdns_gpio_irq_unmask,
++	.irq_set_type	= cdns_gpio_cix_irq_set_type,
++	.irq_set_wake	= cdns_gpio_irq_set_wake,
++	.flags		= IRQCHIP_IMMUTABLE | IRQCHIP_MASK_ON_SUSPEND |
++			  IRQCHIP_ENABLE_WAKEUP_ON_SUSPEND,
++	GPIOCHIP_IRQ_RESOURCE_HELPERS,
++};
++
++static void cdns_gpio_restore_initial_state(void *data)
++{
++	struct cdns_gpio_chip *cgpio = data;
++
++	if (cgpio->registered || cgpio->quirks->skip_init) {
++		cdns_gpio_write_valid(cgpio, CDNS_GPIO_BYPASS_MODE,
++				      cgpio->bypass_orig);
++		return;
++	}
++
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_OUTPUT_VALUE,
++			      cgpio->output_value_orig);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_OUTPUT_EN,
++			      cgpio->output_en_orig);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_DIRECTION_MODE,
++			      cgpio->direction_orig);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_BYPASS_MODE,
++			      cgpio->bypass_orig);
++}
++
++#ifdef CONFIG_HAVE_ARM_SMCCC
++static int cdns_gpio_smc_pdc_wake(struct cdns_gpio_chip *cgpio,
++				  bool enable, u32 wake_mask)
++{
++	struct arm_smccc_res res;
++
++	arm_smccc_smc(SKY1_SIP_GPIO_PDC, SKY1_SIP_GPIO_PDC_SET_WAKE,
++		      cgpio->pdc_hwirq, enable, wake_mask, 0, 0, 0, &res);
++
++	if (!res.a0)
++		return 0;
++	if ((long)res.a0 == SMCCC_RET_NOT_SUPPORTED)
++		return -EOPNOTSUPP;
++
++	return -EIO;
++}
++
++#ifdef CONFIG_PM_SLEEP
++static int cdns_gpio_set_pdc_wake(struct cdns_gpio_chip *cgpio,
++				  bool enable, u32 wake_mask)
++{
++	unsigned long flags;
++	int ret;
++
++	raw_spin_lock_irqsave(&cdns_gpio_pdc_lock, flags);
++	ret = cdns_gpio_smc_pdc_wake(cgpio, enable, wake_mask);
++	raw_spin_unlock_irqrestore(&cdns_gpio_pdc_lock, flags);
++
++	return ret;
++}
++#endif
++
++static int cdns_gpio_clear_pdc_wake(struct cdns_gpio_chip *cgpio)
++{
++	unsigned long flags;
++	int disable_ret;
++	int clear_ret;
++
++	raw_spin_lock_irqsave(&cdns_gpio_pdc_lock, flags);
++	clear_ret = cdns_gpio_smc_pdc_wake(cgpio, true, 0);
++	disable_ret = cdns_gpio_smc_pdc_wake(cgpio, false, 0);
++	raw_spin_unlock_irqrestore(&cdns_gpio_pdc_lock, flags);
++
++	return clear_ret ?: disable_ret;
++}
++#else
++#ifdef CONFIG_PM_SLEEP
++static int cdns_gpio_set_pdc_wake(struct cdns_gpio_chip *cgpio,
++				  bool enable, u32 wake_mask)
++{
++	(void)cgpio;
++	(void)enable;
++	(void)wake_mask;
++	return -EOPNOTSUPP;
++}
++#endif
++
++static int cdns_gpio_clear_pdc_wake(struct cdns_gpio_chip *cgpio)
++{
++	(void)cgpio;
++	return -EOPNOTSUPP;
++}
++#endif
++
++#ifdef CONFIG_PM_SLEEP
++static void cdns_gpio_save_regs(struct cdns_gpio_chip *cgpio)
++{
++	struct cdns_gpio_saved_regs *saved = &cgpio->saved_regs;
++	u32 valid = cgpio->valid_mask;
++
++	saved->bypass_mode =
++		ioread32(cgpio->regs + CDNS_GPIO_BYPASS_MODE) & valid;
++	saved->direction_mode =
++		ioread32(cgpio->regs + CDNS_GPIO_DIRECTION_MODE) & valid;
++	saved->output_en =
++		ioread32(cgpio->regs + CDNS_GPIO_OUTPUT_EN) & valid;
++	saved->output_value =
++		ioread32(cgpio->regs + CDNS_GPIO_OUTPUT_VALUE) & valid;
++	saved->irq_mask = ioread32(cgpio->regs + CDNS_GPIO_IRQ_MASK) & valid;
++	saved->irq_type = ioread32(cgpio->regs + CDNS_GPIO_IRQ_TYPE) & valid;
++	saved->irq_value = ioread32(cgpio->regs + CDNS_GPIO_IRQ_VALUE) & valid;
++	saved->irq_any_edge =
++		ioread32(cgpio->regs + CDNS_GPIO_IRQ_ANY_EDGE) & valid;
++}
++
++static void cdns_gpio_restore_irq_mask(struct cdns_gpio_chip *cgpio, u32 mask)
++{
++	iowrite32(cgpio->valid_mask, cgpio->regs + CDNS_GPIO_IRQ_DIS);
++	iowrite32(cgpio->valid_mask & ~mask, cgpio->regs + CDNS_GPIO_IRQ_EN);
++}
++
++static void cdns_gpio_restore_regs(struct cdns_gpio_chip *cgpio)
++{
++	struct cdns_gpio_saved_regs *saved = &cgpio->saved_regs;
++
++	iowrite32(cgpio->valid_mask, cgpio->regs + CDNS_GPIO_IRQ_DIS);
++
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_OUTPUT_VALUE,
++			      saved->output_value);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_OUTPUT_EN, saved->output_en);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_DIRECTION_MODE,
++			      saved->direction_mode);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_BYPASS_MODE,
++			      saved->bypass_mode);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_IRQ_TYPE, saved->irq_type);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_IRQ_VALUE, saved->irq_value);
++	cdns_gpio_write_valid(cgpio, CDNS_GPIO_IRQ_ANY_EDGE,
++			      saved->irq_any_edge);
++
++	cdns_gpio_restore_irq_mask(cgpio, saved->irq_mask);
++}
++
++static int cdns_gpio_suspend_late(struct device *dev)
++{
++	struct cdns_gpio_chip *cgpio = dev_get_drvdata(dev);
++
++	if (!cgpio->quirks->cix_sky1 || !cgpio->has_irq ||
++	    pm_suspend_target_state == PM_SUSPEND_TO_IDLE)
++		return 0;
++
++	disable_irq(cgpio->parent_irq);
++	cgpio->parent_disabled = true;
++
++	return 0;
++}
++
++static int cdns_gpio_resume_early(struct device *dev)
++{
++	struct cdns_gpio_chip *cgpio = dev_get_drvdata(dev);
++
++	if (cgpio->parent_disabled && !cgpio->context_saved) {
++		enable_irq(cgpio->parent_irq);
++		cgpio->parent_disabled = false;
++	}
++
++	return 0;
++}
++
++static int cdns_gpio_suspend_noirq(struct device *dev)
++{
++	struct cdns_gpio_chip *cgpio = dev_get_drvdata(dev);
++	unsigned long flags;
++	u32 wake_mask;
++	int ret = 0;
++
++	if (!cgpio->quirks->cix_sky1 ||
++	    pm_suspend_target_state == PM_SUSPEND_TO_IDLE)
++		return 0;
++
++	cdns_gpio_save_regs(cgpio);
++
++	raw_spin_lock_irqsave(&cgpio->wake_lock, flags);
++	wake_mask = cgpio->wake_active & cgpio->valid_mask;
++	iowrite32(cgpio->valid_mask & ~wake_mask,
++		  cgpio->regs + CDNS_GPIO_IRQ_DIS);
++
++	if (!cgpio->has_sky1_pdc && wake_mask) {
++		ret = -EOPNOTSUPP;
++	} else if (cgpio->has_sky1_pdc) {
++		ret = cdns_gpio_set_pdc_wake(cgpio, true, wake_mask);
++		if (!ret)
++			cgpio->pdc_armed = true;
++	}
++
++	if (ret)
++		cdns_gpio_restore_irq_mask(cgpio, cgpio->saved_regs.irq_mask);
++	raw_spin_unlock_irqrestore(&cgpio->wake_lock, flags);
++
++	if (ret) {
++		if (cgpio->parent_disabled) {
++			enable_irq(cgpio->parent_irq);
++			cgpio->parent_disabled = false;
++		}
++		dev_err(dev, "failed to program Sky1 GPIO wake: %d\n", ret);
++		return ret;
++	}
++
++	cgpio->context_saved = true;
++
++	return 0;
++}
++
++static int cdns_gpio_resume_noirq(struct device *dev)
++{
++	struct cdns_gpio_chip *cgpio = dev_get_drvdata(dev);
++	unsigned long flags;
++	int ret;
++
++	if (!cgpio->context_saved)
++		return 0;
++
++	cdns_gpio_restore_regs(cgpio);
++
++	raw_spin_lock_irqsave(&cgpio->wake_lock, flags);
++	if (cgpio->pdc_armed) {
++		ret = cdns_gpio_clear_pdc_wake(cgpio);
++		if (!ret)
++			cgpio->pdc_armed = false;
++	} else {
++		ret = 0;
++	}
++	raw_spin_unlock_irqrestore(&cgpio->wake_lock, flags);
++
++	cgpio->context_saved = false;
++	if (cgpio->parent_disabled) {
++		enable_irq(cgpio->parent_irq);
++		cgpio->parent_disabled = false;
++	}
++
++	if (ret)
++		dev_err(dev, "failed to clear Sky1 GPIO wake: %d\n", ret);
++
++	return ret;
++}
++
++static const struct dev_pm_ops cdns_gpio_pm_ops = {
++	.suspend_late = cdns_gpio_suspend_late,
++	.resume_early = cdns_gpio_resume_early,
++	.suspend_noirq = cdns_gpio_suspend_noirq,
++	.resume_noirq = cdns_gpio_resume_noirq,
++};
++
++#define CDNS_GPIO_PM_OPS (&cdns_gpio_pm_ops)
++#else
++#define CDNS_GPIO_PM_OPS NULL
++#endif
++
++static int cdns_gpio_read_properties(struct device *dev, u32 *num_gpios)
++{
++	int ret;
++
++	*num_gpios = 32;
++
++	if (device_property_present(dev, "ngpios")) {
++		ret = device_property_read_u32(dev, "ngpios", num_gpios);
++		if (ret)
++			return dev_err_probe(dev, ret, "invalid ngpios property\n");
++	}
++
++	if (!*num_gpios || *num_gpios > 32)
++		return dev_err_probe(dev, -EINVAL,
++				     "ngpios must be between 1 and 32\n");
++
++	return 0;
++}
+ 
+ static int cdns_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct gpio_generic_chip_config config = { };
++	const struct irq_chip *irqchip;
+ 	struct cdns_gpio_chip *cgpio;
+-	int ret, irq;
+-	u32 dir_prev;
+-	u32 num_gpios = 32;
++	struct device *dev = &pdev->dev;
+ 	struct clk *clk;
++	u32 num_gpios;
++	int ret;
++	int irq;
+ 
+-	cgpio = devm_kzalloc(&pdev->dev, sizeof(*cgpio), GFP_KERNEL);
++	cgpio = devm_kzalloc(dev, sizeof(*cgpio), GFP_KERNEL);
+ 	if (!cgpio)
+ 		return -ENOMEM;
+ 
+-	cgpio->regs = devm_platform_ioremap_resource(pdev, 0);
+-	if (IS_ERR(cgpio->regs))
+-		return PTR_ERR(cgpio->regs);
+-
+-	of_property_read_u32(pdev->dev.of_node, "ngpios", &num_gpios);
+-
+-	if (num_gpios > 32) {
+-		dev_err(&pdev->dev, "ngpios must be less or equal 32\n");
+-		return -EINVAL;
+-	}
+-
+-	cgpio->quirks = device_get_match_data(&pdev->dev);
++	cgpio->quirks = device_get_match_data(dev);
+ 	if (!cgpio->quirks)
+ 		cgpio->quirks = &cdns_default_quirks;
+ 
+-	/*
+-	 * Set all pins as inputs by default, otherwise:
+-	 * gpiochip_lock_as_irq:
+-	 * tried to flag a GPIO set as output for IRQ
+-	 * Generic GPIO driver stores the direction value internally,
+-	 * so it needs to be changed before gpio_generic_chip_init() is called.
+-	 */
+-	dir_prev = ioread32(cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
++	ret = cdns_gpio_read_properties(dev, &num_gpios);
++	if (ret)
++		return ret;
+ 
+-	/*
+-	 * The AX3000 platform performs the required configuration at boot time
+-	 * before Linux boots, so this quirk disables pinmux initialization.
+-	 */
+-	if (!cgpio->quirks->skip_init) {
+-		iowrite32(GENMASK(num_gpios - 1, 0),
+-			cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
+-	}
++	cgpio->valid_mask = GENMASK(num_gpios - 1, 0);
++	raw_spin_lock_init(&cgpio->wake_lock);
++
++	cgpio->regs = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(cgpio->regs))
++		return PTR_ERR(cgpio->regs);
+ 
+-	config.dev = &pdev->dev;
++	if (cgpio->quirks->clock_optional)
++		clk = devm_clk_get_optional_enabled(dev, NULL);
++	else
++		clk = devm_clk_get_enabled(dev, NULL);
++	if (IS_ERR(clk))
++		return dev_err_probe(dev, PTR_ERR(clk),
++				     "failed to enable peripheral clock\n");
++
++	cgpio->bypass_orig = ioread32(cgpio->regs + CDNS_GPIO_BYPASS_MODE);
++	cgpio->direction_orig = ioread32(cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
++	cgpio->output_en_orig = ioread32(cgpio->regs + CDNS_GPIO_OUTPUT_EN);
++	cgpio->output_value_orig =
++		ioread32(cgpio->regs + CDNS_GPIO_OUTPUT_VALUE);
++
++	ret = devm_add_action_or_reset(dev, cdns_gpio_restore_initial_state,
++				       cgpio);
++	if (ret)
++		return ret;
++
++	/* Start lines as inputs so gpiochip_lock_as_irq() sees correct state. */
++	if (!cgpio->quirks->skip_init)
++		cdns_gpio_write_valid(cgpio, CDNS_GPIO_DIRECTION_MODE,
++				      cgpio->valid_mask);
++
++	config.dev = dev;
+ 	config.sz = 4;
+ 	config.dat = cgpio->regs + CDNS_GPIO_INPUT_VALUE;
+ 	config.set = cgpio->regs + CDNS_GPIO_OUTPUT_VALUE;
+@@ -234,88 +656,148 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+ 	config.flags = GPIO_GENERIC_READ_OUTPUT_REG_SET;
+ 
+ 	ret = gpio_generic_chip_init(&cgpio->gen_gc, &config);
+-	if (ret) {
+-		dev_err(&pdev->dev, "Failed to register generic gpio, %d\n",
+-			ret);
+-		goto err_revert_dir;
+-	}
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to initialize generic GPIO\n");
+ 
+-	cgpio->gen_gc.gc.label = dev_name(&pdev->dev);
++	cgpio->gen_gc.gc.label = dev_name(dev);
+ 	cgpio->gen_gc.gc.ngpio = num_gpios;
+-	cgpio->gen_gc.gc.parent = &pdev->dev;
++	cgpio->gen_gc.gc.parent = dev;
+ 	cgpio->gen_gc.gc.base = -1;
+ 	cgpio->gen_gc.gc.owner = THIS_MODULE;
+ 	cgpio->gen_gc.gc.request = cdns_gpio_request;
+ 	cgpio->gen_gc.gc.free = cdns_gpio_free;
+ 
+-	clk = devm_clk_get_enabled(&pdev->dev, NULL);
+-	if (IS_ERR(clk)) {
+-		ret = PTR_ERR(clk);
+-		dev_err(&pdev->dev,
+-			"Failed to retrieve peripheral clock, %d\n", ret);
+-		goto err_revert_dir;
+-	}
++	irq = platform_get_irq_optional(pdev, 0);
++	if (irq == -ENXIO)
++		irq = 0;
++	else if (irq < 0)
++		return dev_err_probe(dev, irq, "failed to get parent IRQ\n");
++
++	if (irq) {
++		struct gpio_irq_chip *girq = &cgpio->gen_gc.gc.irq;
++		struct irq_data *irq_data;
++
++		cgpio->parent_irq = irq;
++		cgpio->has_irq = true;
++
++		if (cgpio->quirks->cix_sky1) {
++			irq_data = irq_get_irq_data(irq);
++			if (!irq_data)
++				return dev_err_probe(dev, -EINVAL,
++						     "parent IRQ has no IRQ data\n");
++
++			if (irq_data->hwirq >= SKY1_S5_GPIO_FIRST_GSI &&
++			    irq_data->hwirq <= SKY1_S5_GPIO_LAST_GSI) {
++				cgpio->pdc_hwirq = irq_data->hwirq -
++						    SKY1_GIC_SPI_OFFSET;
++				cgpio->has_sky1_pdc = true;
++			}
++		}
+ 
+-	/*
+-	 * Optional irq_chip support
+-	 */
+-	irq = platform_get_irq(pdev, 0);
+-	if (irq >= 0) {
+-		struct gpio_irq_chip *girq;
++		if (!cgpio->quirks->cix_sky1)
++			irqchip = &cdns_gpio_irqchip;
++		else if (cgpio->has_sky1_pdc)
++			irqchip = &cdns_gpio_cix_pdc_irqchip;
++		else
++			irqchip = &cdns_gpio_cix_irqchip;
+ 
+-		girq = &cgpio->gen_gc.gc.irq;
+-		gpio_irq_chip_set_chip(girq, &cdns_gpio_irqchip);
++		gpio_irq_chip_set_chip(girq, irqchip);
+ 		girq->parent_handler = cdns_gpio_irq_handler;
+ 		girq->num_parents = 1;
+-		girq->parents = devm_kcalloc(&pdev->dev, 1,
++		girq->parents = devm_kcalloc(dev, 1,
+ 					     sizeof(*girq->parents),
+ 					     GFP_KERNEL);
+-		if (!girq->parents) {
+-			ret = -ENOMEM;
+-			goto err_revert_dir;
+-		}
++		if (!girq->parents)
++			return -ENOMEM;
+ 		girq->parents[0] = irq;
+ 		girq->default_type = IRQ_TYPE_NONE;
+-		girq->handler = handle_level_irq;
++		girq->handler = cgpio->quirks->cix_sky1 ?
++				handle_bad_irq : handle_level_irq;
++
++		if (cgpio->quirks->cix_sky1) {
++			u32 pending;
++
++			iowrite32(cgpio->valid_mask,
++				  cgpio->regs + CDNS_GPIO_IRQ_DIS);
++			pending = ioread32(cgpio->regs + CDNS_GPIO_IRQ_STATUS) &
++				  cgpio->valid_mask;
++			if (pending)
++				iowrite32(pending,
++					  cgpio->regs + CDNS_GPIO_IRQ_STATUS);
++		}
+ 	}
+ 
+-	ret = devm_gpiochip_add_data(&pdev->dev, &cgpio->gen_gc.gc, cgpio);
+-	if (ret < 0) {
+-		dev_err(&pdev->dev, "Could not register gpiochip, %d\n", ret);
+-		goto err_revert_dir;
++	if (cgpio->quirks->cix_sky1 && !cgpio->quirks->skip_init) {
++		cdns_gpio_write_valid(cgpio, CDNS_GPIO_OUTPUT_EN,
++				      cgpio->valid_mask);
++		cdns_gpio_write_valid(cgpio, CDNS_GPIO_BYPASS_MODE, 0);
+ 	}
+ 
+-	cgpio->bypass_orig = ioread32(cgpio->regs + CDNS_GPIO_BYPASS_MODE);
+-
+-	/*
+-	 * Enable gpio outputs, ignored for input direction
+-	 */
+-	if (!cgpio->quirks->skip_init) {
+-		iowrite32(GENMASK(num_gpios - 1, 0),
+-			cgpio->regs + CDNS_GPIO_OUTPUT_EN);
+-		iowrite32(0, cgpio->regs + CDNS_GPIO_BYPASS_MODE);
+-	}
++	ret = devm_gpiochip_add_data(dev, &cgpio->gen_gc.gc, cgpio);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to register GPIO chip\n");
+ 
++	cgpio->registered = true;
+ 	platform_set_drvdata(pdev, cgpio);
+-	return 0;
+ 
+-err_revert_dir:
+-	iowrite32(dir_prev, cgpio->regs + CDNS_GPIO_DIRECTION_MODE);
++	/* Preserve the upstream post-registration order for non-CIX users. */
++	if (!cgpio->quirks->cix_sky1 && !cgpio->quirks->skip_init) {
++		cdns_gpio_write_valid(cgpio, CDNS_GPIO_OUTPUT_EN,
++				      cgpio->valid_mask);
++		cdns_gpio_write_valid(cgpio, CDNS_GPIO_BYPASS_MODE, 0);
++	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static void cdns_gpio_remove(struct platform_device *pdev)
+ {
+ 	struct cdns_gpio_chip *cgpio = platform_get_drvdata(pdev);
++	unsigned long flags;
++	int ret = 0;
++
++	if (cgpio->quirks->cix_sky1 && cgpio->has_irq)
++		iowrite32(cgpio->valid_mask, cgpio->regs + CDNS_GPIO_IRQ_DIS);
++
++	raw_spin_lock_irqsave(&cgpio->wake_lock, flags);
++	if (cgpio->has_sky1_pdc) {
++		ret = cdns_gpio_clear_pdc_wake(cgpio);
++		if (!ret)
++			cgpio->pdc_armed = false;
++	}
++	raw_spin_unlock_irqrestore(&cgpio->wake_lock, flags);
+ 
+-	iowrite32(cgpio->bypass_orig, cgpio->regs + CDNS_GPIO_BYPASS_MODE);
++	if (ret)
++		dev_err(&pdev->dev, "failed to clear Sky1 GPIO wake: %d\n", ret);
++
++	if (cgpio->quirks->cix_sky1)
++		cgpio->registered = false;
+ }
+ 
++static const struct of_device_id cdns_of_ids[] = {
++	{ .compatible = "axiado,ax3000-gpio", .data = &ax3000_gpio_quirks },
++	{ .compatible = "cdns,gpio-r1p02", .data = &cdns_default_quirks },
++	{ .compatible = "cix,sky1-gpio", .data = &sky1_gpio_quirks },
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(of, cdns_of_ids);
++
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id cdns_acpi_ids[] = {
++	{ "CIXH1002", (kernel_ulong_t)&sky1_acpi_gpio_quirks },
++	{ "CIXH1003", (kernel_ulong_t)&sky1_acpi_gpio_quirks },
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(acpi, cdns_acpi_ids);
++#endif
++
+ static struct platform_driver cdns_gpio_driver = {
+ 	.driver = {
+ 		.name = "cdns-gpio",
+ 		.of_match_table = cdns_of_ids,
++		.acpi_match_table = ACPI_PTR(cdns_acpi_ids),
++		.pm = CDNS_GPIO_PM_OPS,
+ 	},
+ 	.probe = cdns_gpio_probe,
+ 	.remove = cdns_gpio_remove,

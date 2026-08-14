@@ -1,0 +1,782 @@
+diff --git a/drivers/media/platform/cix/Kbuild b/drivers/media/platform/cix/Kbuild
+--- a/drivers/media/platform/cix/Kbuild
++++ b/drivers/media/platform/cix/Kbuild
+@@ -30,6 +30,8 @@ if-y := if/mvx_if.o \
+ 	if/mvx_secure.o \
+ 	if/mvx_session.o
+ 
++if-$(CONFIG_VIDEO_LINLON_KUNIT_TEST) += if/mvx_buffer_test.o
++
+ # Add external interface.
+ if-y += if/v4l2/mvx_ext_v4l2.o \
+ 	if/v4l2/mvx_v4l2_buffer.o \
+diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+--- a/drivers/media/platform/cix/Kconfig
++++ b/drivers/media/platform/cix/Kconfig
+@@ -3,6 +3,7 @@ config VIDEO_LINLON
+ 	tristate "CIX/ArmChina Linlon MVX VPU codec support"
+ 	depends on VIDEO_DEV
+ 	depends on PM && RESET_CONTROLLER
++	select RTC_LIB
+ 	select VIDEOBUF2_DMA_SG
+ 	select VIDEOBUF2_MEMOPS
+ 	select VIDEOBUF2_V4L2
+@@ -17,6 +18,15 @@ config VIDEO_LINLON_FTRACE
+ 	help
+ 	  Send kernel space logs to ftrace.
+ 
++config VIDEO_LINLON_KUNIT_TEST
++	tristate "KUnit tests for CIX Linlon MVX buffer validation"
++	depends on KUNIT
++	depends on VIDEO_LINLON
++	default KUNIT_ALL_TESTS
++	help
++	  Build focused KUnit tests for the CIX Linlon MVX buffer bounds
++	  validation. These tests do not require VPU hardware.
++
+ config VIDEO_LINLON_PRINT_FILE
+ 	bool "Append file and line number to kernel space log messages"
+ 	depends on VIDEO_LINLON
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -819,8 +819,9 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+                             DL_FLAG_PM_RUNTIME |
+                             DL_FLAG_STATELESS);
+     if (IS_ERR_OR_NULL(ctx->opp_dl)) {
++        ret = IS_ERR(ctx->opp_dl) ? PTR_ERR(ctx->opp_dl) : -ENODEV;
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+-            "%s(): Failed to create device link", __func__);
++            "%s(): Failed to create device link: %d", __func__, ret);
+         ctx->opp_dl = NULL;
+         goto detach_opp;
+     }
+diff --git a/drivers/media/platform/cix/if/mvx_buffer.c b/drivers/media/platform/cix/if/mvx_buffer.c
+--- a/drivers/media/platform/cix/if/mvx_buffer.c
++++ b/drivers/media/platform/cix/if/mvx_buffer.c
+@@ -450,13 +450,15 @@ int mvx_buffer_filled_set(struct mvx_buffer *buf,
+               unsigned int filled,
+               unsigned int offset)
+ {
+-    struct mvx_buffer_plane *p = &buf->planes[plane];
+-    size_t size = mvx_buffer_size(buf, plane);
++    struct mvx_buffer_plane *p;
++    size_t size;
+ 
+-    if (plane > buf->nplanes)
++    if (plane >= buf->nplanes)
+         return -EINVAL;
+ 
+-    if (size < (filled + offset)) {
++    p = &buf->planes[plane];
++    size = mvx_buffer_size(buf, plane);
++    if (offset > size || filled > size - offset) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+                   "Buffer plane too small. plane=%d, size=%zu, filled=%u, offset=%u.",
+                   plane, size, filled, offset);
+@@ -473,9 +475,13 @@ int mvx_buffer_filled_set(struct mvx_buffer *buf,
+ size_t mvx_buffer_size(struct mvx_buffer *buf,
+                unsigned int plane)
+ {
+-    struct mvx_buffer_plane *p = &buf->planes[plane];
++    struct mvx_buffer_plane *p;
++
++    if (plane >= buf->nplanes)
++        return 0;
+ 
+-    if (plane >= buf->nplanes || p->pages == NULL)
++    p = &buf->planes[plane];
++    if (!p->pages)
+         return 0;
+ 
+     return mvx_mmu_size_pages(p->pages);
+@@ -484,9 +490,13 @@ size_t mvx_buffer_size(struct mvx_buffer *buf,
+ mvx_mmu_va mvx_buffer_va(struct mvx_buffer *buf,
+              unsigned int plane)
+ {
+-    struct mvx_buffer_plane *p = &buf->planes[plane];
++    struct mvx_buffer_plane *p;
++
++    if (plane >= buf->nplanes)
++        return 0;
+ 
+-    if (plane >= buf->nplanes || p->pages == NULL)
++    p = &buf->planes[plane];
++    if (!p->pages)
+         return 0;
+ 
+     return p->pages->va + p->pages->offset;
+diff --git a/drivers/media/platform/cix/if/mvx_buffer_test.c b/drivers/media/platform/cix/if/mvx_buffer_test.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/media/platform/cix/if/mvx_buffer_test.c
+@@ -0,0 +1,48 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <kunit/test.h>
++#include <linux/module.h>
++
++#include "mvx_buffer.h"
++
++static void mvx_buffer_filled_bounds_test(struct kunit *test)
++{
++	struct mvx_mmu_pages *pages;
++	struct mvx_buffer buf = { 0 };
++	size_t size;
++
++	pages = kunit_kzalloc(test, struct_size(pages, pages, 1), GFP_KERNEL);
++	KUNIT_ASSERT_NOT_NULL(test, pages);
++	pages->count = 2;
++	buf.nplanes = 1;
++	buf.planes[0].pages = pages;
++	size = mvx_buffer_size(&buf, 0);
++
++	KUNIT_EXPECT_EQ(test, mvx_buffer_filled_set(&buf, 0, size, 0), 0);
++	KUNIT_EXPECT_EQ(test, mvx_buffer_filled_set(&buf, 0, 0, size), 0);
++	KUNIT_EXPECT_EQ(test, mvx_buffer_filled_set(&buf, 0, 1, size),
++			-EAGAIN);
++	KUNIT_EXPECT_TRUE(test, buf.flags & MVX_BUFFER_FRAME_NEED_REALLOC);
++
++	buf.flags = 0;
++	KUNIT_EXPECT_EQ(test,
++			mvx_buffer_filled_set(&buf, 0, UINT_MAX, 1), -EAGAIN);
++	KUNIT_EXPECT_TRUE(test, buf.flags & MVX_BUFFER_FRAME_NEED_REALLOC);
++	KUNIT_EXPECT_EQ(test, mvx_buffer_filled_set(&buf, 1, 0, 0), -EINVAL);
++	KUNIT_EXPECT_EQ(test, mvx_buffer_size(&buf, 1), (size_t)0);
++	KUNIT_EXPECT_EQ(test, mvx_buffer_va(&buf, 1), (mvx_mmu_va)0);
++}
++
++static struct kunit_case mvx_buffer_test_cases[] = {
++	KUNIT_CASE(mvx_buffer_filled_bounds_test),
++	{}
++};
++
++static struct kunit_suite mvx_buffer_test_suite = {
++	.name = "cix-mvx-buffer",
++	.test_cases = mvx_buffer_test_cases,
++};
++
++kunit_test_suite(mvx_buffer_test_suite);
++
++MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/cix/if/mvx_firmware.c b/drivers/media/platform/cix/if/mvx_firmware.c
+--- a/drivers/media/platform/cix/if/mvx_firmware.c
++++ b/drivers/media/platform/cix/if/mvx_firmware.c
+@@ -588,8 +588,11 @@ int mvx_fw_factory(struct mvx_fw *fw,
+     if (ret != 0)
+         return ret;
+ 
+-    if (IS_ENABLED(CONFIG_DEBUG_FS))
++    if (IS_ENABLED(CONFIG_DEBUG_FS)) {
+         ret = fw_debugfs_init(fw, parent);
++        if (ret)
++            fw_unmap(fw);
++    }
+ 
+     return ret;
+ }
+diff --git a/drivers/media/platform/cix/if/mvx_mmu.c b/drivers/media/platform/cix/if/mvx_mmu.c
+--- a/drivers/media/platform/cix/if/mvx_mmu.c
++++ b/drivers/media/platform/cix/if/mvx_mmu.c
+@@ -346,33 +346,49 @@ static int remap_page(struct mvx_mmu *mmu,
+ static int remap_pages(struct mvx_mmu_pages *pages,
+                size_t oldcount)
+ {
++    size_t i;
+     int ret;
+ 
+     if (pages->mmu == NULL)
+         return 0;
+ 
+     /* Remap pages to no access if new count is smaller than old count. */
+-    while (pages->count < oldcount) {
+-        oldcount--;
+-
++    for (i = oldcount; i > pages->count;) {
++        i--;
+         ret = remap_page(pages->mmu,
+-                 pages->va + oldcount * MVE_PAGE_SIZE,
++                 pages->va + i * MVE_PAGE_SIZE,
+                  MVE_PAGE_SIZE, MVX_ATTR_PRIVATE,
+                  MVX_ACCESS_NO);
+-        if (ret != 0)
++        if (ret != 0) {
++            while (i < oldcount) {
++                remap_page(pages->mmu,
++                       pages->va + i * MVE_PAGE_SIZE,
++                       pages->pages[i], pages->attr,
++                       pages->access);
++                i++;
++            }
+             return ret;
++        }
+     }
+ 
+     /* Map up pages if new count is larger than old count. */
+-    while (pages->count > oldcount) {
++    for (i = oldcount; i < pages->count; i++) {
+         ret = remap_page(pages->mmu,
+-                 pages->va + oldcount * MVE_PAGE_SIZE,
+-                 pages->pages[oldcount], pages->attr,
++                 pages->va + i * MVE_PAGE_SIZE,
++                 pages->pages[i], pages->attr,
+                  pages->access);
+-        if (ret != 0)
++        if (ret != 0) {
++            for (;;) {
++                remap_page(pages->mmu,
++                       pages->va + i * MVE_PAGE_SIZE,
++                       MVE_PAGE_SIZE, MVX_ATTR_PRIVATE,
++                       MVX_ACCESS_NO);
++                if (i == oldcount)
++                    break;
++                i--;
++            }
+             return ret;
+-
+-        oldcount++;
++        }
+     }
+ 
+     return 0;
+@@ -813,8 +829,10 @@ void* mvx_mmu_alloc_noncontiguous(struct device *dev,
+     }
+     tmp_pages = mvx_mmu_alloc_pages_sg(dev,
+               tmp_sgt, DIV_ROUND_UP(size, MVE_PAGE_SIZE));
+-    if (IS_ERR(tmp_pages))
++    if (IS_ERR(tmp_pages)) {
++        dma_vunmap_noncontiguous(dev, data);
+         goto free_sg_table;
++    }
+ 
+     *pages = tmp_pages;
+     *sgt = tmp_sgt;
+@@ -1058,6 +1076,8 @@ int mvx_mmu_resize_pages(struct mvx_mmu_pages *pages,
+              size_t npages)
+ {
+     size_t oldcount = pages->count;
++    size_t i;
++    int ret;
+ 
+     if (pages->is_external != false) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+@@ -1077,15 +1097,21 @@ int mvx_mmu_resize_pages(struct mvx_mmu_pages *pages,
+         return -ENOMEM;
+     }
+ 
+-    /* Free pages if npage is smaller than allocated pages. */
+-    while (pages->count > npages) {
+-        pages->count--;
++    /* Remove mappings before freeing pages from a shrinking allocation. */
++    if (npages < oldcount) {
++        pages->count = npages;
++        ret = remap_pages(pages, oldcount);
++        if (ret) {
++            pages->count = oldcount;
++            return ret;
++        }
+ 
+-        if ((pages->count % MVX_PAGES_PER_PAGE) == 0)
+-            mvx_mmu_free_page(pages->dev,
+-                      pages->pages[pages->count]);
++        for (i = npages; i < oldcount; i += MVX_PAGES_PER_PAGE)
++            mvx_mmu_free_page(pages->dev, pages->pages[i]);
++        memset(&pages->pages[npages], 0,
++               (oldcount - npages) * sizeof(pages->pages[0]));
+ 
+-        pages->pages[pages->count] = 0;
++        return 0;
+     }
+ 
+     /* Allocate pages if npage is larger than allocated pages. */
+@@ -1094,15 +1120,31 @@ int mvx_mmu_resize_pages(struct mvx_mmu_pages *pages,
+         unsigned int i;
+ 
+         page = mvx_mmu_alloc_page(pages->dev, GFP_KERNEL);
+-        if (page == 0)
+-            return -ENOMEM;
++        if (page == 0) {
++            ret = -ENOMEM;
++            goto rollback;
++        }
+ 
+         for (i = 0; i < MVX_PAGES_PER_PAGE; i++)
+             pages->pages[pages->count++] =
+                 page + i * MVE_PAGE_SIZE;
+     }
+ 
+-    return remap_pages(pages, oldcount);
++    ret = remap_pages(pages, oldcount);
++    if (ret && pages->count > oldcount)
++        goto rollback;
++
++    return ret;
++
++rollback:
++    while (pages->count > oldcount) {
++        pages->count -= MVX_PAGES_PER_PAGE;
++        mvx_mmu_free_page(pages->dev, pages->pages[pages->count]);
++        memset(&pages->pages[pages->count], 0,
++               MVX_PAGES_PER_PAGE * sizeof(pages->pages[0]));
++    }
++
++    return ret;
+ }
+ 
+ void mvx_mmu_free_pages(struct mvx_mmu_pages *pages)
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -2922,6 +2922,7 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
+              bool same_thread)
+ {
+     struct mvx_session *session = arg;
++    bool fw_constructed = false;
+     int lock_failed = 1;
+     int ret;
+ 
+@@ -2953,6 +2954,7 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
+         session->client_ops, &session->isession);
+     if (IS_ERR(session->csession)) {
+         ret = PTR_ERR(session->csession);
++        session->csession = NULL;
+         send_event_error(session, ret);
+         goto put_fw_bin;
+     }
+@@ -2966,6 +2968,7 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
+         send_event_error(session, ret);
+         goto unregister_csession;
+     }
++    fw_constructed = true;
+ 
+     session->fw_bin = bin;
+     complete(&session->fw_loaded);
+@@ -2973,16 +2976,22 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
+     mvx_fw_cache_log(bin, session->csession);
+ 
+     ret = fw_initial_setup(session);
+-    if (ret != 0)
++    if (ret != 0) {
++        send_event_error(session, ret);
+         goto unregister_csession;
++    }
+ 
+     ret = queue_pending_buffers(session, MVX_DIR_INPUT);
+-    if (ret != 0)
++    if (ret != 0) {
++        send_event_error(session, ret);
+         goto unregister_csession;
++    }
+ 
+     ret = queue_pending_buffers(session, MVX_DIR_OUTPUT);
+-    if (ret != 0)
++    if (ret != 0) {
++        send_event_error(session, ret);
+         goto unregister_csession;
++    }
+ 
+     if (lock_failed == 0)
+         mutex_unlock(session->isession.mutex);
+@@ -2992,6 +3001,9 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
+     return;
+ 
+ unregister_csession:
++    watchdog_stop(session);
++    if (fw_constructed)
++        mvx_fw_destruct(&session->fw);
+     session->client_ops->unregister_session(session->csession);
+     session->csession = NULL;
+ 
+@@ -3838,6 +3850,9 @@ int mvx_session_streamon(struct mvx_session *session,
+ 
+     MVX_SESSION_INFO(session, "Stream on. dir=%u.", dir);
+ 
++    if (session->error)
++        return session->error;
++
+     /* Verify that we don't enable an already activated port. */
+     if (session->port[dir].stream_on != false)
+         return 0;
+@@ -3852,13 +3867,18 @@ int mvx_session_streamon(struct mvx_session *session,
+     if (IS_ERR(session->fw_bin)) {
+         /* Unlock during wait time as the same mutex may be locked in fw_bin_ready() */
+         mutex_unlock(session->isession.mutex);
+-        if (!wait_for_completion_timeout(&session->fw_loaded, msecs_to_jiffies(3000))) {
++        if (!wait_for_completion_timeout(&session->fw_loaded,
++                         msecs_to_jiffies(3000))) {
++            ret = -ETIMEDOUT;
+             mutex_lock(session->isession.mutex);
+-            ret = IS_ERR(session->fw_bin);
+             MVX_SESSION_WARN(session, "Wait for firmware loading timeout.");
+             goto disable_port;
+         }
+         mutex_lock(session->isession.mutex);
++        if (session->error) {
++            ret = session->error;
++            goto disable_port;
++        }
+     }
+ 
+     /*
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
+@@ -30,6 +30,7 @@
+  */
+ 
+ #include <linux/debugfs.h>
++#include <linux/overflow.h>
+ #include <linux/version.h>
+ #include <linux/time.h>
+ #include <linux/mvx-v4l2-controls.h>
+@@ -349,13 +350,26 @@ static int update_mvx_buffer(struct mvx_v4l2_buffer *vbuf)
+ 
+     for (i = 0; i < vb2->num_planes; i++) {
+         unsigned int offset = vb2->planes[i].data_offset;
++        unsigned int mmap_offset;
+ 
+         /*
+          * For single planar mmap buffers the offset is carried by
+          * the lower part of the offset.
+          */
+-        if (vb2->memory == V4L2_MEMORY_MMAP)
+-            offset += vb2->planes[i].m.offset & ~PAGE_MASK;
++        if (vb2->memory == V4L2_MEMORY_MMAP) {
++            mmap_offset = vb2->planes[i].m.offset & ~PAGE_MASK;
++            if (check_add_overflow(offset, mmap_offset, &offset))
++                return -EOVERFLOW;
++        }
++
++        if (vb2->planes[i].bytesused > vb2->planes[i].length ||
++            offset > vb2->planes[i].bytesused) {
++            MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
++                      "Invalid buffer payload. plane=%d, length=%u, bytesused=%u, offset=%u.",
++                      i, vb2->planes[i].length,
++                      vb2->planes[i].bytesused, offset);
++            return -EINVAL;
++        }
+ 
+         /* MVX filled is the number of bytes excluding the offset. */
+         ret = mvx_buffer_filled_set(mvx_buf, i,
+@@ -400,8 +414,20 @@ static int update_v4l2_bytesused(struct mvx_v4l2_buffer *vbuf)
+      */
+ 
+     for (i = 0; i < b->num_planes; i++) {
+-        b->planes[i].bytesused =
+-            buf->planes[i].filled + buf->planes[i].offset;
++        unsigned int bytesused;
++
++        if (check_add_overflow(buf->planes[i].filled,
++                       buf->planes[i].offset, &bytesused) ||
++            bytesused > b->planes[i].length) {
++            MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
++                      "Firmware returned an invalid buffer payload. plane=%d, length=%u, filled=%u, offset=%u.",
++                      i, b->planes[i].length,
++                      buf->planes[i].filled,
++                      buf->planes[i].offset);
++            return -EIO;
++        }
++
++        b->planes[i].bytesused = bytesused;
+         b->planes[i].data_offset = buf->planes[i].offset;
+     }
+ 
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+@@ -130,14 +130,14 @@ int mvx_v4l2_open(struct file *file)
+ 
+ int mvx_v4l2_release(struct file *file)
+ {
+-    struct mvx_v4l2_session *vsession = file_to_session(file);
++    struct mvx_v4l2_session *vsession;
+     int i;
+     int ret;
+ 
+-    if (file != NULL && file->private_data == NULL) {
+-        MVX_SESSION_ERR(&vsession->session, "NULL private_data is not expected.");
++    if (!file || !file->private_data)
+         return -EINVAL;
+-    }
++
++    vsession = file_to_session(file);
+ 
+     MVX_SESSION_INFO(&vsession->session, "v4l2: Release.");
+ 
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+@@ -372,78 +372,97 @@ static bool bitstream_need_merge(struct mvx_v4l2_session *vsession,
+                     struct mvx_v4l2_buffer *vbuf)
+ {
+     struct mvx_buffer *buf = &vbuf->buf;
++    struct vb2_buffer *src = &vbuf->vb2_v4l2_buffer.vb2_buf;
++    struct vb2_buffer *dst;
++    unsigned int size;
++    unsigned int space;
+ 
+-    if(buf->dir == MVX_DIR_OUTPUT && mvx_is_bitstream(buf->format)) {
+-        if (!(buf->flags & MVX_BUFFER_EOF) || (vsession->frame_bits_buf != NULL)) {
+-            if (vsession->frame_bits_buf != NULL) {
+-                struct vb2_buffer *vb_dst = &vsession->frame_bits_buf->vb2_v4l2_buffer.vb2_buf;
+-                struct vb2_buffer *vb_src = &vbuf->vb2_v4l2_buffer.vb2_buf;
+-                unsigned int size = vb_src->planes[0].bytesused - vb_src->planes[0].data_offset;
+-                unsigned int space = vb_dst->planes[0].length - vb_dst->planes[0].bytesused;
+-                if (vb2_plane_vaddr(vb_dst, 0) == NULL || vb2_plane_vaddr(vb_src, 0) == NULL) {
+-                    MVX_SESSION_WARN(&vsession->session,
+-                            "Unable to obtain kernel virtual address of dst/src plane\n");
+-                    return false;
+-                }
+-                if (space < size) {
+-                    MVX_SESSION_WARN(&vsession->session,
+-                            "Remaining space in bitstream buffer (%d) is not enough to store extra %d bytes\n",
+-                            space, size);
+-                    return false;
+-                }
+-            }
++    if (buf->dir != MVX_DIR_OUTPUT || !mvx_is_bitstream(buf->format) ||
++        ((buf->flags & MVX_BUFFER_EOF) && !vsession->frame_bits_buf) ||
++        !buf->planes[0].filled)
++        return false;
+ 
+-            if (buf->planes[0].filled > 0) {
+-                if (buf->planes[0].filled >= vbuf->vb2_v4l2_buffer.vb2_buf.planes[0].length) {
+-                    MVX_SESSION_WARN(&vsession->session, "No remaining space in bitstream buffer\n");
+-                    return false;
+-                }
+-                return true;
+-            }
+-        }
++    if (src->planes[0].bytesused > src->planes[0].length ||
++        src->planes[0].data_offset > src->planes[0].bytesused)
++        return false;
++
++    if (buf->planes[0].filled >= src->planes[0].length) {
++        MVX_SESSION_WARN(&vsession->session,
++                 "No remaining space in bitstream buffer\n");
++        return false;
++    }
++
++    if (!vsession->frame_bits_buf)
++        return true;
++
++    dst = &vsession->frame_bits_buf->vb2_v4l2_buffer.vb2_buf;
++    if (dst->planes[0].bytesused > dst->planes[0].length ||
++        dst->planes[0].data_offset > dst->planes[0].bytesused ||
++        !vb2_plane_vaddr(dst, 0) || !vb2_plane_vaddr(src, 0)) {
++        MVX_SESSION_WARN(&vsession->session,
++                 "Unable to merge invalid or inaccessible bitstream buffers\n");
++        return false;
++    }
++
++    size = src->planes[0].bytesused - src->planes[0].data_offset;
++    space = dst->planes[0].length - dst->planes[0].bytesused;
++    if (space < size) {
++        MVX_SESSION_WARN(&vsession->session,
++                 "Remaining space in bitstream buffer (%d) is not enough to store extra %d bytes\n",
++                 space, size);
++        return false;
+     }
+ 
+-    return false;
++    return true;
+ }
+ 
+-static struct vb2_buffer *merge_bitstream(struct mvx_v4l2_session *vsession,
+-                    struct mvx_v4l2_buffer *vbuf)
++static int merge_bitstream(struct mvx_v4l2_session *vsession,
++               struct mvx_v4l2_buffer *vbuf,
++               struct vb2_buffer **done)
+ {
+-    struct vb2_buffer *vb = NULL;
++    struct mvx_v4l2_buffer *dst_vbuf = vsession->frame_bits_buf;
++    struct vb2_buffer *src = &vbuf->vb2_v4l2_buffer.vb2_buf;
++    int ret;
+ 
+-    mvx_buffer_synch(&vbuf->buf, DMA_FROM_DEVICE);
+-    if (vsession->frame_bits_buf == NULL) {
++    *done = NULL;
++    ret = mvx_buffer_synch(&vbuf->buf, DMA_FROM_DEVICE);
++    if (ret)
++        return ret;
++
++    if (!dst_vbuf) {
+         vsession->frame_bits_buf = vbuf;
+         MVX_SESSION_INFO(&vsession->session,
+                 "Partial bitstream offset %d, used %d\n",
+-                vbuf->vb2_v4l2_buffer.vb2_buf.planes[0].data_offset,
+-                vbuf->vb2_v4l2_buffer.vb2_buf.planes[0].bytesused);
++                src->planes[0].data_offset,
++                src->planes[0].bytesused);
+     } else {
+-        /* merge bitstream buffers */
+-        struct vb2_buffer *vb_dst = &vsession->frame_bits_buf->vb2_v4l2_buffer.vb2_buf;
+-        struct vb2_buffer *vb_src = &vbuf->vb2_v4l2_buffer.vb2_buf;
+-        void *dst = vb2_plane_vaddr(vb_dst, 0) + vb_dst->planes[0].bytesused;
+-        void *src = vb2_plane_vaddr(vb_src, 0) + vb_src->planes[0].data_offset;
+-        unsigned int size = vb_src->planes[0].bytesused - vb_src->planes[0].data_offset;
++        struct vb2_buffer *dst = &dst_vbuf->vb2_v4l2_buffer.vb2_buf;
++        u8 *dst_addr = vb2_plane_vaddr(dst, 0) + dst->planes[0].bytesused;
++        u8 *src_addr = vb2_plane_vaddr(src, 0) + src->planes[0].data_offset;
++        unsigned int size = src->planes[0].bytesused - src->planes[0].data_offset;
++
+         if (size > 0) {
+-            memcpy(dst, src, size);
+-            vb_dst->planes[0].bytesused += size;
+-            vsession->frame_bits_buf->buf.planes[0].filled += size;
++            memcpy(dst_addr, src_addr, size);
++            dst->planes[0].bytesused += size;
++            dst_vbuf->buf.planes[0].filled += size;
+             MVX_SESSION_INFO(&vsession->session,
+                     "Merged %d bytes of bitstream, total %d bytes\n",
+-                    size, vb_dst->planes[0].bytesused);
++                    size, dst->planes[0].bytesused);
+         }
+ 
+-        mvx_session_qbuf(&vsession->session, MVX_DIR_OUTPUT, &vbuf->buf);
++        ret = mvx_session_qbuf(&vsession->session, MVX_DIR_OUTPUT,
++                       &vbuf->buf);
++        if (ret)
++            return ret;
+ 
+         if (vbuf->buf.flags & MVX_BUFFER_EOF) {
+-            vsession->frame_bits_buf->vb2_v4l2_buffer.flags = vbuf->vb2_v4l2_buffer.flags;
++            dst_vbuf->vb2_v4l2_buffer.flags = vbuf->vb2_v4l2_buffer.flags;
+             vsession->frame_bits_buf = NULL;
+-            vb = vb_dst;
++            *done = dst;
+         }
+     }
+ 
+-    return vb;
++    return 0;
+ }
+ 
+ static void handle_event(struct mvx_session *session,
+@@ -471,12 +490,26 @@ static void handle_event(struct mvx_session *session,
+             enum vb2_buffer_state state =
+                 mvx_v4l2_buffer_update(vbuf);
+ 
+-            if(vbuf->buf.dir == MVX_DIR_OUTPUT && mvx_is_bitstream(vbuf->buf.format)) {
+-                if (bitstream_need_merge(vsession, vbuf))
+-                    vb = merge_bitstream(vsession, vbuf);
+-                else if (vsession->frame_bits_buf != NULL) {
+-                    /* Remaining space in bitstream buffer is not enough, just send it to client */
+-                    vb2_buffer_done(&vsession->frame_bits_buf->vb2_v4l2_buffer.vb2_buf, state);
++            if (vbuf->buf.dir == MVX_DIR_OUTPUT &&
++                mvx_is_bitstream(vbuf->buf.format)) {
++                if (state == VB2_BUF_STATE_DONE &&
++                    bitstream_need_merge(vsession, vbuf)) {
++                    int ret = merge_bitstream(vsession, vbuf, &vb);
++
++                    if (ret) {
++                        state = VB2_BUF_STATE_ERROR;
++                        if (vsession->frame_bits_buf) {
++                            vb2_buffer_done(
++                                &vsession->frame_bits_buf->vb2_v4l2_buffer.vb2_buf,
++                                state);
++                            vsession->frame_bits_buf = NULL;
++                        }
++                        vb = &vbuf->vb2_v4l2_buffer.vb2_buf;
++                    }
++                } else if (vsession->frame_bits_buf) {
++                    vb2_buffer_done(
++                        &vsession->frame_bits_buf->vb2_v4l2_buffer.vb2_buf,
++                        state);
+                     vsession->frame_bits_buf = NULL;
+                 }
+             }
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+@@ -38,6 +38,7 @@
+ #include <linux/sched.h>
+ #include <linux/string.h>
+ #include <linux/version.h>
++#include <linux/unaligned.h>
+ #include <media/v4l2-ctrls.h>
+ #include <media/v4l2-event.h>
+ #include <media/videobuf2-v4l2.h>
+@@ -472,6 +473,9 @@ static int start_streaming(struct vb2_queue *q,
+         WARN_ON(atomic_read(&q->owned_by_drv_count));
+     }
+ 
++    if (ret != 0 && vport->dir == MVX_DIR_OUTPUT)
++        vsession->frame_bits_buf = NULL;
++
+     return ret;
+ }
+ 
+@@ -513,6 +517,11 @@ static void stop_streaming(struct vb2_queue *q)
+ 
+         WARN_ON(atomic_read(&q->owned_by_drv_count));
+     }
++
++    if (vport->dir == MVX_DIR_OUTPUT)
++        vsession->frame_bits_buf = NULL;
++    else
++        vsession->first_input_processed = false;
+ }
+ 
+ /**
+@@ -538,22 +547,6 @@ static void buf_queue(struct vb2_buffer *b)
+     MVX_SESSION_VERBOSE(session,
+                 "v4l2: Queue buffer. b=%px, type=%u, index=%u.",
+                 b, b->type, b->index);
+-    if (!vsession->first_input_processed && b->planes[0].bytesused >= 4) {
+-        if (dir == MVX_DIR_INPUT && vport->port->format == MVX_FORMAT_JPEG) {
+-            uint32_t *data = vb2_plane_vaddr(b, 0) + b->planes[0].data_offset;
+-            if (*data == v4l2_fourcc('A', 'V', 'I', 'F')) {
+-                /* Not a valid bitstream buffer, return it to client */
+-                MVX_SESSION_INFO(session,
+-                            "v4l2: Skip invalid bitstream buffer, offset = %d, size = %d",
+-                            b->planes[0].data_offset, b->planes[0].bytesused);
+-                b->planes[0].data_offset += b->planes[0].bytesused;
+-                b->planes[0].bytesused = 0;
+-                vb2_buffer_done(b, VB2_BUF_STATE_DONE);
+-                return;
+-            }
+-        }
+-        vsession->first_input_processed = true;
+-    }
+     vbuf->buf.format = vport->port->format;
+     if (vsession->session.force_key_frame && dir == MVX_DIR_INPUT) {
+         struct vb2_v4l2_buffer *vb2_v4l2 = to_vb2_v4l2_buffer(b);
+@@ -562,13 +555,34 @@ static void buf_queue(struct vb2_buffer *b)
+         mvx_session_set_force_key_frame(&vsession->session, 0);
+     }
+     ret = mvx_v4l2_buffer_set(vbuf, b);
+-    if (ret != 0) {
++    if (ret != 0)
+         goto failed;
++
++    if (!vsession->first_input_processed && dir == MVX_DIR_INPUT &&
++        vport->port->format == MVX_FORMAT_JPEG) {
++        unsigned int offset = b->planes[0].data_offset;
++        u8 *vaddr = vb2_plane_vaddr(b, 0);
++
++        if (vaddr && b->planes[0].bytesused - offset >= sizeof(u32) &&
++            get_unaligned_le32(vaddr + offset) ==
++            v4l2_fourcc('A', 'V', 'I', 'F')) {
++            /* Not a valid bitstream buffer, return it to client. */
++            MVX_SESSION_INFO(session,
++                        "v4l2: Skip invalid bitstream buffer, offset = %d, size = %d",
++                        offset, b->planes[0].bytesused);
++            b->planes[0].data_offset = 0;
++            b->planes[0].bytesused = 0;
++            vb2_buffer_done(b, VB2_BUF_STATE_DONE);
++            return;
++        }
++
++        vsession->first_input_processed = true;
+     }
++
+     ret = mvx_session_qbuf(&vsession->session, dir, &vbuf->buf);
+-    if (ret != 0) {
++    if (ret != 0)
+         goto failed;
+-    }
++
+     return;
+ 
+ failed:

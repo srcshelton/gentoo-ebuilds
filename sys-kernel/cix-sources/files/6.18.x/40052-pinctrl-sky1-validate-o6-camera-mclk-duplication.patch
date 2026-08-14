@@ -1,0 +1,161 @@
+O6/O6N firmware assigns I2S3_MCLK pin 65 to both camera groups. Filter it from cam1 only when both cam0 and cam1 carry the exact known pin, offset and configuration tuple; unexpected firmware data remains visible and fails normally.
+
+diff --git a/drivers/pinctrl/cix/pinctrl-sky1-base.c b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+--- a/drivers/pinctrl/cix/pinctrl-sky1-base.c
++++ b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+@@ -34,6 +34,9 @@
+ #define PADS_FUNCS_MASK		GENMASK(1, 0)
+ #define PADS_FUNCS_BITS		7
+ #define PADS_CONFS_MASK		GENMASK(6, 0)
++#define SKY1_O6_CAM_MCLK_PIN	65
++#define SKY1_O6_CAM_MCLK_OFFSET	0x0104
++#define SKY1_O6_CAM_MCLK_CONFIG	0x009c
+ 
+ static const unsigned char sky1_ds_table[] = {
+ 	2, 3, 5, 6, 8, 9, 11, 12, 13, 14, 17, 18, 20, 21, 23, 24,
+@@ -827,16 +830,55 @@ sky1_free_acpi_group_desc(struct pinctrl_acpi_group_desc *acpi_grp_desc)
+ 	kfree(acpi_grp_desc);
+ }
+ 
++static bool
++sky1_acpi_group_has_o6_cam_mclk(const struct pinctrl_acpi_group_desc *group)
++{
++	const __be16 *vendor;
++	unsigned int i;
++
++	if (!group->pins || !group->vendor_data ||
++	    group->vendor_length != group->num_pins * 2 * sizeof(u16))
++		return false;
++
++	vendor = (const __be16 *)group->vendor_data;
++	for (i = 0; i < group->num_pins; i++, vendor += 2)
++		if (group->pins[i] == SKY1_O6_CAM_MCLK_PIN &&
++		    be16_to_cpu(vendor[0]) == SKY1_O6_CAM_MCLK_OFFSET &&
++		    be16_to_cpu(vendor[1]) == SKY1_O6_CAM_MCLK_CONFIG)
++			return true;
++
++	return false;
++}
++
++static bool
++sky1_acpi_group_is_o6_cam1_duplicate(struct list_head *groups,
++				      const struct pinctrl_acpi_group_desc *group)
++{
++	struct pinctrl_acpi_group_desc *candidate;
++
++	if (!group->name || strcmp(group->name, "pinctrl_cam1_hw") ||
++	    !sky1_acpi_group_has_o6_cam_mclk(group))
++		return false;
++
++	list_for_each_entry(candidate, groups, list)
++		if (candidate->name &&
++		    !strcmp(candidate->name, "pinctrl_cam0_hw"))
++			return sky1_acpi_group_has_o6_cam_mclk(candidate);
++
++	return false;
++}
++
+ static int
+ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 			       struct sky1_pinctrl *spctl,
+-			       const char *compat_alias)
++			       const char *compat_alias,
++			       bool drop_duplicate_cam_mclk)
+ {
+ 	struct sky1_pin *pin_data;
+ 	unsigned int *pin_array;
+ 	const __be16 *vendor;
+ 	char *group_name;
+-	unsigned int i, j;
++	unsigned int i, j, pin_count = 0;
+ 	int ret;
+ 
+ 	if (!acpi_grp->name || !*acpi_grp->name || !acpi_grp->num_pins ||
+@@ -854,11 +896,25 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 
+ 	vendor = (const __be16 *)acpi_grp->vendor_data;
+ 	for (i = 0; i < acpi_grp->num_pins; i++) {
+-		struct sky1_pin *pin = &pin_data[i];
++		unsigned int pin_id = acpi_grp->pins[i];
++		unsigned int offset = be16_to_cpu(*vendor++);
++		unsigned long configs = be16_to_cpu(*vendor++);
++		struct sky1_pin *pin;
++
++		if (drop_duplicate_cam_mclk &&
++		    pin_id == SKY1_O6_CAM_MCLK_PIN &&
++		    offset == SKY1_O6_CAM_MCLK_OFFSET &&
++		    configs == SKY1_O6_CAM_MCLK_CONFIG) {
++			dev_dbg(spctl->dev,
++				"ignore verified duplicate camera MCLK pin in %s\n",
++				acpi_grp->name);
++			continue;
++		}
+ 
+-		pin->pin_id = acpi_grp->pins[i];
+-		pin->offset = be16_to_cpu(*vendor++);
+-		pin->configs = be16_to_cpu(*vendor++);
++		pin = &pin_data[pin_count];
++		pin->pin_id = pin_id;
++		pin->offset = offset;
++		pin->configs = configs;
+ 
+ 		if (pin->pin_id >= spctl->info->npins ||
+ 		    !IS_ALIGNED(pin->offset, sizeof(u32)) ||
+@@ -869,7 +925,7 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 				"invalid ACPI pin %u in group %s\n",
+ 				pin->pin_id, acpi_grp->name);
+ 
+-		for (j = 0; j < i; j++)
++		for (j = 0; j < pin_count; j++)
+ 			if (pin_data[j].pin_id == pin->pin_id)
+ 				return dev_err_probe(spctl->dev, -EINVAL,
+ 					"duplicate ACPI pin %u in group %s\n",
+@@ -879,19 +935,21 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 		    spctl->pin_regs[pin->pin_id] != pin->offset)
+ 			return -EINVAL;
+ 		spctl->pin_regs[pin->pin_id] = pin->offset;
+-		pin_array[i] = pin->pin_id;
++		pin_array[pin_count++] = pin->pin_id;
+ 
+ 		dev_dbg(spctl->dev, "%s: 0x%x 0x%08lx\n",
+ 			spctl->info->pins[pin->pin_id].name,
+ 			pin->offset, pin->configs);
+ 	}
++	if (!pin_count)
++		return -EINVAL;
+ 
+ 	group_name = devm_kstrdup(spctl->dev, acpi_grp->name, GFP_KERNEL);
+ 	if (!group_name)
+ 		return -ENOMEM;
+ 
+ 	ret = pinctrl_generic_add_group(spctl->pctl, group_name, pin_array,
+-					acpi_grp->num_pins, pin_data);
++					pin_count, pin_data);
+ 	if (ret < 0) {
+ 		dev_err(spctl->dev, "failed to add group %s: %d\n",
+ 			acpi_grp->name, ret);
+@@ -906,7 +964,7 @@ sky1_pinctrl_parse_groups_acpi(struct pinctrl_acpi_group_desc *acpi_grp,
+ 		return -ENOMEM;
+ 
+ 	ret = pinctrl_generic_add_group(spctl->pctl, group_name, pin_array,
+-					acpi_grp->num_pins, pin_data);
++					pin_count, pin_data);
+ 	if (ret < 0) {
+ 		dev_err(spctl->dev, "failed to add compatibility group %s: %d\n",
+ 			compat_alias, ret);
+@@ -987,9 +1045,14 @@ static int sky1_pinctrl_probe_acpi(struct platform_device *pdev,
+ 
+ 	list_for_each_entry(acpi_grp, &groups, list) {
+ 		const char *compat_alias;
++		bool drop_duplicate_cam_mclk;
+ 
+ 		compat_alias = sky1_acpi_missing_alias(&groups, acpi_grp->name);
+-		ret = sky1_pinctrl_parse_groups_acpi(acpi_grp, spctl, compat_alias);
++		drop_duplicate_cam_mclk =
++			sky1_acpi_group_is_o6_cam1_duplicate(&groups, acpi_grp);
++		ret = sky1_pinctrl_parse_groups_acpi(acpi_grp, spctl,
++						     compat_alias,
++						     drop_duplicate_cam_mclk);
+ 		if (ret)
+ 			goto out_free_groups;
+ 	}

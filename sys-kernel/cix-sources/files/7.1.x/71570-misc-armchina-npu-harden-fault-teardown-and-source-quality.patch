@@ -1,0 +1,964 @@
+diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+--- a/drivers/misc/armchina-npu/aipu.c
++++ b/drivers/misc/armchina-npu/aipu.c
+@@ -659,16 +659,16 @@ static int aipu_mmap(struct file *filp, struct vm_area_struct *vma)
+ 	return aipu_mm_mmap_buf(&aipu->mm, vma, filp);
+ }
+ 
+-static unsigned int aipu_poll(struct file *filp, struct poll_table_struct *wait)
++static __poll_t aipu_poll(struct file *filp, struct poll_table_struct *wait)
+ {
+-	unsigned int mask = 0;
++	__poll_t mask = 0;
+ 	struct aipu_priv *aipu = aipu_file_priv(filp);
+ 
+ 	if (aipu_priv_is_removing(aipu))
+-		return POLLERR | POLLHUP;
++		return EPOLLERR | EPOLLHUP;
+ 
+ 	if (aipu_job_manager_has_end_job(&aipu->job_manager, filp, wait, task_pid_nr(current)))
+-		mask |= POLLIN | POLLRDNORM;
++		mask |= EPOLLIN | EPOLLRDNORM;
+ 
+ 	return mask;
+ }
+@@ -686,7 +686,7 @@ static const struct file_operations aipu_fops = {
+ };
+ 
+ /**
+- * @armchina_aipu_probe() - probe operation for platfom driver provided by ArmChina
++ * armchina_aipu_probe - probe operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct.
+  * @soc:   pointer to aipu SoC struct contains soc specific data.
+  *         this argument can be NULL if SoC vendor has no AIPU related soc data structure.
+@@ -720,7 +720,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ 			goto unlock;
+ 		}
+ 
+-		dev_info(dev, "AIPU KMD (v%s) probe start...\n", KMD_VERSION);
++		dev_info(dev, "AIPU KMD v%s\n", KMD_VERSION);
+ 
+ 		priv->reset_gpio = devm_gpiod_get_optional(&p_dev->dev, "reset", GPIOD_OUT_LOW);
+ 		if (IS_ERR(priv->reset_gpio)) {
+@@ -789,7 +789,7 @@ int armchina_aipu_probe(struct platform_device *p_dev, struct aipu_soc *soc,
+ }
+ 
+ /**
+- * @armchina_aipu_remove() - remove operation for platfom driver provided by ArmChina
++ * armchina_aipu_remove - remove operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct
+  *
+  * This function should be called in a SoC vendor provided xx_aipu_remove() function,
+@@ -827,7 +827,7 @@ int armchina_aipu_remove(struct platform_device *p_dev)
+ }
+ 
+ /**
+- * @armchina_aipu_suspend() - suspend operation for platfom driver provided by ArmChina
++ * armchina_aipu_suspend - suspend operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct.
+  * @state: power state device is entering.
+  *
+@@ -862,7 +862,7 @@ int armchina_aipu_suspend(struct platform_device *p_dev, pm_message_t state)
+ }
+ 
+ /**
+- * @armchina_aipu_resume() - resume operation for platfom driver provided by ArmChina
++ * armchina_aipu_resume - resume operation for platfom driver provided by ArmChina
+  * @p_dev: pointer to the AIPU platform device struct.
+  *
+  * This function enables the AIPU clock from SoC level with the enable_clk method
+diff --git a/drivers/misc/armchina-npu/aipu_common.c b/drivers/misc/armchina-npu/aipu_common.c
+--- a/drivers/misc/armchina-npu/aipu_common.c
++++ b/drivers/misc/armchina-npu/aipu_common.c
+@@ -112,7 +112,7 @@ ssize_t aipu_common_ext_register_sysfs_store(struct device *dev,
+ 		io_req.rw = AIPU_IO_WRITE;
+ 		io_req.offset = value[0];
+ 		io_req.value = value[1];
+-		dev_info(dev, "[SYSFS] write 0x%x into register offset 0x%x", value[1], value[0]);
++		dev_dbg(dev, "[SYSFS] write 0x%x into register offset 0x%x", value[1], value[0]);
+ 		if (io_req.offset % 4 == 0) {
+ 			ret = partition->ops->io_rw(partition, &io_req);
+ 			if (ret)
+@@ -123,7 +123,7 @@ ssize_t aipu_common_ext_register_sysfs_store(struct device *dev,
+ 			goto out_pm;
+ 		}
+ 	} else {
+-		dev_info(dev, "echo \"addr_hex  value_hex\" > ext_registers\n");
++		dev_dbg(dev, "echo \"addr_hex  value_hex\" > ext_registers\n");
+ 		ret = -EINVAL;
+ 		goto out_pm;
+ 	}
+@@ -174,7 +174,7 @@ ssize_t aipu_common_clock_sysfs_store(struct device *dev,
+ 	    !get_soc_ops(partition)->enable_clk ||
+ 	    !get_soc_ops(partition)->disable_clk ||
+ 	    !get_soc_ops(partition)->is_clk_enabled) {
+-		dev_info(dev, "operation is not supported.\n");
++		dev_dbg(dev, "clock control is not supported\n");
+ 		return count;
+ 	}
+ 
+@@ -185,10 +185,10 @@ ssize_t aipu_common_clock_sysfs_store(struct device *dev,
+ 
+ 	if (get_soc_ops(partition)->is_clk_enabled(dev, get_soc(partition)) &&
+ 	    partition->ops->is_idle(partition) && do_suspend) {
+-		dev_info(dev, "disable clock\n");
++		dev_dbg(dev, "disable clock\n");
+ 		get_soc_ops(partition)->disable_clk(partition->dev, get_soc(partition));
+ 	} else if (!get_soc_ops(partition)->is_clk_enabled(dev, get_soc(partition)) && do_resume) {
+-		dev_info(dev, "enable clock\n");
++		dev_dbg(dev, "enable clock\n");
+ 		get_soc_ops(partition)->enable_clk(partition->dev, get_soc(partition));
+ 	} else {
+ 		dev_err(dev, "operation cannot be completed!\n");
+@@ -233,10 +233,10 @@ ssize_t aipu_common_disable_sysfs_store(struct device *dev, struct device_attrib
+ 		do_disable = -1;
+ 
+ 	if (atomic_read(&partition->disable) && !do_disable) {
+-		dev_info(dev, "enable partition...\n");
++		dev_dbg(dev, "enable partition\n");
+ 		atomic_set(&partition->disable, 0);
+ 	} else if (!atomic_read(&partition->disable) && do_disable) {
+-		dev_info(dev, "disable partition...\n");
++		dev_dbg(dev, "disable partition\n");
+ 		atomic_set(&partition->disable, 1);
+ 	}
+ 
+diff --git a/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
+--- a/drivers/misc/armchina-npu/aipu_io.c
++++ b/drivers/misc/armchina-npu/aipu_io.c
+@@ -5,7 +5,7 @@
+ #include "aipu_io.h"
+ 
+ /**
+- * @init_aipu_ioregion() - initialize struct io_region using physical base address
++ * init_aipu_ioregion - initialize struct io_region using physical base address
+  * @region:    pointer to struct io_region to be initialized
+  * @phys_base: base address of this region
+  * @size:      size of this region
+@@ -34,7 +34,7 @@ int init_aipu_ioregion(struct io_region *region, u64 phys_base, u32 size)
+ }
+ 
+ /**
+- * @deinit_aipu_ioregion() - destroy an AIPU IO region
++ * deinit_aipu_ioregion - destroy an AIPU IO region
+  * @region: pointer to struct io_region initialized in init_aipu_ioregion()
+  */
+ void deinit_aipu_ioregion(struct io_region *region)
+@@ -49,10 +49,11 @@ void deinit_aipu_ioregion(struct io_region *region)
+ }
+ 
+ /**
+- * @aipu_read32() - read AIPU register in word
++ * aipu_ioregion_valid32 - validate a 32-bit register access
+  * @region: pointer to struct io_region initialized in init_aipu_ioregion()
+  * @offset: AIPU register offset
+- * Return: u32 value in the register or error code
++ *
++ * Return: true when a naturally aligned 32-bit access fits in @region.
+  */
+ bool aipu_ioregion_valid32(const struct io_region *region, u32 offset)
+ {
+@@ -61,6 +62,13 @@ bool aipu_ioregion_valid32(const struct io_region *region, u32 offset)
+ 	       offset <= region->size - sizeof(u32);
+ }
+ 
++/**
++ * aipu_read32 - read AIPU register in word
++ * @region: pointer to struct io_region initialized in init_aipu_ioregion()
++ * @offset: AIPU register offset
++ *
++ * Return: u32 value in the register or error code
++ */
+ int aipu_read32(struct io_region *region, u32 offset)
+ {
+ 	u32 val = 0;
+@@ -75,7 +83,7 @@ int aipu_read32(struct io_region *region, u32 offset)
+ }
+ 
+ /**
+- * @aipu_write32() - write AIPU register in word
++ * aipu_write32 - write AIPU register in word
+  * @region: pointer to struct io_region initialized in init_aipu_ioregion()
+  * @offset: AIPU register offset
+  * @data:   u32 data to be writen
+diff --git a/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
+--- a/drivers/misc/armchina-npu/aipu_irq.c
++++ b/drivers/misc/armchina-npu/aipu_irq.c
+@@ -36,7 +36,8 @@ static void aipu_irq_handler_bottom_half(struct work_struct *work)
+ }
+ 
+ /**
+- * @aipu_create_irq_object() - initialize an AIPU IRQ object
++ * aipu_create_irq_object - initialize an AIPU IRQ object
++ * @dev:         device that owns the interrupt
+  * @irqnum:      interrupt number
+  * @partition:   aipu_partition struct pointer
+  * @description: irq object description string
+@@ -88,7 +89,7 @@ struct aipu_irq_object *aipu_create_irq_object(struct device *dev, u32 irqnum, v
+ }
+ 
+ /**
+- * @aipu_destroy_irq_object() - destroy a created aipu_irq_object
++ * aipu_destroy_irq_object - destroy a created aipu_irq_object
+  * @irq_obj: interrupt object created in aipu_create_irq_object()
+  */
+ void aipu_destroy_irq_object(struct aipu_irq_object *irq_obj)
+@@ -110,7 +111,7 @@ void aipu_destroy_irq_object(struct aipu_irq_object *irq_obj)
+ }
+ 
+ /**
+- * @aipu_irq_schedulework() - workqueue schedule API
++ * aipu_irq_schedulework - workqueue schedule API
+  * @irq_obj: interrupt object created in aipu_create_irq_object()
+  */
+ void aipu_irq_schedulework(struct aipu_irq_object *irq_obj)
+@@ -120,7 +121,7 @@ void aipu_irq_schedulework(struct aipu_irq_object *irq_obj)
+ }
+ 
+ /**
+- * @aipu_irq_flush_workqueue() - workqueue flush API
++ * aipu_irq_flush_workqueue - workqueue flush API
+  * @irq_obj: interrupt object created in aipu_create_irq_object()
+  */
+ void aipu_irq_flush_workqueue(struct aipu_irq_object *irq_obj)
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -1512,7 +1512,7 @@ static void aipu_job_manager_dump_pdata(struct aipu_job_manager *manager,
+ 		list_for_each_entry(prof, &job->prof_head->node, node) {
+ 			if (prof->data && prof->size) {
+ 				ret = kernel_write(f, prof->data, prof->size, &f->f_pos);
+-				dev_info(manager->dev, "write profiler data size: %d\n", ret);
++				dev_dbg(manager->dev, "wrote profiler data: %d bytes\n", ret);
+ 			}
+ 		}
+ 	}
+@@ -1534,7 +1534,7 @@ static void aipu_job_manager_dump_pdata(struct aipu_job_manager *manager,
+ 	}
+ 
+ 	ret = kernel_write(job->prof_filp, data_va, data_size, &job->prof_filp->f_pos);
+-	dev_info(manager->dev, "(old) write profiler data size: %u\n", ret);
++	dev_dbg(manager->dev, "wrote legacy profiler data: %d bytes\n", ret);
+ }
+ #endif
+ 
+@@ -1715,7 +1715,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 				aipu_job_manager_print_signal(manager, info);
+ #if AIPU_CONFIG_ENABLE_INTR_PROFILING
+ 			if (IS_PROFILER_SIGNAL_V3_2(info->sig_flag)) {
+-				pr_info("profiler signal intr...\n");
++				pr_debug("AIPU profiler signal interrupt\n");
+ 				aipu_job_manager_real_time_get_pdata(manager, info);
+ 			}
+ #endif
+@@ -1734,7 +1734,7 @@ void aipu_job_manager_irq_upper_half(struct aipu_partition *partition, int flag,
+ 
+ #if AIPU_CONFIG_ENABLE_INTR_PROFILING
+ 			if (IS_PROFILER_SIGNAL(info->sig_flag)) {
+-				pr_info("profiler signal intr...\n");
++				pr_debug("AIPU profiler signal interrupt\n");
+ 				aipu_job_manager_real_time_get_pdata(manager, info);
+ 			}
+ #endif
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu/aipu_job_manager.h
+@@ -198,8 +198,9 @@ struct command_pool {
+  * @suspend_config:  cluster configuration saved across system suspend
+  * @suspend_config_valid: whether suspend_config contains a saved configuration
+  * @tec_intr_en:     is TEC interrupts enabled or not
+- * @grid_id:         the latest grid ID allocated for userspace
+- * @group_id_bmap:   gruop ID bitmap
++ * @grid_id_bmap:    grid ID bitmap
++ * @grid_id_num:     number of grid IDs available
++ * @group_id_bmap:   group ID bitmap
+  * @group_id_num:    number of group IDs available
+  * @id_allocations:  owner-tagged grid/group/signal ID allocations
+  * @id_lock:         lock to protect the grid Id & group IDs
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -755,12 +755,12 @@ static struct aipu_mem_region *aipu_mm_create_region(struct aipu_memory_manager
+ 		if (ret)
+ 			goto err;
+ 
+-		dev_info(reg->dev, "init %s region done: %s [0x%llx, 0x%llx]\n",
+-			 type == AIPU_MEM_REGION_TYPE_MEMORY ? "MEMORY" :
+-			 (type == AIPU_MEM_REGION_TYPE_SRAM ? "SRAM" :
+-			  (type == AIPU_MEM_REGION_TYPE_DTCM ? "DTCM" : "GM")),
+-			 mm->has_iommu ? "iova" : "pa",
+-			 reg->base_iova, reg->base_iova + reg->bytes - 1);
++		dev_dbg(reg->dev, "initialized %s region: %s [0x%llx, 0x%llx]\n",
++			type == AIPU_MEM_REGION_TYPE_MEMORY ? "MEMORY" :
++			(type == AIPU_MEM_REGION_TYPE_SRAM ? "SRAM" :
++			 (type == AIPU_MEM_REGION_TYPE_DTCM ? "DTCM" : "GM")),
++			mm->has_iommu ? "iova" : "pa",
++			reg->base_iova, reg->base_iova + reg->bytes - 1);
+ 	}
+ 
+ 	/* works for non-reserved regions only */
+@@ -1230,7 +1230,7 @@ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+ 	u32 res_cnt = 0;
+ 
+ 	if (!dev_of_node(mm->dev)) {
+-		dev_info(mm->dev, "reserved-memory regions require OF data; skipping\n");
++		dev_dbg(mm->dev, "reserved-memory regions require OF data; skipping\n");
+ 		return 0;
+ 	}
+ 
+@@ -1256,7 +1256,7 @@ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+ 
+ 		/* bypass mapping SoC SRAM if CPU cannot access it */
+ 		if (type == AIPU_MEM_REGION_TYPE_SRAM && !AIPU_CONFIG_HOST_MAP_SRAM) {
+-			dev_info(mm->dev, "dts: bypass this sram region (cpu cannot access it)\n");
++			dev_dbg(mm->dev, "DT: bypass SRAM region inaccessible to the CPU\n");
+ 			of_node_put(np);
+ 			continue;
+ 		}
+@@ -1283,8 +1283,8 @@ static int aipu_mm_add_reserved_regions(struct aipu_memory_manager *mm)
+ 
+ 		size = res.end - res.start + 1;
+ 		if (type == AIPU_MEM_REGION_TYPE_DTCM && size > ZHOUYI_V2_DTCM_MAX_BYTES) {
+-			dev_info(mm->dev,
+-				 "the DTCM will be clipped to the maximum configurable value\n");
++			dev_dbg(mm->dev,
++				"the DTCM will be clipped to the maximum configurable value\n");
+ 			size = ZHOUYI_V2_DTCM_MAX_BYTES;
+ 		}
+ 
+@@ -1387,14 +1387,14 @@ static void aipu_mm_set_asid_base(struct aipu_memory_manager *mm)
+ 		if (range) {
+ 			mm->ase[asid].base = asid_base;
+ 			mm->ase[asid].range = range;
+-			dev_info(mm->dev, "set ASID %d done: base: 0x%llx, range 0x%llx\n",
+-				 asid, asid_base, range);
++			dev_dbg(mm->dev, "set ASID %d: base 0x%llx, range 0x%llx\n",
++				asid, asid_base, range);
+ 		}
+ 	}
+ }
+ 
+ /**
+- * @aipu_init_mm() - initialize mm module during driver probe phase
++ * aipu_init_mm - initialize mm module during driver probe phase
+  * @mm:      pointer to memory manager struct to be initialized
+  * @p_dev:   pointer to the platform device struct
+  * @version: AIPU ISA version
+@@ -1505,8 +1505,8 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 			dev_err(mm->dev, "create gm_policy attr failed");
+ 		}
+ 
+-		dev_info(mm->dev, "GM policy is %s",
+-			 mm->gm_policy == AIPU_GM_POLICY_SHARED ? "shared" : "half-by-half");
++		dev_dbg(mm->dev, "GM policy is %s",
++			mm->gm_policy == AIPU_GM_POLICY_SHARED ? "shared" : "half-by-half");
+ 	} else {
+ 		mm->gm_policy = AIPU_GM_POLICY_NONE;
+ 		mm->gm_policy_attr = NULL;
+@@ -1554,7 +1554,7 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	iommu_group_put(group);
+ 	if (ret)
+ 		goto finish;
+-	dev_info(mm->dev, "AIPU is%s behind an IOMMU.\n", mm->has_iommu ? "" : " not");
++	dev_dbg(mm->dev, "AIPU is%s behind an IOMMU\n", mm->has_iommu ? "" : " not");
+ 
+ 	/*
+ 	 * If AIPU is behind an IOMMU, in devicetree, memory-region attribute is optional;
+@@ -1566,7 +1566,7 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	    !aipu_acpi_prealloc_iova_regions) {
+ 		aipu_mm_set_safe_dma_api_range(mm);
+ 		mm->res_cnt = 0;
+-		dev_info(mm->dev, "using DMA API allocation path on ACPI\n");
++		dev_dbg(mm->dev, "using DMA API allocation path on ACPI\n");
+ 	} else if (!mm->has_iommu) {
+ 		mm->res_cnt = aipu_mm_add_reserved_regions(mm);
+ 	}
+@@ -1581,7 +1581,8 @@ int aipu_init_mm(struct aipu_memory_manager *mm, struct platform_device *p_dev,
+ 	if (version > AIPU_ISA_VERSION_ZHOUYI_V1 && mm->res_cnt)
+ 		aipu_mm_set_asid_base(mm);
+ 
+-	dev_info(mm->dev, "using %s on %s; driver-internal preallocated IOVA regions are %s\n",
++	dev_info(mm->dev, "memory mode: %s, %s on %s; preallocated IOVA %s\n",
++		 mm->has_iommu ? "IOMMU" : "direct DMA",
+ 		 mm->res_cnt ? "driver-internal IOVA allocation" : "DMA API allocations",
+ 		 has_acpi_companion(mm->dev) ? "ACPI" : "DT",
+ 		 mm->res_cnt ? "enabled" : "disabled");
+@@ -1613,7 +1614,7 @@ static void aipu_mm_release_sram_disables_no_lock(struct aipu_memory_manager *mm
+ }
+ 
+ /**
+- * @aipu_deinit_mm() - de-initialize mm module while kernel module unloading
++ * aipu_deinit_mm - de-initialize mm module while kernel module unloading
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  */
+ int aipu_deinit_mm(struct aipu_memory_manager *mm)
+@@ -1764,7 +1765,7 @@ static bool aipu_mm_check_address_validity(struct aipu_memory_manager *mm,
+ }
+ 
+ /**
+- * @aipu_mm_alloc() - alloc memory buffer for user request
++ * aipu_mm_alloc - alloc memory buffer for user request
+  * @mm:      pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf_req: pointer to buffer request struct from userland
+  * @filp:    pointer to the file struct
+@@ -1855,7 +1856,7 @@ int aipu_mm_alloc(struct aipu_memory_manager *mm, struct aipu_buf_request *buf_r
+ 			if (buf_req->asid < mm->valid_asid_cnt)
+ 				goto alloc;
+ 			else
+-				dev_err(mm->dev, "Inalid asid parameter.\n");
++				dev_err(mm->dev, "Invalid asid parameter.\n");
+ 		}
+ 	}
+ 
+@@ -1926,15 +1927,7 @@ static int aipu_mm_direct_free(struct aipu_memory_manager *mm, struct aipu_mem_r
+ 	return 0;
+ }
+ 
+-/**
+- * @aipu_mm_free() - free buffer allocated by aipu_mm_alloc()
+- * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+- * @buf:  pointer to the buffer descriptor to be released
+- * @filp: pointer to the file struct
+- * @unlock: unlock the page or not
+- *
+- * Return: 0 on success and error code otherwise.
+- */
++/* Free an allocation after validating its stable per-open owner. */
+ static int aipu_mm_free_owner(struct aipu_memory_manager *mm,
+ 			      struct aipu_buf_desc *buf,
+ 			      struct aipu_file_ctx *owner, bool unlock)
+@@ -1980,63 +1973,73 @@ static int aipu_mm_free_owner(struct aipu_memory_manager *mm,
+ 	return ret;
+ }
+ 
++/**
++ * aipu_mm_free - free buffer allocated by aipu_mm_alloc()
++ * @mm: pointer to memory manager struct initialized in aipu_init_mm()
++ * @buf: pointer to the buffer descriptor to be released
++ * @filp: pointer to the file struct
++ * @unlock: unlock the page or not
++ *
++ * Return: 0 on success and error code otherwise.
++ */
+ int aipu_mm_free(struct aipu_memory_manager *mm, struct aipu_buf_desc *buf,
+ 		 struct file *filp, bool unlock)
+ {
+ 	return aipu_mm_free_owner(mm, buf, aipu_file_ctx(filp), unlock);
+ }
+ 
+-void tensor_dcache_inval_poc(void *start, void *end) {
+-    uintptr_t line_size, addr_start, addr_end, tmp;
++static void tensor_dcache_inval_poc(void *start, void *end)
++{
++	uintptr_t line_size, addr_start, addr_end, tmp;
+ 
+-    line_size = cache_line_size();
+-    tmp = line_size - 1;
++	line_size = cache_line_size();
++	tmp = line_size - 1;
+ 
+-    addr_start = (uintptr_t)start;
+-    addr_end = (uintptr_t)end;
++	addr_start = (uintptr_t)start;
++	addr_end = (uintptr_t)end;
+ 
+-    if (addr_end & tmp) {
+-        addr_end &= ~tmp;
+-        __asm__ __volatile__("dc civac, %0" : : "r" (addr_end) : "memory");
+-    }
++	if (addr_end & tmp) {
++		addr_end &= ~tmp;
++		__asm__ __volatile__("dc civac, %0" : : "r" (addr_end) : "memory");
++	}
+ 
+-    if (addr_start & tmp) {
+-        addr_start &= ~tmp;
+-        __asm__ __volatile__("dc civac, %0" : : "r" (addr_start) : "memory");
+-        addr_start += line_size;
+-    }
++	if (addr_start & tmp) {
++		addr_start &= ~tmp;
++		__asm__ __volatile__("dc civac, %0" : : "r" (addr_start) : "memory");
++		addr_start += line_size;
++	}
+ 
+-    while (addr_start < addr_end) {
+-        __asm__ __volatile__("dc ivac, %0" : : "r" (addr_start) : "memory");
+-        addr_start += line_size;
+-    }
++	while (addr_start < addr_end) {
++		__asm__ __volatile__("dc ivac, %0" : : "r" (addr_start) : "memory");
++		addr_start += line_size;
++	}
+ 
+-    __asm__ __volatile__("dsb sy" : : : "memory");
++	__asm__ __volatile__("dsb sy" : : : "memory");
+ }
+ 
+-static void tensor_flush_dcache_range(void *start, void *end) {
++static void tensor_flush_dcache_range(void *start, void *end)
++{
+ 	uintptr_t addr_start, addr_end;
+ 	const uint64_t line_size = cache_line_size();
+ 
+ 	addr_start = (uintptr_t)start;
+ 	addr_end = (uintptr_t)end;
+ 
+-	// make sure addr_start and addr_end are cache line aligned
++	/* Make sure addr_start and addr_end are cache line aligned. */
+ 	addr_start = addr_start & ~(line_size - 1);
+ 	addr_end = (addr_end + line_size - 1) & ~(line_size - 1);
+ 
+ 	while (addr_start < addr_end) {
+-		__asm__ volatile ("dc cvac, %0" : : "r" (addr_start) : "memory");
+-        addr_start += line_size;
++		__asm__ volatile("dc cvac, %0" : : "r" (addr_start) : "memory");
++		addr_start += line_size;
+ 	}
+ 
+-	// Ensure all cache operations complete
+-	__asm__ volatile ("dsb sy" : : : "memory");
+-
++	/* Ensure all cache operations complete. */
++	__asm__ volatile("dsb sy" : : : "memory");
+ }
+ 
+ /**
+- * @aipu_mm_cache_flush() - invald buffer allocated by aipu_mm_alloc()
++ * aipu_mm_cache_flush - flush a buffer allocated by aipu_mm_alloc()
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf:  pointer to the buffer descriptor to be invalid
+  * @filp: owner of a userspace allocation, or NULL for an internal caller
+@@ -2076,7 +2079,7 @@ int aipu_mm_cache_flush(struct aipu_memory_manager *mm, struct aipu_buf_desc *bu
+ }
+ 
+ /**
+- * @aipu_mm_cache_invalid() - invald buffer allocated by aipu_mm_alloc()
++ * aipu_mm_cache_invalid - invalidate a buffer allocated by aipu_mm_alloc()
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @buf:  pointer to the buffer descriptor to be invalid
+  * @filp: owner of a userspace allocation, or NULL for an internal caller
+@@ -2171,7 +2174,7 @@ static void aipu_mm_schedule_owner_cleanup(struct aipu_file_ctx *owner)
+ }
+ 
+ /**
+- * @aipu_mm_free_buffers() - free all the buffers allocated from one fd
++ * aipu_mm_free_buffers - free all the buffers allocated from one fd
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @filp: pointer to the file struct
+  */
+@@ -2187,7 +2190,7 @@ void aipu_mm_free_buffers(struct aipu_memory_manager *mm, struct file *filp)
+ }
+ 
+ /**
+- * @aipu_mm_mmap_buf() - mmap an allocated buffer for user thread
++ * aipu_mm_mmap_buf - mmap an allocated buffer for user thread
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  * @vma: pointer to the vm_area_struct
+  * @filp: pointer to the file struct
+@@ -2319,7 +2322,7 @@ int aipu_mm_mmap_exported_buf(struct aipu_memory_manager *mm,
+ }
+ 
+ /**
+- * @aipu_mm_disable_sram_allocation() - disable buffer allocations from soc sram
++ * aipu_mm_disable_sram_allocation - disable buffer allocations from soc sram
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  * @filp: pointer to the file struct
+  *
+@@ -2377,7 +2380,7 @@ int aipu_mm_disable_sram_allocation(struct aipu_memory_manager *mm, struct file
+ }
+ 
+ /**
+- * @aipu_mm_enable_sram_allocation() - enable buffer allocations from soc sram (disabled before)
++ * aipu_mm_enable_sram_allocation - enable buffer allocations from soc sram (disabled before)
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @filp: pointer to the file struct
+  *
+@@ -2423,7 +2426,7 @@ int aipu_mm_enable_sram_allocation(struct aipu_memory_manager *mm, struct file *
+ }
+ 
+ /**
+- * @aipu_mm_get_va() - get the kernel virtual address of an allocated buffer.
++ * aipu_mm_get_va - get the kernel virtual address of an allocated buffer.
+  *                     currently do not support non-tcb va from importers.
+  * @mm:     pointer to memory manager struct initialized in aipu_init_mm()
+  * @dev_pa: device physical address returned by aipu_mm_alloc()
+@@ -2549,7 +2552,7 @@ int aipu_mm_clone_tcb_mapping(struct aipu_memory_manager *mm,
+ }
+ 
+ /**
+- * @aipu_mm_get_tcb() - get the pointer to the TCB of a TCB list.
++ * aipu_mm_get_tcb - get the pointer to the TCB of a TCB list.
+  * @mm: pointer to memory manager struct initialized in aipu_init_mm()
+  * @pa: address of the TCB
+  *
+@@ -2581,7 +2584,7 @@ struct aipu_tcb *aipu_mm_get_tcb(struct aipu_memory_manager *mm, u64 pa)
+ }
+ 
+ /**
+- * @aipu_mm_set_tcb_tail() - set the pointer to the tail TCB of a TCB list.
++ * aipu_mm_set_tcb_tail - set the pointer to the tail TCB of a TCB list.
+  * @mm:   pointer to memory manager struct initialized in aipu_init_mm()
+  * @tail: address of the tail TCB of a TCB list
+  *
+@@ -2610,7 +2613,7 @@ struct aipu_tcb *aipu_mm_set_tcb_tail(struct aipu_memory_manager *mm, u64 tail)
+ }
+ 
+ /**
+- * @aipu_mm_link_tcb() - link a TCB list to the tail of an existing TCB list.
++ * aipu_mm_link_tcb - link a TCB list to the tail of an existing TCB list.
+  * @mm:           pointer to memory manager struct initialized in aipu_init_mm()
+  * @prev_tail:    address of the tail TCB of a previous TCB list to be linked
+  * @next_head_32: head address of the next TCB list
+@@ -2624,7 +2627,6 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ 	struct aipu_hold_tcb_buf *htbuf = NULL;
+ 	unsigned long flags;
+ 	int ret = 0;
+-	u32 temp = 0;
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(mm, prev_tail);
+ 	if (!htbuf)
+@@ -2632,15 +2634,15 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ 
+ 	spin_lock_irqsave(&mm->shlock, flags);
+ 	htbuf->hold_tcb->next = next_head_32;
+-	temp = htbuf->hold_tcb->next;
+ 	htbuf->next_head = next_head_32;
+ 	if (htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_PREV)
+ 		htbuf->status = AIPU_MEM_HOLD_TYPE_LINKED;
+ 	else if (htbuf->status == AIPU_MEM_HOLD_TYPE_IDLE)
+ 		htbuf->status = AIPU_MEM_HOLD_TYPE_LINK_NEXT;
+ 	else
+-		dev_info(mm->dev, "ABNORMAL STATUS link hold tcb index %d status %d\n",
+-			 htbuf->index, htbuf->status);
++		dev_warn_ratelimited(mm->dev,
++				     "unexpected link state for hold TCB %d: %d\n",
++				     htbuf->index, htbuf->status);
+ 
+ 	dev_dbg(mm->dev, "new tcb task link prev htcb index %d status %d\n",
+ 		htbuf->index, htbuf->status);
+@@ -2650,9 +2652,9 @@ int aipu_mm_link_tcb(struct aipu_memory_manager *mm, u64 prev_tail, u32 next_hea
+ }
+ 
+ /**
+- * @aipu_mm_unlink_tcb() - unlink a TCB list from an existing TCB list.
++ * aipu_mm_unlink_tcb - unlink a TCB list from an existing TCB list.
+  * @mm:           pointer to memory manager struct initialized in aipu_init_mm()
+- * @prev_tail:    address of the tail TCB of a previous TCB list to be unlinked
++ * @curr_hold:    address of the hold TCB whose previous list is to be unlinked
+  * @free_tcb:     free TCB or not
+  *
+  * Return: 0 on success and error code otherwise.
+@@ -2665,7 +2667,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	struct aipu_buf_desc buf;
+ 	unsigned long flags;
+ 	int ret = 0;
+-	u32 temp = 0;
+ 	int prev_status = -1, prev_index = -1;
+ 
+ 	htbuf = aipu_mm_get_hold_htbuf(mm, curr_hold);
+@@ -2674,7 +2675,9 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	if (htbuf->prev_hold_tcb != 0) {
+ 		prev_htbuf = aipu_mm_get_hold_htbuf(mm, htbuf->prev_hold_tcb);
+ 		if (!prev_htbuf)
+-			dev_info(mm->dev, "PREV HOLD TCB 0x%llx IS NOT SET.", htbuf->prev_hold_tcb);
++			dev_warn_ratelimited(mm->dev,
++					     "previous hold TCB 0x%llx is not set\n",
++					     htbuf->prev_hold_tcb);
+ 	}
+ 	spin_lock_irqsave(&mm->shlock, flags);
+ 
+@@ -2685,14 +2688,14 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	}
+ 	if (prev_htbuf) {
+ 		prev_htbuf->hold_tcb->next = 0;
+-		temp = prev_htbuf->hold_tcb->next;
+ 		if (prev_htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_NEXT) {
+ 			prev_htbuf->status = AIPU_MEM_HOLD_TYPE_IDLE;
+ 		} else if (prev_htbuf->status == AIPU_MEM_HOLD_TYPE_LINKED) {
+ 			prev_htbuf->status = AIPU_MEM_HOLD_TYPE_LINK_PREV;
+ 		} else {
+-			dev_info(mm->dev, "ABNORMAL UNLINK PREV HOLD TCB STATUS %d\n",
+-				 prev_htbuf->status);
++			dev_warn_ratelimited(mm->dev,
++					     "unexpected previous hold TCB unlink state: %d\n",
++					     prev_htbuf->status);
+ 		}
+ 		htbuf->prev_hold_tcb = 0;
+ 		prev_status = prev_htbuf->status;
+@@ -2702,7 +2705,6 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	tbuf = htbuf->prev_tbuf;
+ 	tbuf->tail_tcb->next = 0;
+ 	tbuf->dep_job_id = 0;
+-	temp = tbuf->tail_tcb->next;
+ 	htbuf->prev_head = 0;
+ 	htbuf->prev_tail = 0;
+ 
+@@ -2711,7 +2713,9 @@ int aipu_mm_unlink_tcb(struct aipu_memory_manager *mm, u64 curr_hold, bool free_
+ 	else if (htbuf->status == AIPU_MEM_HOLD_TYPE_LINK_PREV)
+ 		htbuf->status = AIPU_MEM_HOLD_TYPE_IDLE;
+ 	else
+-		dev_info(mm->dev, "ABNORMAL UNLINK CUR HOLD TCB STATUS %d\n", htbuf->status);
++		dev_warn_ratelimited(mm->dev,
++				     "unexpected current hold TCB unlink state: %d\n",
++				     htbuf->status);
+ 
+ 	dev_dbg(mm->dev, "unlink prev hold index %d status %d, "
+ 		"unlink curr hold tcb index %d status %d final holder index %d",
+@@ -2842,23 +2846,23 @@ static void aipu_debug_print_buffers(struct aipu_memory_manager *mm)
+ 
+ 	if (!mm)
+ 		return;
+-	dev_info(mm->dev, "------------------------S-------------------------------------\n");
++	dev_dbg(mm->dev, "buffer dump begin\n");
+ 
+ 	//mutex_lock(&mm->buffer_mutex);
+-	dev_info(mm->dev, "Total buffers: %u\n", mm->buffer_count);
++	dev_dbg(mm->dev, "total buffers: %u\n", mm->buffer_count);
+ 	list_for_each_entry(buffer, &mm->buffer_list, node) {
+-		dev_info(mm->dev, "Buffer %d: exec id 0x%llx IOVA=0x%llx, size=0x%llx, allocated=0x%llx ref_count %d\n",
++		dev_dbg(mm->dev, "buffer %d: exec id 0x%llx IOVA=0x%llx, size=0x%llx, allocated=0x%llx ref_count %d\n",
+ 			count++, buffer->exec_id, buffer->iova_start, buffer->iova_size, buffer->allocated_size, buffer->ref_count);
+ 		index = 0;
+ 		list_for_each_entry(block, &buffer->phy_blocks, list) {
+ 			if (block) {
+-				dev_info(mm->dev, "block %d: IOVA=0x%llx, size=0x%llx\n",
++				dev_dbg(mm->dev, "block %d: IOVA=0x%llx, size=0x%llx\n",
+ 					index++, block->iova_start, block->size);
+ 			}
+ 		}
+ 	}
+ 	//mutex_unlock(&mm->buffer_mutex);
+-	dev_info(mm->dev, "------------------------E-------------------------------------\n");
++	dev_dbg(mm->dev, "buffer dump end\n");
+ 	return;
+ }
+ static inline size_t get_cache_line_size(void)
+@@ -3228,7 +3232,9 @@ static void aipu_free_iova(struct aipu_memory_manager *mm, struct aipu_iova_buff
+ 
+ 	mutex_lock(&mm->buffer_mutex);
+ 	if (buffer->ref_count) {
+-		dev_info(mm->dev, "Warning, buffer 0x%llx ref_count %d still is using buffer.\n", buffer->iova_start, buffer->ref_count);
++		dev_warn_ratelimited(mm->dev,
++				     "freeing buffer 0x%llx with ref_count %d\n",
++				     buffer->iova_start, buffer->ref_count);
+ 	}
+ 
+ 	list_del(&buffer->node);
+diff --git a/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
+--- a/drivers/misc/armchina-npu/aipu_priv.c
++++ b/drivers/misc/armchina-npu/aipu_priv.c
+@@ -51,7 +51,7 @@ static void aipu_priv_release(struct kref *kref)
+ }
+ 
+ /**
+- * @init_aipu_priv() - initialize an input AIPU private data struct
++ * init_aipu_priv - initialize an input AIPU private data struct
+  * @aipu:  pointer to the aipu private struct to be initialized
+  * @p_dev: pointer to the platform device struct
+  * @fops:  pointer to the file_operations struct
+@@ -153,7 +153,7 @@ int init_aipu_priv(struct aipu_priv *aipu, struct platform_device *p_dev,
+ }
+ 
+ /**
+- * @brief deinit an AIPU private data struct
++ * deinit_aipu_priv - deinitialize an AIPU private data structure
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  *
+  * Return: 0 on success and error code otherwise.
+@@ -218,7 +218,7 @@ void aipu_priv_drop_driver_ref_and_wait(struct aipu_priv *aipu)
+ }
+ 
+ /**
+- * @aipu_priv_get_version() - get AIPU hardware version number wrapper
++ * aipu_priv_get_version - get AIPU hardware version number wrapper
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  *
+  * Return: AIPU ISA version
+@@ -231,7 +231,7 @@ int aipu_priv_get_version(struct aipu_priv *aipu)
+ }
+ 
+ /**
+- * @aipu_priv_get_partition_cnt() - get AIPU partition count
++ * aipu_priv_get_partition_cnt - get AIPU partition count
+  *        For V1/V2, a *partition* represents an AIPU core
+  *        For V3, a *partition* represents a group of AIPU clusters in the same power domain
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+@@ -246,7 +246,7 @@ int aipu_priv_get_partition_cnt(struct aipu_priv *aipu)
+ }
+ 
+ /**
+- * @aipu_priv_query_partition_capability() - query AIPU capability wrapper (per partition)
++ * aipu_priv_query_partition_capability - query AIPU capability wrapper (per partition)
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  * @cap:  pointer to the capability struct
+  *
+@@ -285,7 +285,7 @@ int aipu_priv_query_partition_capability(struct aipu_priv *aipu, struct aipu_par
+ }
+ 
+ /**
+- * @aipu_priv_query_capability() - query AIPU capability wrapper (multi-partition common capability)
++ * aipu_priv_query_capability - query AIPU capability wrapper (multi-partition common capability)
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  * @cap:  pointer to the capability struct
+  *
+@@ -337,7 +337,7 @@ int aipu_priv_query_capability(struct aipu_priv *aipu, struct aipu_cap *cap)
+ }
+ 
+ /**
+- * @aipu_priv_io_rw() - AIPU external register read/write wrapper
++ * aipu_priv_io_rw - AIPU external register read/write wrapper
+  * @aipu:   pointer to the aipu private struct initialized in init_aipu_priv()
+  * @io_req: pointer to the io_req struct
+  *
+@@ -356,7 +356,7 @@ int aipu_priv_io_rw(struct aipu_priv *aipu, struct aipu_io_req *io_req)
+ }
+ 
+ /**
+- * @aipu_priv_check_status() - check if aipu status is ready for usage
++ * aipu_priv_check_status - check if aipu status is ready for usage
+  * @aipu: pointer to the aipu private struct initialized in init_aipu_priv()
+  *
+  * Return: 0 on success and error code otherwise.
+diff --git a/drivers/misc/armchina-npu/aipu_tcb.c b/drivers/misc/armchina-npu/aipu_tcb.c
+--- a/drivers/misc/armchina-npu/aipu_tcb.c
++++ b/drivers/misc/armchina-npu/aipu_tcb.c
+@@ -52,8 +52,8 @@ int print_core_id(struct aipu_memory_manager *mm, u64 head, u64 tail)
+ 		return 0;
+ 
+ 	while (tcb <= tail_tcb && IS_TASK_TCB(tcb->flag)) {
+-		dev_info(mm->dev, "group %u execution core ID: %u",
+-			 tcb->task.group_id, tcb->task.core_id);
++		dev_dbg(mm->dev, "group %u execution core ID: %u",
++			tcb->task.group_id, tcb->task.core_id);
+ 		tcb = get_next_group_tcb(tcb, tail_tcb);
+ 		if (tcb == tail_tcb)
+ 			break;
+diff --git a/drivers/misc/armchina-npu/include/cix_sky1_soc.h b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+--- a/drivers/misc/armchina-npu/include/cix_sky1_soc.h
++++ b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+@@ -42,6 +42,4 @@ struct cix_aipu_priv {
+ 	unsigned long desired_freq;
+ };
+ 
+-struct cix_aipu_priv *sky1_priv_init(struct device *dev);
+-
+ #endif /* __CIX_SKY1_SOC_H__ */
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /* Copyright 2024 Cix Technology Group Co., Ltd. All Rights Reserved.*/
+-/**
++/*
+  * SoC: CIX SKY1 platform
+  */
+ 
+@@ -33,7 +33,7 @@ static struct aipu_soc sky1 = {
+ static struct cix_aipu_priv *cix_aipu_priv;
+ static DEFINE_MUTEX(cix_aipu_lock);
+ 
+-struct cix_aipu_priv *sky1_priv_init(struct device *dev)
++static struct cix_aipu_priv *sky1_priv_init(struct device *dev)
+ {
+ 	struct cix_aipu_priv *priv;
+ 
+@@ -712,7 +712,7 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 	priv->is_acpi = has_acpi_companion(dev);
+ 	sky1.priv = priv;
+ 
+-	dev_info(dev, "%s: NPU core num is %u\n", __func__, priv->pd_count);
++	dev_dbg(dev, "NPU power-domain count: %u\n", priv->pd_count);
+ 
+ 	ret = sky1_npu_setup_domains(priv);
+ 	if (ret)
+@@ -722,7 +722,8 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 	ret = sky1_npu_devfreq_init(dev, priv);
+ 	if (ret) {
+ 		dev_err(dev, "aipu devfreq init failed, ret: %d\n", ret);
+-		goto detach_domains;
++		sky1_npu_detach_pd(priv);
++		goto release_priv;
+ 	}
+ #endif
+ 
+@@ -779,7 +780,6 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+ 	sky1_npu_devfreq_remove(dev, priv);
+ #endif
+ 
+-detach_domains:
+ 	sky1_npu_detach_pd(priv);
+ release_priv:
+ 	sky1.priv = NULL;
+@@ -835,6 +835,8 @@ static void sky1_npu_remove(struct platform_device *p_dev)
+ out:
+ #if KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE
+ 	return 0;
++#else
++	return;
+ #endif
+ }
+ 
+diff --git a/drivers/misc/armchina-npu/zhouyi/v3.c b/drivers/misc/armchina-npu/zhouyi/v3.c
+--- a/drivers/misc/armchina-npu/zhouyi/v3.c
++++ b/drivers/misc/armchina-npu/zhouyi/v3.c
+@@ -45,9 +45,9 @@ static void zhouyi_v3_enable_core_cnt(struct aipu_partition *partition, u32 clus
+ 		aipu_write32(partition->reg, TSM_STATUS_REG, CLEAR_CMD_FAIL(status));
+ 
+ 	atomic_set(&partition->clusters[cluster_id].en_core_cnt, en_core_cnt);
+-	dev_info(partition->dev,
+-		 "configure cluster index %u (hardware #%u) done: en_core_cnt %u (0x%x)\n",
+-		 cluster_id, hw_id, en_core_cnt, config);
++	dev_dbg(partition->dev,
++		"configured cluster index %u (hardware #%u): en_core_cnt %u (0x%x)\n",
++		cluster_id, hw_id, en_core_cnt, config);
+ }
+ 
+ static void zhouyi_v3_enable_interrupt(struct aipu_partition *partition, bool en_tec_intr)
+@@ -241,7 +241,7 @@ static int zhouyi_v3_reserve(struct aipu_partition *partition, struct aipu_job_d
+ 		aipu_write32(partition->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG,
+ 			     TSM_BIND_DISPATCH_CMD_POOL(partition->id, get_qos(udesc->exec_flag),
+ 						       udesc->core_id));
+-		dev_dbg(partition->dev, "bind-dispatch user job 0x%llx", udesc->job_id);
++		dev_dbg(partition->dev, "debug-dispatch user job 0x%llx", udesc->job_id);
+ 	} else {
+ 		aipu_write32(partition->reg, TSM_CMD_SCHD_CTRL_HANDLE_REG,
+ 			     TSM_DISPATCH_CMD_POOL(partition->id, get_qos(udesc->exec_flag)));
+@@ -285,23 +285,23 @@ static void zhouyi_v3_print_hw_id_info(struct aipu_partition *partition)
+ 	struct aipu_priv *aipu = partition->priv;
+ 	u32 iter = 0;
+ 
+-	dev_info(aipu->dev, "############# ZHOUYI V3 AIPU #############");
+-	dev_info(aipu->dev, "# Maximum Partition Count: %d", aipu->max_partition_cnt);
+-	dev_info(aipu->dev, "# Maximum Command Pool Count: %d", aipu->max_cmd_pool_cnt);
+-	dev_info(aipu->dev, "# Enabled Partition Count: %d", aipu->partition_cnt);
+-	dev_info(aipu->dev, "# Enabled Cluster Count: %d", aipu->cluster_cnt);
++	dev_dbg(aipu->dev, "############# ZHOUYI V3 AIPU #############");
++	dev_dbg(aipu->dev, "# Maximum Partition Count: %d", aipu->max_partition_cnt);
++	dev_dbg(aipu->dev, "# Maximum Command Pool Count: %d", aipu->max_cmd_pool_cnt);
++	dev_dbg(aipu->dev, "# Enabled Partition Count: %d", aipu->partition_cnt);
++	dev_dbg(aipu->dev, "# Enabled Cluster Count: %d", aipu->cluster_cnt);
+ 
+ 	for (iter = 0; iter < aipu->partition_cnt; iter++) {
+ 		partition = &aipu->partitions[iter];
+-		dev_info(aipu->dev, "#\n");
+-		dev_info(aipu->dev, "# -- Partition #%u", partition->id);
+-		dev_info(aipu->dev, "# Cluster Count: %d", partition->cluster_cnt);
+-		dev_info(aipu->dev, "# Core Count per Cluster: %d",
+-			 partition->clusters[0].core_cnt);
+-		dev_info(aipu->dev, "# TEC Count per Core: %d",
+-			 partition->clusters[0].tec_cnt);
++		dev_dbg(aipu->dev, "#\n");
++		dev_dbg(aipu->dev, "# -- Partition #%u", partition->id);
++		dev_dbg(aipu->dev, "# Cluster Count: %d", partition->cluster_cnt);
++		dev_dbg(aipu->dev, "# Core Count per Cluster: %d",
++			partition->clusters[0].core_cnt);
++		dev_dbg(aipu->dev, "# TEC Count per Core: %d",
++			partition->clusters[0].tec_cnt);
+ 	}
+-	dev_info(aipu->dev, "##########################################");
++	dev_dbg(aipu->dev, "##########################################");
+ }
+ 
+ static int zhouyi_v3_io_rw(struct aipu_partition *partition, struct aipu_io_req *io_req)

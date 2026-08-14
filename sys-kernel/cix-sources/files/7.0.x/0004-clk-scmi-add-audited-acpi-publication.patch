@@ -1,0 +1,272 @@
+Publish the CIX ACPI SCMI clock provider through a single-supplier
+registry while retaining ordinary DT provider behavior. Validate
+every clock, reject ambiguous providers, guard the CIX HID match
+for DT devices, and synchronize lookup with supplier unbind before
+returning a direct clock-hardware reference. Identify Sky1 using both
+the ACPI clock-protocol child and its SCMI-controller parent before
+preserving firmware-owned clocks through the unused-clock sweep.
+
+Provenance: Based on
+cixtech/cix-linux-main@19f2947303670f2e5734d6a96ffc72a80fd9b942
+patches-7.0/0004-clk-clk-scmi-register-clkdev-for-acpi.patch. The
+registry, ambiguity and bounds checks, DT guard, supplier locking,
+revalidation and persistent device link are overlay-created
+remediation.
+
+diff --git a/drivers/clk/clk-scmi.c b/drivers/clk/clk-scmi.c
+--- a/drivers/clk/clk-scmi.c
++++ b/drivers/clk/clk-scmi.c
+@@ -5,12 +5,16 @@
+  * Copyright (C) 2018-2024 ARM Ltd.
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/bits.h>
+ #include <linux/clk-provider.h>
++#include <linux/clk/scmi.h>
+ #include <linux/device.h>
+ #include <linux/err.h>
+-#include <linux/of.h>
++#include <linux/list.h>
+ #include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
+ #include <linux/scmi_protocol.h>
+ #include <asm/div64.h>
+ 
+@@ -37,10 +41,123 @@ struct scmi_clk {
+ 	const struct scmi_clock_info *info;
+ 	const struct scmi_protocol_handle *ph;
+ 	struct clk_parent_data *parent_data;
++	bool ignore_unused;
+ };
+ 
+ #define to_scmi_clk(clk) container_of(clk, struct scmi_clk, hw)
+ 
++struct scmi_clk_acpi_provider {
++	struct list_head node;
++	struct device *dev;
++	struct clk_hw_onecell_data *clk_data;
++};
++
++static LIST_HEAD(scmi_clk_acpi_providers);
++static DEFINE_MUTEX(scmi_clk_acpi_lock);
++
++static void scmi_clk_acpi_provider_remove(void *data)
++{
++	struct scmi_clk_acpi_provider *provider = data;
++
++	mutex_lock(&scmi_clk_acpi_lock);
++	list_del_init(&provider->node);
++	mutex_unlock(&scmi_clk_acpi_lock);
++}
++
++static int
++scmi_clk_acpi_provider_add(struct device *dev,
++			   struct clk_hw_onecell_data *clk_data)
++{
++	struct scmi_clk_acpi_provider *provider;
++	int ret;
++
++	provider = devm_kzalloc(dev, sizeof(*provider), GFP_KERNEL);
++	if (!provider)
++		return -ENOMEM;
++
++	provider->dev = dev;
++	provider->clk_data = clk_data;
++	INIT_LIST_HEAD(&provider->node);
++
++	mutex_lock(&scmi_clk_acpi_lock);
++	list_add_tail(&provider->node, &scmi_clk_acpi_providers);
++	mutex_unlock(&scmi_clk_acpi_lock);
++
++	ret = devm_add_action_or_reset(dev, scmi_clk_acpi_provider_remove,
++				       provider);
++	return ret;
++}
++
++struct clk_hw *scmi_clk_acpi_get_hw(struct device *consumer,
++				    unsigned int index)
++{
++	struct scmi_clk_acpi_provider *provider, *selected = NULL;
++	struct device *supplier;
++	struct clk_hw *hw;
++
++	if (!consumer)
++		return ERR_PTR(-EINVAL);
++
++	mutex_lock(&scmi_clk_acpi_lock);
++	list_for_each_entry(provider, &scmi_clk_acpi_providers, node) {
++		if (selected) {
++			hw = ERR_PTR(-ENOTUNIQ);
++			goto unlock;
++		}
++		selected = provider;
++	}
++
++	if (!selected) {
++		hw = ERR_PTR(-EPROBE_DEFER);
++		goto unlock;
++	}
++
++	supplier = get_device(selected->dev);
++	mutex_unlock(&scmi_clk_acpi_lock);
++
++	/* Serialize against supplier unbind and its devres teardown. */
++	device_lock(supplier);
++	mutex_lock(&scmi_clk_acpi_lock);
++	selected = NULL;
++	list_for_each_entry(provider, &scmi_clk_acpi_providers, node) {
++		if (selected) {
++			hw = ERR_PTR(-ENOTUNIQ);
++			goto unlock_revalidated;
++		}
++		selected = provider;
++	}
++
++	if (!selected || selected->dev != supplier ||
++	    !device_is_bound(supplier) ||
++	    supplier->links.status != DL_DEV_DRIVER_BOUND) {
++		hw = ERR_PTR(-EPROBE_DEFER);
++		goto unlock_revalidated;
++	}
++
++	if (index >= selected->clk_data->num ||
++	    !selected->clk_data->hws[index] ||
++	    IS_ERR(selected->clk_data->hws[index])) {
++		hw = ERR_PTR(-ENOENT);
++		goto unlock_revalidated;
++	}
++
++	hw = selected->clk_data->hws[index];
++	if (!device_link_add(consumer, supplier,
++			     DL_FLAG_AUTOPROBE_CONSUMER))
++		hw = ERR_PTR(-EPROBE_DEFER);
++
++unlock_revalidated:
++	mutex_unlock(&scmi_clk_acpi_lock);
++	device_unlock(supplier);
++	put_device(supplier);
++	return hw;
++
++unlock:
++	mutex_unlock(&scmi_clk_acpi_lock);
++	return hw;
++}
++EXPORT_SYMBOL_GPL(scmi_clk_acpi_get_hw);
++
+ static unsigned long scmi_clk_recalc_rate(struct clk_hw *hw,
+ 					  unsigned long parent_rate)
+ {
+@@ -224,7 +341,8 @@ static int scmi_clk_ops_init(struct device *dev, struct scmi_clk *sclk,
+ 	unsigned long min_rate, max_rate;
+ 
+ 	struct clk_init_data init = {
+-		.flags = CLK_GET_RATE_NOCACHE,
++		.flags = CLK_GET_RATE_NOCACHE |
++			 (sclk->ignore_unused ? CLK_IGNORE_UNUSED : 0),
+ 		.num_parents = sclk->info->num_parents,
+ 		.ops = scmi_ops,
+ 		.name = sclk->info->name,
+@@ -400,7 +518,7 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ {
+ 	int idx, count, err;
+ 	unsigned int atomic_threshold_us;
+-	bool transport_is_atomic;
++	bool is_cix_sky1, transport_is_atomic;
+ 	struct clk_hw **hws;
+ 	struct clk_hw_onecell_data *clk_data;
+ 	struct device *dev = &sdev->dev;
+@@ -419,11 +537,18 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 		return PTR_ERR(scmi_proto_clk_ops);
+ 
+ 	count = scmi_proto_clk_ops->count_get(ph);
+-	if (count < 0) {
+-		dev_err(dev, "%pOFn: invalid clock output count\n", np);
++	if (count < 0 || (ACPI_COMPANION(dev) && !count)) {
++		dev_err(dev, "%pOFn: invalid clock output count %d\n", np,
++			count);
+ 		return -EINVAL;
+ 	}
+ 
++	is_cix_sky1 = has_acpi_companion(dev) &&
++		acpi_dev_hid_uid_match(ACPI_COMPANION(dev), "CIXHA009", NULL) &&
++		dev->parent && has_acpi_companion(dev->parent) &&
++		acpi_dev_hid_uid_match(ACPI_COMPANION(dev->parent),
++				       "CIXHA006", NULL);
++
+ 	clk_data = devm_kzalloc(dev, struct_size(clk_data, hws, count),
+ 				GFP_KERNEL);
+ 	if (!clk_data)
+@@ -450,12 +575,15 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 		if (!sclk->info) {
+ 			dev_dbg(dev, "invalid clock info for idx %d\n", idx);
+ 			hws[idx] = NULL;
++			if (ACPI_COMPANION(dev))
++				return -EINVAL;
+ 			continue;
+ 		}
+ 
+ 		sclk->id = idx;
+ 		sclk->ph = ph;
+ 		sclk->dev = dev;
++		sclk->ignore_unused = is_cix_sky1;
+ 
+ 		/*
+ 		 * Note that the scmi_clk_ops_db is on the stack, not global,
+@@ -478,8 +606,15 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 				return -ENOMEM;
+ 
+ 			for (int i = 0; i < sclk->info->num_parents; i++) {
+-				sclk->parent_data[i].index = sclk->info->parents[i];
+-				sclk->parent_data[i].hw = hws[sclk->info->parents[i]];
++				u32 parent = sclk->info->parents[i];
++
++				if (parent >= count)
++					return dev_err_probe(dev, -EINVAL,
++							     "clock %d has invalid parent %u\n",
++							     idx, parent);
++
++				sclk->parent_data[i].index = parent;
++				sclk->parent_data[i].hw = hws[parent];
+ 			}
+ 		}
+ 
+@@ -488,6 +623,8 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 			dev_err(dev, "failed to register clock %d\n", idx);
+ 			devm_kfree(dev, sclk->parent_data);
+ 			hws[idx] = NULL;
++			if (ACPI_COMPANION(dev))
++				return err;
+ 		} else {
+ 			dev_dbg(dev, "Registered clock:%s%s\n",
+ 				sclk->info->name,
+@@ -495,8 +632,10 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
+ 		}
+ 	}
+ 
+-	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get,
+-					   clk_data);
++	if (ACPI_COMPANION(dev))
++		return scmi_clk_acpi_provider_add(dev, clk_data);
++
++	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, clk_data);
+ }
+ 
+ static const struct scmi_device_id scmi_id_table[] = {
+diff --git a/include/linux/clk/scmi.h b/include/linux/clk/scmi.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/clk/scmi.h
+@@ -0,0 +1,11 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _LINUX_CLK_SCMI_H
++#define _LINUX_CLK_SCMI_H
++
++struct clk_hw;
++struct device;
++
++struct clk_hw *scmi_clk_acpi_get_hw(struct device *consumer,
++				    unsigned int index);
++
++#endif /* _LINUX_CLK_SCMI_H */

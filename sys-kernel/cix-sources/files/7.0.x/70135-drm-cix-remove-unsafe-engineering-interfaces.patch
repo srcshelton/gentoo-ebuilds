@@ -1,0 +1,3804 @@
+diff --git a/drivers/gpu/drm/cix/cix_display.c b/drivers/gpu/drm/cix/cix_display.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/cix_display.c
++++ /dev/null
+@@ -1,204 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#include <linux/device.h>
+-#include <linux/module.h>
+-#include <linux/of_platform.h>
+-#include <linux/platform_device.h>
+-#include <linux/io.h>
+-#include <linux/acpi.h>
+-
+-#define DPU0_RESET_MASK BIT(16)
+-#define DPU1_RESET_MASK BIT(17)
+-#define DPU2_RESET_MASK BIT(18)
+-#define DPU3_RESET_MASK BIT(19)
+-#define DPU4_RESET_MASK BIT(20)
+-
+-#define DP0_RESET_MASK BIT(21)
+-#define DP1_RESET_MASK BIT(22)
+-#define DP2_RESET_MASK BIT(23)
+-#define DP3_RESET_MASK BIT(24)
+-#define DP4_RESET_MASK BIT(25)
+-
+-#define MMHUB_RESET_MASK BIT(4)
+-
+-#define DISPLAY0_RESET_MASK (DPU0_RESET_MASK | DP0_RESET_MASK)
+-#define DISPLAY1_RESET_MASK (DPU1_RESET_MASK | DP1_RESET_MASK)
+-#define DISPLAY2_RESET_MASK (DPU2_RESET_MASK | DP2_RESET_MASK)
+-#define DISPLAY3_RESET_MASK (DPU3_RESET_MASK | DP3_RESET_MASK)
+-#define DISPLAY4_RESET_MASK (DPU4_RESET_MASK | DP4_RESET_MASK)
+-
+-#define DISPLAY_RESET_REG 0x16000400
+-
+-struct cix_display_dev {
+-       struct device *dev;
+-       u32 reset_mask[5];
+-       bool reset_need[5];
+-};
+-
+-struct cix_acpi_display {
+-       u32 reset_mask[5];
+-       bool reset_need[5];
+-};
+-
+-static const struct of_device_id cix_display_dt_ids[] = {
+-       { .compatible = "cix,display", },
+-       { /* sentinel */ },
+-};
+-MODULE_DEVICE_TABLE(of, cix_display_dt_ids);
+-
+-static const struct acpi_device_id cix_display_acpi_ids[] = {
+-    { .id = "CIXH5008", .driver_data = 0, },
+-    {},
+-};
+-MODULE_DEVICE_TABLE(acpi, cix_display_acpi_ids);
+-
+-static int cix_display_probe(struct platform_device *pdev)
+-{
+-       struct cix_display_dev *cix_display;
+-       struct device *dev = &pdev->dev;
+-       void *base;
+-       int i, ret;
+-       u32 control, value, count;
+-
+-       dev_info(dev, "%s enter.\n", __func__);
+-
+-       cix_display = devm_kzalloc(dev, sizeof(*cix_display), GFP_KERNEL);
+-       if (!cix_display)
+-               return -ENOMEM;
+-
+-       ret = device_property_read_u32(dev, "reset-control", (u32 *)&control);
+-       if (ret) {
+-               control = 0;
+-               dev_info(dev, "failed to get reset-control, use default value\n");
+-       }
+-
+-       cix_display->reset_mask[0] = DISPLAY0_RESET_MASK;
+-       cix_display->reset_mask[1] = DISPLAY1_RESET_MASK;
+-       cix_display->reset_mask[2] = DISPLAY2_RESET_MASK;
+-       cix_display->reset_mask[3] = DISPLAY3_RESET_MASK;
+-       cix_display->reset_mask[4] = DISPLAY4_RESET_MASK;
+-
+-       base = ioremap(DISPLAY_RESET_REG, 0x4);
+-
+-       value = readl(base);
+-       dev_info(dev, "current reset value = 0x%x, reset-control=%d\n", value, control);
+-
+-       count = 0;
+-       for (i = 0; i < 5; i++) {
+-               cix_display->reset_need[i] = (control >> i) & 0x1;
+-               if (cix_display->reset_need[i]) {
+-                       count++;
+-                       value &= (~cix_display->reset_mask[i]);
+-               }
+-       }
+-
+-        if (count) {
+-                value &= (~MMHUB_RESET_MASK);
+-                writel(value, base);
+-                dev_info(dev, "assert reset, value = 0x%x, count=%d\n", value, count);
+-        }
+-
+-       for (i = 0; i < 5; i++) {
+-               if (cix_display->reset_need[i]) {
+-                       value |= cix_display->reset_mask[i];
+-               }
+-       }
+-
+-        if (count) {
+-                value |= MMHUB_RESET_MASK;
+-                writel(value, base);
+-                dev_info(dev, "deassert reset, value = 0x%x\n", value);
+-        }
+-
+-       value = readl(base);
+-       dev_info(dev, "current reset value = 0x%x\n", value);
+-
+-       iounmap(base);
+-
+-       cix_display->dev = dev;
+-
+-       dev_set_drvdata(dev, cix_display);
+-
+-       return 0;
+-}
+-
+-static struct cix_acpi_display cix_acpi_display;
+-static int __init cix_acpi_display_probe(void)
+-{
+-       void *base;
+-       int i, ret;
+-       u32 control, value, count;
+-       struct cix_acpi_display *cix_display = &cix_acpi_display;
+-       memset(cix_display, 0, sizeof(*cix_display));
+-       control = 4;
+-
+-       cix_display->reset_mask[0] = DISPLAY0_RESET_MASK;
+-       cix_display->reset_mask[1] = DISPLAY1_RESET_MASK;
+-       cix_display->reset_mask[2] = DISPLAY2_RESET_MASK;
+-       cix_display->reset_mask[3] = DISPLAY3_RESET_MASK;
+-       cix_display->reset_mask[4] = DISPLAY4_RESET_MASK;
+-
+-       base = ioremap(DISPLAY_RESET_REG, 0x4);
+-
+-       value = readl(base);
+-
+-       count = 0;
+-       for (i = 0; i < 5; i++) {
+-               cix_display->reset_need[i] = (control >> i) & 0x1;
+-               if (cix_display->reset_need[i]) {
+-                       count++;
+-                       value &= (~cix_display->reset_mask[i]);
+-               }
+-       }
+-
+-        if (count) {
+-                value &= (~MMHUB_RESET_MASK);
+-                writel(value, base);
+-        }
+-
+-       for (i = 0; i < 5; i++) {
+-               if (cix_display->reset_need[i]) {
+-                       value |= cix_display->reset_mask[i];
+-               }
+-       }
+-
+-        if (count) {
+-                value |= MMHUB_RESET_MASK;
+-                writel(value, base);
+-        }
+-
+-       value = readl(base);
+-
+-       iounmap(base);
+-
+-       return 0;
+-}
+-
+-static int cix_display_remove(struct platform_device *pdev)
+-{
+-       struct device *dev = &pdev->dev;
+-
+-       dev_set_drvdata(dev, NULL);
+-
+-       return 0;
+-}
+-
+-struct platform_driver cix_display_driver = {
+-       .probe  = cix_display_probe,
+-       .remove = cix_display_remove,
+-       .driver = {
+-               .name = "cix-display",
+-               .of_match_table = of_match_ptr(cix_display_dt_ids),
+-               .acpi_match_table = ACPI_PTR(cix_display_acpi_ids),
+-       },
+-};
+-
+-core_initcall(cix_acpi_display_probe);
+-
+-MODULE_DESCRIPTION("Cix Display Driver");
+-MODULE_LICENSE("GPL v2");
+-MODULE_ALIAS("platform:cix-display");
+-
+diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
+--- a/drivers/gpu/drm/cix/dptx/Kconfig
++++ b/drivers/gpu/drm/cix/dptx/Kconfig
+@@ -13,8 +13,3 @@ config DRM_TRILIN_DPSUB
+ 	  This is a DRM/KMS driver for Trilinear Technologies DisplayPort controller.
+ 	  Choose this option if you are using an SoC with a Trilinear Technologies
+ 	  DisplayPort subsystem.
+-
+-config TRILIN_DP_HDCP_VALIDATION
+-	tristate "HDCP Validation for Trilinear DisplayPort on CiX platforms"
+-	help
+-	  Choose this if you want to validate DP HDCP on CiX Socs during presilicon
+diff --git a/drivers/gpu/drm/cix/dptx/Makefile b/drivers/gpu/drm/cix/dptx/Makefile
+--- a/drivers/gpu/drm/cix/dptx/Makefile
++++ b/drivers/gpu/drm/cix/dptx/Makefile
+@@ -1,11 +1,5 @@
+ trilin-dpsub-y := trilin_dptx_cix.o trilin_dptx.o trilin_host_tmr.o dptx_infoframe.o trilin_dptx_audio.o trilin_drm.o trilin_drm_mst.o
+ trilin-dpsub-y += trilin_edp_phy.o trilin_usbdp_phy.o
+-trilin-dpsub-$(CONFIG_TRILIN_DP_HDCP_VALIDATION) += hdcp/hdcp2_hw_tx.o
+-trilin-dpsub-$(CONFIG_TRILIN_DP_HDCP_VALIDATION) += hdcp/hdcp2_key_drvn_tx.o
+-trilin-dpsub-$(CONFIG_TRILIN_DP_HDCP_VALIDATION) += hdcp/hdcp2_tx_state.o
+-trilin-dpsub-y += hdcp/hdcp2_tx_tmr.o
+-trilin-dpsub-y += hdcp/cix_hdcp_ioctl.o
+-trilin-dpsub-y += hdcp/cix_hdcp.o
+ trilin-dpsub-y += cix_edp_panel.o
+ 
+-obj-$(CONFIG_DRM_TRILIN_DPSUB) += trilin-dpsub.o
+\ No newline at end of file
++obj-$(CONFIG_DRM_TRILIN_DPSUB) += trilin-dpsub.o
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
++++ /dev/null
+@@ -1,396 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#include <linux/nospec.h>
+-#include <linux/fs.h>
+-#include <linux/poll.h>
+-#include "cix_hdcp_ioctl.h"
+-#include "cix_hdcp_ioctl_cmd.h"
+-
+-static LIST_HEAD(cix_hdcp_list);
+-
+-static unsigned int cix_hdcp_ioctl_cmds[] = {
+-	HDCP2_IOCTL_RXSTATE,
+-	HDCP2_IOCTL_TIMER_START,
+-	HDCP2_IOCTL_TIMER_STOP,
+-	HDCP2_IOCTL_DPCD_ACCESS,
+-	HDCP2_IOCTL_HWINIT,
+-	HDCP2_IOCTL_CIPHER_ENABLE,
+-	HDCP2_IOCTL_CIPHER_DISABLE,
+-	HDCP2_IOCTL_GET_KD,
+-	HDCP2_IOCTL_GET_DKEY2,
+-};
+-
+-int cix_hdcp_hpd_event_process(struct cix_hdcp *hdcp, bool plugged)
+-{
+-	struct hdcp_event *e;
+-
+-	if (!hdcp->opened) {
+-		if (plugged == true)
+-			hdcp->state = ST2_H1;
+-		else
+-			hdcp->state = ST2_H0;
+-		return 0;
+-	}
+-
+-	e = kmalloc(sizeof(struct hdcp_event), GFP_KERNEL);
+-
+-	if (plugged == true) {
+-		e->event = EV2_TX_RX_CONNECT;
+-		hdcp->state = ST2_H1;
+-		dev_info(hdcp->aux->dev, "report event EV2_TX_RX_CONNECT\n");
+-	} else {
+-		e->event = EV2_TX_RX_DISCONNECT;
+-		hdcp->state = ST2_H0;
+-		dev_info(hdcp->aux->dev, "report event EV2_TX_RX_DISCONNECT\n");
+-	}
+-
+-	spin_lock_irq(&hdcp->event_lock);
+-	list_add_tail(&e->list, &hdcp->event_list);
+-	spin_unlock_irq(&hdcp->event_lock);
+-
+-	wake_up_interruptible_poll(&hdcp->event_wait, EPOLLIN | EPOLLRDNORM);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp_timer_process(struct cix_hdcp *hdcp)
+-{
+-	struct hdcp_event *e;
+-
+-	hdcp->timer_in_use = false;
+-
+-	e = kmalloc(sizeof(struct hdcp_event), GFP_KERNEL);
+-	e->event = EV2_TX_TIMER;
+-
+-	dev_info(hdcp->aux->dev, "report event timer\n");
+-
+-	spin_lock_irq(&hdcp->event_lock);
+-	list_add_tail(&e->list, &hdcp->event_list);
+-	spin_unlock_irq(&hdcp->event_lock);
+-
+-	wake_up_interruptible_poll(&hdcp->event_wait, EPOLLIN | EPOLLRDNORM);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp_cp_irq_process(struct cix_hdcp *hdcp, u8 rx_status)
+-{
+-	struct hdcp_event *e;
+-
+-	if (rx_status & 0x1f) {
+-		e = kmalloc(sizeof(struct hdcp_event), GFP_KERNEL);
+-		if (rx_status & 0x1) {
+-			e->event = EV2_TX_READY;
+-			dev_info(hdcp->aux->dev, "report event EV2_TX_READY\n");
+-		}
+-
+-		if ((rx_status >> 0x1) & 0x1) {
+-			e->event = EV2_TX_HPRIME_AVAILABLE;
+-			dev_info(hdcp->aux->dev,
+-				 "report event EV2_TX_HPRIME_AVAILABLE\n");
+-		}
+-
+-		if ((rx_status >> 0x2) & 0x1) {
+-			e->event = EV2_TX_PAIRING_AVAILABLE;
+-			dev_info(hdcp->aux->dev,
+-				 "report event EV2_TX_PAIRING_AVAILABLE\n");
+-		}
+-
+-		if ((rx_status >> 0x3) & 0x1) {
+-			e->event = EV2_TX_REAUTH_REQ;
+-			dev_info(hdcp->aux->dev,
+-				 "report event EV2_TX_REAUTH_REQ\n");
+-		}
+-
+-		if ((rx_status >> 0x4) & 0x1) {
+-			e->event = EV2_TX_INTEGRITY_FAILURE;
+-			dev_info(hdcp->aux->dev,
+-				 "report event EV2_TX_INTEGRITY_FAILURE\n");
+-		}
+-
+-		spin_lock_irq(&hdcp->event_lock);
+-		list_add_tail(&e->list, &hdcp->event_list);
+-		spin_unlock_irq(&hdcp->event_lock);
+-
+-		wake_up_interruptible_poll(&hdcp->event_wait,
+-					   EPOLLIN | EPOLLRDNORM);
+-	}
+-
+-	return 0;
+-}
+-
+-static int cix_hdcp_open(struct inode *inode, struct file *filp)
+-{
+-	int ret;
+-	struct cix_hdcp *pos, *hdcp = NULL;
+-
+-	list_for_each_entry (pos, &cix_hdcp_list, list) {
+-		if (pos->misc.minor == iminor(inode)) {
+-			hdcp = pos;
+-			break;
+-		}
+-	}
+-
+-	if (hdcp) {
+-		hdcp->opened = true;
+-		filp->private_data = hdcp;
+-		dev_info(hdcp->aux->dev, "succeed to open hdcp file\n");
+-		ret = 0;
+-	} else {
+-		dev_info(hdcp->aux->dev, "failed to open hdcp file\n");
+-		ret = -EINVAL;
+-	}
+-
+-	return ret;
+-}
+-
+-static int cix_hdcp_close(struct inode *inode, struct file *filp)
+-{
+-	struct cix_hdcp *hdcp = filp->private_data;
+-
+-	for (;;) {
+-		struct hdcp_event *e = NULL;
+-
+-		spin_lock_irq(&hdcp->event_lock);
+-		if (!list_empty(&hdcp->event_list)) {
+-			e = list_first_entry(&hdcp->event_list,
+-					     struct hdcp_event, list);
+-			list_del(&e->list);
+-			kfree(e);
+-		} else {
+-			dev_info(hdcp->aux->dev,
+-				 "event list is null and close\n");
+-			spin_unlock_irq(&hdcp->event_lock);
+-			break;
+-		}
+-		spin_unlock_irq(&hdcp->event_lock);
+-	}
+-
+-	hdcp->opened = false;
+-
+-	return 0;
+-}
+-
+-static ssize_t cix_hdcp_read(struct file *filp, char __user *buffer,
+-			     size_t count, loff_t *offset)
+-{
+-	struct cix_hdcp *hdcp = filp->private_data;
+-	ssize_t ret;
+-
+-	ret = mutex_lock_interruptible(&hdcp->mutex);
+-	if (ret)
+-		return ret;
+-
+-	for (;;) {
+-		struct hdcp_event *e = NULL;
+-
+-		spin_lock_irq(&hdcp->event_lock);
+-		if (!list_empty(&hdcp->event_list)) {
+-			e = list_first_entry(&hdcp->event_list,
+-					     struct hdcp_event, list);
+-			list_del(&e->list);
+-		}
+-		spin_unlock_irq(&hdcp->event_lock);
+-
+-		if (e == NULL) {
+-			if (ret)
+-				break;
+-
+-			if (filp->f_flags & O_NONBLOCK) {
+-				ret = -EAGAIN;
+-				break;
+-			}
+-
+-			mutex_unlock(&hdcp->mutex);
+-			ret = wait_event_interruptible(
+-				hdcp->event_wait,
+-				!list_empty(&hdcp->event_list));
+-			if (ret >= 0)
+-				ret = mutex_lock_interruptible(&hdcp->mutex);
+-			if (ret)
+-				return ret;
+-		} else {
+-			unsigned length = sizeof(unsigned int);
+-
+-			if (length > count - ret) {
+-put_back_event:
+-				spin_lock_irq(&hdcp->event_lock);
+-				list_add(&e->list, &hdcp->event_list);
+-				spin_unlock_irq(&hdcp->event_lock);
+-				wake_up_interruptible_poll(&hdcp->event_wait,
+-							   EPOLLIN |
+-								   EPOLLRDNORM);
+-				break;
+-			}
+-
+-			if (copy_to_user(buffer + ret, &e->event, length)) {
+-				if (ret == 0)
+-					ret = -EFAULT;
+-				goto put_back_event;
+-			}
+-
+-			ret += length;
+-			kfree(e);
+-		}
+-	}
+-	mutex_unlock(&hdcp->mutex);
+-
+-	return ret;
+-}
+-
+-static __poll_t cix_hdcp_poll(struct file *filp, poll_table *wait)
+-{
+-	struct cix_hdcp *hdcp = filp->private_data;
+-	__poll_t mask = 0;
+-
+-	poll_wait(filp, &hdcp->event_wait, wait);
+-	mutex_lock(&hdcp->mutex);
+-
+-	if (!list_empty(&hdcp->event_list))
+-		mask |= EPOLLIN | EPOLLRDNORM;
+-
+-	mutex_unlock(&hdcp->mutex);
+-
+-	return mask;
+-}
+-
+-static long cix_hdcp_ioctl(struct file *file, unsigned int ucmd,
+-			   unsigned long arg)
+-{
+-	char stack_kdata[128];
+-	char *kdata = stack_kdata;
+-	unsigned int kcmd;
+-	unsigned int in_size, out_size, drv_size, ksize;
+-	int nr = _IOC_NR(ucmd);
+-	int ret = 0;
+-	struct cix_hdcp *hdcp = file->private_data;
+-
+-	if (nr >= ARRAY_SIZE(cix_hdcp_ioctl_cmds))
+-		return -EINVAL;
+-
+-	nr = array_index_nospec(nr, ARRAY_SIZE(cix_hdcp_ioctl_cmds));
+-	/* Get the kernel ioctl cmd that matches */
+-	kcmd = cix_hdcp_ioctl_cmds[nr];
+-
+-	/* Figure out the delta between user cmd size and kernel cmd size */
+-	drv_size = _IOC_SIZE(kcmd);
+-	out_size = _IOC_SIZE(ucmd);
+-	in_size = out_size;
+-	if ((ucmd & kcmd & IOC_IN) == 0)
+-		in_size = 0;
+-	if ((ucmd & kcmd & IOC_OUT) == 0)
+-		out_size = 0;
+-	ksize = max(max(in_size, out_size), drv_size);
+-
+-	/* If necessary, allocate buffer for ioctl argument */
+-	if (ksize > sizeof(stack_kdata)) {
+-		kdata = kmalloc(ksize, GFP_KERNEL);
+-		if (!kdata)
+-			return -ENOMEM;
+-	}
+-
+-	if (copy_from_user(kdata, (void __user *)arg, in_size) != 0) {
+-		ret = -EFAULT;
+-		goto err;
+-	}
+-
+-	/* zero out any difference between the kernel/user structure size */
+-	if (ksize > in_size)
+-		memset(kdata + in_size, 0, ksize - in_size);
+-
+-	switch (kcmd) {
+-	case HDCP2_IOCTL_RXSTATE:
+-		ret = cix_hdcp2_ioctl_get_rx_state(hdcp, kdata);
+-		break;
+-	case HDCP2_IOCTL_TIMER_START:
+-		ret = cix_hdcp2_ioctl_timer_start(hdcp, kdata);
+-		break;
+-	case HDCP2_IOCTL_TIMER_STOP:
+-		ret = cix_hdcp2_ioctl_timer_stop(hdcp);
+-		break;
+-	case HDCP2_IOCTL_DPCD_ACCESS:
+-		ret = cix_hdcp2_ioctl_dpcd_access(hdcp, kdata);
+-		break;
+-	case HDCP2_IOCTL_HWINIT:
+-		ret = cix_hdcp2_ioctl_hw_init(hdcp);
+-		break;
+-	case HDCP2_IOCTL_CIPHER_ENABLE:
+-		ret = cix_hdcp2_ioctl_cipher_enable(hdcp, kdata);
+-		break;
+-	case HDCP2_IOCTL_CIPHER_DISABLE:
+-		ret = cix_hdcp2_cix_ioctl_cipher_disable(hdcp);
+-		break;
+-	case HDCP2_IOCTL_GET_KD:
+-		ret = cix_hdcp2_ioctl_get_kd(hdcp, kdata);
+-		break;
+-	case HDCP2_IOCTL_GET_DKEY2:
+-		ret = cix_hdcp2_ioctl_get_dkey2(hdcp, kdata);
+-		break;
+-	default:
+-		ret = -ENOTTY;
+-	}
+-
+-	if (ret)
+-		goto err;
+-
+-	if (copy_to_user((void __user *)arg, kdata, out_size) != 0)
+-		ret = -EFAULT;
+-err:
+-	if (kdata != stack_kdata)
+-		kfree(kdata);
+-	return ret;
+-}
+-
+-static const struct file_operations hdcp_fops = {
+-	.owner = THIS_MODULE,
+-	.open = cix_hdcp_open,
+-	.release = cix_hdcp_close,
+-	.read = cix_hdcp_read,
+-	.poll = cix_hdcp_poll,
+-	.unlocked_ioctl = cix_hdcp_ioctl,
+-};
+-
+-int cix_hdcp_init(struct cix_hdcp *hdcp)
+-{
+-	int ret;
+-	struct drm_dp_aux *aux = hdcp->aux;
+-	struct device *dev = aux->dev;
+-
+-	if (is_acpi_node(dev->fwnode))
+-		snprintf(hdcp->name, 17, "hdcp-%s\n", dev_name(dev));
+-	else
+-		snprintf(hdcp->name, 14, "hdcp-%s\n", dev_name(dev));
+-	mutex_init(&hdcp->mutex);
+-	spin_lock_init(&hdcp->event_lock);
+-	INIT_LIST_HEAD(&hdcp->event_list);
+-	init_waitqueue_head(&hdcp->event_wait);
+-	hdcp->misc.minor = MISC_DYNAMIC_MINOR;
+-	hdcp->misc.name = hdcp->name;
+-	hdcp->misc.fops = &hdcp_fops;
+-
+-	ret = misc_register(&hdcp->misc);
+-	if (!ret) {
+-		list_add(&hdcp->list, &cix_hdcp_list);
+-		dev_info(dev, "succeed register hdcp misc device.\n");
+-	} else {
+-		dev_err(dev, "cannot register hdcp misc device, ret=%d.\n",
+-			ret);
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-
+-int cix_hdcp_uninit(struct cix_hdcp *hdcp)
+-{
+-	misc_deregister(&hdcp->misc);
+-	list_del(&hdcp->list);
+-	hdcp->aux = NULL;
+-
+-	return 0;
+-}
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
++++ /dev/null
+@@ -1,141 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0*/
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#ifndef __CIX_HDCP_H_
+-#define __CIX_HDCP_H_
+-
+-#include <linux/device.h>
+-#include <linux/miscdevice.h>
+-#include <drm/drm_device.h>
+-#include <drm/drm_connector.h>
+-#include <drm/display/drm_dp_helper.h>
+-
+-#define CIX_HDCP_DEBUG 0
+-//------------------------------------------------------------------------------
+-//  States
+-//------------------------------------------------------------------------------
+-//  State   Description
+-//------------------------------------------------------------------------------
+-//  H0      No RX Attached
+-//  H1      Transmit Low Value Content
+-//  A0      Determine Rx HDCP Capable
+-//  A1      Exchange km
+-//  A2      Locality Check
+-//  A3      Exchange ks
+-//  A4      Test for Repeater
+-//  A5      Authenticated
+-//  A6      Wait for Receiver ID list
+-//  A7      Verify Receiver ID List
+-//  A8      Send Receiver ID List acknowledgment
+-//  A9      Content Steam Management
+-//------------------------------------------------------------------------------
+-typedef enum {
+-	ST2_H0, //  H0: No RX Attached
+-	ST2_H1, //  H1: Transmit Low Value Content
+-	ST2_A0, //  A0: Determine Rx HDCP Capable
+-	ST2_A1, //  A1: Exchange km
+-	ST2_A2, //  A2: Locality Check
+-	ST2_A3, //  A3: Exchange ks
+-	ST2_A4, //  A4: Test for Repeater
+-	ST2_A5, //  A5: Authenticated
+-	ST2_A6, //  A6: Wait for Receiver ID list
+-	ST2_A7, //  A7: Verify Receiver ID List
+-	ST2_A8, //  A8: Send Receiver ID List acknowledgment
+-	ST2_A9, //  A9: Content Steam Management
+-	ST2_TX_CT //  state count (must be last)
+-} TX2_STATE_T;
+-
+-//------------------------------------------------------------------------------
+-//  Events
+-//------------------------------------------------------------------------------
+-//  Start       End     Event                       Notes
+-//------------------------------------------------------------------------------
+-//  Any State   H0      EV2_TX_RESET                state machine reset
+-//  Any State   H0      EV2_TX_RX_DISCONNECT        receiver disconnect
+-//  H0          H1      EV2_TX_RX_CONNECT           receiver connect indication
+-//  Any State   H1      EV2_TX_NOT_HDCP_CAPABLE     Not HDCP capable
+-//  Any State   H1      EV2_TX_FAIL_AUTH            Authentication fail
+-//  H1          A0      EV2_TX_CP_DESIRED           CP desired
+-//  A0          A1      EV2_TX_HDCP_CAPABLE         HDCP Capable
+-//  A0          H1      EV2_TX_NOT_HDCP_CAPABLE     Not HDCP Capable
+-//  A1          A2      EV2_TX_DONE                 Completed A1 processing
+-//  A1          H1      EV2_TX_FAIL                 Failed A1 processing
+-//  A2          A3      EV2_TX_DONE                 Completed A2 processing
+-//  A2          H1      EV2_TX_FAIL                 Failed A2 processing
+-//  A3          A4      EV2_TX_DONE                 Completed A3 processing
+-//  A4          A5      EV2_TX_NOT_REPEATER         Not an HDCP Repeater
+-//  A4          A6      EV2_TX_REPEATER             HDCP Repeater
+-//  A5          H1      EV2_TX_REAUTH_REQ           REAUTH REQ
+-//  A5          H1      EV2_TX_INTEGRITY_FAILURE    LINK_INTEGRITY_FAILURE received
+-//  A5          A7      EV2_TX_READY                READY asserted
+-//  A6          A7      EV2_TX_READY                READY
+-//  A6          H1      EV2_TX_TIMEOUT              Wait for receiver ID list
+-//  A7          H1      EV2_TX_FAIL                 Verify Receiver ID List
+-//  A7          A8      EV2_TX_DONE                 Receiver ID List: verified
+-//  A8          A9      EV2_TX_DONE                 Receiver ID List ACK: sent
+-//  A9          A5      EV2_TX_DONE                 Stream management done (succeed or fail)
+-//  A9          H1      EV2_TX_ROLL_OVER            seq_num_M roll-over
+-//------------------------------------------------------------------------------
+-typedef enum {
+-	EV2_TX_TIMER, //  Timer
+-	EV2_TX_RESET, //  Reset
+-	EV2_TX_RX_DISCONNECT, //  Receiver disconnect indication
+-	EV2_TX_RX_CONNECT, //  Receiver connect indication
+-	EV2_TX_FAIL_AUTH, //  Fail Authentication
+-	EV2_TX_REAUTH_REQ, //  Reauthorization request
+-	EV2_TX_CP_DESIRED, //  Content Protection desired
+-	EV2_TX_HDCP_CAPABLE, //  HDCP capable
+-	EV2_TX_NOT_HDCP_CAPABLE, //  Not HDCP capable
+-	EV2_TX_HPRIME_AVAILABLE, //  H' available
+-	EV2_TX_PAIRING_AVAILABLE, //  Pairing data available
+-	EV2_TX_DONE, //  Done
+-	EV2_TX_REPEATER, //  HDCP Repeater
+-	EV2_TX_NOT_REPEATER, //  Not HDCP Repeater
+-	EV2_TX_READY, //  Ready
+-	EV2_TX_FAIL, //  Fail
+-	EV2_TX_TIMEOUT, //  Timeout
+-	EV2_TX_INTEGRITY_FAILURE, //  Integrity Failure
+-	EV2_TX_ABORT_AUTHENTICATION, //  Abort authentication
+-	EV2_TX_DPCD_WRITE_COMPLETE, //  DPCD data write succeeded
+-	EV2_TX_DPCD_WRITE_FAIL, //  DPCD data write failed
+-	EV2_TX_DPCD_READ_COMPLETE, //  DPCD data read succeeded
+-	EV2_TX_DPCD_READ_FAIL, //  DPCD data write failed
+-	EV2_TX_CP_IRQ, //  Received a CP_IRQ
+-	EV2_TX_CT //  event count (must be last)
+-} TX2_EVENT_T;
+-
+-struct hdcp_event {
+-	struct list_head list;
+-	unsigned int event;
+-};
+-
+-struct cix_hdcp {
+-	char name[20];
+-	struct list_head list;
+-	struct miscdevice misc;
+-	struct drm_dp_aux *aux;
+-	void __iomem *base_addr;
+-	void __iomem *tmr_addr;
+-	bool opened;
+-	bool timer_in_use;
+-	int hdcp_capable;
+-	int hdcp_version;
+-	int hdcp_repeater;
+-	TX2_STATE_T state;
+-	spinlock_t event_lock;
+-	struct list_head event_list;
+-	wait_queue_head_t event_wait;
+-	struct mutex mutex;
+-};
+-
+-int cix_hdcp_init(struct cix_hdcp *hdcp);
+-int cix_hdcp_uninit(struct cix_hdcp *hdcp);
+-int cix_hdcp_timer_process(struct cix_hdcp *hdcp);
+-int cix_hdcp_cp_irq_process(struct cix_hdcp *hdcp, u8 rx_status);
+-int cix_hdcp_hpd_event_process(struct cix_hdcp *hdcp, bool plugged);
+-
+-#endif // __CIX_HDCP_H_
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
++++ /dev/null
+@@ -1,184 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#include <asm/ioctl.h>
+-#include <linux/types.h>
+-#include <linux/string.h>
+-#include <linux/errno.h>
+-#include "cix_hdcp.h"
+-#include "cix_hdcp_ioctl_cmd.h"
+-#include "hdcp2_tx_tmr.h"
+-#include "hdcp2_tx_state.h"
+-#include "hdcp2_key_drvn_tx.h"
+-#include "dptx_aux_reg.h"
+-#include "cix_hdcp_ioctl.h"
+-
+-#define TR_DPTX_AUX_CMD_READ 0x0900ul
+-#define TR_DPTX_AUX_CMD_WRITE 0x0800ul
+-
+-int cix_hdcp2_ioctl_get_rx_state(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	TX2_STATE_T *state = kdata;
+-
+-	memcpy(state, &hdcp->state, sizeof(TX2_STATE_T));
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_timer_start(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	uint32_t ms = *(uint32_t *)kdata;
+-
+-	hdcp2_tx_tmr_start(hdcp, ms);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_timer_stop(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_tx_tmr_stop(hdcp);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_dpcd_access(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	int ret = 0;
+-	ssize_t bytes;
+-	uint8_t *udata = NULL;
+-	struct drm_dp_aux *aux = hdcp->aux;
+-	struct device *dev = aux->dev;
+-	dptx_aux_trxn_t *aux_trxn = kdata;
+-
+-	if (aux_trxn->cmd != TR_DPTX_AUX_CMD_READ &&
+-	    aux_trxn->cmd != TR_DPTX_AUX_CMD_WRITE) {
+-		dev_err(dev, "%s, %d is unsupported\n", __func__,
+-			aux_trxn->cmd);
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+-	if (!aux_trxn->data) {
+-		dev_err(dev, "%s, aux_trxn->data is NULL\n", __func__);
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+-	if (!aux_trxn->ct) {
+-		dev_err(dev, "%s, aux_trxn->ct is zero\n", __func__);
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+-	dev_dbg(dev, "%s, data=0x%px, addr=0x%x, cnt=0x%x\n", __func__,
+-		aux_trxn->data, aux_trxn->addr, aux_trxn->ct);
+-
+-	udata = kmalloc(aux_trxn->ct, GFP_KERNEL | __GFP_ZERO);
+-
+-	if (aux_trxn->cmd == TR_DPTX_AUX_CMD_READ) {
+-		bytes = drm_dp_dpcd_read(aux, aux_trxn->addr, udata,
+-					 aux_trxn->ct);
+-		if (bytes < 0 || bytes < aux_trxn->ct) {
+-			dev_err(dev, "%s, failed to read dpcd %x, bytes=%lx\n",
+-				__func__, aux_trxn->addr, bytes);
+-			ret = -EINVAL;
+-			goto exit;
+-		}
+-
+-		if (copy_to_user((void __user *)aux_trxn->data, udata,
+-				 aux_trxn->ct) != 0) {
+-			dev_err(dev,
+-				"%s, copy dpcd data from userspace failed\n",
+-				__func__);
+-			ret = -EFAULT;
+-			goto exit;
+-		}
+-	} else {
+-		if (copy_from_user(udata, (void __user *)aux_trxn->data,
+-				   aux_trxn->ct) != 0) {
+-			dev_err(dev, "%s, copy dpcd data to userspace failed\n",
+-				__func__);
+-			ret = -EFAULT;
+-			goto exit;
+-		}
+-
+-		bytes = drm_dp_dpcd_write(aux, aux_trxn->addr, udata,
+-					  aux_trxn->ct);
+-		if (bytes < 0 || bytes < aux_trxn->ct) {
+-			dev_err(dev, "%s, failed to write dpcd %x, bytes=%lx\n",
+-				__func__, aux_trxn->addr, bytes);
+-			ret = -EINVAL;
+-			goto exit;
+-		}
+-	}
+-exit:
+-	if (udata)
+-		kfree(udata);
+-	return ret;
+-}
+-
+-#ifdef CONFIG_TRILIN_DP_HDCP_VALIDATION
+-int cix_hdcp2_ioctl_hw_init(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_tx_state_init(hdcp);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_cipher_enable(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_cipher_enable(hdcp, kdata);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_cix_ioctl_cipher_disable(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_cipher_disable(hdcp);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_get_kd(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_key_drvn_tx_kd_generate(hdcp, kdata);
+-
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_get_dkey2(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_key_drvn_tx_dkey2_calc(hdcp, kdata);
+-
+-	return 0;
+-}
+-#else
+-int cix_hdcp2_ioctl_hw_init(struct cix_hdcp *hdcp)
+-{
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_cipher_enable(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	return 0;
+-}
+-
+-int cix_hdcp2_cix_ioctl_cipher_disable(struct cix_hdcp *hdcp)
+-{
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_get_kd(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	return 0;
+-}
+-
+-int cix_hdcp2_ioctl_get_dkey2(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	return 0;
+-}
+-#endif
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
++++ /dev/null
+@@ -1,22 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0*/
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#include <asm/ioctl.h>
+-#include <linux/types.h>
+-#include <linux/string.h>
+-#include <linux/errno.h>
+-#include "cix_hdcp.h"
+-
+-int cix_hdcp2_ioctl_get_rx_state(struct cix_hdcp *hdcp, void *kdata);
+-int cix_hdcp2_ioctl_timer_start(struct cix_hdcp *hdcp, void *kdata);
+-int cix_hdcp2_ioctl_timer_stop(struct cix_hdcp *hdcp);
+-int cix_hdcp2_ioctl_dpcd_access(struct cix_hdcp *hdcp, void *kdata);
+-int cix_hdcp2_ioctl_hw_init(struct cix_hdcp *hdcp);
+-int cix_hdcp2_ioctl_cipher_enable(struct cix_hdcp *hdcp, void *kdata);
+-int cix_hdcp2_cix_ioctl_cipher_disable(struct cix_hdcp *hdcp);
+-int cix_hdcp2_ioctl_get_kd(struct cix_hdcp *hdcp, void *kdata);
+-int cix_hdcp2_ioctl_get_dkey2(struct cix_hdcp *hdcp, void *kdata);
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
++++ /dev/null
+@@ -1,116 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0*/
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#ifndef CIX_HDCP_IOCTL_CMD_H_
+-#define CIX_HDCP_IOCTL_CMD_H_
+-
+-#include <linux/types.h>
+-#include <asm/ioctl.h>
+-
+-typedef struct {
+-	unsigned char rtx[8]; //  random TX value
+-	unsigned char rrx[8]; //  random RX value
+-	unsigned char RxInfo[2]; //  receiver information
+-	unsigned char RxCaps[3]; //  receiver capabilities
+-	unsigned char TxCaps[3]; //  transmitter capabilities
+-	unsigned char certrx[522]; //  Receiver certificate
+-	unsigned char km[16]; //  device master key km (128-bits)
+-	unsigned char
+-		dkey0[16]; //  dkey0 is used to build kd, kd is used to calculate H
+-	unsigned char
+-		dkey1[16]; //  dkey1 is used to build kd, kd is used to calculate H
+-	unsigned char dkey2[16];
+-	unsigned char kd[32]; //  kd is used to calculate H
+-	unsigned char Ekpub_km[128];
+-	unsigned char Ekh_km[16];
+-	unsigned char m[16];
+-	unsigned char H_val[32];
+-	unsigned char H_prime[32];
+-	unsigned char rn[8];
+-	unsigned char L[32];
+-	unsigned char L_prime[32];
+-	unsigned char ks[16];
+-	unsigned char Edkey_ks[16];
+-	unsigned char riv[8];
+-	unsigned char seq_num_V[3];
+-	unsigned char seq_num_M[3];
+-	unsigned char V_val[32];
+-	unsigned char V_prime[16];
+-	unsigned char M_prime[32];
+-	unsigned char RcvID_List[155];
+-	unsigned char k[2];
+-	unsigned char StreamID_Type[126];
+-	unsigned char RxStatus;
+-} hdcp2_tx_data_t;
+-
+-typedef struct {
+-	unsigned char rtx[8]; // random TX value
+-	unsigned char rrx[8]; //  random RX value
+-	unsigned char km[16]; //  device master key km (128-bits)
+-	unsigned char dkey0[16]; // dkey0 is used to build kd
+-	unsigned char dkey1[16]; // dkey1 is used to build kd
+-	unsigned char kd[32]; //  kd is used to calculate H
+-} hdcp2_kd_t;
+-
+-typedef struct {
+-	unsigned char rn[8];
+-	unsigned char km[16]; //  device master key km (128-bits)
+-	unsigned char dkey2[16];
+-} hdcp2_dkey2_t;
+-
+-typedef struct {
+-	unsigned char riv[8];
+-	unsigned char ks[16];
+-} hdcp2_cipher_data_t;
+-
+-//------------------------------------------------------------------------------
+-//  Aux transaction callback
+-//------------------------------------------------------------------------------
+-typedef struct dptx_aux_trxn_s
+-	dptx_aux_trxn_t; //  Aux Transaction forward reference
+-typedef void (*dptx_aux_cb_t)(dptx_aux_trxn_t *trxn); //  callback
+-
+-//------------------------------------------------------------------------------
+-//  aux transmitter status
+-//------------------------------------------------------------------------------
+-typedef enum {
+-	dptx_aux_status_ok, // status is good, operation success
+-	dptx_aux_status_error, // general error condition
+-	dptx_aux_status_ct // status count (must be last)
+-} dptx_aux_status_t;
+-
+-//------------------------------------------------------------------------------
+-//  DisplayPort transmitter aux transaction structure.
+-//  This structure is linked to the dptx_aux_trxn_t typedef.
+-//------------------------------------------------------------------------------
+-struct dptx_aux_trxn_s {
+-	uint32_t cmd; //  aux-bus command
+-	uint32_t addr; //  native: aux-bus address / i2c: i2c-address
+-	uint32_t ct; //  data count
+-	uint8_t *data;
+-	void *user_data; //  handle data
+-	dptx_aux_cb_t cb;
+-	dptx_aux_status_t status; //  transaction status
+-};
+-
+-#define CIX_HDCP_IOCTL_BASE 'H'
+-#define CIX_HDCP_IO(nr) _IO(CIX_HDCP_IOCTL_BASE, nr)
+-#define CIX_HDCP_IOR(nr, type) _IOR(CIX_HDCP_IOCTL_BASE, nr, type)
+-#define CIX_HDCP_IOW(nr, type) _IOW(CIX_HDCP_IOCTL_BASE, nr, type)
+-#define CIX_HDCP_IOWR(nr, type) _IOWR(CIX_HDCP_IOCTL_BASE, nr, type)
+-
+-#define HDCP2_IOCTL_RXSTATE CIX_HDCP_IOR(0x00, uint)
+-#define HDCP2_IOCTL_TIMER_START CIX_HDCP_IOW(0x01, uint)
+-#define HDCP2_IOCTL_TIMER_STOP CIX_HDCP_IO(0x02)
+-#define HDCP2_IOCTL_DPCD_ACCESS CIX_HDCP_IOWR(0x03, dptx_aux_trxn_t)
+-#define HDCP2_IOCTL_HWINIT CIX_HDCP_IO(0x04)
+-#define HDCP2_IOCTL_CIPHER_ENABLE CIX_HDCP_IOW(0x05, hdcp2_cipher_data_t)
+-#define HDCP2_IOCTL_CIPHER_DISABLE CIX_HDCP_IO(0x06)
+-#define HDCP2_IOCTL_GET_KD CIX_HDCP_IOWR(0x07, hdcp2_kd_t)
+-#define HDCP2_IOCTL_GET_DKEY2 CIX_HDCP_IOWR(0x08, hdcp2_dkey2_t)
+-
+-#endif // CIX_HDCP_IOCTL_CMD_H_
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h b/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
++++ /dev/null
+@@ -1,126 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-#ifndef __DPTX_AUX_REG_H__
+-#define __DPTX_AUX_REG_H__
+-
+-//------------------------------------------------------------------------------
+-//  TR_DPTX_AUX_COMMAND (offset 0x100)
+-//
+-//  Initiates an AUX channel command of the specified length when written.
+-//  This register is written last as part of the AUX channel request set up process.
+-//  When written, the internal state machines will begin transmitting the request to the sink device.
+-//  The AUX_ADDRESS and, when applicable, the AUX_WRITE_FIFO must be set up before writing this register.
+-//
+-//  13 - AUX_PHY_WAKE:
+-//      Set to a 1 to send the AUX_PHY_WAKE signal for embedded DisplayPort operations.
+-//      This signal is sent as a standalone operation and is not sent as a part of a larger AUX transaction.
+-//
+-//  12 - ADDRESS_ONLY:
+-//      Set to a 1 to initiate an address only request.
+-//
+-//  11:8 - COMMAND:
+-//      AUX Channel Command. The field is equivalent to the commands defined in
+-//      section 2.4.1 of the DisplayPort specification.
+-//      0x8 = AUX Write
+-//      0x9 = AUX Read
+-//      0x0 = I2C over AUX Write
+-//      0x4 = I2C over AUX Write, Middle of Transaction bit set
+-//      0x1 = I2C over AUX Read
+-//      0x5 = I2C over AUX Read, Middle of Transaction bit set
+-//      0x2 = I2C over AUX Write Status
+-//
+-//  3:0 � BYTE_COUNT:
+-//      Specifies the number of bytes to transfer with the current command.
+-//      The range of the register is 0 to 15 indicating between 1 and 16 bytes of data.
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_AUX_CMD_PHY_WAKE (0x01ul << 13)
+-#define TR_DPTX_AUX_CMD_ADDRESS_ONLY (0x01ul << 12)
+-
+-#define TR_DPTX_AUX_CMD_MASK 0x0f00ul
+-#define TR_DPTX_AUX_CMD_READ 0x0900ul
+-#define TR_DPTX_AUX_CMD_WRITE 0x0800ul
+-
+-#define TR_DPTX_AUX_CMD_I2C_WRITE 0x0000ul
+-#define TR_DPTX_AUX_CMD_I2C_READ 0x0100ul
+-#define TR_DPTX_AUX_CMD_I2C_WRITE_STATUS 0x0200ul
+-#define TR_DPTX_AUX_CMD_I2C_READ_MOT 0x0500ul
+-#define TR_DPTX_AUX_CMD_I2C_WRITE_MOT 0x0400ul
+-#define TR_DPTX_AUX_CMD_I2C_WRITE_STATUS_MOT 0x0600ul
+-
+-#define TR_DPTX_AUX_BYTE_CT_MASK 0x000ful
+-
+-//------------------------------------------------------------------------------
+-//  TR_DPTX_AUX_REPLY_CODE (offset 0x138)
+-//  Contains the reply code received from the most recent AUX Channel request.
+-//  This code is the two, two-bit fields received by the reply controller from the sink device.
+-//  The value of the code maps to the DisplayPort specification section 2.4.1.2 which
+-//  is repeated below for clarity.
+-//
+-//  1:0 � AUX channel native reply codes received from the sink device.
+-//  0x0 = Native AUX ACK
+-//  0x1 = Native AUX NACK
+-//  0x2 = Native AUX Defer
+-//
+-//  3:2 � AUX channel I2C reply codes received from the sink device.
+-//  0x0 = I2C over AUX ACK
+-//  0x4 = I2C over AUX NACK
+-//  0x8 = I2C over AUX Defer
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_AUX_REPLY_NATIVE_MASK 0x03ul
+-#define TR_DPTX_AUX_REPLY_ACK 0x00ul
+-#define TR_DPTX_AUX_REPLY_NACK 0x01ul
+-#define TR_DPTX_AUX_REPLY_DEFER 0x02ul
+-
+-#define TR_DPTX_AUX_REPLY_I2C_MASK 0x0cul
+-#define TR_DPTX_AUX_REPLY_I2C_ACK 0x00ul
+-#define TR_DPTX_AUX_REPLY_I2C_NACK 0x04ul
+-#define TR_DPTX_AUX_REPLY_I2C_DEFER 0x08ul
+-
+-#define TR_DPTX_AUX_REPLY_MASK 0x0ful
+-
+-//------------------------------------------------------------------------------
+-//  TR_DPTX_AUX_STATUS (offset 0x14c)
+-//
+-//  This register contains the status of the internal AUX channel controllers.
+-//  The progress of request and reply transactions are monitored and reply transactions
+-//  are checked for errors. These bits are always valid:
+-//
+-//  3 � REPLY_ERROR: When set to a 1, the AUX reply logic has detected an error in
+-//      the reply to the most recent AUX transaction. Errors are detected when the
+-//      precharge and sync phases of the reply last more than 38 cycles instead of the maximum 32.
+-//      This condition typically indicates noise on the AUX channel data signals.
+-//
+-//  2 � REQUEST_IN_PROGRESS: The AUX transaction request controller sets this bit to a 1
+-//      while actively transmitting a request on the AUX channel. The bit is set to 0 when
+-//      the AUX transaction request controller is idle.
+-//
+-//  1 � REPLY_IN_PROGRESS: The AUX reply detection logic sets this bit to a 1 while
+-//      receiving a reply on the AUX channel. The bit is 0 otherwise.
+-//
+-//  0 � REPLY_RECEIVED: This bit is set to 0 when the AUX request controller begins
+-//      sending bits on the AUX serial bus. The AUX reply controller sets this bit
+-//      to 1 when a complete and valid reply transaction has been received.
+-//      This bit is cleared when a request transaction has been initiated by the request controller.
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_AUX_STATUS_REPLY_ERROR (1ul << 3)
+-#define TR_DPTX_AUX_STATUS_REQUEST_IN_PROGRESS (1ul << 2)
+-#define TR_DPTX_AUX_STATUS_REPLY_IN_PROGRESS (1ul << 1)
+-#define TR_DPTX_AUX_STATUS_REPLY_RECEIVED (1ul << 0)
+-
+-#endif
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h b/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
++++ /dev/null
+@@ -1,483 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-#ifndef __DPTX_REG__
+-#define __DPTX_REG__
+-
+-//------------------------------------------------------------------------------
+-//   link configuration fields
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_LINK_BW_SET 0x000ul
+-#define TR_DPTX_LANE_COUNT_SET 0x004ul
+-#define TR_DPTX_ENHANCED_FRAMING_ENABLE 0x008ul
+-#define TR_DPTX_TRAINING_PATTERN_SET 0x00cul
+-#define TR_DPTX_LINK_QUAL_PATTERN_SET 0x010ul
+-#define TR_DPTX_DISABLE_SCRAMBLING 0x014ul
+-#define TR_DPTX_DOWNSPREAD_CONTROL 0x018ul
+-#define TR_DPTX_EDP_CAPABILITY_CONFIG 0x01cul
+-#define TR_DPTX_HBR2_SCRAMBLER_RESET 0x020ul
+-#define TR_DPTX_DISPLAYPORT_VERSION 0x024ul
+-#define TR_DPTX_ALPM_POWER_SET 0x028ul
+-#define TR_DPTX_LANE_REMAP 0x02cul
+-#define TR_DPTX_CUSTOM_80BIT_PATTERN_31_0 0x030ul
+-#define TR_DPTX_CUSTOM_80BIT_PATTERN_63_32 0x034ul
+-#define TR_DPTX_CUSTOM_80BIT_PATTERN_79_64 0x038ul
+-
+-//------------------------------------------------------------------------------
+-//   core enables
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_TRANSMITTER_ENABLE 0x080ul
+-#define TR_DPTX_SOFT_RESET 0x090ul
+-#define TR_DPTX_SOURCE_ENABLE 0x094ul
+-#define TR_DPTX_FEC_ENABLE 0x098ul
+-
+-//------------------------------------------------------------------------------
+-//   misc control registers
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_FORCE_SCRAMBLER_RESET 0x0c0ul
+-#define TR_DPTX_CORE_FEATURES 0x0f8ul
+-#define TR_DPTX_CORE_REVISION 0x0fcul
+-
+-//------------------------------------------------------------------------------
+-//   AUX channel
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_AUX_COMMAND 0x100ul
+-#define TR_DPTX_AUX_WRITE_FIFO 0x104ul
+-#define TR_DPTX_AUX_ADDRESS 0x108ul
+-#define TR_DPTX_AUX_CLOCK_DIVIDER 0x10cul
+-#define TR_DPTX_AUX_REPLY_TIMEOUT_INTERVAL 0x110ul
+-#define TR_DPTX_HPD_INPUT_STATE 0x128ul
+-#define TR_DPTX_INTERRUPT_STATE 0x130ul
+-#define TR_DPTX_AUX_REPLY_DATA 0x134ul
+-#define TR_DPTX_AUX_REPLY_CODE 0x138ul
+-#define TR_DPTX_AUX_REPLY_COUNT 0x13cul
+-#define TR_DPTX_INTERRUPT_CAUSE 0x140ul
+-#define TR_DPTX_INTERRUPT_MASK 0x144ul
+-#define TR_DPTX_AUX_REPLY_DATA_COUNT 0x148ul
+-#define TR_DPTX_AUX_STATUS 0x14cul
+-#define TR_DPTX_AUX_REPLY_CLOCK_WIDTH 0x150ul
+-#define TR_DPTX_AUX_PHY_WAKE_ACK_DETECTED 0x154ul
+-#define TR_DPTX_HOST_TIMER 0x158ul
+-#define TR_DPTX_MST_TIMER 0x15cul
+-
+-//------------------------------------------------------------------------------
+-//   PHY status
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_PHY_STATUS 0x280ul
+-
+-//------------------------------------------------------------------------------
+-//   HDCP control
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_HDCP_ENABLE 0x400ul
+-#define TR_DPTX_HDCP_MODE 0x404ul
+-#define TR_DPTX_HDCP_KS_31_0 0x408ul
+-#define TR_DPTX_HDCP_KS_63_32 0x40cul
+-#define TR_DPTX_HDCP_KM_31_0 0x410ul
+-#define TR_DPTX_HDCP_KM_63_32 0x414ul
+-#define TR_DPTX_HDCP_AN_31_0 0x418ul
+-#define TR_DPTX_HDCP_RTX_31_0 0x418ul
+-#define TR_DPTX_HDCP_AN_63_32 0x41cul
+-#define TR_DPTX_HDCP_RTX_63_32 0x41cul
+-#define TR_DPTX_HDCP_RESERVED_420 0x420ul
+-#define TR_DPTX_HDCP_AUTH_IN_PROGRESS 0x424ul
+-#define TR_DPTX_HDCP_R0_STATUS 0x428ul
+-#define TR_DPTX_HDCP_CIPHER_CONTROL 0x42cul
+-#define TR_DPTX_HDCP_BKSV_31_0 0x430ul
+-#define TR_DPTX_HDCP_RRX_31_0 0x430ul
+-#define TR_DPTX_HDCP_BKSV_63_32 0x434ul
+-#define TR_DPTX_HDCP_RRX_63_32 0x434ul
+-#define TR_DPTX_HDCP_AKSV_31_0 0x438ul
+-#define TR_DPTX_HDCP_AKSV_63_32 0x43cul
+-#define TR_DPTX_HDCP_LC128_31_0 0x440ul
+-#define TR_DPTX_HDCP_LC128_63_32 0x444ul
+-#define TR_DPTX_HDCP_LC128_95_64 0x448ul
+-#define TR_DPTX_HDCP_LC128_127_96 0x44cul
+-#define TR_DPTX_HDCP_REPEATER 0x450ul
+-#define TR_DPTX_HDCP_STREAM_CIPHER_ENABLE 0x454ul
+-#define TR_DPTX_HDCP_M0_31_0 0x458ul
+-#define TR_DPTX_HDCP_M0_63_32 0x45cul
+-#define TR_DPTX_HDCP_AES_INPUT_SELECT 0x460ul
+-#define TR_DPTX_HDCP_AES_COUNTER_DISABLE 0x464ul
+-#define TR_DPTX_HDCP_AES_COUNTER_ADVANCE 0x468ul
+-#define TR_DPTX_HDCP_ECF_31_0 0x46cul
+-#define TR_DPTX_HDCP_ECF_63_32 0x470ul
+-#define TR_DPTX_HDCP_AES_COUNTER_RESET 0x474ul
+-#define TR_DPTX_HDCP_RN_31_0 0x478ul
+-#define TR_DPTX_HDCP_RN_63_32 0x47cul
+-#define TR_DPTX_HDCP_RNG_CIPHER_STORE_AN 0x480ul
+-#define TR_DPTX_HDCP_RNG_CIPHER_AN_31_0 0x484ul
+-#define TR_DPTX_HDCP_RNG_CIPHER_AN_63_32 0x488ul
+-#define TR_DPTX_HDCP_HOST_TIMER 0x48cul
+-#define TR_DPTX_HDCP_ENCRYPTION_STATUS 0x490ul
+-#define TR_DPTX_HDCP_RESERVED_494 0x494ul
+-#define TR_DPTX_HDCP_CONTENT_TYPE_SELECT_31_0 0x498ul
+-#define TR_DPTX_HDCP_CONTENT_TYPE_SELECT_63_32 0x49cul
+-
+-//------------------------------------------------------------------------------
+-//   MST control
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_MST_ENABLE 0x500ul
+-#define TR_DPTX_MST_PID_TABLE_INDEX 0x504ul
+-#define TR_DPTX_MST_PID_TABLE_ENTRY 0x508ul
+-#define TR_DPTX_SST_SOURCE_SELECT 0x50cul
+-#define TR_DPTX_MST_ALLOCATION_TRIGGER 0x510ul
+-#define TR_DPTX_MST_PID_TABLE_SELECT 0x514ul
+-#define TR_DPTX_MST_ACTIVE_PAYLOAD_TABLE 0x518ul
+-#define TR_DPTX_MST_ACTIVE 0x520ul
+-#define TR_DPTX_MST_LINK_FRAME_COUNT 0x524ul
+-#define TR_DPTX_MSO_CONFIG 0x528ul
+-
+-//------------------------------------------------------------------------------
+-//   Main stream control, virtual source 0
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_VIDEO_STREAM_ENABLE 0x800ul
+-#define TR_DPTX_SECONDARY_STREAM_ENABLE 0x804ul
+-#define TR_DPTX_SRC0_SECONDARY_DATA_WINDOW 0x808ul
+-#define TR_DPTX_SRC0_INPUT_STATUS 0x80cul
+-#define TR_DPTX_SRC0_DATA_CONTROL 0x810ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_OVERRIDE 0x814ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_HTOTAL 0x820ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_VTOTAL 0x824ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_POLARITY 0x828ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_HSWIDTH 0x82cul
+-#define TR_DPTX_SRC0_MAIN_STREAM_VSWIDTH 0x830ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_HRES 0x834ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_VRES 0x838ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_HSTART 0x83cul
+-#define TR_DPTX_SRC0_MAIN_STREAM_VSTART 0x840ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_MISC0 0x844ul
+-#define TR_DPTX_SRC0_MAIN_STREAM_MISC1 0x848ul
+-#define TR_DPTX_SRC0_MVID 0x84cul
+-#define TR_DPTX_SRC0_TU_CONFIG 0x850ul
+-#define TR_DPTX_SRC0_NVID 0x854ul
+-#define TR_DPTX_SRC0_USER_PIXEL_COUNT 0x858ul
+-#define TR_DPTX_SRC0_USER_DATA_COUNT 0x85cul
+-#define TR_DPTX_SRC0_MAIN_STREAM_INTERLACED 0x860ul
+-#define TR_DPTX_SRC0_USER_SYNC_POLARITY 0x864ul
+-#define TR_DPTX_SRC0_USER_CONTROL 0x868ul
+-#define TR_DPTX_SRC0_USER_FIFO_STATUS 0x86cul
+-#define TR_DPTX_SRC0_FRAMING_STATUS 0x870ul
+-
+-//------------------------------------------------------------------------------
+-//   Secondary channel, source 0
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SEC0_AUDIO_ENABLE 0x900ul
+-#define TR_DPTX_SEC0_INPUT_SELECT 0x904ul
+-#define TR_DPTX_SEC0_CHANNEL_COUNT 0x908ul
+-#define TR_DPTX_SEC0_INFOFRAME_ENABLE 0x910ul
+-#define TR_DPTX_SEC0_INFOFRAME_RATE 0x914ul
+-#define TR_DPTX_SEC0_MAUD 0x918ul
+-#define TR_DPTX_SEC0_NAUD 0x91cul
+-#define TR_DPTX_SEC0_AUDIO_CLOCK_MODE 0x920ul
+-#define TR_DPTX_SEC0_3D_VSC_DATA 0x924ul
+-#define TR_DPTX_SEC0_AUDIO_FIFO 0x928ul
+-#define TR_DPTX_SEC0_AUDIO_FIFO_LAST 0x92cul
+-#define TR_DPTX_SEC0_AUDIO_FIFO_READY 0x930ul
+-#define TR_DPTX_SEC0_INFOFRAME_SELECT 0x934ul
+-#define TR_DPTX_SEC0_INFOFRAME_DATA 0x938ul
+-#define TR_DPTX_SEC0_TIMESTAMP_INTERVAL 0x93cul
+-#define TR_DPTX_SEC0_CS_SOURCE_FORMAT 0x940ul
+-#define TR_DPTX_SEC0_CS_CATEGORY_CODE 0x944ul
+-#define TR_DPTX_SEC0_CS_LENGTH_ORIG_FREQ 0x948ul
+-#define TR_DPTX_SEC0_CS_FREQ_CLOCK_ACCURACY 0x94cul
+-#define TR_DPTX_SEC0_CS_COPYRIGHT 0x950ul
+-#define TR_DPTX_SEC0_AUDIO_CHANNEL_MAP 0x954ul
+-#define TR_DPTX_SEC0_AUDIO_FIFO_OVERFLOW 0x958ul
+-#define TR_DPTX_SEC0_PACKET_COUNT 0x95cul
+-#define TR_DPTX_SEC0_CHANNEL_USER_DATA 0x960ul
+-#define TR_DPTX_SEC0_DATA_PACKET_ID 0x964ul
+-#define TR_DPTX_SEC0_ADAPTIVE_SYNC_ENABLE 0x968ul
+-
+-//------------------------------------------------------------------------------
+-//   GTC
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_GTC_COUNT_CONFIG 0x980ul
+-#define TR_DPTX_GTC_COMMAND_EDGE 0x984ul
+-#define TR_DPTX_GTC_AUX_FRAME_SYNC 0x988ul
+-
+-//------------------------------------------------------------------------------
+-//   eDP CRC, virtual source 0
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC0_EDP_CRC_ENABLE 0x990ul
+-#define TR_DPTX_SRC0_EDP_CRC_RED 0x994ul
+-#define TR_DPTX_SRC0_EDP_CRC_GREEN 0x998ul
+-#define TR_DPTX_SRC0_EDP_CRC_BLUE 0x99cul
+-
+-//------------------------------------------------------------------------------
+-//   PSR/PSR2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC0_PSR_3D_ENABLE 0x9a0ul
+-#define TR_DPTX_SRC0_PSR_CONFIG 0x9a4ul
+-#define TR_DPTX_SRC0_PSR_STATE 0x9a8ul
+-#define TR_DPTX_SRC0_PSR_INTERNAL_STATE 0x9acul
+-#define TR_DPTX_SRC0_PSR2_UPDATE_TOP 0x9b0ul
+-#define TR_DPTX_SRC0_PSR2_UPDATE_BOTTOM 0x9b4ul
+-#define TR_DPTX_SRC0_PSR2_UPDATE_LEFT 0x9b8ul
+-#define TR_DPTX_SRC0_PSR2_UPDATE_WIDTH 0x9bcul
+-
+-//------------------------------------------------------------------------------
+-//   Direct SDP interface
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SDP_LANE_SELECT 0x9e0ul
+-#define TR_DPTX_SDP_BUFFER_INDEX 0x9e4ul
+-#define TR_DPTX_SDP_BUFFER_DATA_COUNT 0x9e8ul
+-#define TR_DPTX_SDP_BUFFER_DATA 0x9ecul
+-#define TR_DPTX_SDP_BUFFER_DONE 0x9f0ul
+-#define TR_DPTX_SDP_BUFFER_BUSY 0x9f4ul
+-#define TR_DPTX_SDP_BUFFER_ENABLE 0x9f8ul
+-
+-//------------------------------------------------------------------------------
+-//   MST source 1
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC1_SECONDARY_DATA_WINDOW 0xa08ul
+-#define TR_DPTX_SRC1_INPUT_STATUS 0xa0cul
+-#define TR_DPTX_SRC1_DATA_CONTROL 0xa10ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_OVERRIDE 0xa14ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_HTOTAL 0xa20ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_VTOTAL 0xa24ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_POLARITY 0xa28ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_HSWIDTH 0xa2cul
+-#define TR_DPTX_SRC1_MAIN_STREAM_VSWIDTH 0xa30ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_HRES 0xa34ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_VRES 0xa38ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_HSTART 0xa3cul
+-#define TR_DPTX_SRC1_MAIN_STREAM_VSTART 0xa40ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_MISC0 0xa44ul
+-#define TR_DPTX_SRC1_MAIN_STREAM_MISC1 0xa48ul
+-#define TR_DPTX_SRC1_MVID 0xa4cul
+-#define TR_DPTX_SRC1_TU_CONFIG 0xa50ul
+-#define TR_DPTX_SRC1_NVID 0xa54ul
+-#define TR_DPTX_SRC1_USER_PIXEL_COUNT 0xa58ul
+-#define TR_DPTX_SRC1_USER_DATA_COUNT 0xa5cul
+-#define TR_DPTX_SRC1_MAIN_STREAM_INTERLACED 0xa60ul
+-#define TR_DPTX_SRC1_USER_SYNC_POLARITY 0xa64ul
+-#define TR_DPTX_SRC1_USER_CONTROL 0xa68ul
+-#define TR_DPTX_SRC1_USER_FIFO_STATUS 0xa6cul
+-#define TR_DPTX_SRC1_FRAMING_STATUS 0xa70ul
+-
+-//------------------------------------------------------------------------------
+-//   Secondary channel, source 1
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SEC1_AUDIO_ENABLE 0xb00ul
+-#define TR_DPTX_SEC1_INPUT_SELECT 0xb04ul
+-#define TR_DPTX_SEC1_CHANNEL_COUNT 0xb08ul
+-#define TR_DPTX_SEC1_INFOFRAME_ENABLE 0xb10ul
+-#define TR_DPTX_SEC1_INFOFRAME_RATE 0xb14ul
+-#define TR_DPTX_SEC1_MAUD 0xb18ul
+-#define TR_DPTX_SEC1_NAUD 0xb1cul
+-#define TR_DPTX_SEC1_AUDIO_CLOCK_MODE 0xb20ul
+-#define TR_DPTX_SEC1_3D_VSC_DATA 0xb24ul
+-#define TR_DPTX_SEC1_AUDIO_FIFO 0xb28ul
+-#define TR_DPTX_SEC1_AUDIO_FIFO_LAST 0xb2cul
+-#define TR_DPTX_SEC1_AUDIO_FIFO_READY 0xb30ul
+-#define TR_DPTX_SEC1_INFOFRAME_SELECT 0xb34ul
+-#define TR_DPTX_SEC1_INFOFRAME_DATA 0xb38ul
+-#define TR_DPTX_SEC1_TIMESTAMP_INTERVAL 0xb3cul
+-#define TR_DPTX_SEC1_CS_SOURCE_FORMAT 0xb40ul
+-#define TR_DPTX_SEC1_CS_CATEGORY_CODE 0xb44ul
+-#define TR_DPTX_SEC1_CS_LENGTH_ORIG_FREQ 0xb48ul
+-#define TR_DPTX_SEC1_CS_FREQ_CLOCK_ACCURACY 0xb4cul
+-#define TR_DPTX_SEC1_CS_COPYRIGHT 0xb50ul
+-#define TR_DPTX_SEC1_AUDIO_CHANNEL_MAP 0xb54ul
+-#define TR_DPTX_SEC1_AUDIO_FIFO_OVERFLOW 0xb58ul
+-#define TR_DPTX_SEC1_PACKET_COUNT 0xb5cul
+-#define TR_DPTX_SEC1_GTC_AUX_FRAME_SYNC 0xb5eul
+-#define TR_DPTX_SEC1_CHANNEL_USER_DATA 0xb60ul
+-#define TR_DPTX_SEC1_DATA_PACKET_ID 0xb64ul
+-#define TR_DPTX_SEC1_ADAPTIVE_SYNC_ENABLE 0xb68ul
+-
+-//------------------------------------------------------------------------------
+-//   eDP CRC, virtual source 1
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC1_EDP_CRC_ENABLE 0xb90ul
+-#define TR_DPTX_SRC1_EDP_CRC_RED 0xb94ul
+-#define TR_DPTX_SRC1_EDP_CRC_GREEN 0xb98ul
+-#define TR_DPTX_SRC1_EDP_CRC_BLUE 0xb9cul
+-
+-//------------------------------------------------------------------------------
+-//   PSR/PSR2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC1_PSR_3D_ENABLE 0xba0ul
+-#define TR_DPTX_SRC1_PSR_CONFIG 0xba4ul
+-#define TR_DPTX_SRC1_PSR_STATE 0xba8ul
+-#define TR_DPTX_SRC1_PSR_INTERNAL_STATE 0xbacul
+-#define TR_DPTX_SRC1_PSR2_UPDATE_TOP 0xbb0ul
+-#define TR_DPTX_SRC1_PSR2_UPDATE_BOTTOM 0xbb4ul
+-#define TR_DPTX_SRC1_PSR2_UPDATE_LEFT 0xbb8ul
+-#define TR_DPTX_SRC1_PSR2_UPDATE_WIDTH 0xbbcul
+-
+-//------------------------------------------------------------------------------
+-//   MST source 2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC2_SECONDARY_DATA_WINDOW 0xc08ul
+-#define TR_DPTX_SRC2_INPUT_STATUS 0xc0cul
+-#define TR_DPTX_SRC2_DATA_CONTROL 0xc10ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_OVERRIDE 0xc14ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_HTOTAL 0xc20ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_VTOTAL 0xc24ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_POLARITY 0xc28ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_HSWIDTH 0xc2cul
+-#define TR_DPTX_SRC2_MAIN_STREAM_VSWIDTH 0xc30ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_HRES 0xc34ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_VRES 0xc38ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_HSTART 0xc3cul
+-#define TR_DPTX_SRC2_MAIN_STREAM_VSTART 0xc40ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_MISC0 0xc44ul
+-#define TR_DPTX_SRC2_MAIN_STREAM_MISC1 0xc48ul
+-#define TR_DPTX_SRC2_MVID 0xc4cul
+-#define TR_DPTX_SRC2_TU_CONFIG 0xc50ul
+-#define TR_DPTX_SRC2_NVID 0xc54ul
+-#define TR_DPTX_SRC2_USER_PIXEL_COUNT 0xc58ul
+-#define TR_DPTX_SRC2_USER_DATA_COUNT 0xc5cul
+-#define TR_DPTX_SRC2_MAIN_STREAM_INTERLACED 0xc60ul
+-#define TR_DPTX_SRC2_USER_SYNC_POLARITY 0xc64ul
+-#define TR_DPTX_SRC2_USER_CONTROL 0xc68ul
+-#define TR_DPTX_SRC2_USER_FIFO_STATUS 0xc6cul
+-#define TR_DPTX_SRC2_FRAMING_STATUS 0xc70ul
+-
+-//------------------------------------------------------------------------------
+-//   Secondary channel, source 2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SEC2_AUDIO_ENABLE 0xd00ul
+-#define TR_DPTX_SEC2_INPUT_SELECT 0xd04ul
+-#define TR_DPTX_SEC2_CHANNEL_COUNT 0xd08ul
+-#define TR_DPTX_SEC2_INFOFRAME_ENABLE 0xd10ul
+-#define TR_DPTX_SEC2_INFOFRAME_RATE 0xd14ul
+-#define TR_DPTX_SEC2_MAUD 0xd18ul
+-#define TR_DPTX_SEC2_NAUD 0xd1cul
+-#define TR_DPTX_SEC2_AUDIO_CLOCK_MODE 0xd20ul
+-#define TR_DPTX_SEC2_3D_VSC_DATA 0xd24ul
+-#define TR_DPTX_SEC2_AUDIO_FIFO 0xd28ul
+-#define TR_DPTX_SEC2_AUDIO_FIFO_LAST 0xd2cul
+-#define TR_DPTX_SEC2_AUDIO_FIFO_READY 0xd30ul
+-#define TR_DPTX_SEC2_INFOFRAME_SELECT 0xd34ul
+-#define TR_DPTX_SEC2_INFOFRAME_DATA 0xd38ul
+-#define TR_DPTX_SEC2_TIMESTAMP_INTERVAL 0xd3cul
+-#define TR_DPTX_SEC2_CS_SOURCE_FORMAT 0xd40ul
+-#define TR_DPTX_SEC2_CS_CATEGORY_CODE 0xd44ul
+-#define TR_DPTX_SEC2_CS_LENGTH_ORIG_FREQ 0xd48ul
+-#define TR_DPTX_SEC2_CS_FREQ_CLOCK_ACCURACY 0xd4cul
+-#define TR_DPTX_SEC2_CS_COPYRIGHT 0xd50ul
+-#define TR_DPTX_SEC2_AUDIO_CHANNEL_MAP 0xd54ul
+-#define TR_DPTX_SEC2_AUDIO_FIFO_OVERFLOW 0xd58ul
+-#define TR_DPTX_SEC2_PACKET_COUNT 0xd5cul
+-#define TR_DPTX_SEC2_GTC_AUX_FRAME_SYNC 0xd5eul
+-#define TR_DPTX_SEC2_CHANNEL_USER_DATA 0xd60ul
+-#define TR_DPTX_SEC2_DATA_PACKET_ID 0xd64ul
+-#define TR_DPTX_SEC2_ADAPTIVE_SYNC_ENABLE 0xd68ul
+-
+-//------------------------------------------------------------------------------
+-//   eDP CRC, virtual source 2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC2_EDP_CRC_ENABLE 0xd90ul
+-#define TR_DPTX_SRC2_EDP_CRC_RED 0xd94ul
+-#define TR_DPTX_SRC2_EDP_CRC_GREEN 0xd98ul
+-#define TR_DPTX_SRC2_EDP_CRC_BLUE 0xd9cul
+-
+-//------------------------------------------------------------------------------
+-//   PSR/PSR2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC2_PSR_3D_ENABLE 0xda0ul
+-#define TR_DPTX_SRC2_PSR_CONFIG 0xda4ul
+-#define TR_DPTX_SRC2_PSR_STATE 0xda8ul
+-#define TR_DPTX_SRC2_PSR_INTERNAL_STATE 0xdacul
+-#define TR_DPTX_SRC2_PSR2_UPDATE_TOP 0xdb0ul
+-#define TR_DPTX_SRC2_PSR2_UPDATE_BOTTOM 0xdb4ul
+-#define TR_DPTX_SRC2_PSR2_UPDATE_LEFT 0xdb8ul
+-#define TR_DPTX_SRC2_PSR2_UPDATE_WIDTH 0xdbcul
+-
+-//------------------------------------------------------------------------------
+-//   MST source 3
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC3_SECONDARY_DATA_WINDOW 0xe08ul
+-#define TR_DPTX_SRC3_INPUT_STATUS 0xe0cul
+-#define TR_DPTX_SRC3_DATA_CONTROL 0xe10ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_OVERRIDE 0xe14ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_HTOTAL 0xe20ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_VTOTAL 0xe24ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_POLARITY 0xe28ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_HSWIDTH 0xe2cul
+-#define TR_DPTX_SRC3_MAIN_STREAM_VSWIDTH 0xe30ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_HRES 0xe34ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_VRES 0xe38ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_HSTART 0xe3cul
+-#define TR_DPTX_SRC3_MAIN_STREAM_VSTART 0xe40ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_MISC0 0xe44ul
+-#define TR_DPTX_SRC3_MAIN_STREAM_MISC1 0xe48ul
+-#define TR_DPTX_SRC3_MVID 0xe4cul
+-#define TR_DPTX_SRC3_TU_CONFIG 0xe50ul
+-#define TR_DPTX_SRC3_NVID 0xe54ul
+-#define TR_DPTX_SRC3_USER_PIXEL_COUNT 0xe58ul
+-#define TR_DPTX_SRC3_USER_DATA_COUNT 0xe5cul
+-#define TR_DPTX_SRC3_MAIN_STREAM_INTERLACED 0xe60ul
+-#define TR_DPTX_SRC3_USER_SYNC_POLARITY 0xe64ul
+-#define TR_DPTX_SRC3_USER_CONTROL 0xe68ul
+-#define TR_DPTX_SRC3_USER_FIFO_STATUS 0xe6cul
+-#define TR_DPTX_SRC3_FRAMING_STATUS 0xe70ul
+-
+-//------------------------------------------------------------------------------
+-//   Secondary channel, source 3
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SEC3_AUDIO_ENABLE 0xf00ul
+-#define TR_DPTX_SEC3_INPUT_SELECT 0xf04ul
+-#define TR_DPTX_SEC3_CHANNEL_COUNT 0xf08ul
+-#define TR_DPTX_SEC3_INFOFRAME_ENABLE 0xf10ul
+-#define TR_DPTX_SEC3_INFOFRAME_RATE 0xf14ul
+-#define TR_DPTX_SEC3_MAUD 0xf18ul
+-#define TR_DPTX_SEC3_NAUD 0xf1cul
+-#define TR_DPTX_SEC3_AUDIO_CLOCK_MODE 0xf20ul
+-#define TR_DPTX_SEC3_3D_VSC_DATA 0xf24ul
+-#define TR_DPTX_SEC3_AUDIO_FIFO 0xf28ul
+-#define TR_DPTX_SEC3_AUDIO_FIFO_LAST 0xf2cul
+-#define TR_DPTX_SEC3_AUDIO_FIFO_READY 0xf30ul
+-#define TR_DPTX_SEC3_INFOFRAME_SELECT 0xf34ul
+-#define TR_DPTX_SEC3_INFOFRAME_DATA 0xf38ul
+-#define TR_DPTX_SEC3_TIMESTAMP_INTERVAL 0xf3cul
+-#define TR_DPTX_SEC3_CS_SOURCE_FORMAT 0xf40ul
+-#define TR_DPTX_SEC3_CS_CATEGORY_CODE 0xf44ul
+-#define TR_DPTX_SEC3_CS_LENGTH_ORIG_FREQ 0xf48ul
+-#define TR_DPTX_SEC3_CS_FREQ_CLOCK_ACCURACY 0xf4cul
+-#define TR_DPTX_SEC3_CS_COPYRIGHT 0xf50ul
+-#define TR_DPTX_SEC3_AUDIO_CHANNEL_MAP 0xf54ul
+-#define TR_DPTX_SEC3_AUDIO_FIFO_OVERFLOW 0xf58ul
+-#define TR_DPTX_SEC3_PACKET_COUNT 0xf5cul
+-#define TR_DPTX_SEC3_GTC_AUX_FRAME_SYNC 0xf5eul
+-#define TR_DPTX_SEC3_CHANNEL_USER_DATA 0xf60ul
+-#define TR_DPTX_SEC3_DATA_PACKET_ID 0xf64ul
+-#define TR_DPTX_SEC3_ADAPTIVE_SYNC_ENABLE 0xf68ul
+-
+-//------------------------------------------------------------------------------
+-//   eDP CRC, virtual source 3
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC3_EDP_CRC_ENABLE 0xf90ul
+-#define TR_DPTX_SRC3_EDP_CRC_RED 0xf94ul
+-#define TR_DPTX_SRC3_EDP_CRC_GREEN 0xf98ul
+-#define TR_DPTX_SRC3_EDP_CRC_BLUE 0xf9cul
+-
+-//------------------------------------------------------------------------------
+-//   PSR/PSR2
+-//------------------------------------------------------------------------------
+-#define TR_DPTX_SRC3_PSR_3D_ENABLE 0xfa0ul
+-#define TR_DPTX_SRC3_PSR_CONFIG 0xfa4ul
+-#define TR_DPTX_SRC3_PSR_STATE 0xfa8ul
+-#define TR_DPTX_SRC3_PSR_INTERNAL_STATE 0xfacul
+-#define TR_DPTX_SRC3_PSR2_UPDATE_TOP 0xfb0ul
+-#define TR_DPTX_SRC3_PSR2_UPDATE_BOTTOM 0xfb4ul
+-#define TR_DPTX_SRC3_PSR2_UPDATE_LEFT 0xfb8ul
+-#define TR_DPTX_SRC3_PSR2_UPDATE_WIDTH 0xfbcul
+-#endif
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
++++ /dev/null
+@@ -1,920 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-//#include <stdint.h>
+-//#include <stdbool.h>
+-#include <linux/types.h>
+-#include <linux/stddef.h>
+-#include <linux/string.h>
+-#include <linux/io.h>
+-
+-#include "cix_hdcp.h"
+-#include "dptx_reg.h"
+-#include "dptx_aux_reg.h"
+-#include "hdcp2_hw_tx.h"
+-
+-//------------------------------------------------------------------------------
+-//  Function:   reg_read_offset
+-//  register read with offset
+-//
+-//  Parameters:
+-//  base   - 32-bit device base address
+-//  offset - 32-bit register offset
+-//
+-//  Returns:
+-//  32-bit data read
+-//------------------------------------------------------------------------------
+-static inline uint32_t reg_read_offset(void *base, uint32_t offset)
+-{
+-	return readl(base + offset);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   reg_write_offset
+-//  register write with offset
+-//
+-//  Parameters:
+-//  base   - 32-bit device base address
+-//  offset - 32-bit register offset
+-//  data   - 32-bit data write
+-//
+-//  Returns:
+-//  none
+-//------------------------------------------------------------------------------
+-static inline void reg_write_offset(void *base, uint32_t offset, uint32_t data)
+-{
+-	writel(data, base + offset);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_enable_write
+-//  Enable / disable HDCP 2.x
+-//
+-//  Registers:
+-//  0x400   RW  HDCP_ENABLE
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - true=enable / false=disable
+-//
+-//  Returns:
+-//  register value
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_interrupt_state_read(struct cix_hdcp *hdcp)
+-{
+-	return reg_read_offset(hdcp->base_addr, TR_DPTX_INTERRUPT_STATE);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_enable_write
+-//  Enable / disable HDCP 2.x
+-//
+-//  Registers:
+-//  0x400   RW  HDCP_ENABLE
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - true=enable / false=disable
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_enable_write(struct cix_hdcp *hdcp, bool enable)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_ENABLE,
+-			 (enable ? 1ul : 0ul));
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_enable_read
+-//  Read HDCP state
+-//
+-//  Registers:
+-//  0x400   RW  HDCP_ENABLE
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  Register read value
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_enable_read(struct cix_hdcp *hdcp)
+-{
+-	return reg_read_offset(hdcp->base_addr, TR_DPTX_HDCP_ENABLE);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_mode_write
+-//  Set specified HDCP mode.
+-//
+-//  Registers:
+-//  0x0404  RW  TR_DPTX_HDCP_MODE
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  val  - 1 = hdcp 1.x / 2 = hdcp 2.x
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_mode_write(struct cix_hdcp *hdcp, uint32_t val)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_MODE, val);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_mode_read
+-//  Read HDCP mode
+-//
+-//  Registers:
+-//  0x0404  RW  TR_DPTX_HDCP_MODE
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  Register read value
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_mode_read(struct cix_hdcp *hdcp)
+-{
+-	return reg_read_offset(hdcp->base_addr, TR_DPTX_HDCP_MODE);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_hardware_keys
+-//  Enable / disable hardware keys
+-//
+-//  Registers:
+-//  0x42C   RW  TR_DPTX_HDCP_CIPHER_CONTROL
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - true=enable / false=disable
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_hardware_keys(struct cix_hdcp *hdcp, bool enable)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_CIPHER_CONTROL,
+-			 (enable ? 1ul : 0ul));
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_km_write
+-//  Write pseudo random number km
+-//
+-//  Registers:
+-//  TR_DPTX_HDCP_KS_31_0                WO  Km bits 31:0
+-//  TR_DPTX_HDCP_KS_63_32               WO  Km bits 63:32
+-//  TR_DPTX_HDCP_KM_31_0                WO  Km bits 95:64
+-//  TR_DPTX_HDCP_KM_63_32               WO  Km bits 127:96
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  km -  pointer to 16-byte random km value
+-//
+-//  Note:   ks and km are both fed to seed the AES engine.
+-//          This means that the write is to the same registers.
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_km_write(struct cix_hdcp *hdcp, uint8_t *km)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = km[3] << 24 | km[2] << 16 | km[1] << 8 | km[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_KS_31_0,
+-			 wr_val); //  write bits 31:0
+-
+-	wr_val = km[7] << 24 | km[6] << 16 | km[5] << 8 | km[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_KS_63_32,
+-			 wr_val); //  write bits 63:32
+-
+-	wr_val = km[11] << 24 | km[10] << 16 | km[9] << 8 | km[8];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_KM_31_0,
+-			 wr_val); //  write bits 95:64
+-
+-	wr_val = km[15] << 24 | km[14] << 16 | km[13] << 8 | km[12];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_KM_63_32,
+-			 wr_val); //  write bits 127:96
+-
+-	udelay(50);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_km_read
+-//  Read pseudo random number km
+-//  The km registers are write only. This function always fails and displays
+-//  a critical message that km cannot be read.
+-//
+-//  Registers:
+-//  TR_DPTX_HDCP_KS_0                   WO  Km bits 31:0
+-//  TR_DPTX_HDCP_KS_1                   WO  Km bits 63:32
+-//  TR_DPTX_HDCP_KM_31_0                WO  Km bits 95:64
+-//  TR_DPTX_HDCP_KM_63_32               WO  Km bits 127:96
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  km -  pointer to 16-byte random km value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_km_read(struct cix_hdcp *hdcp, uint8_t *km)
+-{
+-	return false;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_ks_write
+-//  Write session key ks
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  ks   -  pointer to 16-byte session key value
+-//
+-//  Note:   ks and km are both fed to seed the AES engine.
+-//          This means that the write is to the same registers.
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_ks_write(struct cix_hdcp *hdcp, uint8_t *ks)
+-{
+-	return hdcp2_hw_tx_km_write(hdcp, ks);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_ks_read
+-//  Read session key
+-//
+-//  The ks registers are write only. This function always fails and displays
+-//  a critical message that ks cannot be read.
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  ks   -  pointer to 16-byte session key value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_ks_read(struct cix_hdcp *hdcp, uint8_t *km)
+-{
+-	return false;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rtx_write
+-//  Write pseudo random number rtx
+-//
+-//  Note: rtx and riv are the seed for the AES128 engine. They are used for
+-//  different modes of AES operation. When the AES engine is in CTR mode,
+-//  then the seed is loaded with rtx. When the AES engine is in stream mode,
+-//  then the seed is loaded with riv.
+-//
+-//  Registers:
+-//  0x0418  RW  HDCP_AN_31_0
+-//  0x041C  RW  HDCP_AN_63_32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  rtx  - pointer to 8-byte random rtx value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rtx_write(struct cix_hdcp *hdcp, uint8_t *rtx)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = rtx[3] << 24 | rtx[2] << 16 | rtx[1] << 8 | rtx[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AN_31_0, wr_val);
+-
+-	wr_val = rtx[7] << 24 | rtx[6] << 16 | rtx[5] << 8 | rtx[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AN_63_32, wr_val);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rtx_read
+-//  Read pseudo random number rtx
+-//
+-//  Note: rtx and riv are the seed for the AES128 engine. They are used for
+-//  different modes of AES operation. When the AES engine is in CTR mode,
+-//  then the seed is loaded with rtx. When the AES engine is in stream mode,
+-//  then the seed is loaded with riv.
+-//
+-//  Registers:
+-//  0x0418  RW  HDCP_AN_31_0 / HDCP_RTX_31_0
+-//  0x041C  RW  HDCP_AN_63_32 / HDCP_RTX_63_32
+-//
+-//  Parameters:
+-//  hdnl  - hdcp device handle
+-//  rtx   - pointer to 8-byte random rtx value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rtx_read(struct cix_hdcp *hdcp, uint8_t *rtx)
+-{
+-	uint32_t rd_val;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_AN_31_0); //  read lower
+-	rtx[3] = (rd_val >> 24) & 0xffU;
+-	rtx[2] = (rd_val >> 16) & 0xffU;
+-	rtx[1] = (rd_val >> 8) & 0xffU;
+-	rtx[0] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_AN_63_32); //  read upper
+-	rtx[7] = (rd_val >> 24) & 0xffU;
+-	rtx[6] = (rd_val >> 16) & 0xffU;
+-	rtx[5] = (rd_val >> 8) & 0xffU;
+-	rtx[4] = (rd_val)&0xffU;
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_riv_write
+-//  Write pseudo random number riv
+-//
+-//  Note: rtx and riv are the seed for the AES128 engine. They are used for
+-//  different modes of AES operation. When the AES engine is in CTR mode,
+-//  then the seed is loaded with rtx. When the AES engine is in stream mode,
+-//  then the seed is loaded with riv.
+-//
+-//  Registers:
+-//  0x0418  RW  HDCP_AN_31_0
+-//  0x041C  RW  HDCP_AN_63_32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  riv  - pointer to 8-byte random riv value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_riv_write(struct cix_hdcp *hdcp, uint8_t *riv)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = riv[3] << 24 | riv[2] << 16 | riv[1] << 8 | riv[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AN_31_0, wr_val);
+-
+-	wr_val = riv[7] << 24 | riv[6] << 16 | riv[5] << 8 | riv[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AN_63_32, wr_val);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_riv_read
+-//  Read pseudo random number riv
+-//
+-//  Note: rtx and riv are the seed for the AES128 engine. They are used for
+-//  different modes of AES operation. When the AES engine is in CTR mode,
+-//  then the seed is loaded with rtx. When the AES engine is in stream mode,
+-//  then the seed is loaded with riv.
+-//
+-//  Registers:
+-//  0x0418  RW  HDCP_AN_31_0 / HDCP_RTX_31_0
+-//  0x041C  RW  HDCP_AN_63_32 / HDCP_RTX_63_32
+-//
+-//  Parameters:
+-//  hdnl  - hdcp device handle
+-//  riv   - pointer to 8-byte random riv value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_riv_read(struct cix_hdcp *hdcp, uint8_t *riv)
+-{
+-	uint32_t rd_val;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_AN_31_0); //  read lower
+-	riv[3] = (rd_val >> 24) & 0xffU;
+-	riv[2] = (rd_val >> 16) & 0xffU;
+-	riv[1] = (rd_val >> 8) & 0xffU;
+-	riv[0] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_AN_63_32); //  read upper
+-	riv[7] = (rd_val >> 24) & 0xffU;
+-	riv[6] = (rd_val >> 16) & 0xffU;
+-	riv[5] = (rd_val >> 8) & 0xffU;
+-	riv[4] = (rd_val)&0xffU;
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rrx_write
+-//  Write pseudo random number rrx
+-//
+-//  Registers:
+-//  0x0430  RW  TR_DPTX_HDCP_BKSV_31_0 / HDCP_RRX_31_0
+-//  0x0434  RW  TR_DPTX_HDCP_BKSV_63_32 / HDCP_RRX_63_32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  rrx  - pointer to 8-byte random rrx value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rrx_write(struct cix_hdcp *hdcp, uint8_t *rrx)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = rrx[3] << 24 | rrx[2] << 16 | rrx[1] << 8 | rrx[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_BKSV_31_0, wr_val);
+-
+-	wr_val = rrx[7] << 24 | rrx[6] << 16 | rrx[5] << 8 | rrx[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_BKSV_63_32, wr_val);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rrx_read
+-//  Read pseudo random number rrx
+-//
+-//  Registers:
+-//  0x0430  RW  TR_DPTX_HDCP_BKSV_31_0 / HDCP_RRX_31_0
+-//  0x0434  RW  TR_DPTX_HDCP_BKSV_63_32 / HDCP_RRX_63_32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  rrx  - pointer to 8-byte random rrx value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rrx_read(struct cix_hdcp *hdcp, uint8_t *rrx)
+-{
+-	uint32_t rd_val;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_BKSV_31_0); //  read lower
+-	rrx[3] = (rd_val >> 24) & 0xffU;
+-	rrx[2] = (rd_val >> 16) & 0xffU;
+-	rrx[1] = (rd_val >> 8) & 0xffU;
+-	rrx[0] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_BKSV_63_32); //  read upper
+-	rrx[7] = (rd_val >> 24) & 0xffU;
+-	rrx[6] = (rd_val >> 16) & 0xffU;
+-	rrx[5] = (rd_val >> 8) & 0xffU;
+-	rrx[4] = (rd_val)&0xffU;
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_dkey_read
+-//  Read dkey from AES engine.
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  dkey - pointer to 8-byte dkey buffer
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_dkey_read(struct cix_hdcp *hdcp, uint8_t *dkey)
+-{
+-	uint32_t rd_val;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_M0_31_0); //  bits 31:0
+-	dkey[3] = (rd_val >> 24) & 0xffU;
+-	dkey[2] = (rd_val >> 16) & 0xffU;
+-	dkey[1] = (rd_val >> 8) & 0xffU;
+-	dkey[0] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_M0_63_32); //  bits 63:32
+-	dkey[7] = (rd_val >> 24) & 0xffU;
+-	dkey[6] = (rd_val >> 16) & 0xffU;
+-	dkey[5] = (rd_val >> 8) & 0xffU;
+-	dkey[4] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_AKSV_31_0); //  bits 95:64
+-	dkey[11] = (rd_val >> 24) & 0xffU;
+-	dkey[10] = (rd_val >> 16) & 0xffU;
+-	dkey[9] = (rd_val >> 8) & 0xffU;
+-	dkey[8] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_AKSV_63_32); //  bits 127:96
+-	dkey[15] = (rd_val >> 24) & 0xffU;
+-	dkey[14] = (rd_val >> 16) & 0xffU;
+-	dkey[13] = (rd_val >> 8) & 0xffU;
+-	dkey[12] = (rd_val)&0xffU;
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_lc128_write
+-//              Write system constant lc128
+-//
+-//  Registers:
+-//  0x0440U WO  TR_DPTX_HDCP_LC128_31_0     Global constant, lc128 bits 31:0
+-//  0x0444U WO  TR_DPTX_HDCP_LC128_63_32    Global constant, lc128 bits 63:32
+-//  0x0448U WO  TR_DPTX_HDCP_LC128_95_64    Global constant, lc128 bits 95:64
+-//  0x044CU WO  TR_DPTX_HDCP_LC128_127_96   Global constant, lc128 bits 127:64
+-//
+-//  Parameters:
+-//  hdnl  - hdcp device handle
+-//  lc128 - pointer to 8-byte lc128 value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_lc128_write(struct cix_hdcp *hdcp, const uint8_t *lc128)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = lc128[3] << 24 | lc128[2] << 16 | lc128[1] << 8 | lc128[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_LC128_31_0,
+-			 wr_val); //  write bits 31:0
+-
+-	wr_val = lc128[7] << 24 | lc128[6] << 16 | lc128[5] << 8 | lc128[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_LC128_63_32,
+-			 wr_val); //  write bits 63:32
+-
+-	wr_val = lc128[11] << 24 | lc128[10] << 16 | lc128[9] << 8 | lc128[8];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_LC128_95_64,
+-			 wr_val); //  write bits 95:64
+-
+-	wr_val = lc128[15] << 24 | lc128[14] << 16 | lc128[13] << 8 | lc128[12];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_LC128_127_96,
+-			 wr_val); //  write bits 127:96
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_repeater_write
+-//  Enable / Disable repeater
+-//
+-//  Registers:
+-//  0x0450  RW  HDCP_REPEATER
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - enable / disable
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_repeater_write(struct cix_hdcp *hdcp, bool enable)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_REPEATER,
+-			 (enable) ? 1ul : 0ul);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_repeater_read
+-//  Read HDCP 2.x repeater status
+-//
+-//  Registers:
+-//  0x0450  RW  HDCP_REPEATER
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - enable / disable
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_repeater_read(struct cix_hdcp *hdcp, bool enable)
+-{
+-	return reg_read_offset(hdcp->base_addr, TR_DPTX_HDCP_REPEATER);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_stream_cipher_write
+-//              Enable / Disable stream cipher
+-//
+-//  Registers:
+-//  0x0454  RW  HDCP_STREAM_CIPHER_ENABLE
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - enable / disable
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_stream_cipher_write(struct cix_hdcp *hdcp, bool enable)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_STREAM_CIPHER_ENABLE,
+-			 (enable) ? 1ul : 0ul);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_stream_cipher_read
+-//  Read / return stream cipher
+-//
+-//  Registers:
+-//  0x0454  RW  HDCP_STREAM_CIPHER_ENABLE
+-//
+-//  Parameters:
+-//      hdnl - hdcp device handle
+-//
+-//  Returns:
+-//      Stream cipher status
+-//
+-//  TR_DPTX_HDCP2_STREAM_CYPHER_ENABLE WR  0       Stream cipher enable
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_stream_cipher_read(struct cix_hdcp *hdcp)
+-{
+-	return reg_read_offset(hdcp->base_addr,
+-			       TR_DPTX_HDCP_STREAM_CIPHER_ENABLE);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_aes_input_write
+-//  Select AES input source
+-//
+-//  Registers:
+-//  0x0460  RW  HDCP_AES_INPUT_SELECT
+-//
+-//  Parameters:
+-//  hdnl     - hdcp device handle
+-//  input_id - AES channel to select
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_aes_input_write(struct cix_hdcp *hdcp, uint32_t input_id)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AES_INPUT_SELECT,
+-			 (input_id & 0x07U));
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_aes_input_read
+-//  Read / Return AES input select
+-//
+-//  Registers:
+-//  0x0460  RW  HDCP_AES_INPUT_SELECT
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  Selected AES channel
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_aes_input_read(struct cix_hdcp *hdcp)
+-{
+-	return reg_read_offset(hdcp->base_addr, TR_DPTX_HDCP_AES_INPUT_SELECT) &
+-	       0x07u;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_aes_ctr_disable_write
+-//  Enable / Disable AES ctr
+-//
+-//  0x0464  RW  HDCP_AES_COUNTER_DISABLE
+-//
+-//  Parameters:
+-//  hdnl   - hdcp device handle
+-//  enable - enable / disable flag
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_aes_ctr_disable_write(struct cix_hdcp *hdcp, bool enable)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AES_COUNTER_DISABLE,
+-			 (enable) ? 1ul : 0ul);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_aes_ctr_disable_read
+-//  Read AES ctr status
+-//
+-//  0x0464  RW  HDCP_AES_COUNTER_DISABLE
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  enable / disable flag
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_aes_ctr_disable_read(struct cix_hdcp *hdcp)
+-{
+-	return reg_read_offset(hdcp->base_addr,
+-			       TR_DPTX_HDCP_AES_COUNTER_DISABLE);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_aes_ctr_inc
+-//  Bump AES ctr
+-//
+-//  0x0468  WO  HDCP_AES_COUNTER_ADVANCE
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_aes_ctr_inc(struct cix_hdcp *hdcp)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AES_COUNTER_ADVANCE, 1);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_encryption_ctl_write
+-//  Write encryption control
+-//
+-//  0x046C  RW  TR_DPTX_HDCP_ECF_31_0   HDCP Encryption Control Field, bits 31:0
+-//  0x0470  RW  TR_DPTX_HDCP_ECF_63_32  HDCP Encryption Control Field, bits 63:32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  ctl  - pointer to 8-byte ctl value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_encryption_ctl_write(struct cix_hdcp *hdcp, uint8_t *ctl)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = ctl[3] << 24 | ctl[2] << 16 | ctl[1] << 8 | ctl[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_ECF_31_0, wr_val);
+-
+-	wr_val = ctl[7] << 24 | ctl[6] << 16 | ctl[5] << 8 | ctl[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_ECF_63_32, wr_val);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_encryption_ctl_read
+-//  Read encryption ctl value
+-//
+-//  0x046C  RW  TR_DPTX_HDCP_ECF_31_0   HDCP Encryption Control Field, bits 31:0
+-//  0x0470  RW  TR_DPTX_HDCP_ECF_63_32  HDCP Encryption Control Field, bits 63:32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  ctl  - pointer to 8-byte encryption ctl value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_encryption_ctl_read(struct cix_hdcp *hdcp, uint8_t *ctl)
+-{
+-	uint32_t rd_val;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_ECF_31_0); //  read lower
+-	ctl[3] = (rd_val >> 24) & 0xffU;
+-	ctl[2] = (rd_val >> 16) & 0xffU;
+-	ctl[1] = (rd_val >> 8) & 0xffU;
+-	ctl[0] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_ECF_63_32); //  read upper
+-	ctl[7] = (rd_val >> 24) & 0xffU;
+-	ctl[6] = (rd_val >> 16) & 0xffU;
+-	ctl[5] = (rd_val >> 8) & 0xffU;
+-	ctl[4] = (rd_val)&0xffU;
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_aes_ctr_reset_write
+-//  AES ctr reset
+-//
+-//  0x0474  WO  HDCP_AES_COUNTER_RESET
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  None
+-//------------------------------------------------------------------------------
+-void hdcp2_hw_tx_aes_ctr_reset(struct cix_hdcp *hdcp)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_AES_COUNTER_RESET, 1u);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rn_clear
+-//              Write Rn
+-//
+-//  Registers:
+-//  0x0478  RW  HDCP_RN_31_0    Rn bits 31:0
+-//  0x047C  RW  HDCP_RN_63_32   Rn bits 63:32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rn_clear(struct cix_hdcp *hdcp)
+-{
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_RN_31_0, 0ul);
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_RN_63_32, 0ul);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rn_write
+-//              Write Rn
+-//
+-//  Registers:
+-//  0x0478  RW  HDCP_RN_31_0    Rn bits 31:0
+-//  0x047C  RW  HDCP_RN_63_32   Rn bits 63:32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  rn   - pointer to 8-byte rn value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rn_write(struct cix_hdcp *hdcp, uint8_t *rn)
+-{
+-	uint32_t wr_val;
+-
+-	wr_val = rn[3] << 24 | rn[2] << 16 | rn[1] << 8 | rn[0];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_RN_31_0, wr_val);
+-
+-	wr_val = rn[7] << 24 | rn[6] << 16 | rn[5] << 8 | rn[4];
+-	reg_write_offset(hdcp->base_addr, TR_DPTX_HDCP_RN_63_32, wr_val);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_hw_tx_rn_read
+-//  Read Rn
+-//
+-//  Registers:
+-//  0x0478  RW  HDCP_RN_31_0    Rn bits 31:0
+-//  0x047C  RW  HDCP_RN_63_32   Rn bits 63:32
+-//
+-//  Parameters:
+-//  hdnl - hdcp device handle
+-//  ctl  - pointer to 8-byte ctl value
+-//
+-//  Returns:
+-//  true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_hw_tx_rn_read(struct cix_hdcp *hdcp, uint8_t *ctl)
+-{
+-	uint32_t rd_val;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_RN_31_0); //  read lower
+-	ctl[3] = (rd_val >> 24) & 0xffU;
+-	ctl[2] = (rd_val >> 16) & 0xffU;
+-	ctl[1] = (rd_val >> 8) & 0xffU;
+-	ctl[0] = (rd_val)&0xffU;
+-
+-	rd_val = reg_read_offset(hdcp->base_addr,
+-				 TR_DPTX_HDCP_RN_63_32); //  read upper
+-	ctl[7] = (rd_val >> 24) & 0xffU;
+-	ctl[6] = (rd_val >> 16) & 0xffU;
+-	ctl[5] = (rd_val >> 8) & 0xffU;
+-	ctl[4] = (rd_val)&0xffU;
+-
+-	return true;
+-}
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
++++ /dev/null
+@@ -1,62 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-#ifndef HDCP2_HW_TX__
+-#define HDCP2_HW_TX__
+-
+-#include "cix_hdcp.h"
+-//------------------------------------------------------------------------------
+-//  This section is Trilinear display port I/O
+-//------------------------------------------------------------------------------
+-uint32_t hdcp2_hw_tx_interrupt_state_read(struct cix_hdcp *hdcp);
+-
+-void hdcp2_hw_tx_enable_write(struct cix_hdcp *hdcp, bool enable);
+-uint32_t hdcp2_hw_tx_enable_read(struct cix_hdcp *hdcp);
+-void hdcp2_hw_tx_mode_write(struct cix_hdcp *hdcp, uint32_t val);
+-uint32_t hdcp2_hw_tx_mode_read(struct cix_hdcp *hdcp);
+-
+-void hdcp2_hw_tx_hardware_keys(struct cix_hdcp *hdcp, bool enable);
+-
+-bool hdcp2_hw_tx_km_write(struct cix_hdcp *hdcp, uint8_t *km);
+-bool hdcp2_hw_tx_km_read(struct cix_hdcp *hdcp, uint8_t *km);
+-bool hdcp2_hw_tx_ks_write(struct cix_hdcp *hdcp, uint8_t *ks);
+-bool hdcp2_hw_tx_ks_read(struct cix_hdcp *hdcp, uint8_t *ks);
+-bool hdcp2_hw_tx_rtx_write(struct cix_hdcp *hdcp, uint8_t *rtx);
+-bool hdcp2_hw_tx_rtx_read(struct cix_hdcp *hdcp, uint8_t *rtx);
+-bool hdcp2_hw_tx_riv_write(struct cix_hdcp *hdcp, uint8_t *rtx);
+-bool hdcp2_hw_tx_riv_read(struct cix_hdcp *hdcp, uint8_t *rtx);
+-bool hdcp2_hw_tx_rrx_write(struct cix_hdcp *hdcp, uint8_t *rrx);
+-bool hdcp2_hw_tx_rrx_read(struct cix_hdcp *hdcp, uint8_t *rrx);
+-bool hdcp2_hw_tx_dkey_read(struct cix_hdcp *hdcp, uint8_t *dkey);
+-bool hdcp2_hw_tx_lc128_write(struct cix_hdcp *hdcp, const uint8_t *lc128);
+-void hdcp2_hw_tx_repeater_write(struct cix_hdcp *hdcp, bool enable);
+-uint32_t hdcp2_hw_tx_repeater_read(struct cix_hdcp *hdcp, bool enable);
+-void hdcp2_hw_tx_stream_cipher_write(struct cix_hdcp *hdcp, bool enable);
+-uint32_t hdcp2_hw_tx_stream_cipher_read(struct cix_hdcp *hdcp);
+-void hdcp2_hw_tx_aes_input_write(struct cix_hdcp *hdcp, uint32_t input_id);
+-uint32_t hdcp2_hw_tx_aes_input_read(struct cix_hdcp *hdcp);
+-void hdcp2_hw_tx_aes_ctr_disable_write(struct cix_hdcp *hdcp, bool enable);
+-uint32_t hdcp2_hw_tx_aes_ctr_disable_read(struct cix_hdcp *hdcp);
+-void hdcp2_hw_tx_aes_ctr_inc(struct cix_hdcp *hdcp);
+-bool hdcp2_hw_tx_encryption_ctl_write(struct cix_hdcp *hdcp, uint8_t *ctl);
+-bool hdcp2_hw_tx_encryption_ctl_read(struct cix_hdcp *hdcp, uint8_t *ctl);
+-void hdcp2_hw_tx_aes_ctr_reset(struct cix_hdcp *hdcp);
+-bool hdcp2_hw_tx_rn_clear(struct cix_hdcp *hdcp);
+-bool hdcp2_hw_tx_rn_write(struct cix_hdcp *hdcp, uint8_t *ctl);
+-bool hdcp2_hw_tx_rn_read(struct cix_hdcp *hdcp, uint8_t *ctl);
+-#endif
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
++++ /dev/null
+@@ -1,246 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-#include <linux/stddef.h>
+-#include <linux/string.h>
+-
+-#include "cix_hdcp.h"
+-#include "cix_hdcp_ioctl_cmd.h"
+-#include "hdcp2_hw_tx.h"
+-#include "hdcp2_key_drvn_tx.h"
+-
+-#define HDCP2_DKEY_SZ 16
+-#define HDCP2_KD_SZ 32
+-#define HDCP2_H_SZ 32
+-#define HDCP2_H_DATA_SZ \
+-	14 //  H-data is (rtx || RxCaps || TxCaps) this is 14-bytes
+-#define HDCP2_RTX_SZ 8
+-#define HDCP2_RN_SZ 8
+-#define HDCP2_TX_CAPS_SZ 3
+-#define HDCP2_RX_CAPS_SZ 3
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_init
+-//              Initialize key derivation module
+-//
+-//  Parameters:
+-//      hdcp2_hndl - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_init(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_kd_t *tx_data = kdata;
+-
+-	memset(tx_data->dkey0, 0, HDCP2_DKEY_SZ);
+-	memset(tx_data->dkey1, 0, HDCP2_DKEY_SZ);
+-	memset(tx_data->kd, 0, HDCP2_KD_SZ);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_reset
+-//              Reset key derivation hardware
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_reset(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_hw_tx_stream_cipher_write(hdcp, false);
+-	hdcp2_hw_tx_hardware_keys(hdcp, false);
+-	hdcp2_hw_tx_aes_ctr_reset(hdcp);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_src_select
+-//              Select source for key derivation hardware
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//      sel - clock input source
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_src_select(struct cix_hdcp *hdcp, aes_tx_select_t sel)
+-{
+-	switch (sel) {
+-	case aes_tx_sel_disabled:
+-		hdcp2_hw_tx_aes_input_write(hdcp, 0);
+-		break;
+-	case aes_tx_sel_normal:
+-		hdcp2_hw_tx_aes_input_write(hdcp, 1);
+-		break;
+-	case aes_tx_sel_key_derivation:
+-		hdcp2_hw_tx_aes_input_write(hdcp, 2);
+-		break;
+-	case aes_tx_sel_ekh:
+-		hdcp2_hw_tx_aes_input_write(hdcp, 4);
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_load
+-//              load rrx, rtx, and rn
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_load(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_kd_t *tx_data = kdata;
+-
+-	hdcp2_hw_tx_rrx_write(hdcp, tx_data->rrx);
+-	hdcp2_hw_tx_rtx_write(hdcp, tx_data->rtx);
+-	hdcp2_hw_tx_rn_clear(hdcp);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_ctr_reset
+-//              Reset derivation counter
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_ctr_reset(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_hw_tx_aes_ctr_reset(hdcp);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_ctr_inc
+-//              Increment key derivation counter
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_ctr_inc(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_hw_tx_aes_ctr_inc(hdcp);
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_kd_calc
+-//              generate dkey0
+-//              generate dkey1
+-//              populate kd with dkey0 || dkey1
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_kd_calc(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_kd_t *tx_data = kdata;
+-
+-	//  generate dkey0
+-	hdcp2_hw_tx_km_write(
+-		hdcp, tx_data->km); //  write km  (triggers AES execution)
+-	hdcp2_hw_tx_dkey_read(hdcp, tx_data->dkey0);
+-
+-	//  generate dkey1
+-	hdcp2_key_drvn_tx_ctr_inc(hdcp); //  increment aes counter
+-	hdcp2_hw_tx_km_write(
+-		hdcp, tx_data->km); //  write km  (triggers AES execution)
+-	hdcp2_hw_tx_dkey_read(hdcp, tx_data->dkey1);
+-
+-	//  assemble kd
+-	memset(tx_data->kd, 0, HDCP2_KD_SZ); //  clear kd
+-	memcpy(&tx_data->kd[0], tx_data->dkey0, HDCP2_DKEY_SZ);
+-	memcpy(&tx_data->kd[16], tx_data->dkey1, HDCP2_DKEY_SZ);
+-
+-	return true;
+-}
+-
+-bool hdcp2_key_drvn_tx_kd_generate(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	//------------------------------------------------------------------------------
+-	//  Perform key derivation to generate 256bit kd.
+-	//------------------------------------------------------------------------------
+-	hdcp2_key_drvn_tx_init(hdcp, kdata); //  initialize key derivation unit
+-	hdcp2_key_drvn_tx_reset(hdcp); //  reset the the engine
+-	hdcp2_key_drvn_tx_src_select(
+-		hdcp,
+-		aes_tx_sel_key_derivation); //  select source for key derivation
+-	hdcp2_key_drvn_tx_load(
+-		hdcp, kdata); //  load up values required for kd calculation
+-	hdcp2_key_drvn_tx_kd_calc(hdcp, kdata); //  generate kd
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_key_drvn_tx_dkey2_calc
+-//
+-//  This function generates dkey2.
+-//  When this function is called, rn should be a random number.
+-//  When dkey0 and dkey1 are calculated, rn is initialized to zero.
+-//
+-//  Parameters:
+-//      hdcp - hdcp handle
+-//
+-//  Returns:
+-//      true=OK / false=fail
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_dkey2_calc(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_dkey2_t *tx_data = kdata;
+-
+-	//  update rn, increment aes counter
+-	hdcp2_hw_tx_rn_write(hdcp, tx_data->rn); //  write rn (currently random)
+-	hdcp2_key_drvn_tx_ctr_inc(hdcp); //  bump the counter by one
+-
+-	//  generate dkey2
+-	hdcp2_hw_tx_km_write(
+-		hdcp, tx_data->km); //  write km  (triggers AES execution)
+-	hdcp2_hw_tx_dkey_read(
+-		hdcp,
+-		tx_data->dkey2); //  copy hardware registers into HDCP 2.x transmitter data structure
+-
+-	return true;
+-}
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
++++ /dev/null
+@@ -1,46 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-#ifndef HDCP2_KEY_DRVN_TX__
+-#define HDCP2_KEY_DRVN_TX__
+-
+-#include "cix_hdcp.h"
+-//------------------------------------------------------------------------------
+-//  Module Typedefs
+-//------------------------------------------------------------------------------
+-typedef enum {
+-	aes_tx_sel_disabled,
+-	aes_tx_sel_normal,
+-	aes_tx_sel_key_derivation,
+-	aes_tx_sel_ekh,
+-} aes_tx_select_t;
+-
+-//------------------------------------------------------------------------------
+-//  Functional Interface
+-//------------------------------------------------------------------------------
+-bool hdcp2_key_drvn_tx_init(struct cix_hdcp *hdcp, void *kdata);
+-bool hdcp2_key_drvn_tx_reset(struct cix_hdcp *hdcp);
+-bool hdcp2_key_drvn_tx_src_select(struct cix_hdcp *hdcp, aes_tx_select_t sel);
+-bool hdcp2_key_drvn_tx_load(struct cix_hdcp *hdcp, void *kdata);
+-bool hdcp2_key_drvn_tx_ctr_reset(struct cix_hdcp *hdcp);
+-bool hdcp2_key_drvn_tx_ctr_inc(struct cix_hdcp *hdcp);
+-bool hdcp2_key_drvn_tx_kd_calc(struct cix_hdcp *hdcp, void *kdata);
+-bool hdcp2_key_drvn_tx_kd_generate(struct cix_hdcp *hdcp, void *kdata);
+-bool hdcp2_key_drvn_tx_dkey2_calc(struct cix_hdcp *hdcp, void *kdata);
+-
+-#endif // HDCP2_KEY_DRVN_TX__
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
++++ /dev/null
+@@ -1,126 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-//#include <stdint.h>                                                             //  Standard int types
+-//#include <stdbool.h>                                                            //  Bool
+-#include <linux/types.h>
+-#include <linux/stddef.h>
+-
+-#include "cix_hdcp.h"
+-#include "cix_hdcp_ioctl_cmd.h"
+-#include "hdcp2_hw_tx.h"
+-#include "hdcp2_key_drvn_tx.h"
+-
+-static const uint8_t test_lc128[] = { 0x93U, 0xceU, 0x5aU, 0x56U, 0xa0U, 0xa1U,
+-				      0xf4U, 0xf7U, 0x3cU, 0x65U, 0x8aU, 0x1bU,
+-				      0xd2U, 0xaeU, 0xf0U, 0xf7U };
+-
+-static const uint8_t product_lc128[] = { 0x93U, 0xceU, 0x5aU, 0x56U, 0xa0U, 0xa1U,
+-				      0xf4U, 0xf7U, 0x3cU, 0x65U, 0x8aU, 0x1bU,
+-				      0xd2U, 0xaeU, 0xf0U, 0xf7U };
+-//------------------------------------------------------------------------------
+-//------------------------------------------------------------------------------
+-// Local functions
+-//------------------------------------------------------------------------------
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_cipher_enable
+-//              Enable HDCP cipher once authentication is complete
+-//
+-//  Parameters:
+-//      sm - state machine pointer
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-void hdcp2_cipher_enable(struct cix_hdcp *hdcp, void *kdata)
+-{
+-	hdcp2_cipher_data_t *tx_data = kdata;
+-
+-	hdcp2_hw_tx_enable_write(hdcp, false); //  disable HDCP transmit
+-	hdcp2_key_drvn_tx_ctr_reset(hdcp); //  reset counter
+-	hdcp2_key_drvn_tx_src_select(
+-		hdcp, aes_tx_sel_normal); //  set AES to stream cipher
+-	hdcp2_hw_tx_enable_write(hdcp, true); //  enable HDCP transmit
+-
+-	//hdcp2_hw_tx_lc128_write(hdcp, test_lc128);	//  re-load the lc128 value
+-	hdcp2_hw_tx_lc128_write(hdcp,
+-				product_lc128); //  re-load the lc128 value
+-
+-	hdcp2_hw_tx_riv_write(hdcp, tx_data->riv); //  write riv
+-	hdcp2_hw_tx_ks_write(hdcp, tx_data->ks); //  write ks
+-	hdcp2_hw_tx_stream_cipher_write(hdcp, true); //  enable stream cipher
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_cipher_disable
+-//              Disable HDCP cipher once authentication is complete
+-//
+-//  Parameters:
+-//      sm - state machine pointer
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-void hdcp2_cipher_disable(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_hw_tx_enable_write(
+-		hdcp,
+-		false); //Disable HDCP to reset the internal state machines to the default state.
+-	hdcp2_hw_tx_mode_write(hdcp, 2); //  Select HDCP 2.x mode
+-	hdcp2_hw_tx_repeater_write(
+-		hdcp,
+-		false); //  Enable (0x01) or disable (0x00) repeater mode as required
+-	hdcp2_hw_tx_stream_cipher_write(hdcp,
+-					false); //  Disable the stream cipher
+-	hdcp2_hw_tx_aes_input_write(hdcp,
+-				    1); //  AES input select set to cipher mode
+-	hdcp2_hw_tx_aes_ctr_reset(hdcp); //  Issue a reset to the AES counter
+-	hdcp2_hw_tx_enable_write(hdcp, true); //  Enable HDCP
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function:   hdcp2_tx_state_init
+-//              Initialize HDCP transmit authentication state machine.
+-//
+-//  Parameters:
+-//      sm - state machine pointer
+-//      u_data - user data
+-//
+-//  Returns:
+-//      none
+-//------------------------------------------------------------------------------
+-void hdcp2_tx_state_init(struct cix_hdcp *hdcp)
+-{
+-	hdcp2_hw_tx_enable_write(
+-		hdcp,
+-		false); //Disable HDCP to reset the internal state machines to the default state.
+-	hdcp2_hw_tx_mode_write(hdcp, 2); //  Select HDCP 2.x mode
+-	hdcp2_hw_tx_repeater_write(
+-		hdcp,
+-		false); //  Enable (0x01) or disable (0x00) repeater mode as required
+-	hdcp2_hw_tx_stream_cipher_write(hdcp,
+-					false); //  Disable the stream cipher
+-	hdcp2_hw_tx_aes_input_write(hdcp,
+-				    1); //  AES input select set to cipher mode
+-	hdcp2_hw_tx_aes_ctr_reset(hdcp); //  Issue a reset to the AES counter
+-	hdcp2_hw_tx_enable_write(hdcp, true); //  Enable HDCP
+-	//hdcp2_hw_tx_lc128_write(hdcp, test_lc128);	//  Set the lc128 value
+-	hdcp2_hw_tx_lc128_write(hdcp,
+-				product_lc128); //  re-load the lc128 value
+-}
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
++++ /dev/null
+@@ -1,31 +0,0 @@
+-//------------------------------------------------------------------------------
+-//  COPYRIGHT (c) 2018-2022 TRILINEAR TECHNOLOGIES, INC.
+-//  CONFIDENTIAL AND PROPRIETARY
+-//
+-//  THE SOURCE CODE CONTAINED HEREIN IS PROVIDED ON AN "AS IS" BASIS.
+-//  TRILINEAR TECHNOLOGIES, INC. DISCLAIMS ANY AND ALL WARRANTIES,
+-//  WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING ANY IMPLIED
+-//  WARRANTIES OF MERCHANTABILITY OR OF FITNESS FOR A PARTICULAR PURPOSE.
+-//  IN NO EVENT SHALL TRILINEAR TECHNOLOGIES, INC. BE LIABLE FOR ANY
+-//  INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER
+-//  ARISING FROM THE USE OF THIS SOURCE CODE.
+-//
+-//  THIS DISCLAIMER OF WARRANTY EXTENDS TO THE USER OF THIS SOURCE CODE
+-//  AND USER'S CUSTOMERS, EMPLOYEES, AGENTS, TRANSFEREES, SUCCESSORS,
+-//  AND ASSIGNS.
+-//
+-//  THIS IS NOT A GRANT OF PATENT RIGHTS
+-//------------------------------------------------------------------------------
+-#ifndef HDCP2_TX_STATE__
+-#define HDCP2_TX_STATE__
+-
+-#include "cix_hdcp.h"
+-
+-//------------------------------------------------------------------------------
+-//  Functional Interface
+-//------------------------------------------------------------------------------
+-void hdcp2_cipher_enable(struct cix_hdcp *hdcp, void *kdata);
+-void hdcp2_cipher_disable(struct cix_hdcp *hdcp);
+-void hdcp2_tx_state_init(struct cix_hdcp *hdcp);
+-
+-#endif // HDCP2_TX_STATE__
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
++++ /dev/null
+@@ -1,190 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#include <linux/types.h>
+-#include <linux/string.h>
+-#include <linux/io.h>
+-
+-#include "cix_hdcp.h"
+-#include "hdcp2_tx_tmr.h"
+-
+-//------------------------------------------------------------------------------
+-//  Time Values:
+-//
+-//  Time-base       Source
+-//  Microseconds    Timer clock is 1MHz
+-//  Milliseconds    Microsecond time * 1000
+-//------------------------------------------------------------------------------
+-#define TMR_HDCP_MS 1000
+-//------------------------------------------------------------------------------
+-// Device Timer Register Format:
+-// bit 31   = Timer enable
+-// bit 30   = Auto-reload
+-// bit 29   = Interrupt enable
+-// bit 19:0 = Timer value (20-bits)
+-//------------------------------------------------------------------------------
+-#define TMR_HDCP_FLAG_ENABLE (1ul << 31)
+-#define TMR_HDCP_FLAG_AUTORELOAD (1ul << 30)
+-#define TMR_HDCP_FLAG_INTERRUPT (1ul << 29)
+-#define TMR_HDCP_MAX_CT ((1ul << 20) - 1ul)
+-#define TMR_HDCP_FLAGS_ALL                                 \
+-	(TMR_HDCP_FLAG_ENABLE | TMR_HDCP_FLAG_AUTORELOAD | \
+-	 TMR_HDCP_FLAG_INTERRUPT)
+-
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_init
+-//  Initialize device timer
+-//
+-//  Parameters:
+-//      addr - timer base address
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-static void tmr_hdcp_init(void *addr)
+-{
+-	writel(0ul, addr);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_set_us - Set device timer value in microseconds
+-//
+-//  Parameters:
+-//      addr - timer base address
+-//      tmr_val - New 20-bit timer value
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-static void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
+-{
+-	uint32_t tmr_val = readl(addr);
+-
+-	tmr_val = (tmr_val & TMR_HDCP_FLAGS_ALL) | (TMR_HDCP_MAX_CT & tmr_us);
+-	writel(tmr_val, addr);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_enable / tmr_hdcp_disable
+-//  Short cut functions for enable / disable
+-//
+-//  Parameters:
+-//      addr   - timer base address
+-//      enable - enable / disable the timer
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-static void tmr_hdcp_enable(void *addr, bool enable)
+-{
+-	uint32_t tmr_val = readl(addr);
+-
+-	if (enable == true)
+-		tmr_val |= TMR_HDCP_FLAG_ENABLE;
+-	else
+-		tmr_val &= ~TMR_HDCP_FLAG_ENABLE;
+-
+-	writel(tmr_val, addr);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_interrupt
+-//  Enable / Disable interrupt for a specified timer
+-//
+-//  Parameters:
+-//      addr   - timer base address
+-//      enable - enable / disable interrupt
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-static void tmr_hdcp_interrupt(void *addr, bool enable)
+-{
+-	uint32_t tmr_val = readl(addr);
+-
+-	if (enable == true)
+-		tmr_val |= TMR_HDCP_FLAG_INTERRUPT;
+-	else
+-		tmr_val &= ~TMR_HDCP_FLAG_INTERRUPT;
+-
+-	writel(tmr_val, addr);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_autoreload
+-//  Enable / Disable auto-reload for a specified timer
+-//
+-//  Parameters:
+-//      addr   - timer base address
+-//      enable - enable / disable the auto-reload
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-static void __maybe_unused tmr_hdcp_autoreload(void *addr, bool enable)
+-{
+-	uint32_t tmr_val = readl(addr);
+-
+-	if (enable == true)
+-		tmr_val |= TMR_HDCP_FLAG_AUTORELOAD;
+-	else
+-		tmr_val &= ~TMR_HDCP_FLAG_AUTORELOAD;
+-
+-	writel(tmr_val, addr);
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function: hdcp2_tx_tmr_start
+-//      Start HDCP timer
+-//
+-//  Parameters:
+-//      hndl   - HDCP2 device handle
+-//      evt    - event for the callback
+-//      ms     - time in ms
+-//      tmr_id - verify timer callback state is correct
+-//
+-//  Returns:
+-//      timer start status
+-//------------------------------------------------------------------------------
+-bool hdcp2_tx_tmr_start(struct cix_hdcp *hdcp, uint32_t ms)
+-{
+-	void *tmr_addr;
+-
+-	if (hdcp->timer_in_use) { //  test for in use
+-		return false; //  exit if the timer is already in-use
+-	}
+-
+-	tmr_addr = hdcp->tmr_addr;
+-
+-	tmr_hdcp_init(tmr_addr); //  clear the timer
+-	tmr_hdcp_interrupt(tmr_addr, true); //  enable interrupts
+-	tmr_hdcp_set_us(tmr_addr, ms * 1000); //  set timeout
+-	tmr_hdcp_enable(tmr_addr, true); //  start timer
+-
+-	hdcp->timer_in_use = true; //  set timer in-use flag
+-
+-	return true;
+-}
+-
+-//------------------------------------------------------------------------------
+-//  Function: hdcp2_tx_tmr_stop
+-//      Stop HDCP timer
+-//
+-//  Parameters:
+-//      hndl   - HDCP2 device handle
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-void hdcp2_tx_tmr_stop(struct cix_hdcp *hdcp)
+-{
+-	void *tmr_addr = hdcp->tmr_addr;
+-
+-	tmr_hdcp_init(tmr_addr); //  clear timer
+-
+-	hdcp->timer_in_use = false; //  clear in-use flag
+-}
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
+deleted file mode 100644
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
++++ /dev/null
+@@ -1,19 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0*/
+-/*
+- * display port hdcp driver for the cix ec
+- *
+- * Copyright 2024 Cix Technology Group Co., Ltd.
+- */
+-
+-#ifndef HDCP2_TX_TMR__
+-#define HDCP2_TX_TMR__
+-
+-#include "cix_hdcp.h"
+-
+-//------------------------------------------------------------------------------
+-//  Functional Interface
+-//------------------------------------------------------------------------------
+-bool hdcp2_tx_tmr_start(struct cix_hdcp *hdcp, uint32_t ms);
+-void hdcp2_tx_tmr_stop(struct cix_hdcp *hdcp);
+-
+-#endif // HDCP2_TX_TMR__
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -2445,30 +2445,6 @@ static int trilin_dp_link_process_request(struct trilin_dp *dp)
+ 	return 0;
+ }
+ 
+-static int trilin_dp_link_hdcp_request(struct trilin_dp *dp)
+-{
+-	u8 status[DP_LINK_STATUS_SIZE + 2];
+-	int ret;
+-
+-	if (!(dp->state & DPTX_STATE_ENABLED))
+-		return false;
+-
+-	ret = drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT, status,
+-			       DP_LINK_STATUS_SIZE + 2);
+-	if (ret < 0)
+-		return ret;
+-
+-	if (status[1] & DP_CP_IRQ) {
+-		ret = drm_dp_dpcd_read(
+-			&dp->aux, DP_HDCP_2_2_REG_RXSTATUS_OFFSET, status, 1);
+-		if (ret < 0)
+-			return ret;
+-
+-		cix_hdcp_cp_irq_process(&dp->hdcp, status[0]);
+-	}
+-	return 0;
+-}
+-
+ static int trilin_dp_clear_info(struct trilin_dp *dp,
+ 				struct trilin_dp_panel *dp_panel)
+ {
+@@ -2845,8 +2821,6 @@ static void trilin_dp_hpd_event_work_func(struct work_struct *work)
+ 
+ 	DP_DEBUG("dp audio plugin status = %d\n", connected);
+ 	dptx_audio_handle_plugged_change(dp_audio, connected);
+-
+-	cix_hdcp_hpd_event_process(&dp->hdcp, connected);
+ }
+ 
+ /* hdp irq handle other event */
+@@ -2877,7 +2851,6 @@ static void trilin_dp_hpd_irq_work_func(struct work_struct *work)
+ 			trilin_dp_train_loop(dp);
+ 		mutex_unlock(&dp->session_lock);
+ 	}
+-	trilin_dp_link_hdcp_request(dp);
+ mst_attention:
+ 	trilin_dp_mst_display_hpd_irq(dp);
+ }
+@@ -2892,11 +2865,6 @@ static irqreturn_t trilin_dp_irq_handler(int irq, void *data)
+ 	if (!(status & ~mask))
+ 		return IRQ_NONE;
+ 
+-	if (status & TRILIN_DPTX_INTERRUPT_HDCP_TIMER_IRQ) {
+-		dev_dbg_ratelimited(dp->dev, "hdcp tmr\n");
+-		cix_hdcp_timer_process(&dp->hdcp);
+-	}
+-
+ 	if (status & TRILIN_DPTX_INTERRUPT_GP_TIMER_IRQ)
+ 		dev_dbg_ratelimited(dp->dev, "gp tmr\n");
+ 
+@@ -3271,12 +3239,6 @@ int trilin_dp_init_config(struct trilin_dp *dp)
+ 	if (dp->edp_panel && !trilin_dp_get_hpd_state(dp))
+ 		trilin_dp_edp_drop_panel(dp);
+ 
+-	rc = trilin_dp_hdcp_init(dp->dpsub);
+-	if (rc) {
+-		DP_ERR("trilin_dp_hdcp_init Failed");
+-		goto end2;
+-	}
+-
+ 	irq_set_status_flags(dp->irq, IRQ_DISABLE_UNLAZY);
+ 	rc = devm_request_threaded_irq(dp->dev, dp->irq, NULL,
+ 				       trilin_dp_irq_handler, IRQF_ONESHOT,
+@@ -3324,31 +3286,6 @@ static void dptx_unregister_audio_device(void *data)
+ 	}
+ }
+ 
+-int trilin_dp_hdcp_init(struct trilin_dpsub *dpsub)
+-{
+-	int ret;
+-	struct trilin_dp *dp = dpsub->dp;
+-	struct cix_hdcp *hdcp = &dp->hdcp;
+-
+-	hdcp->aux = &dp->aux;
+-	hdcp->state = ST2_H0;
+-	hdcp->base_addr = dp->dp_iomem;
+-	hdcp->tmr_addr = hdcp->base_addr + TRILIN_DPTX_HDCP_HOST_TIMER;
+-	hdcp->timer_in_use = false;
+-	hdcp->opened = false;
+-	ret = cix_hdcp_init(hdcp);
+-
+-	return ret;
+-}
+-
+-void trilin_dp_hdcp_uninit(struct trilin_dpsub *dpsub)
+-{
+-	struct trilin_dp *dp = dpsub->dp;
+-	struct cix_hdcp *hdcp = &dp->hdcp;
+-
+-	cix_hdcp_uninit(hdcp);
+-}
+-
+ static int trilin_dp_gop_get(struct trilin_dp *dp)
+ {
+ 	struct arm_smccc_res res;
+@@ -3535,7 +3472,6 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ void trilin_dp_remove(struct trilin_dpsub *dpsub)
+ {
+ 	struct trilin_dp *dp = dpsub->dp;
+-	//cix_hdcp_uninit(&dp->hdcp);
+ 	dptx_unregister_audio_device(dp);
+ 	trilin_dp_deinit_config(dp);
+ 
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.h b/drivers/gpu/drm/cix/dptx/trilin_dptx.h
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.h
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.h
+@@ -38,7 +38,6 @@ union phy_configure_opts;
+ #include "dptx_infoframe.h"
+ #include "trilin_drm.h"
+ #include "trilin_phy.h"
+-#include "hdcp/cix_hdcp.h"
+ 
+ //------------------------------------------------------------------------------
+ //  Defines
+@@ -158,7 +157,8 @@ union phy_configure_opts;
+ #define TRILIN_DPTX_INTERRUPT_HPD_EVENT BIT(0)
+ 
+ #define TRILIN_DPTX_INTERRUPT_MASK_ALL 0x3f
+-#define TRILIN_DPTX_INTERRUPT_CFG 0x1c
++#define TRILIN_DPTX_INTERRUPT_CFG \
++	(0x1c | TRILIN_DPTX_INTERRUPT_HDCP_TIMER_IRQ)
+ 
+ /* PLATFORM define */
+ #define CIX_PLATFORM_SOC 0
+@@ -479,7 +479,6 @@ struct trilin_dp {
+ 
+ 	struct drm_display_mode *adjusted_mode;
+ 	struct dptx_audio dp_audio;
+-	struct cix_hdcp hdcp;
+ 	u8 pixel_per_cycle, force_pixel_per_cycle;
+ 	bool hpd_multi_func;
+ 
+@@ -554,8 +553,6 @@ int trilin_dp_init_config(struct trilin_dp *dp);
+ int trilin_dp_handle_connect(struct trilin_dp *dp, bool send_notification);
+ int trilin_dp_handle_disconnect(struct trilin_dp *dp, bool send_notification);
+ int trilin_dp_host_init(struct trilin_dp *dp);
+-int trilin_dp_hdcp_init(struct trilin_dpsub *dpsub);
+-void trilin_dp_hdcp_uninit(struct trilin_dpsub *dpsub);
+ 
+ bool trilin_dp_get_hpd_state(struct trilin_dp *dp);
+ int trilin_dp_prepare(struct trilin_dp *dp);
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -191,8 +191,6 @@ static void trilin_dptx_cix_unbind(struct device *comp, struct device *master,
+ 
+ 	dpsub = &cix_dptx->dpsub;
+ 
+-	trilin_dp_hdcp_uninit(dpsub);
+-
+ 	trilin_dp_remove(dpsub);
+ 
+ 	/* device_link_add() in bind is optional/commented; only delete if created */
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -130,213 +130,10 @@ static ssize_t aclk_hz_show(struct device *dev, struct device_attribute *attr,
+ }
+ static DEVICE_ATTR_RO(aclk_hz);
+ 
+-static ssize_t aclk_freq_fixed_store(struct device *dev,
+-				     struct device_attribute *attr,
+-				     const char *buf, size_t count)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	long val;
+-	int err;
+-
+-	err = kstrtol(buf, 10, &val);
+-	if (err)
+-		return err;
+-
+-	if (val > 800000000) {
+-		pr_err("specified frequency %lu exceeds the upper limit\n",
+-		       val);
+-		return -EINVAL;
+-	}
+-
+-	mdev->aclk_freq_fixed = val;
+-	pr_debug("specify aclk frequency: %lu\n", val);
+-
+-	return count;
+-}
+-
+-static ssize_t aclk_freq_fixed_show(struct device *dev,
+-				    struct device_attribute *attr, char *buf)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-
+-	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq_fixed);
+-}
+-
+-static DEVICE_ATTR_RW(aclk_freq_fixed);
+-
+-static ssize_t smart_aclk_freq_store(struct device *dev,
+-				     struct device_attribute *attr,
+-				     const char *buf, size_t count)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	long val;
+-	int err;
+-
+-	err = kstrtol(buf, 10, &val);
+-	if (err)
+-		return err;
+-
+-	mdev->smart_aclk_freq = !!val;
+-
+-	pr_debug("set smart_aclk_freq %lu\n", val);
+-
+-	return count;
+-}
+-
+-static ssize_t smart_aclk_freq_show(struct device *dev,
+-				    struct device_attribute *attr, char *buf)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-
+-	return sysfs_emit(buf, "%d\n", mdev->smart_aclk_freq ? 1 : 0);
+-}
+-
+-static DEVICE_ATTR_RW(smart_aclk_freq);
+-
+-static ssize_t test_pattern_store(struct device *dev,
+-				  struct device_attribute *attr,
+-				  const char *buf, size_t count)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+-	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+-	long val;
+-	int err;
+-
+-	err = kstrtol(buf, 10, &val);
+-	if (err)
+-		return err;
+-
+-	pr_debug("%s, set pattern value: 0x%lx\n", __func__, val);
+-
+-	pipe0->en_test_pattern = !!(val & 0x1);
+-	pipe1->en_test_pattern = !!((val >> 0x1) & 0x1);
+-
+-	return count;
+-}
+-
+-static ssize_t test_pattern_show(struct device *dev,
+-				 struct device_attribute *attr, char *buf)
+-{
+-	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+-	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+-
+-	if (pipe0->en_test_pattern)
+-		val = 0x1;
+-	else
+-		val = 0x0;
+-
+-	if (pipe1->en_test_pattern)
+-		val |= 0x2;
+-	else
+-		val &= 0x1;
+-
+-	return sysfs_emit(buf, "0x%lx\n", val);
+-}
+-
+-static DEVICE_ATTR_RW(test_pattern);
+-
+-static ssize_t crc_enable_store(struct device *dev,
+-				struct device_attribute *attr, const char *buf,
+-				size_t count)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+-	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+-	long val;
+-	int err;
+-
+-	err = kstrtol(buf, 10, &val);
+-	if (err)
+-		return err;
+-
+-	pr_debug("%s, set crc_enable value: 0x%lx\n", __func__, val);
+-
+-	pipe0->en_crc = !!(val & 0x1);
+-	pipe1->en_crc = !!((val >> 0x1) & 0x1);
+-
+-	return count;
+-}
+-
+-static ssize_t crc_enable_show(struct device *dev,
+-			       struct device_attribute *attr, char *buf)
+-{
+-	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+-	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+-
+-	if (pipe0->en_crc)
+-		val = 0x1;
+-	else
+-		val = 0x0;
+-
+-	if (pipe1->en_crc)
+-		val |= 0x2;
+-	else
+-		val &= 0x1;
+-
+-	return sysfs_emit(buf, "0x%lx\n", val);
+-}
+-
+-static DEVICE_ATTR_RW(crc_enable);
+-
+-static ssize_t dither_enable_store(struct device *dev,
+-				   struct device_attribute *attr,
+-				   const char *buf, size_t count)
+-{
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+-	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+-	long val;
+-	int err;
+-
+-	err = kstrtol(buf, 10, &val);
+-	if (err)
+-		return err;
+-
+-	pr_debug("%s, set dither_enable value: 0x%lx\n", __func__, val);
+-
+-	pipe0->en_dither = !!(val & 0x1);
+-	pipe1->en_dither = !!((val >> 0x1) & 0x1);
+-
+-	return count;
+-}
+-
+-static ssize_t dither_enable_show(struct device *dev,
+-				  struct device_attribute *attr, char *buf)
+-{
+-	long val;
+-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+-	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
+-	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
+-
+-	if (pipe0->en_dither)
+-		val = 0x1;
+-	else
+-		val = 0x0;
+-
+-	if (pipe1->en_dither)
+-		val |= 0x2;
+-	else
+-		val &= 0x1;
+-
+-	return sysfs_emit(buf, "0x%lx\n", val);
+-}
+-
+-static DEVICE_ATTR_RW(dither_enable);
+-
+ static struct attribute *linlondp_sysfs_entries[] = {
+ 	&dev_attr_core_id.attr,
+ 	&dev_attr_config_id.attr,
+ 	&dev_attr_aclk_hz.attr,
+-	&dev_attr_aclk_freq_fixed.attr,
+-	&dev_attr_smart_aclk_freq.attr,
+-	&dev_attr_test_pattern.attr,
+-	&dev_attr_crc_enable.attr,
+-	&dev_attr_dither_enable.attr,
+ 	NULL,
+ };
+ 

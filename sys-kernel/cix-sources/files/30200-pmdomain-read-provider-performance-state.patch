@@ -1,0 +1,161 @@
+diff --git a/drivers/gpu/drm/panthor/panthor_devfreq.c b/drivers/gpu/drm/panthor/panthor_devfreq.c
+--- a/drivers/gpu/drm/panthor/panthor_devfreq.c
++++ b/drivers/gpu/drm/panthor/panthor_devfreq.c
+@@ -253,14 +253,20 @@ static void panthor_devfreq_reset(struct panthor_devfreq *pdevfreq)
+ 	pdevfreq->time_last_update = ktime_get();
+ }
+ 
++static int panthor_devfreq_get_cur_freq(struct device *dev,
++					unsigned long *freq);
++
+ static int panthor_devfreq_get_dev_status(struct device *dev,
+ 					  struct devfreq_dev_status *status)
+ {
+ 	struct panthor_device *ptdev = dev_get_drvdata(dev);
+ 	struct panthor_devfreq *pdevfreq = ptdev->devfreq;
+ 	unsigned long irqflags;
++	int ret;
+ 
+-	status->current_frequency = clk_get_rate(ptdev->clks.core);
++	ret = panthor_devfreq_get_cur_freq(dev, &status->current_frequency);
++	if (ret)
++		return ret;
+ 
+ 	spin_lock_irqsave(&pdevfreq->lock, irqflags);
+ 
+@@ -286,6 +292,25 @@ static int panthor_devfreq_get_dev_status(struct device *dev,
+ static int panthor_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+ {
+ 	struct panthor_device *ptdev = dev_get_drvdata(dev);
++	struct panthor_devfreq *pdevfreq = ptdev->devfreq;
++	struct dev_pm_opp *opp;
++	unsigned int level;
++	int ret;
++
++	if (pdevfreq->opp_dev) {
++		ret = dev_pm_genpd_get_performance_state(pdevfreq->opp_dev,
++							 &level);
++		if (ret)
++			return ret;
++
++		opp = dev_pm_opp_find_level_exact(pdevfreq->opp_dev, level);
++		if (IS_ERR(opp))
++			return PTR_ERR(opp);
++
++		*freq = dev_pm_opp_get_freq(opp);
++		dev_pm_opp_put(opp);
++		return 0;
++	}
+ 
+ 	*freq = clk_get_rate(ptdev->clks.core);
+ 
+diff --git a/drivers/pmdomain/arm/scmi_perf_domain.c b/drivers/pmdomain/arm/scmi_perf_domain.c
+--- a/drivers/pmdomain/arm/scmi_perf_domain.c
++++ b/drivers/pmdomain/arm/scmi_perf_domain.c
+@@ -50,6 +50,14 @@ scmi_pd_set_perf_state(struct generic_pm_domain *genpd, unsigned int state)
+ 	return ret;
+ }
+ 
++static int
++scmi_pd_get_perf_state(struct generic_pm_domain *genpd, unsigned int *state)
++{
++	struct scmi_perf_domain *pd = to_scmi_pd(genpd);
++
++	return pd->perf_ops->level_get(pd->ph, pd->domain_id, state, false);
++}
++
+ static int
+ scmi_pd_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
+ {
+@@ -208,6 +216,7 @@ static int scmi_perf_domain_probe(struct scmi_device *sdev)
+ 				       GENPD_FLAG_OPP_TABLE_FW |
+ 				       GENPD_FLAG_DEV_NAME_FW;
+ 		scmi_pd->genpd.set_performance_state = scmi_pd_set_perf_state;
++		scmi_pd->genpd.get_performance_state = scmi_pd_get_perf_state;
+ 		scmi_pd->genpd.attach_dev = scmi_pd_attach_dev;
+ 		scmi_pd->genpd.detach_dev = scmi_pd_detach_dev;
+ 
+diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
+--- a/drivers/pmdomain/core.c
++++ b/drivers/pmdomain/core.c
+@@ -599,6 +599,46 @@ int dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state)
+ }
+ EXPORT_SYMBOL_GPL(dev_pm_genpd_set_performance_state);
+ 
++/**
++ * dev_pm_genpd_get_performance_state - Get the power domain's current state.
++ * @dev: Device attached to the power domain.
++ * @state: Current provider-reported performance state on success.
++ *
++ * Providers that support readback return the performance state currently
++ * applied by the hardware or its controlling firmware.  This is distinct from
++ * the state requested by an individual consumer and from genpd's aggregate
++ * cached request.
++ *
++ * It is assumed that callers guarantee that the genpd will not be detached
++ * while this routine is running.
++ *
++ * Return: 0 on success, -EOPNOTSUPP when the provider has no readback method,
++ * or another negative error code on failure.
++ */
++int dev_pm_genpd_get_performance_state(struct device *dev,
++				       unsigned int *state)
++{
++	struct generic_pm_domain *genpd;
++	int ret;
++
++	if (!state)
++		return -EINVAL;
++
++	genpd = dev_to_genpd_safe(dev);
++	if (!genpd)
++		return -ENODEV;
++
++	if (!genpd->get_performance_state)
++		return -EOPNOTSUPP;
++
++	genpd_lock(genpd);
++	ret = genpd->get_performance_state(genpd, state);
++	genpd_unlock(genpd);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(dev_pm_genpd_get_performance_state);
++
+ /**
+  * dev_pm_genpd_set_next_wakeup - Notify PM framework of an impending wakeup.
+  *
+diff --git a/include/linux/pm_domain.h b/include/linux/pm_domain.h
+--- a/include/linux/pm_domain.h
++++ b/include/linux/pm_domain.h
+@@ -222,6 +222,8 @@ struct generic_pm_domain {
+ 	struct opp_table *opp_table;	/* OPP table of the genpd */
+ 	int (*set_performance_state)(struct generic_pm_domain *genpd,
+ 				     unsigned int state);
++	int (*get_performance_state)(struct generic_pm_domain *genpd,
++				     unsigned int *state);
+ 	struct gpd_dev_ops dev_ops;
+ 	int (*set_hwmode_dev)(struct generic_pm_domain *domain,
+ 			      struct device *dev, bool enable);
+@@ -322,6 +324,8 @@ void pm_genpd_inc_rejected(struct generic_pm_domain *genpd,
+ 			   unsigned int state_idx);
+ struct device *dev_to_genpd_dev(struct device *dev);
+ int dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state);
++int dev_pm_genpd_get_performance_state(struct device *dev,
++				       unsigned int *state);
+ int dev_pm_genpd_add_notifier(struct device *dev, struct notifier_block *nb);
+ int dev_pm_genpd_remove_notifier(struct device *dev);
+ void dev_pm_genpd_set_next_wakeup(struct device *dev, ktime_t next);
+@@ -387,6 +391,12 @@ static inline int dev_pm_genpd_set_performance_state(struct device *dev,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static inline int dev_pm_genpd_get_performance_state(struct device *dev,
++						     unsigned int *state)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int dev_pm_genpd_add_notifier(struct device *dev,
+ 					    struct notifier_block *nb)
+ {

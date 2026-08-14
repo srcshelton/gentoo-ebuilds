@@ -1,0 +1,2183 @@
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2716,6 +2716,7 @@ F:	drivers/remoteproc/cix_dsp_rproc.c
+ F:	drivers/soc/cix/
+ F:	include/linux/soc/cix/cix_hifi5.h
+ F:	sound/hda/controllers/cix-ipbloq.c
++F:	sound/soc/sof/cix/
+ K:	\bcix\b
+ 
+ ARM/CLKDEV SUPPORT
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -51,6 +51,7 @@ config CIX_DSP_RPROC
+ 	tristate "CIX Sky1 HiFi5 DSP remoteproc support"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
++	depends on CIX_HIFI5_FIRMWARE_XAF
+ 	select CIX_MBOX
+ 	select CIX_HIFI5_COMMON if ARM64
+ 	select DMABUF_HEAPS
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -19,3 +19,31 @@ config CIX_ACPI_RESOURCE_LOOKUP
+ config CIX_HIFI5_COMMON
+ 	bool
+ 	depends on ARM64
++
++choice
++	prompt "CIX Sky1 HiFi5 firmware stack"
++	depends on ARCH_CIX || COMPILE_TEST
++	default CIX_HIFI5_FIRMWARE_XAF
++	help
++	  Select the one firmware interface allowed to own the Sky1 HiFi5 DSP.
++	  The public XAF firmware and Sound Open Firmware use different mailbox
++	  channels and memory protocols, so their kernel drivers must not bind to
++	  the DSP at the same time.
++
++config CIX_HIFI5_FIRMWARE_XAF
++	bool "XAF remoteproc"
++	help
++	  Permit the remoteproc driver used by the public CIX XAF firmware and
++	  libdsp_wrap userspace interface.  This owner uses the FIFO mailbox
++	  channels and exposes the DSP through remoteproc and RPMsg.  Select it
++	  unless the SOF firmware and matching firmware tables are installed.
++
++config CIX_HIFI5_FIRMWARE_SOF
++	bool "Sound Open Firmware"
++	help
++	  Permit the CIX Sound Open Firmware driver.  This requires firmware
++	  tables that expose the Sky1 DSP doorbell mailbox channels.  It does
++	  not use the XAF remoteproc and RPMsg protocol.  Select it only with
++	  the CIX SOF firmware and codec-free topology installed.
++
++endchoice
+diff --git a/drivers/soc/cix/cix-hifi5.c b/drivers/soc/cix/cix-hifi5.c
+--- a/drivers/soc/cix/cix-hifi5.c
++++ b/drivers/soc/cix/cix-hifi5.c
+@@ -4,6 +4,7 @@
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/device.h>
++#include <linux/dma-map-ops.h>
+ #include <linux/export.h>
+ #include <linux/init.h>
+ #include <linux/ioport.h>
+@@ -27,6 +28,26 @@ static const char * const cix_hifi5_clock_names[CIX_HIFI5_NUM_CLOCKS] = {
+ 
+ static bool cix_hifi5_legacy_reserve_enabled __initdata = true;
+ 
++static void cix_hifi5_release_dma_pool(void *data)
++{
++	dma_release_coherent_memory(data);
++}
++
++/* Keep unexported DMA internals and the devres callback in built-in code. */
++int devm_cix_hifi5_declare_dma_pool(struct device *dev)
++{
++	int ret;
++
++	ret = dma_declare_coherent_memory(dev, CIX_HIFI5_DMA_BASE,
++					  CIX_HIFI5_DMA_BASE,
++					  CIX_HIFI5_DMA_SIZE);
++	if (ret)
++		return ret;
++
++	return devm_add_action_or_reset(dev, cix_hifi5_release_dma_pool, dev);
++}
++EXPORT_SYMBOL_GPL(devm_cix_hifi5_declare_dma_pool);
++
+ int cix_hifi5_validate_memory(struct device *dev)
+ {
+ 	int ret;
+diff --git a/include/linux/soc/cix/cix_hifi5.h b/include/linux/soc/cix/cix_hifi5.h
+--- a/include/linux/soc/cix/cix_hifi5.h
++++ b/include/linux/soc/cix/cix_hifi5.h
+@@ -28,6 +28,7 @@ struct cix_hifi5_hw {
+ 
+ #ifdef CONFIG_CIX_HIFI5_COMMON
+ void __init cix_hifi5_reserve_legacy_aperture(void);
++int devm_cix_hifi5_declare_dma_pool(struct device *dev);
+ int cix_hifi5_validate_memory(struct device *dev);
+ int cix_hifi5_hw_init(struct device *dev, struct cix_hifi5_hw *hw);
+ int cix_hifi5_hw_enable(struct cix_hifi5_hw *hw);
+@@ -37,6 +38,11 @@ static inline void __init cix_hifi5_reserve_legacy_aperture(void)
+ {
+ }
+ 
++static inline int devm_cix_hifi5_declare_dma_pool(struct device *dev)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int cix_hifi5_validate_memory(struct device *dev)
+ {
+ 	return -EOPNOTSUPP;
+diff --git a/include/sound/sof/dai-cix.h b/include/sound/sof/dai-cix.h
+new file mode 100644
+--- /dev/null
++++ b/include/sound/sof/dai-cix.h
+@@ -0,0 +1,44 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
++/*
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ * Copyright 2026 CIX kernel overlay maintainers
++ */
++
++#ifndef __INCLUDE_SOUND_SOF_DAI_CIX_H__
++#define __INCLUDE_SOUND_SOF_DAI_CIX_H__
++
++#include <sound/sof/header.h>
++
++/* Wire identifiers used by the released Sky1 SOF firmware ABI. */
++#define SOF_DAI_CIX_I2S_SC_IPC		12U
++#define SOF_DAI_CIX_I2S_MC_IPC		13U
++
++struct sof_ipc_dai_i2s_sc_params {
++	struct sof_ipc_hdr hdr;
++	u32 rate;
++	u16 channels;
++	u16 format;
++	u16 mclk_id;
++	u16 mclk_fs;
++	u16 playback_dma_ch;
++	u16 capture_dma_ch;
++	u32 tdm_slots;
++	u32 tdm_rx_slot_mask;
++	u32 tdm_tx_slot_mask;
++	u32 tdm_slot_width;
++} __packed;
++
++struct sof_ipc_dai_i2s_mc_params {
++	struct sof_ipc_hdr hdr;
++	u32 rate;
++	u16 channels;
++	u16 format;
++	u16 mclk_id;
++	u16 mclk_fs;
++	u16 playback_dma_ch;
++	u16 capture_dma_ch;
++	u16 pin_rx_mask;
++	u16 pin_tx_mask;
++} __packed;
++
++#endif /* __INCLUDE_SOUND_SOF_DAI_CIX_H__ */
+diff --git a/include/sound/sof/dai.h b/include/sound/sof/dai.h
+--- a/include/sound/sof/dai.h
++++ b/include/sound/sof/dai.h
+@@ -13,6 +13,7 @@
+ #include <sound/sof/dai-intel.h>
+ #include <sound/sof/dai-imx.h>
+ #include <sound/sof/dai-amd.h>
++#include <sound/sof/dai-cix.h>
+ #include <sound/sof/dai-mediatek.h>
+ 
+ /*
+@@ -121,6 +122,8 @@ struct sof_ipc_dai_config {
+ 		struct sof_ipc_dai_mtk_afe_params afe;
+ 		struct sof_ipc_dai_micfil_params micfil;
+ 		struct sof_ipc_dai_acp_sdw_params acp_sdw;
++		struct sof_ipc_dai_i2s_sc_params cix_i2s_sc;
++		struct sof_ipc_dai_i2s_mc_params cix_i2s_mc;
+ 	};
+ } __packed;
+ 
+diff --git a/include/sound/sof/stream.h b/include/sound/sof/stream.h
+--- a/include/sound/sof/stream.h
++++ b/include/sound/sof/stream.h
+@@ -62,6 +62,10 @@ enum sof_ipc_stream_direction {
+ 	SOF_IPC_STREAM_CAPTURE,
+ };
+ 
++/* The IPC3 host page-table ABI always uses 4 KiB pages. */
++#define SOF_IPC_HOST_PAGE_SHIFT 12
++#define SOF_IPC_HOST_PAGE_SIZE  4096U
++
+ /* stream ring info */
+ struct sof_ipc_host_buffer {
+ 	struct sof_ipc_hdr hdr;
+diff --git a/include/uapi/sound/sof/tokens.h b/include/uapi/sound/sof/tokens.h
+--- a/include/uapi/sound/sof/tokens.h
++++ b/include/uapi/sound/sof/tokens.h
+@@ -232,4 +232,24 @@
+ #define SOF_TKN_AMD_ACP_SDW_RATE		2100
+ #define SOF_TKN_AMD_ACP_SDW_CH			2101
+ 
++/* CIX I2S single-channel controller */
++#define SOF_TKN_CIX_I2S_SC_RATE			2200
++#define SOF_TKN_CIX_I2S_SC_CHANNELS		2201
++#define SOF_TKN_CIX_I2S_SC_FORMAT		2202
++#define SOF_TKN_CIX_I2S_SC_MCLK_ID		2203
++#define SOF_TKN_CIX_I2S_SC_MCLK_FS		2204
++#define SOF_TKN_CIX_I2S_SC_PLAYBACK_DMA_CH	2205
++#define SOF_TKN_CIX_I2S_SC_CAPTURE_DMA_CH	2206
++
++/* CIX I2S multi-channel controller */
++#define SOF_TKN_CIX_I2S_MC_RATE			2300
++#define SOF_TKN_CIX_I2S_MC_CHANNELS		2301
++#define SOF_TKN_CIX_I2S_MC_FORMAT		2302
++#define SOF_TKN_CIX_I2S_MC_MCLK_ID		2303
++#define SOF_TKN_CIX_I2S_MC_MCLK_FS		2304
++#define SOF_TKN_CIX_I2S_MC_PLAYBACK_DMA_CH	2305
++#define SOF_TKN_CIX_I2S_MC_CAPTURE_DMA_CH	2306
++#define SOF_TKN_CIX_I2S_MC_PIN_RX_MASK		2307
++#define SOF_TKN_CIX_I2S_MC_PIN_TX_MASK		2308
++
+ #endif
+diff --git a/sound/soc/sof/Kconfig b/sound/soc/sof/Kconfig
+--- a/sound/soc/sof/Kconfig
++++ b/sound/soc/sof/Kconfig
+@@ -69,6 +69,13 @@ config SND_SOC_SOF_CLIENT
+ 	  This option is not user-selectable but automagically handled by
+ 	  'select' statements at a higher level.
+ 
++config SND_SOC_SOF_NOCODEC
++	tristate
++	help
++	  Internal implementation symbol for SOF platforms which intentionally
++	  operate without a physical codec. Platform drivers select this symbol;
++	  it is not a user-selectable developer option.
++
+ config SND_SOC_SOF_DEVELOPER_SUPPORT
+ 	bool "SOF developer options support"
+ 	depends on EXPERT && SND_SOC_SOF
+@@ -93,9 +100,6 @@ config SND_SOC_SOF_FORCE_PROBE_WORKQUEUE
+ 	  Say Y if you are involved in SOF development and need this option.
+ 	  If not, select N.
+ 
+-config SND_SOC_SOF_NOCODEC
+-	tristate
+-
+ config SND_SOC_SOF_NOCODEC_SUPPORT
+ 	bool "SOF nocodec static mode support"
+ 	help
+@@ -298,6 +302,7 @@ config SND_SOC_SOF_IPC4
+ 	bool
+ 
+ source "sound/soc/sof/amd/Kconfig"
++source "sound/soc/sof/cix/Kconfig"
+ source "sound/soc/sof/imx/Kconfig"
+ source "sound/soc/sof/intel/Kconfig"
+ source "sound/soc/sof/mediatek/Kconfig"
+diff --git a/sound/soc/sof/Makefile b/sound/soc/sof/Makefile
+--- a/sound/soc/sof/Makefile
++++ b/sound/soc/sof/Makefile
+@@ -57,5 +57,6 @@ obj-$(CONFIG_SND_SOC_SOF_DEBUG_PROBES) += snd-sof-probes.o
+ obj-$(CONFIG_SND_SOC_SOF_INTEL_TOPLEVEL) += intel/
+ obj-$(CONFIG_SND_SOC_SOF_IMX_TOPLEVEL) += imx/
+ obj-$(CONFIG_SND_SOC_SOF_AMD_TOPLEVEL) += amd/
++obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1) += cix/
+ obj-$(CONFIG_SND_SOC_SOF_XTENSA) += xtensa/
+ obj-$(CONFIG_SND_SOC_SOF_MTK_TOPLEVEL) += mediatek/
+diff --git a/sound/soc/sof/cix/Kconfig b/sound/soc/sof/cix/Kconfig
+new file mode 100644
+--- /dev/null
++++ b/sound/soc/sof/cix/Kconfig
+@@ -0,0 +1,34 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
++
++config SND_SOC_SOF_CIX_SKY1
++	tristate "SOF support for the CIX Sky1 HiFi5 DSP"
++	depends on (ARCH_CIX && ACPI) || COMPILE_TEST
++	depends on CIX_HIFI5_FIRMWARE_SOF
++	select CIX_HIFI5_COMMON if ARM64
++	select CIX_MBOX
++	select DMA_DECLARE_COHERENT
++	select MAILBOX
++	select MFD_SYSCON
++	select RESET_CONTROLLER
++	select SND_SOC_SOF
++	select SND_SOC_SOF_ACPI_DEV
++	select SND_SOC_SOF_COMPRESS
++	select SND_SOC_SOF_IPC3
++	select SND_SOC_SOF_CIX_SKY1_NOCODEC
++	select SND_SOC_SOF_XTENSA
++	help
++	  Enable the ACPI-native Sound Open Firmware owner for the HiFi5 DSP
++	  in CIX Sky1 systems.  The driver requires firmware tables that expose
++	  the AP-to-DSP and DSP-to-AP doorbell mailbox channels as txdb and rxdb.
++
++	  If firmware exposes the fixed audio aperture as System RAM, the built-in
++	  CIX platform helper reserves it automatically before allocation.
++	  cix_hifi5_legacy_reserve=0 disables that compatibility correction.
++
++	  The driver may be built as a module.  A small built-in CIX platform
++	  helper owns the early memory reservation and shared hardware-resource
++	  sequencing needed by the unloadable SOF driver.
++
++config SND_SOC_SOF_CIX_SKY1_NOCODEC
++	tristate
++	depends on SND_SOC
+diff --git a/sound/soc/sof/cix/Makefile b/sound/soc/sof/cix/Makefile
+new file mode 100644
+--- /dev/null
++++ b/sound/soc/sof/cix/Makefile
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
++
++snd-sof-cix-sky1-objs := cix-sky1.o cix-sky1-ipc3.o
++
++obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1) += snd-sof-cix-sky1.o
++obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1_NOCODEC) += snd-sof-cix-sky1-nocodec.o
+diff --git a/sound/soc/sof/cix/cix-sky1-ipc3.c b/sound/soc/sof/cix/cix-sky1-ipc3.c
+new file mode 100644
+--- /dev/null
++++ b/sound/soc/sof/cix/cix-sky1-ipc3.c
+@@ -0,0 +1,215 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
++/*
++ * Sound Open Firmware IPC3 topology support for the CIX Sky1 HiFi5 DSP
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ * Copyright 2026 CIX kernel overlay maintainers
++ */
++
++#include <linux/bits.h>
++#include <linux/kernel.h>
++#include <sound/pcm_params.h>
++#include <sound/sof/dai.h>
++#include <uapi/sound/sof/tokens.h>
++
++#include "cix-sky1-ipc3.h"
++
++static const struct sof_topology_token sky1_i2s_sc_tokens[] = {
++	{ SOF_TKN_CIX_I2S_SC_RATE, SND_SOC_TPLG_TUPLE_TYPE_WORD, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, rate) },
++	{ SOF_TKN_CIX_I2S_SC_CHANNELS, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, channels) },
++	{ SOF_TKN_CIX_I2S_SC_FORMAT, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, format) },
++	{ SOF_TKN_CIX_I2S_SC_MCLK_ID, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, mclk_id) },
++	{ SOF_TKN_CIX_I2S_SC_MCLK_FS, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, mclk_fs) },
++	{ SOF_TKN_CIX_I2S_SC_PLAYBACK_DMA_CH, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, playback_dma_ch) },
++	{ SOF_TKN_CIX_I2S_SC_CAPTURE_DMA_CH, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_sc_params, capture_dma_ch) },
++};
++
++static const struct sof_topology_token sky1_i2s_mc_tokens[] = {
++	{ SOF_TKN_CIX_I2S_MC_RATE, SND_SOC_TPLG_TUPLE_TYPE_WORD, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, rate) },
++	{ SOF_TKN_CIX_I2S_MC_CHANNELS, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, channels) },
++	{ SOF_TKN_CIX_I2S_MC_FORMAT, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, format) },
++	{ SOF_TKN_CIX_I2S_MC_MCLK_ID, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, mclk_id) },
++	{ SOF_TKN_CIX_I2S_MC_MCLK_FS, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, mclk_fs) },
++	{ SOF_TKN_CIX_I2S_MC_PLAYBACK_DMA_CH, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, playback_dma_ch) },
++	{ SOF_TKN_CIX_I2S_MC_CAPTURE_DMA_CH, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, capture_dma_ch) },
++	{ SOF_TKN_CIX_I2S_MC_PIN_RX_MASK, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, pin_rx_mask) },
++	{ SOF_TKN_CIX_I2S_MC_PIN_TX_MASK, SND_SOC_TPLG_TUPLE_TYPE_SHORT, NULL,
++		offsetof(struct sof_ipc_dai_i2s_mc_params, pin_tx_mask) },
++};
++
++static int sky1_i2s_validate_common(struct snd_soc_component *scomp, const char *name,
++				    u32 rate, u16 channels, u16 playback_dma_ch,
++				    u16 capture_dma_ch, u16 min_channels)
++{
++	if (rate < 8000 || rate > 192000) {
++		dev_err(scomp->dev, "%s has invalid sample rate %u\n", name, rate);
++		return -EINVAL;
++	}
++
++	if (channels < min_channels || channels > 16) {
++		dev_err(scomp->dev, "%s has invalid channel count %u\n", name, channels);
++		return -EINVAL;
++	}
++
++	if (playback_dma_ch == capture_dma_ch) {
++		dev_err(scomp->dev, "%s reuses DMA channel %u for playback and capture\n",
++			name, playback_dma_ch);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int sky1_i2s_sc_finalize(struct snd_soc_component *scomp,
++				const struct snd_sof_dai_link *slink,
++				struct sof_ipc_dai_config *config)
++{
++	struct sof_ipc_dai_i2s_sc_params *params = &config->cix_i2s_sc;
++	int ret;
++
++	ret = sky1_i2s_validate_common(scomp, "I2SSC", params->rate,
++				       params->channels, params->playback_dma_ch,
++				       params->capture_dma_ch, 1);
++	if (ret)
++		return ret;
++
++	if (slink->num_hw_configs) {
++		const struct snd_soc_tplg_hw_config *hw_config = slink->hw_configs;
++
++		params->tdm_slots = le32_to_cpu(hw_config->tdm_slots);
++		params->tdm_slot_width = le32_to_cpu(hw_config->tdm_slot_width);
++		params->tdm_rx_slot_mask = le32_to_cpu(hw_config->rx_slots);
++		params->tdm_tx_slot_mask = le32_to_cpu(hw_config->tx_slots);
++	}
++
++	if (!!params->tdm_slots != !!params->tdm_slot_width ||
++	    params->tdm_slots > 32 || params->tdm_slot_width > 64 ||
++	    (params->tdm_slots && params->channels > params->tdm_slots)) {
++		dev_err(scomp->dev, "I2SSC has invalid TDM shape: %u channels, %u slots x %u bits\n",
++			params->channels, params->tdm_slots, params->tdm_slot_width);
++		return -EINVAL;
++	}
++
++	if ((!params->tdm_slots &&
++	     (params->tdm_rx_slot_mask || params->tdm_tx_slot_mask)) ||
++	    (params->tdm_slots && params->tdm_slots < 32 &&
++	     ((params->tdm_rx_slot_mask | params->tdm_tx_slot_mask) &
++	      ~GENMASK(params->tdm_slots - 1, 0)))) {
++		dev_err(scomp->dev, "I2SSC slot mask exceeds its TDM slot count\n");
++		return -EINVAL;
++	}
++
++	dev_dbg(scomp->dev,
++		"I2SSC%u: rate %u, channels %u, DMA %u/%u, TDM %u x %u\n",
++		config->dai_index, params->rate, params->channels,
++		params->playback_dma_ch, params->capture_dma_ch,
++		params->tdm_slots, params->tdm_slot_width);
++
++	return 0;
++}
++
++static int sky1_i2s_mc_finalize(struct snd_soc_component *scomp,
++				const struct snd_sof_dai_link *slink __maybe_unused,
++				struct sof_ipc_dai_config *config)
++{
++	struct sof_ipc_dai_i2s_mc_params *params = &config->cix_i2s_mc;
++	int ret;
++
++	ret = sky1_i2s_validate_common(scomp, "I2SMC", params->rate,
++				       params->channels, params->playback_dma_ch,
++				       params->capture_dma_ch, 2);
++	if (ret)
++		return ret;
++
++	if (!(params->pin_rx_mask | params->pin_tx_mask)) {
++		dev_err(scomp->dev, "I2SMC has no active data pins\n");
++		return -EINVAL;
++	}
++
++	dev_dbg(scomp->dev,
++		"I2SMC%u: rate %u, channels %u, DMA %u/%u, pin masks %#x/%#x\n",
++		config->dai_index, params->rate, params->channels,
++		params->playback_dma_ch, params->capture_dma_ch,
++		params->pin_rx_mask, params->pin_tx_mask);
++
++	return 0;
++}
++
++static int sky1_i2s_sc_link_fixup(struct snd_soc_pcm_runtime *rtd __maybe_unused,
++				  struct snd_pcm_hw_params *params,
++				  const struct sof_ipc_dai_config *config)
++{
++	struct snd_interval *channels = hw_param_interval(params,
++							 SNDRV_PCM_HW_PARAM_CHANNELS);
++	struct snd_interval *rate = hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
++
++	rate->min = config->cix_i2s_sc.rate;
++	rate->max = config->cix_i2s_sc.rate;
++	channels->min = config->cix_i2s_sc.channels;
++	channels->max = config->cix_i2s_sc.channels;
++
++	return 0;
++}
++
++static int sky1_i2s_mc_link_fixup(struct snd_soc_pcm_runtime *rtd __maybe_unused,
++				  struct snd_pcm_hw_params *params,
++				  const struct sof_ipc_dai_config *config)
++{
++	struct snd_interval *channels = hw_param_interval(params,
++							 SNDRV_PCM_HW_PARAM_CHANNELS);
++	struct snd_interval *rate = hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
++
++	rate->min = config->cix_i2s_mc.rate;
++	rate->max = config->cix_i2s_mc.rate;
++	channels->min = config->cix_i2s_mc.channels;
++	channels->max = config->cix_i2s_mc.channels;
++
++	return 0;
++}
++
++const struct sof_ipc3_platform_dai
++sky1_sof_ipc3_dais[SKY1_SOF_IPC3_DAI_COUNT] = {
++	{
++		.name = "I2SSC",
++		.ipc_type = SOF_DAI_CIX_I2S_SC_IPC,
++		.tokens = {
++			.name = "CIX I2SSC",
++			.tokens = sky1_i2s_sc_tokens,
++			.count = ARRAY_SIZE(sky1_i2s_sc_tokens),
++		},
++		.config_offset = offsetof(struct sof_ipc_dai_config, cix_i2s_sc),
++		.config_size = sizeof(struct sof_ipc_dai_i2s_sc_params),
++		.hw_config_optional = true,
++		.config_finalize = sky1_i2s_sc_finalize,
++		.link_fixup = sky1_i2s_sc_link_fixup,
++	},
++	{
++		.name = "I2SMC",
++		.ipc_type = SOF_DAI_CIX_I2S_MC_IPC,
++		.tokens = {
++			.name = "CIX I2SMC",
++			.tokens = sky1_i2s_mc_tokens,
++			.count = ARRAY_SIZE(sky1_i2s_mc_tokens),
++		},
++		.config_offset = offsetof(struct sof_ipc_dai_config, cix_i2s_mc),
++		.config_size = sizeof(struct sof_ipc_dai_i2s_mc_params),
++		.hw_config_optional = true,
++		.config_finalize = sky1_i2s_mc_finalize,
++		.link_fixup = sky1_i2s_mc_link_fixup,
++	},
++};
+diff --git a/sound/soc/sof/cix/cix-sky1-ipc3.h b/sound/soc/sof/cix/cix-sky1-ipc3.h
+new file mode 100644
+--- /dev/null
++++ b/sound/soc/sof/cix/cix-sky1-ipc3.h
+@@ -0,0 +1,18 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
++/*
++ * Sound Open Firmware IPC3 definitions for the CIX Sky1 HiFi5 DSP
++ *
++ * Copyright 2026 CIX kernel overlay maintainers
++ */
++
++#ifndef __SOUND_SOC_SOF_CIX_SKY1_IPC3_H
++#define __SOUND_SOC_SOF_CIX_SKY1_IPC3_H
++
++#include "../sof-audio.h"
++
++#define SKY1_SOF_IPC3_DAI_COUNT	2
++
++extern const struct sof_ipc3_platform_dai
++sky1_sof_ipc3_dais[SKY1_SOF_IPC3_DAI_COUNT];
++
++#endif /* __SOUND_SOC_SOF_CIX_SKY1_IPC3_H */
+diff --git a/sound/soc/sof/cix/cix-sky1.c b/sound/soc/sof/cix/cix-sky1.c
+new file mode 100644
+--- /dev/null
++++ b/sound/soc/sof/cix/cix-sky1.c
+@@ -0,0 +1,572 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
++/*
++ * Sound Open Firmware support for the CIX Sky1 HiFi5 DSP
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ * Copyright 2026 CIX kernel overlay maintainers
++ */
++
++#include <linux/acpi.h>
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/mailbox_client.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/reset.h>
++#include <linux/soc/cix/cix_hifi5.h>
++
++#include <sound/sof.h>
++#include <sound/sof/xtensa.h>
++
++#include "../ops.h"
++#include "../sof-acpi-dev.h"
++#include "../sof-audio.h"
++#include "cix-sky1-ipc3.h"
++
++#define SKY1_HIFI2			0x08
++#define SKY1_HIFI2_RUN_STALL		BIT(1)
++
++#define SKY1_SOF_IRAM_BASE		0x1c80400000ULL
++#define SKY1_SOF_IRAM_SIZE		SZ_1M
++#define SKY1_SOF_SHARED_BASE		0xce000000ULL
++#define SKY1_SOF_SHARED_SIZE		SZ_16M
++#define SKY1_SOF_MAILBOX_OFFSET		0x00800000
++#define SKY1_SOF_STACK_WORDS		32
++#define SKY1_SOF_EXCEPT_MAX_HDR_SIZE	0x400
++
++struct sky1_sof {
++	struct device *dev;
++	struct snd_sof_dev *sdev;
++	struct cix_hifi5_hw hw;
++	struct mbox_client tx_client;
++	struct mbox_client rx_client;
++	struct mbox_chan *tx_chan;
++	struct mbox_chan *rx_chan;
++	bool resources_enabled;
++};
++
++static void sky1_sof_free_mailboxes(struct sky1_sof *priv)
++{
++	if (priv->rx_chan) {
++		mbox_free_channel(priv->rx_chan);
++		priv->rx_chan = NULL;
++	}
++
++	if (priv->tx_chan) {
++		mbox_free_channel(priv->tx_chan);
++		priv->tx_chan = NULL;
++	}
++}
++
++static void sky1_sof_handle_reply(struct mbox_client *client, void *message)
++{
++	struct sky1_sof *priv =
++		container_of(client, struct sky1_sof, tx_client);
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->sdev->ipc_lock, flags);
++	snd_sof_ipc_process_reply(priv->sdev, 0);
++	spin_unlock_irqrestore(&priv->sdev->ipc_lock, flags);
++
++	mbox_client_txdone(priv->tx_chan, 0);
++}
++
++static void sky1_sof_handle_request(struct mbox_client *client, void *message)
++{
++	struct sky1_sof *priv =
++		container_of(client, struct sky1_sof, rx_client);
++	u32 panic_code;
++
++	sof_mailbox_read(priv->sdev, priv->sdev->debug_box.offset + sizeof(u32),
++			 &panic_code, sizeof(panic_code));
++	if ((panic_code & SOF_IPC_PANIC_MAGIC_MASK) == SOF_IPC_PANIC_MAGIC)
++		snd_sof_dsp_panic(priv->sdev, panic_code, true);
++	else
++		snd_sof_ipc_msgs_rx(priv->sdev);
++}
++
++static int sky1_sof_request_mailboxes(struct sky1_sof *priv)
++{
++	struct mbox_client *client;
++	int ret;
++
++	client = &priv->tx_client;
++	client->dev = priv->dev;
++	client->tx_block = false;
++	client->knows_txdone = false;
++	client->rx_callback = sky1_sof_handle_reply;
++
++	priv->tx_chan = mbox_request_channel_byname(client, "txdb");
++	if (IS_ERR(priv->tx_chan)) {
++		ret = PTR_ERR(priv->tx_chan);
++		priv->tx_chan = NULL;
++		return ret;
++	}
++
++	client = &priv->rx_client;
++	client->dev = priv->dev;
++	client->tx_block = false;
++	client->knows_txdone = false;
++	client->rx_callback = sky1_sof_handle_request;
++
++	priv->rx_chan = mbox_request_channel_byname(client, "rxdb");
++	if (IS_ERR(priv->rx_chan)) {
++		ret = PTR_ERR(priv->rx_chan);
++		priv->rx_chan = NULL;
++		mbox_free_channel(priv->tx_chan);
++		priv->tx_chan = NULL;
++		return ret;
++	}
++
++	return 0;
++}
++
++static int sky1_sof_enable_resources(struct sky1_sof *priv)
++{
++	int ret;
++
++	if (priv->resources_enabled)
++		return 0;
++
++	ret = cix_hifi5_hw_enable(&priv->hw);
++	if (ret)
++		return ret;
++
++	ret = sky1_sof_request_mailboxes(priv);
++	if (!ret) {
++		priv->resources_enabled = true;
++		return 0;
++	}
++
++	cix_hifi5_hw_disable(&priv->hw);
++	return ret;
++}
++
++static void sky1_sof_disable_resources(struct sky1_sof *priv)
++{
++	sky1_sof_free_mailboxes(priv);
++	cix_hifi5_hw_disable(&priv->hw);
++	priv->resources_enabled = false;
++}
++
++static int sky1_sof_send_msg(struct snd_sof_dev *sdev,
++			     struct snd_sof_ipc_msg *message)
++{
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int ret;
++
++	sof_mailbox_write(sdev, sdev->host_box.offset, message->msg_data,
++			  message->msg_size);
++	dma_wmb();
++
++	ret = mbox_send_message(priv->tx_chan, NULL);
++	return ret < 0 ? ret : 0;
++}
++
++static int sky1_sof_reset(struct snd_sof_dev *sdev)
++{
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int ret;
++
++	ret = reset_control_assert(priv->hw.dsp_reset);
++	if (ret)
++		return ret;
++
++	ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++				 SKY1_HIFI2_RUN_STALL, SKY1_HIFI2_RUN_STALL);
++	if (ret)
++		return ret;
++
++	usleep_range(1, 2);
++	return reset_control_deassert(priv->hw.dsp_reset);
++}
++
++static int sky1_sof_pre_fw_run(struct snd_sof_dev *sdev)
++{
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int ret;
++
++	ret = reset_control_assert(priv->hw.dsp_reset);
++	if (ret)
++		return ret;
++
++	usleep_range(1, 2);
++	return reset_control_deassert(priv->hw.dsp_reset);
++}
++
++static int sky1_sof_run(struct snd_sof_dev *sdev)
++{
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int ret;
++
++	dma_wmb();
++	ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++				 SKY1_HIFI2_RUN_STALL, 0);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static int sky1_sof_shutdown(struct snd_sof_dev *sdev)
++{
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int reset_ret;
++	int stall_ret;
++
++	stall_ret = regmap_update_bits(priv->hw.ctrl, SKY1_HIFI2,
++				       SKY1_HIFI2_RUN_STALL,
++				       SKY1_HIFI2_RUN_STALL);
++	reset_ret = reset_control_assert(priv->hw.dsp_reset);
++
++	return stall_ret ?: reset_ret;
++}
++
++static void sky1_sof_get_registers(struct snd_sof_dev *sdev,
++				   struct sof_ipc_dsp_oops_xtensa *oops,
++				   struct sof_ipc_panic_info *panic_info,
++				   u32 *stack, size_t stack_words)
++{
++	u32 offset = sdev->dsp_oops_offset;
++
++	sof_mailbox_read(sdev, offset, oops, sizeof(*oops));
++	if (oops->arch_hdr.totalsize > SKY1_SOF_EXCEPT_MAX_HDR_SIZE) {
++		dev_err(sdev->dev, "invalid DSP exception header size %#x\n",
++			oops->arch_hdr.totalsize);
++		return;
++	}
++
++	offset += oops->arch_hdr.totalsize;
++	sof_mailbox_read(sdev, offset, panic_info, sizeof(*panic_info));
++	offset += sizeof(*panic_info);
++	sof_mailbox_read(sdev, offset, stack, stack_words * sizeof(*stack));
++}
++
++static void sky1_sof_dump(struct snd_sof_dev *sdev, u32 flags)
++{
++	struct sof_ipc_dsp_oops_xtensa oops;
++	struct sof_ipc_panic_info panic_info;
++	u32 stack[SKY1_SOF_STACK_WORDS];
++	u32 status;
++
++	sof_mailbox_read(sdev, sdev->debug_box.offset + sizeof(u32), &status,
++			 sizeof(status));
++	sky1_sof_get_registers(sdev, &oops, &panic_info, stack,
++			       ARRAY_SIZE(stack));
++	sof_print_oops_and_stack(sdev, KERN_ERR, status, status, &oops,
++				 &panic_info, stack, ARRAY_SIZE(stack));
++}
++
++static int sky1_sof_get_bar_index(struct snd_sof_dev *sdev, u32 type)
++{
++	switch (type) {
++	case SOF_FW_BLK_TYPE_IRAM:
++	case SOF_FW_BLK_TYPE_SRAM:
++		return type;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int sky1_sof_get_mailbox_offset(struct snd_sof_dev *sdev)
++{
++	return SKY1_SOF_MAILBOX_OFFSET;
++}
++
++static int sky1_sof_get_window_offset(struct snd_sof_dev *sdev, u32 id)
++{
++	return SKY1_SOF_MAILBOX_OFFSET;
++}
++
++static int sky1_sof_set_power_state(struct snd_sof_dev *sdev,
++				    const struct sof_dsp_power_state *target)
++{
++	sdev->dsp_power_state = *target;
++	return 0;
++}
++
++static int sky1_sof_resume_resources(struct sky1_sof *priv)
++{
++	return sky1_sof_enable_resources(priv);
++}
++
++static int sky1_sof_runtime_resume(struct snd_sof_dev *sdev)
++{
++	const struct sof_dsp_power_state state = { .state = SOF_DSP_PM_D0 };
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int ret;
++
++	ret = sky1_sof_resume_resources(priv);
++	if (ret)
++		return ret;
++
++	return snd_sof_dsp_set_power_state(sdev, &state);
++}
++
++static int sky1_sof_runtime_suspend(struct snd_sof_dev *sdev)
++{
++	const struct sof_dsp_power_state state = { .state = SOF_DSP_PM_D3 };
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++
++	sky1_sof_disable_resources(priv);
++	return snd_sof_dsp_set_power_state(sdev, &state);
++}
++
++static int sky1_sof_resume(struct snd_sof_dev *sdev)
++{
++	const struct sof_dsp_power_state state = { .state = SOF_DSP_PM_D0 };
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++	int ret;
++
++	ret = sky1_sof_resume_resources(priv);
++	if (ret)
++		return ret;
++
++	return snd_sof_dsp_set_power_state(sdev, &state);
++}
++
++static int sky1_sof_suspend(struct snd_sof_dev *sdev, u32 target_state)
++{
++	const struct sof_dsp_power_state state = { .state = target_state };
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++
++	sky1_sof_disable_resources(priv);
++	return snd_sof_dsp_set_power_state(sdev, &state);
++}
++
++static int sky1_sof_probe(struct snd_sof_dev *sdev)
++{
++	struct device *dev = sdev->dev;
++	struct sky1_sof *priv;
++	int ret;
++
++	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->dev = dev;
++	priv->sdev = sdev;
++	sdev->pdata->hw_pdata = priv;
++	sdev->num_cores = 1;
++
++	sdev->bar[SOF_FW_BLK_TYPE_IRAM] =
++		devm_ioremap_wc(dev, SKY1_SOF_IRAM_BASE, SKY1_SOF_IRAM_SIZE);
++	if (!sdev->bar[SOF_FW_BLK_TYPE_IRAM])
++		return dev_err_probe(dev, -ENOMEM, "failed to map DSP IRAM\n");
++	sdev->mmio_bar = SOF_FW_BLK_TYPE_IRAM;
++
++	sdev->bar[SOF_FW_BLK_TYPE_SRAM] =
++		devm_ioremap_wc(dev, SKY1_SOF_SHARED_BASE, SKY1_SOF_SHARED_SIZE);
++	if (!sdev->bar[SOF_FW_BLK_TYPE_SRAM])
++		return dev_err_probe(dev, -ENOMEM,
++				     "failed to map DSP shared SRAM\n");
++	sdev->mailbox_bar = SOF_FW_BLK_TYPE_SRAM;
++	sdev->dsp_box.offset = SKY1_SOF_MAILBOX_OFFSET;
++
++	ret = cix_hifi5_hw_init(dev, &priv->hw);
++	if (ret)
++		return ret;
++
++	ret = devm_cix_hifi5_declare_dma_pool(dev);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to declare DSP coherent pool\n");
++
++	ret = sky1_sof_enable_resources(priv);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				     "failed to enable DSP resources\n");
++
++	return 0;
++}
++
++static void sky1_sof_remove(struct snd_sof_dev *sdev)
++{
++	struct sky1_sof *priv = sdev->pdata->hw_pdata;
++
++	sky1_sof_disable_resources(priv);
++}
++
++static struct snd_soc_dai_driver sky1_sof_dais[] = {
++	{
++		.name = "i2s0",
++		.id = 0,
++		.playback = {
++			.channels_min = 1,
++			.channels_max = 16,
++		},
++		.capture = {
++			.channels_min = 1,
++			.channels_max = 16,
++		},
++		.symmetric_rate = 1,
++		.symmetric_channels = 1,
++	},
++	{
++		.name = "i2s3",
++		.id = 3,
++		.playback = {
++			.channels_min = 2,
++			.channels_max = 16,
++		},
++		.capture = {
++			.channels_min = 2,
++			.channels_max = 16,
++		},
++	},
++	{
++		.name = "host-process",
++		.id = 4,
++		.playback = {
++			.stream_name = "HiFi5 Process Playback",
++			.channels_min = 2,
++			.channels_max = 2,
++			.rates = SNDRV_PCM_RATE_48000,
++			.formats = SNDRV_PCM_FMTBIT_S16_LE,
++		},
++		.capture = {
++			.stream_name = "HiFi5 Process Capture",
++			.channels_min = 2,
++			.channels_max = 2,
++			.rates = SNDRV_PCM_RATE_48000,
++			.formats = SNDRV_PCM_FMTBIT_S16_LE,
++		},
++		.symmetric_rate = 1,
++		.symmetric_channels = 1,
++		.symmetric_sample_bits = 1,
++	},
++};
++
++static struct snd_soc_acpi_mach sky1_sof_machine = {
++	.drv_name = "sof-cix-sky1-nocodec",
++	.sof_tplg_filename = "sof-sky1-nocodec.tplg",
++};
++
++static struct snd_soc_acpi_mach *sky1_sof_machine_select(struct snd_sof_dev *sdev)
++{
++	sdev->pdata->tplg_filename = sky1_sof_machine.sof_tplg_filename;
++
++	return &sky1_sof_machine;
++}
++
++static void sky1_sof_set_mach_params(struct snd_soc_acpi_mach *mach,
++				     struct snd_sof_dev *sdev)
++{
++	struct snd_soc_acpi_mach_params *params = &mach->mach_params;
++
++	params->platform = dev_name(sdev->dev);
++	params->num_dai_drivers = 2;
++	params->dai_drivers = sky1_sof_dais;
++}
++
++static const struct snd_sof_dsp_ops sky1_sof_ops = {
++	.probe = sky1_sof_probe,
++	.remove = sky1_sof_remove,
++	.shutdown = sky1_sof_shutdown,
++	.reset = sky1_sof_reset,
++	.pre_fw_run = sky1_sof_pre_fw_run,
++	.run = sky1_sof_run,
++	.block_read = sof_block_read,
++	.block_write = sof_block_write,
++	.mailbox_read = sof_mailbox_read,
++	.mailbox_write = sof_mailbox_write,
++	.send_msg = sky1_sof_send_msg,
++	.ipc_msg_data = sof_ipc_msg_data,
++	.set_stream_data_offset = sof_set_stream_data_offset,
++	.load_firmware = snd_sof_load_firmware_memcpy,
++	.get_bar_index = sky1_sof_get_bar_index,
++	.get_mailbox_offset = sky1_sof_get_mailbox_offset,
++	.get_window_offset = sky1_sof_get_window_offset,
++	.pcm_open = sof_stream_pcm_open,
++	.pcm_close = sof_stream_pcm_close,
++	.dbg_dump = sky1_sof_dump,
++	.debugfs_add_region_item = snd_sof_debugfs_add_region_item_iomem,
++	.suspend = sky1_sof_suspend,
++	.resume = sky1_sof_resume,
++	.runtime_suspend = sky1_sof_runtime_suspend,
++	.runtime_resume = sky1_sof_runtime_resume,
++	.set_power_state = sky1_sof_set_power_state,
++	.set_mach_params = sky1_sof_set_mach_params,
++	.machine_select = sky1_sof_machine_select,
++	.machine_register = sof_machine_register,
++	.machine_unregister = sof_machine_unregister,
++	.drv = sky1_sof_dais,
++	.num_drv = ARRAY_SIZE(sky1_sof_dais),
++	.ipc3_dais = sky1_sof_ipc3_dais,
++	.num_ipc3_dais = SKY1_SOF_IPC3_DAI_COUNT,
++	.hw_info = SNDRV_PCM_INFO_MMAP |
++		   SNDRV_PCM_INFO_MMAP_VALID |
++		   SNDRV_PCM_INFO_INTERLEAVED |
++		   SNDRV_PCM_INFO_PAUSE |
++		   SNDRV_PCM_INFO_NO_PERIOD_WAKEUP,
++	.dsp_arch_ops = &sof_xtensa_arch_ops,
++};
++
++static const struct sof_dev_desc sky1_sof_desc = {
++	.ipc_supported_mask = BIT(SOF_IPC_TYPE_3),
++	.ipc_default = SOF_IPC_TYPE_3,
++	.default_fw_path = {
++		[SOF_IPC_TYPE_3] = "cix/sof",
++	},
++	.default_tplg_path = {
++		[SOF_IPC_TYPE_3] = "cix/sof-tplg",
++	},
++	.default_fw_filename = {
++		[SOF_IPC_TYPE_3] = "sof-sky1.ri",
++	},
++	.nocodec_tplg_filename = "sof-sky1-nocodec.tplg",
++	.ops = &sky1_sof_ops,
++};
++
++static int sky1_sof_acpi_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	int ret;
++
++	if (device_property_match_string(dev, "mbox-names", "txdb") < 0 ||
++	    device_property_match_string(dev, "mbox-names", "rxdb") < 0)
++		return dev_err_probe(dev, -EOPNOTSUPP,
++			"SOF doorbell mailboxes are not described by firmware\n");
++
++	ret = cix_hifi5_validate_memory(dev);
++	if (ret)
++		return ret;
++
++	return sof_acpi_probe(pdev, &sky1_sof_desc);
++}
++
++static void sky1_sof_acpi_remove(struct platform_device *pdev)
++{
++	sof_acpi_remove(pdev);
++}
++
++static void sky1_sof_acpi_shutdown(struct platform_device *pdev)
++{
++	snd_sof_device_shutdown(&pdev->dev);
++}
++
++static const struct acpi_device_id sky1_sof_acpi_match[] = {
++	{ "CIXH6000" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, sky1_sof_acpi_match);
++
++static struct platform_driver sky1_sof_driver = {
++	.probe = sky1_sof_acpi_probe,
++	.remove = sky1_sof_acpi_remove,
++	.shutdown = sky1_sof_acpi_shutdown,
++	.driver = {
++		.name = "sof-audio-acpi-cix-sky1",
++		.acpi_match_table = sky1_sof_acpi_match,
++		.pm = pm_ptr(&sof_acpi_pm),
++	},
++};
++module_platform_driver(sky1_sof_driver);
++
++MODULE_IMPORT_NS("SND_SOC_SOF_ACPI_DEV");
++MODULE_IMPORT_NS("SND_SOC_SOF_XTENSA");
++MODULE_SOFTDEP("pre: snd-sof-cix-sky1-nocodec");
++MODULE_DESCRIPTION("SOF support for the CIX Sky1 HiFi5 DSP");
++MODULE_LICENSE("Dual BSD/GPL");
+diff --git a/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
+new file mode 100644
+--- /dev/null
++++ b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
+@@ -0,0 +1,142 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
++/*
++ * Codec-free ASoC machine support for the CIX Sky1 HiFi5 DSP
++ *
++ * Copyright 2026 CIX kernel overlay maintainers
++ */
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <sound/sof.h>
++#include <sound/soc.h>
++
++#include "../sof-audio.h"
++
++static const struct snd_soc_dapm_route sky1_sof_routes[] = {
++	{ "HiFi5 Process Playback", NULL, "BUF4.1" },
++	{ "PCM2C", NULL, "HiFi5 Process Capture" },
++};
++
++static int sky1_sof_add_dai_link(struct snd_soc_card *card,
++				 struct snd_soc_dai_link *link)
++{
++	if (!strcmp(link->name, "HiFi5 Process"))
++		link->be_hw_params_fixup = NULL;
++
++	return 0;
++}
++
++static int sky1_sof_physical_link(struct device *dev,
++				  struct snd_soc_dai_link *link,
++				  struct snd_soc_dai_driver *dai)
++{
++	struct snd_soc_dai_link_component *components;
++
++	components = devm_kcalloc(dev, 2, sizeof(*components), GFP_KERNEL);
++	if (!components)
++		return -ENOMEM;
++
++	link->name = devm_kasprintf(dev, GFP_KERNEL, "NoCodec-%u", dai->id);
++	if (!link->name)
++		return -ENOMEM;
++
++	link->stream_name = link->name;
++	link->cpus = &components[0];
++	link->codecs = &snd_soc_dummy_dlc;
++	link->platforms = &components[1];
++	link->num_cpus = 1;
++	link->num_codecs = 1;
++	link->num_platforms = 1;
++	link->id = dai->id;
++	link->no_pcm = 1;
++	link->cpus->dai_name = dai->name;
++	link->platforms->name = dev_name(dev->parent);
++	link->playback_only = dai->playback.channels_min &&
++			      !dai->capture.channels_min;
++	link->capture_only = !dai->playback.channels_min &&
++			     dai->capture.channels_min;
++	link->be_hw_params_fixup = sof_pcm_dai_link_fixup;
++
++	return 0;
++}
++
++static int sky1_sof_process_link(struct device *dev,
++				 struct snd_soc_dai_link *link)
++{
++	struct snd_soc_dai_link_component *components;
++
++	components = devm_kcalloc(dev, 2, sizeof(*components), GFP_KERNEL);
++	if (!components)
++		return -ENOMEM;
++
++	link->name = "HiFi5 Process";
++	link->stream_name = link->name;
++	link->cpus = &components[0];
++	link->codecs = &snd_soc_dummy_dlc;
++	link->platforms = &components[1];
++	link->num_cpus = 1;
++	link->num_codecs = 1;
++	link->num_platforms = 1;
++	link->id = 4;
++	link->no_pcm = 1;
++	link->cpus->dai_name = "host-process";
++	link->platforms->name = dev_name(dev->parent);
++
++	return 0;
++}
++
++static int sky1_sof_nocodec_probe(struct platform_device *pdev)
++{
++	struct snd_soc_acpi_mach *mach = dev_get_platdata(&pdev->dev);
++	struct snd_soc_card *card;
++	struct snd_soc_dai_link *links;
++	unsigned int i;
++	int ret;
++
++	if (!mach || mach->mach_params.num_dai_drivers != 2)
++		return dev_err_probe(&pdev->dev, -EINVAL,
++				     "expected two physical DSP DAIs\n");
++
++	card = devm_kzalloc(&pdev->dev, sizeof(*card), GFP_KERNEL);
++	links = devm_kcalloc(&pdev->dev, 3, sizeof(*links), GFP_KERNEL);
++	if (!card || !links)
++		return -ENOMEM;
++
++	for (i = 0; i < mach->mach_params.num_dai_drivers; i++) {
++		ret = sky1_sof_physical_link(&pdev->dev, &links[i],
++					     &mach->mach_params.dai_drivers[i]);
++		if (ret)
++			return ret;
++	}
++
++	ret = sky1_sof_process_link(&pdev->dev, &links[i]);
++	if (ret)
++		return ret;
++
++	card->name = "nocodec";
++	strscpy(card->topology_shortname, "sof-nocodec",
++		sizeof(card->topology_shortname));
++	card->topology_shortname_created = true;
++	card->owner = THIS_MODULE;
++	card->dev = &pdev->dev;
++	card->dai_link = links;
++	card->num_links = 3;
++	card->dapm_routes = sky1_sof_routes;
++	card->num_dapm_routes = ARRAY_SIZE(sky1_sof_routes);
++	card->add_dai_link = sky1_sof_add_dai_link;
++
++	return devm_snd_soc_register_card(&pdev->dev, card);
++}
++
++static struct platform_driver sky1_sof_nocodec_driver = {
++	.probe = sky1_sof_nocodec_probe,
++	.driver = {
++		.name = "sof-cix-sky1-nocodec",
++		.pm = &snd_soc_pm_ops,
++	},
++};
++module_platform_driver(sky1_sof_nocodec_driver);
++
++MODULE_DESCRIPTION("CIX Sky1 SOF codec-free ASoC machine driver");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_ALIAS("platform:sof-cix-sky1-nocodec");
+diff --git a/sound/soc/sof/compress.c b/sound/soc/sof/compress.c
+--- a/sound/soc/sof/compress.c
++++ b/sound/soc/sof/compress.c
+@@ -217,7 +217,8 @@ static int sof_compr_set_params(struct snd_soc_component *component,
+ 	if (ret < 0)
+ 		goto out;
+ 
+-	pcm->params.buffer.pages = PFN_UP(crtd->dma_bytes);
++	pcm->params.buffer.pages =
++		DIV_ROUND_UP(crtd->dma_bytes, SOF_IPC_HOST_PAGE_SIZE);
+ 	pcm->hdr.size = sizeof(*pcm) + ext_data_size;
+ 	pcm->hdr.cmd = SOF_IPC_GLB_STREAM_MSG | SOF_IPC_STREAM_PCM_PARAMS;
+ 
+diff --git a/sound/soc/sof/ipc3-pcm.c b/sound/soc/sof/ipc3-pcm.c
+--- a/sound/soc/sof/ipc3-pcm.c
++++ b/sound/soc/sof/ipc3-pcm.c
+@@ -57,7 +57,8 @@ static int sof_ipc3_pcm_hw_params(struct snd_soc_component *component,
+ 	memset(&pcm, 0, sizeof(pcm));
+ 
+ 	/* number of pages should be rounded up */
+-	pcm.params.buffer.pages = PFN_UP(runtime->dma_bytes);
++	pcm.params.buffer.pages =
++		DIV_ROUND_UP(runtime->dma_bytes, SOF_IPC_HOST_PAGE_SIZE);
+ 
+ 	/* set IPC PCM parameters */
+ 	pcm.hdr.size = sizeof(pcm);
+@@ -231,6 +232,16 @@ static int sof_ipc3_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd,
+ 			rtd->dai_link->name);
+ 		return -EINVAL;
+ 	}
++	if (!private->comp_dai || !private->dai_config) {
++		dev_err(component->dev, "%s: Incomplete config for DAI %s\n", __func__,
++			rtd->dai_link->name);
++		return -EINVAL;
++	}
++	if (dai->current_config < 0 || dai->current_config >= dai->number_configs) {
++		dev_err(component->dev, "%s: Invalid config %d for DAI %s\n", __func__,
++			dai->current_config, rtd->dai_link->name);
++		return -EINVAL;
++	}
+ 
+ 	/* read format from topology */
+ 	snd_mask_none(fmt);
+@@ -250,6 +261,17 @@ static int sof_ipc3_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd,
+ 		return -EINVAL;
+ 	}
+ 
++	if (dai->ipc3_dai) {
++		if (!dai->ipc3_dai->link_fixup) {
++			dev_err(component->dev, "No link fixup for platform DAI %s\n",
++				dai->ipc3_dai->name);
++			return -EINVAL;
++		}
++
++		return dai->ipc3_dai->link_fixup(rtd, params,
++				&private->dai_config[dai->current_config]);
++	}
++
+ 	/* read rate and channels from topology */
+ 	switch (private->dai_config->type) {
+ 	case SOF_DAI_INTEL_SSP:
+@@ -423,7 +445,7 @@ static int sof_ipc3_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd,
+ 		break;
+ 	default:
+ 		dev_err(component->dev, "Invalid DAI type %d\n", private->dai_config->type);
+-		break;
++		return -EINVAL;
+ 	}
+ 
+ 	return 0;
+diff --git a/sound/soc/sof/ipc3-topology.c b/sound/soc/sof/ipc3-topology.c
+--- a/sound/soc/sof/ipc3-topology.c
++++ b/sound/soc/sof/ipc3-topology.c
+@@ -1555,6 +1555,120 @@ static int sof_link_alh_load(struct snd_soc_component *scomp, struct snd_sof_dai
+ 	return 0;
+ }
+ 
++static int sof_ipc3_validate_platform_tokens(struct snd_soc_component *scomp,
++					     const struct snd_sof_dai_link *slink)
++{
++	const struct sof_token_info *token_info = &slink->platform_dai->tokens;
++	int i;
++
++	for (i = 0; i < token_info->count; i++) {
++		int count = 0;
++		int j;
++
++		for (j = 0; j < slink->num_tuples; j++) {
++			if (slink->tuples[j].token == token_info->tokens[i].token)
++				count++;
++		}
++
++		if (count != 1) {
++			dev_err(scomp->dev,
++				"DAI link %s requires exactly one %s token %u, found %d\n",
++				slink->link->name, token_info->name,
++				token_info->tokens[i].token, count);
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++}
++
++static int sof_ipc3_validate_platform_widget(struct snd_soc_component *scomp,
++					     const struct snd_sof_widget *swidget,
++					     const struct sof_ipc3_platform_dai *platform_dai)
++{
++	const char *name = NULL;
++	int count = 0;
++	int i;
++
++	for (i = 0; i < swidget->num_tuples; i++) {
++		if (swidget->tuples[i].token != SOF_TKN_DAI_TYPE)
++			continue;
++
++		name = swidget->tuples[i].value.s;
++		count++;
++	}
++
++	if (count != 1 || !name || strcmp(name, platform_dai->name)) {
++		dev_err(scomp->dev,
++			"DAI widget %s type does not match platform link type %s\n",
++			swidget->widget->name, platform_dai->name);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int sof_link_platform_dai_load(struct snd_soc_component *scomp,
++				      struct snd_sof_dai_link *slink,
++				      struct sof_ipc_dai_config *config,
++				      struct snd_sof_dai *dai)
++{
++	const struct sof_ipc3_platform_dai *platform_dai = slink->platform_dai;
++	struct sof_dai_private_data *private = dai->private;
++	const struct sof_ipc_comp_dai *comp_dai = private->comp_dai;
++	void *platform_config;
++	int ret;
++
++	if (slink->num_hw_configs > 1 ||
++	    (!slink->num_hw_configs && !platform_dai->hw_config_optional)) {
++		dev_err(scomp->dev, "DAI link %s has %d hardware configs, expected %s\n",
++			slink->link->name, slink->num_hw_configs,
++			platform_dai->hw_config_optional ? "zero or one" : "one");
++		return -EINVAL;
++	}
++
++	if (platform_dai->config_offset > sizeof(*config) ||
++	    platform_dai->config_size > sizeof(*config) - platform_dai->config_offset) {
++		dev_err(scomp->dev, "Invalid platform DAI config layout for %s\n",
++			platform_dai->name);
++		return -EINVAL;
++	}
++
++	ret = sof_ipc3_validate_platform_tokens(scomp, slink);
++	if (ret)
++		return ret;
++
++	config->hdr.cmd = SOF_IPC_GLB_DAI_MSG | SOF_IPC_DAI_CONFIG;
++	config->hdr.size = sizeof(*config);
++	config->type = platform_dai->ipc_type;
++	config->dai_index = comp_dai->dai_index;
++	if (slink->num_hw_configs)
++		sof_dai_set_format(slink->hw_configs, config);
++	platform_config = (u8 *)config + platform_dai->config_offset;
++	memset(platform_config, 0, platform_dai->config_size);
++
++	ret = sof_update_ipc_object_token_info(scomp, platform_config,
++					       &platform_dai->tokens, slink->tuples,
++					       slink->num_tuples,
++					       platform_dai->config_size, 1);
++	if (ret)
++		return ret;
++
++	if (platform_dai->config_finalize) {
++		ret = platform_dai->config_finalize(scomp, slink, config);
++		if (ret)
++			return ret;
++	}
++
++	dai->number_configs = 1;
++	dai->current_config = 0;
++	private->dai_config = kmemdup(config, sizeof(*config), GFP_KERNEL);
++	if (!private->dai_config)
++		return -ENOMEM;
++
++	return 0;
++}
++
+ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
+ {
+ 	struct snd_soc_component *scomp = swidget->scomp;
+@@ -1615,33 +1729,55 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
+ 
+ 	/* now update DAI config */
+ 	list_for_each_entry(slink, &sdev->dai_link_list, list) {
+-		struct sof_ipc_dai_config common_config;
++		struct sof_ipc_dai_config common_config = { 0 };
++		int num_configs;
+ 		int i;
+ 
+ 		if (strcmp(slink->link->name, dai->name))
+ 			continue;
+ 
++		if (slink->platform_dai) {
++			ret = sof_ipc3_validate_platform_widget(scomp, swidget,
++								slink->platform_dai);
++			if (ret)
++				goto free_comp;
++
++			dai->ipc3_dai = slink->platform_dai;
++			comp_dai->type = slink->platform_dai->ipc_type;
++		}
++
+ 		/* Reserve memory for all hw configs, eventually freed by widget */
+-		config = kzalloc_objs(*config, slink->num_hw_configs);
++		num_configs = slink->platform_dai ? max(slink->num_hw_configs, 1) :
++			slink->num_hw_configs;
++		config = kzalloc_objs(*config, num_configs);
+ 		if (!config) {
+ 			ret = -ENOMEM;
+ 			goto free_comp;
+ 		}
+ 
+-		/* parse one set of DAI link tokens */
+-		ret = sof_update_ipc_object(scomp, &common_config, SOF_DAI_LINK_TOKENS,
+-					    slink->tuples, slink->num_tuples,
+-					    sizeof(common_config), 1);
+-		if (ret < 0)
+-			goto free_config;
++		if (!slink->platform_dai) {
++			/* parse one set of DAI link tokens */
++			ret = sof_update_ipc_object(scomp, &common_config,
++						    SOF_DAI_LINK_TOKENS, slink->tuples,
++						    slink->num_tuples,
++						    sizeof(common_config), 1);
++			if (ret < 0)
++				goto free_config;
++		}
+ 
+ 		for (i = 0; i < slink->num_hw_configs; i++) {
+ 			config[i].hdr.cmd = SOF_IPC_GLB_DAI_MSG | SOF_IPC_DAI_CONFIG;
+ 			config[i].format = le32_to_cpu(slink->hw_configs[i].fmt);
+-			config[i].type = common_config.type;
++			config[i].type = slink->platform_dai ?
++				slink->platform_dai->ipc_type : common_config.type;
+ 			config[i].dai_index = comp_dai->dai_index;
+ 		}
+ 
++		if (slink->platform_dai) {
++			ret = sof_link_platform_dai_load(scomp, slink, config, dai);
++			goto config_loaded;
++		}
++
+ 		switch (common_config.type) {
+ 		case SOF_DAI_INTEL_SSP:
+ 			ret = sof_link_ssp_load(scomp, slink, config, dai);
+@@ -1685,8 +1821,10 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
+ 			ret = sof_link_acp_sdw_load(scomp, slink, config, dai);
+ 			break;
+ 		default:
++			ret = -EINVAL;
+ 			break;
+ 		}
++config_loaded:
+ 		if (ret < 0) {
+ 			dev_err(scomp->dev, "failed to load config for dai %s\n", dai->name);
+ 			goto free_config;
+@@ -1695,6 +1833,12 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
+ 		kfree(config);
+ 	}
+ 
++	if (!private->dai_config) {
++		dev_err(scomp->dev, "No DAI link config found for %s\n", dai->name);
++		ret = -EINVAL;
++		goto free_comp;
++	}
++
+ 	return 0;
+ free_config:
+ 	kfree(config);
+@@ -1703,6 +1847,7 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
+ free:
+ 	kfree(private);
+ 	dai->private = NULL;
++	dai->ipc3_dai = NULL;
+ 	return ret;
+ }
+ 
+@@ -2157,46 +2302,51 @@ static int sof_ipc3_dai_config(struct snd_sof_dev *sdev, struct snd_sof_widget *
+ 		dev_err(sdev->dev, "No config for DAI %s\n", dai->name);
+ 		return -EINVAL;
+ 	}
+-
+-	config = &private->dai_config[dai->current_config];
+-	if (!config) {
+-		dev_err(sdev->dev, "Invalid current config for DAI %s\n", dai->name);
++	if (dai->current_config < 0 || dai->current_config >= dai->number_configs) {
++		dev_err(sdev->dev, "Invalid current config %d for DAI %s\n",
++			dai->current_config, dai->name);
+ 		return -EINVAL;
+ 	}
+ 
+-	switch (config->type) {
+-	case SOF_DAI_INTEL_SSP:
+-		/*
+-		 * DAI_CONFIG IPC during hw_params/hw_free for SSP DAI's is not supported in older
+-		 * firmware
+-		 */
+-		if (v->abi_version < SOF_ABI_VER(3, 18, 0) &&
+-		    ((flags & SOF_DAI_CONFIG_FLAGS_HW_PARAMS) ||
+-		     (flags & SOF_DAI_CONFIG_FLAGS_HW_FREE)))
+-			return 0;
+-		break;
+-	case SOF_DAI_INTEL_HDA:
+-		if (data)
+-			config->hda.link_dma_ch = data->dai_data;
+-		break;
+-	case SOF_DAI_INTEL_ALH:
+-		if (data) {
+-			/* save the dai_index during hw_params and reuse it for hw_free */
+-			if (flags & SOF_DAI_CONFIG_FLAGS_HW_PARAMS) {
+-				/* Subtract the base to match the FW dai index. */
+-				if (data->dai_index < INTEL_ALH_DAI_INDEX_BASE) {
+-					dev_err(sdev->dev,
+-						"Invalid ALH dai index %d, only Pin numbers >= %d can be used\n",
+-						config->dai_index, INTEL_ALH_DAI_INDEX_BASE);
+-					return -EINVAL;
++	config = &private->dai_config[dai->current_config];
++
++	if (!dai->ipc3_dai) {
++		switch (config->type) {
++		case SOF_DAI_INTEL_SSP:
++			/*
++			 * DAI_CONFIG IPC during hw_params/hw_free for SSP DAI's is not
++			 * supported in older firmware.
++			 */
++			if (v->abi_version < SOF_ABI_VER(3, 18, 0) &&
++			    ((flags & SOF_DAI_CONFIG_FLAGS_HW_PARAMS) ||
++			     (flags & SOF_DAI_CONFIG_FLAGS_HW_FREE)))
++				return 0;
++			break;
++		case SOF_DAI_INTEL_HDA:
++			if (data)
++				config->hda.link_dma_ch = data->dai_data;
++			break;
++		case SOF_DAI_INTEL_ALH:
++			if (data) {
++				/* save dai_index during hw_params and reuse it for hw_free */
++				if (flags & SOF_DAI_CONFIG_FLAGS_HW_PARAMS) {
++					/* Subtract the base to match the FW dai index. */
++					if (data->dai_index < INTEL_ALH_DAI_INDEX_BASE) {
++						dev_err(sdev->dev,
++							"Invalid ALH dai index %d, only Pin numbers >= %d can be used\n",
++							config->dai_index,
++							INTEL_ALH_DAI_INDEX_BASE);
++						return -EINVAL;
++					}
++					config->dai_index = data->dai_index -
++						INTEL_ALH_DAI_INDEX_BASE;
+ 				}
+-				config->dai_index = data->dai_index - INTEL_ALH_DAI_INDEX_BASE;
++				config->alh.stream_id = data->dai_data;
+ 			}
+-			config->alh.stream_id = data->dai_data;
++			break;
++		default:
++			break;
+ 		}
+-		break;
+-	default:
+-		break;
+ 	}
+ 
+ 	/*
+diff --git a/sound/soc/sof/pcm.c b/sound/soc/sof/pcm.c
+--- a/sound/soc/sof/pcm.c
++++ b/sound/soc/sof/pcm.c
+@@ -761,6 +761,7 @@ static int sof_pcm_probe(struct snd_soc_component *component)
+ 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
+ 	struct snd_sof_pdata *plat_data = sdev->pdata;
+ 	const char *tplg_filename;
++	bool pm_acquired;
+ 	int ret;
+ 
+ 	/*
+@@ -770,6 +771,7 @@ static int sof_pcm_probe(struct snd_soc_component *component)
+ 	ret = pm_runtime_resume_and_get(component->dev);
+ 	if (ret < 0 && ret != -EACCES)
+ 		return ret;
++	pm_acquired = ret >= 0;
+ 
+ 	/* load the default topology */
+ 	sdev->component = component;
+@@ -789,7 +791,8 @@ static int sof_pcm_probe(struct snd_soc_component *component)
+ 			ret);
+ 
+ pm_error:
+-	pm_runtime_put_autosuspend(component->dev);
++	if (pm_acquired)
++		pm_runtime_put_autosuspend(component->dev);
+ 
+ 	return ret;
+ }
+diff --git a/sound/soc/sof/sof-audio.h b/sound/soc/sof/sof-audio.h
+--- a/sound/soc/sof/sof-audio.h
++++ b/sound/soc/sof/sof-audio.h
+@@ -39,6 +39,8 @@
+ 
+ #define DMA_CHAN_INVALID	0xFFFFFFFF
+ 
++struct snd_sof_dai_link;
++
+ #define WIDGET_IS_DAI(id) ((id) == snd_soc_dapm_dai_in || (id) == snd_soc_dapm_dai_out)
+ #define WIDGET_IS_AIF(id) ((id) == snd_soc_dapm_aif_in || (id) == snd_soc_dapm_aif_out)
+ #define WIDGET_IS_AIF_OR_DAI(id) (WIDGET_IS_DAI(id) || WIDGET_IS_AIF(id))
+@@ -315,6 +317,32 @@ struct sof_token_info {
+ 	int count;
+ };
+ 
++/**
++ * struct sof_ipc3_platform_dai - platform-owned IPC3 DAI description
++ * @name: topology DAI type name
++ * @ipc_type: firmware ABI DAI identifier
++ * @tokens: platform-specific topology tokens
++ * @config_offset: byte offset of the platform parameters in sof_ipc_dai_config
++ * @config_size: size of the platform parameter structure
++ * @hw_config_optional: platform tokens completely describe links without a generic hw_config
++ * @config_finalize: optional platform validation and hardware-configuration completion
++ * @link_fixup: platform-specific PCM hardware-parameter fixup
++ */
++struct sof_ipc3_platform_dai {
++	const char *name;
++	u32 ipc_type;
++	struct sof_token_info tokens;
++	size_t config_offset;
++	size_t config_size;
++	bool hw_config_optional;
++	int (*config_finalize)(struct snd_soc_component *scomp,
++			       const struct snd_sof_dai_link *slink,
++			       struct sof_ipc_dai_config *config);
++	int (*link_fixup)(struct snd_soc_pcm_runtime *rtd,
++			  struct snd_pcm_hw_params *params,
++			  const struct sof_ipc_dai_config *config);
++};
++
+ /**
+  * struct snd_sof_pcm_stream_pipeline_list - List of pipelines associated with a PCM stream
+  * @pipelines: array of pipelines
+@@ -401,6 +429,7 @@ struct snd_sof_control {
+  * @tuples: array of parsed tuples
+  * @num_tuples: number of tuples in the tuples array
+  * @link: Pointer to snd_soc_dai_link
++ * @platform_dai: optional platform-specific IPC3 DAI description
+  * @hw_configs: Pointer to hw configs in topology
+  * @num_hw_configs: Number of hw configs in topology
+  * @default_hw_cfg_id: Default hw config ID
+@@ -411,6 +440,7 @@ struct snd_sof_dai_link {
+ 	struct snd_sof_tuple *tuples;
+ 	int num_tuples;
+ 	struct snd_soc_dai_link *link;
++	const struct sof_ipc3_platform_dai *platform_dai;
+ 	int num_hw_configs;
+ 	int default_hw_cfg_id;
+ 	int type;
+@@ -543,11 +573,23 @@ struct snd_sof_route {
+ 	void *private;
+ };
+ 
+-/* ASoC DAI device */
++/**
++ * struct snd_sof_dai - ASoC DAI device
++ * @scomp: SOF component
++ * @name: DAI name
++ * @type: firmware DAI type
++ * @ipc3_dai: optional platform-specific IPC3 DAI description
++ * @number_configs: number of firmware configurations
++ * @current_config: selected firmware configuration
++ * @list: item in the SOF DAI list
++ * @platform_private: platform-owned private data
++ * @private: IPC implementation private data
++ */
+ struct snd_sof_dai {
+ 	struct snd_soc_component *scomp;
+ 	const char *name;
+ 	u32 type;
++	const struct sof_ipc3_platform_dai *ipc3_dai;
+ 
+ 	int number_configs;
+ 	int current_config;
+@@ -704,5 +746,11 @@ int get_token_string(void *elem, void *object, u32 offset);
+ int sof_update_ipc_object(struct snd_soc_component *scomp, void *object, enum sof_tokens token_id,
+ 			  struct snd_sof_tuple *tuples, int num_tuples,
+ 			  size_t object_size, int token_instance_num);
++int sof_update_ipc_object_token_info(struct snd_soc_component *scomp, void *object,
++				     const struct sof_token_info *token_info,
++				     struct snd_sof_tuple *tuples, int num_tuples,
++				     size_t object_size, int token_instance_num);
++const struct sof_ipc3_platform_dai *
++sof_ipc3_find_platform_dai(struct snd_sof_dev *sdev, const char *name);
+ u32 vol_compute_gain(u32 value, int *tlv);
+ #endif
+diff --git a/sound/soc/sof/sof-priv.h b/sound/soc/sof/sof-priv.h
+--- a/sound/soc/sof/sof-priv.h
++++ b/sound/soc/sof/sof-priv.h
+@@ -123,6 +123,7 @@ struct snd_sof_debugfs_map;
+ struct snd_soc_tplg_ops;
+ struct snd_soc_component;
+ struct snd_sof_pdata;
++struct sof_ipc3_platform_dai;
+ 
+ /**
+  * struct snd_sof_platform_stream_params - platform dependent stream parameters
+@@ -351,6 +352,8 @@ struct snd_sof_dsp_ops {
+ 	/* DAI ops */
+ 	struct snd_soc_dai_driver *drv;
+ 	int num_drv;
++	const struct sof_ipc3_platform_dai *ipc3_dais;
++	size_t num_ipc3_dais;
+ 
+ 	bool (*is_chain_dma_supported)(struct snd_sof_dev *sdev, u32 dai_type); /* optional */
+ 
+diff --git a/sound/soc/sof/sof-utils.c b/sound/soc/sof/sof-utils.c
+--- a/sound/soc/sof/sof-utils.c
++++ b/sound/soc/sof/sof-utils.c
+@@ -12,14 +12,15 @@
+ #include <linux/io-64-nonatomic-lo-hi.h>
+ #include <linux/device.h>
+ #include <sound/memalloc.h>
++#include <sound/sof/stream.h>
+ #include <linux/module.h>
+ #include "sof-utils.h"
+ 
+ /*
+  * Generic buffer page table creation.
+  * Take the each physical page address and drop the least significant unused
+- * bits from each (based on PAGE_SIZE). Then pack valid page address bits
+- * into compressed page table.
++ * bits from each (based on the fixed IPC host-page size). Then pack valid
++ * page address bits into compressed page table.
+  */
+ 
+ int snd_sof_create_page_table(struct device *dev,
+@@ -28,7 +29,7 @@ int snd_sof_create_page_table(struct device *dev,
+ {
+ 	int i, pages;
+ 
+-	pages = snd_sgbuf_aligned_pages(size);
++	pages = DIV_ROUND_UP(size, SOF_IPC_HOST_PAGE_SIZE);
+ 
+ 	dev_dbg(dev, "generating page table for %p size 0x%zx pages %d\n",
+ 		dmab->area, size, pages);
+@@ -42,7 +43,9 @@ int snd_sof_create_page_table(struct device *dev,
+ 		 * This can be calculated by multiplying the page number by 2.5.
+ 		 */
+ 		u32 idx = (5 * i) >> 1;
+-		u32 pfn = snd_sgbuf_get_addr(dmab, i * PAGE_SIZE) >> PAGE_SHIFT;
++		u32 pfn = snd_sgbuf_get_addr(dmab,
++					     i * SOF_IPC_HOST_PAGE_SIZE) >>
++			  SOF_IPC_HOST_PAGE_SHIFT;
+ 		u8 *pg_table;
+ 
+ 		pg_table = (u8 *)(page_table + idx);
+diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
+--- a/sound/soc/sof/topology.c
++++ b/sound/soc/sof/topology.c
+@@ -41,49 +41,45 @@ MODULE_PARM_DESC(disable_function_topology, "Disable function topology loading")
+ #define TLV_MUTE	2
+ 
+ /**
+- * sof_update_ipc_object - Parse multiple sets of tokens within the token array associated with the
+- *			    token ID.
++ * sof_update_ipc_object_token_info - Parse multiple sets of tokens
+  * @scomp: pointer to SOC component
+  * @object: target IPC struct to save the parsed values
+- * @token_id: token ID for the token array to be searched
++ * @token_info: token definitions to search
+  * @tuples: pointer to the tuples array
+  * @num_tuples: number of tuples in the tuples array
+  * @object_size: size of the object
+  * @token_instance_num: number of times the same @token_id needs to be parsed i.e. the function
+- *			looks for @token_instance_num of each token in the token array associated
+- *			with the @token_id
++ *			looks for @token_instance_num of each token in @token_info
+  */
+-int sof_update_ipc_object(struct snd_soc_component *scomp, void *object, enum sof_tokens token_id,
+-			  struct snd_sof_tuple *tuples, int num_tuples,
+-			  size_t object_size, int token_instance_num)
++int sof_update_ipc_object_token_info(struct snd_soc_component *scomp, void *object,
++				     const struct sof_token_info *token_info,
++				     struct snd_sof_tuple *tuples, int num_tuples,
++				     size_t object_size, int token_instance_num)
+ {
+-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+-	const struct sof_ipc_tplg_ops *tplg_ops = sof_ipc_get_ops(sdev, tplg);
+-	const struct sof_token_info *token_list;
+ 	const struct sof_topology_token *tokens;
+ 	int i, j;
+ 
+-	token_list = tplg_ops ? tplg_ops->token_list : NULL;
+-	/* nothing to do if token_list is NULL */
+-	if (!token_list)
++	if (!token_info)
+ 		return 0;
+ 
+-	if (token_list[token_id].count < 0) {
+-		dev_err(scomp->dev, "Invalid token count for token ID: %d\n", token_id);
++	if (token_info->count < 0 || token_instance_num <= 0) {
++		dev_err(scomp->dev, "Invalid token count for %s\n",
++			token_info->name ?: "unnamed tokens");
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* No tokens to match */
+-	if (!token_list[token_id].count)
++	if (!token_info->count)
+ 		return 0;
+ 
+-	tokens = token_list[token_id].tokens;
++	tokens = token_info->tokens;
+ 	if (!tokens) {
+-		dev_err(scomp->dev, "Invalid tokens for token id: %d\n", token_id);
++		dev_err(scomp->dev, "Invalid tokens for %s\n",
++			token_info->name ?: "unnamed tokens");
+ 		return -EINVAL;
+ 	}
+ 
+-	for (i = 0; i < token_list[token_id].count; i++) {
++	for (i = 0; i < token_info->count; i++) {
+ 		int offset = 0;
+ 		int num_tokens_matched = 0;
+ 
+@@ -112,7 +108,8 @@ int sof_update_ipc_object(struct snd_soc_component *scomp, void *object, enum so
+ 					if (!tokens[i].get_token) {
+ 						dev_err(scomp->dev,
+ 							"get_token not defined for token %d in %s\n",
+-							tokens[i].token, token_list[token_id].name);
++							tokens[i].token,
++							token_info->name ?: "unnamed tokens");
+ 						return -EINVAL;
+ 					}
+ 
+@@ -139,6 +136,21 @@ int sof_update_ipc_object(struct snd_soc_component *scomp, void *object, enum so
+ 	return 0;
+ }
+ 
++int sof_update_ipc_object(struct snd_soc_component *scomp, void *object, enum sof_tokens token_id,
++			  struct snd_sof_tuple *tuples, int num_tuples,
++			  size_t object_size, int token_instance_num)
++{
++	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
++	const struct sof_ipc_tplg_ops *tplg_ops = sof_ipc_get_ops(sdev, tplg);
++	const struct sof_token_info *token_list = tplg_ops ? tplg_ops->token_list : NULL;
++
++	if (!token_list)
++		return 0;
++
++	return sof_update_ipc_object_token_info(scomp, object, &token_list[token_id], tuples,
++						num_tuples, object_size, token_instance_num);
++}
++
+ static inline int get_tlv_data(const int *p, int tlv[SOF_TLV_ITEMS])
+ {
+ 	/* we only support dB scale TLV type at the moment */
+@@ -317,6 +329,23 @@ static enum sof_ipc_dai_type find_dai(const char *name)
+ 	return SOF_DAI_INTEL_NONE;
+ }
+ 
++const struct sof_ipc3_platform_dai *
++sof_ipc3_find_platform_dai(struct snd_sof_dev *sdev, const char *name)
++{
++	const struct sof_ipc3_platform_dai *dais = sof_ops(sdev)->ipc3_dais;
++	size_t i;
++
++	if (!name || !dais)
++		return NULL;
++
++	for (i = 0; i < sof_ops(sdev)->num_ipc3_dais; i++) {
++		if (!strcmp(dais[i].name, name))
++			return &dais[i];
++	}
++
++	return NULL;
++}
++
+ /*
+  * Supported Frame format types and lookup, add new ones to end of list.
+  */
+@@ -488,11 +517,11 @@ static int sof_parse_uuid_tokens(struct snd_soc_component *scomp,
+ }
+ 
+ /**
+- * sof_copy_tuples - Parse tokens and copy them to the @tuples array
++ * sof_copy_tuples_token_info - Parse tokens and copy them to the @tuples array
+  * @sdev: pointer to struct snd_sof_dev
+  * @array: source pointer to consecutive vendor arrays in topology
+  * @array_size: size of @array
+- * @token_id: Token ID associated with a token array
++ * @token_info: token definitions to search
+  * @token_instance_num: number of times the same @token_id needs to be parsed i.e. the function
+  *			looks for @token_instance_num of each token in the token array associated
+  *			with the @token_id
+@@ -501,20 +530,18 @@ static int sof_parse_uuid_tokens(struct snd_soc_component *scomp,
+  * @num_copied_tuples: pointer to the number of copied tuples in the tuples array
+  *
+  */
+-static int sof_copy_tuples(struct snd_sof_dev *sdev, struct snd_soc_tplg_vendor_array *array,
+-			   int array_size, u32 token_id, int token_instance_num,
+-			   struct snd_sof_tuple *tuples, int tuples_size, int *num_copied_tuples)
++static int sof_copy_tuples_token_info(struct snd_sof_dev *sdev,
++				      struct snd_soc_tplg_vendor_array *array,
++				      int array_size, const struct sof_token_info *token_info,
++				      int token_instance_num, struct snd_sof_tuple *tuples,
++				      int tuples_size, int *num_copied_tuples)
+ {
+-	const struct sof_ipc_tplg_ops *tplg_ops = sof_ipc_get_ops(sdev, tplg);
+-	const struct sof_token_info *token_list;
+ 	const struct sof_topology_token *tokens;
+ 	int found = 0;
+ 	int num_tokens, asize;
+ 	int i, j;
+ 
+-	token_list = tplg_ops ? tplg_ops->token_list : NULL;
+-	/* nothing to do if token_list is NULL */
+-	if (!token_list)
++	if (!token_info)
+ 		return 0;
+ 
+ 	if (!tuples || !num_copied_tuples) {
+@@ -522,18 +549,19 @@ static int sof_copy_tuples(struct snd_sof_dev *sdev, struct snd_soc_tplg_vendor_
+ 		return -EINVAL;
+ 	}
+ 
+-	tokens = token_list[token_id].tokens;
+-	num_tokens = token_list[token_id].count;
++	tokens = token_info->tokens;
++	num_tokens = token_info->count;
+ 
+-	if (!tokens) {
+-		dev_err(sdev->dev, "No token array defined for token ID: %d\n", token_id);
++	if (!tokens || num_tokens <= 0 || token_instance_num <= 0) {
++		dev_err(sdev->dev, "Invalid token array for %s\n",
++			token_info->name ?: "unnamed tokens");
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* check if there's space in the tuples array for new tokens */
+ 	if (*num_copied_tuples >= tuples_size) {
+ 		dev_err(sdev->dev, "No space in tuples array for new tokens from %s",
+-			token_list[token_id].name);
++			token_info->name ?: "unnamed tokens");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -613,6 +641,21 @@ static int sof_copy_tuples(struct snd_sof_dev *sdev, struct snd_soc_tplg_vendor_
+ 	return 0;
+ }
+ 
++static int sof_copy_tuples(struct snd_sof_dev *sdev, struct snd_soc_tplg_vendor_array *array,
++			   int array_size, u32 token_id, int token_instance_num,
++			   struct snd_sof_tuple *tuples, int tuples_size, int *num_copied_tuples)
++{
++	const struct sof_ipc_tplg_ops *tplg_ops = sof_ipc_get_ops(sdev, tplg);
++	const struct sof_token_info *token_list = tplg_ops ? tplg_ops->token_list : NULL;
++
++	if (!token_list)
++		return 0;
++
++	return sof_copy_tuples_token_info(sdev, array, array_size, &token_list[token_id],
++					  token_instance_num, tuples, tuples_size,
++					  num_copied_tuples);
++}
++
+ /**
+  * sof_parse_string_tokens - Parse multiple sets of tokens
+  * @scomp: pointer to soc component
+@@ -1869,9 +1912,16 @@ static int sof_dai_unload(struct snd_soc_component *scomp,
+ 	return 0;
+ }
+ 
++struct sof_dai_type_data {
++	char *name;
++	int type;
++};
++
+ static const struct sof_topology_token common_dai_link_tokens[] = {
+ 	{SOF_TKN_DAI_TYPE, SND_SOC_TPLG_TUPLE_TYPE_STRING, get_token_dai_type,
+-		offsetof(struct snd_sof_dai_link, type)},
++		offsetof(struct sof_dai_type_data, type)},
++	{SOF_TKN_DAI_TYPE, SND_SOC_TPLG_TUPLE_TYPE_STRING, get_token_string,
++		offsetof(struct sof_dai_type_data, name)},
+ };
+ 
+ /* DAI link - used for any driver specific init */
+@@ -1883,6 +1933,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+ 	struct snd_soc_tplg_private *private = &cfg->priv;
+ 	const struct sof_token_info *token_list;
+ 	struct snd_sof_dai_link *slink;
++	struct sof_dai_type_data type_data = { 0 };
+ 	u32 token_id = 0;
+ 	int num_tuples = 0;
+ 	int ret, num_sets;
+@@ -1924,15 +1975,33 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+ 	dev_dbg(scomp->dev, "tplg: %d hw_configs found, default id: %d for dai link %s!\n",
+ 		slink->num_hw_configs, slink->default_hw_cfg_id, link->name);
+ 
+-	ret = sof_parse_tokens(scomp, slink, common_dai_link_tokens,
++	ret = sof_parse_tokens(scomp, &type_data, common_dai_link_tokens,
+ 			       ARRAY_SIZE(common_dai_link_tokens),
+ 			       private->array, le32_to_cpu(private->size));
+ 	if (ret < 0) {
+-		dev_err(scomp->dev, "Failed tp parse common DAI link tokens\n");
+-		kfree(slink);
+-		return ret;
++		dev_err(scomp->dev, "Failed to parse common DAI link tokens\n");
++		goto err;
+ 	}
+ 
++	if (!type_data.name) {
++		dev_err(scomp->dev, "DAI link %s has no type name\n", link->name);
++		ret = -EINVAL;
++		goto err;
++	}
++
++	slink->type = type_data.type;
++	if (slink->type == SOF_DAI_INTEL_NONE) {
++		slink->platform_dai = sof_ipc3_find_platform_dai(sdev, type_data.name);
++		if (!slink->platform_dai) {
++			dev_err(scomp->dev, "Unsupported DAI type %s for link %s\n",
++				type_data.name, link->name);
++			ret = -EINVAL;
++			goto err;
++		}
++	}
++	kfree(type_data.name);
++	type_data.name = NULL;
++
+ 	token_list = tplg_ops ? tplg_ops->token_list : NULL;
+ 	if (!token_list)
+ 		goto out;
+@@ -1940,6 +2009,12 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+ 	/* calculate size of tuples array */
+ 	num_tuples += token_list[SOF_DAI_LINK_TOKENS].count;
+ 	num_sets = slink->num_hw_configs;
++	if (slink->platform_dai) {
++		num_sets = 1;
++		num_tuples += slink->platform_dai->tokens.count;
++		goto alloc_tuples;
++	}
++
+ 	switch (slink->type) {
+ 	case SOF_DAI_INTEL_SSP:
+ 		token_id = SOF_SSP_TOKENS;
+@@ -1996,6 +2071,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+ 		break;
+ 	}
+ 
++alloc_tuples:
+ 	/* allocate memory for tuples array */
+ 	slink->tuples = kzalloc_objs(*slink->tuples, num_tuples);
+ 	if (!slink->tuples) {
+@@ -2015,6 +2091,20 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+ 		}
+ 	}
+ 
++	if (slink->platform_dai) {
++		ret = sof_copy_tuples_token_info(sdev, private->array,
++						 le32_to_cpu(private->size),
++						 &slink->platform_dai->tokens, num_sets,
++						 slink->tuples, num_tuples,
++						 &slink->num_tuples);
++		if (ret < 0) {
++			dev_err(scomp->dev, "failed to parse %s for dai link %s\n",
++				slink->platform_dai->tokens.name, link->name);
++			goto err;
++		}
++		goto out;
++	}
++
+ 	/* nothing more to do if there are no DAI type-specific tokens defined */
+ 	if (!token_id || !token_list[token_id].tokens)
+ 		goto out;
+@@ -2055,6 +2145,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+ 	return 0;
+ 
+ err:
++	kfree(type_data.name);
+ 	kfree(slink->tuples);
+ 	kfree(slink);
+ 

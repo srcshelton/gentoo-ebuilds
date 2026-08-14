@@ -1,0 +1,71 @@
+BPF struct_ops providers require vmlinux BTF and use kallsyms to resolve
+kernel function stubs.  Kconfig currently permits providers with KALLSYMS
+disabled, so their registration fails during boot even though the options
+were presented as usable.
+
+Represent the complete build-time contract with a hidden BPF_STRUCT_OPS
+capability and gate every in-tree provider and configurable consumer on it.
+Ordinary BPF, TCP congestion-control, HID, and other non-struct_ops features
+remain available without KALLSYMS.
+
+diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
+--- a/kernel/Kconfig.preempt
++++ b/kernel/Kconfig.preempt
+@@ -165,7 +165,7 @@ config SCHED_CORE
+ 
+ config SCHED_CLASS_EXT
+ 	bool "Extensible Scheduling Class"
+-	depends on BPF_SYSCALL && BPF_JIT && DEBUG_INFO_BTF
++	depends on BPF_STRUCT_OPS
+ 	select STACKTRACE if STACKTRACE_SUPPORT
+ 	help
+ 	  This option enables a new scheduler class sched_ext (SCX), which
+diff --git a/kernel/bpf/Kconfig b/kernel/bpf/Kconfig
+--- a/kernel/bpf/Kconfig
++++ b/kernel/bpf/Kconfig
+@@ -55,6 +55,13 @@ config BPF_JIT
+ 	  /proc/sys/net/core/bpf_jit_harden   (optional)
+ 	  /proc/sys/net/core/bpf_jit_kallsyms (optional)
+ 
++config BPF_STRUCT_OPS
++	def_bool y
++	depends on BPF_SYSCALL
++	depends on BPF_JIT
++	depends on DEBUG_INFO_BTF
++	depends on KALLSYMS
++
+ config BPF_JIT_ALWAYS_ON
+ 	bool "Permanently enable BPF JIT and remove BPF interpreter"
+ 	depends on BPF_SYSCALL && HAVE_EBPF_JIT && BPF_JIT
+diff --git a/net/bpf/Makefile b/net/bpf/Makefile
+--- a/net/bpf/Makefile
++++ b/net/bpf/Makefile
+@@ -1,5 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-$(CONFIG_BPF_SYSCALL)	:= test_run.o
+ ifeq ($(CONFIG_BPF_JIT),y)
+-obj-$(CONFIG_BPF_SYSCALL)	+= bpf_dummy_struct_ops.o
++obj-$(CONFIG_BPF_STRUCT_OPS)	+= bpf_dummy_struct_ops.o
+ endif
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -70,5 +70,5 @@ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+ obj-$(CONFIG_TCP_AO) += tcp_ao.o
+ 
+ ifeq ($(CONFIG_BPF_JIT),y)
+-obj-$(CONFIG_BPF_SYSCALL) += bpf_tcp_ca.o
++obj-$(CONFIG_BPF_STRUCT_OPS) += bpf_tcp_ca.o
+ endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -405,7 +405,7 @@ config NET_SCH_ETS
+ 
+ config NET_SCH_BPF
+ 	bool "BPF-based Qdisc"
+-	depends on BPF_SYSCALL && BPF_JIT && DEBUG_INFO_BTF
++	depends on BPF_STRUCT_OPS
+ 	help
+ 	  This option allows BPF-based queueing disiplines. With BPF struct_ops,
+ 	  users can implement supported operators in Qdisc_ops using BPF programs.

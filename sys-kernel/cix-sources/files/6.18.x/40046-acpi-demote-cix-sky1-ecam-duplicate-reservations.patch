@@ -1,0 +1,133 @@
+ACPI/PNP: demote verified CIX Sky1 PCI ECAM duplicates
+
+Stock CIXTEK SKY1EDK2 firmware describes the PCI ECAM windows again through
+PNP0C02 UID 0.  Recognise only the complete five-window form or the exact
+combined-window form, and demote the message only when the conflicting resource
+is named PCI ECAM.  All other reservation conflicts retain the generic
+informational diagnostic.  No firmware version string is consulted.
+
+---
+diff --git a/drivers/pnp/system.c b/drivers/pnp/system.c
+--- a/drivers/pnp/system.c
++++ b/drivers/pnp/system.c
+@@ -14,6 +14,8 @@
+ #include <linux/slab.h>
+ #include <linux/kernel.h>
+ #include <linux/ioport.h>
++#include <linux/acpi.h>
++#include <linux/string.h>
+ 
+ static const struct pnp_device_id pnp_dev_table[] = {
+ 	/* General ID for reserving resources */
+@@ -23,11 +25,65 @@ static const struct pnp_device_id pnp_dev_table[] = {
+ 	{"", 0}
+ };
+ 
++#ifdef CONFIG_ACPI
++static bool has_exact_cix_sky1_ecam_resources(struct pnp_dev *dev)
++{
++	unsigned int count = 0, ranges = 0;
++	struct resource *r;
++	int i;
++
++	for (i = 0; (r = pnp_get_resource(dev, IORESOURCE_MEM, i)); i++) {
++		if (r->flags & IORESOURCE_DISABLED)
++			continue;
++
++		count++;
++		if (r->start == 0x20000000 && r->end == 0x2fffffff)
++			ranges |= 0x20;
++		else if (r->start == 0x20000000 && r->end == 0x21ffffff)
++			ranges |= 0x01;
++		else if (r->start == 0x23000000 && r->end == 0x24ffffff)
++			ranges |= 0x02;
++		else if (r->start == 0x26000000 && r->end == 0x27ffffff)
++			ranges |= 0x04;
++		else if (r->start == 0x29000000 && r->end == 0x2affffff)
++			ranges |= 0x08;
++		else if (r->start == 0x2c000000 && r->end == 0x2fffffff)
++			ranges |= 0x10;
++		else
++			return false;
++	}
++
++	return (count == 1 && ranges == 0x20) ||
++	       (count == 5 && ranges == 0x1f);
++}
++
++static bool is_cix_sky1_ecam_duplicate(struct pnp_dev *dev)
++{
++	static const struct acpi_platform_list cix_sky1_platforms[] = {
++		{"CIXTEK", "SKY1EDK2", 0, ACPI_SIG_DSDT, all_versions},
++		{ }
++	};
++	struct acpi_device *adev = pnp_acpi_device(dev);
++
++	return adev &&
++	       acpi_match_platform_list(cix_sky1_platforms) >= 0 &&
++	       acpi_dev_hid_uid_match(adev, "PNP0C02", 0) &&
++	       has_exact_cix_sky1_ecam_resources(dev);
++}
++#else
++static bool is_cix_sky1_ecam_duplicate(struct pnp_dev *dev)
++{
++	return false;
++}
++#endif
++
+ static void reserve_range(struct pnp_dev *dev, struct resource *r, int port)
+ {
+ 	char *regionid;
+ 	const char *pnpid = dev_name(&dev->dev);
+ 	resource_size_t start = r->start, end = r->end;
++	struct resource *conflict = NULL;
++	bool cix_ecam_duplicate;
+ 	struct resource *res;
+ 
+ 	regionid = kmalloc(16, GFP_KERNEL);
+@@ -35,14 +91,41 @@ static void reserve_range(struct pnp_dev *dev, struct resource *r, int port)
+ 		return;
+ 
+ 	snprintf(regionid, 16, "pnp %s", pnpid);
+-	if (port)
++	cix_ecam_duplicate = !port && is_cix_sky1_ecam_duplicate(dev);
++
++	if (port) {
+ 		res = request_region(start, end - start + 1, regionid);
+-	else
++	} else if (cix_ecam_duplicate) {
++		res = kzalloc(sizeof(*res), GFP_KERNEL);
++		if (!res) {
++			kfree(regionid);
++			return;
++		}
++
++		res->name = regionid;
++		res->start = start;
++		res->end = end;
++		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
++		conflict = request_resource_conflict(&iomem_resource, res);
++		if (conflict) {
++			kfree(res);
++			res = NULL;
++		}
++	} else {
+ 		res = request_mem_region(start, end - start + 1, regionid);
+-	if (res)
++	}
++
++	if (res) {
+ 		res->flags &= ~IORESOURCE_BUSY;
+-	else
++	} else {
+ 		kfree(regionid);
++		if (cix_ecam_duplicate && conflict && conflict->name &&
++		    !strcmp(conflict->name, "PCI ECAM")) {
++			dev_dbg(&dev->dev,
++				"%pR already reserved by PCI ECAM\n", r);
++			return;
++		}
++	}
+ 
+ 	/*
+ 	 * Failures at this point are usually harmless. pci quirks for

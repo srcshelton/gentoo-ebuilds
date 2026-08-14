@@ -1,28 +1,113 @@
 drm: cix: make DPTX higher stream clocks optional under ACPI
 
+Some Sky1 ACPI firmware describes only the two stream clocks used by the
+shipping display topology.  Treat stream clocks 2 and 3 as optional, limit
+the advertised stream capability to the contiguous clocks actually present,
+and propagate clock acquisition and enable failures instead of programming
+an unclocked stream.
+
+This is an independently removable firmware-policy patch: without it the
+driver retains the vendor requirement for all four stream clocks.
+
 diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 --- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 +++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
-@@ -1813,6 +1813,13 @@ static int trilin_dp_ctrl_enable_stream_clocks(struct trilin_dp *dp,
+@@ -1881,11 +1881,11 @@ static int trilin_dp_ctrl_enable_stream_clocks(struct trilin_dp *dp,
+ 					       struct trilin_dp_panel *dp_panel,
+ 					       bool enable)
+ {
+-	int rc = 0;
++	int rc;
+ 	struct clk *vid_clk;
+ 
+ 	if (dp->platform_id != CIX_PLATFORM_SOC)
+-		return rc;
++		return 0;
+ 
+ 	if (dp_panel->source_id == DP_STREAM_0) {
+ 		vid_clk = dp->dpsub->vid_clk0;
+@@ -1901,13 +1901,26 @@ static int trilin_dp_ctrl_enable_stream_clocks(struct trilin_dp *dp,
  		return -EINVAL;
  	}
  
+-	if (enable)
+-		clk_prepare_enable(vid_clk);
+-	else if (__clk_is_enabled(vid_clk))
 +	if (IS_ERR(vid_clk))
 +		return PTR_ERR(vid_clk);
 +	if (!vid_clk) {
-+		DP_DEBUG("stream%d has no clk", dp_panel->stream_id);
-+		return 0;
++		DP_ERR("source%d has no stream clock\n", dp_panel->source_id);
++		return -EOPNOTSUPP;
 +	}
 +
- 	if (enable)
- 		clk_prepare_enable(vid_clk);
- 	else if (__clk_is_enabled(vid_clk))
-@@ -3459,8 +3466,15 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
++	if (enable) {
++		rc = clk_prepare_enable(vid_clk);
++		if (rc) {
++			DP_ERR("failed to enable source%d clock: %d\n",
++			       dp_panel->source_id, rc);
++			return rc;
++		}
++	} else if (__clk_is_enabled(vid_clk)) {
+ 		clk_disable_unprepare(vid_clk);
++	}
+ 
+ 	DP_DEBUG("%s source%d clk", enable ? "enable" : "disable", dp_panel->source_id);
+-	return rc;
++	return 0;
+ }
+ 
+ static int trilin_dp_ctrl_stream_on(struct trilin_dp *dp,
+@@ -1918,7 +1931,9 @@ static int trilin_dp_ctrl_stream_on(struct trilin_dp *dp,
+ 	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->source_id;
+ 
+ 	/*enable stream power and clock*/
+-	trilin_dp_ctrl_enable_stream_clocks(dp, dp_panel, true);
++	rc = trilin_dp_ctrl_enable_stream_clocks(dp, dp_panel, true);
++	if (rc)
++		return rc;
+ 
+ 	if (dp->enabled_by_gop) {
+ 		DP_DEBUG("[enabled_by_gop]");
+@@ -3141,8 +3156,10 @@ int trilin_dp_enable(struct trilin_dp *dp, struct trilin_dp_panel *dp_panel)
+ 	//trilin_dp_sink_set_msa_timing_ignore(dp, dp_panel, true);
+ 
+ 	rc = trilin_dp_ctrl_stream_on(dp, dp_panel);
+-	if (rc)
++	if (rc) {
++		trilin_dp_edp_panel_unprepare(dp);
+ 		goto end;
++	}
+ 
+ 	dp->state |= DPTX_STATE_ENABLED;
+ end:
+@@ -3496,7 +3513,6 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	dp->cfg_adapter_port = 0;
+ 	device_property_read_u32(dev, "cfg_adapter_port", &dp->cfg_adapter_port);
+ 
+-	dp->max_mst_encoders = dp->max_streams;
+ 	dp->link_config.max_lanes = dp->num_lanes;
+ 	dp->link_config.max_rate = dp->max_rate;
+ 
+@@ -3504,10 +3520,36 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	dp->reset = devm_reset_control_get(dev, "dp_reset");
+ 
  	dpsub->apb_clk = devm_clk_get(dev, "apb_clk");
++	if (IS_ERR(dpsub->apb_clk))
++		return dev_err_probe(dev, PTR_ERR(dpsub->apb_clk),
++				     "failed to get apb_clk\n");
++
  	dpsub->vid_clk0 = devm_clk_get(dev, "vid_clk0");
++	if (IS_ERR(dpsub->vid_clk0))
++		return dev_err_probe(dev, PTR_ERR(dpsub->vid_clk0),
++				     "failed to get vid_clk0\n");
++
  	dpsub->vid_clk1 = devm_clk_get(dev, "vid_clk1");
 -	dpsub->vid_clk2 = devm_clk_get(dev, "vid_clk2");
 -	dpsub->vid_clk3 = devm_clk_get(dev, "vid_clk3");
++	if (IS_ERR(dpsub->vid_clk1))
++		return dev_err_probe(dev, PTR_ERR(dpsub->vid_clk1),
++				     "failed to get vid_clk1\n");
++
 +	dpsub->vid_clk2 = devm_clk_get_optional(dev, "vid_clk2");
 +	if (IS_ERR(dpsub->vid_clk2))
 +		return dev_err_probe(dev, PTR_ERR(dpsub->vid_clk2),
@@ -32,6 +117,13 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
 +	if (IS_ERR(dpsub->vid_clk3))
 +		return dev_err_probe(dev, PTR_ERR(dpsub->vid_clk3),
 +				     "failed to get vid_clk3\n");
++
++	dp->max_streams = min_t(u32, dp->max_streams, DP_STREAM_MAX);
++	if (!dpsub->vid_clk2)
++		dp->max_streams = min_t(u32, dp->max_streams, DP_STREAM_2);
++	else if (!dpsub->vid_clk3)
++		dp->max_streams = min_t(u32, dp->max_streams, DP_STREAM_3);
++	dp->max_mst_encoders = dp->max_streams;
  
  	ret = dptx_register_audio_device(dp);
  	if (ret)

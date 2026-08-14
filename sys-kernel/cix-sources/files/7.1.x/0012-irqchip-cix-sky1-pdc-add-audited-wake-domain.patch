@@ -1,0 +1,265 @@
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2710,6 +2710,7 @@ F:	Documentation/devicetree/bindings/mailbox/cix,sky1-mbox.yaml
+ F:	Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml
+ F:	arch/arm64/boot/dts/cix/
+ F:	drivers/dma-buf/heaps/cix_dsp_heap.c
++F:	drivers/irqchip/irq-sky1-pdc.c
+ F:	drivers/mailbox/cix-mailbox.c
+ F:	drivers/remoteproc/cix_dsp_rproc.c
+ F:	drivers/soc/cix/
+diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
+--- a/drivers/irqchip/Kconfig
++++ b/drivers/irqchip/Kconfig
+@@ -423,6 +423,18 @@ config IMX_GPCV2
+ 	help
+ 	  Enables the wakeup IRQs for IMX platforms with GPCv2 block
+ 
++config SKY1_PDC
++	bool "CIX Sky1 PDC wake interrupt controller"
++	depends on ARM64 && ARM_GIC
++	depends on ARCH_CIX || COMPILE_TEST
++	default y if ARCH_CIX
++	select IRQ_DOMAIN_HIERARCHY
++	help
++	  Enables the hierarchical wake interrupt controller used by CIX
++	  Sky1 systems.  Device Tree and ACPI interrupt specifiers are
++	  forwarded to the GIC, while wake enable requests are sent to
++	  platform firmware through the CIX SiP service.
++
+ config IRQ_MXS
+ 	def_bool y if MACH_ASM9260 || ARCH_MXS
+ 	select IRQ_DOMAIN
+diff --git a/drivers/irqchip/Makefile b/drivers/irqchip/Makefile
+--- a/drivers/irqchip/Makefile
++++ b/drivers/irqchip/Makefile
+@@ -87,6 +87,7 @@ obj-$(CONFIG_MVEBU_ICU)			+= irq-mvebu-icu.o
+ obj-$(CONFIG_MVEBU_ODMI)		+= irq-mvebu-odmi.o
+ obj-$(CONFIG_MVEBU_PIC)			+= irq-mvebu-pic.o
+ obj-$(CONFIG_MVEBU_SEI)			+= irq-mvebu-sei.o
++obj-$(CONFIG_SKY1_PDC)			+= irq-sky1-pdc.o
+ obj-$(CONFIG_LS_EXTIRQ)			+= irq-ls-extirq.o
+ obj-$(CONFIG_LS_SCFG_MSI)		+= irq-ls-scfg-msi.o
+ obj-$(CONFIG_ARCH_ASPEED)		+= irq-aspeed-vic.o irq-aspeed-i2c-ic.o irq-aspeed-scu-ic.o
+diff --git a/drivers/irqchip/irq-sky1-pdc.c b/drivers/irqchip/irq-sky1-pdc.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/irqchip/irq-sky1-pdc.c
+@@ -0,0 +1,216 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <linux/acpi.h>
++#include <linux/arm-smccc.h>
++#include <linux/irqchip.h>
++#include <linux/module.h>
++#include <linux/of_irq.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++
++#define SKY1_SIP_PDC				0xc2000009
++#define SKY1_SIP_CONFIG_PDC_SET_WAKE		0x02
++
++#define SKY1_PDC_SPI_BASE			32
++#define SKY1_PDC_NR_SPIS			600
++#define SKY1_PDC_GSI_LIMIT			(SKY1_PDC_SPI_BASE + SKY1_PDC_NR_SPIS)
++
++struct sky1_pdc {
++	raw_spinlock_t lock;
++};
++
++static int sky1_pdc_irq_set_wake(struct irq_data *d, unsigned int on)
++{
++	struct sky1_pdc *pdc = irq_data_get_irq_chip_data(d);
++	struct arm_smccc_res res;
++	unsigned long flags;
++	long status;
++
++	if (WARN_ON_ONCE(d->hwirq < SKY1_PDC_SPI_BASE ||
++			 d->hwirq >= SKY1_PDC_GSI_LIMIT))
++		return -EINVAL;
++
++	raw_spin_lock_irqsave(&pdc->lock, flags);
++	arm_smccc_smc(SKY1_SIP_PDC, SKY1_SIP_CONFIG_PDC_SET_WAKE,
++		      d->hwirq - SKY1_PDC_SPI_BASE, !!on, 0, 0, 0, 0, &res);
++	raw_spin_unlock_irqrestore(&pdc->lock, flags);
++
++	status = (long)res.a0;
++	if (status == SMCCC_RET_NOT_SUPPORTED)
++		return -EOPNOTSUPP;
++	if (status != SMCCC_RET_SUCCESS)
++		return -EIO;
++
++	return 0;
++}
++
++static struct irq_chip sky1_pdc_irq_chip = {
++	.name			= "sky1-pdc",
++	.irq_eoi		= irq_chip_eoi_parent,
++	.irq_mask		= irq_chip_mask_parent,
++	.irq_unmask		= irq_chip_unmask_parent,
++	.irq_set_wake		= sky1_pdc_irq_set_wake,
++	.irq_retrigger		= irq_chip_retrigger_hierarchy,
++	.irq_set_type		= irq_chip_set_type_parent,
++#ifdef CONFIG_SMP
++	.irq_set_affinity	= irq_chip_set_affinity_parent,
++#endif
++};
++
++static int sky1_pdc_domain_translate(struct irq_domain *domain,
++				     struct irq_fwspec *fwspec,
++				     unsigned long *hwirq,
++				     unsigned int *type)
++{
++	if (is_of_node(fwspec->fwnode)) {
++		/*
++		 * Match the GIC SPI format.  A fourth affinity cell is valid
++		 * only for PPIs, so it must be absent or zero for this domain.
++		 */
++		if ((fwspec->param_count != 3 &&
++		     fwspec->param_count != 4) ||
++		    fwspec->param[0] != 0 ||
++		    fwspec->param[1] >= SKY1_PDC_NR_SPIS ||
++		    (fwspec->param_count == 4 && fwspec->param[3]))
++			return -EINVAL;
++
++		*hwirq = fwspec->param[1] + SKY1_PDC_SPI_BASE;
++		*type = fwspec->param[2] & IRQ_TYPE_SENSE_MASK;
++	} else if (is_acpi_device_node(fwspec->fwnode)) {
++		if (fwspec->param_count != 2 ||
++		    fwspec->param[0] < SKY1_PDC_SPI_BASE ||
++		    fwspec->param[0] >= SKY1_PDC_GSI_LIMIT)
++			return -EINVAL;
++
++		*hwirq = fwspec->param[0];
++		*type = fwspec->param[1] & IRQ_TYPE_SENSE_MASK;
++	} else {
++		return -EINVAL;
++	}
++
++	WARN_ON_ONCE(*type == IRQ_TYPE_NONE);
++	return 0;
++}
++
++static int sky1_pdc_domain_alloc(struct irq_domain *domain,
++				 unsigned int virq, unsigned int nr_irqs,
++				 void *data)
++{
++	struct irq_fwspec *fwspec = data;
++	struct irq_fwspec parent_fwspec;
++	irq_hw_number_t hwirq;
++	unsigned int type;
++	unsigned int i;
++	int ret;
++
++	ret = sky1_pdc_domain_translate(domain, fwspec, &hwirq, &type);
++	if (ret)
++		return ret;
++
++	if (!nr_irqs || hwirq < SKY1_PDC_SPI_BASE ||
++	    nr_irqs > SKY1_PDC_GSI_LIMIT - hwirq)
++		return -EINVAL;
++
++	for (i = 0; i < nr_irqs; i++)
++		irq_domain_set_hwirq_and_chip(domain, virq + i, hwirq + i,
++					      &sky1_pdc_irq_chip,
++					      domain->host_data);
++
++	parent_fwspec = *fwspec;
++	parent_fwspec.fwnode = domain->parent->fwnode;
++
++	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
++					    &parent_fwspec);
++}
++
++static const struct irq_domain_ops sky1_pdc_domain_ops = {
++	.translate	= sky1_pdc_domain_translate,
++	.alloc		= sky1_pdc_domain_alloc,
++	.free		= irq_domain_free_irqs_common,
++};
++
++static int __init sky1_pdc_irqchip_init(struct device_node *node,
++					struct device_node *parent)
++{
++	struct irq_domain *parent_domain;
++	struct irq_domain *domain;
++	struct sky1_pdc *pdc;
++
++	if (!parent)
++		return -ENODEV;
++
++	parent_domain = irq_find_host(parent);
++	if (!parent_domain)
++		return -EPROBE_DEFER;
++
++	pdc = kzalloc_obj(*pdc, GFP_KERNEL);
++	if (!pdc)
++		return -ENOMEM;
++
++	raw_spin_lock_init(&pdc->lock);
++
++	domain = irq_domain_create_hierarchy(parent_domain, 0,
++					     SKY1_PDC_GSI_LIMIT,
++					     of_fwnode_handle(node),
++					     &sky1_pdc_domain_ops, pdc);
++	if (!domain) {
++		kfree(pdc);
++		return -ENOMEM;
++	}
++
++	pr_info("%pOF: CIX Sky1 PDC wake domain registered\n", node);
++	return 0;
++}
++
++IRQCHIP_DECLARE(sky1_pdc, "cix,sky1-pdc", sky1_pdc_irqchip_init);
++
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id sky1_pdc_acpi_match[] = {
++	{ "CIXHA019" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, sky1_pdc_acpi_match);
++
++static int sky1_pdc_probe(struct platform_device *pdev)
++{
++	struct irq_domain *domain;
++	struct sky1_pdc *pdc;
++
++	pdc = kzalloc_obj(*pdc, GFP_KERNEL);
++	if (!pdc)
++		return -ENOMEM;
++
++	raw_spin_lock_init(&pdc->lock);
++
++	domain = acpi_irq_create_hierarchy(0, SKY1_PDC_GSI_LIMIT,
++					   dev_fwnode(&pdev->dev),
++					   &sky1_pdc_domain_ops, pdc);
++	if (!domain) {
++		kfree(pdc);
++		return dev_err_probe(&pdev->dev, -ENODEV,
++				     "failed to create wake IRQ domain\n");
++	}
++
++	dev_info(&pdev->dev, "CIX Sky1 PDC wake domain registered\n");
++	return 0;
++}
++
++static struct platform_driver sky1_pdc_driver = {
++	.probe = sky1_pdc_probe,
++	.driver = {
++		.name = "sky1-pdc",
++		.acpi_match_table = sky1_pdc_acpi_match,
++		.suppress_bind_attrs = true,
++	},
++};
++
++static int __init sky1_pdc_init(void)
++{
++	return platform_driver_register(&sky1_pdc_driver);
++}
++core_initcall(sky1_pdc_init);
++#endif
++
++MODULE_AUTHOR("CIX Technology Group Co., Ltd.");
++MODULE_DESCRIPTION("CIX Sky1 PDC wake interrupt controller");
++MODULE_LICENSE("GPL");

@@ -1,0 +1,112 @@
+name: Check retained CIX source inputs
+
+on:
+  schedule:
+    - cron: "37 5 * * 1"
+  push:
+    paths:
+      - ".github/workflows/cix-retained-inputs.yml"
+      - "sys-kernel/cix-sources/Manifest"
+      - "sys-kernel/cix-sources/cix-sources-7.0.14-r1.ebuild"
+      - ".github/scripts/cix-sources/check-retained-inputs.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/cix-retained-inputs.yml"
+      - "sys-kernel/cix-sources/Manifest"
+      - "sys-kernel/cix-sources/cix-sources-7.0.14-r1.ebuild"
+      - ".github/scripts/cix-sources/check-retained-inputs.sh"
+  workflow_dispatch:
+
+concurrency:
+  group: cix-retained-inputs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-7-0:
+    name: Check cix-sources-7.0.14-r1
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    container:
+      image: gentoo/stage3:latest@sha256:2fb4d12e05d99f54ca805653687d96bc79370ee333e314229436bc383e504622
+    env:
+      FEATURES: "-ipc-sandbox -network-sandbox -pid-sandbox -mount-sandbox"
+      PORTDIR: /var/db/repos/gentoo
+      PORTDIR_OVERLAY: ${{ github.workspace }}
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Fetch current Gentoo repository snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          emerge-webrsync
+
+      - name: Record Portage mirror environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -a
+          cat /etc/gentoo-release
+          cat /var/db/repos/gentoo/metadata/timestamp
+          emerge --version | sed -n '1p'
+          printf 'GENTOO_MIRRORS=%s\n' "$(portageq envvar GENTOO_MIRRORS)"
+
+      - name: Validate fetch helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n .github/scripts/cix-sources/check-retained-inputs.sh
+
+      - name: Fetch retained 7.0 inputs through Portage
+        id: fetch
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -uo pipefail
+          work_root="/var/tmp/cix-retained-inputs-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'rm -rf "${work_root}"' EXIT
+
+          set +e
+          .github/scripts/cix-sources/check-retained-inputs.sh \
+            --attempts 2 \
+            sys-kernel/cix-sources/cix-sources-7.0.14-r1.ebuild \
+            "${work_root}"
+          status=$?
+          set -e
+
+          printf 'status=%d\n' "${status}" >> "${GITHUB_OUTPUT}"
+          exit "${status}"
+
+      - name: Request a retained-version decision
+        if: ${{ steps.fetch.outputs.status == '75' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> "${GITHUB_STEP_SUMMARY}" <<'EOF'
+          ### Maintainer decision required
+
+          Two clean, empty-distdir Portage fetches could not obtain every
+          input for `sys-kernel/cix-sources-7.0.14-r1`, including its optional
+          experimental genpatches archive.
+
+          Should `cix-sources-7.0.14-r1` and files used only by that ebuild be
+          removed? Confirm mirror status and rule out a transient Gentoo or
+          upstream outage before deleting the retained kernel line.
+          EOF
+          echo "::error title=Retained CIX 7.0 inputs unavailable::Should cix-sources-7.0.14-r1 and its unique files be removed?"
+          exit 1
+
+      - name: Propagate unexpected test failure
+        if: >-
+          ${{
+            steps.fetch.outcome == 'failure' &&
+            steps.fetch.outputs.status != '75'
+          }}
+        shell: bash
+        run: |
+          echo "::error::The retained-input checker failed before it could classify mirror availability"
+          exit 1
