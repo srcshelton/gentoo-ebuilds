@@ -9,7 +9,7 @@ DESCRIPTION="Work with remote container images registries"
 HOMEPAGE="https://github.com/containers/skopeo"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit git-r3
+	inherit go-module linux-info
 	EGIT_REPO_URI="https://github.com/containers/skopeo.git"
 else
 	SRC_URI="https://github.com/containers/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
@@ -25,6 +25,7 @@ RESTRICT="mirror test"
 COMMON_DEPEND="
 	>=app-crypt/gpgme-1.5.5:=
 	>=dev-libs/libassuan-2.4.3:=
+	dev-db/sqlite:3
 	btrfs? ( >=sys-fs/btrfs-progs-4.0.1 )
 	rootless? ( sys-apps/shadow:= )
 "
