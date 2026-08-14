@@ -9,7 +9,7 @@ inherit cmake lua-single pax-utils systemd tmpfiles
 
 if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/rspamd/rspamd.git"
-	inherit git-r3
+	inherit cmake lua-single pax-utils systemd tmpfiles
 else
 	SRC_URI="https://github.com/rspamd/rspamd/archive/${PV}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~amd64 ~arm ~arm64 ~x86"
