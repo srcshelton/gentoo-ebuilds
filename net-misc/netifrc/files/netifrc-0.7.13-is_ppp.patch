@@ -5,8 +5,8 @@
  is_ppp()
  {
 -	[ -e /run/ppp-"${IFACE}".pid ]
-+	[ -e /run/pppd/ppp-"${IFACE}".pid ] ||
-+		[ -e /run/ppp-"${IFACE}".pid ]
++	[ -e /var/run/pppd/ppp-"${IFACE}".pid ] ||
++		[ -e /var/run/ppp-"${IFACE}".pid ]
  }
  
  requote()
@@ -15,7 +15,7 @@
  	${haspersist} || opts="${opts} persist"
  
 -	# Set linkname because we need /run/ppp-${linkname}.pid
-+	# Set linkname because we need /run/(pppd/)ppp-${linkname}.pid
++	# Set linkname because we need /var/run/(pppd/)ppp-${linkname}.pid
  	# This pidfile has the advantage of being there,
  	# even if ${IFACE} interface was never started
  	opts="linkname ${IFACE} ${opts}"

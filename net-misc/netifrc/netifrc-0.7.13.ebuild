@@ -41,6 +41,7 @@ BDEPEND="
 PATCHES=(
 	"${FILESDIR}/${PN}-0.7.8-wireguard_status.patch"
 	"${FILESDIR}/${P}-is_ppp.patch"
+	"${FILESDIR}/${P}-opt-in-wext-probe.patch"
 )
 
 src_prepare() {
@@ -65,7 +66,7 @@ src_compile() {
 	MAKE_ARGS=(
 		PREFIX="${EPREFIX}"
 		UPREFIX="${EPREFIX%/}/usr"
-		UDEVDIR="${EPREFIX%/}/$(get_udevdir)"
+		UDEVDIR="${EPREFIX%/}$(get_udevdir)"
 		LIBEXECDIR="${EPREFIX%/}/lib/${PN}"
 		PF="${PF}"
 	)

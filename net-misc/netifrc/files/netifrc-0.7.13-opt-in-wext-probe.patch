@@ -1,0 +1,34 @@
+diff --git a/net/iproute2.sh b/net/iproute2.sh
+--- a/net/iproute2.sh
++++ b/net/iproute2.sh
+@@ -68,14 +68,29 @@ _ifindex()
+ 	return 0
+ }
+ 
++_wext_probe_allowed()
++{
++	local x=''
++
++	eval x="\${allow_wext_probe_${IFVAR}:-}"
++	[ -z "${x:-}" ] && x="${allow_wext_probe:-"no"}"
++	yesno "${x}"
++}
++
+ _is_wireless()
+ {
+ 	# Support new sysfs layout
+ 	_netns [ -d /sys/class/net/"${IFACE}"/wireless -o \
+ 		-d /sys/class/net/"${IFACE}"/phy80211 ] && return 0
+ 
++	if command -v iw >/dev/null 2>&1; then
++		_netns iw dev "${IFACE}" info >/dev/null 2>&1 && return 0
++	fi
++
++	_wext_probe_allowed || return 1
++
+ 	_netns [ ! -e /proc/net/wireless ] && return 1
+-	_netns grep -Eq "^[[:space:]]*${IFACE}:" /proc/net/wireless
++	_netns grep -q "^[[:space:]]*${IFACE}:" /proc/net/wireless
+ }
+ 
+ _set_flag()
