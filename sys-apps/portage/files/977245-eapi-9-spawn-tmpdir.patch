@@ -1,0 +1,78 @@
+From f72bd82e6e0b3311d9c4de7ebe269d0d6e637893 Mon Sep 17 00:00:00 2001
+From: Kerin Millar <kfm@plushkava.net>
+Date: Fri, 12 Jun 2026 03:11:32 +0200
+Subject: [PATCH] doebuild: place PORTAGE_EBUILD_EXTRA_SOURCE under
+ PORTAGE_TMPDIR
+
+Under EAPI 9, spawn() writes unexported PMS variables to a file
+referenced by PORTAGE_EBUILD_EXTRA_SOURCE. For the depend phase, that
+file is created beneath a directory chosen by tempfile.mkdtemp(), whose
+parent is selected from the process environment or from Python's
+platform-specific fallback.
+
+This approach is unsuitable for phases that are subject to reduced
+privileges. In particular, sudo with pam_mktemp can place the temporary
+directory under /var/tmp/.private/root, while FEATURES=userpriv causes
+the depend phase to run as the portage user. Since that user cannot
+traverse the path, PORTAGE_EBUILD_EXTRA_SOURCE cannot be sourced.
+
+Address this issue by creating PORTAGE_EBUILD_EXTRA_SOURCE under
+${PORTAGE_TMPDIR}/portage.
+
+Fixes: c75b61b523457f8798c66afe4bcdc1708408ea00
+Bug: https://bugs.gentoo.org/977245
+Reported-by: Stuart Shelton <srcshelton@gmail.com>
+Signed-off-by: Kerin Millar <kfm@plushkava.net>
+---
+ lib/portage/package/ebuild/doebuild.py | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/lib/portage/package/ebuild/doebuild.py b/lib/portage/package/ebuild/doebuild.py
+index 14ae45af1..912dfca01 100644
+--- a/lib/portage/package/ebuild/doebuild.py
++++ b/lib/portage/package/ebuild/doebuild.py
+@@ -80,6 +80,7 @@ from portage.exception import (
+     InvalidData,
+     InvalidDependString,
+     PermissionDenied,
++    PortageException,
+     UnsupportedAPIException,
+ )
+ from portage.localization import _
+@@ -2244,12 +2245,31 @@ def spawn(
+         else:  # case B and C
+             global _emerge_tmpdir
+             if _emerge_tmpdir is None:
++                # Keep this directory beneath ${PORTAGE_TMPDIR}/portage so that
++                # dropped-privilege phases can traverse the path and source
++                # PORTAGE_EBUILD_EXTRA_SOURCE (bug #977245).
++                build_prefix = os.path.join(mysettings["PORTAGE_TMPDIR"], "portage")
++                portage.util.ensure_dirs(build_prefix)
++                try:
++                    apply_secpass_permissions(
++                        build_prefix,
++                        gid=portage_gid,
++                        uid=portage_uid,
++                        mode=0o700,
++                        mask=0,
++                    )
++                except PortageException:
++                    if not os.path.isdir(build_prefix):
++                        raise
+                 _emerge_tmpdir = tempfile.mkdtemp(
+-                    prefix=f"portage-tmpdir-{portage.getpid()}-"
++                    prefix=f"portage-tmpdir-{portage.getpid()}-",
++                    dir=build_prefix,
+                 )
+                 os.chmod(_emerge_tmpdir, 0o1775)
+                 os.chown(_emerge_tmpdir, -1, int(portage_build_gid))
+-                portage.process.atexit_register(shutil.rmtree, _emerge_tmpdir)
++                portage.process.atexit_register(
++                    shutil.rmtree, _emerge_tmpdir, ignore_errors=True
++                )
+             ebuild_extra_source_fd, ebuild_extra_source_path = tempfile.mkstemp(
+                 prefix=f"portage-ebuild-extra-source-{phase}-",
+                 dir=_emerge_tmpdir,
+-- 
+2.53.0
+
