@@ -9,7 +9,7 @@ MY_P="Linux-${PN^^}-${PV}"
 # Can reconsider w/ EAPI 8 and IDEPEND, bug #810979
 TMPFILES_OPTIONAL=1
 
-inherit db-use flag-o-matic meson-multilib user-info usr-ldscript
+inherit db-use fcaps flag-o-matic meson-multilib user-info usr-ldscript
 
 DESCRIPTION="Linux-PAM (Pluggable Authentication Modules)"
 HOMEPAGE="https://github.com/linux-pam/linux-pam"
