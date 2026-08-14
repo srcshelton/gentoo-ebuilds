@@ -1,23 +1,26 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-
-inherit autotools eapi9-ver systemd tmpfiles toolchain-funcs
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/isc.asc
+inherit autotools eapi9-ver systemd tmpfiles toolchain-funcs verify-sig
 
 MY_PV="${PV/_p/-P}"
 MY_PV="${MY_PV/_rc/rc}"
 
 DESCRIPTION="Berkeley Internet Name Domain - Name Server"
-HOMEPAGE="https://www.isc.org/software/bind"
-SRC_URI="https://downloads.isc.org/isc/bind9/${PV}/${P}.tar.xz"
+HOMEPAGE="https://www.isc.org/bind/"
+SRC_URI="
+	https://downloads.isc.org/isc/bind9/${PV}/${P}.tar.xz
+	verify-sig? ( https://downloads.isc.org/isc/bind9/${PV}/${P}.tar.xz.asc )
+"
 S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="MPL-2.0"
 SLOT="0"
-KEYWORDS="~alpha amd64 ~arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
-IUSE="+caps dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server static-libs systemd test +tools xml"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
+IUSE="dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server static-libs systemd systemtap test +tools xml"
 REQUIRED_USE="
 	dnstap? ( server )
 	doh? ( server )
@@ -32,10 +35,11 @@ DEPEND="
 	acct-group/named
 	acct-user/named
 	dev-libs/json-c:=
+	dev-libs/userspace-rcu:=
 	>=dev-libs/libuv-1.37.0:=
 	virtual/zlib:=
 	dev-libs/openssl:=[-bindist(-)]
-	caps? ( >=sys-libs/libcap-2.1.0 )
+	>=sys-libs/libcap-2.1.0
 	dnstap? (
 		dev-libs/fstrm
 		dev-libs/protobuf-c
@@ -59,9 +63,9 @@ BDEPEND="
 	dev-lang/perl
 	virtual/pkgconfig
 	doc? ( dev-python/sphinx )
-	test? (
-		dev-util/cmocka
-	)
+	test? ( dev-util/cmocka )
+	systemtap? ( dev-debug/systemtap )
+	verify-sig? ( sec-keys/openpgp-keys-isc )
 "
 
 src_prepare() {
@@ -75,9 +79,6 @@ src_prepare() {
 		configure.ac || die
 	sed -ri "s:\{use_libjson\}/lib\":{use_libjson}/$(get_libdir)\":g" \
 		configure.ac || die
-
-	# Test is (notoriously) slow/resource intensive
-	sed -i -e 's:ISC_TEST_MAIN:int main(void) { exit(77); }:' tests/isc/netmgr_test.c || die
 
 	# Relies on -Wl,--wrap (bug #877741)
 	if tc-is-lto ; then
@@ -95,6 +96,11 @@ src_configure() {
 	# are available. Force fallback to prebuilt ones.
 	use doc || export ac_cv_path_SPHINX_BUILD= SPHINX_BUILD=
 
+	# Workaround for bug #938302
+	if use systemtap && has_version "dev-debug/systemtap[-dtrace-symlink(+)]" ; then
+		export DTRACE="${BROOT}"/usr/bin/stap-dtrace
+	fi
+
 	local myeconfargs=(
 		--prefix="${EPREFIX%/}"/usr
 		--sysconfdir="${EPREFIX%/}"/etc/bind
@@ -104,14 +110,13 @@ src_configure() {
 		--with-openssl="${ESYSROOT%/}"/usr
 		--with-json-c
 		--with-zlib
-		$(use_enable caps linux-caps)
 		--disable-dnsrps
 		$(use_enable dnstap)
 		$(use_enable doh)
 		$(use_with doh libnghttp2)
-		$(use_enable fixed-rrset)
 		$(use_enable static-libs static)
 		$(use_enable geoip)
+		$(use_enable systemtap tracing)
 		$(use_with test cmocka)
 		$(use_with geoip maxminddb)
 		$(use_with gssapi)
@@ -149,9 +154,7 @@ src_install() {
 
 		# Required libraries:
 		#
-		# /usr/lib64/libbind9-9.18.29.so
 		# /usr/lib64/libdns-9.18.29.so
-		# /usr/lib64/libirs-9.18.29.so
 		# /usr/lib64/libisc-9.18.29.so
 		# /usr/lib64/libisccc-9.18.29.so
 		# /usr/lib64/libisccfg-9.18.29.so
@@ -175,7 +178,7 @@ src_install() {
 
 		# TODO: Make this dynamic based on 'ldd' output?
 		local lib=''
-		for lib in bind9 dns irs isc isccc isccfg ns; do
+		for lib in dns isc isccc isccfg ns; do
 			mv "${T%/}"/image/usr/$(get_libdir)/lib${lib}-${PV}.so* \
 					"${ED%/}"/usr/$(get_libdir)/ ||
 				die "Failed moving library lib${lib}-${PV}.so from" \
@@ -275,8 +278,8 @@ src_install() {
 	# /etc/bind is set to root:named by acct-user/named
 	fowners root:named /{etc,var/state}/bind /var/log/named \
 		/var/state/bind/{sec,pri,dyn}
-	fowners root:named /etc/bind/{bind.keys,named.conf,named.conf.auth}
-	fperms 0640 /etc/bind/{bind.keys,named.conf,named.conf.auth}
+	fowners root:named /etc/bind/{named.conf,named.conf.auth}
+	fperms 0640 /etc/bind/{named.conf,named.conf.auth}
 	fperms 0750 /etc/bind /var/state/bind/pri
 	fperms 0770 /var/log/named /var/state/bind/{,sec,dyn}
 
