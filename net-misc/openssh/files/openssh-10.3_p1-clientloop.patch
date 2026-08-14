@@ -1,0 +1,18 @@
+--- a/clientloop.c
++++ b/clientloop.c
+@@ -1462,6 +1462,7 @@ client_loop(struct ssh *ssh, int have_pt
+ 	debug("Entering interactive session.");
+ 	session_ident = ssh2_chan_id;
+ 
++#ifdef HAVE_PLEDGE
+ 	if (options.pkcs11_provider != NULL)
+ 		debug("pledge: disabled (PKCS11Provider active)");
+ 	else if (options.control_master &&
+@@ -1497,6 +1498,7 @@ client_loop(struct ssh *ssh, int have_pt
+ 
+ 	/* might be able to tighten now */
+ 	client_repledge();
++#endif
+ 
+ 	start_time = monotime_double();
+ 
