@@ -3,11 +3,11 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..13} )
+PYTHON_COMPAT=( python3_{11..14} )
 DISTUTILS_EXT=1
 DISTUTILS_OPTIONAL=1
 DISTUTILS_USE_PEP517=setuptools
-inherit libtool pam distutils-r1 usr-ldscript
+inherit distutils-r1 libtool pam usr-ldscript
 
 DESCRIPTION="Library for password quality checking and generating random passwords"
 HOMEPAGE="https://github.com/libpwquality/libpwquality"
@@ -45,10 +45,13 @@ src_prepare() {
 }
 
 src_configure() {
+	use python && python_setup
+
 	# Install library in /lib for pam
 	local myeconfargs=(
 		--libdir="${EPREFIX}/$(get_libdir)"
 		$(use_enable pam)
+		--with-python-binary=$(usex python "${PYTHON}" true)
 		--with-securedir="${EPREFIX}/$(getpam_mod_dir)"
 		--disable-python-bindings
 		$(use_enable static-libs static)
@@ -91,8 +94,9 @@ src_install() {
 		mkdir -p "${ED}/usr/$(get_libdir)"
 		mv "${ED}/$(get_libdir)/libpwquality.a" "${ED}/usr/$(get_libdir)/" ||
 			die
-		gen_usr_ldscript libpwquality.so
 	fi
+
+	gen_usr_ldscript libpwquality.so
 
 	find "${ED}" -name '*.la' -delete || die
 }
