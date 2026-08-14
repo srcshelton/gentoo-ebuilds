@@ -1,0 +1,20 @@
+--- a/Makefile
++++ b/Makefile
+@@ -58,7 +58,7 @@ export GOLANGCI_LINT_VERSION := 2.12.2
+ #     Note: Uses the -N -l go compiler options to disable compiler optimizations
+ #           and inlining. Using these build options allows you to subsequently
+ #           use source debugging tools like delve.
+-all: binaries docs
++all: bin/buildah docs
+ 
+ binaries: bin/buildah bin/imgtype bin/copy bin/inet bin/tutorial bin/dumpspec bin/passwd bin/crash bin/wait bin/grpcnoop bin/pipeloop
+ 
+@@ -143,7 +143,7 @@ clean:
+ 	$(MAKE) -C docs clean
+ 
+ .PHONY: docs
+-docs: install.go-md2man ## build the docs on the host
++docs: ## build the docs on the host
+ 	$(MAKE) -C docs
+ 
+ codespell:

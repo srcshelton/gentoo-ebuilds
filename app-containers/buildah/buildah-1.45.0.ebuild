@@ -111,7 +111,7 @@ src_prepare() {
 	echo libsqlite3
 	EOF
 
-	use test || eapply "${FILESDIR}/${PN}-1.44.0-disable-tests.patch"
+	use test || eapply "${FILESDIR}/${P}-disable-tests.patch"
 
 	sed -i -e 's/make -C/$(MAKE) -C/' Makefile || die 'sed failed'
 
