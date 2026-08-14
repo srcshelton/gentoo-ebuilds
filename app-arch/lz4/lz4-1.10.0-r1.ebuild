@@ -1,9 +1,9 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
-inherit meson-multilib usr-ldscript
+inherit dot-a meson-multilib usr-ldscript
 
 DESCRIPTION="Extremely Fast Compression algorithm"
 HOMEPAGE="https://github.com/lz4/lz4"
@@ -22,6 +22,11 @@ PATCHES=(
 	# https://github.com/lz4/lz4/pull/1485
 	"${FILESDIR}/${PV}-meson-do-not-force-c99-mode.patch"
 )
+
+src_configure() {
+	use static-libs && lto-guarantee-fat
+	multilib-minimal_src_configure
+}
 
 multilib_src_configure() {
 	local emesonargs=(
@@ -48,4 +53,9 @@ multilib_src_install() {
 		# lib64/libsystemd.so.0.37.0: liblz4.so.1 => /usr/lib64/liblz4.so.1
 		gen_usr_ldscript -a lz4
 	fi
+}
+
+multilib_src_install_all() {
+	einstalldocs
+	strip-lto-bytecode
 }
