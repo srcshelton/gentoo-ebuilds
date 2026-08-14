@@ -28,15 +28,15 @@ REQUIRED_USE="
 RESTRICT="!test? ( test )"
 
 DEPEND="
-	dev-libs/expat
-	dev-libs/glib:2[${MULTILIB_USEDEP}]
-	dev-libs/libdaemon
+	dev-libs/expat:=
+	dev-libs/glib:2=[${MULTILIB_USEDEP}]
+	dev-libs/libdaemon:=
 	dev-libs/libevent:=[${MULTILIB_USEDEP}]
-	dbus? ( sys-apps/dbus[${MULTILIB_USEDEP}] )
+	dbus? ( sys-apps/dbus:=[${MULTILIB_USEDEP}] )
 	gdbm? ( sys-libs/gdbm:=[${MULTILIB_USEDEP}] )
 	gtk?  ( x11-libs/gtk+:3[${MULTILIB_USEDEP}] )
 	introspection? ( >=dev-libs/gobject-introspection-1.82.0-r2:= )
-	kernel_linux? ( sys-libs/libcap )
+	kernel_linux? ( sys-libs/libcap:= )
 	python? (
 		${PYTHON_DEPS}
 		$(python_gen_cond_dep '
@@ -45,7 +45,7 @@ DEPEND="
 			introspection? ( dev-python/pygobject:3[${PYTHON_USEDEP}] )
 		')
 	)
-	qt6? ( dev-qt/qtbase:6 )
+	qt6? ( dev-qt/qtbase:6= )
 	systemd? ( sys-apps/systemd:=[${MULTILIB_USEDEP}] )
 "
 RDEPEND="${DEPEND}
@@ -70,9 +70,7 @@ MULTILIB_WRAPPED_HEADERS=( /usr/include/avahi-qt6/qt-watch.h )
 
 PATCHES=(
 	"${FILESDIR}/${PN}-0.9_rc1-disable-avahi-ui-sharp.patch" # bug 769062
-	"${FILESDIR}/${P}-CVE-2024-52615.patch"
-	"${FILESDIR}/${P}-glibc-2.42.patch"
-	"${FILESDIR}/${P}-qt6.patch" # bug 961804
+	"${FILESDIR}/${PN}-0.9_rc2-qt6.patch" # bug 961804
 )
 
 pkg_setup() {
@@ -127,6 +125,7 @@ multilib_src_configure() {
 		$(multilib_native_use_enable introspection)
 		$(multilib_native_use_enable python)
 		$(multilib_native_use_enable test tests)
+		$(multilib_native_use_enable qt6)
 	)
 
 	if use python; then
@@ -143,8 +142,6 @@ multilib_src_configure() {
 			--with-xml=none
 		)
 	fi
-
-	myconf+=( $(multilib_native_use_enable qt6) )
 
 	econf "${myconf[@]}"
 }
@@ -206,5 +203,5 @@ pkg_postinst() {
 		elog
 	fi
 
-	use systemd && systemd_reenable avahi-daemon.service
+	use !system || systemd_reenable avahi-daemon.service
 }
