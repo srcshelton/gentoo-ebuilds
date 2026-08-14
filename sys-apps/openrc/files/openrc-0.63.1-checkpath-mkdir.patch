@@ -1,0 +1,47 @@
+--- a/src/checkpath/checkpath.c
++++ b/src/checkpath/checkpath.c
+@@ -195,7 +195,7 @@ static int do_create(inode_t type, const
+ 
+ 		/* We do not recursively create parents */
+ 		if (mkdirat(dirfd, name, mode) == -1 && errno != EEXIST) {
+-			eerror("%s: mkdirat: %s", applet, strerror (errno));
++			eerror("%s: mkdirat(%s): %s", applet, path, strerror (errno));
+ 			return -1;
+ 		}
+ 
+@@ -204,7 +204,7 @@ static int do_create(inode_t type, const
+ 		einfo("%s: creating fifo", path);
+ 
+ 		if (mkfifoat(dirfd, name, mode) == -1 && errno != EEXIST) {
+-			eerror("%s: mkfifo: %s", applet, strerror (errno));
++			eerror("%s: mkfifo(%s): %s", applet, path, strerror (errno));
+ 			return -1;
+ 		}
+ 
+@@ -215,7 +215,7 @@ static int do_create(inode_t type, const
+ 	umask(mask);
+ 
+ 	if ((fd = openat(dirfd, name, flags, mode)) == -1) {
+-		eerror("%s: open: %s", applet, strerror(errno));
++		eerror("%s: open(%s): %s", applet, name, strerror(errno));
+ 		return -1;
+ 	}
+ 	return fd;
+@@ -274,7 +274,7 @@ static int do_check(char *path, uid_t ui
+ 
+ 		einfo("%s: correcting mode", path);
+ 		if (fchmod(fd, mode)) {
+-			eerror("%s: chmod: %s", applet, strerror(errno));
++			eerror("%s: chmod(%s): %s", applet, path, strerror(errno));
+ 			goto err;
+ 		}
+ 	}
+@@ -292,7 +292,7 @@ static int do_check(char *path, uid_t ui
+ 
+ 		einfo("%s: correcting owner", path);
+ 		if (fchown(fd, uid, gid)) {
+-			eerror("%s: chown: %s", applet, strerror(errno));
++			eerror("%s: chown(%s): %s", applet, path, strerror(errno));
+ 			goto err;
+ 		}
+ 	}
