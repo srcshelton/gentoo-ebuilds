@@ -3,18 +3,18 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_{12..14} )
 
 inherit go-module linux-info python-any-r1 tmpfiles toolchain-funcs
 
 DESCRIPTION="A tool for managing OCI containers and pods with Docker-compatible CLI"
-HOMEPAGE="https://github.com/containers/podman/ https://podman.io/"
+HOMEPAGE="https://github.com/podman-container-tools/podman/ https://podman.io/"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit go-module linux-info python-any-r1 tmpfiles toolchain-funcs
-	EGIT_REPO_URI="https://github.com/containers/podman.git"
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/podman-container-tools/podman.git"
 else
-	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
+	SRC_URI="https://github.com/podman-container-tools/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
 	[[ ${PV} != *rc* ]] &&
 		KEYWORDS="~amd64 ~arm64 ~loong ~riscv"
@@ -26,12 +26,15 @@ IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fu
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
-	>=app-containers/conmon-2.1.10
-	>=app-containers/containers-common-0.58.0-r1
+	>=app-containers/aardvark-dns-2.0.0
+	>=app-containers/buildah-1.44.0
+	>=app-containers/conmon-2.2.1
+	>=app-containers/container-libs-0.68.0
 	app-containers/crun
-	>=app-containers/netavark-1.6.0[dns]
+	>=app-containers/netavark-2.0.0
+	>=app-containers/skopeo-1.23
 	app-crypt/gpgme:=
-	dev-db/sqlite:3
+	>=dev-db/sqlite-3:=
 	dev-libs/libassuan:=
 	dev-libs/libgpg-error:=
 	sys-apps/shadow:=
@@ -44,7 +47,7 @@ COMMON_DEPEND="
 "
 BDEPEND="
 	${PYTHON_DEPS}
-	>=dev-lang/go-1.24:=
+	>=dev-lang/go-1.25:=
 	dev-go/go-md2man
 	dev-vcs/git
 	sys-apps/findutils
@@ -262,6 +265,40 @@ src_prepare() {
 	# Check with:
 	#
 	#grep -ER '/run($|[^a-z])' "${WORKDIR}" | grep -Fv -e 'var/run' -e 'pkg/systemd' -e '/test/' -e '/resource.go' | grep -F '/run'
+
+	if [[ -n "$( # <- Syntax
+			grep -ER '/run($|[^a-z])' "${WORKDIR}" |
+				grep -Fv \
+					-e './vendor/github.com/' \
+					-e 'pkg/systemd' \
+					-e 'var/run' \
+					-e '/CHANGELOG.md' \
+					-e '/changelog.txt' \
+					-e '/markdown.po' \
+					-e '/modules.txt' \
+					-e '/RELEASE_NOTES.md' \
+					-e '/resource.go' \
+					-e '/test/' |
+				grep -F '/run' 
+		)" && (( 0 == ${?} )) ]]
+	then
+		eerror "References to '/run' found:"
+		cd "${S}"
+		grep -ER '/run($|[^a-z.-])' . |
+				grep -Fv \
+					-e './vendor/github.com/' \
+					-e 'pkg/systemd' \
+					-e 'var/run' \
+					-e '/CHANGELOG.md' \
+					-e '/changelog.txt' \
+					-e '/markdown.po' \
+					-e '/modules.txt' \
+					-e '/RELEASE_NOTES.md' \
+					-e '/resource.go' \
+					-e '/test/' |
+				grep -F --colour=always '/run' &&
+		die "ebuild '/run' update required"
+	fi
 }
 
 src_compile() {
@@ -315,11 +352,6 @@ src_install() {
 
 	if use !tmpfiles; then
 		rm -r "${ED%/}/usr/lib/tmpfiles.d" || die
-	fi
-
-	if has_version -r '>=app-containers/cni-plugins-0.8.6'; then
-		insinto /etc/cni/net.d
-		doins cni/87-podman-bridge.conflist
 	fi
 
 	if use !systemd; then
