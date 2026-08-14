@@ -1,0 +1,935 @@
+--- a/functions.sh
++++ b/functions.sh
+@@ -37,27 +38,30 @@
+ #
+ # Prints a diagnostic message prefixed with the basename of the running script.
+ #
+-warn()
+-{
+-	printf '%s: %s\n' "${0##*/}" "$*" >&2
++warn() {
++	printf '%s: %s\n' "${0##*"/"}" "${*}" >&2
+ }
+ 
+-case ${KSH_VERSION} in 'Version AJM 93'*)
++case ${KSH_VERSION:-} in 'Version AJM 93'*)
+ 	# The ksh93 shell has a typeset builtin but no local builtin.
+ 	warn "gentoo-functions does not currently support ksh93"
+ 	return 1
+ esac
+ 
+ # shellcheck disable=3062
+-if [ "${YASH_VERSION}" ] && [ -o posixlycorrect ]; then
++if [ "${YASH_VERSION:-}" ] && [ -o posixlycorrect ]; then
+ 	# The yash shell disables the local builtin in its POSIXly-correct mode.
+ 	warn "gentoo-functions does not support yash in posixlycorrect mode"
+ 	return 1
+ fi
+ 
+-case $- in *[eu]*)
++#case "${-}" in *[eu]*)
++#	# https://lists.gnu.org/archive/html/help-bash/2020-04/msg00049.html
++#	warn "gentoo-functions supports neither the errexit option nor the nounset option; unexpected behaviour may ensue"
++#esac
++case "${-}" in *"e"*)
+ 	# https://lists.gnu.org/archive/html/help-bash/2020-04/msg00049.html
+-	warn "gentoo-functions supports neither the errexit option nor the nounset option; unexpected behaviour may ensue"
++	warn "gentoo-functions does not support the errexit option; unexpected behaviour may ensue"
+ esac
+ 
+ #
+@@ -66,16 +70,15 @@
+ # not to be a legal identifier, no assignment shall occur and the return value
+ # shall be greater than 0.
+ #
+-assign()
+-{
+-	if [ "$#" -ne 2 ]; then
+-		warn "assign: wrong number of arguments (got $#, expected 2)"
++assign() {
++	if [ "${#}" -ne 2 ]; then
++		warn "assign: wrong number of arguments (got ${#}, expected 2)"
+ 		false
+-	elif ! is_identifier "$1"; then
+-		_warn_for_args assign "$@"
++	elif ! is_identifier "${1:-}"; then
++		_warn_for_args assign "${@}"
+ 		false
+ 	else
+-		eval "$1=\$2"
++		eval "$1=\${2}"
+ 	fi
+ }
+ 
+@@ -87,23 +90,22 @@
+ # - it will switch to OLDPWD if the operand is -
+ # - cdable_vars causes bash to treat the operand as a potential variable name
+ #
+-chdir()
+-{
+-	if [ "${BASH}" ]; then
++chdir() {
++	if [ "${BASH:-}" ]; then
+ 		# shellcheck disable=3044
+ 		shopt -u cdable_vars
+ 	fi
+ 	# shellcheck disable=1007,2164
+-	case $1 in
++	case "${1:-}" in
+ 		'')
+ 			printf >&2 'chdir: null directory\n'
+ 			false
+ 			;;
+-		/*)
+-			cd -P "$1"
++		'/'*)
++			cd -P "${1:-}"
+ 			;;
+ 		*)
+-			CDPATH= cd -P "./$1"
++			CDPATH='' cd -P "./${1:-}"
+ 	esac
+ }
+ 
+@@ -115,20 +117,19 @@
+ # the return value shall be 1. Of the words to be searched for, any which are
+ # empty or which contain whitespace characters shall be deemed unfindable.
+ #
+-contains_all()
+-{
+-	local arg haystack
++contains_all() {
++	local arg='' haystack=''
+ 
+-	[ "$#" -gt 1 ] || return
+-	haystack=" $1 "
++	[ "${#}" -gt 1 ] || return
++	haystack=" ${1:-} "
+ 	shift
+ 	for arg; do
+-		case ${arg} in
++		case "${arg:-}" in
+ 			''|*[[:space:]]*)
+ 				return 1
+ 		esac
+-		case ${haystack} in
+-			*" ${arg} "*)
++		case "${haystack:-}" in
++			*" ${arg:-} "*)
+ 				;;
+ 			*)
+ 				return 1
+@@ -144,23 +145,23 @@
+ # value shall be greater than 0. Of the words to be searched for, any which are
+ # empty or which contain whitespace characters shall be disregarded.
+ #
+-contains_any()
+-{
+-	local arg haystack
++contains_any() {
++	local arg='' haystack=''
+ 
+-	[ "$#" -gt 0 ] || return
+-	haystack=" $1 "
++	[ "${#}" -gt 0 ] || return
++	haystack=" ${1:-} "
+ 	shift
+ 	for arg; do
+-		case ${arg} in
++		case "${arg:-}" in
+ 			''|*[[:space:]]*)
+ 				continue
+ 		esac
+-		case ${haystack} in
+-			*" ${arg} "*)
++		case "${haystack:-}" in
++			*" ${arg:-} "*)
+ 				return 0
+ 		esac
+ 	done
++
+ 	false
+ }
+ 
+@@ -173,72 +174,73 @@
+ # found not to be a legal identifier, or if the variable referenced by the
+ # first parameter is unset, the return value shall be greater than 0.
+ #
+-deref()
+-{
+-	if [ "$#" -eq 0 ] || [ "$#" -gt 2 ]; then
+-		warn "deref: wrong number of arguments (got $#, expected between 1 and 2)"
+-	elif ! trueof_all is_identifier -- "$@"; then
+-		_warn_for_args deref "$@"
++deref() {
++	if [ "${#}" -eq 0 ] || [ "${#}" -gt 2 ]; then
++		warn "deref: wrong number of arguments (got ${#}, expected between 1 and 2)"
++	elif ! trueof_all is_identifier -- "${@}"; then
++		_warn_for_args deref "${@}"
+ 		false
+-	elif ! eval "test \"\${$1+set}\""; then
++	elif ! eval "test \"\${$1+\"set\"}\""; then
+ 		false
+-	elif [ "$#" -eq 1 ]; then
+-		eval "printf '%s\\n' \"\${$1}\""
++	elif [ "${#}" -eq 1 ]; then
++		eval "printf '%s\\n' \"\${${1:-}:-}\""
+ 	else
+-		eval "$2=\${$1}"
++		eval "$2=\${${1:-}:-}"
+ 	fi
+ }
+ 
+ #
+ # Determines whether the current shell is a subprocess of portage.
+ #
+-from_portage()
+-{
+-	test "${PORTAGE_BIN_PATH}"
++from_portage() {
++	test "${PORTAGE_BIN_PATH:-}"
+ }
+ 
+ #
+ # Determines whether the current shell is executing an OpenRC runscript, or is
+ # a subprocess of one.
+ #
+-from_runscript()
+-{
+-	has_openrc && test "${RC_OPENRC_PID}"
++from_runscript() {
++	has_openrc && test "${RC_OPENRC_PID:-}"
+ }
+ 
+ #
+ # Determines whether the current shell is a subprocess of a systemd unit that
+ # handles a service, socket, mount point or swap device, per systemd.exec(5).
+ #
+-from_unit()
+-{
+-	has_systemd && test "${SYSTEMD_EXEC_PID}" && test "${INVOCATION_ID}"
++from_unit() {
++	has_systemd && test "${SYSTEMD_EXEC_PID:-}" && test "${INVOCATION_ID:-}"
+ }
+ 
+ #
+ # Determines whether OpenRC appears to be operational as a service manager in
+ # the context of the present root filesystem namespace.
+ #
+-has_openrc()
+-{
+-	test -d /run/openrc
++has_openrc() {
++	if [ -n "${RC_SVCDIR:-}" ]; then
++		test -d "${RC_SVCDIR}"
++	elif [ -d /lib/rc/init.d ]; then
++		true
++	elif [ -d /var/run/openrc ]; then
++		true
++	else
++		test -d /run/openrc
++	fi
+ }
+ 
+ #
+ # Determines whether systemd appears to be operational as a service manager in
+ # the context of the present root filesystem namespace.
+ #
+-has_systemd()
+-{
++has_systemd() {
+ 	test -d /run/systemd
+ }
+ 
+ #
+ # Determines whether the first parameter is a valid identifier (variable name).
+ #
+-is_identifier()
+-{
+-	case $1 in
++is_identifier() {
++	case "${1:-}" in
+ 		''|_|[0123456789]*|*[!_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz]*)
+ 			false
+ 	esac
+@@ -250,10 +252,10 @@
+ # permitted because the string might later be considered to be octal in an
+ # arithmetic context, causing the shell to exit if the number be invalid.
+ #
+-is_int()
+-{
+-	set -- "${1#-}"
+-	case $1 in
++is_int() {
++	set -- "${1#"-"}"
++
++	case "${1:-}" in
+ 		''|*[!0123456789]*)
+ 			false
+ 			;;
+@@ -261,7 +263,7 @@
+ 			true
+ 			;;
+ 		*)
+-			test "$1" = "${1#0}"
++			test "${1:-}" = "${1#"0"}"
+ 	esac
+ }
+ 
+@@ -269,21 +271,21 @@
+ # Determines whether the first parameter matches any of the parameters that
+ # follow it.
+ #
+-is_anyof()
+-{
+-	local arg needle
++is_anyof() {
++	local arg='' needle=''
+ 
+-	if [ "$#" -eq 0 ]; then
+-		warn "is_anyof: too few arguments (got $#, expected at least 1)"
++	if [ "${#}" -eq 0 ]; then
++		warn "is_anyof: too few arguments (got ${#}, expected at least 1)"
+ 	else
+-		needle=$1
++		needle="${1:-}"
+ 		shift
+ 		for arg; do
+-			if [ "${arg}" = "${needle}" ]; then
++			if [ "${arg:-}" = "${needle:-}" ]; then
+ 				return
+ 			fi
+ 		done
+ 	fi
++
+ 	false
+ }
+ 
+@@ -305,33 +307,30 @@
+ # This constraint is expected to be eliminated by a future amendment to the
+ # function, once support for read -d becomes sufficiently widespread.
+ #
+-newest()
+-{
+-	local path newest
++newest() {
++	local path='' newest=''
+ 
+-	newest=
+-	if [ "$#" -gt 0 ]; then
++	if [ "${#}" -gt 0 ]; then
+ 		for path; do
+ 			# The tests within curly braces address a conformance
+ 			# issue whereby [ existent -nt nonexistent ] is
+ 			# incorrectly false. As of August 2024, busybox ash,
+ 			# dash, FreeBSD sh and NetBSD sh are known to be
+ 			# non-conforming in this respect.
+-			if { [ ! "${newest}" ] && [ -e "${path}" ]; } || [ "${path}" -nt "${newest}" ]; then
+-				newest=${path}
++			if { [ ! "${newest:-}" ] && [ -e "${path:-}" ]; } || [ "${path:-}" -nt "${newest:-}" ]; then
++				newest=${path:-}
+ 			fi
+ 		done
+-		test "${newest}" && printf '%s\n' "${newest}"
++		test "${newest:-}" && printf '%s\n' "${newest:-}"
+ 	else
+ 		# Support for read -d '' is not yet sufficiently widespread.
+-		tr '\0' '\n' |
+-		{
+-		while IFS= read -r path; do
+-			if { [ ! "${newest}" ] && [ -e "${path}" ]; } || [ "${path}" -nt "${newest}" ]; then
+-				newest=${path}
+-			fi
+-		done
+-		test "${newest}" && printf '%s\n' "${newest}"
++		tr '\0' '\n' | {
++			while IFS='' read -r path; do
++				if { [ ! "${newest:-}" ] && [ -e "${path:-}" ]; } || [ "${path:-}" -nt "${newest:-}" ]; then
++					newest="${path:-}"
++				fi
++			done
++			test "${newest:-}" && printf '%s\n' "${newest:-}"
+ 		}
+ 	fi
+ }
+@@ -340,13 +339,12 @@
+ # Tries to determine the number of available processors. Falls back to trying to
+ # determine the number of online processors in a way that is somewhat portable.
+ #
+-get_nprocs()
+-{
++get_nprocs() {
+ 	if nproc 2>/dev/null; then
+ 		# The nproc(1) utility is provided by GNU coreutils. It has the
+ 		# advantage of acknowledging the effect of sched_setaffinity(2).
+ 		true
+-	elif getconf _NPROCESSORS_ONLN 2>/dev/null; then
++	elif getconf '_NPROCESSORS_ONLN' 2>/dev/null; then
+ 		true
+ 	else
+ 		warn "get_nprocs: failed to determine the number of processors"
+@@ -372,35 +370,32 @@
+ # This constraint is expected to be eliminated by a future amendment to the
+ # function, once support for read -d becomes sufficiently widespread.
+ #
+-oldest()
+-{
+-	local path oldest
++oldest() {
++	local path='' oldest=''
+ 
+-	oldest=
+-	if [ "$#" -gt 0 ]; then
++	if [ "${#}" -gt 0 ]; then
+ 		for path; do
+ 			# The specification has [ nonexistent -ot existent ] as
+ 			# being true. Such is a nuisance in this case but the
+ 			# preceding tests suffice as a workaround.
+-			if [ ! -e "${path}" ]; then
++			if [ ! -e "${path:-}" ]; then
+ 				continue
+-			elif [ ! "${oldest}" ] || [ "${path}" -ot "${oldest}" ]; then
+-				oldest=${path}
++			elif [ ! "${oldest:-}" ] || [ "${path:-}" -ot "${oldest:-}" ]; then
++				oldest="${path:-}"
+ 			fi
+ 		done
+-		test "${oldest}" && printf '%s\n' "${oldest}"
++		test "${oldest:-}" && printf '%s\n' "${oldest:-}"
+ 	else
+ 		# Support for read -d '' is not yet sufficiently widespread.
+-		tr '\0' '\n' |
+-		{
+-		while IFS= read -r path; do
+-			if [ ! -e "${path}" ]; then
+-				continue
+-			elif [ ! "${oldest}" ] || [ "${path}" -ot "${oldest}" ]; then
+-				oldest=${path}
+-			fi
+-		done
+-		test "${oldest}" && printf '%s\n' "${oldest}"
++		tr '\0' '\n' | {
++			while IFS='' read -r path; do
++				if [ ! -e "${path:-}" ]; then
++					continue
++				elif [ ! "${oldest:-}" ] || [ "${path:-}" -ot "${oldest:-}" ]; then
++					oldest="${path:-}"
++				fi
++			done
++			test "${oldest:-}" && printf '%s\n' "${oldest:-}"
+ 		}
+ 	fi
+ }
+@@ -414,43 +409,40 @@
+ # specified command, one at a time. Should at least one command fail, the
+ # return value shall be greater than 0.
+ #
+-parallel_run()
+-{
+-	local arg cmd i retval statedir w workers
++parallel_run() {
++	local arg='' cmd='' i=0 retval=0 statedir='' w=0 workers=''
+ 
+-	if [ "$#" -lt 3 ]; then
+-		warn "parallel_run: too few arguments (got $#, expected at least 3)"
++	if [ "${#}" -lt 3 ]; then
++		warn "parallel_run: too few arguments (got ${#}, expected at least 3)"
+ 		return 1
+-	elif ! is_int "$1"; then
+-		_warn_for_args parallel_run "$1"
++	elif ! is_int "${1:-}"; then
++		_warn_for_args parallel_run "${1:-}"
+ 		return 1
+-	elif [ "$1" -le 0 ] && ! workers=$(get_nprocs); then
++	elif [ "${1}" -le 0 ] && ! workers="$(get_nprocs)"; then
+ 		return 1
+-	elif ! statedir=${TMPDIR:-/tmp}/parallel_run.$$.$(srandom); then
++	elif ! statedir="${TMPDIR:-/tmp}/parallel_run.${$}.$(srandom)"; then
+ 		return 1
+ 	fi
+-	workers=${workers:-$1} cmd=$2
++	workers="${workers:-"${1}"}" cmd="${2:-}"
+ 	shift 2
+-	w=0
+-	i=0
+ 	(
+-		while [ "$(( w += 1 ))" -le "${workers}" ]; do
+-			i=$w
+-			while [ "$i" -le "$#" ]; do
+-				eval "arg=\${$i}"
+-				if ! "${cmd}" "${arg}"; then
+-					mkdir -p -- "${statedir}"
++		while [ "$(( w += 1 ))" -le "${workers:-}" ]; do
++			i=${w}
++			while [ "${i}" -le "${#}" ]; do
++				eval "arg=\${${i}}"
++				if ! "${cmd:-}" "${arg}"; then
++					mkdir -p -- "${statedir:-}"
+ 				fi
+ 				i=$(( i + workers ))
+ 			done &
+ 		done
+ 		wait
+ 	)
+-	retval=$?
+-	if rmdir -- "${statedir}" 2>/dev/null && [ "${retval}" -eq 0 ]; then
++	retval=${?}
++	if rmdir -- "${statedir:-}" 2>/dev/null && [ "${retval}" -eq 0 ]; then
+ 		retval=1
+ 	fi
+-	return "${retval}"
++	return ${retval}
+ }
+ 
+ #
+@@ -470,14 +462,13 @@
+ # state of affairs, the use of dollar-single-quotes may be suppressed by
+ # setting POSIXLY_CORRECT as a non-empty string.
+ #
+-quote_args()
+-{
++quote_args() {
+ 	# Call into a bash-optimised implementation where appropriate.
+ 	# shellcheck disable=3028
+-	if [ ! "${POSIXLY_CORRECT}" ] && [ "${BASH_VERSINFO-0}" -ge 5 ]; then
+-		_quote_args_bash "$@"
++	if [ ! "${POSIXLY_CORRECT:-}" ] && [ "${BASH_VERSINFO-"0"}" -ge 5 ]; then
++		_quote_args_bash "${@}"
+ 	else
+-		POSIXLY_CORRECT=${POSIXLY_CORRECT} shquote "$@"
++		POSIXLY_CORRECT="${POSIXLY_CORRECT:-}" shquote "${@}"
+ 	fi
+ }
+ 
+@@ -488,17 +479,15 @@
+ # value shall be greater than 0.
+ #
+ # shellcheck disable=3028
+-if [ "${BASH_VERSINFO-0}" -ge 5 ] && [ "${SRANDOM}" != "${SRANDOM}" ]; then
+-	srandom()
+-	{
++if [ "${BASH_VERSINFO-"0"}" -ge 5 ] && [ "${SRANDOM:-}" != "${SRANDOM:-}" ]; then
++	srandom() {
+ 		printf '%d\n' "$(( SRANDOM >> 1 ))"
+ 	}
+ elif [ -c /dev/urandom ]; then
+ 	unset -v genfun_entropy
+ 
+-	srandom()
+-	{
+-		local hex slice
++	srandom() {
++		local hex='' slice=''
+ 
+ 		if [ "${#genfun_entropy}" -lt 8 ]; then
+ 			# Not enough entropy is left in the pool.
+@@ -506,19 +495,19 @@
+ 		elif ! _update_pid; then
+ 			# Fork detection is unavailable.
+ 			_collect_entropy
+-		elif ! eval "test \"\${genfun_pool_${genfun_pid}+set}\""; then
++		elif ! eval "test \"\${genfun_pool_${genfun_pid:-}+set}\""; then
+ 			# A newly forked shell has been detected.
+ 			_collect_entropy &&
+-			eval "genfun_pool_${genfun_pid}=1"
++			eval "genfun_pool_${genfun_pid:-}=1"
+ 		fi || return
+ 
+ 		# Consume 8 hex digits (32 bits) from the pool.
+-		slice=${genfun_entropy%????????}
+-		hex=${genfun_entropy#"$slice"}
+-		genfun_entropy=${slice}
++		slice="${genfun_entropy%????????}"
++		hex="${genfun_entropy#"${slice:-}"}"
++		genfun_entropy="${slice:-}"
+ 
+ 		# Clamp to the desired range (0x7FFFFFFF at most).
+-		case ${hex} in
++		case "${hex:-}" in
+ 			8*) hex=0${hex#?} ;;
+ 			9*) hex=1${hex#?} ;;
+ 			a*) hex=2${hex#?} ;;
+@@ -526,11 +515,11 @@
+ 			c*) hex=4${hex#?} ;;
+ 			d*) hex=5${hex#?} ;;
+ 			e*) hex=6${hex#?} ;;
+-			f*) hex=7${hex#?}
++			f*) hex=7${hex#?} ;;
+ 		esac
+ 
+ 		# Print as decimal.
+-		printf '%d\n' "0x${hex}"
++		printf '%d\n' "0x${hex:-}"
+ 	}
+ else
+ 	srandom() {
+@@ -545,19 +534,18 @@
+ # to be processed. Otherwise, the lines to be processed shall be read from the
+ # standard input. The trimmed lines shall be printed to the standard output.
+ #
+-trim()
+-{
+-	local arg
++trim() {
++	local arg=''
+ 
+-	if [ "$#" -gt 0 ] && [ "${BASH}" ]; then
++	if [ "${#}" -gt 0 ] && [ "${BASH:-}" ]; then
+ 		for arg; do
+-			eval '[[ ${arg} =~ ^[[:space:]]+ ]] && arg=${arg:${#BASH_REMATCH}}'
+-			eval '[[ ${arg} =~ [[:space:]]+$ ]] && arg=${arg:0:${#arg} - ${#BASH_REMATCH}}'
+-			printf '%s\n' "${arg}"
++			eval '[[ ${arg:-} =~ ^[[:space:]]+ ]] && arg="${arg:${#BASH_REMATCH}}"'
++			eval '[[ ${arg:-} =~ [[:space:]]+$ ]] && arg="${arg:0:${#arg} - ${#BASH_REMATCH}}"'
++			printf '%s\n' "${arg:-}"
+ 		done
+ 	else
+-		if [ "$#" -gt 0 ]; then
+-			printf '%s\n' "$@"
++		if [ "${#}" -gt 0 ]; then
++			printf '%s\n' "${@}"
+ 		else
+ 			cat
+ 		fi | sed -e 's/^[[:space:]]\{1,\}//' -e 's/[[:space:]]\{1,\}$//'
+@@ -574,27 +562,23 @@
+ # encountered or there are no parameters following the sentinel, the return
+ # value shall be greater than 0.
+ #
+-trueof_all()
+-{
+-	local arg arg_idx i j
+-
+-	arg_idx=0
+-	i=0
+-	j=0
++trueof_all() {
++	local arg='' arg_idx=0 i=0 j=0
++
+ 	for arg; do
+ 		if [ "$(( arg_idx += 1 ))" -eq 1 ]; then
+ 			set --
+ 		fi
+-		if [ "$i" -gt 1 ]; then
+-			"$@" "${arg}" || return
+-			j=${arg_idx}
+-		elif [ "${arg}" = "${SENTINEL-"--"}" ]; then
+-			i=${arg_idx}
++		if [ "${i}" -gt 1 ]; then
++			"${@}" "${arg:-}" || return
++			j="${arg_idx}"
++		elif [ "${arg:-}" = "${SENTINEL-"--"}" ]; then
++			i="${arg_idx}"
+ 		else
+-			set -- "$@" "${arg}"
++			set -- "${@}" "${arg:-}"
+ 		fi
+ 	done
+-	test "$i" -gt 1 && test "$j" -gt "$i"
++	test "${i}" -gt 1 && test "${j}" -gt "${i}"
+ }
+ 
+ #
+@@ -607,22 +591,19 @@
+ # value is not encountered or there are no parameters following the sentinel,
+ # the return value shall be greater than 0.
+ #
+-trueof_any()
+-{
+-	local arg arg_idx i
++trueof_any() {
++	local arg='' arg_idx=0 i=0
+ 
+-	arg_idx=0
+-	i=0
+ 	for arg; do
+ 		if [ "$(( arg_idx += 1 ))" -eq 1 ]; then
+ 			set --
+ 		fi
+-		if [ "$i" -gt 1 ]; then
+-			"$@" "${arg}" && return
+-		elif [ "${arg}" = "${SENTINEL-"--"}" ]; then
+-			i=${arg_idx}
++		if [ "${i}" -gt 1 ]; then
++			"${@}" "${arg:-}" && return
++		elif [ "${arg:-}" = "${SENTINEL-"--"}" ]; then
++			i="${arg_idx}"
+ 		else
+-			set -- "$@" "${arg}"
++			set -- "${@}" "${arg:-}"
+ 		fi
+ 	done
+ 	false
+@@ -639,60 +620,59 @@
+ # existence and location of an external utility without potentially matching
+ # against aliases, builtins and functions (as command -v can).
+ #
+-whenceforth()
+-(
+-	local bin executable opt path prefix
+-
+-	executable=
+-	while getopts :x opt; do
+-		case ${opt} in
+-			x)
+-				executable=1
++whenceforth() (
++	local bin='' executable='' opt='' path='' prefix=''
++
++	while getopts ':x' opt; do
++		case "${opt:-}" in
++			'x')
++				executable='1'
+ 				;;
+ 			'?')
+-				_warn_for_args whenceforth "-${OPTARG}"
++				_warn_for_args whenceforth "-${OPTARG:-}"
+ 				return 1
+ 		esac
+ 	done
+ 	shift "$(( OPTIND - 1 ))"
+ 
+-	case $1 in
+-		/*)
++	case "${1:-}" in
++		'/'*)
+ 			# Absolute command paths must be directly checked.
+-			test -f "$1" && test ${executable:+-x} "$1" && bin=$1
++			test -f "${1:-}" && test ${executable:+"-x"} "${1:-}" && bin="${1:-}"
+ 			;;
+ 		*)
+ 			# Relative command paths must be searched for in PATH.
+ 			# https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03
+-			case ${PATH} in
+-				''|:)
++			case "${PATH:-}" in
++				''|':')
+ 					# Work around a bug in OpenBSD sh and
+ 					# its ports. Where IFS has a value of
+ 					# ":", splitting a word having the same
+ 					# value produces no words at all. Handle
+ 					# it by repeating the field terminator.
+-					path=::
++					path='::'
+ 					;;
+-				*:)
+-					path=${PATH}:
++				*':')
++					path="${PATH}:"
+ 					;;
+ 				*)
+-					path=${PATH}
++					path="${PATH}"
+ 			esac
+-			IFS=:
++			IFS=':'
+ 			set -f
+-			for prefix in ${path}; do
+-				case ${prefix} in
+-					*/)
+-						bin=${prefix}$1
++			for prefix in ${path:-}; do
++				case "${prefix:-}" in
++					*'/')
++						bin="${prefix}${1:-}"
+ 						;;
+ 					*)
+-						bin=${prefix:-.}/$1
++						bin="${prefix:-"."}/${1:-}"
++						;;
+ 				esac
+-				test -f "${bin}" && test ${executable:+-x} "${bin}" && break
++				test -f "${bin:-}" && test "${executable:+"-x"}" "${bin:-}" && break
+ 			done
+-	esac \
+-	&& printf '%s\n' "${bin}"
++	esac &&
++		printf '%s\n' "${bin:-}"
+ )
+ 
+ #------------------------------------------------------------------------------#
+@@ -702,7 +682,7 @@
+ # genfun_entropy variable in the form of 128 hex digits.
+ #
+ _collect_entropy() {
+-	genfun_entropy=$(LC_ALL=C od -vAn -N64 -tx1 /dev/urandom | tr -d '[:space:]')
++	genfun_entropy="$(LC_ALL='C' od -vAn -N64 -tx1 /dev/urandom | tr -d '[:space:]')"
+ 	test "${#genfun_entropy}" -eq 128
+ }
+ 
+@@ -712,27 +692,27 @@
+ # bash 4.4. However, it is simpler just to test for 5.0 or greater in sh.
+ #
+ # shellcheck disable=3028
+-if [ "${BASH_VERSINFO-0}" -ge 5 ]; then
++if [ "${BASH_VERSINFO-"0"}" -ge 5 ]; then
+ 	# shellcheck disable=1003
+ 	eval '
+ 		_quote_args_bash() {
+-			local str= qw w
++			local str="" qw="" w=""
+ 
+ 			for w; do
+-				printf -v qw %q "$w"
+-				if [[ ${qw} == "$w" ]]; then
+-					str+=\ $w
++				printf -v qw "%q" "${w}"
++				if [[ "${qw}" == "${w}" ]]; then
++					str+=" ${w}"
+ 				else
+-					qw=${w@Q}
+-					if [[ ${qw} == \$\'\''*\\E* ]]; then
+-						qw=${qw//\\\\/$'\''\1'\''}
+-						qw=${qw//\\E/\\e}
+-						qw=${qw//$'\''\1'\''/\\\\}
++					qw="${w@Q}"
++					if [[ "${qw}" == \$\'\''*\\E* ]]; then
++						qw="${qw//\\\\/$'\''\1'\''}"
++						qw="${qw//\\E/\\e}"
++						qw="${qw//$'\''\1'\''/\\\\}"
+ 					fi
+-					str+=\ ${qw}
++					str+=" ${qw}"
+ 				fi
+ 			done
+-			printf %s\\n "${str# }"
++			printf "%s\\n" "${str#" "}"
+ 		}
+ 	'
+ fi
+@@ -742,34 +722,29 @@
+ # 0. The obtained PID value will differ from the value of $$ under certain
+ # circumstances, such as where a shell forks itself to create a subshell.
+ #
+-_update_pid()
+-{
+-	if [ "${BASH}" ]; then
+-		_update_pid()
+-		{
++_update_pid() {
++	if [ "${BASH:-}" ]; then
++		_update_pid() {
+ 			# shellcheck disable=3028
+-			genfun_pid=${BASHPID}
++			genfun_pid=${BASHPID:-}
+ 		}
+ 	elif [ -d /proc/self/task ]; then
+ 		# This method relies on the proc_pid_task(5) interface of Linux.
+-		_update_pid()
+-		{
+-			local dir tid
++		_update_pid() {
++			local dir='' tid=''
+ 
+-			tid=
+ 			for dir in /proc/self/task/*/; do
+-				if [ "${tid}" ] || [ ! -e "${dir}" ]; then
++				if [ "${tid:-}" ] || [ ! -e "${dir:-}" ]; then
+ 					return 1
+ 				else
+-					dir=${dir%/}
+-					tid=${dir##*/}
++					dir="${dir%"/"}"
++					tid="${dir##*"/"}"
+ 				fi
+ 			done
+-			genfun_pid=${tid}
++			genfun_pid="${tid:-}"
+ 		}
+ 	else
+-		_update_pid()
+-		{
++		_update_pid() {
+ 			false
+ 		}
+ 	fi
+@@ -783,12 +758,11 @@
+ # against the any of the blank-separated words defined by the GENFUN_MODULES
+ # variable (not including the ".sh" suffix).
+ #
+-_want_module()
+-{
+-	local basename
++_want_module() {
++	local basename=''
+ 
+-	basename=${1##*/}
+-	contains_any "${GENFUN_MODULES}" "${basename%.sh}"
++	basename="${1##*"/"}"
++	contains_any "${GENFUN_MODULES:-}" "${basename%".sh"}"
+ }
+ 
+ #
+@@ -796,14 +770,13 @@
+ # argument shall be taken as a function identifier. The remaining arguments
+ # shall be safely rendered as a part of the diagnostic.
+ #
+-_warn_for_args()
+-{
+-	local ident plural
++_warn_for_args() {
++	local ident='' plural=''
+ 
+-	ident=$1
++	ident="${1:-}"
+ 	shift
+-	[ "$#" -gt 1 ] && plural=s || plural=
+-	warn "${ident}: invalid argument${plural}: $(quote_args "$@")"
++	[ "${#}" -gt 1 ] && plural="s"
++	warn "${ident:-}: invalid argument${plural}: $(quote_args "${@}")"
+ }
+ 
+ #------------------------------------------------------------------------------#
+@@ -817,40 +790,41 @@
+ # was at the time of installing gentoo-functions, before setting genfun_basedir
+ # to the path of the directory to which this file was installed. Otherwise,
+ # honour its existing value so as to ease the development and testing process.
+-if [ ! "${genfun_basedir+set}" ]; then
+-	genfun_prefix=
+-	genfun_basedir=${genfun_prefix}/lib/gentoo
++if [ ! "${genfun_basedir+"set"}" ]; then
++	genfun_prefix=''
++	genfun_basedir="${genfun_prefix:-}/lib/gentoo"
+ fi
+ 
+ # The GENFUN_MODULES variable acts as a means of selecting modules, which are
+ # merely optional collections of functions. If unset then set it now.
+-if [ ! "${GENFUN_MODULES+set}" ]; then
++if [ ! "${GENFUN_MODULES+"set"}" ]; then
+ 	# OpenRC provides various functions and utilities which have long had
+ 	# parallel implementations in gentoo-functions. Declare ours only if the
+ 	# shell is neither executing a runscript nor is a subprocess of one.
+ 	if ! from_runscript; then
+-		GENFUN_MODULES="rc"
++		GENFUN_MODULES='rc'
+ 	fi
+ 	# Several functions are available which overlap with functions and
+ 	# utilities provided by portage. These exist primarily to make it easier
+ 	# to test code outside of ebuilds. Declare them only if the shell is not
+ 	# a subprocess of portage.
+ 	if ! from_portage; then
+-		GENFUN_MODULES="${GENFUN_MODULES}${GENFUN_MODULES+ }portage"
++		GENFUN_MODULES="${GENFUN_MODULES:-}${GENFUN_MODULES+" "}portage"
+ 	fi
+ fi
+ 
+ # Both of the rc and experimental modules depend on the tty module.
+-if contains_any "${GENFUN_MODULES}" rc experimental; then
+-	GENFUN_MODULES="${GENFUN_MODULES}${GENFUN_MODULES+ }tty"
++if contains_any "${GENFUN_MODULES:-}" rc experimental; then
++	GENFUN_MODULES="${GENFUN_MODULES:-}${GENFUN_MODULES+" "}tty"
+ fi
+ 
+ # Source any modules that have been selected by the GENFUN_MODULES variable.
+-for _ in "${genfun_basedir}/functions"/*.sh; do
+-	if ! test -e "$_"; then
++for _ in "${genfun_basedir:-}/functions"/*.sh; do
++	if ! test -e "${_}"; then
+ 		warn "no gentoo-functions modules were found (genfun_basedir might be set incorrectly)"
+ 		false
+-	elif _want_module "$_"; then
+-		. "$_"
++	elif _want_module "${_}"; then
++		# shellcheck disable=SC1090
++		. "${_}"
+ 	fi || return
+ done

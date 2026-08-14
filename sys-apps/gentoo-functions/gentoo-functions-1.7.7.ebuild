@@ -9,7 +9,7 @@ DESCRIPTION="Base functions required by all Gentoo systems"
 HOMEPAGE="https://gitweb.gentoo.org/proj/gentoo-functions.git"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit git-r3
+	inherit meson
 	EGIT_REPO_URI="https://anongit.gentoo.org/git/proj/gentoo-functions.git"
 else
 	SRC_URI="https://gitweb.gentoo.org/proj/gentoo-functions.git/snapshot/${P}.tar.bz2"
@@ -22,8 +22,8 @@ IUSE="test"
 RESTRICT="!test? ( test )"
 
 PATCHES=(
-	"${FILESDIR}/${P}.patch"
-	#"${FILESDIR}/${P}-shellcheck.patch"
+	"${FILESDIR}/${P}-functions.sh.patch"
+	"${FILESDIR}/${P}-rc.sh.patch"
 )
 
 src_configure() {
