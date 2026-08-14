@@ -9,24 +9,23 @@ DESCRIPTION="An OCI container runtime monitor"
 HOMEPAGE="https://github.com/containers/conmon"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit toolchain-funcs
+	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/conmon.git"
 else
 	SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 arm64 ~loong ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~loong ~ppc64 ~riscv"
 fi
 
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="+seccomp selinux systemd"
+IUSE="crio +seccomp selinux systemd"
 RESTRICT="mirror test"
 
 DEPEND="dev-libs/glib:=
 	seccomp? ( sys-libs/libseccomp )
 	systemd? ( sys-apps/systemd:= )"
 RDEPEND="${DEPEND}
-	selinux? ( sec-policy/selinux-podman )
-"
+	selinux? ( sec-policy/selinux-podman )"
 BDEPEND="dev-go/go-md2man"
 
 src_prepare() {
@@ -43,6 +42,9 @@ src_compile() {
 
 src_install() {
 	default
-	dodir /usr/libexec/podman
+	dodir /usr/libexec/podman $(usex crio '/usr/libexec/crio' '')
+	if use crio; then
+		dosym -r "/usr/bin/${PN}" "/usr/libexec/crio/${PN}" || die
+	fi
 	dosym -r "/usr/bin/${PN}" "/usr/libexec/podman/${PN}" || die
 }

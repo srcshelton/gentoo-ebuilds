@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -9,7 +9,7 @@ DESCRIPTION="An OCI container runtime monitor"
 HOMEPAGE="https://github.com/containers/conmon"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit git-r3
+	inherit toolchain-funcs
 	EGIT_REPO_URI="https://github.com/containers/conmon.git"
 else
 	SRC_URI="https://github.com/containers/conmon/archive/v${PV}.tar.gz -> ${P}.tar.gz
@@ -19,13 +19,15 @@ fi
 
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="+seccomp systemd"
+IUSE="+seccomp selinux systemd"
 RESTRICT="mirror test"
 
-RDEPEND="dev-libs/glib:=
+DEPEND="dev-libs/glib:=
 	seccomp? ( sys-libs/libseccomp )
 	systemd? ( sys-apps/systemd:= )"
-DEPEND="${RDEPEND}"
+RDEPEND="${DEPEND}
+	selinux? ( sec-policy/selinux-podman )
+"
 BDEPEND="dev-go/go-md2man"
 
 PATCHES=(
