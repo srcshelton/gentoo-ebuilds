@@ -13,7 +13,7 @@ DESCRIPTION="Updater for Raspberry Pi 4/5 bootloader and the VL805 USB controlle
 HOMEPAGE="https://github.com/raspberrypi/rpi-eeprom/"
 SRC_URI="${MY_BASE_URL}-$(ver_cut 4).debian.tar.xz
 	${MY_BASE_URL}.orig.tar.gz"
-RESTRICT="mirror"
+#RESTRICT="mirror"
 S="${WORKDIR}"
 
 LICENSE="BSD rpi-eeprom"
@@ -33,6 +33,7 @@ RDEPEND="${PYTHON_DEPS}
 	sys-devel/binutils
 	|| (
 		sys-apps/raspberrypi-tools
+		dev-embedded/raspberrypi-utils
 		>=media-libs/raspberrypi-userland-0_pre20201022
 		>=media-libs/raspberrypi-userland-bin-1.20201022
 	)"
