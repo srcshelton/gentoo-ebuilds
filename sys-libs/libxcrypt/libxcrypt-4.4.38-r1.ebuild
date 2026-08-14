@@ -12,7 +12,7 @@ inherit crossdev flag-o-matic multibuild multilib python-any-r1 toolchain-funcs 
 DESCRIPTION="Extended crypt library for descrypt, md5crypt, bcrypt, and others"
 HOMEPAGE="https://github.com/besser82/libxcrypt"
 if [[ ${NEED_BOOTSTRAP} == "yes" ]] ; then
-	inherit autotools
+	inherit crossdev flag-o-matic multibuild multilib python-any-r1 toolchain-funcs multilib-minimal
 	SRC_URI="https://github.com/besser82/libxcrypt/releases/download/v${PV}/${P}.tar.xz"
 else
 	SRC_URI="https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${P}-autotools.tar.xz"
@@ -37,7 +37,9 @@ DEPEND="
 		)
 	)
 "
-RDEPEND="${DEPEND}"
+RDEPEND="${DEPEND}
+	!<sys-apps/man-pages-6.16-r1
+"
 BDEPEND="
 	dev-lang/perl
 	test? ( $(python_gen_any_dep 'dev-python/passlib[${PYTHON_USEDEP}]') )
@@ -146,10 +148,6 @@ src_configure() {
 		local -x CC="$(tc-getBUILD_CC)"
 		local -x PKG_CONFIG="false"
 	fi
-
-	# Avoid possible "illegal instruction" errors with gold
-	# bug #821496
-	tc-ld-disable-gold
 
 	# Doesn't work with LTO: bug #852917.
 	# https://github.com/besser82/libxcrypt/issues/24
