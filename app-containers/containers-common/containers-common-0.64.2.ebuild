@@ -58,7 +58,7 @@ src_prepare() {
 
 src_compile() {
 	emake docs
-	touch {images,layers}.lock || die
+	#touch {images,layers}.lock || die
 }
 
 src_install() {
@@ -68,7 +68,8 @@ src_install() {
 	insinto /usr/share/containers
 	doins pkg/seccomp/seccomp.json pkg/subscriptions/mounts.conf
 
-	keepdir /etc/containers/{certs.d,networks} /var/lib/containers/sigstore
+	keepdir /etc/containers/{certs.d,networks}
+	#keepdir /var/lib/containers/sigstore
 
 	# Surely this should belong to app-containers/cni-plugins?
 	#keepdir /etc/containers/oci/hooks.d
