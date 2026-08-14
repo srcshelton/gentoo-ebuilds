@@ -43,7 +43,7 @@ HOMEPAGE="https://tiswww.case.edu/php/chet/bash/bashtop.html https://git.savanna
 if [[ "${PV}" == '9999' ]]; then
 	EGIT_REPO_URI="https://git.savannah.gnu.org/git/bash.git"
 	EGIT_BRANCH=devel
-	inherit git-r3
+	inherit flag-o-matic prefix toolchain-funcs verify-sig
 elif (( PLEVEL < 0 )) && [[ -n "${BASH_COMMIT}" ]]; then
 	# It can be useful to have snapshots in the pre-release period once
 	# the first alpha is out, as various bugs get reported and fixed from
@@ -114,6 +114,9 @@ PREFIX_PATCHES=(
 
 PATCHES=(
 	#"${WORKDIR}"/${PN}-${GENTOO_PATCH_VER}/
+
+	# bug #971782
+	"${FILESDIR}"/${PN}-5.3_p9-general-workaround-aliasing-violation-in-REVERSE_LIS.patch
 
 	# Patches to or from Chet, posted to the bug-bash mailing list.
 	"${FILESDIR}"/${PN}-5.0-syslog-history-extern.patch
