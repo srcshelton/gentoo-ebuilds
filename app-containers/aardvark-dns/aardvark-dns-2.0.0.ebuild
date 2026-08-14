@@ -5,19 +5,20 @@ EAPI=8
 
 RUST_MIN_VER="1.88.0"
 [[ ${PV} == 9999* ]] || CRATES="${PN}@${PV}"
+
 inherit cargo
 
 DESCRIPTION="A container-focused DNS server"
 HOMEPAGE="https://github.com/containers/aardvark-dns"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit cargo
+	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/aardvark-dns.git"
 else
 	SRC_URI="${CARGO_CRATE_URIS}
 		https://github.com/containers/aardvark-dns/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
 	KEYWORDS="~amd64 ~arm64 ~loong ~ppc64 ~riscv"
-	#RESTRICT="mirror"
+	RESTRICT="mirror"
 fi
 
 LICENSE="0BSD Apache-2.0 Apache-2.0-with-LLVM-exceptions MIT Unlicense Unicode-DFS-2016 ZLIB"
@@ -25,6 +26,7 @@ SLOT="0"
 
 QA_FLAGS_IGNORED="usr/libexec/podman/${PN}"
 QA_PRESTRIPPED="usr/libexec/podman/${PN}"
+
 ECARGO_VENDOR="${WORKDIR}/vendor"
 
 src_unpack() {
@@ -38,11 +40,13 @@ src_unpack() {
 
 src_prepare() {
 	default
+
 	sed -i -e "s|m0755 bin|m0755 $(cargo_target_dir)|g;" Makefile || die
 }
 
 src_install() {
 	local -x PREFIX="${EPREFIX}"/usr
+
 	default
 
 	dodir /usr/bin
