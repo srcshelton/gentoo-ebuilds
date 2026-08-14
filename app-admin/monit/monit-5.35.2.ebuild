@@ -1,4 +1,4 @@
-# Copyright 2021-2025 Gentoo Authors
+# Copyright 2021-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -12,14 +12,16 @@ SRC_URI="http://mmonit.com/monit/dist/${P}.tar.gz"
 LICENSE="AGPL-3"
 SLOT="0"
 KEYWORDS="~amd64 ~arm ~arm64 ~ppc ~ppc64 ~riscv ~x86"
-IUSE="pam ssl systemd"
+IUSE="pam selinux ssl systemd"
 
-RDEPEND="virtual/zlib:=
+DEPEND="virtual/zlib:=
 	virtual/libcrypt:=
 	pam? ( sys-libs/pam )
 	ssl? ( dev-libs/openssl:0= )
 "
-DEPEND="${RDEPEND}"
+RDEPEND="${DEPEND}
+	selinux? ( sec-policy/selinux-monit )
+"
 BDEPEND="
 	app-alternatives/yacc
 	app-alternatives/lex
