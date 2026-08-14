@@ -11,27 +11,41 @@ if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/ngtcp2/ngtcp2.git"
 	inherit autotools git-r3
 else
-	SRC_URI="https://github.com/ngtcp2/ngtcp2/releases/download/v${PV}/${P}.tar.xz"
+	VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/ngtcp2.asc
+	inherit verify-sig
+	SRC_URI="
+		https://github.com/ngtcp2/ngtcp2/releases/download/v${PV}/${P}.tar.xz
+		verify-sig? ( https://github.com/ngtcp2/ngtcp2/releases/download/v${PV}/${P}.tar.xz.asc )
+	"
 
-	KEYWORDS="amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86"
+	KEYWORDS="amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
+	BDEPEND="verify-sig? ( sec-keys/openpgp-keys-ngtcp2 )"
 fi
 
 DESCRIPTION="Implementation of the IETF QUIC Protocol"
-HOMEPAGE="https://github.com/ngtcp2/ngtcp2"
+HOMEPAGE="https://nghttp2.org/ngtcp2/ https://github.com/ngtcp2/ngtcp2"
 
 LICENSE="MIT"
 SLOT="0/0"
-IUSE="+gnutls openssl +ssl"
+IUSE="gnutls +openssl +ssl"
 REQUIRED_USE="ssl? ( || ( gnutls openssl ) )"
 
+# Uses SSL_set_quic_tls_cbs to detect OpenSSL. The function was introduced in
+# OpenSSL 3.5:
+# https://docs.openssl.org/master/man3/SSL_set_quic_tls_cbs/#history.
 RDEPEND="
 	ssl? (
 		gnutls? ( >=net-libs/gnutls-3.7.2:=[${MULTILIB_USEDEP}] )
-		openssl? ( >=dev-libs/openssl-3.5.0:=[quic,${MULTILIB_USEDEP}] )
+		openssl? ( >=dev-libs/openssl-3.5:=[${MULTILIB_USEDEP}] )
 	)
 "
 DEPEND="${RDEPEND}"
-BDEPEND="virtual/pkgconfig"
+BDEPEND+=" virtual/pkgconfig"
+
+# QuicTLS function, the OpenSSL support is checked via SSL_set_quic_tls_cbs.
+QA_CONFIG_IMPL_DECL_SKIP=(
+	'SSL_provide_quic_data'
+)
 
 src_prepare() {
 	default
