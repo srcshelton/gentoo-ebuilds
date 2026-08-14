@@ -2,14 +2,15 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
 inherit go-module linux-info
 
-RUNC_COMMIT="8aeb2a4bdde811f2271b44ad1ace63af63d93682"  # "私の役目は信じるかどうかではない。行うかどうかだ。" (My role is not to believe or not. Whether or not to do it.)
+RUNC_COMMIT="491b69bab9fa206b984fb26ba07d3110d62e671f" # "On no account should you allow a Vogon to read poetry at you."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="https://github.com/opencontainers/runc/"
-MY_PV="${PV/_rc/-rc.}"
+MY_PV="${PV/_/-}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 S="${WORKDIR}/${PN}-${MY_PV}"
 
@@ -33,7 +34,7 @@ RDEPEND="
 
 # dev-lang/go - see https://github.com/opencontainers/runc/issues/4233
 BDEPEND="
-	>=dev-lang/go-1.24
+	>=dev-lang/go-1.23.0
 	man? ( dev-go/go-md2man )
 	test? ( "${RDEPEND}" )
 	sys-apps/findutils

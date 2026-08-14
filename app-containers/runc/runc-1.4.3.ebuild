@@ -1,21 +1,21 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="8aeb2a4bdde811f2271b44ad1ace63af63d93682"  # "私の役目は信じるかどうかではない。行うかどうかだ。" (My role is not to believe or not. Whether or not to do it.)
+RUNC_COMMIT="bb14dabeb7185bb72c8c86735d090dcb20f36587"  # "The best way to irritate him is to feed his grandmother to the Ravenous Bugblatter Beast of Traal."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
 HOMEPAGE="https://github.com/opencontainers/runc/"
-MY_PV="${PV/_rc/-rc.}"
+MY_PV="${PV/_/-}"
 SRC_URI="https://github.com/opencontainers/${PN}/archive/v${MY_PV}.tar.gz -> ${P}.tar.gz"
 S="${WORKDIR}/${PN}-${MY_PV}"
 
 LICENSE="Apache-2.0 BSD-2 BSD MIT"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~arm64 ~ppc64 ~riscv ~x86"
+KEYWORDS="amd64 ~arm arm64 ppc64 ~riscv ~x86"
 IUSE="apparmor +bash-completion hardened +man +seccomp selinux test"
 
 # sys-libs/glibc - see https://github.com/golang/go/issues/65625#issuecomment-1939390070

@@ -4,7 +4,7 @@
 EAPI=8
 inherit go-module linux-info
 
-RUNC_COMMIT="8aeb2a4bdde811f2271b44ad1ace63af63d93682"  # "私の役目は信じるかどうかではない。行うかどうかだ。" (My role is not to believe or not. Whether or not to do it.)
+RUNC_COMMIT="b33d1c260533c0e012610557e614f82449fa435a"  # "The best way to get a drink out of a Vogon is to stick your finger down his throat."
 CONFIG_CHECK="~USER_NS"
 
 DESCRIPTION="runc container cli tools"
