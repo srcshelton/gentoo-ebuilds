@@ -4,17 +4,18 @@
 EAPI=8
 
 PYTHON_COMPAT=( python3_{11..14} )
-
-inherit meson python-single-r1 udev vala xdg
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/hughsie.asc
+inherit meson python-single-r1 udev vala verify-sig xdg
 
 DESCRIPTION="Aims to make updating firmware on Linux automatic, safe and reliable"
 HOMEPAGE="https://fwupd.org"
-SRC_URI="https://github.com/${PN}/${PN}/releases/download/${PV}/${P}.tar.xz"
+SRC_URI="https://github.com/${PN}/${PN}/releases/download/${PV}/${P}.tar.xz
+	verify-sig? ( https://github.com/${PN}/${PN}/releases/download/${PV}/${P}.tar.xz.asc )"
 
 LICENSE="LGPL-2.1+"
 SLOT="0"
 KEYWORDS="amd64 ~arm arm64 ~loong ppc64 ~riscv x86"
-IUSE="amdgpu +archive bash-completion bluetooth cbor elogind flashrom gnutls gtk-doc introspection lzma minimal modemmanager nvme policykit protobuf selinux seccomp spi synaptics systemd test tpm uefi"
+IUSE="amdgpu +archive bash-completion bluetooth cbor elogind flashrom gnutls gtk-doc introspection lzma minimal modemmanager nvme policykit protobuf seccomp selinux spi synaptics systemd test tpm uefi"
 REQUIRED_USE="${PYTHON_REQUIRED_USE}
 	^^ ( elogind minimal systemd )
 	minimal? ( !introspection )
@@ -49,6 +50,7 @@ BDEPEND="$(vala_depend)
 			dev-python/pygobject:3[cairo]
 		')
 	)
+	verify-sig? ( sec-keys/openpgp-keys-hughsie )
 "
 COMMON_DEPEND="${PYTHON_DEPS}
 	>=app-arch/gcab-1.0
@@ -108,7 +110,7 @@ DEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/${PN}-2.0.16-elogind.patch
+	"${FILESDIR}"/${PN}-2.0.18-elogind.patch
 )
 
 src_prepare() {
@@ -118,6 +120,10 @@ src_prepare() {
 
 	sed -e "/install_dir.*'doc'/s/doc/gtk-doc/" \
 		-i docs/meson.build || die
+
+	# Fails with DBus permission error
+	sed -i -e "/g_test_add_data_func.*plugin-gtypes/d" \
+		src/fu-self-test.c || die
 
 	python_fix_shebang "${S}"/contrib/*.py
 }
@@ -157,7 +163,7 @@ src_configure() {
 }
 
 src_test() {
-	LC_ALL="C" meson_src_test
+	LC_ALL="C.UTF-8" meson_src_test
 }
 
 src_install() {
