@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
@@ -6,7 +6,7 @@ EAPI=7
 # Bumping notes: https://wiki.gentoo.org/wiki/Project:Toolchain/sys-libs/glibc
 # Please read & adapt the page as necessary if obsolete.
 
-PYTHON_COMPAT=( python3_{10..11} )
+PYTHON_COMPAT=( python3_{10..12} )
 TMPFILES_OPTIONAL=1
 
 inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
@@ -23,7 +23,7 @@ PATCH_VER=10
 PATCH_DEV=dilfridge
 
 if [[ ${PV} == 9999* ]]; then
-	inherit git-r3
+	inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
 else
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
@@ -1408,7 +1408,7 @@ run_locale_gen() {
 	# number of processors saved in the environment of a binary package may
 	# differ strongly from the number of processes available during postinst
 	if [[ "${EMERGE_FROM}" != 'binary' ]]; then
-		localegen_args+=( --jobs "$(makeopts_jobs)" )
+		localegen_args+=( --jobs "$(get_makeopts_jobs)" )
 	fi
 
 	printf 'Executing: locale-gen %s\n' "${localegen_args[*]@Q}" >&2

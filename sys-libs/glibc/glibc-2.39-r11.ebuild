@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -38,7 +38,7 @@ DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit git-r3
+	inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
 else
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
@@ -1458,7 +1458,7 @@ run_locale_gen() {
 	# of processors saved in the environment of a binary package may differ
 	# strongly from the number of processes available during postinst
 	if [[ "${EMERGE_FROM}" != "binary" ]] ; then
-		localegen_args+=( --jobs "$(makeopts_jobs)" )
+		localegen_args+=( --jobs "$(get_makeopts_jobs)" )
 	fi
 
 	printf 'Executing "locale-gen %s"\n' "${localegen_args[*]@Q}" >&2
