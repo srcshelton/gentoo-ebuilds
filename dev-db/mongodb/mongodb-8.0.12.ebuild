@@ -7,7 +7,7 @@ PYTHON_COMPAT=( python3_{11..14} )
 
 SCONS_MIN_VERSION="3.3.1"
 CHECKREQS_DISK_BUILD="2400M"
-CHECKREQS_DISK_USR="512M" # Less if stripped binaries are installed
+CHECKREQS_DISK_USR="512M"  # Less if stripped binaries are installed
 CHECKREQS_MEMORY="1024M"
 
 inherit check-reqs eapi9-ver flag-o-matic multiprocessing pax-utils python-any-r1 scons-utils systemd toolchain-funcs
@@ -18,7 +18,7 @@ MY_P=mongo-${MY_PV}
 DESCRIPTION="A high-performance, open source, schema-free document-oriented database"
 HOMEPAGE="https://www.mongodb.com"
 SRC_URI="https://github.com/mongodb/mongo/archive/refs/tags/${MY_PV}.tar.gz -> ${P}.gh.tar.gz
-	https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${PN}-5.0.30-patches.tar.xz"
+	https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${PN}-8.0.8-patches.tar.xz"
 S="${WORKDIR}/${MY_P}"
 
 LICENSE="Apache-2.0 SSPL-1"
@@ -55,13 +55,17 @@ BDEPEND="
 		>=dev-build/scons-3.1.1[${PYTHON_USEDEP}]
 		dev-python/cheetah3[${PYTHON_USEDEP}]
 		dev-python/psutil[${PYTHON_USEDEP}]
-		dev-python/pymongo[${PYTHON_USEDEP}]
 		dev-python/pyyaml[${PYTHON_USEDEP}]
+		dev-python/distro[${PYTHON_USEDEP}]
+		dev-python/gitpython[${PYTHON_USEDEP}]
 		|| ( <dev-python/setuptools-82.0.0[${PYTHON_USEDEP}]
 			( >=dev-python/setuptools-82.0.0[${PYTHON_USEDEP}]
 				dev-python/pkg-resources[${PYTHON_USEDEP}]
 			)
 		)
+		dev-python/poetry[${PYTHON_USEDEP}]
+		dev-python/pymongo[${PYTHON_USEDEP}]
+		dev-python/tenacity[${PYTHON_USEDEP}]
 	')
 "
 PDEPEND="
@@ -71,24 +75,18 @@ PDEPEND="
 RDEPEND+=" selinux? ( sec-policy/selinux-mongodb )"
 
 PATCHES=(
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-4.4.1-boost.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.30-gcc-11.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-fix-scons.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-no-compass.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-skip-no-exceptions.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-skip-reqs-check.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-boost-1.79.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.5-no-force-lld.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-4.4.10-boost-1.81.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.5-boost-1.81-extra.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.16-arm64-assert.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-4.4.29-no-enterprise.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-boost-1.85.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-boost-1.85-extra.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.30-gcc-15.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-scons.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-mozjs-remove-unused-constructor.patch"
-	"${FILESDIR}/mongodb-5.0.32-boost-system.patch"
+	"${WORKDIR}/mongodb-8.0.8-patches/mongodb-4.4.29-no-enterprise.patch"
+	"${WORKDIR}/mongodb-8.0.8-patches/${PN}-5.0.2-no-compass.patch"
+	"${WORKDIR}/mongodb-8.0.8-patches/${PN}-8.0.6-skip-reqs-check.patch"
+	"${WORKDIR}/mongodb-8.0.8-patches/${PN}-8.0.6-fixes-for-boost-1.85.patch"
+	"${WORKDIR}/mongodb-8.0.8-patches/${PN}-8.0.4-scons.patch"
+	"${WORKDIR}/mongodb-8.0.8-patches/${PN}-8.0.6-use-tenacity.patch"
+	"${FILESDIR}/${PN}-8.0.8-sconstruct.patch"
+	"${FILESDIR}/${PN}-8.0.8-fix-compile-error-due-to-deleted-constructor.patch"
+	"${FILESDIR}/boost_issue_402.patch"
+	"${FILESDIR}/${PN}-8.0.12-sconstruct.patch"
+	# removed in boost-1.89.0, unnecessary earlier
+	"${FILESDIR}/${PN}-8.0.12-boost-system.patch"
 )
 
 python_check_deps() {
@@ -96,7 +94,12 @@ python_check_deps() {
 	python_has_version -b "dev-python/cheetah3[${PYTHON_USEDEP}]" &&
 	python_has_version -b "dev-python/psutil[${PYTHON_USEDEP}]" &&
 	python_has_version -b "dev-python/pyyaml[${PYTHON_USEDEP}]" &&
-	python_has_version -b "dev-python/pymongo[${PYTHON_USEDEP}]"
+	python_has_version -b "dev-python/distro[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/gitpython[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/pkg-resources[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/poetry[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/pymongo[${PYTHON_USEDEP}]" &&
+	python_has_version -b "dev-python/tenacity[${PYTHON_USEDEP}]"
 }
 
 pkg_pretend() {
@@ -114,7 +117,7 @@ pkg_pretend() {
 			ewarn "successively upgrade major releases until you have upgraded"
 			ewarn "to 4.4-series. Then upgrade to 5.0 series."
 		else
-			ewarn "Be sure to set featureCompatibilityVersion to 4.4 before upgrading."
+			ewarn "Be sure to set featureCompatibilityVersion to 7.0 before upgrading."
 		fi
 	fi
 }
@@ -123,17 +126,18 @@ src_prepare() {
 	default
 
 	# remove bundled libs
-	rm -r src/third_party/{boost,pcre-*,snappy-*,yaml-cpp,zlib-*} || die
+	rm -r src/third_party/{boost,snappy,yaml-cpp} || die
 
 	# remove compass
 	rm -r src/mongo/installer/compass || die
 }
 
 src_configure() {
-	# bug #954813
+	# https://github.com/mongodb/mongo/wiki/Build-Mongodb-From-Source
+	# bugs #954813 and #942551
 	filter-lto
 
-	# https://github.com/mongodb/mongo/blob/v5.0/docs/building.md
+	# https://github.com/mongodb/mongo/blob/v8.0/docs/building.md
 	# --use-system-icu fails tests
 	# --use-system-tcmalloc is strongly NOT recommended:
 	# for MONGO_GIT_HASH use GitOrigin-RevId from the commit of the tag
@@ -146,13 +150,11 @@ src_configure() {
 		VERBOSE=1
 		VARIANT_DIR=gentoo
 		MONGO_VERSION="${PV}"
-		MONGO_GIT_HASH="ba92303e18e7ed4701572aa15acd161c97796f2f"
-
+		MONGO_GIT_HASH="b60fc6875b5fb4b63cc0dbbd8dda0d6d6277921a"
 		--disable-warnings-as-errors
 		--force-jobs # Reapply #906897, fix #935274
 		--jobs="$(makeopts_jobs)"
 		--use-system-boost
-		--use-system-pcre
 		--use-system-snappy
 		--use-system-stemmer
 		--use-system-yaml
@@ -198,7 +200,7 @@ src_install() {
 	dobin build/install/bin/{mongo,mongod,mongos}
 
 	doman debian/mongo*.1
-	dodoc README docs/building.md
+	#dodoc docs/building.md
 
 	newinitd "${FILESDIR}/${PN}.initd-r3" ${PN}
 	newconfd "${FILESDIR}/${PN}.confd-r3" ${PN}

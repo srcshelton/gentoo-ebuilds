@@ -18,7 +18,7 @@ MY_P=mongo-${MY_PV}
 DESCRIPTION="A high-performance, open source, schema-free document-oriented database"
 HOMEPAGE="https://www.mongodb.com"
 SRC_URI="https://github.com/mongodb/mongo/archive/refs/tags/${MY_PV}.tar.gz -> ${P}.gh.tar.gz
-	https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${PN}-5.0.30-patches.tar.xz"
+	https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${PN}-6.0.22-patches.tar.xz"
 S="${WORKDIR}/${MY_P}"
 
 LICENSE="Apache-2.0 SSPL-1"
@@ -71,23 +71,15 @@ PDEPEND="
 RDEPEND+=" selinux? ( sec-policy/selinux-mongodb )"
 
 PATCHES=(
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-4.4.1-boost.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.30-gcc-11.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-fix-scons.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-no-compass.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-skip-no-exceptions.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-skip-reqs-check.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.2-boost-1.79.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.5-no-force-lld.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-4.4.10-boost-1.81.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.5-boost-1.81-extra.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.16-arm64-assert.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-4.4.29-no-enterprise.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-boost-1.85.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-boost-1.85-extra.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.30-gcc-15.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-scons.patch"
-	"${WORKDIR}/mongodb-5.0.30-patches/${PN}-5.0.26-mozjs-remove-unused-constructor.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/mongodb-4.4.29-no-enterprise.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/${PN}-5.0.2-no-compass.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/${PN}-5.0.2-skip-reqs-check.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/${PN}-4.4.10-boost-1.81.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/mongodb-6.0.0-boost-1.79.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/mongodb-6.0.0-gcc12.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/mongodb-6.0.7-gcc-13.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/mongodb-6.0.21-boost-1.85.patch"
+	"${WORKDIR}/mongodb-6.0.22-patches/mongodb-6.0.2-sconstruct-changes.patch"
 	"${FILESDIR}/mongodb-5.0.32-boost-system.patch"
 )
 
@@ -123,7 +115,7 @@ src_prepare() {
 	default
 
 	# remove bundled libs
-	rm -r src/third_party/{boost,pcre-*,snappy-*,yaml-cpp,zlib-*} || die
+	rm -r src/third_party/{boost,snappy-*,yaml-cpp} || die
 
 	# remove compass
 	rm -r src/mongo/installer/compass || die
@@ -133,7 +125,7 @@ src_configure() {
 	# bug #954813
 	filter-lto
 
-	# https://github.com/mongodb/mongo/blob/v5.0/docs/building.md
+	# https://github.com/mongodb/mongo/blob/v6.0/docs/building.md
 	# --use-system-icu fails tests
 	# --use-system-tcmalloc is strongly NOT recommended:
 	# for MONGO_GIT_HASH use GitOrigin-RevId from the commit of the tag
@@ -146,13 +138,12 @@ src_configure() {
 		VERBOSE=1
 		VARIANT_DIR=gentoo
 		MONGO_VERSION="${PV}"
-		MONGO_GIT_HASH="ba92303e18e7ed4701572aa15acd161c97796f2f"
+		MONGO_GIT_HASH="fc88ca137231d7457aed6265d4f32a361ae71716"
 
 		--disable-warnings-as-errors
 		--force-jobs # Reapply #906897, fix #935274
 		--jobs="$(makeopts_jobs)"
 		--use-system-boost
-		--use-system-pcre
 		--use-system-snappy
 		--use-system-stemmer
 		--use-system-yaml
@@ -198,7 +189,7 @@ src_install() {
 	dobin build/install/bin/{mongo,mongod,mongos}
 
 	doman debian/mongo*.1
-	dodoc README docs/building.md
+	#dodoc docs/building.md
 
 	newinitd "${FILESDIR}/${PN}.initd-r3" ${PN}
 	newconfd "${FILESDIR}/${PN}.confd-r3" ${PN}
