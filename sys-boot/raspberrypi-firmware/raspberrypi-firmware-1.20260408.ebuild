@@ -9,7 +9,7 @@ DESCRIPTION="Raspberry Pi bootloader and GPU firmware"
 HOMEPAGE="https://github.com/raspberrypi/firmware"
 LICENSE="GPL-2 raspberrypi-videocore-bin"
 SLOT="0"
-IUSE="+64bit -devicetree -kernel +rpi-all rpi0 rpi02 rpi-cm0 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi-cm4-io rpi5 rpi500 rpi-cm5 rpi-cm5-io"
+IUSE="+64bit -devicetree -kernel rpi0 rpi02 rpi1 rpi2 rpi3 rpi4 rpi400 rpi5 rpi500 +rpi-all rpi-cm rpi-cm0 rpi-cm2 rpi-cm3 rpi-cm4 rpi-cm4-io rpi-cm4s rpi-cm5 rpi-cm5-io"
 REQUIRED_USE="
 	|| ( rpi-all rpi0 rpi02 rpi-cm0 rpi1 rpi-cm rpi2 rpi-cm2 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi500 rpi-cm5 )
 	64bit? ( || ( rpi-all rpi02 rpi-cm0 rpi3 rpi-cm3 rpi4 rpi400 rpi-cm4 rpi-cm4s rpi5 rpi500 rpi-cm5 ) )
@@ -33,7 +33,7 @@ RDEPEND="
 "
 
 if [[ "${PV}" == *9999 ]]; then
-	inherit git-r3
+	inherit mount-boot readme.gentoo-r1
 	EGIT_REPO_URI="https://github.com/raspberrypi/firmware"
 	# The current repo is ~4GB in size, but contains only ~200MB of data - the
 	# rest is (literally) history :(
