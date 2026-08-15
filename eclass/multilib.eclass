@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: multilib.eclass
@@ -24,10 +24,10 @@ export MULTILIB_ABIS=${MULTILIB_ABIS:-"default"}
 export DEFAULT_ABI=${DEFAULT_ABI:-"default"}
 export CFLAGS_default
 export LDFLAGS_default
-export CHOST_default=${CHOST_default:-${CHOST}}
-export CTARGET_default=${CTARGET_default:-${CTARGET:-${CHOST_default}}}
-export LIBDIR_default=${CONF_LIBDIR:-${LIBDIR_x86:-"lib"}}
-export KERNEL_ABI=${KERNEL_ABI:-${DEFAULT_ABI}}
+export CHOST_default=${CHOST_default:-"${CHOST}"}
+export CTARGET_default=${CTARGET_default:-"${CTARGET:-"${CHOST_default}"}"}
+export LIBDIR_default=${CONF_LIBDIR:-"lib"}
+export KERNEL_ABI=${KERNEL_ABI:-"${DEFAULT_ABI}"}
 
 # @FUNCTION: has_multilib_profile
 # @DESCRIPTION:
@@ -278,16 +278,20 @@ multilib_env() {
 	local CTARGET=${1:-${CTARGET}}
 	local cpu=${CTARGET%%*-}
 
-	if [[ ${CTARGET} = *-musl* ]]; then
-		# musl has no multilib support and can run only in 'lib':
-		# - https://bugs.gentoo.org/675954
-		# - https://gcc.gnu.org/PR90077
-		# - https://github.com/gentoo/musl/issues/245
-		: "${MULTILIB_ABIS=default}"
-		: "${DEFAULT_ABI=default}"
-		export MULTILIB_ABIS DEFAULT_ABI
-		return
-	fi
+	case ${CTARGET} in
+		*-musl*)
+			# musl has no multilib support and can run only in 'lib':
+			# - https://bugs.gentoo.org/675954
+			# - https://gcc.gnu.org/PR90077
+			# - https://github.com/gentoo/musl/issues/245
+			: "${MULTILIB_ABIS=default}"
+			: "${DEFAULT_ABI=default}"
+			export MULTILIB_ABIS DEFAULT_ABI
+			return
+			;;
+		*)
+			;;
+	esac
 
 	case ${cpu} in
 		aarch64*)

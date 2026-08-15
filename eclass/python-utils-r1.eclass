@@ -43,8 +43,8 @@ _PYTHON_ALL_IMPLS=(
 	python3_10
 
 	pypy3_11
-	python3_{13..14}t
-	python3_{11..14}
+	python3_{14..15}t
+	python3_{12..15}
 )
 readonly _PYTHON_ALL_IMPLS
 
@@ -58,6 +58,8 @@ _PYTHON_HISTORICAL_IMPLS=(
 	python2_{5..7}
 	# Maintain python3_10 support for kernel rust support prior to linux-6.5.0
 	python3_{1..9}
+	python3_11
+	python3_13t
 )
 readonly _PYTHON_HISTORICAL_IMPLS
 
@@ -85,7 +87,7 @@ _python_verify_patterns() {
 	local impl pattern
 	for pattern; do
 		case ${pattern} in
-			-[23]|3.[89]|3.1[0-4])
+			-[23]|3.[89]|3.1[0-5])
 				continue
 				;;
 		esac
@@ -140,10 +142,12 @@ _python_set_impls() {
 			# we're using pattern matching as an optimization
 			# please keep them in sync with _PYTHON_ALL_IMPLS
 			# and _PYTHON_HISTORICAL_IMPLS
+			# Maintain python3_10 support for kernel rust support prior to
+			# linux-6.5.0
 			case ${i} in
-				pypy3_11|python3_9|python3_1[1-4]|python3_1[3-4]t)
+				python3_1[2-5]|python3_1[4-5]t|pypy3_11|python3_10)
 					;;
-				jython2_7|pypy|pypy1_[89]|pypy2_0|pypy3|python2_[5-7]|python3_[1-9]|python3_10)
+				jython2_7|pypy|pypy1_[89]|pypy2_0|pypy3|python2_[5-7]|python3_[1-9]|python3_11|python3_13t)
 					obsolete+=( "${i}" )
 					;;
 				*)
@@ -234,7 +238,7 @@ _python_impl_matches() {
 				fi
 				return 0
 				;;
-			3.[89]|3.1[0-4])
+			3.[89]|3.1[0-5])
 				[[ ${impl%t} == python${pattern/./_} || ${impl} == pypy${pattern/./_} ]] &&
 					return 0
 				;;
@@ -606,7 +610,7 @@ python_optimize() {
 	# default to sitedir
 	[[ ${#} -eq 0 ]] && set -- "${D}$(python_get_sitedir)"
 
-	local jobs=$(makeopts_jobs)
+	local jobs=$(get_makeopts_jobs)
 	local d
 	for d; do
 		einfo "Optimizing Python modules in ${d#${D}}"
@@ -1565,10 +1569,19 @@ epytest() {
 		args+=(
 			"--timeout=${EPYTEST_TIMEOUT}"
 		)
+
+		if [[ -n ${EPYTEST_RERUNS} ]]; then
+			# This option helps with hangs in some cases when these plugins are used together.
+			# https://github.com/pytest-dev/pytest-timeout/issues/18
+			# https://github.com/pytest-dev/pytest-rerunfailures/issues/99
+			args+=(
+				-o timeout_func_only=true
+			)
+		fi
 	fi
 
 	if [[ ${EPYTEST_XDIST} ]]; then
-		local jobs=${EPYTEST_JOBS:-$(makeopts_jobs)}
+		local jobs=${EPYTEST_JOBS:-$(get_makeopts_jobs)}
 		if [[ ${jobs} -gt 1 ]]; then
 			if [[ ${PYTEST_PLUGINS} != *xdist.plugin* ]]; then
 				args+=(
@@ -1583,6 +1596,17 @@ epytest() {
 				# jobs are unevenly distributed
 				--dist=worksteal
 			)
+
+			if [[ ${MAKEFLAGS} == *--jobserver-auth=* ]]; then
+				if has_version "dev-python/pytest-jobserver[${PYTHON_USEDEP}]"
+				then
+					args+=( -p jobserver )
+				elif [[ ! ${_EPYTEST_JOBSERVER_WARNED} ]]; then
+					ewarn "Jobserver found under pytest-xdist, but cannot be used without:"
+					ewarn "  dev-python/pytest-jobserver"
+					_EPYTEST_JOBSERVER_WARNED=1
+				fi
+			fi
 		fi
 	fi
 
