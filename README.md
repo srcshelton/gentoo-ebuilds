@@ -1018,6 +1018,7 @@ x32 profiles, and that these variables only affect multilib systems.
 # Binaries which need to be present on the root filesystem in order to boot successfully
 
 * sys-apps/dmidecode
+* sys-fs/dosfstools
 
 # Make systemd unit installation or additional resources optional
 
