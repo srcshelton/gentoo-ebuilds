@@ -39,7 +39,7 @@ COMMON_DEPEND="
 "
 DEPEND="
 	${COMMON_DEPEND}
-	kernel_linux? ( sys-apps/portage )
+	kernel_linux? ( virtual/os-headers:41400 )
 "
 RDEPEND="
 	${COMMON_DEPEND}
