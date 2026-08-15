@@ -313,6 +313,8 @@ used to build perl)
     * Patched, opensource version of Rockchip upgrade\_tool
 * dev-embedded/rpi-eeprom
     * Follow raspbian releases more closely
+* dev-python/backports-tarfile
+    * Restore backport of CPython tarfile module for Python 3.10 and 3.11
 * ~~dev-perl/B-Lint~~
 * ~~dev-perl/CPANPLUS~~
 * ~~dev-perl/CPANPLUS-Dist-Gentoo~~
