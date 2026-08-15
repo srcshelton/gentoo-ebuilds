@@ -315,6 +315,8 @@ used to build perl)
     * Follow raspbian releases more closely
 * dev-python/backports-tarfile
     * Restore backport of CPython tarfile module for Python 3.10 and 3.11
+* dev-python/editables
+    * Restore dev-python/editables-0.5 for Python 3.11
 * ~~dev-perl/B-Lint~~
 * ~~dev-perl/CPANPLUS~~
 * ~~dev-perl/CPANPLUS-Dist-Gentoo~~
