@@ -34,6 +34,7 @@ Investigate extracting `PARALLEL_MEMORY_MIN` handling to a new eclass ...
 # -ffast-math/aggressive optimisation fixes
 
 * dev-lang/duktape
+* dev-lang/python
 * dev-scheme/guile
 * sys-apps/xinetd
 * sys-auth/polkit
