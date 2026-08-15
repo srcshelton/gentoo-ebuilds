@@ -504,6 +504,8 @@ used to build perl)
     * Add fix for `-fopenmp` as an LDFLAG
 * app-text/sgml-common
     * Check that 'sgml-docbook.cat' exists before trying to modify it
+* dev-cpp/eigen
+    * Only pull-in test backends with USE='test'
 * dev-db/mongodb
     * ~~Add firefox source to Allow building on ARM~~
     * Add net-misc/curl and python dependencies, update prerequisite checks when building with USE='lto'

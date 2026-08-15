@@ -15,6 +15,7 @@ app-portage
 app-shells
 app-text
 dev-build
+dev-cpp
 dev-db
 dev-debug
 dev-embedded
