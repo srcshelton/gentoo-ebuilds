@@ -47,8 +47,8 @@ inherit user-info
 	die "Ebuild error: this eclass can be used only in acct-group category!"
 
 DEPEND='sys-apps/baselayout'
-BDEPEND='sys-apps/grep sys-apps/shadow'
-RDEPEND="${DEPEND} sys-apps/shadow"
+BDEPEND='sys-apps/grep'
+RDEPEND="${DEPEND}"
 
 IUSE="systemd"
 
@@ -160,6 +160,65 @@ acct-group_src_install() {
 	fi
 }
 
+_acct_group_fallback_groupadd() {
+	local group_name=${1}
+	local -i group_id=${2}
+	local group_file="${ROOT:-}/etc/group"
+	local gshadow_file="${ROOT:-}/etc/gshadow"
+
+	case ${group_name} in
+		''|*:*|*$'\n'*)
+			die "Invalid group name for shell fallback: '${group_name}'"
+			;;
+	esac
+	[[ -f ${group_file} ]] ||
+		die "Unable to locate group database '${group_file}'"
+
+	local name password gid members
+	if (( group_id != -1 )); then
+		while IFS=: read -r name password gid members; do
+			[[ ${gid} == "${group_id}" ]] && break
+		done < "${group_file}"
+	else
+		gid=
+	fi
+	if [[ ${gid} == "${group_id}" ]]; then
+		if [[ -n ${ACCT_GROUP_ENFORCE_ID} ]]; then
+			die "GID ${group_id} taken already"
+		fi
+		group_id=-1
+	fi
+
+	if (( group_id == -1 )); then
+		local -i min=101 max=999
+		local item value
+		if [[ -r ${ROOT:-}/etc/login.defs ]]; then
+			while read -r item value _; do
+				[[ -n ${value} && ${value} != *[!0-9]* ]] || continue
+				case ${item} in
+					SYS_GID_MIN) min=${value} ;;
+					SYS_GID_MAX) max=${value} ;;
+				esac
+			done < "${ROOT:-}/etc/login.defs"
+		fi
+		for (( group_id = max; group_id >= min; --group_id )); do
+			while IFS=: read -r name password gid members; do
+				[[ ${gid} == "${group_id}" ]] && continue 2
+			done < "${group_file}"
+			break
+		done
+		(( group_id >= min )) || die "Unable to allocate a free system GID"
+	fi
+
+	printf '%s:x:%s:\n' "${group_name}" "${group_id}" >> "${group_file}" ||
+		die "Unable to append group '${group_name}' to '${group_file}'"
+
+	if [[ -f ${gshadow_file} ]]; then
+		printf '%s:!::\n' "${group_name}" >> "${gshadow_file}" ||
+			die "Unable to append group '${group_name}' to '${gshadow_file}'"
+	fi
+}
+
 # @FUNCTION: acct-group_pkg_preinst
 # @DESCRIPTION:
 # Creates the group if it does not exist yet.
@@ -177,10 +236,12 @@ acct-group_pkg_preinst() {
 	fi
 
 	local opts=( --system )
+	local group_id=-1
 
 	if [[ ${_ACCT_GROUP_ID} -ne -1 ]] &&
 		! egetent group "${_ACCT_GROUP_ID}" >/dev/null
 	then
+		group_id=${_ACCT_GROUP_ID}
 		opts+=( --gid "${_ACCT_GROUP_ID}" )
 	fi
 
@@ -189,7 +250,15 @@ acct-group_pkg_preinst() {
 	fi
 
 	elog "Adding group ${ACCT_GROUP_NAME}"
-	groupadd "${opts[@]}" "${ACCT_GROUP_NAME}" || die "groupadd failed with status $?"
+	if type -fp groupadd >/dev/null; then
+		groupadd "${opts[@]}" "${ACCT_GROUP_NAME}" || die "groupadd failed with status $?"
+	elif [[ -z ${ROOT} ]] && type -fp busybox >/dev/null; then
+		local bbopts=( -S )
+		(( group_id == -1 )) || bbopts+=( -g "${group_id}" )
+		busybox addgroup "${bbopts[@]}" "${ACCT_GROUP_NAME}" || die "addgroup failed with status $?"
+	else
+		_acct_group_fallback_groupadd "${ACCT_GROUP_NAME}" "${_ACCT_GROUP_ID}"
+	fi
 }
 
 fi

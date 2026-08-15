@@ -55,8 +55,8 @@ inherit user-info
 	die "Ebuild error: this eclass can be used only in acct-user category!"
 
 DEPEND='sys-apps/baselayout'
-BDEPEND='sys-apps/grep sys-apps/shadow'
-RDEPEND="${DEPEND} sys-apps/shadow"
+BDEPEND='sys-apps/grep'
+RDEPEND="${DEPEND}"
 
 IUSE="systemd"
 
@@ -217,6 +217,151 @@ eislocked() {
 	esac
 }
 
+
+_acct_user_validate_db_fields() {
+	while (( $# )); do
+		case ${2} in
+			*:*|*$'\n'*) die "Invalid account ${1}: '${2}'" ;;
+		esac
+		shift 2
+	done
+}
+
+_acct_user_db_value() {
+	local db=${1} match=${2} key=${3} result=${4-}
+	local line
+	local -a fields
+
+	[[ -r ${ROOT:-}/etc/${db} ]] || return 1
+	while IFS= read -r line || [[ -n ${line} ]]; do
+		IFS=: read -ra fields <<< "${line}"
+		if [[ ${fields[match]:-} == "${key}" ]]; then
+			if [[ $# -eq 4 ]]; then
+				printf '%s\n' "${fields[result]:-}"
+			else
+				printf '%s\n' "${line}"
+			fi
+			return
+		fi
+	done < "${ROOT:-}/etc/${db}"
+	return 1
+}
+
+_acct_user_replace_db_entry() {
+	local file=${1} key=${2} entry=${3}
+	local tmp=${file}.$$ line found
+
+	cp -p -- "${file}" "${tmp}" || die "Unable to copy '${file}'"
+	while IFS= read -r line || [[ -n ${line} ]]; do
+		if [[ ${line%%:*} == "${key}" ]]; then
+			printf '%s\n' "${entry}"
+			found=1
+		else
+			printf '%s\n' "${line}"
+		fi
+	done < "${file}" > "${tmp}" || {
+		rm -f -- "${tmp}"
+		die "Unable to rewrite '${file}'"
+	}
+	[[ -n ${found} ]] || {
+		rm -f -- "${tmp}"
+		die "Entry '${key}' not found in '${file}'"
+	}
+	mv -f -- "${tmp}" "${file}" || die "Unable to update '${file}'"
+}
+
+_acct_user_rewrite_group_members() {
+	local file=${1}
+	local user_name=${2}
+	shift 2
+	local tmp=${file}.$$
+	local line name password id members group member new_members add
+	local IFS=,
+
+	[[ -f ${file} ]] || return 0
+	cp -p -- "${file}" "${tmp}" || die "Unable to copy '${file}'"
+
+	while IFS= read -r line || [[ -n ${line} ]]; do
+		if [[ ${line} == *:*:*:* ]]; then
+			IFS=: read -r name password id members <<< "${line}"
+			add=
+			for group in "$@"; do
+				if [[ ${group} == "${name}" ]]; then
+					add=1
+					break
+				fi
+			done
+
+			member=
+			if [[ -n ${add} ]]; then
+				for member in ${members}; do
+					[[ ${member} == "${user_name}" ]] && break
+				done
+				[[ ${member} == "${user_name}" ]] ||
+					members+=${members:+,}${user_name}
+			else
+				new_members=
+				for member in ${members}; do
+					[[ -n ${member} && ${member} != "${user_name}" ]] || continue
+					new_members+=${new_members:+,}${member}
+				done
+				members=${new_members}
+			fi
+			printf '%s:%s:%s:%s\n' "${name}" "${password}" "${id}" "${members}"
+		else
+			printf '%s\n' "${line}"
+		fi
+	done < "${file}" > "${tmp}" || {
+		rm -f -- "${tmp}"
+		die "Unable to rewrite '${file}'"
+	}
+
+	mv -f -- "${tmp}" "${file}" || die "Unable to update '${file}'"
+}
+
+_acct_user_rewrite_passwd() {
+	local user_name=${1}
+	local comment=${2}
+	local shell=${3}
+	local entry name password uid gid old_comment home old_shell
+
+	entry=$(_acct_user_db_value passwd 0 "${user_name}") ||
+		die "User '${user_name}' not found in '${ROOT:-}/etc/passwd'"
+	IFS=: read -r name password uid gid old_comment home old_shell <<< "${entry}"
+	if [[ $# -eq 5 ]]; then
+		gid=${4}
+		home=${5}
+	fi
+	printf -v entry '%s:%s:%s:%s:%s:%s:%s' \
+		"${name}" "${password}" "${uid}" "${gid}" \
+		"${comment}" "${home}" "${shell}"
+	_acct_user_replace_db_entry "${ROOT:-}/etc/passwd" "${user_name}" "${entry}"
+}
+
+_acct_user_rewrite_shadow_lock() {
+	local user_name=${1}
+	local action=${2}
+	local entry name password lastchg min max warn inactive expire reserved
+
+	[[ -f ${ROOT:-}/etc/shadow ]] || return 0
+	entry=$(_acct_user_db_value shadow 0 "${user_name}") || return 0
+	IFS=: read -r name password lastchg min max warn inactive expire reserved <<< "${entry}"
+	case ${action} in
+		lock)
+			[[ ${password} == '!'* ]] || password=!${password}
+			expire=1
+			;;
+		unlock)
+			expire=
+			[[ ${password} == '!'?* ]] && password=${password:1}
+			;;
+	esac
+	printf -v entry '%s:%s:%s:%s:%s:%s:%s:%s:%s' \
+		"${name}" "${password}" "${lastchg}" "${min}" \
+		"${max}" "${warn}" "${inactive}" "${expire}" "${reserved}"
+	_acct_user_replace_db_entry "${ROOT:-}/etc/shadow" "${user_name}" "${entry}"
+}
+
 # << Phase functions >>
 
 # @FUNCTION: acct-user_pkg_pretend
@@ -361,10 +506,12 @@ acct-user_pkg_preinst() {
 			--gid "${groups[0]}"
 			--groups "${aux_groups// /,}"
 		)
+		local user_id=-1
 
 		if [[ ${_ACCT_USER_ID} -ne -1 ]] &&
 			! egetent passwd "${_ACCT_USER_ID}" >/dev/null
 		then
+			user_id=${_ACCT_USER_ID}
 			opts+=( --uid "${_ACCT_USER_ID}" )
 		fi
 
@@ -373,7 +520,85 @@ acct-user_pkg_preinst() {
 		fi
 
 		elog "Adding user ${ACCT_USER_NAME}"
-		useradd "${opts[@]}" "${ACCT_USER_NAME}" || die "useradd failed with status $?"
+		if type -fp useradd >/dev/null; then
+			useradd "${opts[@]}" "${ACCT_USER_NAME}" || die "useradd failed with status $?"
+		elif [[ -z ${ROOT} ]] && type -fp busybox >/dev/null; then
+			local bbopts=( # <- Syntax
+				-S -H
+				-g "${_ACCT_USER_COMMENT}"
+				-h "${_ACCT_USER_HOME}"
+				-s "${_ACCT_USER_SHELL}"
+				-G "${groups[0]}"
+			)
+			(( user_id == -1 )) || bbopts+=( -u "${user_id}" )
+			busybox adduser "${bbopts[@]}" "${ACCT_USER_NAME}" || die "adduser failed with status $?"
+			local group
+			for group in "${groups[@]:1}"; do
+				busybox addgroup "${ACCT_USER_NAME}" "${group}" || die "addgroup failed with status $?"
+			done
+		else
+			_acct_user_validate_db_fields \
+				name "${ACCT_USER_NAME}" comment "${_ACCT_USER_COMMENT}" \
+				home "${_ACCT_USER_HOME}" shell "${_ACCT_USER_SHELL}"
+
+			local group group_id
+			group_id=$(_acct_user_db_value group 0 "${groups[0]}" 2) ||
+				die "Primary group '${groups[0]}' not found"
+			for group in "${groups[@]:1}"; do
+				_acct_user_db_value group 0 "${group}" 2 >/dev/null ||
+					die "Supplementary group '${group}' not found"
+			done
+
+			if ! _acct_user_db_value passwd 0 "${ACCT_USER_NAME}" 0 >/dev/null; then
+				user_id=${_ACCT_USER_ID}
+				if (( user_id != -1 )) &&
+					_acct_user_db_value passwd 2 "${user_id}" 0 >/dev/null
+				then
+					[[ -z ${ACCT_USER_ENFORCE_ID} ]] ||
+						die "UID ${user_id} taken already"
+					user_id=-1
+				fi
+
+				if (( user_id == -1 )); then
+					local -i min=101 max=999
+					local item value
+					if [[ -r ${ROOT:-}/etc/login.defs ]]; then
+						while read -r item value _; do
+							[[ -n ${value} && ${value} != *[!0-9]* ]] || continue
+							case ${item} in
+								SYS_UID_MIN) min=${value} ;;
+								SYS_UID_MAX) max=${value} ;;
+							esac
+						done < "${ROOT:-}/etc/login.defs"
+					fi
+					for (( user_id = max; user_id >= min; --user_id )); do
+						_acct_user_db_value passwd 2 "${user_id}" 0 >/dev/null || break
+					done
+					(( user_id >= min )) || die "Unable to allocate a free system UID"
+				fi
+
+				local passwd_file="${ROOT:-}/etc/passwd"
+				[[ -f ${passwd_file} ]] ||
+					die "Unable to locate passwd database '${passwd_file}'"
+				printf '%s:x:%s:%s:%s:%s:%s\n' \
+					"${ACCT_USER_NAME}" "${user_id}" "${group_id}" \
+					"${_ACCT_USER_COMMENT}" "${_ACCT_USER_HOME}" \
+					"${_ACCT_USER_SHELL}" >> "${passwd_file}" ||
+					die "Unable to append user '${ACCT_USER_NAME}' to '${passwd_file}'"
+
+				local shadow_file="${ROOT:-}/etc/shadow"
+				if [[ -f ${shadow_file} ]] &&
+					! _acct_user_db_value shadow 0 "${ACCT_USER_NAME}" 0 >/dev/null
+				then
+					printf '%s:!:1::::::\n' "${ACCT_USER_NAME}" >> "${shadow_file}" ||
+						die "Unable to append user '${ACCT_USER_NAME}' to '${shadow_file}'"
+				fi
+				_acct_user_rewrite_group_members \
+					"${ROOT:-}/etc/group" "${ACCT_USER_NAME}" "${groups[@]:1}"
+				_acct_user_rewrite_group_members \
+					"${ROOT:-}/etc/gshadow" "${ACCT_USER_NAME}" "${groups[@]:1}"
+			fi
+		fi
 		_ACCT_USER_ADDED=1
 	fi
 
@@ -450,8 +675,10 @@ acct-user_pkg_postinst() {
 		--groups "${aux_groups// /,}"
 	)
 
+	local unlock=no
 	if eislocked "${ACCT_USER_NAME}"; then
 		opts+=( --expiredate "" --unlock )
+		unlock=yes
 	fi
 
 	if [[ -n ${ROOT} ]]; then
@@ -475,6 +702,29 @@ acct-user_pkg_postinst() {
 	fi
 
 	elog "Updating user ${ACCT_USER_NAME}"
+	if ! type -fp usermod >/dev/null; then
+		_acct_user_validate_db_fields \
+			name "${ACCT_USER_NAME}" comment "${_ACCT_USER_COMMENT}" \
+			home "${_ACCT_USER_HOME}" shell "${_ACCT_USER_SHELL}"
+		local group group_id
+		group_id=$(_acct_user_db_value group 0 "${groups[0]}" 2) ||
+			die "Primary group '${groups[0]}' not found"
+		for group in "${groups[@]:1}"; do
+			_acct_user_db_value group 0 "${group}" 2 >/dev/null ||
+				die "Supplementary group '${group}' not found"
+		done
+		_acct_user_rewrite_passwd \
+			"${ACCT_USER_NAME}" "${_ACCT_USER_COMMENT}" \
+			"${_ACCT_USER_SHELL}" "${group_id}" "${_ACCT_USER_HOME}"
+		_acct_user_rewrite_group_members \
+			"${ROOT:-}/etc/group" "${ACCT_USER_NAME}" "${groups[@]:1}"
+		_acct_user_rewrite_group_members \
+			"${ROOT:-}/etc/gshadow" "${ACCT_USER_NAME}" "${groups[@]:1}"
+		[[ ${unlock} == yes ]] &&
+			_acct_user_rewrite_shadow_lock "${ACCT_USER_NAME}" unlock
+		return
+	fi
+
 	# usermod outputs a warning if unlocking the account would result in an
 	# empty password. Hide stderr in a text file and display it if usermod fails.
 	usermod "${opts[@]}" "${ACCT_USER_NAME}" 2>"${T}/usermod-error.log"
@@ -533,10 +783,12 @@ acct-user_pkg_prerm() {
 			return
 		fi
 
+	local comment
+	comment="$(egetcomment "${ACCT_USER_NAME}"); user account removed @ $(date +%Y-%m-%d)"
 	local opts=( # <- Syntax
 		--expiredate 1
 		--lock
-		--comment "$(egetcomment "${ACCT_USER_NAME}"); user account removed @ $(date +%Y-%m-%d)"
+		--comment "${comment}"
 		--shell /sbin/nologin
 	)
 
@@ -545,6 +797,13 @@ acct-user_pkg_prerm() {
 	fi
 
 	elog "Locking user ${ACCT_USER_NAME}"
+	if ! type -fp usermod >/dev/null; then
+		_acct_user_validate_db_fields \
+			name "${ACCT_USER_NAME}" comment "${comment}" shell /sbin/nologin
+		_acct_user_rewrite_passwd "${ACCT_USER_NAME}" "${comment}" /sbin/nologin
+		_acct_user_rewrite_shadow_lock "${ACCT_USER_NAME}" lock
+		return
+	fi
 	usermod "${opts[@]}" "${ACCT_USER_NAME}" || die "usermod failed with status $?"
 }
 
