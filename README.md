@@ -785,6 +785,7 @@ directory is an additional QA check which reports an error if files deployed to
     * Prevent binary merges from failing due to assumptions about build files being present
 * dev-vcs/git
 * mail-filter/spamassassin
+* media-sound/alsa-utils
 * net-analyzer/arpwatch
 * net-analyzer/darkstat
 * net-analyzer/iptraf-ng

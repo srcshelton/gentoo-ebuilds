@@ -1,0 +1,8 @@
+# /etc/conf.d/alsasound
+
+# Do you want to restore your mixer settings?  If not, your cards will be
+# muted when alsasound starts.
+RESTORE_ON_START="yes"
+
+# Do you want to save changes made to your mixer volumes when alsasound stops? 
+SAVE_ON_STOP="yes"
