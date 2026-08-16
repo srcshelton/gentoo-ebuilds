@@ -12,6 +12,7 @@ source_dir=$1
 build_root=$2
 kernel_line=$3
 npu_abi=$4
+context_analysis_llvm=${CIX_CONTEXT_ANALYSIS_LLVM:-}
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 kconfig_update=${repo_root}/sys-kernel/cix-sources/files/kconfig_update.py
 
@@ -128,6 +129,17 @@ reject_enabled_config() {
 	fi
 }
 
+# MEDIA_SUBDRV_AUTOSELECT promotes I2C to built-in through Linux 7.1 even
+# when the media and board buckets are modular.  Linux 7.2 preserves I2C's
+# modular state in the same configuration.
+profile_i2c_state() {
+	if [[ $1 == builtin || ${kernel_line} == 6.18 || ${kernel_line} == 7.1 ]]; then
+		printf y
+	else
+		printf m
+	fi
+}
+
 # The exact p1_v2.0.0 contract collides with the retained private engine on
 # ioctl numbers, payload sizes, V3.2 enum names, and asid_base[4], but it has no
 # group_id field. Prove that source detection fails closed when that structural
@@ -197,6 +209,9 @@ for mvx_state in module builtin; do
 	make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 allnoconfig
 	"${source_dir}/scripts/config" --file "${build_dir}/.config" \
 		--enable MODULES \
+		--enable ARCH_CIX \
+		--enable EFI \
+		--enable ACPI \
 		--enable MEDIA_SUPPORT \
 		--enable MEDIA_PLATFORM_SUPPORT \
 		--enable VIDEO_DEV \
@@ -305,9 +320,16 @@ for npu_layout in both-modules current-builtin r2p0-builtin; do
 		--enable OF \
 		--enable DMABUF_HEAPS \
 		--enable PM \
-		--enable PM_DEVFREQ \
-		--module ARM_SCMI_PROTOCOL \
-		--module ARM_SCMI_PERF_DOMAIN
+		--enable PM_DEVFREQ
+	provider_option=--enable
+	provider_state=y
+	if [[ ${npu_layout} == both-modules ]]; then
+		provider_option=--module
+		provider_state=m
+	fi
+	"${source_dir}/scripts/config" --file "${build_dir}/.config" \
+		"${provider_option}" ARM_SCMI_PROTOCOL \
+		"${provider_option}" ARM_SCMI_PERF_DOMAIN
 	case ${npu_layout} in
 	both-modules)
 		"${source_dir}/scripts/config" --file "${build_dir}/.config" \
@@ -333,8 +355,10 @@ for npu_layout in both-modules current-builtin r2p0-builtin; do
 	require_config "${build_dir}/.config" 'CONFIG_PM=y'
 	require_config "${build_dir}/.config" 'CONFIG_PM_GENERIC_DOMAINS=y'
 	require_config "${build_dir}/.config" 'CONFIG_PM_DEVFREQ=y'
-	require_config "${build_dir}/.config" 'CONFIG_ARM_SCMI_PROTOCOL=m'
-	require_config "${build_dir}/.config" 'CONFIG_ARM_SCMI_PERF_DOMAIN=m'
+	require_config "${build_dir}/.config" \
+		"CONFIG_ARM_SCMI_PROTOCOL=${provider_state}"
+	require_config "${build_dir}/.config" \
+		"CONFIG_ARM_SCMI_PERF_DOMAIN=${provider_state}"
 	require_enabled_config "${build_dir}/.config" DEVFREQ_GOV_USERSPACE
 	case ${npu_layout} in
 	both-modules)
@@ -435,7 +459,8 @@ for preference in module builtin; do
 	# userspace governor which provides its explicit policy control surface.
 	require_config "${build_dir}/.config" 'CONFIG_CIX_BUS_PERF=y'
 	require_config "${build_dir}/.config" 'CONFIG_DEVFREQ_GOV_USERSPACE=y'
-	require_config "${build_dir}/.config" 'CONFIG_I2C=y'
+	require_config "${build_dir}/.config" \
+		"CONFIG_I2C=$(profile_i2c_state "${preference}")"
 	require_config "${build_dir}/.config" 'CONFIG_PM=y'
 	require_config "${build_dir}/.config" 'CONFIG_RESET_CONTROLLER=y'
 	require_config "${build_dir}/.config" 'CONFIG_COMMON_CLK=y'
@@ -529,15 +554,19 @@ for hardware_profile in server desktop; do
 	reject_enabled_config "${build_dir}/.config" TOUCHSCREEN_GOODIX
 	if [[ ${hardware_profile} == server ]]; then
 		reject_enabled_config "${build_dir}/.config" DRM_PANTHOR
-		reject_enabled_config "${build_dir}/.config" SND_HDA_CIX_IPBLOQ
+		reject_enabled_config "${build_dir}/.config" DRM_TRILIN_DPSUB
+		require_config "${build_dir}/.config" 'CONFIG_SND_HDA_CIX_IPBLOQ=m'
+		reject_enabled_config "${build_dir}/.config" SND_SOC_SKY1_SOUND_CARD
 	else
 		require_config "${build_dir}/.config" 'CONFIG_DRM_PANTHOR=m'
+		require_config "${build_dir}/.config" 'CONFIG_DRM_TRILIN_DPSUB=m'
 		require_config "${build_dir}/.config" 'CONFIG_SND_HDA_CIX_IPBLOQ=m'
+		require_config "${build_dir}/.config" 'CONFIG_SND_SOC_SKY1_SOUND_CARD=m'
 	fi
 done
 
 # The niche touchscreen selector intentionally closes over the eDP display
-# path while leaving the independent NPU, VPU/ISP and audio groups disabled.
+# path while leaving the independent GPU, NPU and VPU/ISP groups disabled.
 build_dir=${build_root}/hardware-server-touchscreen-o6-acpi
 rm -rf -- "${build_dir}"
 mkdir -p -- "${build_dir}"
@@ -555,17 +584,76 @@ python3 "${kconfig_update}" \
 	--apply \
 	"${build_dir}/.config" >"${build_dir}/kconfig-update.diff"
 make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
-for expected in DRM_PANTHOR PWM_SKY1 TOUCHSCREEN_GOODIX; do
+for expected in \
+	DRM_TRILIN_DPSUB \
+	PWM_SKY1 \
+	TOUCHSCREEN_GOODIX \
+	SND_HDA_CIX_IPBLOQ \
+	SND_SOC_SKY1_SOUND_CARD; do
 	require_config "${build_dir}/.config" "CONFIG_${expected}=m"
 done
 for omitted in \
+	DRM_PANTHOR \
 	ARMCHINA_NPU \
 	ARMCHINA_NPU_R2P0 \
 	VIDEO_LINLON \
-	VIDEO_CIX_ARMCB_ISP \
-	SND_HDA_CIX_IPBLOQ; do
+	VIDEO_CIX_ARMCB_ISP; do
 	reject_enabled_config "${build_dir}/.config" "${omitted}"
 done
+
+# Explicit graphics and audio profiles override the broad hardware profile.
+# Display audio closes over its required display pipeline; the automatic audio
+# profile follows the resolved graphics pipeline.
+build_dir=${build_root}/hardware-explicit-profiles-o6-acpi
+rm -rf -- "${build_dir}"
+mkdir -p -- "${build_dir}"
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 defconfig
+python3 "${kconfig_update}" \
+	--mode update \
+	--kernel-tree "${source_dir}" \
+	--board-profile o6-acpi \
+	--hardware-profile full \
+	--graphics-profile gpu \
+	--audio-profile auto \
+	--cix-patches yes \
+	--require-npu-abi "${npu_abi}" \
+	--driver-preference module \
+	--rewrite-existing-driver-states \
+	--apply \
+	"${build_dir}/.config" >"${build_dir}/kconfig-update.diff"
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
+require_config "${build_dir}/.config" 'CONFIG_DRM_PANTHOR=m'
+require_config "${build_dir}/.config" 'CONFIG_SND_HDA_CIX_IPBLOQ=m'
+for omitted in \
+	DRM_TRILIN_DPSUB \
+	SND_SOC_SKY1_SOUND_CARD \
+	VIDEO_LINLON \
+	VIDEO_CIX_ARMCB_ISP; do
+	reject_enabled_config "${build_dir}/.config" "${omitted}"
+done
+
+build_dir=${build_root}/hardware-display-audio-o6-acpi
+rm -rf -- "${build_dir}"
+mkdir -p -- "${build_dir}"
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 defconfig
+python3 "${kconfig_update}" \
+	--mode update \
+	--kernel-tree "${source_dir}" \
+	--board-profile o6-acpi \
+	--hardware-profile server \
+	--graphics-profile none \
+	--audio-profile display \
+	--cix-patches yes \
+	--require-npu-abi "${npu_abi}" \
+	--driver-preference module \
+	--rewrite-existing-driver-states \
+	--apply \
+	"${build_dir}/.config" >"${build_dir}/kconfig-update.diff"
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
+require_config "${build_dir}/.config" 'CONFIG_DRM_TRILIN_DPSUB=m'
+require_config "${build_dir}/.config" 'CONFIG_SND_SOC_SKY1_SOUND_CARD=m'
+reject_enabled_config "${build_dir}/.config" DRM_PANTHOR
+reject_enabled_config "${build_dir}/.config" SND_HDA_CIX_IPBLOQ
 
 for profile in o6-acpi o6-dt o6n-acpi o6n-dt; do
 	case ${profile} in
@@ -641,7 +729,8 @@ for profile in o6-acpi o6-dt o6n-acpi o6n-dt; do
 		require_config "${build_dir}/.config" 'CONFIG_CIX_RADXA_ESSENTIAL=y'
 		require_config "${build_dir}/.config" "CONFIG_PWM_SKY1=$([[ ${preference} == module ]] && printf m || printf y)"
 		require_config "${build_dir}/.config" 'CONFIG_DMA_SHARED_BUFFER=y'
-		require_config "${build_dir}/.config" 'CONFIG_I2C=y'
+		require_config "${build_dir}/.config" \
+			"CONFIG_I2C=$(profile_i2c_state "${preference}")"
 		require_config "${build_dir}/.config" 'CONFIG_PM=y'
 		require_config "${build_dir}/.config" 'CONFIG_PM_SLEEP=y'
 		require_config "${build_dir}/.config" 'CONFIG_PM_SLEEP_SMP=y'
@@ -699,10 +788,10 @@ for profile in o6-acpi o6-dt o6n-acpi o6n-dt; do
 	done
 done
 
-# MPAM.aml is inert when arm64 MPAM is disabled. Prove that the Linux 7.1
+# MPAM.aml is inert when arm64 MPAM is disabled. Prove that the Linux 7.2
 # Kconfig opt-in closes over the hidden resctrl integration while the ordinary
 # DSDT profile and its initramfs path remain unchanged.
-if [[ ${kernel_line} == 7.1 ]]; then
+if [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
 	build_dir=${build_root}/mpam-kconfig-o6-acpi
 	rm -rf -- "${build_dir}"
 	mkdir -p -- "${build_dir}"
@@ -743,7 +832,7 @@ if [[ ${kernel_line} == 7.1 ]]; then
 		--driver-preference module \
 		--cix-patches yes \
 		--require-npu-abi "${npu_abi}" \
-		--enable-hifi5-xaf \
+		--enable-hifi5-dsp xaf \
 		--apply \
 		"${build_dir}/.config" >"${build_dir}/kconfig-update.diff"
 	make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
@@ -786,9 +875,10 @@ if [[ ${kernel_line} == 7.1 ]]; then
 			--firmware 1.2 \
 			--cix-patches yes \
 			--driver-preference "${preference}" \
+			--rewrite-existing-driver-states \
 			--require-npu-abi "${npu_abi}" \
 			--acpi-table-upgrade dsdt \
-			--enable-hifi5-sof \
+			--enable-hifi5-dsp sof \
 			--apply \
 			"${build_dir}/.config" >"${build_dir}/kconfig-update.diff"
 		make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
@@ -869,6 +959,7 @@ for symbol in \
 	SND_SOC_SOF_DEBUG_IPC_KERNEL_INJECTOR \
 	SND_SOC_SOF_DEBUG_RETAIN_DSP_CONTEXT \
 	SND_SOC_SOF_DEBUG_VERBOSE_IPC \
+	SLUB_DEBUG \
 	FAULT_INJECTION \
 	FAULT_INJECTION_DEBUG_FS \
 	FAIL_PAGE_ALLOC \
@@ -923,6 +1014,7 @@ for symbol in \
 	SND_SOC_SOF_DEBUG_IPC_KERNEL_INJECTOR \
 	SND_SOC_SOF_DEBUG_RETAIN_DSP_CONTEXT \
 	SND_SOC_SOF_DEBUG_VERBOSE_IPC \
+	SLUB_DEBUG \
 	FAULT_INJECTION \
 	FAULT_INJECTION_DEBUG_FS \
 	FAIL_PAGE_ALLOC \
@@ -954,6 +1046,7 @@ for symbol in \
 	KFENCE \
 	PAGE_OWNER \
 	DEBUG_VM \
+	SLUB_DEBUG \
 	UBSAN \
 	HARDENED_USERCOPY \
 	FTRACE \
@@ -1013,6 +1106,7 @@ done
 for symbol in \
 	DMA_API_DEBUG \
 	KASAN \
+	SLUB_DEBUG \
 	PM_DEBUG \
 	PM_ADVANCED_DEBUG \
 	PM_SLEEP_DEBUG \
@@ -1037,6 +1131,7 @@ python3 "${kconfig_update}" \
 make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
 for symbol in \
 	DMA_API_DEBUG \
+	SLUB_DEBUG \
 	PM_DEBUG \
 	PM_ADVANCED_DEBUG \
 	PM_SLEEP_DEBUG \
@@ -1092,6 +1187,7 @@ for symbol in \
 	PAGE_OWNER \
 	PAGE_POISONING \
 	DEBUG_PAGEALLOC \
+	SLUB_DEBUG \
 	SLUB_DEBUG_ON \
 	DEBUG_LIST \
 	DEBUG_VM \
@@ -1133,14 +1229,11 @@ for symbol in \
 	FAILSLAB; do
 	reject_enabled_config "${build_dir}/.config" "${symbol}"
 done
-# EXPERT is an independent end-user choice and selects the DEBUG_KERNEL menu
-# owner.  The helper preserves EXPERT, so prove the owned instrumentation
-# switches are off rather than demanding an impossible DEBUG_KERNEL=n state.
+# EXPERT and DEBUG_KERNEL are independent end-user choices.  The helper
+# preserves both while disabling the production profile's owned
+# instrumentation, including SLUB_DEBUG.
 require_config "${build_dir}/.config" 'CONFIG_EXPERT=y'
 require_config "${build_dir}/.config" 'CONFIG_DEBUG_KERNEL=y'
-# SLUB_DEBUG is support code which defaults to y while its prompt is hidden
-# without EXPERT. SLUB_DEBUG_ON above is the performance-relevant default-on
-# instrumentation switch; the helper must still turn that off.
 for symbol in \
 	KALLSYMS \
 	STACKTRACE; do
@@ -1285,7 +1378,7 @@ done
 # toolchains so the normally dormant compressed-offload object is not hidden
 # by a successful CIX-only directory build.  Full package builds provide the
 # final vmlinux and module-link gates.
-if [[ ${kernel_line} == 7.1 ]]; then
+if [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
 	for compiler in clang gcc; do
 		if [[ ${compiler} == clang ]]; then
 			toolchain=(LLVM=1)
@@ -1324,6 +1417,12 @@ if [[ ${kernel_line} == 7.1 ]]; then
 			done
 
 			if [[ ${preference} == module ]]; then
+				make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 \
+					"${toolchain[@]}" KBUILD_MODPOST_WARN=1 -j"${jobs}" \
+					sound/soc/sof/cix/snd-sof-cix-sky1.ko
+				modinfo -F softdep \
+					"${build_dir}/sound/soc/sof/cix/snd-sof-cix-sky1.ko" |
+					grep -Fx 'pre: cix_mailbox clk_sky1_audss reset_sky1_audss snd-sof-cix-sky1-nocodec'
 				sof_object=${build_dir}/sound/soc/sof/cix/cix-sky1.o
 				common_object=${build_dir}/drivers/soc/cix/cix-hifi5.o
 				if nm -u "${sof_object}" |
@@ -1378,6 +1477,7 @@ for preference in module builtin; do
 		drivers/opp/core.o \
 		drivers/cpufreq/cppc_cpufreq.o \
 		drivers/thermal/gov_power_allocator.o \
+		kernel/bpf/bpf_struct_ops.o \
 		drivers/gpu/drm/cix/dptx/ \
 		drivers/gpu/drm/cix/linlon-dp/ \
 		drivers/misc/armchina-npu-common/ \
@@ -1387,7 +1487,11 @@ for preference in module builtin; do
 		drivers/media/platform/cix/ \
 		drivers/pwm/pwm-sky1.o \
 		drivers/hwmon/cix-fan.o
-	dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin-dpsub.o
+	if [[ ${preference} == module ]]; then
+		dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin-dpsub.o
+	else
+		dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin_drm.o
+	fi
 	[[ -f ${dptx_object} ]] || {
 		printf 'error: profile did not compile %s\n' "${dptx_object}" >&2
 		exit 1
@@ -1396,6 +1500,12 @@ for preference in module builtin; do
 		nm -u "${dptx_object}" |
 		grep -Eq '(^|[[:space:]])U[[:space:]]+trilin_dp_connector_debugfs_init$'; then
 		printf 'error: DPTX retains a debugfs callback reference with CONFIG_DEBUG_FS disabled\n' >&2
+		exit 1
+	fi
+	if ! grep -Fqx 'CONFIG_BPF_STRUCT_OPS=y' "${build_dir}/.config" &&
+		nm -u "${build_dir}/kernel/bpf/bpf_struct_ops.o" |
+		grep -Eq '(^|[[:space:]])U[[:space:]]+bpf_struct_ops_test_run$'; then
+		printf 'error: BPF core retains its disabled struct-ops test-provider callback\n' >&2
 		exit 1
 	fi
 	for object in \
@@ -1407,22 +1517,34 @@ for preference in module builtin; do
 		}
 	done
 	if [[ ${preference} == module ]]; then
-		# A directory target stops after the composite module object.  Link the
-		# two focused modules as explicit top-level targets so their generated
+		usb_sky1_module=()
+		if [[ ${kernel_line} == 7.2 ]]; then
+			usb_sky1_module=(drivers/usb/cdns3/cdns3-sky1.ko)
+		fi
+		# A directory target stops after the composite module object. Link the
+		# focused modules as explicit top-level targets so their generated
 		# .modinfo can be inspected without doing an otherwise redundant full
 		# vmlinux build.  Missing generic-kernel symbols are expected at this
 		# focused boundary and are covered by the full package build.
 		make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 \
 			KBUILD_MODPOST_WARN=1 -j"${jobs}" \
+			"${usb_sky1_module[@]}" \
 			drivers/misc/armchina-npu-common/armchina_npu_common.ko \
 			drivers/misc/armchina-npu/armchina_npu.ko \
 			drivers/misc/armchina-npu-r2p0/armchina_npu_r2p0.ko \
-			drivers/net/ethernet/realtek/r8126/r8126.ko
+			drivers/net/ethernet/realtek/r8126/r8126.ko \
+			sound/hda/controllers/snd-hda-cix-ipbloq.ko \
+			sound/soc/cix/snd-soc-cdns-i2s-mc.ko \
+			sound/soc/cix/snd-soc-sky1-card.ko
 		for module in \
+			"${usb_sky1_module[@]}" \
 			drivers/misc/armchina-npu-common/armchina_npu_common.ko \
 			drivers/misc/armchina-npu/armchina_npu.ko \
 			drivers/misc/armchina-npu-r2p0/armchina_npu_r2p0.ko \
-			drivers/net/ethernet/realtek/r8126/r8126.ko; do
+			drivers/net/ethernet/realtek/r8126/r8126.ko \
+			sound/hda/controllers/snd-hda-cix-ipbloq.ko \
+			sound/soc/cix/snd-soc-cdns-i2s-mc.ko \
+			sound/soc/cix/snd-soc-sky1-card.ko; do
 			[[ -f ${build_dir}/${module} ]] || {
 				printf 'error: module profile did not build %s\n' "${module}" >&2
 				exit 1
@@ -1434,6 +1556,22 @@ for preference in module builtin; do
 		modinfo -F softdep \
 			"${build_dir}/drivers/misc/armchina-npu-r2p0/armchina_npu_r2p0.ko" |
 			grep -Fx 'pre: governor_userspace scmi_perf_domain'
+		if ((${#usb_sky1_module[@]})); then
+			modinfo -F softdep \
+				"${build_dir}/${usb_sky1_module[0]}" |
+				grep -Fx 'pre: phy-cix-usbdp'
+		fi
+		modinfo -F softdep \
+			"${build_dir}/sound/hda/controllers/snd-hda-cix-ipbloq.ko" |
+			grep -Fx 'pre: clk_sky1_audss reset_sky1_audss gpio-cadence'
+		modinfo -F softdep \
+			"${build_dir}/sound/soc/cix/snd-soc-cdns-i2s-mc.ko" |
+			grep -Fx 'pre: arm_dma350 clk_sky1_audss reset_sky1_audss'
+		if [[ ${kernel_line} == 7.2 ]]; then
+			modinfo -F softdep \
+				"${build_dir}/sound/soc/cix/snd-soc-sky1-card.ko" |
+				grep -Fx 'pre: snd_soc_cdns_i2s_mc'
+		fi
 		for module in \
 			"${build_dir}/drivers/misc/armchina-npu/armchina_npu.ko" \
 			"${build_dir}/drivers/misc/armchina-npu-r2p0/armchina_npu_r2p0.ko"; do
@@ -1464,6 +1602,39 @@ for preference in module builtin; do
 	fi
 done
 
+# Keep the DPTX module independent of the generic kernel-debugging menu and
+# exercise both newly independent Kconfig choices in one build.
+build_dir=${build_root}/dptx-no-debug-kernel
+rm -rf -- "${build_dir}"
+mkdir -p -- "${build_dir}"
+cp -- "${build_root}/o6-acpi-module/.config" "${build_dir}/.config"
+"${source_dir}/scripts/config" --file "${build_dir}/.config" \
+	--enable EXPERT \
+	--disable DEBUG_KERNEL \
+	--disable DEBUG_FS \
+	--disable SLUB_DEBUG
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
+require_config "${build_dir}/.config" 'CONFIG_EXPERT=y'
+for symbol in DEBUG_KERNEL DEBUG_FS SLUB_DEBUG; do
+	reject_enabled_config "${build_dir}/.config" "${symbol}"
+done
+require_config "${build_dir}/.config" 'CONFIG_DRM_TRILIN_DPSUB=m'
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 \
+	-j"${jobs}" prepare modules_prepare
+make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
+	-j"${jobs}" mm/slub.o mm/slab_common.o drivers/gpu/drm/cix/dptx/
+dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin-dpsub.o
+[[ -f ${dptx_object} ]] || {
+	printf 'error: DEBUG_KERNEL-disabled profile did not compile %s\n' \
+		"${dptx_object}" >&2
+	exit 1
+}
+if nm -u "${dptx_object}" |
+	grep -Eq '(^|[[:space:]])U[[:space:]]+trilin_dp_connector_debugfs_init$'; then
+	printf 'error: DEBUG_KERNEL-disabled DPTX retains its debugfs callback\n' >&2
+	exit 1
+fi
+
 # Compile the accelerator paths once through their DT-facing profile as well;
 # the full ACPI slice above remains the broader subsystem integration build.
 build_dir=${build_root}/o6-dt-module
@@ -1479,6 +1650,9 @@ make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
 # Broad configurations also keep quarantined and explicitly opt-in vendor code
 # buildable beyond the drivers selected by maintained board profiles.
 build_dir=${build_root}/allmod
+usb_sky1_object=drivers/usb/cdns3/cdnsp-sky1.o
+[[ ${kernel_line} != 7.2 ]] || \
+	usb_sky1_object=drivers/usb/cdns3/cdns3-sky1.o
 make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 \
 	-j"${jobs}" prepare modules_prepare
 make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
@@ -1492,10 +1666,182 @@ make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
 	drivers/net/ethernet/realtek/r8126/ \
 	drivers/pinctrl/cix/ \
 	drivers/spi/spi-cadence.o \
-	drivers/usb/cdns3/cdnsp-sky1.o \
+	"${usb_sky1_object}" \
 	drivers/usb/typec/rts5453.o \
 	sound/hda/controllers/snd-hda-cix-ipbloq.o \
 	sound/soc/cix/
+
+# Context analysis is absent from Linux 6.18. Linux 7.1 requires Clang 22.1,
+# while Linux 7.2 raises that boundary to Clang 23. Keep the tree-wide switch
+# disabled and opt only the objects in this explicit CIX-focused build into the
+# analysis. Generic DRM, media, ASoC, and OPP helpers currently emit known
+# cross-function false positives, so fail only when the primary diagnostic is
+# in CIX-owned source.
+if [[ ${kernel_line} == 6.18 ]]; then
+	if grep -q '^config WARN_CONTEXT_ANALYSIS$' "${source_dir}/lib/Kconfig.debug"; then
+		printf 'error: Linux %s unexpectedly exposes WARN_CONTEXT_ANALYSIS\n' \
+			"${kernel_line}" >&2
+		exit 1
+	fi
+elif [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
+	[[ -x ${context_analysis_llvm}/clang ]] || {
+		printf 'error: Linux %s requires CIX_CONTEXT_ANALYSIS_LLVM\n' \
+			"${kernel_line}" >&2
+		exit 1
+	}
+	grep -q '^config WARN_CONTEXT_ANALYSIS$' \
+		"${source_dir}/lib/Kconfig.debug"
+	build_dir=${build_root}/context-analysis
+	rm -rf -- "${build_dir}"
+	mkdir -p -- "${build_dir}"
+	cp -- "${build_root}/o6-acpi-module/.config" "${build_dir}/.config"
+	"${source_dir}/scripts/config" --file "${build_dir}/.config" \
+		--enable WARN_CONTEXT_ANALYSIS \
+		--disable WARN_CONTEXT_ANALYSIS_ALL \
+		--disable TRACE_BRANCH_PROFILING
+	make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 \
+		LLVM="${context_analysis_llvm}" olddefconfig
+	require_config "${build_dir}/.config" 'CONFIG_WARN_CONTEXT_ANALYSIS=y'
+	reject_enabled_config "${build_dir}/.config" WARN_CONTEXT_ANALYSIS_ALL
+	"${context_analysis_llvm}/clang" --version | sed -n '1p'
+	context_analysis_dirs=(
+		drivers/clk/cix
+		drivers/soc/cix
+		drivers/gpu/drm/cix/dptx
+		drivers/gpu/drm/cix/linlon-dp
+		drivers/gpu/drm/panthor
+		drivers/misc/armchina-npu-common
+		drivers/misc/armchina-npu
+		drivers/misc/armchina-npu-r2p0
+		drivers/net/ethernet/realtek/r8126
+		drivers/media/platform/cix
+		drivers/pinctrl/cix
+		sound/soc/cix
+	)
+	context_analysis_objects=(
+		clk-scmi
+		cix-mailbox
+		arm-dma350
+		gpio-cadence
+		i2c-cadence
+		irq-sky1-pdc
+		syscon
+		reset-sky1
+		reset-sky1-audss
+		property
+		processor_thermal
+		thermal
+		core
+		cppc_cpufreq
+		gov_power_allocator
+		pwm-sky1
+		cix-fan
+		cix_dsp_rproc
+		snd-hda-cix-ipbloq
+	)
+	context_analysis_args=()
+	for object in "${context_analysis_objects[@]}"; do
+		context_analysis_args+=("CONTEXT_ANALYSIS_${object}.o=y")
+	done
+	while IFS= read -r -d '' file; do
+		object=${file##*/}
+		context_analysis_args+=("CONTEXT_ANALYSIS_${object%.c}.o=y")
+	done < <(find "${context_analysis_dirs[@]/#/${source_dir}/}" \
+		-type f -name '*.c' -print0)
+	make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 \
+		LLVM="${context_analysis_llvm}" -j1 prepare modules_prepare
+	context_analysis_log=${build_dir}/context-analysis.log
+	make -C "${source_dir}" O="${build_dir}" ARCH=arm64 \
+		LLVM="${context_analysis_llvm}" \
+		-j"${jobs}" "${context_analysis_args[@]}" \
+		drivers/clk/clk-scmi.o \
+		drivers/clk/cix/ \
+		drivers/mailbox/cix-mailbox.o \
+		drivers/dma/arm-dma350.o \
+		drivers/gpio/gpio-cadence.o \
+		drivers/i2c/busses/i2c-cadence.o \
+		drivers/irqchip/irq-sky1-pdc.o \
+		drivers/mfd/syscon.o \
+		drivers/reset/reset-sky1.o \
+		drivers/reset/reset-sky1-audss.o \
+		drivers/soc/cix/ \
+		drivers/acpi/property.o \
+		drivers/acpi/processor_thermal.o \
+		drivers/acpi/thermal.o \
+		drivers/opp/core.o \
+		drivers/cpufreq/cppc_cpufreq.o \
+		drivers/thermal/gov_power_allocator.o \
+		drivers/gpu/drm/cix/dptx/ \
+		drivers/gpu/drm/cix/linlon-dp/ \
+		drivers/gpu/drm/panthor/ \
+		drivers/misc/armchina-npu-common/ \
+		drivers/misc/armchina-npu/ \
+		drivers/misc/armchina-npu-r2p0/ \
+		drivers/net/ethernet/realtek/r8126/ \
+		drivers/media/platform/cix/ \
+		drivers/pinctrl/cix/ \
+		drivers/pwm/pwm-sky1.o \
+		drivers/hwmon/cix-fan.o \
+		drivers/remoteproc/cix_dsp_rproc.o \
+		sound/hda/controllers/snd-hda-cix-ipbloq.o \
+		sound/soc/cix/ 2>&1 | tee "${context_analysis_log}"
+	python3 - "${source_dir}" "${context_analysis_log}" <<'PY'
+import pathlib
+import re
+import sys
+
+source_dir = pathlib.Path(sys.argv[1]).resolve()
+protected_prefixes = (
+    "drivers/clk/cix/",
+    "drivers/soc/cix/",
+    "drivers/gpu/drm/cix/",
+    "drivers/gpu/drm/panthor/",
+    "drivers/misc/armchina-npu-common/",
+    "drivers/misc/armchina-npu/",
+    "drivers/misc/armchina-npu-r2p0/",
+    "drivers/net/ethernet/realtek/r8126/",
+    "drivers/media/platform/cix/",
+    "drivers/pinctrl/cix/",
+    "sound/soc/cix/",
+)
+protected_files = {
+    "drivers/mailbox/cix-mailbox.c",
+    "drivers/dma/arm-dma350.c",
+    "drivers/gpio/gpio-cadence.c",
+    "drivers/i2c/busses/i2c-cadence.c",
+    "drivers/irqchip/irq-sky1-pdc.c",
+    "drivers/reset/reset-sky1.c",
+    "drivers/reset/reset-sky1-audss.c",
+    "drivers/pwm/pwm-sky1.c",
+    "drivers/hwmon/cix-fan.c",
+    "drivers/remoteproc/cix_dsp_rproc.c",
+    "sound/hda/controllers/cix-ipbloq.c",
+}
+warning = re.compile(r"^(.*?):\d+(?::\d+)?: warning: .*\[-Wthread-safety(?:-[^]]+)?\]$")
+diagnostics = []
+violations = []
+for line in pathlib.Path(sys.argv[2]).read_text(errors="replace").splitlines():
+    match = warning.match(line)
+    if not match:
+        continue
+    path = pathlib.Path(match.group(1)).resolve()
+    try:
+        relative = path.relative_to(source_dir).as_posix()
+    except ValueError:
+        continue
+    diagnostics.append(line)
+    if relative in protected_files or relative.startswith(protected_prefixes):
+        violations.append(line)
+if violations:
+    print("error: context-analysis diagnostics in CIX-owned source:", file=sys.stderr)
+    print(*violations, sep="\n", file=sys.stderr)
+    raise SystemExit(1)
+print(
+    f"Context analysis passed; retained {len(diagnostics)} generic diagnostics "
+    "outside CIX-owned source"
+)
+PY
+fi
 
 printf 'CIX config and focused compile validation passed for Linux %s (%s)\n' \
 	"${kernel_line}" "${npu_abi}"

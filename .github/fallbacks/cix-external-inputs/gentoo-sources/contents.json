@@ -1,0 +1,130 @@
+[
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/ecdecffcd868bc529fd52713232580b534e07a4b",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/Manifest",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/Manifest?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/Manifest",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/ecdecffcd868bc529fd52713232580b534e07a4b",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/Manifest",
+    "name": "Manifest",
+    "path": "sys-kernel/gentoo-sources/Manifest",
+    "sha": "ecdecffcd868bc529fd52713232580b534e07a4b",
+    "size": 6915,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/Manifest?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/35ffea725e6008111e838abc646022ca10b405a7",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.1.186.ebuild",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.1.186.ebuild?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/gentoo-sources-6.1.186.ebuild",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/35ffea725e6008111e838abc646022ca10b405a7",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.1.186.ebuild",
+    "name": "gentoo-sources-6.1.186.ebuild",
+    "path": "sys-kernel/gentoo-sources/gentoo-sources-6.1.186.ebuild",
+    "sha": "35ffea725e6008111e838abc646022ca10b405a7",
+    "size": 736,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.1.186.ebuild?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/d23b09e19e14df65bf7f46a92b1871f126fc8cf3",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.12.107.ebuild",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.12.107.ebuild?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/gentoo-sources-6.12.107.ebuild",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/d23b09e19e14df65bf7f46a92b1871f126fc8cf3",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.12.107.ebuild",
+    "name": "gentoo-sources-6.12.107.ebuild",
+    "path": "sys-kernel/gentoo-sources/gentoo-sources-6.12.107.ebuild",
+    "sha": "d23b09e19e14df65bf7f46a92b1871f126fc8cf3",
+    "size": 923,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.12.107.ebuild?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/5b84dd83b3d3b0cf86033ec10a8b918861c57b3d",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.18.48.ebuild",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.18.48.ebuild?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/gentoo-sources-6.18.48.ebuild",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/5b84dd83b3d3b0cf86033ec10a8b918861c57b3d",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.18.48.ebuild",
+    "name": "gentoo-sources-6.18.48.ebuild",
+    "path": "sys-kernel/gentoo-sources/gentoo-sources-6.18.48.ebuild",
+    "sha": "5b84dd83b3d3b0cf86033ec10a8b918861c57b3d",
+    "size": 735,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.18.48.ebuild?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/05e79b9aec22621dc8c1d684b143ccd4e689bf80",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.6.155.ebuild",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.6.155.ebuild?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/gentoo-sources-6.6.155.ebuild",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/05e79b9aec22621dc8c1d684b143ccd4e689bf80",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-6.6.155.ebuild",
+    "name": "gentoo-sources-6.6.155.ebuild",
+    "path": "sys-kernel/gentoo-sources/gentoo-sources-6.6.155.ebuild",
+    "sha": "05e79b9aec22621dc8c1d684b143ccd4e689bf80",
+    "size": 743,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-6.6.155.ebuild?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/c18b6431f31bf577461ec817e540a09869128792",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-7.1.12.ebuild",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-7.1.12.ebuild?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/gentoo-sources-7.1.12.ebuild",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/c18b6431f31bf577461ec817e540a09869128792",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-7.1.12.ebuild",
+    "name": "gentoo-sources-7.1.12.ebuild",
+    "path": "sys-kernel/gentoo-sources/gentoo-sources-7.1.12.ebuild",
+    "sha": "c18b6431f31bf577461ec817e540a09869128792",
+    "size": 735,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-7.1.12.ebuild?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/32337e2c633679f5e5409520ad58677e9193bbc7",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-7.2.2.ebuild",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-7.2.2.ebuild?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/gentoo-sources-7.2.2.ebuild",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/32337e2c633679f5e5409520ad58677e9193bbc7",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/gentoo-sources-7.2.2.ebuild",
+    "name": "gentoo-sources-7.2.2.ebuild",
+    "path": "sys-kernel/gentoo-sources/gentoo-sources-7.2.2.ebuild",
+    "sha": "32337e2c633679f5e5409520ad58677e9193bbc7",
+    "size": 755,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/gentoo-sources-7.2.2.ebuild?ref=master"
+  },
+  {
+    "_links": {
+      "git": "https://api.github.com/repos/gentoo/gentoo/git/blobs/74ee2d68b6e87c27e4c2c5505843af42d3f69318",
+      "html": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/metadata.xml",
+      "self": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/metadata.xml?ref=master"
+    },
+    "download_url": "https://raw.githubusercontent.com/gentoo/gentoo/master/sys-kernel/gentoo-sources/metadata.xml",
+    "git_url": "https://api.github.com/repos/gentoo/gentoo/git/blobs/74ee2d68b6e87c27e4c2c5505843af42d3f69318",
+    "html_url": "https://github.com/gentoo/gentoo/blob/master/sys-kernel/gentoo-sources/metadata.xml",
+    "name": "metadata.xml",
+    "path": "sys-kernel/gentoo-sources/metadata.xml",
+    "sha": "74ee2d68b6e87c27e4c2c5505843af42d3f69318",
+    "size": 501,
+    "type": "file",
+    "url": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources/metadata.xml?ref=master"
+  }
+]

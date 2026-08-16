@@ -1,0 +1,202 @@
+diff --git a/drivers/i2c/busses/i2c-cadence.c b/drivers/i2c/busses/i2c-cadence.c
+--- a/drivers/i2c/busses/i2c-cadence.c
++++ b/drivers/i2c/busses/i2c-cadence.c
+@@ -16,6 +16,7 @@
+ #include <linux/of.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/pinctrl/consumer.h>
++#include <linux/property.h>
+ #include <linux/reset.h>
+ 
+ /* Register offsets for the I2C device. */
+@@ -228,6 +229,7 @@ struct cdns_i2c {
+ 
+ struct cdns_platform_data {
+ 	u32 quirks;
++	const char *reset_id;
+ };
+ 
+ #define to_cdns_i2c(_nb)	container_of(_nb, struct cdns_i2c, \
+@@ -1442,6 +1444,10 @@ static const struct cdns_platform_data r1p10_i2c_def = {
+ 	.quirks = CDNS_I2C_BROKEN_HOLD_BIT,
+ };
+ 
++static const struct cdns_platform_data sky1_i2c_def = {
++	.reset_id = "i2c_reset",
++};
++
+ static const struct of_device_id cdns_i2c_of_match[] = {
+ 	{ .compatible = "cdns,i2c-r1p10", .data = &r1p10_i2c_def },
+ 	{ .compatible = "cdns,i2c-r1p14",},
+@@ -1449,6 +1455,26 @@ static const struct of_device_id cdns_i2c_of_match[] = {
+ };
+ MODULE_DEVICE_TABLE(of, cdns_i2c_of_match);
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id cdns_i2c_acpi_match[] = {
++	{ "CIXH200B", (kernel_ulong_t)&sky1_i2c_def },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cdns_i2c_acpi_match);
++#endif
++
++static bool cdns_i2c_acpi_clock_expected(struct device *dev)
++{
++#ifdef CONFIG_ACPI
++	acpi_handle handle = ACPI_HANDLE(dev);
++	acpi_handle clkt;
++
++	return handle && ACPI_SUCCESS(acpi_get_handle(handle, "CLKT", &clkt));
++#else
++	return false;
++#endif
++}
++
+ /**
+  * cdns_i2c_detect_transfer_size - Detect the maximum transfer size supported
+  * @id: Device private data structure
+@@ -1480,6 +1506,51 @@ static void cdns_i2c_detect_transfer_size(struct cdns_i2c *id)
+ 	cdns_i2c_writereg(0, CDNS_I2C_CR_OFFSET);
+ }
+ 
++static int cdns_i2c_read_firmware(struct cdns_i2c *id)
++{
++	struct device *dev = id->dev;
++	u32 value;
++	int ret;
++
++	id->i2c_clk = I2C_MAX_STANDARD_MODE_FREQ;
++	id->fifo_depth = CDNS_I2C_FIFO_DEPTH_DEFAULT;
++
++	if (device_property_present(dev, "clock-frequency")) {
++		ret = device_property_read_u32(dev, "clock-frequency", &value);
++		if (ret)
++			return dev_err_probe(dev, ret,
++					     "invalid clock-frequency property\n");
++
++		if (!value || value > I2C_MAX_FAST_MODE_PLUS_FREQ)
++			return dev_err_probe(dev, -EINVAL,
++					     "invalid clock-frequency %u\n", value);
++		id->i2c_clk = value;
++	}
++
++	if (!device_property_present(dev, "fifo-depth"))
++		return 0;
++
++	ret = device_property_read_u32(dev, "fifo-depth", &value);
++	if (ret)
++		return dev_err_probe(dev, ret, "invalid fifo-depth property\n");
++
++	switch (value) {
++	case 2:
++	case 4:
++	case 8:
++	case 16:
++	case 32:
++	case 64:
++	case 128:
++	case 256:
++		id->fifo_depth = value;
++		return 0;
++	default:
++		return dev_err_probe(dev, -EINVAL,
++				     "invalid fifo-depth %u\n", value);
++	}
++}
++
+ /**
+  * cdns_i2c_probe - Platform registration call
+  * @pdev:	Handle to the platform device structure
+@@ -1492,10 +1563,10 @@ static void cdns_i2c_detect_transfer_size(struct cdns_i2c *id)
+  */
+ static int cdns_i2c_probe(struct platform_device *pdev)
+ {
++	const struct cdns_platform_data *data;
+ 	struct resource *r_mem;
+ 	struct cdns_i2c *id;
+ 	int ret, irq;
+-	const struct of_device_id *match;
+ 
+ 	id = devm_kzalloc(&pdev->dev, sizeof(*id), GFP_KERNEL);
+ 	if (!id)
+@@ -1504,11 +1575,9 @@ static int cdns_i2c_probe(struct platform_device *pdev)
+ 	id->dev = &pdev->dev;
+ 	platform_set_drvdata(pdev, id);
+ 
+-	match = of_match_node(cdns_i2c_of_match, pdev->dev.of_node);
+-	if (match && match->data) {
+-		const struct cdns_platform_data *data = match->data;
++	data = device_get_match_data(&pdev->dev);
++	if (data)
+ 		id->quirks = data->quirks;
+-	}
+ 
+ 	id->rinfo.pinctrl = devm_pinctrl_get(&pdev->dev);
+ 	if (IS_ERR(id->rinfo.pinctrl)) {
+@@ -1530,22 +1599,32 @@ static int cdns_i2c_probe(struct platform_device *pdev)
+ 		return irq;
+ 
+ 	id->adap.owner = THIS_MODULE;
+-	id->adap.dev.of_node = pdev->dev.of_node;
+ 	id->adap.algo = &cdns_i2c_algo;
+ 	id->adap.timeout = CDNS_I2C_TIMEOUT;
+ 	id->adap.retries = 3;		/* Default retry value. */
+ 	id->adap.algo_data = id;
+ 	id->adap.dev.parent = &pdev->dev;
++	device_set_node(&id->adap.dev, dev_fwnode(&pdev->dev));
+ 	init_completion(&id->xfer_done);
+ 	snprintf(id->adap.name, sizeof(id->adap.name),
+ 		 "Cadence I2C at %08lx", (unsigned long)r_mem->start);
+ 
++	ret = cdns_i2c_read_firmware(id);
++	if (ret)
++		return ret;
++
+ 	id->clk = devm_clk_get_enabled(&pdev->dev, NULL);
+-	if (IS_ERR(id->clk))
+-		return dev_err_probe(&pdev->dev, PTR_ERR(id->clk),
++	if (IS_ERR(id->clk)) {
++		ret = PTR_ERR(id->clk);
++		if (ret == -ENOENT && cdns_i2c_acpi_clock_expected(&pdev->dev))
++			ret = -EPROBE_DEFER;
++
++		return dev_err_probe(&pdev->dev, ret,
+ 				     "input clock not found.\n");
++	}
+ 
+-	id->reset = devm_reset_control_get_optional_shared(&pdev->dev, NULL);
++	id->reset = devm_reset_control_get_optional_shared(&pdev->dev,
++							   data ? data->reset_id : NULL);
+ 	if (IS_ERR(id->reset))
+ 		return dev_err_probe(&pdev->dev, PTR_ERR(id->reset),
+ 				     "Failed to request reset.\n");
+@@ -1565,11 +1644,6 @@ static int cdns_i2c_probe(struct platform_device *pdev)
+ 		dev_warn(&pdev->dev, "Unable to register clock notifier.\n");
+ 	id->input_clk = clk_get_rate(id->clk);
+ 
+-	ret = of_property_read_u32(pdev->dev.of_node, "clock-frequency",
+-			&id->i2c_clk);
+-	if (ret || (id->i2c_clk > I2C_MAX_FAST_MODE_FREQ))
+-		id->i2c_clk = I2C_MAX_STANDARD_MODE_FREQ;
+-
+ #if IS_ENABLED(CONFIG_I2C_SLAVE)
+ 	/* Set initial mode to master */
+ 	id->dev_mode = CDNS_I2C_MODE_MASTER;
+@@ -1577,9 +1651,6 @@ static int cdns_i2c_probe(struct platform_device *pdev)
+ #endif
+ 	id->ctrl_reg = CDNS_I2C_CR_ACK_EN | CDNS_I2C_CR_NEA | CDNS_I2C_CR_MS;
+ 
+-	id->fifo_depth = CDNS_I2C_FIFO_DEPTH_DEFAULT;
+-	of_property_read_u32(pdev->dev.of_node, "fifo-depth", &id->fifo_depth);
+-
+ 	cdns_i2c_detect_transfer_size(id);
+ 
+ 	ret = cdns_i2c_setclk(id->input_clk, id);
+@@ -1658,6 +1729,7 @@ static struct platform_driver cdns_i2c_drv = {
+ 	.driver = {
+ 		.name  = DRIVER_NAME,
+ 		.of_match_table = cdns_i2c_of_match,
++		.acpi_match_table = ACPI_PTR(cdns_i2c_acpi_match),
+ 		.pm = &cdns_i2c_dev_pm_ops,
+ 	},
+ 	.probe  = cdns_i2c_probe,

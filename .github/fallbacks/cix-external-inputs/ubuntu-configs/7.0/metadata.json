@@ -1,0 +1,32 @@
+{
+  "annotations": {
+    "path": "debian.master/config/annotations",
+    "sha256": "24fca7a8f5c19f3f92f6492d0b64e4491ce61926e72782782722ab7d221c3cc0"
+  },
+  "compatibility_note": "Ubuntu 7.0 seed for CIX Linux 7.1 and 7.2; this is an adjacent-series configuration",
+  "configs": {
+    "arm64-generic-64k.config": {
+      "lines": 13421,
+      "sha256": "987ec449fddc6aad815750f5dab9d2a3367bb5829dd5c66ecc1f1721debef335"
+    },
+    "arm64-generic.config": {
+      "lines": 13495,
+      "sha256": "99292abc4a9811205ef2587518ae5105d64f703e68fd1cefea6fd9eb5d947417"
+    }
+  },
+  "consumer_lines": [
+    "7.1",
+    "7.2"
+  ],
+  "debian_directory": "debian.master",
+  "declared_seed": "7.0",
+  "distribution": "resolute",
+  "repository": "https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/resolute",
+  "requested_ref": "master-next",
+  "resolved_commit": "e48e14b8f485265a1100d18d03e9a2677680adcb",
+  "resolved_commit_date": "2026-08-28T11:30:12+03:00",
+  "schema_version": 1,
+  "source": "Ubuntu Resolute",
+  "source_kernel_series": "7.0",
+  "source_kernel_version": "7.0.14"
+}

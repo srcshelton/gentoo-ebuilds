@@ -5,13 +5,13 @@ a Kconfig dependency, and keep AUDSS register accesses inside the
 clock supplier runtime-PM lifetime. Retain the exact legacy lookup
 API needed by 6.18 and 7.0; 7.1 uses the native fwnode reset path.
 
-Provenance: System, FCH and ACPI reset adaptations derive from
+Bounds checks, dependency corrections, unbind suppression and power/lifetime
+coupling are overlay-maintained corrections.
+
+Source: system, FCH and ACPI reset adaptations from
 cixtech/cix-linux-main@19f2947303670f2e5734d6a96ffc72a80fd9b942
-patches-6.18/0006* (00060-00062 on 7.1). The public
-AUDSS binding/reset identifiers also trace to v9
-at https://patchwork.kernel.org/series/1124659/. Bounds checks,
-dependency corrections, unbind suppression and power/lifetime coupling
-are overlay-created remediation.
+patches-6.18/0006* (00060-00062 on 7.1), and public AUDSS v9 series at
+https://patchwork.kernel.org/series/1124659/.
 
 diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
 --- a/drivers/clk/cix/Kconfig

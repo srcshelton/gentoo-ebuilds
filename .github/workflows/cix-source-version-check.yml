@@ -1,0 +1,36 @@
+name: Check CIX source versions
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  compare:
+    name: Compare with Gentoo sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore retained Gentoo source metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          .github/scripts/restore-cix-external-inputs.sh \
+            .github/fallbacks/cix-external-inputs \
+            "${RUNNER_TEMP}/cix-external-inputs"
+
+      - name: Compare maintained versions
+        run: |
+          .github/scripts/check-cix-source-versions.py \
+            --upstream-json \
+              "${RUNNER_TEMP}/cix-external-inputs/gentoo-sources/contents.json"

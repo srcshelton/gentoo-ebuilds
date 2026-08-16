@@ -1,0 +1,87 @@
+name: Refresh retained CIX external inputs
+
+on:
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: cix-external-inputs
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  refresh:
+    name: Refresh and retain external CIX workflow inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore last-known-good inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          .github/scripts/restore-cix-external-inputs.sh \
+            .github/fallbacks/cix-external-inputs \
+            "${RUNNER_TEMP}/previous-cix-external-inputs"
+
+      - name: Refresh independently available inputs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          .github/scripts/refresh-cix-external-inputs.py \
+            --fallback-dir "${RUNNER_TEMP}/previous-cix-external-inputs" \
+            --output-dir "${RUNNER_TEMP}/cix-external-inputs" \
+            --work-dir "${RUNNER_TEMP}/cix-external-input-refresh"
+
+      - name: Summarise retained inputs
+        run: |
+          python3 - \
+            "${RUNNER_TEMP}/cix-external-inputs/retention.json" \
+            "${GITHUB_STEP_SUMMARY}" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          retention = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          with Path(sys.argv[2]).open("a", encoding="utf-8") as summary:
+              summary.write("### Retained external inputs\n\n")
+              summary.write("| Component | State | Last refreshed |\n")
+              summary.write("| --- | --- | --- |\n")
+              for name, record in sorted(retention["components"].items()):
+                  summary.write(
+                      f"| `{name}` | {record['state']} | "
+                      f"`{record['last_refreshed_at']}` |\n"
+                  )
+          PY
+
+      - name: Upload retained external inputs
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cix-external-inputs
+          path: ${{ runner.temp }}/cix-external-inputs
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload retained external inputs under act
+        if: ${{ env.ACT == 'true' }}
+        # https://github.com/nektos/act/issues/6021
+        # https://github.com/nektos/act/pull/6099
+        # https://github.com/nektos/act/issues/6022
+        # https://github.com/nektos/act/issues/6114
+        # https://github.com/nektos/act/pull/6115
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: cix-external-inputs
+          path: ${{ runner.temp }}/cix-external-inputs
+          if-no-files-found: error
+          retention-days: 90

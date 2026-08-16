@@ -1,0 +1,264 @@
+mailbox: cix: add audited ACPI support and harden transfers
+
+CIX Sky1 firmware describes mailbox controllers as CIXHA001 devices and
+uses a numeric cix,mbox_dir property.  Retain the existing device-tree
+string property as a fallback, without assuming the property encoding
+from the firmware-node type.
+
+Native firmware describes the AP-to-PM SCMI shared-memory prefix inside
+the mailbox resource.  If that unshifted ACPI resource is already busy,
+probe the independently requestable register window at +0x80; upgraded
+tables that already describe the shifted window continue down the normal
+path.
+
+Return transfer-helper failures instead of reporting invalid payloads as
+success, keep the mailbox interrupt available for suspend-time SCMI
+traffic on kernel lines that predate that upstream fix, and register a
+module exit path.  Correct the message-size documentation to match the
+7-bit field used by both Linux and the CIX TF-A firmware ABI.
+
+This consolidates CIX vendor ordinal 0001 with the overlay's former
+30180 shared-memory-overlap fix and the mailbox half of 30170.  The
+driver's OF-or-ACPI applicability is now established at its introduction
+instead of relying on a late Kconfig repair.
+
+diff --git a/drivers/mailbox/Kconfig b/drivers/mailbox/Kconfig
+--- a/drivers/mailbox/Kconfig
++++ b/drivers/mailbox/Kconfig
+@@ -371,7 +371,7 @@ config THEAD_TH1520_MBOX
+ config CIX_MBOX
+         tristate "CIX Mailbox"
+         depends on ARCH_CIX || COMPILE_TEST
+-        depends on OF
++        depends on OF || ACPI
+         help
+           Mailbox implementation for CIX IPC system. The controller supports
+           11 mailbox channels with different operating mode and every channel
+diff --git a/drivers/mailbox/cix-mailbox.c b/drivers/mailbox/cix-mailbox.c
+--- a/drivers/mailbox/cix-mailbox.c
++++ b/drivers/mailbox/cix-mailbox.c
+@@ -3,9 +3,11 @@
+  * Copyright 2025 Cix Technology Group Co., Ltd.
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/device.h>
+ #include <linux/err.h>
+ #include <linux/io.h>
++#include <linux/ioport.h>
+ #include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/mailbox_controller.h>
+@@ -13,10 +15,11 @@
+ #include <linux/platform_device.h>
+ 
+ /*
+- * The maximum transmission size is 32 words or 128 bytes.
++ * Message RAM is 32 words, but its 7-bit byte-length field can encode
++ * at most 127 bytes.
+  */
+-#define CIX_MBOX_MSG_WORDS	32	/* Max length = 32 words */
+-#define CIX_MBOX_MSG_LEN_MASK	0x7fL	/* Max length = 128 bytes */
++#define CIX_MBOX_MSG_WORDS	32
++#define CIX_MBOX_MSG_LEN_MASK	0x7f
+ 
+ /* [0~7] Fast channel
+  * [8] doorbell base channel
+@@ -97,6 +100,48 @@ struct cix_mbox_priv {
+ 	bool use_shmem;
+ };
+ 
++static bool cix_mbox_resource_available(struct device *dev, struct resource *res)
++{
++	struct resource *region;
++
++	region = request_mem_region(res->start, resource_size(res), dev_name(dev));
++	if (!region)
++		return false;
++
++	release_mem_region(res->start, resource_size(res));
++	return true;
++}
++
++static void cix_mbox_acpi_adjust_resource(struct device *dev,
++					  struct resource *res,
++					  struct resource *mbox_res)
++{
++	struct resource shifted_res;
++
++	if (!ACPI_COMPANION(dev) ||
++	    resource_size(res) <= CIX_SHMEM_OFFSET ||
++	    (res->start & CIX_SHMEM_OFFSET))
++		return;
++
++	if (cix_mbox_resource_available(dev, res))
++		return;
++
++	shifted_res = *res;
++	shifted_res.start += CIX_SHMEM_OFFSET;
++
++	if (!cix_mbox_resource_available(dev, &shifted_res)) {
++		dev_info(dev,
++			 "ACPI mailbox resource %pr is busy; register window %pr is also busy\n",
++			 res, &shifted_res);
++		return;
++	}
++
++	*mbox_res = shifted_res;
++	dev_info(dev,
++		 "ACPI mailbox resource %pr is busy; using register window %pr\n",
++		 res, mbox_res);
++}
++
+ /*
+  * The CIX mailbox supports four types of transfers:
+  * CIX_MBOX_TYPE_DB, CIX_MBOX_TYPE_FAST, CIX_MBOX_TYPE_REG, and CIX_MBOX_TYPE_FIFO.
+@@ -230,22 +275,17 @@ static int cix_mbox_send_data(struct mbox_chan *chan, void *data)
+ 
+ 	switch (cp->type) {
+ 	case CIX_MBOX_TYPE_DB:
+-		cix_mbox_send_data_db(chan, data);
+-		break;
++		return cix_mbox_send_data_db(chan, data);
+ 	case CIX_MBOX_TYPE_REG:
+-		cix_mbox_send_data_reg(chan, data);
+-		break;
++		return cix_mbox_send_data_reg(chan, data);
+ 	case CIX_MBOX_TYPE_FIFO:
+-		cix_mbox_send_data_fifo(chan, data);
+-		break;
++		return cix_mbox_send_data_fifo(chan, data);
+ 	case CIX_MBOX_TYPE_FAST:
+-		cix_mbox_send_data_fast(chan, data);
+-		break;
++		return cix_mbox_send_data_fast(chan, data);
+ 	default:
+ 		dev_err(priv->dev, "Invalid channel type: %d\n", cp->type);
+ 		return -EINVAL;
+ 	}
+-	return 0;
+ }
+ 
+ static void cix_mbox_isr_db(struct mbox_chan *chan)
+@@ -554,12 +594,39 @@ static void cix_mbox_init(struct cix_mbox_priv *priv)
+ 	}
+ }
+ 
++static int cix_mbox_get_dir(struct device *dev)
++{
++	const char *dir_str;
++	u32 dir;
++
++	if (!device_property_read_u32(dev, "cix,mbox_dir", &dir)) {
++		if (dir == CIX_MBOX_TX || dir == CIX_MBOX_RX)
++			return dir;
++
++		dev_err(dev, "invalid cix,mbox_dir value %u\n", dir);
++		return -EINVAL;
++	}
++
++	if (device_property_read_string(dev, "cix,mbox-dir", &dir_str)) {
++		dev_err(dev, "missing cix,mbox_dir or cix,mbox-dir property\n");
++		return -EINVAL;
++	}
++
++	if (!strcmp(dir_str, "tx"))
++		return CIX_MBOX_TX;
++	if (!strcmp(dir_str, "rx"))
++		return CIX_MBOX_RX;
++
++	dev_err(dev, "invalid cix,mbox-dir value %s\n", dir_str);
++	return -EINVAL;
++}
++
+ static int cix_mbox_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct cix_mbox_priv *priv;
++	struct resource mbox_res;
+ 	struct resource *res;
+-	const char *dir_str;
+ 	int ret;
+ 
+ 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+@@ -567,7 +634,14 @@ static int cix_mbox_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	priv->dev = dev;
+-	priv->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
++		return -ENODEV;
++
++	mbox_res = *res;
++	cix_mbox_acpi_adjust_resource(dev, res, &mbox_res);
++
++	priv->base = devm_ioremap_resource(dev, &mbox_res);
+ 	if (IS_ERR(priv->base))
+ 		return PTR_ERR(priv->base);
+ 
+@@ -581,25 +655,16 @@ static int cix_mbox_probe(struct platform_device *pdev)
+ 	 * When the base address of the mailbox is offset by 0x80, it indicates
+ 	 * that shmem is in use.
+ 	 */
+-	priv->use_shmem = !!(res->start & CIX_SHMEM_OFFSET);
++	priv->use_shmem = !!(mbox_res.start & CIX_SHMEM_OFFSET);
+ 
+ 	priv->irq = platform_get_irq(pdev, 0);
+ 	if (priv->irq < 0)
+ 		return priv->irq;
+ 
+-	if (device_property_read_string(dev, "cix,mbox-dir", &dir_str)) {
+-		dev_err(priv->dev, "cix,mbox_dir property not found\n");
+-		return -EINVAL;
+-	}
+-
+-	if (!strcmp(dir_str, "tx"))
+-		priv->dir = 0;
+-	else if (!strcmp(dir_str, "rx"))
+-		priv->dir = 1;
+-	else {
+-		dev_err(priv->dev, "cix,mbox_dir=%s is not expected\n", dir_str);
+-		return -EINVAL;
+-	}
++	ret = cix_mbox_get_dir(dev);
++	if (ret < 0)
++		return ret;
++	priv->dir = ret;
+ 
+ 	cix_mbox_init(priv);
+ 
+@@ -624,11 +689,20 @@ static const struct of_device_id cix_mbox_dt_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(of, cix_mbox_dt_ids);
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id cix_mbox_acpi_match[] = {
++	{ "CIXHA001" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cix_mbox_acpi_match);
++#endif
++
+ static struct platform_driver cix_mbox_driver = {
+ 	.probe = cix_mbox_probe,
+ 	.driver = {
+ 		.name = "cix_mbox",
+ 		.of_match_table = cix_mbox_dt_ids,
++		.acpi_match_table = ACPI_PTR(cix_mbox_acpi_match),
+ 	},
+ };
+ 
+@@ -638,6 +712,12 @@ static int __init cix_mailbox_init(void)
+ }
+ arch_initcall(cix_mailbox_init);
+ 
++static void __exit cix_mailbox_exit(void)
++{
++	platform_driver_unregister(&cix_mbox_driver);
++}
++module_exit(cix_mailbox_exit);
++
+ MODULE_AUTHOR("Cix Technology Group Co., Ltd.");
+ MODULE_DESCRIPTION("CIX mailbox driver");
+ MODULE_LICENSE("GPL");
