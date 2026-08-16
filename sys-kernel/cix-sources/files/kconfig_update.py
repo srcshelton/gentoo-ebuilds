@@ -45,10 +45,12 @@ VENDOR_SYMBOLS = (
     "SND_SOC_CDNS_I2S_MC",
     "SND_SOC_SKY1_SOUND_CARD",
     "TYPEC_RTS5453",
-    "USB_CDNSP",
-    "USB_CDNSP_SKY1",
     "SENSORS_CIX_FAN",
     "CIX_SKY1_REBOOT_REASON",
+)
+
+VENDOR_SYMBOL_VARIANTS = (
+    ("USB_CDNSP_SKY1", "USB_CDNS3_SKY1"),
 )
 
 PATCH_ONLY_DISABLED_SYMBOLS = (
@@ -269,7 +271,7 @@ PROFILE_POLICY_DISABLED_SYMBOLS = (
 
 # Keep this as a tuple so ACPI stub-FDT-specific disables can be added without
 # changing the fragment/update machinery. The CIX display Kconfig symbols are
-# ACPI-capable after the local 7.0 display fixes, so they are no longer pruned
+# ACPI-capable after the retained display fixes, so they are no longer pruned
 # merely because CONFIG_OF is disabled.
 OF_DISABLED_SYMBOLS: tuple[str, ...] = ()
 
@@ -292,7 +294,7 @@ PROFILE_INTERFACE_SYMBOLS = {
 DRIVER_PREFERENCE_CHOICES = ("module", "builtin")
 HARDWARE_PROFILE_CHOICES = ("server", "desktop", "full")
 NPU_ABI_CHOICES = ("auto", "r2p0", "r2p1", "separate")
-KERNEL_VERSION_CHOICES = ("6.18", "6.19", "7.0", "7.1")
+KERNEL_VERSION_CHOICES = ("6.18", "7.1", "7.2")
 FIRMWARE_CHOICES = ("auto", "1.2", "1.3")
 FIRMWARE_METAVAR = "{" + ",".join(FIRMWARE_CHOICES) + "}"
 DMI_FIRMWARE_VERSION_PATHS = (
@@ -580,10 +582,11 @@ KERNEL_MEMORY_DEBUG_ENABLED_SYMBOLS = (
 )
 # The memory-debug profile needs these facilities when selected, but does not
 # own their disabled state. They are also useful independently of this helper:
-# KALLSYMS is required by BPF struct_ops and STACKTRACE is selected by several
-# unrelated kernel facilities. Preserve an existing end-user choice when the
-# profile is omitted.
+# EXPERT selects DEBUG_KERNEL, KALLSYMS is required by BPF struct_ops, and
+# STACKTRACE is selected by several unrelated kernel facilities. Preserve an
+# existing end-user or upstream-selected choice when the profile is omitted.
 KERNEL_MEMORY_DEBUG_ENABLE_ONLY_SYMBOLS = (
+    "DEBUG_KERNEL",
     "STACKTRACE",
     "KALLSYMS",
 )
@@ -600,7 +603,6 @@ KERNEL_MEMORY_DEBUG_KASAN_SYMBOLS = (
 )
 
 RUNTIME_QUALIFICATION_ENABLED_SYMBOLS = (
-    "DEBUG_KERNEL",
     "DEBUG_MISC",
     "DEBUG_FS",
     "PM_DEBUG",
@@ -648,10 +650,12 @@ RUNTIME_QUALIFICATION_DISABLED_SYMBOLS = (
 )
 
 # SOF keeps its debug controls behind EXPERT. Enabling the explicit runtime
-# profile may open that menu, but disabling the profile must not erase an
-# end-user's independent EXPERT choice.
+# profile may open that menu and its selected DEBUG_KERNEL owner, but disabling
+# the profile must not erase an end-user's independent EXPERT choice or emit
+# the impossible DEBUG_KERNEL=n state while EXPERT remains enabled.
 RUNTIME_QUALIFICATION_ENABLE_ONLY_SYMBOLS = (
     "EXPERT",
+    "DEBUG_KERNEL",
 )
 
 # The allocation fault-injection controls are deliberately separate from both
@@ -1008,7 +1012,8 @@ def parse_args() -> argparse.Namespace:
         help=option_help(
             "Enable the Sky1 HiFi5 DSP through Linux Sound Open Firmware "
             "(SOF), including the codec-free ALSA processing interface. This "
-            "is supported on Linux 7.1 and requires '--acpi-table-upgrade "
+            "is supported on Linux 7.1 and 7.2 and requires "
+            "'--acpi-table-upgrade "
             "dsdt' plus sys-firmware/cix-sky1-firmware[sof]. XAF and SOF are "
             "alternative ways to use the same DSP and cannot be enabled "
             "together.",
@@ -1662,11 +1667,24 @@ def resolve_vendor_mode(tree: Path, mode: str) -> bool:
         return False
 
     present = scan_kconfig_symbols(tree)
-    found = sorted(symbol for symbol in VENDOR_SYMBOLS if symbol in present)
+    found = [symbol for symbol in VENDOR_SYMBOLS if symbol in present]
+    found.extend(
+        symbol
+        for variants in VENDOR_SYMBOL_VARIANTS
+        for symbol in variants
+        if symbol in present
+    )
+    found.sort()
     if not found:
         return False
 
-    missing = sorted(symbol for symbol in VENDOR_SYMBOLS if symbol not in present)
+    missing = [symbol for symbol in VENDOR_SYMBOLS if symbol not in present]
+    missing.extend(
+        "/".join(variants)
+        for variants in VENDOR_SYMBOL_VARIANTS
+        if not any(symbol in present for symbol in variants)
+    )
+    missing.sort()
     if missing:
         missing_str = ", ".join(missing)
         found_str = ", ".join(found)
@@ -1763,14 +1781,12 @@ def insert_npu_sky1_choice_default(original: str) -> str:
     )
 
 
-def optional_default(active_symbol: str, driver_preference: str) -> str:
-    if " " in active_symbol:
-        active_symbol = f"({active_symbol})"
+def optional_default(driver_preference: str) -> str:
     if driver_preference == "builtin":
-        return f"\tdefault y if {active_symbol}\n"
+        return "\tdefault y\n"
     return (
-        f"\tdefault m if MODULES && {active_symbol}\n"
-        f"\tdefault y if !MODULES && {active_symbol}\n"
+        "\tdefault m if MODULES\n"
+        "\tdefault y if !MODULES\n"
     )
 
 
@@ -1878,13 +1894,14 @@ def render_kconfig_radxa(
     )
     accelerator_descriptions = []
     if "ARMCHINA_NPU" in available_symbols:
-        accelerator_descriptions.append("audited Sky1 V3 NPU")
+        accelerator_descriptions.append("Sky1 V3 NPU")
     if "VIDEO_CIX_ARMCB_ISP" in available_symbols:
         accelerator_descriptions.append("ArmChina ISP")
     if "VIDEO_LINLON" in available_symbols:
         accelerator_descriptions.append("Linlon MVX VPU")
     accelerator_description = " and ".join(accelerator_descriptions) or "available accelerator"
     accelerator_noun = "driver" if len(accelerator_descriptions) == 1 else "drivers"
+    ddr_lp_imply = "\timply CIX_DDR_LP\n" if "CIX_DDR_LP" in available_symbols else ""
     header = textwrap.dedent(
         f"""\
         # SPDX-License-Identifier: GPL-2.0-only
@@ -1892,8 +1909,7 @@ def render_kconfig_radxa(
         # Generated CIX/Radxa Orion board presets for Linux {kernel_version}.x.
         # Driver preference for tristates: {driver_preference}.
         # This menu is intentionally conservative and only covers the driver
-        # groups we were able to justify from firmware analysis and the validated
-        # vendor patch stack.
+        # groups supported by the firmware interfaces and maintained driver stack.
 
         menu "Radxa Orion hardware driver presets"
         \tdepends on ARM64_PLATFORM_DEVICES
@@ -1901,7 +1917,6 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_ESSENTIAL
         \tbool "Essential drivers"
-        \tdepends on {profile_active}
         \tdefault y
         \timply SERIAL_AMBA_PL011
         \timply SERIAL_AMBA_PL011_CONSOLE
@@ -1921,11 +1936,10 @@ def render_kconfig_radxa(
         \t  Orion O6/O6N systems.
 
         menu "Optional drivers"
-        \tdepends on {profile_active}
 
         config CIX_RADXA_OPTIONAL_IO
         \ttristate "Optional system bus / external I/O drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
+{render_template_block(optional_default(driver_preference))}
 {render_template_block(ethernet_imply)}
         \timply TEE
         \timply OPTEE
@@ -1957,7 +1971,7 @@ def render_kconfig_radxa(
             "\n"
             "config CIX_RADXA_OPTIONAL_ACCELERATORS\n"
             "\ttristate \"Optional accelerator drivers\"\n"
-            f"{optional_default(profile_active, driver_preference)}"
+            f"{optional_default(driver_preference)}"
             f"{accelerator_imply}"
             "\thelp\n"
             f"\t  Enable the {accelerator_description} {accelerator_noun}.\n"
@@ -1972,7 +1986,7 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_OPTIONAL_PLATFORM
         \ttristate "Optional platform bus / SoC glue drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
+{render_template_block(optional_default(driver_preference))}
         \timply SKY1_PDC
         \timply I2C_CADENCE
         \timply GPIO_CADENCE
@@ -1988,12 +2002,13 @@ def render_kconfig_radxa(
         \timply CIX_ACPI_RESOURCE_LOOKUP if CIX_RADXA_ORION_ACPI
         \timply CIX_ACPI_USB_SCAN if CIX_RADXA_ORION_ACPI
         \timply CIX_BUS_PERF if CIX_RADXA_ORION_ACPI
+{render_template_block(ddr_lp_imply)}
         \timply PHY_CIX_USBDP
         \timply TYPEC_RTS5453
         \timply SENSORS_CIX_FAN if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
         \thelp
-        \t  Enable the audited Sky1 platform-resource plumbing used by
-        \t  the CIX ACPI and DT driver stack, including the reviewed USB/DP
+        \t  Enable the Sky1 platform-resource plumbing used by
+        \t  the CIX ACPI and DT driver stack, including the USB/DP
         \t  combo PHY and RTS5453 Type-C controller. The unrelated vendor
         \t  PCIe, USB2 and USB3 PHY drivers remain excluded. Firmware-scratch
         \t  diagnostics remain opt-in because the scratch value is not
@@ -2001,7 +2016,7 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_OPTIONAL_DISPLAY
         \ttristate "Optional display / GPU drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
+{render_template_block(optional_default(driver_preference))}
         \timply FW_LOADER_COMPRESS
         \timply FW_LOADER_COMPRESS_XZ
         \timply DRM
@@ -2014,14 +2029,14 @@ def render_kconfig_radxa(
         \timply BACKLIGHT_CLASS_DEVICE
         \timply BACKLIGHT_PWM
         \thelp
-        \t  Enable the validated vendor display path for ACPI and DT.
+        \t  Enable the vendor display path for ACPI and DT.
         \t  Internal bring-up switches remain outside this preset.
 {accelerator_section}
 
         config CIX_RADXA_OPTIONAL_AUDIO
         \ttristate "Optional audio drivers"
         \tdepends on CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)
-{render_template_block(optional_default("CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)", driver_preference))}
+{render_template_block(optional_default(driver_preference))}
         \timply SOUND
         \timply SND
         \timply SND_SOC
@@ -2030,7 +2045,7 @@ def render_kconfig_radxa(
         \timply SND_SOC_CDNS_I2S_MC
         \timply SND_SOC_SKY1_SOUND_CARD
         \thelp
-        \t  Enable the vendor audio stack validated for Orion O6 and the
+        \t  Enable the vendor audio stack for Orion O6 and the
         \t  DP-audio-oriented DT sound-card path described by the maintained
         \t  O6N DTS. O6N ACPI leaves these drivers opt-in because the stock
         \t  ACPI card path has not been shown to bind successfully.
@@ -2266,6 +2281,7 @@ def dynamic_disabled_symbols(
     if not profile_is_acpi(profile):
         return ()
 
+    cdns3_sky1 = "USB_CDNS3_SKY1" in available_symbols
     if current.get("CONFIG_OF") != "y":
         disabled.update(OF_DISABLED_SYMBOLS)
 
@@ -2298,7 +2314,11 @@ def dynamic_disabled_symbols(
         if include_vendor and (
             symbol == "USB_CDNS3" or symbol.startswith("USB_CDNS3_")
         ):
-            disabled.add(symbol)
+            if not cdns3_sky1 or symbol not in (
+                "USB_CDNS3",
+                "USB_CDNS3_SKY1",
+            ):
+                disabled.add(symbol)
         if not with_tpm:
             if (
                 symbol.startswith("TCG_")
@@ -2457,7 +2477,7 @@ def hifi5_sof_updates(
     if symbol_types.get("SND_SOC_SOF_CIX_SKY1") not in ("bool", "tristate"):
         raise SystemExit(
             "error: this prepared kernel tree does not provide the audited "
-            "CIX Sky1 SOF owner; use a supported Linux 7.1 source"
+            "CIX Sky1 SOF owner; use a supported Linux 7.1 or 7.2 source"
         )
 
     updates: list[tuple[str, str]] = []
@@ -2477,7 +2497,7 @@ def hifi5_sof_updates(
         "CIX_DSP_RPROC",
         # Sky1 has an explicit no-codec machine owner and supports IPC3 only.
         # The distributed firmware has a newer compatible IPC3 minor ABI than
-        # Linux 7.1, so strict release-CI checks would reject working firmware.
+        # Linux 7.2, so strict release-CI checks would reject working firmware.
         "SND_SOC_SOF_FORCE_PROBE_WORKQUEUE",
         "SND_SOC_SOF_NOCODEC_SUPPORT",
         "SND_SOC_SOF_NOCODEC_DEBUG_SUPPORT",

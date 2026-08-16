@@ -47,6 +47,27 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("mutually exclusive DSP firmware owners", stderr.getvalue())
 
 
+class VendorModeDetectionTests(unittest.TestCase):
+    def test_accepts_each_sky1_usb_integration_generation(self) -> None:
+        base = set(KCONFIG.VENDOR_SYMBOLS)
+
+        for usb_symbol in ("USB_CDNSP_SKY1", "USB_CDNS3_SKY1"):
+            with self.subTest(usb_symbol=usb_symbol):
+                with patch.object(
+                    KCONFIG, "scan_kconfig_symbols", return_value=base | {usb_symbol}
+                ):
+                    self.assertTrue(KCONFIG.resolve_vendor_mode(Path(), "auto"))
+
+    def test_rejects_vendor_tree_without_sky1_usb_integration(self) -> None:
+        with patch.object(
+            KCONFIG, "scan_kconfig_symbols", return_value=set(KCONFIG.VENDOR_SYMBOLS)
+        ):
+            with self.assertRaisesRegex(
+                SystemExit, "USB_CDNSP_SKY1/USB_CDNS3_SKY1"
+            ):
+                KCONFIG.resolve_vendor_mode(Path(), "auto")
+
+
 class HardwareProfileTests(unittest.TestCase):
     def setUp(self) -> None:
         self.available = {
@@ -66,6 +87,53 @@ class HardwareProfileTests(unittest.TestCase):
             for symbol, _ in group
         }
         self.available.update(("R8126", "R8169"))
+
+    def test_acpi_prune_preserves_linux_7_2_sky1_cdns3(self) -> None:
+        current = {
+            "CONFIG_USB_CDNS3": "m",
+            "CONFIG_USB_CDNS3_SKY1": "m",
+            "CONFIG_USB_CDNS3_STARFIVE": "m",
+        }
+        available = self.available | {"USB_CDNS3_SKY1"}
+
+        disabled = KCONFIG.dynamic_disabled_symbols(
+            current, "o6-acpi", True, False, available
+        )
+
+        self.assertNotIn("USB_CDNS3", disabled)
+        self.assertNotIn("USB_CDNS3_SKY1", disabled)
+        self.assertIn("USB_CDNS3_STARFIVE", disabled)
+
+    def test_acpi_prune_keeps_legacy_cdns3_quarantine(self) -> None:
+        current = {
+            "CONFIG_USB_CDNS3": "m",
+            "CONFIG_USB_CDNS3_STARFIVE": "m",
+        }
+
+        disabled = KCONFIG.dynamic_disabled_symbols(
+            current, "o6-acpi", True, False, self.available
+        )
+
+        self.assertIn("USB_CDNS3", disabled)
+        self.assertIn("USB_CDNS3_STARFIVE", disabled)
+
+    def test_generated_platform_menu_is_profile_scoped_without_redundant_guards(self) -> None:
+        rendered = KCONFIG.render_kconfig_radxa(
+            "7.2", True, "module", self.available
+        )
+
+        self.assertIn("\timply CIX_DDR_LP\n", rendered)
+        self.assertIn("\tdefault m if MODULES\n", rendered)
+        self.assertIn("\tdefault y if !MODULES\n", rendered)
+        self.assertNotIn("default m if MODULES &&", rendered)
+        self.assertEqual(
+            rendered.count(
+                "\tdepends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)\n"
+            ),
+            1,
+        )
+        self.assertNotIn("validated vendor", rendered)
+        self.assertNotIn("audited Sky1", rendered)
 
     def supported(
         self,
@@ -434,6 +502,7 @@ struct aipu_job_desc {
 class DiagnosticProfileTests(unittest.TestCase):
     def test_disabled_memory_profile_preserves_enable_only_prerequisites(self) -> None:
         available = {
+            "DEBUG_KERNEL",
             "KALLSYMS",
             "STACKTRACE",
             "FUNCTION_TRACER",
@@ -443,6 +512,7 @@ class DiagnosticProfileTests(unittest.TestCase):
 
         updates = dict(KCONFIG.kernel_memory_debug_updates(available, False))
 
+        self.assertNotIn("DEBUG_KERNEL", updates)
         self.assertNotIn("KALLSYMS", updates)
         self.assertNotIn("STACKTRACE", updates)
         self.assertEqual(updates["FUNCTION_TRACER"], "n")
@@ -451,6 +521,7 @@ class DiagnosticProfileTests(unittest.TestCase):
 
     def test_enabled_memory_profile_requests_enable_only_prerequisites(self) -> None:
         available = {
+            "DEBUG_KERNEL",
             "KALLSYMS",
             "STACKTRACE",
             "FUNCTION_TRACER",
@@ -459,6 +530,7 @@ class DiagnosticProfileTests(unittest.TestCase):
 
         updates = dict(KCONFIG.kernel_memory_debug_updates(available, True))
 
+        self.assertEqual(updates["DEBUG_KERNEL"], "y")
         self.assertEqual(updates["KALLSYMS"], "y")
         self.assertEqual(updates["STACKTRACE"], "y")
         self.assertEqual(updates["FUNCTION_TRACER"], "y")
@@ -466,6 +538,8 @@ class DiagnosticProfileTests(unittest.TestCase):
 
     def test_runtime_profile_does_not_claim_memory_profile_prerequisites(self) -> None:
         available = {
+            "DEBUG_KERNEL",
+            "EXPERT",
             "KALLSYMS",
             "STACKTRACE",
             "FTRACE",
@@ -477,8 +551,12 @@ class DiagnosticProfileTests(unittest.TestCase):
 
         self.assertNotIn("KALLSYMS", enabled)
         self.assertNotIn("STACKTRACE", enabled)
+        self.assertEqual(enabled["DEBUG_KERNEL"], "y")
+        self.assertEqual(enabled["EXPERT"], "y")
         self.assertNotIn("KALLSYMS", disabled)
         self.assertNotIn("STACKTRACE", disabled)
+        self.assertNotIn("DEBUG_KERNEL", disabled)
+        self.assertNotIn("EXPERT", disabled)
         self.assertEqual(enabled["FTRACE"], "y")
         self.assertEqual(enabled["TRACING"], "y")
         self.assertEqual(disabled["FTRACE"], "n")
