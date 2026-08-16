@@ -1,0 +1,131 @@
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -234,6 +234,7 @@ int trilin_dp_max_rate(int link_rate, u8 lane_num, u8 bpp)
+  * @dp: DisplayPort IP core structure
+  * @pclock: pixel clock for requested display mode
+  * @current_bw: current link rate
++ * @bppex: bits per pixel, or zero to use 24 bits per pixel
+  * @downshift: downshift allowed
+  *
+  * Find the link configuration values, rate and lane count for requested pixel
+@@ -689,7 +690,7 @@ static int trilin_dp_link_configure(struct trilin_dp *dp)
+ }
+ 
+ /**
+- * trilin_dp_link_train - Train the link
++ * trilin_dp_train - Train the link
+  * @dp: DisplayPort IP core structure
+  *
+  * Return: 0 if all trains are done successfully, or corresponding error code.
+@@ -989,9 +990,11 @@ static void trilin_dp_aux_cleanup(struct trilin_dp *dp)
+  */
+ 
+ /**
+- * trilin_dp_encoder_mode_set_transfer_unit - Set the transfer unit values
++ * trilin_dp_mode_set_transfer_unit - Set the transfer unit values
+  * @dp: DisplayPort IP core structure
++ * @source: stream source index
+  * @mode: requested display mode
++ * @bpp: bits per pixel
+  *
+  * Set the transfer unit, and calculate all transfer unit size related values.
+  * Calculation is based on DP and IP core specification.
+@@ -1031,7 +1034,9 @@ static void trilin_dp_mode_set_transfer_unit(struct trilin_dp *dp, int source,
+ /**
+  * trilin_dp_mode_set_timing - Configure the main stream
+  * @dp: DisplayPort IP core structure
++ * @source: stream source index
+  * @mode: requested display mode
++ * @bpp: bits per pixel
+  *
+  * Configure the main stream based on the requested mode @mode. Calculation is
+  * based on IP core specification.
+@@ -1120,6 +1125,7 @@ static void trilin_dp_mode_set_timing(struct trilin_dp *dp, int source,
+ 
+ /**
+  * trilin_dp_get_audio_clk_rate - Get the current audio clock rate
++ * @dp: DisplayPort IP core structure
+  *
+  * Return: the current audio clock rate.
+  */
+@@ -1484,6 +1490,8 @@ void trilind_dp_psr_disable(struct trilin_dp *dp,
+ /**
+  * trilin_dp_update_misc - Write the misc registers
+  * @dp: DisplayPort IP core structure
++ * @source: stream source index
++ * @config: stream configuration
+  *
+  * The misc register values are stored in the structure, and this
+  * function applies the values into the registers.
+@@ -1504,10 +1512,10 @@ static void trilin_dp_update_misc(struct trilin_dp *dp, int source,
+ /**
+  * trilin_dp_set_misc - Set the input format
+  * @dp: DisplayPort IP core structure
+- * @format: input format
+- * @bpc: bits per component
++ * @source: stream source index
++ * @config: stream configuration
+  *
+- * Update misc register values based on input @format and @bpc.
++ * Update misc register values from @config.
+  *
+  * Return: 0 on success, or -EINVAL.
+  */
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -472,6 +472,7 @@ int trilin_dp_fill_modes(struct drm_connector *connector, uint32_t maxX,
+ 	return drm_helper_probe_single_connector_modes(connector, maxX, maxY);
+ }
+ 
++#ifdef CONFIG_DEBUG_FS
+ static int mst_info_show(struct seq_file *m, void *data)
+ {
+ 	struct drm_connector *connector = m->private;
+@@ -550,7 +551,6 @@ static int link_rate_show(struct seq_file *m, void *data)
+ 
+ DEFINE_SHOW_ATTRIBUTE(link_rate);
+ 
+-#ifdef CONFIG_DEBUG_FS
+ void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
+ 				      struct dentry *root)
+ {
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+@@ -381,7 +381,9 @@ static const struct drm_connector_funcs trilin_dp_mst_connector_funcs = {
+ 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+ 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+ 	.reset = trilin_dp_connector_reset,
++#ifdef CONFIG_DEBUG_FS
+ 	.debugfs_init = trilin_dp_connector_debugfs_init,
++#endif
+ };
+ 
+ static int trilin_dp_mst_get_modes(struct drm_connector *connector)
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_kms.c
+@@ -454,6 +454,9 @@ static int linlondp_crtc_normalize_zpos(struct drm_crtc *crtc,
+ 
+ /**
+  * linlondp_vrr_match_mode - check if two modes are VRR-compatible.
++ * @mode1: first display mode
++ * @mode2: second display mode
++ *
+  * I.e. if both mode have the same timings except for VFP.
+  */
+ static bool linlondp_vrr_match_mode(const struct drm_display_mode *mode1,
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+@@ -411,7 +411,7 @@ static u32 get_plane_type(struct linlondp_kms_dev *kms,
+ 
+ /**
+  * drm_plane_enable_color_mgmt - enable color management properties
+- * @plane: DRM Plane
++ * @kplane: Linlon display plane
+  * @plane_degamma_lut_size: the size of the degamma lut (before CSC)
+  * @plane_has_ctm: whether to attach ctm_property for CSC matrix
+  * @plane_gamma_lut_size: the size of the gamma lut (after CSC)

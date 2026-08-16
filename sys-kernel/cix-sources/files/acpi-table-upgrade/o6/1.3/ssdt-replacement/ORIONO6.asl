@@ -2877,12 +2877,12 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                 \_SB.EC0.SFPF ()
             }
 
-            Method (GFPW, 2, Serialized)
+            __EXPECT__(2146) Method (GFPW, 2, Serialized)
             {
                 Return (\_SB.EC0.GFPW ())
             }
 
-            Method (SFPW, 3, Serialized)
+            __EXPECT__(2146) Method (SFPW, 3, Serialized)
             {
                 \_SB.EC0.SFPW (Arg0)
             }
@@ -3057,8 +3057,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "usb_drive_vbus0", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -3141,8 +3139,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "usb_drive_vbus4", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -3225,8 +3221,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "usb_drive_vbus5", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )

@@ -1,6 +1,5 @@
 Overlay-created, board-scoped correction for the firmware ECTZ sensor's
-invalid zero-temperature samples. Mechanically generated from the exact
-Linux 7.1.3 predecessor tree; it is independent of the following generic
+invalid zero-temperature samples. It is independent of the following generic
 ACPI thermal labelling patch.
 
 diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c

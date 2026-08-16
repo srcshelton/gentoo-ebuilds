@@ -1,0 +1,257 @@
+MVX: quarantine unqualified RRC-DQP private controls
+
+This generated artifact preserves the RRC-DQP changes published in CIX's
+`cix_opensource__vpu_driver` `p1_7.0_v1.0.2` release at commit
+5b9b07b44abcbb5548273995a17893cf3ff3e7f2. It adds two private V4L2 integer
+controls, session state and firmware message types 36 and 37 for an RRC-DQP
+range and step. The matched protocol-3.5 firmware is available, and the
+control defaults are inert until userspace explicitly sets them.
+
+The matched CIX 2026Q2 Multimedia SDK's control header and tools expose no
+consumer for either control. No public contract defines their units, codec
+scope, interaction with other rate-control settings or expected observable
+effect. Matching firmware binaries establish protocol availability, not those
+semantics or a usable userspace ABI. Enabling undocumented private control IDs
+would therefore add collision and ABI-drift risk without demonstrated
+end-user functionality.
+
+The 7.1 ebuild consequently retains this source-faithful artifact for review
+but does not apply it by default. Re-enable it only when a named, matched
+firmware and userspace release documents the contract and its behavior can be
+qualified. Patches 71150 and 71160 are deliberately independent and apply to
+the post-71130 tree. Both the omitted and applied forms have passed exact
+patch replay and focused build validation.
+
+diff --git a/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
+--- a/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
++++ b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
+@@ -1964,6 +1964,8 @@ struct mve_buffer_param
+         #define MVE_BUFFER_PARAM_TYPE_GOP_RESET_LTR_PEROID_DYNAMIC   (28) /* reset ltr peroid dynamiclly */
+         #define MVE_BUFFER_PARAM_TYPE_ENC_STATS                  (29) /* encode stats */
+         #define MVE_BUFFER_PARAM_TYPE_OSD_RECTANGLES             (30) /* osd rectangles */
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_RANGE (36)
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_STEP  (37)
+ 
+     union
+     {
+diff --git a/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
+--- a/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
++++ b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
+@@ -1904,6 +1904,8 @@ struct mve_buffer_param
+         #define MVE_BUFFER_PARAM_TYPE_GOP_RESET_LTR_PEROID_DYNAMIC   (28) /* reset ltr peroid dynamiclly */
+         #define MVE_BUFFER_PARAM_TYPE_ENC_STATS                  (29) /* encode stats */
+         #define MVE_BUFFER_PARAM_TYPE_OSD_RECTANGLES             (30) /* osd rectangles */
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_RANGE (36)
++        #define MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_STEP  (37)
+ 
+     union
+     {
+diff --git a/drivers/media/platform/cix/if/mvx_firmware.h b/drivers/media/platform/cix/if/mvx_firmware.h
+--- a/drivers/media/platform/cix/if/mvx_firmware.h
++++ b/drivers/media/platform/cix/if/mvx_firmware.h
+@@ -748,6 +748,8 @@ struct mvx_fw_set_option {
+         MVX_FW_SET_ENC_INTER_IPENALTY_ANGULAR,
+         MVX_FW_SET_ENC_INTER_IPENALTY_PLANAR,
+         MVX_FW_SET_ENC_INTER_IPENALTY_DC,
++        MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE,
++        MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP,
+     } code;
+ 
+     /**
+@@ -852,6 +854,8 @@ struct mvx_fw_set_option {
+         uint32_t inter_ipenalty_planar;
+         uint32_t inter_ipenalty_dc;
+         struct mvx_lambda_scale lambda_scale;
++        uint32_t rrc_dqp_range;
++        uint32_t rrc_dqp_step;
+     };
+ };
+ #define MVX_FW_COLOR_DESC_DISPLAY_VALID         0x1
+diff --git a/drivers/media/platform/cix/if/mvx_firmware_v2.c b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+--- a/drivers/media/platform/cix/if/mvx_firmware_v2.c
++++ b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+@@ -2036,6 +2036,22 @@ static int put_message_v2(struct mvx_fw *fw,
+                            sizeof(param.data.rate_control));
+             break;
+         }
++        case MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE: {
++            struct mve_buffer_param param = {0};
++
++            param.type = MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_RANGE;
++            param.data.arg = msg->set_option.rrc_dqp_range;
++            ret = put_fw_buf_param(fw, &param, sizeof(param.data.arg));
++            break;
++        }
++        case MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP: {
++            struct mve_buffer_param param = {0};
++
++            param.type = MVE_BUFFER_PARAM_TYPE_RATE_CONTROL_RRC_DQP_STEP;
++            param.data.arg = msg->set_option.rrc_dqp_step;
++            ret = put_fw_buf_param(fw, &param, sizeof(param.data.arg));
++            break;
++        }
+         case MVX_FW_SET_RATE_CONTROL_JPEG: {
+             struct mve_request_set_option opt = {0};
+ 
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -1637,6 +1637,27 @@ static int fw_encoder_setup(struct mvx_session *session)
+             }
+         }
+ 
++        if (session->rrc_dqp_range != MVX_INVALID_VAL) {
++            option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE;
++            option.rrc_dqp_range = session->rrc_dqp_range;
++            ret = fw_set_option(session, &option);
++            if (ret != 0) {
++                MVX_SESSION_WARN(session,
++                         "Failed to set RRC DQP range.");
++                return ret;
++            }
++        }
++
++        if (session->rrc_dqp_step != MVX_INVALID_VAL) {
++            option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP;
++            option.rrc_dqp_step = session->rrc_dqp_step;
++            ret = fw_set_option(session, &option);
++            if (ret != 0) {
++                MVX_SESSION_WARN(session,
++                         "Failed to set RRC DQP step.");
++                return ret;
++            }
++        }
+     } else {
+         /*
+         //handle JPEG rc
+@@ -3596,6 +3617,9 @@ int mvx_session_construct(struct mvx_session *session,
+     session->inter_ipenalty_angular = MVX_INVALID_VAL;
+     session->inter_ipenalty_planar = MVX_INVALID_VAL;
+     session->inter_ipenalty_dc = MVX_INVALID_VAL;
++    session->rrc_dqp_range = MVX_INVALID_VAL;
++    session->rrc_dqp_step = MVX_INVALID_VAL;
++
+     memset(&session->color_conv_coef,0,sizeof(struct mvx_color_conv_coef));
+     memset(&session->crop,0,sizeof(struct mvx_crop_cfg));
+     memset(&session->seamless_target,0,sizeof(struct mvx_seamless_target));
+@@ -6964,6 +6988,48 @@ int mvx_session_set_enc_inter_ipenalty_dc(struct mvx_session *session, int val)
+     return 0;
+ }
+ 
++int mvx_session_set_rrc_dqp_range(struct mvx_session *session, int val)
++{
++    int ret;
++
++    if (session->error != 0)
++        return session->error;
++
++    if (is_fw_loaded(session)) {
++        struct mvx_fw_set_option option = {0};
++
++        option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_RANGE;
++        option.rrc_dqp_range = val;
++        ret = fw_set_option(session, &option);
++        if (ret != 0)
++            return ret;
++    }
++
++    session->rrc_dqp_range = val;
++    return 0;
++}
++
++int mvx_session_set_rrc_dqp_step(struct mvx_session *session, int val)
++{
++    int ret;
++
++    if (session->error != 0)
++        return session->error;
++
++    if (is_fw_loaded(session)) {
++        struct mvx_fw_set_option option = {0};
++
++        option.code = MVX_FW_SET_RATE_CONTROL_RRC_DQP_STEP;
++        option.rrc_dqp_step = val;
++        ret = fw_set_option(session, &option);
++        if (ret != 0)
++            return ret;
++    }
++
++    session->rrc_dqp_step = val;
++    return 0;
++}
++
+ int mvx_session_set_enc_disable_timescale(struct mvx_session *session, int val)
+ {
+     if (session->error != 0)
+diff --git a/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
+--- a/drivers/media/platform/cix/if/mvx_session.h
++++ b/drivers/media/platform/cix/if/mvx_session.h
+@@ -442,6 +442,8 @@ struct mvx_session {
+     uint32_t inter_ipenalty_planar;
+     uint32_t inter_ipenalty_dc;
+     struct mvx_lambda_scale lambda_scale;
++    int rrc_dqp_range;
++    int rrc_dqp_step;
+     uint32_t disable_timescale;
+ };
+ 
+@@ -1446,6 +1448,8 @@ int mvx_session_set_enc_intra_ipenalty_dc(struct mvx_session *session, int val);
+ int mvx_session_set_enc_inter_ipenalty_angular(struct mvx_session *session, int val);
+ int mvx_session_set_enc_inter_ipenalty_planar(struct mvx_session *session, int val);
+ int mvx_session_set_enc_inter_ipenalty_dc(struct mvx_session *session, int val);
++int mvx_session_set_rrc_dqp_range(struct mvx_session *session, int val);
++int mvx_session_set_rrc_dqp_step(struct mvx_session *session, int val);
+ int mvx_session_set_enc_disable_timescale(struct mvx_session *session, int val);
+ /**
+  * mvx_session_update_buffer_count() - Update session port buffer max and min.
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+@@ -957,6 +957,14 @@ static int set_ctrl(struct v4l2_ctrl *ctrl)
+         i32_val = *ctrl->p_new.p_s32;
+         ret = mvx_session_set_enc_inter_ipenalty_dc(session, i32_val);
+         break;
++    case V4L2_CID_MVE_VIDEO_RRC_DQP_RANGE:
++        i32_val = *ctrl->p_new.p_s32;
++        ret = mvx_session_set_rrc_dqp_range(session, i32_val);
++        break;
++    case V4L2_CID_MVE_VIDEO_RRC_DQP_STEP:
++        i32_val = *ctrl->p_new.p_s32;
++        ret = mvx_session_set_rrc_dqp_step(session, i32_val);
++        break;
+     case V4L2_CID_MVE_VIDEO_ENC_DISABLE_TIMESCALE:
+         i32_val = *ctrl->p_new.p_s32;
+         ret = mvx_session_set_enc_disable_timescale(session, i32_val);
+@@ -2146,6 +2154,20 @@ int mvx_v4l2_ctrls_init_enc(struct v4l2_ctrl_handler *hnd)
+     if (ctrl == NULL)
+         goto handler_free;
+ 
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_RRC_DQP_RANGE,
++        "rrc dqp range",
++        MVX_INVALID_VAL, 25, MVX_INVALID_VAL, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
++    ctrl = mvx_v4l2_ctrl_new_custom_int(
++        hnd, V4L2_CID_MVE_VIDEO_RRC_DQP_STEP,
++        "rrc dqp step",
++        MVX_INVALID_VAL, 25, MVX_INVALID_VAL, 1);
++    if (ctrl == NULL)
++        goto handler_free;
++
+     ctrl = mvx_v4l2_ctrl_new_custom_int(
+         hnd, V4L2_CID_MVE_VIDEO_ENC_DISABLE_TIMESCALE,
+         "disable timescale in vui",
+diff --git a/drivers/media/platform/cix/linux/mvx-v4l2-controls.h b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
+--- a/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
++++ b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
+@@ -481,6 +481,8 @@ enum v4l2_cid_mve_video {
+     V4L2_CID_MVE_VIDEO_ENC_INTER_IPENALTY_PLANAR,
+     V4L2_CID_MVE_VIDEO_ENC_INTER_IPENALTY_DC,
+     V4L2_CID_MVE_VIDEO_ENC_DISABLE_TIMESCALE,
++    V4L2_CID_MVE_VIDEO_RRC_DQP_RANGE,
++    V4L2_CID_MVE_VIDEO_RRC_DQP_STEP,
+ };
+ 
+ #define V4L2_SESSION_PRIORITY_PREEMPTION 0

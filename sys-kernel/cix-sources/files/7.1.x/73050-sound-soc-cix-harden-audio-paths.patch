@@ -1,7 +1,23 @@
+Sound: soc: cix: harden Sky1 audio paths
+
+Propagate clock, DMA, jack and PM errors in the CIX I2S and Sky1 machine
+drivers, balance their resources, and keep per-link state indexed densely.
+
+Resolve ACPI HDMI codec children through their firmware-identified display
+parent. Add managed device links from the card to each I2S and codec supplier,
+then defer card registration until both suppliers are bound. This preserves
+optional absent display paths while giving the driver core the real probe,
+suspend and shutdown dependencies.
+
 diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
 --- a/sound/soc/cix/card-utils.c
 +++ b/sound/soc/cix/card-utils.c
-@@ -7,7 +7,9 @@
+@@ -3,11 +3,14 @@
+ 
+ #include <linux/acpi.h>
+ #include <linux/clk.h>
++#include <linux/err.h>
+ #include <linux/module.h>
  #include <linux/mfd/syscon.h>
  #include <linux/platform_device.h>
  #include <linux/regmap.h>
@@ -11,7 +27,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  #include <sound/jack.h>
  
  #define SKY1_AUDSS_CRU_INFO_MCLK		0x70
-@@ -58,8 +60,10 @@ static int cix_jack_init(struct snd_soc_pcm_runtime *rtd)
+@@ -58,8 +61,10 @@ static int cix_jack_init(struct snd_soc_pcm_runtime *rtd)
  		}
  		dev_info(dev, "codec component %s\n", codec_dai->component->name);
  
@@ -24,7 +40,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  	}
  
  	return 0;
-@@ -109,16 +113,9 @@ static int cix_dailink_parsing_fmt(struct device_node *np,
+@@ -109,16 +114,9 @@ static int cix_dailink_parsing_fmt(struct device_node *np,
  static bool cix_dailink_status_check(struct device_node *np)
  {
  	const char *status;
@@ -43,7 +59,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  	return true;
  }
-@@ -167,6 +164,10 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
+@@ -167,6 +165,10 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
  		} else if (sample_rate == 192000) {
  			mclk_fs = 256;
  			mclk_div = 0;
@@ -54,7 +70,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  		}
  
  		mclk_parent = link_info->clks[AUDIO_CLK0];
-@@ -186,6 +187,10 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
+@@ -186,6 +188,10 @@ static int dai_set_sysclk(struct snd_pcm_substream *substream,
  		} else if (sample_rate == 176400) {
  			mclk_fs = 256;
  			mclk_div = 0;
@@ -65,7 +81,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  		}
  
  		mclk_parent = link_info->clks[AUDIO_CLK2];
-@@ -310,9 +315,7 @@ static int cix_dailink_init(struct snd_soc_pcm_runtime *rtd)
+@@ -310,9 +316,7 @@ static int cix_dailink_init(struct snd_soc_pcm_runtime *rtd)
  			return ret;
  	}
  
@@ -76,7 +92,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  }
  
  static int cix_gpio_init(struct cix_asoc_card *priv)
-@@ -467,10 +470,6 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
+@@ -467,10 +471,6 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
  	if (!link_info)
  		return -ENOMEM;
  
@@ -87,7 +103,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  	card->num_links = num_links;
  	card->dai_link = link;
  	card->suspend_post = cix_card_suspend_post;
-@@ -508,7 +507,8 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
+@@ -508,7 +508,8 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
  		link->cpus = &comp_cpu[0];
  		link->num_cpus = 1;
  		link->cpus->of_node = args.np;
@@ -97,7 +113,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  		link->platforms	= &comp_cpu[1];
  		link->num_platforms = 1;
-@@ -550,7 +550,9 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
+@@ -550,7 +551,9 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
  		}
  		dev_info(dev, "\tcodec dai name:%s\n", link->codecs->dai_name );
  
@@ -108,7 +124,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  		of_property_read_u32(np, "mclk-fs", &link_info->mclk_fs);
  		if (link_info->mclk_fs) {
-@@ -575,11 +577,12 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
+@@ -575,11 +578,12 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
  			}
  		}
  
@@ -126,7 +142,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  		if (of_property_read_bool(np, "jack-det,dpin")) {
  			link_info->jack_pin[JACK_DPIN].pin = np->name ? np->name : "jack-dpin";
-@@ -592,7 +595,12 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
+@@ -592,7 +596,12 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
  			snprintf(dp_str, sizeof(dp_str),
  				"HDMI/DP,pcm=%d", current_np);
  
@@ -140,7 +156,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  			link_info->jack_pin[JACK_DPOUT].mask = SND_JACK_LINEOUT;
  			link_info->jack_det_mask |= JACK_MASK_DPOUT;
  		}
-@@ -615,6 +623,8 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
+@@ -615,6 +624,8 @@ int cix_card_parse_of(struct cix_asoc_card *priv)
  		link->name = np->name ? np->name : link->cpus->dai_name;
  		link->ops = &cix_dailink_ops;
  		link->init = cix_dailink_init;
@@ -149,7 +165,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  		link++;
  		link_info++;
-@@ -641,34 +651,78 @@ EXPORT_SYMBOL(cix_card_parse_of);
+@@ -641,34 +652,91 @@ EXPORT_SYMBOL(cix_card_parse_of);
   * ACPI HDMI audio topology for Sky1 Orion O6.
   *
   * Under ACPI, the DAI link topology is fixed:
@@ -195,36 +211,49 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
 +	       str_has_prefix(dev_name(child), HDMI_CODEC_DRV_NAME ".");
 +}
 +
-+static int cix_hdmi_codec_name(struct device *dev, const char *uid,
-+			       const char **name)
++static struct device *cix_hdmi_codec_device(const char *uid)
 +{
 +	struct acpi_device *adev;
 +	struct device *codec_dev;
 +	struct device *dp_dev;
-+	const char *codec_name;
 +
 +	adev = acpi_dev_get_first_match_dev("CIXH502F", uid, -1);
 +	if (!adev)
-+		return -ENODEV;
++		return ERR_PTR(-ENODEV);
 +
 +	dp_dev = bus_find_device_by_acpi_dev(&platform_bus_type, adev);
 +	acpi_dev_put(adev);
 +	if (!dp_dev)
-+		return -EPROBE_DEFER;
++		return ERR_PTR(-EPROBE_DEFER);
 +
 +	codec_dev = device_find_child(dp_dev, &platform_bus_type,
 +				      cix_hdmi_codec_child);
 +	put_device(dp_dev);
 +	if (!codec_dev)
-+		return -EPROBE_DEFER;
++		return ERR_PTR(-EPROBE_DEFER);
 +
-+	codec_name = devm_kstrdup(dev, dev_name(codec_dev), GFP_KERNEL);
-+	put_device(codec_dev);
-+	if (!codec_name)
-+		return -ENOMEM;
++	return codec_dev;
++}
 +
-+	*name = codec_name;
-+	return 0;
++static int cix_card_link_supplier(struct device *consumer,
++				  struct device *supplier)
++{
++	int ret;
++
++	if (!device_link_add(consumer, supplier,
++			     DL_FLAG_AUTOREMOVE_CONSUMER))
++		return dev_err_probe(consumer, -EINVAL,
++				     "failed to link supplier %s\n",
++				     dev_name(supplier));
++
++	device_lock(supplier);
++	ret = device_is_bound(supplier) ? 0 : -EPROBE_DEFER;
++	device_unlock(supplier);
++	if (!ret)
++		return 0;
++
++	return dev_err_probe(consumer, ret, "supplier %s not ready\n",
++			     dev_name(supplier));
 +}
 +
  int cix_card_parse_acpi(struct cix_asoc_card *priv)
@@ -240,7 +269,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  	card->name = "cix_sky1";
  
-@@ -682,6 +736,11 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
+@@ -682,6 +750,11 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
  	if (!comps)
  		return -ENOMEM;
  
@@ -252,34 +281,59 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  	link_info = devm_kcalloc(dev, SKY1_HDMI_LINKS, sizeof(*link_info),
  				 GFP_KERNEL);
  	if (!link_info)
-@@ -689,6 +748,7 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
+@@ -689,8 +762,10 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
  
  	for (i = 0; i < SKY1_HDMI_LINKS; i++) {
  		const char *i2s_name = sky1_hdmi_topology[i].i2s_name;
 +		const char *codec_name;
  		struct snd_soc_dai_link_component *cpu, *codec, *plat;
  		struct snd_soc_dai_link *link;
++		struct device *codec_dev;
  		struct device *i2s_dev;
-@@ -703,6 +763,18 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
- 		}
- 		put_device(i2s_dev);
  
-+		ret = cix_hdmi_codec_name(dev, sky1_hdmi_topology[i].dp_uid,
-+					  &codec_name);
-+		if (ret == -ENODEV) {
-+			dev_info(dev, "DP UID %s not present, skipping\n",
-+				 sky1_hdmi_topology[i].dp_uid);
-+			continue;
-+		}
-+		if (ret)
+ 		/* Skip links whose I2S platform device doesn't exist */
+@@ -701,7 +776,40 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
+ 				 i2s_name);
+ 			continue;
+ 		}
++
++		codec_dev = cix_hdmi_codec_device(sky1_hdmi_topology[i].dp_uid);
++		if (IS_ERR(codec_dev)) {
++			ret = PTR_ERR(codec_dev);
++			put_device(i2s_dev);
++			if (ret == -ENODEV) {
++				dev_info(dev, "DP UID %s not present, skipping\n",
++					 sky1_hdmi_topology[i].dp_uid);
++				continue;
++			}
 +			return dev_err_probe(dev, ret,
 +					     "HDMI codec for DP UID %s not ready\n",
 +					     sky1_hdmi_topology[i].dp_uid);
++		}
 +
++		ret = cix_card_link_supplier(dev, i2s_dev);
++		if (ret) {
++			put_device(codec_dev);
++			put_device(i2s_dev);
++			return ret;
++		}
++
++		ret = cix_card_link_supplier(dev, codec_dev);
++		if (ret) {
++			put_device(codec_dev);
++			put_device(i2s_dev);
++			return ret;
++		}
++
++		codec_name = devm_kstrdup(dev, dev_name(codec_dev), GFP_KERNEL);
++		put_device(codec_dev);
+ 		put_device(i2s_dev);
++		if (!codec_name)
++			return -ENOMEM;
+ 
  		cpu = &comps[num_links * 3];
  		codec = &comps[num_links * 3 + 1];
- 		plat = &comps[num_links * 3 + 2];
-@@ -712,13 +784,12 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
+@@ -712,13 +820,12 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
  		cpu->name = i2s_name;
  		cpu->dai_name = "i2s-mc-aif1";
  
@@ -298,7 +352,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  		/* Platform: DMA is co-located with CPU */
  		plat->name = cpu->name;
-@@ -732,7 +803,8 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
+@@ -732,7 +839,8 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
  
  		link->name = sky1_hdmi_topology[i].stream;
  		link->stream_name = sky1_hdmi_topology[i].stream;
@@ -308,7 +362,7 @@ diff --git a/sound/soc/cix/card-utils.c b/sound/soc/cix/card-utils.c
  
  		link->dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_IB_NF |
  				SND_SOC_DAIFMT_CBC_CFC;
-@@ -755,6 +827,8 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
+@@ -755,6 +863,8 @@ int cix_card_parse_acpi(struct cix_asoc_card *priv)
  
  	card->dai_link = links;
  	card->num_links = num_links;

@@ -1,0 +1,223 @@
+acpi: thermal: filter invalid Orion O6 firmware readings
+
+Treat the zero ECTZ value and all-ones TZN0/TZN1 values as unavailable
+rather than physical temperatures. Retry after a bounded delay, retain a
+recent valid sample, and use a one-time probe bootstrap without accepting
+invalid data as real. Report only the beginning and end of a continuous
+sensor outage.
+
+diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
+--- a/drivers/acpi/thermal.c
++++ b/drivers/acpi/thermal.c
+@@ -21,6 +21,7 @@
+ #include <linux/init.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
++#include <linux/delay.h>
+ #include <linux/jiffies.h>
+ #include <linux/kmod.h>
+ #include <linux/reboot.h>
+@@ -49,6 +50,10 @@
+ #define ACPI_THERMAL_TRIP_PASSIVE	(-1)
+ 
+ #define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 3)
++#define ACPI_THERMAL_ORION_O6_RETRIES		3
++#define ACPI_THERMAL_ORION_O6_RETRY_DELAY_MS	10
++#define ACPI_THERMAL_ORION_O6_LKG_TIMEOUT	(60 * HZ)
++#define ACPI_THERMAL_ORION_O6_PROBE_BOOTSTRAP_DK	2732
+ 
+ /*
+  * This exception is thrown out in two cases:
+@@ -107,13 +112,24 @@ struct acpi_thermal_trips {
+ 	struct acpi_thermal_active active[ACPI_THERMAL_MAX_ACTIVE];
+ };
+ 
++enum acpi_thermal_orion_o6_tmp_type {
++	ACPI_THERMAL_ORION_O6_TMP_VALID,
++	ACPI_THERMAL_ORION_O6_TMP_ZERO,
++	ACPI_THERMAL_ORION_O6_TMP_ONES,
++};
++
+ struct acpi_thermal {
+ 	struct acpi_device *device;
+ 	acpi_bus_id name;
+ 	unsigned long temp_dk;
+ 	unsigned long last_temp_dk;
++	unsigned long last_good_temp_dk;
++	unsigned long last_good_temp_jiffies;
+ 	unsigned long polling_frequency;
+ 	volatile u8 zombie;
++	bool has_last_good_temp;
++	bool invalid_temp_reported;
++	enum acpi_thermal_orion_o6_tmp_type orion_o6_tmp_type;
+ 	struct acpi_thermal_trips trips;
+ 	struct thermal_zone_device *thermal_zone;
+ 	int kelvin_offset;	/* in millidegrees */
+@@ -126,25 +142,155 @@ struct acpi_thermal {
+                              Thermal Zone Management
+    -------------------------------------------------------------------------- */
+ 
++static enum acpi_thermal_orion_o6_tmp_type
++acpi_thermal_orion_o6_get_tmp_type(struct acpi_thermal *tz)
++{
++	const char *sys_vendor = dmi_get_system_info(DMI_SYS_VENDOR);
++	const char *product_name = dmi_get_system_info(DMI_PRODUCT_NAME);
++	const char *board_name = dmi_get_system_info(DMI_BOARD_NAME);
++	char name[ACPI_NAMESEG_SIZE + 1] = {};
++	struct acpi_buffer buffer = { sizeof(name), name };
++
++	if (!sys_vendor || strcmp(sys_vendor, "Radxa Computer (Shenzhen) Co., Ltd."))
++		return ACPI_THERMAL_ORION_O6_TMP_VALID;
++
++	if ((!product_name || strcmp(product_name, "Radxa Orion O6")) &&
++	    (!board_name || strcmp(board_name, "Radxa Orion O6")))
++		return ACPI_THERMAL_ORION_O6_TMP_VALID;
++
++	if (ACPI_FAILURE(acpi_get_name(tz->device->handle, ACPI_SINGLE_NAME,
++				       &buffer)))
++		return ACPI_THERMAL_ORION_O6_TMP_VALID;
++
++	if (!strcmp(name, "ECTZ"))
++		return ACPI_THERMAL_ORION_O6_TMP_ZERO;
++	if (!strcmp(name, "TZN0") || !strcmp(name, "TZN1"))
++		return ACPI_THERMAL_ORION_O6_TMP_ONES;
++
++	return ACPI_THERMAL_ORION_O6_TMP_VALID;
++}
++
++static int acpi_thermal_read_tmp(struct acpi_thermal *tz,
++				 unsigned long long *tmp)
++{
++	acpi_status status;
++
++	status = acpi_evaluate_integer(tz->device->handle, "_TMP", NULL, tmp);
++	if (ACPI_FAILURE(status))
++		return -ENODEV;
++
++	return 0;
++}
++
++static bool acpi_thermal_orion_o6_tmp_invalid(struct acpi_thermal *tz,
++					      unsigned long long tmp)
++{
++	return (tz->orion_o6_tmp_type == ACPI_THERMAL_ORION_O6_TMP_ZERO &&
++		tmp == 0) ||
++	       (tz->orion_o6_tmp_type == ACPI_THERMAL_ORION_O6_TMP_ONES &&
++		tmp == U64_MAX);
++}
++
++static int acpi_thermal_retry_orion_o6_tmp(struct acpi_thermal *tz,
++					   unsigned long long *tmp,
++					   bool *skip_last_good_save)
++{
++	unsigned long age_ms = 0;
++	int retry;
++	int ret;
++
++	*skip_last_good_save = false;
++
++	for (retry = 1; retry <= ACPI_THERMAL_ORION_O6_RETRIES; retry++) {
++		acpi_handle_debug(tz->device->handle,
++				  "%s _TMP returned an invalid value; retrying (%d/%d)\n",
++				  tz->name, retry, ACPI_THERMAL_ORION_O6_RETRIES);
++
++		msleep(ACPI_THERMAL_ORION_O6_RETRY_DELAY_MS);
++		ret = acpi_thermal_read_tmp(tz, tmp);
++		if (ret)
++			return ret;
++
++		if (!acpi_thermal_orion_o6_tmp_invalid(tz, *tmp))
++			return 0;
++	}
++
++	if (tz->has_last_good_temp)
++		age_ms = jiffies_to_msecs(jiffies - tz->last_good_temp_jiffies);
++
++	if (tz->has_last_good_temp &&
++	    time_before_eq(jiffies, tz->last_good_temp_jiffies +
++			   ACPI_THERMAL_ORION_O6_LKG_TIMEOUT)) {
++		*tmp = tz->last_good_temp_dk;
++		*skip_last_good_save = true;
++		acpi_handle_debug(tz->device->handle,
++				  "%s _TMP remained invalid; using last-known-good %llu dK (%lu ms old)\n",
++				  tz->name, *tmp, age_ms);
++		return 0;
++	}
++
++	if (!tz->thermal_zone) {
++		*tmp = ACPI_THERMAL_ORION_O6_PROBE_BOOTSTRAP_DK;
++		*skip_last_good_save = true;
++		acpi_handle_debug(tz->device->handle,
++				  "%s _TMP remained invalid; using %llu dK to complete probe\n",
++				  tz->name, *tmp);
++		return 0;
++	}
++
++	if (!tz->invalid_temp_reported) {
++		if (tz->has_last_good_temp)
++			acpi_handle_warn(tz->device->handle,
++					 "%s _TMP remained invalid; last-known-good %lu dK expired (%lu ms old)\n",
++					 tz->name, tz->last_good_temp_dk, age_ms);
++		else
++			acpi_handle_warn(tz->device->handle,
++					 "%s _TMP remained invalid; no last-known-good temperature is available\n",
++					 tz->name);
++		tz->invalid_temp_reported = true;
++	}
++
++	return -ENODATA;
++}
++
+ static int acpi_thermal_get_temperature(struct acpi_thermal *tz)
+ {
+-	acpi_status status = AE_OK;
+ 	unsigned long long tmp;
++	bool skip_last_good_save = false;
++	int ret;
+ 
+ 	if (!tz)
+ 		return -EINVAL;
+ 
+ 	tz->last_temp_dk = tz->temp_dk;
+ 
+-	status = acpi_evaluate_integer(tz->device->handle, "_TMP", NULL, &tmp);
+-	if (ACPI_FAILURE(status))
+-		return -ENODEV;
++	ret = acpi_thermal_read_tmp(tz, &tmp);
++	if (ret)
++		return ret;
++
++	if (acpi_thermal_orion_o6_tmp_invalid(tz, tmp)) {
++		ret = acpi_thermal_retry_orion_o6_tmp(tz, &tmp,
++						      &skip_last_good_save);
++		if (ret)
++			return ret;
++	}
+ 
+ 	tz->temp_dk = tmp;
+ 
+ 	acpi_handle_debug(tz->device->handle, "Temperature is %lu dK\n",
+ 			  tz->temp_dk);
+ 
++	if (tz->orion_o6_tmp_type && !skip_last_good_save) {
++		if (tz->invalid_temp_reported) {
++			acpi_handle_info(tz->device->handle,
++					 "%s _TMP is available again\n", tz->name);
++			tz->invalid_temp_reported = false;
++		}
++		tz->last_good_temp_dk = tmp;
++		tz->last_good_temp_jiffies = jiffies;
++		tz->has_last_good_temp = true;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -814,6 +960,7 @@ static int acpi_thermal_probe(struct platform_device *pdev)
+ 
+ 	tz->device = device;
+ 	strscpy(tz->name, device->pnp.bus_id);
++	tz->orion_o6_tmp_type = acpi_thermal_orion_o6_get_tmp_type(tz);
+ 
+ 	acpi_thermal_aml_dependency_fix(tz);
+ 

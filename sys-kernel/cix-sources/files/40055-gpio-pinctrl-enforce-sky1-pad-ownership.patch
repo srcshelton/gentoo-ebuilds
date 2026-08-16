@@ -1,0 +1,167 @@
+gpio: cadence: enforce Sky1 ACPI pad ownership
+
+Describe the sparse relationship between every Sky1 ACPI GPIO controller
+and its main or S5 pin controller. Route GPIO request and free through the
+generic pinctrl ownership helpers before changing the Cadence bypass state,
+and make Sky1 mux ownership strict. Peripheral and GPIO consumers then use
+the firmware-described pinctrl core without silently stealing pads. The two
+Both GPIO views of the S5 multifunction pads use the same ownership rule.
+
+diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
+--- a/drivers/gpio/gpio-cadence.c
++++ b/drivers/gpio/gpio-cadence.c
+@@ -76,6 +76,100 @@ static const struct cdns_gpio_quirks sky1_acpi_gpio_quirks = {
+ 	.cix_sky1 = true,
+ 	.clock_optional = true,
+ };
++
++static const unsigned int sky1_gpio0_pins[] = {
++	0, 1, 2, 3, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
++	38, 39, 40, 41, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
++};
++
++static const unsigned int sky1_gpio1_pins[] = {
++	59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
++	75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
++};
++
++static const unsigned int sky1_gpio2_pins[] = {
++	91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105,
++	106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
++	119, 120, 121, 122,
++};
++
++static const unsigned int sky1_gpio3_pins[] = {
++	123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135,
++	136, 137, 18, 19,
++};
++
++static const unsigned int sky1_gpio4_pins[] = {
++	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 42, 43,
++	44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
++};
++
++static const unsigned int sky1_gpio5_6_pins[] = {
++	32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
++};
++
++struct sky1_gpio_pin_range {
++	const char *pinctrl;
++	const unsigned int *pins;
++	unsigned int npins;
++};
++
++static const struct sky1_gpio_pin_range sky1_gpio_pin_ranges[] = {
++	[0] = {
++		.pinctrl = "CIXHA016:00",
++		.pins = sky1_gpio0_pins,
++		.npins = ARRAY_SIZE(sky1_gpio0_pins),
++	},
++	[1] = {
++		.pinctrl = "CIXHA016:00",
++		.pins = sky1_gpio1_pins,
++		.npins = ARRAY_SIZE(sky1_gpio1_pins),
++	},
++	[2] = {
++		.pinctrl = "CIXHA016:00",
++		.pins = sky1_gpio2_pins,
++		.npins = ARRAY_SIZE(sky1_gpio2_pins),
++	},
++	[3] = {
++		.pinctrl = "CIXHA016:00",
++		.pins = sky1_gpio3_pins,
++		.npins = ARRAY_SIZE(sky1_gpio3_pins),
++	},
++	[4] = {
++		.pinctrl = "CIXHA017:00",
++		.pins = sky1_gpio4_pins,
++		.npins = ARRAY_SIZE(sky1_gpio4_pins),
++	},
++	[5] = {
++		.pinctrl = "CIXHA017:00",
++		.pins = sky1_gpio5_6_pins,
++		.npins = ARRAY_SIZE(sky1_gpio5_6_pins),
++	},
++	[6] = {
++		.pinctrl = "CIXHA017:00",
++		.pins = sky1_gpio5_6_pins,
++		.npins = ARRAY_SIZE(sky1_gpio5_6_pins),
++	},
++};
++
++static int cdns_gpio_sky1_add_pin_ranges(struct gpio_chip *chip)
++{
++	const struct sky1_gpio_pin_range *range;
++	u64 uid;
++	int ret;
++
++	ret = acpi_dev_uid_to_integer(ACPI_COMPANION(chip->parent), &uid);
++	if (ret)
++		return ret;
++	if (uid >= ARRAY_SIZE(sky1_gpio_pin_ranges))
++		return -EINVAL;
++
++	range = &sky1_gpio_pin_ranges[uid];
++	if (chip->ngpio != range->npins)
++		return -EINVAL;
++
++	return gpiochip_add_sparse_pin_range(chip, range->pinctrl, 0,
++					      range->pins, range->npins);
++}
+ #endif
+ 
+ struct cdns_gpio_chip {
+@@ -117,6 +211,11 @@ static void cdns_gpio_write_valid(struct cdns_gpio_chip *cgpio,
+ static int cdns_gpio_request(struct gpio_chip *chip, unsigned int offset)
+ {
+ 	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
++	int ret;
++
++	ret = gpiochip_generic_request(chip, offset);
++	if (ret)
++		return ret;
+ 
+ 	guard(gpio_generic_lock)(&cgpio->gen_gc);
+ 
+@@ -130,11 +229,15 @@ static void cdns_gpio_free(struct gpio_chip *chip, unsigned int offset)
+ {
+ 	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
+ 
+-	guard(gpio_generic_lock)(&cgpio->gen_gc);
++	{
++		guard(gpio_generic_lock)(&cgpio->gen_gc);
+ 
+-	iowrite32(ioread32(cgpio->regs + CDNS_GPIO_BYPASS_MODE) |
+-		  (BIT(offset) & cgpio->bypass_orig),
+-		  cgpio->regs + CDNS_GPIO_BYPASS_MODE);
++		iowrite32(ioread32(cgpio->regs + CDNS_GPIO_BYPASS_MODE) |
++			  (BIT(offset) & cgpio->bypass_orig),
++			  cgpio->regs + CDNS_GPIO_BYPASS_MODE);
++	}
++
++	gpiochip_generic_free(chip, offset);
+ }
+ 
+ static void cdns_gpio_irq_mask(struct irq_data *d)
+@@ -619,6 +722,10 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+ 	cgpio->gen_gc.gc.owner = THIS_MODULE;
+ 	cgpio->gen_gc.gc.request = cdns_gpio_request;
+ 	cgpio->gen_gc.gc.free = cdns_gpio_free;
++#ifdef CONFIG_ACPI
++	if (has_acpi_companion(dev) && cgpio->quirks->cix_sky1)
++		cgpio->gen_gc.gc.add_pin_ranges = cdns_gpio_sky1_add_pin_ranges;
++#endif
+ 
+ 	irq = platform_get_irq_optional(pdev, 0);
+ 	if (irq == -ENXIO)
+diff --git a/drivers/pinctrl/cix/pinctrl-sky1-base.c b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+--- a/drivers/pinctrl/cix/pinctrl-sky1-base.c
++++ b/drivers/pinctrl/cix/pinctrl-sky1-base.c
+@@ -410,6 +410,7 @@ static const struct pinmux_ops sky1_pmx_ops = {
+ 	.get_function_name = pinmux_generic_get_function_name,
+ 	.get_function_groups = pinmux_generic_get_function_groups,
+ 	.set_mux = sky1_pmx_set,
++	.strict = true,
+ };
+ 
+ static int sky1_pin_reg_offset(struct sky1_pinctrl *spctl,

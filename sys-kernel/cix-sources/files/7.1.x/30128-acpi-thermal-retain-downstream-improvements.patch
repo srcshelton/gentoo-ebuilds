@@ -1,6 +1,5 @@
 Retain the reviewed ACPI _STR label conversion and thermal-hwmon naming
 improvements without the Orion-specific ECTZ filtering owned by 30127.
-Mechanically generated from the exact Linux 7.1.3 predecessor tree.
 
 diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 --- a/drivers/acpi/thermal.c
@@ -110,8 +109,8 @@ diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
 --- a/drivers/thermal/thermal_hwmon.c
 +++ b/drivers/thermal/thermal_hwmon.c
-@@ -33,7 +33,9 @@ struct thermal_hwmon_attr {
- struct thermal_hwmon_temp {
+@@ -39,7 +39,9 @@ struct thermal_hwmon_temp {
+ 	struct list_head hwmon_node;
  	struct thermal_zone_device *tz;
  	struct thermal_hwmon_attr temp_input;	/* hwmon sys attr */
 +	struct thermal_hwmon_attr temp_label;	/* hwmon sys attr */
@@ -120,7 +119,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  	bool temp_crit_present;
  };
  
-@@ -70,6 +72,22 @@ temp_input_show(struct device *dev, struct device_attribute *attr, char *buf)
+@@ -67,6 +69,22 @@ temp_input_show(struct device *dev, struct device_attribute *attr, char *buf)
  	return sysfs_emit(buf, "%d\n", temperature);
  }
  
@@ -143,7 +142,35 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  static ssize_t
  temp_crit_show(struct device *dev, struct device_attribute *attr, char *buf)
  {
-@@ -97,6 +115,20 @@ static bool thermal_zone_crit_temp_valid(struct thermal_zone_device *tz)
+@@ -88,6 +106,13 @@ temp_crit_show(struct device *dev, struct device_attribute *attr, char *buf)
+ 	return sysfs_emit(buf, "%d\n", temperature);
+ }
+ 
++static const char *thermal_hwmon_type(const struct thermal_zone_device *tz)
++{
++	if (tz->tzp && tz->tzp->hwmon_type && tz->tzp->hwmon_type[0])
++		return tz->tzp->hwmon_type;
++
++	return tz->type;
++}
+ 
+ static struct thermal_hwmon_device *
+ thermal_hwmon_lookup_by_type(const struct thermal_zone_device *tz)
+@@ -95,10 +120,11 @@ thermal_hwmon_lookup_by_type(const struct thermal_zone_device *tz)
+ 	struct thermal_hwmon_device *hwmon;
+ 	char type[THERMAL_NAME_LENGTH];
+ 
++	strscpy(type, thermal_hwmon_type(tz), sizeof(type));
++	strreplace(type, '-', '_');
++
+ 	mutex_lock(&thermal_hwmon_list_lock);
+ 	list_for_each_entry(hwmon, &thermal_hwmon_list, node) {
+-		strscpy(type, tz->type);
+-		strreplace(type, '-', '_');
+ 		if (!strcmp(hwmon->type, type)) {
+ 			mutex_unlock(&thermal_hwmon_list_lock);
+ 			return hwmon;
+@@ -133,6 +159,11 @@ static bool thermal_zone_crit_temp_valid(struct thermal_zone_device *tz)
  	return tz->ops.get_crit_temp && !tz->ops.get_crit_temp(tz, &temp);
  }
  
@@ -152,34 +179,27 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
 +	return tz->tzp && tz->tzp->label && tz->tzp->label[0];
 +}
 +
-+static const char *
-+thermal_hwmon_type(const struct thermal_zone_device *tz)
-+{
-+	if (tz->tzp && tz->tzp->hwmon_type && tz->tzp->hwmon_type[0])
-+		return tz->tzp->hwmon_type;
-+
-+	return tz->type;
-+}
-+
  int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  {
  	struct thermal_hwmon_device *hwmon;
-@@ -111,7 +143,8 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
- 	 * Append the thermal zone ID preceded by an underline character to the
- 	 * type to disambiguate the sensors command output.
- 	 */
--	scnprintf(hwmon->name, THERMAL_HWMON_NAME_LENGTH, "%s_%d", tz->type, tz->id);
-+	scnprintf(hwmon->name, THERMAL_HWMON_NAME_LENGTH, "%s_%d",
-+		  thermal_hwmon_type(tz), tz->id);
- 	strreplace(hwmon->name, '-', '_');
+@@ -151,7 +182,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+ 		return -ENOMEM;
+ 
+ 	INIT_LIST_HEAD(&hwmon->tz_list);
+-	strscpy(hwmon->type, tz->type, THERMAL_NAME_LENGTH);
++	strscpy(hwmon->type, thermal_hwmon_type(tz), THERMAL_NAME_LENGTH);
+ 	strreplace(hwmon->type, '-', '_');
  	hwmon->device = hwmon_device_register_for_thermal(&tz->device,
- 							  hwmon->name, hwmon);
-@@ -132,6 +165,19 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+ 							  hwmon->type, hwmon);
+@@ -180,6 +211,22 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  	if (result)
- 		goto unregister_name;
+ 		goto free_temp_mem;
  
 +	if (thermal_zone_hwmon_label_valid(tz)) {
-+		temp->temp_label.attr.attr.name = "temp1_label";
++		snprintf(temp->temp_label.name,
++			 sizeof(temp->temp_label.name),
++			 "temp%d_label", hwmon->count);
++		temp->temp_label.attr.attr.name = temp->temp_label.name;
 +		temp->temp_label.attr.attr.mode = 0444;
 +		temp->temp_label.attr.show = temp_label_show;
 +		sysfs_attr_init(&temp->temp_label.attr.attr);
@@ -192,9 +212,9 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
 +	}
 +
  	if (thermal_zone_crit_temp_valid(tz)) {
- 		temp->temp_crit.attr.attr.name = "temp1_crit";
- 		temp->temp_crit.attr.attr.mode = 0444;
-@@ -140,7 +186,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+ 		snprintf(temp->temp_crit.name,
+ 				sizeof(temp->temp_crit.name),
+@@ -191,7 +238,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  		result = device_create_file(hwmon->device,
  					    &temp->temp_crit.attr);
  		if (result)
@@ -203,7 +223,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  
  		temp->temp_crit_present = true;
  	}
-@@ -152,6 +198,9 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+@@ -204,6 +251,9 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  
  	return 0;
  
@@ -212,9 +232,9 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
 +		device_remove_file(hwmon->device, &temp->temp_label.attr);
   unregister_input:
  	device_remove_file(hwmon->device, &temp->temp_input.attr);
-  unregister_name:
-@@ -191,6 +240,8 @@ void thermal_remove_hwmon_sysfs(struct thermal_zone_device *tz)
- 	temp = &hwmon->tz_temp;
+  free_temp_mem:
+@@ -239,6 +289,8 @@ void thermal_remove_hwmon_sysfs(struct thermal_zone_device *tz)
+ 	}
  
  	device_remove_file(hwmon->device, &temp->temp_input.attr);
 +	if (temp->temp_label_present)
@@ -225,7 +245,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
 diff --git a/include/linux/thermal.h b/include/linux/thermal.h
 --- a/include/linux/thermal.h
 +++ b/include/linux/thermal.h
-@@ -152,6 +152,17 @@ struct thermal_zone_params {
+@@ -152,6 +152,16 @@ struct thermal_zone_params {
  	 */
  	bool no_hwmon;
  
@@ -235,8 +255,7 @@ diff --git a/include/linux/thermal.h b/include/linux/thermal.h
 +	const char *label;
 +
 +	/*
-+	 * Optional hwmon device base name.  When unset, the thermal zone type
-+	 * is used.  The thermal zone ID is appended to make the name unique.
++	 * Optional hwmon device type. When unset, the thermal zone type is used.
 +	 */
 +	const char *hwmon_type;
 +

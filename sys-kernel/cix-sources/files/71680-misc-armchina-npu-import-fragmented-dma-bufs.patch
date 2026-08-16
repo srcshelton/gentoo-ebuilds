@@ -6,8 +6,8 @@ them transactionally into a standard DMA IOVA allocation, and preserve the
 attachment mapping and exact teardown metadata until detach.  Non-page-backed
 and peer-to-peer exporters remain explicitly unsupported.
 
-Provenance: restores the fragmented imported-DMA-BUF ABI boundary without
-assuming that a physically fragmented SG table is device-contiguous.
+This restores the fragmented imported-DMA-BUF ABI boundary without assuming
+that a physically fragmented SG table is device-contiguous.
 
 diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
 --- a/drivers/misc/armchina-npu/aipu_dma_buf.c

@@ -59,6 +59,7 @@ verify_distfile() {
 fetch_url() {
 	local name=$1
 	local tmp="${DISTDIR}/$1.tmp.$$"
+	local delay
 	shift
 
 	if [[ -s ${DISTDIR}/${name} ]]; then
@@ -68,13 +69,18 @@ fetch_url() {
 
 	for url in "$@"; do
 		printf 'Fetching %s from %s\n' "$name" "$url"
-		if curl -fL --retry 5 --retry-connrefused --connect-timeout 30 -o "$tmp" "$url"; then
-			mv -- "$tmp" "${DISTDIR}/${name}"
-			verify_distfile "$name"
-			return
-		fi
-		rm -f -- "$tmp"
+		for delay in 1 2 4 8 16 0; do
+			if curl -fL --http1.1 --continue-at - --connect-timeout 30 -o "$tmp" "$url"; then
+				mv -- "$tmp" "${DISTDIR}/${name}"
+				verify_distfile "$name"
+				return
+			fi
+			((delay)) || break
+			printf 'warning: fetch failed; retrying in %d second(s)\n' "$delay" >&2
+			sleep "$delay"
+		done
 	done
+	rm -f -- "$tmp"
 
 	fail "unable to fetch ${name}"
 }
@@ -223,7 +229,7 @@ eapply() {
 
 eapply_user() { :; }
 kernel-2_pkg_setup() { :; }
-kernel-2_src_prepare() { eapply_user; }
+kernel-2_src_prepare() { default; }
 kernel-2_src_install() { :; }
 kernel-2_pkg_postinst() { :; }
 kernel-2_pkg_postrm() { :; }

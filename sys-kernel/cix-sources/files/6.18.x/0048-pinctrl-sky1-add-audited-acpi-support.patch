@@ -1,8 +1,8 @@
-Provenance: CIX cix-linux-main commit
+Validate firmware data, MMIO, mapping ownership and build combinations; 6.18
+applies upstream Sky1 backports 00481 through 00484 first.
+
+Source: cixtech/cix-linux-main commit
 19f2947303670f2e5734d6a96ffc72a80fd9b942, Jianfeng Liu's 6.18 patch 00485.
-The mechanically regenerated overlay form validates firmware data, MMIO,
-mapping ownership and build combinations; 6.18 applies upstream Sky1
-backports 00481 through 00484 first.
 
 diff --git a/drivers/pinctrl/Makefile b/drivers/pinctrl/Makefile
 --- a/drivers/pinctrl/Makefile

@@ -6,7 +6,7 @@ actual timeout call site with kernel-idiomatic wording.
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet/realtek/r8126/r8126_n.c
 --- a/drivers/net/ethernet/realtek/r8126/r8126_n.c
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_n.c
-@@ -13025,7 +13025,7 @@ static void rtl8126_reset_task(struct work_struct *work)
+@@ -12477,7 +12477,7 @@ static void rtl8126_reset_task(struct work_struct *work)
              !test_and_clear_bit(R8126_FLAG_TASK_RESET_PENDING, tp->task_flags))
                  goto out_unlock;
  
@@ -15,7 +15,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  
          netif_carrier_off(dev);
          netif_tx_disable(dev);
-@@ -13163,7 +13163,7 @@ rtl8126_tx_timeout(struct net_device *dev)
+@@ -12615,7 +12615,7 @@ rtl8126_tx_timeout(struct net_device *dev)
  {
          struct rtl8126_private *tp = netdev_priv(dev);
  

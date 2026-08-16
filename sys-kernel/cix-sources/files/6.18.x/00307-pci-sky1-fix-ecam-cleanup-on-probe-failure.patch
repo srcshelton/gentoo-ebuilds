@@ -6,9 +6,7 @@ The Sky1 driver allocates the ECAM configuration window before allocating
 its register-offset description.  Release the ECAM allocation if the latter
 allocation fails.
 
-Generated mechanically from the exact cix-sources-6.18.38 source tree after
-the retained vendor 00301-00305 upstream backport series.  Linux 7.0 and
-7.1 already contain this fix upstream.
+Linux 7.1 and later already contain this fix upstream.
 
 Signed-off-by: Felix Gu <ustc.gu@gmail.com>
 Signed-off-by: Manivannan Sadhasivam <mani@kernel.org>

@@ -1,0 +1,238 @@
+arm64: cix: model Orion ACPI infrastructure dependencies
+
+Make the Orion ACPI firmware choice own the early mailbox, SCMI clock,
+resource-lookup, pinctrl and wake-controller infrastructure that cannot be
+deferred to loadable consumers. Keep optional power-domain, GPIO, I2C and
+accelerator drivers modular when their consumers are modular.
+
+Describe the known Orion ACPI provider relationships for Panthor and O6
+HDA. Express the HDA controller's clock, reset and modular GPIO providers
+as one kmod-compatible soft dependency.
+
+diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+--- a/arch/arm64/Kconfig.platforms
++++ b/arch/arm64/Kconfig.platforms
+@@ -152,6 +152,24 @@ config CIX_RADXA_ORION_O6N
+ 	  systems. O6N keeps common CIX P1 SoC support but has
+ 	  board-specific USB, PCIe, audio, and EC/fan-control defaults.
+ 
++config CIX_RADXA_ORION_ACPI_INFRASTRUCTURE
++	bool
++	depends on ARCH_CIX && ACPI
++	select MAILBOX
++	select ARM_SCMI_PROTOCOL
++	select ARM_SCMI_TRANSPORT_MAILBOX
++	select CIX_MBOX
++	select COMMON_CLK
++	select COMMON_CLK_SCMI
++	select RESET_CONTROLLER
++	select CLK_SKY1_ACPI
++	select CIX_ACPI_RESOURCE_LOOKUP
++	select CIX_ACPI_PCIE_SCAN
++	select CIX_ACPI_USB_SCAN
++	select PINCTRL
++	select PINCTRL_SKY1
++	select SKY1_PDC
++
+ choice
+ 	prompt "Radxa Orion firmware interface"
+ 	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N) && (ACPI || OF)
+@@ -161,6 +179,7 @@ choice
+ config CIX_RADXA_ORION_ACPI
+ 	bool "ACPI firmware interface"
+ 	depends on ACPI
++	select CIX_RADXA_ORION_ACPI_INFRASTRUCTURE
+ 
+ config CIX_RADXA_ORION_DT
+ 	bool "Device Tree firmware interface"
+diff --git a/drivers/gpu/drm/panthor/Kconfig b/drivers/gpu/drm/panthor/Kconfig
+--- a/drivers/gpu/drm/panthor/Kconfig
++++ b/drivers/gpu/drm/panthor/Kconfig
+@@ -6,6 +6,8 @@ config DRM_PANTHOR
+ 	depends on ARM || ARM64 || COMPILE_TEST
+ 	depends on !GENERIC_ATOMIC64  # for IOMMU_IO_PGTABLE_LPAE
+ 	depends on MMU
++	depends on !CIX_RADXA_ORION_ACPI || ARM_SCMI_PROTOCOL
++	select ARM_SCMI_PERF_DOMAIN if CIX_RADXA_ORION_ACPI
+ 	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+ 	select DRM_EXEC
+ 	select DRM_GEM_SHMEM_HELPER
+diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconfig.radxa
+--- a/drivers/platform/arm64/Kconfig.radxa
++++ b/drivers/platform/arm64/Kconfig.radxa
+@@ -3,8 +3,7 @@
+ # Generated CIX/Radxa Orion board presets for Linux 7.1.x.
+ # Driver preference for tristates: module.
+ # This menu is intentionally conservative and only covers the driver
+-# groups we were able to justify from firmware analysis and the validated
+-# vendor patch stack.
++# groups supported by the firmware interfaces and maintained driver stack.
+ 
+ menu "Radxa Orion hardware driver presets"
+ 	depends on ARM64_PLATFORM_DEVICES
+@@ -12,7 +11,6 @@ menu "Radxa Orion hardware driver presets"
+ 
+ config CIX_RADXA_ESSENTIAL
+ 	bool "Essential drivers"
+-	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
+ 	default y
+ 	imply SERIAL_AMBA_PL011
+ 	imply SERIAL_AMBA_PL011_CONSOLE
+@@ -24,7 +22,8 @@ config CIX_RADXA_ESSENTIAL
+ 	imply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
+ 	imply ACPI_FAN if CIX_RADXA_ORION_ACPI
+ 	imply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
+-	select PINCTRL_SKY1 if CIX_RADXA_ORION_ACPI
++	select PINCTRL if CIX_RADXA_ORION_DT
++	select PINCTRL_SKY1 if CIX_RADXA_ORION_DT
+ 	imply THERMAL if CIX_RADXA_ORION_ACPI
+ 	imply THERMAL_GOV_POWER_ALLOCATOR if CIX_RADXA_ORION_ACPI
+ 	imply CPU_FREQ if CIX_RADXA_ORION_ACPI
+@@ -38,12 +37,11 @@ config CIX_RADXA_ESSENTIAL
+ 	  Orion O6/O6N systems.
+ 
+ menu "Optional drivers"
+-	depends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)
+ 
+ config CIX_RADXA_OPTIONAL_IO
+ 	tristate "Optional system bus / external I/O drivers"
+-	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
+-	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default m if MODULES
++	default y if !MODULES
+ 	imply R8126 if CIX_RADXA_ORION_O6
+ 	imply R8169 if CIX_RADXA_ORION_O6N
+ 	imply TEE
+@@ -57,29 +55,33 @@ config CIX_RADXA_OPTIONAL_IO
+ 
+ config CIX_RADXA_OPTIONAL_PLATFORM
+ 	tristate "Optional platform bus / SoC glue drivers"
+-	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
+-	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default m if MODULES
++	default y if !MODULES
+ 	imply SKY1_PDC
++	imply I2C
+ 	imply I2C_CADENCE
++	imply GPIOLIB
+ 	imply GPIO_CADENCE
++	imply GPIO_AGGREGATOR if CIX_RADXA_ORION_ACPI
++	imply GPIO_CDEV if GPIO_AGGREGATOR
+ 	imply ARM_DMA350
+-	imply MAILBOX if CIX_RADXA_ORION_ACPI
+-	imply ARM_SCMI_PROTOCOL if CIX_RADXA_ORION_ACPI
+-	imply ARM_SCMI_TRANSPORT_MAILBOX if CIX_RADXA_ORION_ACPI
+-	imply ARM_SCMI_PERF_DOMAIN if CIX_RADXA_ORION_ACPI
+-	imply ARM_SCMI_POWER_DOMAIN if CIX_RADXA_ORION_ACPI
++	imply MAILBOX if CIX_RADXA_ORION_DT
++	imply ARM_SCMI_PROTOCOL if CIX_RADXA_ORION_DT
++	imply ARM_SCMI_TRANSPORT_MAILBOX if CIX_RADXA_ORION_DT
++	imply CIX_MBOX if CIX_RADXA_ORION_DT
++	imply COMMON_CLK if CIX_RADXA_ORION_DT
++	imply COMMON_CLK_SCMI if CIX_RADXA_ORION_DT
++	imply RESET_CONTROLLER if CIX_RADXA_ORION_DT
++	imply ARM_SCMI_PERF_DOMAIN
++	imply ARM_SCMI_POWER_DOMAIN
+ 	imply CIX_BUS_PERF if CIX_RADXA_ORION_ACPI
+-	imply CIX_MBOX if CIX_RADXA_ORION_ACPI
+-	imply COMMON_CLK_SCMI if CIX_RADXA_ORION_ACPI
+-	imply CLK_SKY1_ACPI if CIX_RADXA_ORION_ACPI
+-	imply CIX_ACPI_RESOURCE_LOOKUP if CIX_RADXA_ORION_ACPI
+-	imply CIX_ACPI_USB_SCAN if CIX_RADXA_ORION_ACPI
++	imply CIX_DDR_LP
+ 	imply PHY_CIX_USBDP
+ 	imply TYPEC_RTS5453
+ 	imply SENSORS_CIX_FAN if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
+ 	help
+-	  Enable the audited Sky1 platform-resource plumbing used by
+-	  the CIX ACPI and DT driver stack, including the reviewed USB/DP
++	  Enable the Sky1 platform-resource plumbing used by
++	  the CIX ACPI and DT driver stack, including the USB/DP
+ 	  combo PHY and RTS5453 Type-C controller. The unrelated vendor
+ 	  PCIe, USB2 and USB3 PHY drivers remain excluded. Firmware-scratch
+ 	  diagnostics remain opt-in because the scratch value is not
+@@ -87,8 +89,8 @@ config CIX_RADXA_OPTIONAL_PLATFORM
+ 
+ config CIX_RADXA_OPTIONAL_DISPLAY
+ 	tristate "Optional display / GPU drivers"
+-	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
+-	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default m if MODULES
++	default y if !MODULES
+ 	imply FW_LOADER_COMPRESS
+ 	imply FW_LOADER_COMPRESS_XZ
+ 	imply DRM
+@@ -101,13 +103,13 @@ config CIX_RADXA_OPTIONAL_DISPLAY
+ 	imply BACKLIGHT_CLASS_DEVICE
+ 	imply BACKLIGHT_PWM
+ 	help
+-	  Enable the validated vendor display path for ACPI and DT.
++	  Enable the vendor display path for ACPI and DT.
+ 	  Internal bring-up switches remain outside this preset.
+ 
+ config CIX_RADXA_OPTIONAL_ACCELERATORS
+ 	tristate "Optional accelerator drivers"
+-	default m if MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
+-	default y if !MODULES && ((CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N))
++	default m if MODULES
++	default y if !MODULES
+ 	imply DMA_SHARED_BUFFER
+ 	imply PM_DEVFREQ
+ 	imply ARMCHINA_NPU
+@@ -126,7 +128,7 @@ config CIX_RADXA_OPTIONAL_ACCELERATORS
+ 	imply VIDEO_CIX_ARMCB_ISP
+ 	imply VIDEO_LINLON
+ 	help
+-	  Enable the audited Sky1 V3 NPU and ArmChina ISP and Linlon MVX VPU drivers.
++	  Enable the Sky1 V3 NPU and ArmChina ISP and Linlon MVX VPU drivers.
+ 	  Unsafe legacy DMA/IOMMU and privileged control
+ 	  paths remain gated in the drivers rather than disabling
+ 	  normal accelerator operation.
+@@ -134,8 +136,8 @@ config CIX_RADXA_OPTIONAL_ACCELERATORS
+ config CIX_RADXA_OPTIONAL_AUDIO
+ 	tristate "Optional audio drivers"
+ 	depends on CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)
+-	default m if MODULES && (CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT))
+-	default y if !MODULES && (CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT))
++	default m if MODULES
++	default y if !MODULES
+ 	imply SOUND
+ 	imply SND
+ 	imply SND_SOC
+@@ -144,7 +146,7 @@ config CIX_RADXA_OPTIONAL_AUDIO
+ 	imply SND_SOC_CDNS_I2S_MC
+ 	imply SND_SOC_SKY1_SOUND_CARD
+ 	help
+-	  Enable the vendor audio stack validated for Orion O6 and the
++	  Enable the vendor audio stack for Orion O6 and the
+ 	  DP-audio-oriented DT sound-card path described by the maintained
+ 	  O6N DTS. O6N ACPI leaves these drivers opt-in because the stock
+ 	  ACPI card path has not been shown to bind successfully.
+diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
+--- a/sound/hda/controllers/Kconfig
++++ b/sound/hda/controllers/Kconfig
+@@ -38,7 +38,8 @@ config SND_HDA_CIX_IPBLOQ
+ 	select SND_HDA
+ 	select SND_HDA_ALIGNED_MMIO
+ 	select SND_DMA_SGBUF if ARCH_CIX
+-	imply GPIO_CADENCE
++	select GPIOLIB if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
++	select GPIO_CADENCE if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
+ 	help
+ 	  Say Y here to support the HDA controller present in CIX SoCs
+ 
+diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
+--- a/sound/hda/controllers/cix-ipbloq.c
++++ b/sound/hda/controllers/cix-ipbloq.c
+@@ -711,7 +711,11 @@ static struct platform_driver cix_ipbloq_hda_driver = {
+ };
+ module_platform_driver(cix_ipbloq_hda_driver);
+ 
++#if IS_MODULE(CONFIG_GPIO_CADENCE)
++MODULE_SOFTDEP("pre: clk_sky1_audss reset_sky1_audss gpio-cadence");
++#else
+ MODULE_SOFTDEP("pre: clk_sky1_audss reset_sky1_audss");
++#endif
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("CIX IPBLOQ HDA bus driver");
+ MODULE_AUTHOR("Joakim Zhang <joakim.zhang@cixtech.com>");

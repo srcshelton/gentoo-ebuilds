@@ -1,0 +1,32 @@
+From 60425cbcc84434241244377decf712eefdba2068 Mon Sep 17 00:00:00 2001
+From: Stuart Shelton <stuart@shelton.me>
+Date: Mon, 24 Aug 2026 17:37:26 +0100
+Subject: [PATCH] cifs: fix soft dependency declarations
+
+MODULE_SOFTDEP() values use modprobe softdep syntax. Without a pre: or
+post: directive, libkmod emits an ineffective rule. Combine the
+dependencies into one pre: declaration so module loading honours every
+entry.
+---
+ fs/smb/client/cifsfs.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
+index 95845c8..706bd60 100644
+--- a/fs/smb/client/cifsfs.c
++++ b/fs/smb/client/cifsfs.c
+@@ -2148,10 +2148,6 @@ MODULE_DESCRIPTION
+ 	("VFS to access SMB3 servers e.g. Samba, Macs, Azure and Windows (and "
+ 	"also older servers complying with the SNIA CIFS Specification)");
+ MODULE_VERSION(CIFS_VERSION);
+-MODULE_SOFTDEP("nls");
+-MODULE_SOFTDEP("aes");
+-MODULE_SOFTDEP("aead2");
+-MODULE_SOFTDEP("ccm");
+-MODULE_SOFTDEP("gcm");
++MODULE_SOFTDEP("pre: nls aes aead2 ccm gcm");
+ module_init(init_cifs)
+ module_exit(exit_cifs)
+-- 
+2.50.1 (Apple Git-155)
+

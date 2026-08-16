@@ -1,0 +1,24 @@
+Linux 7.2 no longer exposes the legacy strncpy declaration to this driver.
+Use the bounded, NUL-terminating kernel string helper for the V4L2 format
+description instead.
+
+diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+--- a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
++++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
+@@ -40,6 +40,7 @@
+ #include <linux/sched.h>
+ #include <linux/slab.h>
+ #include <linux/soc/cix/cix_ddr_lp.h>
++#include <linux/string.h>
+ #include <linux/v4l2-dv-timings.h>
+ #include <linux/videodev2.h>
+ #include <linux/vmalloc.h>
+@@ -1420,7 +1421,7 @@ static int armcb_v4l2_enum_fmt_vid_cap(struct file *file, void *priv,
+ 		return -EINVAL;
+ 
+ 	fmt = &isp_src_formats[f->index];
+-	strncpy(f->description, fmt->name, sizeof(f->description) - 1);
++	strscpy(f->description, fmt->name, sizeof(f->description));
+ 	f->pixelformat = fmt->fourcc;
+ 	f->mbus_code = fmt->mbus_code;
+ 

@@ -28,7 +28,7 @@ ownership, while 30200 provides SCMI provider-state readback.
 diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
 --- a/drivers/soc/cix/Kconfig
 +++ b/drivers/soc/cix/Kconfig
-@@ -33,3 +33,24 @@ config CIX_ACPI_USB_SCAN
+@@ -33,3 +33,23 @@ config CIX_ACPI_USB_SCAN
  	  the overlapping vendor USB devices. With firmware that exposes only
  	  one model, the helper either stands down or allows the vendor-only
  	  devices to enumerate unchanged.
@@ -49,8 +49,7 @@ diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
 +	  userspace governor preserves the firmware-selected state until a
 +	  policy request is made; performance and powersave governors may
 +	  also be selected when they are available. It uses only standard
-+	  devfreq controls and
-+	  does not expose mutable engineering controls.
++	  devfreq controls and does not expose mutable engineering controls.
 +
 +	  ACPI firmware exposes these consumers as CIXHA030 and CIXHA031.
 diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
@@ -65,7 +64,7 @@ diff --git a/drivers/soc/cix/cix-bus-perf.c b/drivers/soc/cix/cix-bus-perf.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-bus-perf.c
-@@ -0,0 +1,437 @@
+@@ -0,0 +1,412 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CIX Sky1 bus performance-domain consumer
@@ -101,15 +100,9 @@ new file mode 100644
 +	unsigned long max_freq;
 +	unsigned int min_state;
 +	unsigned int max_state;
-+	unsigned long original_freq;
 +	unsigned int original_state;
 +	bool control_active;
 +};
-+
-+static struct device *cix_bus_perf_attach_domain(struct device *dev)
-+{
-+	return dev_pm_domain_attach_by_name(dev, "perf");
-+}
 +
 +static int cix_bus_perf_read_state(struct cix_bus_perf *bp,
 +				   unsigned int *state, unsigned long *freq)
@@ -133,9 +126,9 @@ new file mode 100644
 +
 +static int cix_bus_perf_set_state(struct cix_bus_perf *bp,
 +				  unsigned int target_state,
-+				  unsigned int *actual_state,
 +				  unsigned long *actual_freq)
 +{
++	unsigned int actual_state;
 +	int read_ret;
 +	int ret;
 +
@@ -149,10 +142,10 @@ new file mode 100644
 +	 * devfreq never publishes the preceding frequency as the result.
 +	 */
 +	ret = read_poll_timeout(cix_bus_perf_read_state, read_ret,
-+				read_ret || *actual_state == target_state,
++				read_ret || actual_state == target_state,
 +				CIX_BUS_PERF_POLL_INTERVAL_US,
 +				CIX_BUS_PERF_TRANSITION_TIMEOUT_US, false,
-+				bp, actual_state, actual_freq);
++				bp, &actual_state, actual_freq);
 +	if (read_ret)
 +		return read_ret;
 +
@@ -197,6 +190,12 @@ new file mode 100644
 +		bp->freq_table[i] = freq;
 +		previous_freq = freq;
 +		previous_state = state;
++		if (!i) {
++			bp->min_freq = freq;
++			bp->min_state = state;
++		}
++		bp->max_freq = freq;
++		bp->max_state = state;
 +
 +		if (i != count - 1) {
 +			if (freq == ULONG_MAX)
@@ -205,28 +204,7 @@ new file mode 100644
 +		}
 +	}
 +
-+	if (dev_pm_opp_get_opp_count(bp->perf_dev) != count)
-+		return -EAGAIN;
-+
 +	bp->opp_count = count;
-+	bp->min_freq = bp->freq_table[0];
-+	bp->max_freq = bp->freq_table[count - 1];
-+
-+	opp = dev_pm_opp_find_freq_ceil(bp->perf_dev, &bp->min_freq);
-+	if (IS_ERR(opp))
-+		return PTR_ERR(opp);
-+	bp->min_state = dev_pm_opp_get_level(opp);
-+	dev_pm_opp_put(opp);
-+
-+	opp = dev_pm_opp_find_freq_floor(bp->perf_dev, &bp->max_freq);
-+	if (IS_ERR(opp))
-+		return PTR_ERR(opp);
-+	bp->max_state = dev_pm_opp_get_level(opp);
-+	dev_pm_opp_put(opp);
-+
-+	if (!bp->min_freq || !bp->max_freq || !bp->min_state ||
-+	    !bp->max_state)
-+		return -EINVAL;
 +
 +	return 0;
 +}
@@ -251,6 +229,7 @@ new file mode 100644
 +
 +static int cix_bus_perf_begin_control(struct cix_bus_perf *bp)
 +{
++	unsigned long original_freq;
 +	int ret;
 +
 +	if (bp->control_active)
@@ -260,8 +239,7 @@ new file mode 100644
 +	if (ret < 0)
 +		return ret;
 +
-+	ret = cix_bus_perf_read_state(bp, &bp->original_state,
-+				      &bp->original_freq);
++	ret = cix_bus_perf_read_state(bp, &bp->original_state, &original_freq);
 +	if (ret) {
 +		pm_runtime_put_noidle(bp->perf_dev);
 +		return ret;
@@ -269,7 +247,7 @@ new file mode 100644
 +
 +	bp->control_active = true;
 +	dev_dbg(bp->dev, "preserving pre-control SCMI state %u (%lu Hz)\n",
-+		bp->original_state, bp->original_freq);
++		bp->original_state, original_freq);
 +
 +	return 0;
 +}
@@ -277,21 +255,19 @@ new file mode 100644
 +static void cix_bus_perf_end_control(struct cix_bus_perf *bp)
 +{
 +	unsigned long actual_freq;
-+	unsigned int actual_state;
 +	int ret;
 +
 +	if (!bp->control_active)
 +		return;
 +
-+	ret = cix_bus_perf_set_state(bp, bp->original_state, &actual_state,
-+				     &actual_freq);
++	ret = cix_bus_perf_set_state(bp, bp->original_state, &actual_freq);
 +	if (ret)
 +		dev_warn(bp->dev,
 +			 "failed to restore pre-control SCMI state %u: %d\n",
 +			 bp->original_state, ret);
 +	else
 +		dev_dbg(bp->dev, "restored pre-control SCMI state %u (%lu Hz)\n",
-+			actual_state, actual_freq);
++			bp->original_state, actual_freq);
 +
 +	pm_runtime_put_noidle(bp->perf_dev);
 +	bp->control_active = false;
@@ -301,13 +277,10 @@ new file mode 100644
 +			       u32 flags)
 +{
 +	struct cix_bus_perf *bp = dev_get_drvdata(dev);
-+	unsigned long previous_freq;
 +	unsigned int previous_state;
 +	unsigned long target_freq;
-+	unsigned long provider_freq;
 +	unsigned long actual_freq;
 +	unsigned int target_state;
-+	unsigned int actual_state;
 +	struct dev_pm_opp *opp;
 +	bool began_control;
 +	int ret;
@@ -318,15 +291,9 @@ new file mode 100644
 +	target_freq = dev_pm_opp_get_freq(opp);
 +	dev_pm_opp_put(opp);
 +
-+	provider_freq = target_freq;
-+	opp = dev_pm_opp_find_freq_ceil(bp->perf_dev, &provider_freq);
++	opp = dev_pm_opp_find_freq_exact(bp->perf_dev, target_freq, true);
 +	if (IS_ERR(opp))
 +		return PTR_ERR(opp);
-+	if (provider_freq != target_freq ||
-+	    dev_pm_opp_get_freq(opp) != target_freq) {
-+		dev_pm_opp_put(opp);
-+		return -EINVAL;
-+	}
 +	target_state = dev_pm_opp_get_level(opp);
 +	dev_pm_opp_put(opp);
 +	if (!target_state)
@@ -337,31 +304,32 @@ new file mode 100644
 +	if (ret)
 +		return ret;
 +
-+	ret = cix_bus_perf_read_state(bp, &previous_state, &previous_freq);
-+	if (ret)
-+		goto err_end_new_control;
++	if (!began_control) {
++		ret = cix_bus_perf_read_state(bp, &previous_state,
++					      &actual_freq);
++		if (ret)
++			goto err_end_new_control;
++	}
 +
-+	ret = cix_bus_perf_set_state(bp, target_state, &actual_state,
-+				     &actual_freq);
++	ret = cix_bus_perf_set_state(bp, target_state, &actual_freq);
 +	if (ret) {
-+		int restore_ret;
-+		unsigned long restore_freq;
-+		unsigned int restore_state;
++		if (!began_control) {
++			int restore_ret;
 +
-+		restore_ret = cix_bus_perf_set_state(bp, previous_state,
-+						     &restore_state,
-+						     &restore_freq);
-+		if (restore_ret)
-+			dev_warn(bp->dev,
-+				 "failed to roll back SCMI state %u after transition error: %d\n",
-+				 previous_state, restore_ret);
++			restore_ret = cix_bus_perf_set_state(bp, previous_state,
++							     &actual_freq);
++			if (restore_ret)
++				dev_warn(bp->dev,
++					 "failed to roll back SCMI state %u after transition error: %d\n",
++					 previous_state, restore_ret);
++		}
 +		goto err_end_new_control;
 +	}
 +
 +	*freq = actual_freq;
 +	dev_dbg(bp->dev,
-+		"requested SCMI state %u (%lu Hz), provider applied %u (%lu Hz)\n",
-+		target_state, target_freq, actual_state, actual_freq);
++		"requested SCMI state %u (%lu Hz), provider reports %lu Hz\n",
++		target_state, target_freq, actual_freq);
 +
 +	return 0;
 +
@@ -379,7 +347,8 @@ new file mode 100644
 +	return cix_bus_perf_read_state(bp, &state, freq);
 +}
 +
-+static int cix_bus_perf_read_initial_freq(struct cix_bus_perf *bp)
++static int cix_bus_perf_read_initial_freq(struct cix_bus_perf *bp,
++					  unsigned long *freq)
 +{
 +	unsigned int state;
 +	int ret;
@@ -388,7 +357,7 @@ new file mode 100644
 +	if (ret < 0)
 +		return ret;
 +
-+	ret = cix_bus_perf_read_state(bp, &state, &bp->profile.initial_freq);
++	ret = cix_bus_perf_read_state(bp, &state, freq);
 +	pm_runtime_put_noidle(bp->perf_dev);
 +
 +	return ret;
@@ -398,6 +367,7 @@ new file mode 100644
 +{
 +	struct device *dev = &pdev->dev;
 +	struct cix_bus_perf *bp;
++	unsigned long initial_freq;
 +	int ret;
 +
 +	bp = devm_kzalloc(dev, sizeof(*bp), GFP_KERNEL);
@@ -407,7 +377,7 @@ new file mode 100644
 +	bp->dev = dev;
 +	platform_set_drvdata(pdev, bp);
 +
-+	bp->perf_dev = cix_bus_perf_attach_domain(dev);
++	bp->perf_dev = dev_pm_domain_attach_by_name(dev, "perf");
 +	if (IS_ERR(bp->perf_dev))
 +		return dev_err_probe(dev, PTR_ERR(bp->perf_dev),
 +				     "failed to attach named perf domain\n");
@@ -416,26 +386,30 @@ new file mode 100644
 +				     "named perf domain is missing\n");
 +
 +	ret = cix_bus_perf_read_opps(bp);
-+	if (ret)
++	if (ret) {
 +		ret = dev_err_probe(dev, ret,
 +				    "invalid or unavailable perf-domain OPPs\n");
-+	else
-+		ret = cix_bus_perf_publish_opps(bp);
++		goto err_detach;
++	}
++
++	ret = cix_bus_perf_publish_opps(bp);
 +	if (ret)
 +		goto err_detach;
 +
-+	ret = cix_bus_perf_read_initial_freq(bp);
++	ret = cix_bus_perf_read_initial_freq(bp, &initial_freq);
 +	if (ret) {
 +		ret = dev_err_probe(dev, ret,
 +				    "failed to read initial perf-domain state\n");
 +		goto err_remove_opps;
 +	}
 +
-+	bp->profile.polling_ms = 0;
-+	bp->profile.target = cix_bus_perf_target;
-+	bp->profile.get_cur_freq = cix_bus_perf_get_cur_freq;
-+	bp->profile.freq_table = bp->freq_table;
-+	bp->profile.max_state = bp->opp_count;
++	bp->profile = (struct devfreq_dev_profile) {
++		.initial_freq = initial_freq,
++		.target = cix_bus_perf_target,
++		.get_cur_freq = cix_bus_perf_get_cur_freq,
++		.freq_table = bp->freq_table,
++		.max_state = bp->opp_count,
++	};
 +
 +	bp->devfreq = devfreq_add_device(dev, &bp->profile,
 +					 DEVFREQ_GOV_USERSPACE, NULL);
@@ -448,7 +422,7 @@ new file mode 100644
 +	dev_info(dev,
 +		 "registered %u OPPs: %lu-%lu Hz, SCMI states %u-%u; preserving firmware state %lu Hz until a policy request\n",
 +		 bp->opp_count, bp->min_freq, bp->max_freq,
-+		 bp->min_state, bp->max_state, bp->profile.initial_freq);
++		 bp->min_state, bp->max_state, initial_freq);
 +
 +	return 0;
 +

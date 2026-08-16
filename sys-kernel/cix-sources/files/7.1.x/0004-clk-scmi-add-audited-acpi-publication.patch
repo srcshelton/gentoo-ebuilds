@@ -4,12 +4,11 @@ every clock, reject ambiguous providers, match the ACPI clock child
 and its CIX SCMI parent, and synchronize lookup with supplier unbind
 before returning a direct clock-hardware reference.
 
-Provenance: Based on
-cixtech/cix-linux-main@19f2947303670f2e5734d6a96ffc72a80fd9b942
-patches-7.1/0004-clk-clk-scmi-register-clkdev-for-acpi.patch. The
-registry, ambiguity and bounds checks, DT guard, supplier locking,
-revalidation and persistent device link are overlay-created
-remediation.
+The registry, ambiguity and bounds checks, DT guard, supplier locking,
+revalidation and persistent device link are overlay-maintained corrections.
+
+Source: cixtech/cix-linux-main@19f2947303670f2e5734d6a96ffc72a80fd9b942,
+patches-7.1/0004-clk-clk-scmi-register-clkdev-for-acpi.patch.
 
 diff --git a/drivers/clk/clk-scmi.c b/drivers/clk/clk-scmi.c
 --- a/drivers/clk/clk-scmi.c

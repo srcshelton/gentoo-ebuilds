@@ -6,8 +6,8 @@ file-owned exec_id arena, and unwind the binding if userspace copyout fails.
 This is the first deliberately narrow BIND stage; generic page-backed
 exporters follow separately.
 
-Provenance: implements the public CIX P1 BIND ABI while replacing the vendor
-path's unchecked exporter-private-data access and incomplete lifetime model.
+This implements the public CIX P1 BIND ABI while replacing the vendor path's
+unchecked exporter-private-data access and incomplete lifetime model.
 
 diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
 --- a/drivers/misc/armchina-npu/aipu.c

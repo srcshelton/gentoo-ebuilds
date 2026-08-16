@@ -2,18 +2,22 @@ Expose the existing firmware scratch byte and optional PMCTRL_S5
 power-reason byte as read-only diagnostics. Preserve the warning that
 firmware scratch can be stale across an ordinary reset.
 
+Decode the software-reason byte using the layout selected by firmware.
+The 1.2 layout maps 0x01 to default exception and 0x02 to watchdog;
+the 1.3 layout adds fastboot at 0x01 and moves those meanings to 0x02
+and 0x03. Default a missing property to the 1.2 layout for compatibility,
+but reject malformed or unknown layout identifiers.
+
 The public CIX material does not define the complete power-reason enum.
 Mark the inherited interpretations with an assumed- prefix and keep
 unmapped values unknown. CIX EDK2 reads the same register, masks its low
-three bits, and treats 0x07 as the four-second power-button override, so
-use that source-backed mapping instead of the previous CSU watchdog label.
-Do not invent a replacement meaning for 0x06.
+three bits, and treats 0x07 as the four-second power-button override.
 
 diff --git a/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason b/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason
 new file mode 100644
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,38 @@
 +What:		/sys/bus/platform/devices/*/firmware_scratch_raw
 +Date:		July 2026
 +Contact:	Gentoo CIX kernel maintainers
@@ -28,8 +32,10 @@ new file mode 100644
 +Contact:	Gentoo CIX kernel maintainers
 +Description:
 +		Read-only diagnostic decoding of firmware_scratch_raw. Known values
-+		are power-on-or-unknown, default-exception, watchdog-interrupt,
-+		warm-reset and invalid; all other values are reported as unknown.
++		are power-on-or-unknown, fastboot-enable, default-exception,
++		watchdog-interrupt, warm-reset and invalid. The exact mapping is
++		selected by the device's cix,firmware-scratch-layout property; all
++		unmapped values are reported as unknown.
 +
 +What:		/sys/bus/platform/devices/*/hardware_reason_raw
 +Date:		July 2026
@@ -84,7 +90,7 @@ diff --git a/drivers/soc/cix/sky1-reboot-reason.c b/drivers/soc/cix/sky1-reboot-
 new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/sky1-reboot-reason.c
-@@ -0,0 +1,215 @@
+@@ -0,0 +1,236 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * CIX Sky1 firmware scratch diagnostics driver
@@ -95,30 +101,41 @@ new file mode 100644
 +#include <linux/mod_devicetable.h>
 +#include <linux/module.h>
 +#include <linux/platform_device.h>
++#include <linux/property.h>
 +#include <linux/slab.h>
 +
-+#define SKY1_REBOOT_REASON_MASK		0xff
-+#define SKY1_HW_REBOOT_REASON_MASK	0xff
++#define SKY1_SCRATCH_LAYOUT_1_2	1
++#define SKY1_SCRATCH_LAYOUT_1_3	2
 +
 +struct sky1_reboot_reason {
 +	void __iomem *scratch_base;
 +	void __iomem *hw_base;
++	const char * const *scratch_names;
 +};
 +
-+static unsigned int sky1_reboot_reason_read(void __iomem *base, u32 mask)
++static const char * const sky1_firmware_scratch_names[][3] = {
++	[SKY1_SCRATCH_LAYOUT_1_2 - 1] = {
++		"default-exception", "watchdog-interrupt",
++	},
++	[SKY1_SCRATCH_LAYOUT_1_3 - 1] = {
++		"fastboot-enable", "default-exception", "watchdog-interrupt",
++	},
++};
++
++static unsigned int sky1_reboot_reason_read(void __iomem *base)
 +{
-+	return readl_relaxed(base) & mask;
++	return readl_relaxed(base) & 0xff;
 +}
 +
-+static const char *sky1_firmware_scratch_name(unsigned int reason)
++static const char *sky1_scratch_name(const struct sky1_reboot_reason *rr,
++				     unsigned int reason)
 +{
++	if (reason >= 0x01 && reason <= 0x03)
++		return rr->scratch_names[reason - 1] ?: "unknown";
++
 +	switch (reason) {
 +	case 0x00:
 +		return "power-on-or-unknown";
-+	case 0x01:
-+		return "default-exception";
-+	case 0x02:
-+		return "watchdog-interrupt";
 +	case 0x04:
 +		return "warm-reset";
 +	case 0xff:
@@ -156,8 +173,7 @@ new file mode 100644
 +	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
 +
 +	return sysfs_emit(buf, "0x%02x\n",
-+			  sky1_reboot_reason_read(rr->scratch_base,
-+						  SKY1_REBOOT_REASON_MASK));
++			  sky1_reboot_reason_read(rr->scratch_base));
 +}
 +static DEVICE_ATTR_RO(firmware_scratch_raw);
 +
@@ -168,10 +184,10 @@ new file mode 100644
 +	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
 +	unsigned int reason;
 +
-+	reason = sky1_reboot_reason_read(rr->scratch_base,
-+					 SKY1_REBOOT_REASON_MASK);
++	reason = sky1_reboot_reason_read(rr->scratch_base);
 +
-+	return sysfs_emit(buf, "%s\n", sky1_firmware_scratch_name(reason));
++	return sysfs_emit(buf, "%s\n",
++			  sky1_scratch_name(rr, reason));
 +}
 +static DEVICE_ATTR_RO(firmware_scratch_reason);
 +
@@ -182,8 +198,7 @@ new file mode 100644
 +	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
 +
 +	return sysfs_emit(buf, "0x%02x\n",
-+			  sky1_reboot_reason_read(rr->hw_base,
-+						  SKY1_HW_REBOOT_REASON_MASK));
++			  sky1_reboot_reason_read(rr->hw_base));
 +}
 +static DEVICE_ATTR_RO(hardware_reason_raw);
 +
@@ -193,8 +208,7 @@ new file mode 100644
 +	struct sky1_reboot_reason *rr = dev_get_drvdata(dev);
 +	unsigned int reason;
 +
-+	reason = sky1_reboot_reason_read(rr->hw_base,
-+					 SKY1_HW_REBOOT_REASON_MASK);
++	reason = sky1_reboot_reason_read(rr->hw_base);
 +
 +	return sysfs_emit(buf, "%s\n", sky1_hw_reboot_reason_name(reason));
 +}
@@ -226,11 +240,26 @@ new file mode 100644
 +	struct resource *res;
 +	struct sky1_reboot_reason *rr;
 +	unsigned int reason;
++	u32 layout = SKY1_SCRATCH_LAYOUT_1_2;
 +	int ret;
 +
 +	rr = devm_kzalloc(dev, sizeof(*rr), GFP_KERNEL);
 +	if (!rr)
 +		return -ENOMEM;
++
++	if (device_property_present(dev, "cix,firmware-scratch-layout")) {
++		ret = device_property_read_u32(dev, "cix,firmware-scratch-layout",
++					       &layout);
++		if (ret)
++			return dev_err_probe(dev, ret,
++					     "invalid firmware scratch layout\n");
++	}
++	if (!layout || layout > ARRAY_SIZE(sky1_firmware_scratch_names))
++		return dev_err_probe(dev, -EINVAL,
++				     "unsupported firmware scratch layout %u\n",
++				     layout);
++
++	rr->scratch_names = sky1_firmware_scratch_names[layout - 1];
 +
 +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 +	if (!res || resource_size(res) < sizeof(u32))
@@ -268,14 +297,12 @@ new file mode 100644
 +			return ret;
 +	}
 +
-+	reason = sky1_reboot_reason_read(rr->scratch_base,
-+					 SKY1_REBOOT_REASON_MASK);
++	reason = sky1_reboot_reason_read(rr->scratch_base);
 +	dev_info(dev, "firmware scratch value: %s (0x%02x; may be stale)\n",
-+		 sky1_firmware_scratch_name(reason), reason);
++		 sky1_scratch_name(rr, reason), reason);
 +
 +	if (rr->hw_base) {
-+		reason = sky1_reboot_reason_read(rr->hw_base,
-+						 SKY1_HW_REBOOT_REASON_MASK);
++		reason = sky1_reboot_reason_read(rr->hw_base);
 +		dev_info(dev, "hardware reset reason: %s (0x%02x)\n",
 +			 sky1_hw_reboot_reason_name(reason), reason);
 +	}

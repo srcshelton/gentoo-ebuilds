@@ -2,8 +2,7 @@ Overlay-created hardening for the scoped CIX Sky1 Zhouyi V3 driver imported
 by 71500 and narrowed by 71520. It serializes first-instance publication,
 tracks power-domain links and parent/child state, fixes partial-failure
 unwind, rejects empty instances, and makes allocation alignment arithmetic
-overflow-safe. Mechanically generated from the exact Linux 6.18.38
-predecessor tree; no additional NPU hardware family is enabled.
+overflow-safe. No additional NPU hardware family is enabled.
 
 diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
 --- a/drivers/misc/armchina-npu/aipu.c

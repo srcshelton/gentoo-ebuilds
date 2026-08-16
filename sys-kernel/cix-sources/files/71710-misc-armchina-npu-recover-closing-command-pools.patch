@@ -1,0 +1,53 @@
+Mark a client context as closing before attempting to quiesce its work.
+A V3 command-pool abort affects every non-reapable job in that pool, so
+a live foreign owner must continue to prevent it. When all competing
+owners are closing, however, treating each abandoned job as live makes
+every close worker defer forever. Let one closing owner recover the
+shared pool while the retained contexts keep every affected job and
+allocation alive.
+
+diff --git a/drivers/misc/armchina-npu-common/aipu_file.c b/drivers/misc/armchina-npu-common/aipu_file.c
+--- a/drivers/misc/armchina-npu-common/aipu_file.c
++++ b/drivers/misc/armchina-npu-common/aipu_file.c
+@@ -87,6 +87,7 @@ int aipu_file_ctx_close(struct file *filp)
+ 
+ 	if (!ctx)
+ 		return 0;
++	WRITE_ONCE(ctx->closing, true);
+ 	ret = ctx->ops->quiesce(ctx, filp);
+ 	if (ret) {
+ 		dev_warn(ctx->ops->dev(ctx->priv),
+diff --git a/drivers/misc/armchina-npu-common/aipu_file.h b/drivers/misc/armchina-npu-common/aipu_file.h
+--- a/drivers/misc/armchina-npu-common/aipu_file.h
++++ b/drivers/misc/armchina-npu-common/aipu_file.h
+@@ -34,6 +34,7 @@ struct aipu_file_ctx {
+ 	struct delayed_work close_work;
+ 	unsigned long abi_mask;
+ 	unsigned int tick_counter_refs;
++	bool closing;
+ 	bool released;
+ };
+ 
+@@ -44,6 +45,11 @@ void aipu_file_ctx_get(struct aipu_file_ctx *ctx);
+ void aipu_file_ctx_put(struct aipu_file_ctx *ctx);
+ int aipu_file_ctx_close(struct file *filp);
+ 
++static inline bool aipu_file_ctx_is_closing(const struct aipu_file_ctx *ctx)
++{
++	return ctx && READ_ONCE(ctx->closing);
++}
++
+ static inline bool aipu_file_ctx_is_released(const struct aipu_file_ctx *ctx)
+ {
+ 	return ctx && READ_ONCE(ctx->released);
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -1831,6 +1831,7 @@ static bool aipu_pool_has_foreign_job(struct aipu_job_manager *manager,
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(job, &manager->scheduled_head->node, node) {
+ 		if (job->owner == owner || aipu_job_is_reapable(job) ||
++		    aipu_file_ctx_is_closing(job->owner) ||
+ 		    job->desc.partition_id != id)
+ 			continue;
+ 		found = true;

@@ -9,6 +9,7 @@ ACT_RUNNER_IMAGE ?= ghcr.io/catthehacker/ubuntu:act-24.04
 ACT_CONTAINER_ARCH ?= linux/arm64
 ACT_MATRIX ?=
 ACT_ARTIFACTS ?= $(REPO_ROOT)/.github/act-artifacts
+ACT_CACHE ?= $(REPO_ROOT)/.github/act-cache
 ACT_EVENT_FILE ?= $(REPO_ROOT)/.github/act-event.json
 ACT_EXTRA_ARGS ?=
 CONTAINER_CPUS ?= 8
@@ -21,7 +22,7 @@ ACT_INSTALL_URL ?= https://raw.githubusercontent.com/nektos/act/master/install.s
 help:
 	@printf '%s\n' \
 		'Targets:' \
-		'  act        Run the CIX kernel workflow locally inside ghcr.io/catthehacker/ubuntu:act-24.04.' \
+		'  act        Run the CIX kernel workflow with act, preferring an installed native binary.' \
 		'  clean-act  Remove local act event and artifact output.' \
 		'' \
 		'Variables:' \
@@ -34,9 +35,33 @@ help:
 
 act:
 	@set -euo pipefail; \
-	mkdir -p "$(ACT_ARTIFACTS)"; \
+	mkdir -p "$(ACT_ARTIFACTS)" "$(ACT_CACHE)/actions" "$(ACT_CACHE)/server"; \
 	printf '{"inputs":{"publish_release":false}}\n' > "$(ACT_EVENT_FILE)"; \
 	trap 'rm -f "$(ACT_EVENT_FILE)"' EXIT; \
+	job_args=(); \
+	if [[ -n "$(ACT_JOB)" ]]; then \
+		job_args=(-j "$(ACT_JOB)"); \
+	fi; \
+	matrix_args=(); \
+	for matrix_entry in $(ACT_MATRIX); do \
+		matrix_args+=(--matrix "$${matrix_entry}"); \
+	done; \
+	if [[ -z "$${ACT_RUNTIME:-}" ]] && command -v act >/dev/null 2>&1; then \
+		act --version; \
+		act "$(ACT_EVENT)" \
+			--directory "$(REPO_ROOT)" \
+			--workflows "$(WORKFLOW)" \
+			--eventpath "$(ACT_EVENT_FILE)" \
+			--action-cache-path "$(ACT_CACHE)/actions" \
+			--artifact-server-path "$(ACT_ARTIFACTS)" \
+			--cache-server-path "$(ACT_CACHE)/server" \
+			--platform "$(ACT_PLATFORM)=$(ACT_RUNNER_IMAGE)" \
+			--container-architecture "$(ACT_CONTAINER_ARCH)" \
+			"$${job_args[@]+"$${job_args[@]}"}" \
+			"$${matrix_args[@]+"$${matrix_args[@]}"}" \
+			$(ACT_EXTRA_ARGS); \
+		exit 0; \
+	fi; \
 	runtime="$${ACT_RUNTIME:-}"; \
 	if [[ -n "$${runtime}" ]]; then \
 		runtimes=("$${runtime}"); \
@@ -144,4 +169,4 @@ act:
 	esac
 
 clean-act:
-	@rm -rf "$(ACT_ARTIFACTS)" "$(ACT_EVENT_FILE)"
+	@rm -rf "$(ACT_ARTIFACTS)" "$(ACT_CACHE)" "$(ACT_EVENT_FILE)"

@@ -1,11 +1,8 @@
-Remove the raw-register, PCI-configuration, PHY, EEPROM-write, procfs,
-sysfs and cable-test engineering interfaces from the independently imported
-Realtek R8126 10.016.00 driver. Retain normal networking, RSS, Wake-on-LAN,
-standard ethtool operations and EEPROM reads. Also remove the unconditional
-probe-time licence banner; the source SPDX declarations remain authoritative.
-
-This deletion-only artifact is mechanically regenerated from the exact shared
-post-80031 R8126 source preimage with a minimal diff.
+Remove raw-register, PCI-configuration, PHY, EEPROM-write, procfs, sysfs and
+cable-test engineering interfaces from the Realtek R8126 10.018.00 driver.
+Retain normal networking, RSS, Wake-on-LAN, standard ethtool operations and
+EEPROM reads. Also remove the unconditional probe-time licence banner; the
+source SPDX declarations remain authoritative.
 
 diff --git a/drivers/net/ethernet/realtek/r8126/Kconfig b/drivers/net/ethernet/realtek/r8126/Kconfig
 --- a/drivers/net/ethernet/realtek/r8126/Kconfig
@@ -38,7 +35,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/Makefile b/drivers/net/ethernet/
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/realtek/r8126/r8126.h
 --- a/drivers/net/ethernet/realtek/r8126/r8126.h
 +++ b/drivers/net/ethernet/realtek/r8126/r8126.h
-@@ -404,16 +404,6 @@ do { \
+@@ -418,16 +418,6 @@ do { \
  #endif
  #endif
  
@@ -55,19 +52,19 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/r
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
  #define NETIF_F_HW_VLAN_RX	NETIF_F_HW_VLAN_CTAG_RX
  #define NETIF_F_HW_VLAN_TX	NETIF_F_HW_VLAN_CTAG_TX
-@@ -628,11 +618,6 @@ static inline u32 rtl8126_ethtool_adv_to_mmd_eee_adv_cap2_t(u32 adv)
+@@ -649,11 +639,6 @@ static inline u32 rtl8126_ethtool_adv_to_mmd_eee_adv_cap2_t(u32 adv)
  #define MODULENAME "r8126"
  #define PFX MODULENAME ": "
  
 -#define GPL_CLAIM "\
--r8126  Copyright (C) 2025 Realtek NIC software team <nicfae@realtek.com> \n \
+-r8126  Copyright (C) 2026 Realtek NIC software team <nicfae@realtek.com> \n \
 -This program comes with ABSOLUTELY NO WARRANTY; for details, please see <http://www.gnu.org/licenses/>. \n \
 -This is free software, and you are welcome to redistribute it under certain conditions; see <http://www.gnu.org/licenses/>. \n"
 -
  #ifdef RTL8126_DEBUG
  #define assert(expr) \
          if(!(expr)) {                   \
-@@ -2020,17 +2005,6 @@ enum bits {
+@@ -2041,17 +2026,6 @@ enum bits {
          BIT_31 = (1 << 31)
  };
  
@@ -85,7 +82,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/r
  enum efuse {
          EFUSE_NOT_SUPPORT = 0,
          EFUSE_SUPPORT_V1,
-@@ -2183,11 +2157,6 @@ enum r8126_flag {
+@@ -2203,11 +2177,6 @@ enum r8126_flag {
          R8126_FLAG_MAX
  };
  
@@ -97,7 +94,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/r
  struct rtl8126_tx_ring {
          void* priv;
          struct net_device *netdev;
-@@ -2621,8 +2590,6 @@ struct rtl8126_private {
+@@ -2641,8 +2610,6 @@ struct rtl8126_private {
          u16 sw_ram_code_ver;
          u16 hw_ram_code_ver;
  
@@ -106,7 +103,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/r
          u8 ShortPacketSwChecksum;
  
          u8 UseSwPaddingShortPkt;
-@@ -2698,17 +2665,6 @@ struct rtl8126_private {
+@@ -2720,17 +2687,6 @@ struct rtl8126_private {
  
          struct ethtool_keee eee;
  
@@ -124,7 +121,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/r
          u8 HwSuppRxDescType;
          u8 InitRxDescType;
          u16 RxDescLength; //V1 16 Byte V2 32 Bytes
-@@ -2863,11 +2819,7 @@ enum mcfg {
+@@ -2904,11 +2860,7 @@ enum mcfg {
  #define OTHER_Q_INTR_MASK (RxOK1 | RxDU1)
  
  void rtl8126_mdio_write(struct rtl8126_private *tp, u16 RegAddr, u16 value);
@@ -156,11 +153,99 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  #define FIRMWARE_8126A_2	"rtl_nic/rtl8126a-2.fw"
  #define FIRMWARE_8126A_3	"rtl_nic/rtl8126a-3.fw"
  
-@@ -634,16 +626,6 @@ static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
- }
- #endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
- 
--static u32 rtl8126_read_thermal_sensor(struct rtl8126_private *tp)
+@@ -541,2571 +533,186 @@ static inline unsigned long _kc_msecs_to_jiffies(const unsigned int m)
+ #else
+         return (m * HZ + MSEC_PER_SEC - 1) / MSEC_PER_SEC;
+ #endif
+-}
+-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
+-
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
+-
+-/* copied from linux kernel 2.6.12.6 /include/linux/pm.h */
+-typedef int __bitwise pci_power_t;
+-
+-/* copied from linux kernel 2.6.12.6 /include/linux/pci.h */
+-typedef u32 __bitwise pm_message_t;
+-
+-#define PCI_D0  ((pci_power_t __force) 0)
+-#define PCI_D1  ((pci_power_t __force) 1)
+-#define PCI_D2  ((pci_power_t __force) 2)
+-#define PCI_D3hot   ((pci_power_t __force) 3)
+-#define PCI_D3cold  ((pci_power_t __force) 4)
+-#define PCI_POWER_ERROR ((pci_power_t __force) -1)
+-
+-/* copied from linux kernel 2.6.12.6 /drivers/pci/pci.c */
+-/**
+- * pci_choose_state - Choose the power state of a PCI device
+- * @dev: PCI device to be suspended
+- * @state: target sleep state for the whole system. This is the value
+- *  that is passed to suspend() function.
+- *
+- * Returns PCI power state suitable for given device and given system
+- * message.
+- */
+-
+-pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state)
+-{
+-        if (!pci_find_capability(dev, PCI_CAP_ID_PM))
+-                return PCI_D0;
+-
+-        switch (state) {
+-        case 0:
+-                return PCI_D0;
+-        case 3:
+-                return PCI_D3hot;
+-        default:
+-                printk("They asked me for state %d\n", state);
+-//      BUG();
+-        }
+-        return PCI_D0;
+-}
+-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
+-/**
+- * msleep_interruptible - sleep waiting for waitqueue interruptions
+- * @msecs: Time in milliseconds to sleep for
+- */
+-#define msleep_interruptible _kc_msleep_interruptible
+-unsigned long _kc_msleep_interruptible(unsigned int msecs)
+-{
+-        unsigned long timeout = _kc_msecs_to_jiffies(msecs);
+-
+-        while (timeout && !signal_pending(current)) {
+-                set_current_state(TASK_INTERRUPTIBLE);
+-                timeout = schedule_timeout(timeout);
+-        }
+-        return _kc_jiffies_to_msecs(timeout);
+-}
+-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
+-/* copied from linux kernel 2.6.20 include/linux/sched.h */
+-#ifndef __sched
+-#define __sched     __attribute__((__section__(".sched.text")))
+-#endif
+-
+-/* copied from linux kernel 2.6.20 kernel/timer.c */
+-signed long __sched schedule_timeout_uninterruptible(signed long timeout)
+-{
+-        __set_current_state(TASK_UNINTERRUPTIBLE);
+-        return schedule_timeout(timeout);
+-}
+-
+-/* copied from linux kernel 2.6.20 include/linux/mii.h */
+-#undef if_mii
+-#define if_mii _kc_if_mii
+-static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
+-{
+-        return (struct mii_ioctl_data *) &rq->ifr_ifru;
+-}
+-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
+-
+-static u16 _rtl8126_read_thermal_sensor(struct rtl8126_private *tp)
 -{
 -        u16 ts_digout;
 -
@@ -170,13 +255,89 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        return ts_digout;
 -}
 -
- int rtl8126_dump_tally_counter(struct rtl8126_private *tp, dma_addr_t paddr)
- {
-         u32 cmd;
-@@ -716,16 +698,6 @@ rtl8126_get_phy_status(struct rtl8126_private *tp)
-         return RTL_R32(tp, PHYstatus);
- }
- 
+-static int rtl8126_read_thermal_sensor(struct rtl8126_private *tp)
+-{
+-        int tmp;
+-
+-        tmp = _rtl8126_read_thermal_sensor(tp);
+-        if (tmp > 512)
+-                return (0 - ((512 - (tmp - 512)) / 2));
+-        else
+-                return (tmp / 2);
+-}
+-
+-int rtl8126_dump_tally_counter(struct rtl8126_private *tp, dma_addr_t paddr)
+-{
+-        u32 cmd;
+-        u32 WaitCnt;
+-        int retval = -1;
+-
+-        RTL_W32(tp, CounterAddrHigh, (u64)paddr >> 32);
+-        cmd = (u64)paddr & DMA_BIT_MASK(32);
+-        RTL_W32(tp, CounterAddrLow, cmd);
+-        RTL_W32(tp, CounterAddrLow, cmd | CounterDump);
+-
+-        WaitCnt = 0;
+-        while (RTL_R32(tp, CounterAddrLow) & CounterDump) {
+-                udelay(10);
+-
+-                WaitCnt++;
+-                if (WaitCnt > 20)
+-                        break;
+-        }
+-
+-        if (WaitCnt <= 20)
+-                retval = 0;
+-
+-        return retval;
+-}
+-
+-static u32
+-rtl8126_get_hw_clo_ptr(struct rtl8126_tx_ring *ring)
+-{
+-        struct rtl8126_private *tp = ring->priv;
+-
+-        switch (tp->HwSuppTxNoCloseVer) {
+-        case 3:
+-                return RTL_R16(tp, ring->hw_clo_ptr_reg);
+-        case 4:
+-        case 5:
+-        case 6:
+-                return RTL_R32(tp, ring->hw_clo_ptr_reg);
+-        default:
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+-                WARN_ON(1);
+-#endif
+-                return 0;
+-        }
+-}
+-
+-static u32
+-rtl8126_get_sw_tail_ptr(struct rtl8126_tx_ring *ring)
+-{
+-        struct rtl8126_private *tp = ring->priv;
+-
+-        switch (tp->HwSuppTxNoCloseVer) {
+-        case 3:
+-                return RTL_R16(tp, ring->sw_tail_ptr_reg);
+-        case 4:
+-        case 5:
+-        case 6:
+-                return RTL_R32(tp, ring->sw_tail_ptr_reg);
+-        default:
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+-                WARN_ON(1);
+-#endif
+-                return 0;
+-        }
+-}
+-
+-static u32
+-rtl8126_get_phy_status(struct rtl8126_private *tp)
+-{
+-        return RTL_R32(tp, PHYstatus);
+-}
+-
 -static bool
 -rtl8126_sysfs_testmode_on(struct rtl8126_private *tp)
 -{
@@ -187,13 +348,26 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -#endif
 -}
 -
- static u32 rtl8126_convert_link_speed(u32 status)
- {
-         u32 speed = SPEED_UNKNOWN;
-@@ -746,2310 +718,6 @@ static u32 rtl8126_convert_link_speed(u32 status)
-         return speed;
- }
- 
+-static u32 rtl8126_convert_link_speed(u32 status)
+-{
+-        u32 speed = SPEED_UNKNOWN;
+-
+-        if (status & LinkStatus) {
+-                if (status & _5000bpsF)
+-                        speed = SPEED_5000;
+-                else if (status & (_2500bpsF | _5000bpsL))
+-                        speed = SPEED_2500;
+-                else if (status & (_1000bpsF | _2500bpsL | _1000bpsL))
+-                        speed = SPEED_1000;
+-                else if (status & _100bps)
+-                        speed = SPEED_100;
+-                else if (status & _10bps)
+-                        speed = SPEED_10;
+-        }
+-
+-        return speed;
+-}
+-
 -static void rtl8126_mdi_swap(struct rtl8126_private *tp)
 -{
 -        int i;
@@ -275,12 +449,11 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                if (status & _10bps) {
 -                        tmp_cp_len = -1;
 -                } else if (status & (_100bps | _1000bpsF)) {
--                        rtl8126_mdio_write(tp, 0x1f, 0x0a88);
--                        tmp_cp_len = rtl8126_mdio_read(tp, 0x10);
--                } else if (status & _2500bpsF) {
--                        rtl8126_mdio_write(tp, 0x1f, 0x0acb);
--                        tmp_cp_len = rtl8126_mdio_read(tp, 0x15);
--                        tmp_cp_len >>= 2;
+-                        tmp_cp_len = rtl8126_mdio_direct_read_phy_ocp(tp, 0xA880);;
+-                } else if (status & (_5000bpsF | _5000bpsL | _2500bpsF |
+-                                     _2500bpsL)) {
+-                        tmp_cp_len = rtl8126_mdio_direct_read_phy_ocp(tp, 0xAC0E);;
+-                        tmp_cp_len >>= 6;
 -                } else
 -                        tmp_cp_len = 0;
 -        } else
@@ -306,12 +479,11 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        case 0x0060:
 -                return rtl8126_cp_normal;
 -        case 0x0048:
+-        case 0x0042:
 -                return rtl8126_cp_open;
 -        case 0x0050:
--                return rtl8126_cp_short;
--        case 0x0042:
 -        case 0x0044:
--                return rtl8126_cp_mismatch;
+-                return rtl8126_cp_short;
 -        default:
 -                return rtl8126_cp_normal;
 -        }
@@ -325,7 +497,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        if (pair_num > 3)
 -                goto exit;
 -
--        rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, 0x8027 + 4 * pair_num);
+-        rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, 0x8026 + 4 * pair_num);
 -        val = rtl8126_mdio_direct_read_phy_ocp(tp, 0xA438);
 -
 -        cp_status = __rtl8126_get_cp_status(val);
@@ -357,7 +529,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        if (pair_num > 3)
 -                goto exit;
 -
--        rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, 0x8029 + 4 * pair_num);
+-        rtl8126_mdio_direct_write_phy_ocp(tp, 0xA436, 0x8028 + 4 * pair_num);
 -        pp = rtl8126_mdio_direct_read_phy_ocp(tp, 0xA438);
 -
 -        pp &= 0x3fff;
@@ -392,6 +564,11 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                                cp_status[i] = rtl8126_cp_normal;
 -                }
 -        }
+-}
+-
+-static int rtl8126_cel_to_fah(int cel)
+-{
+-        return (cel * 9 / 5) + 32;
 -}
 -
 -#ifdef ENABLE_R8126_PROCFS
@@ -466,6 +643,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        seq_printf(m, "HwIcVerUnknown\t0x%x\n", tp->HwIcVerUnknown);
 -        seq_printf(m, "NotWrRamCodeToMicroP\t0x%x\n", tp->NotWrRamCodeToMicroP);
 -        seq_printf(m, "NotWrMcuPatchCode\t0x%x\n", tp->NotWrMcuPatchCode);
+-        seq_printf(m, "hw_has_mac_mcu_patch_code\t0x%x\n", tp->hw_has_mac_mcu_patch_code);
 -        seq_printf(m, "HwHasWrRamCodeToMicroP\t0x%x\n", tp->HwHasWrRamCodeToMicroP);
 -        seq_printf(m, "sw_ram_code_ver\t0x%x\n", tp->sw_ram_code_ver);
 -        seq_printf(m, "hw_ram_code_ver\t0x%x\n", tp->hw_ram_code_ver);
@@ -482,19 +660,19 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        seq_printf(m, "NicCustLedValue\t0x%x\n", tp->NicCustLedValue);
 -        seq_printf(m, "RequiredSecLanDonglePatch\t0x%x\n", tp->RequiredSecLanDonglePatch);
 -        seq_printf(m, "HwSuppKCPOffloadVer\t0x%x\n", tp->HwSuppKCPOffloadVer);
--        seq_printf(m, "speed_mode\t0x%x\n", speed_mode);
--        seq_printf(m, "duplex_mode\t0x%x\n", duplex_mode);
--        seq_printf(m, "autoneg_mode\t0x%x\n", autoneg_mode);
--        seq_printf(m, "aspm\t0x%x\n", aspm);
--        seq_printf(m, "s5wol\t0x%x\n", s5wol);
--        seq_printf(m, "s5_keep_curr_mac\t0x%x\n", s5_keep_curr_mac);
+-        seq_printf(m, "speed_mode\t0x%x\n", tp->speed_mode);
+-        seq_printf(m, "duplex_mode\t0x%x\n", tp->duplex_mode);
+-        seq_printf(m, "autoneg_mode\t0x%x\n", tp->autoneg_mode);
+-        seq_printf(m, "aspm\t0x%x\n", tp->aspm);
+-        seq_printf(m, "s5wol\t0x%x\n", tp->s5wol);
+-        seq_printf(m, "s5_keep_curr_mac\t0x%x\n", tp->s5_keep_curr_mac);
 -        seq_printf(m, "eee_enable\t0x%x\n", tp->eee.eee_enabled);
--        seq_printf(m, "hwoptimize\t0x%lx\n", hwoptimize);
+-        seq_printf(m, "hwoptimize\t0x%lx\n", tp->hwoptimize);
 -        seq_printf(m, "proc_init_num\t0x%x\n", proc_init_num);
--        seq_printf(m, "s0_magic_packet\t0x%x\n", s0_magic_packet);
--        seq_printf(m, "disable_wol_support\t0x%x\n", disable_wol_support);
--        seq_printf(m, "enable_double_vlan\t0x%x\n", enable_double_vlan);
--        seq_printf(m, "eee_giga_lite\t0x%x\n", eee_giga_lite);
+-        seq_printf(m, "s0_magic_packet\t0x%x\n", tp->s0_magic_packet);
+-        seq_printf(m, "disable_wol_support\t0x%x\n", tp->disable_wol_support);
+-        seq_printf(m, "enable_double_vlan\t0x%x\n", tp->enable_double_vlan);
+-        seq_printf(m, "enable_giga_lite\t0x%x\n", tp->enable_giga_lite);
 -        seq_printf(m, "HwSuppMagicPktVer\t0x%x\n", tp->HwSuppMagicPktVer);
 -        seq_printf(m, "HwSuppLinkChgWakeUpVer\t0x%x\n", tp->HwSuppLinkChgWakeUpVer);
 -        seq_printf(m, "HwSuppD0SpeedUpVer\t0x%x\n", tp->HwSuppD0SpeedUpVer);
@@ -531,6 +709,8 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        seq_printf(m, "MacMcuPageSize\t0x%x\n", tp->MacMcuPageSize);
 -        seq_printf(m, "hw_mcu_patch_code_ver\t0x%llx\n", tp->hw_mcu_patch_code_ver);
 -        seq_printf(m, "bin_mcu_patch_code_ver\t0x%llx\n", tp->bin_mcu_patch_code_ver);
+-        seq_printf(m, "hw_mcu_patch_code_bp_en\t0x%x\n", tp->hw_mcu_patch_code_bp_en);
+-        seq_printf(m, "sw_mcu_patch_code_bp_en\t0x%x\n", tp->sw_mcu_patch_code_bp_en);
 -#ifdef ENABLE_PTP_SUPPORT
 -        seq_printf(m, "tx_hwtstamp_timeouts\t0x%x\n", tp->tx_hwtstamp_timeouts);
 -        seq_printf(m, "tx_hwtstamp_skipped\t0x%x\n", tp->tx_hwtstamp_skipped);
@@ -629,16 +809,20 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        seq_puts(m, "\nDump MAC Registers\n");
 -        seq_puts(m, "Offset\tValue\n------\t-----\n");
 -
--        rtnl_lock();
--
 -        for (n = 0; n < max;) {
 -                seq_printf(m, "\n0x%04x:\t", n);
+-
+-                rtnl_lock();
 -
 -                for (i = 0; i < 16 && n < max; i++, n++) {
 -                        byte_rd = readb(ioaddr + n);
 -                        seq_printf(m, "%02x ", byte_rd);
 -                }
+-
+-                rtnl_unlock();
 -        }
+-
+-        rtnl_lock();
 -
 -        max = 0xB00;
 -        for (n = 0xA00; n < max;) {
@@ -688,20 +872,20 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        seq_puts(m, "\nDump All MAC Registers\n");
 -        seq_puts(m, "Offset\tValue\n------\t-----\n");
 -
--        rtnl_lock();
--
 -        max = pci_resource_len(pdev, 2);
 -
 -        for (n = 0; n < max;) {
 -                seq_printf(m, "\n0x%04x:\t", n);
 -
+-                rtnl_lock();
+-
 -                for (i = 0; i < 16 && n < max; i++, n++) {
 -                        byte_rd = readb(ioaddr + n);
 -                        seq_printf(m, "%02x ", byte_rd);
 -                }
--        }
 -
--        rtnl_unlock();
+-                rtnl_unlock();
+-        }
 -
 -        seq_printf(m, "\nTotal length:0x%X", max);
 -
@@ -848,16 +1032,16 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                seq_printf(m, "\n0x%03x:\t", n);
 -
 -                for (i = 0; i < 4 && n < max; i++, n+=4) {
--                        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-                        dword_rd = rtl8126_pci_config_read(tp, n);
 -                        seq_printf(m, "%08x ", dword_rd);
 -                }
 -        }
 -
 -        n = 0x110;
--        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        dword_rd = rtl8126_pci_config_read(tp, n);
 -        seq_printf(m, "\n0x%03x:\t%08x ", n, dword_rd);
 -        n = 0x70c;
--        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        dword_rd = rtl8126_pci_config_read(tp, n);
 -        seq_printf(m, "\n0x%03x:\t%08x ", n, dword_rd);
 -
 -        rtnl_unlock();
@@ -870,8 +1054,8 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -{
 -        struct net_device *dev = m->private;
 -        struct rtl8126_private *tp = netdev_priv(dev);
--        u16 ts_digout, tj, fah;
 -        unsigned long flags;
+-        int cel, fah;
 -
 -        rtnl_lock();
 -
@@ -884,24 +1068,17 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        r8126_spin_lock(&tp->phy_lock, flags);
 -
 -        netif_testing_on(dev);
--        ts_digout = rtl8126_read_thermal_sensor(tp);
+-        cel = rtl8126_read_thermal_sensor(tp);
 -        netif_testing_off(dev);
 -
 -        r8126_spin_unlock(&tp->phy_lock, flags);
 -
 -        rtnl_unlock();
 -
--        if (ts_digout <= 512) {
--                tj = ts_digout / 2;
--                seq_printf(m, "Cel:%d\n", tj);
--                fah = tj * (9/5) + 32;
--                seq_printf(m, "Fah:%d\n", fah);
--        } else {
--                tj = (512 - (ts_digout - 512)) / 2;
--                seq_printf(m, "Cel:-%d\n", tj);
--                fah = tj * (9/5) + 32;
--                seq_printf(m, "Fah:-%d\n", fah);
--        }
+-        fah = rtl8126_cel_to_fah(cel);
+-
+-        seq_printf(m, "Cel:%d\n", cel);
+-        seq_printf(m, "Fah:%d\n", fah);
 -
 -        seq_putc(m, '\n');
 -        return 0;
@@ -918,12 +1095,6 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        const char *pair_str[RTL8126_CP_NUM] = {"1-2", "3-6", "4-5", "7-8"};
 -        unsigned long flags;
 -        int ret;
--
--        switch (tp->mcfg) {
--        default:
--                ret = -EOPNOTSUPP;
--                goto error_out;
--        }
 -
 -        rtnl_lock();
 -
@@ -983,7 +1154,6 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -error_unlock:
 -        rtnl_unlock();
 -
--error_out:
 -        return ret;
 -}
 -
@@ -1126,6 +1296,31 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        return 0;
 -}
 -
+-static int proc_dump_mac_mcu_bp(struct seq_file *m, void *v)
+-{
+-        int i, j;
+-        struct net_device *dev = m->private;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        rtnl_lock();
+-
+-        seq_printf(m, "\ndump MAC MCU BPs. \n");
+-
+-        seq_printf(m, "BP_EN 0x%04x \n", rtl8126_mac_ocp_read(tp, 0xFC48));
+-
+-        seq_printf(m, "BP Base 0x%04x \n", rtl8126_mac_ocp_read(tp, 0xFC26));
+-
+-        for (i=0xFC28, j=0; i<0xFC48; i+=2, j++) {
+-                seq_printf(m, "BP%02d(0x%04x) 0x%04x \n", j, i,
+-                           rtl8126_mac_ocp_read(tp, i));
+-        }
+-
+-        rtnl_unlock();
+-
+-        seq_putc(m, '\n');
+-        return 0;
+-}
+-
 -#else //LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 -
 -static int proc_get_driver_variable(char *page, char **start,
@@ -1197,6 +1392,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        "HwIcVerUnknown\t0x%x\n"
 -                        "NotWrRamCodeToMicroP\t0x%x\n"
 -                        "NotWrMcuPatchCode\t0x%x\n"
+-                        "hw_has_mac_mcu_patch_code\t0x%x\n"
 -                        "HwHasWrRamCodeToMicroP\t0x%x\n"
 -                        "sw_ram_code_ver\t0x%x\n"
 -                        "hw_ram_code_ver\t0x%x\n"
@@ -1225,7 +1421,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        "s0_magic_packet\t0x%x\n"
 -                        "disable_wol_support\t0x%x\n"
 -                        "enable_double_vlan\t0x%x\n"
--                        "eee_giga_lite\t0x%x\n"
+-                        "enable_giga_lite\t0x%x\n"
 -                        "HwSuppMagicPktVer\t0x%x\n"
 -                        "HwSuppLinkChgWakeUpVer\t0x%x\n"
 -                        "HwSuppD0SpeedUpVer\t0x%x\n"
@@ -1262,6 +1458,8 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        "MacMcuPageSize\t0x%x\n"
 -                        "hw_mcu_patch_code_ver\t0x%llx\n"
 -                        "bin_mcu_patch_code_ver\t0x%llx\n"
+-                        "hw_mcu_patch_code_bp_en\t0x%x\n"
+-                        "sw_mcu_patch_code_bp_en\t0x%x\n"
 -#ifdef ENABLE_PTP_SUPPORT
 -                        "tx_hwtstamp_timeouts\t0x%x\n"
 -                        "tx_hwtstamp_skipped\t0x%x\n"
@@ -1324,6 +1522,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        tp->HwIcVerUnknown,
 -                        tp->NotWrRamCodeToMicroP,
 -                        tp->NotWrMcuPatchCode,
+-                        tp->hw_has_mac_mcu_patch_code,
 -                        tp->HwHasWrRamCodeToMicroP,
 -                        tp->sw_ram_code_ver,
 -                        tp->hw_ram_code_ver,
@@ -1340,19 +1539,19 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        tp->NicCustLedValue,
 -                        tp->RequiredSecLanDonglePatch,
 -                        tp->HwSuppKCPOffloadVer,
--                        speed_mode,
--                        duplex_mode,
--                        autoneg_mode,
--                        aspm,
--                        s5wol,
--                        s5_keep_curr_mac,
+-                        tp->speed_mode,
+-                        tp->duplex_mode,
+-                        tp->autoneg_mode,
+-                        tp->aspm,
+-                        tp->s5wol,
+-                        tp->s5_keep_curr_mac,
 -                        tp->eee.eee_enabled,
--                        hwoptimize,
+-                        tp->hwoptimize,
 -                        proc_init_num,
--                        s0_magic_packet,
--                        disable_wol_support,
--                        enable_double_vlan,
--                        eee_giga_lite,
+-                        tp->s0_magic_packet,
+-                        tp->disable_wol_support,
+-                        tp->enable_double_vlan,
+-                        tp->enable_giga_lite,
 -                        tp->HwSuppMagicPktVer,
 -                        tp->HwSuppLinkChgWakeUpVer,
 -                        tp->HwSuppD0SpeedUpVer,
@@ -1389,6 +1588,8 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        tp->MacMcuPageSize,
 -                        tp->hw_mcu_patch_code_ver,
 -                        tp->bin_mcu_patch_code_ver,
+-                        tp->hw_mcu_patch_code_bp_en,
+-                        tp->sw_mcu_patch_code_bp_en,
 -#ifdef ENABLE_PTP_SUPPORT
 -                        tp->tx_hwtstamp_timeouts,
 -                        tp->tx_hwtstamp_skipped,
@@ -1541,12 +1742,12 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        "\nDump MAC Registers\n"
 -                        "Offset\tValue\n------\t-----\n");
 -
--        rtnl_lock();
--
 -        for (n = 0; n < max;) {
 -                len += snprintf(page + len, count - len,
 -                                "\n0x%04x:\t",
 -                                n);
+-
+-                rtnl_lock();
 -
 -                for (i = 0; i < 16 && n < max; i++, n++) {
 -                        byte_rd = readb(ioaddr + n);
@@ -1554,7 +1755,11 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                                        "%02x ",
 -                                        byte_rd);
 -                }
+-
+-                rtnl_unlock();
 -        }
+-
+-        rtnl_lock();
 -
 -        max = 0xB00;
 -        for (n = 0xA00; n < max;) {
@@ -1622,8 +1827,6 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        "\nDump All MAC Registers\n"
 -                        "Offset\tValue\n------\t-----\n");
 -
--        rtnl_lock();
--
 -        max = pci_resource_len(pdev, 2);
 -
 -        for (n = 0; n < max;) {
@@ -1631,15 +1834,17 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                                "\n0x%04x:\t",
 -                                n);
 -
+-                rtnl_lock();
+-
 -                for (i = 0; i < 16 && n < max; i++, n++) {
 -                        byte_rd = readb(ioaddr + n);
 -                        len += snprintf(page + len, count - len,
 -                                        "%02x ",
 -                                        byte_rd);
 -                }
--        }
 -
--        rtnl_unlock();
+-                rtnl_unlock();
+-        }
 -
 -        len += snprintf(page + len, count - len, "\nTotal length:0x%X", max);
 -
@@ -1850,7 +2055,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                                n);
 -
 -                for (i = 0; i < 4 && n < max; i++, n+=4) {
--                        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-                        dword_rd = rtl8126_pci_config_read(tp, n);
 -                        len += snprintf(page + len, count - len,
 -                                        "%08x ",
 -                                        dword_rd);
@@ -1858,13 +2063,13 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        }
 -
 -        n = 0x110;
--        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        dword_rd = rtl8126_pci_config_read(tp, n);
 -        len += snprintf(page + len, count - len,
 -                        "\n0x%03x:\t%08x ",
 -                        n,
 -                        dword_rd);
 -        n = 0x70c;
--        pci_read_config_dword(tp->pci_dev, n, &dword_rd);
+-        dword_rd = rtl8126_pci_config_read(tp, n);
 -        len += snprintf(page + len, count - len,
 -                        "\n0x%03x:\t%08x ",
 -                        n,
@@ -1884,8 +2089,8 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -{
 -        struct net_device *dev = data;
 -        struct rtl8126_private *tp = netdev_priv(dev);
--        u16 ts_digout, tj, fah;
 -        unsigned long flags;
+-        int cel, fah;
 -        int len = 0;
 -
 -        rtnl_lock();
@@ -1897,29 +2102,17 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        }
 -
 -        r8126_spin_lock(&tp->phy_lock, flags);
--        ts_digout = rtl8126_read_thermal_sensor(tp);
+-        cel = rtl8126_read_thermal_sensor(tp);
 -        r8126_spin_unlock(&tp->phy_lock, flags);
 -
--        if (ts_digout <= 512) {
--                tj = ts_digout / 2;
--                len += snprintf(page + len, count - len,
--                                "Cel:%d\n",
--                                tj);
--                fah = tj * (9/5) + 32;
--                len += snprintf(page + len, count - len,
--                                "Fah:%d\n",
--                                fah);
+-        fah = rtl8126_cel_to_fah(cel);
 -
--        } else {
--                tj = (512 - (ts_digout - 512)) / 2;
--                len += snprintf(page + len, count - len,
--                                "Cel:-%d\n",
--                                tj);
--                fah = tj * (9/5) + 32;
--                len += snprintf(page + len, count - len,
--                                "Fah:-%d\n",
--                                fah);
--        }
+-        len += snprintf(page + len, count - len,
+-                        "Cel:%d\n",
+-                        cel);
+-        len += snprintf(page + len, count - len,
+-                        "Fah:%d\n",
+-                        fah);
 -
 -        len += snprintf(page + len, count - len, "\n");
 -
@@ -1944,11 +2137,6 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        struct rtl8126_private *tp = netdev_priv(dev);
 -        const char *pair_str[RTL8126_CP_NUM] = {"1-2", "3-6", "4-5", "7-8"};
 -        unsigned long flags;
--
--        switch (tp->mcfg) {
--        default:
--                return -EOPNOTSUPP;
--        }
 -
 -        rtnl_lock();
 -
@@ -2188,6 +2376,40 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        return 0;
 -}
 -
+-static int proc_dump_mac_mcu_bp(char *page, char **start,
+-                                off_t offset, int count,
+-                                int *eof, void *data)
+-{
+-        int i, j;
+-        int len = 0;
+-        struct net_device *dev = data;
+-        struct rtl8126_private *tp = netdev_priv(dev);
+-
+-        rtnl_lock();
+-
+-        len += snprintf(page + len, count - len,
+-                        "\ndump MAC MCU BPs. \n");
+-
+-        len += snprintf(page + len, count - len, "BP_EN 0x%04x \n",
+-                        rtl8126_mac_ocp_read(tp, 0xFC48));
+-
+-        len += snprintf(page + len, count - len, "BP Base 0x%04x \n",
+-                        rtl8126_mac_ocp_read(tp, 0xFC26));
+-
+-        for (i=0xFC28, j=0; i<0xFC48; i+=2, j++) {
+-                len += snprintf(page + len, count - len,
+-                                "BP%02d(0x%04x) 0x%04x \n", j, i,
+-                                rtl8126_mac_ocp_read(tp, i));
+-        }
+-
+-        rtnl_unlock();
+-
+-        len += snprintf(page + len, count - len, "\n");
+-
+-        *eof = 1;
+-        return 0;
+-}
+-
 -#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 -
 -static void rtl8126_proc_module_init(void)
@@ -2260,6 +2482,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        { "tx_desc", &proc_dump_tx_desc },
 -        { "rx_desc", &proc_dump_rx_desc },
 -        { "msix_tbl", &proc_dump_msix_tbl },
+-        { "mac_mcu_bp", &proc_dump_mac_mcu_bp },
 -        { "", NULL }
 -};
 -
@@ -2281,10 +2504,12 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -
 -        if (!rtl8126_proc)
 -                return;
--
++}
++#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
+ 
 -        if (tp->proc_dir_debug || tp->proc_dir_test)
 -                return;
--
+ 
 -#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 -        dir = proc_mkdir_data(dev->name, 0, rtl8126_proc, dev);
 -        if (!dir) {
@@ -2294,7 +2519,8 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        }
 -        tp->proc_dir = dir;
 -        proc_init_num++;
--
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
+ 
 -        /* create debug entry */
 -        dir = proc_mkdir_data(R8126_PROC_DEBUG_DIR, 0, tp->proc_dir, dev);
 -        if (!dir) {
@@ -2302,7 +2528,9 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                       MODULENAME, dev->name, R8126_PROC_DEBUG_DIR);
 -                return;
 -        }
--
++/* copied from linux kernel 2.6.12.6 /include/linux/pm.h */
++typedef int __bitwise pci_power_t;
+ 
 -        tp->proc_dir_debug = dir;
 -        for (f = rtl8126_debug_proc_files; f->name[0]; f++) {
 -                if (!proc_create_data(f->name, S_IFREG | S_IRUGO, dir,
@@ -2314,7 +2542,9 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        return;
 -                }
 -        }
--
++/* copied from linux kernel 2.6.12.6 /include/linux/pci.h */
++typedef u32 __bitwise pm_message_t;
+ 
 -        /* create test entry */
 -        dir = proc_mkdir_data(R8126_PROC_TEST_DIR, 0, tp->proc_dir, dev);
 -        if (!dir) {
@@ -2322,7 +2552,13 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                       MODULENAME, dev->name, R8126_PROC_TEST_DIR);
 -                return;
 -        }
--
++#define PCI_D0  ((pci_power_t __force) 0)
++#define PCI_D1  ((pci_power_t __force) 1)
++#define PCI_D2  ((pci_power_t __force) 2)
++#define PCI_D3hot   ((pci_power_t __force) 3)
++#define PCI_D3cold  ((pci_power_t __force) 4)
++#define PCI_POWER_ERROR ((pci_power_t __force) -1)
+ 
 -        tp->proc_dir_test = dir;
 -        for (f = rtl8126_test_proc_files; f->name[0]; f++) {
 -                if (!proc_create_data(f->name, S_IFREG | S_IRUGO, dir,
@@ -2341,18 +2577,43 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                       MODULENAME, dev->name);
 -                return;
 -        }
--
++/* copied from linux kernel 2.6.12.6 /drivers/pci/pci.c */
++/**
++ * pci_choose_state - Choose the power state of a PCI device
++ * @dev: PCI device to be suspended
++ * @state: target sleep state for the whole system. This is the value
++ *  that is passed to suspend() function.
++ *
++ * Returns PCI power state suitable for given device and given system
++ * message.
++ */
+ 
 -        tp->proc_dir = dir;
 -        proc_init_num++;
--
++pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state)
++{
++        if (!pci_find_capability(dev, PCI_CAP_ID_PM))
++                return PCI_D0;
+ 
 -        /* create debug entry */
 -        dir = proc_mkdir(R8126_PROC_DEBUG_DIR, tp->proc_dir);
 -        if (!dir) {
 -                printk("Unable to initialize /proc/net/%s/%s/%s\n",
 -                       MODULENAME, dev->name, R8126_PROC_DEBUG_DIR);
 -                return;
--        }
--
++        switch (state) {
++        case 0:
++                return PCI_D0;
++        case 3:
++                return PCI_D3hot;
++        default:
++                printk("They asked me for state %d\n", state);
++//      BUG();
+         }
++        return PCI_D0;
++}
++#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
+ 
 -        tp->proc_dir_debug = dir;
 -        for (f = rtl8126_debug_proc_files; f->name[0]; f++) {
 -                if (!create_proc_read_entry(f->name, S_IFREG | S_IRUGO,
@@ -2364,15 +2625,30 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        return;
 -                }
 -        }
--
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
++/**
++ * msleep_interruptible - sleep waiting for waitqueue interruptions
++ * @msecs: Time in milliseconds to sleep for
++ */
++#define msleep_interruptible _kc_msleep_interruptible
++unsigned long _kc_msleep_interruptible(unsigned int msecs)
++{
++        unsigned long timeout = _kc_msecs_to_jiffies(msecs);
+ 
 -        /* create test entry */
 -        dir = proc_mkdir(R8126_PROC_TEST_DIR, tp->proc_dir);
 -        if (!dir) {
 -                printk("Unable to initialize /proc/net/%s/%s/%s\n",
 -                       MODULENAME, dev->name, R8126_PROC_TEST_DIR);
 -                return;
--        }
--
++        while (timeout && !signal_pending(current)) {
++                set_current_state(TASK_INTERRUPTIBLE);
++                timeout = schedule_timeout(timeout);
+         }
++        return _kc_jiffies_to_msecs(timeout);
++}
++#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
+ 
 -        tp->proc_dir_test = dir;
 -        for (f = rtl8126_test_proc_files; f->name[0]; f++) {
 -                if (!create_proc_read_entry(f->name, S_IFREG | S_IRUGO,
@@ -2384,42 +2660,74 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        return;
 -                }
 -        }
--#endif
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
++/* copied from linux kernel 2.6.20 include/linux/sched.h */
++#ifndef __sched
++#define __sched     __attribute__((__section__(".sched.text")))
+ #endif
 -}
--
+ 
 -static void rtl8126_proc_remove(struct net_device *dev)
--{
++/* copied from linux kernel 2.6.20 kernel/timer.c */
++signed long __sched schedule_timeout_uninterruptible(signed long timeout)
+ {
 -        struct rtl8126_private *tp = netdev_priv(dev);
--
++        __set_current_state(TASK_UNINTERRUPTIBLE);
++        return schedule_timeout(timeout);
++}
+ 
 -        if (tp->proc_dir) {
 -#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 -                remove_proc_subtree(dev->name, rtl8126_proc);
 -#else
 -                const struct rtl8126_proc_file *f;
 -                struct rtl8126_private *tp = netdev_priv(dev);
--
++/* copied from linux kernel 2.6.20 include/linux/mii.h */
++#undef if_mii
++#define if_mii _kc_if_mii
++static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
++{
++        return (struct mii_ioctl_data *) &rq->ifr_ifru;
++}
++#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
+ 
 -                if (tp->proc_dir_debug) {
 -                        for (f = rtl8126_debug_proc_files; f->name[0]; f++)
 -                                remove_proc_entry(f->name, tp->proc_dir_debug);
 -                        remove_proc_entry(R8126_PROC_DEBUG_DIR, tp->proc_dir);
 -                }
--
++int rtl8126_dump_tally_counter(struct rtl8126_private *tp, dma_addr_t paddr)
++{
++        u32 cmd;
++        u32 WaitCnt;
++        int retval = -1;
+ 
 -                if (tp->proc_dir_test) {
 -                        for (f = rtl8126_test_proc_files; f->name[0]; f++)
 -                                remove_proc_entry(f->name, tp->proc_dir_test);
 -                        remove_proc_entry(R8126_PROC_TEST_DIR, tp->proc_dir);
 -                }
--
++        RTL_W32(tp, CounterAddrHigh, (u64)paddr >> 32);
++        cmd = (u64)paddr & DMA_BIT_MASK(32);
++        RTL_W32(tp, CounterAddrLow, cmd);
++        RTL_W32(tp, CounterAddrLow, cmd | CounterDump);
+ 
 -                remove_proc_entry(dev->name, rtl8126_proc);
 -#endif
 -                proc_init_num--;
--
++        WaitCnt = 0;
++        while (RTL_R32(tp, CounterAddrLow) & CounterDump) {
++                udelay(10);
+ 
 -                tp->proc_dir_debug = NULL;
 -                tp->proc_dir_test = NULL;
 -                tp->proc_dir = NULL;
--        }
++                WaitCnt++;
++                if (WaitCnt > 20)
++                        break;
+         }
 -}
--
+ 
 -#endif //ENABLE_R8126_PROCFS
 -
 -#ifdef ENABLE_R8126_SYSFS
@@ -2432,32 +2740,52 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -{
 -        struct net_device *netdev = to_net_dev(dev);
 -        struct rtl8126_private *tp = netdev_priv(netdev);
--
--        sprintf(buf, "%u\n", tp->testmode);
--
--        return strlen(buf);
--}
--
++        if (WaitCnt <= 20)
++                retval = 0;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,103)
+-        return sprintf(buf, "%u\n", tp->testmode);
+-#else
+-        return sysfs_emit(buf, "%u\n", tp->testmode);
+-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5,4,103) */
++        return retval;
+ }
+ 
 -static ssize_t testmode_store(struct device *dev,
 -                              struct device_attribute *attr,
 -                              const char *buf, size_t count)
--{
++static u32
++rtl8126_get_hw_clo_ptr(struct rtl8126_tx_ring *ring)
+ {
 -        struct net_device *netdev = to_net_dev(dev);
 -        struct rtl8126_private *tp = netdev_priv(netdev);
 -        u32 testmode;
 -
 -        if (sscanf(buf, "%u\n", &testmode) != 1)
 -                return -EINVAL;
--
++        struct rtl8126_private *tp = ring->priv;
+ 
 -        if (tp->testmode != testmode) {
 -                rtnl_lock();
 -                tp->testmode = testmode;
 -                rtnl_unlock();
--        }
++        switch (tp->HwSuppTxNoCloseVer) {
++        case 3:
++                return RTL_R16(tp, ring->hw_clo_ptr_reg);
++        case 4:
++        case 5:
++        case 6:
++                return RTL_R32(tp, ring->hw_clo_ptr_reg);
++        default:
++#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
++                WARN_ON(1);
++#endif
++                return 0;
+         }
 -
 -        return count;
--}
--
+ }
+ 
 -static DEVICE_ATTR_RW(testmode);
 -
 -static struct attribute *rtk_adv_attrs[] = {
@@ -2471,37 +2799,74 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -};
 -
 -static void rtl8126_sysfs_init(struct net_device *dev)
--{
++static u32
++rtl8126_get_sw_tail_ptr(struct rtl8126_tx_ring *ring)
+ {
 -        struct rtl8126_private *tp = netdev_priv(dev);
 -        int ret;
--
++        struct rtl8126_private *tp = ring->priv;
+ 
 -        /* init rtl_adv */
 -#ifdef ENABLE_LIB_SUPPORT
 -        tp->testmode = 0;
 -#else
 -        tp->testmode = 1;
 -#endif //ENABLE_LIB_SUPPORT
--
++        switch (tp->HwSuppTxNoCloseVer) {
++        case 3:
++                return RTL_R16(tp, ring->sw_tail_ptr_reg);
++        case 4:
++        case 5:
++        case 6:
++                return RTL_R32(tp, ring->sw_tail_ptr_reg);
++        default:
++#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
++                WARN_ON(1);
++#endif
++                return 0;
++        }
++}
+ 
 -        ret = sysfs_create_group(&dev->dev.kobj, &rtk_adv_grp);
 -        if (ret < 0)
 -                netif_warn(tp, probe, dev, "create rtk_adv_grp fail\n");
 -        else
 -                set_bit(R8126_SYSFS_RTL_ADV, tp->sysfs_flag);
--}
--
++static u32
++rtl8126_get_phy_status(struct rtl8126_private *tp)
++{
++        return RTL_R32(tp, PHYstatus);
+ }
+ 
 -static void rtl8126_sysfs_remove(struct net_device *dev)
--{
++static u32 rtl8126_convert_link_speed(u32 status)
+ {
 -        struct rtl8126_private *tp = netdev_priv(dev);
--
++        u32 speed = SPEED_UNKNOWN;
++
++        if (status & LinkStatus) {
++                if (status & _5000bpsF)
++                        speed = SPEED_5000;
++                else if (status & (_2500bpsF | _5000bpsL))
++                        speed = SPEED_2500;
++                else if (status & (_1000bpsF | _2500bpsL | _1000bpsL))
++                        speed = SPEED_1000;
++                else if (status & _100bps)
++                        speed = SPEED_100;
++                else if (status & _10bps)
++                        speed = SPEED_10;
++        }
+ 
 -        if (test_and_clear_bit(R8126_SYSFS_RTL_ADV, tp->sysfs_flag))
 -                sysfs_remove_group(&dev->dev.kobj, &rtk_adv_grp);
--}
++        return speed;
+ }
 -#endif //ENABLE_R8126_SYSFS
--
++
+ 
  static inline u16 map_phy_ocp_addr(u16 PageNum, u8 RegNum)
  {
-         u16 OcpPageNum = 0;
-@@ -3106,9 +774,6 @@ void rtl8126_mdio_direct_write_phy_ocp(struct rtl8126_private *tp,
+@@ -3163,9 +770,6 @@ void rtl8126_mdio_direct_write_phy_ocp(struct rtl8126_private *tp,
                                         u16 RegAddr,
                                         u16 value)
  {
@@ -2511,23 +2876,24 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          mdio_real_direct_write_phy_ocp(tp, RegAddr, value);
  }
  
-@@ -3153,26 +818,9 @@ void rtl8126_mdio_write(struct rtl8126_private *tp,
+@@ -3209,27 +813,10 @@ static void mdio_real_write(struct rtl8126_private *tp,
+ void rtl8126_mdio_write(struct rtl8126_private *tp,
                          u16 RegAddr,
                          u16 value)
- {
+-{
 -        if (tp->rtk_enable_diag)
 -                return;
 -
-         mdio_real_write(tp, RegAddr, value);
- }
- 
--void rtl8126_mdio_prot_write(struct rtl8126_private *tp,
--                             u32 RegAddr,
--                             u32 value)
--{
 -        mdio_real_write(tp, RegAddr, value);
 -}
 -
+-void rtl8126_mdio_prot_write(struct rtl8126_private *tp,
+-                             u32 RegAddr,
+-                             u32 value)
+ {
+         mdio_real_write(tp, RegAddr, value);
+ }
+ 
 -void rtl8126_mdio_prot_direct_write_phy_ocp(struct rtl8126_private *tp,
 -                u32 RegAddr,
 -                u32 value)
@@ -2538,7 +2904,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  static u32 mdio_real_direct_read_phy_ocp(struct rtl8126_private *tp,
                  u16 RegAddr)
  {
-@@ -3200,9 +848,6 @@ static u32 mdio_real_direct_read_phy_ocp(struct rtl8126_private *tp,
+@@ -3257,9 +844,6 @@ static u32 mdio_real_direct_read_phy_ocp(struct rtl8126_private *tp,
  u32 rtl8126_mdio_direct_read_phy_ocp(struct rtl8126_private *tp,
                                       u16 RegAddr)
  {
@@ -2548,22 +2914,23 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          return mdio_real_direct_read_phy_ocp(tp, RegAddr);
  }
  
-@@ -3239,24 +884,9 @@ static u32 mdio_real_read(struct rtl8126_private *tp,
+@@ -3295,25 +879,10 @@ static u32 mdio_real_read(struct rtl8126_private *tp,
+ 
  u32 rtl8126_mdio_read(struct rtl8126_private *tp,
                        u16 RegAddr)
- {
+-{
 -        if (tp->rtk_enable_diag)
 -                return 0xffffffff;
 -
-         return mdio_real_read(tp, RegAddr);
- }
- 
--u32 rtl8126_mdio_prot_read(struct rtl8126_private *tp,
--                           u32 RegAddr)
--{
 -        return mdio_real_read(tp, RegAddr);
 -}
 -
+-u32 rtl8126_mdio_prot_read(struct rtl8126_private *tp,
+-                           u32 RegAddr)
+ {
+         return mdio_real_read(tp, RegAddr);
+ }
+ 
 -u32 rtl8126_mdio_prot_direct_read_phy_ocp(struct rtl8126_private *tp,
 -                u32 RegAddr)
 -{
@@ -2573,7 +2940,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  static void rtl8126_clear_and_set_eth_phy_bit(struct rtl8126_private *tp, u8  addr, u16 clearmask, u16 setmask)
  {
          u16 PhyRegValue;
-@@ -6461,9 +4091,6 @@ static int rtl_nway_reset(struct net_device *dev)
+@@ -6562,9 +4131,6 @@ static int rtl_nway_reset(struct net_device *dev)
          struct rtl8126_private *tp = netdev_priv(dev);
          int ret, bmcr;
  
@@ -2583,7 +2950,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          /* if autoneg is off, it's an error */
          rtl8126_mdio_write(tp, 0x1F, 0x0000);
          bmcr = rtl8126_mdio_read(tp, MII_BMCR);
-@@ -6552,9 +4179,6 @@ rtl_ethtool_get_eee(struct net_device *net, struct ethtool_keee *edata)
+@@ -6653,9 +4219,6 @@ rtl_ethtool_get_eee(struct net_device *net, struct ethtool_keee *edata)
          u32 tx_lpi_timer;
          u16 val;
  
@@ -2593,7 +2960,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          r8126_spin_lock(&tp->phy_lock, flags);
  
          /* Get LP advertisement EEE */
-@@ -6599,12 +4223,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_keee *edata)
+@@ -6700,12 +4263,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_keee *edata)
                  goto out;
          }
  
@@ -2606,7 +2973,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          if (tp->autoneg != AUTONEG_ENABLE) {
                  dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE requires autoneg\n");
                  rc = -EINVAL;
-@@ -6668,9 +4286,6 @@ rtl_ethtool_get_eee(struct net_device *net, struct ethtool_eee *edata)
+@@ -6764,9 +4321,6 @@ rtl_ethtool_get_eee(struct net_device *net, struct ethtool_eee *edata)
          unsigned long flags;
          u16 val;
  
@@ -2616,7 +2983,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          r8126_spin_lock(&tp->phy_lock, flags);
  
          /* Get Supported EEE */
-@@ -6723,12 +4338,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
+@@ -6819,12 +4373,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
                  goto out;
          }
  
@@ -2629,15 +2996,18 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          if (tp->autoneg != AUTONEG_ENABLE) {
                  dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE requires autoneg\n");
                  rc = -EINVAL;
-@@ -12726,7 +10335,6 @@ static int ethtool_ioctl(struct ifreq *ifr)
+@@ -12202,8 +9750,9 @@ static int ethtool_ioctl(struct ifreq *ifr)
  static int rtl8126_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
                                    void __user *data, int cmd)
  {
 -        struct rtl8126_private *tp = netdev_priv(dev);
++#ifdef ENABLE_REALWOW_SUPPORT
+         struct ifreq ifrdata = { .ifr_data = data };
++#endif
          int ret = 0;
  
          switch (cmd) {
-@@ -12741,17 +10349,6 @@ static int rtl8126_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
+@@ -12218,17 +9767,6 @@ static int rtl8126_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
                  break;
  #endif
  
@@ -2648,14 +3018,14 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -                        break;
 -                }
 -
--                ret = rtl8126_tool_ioctl(tp, ifr);
+-                ret = rtl8126_tool_ioctl(tp, &ifrdata);
 -                break;
 -#endif
 -
          default:
                  ret = -EOPNOTSUPP;
          }
-@@ -12818,16 +10415,6 @@ rtl8126_do_ioctl(struct net_device *dev,
+@@ -12295,16 +9833,6 @@ rtl8126_do_ioctl(struct net_device *dev,
                  break;
  #endif
  
@@ -2672,7 +3042,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  #endif //LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
  
          default:
-@@ -13062,9 +10649,6 @@ rtl8126_esd_checker(struct rtl8126_private *tp)
+@@ -12563,9 +10091,6 @@ rtl8126_esd_checker(struct rtl8126_private *tp)
          u32 pci_sn_l;
          u32 pci_sn_h;
  
@@ -2682,7 +3052,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          tp->esd_flag = 0;
  
          pci_read_config_byte(pdev, PCI_COMMAND, &cmd);
-@@ -13875,20 +11459,12 @@ rtl8126_init_one(struct pci_dev *pdev,
+@@ -13396,20 +10921,12 @@ rtl8126_init_one(struct pci_dev *pdev,
          if (rc)
                  goto err_out;
  
@@ -2698,12 +3068,12 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -        rtl8126_sysfs_init(dev);
 -#endif /* ENABLE_R8126_SYSFS */
 -
--        printk("%s", GPL_CLAIM);
+-        printk(KERN_INFO "%s", GPL_CLAIM);
 -
  out:
          return rc;
  
-@@ -13925,18 +11501,11 @@ rtl8126_remove_one(struct pci_dev *pdev)
+@@ -13444,10 +10961,6 @@ rtl8126_remove_one(struct pci_dev *pdev)
  
          rtl8126_disable_pci_offset_180(tp);
  
@@ -2712,7 +3082,9 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
 -#endif //ENABLE_R8126_SYSFS
 -
          unregister_netdev(dev);
- #ifdef  CONFIG_R8126_NAPI
+ 
+         rtl8126_cancel_all_schedule_work(tp);
+@@ -13455,9 +10968,6 @@ rtl8126_remove_one(struct pci_dev *pdev)
          rtl8126_del_napi(tp);
  #endif
          rtl8126_disable_msi(pdev, tp);
@@ -2722,7 +3094,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          if (tp->tally_vaddr != NULL) {
                  dma_free_coherent(&pdev->dev, sizeof(*tp->tally_vaddr), tp->tally_vaddr, tp->tally_paddr);
                  tp->tally_vaddr = NULL;
-@@ -14238,9 +11807,6 @@ int rtl8126_open(struct net_device *dev)
+@@ -13760,9 +11270,6 @@ int rtl8126_open(struct net_device *dev)
  
          retval = -ENOMEM;
  
@@ -2732,7 +3104,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
          rtl8126_set_rxbufsize(tp, dev);
          /*
           * Rx and Tx descriptors needs 256 bytes alignment.
-@@ -17266,9 +14832,6 @@ static int __init
+@@ -16903,9 +14410,6 @@ static int __init
  rtl8126_init_module(void)
  {
          int ret = 0;
@@ -2742,7 +3114,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  
  #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
  
-@@ -17284,21 +14847,6 @@ static void __exit
+@@ -16921,21 +14425,6 @@ static void __exit
  rtl8126_cleanup_module(void)
  {
          pci_unregister_driver(&rtl8126_pci_driver);
@@ -2882,7 +3254,7 @@ deleted file mode 100644
 -# r8126 is the Linux device driver released for Realtek 5 Gigabit Ethernet
 -# controllers with PCI-Express interface.
 -#
--# Copyright(c) 2025 Realtek Semiconductor Corp. All rights reserved.
+-# Copyright(c) 2026 Realtek Semiconductor Corp. All rights reserved.
 -#
 -# This program is free software; you can redistribute it and/or modify it
 -# under the terms of the GNU General Public License as published by the Free
@@ -3180,7 +3552,7 @@ deleted file mode 100644
 -# r8126 is the Linux device driver released for Realtek 5 Gigabit Ethernet
 -# controllers with PCI-Express interface.
 -#
--# Copyright(c) 2025 Realtek Semiconductor Corp. All rights reserved.
+-# Copyright(c) 2026 Realtek Semiconductor Corp. All rights reserved.
 -#
 -# This program is free software; you can redistribute it and/or modify it
 -# under the terms of the GNU General Public License as published by the Free

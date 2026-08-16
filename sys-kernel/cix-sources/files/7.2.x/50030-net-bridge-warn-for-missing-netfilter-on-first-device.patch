@@ -1,0 +1,29 @@
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -52,6 +52,12 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+ 			if (err)
+ 				return notifier_from_errno(err);
+ 
++#if IS_MODULE(CONFIG_BRIDGE_NETFILTER)
++			if (!rcu_access_pointer(nf_br_ops))
++				pr_info_once("bridge: filtering via arp/ip/ip6tables is not available; "
++					     "load br_netfilter if needed\n");
++#endif
++
+ 			return NOTIFY_DONE;
+ 		}
+ 	}
+@@ -464,12 +470,6 @@ static int __init br_init(void)
+ 
+ 	brioctl_set(br_ioctl_stub);
+ 
+-#if IS_MODULE(CONFIG_BRIDGE_NETFILTER)
+-	pr_info("bridge: filtering via arp/ip/ip6tables is no longer available "
+-		"by default. Update your scripts to load br_netfilter if you "
+-		"need this.\n");
+-#endif
+-
+ 	return 0;
+ 
+ err_out6:

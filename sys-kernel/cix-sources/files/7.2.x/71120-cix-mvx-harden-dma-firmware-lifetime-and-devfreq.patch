@@ -1,0 +1,2099 @@
+diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+--- a/drivers/media/platform/cix/dev/mvx_dev.c
++++ b/drivers/media/platform/cix/dev/mvx_dev.c
+@@ -113,21 +113,23 @@
+ 
+ static uint busctrl_ref = MVE_BUSTCTRL_REF_DEFAULT;
+ static uint busctrl_split = MVE_BUSTCTRL_SPLIT_512;
+-module_param(busctrl_ref, uint, 0660);
+-module_param(busctrl_split, uint, 0660);
++module_param(busctrl_ref, uint, 0444);
++module_param(busctrl_split, uint, 0444);
+ 
+ static bool disable_dfs = 0;
+-module_param(disable_dfs, bool, 0660);
++module_param(disable_dfs, bool, 0444);
+ 
+ /****************************************************************************
+  * Types
+  ****************************************************************************/
+ 
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
+ struct mvx_freq_table {
+     unsigned int cores;
+     unsigned long load;
+     unsigned long freq;
+ };
++#endif
+ 
+ /**
+  * struct mvx_dev_ctx - Private context for the MVx dev device.
+@@ -140,7 +142,9 @@ struct mvx_freq_table {
+  * @client_ops: Device operations exposed through @if_ops.
+  * @hwreg: Hardware-register access state.
+  * @scheduler: Session scheduler state.
++ * @scheduler_initialized: Whether @scheduler was constructed successfully.
+  * @irq: Host interrupt number.
++ * @irq_enabled: Whether the requested interrupt is currently enabled.
+  * @work_queue: Workqueue used to process pending virtual-engine interrupts.
+  * @work: Work item that dispatches pending virtual-engine interrupts.
+  * @irqve: Bitmap of logical session IDs with a pending virtual-engine IRQ.
+@@ -150,6 +154,7 @@ struct mvx_freq_table {
+  * @devfreq_profile: Devfreq callbacks and frequency table.
+  * @devfreq: Registered devfreq device.
+  * @devfreq_initialized: Whether devfreq registration completed successfully.
++ * @opp_notifier_registered: Whether the consumer OPP notifier was registered.
+  * @target_freq: Most recently requested devfreq target in Hz.
+  * @probe_done: Completion signalled when probe succeeds or fails.
+  */
+@@ -163,7 +168,9 @@ struct mvx_dev_ctx {
+     struct mvx_client_ops client_ops;
+     struct mvx_hwreg hwreg;
+     struct mvx_sched scheduler;
++    bool scheduler_initialized;
+     unsigned int irq;
++    bool irq_enabled;
+     struct workqueue_struct *work_queue;
+     struct work_struct work;
+     unsigned long irqve;
+@@ -173,6 +180,7 @@ struct mvx_dev_ctx {
+     struct device_link *opp_dl;
+     struct devfreq_dev_profile devfreq_profile;
+     struct devfreq *devfreq;
++    bool opp_notifier_registered;
+     bool devfreq_initialized;
+     unsigned long target_freq;
+     struct completion probe_done;
+@@ -197,6 +205,7 @@ struct mvx_client_session {
+ const char * const vpu_pmdomains[MVX_MAX_NUMBER_OF_PMDOMAINS] = {
+     "vpu_top", "vpu_core0", "vpu_core1", "vpu_core2", "vpu_core3"};
+ 
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
+ static const struct mvx_freq_table sky1_mvx_freq_table[] = {
+     {4, 486000,  150000000},        // 1080P@60
+     {4, 972000,  300000000},        // 1080P@120
+@@ -205,6 +214,7 @@ static const struct mvx_freq_table sky1_mvx_freq_table[] = {
+     {4, 4147200, 800000000},        // 4K@120
+     {4, 8294400, 1200000000},       // 8K@60
+ };
++#endif
+ 
+ static struct mvx_dev_ctx *client_ops_to_ctx(struct mvx_client_ops *client)
+ {
+@@ -265,6 +275,7 @@ static unsigned int get_core_mask(struct mvx_client_ops *client)
+ }
+ 
+ 
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
+ static int update_freq(struct mvx_dev_ctx *ctx)
+ {
+     int active_ncores;
+@@ -282,6 +293,9 @@ static int update_freq(struct mvx_dev_ctx *ctx)
+         freq = highest.freq;
+     } else {
+         active_ncores = mvx_hwreg_get_ncores(&ctx->hwreg);
++        if (active_ncores <= 0)
++            return -ENODEV;
++
+         for (i = 0; i < ARRAY_SIZE(sky1_mvx_freq_table); i++) {
+             if (sky1_mvx_freq_table[i].load >= mbs_per_sec) {
+                 freq = sky1_mvx_freq_table[i].freq * sky1_mvx_freq_table[i].cores / active_ncores;
+@@ -306,9 +320,11 @@ static int update_freq(struct mvx_dev_ctx *ctx)
+ 
+     return ret;
+ }
++#endif
+ 
+ static int update_load(struct mvx_client_session *csession)
+ {
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
+     struct mvx_dev_ctx *ctx = csession->ctx;
+     int ret;
+ 
+@@ -330,6 +346,9 @@ static int update_load(struct mvx_client_session *csession)
+     mutex_unlock(&ctx->devfreq->lock);
+ 
+     return ret;
++#else
++    return 0;
++#endif
+ }
+ 
+ static struct mvx_client_session *register_session(
+@@ -545,6 +564,7 @@ static irqreturn_t irq_top(int irq,
+     return ret;
+ }
+ 
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
+ /*
+  * Mainline devfreq implementation using standard OPP API.
+  * Works with SCMI perf domain which auto-populates OPPs on device attach.
+@@ -768,6 +788,17 @@ static int mvx_devfreq_get_dev_status(struct device *dev,
+     return 0;
+ }
+ 
++static void mvx_devfreq_remove_opps(struct mvx_dev_ctx *ctx)
++{
++    struct devfreq_dev_profile *profile = &ctx->devfreq_profile;
++
++    while (profile->max_state > 0) {
++        profile->max_state--;
++        dev_pm_opp_remove(ctx->dev,
++                  profile->freq_table[profile->max_state]);
++    }
++}
++
+ /*
+  * Mainline devfreq_init using standard SCMI perf domain.
+  * OPPs are auto-populated by scmi_pd_attach_dev() when we attach to perf domain.
+@@ -780,7 +811,6 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+ 	unsigned int initial_level;
+     int opp_count;
+     struct devfreq_simple_ondemand_data *ondemand_data;
+-    int i;
+     int ret;
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "%s()", __func__);
+@@ -796,11 +826,21 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+      * In mainline, scmi_pd_attach_dev() auto-populates OPPs for the attached device.
+      */
+     ctx->opp_pmdomain = dev_pm_domain_attach_by_name(ctx->dev, "perf");
+-    if (IS_ERR_OR_NULL(ctx->opp_pmdomain)) {
++    if (IS_ERR(ctx->opp_pmdomain)) {
++        ret = PTR_ERR(ctx->opp_pmdomain);
++        ctx->opp_pmdomain = NULL;
++        if (ret == -EPROBE_DEFER)
++            return ret;
++
++        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO,
++            "%s(): Failed to attach perf domain (%d), devfreq disabled",
++            __func__, ret);
++        return 0;
++    }
++    if (ctx->opp_pmdomain == NULL) {
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO,
+             "%s(): No perf domain available, devfreq disabled", __func__);
+-        ctx->opp_pmdomain = NULL;
+-        return 0;  /* Not an error - devfreq is optional */
++        return 0;
+     }
+ 
+     /* Create device link for runtime PM */
+@@ -809,9 +849,10 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+                             DL_FLAG_PM_RUNTIME |
+                             DL_FLAG_STATELESS);
+     if (IS_ERR_OR_NULL(ctx->opp_dl)) {
++        ret = IS_ERR(ctx->opp_dl) ? PTR_ERR(ctx->opp_dl) : -ENODEV;
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+-            "%s(): Failed to create device link", __func__);
+-        ret = -ENODEV;
++            "%s(): Failed to create device link: %d", __func__, ret);
++        ctx->opp_dl = NULL;
+         goto detach_opp;
+     }
+ 
+@@ -837,6 +878,7 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+     }
+ 
+     profile = &ctx->devfreq_profile;
++	profile->max_state = 0;
+ 	ret = mvx_devfreq_read_perf_state(ctx, &initial_level,
+ 					  &profile->initial_freq);
+ 	if (ret) {
+@@ -853,25 +895,28 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+         goto free_ondemand;
+     }
+ 
+-    for (i = 0, freq = 0; i < opp_count; i++, freq++) {
++    for (freq = 0; profile->max_state < opp_count; freq++) {
+         opp = dev_pm_opp_find_freq_ceil(ctx->opp_pmdomain, &freq);
+-        if (IS_ERR(opp))
+-            break;
++        if (IS_ERR(opp)) {
++            ret = PTR_ERR(opp);
++            MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
++                "%s(): OPP metadata changed while enumerating (%d)",
++                __func__, ret);
++            goto remove_opps;
++        }
+         dev_pm_opp_put(opp);
+-        profile->freq_table[i] = freq;
+ 
+         /* Also add OPPs to ctx->dev for devfreq registration */
+         ret = dev_pm_opp_add(ctx->dev, freq, 0);
+         if (ret) {
+             MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
+                 "%s(): Failed to add opp %lu Hz", __func__, freq);
+-            while (i-- > 0)
+-                dev_pm_opp_remove(ctx->dev, profile->freq_table[i]);
+-            goto free_table;
++            goto remove_opps;
+         }
++
++        profile->freq_table[profile->max_state++] = freq;
+     }
+ 
+-    profile->max_state = i;
+     profile->polling_ms = 100;
+     profile->target = mvx_devfreq_target;
+     profile->get_dev_status = mvx_devfreq_get_dev_status;
+@@ -897,19 +942,21 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+             "%s(): Failed to register opp notifier: %d", __func__, ret);
+         /* Continue anyway - notifier is optional */
++    } else {
++        ctx->opp_notifier_registered = true;
+     }
+ 
+     ctx->devfreq_initialized = true;
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO,
+-        "%s(): Devfreq enabled with %d OPPs", __func__, i);
++        "%s(): Devfreq enabled with %u OPPs", __func__,
++        profile->max_state);
+ 
+     return 0;
+ 
+ remove_table:
+-    dev_pm_opp_remove_table(ctx->dev);
+-    profile->max_state = 0;
+-free_table:
++remove_opps:
++    mvx_devfreq_remove_opps(ctx);
+     kfree(profile->freq_table);
+     profile->freq_table = NULL;
+ free_ondemand:
+@@ -934,11 +981,12 @@ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "%s()", __func__);
+ 
+-    if (disable_dfs)
+-        return 0;
+-
+     if (ctx->devfreq) {
+-        devm_devfreq_unregister_opp_notifier(ctx->dev, ctx->devfreq);
++		if (ctx->opp_notifier_registered) {
++			devm_devfreq_unregister_opp_notifier(ctx->dev,
++							     ctx->devfreq);
++			ctx->opp_notifier_registered = false;
++		}
+         devm_devfreq_remove_device(ctx->dev, ctx->devfreq);
+         ctx->devfreq_initialized = false;
+         ctx->devfreq = NULL;
+@@ -948,10 +996,7 @@ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
+ 		dev_warn(ctx->dev,
+ 			 "failed to restore initial perf state during removal: %d\n",
+ 			 ret);
+-    if (ctx->devfreq_profile.max_state > 0) {
+-        dev_pm_opp_remove_table(ctx->dev);
+-        ctx->devfreq_profile.max_state = 0;
+-    }
++	mvx_devfreq_remove_opps(ctx);
+     if (ctx->devfreq_profile.freq_table) {
+         kfree(ctx->devfreq_profile.freq_table);
+         ctx->devfreq_profile.freq_table = NULL;
+@@ -967,6 +1012,17 @@ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
+ 
+     return 0;
+ }
++#else
++static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
++{
++    return 0;
++}
++
++static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
++{
++    return 0;
++}
++#endif
+ 
+ #ifdef CONFIG_ACPI
+ #if VPU_CORE_ACPI_REF_POWERSOURCE
+@@ -987,6 +1043,31 @@ static struct dev_pm_domain acpi_vpu_pm_domain = {
+ #endif
+ #endif
+ 
++static void mvx_pmdomains_detach(struct mvx_dev_ctx *ctx)
++{
++    unsigned int i;
++
++    if (dev_is_pci(ctx->dev)) {
++        ctx->pmdomains[0] = NULL;
++    } else if (has_acpi_companion(ctx->dev)) {
++#if defined(CONFIG_ACPI) && VPU_CORE_ACPI_REF_POWERSOURCE
++        for (i = 1; i < ctx->pmdomains_cnt; i++) {
++            pm_runtime_disable(ctx->pmdomains[i]);
++            dev_pm_domain_detach(ctx->pmdomains[i], true);
++            ctx->pmdomains[i] = NULL;
++        }
++#endif
++        ctx->pmdomains[0] = NULL;
++    } else {
++        for (i = ctx->pmdomains_cnt; i > 0; i--) {
++            dev_pm_domain_detach(ctx->pmdomains[i - 1], true);
++            ctx->pmdomains[i - 1] = NULL;
++        }
++    }
++
++    ctx->pmdomains_cnt = 0;
++}
++
+ static int mvx_dev_probe(struct device *dev,
+              struct resource *rcsu_res,
+              struct resource *res,
+@@ -995,6 +1076,7 @@ static int mvx_dev_probe(struct device *dev,
+     struct mvx_dev_ctx *ctx;
+     int ret;
+     int i;
++    int pd_count;
+     struct device *pd;
+ #ifdef CONFIG_ACPI
+     struct fwnode_handle *child;
+@@ -1003,7 +1085,7 @@ static int mvx_dev_probe(struct device *dev,
+     /* Create device context and store pointer in device private data. */
+     ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+     if (ctx == NULL)
+-        return -EINVAL;
++        return -ENOMEM;
+ 
+     ctx->dev = dev;
+     dev_set_drvdata(dev, ctx);
+@@ -1029,7 +1111,7 @@ static int mvx_dev_probe(struct device *dev,
+     /* Create if context. */
+     ctx->if_ops = mvx_if_create(dev, &ctx->client_ops, ctx);
+     if (IS_ERR(ctx->if_ops)) {
+-        ret = -EINVAL;
++        ret = PTR_ERR(ctx->if_ops);
+         goto free_ctx;
+     }
+ 
+@@ -1051,16 +1133,16 @@ static int mvx_dev_probe(struct device *dev,
+         goto destruct_dentry;
+ 
+     ctx->clk = devm_clk_get_optional(dev, MVE_CLK_NAME);
+-    if (IS_ERR_OR_NULL(ctx->clk)) {
+-        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "Failed to get clock.");
+-        ret = -EFAULT;
++    if (IS_ERR(ctx->clk)) {
++        ret = dev_err_probe(dev, PTR_ERR(ctx->clk),
++                    "Failed to get clock.\n");
+         goto destruct_hwreg;
+     }
+     ctx->rstc = devm_reset_control_get(dev, MVE_RST_NAME);
+     if (IS_ERR(ctx->rstc)) {
+-        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "Failed to get reset_control, %s.",
+-                        MVE_RST_NAME);
+-        ret = -EFAULT;
++        ret = dev_err_probe(dev, PTR_ERR(ctx->rstc),
++                    "Failed to get reset control %s.\n",
++                    MVE_RST_NAME);
+         goto destruct_hwreg;
+     }
+ 
+@@ -1079,49 +1161,61 @@ static int mvx_dev_probe(struct device *dev,
+     if (has_acpi_companion(dev)) {
+ #ifdef	CONFIG_ACPI
+         ctx->pmdomains[0] = dev;
+-        i = 1;
++        ctx->pmdomains_cnt = 1;
+         fwnode_for_each_child_node(dev->fwnode, child) {
+             if (is_acpi_data_node(child)) {
+                 continue;
+             }
+             if (!strncmp(acpi_device_bid(to_acpi_device_node(child)),
+                             VPU_CORE_ACPI_NAME_PREFIX, ACPI_NAMESEG_SIZE - 1)) {
+-                if (i >= MVX_MAX_NUMBER_OF_PMDOMAINS) {
++                if (ctx->pmdomains_cnt >= MVX_MAX_NUMBER_OF_PMDOMAINS) {
+                     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "pmDomains more than limits, Num:limits=[%d:%d].",
+-                                    i + 1, MVX_MAX_NUMBER_OF_PMDOMAINS);
+-                    ret = -EFAULT;
+-                    goto irq_free;
++                                    ctx->pmdomains_cnt + 1,
++                                    MVX_MAX_NUMBER_OF_PMDOMAINS);
++                    ret = -E2BIG;
++                    fwnode_handle_put(child);
++                    goto detach_pmdomains;
+                 }
+                 ACPI_COMPANION_SET(&(to_acpi_device_node(child)->dev), to_acpi_device_node(child));
+-                ctx->pmdomains[i] = &(to_acpi_device_node(child)->dev);
++                ctx->pmdomains[ctx->pmdomains_cnt] =
++                    &(to_acpi_device_node(child)->dev);
+                 to_acpi_device_node(child)->power.flags.ignore_parent = 1;
+ #if VPU_CORE_ACPI_REF_POWERSOURCE
+-                pm_runtime_enable(ctx->pmdomains[i]);
+-                dev_pm_domain_set(ctx->pmdomains[i], &acpi_vpu_pm_domain);
++                dev_pm_domain_set(ctx->pmdomains[ctx->pmdomains_cnt],
++                             &acpi_vpu_pm_domain);
++                pm_runtime_enable(ctx->pmdomains[ctx->pmdomains_cnt]);
+ #endif
+-                i++;
++                ctx->pmdomains_cnt++;
+             }
+         }
+-        ctx->pmdomains_cnt = i;
+ #endif
++    } else if (dev_is_pci(dev)) {
++        ctx->pmdomains[0] = dev;
++        ctx->pmdomains_cnt = 1;
+     } else {
+-        ctx->pmdomains_cnt = of_count_phandle_with_args(dev->of_node, "power-domains", "#power-domain-cells");
+-        /*Ignore the latest opp_pmdomain which handled by devfreq */
+-        if (ctx->pmdomains_cnt > 1)
+-            ctx->pmdomains_cnt -= 1;
+-        if (ctx->pmdomains_cnt < 0 || ctx->pmdomains_cnt > MVX_MAX_NUMBER_OF_PMDOMAINS) {
++        pd_count = of_count_phandle_with_args(dev->of_node,
++                              "power-domains",
++                              "#power-domain-cells");
++        /* Ignore the final performance domain, which devfreq owns. */
++        if (pd_count > 1)
++            pd_count--;
++        if (pd_count <= 0 || pd_count > MVX_MAX_NUMBER_OF_PMDOMAINS) {
+             MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "Failed to get pmdomains count %d",
+-                                ctx->pmdomains_cnt);
+-            ret = -EFAULT;
++                                pd_count);
++            ret = pd_count < 0 ? pd_count : -ENODEV;
+             goto irq_free;
+         }
+-        for (i = 0; i < ctx->pmdomains_cnt; i++) {
++        for (i = 0; i < pd_count; i++) {
+             pd = dev_pm_domain_attach_by_name(dev, vpu_pmdomains[i]);
+-            if (IS_ERR_OR_NULL(pd)) {
+-                ret = -EFAULT;
+-                goto irq_free;
++            if (IS_ERR(pd)) {
++                ret = PTR_ERR(pd);
++                goto detach_pmdomains;
++            }
++            if (!pd) {
++                ret = -ENODEV;
++                goto detach_pmdomains;
+             }
+-            ctx->pmdomains[i] = pd;
++            ctx->pmdomains[ctx->pmdomains_cnt++] = pd;
+         }
+     }
+     pm_runtime_set_autosuspend_delay(ctx->pmdomains[0], 1000);
+@@ -1129,38 +1223,40 @@ static int mvx_dev_probe(struct device *dev,
+ 
+     pm_runtime_enable(dev);
+     ret = pm_runtime_resume_and_get(dev);
+-    if (ret) {
+-        pm_runtime_set_suspended(dev);
++    if (ret)
+         goto runtime_disable;
+-    }
+ 
+     ret = mvx_sched_construct(&ctx->scheduler, dev, ctx->if_ops,
+                   &ctx->hwreg, ctx->dentry);
+     if (ret != 0)
+-        goto runtime_put;
++        goto probe_unwind_runtime;
++    ctx->scheduler_initialized = true;
+ 
+     /* Create work queue for IRQ handler. */
+     ctx->work_queue = alloc_workqueue(dev_name(dev), WQ_UNBOUND, 1);
+     if (ctx->work_queue == NULL) {
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
+                   "Failed to create work queue.");
+-        ret = -EINVAL;
+-        goto destruct_sched;
++        ret = -ENOMEM;
++        goto probe_unwind_runtime;
+     }
+ 
+     INIT_WORK(&ctx->work, irq_bottom);
+ 
+     ret = mvx_devfreq_init(ctx);
+     if (ret)
+-        goto workqueue_destroy;
++        goto probe_unwind_runtime;
+ 
+     if (mvx_hwreg_get_core_mask(&ctx->hwreg) <= 0) {
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "No vpu cores available");
+         ret = -ENODEV;
+-        goto devfreq_remove;
++        goto probe_unwind_runtime;
+     }
+ 
+-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
++    enable_irq(ctx->irq);
++    ctx->irq_enabled = true;
++
++    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO,
+               "Linlon v%x identified. cores=%u, nlsid=%u, id=%u.",
+               mvx_hwreg_get_hw_id(&ctx->hwreg),
+               mvx_hwreg_get_ncores(&ctx->hwreg),
+@@ -1172,30 +1268,24 @@ static int mvx_dev_probe(struct device *dev,
+     mvx_pm_runtime_put_sync(ctx->dev);
+     return 0;
+ 
+-devfreq_remove:
+-    mvx_devfreq_remove(ctx);
+-
+-workqueue_destroy:
+-    destroy_workqueue(ctx->work_queue);
+-
+-destruct_sched:
+-    mvx_sched_destruct(&ctx->scheduler);
+-
+-runtime_put:
++probe_unwind_runtime:
+     pm_runtime_put_sync(dev);
++    mvx_devfreq_remove(ctx);
++    if (ctx->work_queue) {
++        destroy_workqueue(ctx->work_queue);
++        ctx->work_queue = NULL;
++    }
++    if (ctx->scheduler_initialized) {
++        mvx_sched_destruct(&ctx->scheduler);
++        ctx->scheduler_initialized = false;
++    }
+ 
+ runtime_disable:
+-    if (has_acpi_companion(dev)) {
+-#if VPU_CORE_ACPI_REF_POWERSOURCE
+-        for (i = 1; i < ctx->pmdomains_cnt; i++) {
+-            pm_runtime_disable(ctx->pmdomains[i]);
+-        }
+-#endif
+-    }
+     pm_runtime_disable(dev);
++    pm_runtime_dont_use_autosuspend(ctx->pmdomains[0]);
+ 
+-    for (i = 0; i < ctx->pmdomains_cnt; i++)
+-        dev_pm_domain_detach(ctx->pmdomains[i], true);
++detach_pmdomains:
++    mvx_pmdomains_detach(ctx);
+ 
+ irq_free:
+     free_irq(ctx->irq, ctx);
+@@ -1219,25 +1309,19 @@ free_ctx:
+ 
+ static void mvx_dev_remove(struct mvx_dev_ctx *ctx)
+ {
+-    int i;
+-
+     free_irq(ctx->irq, ctx);
++    ctx->irq_enabled = false;
++    destroy_workqueue(ctx->work_queue);
++    ctx->work_queue = NULL;
+     mvx_devfreq_remove(ctx);
+-    if (has_acpi_companion(ctx->dev)) {
+-#if VPU_CORE_ACPI_REF_POWERSOURCE
+-        for (i = 1; i < ctx->pmdomains_cnt; i++) {
+-            pm_runtime_disable(ctx->pmdomains[i]);
+-        }
+-#endif
+-    }
+     pm_runtime_disable(ctx->dev);
+-    for (i = 0; i < ctx->pmdomains_cnt; i++)
+-        dev_pm_domain_detach(ctx->pmdomains[i], true);
++    pm_runtime_dont_use_autosuspend(ctx->pmdomains[0]);
++    mvx_pmdomains_detach(ctx);
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "remove");
+     mvx_if_destroy(ctx->if_ops);
+-    destroy_workqueue(ctx->work_queue);
+     mvx_sched_destruct(&ctx->scheduler);
++    ctx->scheduler_initialized = false;
+     mvx_hwreg_destruct(&ctx->hwreg);
+     dev_set_drvdata(ctx->dev, NULL);
+     if (IS_ENABLED(CONFIG_DEBUG_FS))
+@@ -1258,14 +1342,14 @@ static int mvx_pdev_probe(struct platform_device *pdev)
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "probe");
+     rcsu_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+     res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-    if (IS_ERR_OR_NULL(rcsu_res) || IS_ERR_OR_NULL(res)) {
++    if (!rcsu_res || !res) {
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "Failed to get address of resource.");
+         return -ENXIO;
+     }
+     irq = platform_get_irq(pdev, 0);
+     if (irq < 0) {
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "Failed to get IRQ resource.");
+-        return -ENXIO;
++        return irq;
+     }
+ 
+     return mvx_dev_probe(&pdev->dev, rcsu_res, res, irq);
+@@ -1280,6 +1364,7 @@ static void mvx_pdev_remove(struct platform_device *pdev)
+     mvx_dev_remove(ctx);
+ }
+ 
++#ifdef CONFIG_PM
+ static int mvx_hw_init(struct device *dev)
+ {
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+@@ -1358,33 +1443,111 @@ static int mvx_switch_qchannel_clock_gating(struct mvx_dev_ctx *ctx, bool enable
+     return 0;
+ }
+ 
+-#ifdef CONFIG_PM
++static bool mvx_has_attached_top_pmdomain(struct mvx_dev_ctx *ctx)
++{
++    return !has_acpi_companion(ctx->dev) && !dev_is_pci(ctx->dev);
++}
++
++static void mvx_core_pmdomains_put(struct mvx_dev_ctx *ctx, uint64_t mask)
++{
++    unsigned int i;
++
++    for (i = ctx->pmdomains_cnt; i > 1; i--) {
++        if (!mvx_test_bit(i - 1, &mask))
++            continue;
++
++#if !VPU_CORE_ACPI_REF_POWERSOURCE
++        if (has_acpi_companion(ctx->pmdomains[i - 1]))
++            continue;
++#endif
++        pm_runtime_put_sync(ctx->pmdomains[i - 1]);
++    }
++}
++
++static int mvx_core_pmdomains_get(struct mvx_dev_ctx *ctx, uint64_t mask)
++{
++    uint64_t acquired = 0;
++    unsigned int i;
++    int ret;
++
++    for (i = 1; i < ctx->pmdomains_cnt; i++) {
++        if (!mvx_test_bit(i, &mask))
++            continue;
++
++#if !VPU_CORE_ACPI_REF_POWERSOURCE
++        if (has_acpi_companion(ctx->pmdomains[i])) {
++            acpi_status status;
++
++            status = acpi_evaluate_object(
++                to_acpi_device(ctx->pmdomains[i])->handle,
++                VPU_CORE_ACPI_MEMREPAIR_FUNC, NULL, NULL);
++            if (ACPI_FAILURE(status)) {
++                ret = -EIO;
++                goto err_put;
++            }
++            continue;
++        }
++#endif
++        ret = pm_runtime_resume_and_get(ctx->pmdomains[i]);
++        if (ret < 0)
++            goto err_put;
++        acquired |= BIT_ULL(i);
++    }
++
++    return 0;
++
++err_put:
++    mvx_core_pmdomains_put(ctx, acquired);
++    return ret;
++}
++
+ static int mvx_pm_runtime_suspend(struct device *dev)
+ {
+-    int ret = 0;
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+-    int i;
+     uint64_t mask = mvx_hwreg_get_core_mask(&ctx->hwreg) << 1;
++    int ret;
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_suspend");
+ 
+     mvx_if_flush_work(ctx->if_ops);
+-    if (ctx->devfreq_initialized && !IS_ERR_OR_NULL(ctx->devfreq))
+-        devfreq_suspend_device(ctx->devfreq);
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
++    if (ctx->devfreq_initialized && !IS_ERR_OR_NULL(ctx->devfreq)) {
++        ret = devfreq_suspend_device(ctx->devfreq);
++        if (ret)
++            return ret;
++    }
++#endif
+ 
+-    ret = mvx_sched_suspend(&ctx->scheduler);
+-    disable_irq(ctx->irq);
++    if (ctx->scheduler_initialized) {
++        ret = mvx_sched_suspend(&ctx->scheduler);
++        if (ret) {
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
++            if (ctx->devfreq_initialized &&
++                !IS_ERR_OR_NULL(ctx->devfreq))
++                devfreq_resume_device(ctx->devfreq);
++#endif
++            return ret;
++        }
++    }
++
++    if (ctx->irq_enabled) {
++        disable_irq(ctx->irq);
++        ctx->irq_enabled = false;
++    }
+ 
+     /**
+      * There could be called by unregister_session() from irq_bottom() -- ctx->work,
+-     * hence, do not use cancel_work_sync() to avoid deadlock, and cancle_work()
++     * hence, do not use cancel_work_sync() to avoid deadlock, and cancel_work()
+      * is safe in this case.
+      */
+-    if (current->flags & PF_WQ_WORKER)
+-        cancel_work(&ctx->work);
+-    else
+-        cancel_work_sync(&ctx->work);
+-    mvx_sched_cancel_work(&ctx->scheduler);
++    if (ctx->work_queue) {
++        if (current->flags & PF_WQ_WORKER)
++            cancel_work(&ctx->work);
++        else
++            cancel_work_sync(&ctx->work);
++    }
++    if (ctx->scheduler_initialized)
++        mvx_sched_cancel_work(&ctx->scheduler);
+     mvx_hw_uninit();
+ 
+     mvx_switch_qchannel_clock_gating(ctx, false);
+@@ -1402,48 +1565,46 @@ static int mvx_pm_runtime_suspend(struct device *dev)
+     if (!IS_ERR_OR_NULL(ctx->clk))
+         clk_disable_unprepare(ctx->clk);
+ 
+-    for (i = 1; i < ctx->pmdomains_cnt; i++) {
+-        if (mvx_test_bit(i, &mask)) {
+-            if (has_acpi_companion(ctx->pmdomains[i])) {
+-#if VPU_CORE_ACPI_REF_POWERSOURCE
+-                pm_runtime_put_sync(ctx->pmdomains[i]);
+-#endif
+-            }
+-            else {
+-                pm_runtime_put_sync(ctx->pmdomains[i]);
+-            }
+-        }
+-    }
++    mvx_core_pmdomains_put(ctx, mask);
+ 
+-    if (!has_acpi_companion(ctx->pmdomains[0])) {
++    if (mvx_has_attached_top_pmdomain(ctx))
+         pm_runtime_put_autosuspend(ctx->pmdomains[0]);
+-    }
+ 
+-    return ret;
++    return 0;
+ }
+ 
+ static int mvx_pm_runtime_resume(struct device *dev)
+ {
+-    int ret = 0;
+     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+-    int i;
++    bool cores_active = false;
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
++    bool devfreq_resumed = false;
++#endif
++    bool top_active = false;
+     uint64_t mask;
++    int ret;
+ 
+     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_resume");
+-    if (!has_acpi_companion(dev)) {
+-        pm_runtime_get_sync(ctx->pmdomains[0]);
++    if (mvx_has_attached_top_pmdomain(ctx)) {
++        ret = pm_runtime_resume_and_get(ctx->pmdomains[0]);
++        if (ret < 0)
++            return ret;
++        top_active = true;
+     }
+ 
+     ret = clk_prepare_enable(ctx->clk);
+     if (ret) {
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR, "Failed to enable clock, %d.", ret);
+-        return ret;
++        goto put_top;
+     }
+ 
+-    reset_control_assert(ctx->rstc);
++    ret = reset_control_assert(ctx->rstc);
++    if (ret)
++        goto disable_clk;
+     usleep_range(10, 20);
+-    reset_control_deassert(ctx->rstc);
+-    enable_irq(ctx->irq);
++    ret = reset_control_deassert(ctx->rstc);
++    if (ret)
++        goto disable_clk;
+ 
+     mvx_switch_qchannel_clock_gating(ctx, true);
+ 
+@@ -1451,24 +1612,14 @@ static int mvx_pm_runtime_resume(struct device *dev)
+     if (ctx->hwreg.hw_ver.revision == 0) {
+         ret = mvx_hwreg_init(&ctx->hwreg);
+         if (ret)
+-            return ret;
++            goto disable_hardware;
+     }
+ 
+     mask = mvx_hwreg_get_core_mask(&ctx->hwreg) << 1;
+-    for (i = 1; i < ctx->pmdomains_cnt; i++) {
+-        if (mvx_test_bit(i, &mask)) {
+-            if (has_acpi_companion(ctx->pmdomains[i])) {
+-#if VPU_CORE_ACPI_REF_POWERSOURCE
+-                pm_runtime_get_sync(ctx->pmdomains[i]);
+-#else
+-                acpi_evaluate_object(to_acpi_device(ctx->pmdomains[i])->handle,
+-                                        VPU_CORE_ACPI_MEMREPAIR_FUNC, NULL, NULL);
+-#endif
+-            } else {
+-                pm_runtime_get_sync(ctx->pmdomains[i]);
+-            }
+-        }
+-    }
++    ret = mvx_core_pmdomains_get(ctx, mask);
++    if (ret)
++        goto disable_hardware;
++    cores_active = true;
+ 
+     if (ctx->hwreg.hw_ver.svn_revision == MVE_SVN_ENPWOFF) {
+         /*
+@@ -1487,32 +1638,69 @@ static int mvx_pm_runtime_resume(struct device *dev)
+         arm_smccc_smc(CIX_SIP_RESTORE_MMHUB_ASNI, VPU0_ASNI_ID,
+                   0, 0, 0, 0, 0, 0, &res);
+         if (res.a0) {
+-			MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
+-				      "Failed to restore VPU0 ASNI: %lu", res.a0);
+-            return -EPERM;
++            MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++                      "Failed to restore VPU0 ASNI: %lu", res.a0);
++            ret = -EPERM;
++            goto put_cores;
+         }
+ 
+         arm_smccc_smc(CIX_SIP_RESTORE_MMHUB_ASNI, VPU1_ASNI_ID,
+                   0, 0, 0, 0, 0, 0, &res);
+         if (res.a0) {
+-			MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
+-				      "Failed to restore VPU1 ASNI: %lu", res.a0);
+-            return -EPERM;
++            MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++                      "Failed to restore VPU1 ASNI: %lu", res.a0);
++            ret = -EPERM;
++            goto put_cores;
+         }
+     }
+ 
+     ret = mvx_hw_init(dev);
+     if (ret)
+-        return ret;
++        goto put_cores;
+ 
+-    if (IS_ERR_OR_NULL(ctx->scheduler.dev))
+-        return ret;
++    if (!ctx->scheduler_initialized)
++        return 0;
+ 
+-    if (ctx->devfreq_initialized && !IS_ERR_OR_NULL(ctx->devfreq))
+-        devfreq_resume_device(ctx->devfreq);
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
++    if (ctx->devfreq_initialized && !IS_ERR_OR_NULL(ctx->devfreq)) {
++        ret = devfreq_resume_device(ctx->devfreq);
++        if (ret)
++            goto put_cores;
++        devfreq_resumed = true;
++    }
++#endif
+ 
+-    queue_work(ctx->work_queue, &ctx->work);
+     ret = mvx_sched_resume(&ctx->scheduler);
++    if (ret)
++        goto suspend_devfreq;
++
++    if (ctx->work_queue) {
++        if (!ctx->irq_enabled) {
++            enable_irq(ctx->irq);
++            ctx->irq_enabled = true;
++        }
++        queue_work(ctx->work_queue, &ctx->work);
++    }
++
++    return 0;
++
++suspend_devfreq:
++#if IS_ENABLED(CONFIG_PM_DEVFREQ)
++    if (devfreq_resumed)
++        devfreq_suspend_device(ctx->devfreq);
++#endif
++put_cores:
++    if (cores_active)
++        mvx_core_pmdomains_put(ctx, mask);
++disable_hardware:
++    mvx_hw_uninit();
++    mvx_switch_qchannel_clock_gating(ctx, false);
++    reset_control_assert(ctx->rstc);
++disable_clk:
++    clk_disable_unprepare(ctx->clk);
++put_top:
++    if (top_active)
++        pm_runtime_put_sync(ctx->pmdomains[0]);
+ 
+     return ret;
+ }
+@@ -1607,6 +1795,12 @@ int mvx_dev_init(void)
+ {
+     int ret;
+ 
++    if (busctrl_ref > MVE_BUSTCTRL_REF_MIX ||
++        busctrl_split > MVE_BUSTCTRL_SPLIT_512) {
++        pr_err("mvx_dev: Invalid bus control parameters.\n");
++        return -EINVAL;
++    }
++
+     ret = platform_driver_register(&mvx_dev_driver);
+     if (ret != 0) {
+         pr_err("mvx_dev: Failed to register driver.\n");
+diff --git a/drivers/media/platform/cix/dev/mvx_hwreg.c b/drivers/media/platform/cix/dev/mvx_hwreg.c
+--- a/drivers/media/platform/cix/dev/mvx_hwreg.c
++++ b/drivers/media/platform/cix/dev/mvx_hwreg.c
+@@ -47,7 +47,7 @@
+ #include "mvx_pm_runtime.h"
+ 
+ static uint32_t sw_core_mask = GENMASK(MVX_MAX_NUMBER_OF_CORES - 1, 0);
+-module_param(sw_core_mask, uint, 0660);
++module_param(sw_core_mask, uint, 0444);
+ 
+ /****************************************************************************
+  * Static functions
+diff --git a/drivers/media/platform/cix/dev/mvx_scheduler.c b/drivers/media/platform/cix/dev/mvx_scheduler.c
+--- a/drivers/media/platform/cix/dev/mvx_scheduler.c
++++ b/drivers/media/platform/cix/dev/mvx_scheduler.c
+@@ -51,8 +51,8 @@
+  * Private variables
+  ****************************************************************************/
+ 
+-static int wait_scheduler_timeout = 1000;
+-module_param(wait_scheduler_timeout, int, 0660);
++static uint wait_scheduler_timeout = 1000;
++module_param(wait_scheduler_timeout, uint, 0444);
+ 
+ /****************************************************************************
+  * Static functions
+@@ -538,6 +538,12 @@ int mvx_sched_construct(struct mvx_sched *sched,
+     }
+ 
+     sched->nlsid = mvx_hwreg_get_nlsid(hwreg);
++    if (sched->nlsid > MVX_LSID_MAX) {
++        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
++                  "Hardware exposes too many LSIDs: %u", sched->nlsid);
++        ret = -E2BIG;
++        goto destroy_queue;
++    }
+ 
+     for (lsid = 0; lsid < sched->nlsid; lsid++) {
+         ret = mvx_lsid_construct(&sched->lsid[lsid], dev, hwreg, lsid);
+@@ -556,18 +562,27 @@ int mvx_sched_construct(struct mvx_sched *sched,
+ destruct_lsid:
+     while (lsid-- > 0)
+         mvx_lsid_destruct(&sched->lsid[lsid]);
++    sched->nlsid = 0;
+ 
++destroy_queue:
++    destroy_workqueue(sched->sched_queue);
++    sched->sched_queue = NULL;
++    sched->dev = NULL;
+     return ret;
+ }
+ 
+ void mvx_sched_destruct(struct mvx_sched *sched)
+ {
+-    destroy_workqueue(sched->sched_queue);
++    if (sched->sched_queue) {
++        destroy_workqueue(sched->sched_queue);
++        sched->sched_queue = NULL;
++    }
+ 
+     while (sched->nlsid > 0) {
+         sched->nlsid--;
+         mvx_lsid_destruct(&sched->lsid[sched->nlsid]);
+     }
++    sched->dev = NULL;
+ }
+ 
+ int mvx_sched_session_construct(struct mvx_sched_session *session,
+diff --git a/drivers/media/platform/cix/if/mvx_firmware.c b/drivers/media/platform/cix/if/mvx_firmware.c
+--- a/drivers/media/platform/cix/if/mvx_firmware.c
++++ b/drivers/media/platform/cix/if/mvx_firmware.c
+@@ -146,6 +146,40 @@ static void fw_unmap(struct mvx_fw *fw)
+     fw->ops.unmap_protocol(fw);
+ }
+ 
++static int fw_map_text(struct mvx_fw *fw, mvx_mmu_va va)
++{
++	size_t text_count = fw->fw_bin->nonsecure.text_cnt;
++	size_t i;
++	int ret;
++
++	if (text_count > fw->text->count)
++		return -EINVAL;
++
++	/*
++	 * mvx_mmu_alloc_pages() rounds its backing allocation to the host page
++	 * size.  The firmware address layout remains expressed in 4 KiB MVE
++	 * pages, so mapping the rounded tail can overlap the following BSS on a
++	 * 64 KiB-page kernel.  Map only the text pages declared by the firmware;
++	 * the remaining subpages are allocation padding, not part of the image.
++	 */
++	for (i = 0; i < text_count; i++) {
++		ret = mvx_mmu_map_pa(fw->mmu, va + i * MVE_PAGE_SIZE,
++				     fw->text->pages[i], MVE_PAGE_SIZE,
++				     MVX_ATTR_PRIVATE,
++				     MVX_ACCESS_EXECUTABLE);
++		if (ret)
++			goto unmap;
++	}
++
++	return 0;
++
++unmap:
++	if (i)
++		mvx_mmu_unmap_va(fw->mmu, va, i * MVE_PAGE_SIZE);
++
++	return ret;
++}
++
+ /**
+  * fw_map_core() - Map pages for the text and BSS segments for one core.
+  * @fw: Firmware instance to map.
+@@ -181,12 +215,7 @@ static int fw_map_core(struct mvx_fw *fw,
+     }
+ 
+     /* Map text segment. */
+-    ret = mvx_mmu_map_pages(fw->mmu,
+-                fw_base + FW_TEXT_BASE_ADDR,
+-                fw->text,
+-                MVX_ATTR_PRIVATE,
+-                MVX_ACCESS_EXECUTABLE,
+-                NULL);
++	ret = fw_map_text(fw, fw_base + FW_TEXT_BASE_ADDR);
+     if (ret != 0) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
+                   "Failed to map firmware text. core=%u, va=0x%08x, ret=%d.",
+diff --git a/drivers/media/platform/cix/if/mvx_firmware_cache.c b/drivers/media/platform/cix/if/mvx_firmware_cache.c
+--- a/drivers/media/platform/cix/if/mvx_firmware_cache.c
++++ b/drivers/media/platform/cix/if/mvx_firmware_cache.c
+@@ -42,6 +42,8 @@
+ #include <linux/mm.h>
+ #include <linux/firmware.h>
+ #include <linux/kthread.h>
++#include <linux/overflow.h>
++#include <linux/slab.h>
+ #include <linux/version.h>
+ #include "mvx_log_group.h"
+ #include "mvx_firmware_cache.h"
+@@ -203,7 +205,7 @@ static void fw_bin_destroy(struct kobject *kobj)
+         mvx_secure_release_firmware(fw_bin->secure.securefw);
+ 
+     list_del(&fw_bin->cache_head);
+-    devm_kfree(fw_bin->dev, fw_bin);
++    kfree(fw_bin);
+ }
+ 
+ /**
+@@ -215,6 +217,8 @@ static int fw_bin_validate(const struct firmware *fw,
+                struct device *dev)
+ {
+     struct mvx_fw_header *header = (struct mvx_fw_header *)fw->data;
++    u64 bss_end;
++    u32 master_end;
+ 
+     if (fw->size < sizeof(*header)) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+@@ -223,14 +227,47 @@ static int fw_bin_validate(const struct firmware *fw,
+         return -EFAULT;
+     }
+ 
+-    if (header->text_length > fw->size) {
++    if (header->text_length < sizeof(*header) ||
++        header->text_length > fw->size) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                  "Firmware text length larger than firmware binary size. text_length=%u, size=%zu.",
++                  "Firmware text length is invalid. text_length=%u, size=%zu.",
+                   header->text_length,
+                   fw->size);
+         return -EFAULT;
+     }
+ 
++    if (header->bss_bitmap_size > sizeof(header->bss_bitmap) * BITS_PER_BYTE) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
++                  "Firmware BSS bitmap size is invalid. bits=%u, maximum=%zu.",
++                  header->bss_bitmap_size,
++                  sizeof(header->bss_bitmap) * BITS_PER_BYTE);
++        return -EFAULT;
++    }
++
++    bss_end = header->bss_start_address +
++          (u64)header->bss_bitmap_size * MVE_PAGE_SIZE;
++    if (!IS_ALIGNED(header->bss_start_address, MVE_PAGE_SIZE) ||
++        bss_end > (u64)U32_MAX + 1) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
++                  "Firmware BSS address range is invalid. start=0x%x, bits=%u.",
++                  header->bss_start_address,
++                  header->bss_bitmap_size);
++        return -EFAULT;
++    }
++
++    if (!IS_ALIGNED(header->master_rw_start_address, MVE_PAGE_SIZE) ||
++        check_add_overflow(header->master_rw_start_address,
++                   header->master_rw_size, &master_end) ||
++        (header->master_rw_size != 0 &&
++         (header->master_rw_start_address < header->bss_start_address ||
++          master_end > bss_end))) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
++                  "Firmware shared BSS address range is invalid. start=0x%x, size=0x%x.",
++                  header->master_rw_start_address,
++                  header->master_rw_size);
++        return -EFAULT;
++    }
++
+     return 0;
+ }
+ 
+@@ -242,13 +279,8 @@ static void fw_bin_callback(struct mvx_fw_bin *fw_bin)
+ {
+     struct mvx_fw_event *event;
+     struct mvx_fw_event *tmp;
+-    int ret;
+ 
+-    /*
+-     * Continue even if lock fails, or else any waiting session will
+-     * be blocked forever.
+-     */
+-    ret = mutex_lock_interruptible(&fw_bin->mutex);
++    mutex_lock(&fw_bin->mutex);
+ 
+     /*
+      * Inform all clients that the firmware has been loaded. This must be
+@@ -260,8 +292,7 @@ static void fw_bin_callback(struct mvx_fw_bin *fw_bin)
+         event->fw_bin_ready(fw_bin, event->arg, false);
+     }
+ 
+-    if (ret == 0)
+-        mutex_unlock(&fw_bin->mutex);
++    mutex_unlock(&fw_bin->mutex);
+ }
+ 
+ /**
+@@ -302,7 +333,11 @@ static void request_firmware_done(const struct firmware *fw,
+     int ret;
+     uint32_t i;
+ 
+-    BUG_ON(!arg);
++    if (arg == NULL) {
++        if (fw != NULL)
++            release_firmware(fw);
++        return;
++    }
+ 
+     if (fw == NULL) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+@@ -323,8 +358,8 @@ static void request_firmware_done(const struct firmware *fw,
+     fw_bin->nonsecure.header = header;
+ 
+     /* Calculate number of pages needed for the text segment. */
+-    fw_bin->nonsecure.text_cnt =
+-        (header->text_length + MVE_PAGE_SIZE - 1) >> MVE_PAGE_SHIFT;
++    fw_bin->nonsecure.text_cnt = DIV_ROUND_UP(header->text_length,
++                          MVE_PAGE_SIZE);
+ 
+     /* Calculate number of pages needed for the BSS segments. */
+     va = header->bss_start_address;
+@@ -340,11 +375,11 @@ static void request_firmware_done(const struct firmware *fw,
+     }
+ 
+     MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
+-              "Loaded firmware binary. bin=0x%px, major=%u, minor=%u, info=\"%s\", jump=0x%x, pages={text=%u, bss=%u, shared=%u}, text_length=%u, bss=0x%x.",
++              "Loaded firmware binary. bin=0x%px, major=%u, minor=%u, info=\"%.*s\", jump=0x%x, pages={text=%u, bss=%u, shared=%u}, text_length=%u, bss=0x%x.",
+               fw_bin,
+               header->protocol_major,
+               header->protocol_minor,
+-              header->info_string,
++              (int)sizeof(header->info_string), header->info_string,
+               header->rasc_jmp,
+               fw_bin->nonsecure.text_cnt,
+               fw_bin->nonsecure.bss_cnt,
+@@ -462,7 +497,7 @@ static struct mvx_fw_bin *fw_bin_create(struct mvx_fw_cache *cache,
+     int ret;
+ 
+     /* Allocate object and initialize members. */
+-    fw_bin = devm_kzalloc(cache->dev, sizeof(*fw_bin), GFP_KERNEL);
++    fw_bin = kzalloc(sizeof(*fw_bin), GFP_KERNEL);
+     if (fw_bin == NULL)
+         return ERR_PTR(-ENOMEM);
+ 
+@@ -631,8 +666,10 @@ static void cache_release(struct kobject *kobj)
+ {
+     struct mvx_fw_cache *cache = kobj_to_fw_cache(kobj);
+ 
+-    kthread_stop(cache->cache_thread);
+-    kobject_put(cache->kobj_parent);
++    if (!IS_ERR_OR_NULL(cache->cache_thread))
++        kthread_stop(cache->cache_thread);
++    if (cache->kobj_parent != NULL)
++        kobject_put(cache->kobj_parent);
+ }
+ 
+ static struct kobj_type cache_ktype = {
+@@ -645,11 +682,7 @@ static void cache_update(struct mvx_fw_cache *cache)
+ {
+     struct mvx_fw_bin *fw_bin;
+     struct mvx_fw_bin *tmp;
+-    int ret;
+-
+-    ret = mutex_lock_interruptible(&cache->mutex);
+-    if (ret != 0)
+-        return;
++    mutex_lock(&cache->mutex);
+ 
+     list_for_each_entry_safe(fw_bin, tmp, &cache->fw_bin_list, cache_head) {
+         int ref;
+@@ -689,6 +722,7 @@ int mvx_fw_cache_construct(struct mvx_fw_cache *cache,
+     cache->dev = dev;
+     cache->secure = secure;
+     cache->kobj_parent = kobject_get(kobj_parent);
++    cache->cache_thread = NULL;
+     atomic_set(&cache->flush_cnt, 0);
+     mutex_init(&cache->mutex);
+     INIT_LIST_HEAD(&cache->fw_bin_list);
+@@ -700,15 +734,17 @@ int mvx_fw_cache_construct(struct mvx_fw_cache *cache,
+ 
+     init_waitqueue_head(&cache->wait_queue);
+     cache->cache_thread = kthread_run(cache_thread, cache, "fw_cache");
+-    if (IS_ERR(cache->cache_thread))
++    if (IS_ERR(cache->cache_thread)) {
++        ret = PTR_ERR(cache->cache_thread);
++        cache->cache_thread = NULL;
+         goto kobj_put;
++    }
+ 
+     return 0;
+ 
+ kobj_put:
+     kobject_put(&cache->kobj);
+-    kobject_put(cache->kobj_parent);
+-    return -EFAULT;
++    return ret;
+ }
+ 
+ void mvx_fw_cache_destruct(struct mvx_fw_cache *cache)
+@@ -763,14 +799,11 @@ int mvx_fw_cache_get(struct mvx_fw_cache *cache,
+ void mvx_fw_cache_put(struct mvx_fw_cache *cache,
+               struct mvx_fw_bin *fw_bin)
+ {
+-    int ret;
+-
+-    ret = mutex_lock_interruptible(&cache->mutex);
++    mutex_lock(&cache->mutex);
+ 
+     kobject_put(&fw_bin->kobj);
+ 
+-    if (ret == 0)
+-        mutex_unlock(&cache->mutex);
++    mutex_unlock(&cache->mutex);
+ }
+ 
+ void mvx_fw_cache_log(struct mvx_fw_bin *fw_bin,
+diff --git a/drivers/media/platform/cix/if/mvx_if.c b/drivers/media/platform/cix/if/mvx_if.c
+--- a/drivers/media/platform/cix/if/mvx_if.c
++++ b/drivers/media/platform/cix/if/mvx_if.c
+@@ -39,8 +39,6 @@
+ #include <linux/export.h>
+ #include <linux/platform_device.h>
+ #include <linux/printk.h>
+-#include <linux/of_device.h>
+-#include <linux/version.h>
+ #include "mvx_ext_if.h"
+ #include "mvx_if.h"
+ #include "mvx_log_group.h"
+@@ -83,9 +81,6 @@ struct mvx_if_ctx {
+  * Static variables and functions
+  ****************************************************************************/
+ 
+-/* Physical hardware can handle 40 physical bits. */
+-static uint64_t mvx_if_dma_mask = DMA_BIT_MASK(40);
+-
+ static struct mvx_if_ctx *if_ops_to_if_ctx(struct mvx_if_ops *ops)
+ {
+     return container_of(ops, struct mvx_if_ctx, if_ops);
+@@ -116,8 +111,11 @@ struct mvx_if_ops *mvx_if_create(struct device *dev,
+ 
+     MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO, "probe");
+ 
+-    dev->dma_mask = &mvx_if_dma_mask;
+-    dev->coherent_dma_mask = mvx_if_dma_mask;
++    ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
++    if (ret) {
++        dev_err(dev, "Failed to configure the 40-bit DMA mask: %d\n", ret);
++        return ERR_PTR(ret);
++    }
+ 
+     /*
+      * This parameter is indirectly used by DMA-API to limit a lookup
+@@ -130,32 +128,20 @@ struct mvx_if_ops *mvx_if_create(struct device *dev,
+      * done for vb2-dma-sg which we are using, so we have to implement the
+      * same logic.
+      *
+-     * In this change I set a value permanently to 2Gb, but in the next
+-     * commit a functionality similar to vb2-dma-contig will be added.
+-     *
+-     * Mentioned structure also has one more member: segment_boundary_mask.
+-     * It has to be investigated if any value should be assigned to it.
+-     *
+      * See the following kernel commit for the reference:
+      * 3f03396918962b2f8b888d02b23cd1e0c88bf5e5
+      */
+-    dev->dma_parms = devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+-    if (dev->dma_parms == NULL)
+-        return ERR_PTR(-ENOMEM);
++    if (!dev->dma_parms) {
++        dev_err(dev, "DMA parameters are unavailable\n");
++        return ERR_PTR(-ENODEV);
++    }
+ 
+     dma_set_max_seg_size(dev, SZ_2G);
+ 
+-#if (KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE) && IS_ENABLED(CONFIG_OF)
+-    if (dev_of_node(dev))
+-        of_dma_configure_id(dev, dev_of_node(dev), 0, NULL);
+-#endif
+-
+     /* Create device context and store pointer in device private data. */
+     ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+-    if (ctx == NULL) {
+-        ret = -ENOMEM;
+-        goto free_dma_parms;
+-    }
++    if (ctx == NULL)
++        return ERR_PTR(-ENOMEM);
+ 
+     if (IS_ENABLED(CONFIG_DEBUG_FS)) {
+         char name[20];
+@@ -220,9 +206,6 @@ remove_debugfs:
+ free_ctx:
+     devm_kfree(dev, ctx);
+ 
+-free_dma_parms:
+-    devm_kfree(dev, dev->dma_parms);
+-
+     return ERR_PTR(ret);
+ }
+ 
+@@ -241,11 +224,7 @@ void mvx_if_destroy(struct mvx_if_ops *if_ops)
+     if (IS_ENABLED(CONFIG_DEBUG_FS))
+         debugfs_remove_recursive(ctx->dentry);
+ 
+-    devm_kfree(dev, dev->dma_parms);
+     devm_kfree(dev, ctx);
+-
+-    dev->dma_mask = NULL;
+-    dev->coherent_dma_mask = 0;
+ }
+ 
+ void mvx_if_flush_work(struct mvx_if_ops *if_ops)
+diff --git a/drivers/media/platform/cix/if/mvx_mmu.c b/drivers/media/platform/cix/if/mvx_mmu.c
+--- a/drivers/media/platform/cix/if/mvx_mmu.c
++++ b/drivers/media/platform/cix/if/mvx_mmu.c
+@@ -39,7 +39,9 @@
+ #include <linux/dma-buf.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/list.h>
++#include <linux/overflow.h>
+ #include <linux/sched.h>
++#include <linux/slab.h>
+ #include <linux/vmalloc.h>
+ #include "mvx_mmu.h"
+ #include "mvx_log_group.h"
+@@ -93,12 +95,16 @@
+  * struct mvx_mmu_dma_buf - MVX DMA buffer.
+  * @head: Entry in the MMU context's imported-buffer list.
+  * @dmabuf: Imported DMA-BUF object.
++ * @attach: Persistent attachment that owns the mapped DMA addresses.
++ * @sgt: Mapped scatter-gather table for @attach.
+  *
+  * Adds a list head to keep track of DMA buffers.
+  */
+ struct mvx_mmu_dma_buf {
+     struct list_head head;
+     struct dma_buf *dmabuf;
++    struct dma_buf_attachment *attach;
++    struct sg_table *sgt;
+ };
+ 
+ /****************************************************************************
+@@ -301,6 +307,10 @@ static void unmap_page(struct mvx_mmu *mmu,
+ {
+     mvx_mmu_pte *pte;
+ 
++    /* Unmapping an address with no L2 table is already complete. */
++    if (get_pa(mmu->page_table[get_index(va, 0)]) == 0)
++        return;
++
+     pte = ptw(mmu, va, false);
+     if (IS_ERR(pte))
+         return;
+@@ -373,6 +383,35 @@ static int remap_pages(struct mvx_mmu_pages *pages,
+     return 0;
+ }
+ 
++static int map_appended_pages(struct mvx_mmu_pages *pages,
++                  size_t oldcount)
++{
++    size_t i;
++    int ret;
++
++    if (pages->mmu == NULL)
++        return 0;
++
++    for (i = oldcount; i < pages->count; i++) {
++        ret = remap_page(pages->mmu,
++                 pages->va + i * MVE_PAGE_SIZE,
++                 pages->pages[i], pages->attr,
++                 pages->access);
++        if (ret != 0)
++            goto rollback;
++    }
++
++    return 0;
++
++rollback:
++    while (i > oldcount) {
++        i--;
++        unmap_page(pages->mmu, pages->va + i * MVE_PAGE_SIZE);
++    }
++
++    return ret;
++}
++
+ /**
+  * mapped_count() - Check if level 2 table entries point to mmu mapped pages.
+  * @pa:        Physical address of the table entry to be checked.
+@@ -406,10 +445,10 @@ static int mapped_count(phys_addr_t pa)
+  */
+ static size_t get_sg_table_npages(struct sg_table *sgt)
+ {
+-    struct sg_page_iter piter;
++    struct sg_dma_page_iter piter;
+     size_t count = 0;
+ 
+-    for_each_sg_page(sgt->sgl, &piter, sgt->nents, 0) {
++    for_each_sgtable_dma_page(sgt, &piter, 0) {
+         count++;
+     }
+ 
+@@ -427,23 +466,25 @@ static int append_sg_table(struct mvx_mmu_pages *pages,
+                struct sg_table *sgt)
+ {
+     size_t count;
+-    struct sg_page_iter piter;
++    struct sg_dma_page_iter piter;
+ 
+-    count = get_sg_table_npages(sgt) * MVX_PAGES_PER_PAGE;
++    if (check_mul_overflow(get_sg_table_npages(sgt),
++                   (size_t)MVX_PAGES_PER_PAGE, &count))
++        return -EOVERFLOW;
+ 
+-    if ((pages->count + count) > pages->capacity) {
++    if (pages->count > pages->capacity ||
++        count > pages->capacity - pages->count) {
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+                   "Failed to append SG table. Pages capacity too small. count=%zu, capacity=%zu, append=%zu.",
+                   pages->count, pages->capacity, count);
+         return -ENOMEM;
+     }
+ 
+-    for_each_sg_page(sgt->sgl, &piter, sgt->nents, 0) {
++    for_each_sgtable_dma_page(sgt, &piter, 0) {
+         int j;
+         phys_addr_t base;
+ 
+-        base = (phys_addr_t)sg_page_iter_dma_address((struct sg_dma_page_iter *)(&piter)) &
+-               PAGE_MASK;
++        base = (phys_addr_t)sg_page_iter_dma_address(&piter) & PAGE_MASK;
+ 
+         for (j = 0; j < MVX_PAGES_PER_PAGE; ++j)
+             pages->pages[pages->count++] =
+@@ -675,7 +716,14 @@ phys_addr_t mvx_mmu_alloc_page(struct device *dev, gfp_t gfp_mask)
+         goto free_page;
+     }
+ 
+-    pa = (phys_addr_t)dma_handle;
++    pa = page_to_phys(page);
++    if (dma_handle != pa) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
++                  "Translated DMA mappings are not supported for internal MMU pages. dma=%pad, phys=%pa.",
++                  &dma_handle, &pa);
++        dma_unmap_page(dev, dma_handle, PAGE_SIZE, DMA_BIDIRECTIONAL);
++        goto free_page;
++    }
+ 
+     if (gfp_mask & __GFP_ZERO)
+         dma_sync_single_for_device(dev, pa, PAGE_SIZE, DMA_TO_DEVICE);
+@@ -705,7 +753,12 @@ phys_addr_t mvx_mmu_alloc_contiguous_pages(struct device *dev, size_t npages, gf
+     struct page *page;
+     phys_addr_t pa;
+     dma_addr_t dma_handle;
+-    size_t size = (npages << PAGE_SHIFT);
++    size_t size;
++
++    if (npages == 0 || npages > (SIZE_MAX >> PAGE_SHIFT))
++        return 0;
++
++    size = npages << PAGE_SHIFT;
+ 
+     page = alloc_pages(gfp_mask, get_order(size));
+     if (page == NULL)
+@@ -719,7 +772,14 @@ phys_addr_t mvx_mmu_alloc_contiguous_pages(struct device *dev, size_t npages, gf
+         goto free_pages;
+     }
+ 
+-    pa = (phys_addr_t)dma_handle;
++    pa = page_to_phys(page);
++    if (dma_handle != pa) {
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_ERROR,
++                  "Translated DMA mappings are not supported for internal contiguous pages. dma=%pad, phys=%pa.",
++                  &dma_handle, &pa);
++        dma_unmap_page(dev, dma_handle, size, DMA_BIDIRECTIONAL);
++        goto free_pages;
++    }
+ 
+     if (gfp_mask & __GFP_ZERO)
+         dma_sync_single_for_device(dev, pa, size, DMA_TO_DEVICE);
+@@ -793,13 +853,15 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages(struct device *dev,
+     struct mvx_mmu_pages *pages;
+     int ret;
+ 
++    if (count > SIZE_MAX - (MVX_PAGES_PER_PAGE - 1) ||
++        capacity > SIZE_MAX - (MVX_PAGES_PER_PAGE - 1))
++        return ERR_PTR(-EOVERFLOW);
++
+     count = roundup(count, MVX_PAGES_PER_PAGE);
+     capacity = roundup(capacity, MVX_PAGES_PER_PAGE);
+     capacity = max(count, capacity);
+ 
+-    pages = vmalloc(sizeof(*pages) + sizeof(phys_addr_t) * capacity);
+-    memset(pages, 0, sizeof(*pages) + sizeof(phys_addr_t) * capacity);
+-
++    pages = vzalloc(struct_size(pages, pages, capacity));
+     if (pages == NULL)
+         return ERR_PTR(-ENOMEM);
+ 
+@@ -834,6 +896,10 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages(struct device *dev,
+     return pages;
+ 
+ release_pages:
++    while (pages->count > 0) {
++        pages->count -= MVX_PAGES_PER_PAGE;
++        mvx_mmu_free_page(dev, pages->pages[pages->count]);
++    }
+     vfree(pages);
+ 
+     return ERR_PTR(ret);
+@@ -847,14 +913,17 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages_sg(struct device *dev,
+     size_t count;
+     int ret;
+ 
+-    count = get_sg_table_npages(sgt) * MVX_PAGES_PER_PAGE;
++    if (check_mul_overflow(get_sg_table_npages(sgt),
++                   (size_t)MVX_PAGES_PER_PAGE, &count) ||
++        capacity > SIZE_MAX - (MVX_PAGES_PER_PAGE - 1))
++        return ERR_PTR(-EOVERFLOW);
++
+     capacity = roundup(capacity, MVX_PAGES_PER_PAGE);
+     capacity = max(count, capacity);
+ 
+-    pages = vmalloc(sizeof(*pages) + sizeof(phys_addr_t) * capacity);
++    pages = vzalloc(struct_size(pages, pages, capacity));
+     if (pages == NULL)
+         return ERR_PTR(-ENOMEM);
+-    memset(pages, 0, sizeof(*pages) + sizeof(phys_addr_t) * capacity);
+ 
+     pages->dev = dev;
+     pages->capacity = capacity;
+@@ -899,7 +968,7 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages_dma_buf(struct device *dev,
+     if (IS_ERR(pages))
+         goto unmap;
+ 
+-    mbuf = devm_kzalloc(dev, sizeof(*mbuf), GFP_KERNEL);
++    mbuf = kzalloc(sizeof(*mbuf), GFP_KERNEL);
+     if (mbuf == NULL) {
+         mvx_mmu_free_pages(pages);
+         pages = ERR_PTR(-ENOMEM);
+@@ -907,8 +976,12 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages_dma_buf(struct device *dev,
+     }
+ 
+     mbuf->dmabuf = dmabuf;
++    mbuf->attach = attach;
++    mbuf->sgt = sgt;
+     list_add_tail(&mbuf->head, &pages->dmabuf);
+ 
++    return pages;
++
+ unmap:
+     dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+ 
+@@ -925,6 +998,7 @@ int mvx_mmu_pages_append_dma_buf(struct mvx_mmu_pages *pages,
+     struct sg_table *sgt;
+     struct mvx_mmu_dma_buf *mbuf;
+     size_t oldcount = pages->count;
++    size_t newcount;
+     int ret;
+ 
+     if (pages->is_external == false) {
+@@ -948,23 +1022,35 @@ int mvx_mmu_pages_append_dma_buf(struct mvx_mmu_pages *pages,
+         goto detach;
+     }
+ 
+-    ret = append_sg_table(pages, sgt);
+-    if (ret != 0)
++    mbuf = kzalloc(sizeof(*mbuf), GFP_KERNEL);
++    if (mbuf == NULL) {
++        ret = -ENOMEM;
+         goto unmap;
++    }
+ 
+-    ret = remap_pages(pages, oldcount);
++    ret = append_sg_table(pages, sgt);
+     if (ret != 0)
+-        goto unmap;
++        goto free_mbuf;
+ 
+-    mbuf = devm_kzalloc(pages->dev, sizeof(*mbuf), GFP_KERNEL);
+-    if (mbuf == NULL) {
+-        ret = -ENOMEM;
+-        goto unmap;
++    newcount = pages->count;
++    ret = map_appended_pages(pages, oldcount);
++    if (ret != 0) {
++        pages->count = oldcount;
++        memset(&pages->pages[oldcount], 0,
++               (newcount - oldcount) * sizeof(pages->pages[0]));
++        goto free_mbuf;
+     }
+ 
+     mbuf->dmabuf = dmabuf;
++    mbuf->attach = attach;
++    mbuf->sgt = sgt;
+     list_add_tail(&mbuf->head, &pages->dmabuf);
+ 
++    return 0;
++
++free_mbuf:
++    kfree(mbuf);
++
+ unmap:
+     dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+ 
+@@ -985,6 +1071,9 @@ int mvx_mmu_resize_pages(struct mvx_mmu_pages *pages,
+         return -EINVAL;
+     }
+ 
++    if (npages > SIZE_MAX - (MVX_PAGES_PER_PAGE - 1))
++        return -EOVERFLOW;
++
+     npages = roundup(npages, MVX_PAGES_PER_PAGE);
+ 
+     if (npages > pages->capacity) {
+@@ -1036,8 +1125,11 @@ void mvx_mmu_free_pages(struct mvx_mmu_pages *pages)
+             mvx_mmu_free_page(pages->dev, pages->pages[i]);
+ 
+     list_for_each_entry_safe(mbuf, tmp, &pages->dmabuf, head) {
++        dma_buf_unmap_attachment(mbuf->attach, mbuf->sgt,
++                     DMA_BIDIRECTIONAL);
++        dma_buf_detach(mbuf->dmabuf, mbuf->attach);
+         dma_buf_put(mbuf->dmabuf);
+-        devm_kfree(pages->dev, mbuf);
++        kfree(mbuf);
+     }
+ 
+     vfree(pages);
+diff --git a/drivers/media/platform/cix/if/mvx_secure.c b/drivers/media/platform/cix/if/mvx_secure.c
+--- a/drivers/media/platform/cix/if/mvx_secure.c
++++ b/drivers/media/platform/cix/if/mvx_secure.c
+@@ -36,6 +36,8 @@
+ #include <linux/device.h>
+ #include <linux/dma-buf.h>
+ #include <linux/kobject.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+ #include "mvx_log_group.h"
+@@ -62,6 +64,8 @@ struct mvx_secure_firmware_priv {
+     struct kobject kobj;
+     struct work_struct work;
+     wait_queue_head_t wait_queue;
++    struct mutex mutex; /* Protects @pending and @fw. */
++    bool pending;
+     struct mvx_secure_firmware fw;
+     mvx_secure_firmware_done done;
+     void *done_arg;
+@@ -71,6 +75,8 @@ struct mvx_secure_mem {
+     struct device *dev;
+     struct kobject kobj;
+     wait_queue_head_t wait_queue;
++    struct mutex mutex; /* Protects @pending and @dmabuf. */
++    bool pending;
+     struct dma_buf *dmabuf;
+ };
+ 
+@@ -127,6 +133,25 @@ static ssize_t firmware_store(struct kobject *kobj,
+     struct mvx_secure_firmware_priv *securefw =
+         container_of(kobj, struct mvx_secure_firmware_priv, kobj);
+     const struct secure_firmware_desc *desc = (const void *)buf;
++    struct dma_buf *dmabuf;
++    int ret;
++
++    if (size != sizeof(*desc))
++        return -EINVAL;
++
++    dmabuf = dma_buf_get(desc->fd);
++    if (IS_ERR(dmabuf))
++        return PTR_ERR(dmabuf);
++
++    mutex_lock(&securefw->mutex);
++    if (!securefw->pending) {
++        ret = -ENOENT;
++        goto put_dmabuf;
++    }
++    if (securefw->fw.dmabuf != NULL) {
++        ret = -EBUSY;
++        goto put_dmabuf;
++    }
+ 
+     MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
+               "Loaded secure firmware. fd=%d, l2=0x%llx, major=%u, minor=%u.",
+@@ -136,15 +161,17 @@ static ssize_t firmware_store(struct kobject *kobj,
+     securefw->fw.l2pages = desc->l2pages;
+     securefw->fw.protocol.major = desc->protocol.major;
+     securefw->fw.protocol.minor = desc->protocol.minor;
+-    securefw->fw.dmabuf = dma_buf_get(desc->fd);
+-    if (IS_ERR_OR_NULL(securefw->fw.dmabuf))
+-        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                  "Failed to get DMA buffer from fd. fd=%d.",
+-                  desc->fd);
++    securefw->fw.dmabuf = dmabuf;
++    mutex_unlock(&securefw->mutex);
+ 
+     wake_up_interruptible(&securefw->wait_queue);
+ 
+     return size;
++
++put_dmabuf:
++    mutex_unlock(&securefw->mutex);
++    dma_buf_put(dmabuf);
++    return ret;
+ }
+ 
+ /**
+@@ -159,7 +186,7 @@ static void secure_firmware_release(struct kobject *kobj)
+     if (IS_ERR_OR_NULL(securefw->fw.dmabuf) == false)
+         dma_buf_put(securefw->fw.dmabuf);
+ 
+-     devm_kfree(securefw->dev, securefw);
++    kfree(securefw);
+ }
+ 
+ /**
+@@ -172,19 +199,32 @@ static void secure_firmware_wait(struct work_struct *work)
+ {
+     struct mvx_secure_firmware_priv *securefw =
+         container_of(work, struct mvx_secure_firmware_priv, work);
++    bool loaded;
+     int ret;
+ 
+     ret = wait_event_interruptible_timeout(securefw->wait_queue,
+-                           securefw->fw.dmabuf != NULL,
++                           READ_ONCE(securefw->fw.dmabuf) != NULL,
+                            msecs_to_jiffies(10000));
+-    if (ret == 0)
++    kobject_del(&securefw->kobj);
++
++    mutex_lock(&securefw->mutex);
++    securefw->pending = false;
++    loaded = securefw->fw.dmabuf != NULL;
++    mutex_unlock(&securefw->mutex);
++
++    if (!loaded)
+         MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                  "Firmware load timed out.");
++                  "Firmware load failed or timed out. ret=%d.", ret);
+ 
+-    kobject_del(&securefw->kobj);
++    if (loaded && securefw->done != NULL) {
++        securefw->done(&securefw->fw, securefw->done_arg);
++        return;
++    }
+ 
+     if (securefw->done != NULL)
+-        securefw->done(&securefw->fw, securefw->done_arg);
++        securefw->done(NULL, securefw->done_arg);
++
++    kobject_put(&securefw->kobj);
+ }
+ 
+ /**
+@@ -232,7 +272,7 @@ static struct mvx_secure_firmware_priv *secure_firmware_create(
+         return ERR_PTR(-EINVAL);
+ 
+     /* Allocate and initialize the secure firmware object. */
+-    securefw = devm_kzalloc(secure->dev, sizeof(*securefw), GFP_KERNEL);
++    securefw = kzalloc(sizeof(*securefw), GFP_KERNEL);
+     if (securefw == NULL)
+         return ERR_PTR(-ENOMEM);
+ 
+@@ -242,6 +282,8 @@ static struct mvx_secure_firmware_priv *secure_firmware_create(
+     securefw->done = done;
+     securefw->done_arg = arg;
+     init_waitqueue_head(&securefw->wait_queue);
++    mutex_init(&securefw->mutex);
++    securefw->pending = true;
+ 
+     /* Create kobject that the user space helper can interact with. */
+     ret = kobject_init_and_add(&securefw->kobj, &secure_ktype, NULL, "%px",
+@@ -262,7 +304,6 @@ static struct mvx_secure_firmware_priv *secure_firmware_create(
+ 
+ put_kobject:
+     kobject_put(&securefw->kobj);
+-    devm_kfree(secure->dev, securefw);
+ 
+     return ERR_PTR(ret);
+ }
+@@ -310,7 +351,9 @@ static void secure_mem_release(struct kobject *kobj)
+     struct mvx_secure_mem *smem =
+         container_of(kobj, struct mvx_secure_mem, kobj);
+ 
+-    devm_kfree(smem->dev, smem);
++    if (smem->dmabuf != NULL)
++        dma_buf_put(smem->dmabuf);
++    kfree(smem);
+ }
+ 
+ /**
+@@ -331,19 +374,41 @@ static ssize_t memory_store(struct kobject *kobj,
+     struct mvx_secure_mem *smem =
+         container_of(kobj, struct mvx_secure_mem, kobj);
+     const int32_t *fd = (const int32_t *)buf;
++    struct dma_buf *dmabuf;
++    int ret;
++
++    if (size != sizeof(*fd))
++        return -EINVAL;
++
++    dmabuf = dma_buf_get(*fd);
++    if (IS_ERR(dmabuf))
++        return PTR_ERR(dmabuf);
++
++    mutex_lock(&smem->mutex);
++    if (!smem->pending) {
++        ret = -ENOENT;
++        goto put_dmabuf;
++    }
++    if (smem->dmabuf != NULL) {
++        ret = -EBUSY;
++        goto put_dmabuf;
++    }
+ 
+     MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
+               "Secure memory allocated. fd=%d.",
+               *fd);
+ 
+-    smem->dmabuf = dma_buf_get(*fd);
+-    if (IS_ERR_OR_NULL(smem->dmabuf))
+-        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                  "Failed to get DMA buffer.");
++    smem->dmabuf = dmabuf;
++    mutex_unlock(&smem->mutex);
+ 
+     wake_up_interruptible(&smem->wait_queue);
+ 
+     return size;
++
++put_dmabuf:
++    mutex_unlock(&smem->mutex);
++    dma_buf_put(dmabuf);
++    return ret;
+ }
+ 
+ struct dma_buf *mvx_secure_mem_alloc(struct mvx_secure *secure,
+@@ -380,13 +445,15 @@ struct dma_buf *mvx_secure_mem_alloc(struct mvx_secure *secure,
+     if (n >= sizeof(region_env))
+         return ERR_PTR(-EINVAL);
+ 
+-    smem = devm_kzalloc(secure->dev, sizeof(*smem), GFP_KERNEL);
++    smem = kzalloc(sizeof(*smem), GFP_KERNEL);
+     if (smem == NULL)
+         return ERR_PTR(-ENOMEM);
+ 
+     smem->dev = secure->dev;
+     smem->kobj.kset = secure->kset;
+     init_waitqueue_head(&smem->wait_queue);
++    mutex_init(&smem->mutex);
++    smem->pending = true;
+ 
+     /* Create kobject that the user space helper can interact with. */
+     ret = kobject_init_and_add(&smem->kobj, &secure_mem_ktype, NULL, "%px",
+@@ -404,18 +471,31 @@ struct dma_buf *mvx_secure_mem_alloc(struct mvx_secure *secure,
+     }
+ 
+     ret = wait_event_interruptible_timeout(smem->wait_queue,
+-                           smem->dmabuf != NULL,
++                           READ_ONCE(smem->dmabuf) != NULL,
+                            msecs_to_jiffies(1000));
+-    if (ret == 0) {
+-        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+-                  "Secure memory allocation timed out.");
+-        goto put_kobject;
++    kobject_del(&smem->kobj);
++    mutex_lock(&smem->mutex);
++    smem->pending = false;
++    if (smem->dmabuf != NULL) {
++        dmabuf = smem->dmabuf;
++        smem->dmabuf = NULL;
+     }
++    mutex_unlock(&smem->mutex);
+ 
+-    dmabuf = smem->dmabuf;
++    if (IS_ERR(dmabuf))
++        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
++                  "Secure memory allocation failed or timed out. ret=%d.",
++                  ret);
+ 
+ put_kobject:
+     kobject_put(&smem->kobj);
+ 
++    if (IS_ERR(dmabuf)) {
++        if (ret < 0)
++            return ERR_PTR(ret);
++        if (ret == 0)
++            return ERR_PTR(-ETIMEDOUT);
++    }
++
+     return dmabuf;
+ }
+diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+--- a/drivers/media/platform/cix/if/mvx_session.c
++++ b/drivers/media/platform/cix/if/mvx_session.c
+@@ -77,14 +77,14 @@
+  * Private variables
+  ****************************************************************************/
+ 
+-static int session_watchdog_timeout = 100;
+-module_param(session_watchdog_timeout, int, 0660);
++static uint session_watchdog_timeout = 100;
++module_param(session_watchdog_timeout, uint, 0444);
+ 
+-static int fw_watchdog_timeout;
+-module_param(fw_watchdog_timeout, int, 0660);
++static uint fw_watchdog_timeout;
++module_param(fw_watchdog_timeout, uint, 0444);
+ 
+-static int wait_pending_timeout = 3000; /* 3s should be enough in worst case - 32Kx32K decode */
+-module_param(wait_pending_timeout, int, 0660);
++static uint wait_pending_timeout = 3000; /* 3s should be enough in worst case - 32Kx32K decode */
++module_param(wait_pending_timeout, uint, 0444);
+ 
+ static bool enable_buffer_dump = 0;
+ module_param(enable_buffer_dump, bool, 0660);
+@@ -3738,11 +3738,6 @@ int mvx_session_put(struct mvx_session *session)
+             session->isession.release);
+ }
+ 
+-unsigned int mvx_session_ref_read(struct mvx_session *session)
+-{
+-    return kref_read(&session->isession.kref);
+-}
+-
+ struct mvx_session_format_map *mvx_session_enum_format(struct mvx_session *session,
+                     enum mvx_direction dir,
+                     int index)
+diff --git a/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
+--- a/drivers/media/platform/cix/if/mvx_session.h
++++ b/drivers/media/platform/cix/if/mvx_session.h
+@@ -541,14 +541,6 @@ void mvx_session_get(struct mvx_session *session);
+  */
+ int mvx_session_put(struct mvx_session *session);
+ 
+-/**
+- * mvx_session_put - Get the session reference count.
+- * @session:    Pointer to session.
+- *
+- * Return: session reference count.
+- */
+-unsigned int mvx_session_ref_read(struct mvx_session *session);
+-
+ /**
+  * mvx_session_enum_format() - Enumerate format at offset index.
+  * @session:    Pointer to session.
+diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+--- a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
++++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+@@ -122,8 +122,7 @@ put_session:
+      * gracefully using reference counting.
+      */
+     mvx_session_put(&session->session);
+-    if (!wait_for_completion_timeout(&session->cmp, msecs_to_jiffies(3000)))
+-        MVX_SESSION_ERR(&session->session, "Wait destroy session complete timeout.");
++    wait_for_completion(&session->cmp);
+     MVX_V4L2_FH_DEL(&session->fh, file);
+     v4l2_fh_exit(&session->fh);
+ 
+@@ -160,14 +159,7 @@ int mvx_v4l2_release(struct file *file)
+     ret = mvx_session_put(&vsession->session);
+     if (ret == 0)
+         mutex_unlock(&vsession->mutex);
+-    while (!wait_for_completion_timeout(&vsession->cmp, msecs_to_jiffies(15000))) {
+-        MVX_SESSION_ERR(&vsession->session, "Wait destroy session complete timeout.");
+-        if (mvx_session_ref_read(&vsession->session) == 0) {
+-            MVX_SESSION_ERR(&vsession->session, "Session reference count already be 0.");
+-            break;
+-        }
+-        mvx_session_put(&vsession->session);
+-    }
++    wait_for_completion(&vsession->cmp);
+ 
+     file->private_data = NULL;
+     MVX_V4L2_FH_DEL(&vsession->fh, file);
+diff --git a/drivers/media/platform/cix/mvx_driver.c b/drivers/media/platform/cix/mvx_driver.c
+--- a/drivers/media/platform/cix/mvx_driver.c
++++ b/drivers/media/platform/cix/mvx_driver.c
+@@ -70,3 +70,7 @@ static void __exit mvx_exit(void)
+ 
+ module_init(mvx_init);
+ module_exit(mvx_exit);
++
++#if IS_MODULE(CONFIG_ARM_SCMI_PERF_DOMAIN)
++MODULE_SOFTDEP("pre: scmi_perf_domain");
++#endif
+diff --git a/drivers/media/platform/cix/mvx_pm_runtime.c b/drivers/media/platform/cix/mvx_pm_runtime.c
+--- a/drivers/media/platform/cix/mvx_pm_runtime.c
++++ b/drivers/media/platform/cix/mvx_pm_runtime.c
+@@ -38,7 +38,7 @@ int mvx_pm_runtime_get_sync(struct device *dev)
+ #ifdef CONFIG_PM
+     int ret;
+ 
+-    ret = pm_runtime_get_sync(dev);
++    ret = pm_runtime_resume_and_get(dev);
+     if (ret < 0)
+         MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+                   "PM runtime get sync failed! ret=%d", ret);
+diff --git a/drivers/media/platform/cix/mvx_pm_runtime.h b/drivers/media/platform/cix/mvx_pm_runtime.h
+--- a/drivers/media/platform/cix/mvx_pm_runtime.h
++++ b/drivers/media/platform/cix/mvx_pm_runtime.h
+@@ -43,12 +43,12 @@ struct device;
+  ****************************************************************************/
+ 
+ /**
+- * mvx_pm_runtime_get_sync() - The same function as pm_runtime_get_sync(), but
++ * mvx_pm_runtime_get_sync() - Resume a device and acquire a runtime PM reference,
+  *                   with the addon that it prints a log line when
+  *                   error happens.
+  * @dev:    Pointer to device.
+  *
+- * Return: 0 on success, 1 if already 'active', else error code.
++ * Return: 0 on success, else error code.
+  */
+ int mvx_pm_runtime_get_sync(struct device *dev);
+ 

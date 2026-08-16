@@ -5,9 +5,9 @@ the complete binding; reject sub-page, zone-device, DMA-only, and peer-to-peer
 layouts that cannot safely be linked into an existing DMA IOVA arena.  Every
 failure path unwinds the attachment and references in reverse order.
 
-Provenance: implements the generic page-backed subset of the public CIX BIND
-ABI without depending on exporter-private structures.  Broader exporter
-support requires a suitable generic DMA-BUF API rather than a CIX cast.
+This implements the generic page-backed subset of the public CIX BIND ABI
+without depending on exporter-private structures. Broader exporter support
+requires a suitable generic DMA-BUF API rather than a CIX cast.
 
 diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
 --- a/drivers/misc/armchina-npu/aipu_dma_buf.c

@@ -1,0 +1,464 @@
+hwmon: cix: add safe ACPI fan control
+
+Expose the CIXHA024 firmware fan interface through standard hwmon PWM
+semantics.  Radxa Orion firmware uses a no-argument private EC getter with
+a 0..128 result and 0xff failure sentinel, while generic CIX firmware uses
+a two-argument getter with a 0..100 result and 0xffffffff sentinel.  Select
+the format from the private method signature, but invoke only the public
+CIXHA024 wrapper.
+
+Map pwm_enable according to the documented hwmon ABI: 0 is uncontrolled
+full speed, 1 is manual PWM control, and 2 is automatic control.  Do not
+expose the firmware mute method as mode 0.  Keep the mode unknown until a
+successful write because the firmware has no reliable mode query.  Validate
+all method results, ranges, sentinels and optional generic-firmware status
+returns.
+
+diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
+--- a/drivers/hwmon/Kconfig
++++ b/drivers/hwmon/Kconfig
+@@ -477,6 +477,17 @@ config SENSORS_CHIPCAP2
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called chipcap2.
+ 
++config SENSORS_CIX_FAN
++	tristate "CIX Sky1 ACPI fan control"
++	depends on ACPI
++	help
++	  If you say yes here you get support for fan PWM control on
++	  CIX Sky1 based systems via the CIXHA024 ACPI hardware-monitor
++	  device.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called cix-fan.
++
+ config SENSORS_CORSAIR_CPRO
+ 	tristate "Corsair Commander Pro controller"
+ 	depends on HID
+diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
+--- a/drivers/hwmon/Makefile
++++ b/drivers/hwmon/Makefile
+@@ -60,6 +60,7 @@ obj-$(CONFIG_SENSORS_ATXP1)	+= atxp1.o
+ obj-$(CONFIG_SENSORS_AXI_FAN_CONTROL) += axi-fan-control.o
+ obj-$(CONFIG_SENSORS_CGBC)	+= cgbc-hwmon.o
+ obj-$(CONFIG_SENSORS_CHIPCAP2) += chipcap2.o
++obj-$(CONFIG_SENSORS_CIX_FAN)	+= cix-fan.o
+ obj-$(CONFIG_SENSORS_CORETEMP)	+= coretemp.o
+ obj-$(CONFIG_SENSORS_CORSAIR_CPRO) += corsair-cpro.o
+ obj-$(CONFIG_SENSORS_CORSAIR_PSU) += corsair-psu.o
+diff --git a/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/hwmon/cix-fan.c
+@@ -0,0 +1,411 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX Sky1 ACPI fan control driver
++ *
++ * Copyright (C) 2024 CIX Technology Group Co., Ltd.
++ *
++ * Fan control is exposed by the CIXHA024 ACPI hardware-monitor wrapper:
++ *   GFPW(type, index)       - get PWM duty
++ *   SFPW(duty, type, index) - set PWM duty percentage
++ *   SFAT/SFPF               - automatic/full-speed modes
++ */
++
++#include <linux/acpi.h>
++#include <linux/hwmon.h>
++#include <linux/math64.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++
++#define CIX_FAN_EC_GFPW_PATH		"\\_SB.EC0.GFPW"
++#define CIX_FAN_RADXA_MAX_DUTY		128
++#define CIX_FAN_RADXA_FAILURE		0xff
++#define CIX_FAN_GENERIC_MAX_DUTY	100
++#define CIX_FAN_GENERIC_FAILURE		0xffffffffULL
++
++enum cix_fan_mode {
++	CIX_FAN_MODE_UNKNOWN = -1,
++	CIX_FAN_MODE_FULL = 0,
++	CIX_FAN_MODE_MANUAL = 1,
++	CIX_FAN_MODE_AUTO = 2,
++};
++
++struct cix_fan_data {
++	struct device *dev;
++	acpi_handle handle;
++	struct mutex lock; /* Serializes firmware methods and cached mode. */
++	u64 failure_value;
++	u32 max_duty;
++	int pwm_enable;
++};
++
++static int cix_fan_eval_integer(struct cix_fan_data *data,
++				const char *method,
++				struct acpi_object_list *args, u64 *value)
++{
++	struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
++	union acpi_object *obj;
++	acpi_status status;
++
++	status = acpi_evaluate_object(data->handle, (acpi_string)method, args,
++				      &output);
++	if (ACPI_FAILURE(status)) {
++		dev_err_ratelimited(data->dev, "%s evaluation failed: %s\n",
++				    method, acpi_format_exception(status));
++		ACPI_FREE(output.pointer);
++		return -EIO;
++	}
++
++	obj = output.pointer;
++	if (!obj || obj->type != ACPI_TYPE_INTEGER) {
++		dev_err_ratelimited(data->dev,
++				    "%s returned a non-integer object\n", method);
++		ACPI_FREE(output.pointer);
++		return -ENODATA;
++	}
++
++	*value = obj->integer.value;
++	ACPI_FREE(output.pointer);
++
++	return 0;
++}
++
++static int cix_fan_eval_object(struct cix_fan_data *data, const char *method,
++			       struct acpi_object_list *args)
++{
++	acpi_status status;
++
++	status = acpi_evaluate_object(data->handle, (acpi_string)method, args,
++				      NULL);
++	if (ACPI_FAILURE(status)) {
++		dev_err_ratelimited(data->dev, "%s evaluation failed: %s\n",
++				    method, acpi_format_exception(status));
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static int cix_fan_eval_optional_status(struct cix_fan_data *data,
++					const char *method,
++					struct acpi_object_list *args)
++{
++	struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
++	union acpi_object *obj;
++	acpi_status status;
++	int ret = 0;
++
++	status = acpi_evaluate_object(data->handle, (acpi_string)method, args,
++				      &output);
++	if (ACPI_FAILURE(status)) {
++		dev_err_ratelimited(data->dev, "%s evaluation failed: %s\n",
++				    method, acpi_format_exception(status));
++		ret = -EIO;
++		goto out_free;
++	}
++
++	obj = output.pointer;
++	if (!obj)
++		goto out_free;
++
++	if (obj->type != ACPI_TYPE_INTEGER) {
++		dev_err_ratelimited(data->dev,
++				    "%s returned a non-integer status\n", method);
++		ret = -ENODATA;
++		goto out_free;
++	}
++
++	if (obj->integer.value) {
++		dev_err_ratelimited(data->dev, "%s returned failure status %llu\n",
++				    method, obj->integer.value);
++		ret = -EIO;
++	}
++
++out_free:
++	ACPI_FREE(output.pointer);
++	return ret;
++}
++
++/*
++ * Radxa firmware wraps a no-argument EC getter whose successful values use a
++ * 0..128 scale.  Generic CIX firmware wraps the documented two-argument EC
++ * getter, which returns percentages.  Always invoke the public HWMN wrapper;
++ * inspect the private EC method only to select the return-value contract.
++ */
++static int cix_fan_detect_pwm_format(struct cix_fan_data *data)
++{
++	struct acpi_device_info *info;
++	acpi_handle handle;
++	acpi_status status;
++	int ret = 0;
++
++	status = acpi_get_handle(NULL, CIX_FAN_EC_GFPW_PATH, &handle);
++	if (ACPI_FAILURE(status)) {
++		dev_err(data->dev, "cannot inspect %s: %s\n",
++			CIX_FAN_EC_GFPW_PATH, acpi_format_exception(status));
++		return -ENODEV;
++	}
++
++	status = acpi_get_object_info(handle, &info);
++	if (ACPI_FAILURE(status)) {
++		dev_err(data->dev, "cannot describe %s: %s\n",
++			CIX_FAN_EC_GFPW_PATH, acpi_format_exception(status));
++		return -EIO;
++	}
++
++	if (info->type != ACPI_TYPE_METHOD) {
++		dev_err(data->dev, "%s is not an ACPI method\n",
++			CIX_FAN_EC_GFPW_PATH);
++		ret = -ENODEV;
++		goto out_free;
++	}
++
++	switch (info->param_count) {
++	case 0:
++		data->max_duty = CIX_FAN_RADXA_MAX_DUTY;
++		data->failure_value = CIX_FAN_RADXA_FAILURE;
++		break;
++	case 2:
++		data->max_duty = CIX_FAN_GENERIC_MAX_DUTY;
++		data->failure_value = CIX_FAN_GENERIC_FAILURE;
++		break;
++	default:
++		dev_err(data->dev, "%s has unsupported argument count %u\n",
++			CIX_FAN_EC_GFPW_PATH, info->param_count);
++		ret = -ENODEV;
++		break;
++	}
++
++out_free:
++	ACPI_FREE(info);
++	return ret;
++}
++
++static int cix_fan_get_pwm(struct cix_fan_data *data, long *value)
++{
++	union acpi_object argv[] = {
++		{ .integer = { .type = ACPI_TYPE_INTEGER, .value = 0 } },
++		{ .integer = { .type = ACPI_TYPE_INTEGER, .value = 0 } },
++	};
++	struct acpi_object_list args = {
++		.count = ARRAY_SIZE(argv),
++		.pointer = argv,
++	};
++	u64 duty;
++	int ret;
++
++	ret = cix_fan_eval_integer(data, "GFPW", &args, &duty);
++	if (ret)
++		return ret;
++
++	if (duty == data->failure_value) {
++		dev_err_ratelimited(data->dev, "GFPW reported an EC failure\n");
++		return -EIO;
++	}
++	if (duty > data->max_duty) {
++		dev_err_ratelimited(data->dev,
++				    "GFPW returned out-of-range duty %llu\n", duty);
++		return -ERANGE;
++	}
++
++	*value = DIV_ROUND_CLOSEST_ULL(duty * 255, data->max_duty);
++	return 0;
++}
++
++static int cix_fan_set_pwm(struct cix_fan_data *data, unsigned long duty)
++{
++	union acpi_object argv[] = {
++		{ .integer = { .type = ACPI_TYPE_INTEGER, .value = duty } },
++		{ .integer = { .type = ACPI_TYPE_INTEGER, .value = 0 } },
++		{ .integer = { .type = ACPI_TYPE_INTEGER, .value = 0 } },
++	};
++	struct acpi_object_list args = {
++		.count = ARRAY_SIZE(argv),
++		.pointer = argv,
++	};
++
++	if (duty > 100)
++		return -EINVAL;
++
++	return cix_fan_eval_optional_status(data, "SFPW", &args);
++}
++
++static int cix_fan_set_mode(struct cix_fan_data *data, long mode)
++{
++	int ret;
++
++	switch (mode) {
++	case CIX_FAN_MODE_FULL:
++		ret = cix_fan_eval_object(data, "SFPF", NULL);
++		break;
++	case CIX_FAN_MODE_MANUAL:
++		ret = cix_fan_set_pwm(data, 100);
++		break;
++	case CIX_FAN_MODE_AUTO:
++		ret = cix_fan_eval_object(data, "SFAT", NULL);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	if (!ret)
++		data->pwm_enable = mode;
++
++	return ret;
++}
++
++static int cix_fan_read(struct device *dev, enum hwmon_sensor_types type,
++			u32 attr, int channel, long *value)
++{
++	struct cix_fan_data *data = dev_get_drvdata(dev);
++	int ret;
++
++	if (type != hwmon_pwm)
++		return -EOPNOTSUPP;
++
++	mutex_lock(&data->lock);
++	switch (attr) {
++	case hwmon_pwm_input:
++		ret = cix_fan_get_pwm(data, value);
++		break;
++	case hwmon_pwm_enable:
++		if (data->pwm_enable == CIX_FAN_MODE_UNKNOWN) {
++			ret = -ENODATA;
++		} else {
++			*value = data->pwm_enable;
++			ret = 0;
++		}
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++		break;
++	}
++	mutex_unlock(&data->lock);
++
++	return ret;
++}
++
++static int cix_fan_write(struct device *dev, enum hwmon_sensor_types type,
++			 u32 attr, int channel, long value)
++{
++	struct cix_fan_data *data = dev_get_drvdata(dev);
++	int ret;
++
++	if (type != hwmon_pwm)
++		return -EOPNOTSUPP;
++
++	mutex_lock(&data->lock);
++	switch (attr) {
++	case hwmon_pwm_input:
++		if (value < 0 || value > 255)
++			ret = -EINVAL;
++		else if (data->pwm_enable != CIX_FAN_MODE_MANUAL)
++			ret = -EBUSY;
++		else
++			ret = cix_fan_set_pwm(data,
++					      DIV_ROUND_CLOSEST(value * 100, 255));
++		break;
++	case hwmon_pwm_enable:
++		ret = cix_fan_set_mode(data, value);
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++		break;
++	}
++	mutex_unlock(&data->lock);
++
++	return ret;
++}
++
++static umode_t cix_fan_is_visible(const void *drvdata,
++				  enum hwmon_sensor_types type,
++				  u32 attr, int channel)
++{
++	if (type != hwmon_pwm)
++		return 0;
++
++	switch (attr) {
++	case hwmon_pwm_input:
++	case hwmon_pwm_enable:
++		return 0644;
++	default:
++		return 0;
++	}
++}
++
++static const struct hwmon_channel_info * const cix_fan_info[] = {
++	HWMON_CHANNEL_INFO(pwm, HWMON_PWM_INPUT | HWMON_PWM_ENABLE),
++	NULL
++};
++
++static const struct hwmon_ops cix_fan_hwmon_ops = {
++	.is_visible = cix_fan_is_visible,
++	.read = cix_fan_read,
++	.write = cix_fan_write,
++};
++
++static const struct hwmon_chip_info cix_fan_chip_info = {
++	.ops = &cix_fan_hwmon_ops,
++	.info = cix_fan_info,
++};
++
++static int cix_fan_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct cix_fan_data *data;
++	struct device *hwmon_dev;
++	int ret;
++
++	if (!ACPI_HANDLE(dev))
++		return -ENODEV;
++
++	if (!acpi_has_method(ACPI_HANDLE(dev), "GFPW") ||
++	    !acpi_has_method(ACPI_HANDLE(dev), "SFPW") ||
++	    !acpi_has_method(ACPI_HANDLE(dev), "SFAT") ||
++	    !acpi_has_method(ACPI_HANDLE(dev), "SFPF")) {
++		dev_err(dev, "required CIXHA024 fan methods are missing\n");
++		return -ENODEV;
++	}
++
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->dev = dev;
++	data->handle = ACPI_HANDLE(dev);
++	data->pwm_enable = CIX_FAN_MODE_UNKNOWN;
++	mutex_init(&data->lock);
++
++	ret = cix_fan_detect_pwm_format(data);
++	if (ret)
++		return ret;
++
++	hwmon_dev = devm_hwmon_device_register_with_info(dev, "cix_fan", data,
++							 &cix_fan_chip_info,
++							 NULL);
++	if (IS_ERR(hwmon_dev))
++		return PTR_ERR(hwmon_dev);
++
++	dev_info(dev, "CIX Sky1 ACPI fan control initialized\n");
++	return 0;
++}
++
++static const struct acpi_device_id cix_fan_acpi_match[] = {
++	{ "CIXHA024", 0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cix_fan_acpi_match);
++
++static struct platform_driver cix_fan_driver = {
++	.probe = cix_fan_probe,
++	.driver = {
++		.name = "cix-fan",
++		.acpi_match_table = cix_fan_acpi_match,
++	},
++};
++module_platform_driver(cix_fan_driver);
++
++MODULE_AUTHOR("CIX Technology Group Co., Ltd.");
++MODULE_DESCRIPTION("CIX Sky1 ACPI fan control driver");
++MODULE_LICENSE("GPL");

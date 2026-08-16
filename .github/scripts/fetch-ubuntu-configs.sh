@@ -70,8 +70,8 @@ case $seed in
 		)
 		;;
 	7.0)
-		compatibility_note="Ubuntu 7.0 seed for CIX Linux 7.0 and 7.1; it is exact-series for 7.0 and adjacent-series for 7.1"
-		consumers_json='["7.0", "7.1"]'
+		compatibility_note="Ubuntu 7.0 seed for CIX Linux 7.1 and 7.2; this is an adjacent-series configuration"
+		consumers_json='["7.1", "7.2"]'
 		candidates=(
 			"Ubuntu Resolute|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/resolute|master-next|resolute"
 			"Ubuntu Noble HWE 7.0|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/noble|hwe-7.0-next|noble"
@@ -84,49 +84,203 @@ case $seed in
 esac
 
 mkdir -p "$work_dir"
-clone_dir="$work_dir/ubuntu-config-clone"
+source_dir="$work_dir/ubuntu-config-source"
 stage_dir="$work_dir/ubuntu-config-export"
 
 cleanup() {
-	rm -rf -- "$clone_dir" "$stage_dir"
+	rm -rf -- "$source_dir" "$stage_dir"
 }
 trap cleanup EXIT
 
-export GIT_TERMINAL_PROMPT=0
 export LC_ALL=C
+
+fetch_validated() {
+	local url=$1
+	local destination=$2
+	local pattern=$3
+	local description=$4
+	local attempt
+	local temporary="${destination}.tmp"
+
+	mkdir -p "${destination%/*}"
+	for ((attempt = 1; attempt <= 6; attempt++)); do
+		rm -f -- "$temporary"
+		if timeout --foreground --kill-after=10s 75s \
+			curl \
+				--connect-timeout 20 \
+				--fail \
+				--location \
+				--max-time 60 \
+				--retry 2 \
+				--retry-all-errors \
+				--retry-delay 1 \
+				--show-error \
+				--silent \
+				--output "$temporary" \
+				"$url" &&
+			grep -Eq "$pattern" "$temporary"; then
+			mv "$temporary" "$destination"
+			return 0
+		fi
+		echo "Failed to fetch valid $description (attempt $attempt of 6)" >&2
+		sleep "$attempt"
+	done
+	rm -f -- "$temporary"
+	return 1
+}
+
+resolve_ref() {
+	local repository=$1
+	local requested_ref=$2
+	local feed="$source_dir/ref.atom"
+
+	if ! fetch_validated \
+		"${repository}/atom/?h=${requested_ref}" \
+		"$feed" \
+		'^<feed xmlns=' \
+		"$repository $requested_ref feed"; then
+		return 1
+	fi
+	python3 - "$feed" "$requested_ref" <<'PY'
+import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+feed = ET.fromstring(Path(sys.argv[1]).read_text(encoding="utf-8"))
+namespace = {"atom": "http://www.w3.org/2005/Atom"}
+title = feed.findtext("atom:title", namespaces=namespace)
+if not title or not title.endswith(f", branch {sys.argv[2]}"):
+    raise SystemExit(f"unexpected cgit feed title: {title!r}")
+entry = feed.find("atom:entry", namespace)
+commit = entry.findtext("atom:id", namespaces=namespace) if entry is not None else None
+if not commit or not re.fullmatch(r"[0-9a-f]{40}", commit):
+    raise SystemExit("the cgit feed lacks a valid tip commit")
+print(commit)
+PY
+}
+
+fetch_repository_file() {
+	local repository_path=$1
+	local destination=$2
+	local pattern=$3
+	local description=$4
+
+	fetch_validated \
+		"${repository}/plain/${repository_path}?id=${resolved_commit}" \
+		"$destination" \
+		"$pattern" \
+		"$description"
+}
+
+declare -a fetched_annotations=()
+
+fetch_annotations() {
+	local repository_path=$1
+	local destination="$source_dir/$repository_path"
+	local include_list="${destination}.includes"
+	local -a included_paths
+	local fetched_path
+	local included_path
+
+	for fetched_path in "${fetched_annotations[@]}"; do
+		[[ $fetched_path != "$repository_path" ]] || return 0
+	done
+	fetched_annotations+=("$repository_path")
+	if ! fetch_repository_file \
+		"$repository_path" \
+		"$destination" \
+		'^(# (FORMAT|ARCH|FLAVOUR):|CONFIG_|include[[:space:]])' \
+		"$repository_path"; then
+		return 1
+	fi
+	if ! python3 - "$repository_path" "$destination" >"$include_list" <<'PY'
+import posixpath
+import re
+import sys
+from pathlib import Path
+
+repository_path = sys.argv[1]
+annotations = Path(sys.argv[2])
+for line in annotations.read_text(encoding="utf-8").splitlines():
+    match = re.fullmatch(r'include\s+"?([^"\s]+)"?\s*', line)
+    if not match:
+        continue
+    included = posixpath.normpath(
+        posixpath.join(posixpath.dirname(repository_path), match.group(1))
+    )
+    if included == ".." or included.startswith("../") or included.startswith("/"):
+        raise SystemExit(f"unsafe annotations include: {match.group(1)}")
+    print(included)
+PY
+	then
+		rm -f -- "$include_list"
+		return 1
+	fi
+	mapfile -t included_paths <"$include_list"
+	rm -f -- "$include_list"
+	for included_path in "${included_paths[@]}"; do
+		[[ -z $included_path ]] || fetch_annotations "$included_path" || {
+			return 1
+		}
+	done
+}
 
 selected=0
 for candidate in "${candidates[@]}"; do
 	IFS='|' read -r source_name repository requested_ref expected_distribution <<<"$candidate"
 	cleanup
-	mkdir -p "$stage_dir"
+	mkdir -p "$source_dir" "$stage_dir"
+	fetched_annotations=()
 
 	echo "Trying $source_name $requested_ref for Ubuntu kernel seed $seed"
-	if ! timeout --foreground --kill-after=30s 10m \
-		git clone \
-			--depth=1 \
-			--single-branch \
-			--no-tags \
-			--sparse \
-			--branch "$requested_ref" \
-			"$repository" \
-			"$clone_dir"; then
-		echo "Failed to clone $source_name $requested_ref; trying the next official source" >&2
+	if ! resolved_commit=$(resolve_ref "$repository" "$requested_ref"); then
+		echo "Failed to resolve $source_name $requested_ref; trying the next official source" >&2
 		continue
 	fi
+	commit_info="$source_dir/commit.html"
+	if ! fetch_validated \
+		"${repository}/commit/?id=${resolved_commit}&dt=2" \
+		"$commit_info" \
+		'<tr><th>committer</th>.*<td class=.right.>[^<]+</td>' \
+		"$source_name commit metadata"; then
+		continue
+	fi
+	if ! resolved_date=$(python3 - "$commit_info" <<'PY'
+import datetime
+import html
+import re
+import sys
+from pathlib import Path
 
-	if ! resolved_commit=$(git -C "$clone_dir" rev-parse --verify 'HEAD^{commit}'); then
-		echo "Failed to resolve the cloned $source_name commit" >&2
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+match = re.search(
+    r"<tr><th>committer</th>.*?<td class='right'>([^<]+)</td>",
+    text,
+    re.DOTALL,
+)
+if not match:
+    raise SystemExit("committer date is absent from cgit metadata")
+print(
+    datetime.datetime.strptime(
+        html.unescape(match.group(1)), "%Y-%m-%d %H:%M:%S %z"
+    ).isoformat()
+)
+PY
+	); then
+		echo "Failed to parse the $source_name commit date" >&2
 		continue
 	fi
-	if ! resolved_date=$(git -C "$clone_dir" show -s --format=%cI HEAD); then
-		echo "Failed to resolve the cloned $source_name commit date" >&2
-		continue
-	fi
-	if ! makefile=$(git -C "$clone_dir" show HEAD:Makefile); then
+	makefile_path="$source_dir/Makefile"
+	if ! fetch_repository_file \
+		Makefile \
+		"$makefile_path" \
+		'^VERSION[[:space:]]*=[[:space:]]*[0-9]+$' \
+		"$source_name kernel Makefile"; then
 		echo "$source_name lacks the kernel Makefile needed for series validation" >&2
 		continue
 	fi
+	makefile=$(<"$makefile_path")
 
 	kernel_major=$(sed -n 's/^VERSION[[:space:]]*=[[:space:]]*//p' <<<"$makefile")
 	kernel_minor=$(sed -n 's/^PATCHLEVEL[[:space:]]*=[[:space:]]*//p' <<<"$makefile")
@@ -138,13 +292,12 @@ for candidate in "${candidates[@]}"; do
 		continue
 	fi
 
-	if ! git -C "$clone_dir" sparse-checkout set --no-cone /debian/debian.env; then
-		echo "Failed to materialize $source_name debian/debian.env" >&2
-		continue
-	fi
-	debian_env="$clone_dir/debian/debian.env"
-	if [[ ! -f $debian_env ]]; then
-		echo "$source_name does not provide debian/debian.env" >&2
+	debian_env="$source_dir/debian/debian.env"
+	if ! fetch_repository_file \
+		debian/debian.env \
+		"$debian_env" \
+		'^DEBIAN=debian\.[A-Za-z0-9][A-Za-z0-9.-]*$' \
+		"$source_name debian/debian.env"; then
 		continue
 	fi
 	mapfile -t debian_values < <(sed -n 's/^DEBIAN=//p' "$debian_env")
@@ -160,34 +313,58 @@ for candidate in "${candidates[@]}"; do
 		continue
 	fi
 
-	if ! changelog_head=$(git -C "$clone_dir" show "HEAD:${debian_dir}/changelog" | sed -n '1p'); then
+	changelog="$source_dir/$debian_dir/changelog"
+	if ! fetch_repository_file \
+		"${debian_dir}/changelog" \
+		"$changelog" \
+		"^[^[:space:]]+[[:space:]]+\\([^)]+\\)[[:space:]]+${expected_distribution};" \
+		"$source_name ${debian_dir}/changelog"; then
 		echo "$source_name lacks ${debian_dir}/changelog" >&2
 		continue
 	fi
+	changelog_head=$(sed -n '1p' "$changelog")
 	changelog_pattern="^[^[:space:]]+[[:space:]]+\\([^)]+\\)[[:space:]]+${expected_distribution};"
 	if [[ ! $changelog_head =~ $changelog_pattern ]]; then
 		echo "$source_name changelog does not identify the expected $expected_distribution distribution: $changelog_head" >&2
 		continue
 	fi
 
-	sparse_paths=(
-		"/${debian_dir}/config"
-		/debian/scripts
-		/debian/debian.env
+	annotations_path="${debian_dir}/config/annotations"
+	if ! fetch_annotations "$annotations_path"; then
+		echo "Failed to fetch the complete $source_name annotations input" >&2
+		continue
+	fi
+	annotations="$source_dir/$annotations_path"
+	annotations_tool="$source_dir/debian/scripts/misc/annotations"
+	if ! fetch_repository_file \
+		debian/scripts/misc/annotations \
+		"$annotations_tool" \
+		'^from kconfig import run' \
+		"$source_name annotations exporter"; then
+		continue
+	fi
+	exporter_files=(
+		'annotations.py|^class Annotation'
+		'run.py|^def main'
+		'utils.py|^def arg_fail'
+		'version.py|^VERSION[[:space:]]*='
 	)
-	if [[ $debian_dir != debian.master ]]; then
-		sparse_paths+=(/debian.master/config)
-	fi
-	if ! git -C "$clone_dir" sparse-checkout set --no-cone "${sparse_paths[@]}"; then
-		echo "Failed to materialize the complete $source_name annotations input" >&2
+	exporter_failed=0
+	for exporter in "${exporter_files[@]}"; do
+		IFS='|' read -r exporter_file exporter_pattern <<<"$exporter"
+		if ! fetch_repository_file \
+			"debian/scripts/misc/kconfig/$exporter_file" \
+			"$source_dir/debian/scripts/misc/kconfig/$exporter_file" \
+			"$exporter_pattern" \
+			"$source_name kconfig/$exporter_file"; then
+			exporter_failed=1
+			break
+		fi
+	done
+	if ((exporter_failed)); then
 		continue
 	fi
-	annotations="$clone_dir/$debian_dir/config/annotations"
-	annotations_tool="$clone_dir/debian/scripts/misc/annotations"
-	if [[ ! -f $annotations || ! -f $annotations_tool ]]; then
-		echo "$source_name does not provide the selected annotations file and exporter" >&2
-		continue
-	fi
+	: >"$source_dir/debian/scripts/misc/kconfig/__init__.py"
 	flavour_header=$(sed -n 's/^# FLAVOUR:[[:space:]]*//p' "$annotations" | sed -n '1p')
 	for required_flavour in arm64-generic arm64-generic-64k; do
 		if [[ " $flavour_header " != *" $required_flavour "* ]]; then

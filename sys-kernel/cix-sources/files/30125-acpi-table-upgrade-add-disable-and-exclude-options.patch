@@ -1,3 +1,8 @@
+ACPI: table upgrade: avoid padding identity fields
+
+Log table identities with precision-only fields so space-padded firmware
+strings do not acquire cosmetic left padding.
+
 diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
 --- a/drivers/acpi/tables.c
 +++ b/drivers/acpi/tables.c
@@ -210,3 +215,21 @@ diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
  
  		all_tables_size += table->length;
  		acpi_initrd_files[table_nr].data = file.data;
+@@ -588,7 +722,7 @@ acpi_table_initrd_override(struct acpi_table_header *existing_table,
+ 
+ 		*length = table_length;
+ 		*address = acpi_tables_addr + table_offset;
+-		pr_info("Table Upgrade: override [%4.4s-%6.6s-%8.8s]\n",
++		pr_info("Table Upgrade: override [%.4s-%.6s-%.8s]\n",
+ 			table->signature, table->oem_id,
+ 			table->oem_table_id);
+ 		acpi_os_unmap_memory(table, ACPI_HEADER_SIZE);
+@@ -638,7 +772,7 @@ static void __init acpi_table_initrd_scan(void)
+ 			goto next_table;
+ 		}
+ 
+-		pr_info("Table Upgrade: install [%4.4s-%6.6s-%8.8s]\n",
++		pr_info("Table Upgrade: install [%.4s-%.6s-%.8s]\n",
+ 			table->signature, table->oem_id,
+ 			table->oem_table_id);
+ 		acpi_os_unmap_memory(table, ACPI_HEADER_SIZE);

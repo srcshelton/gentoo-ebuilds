@@ -1,0 +1,31 @@
+{
+  "annotations": {
+    "path": "debian.master/config/annotations",
+    "sha256": "382088445056197994b2bf6c7eb11d7438b0a4986b8dd1307acf06e6efa52365"
+  },
+  "compatibility_note": "Ubuntu 6.17 seed for CIX Linux 6.18; this is not an Ubuntu 6.18 configuration",
+  "configs": {
+    "arm64-generic-64k.config": {
+      "lines": 13093,
+      "sha256": "c8d66de208fe4b2d25300fef81c0d4f3c056e36323e7667db0d0e4a4ca779d50"
+    },
+    "arm64-generic.config": {
+      "lines": 13152,
+      "sha256": "bbcfdb9c4e608731e1aedabbc1428002c275f78615e300d69ec9aefca85d1ec6"
+    }
+  },
+  "consumer_lines": [
+    "6.18"
+  ],
+  "debian_directory": "debian.master",
+  "declared_seed": "6.17",
+  "distribution": "questing",
+  "repository": "https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/questing",
+  "requested_ref": "master-next",
+  "resolved_commit": "a399ea490b86e68c36c9c35d26c47c1866611239",
+  "resolved_commit_date": "2026-06-20T19:25:00+03:00",
+  "schema_version": 1,
+  "source": "Ubuntu Questing",
+  "source_kernel_series": "6.17",
+  "source_kernel_version": "6.17.13"
+}

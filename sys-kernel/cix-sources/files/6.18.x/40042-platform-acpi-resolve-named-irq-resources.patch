@@ -1,9 +1,7 @@
-Provenance: overlay-created from CIX ACPI runtime failures and mechanically
-generated against the exact 6.18.38 ebuild preimage.
-
 Named lookup can find an ACPI IRQ resource before its GSI has been mapped.
 Translate the named resource to its IRQ ordinal, then delegate mapping,
-trigger setup, and error handling to platform_get_irq_optional().
+trigger setup, and error handling to platform_get_irq_optional(). This is a
+bounded correction for observed CIX ACPI runtime failures.
 
 diff --git a/drivers/base/platform.c b/drivers/base/platform.c
 --- a/drivers/base/platform.c

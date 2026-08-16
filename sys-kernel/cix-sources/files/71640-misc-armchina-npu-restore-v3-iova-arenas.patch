@@ -6,14 +6,15 @@ allocated bases as ASIDs, and give each file-owned exec_id a suballocated
 arena.  Implement P1 allocation modes 1--3, exact P1 whole-arena free
 semantics, transactional REBIND, fragmented page linking, and segment-aware
 cache maintenance.  Ordinary mode-0 allocation retains its proven low DMA
-window; the device's wider DMA mask is used only for the opt-in ASID pools.
+window; the device's wider DMA mask is used only for the ASID pools.
 
-The existing acpi_prealloc_iova_regions switch remains the qualification gate
-until live O6 testing proves that all four reported bases reach the init TCB
-and that modes 0--3 preserve model results and teardown correctly.  Mode 4 is
-a separate Sky1-lineage extension and is not enabled here.
+Enable ASID arenas by default after verified inference completed on O6
+through every ASID.  Retain the read-only, load-time v3_asid_arenas
+parameter so that N selects the safe single-ASID path for recovery or
+diagnosis.  Mode 4 is a separate Sky1-lineage extension and is not enabled
+here.
 
-Provenance: adapted from the ABI and manager-5 behavior in CIX NPU driver
+Source: ABI and manager-5 behaviour from CIX NPU driver
 p1_7.0_v6.2.0 (commit 93a0698fc00d848afefc8e33022d2a2878663677),
 using the standard Linux DMA IOVA API rather than the vendor implementation.
 
@@ -212,9 +213,9 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
 +#define AIPU_V3_ASID_BYTES (3ULL * SZ_1G)
 +#define AIPU_V3_ASID_SLOT_BYTES SZ_4G
  
- static bool aipu_acpi_prealloc_iova_regions;
- module_param_named(acpi_prealloc_iova_regions, aipu_acpi_prealloc_iova_regions, bool, 0644);
- MODULE_PARM_DESC(acpi_prealloc_iova_regions,
+-static bool aipu_acpi_prealloc_iova_regions;
+-module_param_named(acpi_prealloc_iova_regions, aipu_acpi_prealloc_iova_regions, bool, 0644);
+-MODULE_PARM_DESC(acpi_prealloc_iova_regions,
 -		 "Use legacy preallocated IOVA regions on ACPI systems");
 -
 -enum iommu_dma_cookie_type {
@@ -242,7 +243,10 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
 -	struct iova_domain      iovad;
 -};
 -#endif
-+		 "Use DMA-API-owned four-ASID IOVA arenas on IOMMU systems");
++static bool v3_asid_arenas = true;
++module_param(v3_asid_arenas, bool, 0444);
++MODULE_PARM_DESC(v3_asid_arenas,
++		 "Enable DMA-API-owned four-ASID IOVA arenas on IOMMU systems");
  
  struct aipu_vma_ctx {
  	struct aipu_memory_manager *mm;
@@ -319,6 +323,15 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
  		if (reg->base_va)
  			vunmap(reg->base_va);
  		dma_sync_sgtable_for_device(reg->dev, reg->dma_sgt,
+@@ -756,7 +780,7 @@ static struct aipu_mem_region *aipu_mm_create_region(struct aipu_memory_manager
+ 	}
+ 
+ 	if (!reserved && mm->has_iommu && has_acpi_companion(mm->dev) &&
+-	    !aipu_acpi_prealloc_iova_regions) {
++	    !v3_asid_arenas) {
+ 		reg->dma_sgt = dma_alloc_noncontiguous(reg->dev, reg->bytes,
+ 						   DMA_BIDIRECTIONAL,
+ 						   GFP_KERNEL | __GFP_ZERO,
 @@ -1154,9 +1178,8 @@ static void add_region_list(struct aipu_memory_manager *mm, int asid,
  	mm->ase[asid].cnt++;
  }
@@ -597,10 +610,16 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
 +			reg->phys_page_count = i;
 +			return -ENOMEM;
 +		}
-+	}
+ 	}
 +	return 0;
 +}
-+
+ 
+-	do {
+-		obj = aipu_mm_create_region_object(mm, AIPU_MEM_REGION_TYPE_MEMORY,
+-						   iova_region_size, 0, asid_idx, NULL, true);
+-		if (!obj) {
+-			dev_err(mm->dev, "create iova region failed (ret = %ld)", PTR_ERR(reg));
+-			aipu_mm_set_safe_dma_api_range(mm);
 +static int aipu_mm_link_arena_region(struct aipu_memory_manager *mm,
 +				     struct aipu_mem_region *reg)
 +{
@@ -616,18 +635,12 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
 +		if (ret)
 +			return ret;
 +		reg->linked_page_count++;
- 	}
++	}
 +	ret = dma_iova_sync(mm->dev, &pool->state, reg->arena_offset,
 +			    reg->bytes);
 +	if (ret)
 +		return ret;
- 
--	do {
--		obj = aipu_mm_create_region_object(mm, AIPU_MEM_REGION_TYPE_MEMORY,
--						   iova_region_size, 0, asid_idx, NULL, true);
--		if (!obj) {
--			dev_err(mm->dev, "create iova region failed (ret = %ld)", PTR_ERR(reg));
--			aipu_mm_set_safe_dma_api_range(mm);
++
 +	for (i = 0; i < reg->phys_page_count; i++)
 +		dma_sync_single_for_cpu(mm->dev,
 +					reg->base_iova + (i << PAGE_SHIFT),
@@ -829,7 +842,7 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
  	 */
 -	if (mm->has_iommu && has_acpi_companion(mm->dev) &&
 -	    !aipu_acpi_prealloc_iova_regions) {
-+	if (mm->has_iommu && aipu_acpi_prealloc_iova_regions) {
++	if (mm->has_iommu && v3_asid_arenas) {
 +		ret = aipu_mm_init_iova_pools(mm);
 +		if (ret) {
 +			dev_warn(mm->dev,

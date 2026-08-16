@@ -1,0 +1,93 @@
+Use dev_err_probe() for CIX camera subdevice setup. Supplier-driven
+probe deferral remains visible through the deferred-probe diagnostics
+without being reported as a permanent device error on each retry.
+
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
+@@ -152,10 +152,8 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 
+ 	sd->entity.function = MEDIA_ENT_F_V4L2_SUBDEV_UNKNOWN;
+ 	res = media_entity_pads_init(&sd->entity, 0, NULL);
+-	if (res) {
+-		LOG(LOG_ERR, "media_entity_pads_init  failed");
+-		goto EXIT_RET;
+-	}
++	if (res)
++		return res;
+ 
+ 	sd->entity.function = ARMCB_CAMERA_SUBDEV_MOTOR;
+ 	sd->entity.name = sd->name;
+@@ -163,12 +161,9 @@ static int armcb_motor_configure_subdevs(struct armcb_motor_subdev *pmotor_sd)
+ 	pmotor_sd->motor_sd.close_seq = ARMCB_SD_CLOSE_2ND_CATEGORY | 0x10;
+ 	res = armcb_subdev_register(&pmotor_sd->motor_sd, pmotor_sd->cam_id);
+ 	if (res) {
+-		LOG(LOG_ERR, "armcb_subdev_register  failed");
+ 		media_entity_cleanup(&sd->entity);
+-		goto EXIT_RET;
+ 	}
+ 
+-EXIT_RET:
+ 	return res;
+ }
+ 
+@@ -276,10 +271,10 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ 	dev_dbg(dev, "SPI motor speed: %u Hz\n", pspi_dev->max_speed_hz);
+ #endif
+ 	res = armcb_motor_configure_subdevs(pmotor_sd);
+-	if (res < 0) {
+-		LOG(LOG_ERR, "armcb_imgsens_configure_subdevs failed res(%d)",
+-			res);
+-		goto EXIT_RET;
++	if (res) {
++		armcb_subdev_put(&pmotor_sd->motor_sd);
++		return dev_err_probe(dev, res,
++				     "failed to configure actuator subdevice\n");
+ 	}
+ 
+ #ifdef CIX_I2C_ACTUATOR
+@@ -291,13 +286,7 @@ static int motor0_probe(struct spi_device *pspi_dev)
+ 
+ 	LOG(LOG_DEBUG, "motor probe scuess , p_spi_dev = %p ", pspi_dev);
+ #endif
+-	return res;
+-
+-EXIT_RET:
+-	armcb_subdev_put(&pmotor_sd->motor_sd);
+-	LOG(LOG_ERR, "motor probe failed. res = %d", res);
+-
+-	return res;
++	return 0;
+ }
+ 
+ #ifdef CIX_I2C_ACTUATOR
+diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+--- a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
++++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
+@@ -595,7 +595,7 @@ static int imgsens_probe(struct i2c_client *client)
+ 	res = armcb_register_async_node(&client->dev, &adev->dts_notifier,
+ 					true);
+ 	if (res < 0) {
+-		dev_err(dev, "failed to add async matches: %d\n", res);
++		dev_err_probe(dev, res, "failed to add async matches\n");
+ 		goto err_notifier;
+ 	}
+ #if (KERNEL_VERSION( 6, 6, 0 ) <= LINUX_VERSION_CODE)
+@@ -604,15 +604,14 @@ static int imgsens_probe(struct i2c_client *client)
+ 	res = v4l2_async_nf_register(&adev->v4l2_dev, &adev->dts_notifier);
+ #endif
+ 	if (res < 0) {
+-		dev_err(dev, "failed to register async notifier: %d\n", res);
++		dev_err_probe(dev, res, "failed to register async notifier\n");
+ 		goto err_notifier;
+ 	}
+ 	adev->dts_notifier_registered = true;
+ 
+ 	res = armcb_imgsens_configure_subdevs(pimgsens_sd);
+ 	if (res < 0) {
+-		LOG(LOG_ERR, "armcb_imgsens_configure_subdevs failed res(%d)",
+-			res);
++		dev_err_probe(dev, res, "failed to configure sensor subdevice\n");
+ 		goto err_notifier;
+ 	}
+ 	subdev_registered = true;

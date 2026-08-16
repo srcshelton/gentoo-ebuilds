@@ -1,0 +1,57 @@
+SOF can publish device-managed MMIO through debugfs before firmware boot
+has advanced its state.  The remove path skips debugfs teardown when that
+state is still SOF_FW_BOOT_NOT_STARTED, leaving entries backed by released
+mappings after an early or failed probe.  Reject absent mappings, make the
+teardown idempotent and remove the debugfs tree in the early-state path.
+
+diff --git a/sound/soc/sof/core.c b/sound/soc/sof/core.c
+--- a/sound/soc/sof/core.c
++++ b/sound/soc/sof/core.c
+@@ -774,10 +774,14 @@ int snd_sof_device_remove(struct device *dev)
+ 		snd_sof_remove(sdev);
+ 		snd_sof_remove_late(sdev);
+ 		sof_ops_free(sdev);
+-	} else if (aborted) {
+-		/* probe_work never ran */
+-		snd_sof_remove_late(sdev);
+-		sof_ops_free(sdev);
++	} else {
++		/* Debugfs may already exist after a failed or aborted probe. */
++		snd_sof_free_debug(sdev);
++		if (aborted) {
++			/* probe_work never ran */
++			snd_sof_remove_late(sdev);
++			sof_ops_free(sdev);
++		}
+ 	}
+ 
+ 	/* release firmware */
+diff --git a/sound/soc/sof/debug.c b/sound/soc/sof/debug.c
+--- a/sound/soc/sof/debug.c
++++ b/sound/soc/sof/debug.c
+@@ -118,7 +118,7 @@ static int snd_sof_debugfs_io_item(struct snd_sof_dev *sdev,
+ {
+ 	struct snd_sof_dfsentry *dfse;
+ 
+-	if (!sdev)
++	if (!sdev || !base || !size)
+ 		return -EINVAL;
+ 
+ 	dfse = devm_kzalloc(sdev->dev, sizeof(*dfse), GFP_KERNEL);
+@@ -161,6 +161,8 @@ int snd_sof_debugfs_add_region_item_iomem(struct snd_sof_dev *sdev,
+ 
+ 	if (bar < 0)
+ 		return bar;
++	if (!sdev->bar[bar])
++		return -ENODEV;
+ 
+ 	return snd_sof_debugfs_io_item(sdev, sdev->bar[bar] + offset, size, name,
+ 				       access_type);
+@@ -384,6 +386,7 @@ EXPORT_SYMBOL_GPL(snd_sof_dbg_init);
+ void snd_sof_free_debug(struct snd_sof_dev *sdev)
+ {
+ 	debugfs_remove_recursive(sdev->debugfs_root);
++	sdev->debugfs_root = NULL;
+ }
+ EXPORT_SYMBOL_GPL(snd_sof_free_debug);
+ 

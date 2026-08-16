@@ -6,7 +6,8 @@ were presented as usable.
 Represent the complete build-time contract with a hidden BPF_STRUCT_OPS
 capability and gate every in-tree provider and configurable consumer on it.
 Ordinary BPF, TCP congestion-control, HID, and other non-struct_ops features
-remain available without KALLSYMS.
+remain available without KALLSYMS.  Leave the core test-run callback unset
+when the capability omits its dummy provider.
 
 diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
 --- a/kernel/Kconfig.preempt
@@ -37,6 +38,18 @@ diff --git a/kernel/bpf/Kconfig b/kernel/bpf/Kconfig
  config BPF_JIT_ALWAYS_ON
  	bool "Permanently enable BPF JIT and remove BPF interpreter"
  	depends on BPF_SYSCALL && HAVE_EBPF_JIT && BPF_JIT
+diff --git a/kernel/bpf/bpf_struct_ops.c b/kernel/bpf/bpf_struct_ops.c
+--- a/kernel/bpf/bpf_struct_ops.c
++++ b/kernel/bpf/bpf_struct_ops.c
+@@ -70,7 +70,7 @@ const struct bpf_verifier_ops bpf_struct_ops_verifier_ops = {
+ };
+ 
+ const struct bpf_prog_ops bpf_struct_ops_prog_ops = {
+-#ifdef CONFIG_NET
++#if defined(CONFIG_NET) && defined(CONFIG_BPF_STRUCT_OPS)
+ 	.test_run = bpf_struct_ops_test_run,
+ #endif
+ };
 diff --git a/net/bpf/Makefile b/net/bpf/Makefile
 --- a/net/bpf/Makefile
 +++ b/net/bpf/Makefile

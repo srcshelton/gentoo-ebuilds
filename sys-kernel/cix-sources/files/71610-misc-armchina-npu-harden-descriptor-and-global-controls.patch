@@ -13,8 +13,7 @@ The public descriptor schema does not define every nested payload pointer.
 Mapped TCBs remain writable after submission.  This change therefore does
 not claim complete validation of a hostile userspace descriptor graph.
 
-Provenance: overlay-created from the audited Arm China R2P0 and R2P1
-sources.
+Based on the audited Arm China R2P0 and R2P1 sources.
 
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu.c b/drivers/misc/armchina-npu-r2p0/aipu.c
 --- a/drivers/misc/armchina-npu-r2p0/aipu.c

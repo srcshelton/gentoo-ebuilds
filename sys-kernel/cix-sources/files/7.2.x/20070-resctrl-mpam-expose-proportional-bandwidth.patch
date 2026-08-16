@@ -1,0 +1,742 @@
+diff --git a/Documentation/arch/arm64/mpam.rst b/Documentation/arch/arm64/mpam.rst
+--- a/Documentation/arch/arm64/mpam.rst
++++ b/Documentation/arch/arm64/mpam.rst
+@@ -61,6 +61,21 @@ The supported features are:
+   When the MPAM driver finds multiple groups of MSC it can use for the 'MB'
+   schema, it prefers the group closest to the L3 cache.
+ 
++* Memory bandwidth proportional-stride controls (MBW_PROP) on or after the
++  L3 cache. These use the same topology requirements and class-selection
++  policy as MBW_MAX. Mount resctrl with ``-o mbw_prop`` to expose the
++  ``MB_PROP`` schema. The schema contains the hardware stride-minus-one value:
++  zero selects stride one and the maximum is shown by
++  ``info/MB_PROP/max_bandwidth``. Lower values receive more bandwidth when
++  traffic contends; the control does not impose an absolute bandwidth limit.
++
++  A published Sky1 evaluation found that enabling proportional-stride control
++  reduced interference, but increasing an interferer's stride beyond zero
++  provided negligible additional benefit in its saturated workload. The
++  reverse experiment reduced the target's bandwidth in nearly every case.
++  Results remain workload and implementation dependent; use non-zero values
++  only after measuring the intended workload [1]_.
++
+ * Cache Storage Usage (CSU) counters can expose the 'llc_occupancy' provided
+   there is at least one CSU monitor on each MSC that makes up the L3 group.
+   Exposing CSU counters from other caches or devices is not supported.
+@@ -70,3 +85,10 @@ Reporting Bugs
+ If you are not seeing the counters or controls you expect please share the
+ debug messages produced when enabling dynamic debug and booting with:
+ dyndbg="file mpam_resctrl.c +pl"
++
++References
++==========
++
++.. [1] Ashutosh Pradhan et al., "Work-in-Progress: A First Practical Look at
++       Arm's MPAM for Real-Time Systems",
++       https://rtsl.cps.mw.tum.de/media/publication/125/2025_rtss_wip_mpam.pdf
+diff --git a/Documentation/filesystems/resctrl.rst b/Documentation/filesystems/resctrl.rst
+--- a/Documentation/filesystems/resctrl.rst
++++ b/Documentation/filesystems/resctrl.rst
+@@ -37,7 +37,7 @@ about the feature from resctrl's info directory.
+ 
+ To use the feature mount the file system::
+ 
+- # mount -t resctrl resctrl [-o cdp[,cdpl2][,mba_MBps][,debug]] /sys/fs/resctrl
++ # mount -t resctrl resctrl [-o cdp[,cdpl2][,mba_MBps][,mbw_prop][,debug]] /sys/fs/resctrl
+ 
+ mount options are:
+ 
+@@ -48,6 +48,9 @@ mount options are:
+ "mba_MBps":
+ 	Enable the MBA Software Controller(mba_sc) to specify MBA
+ 	bandwidth in MiBps
++"mbw_prop":
++	Enable the Arm MPAM memory bandwidth proportional-stride control.
++	This option is incompatible with code and data prioritization (CDP).
+ "debug":
+ 	Make debug files accessible. Available debug files are annotated with
+ 	"Available only with debug option".
+@@ -228,17 +231,19 @@ related to allocation:
+ 		written to /sys/fs/resctrl/info/L3DATA/io_alloc_cbm may be reflected by
+ 		/sys/fs/resctrl/info/L3CODE/io_alloc_cbm and vice versa.
+ 
+-Memory bandwidth(MB) subdirectory contains the following files
+-with respect to allocation:
++Memory bandwidth (MB, MB_PROP and SMBA) subdirectories contain the following
++files with respect to allocation:
+ 
+ "min_bandwidth":
+-		The minimum memory bandwidth percentage which
+-		user can request.
++		The minimum memory bandwidth value which the user can request.
++
++"max_bandwidth":
++		The maximum memory bandwidth value which the user can
++		request. This is normally 100 for percentage controls.
+ 
+ "bandwidth_gran":
+-		The granularity in which the memory bandwidth
+-		percentage is allocated. The allocated
+-		b/w percentage is rounded off to the next
++		The granularity in which the memory bandwidth value is
++		allocated. The allocated value is rounded off to the next
+ 		control step available on the hardware. The
+ 		available bandwidth control steps are:
+ 		min_bandwidth + N * bandwidth_gran.
+@@ -964,6 +969,17 @@ Memory bandwidth domain is L3 cache.
+ 
+ 	MB:<cache_id0>=bw_MiBps0;<cache_id1>=bw_MiBps1;...
+ 
++Memory bandwidth proportional-stride allocation
++------------------------------------------------
++
++On Arm MPAM systems mounted with the ``mbw_prop`` option, ``MB_PROP`` contains
++the hardware stride-minus-one value. Zero selects stride one and higher values
++give the group a lower relative share under bandwidth contention. This is a
++work-conserving control and does not impose an absolute bandwidth limit.
++::
++
++	MB_PROP:<cache_id0>=stride_minus_one0;<cache_id1>=stride_minus_one1;...
++
+ Slow Memory Bandwidth Allocation (SMBA)
+ ---------------------------------------
+ AMD hardware supports Slow Memory Bandwidth Allocation (SMBA).
+diff --git a/arch/x86/kernel/cpu/resctrl/core.c b/arch/x86/kernel/cpu/resctrl/core.c
+--- a/arch/x86/kernel/cpu/resctrl/core.c
++++ b/arch/x86/kernel/cpu/resctrl/core.c
+@@ -212,6 +212,7 @@ static __init bool __get_mem_config_intel(struct rdt_resource *r)
+ 	hw_res->num_closid = edx.split.cos_max + 1;
+ 	max_delay = eax.split.max_delay + 1;
+ 	r->membw.max_bw = MAX_MBA_BW;
++	r->membw.reset_val = MAX_MBA_BW;
+ 	r->membw.arch_needs_linear = true;
+ 	if (ecx & MBA_IS_LINEAR) {
+ 		r->membw.delay_linear = true;
+@@ -247,6 +248,7 @@ static __init bool __rdt_get_mem_config_amd(struct rdt_resource *r)
+ 	cpuid_count(0x80000020, subleaf, &eax, &ebx, &ecx, &edx);
+ 	hw_res->num_closid = edx + 1;
+ 	r->membw.max_bw = 1 << eax;
++	r->membw.reset_val = 1 << eax;
+ 
+ 	/* AMD does not use delay */
+ 	r->membw.delay_linear = false;
+diff --git a/arch/x86/kernel/cpu/resctrl/rdtgroup.c b/arch/x86/kernel/cpu/resctrl/rdtgroup.c
+--- a/arch/x86/kernel/cpu/resctrl/rdtgroup.c
++++ b/arch/x86/kernel/cpu/resctrl/rdtgroup.c
+@@ -229,6 +229,21 @@ bool resctrl_arch_get_cdp_enabled(enum resctrl_res_level l)
+ 	return rdt_resources_all[l].cdp_enabled;
+ }
+ 
++bool resctrl_arch_get_mbw_prop_enabled(void)
++{
++	return false;
++}
++
++bool resctrl_arch_control_enabled(struct rdt_resource *r)
++{
++	return true;
++}
++
++int resctrl_arch_set_mbw_prop_enabled(bool enable)
++{
++	return enable ? -EOPNOTSUPP : 0;
++}
++
+ void resctrl_arch_reset_all_ctrls(struct rdt_resource *r)
+ {
+ 	struct rdt_hw_resource *hw_res = resctrl_to_arch_res(r);
+diff --git a/drivers/resctrl/mpam_devices.c b/drivers/resctrl/mpam_devices.c
+--- a/drivers/resctrl/mpam_devices.c
++++ b/drivers/resctrl/mpam_devices.c
+@@ -1532,6 +1532,15 @@ static u16 mpam_wa_t241_calc_min_from_max(struct mpam_props *props,
+ }
+ 
+ /* Called via IPI. Call while holding an SRCU reference */
++static u32 mpam_mbw_prop_config(struct mpam_config *cfg)
++{
++	if (!mpam_has_feature(mpam_feat_mbw_prop, cfg))
++		return 0;
++
++	return MPAMCFG_MBW_PROP_EN |
++	       FIELD_PREP(MPAMCFG_MBW_PROP_STRIDEM1, cfg->mbw_prop);
++}
++
+ static void mpam_reprogram_ris_partid(struct mpam_msc_ris *ris, u16 partid,
+ 				      struct mpam_config *cfg)
+ {
+@@ -1589,7 +1598,8 @@ static void mpam_reprogram_ris_partid(struct mpam_msc_ris *ris, u16 partid,
+ 	}
+ 
+ 	if (mpam_has_feature(mpam_feat_mbw_prop, rprops))
+-		mpam_write_partsel_reg(msc, MBW_PROP, 0);
++		mpam_write_partsel_reg(msc, MBW_PROP,
++				       mpam_mbw_prop_config(cfg));
+ 
+ 	if (mpam_has_feature(mpam_feat_cmax_cmax, rprops))
+ 		mpam_write_partsel_reg(msc, CMAX, cmax);
+@@ -2622,6 +2632,10 @@ static void mpam_reset_component_cfg(struct mpam_component *comp)
+ 			comp->cfg[i].mbw_pbm = GENMASK(cprops->mbw_pbm_bits - 1, 0);
+ 		if (cprops->bwa_wd)
+ 			comp->cfg[i].mbw_max = GENMASK(15, 16 - cprops->bwa_wd);
++		if (comp->class->mbw_prop_enabled) {
++			comp->cfg[i].mbw_prop = 0;
++			mpam_set_feature(mpam_feat_mbw_prop, &comp->cfg[i]);
++		}
+ 	}
+ }
+ 
+@@ -2896,6 +2910,13 @@ static bool mpam_update_config(struct mpam_config *cfg,
+ 	maybe_update_config(cfg, mpam_feat_cpor_part, newcfg, cpbm, has_changes);
+ 	maybe_update_config(cfg, mpam_feat_mbw_part, newcfg, mbw_pbm, has_changes);
+ 	maybe_update_config(cfg, mpam_feat_mbw_max, newcfg, mbw_max, has_changes);
++	if (mpam_has_feature(mpam_feat_mbw_prop, newcfg) &&
++	    (!mpam_has_feature(mpam_feat_mbw_prop, cfg) ||
++	     newcfg->mbw_prop != cfg->mbw_prop)) {
++		cfg->mbw_prop = newcfg->mbw_prop;
++		mpam_set_feature(mpam_feat_mbw_prop, cfg);
++		has_changes = true;
++	}
+ 
+ 	return has_changes;
+ }
+@@ -2937,6 +2958,22 @@ int mpam_apply_config(struct mpam_component *comp, u16 partid,
+ 	return 0;
+ }
+ 
++void mpam_enable_mbw_prop_locked(struct mpam_class *class)
++{
++	struct mpam_config cfg = { };
++	struct mpam_component *comp;
++	u16 partid;
++
++	lockdep_assert_cpus_held();
++	mpam_set_feature(mpam_feat_mbw_prop, &cfg);
++
++	guard(srcu)(&mpam_srcu);
++	list_for_each_entry_srcu(comp, &class->components, class_list,
++				 srcu_read_lock_held(&mpam_srcu))
++		for (partid = 0; partid <= mpam_partid_max; partid++)
++			mpam_apply_config(comp, partid, &cfg);
++}
++
+ static int __init mpam_msc_driver_init(void)
+ {
+ 	if (!system_supports_mpam())
+diff --git a/drivers/resctrl/mpam_internal.h b/drivers/resctrl/mpam_internal.h
+--- a/drivers/resctrl/mpam_internal.h
++++ b/drivers/resctrl/mpam_internal.h
+@@ -297,6 +297,7 @@ struct mpam_class {
+ 	cpumask_t		affinity;
+ 
+ 	struct mpam_props	props;
++	bool			mbw_prop_enabled;
+ 	u32			nrdy_usec;
+ 	u16			quirks;
+ 	u8			level;
+@@ -318,6 +319,7 @@ struct mpam_config {
+ 	u32	cpbm;
+ 	u32	mbw_pbm;
+ 	u16	mbw_max;
++	u16	mbw_prop;
+ 
+ 	struct mpam_garbage	garbage;
+ };
+@@ -458,6 +460,7 @@ void mpam_disable(struct work_struct *work);
+ 
+ /* Reset all the RIS in a class under cpus_read_lock() */
+ void mpam_reset_class_locked(struct mpam_class *class);
++void mpam_enable_mbw_prop_locked(struct mpam_class *class);
+ 
+ int mpam_apply_config(struct mpam_component *comp, u16 partid,
+ 		      struct mpam_config *cfg);
+diff --git a/drivers/resctrl/mpam_resctrl.c b/drivers/resctrl/mpam_resctrl.c
+--- a/drivers/resctrl/mpam_resctrl.c
++++ b/drivers/resctrl/mpam_resctrl.c
+@@ -167,6 +167,45 @@ bool resctrl_arch_get_cdp_enabled(enum resctrl_res_level rid)
+ 	return mpam_resctrl_controls[rid].cdp_enabled;
+ }
+ 
++bool resctrl_arch_get_mbw_prop_enabled(void)
++{
++	struct mpam_resctrl_res *res =
++		&mpam_resctrl_controls[RDT_RESOURCE_MBW_PROP];
++
++	return res->class && res->class->mbw_prop_enabled;
++}
++
++bool resctrl_arch_control_enabled(struct rdt_resource *r)
++{
++	if (r->rid == RDT_RESOURCE_MBW_PROP)
++		return resctrl_arch_get_mbw_prop_enabled();
++
++	return true;
++}
++
++int resctrl_arch_set_mbw_prop_enabled(bool enable)
++{
++	struct mpam_resctrl_res *res =
++		&mpam_resctrl_controls[RDT_RESOURCE_MBW_PROP];
++
++	if (!res->class)
++		return enable ? -EOPNOTSUPP : 0;
++
++	if (enable && cdp_enabled)
++		return -EINVAL;
++
++	if (res->class->mbw_prop_enabled == enable)
++		return 0;
++
++	res->class->mbw_prop_enabled = enable;
++	if (enable)
++		mpam_enable_mbw_prop_locked(res->class);
++	else
++		mpam_reset_class_locked(res->class);
++
++	return 0;
++}
++
+ /**
+  * resctrl_reset_task_closids() - Reset the PARTID/PMG values for all tasks.
+  *
+@@ -579,11 +618,6 @@ static bool mba_class_use_mbw_max(struct mpam_props *cprops)
+ 		cprops->bwa_wd);
+ }
+ 
+-static bool class_has_usable_mba(struct mpam_props *cprops)
+-{
+-	return mba_class_use_mbw_max(cprops);
+-}
+-
+ static bool cache_has_usable_csu(struct mpam_class *class)
+ {
+ 	struct mpam_props *cprops;
+@@ -867,7 +901,8 @@ static void mpam_resctrl_pick_caches(void)
+ 	}
+ }
+ 
+-static void mpam_resctrl_pick_mba(void)
++static void mpam_resctrl_pick_mbw(enum mpam_device_features feature,
++				  enum resctrl_res_level rid)
+ {
+ 	struct mpam_class *class, *candidate_class = NULL;
+ 	struct mpam_resctrl_res *res;
+@@ -884,8 +919,8 @@ static void mpam_resctrl_pick_mba(void)
+ 			continue;
+ 		}
+ 
+-		if (!class_has_usable_mba(cprops)) {
+-			pr_debug("class %u has no bandwidth control\n",
++		if (!cprops->bwa_wd || !mpam_has_feature(feature, cprops)) {
++			pr_debug("class %u lacks requested bandwidth control\n",
+ 				 class->level);
+ 			continue;
+ 		}
+@@ -908,19 +943,18 @@ static void mpam_resctrl_pick_mba(void)
+ 		}
+ 
+ 		/*
+-		 * Pick a resource to be MBA that as close as possible to
+-		 * the L3. mbm_total counts the bandwidth leaving the L3
+-		 * cache and MBA should correspond as closely as possible
+-		 * for proper operation of mba_sc.
++		 * Pick the bandwidth control closest to the L3. mbm_total
++		 * counts the bandwidth leaving the L3 and MBW_MAX should
++		 * correspond as closely as possible for mba_sc.
+ 		 */
+ 		if (!candidate_class || class->level < candidate_class->level)
+ 			candidate_class = class;
+ 	}
+ 
+ 	if (candidate_class) {
+-		pr_debug("selected class %u to back MBA\n",
+-			 candidate_class->level);
+-		res = &mpam_resctrl_controls[RDT_RESOURCE_MBA];
++		pr_debug("selected class %u to back resource %u\n",
++			 candidate_class->level, rid);
++		res = &mpam_resctrl_controls[rid];
+ 		res->class = candidate_class;
+ 	}
+ }
+@@ -1030,10 +1064,21 @@ static int mpam_resctrl_control_init(struct mpam_resctrl_res *res)
+ 		r->membw.min_bw = get_mba_min(cprops);
+ 		r->membw.max_bw = MAX_MBA_BW;
+ 		r->membw.bw_gran = get_mba_granularity(cprops);
++		r->membw.reset_val = MAX_MBA_BW;
+ 
+ 		r->name = "MB";
+ 		r->alloc_capable = true;
+ 		break;
++	case RDT_RESOURCE_MBW_PROP:
++		r->schema_fmt = RESCTRL_SCHEMA_RANGE;
++		r->ctrl_scope = RESCTRL_L3_CACHE;
++		r->membw.min_bw = 0;
++		r->membw.max_bw = BIT(cprops->bwa_wd) - 1;
++		r->membw.bw_gran = 1;
++		r->membw.reset_val = 0;
++		r->name = "MB_PROP";
++		r->alloc_capable = true;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1149,11 +1194,15 @@ u32 resctrl_arch_get_config(struct rdt_resource *r, struct rdt_ctrl_domain *d,
+ 		configured_by = mpam_feat_cpor_part;
+ 		break;
+ 	case RDT_RESOURCE_MBA:
+-		if (mpam_has_feature(mpam_feat_mbw_max, cprops)) {
+-			configured_by = mpam_feat_mbw_max;
+-			break;
+-		}
+-		fallthrough;
++		if (!mpam_has_feature(mpam_feat_mbw_max, cprops))
++			return resctrl_get_default_ctrl(r);
++		configured_by = mpam_feat_mbw_max;
++		break;
++	case RDT_RESOURCE_MBW_PROP:
++		if (!mpam_has_feature(mpam_feat_mbw_prop, cprops))
++			return resctrl_get_default_ctrl(r);
++		configured_by = mpam_feat_mbw_prop;
++		break;
+ 	default:
+ 		return resctrl_get_default_ctrl(r);
+ 	}
+@@ -1167,6 +1216,8 @@ u32 resctrl_arch_get_config(struct rdt_resource *r, struct rdt_ctrl_domain *d,
+ 		return cfg->cpbm;
+ 	case mpam_feat_mbw_max:
+ 		return mbw_max_to_percent(cfg->mbw_max, cprops);
++	case mpam_feat_mbw_prop:
++		return cfg->mbw_prop;
+ 	default:
+ 		return resctrl_get_default_ctrl(r);
+ 	}
+@@ -1218,12 +1269,19 @@ int resctrl_arch_update_one(struct rdt_resource *r, struct rdt_ctrl_domain *d,
+ 		mpam_set_feature(mpam_feat_cpor_part, &cfg);
+ 		break;
+ 	case RDT_RESOURCE_MBA:
+-		if (mpam_has_feature(mpam_feat_mbw_max, cprops)) {
+-			cfg.mbw_max = percent_to_mbw_max(cfg_val, cprops);
+-			mpam_set_feature(mpam_feat_mbw_max, &cfg);
+-			break;
+-		}
+-		fallthrough;
++		if (!mpam_has_feature(mpam_feat_mbw_max, cprops))
++			return -EINVAL;
++		cfg.mbw_max = percent_to_mbw_max(cfg_val, cprops);
++		mpam_set_feature(mpam_feat_mbw_max, &cfg);
++		break;
++	case RDT_RESOURCE_MBW_PROP:
++		if (!mpam_has_feature(mpam_feat_mbw_prop, cprops))
++			return -EINVAL;
++		if (cfg_val)
++			pr_warn_once("MPAM MBW_PROP: published Sky1 tests found little additional benefit from non-zero interferer strides\n");
++		cfg.mbw_prop = cfg_val;
++		mpam_set_feature(mpam_feat_mbw_prop, &cfg);
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1612,7 +1670,8 @@ int mpam_resctrl_setup(void)
+ 
+ 	/* Find some classes to use for controls */
+ 	mpam_resctrl_pick_caches();
+-	mpam_resctrl_pick_mba();
++	mpam_resctrl_pick_mbw(mpam_feat_mbw_max, RDT_RESOURCE_MBA);
++	mpam_resctrl_pick_mbw(mpam_feat_mbw_prop, RDT_RESOURCE_MBW_PROP);
+ 
+ 	/* Initialise the resctrl structures from the classes */
+ 	for_each_mpam_resctrl_control(res, rid) {
+diff --git a/drivers/resctrl/test_mpam_devices.c b/drivers/resctrl/test_mpam_devices.c
+--- a/drivers/resctrl/test_mpam_devices.c
++++ b/drivers/resctrl/test_mpam_devices.c
+@@ -382,7 +382,35 @@ static void test_mpam_reset_msc_bitmap(struct kunit *test)
+ 	mutex_unlock(&fake_msc.part_sel_lock);
+ }
+ 
++static void test_mbw_prop_config(struct kunit *test)
++{
++	struct mpam_config cfg = { };
++
++	KUNIT_EXPECT_EQ(test, mpam_mbw_prop_config(&cfg), 0);
++
++	mpam_set_feature(mpam_feat_mbw_prop, &cfg);
++	KUNIT_EXPECT_EQ(test, mpam_mbw_prop_config(&cfg),
++			MPAMCFG_MBW_PROP_EN);
++
++	cfg.mbw_prop = 63;
++	KUNIT_EXPECT_EQ(test, mpam_mbw_prop_config(&cfg),
++			MPAMCFG_MBW_PROP_EN | 63);
++}
++
++static void test_mbw_prop_update_zero(struct kunit *test)
++{
++	struct mpam_config cfg = { };
++	struct mpam_config new_cfg = { };
++
++	mpam_set_feature(mpam_feat_mbw_prop, &new_cfg);
++	KUNIT_EXPECT_TRUE(test, mpam_update_config(&cfg, &new_cfg));
++	KUNIT_EXPECT_TRUE(test, mpam_has_feature(mpam_feat_mbw_prop, &cfg));
++	KUNIT_EXPECT_EQ(test, cfg.mbw_prop, 0);
++}
++
+ static struct kunit_case mpam_devices_test_cases[] = {
++	KUNIT_CASE(test_mbw_prop_config),
++	KUNIT_CASE(test_mbw_prop_update_zero),
+ 	KUNIT_CASE(test_mpam_reset_msc_bitmap),
+ 	KUNIT_CASE(test_mpam_enable_merge_features),
+ 	KUNIT_CASE(test__props_mismatch),
+diff --git a/drivers/resctrl/test_mpam_resctrl.c b/drivers/resctrl/test_mpam_resctrl.c
+--- a/drivers/resctrl/test_mpam_resctrl.c
++++ b/drivers/resctrl/test_mpam_resctrl.c
+@@ -133,6 +133,27 @@ static void test_get_mba_granularity(struct kunit *test)
+ 	KUNIT_EXPECT_EQ(test, ret, 1);	/* DIV_ROUND_UP(100, 1 << 16)% = 1% */
+ }
+ 
++static void test_mbw_prop_control_init(struct kunit *test)
++{
++	struct mpam_class class = { };
++	struct mpam_resctrl_res res = {
++		.class = &class,
++		.resctrl_res.rid = RDT_RESOURCE_MBW_PROP,
++	};
++
++	mpam_set_feature(mpam_feat_mbw_prop, &class.props);
++	class.props.bwa_wd = 6;
++
++	KUNIT_ASSERT_EQ(test, mpam_resctrl_control_init(&res), 0);
++	KUNIT_EXPECT_STREQ(test, res.resctrl_res.name, "MB_PROP");
++	KUNIT_EXPECT_EQ(test, res.resctrl_res.schema_fmt,
++			RESCTRL_SCHEMA_RANGE);
++	KUNIT_EXPECT_EQ(test, res.resctrl_res.membw.min_bw, 0);
++	KUNIT_EXPECT_EQ(test, res.resctrl_res.membw.max_bw, 63);
++	KUNIT_EXPECT_EQ(test, res.resctrl_res.membw.bw_gran, 1);
++	KUNIT_EXPECT_EQ(test, res.resctrl_res.membw.reset_val, 0);
++}
++
+ static void test_mbw_max_to_percent(struct kunit *test)
+ {
+ 	const struct percent_value_case *param = test->param_value;
+@@ -298,6 +319,7 @@ static void test_percent_to_max_rounding(struct kunit *test)
+ 
+ static struct kunit_case mpam_resctrl_test_cases[] = {
+ 	KUNIT_CASE(test_get_mba_granularity),
++	KUNIT_CASE(test_mbw_prop_control_init),
+ 	KUNIT_CASE_PARAM(test_mbw_max_to_percent, test_percent_value_gen_params),
+ 	KUNIT_CASE_PARAM(test_percent_to_mbw_max, test_percent_value_gen_params),
+ 	KUNIT_CASE_PARAM(test_mbw_max_to_percent_limits, test_all_bwa_wd_gen_params),
+diff --git a/fs/resctrl/ctrlmondata.c b/fs/resctrl/ctrlmondata.c
+--- a/fs/resctrl/ctrlmondata.c
++++ b/fs/resctrl/ctrlmondata.c
+@@ -246,8 +246,8 @@ static int parse_line(char *line, struct resctrl_schema *s,
+ 		return -EINVAL;
+ 
+ 	if (rdtgrp->mode == RDT_MODE_PSEUDO_LOCKSETUP &&
+-	    (r->rid == RDT_RESOURCE_MBA || r->rid == RDT_RESOURCE_SMBA)) {
+-		rdt_last_cmd_puts("Cannot pseudo-lock MBA resource\n");
++	    r->schema_fmt == RESCTRL_SCHEMA_RANGE) {
++		rdt_last_cmd_puts("Cannot pseudo-lock bandwidth resource\n");
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/fs/resctrl/internal.h b/fs/resctrl/internal.h
+--- a/fs/resctrl/internal.h
++++ b/fs/resctrl/internal.h
+@@ -41,6 +41,7 @@ struct rdt_fs_context {
+ 	bool				enable_cdpl2;
+ 	bool				enable_cdpl3;
+ 	bool				enable_mba_mbps;
++	bool				enable_mbw_prop;
+ 	bool				enable_debug;
+ };
+ 
+diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
+--- a/fs/resctrl/rdtgroup.c
++++ b/fs/resctrl/rdtgroup.c
+@@ -1161,6 +1161,16 @@ static int rdt_min_bw_show(struct kernfs_open_file *of,
+ 	return 0;
+ }
+ 
++static int rdt_max_bw_show(struct kernfs_open_file *of,
++			   struct seq_file *seq, void *v)
++{
++	struct resctrl_schema *s = rdt_kn_parent_priv(of->kn);
++	struct rdt_resource *r = s->res;
++
++	seq_printf(seq, "%u\n", r->membw.max_bw);
++	return 0;
++}
++
+ static int rdt_num_rmids_show(struct kernfs_open_file *of,
+ 			      struct seq_file *seq, void *v)
+ {
+@@ -1420,7 +1430,7 @@ static bool rdtgroup_mode_test_exclusive(struct rdtgroup *rdtgrp)
+ 
+ 	list_for_each_entry(s, &resctrl_schema_all, list) {
+ 		r = s->res;
+-		if (r->rid == RDT_RESOURCE_MBA || r->rid == RDT_RESOURCE_SMBA)
++		if (r->schema_fmt == RESCTRL_SCHEMA_RANGE)
+ 			continue;
+ 		has_cache = true;
+ 		list_for_each_entry(d, &r->ctrl_domains, hdr.list) {
+@@ -1624,8 +1634,7 @@ static int rdtgroup_size_show(struct kernfs_open_file *of,
+ 					ctrl = resctrl_arch_get_config(r, d,
+ 								       closid,
+ 								       type);
+-				if (r->rid == RDT_RESOURCE_MBA ||
+-				    r->rid == RDT_RESOURCE_SMBA)
++				if (r->schema_fmt == RESCTRL_SCHEMA_RANGE)
+ 					size = ctrl;
+ 				else
+ 					size = rdtgroup_cbm_to_size(r, d, ctrl);
+@@ -1967,6 +1976,13 @@ static struct rftype res_common_files[] = {
+ 		.seq_show	= rdt_min_bw_show,
+ 		.fflags		= RFTYPE_CTRL_INFO | RFTYPE_RES_MB,
+ 	},
++	{
++		.name		= "max_bandwidth",
++		.mode		= 0444,
++		.kf_ops		= &rdtgroup_kf_single_ops,
++		.seq_show	= rdt_max_bw_show,
++		.fflags		= RFTYPE_CTRL_INFO | RFTYPE_RES_MB,
++	},
+ 	{
+ 		.name		= "bandwidth_gran",
+ 		.mode		= 0444,
+@@ -2404,6 +2420,7 @@ static unsigned long fflags_from_resource(struct rdt_resource *r)
+ 	case RDT_RESOURCE_L2:
+ 		return RFTYPE_RES_CACHE;
+ 	case RDT_RESOURCE_MBA:
++	case RDT_RESOURCE_MBW_PROP:
+ 	case RDT_RESOURCE_SMBA:
+ 		return RFTYPE_RES_MB;
+ 	case RDT_RESOURCE_PERF_PKG:
+@@ -2648,6 +2665,7 @@ static int mkdir_mondata_all(struct kernfs_node *parent_kn,
+ 
+ static void rdt_disable_ctx(void)
+ {
++	resctrl_arch_set_mbw_prop_enabled(false);
+ 	resctrl_arch_set_cdp_enabled(RDT_RESOURCE_L3, false);
+ 	resctrl_arch_set_cdp_enabled(RDT_RESOURCE_L2, false);
+ 	set_mba_sc(false);
+@@ -2677,11 +2695,17 @@ static int rdt_enable_ctx(struct rdt_fs_context *ctx)
+ 			goto out_cdpl3;
+ 	}
+ 
++	ret = resctrl_arch_set_mbw_prop_enabled(ctx->enable_mbw_prop);
++	if (ret)
++		goto out_mba_mbps;
++
+ 	if (ctx->enable_debug)
+ 		resctrl_debug = true;
+ 
+ 	return 0;
+ 
++out_mba_mbps:
++	set_mba_sc(false);
+ out_cdpl3:
+ 	resctrl_arch_set_cdp_enabled(RDT_RESOURCE_L3, false);
+ out_cdpl2:
+@@ -2763,6 +2787,9 @@ static int schemata_list_create(void)
+ 	int ret = 0;
+ 
+ 	for_each_alloc_capable_rdt_resource(r) {
++		if (!resctrl_arch_control_enabled(r))
++			continue;
++
+ 		if (resctrl_arch_get_cdp_enabled(r->rid)) {
+ 			ret = schemata_list_add(r, CDP_CODE);
+ 			if (ret)
+@@ -2921,6 +2948,7 @@ enum rdt_param {
+ 	Opt_cdp,
+ 	Opt_cdpl2,
+ 	Opt_mba_mbps,
++	Opt_mbw_prop,
+ 	Opt_debug,
+ 	nr__rdt_params
+ };
+@@ -2929,6 +2957,7 @@ static const struct fs_parameter_spec rdt_fs_parameters[] = {
+ 	fsparam_flag("cdp",		Opt_cdp),
+ 	fsparam_flag("cdpl2",		Opt_cdpl2),
+ 	fsparam_flag("mba_MBps",	Opt_mba_mbps),
++	fsparam_flag("mbw_prop",	Opt_mbw_prop),
+ 	fsparam_flag("debug",		Opt_debug),
+ 	{}
+ };
+@@ -2957,6 +2986,9 @@ static int rdt_parse_param(struct fs_context *fc, struct fs_parameter *param)
+ 			return invalfc(fc, msg);
+ 		ctx->enable_mba_mbps = true;
+ 		return 0;
++	case Opt_mbw_prop:
++		ctx->enable_mbw_prop = true;
++		return 0;
+ 	case Opt_debug:
+ 		ctx->enable_debug = true;
+ 		return 0;
+@@ -3666,8 +3698,7 @@ static int rdtgroup_init_alloc(struct rdtgroup *rdtgrp)
+ 
+ 	list_for_each_entry(s, &resctrl_schema_all, list) {
+ 		r = s->res;
+-		if (r->rid == RDT_RESOURCE_MBA ||
+-		    r->rid == RDT_RESOURCE_SMBA) {
++		if (r->schema_fmt == RESCTRL_SCHEMA_RANGE) {
+ 			rdtgroup_init_mba(r, rdtgrp->closid);
+ 			if (is_mba_sc(r))
+ 				continue;
+@@ -4258,6 +4289,9 @@ static int rdtgroup_show_options(struct seq_file *seq, struct kernfs_root *kf)
+ 	if (is_mba_sc(resctrl_arch_get_resource(RDT_RESOURCE_MBA)))
+ 		seq_puts(seq, ",mba_MBps");
+ 
++	if (resctrl_arch_get_mbw_prop_enabled())
++		seq_puts(seq, ",mbw_prop");
++
+ 	if (resctrl_debug)
+ 		seq_puts(seq, ",debug");
+ 
+diff --git a/include/linux/resctrl.h b/include/linux/resctrl.h
+--- a/include/linux/resctrl.h
++++ b/include/linux/resctrl.h
+@@ -52,6 +52,7 @@ enum resctrl_res_level {
+ 	RDT_RESOURCE_L3,
+ 	RDT_RESOURCE_L2,
+ 	RDT_RESOURCE_MBA,
++	RDT_RESOURCE_MBW_PROP,
+ 	RDT_RESOURCE_SMBA,
+ 	RDT_RESOURCE_PERF_PKG,
+ 
+@@ -245,8 +246,9 @@ enum membw_throttle_mode {
+ /**
+  * struct resctrl_membw - Memory bandwidth allocation related data
+  * @min_bw:		Minimum memory bandwidth percentage user can request
+- * @max_bw:		Maximum memory bandwidth value, used as the reset value
++ * @max_bw:		Maximum memory bandwidth value user can request
+  * @bw_gran:		Granularity at which the memory bandwidth is allocated
++ * @reset_val:		Control value used when the resource is reset
+  * @delay_linear:	True if memory B/W delay is in linear scale
+  * @arch_needs_linear:	True if we can't configure non-linear resources
+  * @throttle_mode:	Bandwidth throttling mode when threads request
+@@ -258,6 +260,7 @@ struct resctrl_membw {
+ 	u32				min_bw;
+ 	u32				max_bw;
+ 	u32				bw_gran;
++	u32				reset_val;
+ 	u32				delay_linear;
+ 	bool				arch_needs_linear;
+ 	enum membw_throttle_mode	throttle_mode;
+@@ -403,7 +406,7 @@ static inline u32 resctrl_get_default_ctrl(struct rdt_resource *r)
+ 	case RESCTRL_SCHEMA_BITMAP:
+ 		return BIT_MASK(r->cache.cbm_len) - 1;
+ 	case RESCTRL_SCHEMA_RANGE:
+-		return r->membw.max_bw;
++		return r->membw.reset_val;
+ 	}
+ 
+ 	return WARN_ON_ONCE(1);
+@@ -479,6 +482,9 @@ static inline u32 resctrl_get_config_index(u32 closid,
+ 
+ bool resctrl_arch_get_cdp_enabled(enum resctrl_res_level l);
+ int resctrl_arch_set_cdp_enabled(enum resctrl_res_level l, bool enable);
++bool resctrl_arch_control_enabled(struct rdt_resource *r);
++bool resctrl_arch_get_mbw_prop_enabled(void);
++int resctrl_arch_set_mbw_prop_enabled(bool enable);
+ 
+ /**
+  * resctrl_arch_mbm_cntr_assign_enabled() - Check if MBM counter assignment

@@ -1,0 +1,23 @@
+The DPTX reset lines are optional, but provider and deferred-probe errors must not be retained as error pointers and silently skipped.  Use the optional reset API and propagate lookup failures.
+
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -3471,8 +3471,15 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	dp->link_config.max_lanes = dp->num_lanes;
+ 	dp->link_config.max_rate = dp->max_rate;
+ 
+-	dp->phy_reset = devm_reset_control_get(dev, "phy_reset");
+-	dp->reset = devm_reset_control_get(dev, "dp_reset");
++	dp->phy_reset = devm_reset_control_get_optional_exclusive(dev, "phy_reset");
++	if (IS_ERR(dp->phy_reset))
++		return dev_err_probe(dev, PTR_ERR(dp->phy_reset),
++				     "failed to get PHY reset\n");
++
++	dp->reset = devm_reset_control_get_optional_exclusive(dev, "dp_reset");
++	if (IS_ERR(dp->reset))
++		return dev_err_probe(dev, PTR_ERR(dp->reset),
++				     "failed to get DP reset\n");
+ 
+ 	dpsub->apb_clk = devm_clk_get(dev, "apb_clk");
+ 	if (IS_ERR(dpsub->apb_clk))

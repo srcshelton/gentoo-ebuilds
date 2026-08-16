@@ -6,10 +6,8 @@ usable instead of publishing a partial camera interface. Expected camera
 ordering deferrals are recorded through the driver core without vendor error
 noise, and the optional ACPI reserved-memory omission remains non-fatal.
 
-The source import comes from cixtech/cix_opensource__isp_driver commit
-3df10fc0fb44cc049094036d512a7c26282976f5. This overlay-owned hardening
-artifact is mechanically regenerated from the exact maintained CIX source
-preimage immediately after patch 72015.
+Source: cixtech/cix_opensource__isp_driver commit
+3df10fc0fb44cc049094036d512a7c26282976f5.
 
 diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
 --- a/drivers/media/platform/cix/Kconfig
