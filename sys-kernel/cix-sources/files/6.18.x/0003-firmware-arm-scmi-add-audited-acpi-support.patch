@@ -1,8 +1,9 @@
-Provenance: mechanically reconstructed from CIX cix-linux-main commit
-19f2947303670f2e5734d6a96ffc72a80fd9b942 and the exact 6.18.38
-ebuild preimage.  This replacement incorporates the former overlay ownership,
-error-path and debugfs corrections while keeping reference counting private
-to the SCMI mailbox transport.
+Retain the audited ACPI firmware-node and mailbox support, including the
+overlay ownership, error-path and debugfs corrections, while keeping
+reference counting private to the SCMI mailbox transport.
+
+Source: cixtech/cix-linux-main commit
+19f2947303670f2e5734d6a96ffc72a80fd9b942.
 
 diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
 --- a/drivers/firmware/arm_scmi/bus.c

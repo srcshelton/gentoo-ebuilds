@@ -1,0 +1,24 @@
+usb: cdns3: sky1: declare the USB/DP PHY dependency
+
+Select the Sky1 USB/DisplayPort PHY required by the Cadence wrapper and
+load it first when both drivers are modular.
+
+diff --git a/drivers/usb/cdns3/Kconfig b/drivers/usb/cdns3/Kconfig
+--- a/drivers/usb/cdns3/Kconfig
++++ b/drivers/usb/cdns3/Kconfig
+@@ -114,6 +114,7 @@ config USB_CDNS3_SKY1
+ 	tristate "Cadence USBSSP support on CIX Sky1 SoCs"
+ 	depends on (ARCH_CIX || COMPILE_TEST) && (ACPI || OF)
+ 	depends on COMMON_CLK && RESET_CONTROLLER && MFD_SYSCON
++	select PHY_CIX_USBDP if ARCH_CIX
+ 	default USB_CDNS3
+ 	help
+ 	  Say Y or M here to enable the platform integration for Cadence
+diff --git a/drivers/usb/cdns3/cdns3-sky1.c b/drivers/usb/cdns3/cdns3-sky1.c
+--- a/drivers/usb/cdns3/cdns3-sky1.c
++++ b/drivers/usb/cdns3/cdns3-sky1.c
+@@ -877,3 +877,4 @@ MODULE_AUTHOR("Chao Zeng <Chao.Zeng@cixtech.com>");
+ MODULE_AUTHOR("Matthew Ma <Matthew.Ma@cixtech.com>");
+ MODULE_DESCRIPTION("Cadence USBSSP CIX Sky1 glue driver");
+ MODULE_LICENSE("GPL");
++MODULE_SOFTDEP("pre: phy-cix-usbdp");

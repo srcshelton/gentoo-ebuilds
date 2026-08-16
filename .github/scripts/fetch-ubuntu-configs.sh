@@ -70,8 +70,8 @@ case $seed in
 		)
 		;;
 	7.0)
-		compatibility_note="Ubuntu 7.0 seed for CIX Linux 7.0 and 7.1; it is exact-series for 7.0 and adjacent-series for 7.1"
-		consumers_json='["7.0", "7.1"]'
+		compatibility_note="Ubuntu 7.0 seed for CIX Linux 7.1 and 7.2; this is an adjacent-series configuration"
+		consumers_json='["7.1", "7.2"]'
 		candidates=(
 			"Ubuntu Resolute|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/resolute|master-next|resolute"
 			"Ubuntu Noble HWE 7.0|https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/noble|hwe-7.0-next|noble"
