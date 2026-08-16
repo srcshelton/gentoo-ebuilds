@@ -12,21 +12,21 @@ from pathlib import Path
 EBUILD_PATTERN = re.compile(
     r"^cix-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$"
 )
-REQUIRED_LINES = {"6.18", "7.0", "7.1"}
+REQUIRED_LINES = {"6.18", "7.1", "7.2"}
 NPU_ABI_BY_LINE = {
     "6.18": "separate",
-    "7.0": "separate",
     "7.1": "separate",
+    "7.2": "separate",
 }
 UAPI_PREIMAGE_BOUNDARY_BY_LINE = {
     "6.18": "0001-mailbox-cix-add-audited-acpi-support.patch",
-    "7.0": "0001-mailbox-cix-add-audited-acpi-support.patch",
     "7.1": "0001-mailbox-cix-add-audited-acpi-support.patch",
+    "7.2": "0001-mailbox-cix-add-audited-acpi-support.patch",
 }
 UBUNTU_CONFIG_SEED_BY_LINE = {
     "6.18": "6.17",
-    "7.0": "7.0",
     "7.1": "7.0",
+    "7.2": "7.0",
 }
 UBUNTU_CONFIG_ARTIFACT_BY_SEED = {
     "6.17": "cix-ubuntu-config-6.17",

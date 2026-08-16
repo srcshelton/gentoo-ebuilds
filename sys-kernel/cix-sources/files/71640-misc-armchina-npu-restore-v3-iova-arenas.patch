@@ -13,7 +13,7 @@ until live O6 testing proves that all four reported bases reach the init TCB
 and that modes 0--3 preserve model results and teardown correctly.  Mode 4 is
 a separate Sky1-lineage extension and is not enabled here.
 
-Provenance: adapted from the ABI and manager-5 behavior in CIX NPU driver
+Source: ABI and manager-5 behaviour from CIX NPU driver
 p1_7.0_v6.2.0 (commit 93a0698fc00d848afefc8e33022d2a2878663677),
 using the standard Linux DMA IOVA API rather than the vendor implementation.
 

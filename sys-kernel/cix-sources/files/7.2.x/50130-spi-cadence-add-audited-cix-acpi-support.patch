@@ -1,0 +1,242 @@
+diff --git a/drivers/spi/spi-cadence.c b/drivers/spi/spi-cadence.c
+--- a/drivers/spi/spi-cadence.c
++++ b/drivers/spi/spi-cadence.c
+@@ -18,6 +18,7 @@
+ #include <linux/of_address.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/reset.h>
+ #include <linux/spi/spi.h>
+ 
+@@ -97,6 +98,15 @@
+ 
+ /* Default number of chip select lines */
+ #define CDNS_SPI_DEFAULT_NUM_CS		4
++#define CDNS_SPI_MAX_DECODED_CS		16
++#define CDNS_SPI_SKY1_BPW_MASK		(SPI_BPW_MASK(8) | \
++					 SPI_BPW_MASK(16) | SPI_BPW_MASK(32))
++
++struct cdns_spi_devtype_data {
++	const char *reset_name;
++	u32 bits_per_word_mask;
++	bool reset_required;
++};
+ 
+ /**
+  * struct cdns_spi - This definition defines spi driver instance
+@@ -641,17 +651,21 @@ static int cdns_target_abort(struct spi_controller *ctlr)
+  */
+ static int cdns_spi_probe(struct platform_device *pdev)
+ {
++	struct device *dev = &pdev->dev;
++	const struct cdns_spi_devtype_data *data = device_get_match_data(dev);
++	const char *reset_name = data && data->reset_name ?
++				 data->reset_name : "spi";
+ 	int ret, irq;
+ 	struct spi_controller *ctlr;
+ 	struct cdns_spi *xspi;
+ 	u32 num_cs;
+ 	bool target;
+ 
+-	target = of_property_read_bool(pdev->dev.of_node, "spi-slave");
++	target = device_property_read_bool(dev, "spi-slave");
+ 	if (target)
+-		ctlr = devm_spi_alloc_target(&pdev->dev, sizeof(*xspi));
++		ctlr = devm_spi_alloc_target(dev, sizeof(*xspi));
+ 	else
+-		ctlr = devm_spi_alloc_host(&pdev->dev, sizeof(*xspi));
++		ctlr = devm_spi_alloc_host(dev, sizeof(*xspi));
+ 
+ 	if (!ctlr)
+ 		return -ENOMEM;
+@@ -663,44 +677,64 @@ static int cdns_spi_probe(struct platform_device *pdev)
+ 	if (IS_ERR(xspi->regs))
+ 		return PTR_ERR(xspi->regs);
+ 
+-	xspi->pclk = devm_clk_get_enabled(&pdev->dev, "pclk");
+-	if (IS_ERR(xspi->pclk)) {
+-		dev_err(&pdev->dev, "pclk clock not found.\n");
+-		return PTR_ERR(xspi->pclk);
+-	}
++	xspi->pclk = devm_clk_get_enabled(dev, "pclk");
++	if (IS_ERR(xspi->pclk))
++		return dev_err_probe(dev, PTR_ERR(xspi->pclk),
++				     "Cannot get pclk clock\n");
+ 
+-	xspi->rstc = devm_reset_control_get_optional_exclusive(&pdev->dev, "spi");
+-	if (IS_ERR(xspi->rstc)) {
+-		return dev_err_probe(&pdev->dev, PTR_ERR(xspi->rstc),
+-				     "Cannot get SPI reset.\n");
+-	}
++	if (data && data->reset_required)
++		xspi->rstc = devm_reset_control_get_exclusive(dev, reset_name);
++	else
++		xspi->rstc = devm_reset_control_get_optional_exclusive(dev, reset_name);
++	if (IS_ERR(xspi->rstc))
++		return dev_err_probe(dev, PTR_ERR(xspi->rstc),
++				     "Cannot get SPI reset\n");
+ 
+-	reset_control_assert(xspi->rstc);
+-	reset_control_deassert(xspi->rstc);
++	ret = reset_control_assert(xspi->rstc);
++	if (ret)
++		return dev_err_probe(dev, ret, "Cannot assert SPI reset\n");
+ 
+-	xspi->ref_clk = devm_clk_get_enabled(&pdev->dev, "ref_clk");
+-	if (IS_ERR(xspi->ref_clk)) {
+-		dev_err(&pdev->dev, "ref_clk clock not found.\n");
+-		return PTR_ERR(xspi->ref_clk);
+-	}
++	ret = reset_control_deassert(xspi->rstc);
++	if (ret)
++		return dev_err_probe(dev, ret, "Cannot deassert SPI reset\n");
+ 
+-	if (!spi_controller_is_target(ctlr)) {
+-		pm_runtime_use_autosuspend(&pdev->dev);
+-		pm_runtime_set_autosuspend_delay(&pdev->dev, SPI_AUTOSUSPEND_TIMEOUT);
+-		pm_runtime_get_noresume(&pdev->dev);
+-		pm_runtime_set_active(&pdev->dev);
+-		pm_runtime_enable(&pdev->dev);
+-
+-		ret = of_property_read_u32(pdev->dev.of_node, "num-cs", &num_cs);
+-		if (ret < 0)
+-			ctlr->num_chipselect = CDNS_SPI_DEFAULT_NUM_CS;
+-		else
+-			ctlr->num_chipselect = num_cs;
++	xspi->ref_clk = devm_clk_get_enabled(dev, "ref_clk");
++	if (IS_ERR(xspi->ref_clk))
++		return dev_err_probe(dev, PTR_ERR(xspi->ref_clk),
++				     "Cannot get ref_clk clock\n");
+ 
+-		ret = of_property_read_u32(pdev->dev.of_node, "is-decoded-cs",
+-					   &xspi->is_decoded_cs);
+-		if (ret < 0)
+-			xspi->is_decoded_cs = 0;
++	if (!spi_controller_is_target(ctlr)) {
++		if (device_property_present(dev, "is-decoded-cs")) {
++			ret = device_property_read_u32(dev, "is-decoded-cs",
++						       &xspi->is_decoded_cs);
++			if (ret)
++				return dev_err_probe(dev, ret,
++						     "Invalid is-decoded-cs property\n");
++		}
++		if (xspi->is_decoded_cs > 1)
++			return dev_err_probe(dev, -EINVAL,
++					     "Invalid is-decoded-cs property\n");
++
++		if (device_property_present(dev, "num-cs")) {
++			ret = device_property_read_u32(dev, "num-cs", &num_cs);
++			if (ret)
++				return dev_err_probe(dev, ret,
++						     "Invalid num-cs property\n");
++		} else {
++			num_cs = CDNS_SPI_DEFAULT_NUM_CS;
++		}
++		if (!num_cs || num_cs > (xspi->is_decoded_cs ?
++					       CDNS_SPI_MAX_DECODED_CS :
++					       CDNS_SPI_DEFAULT_NUM_CS))
++			return dev_err_probe(dev, -EINVAL,
++					     "Invalid num-cs property\n");
++		ctlr->num_chipselect = num_cs;
++
++		pm_runtime_use_autosuspend(dev);
++		pm_runtime_set_autosuspend_delay(dev, SPI_AUTOSUSPEND_TIMEOUT);
++		pm_runtime_get_noresume(dev);
++		pm_runtime_set_active(dev);
++		pm_runtime_enable(dev);
+ 	}
+ 
+ 	cdns_spi_detect_fifo_depth(xspi);
+@@ -714,11 +748,10 @@ static int cdns_spi_probe(struct platform_device *pdev)
+ 		goto err_disable_rpm;
+ 	}
+ 
+-	ret = devm_request_irq(&pdev->dev, irq, cdns_spi_irq,
++	ret = devm_request_irq(dev, irq, cdns_spi_irq,
+ 			       0, pdev->name, ctlr);
+-	if (ret != 0) {
+-		ret = -ENXIO;
+-		dev_err(&pdev->dev, "request_irq failed\n");
++	if (ret) {
++		ret = dev_err_probe(dev, ret, "Cannot request SPI IRQ\n");
+ 		goto err_disable_rpm;
+ 	}
+ 
+@@ -728,17 +761,20 @@ static int cdns_spi_probe(struct platform_device *pdev)
+ 	ctlr->transfer_one = cdns_transfer_one;
+ 	ctlr->unprepare_transfer_hardware = cdns_unprepare_transfer_hardware;
+ 	ctlr->mode_bits = SPI_CPOL | SPI_CPHA;
+-	ctlr->bits_per_word_mask = SPI_BPW_MASK(8);
++	ctlr->bits_per_word_mask = data && data->bits_per_word_mask ?
++				     data->bits_per_word_mask : SPI_BPW_MASK(8);
+ 	ctlr->flags = SPI_CONTROLLER_MUST_TX;
+ 
+-	if (of_device_is_compatible(pdev->dev.of_node, "cix,sky1-spi-r1p6"))
+-		ctlr->bits_per_word_mask |= SPI_BPW_MASK(16) | SPI_BPW_MASK(32);
+-
+ 	if (!spi_controller_is_target(ctlr)) {
+ 		ctlr->mode_bits |=  SPI_CS_HIGH;
+ 		ctlr->set_cs = cdns_spi_chipselect;
+ 		ctlr->auto_runtime_pm = true;
+ 		xspi->clk_rate = clk_get_rate(xspi->ref_clk);
++		if (!xspi->clk_rate) {
++			ret = dev_err_probe(dev, -EINVAL,
++					    "ref_clk has zero rate\n");
++			goto err_disable_rpm;
++		}
+ 		/* Set to default valid value */
+ 		ctlr->max_speed_hz = xspi->clk_rate / 4;
+ 		xspi->speed_hz = ctlr->max_speed_hz;
+@@ -748,7 +784,8 @@ static int cdns_spi_probe(struct platform_device *pdev)
+ 	}
+ 	ret = spi_register_controller(ctlr);
+ 	if (ret) {
+-		dev_err(&pdev->dev, "spi_register_controller failed\n");
++		ret = dev_err_probe(dev, ret,
++				    "Cannot register SPI controller\n");
+ 		goto err_disable_rpm;
+ 	}
+ 
+@@ -885,14 +922,32 @@ static const struct dev_pm_ops cdns_spi_dev_pm_ops = {
+ 	SET_SYSTEM_SLEEP_PM_OPS(cdns_spi_suspend, cdns_spi_resume)
+ };
+ 
++static const struct cdns_spi_devtype_data cix_sky1_spi_data = {
++	.bits_per_word_mask = CDNS_SPI_SKY1_BPW_MASK,
++};
++
+ static const struct of_device_id cdns_spi_of_match[] = {
+ 	{ .compatible = "xlnx,zynq-spi-r1p6" },
+-	{ .compatible = "cix,sky1-spi-r1p6" },
++	{ .compatible = "cix,sky1-spi-r1p6", .data = &cix_sky1_spi_data },
+ 	{ .compatible = "cdns,spi-r1p6" },
+ 	{ /* end of table */ }
+ };
+ MODULE_DEVICE_TABLE(of, cdns_spi_of_match);
+ 
++#ifdef CONFIG_ACPI
++static const struct cdns_spi_devtype_data cix_sky1_acpi_spi_data = {
++	.reset_name = "spi_reset",
++	.bits_per_word_mask = CDNS_SPI_SKY1_BPW_MASK,
++	.reset_required = true,
++};
++
++static const struct acpi_device_id cdns_spi_acpi_match[] = {
++	{ "CIXH2001", (kernel_ulong_t)&cix_sky1_acpi_spi_data },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cdns_spi_acpi_match);
++#endif
++
+ /* cdns_spi_driver - This structure defines the SPI subsystem platform driver */
+ static struct platform_driver cdns_spi_driver = {
+ 	.probe	= cdns_spi_probe,
+@@ -900,6 +955,7 @@ static struct platform_driver cdns_spi_driver = {
+ 	.driver = {
+ 		.name = CDNS_SPI_NAME,
+ 		.of_match_table = cdns_spi_of_match,
++		.acpi_match_table = ACPI_PTR(cdns_spi_acpi_match),
+ 		.pm = &cdns_spi_dev_pm_ops,
+ 	},
+ };

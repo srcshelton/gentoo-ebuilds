@@ -1,0 +1,138 @@
+sound: cix: declare runtime provider dependencies
+
+Select the Sky1 audio clock, reset and DMA providers required by the
+HDA, I2S and HiFi5 consumers. Add module soft dependencies so a direct
+modprobe loads those providers before the consuming driver.
+
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -52,12 +52,14 @@ config CIX_DSP_RPROC
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
+ 	depends on CIX_HIFI5_FIRMWARE_XAF
++	select CLK_SKY1_AUDSS if ARCH_CIX
+ 	select CIX_MBOX
+ 	select CIX_HIFI5_COMMON if ARCH_CIX
+ 	select DMABUF_HEAPS
+ 	select DMABUF_HEAPS_CIX_DSP if ARCH_CIX
+ 	select MAILBOX
+ 	select MFD_SYSCON
++	select RESET_SKY1_AUDSS if ARCH_CIX
+ 	select RPMSG_VIRTIO
+ 	help
+ 	  Say y or m here to control the HiFi5 audio DSP in CIX Sky1
+diff --git a/drivers/remoteproc/cix_dsp_rproc.c b/drivers/remoteproc/cix_dsp_rproc.c
+--- a/drivers/remoteproc/cix_dsp_rproc.c
++++ b/drivers/remoteproc/cix_dsp_rproc.c
+@@ -807,5 +807,6 @@ static struct platform_driver cix_dsp_driver = {
+ };
+ module_platform_driver(cix_dsp_driver);
+ 
++MODULE_SOFTDEP("pre: cix_mailbox clk_sky1_audss reset_sky1_audss");
+ MODULE_DESCRIPTION("CIX Sky1 HiFi5 remote processor driver");
+ MODULE_LICENSE("GPL");
+diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
+--- a/sound/hda/controllers/Kconfig
++++ b/sound/hda/controllers/Kconfig
+@@ -33,6 +33,8 @@ config SND_HDA_TEGRA
+ config SND_HDA_CIX_IPBLOQ
+ 	tristate "CIX IPBLOQ HD Audio"
+ 	depends on ARCH_CIX || COMPILE_TEST
++	select CLK_SKY1_AUDSS if ARCH_CIX
++	select RESET_SKY1_AUDSS if ARCH_CIX
+ 	select SND_HDA
+ 	select SND_HDA_ALIGNED_MMIO
+ 	imply GPIO_CADENCE
+diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
+--- a/sound/hda/controllers/cix-ipbloq.c
++++ b/sound/hda/controllers/cix-ipbloq.c
+@@ -693,6 +693,7 @@ static struct platform_driver cix_ipbloq_hda_driver = {
+ };
+ module_platform_driver(cix_ipbloq_hda_driver);
+ 
++MODULE_SOFTDEP("pre: clk_sky1_audss reset_sky1_audss");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("CIX IPBLOQ HDA bus driver");
+ MODULE_AUTHOR("Joakim Zhang <joakim.zhang@cixtech.com>");
+diff --git a/sound/soc/cix/Kconfig b/sound/soc/cix/Kconfig
+--- a/sound/soc/cix/Kconfig
++++ b/sound/soc/cix/Kconfig
+@@ -11,6 +11,9 @@ config SND_SOC_CIX
+ config SND_SOC_CDNS_I2S_MC
+ 	tristate "Cadence I2S Multi-Channel Controller"
+ 	depends on SND_SOC_CIX
++	select ARM_DMA350 if ARCH_CIX
++	select CLK_SKY1_AUDSS if ARCH_CIX
++	select RESET_SKY1_AUDSS if ARCH_CIX
+ 	select SND_SOC_GENERIC_DMAENGINE_PCM
+ 	help
+ 	  Say Y or M if you want to add support for the Cadence I2S
+@@ -20,6 +23,9 @@ config SND_SOC_CDNS_I2S_MC
+ config SND_SOC_CDNS_I2S_SC
+ 	tristate "Cadence I2S Single-Channel Controller"
+ 	depends on SND_SOC_CIX
++	select ARM_DMA350 if ARCH_CIX
++	select CLK_SKY1_AUDSS if ARCH_CIX
++	select RESET_SKY1_AUDSS if ARCH_CIX
+ 	select SND_SOC_GENERIC_DMAENGINE_PCM
+ 	help
+ 	  Say Y or M if you want to add support for the Cadence I2S
+@@ -30,6 +36,7 @@ config SND_SOC_SKY1_SOUND_CARD
+ 	tristate "CIX Sky1 Sound Card"
+ 	depends on SND_SOC_CIX
+ 	select MFD_SYSCON
++	select SND_SOC_CDNS_I2S_MC
+ 	help
+ 	  Say Y or M if you want to add support for the CIX Sky1 ASoC
+ 	  machine driver. This driver provides DAI link configuration,
+diff --git a/sound/soc/cix/cdns_i2s_mc.c b/sound/soc/cix/cdns_i2s_mc.c
+--- a/sound/soc/cix/cdns_i2s_mc.c
++++ b/sound/soc/cix/cdns_i2s_mc.c
+@@ -1170,6 +1170,7 @@ static struct platform_driver cdns_i2s_mc_driver = {
+ };
+ module_platform_driver(cdns_i2s_mc_driver);
+ 
++MODULE_SOFTDEP("pre: arm_dma350 clk_sky1_audss reset_sky1_audss");
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Joakim Zhang <joakim.zhang@cixtech.com>");
+ MODULE_DESCRIPTION("Cadence I2S-MC Controller Driver");
+diff --git a/sound/soc/cix/cdns_i2s_sc.c b/sound/soc/cix/cdns_i2s_sc.c
+--- a/sound/soc/cix/cdns_i2s_sc.c
++++ b/sound/soc/cix/cdns_i2s_sc.c
+@@ -1211,6 +1211,7 @@ static struct platform_driver cdns_i2s_sc_driver = {
+ };
+ module_platform_driver(cdns_i2s_sc_driver);
+ 
++MODULE_SOFTDEP("pre: arm_dma350 clk_sky1_audss reset_sky1_audss");
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Joakim Zhang <joakim.zhang@cixtech.com>");
+ MODULE_DESCRIPTION("Cadence I2S-SC Controller Driver");
+diff --git a/sound/soc/sof/cix/Kconfig b/sound/soc/sof/cix/Kconfig
+--- a/sound/soc/sof/cix/Kconfig
++++ b/sound/soc/sof/cix/Kconfig
+@@ -4,11 +4,13 @@ config SND_SOC_SOF_CIX_SKY1
+ 	tristate "SOF support for the CIX Sky1 HiFi5 DSP"
+ 	depends on (ARCH_CIX && ACPI) || COMPILE_TEST
+ 	depends on CIX_HIFI5_FIRMWARE_SOF
++	select CLK_SKY1_AUDSS if ARCH_CIX
+ 	select CIX_HIFI5_COMMON if ARCH_CIX
+ 	select CIX_MBOX
+ 	select DMA_DECLARE_COHERENT if ARCH_CIX
+ 	select MAILBOX
+ 	select MFD_SYSCON
++	select RESET_SKY1_AUDSS if ARCH_CIX
+ 	select RESET_CONTROLLER
+ 	select SND_SOC_SOF
+ 	select SND_SOC_SOF_ACPI_DEV
+diff --git a/sound/soc/sof/cix/cix-sky1.c b/sound/soc/sof/cix/cix-sky1.c
+--- a/sound/soc/sof/cix/cix-sky1.c
++++ b/sound/soc/sof/cix/cix-sky1.c
+@@ -543,6 +543,7 @@ module_platform_driver(sky1_sof_driver);
+ 
+ MODULE_IMPORT_NS("SND_SOC_SOF_ACPI_DEV");
+ MODULE_IMPORT_NS("SND_SOC_SOF_XTENSA");
++MODULE_SOFTDEP("pre: cix_mailbox clk_sky1_audss reset_sky1_audss");
+ MODULE_SOFTDEP("pre: snd-sof-cix-sky1-nocodec");
+ MODULE_DESCRIPTION("SOF support for the CIX Sky1 HiFi5 DSP");
+ MODULE_LICENSE("Dual BSD/GPL");

@@ -47,6 +47,27 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("mutually exclusive DSP firmware owners", stderr.getvalue())
 
 
+class VendorModeDetectionTests(unittest.TestCase):
+    def test_accepts_each_sky1_usb_integration_generation(self) -> None:
+        base = set(KCONFIG.VENDOR_SYMBOLS)
+
+        for usb_symbol in ("USB_CDNSP_SKY1", "USB_CDNS3_SKY1"):
+            with self.subTest(usb_symbol=usb_symbol):
+                with patch.object(
+                    KCONFIG, "scan_kconfig_symbols", return_value=base | {usb_symbol}
+                ):
+                    self.assertTrue(KCONFIG.resolve_vendor_mode(Path(), "auto"))
+
+    def test_rejects_vendor_tree_without_sky1_usb_integration(self) -> None:
+        with patch.object(
+            KCONFIG, "scan_kconfig_symbols", return_value=set(KCONFIG.VENDOR_SYMBOLS)
+        ):
+            with self.assertRaisesRegex(
+                SystemExit, "USB_CDNSP_SKY1/USB_CDNS3_SKY1"
+            ):
+                KCONFIG.resolve_vendor_mode(Path(), "auto")
+
+
 class HardwareProfileTests(unittest.TestCase):
     def setUp(self) -> None:
         self.available = {
@@ -57,15 +78,77 @@ class HardwareProfileTests(unittest.TestCase):
                 KCONFIG.SUPPORTED_VENDOR_ACPI_COMMON,
                 KCONFIG.SUPPORTED_VENDOR_ACPI_O6,
                 KCONFIG.SUPPORTED_VENDOR_DISPLAY,
+                KCONFIG.SUPPORTED_VENDOR_GPU,
                 KCONFIG.SUPPORTED_VENDOR_MEDIA,
                 KCONFIG.SUPPORTED_VENDOR_NPU,
                 KCONFIG.SUPPORTED_VENDOR_EDP,
                 KCONFIG.SUPPORTED_TOUCHSCREEN,
-                KCONFIG.SUPPORTED_VENDOR_AUDIO_O6,
+                KCONFIG.SUPPORTED_VENDOR_AUDIO_ANALOG_O6,
+                KCONFIG.SUPPORTED_VENDOR_AUDIO_DISPLAY,
             )
             for symbol, _ in group
         }
         self.available.update(("R8126", "R8169"))
+
+    def test_acpi_prune_preserves_linux_7_2_sky1_cdns3(self) -> None:
+        current = {
+            "CONFIG_USB_CDNS3": "m",
+            "CONFIG_USB_CDNS3_SKY1": "m",
+            "CONFIG_USB_CDNS3_STARFIVE": "m",
+        }
+        available = self.available | {"USB_CDNS3_SKY1"}
+
+        disabled = KCONFIG.dynamic_disabled_symbols(
+            current, "o6-acpi", True, False, available
+        )
+
+        self.assertNotIn("USB_CDNS3", disabled)
+        self.assertNotIn("USB_CDNS3_SKY1", disabled)
+        self.assertIn("USB_CDNS3_STARFIVE", disabled)
+
+    def test_acpi_prune_keeps_legacy_cdns3_quarantine(self) -> None:
+        current = {
+            "CONFIG_USB_CDNS3": "m",
+            "CONFIG_USB_CDNS3_STARFIVE": "m",
+        }
+
+        disabled = KCONFIG.dynamic_disabled_symbols(
+            current, "o6-acpi", True, False, self.available
+        )
+
+        self.assertIn("USB_CDNS3", disabled)
+        self.assertIn("USB_CDNS3_STARFIVE", disabled)
+
+    def test_generated_platform_menu_is_profile_scoped_without_redundant_guards(self) -> None:
+        rendered = KCONFIG.render_kconfig_radxa(
+            "7.2", True, "module", self.available
+        )
+
+        self.assertIn("\timply CIX_DDR_LP\n", rendered)
+        self.assertIn(
+            "\timply GPIO_AGGREGATOR if CIX_RADXA_ORION_ACPI\n", rendered
+        )
+        self.assertIn("\timply GPIOLIB\n", rendered)
+        self.assertIn("\timply GPIO_CDEV if GPIO_AGGREGATOR\n", rendered)
+        self.assertIn(
+            "\tselect PINCTRL_SKY1 if CIX_RADXA_ORION_DT\n", rendered
+        )
+        self.assertNotIn(
+            "\tselect PINCTRL_SKY1 if CIX_RADXA_ORION_ACPI\n", rendered
+        )
+        self.assertNotIn("\timply CLK_SKY1_ACPI", rendered)
+        self.assertNotIn("\timply CIX_ACPI_RESOURCE_LOOKUP", rendered)
+        self.assertIn("\tdefault m if MODULES\n", rendered)
+        self.assertIn("\tdefault y if !MODULES\n", rendered)
+        self.assertNotIn("default m if MODULES &&", rendered)
+        self.assertEqual(
+            rendered.count(
+                "\tdepends on (CIX_RADXA_ORION_O6 || CIX_RADXA_ORION_O6N)\n"
+            ),
+            1,
+        )
+        self.assertNotIn("validated vendor", rendered)
+        self.assertNotIn("audited Sky1", rendered)
 
     def supported(
         self,
@@ -74,6 +157,8 @@ class HardwareProfileTests(unittest.TestCase):
         with_npu: bool = False,
         with_edp: bool = False,
         with_touchscreen: bool = False,
+        graphics_profile: str = "auto",
+        audio_profile: str = "auto",
     ) -> dict[str, str]:
         return dict(
             KCONFIG.supported_symbols_for_profile(
@@ -84,26 +169,66 @@ class HardwareProfileTests(unittest.TestCase):
                 with_edp,
                 with_touchscreen,
                 self.available,
+                graphics_profile,
+                audio_profile,
             )
         )
 
-    def test_server_profile_keeps_accelerators_and_interactive_io_opt_in(self) -> None:
+    def test_server_defaults_to_analog_audio_without_graphics(self) -> None:
         supported = self.supported("server")
 
         self.assertNotIn("DRM_PANTHOR", supported)
-        self.assertNotIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertNotIn("DRM_TRILIN_DPSUB", supported)
+        self.assertIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertNotIn("SND_SOC_SKY1_SOUND_CARD", supported)
         self.assertNotIn("VIDEO_LINLON", supported)
         self.assertNotIn("VIDEO_CIX_ARMCB_ISP", supported)
         self.assertNotIn("ARMCHINA_NPU", supported)
         self.assertNotIn("ARMCHINA_NPU_R2P0", supported)
         self.assertNotIn("PWM_SKY1", supported)
         self.assertNotIn("TOUCHSCREEN_GOODIX", supported)
+        self.assertEqual(supported["GPIO_CDEV"], "builtin")
+        self.assertEqual(supported["GPIOLIB"], "builtin")
+        self.assertEqual(supported["GPIO_CADENCE"], "prefer")
+        self.assertEqual(supported["ARM_SCMI_POWER_DOMAIN"], "prefer")
+        self.assertEqual(supported["I2C"], "prefer")
+        self.assertNotIn("GPIO_CDEV_V1", supported)
+        self.assertEqual(supported["GPIO_AGGREGATOR"], "prefer")
+
+    def test_modular_safe_platform_drivers_follow_driver_preference(self) -> None:
+        acpi = dict(KCONFIG.SUPPORTED_VENDOR_ACPI_COMMON)
+        dt = dict(KCONFIG.SUPPORTED_VENDOR_DT_COMMON)
+
+        for symbol in (
+            "ARM_SCMI_POWER_DOMAIN",
+            "GPIO_CADENCE",
+            "I2C",
+            "I2C_CADENCE",
+        ):
+            self.assertEqual(acpi[symbol], "prefer")
+
+        for symbol in (
+            "ARM_SCMI_PROTOCOL",
+            "ARM_SCMI_TRANSPORT_MAILBOX",
+            "ARM_SCMI_PERF_DOMAIN",
+            "ARM_SCMI_POWER_DOMAIN",
+            "CIX_MBOX",
+            "COMMON_CLK_SCMI",
+            "GPIO_CADENCE",
+            "I2C",
+            "I2C_CADENCE",
+        ):
+            self.assertEqual(dt[symbol], "prefer")
+
+        self.assertEqual(dict(KCONFIG.SUPPORTED_TOUCHSCREEN)["INPUT"], "prefer")
 
     def test_desktop_adds_display_and_supported_audio_but_not_media(self) -> None:
         supported = self.supported("desktop")
 
         self.assertIn("DRM_PANTHOR", supported)
+        self.assertIn("DRM_TRILIN_DPSUB", supported)
         self.assertIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertIn("SND_SOC_SKY1_SOUND_CARD", supported)
         self.assertNotIn("VIDEO_LINLON", supported)
         self.assertNotIn("VIDEO_CIX_ARMCB_ISP", supported)
         self.assertNotIn("ARMCHINA_NPU", supported)
@@ -114,7 +239,9 @@ class HardwareProfileTests(unittest.TestCase):
         supported = self.supported("full")
 
         self.assertIn("DRM_PANTHOR", supported)
+        self.assertIn("DRM_TRILIN_DPSUB", supported)
         self.assertIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertIn("SND_SOC_SKY1_SOUND_CARD", supported)
         self.assertIn("VIDEO_LINLON", supported)
         self.assertIn("VIDEO_CIX_ARMCB_ISP", supported)
         self.assertNotIn("ARMCHINA_NPU", supported)
@@ -130,20 +257,50 @@ class HardwareProfileTests(unittest.TestCase):
         self.assertIn("ARMCHINA_NPU", supported)
         self.assertIn("ARMCHINA_NPU_R2P0", supported)
         self.assertIn("DMA_SHARED_BUFFER", supported)
-        self.assertIn("DRM_PANTHOR", supported)
+        self.assertNotIn("DRM_PANTHOR", supported)
+        self.assertIn("DRM_TRILIN_DPSUB", supported)
         self.assertIn("PWM_SKY1", supported)
         self.assertIn("TOUCHSCREEN_GOODIX", supported)
+        self.assertEqual(supported["INPUT"], "prefer")
+
+    def test_graphics_override_controls_independent_driver_groups(self) -> None:
+        supported = self.supported(
+            "full", graphics_profile="gpu", audio_profile="auto"
+        )
+
+        self.assertIn("DRM_PANTHOR", supported)
+        self.assertNotIn("DRM_TRILIN_DPSUB", supported)
+        self.assertNotIn("VIDEO_LINLON", supported)
+        self.assertIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertNotIn("SND_SOC_SKY1_SOUND_CARD", supported)
+
+    def test_explicit_display_audio_closes_over_display_pipeline(self) -> None:
+        supported = self.supported(
+            "server", graphics_profile="none", audio_profile="display"
+        )
+
+        self.assertIn("DRM_TRILIN_DPSUB", supported)
+        self.assertNotIn("DRM_PANTHOR", supported)
+        self.assertNotIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertIn("SND_SOC_SKY1_SOUND_CARD", supported)
+
+    def test_audio_none_disables_both_physical_audio_stacks(self) -> None:
+        supported = self.supported("full", audio_profile="none")
+
+        self.assertNotIn("SND_HDA_CIX_IPBLOQ", supported)
+        self.assertNotIn("SND_SOC_SKY1_SOUND_CARD", supported)
 
     def test_narrowing_disables_only_owned_hardware_drivers(self) -> None:
         updates = dict(
             KCONFIG.feature_gate_updates(
-                "server", True, False, False, False
+                "o6-acpi", "server", True, False, False, False
             )
         )
 
         for symbol in (
             "DRM_PANTHOR",
-            "SND_HDA_CIX_IPBLOQ",
+            "DRM_TRILIN_DPSUB",
+            "SND_SOC_SKY1_SOUND_CARD",
             "VIDEO_LINLON",
             "VIDEO_CIX_ARMCB_ISP",
             "ARMCHINA_NPU",
@@ -195,6 +352,8 @@ config ARMCHINA_NPU_SOC_SKY1
                 kernel_tree=tree,
                 profile="o6-acpi",
                 hardware_profile="server",
+                graphics_profile="auto",
+                audio_profile="auto",
                 include_vendor=True,
                 driver_preference="builtin",
                 existing_config=config,
@@ -434,16 +593,22 @@ struct aipu_job_desc {
 class DiagnosticProfileTests(unittest.TestCase):
     def test_disabled_memory_profile_preserves_enable_only_prerequisites(self) -> None:
         available = {
+            "DEBUG_KERNEL",
             "KALLSYMS",
+            "SLUB_DEBUG",
             "STACKTRACE",
             "FUNCTION_TRACER",
             "DMA_API_DEBUG",
             "KASAN",
         }
 
-        updates = dict(KCONFIG.kernel_memory_debug_updates(available, False))
+        updates = dict(
+            KCONFIG.kernel_memory_debug_updates(available, False, True)
+        )
 
+        self.assertNotIn("DEBUG_KERNEL", updates)
         self.assertNotIn("KALLSYMS", updates)
+        self.assertEqual(updates["SLUB_DEBUG"], "n")
         self.assertNotIn("STACKTRACE", updates)
         self.assertEqual(updates["FUNCTION_TRACER"], "n")
         self.assertEqual(updates["DMA_API_DEBUG"], "n")
@@ -451,21 +616,66 @@ class DiagnosticProfileTests(unittest.TestCase):
 
     def test_enabled_memory_profile_requests_enable_only_prerequisites(self) -> None:
         available = {
+            "DEBUG_KERNEL",
             "KALLSYMS",
+            "SLUB_DEBUG",
             "STACKTRACE",
             "FUNCTION_TRACER",
             "DMA_API_DEBUG",
         }
 
-        updates = dict(KCONFIG.kernel_memory_debug_updates(available, True))
+        updates = dict(
+            KCONFIG.kernel_memory_debug_updates(available, True, True)
+        )
 
+        self.assertEqual(updates["DEBUG_KERNEL"], "y")
         self.assertEqual(updates["KALLSYMS"], "y")
+        self.assertEqual(updates["SLUB_DEBUG"], "y")
         self.assertEqual(updates["STACKTRACE"], "y")
         self.assertEqual(updates["FUNCTION_TRACER"], "y")
         self.assertEqual(updates["DMA_API_DEBUG"], "y")
 
+    def test_disabled_memory_profile_preserves_hidden_upstream_slub_debug(self) -> None:
+        updates = dict(
+            KCONFIG.kernel_memory_debug_updates(
+                {"DEBUG_KERNEL", "SLUB_DEBUG"}, False, False
+            )
+        )
+
+        self.assertNotIn("DEBUG_KERNEL", updates)
+        self.assertNotIn("SLUB_DEBUG", updates)
+
+    def test_detects_patched_and_upstream_slub_debug_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = Path(directory)
+            path = tree / "mm/Kconfig.debug"
+            path.parent.mkdir(parents=True)
+            path.write_text(
+                'config SLUB_DEBUG\n\tdefault y\n'
+                '\tbool "Enable SLUB debugging support" if EXPERT\n',
+                encoding="utf-8",
+            )
+
+            self.assertFalse(
+                KCONFIG.slub_debug_can_be_disabled(tree, False)
+            )
+            self.assertTrue(
+                KCONFIG.slub_debug_can_be_disabled(tree, True)
+            )
+
+            path.write_text(
+                'config SLUB_DEBUG\n\tdefault y\n'
+                '\tbool "Enable SLUB debugging support"\n',
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                KCONFIG.slub_debug_can_be_disabled(tree, False)
+            )
+
     def test_runtime_profile_does_not_claim_memory_profile_prerequisites(self) -> None:
         available = {
+            "DEBUG_KERNEL",
+            "EXPERT",
             "KALLSYMS",
             "STACKTRACE",
             "FTRACE",
@@ -477,8 +687,12 @@ class DiagnosticProfileTests(unittest.TestCase):
 
         self.assertNotIn("KALLSYMS", enabled)
         self.assertNotIn("STACKTRACE", enabled)
+        self.assertEqual(enabled["DEBUG_KERNEL"], "y")
+        self.assertEqual(enabled["EXPERT"], "y")
         self.assertNotIn("KALLSYMS", disabled)
         self.assertNotIn("STACKTRACE", disabled)
+        self.assertNotIn("DEBUG_KERNEL", disabled)
+        self.assertNotIn("EXPERT", disabled)
         self.assertEqual(enabled["FTRACE"], "y")
         self.assertEqual(enabled["TRACING"], "y")
         self.assertEqual(disabled["FTRACE"], "n")
@@ -701,6 +915,8 @@ class DiagnosticProfileTests(unittest.TestCase):
                 kernel_tree=root,
                 profile="o6-acpi",
                 hardware_profile="server",
+                graphics_profile="auto",
+                audio_profile="auto",
                 include_vendor=True,
                 driver_preference="module",
                 existing_config=current,
@@ -778,6 +994,8 @@ class DiagnosticProfileTests(unittest.TestCase):
                 kernel_tree=root,
                 profile="o6-acpi",
                 hardware_profile="server",
+                graphics_profile="auto",
+                audio_profile="auto",
                 include_vendor=True,
                 driver_preference="module",
                 existing_config=current,

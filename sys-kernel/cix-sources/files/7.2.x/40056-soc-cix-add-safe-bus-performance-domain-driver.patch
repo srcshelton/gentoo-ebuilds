@@ -1,0 +1,480 @@
+soc: cix: expose audited bus performance domains through devfreq
+
+Replace the removed CIX/Sky1 engineering interface with a standard devfreq
+consumer for the CI-700 and multimedia-fabric SCMI performance domains.
+Enumerate and validate every firmware-provided OPP, including its nonzero,
+strictly increasing frequency and SCMI level, then publish the same
+frequency table on each CIX bus device.
+
+The default userspace governor makes no performance-state request until an
+administrator selects a frequency.  Standard performance and powersave
+governors can select the validated maximum and minimum when configured.
+The first control request captures the provider's current state and holds a
+balanced runtime-PM reference; driver removal restores that state before
+detaching.  Firmware may acknowledge a request before readback reflects the
+new state, so transitions and restoration use bounded polling and never
+publish the preceding frequency as the completed result.
+
+No automatic load governor is selected.  Neither domain currently exposes a
+qualified busy/total-time signal, so inventing utilization from CPU load or
+unrelated PMU events would not be a sound basis for bus policy.
+
+The device identities and domain intent trace to
+Sky1-Linux/linux-sky1@57e018a398248d7e5e4d798610df79a557c0629f;
+the reduced devfreq implementation is overlay-created.  Retained patch 0008
+provides the exported ACPI named-domain attachment and module lifetime
+ownership, while 30200 provides SCMI provider-state readback.
+
+diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
+--- a/drivers/soc/cix/Kconfig
++++ b/drivers/soc/cix/Kconfig
+@@ -72,4 +72,24 @@ config CIX_ACPI_USB_SCAN
+ 	  non-overlapping Type-C companion. Firmware that exposes only one
+ 	  model continues to use that model unchanged.
+ 
++config CIX_BUS_PERF
++	tristate "CIX Sky1 bus performance domains"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on OF || ACPI
++	depends on PM_DEVFREQ
++	depends on ARM_SCMI_PERF_DOMAIN
++	select PM_OPP
++	select DEVFREQ_GOV_USERSPACE
++	default ARCH_CIX
++	help
++	  Enable support for the CI-700 and multimedia-fabric SCMI
++	  performance domains on CIX Sky1 systems. The driver validates the
++	  firmware-provided OPPs and exposes them through devfreq. The
++	  userspace governor preserves the firmware-selected state until a
++	  policy request is made; performance and powersave governors may
++	  also be selected when they are available. It uses only standard
++	  devfreq controls and does not expose mutable engineering controls.
++
++	  ACPI firmware exposes these consumers as CIXHA030 and CIXHA031.
++
+ endmenu
+diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
+--- a/drivers/soc/cix/Makefile
++++ b/drivers/soc/cix/Makefile
+@@ -4,3 +4,4 @@ obj-$(CONFIG_CIX_SKY1_SYSCON) += cix-sky1-syscon.o
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP) += cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_HIFI5_COMMON) += cix-hifi5.o
+ obj-$(CONFIG_CIX_ACPI_USB_SCAN) += cix-acpi-usb-scan.o
++obj-$(CONFIG_CIX_BUS_PERF) += cix-bus-perf.o
+diff --git a/drivers/soc/cix/cix-bus-perf.c b/drivers/soc/cix/cix-bus-perf.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/soc/cix/cix-bus-perf.c
+@@ -0,0 +1,412 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * CIX Sky1 bus performance-domain consumer
++ *
++ * Copyright 2024 Cix Technology Group Co., Ltd.
++ */
++
++#include <linux/acpi.h>
++#include <linux/devfreq.h>
++#include <linux/err.h>
++#include <linux/iopoll.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/pm_domain.h>
++#include <linux/pm_opp.h>
++#include <linux/pm_runtime.h>
++#include <linux/slab.h>
++
++#define CIX_BUS_PERF_POLL_INTERVAL_US	1000
++/* SCMI represents each transition latency in a 16-bit microsecond field. */
++#define CIX_BUS_PERF_TRANSITION_TIMEOUT_US	100000
++
++struct cix_bus_perf {
++	struct device *dev;
++	struct device *perf_dev;
++	struct devfreq *devfreq;
++	struct devfreq_dev_profile profile;
++	unsigned long *freq_table;
++	unsigned int opp_count;
++	unsigned long min_freq;
++	unsigned long max_freq;
++	unsigned int min_state;
++	unsigned int max_state;
++	unsigned int original_state;
++	bool control_active;
++};
++
++static int cix_bus_perf_read_state(struct cix_bus_perf *bp,
++				   unsigned int *state, unsigned long *freq)
++{
++	struct dev_pm_opp *opp;
++	int ret;
++
++	ret = dev_pm_genpd_get_performance_state(bp->perf_dev, state);
++	if (ret)
++		return ret;
++
++	opp = dev_pm_opp_find_level_exact(bp->perf_dev, *state);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++
++	*freq = dev_pm_opp_get_freq(opp);
++	dev_pm_opp_put(opp);
++
++	return *freq ? 0 : -EINVAL;
++}
++
++static int cix_bus_perf_set_state(struct cix_bus_perf *bp,
++				  unsigned int target_state,
++				  unsigned long *actual_freq)
++{
++	unsigned int actual_state;
++	int read_ret;
++	int ret;
++
++	ret = dev_pm_genpd_set_performance_state(bp->perf_dev, target_state);
++	if (ret)
++		return ret;
++
++	/*
++	 * Sky1 firmware can acknowledge a performance-level request before a
++	 * following read reports the new level.  Poll for bounded completion so
++	 * devfreq never publishes the preceding frequency as the result.
++	 */
++	ret = read_poll_timeout(cix_bus_perf_read_state, read_ret,
++				read_ret || actual_state == target_state,
++				CIX_BUS_PERF_POLL_INTERVAL_US,
++				CIX_BUS_PERF_TRANSITION_TIMEOUT_US, false,
++				bp, &actual_state, actual_freq);
++	if (read_ret)
++		return read_ret;
++
++	return ret;
++}
++
++static int cix_bus_perf_read_opps(struct cix_bus_perf *bp)
++{
++	unsigned long previous_freq = 0;
++	unsigned int previous_state = 0;
++	unsigned long search_freq = 0;
++	struct dev_pm_opp *opp;
++	int count;
++	int i;
++
++	count = dev_pm_opp_get_opp_count(bp->perf_dev);
++	if (count <= 0)
++		return count ?: -ENODATA;
++
++	bp->freq_table = devm_kcalloc(bp->dev, count,
++				      sizeof(*bp->freq_table),
++				      GFP_KERNEL);
++	if (!bp->freq_table)
++		return -ENOMEM;
++
++	for (i = 0; i < count; i++) {
++		unsigned int state;
++		unsigned long freq;
++
++		opp = dev_pm_opp_find_freq_ceil(bp->perf_dev, &search_freq);
++		if (IS_ERR(opp))
++			return PTR_ERR(opp);
++
++		freq = dev_pm_opp_get_freq(opp);
++		state = dev_pm_opp_get_level(opp);
++		dev_pm_opp_put(opp);
++
++		if (!freq || !state ||
++		    (i && (freq <= previous_freq || state <= previous_state)))
++			return -EINVAL;
++
++		bp->freq_table[i] = freq;
++		previous_freq = freq;
++		previous_state = state;
++		if (!i) {
++			bp->min_freq = freq;
++			bp->min_state = state;
++		}
++		bp->max_freq = freq;
++		bp->max_state = state;
++
++		if (i != count - 1) {
++			if (freq == ULONG_MAX)
++				return -EOVERFLOW;
++			search_freq = freq + 1;
++		}
++	}
++
++	bp->opp_count = count;
++
++	return 0;
++}
++
++static int cix_bus_perf_publish_opps(struct cix_bus_perf *bp)
++{
++	int ret;
++	int i;
++
++	for (i = 0; i < bp->opp_count; i++) {
++		ret = dev_pm_opp_add(bp->dev, bp->freq_table[i], 0);
++		if (ret)
++			goto err_remove;
++	}
++
++	return 0;
++
++err_remove:
++	dev_pm_opp_remove_all_dynamic(bp->dev);
++	return ret;
++}
++
++static int cix_bus_perf_begin_control(struct cix_bus_perf *bp)
++{
++	unsigned long original_freq;
++	int ret;
++
++	if (bp->control_active)
++		return 0;
++
++	ret = pm_runtime_resume_and_get(bp->perf_dev);
++	if (ret < 0)
++		return ret;
++
++	ret = cix_bus_perf_read_state(bp, &bp->original_state, &original_freq);
++	if (ret) {
++		pm_runtime_put_noidle(bp->perf_dev);
++		return ret;
++	}
++
++	bp->control_active = true;
++	dev_dbg(bp->dev, "preserving pre-control SCMI state %u (%lu Hz)\n",
++		bp->original_state, original_freq);
++
++	return 0;
++}
++
++static void cix_bus_perf_end_control(struct cix_bus_perf *bp)
++{
++	unsigned long actual_freq;
++	int ret;
++
++	if (!bp->control_active)
++		return;
++
++	ret = cix_bus_perf_set_state(bp, bp->original_state, &actual_freq);
++	if (ret)
++		dev_warn(bp->dev,
++			 "failed to restore pre-control SCMI state %u: %d\n",
++			 bp->original_state, ret);
++	else
++		dev_dbg(bp->dev, "restored pre-control SCMI state %u (%lu Hz)\n",
++			bp->original_state, actual_freq);
++
++	pm_runtime_put_noidle(bp->perf_dev);
++	bp->control_active = false;
++}
++
++static int cix_bus_perf_target(struct device *dev, unsigned long *freq,
++			       u32 flags)
++{
++	struct cix_bus_perf *bp = dev_get_drvdata(dev);
++	unsigned int previous_state;
++	unsigned long target_freq;
++	unsigned long actual_freq;
++	unsigned int target_state;
++	struct dev_pm_opp *opp;
++	bool began_control;
++	int ret;
++
++	opp = devfreq_recommended_opp(dev, freq, flags);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++	target_freq = dev_pm_opp_get_freq(opp);
++	dev_pm_opp_put(opp);
++
++	opp = dev_pm_opp_find_freq_exact(bp->perf_dev, target_freq, true);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++	target_state = dev_pm_opp_get_level(opp);
++	dev_pm_opp_put(opp);
++	if (!target_state)
++		return -EINVAL;
++
++	began_control = !bp->control_active;
++	ret = cix_bus_perf_begin_control(bp);
++	if (ret)
++		return ret;
++
++	if (!began_control) {
++		ret = cix_bus_perf_read_state(bp, &previous_state,
++					      &actual_freq);
++		if (ret)
++			goto err_end_new_control;
++	}
++
++	ret = cix_bus_perf_set_state(bp, target_state, &actual_freq);
++	if (ret) {
++		if (!began_control) {
++			int restore_ret;
++
++			restore_ret = cix_bus_perf_set_state(bp, previous_state,
++							     &actual_freq);
++			if (restore_ret)
++				dev_warn(bp->dev,
++					 "failed to roll back SCMI state %u after transition error: %d\n",
++					 previous_state, restore_ret);
++		}
++		goto err_end_new_control;
++	}
++
++	*freq = actual_freq;
++	dev_dbg(bp->dev,
++		"requested SCMI state %u (%lu Hz), provider reports %lu Hz\n",
++		target_state, target_freq, actual_freq);
++
++	return 0;
++
++err_end_new_control:
++	if (began_control)
++		cix_bus_perf_end_control(bp);
++	return ret;
++}
++
++static int cix_bus_perf_get_cur_freq(struct device *dev, unsigned long *freq)
++{
++	struct cix_bus_perf *bp = dev_get_drvdata(dev);
++	unsigned int state;
++
++	return cix_bus_perf_read_state(bp, &state, freq);
++}
++
++static int cix_bus_perf_read_initial_freq(struct cix_bus_perf *bp,
++					  unsigned long *freq)
++{
++	unsigned int state;
++	int ret;
++
++	ret = pm_runtime_resume_and_get(bp->perf_dev);
++	if (ret < 0)
++		return ret;
++
++	ret = cix_bus_perf_read_state(bp, &state, freq);
++	pm_runtime_put_noidle(bp->perf_dev);
++
++	return ret;
++}
++
++static int cix_bus_perf_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct cix_bus_perf *bp;
++	unsigned long initial_freq;
++	int ret;
++
++	bp = devm_kzalloc(dev, sizeof(*bp), GFP_KERNEL);
++	if (!bp)
++		return -ENOMEM;
++
++	bp->dev = dev;
++	platform_set_drvdata(pdev, bp);
++
++	bp->perf_dev = dev_pm_domain_attach_by_name(dev, "perf");
++	if (IS_ERR(bp->perf_dev))
++		return dev_err_probe(dev, PTR_ERR(bp->perf_dev),
++				     "failed to attach named perf domain\n");
++	if (!bp->perf_dev)
++		return dev_err_probe(dev, -ENODEV,
++				     "named perf domain is missing\n");
++
++	ret = cix_bus_perf_read_opps(bp);
++	if (ret) {
++		ret = dev_err_probe(dev, ret,
++				    "invalid or unavailable perf-domain OPPs\n");
++		goto err_detach;
++	}
++
++	ret = cix_bus_perf_publish_opps(bp);
++	if (ret)
++		goto err_detach;
++
++	ret = cix_bus_perf_read_initial_freq(bp, &initial_freq);
++	if (ret) {
++		ret = dev_err_probe(dev, ret,
++				    "failed to read initial perf-domain state\n");
++		goto err_remove_opps;
++	}
++
++	bp->profile = (struct devfreq_dev_profile) {
++		.initial_freq = initial_freq,
++		.target = cix_bus_perf_target,
++		.get_cur_freq = cix_bus_perf_get_cur_freq,
++		.freq_table = bp->freq_table,
++		.max_state = bp->opp_count,
++	};
++
++	bp->devfreq = devfreq_add_device(dev, &bp->profile,
++					 DEVFREQ_GOV_USERSPACE, NULL);
++	if (IS_ERR(bp->devfreq)) {
++		ret = dev_err_probe(dev, PTR_ERR(bp->devfreq),
++				    "failed to register devfreq device\n");
++		goto err_remove_opps;
++	}
++
++	dev_info(dev,
++		 "registered %u OPPs: %lu-%lu Hz, SCMI states %u-%u; preserving firmware state %lu Hz until a policy request\n",
++		 bp->opp_count, bp->min_freq, bp->max_freq,
++		 bp->min_state, bp->max_state, initial_freq);
++
++	return 0;
++
++err_remove_opps:
++	dev_pm_opp_remove_all_dynamic(dev);
++err_detach:
++	dev_pm_domain_detach(bp->perf_dev, false);
++	return ret;
++}
++
++static void cix_bus_perf_remove(struct platform_device *pdev)
++{
++	struct cix_bus_perf *bp = platform_get_drvdata(pdev);
++
++	devfreq_remove_device(bp->devfreq);
++	cix_bus_perf_end_control(bp);
++	dev_pm_opp_remove_all_dynamic(bp->dev);
++	dev_pm_domain_detach(bp->perf_dev, false);
++}
++
++#if IS_ENABLED(CONFIG_OF)
++static const struct of_device_id cix_bus_perf_of_match[] = {
++	{ .compatible = "cix,bus-ci700" },
++	{ .compatible = "cix,bus-ni700" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, cix_bus_perf_of_match);
++#endif
++
++static const struct acpi_device_id cix_bus_perf_acpi_match[] = {
++	{ "CIXHA030" },
++	{ "CIXHA031" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, cix_bus_perf_acpi_match);
++
++static struct platform_driver cix_bus_perf_driver = {
++	.probe = cix_bus_perf_probe,
++	.remove = cix_bus_perf_remove,
++	.driver = {
++		.name = "cix-bus-perf",
++		.acpi_match_table = cix_bus_perf_acpi_match,
++#if IS_ENABLED(CONFIG_OF)
++		.of_match_table = cix_bus_perf_of_match,
++#endif
++	},
++};
++module_platform_driver(cix_bus_perf_driver);
++
++MODULE_DESCRIPTION("CIX Sky1 bus performance-domain consumer");
++MODULE_LICENSE("GPL");
++#if IS_MODULE(CONFIG_ARM_SCMI_PERF_DOMAIN)
++MODULE_SOFTDEP("pre: scmi_perf_domain");
++#endif

@@ -6,10 +6,10 @@ seconds, serialize command-pool recovery before jobs are reaped, and prevent
 one coredump job from indefinitely suppressing pool teardown.  The same state
 model also covers close, abort, timeout, and later scheduling decisions.
 
-Provenance: preserves the public CIX V3 coredump ABI and userspace control
-flow, but replaces the vendor driver's cross-job attribution and unbounded
-wait with explicit lifetime and recovery boundaries.  Deliberate hardware
-fault testing remains a separate, explicitly disruptive qualification step.
+Preserve the public CIX V3 coredump ABI and userspace control flow, but replace
+the vendor driver's cross-job attribution and unbounded wait with explicit
+lifetime and recovery boundaries. Deliberate hardware fault testing remains a
+separate, explicitly disruptive qualification step.
 
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
 --- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c

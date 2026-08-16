@@ -684,7 +684,7 @@ diff --git a/drivers/usb/cdns3/cdnsp-sky1.c b/drivers/usb/cdns3/cdnsp-sky1.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/usb/cdns3/cdnsp-sky1.c
-@@ -0,0 +1,818 @@
+@@ -0,0 +1,823 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Cadence USBSSP glue for CIX Sky1 SoCs
@@ -1372,6 +1372,11 @@ new file mode 100644
 +	if (cdnsp_sky1_has_role_switch(dev))
 +		data->pdata.quirks = CDNS3_DEFAULT_PM_RUNTIME_ALLOW;
 +
++	ret = pm_runtime_set_active(dev);
++	if (ret)
++		goto err_stop_hardware;
++	pm_runtime_enable(dev);
++
 +	if (dev->of_node) {
 +		struct of_dev_auxdata auxdata[] = {
 +			{
@@ -1384,24 +1389,24 @@ new file mode 100644
 +		ret = of_platform_populate(dev->of_node, NULL, auxdata, dev);
 +		if (ret) {
 +			of_platform_depopulate(dev);
-+			goto err_stop_hardware;
++			goto err_disable_runtime_pm;
 +		}
 +	} else {
 +#ifdef CONFIG_ACPI
 +		ret = cdnsp_sky1_bind_acpi_children(data);
 +		if (ret)
-+			goto err_stop_hardware;
++			goto err_disable_runtime_pm;
 +#else
 +		ret = -ENODEV;
-+		goto err_stop_hardware;
++		goto err_disable_runtime_pm;
 +#endif
 +	}
 +
-+	pm_runtime_set_active(dev);
-+	pm_runtime_enable(dev);
-+
 +	return 0;
 +
++err_disable_runtime_pm:
++	pm_runtime_disable(dev);
++	pm_runtime_set_suspended(dev);
 +err_stop_hardware:
 +	mutex_lock(&cdnsp_sky1_init_lock);
 +	cdnsp_sky1_hw_stop(data);

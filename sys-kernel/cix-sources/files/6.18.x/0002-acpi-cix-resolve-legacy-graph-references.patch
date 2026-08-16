@@ -1,6 +1,5 @@
-Provenance: overlay reconstruction from CIX cix-linux-main commit
-19f2947303670f2e5734d6a96ffc72a80fd9b942 and the exact 6.18.38
-ebuild preimage.
+Source: cixtech/cix-linux-main commit
+19f2947303670f2e5734d6a96ffc72a80fd9b942.
 
 Released CIX firmware encodes some ACPI graph links as a device reference
 followed by hierarchical data-node names.  Keep that compatibility rule out
