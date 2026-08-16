@@ -25,6 +25,7 @@ if [[ -n ${expected_uapi_patch} && ! -f ${expected_uapi_patch} ]]; then
 		"${expected_uapi_patch}" >&2
 	exit 1
 fi
+[[ -z ${expected_uapi_patch} ]] || expected_uapi_patch=$(realpath -- "${expected_uapi_patch}")
 
 case ${work_dir} in
 	''|/)

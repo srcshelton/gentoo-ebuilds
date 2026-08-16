@@ -44,7 +44,7 @@ jobs:
       validation_matrix: ${{ steps.matrix.outputs.validation_matrix }}
     steps:
       - name: Check out overlay
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build matrix
         id: matrix
@@ -72,7 +72,7 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Check out overlay
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate YAML, Python, and shell
         shell: bash
@@ -83,10 +83,49 @@ jobs:
           from pathlib import Path
           import yaml
 
+          workflows = {}
+          for workflow in sorted(Path(".github/workflows").glob("*.yml")):
+              parsed = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+              if not isinstance(parsed, dict) or "jobs" not in parsed:
+                  raise SystemExit(f"{workflow}: missing jobs mapping")
+              workflows[workflow] = parsed
+
           workflow = Path(".github/workflows/cix-kernel-debs.yml")
-          parsed = yaml.safe_load(workflow.read_text(encoding="utf-8"))
-          if not isinstance(parsed, dict) or "jobs" not in parsed:
-              raise SystemExit(f"{workflow}: missing jobs mapping")
+          parsed = workflows[workflow]
+
+          expected_act_actions = {
+              ("ubuntu-configs", "Upload frozen Ubuntu configs under act"): (
+                  "actions/upload-artifact@"
+                  "330a01c490aca151604b8cf639adc76d48f6c5d4"
+              ),
+              ("build", "Download frozen Ubuntu arm64 configs under act"): (
+                  "actions/download-artifact@"
+                  "37930b1c2abaa49bbe596cd826c3c89aef350131"
+              ),
+              ("build", "Upload Debian package artifact under act"): (
+                  "actions/upload-artifact@"
+                  "330a01c490aca151604b8cf639adc76d48f6c5d4"
+              ),
+          }
+          for (job_name, step_name), expected_action in expected_act_actions.items():
+              steps = parsed["jobs"][job_name]["steps"]
+              matches = [step for step in steps if step.get("name") == step_name]
+              if len(matches) != 1:
+                  raise SystemExit(
+                      f"{workflow}: expected one {step_name!r} step in {job_name}"
+                  )
+              step = matches[0]
+              if step.get("uses") != expected_action:
+                  raise SystemExit(
+                      f"{workflow}: {step_name!r} must remain pinned to "
+                      f"{expected_action} until the linked act artifact-server "
+                      "issues are fixed"
+                  )
+              expected_condition = "$" + "{{ env.ACT == 'true' }}"
+              if step.get("if") != expected_condition:
+                  raise SystemExit(
+                      f"{workflow}: {step_name!r} must be restricted to act"
+                  )
 
           package = Path("sys-kernel/cix-sources")
           for ebuild in package.glob("cix-sources-*.ebuild"):
@@ -107,7 +146,6 @@ jobs:
             .github/scripts/fetch-ubuntu-configs.sh \
             .github/scripts/validate-cix-configs.sh \
             .github/scripts/cix-headers/validate-cix-headers.sh \
-            .github/scripts/cix-sources/check-retained-inputs.sh \
             .github/scripts/cix-sources/create-patched-kernel.sh \
             .github/scripts/cix-sources/validate-cix-uapi.sh
           bash -n \
@@ -117,10 +155,10 @@ jobs:
             .github/scripts/fetch-ubuntu-configs.sh \
             .github/scripts/validate-cix-configs.sh \
             .github/scripts/cix-headers/validate-cix-headers.sh \
-            .github/scripts/cix-sources/check-retained-inputs.sh \
             .github/scripts/cix-sources/create-patched-kernel.sh \
             .github/scripts/cix-sources/validate-cix-uapi.sh
           python3 -m py_compile \
+            .github/scripts/check-cix-source-versions.py \
             .github/scripts/discover-cix-matrix.py \
             .github/scripts/test-kconfig-update.py \
             sys-kernel/cix-sources/files/kconfig_update.py
@@ -142,8 +180,8 @@ jobs:
           }
           expected_seeds = {
               "6.18": "6.17",
-              "7.0": "7.0",
               "7.1": "7.0",
+              "7.2": "7.0",
           }
           expected_artifacts = {
               "6.17": "cix-ubuntu-config-6.17",
@@ -195,6 +233,24 @@ jobs:
           print("Ubuntu adjacent config seeds:", validation_seeds)
           PY
 
+          upstream_versions=$(mktemp)
+          trap 'rm -f "${matrix_json}" "${upstream_versions}"' EXIT
+          python3 - "${upstream_versions}" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          names = [
+              {"name": path.name.replace("cix-sources-", "gentoo-sources-")}
+              for path in Path("sys-kernel/cix-sources").glob(
+                  "cix-sources-*.ebuild"
+              )
+          ]
+          Path(sys.argv[1]).write_text(json.dumps(names), encoding="utf-8")
+          PY
+          .github/scripts/check-cix-source-versions.py \
+            --upstream-json "${upstream_versions}"
+
   ubuntu-configs:
     name: Freeze Ubuntu ${{ matrix.seed }} arm64 configs
     runs-on: ubuntu-24.04-arm
@@ -210,14 +266,14 @@ jobs:
       UBUNTU_CONFIG_SEED: ${{ matrix.seed }}
     steps:
       - name: Check out overlay
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Export official Ubuntu arm64 configs
         shell: bash
         run: |
           set -euo pipefail
 
-          git --version
+          curl --version | sed -n '1p'
           python3 --version
           timeout --version | sed -n '1p'
           .github/scripts/fetch-ubuntu-configs.sh \
@@ -289,7 +345,22 @@ jobs:
           PY
 
       - name: Upload frozen Ubuntu configs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/ubuntu-configs/${{ matrix.seed }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload frozen Ubuntu configs under act
+        if: ${{ env.ACT == 'true' }}
+        # https://github.com/nektos/act/issues/6021
+        # https://github.com/nektos/act/pull/6099
+        # https://github.com/nektos/act/issues/6022
+        # https://github.com/nektos/act/issues/6114
+        # https://github.com/nektos/act/pull/6115
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ${{ matrix.artifact }}
           path: artifacts/ubuntu-configs/${{ matrix.seed }}
@@ -344,7 +415,7 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Check out overlay with provenance history
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -358,6 +429,42 @@ jobs:
           ld.lld --version
           make --version | head -1
           python3 --version
+
+      - name: Install context-analysis LLVM
+        if: ${{ matrix.line != '6.18' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${KERNEL_LINE}" in
+            7.1)
+              version=22.1.8
+              sha256=0b0131b9a6fb38c2fbe73e576d7812962268db610b8b2f1b6ef217dd5161ef77
+              ;;
+            7.2)
+              version=23.1.0-rc3
+              sha256=85fda70d68d80d2c88408dbabc6fc98a5d1bbe722a1cabec6238d6b1de6d41a3
+              ;;
+            *)
+              printf 'No context-analysis toolchain for Linux %s\n' \
+                "${KERNEL_LINE}" >&2
+              exit 1
+              ;;
+          esac
+          archive="llvm-${version}-aarch64.tar.xz"
+          toolchain="${RUNNER_TEMP}/llvm-${version}"
+          curl -fL --retry 5 --retry-all-errors \
+            --connect-timeout 30 \
+            -o "${RUNNER_TEMP}/${archive}" \
+            "https://cdn.kernel.org/pub/tools/llvm/files/${archive}"
+          printf '%s  %s\n' "${sha256}" "${RUNNER_TEMP}/${archive}" | \
+            sha256sum -c -
+          mkdir -p "${toolchain}"
+          tar -xJf "${RUNNER_TEMP}/${archive}" \
+            --strip-components=1 -C "${toolchain}"
+          "${toolchain}/bin/clang" --version | sed -n '1p'
+          printf 'CIX_CONTEXT_ANALYSIS_LLVM=%s/bin/\n' "${toolchain}" \
+            >> "${GITHUB_ENV}"
 
       - name: Prepare the ebuild source and exercise CIX configurations
         shell: bash
@@ -386,7 +493,7 @@ jobs:
             "${KERNEL_EBUILD}" \
             "${uapi_preimage_dir}"
           expected_uapi=()
-          [[ ${KERNEL_LINE} != 7.1 ]] || expected_uapi=(
+          [[ ${KERNEL_LINE} != 7.1 && ${KERNEL_LINE} != 7.2 ]] || expected_uapi=(
             sys-kernel/cix-headers/files/7.1-cix-sof-topology-tokens.patch
           )
           .github/scripts/cix-sources/validate-cix-uapi.sh \
@@ -433,7 +540,7 @@ jobs:
       UBUNTU_CONFIG_SEED: ${{ matrix.ubuntu_config_seed }}
     steps:
       - name: Check out overlay
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Reclaim runner disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
@@ -447,7 +554,19 @@ jobs:
           swap-storage: true
 
       - name: Download frozen Ubuntu arm64 configs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.ubuntu_config_artifact }}
+          path: ${{ runner.temp }}/ubuntu-config-${{ matrix.ubuntu_config_seed }}
+
+      - name: Download frozen Ubuntu arm64 configs under act
+        if: ${{ env.ACT == 'true' }}
+        # actions/download-artifact v8 uses the same currently-incompatible
+        # artifact protocol as actions/upload-artifact v7.
+        # https://github.com/nektos/act/issues/6114
+        # https://github.com/nektos/act/pull/6115
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: ${{ matrix.ubuntu_config_artifact }}
           path: ${{ runner.temp }}/ubuntu-config-${{ matrix.ubuntu_config_seed }}
@@ -686,8 +805,8 @@ jobs:
           summary_path = Path(sys.argv[6])
           expected_seed_by_line = {
               "6.18": "6.17",
-              "7.0": "7.0",
               "7.1": "7.0",
+              "7.2": "7.0",
           }
 
           if expected_seed_by_line.get(kernel_line) != expected_seed:
@@ -783,7 +902,7 @@ jobs:
             local expected=$1
 
             if ! grep -qxF "${expected}" "${build_dir}/.config"; then
-              echo "Resolved Ubuntu config is missing required ${expected}" >&2
+              echo "::error::Resolved Ubuntu config is missing required ${expected}" >&2
               exit 1
             fi
           }
@@ -792,7 +911,7 @@ jobs:
             local symbol=$1
 
             if ! grep -Eq "^CONFIG_${symbol}=[ym]$" "${build_dir}/.config"; then
-              echo "Resolved Ubuntu config does not enable CONFIG_${symbol}" >&2
+              echo "::error::Resolved Ubuntu config does not enable CONFIG_${symbol}" >&2
               exit 1
             fi
           }
@@ -801,7 +920,7 @@ jobs:
             local symbol=$1
 
             if grep -Eq "^CONFIG_${symbol}=[ym]$" "${build_dir}/.config"; then
-              echo "Resolved Ubuntu config unexpectedly enables CONFIG_${symbol}" >&2
+              echo "::error::Resolved Ubuntu config unexpectedly enables CONFIG_${symbol}" >&2
               exit 1
             fi
           }
@@ -820,7 +939,7 @@ jobs:
               opposite_ethernet_symbol=R8126
               ;;
             *)
-              echo "Unsupported package-build board profile: ${BOARD_PROFILE}" >&2
+              echo "::error::Unsupported package-build board profile: ${BOARD_PROFILE}" >&2
               exit 1
               ;;
           esac
@@ -842,7 +961,6 @@ jobs:
             CONFIG_COMMON_CLK=y \
             CONFIG_REGULATOR=y \
             CONFIG_PM_DEVFREQ=y \
-            CONFIG_DEVFREQ_GOV_USERSPACE=m \
             CONFIG_ARMCHINA_NPU=m \
             CONFIG_ARMCHINA_NPU_R2P0=m \
             CONFIG_ARMCHINA_NPU_ARCH_V3=y \
@@ -864,6 +982,10 @@ jobs:
             CONFIG_CIX_THERMAL=y; do
             require_config "${expected}"
           done
+          # The frozen Ubuntu configs deliberately build this tristate in,
+          # while a newly selected modular CIX consumer can resolve it to m.
+          # Both states provide the required userspace governor.
+          require_enabled_config DEVFREQ_GOV_USERSPACE
           for symbol in \
             REGULATOR_FIXED_VOLTAGE \
             MEDIA_SUPPORT \
@@ -996,7 +1118,22 @@ jobs:
           rm -rf "${source_dir}" "${build_dir}" "${work_root}"
 
       - name: Upload Debian package artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
+          path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Debian package artifact under act
+        if: ${{ env.ACT == 'true' }}
+        # https://github.com/nektos/act/issues/6021
+        # https://github.com/nektos/act/pull/6099
+        # https://github.com/nektos/act/issues/6022
+        # https://github.com/nektos/act/issues/6114
+        # https://github.com/nektos/act/pull/6115
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
           path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
@@ -1013,7 +1150,7 @@ jobs:
       contents: write
     steps:
       - name: Download built package artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: release-assets
           pattern: cix-kernel-debs-*

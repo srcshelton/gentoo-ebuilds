@@ -1,7 +1,10 @@
+Prefer higher-capacity online CPUs for RTL8126 interrupt affinity on ARM64,
+while retaining the mask for the lifetime of each IRQ registration.
+
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/realtek/r8126/r8126.h
 --- a/drivers/net/ethernet/realtek/r8126/r8126.h
 +++ b/drivers/net/ethernet/realtek/r8126/r8126.h
-@@ -2497,6 +2497,9 @@ struct rtl8126_private {
+@@ -2517,6 +2517,9 @@ struct rtl8126_private {
          struct net_device *dev;
          struct r8126_napi r8126napi[R8126_MAX_MSIX_VEC];
          struct r8126_irq irq_tbl[R8126_MAX_MSIX_VEC];
@@ -25,7 +28,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  #endif
  
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
-@@ -13991,6 +13995,10 @@ static void rtl8126_free_irq(struct rtl8126_private *tp)
+@@ -13512,6 +13516,10 @@ static void rtl8126_free_irq(struct rtl8126_private *tp)
                  struct r8126_napi *r8126napi = &tp->r8126napi[i];
  
                  if (irq->requested) {
@@ -36,7 +39,7 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
                          irq->requested = 0;
  #if defined(RTL_USE_NEW_INTR_API)
                          pci_free_irq(tp->pci_dev, i, r8126napi);
-@@ -13999,7 +14007,36 @@ static void rtl8126_free_irq(struct rtl8126_private *tp)
+@@ -13520,7 +13528,36 @@ static void rtl8126_free_irq(struct rtl8126_private *tp)
  #endif
                  }
          }
@@ -73,17 +76,17 @@ diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet
  
  static int rtl8126_alloc_irq(struct rtl8126_private *tp)
  {
-@@ -14009,6 +14046,9 @@ static int rtl8126_alloc_irq(struct rtl8126_private *tp)
+@@ -13530,6 +13567,9 @@ static int rtl8126_alloc_irq(struct rtl8126_private *tp)
          struct r8126_napi *r8126napi;
          int i = 0;
          const int len = sizeof(tp->irq_tbl[0].name);
 +#ifdef CONFIG_ARM64
 +        tp->performance_core_mask = rtl8126_alloc_performance_core_mask();
 +#endif
+ 
  #if defined(RTL_USE_NEW_INTR_API)
          for (i=0; i<tp->irq_nvecs; i++) {
-                 irq = &tp->irq_tbl[i];
-@@ -14027,6 +14067,18 @@ static int rtl8126_alloc_irq(struct rtl8126_private *tp)
+@@ -13549,6 +13589,18 @@ static int rtl8126_alloc_irq(struct rtl8126_private *tp)
  
                  irq->vector = pci_irq_vector(tp->pci_dev, i);
                  irq->requested = 1;

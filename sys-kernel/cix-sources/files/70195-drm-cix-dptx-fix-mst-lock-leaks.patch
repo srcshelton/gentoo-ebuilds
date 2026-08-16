@@ -1,0 +1,23 @@
+Release the MST serialization mutex on both early enable and disable exits.
+Returning with the mutex held blocked later MST operations. Clang context
+analysis exposed both paths.
+
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+@@ -706,6 +706,7 @@ static void trilin_mst_encoder_enable(struct drm_encoder *encoder)
+ 	if (rc) {
+ 		DP_ERR("[%d] DP display prepare failed, rc=%d\n",
+ 		       mst_encoder->id, rc);
++		mutex_unlock(&mst->mst_lock);
+ 		return;
+ 	}
+ 
+@@ -744,6 +745,7 @@ static void trilin_mst_encoder_disable(struct drm_encoder *encoder)
+ 
+ 	if (!(dp->state & DPTX_STATE_INITIALIZED)) {
+ 		DP_DEBUG("[not init]");
++		mutex_unlock(&mst->mst_lock);
+ 		return;
+ 	}
+ 

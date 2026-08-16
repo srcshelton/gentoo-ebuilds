@@ -1,0 +1,64 @@
+Describe the NPU reconfiguration guard's split acquire/release contract to
+compiler context analysis. A successful begin operation retains op_lock until
+the matching end operation; error returns leave it unlocked. The matching end
+helpers require the valid manager established by a successful begin.
+
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
+@@ -1388,8 +1388,7 @@ int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager)
+ 
+ void aipu_job_manager_idle_guard_end(struct aipu_job_manager *manager)
+ {
+-	if (manager)
+-		mutex_unlock(&manager->op_lock);
++	mutex_unlock(&manager->op_lock);
+ }
+ 
+ /**
+diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
+@@ -229,8 +229,10 @@ bool aipu_job_manager_has_end_job(struct aipu_job_manager *manager, struct file
+ 				  struct poll_table_struct *wait, int uthread_id);
+ int aipu_job_manager_get_hw_status(struct aipu_job_manager *manager, struct aipu_hw_status *hw);
+ int aipu_job_manager_abort_cmd_pool(struct aipu_job_manager *manager);
+-int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager);
+-void aipu_job_manager_idle_guard_end(struct aipu_job_manager *manager);
++int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager)
++	__cond_acquires(0, &manager->op_lock);
++void aipu_job_manager_idle_guard_end(struct aipu_job_manager *manager)
++	__releases(&manager->op_lock);
+ int aipu_job_manager_disable_tick_counter(struct aipu_job_manager *manager,
+ 					  struct aipu_file_ctx *owner);
+ int aipu_job_manager_enable_tick_counter(struct aipu_job_manager *manager,
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -108,8 +108,7 @@ int aipu_job_manager_owner_guard_begin(struct aipu_job_manager *manager,
+ 
+ void aipu_job_manager_owner_guard_end(struct aipu_job_manager *manager)
+ {
+-	if (manager)
+-		mutex_unlock(&manager->op_lock);
++	mutex_unlock(&manager->op_lock);
+ }
+ 
+ static bool aipu_job_blocks_reconfiguration(const struct aipu_job *job)
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+--- a/drivers/misc/armchina-npu/aipu_job_manager.h
++++ b/drivers/misc/armchina-npu/aipu_job_manager.h
+@@ -293,7 +293,10 @@ void aipu_job_manager_free_file_ids(struct aipu_job_manager *manager,
+ int aipu_job_manager_reset(struct aipu_job_manager *manager,
+ 			   struct aipu_partition *part, bool hardware);
+ int aipu_job_manager_owner_guard_begin(struct aipu_job_manager *manager,
+-				       struct aipu_file_ctx *owner);
+-int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager);
+-void aipu_job_manager_owner_guard_end(struct aipu_job_manager *manager);
++				       struct aipu_file_ctx *owner)
++	__cond_acquires(0, &manager->op_lock);
++int aipu_job_manager_idle_guard_begin(struct aipu_job_manager *manager)
++	__cond_acquires(0, &manager->op_lock);
++void aipu_job_manager_owner_guard_end(struct aipu_job_manager *manager)
++	__releases(&manager->op_lock);
+ #endif /* __AIPU_JOB_MANAGER_H__ */
