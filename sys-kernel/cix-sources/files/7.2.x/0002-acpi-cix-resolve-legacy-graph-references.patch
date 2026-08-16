@@ -1,0 +1,290 @@
+Provenance: overlay reconstruction from CIX cix-linux-main commit
+19f2947303670f2e5734d6a96ffc72a80fd9b942 and the exact 7.1.3 ebuild
+preimage.
+
+Released CIX firmware encodes some ACPI graph links as a device reference
+followed by hierarchical data-node names.  Keep that compatibility rule out
+of the generic property-reference parser: use it only after normal graph
+resolution fails, only between present allowlisted CIX devices, and require a
+reciprocal link before accepting either known malformed Type-C variant.
+
+diff --git a/drivers/acpi/property.c b/drivers/acpi/property.c
+--- a/drivers/acpi/property.c
++++ b/drivers/acpi/property.c
+@@ -1544,15 +1544,231 @@ static struct fwnode_handle *acpi_graph_get_child_prop_value(
+ 	return NULL;
+ }
+ 
++static struct acpi_device *
++acpi_graph_get_cix_device(const struct fwnode_handle *fwnode)
++{
++	struct acpi_device *device;
++	const char *hid;
+ 
+-/**
+- * acpi_graph_get_remote_endpoint - Parses and returns remote end of an endpoint
+- * @__fwnode: Endpoint firmware node pointing to a remote device
+- *
+- * Returns the remote endpoint corresponding to @__fwnode. NULL on error.
++	while (is_acpi_data_node(fwnode))
++		fwnode = to_acpi_data_node(fwnode)->parent;
++
++	if (!is_acpi_device_node(fwnode))
++		return NULL;
++
++	device = to_acpi_device_node(fwnode);
++	hid = acpi_device_hid(device);
++	return hid && !strncmp(hid, "CIXH", 4) ? device : NULL;
++}
++
++static bool acpi_graph_is_cix_target(struct acpi_device *device)
++{
++	const char *hid = acpi_device_hid(device);
++
++	return hid && (!strcmp(hid, "CIXH200D") || !strcmp(hid, "CIXH2031") ||
++	       !strcmp(hid, "CIXH2033") || !strcmp(hid, "CIXH5010") ||
++	       !strcmp(hid, "CIXH502F"));
++}
++
++static struct fwnode_handle *
++acpi_graph_walk_cix_path(struct fwnode_handle *fwnode,
++			 const union acpi_object *element,
++			 unsigned int count)
++{
++	struct fwnode_handle *child;
++	struct fwnode_handle *ref = fwnode;
++	bool ref_needs_put = false;
++	unsigned int i;
++
++	for (i = 0; i < count; i++) {
++		const char *child_name = element[i].string.pointer;
++
++		child = acpi_fwnode_get_named_child_node(ref, child_name);
++		if (!child)
++			goto err_put_ref;
++
++		if (ref_needs_put)
++			fwnode_handle_put(ref);
++		ref = child;
++		ref_needs_put = true;
++	}
++
++	return ref_needs_put ? ref : NULL;
++
++err_put_ref:
++	if (ref_needs_put)
++		fwnode_handle_put(ref);
++	return NULL;
++}
++
++static struct fwnode_handle *
++acpi_graph_get_cix_unique_subpath(struct fwnode_handle *fwnode,
++				  const union acpi_object *element,
++				  unsigned int count)
++{
++	struct fwnode_handle *candidate = NULL;
++	struct fwnode_handle *child;
++	bool ambiguous = false;
++
++	fwnode_for_each_child_node(fwnode, child) {
++		struct fwnode_handle *endpoint;
++
++		endpoint = acpi_graph_walk_cix_path(child, element, count);
++		if (!endpoint)
++			continue;
++
++		if (candidate || ambiguous) {
++			fwnode_handle_put(endpoint);
++			fwnode_handle_put(candidate);
++			candidate = NULL;
++			ambiguous = true;
++			continue;
++		}
++
++		candidate = endpoint;
++	}
++
++	return ambiguous ? NULL : candidate;
++}
++
++static struct fwnode_handle *
++acpi_graph_get_cix_port2_endpoint(struct fwnode_handle *fwnode)
++{
++	struct fwnode_handle *candidate = NULL;
++	struct fwnode_handle *connector;
++	bool ambiguous = false;
++
++	fwnode_for_each_child_node(fwnode, connector) {
++		struct fwnode_handle *endpoint;
++		struct fwnode_handle *child;
++		struct fwnode_handle *port;
++		unsigned int endpoint_count = 0;
++		u32 reg;
++
++		port = acpi_fwnode_get_named_child_node(connector, "port@2");
++		if (!port)
++			continue;
++		if (fwnode_property_read_u32(port, "reg", &reg) || reg != 2)
++			goto next_connector;
++
++		fwnode_for_each_child_node(port, child)
++			if (is_acpi_graph_node(child, "endpoint"))
++				endpoint_count++;
++		if (endpoint_count != 1)
++			goto next_connector;
++
++		endpoint = acpi_fwnode_get_named_child_node(port, "endpoint@1");
++		if (!endpoint)
++			goto next_connector;
++		if (fwnode_property_read_u32(endpoint, "reg", &reg) || reg != 1) {
++			fwnode_handle_put(endpoint);
++			goto next_connector;
++		}
++
++		if (candidate || ambiguous) {
++			fwnode_handle_put(endpoint);
++			fwnode_handle_put(candidate);
++			candidate = NULL;
++			ambiguous = true;
++		} else {
++			candidate = endpoint;
++		}
++
++next_connector:
++		fwnode_handle_put(port);
++	}
++
++	return ambiguous ? NULL : candidate;
++}
++
++/*
++ * Released CIX firmware represents a graph endpoint as a device reference
++ * followed by two or three hierarchical data-node names.  Keep this deployed
++ * firmware quirk out of the generic property-reference parser and accept it
++ * only for graph links between present, known CIX ACPI devices.
+  */
+ static struct fwnode_handle *
+-acpi_graph_get_remote_endpoint(const struct fwnode_handle *__fwnode)
++__acpi_graph_get_remote_endpoint(const struct fwnode_handle *fwnode,
++				 bool allow_cix_repairs);
++
++static struct fwnode_handle *
++acpi_graph_get_cix_remote_endpoint(const struct fwnode_handle *fwnode,
++				   bool allow_repairs)
++{
++	const struct acpi_device_data *data;
++	const union acpi_object *element;
++	const union acpi_object *obj;
++	const char *target_hid;
++	struct fwnode_handle *endpoint;
++	struct fwnode_handle *remote;
++	struct fwnode_handle *target;
++	struct acpi_device *source_device;
++	struct acpi_device *device;
++	unsigned int i;
++	int ret;
++
++	source_device = acpi_graph_get_cix_device(fwnode);
++	if (!source_device || !acpi_device_is_present(source_device))
++		return NULL;
++
++	data = acpi_device_data_of_node(fwnode);
++	if (!data)
++		return NULL;
++
++	ret = acpi_data_get_property(data, "remote-endpoint",
++				     ACPI_TYPE_PACKAGE, &obj);
++	if (ret || obj->package.count < 3 || obj->package.count > 4)
++		return NULL;
++
++	element = obj->package.elements;
++	if (element->type != ACPI_TYPE_LOCAL_REFERENCE)
++		return NULL;
++
++	device = acpi_fetch_acpi_dev(element->reference.handle);
++	if (!device || !acpi_graph_is_cix_target(device))
++		return NULL;
++	target_hid = acpi_device_hid(device);
++
++	for (i = 1; i < obj->package.count; i++) {
++		if (element[i].type != ACPI_TYPE_STRING)
++			return NULL;
++	}
++
++	target = acpi_fwnode_handle(device);
++	endpoint = acpi_graph_walk_cix_path(target, element + 1,
++					    obj->package.count - 1);
++	if (endpoint || !allow_repairs || strcmp(target_hid, "CIXH200D"))
++		return endpoint;
++
++	if (obj->package.count == 3 &&
++	    !strcmp(element[1].string.pointer, "port@2") &&
++	    !strcmp(element[2].string.pointer, "endpoint@0")) {
++		endpoint = acpi_graph_get_cix_port2_endpoint(target);
++	} else if (obj->package.count == 4 &&
++		   !strcmp(element[1].string.pointer, "usbc_con0") &&
++		   (!strcmp(element[2].string.pointer, "port@0") ||
++		    !strcmp(element[2].string.pointer, "port@1")) &&
++		   !strcmp(element[3].string.pointer, "endpoint@0")) {
++		endpoint = acpi_graph_get_cix_unique_subpath(target, element + 2,
++							     2);
++	}
++	if (!endpoint)
++		return NULL;
++
++	remote = __acpi_graph_get_remote_endpoint(endpoint, false);
++	if (remote != fwnode) {
++		fwnode_handle_put(remote);
++		fwnode_handle_put(endpoint);
++		return NULL;
++	}
++
++	fwnode_handle_put(remote);
++	return endpoint;
++}
++
++static struct fwnode_handle *
++__acpi_graph_get_remote_endpoint(const struct fwnode_handle *__fwnode,
++				 bool allow_cix_repairs)
+ {
+ 	struct fwnode_handle *fwnode;
+ 	unsigned int port_nr, endpoint_nr;
+@@ -1563,7 +1779,8 @@ acpi_graph_get_remote_endpoint(const struct fwnode_handle *__fwnode)
+ 	ret = acpi_node_get_property_reference(__fwnode, "remote-endpoint", 0,
+ 					       &args);
+ 	if (ret)
+-		return NULL;
++		return acpi_graph_get_cix_remote_endpoint(__fwnode,
++							  allow_cix_repairs);
+ 
+ 	/* Direct endpoint reference? */
+ 	if (!is_acpi_device_node(args.fwnode))
+@@ -1574,7 +1791,8 @@ acpi_graph_get_remote_endpoint(const struct fwnode_handle *__fwnode)
+ 	 * endpoint indices.
+ 	 */
+ 	if (args.nargs != 2)
+-		return NULL;
++		return acpi_graph_get_cix_remote_endpoint(__fwnode,
++							  allow_cix_repairs);
+ 
+ 	fwnode = args.fwnode;
+ 	port_nr = args.args[0];
+@@ -1585,6 +1803,18 @@ acpi_graph_get_remote_endpoint(const struct fwnode_handle *__fwnode)
+ 	return acpi_graph_get_child_prop_value(fwnode, "endpoint", endpoint_nr);
+ }
+ 
++/**
++ * acpi_graph_get_remote_endpoint - Parses and returns remote end of an endpoint
++ * @fwnode: Endpoint firmware node pointing to a remote device
++ *
++ * Returns the remote endpoint corresponding to @fwnode. NULL on error.
++ */
++static struct fwnode_handle *
++acpi_graph_get_remote_endpoint(const struct fwnode_handle *fwnode)
++{
++	return __acpi_graph_get_remote_endpoint(fwnode, true);
++}
++
+ static bool acpi_fwnode_device_is_available(const struct fwnode_handle *fwnode)
+ {
+ 	if (!is_acpi_device_node(fwnode))

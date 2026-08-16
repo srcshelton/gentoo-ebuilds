@@ -28,11 +28,10 @@ ownership, while 30200 provides SCMI provider-state readback.
 diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
 --- a/drivers/soc/cix/Kconfig
 +++ b/drivers/soc/cix/Kconfig
-@@ -33,3 +33,23 @@ config CIX_ACPI_USB_SCAN
- 	  the overlapping vendor USB devices. With firmware that exposes only
- 	  one model, the helper either stands down or allows the vendor-only
- 	  devices to enumerate unchanged.
-+
+@@ -72,4 +72,24 @@ config CIX_ACPI_USB_SCAN
+ 	  non-overlapping Type-C companion. Firmware that exposes only one
+ 	  model continues to use that model unchanged.
+ 
 +config CIX_BUS_PERF
 +	tristate "CIX Sky1 bus performance domains"
 +	depends on ARCH_CIX || COMPILE_TEST
@@ -52,14 +51,16 @@ diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
 +	  devfreq controls and does not expose mutable engineering controls.
 +
 +	  ACPI firmware exposes these consumers as CIXHA030 and CIXHA031.
++
+ endmenu
 diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
 --- a/drivers/soc/cix/Makefile
 +++ b/drivers/soc/cix/Makefile
-@@ -2,3 +2,4 @@
- obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
- obj-$(CONFIG_CIX_HIFI5_COMMON)		+= cix-hifi5.o
- obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
-+obj-$(CONFIG_CIX_BUS_PERF)		+= cix-bus-perf.o
+@@ -4,3 +4,4 @@ obj-$(CONFIG_CIX_SKY1_SYSCON) += cix-sky1-syscon.o
+ obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP) += cix-acpi-resource-lookup.o
+ obj-$(CONFIG_CIX_HIFI5_COMMON) += cix-hifi5.o
+ obj-$(CONFIG_CIX_ACPI_USB_SCAN) += cix-acpi-usb-scan.o
++obj-$(CONFIG_CIX_BUS_PERF) += cix-bus-perf.o
 diff --git a/drivers/soc/cix/cix-bus-perf.c b/drivers/soc/cix/cix-bus-perf.c
 new file mode 100644
 --- /dev/null

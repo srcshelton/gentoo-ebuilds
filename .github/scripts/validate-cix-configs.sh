@@ -699,10 +699,10 @@ for profile in o6-acpi o6-dt o6n-acpi o6n-dt; do
 	done
 done
 
-# MPAM.aml is inert when arm64 MPAM is disabled. Prove that the Linux 7.1
+# MPAM.aml is inert when arm64 MPAM is disabled. Prove that the Linux 7.2
 # Kconfig opt-in closes over the hidden resctrl integration while the ordinary
 # DSDT profile and its initramfs path remain unchanged.
-if [[ ${kernel_line} == 7.1 ]]; then
+if [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
 	build_dir=${build_root}/mpam-kconfig-o6-acpi
 	rm -rf -- "${build_dir}"
 	mkdir -p -- "${build_dir}"
@@ -1285,7 +1285,7 @@ done
 # toolchains so the normally dormant compressed-offload object is not hidden
 # by a successful CIX-only directory build.  Full package builds provide the
 # final vmlinux and module-link gates.
-if [[ ${kernel_line} == 7.1 ]]; then
+if [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
 	for compiler in clang gcc; do
 		if [[ ${compiler} == clang ]]; then
 			toolchain=(LLVM=1)
@@ -1378,6 +1378,7 @@ for preference in module builtin; do
 		drivers/opp/core.o \
 		drivers/cpufreq/cppc_cpufreq.o \
 		drivers/thermal/gov_power_allocator.o \
+		kernel/bpf/bpf_struct_ops.o \
 		drivers/gpu/drm/cix/dptx/ \
 		drivers/gpu/drm/cix/linlon-dp/ \
 		drivers/misc/armchina-npu-common/ \
@@ -1387,7 +1388,11 @@ for preference in module builtin; do
 		drivers/media/platform/cix/ \
 		drivers/pwm/pwm-sky1.o \
 		drivers/hwmon/cix-fan.o
-	dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin-dpsub.o
+	if [[ ${preference} == module ]]; then
+		dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin-dpsub.o
+	else
+		dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin_drm.o
+	fi
 	[[ -f ${dptx_object} ]] || {
 		printf 'error: profile did not compile %s\n' "${dptx_object}" >&2
 		exit 1
@@ -1396,6 +1401,12 @@ for preference in module builtin; do
 		nm -u "${dptx_object}" |
 		grep -Eq '(^|[[:space:]])U[[:space:]]+trilin_dp_connector_debugfs_init$'; then
 		printf 'error: DPTX retains a debugfs callback reference with CONFIG_DEBUG_FS disabled\n' >&2
+		exit 1
+	fi
+	if ! grep -Fqx 'CONFIG_BPF_STRUCT_OPS=y' "${build_dir}/.config" &&
+		nm -u "${build_dir}/kernel/bpf/bpf_struct_ops.o" |
+		grep -Eq '(^|[[:space:]])U[[:space:]]+bpf_struct_ops_test_run$'; then
+		printf 'error: BPF core retains its disabled struct-ops test-provider callback\n' >&2
 		exit 1
 	fi
 	for object in \
@@ -1464,6 +1475,38 @@ for preference in module builtin; do
 	fi
 done
 
+# Keep the DPTX module independent of the generic kernel-debugging menu.  The
+# ordinary arm64 defconfig enables EXPERT, which selects DEBUG_KERNEL upstream,
+# so use a distinct configuration to exercise the genuinely disabled state.
+build_dir=${build_root}/dptx-no-debug-kernel
+rm -rf -- "${build_dir}"
+mkdir -p -- "${build_dir}"
+cp -- "${build_root}/o6-acpi-module/.config" "${build_dir}/.config"
+"${source_dir}/scripts/config" --file "${build_dir}/.config" \
+	--disable EXPERT \
+	--disable DEBUG_KERNEL \
+	--disable DEBUG_FS
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 olddefconfig
+for symbol in EXPERT DEBUG_KERNEL DEBUG_FS; do
+	reject_enabled_config "${build_dir}/.config" "${symbol}"
+done
+require_config "${build_dir}/.config" 'CONFIG_DRM_TRILIN_DPSUB=m'
+make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 \
+	-j"${jobs}" prepare modules_prepare
+make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
+	-j"${jobs}" drivers/gpu/drm/cix/dptx/
+dptx_object=${build_dir}/drivers/gpu/drm/cix/dptx/trilin-dpsub.o
+[[ -f ${dptx_object} ]] || {
+	printf 'error: DEBUG_KERNEL-disabled profile did not compile %s\n' \
+		"${dptx_object}" >&2
+	exit 1
+}
+if nm -u "${dptx_object}" |
+	grep -Eq '(^|[[:space:]])U[[:space:]]+trilin_dp_connector_debugfs_init$'; then
+	printf 'error: DEBUG_KERNEL-disabled DPTX retains its debugfs callback\n' >&2
+	exit 1
+fi
+
 # Compile the accelerator paths once through their DT-facing profile as well;
 # the full ACPI slice above remains the broader subsystem integration build.
 build_dir=${build_root}/o6-dt-module
@@ -1479,6 +1522,9 @@ make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
 # Broad configurations also keep quarantined and explicitly opt-in vendor code
 # buildable beyond the drivers selected by maintained board profiles.
 build_dir=${build_root}/allmod
+usb_sky1_object=drivers/usb/cdns3/cdnsp-sky1.o
+[[ ${kernel_line} != 7.2 ]] || \
+	usb_sky1_object=drivers/usb/cdns3/cdns3-sky1.o
 make -s -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 \
 	-j"${jobs}" prepare modules_prepare
 make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
@@ -1492,7 +1538,7 @@ make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
 	drivers/net/ethernet/realtek/r8126/ \
 	drivers/pinctrl/cix/ \
 	drivers/spi/spi-cadence.o \
-	drivers/usb/cdns3/cdnsp-sky1.o \
+	"${usb_sky1_object}" \
 	drivers/usb/typec/rts5453.o \
 	sound/hda/controllers/snd-hda-cix-ipbloq.o \
 	sound/soc/cix/

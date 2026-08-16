@@ -1,0 +1,35 @@
+Remove the transmit tail-pointer reader after the engineering procfs and
+sysfs callers have been removed.  Keeping the now-unreferenced helper adds a
+W=1 warning and leaves unnecessary direct register-access code in production
+builds.
+
+diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+--- a/drivers/net/ethernet/realtek/r8126/r8126_n.c
++++ b/drivers/net/ethernet/realtek/r8126/r8126_n.c
+@@ -672,26 +672,6 @@ rtl8126_get_hw_clo_ptr(struct rtl8126_tx_ring *ring)
+         }
+ }
+ 
+-static u32
+-rtl8126_get_sw_tail_ptr(struct rtl8126_tx_ring *ring)
+-{
+-        struct rtl8126_private *tp = ring->priv;
+-
+-        switch (tp->HwSuppTxNoCloseVer) {
+-        case 3:
+-                return RTL_R16(tp, ring->sw_tail_ptr_reg);
+-        case 4:
+-        case 5:
+-        case 6:
+-                return RTL_R32(tp, ring->sw_tail_ptr_reg);
+-        default:
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+-                WARN_ON(1);
+-#endif
+-                return 0;
+-        }
+-}
+-
+ static u32
+ rtl8126_get_phy_status(struct rtl8126_private *tp)
+ {

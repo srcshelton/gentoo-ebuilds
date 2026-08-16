@@ -431,6 +431,7 @@ src_prepare() {
 		# CIX-QUESTIONED-PATCH: comment this entry to omit the CPU-affinity policy.
 		"${FILESDIR}"/80031-net-realtek-r8126-prefer-performance-core-irqs.patch
 		"${FILESDIR}"/80032-net-realtek-r8126-remove-vendor-engineering-interfaces.patch
+		"${FILESDIR}"/80033-net-realtek-r8126-remove-unused-tail-pointer-reader.patch
 		"${FILESDIR}"/80035-net-realtek-r8126-demote-routine-reset-message.patch
 		"${FILESDIR}"/6.18.x/80070-pci-disable-aspm-for-sky1-smmu-faulting-endpoints.patch
 		"${FILESDIR}"/6.18.x/90040-hwmon-cix-add-safe-acpi-fan-control.patch

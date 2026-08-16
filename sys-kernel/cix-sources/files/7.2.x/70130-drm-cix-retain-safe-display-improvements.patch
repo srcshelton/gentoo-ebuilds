@@ -1,0 +1,1427 @@
+Retain the CIX display fixes that are safe for production: ACPI/OF
+enumeration, firmware-node lifetime, optional panel resources, eDP power
+rollback, fixed-clock builds and useful diagnostic severity.  Duplicate
+configuration prompts and changes already supplied by earlier 7.2 patches
+are omitted.
+
+The Linux 7.2 port uses the refcounted DRM panel allocator and tightens the
+ACPI pipeline parser so that owned firmware-node and clock references are
+balanced.  It also propagates AVI infoframe packing failures instead of
+discarding a negative result through an unsigned length.
+
+This artifact is mechanically generated from the exact Linux 7.2.0 CIX
+preimage immediately after patch 70120.
+
+diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
+--- a/drivers/gpu/drm/cix/Kconfig
++++ b/drivers/gpu/drm/cix/Kconfig
+@@ -10,7 +10,7 @@ config DRM_CIX
+ 
+ config DRM_LINLONDP
+ 	tristate "ARMCHINA LINLON display driver"
+-	depends on DRM && OF
++	depends on DRM && (ACPI || OF)
+ 	depends on COMMON_CLK
+ 	depends on DRM_CIX
+ 	select DRM_KMS_HELPER
+@@ -34,15 +34,4 @@ config DRM_LINLONDP_CLOCK_FIXED
+ 	help
+ 	  Choose this if linlondp clocks use fixed frequency
+ 
+-config DRM_TRILIN_DP_CIX
+-	tristate "DRM Support for Trilinear DisplayPort on CiX platforms"
+-	depends on DRM_CIX
+-	help
+-	  Choose this if you want to use DP display on CiX Socs
+-
+-config DRM_CIX_EDP_PANEL
+-	tristate "DRM Support for edp panel on CiX platforms"
+-	help
+-	  Choose this if you want to use edp panel on CiX Socs
+-
+ source "drivers/gpu/drm/cix/dptx/Kconfig"
+diff --git a/drivers/gpu/drm/cix/cix_virtual.c b/drivers/gpu/drm/cix/cix_virtual.c
+--- a/drivers/gpu/drm/cix/cix_virtual.c
++++ b/drivers/gpu/drm/cix/cix_virtual.c
+@@ -147,8 +147,8 @@ static uint32_t drm_acpi_crtc_port_mask(struct drm_device *dev,
+ 
+ 	drm_for_each_crtc(tmp, dev) {
+ 		if ((struct fwnode_handle *)tmp->port == port) {
+-			pr_info("cix_virtual.drm_acpi_crtc_port_mask, port=%s\n",
+-				port->ops->get_name(port));
++			pr_debug("%s: port=%s\n", __func__,
++				 fwnode_get_name(port));
+ 			return 1 << index;
+ 		}
+ 
+@@ -205,11 +205,9 @@ cix_virtual_bind(struct device *comp, struct device *master,
+ 	}
+ 
+ 	if (has_acpi_companion(comp)) {
+-		pr_info("dwx: cix_virtual start to call cix_virtual_bind via ACPI.\n");
+ 		np = comp->fwnode;
+ 		encoder->possible_crtcs = drm_acpi_find_possible_crtcs(drm, (struct fwnode_handle *)np);
+ 	} else {
+-		pr_info("dwx: cix_virtual start to call cix_virtual_bind via DT.\n");
+ 		np = comp->of_node;
+ 		encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, (struct device_node *)np);
+ 	}
+@@ -280,7 +278,7 @@ static int cix_virtual_probe(struct platform_device *pdev)
+ {
+ 	struct cix_virtual_dev *vd;
+ 	struct device *dev = &pdev->dev;
+-	pr_info("dwx: cix_virtual_probe enter.\n");
++
+ 	vd = devm_kzalloc(dev, sizeof(*vd), GFP_KERNEL);
+ 	if (!vd)
+ 		return -ENOMEM;
+diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
+--- a/drivers/gpu/drm/cix/dptx/Kconfig
++++ b/drivers/gpu/drm/cix/dptx/Kconfig
+@@ -1,7 +1,7 @@
+ #SPDX - License - Identifier : GPL - 2.0 - only
+ config DRM_TRILIN_DPSUB
+ 	tristate "Trilinear Technologies DisplayPort Controller Driver"
+-	depends on COMMON_CLK && DRM && OF
++	depends on COMMON_CLK && DRM && (ACPI || OF)
+ 	select DRM_KMS_HELPER
+ 	select DRM_DISPLAY_HELPER
+ 	select DRM_DISPLAY_DP_HELPER
+diff --git a/drivers/gpu/drm/cix/dptx/cix_edp_panel.c b/drivers/gpu/drm/cix/dptx/cix_edp_panel.c
+--- a/drivers/gpu/drm/cix/dptx/cix_edp_panel.c
++++ b/drivers/gpu/drm/cix/dptx/cix_edp_panel.c
+@@ -23,15 +23,15 @@
+  * DEALINGS IN THE SOFTWARE.
+  */
+ 
++#include <linux/acpi.h>
++#include <linux/backlight.h>
+ #include <linux/delay.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/iopoll.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+-#include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+ #include <linux/regulator/consumer.h>
+-#include <linux/version.h>
+ 
+ #include <video/display_timing.h>
+ #include <video/of_display_timing.h>
+@@ -40,11 +40,11 @@
+ #include <drm/drm_crtc.h>
+ #include <drm/drm_device.h>
+ #include <drm/drm_panel.h>
+-#include <linux/acpi.h>
+-#include <linux/backlight.h>
++
+ #include "cix_edp_panel.h"
+ 
+ /**
++ * struct panel_desc - fixed panel characteristics
+  * @modes: Pointer to array of fixed modes appropriate for this panel.  If
+  *         only one mode then this can just be the address of this the mode.
+  *         NOTE: cannot be used with "timings" and also if this is specified
+@@ -106,7 +106,6 @@ struct panel_desc {
+ 
+ 	u32 bus_format;
+ 	u32 bus_flags;
+-	int connector_type;
+ };
+ 
+ struct cix_edp_panel {
+@@ -115,6 +114,7 @@ struct cix_edp_panel {
+ 	bool enabled;
+ 	bool power_invert;
+ 	bool no_hpd;
++	bool supply_enabled;
+ 
+ 	const struct panel_desc *desc;
+ 
+@@ -252,38 +252,56 @@ static int cix_edp_panel_get_non_edid_modes(struct cix_edp_panel *panel,
+ 
+ static int cix_edp_panel_regulator_enable(struct cix_edp_panel *p)
+ {
+-	int err;
++	int enabled;
++	int err = 0;
++
++	if (!p->supply || p->supply_enabled)
++		return 0;
+ 
+ 	if (p->power_invert) {
+-		if (regulator_is_enabled(p->supply) > 0)
+-			regulator_disable(p->supply);
++		enabled = regulator_is_enabled(p->supply);
++		if (enabled < 0)
++			return enabled;
++		if (enabled)
++			err = regulator_disable(p->supply);
+ 	} else {
+-		if (!p->supply)
+-			return -ENODEV;
+-
+ 		err = regulator_enable(p->supply);
+-		if (err < 0)
+-			return err;
+ 	}
++	if (!err)
++		p->supply_enabled = true;
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int cix_edp_panel_regulator_disable(struct cix_edp_panel *p)
+ {
+-	int err;
++	int enabled;
++	int err = 0;
++
++	if (!p->supply || !p->supply_enabled)
++		return 0;
+ 
+ 	if (p->power_invert) {
+-		if (!regulator_is_enabled(p->supply)) {
++		enabled = regulator_is_enabled(p->supply);
++		if (enabled < 0)
++			return enabled;
++		if (!enabled)
+ 			err = regulator_enable(p->supply);
+-			if (err < 0)
+-				return err;
+-		}
+ 	} else {
+-		regulator_disable(p->supply);
++		err = regulator_disable(p->supply);
+ 	}
++	if (!err)
++		p->supply_enabled = false;
+ 
+-	return 0;
++	return err;
++}
++
++static int cix_edp_panel_set_gpio(struct gpio_desc *gpio, int value)
++{
++	if (!gpio)
++		return 0;
++
++	return gpiod_direction_output(gpio, value);
+ }
+ 
+ static int cix_edp_panel_disable(struct drm_panel *panel)
+@@ -291,18 +309,18 @@ static int cix_edp_panel_disable(struct drm_panel *panel)
+ 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
+ 
+ 	if (!p->enabled) {
+-		dev_info(panel->dev, "%s, panel has been disabled\n", __func__);
++		dev_dbg(panel->dev, "%s, panel has been disabled\n", __func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+ 	if (p->desc->delay.disable)
+ 		msleep(p->desc->delay.disable);
+ 
+ 	p->enabled = false;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+ 	return 0;
+ }
+@@ -310,28 +328,45 @@ static int cix_edp_panel_disable(struct drm_panel *panel)
+ static int cix_edp_panel_unprepare(struct drm_panel *panel)
+ {
+ 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
++	int err = 0;
++	int ret;
+ 
+ 	if (!p->prepared) {
+-		dev_info(panel->dev, "%s, panel has been unprepared\n",
+-			 __func__);
++		dev_dbg(panel->dev, "%s, panel has been unprepared\n",
++			__func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
++
++	ret = cix_edp_panel_set_gpio(p->reset_gpio, 1);
++	if (ret) {
++		dev_err(panel->dev, "failed to assert reset GPIO: %d\n", ret);
++		err = ret;
++	}
+ 
+-	gpiod_set_value_cansleep(p->reset_gpio, 1);
+-	gpiod_set_value_cansleep(p->enable_gpio, 0);
++	ret = cix_edp_panel_set_gpio(p->enable_gpio, 0);
++	if (ret) {
++		dev_err(panel->dev, "failed to disable panel GPIO: %d\n", ret);
++		if (!err)
++			err = ret;
++	}
+ 
+-	cix_edp_panel_regulator_disable(p);
++	ret = cix_edp_panel_regulator_disable(p);
++	if (ret) {
++		dev_err(panel->dev, "failed to disable supply: %d\n", ret);
++		if (!err)
++			err = ret;
++	}
+ 
+ 	if (p->desc->delay.unprepare)
+ 		msleep(p->desc->delay.unprepare);
+ 
+ 	p->prepared = false;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int cix_edp_panel_get_hpd_gpio(struct device *dev,
+@@ -367,11 +402,11 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 	int hpd_asserted;
+ 
+ 	if (p->prepared) {
+-		dev_info(panel->dev, "%s, panel has been prepared\n", __func__);
++		dev_dbg(panel->dev, "%s, panel has been prepared\n", __func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+ 	err = cix_edp_panel_regulator_enable(p);
+ 	if (err < 0) {
+@@ -379,7 +414,11 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 		return err;
+ 	}
+ 
+-	gpiod_set_value_cansleep(p->enable_gpio, 1);
++	err = cix_edp_panel_set_gpio(p->enable_gpio, 1);
++	if (err) {
++		dev_err(panel->dev, "failed to enable panel GPIO: %d\n", err);
++		goto rollback;
++	}
+ 
+ 	delay = p->desc->delay.prepare;
+ 	if (p->no_hpd)
+@@ -391,7 +430,7 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 		if (IS_ERR(p->hpd_gpio)) {
+ 			err = cix_edp_panel_get_hpd_gpio(panel->dev, p, false);
+ 			if (err)
+-				return err;
++				goto rollback;
+ 		}
+ 
+ 		err = readx_poll_timeout(gpiod_get_value_cansleep, p->hpd_gpio,
+@@ -403,25 +442,45 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
+ 		if (err) {
+ 			dev_err(panel->dev, "error waiting for hpd GPIO: %d\n",
+ 				err);
+-			return err;
++			goto rollback;
+ 		}
+ 	}
+ 
+-	gpiod_set_value_cansleep(p->reset_gpio, 1);
++	err = cix_edp_panel_set_gpio(p->reset_gpio, 1);
++	if (err) {
++		dev_err(panel->dev, "failed to assert reset GPIO: %d\n", err);
++		goto rollback;
++	}
+ 
+ 	if (p->desc->delay.reset)
+ 		msleep(p->desc->delay.reset);
+ 
+-	gpiod_set_value_cansleep(p->reset_gpio, 0);
++	err = cix_edp_panel_set_gpio(p->reset_gpio, 0);
++	if (err) {
++		dev_err(panel->dev, "failed to deassert reset GPIO: %d\n", err);
++		goto rollback;
++	}
+ 
+ 	if (p->desc->delay.init)
+ 		msleep(p->desc->delay.init);
+ 
+ 	p->prepared = true;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+ 	return 0;
++
++rollback:
++	if (cix_edp_panel_set_gpio(p->reset_gpio, 1))
++		dev_err(panel->dev, "failed to assert reset GPIO during rollback\n");
++	if (cix_edp_panel_set_gpio(p->enable_gpio, 0))
++		dev_err(panel->dev, "failed to disable panel GPIO during rollback\n");
++	if (cix_edp_panel_regulator_disable(p))
++		dev_err(panel->dev, "failed to disable supply during rollback\n");
++	if (p->desc->delay.unprepare)
++		msleep(p->desc->delay.unprepare);
++
++	return err;
+ }
+ 
+ static int cix_edp_panel_enable(struct drm_panel *panel)
+@@ -429,18 +488,18 @@ static int cix_edp_panel_enable(struct drm_panel *panel)
+ 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
+ 
+ 	if (p->enabled) {
+-		dev_info(panel->dev, "%s, panel has been enabled\n", __func__);
++		dev_dbg(panel->dev, "%s, panel has been enabled\n", __func__);
+ 		return 0;
+ 	}
+ 
+-	dev_info(panel->dev, "%s, begin\n", __func__);
++	dev_dbg(panel->dev, "%s, begin\n", __func__);
+ 
+ 	if (p->desc->delay.enable)
+ 		msleep(p->desc->delay.enable);
+ 
+ 	p->enabled = true;
+ 
+-	dev_info(panel->dev, "%s, end\n", __func__);
++	dev_dbg(panel->dev, "%s, end\n", __func__);
+ 
+ 	return 0;
+ }
+@@ -534,19 +593,19 @@ cix_edp_panel_parse_panel_timing_node(struct device *dev,
+ 		dev_err(dev, "Reject override mode: No display_timing found\n");
+ }
+ 
+-static int acpi_drm_get_panel_orientation(const struct device *np,
+-				 enum drm_panel_orientation *orientation)
++#if IS_ENABLED(CONFIG_ACPI)
++static int cix_edp_panel_get_acpi_orientation(const struct device *dev,
++					      enum drm_panel_orientation *orientation)
+ {
+-	int rotation, ret;
++	u32 rotation;
++	int ret;
+ 
+-	ret = device_property_read_u32(np, "rotation", &rotation);
++	ret = device_property_read_u32(dev, "rotation", &rotation);
+ 	if (ret == -EINVAL) {
+-		/* Don't return an error if there's no rotation property. */
+ 		*orientation = DRM_MODE_PANEL_ORIENTATION_UNKNOWN;
+ 		return 0;
+ 	}
+-
+-	if (ret < 0)
++	if (ret)
+ 		return ret;
+ 
+ 	if (rotation == 0)
+@@ -619,6 +678,7 @@ static int drm_panel_acpi_backlight(struct drm_panel *panel)
+ 	panel->backlight = backlight;
+ 	return 0;
+ }
++#endif
+ 
+ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc)
+ {
+@@ -626,14 +686,14 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
+ 	struct display_timing dt;
+ 	int err;
+ 
+-	dev_info(dev, "%s, begin\n", __func__);
++	dev_dbg(dev, "%s, begin\n", __func__);
+ 
+-	panel = devm_kzalloc(dev, sizeof(*panel), GFP_KERNEL);
+-	if (!panel)
+-		return -ENOMEM;
++	panel = devm_drm_panel_alloc(dev, struct cix_edp_panel, base,
++				     &cix_edp_panel_funcs,
++				     DRM_MODE_CONNECTOR_eDP);
++	if (IS_ERR(panel))
++		return PTR_ERR(panel);
+ 
+-	panel->enabled = false;
+-	panel->prepared = false;
+ 	panel->desc = desc;
+ 
+ 	panel->no_hpd = device_property_read_bool(dev, "no-hpd");
+@@ -643,94 +703,79 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
+ 			return err;
+ 	}
+ 
+-	panel->supply = devm_regulator_get(dev, "power");
++	panel->supply = devm_regulator_get_optional(dev, "power");
+ 	if (IS_ERR(panel->supply)) {
+ 		err = PTR_ERR(panel->supply);
+-		dev_err(dev, "failed to get power regulator: %d\n", err);
+-		return err;
++		if (err != -ENODEV)
++			return dev_err_probe(dev, err,
++					     "failed to get power regulator\n");
++		panel->supply = NULL;
+ 	}
+ 
+ 	panel->enable_gpio =
+-		devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
+-	if (IS_ERR(panel->enable_gpio)) {
+-		err = PTR_ERR(panel->enable_gpio);
+-		if (err != -EPROBE_DEFER)
+-			dev_err(dev, "failed to get enable GPIO: %d\n", err);
+-		return err;
+-	}
++		devm_gpiod_get_optional(dev, "enable", GPIOD_ASIS);
++	if (IS_ERR(panel->enable_gpio))
++		return dev_err_probe(dev, PTR_ERR(panel->enable_gpio),
++				     "failed to get enable GPIO\n");
+ 
+ 	panel->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_ASIS);
+-	if (IS_ERR(panel->reset_gpio)) {
+-		err = PTR_ERR(panel->reset_gpio);
+-		if (err != -EPROBE_DEFER)
+-			dev_err(dev, "failed to get reset GPIO: %d\n", err);
+-		return err;
+-	}
++	if (IS_ERR(panel->reset_gpio))
++		return dev_err_probe(dev, PTR_ERR(panel->reset_gpio),
++				     "failed to get reset GPIO\n");
+ 
+-	if (has_acpi_companion(dev)) {
+-		err = acpi_drm_get_panel_orientation(dev, &panel->orientation);
+-	} else {
++#if IS_ENABLED(CONFIG_ACPI)
++	if (has_acpi_companion(dev))
++		err = cix_edp_panel_get_acpi_orientation(dev, &panel->orientation);
++	else
++#endif
+ 		err = of_drm_get_panel_orientation(dev->of_node, &panel->orientation);
+-	}
+-	
+-	if (err) {
+-		dev_err(dev, "%p: failed to get orientation %d\n", dev, err);
+-		return err;
+-	}
++	if (err)
++		return dev_err_probe(dev, err, "failed to get orientation\n");
+ 
+ 	panel->power_invert =
+ 		device_property_read_bool(dev, "power-invert");
+ 
+-	if (!of_get_display_timing(dev->of_node, "panel-timing", &dt))
++	if (dev->of_node &&
++	    !of_get_display_timing(dev->of_node, "panel-timing", &dt))
+ 		cix_edp_panel_parse_panel_timing_node(dev, panel, &dt);
+ 
+-	if (desc->bus_format == 0)
+-		dev_warn(dev, "Specify missing bus_format\n");
+-
+-	if (desc->bpc != 6 && desc->bpc != 8)
+-		dev_warn(dev, "Expected bpc in {6,8} but got: %u\n", desc->bpc);
+-
+-	drm_panel_init(&panel->base, dev, &cix_edp_panel_funcs,
+-		       DRM_MODE_CONNECTOR_eDP);
++	if (desc->num_modes || desc->num_timings) {
++		if (!desc->bus_format)
++			dev_warn(dev, "Specify missing bus_format\n");
++		if (desc->bpc != 6 && desc->bpc != 8)
++			dev_warn(dev, "Expected bpc in {6,8} but got: %u\n",
++				 desc->bpc);
++	}
+ 
++#if IS_ENABLED(CONFIG_ACPI)
+ 	if (has_acpi_companion(dev)) {
+ 		err = drm_panel_acpi_backlight(&panel->base);
+ 	} else {
+ 		err = drm_panel_of_backlight(&panel->base);
+ 	}
++#else
++	err = drm_panel_of_backlight(&panel->base);
++#endif
+ 
+-	if (err) {
+-		dev_err(dev, "failed to find backlight: %d\n", err);
+-		goto exit;
+-	}
++	if (err)
++		return dev_err_probe(dev, err, "failed to find backlight\n");
+ 
+ 	drm_panel_add(&panel->base);
+ 
+ 	dev_set_drvdata(dev, panel);
+ 
+-	dev_info(dev, "%s, end\n", __func__);
++	dev_dbg(dev, "%s, end\n", __func__);
+ 
+ 	return 0;
+-
+-exit:
+-	return err;
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+-static int cix_edp_panel_remove(struct device *dev)
+-#else
+ static void cix_edp_panel_remove(struct device *dev)
+-#endif
+ {
+ 	struct cix_edp_panel *panel = dev_get_drvdata(dev);
+ 
+ 	drm_panel_remove(&panel->base);
+ 	drm_panel_disable(&panel->base);
+ 	drm_panel_unprepare(&panel->base);
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+-	return 0;
+-#endif
+ }
+ 
+ static void cix_edp_panel_shutdown(struct device *dev)
+@@ -753,9 +798,9 @@ static const struct of_device_id platform_of_match[] = {
+ MODULE_DEVICE_TABLE(of, platform_of_match);
+ 
+ static const struct acpi_device_id platform_acpi_match[] = {
+-				{ .id = "CIXH5040", .driver_data = 0 },
+-				{ /* sentinel */ } };
+-
++	{ "CIXH5040" },
++	{ }
++};
+ MODULE_DEVICE_TABLE(acpi, platform_acpi_match);
+ 
+ static bool of_child_node_is_present(const struct device_node *node,
+@@ -763,14 +808,17 @@ static bool of_child_node_is_present(const struct device_node *node,
+ {
+ 	struct device_node *child;
+ 
++	if (!node)
++		return false;
++
+ 	child = of_get_child_by_name(node, name);
+ 	of_node_put(child);
+ 
+ 	return !!child;
+ }
+ 
+-static int cix_edp_panel_of_get_desc_data(struct device *dev,
+-					  struct panel_desc *desc)
++static int cix_edp_panel_get_desc_data(struct device *dev,
++				       struct panel_desc *desc)
+ {
+ 	struct device_node *np = dev->of_node;
+ 	u32 bus_flags;
+@@ -807,14 +855,14 @@ static int cix_edp_panel_of_get_desc_data(struct device *dev,
+ 		}
+ 	}
+ 
+-	if (desc->num_modes || desc->num_timings) {
+-		of_property_read_u32(np, "bpc", &desc->bpc);
+-		of_property_read_u32(np, "bus-format", &desc->bus_format);
+-		of_property_read_u32(np, "width-mm", &desc->size.width);
+-		of_property_read_u32(np, "height-mm", &desc->size.height);
+-	}
++	device_property_read_u32(dev, "bpc", &desc->bpc);
++	device_property_read_u32(dev, "bus-format", &desc->bus_format);
++	device_property_read_u32(dev, "width-mm", &desc->size.width);
++	device_property_read_u32(dev, "height-mm", &desc->size.height);
+ 
+ 	device_property_read_u32(dev, "prepare-delay-ms", &desc->delay.prepare);
++	device_property_read_u32(dev, "hpd-absent-delay-ms",
++				 &desc->delay.hpd_absent_delay);
+ 	device_property_read_u32(dev, "enable-delay-ms", &desc->delay.enable);
+ 	device_property_read_u32(dev, "disable-delay-ms", &desc->delay.disable);
+ 	device_property_read_u32(dev, "unprepare-delay-ms", &desc->delay.unprepare);
+@@ -827,41 +875,30 @@ static int cix_edp_panel_of_get_desc_data(struct device *dev,
+ static int cix_edp_panel_platform_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+-	const void *id_data;
+-	const struct panel_desc *desc;
+-	struct panel_desc *d;
++	const struct panel_desc *desc = device_get_match_data(dev);
+ 	int err;
+-	
+-	id_data = device_get_match_data(&pdev->dev);
+ 
+-	if (!id_data) {
+-		d = devm_kzalloc(dev, sizeof(*d), GFP_KERNEL);
+-		if (!d)
++	if (!desc) {
++		struct panel_desc *dynamic_desc;
++
++		dynamic_desc = devm_kzalloc(dev, sizeof(*dynamic_desc),
++					    GFP_KERNEL);
++		if (!dynamic_desc)
+ 			return -ENOMEM;
+ 
+-		err = cix_edp_panel_of_get_desc_data(dev, d);
+-		if (err) {
+-			dev_err(dev, "failed to get desc data: %d\n", err);
+-			return err;
+-		}
++		err = cix_edp_panel_get_desc_data(dev, dynamic_desc);
++		if (err)
++			return dev_err_probe(dev, err,
++					     "failed to get panel description\n");
++		desc = dynamic_desc;
+ 	}
+ 
+-	desc = id_data ? id_data : d;
+-
+-	return cix_edp_panel_probe(&pdev->dev, desc);
++	return cix_edp_panel_probe(dev, desc);
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+-static int cix_edp_panel_platform_remove(struct platform_device *pdev)
+-#else
+ static void cix_edp_panel_platform_remove(struct platform_device *pdev)
+-#endif
+ {
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+-	return cix_edp_panel_remove(&pdev->dev);
+-#else
+ 	cix_edp_panel_remove(&pdev->dev);
+-#endif
+ }
+ 
+ static void cix_edp_panel_platform_shutdown(struct platform_device *pdev)
+diff --git a/drivers/gpu/drm/cix/dptx/dptx_infoframe.c b/drivers/gpu/drm/cix/dptx/dptx_infoframe.c
+--- a/drivers/gpu/drm/cix/dptx/dptx_infoframe.c
++++ b/drivers/gpu/drm/cix/dptx/dptx_infoframe.c
+@@ -160,20 +160,16 @@ int cix_dptx_setup_avi_infoframe(struct dp_sdp *sdp,
+ 		HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE;
+ 	unsigned char buf[HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE];
+ 	struct hdmi_avi_infoframe frame;
+-	size_t len;
++	int len;
+ 
+ 	memset(sdp, 0, sizeof(*sdp));
+ 	pack_avi_infoframe(&frame, format, conn_state);
+ 	len = hdmi_avi_infoframe_pack_only(&frame, buf, sizeof(buf));
+-	if (len < 0) {
+-		pr_info("buffer size is smaller than avi infoframe\n");
+-		return -1;
+-	}
++	if (len < 0)
++		return len;
+ 
+-	if (len != infoframe_size) {
+-		pr_info("wrong avi infoframe size\n");
+-		return -1;
+-	}
++	if (len != infoframe_size)
++		return -EINVAL;
+ 
+ 	sdp->sdp_header.HB0 = 0;
+ 	sdp->sdp_header.HB1 = frame.type;
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -1712,16 +1712,19 @@ static int trilin_dp_panel_setup_avi_sdp(struct trilin_dp *dp,
+ 	struct trilin_connector *conn = dp_panel->connector;
+ 	struct drm_connector *connector = &conn->base;
+ 	struct drm_connector_state *connector_state = connector->state;
+-	bool avi_sdp_enable = TRILIN_AVI_SDP_ENABLE;
++	int ret;
+ 
+-	if (avi_sdp_enable) {
+-		cix_dptx_setup_avi_infoframe(&conn->sdp[CIX_AVI_INFO_SDP],
+-					     conn->config.format,
+-					     connector_state);
+-		cix_infoframe_write_packet(dp, dp_panel->source_id,
+-					   CIX_AVI_INFO_SDP,
+-					   &conn->sdp[CIX_AVI_INFO_SDP], 1);
+-	}
++	if (!TRILIN_AVI_SDP_ENABLE)
++		return 0;
++
++	ret = cix_dptx_setup_avi_infoframe(&conn->sdp[CIX_AVI_INFO_SDP],
++					   conn->config.format,
++					   connector_state);
++	if (ret)
++		return ret;
++
++	cix_infoframe_write_packet(dp, dp_panel->source_id, CIX_AVI_INFO_SDP,
++				   &conn->sdp[CIX_AVI_INFO_SDP], 1);
+ 	return 0;
+ }
+ 
+@@ -2526,7 +2529,7 @@ static void trilin_dp_register_phy(struct trilin_dp *dp)
+ 		}
+ 
+ 		if (IS_ERR_OR_NULL(phy->base))
+-			DP_WARN("no dp_phy\n");
++			DP_DEBUG("no dp_phy, using built-in DPTX PHY registration\n");
+ 
+ 		trilin_usbdp_phy_register(dp);
+ 		trilin_edp_phy_register(dp);
+@@ -2616,7 +2619,7 @@ static int trilin_dp_host_init_from_bootloader(struct trilin_dp *dp)
+ 
+ 	dp->state |= DPTX_STATE_INITIALIZED;
+ 
+-	dev_info(dp->dev, "%s reports a plug event\n", __func__);
++	dev_dbg(dp->dev, "%s reports a plug event\n", __func__);
+ 
+ 	/* add force to detect to sync call detect. */
+ 	drm_helper_probe_detect(&dp->connector.base, NULL, false);
+@@ -3409,18 +3412,17 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+ 	fwnode_edp_panel = fwnode_find_reference(dev->fwnode, "edp-panel", 0);
+ 	if (!IS_ERR_OR_NULL(fwnode_edp_panel)) {
+ 		edp_panel = fwnode_drm_find_panel(fwnode_edp_panel);
++		fwnode_handle_put(fwnode_edp_panel);
+ 		if (IS_ERR(edp_panel)) {
+ 			ret = PTR_ERR(edp_panel);
+-			if (ret == -EPROBE_DEFER)
+-				dev_dbg(dev, "%s, edp-panel not ready, defer probe\n",
+-					__func__);
+-			else
+-				dev_err(dev, "%s, invalid drm_panel: %d\n",
+-					__func__, ret);
+-			return ret;
++			edp_panel = NULL;
++			if (ret != -ENODEV)
++				return dev_err_probe(dev, ret,
++						     "failed to find edp-panel\n");
++			dev_dbg(dev, "edp-panel reference is not available\n");
+ 		} else
+-			dev_info(dev, "%s, edp-panel %s is found\n", __func__,
+-				 dev_name(edp_panel->dev));
++			dev_dbg(dev, "%s, edp-panel %s is found\n", __func__,
++				dev_name(edp_panel->dev));
+ 	}
+ 
+ 	dp = devm_kzalloc(dpsub->dev, sizeof(*dp), GFP_KERNEL);
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.h b/drivers/gpu/drm/cix/dptx/trilin_dptx.h
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.h
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.h
+@@ -517,7 +517,7 @@ struct trilin_dp {
+ 	} while (0)
+ 
+ #define DP_INFO(fmt, ...)	\
+-	dev_info(dp->dev, "[drm:%s][info]" fmt, __func__, ##__VA_ARGS__)
++	dev_dbg(dp->dev, "[drm:%s][info]" fmt, __func__, ##__VA_ARGS__)
+ 
+ #define DP_WARN(fmt, ...) \
+ 	dev_warn(dp->dev, "[drm:%s][warn]" fmt, __func__, ##__VA_ARGS__)
+@@ -535,7 +535,7 @@ struct trilin_dp {
+ 	} while (0)
+ 
+ #define DP_MST_INFO(fmt, ...) \
+-	dev_info(dp->dev, "[MST:%s][info]" fmt, __func__, ##__VA_ARGS__)
++	dev_dbg(dp->dev, "[MST:%s][info]" fmt, __func__, ##__VA_ARGS__)
+ 
+ //------------------------------------------------------------------------------
+ // Driver interface
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -222,7 +222,6 @@ static int trilin_dptx_pm_shutdown(struct device *dev)
+ 	if (dp)
+ 		trilin_dp_pm_shutdown(dp);
+ 
+-	dev_info(dev, "%s\n", __func__);
+ 	return 0;
+ }
+ 
+@@ -292,3 +291,6 @@ MODULE_AUTHOR("Fei Mao <fei.mao@cixtech.com>");
+ MODULE_DESCRIPTION("Cix Platforms DP Driver");
+ MODULE_LICENSE("GPL v2");
+ MODULE_ALIAS("platform:trilin-dptx-cix");
++#if IS_MODULE(CONFIG_DRM_TRILIN_DPSUB) && IS_MODULE(CONFIG_BACKLIGHT_PWM)
++MODULE_SOFTDEP("pre: pwm_bl");
++#endif
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -1399,12 +1399,9 @@ int trilin_dp_drm_init(struct trilin_dpsub *dpsub)
+ 		encoder->possible_crtcs = dpsub->preset_possible_crtcs;
+ 	else if (dp->dev && dp->dev->of_node)
+ 		encoder->possible_crtcs = drm_of_find_possible_crtcs(dp->drm,
+-								   dp->dev->of_node);
++							   dp->dev->of_node);
+ 	if (!encoder->possible_crtcs)
+ 		encoder->possible_crtcs = TRILIN_DPTX_POSSIBLE_CRTCS_SST;
+-	DRM_INFO("DP encoder possible_crtcs=0x%x (from %s)\n",
+-		 encoder->possible_crtcs,
+-		 (dp->dev && dp->dev->of_node) ? "DT" : "fallback");
+ 	drm_encoder_init(dp->drm, encoder, &trilin_dp_enc_funcs,
+ 			 DRM_MODE_ENCODER_TMDS, NULL);
+ 
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
+@@ -484,7 +484,7 @@ trilin_edp_phy_configure(struct trilin_dp *dp, union phy_configure_opts *opts)
+ 
+ 	/* set link rate */
+ 	if (dp_opts->set_rate) {
+-		dev_info(dp->dev, "%s %x\n", __func__, dp_opts->link_rate);
++		dev_dbg(dp->dev, "%s %x\n", __func__, dp_opts->link_rate);
+ 		trilin_edp_phy_set_link_rate(dp, dp_opts->link_rate);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+--- a/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
++++ b/drivers/gpu/drm/cix/linlon-dp/hw/dp_component.c
+@@ -1663,8 +1663,6 @@ void dp_close_gop(struct linlondp_dev *mdev)
+ {
+ 	u32 __iomem *base = mdev->reg_base;
+ 
+-	dev_info(mdev->dev, "%s enter\n", __func__);
+-
+ 	/* disable needs two phase, firstly do first phase */
+ 	linlondp_write32(base, LPU0_LAYER0 + BLK_CONTROL,
+ 			 0); // disbale lpu0_layer0
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -128,7 +128,9 @@ static int linlondp_crtc_prepare(struct linlondp_crtc *kcrtc)
+ 	struct linlondp_dev *mdev = kcrtc->master->mdev;
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(kcrtc->base.state);
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
++#endif
+ 	u32 new_mode;
+ 	int err;
+ 
+@@ -383,8 +385,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 		return;
+ 	}
+ 
+-	dev_info(mdev->dev, "%s enter\n", __func__);
+-
+ 	if (mdev->enabled_by_gop) {
+ 		mdev->enabled_by_gop = 0;
+ 		if (mdev->funcs->gop_mode_changed(mdev, mode)) {
+@@ -399,7 +399,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 
+ 			if (__clk_is_enabled(master->pxlclk)) {
+ 				clk_disable_unprepare(master->pxlclk);
+-				dev_info(mdev->dev, "%s, succeed to disable pxlclk.\n", __func__);
++				dev_dbg(mdev->dev, "%s, succeed to disable pxlclk.\n", __func__);
+ 			}
+ 
+ 			reset_control_assert(mdev->ip_rst);
+@@ -413,7 +413,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 	if (err)
+ 		dev_err(mdev->dev, "%s, failed to enable aclk.\n", __func__);
+ 	else
+-		dev_info(mdev->dev, "%s, succeed to enable aclk.\n", __func__);
++		dev_dbg(mdev->dev, "%s, succeed to enable aclk.\n", __func__);
+ 
+ 	/*
+ 	 * Do not call pm_runtime_enable() here: unbalanced vs cluster bind and
+@@ -447,7 +447,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+ 	WARN_ON(drm_crtc_vblank_get(crtc));
+ 	linlondp_crtc_do_flush(crtc, old);
+ 
+-	dev_info(mdev->dev, "%s exit\n", __func__);
+ }
+ 
+ void linlondp_crtc_flush_and_wait_for_flip_done(
+@@ -503,7 +502,7 @@ void linlondp_crtc_flush_and_wait_for_flip_done(
+ 			crtc->state->event = NULL;
+ 			if (event) {
+ 				drm_crtc_send_vblank_event(crtc, event);
+-				dev_info(mdev->dev, "Send vblank event manually\n");
++				dev_dbg(mdev->dev, "Send vblank event manually\n");
+ 			}
+ 			spin_unlock_irqrestore(&drm->event_lock, flags);
+ 		}
+@@ -525,10 +524,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
+ 	bool needs_phase2 = false;
+ 	bool needs_slave_phase2 = false;
+ 
+-	/*this log helps for really disabling crtc not self_refresh*/
+-	if (!new_state || !new_state->self_refresh_active)
+-		dev_info(mdev->dev, "%s enter\n", __func__);
+-
+ 	DRM_DEBUG_ATOMIC("CRTC%d_DISABLE: active_pipes: 0x%x, affected: 0x%x\n",
+ 			 drm_crtc_index(crtc), old_st->active_pipes,
+ 			 old_st->affected_pipes);
+@@ -588,7 +583,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
+ 	pm_runtime_put(mdev->dev);
+ 	clk_disable_unprepare(mdev->aclk);
+ 
+-	dev_info(mdev->dev, "%s exit\n", __func__);
+ }
+ 
+ static void linlondp_crtc_atomic_flush(struct drm_crtc *crtc,
+@@ -663,28 +657,29 @@ static enum drm_mode_status
+ linlondp_crtc_mode_valid(struct drm_crtc *crtc,
+ 			 const struct drm_display_mode *m)
+ {
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+ 	struct linlondp_dev *mdev = kcrtc->master->mdev;
+ 	struct linlondp_pipeline *master = kcrtc->master;
+ 	unsigned long min_pxlclk, min_aclk;
+ 	u8 pixel_per_cycle = 1;
++#endif
+ 
+ 	if (m->flags & DRM_MODE_FLAG_INTERLACE)
+ 		return MODE_NO_INTERLACE;
+ 
++	if (m->clock > 600000 * 2) {
++		DRM_DEBUG_ATOMIC("engine clk can't satisfy the requirement of %s-clk: %d.\n",
++				 m->name, m->clock);
++		return MODE_CLOCK_HIGH;
++	}
++
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	if (master->force_pixel_per_cycle != 0)
+ 		pixel_per_cycle = master->force_pixel_per_cycle;
+ 
+ 	if ((m->clock > 600000) && (m->clock < 600000 * 2))
+ 		pixel_per_cycle = 2;
+-	else if (m->clock > 600000 * 2) {
+-		DRM_DEBUG_ATOMIC(
+-			"engine clk can't satisfy the requirement of %s-clk: %d.\n",
+-			m->name, m->clock);
+-		return MODE_CLOCK_HIGH;
+-	}
+-
+-#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	min_pxlclk = m->clock * 1000;
+ 	if (master->dual_link || (pixel_per_cycle == 2))
+ 		min_pxlclk /= 2;
+@@ -713,7 +708,9 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
+ 				     struct drm_display_mode *adjusted_mode)
+ {
+ 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	unsigned long clk_rate;
++#endif
+ 	u16 hor_divisor = 1;
+ 	u8 pixel_per_cycle = 1;
+ 	bool rebuilt_crtcs = false;
+@@ -965,9 +962,9 @@ int linlondp_kms_setup_crtcs(struct linlondp_kms_dev *kms,
+ 			else
+ 				sprintf(str, "None");
+ 
+-			DRM_INFO("CRTC-%d: master(pipe-%d) slave(%s) sbs(%s).\n",
+-				 kms->n_crtcs, master->id, str,
+-				 crtc->side_by_side ? "On" : "Off");
++			DRM_DEBUG("CRTC-%d: master(pipe-%d) slave(%s) sbs(%s).\n",
++				  kms->n_crtcs, master->id, str,
++				  crtc->side_by_side ? "On" : "Off");
+ 
+ 			kms->n_crtcs++;
+ 		}
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -465,16 +465,15 @@ fwnode_graph_get_port_by_id(struct fwnode_handle *parent, u32 id)
+ 		parent = node;
+ 
+ 	fwnode_for_each_child_node(parent, port) {
++		const char *name = fwnode_get_name(port);
+ 		u32 port_id = 0;
+ 
+-		if (is_acpi_data_node(port)) {
+-			if (strncmp(port->ops->get_name(port), "port", 4))
+-				continue;
+-		} else {
++		if (!is_acpi_data_node(port) || !name ||
++		    strncmp(name, "port", 4))
+ 			continue;
+-		}
+ 
+-		fwnode_property_read_u32(port, "reg", &port_id);
++		if (fwnode_property_read_u32(port, "reg", &port_id))
++			continue;
+ 		if (id == port_id)
+ 			break;
+ 	}
+@@ -486,16 +485,28 @@ fwnode_graph_get_port_by_id(struct fwnode_handle *parent, u32 id)
+ 
+ static int linlondp_parse_pipe_acpi(struct linlondp_pipeline *pipe)
+ {
+-    struct fwnode_handle *np = pipe->fwnode;
++	struct fwnode_handle *parent, *np = pipe->fwnode;
++	struct device *dev;
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+-    struct clk *clk;
+-    clk = devm_clk_get(to_acpi_data_node(pipe->fwnode)->parent->dev,
+-		       pipe->fwnode->ops->get_name(pipe->fwnode));
+-    if (IS_ERR(clk)) {
+-        DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
+-        return PTR_ERR(clk);
+-    }
+-    pipe->pxlclk = clk;
++	struct clk *clk;
++#endif
++
++	parent = fwnode_get_parent(np);
++	if (!parent || !parent->dev) {
++		fwnode_handle_put(parent);
++		return -ENODEV;
++	}
++	dev = parent->dev;
++
++#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	clk = clk_get(dev, fwnode_get_name(np));
++	if (IS_ERR(clk)) {
++		fwnode_handle_put(parent);
++		return dev_err_probe(dev, PTR_ERR(clk),
++				     "failed to get pixel clock for pipeline %d\n",
++				     pipe->id);
++	}
++	pipe->pxlclk = clk;
+ #endif
+ 	/* enum ports */
+ 	pipe->fwnode_output_links[0] =
+@@ -511,82 +522,85 @@ static int linlondp_parse_pipe_acpi(struct linlondp_pipeline *pipe)
+ 			  pipe->fwnode_output_links[1];
+ 
+ 	pipe->pixel_per_cycle = 1;
+-	if (device_property_read_u8(np->ops->get_parent(np)->dev,
+-				    "pixel_per_cycle",
++	if (device_property_read_u8(dev, "pixel_per_cycle",
+ 				    &pipe->force_pixel_per_cycle))
+ 		pipe->force_pixel_per_cycle = 0;
++	fwnode_handle_put(parent);
+ 
+ 	return 0;
+ }
+ 
+ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
+ {
+-    struct platform_device *pdev = to_platform_device(dev);
+-    struct fwnode_handle *child, *np = dev->fwnode;
+-
+-    struct linlondp_pipeline *pipe;
+-    u32 pipe_id = U32_MAX;
+-    const char *tmp_name = NULL;
+-    int ret = -1;
+-
+-    mdev->irq  = platform_get_irq(pdev, 0);
+-    if (mdev->irq < 0) {
+-        DRM_ERROR("could not get IRQ number.\n");
+-        return mdev->irq;
+-    }
+-
+-    ret = 0;
+-    fwnode_for_each_child_node(np, child) {
+-        tmp_name = child->ops->get_name(child);
+-        pr_info("linlondp_parse_acpi node.name=%s\n", tmp_name);
+-
+-        if (strncmp(tmp_name, "pipeline", 8))
+-            continue;
+-
+-        fwnode_property_read_u32(child, "reg", &pipe_id);
+-        pr_info("linlondp_parse_acpi pipeId=%d, n_pipelines=%d\n", pipe_id, mdev->n_pipelines);
+-        if (pipe_id >= mdev->n_pipelines) {
+-            DRM_WARN("Skip the redundant ACPI node: pipeline-%u.\n",
+-                    pipe_id);
+-            continue;
+-        }
+-        mdev->pipelines[pipe_id]->fwnode = child;
+-    }
+-
+-    for (pipe_id = 0; pipe_id < mdev->n_pipelines; pipe_id++) {
+-        pipe = mdev->pipelines[pipe_id];
+-
+-        if (!pipe->fwnode) {
+-            DRM_ERROR("Pipeline-%d doesn't have a ACPI node.\n",
+-                  pipe->id);
+-            return -EINVAL;
+-        }
+-        ret = linlondp_parse_pipe_acpi(pipe);
+-        if (ret)
+-            return ret;
+-    }
+-
+-    ret = device_property_read_u64(dev, "aclk_freq_fixed", (u64 *)&mdev->aclk_freq_fixed);
+-    if (ret)
+-        mdev->aclk_freq_fixed = 0;
+-
+-    mdev->side_by_side = !device_property_read_u32(dev, "side_by_side_master",
+-                           &mdev->side_by_side_master);
+-
+-    ret = device_property_read_u32(dev, "aclk_freq_fixed", (u32 *)&mdev->aclk_freq_fixed);
+-    if (ret)
+-        mdev->aclk_freq_fixed = 0;
+-
+-    if (device_property_present(dev, "smart_aclk_freq"))
+-        mdev->smart_aclk_freq = true;
+-    else
+-        mdev->smart_aclk_freq = false;
+-
+-    ret = device_property_read_u32(dev, "device-id", (u32 *)&mdev->id);
+-    if (ret)
+-        mdev->id = 0;
+-
+-    return 0;
++	struct platform_device *pdev = to_platform_device(dev);
++	struct linlondp_pipeline *pipe;
++	struct fwnode_handle *child;
++	const char *name;
++	u32 pipe_id, value;
++	int ret;
++
++	mdev->irq = platform_get_irq(pdev, 0);
++	if (mdev->irq < 0)
++		return mdev->irq;
++
++	fwnode_for_each_child_node_scoped(dev->fwnode, child) {
++		name = fwnode_get_name(child);
++		if (!name || strncmp(name, "pipeline", 8))
++			continue;
++
++		ret = fwnode_property_read_u32(child, "reg", &pipe_id);
++		if (ret)
++			return dev_err_probe(dev, ret,
++					     "%s has no valid reg property\n", name);
++		if (pipe_id >= mdev->n_pipelines) {
++			dev_warn(dev, "skipping redundant ACPI pipeline %u\n",
++				 pipe_id);
++			continue;
++		}
++
++		pipe = mdev->pipelines[pipe_id];
++		if (pipe->fwnode)
++			return dev_err_probe(dev, -EINVAL,
++					     "duplicate ACPI pipeline %u\n",
++					     pipe_id);
++		pipe->fwnode = fwnode_handle_get(child);
++	}
++
++	for (pipe_id = 0; pipe_id < mdev->n_pipelines; pipe_id++) {
++		pipe = mdev->pipelines[pipe_id];
++		if (!pipe->fwnode)
++			return dev_err_probe(dev, -EINVAL,
++					     "pipeline %u has no ACPI node\n",
++					     pipe_id);
++
++		ret = linlondp_parse_pipe_acpi(pipe);
++		if (ret)
++			return ret;
++	}
++
++	ret = device_property_read_u32(dev, "aclk_freq_fixed", &value);
++	if (ret && ret != -EINVAL)
++		return dev_err_probe(dev, ret,
++				     "invalid aclk_freq_fixed property\n");
++	mdev->aclk_freq_fixed = ret ? 0 : value;
++
++	ret = device_property_read_u32(dev, "side_by_side_master", &value);
++	if (ret && ret != -EINVAL)
++		return dev_err_probe(dev, ret,
++				     "invalid side_by_side_master property\n");
++	mdev->side_by_side = !ret;
++	if (!ret)
++		mdev->side_by_side_master = value;
++
++	mdev->smart_aclk_freq = device_property_present(dev,
++							"smart_aclk_freq");
++
++	ret = device_property_read_u32(dev, "device-id", &value);
++	if (ret && ret != -EINVAL)
++		return dev_err_probe(dev, ret, "invalid device-id property\n");
++	mdev->id = ret ? 0 : value;
++
++	return 0;
+ }
+ 
+ static bool linlondp_gop_get(void)
+@@ -776,8 +790,6 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
+ 		return -EINVAL;
+ 	}
+ 
+-	dev_info(mdev->dev, "%s\n", __func__);
+-
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+ 	err = clk_prepare_enable(mdev->aclk);
+ 	if (err)
+@@ -805,8 +817,6 @@ int linlondp_dev_suspend(struct linlondp_dev *mdev)
+ 		return -EINVAL;
+ 	}
+ 
+-	dev_info(mdev->dev, "%s\n", __func__);
+-
+ 	if (mdev->iommu && mdev->funcs->disconnect_iommu)
+ 		if (mdev->funcs->disconnect_iommu(mdev))
+ 			DRM_ERROR("disconnect iommu failed.\n");
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_drv.c
+@@ -206,14 +206,17 @@ static void linlondp_add_acpi_slave(struct device *master,
+ {
+ 	struct fwnode_handle *remote;
+ 
+-	remote = fwnode_graph_get_remote_node(np, port, endpoint);
++	if (IS_ERR(*match))
++		return;
+ 
++	remote = fwnode_graph_get_remote_node(np, port, endpoint);
+ 	if (remote) {
+-		pr_info("%s. remote.name=%s\n", __func__, dev_name(remote->dev));
+-		fwnode_handle_get(remote);
++		dev_dbg(master, "%s: remote.name=%s\n", __func__,
++			dev_name(remote->dev));
+ 		component_match_add_release(master, match, drm_release_fwnode,
+ 					    compare_of, remote);
+-		fwnode_handle_put(remote);
++		if (IS_ERR(*match))
++			fwnode_handle_put(remote);
+ 	}
+ }
+ 
+@@ -316,17 +319,17 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 	    linlondp_acpi_is_cluster_dpu_slave(dev))
+ 		return linlondp_dpu_slave_probe(pdev);
+ 
+-	pr_info("%s enter. dev.name=%s\n", __func__, dev_name(dev));
+-	pr_info("linlondp enable fb is %d", enable_fb);
++	dev_dbg(dev, "%s: enable_fb=%d\n", __func__, enable_fb);
+ 	if (has_acpi_companion(dev)) {
+-		pr_info("%s via acpi.\n", __func__);
++		dev_dbg(dev, "%s: using ACPI graph\n", __func__);
+ 		fwnode_for_each_child_node(dev->fwnode, acpi_child) {
+ 			tmp_name = acpi_child->ops->get_name(acpi_child);
+ 			if (strncmp(tmp_name, "pipeline", 8))
+ 				continue;
+ 
+ 			/* add connector */
+-			pr_info("%s enter to add connector.\n", __func__);
++			dev_dbg(dev, "%s: adding ACPI connector for %s\n",
++				__func__, tmp_name);
+ 			linlondp_add_acpi_slave(dev, &match, acpi_child,
+ 						LINLONDP_OF_PORT_OUTPUT, 0);
+ 			linlondp_add_acpi_slave(dev, &match, acpi_child,
+@@ -335,7 +338,7 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 			dev_pm_set_driver_flags(&pdev->dev, DPM_FLAG_NO_DIRECT_COMPLETE);
+ 		}
+ 	} else {
+-		pr_info("%s via dt.\n", __func__);
++		dev_dbg(dev, "%s: using OF graph\n", __func__);
+ 		for_each_available_child_of_node(dev->of_node, of_child) {
+ 			if (of_node_cmp(of_child->name, "pipeline") != 0)
+ 				continue;
+@@ -347,7 +350,13 @@ static int linlondp_platform_probe(struct platform_device *pdev)
+ 					   LINLONDP_OF_PORT_OUTPUT, 1);
+ 		}
+ 	}
+-	pr_info("%s end. match=%p\n", __func__, match);
++	if (IS_ERR(match))
++		return PTR_ERR(match);
++	if (!match)
++		return dev_err_probe(dev, -ENODEV,
++				     "no display pipeline components found\n");
++
++	dev_dbg(dev, "%s: component match %p\n", __func__, match);
+ 	return component_master_add_with_match(dev, &linlondp_master_ops,
+ 					       match);
+ }
+@@ -418,8 +427,6 @@ static int __maybe_unused linlondp_pm_suspend(struct device *dev)
+ 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+ 	int res;
+ 
+-	dev_info(dev, "%s\n", __func__);
+-
+ 	if (linlondp_drvdata_is_direct_mdev(dev)) {
+ 		struct linlondp_dev *mdev = dev_get_drvdata(dev);
+ 
+@@ -430,7 +437,7 @@ static int __maybe_unused linlondp_pm_suspend(struct device *dev)
+ 	}
+ 
+ 	if (!mdrv) {
+-		dev_info(dev, "%s, mdrv is null\n", __func__);
++		dev_dbg(dev, "%s, mdrv is null\n", __func__);
+ 		return 0;
+ 	}
+ 
+@@ -448,8 +455,6 @@ static int __maybe_unused linlondp_pm_resume(struct device *dev)
+ {
+ 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+ 
+-	dev_info(dev, "%s\n", __func__);
+-
+ 	if (linlondp_drvdata_is_direct_mdev(dev)) {
+ 		struct linlondp_dev *mdev = dev_get_drvdata(dev);
+ 
+@@ -459,7 +464,7 @@ static int __maybe_unused linlondp_pm_resume(struct device *dev)
+ 	}
+ 
+ 	if (!mdrv) {
+-		dev_info(dev, "%s, mdrv is null\n", __func__);
++		dev_dbg(dev, "%s, mdrv is null\n", __func__);
+ 		return 0;
+ 	}
+ 
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline.c
+@@ -257,48 +257,41 @@ static void linlondp_pipeline_dump(struct linlondp_pipeline *pipe)
+ 	int id;
+ 	unsigned long avail_comps = pipe->avail_comps;
+ 
+-	DRM_INFO(
+-		"Pipeline-%d: n_layers: %d, n_scalers: %d, output: %s  %d PPC\n",
+-		pipe->id, pipe->n_layers, pipe->n_scalers,
++	DRM_DEBUG("Pipeline-%d: n_layers: %d, n_scalers: %d, output: %s  %d PPC\n",
++		  pipe->id, pipe->n_layers, pipe->n_scalers,
+ 		pipe->dual_link ? "dual-link" : "single-link",
+ 		pipe->pixel_per_cycle);
+ 
+ 	if (pipe->fwnode && is_acpi_data_node(pipe->fwnode)) {
+-		DRM_INFO("    pipe->fwnode: %s.\n",
+-			 pipe->fwnode->ops->get_name(pipe->fwnode) ?: "none");
++		DRM_DEBUG("    pipe->fwnode: %s.\n",
++			  fwnode_get_name(pipe->fwnode) ?: "none");
+ 
+ 		if (pipe->fwnode_output_port &&
+ 		    is_acpi_data_node(pipe->fwnode_output_port)) {
+-			DRM_INFO(
+-				"    pipe->fwnode_output_port: %s.\n",
+-				pipe->fwnode_output_port->ops->get_name(pipe->fwnode_output_port) ?:
+-					"none");
++			DRM_DEBUG("    pipe->fwnode_output_port: %s.\n",
++				  fwnode_get_name(pipe->fwnode_output_port) ?: "none");
+ 		}
+ 
+ 		if (pipe->fwnode_output_links[0] &&
+ 		    is_acpi_device_node(pipe->fwnode_output_links[0])) {
+-			DRM_INFO(
+-				"    output_link[0]: %s.\n",
+-				pipe->fwnode_output_links[0]->ops->get_name(pipe->fwnode_output_links[0]) ?:
+-					"none");
++			DRM_DEBUG("    output_link[0]: %s.\n",
++				  fwnode_get_name(pipe->fwnode_output_links[0]) ?: "none");
+ 		}
+ 
+ 		if (pipe->fwnode_output_links[1] &&
+ 		    is_acpi_device_node(pipe->fwnode_output_links[1])) {
+-			DRM_INFO(
+-				"    output_link[1]: %s.\n",
+-				pipe->fwnode_output_links[1]->ops->get_name(pipe->fwnode_output_links[1]) ?:
+-					"none");
++			DRM_DEBUG("    output_link[1]: %s.\n",
++				  fwnode_get_name(pipe->fwnode_output_links[1]) ?: "none");
+ 		}
+ 	} else {
+-		DRM_INFO("    output_link[0]: %s.\n",
+-			 pipe->of_output_links[0] ?
+-				 pipe->of_output_links[0]->full_name :
+-				 "none");
+-		DRM_INFO("    output_link[1]: %s.\n",
+-			 pipe->of_output_links[1] ?
+-				 pipe->of_output_links[1]->full_name :
+-				 "none");
++		DRM_DEBUG("    output_link[0]: %s.\n",
++			  pipe->of_output_links[0] ?
++				  pipe->of_output_links[0]->full_name :
++				  "none");
++		DRM_DEBUG("    output_link[1]: %s.\n",
++			  pipe->of_output_links[1] ?
++				  pipe->of_output_links[1]->full_name :
++				  "none");
+ 	}
+ 
+ 	for_each_set_bit(id, &avail_comps, 32) {

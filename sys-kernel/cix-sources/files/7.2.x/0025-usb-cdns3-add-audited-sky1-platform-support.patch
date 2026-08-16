@@ -1,0 +1,1550 @@
+diff --git a/MAINTAINERS b/MAINTAINERS
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2786,6 +2786,7 @@ F:	drivers/irqchip/irq-sky1-pdc.c
+ F:	drivers/mailbox/cix-mailbox.c
+ F:	drivers/remoteproc/cix_dsp_rproc.c
+ F:	drivers/soc/cix/
++F:	drivers/usb/cdns3/cdns3-sky1.*
+ F:	include/dt-bindings/clock/cix,sky1-*.h
+ F:	include/dt-bindings/reset/cix,sky1-*.h
+ F:	include/linux/soc/cix/cix_hifi5.h
+diff --git a/drivers/usb/cdns3/Kconfig b/drivers/usb/cdns3/Kconfig
+--- a/drivers/usb/cdns3/Kconfig
++++ b/drivers/usb/cdns3/Kconfig
+@@ -110,6 +110,19 @@ config USB_CDNS3_STARFIVE
+ 	  If you choose to build this driver as module it will
+ 	  be dynamically linked and module will be called cdns3-starfive.ko
+ 
++config USB_CDNS3_SKY1
++	tristate "Cadence USBSSP support on CIX Sky1 SoCs"
++	depends on (ARCH_CIX || COMPILE_TEST) && (ACPI || OF)
++	depends on COMMON_CLK && RESET_CONTROLLER && MFD_SYSCON
++	default USB_CDNS3
++	help
++	  Say Y or M here to enable the platform integration for Cadence
++	  USBSSP controllers in CIX Sky1 SoCs. The integration programs the
++	  platform clock, reset and power-management registers and publishes
++	  the nested Cadence controller described by firmware.
++
++	  If built as a module, it will be called cdns3-sky1.ko.
++
+ endif # USB_CDNS3
+ 
+ endif # USB_CDNS_SUPPORT
+diff --git a/drivers/usb/cdns3/Makefile b/drivers/usb/cdns3/Makefile
+--- a/drivers/usb/cdns3/Makefile
++++ b/drivers/usb/cdns3/Makefile
+@@ -28,3 +28,4 @@ obj-$(CONFIG_USB_CDNSP_PCI)			+= cdnsp-pci.o
+ obj-$(CONFIG_USB_CDNS3_TI)			+= cdns3-ti.o
+ obj-$(CONFIG_USB_CDNS3_IMX)			+= cdns3-imx.o
+ obj-$(CONFIG_USB_CDNS3_STARFIVE)		+= cdns3-starfive.o
++obj-$(CONFIG_USB_CDNS3_SKY1)			+= cdns3-sky1.o
+diff --git a/drivers/usb/cdns3/cdns3-plat.c b/drivers/usb/cdns3/cdns3-plat.c
+--- a/drivers/usb/cdns3/cdns3-plat.c
++++ b/drivers/usb/cdns3/cdns3-plat.c
+@@ -12,6 +12,7 @@
+  *         Roger Quadros <rogerq@ti.com>
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/module.h>
+ #include <linux/irq.h>
+ #include <linux/kernel.h>
+@@ -24,25 +25,111 @@
+ #include "host-export.h"
+ #include "drd.h"
+ 
+-static int set_phy_power_on(struct cdns *cdns)
++static int cdns3_phys_init(struct cdns *cdns)
+ {
+ 	int ret;
+ 
+-	ret = phy_power_on(cdns->usb2_phy);
+-	if (ret)
+-		return ret;
++	if (!cdns->usb2_phy_initialized) {
++		ret = phy_init(cdns->usb2_phy);
++		if (ret)
++			return ret;
++		cdns->usb2_phy_initialized = true;
++	}
+ 
+-	ret = phy_power_on(cdns->usb3_phy);
+-	if (ret)
+-		phy_power_off(cdns->usb2_phy);
++	if (!cdns->usb3_phy_initialized) {
++		ret = phy_init(cdns->usb3_phy);
++		if (ret) {
++			phy_exit(cdns->usb2_phy);
++			cdns->usb2_phy_initialized = false;
++			return ret;
++		}
++		cdns->usb3_phy_initialized = true;
++	}
+ 
+-	return ret;
++	return 0;
++}
++
++static int cdns3_phys_exit(struct cdns *cdns)
++{
++	int first_error = 0;
++	int ret;
++
++	if (cdns->usb3_phy_initialized) {
++		ret = phy_exit(cdns->usb3_phy);
++		if (ret)
++			first_error = ret;
++		else
++			cdns->usb3_phy_initialized = false;
++	}
++
++	if (cdns->usb2_phy_initialized) {
++		ret = phy_exit(cdns->usb2_phy);
++		if (ret && !first_error)
++			first_error = ret;
++		else if (!ret)
++			cdns->usb2_phy_initialized = false;
++	}
++
++	return first_error;
++}
++
++static int cdns3_phys_power_on(struct cdns *cdns)
++{
++	int ret;
++
++	if (!cdns->usb2_phy_powered) {
++		ret = phy_power_on(cdns->usb2_phy);
++		if (ret)
++			return ret;
++		cdns->usb2_phy_powered = true;
++	}
++
++	if (!cdns->usb3_phy_powered) {
++		ret = phy_power_on(cdns->usb3_phy);
++		if (ret) {
++			phy_power_off(cdns->usb2_phy);
++			cdns->usb2_phy_powered = false;
++			return ret;
++		}
++		cdns->usb3_phy_powered = true;
++	}
++
++	return 0;
++}
++
++static int cdns3_phys_power_off(struct cdns *cdns)
++{
++	int first_error = 0;
++	int ret;
++
++	if (cdns->usb3_phy_powered) {
++		ret = phy_power_off(cdns->usb3_phy);
++		if (ret)
++			first_error = ret;
++		else
++			cdns->usb3_phy_powered = false;
++	}
++
++	if (cdns->usb2_phy_powered) {
++		ret = phy_power_off(cdns->usb2_phy);
++		if (ret && !first_error)
++			first_error = ret;
++		else if (!ret)
++			cdns->usb2_phy_powered = false;
++	}
++
++	return first_error;
+ }
+ 
+-static void set_phy_power_off(struct cdns *cdns)
++static int cdns3_phys_reinit(struct cdns *cdns)
+ {
+-	phy_power_off(cdns->usb3_phy);
+-	phy_power_off(cdns->usb2_phy);
++	int ret;
++
++	ret = cdns3_phys_exit(cdns);
++	if (ret)
++		return ret;
++
++	return cdns3_phys_init(cdns);
+ }
+ 
+ static int cdns3_plat_gadget_init(struct cdns *cdns)
+@@ -78,10 +165,13 @@ static int cdns3_plat_probe(struct platform_device *pdev)
+ 
+ 	cdns->dev = dev;
+ 	cdns->pdata = dev_get_platdata(dev);
++	if (has_acpi_companion(dev) && !cdns->pdata)
++		return dev_err_probe(dev, -EPROBE_DEFER,
++				     "waiting for platform wrapper data\n");
+ 	if (cdns->pdata && cdns->pdata->override_apb_timeout)
+ 		cdns->override_apb_timeout = cdns->pdata->override_apb_timeout;
+ 
+-	if (device_is_compatible(dev, "cdns,cdnsp")) {
++	if (has_acpi_companion(dev) || device_is_compatible(dev, "cdns,cdnsp")) {
+ 		cdns->no_drd = true;
+ 		cdns->version = CDNSP_CONTROLLER_V2;
+ 		dev_dbg(dev, "No DRD support\n");
+@@ -144,27 +234,27 @@ static int cdns3_plat_probe(struct platform_device *pdev)
+ 		cdns->wakeup_irq = 0x0;
+ 	}
+ 
+-	cdns->usb2_phy = devm_phy_optional_get(dev, "cdns3,usb2-phy");
++	cdns->usb2_phy = cdns->pdata && cdns->pdata->usb2_phy ?
++			 cdns->pdata->usb2_phy :
++			 devm_phy_optional_get(dev, "cdns3,usb2-phy");
+ 	if (IS_ERR(cdns->usb2_phy))
+ 		return dev_err_probe(dev, PTR_ERR(cdns->usb2_phy),
+-				     "Failed to get cdn3,usb2-phy\n");
++				     "failed to get USB2 PHY\n");
+ 
+-	cdns->usb3_phy = devm_phy_optional_get(dev, "cdns3,usb3-phy");
++	cdns->usb3_phy = cdns->pdata && cdns->pdata->usb3_phy ?
++			 cdns->pdata->usb3_phy :
++			 devm_phy_optional_get(dev, "cdns3,usb3-phy");
+ 	if (IS_ERR(cdns->usb3_phy))
+ 		return dev_err_probe(dev, PTR_ERR(cdns->usb3_phy),
+-				     "Failed to get cdn3,usb3-phy\n");
++				     "failed to get USB3 PHY\n");
+ 
+-	ret = phy_init(cdns->usb2_phy);
++	ret = cdns3_phys_init(cdns);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = phy_init(cdns->usb3_phy);
++	ret = cdns3_phys_power_on(cdns);
+ 	if (ret)
+-		goto err_phy3_init;
+-
+-	ret = set_phy_power_on(cdns);
+-	if (ret)
+-		goto err_phy_power_on;
++		goto err_exit_phys;
+ 
+ 	ret = cdns_init(cdns);
+ 	if (ret)
+@@ -197,11 +287,9 @@ static int cdns3_plat_probe(struct platform_device *pdev)
+ 	if (cdns->role_sw)
+ 		usb_role_switch_unregister(cdns->role_sw);
+ err_cdns_init:
+-	set_phy_power_off(cdns);
+-err_phy_power_on:
+-	phy_exit(cdns->usb3_phy);
+-err_phy3_init:
+-	phy_exit(cdns->usb2_phy);
++	cdns3_phys_power_off(cdns);
++err_exit_phys:
++	cdns3_phys_exit(cdns);
+ 
+ 	return ret;
+ }
+@@ -214,31 +302,43 @@ static void cdns3_plat_remove(struct platform_device *pdev)
+ {
+ 	struct cdns *cdns = platform_get_drvdata(pdev);
+ 	struct device *dev = cdns->dev;
++	int ret;
+ 
+-	pm_runtime_get_sync(dev);
++	ret = pm_runtime_resume_and_get(dev);
++	if (ret < 0)
++		dev_warn(dev, "failed to resume controller for removal: %d\n", ret);
+ 	if (!(cdns->pdata && (cdns->pdata->quirks & CDNS3_DEFAULT_PM_RUNTIME_ALLOW)))
+ 		pm_runtime_allow(dev);
+ 
+ 	pm_runtime_disable(dev);
+-	pm_runtime_put_noidle(dev);
++	if (ret >= 0)
++		pm_runtime_put_noidle(dev);
+ 	cdns_remove(cdns);
+-	set_phy_power_off(cdns);
+-	phy_exit(cdns->usb2_phy);
+-	phy_exit(cdns->usb3_phy);
++	ret = cdns3_phys_power_off(cdns);
++	if (ret)
++		dev_warn(dev, "failed to power off PHYs: %d\n", ret);
++	ret = cdns3_phys_exit(cdns);
++	if (ret)
++		dev_warn(dev, "failed to exit PHYs: %d\n", ret);
+ }
+ 
+ #ifdef CONFIG_PM
+ 
+-static int cdns3_set_platform_suspend(struct device *dev,
+-				      bool suspend, bool wakeup)
++static int cdns3_set_platform_suspend(struct cdns *cdns, bool suspend,
++				      bool wakeup)
+ {
+-	struct cdns *cdns = dev_get_drvdata(dev);
+-	int ret = 0;
+-
+ 	if (cdns->pdata && cdns->pdata->platform_suspend)
+-		ret = cdns->pdata->platform_suspend(dev, suspend, wakeup);
++		return cdns->pdata->platform_suspend(cdns->dev, suspend, wakeup);
+ 
+-	return ret;
++	return 0;
++}
++
++static int cdns3_restore_platform(struct cdns *cdns)
++{
++	if (cdns->pdata && cdns->pdata->platform_restore)
++		return cdns->pdata->platform_restore(cdns->dev);
++
++	return 0;
+ }
+ 
+ static int cdns3_controller_suspend(struct device *dev, pm_message_t msg)
+@@ -246,8 +346,9 @@ static int cdns3_controller_suspend(struct device *dev, pm_message_t msg)
+ 	struct cdns *cdns = dev_get_drvdata(dev);
+ 	bool wakeup;
+ 	unsigned long flags;
++	int ret;
+ 
+-	if (cdns->in_lpm)
++	if (READ_ONCE(cdns->in_lpm))
+ 		return 0;
+ 
+ 	if (PMSG_IS_AUTO(msg))
+@@ -255,8 +356,15 @@ static int cdns3_controller_suspend(struct device *dev, pm_message_t msg)
+ 	else
+ 		wakeup = device_may_wakeup(dev);
+ 
+-	cdns3_set_platform_suspend(cdns->dev, true, wakeup);
+-	set_phy_power_off(cdns);
++	ret = cdns3_set_platform_suspend(cdns, true, wakeup);
++	if (ret)
++		return ret;
++
++	ret = cdns3_phys_power_off(cdns);
++	if (ret) {
++		cdns3_set_platform_suspend(cdns, false, false);
++		return ret;
++	}
+ 	spin_lock_irqsave(&cdns->lock, flags);
+ 	cdns->in_lpm = true;
+ 	spin_unlock_irqrestore(&cdns->lock, flags);
+@@ -268,32 +376,39 @@ static int cdns3_controller_suspend(struct device *dev, pm_message_t msg)
+ static int cdns3_controller_resume(struct device *dev, pm_message_t msg)
+ {
+ 	struct cdns *cdns = dev_get_drvdata(dev);
+-	int ret;
+ 	unsigned long flags;
++	int ret;
+ 
+-	if (!cdns->in_lpm)
++	if (!READ_ONCE(cdns->in_lpm))
+ 		return 0;
+ 
+ 	if (cdns_power_is_lost(cdns)) {
+-		phy_exit(cdns->usb2_phy);
+-		ret = phy_init(cdns->usb2_phy);
++		ret = cdns3_restore_platform(cdns);
+ 		if (ret)
+ 			return ret;
++		cdns->phys_reinit_pending = true;
++	}
+ 
+-		phy_exit(cdns->usb3_phy);
+-		ret = phy_init(cdns->usb3_phy);
++	if (cdns->phys_reinit_pending) {
++		ret = cdns3_phys_reinit(cdns);
+ 		if (ret)
+ 			return ret;
++		cdns->phys_reinit_pending = false;
+ 	}
+ 
+-	ret = set_phy_power_on(cdns);
++	ret = cdns3_phys_power_on(cdns);
+ 	if (ret)
+ 		return ret;
+ 
+-	cdns3_set_platform_suspend(cdns->dev, false, false);
++	ret = cdns3_set_platform_suspend(cdns, false, false);
++	if (ret)
++		goto err_power_off_phys;
++
++	ret = cdns_resume(cdns);
++	if (ret)
++		goto err_enter_low_power;
+ 
+ 	spin_lock_irqsave(&cdns->lock, flags);
+-	cdns_resume(cdns);
+ 	cdns->in_lpm = false;
+ 	spin_unlock_irqrestore(&cdns->lock, flags);
+ 	cdns_set_active(cdns, !PMSG_IS_AUTO(msg));
+@@ -303,6 +418,12 @@ static int cdns3_controller_resume(struct device *dev, pm_message_t msg)
+ 	}
+ 	dev_dbg(cdns->dev, "%s ends\n", __func__);
+ 
++	return 0;
++
++err_enter_low_power:
++	cdns3_set_platform_suspend(cdns, true, false);
++err_power_off_phys:
++	cdns3_phys_power_off(cdns);
+ 	return ret;
+ }
+ 
+@@ -323,21 +444,40 @@ static int cdns3_plat_suspend(struct device *dev)
+ 	struct cdns *cdns = dev_get_drvdata(dev);
+ 	int ret;
+ 
+-	cdns_suspend(cdns);
++	ret = cdns_suspend(cdns);
++	if (ret)
++		return ret;
+ 
+ 	ret = cdns3_controller_suspend(dev, PMSG_SUSPEND);
+-	if (ret)
++	if (ret) {
++		cdns_resume(cdns);
+ 		return ret;
++	}
+ 
+-	if (device_may_wakeup(dev) && cdns->wakeup_irq)
+-		enable_irq_wake(cdns->wakeup_irq);
++	if (device_may_wakeup(dev) && cdns->wakeup_irq) {
++		ret = enable_irq_wake(cdns->wakeup_irq);
++		if (ret) {
++			cdns3_controller_resume(dev, PMSG_RESUME);
++			return ret;
++		}
++	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int cdns3_plat_resume(struct device *dev)
+ {
+-	return cdns3_controller_resume(dev, PMSG_RESUME);
++	struct cdns *cdns = dev_get_drvdata(dev);
++	int ret;
++
++	ret = cdns3_controller_resume(dev, PMSG_RESUME);
++	if (ret)
++		return ret;
++
++	if (device_may_wakeup(dev) && cdns->wakeup_irq)
++		return disable_irq_wake(cdns->wakeup_irq);
++
++	return 0;
+ }
+ #endif /* CONFIG_PM_SLEEP */
+ #endif /* CONFIG_PM */
+@@ -357,12 +497,19 @@ static const struct of_device_id of_cdns3_match[] = {
+ MODULE_DEVICE_TABLE(of, of_cdns3_match);
+ #endif
+ 
++static const struct acpi_device_id acpi_cdns3_match[] = {
++	{ "CIXH2031" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, acpi_cdns3_match);
++
+ static struct platform_driver cdns3_driver = {
+ 	.probe		= cdns3_plat_probe,
+ 	.remove		= cdns3_plat_remove,
+ 	.driver		= {
+ 		.name	= "cdns-usb3",
+ 		.of_match_table	= of_match_ptr(of_cdns3_match),
++		.acpi_match_table = ACPI_PTR(acpi_cdns3_match),
+ 		.pm	= &cdns3_pm_ops,
+ 	},
+ };
+@@ -370,3 +517,4 @@ static struct platform_driver cdns3_driver = {
+ module_platform_driver(cdns3_driver);
+ 
+ MODULE_ALIAS("platform:cdns3");
++MODULE_ALIAS("platform:cdns-usb3");
+diff --git a/drivers/usb/cdns3/cdns3-sky1.c b/drivers/usb/cdns3/cdns3-sky1.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/usb/cdns3/cdns3-sky1.c
+@@ -0,0 +1,874 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Cadence USBSSP glue for CIX Sky1 SoCs
++ *
++ * Copyright (C) 2026 CIX Technology Group Co., Ltd.
++ */
++
++#include <linux/acpi.h>
++#include <linux/clk.h>
++#include <linux/device.h>
++#include <linux/iopoll.h>
++#include <linux/math64.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of_address.h>
++#include <linux/of_platform.h>
++#include <linux/phy/phy.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/usb.h>
++#include <linux/usb/hcd.h>
++
++#include "cdns3-sky1.h"
++
++#define XECP_PM_PMCSR		0x2240
++#define PS_MASK			GENMASK(1, 0)
++#define PS_D0			0
++#define PS_D3			3
++#define PS_PME_EN		BIT(8)
++
++#define SKY1_PM_RETRIES		5
++#define SKY1_PM_TIMEOUT_US	100000
++
++/*
++ * Ten wrappers may probe together and all four clocks are SCMI clocks.
++ * Serialize the reset/clock-heavy sequence so the shared SCMI mailbox is not
++ * flooded by otherwise independent controller probes.
++ */
++static DEFINE_MUTEX(cdnsp_sky1_init_lock);
++
++static const char * const cix_usb_clk_names[CIX_USB_CLK_NUM] = {
++	"sof_clk", "usb_aclk", "lpm_clk", "usb_pclk"
++};
++
++struct sky1_src_signal {
++	u32 offset;
++	u8 bit;
++};
++
++struct sky1_phy_ref {
++	struct device *provider;
++	struct phy *phy;
++};
++
++static void cdnsp_sky1_phy_release(struct device *dev, void *res)
++{
++	struct sky1_phy_ref *ref = res;
++
++	phy_put(ref->provider, ref->phy);
++	put_device(ref->provider);
++}
++
++static const struct sky1_src_signal sky1_usb_signals[SKY1_USB_S5_NUM] = {
++	[U3_TYPEC_DRD_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U3_TYPEC_DRD_MODE_STRAP_BIT,
++	},
++	[U3_TYPEC_HOST0_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U3_TYPEC_HOST0_MODE_STRAP_BIT,
++	},
++	[U3_TYPEC_HOST1_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U3_TYPEC_HOST1_MODE_STRAP_BIT,
++	},
++	[U3_TYPEC_HOST2_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U3_TYPEC_HOST2_MODE_STRAP_BIT,
++	},
++	[U3_TYPEA_CTRL0_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U3_TYPEA_CTRL0_MODE_STRAP_BIT,
++	},
++	[U3_TYPEA_CTRL1_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U3_TYPEA_CTRL1_MODE_STRAP_BIT,
++	},
++	[U2_HOST0_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U2_HOST0_MODE_STRAP_BIT,
++	},
++	[U2_HOST1_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U2_HOST1_MODE_STRAP_BIT,
++	},
++	[U2_HOST2_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U2_HOST2_MODE_STRAP_BIT,
++	},
++	[U2_HOST3_ID] = {
++		USB_MODE_STRAP_S5_DOMAIN, U2_HOST3_MODE_STRAP_BIT,
++	},
++};
++
++static const u32 sky1_pre_offsets[] = {
++	D_XEC_PRE_REG_250NS,
++	D_XEC_PRE_REG_1US,
++	D_XEC_PRE_REG_10US,
++	D_XEC_PRE_REG_100US,
++	D_XEC_PRE_REG_125US,
++	D_XEC_PRE_REG_1MS,
++	D_XEC_PRE_REG_10MS,
++	D_XEC_PRE_REG_100MS,
++};
++
++static const u32 sky1_lpm_pre_offsets[] = {
++	D_XEC_LPM_PRE_REG_250NS,
++	D_XEC_LPM_PRE_REG_1US,
++	D_XEC_LPM_PRE_REG_10US,
++	D_XEC_LPM_PRE_REG_100US,
++	D_XEC_LPM_PRE_REG_125US,
++	D_XEC_LPM_PRE_REG_1MS,
++	D_XEC_LPM_PRE_REG_10MS,
++	D_XEC_LPM_PRE_REG_100MS,
++};
++
++static const u64 sky1_pre_period_ns[] = {
++	250,
++	1000,
++	10000,
++	100000,
++	125000,
++	1000000,
++	10000000,
++	100000000,
++};
++
++static int sky1_set_mode(struct cdnsp_sky1 *data, u32 mode)
++{
++	const struct sky1_src_signal *signal = &sky1_usb_signals[data->id];
++
++	if (!data->usb_syscon)
++		return 0;
++
++	return regmap_update_bits(data->usb_syscon, signal->offset,
++				  GENMASK(signal->bit + 1, signal->bit),
++				  mode << signal->bit);
++}
++
++static u32 sky1_prescale(u32 rate, u64 period_ns, u32 minimum,
++			 bool subtract_one)
++{
++	u64 cycles = div_u64((u64)rate * period_ns, NSEC_PER_SEC);
++
++	if (cycles <= 1)
++		return minimum;
++
++	return subtract_one ? cycles - 1 : cycles;
++}
++
++static void sky1_program_prescalers(void __iomem *base, u32 rate,
++				    const u32 *offsets, u32 minimum)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(sky1_pre_period_ns); i++)
++		writel(sky1_prescale(rate, sky1_pre_period_ns[i], minimum,
++				     i != 4), base + offsets[i]);
++}
++
++static void sky1_program_controller(struct cdnsp_sky1 *data)
++{
++	u32 d_cap, h_cap, value;
++
++	if (data->u3_disable)
++		writel(D_XEC_CFG_3XPORT_MODE_VALUE,
++		       data->device_base + D_XEC_CFG_3XPORT_MODE);
++
++	d_cap = readl(data->device_base + D_XEC_AXI_CAP);
++	h_cap = readl(data->xhci_base + D_XEC_AXI_CAP);
++	writel(d_cap | AXI_HALT, data->device_base + D_XEC_AXI_CAP);
++	writel(h_cap | AXI_HALT, data->xhci_base + D_XEC_AXI_CAP);
++	writel(data->axi_bmax_value, data->device_base + D_XEC_AXI_CTRL0);
++	writel(data->axi_bmax_value, data->xhci_base + D_XEC_AXI_CTRL0);
++	writel(d_cap & ~AXI_HALT, data->device_base + D_XEC_AXI_CAP);
++	writel(h_cap & ~AXI_HALT, data->xhci_base + D_XEC_AXI_CAP);
++
++	sky1_program_prescalers(data->device_base, data->sof_clk_freq, sky1_pre_offsets, 1);
++	sky1_program_prescalers(data->device_base, data->lpm_clk_freq, sky1_lpm_pre_offsets, 1);
++
++	value = readl(data->xhci_base + XEC_USBSSP_CHICKEN_BITS_3);
++	value &= ~(CFG_APB_TIMEOUT_PSLVERR_EN | CFG_APB_PSLVERR_EN);
++	writel(value, data->xhci_base + XEC_USBSSP_CHICKEN_BITS_3);
++
++	if (data->u3_disable) {
++		writel(XEC_CFG_3XPORT_MODE_VALUE,
++		       data->xhci_base + XEC_CFG_3XPORT_MODE);
++	} else if (data->ssp_disable) {
++		value = readl(data->xhci_base + XEC_CFG_3XPORT_MODE);
++		writel(value & ~BIT(31),
++		       data->xhci_base + XEC_CFG_3XPORT_MODE);
++	}
++
++	sky1_program_prescalers(data->xhci_base, data->sof_clk_freq, sky1_pre_offsets, 0);
++	sky1_program_prescalers(data->xhci_base, data->lpm_clk_freq, sky1_lpm_pre_offsets, 0);
++
++	/* Flush the register programming before reset is released. */
++	readl(data->xhci_base + XEC_LPM_PRE_REG_100MS);
++}
++
++static int cdnsp_sky1_assert_resets(struct cdnsp_sky1 *data)
++{
++	int ret;
++
++	ret = reset_control_assert(data->reset);
++	if (ret)
++		return ret;
++
++	ret = reset_control_assert(data->preset);
++	if (ret)
++		dev_err(data->dev, "failed to assert preset: %d\n", ret);
++
++	return ret;
++}
++
++static int cdnsp_sky1_hw_init(struct cdnsp_sky1 *data)
++{
++	int ret;
++
++	ret = cdnsp_sky1_assert_resets(data);
++	if (ret)
++		return ret;
++
++	writel(CIX_USB_AXI_WR_CACHE_VALUE, data->axi_base);
++
++	ret = sky1_set_mode(data, MODE_STRAP_OTG);
++	if (ret)
++		goto err_assert_resets;
++
++	ret = reset_control_deassert(data->preset);
++	if (ret)
++		goto err_assert_resets;
++
++	sky1_program_controller(data);
++
++	ret = reset_control_deassert(data->reset);
++	if (ret)
++		goto err_assert_resets;
++
++	return 0;
++
++err_assert_resets:
++	reset_control_assert(data->reset);
++	reset_control_assert(data->preset);
++	return ret;
++}
++
++static void cdnsp_sky1_hw_stop(struct cdnsp_sky1 *data)
++{
++	int ret;
++
++	ret = cdnsp_sky1_assert_resets(data);
++	if (ret) {
++		dev_err(data->dev,
++			"leaving clocks enabled after reset assertion failed: %d\n",
++			ret);
++		return;
++	}
++
++	if (data->clocks_enabled) {
++		clk_bulk_disable_unprepare(CIX_USB_CLK_NUM, data->clks);
++		data->clocks_enabled = false;
++		data->sleep_clocks_disabled = false;
++	}
++}
++
++static int sky1_handshake(void __iomem *ptr, u32 mask, u32 done)
++{
++	u32 value;
++	int ret;
++
++	ret = readl_poll_timeout(ptr, value,
++				 (value & mask) == done || value == U32_MAX,
++				 1, SKY1_PM_TIMEOUT_US);
++	if (value == U32_MAX)
++		return -ENODEV;
++
++	return ret;
++}
++
++static int cdns_sky1_platform_suspend(struct device *dev, bool suspend,
++				      bool wakeup)
++{
++	struct cdns *cdns = dev_get_drvdata(dev);
++	struct cdnsp_sky1 *data;
++	struct usb_hcd *hcd;
++	u32 value;
++	int attempt, ret = -ETIMEDOUT;
++
++	if (cdns->role != USB_ROLE_HOST)
++		return 0;
++
++	if (!cdns->host_dev)
++		return -ENODEV;
++
++	hcd = dev_get_drvdata(&cdns->host_dev->dev);
++	if (!hcd || !hcd->regs)
++		return -ENODEV;
++
++	data = container_of(cdns->pdata, struct cdnsp_sky1, pdata);
++
++	for (attempt = 0; attempt < SKY1_PM_RETRIES; attempt++) {
++		value = readl(hcd->regs + XECP_PM_PMCSR);
++		value &= ~(PS_MASK | PS_PME_EN);
++		value |= suspend ? PS_D3 : PS_D0;
++		if (suspend && wakeup)
++			value |= PS_PME_EN;
++		writel(value, hcd->regs + XECP_PM_PMCSR);
++		readl(hcd->regs + XECP_PM_PMCSR);
++
++		if (suspend)
++			ret = sky1_handshake(data->ctst_base,
++					     AXI_CLOCK_VALID, 0);
++		else
++			ret = sky1_handshake(hcd->regs + XECP_PM_PMCSR,
++					     PS_MASK, PS_D0);
++		if (!ret)
++			return 0;
++	}
++
++	dev_err(dev, "failed to enter USB power state D%u: %d\n",
++		suspend ? PS_D3 : PS_D0, ret);
++	return ret;
++}
++
++static int cdns_sky1_platform_restore(struct device *dev)
++{
++	struct cdns *cdns = dev_get_drvdata(dev);
++	struct cdnsp_sky1 *data;
++	int ret;
++
++	data = container_of(cdns->pdata, struct cdnsp_sky1, pdata);
++
++	mutex_lock(&cdnsp_sky1_init_lock);
++	ret = cdnsp_sky1_hw_init(data);
++	mutex_unlock(&cdnsp_sky1_init_lock);
++
++	return ret;
++}
++
++static struct phy *cdnsp_sky1_get_phy(struct cdnsp_sky1 *data,
++				      struct fwnode_handle *child,
++				      const char *property)
++{
++	struct device *dev = data->dev;
++	struct sky1_phy_ref *resource;
++	struct fwnode_handle *ref, *parent;
++	struct device *phy_dev;
++	const char *con_id;
++	struct phy *phy;
++
++	if (!fwnode_property_present(child, property))
++		return NULL;
++
++	ref = fwnode_find_reference(child, property, 0);
++	if (IS_ERR(ref))
++		return ERR_CAST(ref);
++
++	con_id = fwnode_get_name(ref);
++	parent = fwnode_get_parent(ref);
++	if (!con_id || !parent) {
++		phy = ERR_PTR(-EINVAL);
++		goto out_put_ref;
++	}
++
++	phy_dev = bus_find_device_by_fwnode(&platform_bus_type, parent);
++	fwnode_handle_put(parent);
++	if (!phy_dev) {
++		phy = ERR_PTR(-EPROBE_DEFER);
++		goto out_put_ref;
++	}
++
++	resource = devres_alloc(cdnsp_sky1_phy_release, sizeof(*resource),
++				GFP_KERNEL);
++	if (!resource) {
++		phy = ERR_PTR(-ENOMEM);
++		goto out_put_provider;
++	}
++
++	phy = phy_get(phy_dev, con_id);
++	if (IS_ERR(phy)) {
++		if (PTR_ERR(phy) == -ENODEV)
++			phy = ERR_PTR(-EPROBE_DEFER);
++		goto out_free_resource;
++	}
++
++	if (!device_link_add(dev, phy_dev,
++			     DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_CONSUMER)) {
++		phy_put(phy_dev, phy);
++		phy = ERR_PTR(-EINVAL);
++		goto out_free_resource;
++	}
++
++	resource->provider = phy_dev;
++	resource->phy = phy;
++	devres_add(dev, resource);
++	fwnode_handle_put(ref);
++
++	return phy;
++
++out_free_resource:
++	devres_free(resource);
++out_put_provider:
++	put_device(phy_dev);
++
++out_put_ref:
++	fwnode_handle_put(ref);
++	return phy;
++}
++
++#ifdef CONFIG_ACPI
++static bool cdnsp_sky1_is_acpi_child(struct fwnode_handle *fwnode);
++#endif
++
++static int cdnsp_sky1_get_phys(struct cdnsp_sky1 *data)
++{
++	struct device *dev = data->dev;
++	struct fwnode_handle *child;
++
++	if (!has_acpi_companion(dev))
++		return 0;
++
++	device_for_each_child_node(dev, child) {
++		if (!cdnsp_sky1_is_acpi_child(child))
++			continue;
++
++		data->pdata.usb2_phy =
++			cdnsp_sky1_get_phy(data, child, "cdnsp,usb2-phy");
++		if (IS_ERR(data->pdata.usb2_phy)) {
++			fwnode_handle_put(child);
++			return PTR_ERR(data->pdata.usb2_phy);
++		}
++
++		data->pdata.usb3_phy =
++			cdnsp_sky1_get_phy(data, child, "cdnsp,usb3-phy");
++		if (IS_ERR(data->pdata.usb3_phy)) {
++			fwnode_handle_put(child);
++			return PTR_ERR(data->pdata.usb3_phy);
++		}
++
++		fwnode_handle_put(child);
++		return 0;
++	}
++
++	return -ENODEV;
++}
++
++static void __iomem *sky1_map_child_resource(struct device *dev,
++					     const char *name)
++{
++	struct resource resource;
++	void __iomem *regs;
++
++	if (dev->of_node) {
++		struct device_node *child;
++		int index, ret;
++
++		for_each_available_child_of_node(dev->of_node, child) {
++			index = of_property_match_string(child, "reg-names", name);
++			if (index < 0)
++				continue;
++
++			ret = of_address_to_resource(child, index, &resource);
++			of_node_put(child);
++			if (ret)
++				return ERR_PTR(ret);
++			goto map;
++		}
++
++		return ERR_PTR(-EINVAL);
++	}
++
++#ifdef CONFIG_ACPI
++	{
++		struct fwnode_handle *child;
++
++		device_for_each_child_node(dev, child) {
++			struct device *child_dev;
++			struct resource *res;
++
++			child_dev = bus_find_device_by_fwnode(&platform_bus_type, child);
++			if (!child_dev) {
++				fwnode_handle_put(child);
++				return ERR_PTR(-EPROBE_DEFER);
++			}
++
++			res = platform_get_resource_byname(to_platform_device(child_dev),
++							   IORESOURCE_MEM, name);
++			if (res)
++				resource = *res;
++			put_device(child_dev);
++			if (res) {
++				fwnode_handle_put(child);
++				goto map;
++			}
++		}
++	}
++#endif
++
++	return ERR_PTR(-EINVAL);
++
++map:
++	regs = devm_ioremap(dev, resource.start, resource_size(&resource));
++	return regs ?: ERR_PTR(-ENOMEM);
++}
++
++#ifdef CONFIG_ACPI
++static bool cdnsp_sky1_is_acpi_child(struct fwnode_handle *fwnode)
++{
++	struct acpi_device *adev;
++
++	if (!is_acpi_device_node(fwnode))
++		return false;
++
++	adev = to_acpi_device_node(fwnode);
++	return adev && !strcmp(acpi_device_hid(adev), "CIXH2031");
++}
++
++static void cdnsp_sky1_clear_acpi_pdata(struct cdnsp_sky1 *data)
++{
++	struct device *child_dev = data->acpi_child;
++
++	if (!child_dev)
++		return;
++
++	device_lock(child_dev);
++	if (child_dev->platform_data == &data->pdata)
++		child_dev->platform_data = NULL;
++	device_unlock(child_dev);
++
++	if (data->acpi_child_link) {
++		device_link_del(data->acpi_child_link);
++		data->acpi_child_link = NULL;
++	}
++
++	put_device(child_dev);
++	data->acpi_child = NULL;
++}
++
++static int cdnsp_sky1_bind_acpi_children(struct cdnsp_sky1 *data)
++{
++	struct device *dev = data->dev;
++	struct fwnode_handle *child;
++	unsigned int matches = 0;
++	int ret = 0;
++
++	device_for_each_child_node(dev, child) {
++		struct device_link *link;
++		struct device *child_dev;
++
++		if (!cdnsp_sky1_is_acpi_child(child))
++			continue;
++		if (matches) {
++			ret = -EINVAL;
++			goto out_put_child;
++		}
++
++		child_dev = bus_find_device_by_fwnode(&platform_bus_type, child);
++		if (!child_dev) {
++			ret = -EPROBE_DEFER;
++			goto out_put_child;
++		}
++
++		device_lock(child_dev);
++		if (child_dev->platform_data &&
++		    child_dev->platform_data != &data->pdata)
++			ret = -EBUSY;
++		device_unlock(child_dev);
++		if (ret) {
++			put_device(child_dev);
++			goto out_put_child;
++		}
++
++		link = device_link_add(child_dev, dev,
++				       DL_FLAG_PM_RUNTIME |
++				       DL_FLAG_AUTOREMOVE_SUPPLIER);
++		if (!link) {
++			put_device(child_dev);
++			ret = -EINVAL;
++			goto out_put_child;
++		}
++
++		/* Recheck under the device lock after creating the dependency. */
++		device_lock(child_dev);
++		if (child_dev->platform_data &&
++		    child_dev->platform_data != &data->pdata)
++			ret = -EBUSY;
++		else
++			child_dev->platform_data = &data->pdata;
++		device_unlock(child_dev);
++		if (ret) {
++			device_link_del(link);
++			put_device(child_dev);
++			goto out_put_child;
++		}
++
++		data->acpi_child = child_dev;
++		data->acpi_child_link = link;
++		matches++;
++	}
++
++	return matches ? 0 : -ENODEV;
++
++out_put_child:
++	fwnode_handle_put(child);
++	cdnsp_sky1_clear_acpi_pdata(data);
++	return ret;
++}
++#endif
++
++static bool cdnsp_sky1_has_role_switch(struct device *dev)
++{
++	struct fwnode_handle *child;
++
++	device_for_each_child_node(dev, child) {
++		if (fwnode_property_present(child, "usb-role-switch")) {
++			fwnode_handle_put(child);
++			return true;
++		}
++	}
++
++	return false;
++}
++
++static int cdnsp_sky1_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct cdnsp_sky1 *data;
++	u32 value;
++	int i, ret;
++
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->dev = dev;
++	platform_set_drvdata(pdev, data);
++
++	data->axi_base = devm_platform_ioremap_resource_byname(pdev, "axi_property");
++	if (IS_ERR(data->axi_base))
++		return dev_err_probe(dev, PTR_ERR(data->axi_base),
++				     "failed to map AXI registers\n");
++
++	data->ctst_base = devm_platform_ioremap_resource_byname(pdev, "controller_status");
++	if (IS_ERR(data->ctst_base))
++		return dev_err_probe(dev, PTR_ERR(data->ctst_base),
++				     "failed to map status registers\n");
++
++	data->reset = devm_reset_control_get_exclusive(dev, "usb_reset");
++	if (IS_ERR(data->reset))
++		return dev_err_probe(dev, PTR_ERR(data->reset),
++				     "failed to get controller reset\n");
++
++	data->preset = devm_reset_control_get_exclusive(dev, "usb_preset");
++	if (IS_ERR(data->preset))
++		return dev_err_probe(dev, PTR_ERR(data->preset),
++				     "failed to get peripheral reset\n");
++
++	if (dev->of_node)
++		ret = of_alias_get_id(dev->of_node, "usb");
++	else
++		ret = -ENODEV;
++	if (ret == -ENODEV) {
++		ret = device_property_read_u32(dev, "id", &value);
++		if (!ret)
++			ret = value;
++	}
++	if (ret < 0 || ret >= SKY1_USB_S5_NUM)
++		return dev_err_probe(dev, ret < 0 ? ret : -EINVAL,
++				     "invalid controller id\n");
++	data->id = ret;
++
++	if (device_property_present(dev, "cix,usb_syscon")) {
++		data->usb_syscon =
++			device_syscon_regmap_lookup_by_property(dev, "cix,usb_syscon");
++		if (IS_ERR(data->usb_syscon))
++			return dev_err_probe(dev, PTR_ERR(data->usb_syscon),
++					     "failed to get USB syscon\n");
++	}
++
++	data->u3_disable = device_property_read_bool(dev, "u3-port-disable");
++	data->ssp_disable = device_property_read_bool(dev, "ssp-disable");
++
++	if (device_property_read_u32(dev, "sof_clk_freq", &data->sof_clk_freq))
++		data->sof_clk_freq = CIX_USB_CLK_8M;
++	if (device_property_read_u32(dev, "lpm_clk_freq", &data->lpm_clk_freq))
++		data->lpm_clk_freq = CIX_USB_CLK_32K;
++	if (device_property_read_u32(dev, "axi_bmax_value",
++				     &data->axi_bmax_value))
++		data->axi_bmax_value = AXI_BMAX_VALUE_DEFAULT;
++
++	ret = cdnsp_sky1_get_phys(data);
++	if (ret)
++		return dev_err_probe(dev, ret, "USB PHY provider is not ready\n");
++
++	data->xhci_base = sky1_map_child_resource(dev, "xhci");
++	if (IS_ERR(data->xhci_base))
++		return dev_err_probe(dev, PTR_ERR(data->xhci_base),
++				     "failed to map child xHCI registers\n");
++
++	data->device_base = sky1_map_child_resource(dev, "dev");
++	if (IS_ERR(data->device_base))
++		return dev_err_probe(dev, PTR_ERR(data->device_base),
++				     "failed to map child device registers\n");
++
++	for (i = 0; i < CIX_USB_CLK_NUM; i++)
++		data->clks[i].id = cix_usb_clk_names[i];
++	ret = devm_clk_bulk_get(dev, CIX_USB_CLK_NUM, data->clks);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to get USB clocks\n");
++
++	ret = clk_bulk_prepare_enable(CIX_USB_CLK_NUM, data->clks);
++	if (ret)
++		return dev_err_probe(dev, ret == -ETIMEDOUT ? -EPROBE_DEFER : ret,
++				     "failed to enable USB clocks\n");
++	data->clocks_enabled = true;
++
++	mutex_lock(&cdnsp_sky1_init_lock);
++	ret = cdnsp_sky1_hw_init(data);
++	mutex_unlock(&cdnsp_sky1_init_lock);
++	if (ret)
++		goto err_stop_hardware;
++
++	data->oc_gpio = devm_gpiod_get_optional(dev, "oc", GPIOD_IN);
++	if (IS_ERR(data->oc_gpio)) {
++		ret = dev_err_probe(dev, PTR_ERR(data->oc_gpio),
++				    "failed to get over-current GPIO\n");
++		goto err_stop_hardware;
++	}
++
++	data->pdata.platform_suspend = cdns_sky1_platform_suspend;
++	data->pdata.platform_restore = cdns_sky1_platform_restore;
++	if (cdnsp_sky1_has_role_switch(dev))
++		data->pdata.quirks = CDNS3_DEFAULT_PM_RUNTIME_ALLOW;
++
++	if (dev->of_node) {
++		struct of_dev_auxdata auxdata[] = {
++			{
++				.compatible = "cdns,usbssp",
++				.platform_data = &data->pdata,
++			},
++			{},
++		};
++
++		ret = of_platform_populate(dev->of_node, NULL, auxdata, dev);
++		if (ret) {
++			of_platform_depopulate(dev);
++			goto err_stop_hardware;
++		}
++	} else {
++#ifdef CONFIG_ACPI
++		ret = cdnsp_sky1_bind_acpi_children(data);
++		if (ret)
++			goto err_stop_hardware;
++#else
++		ret = -ENODEV;
++		goto err_stop_hardware;
++#endif
++	}
++
++	pm_runtime_set_active(dev);
++	pm_runtime_enable(dev);
++
++	return 0;
++
++err_stop_hardware:
++	mutex_lock(&cdnsp_sky1_init_lock);
++	cdnsp_sky1_hw_stop(data);
++	mutex_unlock(&cdnsp_sky1_init_lock);
++	return ret;
++}
++
++static void cdnsp_sky1_remove(struct platform_device *pdev)
++{
++	struct cdnsp_sky1 *data = platform_get_drvdata(pdev);
++	struct device *dev = &pdev->dev;
++	int ret;
++
++	ret = pm_runtime_resume_and_get(dev);
++	if (ret < 0)
++		dev_warn(dev, "failed to resume wrapper for removal: %d\n", ret);
++	pm_runtime_disable(dev);
++	if (ret >= 0)
++		pm_runtime_put_noidle(dev);
++
++	if (dev->of_node)
++		of_platform_depopulate(dev);
++#ifdef CONFIG_ACPI
++	else
++		cdnsp_sky1_clear_acpi_pdata(data);
++#endif
++
++	mutex_lock(&cdnsp_sky1_init_lock);
++	cdnsp_sky1_hw_stop(data);
++	mutex_unlock(&cdnsp_sky1_init_lock);
++}
++
++static void cdnsp_sky1_shutdown(struct platform_device *pdev)
++{
++	struct cdnsp_sky1 *data = platform_get_drvdata(pdev);
++
++	/* Child CDNSP/xHCI shutdown callbacks run first through device links. */
++	mutex_lock(&cdnsp_sky1_init_lock);
++	cdnsp_sky1_hw_stop(data);
++	mutex_unlock(&cdnsp_sky1_init_lock);
++}
++
++static int __maybe_unused cdnsp_sky1_system_suspend(struct device *dev)
++{
++	struct cdnsp_sky1 *data = dev_get_drvdata(dev);
++
++	if (!data->clocks_enabled || data->sleep_clocks_disabled)
++		return 0;
++
++	clk_bulk_disable_unprepare(CIX_USB_CLK_OFF_NUM, data->clks);
++	data->sleep_clocks_disabled = true;
++	return 0;
++}
++
++static int __maybe_unused cdnsp_sky1_system_resume(struct device *dev)
++{
++	struct cdnsp_sky1 *data = dev_get_drvdata(dev);
++	int ret;
++
++	if (!data->sleep_clocks_disabled)
++		return 0;
++
++	ret = clk_bulk_prepare_enable(CIX_USB_CLK_OFF_NUM, data->clks);
++	if (ret)
++		return ret;
++
++	data->sleep_clocks_disabled = false;
++	writel(CIX_USB_AXI_WR_CACHE_VALUE, data->axi_base);
++	readl(data->axi_base);
++	return 0;
++}
++
++DEFINE_SIMPLE_DEV_PM_OPS(cdnsp_sky1_pm_ops, cdnsp_sky1_system_suspend,
++			 cdnsp_sky1_system_resume);
++
++static const struct of_device_id cdnsp_sky1_of_match[] = {
++	{ .compatible = "cix,sky1-usbssp" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, cdnsp_sky1_of_match);
++
++static const struct acpi_device_id cdnsp_sky1_acpi_match[] = {
++	{ "CIXH2030" },
++	{}
++};
++MODULE_DEVICE_TABLE(acpi, cdnsp_sky1_acpi_match);
++
++static struct platform_driver cdnsp_sky1_driver = {
++	.probe = cdnsp_sky1_probe,
++	.remove = cdnsp_sky1_remove,
++	.shutdown = cdnsp_sky1_shutdown,
++	.driver = {
++		.name = "cdns3-sky1",
++		.of_match_table = cdnsp_sky1_of_match,
++		.acpi_match_table = ACPI_PTR(cdnsp_sky1_acpi_match),
++		.pm = pm_sleep_ptr(&cdnsp_sky1_pm_ops),
++	},
++};
++module_platform_driver(cdnsp_sky1_driver);
++
++MODULE_ALIAS("platform:cdns3-sky1");
++MODULE_AUTHOR("Chao Zeng <Chao.Zeng@cixtech.com>");
++MODULE_AUTHOR("Matthew Ma <Matthew.Ma@cixtech.com>");
++MODULE_DESCRIPTION("Cadence USBSSP CIX Sky1 glue driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/cdns3/cdns3-sky1.h b/drivers/usb/cdns3/cdns3-sky1.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/usb/cdns3/cdns3-sky1.h
+@@ -0,0 +1,120 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++#ifndef __LINUX_CDNS3_SKY1_H
++#define __LINUX_CDNS3_SKY1_H
++
++#include <linux/bits.h>
++#include <linux/clk.h>
++#include <linux/gpio/consumer.h>
++#include <linux/reset.h>
++
++#include "core.h"
++
++#define USB_MODE_STRAP_S5_DOMAIN	0x424
++
++#define MODE_STRAP_OTG		0
++
++#define U3_TYPEC_DRD_ID		0
++#define U3_TYPEC_HOST0_ID	1
++#define U3_TYPEC_HOST1_ID	2
++#define U3_TYPEC_HOST2_ID	3
++#define U3_TYPEA_CTRL0_ID	4
++#define U3_TYPEA_CTRL1_ID	5
++#define U2_HOST0_ID		6
++#define U2_HOST1_ID		7
++#define U2_HOST2_ID		8
++#define U2_HOST3_ID		9
++#define SKY1_USB_S5_NUM		10
++
++#define U3_TYPEC_DRD_MODE_STRAP_BIT	12
++#define U3_TYPEC_HOST0_MODE_STRAP_BIT	14
++#define U3_TYPEC_HOST1_MODE_STRAP_BIT	16
++#define U3_TYPEC_HOST2_MODE_STRAP_BIT	18
++#define U3_TYPEA_CTRL0_MODE_STRAP_BIT	8
++#define U3_TYPEA_CTRL1_MODE_STRAP_BIT	10
++#define U2_HOST0_MODE_STRAP_BIT		0
++#define U2_HOST1_MODE_STRAP_BIT		2
++#define U2_HOST2_MODE_STRAP_BIT		4
++#define U2_HOST3_MODE_STRAP_BIT		6
++
++#define AXI_HALT			BIT(31)
++#define AXI_BMAX_VALUE_DEFAULT		0x7
++
++#define D_XEC_CFG_3XPORT_MODE		0x2040
++#define D_XEC_AXI_CAP			0x2174
++#define D_XEC_AXI_CTRL0			0x217c
++#define D_XEC_PRE_REG_250NS		0x21e8
++#define D_XEC_PRE_REG_1US		0x21ec
++#define D_XEC_PRE_REG_10US		0x21f0
++#define D_XEC_PRE_REG_100US		0x21f4
++#define D_XEC_PRE_REG_125US		0x21f8
++#define D_XEC_PRE_REG_1MS		0x21fc
++#define D_XEC_PRE_REG_10MS		0x2200
++#define D_XEC_PRE_REG_100MS		0x2204
++#define D_XEC_LPM_PRE_REG_250NS		0x2208
++#define D_XEC_LPM_PRE_REG_1US		0x220c
++#define D_XEC_LPM_PRE_REG_10US		0x2210
++#define D_XEC_LPM_PRE_REG_100US		0x2214
++#define D_XEC_LPM_PRE_REG_125US		0x2218
++#define D_XEC_LPM_PRE_REG_1MS		0x221c
++#define D_XEC_LPM_PRE_REG_10MS		0x2220
++#define D_XEC_LPM_PRE_REG_100MS		0x2224
++
++#define XEC_CFG_3XPORT_MODE		0x2040
++#define XEC_PRE_REG_250NS		0x21e8
++#define XEC_PRE_REG_1US			0x21ec
++#define XEC_PRE_REG_10US		0x21f0
++#define XEC_PRE_REG_100US		0x21f4
++#define XEC_PRE_REG_125US		0x21f8
++#define XEC_PRE_REG_1MS			0x21fc
++#define XEC_PRE_REG_10MS		0x2200
++#define XEC_PRE_REG_100MS		0x2204
++#define XEC_LPM_PRE_REG_250NS		0x2208
++#define XEC_LPM_PRE_REG_1US		0x220c
++#define XEC_LPM_PRE_REG_10US		0x2210
++#define XEC_LPM_PRE_REG_100US		0x2214
++#define XEC_LPM_PRE_REG_125US		0x2218
++#define XEC_LPM_PRE_REG_1MS		0x221c
++#define XEC_LPM_PRE_REG_10MS		0x2220
++#define XEC_LPM_PRE_REG_100MS		0x2224
++#define XEC_USBSSP_CHICKEN_BITS_3	0x2230
++
++#define D_XEC_CFG_3XPORT_MODE_VALUE	0xa0031e07
++#define XEC_CFG_3XPORT_MODE_VALUE	0xa0031e07
++
++#define CFG_APB_TIMEOUT_PSLVERR_EN	BIT(22)
++#define CFG_APB_PSLVERR_EN		BIT(23)
++
++#define CIX_USB_CLK_NUM			4
++#define CIX_USB_CLK_OFF_NUM		2
++#define CIX_USB_AXI_WR_CACHE_VALUE	0x33
++#define CIX_USB_CLK_32K			32000
++#define CIX_USB_CLK_8M			8000000
++
++#define AXI_CLOCK_VALID			BIT(1)
++
++struct cdnsp_sky1 {
++	struct device *dev;
++	void __iomem *axi_base;
++	void __iomem *ctst_base;
++	void __iomem *xhci_base;
++	void __iomem *device_base;
++	struct reset_control *reset;
++	struct reset_control *preset;
++	struct clk_bulk_data clks[CIX_USB_CLK_NUM];
++	struct regmap *usb_syscon;
++	struct cdns3_platform_data pdata;
++	struct device *acpi_child;
++	struct device_link *acpi_child_link;
++	struct gpio_desc *oc_gpio;
++	u32 lpm_clk_freq;
++	u32 sof_clk_freq;
++	u32 axi_bmax_value;
++	u32 id;
++	bool u3_disable;
++	bool ssp_disable;
++	bool clocks_enabled;
++	bool sleep_clocks_disabled;
++};
++
++#endif /* __LINUX_CDNS3_SKY1_H */
+diff --git a/drivers/usb/cdns3/core.c b/drivers/usb/cdns3/core.c
+--- a/drivers/usb/cdns3/core.c
++++ b/drivers/usb/cdns3/core.c
+@@ -492,17 +492,18 @@ int cdns_suspend(struct cdns *cdns)
+ {
+ 	struct device *dev = cdns->dev;
+ 	unsigned long flags;
++	int ret = 0;
+ 
+ 	if (pm_runtime_status_suspended(dev))
+ 		pm_runtime_resume(dev);
+ 
+ 	if (cdns->roles[cdns->role]->suspend) {
+ 		spin_lock_irqsave(&cdns->lock, flags);
+-		cdns->roles[cdns->role]->suspend(cdns, false);
++		ret = cdns->roles[cdns->role]->suspend(cdns, false);
+ 		spin_unlock_irqrestore(&cdns->lock, flags);
+ 	}
+ 
+-	return 0;
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(cdns_suspend);
+ 
+@@ -536,7 +537,7 @@ int cdns_resume(struct cdns *cdns)
+ 	}
+ 
+ 	if (!role_changed && cdns->roles[cdns->role]->resume)
+-		cdns->roles[cdns->role]->resume(cdns, power_lost);
++		return cdns->roles[cdns->role]->resume(cdns, power_lost);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/usb/cdns3/core.h b/drivers/usb/cdns3/core.h
+--- a/drivers/usb/cdns3/core.h
++++ b/drivers/usb/cdns3/core.h
+@@ -42,6 +42,9 @@ struct cdns_role_driver {
+ struct cdns3_platform_data {
+ 	int (*platform_suspend)(struct device *dev,
+ 			bool suspend, bool wakeup);
++	int (*platform_restore)(struct device *dev);
++	struct phy *usb2_phy;
++	struct phy *usb3_phy;
+ 	unsigned long quirks;
+ #define CDNS3_DEFAULT_PM_RUNTIME_ALLOW	BIT(0)
+ #define CDNS3_DRD_SUSPEND_RESIDENCY_ENABLE	BIT(1)
+@@ -69,6 +72,11 @@ struct cdns3_platform_data {
+  * @gadget_dev: the child gadget device pointer
+  * @usb2_phy: pointer to USB2 PHY
+  * @usb3_phy: pointer to USB3 PHY
++ * @usb2_phy_initialized: USB2 PHY has a balanced successful phy_init()
++ * @usb3_phy_initialized: USB3 PHY has a balanced successful phy_init()
++ * @usb2_phy_powered: USB2 PHY has a balanced successful phy_power_on()
++ * @usb3_phy_powered: USB3 PHY has a balanced successful phy_power_on()
++ * @phys_reinit_pending: power loss requires a complete PHY reinitialization
+  * @mutex: the mutex for concurrent code at driver
+  * @dr_mode: supported mode of operation it can be only Host, only Device
+  *           or OTG mode that allow to switch between Device and Host mode.
+@@ -115,6 +123,11 @@ struct cdns {
+ 	void				*gadget_dev;
+ 	struct phy			*usb2_phy;
+ 	struct phy			*usb3_phy;
++	bool				usb2_phy_initialized;
++	bool				usb3_phy_initialized;
++	bool				usb2_phy_powered;
++	bool				usb3_phy_powered;
++	bool				phys_reinit_pending;
+ 	/* mutext used in workqueue*/
+ 	struct mutex			mutex;
+ 	enum usb_dr_mode		dr_mode;
+diff --git a/drivers/usb/cdns3/drd.c b/drivers/usb/cdns3/drd.c
+--- a/drivers/usb/cdns3/drd.c
++++ b/drivers/usb/cdns3/drd.c
+@@ -190,6 +190,8 @@ int cdns_drd_host_on(struct cdns *cdns)
+ 	/* Enable host mode. */
+ 	writel(OTGCMD_HOST_BUS_REQ | OTGCMD_OTG_DIS,
+ 	       &cdns->otg_regs->cmd);
++	/* Flush the posted command write before polling controller state. */
++	readl(&cdns->otg_regs->cmd);
+ 
+ 	if (cdns->version == CDNSP_CONTROLLER_V2)
+ 		ready_bit = OTGSTS_CDNSP_XHCI_READY;
