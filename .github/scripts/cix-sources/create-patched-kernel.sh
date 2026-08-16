@@ -223,7 +223,7 @@ eapply() {
 
 eapply_user() { :; }
 kernel-2_pkg_setup() { :; }
-kernel-2_src_prepare() { eapply_user; }
+kernel-2_src_prepare() { default; }
 kernel-2_src_install() { :; }
 kernel-2_pkg_postinst() { :; }
 kernel-2_pkg_postrm() { :; }

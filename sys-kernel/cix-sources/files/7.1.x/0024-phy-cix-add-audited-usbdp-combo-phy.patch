@@ -6,7 +6,7 @@ Signed-off-by: Jianfeng Liu <Jianfeng.Liu@cixtech.com>
 
 Technical note: retain only the CIXH2033 USB/DisplayPort combo PHY from the vendor import.  The overlay form validates firmware data, owns ACPI lookups, propagates setup failures, preserves active firmware state at probe, and refuses unproven active lane transitions.
 
-Provenance: mechanically reconstructed from CIX cix-linux-main commit 19f2947303670f2e5734d6a96ffc72a80fd9b942 and the exact Linux 7.1.3 ebuild preimage.
+Source: cixtech/cix-linux-main commit 19f2947303670f2e5734d6a96ffc72a80fd9b942.
 
 diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
 --- a/drivers/phy/Kconfig

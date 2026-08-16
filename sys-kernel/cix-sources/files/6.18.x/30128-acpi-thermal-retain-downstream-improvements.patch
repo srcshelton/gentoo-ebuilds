@@ -1,6 +1,5 @@
 Retain the reviewed ACPI _STR label conversion and thermal-hwmon naming
 improvements without the Orion-specific ECTZ filtering owned by 30127.
-Mechanically generated from the exact Linux 6.18.38 predecessor tree.
 
 diff --git a/drivers/acpi/thermal.c b/drivers/acpi/thermal.c
 --- a/drivers/acpi/thermal.c

@@ -1,7 +1,18 @@
+Repair the MVX source issues exposed by warning-enabled GCC and Clang
+builds: make kernel-doc complete, remove pseudo-kernel-doc comments and
+dead locals, correct format strings, preserve error returns, and annotate
+the driver's printf-like callbacks. Use strscpy() for the bounded video
+device name now that Linux no longer provides in-kernel strncpy().
+
+Also make the expected absence of debugfs a single debug-level notice.
+Only install the RAM-drain reset callback after its debugfs-only state is
+fully initialized, stop when interruptible locking fails, and propagate
+drain construction failures through the existing unwind path.
+
 diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
 --- a/drivers/media/platform/cix/dev/mvx_dev.c
 +++ b/drivers/media/platform/cix/dev/mvx_dev.c
-@@ -83,7 +83,7 @@
+@@ -84,7 +84,7 @@
   * Defines
   ****************************************************************************/
  
@@ -10,7 +21,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
   * Name of the MVx dev device.
   */
  #define MVX_DEV_NAME    "amvx_dev"
-@@ -126,6 +126,27 @@ struct mvx_freq_table {
+@@ -131,6 +131,27 @@ struct mvx_freq_table {
  
  /**
   * struct mvx_dev_ctx - Private context for the MVx dev device.
@@ -38,7 +49,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
   */
  struct mvx_dev_ctx {
      struct device *dev;
-@@ -152,6 +173,8 @@ struct mvx_dev_ctx {
+@@ -157,6 +178,8 @@ struct mvx_dev_ctx {
  
  /**
   * struct mvx_client_session - Device session.
@@ -807,7 +818,18 @@ diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/m
   *            function returns realtime fps of sessions.
   * @file:        File pointer.
   * @user_buffer:    The user space buffer that is read to.
-@@ -722,12 +722,12 @@ static void drain_destruct(struct mvx_log_drain *drain)
+@@ -644,9 +644,7 @@ int mvx_log_construct(struct mvx_log *log,
+     struct dentry *dentry;
+ 
+     if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+-        pr_info(
+-            "MVX: Debugfs is not enabled. '%s' dir is not created.\n",
+-            entry_name);
++        pr_debug_once("MVX: debugfs support is disabled\n");
+         return 0;
+     }
+ 
+@@ -722,12 +720,12 @@ static void drain_destruct(struct mvx_log_drain *drain)
      UNUSED(drain);
  }
  
@@ -826,7 +848,46 @@ diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/m
  {
      va_list args;
      char fmt[500];
-@@ -870,12 +870,12 @@ static void drain_ram_data(struct mvx_log_drain *drain,
+@@ -790,12 +788,8 @@ int mvx_log_drain_add(struct mvx_log *log,
+               const char *name,
+               struct mvx_log_drain *drain)
+ {
+-    if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+-        pr_info(
+-            "MVX: Debugfs is not enabled. '%s' dir is not created.\n",
+-            name);
++    if (!IS_ENABLED(CONFIG_DEBUG_FS))
+         return 0;
+-    }
+ 
+     /* Create <drain> directory. */
+     drain->dentry = debugfs_create_dir(name, log->drain_dir);
+@@ -820,7 +814,6 @@ static void drain_ram_data(struct mvx_log_drain *drain,
+     size_t i;
+     size_t length;
+     size_t pos;
+-    int sem_taken;
+ 
+     if (!IS_ENABLED(CONFIG_DEBUG_FS))
+         return;
+@@ -840,7 +833,8 @@ static void drain_ram_data(struct mvx_log_drain *drain,
+         return;
+     }
+ 
+-    sem_taken = down_interruptible(&drain_ram->sem);
++    if (down_interruptible(&drain_ram->sem))
++        return;
+ 
+     pos = drain_ram->write_pos & (drain_ram->buffer_size - 1);
+ 
+@@ -864,18 +858,17 @@ static void drain_ram_data(struct mvx_log_drain *drain,
+     /* Update write_pos. Length has already been 4 byte aligned */
+     drain_ram->write_pos += length;
+ 
+-    if (sem_taken == 0)
+-        up(&drain_ram->sem);
++    up(&drain_ram->sem);
+ 
      wake_up_interruptible(&drain_ram->queue);
  }
  
@@ -845,7 +906,63 @@ diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/m
  {
      char buf[500];
      va_list args;
-@@ -999,12 +999,12 @@ error:
+@@ -914,12 +907,14 @@ static void drain_ram_reset(struct mvx_log_drain *drain)
+ {
+     struct mvx_log_drain_ram *drain_ram =
+         (struct mvx_log_drain_ram *)drain;
+-    int sem_taken = down_interruptible(&drain_ram->sem);
++
++    if (down_interruptible(&drain_ram->sem))
++        return;
++
+     memset(drain_ram->buf, 0, drain_ram->buffer_size);
+     drain_ram->read_pos = 0;
+     drain_ram->write_pos = 0;
+-    if (sem_taken == 0)
+-        up(&drain_ram->sem);
++    up(&drain_ram->sem);
+ }
+ 
+ int mvx_log_drain_ram_construct(struct mvx_log_drain_ram *drain,
+@@ -928,14 +923,12 @@ int mvx_log_drain_ram_construct(struct mvx_log_drain_ram *drain,
+     int ret;
+ 
+     ret = drain_construct(&drain->base, drain_ram_print, drain_ram_data,
+-                            drain_ram_reset);
++                  NULL);
+     if (ret != 0)
+         return ret;
+ 
+-    if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+-        pr_info("MVX: No Debugfs no RAM drain.\n");
++    if (!IS_ENABLED(CONFIG_DEBUG_FS))
+         return 0;
+-    }
+ 
+     drain->buf = vmalloc(buffer_size);
+     if (drain->buf == NULL)
+@@ -946,6 +939,7 @@ int mvx_log_drain_ram_construct(struct mvx_log_drain_ram *drain,
+     drain->write_pos = 0;
+     init_waitqueue_head(&drain->queue);
+     sema_init(&drain->sem, 1);
++    drain->base.reset = drain_ram_reset;
+ 
+     return 0;
+ }
+@@ -971,11 +965,8 @@ int mvx_log_drain_ram_add(struct mvx_log *log,
+     struct dentry *dentry;
+     int ret;
+ 
+-    if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+-        pr_info(
+-            "MVX: Debugfs is not enabled. RAM drain dirs are not created.\n");
++    if (!IS_ENABLED(CONFIG_DEBUG_FS))
+         return 0;
+-    }
+ 
+     ret = mvx_log_drain_add(log, name, &drain->base);
+     if (ret != 0)
+@@ -999,12 +990,12 @@ error:
  }
  
  #ifdef MVX_LOG_FTRACE_ENABLE
@@ -864,6 +981,20 @@ diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/m
  {
      va_list args;
      char fmt[500];
+@@ -1102,12 +1093,8 @@ int mvx_log_group_add(struct mvx_log *log,
+     //struct dentry *dentry;
+     int ret;
+ 
+-    if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+-        pr_info(
+-            "MVX: Debugfs is not enabled. '%s' dir is not created.\n",
+-            name);
++    if (!IS_ENABLED(CONFIG_DEBUG_FS))
+         return 0;
+-    }
+ 
+     /* Create <group> directory. */
+     group->dentry = debugfs_create_dir(name, log->group_dir);
 diff --git a/drivers/media/platform/cix/mvx_log.h b/drivers/media/platform/cix/mvx_log.h
 --- a/drivers/media/platform/cix/mvx_log.h
 +++ b/drivers/media/platform/cix/mvx_log.h
@@ -886,3 +1017,120 @@ diff --git a/drivers/media/platform/cix/mvx_log.h b/drivers/media/platform/cix/m
  
  /**
   * mvx_data_fptr() - Function pointer to output binary data.
+diff --git a/drivers/media/platform/cix/mvx_log_group.c b/drivers/media/platform/cix/mvx_log_group.c
+--- a/drivers/media/platform/cix/mvx_log_group.c
++++ b/drivers/media/platform/cix/mvx_log_group.c
+@@ -82,18 +82,25 @@ static int mvx_log_get_time_range(struct timespec64 *start,
+ {
+     unsigned int i, j;
+     unsigned int interval_in_dticks;
+-    int sem_taken;
++    int ret;
+     int not_found_count = 0;
+     struct mvx_duration range;
+-    struct mvx_time *tbuf = (struct mvx_time *)drain_ram1_if.buf;
+-    int ofirst = (drain_ram1_if.write_pos / sizeof(struct mvx_time)) & (MVX_TIME_NUM - 1);
+-    int olast = ofirst == 0 ? MVX_TIME_NUM - 1 : ofirst - 1;
++    struct mvx_time *tbuf;
++    int ofirst;
++    int olast;
++
++    ret = down_interruptible(&drain_ram1_if.sem);
++    if (ret)
++        return ret;
++
++    tbuf = (struct mvx_time *)drain_ram1_if.buf;
++    ofirst = (drain_ram1_if.write_pos / sizeof(struct mvx_time)) &
++         (MVX_TIME_NUM - 1);
++    olast = ofirst == 0 ? MVX_TIME_NUM - 1 : ofirst - 1;
+ 
+-    sem_taken = down_interruptible(&drain_ram1_if.sem);
+     if (tbuf[olast].timespec.tv_sec == 0 && tbuf[olast].timespec.tv_nsec == 0) {
+         /* VPU hasn't processed any workload */
+-        if (sem_taken == 0)
+-            up(&drain_ram1_if.sem);
++        up(&drain_ram1_if.sem);
+         mvx_log_perf.utilization = 0;
+         return 1;
+     }
+@@ -108,8 +115,7 @@ static int mvx_log_get_time_range(struct timespec64 *start,
+     if (timespec64_compare(start, &tbuf[olast].timespec) >= 0 ||
+         (tbuf[olast].parse.start == 0 && olast == ofirst)) {
+         /* No valid workload in past one second*/
+-        if (sem_taken == 0)
+-            up(&drain_ram1_if.sem);
++        up(&drain_ram1_if.sem);
+         mvx_log_perf.utilization = 0;
+         return 1;
+     }
+@@ -153,8 +159,7 @@ static int mvx_log_get_time_range(struct timespec64 *start,
+          */
+     } while (i != ofirst && (not_found_count < 20 || tbuf[i].parse.start == 0));
+ 
+-    if (sem_taken == 0)
+-        up(&drain_ram1_if.sem);
++    up(&drain_ram1_if.sem);
+ 
+     *crange = range;
+     *count = j;
+@@ -183,28 +188,40 @@ int mvx_log_group_init(const char *entry_name)
+         return ret;
+ 
+     /* Construct drain objects and add them to log. */
+-    mvx_log_drain_dmesg_construct(&drain_dmesg_if);
+-    ret = mvx_log_drain_add(&log, "dmesg", &drain_dmesg_if);
++    ret = mvx_log_drain_dmesg_construct(&drain_dmesg_if);
+     if (ret != 0)
+         goto delete_log_entry;
+ 
+-    mvx_log_drain_ram_construct(&drain_ram0_if, 64 * 1024);
+-    ret = mvx_log_drain_ram_add(&log, "ram0", &drain_ram0_if);
++    ret = mvx_log_drain_add(&log, "dmesg", &drain_dmesg_if);
+     if (ret != 0)
+         goto delete_dmesg_drain;
+ 
+-    mvx_log_drain_ram_construct(&drain_ram1_if,
++    ret = mvx_log_drain_ram_construct(&drain_ram0_if, 64 * 1024);
++    if (ret != 0)
++        goto delete_dmesg_drain;
++
++    ret = mvx_log_drain_ram_add(&log, "ram0", &drain_ram0_if);
++    if (ret != 0)
++        goto delete_ram_drain;
++
++    ret = mvx_log_drain_ram_construct(&drain_ram1_if,
+             sizeof(struct mvx_time) * MVX_TIME_NUM);
+-    ret = mvx_log_drain_ram_add(&log, "ram1", &drain_ram1_if);
+     if (ret != 0)
+         goto delete_ram_drain;
+ 
++    ret = mvx_log_drain_ram_add(&log, "ram1", &drain_ram1_if);
++    if (ret != 0)
++        goto delete_ram1_drain;
++
+ #ifdef MVX_LOG_FTRACE_ENABLE
+-    mvx_log_drain_ftrace_construct(&drain_ftrace_if);
+-    mvx_log_drain_add(&log, "ftrace", &drain_ftrace_if);
++    ret = mvx_log_drain_ftrace_construct(&drain_ftrace_if);
+     if (ret != 0)
+         goto delete_ram1_drain;
+ 
++    ret = mvx_log_drain_add(&log, "ftrace", &drain_ftrace_if);
++    if (ret != 0)
++        goto delete_ftrace_drain;
++
+ #endif /* MVX_LOG_FTRACE_ENABLE */
+ 
+     /* Construct group objects. */
+@@ -265,10 +282,9 @@ delete_ftrace_drain:
+ 
+ #ifdef MVX_LOG_FTRACE_ENABLE
+     mvx_log_drain_ftrace_destruct(&drain_ftrace_if);
+-
+-delete_ram1_drain:
+ #endif /* MVX_LOG_FTRACE_ENABLE */
+ 
++delete_ram1_drain:
+     mvx_log_drain_ram_destruct(&drain_ram1_if);
+ 
+ delete_ram_drain:

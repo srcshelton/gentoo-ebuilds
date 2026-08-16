@@ -107,7 +107,6 @@ jobs:
             .github/scripts/fetch-ubuntu-configs.sh \
             .github/scripts/validate-cix-configs.sh \
             .github/scripts/cix-headers/validate-cix-headers.sh \
-            .github/scripts/cix-sources/check-retained-inputs.sh \
             .github/scripts/cix-sources/create-patched-kernel.sh \
             .github/scripts/cix-sources/validate-cix-uapi.sh
           bash -n \
@@ -117,7 +116,6 @@ jobs:
             .github/scripts/fetch-ubuntu-configs.sh \
             .github/scripts/validate-cix-configs.sh \
             .github/scripts/cix-headers/validate-cix-headers.sh \
-            .github/scripts/cix-sources/check-retained-inputs.sh \
             .github/scripts/cix-sources/create-patched-kernel.sh \
             .github/scripts/cix-sources/validate-cix-uapi.sh
           python3 -m py_compile \
@@ -142,8 +140,8 @@ jobs:
           }
           expected_seeds = {
               "6.18": "6.17",
-              "7.0": "7.0",
               "7.1": "7.0",
+              "7.2": "7.0",
           }
           expected_artifacts = {
               "6.17": "cix-ubuntu-config-6.17",
@@ -217,7 +215,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          git --version
+          curl --version | sed -n '1p'
           python3 --version
           timeout --version | sed -n '1p'
           .github/scripts/fetch-ubuntu-configs.sh \
@@ -289,7 +287,22 @@ jobs:
           PY
 
       - name: Upload frozen Ubuntu configs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/ubuntu-configs/${{ matrix.seed }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload frozen Ubuntu configs under act
+        if: ${{ env.ACT == 'true' }}
+        # https://github.com/nektos/act/issues/6021
+        # https://github.com/nektos/act/pull/6099
+        # https://github.com/nektos/act/issues/6022
+        # https://github.com/nektos/act/issues/6114
+        # https://github.com/nektos/act/pull/6115
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ${{ matrix.artifact }}
           path: artifacts/ubuntu-configs/${{ matrix.seed }}
@@ -386,7 +399,7 @@ jobs:
             "${KERNEL_EBUILD}" \
             "${uapi_preimage_dir}"
           expected_uapi=()
-          [[ ${KERNEL_LINE} != 7.1 ]] || expected_uapi=(
+          [[ ${KERNEL_LINE} != 7.1 && ${KERNEL_LINE} != 7.2 ]] || expected_uapi=(
             sys-kernel/cix-headers/files/7.1-cix-sof-topology-tokens.patch
           )
           .github/scripts/cix-sources/validate-cix-uapi.sh \
@@ -447,7 +460,7 @@ jobs:
           swap-storage: true
 
       - name: Download frozen Ubuntu arm64 configs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: ${{ matrix.ubuntu_config_artifact }}
           path: ${{ runner.temp }}/ubuntu-config-${{ matrix.ubuntu_config_seed }}
@@ -686,8 +699,8 @@ jobs:
           summary_path = Path(sys.argv[6])
           expected_seed_by_line = {
               "6.18": "6.17",
-              "7.0": "7.0",
               "7.1": "7.0",
+              "7.2": "7.0",
           }
 
           if expected_seed_by_line.get(kernel_line) != expected_seed:
@@ -996,7 +1009,22 @@ jobs:
           rm -rf "${source_dir}" "${build_dir}" "${work_root}"
 
       - name: Upload Debian package artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
+          path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Debian package artifact under act
+        if: ${{ env.ACT == 'true' }}
+        # https://github.com/nektos/act/issues/6021
+        # https://github.com/nektos/act/pull/6099
+        # https://github.com/nektos/act/issues/6022
+        # https://github.com/nektos/act/issues/6114
+        # https://github.com/nektos/act/pull/6115
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
           path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
@@ -1013,7 +1041,7 @@ jobs:
       contents: write
     steps:
       - name: Download built package artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: release-assets
           pattern: cix-kernel-debs-*

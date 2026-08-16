@@ -10,9 +10,6 @@ at their existing severities. When the PWM backlight is modular, request it
 before the CIX DisplayPort module so the eDP supplier is available without
 turning the optional backlight into a hard link dependency.
 
-This artifact is mechanically regenerated from the exact Linux 7.1.5 CIX
-preimage immediately after patch 70120.
-
 diff --git a/drivers/gpu/drm/cix/Kconfig b/drivers/gpu/drm/cix/Kconfig
 --- a/drivers/gpu/drm/cix/Kconfig
 +++ b/drivers/gpu/drm/cix/Kconfig
