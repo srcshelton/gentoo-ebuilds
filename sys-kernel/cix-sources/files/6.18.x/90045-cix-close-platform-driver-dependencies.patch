@@ -1,0 +1,89 @@
+cix: close mandatory platform driver dependencies
+
+Require the Sky1 pinctrl provider for the Cadence GPIO controller, and make
+the NPU select its SCMI performance-domain provider when devfreq is
+enabled.
+The HiFi5 XAF owner selects the RPMsg character and control interfaces that
+form its userspace ABI.
+
+Also scope the CIX VPU and fan drivers to their supported platforms and
+firmware interfaces.
+
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -249,6 +249,7 @@ config GPIO_BRCMSTB
+ config GPIO_CADENCE
+ 	tristate "Cadence GPIO support"
+ 	depends on OF_GPIO || ACPI || COMPILE_TEST
++	depends on !ARCH_CIX || PINCTRL_SKY1
+ 	select GPIO_GENERIC
+ 	select GPIOLIB_IRQCHIP
+ 	help
+diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
+--- a/drivers/hwmon/Kconfig
++++ b/drivers/hwmon/Kconfig
+@@ -506,6 +506,7 @@ config SENSORS_CHIPCAP2
+ config SENSORS_CIX_FAN
+ 	tristate "CIX Sky1 ACPI fan control"
+ 	depends on ACPI
++	depends on ARCH_CIX || COMPILE_TEST
+ 	help
+ 	  If you say yes here you get support for fan PWM control on
+ 	  CIX Sky1 based systems via the CIXHA024 ACPI hardware-monitor
+diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+--- a/drivers/media/platform/cix/Kconfig
++++ b/drivers/media/platform/cix/Kconfig
+@@ -1,6 +1,8 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ config VIDEO_LINLON
+ 	tristate "CIX/ArmChina Linlon MVX VPU codec support"
++	depends on ARCH_CIX || COMPILE_TEST
++	depends on ACPI || OF
+ 	depends on VIDEO_DEV
+ 	depends on PM && RESET_CONTROLLER
+ 	select RTC_LIB
+diff --git a/drivers/misc/armchina-npu-r2p0/Kconfig b/drivers/misc/armchina-npu-r2p0/Kconfig
+--- a/drivers/misc/armchina-npu-r2p0/Kconfig
++++ b/drivers/misc/armchina-npu-r2p0/Kconfig
+@@ -9,6 +9,8 @@ config ARMCHINA_NPU_R2P0
+ 	depends on DMA_SHARED_BUFFER
+ 	depends on ARMCHINA_NPU != y
+ 	depends on m || !ARMCHINA_NPU
++	depends on !ARCH_CIX || !PM_DEVFREQ || ARM_SCMI_PROTOCOL
++	select ARM_SCMI_PERF_DOMAIN if ARCH_CIX && PM_DEVFREQ
+ 	select DEVFREQ_GOV_USERSPACE if PM_DEVFREQ
+ 	help
+ 	  Support the CIX Sky1 Zhouyi V3 NPU through the version-matched
+diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+--- a/drivers/misc/armchina-npu/Kconfig
++++ b/drivers/misc/armchina-npu/Kconfig
+@@ -10,6 +10,8 @@ config ARMCHINA_NPU
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
+ 	depends on DMA_SHARED_BUFFER
++	depends on !ARCH_CIX || !PM_DEVFREQ || ARM_SCMI_PROTOCOL
++	select ARM_SCMI_PERF_DOMAIN if ARCH_CIX && PM_DEVFREQ
+ 	select DEVFREQ_GOV_USERSPACE if PM_DEVFREQ
+ 	help
+ 	  Support for ArmChina Zhouyi NPU accelerators.
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -49,6 +49,7 @@ config CIX_DSP_RPROC
+ 	tristate "CIX Sky1 HiFi5 DSP remoteproc support"
+ 	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ACPI || OF
++	depends on NET
+ 	select CLK_SKY1_AUDSS if ARCH_CIX
+ 	select CIX_MBOX
+ 	select CIX_HIFI5_COMMON if ARM64
+@@ -57,6 +58,8 @@ config CIX_DSP_RPROC
+ 	select MAILBOX
+ 	select MFD_SYSCON
+ 	select RESET_SKY1_AUDSS if ARCH_CIX
++	select RPMSG_CHAR
++	select RPMSG_CTRL
+ 	select RPMSG_VIRTIO
+ 	help
+ 	  Say y or m here to control the HiFi5 audio DSP in CIX Sky1

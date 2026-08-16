@@ -9,13 +9,13 @@ by 30170 so this patch has no forward build or configuration dependency.
 Treat a well-typed empty CLKT package as a valid namespace no-op while
 retaining strict validation of every populated package and the final map.
 
-Provenance: The public AUDSS binding and topology derive from
-v9 at https://patchwork.kernel.org/series/1124659/. ACPI
-CLKT/CLKA and syscon adaptations derive from
+Failure-atomic publication, topology corrections, shared-resource ownership,
+rollback and lifetime hardening are overlay-maintained corrections.
+
+Source: public AUDSS v9 series at
+https://patchwork.kernel.org/series/1124659/ and
 cixtech/cix-linux-main@19f2947303670f2e5734d6a96ffc72a80fd9b942
-patches-6.18/0005* (00050-00053 on 7.1), 0015 and 0023. Failure-atomic
-publication, topology corrections, shared-resource ownership, rollback
-and lifetime hardening are overlay-created remediation.
+patches-6.18/0005* (00050-00053 on 7.1), 0015 and 0023.
 
 diff --git a/Documentation/devicetree/bindings/soc/cix/cix,sky1-audss-cru.yaml b/Documentation/devicetree/bindings/soc/cix/cix,sky1-audss-cru.yaml
 new file mode 100644

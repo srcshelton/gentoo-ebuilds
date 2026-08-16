@@ -1,0 +1,30 @@
+{
+  "components": {
+    "acpica": {
+      "last_checked_at": "2026-09-01T09:59:21+00:00",
+      "last_refreshed_at": "2026-09-01T09:59:21+00:00",
+      "source": "https://api.github.com/repos/acpica/acpica/releases/latest",
+      "state": "refreshed"
+    },
+    "gentoo-sources": {
+      "last_checked_at": "2026-09-02T23:03:40+00:00",
+      "last_refreshed_at": "2026-09-02T23:03:40+00:00",
+      "source": "https://api.github.com/repos/gentoo/gentoo/contents/sys-kernel/gentoo-sources?ref=master",
+      "state": "refreshed"
+    },
+    "ubuntu-config-6.17": {
+      "last_checked_at": "2026-09-01T09:59:21+00:00",
+      "last_refreshed_at": "2026-09-01T09:59:21+00:00",
+      "source": "Ubuntu Questing master-next at a399ea490b86e68c36c9c35d26c47c1866611239",
+      "state": "refreshed"
+    },
+    "ubuntu-config-7.0": {
+      "last_checked_at": "2026-09-01T09:59:21+00:00",
+      "last_refreshed_at": "2026-09-01T09:59:21+00:00",
+      "source": "Ubuntu Resolute master-next at e48e14b8f485265a1100d18d03e9a2677680adcb",
+      "state": "refreshed"
+    }
+  },
+  "generated_at": "2026-09-02T23:03:40+00:00",
+  "schema_version": 1
+}

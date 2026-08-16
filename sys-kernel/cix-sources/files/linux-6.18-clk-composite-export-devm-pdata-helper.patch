@@ -1,0 +1,27 @@
+From f600fbdb2093b18f2e21401ba7c6325e4d2b5b16 Mon Sep 17 00:00:00 2001
+From: Jia Wang <wangjia@ultrarisc.com>
+Date: Mon, 20 Jul 2026 08:38:04 +0800
+Subject: [PATCH] clk: composite: Export devm composite pdata helper
+
+Allow modular clock drivers to use
+devm_clk_hw_register_composite_pdata() by exporting the helper.
+
+The non-devm composite helpers are already available to modules. Export
+this devm variant as well so users do not need to open-code devres
+cleanup.
+
+Signed-off-by: Jia Wang <wangjia@ultrarisc.com>
+Reviewed-by: Brian Masney <bmasney@redhat.com>
+Signed-off-by: Brian Masney <bmasney@redhat.com>
+---
+ drivers/clk/clk-composite.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/clk-composite.c b/drivers/clk/clk-composite.c
+--- a/drivers/clk/clk-composite.c
++++ b/drivers/clk/clk-composite.c
+@@ -462,3 +462,4 @@ struct clk_hw *devm_clk_hw_register_composite_pdata(struct device *dev,
+ 						rate_hw, rate_ops, gate_hw,
+ 						gate_ops, flags);
+ }
++EXPORT_SYMBOL_GPL(devm_clk_hw_register_composite_pdata);

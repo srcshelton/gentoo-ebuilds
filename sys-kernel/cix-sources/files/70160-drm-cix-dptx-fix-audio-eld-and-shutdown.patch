@@ -1,11 +1,65 @@
-Expose the connector ELD through the HDMI codec so ALSA derives the sink's
-actual channel constraints instead of probing unsupported layouts. Always
-disable the DPTX audio block during shutdown, including after unplug.
+Expose the connector ELD through the HDMI codec so ALSA uses the sink's actual
+channel constraints instead of probing unsupported layouts. Clear the ELD
+after unplug and always disable the DPTX audio block during shutdown.
+
+Program the DisplayPort Audio InfoFrame supplied by the HDMI codec. Include
+its CEA channel allocation and preserve it across link reconfiguration.
 
 diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c
 --- a/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c
 +++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c
-@@ -97,15 +97,26 @@ static int dptx_audio_startup(struct device *dev, void *data)
+@@ -1,10 +1,15 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /* Copyright 2024 Cix Technology Group Co., Ltd. */
++#include <linux/hdmi.h>
+ #include <linux/kernel.h>
+ #include <linux/version.h>
++
++#include "dptx_infoframe.h"
+ #include "trilin_dptx_reg.h"
+ #include "trilin_dptx.h"
+ 
++#define DPTX_AUDIO_SOURCE 0
++
+ /* dp audio */
+ void dptx_audio_handle_plugged_change(struct dptx_audio *dp_audio, bool plugged)
+ {
+@@ -12,6 +17,25 @@ void dptx_audio_handle_plugged_change(struct dptx_audio *dp_audio, bool plugged)
+ 		dp_audio->plugged_cb(dp_audio->codec_dev, plugged);
+ }
+ 
++static int dptx_audio_write_infoframe(struct trilin_dp *dp,
++				      const struct hdmi_audio_infoframe *frame)
++{
++	struct dp_sdp sdp;
++	int ret;
++
++	ret = hdmi_audio_infoframe_pack_for_dp(frame, &sdp,
++					       dp->dpcd[DP_DPCD_REV]);
++	if (ret < 0) {
++		dev_err(dp->dev, "failed to pack audio infoframe: %d\n", ret);
++		return ret;
++	}
++
++	cix_infoframe_write_packet(dp, DPTX_AUDIO_SOURCE, CIX_AUDIO_INFO_SDP,
++				   &sdp, 1);
++
++	return 0;
++}
++
+ static void dptx_audio_setup(struct trilin_dp *dp, int source, int freq,
+ 			     int sample_len, int channel_count)
+ {
+@@ -82,7 +106,7 @@ static void dptx_audio_setup(struct trilin_dp *dp, int source, int freq,
+ 
+ static int dptx_audio_startup(struct device *dev, void *data)
+ {
+-	struct trilin_dp *dp = (struct trilin_dp *)data;
++	struct trilin_dp *dp = data;
+ 	struct dptx_audio *dp_audio = &dp->dp_audio;
+ 
+ 	if (!trilin_dp_plugged_status(dp))
+@@ -97,29 +121,39 @@ static int dptx_audio_startup(struct device *dev, void *data)
  
  static void dptx_audio_shutdown(struct device *dev, void *data)
  {
@@ -27,7 +81,9 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c b/drivers/gpu/drm/cix/
 +	struct drm_connector *connector = &dp->connector.base;
 +
 +	mutex_lock(&connector->eld_mutex);
-+	memcpy(buf, connector->eld, min(sizeof(connector->eld), len));
++	memset(buf, 0, len);
++	if (trilin_dp_plugged_status(dp))
++		memcpy(buf, connector->eld, min(sizeof(connector->eld), len));
 +	mutex_unlock(&connector->eld_mutex);
 +
 +	return 0;
@@ -36,7 +92,64 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_audio.c b/drivers/gpu/drm/cix/
  static int dptx_audio_hw_params(struct device *dev, void *data,
  				struct hdmi_codec_daifmt *daifmt,
  				struct hdmi_codec_params *params)
-@@ -179,6 +190,7 @@ const struct hdmi_codec_ops dptx_audio_codec_ops = {
+ {
+-	struct trilin_dp *dp = (struct trilin_dp *)data;
++	struct trilin_dp *dp = data;
+ 	struct dptx_audio *dp_audio = &dp->dp_audio;
++	int ret;
+ 
+ 	if (!trilin_dp_plugged_status(dp))
+ 		return 0;
+ 
+-	dp_audio->params.sample_width = params->sample_width;
+-	dp_audio->params.sample_rate = params->sample_rate;
+-	dp_audio->params.channels = params->channels;
+-
+ 	dev_dbg(dev,
+ 		"%s, daifmt fmt:%d, bit_clk_inv:%d, frame_clk_inv:%d, bit_clk_master:%d, frame_clk_master:%d, params sample_rate:%d, sample_width:%d, channels:%d\n",
+ 		__func__, daifmt->fmt, daifmt->bit_clk_inv,
+@@ -127,8 +161,13 @@ static int dptx_audio_hw_params(struct device *dev, void *data,
+ 		daifmt->frame_clk_provider, params->sample_rate,
+ 		params->sample_width, params->channels);
+ 
+-	dptx_audio_setup(dp, 0, params->sample_rate, params->sample_width,
+-			 params->channels);
++	ret = dptx_audio_write_infoframe(dp, &params->cea);
++	if (ret)
++		return ret;
++
++	dp_audio->params = *params;
++	dptx_audio_setup(dp, DPTX_AUDIO_SOURCE, params->sample_rate,
++			 params->sample_width, params->channels);
+ 
+ 	return 0;
+ }
+@@ -147,7 +186,7 @@ static int dptx_audio_hook_plugged_cb(struct device *dev, void *data,
+ 				      hdmi_codec_plugged_cb fn,
+ 				      struct device *codec_dev)
+ {
+-	struct trilin_dp *dp = (struct trilin_dp *)data;
++	struct trilin_dp *dp = data;
+ 	struct dptx_audio *dp_audio = &dp->dp_audio;
+ 	bool connected;
+ 
+@@ -164,10 +203,13 @@ static int dptx_audio_hook_plugged_cb(struct device *dev, void *data,
+ 
+ void dptx_audio_reconfig_and_enable(void *data)
+ {
+-	struct trilin_dp *dp = (struct trilin_dp *)data;
++	struct trilin_dp *dp = data;
+ 	struct dptx_audio *dp_audio = &dp->dp_audio;
+ 
+-	dptx_audio_setup(dp, 0, dp_audio->params.sample_rate,
++	if (dptx_audio_write_infoframe(dp, &dp_audio->params.cea))
++		return;
++
++	dptx_audio_setup(dp, DPTX_AUDIO_SOURCE, dp_audio->params.sample_rate,
+ 			 dp_audio->params.sample_width,
+ 			 dp_audio->params.channels);
+ 
+@@ -179,6 +221,7 @@ const struct hdmi_codec_ops dptx_audio_codec_ops = {
  	.hw_params = dptx_audio_hw_params,
  	.audio_startup = dptx_audio_startup,
  	.audio_shutdown = dptx_audio_shutdown,

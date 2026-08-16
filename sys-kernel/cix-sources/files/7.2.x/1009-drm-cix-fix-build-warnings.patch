@@ -1,0 +1,485 @@
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
+--- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
++++ b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
+@@ -15,6 +15,7 @@
+ #include "hdcp2_tx_state.h"
+ #include "hdcp2_key_drvn_tx.h"
+ #include "dptx_aux_reg.h"
++#include "cix_hdcp_ioctl.h"
+ 
+ #define TR_DPTX_AUX_CMD_READ 0x0900ul
+ #define TR_DPTX_AUX_CMD_WRITE 0x0800ul
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
+--- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
++++ b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
+@@ -10,6 +10,7 @@
+ #include <linux/io.h>
+ 
+ #include "cix_hdcp.h"
++#include "hdcp2_tx_tmr.h"
+ 
+ //------------------------------------------------------------------------------
+ //  Time Values:
+@@ -44,7 +45,7 @@
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_init(void *addr)
++static void tmr_hdcp_init(void *addr)
+ {
+ 	writel(0ul, addr);
+ }
+@@ -59,7 +60,7 @@ void tmr_hdcp_init(void *addr)
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
++static void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
+ {
+ 	uint32_t tmr_val = readl(addr);
+ 
+@@ -78,11 +79,11 @@ void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_enable(void *addr, bool enable)
++static void tmr_hdcp_enable(void *addr, bool enable)
+ {
+ 	uint32_t tmr_val = readl(addr);
+ 
+-	if (enable == true)
++	if (enable)
+ 		tmr_val |= TMR_HDCP_FLAG_ENABLE;
+ 	else
+ 		tmr_val &= ~TMR_HDCP_FLAG_ENABLE;
+@@ -101,11 +102,11 @@ void tmr_hdcp_enable(void *addr, bool enable)
+ //  Returns:
+ //      None
+ //------------------------------------------------------------------------------
+-void tmr_hdcp_interrupt(void *addr, bool enable)
++static void tmr_hdcp_interrupt(void *addr, bool enable)
+ {
+ 	uint32_t tmr_val = readl(addr);
+ 
+-	if (enable == true)
++	if (enable)
+ 		tmr_val |= TMR_HDCP_FLAG_INTERRUPT;
+ 	else
+ 		tmr_val &= ~TMR_HDCP_FLAG_INTERRUPT;
+@@ -113,29 +114,6 @@ void tmr_hdcp_interrupt(void *addr, bool enable)
+ 	writel(tmr_val, addr);
+ }
+ 
+-//------------------------------------------------------------------------------
+-//  Function: tmr_hdcp_autoreload
+-//  Enable / Disable auto-reload for a specified timer
+-//
+-//  Parameters:
+-//      addr   - timer base address
+-//      enable - enable / disable the auto-reload
+-//
+-//  Returns:
+-//      None
+-//------------------------------------------------------------------------------
+-void tmr_hdcp_autoreload(void *addr, bool enable)
+-{
+-	uint32_t tmr_val = readl(addr);
+-
+-	if (enable == true)
+-		tmr_val |= TMR_HDCP_FLAG_AUTORELOAD;
+-	else
+-		tmr_val &= ~TMR_HDCP_FLAG_AUTORELOAD;
+-
+-	writel(tmr_val, addr);
+-}
+-
+ //------------------------------------------------------------------------------
+ //  Function: hdcp2_tx_tmr_start
+ //      Start HDCP timer
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -155,12 +155,11 @@ struct trilin_connector *connector_to_trilin(struct drm_connector *connector)
+ 	return container_of(connector, struct trilin_connector, base);
+ }
+ 
+-static void trilin_link_rate_update(struct trilin_dp *dp, u32 reg)
++static int trilin_link_rate_update(struct trilin_dp *dp, u32 reg)
+ {
+ 	union phy_configure_opts opts = { 0 };
+ 	struct trilin_phy_t *phy = &dp->phy;
+ 	u8 lanes, max_lanes = dp->link_config.max_lanes;
+-	int ret;
+ 
+ 	if (IS_ERR_OR_NULL(phy->base)) {
+ 		lanes = max_lanes;
+@@ -175,8 +174,10 @@ static void trilin_link_rate_update(struct trilin_dp *dp, u32 reg)
+ 	opts.dp.set_lanes = 0;
+ 	opts.dp.set_rate = 1;
+ 
+-	if (phy->phy_ops)
+-		ret = phy->phy_ops->configure(dp, &opts);
++	if (!phy->phy_ops)
++		return 0;
++
++	return phy->phy_ops->configure(dp, &opts);
+ }
+ 
+ /**
+@@ -350,7 +351,7 @@ static void trilin_dp_adjust_train(struct trilin_dp *dp,
+ 
+ static int trilin_dp_update_vs_emph_phy_config(struct trilin_dp *dp)
+ {
+-	int ret;
++	int ret = 0;
+ 	u8 train;
+ 	union phy_configure_opts opts = { 0 };
+ 	struct trilin_phy_t *phy = &dp->phy;
+@@ -605,7 +606,9 @@ static int trilin_dp_fast_train(struct trilin_dp *dp)
+ 		trilin_dp_write(dp, TRILIN_DPTX_ENHANCED_FRAMING_ENABLE, 1);
+ 
+ 	trilin_dp_write(dp, TRILIN_DPTX_LINK_BW_SET, dp->mode.bw_code);
+-	trilin_link_rate_update(dp, dp->mode.bw_code);
++	ret = trilin_link_rate_update(dp, dp->mode.bw_code);
++	if (ret)
++		return ret;
+ 	//2.train
+ 	trilin_dp_write(dp, TRILIN_DPTX_DISABLE_SCRAMBLING, 1);
+ 	ret = trilin_dp_link_set_pattern(dp, LINK_TRAIN_CLOCK_RECOVERY, true);
+@@ -617,7 +620,9 @@ static int trilin_dp_fast_train(struct trilin_dp *dp)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	trilin_dp_update_vs_emph_phy_config(dp);
++	ret = trilin_dp_update_vs_emph_phy_config(dp);
++	if (ret)
++		return ret;
+ 	usleep_range(500, 1000);
+ 
+ 	//3.validate link status
+@@ -679,7 +684,9 @@ static int trilin_dp_link_configure(struct trilin_dp *dp)
+ 
+ 	trilin_dp_write(dp, TRILIN_DPTX_LINK_BW_SET, bw_code);
+ 
+-	trilin_link_rate_update(dp, bw_code);
++	ret = trilin_link_rate_update(dp, bw_code);
++	if (ret)
++		return ret;
+ 
+ 	if (dp->platform_id == CIX_PLATFORM_SOC) {
+ 		ret = trilin_dp_phy_ready(dp);
+@@ -734,7 +741,7 @@ end:
+  *
+  * Train the link by downshifting the link rate if training is not successful.
+  */
+-int trilin_dp_train_loop(struct trilin_dp *dp)
++static int trilin_dp_train_loop(struct trilin_dp *dp)
+ {
+ 	struct trilin_dp_mode *mode = &dp->mode;
+ 	u8 bw_cur, bw = mode->bw_code;
+@@ -1734,7 +1741,7 @@ int trilin_dp_panel_setup_hdr_sdp(struct trilin_dp *dp,
+ 	return 0;
+ }
+ 
+-void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
++static void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
+ 			    struct trilin_dp_panel *dp_panel)
+ {
+ 	struct trilin_connector *conn = dp_panel->connector;
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx_cix.c
+@@ -43,10 +43,6 @@
+ #include "trilin_phy.h"
+ #include "cix_edp_panel.h"
+ 
+-struct trilin_dptx_pdata {
+-	int eDP;
+-};
+-
+ struct trilin_dptx_cix_dev {
+ 	struct device *dev;
+ 	struct drm_encoder encoder;
+@@ -54,25 +50,14 @@ struct trilin_dptx_cix_dev {
+ 	struct trilin_dpsub dpsub;
+ };
+ 
+-/* defined in dptx bridge driver */
+-static struct trilin_dptx_pdata cix_sky1_pdata = {
+-	/* TODO */
+-};
+-
+ static const struct of_device_id trilin_dptx_dt_ids[] = {
+-	{
+-		.compatible = "cix,sky1-dptx",
+-		.data = &cix_sky1_pdata,
+-	},
++	{ .compatible = "cix,sky1-dptx" },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(of, trilin_dptx_dt_ids);
+ 
+ static const struct acpi_device_id trilin_dptx_acpi_ids[] = {
+-	{
+-		.id = "CIXH502F",
+-		.driver_data = (kernel_ulong_t)&cix_sky1_pdata,
+-	},
++	{ "CIXH502F" },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(acpi, trilin_dptx_acpi_ids);
+@@ -118,9 +103,7 @@ static int trilin_dptx_cix_bind(struct device *comp, struct device *master,
+ 				void *master_data)
+ {
+ 	void *np;
+-	const void *match;
+ 	struct drm_device *drm = master_data;
+-	struct trilin_dptx_pdata *pdata;
+ 	struct trilin_dptx_cix_dev *cix_dptx = dev_get_drvdata(comp);
+ 	struct drm_encoder *encoder;
+ 	struct trilin_dpsub *dpsub;
+@@ -150,20 +133,6 @@ static int trilin_dptx_cix_bind(struct device *comp, struct device *master,
+ 	if (!np)
+ 		return -ENODEV;
+ 
+-	if (has_acpi_companion(comp)) {
+-		match = acpi_device_get_match_data(comp);
+-		pdata = (struct trilin_dptx_pdata *)(((struct acpi_device_id *)
+-							      match)
+-							     ->driver_data);
+-	} else {
+-		match = of_match_node(trilin_dptx_dt_ids, np);
+-		pdata = (struct trilin_dptx_pdata
+-				 *)(((struct of_device_id *)match)->data);
+-	}
+-
+-	if (unlikely(!match))
+-		return -ENODEV;
+-
+ 	ret = trilin_dp_probe(dpsub, drm);
+ 	if (ret)
+ 		return ret;
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm.c b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm.c
+@@ -1133,7 +1133,7 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
+ 	return 0;
+ }
+ 
+-int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
++static int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
+ 				  struct drm_crtc_state *crtc_state,
+ 				  struct drm_connector_state *connector_state)
+ {
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_drm_mst.c
+@@ -403,7 +403,8 @@ static int trilin_dp_mst_get_modes(struct drm_connector *connector)
+ 	return ret;
+ }
+ 
+-enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
++static enum drm_mode_status
++trilin_dp_mst_mode_valid(struct drm_connector *connector,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
+ 					      struct drm_display_mode *mode)
+ #else
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_edp_phy.c
+@@ -657,25 +657,6 @@ static const phy_voltage_conf_t dp_volt_cfg[] = {
+ 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+ };
+ 
+-static const phy_voltage_conf_t edp_volt_high_cfg[] = {
+-	{ 0x08A4, 0x0003, 0x0027, 0x0000 }, // swing level == 0
+-	{ 0x08A4, 0x0003, 0x0023, 0x0009 },
+-	{ 0x08A4, 0x0003, 0x001E, 0x0010 },
+-	{ 0x08A4, 0x0003, 0x001A, 0x0015 },
+-	{ 0x08A4, 0x0003, 0x0023, 0x0000 }, // swing level == 1
+-	{ 0x08A4, 0x0003, 0x001E, 0x0008 },
+-	{ 0x08A4, 0x0003, 0x001A, 0x000E },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x001E, 0x0000 }, // swing level == 2
+-	{ 0x08A4, 0x0003, 0x001A, 0x0007 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x001A, 0x0000 }, // swing level == 3
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
+-};
+-
+ static const phy_voltage_conf_t edp_volt_low_cfg[] = {
+ 	{ 0x08A4, 0x0003, 0x002F, 0x0000 }, // swing level == 0
+ 	{ 0x08A4, 0x0003, 0x002A, 0x000D },
+diff --git a/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h b/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h
+--- a/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h
++++ b/drivers/gpu/drm/cix/linlon-dp/include/linlondp_drm.h
+@@ -14,6 +14,9 @@
+ #ifndef _LINLONDP_DRM_H_
+ #define _LINLONDP_DRM_H_
+ 
++struct drm_device;
++struct drm_property_blob;
++
+ enum linlondp_hdr_eotf {
+ 	LINLONDP_HDR_NONE,
+ 	LINLONDP_HDR_ST2084,
+@@ -23,4 +26,9 @@ enum linlondp_hdr_eotf {
+ struct color_ctm_ext {
+ 	uint64_t matrix[12];
+ };
++
++int linlondp_atomic_replace_property_blob_from_id(
++	struct drm_device *dev, struct drm_property_blob **blob,
++	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
++	bool *replaced);
+ #endif
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c
+@@ -20,11 +20,6 @@
+ #include "linlondp_kms.h"
+ #include "linlondp_drm.h"
+ 
+-extern int linlondp_atomic_replace_property_blob_from_id(
+-	struct drm_device *dev, struct drm_property_blob **blob,
+-	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+-	bool *replaced);
+-
+ void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
+ 				    u32 *color_depths, u32 *color_formats)
+ {
+@@ -634,7 +629,6 @@ static unsigned long linlondp_calc_min_aclk_rate(struct linlondp_crtc *kcrtc,
+ 						 unsigned long pxlclk)
+ {
+ 	unsigned long min_aclk = 0;
+-	struct drm_crtc *crtc = &kcrtc->base;
+ 	struct linlondp_dev *mdev = kcrtc->master->mdev;
+ 	/* Once dual-link one display pipeline drives two display outputs,
+ 	 * the aclk needs run on the double rate of pxlclk
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
+@@ -347,8 +347,9 @@ static struct attribute_group linlondp_sysfs_attr_group = {
+ static int linlondp_parse_pipe_dt(struct linlondp_pipeline *pipe)
+ {
+ 	struct device_node *np = pipe->of_node;
+-	struct clk *clk;
+ #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
++	struct clk *clk;
++
+ 	clk = of_clk_get_by_name(np, "pxclk");
+ 	if (IS_ERR(clk)) {
+ 		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
+@@ -588,29 +589,14 @@ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
+     return 0;
+ }
+ 
+-static int linlondp_gop_get(void)
++static bool linlondp_gop_get(void)
+ {
+ 	struct arm_smccc_res res;
+-	bool enabled_by_gop = 0;
+ 
+ 	arm_smccc_smc(CIX_SIP_DP_GOP_CTRL, SKY1_SIP_DP_GOP_GET, 0, 0, 0, 0, 0,
+ 		      0, &res);
+ 
+-	if (res.a0 & DPU_GOP_MASK)
+-		enabled_by_gop = true;
+-	else
+-		enabled_by_gop = false;
+-
+-	return enabled_by_gop;
+-}
+-
+-static void linlondp_gop_set(void)
+-{
+-	struct arm_smccc_res res;
+-	int dpu_gop_bit = 1;
+-
+-	arm_smccc_smc(CIX_SIP_DP_GOP_CTRL, SKY1_SIP_DP_GOP_SET,
+-		      dpu_gop_bit << DPU_GOP_SHIFT, 0, 0, 0, 0, 0, &res);
++	return res.a0 & DPU_GOP_MASK;
+ }
+ 
+ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+@@ -618,7 +604,6 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	linlondp_identify_func linlondp_identify;
+ 	struct linlondp_dev *mdev;
+-	u32 is_insmod = 0;
+ 	int err = 0;
+ 
+ 	linlondp_identify = device_get_match_data(dev);
+@@ -633,14 +618,9 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+ 	mutex_init(&mdev->lock);
+ 
+ 	mdev->dev = dev;
++	device_property_read_u32(dev, "enabled_by_gop", &mdev->enabled_by_gop);
+ 
+-    err = device_property_read_u32(dev, "enabled_by_gop",
+-                               (u32 *)&mdev->enabled_by_gop);
+-    if (err)
+-        mdev->enabled_by_gop = 0;
+-
+-	is_insmod = linlondp_gop_get();
+-	if (is_insmod)
++	if (linlondp_gop_get())
+ 		mdev->enabled_by_gop = 0;
+ 
+ 	mdev->reg_base = devm_platform_ioremap_resource(pdev, 0);
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pipeline_state.c
+@@ -1282,8 +1282,10 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ 		u32 src_y = master->in_y;
+ 		u32 src_w = master->in_w;
+ 		u32 src_h = master->in_h;
+-		u32 master_valid_w, slave_valid_w;
+ 		u32 h_scaling_ratio = 0;
++#ifdef SBS_NO_OVERLAP_SCALING
++		u32 master_valid_w, slave_valid_w;
++#endif
+ 
+ #ifdef SBS_NO_OVERLAP_SCALING
+ 		if (master->en_scaling || master->en_img_enhancement) {
+@@ -1314,10 +1316,9 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
+ 		/* When overlap is needed, ensure we don't fetch outside of the
+ 		 * layer when adding the overlap
+ 		 */
++#ifdef SBS_NO_OVERLAP_SCALING
+ 		master_valid_w = master->out_w;
+ 		slave_valid_w = slave->out_w;
+-
+-#ifdef SBS_NO_OVERLAP_SCALING
+ 		master->out_w += min(kcrtc->sbs_overlap, slave_valid_w);
+ 		slave->out_w += min(kcrtc->sbs_overlap, master_valid_w);
+ #endif
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c
+@@ -22,7 +22,6 @@ static int linlondp_plane_init_data_flow(struct drm_plane_state *st,
+ 	struct drm_framebuffer *fb = st->fb;
+ 	const struct linlondp_format_caps *caps = to_kfb(fb)->format_caps;
+ 	struct linlondp_pipeline *pipe = kplane->layer->base.pipeline;
+-	struct linlondp_dev *mdev = kplane->layer->base.pipeline->mdev;
+ 	struct drm_crtc_state *crtc_st;
+ 	struct drm_display_mode *mode;
+ 	struct drm_display_mode *adjusted_mode;
+diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+--- a/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
++++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_wb_connector.c
+@@ -281,8 +281,9 @@ linlondp_wb_connector_create_color_prop(struct linlondp_wb_connector *wb_conn)
+ {
+ 	struct drm_device *dev = wb_conn->base.base.dev;
+ 	struct drm_property *prop;
+-	struct drm_prop_enum_list enum_list[max_t(int, DRM_COLOR_ENCODING_MAX,
+-						  DRM_COLOR_RANGE_MAX)];
++	struct drm_prop_enum_list enum_list[
++		DRM_COLOR_ENCODING_MAX > DRM_COLOR_RANGE_MAX ?
++		DRM_COLOR_ENCODING_MAX : DRM_COLOR_RANGE_MAX];
+ 	u32 supported_encoding = BIT(DRM_COLOR_YCBCR_BT601) |
+ 				 BIT(DRM_COLOR_YCBCR_BT709);
+ 	u32 supported_range = BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |

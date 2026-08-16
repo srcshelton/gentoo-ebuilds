@@ -1,8 +1,9 @@
-Provenance: mechanically reconstructed from CIX cix-linux-main commit
-19f2947303670f2e5734d6a96ffc72a80fd9b942 and the exact maintained ebuild
-preimage. The overlay version validates Type-C connector ownership and
-state, guards a missing switch device before duplicate detection, and
-initializes the connector-search result before iteration.
+Validate Type-C connector ownership and state, guard a missing switch device
+before duplicate detection, and initialize the connector-search result before
+iteration.
+
+Source: cixtech/cix-linux-main commit
+19f2947303670f2e5734d6a96ffc72a80fd9b942.
 
 diff --git a/drivers/usb/typec/Kconfig b/drivers/usb/typec/Kconfig
 --- a/drivers/usb/typec/Kconfig

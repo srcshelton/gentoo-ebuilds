@@ -45,10 +45,12 @@ VENDOR_SYMBOLS = (
     "SND_SOC_CDNS_I2S_MC",
     "SND_SOC_SKY1_SOUND_CARD",
     "TYPEC_RTS5453",
-    "USB_CDNSP",
-    "USB_CDNSP_SKY1",
     "SENSORS_CIX_FAN",
     "CIX_SKY1_REBOOT_REASON",
+)
+
+VENDOR_SYMBOL_VARIANTS = (
+    ("USB_CDNSP_SKY1", "USB_CDNS3_SKY1"),
 )
 
 PATCH_ONLY_DISABLED_SYMBOLS = (
@@ -269,7 +271,7 @@ PROFILE_POLICY_DISABLED_SYMBOLS = (
 
 # Keep this as a tuple so ACPI stub-FDT-specific disables can be added without
 # changing the fragment/update machinery. The CIX display Kconfig symbols are
-# ACPI-capable after the local 7.0 display fixes, so they are no longer pruned
+# ACPI-capable after the retained display fixes, so they are no longer pruned
 # merely because CONFIG_OF is disabled.
 OF_DISABLED_SYMBOLS: tuple[str, ...] = ()
 
@@ -291,8 +293,18 @@ PROFILE_INTERFACE_SYMBOLS = {
 }
 DRIVER_PREFERENCE_CHOICES = ("module", "builtin")
 HARDWARE_PROFILE_CHOICES = ("server", "desktop", "full")
+GRAPHICS_PROFILE_CHOICES = (
+    "auto",
+    "none",
+    "display",
+    "gpu",
+    "desktop",
+    "media",
+    "all",
+)
+AUDIO_PROFILE_CHOICES = ("auto", "none", "analog", "display", "all")
 NPU_ABI_CHOICES = ("auto", "r2p0", "r2p1", "separate")
-KERNEL_VERSION_CHOICES = ("6.18", "6.19", "7.0", "7.1")
+KERNEL_VERSION_CHOICES = ("6.18", "7.1", "7.2")
 FIRMWARE_CHOICES = ("auto", "1.2", "1.3")
 FIRMWARE_METAVAR = "{" + ",".join(FIRMWARE_CHOICES) + "}"
 DMI_FIRMWARE_VERSION_PATHS = (
@@ -338,11 +350,14 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     ("ARM_SCMI_PROTOCOL", "builtin"),
     ("ARM_SCMI_TRANSPORT_MAILBOX", "builtin"),
     ("ARM_SCMI_PERF_DOMAIN", "prefer"),
-    ("ARM_SCMI_POWER_DOMAIN", "builtin"),
+    ("ARM_SCMI_POWER_DOMAIN", "prefer"),
     ("CIX_MBOX", "builtin"),
     ("SKY1_PDC", "prefer"),
     ("I2C_CADENCE", "prefer"),
-    ("GPIO_CADENCE", "builtin"),
+    ("GPIOLIB", "builtin"),
+    ("GPIO_CADENCE", "prefer"),
+    ("GPIO_CDEV", "builtin"),
+    ("GPIO_AGGREGATOR", "prefer"),
     ("ARM_DMA350", "prefer"),
     ("COMMON_CLK_SCMI", "builtin"),
     ("CLK_SKY1_ACPI", "builtin"),
@@ -355,11 +370,12 @@ SUPPORTED_VENDOR_ACPI_COMMON = (
     # ACPI describes the console UART's PinGroupFunction through the Sky1
     # pinctrl provider.  A modular provider defers the built-in PL011 console
     # until module loading, defeating SERIAL_AMBA_PL011_CONSOLE=y.
+    ("PINCTRL", "builtin"),
     ("PINCTRL_SKY1", "builtin"),
     ("PHY_CIX_USBDP", "prefer"),
     ("TYPEC_RTS5453", "prefer"),
     ("CIX_SKY1_REBOOT_REASON", "prefer"),
-    ("I2C", "builtin"),
+    ("I2C", "prefer"),
     ("PM", "builtin"),
     ("RESET_CONTROLLER", "builtin"),
     ("COMMON_CLK", "builtin"),
@@ -389,19 +405,23 @@ SUPPORTED_VENDOR_ACPI_O6N = (
 SUPPORTED_VENDOR_DT_COMMON = (
     ("FW_LOADER_COMPRESS", "always"),
     ("FW_LOADER_COMPRESS_XZ", "always"),
-    ("ARM_SCMI_PROTOCOL", "builtin"),
-    ("ARM_SCMI_TRANSPORT_MAILBOX", "builtin"),
+    ("ARM_SCMI_PROTOCOL", "prefer"),
+    ("ARM_SCMI_TRANSPORT_MAILBOX", "prefer"),
     ("ARM_SCMI_PERF_DOMAIN", "prefer"),
-    ("ARM_SCMI_POWER_DOMAIN", "builtin"),
+    ("ARM_SCMI_POWER_DOMAIN", "prefer"),
     ("CIX_MBOX", "prefer"),
     ("SKY1_PDC", "prefer"),
     ("PHY_CIX_USBDP", "prefer"),
     ("TYPEC_RTS5453", "prefer"),
     ("I2C_CADENCE", "prefer"),
+    ("GPIOLIB", "builtin"),
     ("GPIO_CADENCE", "prefer"),
     ("ARM_DMA350", "prefer"),
     ("CIX_DDR_LP", "prefer"),
-    ("I2C", "builtin"),
+    ("COMMON_CLK_SCMI", "prefer"),
+    ("PINCTRL", "builtin"),
+    ("PINCTRL_SKY1", "builtin"),
+    ("I2C", "prefer"),
     ("PM", "builtin"),
     ("RESET_CONTROLLER", "builtin"),
     ("COMMON_CLK", "builtin"),
@@ -420,10 +440,17 @@ SUPPORTED_VENDOR_DISPLAY = (
     ("FW_LOADER_COMPRESS_XZ", "always"),
     ("DMA_SHARED_BUFFER", "always"),
     ("DRM", "prefer"),
-    ("DRM_PANTHOR", "prefer"),
     ("DRM_CIX", "prefer"),
     ("DRM_LINLONDP", "prefer"),
     ("DRM_TRILIN_DPSUB", "prefer"),
+)
+
+SUPPORTED_VENDOR_GPU = (
+    ("FW_LOADER_COMPRESS", "always"),
+    ("FW_LOADER_COMPRESS_XZ", "always"),
+    ("DMA_SHARED_BUFFER", "always"),
+    ("DRM", "prefer"),
+    ("DRM_PANTHOR", "prefer"),
 )
 
 SUPPORTED_VENDOR_MEDIA = (
@@ -458,25 +485,19 @@ SUPPORTED_VENDOR_EDP = (
 )
 
 SUPPORTED_TOUCHSCREEN = (
-    ("INPUT", "builtin"),
+    ("INPUT", "prefer"),
     ("INPUT_EVDEV", "prefer"),
     ("INPUT_TOUCHSCREEN", "builtin"),
     ("TOUCHSCREEN_GOODIX", "prefer"),
 )
 
-SUPPORTED_VENDOR_AUDIO_O6 = (
+SUPPORTED_VENDOR_AUDIO_ANALOG_O6 = (
     ("SOUND", "prefer"),
     ("SND", "prefer"),
-    ("SND_SOC", "prefer"),
     ("SND_HDA_CIX_IPBLOQ", "prefer"),
-    ("SND_SOC_CIX", "prefer"),
-    ("SND_SOC_CDNS_I2S_MC", "prefer"),
-    ("SND_SOC_SKY1_SOUND_CARD", "prefer"),
 )
 
-SUPPORTED_VENDOR_AUDIO_O6N_DT = (
-    # The maintained O6N DT enables DP audio through the Sky1 sound-card and
-    # Cadence I2S path, but it does not describe the O6 HDA controller path.
+SUPPORTED_VENDOR_AUDIO_DISPLAY = (
     ("SOUND", "prefer"),
     ("SND", "prefer"),
     ("SND_SOC", "prefer"),
@@ -486,11 +507,11 @@ SUPPORTED_VENDOR_AUDIO_O6N_DT = (
 )
 
 DISPLAY_DRIVER_SYMBOLS = (
-    "DRM_PANTHOR",
     "DRM_CIX",
     "DRM_LINLONDP",
     "DRM_TRILIN_DPSUB",
 )
+GPU_DRIVER_SYMBOLS = ("DRM_PANTHOR",)
 MEDIA_DRIVER_SYMBOLS = (
     "VIDEO_LINLON",
     "VIDEO_CIX_ARMCB_ISP",
@@ -506,8 +527,8 @@ EDP_DRIVER_SYMBOLS = (
     "BACKLIGHT_PWM",
 )
 TOUCHSCREEN_DRIVER_SYMBOLS = ("TOUCHSCREEN_GOODIX",)
-AUDIO_DRIVER_SYMBOLS = (
-    "SND_HDA_CIX_IPBLOQ",
+AUDIO_ANALOG_DRIVER_SYMBOLS = ("SND_HDA_CIX_IPBLOQ",)
+AUDIO_DISPLAY_DRIVER_SYMBOLS = (
     "SND_SOC_CIX",
     "SND_SOC_CDNS_I2S_MC",
     "SND_SOC_SKY1_SOUND_CARD",
@@ -580,10 +601,13 @@ KERNEL_MEMORY_DEBUG_ENABLED_SYMBOLS = (
 )
 # The memory-debug profile needs these facilities when selected, but does not
 # own their disabled state. They are also useful independently of this helper:
-# KALLSYMS is required by BPF struct_ops and STACKTRACE is selected by several
-# unrelated kernel facilities. Preserve an existing end-user choice when the
-# profile is omitted.
+# DEBUG_KERNEL remains an independent end-user choice, KALLSYMS is required by
+# BPF struct_ops, and STACKTRACE is selected by several unrelated facilities.
+# Preserve those choices when the profile is omitted.  SLUB_DEBUG is handled
+# separately because unpatched upstream trees hide its default-enabled prompt
+# unless EXPERT is enabled.
 KERNEL_MEMORY_DEBUG_ENABLE_ONLY_SYMBOLS = (
+    "DEBUG_KERNEL",
     "STACKTRACE",
     "KALLSYMS",
 )
@@ -600,7 +624,6 @@ KERNEL_MEMORY_DEBUG_KASAN_SYMBOLS = (
 )
 
 RUNTIME_QUALIFICATION_ENABLED_SYMBOLS = (
-    "DEBUG_KERNEL",
     "DEBUG_MISC",
     "DEBUG_FS",
     "PM_DEBUG",
@@ -647,11 +670,12 @@ RUNTIME_QUALIFICATION_DISABLED_SYMBOLS = (
     "SND_SOC_SOF_ALLOW_FALLBACK_TO_NEWER_IPC_VERSION",
 )
 
-# SOF keeps its debug controls behind EXPERT. Enabling the explicit runtime
-# profile may open that menu, but disabling the profile must not erase an
-# end-user's independent EXPERT choice.
+# SOF keeps its debug controls behind EXPERT.  The explicit qualification
+# profile enables both EXPERT and DEBUG_KERNEL while active, but disabling the
+# profile must not erase either independent end-user choice.
 RUNTIME_QUALIFICATION_ENABLE_ONLY_SYMBOLS = (
     "EXPERT",
+    "DEBUG_KERNEL",
 )
 
 # The allocation fault-injection controls are deliberately separate from both
@@ -878,20 +902,6 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     config_modes.add_argument(
-        "--hardware-profile",
-        choices=HARDWARE_PROFILE_CHOICES,
-        default="full",
-        help=option_help(
-            "Select the breadth of Orion hardware support. 'server' keeps the "
-            "headless platform, storage, networking and USB base; 'desktop' "
-            "adds GPU/display and the audio paths supported by the selected "
-            "board interface; 'full' additionally adds VPU and ISP/camera "
-            "support. NPU, eDP-panel, touchscreen and experimental HiFi5 support "
-            "remain separately controlled.",
-            "full",
-        ),
-    )
-    config_modes.add_argument(
         "--firmware",
         choices=FIRMWARE_CHOICES,
         default="auto",
@@ -905,11 +915,54 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     config_modes.add_argument(
-        "--with-tpm",
-        action="store_true",
+        "--hardware-profile",
+        choices=HARDWARE_PROFILE_CHOICES,
+        default="full",
         help=option_help(
-            "Treat optional TPM hardware as present when '--prune' decides "
-            "which symbols to disable.",
+            "Select the breadth of Orion hardware support. 'server' keeps the "
+            "headless platform, storage, networking and USB base; 'desktop' "
+            "adds GPU/display; and 'full' additionally adds VPU and ISP/camera "
+            "support. The graphics and audio profiles can override those "
+            "defaults. NPU, eDP-panel, touchscreen and experimental HiFi5 "
+            "support remain separately controlled.",
+            "full",
+        ),
+    )
+    config_modes.add_argument(
+        "--graphics-profile",
+        choices=GRAPHICS_PROFILE_CHOICES,
+        default="auto",
+        help=option_help(
+            "Select CIX graphics and media drivers independently of the broad "
+            "hardware profile. 'display' enables Linlon/DPTX, 'gpu' enables "
+            "Panthor, 'desktop' enables both, 'media' enables VPU and ISP, and "
+            "'all' enables every group. 'auto' follows '--hardware-profile'.",
+            "auto",
+        ),
+    )
+    config_modes.add_argument(
+        "--audio-profile",
+        choices=AUDIO_PROFILE_CHOICES,
+        default="auto",
+        help=option_help(
+            "Select physical audio paths. 'analog' enables the O6 HDA codec "
+            "path, 'display' enables Sky1 I2S HDMI/DisplayPort audio, and 'all' "
+            "enables both where firmware supports them. 'auto' enables every "
+            "supported path but omits display audio when the resolved graphics "
+            "profile has no display pipeline. HiFi5 remains separately selected.",
+            "auto",
+        ),
+    )
+    config_modes.add_argument(
+        "--enable-hifi5-dsp",
+        choices=("xaf", "sof"),
+        help=option_help(
+            "Enable HiFi5 DSP support. 'xaf' provides the CIX XAF offload "
+            "interface for applications using compatible CIX Audio SDK "
+            "userspace. 'sof' provides the standard Linux SOF/ALSA interface, "
+            "but on Orion O6 is limited to a no-codec DSP-processing topology "
+            "and cannot directly play or capture through the board's HDA or "
+            "HDMI audio devices. Omit this option to exclude HiFi5 support.",
             "off",
         ),
     )
@@ -945,6 +998,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     config_modes.add_argument(
+        "--with-tpm",
+        action="store_true",
+        help=option_help(
+            "Treat optional TPM hardware as present when '--prune' decides "
+            "which symbols to disable.",
+            "off",
+        ),
+    )
+    config_modes.add_argument(
         "--require-npu-abi",
         choices=NPU_ABI_CHOICES,
         help=argparse.SUPPRESS,
@@ -967,52 +1029,6 @@ def parse_args() -> argparse.Namespace:
             "omitted, the helper chooses the matching board-specific "
             "initramfs source list below the '/usr/src/linux' symlink.",
             "auto",
-        ),
-    )
-    config_modes.add_argument(
-        "--prune",
-        action="store_true",
-        help=option_help(
-            "Scan a 'target_config' file and disable unsupported hardware "
-            "configuration options. Requires a 'target_config' file when used "
-            "with '--mode fragment'.",
-            "off",
-        ),
-    )
-    config_modes.add_argument(
-        "--rewrite-existing-driver-states",
-        action="store_true",
-        help=option_help(
-            "If a 'target_config' file is supplied, rewrite existing tristate "
-            "driver settings to match '--driver-preference' instead of "
-            "preserving current 'y'/'m' values.",
-            "off",
-        ),
-    )
-    config_modes.add_argument(
-        "--enable-hifi5-xaf",
-        action="store_true",
-        help=option_help(
-            "Enable the Sky1 HiFi5 DSP for software built with CIX's Xtensa "
-            "Audio Framework (XAF) SDK. This selects the DSP, messaging and "
-            "shared-memory support and chooses the XAF firmware. The DSP "
-            "starts only when an XAF application requests it. XAF and SOF "
-            "are alternative ways to use the same DSP and cannot be enabled "
-            "together.",
-            "off",
-        ),
-    )
-    config_modes.add_argument(
-        "--enable-hifi5-sof",
-        action="store_true",
-        help=option_help(
-            "Enable the Sky1 HiFi5 DSP through Linux Sound Open Firmware "
-            "(SOF), including the codec-free ALSA processing interface. This "
-            "is supported on Linux 7.1 and requires '--acpi-table-upgrade "
-            "dsdt' plus sys-firmware/cix-sky1-firmware[sof]. XAF and SOF are "
-            "alternative ways to use the same DSP and cannot be enabled "
-            "together.",
-            "off",
         ),
     )
     config_modes.add_argument(
@@ -1056,6 +1072,26 @@ def parse_args() -> argparse.Namespace:
             "off",
         ),
     )
+    config_modes.add_argument(
+        "--prune",
+        action="store_true",
+        help=option_help(
+            "Scan a 'target_config' file and disable unsupported hardware "
+            "configuration options. Requires a 'target_config' file when used "
+            "with '--mode fragment'.",
+            "off",
+        ),
+    )
+    config_modes.add_argument(
+        "--rewrite-existing-driver-states",
+        action="store_true",
+        help=option_help(
+            "If a 'target_config' file is supplied, rewrite existing tristate "
+            "driver settings to match '--driver-preference' instead of "
+            "preserving current 'y'/'m' values.",
+            "off",
+        ),
+    )
     update_mode = parser.add_argument_group("'update' options")
     update_mode.add_argument(
         "--apply",
@@ -1086,12 +1122,6 @@ def parse_args() -> argparse.Namespace:
         args.mode = "fragment"
     if args.mode not in ("patch", "fragment", "update"):
         parser.error(f"invalid '--mode {args.mode}'; expected 'patch', 'fragment', or 'update'")
-    if args.enable_hifi5_xaf and args.enable_hifi5_sof:
-        parser.error(
-            "'--enable-hifi5-xaf' and '--enable-hifi5-sof' "
-            "select mutually exclusive DSP firmware owners"
-        )
-
     if args.mode == "patch":
         if args.board_profile:
             warn_ignored(parser, "'--board-profile' ignored in 'patch' mode")
@@ -1099,6 +1129,11 @@ def parse_args() -> argparse.Namespace:
         if args.hardware_profile != "full":
             warn_ignored(parser, "'--hardware-profile' ignored in 'patch' mode")
             args.hardware_profile = "full"
+        for option_name in ("graphics_profile", "audio_profile"):
+            if getattr(args, option_name) != "auto":
+                display_name = option_name.replace("_", "-")
+                warn_ignored(parser, f"'--{display_name}' ignored in 'patch' mode")
+                setattr(args, option_name, "auto")
         if args.firmware != "auto":
             warn_ignored(parser, "'--firmware' ignored in 'patch' mode")
             args.firmware = "auto"
@@ -1134,12 +1169,9 @@ def parse_args() -> argparse.Namespace:
         if args.enable_fault_injection:
             warn_ignored(parser, "'--enable-fault-injection' ignored in 'patch' mode")
             args.enable_fault_injection = False
-        if args.enable_hifi5_xaf:
-            warn_ignored(parser, "'--enable-hifi5-xaf' ignored in 'patch' mode")
-            args.enable_hifi5_xaf = False
-        if args.enable_hifi5_sof:
-            warn_ignored(parser, "'--enable-hifi5-sof' ignored in 'patch' mode")
-            args.enable_hifi5_sof = False
+        if args.enable_hifi5_dsp:
+            warn_ignored(parser, "'--enable-hifi5-dsp' ignored in 'patch' mode")
+            args.enable_hifi5_dsp = None
         if args.apply:
             warn_ignored(parser, "'--apply' ignored in 'patch' mode")
             args.apply = False
@@ -1183,9 +1215,9 @@ def parse_args() -> argparse.Namespace:
                 "'--acpi-table-upgrade dsdt' is not available for "
                 f"'--board-profile {args.board_profile} --firmware {args.firmware}'"
             )
-        if args.enable_hifi5_sof and args.acpi_table_upgrade != "dsdt":
+        if args.enable_hifi5_dsp == "sof" and args.acpi_table_upgrade != "dsdt":
             parser.error(
-                "'--enable-hifi5-sof' requires '--acpi-table-upgrade dsdt'"
+                "'--enable-hifi5-dsp sof' requires '--acpi-table-upgrade dsdt'"
             )
         if args.acpi_table_upgrade is None:
             if args.acpi_table_upgrade_initramfs_source:
@@ -1655,6 +1687,27 @@ def scan_kconfig_types(tree: Path) -> dict[str, str]:
     return symbol_types
 
 
+def slub_debug_can_be_disabled(tree: Path, expert_enabled: bool) -> bool:
+    """Return whether an explicit CONFIG_SLUB_DEBUG=n can survive Kconfig."""
+    path = tree / "mm/Kconfig.debug"
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+
+    match = re.search(
+        r"(?ms)^config SLUB_DEBUG\s*$\n(?P<body>.*?)(?=^(?:menu)?config\s|\Z)",
+        text,
+    )
+    if match is None:
+        return False
+
+    return expert_enabled or not any(
+        re.match(r"^(?:bool|prompt)\b.*\bif\b.*\bEXPERT\b", line.strip())
+        for line in match.group("body").splitlines()
+    )
+
+
 def resolve_vendor_mode(tree: Path, mode: str) -> bool:
     if mode == "yes":
         return True
@@ -1662,11 +1715,24 @@ def resolve_vendor_mode(tree: Path, mode: str) -> bool:
         return False
 
     present = scan_kconfig_symbols(tree)
-    found = sorted(symbol for symbol in VENDOR_SYMBOLS if symbol in present)
+    found = [symbol for symbol in VENDOR_SYMBOLS if symbol in present]
+    found.extend(
+        symbol
+        for variants in VENDOR_SYMBOL_VARIANTS
+        for symbol in variants
+        if symbol in present
+    )
+    found.sort()
     if not found:
         return False
 
-    missing = sorted(symbol for symbol in VENDOR_SYMBOLS if symbol not in present)
+    missing = [symbol for symbol in VENDOR_SYMBOLS if symbol not in present]
+    missing.extend(
+        "/".join(variants)
+        for variants in VENDOR_SYMBOL_VARIANTS
+        if not any(symbol in present for symbol in variants)
+    )
+    missing.sort()
     if missing:
         missing_str = ", ".join(missing)
         found_str = ", ".join(found)
@@ -1763,14 +1829,12 @@ def insert_npu_sky1_choice_default(original: str) -> str:
     )
 
 
-def optional_default(active_symbol: str, driver_preference: str) -> str:
-    if " " in active_symbol:
-        active_symbol = f"({active_symbol})"
+def optional_default(driver_preference: str) -> str:
     if driver_preference == "builtin":
-        return f"\tdefault y if {active_symbol}\n"
+        return "\tdefault y\n"
     return (
-        f"\tdefault m if MODULES && {active_symbol}\n"
-        f"\tdefault y if !MODULES && {active_symbol}\n"
+        "\tdefault m if MODULES\n"
+        "\tdefault y if !MODULES\n"
     )
 
 
@@ -1878,13 +1942,14 @@ def render_kconfig_radxa(
     )
     accelerator_descriptions = []
     if "ARMCHINA_NPU" in available_symbols:
-        accelerator_descriptions.append("audited Sky1 V3 NPU")
+        accelerator_descriptions.append("Sky1 V3 NPU")
     if "VIDEO_CIX_ARMCB_ISP" in available_symbols:
         accelerator_descriptions.append("ArmChina ISP")
     if "VIDEO_LINLON" in available_symbols:
         accelerator_descriptions.append("Linlon MVX VPU")
     accelerator_description = " and ".join(accelerator_descriptions) or "available accelerator"
     accelerator_noun = "driver" if len(accelerator_descriptions) == 1 else "drivers"
+    ddr_lp_imply = "\timply CIX_DDR_LP\n" if "CIX_DDR_LP" in available_symbols else ""
     header = textwrap.dedent(
         f"""\
         # SPDX-License-Identifier: GPL-2.0-only
@@ -1892,8 +1957,7 @@ def render_kconfig_radxa(
         # Generated CIX/Radxa Orion board presets for Linux {kernel_version}.x.
         # Driver preference for tristates: {driver_preference}.
         # This menu is intentionally conservative and only covers the driver
-        # groups we were able to justify from firmware analysis and the validated
-        # vendor patch stack.
+        # groups supported by the firmware interfaces and maintained driver stack.
 
         menu "Radxa Orion hardware driver presets"
         \tdepends on ARM64_PLATFORM_DEVICES
@@ -1901,7 +1965,6 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_ESSENTIAL
         \tbool "Essential drivers"
-        \tdepends on {profile_active}
         \tdefault y
         \timply SERIAL_AMBA_PL011
         \timply SERIAL_AMBA_PL011_CONSOLE
@@ -1913,7 +1976,8 @@ def render_kconfig_radxa(
         \timply ACPI_BUTTON if CIX_RADXA_ORION_ACPI
         \timply ACPI_FAN if CIX_RADXA_ORION_ACPI
         \timply ACPI_THERMAL if CIX_RADXA_ORION_ACPI
-        \tselect PINCTRL_SKY1 if CIX_RADXA_ORION_ACPI
+        \tselect PINCTRL if CIX_RADXA_ORION_DT
+        \tselect PINCTRL_SKY1 if CIX_RADXA_ORION_DT
 {render_template_block(cpu_ipa_imply)}
         \timply RTC_DRV_HYM8563 if CIX_RADXA_ORION_DT
         \thelp
@@ -1921,11 +1985,10 @@ def render_kconfig_radxa(
         \t  Orion O6/O6N systems.
 
         menu "Optional drivers"
-        \tdepends on {profile_active}
 
         config CIX_RADXA_OPTIONAL_IO
         \ttristate "Optional system bus / external I/O drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
+{render_template_block(optional_default(driver_preference))}
 {render_template_block(ethernet_imply)}
         \timply TEE
         \timply OPTEE
@@ -1957,7 +2020,7 @@ def render_kconfig_radxa(
             "\n"
             "config CIX_RADXA_OPTIONAL_ACCELERATORS\n"
             "\ttristate \"Optional accelerator drivers\"\n"
-            f"{optional_default(profile_active, driver_preference)}"
+            f"{optional_default(driver_preference)}"
             f"{accelerator_imply}"
             "\thelp\n"
             f"\t  Enable the {accelerator_description} {accelerator_noun}.\n"
@@ -1972,28 +2035,32 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_OPTIONAL_PLATFORM
         \ttristate "Optional platform bus / SoC glue drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
+{render_template_block(optional_default(driver_preference))}
         \timply SKY1_PDC
+        \timply I2C
         \timply I2C_CADENCE
+        \timply GPIOLIB
         \timply GPIO_CADENCE
+        \timply GPIO_AGGREGATOR if CIX_RADXA_ORION_ACPI
+        \timply GPIO_CDEV if GPIO_AGGREGATOR
         \timply ARM_DMA350
-        \timply MAILBOX if CIX_RADXA_ORION_ACPI
-        \timply ARM_SCMI_PROTOCOL if CIX_RADXA_ORION_ACPI
-        \timply ARM_SCMI_TRANSPORT_MAILBOX if CIX_RADXA_ORION_ACPI
-        \timply ARM_SCMI_PERF_DOMAIN if CIX_RADXA_ORION_ACPI
-        \timply ARM_SCMI_POWER_DOMAIN if CIX_RADXA_ORION_ACPI
-        \timply CIX_MBOX if CIX_RADXA_ORION_ACPI
-        \timply COMMON_CLK_SCMI if CIX_RADXA_ORION_ACPI
-        \timply CLK_SKY1_ACPI if CIX_RADXA_ORION_ACPI
-        \timply CIX_ACPI_RESOURCE_LOOKUP if CIX_RADXA_ORION_ACPI
-        \timply CIX_ACPI_USB_SCAN if CIX_RADXA_ORION_ACPI
+        \timply MAILBOX if CIX_RADXA_ORION_DT
+        \timply ARM_SCMI_PROTOCOL if CIX_RADXA_ORION_DT
+        \timply ARM_SCMI_TRANSPORT_MAILBOX if CIX_RADXA_ORION_DT
+        \timply CIX_MBOX if CIX_RADXA_ORION_DT
+        \timply COMMON_CLK if CIX_RADXA_ORION_DT
+        \timply COMMON_CLK_SCMI if CIX_RADXA_ORION_DT
+        \timply RESET_CONTROLLER if CIX_RADXA_ORION_DT
+        \timply ARM_SCMI_PERF_DOMAIN
+        \timply ARM_SCMI_POWER_DOMAIN
         \timply CIX_BUS_PERF if CIX_RADXA_ORION_ACPI
+{render_template_block(ddr_lp_imply)}
         \timply PHY_CIX_USBDP
         \timply TYPEC_RTS5453
         \timply SENSORS_CIX_FAN if CIX_RADXA_ORION_O6 && CIX_RADXA_ORION_ACPI
         \thelp
-        \t  Enable the audited Sky1 platform-resource plumbing used by
-        \t  the CIX ACPI and DT driver stack, including the reviewed USB/DP
+        \t  Enable the Sky1 platform-resource plumbing used by
+        \t  the CIX ACPI and DT driver stack, including the USB/DP
         \t  combo PHY and RTS5453 Type-C controller. The unrelated vendor
         \t  PCIe, USB2 and USB3 PHY drivers remain excluded. Firmware-scratch
         \t  diagnostics remain opt-in because the scratch value is not
@@ -2001,7 +2068,7 @@ def render_kconfig_radxa(
 
         config CIX_RADXA_OPTIONAL_DISPLAY
         \ttristate "Optional display / GPU drivers"
-{render_template_block(optional_default(profile_active, driver_preference))}
+{render_template_block(optional_default(driver_preference))}
         \timply FW_LOADER_COMPRESS
         \timply FW_LOADER_COMPRESS_XZ
         \timply DRM
@@ -2014,14 +2081,14 @@ def render_kconfig_radxa(
         \timply BACKLIGHT_CLASS_DEVICE
         \timply BACKLIGHT_PWM
         \thelp
-        \t  Enable the validated vendor display path for ACPI and DT.
+        \t  Enable the vendor display path for ACPI and DT.
         \t  Internal bring-up switches remain outside this preset.
 {accelerator_section}
 
         config CIX_RADXA_OPTIONAL_AUDIO
         \ttristate "Optional audio drivers"
         \tdepends on CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)
-{render_template_block(optional_default("CIX_RADXA_ORION_O6 || (CIX_RADXA_ORION_O6N && CIX_RADXA_ORION_DT)", driver_preference))}
+{render_template_block(optional_default(driver_preference))}
         \timply SOUND
         \timply SND
         \timply SND_SOC
@@ -2030,7 +2097,7 @@ def render_kconfig_radxa(
         \timply SND_SOC_CDNS_I2S_MC
         \timply SND_SOC_SKY1_SOUND_CARD
         \thelp
-        \t  Enable the vendor audio stack validated for Orion O6 and the
+        \t  Enable the vendor audio stack for Orion O6 and the
         \t  DP-audio-oriented DT sound-card path described by the maintained
         \t  O6N DTS. O6N ACPI leaves these drivers opt-in because the stock
         \t  ACPI card path has not been shown to bind successfully.
@@ -2131,6 +2198,63 @@ def render_cpu_ipa_imply(available_symbols: set[str]) -> str:
     )
 
 
+def audio_capabilities(profile: str) -> frozenset[str]:
+    if profile_is_o6(profile):
+        return frozenset(("analog", "display"))
+    if not profile_is_acpi(profile):
+        # The maintained O6N DT enables DP audio through the Sky1 sound card,
+        # but does not describe the O6 HDA controller path.
+        return frozenset(("display",))
+    return frozenset()
+
+
+def selected_optional_hardware(
+    profile: str,
+    hardware_profile: str,
+    graphics_profile: str,
+    audio_profile: str,
+    with_edp: bool,
+    with_touchscreen: bool,
+) -> tuple[frozenset[str], frozenset[str]]:
+    if graphics_profile == "auto":
+        graphics = {
+            "server": set(),
+            "desktop": {"display", "gpu"},
+            "full": {"display", "gpu", "media"},
+        }[hardware_profile]
+    else:
+        graphics = {
+            "none": set(),
+            "display": {"display"},
+            "gpu": {"gpu"},
+            "desktop": {"display", "gpu"},
+            "media": {"media"},
+            "all": {"display", "gpu", "media"},
+        }[graphics_profile]
+
+    if with_edp or with_touchscreen:
+        graphics.add("display")
+
+    capabilities = audio_capabilities(profile)
+    if audio_profile == "auto":
+        audio = set(capabilities)
+        if "display" not in graphics:
+            audio.discard("display")
+    else:
+        audio = {
+            "none": set(),
+            "analog": {"analog"},
+            "display": {"display"},
+            "all": {"analog", "display"},
+        }[audio_profile] & capabilities
+
+    # These explicit requests close over the display pipeline they need.
+    if audio_profile != "auto" and "display" in audio:
+        graphics.add("display")
+
+    return frozenset(graphics), frozenset(audio)
+
+
 def supported_symbols_for_profile(
     profile: str,
     hardware_profile: str,
@@ -2139,6 +2263,8 @@ def supported_symbols_for_profile(
     with_edp: bool,
     with_touchscreen: bool,
     available_symbols: set[str],
+    graphics_profile: str = "auto",
+    audio_profile: str = "auto",
 ) -> tuple[tuple[str, str], ...]:
     entries = list(SUPPORTED_COMMON)
     preferred_eth = preferred_ethernet_symbol(profile, available_symbols)
@@ -2164,22 +2290,25 @@ def supported_symbols_for_profile(
                 else SUPPORTED_VENDOR_DT_O6
             )
 
-        display_enabled = (
-            hardware_profile in ("desktop", "full")
-            or with_edp
-            or with_touchscreen
+        graphics, audio = selected_optional_hardware(
+            profile,
+            hardware_profile,
+            graphics_profile,
+            audio_profile,
+            with_edp,
+            with_touchscreen,
         )
-        if display_enabled:
+        if "display" in graphics:
             entries.extend(SUPPORTED_VENDOR_DISPLAY)
-
-        if hardware_profile in ("desktop", "full"):
-            if profile_is_o6(profile):
-                entries.extend(SUPPORTED_VENDOR_AUDIO_O6)
-            elif not profile_is_acpi(profile):
-                entries.extend(SUPPORTED_VENDOR_AUDIO_O6N_DT)
-
-        if hardware_profile == "full":
+        if "gpu" in graphics:
+            entries.extend(SUPPORTED_VENDOR_GPU)
+        if "media" in graphics:
             entries.extend(SUPPORTED_VENDOR_MEDIA)
+
+        if "analog" in audio:
+            entries.extend(SUPPORTED_VENDOR_AUDIO_ANALOG_O6)
+        if "display" in audio:
+            entries.extend(SUPPORTED_VENDOR_AUDIO_DISPLAY)
 
         if with_npu:
             entries.extend(SUPPORTED_VENDOR_NPU)
@@ -2194,11 +2323,14 @@ def supported_symbols_for_profile(
 
 
 def feature_gate_updates(
+    profile: str,
     hardware_profile: str,
     include_vendor: bool,
     with_npu: bool,
     with_edp: bool,
     with_touchscreen: bool,
+    graphics_profile: str = "auto",
+    audio_profile: str = "auto",
 ) -> tuple[tuple[str, str], ...]:
     """Disable only feature-specific drivers which the selected profile omits.
 
@@ -2216,17 +2348,24 @@ def feature_gate_updates(
         )
 
     updates: list[tuple[str, str]] = []
-    display_enabled = (
-        hardware_profile in ("desktop", "full")
-        or with_edp
-        or with_touchscreen
+    graphics, audio = selected_optional_hardware(
+        profile,
+        hardware_profile,
+        graphics_profile,
+        audio_profile,
+        with_edp,
+        with_touchscreen,
     )
-    if not display_enabled:
+    if "display" not in graphics:
         updates.extend((symbol, "n") for symbol in DISPLAY_DRIVER_SYMBOLS)
-    if hardware_profile == "server":
-        updates.extend((symbol, "n") for symbol in AUDIO_DRIVER_SYMBOLS)
-    if hardware_profile != "full":
+    if "gpu" not in graphics:
+        updates.extend((symbol, "n") for symbol in GPU_DRIVER_SYMBOLS)
+    if "media" not in graphics:
         updates.extend((symbol, "n") for symbol in MEDIA_DRIVER_SYMBOLS)
+    if "analog" not in audio:
+        updates.extend((symbol, "n") for symbol in AUDIO_ANALOG_DRIVER_SYMBOLS)
+    if "display" not in audio:
+        updates.extend((symbol, "n") for symbol in AUDIO_DISPLAY_DRIVER_SYMBOLS)
     if not with_npu:
         updates.extend((symbol, "n") for symbol in NPU_DRIVER_SYMBOLS)
     if not (with_edp or with_touchscreen):
@@ -2266,6 +2405,7 @@ def dynamic_disabled_symbols(
     if not profile_is_acpi(profile):
         return ()
 
+    cdns3_sky1 = "USB_CDNS3_SKY1" in available_symbols
     if current.get("CONFIG_OF") != "y":
         disabled.update(OF_DISABLED_SYMBOLS)
 
@@ -2298,7 +2438,11 @@ def dynamic_disabled_symbols(
         if include_vendor and (
             symbol == "USB_CDNS3" or symbol.startswith("USB_CDNS3_")
         ):
-            disabled.add(symbol)
+            if not cdns3_sky1 or symbol not in (
+                "USB_CDNS3",
+                "USB_CDNS3_SKY1",
+            ):
+                disabled.add(symbol)
         if not with_tpm:
             if (
                 symbol.startswith("TCG_")
@@ -2334,7 +2478,7 @@ def tristate_value(kind: str, policy: str, force_mode: str) -> str:
 
 
 def kernel_memory_debug_updates(
-    available_symbols: set[str], enabled: bool
+    available_symbols: set[str], enabled: bool, slub_debug_can_disable: bool
 ) -> tuple[tuple[str, str], ...]:
     if not enabled:
         enable_only = set(KERNEL_MEMORY_DEBUG_ENABLE_ONLY_SYMBOLS)
@@ -2344,7 +2488,9 @@ def kernel_memory_debug_updates(
                 *KERNEL_MEMORY_DEBUG_ENABLED_SYMBOLS,
                 *KERNEL_MEMORY_DEBUG_KASAN_SYMBOLS,
             )
-            if symbol in available_symbols and symbol not in enable_only
+            if symbol in available_symbols
+            and symbol not in enable_only
+            and (symbol != "SLUB_DEBUG" or slub_debug_can_disable)
         )
 
     updates: list[tuple[str, str]] = []
@@ -2457,7 +2603,7 @@ def hifi5_sof_updates(
     if symbol_types.get("SND_SOC_SOF_CIX_SKY1") not in ("bool", "tristate"):
         raise SystemExit(
             "error: this prepared kernel tree does not provide the audited "
-            "CIX Sky1 SOF owner; use a supported Linux 7.1 source"
+            "CIX Sky1 SOF owner; use a supported Linux 7.1 or 7.2 source"
         )
 
     updates: list[tuple[str, str]] = []
@@ -2477,7 +2623,7 @@ def hifi5_sof_updates(
         "CIX_DSP_RPROC",
         # Sky1 has an explicit no-codec machine owner and supports IPC3 only.
         # The distributed firmware has a newer compatible IPC3 minor ABI than
-        # Linux 7.1, so strict release-CI checks would reject working firmware.
+        # Linux 7.2, so strict release-CI checks would reject working firmware.
         "SND_SOC_SOF_FORCE_PROBE_WORKQUEUE",
         "SND_SOC_SOF_NOCODEC_SUPPORT",
         "SND_SOC_SOF_NOCODEC_DEBUG_SUPPORT",
@@ -2489,6 +2635,30 @@ def hifi5_sof_updates(
 
     updates.extend(hifi5_pageblock_updates(symbol_types, True, current))
     return tuple(updates)
+
+
+def hifi5_dsp_updates(
+    symbol_types: dict[str, str],
+    driver_preference: str,
+    interface: str | None,
+    current: dict[str, str] | None = None,
+) -> tuple[tuple[str, str], ...]:
+    if interface == "xaf":
+        return hifi5_xaf_updates(
+            symbol_types, driver_preference, True, current
+        )
+    if interface == "sof":
+        return hifi5_sof_updates(
+            symbol_types, driver_preference, True, current
+        )
+    if interface is not None:
+        raise ValueError(f"unknown HiFi5 DSP interface: {interface}")
+
+    return tuple(
+        (symbol, "n")
+        for symbol in ("CIX_DSP_RPROC", "SND_SOC_SOF_CIX_SKY1")
+        if symbol_types.get(symbol) in ("bool", "tristate")
+    )
 
 
 def hifi5_pageblock_updates(
@@ -2568,6 +2738,8 @@ def build_config_updates(
     kernel_tree: Path,
     profile: str,
     hardware_profile: str,
+    graphics_profile: str,
+    audio_profile: str,
     include_vendor: bool,
     driver_preference: str,
     existing_config: Path | None,
@@ -2582,8 +2754,7 @@ def build_config_updates(
     enable_kernel_memory_debug: bool,
     enable_runtime_qualification: bool,
     enable_fault_injection: bool,
-    enable_hifi5_xaf: bool,
-    enable_hifi5_sof: bool,
+    hifi5_dsp: str | None,
 ) -> tuple[list[tuple[str, str]], Path | None]:
     symbol_types = scan_kconfig_types(kernel_tree)
     available_symbols = set(symbol_types)
@@ -2641,12 +2812,21 @@ def build_config_updates(
         with_edp,
         with_touchscreen,
         available_symbols,
+        graphics_profile,
+        audio_profile,
     ):
         kind = symbol_types.get(symbol)
         if kind not in ("bool", "tristate"):
             continue
         if of_enabled is False and symbol in OF_DISABLED_SYMBOLS:
             continue
+        # INPUT defaults to built-in while its prompt is hidden without
+        # EXPERT, and a built-in VT selects it even when the prompt is visible.
+        if symbol == "INPUT" and (
+            current.get("CONFIG_EXPERT") != "y"
+            or current.get("CONFIG_VT") == "y"
+        ):
+            force_mode = "builtin"
         config_key = f"CONFIG_{symbol}"
         if (
             force_mode not in ("builtin", "module")
@@ -2660,11 +2840,14 @@ def build_config_updates(
         seen.add(symbol)
 
     for symbol, value in feature_gate_updates(
+        profile,
         hardware_profile,
         include_vendor,
         with_npu,
         with_edp,
         with_touchscreen,
+        graphics_profile,
+        audio_profile,
     ):
         kind = symbol_types.get(symbol)
         if kind not in ("bool", "tristate"):
@@ -2721,7 +2904,15 @@ def build_config_updates(
 
     diagnostic_updates: dict[str, str] = {}
     for profile_updates in (
-        kernel_memory_debug_updates(available_symbols, enable_kernel_memory_debug),
+        kernel_memory_debug_updates(
+            available_symbols,
+            enable_kernel_memory_debug,
+            slub_debug_can_be_disabled(
+                kernel_tree,
+                current.get("CONFIG_EXPERT") == "y"
+                or enable_runtime_qualification,
+            ),
+        ),
         runtime_qualification_updates(available_symbols, enable_runtime_qualification),
         fault_injection_updates(available_symbols, enable_fault_injection),
     ):
@@ -2741,12 +2932,7 @@ def build_config_updates(
 
     for profile_updates in (
         cix_platform_memory_updates(symbol_types, current),
-        hifi5_xaf_updates(
-            symbol_types, driver_preference, enable_hifi5_xaf, current
-        ),
-        hifi5_sof_updates(
-            symbol_types, driver_preference, enable_hifi5_sof, current
-        ),
+        hifi5_dsp_updates(symbol_types, driver_preference, hifi5_dsp, current),
     ):
         for symbol, value in profile_updates:
             if symbol in seen:
@@ -2765,6 +2951,8 @@ def render_config_fragment(
     kernel_tree: Path,
     profile: str,
     hardware_profile: str,
+    graphics_profile: str,
+    audio_profile: str,
     firmware: str,
     include_vendor: bool,
     driver_preference: str,
@@ -2780,14 +2968,15 @@ def render_config_fragment(
     enable_kernel_memory_debug: bool,
     enable_runtime_qualification: bool,
     enable_fault_injection: bool,
-    enable_hifi5_xaf: bool,
-    enable_hifi5_sof: bool,
+    hifi5_dsp: str | None,
     detected_npu_abi: str,
 ) -> str:
     updates, prune_source = build_config_updates(
         kernel_tree=kernel_tree,
         profile=profile,
         hardware_profile=hardware_profile,
+        graphics_profile=graphics_profile,
+        audio_profile=audio_profile,
         include_vendor=include_vendor,
         driver_preference=driver_preference,
         existing_config=existing_config,
@@ -2802,17 +2991,26 @@ def render_config_fragment(
         enable_kernel_memory_debug=enable_kernel_memory_debug,
         enable_runtime_qualification=enable_runtime_qualification,
         enable_fault_injection=enable_fault_injection,
-        enable_hifi5_xaf=enable_hifi5_xaf,
-        enable_hifi5_sof=enable_hifi5_sof,
+        hifi5_dsp=hifi5_dsp,
     )
     fragment_lines = [
         f"# Generated CIX/Radxa Orion config fragment for {profile}",
     ]
     if firmware != "n/a":
         fragment_lines.append(f"# firmware profile: {firmware}")
+    graphics, audio = selected_optional_hardware(
+        profile,
+        hardware_profile,
+        graphics_profile,
+        audio_profile,
+        with_edp,
+        with_touchscreen,
+    )
     fragment_lines.extend(
         (
             f"# hardware profile: {hardware_profile}",
+            f"# graphics profile: {graphics_profile} ({','.join(sorted(graphics)) or 'none'})",
+            f"# audio profile: {audio_profile} ({','.join(sorted(audio)) or 'none'})",
             f"# tristate driver preference: {driver_preference}",
             f"# NPU backends: {'enabled' if with_npu else 'disabled'}",
         )
@@ -2824,8 +3022,7 @@ def render_config_fragment(
             f"# eDP panel support: {'enabled' if with_edp or with_touchscreen else 'disabled'}",
             f"# touchscreen support: {'enabled' if with_touchscreen else 'disabled'}",
             f"# ACPI table-upgrade mode: {acpi_table_upgrade or 'disabled'}",
-            f"# HiFi5 XAF profile: {'enabled' if enable_hifi5_xaf else 'unchanged'}",
-            f"# HiFi5 SOF profile: {'enabled' if enable_hifi5_sof else 'disabled'}",
+            f"# HiFi5 DSP interface: {hifi5_dsp or 'excluded'}",
             f"# kernel memory debug profile: {'enabled' if enable_kernel_memory_debug else 'disabled'}",
             f"# runtime qualification profile: {'enabled' if enable_runtime_qualification else 'disabled'}",
             f"# fault injection profile: {'enabled' if enable_fault_injection else 'disabled'}",
@@ -2943,6 +3140,8 @@ def main() -> int:
             kernel_tree=kernel_tree,
             profile=args.board_profile,
             hardware_profile=args.hardware_profile,
+            graphics_profile=args.graphics_profile,
+            audio_profile=args.audio_profile,
             firmware=args.firmware,
             include_vendor=include_vendor,
             driver_preference=args.driver_preference,
@@ -2958,8 +3157,7 @@ def main() -> int:
             enable_kernel_memory_debug=args.enable_kernel_memory_debug,
             enable_runtime_qualification=args.enable_runtime_qualification,
             enable_fault_injection=args.enable_fault_injection,
-            enable_hifi5_xaf=args.enable_hifi5_xaf,
-            enable_hifi5_sof=args.enable_hifi5_sof,
+            hifi5_dsp=args.enable_hifi5_dsp,
             detected_npu_abi=detected_npu_abi,
         )
         sys.stdout.write(fragment)
@@ -2973,6 +3171,8 @@ def main() -> int:
             kernel_tree=kernel_tree,
             profile=args.board_profile,
             hardware_profile=args.hardware_profile,
+            graphics_profile=args.graphics_profile,
+            audio_profile=args.audio_profile,
             include_vendor=include_vendor,
             driver_preference=args.driver_preference,
             existing_config=target_config,
@@ -2987,8 +3187,7 @@ def main() -> int:
             enable_kernel_memory_debug=args.enable_kernel_memory_debug,
             enable_runtime_qualification=args.enable_runtime_qualification,
             enable_fault_injection=args.enable_fault_injection,
-            enable_hifi5_xaf=args.enable_hifi5_xaf,
-            enable_hifi5_sof=args.enable_hifi5_sof,
+            hifi5_dsp=args.enable_hifi5_dsp,
         )
         updated = apply_updates_to_config(original, updates, args.board_profile)
         diff = "".join(

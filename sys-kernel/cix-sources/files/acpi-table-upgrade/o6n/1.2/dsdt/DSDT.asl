@@ -1557,7 +1557,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "CIXHA010")  // _HID: Hardware ID
             Name (_UID, Zero)  // _UID: Unique ID
             Name (_STA, 0x0F)  // _STA: Status
-            Name (CLKT, Package (0x00){})
+            __EXPECT__(2095) Name (CLKT, Package (0x00){})
             Method (GCLK, 1, Serialized)
             {
                 Return (^^PMMX.CLKG (Arg0))
@@ -1594,9 +1594,9 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                     DSP
                 }
             })
-            Name (RSTL, Package (0x00){})
-            Name (IRQL, Package (0x00){})
-            Name (DLKL, Package (0x00){})
+            __EXPECT__(2095) Name (RSTL, Package (0x00){})
+            __EXPECT__(2095) Name (IRQL, Package (0x00){})
+            __EXPECT__(2095) Name (DLKL, Package (0x00){})
         }
 
         Device (RST0)
@@ -19305,7 +19305,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             }
 
             Local0 = (Arg0 + GNVA) /* \_SB_.GNVA */
-            OperationRegion (GPNV, SystemMemory, Local0, One)
+            __EXPECT__(2173) OperationRegion (GPNV, SystemMemory, Local0, One)
             Field (GPNV, ByteAcc, NoLock, Preserve)
             {
                 VARV,   8
@@ -19332,7 +19332,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 "\n")
             If ((Arg0 && MVCK (Arg1)))
             {
-                OperationRegion (PDRG, SystemMemory, Arg2, 0x20)
+                __EXPECT__(2173) OperationRegion (PDRG, SystemMemory, Arg2, 0x20)
                 Field (PDRG, DWordAcc, NoLock, Preserve)
                 {
                     Offset (0x10), 
@@ -19389,7 +19389,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Local0 = (0x06510000 + (0x0900 + (0x04 * Arg0)))
             Local1 = Arg1
-            OperationRegion (HMEM, SystemMemory, Local0, 0x04)
+            __EXPECT__(2173) OperationRegion (HMEM, SystemMemory, Local0, 0x04)
             Field (HMEM, DWordAcc, NoLock, Preserve)
             {
                 HLCK,   32
@@ -19424,7 +19424,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             }
 
             Local0 = (0x06510000 + (0x0900 + (0x04 * Arg0)))
-            OperationRegion (HMEM, SystemMemory, Local0, 0x04)
+            __EXPECT__(2173) OperationRegion (HMEM, SystemMemory, Local0, 0x04)
             Field (HMEM, DWordAcc, NoLock, Preserve)
             {
                 HLCK,   32
@@ -19760,25 +19760,25 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 One, 
                 Package (0x05)
                 {
-                    /**** Is ResourceTemplate, but EndTag not at buffer end ****/ ToUUID ("36deaa79-c5dd-447c-95e6-b3859589291a") /* Unknown UUID */, 
+                    /**** Is ResourceTemplate, but EndTag not at buffer end ****/ __EXPECT__(2184) ToUUID ("36deaa79-c5dd-447c-95e6-b3859589291a") /* Unknown UUID */,
                     One, 
                     Zero, 
-                    Package (0x00){}, 
-                    Package (0x00){}
+                    __EXPECT__(2095) Package (0x00){},
+                    __EXPECT__(2095) Package (0x00){}
                 }, 
 
                 Package (0x05)
                 {
-                    ToUUID ("b1cc44ae-b9af-4aaa-8bc1-54c49b24d5ad") /* Unknown UUID */, 
+                    __EXPECT__(2184) ToUUID ("b1cc44ae-b9af-4aaa-8bc1-54c49b24d5ad") /* Unknown UUID */,
                     One, 
                     Zero, 
-                    Package (0x00){}, 
-                    Package (0x00){}
+                    __EXPECT__(2095) Package (0x00){},
+                    __EXPECT__(2095) Package (0x00){}
                 }
             })
             Method (_DSM, 4, Serialized)  // _DSM: Device-Specific Method
             {
-                If ((Arg0 == ToUUID ("418e2da4-7089-4ddb-aaca-a7e2377dbece") /* Unknown UUID */))
+                If ((Arg0 == __EXPECT__(2184) ToUUID ("418e2da4-7089-4ddb-aaca-a7e2377dbece") /* Unknown UUID */))
                 {
                     Switch (ToInteger (Arg2))
                     {

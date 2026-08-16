@@ -1,0 +1,20 @@
+Keep Zhouyi V3 task-control blocks in ASID 0. TCB links and
+completion records are ASID0-relative, while the init TCB supplies
+the independent base addresses used by data in all four ASIDs. Reject
+an invalid non-zero-ASID TCB allocation before it can be submitted to
+hardware; ASIDs 1--3 remain available for model and data buffers.
+
+diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+--- a/drivers/misc/armchina-npu/aipu_mm.c
++++ b/drivers/misc/armchina-npu/aipu_mm.c
+@@ -3297,6 +3297,10 @@ int aipu_alloc_dma_iova_phy(struct aipu_memory_manager *mm,
+ {
+ 	if (!mm || !buf_req)
+ 		return -EINVAL;
++	/* V3 TCB links and completion records are relative to ASID 0. */
++	if (buf_req->data_type == AIPU_MM_DATA_TYPE_TCB &&
++	    buf_req->asid != AIPU_BUF_ASID_0)
++		return -EINVAL;
+ 	if (mm->iova_arenas_ready) {
+ 		if (buf_req->alloc_mode > AIPU_DMA_BUF_MALLOC_BOTH)
+ 			return -EOPNOTSUPP;

@@ -259,8 +259,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                         AddressingMode7Bit, "\\_SB.I2C1",
                         0x00, ResourceConsumer, , Exclusive,
                         )
-                    PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
-                        "pinctrl_cam1_hw", ResourceConsumer, ,)
                     GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                         "\\_SB.GPI1", 0x00, ResourceConsumer, ,
                         )
@@ -1418,35 +1416,20 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                         0x004F
                     }
                 PinGroup ("pinctrl_edp0", ResourceProducer, ,
-                    RawDataBuffer (0x08)  // Vendor Data
+                    RawDataBuffer (0x04)  // Vendor Data
                     {
-                        0x00, 0x48, 0x00, 0x24, 0x00, 0x4C, 0x00, 0x24
+                        0x00, 0x4C, 0x00, 0x24
                     })
                     {   // Pin list
-                        0x0012,
                         0x0013
                     }
                 PinGroup ("pinctrl_cam0_hw", ResourceProducer, ,
-                    RawDataBuffer (0x0C)  // Vendor Data
+                    RawDataBuffer (0x04)  // Vendor Data
                     {
-                        0x01, 0x20, 0x00, 0xBC, 0x01, 0x24, 0x00, 0xBC,
                         0x01, 0x04, 0x00, 0x9C
                     })
                     {   // Pin list
-                        0x0048,
-                        0x0049,
                         0x0041
-                    }
-                PinGroup ("pinctrl_cam1_hw", ResourceProducer, ,
-                    RawDataBuffer (0x0C)  // Vendor Data
-                    {
-                        0x01, 0x08, 0x00, 0xBC, 0x01, 0x04, 0x00, 0x9C,
-                        0x01, 0x14, 0x00, 0xBC
-                    })
-                    {   // Pin list
-                        0x0042,
-                        0x0041,
-                        0x0045
                     }
                 PinGroup ("pinctrl_lt7911_hw", ResourceProducer, ,
                     RawDataBuffer (0x10)  // Vendor Data
@@ -2027,8 +2010,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                     {   // Pin list
                         0x0000
                     }
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "gpio_leds", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x04)  // _DSD: Device-Specific Data
             {
@@ -2714,8 +2695,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "vgfx_poweren_gpio", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI5", 0x00, ResourceConsumer, ,
                     )
@@ -2792,8 +2771,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "vcc_ssd_pwren", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -2870,8 +2847,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "wifi_vbat_gpio", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -2954,8 +2929,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "gbe1_poweren_gpio", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI5", 0x00, ResourceConsumer, ,
                     )
@@ -3032,8 +3005,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "gbe2_poweren_gpio", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -3127,12 +3098,12 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                 \_SB.EC0.SFPF ()
             }
 
-            Method (GFPW, 2, Serialized)
+            __EXPECT__(2146) Method (GFPW, 2, Serialized)
             {
                 Return (\_SB.EC0.GFPW ())
             }
 
-            Method (SFPW, 3, Serialized)
+            __EXPECT__(2146) Method (SFPW, 3, Serialized)
             {
                 \_SB.EC0.SFPW (Arg0)
             }
@@ -3145,8 +3116,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "wl_radio_disable_l", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI5", 0x00, ResourceConsumer, ,
                     )
@@ -3223,8 +3192,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "bt_radio_disable_l", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI5", 0x00, ResourceConsumer, ,
                     )
@@ -3301,8 +3268,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "usb_drive_vbus0", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -3385,8 +3350,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "usb_drive_vbus4", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )
@@ -3469,8 +3432,6 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
             Name (_STA, 0x0B)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX1", 0x00,
-                    "usb_drive_vbus5", ResourceConsumer, ,)
                 GpioIo (Exclusive, PullNone, 0x0000, 0x0000, IoRestrictionOutputOnly,
                     "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                     )

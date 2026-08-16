@@ -1,0 +1,109 @@
+diff --git a/Documentation/devicetree/bindings/net/cdns,macb.yaml b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+--- a/Documentation/devicetree/bindings/net/cdns,macb.yaml
++++ b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+@@ -58,6 +58,7 @@ properties:
+           - cdns,gem                  # Generic
+           - cdns,macb                 # Generic
+           - cdns,np4-macb             # NP4 SoC devices
++          - cdns,sky1-gem             # CIX Sky1 SoC
+           - microchip,sama7g5-emac    # Microchip SAMA7G5 ethernet interface
+           - microchip,sama7g5-gem     # Microchip SAMA7G5 gigabit ethernet interface
+           - mobileye,eyeq5-gem        # Mobileye EyeQ5 SoCs
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -6,6 +6,7 @@
+  */
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/acpi.h>
+ #include <linux/circ_buf.h>
+ #include <linux/clk-provider.h>
+ #include <linux/clk.h>
+@@ -31,6 +32,7 @@
+ #include <linux/phylink.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/reset.h>
+ #include <linux/slab.h>
+@@ -4638,6 +4640,10 @@ static int macb_clk_init_dflt(struct platform_device *pdev, struct clk **pclk,
+ 	} else {
+ 		*pclk = devm_clk_get(&pdev->dev, "pclk");
+ 		*hclk = devm_clk_get(&pdev->dev, "hclk");
++		if (IS_ERR(*hclk) &&
++		    (PTR_ERR(*hclk) == -ENOENT || PTR_ERR(*hclk) == -ENODEV) &&
++		    acpi_dev_hid_uid_match(ACPI_COMPANION(&pdev->dev), "CIXH7020", NULL))
++			*hclk = devm_clk_get(&pdev->dev, "aclk");
+ 	}
+ 
+ 	if (IS_ERR_OR_NULL(*pclk))
+@@ -4929,6 +4935,13 @@ static const struct macb_usrio_config at91_default_usrio = {
+ 	.clken = MACB_BIT(CLKEN),
+ };
+ 
++static const struct macb_config pc302gem_config = {
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
++		MACB_CAPS_USRIO_HAS_MII,
++	.dma_burst_length = 16,
++	.usrio = &at91_default_usrio,
++};
++
+ #if defined(CONFIG_OF)
+ /* 1518 rounded up */
+ #define AT91ETHER_MAX_RBUFF_SZ	0x600
+@@ -5548,13 +5561,6 @@ static const struct macb_config sama5d3macb_config = {
+ 	.usrio = &at91_default_usrio,
+ };
+ 
+-static const struct macb_config pc302gem_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
+-		MACB_CAPS_USRIO_HAS_MII,
+-	.dma_burst_length = 16,
+-	.usrio = &at91_default_usrio,
+-};
+-
+ static const struct macb_config sama5d2_config = {
+ 	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_JUMBO |
+ 		MACB_CAPS_USRIO_HAS_MII,
+@@ -5695,6 +5701,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,np4-macb", .data = &np4_config },
+ 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
++	{ .compatible = "cdns,sky1-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,sam9x60-macb", .data = &at91sam9260_config },
+ 	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
+ 	{ .compatible = "atmel,sama5d29-gem", .data = &sama5d29_config },
+@@ -5720,6 +5727,14 @@ static const struct of_device_id macb_dt_ids[] = {
+ MODULE_DEVICE_TABLE(of, macb_dt_ids);
+ #endif /* CONFIG_OF */
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id macb_acpi_match[] = {
++	{ "CIXH7020", (kernel_ulong_t)&pc302gem_config },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, macb_acpi_match);
++#endif
++
+ static const struct macb_config default_gem_config = {
+ 	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE |
+ 		MACB_CAPS_JUMBO |
+@@ -5749,7 +5764,7 @@ static int macb_probe(struct platform_device *pdev)
+ 	if (IS_ERR(mem))
+ 		return PTR_ERR(mem);
+ 
+-	macb_config = of_device_get_match_data(&pdev->dev);
++	macb_config = device_get_match_data(&pdev->dev);
+ 	if (!macb_config)
+ 		macb_config = &default_gem_config;
+ 
+@@ -6224,6 +6239,7 @@ static struct platform_driver macb_driver = {
+ 	.driver		= {
+ 		.name		= "macb",
+ 		.of_match_table	= of_match_ptr(macb_dt_ids),
++		.acpi_match_table = ACPI_PTR(macb_acpi_match),
+ 		.pm	= &macb_pm_ops,
+ 	},
+ 	.shutdown	= macb_shutdown,

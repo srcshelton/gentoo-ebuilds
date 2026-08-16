@@ -1,0 +1,34 @@
+Kconfig: make expert and debug policy independently selectable
+
+EXPERT exposes configuration choices which are useful outside kernel
+debugging, but selecting it currently forces DEBUG_KERNEL.  Make that a
+weak default so an explicit DEBUG_KERNEL=n remains effective while fresh
+expert configurations retain their historical default.
+
+SLUB_DEBUG is similarly default-enabled and hidden when EXPERT is disabled.
+Make its prompt depend only on its allocator and sysfs requirements.  Users
+can then disable the support without enabling unrelated expert options.
+diff --git a/init/Kconfig b/init/Kconfig
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1706,7 +1706,7 @@ config HAVE_PCSPKR_PLATFORM
+ menuconfig EXPERT
+ 	bool "Configure standard kernel features (expert users)"
+ 	# Unhide debug options, to make the on-by-default options visible
+-	select DEBUG_KERNEL
++	imply DEBUG_KERNEL
+ 	help
+ 	  This option allows certain base kernel options and settings
+ 	  to be disabled or tweaked. This is for specialized
+diff --git a/mm/Kconfig.debug b/mm/Kconfig.debug
+--- a/mm/Kconfig.debug
++++ b/mm/Kconfig.debug
+@@ -47,7 +47,7 @@ config DEBUG_PAGEALLOC_ENABLE_DEFAULT
+ 
+ config SLUB_DEBUG
+ 	default y
+-	bool "Enable SLUB debugging support" if EXPERT
++	bool "Enable SLUB debugging support"
+ 	depends on SYSFS && !SLUB_TINY
+ 	select STACKDEPOT if STACKTRACE_SUPPORT
+ 	help
