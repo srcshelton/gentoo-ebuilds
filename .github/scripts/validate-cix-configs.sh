@@ -435,7 +435,7 @@ for preference in module builtin; do
 	# userspace governor which provides its explicit policy control surface.
 	require_config "${build_dir}/.config" 'CONFIG_CIX_BUS_PERF=y'
 	require_config "${build_dir}/.config" 'CONFIG_DEVFREQ_GOV_USERSPACE=y'
-	require_config "${build_dir}/.config" 'CONFIG_I2C=y'
+	require_config "${build_dir}/.config" "CONFIG_I2C=${driver_state}"
 	require_config "${build_dir}/.config" 'CONFIG_PM=y'
 	require_config "${build_dir}/.config" 'CONFIG_RESET_CONTROLLER=y'
 	require_config "${build_dir}/.config" 'CONFIG_COMMON_CLK=y'
