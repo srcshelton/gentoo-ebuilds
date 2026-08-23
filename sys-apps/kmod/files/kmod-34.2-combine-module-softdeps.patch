@@ -1,0 +1,131 @@
+From ce18df9a2e47d274e4628fb83b8d5911584d40f6 Mon Sep 17 00:00:00 2001
+From: Stuart Shelton <stuart@shelton.me>
+Date: Sun, 23 Aug 2026 13:52:36 +0100
+Subject: [PATCH] tools/depmod: combine repeated module soft dependencies
+
+A module may carry more than one softdep value in its modinfo section,
+but depmod writes each value as a separate modules.softdep rule.
+libkmod intentionally uses only the first matching rule, so every later
+module-declared dependency is ignored.
+
+Emit one generated rule per module and append all metadata values. The
+softdep parser accepts repeated pre: and post: clauses, leaving
+administrator rule precedence and other modprobe.d semantics unchanged.
+
+Add a regression module with separate pre and post declarations and
+verify the generated modules.softdep output.
+
+Link: https://bugs.debian.org/1059518
+Link: https://github.com/kmod-project/kmod/issues/33
+---
+ scripts/setup-rootfs.sh                       |  1 +
+ testsuite/module-playground/Kbuild            |  1 +
+ testsuite/module-playground/mod-softdep.c     |  8 +++++++
+ .../lib/modules/4.4.4/correct-modules.softdep |  2 ++
+ testsuite/test-depmod.c                       | 21 +++++++++++++++++++
+ tools/depmod.c                                |  8 ++++++-
+ 6 files changed, 40 insertions(+), 1 deletion(-)
+ create mode 100644 testsuite/module-playground/mod-softdep.c
+ create mode 100644 testsuite/rootfs-pristine/test-depmod/check-softdep/lib/modules/4.4.4/correct-modules.softdep
+
+diff --git a/scripts/setup-rootfs.sh b/scripts/setup-rootfs.sh
+index cbf94bc..201b53c 100755
+--- a/scripts/setup-rootfs.sh
++++ b/scripts/setup-rootfs.sh
+@@ -72,6 +72,7 @@ map=(
+     ["test-depmod/search-order-override$MODULE_DIRECTORY/4.4.4/override/"]="mod-simple.ko"
+     ["test-depmod/check-weakdep$MODULE_DIRECTORY/4.4.4/kernel/mod-weakdep.ko"]="mod-weakdep.ko"
+     ["test-depmod/check-weakdep$MODULE_DIRECTORY/4.4.4/kernel/mod-simple.ko"]="mod-simple.ko"
++    ["test-depmod/check-softdep$MODULE_DIRECTORY/4.4.4/kernel/mod-softdep.ko"]="mod-softdep.ko"
+     ["test-dependencies$MODULE_DIRECTORY/4.0.20-kmod/kernel/fs/foo/"]="mod-foo-b.ko"
+     ["test-dependencies$MODULE_DIRECTORY/4.0.20-kmod/kernel/"]="mod-foo-c.ko"
+     ["test-dependencies$MODULE_DIRECTORY/4.0.20-kmod/kernel/lib/"]="mod-foo-a.ko"
+diff --git a/testsuite/module-playground/Kbuild b/testsuite/module-playground/Kbuild
+index 5be441b..de7a866 100644
+--- a/testsuite/module-playground/Kbuild
++++ b/testsuite/module-playground/Kbuild
+@@ -35,6 +35,7 @@ obj-m += mod-fake-scsi-mod.o
+ obj-m += mod-fake-cciss.o
+ 
+ obj-m += mod-weakdep.o
++obj-m += mod-softdep.o
+ 
+ else
+ # only build ARCH-specific module
+diff --git a/testsuite/module-playground/mod-softdep.c b/testsuite/module-playground/mod-softdep.c
+new file mode 100644
+index 0000000..7d3860a
+--- /dev/null
++++ b/testsuite/module-playground/mod-softdep.c
+@@ -0,0 +1,8 @@
++// SPDX-License-Identifier: LGPL-2.1-or-later
++
++#include <linux/module.h>
++
++MODULE_SOFTDEP("pre: mod-simple");
++MODULE_SOFTDEP("post: mod-loop-a");
++
++MODULE_LICENSE("LGPL");
+diff --git a/testsuite/rootfs-pristine/test-depmod/check-softdep/lib/modules/4.4.4/correct-modules.softdep b/testsuite/rootfs-pristine/test-depmod/check-softdep/lib/modules/4.4.4/correct-modules.softdep
+new file mode 100644
+index 0000000..b34f972
+--- /dev/null
++++ b/testsuite/rootfs-pristine/test-depmod/check-softdep/lib/modules/4.4.4/correct-modules.softdep
+@@ -0,0 +1,2 @@
++# Soft dependencies extracted from modules themselves.
++softdep mod_softdep post: mod-loop-a pre: mod-simple
+diff --git a/testsuite/test-depmod.c b/testsuite/test-depmod.c
+index ec157b2..fb8a472 100644
+--- a/testsuite/test-depmod.c
++++ b/testsuite/test-depmod.c
+@@ -257,4 +257,25 @@ DEFINE_TEST(depmod_check_weakdep,
+ 		},
+ 	});
+ 
++#define CHECK_SOFTDEP_ROOTFS TESTSUITE_ROOTFS "test-depmod/check-softdep"
++#define CHECK_SOFTDEP_LIB_MODULES CHECK_SOFTDEP_ROOTFS MODULE_DIRECTORY "/" MODULES_UNAME
++static noreturn int depmod_check_softdep(const struct test *t)
++{
++	EXEC_DEPMOD();
++	exit(EXIT_FAILURE);
++}
++DEFINE_TEST(depmod_check_softdep,
++	.description = "check multiple softdep output",
++	.config = {
++		[TC_UNAME_R] = MODULES_UNAME,
++		[TC_ROOTFS] = CHECK_SOFTDEP_ROOTFS,
++	},
++	.output = {
++		.files = (const struct keyval[]) {
++			{ CHECK_SOFTDEP_LIB_MODULES "/correct-modules.softdep",
++			  CHECK_SOFTDEP_LIB_MODULES "/modules.softdep" },
++			{ },
++		},
++	});
++
+ TESTSUITE_MAIN();
+diff --git a/tools/depmod.c b/tools/depmod.c
+index 0126124..4c3c358 100644
+--- a/tools/depmod.c
++++ b/tools/depmod.c
+@@ -2284,10 +2284,16 @@ static int output_softdeps(struct depmod *depmod, FILE *out)
+ 		const struct mod *mod = depmod->modules.array[i];
+ 		const struct array *values = &mod->softdep_values;
+ 
++		if (values->count == 0)
++			continue;
++
++		fprintf(out, "softdep %s", mod->modname);
+ 		for (size_t j = 0; j < values->count; j++) {
+ 			const char *value = values->array[j];
+-			fprintf(out, "softdep %s %s\n", mod->modname, value);
++
++			fprintf(out, " %s", value);
+ 		}
++		fputc('\n', out);
+ 	}
+ 
+ 	return 0;
+-- 
+2.50.1 (Apple Git-155)
+

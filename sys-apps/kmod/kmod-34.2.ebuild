@@ -42,6 +42,8 @@ BDEPEND="
 
 PATCHES=(
 	"${FILESDIR}/${P}-s390.patch"
+	"${FILESDIR}/${P}-rmmod-fix-garbled-error-message.patch"
+	"${FILESDIR}/${P}-combine-module-softdeps.patch"
 )
 
 src_configure() {
@@ -89,6 +91,7 @@ src_install() {
 	if use tools && use split-usr; then
 
 		# Move modprobe to /sbin to match CONFIG_MODPROBE_PATH from kernel
+		#local cmd
 		#for cmd in depmod insmod modprobe rmmod; do
 		#	rm "${ED}/bin/${cmd}" || die
 		#	dosym -r /bin/kmod "/sbin/${cmd}"

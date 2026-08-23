@@ -1,0 +1,71 @@
+From da2654b78ce3af083e42c2f7512d09082b872676 Mon Sep 17 00:00:00 2001
+From: Yannick Le Pennec <yannick.lepennec@live.fr>
+Date: Mon, 24 Mar 2025 18:35:53 +0100
+Subject: tools/rmmod: fix garbled error message
+
+a6f9cd0 ("tools/rmmod: consistently use ERR logging facility") fixed
+the split between syslog and stderr of various error message substrings
+by calling the ERR macro instead of writing directly to stderr, but in
+doing so also completely mangled the output because the ERR macro
+decorates its arguments:
+
+    $ rmmod iwlwifi
+    rmmod: ERROR: Module iwlwifi is in use by:rmmod: ERROR:  iwlmvmrmmod: ERROR:
+
+And in syslog:
+
+    $ rmmod -s iwlwifi
+    2025-03-24T17:22:34.878318+01:00 mangolassi rmmod: ERROR: Module iwlwifi is in use by:
+    2025-03-24T17:22:34.889145+01:00 mangolassi rmmod: ERROR:  iwlmvm
+    2025-03-24T17:22:34.889224+01:00 mangolassi rmmod: ERROR:
+
+This commit fixes that by building the holder names list with a strbuf
+and then passes the whole thing at once to ERR.
+
+Fixes: a6f9cd0 ("tools/rmmod: consistently use ERR logging facility")
+Signed-off-by: Yannick Le Pennec <yannick.lepennec@live.fr>
+Link: https://lore.kernel.org/r/VI1PR02MB48291E3BDB7E764ED67154949BA42@VI1PR02MB4829.eurprd02.prod.outlook.com
+Signed-off-by: Lucas De Marchi <lucas.de.marchi@gmail.com>
+Link: https://github.com/kmod-project/kmod/pull/328
+---
+ tools/rmmod.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/tools/rmmod.c b/tools/rmmod.c
+index 962d850..61f2e00 100644
+--- a/tools/rmmod.c
++++ b/tools/rmmod.c
+@@ -15,6 +15,7 @@
+ #include <sys/types.h>
+ 
+ #include <shared/macro.h>
++#include <shared/strbuf.h>
+ 
+ #include <libkmod/libkmod.h>
+ 
+@@ -63,16 +64,18 @@ static int check_module_inuse(struct kmod_module *mod)
+ 
+ 	holders = kmod_module_get_holders(mod);
+ 	if (holders != NULL) {
++		DECLARE_STRBUF_WITH_STACK(buf, 128);
+ 		struct kmod_list *itr;
+ 
+-		ERR("Module %s is in use by:", kmod_module_get_name(mod));
+-
+ 		kmod_list_foreach(itr, holders) {
+ 			struct kmod_module *hm = kmod_module_get_module(itr);
+-			ERR(" %s", kmod_module_get_name(hm));
++			strbuf_pushchar(&buf, ' ');
++			strbuf_pushchars(&buf, kmod_module_get_name(hm));
+ 			kmod_module_unref(hm);
+ 		}
+-		ERR("\n");
++
++		ERR("Module %s is in use by:%s\n", kmod_module_get_name(mod),
++		    strbuf_str(&buf));
+ 
+ 		kmod_module_unref_list(holders);
+ 		return -EBUSY;
+-- 
+cgit 1.3-korg
+

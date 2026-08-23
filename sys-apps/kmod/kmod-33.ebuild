@@ -115,13 +115,13 @@ src_install() {
 		# Move modprobe to /sbin to match CONFIG_MODPROBE_PATH from kernel
 		local cmd
 		for cmd in depmod insmod modprobe rmmod; do
-			rm "${ED}"/bin/${cmd} || die
-			dosym ../bin/kmod /sbin/${cmd}
+			rm "${ED}/bin/${cmd}" || die
+			dosym ../bin/kmod "/sbin/${cmd}"
 		done
 
 		# These are also usable as normal user
 		for cmd in lsmod modinfo; do
-			dosym kmod /bin/${cmd}
+			dosym kmod "/bin/${cmd}"
 		done
 	fi
 
