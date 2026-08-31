@@ -123,6 +123,11 @@ pkg_pretend() {
 }
 
 src_prepare() {
+	# https://github.com/abseil/abseil-cpp/issues/1896
+	if tc-is-gcc && ver_test "$(gcc-major-version)" -ge 15; then
+		PATCHES+=( "${FILESDIR}/${PN}-8.0.12-gcc-15.patch" )
+	fi
+
 	default
 
 	# remove bundled libs

@@ -1,0 +1,25 @@
+Fix GCC 15 allocator-aware construction of the collection time-field value.
+Construct the tuple members explicitly while preserving the archived-bucket
+tracking allocator for the tracked string.
+
+https://jira.mongodb.org/browse/SERVER-106213
+https://github.com/abseil/abseil-cpp/issues/1896
+
+diff --git a/src/mongo/db/timeseries/bucket_catalog/bucket_catalog_internal.cpp b/src/mongo/db/timeseries/bucket_catalog/bucket_catalog_internal.cpp
+--- a/src/mongo/db/timeseries/bucket_catalog/bucket_catalog_internal.cpp
++++ b/src/mongo/db/timeseries/bucket_catalog/bucket_catalog_internal.cpp
+@@ -869,7 +869,13 @@ void archiveBucket(OperationContext* opCtx,
+ 
+     if (archived) {
+         // If we have an archived bucket, ensure that we've stored the timeField for this UUID
+-        auto& [timeField, refCount] = stripe.collectionTimeFields[bucket.bucketId.collectionUUID];
++        auto& [timeField, refCount] =
++            stripe.collectionTimeFields
++                .try_emplace(bucket.bucketId.collectionUUID,
++                             tracked_string{TrackingAllocator<char>{
++                                 stripe.collectionTimeFields.get_allocator().outer_allocator()}},
++                             int64_t{0})
++                .first->second;
+         // Set timeField if we constructed the entry above
+         if (timeField.empty()) {
+             timeField = bucket.timeField;
