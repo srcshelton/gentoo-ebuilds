@@ -360,7 +360,7 @@ jobs:
         # https://github.com/nektos/act/issues/6022
         # https://github.com/nektos/act/issues/6114
         # https://github.com/nektos/act/pull/6115
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cix-external-inputs
           path: ${{ runner.temp }}/cix-external-inputs
@@ -398,7 +398,7 @@ jobs:
         # artifact protocol as actions/upload-artifact v7.
         # https://github.com/nektos/act/issues/6114
         # https://github.com/nektos/act/pull/6115
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: cix-external-inputs
           path: ${{ runner.temp }}/cix-external-inputs
@@ -493,7 +493,7 @@ jobs:
         # https://github.com/nektos/act/issues/6022
         # https://github.com/nektos/act/issues/6114
         # https://github.com/nektos/act/pull/6115
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact }}
           path: artifacts/ubuntu-configs/${{ matrix.seed }}
@@ -700,7 +700,7 @@ jobs:
         # artifact protocol as actions/upload-artifact v7.
         # https://github.com/nektos/act/issues/6114
         # https://github.com/nektos/act/pull/6115
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ matrix.ubuntu_config_artifact }}
           path: ${{ runner.temp }}/ubuntu-config-${{ matrix.ubuntu_config_seed }}
@@ -718,7 +718,7 @@ jobs:
         # artifact protocol as actions/upload-artifact v7.
         # https://github.com/nektos/act/issues/6114
         # https://github.com/nektos/act/pull/6115
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: cix-external-inputs
           path: ${{ runner.temp }}/cix-external-inputs
@@ -1263,7 +1263,7 @@ jobs:
         # https://github.com/nektos/act/issues/6022
         # https://github.com/nektos/act/issues/6114
         # https://github.com/nektos/act/pull/6115
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
           path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
@@ -1287,7 +1287,7 @@ jobs:
           merge-multiple: true
 
       - name: Create draft GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: cix-kernel-debs-${{ github.run_number }}
           name: CIX kernel Debian packages ${{ github.run_number }}
