@@ -487,6 +487,8 @@ used to build perl)
     * Remove stanza which prevents, e.g., sys-devel/gcc from being updated in the same invocation with necessary USE-flag changes before app-crypt/libb2 is built
 * app-crypt/p11-kit
     * Add dev-libs/libxslt build dependency to allow building man-pages with 'xsltproc'
+* app-containers/container-libs
+    * Incorporate changes from prior app-containers/containers-* ebuilds
 * app-containers/docker
     * Allow more fine-grained control over optional features
 * app-containers/lxc
