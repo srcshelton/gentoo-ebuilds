@@ -26,6 +26,8 @@ BDEPEND="
 "
 RDEPEND="
 	!sys-kernel/linux-headers
+	!sys-kernel/cix-headers
+	!sys-kernel/rockchip-headers
 "
 
 src_unpack() {

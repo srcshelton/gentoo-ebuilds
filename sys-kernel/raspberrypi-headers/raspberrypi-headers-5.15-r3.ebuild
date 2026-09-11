@@ -22,7 +22,10 @@ BDEPEND="
 	app-arch/xz-utils
 	dev-lang/perl"
 RDEPEND="
-	!sys-kernel/linux-headers"
+	!sys-kernel/linux-headers
+	!sys-kernel/cix-headers
+	!sys-kernel/rockchip-headers
+"
 
 # bug #816762
 RESTRICT="test"

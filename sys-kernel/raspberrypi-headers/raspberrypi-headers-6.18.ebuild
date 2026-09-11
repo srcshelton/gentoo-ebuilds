@@ -3,9 +3,9 @@
 
 EAPI=8
 
-KV_MINOR="34"
-MY_PV="stable_20260609"
-#EGIT_COMMIT="18ad16ce4a6b2714583fd1e1044c6ea8e53b3519"
+KV_MINOR="39"
+MY_PV="stable_20260724"
+#EGIT_COMMIT="60ea684a8ace97bb0db1a16e20753bdd6ab371ff"
 ETYPE="headers"
 H_SUPPORTEDARCH="arm arm64"
 inherit kernel-2
@@ -26,6 +26,8 @@ BDEPEND="
 "
 RDEPEND="
 	!sys-kernel/linux-headers
+	!sys-kernel/cix-headers
+	!sys-kernel/rockchip-headers
 "
 
 src_unpack() {
