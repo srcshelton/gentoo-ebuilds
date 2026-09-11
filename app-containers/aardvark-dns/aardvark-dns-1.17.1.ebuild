@@ -3,7 +3,7 @@
 
 EAPI=8
 
-RUST_MIN_VER="1.88.0"
+RUST_MIN_VER="1.86.0"
 [[ ${PV} == 9999* ]] || CRATES="${PN}@${PV}"
 inherit cargo
 
@@ -11,12 +11,12 @@ DESCRIPTION="A container-focused DNS server"
 HOMEPAGE="https://github.com/containers/aardvark-dns"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit cargo
+	inherit git-r3
 	EGIT_REPO_URI="https://github.com/containers/aardvark-dns.git"
 else
 	SRC_URI="${CARGO_CRATE_URIS}
 		https://github.com/containers/aardvark-dns/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
-	KEYWORDS="~amd64 ~arm64 ~loong ~ppc64 ~riscv"
+	KEYWORDS="amd64 arm64 ~loong ~ppc64 ~riscv"
 	#RESTRICT="mirror"
 fi
 
