@@ -3,9 +3,9 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_{12..14} )
 
-inherit autotools libtool python-any-r1 flag-o-matic toolchain-funcs
+inherit autotools flag-o-matic libtool python-any-r1 toolchain-funcs
 
 DESCRIPTION="Fast and low-memory footprint OCI Container Runtime fully written in C"
 HOMEPAGE="https://github.com/containers/crun"
@@ -15,7 +15,7 @@ if [[ "${PV}" == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/containers/${PN}.git"
 else
 	SRC_URI="https://github.com/containers/${PN}/releases/download/${PV}/${P}.tar.gz"
-	KEYWORDS="~amd64 ~arm ~arm64 ~loong ~ppc64 ~riscv"
+	KEYWORDS="amd64 ~arm arm64 ~loong ppc64 ~riscv"
 	#RESTRICT="mirror"
 fi
 
@@ -81,6 +81,7 @@ src_configure() {
 		--enable-shared
 		$(use_enable static-libs static)
 	)
+
 	econf "${myeconfargs[@]}"
 }
 
