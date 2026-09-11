@@ -13,8 +13,8 @@ ACCT_GROUP_ID=125  # Pre-standardisation
 
 pkg_setup() {
 	if use compat; then
-		ACCT_USER_ID=125
+		ACCT_GROUP_ID=125
 	else
-		ACCT_USER_ID=299
+		ACCT_GROUP_ID=299
 	fi
 }
