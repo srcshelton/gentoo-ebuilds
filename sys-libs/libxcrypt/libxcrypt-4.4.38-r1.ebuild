@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_{12..14} )
 # NEED_BOOTSTRAP is for developers to quickly generate a tarball
 # for publishing to the tree.
 NEED_BOOTSTRAP="no"
@@ -12,7 +12,7 @@ inherit crossdev flag-o-matic multibuild multilib python-any-r1 toolchain-funcs 
 DESCRIPTION="Extended crypt library for descrypt, md5crypt, bcrypt, and others"
 HOMEPAGE="https://github.com/besser82/libxcrypt"
 if [[ ${NEED_BOOTSTRAP} == "yes" ]] ; then
-	inherit crossdev flag-o-matic multibuild multilib python-any-r1 toolchain-funcs multilib-minimal
+	inherit autotools
 	SRC_URI="https://github.com/besser82/libxcrypt/releases/download/v${PV}/${P}.tar.xz"
 else
 	SRC_URI="https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${P}-autotools.tar.xz"
@@ -42,11 +42,11 @@ RDEPEND="${DEPEND}
 "
 BDEPEND="
 	dev-lang/perl
-	test? ( $(python_gen_any_dep 'dev-python/passlib[${PYTHON_USEDEP}]') )
+	test? ( $(python_gen_any_dep 'dev-python/libpass[${PYTHON_USEDEP}]') )
 "
 
 python_check_deps() {
-	python_has_version "dev-python/passlib[${PYTHON_USEDEP}]"
+	python_has_version "dev-python/libpass[${PYTHON_USEDEP}]"
 }
 
 pkg_pretend() {
