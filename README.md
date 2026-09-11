@@ -252,6 +252,8 @@ used to build perl)
     * ~~Consistent group for sys-process/cronbase~~
 * acct-group/dsp
     * Consistent group for DSP hardware access
+* acct-group/gpio
+    * Consistent group for GPIO hardware access (and 'Orion O6 GPIO aggregator' service)
 * acct-group/hugetlb
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/milter
