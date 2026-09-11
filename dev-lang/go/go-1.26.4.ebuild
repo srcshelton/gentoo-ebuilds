@@ -40,9 +40,20 @@ RDEPEND="
 		>=sys-devel/binutils-2.41
 		sys-devel/binutils[gold(-)]
 	) )"
-BDEPEND="|| (
-		>=dev-lang/go-${GO_BOOTSTRAP_MIN}
-		>=dev-lang/go-bootstrap-${GO_BOOTSTRAP_MIN} )"
+# The default BDEPEND below, whilst accurate, actually causes circular
+# dependency errors whenever there isn't a pre-existing dev-lang/go binary
+# package and dev-lang/go is only pulled-in as a dependency rather than as the
+# target package.  Until the bug in portage is fixed (see [1]), the least-bad
+# work-around is to make dev-lang/go explicitly and unconditionally depend on
+# dev-lang/go-bootstrap.
+#
+# [1] https://bugs.gentoo.org/971256
+#
+#BDEPEND="|| (
+#		>=dev-lang/go-${GO_BOOTSTRAP_MIN}
+#		>=dev-lang/go-bootstrap-${GO_BOOTSTRAP_MIN} )"
+BDEPEND=">=dev-lang/go-bootstrap-${GO_BOOTSTRAP_MIN}"
+
 
 # the *.syso files have writable/executable stacks
 QA_EXECSTACK='*.syso'
@@ -84,14 +95,16 @@ PATCHES=(
 )
 
 src_compile() {
-	if has_version -b ">=dev-lang/go-${GO_BOOTSTRAP_MIN}"; then
-		export GOROOT_BOOTSTRAP="${BROOT}/usr/lib/go"
-	elif has_version -b ">=dev-lang/go-bootstrap-${GO_BOOTSTRAP_MIN}"; then
+	# Due to above dependency issue, we're now forcing dev-lang/go-bootstrap
+	#
+	#if has_version -b ">=dev-lang/go-${GO_BOOTSTRAP_MIN}"; then
+	#	export GOROOT_BOOTSTRAP="${BROOT}/usr/lib/go"
+	#elif has_version -b ">=dev-lang/go-bootstrap-${GO_BOOTSTRAP_MIN}"; then
 		export GOROOT_BOOTSTRAP="${BROOT}/usr/lib/go-bootstrap"
-	else
-		eerror "Go cannot be built without go or go-bootstrap installed"
-		die "Should not be here, please report a bug"
-	fi
+	#else
+	#	eerror "Go cannot be built without go or go-bootstrap installed"
+	#	die "Should not be here, please report a bug"
+	#fi
 
 	if tc-is-gcc ; then
 		# XXX: Hack for checking ICE (bug #912152, gcc PR113204)
@@ -125,7 +138,11 @@ src_compile() {
 
 src_test() {
 	go_cross_compile && return 0
-	cd src
+	cd src || die
+
+	# remove bad test because of ebuild toolchain environment
+	rm -v cmd/go/testdata/script/autocgo.txt || die
+
 	PATH="${GOBIN}:${PATH}" \
 	./run.bash -no-rebuild -k || die "tests failed"
 }
