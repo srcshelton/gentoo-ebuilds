@@ -12,8 +12,8 @@ ACCT_GROUP_ID=24  # Avoid clash with macOS 'staff' group
 
 pkg_setup() {
 	if use compat; then
-		ACCT_USER_ID=24
+		ACCT_GROUP_ID=24
 	else
-		ACCT_USER_ID=20
+		ACCT_GROUP_ID=20
 	fi
 }
