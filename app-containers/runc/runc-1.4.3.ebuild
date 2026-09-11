@@ -2,6 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
+
 inherit go-module linux-info
 
 RUNC_COMMIT="bb14dabeb7185bb72c8c86735d090dcb20f36587"  # "The best way to irritate him is to feed his grandmother to the Ravenous Bugblatter Beast of Traal."
