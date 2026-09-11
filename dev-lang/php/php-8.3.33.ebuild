@@ -4,7 +4,7 @@
 EAPI=8
 
 WANT_AUTOMAKE="none"
-POSTGRES_COMPAT=( {15..17} )
+POSTGRES_COMPAT=( {15..18} )
 inherit autotools flag-o-matic multilib postgres systemd
 
 DESCRIPTION="The PHP language runtime engine"
@@ -19,7 +19,7 @@ LICENSE="PHP-3.01
 	unicode? ( BSD-2 LGPL-2.1 )"
 
 SLOT="$(ver_cut 1-2)"
-KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86 ~x64-macos"
+KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~loong ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc x86 ~x64-macos"
 
 # We can build the following SAPIs in the given order
 SAPIS="embed cli cgi fpm apache2 phpdbg"
@@ -86,7 +86,7 @@ COMMON_DEPEND="
 	qdbm? ( dev-db/qdbm )
 	readline? ( sys-libs/readline:0= )
 	session-mm? ( dev-libs/mm )
-	snmp? ( net-analyzer/net-snmp )
+	snmp? ( net-analyzer/net-snmp:= )
 	sodium? ( dev-libs/libsodium:=[-minimal(-)] )
 	spell? ( app-text/aspell )
 	sqlite? ( dev-db/sqlite )
@@ -121,6 +121,8 @@ BDEPEND="virtual/pkgconfig"
 
 PATCHES=(
 	"${FILESDIR}/php-8.3.9-gd-cachevars.patch"
+	"${FILESDIR}/php-8.3.31-libgd-test-fixes.patch"
+	"${FILESDIR}/php-8.3.31-ipv6-printing-test-fix.patch"
 	"${FILESDIR}/php-8.3-iconv-testfix-01.patch"
 	"${FILESDIR}/php-8.3-iconv-testfix-02.patch"
 	"${FILESDIR}/php-8.3-iconv-testfix-03.patch"
@@ -260,6 +262,20 @@ src_prepare() {
 
 	# One-off, somebody forgot to update a version constant
 	rm ext/reflection/tests/ReflectionZendExtension.phpt || die
+
+	# Fixed upstream, but not in 8.3.30.
+	rm ext/openssl/tests/bug{74796,80770}.phpt || die
+	rm ext/openssl/tests/{sni_server.phpt,sni_server_key_cert.phpt} || die
+
+	# Test fails on curl 8.17+, originally fixed upstream, but not
+	# backported to 8.2 (yet).
+	rm ext/curl/tests/curl_setopt_ssl.phpt || die
+
+	# bug 977402
+	rm ext/standard/tests/file/fdatasync.phpt \
+	   ext/standard/tests/file/fsync.phpt \
+	   ext/standard/tests/general_functions/proc_nice_basic.phpt \
+	   || die
 
 	eautoconf --force
 }
