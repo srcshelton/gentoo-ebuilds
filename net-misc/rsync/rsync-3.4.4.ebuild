@@ -5,14 +5,14 @@ EAPI=8
 
 # Uncomment when introducing a patch which touches configure
 RSYNC_NEEDS_AUTOCONF=1
-PYTHON_COMPAT=( python3_{12..14} )
+PYTHON_COMPAT=( python3_{12..15} )
 inherit flag-o-matic prefix python-single-r1 systemd
 
 DESCRIPTION="File transfer program to keep remote files into sync"
 HOMEPAGE="https://rsync.samba.org/"
 if [[ ${PV} == *9999 ]] ; then
 	EGIT_REPO_URI="https://github.com/RsyncProject/rsync.git"
-	inherit git-r3
+	inherit autotools git-r3
 
 	REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 else
@@ -42,6 +42,7 @@ RESTRICT="!test? ( test )"
 REQUIRED_USE+="
 	examples? ( ${PYTHON_REQUIRED_USE} )
 	rrsync? ( ${PYTHON_REQUIRED_USE} )
+	test? ( ${PYTHON_REQUIRED_USE} )
 "
 
 RDEPEND="
