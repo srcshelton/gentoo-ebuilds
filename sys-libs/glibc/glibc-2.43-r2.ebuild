@@ -40,7 +40,7 @@ DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
 
 if [[ "${PV}" == *'9999' ]]; then
-	inherit eapi9-ver flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs verify-sig
+	inherit git-r3
 else
 	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz
@@ -382,6 +382,21 @@ setup_target_flags() {
 	just_headers && return 0
 
 	case $(tc-arch) in
+		alpha)
+			# glibc selects its hand-written assembly mem*/str* routines by the
+			# host triplet's machine prefix (sysdeps/alpha/preconfigure does
+			# machine=alpha/$machine), NOT by the -mcpu codegen flag.  With the
+			# bare alpha-*-* CHOST only the generic C is built.  Map -mcpu to the
+			# most specific sysdeps/alpha/alphaev* dir that exists (Implies chain
+			# alphaev67 -> alphaev6 -> alphaev5) so the tuned asm is selected.
+			local cpu
+			case $(get-flag mcpu) in
+			21264a|ev67)           cpu="alphaev67" ;;
+			21264|ev6)             cpu="alphaev6" ;;
+			21164*|ev5|ev56|pca56) cpu="alphaev5" ;;
+			esac
+			[[ -n ${cpu} ]] && CTARGET_OPT="${cpu}-${CTARGET#*-}"
+		;;
 		x86)
 			# -march needed for #185404 #199334
 			# TODO: When creating the first glibc cross-compile, this test will
@@ -1504,6 +1519,9 @@ glibc_src_test() {
 			myxfailparams+="test-xfail-${myt}=yes "
 		done
 	fi
+
+	# https://inbox.sourceware.org/libc-alpha/lhuikb5ibey.fsf@oldenburg.str.redhat.com/
+	local -x GAWK_GNU_MATCHERS=1
 
 	# sandbox does not understand unshare() and prevents
 	# writes to /proc/, which makes many tests fail
