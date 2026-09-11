@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: user-info.eclass
@@ -26,7 +26,7 @@ RDEPEND="${DEPEND} sys-apps/shadow"
 # Small wrapper for getent (Linux), nidump (< Mac OS X 10.5),
 # dscl (Mac OS X 10.5), and pw (FreeBSD) used in enewuser()/enewgroup().
 #
-# Supported databases: group passwd
+# Supported databases: group passwd shadow
 # Warning: This function can be used only in pkg_* phases when ROOT is valid.
 egetent() {
 	local db="${1}" key="${2}" loc=''
@@ -34,7 +34,7 @@ egetent() {
 	[[ $# -ge 3 ]] && die "usage: egetent <database> <key>"
 
 	case ${db} in
-	passwd|group) ;;
+	group|passwd|shadow) ;;
 	*) die "sorry, database '${db}' not yet supported; file a bug" ;;
 	esac
 
@@ -66,7 +66,7 @@ egetent() {
 			# ignore nscd output if we're not running as root
 			type -p nscd >/dev/null && nscd -i "${db}" 2>/dev/null
 			getent "${db}" "${key}"
-		else
+		elif [[ "${db}" != shadow ]]; then
 			loc="${ROOT}/etc/${db}"
 			# If ROOT is set and the indicated location does not (yet) have the
 			# requested database present, then fall-back to the active system

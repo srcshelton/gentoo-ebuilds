@@ -1,4 +1,4 @@
-# Copyright 2019-2025 Gentoo Authors
+# Copyright 2019-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: acct-user.eclass
@@ -19,7 +19,7 @@
 # on the package providing it.
 #
 # The ebuild needs to call acct-user_add_deps after specifying
-# ACCT_USER_GROUPS.
+# ACCT_USER_GROUPS or ACCT_USER_HOME_OWNER.
 #
 # Example:
 # If your package needs user 'foo' belonging to same-named group, you
@@ -50,6 +50,10 @@ case ${EAPI} in
 esac
 
 inherit user-info
+
+case ${EAPI} in
+	7|8) inherit edo ;;
+esac
 
 [[ ${CATEGORY} == acct-user ]] ||
 	die "Ebuild error: this eclass can be used only in acct-user category!"
@@ -158,8 +162,8 @@ S=${WORKDIR}
 
 # @FUNCTION: acct-user_add_deps
 # @DESCRIPTION:
-# Generate appropriate RDEPEND from ACCT_USER_GROUPS.  This must be
-# called if ACCT_USER_GROUPS are set.
+# Generate appropriate RDEPEND from ACCT_USER_GROUPS and
+# ACCT_USER_HOME_OWNER.  This must be called if one of these are set.
 acct-user_add_deps() {
 	debug-print-function ${FUNCNAME} "$@"
 
@@ -171,61 +175,12 @@ acct-user_add_deps() {
 	fi
 
 	RDEPEND+=${ACCT_USER_GROUPS[*]/#/ acct-group/}
+
 	_ACCT_USER_ADD_DEPS_CALLED=1
 }
 
 
 # << Helper functions >>
-
-# @FUNCTION: eislocked
-# @USAGE: <user>
-# @INTERNAL
-# @DESCRIPTION:
-# Check whether the specified user account is currently locked.
-# Returns 0 if it is locked, 1 if it is not, 2 if the platform
-# does not support determining it.
-eislocked() {
-	[[ $# -eq 1 ]] || die "usage: ${FUNCNAME} <user>"
-
-	if [[ ${EUID} -ne 0 || -n ${EPREFIX} ]]; then
-		einfo "Insufficient privileges to execute ${FUNCNAME[0]}"
-		return 0
-	fi
-
-	case ${CHOST} in
-	*-freebsd*|*-dragonfly*|*-netbsd*)
-		[[ $(egetent "$1" | cut -d: -f2) == '*LOCKED*'* ]]
-		;;
-
-	*-openbsd*)
-		return 2
-		;;
-
-	*)
-		# NB: 'no password' and 'locked' are indistinguishable
-		# but we also expire the account which is more clear
-		local shadow
-		if [[ -n "${ROOT}" ]]; then
-			shadow=$(grep "^$1:" "${ROOT}/etc/shadow")
-		else
-			shadow=$(getent shadow "$1")
-		fi
-
-		[[ $( echo ${shadow} | cut -d: -f2) == '!'* ]] &&
-			[[ $(echo ${shadow} | cut -d: -f8) == 1 ]]
-		;;
-	esac
-}
-
-
-_acct_user_validate_db_fields() {
-	while (( $# )); do
-		case ${2} in
-			*:*|*$'\n'*) die "Invalid account ${1}: '${2}'" ;;
-		esac
-		shift 2
-	done
-}
 
 _acct_user_db_value() {
 	local db=${1} match=${2} key=${3} result=${4-}
@@ -521,7 +476,7 @@ acct-user_pkg_preinst() {
 
 		elog "Adding user ${ACCT_USER_NAME}"
 		if type -fp useradd >/dev/null; then
-			useradd "${opts[@]}" "${ACCT_USER_NAME}" || die "useradd failed with status $?"
+			nonfatal edo useradd "${opts[@]}" "${ACCT_USER_NAME}" || die "useradd failed with status $?"
 		elif [[ -z ${ROOT} ]] && type -fp busybox >/dev/null; then
 			local bbopts=( # <- Syntax
 				-S -H
@@ -531,10 +486,12 @@ acct-user_pkg_preinst() {
 				-G "${groups[0]}"
 			)
 			(( user_id == -1 )) || bbopts+=( -u "${user_id}" )
-			busybox adduser "${bbopts[@]}" "${ACCT_USER_NAME}" || die "adduser failed with status $?"
+			nonfatal edo busybox adduser "${bbopts[@]}" "${ACCT_USER_NAME}" ||
+				die "adduser failed with status $?"
 			local group
 			for group in "${groups[@]:1}"; do
-				busybox addgroup "${ACCT_USER_NAME}" "${group}" || die "addgroup failed with status $?"
+				nonfatal edo busybox addgroup "${ACCT_USER_NAME}" "${group}" ||
+					die "addgroup failed with status $?"
 			done
 		else
 			_acct_user_validate_db_fields \
@@ -549,7 +506,8 @@ acct-user_pkg_preinst() {
 					die "Supplementary group '${group}' not found"
 			done
 
-			if ! _acct_user_db_value passwd 0 "${ACCT_USER_NAME}" 0 >/dev/null; then
+			if ! _acct_user_db_value passwd 0 "${ACCT_USER_NAME}" 0 >/dev/null
+			then
 				user_id=${_ACCT_USER_ID}
 				if (( user_id != -1 )) &&
 					_acct_user_db_value passwd 2 "${user_id}" 0 >/dev/null
@@ -564,7 +522,8 @@ acct-user_pkg_preinst() {
 					local item value
 					if [[ -r ${ROOT:-}/etc/login.defs ]]; then
 						while read -r item value _; do
-							[[ -n ${value} && ${value} != *[!0-9]* ]] || continue
+							[[ -n ${value} && ${value} != *[!0-9]* ]] ||
+								continue
 							case ${item} in
 								SYS_UID_MIN) min=${value} ;;
 								SYS_UID_MAX) max=${value} ;;
@@ -572,23 +531,26 @@ acct-user_pkg_preinst() {
 						done < "${ROOT:-}/etc/login.defs"
 					fi
 					for (( user_id = max; user_id >= min; --user_id )); do
-						_acct_user_db_value passwd 2 "${user_id}" 0 >/dev/null || break
+						_acct_user_db_value passwd 2 "${user_id}" 0 >/dev/null ||
+							break
 					done
-					(( user_id >= min )) || die "Unable to allocate a free system UID"
+					(( user_id >= min )) ||
+						die "Unable to allocate a free system UID"
 				fi
 
 				local passwd_file="${ROOT:-}/etc/passwd"
 				[[ -f ${passwd_file} ]] ||
 					die "Unable to locate passwd database '${passwd_file}'"
 				printf '%s:x:%s:%s:%s:%s:%s\n' \
-					"${ACCT_USER_NAME}" "${user_id}" "${group_id}" \
-					"${_ACCT_USER_COMMENT}" "${_ACCT_USER_HOME}" \
-					"${_ACCT_USER_SHELL}" >> "${passwd_file}" ||
-					die "Unable to append user '${ACCT_USER_NAME}' to '${passwd_file}'"
+						"${ACCT_USER_NAME}" "${user_id}" "${group_id}" \
+						"${_ACCT_USER_COMMENT}" "${_ACCT_USER_HOME}" \
+						"${_ACCT_USER_SHELL}" >> "${passwd_file}" ||
+					die "Unable to append user '${ACCT_USER_NAME}' to" \
+						"'${passwd_file}'"
 
 				local shadow_file="${ROOT:-}/etc/shadow"
 				if [[ -f ${shadow_file} ]] &&
-					! _acct_user_db_value shadow 0 "${ACCT_USER_NAME}" 0 >/dev/null
+						! _acct_user_db_value shadow 0 "${ACCT_USER_NAME}" 0 >/dev/null
 				then
 					printf '%s:!:1::::::\n' "${ACCT_USER_NAME}" >> "${shadow_file}" ||
 						die "Unable to append user '${ACCT_USER_NAME}' to '${shadow_file}'"
@@ -673,11 +635,14 @@ acct-user_pkg_postinst() {
 		--shell "${_ACCT_USER_SHELL}"
 		--gid "${groups[0]}"
 		--groups "${aux_groups// /,}"
+		--expiredate ""
 	)
 
 	local unlock=no
-	if eislocked "${ACCT_USER_NAME}"; then
-		opts+=( --expiredate "" --unlock )
+	local pwhash=$(egetent shadow "${ACCT_USER_NAME}" | cut -d: -f2)
+	if [[ ${pwhash} != '!' && ${pwhash} = '!'* ]]; then
+		# Unlock the account if a password hash exists.
+		opts+=( --unlock )
 		unlock=yes
 	fi
 
@@ -727,7 +692,7 @@ acct-user_pkg_postinst() {
 
 	# usermod outputs a warning if unlocking the account would result in an
 	# empty password. Hide stderr in a text file and display it if usermod fails.
-	usermod "${opts[@]}" "${ACCT_USER_NAME}" 2>"${T}/usermod-error.log"
+	nonfatal edo usermod "${opts[@]}" "${ACCT_USER_NAME}" 2>"${T}/usermod-error.log"
 	local status=$?
 	if [[ ${status} -ne 0 ]]; then
 		cat "${T}/usermod-error.log" >&2
@@ -804,7 +769,8 @@ acct-user_pkg_prerm() {
 		_acct_user_rewrite_shadow_lock "${ACCT_USER_NAME}" lock
 		return
 	fi
-	usermod "${opts[@]}" "${ACCT_USER_NAME}" || die "usermod failed with status $?"
+	nonfatal edo usermod "${opts[@]}" "${ACCT_USER_NAME}" ||
+		die "usermod failed with status $?"
 }
 
 fi

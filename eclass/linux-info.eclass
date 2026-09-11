@@ -9,7 +9,7 @@
 # kernel@gentoo.org
 # @AUTHOR:
 # Original author: John Mylchreest <johnm@gentoo.org>
-# @SUPPORTED_EAPIS: 7 8
+# @SUPPORTED_EAPIS: 7 8 9
 # @BLURB: eclass used for accessing kernel related information
 # @DESCRIPTION:
 # This eclass is used as a central eclass for accessing kernel
@@ -32,7 +32,7 @@
 # get_running_version
 
 case ${EAPI} in
-	7|8) ;;
+	7|8|9) ;;
 	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
 esac
 
