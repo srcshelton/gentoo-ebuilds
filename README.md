@@ -552,6 +552,8 @@ used to build perl)
     * Fix `CONFIG_CHECK` Kconfig option-name for recent kernels
 * ~~dev-libs/libusb~~
     * ~~Remove relocation of libusb-1.0.so from /usr to /, due to external dependencies~~
+* dev-libs/mongo-c-driver
+    * Bump `PYTHON_COMPAT` to support `python3_14`
 * dev-libs/nss
     * 'shlibsign' must be executed with the build-time (rather than host) libraries
 * dev-libs/simdjson
