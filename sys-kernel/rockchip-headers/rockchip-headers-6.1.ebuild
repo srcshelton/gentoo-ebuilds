@@ -23,7 +23,10 @@ BDEPEND="
 	app-arch/xz-utils
 	dev-lang/perl"
 RDEPEND="
-	!sys-kernel/linux-headers"
+	!sys-kernel/linux-headers
+	!sys-kernel/cix-headers
+	!sys-kernel/raspberrypi-headers
+"
 
 [[ -n ${PATCH_VER} ]] && PATCHES=( "${WORKDIR}/${PATCH_PV}" )
 
