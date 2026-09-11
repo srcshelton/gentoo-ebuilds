@@ -3,8 +3,8 @@
 
 EAPI=8
 
-RUST_MIN_VER="1.88.0"
 [[ ${PV} == 9999* ]] || CRATES="${PN}@${PV}"
+RUST_MIN_VER="1.88.0"
 
 inherit cargo systemd
 
@@ -17,18 +17,22 @@ if [[ ${PV} == 9999* ]]; then
 else
 	SRC_URI="${CARGO_CRATE_URIS}
 		https://github.com/containers/netavark/releases/download/v${PV}/${PN}-v${PV}-vendor.tar.gz"
-	KEYWORDS="amd64 arm64 ~loong ~ppc64 ~riscv"
+	KEYWORDS="~amd64 ~arm64 ~loong ~ppc64 ~riscv"
 	RESTRICT="mirror"
 fi
 
 LICENSE="Apache-2.0 Apache-2.0-with-LLVM-exceptions BSD BSD-2 Boost-1.0 MIT Unicode-DFS-2016 Unlicense ZLIB"
 SLOT="0"
-IUSE="+dns systemd"
+IUSE="systemd"
 
+RDEPEND="
+	>=app-containers/aardvark-dns-${PV}
+	net-firewall/nftables[json]
+	!<app-containers/buildah-1.44.0
+	!<app-containers/podman-6.0.0"
 BDEPEND="
 	dev-go/go-md2man
 	dev-libs/protobuf[protoc(+)]"
-RDEPEND="dns? ( app-containers/aardvark-dns )"
 
 QA_FLAGS_IGNORED="usr/libexec/podman/${PN}"
 QA_PRESTRIPPED="usr/libexec/podman/${PN}"
@@ -46,13 +50,11 @@ src_unpack() {
 
 src_prepare() {
 	default
-
 	sed -i -e "s|m0755 bin|m0755 $(cargo_target_dir)|g;" Makefile || die
 }
 
 src_compile() {
 	cargo_src_compile
-
 	export PREFIX="${EPREFIX}"/usr
 	use systemd && export SYSTEMDDIR="$(systemd_get_systemunitdir)"
 
