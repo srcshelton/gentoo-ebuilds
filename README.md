@@ -548,6 +548,8 @@ used to build perl)
     * Fix build/runtime dependencies
 * dev-libs/libcgroup
     * Handle existing mountpoints and correct init scripts
+* dev-libs/libgpiod
+    * Fix `CONFIG_CHECK` Kconfig option-name for recent kernels
 * ~~dev-libs/libusb~~
     * ~~Remove relocation of libusb-1.0.so from /usr to /, due to external dependencies~~
 * dev-libs/nss
