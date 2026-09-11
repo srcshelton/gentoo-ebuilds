@@ -24,7 +24,7 @@ else
 	fi
 fi
 
-inherit branding flag-o-matic linux-info meson-multilib optfeature pam python-single-r1
+inherit branding flag-o-matic linux-info meson-multilib optfeature pam python-single-r1 secureboot shell-completion systemd toolchain-funcs udev
 
 DESCRIPTION="System and service manager for Linux"
 HOMEPAGE="https://systemd.io/"
@@ -292,7 +292,7 @@ src_configure() {
 		# We can't unconditionally do this b/c we fortify needs
 		# some level of optimisation.
 		filter-flags -D_FORTIFY_SOURCE=3
-		append-cppflags -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+		append-cppflags -U_FORTIFY_SOURCE -D_GENTOO_NO_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 	fi
 
 	python_setup
