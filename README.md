@@ -250,6 +250,8 @@ used to build perl)
 
 * ~~acct-group/cron~~
     * ~~Consistent group for sys-process/cronbase~~
+* acct-group/dsp
+    * Consistent group for DSP hardware access
 * acct-group/hugetlb
     * Consistent group for sys-libs/libhugetlbfs
 * acct-group/milter
