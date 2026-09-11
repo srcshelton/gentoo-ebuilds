@@ -31,14 +31,15 @@ IUSE="systemd +tools $( for l in ${PLOCALES}; do echo "l10n_${l/_/-}"; done )" #
 
 # debian control dependencies:
 #  Package: unifi
-#  Version: 7.5.172-22697-1
+#  Version: 10.3.58-34147-1
 #  Section: java
 #  Priority: optional
 #  Architecture: all
-#  Depends: adduser, binutils, coreutils, curl, libcap2, logrotate,
+#  Depends: binutils, coreutils, adduser, libcap2, curl, logrotate,
 #   mongodb-server (>= 1:3.6.0) | mongodb-10gen (>= 3.6.0) | mongodb-org-server (>= 3.6.0),
-#   mongodb-server (<< 1:5.0.0) | mongodb-10gen (<< 5.0.0) | mongodb-org-server (<< 5.0.0),
-#   openjdk-17-jre-headless
+#   mongodb-server (<< 1:8.1.0) | mongodb-10gen (<< 8.1.0) | mongodb-org-server (<< 8.1.0),
+#   temurin-25-jre | bellsoft-java25 | jdk-25 |
+#   openjdk-25-jdk | openjdk-25-jre | openjdk-25-jdk-headless | openjdk-25-jre-headless
 #
 DEPEND="
 	acct-group/unifi
@@ -47,9 +48,10 @@ DEPEND="
 
 RDEPEND="
 	${DEPEND}
+	>=dev-db/mongodb-3.6.0
 	<dev-db/mongodb-8.1
 	sys-libs/libcap
-	|| ( virtual/jre:21 virtual/jre:17 )
+	virtual/jre:25
 "
 
 S="${WORKDIR}"
@@ -119,10 +121,9 @@ src_prepare() {
 			rm usr/lib/unifi/lib/native/Linux/x86_64/libubnt_sdnotify_jni.so
 		fi
 	fi
-	rmdir -p \
+	rmdir -p 2>/dev/null \
 		usr/lib/unifi/lib/native/Linux/aarch64 \
-		usr/lib/unifi/lib/native/Linux/x86_64 \
-		2>/dev/null
+		usr/lib/unifi/lib/native/Linux/x86_64
 
 	rm -r usr/lib/unifi/{bin,conf} || die
 

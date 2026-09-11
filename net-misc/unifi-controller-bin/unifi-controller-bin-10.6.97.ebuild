@@ -31,25 +31,31 @@ IUSE="systemd +tools $( for l in ${PLOCALES}; do echo "l10n_${l/_/-}"; done )" #
 
 # debian control dependencies:
 #  Package: unifi
-#  Version: 7.5.172-22697-1
+#  Version: 10.3.58-34147-1
 #  Section: java
 #  Priority: optional
 #  Architecture: all
-#  Depends: adduser, binutils, coreutils, curl, libcap2, logrotate,
+#  Depends: binutils, coreutils, adduser, libcap2, curl, logrotate,
 #   mongodb-server (>= 1:3.6.0) | mongodb-10gen (>= 3.6.0) | mongodb-org-server (>= 3.6.0),
-#   mongodb-server (<< 1:5.0.0) | mongodb-10gen (<< 5.0.0) | mongodb-org-server (<< 5.0.0),
-#   openjdk-17-jre-headless
+#   mongodb-server (<< 1:8.1.0) | mongodb-10gen (<< 8.1.0) | mongodb-org-server (<< 8.1.0),
+#   temurin-25-jre | bellsoft-java25 | jdk-25 |
+#   openjdk-25-jdk | openjdk-25-jre | openjdk-25-jdk-headless | openjdk-25-jre-headless
 #
 DEPEND="
 	acct-group/unifi
 	acct-user/unifi
 "
 
+# MongoDB 8 refuses to read databases not already upgraded to version 7.  The
+# current unifi-controller-bin-10.5.67 build is using version 6.  Force
+# unifi-controller-bin-10.6.97.ebuild to use MongoDB 7 to provide an upgrade
+# path to unifi-controller-bin-10.6.101.ebuild with MongoDB 8.  Ugh.
 RDEPEND="
 	${DEPEND}
-	<dev-db/mongodb-8.1
+	>=dev-db/mongodb-7
+	<dev-db/mongodb-8
 	sys-libs/libcap
-	|| ( virtual/jre:21 virtual/jre:17 )
+	virtual/jre:25
 "
 
 S="${WORKDIR}"
