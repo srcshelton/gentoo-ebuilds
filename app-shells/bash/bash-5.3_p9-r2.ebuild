@@ -118,6 +118,9 @@ PATCHES=(
 	# bug #971782
 	"${FILESDIR}"/${PN}-5.3_p9-general-workaround-aliasing-violation-in-REVERSE_LIS.patch
 
+	# bug #965423, bug #970713
+	"${FILESDIR}"/${PN}-5.3_p9-pid-reuse.patch
+
 	# Patches to or from Chet, posted to the bug-bash mailing list.
 	"${FILESDIR}"/${PN}-5.0-syslog-history-extern.patch
 )

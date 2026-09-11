@@ -18,7 +18,7 @@ MY_PATCHES=()
 # Determine the patchlevel
 # See https://ftp.gnu.org/gnu/bash/bash-5.3-patches/
 case ${PV} in
-	9999|*'_alpha'*|*'_beta'*|*'_rc'*)
+	'9999'|*'_alpha'*|*'_beta'*|*'_rc'*)
 		# Set a negative patchlevel to indicate that it's a pre-release.
 		PLEVEL=-1
 		if [[ ${PV} =~ _pre[0-9]{8}$ ]]; then
@@ -117,6 +117,9 @@ PATCHES=(
 
 	# bug #971782
 	"${FILESDIR}"/${PN}-5.3_p9-general-workaround-aliasing-violation-in-REVERSE_LIS.patch
+
+	# bug #965423, bug #970713
+	"${FILESDIR}"/${PN}-5.3_p9-pid-reuse.patch
 
 	# Patches to or from Chet, posted to the bug-bash mailing list.
 	"${FILESDIR}"/${PN}-5.0-syslog-history-extern.patch
@@ -286,8 +289,8 @@ src_configure() {
 			# Darwin doesn't need an rpath here (in fact doesn't grok the argument)
 			*-linux-gnu* | *-solaris* | *-freebsd* )
 				append-ldflags "-Wl,-rpath,${EPREFIX%/}/usr/$(get_libdir)/bash"
-				;;
-		esac
+		;;
+	esac
 	else
 		# Disable the plugins logic by hand since bash doesn't provide
 		# a way of doing it.
