@@ -6,7 +6,7 @@ EAPI=8
 PYTHON_COMPAT=( python3_{12..14} )
 PARALLEL_MEMORY_MIN=4
 
-inherit cmake flag-o-matic llvm.org llvm-utils multilib prefix python-single-r1 toolchain-funcs multilib-minimal
+inherit cmake flag-o-matic llvm.org multilib prefix python-single-r1 toolchain-funcs multilib-minimal
 
 DESCRIPTION="C language family frontend for LLVM"
 HOMEPAGE="https://llvm.org/"
@@ -23,7 +23,6 @@ RESTRICT="!test? ( test )"
 
 DEPEND="
 	~llvm-core/llvm-${PV}:${LLVM_MAJOR}=[debug=,${MULTILIB_USEDEP}]
-	>=llvm-core/llvm-${PV}-r6:${LLVM_MAJOR}=[debug=,${MULTILIB_USEDEP}]
 	static-analyzer? ( dev-lang/perl:* )
 	xml? ( dev-libs/libxml2:2=[${MULTILIB_USEDEP}] )
 "
@@ -32,6 +31,7 @@ RDEPEND="
 	${PYTHON_DEPS}
 	${DEPEND}
 	>=llvm-core/clang-common-${PV}
+	!<llvm-core/llvm-22.1.0-r2:22
 "
 BDEPEND="
 	${PYTHON_DEPS}
@@ -39,20 +39,18 @@ BDEPEND="
 	xml? ( virtual/pkgconfig )
 "
 PDEPEND="
-	~llvm-runtimes/clang-runtime-${PV}
+	llvm-runtimes/clang-runtime:${LLVM_MAJOR}
 	llvm-core/clang-toolchain-symlinks:${LLVM_MAJOR}
 "
 
 LLVM_COMPONENTS=(
 	clang clang-tools-extra cmake
-	llvm/lib/Transforms/Hello
 )
 LLVM_MANPAGES=1
-LLVM_PATCHSET=${PV}-r8
 LLVM_TEST_COMPONENTS=(
 	llvm/utils
 )
-LLVM_USE_TARGETS=llvm
+LLVM_USE_TARGETS=llvm+eq
 llvm.org_set_globals
 
 [[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" doc? ( "
@@ -118,6 +116,10 @@ check_distribution_components() {
 					docs-clang-html|docs-clang-tools-html)
 						use doc || continue
 						;;
+					# built only with tests
+					c-index-test)
+						continue
+						;;
 				esac
 
 				all_targets+=( "${l}" )
@@ -141,9 +143,10 @@ check_distribution_components() {
 		done
 
 		if [[ ${#add[@]} -gt 0 || ${#remove[@]} -gt 0 ]]; then
-			eqawarn "get_distribution_components() is outdated!"
-			eqawarn "   Add: ${add[*]}"
-			eqawarn "Remove: ${remove[*]}"
+			eerror "get_distribution_components() is outdated!"
+			eerror "   Add: ${add[*]}"
+			eerror "Remove: ${remove[*]}"
+			die "Update get_distribution_components()!"
 		fi
 		cd - >/dev/null || die
 	fi
@@ -173,6 +176,7 @@ get_distribution_components() {
 		ppc-htm-resource-headers
 		ppc-resource-headers
 		riscv-resource-headers
+		spirv-resource-headers
 		systemz-resource-headers
 		utility-resource-headers
 		ve-resource-headers
@@ -192,20 +196,19 @@ get_distribution_components() {
 			libclang-python-bindings
 
 			# tools
-			amdgpu-arch
-			c-index-test
 			clang
 			clang-format
+			clang-installapi
 			clang-linker-wrapper
+			clang-nvlink-wrapper
 			clang-offload-bundler
-			clang-offload-packager
 			clang-refactor
 			clang-repl
-			clang-rename
 			clang-scan-deps
+			clang-sycl-linker
 			diagtool
 			hmaptool
-			nvptx-arch
+			offload-arch
 
 			# needed for cross-compiling Clang
 			clang-tblgen
@@ -220,7 +223,6 @@ get_distribution_components() {
 				clang-include-cleaner
 				clang-include-fixer
 				clang-move
-				clang-pseudo
 				clang-query
 				clang-reorder-fields
 				clang-tidy
@@ -230,6 +232,8 @@ get_distribution_components() {
 				modularize
 				pp-trace
 			)
+
+			use kernel_Darwin && out+=( ClangdXPCLib )
 		fi
 
 		if llvm_are_manpages_built; then
@@ -257,14 +261,13 @@ get_distribution_components() {
 multilib_src_configure() {
 	minimise-memory-usage
 
-	llvm_prepend_path "${LLVM_MAJOR}"
-
 	local mycmakeargs=(
 		-DDEFAULT_SYSROOT=$(usex prefix-guest "" "${EPREFIX}")
 		-DCMAKE_INSTALL_PREFIX="${EPREFIX}/usr/lib/llvm/${LLVM_MAJOR}"
 		-DCMAKE_INSTALL_MANDIR="${EPREFIX}/usr/lib/llvm/${LLVM_MAJOR}/share/man"
-		-DLLVM_CMAKE_DIR="${EPREFIX}/usr/lib/llvm/${LLVM_MAJOR}/$(get_libdir)/cmake"
+		-DLLVM_ROOT="${EPREFIX}/usr/lib/llvm/${LLVM_MAJOR}"
 		-DCLANG_CONFIG_FILE_SYSTEM_DIR="${EPREFIX}/etc/clang/${LLVM_MAJOR}"
+		-DCLANG_CONFIG_FILE_USER_DIR="~/.config/clang"
 		# relative to bindir
 		-DCLANG_RESOURCE_DIR="../../../../lib/clang/${LLVM_MAJOR}"
 
@@ -283,16 +286,10 @@ multilib_src_configure() {
 		# furthermore, it provides only syntax checking
 		-DCLANG_DEFAULT_OPENMP_RUNTIME=libomp
 
-		# disable using CUDA to autodetect GPU, just build for all
-		-DCMAKE_DISABLE_FIND_PACKAGE_CUDAToolkit=ON
-		# disable linking to HSA to avoid automagic dep,
-		# load it dynamically instead
-		-DCMAKE_DISABLE_FIND_PACKAGE_hsa-runtime64=ON
-
 		-DCLANG_DEFAULT_PIE_ON_LINUX=$(usex pie)
 
 		-DCLANG_ENABLE_LIBXML2=$(usex xml)
-		-DCLANG_ENABLE_ARCMT=$(usex static-analyzer)
+		-DCLANG_ENABLE_OBJC_REWRITER=ON
 		-DCLANG_ENABLE_STATIC_ANALYZER=$(usex static-analyzer)
 		# TODO: CLANG_ENABLE_HLSL?
 
@@ -338,12 +335,6 @@ multilib_src_configure() {
 	else
 		mycmakeargs+=(
 			-DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=OFF
-		)
-	fi
-
-	if [[ -n ${EPREFIX} ]]; then
-		mycmakeargs+=(
-			-DGCC_INSTALL_PREFIX="${EPREFIX}/usr"
 		)
 	fi
 
