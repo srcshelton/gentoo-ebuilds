@@ -24,6 +24,8 @@ BDEPEND="
 "
 RDEPEND="
 	!sys-kernel/linux-headers
+	!sys-kernel/raspberrypi-headers
+	!sys-kernel/rockchip-headers
 "
 
 src_unpack() {
