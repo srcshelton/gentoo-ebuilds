@@ -153,7 +153,8 @@ src_configure() {
 src_install() {
 	emake DESTDIR="${D}" suidperms=4755 install
 
-	fowners ':shadow' /usr/bin/{chage,expiry} || fowners ":${SHADOW_GID}" /usr/bin/{chage,expiry}
+	fowners ':shadow' /usr/bin/{chage,expiry} ||
+		fowners ":${SHADOW_GID}" /usr/bin/{chage,expiry}
 	fperms u-s,g+s /usr/bin/{chage,expiry}
 
 	# 4.9 regression: https://github.com/shadow-maint/shadow/issues/389
@@ -163,15 +164,15 @@ src_install() {
 
 	insinto /etc
 	doins etc/login.defs
+
+	# needed for 'useradd -D'
 	insopts -m0600
+	insinto /etc/default
+	doins "${FILESDIR}"/default/useradd
+
 	if ! use pam ; then
 		doins etc/login.access etc/limits
 	fi
-
-
-	# needed for 'useradd -D'
-	insinto /etc/default
-	doins "${FILESDIR}"/default/useradd
 
 	if use split-usr ; then
 		# move passwd to / to help recover broken systems #64441
