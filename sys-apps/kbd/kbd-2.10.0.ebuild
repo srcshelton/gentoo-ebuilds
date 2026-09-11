@@ -3,7 +3,7 @@
 
 EAPI=8
 
-inherit autotools multiprocessing
+inherit multiprocessing
 
 if [[ ${PV} == 9999 ]] ; then
 	inherit autotools git-r3
@@ -14,6 +14,7 @@ else
 		SRC_URI="https://www.kernel.org/pub/linux/utils/kbd/${P}.tar.xz"
 		KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 	else
+		inherit autotools
 		SRC_URI="https://github.com/legionus/kbd/archive/v${PV}.tar.gz -> ${P}.tar.gz"
 	fi
 fi
@@ -23,7 +24,7 @@ HOMEPAGE="https://kbd-project.org/"
 
 LICENSE="GPL-2+"
 SLOT="0"
-IUSE="bzip2 lzma nls pam selinux test zlib zstd"
+IUSE="bzip2 lzma nls pam selinux test xkb zlib zstd"
 RESTRICT="!test? ( test )"
 
 DEPEND="
@@ -34,6 +35,7 @@ DEPEND="
 		!app-misc/vlock
 		sys-libs/pam
 	)
+	xkb? ( x11-libs/libxkbcommon )
 	zlib? ( virtual/zlib:= )
 	zstd? ( app-arch/zstd:= )
 "
@@ -51,14 +53,6 @@ BDEPEND="
 	test? ( dev-libs/check )
 "
 
-PATCHES=(
-	"${FILESDIR}"/${P}-install-no-attr.patch
-	"${FILESDIR}"/${P}-install-posix.patch
-	"${FILESDIR}"/${P}-nullptr.patch
-	"${FILESDIR}"/${P}-uninit.patch
-	"${FILESDIR}"/${P}-time64.patch
-)
-
 src_prepare() {
 	default
 
@@ -71,12 +65,9 @@ src_prepare() {
 	mv qwerty/cz.map qwerty/cz-qwerty.map || die
 	popd &> /dev/null || die
 
-	#if [[ ${PV} == 9999 ]] || [[ $(ver_cut 3) -ge 90 ]] ; then
-	#	eautoreconf
-	#fi
-
-	# Drop after 2.9.0
-	eautoreconf
+	if [[ ${PV} == 9999 ]] || [[ $(ver_cut 3) -ge 90 ]] ; then
+		eautoreconf
+	fi
 }
 
 src_configure() {
@@ -91,6 +82,7 @@ src_configure() {
 		$(use_enable nls)
 		$(use_enable pam vlock)
 		$(use_enable test tests)
+		$(use_enable xkb)
 		$(use_with bzip2)
 		$(use_with lzma)
 		$(use_with zlib)
