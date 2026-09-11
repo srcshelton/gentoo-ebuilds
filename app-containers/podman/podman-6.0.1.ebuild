@@ -22,14 +22,14 @@ fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fuse +rootless selinux systemd +tmpfiles user-service wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs composefs cron experimental fish-completion +fuse +rootless selinux systemd +tmpfiles user-service wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	>=app-containers/aardvark-dns-2.0.0
 	>=app-containers/buildah-1.44.0
 	>=app-containers/conmon-2.2.1
-	>=app-containers/container-libs-0.68.0
+	>=app-containers/container-libs-0.68.0[extra(-)]
 	app-containers/crun
 	>=app-containers/netavark-2.0.0
 	>=app-containers/skopeo-1.23
@@ -364,9 +364,6 @@ src_install() {
 		newinitd "${FILESDIR}"/podman-clean-transient-5.0.0_rc6.initd podman-clean-transient
 		newconfd "${FILESDIR}"/podman-clean-transient-5.0.0_rc6.confd podman-clean-transient
 
-		exeinto /etc/cron.daily
-		newexe "${FILESDIR}"/podman-auto-update-5.0.0.cron podman-auto-update
-
 		insinto /etc/logrotate.d
 		newins "${FILESDIR}/podman.logrotated" podman
 
@@ -376,6 +373,11 @@ src_install() {
 
 			insinto /etc/user/conf.d
 			newins "${FILESDIR}/podman-5.0.0_rc4.user.confd" podman
+		fi
+	else
+		if use cron; then
+			exeinto /etc/cron.daily
+			newexe "${FILESDIR}"/podman-auto-update-5.0.0.cron podman-auto-update
 		fi
 	fi
 

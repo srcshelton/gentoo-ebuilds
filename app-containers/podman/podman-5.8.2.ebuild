@@ -8,16 +8,16 @@ PYTHON_COMPAT=( python3_{11..14} )
 inherit go-module linux-info python-any-r1 tmpfiles toolchain-funcs
 
 DESCRIPTION="A tool for managing OCI containers and pods with Docker-compatible CLI"
-HOMEPAGE="https://github.com/containers/podman/ https://podman.io/"
+HOMEPAGE="https://github.com/podman-container-tools/podman/ https://podman.io/"
 
 if [[ ${PV} == 9999* ]]; then
-	inherit go-module linux-info python-any-r1 tmpfiles toolchain-funcs
-	EGIT_REPO_URI="https://github.com/containers/podman.git"
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/podman-container-tools/podman.git"
 else
-	SRC_URI="https://github.com/containers/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
+	SRC_URI="https://github.com/podman-container-tools/podman/archive/v${PV/_rc/-rc}.tar.gz -> ${P}.tar.gz"
 	S="${WORKDIR}/${P/_rc/-rc}"
 	[[ ${PV} != *rc* ]] &&
-		KEYWORDS="~amd64 ~arm64 ~loong ~riscv"
+		KEYWORDS="amd64 arm64 ~loong ~riscv"
 fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
@@ -29,7 +29,7 @@ COMMON_DEPEND="
 	>=app-containers/conmon-2.1.10
 	>=app-containers/containers-common-0.58.0-r1
 	app-containers/crun
-	>=app-containers/netavark-1.6.0[dns]
+	>=app-containers/netavark-1.6.0[dns(+)]
 	app-crypt/gpgme:=
 	dev-db/sqlite:3
 	dev-libs/libassuan:=

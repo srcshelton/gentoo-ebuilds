@@ -22,14 +22,14 @@ fi
 
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 SLOT="0"
-IUSE="apparmor +bash-completion btrfs composefs experimental fish-completion +fuse +rootless selinux systemd +tmpfiles user-service wrapper zsh-completion"
+IUSE="apparmor +bash-completion btrfs composefs cron experimental fish-completion +fuse +rootless selinux systemd +tmpfiles user-service wrapper zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	>=app-containers/aardvark-dns-2.0.0
 	>=app-containers/buildah-1.44.0
 	>=app-containers/conmon-2.2.1
-	>=app-containers/container-libs-0.68.0
+	>=app-containers/container-libs-0.68.0[extra(-)]
 	app-containers/crun
 	>=app-containers/netavark-2.0.0
 	>=app-containers/skopeo-1.23
@@ -47,7 +47,7 @@ COMMON_DEPEND="
 "
 BDEPEND="
 	${PYTHON_DEPS}
-	>=dev-lang/go-1.25:=
+	>=dev-lang/go-1.25.6
 	dev-go/go-md2man
 	dev-vcs/git
 	sys-apps/findutils
