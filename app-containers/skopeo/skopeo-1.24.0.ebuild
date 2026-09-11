@@ -13,30 +13,34 @@ if [[ ${PV} == 9999* ]]; then
 	EGIT_REPO_URI="https://github.com/podman-container-tools/skopeo.git"
 else
 	SRC_URI="https://github.com/podman-container-tools/${PN}/archive/v${PV}.tar.gz -> ${P}.tar.gz"
-	KEYWORDS="amd64 arm64"
+	KEYWORDS="~amd64 ~arm64"
 fi
 
 # main
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT"
 SLOT="0"
-IUSE="bash-completion btrfs fish-completion rootless zsh-completion"
+IUSE="bash-completion btrfs fish-completion rootless selinux zsh-completion"
 RESTRICT="mirror test"
 
 COMMON_DEPEND="
 	>=app-crypt/gpgme-1.5.5:=
+	dev-db/sqlite:3
 	>=dev-libs/libassuan-2.4.3:=
 	btrfs? ( >=sys-fs/btrfs-progs-4.0.1 )
 	rootless? ( sys-apps/shadow:= )
+	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 "
 DEPEND="${COMMON_DEPEND}"
 RDEPEND="
 	${COMMON_DEPEND}
-	app-containers/container-libs
+	>=app-containers/container-libs-0.68.0
 "
 BDEPEND="dev-go/go-md2man
 	sys-apps/findutils
 	sys-apps/grep
 	sys-apps/sed"
+
+PATCHES=( "${FILESDIR}"/handle-conflicts-with-c-libs-pr2173.patch )
 
 pkg_setup() {
 	use btrfs && CONFIG_CHECK+=" ~BTRFS_FS"
@@ -55,6 +59,7 @@ run_make() {
 		BTRFS_BUILD_TAG="$(usex btrfs '' 'btrfs_noversion exclude_graphdriver_btrfs')"
 		CONTAINERSCONFDIR="${EPREFIX}/etc/containers"
 		LIBSUBID_BUILD_TAG="$(usex rootless 'libsubid' '')"
+		SQLITE_BUILD_TAG="libsqlite3"
 		PREFIX="${EPREFIX}/usr"
 		EXTRA_LDFLAGS="-bindnow -s -w"
 		GOFLAGS="-trimpath"
