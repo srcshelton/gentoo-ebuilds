@@ -3,7 +3,8 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{12..13} )
+PYTHON_COMPAT=( python3_{12..14} )
+PARALLEL_MEMORY_MIN=4
 
 inherit cmake flag-o-matic llvm.org pax-utils python-any-r1 toolchain-funcs multilib-minimal
 
@@ -18,8 +19,8 @@ HOMEPAGE="https://llvm.org/"
 
 LICENSE="Apache-2.0-with-LLVM-exceptions UoI-NCSA BSD public-domain rc"
 SLOT="${LLVM_MAJOR}/${LLVM_SOABI}"
-KEYWORDS="amd64 arm arm64 ~loong ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
-IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi ncurses test xar xml z3 zstd"
+KEYWORDS="amd64 arm arm64 ~loong ~mips ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
+IUSE="+binutils-plugin debug debuginfod doc exegesis libedit +libffi test xml z3 zstd"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
@@ -31,8 +32,6 @@ RDEPEND="
 	exegesis? ( dev-libs/libpfm:= )
 	libedit? ( dev-libs/libedit:0=[${MULTILIB_USEDEP}] )
 	libffi? ( >=dev-libs/libffi-3.0.13-r1:0=[${MULTILIB_USEDEP}] )
-	ncurses? ( >=sys-libs/ncurses-5.9-r3:0=[${MULTILIB_USEDEP}] )
-	xar? ( app-arch/xar )
 	xml? ( dev-libs/libxml2:2=[${MULTILIB_USEDEP}] )
 	z3? ( >=sci-mathematics/z3-4.7.1:0=[${MULTILIB_USEDEP}] )
 	zstd? ( app-arch/zstd:=[${MULTILIB_USEDEP}] )
@@ -47,12 +46,7 @@ BDEPEND="
 	sys-devel/gnuconfig
 	kernel_Darwin? (
 		<llvm-runtimes/libcxx-${LLVM_VERSION}.9999
-		>=sys-devel/binutils-apple-5.1
 	)
-	doc? ( $(python_gen_any_dep '
-		dev-python/recommonmark[${PYTHON_USEDEP}]
-		dev-python/sphinx[${PYTHON_USEDEP}]
-	') )
 	libffi? ( virtual/pkgconfig )
 "
 # There are no file collisions between these versions but having :0
@@ -69,14 +63,22 @@ PDEPEND="
 
 LLVM_COMPONENTS=( llvm cmake third-party )
 LLVM_MANPAGES=1
-LLVM_PATCHSET=${PV}-r5
 LLVM_USE_TARGETS=provide
 llvm.org_set_globals
 
-python_check_deps() {
-	use doc || return 0
+[[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" doc? ( "
+BDEPEND+="
+	$(python_gen_any_dep '
+		dev-python/myst-parser[${PYTHON_USEDEP}]
+		dev-python/sphinx[${PYTHON_USEDEP}]
+	')
+"
+[[ -n ${LLVM_MANPAGE_DIST} ]] && BDEPEND+=" ) "
 
-	python_has_version -b "dev-python/recommonmark[${PYTHON_USEDEP}]" &&
+python_check_deps() {
+	llvm_are_manpages_built || return 0
+
+	python_has_version -b "dev-python/myst-parser[${PYTHON_USEDEP}]" &&
 	python_has_version -b "dev-python/sphinx[${PYTHON_USEDEP}]"
 }
 
@@ -96,18 +98,23 @@ check_uptodate() {
 		has "${i}" "${prod_targets[@]}" || exp_targets+=( "${i}" )
 	done
 
+	local outdated
 	if [[ ${exp_targets[*]} != ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]} ]]; then
-		eqawarn "ALL_LLVM_EXPERIMENTAL_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]}"
-		eqawarn "Expected: ${exp_targets[*]}"
-		eqawarn
+		eerror "ALL_LLVM_EXPERIMENTAL_TARGETS are outdated!"
+		eerror "    Have: ${ALL_LLVM_EXPERIMENTAL_TARGETS[*]}"
+		eerror "Expected: ${exp_targets[*]}"
+		eerror
+		outdated=1
 	fi
 
 	if [[ ${prod_targets[*]} != ${ALL_LLVM_PRODUCTION_TARGETS[*]} ]]; then
-		eqawarn "ALL_LLVM_PRODUCTION_TARGETS is outdated!"
-		eqawarn "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
-		eqawarn "Expected: ${prod_targets[*]}"
+		eerror "ALL_LLVM_PRODUCTION_TARGETS are outdated!"
+		eerror "    Have: ${ALL_LLVM_PRODUCTION_TARGETS[*]}"
+		eerror "Expected: ${prod_targets[*]}"
+		outdated=1
 	fi
+
+	[[ ${outdated} ]] && die "Update ALL_LLVM*_TARGETS"
 }
 
 check_distribution_components() {
@@ -125,7 +132,13 @@ check_distribution_components() {
 					LLVM|LLVMgold)
 						;;
 					# TableGen lib + deps
-					LLVMDemangle|LLVMSupport|LLVMTableGen)
+					LLVMDemangle|LLVMSupport|LLVMSupportLSP|LLVMTableGen)
+						;;
+					# for mlir-tblgen
+					LLVMCodeGenTypes)
+						;;
+					# used by lldb
+					LLVMDebuginfod)
 						;;
 					# testing libraries
 					LLVMTestingAnnotations|LLVMTestingSupport)
@@ -141,6 +154,14 @@ check_distribution_components() {
 					# used only w/ USE=doc
 					docs-llvm-html)
 						use doc || continue
+						;;
+					# used only w/ USE=debuginfd
+					llvm-debuginfod)
+						use debuginfod || continue
+						;;
+					# used only w/ USE=xml
+					llvm-mt)
+						use xml || continue
 						;;
 				esac
 
@@ -165,20 +186,29 @@ check_distribution_components() {
 		done
 
 		if [[ ${#add[@]} -gt 0 || ${#remove[@]} -gt 0 ]]; then
-			eqawarn "get_distribution_components() is outdated!"
-			eqawarn "   Add: ${add[*]}"
-			eqawarn "Remove: ${remove[*]}"
+			eerror "get_distribution_components() is outdated!"
+			eerror "   Add: ${add[*]}"
+			eerror "Remove: ${remove[*]}"
+			die "Update get_distribution_components()!"
 		fi
 		cd - >/dev/null || die
 	fi
 }
 
 src_prepare() {
+	# Breaks on aarch64
+	if use amd64 || use x86; then
+		eapply "${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch" || die
+	fi
+
 	# disable use of SDK on OSX, bug #568758
 	sed -i -e 's/xcrun/false/' utils/lit/lit/util.py || die
 
 	# Update config.guess to support more systems
 	cp "${BROOT}/usr/share/gnuconfig/config.guess" cmake/ || die
+
+	# Disable lit tests (we run them in dev-python/lit).
+	> utils/lit/CMakeLists.txt || die
 
 	# Verify that the ebuild is up-to-date
 	check_uptodate
@@ -206,6 +236,9 @@ get_distribution_components() {
 		LLVMDemangle
 		LLVMSupport
 		LLVMTableGen
+		# mlir-tblgen
+		LLVMCodeGenTypes
+		LLVMSupportLSP
 
 		# testing libraries
 		llvm_gtest
@@ -216,8 +249,12 @@ get_distribution_components() {
 
 	if multilib_is_native_abi; then
 		out+=(
+			# library used by lldb
+			LLVMDebuginfod
+
 			# utilities
 			llvm-tblgen
+			llvm-test-mustache-spec
 			FileCheck
 			llvm-PerfectShuffle
 			count
@@ -227,6 +264,7 @@ get_distribution_components() {
 
 			# tools
 			bugpoint
+			clang-offload-packager
 			dsymutil
 			llc
 			lli
@@ -237,10 +275,13 @@ get_distribution_components() {
 			llvm-bcanalyzer
 			llvm-bitcode-strip
 			llvm-c-test
+			llvm-cas
 			llvm-cat
 			llvm-cfi-verify
+			llvm-cgdata
 			llvm-config
 			llvm-cov
+			llvm-ctxprof-util
 			llvm-cvtres
 			llvm-cxxdump
 			llvm-cxxfilt
@@ -258,6 +299,7 @@ get_distribution_components() {
 			llvm-gsymutil
 			llvm-ifs
 			llvm-install-name-tool
+			llvm-ir2vec
 			llvm-jitlink
 			llvm-jitlink-executor
 			llvm-lib
@@ -269,11 +311,13 @@ get_distribution_components() {
 			llvm-mc
 			llvm-mca
 			llvm-ml
+			llvm-ml64
 			llvm-modextract
-			llvm-mt
 			llvm-nm
 			llvm-objcopy
 			llvm-objdump
+			llvm-offload-binary
+			llvm-offload-wrapper
 			llvm-opt-report
 			llvm-otool
 			llvm-pdbutil
@@ -283,8 +327,8 @@ get_distribution_components() {
 			llvm-rc
 			llvm-readelf
 			llvm-readobj
+			llvm-readtapi
 			llvm-reduce
-			llvm-remark-size-diff
 			llvm-remarkutil
 			llvm-rtdyld
 			llvm-sim
@@ -294,13 +338,13 @@ get_distribution_components() {
 			llvm-strings
 			llvm-strip
 			llvm-symbolizer
-			llvm-tapi-diff
 			llvm-tli-checker
 			llvm-undname
 			llvm-windres
 			llvm-xray
 			obj2yaml
 			opt
+			reduce-chunk-list
 			sancov
 			sanstats
 			split-file
@@ -329,6 +373,9 @@ get_distribution_components() {
 		use debuginfod && out+=(
 			llvm-debuginfod
 		)
+		use xml && out+=(
+			llvm-mt
+		)
 	fi
 
 	printf "%s${sep}" "${out[@]}"
@@ -339,10 +386,7 @@ multilib_src_configure() {
 		append-cppflags -I"${EPREFIX%/}/usr/include"
 	fi
 
-	if use ppc && tc-is-gcc && [[ $(gcc-major-version) -lt 14 ]]; then
-		# Workaround for bug #880677
-		append-flags $(test-flags-CXX -fno-ipa-sra -fno-ipa-modref -fno-ipa-icf)
-	fi
+	minimise-memory-usage
 
 	# ODR violations (bug #917536, bug #926529). Just do it for GCC for now
 	# to avoid people grumbling. GCC is, anecdotally, more likely to miscompile
@@ -379,7 +423,6 @@ multilib_src_configure() {
 
 		-DLLVM_ENABLE_FFI=$(usex libffi)
 		-DLLVM_ENABLE_LIBEDIT=$(usex libedit)
-		-DLLVM_ENABLE_TERMINFO=$(usex ncurses)
 		-DLLVM_ENABLE_LIBXML2=$(usex xml)
 		-DLLVM_ENABLE_ASSERTIONS=$(usex debug)
 		-DLLVM_ENABLE_LIBPFM=$(usex exegesis)
@@ -392,11 +435,6 @@ multilib_src_configure() {
 		-DLLVM_ENABLE_HTTPLIB=$(usex debuginfod)
 
 		-DLLVM_HOST_TRIPLE="${CHOST}"
-
-		-DFFI_INCLUDE_DIR="${ffi_cflags#-I}"
-		-DFFI_LIBRARY_DIR="${ffi_ldflags#-L}"
-		# used only for llvm-objdump tool
-		-DLLVM_HAVE_LIBXAR=$(multilib_native_usex xar 1 0)
 
 		-DPython3_EXECUTABLE="${PYTHON}"
 
@@ -451,10 +489,6 @@ multilib_src_configure() {
 	fi
 
 	use kernel_Darwin && mycmakeargs+=(
-		# On Macos prefix, Gentoo doesn't split sys-libs/ncurses to libtinfo and
-		# libncurses, but llvm tries to use libtinfo before libncurses, and ends up
-		# using libtinfo (actually, libncurses.dylib) from system instead of prefix
-		-DTerminfo_LIBRARIES=-lncurses
 		# Use our libtool instead of looking it up with xcrun
 		-DCMAKE_LIBTOOL="${EPREFIX}/usr/bin/${CHOST}-libtool"
 	)
@@ -534,10 +568,46 @@ multilib_src_install_all() {
 }
 
 pkg_postinst() {
+	pkg_config
+
 	elog "You can find additional opt-viewer utility scripts in:"
 	elog "  ${EROOT}/usr/lib/llvm/${LLVM_MAJOR}/share/opt-viewer"
 	elog "To use these scripts, you will need Python along with the following"
 	elog "packages:"
 	elog "  dev-python/pygments (for opt-viewer)"
 	elog "  dev-python/pyyaml (for all of them)"
+}
+
+pkg_config() {
+	local best="$( best_version "${CATEGORY}/${PN}" )"
+	local file=''
+
+	if [[ -n "${best}" ]] && [[ "${CATEGORY}/${PF}" != "${best}" ]]; then
+		einfo "Not updating library directory, latest version is '${best}'" \
+			"(this is '${CATEGORY}/${PF}')"
+
+		return 0
+	fi
+
+	for file in \
+			libLLVM-${LLVM_MAJOR}.so \
+			libLLVM.so \
+			libLLVM.so.${LLVM_SOABI}
+	do
+		if ! [ -e \
+			"${EROOT}/usr/lib/llvm/${LLVM_MAJOR}/$(get_libdir)/${file}" \
+			]
+		then
+			die "Couldn't find ${PN} shared-object '${file}' in path" \
+				"'${EROOT}/usr/lib/llvm/${LLVM_MAJOR}/$(get_libdir)/'"
+		fi
+
+		find "${EROOT}/usr/$(get_libdir)" -name "libLLVM*.so*" -type l \
+				-exec rm -v {} +
+		ln -s "../lib/llvm/${LLVM_MAJOR}/$(get_libdir)/${file}" \
+				"/usr/$(get_libdir)/" ||
+			die "Failed to link '${file}' into '/usr/$(get_libdir)/': ${?}"
+	done
+
+	return 0
 }
