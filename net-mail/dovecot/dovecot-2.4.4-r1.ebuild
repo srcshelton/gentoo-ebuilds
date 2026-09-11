@@ -30,12 +30,13 @@ SRC_URI="https://www.dovecot.org/releases/${major_minor}/${MY_P}.tar.gz
 	)
 	verify-sig? (
 		https://www.dovecot.org/releases/${major_minor}/${MY_P}.tar.gz.sig
-	) "
+	)
+"
 S="${WORKDIR}/${MY_P}"
 PIEGONHOLE_S="../dovecot-pigeonhole-${MY_PV}"
 LICENSE="LGPL-2.1 MIT"
 SLOT="0/${PV}"
-KEYWORDS="amd64 ~arm arm64 ~hppa ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
+KEYWORDS="amd64 ~arm arm64 ~hppa ~mips ~ppc ppc64 ~riscv ~sparc ~x86"
 
 #IUSE_DOVECOT_AUTH_DICT="cdb kerberos ldap lua mysql pam postgres sqlite"
 #IUSE_DOVECOT_COMPRESS="lz4 zstd"
@@ -77,7 +78,7 @@ DEPEND="
 	textcat? ( app-text/libexttextcat:= )
 	unwind? ( sys-libs/libunwind:= )
 	zstd? ( app-arch/zstd:= )
-	"
+"
 
 RDEPEND="
 	${DEPEND}
@@ -86,7 +87,8 @@ RDEPEND="
 	acct-user/dovecot
 	acct-user/dovenull
 	net-mail/mailbase[pam?]
-	"
+	sys-apps/coreutils
+"
 
 BDEPEND="virtual/pkgconfig
 	test? (
@@ -97,11 +99,11 @@ BDEPEND="virtual/pkgconfig
 		)
 	)
 	verify-sig? ( sec-keys/openpgp-keys-dovecot )
-	"
+"
 
 PATCHES=(
 	"${FILESDIR}/${PN}-autoconf-lua-version-v3.patch"
-	"${FILESDIR}/${PN}-2.4.2-tests.patch"
+	"${FILESDIR}/${PN}-2.4.3-fix-32bit.patch"
 )
 
 pkg_setup() {
@@ -125,11 +127,8 @@ src_unpack() {
 src_prepare() {
 	default
 
-	if use sieve || use managesieve; then
-		pushd "${PIEGONHOLE_S}" > /dev/null || die
-		eapply "${FILESDIR}/${PN}-2.4.2-fix-32bit.patch"
-		popd > /dev/null || die
-	fi
+	# unix socket path too long under portage build dir
+	sed -i '/^TEST_IMAP_CLIENT_HIBERNATE/s/test-imap-client-hibernate//' src/imap/Makefile.am || die
 
 	# rename default cert files
 	sed -i -e "s:ssl-cert.pem:server.pem:" \
@@ -142,6 +141,8 @@ src_prepare() {
 
 	# Bug #727244
 	append-cflags -fasynchronous-unwind-tables
+	# Bug #971191
+	append-cflags -fno-strict-aliasing
 
 	# no-semantic-interposition causes "Error: Auth worker sees different
 	# passdbs/userdbs than auth server. Maybe config just changed and this
@@ -162,6 +163,20 @@ src_configure() {
 	fi
 
 	use static-libs && lto-guarantee-fat
+
+	if tc-is-cross-compiler; then
+		# runtime checks cannot be executed on the host
+		# m4/gmtime_max.m4: 40 or 31 bits
+		local maxtime=31
+		tc-has-64bit-time_t && maxtime=40
+		export i_cv_gmtime_max_time_t=${maxtime}
+		export i_cv_epoll_works=yes
+		export i_cv_fd_passing=yes
+		export i_cv_mmap_plays_with_write=yes
+		export i_cv_posix_fallocate_works=yes
+		export lib_cv_va_copy=yes
+		export lib_cv___va_copy=no
+	fi
 
 	# --disable-hardening because our toolchain already defaults to
 	# these bits on, and it actually regresses the default _FORTIFY_SOURCE
@@ -254,7 +269,7 @@ src_install() {
 	insinto /etc/dovecot/conf.d
 	doins "${FILESDIR}/50-misc.conf"
 
-	dodoc NEWS README.md
+	dodoc NEWS README.md  # AUTHORS TODO
 
 	if use sieve || use managesieve; then
 		pushd "${PIEGONHOLE_S}" >/dev/null || die
