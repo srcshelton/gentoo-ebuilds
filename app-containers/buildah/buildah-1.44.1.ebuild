@@ -11,16 +11,11 @@ HOMEPAGE="https://github.com/podman-container-tools/buildah"
 LICENSE="Apache-2.0 BSD BSD-2 CC-BY-SA-4.0 ISC MIT MPL-2.0"
 
 SLOT="0"
-IUSE="apparmor bash-completion btrfs doc +seccomp systemd test"
+IUSE="apparmor bash-completion btrfs doc +seccomp selinux systemd test"
 RESTRICT="mirror test"
-EXTRA_DOCS=(
-	"CHANGELOG.md"
-	"troubleshooting.md"
-	"docs/tutorials"
-)
 
 if [[ ${PV} == 9999* ]]; then
-	inherit go-module linux-info toolchain-funcs
+	inherit git-r3
 	EGIT_REPO_URI="https://github.com/podman-container-tools/buildah.git"
 else
 	SRC_URI="https://github.com/podman-container-tools/buildah/archive/v${PV}.tar.gz -> ${P}.tar.gz"
@@ -28,7 +23,7 @@ else
 fi
 
 RDEPEND="
-	>=app-containers/container-libs-0.68.0[btrfs?]
+	>=app-containers/container-libs-0.68.0[btrfs?,extra(-)]
 	app-crypt/gpgme:=
 	dev-db/sqlite:3=
 	dev-libs/libgpg-error:=
@@ -37,6 +32,7 @@ RDEPEND="
 	apparmor? ( sys-libs/libapparmor:= )
 	btrfs? ( sys-fs/btrfs-progs )
 	seccomp? ( sys-libs/libseccomp:= )
+	selinux? ( sec-policy/selinux-podman sys-libs/libselinux:= )
 	systemd? ( sys-apps/systemd )
 "
 DEPEND="${RDEPEND}"
@@ -44,6 +40,9 @@ BDEPEND="
 	dev-go/go-md2man
 	>=dev-lang/go-1.25.6
 "
+
+EXTRA_DOCS=( CHANGELOG.md troubleshooting.md docs/tutorials )
+PATCHES=( "${FILESDIR}/buildah-1.44.1-pr6984-dontbuild-on-install.patch" )
 
 pkg_setup() {
 	local CONFIG_CHECK=""
@@ -130,10 +129,8 @@ src_compile() {
 
 	tc-export AS LD STRIP
 	export GOMD2MAN="$(command -v go-md2man)"
-	export SELINUXOPT=
-	export EXTRA_LDFLAGS="-bindnow -s -w"
-	export GOFLAGS="-trimpath"
-	default
+	emake binaries
+	emake -C docs
 }
 
 src_test() {
@@ -141,7 +138,7 @@ src_test() {
 }
 
 src_install() {
-	emake DESTDIR="${ED}" SELINUXOPT= install \
+	emake DESTDIR="${ED}" SELINUXOPT= install.nobuild \
 		$(usex bash-completion 'install.completions' '')
 	einstalldocs
 	use doc && dodoc -r "${EXTRA_DOCS[@]}"
