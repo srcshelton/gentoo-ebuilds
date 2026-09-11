@@ -151,8 +151,8 @@ PATCHES=(
 	# and the documentation mentions that it is a Gentoo addition.
 	"${FILESDIR}"/${PN}-2.50.0-diff-implement-config.diff.renames-copies-harder.patch
 
-	"${FILESDIR}"/${PN}-2.52.0-0001-rust-don-t-pass-quiet-to-cargo.patch
-	"${FILESDIR}"/${PN}-2.52.0-0002-rust-respect-CARGO-environment-variable.patch
+	"${FILESDIR}"/${PN}-2.54.0-0001-rust-don-t-pass-quiet-to-cargo.patch
+	"${FILESDIR}"/${PN}-2.54.0-0002-rust-respect-CARGO-environment-variable.patch
 )
 
 pkg_setup() {
@@ -227,12 +227,14 @@ src_configure() {
 		sh='/bin/sh'
 	EOF
 
-	local -a emesonargs=(
+	local emesonargs=(
 		--native-file "${native_file}"
 
 		$(meson_feature curl)
 		$(meson_feature cgi gitweb)
 		$(meson_feature webdav expat)
+		$(meson_feature tk gitk)
+		$(meson_feature tk git_gui)
 		$(meson_feature iconv)
 		$(meson_feature nls gettext)
 		$(meson_feature pcre pcre2)
@@ -273,18 +275,6 @@ src_configure() {
 	fi
 
 	meson_src_configure
-
-	if use tk ; then
-		local tkdir
-		for tkdir in git-gui gitk-git ; do
-			(
-				EMESON_SOURCE="${S}"/${tkdir}
-				BUILD_DIR="${WORKDIR}"/${tkdir}_build
-				emesonargs=()
-				meson_src_configure
-			)
-		done
-	fi
 }
 
 git_emake() {
@@ -319,17 +309,6 @@ src_compile() {
 		cargo_env meson_src_compile
 	else
 		meson_src_compile
-	fi
-
-	if use tk ; then
-		local tkdir
-		for tkdir in git-gui gitk-git ; do
-			(
-				EMESON_SOURCE="${S}"/${tkdir}
-				BUILD_DIR="${WORKDIR}"/${tkdir}_build
-				meson_src_compile
-			)
-		done
 	fi
 
 	if use doc ; then
@@ -459,17 +438,6 @@ src_install() {
 				"git-daemon@.service"
 			systemd_dounit "${FILESDIR}/git-daemon.socket"
 		fi
-	fi
-
-	if use tk ; then
-		local tkdir
-		for tkdir in git-gui gitk-git ; do
-			(
-				EMESON_SOURCE="${S}"/${tkdir}
-				BUILD_DIR="${WORKDIR}"/${tkdir}_build
-				meson_src_install
-			)
-		done
 	fi
 
 	perl_delete_localpod

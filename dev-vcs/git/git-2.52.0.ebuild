@@ -7,8 +7,8 @@ GENTOO_DEPEND_ON_PERL=no
 
 # bug #329479: git-remote-testgit is not multiple-version aware
 PYTHON_COMPAT=( python3_{11..14} )
-RUST_OPTIONAL=1
-inherit flag-o-matic meson optfeature perl-module plocale python-single-r1 rust shell-completion systemd toolchain-funcs
+CARGO_OPTIONAL=1
+inherit cargo flag-o-matic meson optfeature perl-module plocale python-single-r1 shell-completion systemd toolchain-funcs
 
 PLOCALES="bg ca de es fr is it ko pt_PT ru sv vi zh_CN"
 
@@ -192,6 +192,7 @@ src_unpack() {
 		git-r3_src_unpack
 	fi
 
+	use rust && cargo_gen_config
 }
 
 src_prepare() {
@@ -319,7 +320,11 @@ git_emake() {
 }
 
 src_compile() {
-	meson_src_compile
+	if use rust; then # bug #978391
+		cargo_env meson_src_compile
+	else
+		meson_src_compile
+	fi
 
 	if use tk ; then
 		local tkdir
