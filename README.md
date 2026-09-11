@@ -688,6 +688,8 @@ used to build perl)
     * Avoid cross-linked library if using sys-apps/systemd
 * sys-apps/locale-gen
     * Fix operation with sys-libs/glibc 'compile-locales' USE-flag enabled
+* sys-apps/man-pages
+    * Fix broken build process to reduce memory requirement from 1,069 MiB to 15.4 MiB
 * sys-apps/pciutils
     * Update and modernise init script
 * ~~sys-apps/portage~~
