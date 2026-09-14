@@ -18,9 +18,9 @@ Debian, Ubuntu, Radxa, or CIX kernel.
 
 | Kernel | Gentoo package | Gentoo patch set | CIX source |
 | --- | --- | --- | --- |
-| [Linux 6.18.50](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.18.50) | `cix-sources-6.18.50` | `6.18-57` base, extras, and experimental | [`cix-linux-main` at `bc078a3`](https://github.com/cixtech/cix-linux-main/commit/bc078a383042a6c14b05c56e12390e422f893088) |
+| [Linux 6.18.52](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.18.52) | `cix-sources-6.18.52` | `6.18-59` base, extras, and experimental | [`cix-linux-main` at `bc078a3`](https://github.com/cixtech/cix-linux-main/commit/bc078a383042a6c14b05c56e12390e422f893088) |
 | [Linux 7.1.13](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v7.1.13) | `cix-sources-7.1.13` | `7.1-16` base and extras | same CIX source |
-| [Linux 7.2.4](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v7.2.4) | `cix-sources-7.2.4` | `7.2-5` base and extras | same CIX source |
+| [Linux 7.2.6](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v7.2.6) | `cix-sources-7.2.6` | `7.2-7` base and extras | same CIX source |
 
 Each ebuild is the authority for its exact patch order. The Linux 6.18-only
 PCIe and pinctrl files listed below backport support already present in Linux
@@ -46,7 +46,7 @@ Choose every component deliberately:
 | Board | `o6`, `o6n` | Must match the physical board. |
 | Firmware | `1.2`, `1.3` | Must match the installed Radxa firmware family. Supported profiles cover Radxa 1.2.1 and later 1.2.x releases, plus 1.3.0. Later 1.3.x releases are not assumed to be table-compatible. Check `/sys/class/dmi/id/bios_version` if unsure. |
 | Configuration | `generic`, `generic-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages. Use `generic` unless a 64 KiB kernel is specifically required. |
-| Kernel | `6.18.50`, `7.1.13`, `7.2.4` | The maintained Linux version. |
+| Kernel | `6.18.52`, `7.1.13`, `7.2.6` | The maintained Linux version. |
 
 The kernel image already contains the corresponding ACPI table-upgrade
 profile. O6 and O6N firmware 1.2 packages use the full profile, as does O6
@@ -192,7 +192,7 @@ controls are already enabled.
 ## Included changes
 
 The table below names every non-Gentoo patch identity included by the default
-maintained configurations. “All” means Linux 6.18.50, 7.1.13, and 7.2.4.
+maintained configurations. “All” means Linux 6.18.52, 7.1.13, and 7.2.6.
 Some CIX queue files are taken directly from the pinned CIX archive and
 therefore do not also exist as standalone files in this directory.
 
@@ -203,9 +203,9 @@ CIX-specific:
 
 | Line | Stable point-update files | Other Gentoo patch files | Effect |
 | --- | --- | --- | --- |
-| 6.18.50 | `1000_linux-6.18.1.patch` through `1049_linux-6.18.50.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2920_sign-file-patch-for-libressl.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 6.18.0 to 6.18.50 and applies the pinned Gentoo defaults and compatibility fixes. The updated Gentoo Kconfig patch makes the former local ARM64 dependency workaround unnecessary. |
+| 6.18.52 | `1000_linux-6.18.1.patch` through `1051_linux-6.18.52.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2920_sign-file-patch-for-libressl.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 6.18.0 to 6.18.52 and applies the pinned Gentoo defaults and compatibility fixes. The updated Gentoo Kconfig patch makes the former local ARM64 dependency workaround unnecessary. |
 | 7.1.13 | `1001_linux-7.1.1.patch`, `1001_linux-7.1.2.patch`, and `1002_linux-7.1.3.patch` through `1012_linux-7.1.13.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1710_x86-tools-vdso2c.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2902_Replace-CONST-CAST-with-const-cast.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 7.1.0 to 7.1.13 and applies the pinned Gentoo security, build, and configuration fixes. The SCMI zero-vote and Panthor zero-sized-firmware-section fixes from 7.1.10 remain intact alongside the CIX adaptations. |
-| 7.2.4 | `1000_linux-7.2.1.patch` through `1003_linux-7.2.4.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1710_x86-tools-vdso2c.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2902_Replace-CONST-CAST-with-const-cast.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 7.2.0 to 7.2.4 and applies the pinned Gentoo security, build, and configuration fixes. |
+| 7.2.6 | `1000_linux-7.2.1.patch` through `1005_linux-7.2.6.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1710_x86-tools-vdso2c.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2902_Replace-CONST-CAST-with-const-cast.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 7.2.0 to 7.2.6 and applies the pinned Gentoo security, build, and configuration fixes. |
 
 | Subsystem | Patch files | Lines | What this provides |
 | --- | --- | --- | --- |

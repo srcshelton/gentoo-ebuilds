@@ -152,27 +152,28 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  
  static struct thermal_hwmon_device *
  thermal_hwmon_lookup_by_type(const struct thermal_zone_device *tz)
-@@ -95,10 +115,11 @@ thermal_hwmon_lookup_by_type(const struct thermal_zone_device *tz)
+@@ -95,9 +115,10 @@ thermal_hwmon_lookup_by_type(const struct thermal_zone_device *tz)
  	struct thermal_hwmon_device *hwmon;
  	char type[THERMAL_NAME_LENGTH];
  
 +	strscpy(type, thermal_hwmon_type(tz));
 +	strreplace(type, '-', '_');
 +
- 	mutex_lock(&thermal_hwmon_list_lock);
  	list_for_each_entry(hwmon, &thermal_hwmon_list, node) {
 -		strscpy(type, tz->type);
 -		strreplace(type, '-', '_');
- 		if (!strcmp(hwmon->type, type)) {
- 			mutex_unlock(&thermal_hwmon_list_lock);
+ 		if (!strcmp(hwmon->type, type))
  			return hwmon;
-@@ -137,12 +158,12 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+ 	}
+@@ -115,14 +136,14 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  {
  	struct thermal_hwmon_device *hwmon;
  	struct thermal_hwmon_temp *temp;
 -	int new_hwmon_device = 1;
 +	bool new_hwmon_device = true;
- 	int result;
+ 	int result = 0;
+ 
+ 	mutex_lock(&thermal_hwmon_list_lock);
  
  	hwmon = thermal_hwmon_lookup_by_type(tz);
  	if (hwmon) {
@@ -181,8 +182,8 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  		goto register_sys_interface;
  	}
  
-@@ -151,7 +172,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
- 		return -ENOMEM;
+@@ -133,7 +154,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+ 	}
  
  	INIT_LIST_HEAD(&hwmon->tz_list);
 -	strscpy(hwmon->type, tz->type, THERMAL_NAME_LENGTH);
@@ -190,7 +191,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  	strreplace(hwmon->type, '-', '_');
  	hwmon->device = hwmon_device_register_for_thermal(&tz->device,
  							  hwmon->type, hwmon);
-@@ -180,6 +201,21 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+@@ -162,6 +183,21 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  	if (result)
  		goto free_temp_mem;
  
@@ -212,7 +213,7 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  	if (thermal_zone_crit_temp_valid(tz)) {
  		snprintf(temp->temp_crit.name,
  				sizeof(temp->temp_crit.name),
-@@ -191,7 +227,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+@@ -173,7 +209,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  		result = device_create_file(hwmon->device,
  					    &temp->temp_crit.attr);
  		if (result)
@@ -221,24 +222,24 @@ diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
  
  		temp->temp_crit_present = true;
  	}
-@@ -204,6 +240,9 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+@@ -184,6 +220,9 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
  
- 	return 0;
+ 	goto unlock;
  
-+ unregister_label:
++unregister_label:
 +	if (temp->temp_label_present)
 +		device_remove_file(hwmon->device, &temp->temp_label.attr);
-  unregister_input:
+ unregister_input:
  	device_remove_file(hwmon->device, &temp->temp_input.attr);
-  free_temp_mem:
-@@ -239,6 +278,8 @@ void thermal_remove_hwmon_sysfs(struct thermal_zone_device *tz)
- 	}
+ free_temp_mem:
+@@ -223,6 +262,8 @@ void thermal_remove_hwmon_sysfs(struct thermal_zone_device *tz)
+ 			continue;
  
- 	device_remove_file(hwmon->device, &temp->temp_input.attr);
-+	if (temp->temp_label_present)
-+		device_remove_file(hwmon->device, &temp->temp_label.attr);
- 	if (temp->temp_crit_present)
- 		device_remove_file(hwmon->device, &temp->temp_crit.attr);
+ 		device_remove_file(hwmon->device, &temp->temp_input.attr);
++		if (temp->temp_label_present)
++			device_remove_file(hwmon->device, &temp->temp_label.attr);
+ 		if (temp->temp_crit_present)
+ 			device_remove_file(hwmon->device, &temp->temp_crit.attr);
  
 diff --git a/include/linux/thermal.h b/include/linux/thermal.h
 --- a/include/linux/thermal.h

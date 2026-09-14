@@ -52,7 +52,7 @@ diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269
  static void alc_fixup_disable_mic_vref(struct hda_codec *codec,
  				  const struct hda_fixup *fix, int action)
  {
-@@ -4226,6 +4235,13 @@ enum {
+@@ -4236,6 +4245,13 @@ enum {
  	ALC236_FIXUP_DELL_HP_POP_NOISE,
  	ALC274_FIXUP_HP_89E9_GPIO,
  	ALC274_FIXUP_HP_VERBS,
@@ -66,7 +66,7 @@ diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269
  };
  
  /* A special fixup for Lenovo C940 and Yoga Duet 7;
-@@ -6898,6 +6914,150 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -6907,6 +6923,150 @@ static const struct hda_fixup alc269_fixups[] = {
  		.chained = true,
  		.chain_id = ALC274_FIXUP_HP_89E9_GPIO,
  	},
@@ -217,7 +217,7 @@ diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269
  };
  
  static const struct hda_quirk alc269_fixup_tbl[] = {
-@@ -8293,6 +8453,9 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
+@@ -8307,6 +8467,9 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
  	{.id = ALC2XX_FIXUP_HEADSET_MIC, .name = "alc2xx-fixup-headset-mic"},
  	{.id = ALC245_FIXUP_BASS_HP_DAC, .name = "alc245-fixup-bass-hp-dac"},
  	{.id = ALC256_FIXUP_HONOR_MRB_XXX_M1020_AUDIO, .name = "alc256-honor-mrb-xxx-m1020-audio"},
@@ -230,8 +230,8 @@ diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269
 diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
 --- a/sound/hda/controllers/Kconfig
 +++ b/sound/hda/controllers/Kconfig
-@@ -35,10 +35,11 @@ config SND_HDA_CIX_IPBLOQ
- 	depends on ARCH_CIX || COMPILE_TEST
+@@ -36,10 +36,11 @@ config SND_HDA_CIX_IPBLOQ
+ 	depends on ARCH_DMA_ADDR_T_64BIT
  	select SND_HDA
  	select SND_HDA_ALIGNED_MMIO
 +	imply GPIO_CADENCE

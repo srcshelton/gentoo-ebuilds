@@ -4,7 +4,7 @@
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras"
-K_GENPATCHES_VER="5"
+K_GENPATCHES_VER="7"
 K_NO_VERSION_CHECK=0
 #K_BASE_VER="${PV}"
 
@@ -792,7 +792,7 @@ src_install() {
 
 	kernel-2_src_install
 
-	# e.g. linux-7.2.4 -> linux-7.2.4-cix-r1
+	# e.g. linux-7.2.6 -> linux-7.2.6-cix-r1
 	if [[ "${PR:-"r0"}" != 'r0' ]]; then
 		kernel_dir="${kernel_dir}-${PR}"
 	fi
