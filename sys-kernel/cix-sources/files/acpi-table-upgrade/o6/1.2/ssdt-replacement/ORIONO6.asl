@@ -2240,8 +2240,8 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                 "GPIO151",
                 "GPIO152",
                 "GPIO153",
-                "DP2_DIGON",
-                "DP2_BLON"
+                "DP2_BLON",
+                "DP2_DIGON"
             })
         }
 

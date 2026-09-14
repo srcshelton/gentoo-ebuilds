@@ -218,6 +218,7 @@ jobs:
             .github/scripts/validate-cix-external-inputs.py \
             sys-kernel/cix-sources/files/kconfig_update.py
           python3 .github/scripts/test-kconfig-update.py
+          python3 .github/scripts/test-cix-external-inputs.py
           .github/scripts/validate-cix-external-inputs.py \
             .github/fallbacks/cix-external-inputs
           external_input_test=$(mktemp -d)
@@ -248,7 +249,6 @@ jobs:
           }
           expected_seeds = {
               "6.18": "6.17",
-              "7.1": "7.0",
               "7.2": "7.0",
           }
           expected_artifacts = {
@@ -276,7 +276,7 @@ jobs:
               )
               for entry in build
           }
-          if len(build) != 24 or len(signatures) != 24:
+          if len(build) != 16 or len(signatures) != 16:
               raise SystemExit("build matrix does not cover every board/profile/flavour")
           if any(
               entry["ubuntu_config_seed"] != expected_seeds[entry["line"]]
@@ -298,7 +298,7 @@ jobs:
               {
                   "seed": "7.0",
                   "artifact": "cix-ubuntu-config-7.0",
-                  "consumers": "7.1 and 7.2",
+                  "consumers": "7.2",
               },
           ]
           if ubuntu_configs != expected_configs:
@@ -570,10 +570,6 @@ jobs:
           set -euo pipefail
 
           case "${KERNEL_LINE}" in
-            7.1)
-              version=22.1.8
-              sha256=0b0131b9a6fb38c2fbe73e576d7812962268db610b8b2f1b6ef217dd5161ef77
-              ;;
             7.2)
               version=23.1.0-rc3
               sha256=85fda70d68d80d2c88408dbabc6fc98a5d1bbe722a1cabec6238d6b1de6d41a3
@@ -626,7 +622,7 @@ jobs:
             "${KERNEL_EBUILD}" \
             "${uapi_preimage_dir}"
           expected_uapi=()
-          [[ ${KERNEL_LINE} != 7.1 && ${KERNEL_LINE} != 7.2 ]] || expected_uapi=(
+          [[ ${KERNEL_LINE} != 7.2 ]] || expected_uapi=(
             sys-kernel/cix-headers/files/7.1-cix-sof-topology-tokens.patch
           )
           .github/scripts/cix-sources/validate-cix-uapi.sh \
@@ -935,7 +931,6 @@ jobs:
           summary_path = Path(sys.argv[6])
           expected_seed_by_line = {
               "6.18": "6.17",
-              "7.1": "7.0",
               "7.2": "7.0",
           }
 

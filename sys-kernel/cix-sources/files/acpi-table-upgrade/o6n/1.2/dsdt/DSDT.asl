@@ -6,6 +6,8 @@
  * Disassembling to symbolic ASL+ operators
  *
  * Disassembly of dsdt.dat
+ * Updated against stock Radxa 1.2.4. The original capture header is retained
+ * below; the replacement includes the corrected PRC1 bus range.
  *
  * Original Table Header:
  *     Signature        "DSDT"
@@ -3910,8 +3912,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 "GPIO151", 
                 "GPIO152", 
                 "GPIO153", 
-                "DP2_DIGON", 
-                "DP2_BLON"
+                "DP2_BLON",
+                "DP2_DIGON"
             })
         }
 
@@ -19749,10 +19751,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_CRS, 0, NotSerialized)  // _CRS: Current Resource Settings
             {
-                Return (Buffer (0x02)
-                {
-                     0x79, 0x00                                       // y.
-                })
+                Return (__EXPECT__(3150) ResourceTemplate () {})
             }
 
             Name (SVCS, Package (0x03)
