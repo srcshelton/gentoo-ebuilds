@@ -36,10 +36,10 @@ diff --git a/drivers/remoteproc/cix_dsp_rproc.c b/drivers/remoteproc/cix_dsp_rpr
 diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
 --- a/sound/hda/controllers/Kconfig
 +++ b/sound/hda/controllers/Kconfig
-@@ -33,6 +33,8 @@ config SND_HDA_TEGRA
- config SND_HDA_CIX_IPBLOQ
+@@ -34,6 +34,8 @@ config SND_HDA_CIX_IPBLOQ
  	tristate "CIX IPBLOQ HD Audio"
  	depends on ARCH_CIX || COMPILE_TEST
+ 	depends on ARCH_DMA_ADDR_T_64BIT
 +	select CLK_SKY1_AUDSS if ARCH_CIX
 +	select RESET_SKY1_AUDSS if ARCH_CIX
  	select SND_HDA

@@ -7,6 +7,8 @@
  *
  * Disassembly of a captured Radxa Orion O6 firmware 1.3.0 DSDT,
  * Thu Jul  9 17:27:27 2026
+ * Updated against the stock Radxa 1.3.1 ACPI sources; the capture metadata
+ * below describes the original input, not the corrected replacement.
  *
  * Original Table Header:
  *     Signature        "DSDT"
@@ -3945,8 +3947,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 "GPIO151", 
                 "GPIO152", 
                 "GPIO153", 
-                "DP2_DIGON", 
-                "DP2_BLON"
+                "DP2_BLON",
+                "DP2_DIGON"
             })
         }
 
@@ -6113,15 +6115,29 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
         {
             Name (_HID, EisaId ("PNP0C02") /* PNP Motherboard Resources */)  // _HID: Hardware ID
             Name (_UID, Zero)  // _UID: Unique ID
+            Name (_STA, 0x0F)  // _STA: Status
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
-                QWordMemory (ResourceConsumer, PosDecode, MinFixed, MaxFixed, Cacheable, ReadWrite,
-                    0x0000000000000000, // Granularity
-                    0x0000000020000000, // Range Minimum
-                    0x000000002FFFFFFF, // Range Maximum
-                    0x0000000000000000, // Translation Offset
-                    0x0000000010000000, // Length
-                    ,, , AddressRangeMemory, TypeStatic)
+                Memory32Fixed (ReadWrite,
+                    0x20000000,         // Address Base
+                    0x02000000,         // Address Length
+                    )
+                Memory32Fixed (ReadWrite,
+                    0x23000000,         // Address Base
+                    0x02000000,         // Address Length
+                    )
+                Memory32Fixed (ReadWrite,
+                    0x26000000,         // Address Base
+                    0x02000000,         // Address Length
+                    )
+                Memory32Fixed (ReadWrite,
+                    0x29000000,         // Address Base
+                    0x02000000,         // Address Length
+                    )
+                Memory32Fixed (ReadWrite,
+                    0x2C000000,         // Address Base
+                    0x04000000,         // Address Length
+                    )
             })
         }
 
@@ -13853,6 +13869,8 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
                 }
                 FixedDMA (0x0024, 0x00FF, Width32bit, )
                 FixedDMA (0x0025, 0x00FF, Width32bit, )
+                PinGroupFunction (Exclusive, 0x0000, "\\_SB.MUX0", 0x00,
+                    "pinctrl_substrate_i2s4", ResourceConsumer, ,)
             })
             Name (_DSD, Package (0x02)  // _DSD: Device-Specific Data
             {
@@ -19820,10 +19838,7 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
 
             Method (_CRS, 0, NotSerialized)  // _CRS: Current Resource Settings
             {
-                Return (Buffer (0x02)
-                {
-                     0x79, 0x00                                       // y.
-                })
+                Return (__EXPECT__(3150) ResourceTemplate () {})
             }
 
             Name (SVCS, Package (0x03)

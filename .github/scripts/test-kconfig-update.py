@@ -28,6 +28,24 @@ SPEC.loader.exec_module(KCONFIG)
 
 
 class CommandLineTests(unittest.TestCase):
+    def test_maintained_kernel_choices(self) -> None:
+        self.assertEqual(KCONFIG.KERNEL_VERSION_CHOICES, ("6.18", "7.2"))
+
+    def test_firmware_detection_uses_release_family(self) -> None:
+        for version, expected in (
+            ("1.2.4", "1.2"),
+            ("Cix UEFI 1.2.4-unofficial", "1.2"),
+            ("1.3.1", "1.3"),
+            ("Cix UEFI 1.3.1-unofficial", "1.3"),
+            ("1.2.99", "1.2"),
+            ("1.3.99", "1.3"),
+            ("1.4.0", None),
+            ("11.3.1", None),
+        ):
+            with self.subTest(version=version):
+                with patch.object(Path, "read_text", return_value=version):
+                    self.assertEqual(KCONFIG.infer_firmware_profile(), expected)
+
     def test_hifi5_dsp_selects_one_interface(self) -> None:
         with patch.object(
             sys,

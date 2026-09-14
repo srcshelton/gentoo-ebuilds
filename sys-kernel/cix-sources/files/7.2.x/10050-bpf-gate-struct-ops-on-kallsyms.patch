@@ -39,9 +39,9 @@ diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
  	bool "Extensible Scheduling Class"
 -	depends on BPF_SYSCALL && BPF_JIT && DEBUG_INFO_BTF
 +	depends on BPF_STRUCT_OPS
+ 	select GENERIC_ALLOCATOR
  	select STACKTRACE if STACKTRACE_SUPPORT
  	help
- 	  This option enables a new scheduler class sched_ext (SCX), which
 diff --git a/kernel/bpf/Kconfig b/kernel/bpf/Kconfig
 --- a/kernel/bpf/Kconfig
 +++ b/kernel/bpf/Kconfig

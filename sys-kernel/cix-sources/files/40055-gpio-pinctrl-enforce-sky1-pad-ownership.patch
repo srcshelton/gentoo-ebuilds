@@ -4,13 +4,13 @@ Describe the sparse relationship between every Sky1 ACPI GPIO controller
 and its main or S5 pin controller. Route GPIO request and free through the
 generic pinctrl ownership helpers before changing the Cadence bypass state,
 and make Sky1 mux ownership strict. Peripheral and GPIO consumers then use
-the firmware-described pinctrl core without silently stealing pads. The two
+the firmware-described pinctrl core without silently stealing pads.
 Both GPIO views of the S5 multifunction pads use the same ownership rule.
 
 diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
 --- a/drivers/gpio/gpio-cadence.c
 +++ b/drivers/gpio/gpio-cadence.c
-@@ -76,6 +76,100 @@ static const struct cdns_gpio_quirks sky1_acpi_gpio_quirks = {
+@@ -76,6 +76,101 @@ static const struct cdns_gpio_quirks sky1_acpi_gpio_quirks = {
  	.cix_sky1 = true,
  	.clock_optional = true,
  };
@@ -33,7 +33,8 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
 +
 +static const unsigned int sky1_gpio3_pins[] = {
 +	123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135,
-+	136, 137, 18, 19,
++	/* The eDP GPIO bits are ordered BLON, DIGON, unlike their pad IDs. */
++	136, 137, 19, 18,
 +};
 +
 +static const unsigned int sky1_gpio4_pins[] = {
@@ -111,7 +112,7 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
  #endif
  
  struct cdns_gpio_chip {
-@@ -117,6 +211,11 @@ static void cdns_gpio_write_valid(struct cdns_gpio_chip *cgpio,
+@@ -117,6 +212,11 @@ static void cdns_gpio_write_valid(struct cdns_gpio_chip *cgpio,
  static int cdns_gpio_request(struct gpio_chip *chip, unsigned int offset)
  {
  	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
@@ -123,7 +124,7 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
  
  	guard(gpio_generic_lock)(&cgpio->gen_gc);
  
-@@ -130,11 +229,15 @@ static void cdns_gpio_free(struct gpio_chip *chip, unsigned int offset)
+@@ -130,11 +230,15 @@ static void cdns_gpio_free(struct gpio_chip *chip, unsigned int offset)
  {
  	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
  
@@ -143,7 +144,7 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
  }
  
  static void cdns_gpio_irq_mask(struct irq_data *d)
-@@ -619,6 +722,10 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+@@ -619,6 +723,10 @@ static int cdns_gpio_probe(struct platform_device *pdev)
  	cgpio->gen_gc.gc.owner = THIS_MODULE;
  	cgpio->gen_gc.gc.request = cdns_gpio_request;
  	cgpio->gen_gc.gc.free = cdns_gpio_free;

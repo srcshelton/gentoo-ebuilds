@@ -129,11 +129,11 @@ reject_enabled_config() {
 	fi
 }
 
-# MEDIA_SUBDRV_AUTOSELECT promotes I2C to built-in through Linux 7.1 even
+# MEDIA_SUBDRV_AUTOSELECT promotes I2C to built-in on Linux 6.18 even
 # when the media and board buckets are modular.  Linux 7.2 preserves I2C's
 # modular state in the same configuration.
 profile_i2c_state() {
-	if [[ $1 == builtin || ${kernel_line} == 6.18 || ${kernel_line} == 7.1 ]]; then
+	if [[ $1 == builtin || ${kernel_line} == 6.18 ]]; then
 		printf y
 	else
 		printf m
@@ -791,7 +791,7 @@ done
 # MPAM.aml is inert when arm64 MPAM is disabled. Prove that the Linux 7.2
 # Kconfig opt-in closes over the hidden resctrl integration while the ordinary
 # DSDT profile and its initramfs path remain unchanged.
-if [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
+if [[ ${kernel_line} == 7.2 ]]; then
 	build_dir=${build_root}/mpam-kconfig-o6-acpi
 	rm -rf -- "${build_dir}"
 	mkdir -p -- "${build_dir}"
@@ -1378,7 +1378,7 @@ done
 # toolchains so the normally dormant compressed-offload object is not hidden
 # by a successful CIX-only directory build.  Full package builds provide the
 # final vmlinux and module-link gates.
-if [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
+if [[ ${kernel_line} == 7.2 ]]; then
 	for compiler in clang gcc; do
 		if [[ ${compiler} == clang ]]; then
 			toolchain=(LLVM=1)
@@ -1671,8 +1671,8 @@ make -C "${source_dir}" O="${build_dir}" ARCH=arm64 LLVM=1 W=1 \
 	sound/hda/controllers/snd-hda-cix-ipbloq.o \
 	sound/soc/cix/
 
-# Context analysis is absent from Linux 6.18. Linux 7.1 requires Clang 22.1,
-# while Linux 7.2 raises that boundary to Clang 23. Keep the tree-wide switch
+# Context analysis is absent from Linux 6.18 and requires Clang 23 on Linux
+# 7.2. Keep the tree-wide switch
 # disabled and opt only the objects in this explicit CIX-focused build into the
 # analysis. Generic DRM, media, ASoC, and OPP helpers currently emit known
 # cross-function false positives, so fail only when the primary diagnostic is
@@ -1683,7 +1683,7 @@ if [[ ${kernel_line} == 6.18 ]]; then
 			"${kernel_line}" >&2
 		exit 1
 	fi
-elif [[ ${kernel_line} == 7.1 || ${kernel_line} == 7.2 ]]; then
+elif [[ ${kernel_line} == 7.2 ]]; then
 	[[ -x ${context_analysis_llvm}/clang ]] || {
 		printf 'error: Linux %s requires CIX_CONTEXT_ANALYSIS_LLVM\n' \
 			"${kernel_line}" >&2

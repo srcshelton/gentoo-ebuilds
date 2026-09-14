@@ -14,7 +14,7 @@ from pathlib import Path
 EBUILD_PATTERN = re.compile(
     r"^(?:cix|gentoo)-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$"
 )
-REQUIRED_LINES = ("6.18", "7.1", "7.2")
+REQUIRED_LINES = ("6.18", "7.2")
 UPSTREAM_API = (
     "https://api.github.com/repos/gentoo/gentoo/contents/"
     "sys-kernel/gentoo-sources?ref=master"

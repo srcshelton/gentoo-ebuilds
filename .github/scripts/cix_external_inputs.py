@@ -16,12 +16,12 @@ ACPICA_DOWNLOAD = re.compile(
     r"\d{8}/acpica-unix-\d{8}\.tar\.gz"
 )
 GENTOO_EBUILD = re.compile(
-    r"^gentoo-sources-(\d+)\.(\d+)\.(\d+)(?:-r\d+)?\.ebuild$"
+    r"^gentoo-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$"
 )
-REQUIRED_GENTOO_LINES = {"6.18", "7.1", "7.2"}
+REQUIRED_GENTOO_LINES = {"6.18", "7.2"}
 UBUNTU_SEEDS = {
     "6.17": ["6.18"],
-    "7.0": ["7.1", "7.2"],
+    "7.0": ["7.2"],
 }
 UBUNTU_CONFIGS = {
     "arm64-generic.config",
@@ -63,37 +63,69 @@ def validate_ubuntu_seed(root: Path, seed: str) -> None:
             raise ValueError(f"{path}: line count does not match metadata")
 
 
-def validate_gentoo_metadata(root: Path) -> None:
-    path = root / "gentoo-sources" / "contents.json"
-    entries = load_json(path)
+def compact_gentoo_metadata(entries: object) -> list[dict[str, str]]:
+    """Keep only the newest upstream ebuild name for each maintained line."""
     if not isinstance(entries, list):
-        raise ValueError(f"{path}: expected a list")
+        raise ValueError("Gentoo source metadata: expected a list")
 
-    lines = set()
+    latest = {}
     for entry in entries:
         if not isinstance(entry, dict):
-            raise ValueError(f"{path}: entry is not an object")
-        match = GENTOO_EBUILD.fullmatch(str(entry.get("name", "")))
-        if match:
-            lines.add(f"{match.group(1)}.{match.group(2)}")
-    missing = REQUIRED_GENTOO_LINES - lines
+            raise ValueError("Gentoo source metadata: entry is not an object")
+        name = str(entry.get("name", ""))
+        match = GENTOO_EBUILD.fullmatch(name)
+        if not match:
+            continue
+        major, minor, patch, revision = match.groups()
+        line = f"{major}.{minor}"
+        if line not in REQUIRED_GENTOO_LINES:
+            continue
+        version = (int(patch), int(revision or 0))
+        if line not in latest or version > latest[line][0]:
+            latest[line] = (version, name)
+    missing = REQUIRED_GENTOO_LINES - latest.keys()
     if missing:
-        raise ValueError(f"{path}: missing maintained lines {sorted(missing)}")
+        raise ValueError(
+            f"Gentoo source metadata: missing maintained lines {sorted(missing)}"
+        )
+    return [{"name": latest[line][1]} for line in sorted(latest)]
 
 
-def validate_acpica_metadata(root: Path) -> None:
-    path = root / "acpica" / "latest-release.json"
-    release = load_json(path)
+def compact_acpica_metadata(release: object) -> dict[str, object]:
+    """Keep only the source archive selected by the kernel build workflow."""
     if not isinstance(release, dict):
-        raise ValueError(f"{path}: expected an object")
-    for asset in release.get("assets", []):
+        raise ValueError("ACPICA release metadata: expected an object")
+    assets = release.get("assets", [])
+    if not isinstance(assets, list):
+        raise ValueError("ACPICA release metadata: assets is not a list")
+    for asset in assets:
         if not isinstance(asset, dict):
             continue
         name = str(asset.get("name", ""))
         url = str(asset.get("browser_download_url", ""))
         if ACPICA_ASSET.fullmatch(name) and ACPICA_DOWNLOAD.fullmatch(url):
-            return
-    raise ValueError(f"{path}: no ACPICA Unix source asset")
+            return {"assets": [{"name": name, "browser_download_url": url}]}
+    raise ValueError("ACPICA release metadata: no ACPICA Unix source asset")
+
+
+def validate_gentoo_metadata(root: Path) -> None:
+    compact_gentoo_metadata(load_json(root / "gentoo-sources" / "contents.json"))
+
+
+def validate_acpica_metadata(root: Path) -> None:
+    compact_acpica_metadata(load_json(root / "acpica" / "latest-release.json"))
+
+
+def compact_metadata(root: Path) -> None:
+    for relative, compact in (
+        ("gentoo-sources/contents.json", compact_gentoo_metadata),
+        ("acpica/latest-release.json", compact_acpica_metadata),
+    ):
+        path = root / relative
+        path.write_text(
+            json.dumps(compact(load_json(path)), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
 
 def parse_timestamp(value: object, description: str) -> datetime.datetime:

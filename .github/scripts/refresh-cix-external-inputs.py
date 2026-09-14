@@ -14,6 +14,7 @@ from pathlib import Path
 
 from cix_external_inputs import (
     UBUNTU_SEEDS,
+    compact_metadata,
     load_json,
     validate_acpica_metadata,
     validate_directory,
@@ -156,6 +157,8 @@ def main() -> None:
         json.dumps(retention, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    # Also trim older retained snapshots after offline or failed refreshes.
+    compact_metadata(args.output_dir)
     write_checksums(args.output_dir)
     validate_directory(args.output_dir)
 

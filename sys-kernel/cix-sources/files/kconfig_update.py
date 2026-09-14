@@ -304,7 +304,7 @@ GRAPHICS_PROFILE_CHOICES = (
 )
 AUDIO_PROFILE_CHOICES = ("auto", "none", "analog", "display", "all")
 NPU_ABI_CHOICES = ("auto", "r2p0", "r2p1", "separate")
-KERNEL_VERSION_CHOICES = ("6.18", "7.1", "7.2")
+KERNEL_VERSION_CHOICES = ("6.18", "7.2")
 FIRMWARE_CHOICES = ("auto", "1.2", "1.3")
 FIRMWARE_METAVAR = "{" + ",".join(FIRMWARE_CHOICES) + "}"
 DMI_FIRMWARE_VERSION_PATHS = (
@@ -2603,7 +2603,7 @@ def hifi5_sof_updates(
     if symbol_types.get("SND_SOC_SOF_CIX_SKY1") not in ("bool", "tristate"):
         raise SystemExit(
             "error: this prepared kernel tree does not provide the audited "
-            "CIX Sky1 SOF owner; use a supported Linux 7.1 or 7.2 source"
+            "CIX Sky1 SOF owner; use a supported Linux 7.2 source"
         )
 
     updates: list[tuple[str, str]] = []

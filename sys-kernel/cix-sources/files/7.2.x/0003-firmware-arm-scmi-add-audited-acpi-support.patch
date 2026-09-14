@@ -9,8 +9,8 @@ bc078a383042a6c14b05c56e12390e422f893088.
 diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
 --- a/drivers/firmware/arm_scmi/bus.c
 +++ b/drivers/firmware/arm_scmi/bus.c
-@@ -10,7 +10,8 @@
- #include <linux/atomic.h>
+@@ -9,7 +9,8 @@
+ 
  #include <linux/types.h>
  #include <linux/module.h>
 -#include <linux/of.h>
@@ -19,7 +19,7 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
  #include <linux/kernel.h>
  #include <linux/slab.h>
  #include <linux/device.h>
-@@ -232,8 +233,18 @@ static int scmi_dev_match(struct device *dev, const struct device_driver *drv)
+@@ -252,8 +253,18 @@ static int scmi_dev_match(struct device *dev, const struct device_driver *drv)
  
  static int scmi_match_by_id_table(struct device *dev, const void *data)
  {
@@ -37,9 +37,17 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
 +	if (!scmi_dev->name)
 +		return 0;
  
- 	return scmi_dev_match_by_id_table(scmi_dev, id_table);
+ 	return __scmi_dev_match_by_id_table(scmi_dev, id_table, false);
  }
-@@ -401,8 +412,8 @@ static void scmi_device_release(struct device *dev)
+@@ -429,15 +440,15 @@ static void scmi_device_release(struct device *dev)
+ 	struct scmi_device *scmi_dev = to_scmi_dev(dev);
+ 
+ 	scmi_device_release_resources(scmi_dev);
+-	of_node_put(dev->of_node);
++	fwnode_handle_put(dev_fwnode(dev));
+ 	kfree_const(scmi_dev->name);
+ 	kfree(scmi_dev);
+ }
  
  static void __scmi_device_destroy(struct scmi_device *scmi_dev)
  {
@@ -50,7 +58,7 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
  		 dev_name(&scmi_dev->dev), scmi_dev->protocol_id,
  		 scmi_dev->name);
  
-@@ -414,7 +425,7 @@ static void __scmi_device_destroy(struct scmi_device *scmi_dev)
+@@ -447,7 +458,7 @@ static void __scmi_device_destroy(struct scmi_device *scmi_dev)
  }
  
  static struct scmi_device *
@@ -59,16 +67,16 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
  		     int protocol, const char *name)
  {
  	int id, retval;
-@@ -465,7 +476,7 @@ __scmi_device_create(struct device_node *np, struct device *parent,
+@@ -495,7 +506,7 @@ __scmi_device_create(struct device_node *np, struct device *parent,
+ 
  	scmi_dev->id = id;
- 	scmi_dev->protocol_id = protocol;
  	scmi_dev->dev.parent = parent;
--	device_set_node(&scmi_dev->dev, of_fwnode_handle(np));
-+	device_set_node(&scmi_dev->dev, np);
+-	device_set_node(&scmi_dev->dev, of_fwnode_handle(of_node_get(np)));
++	device_set_node(&scmi_dev->dev, fwnode_handle_get(np));
  	scmi_dev->dev.bus = &scmi_bus_type;
  	scmi_dev->dev.release = scmi_device_release;
  	dev_set_name(&scmi_dev->dev, "scmi_dev.%d", id);
-@@ -474,8 +485,9 @@ __scmi_device_create(struct device_node *np, struct device *parent,
+@@ -504,8 +515,9 @@ __scmi_device_create(struct device_node *np, struct device *parent,
  	if (retval)
  		goto put_dev;
  
@@ -80,7 +88,7 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
  
  	return scmi_dev;
  put_dev:
-@@ -485,15 +497,15 @@ __scmi_device_create(struct device_node *np, struct device *parent,
+@@ -521,15 +533,15 @@ free_dev:
  }
  
  static struct scmi_device *
@@ -99,7 +107,7 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
  
  	return sdev;
  }
-@@ -521,7 +533,7 @@ _scmi_device_create(struct device_node *np, struct device *parent,
+@@ -557,7 +569,7 @@ _scmi_device_create(struct device_node *np, struct device *parent,
   *	   could have been potentially created for a whole protocol, unless no
   *	   device was found to have been requested for that specific protocol.
   */
@@ -111,7 +119,7 @@ diff --git a/drivers/firmware/arm_scmi/bus.c b/drivers/firmware/arm_scmi/bus.c
 diff --git a/drivers/firmware/arm_scmi/common.h b/drivers/firmware/arm_scmi/common.h
 --- a/drivers/firmware/arm_scmi/common.h
 +++ b/drivers/firmware/arm_scmi/common.h
-@@ -150,7 +150,7 @@ extern const struct bus_type scmi_bus_type;
+@@ -152,7 +152,7 @@ extern const struct bus_type scmi_bus_type;
  #define SCMI_BUS_NOTIFY_DEVICE_UNREQUEST	1
  extern struct blocking_notifier_head scmi_requested_devices_nh;
  
@@ -120,7 +128,7 @@ diff --git a/drivers/firmware/arm_scmi/common.h b/drivers/firmware/arm_scmi/comm
  				       struct device *parent, int protocol,
  				       const char *name);
  void scmi_device_destroy(struct device *parent, int protocol, const char *name);
-@@ -204,7 +204,7 @@ struct scmi_chan_info {
+@@ -206,7 +206,7 @@ struct scmi_chan_info {
   * @poll_done: Callback to poll transfer status
   */
  struct scmi_transport_ops {
@@ -129,7 +137,7 @@ diff --git a/drivers/firmware/arm_scmi/common.h b/drivers/firmware/arm_scmi/comm
  	int (*chan_setup)(struct scmi_chan_info *cinfo, struct device *dev,
  			  bool tx);
  	int (*chan_free)(int id, void *p, void *data);
-@@ -613,7 +613,8 @@ struct scmi_transport_supplier __supplier = {			\
+@@ -615,7 +615,8 @@ struct scmi_transport_supplier __supplier = {			\
  	.th.supplier_put = scmi_transport_supplier_put,		\
  }
  
@@ -139,7 +147,7 @@ diff --git a/drivers/firmware/arm_scmi/common.h b/drivers/firmware/arm_scmi/comm
  static void __tag##_dev_free(void *data)				       \
  {									       \
  	struct platform_device *spdev = data;				       \
-@@ -647,7 +648,10 @@ static int __tag##_probe(struct platform_device *pdev)			       \
+@@ -649,7 +650,10 @@ static int __tag##_probe(struct platform_device *pdev)			       \
  		goto err_mem;						       \
  	}								       \
  									       \
@@ -151,7 +159,7 @@ diff --git a/drivers/firmware/arm_scmi/common.h b/drivers/firmware/arm_scmi/comm
  									       \
  	strans.supplier = supplier;					       \
  	memcpy(&strans.desc, &(__desc), sizeof(strans.desc));		       \
-@@ -676,7 +680,8 @@ err_mem:								       \
+@@ -678,7 +682,8 @@ err_mem:								       \
  static struct platform_driver __drv = {					       \
  	.driver = {							       \
  		   .name = #__tag "_transport",				       \
@@ -164,7 +172,7 @@ diff --git a/drivers/firmware/arm_scmi/common.h b/drivers/firmware/arm_scmi/comm
 diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driver.c
 --- a/drivers/firmware/arm_scmi/driver.c
 +++ b/drivers/firmware/arm_scmi/driver.c
-@@ -422,7 +422,7 @@ EXPORT_SYMBOL_GPL(scmi_protocol_unregister);
+@@ -423,7 +423,7 @@ EXPORT_SYMBOL_GPL(scmi_protocol_unregister);
   *	  call will lead to the creation of all the devices currently requested
   *	  for the specified protocol.
   */
@@ -173,7 +181,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  					 struct scmi_info *info,
  					 int prot_id, const char *name)
  {
-@@ -2738,7 +2738,7 @@ static int scmi_xfer_info_init(struct scmi_info *sinfo)
+@@ -2749,7 +2749,7 @@ static int scmi_xfer_info_init(struct scmi_info *sinfo)
  	return ret;
  }
  
@@ -182,17 +190,17 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  			   int prot_id, bool tx)
  {
  	int ret, idx;
-@@ -2751,7 +2751,7 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
- 	idx = tx ? 0 : 1;
- 	idr = tx ? &info->tx_idr : &info->rx_idr;
+@@ -2765,7 +2765,7 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
+ 	if (idr_find(idr, prot_id))
+ 		return -EEXIST;
  
 -	if (!info->desc->ops->chan_available(of_node, idx)) {
 +	if (!info->desc->ops->chan_available(fwnode, idx)) {
  		cinfo = idr_find(idr, SCMI_PROTOCOL_BASE);
  		if (unlikely(!cinfo)) /* Possible only if platform has no Rx */
  			return -EINVAL;
-@@ -2771,20 +2771,20 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
- 	snprintf(name, 32, "__scmi_transport_device_%s_%02X",
+@@ -2785,7 +2785,7 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
+ 	snprintf(name, sizeof(name), SCMI_TRANSPORT_DEVNAME_PREFIX "_%s_%02X",
  		 idx ? "rx" : "tx", prot_id);
  	/* Create a uniquely named, dedicated transport device for this chan */
 -	tdev = scmi_device_create(of_node, info->dev, prot_id, name);
@@ -200,31 +208,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  	if (!tdev) {
  		dev_err(info->dev,
  			"failed to create transport device (%s)\n", name);
- 		devm_kfree(info->dev, cinfo);
- 		return -EINVAL;
- 	}
--	of_node_get(of_node);
-+	fwnode_handle_get(fwnode);
- 
- 	cinfo->id = prot_id;
- 	cinfo->dev = &tdev->dev;
- 	ret = info->desc->ops->chan_setup(cinfo, info->dev, tx);
- 	if (ret) {
--		of_node_put(of_node);
-+		fwnode_handle_put(fwnode);
- 		scmi_device_destroy(info->dev, prot_id, name);
- 		devm_kfree(info->dev, cinfo);
- 		return ret;
-@@ -2807,7 +2807,7 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
- 			"unable to allocate SCMI idr slot err %d\n", ret);
- 		/* Destroy channel and device only if created by this call. */
- 		if (tdev) {
--			of_node_put(of_node);
-+			fwnode_handle_put(fwnode);
- 			scmi_device_destroy(info->dev, prot_id, name);
- 			devm_kfree(info->dev, cinfo);
- 		}
-@@ -2819,19 +2819,19 @@ static int scmi_chan_setup(struct scmi_info *info, struct device_node *of_node,
+@@ -2831,19 +2831,19 @@ idr_alloc:
  }
  
  static inline int
@@ -248,7 +232,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  		dev_err(info->dev,
  			"failed to setup channel for protocol:0x%X\n", prot_id);
  
-@@ -2859,17 +2859,17 @@ scmi_txrx_setup(struct scmi_info *info, struct device_node *of_node,
+@@ -2871,17 +2871,17 @@ scmi_txrx_setup(struct scmi_info *info, struct device_node *of_node,
  static int scmi_channels_setup(struct scmi_info *info)
  {
  	int ret;
@@ -268,17 +252,8 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
 +		if (fwnode_property_read_u32(child, "reg", &prot_id))
  			continue;
  
- 		if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id))
-@@ -2892,7 +2892,7 @@ static int scmi_chan_destroy(int id, void *p, void *idr)
- 		struct scmi_info *info = handle_to_scmi_info(cinfo->handle);
- 		struct scmi_device *sdev = to_scmi_dev(cinfo->dev);
- 
--		of_node_put(cinfo->dev->of_node);
-+		fwnode_handle_put(cinfo->dev->fwnode);
- 		scmi_device_destroy(info->dev, id, sdev->name);
- 		cinfo->dev = NULL;
- 	}
-@@ -2953,7 +2953,7 @@ static int scmi_bus_notifier(struct notifier_block *nb,
+ 		if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id)) {
+@@ -2969,7 +2969,7 @@ static int scmi_bus_notifier(struct notifier_block *nb,
  static int scmi_device_request_notifier(struct notifier_block *nb,
  					unsigned long action, void *data)
  {
@@ -287,7 +262,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  	struct scmi_device_id *id_table = data;
  	struct scmi_info *info = req_nb_to_scmi_info(nb);
  
-@@ -3048,19 +3048,26 @@ static struct scmi_debug_info *scmi_debugfs_common_setup(struct scmi_info *info)
+@@ -3066,19 +3066,26 @@ static struct scmi_debug_info *scmi_debugfs_common_setup(struct scmi_info *info)
  	char top_dir[16];
  	struct dentry *trans, *top_dentry;
  	struct scmi_debug_info *dbg;
@@ -317,7 +292,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  	dbg->type = kstrdup(c_ptr, GFP_KERNEL);
  	if (!dbg->type) {
  		kfree(dbg->name);
-@@ -3166,23 +3173,24 @@ static const struct scmi_desc *scmi_transport_setup(struct device *dev)
+@@ -3184,23 +3191,24 @@ static const struct scmi_desc *scmi_transport_setup(struct device *dev)
  
  	dev_info(dev, "Using %s\n", dev_driver_string(trans->supplier));
  
@@ -353,7 +328,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  
  	dev_info(dev,
  		 "SCMI max-rx-timeout: %dms / max-msg-size: %dbytes / max-msg: %d\n",
-@@ -3190,8 +3198,8 @@ static const struct scmi_desc *scmi_transport_setup(struct device *dev)
+@@ -3208,8 +3216,8 @@ static const struct scmi_desc *scmi_transport_setup(struct device *dev)
  		 trans->desc.max_msg);
  
  	/* System wide atomic threshold for atomic ops .. if any */
@@ -364,7 +339,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  		dev_info(dev,
  			 "SCMI System wide atomic threshold set to %u us\n",
  			 trans->desc.atomic_threshold);
-@@ -3220,7 +3228,7 @@ static int scmi_probe(struct platform_device *pdev)
+@@ -3238,7 +3246,7 @@ static int scmi_probe(struct platform_device *pdev)
  	struct scmi_info *info;
  	bool coex = IS_ENABLED(CONFIG_ARM_SCMI_RAW_MODE_SUPPORT_COEX);
  	struct device *dev = &pdev->dev;
@@ -373,7 +348,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  
  	desc = scmi_transport_setup(dev);
  	if (!desc) {
-@@ -3334,10 +3342,10 @@ static int scmi_probe(struct platform_device *pdev)
+@@ -3352,10 +3360,10 @@ static int scmi_probe(struct platform_device *pdev)
  
  	scmi_enable_matching_quirks(info);
  
@@ -385,8 +360,8 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
 +		if (fwnode_property_read_u32(child, "reg", &prot_id))
  			continue;
  
- 		if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id))
-@@ -3361,7 +3369,7 @@ static int scmi_probe(struct platform_device *pdev)
+ 		if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id)) {
+@@ -3381,7 +3389,7 @@ static int scmi_probe(struct platform_device *pdev)
  			continue;
  		}
  
@@ -395,7 +370,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  		scmi_create_protocol_devices(child, info, prot_id, NULL);
  	}
  
-@@ -3389,7 +3397,7 @@ static void scmi_remove(struct platform_device *pdev)
+@@ -3409,7 +3417,7 @@ static void scmi_remove(struct platform_device *pdev)
  {
  	int id;
  	struct scmi_info *info = platform_get_drvdata(pdev);
@@ -404,7 +379,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
  
  	if (IS_ENABLED(CONFIG_ARM_SCMI_RAW_MODE_SUPPORT))
  		scmi_raw_mode_cleanup(info->raw);
-@@ -3408,7 +3416,7 @@ static void scmi_remove(struct platform_device *pdev)
+@@ -3434,7 +3442,7 @@ static void scmi_remove(struct platform_device *pdev)
  	mutex_unlock(&info->protocols_mtx);
  
  	idr_for_each_entry(&info->active_protocols, child, id)
@@ -412,7 +387,7 @@ diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driv
 +		fwnode_handle_put(child);
  	idr_destroy(&info->active_protocols);
  
- 	blocking_notifier_chain_unregister(&scmi_requested_devices_nh,
+ 	bus_unregister_notifier(&scmi_bus_type, &info->bus_nb);
 diff --git a/drivers/firmware/arm_scmi/shmem.c b/drivers/firmware/arm_scmi/shmem.c
 --- a/drivers/firmware/arm_scmi/shmem.c
 +++ b/drivers/firmware/arm_scmi/shmem.c
@@ -660,7 +635,7 @@ diff --git a/drivers/firmware/arm_scmi/transports/mailbox.c b/drivers/firmware/a
  	}
  
  	/* Calculate channels IDs to use depending on mboxes/shmem layout */
-@@ -379,8 +429,15 @@ static const struct of_device_id scmi_of_match[] = {
+@@ -391,8 +441,15 @@ static const struct of_device_id scmi_of_match[] = {
  };
  MODULE_DEVICE_TABLE(of, scmi_of_match);
  
@@ -731,7 +706,7 @@ diff --git a/drivers/firmware/arm_scmi/transports/smc.c b/drivers/firmware/arm_s
  
  	return true;
  }
-@@ -304,7 +306,7 @@ static const struct of_device_id scmi_of_match[] = {
+@@ -307,7 +309,7 @@ static const struct of_device_id scmi_of_match[] = {
  MODULE_DEVICE_TABLE(of, scmi_of_match);
  
  DEFINE_SCMI_TRANSPORT_DRIVER(scmi_smc, scmi_smc_driver, scmi_smc_desc,
