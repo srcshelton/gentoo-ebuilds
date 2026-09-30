@@ -311,6 +311,8 @@ used to build perl)
     * Add means to confirm valid \*FLAGS from in-use compiler
 * app-shells/stdlib
     * stdlib.sh from https://github.com/srcshelton/stdlib.sh
+* dev-debug/ltrace
+    * Add final 0.7.91 version
 * dev-embedded/picotool
     * Follow upstream releases more closely
 * dev-embedded/rkdeveloptool
@@ -365,8 +367,6 @@ used to build perl)
 * ~~dev-python/pathspec~~
 * ~~dev-python/pre-commit~~ (see `dev-vcs/pre-commit`)
 * ~~dev-ruby/CFPropertyList~~
-* dev-util/ltrace
-    * The ltrace project hasn't made a release in a long time, but we can pull-in more recent commits
 * ~~dev-util/yamllint~~
 * games-server/minecraft-bedrock-server-bin
 * games-server/minecraft-server-bin
