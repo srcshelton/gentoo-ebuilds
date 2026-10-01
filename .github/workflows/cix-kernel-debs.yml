@@ -73,6 +73,8 @@ jobs:
             git \
             python3 \
             python3-yaml \
+            dpkg-dev \
+            make \
             shellcheck
           rm -rf /var/lib/apt/lists/*
 
@@ -152,6 +154,22 @@ jobs:
                   "actions/upload-artifact@"
                   "330a01c490aca151604b8cf639adc76d48f6c5d4"
               ),
+              (
+                  Path(".github/workflows/cix-kernel-debs.yml"),
+                  "assemble",
+                  "Download variant packages under act",
+              ): (
+                  "actions/download-artifact@"
+                  "37930b1c2abaa49bbe596cd826c3c89aef350131"
+              ),
+              (
+                  Path(".github/workflows/cix-kernel-debs.yml"),
+                  "assemble",
+                  "Upload assembled packages under act",
+              ): (
+                  "actions/upload-artifact@"
+                  "330a01c490aca151604b8cf639adc76d48f6c5d4"
+              ),
           }
           for (
               workflow,
@@ -213,12 +231,15 @@ jobs:
             .github/scripts/check-cix-source-versions.py \
             .github/scripts/cix_external_inputs.py \
             .github/scripts/discover-cix-matrix.py \
+            .github/scripts/assemble-cix-debs.py \
+            .github/scripts/test-cix-deb-packaging.py \
             .github/scripts/refresh-cix-external-inputs.py \
             .github/scripts/test-kconfig-update.py \
             .github/scripts/validate-cix-external-inputs.py \
             sys-kernel/cix-sources/files/kconfig_update.py
           python3 .github/scripts/test-kconfig-update.py
           python3 .github/scripts/test-cix-external-inputs.py
+          python3 .github/scripts/test-cix-deb-packaging.py
           .github/scripts/validate-cix-external-inputs.py \
             .github/fallbacks/cix-external-inputs
           external_input_test=$(mktemp -d)
@@ -657,11 +678,10 @@ jobs:
       KERNEL_EBUILD: ${{ matrix.ebuild }}
       KERNEL_LINE: ${{ matrix.line }}
       KERNEL_PV: ${{ matrix.pv }}
-      KERNEL_PR: ${{ matrix.pr }}
+      KERNEL_DEB_VERSION: ${{ matrix.deb_version }}
       KERNEL_VERSION: ${{ matrix.version }}
       BOARD_PROFILE: ${{ matrix.board_profile }}
       BOARD_PACKAGE: ${{ matrix.board_package }}
-      BOARD_VERSION: ${{ matrix.board_version }}
       FIRMWARE_PROFILE: ${{ matrix.firmware }}
       ACPI_TABLE_UPGRADE_MODE: ${{ matrix.acpi_table_upgrade }}
       ACPI_INITRAMFS_PROFILE: ${{ matrix.acpi_initramfs_profile }}
@@ -1147,8 +1167,8 @@ jobs:
             O="${build_dir}" \
             ARCH=arm64 \
             LOCALVERSION="-cix-${BOARD_PACKAGE}" \
-            KDEB_SOURCENAME="linux-cix-${BOARD_PACKAGE}" \
-            KDEB_PKGVERSION="${KERNEL_PV}+cix.${KERNEL_PR}.${BOARD_VERSION}" \
+            KDEB_SOURCENAME="linux-cix" \
+            KDEB_PKGVERSION="${KERNEL_DEB_VERSION}" \
             -j"$(nproc)" \
             bindeb-pkg
 
@@ -1246,7 +1266,7 @@ jobs:
         if: ${{ env.ACT != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
+          name: cix-kernel-build-${{ matrix.version }}-${{ matrix.board_package }}
           path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
           if-no-files-found: error
           retention-days: 7
@@ -1260,16 +1280,96 @@ jobs:
         # https://github.com/nektos/act/pull/6115
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: cix-kernel-debs-${{ matrix.version }}-${{ matrix.board_package }}
+          name: cix-kernel-build-${{ matrix.version }}-${{ matrix.board_package }}
           path: artifacts/${{ matrix.version }}-${{ matrix.board_package }}/*.deb
           if-no-files-found: error
           retention-days: 7
+
+  assemble:
+    name: Share common headers and verify userspace packages
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    needs: [discover, build]
+    permissions:
+      contents: read
+      actions: write
+    env:
+      BUILD_MATRIX: ${{ needs.discover.outputs.build_matrix }}
+    steps:
+      - name: Check out overlay
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download variant packages
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: package-inputs
+          pattern: cix-kernel-build-*
+          # libc package filenames repeat: keep separate artifact directories.
+          merge-multiple: false
+
+      - name: Download variant packages under act
+        if: ${{ env.ACT == 'true' }}
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v6
+        with:
+          path: package-inputs
+          pattern: cix-kernel-build-*
+          merge-multiple: false
+
+      - name: Assemble distinct packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          work_parent="${GITHUB_WORKSPACE}/.worktrees/cix-deb-assembly-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "${work_parent}"
+          printf '%s\n' "${BUILD_MATRIX}" > "${work_parent}/matrix.json"
+          python3 .github/scripts/assemble-cix-debs.py \
+            --input-dir package-inputs \
+            --output-dir artifacts/packages \
+            --work-dir "${work_parent}/packages" \
+            --matrix "${work_parent}/matrix.json"
+          cat artifacts/packages/package-sharing.json >> "${GITHUB_STEP_SUMMARY}"
+          rm -rf "${work_parent}" package-inputs
+
+      - name: Upload assembled packages
+        if: ${{ env.ACT != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cix-kernel-debs
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload assembled packages under act
+        if: ${{ env.ACT == 'true' }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: cix-kernel-debs
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove intermediate variant artifacts after successful assembly
+        if: ${{ env.ACT != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_ids=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.name | startswith("cix-kernel-build-")) | .id')
+          while IFS= read -r artifact_id; do
+            [[ -n "${artifact_id}" ]] || continue
+            gh api --method DELETE \
+              "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}"
+          done <<< "${artifact_ids}"
 
   release:
     name: Create draft release
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
-    needs: build
+    needs: assemble
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
     permissions:
       contents: write
@@ -1278,8 +1378,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: release-assets
-          pattern: cix-kernel-debs-*
-          merge-multiple: true
+          name: cix-kernel-debs
 
       - name: Create draft GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3

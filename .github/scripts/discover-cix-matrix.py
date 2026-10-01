@@ -38,26 +38,22 @@ BOARD_PROFILES = (
     {
         "board_profile": "o6-acpi",
         "board_package_base": "o6-acpi",
-        "board_version_base": "o6.acpi",
     },
     {
         "board_profile": "o6n-acpi",
         "board_package_base": "o6n-acpi",
-        "board_version_base": "o6n.acpi",
     },
 )
 FIRMWARE_PROFILES = (
     {
         "firmware": "1.2",
-        "firmware_package": "1.2",
-        "firmware_version": "1.2",
+        "firmware_package": "fw1.2",
         "acpi_table_upgrade": "dsdt",
         "acpi_initramfs_profile": "initramfs-dsdt",
     },
     {
         "firmware": "1.3",
-        "firmware_package": "1.3",
-        "firmware_version": "1.3",
+        "firmware_package": "fw1.3",
         "acpi_table_upgrade": "ssdt",
         "acpi_initramfs_profile": "initramfs",
     },
@@ -65,13 +61,11 @@ FIRMWARE_PROFILES = (
 CONFIG_FLAVOURS = (
     {
         "config_flavour": "generic",
-        "config_package": "generic",
-        "config_version": "generic",
+        "config_package": "arm64",
     },
     {
         "config_flavour": "generic-64k",
-        "config_package": "generic-64k",
-        "config_version": "generic64k",
+        "config_package": "arm64-64k",
     },
 )
 
@@ -149,6 +143,8 @@ def select_ebuilds(package_dir: Path) -> list[dict[str, object]]:
             "pv": pv,
             "version": version,
             "pr": "r0" if revision_i == 0 else f"r{revision_i}",
+            "deb_revision": revision_i + 1,
+            "deb_version": f"{pv}-{revision_i + 1}",
             "ebuild": ebuild.as_posix(),
             "npu_abi": NPU_ABI_BY_LINE[line],
             "uapi_preimage_boundary": UAPI_PREIMAGE_BOUNDARY_BY_LINE[line],
@@ -186,13 +182,8 @@ def expand_build_matrix(selected: list[dict[str, object]]) -> dict[str, object]:
                             "board_profile": board["board_profile"],
                             "board_package": (
                                 f"{board['board_package_base']}-"
-                                f"{flavour['config_package']}-"
-                                f"{firmware['firmware_package']}"
-                            ),
-                            "board_version": (
-                                f"{board['board_version_base']}."
-                                f"{flavour['config_version']}."
-                                f"{firmware['firmware_version']}"
+                                f"{firmware['firmware_package']}-"
+                                f"{flavour['config_package']}"
                             ),
                         }
                     )

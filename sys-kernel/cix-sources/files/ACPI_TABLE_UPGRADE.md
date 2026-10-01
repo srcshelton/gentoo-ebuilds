@@ -47,7 +47,7 @@ hardware and must be followed by the checks below.
 | O6N, Radxa 1.2.4 | 7 AML files | 9 files on Linux 6.18; 10 on Linux 7.2; one additional file with IORT | Full, with both IORT transformations |
 | O6N, Radxa 1.3.1 | 7 AML files | Not available | SSDT-only |
 
-The `generic` and `generic-64k` package variants use the same ACPI payload.
+The `arm64` and `arm64-64k` package variants use the same ACPI payload.
 Their difference is the kernel page-size/configuration flavour.
 
 ### Exact profile contents
@@ -104,17 +104,31 @@ The GitHub workflow embeds the selected AML files in the kernel image through
 therefore sufficient; do not copy AML files into the distribution initramfs or
 run the [ACPICA `iasl` compiler](https://github.com/acpica/acpica) separately.
 
-Package names encode the board, firmware family, configuration, and kernel.
-Choose `o6` or `o6n` for the physical board, `1.2` or `1.3` for the installed
-Radxa firmware family, and `generic` unless a 64 KiB page kernel is explicitly
-required. For example, an `o6-acpi-generic-1.2` artifact contains the O6
-firmware-1.2 full profile. Keep the distribution kernel installed, extract one
-matching workflow artifact, and install its image and optional external-module
-headers with:
+Package names encode the board, ACPI interface, firmware family, page-size
+flavour, and kernel. Choose `o6` or `o6n` for the physical board, `fw1.2` or
+`fw1.3` for the installed Radxa firmware family, and `arm64` unless a 64 KiB
+page kernel (`arm64-64k`) is explicitly required. For example,
+`linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb` contains the
+O6 firmware-1.2 full profile. These images require an ACPI-configured board.
+
+Keep the distribution kernel installed and extract the assembled
+`cix-kernel-debs` artifact. Install only the selected image, for example:
 
 ```sh
-sudo apt install ./linux-image-*.deb ./linux-headers-*.deb
+sudo apt install ./linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
 ```
+
+If external-module headers are needed, install the matching flavour package
+and its common headers package together:
+
+```sh
+sudo apt install ./linux-headers-6.18.54-cix-common_6.18.54-1_arm64.deb \
+  ./linux-headers-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
+```
+
+The assembled artifact contains all variants; avoid broad installation
+wildcards. It also contains one verified `linux-libc-dev` package per kernel,
+shared across boards, page sizes, and firmware families.
 
 Do not install the artifact's `linux-libc-dev` merely to test the kernel; that
 would replace the system-wide userspace headers. Confirm that the bootloader

@@ -28,11 +28,28 @@ PCIe and pinctrl files listed below backport support already present in Linux
 ## Choosing a pre-built package
 
 The [CIX kernel Debian package workflow](../../../.github/workflows/cix-kernel-debs.yml)
-builds ACPI kernels for every maintained line. An artifact name has the form:
+builds ACPI kernels for every maintained line. Download the assembled
+`cix-kernel-debs` artifact, which contains every image and flavour-specific
+headers package, one common headers package per kernel, and one
+`linux-libc-dev` package per kernel. The `cix-kernel-build-*` artifacts are
+intermediate inputs to assembly, not the final installation bundle. After a
+successful assembled upload on a trusted run, GitHub removes those intermediate
+artifacts. They remain available for diagnosis if assembly fails, and on fork
+pull requests where the token cannot delete artifacts.
+
+Package filenames follow Debian's `<package>_<version>_<architecture>.deb`
+convention, for example:
 
 ```text
-cix-kernel-debs-<kernel>-<board>-acpi-<configuration>-<firmware>
+linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
+linux-headers-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
+linux-headers-6.18.54-cix-common_6.18.54-1_arm64.deb
+linux-libc-dev_6.18.54-1_arm64.deb
 ```
+
+The 64 KiB flavour ends in `arm64-64k`. Gentoo's absent revision or `-r0`
+maps to Debian revision `-1`; `-r1` maps to `-2`, and so on. The `acpi`
+component signals that these images require an ACPI-configured board.
 
 Per-run Actions artifacts are retained for seven days. A maintainer may also
 publish selected outputs through the repository's
@@ -43,8 +60,8 @@ Choose every component deliberately:
 | Component | Choices | Meaning |
 | --- | --- | --- |
 | Board | `o6`, `o6n` | Must match the physical board. |
-| Firmware | `1.2`, `1.3` | Must match the installed Radxa firmware family. The ACPI profiles track the latest stock releases: currently 1.2.4 and 1.3.1 respectively. Stock and custom version strings are recognised by family; custom firmware that already supplies the corrections normally needs table upgrades disabled. Older firmware releases are not separate compatibility targets. Check `/sys/class/dmi/id/bios_version` if unsure. |
-| Configuration | `generic`, `generic-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages. Use `generic` unless a 64 KiB kernel is specifically required. |
+| Firmware | `fw1.2`, `fw1.3` | Must match the installed Radxa firmware family. The ACPI profiles track the latest stock releases: currently 1.2.4 and 1.3.1 respectively. Stock and custom version strings are recognised by family; custom firmware that already supplies the corrections normally needs table upgrades disabled. Older firmware releases are not separate compatibility targets. Check `/sys/class/dmi/id/bios_version` if unsure. |
+| Configuration | `arm64`, `arm64-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages, seeded from `generic` and `generic-64k` respectively. Use `arm64` unless a 64 KiB kernel is specifically required. |
 | Kernel | `6.18.53`, `7.2.7` | The maintained Linux version. |
 
 The kernel image already contains the corresponding ACPI table-upgrade
@@ -59,13 +76,32 @@ refuse to boot it.
 
 ### Installing on Debian or Ubuntu
 
-Download one artifact for one board, firmware family, page-size configuration,
-and kernel version. From the extracted artifact directory, install the matching
-image and, if needed for external modules, headers:
+Extract the assembled artifact and select one image matching your board,
+firmware family, page-size configuration, and kernel version. For example,
+install an O6 firmware-1.2 kernel with 4 KiB pages:
 
 ```sh
-sudo apt install ./linux-image-*.deb ./linux-headers-*.deb
+sudo apt install ./linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
 ```
+
+For external modules, also install the matching flavour headers and their
+common package, whose dependency is pinned to the exact package version:
+
+```sh
+sudo apt install ./linux-headers-6.18.54-cix-common_6.18.54-1_arm64.deb \
+  ./linux-headers-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
+```
+
+Do not use a wildcard that installs every board and firmware variant. The
+common package stores identical header files and build tools once; each
+flavour retains its configuration, generated headers, module symbol versions,
+and `/lib/modules/<kernel-release>/build` link. Assembly verifies that combining
+them preserves the original effective headers payload.
+
+The workflow compares the installed userspace-header payloads across all eight
+variants of each kernel, ignoring archive timestamps and documentation. It
+publishes one `linux-libc-dev` only if they agree. See `package-sharing.json`
+in the assembled artifact for the sharing counts.
 
 Do not install a `linux-libc-dev` package from the artifact merely to test the
 kernel; it changes the system-wide userspace headers. Keep the distribution
@@ -300,7 +336,7 @@ persists without table upgrades, boot the known-good kernel and report:
 - board model and RAM size;
 - firmware vendor and exact version;
 - full kernel package/artifact name;
-- `generic` or `generic-64k` configuration;
+- `arm64` or `arm64-64k` configuration;
 - `uname -a`, `/proc/cmdline`, and the kernel configuration;
 - complete `dmesg` from boot through the failure; and
 - the device-specific state, such as `lspci -nnk`, media topology, thermal
