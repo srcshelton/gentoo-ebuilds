@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -16,7 +16,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 LICENSE="MPL-2.0"
 SLOT="0"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
-IUSE="+caps dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server static-libs systemd test +tools xml"
+IUSE="+caps dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server systemd test +tools xml"
 REQUIRED_USE="
 	dnstap? ( server )
 	doh? ( server )
@@ -109,7 +109,6 @@ src_configure() {
 		$(use_enable doh)
 		$(use_with doh libnghttp2)
 		$(use_enable fixed-rrset)
-		$(use_enable static-libs static)
 		$(use_enable geoip)
 		$(use_with test cmocka)
 		$(use_with geoip maxminddb)
@@ -212,10 +211,8 @@ src_install() {
 			fi
 		done
 
-		if ! use static-libs ; then
-			if find "${ED}"/usr/lib* -name '*.la' -quit; then
-				find "${ED}"/usr/lib* -name '*.la' -delete || die
-			fi
+		if find "${ED}"/usr/lib* -name '*.la' -quit; then
+			find "${ED}"/usr/lib* -name '*.la' -delete || die
 		fi
 
 		return 0
@@ -244,10 +241,8 @@ src_install() {
 
 	newenvd "${FILESDIR}"/10bind.env 10bind
 
-	if ! use static-libs ; then
-		if find "${ED}"/usr/lib* -name '*.la' -quit; then
-			find "${ED}"/usr/lib* -name '*.la' -delete || die
-		fi
+	if find "${ED}"/usr/lib* -name '*.la' -quit; then
+		find "${ED}"/usr/lib* -name '*.la' -delete || die
 	fi
 
 	#

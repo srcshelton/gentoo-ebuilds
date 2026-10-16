@@ -20,7 +20,7 @@ S="${WORKDIR}/${PN}-${MY_PV}"
 LICENSE="MPL-2.0"
 SLOT="0"
 KEYWORDS="~alpha amd64 ~arm ~arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
-IUSE="dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server static-libs systemd systemtap test +tools xml"
+IUSE="dnstap doc doh fixed-rrset geoip gssapi idn jemalloc lmdb selinux +server systemd systemtap test +tools xml"
 REQUIRED_USE="
 	dnstap? ( server )
 	doh? ( server )
@@ -114,7 +114,6 @@ src_configure() {
 		$(use_enable dnstap)
 		$(use_enable doh)
 		$(use_with doh libnghttp2)
-		$(use_enable static-libs static)
 		$(use_enable geoip)
 		$(use_enable systemtap tracing)
 		$(use_with test cmocka)
@@ -216,10 +215,8 @@ src_install() {
 			fi
 		done
 
-		if ! use static-libs ; then
-			if find "${ED}"/usr/lib* -name '*.la' -quit; then
-				find "${ED}"/usr/lib* -name '*.la' -delete || die
-			fi
+		if find "${ED}"/usr/lib* -name '*.la' -quit; then
+			find "${ED}"/usr/lib* -name '*.la' -delete || die
 		fi
 
 		return 0
@@ -248,10 +245,8 @@ src_install() {
 
 	newenvd "${FILESDIR}"/10bind.env 10bind
 
-	if ! use static-libs ; then
-		if find "${ED}"/usr/lib* -name '*.la' -quit; then
-			find "${ED}"/usr/lib* -name '*.la' -delete || die
-		fi
+	if find "${ED}"/usr/lib* -name '*.la' -quit; then
+		find "${ED}"/usr/lib* -name '*.la' -delete || die
 	fi
 
 	#
