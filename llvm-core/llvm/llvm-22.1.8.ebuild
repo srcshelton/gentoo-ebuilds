@@ -198,7 +198,7 @@ check_distribution_components() {
 src_prepare() {
 	# Breaks on aarch64
 	if use amd64 || use x86; then
-		eapply "${FILESDIR}/${P}-Allow-one-more-FMA-fusion.patch" || die
+		eapply "${FILESDIR}/${PN}-21.1.8-Allow-one-more-FMA-fusion.patch" || die
 	fi
 
 	# disable use of SDK on OSX, bug #568758
