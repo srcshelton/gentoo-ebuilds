@@ -147,7 +147,7 @@ these packages consists of:
 ```
 
 (subversion presents an issue - it cannot be compiled with clang, but if
-`USE="perl"` then the same compiler must be used to build subversion as was
+`USE='perl'` then the same compiler must be used to build subversion as was
 used to build perl)
 
 ... with a slightly larger set of builds failing if `FEATURES="strict"` or
@@ -391,7 +391,7 @@ used to build perl)
 * net-mail/imapsync
     * Add more recent imapsync-2.290 release
 * ~~net-misc/minissdpd~~
-    * ~~Temporarily retain old ebuild, which doesn't require `USE="old-output"` for sys-apps/net-tools~~
+    * ~~Temporarily retain old ebuild, which doesn't require `USE='old-output'` for sys-apps/net-tools~~
 * net-misc/pixelserv
 * net-misc/unifi-controller-bin
     * Ubiquiti Networks' UniFi Controller software
@@ -516,10 +516,10 @@ used to build perl)
 * app-text/sgml-common
     * Check that 'sgml-docbook.cat' exists before trying to modify it
 * dev-cpp/eigen
-    * Only pull-in test backends with USE='test'
+    * Only pull-in test backends with `USE='test'`
 * dev-db/mongodb
     * ~~Add firefox source to Allow building on ARM~~
-    * Add net-misc/curl and python dependencies, update prerequisite checks when building with USE='lto'
+    * Add net-misc/curl and python dependencies, update prerequisite checks when building with `USE='lto'`
 * dev-db/mysql-init-scripts
     * Only install support for requested service-managers
 * dev-db/opendbx
@@ -537,7 +537,7 @@ used to build perl)
 * ~~dev-lang/perl~~
     * ~~Fix HTTP::Tiny SSL CA path for prefix installations, prevent `darwin_time_mutex` errors on macOS~~
 * dev-lang/perl
-    * Don't require app-admin/perl-cleaner with USE='minimal'
+    * Don't require app-admin/perl-cleaner with `USE='minimal'`
 * dev-lang/ruby
     * Disable LTO
 * dev-libs/geoip
@@ -728,9 +728,9 @@ used to build perl)
 * sys-fs/udisks
     * Make HTML documentation optional
 * sys-kernel/gentoo-sources
-    * Fix USE='experimental' shiftfs compilation with clang
+    * Fix `USE='experimental'` shiftfs compilation with clang
 * sys-kernel/linux-firmware
-    * Be much more verbose about which firmware is being installed and skipped with `USE=savedconfig`, and don't try to strip firmware blobs :o
+    * Be much more verbose about which firmware is being installed and skipped with `USE='savedconfig'`, and don't try to strip firmware blobs :o
 * sys-kernel/linux-headers
     * Block co-existence with sys-kernel/raspberrypi-headers
 * sys-libs/libblockdev
@@ -741,6 +741,8 @@ used to build perl)
     * Remove unnecessary run-time dependency on sys-kernel/linux-headers
 * sys-libs/libxcrypt
     * When manpages are relocated, also correct '.so' links
+* sys-libs/timezone-data
+    * Only install binaries with `USE='tools'`, for compatibility with sys-libs/glibc `USE='timezone-tools'`
 * sys-power/acpi\_call
     * Extend keywords and make sys-kernel/dracut support optional
 * sys-power/apcupsd
@@ -938,29 +940,29 @@ x32 profiles, and that these variables only affect multilib systems.
 * ~~app-eselect/eselect-awk~~
     * ~~Support for (g)awk installed in `/bin`~~
 * net-misc/netifrc
-    * Avoid installing udev rules unless `USE="udev"` is specified
+    * Avoid installing udev rules unless `USE='udev'` is specified
 * net-wireless/bluez
-    * Make 'udev' an optional dependency, controlled by `USE="udev"`
+    * Make 'udev' an optional dependency, controlled by `USE='udev'`
 * sys-apps/coreutils
     * Add `uniq` to the list of binaries moved to `/bin`, as some init scripts (such as `device-mapper`) rely on it being present during early-boot
 * sys-apps/gawk
     * Install to `/bin` rather than `/usr/bin`, for init scripts which invoke `awk`
 * sys-apps/irqbalance
-    * Avoid installing udev rules unless `USE="udev"` is specified
+    * Avoid installing udev rules unless `USE='udev'` is specified
 * sys-apps/nvme-cli
     * Remove extraneous udev elements if not required
 * sys-apps/openrc
-    * Add optional `USE="varrun"` flag to allow 'run' directory to remain as '/var/run'
+    * Add optional `USE='varrun'` flag to allow 'run' directory to remain as '/var/run'
 * sys-fs/cryptsetup
-    * Make 'udev' an optional dependency, controlled by `USE="udev"`
+    * Make 'udev' an optional dependency, controlled by `USE='udev'`
 * sys-fs/e2fsprogs
-    * Avoid installing udev rules unless `USE="udev"` is specified
+    * Avoid installing udev rules unless `USE='udev'` is specified
 * ~~sys-fs/fuse~~
-    * ~~Avoid installing udev rules unless `USE="udev"` is specified~~
+    * ~~Avoid installing udev rules unless `USE='udev'` is specified~~
 * sys-fs/fuse-common
-    * Avoid installing udev rules unless `USE="udev"` is specified
+    * Avoid installing udev rules unless `USE='udev'` is specified
 * sys-fs/lvm2
-    * Make 'udev' an optional dependency, controlled by `USE="udev"`
+    * Make 'udev' an optional dependency, controlled by `USE='udev'`
 * sys-fs/mdadm
     * Restore previous boot-time functionality, add support for module-loading from `/etc/mdadm/mdmod.conf`
 * sys-libs/libeudev
