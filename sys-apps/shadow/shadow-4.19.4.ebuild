@@ -64,7 +64,7 @@ src_prepare() {
 }
 
 set_login_opt() {
-	local comment='' opt="${1}" val="${2}"
+	local comment='' opt="${1:-}" val="${2:-}"
 
 	if [[ -z "${val:-}" ]]; then
 		comment='#'
