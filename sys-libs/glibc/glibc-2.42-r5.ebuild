@@ -1247,7 +1247,7 @@ glibc_do_configure() {
 	)
 
 	# We rely on sys-libs/timezone-data for timezone tools normally.
-	myconf+=( "$(use_enable vanilla timezone-tools)" )
+	myconf+=( "$(use_enable timezone-tools)" )
 
 	# These libs don't have configure flags.
 	ac_cv_lib_audit_audit_log_user_avc_message=$(usex audit || echo no)

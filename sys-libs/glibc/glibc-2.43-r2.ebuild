@@ -188,9 +188,9 @@ else
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
 		!minimal? ( >=net-dns/libidn2-2.3.0 )
-		timezone-tools? ( !sys-libs/timezone-data )
+		timezone-tools? ( !sys-libs/timezone-data[tools(+)] )
 	"
-	PDEPEND+=" !timezone-tools? ( sys-libs/timezone-data )"
+	PDEPEND+=" !timezone-tools? ( sys-libs/timezone-data[tools(+)] )"
 fi
 
 # Ignore tests whitelisted below
@@ -1312,7 +1312,7 @@ glibc_do_configure() {
 	)
 
 	# We rely on sys-libs/timezone-data for timezone tools normally.
-	myconf+=( "$(use_enable vanilla timezone-tools)" )
+	myconf+=( "$(use_enable timezone-tools)" )
 
 	if is_crosscompile ; then
 		myconf+=( --disable-systemtap )
@@ -1561,7 +1561,7 @@ run_locale_gen() {
 	fi
 
 
-	if [[ ${EBUILD_PHASE_FUNC} == src_install ]]; then
+	if [[ "${EBUILD_PHASE_FUNC}" == 'src_install' ]]; then
 		hasversion_opts=( -b )
 	fi
 
@@ -1954,6 +1954,13 @@ src_install() {
 	fi
 
 	foreach_abi glibc_do_src_install
+
+	if use timezone-tools; then
+		# sys-libs/glibc installs '/usr/sbin/zic' whilst sys-libs/timezone-data
+		# uses '/usr/bin/zic' ...
+		dodir /usr/bin
+		mv "${ED}"/usr/sbin/zic "${ED}"/usr/bin/ || die
+	fi
 
 	if ! use static-libs ; then
 		einfo "Not installing static glibc libraries"

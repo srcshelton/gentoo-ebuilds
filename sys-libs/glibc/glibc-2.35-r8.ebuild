@@ -6,7 +6,7 @@ EAPI=7
 # Bumping notes: https://wiki.gentoo.org/wiki/Project:Toolchain/sys-libs/glibc
 # Please read & adapt the page as necessary if obsolete.
 
-PYTHON_COMPAT=( python3_{8..11} )
+PYTHON_COMPAT=( python3_{8..14} )
 TMPFILES_OPTIONAL=1
 
 inherit flag-o-matic gnuconfig multilib multiprocessing prefix preserve-libs python-any-r1 systemd tmpfiles toolchain-funcs
