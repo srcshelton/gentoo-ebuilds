@@ -425,12 +425,44 @@ src_prepare() {
 src_configure() {
 	# $ cmake -LAH 2>/dev/null | grep -v '^CMAKE_' | grep -B 1 '^[A-Z].*:.*='  | grep -v '^--$'
 	#
+	# path to the bison executable
+	#BISON_EXECUTABLE:FILEPATH=/usr/bin/bison
 	# Include component files for native packages
 	#BUILD_FOR_PACKAGING:BOOL=OFF
+	# Build Corrosion test project
+	#CORROSION_BUILD_TESTS:BOOL=OFF
+	# Enables some additional features if you're developing Corrosion
+	#CORROSION_DEV_MODE:BOOL=OFF
+	# Use prebuilt, non-bootstrapped corrosion-generator
+	#CORROSION_GENERATOR_EXECUTABLE:STRING=
+	# Controls whether corrosion-generator is installed with the package
+	#CORROSION_INSTALL_EXECUTABLE:BOOL=OFF
+	# Use native tooling - Required on CMake < 3.19 and available as a fallback option for recent versions
+	#CORROSION_NATIVE_TOOLING:BOOL=OFF
+	# Surpresses a warning if the parsing the target triple failed.
+	#CORROSION_NO_WARN_PARSE_TARGET_TRIPLE_FAILED:BOOL=OFF
+	# Respect the CMake target properties specifying the output directory of a target, such as `RUNTIME_OUTPUT_DIRECTORY`. This requires CMake >= 3.19, otherwise this option is forced off
+	#CORROSION_RESPECT_OUTPUT_DIRECTORY:BOOL=ON
+	# Enables verbose output from Corrosion and Cargo
+	#CORROSION_VERBOSE_OUTPUT:BOOL=OFF
+	# Do not change this
+	#COR_IS_MULTI_CONFIG:BOOL=0
 	# Specify the default state for most optional features
 	#DEFAULT_FEATURE_STATE:BOOL=ON
 	# Disable adding extra compiler flags for hardening
 	#DISABLE_HARDENING:BOOL=OFF
+	# Enable this if you want to turn on the DLIB_ASSERT macro
+	#DLIB_ENABLE_ASSERTS:BOOL=OFF
+	# Enable this if you want to turn on the DLIB_STACK_TRACE macros
+	#DLIB_ENABLE_STACK_TRACE:BOOL=OFF
+	# Enable this if you don't want to compile any non-ISO C++ code (i.e. you don't use any of the API Wrappers)
+	#DLIB_ISO_CPP_ONLY:BOOL=OFF
+	# Set this to a comma-separated list of CUDA compute capabilities
+	#DLIB_USE_CUDA_COMPUTE_CAPABILITIES:STRING=50
+	# Enable this if you have MKL installed and want to use the sequential version instead of the multi-core version.
+	#DLIB_USE_MKL_SEQUENTIAL:BOOL=OFF
+	# Enable this if you have MKL installed and want to use the tbb version instead of the openmp version.
+	#DLIB_USE_MKL_WITH_TBB:BOOL=OFF
 	# Build with address sanitizer enabled
 	#ENABLE_ADDRESS_SANITIZER:BOOL=OFF
 	# Force use of a vendored copy of JSON-C
@@ -439,6 +471,12 @@ src_configure() {
 	#ENABLE_BUNDLED_PROTOBUF:BOOL=OFF
 	# Force use of a vendored copy of libyaml
 	#ENABLE_BUNDLED_YAML:BOOL=OFF
+	# Enable cgroups.plugin CGROUPS_LOOKUP netipc server
+	#ENABLE_CGROUPS_LOOKUP_SERVER:BOOL=ON
+	# Build cgroups.plugin CGROUPS_LOOKUP test client
+	#ENABLE_CGROUPS_LOOKUP_TEST_CLIENT:BOOL=OFF
+	# Build the cgroup-name helper
+	#ENABLE_CGROUP_NAME:BOOL=ON
 	# Enable local dashboard
 	#ENABLE_DASHBOARD:BOOL=ON
 	# Enable dbengine metrics storage
@@ -447,12 +485,18 @@ src_configure() {
 	#ENABLE_EXPORTER_MONGODB:BOOL=ON
 	# Enable exporting to Prometheus via remote write API
 	#ENABLE_EXPORTER_PROMETHEUS_REMOTE_WRITE:BOOL=ON
+	# Disable jemalloc allocator
+	#ENABLE_JEMALLOC:BOOL=OFF
 	# Enable eBPF programs for kernels without BTF support
 	#ENABLE_LEGACY_EBPF_PROGRAMS:BOOL=ON
 	# Use libbacktrace for stack traces in log output
 	#ENABLE_LIBBACKTRACE:BOOL=ON
+	# Enable mimalloc allocator
+	#ENABLE_MIMALLOC:BOOL=OFF
 	# Enable machine learning features
 	#ENABLE_ML:BOOL=ON
+	# Build nd-mcp stdio-to-websocket bridge for MCP integration
+	#ENABLE_ND_MCP:BOOL=ON
 	# Enable netdata's journal file reader implementation
 	#ENABLE_NETDATA_JOURNAL_FILE_READER:BOOL=OFF
 	# Enable per-process resource usage monitoring
@@ -471,24 +515,22 @@ src_configure() {
 	#ENABLE_PLUGIN_FREEIPMI:BOOL=ON
 	# Enable metric collectors written in Go
 	#ENABLE_PLUGIN_GO:BOOL=ON
-	# Enable IBM ecosystem collectors (requires CGO)
-	#ENABLE_PLUGIN_IBM:BOOL=OFF
 	# Enable local listening socket tracking (including service auto-discovery support)
 	#ENABLE_PLUGIN_LOCAL_LISTENERS:BOOL=ON
+	# Enable NetFlow/IPFIX/sFlow flow analysis plugin
+	#ENABLE_PLUGIN_NETFLOW:BOOL=OFF
 	# Enable network viewer functionality
 	#ENABLE_PLUGIN_NETWORK_VIEWER:BOOL=ON
 	# Enable Linux NFACCT metric collection
 	#ENABLE_PLUGIN_NFACCT:BOOL=ON
 	# Enable collection of OpenTelemetry metrics and logs
 	#ENABLE_PLUGIN_OTEL:BOOL=ON
-	# Enable OTel signal viewer plugin
-	#ENABLE_PLUGIN_OTEL_SIGNAL_VIEWER:BOOL=ON
 	# Enable Linux performance counter monitoring
 	#ENABLE_PLUGIN_PERF:BOOL=ON
 	# Enable metric collectors written in Python
 	#ENABLE_PLUGIN_PYTHON:BOOL=ON
 	# Enable the experimental scripts plugin (Nagios compatibility module)
-	#ENABLE_PLUGIN_SCRIPTS:BOOL=OFF
+	#ENABLE_PLUGIN_SCRIPTS:BOOL=ON
 	# Enable Linux kernel SLAB allocator monitoring
 	#ENABLE_PLUGIN_SLABINFO:BOOL=ON
 	# Enable systemd journal log collection
@@ -502,32 +544,60 @@ src_configure() {
 	# Enable WebRTC dashboard communications (experimental)
 	#ENABLE_WEBRTC:BOOL=OFF
 	# Directory under which to collect all populated content
-	#FETCHCONTENT_BASE_DIR:PATH=/var/tmp/portage/net-analyzer/netdata-2.9.0/work/netdata-v2.9.0/_deps
+	#FETCHCONTENT_BASE_DIR:PATH=/var/tmp/portage/net-analyzer/netdata-2.11.0/work/netdata-v2.11.0/_deps
 	# Disables all attempts to download or update content and assumes source dirs already exist
 	#FETCHCONTENT_FULLY_DISCONNECTED:BOOL=OFF
 	# Enables QUIET option for all content population
 	#FETCHCONTENT_QUIET:BOOL=ON
 	# When not empty, overrides where to find pre-populated content for Corrosion
 	#FETCHCONTENT_SOURCE_DIR_CORROSION:PATH=
+	# When not empty, overrides where to find pre-populated content for dlib
+	#FETCHCONTENT_SOURCE_DIR_DLIB:PATH=
 	# Enables UPDATE_DISCONNECTED behavior for all content population
 	#FETCHCONTENT_UPDATES_DISCONNECTED:BOOL=OFF
 	# Enables UPDATE_DISCONNECTED behavior just for population of Corrosion
 	#FETCHCONTENT_UPDATES_DISCONNECTED_CORROSION:BOOL=OFF
+	# Enables UPDATE_DISCONNECTED behavior just for population of dlib
+	#FETCHCONTENT_UPDATES_DISCONNECTED_DLIB:BOOL=OFF
+	# path to the flex executable
+	#FLEX_EXECUTABLE:FILEPATH=/usr/bin/flex
+	# Path to the flex headers
+	#FLEX_INCLUDE_DIR:PATH=/usr/include
+	# Path to the fl library
+	#FL_LIBRARY:FILEPATH=/usr/lib64/libfl.a
 	# Force usage of libbpf 0.0.9 instead of the latest version.
 	#FORCE_LEGACY_LIBBPF:BOOL=OFF
 	# Git command line client
-	#GIT_EXECUTABLE:FILEPATH=GIT_EXECUTABLE-NOTFOUND
+	#GIT_EXECUTABLE:FILEPATH=/usr/bin/git
+	# Detected host kernel version
+	#HOST_KERNEL_VERSION:STRING=6.18.0
+	# Path to a program.
+	#LIBC_PATH:FILEPATH=/lib64/libc.so.6
+	# Path to a program.
+	#MAKE_COMMAND:FILEPATH=/usr/bin/make
 	# Path to a program.
 	#MOLD_LINKER:FILEPATH=MOLD_LINKER-NOTFOUND
 	# Path to local dlib sources for building ML code
 	#NETDATA_DLIB_SOURCE_DIR:PATH=
+	# Native package format being built (deb, rpm, or empty)
+	#NETDATA_PACKAGING_FORMAT:STRING=
+	# Path to a file.
+	#OS_RELEASE_PATH:FILEPATH=/etc/os-release
 	# Arguments to supply to pkg-config
 	#PKG_CONFIG_ARGN:STRING=
 	# pkg-config executable
 	#PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
+	# The directory containing a CMake configuration file for Protobuf.
+	#Protobuf_DIR:PATH=/usr/lib64/cmake/protobuf
+	# Indicates whether to descend into the toolchain pointed to by rustup
+	#Rust_RESOLVE_RUSTUP_TOOLCHAINS:BOOL=OFF
+	# Fetch SQLite sources via git clone instead of tarball
+	#SQLITE_USE_GIT:BOOL=OFF
 	# Use static linking instead of dynamic linking for the build.
 	#STATIC_BUILD:BOOL=OFF
-	# Use C++11 instead of C++14 (should only be used on legacy systems that cannot support C++14, may disable some features)
+	# Path to a library.
+	#SYSTEMD_LIBRARY:FILEPATH=SYSTEMD_LIBRARY-NOTFOUND
+	# Use C++11 instead of C++17 (should only be used on legacy systems that cannot support C++17, may disable some features)
 	#USE_CXX_11:BOOL=OFF
 	# Attempt to use of LTO when building. Defaults to being enabled if supported for release builds.
 	#USE_LTO:BOOL=ON
@@ -575,7 +645,6 @@ src_configure() {
 
 		-DENABLE_PLUGIN_GO=$(usex go)
 		-DENABLE_PLUGIN_OTEL=$(usex opentelemetry)
-		-DENABLE_PLUGIN_OTEL_SIGNAL_VIEWER=$(usex opentelemetry)
 		-DENABLE_PLUGIN_PYTHON=$(usex python)
 
 		#-DENABLE_PLUGIN_APPS=yes

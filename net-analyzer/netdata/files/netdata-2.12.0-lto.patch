@@ -1,0 +1,26 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -362,6 +362,11 @@
+     endif()
+ 
+     if(ENABLE_PLUGIN_OTEL)
++      corrosion_set_env_vars(
++              otel-plugin
++              "CFLAGS=-fno-lto"
++              "CXXFLAGS=-fno-lto")
++
+       if(STATIC_BUILD)
+         corrosion_add_target_rustflags(otel-plugin --cfg=tracing_unstable "-C" "target-feature=+crt-static")
+       else()
+@@ -388,6 +394,11 @@
+     endif()
+ 
+     if(ENABLE_PLUGIN_NETFLOW)
++      corrosion_set_env_vars(
++              netflow-plugin
++              "CFLAGS=-fno-lto"
++              "CXXFLAGS=-fno-lto")
++
+       set(NETFLOW_PLUGIN_RUSTFLAGS "")
+       set(NETFLOW_PLUGIN_ENV_VARS
+               "NETDATA_BUILD_CACHE_DIR=${CACHE_DIR}"
