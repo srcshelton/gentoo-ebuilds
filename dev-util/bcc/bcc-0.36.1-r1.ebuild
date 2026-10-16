@@ -9,7 +9,7 @@ DISTUTILS_USE_PEP517=setuptools
 PYTHON_COMPAT=( python3_{{11..14},{13..14}t}  )
 LLVM_COMPAT=( {16..22} )
 
-inherit cmake distutils-r1 linux-info llvm-r1 lua-single toolchain-funcs
+inherit cmake distutils-r1 flag-o-matic linux-info llvm-r1 lua-single toolchain-funcs
 
 DESCRIPTION="Tools for BPF-based Linux IO analysis, networking, monitoring, and more"
 HOMEPAGE="https://iovisor.github.io/bcc/"
@@ -142,6 +142,9 @@ src_prepare() {
 }
 
 src_configure() {
+	# bug #938491
+	filter-lto
+
 	local mycmakeargs=(
 		-DREVISION=${PV%%_*}
 		-DENABLE_LIBDEBUGINFOD=$(usex debuginfod)
