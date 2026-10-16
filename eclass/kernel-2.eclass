@@ -1139,7 +1139,7 @@ unipatch() {
         # in the ebuild is correct
         #
         # Iterate through patch and look for OKV
-        if [[ -n "${K_WANT_GENPATCHES}" ]]; then
+        if [[ " ${K_WANT_GENPATCHES} " == *' base '* ]]; then
             KV_PATCH_FOUND=
             while IFS= read -r -d '' file; do
                 filename="${file##*/}"
