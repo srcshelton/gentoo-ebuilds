@@ -32,8 +32,7 @@ case ${PV} in
 esac
 
 DESCRIPTION="Another cute console display library"
-HOMEPAGE="https://tiswww.case.edu/php/chet/readline/rltop.html
-	https://git.savannah.gnu.org/cgit/readline.git"
+HOMEPAGE="https://tiswww.case.edu/php/chet/readline/rltop.html https://git.savannah.gnu.org/cgit/readline.git"
 
 if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.savannah.gnu.org/git/readline.git"
@@ -125,7 +124,7 @@ src_prepare() {
 
 	#(( PLEVEL < 0 )) && eautoreconf
 
-	if use prefix && [[ -n "${STAGE:-}" || ! -x "${BROOT}"/usr/bin/pkg-config ]] ; then
+	if use prefix && ! type -P $(tc-getPKG_CONFIG) > /dev/null ; then
 		# If we're bootstrapping, make a guess. We don't have pkg-config
 		# around yet. bug #818103.
 		# Incorrectly populating this leads to underlinked libreadline.

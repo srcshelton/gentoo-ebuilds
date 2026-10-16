@@ -32,8 +32,7 @@ is_release() {
 [[ ${PV} != *_p* ]] && PLEVEL=0
 
 DESCRIPTION="Another cute console display library"
-HOMEPAGE="https://tiswww.case.edu/php/chet/readline/rltop.html
-	https://git.savannah.gnu.org/cgit/readline.git"
+HOMEPAGE="https://tiswww.case.edu/php/chet/readline/rltop.html https://git.savannah.gnu.org/cgit/readline.git"
 
 if [[ ${PV} == 9999 ]] ; then
 	EGIT_REPO_URI="https://git.savannah.gnu.org/git/readline.git"
@@ -127,7 +126,7 @@ src_prepare() {
 
 	is_release || eautoreconf
 
-	if use prefix && [[ ! -x "${BROOT}"/usr/bin/pkg-config ]] ; then
+	if use prefix && ! type -P $(tc-getPKG_CONFIG) > /dev/null ; then
 		# If we're bootstrapping, make a guess. We don't have pkg-config
 		# around yet. bug #818103.
 		# Incorrectly populating this leads to underlinked libreadline.
