@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_10 python3_{12..14} )
 inherit cmake-multilib flag-o-matic llvm.org llvm-utils python-any-r1 toolchain-funcs
 
 DESCRIPTION="C++ runtime stack unwinder from LLVM"

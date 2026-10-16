@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_10 python3_{12..14} )
 inherit cmake-multilib crossdev flag-o-matic llvm.org llvm-utils python-any-r1 toolchain-funcs
 
 DESCRIPTION="C++ runtime stack unwinder from LLVM"
@@ -61,34 +61,28 @@ multilib_src_configure() {
 
 	local libdir=$(get_libdir)
 
-	# https://github.com/llvm/llvm-project/issues/56825
-	# also separately bug #863917
-	filter-lto
-
 	if use arm64; then
 		filter-flags -mbranch-protection=standard
 
 		if use clang || tc-is-clang; then
-			# llvm-runtimes/libunwind-21.1.8 fails to build on aarch64 at
-			# -O0 or above...
+			# error: value evaluated as 4611686018427387889 is out of range.
+			ewarn "Reducing optimisations on ${ARCH} due to build failures ..."
+
 			strip-flags
-			#if [[ "$( type -t replace-cflags 2>/dev/null )" == 'function' ]]; then
-			#	replace-cflags '-O[123]' -O0
-			#else
-			#	replace-flags '-O[123]' -O0
-			#fi
-			#filter-flags -ffast-math
-			#append-flags -fno-fast-math
-			#filter-flags -ffinite-math-only
-			#append-flags -fno-finite-math-only
-			#append-flags -fno-integrated-as
-			#append-flags "-fuse-ld=ld"
-			#append-cppflags "-DLLVM_USE_LINKER=ld.bfd"
-			#append-cppflags "-DCLANG_DEFAULT_LINKER=ld.bfd"
-			#LD='ld.bfd'
-			#tc-export LD
+
+			filter-flags -ffinite-math-only
+			append-flags -fno-finite-math-only
+
+			filter-flags -ffast-math
+			append-flags -fno-fast-math
+
+			strip-unsupported-flags
 		fi
 	fi
+
+	# https://github.com/llvm/llvm-project/issues/56825
+	# also separately bug #863917
+	filter-lto
 
 	# Workaround for bgo #961153.
 	# TODO: Fix the multilib.eclass, so it sets CTARGET properly.
