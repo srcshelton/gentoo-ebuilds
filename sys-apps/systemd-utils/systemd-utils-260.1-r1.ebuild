@@ -116,6 +116,7 @@ CONFIG_CHECK="
 
 PATCHES=(
 	"${FILESDIR}/systemd-260.1-fuzz-journald.patch"
+	"${FILESDIR}/systemd-261-lxml-6.1.3.patch"
 )
 
 pkg_setup() {
