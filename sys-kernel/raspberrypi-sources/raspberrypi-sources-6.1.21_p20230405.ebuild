@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -118,11 +118,6 @@ universal_unpack() {
 	find . -iname "*~" -exec rm {} \; 2>/dev/null
 }
 
-src_prepare() {
-	default
-	kernel-2_src_prepare
-}
-
 src_install() {
 	# e.g. linux-raspberrypi-kernel_1.20200601-1 -> linux-4.19.118-raspberrypi-r1
 	dodir /usr/src
@@ -134,13 +129,7 @@ src_install() {
 }
 
 pkg_postinst() {
-	kernel-2_pkg_postinst
-
 	if use symlink; then
 		ln -snf "linux-${PV%_p*}-raspberrypi" "${EROOT}"/usr/src/linux || die
 	fi
-}
-
-pkg_postrm() {
-	kernel-2_pkg_postrm
 }

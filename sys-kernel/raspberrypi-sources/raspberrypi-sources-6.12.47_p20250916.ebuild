@@ -139,11 +139,6 @@ src_unpack() {
 }
 
 
-src_prepare() {
-	default
-	kernel-2_src_prepare
-}
-
 src_install() {
 	# e.g. linux-raspberrypi-kernel_1.20200601-1 -> linux-4.19.118-raspberrypi-r1
 	dodir /usr/src
@@ -155,8 +150,6 @@ src_install() {
 }
 
 pkg_postinst() {
-	kernel-2_pkg_postinst
-
 	if use symlink; then
 		if [[ "${PR}" != 'r0' ]]; then
 			ln -snf "linux-${CKV}-raspberrypi-${PR}" "${EROOT}"/usr/src/linux || die
@@ -164,8 +157,4 @@ pkg_postinst() {
 			ln -snf "linux-${CKV}-raspberrypi" "${EROOT}"/usr/src/linux || die
 		fi
 	fi
-}
-
-pkg_postrm() {
-	kernel-2_pkg_postrm
 }

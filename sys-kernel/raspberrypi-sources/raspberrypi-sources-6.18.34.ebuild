@@ -125,7 +125,6 @@ src_unpack() {
 
 
 src_prepare() {
-	default
 	kernel-2_src_prepare
 }
 

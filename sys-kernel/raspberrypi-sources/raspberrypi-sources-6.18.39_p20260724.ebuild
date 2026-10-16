@@ -5,7 +5,7 @@ EAPI=8
 
 ETYPE="sources"
 K_WANT_GENPATCHES="extras experimental"
-K_GENPATCHES_VER="53"
+K_GENPATCHES_VER="46"
 
 CKV="${PV%_p*}"
 
@@ -140,7 +140,6 @@ src_unpack() {
 
 
 src_prepare() {
-	default
 	kernel-2_src_prepare
 }
 
