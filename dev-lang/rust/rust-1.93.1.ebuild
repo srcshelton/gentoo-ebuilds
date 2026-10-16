@@ -4,7 +4,7 @@
 EAPI=8
 
 LLVM_COMPAT=( 21 )
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_{12..14} )
 
 # Patches are kept in rust-patches.git, see its README.rst for the versioning
 # scheme.
@@ -32,7 +32,7 @@ fi
 # No longer builds on systems with <8GB RAM, even with these adjustments :(
 PARALLEL_MEMORY_MIN=8
 
-inherit check-reqs estack flag-o-matic llvm-r1 multilib multilib-build multiprocessing optfeature python-any-r1 rust rust-toolchain toolchain-funcs verify-sig
+inherit check-reqs estack flag-o-matic llvm-r2 multilib multilib-build multiprocessing optfeature python-any-r1 rust rust-toolchain toolchain-funcs verify-sig
 
 if [[ ${PV} = *9999* ]]; then
 	inherit git-r3
@@ -42,7 +42,8 @@ elif [[ ${PV} == *beta* ]]; then
 	betaver=${PV//*beta}
 	BETA_SNAPSHOT="${betaver:0:4}-${betaver:4:2}-${betaver:6:2}"
 	MY_P="rustc-beta"
-	SRC_URI="https://static.rust-lang.org/dist/${BETA_SNAPSHOT}/rustc-beta-src.tar.xz -> rustc-${RUST_PV}-src.tar.xz
+	SRC_URI="
+		https://static.rust-lang.org/dist/${BETA_SNAPSHOT}/rustc-beta-src.tar.xz -> rustc-${RUST_PV}-src.tar.xz
 		https://gitweb.gentoo.org/proj/rust-patches.git/snapshot/rust-patches-${RUST_PATCH_VER}.tar.bz2
 		verify-sig? ( https://static.rust-lang.org/dist/${BETA_SNAPSHOT}/rustc-beta-src.tar.xz.asc -> rustc-${RUST_PV}-src.tar.xz.asc )
 	"
@@ -82,7 +83,7 @@ ALL_RUST_SYSROOTS=( "${ALL_RUST_SYSROOTS[@]/#/rust_sysroots_}" )
 LICENSE="|| ( MIT Apache-2.0 ) BSD BSD-1 BSD-2 BSD-4"
 SLOT="${PV%%_*}" # Beta releases get to share the same SLOT as the eventual stable
 
-IUSE="${ALL_LLVM_TARGETS[*]} ${ALL_RUST_SYSROOTS[*]} big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind llvm_targets_AArch64 llvm_targets_AMDGPU llvm_targets_ARC llvm_targets_ARM llvm_targets_AVR llvm_targets_BPF llvm_targets_CSKY llvm_targets_DirectX llvm_targets_Hexagon llvm_targets_Lanai llvm_targets_LoongArch llvm_targets_M68k llvm_targets_Mips llvm_targets_MSP430 llvm_targets_NVPTX llvm_targets_PowerPC llvm_targets_RISCV llvm_targets_Sparc llvm_targets_SPIRV llvm_targets_SystemZ llvm_targets_VE llvm_targets_WebAssembly llvm_targets_X86 llvm_targets_XCore llvm_targets_Xtensa lto rust-analyzer rustfmt rust-src rust_sysroots_bpf rust_sysroots_wasm +system-llvm test"
+IUSE="${ALL_LLVM_TARGETS[*]} ${ALL_RUST_SYSROOTS[*]} big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind lto rust-analyzer rustfmt rust-src +system-llvm test"
 
 if [[ ${PV} = *9999* ]]; then
 	# These USE flags require nightly rust
@@ -263,7 +264,7 @@ pkg_setup() {
 	rust_pkg_setup
 
 	if use system-llvm; then
-		llvm-r1_pkg_setup
+		llvm-r2_pkg_setup
 
 		local llvm_config="$(get_llvm_prefix)/bin/llvm-config"
 		export LLVM_LINK_SHARED=1
@@ -353,8 +354,7 @@ src_prepare() {
 }
 
 src_configure() {
-	local arg='' previous='' optimise='true'
-	local -a flags=()
+	local optimise='true'
 
 	if tc-is-cross-compiler; then
 		export PKG_CONFIG_ALLOW_CROSS=1

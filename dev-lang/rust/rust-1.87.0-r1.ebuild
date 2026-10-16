@@ -1,10 +1,10 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
 LLVM_COMPAT=( 20 )
-PYTHON_COMPAT=( python3_{11..14} )
+PYTHON_COMPAT=( python3_{12..14} )
 
 RUST_PATCH_VER="${PVR}-1"
 
@@ -25,7 +25,7 @@ fi
 # No longer builds on systems with <8GB RAM, even with these adjustments :(
 PARALLEL_MEMORY_MIN=8
 
-inherit check-reqs estack flag-o-matic llvm-r1 multilib multilib-build multiprocessing optfeature python-any-r1 rust rust-toolchain toolchain-funcs verify-sig
+inherit check-reqs estack flag-o-matic llvm-r2 multilib multilib-build multiprocessing optfeature python-any-r1 rust rust-toolchain toolchain-funcs verify-sig
 
 if [[ ${PV} = *9999* ]]; then
 	inherit git-r3
@@ -76,7 +76,7 @@ done
 LICENSE="|| ( MIT Apache-2.0 ) BSD BSD-1 BSD-2 BSD-4"
 SLOT="${PV%%_*}" # Beta releases get to share the same SLOT as the eventual stable
 
-IUSE="big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind llvm_targets_AArch64 llvm_targets_AMDGPU llvm_targets_ARC llvm_targets_ARM llvm_targets_AVR llvm_targets_BPF llvm_targets_CSKY llvm_targets_DirectX llvm_targets_Hexagon llvm_targets_Lanai llvm_targets_LoongArch llvm_targets_M68k llvm_targets_Mips llvm_targets_MSP430 llvm_targets_NVPTX llvm_targets_PowerPC llvm_targets_RISCV llvm_targets_Sparc llvm_targets_SPIRV llvm_targets_SystemZ llvm_targets_VE llvm_targets_WebAssembly llvm_targets_X86 llvm_targets_XCore llvm_targets_Xtensa lto rust-analyzer rustfmt rust-src +system-llvm test wasm"
+IUSE="${ALL_LLVM_TARGETS[*]} big-endian clippy cpu_flags_x86_sse2 debug dist doc llvm-libunwind lto rust-analyzer rustfmt rust-src +system-llvm test wasm"
 
 if [[ ${PV} = *9999* ]]; then
 	# These USE flags require nightly rust
@@ -253,7 +253,7 @@ pkg_setup() {
 	rust_pkg_setup
 
 	if use system-llvm; then
-		llvm-r1_pkg_setup
+		llvm-r2_pkg_setup
 
 		local llvm_config="$(get_llvm_prefix)/bin/llvm-config"
 		export LLVM_LINK_SHARED=1
@@ -327,8 +327,7 @@ src_prepare() {
 }
 
 src_configure() {
-	local arg='' previous='' optimise='true'
-	local -a flags=()
+	local optimise='true'
 
 	if tc-is-cross-compiler; then
 		export PKG_CONFIG_ALLOW_CROSS=1
@@ -345,59 +344,7 @@ src_configure() {
 
 	filter-lto # https://bugs.gentoo.org/862109 https://bugs.gentoo.org/866231
 
-	if (( ( $( # <- Syntax
-			head /proc/meminfo |
-				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }'
-		) / ( 1024 * 1024 ) ) < PARALLEL_MEMORY_MIN ))
-	then
-		use lto &&
-			die "Cannot build without at least ${PARALLEL_MEMORY_MIN}GB free memory with USE='lto'"
-
-		if [[ "${EMERGE_DEFAULT_OPTS:-}" == *-j* ]]; then
-			ewarn "make.conf or environment contains parallel build directive,"
-			ewarn "memory usage may be increased (or adjust \$EMERGE_DEFAULT_OPTS)"
-		fi
-		ewarn "Lowering make parallelism for low-memory build-host ..."
-		if ! [[ -n "${MAKEOPTS:-}" ]]; then
-			export MAKEOPTS='-j1'
-		elif ! [[ "${MAKEOPTS}" == *-j* ]]; then
-			export MAKEOPTS="-j1 ${MAKEOPTS}"
-		else
-			export MAKEOPTS="-j1 $( sed 's/-j\s*[0-9]\+//' <<<"${MAKEOPTS}" )"
-		fi
-		if test-flag-CCLD '-Wl,--no-keep-memory'; then
-			ewarn "Instructing 'ld' to use less memory ..."
-			append-ldflags '-Wl,--no-keep-memory'
-		fi
-		einfo "Initial RUSTFLAGS='${RUSTFLAGS}'"
-		for arg in ${RUSTFLAGS:-}; do
-			if [[ -n "${previous:-}" ]]; then
-				arg="${previous} ${arg}"
-				previous=''
-			fi
-
-			case "${arg:-}" in
-				"-C"|"-L")								previous="${arg}" ;;
-				"-Lnative="*|"-L native="*)				flags+=( "${arg}" ) ;;
-				"-C link-arg=-Wl,-O"*)					flags+=( "${arg%[0-2]}0" ) ;;
-				"-C link-arg=-Wl,-z,separate-code")		: ;;
-				"-C link-arg=-Wl,-z,"*)					: ;;
-				"-C link-arg=-Wl,--as-needed")			flags+=( "${arg}" ) ;;
-				"-C link-arg=-Wl,--enable-new-dtags")	: ;;
-				"-C link-arg=-Wl,--sort-common")		: ;;
-				"-C link-arg=-fuse-ld=lld")				: ;;
-				"-C opt-level="*)						flags+=( "${arg%[0-3sz]}0" ) ;;
-				"-C strip="*)							flags+=( "${arg}" ) ;;
-				"-C target-cpu="*|"target-cpu="*)		flags+=( "${arg}" ) ;;
-				*)										ewarn "Dropping unknown RUSTFLAG '${arg}'" ;;
-			esac
-		done
-		export RUSTFLAGS="${flags[*]}"
-		einfo "Filtered RUSTFLAGS='${RUSTFLAGS}'"
-		unset flags
-		optimise='false'
-	fi
+	minimise-memory-usage
 
 	local rust_target="" rust_targets="" arch_cflags
 
