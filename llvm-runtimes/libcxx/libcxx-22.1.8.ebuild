@@ -3,7 +3,7 @@
 
 EAPI=8
 
-PYTHON_COMPAT=( python3_{12..14} )
+PYTHON_COMPAT=( python3_10 python3_{12..14} )
 inherit cmake-multilib crossdev flag-o-matic llvm.org llvm-utils python-any-r1 toolchain-funcs
 
 DESCRIPTION="New implementation of the C++ standard library, targeting C++11"
@@ -201,6 +201,10 @@ multilib_src_configure() {
 			# Install inside the cross sysroot.
 			-DCMAKE_INSTALL_PREFIX="${EPREFIX}/usr/${CTARGET}/usr"
 		)
+	fi
+	if use kernel_Darwin; then
+		# For Darwin it ships libc++ in system by default, conflicting prefix
+		mycmakeargs+=( -DLIBCXX_ABI_NAMESPACE=__gentoo1 )
 	fi
 	if use test; then
 		mycmakeargs+=(
