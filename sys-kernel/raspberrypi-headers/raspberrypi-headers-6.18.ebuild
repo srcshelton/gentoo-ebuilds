@@ -3,8 +3,8 @@
 
 EAPI=8
 
-KV_MINOR="39"
-MY_PV="stable_20260724"
+KV_MINOR="50"
+MY_PV="stable_20260911"
 #EGIT_COMMIT="60ea684a8ace97bb0db1a16e20753bdd6ab371ff"
 ETYPE="headers"
 H_SUPPORTEDARCH="arm arm64"
