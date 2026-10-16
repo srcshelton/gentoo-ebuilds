@@ -13,7 +13,7 @@ SRC_URI="https://github.com/redhat-performance/tuned/archive/v${PV}.tar.gz -> ${
 
 LICENSE="GPL-2"
 SLOT="0"
-KEYWORDS="amd64 ~arm64"
+KEYWORDS="~amd64 ~arm64"
 IUSE="bash-completion +dbus gtk ppd selinux +server systemd-boot +systemtap +tmpfiles"
 REQUIRED_USE="${PYTHON_REQUIRED_USE}"
 
@@ -198,15 +198,17 @@ pkg_postinst() {
 
 	if use server; then
 		optfeature_header
-		optfeature "Optimize for power saving by spinning-down rotational disks" sys-apps/hdparm
-		optfeature "Get hardware info" sys-apps/dmidecode
-		optfeature "Optimize network txqueuelen" sys-apps/iproute2
 		optfeature "Virtual machine detection" app-emulation/virt-what
 		optfeature "Detailed system monitoring" dev-debug/systemtap
 		optfeature "Optimize Wi-Fi power management" net-wireless/wireless-tools
+		optfeature "Get hardware info" sys-apps/dmidecode
+		optfeature "Optimize for power saving by spinning-down rotational disks" sys-apps/hdparm
+		optfeature "Optimize network txqueuelen" sys-apps/iproute2
 		optfeature "Generate custom profiles based on powertop recommendations" sys-power/powertop
 
 		# tuned-gui.py calls systemctl
 		has_version sys-apps/systemd && optfeature "GTK gui" x11-libs/gtk+:3[introspection]
 	fi
 }
+
+# vim: set diffopt=filler,iwhite:
