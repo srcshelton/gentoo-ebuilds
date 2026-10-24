@@ -1,0 +1,114 @@
+diff --git a/drivers/usb/cdns3/cdns3-plat.c b/drivers/usb/cdns3/cdns3-plat.c
+index d21b91c..8ae74cd 100644
+--- a/drivers/usb/cdns3/cdns3-plat.c
++++ b/drivers/usb/cdns3/cdns3-plat.c
+@@ -377,32 +377,33 @@ static int cdns3_controller_resume(struct device *dev, pm_message_t msg)
+ {
+ 	struct cdns *cdns = dev_get_drvdata(dev);
+ 	unsigned long flags;
+-	int ret;
++	int ret, rollback_ret;
+ 
+ 	if (!READ_ONCE(cdns->in_lpm))
+ 		return 0;
+ 
++	/* Leave platform suspend before accessing the power-loss marker. */
++	ret = cdns3_set_platform_suspend(cdns, false, false);
++	if (ret)
++		goto err_enter_low_power;
++
+ 	if (cdns_power_is_lost(cdns)) {
+ 		ret = cdns3_restore_platform(cdns);
+ 		if (ret)
+-			return ret;
++			goto err_enter_low_power;
+ 		cdns->phys_reinit_pending = true;
+ 	}
+ 
+ 	if (cdns->phys_reinit_pending) {
+ 		ret = cdns3_phys_reinit(cdns);
+ 		if (ret)
+-			return ret;
++			goto err_enter_low_power;
+ 		cdns->phys_reinit_pending = false;
+ 	}
+ 
+ 	ret = cdns3_phys_power_on(cdns);
+ 	if (ret)
+-		return ret;
+-
+-	ret = cdns3_set_platform_suspend(cdns, false, false);
+-	if (ret)
+-		goto err_power_off_phys;
++		goto err_enter_low_power;
+ 
+ 	ret = cdns_resume(cdns);
+ 	if (ret)
+@@ -421,9 +422,13 @@ static int cdns3_controller_resume(struct device *dev, pm_message_t msg)
+ 	return 0;
+ 
+ err_enter_low_power:
+-	cdns3_set_platform_suspend(cdns, true, false);
+-err_power_off_phys:
+-	cdns3_phys_power_off(cdns);
++	rollback_ret = cdns3_set_platform_suspend(cdns, true, false);
++	if (rollback_ret)
++		dev_err(dev, "failed to restore platform suspend: %d\n",
++			rollback_ret);
++	rollback_ret = cdns3_phys_power_off(cdns);
++	if (rollback_ret)
++		dev_err(dev, "failed to power off PHYs: %d\n", rollback_ret);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/usb/cdns3/core.c b/drivers/usb/cdns3/core.c
+index 7d4cca8..64b7557 100644
+--- a/drivers/usb/cdns3/core.c
++++ b/drivers/usb/cdns3/core.c
+@@ -536,8 +536,17 @@ int cdns_resume(struct cdns *cdns)
+ 		}
+ 	}
+ 
+-	if (!role_changed && cdns->roles[cdns->role]->resume)
+-		return cdns->roles[cdns->role]->resume(cdns, power_lost);
++	if (!role_changed && cdns->roles[cdns->role]->resume) {
++		ret = cdns->roles[cdns->role]->resume(cdns, power_lost);
++		if (ret)
++			return ret;
++	}
++
++	/* Keep a failed recovery visible to the next resume attempt. */
++	if (power_lost && cdns->version == CDNSP_CONTROLLER_V2) {
++		writel(1, &cdns->otg_cdnsp_regs->simulate);
++		readl(&cdns->otg_cdnsp_regs->simulate);
++	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/usb/cdns3/drd.c b/drivers/usb/cdns3/drd.c
+index 50ee54d..51e29c9 100644
+--- a/drivers/usb/cdns3/drd.c
++++ b/drivers/usb/cdns3/drd.c
+@@ -464,6 +464,8 @@ int cdns_drd_init(struct cdns *cdns)
+ 			cdns->otg_irq_regs = (struct cdns_otg_irq_regs __iomem *)
+ 					      &cdns->otg_cdnsp_regs->ien;
+ 			cdns->version  = CDNSP_CONTROLLER_V2;
++			writel(1, &cdns->otg_cdnsp_regs->simulate);
++			readl(&cdns->otg_cdnsp_regs->simulate);
+ 		} else if (OTG_CDNS3_CHECK_DID(state)) {
+ 			cdns->otg_irq_regs = (struct cdns_otg_irq_regs __iomem *)
+ 					      &cdns->otg_v1_regs->ien;
+@@ -544,9 +546,12 @@ bool cdns_power_is_lost(struct cdns *cdns)
+ 	if (cdns->version == CDNS3_CONTROLLER_V0) {
+ 		if (!(readl(&cdns->otg_v0_regs->simulate) & BIT(0)))
+ 			return true;
+-	} else {
++	} else if (cdns->version == CDNS3_CONTROLLER_V1) {
+ 		if (!(readl(&cdns->otg_v1_regs->simulate) & BIT(0)))
+ 			return true;
++	} else if (cdns->version == CDNSP_CONTROLLER_V2) {
++		if (!(readl(&cdns->otg_cdnsp_regs->simulate) & BIT(0)))
++			return true;
+ 	}
+ 	return false;
+ }

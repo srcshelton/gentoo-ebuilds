@@ -1,0 +1,174 @@
+usb: cdns3: propagate PHY mode failures and unwind activation
+
+Return PHY mode errors after dropping the requested bus and clearing
+both PHY modes. Check activation results before allocating host or
+gadget state; failed starts do not receive a role stop callback. Log
+mode cleanup failures while preserving the activation errno. Retry an
+unchanged role request when its previous activation did not become
+active.
+
+diff --git a/drivers/usb/cdns3/cdns3-gadget.c b/drivers/usb/cdns3/cdns3-gadget.c
+index 331f10c..dde5599 100644
+--- a/drivers/usb/cdns3/cdns3-gadget.c
++++ b/drivers/usb/cdns3/cdns3-gadget.c
+@@ -3440,7 +3440,9 @@ static int __cdns3_gadget_init(struct cdns *cdns)
+ 		return ret;
+ 	}
+ 
+-	cdns_drd_gadget_on(cdns);
++	ret = cdns_drd_gadget_on(cdns);
++	if (ret)
++		return ret;
+ 	pm_runtime_get_sync(cdns->dev);
+ 
+ 	ret = cdns3_gadget_start(cdns);
+diff --git a/drivers/usb/cdns3/cdnsp-gadget.c b/drivers/usb/cdns3/cdnsp-gadget.c
+index 1ffd3bb..8ed96ff 100644
+--- a/drivers/usb/cdns3/cdnsp-gadget.c
++++ b/drivers/usb/cdns3/cdnsp-gadget.c
+@@ -1981,7 +1981,9 @@ static int __cdnsp_gadget_init(struct cdns *cdns)
+ 	u32 max_speed;
+ 	int ret = -ENOMEM;
+ 
+-	cdns_drd_gadget_on(cdns);
++	ret = cdns_drd_gadget_on(cdns);
++	if (ret)
++		return ret;
+ 
+ 	pdev = kzalloc(sizeof(*pdev), GFP_KERNEL);
+ 	if (!pdev)
+diff --git a/drivers/usb/cdns3/core.c b/drivers/usb/cdns3/core.c
+index fa698f7..23dde2a 100644
+--- a/drivers/usb/cdns3/core.c
++++ b/drivers/usb/cdns3/core.c
+@@ -362,7 +362,9 @@ static int cdns_role_set(struct usb_role_switch *sw, enum usb_role role)
+ 
+ 	pm_runtime_get_sync(cdns->dev);
+ 
+-	if (cdns->role == role)
++	if (cdns->role == role &&
++	    (!cdns->roles[role] ||
++	     cdns->roles[role]->state == CDNS_ROLE_STATE_ACTIVE))
+ 		goto pm_put;
+ 
+ 	if (cdns->dr_mode == USB_DR_MODE_HOST) {
+diff --git a/drivers/usb/cdns3/drd.c b/drivers/usb/cdns3/drd.c
+index 27c2fb2..1aef437 100644
+--- a/drivers/usb/cdns3/drd.c
++++ b/drivers/usb/cdns3/drd.c
+@@ -196,11 +196,24 @@ int cdns_drd_host_on(struct cdns *cdns)
+ 	ret = readl_poll_timeout_atomic(&cdns->otg_regs->sts, val,
+ 					val & ready_bit, 1, 100000);
+ 
+-	if (ret)
++	if (ret) {
+ 		dev_err(cdns->dev, "timeout waiting for xhci_ready\n");
++		goto err_off;
++	}
+ 
+-	phy_set_mode(cdns->usb2_phy, PHY_MODE_USB_HOST);
+-	phy_set_mode(cdns->usb3_phy, PHY_MODE_USB_HOST);
++	ret = phy_set_mode(cdns->usb2_phy, PHY_MODE_USB_HOST);
++	if (ret)
++		goto err_off;
++
++	ret = phy_set_mode(cdns->usb3_phy, PHY_MODE_USB_HOST);
++	if (ret)
++		goto err_off;
++
++	return 0;
++
++err_off:
++	/* A failed start is not followed by the role's stop callback. */
++	cdns_drd_host_off(cdns);
+ 	return ret;
+ }
+ 
+@@ -211,6 +224,7 @@ int cdns_drd_host_on(struct cdns *cdns)
+ void cdns_drd_host_off(struct cdns *cdns)
+ {
+ 	u32 val;
++	int ret;
+ 
+ 	writel(OTGCMD_HOST_BUS_DROP | OTGCMD_DEV_BUS_DROP |
+ 	       OTGCMD_DEV_POWER_OFF | OTGCMD_HOST_POWER_OFF,
+@@ -220,8 +234,12 @@ void cdns_drd_host_off(struct cdns *cdns)
+ 	readl_poll_timeout_atomic(&cdns->otg_regs->state, val,
+ 				  !(val & OTGSTATE_HOST_STATE_MASK),
+ 				  1, 2000000);
+-	phy_set_mode(cdns->usb2_phy, PHY_MODE_INVALID);
+-	phy_set_mode(cdns->usb3_phy, PHY_MODE_INVALID);
++	ret = phy_set_mode(cdns->usb2_phy, PHY_MODE_INVALID);
++	if (ret)
++		dev_err(cdns->dev, "failed to clear USB2 PHY mode: %d\n", ret);
++	ret = phy_set_mode(cdns->usb3_phy, PHY_MODE_INVALID);
++	if (ret)
++		dev_err(cdns->dev, "failed to clear USB3 PHY mode: %d\n", ret);
+ }
+ 
+ /**
+@@ -250,12 +268,23 @@ int cdns_drd_gadget_on(struct cdns *cdns)
+ 					val & ready_bit, 1, 100000);
+ 	if (ret) {
+ 		dev_err(cdns->dev, "timeout waiting for dev_ready\n");
+-		return ret;
++		goto err_off;
+ 	}
+ 
+-	phy_set_mode(cdns->usb2_phy, PHY_MODE_USB_DEVICE);
+-	phy_set_mode(cdns->usb3_phy, PHY_MODE_USB_DEVICE);
++	ret = phy_set_mode(cdns->usb2_phy, PHY_MODE_USB_DEVICE);
++	if (ret)
++		goto err_off;
++
++	ret = phy_set_mode(cdns->usb3_phy, PHY_MODE_USB_DEVICE);
++	if (ret)
++		goto err_off;
++
+ 	return 0;
++
++err_off:
++	/* A failed start is not followed by the role's stop callback. */
++	cdns_drd_gadget_off(cdns);
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(cdns_drd_gadget_on);
+ 
+@@ -266,6 +295,7 @@ EXPORT_SYMBOL_GPL(cdns_drd_gadget_on);
+ void cdns_drd_gadget_off(struct cdns *cdns)
+ {
+ 	u32 val;
++	int ret;
+ 
+ 	/*
+ 	 * Driver should wait at least 10us after disabling Device
+@@ -279,8 +309,12 @@ void cdns_drd_gadget_off(struct cdns *cdns)
+ 	readl_poll_timeout_atomic(&cdns->otg_regs->state, val,
+ 				  !(val & OTGSTATE_DEV_STATE_MASK),
+ 				  1, 2000000);
+-	phy_set_mode(cdns->usb2_phy, PHY_MODE_INVALID);
+-	phy_set_mode(cdns->usb3_phy, PHY_MODE_INVALID);
++	ret = phy_set_mode(cdns->usb2_phy, PHY_MODE_INVALID);
++	if (ret)
++		dev_err(cdns->dev, "failed to clear USB2 PHY mode: %d\n", ret);
++	ret = phy_set_mode(cdns->usb3_phy, PHY_MODE_INVALID);
++	if (ret)
++		dev_err(cdns->dev, "failed to clear USB3 PHY mode: %d\n", ret);
+ }
+ EXPORT_SYMBOL_GPL(cdns_drd_gadget_off);
+ 
+diff --git a/drivers/usb/cdns3/host.c b/drivers/usb/cdns3/host.c
+index f0df114..bfa320e 100644
+--- a/drivers/usb/cdns3/host.c
++++ b/drivers/usb/cdns3/host.c
+@@ -72,7 +72,9 @@ static int __cdns_host_init(struct cdns *cdns)
+ 	int ret;
+ 	struct usb_hcd *hcd;
+ 
+-	cdns_drd_host_on(cdns);
++	ret = cdns_drd_host_on(cdns);
++	if (ret)
++		return ret;
+ 
+ 	xhci = platform_device_alloc("xhci-hcd", PLATFORM_DEVID_AUTO);
+ 	if (!xhci) {

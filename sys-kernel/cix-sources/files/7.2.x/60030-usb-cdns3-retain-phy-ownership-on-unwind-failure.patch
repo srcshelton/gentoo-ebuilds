@@ -1,0 +1,77 @@
+usb: cdns3: retain USB2 PHY ownership when partial unwind fails
+
+Undo only the USB2 reference acquired by this invocation. Keep its
+ownership flag when cleanup fails, so later cleanup and retry can
+balance that reference. Report cleanup failure without replacing the
+original USB3 error.
+
+diff --git a/drivers/usb/cdns3/cdns3-plat.c b/drivers/usb/cdns3/cdns3-plat.c
+index 8ae74cd..e800e64 100644
+--- a/drivers/usb/cdns3/cdns3-plat.c
++++ b/drivers/usb/cdns3/cdns3-plat.c
+@@ -27,20 +27,29 @@
+ 
+ static int cdns3_phys_init(struct cdns *cdns)
+ {
+-	int ret;
++	bool usb2_acquired = false;
++	int ret, rollback_ret;
+ 
+ 	if (!cdns->usb2_phy_initialized) {
+ 		ret = phy_init(cdns->usb2_phy);
+ 		if (ret)
+ 			return ret;
+ 		cdns->usb2_phy_initialized = true;
++		usb2_acquired = true;
+ 	}
+ 
+ 	if (!cdns->usb3_phy_initialized) {
+ 		ret = phy_init(cdns->usb3_phy);
+ 		if (ret) {
+-			phy_exit(cdns->usb2_phy);
+-			cdns->usb2_phy_initialized = false;
++			if (usb2_acquired) {
++				rollback_ret = phy_exit(cdns->usb2_phy);
++				if (rollback_ret)
++					dev_err(cdns->dev,
++						"failed to exit USB2 PHY: %d\n",
++						rollback_ret);
++				else
++					cdns->usb2_phy_initialized = false;
++			}
+ 			return ret;
+ 		}
+ 		cdns->usb3_phy_initialized = true;
+@@ -75,20 +84,29 @@ static int cdns3_phys_exit(struct cdns *cdns)
+ 
+ static int cdns3_phys_power_on(struct cdns *cdns)
+ {
+-	int ret;
++	bool usb2_acquired = false;
++	int ret, rollback_ret;
+ 
+ 	if (!cdns->usb2_phy_powered) {
+ 		ret = phy_power_on(cdns->usb2_phy);
+ 		if (ret)
+ 			return ret;
+ 		cdns->usb2_phy_powered = true;
++		usb2_acquired = true;
+ 	}
+ 
+ 	if (!cdns->usb3_phy_powered) {
+ 		ret = phy_power_on(cdns->usb3_phy);
+ 		if (ret) {
+-			phy_power_off(cdns->usb2_phy);
+-			cdns->usb2_phy_powered = false;
++			if (usb2_acquired) {
++				rollback_ret = phy_power_off(cdns->usb2_phy);
++				if (rollback_ret)
++					dev_err(cdns->dev,
++						"failed to power off USB2 PHY: %d\n",
++						rollback_ret);
++				else
++					cdns->usb2_phy_powered = false;
++			}
+ 			return ret;
+ 		}
+ 		cdns->usb3_phy_powered = true;
