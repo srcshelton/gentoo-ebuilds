@@ -1,0 +1,53 @@
+name: CIX ARM64 USB compilation smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cix-usb-arm64-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  usb:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CCACHE_DISABLE: "1"
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      CIX_USB_JOBS: "2"
+    steps:
+      - name: Check out selected ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install native build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc bison flex libssl-dev libelf-dev \
+            python3 curl ca-certificates xz-utils patch
+
+      - name: Compile both releases sequentially
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          for version in 6.18.57 6.18.58; do
+            bash .github/scripts/cix-sources/qualify-usb-arm64.sh \
+              "$version" "$GITHUB_WORKSPACE/usb-evidence/$version" || status=1
+          done
+          exit "$status"
+
+      - name: Retain configurations, identities and failure logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cix-usb-arm64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: usb-evidence/
+          if-no-files-found: warn
+          retention-days: 14

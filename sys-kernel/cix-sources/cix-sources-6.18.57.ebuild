@@ -367,7 +367,7 @@ src_prepare() {
 		"${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch
 		"${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch
 		"${FILESDIR}"/6.18.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch
-		"${FILESDIR}"/6.18.x/30128-acpi-thermal-retain-downstream-improvements.patch
+		"${FILESDIR}"/6.18.x/30128-6.18.58-acpi-thermal-retain-downstream-improvements.patch
 		"${FILESDIR}"/6.18.x/30129-thermal-cix-add-safe-ipa-support.patch
 		"${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch
 		"${FILESDIR}"/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch
@@ -385,6 +385,7 @@ src_prepare() {
 		"${FILESDIR}"/6.18.x/50060-watchdog-sbsa-gwdt-use-cix-sky1-refresh-value.patch
 		"${FILESDIR}"/6.18.x/50130-spi-cadence-add-audited-cix-acpi-support.patch
 		"${FILESDIR}"/6.18.x/60010-usb-cdns3-sky1-declare-phy-dependency.patch
+		"${FILESDIR}"/6.18.x/60020-usb-cdnsp-fix-resume-order-and-v2-marker.patch
 		"${FILESDIR}"/6.18.x/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
 		"${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
