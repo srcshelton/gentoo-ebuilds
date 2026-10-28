@@ -32,12 +32,12 @@ jobs:
             build-essential bc bison flex libssl-dev libelf-dev \
             python3 curl ca-certificates xz-utils patch
 
-      - name: Compile both releases sequentially
+      - name: Compile releases sequentially
         shell: bash
         run: |
           set -euo pipefail
           status=0
-          for version in 6.18.57 6.18.58; do
+          for version in 6.18.57 6.18.58 7.2.12; do
             bash .github/scripts/cix-sources/qualify-usb-arm64.sh \
               "$version" "$GITHUB_WORKSPACE/usb-evidence/$version" || status=1
           done
