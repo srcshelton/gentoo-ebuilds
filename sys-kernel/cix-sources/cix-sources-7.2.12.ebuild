@@ -422,6 +422,8 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/50130-spi-cadence-add-audited-cix-acpi-support.patch
 		"${FILESDIR}"/7.2.x/60010-usb-cdns3-sky1-declare-phy-dependency.patch
 		"${FILESDIR}"/7.2.x/60020-usb-cdns3-fix-resume-order-and-v2-marker.patch
+		"${FILESDIR}"/7.2.x/60030-usb-cdns3-retain-phy-ownership-on-unwind-failure.patch
+		"${FILESDIR}"/7.2.x/60040-usb-cdns3-propagate-phy-mode-errors.patch
 		"${FILESDIR}"/7.2.x/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
 		"${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
