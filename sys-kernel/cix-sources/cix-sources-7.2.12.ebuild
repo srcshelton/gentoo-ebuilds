@@ -424,6 +424,7 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/60020-usb-cdns3-fix-resume-order-and-v2-marker.patch
 		"${FILESDIR}"/7.2.x/60030-usb-cdns3-retain-phy-ownership-on-unwind-failure.patch
 		"${FILESDIR}"/7.2.x/60040-usb-cdns3-propagate-phy-mode-errors.patch
+		"${FILESDIR}"/60050-usb-xhci-plat-add-acpi-cadence-stream-context-opt-in.patch
 		"${FILESDIR}"/7.2.x/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
 		"${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch

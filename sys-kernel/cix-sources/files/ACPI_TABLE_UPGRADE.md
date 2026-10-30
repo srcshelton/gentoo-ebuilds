@@ -433,3 +433,42 @@ these profiles are:
 - [issue 29](https://github.com/radxa/edk2-platforms/issues/29) and
   [commit `267cde60`](https://github.com/radxa/edk2-platforms/commit/267cde60bbaf94840f709b63e7f118aa7bb40dfb),
   which confirm the shared RTS5453H interrupt model.
+
+## Dormant ACPI xHCI stream-context opt-in
+
+The maintained 6.18.57, 6.18.58 and 7.2.12 kernels accept the downstream property
+`cdns,stream-context-quirk` on the **actual generic xHCI platform device** only
+when its own ACPI `_HID` is exactly `PNP0D10`. The property is a single unsigned
+32-bit numeric boolean: `1` enables the existing `XHCI_CDNS_SCTX_QUIRK`; absence,
+`0`, other values, wrong types, read errors and multiple values do nothing.
+The canonical ACPI value is `One` within the standard Device Properties UUID
+`daffd814-6eba-4d8c-8a91-bc9bbf4aa301`. This is a downstream ACPI property
+contract, not a claim that a DT binding has been accepted upstream.
+
+The reader does not walk parents, select a board or controller UID, reset
+hardware, or enable the Cadence wrapper stack. PNP0D10 by itself never enables
+the quirk. PNP0D15, DT and PCI paths retain their existing behavior. Typed
+numeric reading is intentional: Linux ACPI's presence-only boolean operation
+would treat a property whose value is integer zero as present/true.
+
+**No shipped ACPI profile supplies this property.** Phase 2J retained namespace
+and resource mappings but could not establish the affected integration/revision
+for each physical instance. Therefore O6 1.2.4, O6 1.3.1, O6N 1.2.4 and O6N
+1.3.1 profiles are byte-identical to their prior versions. In particular, no
+O6N 1.3 DSDT was invented for its SSDT-only profile. The property reader is
+independently reviewable and remains dormant on existing firmware/upgrades.
+
+Before any later opt-in, obtain an authoritative instance-specific Cadence
+IP/erratum mapping tied to the actual namespace, resources and board/firmware.
+A generic HCI version, a Sky1 address range or software forcing the Cadence V2
+constant does not establish that identity. Inspect the exact target's existing
+`_DSD`: a supplemental SSDT may add a `Name (_DSD, ...)` only if that name is
+absent. Otherwise merge into the existing reviewed replacement DSDT, preserving
+other properties. Never introduce duplicate `_DSD` names or an independent AML
+loader. Any future table must use the existing profile compiler, initramfs lists
+and packaging, and be separately compiled, namespace-checked and qualified.
+
+See `USB_ACPI_STREAM_QUIRK.md` for the identity gate, implementation, tests and
+qualification limits. No runtime stream corruption or power-loss defect is
+claimed by this opt-in mechanism; it does not resolve the separate
+`USB-ROLE-FALLBACK` or `USB-MARKER-TWO-READ` investigations.

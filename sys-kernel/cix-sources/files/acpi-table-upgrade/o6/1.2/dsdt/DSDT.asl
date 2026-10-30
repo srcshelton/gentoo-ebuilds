@@ -14843,6 +14843,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "PNP0D10" /* XHCI USB Controller with debug */)  // _HID: Hardware ID
             Name (_UID, Zero)  // _UID: Unique ID
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
+            Name (_DSD, Package (0x02)  // Full-profile Cadence USBSSP opt-in
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cdns,stream-context-quirk",
+                        One
+                    }
+                }
+            })
             Method (_STA, 0, NotSerialized)  // _STA: Status
             {
                 If ((GETV (0x12) && (GETV (0x1C) == Zero)))
@@ -14876,6 +14888,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "PNP0D10" /* XHCI USB Controller with debug */)  // _HID: Hardware ID
             Name (_UID, One)  // _UID: Unique ID
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
+            Name (_DSD, Package (0x02)  // Full-profile Cadence USBSSP opt-in
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cdns,stream-context-quirk",
+                        One
+                    }
+                }
+            })
             Method (_STA, 0, NotSerialized)  // _STA: Status
             {
                 If (GETV (0x13))
@@ -14909,6 +14933,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "PNP0D10" /* XHCI USB Controller with debug */)  // _HID: Hardware ID
             Name (_UID, 0x02)  // _UID: Unique ID
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
+            Name (_DSD, Package (0x02)  // Full-profile Cadence USBSSP opt-in
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cdns,stream-context-quirk",
+                        One
+                    }
+                }
+            })
             Method (_STA, 0, NotSerialized)  // _STA: Status
             {
                 If (GETV (0x16))
@@ -14942,6 +14978,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "PNP0D10" /* XHCI USB Controller with debug */)  // _HID: Hardware ID
             Name (_UID, 0x03)  // _UID: Unique ID
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
+            Name (_DSD, Package (0x02)  // Full-profile Cadence USBSSP opt-in
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cdns,stream-context-quirk",
+                        One
+                    }
+                }
+            })
             Method (_STA, 0, NotSerialized)  // _STA: Status
             {
                 If (GETV (0x15))
@@ -14975,6 +15023,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "PNP0D10" /* XHCI USB Controller with debug */)  // _HID: Hardware ID
             Name (_UID, 0x04)  // _UID: Unique ID
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
+            Name (_DSD, Package (0x02)  // Full-profile Cadence USBSSP opt-in
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cdns,stream-context-quirk",
+                        One
+                    }
+                }
+            })
             Method (_STA, 0, NotSerialized)  // _STA: Status
             {
                 If ((GETV (0x17) && (GETV (0x1D) == Zero)))
@@ -15008,6 +15068,18 @@ DefinitionBlock ("", "DSDT", 2, "CIXTEK", "SKY1EDK2", 0x00010001)
             Name (_HID, "PNP0D10" /* XHCI USB Controller with debug */)  // _HID: Hardware ID
             Name (_UID, 0x05)  // _UID: Unique ID
             Name (_CCA, Zero)  // _CCA: Cache Coherency Attribute
+            Name (_DSD, Package (0x02)  // Full-profile Cadence USBSSP opt-in
+            {
+                ToUUID ("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package (0x01)
+                {
+                    Package (0x02)
+                    {
+                        "cdns,stream-context-quirk",
+                        One
+                    }
+                }
+            })
             Method (_STA, 0, NotSerialized)  // _STA: Status
             {
                 If ((GETV (0x18) && (GETV (0x1E) == Zero)))

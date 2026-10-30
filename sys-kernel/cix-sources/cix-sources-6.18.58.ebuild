@@ -387,6 +387,7 @@ src_prepare() {
 		"${FILESDIR}"/6.18.x/60010-usb-cdns3-sky1-declare-phy-dependency.patch
 		"${FILESDIR}"/6.18.x/60020-usb-cdnsp-fix-resume-order-and-v2-marker.patch
 		"${FILESDIR}"/6.18.x/60040-usb-cdns3-propagate-phy-mode-errors.patch
+		"${FILESDIR}"/60050-usb-xhci-plat-add-acpi-cadence-stream-context-opt-in.patch
 		"${FILESDIR}"/6.18.x/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
 		"${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
