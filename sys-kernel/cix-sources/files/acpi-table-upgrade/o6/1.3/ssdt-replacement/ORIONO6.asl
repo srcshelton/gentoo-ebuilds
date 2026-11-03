@@ -965,7 +965,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                         AddressingMode7Bit, "\\_SB.I2C1",
                         0x00, ResourceConsumer, , Exclusive,
                         )
-                    GpioInt (Level, ActiveLow, Exclusive, PullUp, 0x0000,
+                    GpioInt (Level, ActiveLow, Shared, PullUp, 0x0000,
                         "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                         )
                         {   // Pin list
@@ -1173,7 +1173,7 @@ DefinitionBlock ("", "SSDT", 2, "RADXA", "ORIONO6", 0x00000002)
                         AddressingMode7Bit, "\\_SB.I2C1",
                         0x00, ResourceConsumer, , Exclusive,
                         )
-                    GpioInt (Level, ActiveLow, Exclusive, PullUp, 0x0000,
+                    GpioInt (Level, ActiveLow, Shared, PullUp, 0x0000,
                         "\\_SB.GPI4", 0x00, ResourceConsumer, ,
                         )
                         {   // Pin list

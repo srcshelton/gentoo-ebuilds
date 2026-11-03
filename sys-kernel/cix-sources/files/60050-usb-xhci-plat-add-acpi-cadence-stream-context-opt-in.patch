@@ -1,0 +1,50 @@
+ACPI PNP0D10: opt in to the existing Cadence stream-context workaround.
+
+Accept one integer value equal to 1 on the controller itself. No ancestor
+lookup or hardware allowlist is used, and no ACPI profile opts in yet.
+
+diff --git a/drivers/usb/host/xhci-plat.c b/drivers/usb/host/xhci-plat.c
+index 074d9c7..cca6a67 100644
+--- a/drivers/usb/host/xhci-plat.c
++++ b/drivers/usb/host/xhci-plat.c
+@@ -20,6 +20,7 @@
+ #include <linux/acpi.h>
+ #include <linux/usb/of.h>
+ #include <linux/reset.h>
++#include <linux/property.h>
+ #include <linux/usb/xhci-sideband.h>
+ 
+ #include "xhci.h"
+@@ -85,6 +86,23 @@ static int xhci_priv_post_resume_quirk(struct usb_hcd *hcd)
+ 	return priv->post_resume_quirk(hcd);
+ }
+ 
++static void xhci_plat_acpi_quirks(struct device *dev, struct xhci_hcd *xhci)
++{
++	struct acpi_device *adev = ACPI_COMPANION(dev);
++	u32 enabled;
++
++	if (!adev || !acpi_dev_hid_uid_match(adev, "PNP0D10", NULL))
++		return;
++
++	/* A presence-only boolean would also accept ACPI integer zero. */
++	if (device_property_count_u32(dev, "cdns,stream-context-quirk") != 1)
++		return;
++
++	if (!device_property_read_u32(dev, "cdns,stream-context-quirk", &enabled) &&
++	    enabled == 1)
++		xhci->quirks |= XHCI_CDNS_SCTX_QUIRK;
++}
++
+ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
+ {
+ 	struct xhci_plat_priv *priv = xhci_to_priv(xhci);
+@@ -204,6 +222,8 @@ int xhci_plat_probe(struct platform_device *pdev, struct device *sysdev, const s
+ 
+ 	xhci = hcd_to_xhci(hcd);
+ 
++	xhci_plat_acpi_quirks(&pdev->dev, xhci);
++
+ 	xhci->allow_single_roothub = 1;
+ 
+ 	/*
