@@ -4,7 +4,7 @@
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
-K_GENPATCHES_VER="12"
+K_GENPATCHES_VER="16"
 K_NO_VERSION_CHECK=0
 #K_BASE_VER="${PV}"
 
@@ -421,6 +421,9 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/50060-watchdog-sbsa-gwdt-use-cix-sky1-refresh-value.patch
 		"${FILESDIR}"/7.2.x/50130-spi-cadence-add-audited-cix-acpi-support.patch
 		"${FILESDIR}"/7.2.x/60010-usb-cdns3-sky1-declare-phy-dependency.patch
+		"${FILESDIR}"/7.2.x/60020-usb-cdns3-fix-resume-order-and-v2-marker.patch
+		"${FILESDIR}"/7.2.x/60030-usb-cdns3-retain-phy-ownership-on-unwind-failure.patch
+		"${FILESDIR}"/7.2.x/60040-usb-cdns3-propagate-phy-mode-errors.patch
 		"${FILESDIR}"/7.2.x/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
 		"${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
