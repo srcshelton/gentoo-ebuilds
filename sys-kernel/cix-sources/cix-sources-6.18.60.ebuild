@@ -387,6 +387,7 @@ src_prepare() {
 		"${FILESDIR}"/6.18.x/60010-usb-cdns3-sky1-declare-phy-dependency.patch
 		"${FILESDIR}"/6.18.x/60020-usb-cdnsp-fix-resume-order-and-v2-marker.patch
 		"${FILESDIR}"/6.18.x/60040-usb-cdns3-propagate-phy-mode-errors.patch
+		"${FILESDIR}"/60050-usb-xhci-plat-add-acpi-cadence-stream-context-opt-in.patch
 		"${FILESDIR}"/6.18.x/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
 		"${FILESDIR}"/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
@@ -489,6 +490,9 @@ _src_compile_asl() {
 		die "_src_compile_asl() called invalid destination directory '${dest}'"
 
 	case "$( basename "${file}" | sed 's/\.asl//' )" in
+		'sky1-xhci-stream-context')
+			prefix='S1XHCSCT'
+			;;
 		'sky1-audio-dma-clock-name')
 			prefix='S1DMACLK'
 			;;
@@ -664,7 +668,7 @@ src_compile() {
 
 					# Whole-table replacements remain opt-in with the full profile.
 					for scope in "${source_dirs[@]}"; do
-						for source_type in pptt dsdt ssdt-replacement; do
+						for source_type in pptt dsdt ssdt-replacement ssdt-full; do
 							[[ -d "${scope}/${source_type}" ]] || continue
 							for file in "${scope}/${source_type}"/*.asl; do
 								[[ -e "${file:-}" ]] || continue
