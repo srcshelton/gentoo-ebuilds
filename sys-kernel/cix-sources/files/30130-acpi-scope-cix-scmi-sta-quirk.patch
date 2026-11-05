@@ -1,22 +1,49 @@
-ACPI: scope CIX SCMI _STA override to old-firmware SCMI children
+ACPI: apply the CIX SCMI status quirk only without firmware policy
 
-CIX's compatibility quirk force-enables old-firmware SCMI protocol child
-devices with _STA=0, but the HID/UID match alone is broader than the
-commented intent. Only apply the quirk to CIXHA008/CIXHA009 devices below the
-CIXHA006 SCMI controller so similarly named devices elsewhere cannot be
-unhidden accidentally.
+Evaluate _STA before using it as input to the legacy CIX override. Only
+unhide the known zero-status SCMI children when firmware does not expose
+SCMS in the controller's enclosing scope. Radxa Orion firmware uses SCMS
+to control DVFS and clock protocol visibility, so a zero _STA on these
+systems can be an intentional UEFI setting.
 
-Also leave devices alone when firmware already reports a nonzero _STA so the
-compatibility shim self-disables on fixed firmware.
-
+diff --git a/drivers/acpi/bus.c b/drivers/acpi/bus.c
+index 3574b0acf306ceaf0004222d859c17460fa9cdb4..9d45f78ab5ed4aa5d29141a2f16212d978463e92 100644
+--- a/drivers/acpi/bus.c
++++ b/drivers/acpi/bus.c
+@@ -102,11 +102,6 @@ int acpi_bus_get_status(struct acpi_device *device)
+ 		return 0;
+ 	}
+ 
+-	if (acpi_sta_override_firmware_quirk(device, &sta)) {
+-		acpi_set_device_status(device, sta);
+-		return 0;
+-	}
+-
+ 	/* Battery devices must have their deps met before calling _STA */
+ 	if (acpi_device_is_battery(device) && device->dep_unmet) {
+ 		acpi_set_device_status(device, 0);
+@@ -117,6 +112,11 @@ int acpi_bus_get_status(struct acpi_device *device)
+ 	if (ACPI_FAILURE(status))
+ 		return -ENODEV;
+ 
++	if (acpi_sta_override_firmware_quirk(device, &sta)) {
++		acpi_set_device_status(device, sta);
++		return 0;
++	}
++
+ 	if (!device->status.present && device->status.enabled) {
+ 		pr_info(FW_BUG "Device [%s] status [%08x]: not present and enabled\n",
+ 			device->pnp.bus_id, (u32)sta);
 diff --git a/drivers/acpi/sta_quirk.c b/drivers/acpi/sta_quirk.c
+index 43cd8b71df4ca260383dc6df623fd756bff64b7b..763f12882c75c61a32b7df2736772b7e77c93b72 100644
 --- a/drivers/acpi/sta_quirk.c
 +++ b/drivers/acpi/sta_quirk.c
-@@ -25,12 +25,21 @@ static const struct acpi_device_id cix_scmi_proto_sta_ids[] = {
+@@ -25,12 +25,26 @@ static const struct acpi_device_id cix_scmi_proto_sta_ids[] = {
  bool acpi_sta_override_firmware_quirk(struct acpi_device *adev,
  				       unsigned long long *status)
  {
 +	struct acpi_device *parent;
++	acpi_handle scms;
 +
  	if (acpi_match_device_ids(adev, cix_scmi_proto_sta_ids))
  		return false;
@@ -29,6 +56,10 @@ diff --git a/drivers/acpi/sta_quirk.c b/drivers/acpi/sta_quirk.c
  		return false;
  
 +	if (*status != 0)
++		return false;
++
++	/* SCMS is the firmware policy object in the scope containing SCMI. */
++	if (acpi_get_handle(parent->handle, "^SCMS", &scms) != AE_NOT_FOUND)
 +		return false;
 +
  	*status = ACPI_STA_DEFAULT;

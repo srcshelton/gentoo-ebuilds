@@ -60,7 +60,7 @@ Choose every component deliberately:
 | Component | Choices | Meaning |
 | --- | --- | --- |
 | Board | `o6`, `o6n` | Must match the physical board. |
-| Firmware | `fw1.2`, `fw1.3` | Must match the installed Radxa firmware family. The ACPI profiles track the latest stock releases: currently 1.2.4 and 1.3.1 respectively. Stock and custom version strings are recognised by family; custom firmware that already supplies the corrections normally needs table upgrades disabled. Older firmware releases are not separate compatibility targets. Check `/sys/class/dmi/id/bios_version` if unsure. |
+| Firmware | `fw1.2`, `fw1.3` | Select the payload for stock 1.2.4 or for the 1.3.1-based layout. See the ACPI guide for the offline 1.3.0 and 1.3.2 comparisons, the firmware settings required by full profiles, and custom firmware considerations. |
 | Configuration | `arm64`, `arm64-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages, seeded from `generic` and `generic-64k` respectively. Use `arm64` unless a 64 KiB kernel is specifically required. |
 | Kernel | `6.18.53`, `7.2.7` | The maintained Linux version. |
 
