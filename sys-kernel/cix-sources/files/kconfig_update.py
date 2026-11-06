@@ -908,9 +908,9 @@ def parse_args() -> argparse.Namespace:
         metavar=FIRMWARE_METAVAR,
         help=option_help(
             "Select the Radxa firmware family used for ACPI table-upgrade "
-            "profile paths. For SSDT-only profiles, 'auto' infers the family from "
+            "profile paths. 'auto' attempts to infer the firmware family from "
             "local DMI/sysfs data and falls back to the 1.2 profile when it "
-            "cannot infer a supported value. Full DSDT profiles require an explicit family.",
+            "cannot infer a supported value.",
             "auto",
         ),
     )
@@ -1202,8 +1202,6 @@ def parse_args() -> argparse.Namespace:
                 warn_ignored(parser, "'--firmware' ignored without '--acpi-table-upgrade'")
             args.firmware = "n/a"
         elif args.firmware == "auto":
-            if args.acpi_table_upgrade == "dsdt":
-                parser.error("'--acpi-table-upgrade dsdt' requires explicit '--firmware 1.2' or '--firmware 1.3'")
             detected_firmware = infer_firmware_profile()
             if detected_firmware is None:
                 warn(parser, "unable to infer '--firmware auto'; using firmware profile 1.2")
@@ -1216,12 +1214,6 @@ def parse_args() -> argparse.Namespace:
             parser.error(
                 "'--acpi-table-upgrade dsdt' is not available for "
                 f"'--board-profile {args.board_profile} --firmware {args.firmware}'"
-            )
-        if args.acpi_table_upgrade == "dsdt":
-            warn(
-                parser,
-                "the full ACPI profile requires a matching native ACPI layout, "
-                "firmware-patched settings and NVS allocation",
             )
         if args.enable_hifi5_dsp == "sof" and args.acpi_table_upgrade != "dsdt":
             parser.error(

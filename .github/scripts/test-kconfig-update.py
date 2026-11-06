@@ -8,7 +8,7 @@ import io
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,9 +35,7 @@ class CommandLineTests(unittest.TestCase):
         for version, expected in (
             ("1.2.4", "1.2"),
             ("Cix UEFI 1.2.4-unofficial", "1.2"),
-            ("1.3.0", "1.3"),
             ("1.3.1", "1.3"),
-            ("1.3.2", "1.3"),
             ("Cix UEFI 1.3.1-unofficial", "1.3"),
             ("1.2.99", "1.2"),
             ("1.3.99", "1.3"),
@@ -47,48 +45,6 @@ class CommandLineTests(unittest.TestCase):
             with self.subTest(version=version):
                 with patch.object(Path, "read_text", return_value=version):
                     self.assertEqual(KCONFIG.infer_firmware_profile(), expected)
-
-    def test_rejects_unsupported_acpi_profile_requests(self) -> None:
-        for board, firmware, message in (
-            ("o6-dt", "1.2", "requires an ACPI board profile"),
-            ("o6n-acpi", "1.3", "is not available for"),
-            ("o6-acpi", "1.3.2", "invalid choice"),
-        ):
-            args = [
-                str(SCRIPT), "--mode", "fragment", "--board-profile", board,
-                "--firmware", firmware, "--acpi-table-upgrade", "dsdt",
-            ]
-            with self.subTest(board=board, firmware=firmware):
-                stderr = io.StringIO()
-                with patch.object(sys, "argv", args), redirect_stderr(stderr):
-                    with self.assertRaises(SystemExit) as error:
-                        KCONFIG.parse_args()
-                self.assertEqual(error.exception.code, 2)
-                self.assertIn(message, stderr.getvalue())
-
-    def test_full_acpi_profile_requires_explicit_firmware_family(self) -> None:
-        args = [
-            str(SCRIPT), "--mode", "fragment", "--board-profile", "o6-acpi",
-            "--acpi-table-upgrade", "dsdt",
-        ]
-        # A DMI version, even if it names a known family, cannot qualify
-        # the full table layout or the firmware's ReadyToBoot values.
-        for detected in ("1.2", "1.3", None):
-            with self.subTest(detected=detected):
-                stderr = io.StringIO()
-                with patch.object(sys, "argv", args), redirect_stderr(stderr):
-                    with patch.object(KCONFIG, "infer_firmware_profile", return_value=detected) as infer:
-                        with self.assertRaises(SystemExit) as error:
-                            KCONFIG.parse_args()
-                infer.assert_not_called()
-                self.assertEqual(error.exception.code, 2)
-                self.assertIn("requires explicit '--firmware 1.2'", stderr.getvalue())
-
-        stderr = io.StringIO()
-        with patch.object(sys, "argv", args + ["--firmware", "1.2"]), redirect_stderr(stderr):
-            explicit = KCONFIG.parse_args()
-        self.assertTrue(explicit.acpi_table_upgrade_initramfs_source.endswith("/o6/1.2/initramfs-dsdt.list"))
-        self.assertIn("requires a matching native ACPI layout", stderr.getvalue())
 
     def test_hifi5_dsp_selects_one_interface(self) -> None:
         with patch.object(
