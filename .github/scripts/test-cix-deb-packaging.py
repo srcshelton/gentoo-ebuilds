@@ -71,6 +71,12 @@ class PackageTests(unittest.TestCase):
             expected = "arm64-64k" if row["config_flavour"] == "generic-64k" else "arm64"
             self.assertEqual(row["config_package"], expected)
 
+    def test_prebuilt_profiles_keep_native_dsdt(self):
+        for row in self.matrix()["include"]:
+            with self.subTest(package=row["board_package"], kernel=row["line"]):
+                self.assertEqual(row["acpi_table_upgrade"], "ssdt")
+                self.assertEqual(row["acpi_initramfs_profile"], "initramfs")
+
     def test_package_flavour_matches_frozen_page_size(self):
         for seed in MATRIX.UBUNTU_CONFIG_ARTIFACT_BY_SEED:
             directory = ROOT / ".github/fallbacks/cix-external-inputs/ubuntu-configs" / seed

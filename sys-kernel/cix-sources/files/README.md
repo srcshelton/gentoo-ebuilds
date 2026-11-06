@@ -64,9 +64,9 @@ Choose every component deliberately:
 | Configuration | `arm64`, `arm64-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages, seeded from `generic` and `generic-64k` respectively. Use `arm64` unless a 64 KiB kernel is specifically required. |
 | Kernel | `6.18.53`, `7.2.7` | The maintained Linux version. |
 
-The kernel image already contains the corresponding ACPI table-upgrade
-profile. O6 and O6N firmware 1.2 packages use the full profile, as does O6
-firmware 1.3; O6N firmware 1.3 uses the SSDT-only profile. See
+New GitHub-built kernel images embed the corresponding SSDT-only profile
+and use the firmware's native DSDT, board SSDT and IORT. Earlier packages
+may embed a full profile. See
 [`ACPI_TABLE_UPGRADE.md`](ACPI_TABLE_UPGRADE.md) before selecting a package.
 
 These packages are ACPI-only: the packaging step removes board DTBs. They also
@@ -143,7 +143,7 @@ python3 /path/to/gentoo-ebuilds/sys-kernel/cix-sources/files/kconfig_update.py \
   --with-npu \
   --firmware 1.2 \
   --cix-patches yes \
-  --acpi-table-upgrade dsdt \
+  --acpi-table-upgrade ssdt \
   --apply \
   /usr/src/linux/.config
 ```

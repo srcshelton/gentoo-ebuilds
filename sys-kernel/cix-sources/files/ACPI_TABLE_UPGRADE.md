@@ -46,9 +46,9 @@ hardware and must be followed by the checks below.
 
 | Board and firmware | SSDT-only profile | Full profile | Profile embedded in GitHub `.deb` packages |
 | --- | --- | --- | --- |
-| O6, Radxa 1.2.4 | 11 AML files | 15 files on Linux 6.18; 16 on Linux 7.2; one additional file with IORT | Full, with both IORT transformations |
-| O6, Radxa 1.3.1 / 1.3.2 (offline AML comparison) | 10 AML files | 13 files | Full |
-| O6N, Radxa 1.2.4 | 7 AML files | 10 files on Linux 6.18; 11 on Linux 7.2; one additional file with IORT | Full, with both IORT transformations |
+| O6, Radxa 1.2.4 | 11 AML files | 15 files on Linux 6.18; 16 on Linux 7.2; one additional file with IORT | SSDT-only |
+| O6, Radxa 1.3.1 / 1.3.2 (offline AML comparison) | 10 AML files | 13 files | SSDT-only |
+| O6N, Radxa 1.2.4 | 7 AML files | 10 files on Linux 6.18; 11 on Linux 7.2; one additional file with IORT | SSDT-only |
 | O6N, Radxa 1.3.1 / 1.3.2 (offline AML comparison) | 7 AML files | Not available | SSDT-only |
 
 The `arm64` and `arm64-64k` package variants use the same ACPI payload.
@@ -113,13 +113,15 @@ firmware-selected values in place. The full profiles contain fixed snapshots:
 | `\_SB.ECFM` | O6 EC fan mode used by the ACPI fan power-on method. | 0 (automatic) in each replacement O6 board SSDT |
 | `\_SB.GNVA`, `\_SB.GNVL` | Firmware-allocated ACPI NVS address and length. AML reads this block for device availability, USB roles, PCIe and CPU idle settings. | Address `0xfffe0000`, length `0x4d` in each replacement DSDT |
 
-Use a full profile only when these values match the native tables for
-the board, firmware build and settings in use. In particular, use the
-SSDT-only profile or `acpi_table_upgrade=off` when using a different fan
-mode, disabling ACPI SCMI, or when the native ACPI NVS address or layout
-differs or is unknown. A dump with upgrades disabled can be used to inspect
-the native DSDT and board SSDT. The firmware cannot apply its ReadyToBoot
-updates to the initramfs copies.
+Stock O6 firmware 1.2.4 has been observed with all four values matching
+the replacements on one native-table boot. Firmware allocates the NVS
+block below 4 GiB with `AllocateMaxAddress`. The returned address depends
+on the boot-time memory map. A matching capture establishes the values for
+that boot. An explicit full-profile selection requires evidence that the
+NVS allocation and layout are stable across the intended boots and that
+the firmware settings match. Use SSDT-only when that evidence is missing,
+and re-check the native values after changes to UEFI settings or boot
+configuration.
 
 On a native DSDT, the kernel respects the DVFS and clock child statuses
 when `SCMS` is present. Enable **ACPI SCMI** in UEFI if those protocols are
@@ -128,7 +130,8 @@ handles zero-status children on firmware without that policy object.
 
 ## Using pre-built Debian or Ubuntu packages
 
-The GitHub workflow embeds the selected AML files in the kernel image through
+The GitHub workflow builds new packages with the SSDT-only profile. It embeds
+those AML files in the kernel image through
 `CONFIG_INITRAMFS_SOURCE`. Installing the matching `linux-image` package is
 therefore sufficient; do not copy AML files into the distribution initramfs or
 run the [ACPICA `iasl` compiler](https://github.com/acpica/acpica) separately.
@@ -138,7 +141,12 @@ flavour, and kernel. Choose `o6` or `o6n` for the physical board, `fw1.2` or
 `fw1.3` for the installed Radxa firmware family, and `arm64` unless a 64 KiB
 page kernel (`arm64-64k`) is explicitly required. For example,
 `linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb` contains the
-O6 firmware-1.2 full profile. These images require an ACPI-configured board.
+O6 firmware-1.2 payload. Earlier packages with the same profile naming
+may contain full replacements. Check the build provenance to identify their
+payload. These images require an ACPI-configured board. SSDT-only packages
+use the firmware's native IORT, including PCIe SMMU mappings on stock 1.2.4.
+The optional IORT transformations, replacement PPTT, and full-profile MPAM
+and SOF support require a deliberately selected local full profile.
 
 Keep the distribution kernel installed and extract the assembled
 `cix-kernel-debs` artifact. Install only the selected image, for example:
@@ -240,11 +248,14 @@ CONFIG_INITRAMFS_SOURCE="/usr/src/linux/cix-acpi-table-upgrade/<board>/<firmware
 ```
 
 `kconfig_update.py` can produce a fragment or update an existing `.config`.
-Specify the firmware explicitly when cross-building: automatic detection uses
-the running machine's DMI data and falls back to firmware 1.2 when it cannot
-identify a supported family.
+Specify the firmware family explicitly when cross-building. With SSDT-only,
+automatic detection uses the running machine's DMI data and falls back to
+firmware 1.2 if it cannot infer a family. Full replacements require an
+explicit `--firmware 1.2` or `--firmware 1.3` alongside
+`--acpi-table-upgrade dsdt`. These options select a payload. For custom
+firmware, establish the actual ACPI layout and native settings first.
 
-For example, update an O6 firmware-1.2 configuration for the full profile:
+For stock O6 firmware 1.2.4, select the SSDT-only profile by default:
 
 ```sh
 python3 /path/to/gentoo-ebuilds/sys-kernel/cix-sources/files/kconfig_update.py \
@@ -255,14 +266,13 @@ python3 /path/to/gentoo-ebuilds/sys-kernel/cix-sources/files/kconfig_update.py \
   --with-npu \
   --firmware 1.2 \
   --cix-patches yes \
-  --acpi-table-upgrade dsdt \
+  --acpi-table-upgrade ssdt \
   --apply \
   /path/to/.config
 ```
 
-Use `o6n-acpi` for O6N and `ssdt` for the lower-impact profile. The helper
-rejects the unavailable O6N firmware-1.3 full profile rather than silently
-selecting another table set. `--hardware-profile` controls kernel driver
+Use `o6n-acpi` for O6N. The full profile is available for O6 and for
+O6N firmware 1.2. `--hardware-profile` controls kernel driver
 breadth independently of the ACPI payload: use `server`, `desktop`, or `full`.
 `--graphics-profile` can override its graphics/media breadth, while
 `--audio-profile` chooses analog HDA, display audio, both, or neither. The

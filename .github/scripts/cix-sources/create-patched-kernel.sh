@@ -14,7 +14,7 @@ Options:
   --use FLAGS             Enable additional USE flags, comma or space separated.
   --disable-use FLAGS     Disable USE flags that are enabled by default.
   --compile-acpi-tables   Compile ACPI table-upgrade AML artifacts.
-  --acpi-table-profile P  ACPI table-upgrade profile: ssdt or dsdt (default: dsdt).
+  --acpi-table-profile P  ACPI table-upgrade profile: ssdt or dsdt (default: ssdt).
   --board-profile P       Report ACPI initramfs list for o6-acpi or o6n-acpi.
   --firmware VERSION      Select firmware profile 1.2 or 1.3 (default: 1.2).
   --stop-before-patch P   Materialise the source tree immediately before patch P.
@@ -258,7 +258,7 @@ default() {
 force=no
 keep_work=no
 compile_acpi_tables=no
-acpi_table_profile=dsdt
+acpi_table_profile=ssdt
 board_profile=
 firmware_profile=1.2
 stop_before_patch=
