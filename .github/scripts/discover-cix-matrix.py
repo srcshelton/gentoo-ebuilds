@@ -48,10 +48,14 @@ FIRMWARE_PROFILES = (
     {
         "firmware": "1.2",
         "firmware_package": "fw1.2",
+        "acpi_table_upgrade": "dsdt",
+        "acpi_initramfs_profile": "initramfs-dsdt",
     },
     {
         "firmware": "1.3",
         "firmware_package": "fw1.3",
+        "acpi_table_upgrade": "ssdt",
+        "acpi_initramfs_profile": "initramfs",
     },
 )
 CONFIG_FLAVOURS = (
@@ -176,8 +180,6 @@ def expand_build_matrix(selected: list[dict[str, object]]) -> dict[str, object]:
                     entry.update(
                         {
                             "board_profile": board["board_profile"],
-                            "acpi_table_upgrade": "ssdt",
-                            "acpi_initramfs_profile": "initramfs",
                             "board_package": (
                                 f"{board['board_package_base']}-"
                                 f"{firmware['firmware_package']}-"
@@ -186,6 +188,16 @@ def expand_build_matrix(selected: list[dict[str, object]]) -> dict[str, object]:
                         }
                     )
                     entry.update(firmware)
+                    if (
+                        board["board_profile"] == "o6-acpi"
+                        and firmware["firmware"] == "1.3"
+                    ):
+                        entry.update(
+                            {
+                                "acpi_table_upgrade": "dsdt",
+                                "acpi_initramfs_profile": "initramfs-dsdt",
+                            }
+                        )
                     entry.update(flavour)
                     include.append(entry)
     return {"include": include}

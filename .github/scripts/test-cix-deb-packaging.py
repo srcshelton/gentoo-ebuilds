@@ -5,6 +5,8 @@ import importlib.util
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 import uuid
@@ -71,11 +73,40 @@ class PackageTests(unittest.TestCase):
             expected = "arm64-64k" if row["config_flavour"] == "generic-64k" else "arm64"
             self.assertEqual(row["config_package"], expected)
 
-    def test_prebuilt_profiles_keep_native_dsdt(self):
-        for row in self.matrix()["include"]:
+    def test_prebuilt_profiles_select_expected_initramfs(self):
+        profiles = {
+            ("o6-acpi", "1.2"): ("dsdt", "initramfs-dsdt"),
+            ("o6n-acpi", "1.2"): ("dsdt", "initramfs-dsdt"),
+            ("o6-acpi", "1.3"): ("dsdt", "initramfs-dsdt"),
+            ("o6n-acpi", "1.3"): ("ssdt", "initramfs"),
+        }
+        for path in ("arch/arm64/Kconfig.platforms", "drivers/platform/arm64/Kconfig"):
+            fixture = self.work / path
+            fixture.parent.mkdir(parents=True, exist_ok=True)
+            fixture.touch()
+        helper = ROOT / "sys-kernel/cix-sources/files/kconfig_update.py"
+        rows = self.matrix()["include"]
+        self.assertEqual(
+            {(row["line"], row["board_profile"], row["firmware"], row["config_flavour"])
+             for row in rows},
+            {(line, board, family, flavour)
+             for line in ("6.18", "7.2") for board, family in profiles
+             for flavour in ("generic", "generic-64k")},
+        )
+        for row in rows:
             with self.subTest(package=row["board_package"], kernel=row["line"]):
-                self.assertEqual(row["acpi_table_upgrade"], "ssdt")
-                self.assertEqual(row["acpi_initramfs_profile"], "initramfs")
+                board, family = row["board_profile"], row["firmware"]
+                mode, profile = profiles[board, family]
+                self.assertEqual(row["acpi_table_upgrade"], mode)
+                self.assertEqual(row["acpi_initramfs_profile"], profile)
+                path = f"/usr/src/linux/cix-acpi-table-upgrade/{board.removesuffix('-acpi')}/{family}/{profile}.list"
+                fragment = subprocess.check_output([
+                    sys.executable, str(helper), "--mode", "fragment",
+                    "--kernel-tree", str(self.work), "--cix-patches", "yes",
+                    "--board-profile", board, "--firmware", family,
+                    "--acpi-table-upgrade", row["acpi_table_upgrade"],
+                ], text=True, stderr=subprocess.PIPE)
+                self.assertIn(f'CONFIG_INITRAMFS_SOURCE="{path}"', fragment.splitlines())
 
     def test_package_flavour_matches_frozen_page_size(self):
         for seed in MATRIX.UBUNTU_CONFIG_ARTIFACT_BY_SEED:

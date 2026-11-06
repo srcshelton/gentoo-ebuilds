@@ -64,10 +64,11 @@ Choose every component deliberately:
 | Configuration | `arm64`, `arm64-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages, seeded from `generic` and `generic-64k` respectively. Use `arm64` unless a 64 KiB kernel is specifically required. |
 | Kernel | `6.18.53`, `7.2.7` | The maintained Linux version. |
 
-New GitHub-built kernel images embed the corresponding SSDT-only profile
-and use the firmware's native DSDT, board SSDT and IORT. Earlier packages
-may embed a full profile. See
-[`ACPI_TABLE_UPGRADE.md`](ACPI_TABLE_UPGRADE.md) before selecting a package.
+GitHub-built images embed the full ACPI upgrade for O6 and O6N firmware
+1.2 and O6 firmware 1.3. O6N firmware 1.3 uses SSDT-only. Local builds can
+select SSDT-only for any supported stock board and firmware family. See
+[`ACPI_TABLE_UPGRADE.md`](ACPI_TABLE_UPGRADE.md) for the firmware-dependent
+values in full replacements and recovery options.
 
 These packages are ACPI-only: the packaging step removes board DTBs. They also
 do not contain accelerator userspace, model, tuning, or firmware files. The
