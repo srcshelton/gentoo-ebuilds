@@ -1,13 +1,20 @@
-BPF struct_ops providers resolve their CFI stubs through kallsyms and require
-vmlinux BTF.  Without that complete build-time contract their registration
-fails during boot even though Kconfig presented the providers as usable.
+BPF struct_ops providers resolve their CFI stubs through kallsyms and
+require vmlinux BTF.  Without that complete build-time contract their
+registration fails during boot even though Kconfig presented the
+providers as usable.
 
-Represent these prerequisites with a hidden BPF_STRUCT_OPS capability.  Gate
-every in-tree runtime provider on it, including HID-BPF, while leaving ordinary
-BPF and non-struct_ops consumers available without KALLSYMS.  Leave the core
-test-run callback unset when the capability omits its dummy provider.
+Represent these prerequisites with a hidden BPF_STRUCT_OPS capability.
+Gate every in-tree runtime provider on it, including HID-BPF, while
+leaving ordinary BPF and non-struct_ops consumers available without
+KALLSYMS.  Leave the core test-run callback unset when the capability
+omits its dummy provider.
+
+Keep existing scheduler dependencies in place so experimental
+alternative schedulers retain their independent SCHED_CLASS_EXT
+exclusion.
 
 diff --git a/drivers/hid/bpf/Kconfig b/drivers/hid/bpf/Kconfig
+index d65482e..ddc7b54 100644
 --- a/drivers/hid/bpf/Kconfig
 +++ b/drivers/hid/bpf/Kconfig
 @@ -3,8 +3,7 @@ menu "HID-BPF support"
@@ -21,6 +28,7 @@ diff --git a/drivers/hid/bpf/Kconfig b/drivers/hid/bpf/Kconfig
  	help
  	This option allows to support eBPF programs on the HID subsystem.
 diff --git a/io_uring/Kconfig b/io_uring/Kconfig
+index a283d9e..3f0d823 100644
 --- a/io_uring/Kconfig
 +++ b/io_uring/Kconfig
 @@ -17,5 +17,4 @@ config IO_URING_BPF
@@ -31,18 +39,17 @@ diff --git a/io_uring/Kconfig b/io_uring/Kconfig
 -	depends on BPF_SYSCALL && BPF_JIT && DEBUG_INFO_BTF
 +	depends on IO_URING && BPF_STRUCT_OPS
 diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
+index f95859e..dd99ef6 100644
 --- a/kernel/Kconfig.preempt
 +++ b/kernel/Kconfig.preempt
-@@ -168,7 +168,7 @@ config SCHED_CORE
- 
- config SCHED_CLASS_EXT
- 	bool "Extensible Scheduling Class"
--	depends on BPF_SYSCALL && BPF_JIT && DEBUG_INFO_BTF
-+	depends on BPF_STRUCT_OPS
+@@ -172,4 +172,5 @@ config SCHED_CLASS_EXT
  	select GENERIC_ALLOCATOR
  	select STACKTRACE if STACKTRACE_SUPPORT
++	depends on BPF_STRUCT_OPS
  	help
+ 	  This option enables a new scheduler class sched_ext (SCX), which
 diff --git a/kernel/bpf/Kconfig b/kernel/bpf/Kconfig
+index eb3de35..925a241 100644
 --- a/kernel/bpf/Kconfig
 +++ b/kernel/bpf/Kconfig
 @@ -55,6 +55,11 @@ config BPF_JIT
@@ -58,6 +65,7 @@ diff --git a/kernel/bpf/Kconfig b/kernel/bpf/Kconfig
  	bool "Permanently enable BPF JIT and remove BPF interpreter"
  	depends on BPF_SYSCALL && HAVE_EBPF_JIT && BPF_JIT
 diff --git a/kernel/bpf/bpf_struct_ops.c b/kernel/bpf/bpf_struct_ops.c
+index 4e7a48c..bee4f56 100644
 --- a/kernel/bpf/bpf_struct_ops.c
 +++ b/kernel/bpf/bpf_struct_ops.c
 @@ -70,7 +70,7 @@ const struct bpf_verifier_ops bpf_struct_ops_verifier_ops = {
@@ -70,6 +78,7 @@ diff --git a/kernel/bpf/bpf_struct_ops.c b/kernel/bpf/bpf_struct_ops.c
  #endif
  };
 diff --git a/net/bpf/Makefile b/net/bpf/Makefile
+index 1ebe270..5c61f42 100644
 --- a/net/bpf/Makefile
 +++ b/net/bpf/Makefile
 @@ -1,5 +1,3 @@
@@ -80,6 +89,7 @@ diff --git a/net/bpf/Makefile b/net/bpf/Makefile
 -endif
 +obj-$(CONFIG_BPF_STRUCT_OPS)	+= bpf_dummy_struct_ops.o
 diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 06e21c2..c56e77b 100644
 --- a/net/ipv4/Makefile
 +++ b/net/ipv4/Makefile
 @@ -68,9 +68,7 @@ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
@@ -94,6 +104,7 @@ diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
  ifdef CONFIG_GCOV_PROFILE_NETFILTER
  GCOV_PROFILE_netfilter.o := y
 diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 6ddff02..70f3689 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
 @@ -405,7 +405,7 @@ config NET_SCH_ETS
@@ -106,6 +117,7 @@ diff --git a/net/sched/Kconfig b/net/sched/Kconfig
  	  This option allows BPF-based queueing disiplines. With BPF struct_ops,
  	  users can implement supported operators in Qdisc_ops using BPF programs.
 diff --git a/net/smc/Kconfig b/net/smc/Kconfig
+index 277ef50..27a20a1 100644
 --- a/net/smc/Kconfig
 +++ b/net/smc/Kconfig
 @@ -22,7 +22,7 @@ config SMC_DIAG
