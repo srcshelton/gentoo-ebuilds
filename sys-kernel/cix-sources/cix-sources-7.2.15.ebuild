@@ -487,6 +487,7 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/72030-media-cix-port-isp-to-linux-7.2.patch
 		"${FILESDIR}"/7.2.x/73050-sound-soc-cix-harden-audio-paths.patch
 		"${FILESDIR}"/7.2.x/73060-sound-cix-declare-runtime-provider-dependencies.patch
+		"${FILESDIR}"/7.2.x/73070-alsa-hda-cix-configure-jack-polling.patch
 		"${FILESDIR}"/80000-pci-rtl8126-disable-unreadable-vpd-quietly.patch
 		"${FILESDIR}"/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch
 		"${FILESDIR}"/7.2.x/80015-bluetooth-btrtl-return-register-read-error.patch

@@ -1,0 +1,66 @@
+ALSA: hda: cix: make the jack polling interval configurable
+
+Periodic codec jack sensing can wake the CIX HDA controller every
+second even on systems without active audio clients. Let users choose
+the interval at load time or disable periodic sensing entirely.
+
+Keep the existing 1000 ms default and accept 0 or 50-60000 ms.
+With polling disabled, jack insertion and removal may go undetected
+and automatic routing may become stale. Keep the controller's
+command-response polling enabled for normal codec verb traffic.
+
+diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
+index be8707e..1bdc18e 100644
+--- a/sound/hda/controllers/cix-ipbloq.c
++++ b/sound/hda/controllers/cix-ipbloq.c
+@@ -9,6 +9,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
++#include <linux/kstrtox.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of.h>
+@@ -39,6 +40,33 @@
+ /* GCAP permits 15 input and 15 output streams; 128 KiB covers the maximum. */
+ #define CIX_HDA_STREAM_DMA_MIN_ALLOC	SZ_128K
+ 
++static unsigned int jackpoll_ms = CIX_IPBLOQ_JACKPOLL_DEFAULT_TIME_MS;
++
++static int param_set_jackpoll_ms(const char *val, const struct kernel_param *kp)
++{
++	unsigned int interval;
++	int ret;
++
++	ret = kstrtouint(val, 10, &interval);
++	if (ret)
++		return ret;
++
++	if (interval && (interval < 50 || interval > 60000))
++		return -EINVAL;
++
++	*(unsigned int *)kp->arg = interval;
++	return 0;
++}
++
++static const struct kernel_param_ops jackpoll_ms_ops = {
++	.set = param_set_jackpoll_ms,
++	.get = param_get_uint,
++};
++
++module_param_cb(jackpoll_ms, &jackpoll_ms_ops, &jackpoll_ms, 0444);
++MODULE_PARM_DESC(jackpoll_ms,
++		 "Jack poll interval in ms (default 1000, 50-60000, 0 disables polling)");
++
+ struct cix_ipbloq_hda {
+ 	struct azx chip;
+ 	struct device *dev;
+@@ -235,7 +263,7 @@ static int cix_ipbloq_hda_create(struct cix_ipbloq_hda *hda,
+ 	chip->single_cmd = 0;
+ 	chip->codec_probe_mask = -1;
+ 	chip->align_buffer_size = 1;
+-	chip->jackpoll_interval = msecs_to_jiffies(CIX_IPBLOQ_JACKPOLL_DEFAULT_TIME_MS);
++	chip->jackpoll_interval = msecs_to_jiffies(jackpoll_ms);
+ 	mutex_init(&chip->open_mutex);
+ 	INIT_LIST_HEAD(&chip->pcm_list);
+ 

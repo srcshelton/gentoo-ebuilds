@@ -369,6 +369,10 @@ when the source context differs.
 | `90000`-`98999` | CIX SoC, board profiles, diagnostics, and platform hwmon |
 | `99000`-`99999` | temporary or explicitly experimental; none are currently retained |
 
+Linux 7.3.x integration must include the CIX IPBLOQ HDA `jackpoll_ms`
+functionality from patch `73070`. Port it against the effective 7.3.x driver
+source and qualify it before declaring that series ready.
+
 ## Further information
 
 - [`ACPI_TABLE_UPGRADE.md`](ACPI_TABLE_UPGRADE.md) explains the firmware table

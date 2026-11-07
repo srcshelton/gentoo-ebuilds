@@ -442,6 +442,7 @@ src_prepare() {
 		"${FILESDIR}"/6.18.x/72025-media-cix-coordinate-ddr-low-power-with-isp.patch
 		"${FILESDIR}"/6.18.x/73050-sound-soc-cix-harden-audio-paths.patch
 		"${FILESDIR}"/6.18.x/73060-sound-cix-declare-runtime-provider-dependencies.patch
+		"${FILESDIR}"/6.18.x/73070-alsa-hda-cix-configure-jack-polling.patch
 		"${FILESDIR}"/80000-pci-rtl8126-disable-unreadable-vpd-quietly.patch
 		"${FILESDIR}"/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch
 		"${FILESDIR}"/6.18.x/80015-bluetooth-btrtl-return-register-read-error.patch
