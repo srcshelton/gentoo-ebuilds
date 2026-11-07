@@ -2,15 +2,15 @@
 # Copyright 1999-2025 Gentoo Authors
 # Distributed under the terms of the GNU General Public License, v2
 
-description="Ollama"
-command_user="ollama"
-command_group="ollama"
+supervisor=supervise-daemon
+description="Ollama Service"
 pidfile="/var/run/ollama/ollama.pid"
 log="/var/log/ollama/ollama.log"
 output_log="${log}"
 error_log="${log}"
 command="/usr/bin/ollama"
 command_args="serve -1 ${log} -2 ${log}"
+command_user="ollama:ollama"
 command_background="yes"
 directory="/var/lib/ollama"
 
@@ -20,14 +20,20 @@ directory="/var/lib/ollama"
 #export OLLAMA_ORIGINS="<ip>"
 
 start_pre() {
-	local dir=''
+	local f='' d=''
 
-	for dir in "${pidfile}" "{log}"; do
-		dir="$( dirname "${dir}" )"
+	for f in "${pidfile}" "${log}"; do
+		d="$( dirname "${f}" )"
 		if ! checkpath -o "${command_user}:${command_group}" \
-				"${pidfile}"
+				-d "${d}"
 		then
-			eerror "Cannot create directory '${dir}': ${?}"
+			eerror "Cannot create directory '${d}': ${?}"
+			return 1
+		fi
+		if ! checkpath -o "${command_user}:${command_group}" \
+				-f "${f}"
+		then
+			eerror "Cannot create file '${f}': ${?}"
 			return 1
 		fi
 	done

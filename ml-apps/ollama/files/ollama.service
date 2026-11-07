@@ -6,9 +6,10 @@ After=network-online.target
 ExecStart=/usr/bin/ollama serve
 User=ollama
 Group=ollama
+# GPU access: render -> /dev/dri/renderD* + /dev/kfd (ROCm), video -> legacy/NVIDIA
+SupplementaryGroups=render video
 Restart=always
 RestartSec=3
-Environment="PATH=$PATH"
 
 [Install]
 WantedBy=default.target

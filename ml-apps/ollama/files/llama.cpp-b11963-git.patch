@@ -1,0 +1,22 @@
+--- a/cmake/build-info.cmake
++++ b/cmake/build-info.cmake
+@@ -16,7 +16,7 @@
+ endif()
+ 
+ # Get the commit count and hash
+-if(Git_FOUND)
++if(Git_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+     execute_process(
+         COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+--- a/common/CMakeLists.txt
++++ b/common/CMakeLists.txt
+@@ -30,7 +30,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
+         message(WARNING "Git index not found in git repository.")
+     endif()
+ else()
+-    message(WARNING "Git repository not found; to enable automatic generation of build info, make sure Git is installed and the project is a Git repository.")
++    message(STATUS "Git repository not found; using supplied or default build metadata.")
+ endif()
+ 
+ set(TEMPLATE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build-info.cpp.in")
