@@ -1,0 +1,40 @@
+iommu/arm-smmu-v3: preserve SID ownership when cleaning up duplicates
+
+Backport of upstream 2888520bdcbe0599cfc77b2fad8dc6c95505a3cb by
+Nicolin Chen. Initialize empty nodes before insertion (after sorting when
+present), and skip uninserted duplicates during rollback and removal.
+SID ownership rejection and translation/isolation policy are unchanged.
+
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
+index 41c66c6..86db4e8 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
+@@ -3537,6 +3537,7 @@ static int arm_smmu_insert_master(struct arm_smmu_device *smmu,
+ 
+ 		new_stream->id = sid;
+ 		new_stream->master = master;
++		RB_CLEAR_NODE(&new_stream->node);
+ 
+ 		ret = arm_smmu_init_sid_strtab(smmu, sid);
+ 		if (ret)
+@@ -3564,7 +3565,9 @@ static int arm_smmu_insert_master(struct arm_smmu_device *smmu,
+ 
+ 	if (ret) {
+ 		for (i--; i >= 0; i--)
+-			rb_erase(&master->streams[i].node, &smmu->streams);
++			if (!RB_EMPTY_NODE(&master->streams[i].node))
++				rb_erase(&master->streams[i].node,
++					 &smmu->streams);
+ 		kfree(master->streams);
+ 	}
+ 	mutex_unlock(&smmu->streams_mutex);
+@@ -3583,7 +3586,8 @@ static void arm_smmu_remove_master(struct arm_smmu_master *master)
+ 
+ 	mutex_lock(&smmu->streams_mutex);
+ 	for (i = 0; i < fwspec->num_ids; i++)
+-		rb_erase(&master->streams[i].node, &smmu->streams);
++		if (!RB_EMPTY_NODE(&master->streams[i].node))
++			rb_erase(&master->streams[i].node, &smmu->streams);
+ 	mutex_unlock(&smmu->streams_mutex);
+ 
+ 	kfree(master->streams);

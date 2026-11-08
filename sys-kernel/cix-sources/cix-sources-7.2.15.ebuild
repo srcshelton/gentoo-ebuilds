@@ -500,6 +500,7 @@ src_prepare() {
 		"${FILESDIR}"/80033-net-realtek-r8126-remove-unused-tail-pointer-reader.patch
 		"${FILESDIR}"/80035-net-realtek-r8126-demote-routine-reset-message.patch
 		"${FILESDIR}"/7.2.x/80070-pci-disable-aspm-for-sky1-smmu-faulting-endpoints.patch
+		"${FILESDIR}"/7.2.x/80080-iommu-arm-smmu-v3-fix-duplicate-stream-cleanup.patch
 		"${FILESDIR}"/7.2.x/90040-hwmon-cix-add-safe-acpi-fan-control.patch
 		"${FILESDIR}"/7.2.x/90045-cix-close-platform-driver-dependencies.patch
 	)
