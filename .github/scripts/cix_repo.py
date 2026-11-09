@@ -11,7 +11,7 @@ VERSION = r'\d+\.\d+\.\d+(?:-r\d+)?'
 def tracked(root):
     """Use the index as the scope; unrelated untracked work is not maintained input."""
     result = subprocess.run(['git', '-C', str(root), 'ls-files', '-z'],
-                            capture_output=True, check=True)
+                            stdout=subprocess.PIPE, check=True)
     return {Path(p.decode()) for p in result.stdout.split(b'\0') if p}
 
 

@@ -97,6 +97,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Checkout's safe.directory entry lives under its temporary HOME.
+          # Trust this checkout in the container step's HOME as well.
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
           python3 - <<'PY'
           from pathlib import Path
           import yaml

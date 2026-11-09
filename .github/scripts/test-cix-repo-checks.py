@@ -4,10 +4,13 @@ import difflib
 import hashlib
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-from cix_repo import PACKAGE, Repository
+from cix_repo import PACKAGE, Repository, tracked
 
 
 def load(name):
@@ -77,6 +80,21 @@ PATCHES=( "${{FILESDIR}}"/shared.patch "${{FILESDIR}}"/{line}.x/local.patch )
     def test_valid(self):
         self.assertEqual(self.run_check(layout), '')
         self.assertEqual(self.run_check(markdown), '')
+
+    def test_git_tracking_and_failure_stderr(self):
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'add', str(self.doc)], check=True)
+        self.assertEqual(tracked(self.root), {self.doc})
+        outside = self.root / 'not-a-repository'
+        outside.mkdir()
+        # Prevent Git from finding the parent fixture's repository.
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).with_name('check-cix-patch-layout.py')),
+             '--root', str(outside)],
+            env={**os.environ, 'GIT_CEILING_DIRECTORIES': str(self.root), 'LC_ALL': 'C'},
+            capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('fatal: not a git repository', result.stderr)
 
     def test_bad_directories(self):
         for directory in ('6.18.62', 'unknown', '6.18.x/nested'):
