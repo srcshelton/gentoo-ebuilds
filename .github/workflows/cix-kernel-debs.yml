@@ -3,6 +3,7 @@ name: Build CIX kernel Debian packages
 on:
   push:
     paths:
+      - "**/*.md"
       - ".github/fallbacks/cix-external-inputs/**"
       - ".github/scripts/**"
       - ".github/workflows/cix-external-inputs.yml"
@@ -10,6 +11,7 @@ on:
       - "sys-kernel/cix-sources/**"
   pull_request:
     paths:
+      - "**/*.md"
       - ".github/fallbacks/cix-external-inputs/**"
       - ".github/scripts/**"
       - ".github/workflows/cix-external-inputs.yml"
@@ -44,12 +46,21 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
+      build_required: ${{ steps.changes.outputs.build_required }}
       build_matrix: ${{ steps.matrix.outputs.build_matrix }}
       ubuntu_config_matrix: ${{ steps.matrix.outputs.ubuntu_config_matrix }}
       validation_matrix: ${{ steps.matrix.outputs.validation_matrix }}
     steps:
       - name: Check out overlay
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Select build work
+        id: changes
+        env:
+          CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 .github/scripts/cix-build-changes.py --base "${CHANGE_BASE}" --github-output "${GITHUB_OUTPUT}"
 
       - name: Build matrix
         id: matrix
@@ -220,7 +231,7 @@ jobs:
           bash -n \
             sys-kernel/cix-headers/cix-headers-*.ebuild \
             sys-kernel/cix-sources/cix-sources-*.ebuild
-          shellcheck \
+          shellcheck -x \
             .github/scripts/fetch-ubuntu-configs.sh \
             .github/scripts/restore-cix-external-inputs.sh \
             .github/scripts/validate-cix-configs.sh \
@@ -237,6 +248,15 @@ jobs:
             .github/scripts/test-kconfig-update.py \
             .github/scripts/validate-cix-external-inputs.py \
             sys-kernel/cix-sources/files/kconfig_update.py
+          python3 -m py_compile .github/scripts/cix_repo.py \
+            .github/scripts/check-cix-patch-layout.py \
+            .github/scripts/check-markdown-staleness.py \
+            .github/scripts/cix-build-changes.py \
+            .github/scripts/test-cix-repo-checks.py
+          python3 .github/scripts/test-cix-repo-checks.py
+          python3 .github/scripts/check-cix-patch-layout.py
+          python3 .github/scripts/check-markdown-staleness.py
+          python3 .github/scripts/cix-sources/test-patch-policy.py
           python3 .github/scripts/test-kconfig-update.py
           python3 .github/scripts/test-cix-external-inputs.py
           python3 .github/scripts/test-cix-deb-packaging.py
@@ -352,7 +372,8 @@ jobs:
     name: Prepare last-known-good external workflow inputs
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
-    needs: preflight
+    needs: [preflight, discover]
+    if: needs.discover.outputs.build_required == 'true'
     steps:
       - name: Check out overlay
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
