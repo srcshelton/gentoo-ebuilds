@@ -3,7 +3,7 @@ drm: cix: remove unused DPTX Cadence PHY Kconfig option
 diff --git a/drivers/gpu/drm/cix/dptx/Kconfig b/drivers/gpu/drm/cix/dptx/Kconfig
 --- a/drivers/gpu/drm/cix/dptx/Kconfig
 +++ b/drivers/gpu/drm/cix/dptx/Kconfig
-@@ -20,10 +20,3 @@ config TRILIN_DP_HDCP_VALIDATION
+@@ -18,10 +18,3 @@ config TRILIN_DP_HDCP_VALIDATION
  	tristate "HDCP Validation for Trilinear DisplayPort on CiX platforms"
  	help
  	  Choose this if you want to validate DP HDCP on CiX Socs during presilicon

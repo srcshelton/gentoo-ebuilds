@@ -3,7 +3,7 @@ DPTX AUX failures were treated as successful transfers whenever rate limiting su
 diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 --- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 +++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
-@@ -892,7 +892,7 @@ static ssize_t trilin_dp_aux_transfer(struct drm_dp_aux *aux,
+@@ -884,7 +884,7 @@ static ssize_t trilin_dp_aux_transfer(struct drm_dp_aux *aux,
  				      struct drm_dp_aux_msg *msg)
  {
  	struct trilin_dp *dp = container_of(aux, struct trilin_dp, aux);
@@ -12,7 +12,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  	unsigned int i, iter;
  	size_t to_access, accessed_bytes;
  
-@@ -900,42 +900,36 @@ static ssize_t trilin_dp_aux_transfer(struct drm_dp_aux *aux,
+@@ -892,42 +892,36 @@ static ssize_t trilin_dp_aux_transfer(struct drm_dp_aux *aux,
  	iter = trilin_dp_aux_timeout_ms * 1000 / 400;
  	iter = iter ? iter : 1;
  

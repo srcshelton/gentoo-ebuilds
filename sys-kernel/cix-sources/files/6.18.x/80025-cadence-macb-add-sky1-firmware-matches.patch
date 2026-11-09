@@ -28,7 +28,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  #include <linux/ptp_classify.h>
  #include <linux/reset.h>
  #include <linux/slab.h>
-@@ -4534,6 +4536,10 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
+@@ -4565,6 +4567,10 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
  	} else {
  		*pclk = devm_clk_get(&pdev->dev, "pclk");
  		*hclk = devm_clk_get(&pdev->dev, "hclk");
@@ -39,7 +39,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  	}
  
  	if (IS_ERR_OR_NULL(*pclk))
-@@ -4767,6 +4773,14 @@ static const struct macb_usrio_config macb_default_usrio = {
+@@ -4798,6 +4804,14 @@ static const struct macb_usrio_config macb_default_usrio = {
  	.refclk = MACB_BIT(CLKEN),
  };
  
@@ -54,7 +54,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  #if defined(CONFIG_OF)
  /* 1518 rounded up */
  #define AT91ETHER_MAX_RBUFF_SZ	0x600
-@@ -5350,14 +5364,6 @@ static const struct macb_config sama5d3macb_config = {
+@@ -5381,14 +5395,6 @@ static const struct macb_config sama5d3macb_config = {
  	.usrio = &macb_default_usrio,
  };
  
@@ -69,7 +69,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  static const struct macb_config sama5d2_config = {
  	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_JUMBO,
  	.dma_burst_length = 16,
-@@ -5488,6 +5494,7 @@ static const struct of_device_id macb_dt_ids[] = {
+@@ -5519,6 +5525,7 @@ static const struct of_device_id macb_dt_ids[] = {
  	{ .compatible = "cdns,np4-macb", .data = &np4_config },
  	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
  	{ .compatible = "cdns,gem", .data = &pc302gem_config },
@@ -77,7 +77,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  	{ .compatible = "cdns,sam9x60-macb", .data = &at91sam9260_config },
  	{ .compatible = "atmel,sama5d2-gem", .data = &sama5d2_config },
  	{ .compatible = "atmel,sama5d29-gem", .data = &sama5d29_config },
-@@ -5511,6 +5518,14 @@ static const struct of_device_id macb_dt_ids[] = {
+@@ -5542,6 +5549,14 @@ static const struct of_device_id macb_dt_ids[] = {
  MODULE_DEVICE_TABLE(of, macb_dt_ids);
  #endif /* CONFIG_OF */
  
@@ -92,7 +92,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  static const struct macb_config default_gem_config = {
  	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE |
  		MACB_CAPS_JUMBO |
-@@ -5546,15 +5561,12 @@ static int macb_probe(struct platform_device *pdev)
+@@ -5577,15 +5592,12 @@ static int macb_probe(struct platform_device *pdev)
  	if (IS_ERR(mem))
  		return PTR_ERR(mem);
  
@@ -114,7 +114,7 @@ diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cad
  	}
  
  	err = clk_init(pdev, &pclk, &hclk, &tx_clk, &rx_clk, &tsu_clk);
-@@ -6055,6 +6067,7 @@ static struct platform_driver macb_driver = {
+@@ -6092,6 +6104,7 @@ static struct platform_driver macb_driver = {
  	.driver		= {
  		.name		= "macb",
  		.of_match_table	= of_match_ptr(macb_dt_ids),

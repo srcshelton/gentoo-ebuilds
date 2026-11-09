@@ -18,7 +18,7 @@ diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
  
  #include "internal.h"
  #include "sleep.h"
-@@ -2623,22 +2624,76 @@ static void acpi_scan_postponed(void)
+@@ -2628,22 +2629,76 @@ static void acpi_scan_postponed(void)
  	mutex_unlock(&acpi_dep_list_lock);
  }
  
@@ -95,7 +95,7 @@ diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
  		struct resource *r;
  
  		/* Skip disabled and invalid resources. */
-@@ -2656,6 +2711,21 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
+@@ -2661,6 +2716,21 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
  				continue;
  			}
  			r = request_region(res->start, resource_size(res), regionid);
@@ -117,7 +117,7 @@ diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
  		} else if (resource_type(res) == IORESOURCE_MEM) {
  			r = request_mem_region(res->start, resource_size(res), regionid);
  		} else {
-@@ -2666,6 +2736,11 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
+@@ -2671,6 +2741,11 @@ static void acpi_scan_claim_resources(struct acpi_device *adev)
  			r->flags &= ~IORESOURCE_BUSY;
  			dev_info(&adev->dev, "Reserved %pR\n", r);
  			count++;

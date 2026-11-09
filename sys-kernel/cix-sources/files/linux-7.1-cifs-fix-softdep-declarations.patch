@@ -12,10 +12,9 @@ entry.
  1 file changed, 1 insertion(+), 5 deletions(-)
 
 diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
-index 95845c8..706bd60 100644
 --- a/fs/smb/client/cifsfs.c
 +++ b/fs/smb/client/cifsfs.c
-@@ -2148,10 +2148,6 @@ MODULE_DESCRIPTION
+@@ -2258,10 +2258,6 @@ MODULE_DESCRIPTION
  	("VFS to access SMB3 servers e.g. Samba, Macs, Azure and Windows (and "
  	"also older servers complying with the SNIA CIFS Specification)");
  MODULE_VERSION(CIFS_VERSION);
@@ -27,6 +26,3 @@ index 95845c8..706bd60 100644
 +MODULE_SOFTDEP("pre: nls aes aead2 ccm gcm");
  module_init(init_cifs)
  module_exit(exit_cifs)
--- 
-2.50.1 (Apple Git-155)
-

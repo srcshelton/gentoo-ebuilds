@@ -224,7 +224,7 @@ diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
 diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
 --- a/sound/hda/controllers/cix-ipbloq.c
 +++ b/sound/hda/controllers/cix-ipbloq.c
-@@ -711,7 +711,11 @@ static struct platform_driver cix_ipbloq_hda_driver = {
+@@ -739,7 +739,11 @@ static struct platform_driver cix_ipbloq_hda_driver = {
  };
  module_platform_driver(cix_ipbloq_hda_driver);
  

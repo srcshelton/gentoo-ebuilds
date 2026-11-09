@@ -1,0 +1,75 @@
+DPTX AUX failures were treated as successful transfers whenever rate limiting suppressed their log, while logged failures bypassed the existing retry loop.  Count only completed chunks, retry failed messages within the configured timeout, and return the transfer error after exhaustion.
+
+diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+--- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
++++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
+@@ -892,7 +892,7 @@ static ssize_t trilin_dp_aux_transfer(struct drm_dp_aux *aux,
+ 				      struct drm_dp_aux_msg *msg)
+ {
+ 	struct trilin_dp *dp = container_of(aux, struct trilin_dp, aux);
+-	int ret;
++	int ret = -ENODEV;
+ 	unsigned int i, iter;
+ 	size_t to_access, accessed_bytes;
+ 
+@@ -900,42 +900,36 @@ static ssize_t trilin_dp_aux_transfer(struct drm_dp_aux *aux,
+ 	iter = trilin_dp_aux_timeout_ms * 1000 / 400;
+ 	iter = iter ? iter : 1;
+ 
+-	for (i = 0; i < iter; i++) {
+-		to_access = 0;
+-		accessed_bytes = 0;
++	accessed_bytes = 0;
++	while (accessed_bytes < msg->size) {
++		to_access = min_t(size_t, DP_AUX_MAX_PAYLOAD_BYTES,
++				  msg->size - accessed_bytes);
+ 
+-		/* after sleep, maybe dp is disconnected, so check again */
+-		if (!trilin_dp_get_hpd_state(dp))
+-			goto err;
+-		do {
+-			to_access = min_t(size_t, DP_AUX_MAX_PAYLOAD_BYTES,
+-					  msg->size - accessed_bytes);
++		for (i = 0; i < iter; i++) {
++			/* after sleep, maybe dp is disconnected, so check again */
++			if (!trilin_dp_get_hpd_state(dp))
++				return -ENODEV;
+ 
+ 			ret = trilin_dp_aux_cmd_submit(
+ 				dp, msg->request, msg->address + accessed_bytes,
+ 				msg->buffer + accessed_bytes, to_access,
+ 				&msg->reply);
+-			if (ret && printk_ratelimit()) {
+-				DP_ERR("failed to do aux transfer (%d)\n", ret);
+-				goto err;
+-			}
++			if (!ret)
++				break;
+ 
+-			accessed_bytes += to_access;
+-		} while (accessed_bytes < msg->size);
++			if (i + 1 < iter)
++				usleep_range(400, 500);
++		}
+ 
+-		if (accessed_bytes == msg->size)
+-			break;
++		if (ret) {
++			dev_dbg(dp->dev, "failed to do aux transfer: %d\n", ret);
++			return ret;
++		}
+ 
+-		usleep_range(400, 500);
++		accessed_bytes += to_access;
+ 	}
+ 
+-	dev_dbg(dp->dev, "aux done after %d retry\n", i);
+ 	return msg->size;
+-err:
+-	if (accessed_bytes > to_access)
+-		accessed_bytes -= to_access;
+-
+-	return accessed_bytes;
+ }
+ 
+ /**

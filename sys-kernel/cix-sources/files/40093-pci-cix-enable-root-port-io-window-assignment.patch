@@ -7,7 +7,7 @@ Scope the fix to CIX Sky1 root ports and only when the parent bus already expose
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -431,6 +431,24 @@ static void pci_read_bridge_io(struct pci_dev *dev, struct resource *res,
+@@ -432,6 +432,24 @@ static void pci_read_bridge_io(struct pci_dev *dev, struct resource *res,
  	}
  }
  
@@ -32,7 +32,7 @@ diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
  static void pci_read_bridge_mmio(struct pci_dev *dev, struct resource *res,
  				 bool log)
  {
-@@ -536,6 +554,21 @@ static void pci_read_bridge_windows(struct pci_dev *bridge)
+@@ -537,6 +555,21 @@ static void pci_read_bridge_windows(struct pci_dev *bridge)
  	if (io) {
  		bridge->io_window = 1;
  		pci_read_bridge_io(bridge, &res, true);

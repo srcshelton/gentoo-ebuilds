@@ -6,6 +6,17 @@ every close worker defer forever. Let one closing owner recover the
 shared pool while the retained contexts keep every affected job and
 allocation alive.
 
+diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+--- a/drivers/misc/armchina-npu/aipu_job_manager.c
++++ b/drivers/misc/armchina-npu/aipu_job_manager.c
+@@ -1832,6 +1832,7 @@ static bool aipu_pool_has_foreign_job(struct aipu_job_manager *manager,
+ 	spin_lock_irqsave(&manager->lock, flags);
+ 	list_for_each_entry(job, &manager->scheduled_head->node, node) {
+ 		if (job->owner == owner || aipu_job_is_reapable(job) ||
++		    aipu_file_ctx_is_closing(job->owner) ||
+ 		    job->desc.partition_id != id)
+ 			continue;
+ 		found = true;
 diff --git a/drivers/misc/armchina-npu-common/aipu_file.c b/drivers/misc/armchina-npu-common/aipu_file.c
 --- a/drivers/misc/armchina-npu-common/aipu_file.c
 +++ b/drivers/misc/armchina-npu-common/aipu_file.c
@@ -40,14 +51,3 @@ diff --git a/drivers/misc/armchina-npu-common/aipu_file.h b/drivers/misc/armchin
  static inline bool aipu_file_ctx_is_released(const struct aipu_file_ctx *ctx)
  {
  	return ctx && READ_ONCE(ctx->released);
-diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
---- a/drivers/misc/armchina-npu/aipu_job_manager.c
-+++ b/drivers/misc/armchina-npu/aipu_job_manager.c
-@@ -1831,6 +1831,7 @@ static bool aipu_pool_has_foreign_job(struct aipu_job_manager *manager,
- 	spin_lock_irqsave(&manager->lock, flags);
- 	list_for_each_entry(job, &manager->scheduled_head->node, node) {
- 		if (job->owner == owner || aipu_job_is_reapable(job) ||
-+		    aipu_file_ctx_is_closing(job->owner) ||
- 		    job->desc.partition_id != id)
- 			continue;
- 		found = true;

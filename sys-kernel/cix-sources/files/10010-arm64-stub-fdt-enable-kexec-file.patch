@@ -1,7 +1,7 @@
 diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -1603,12 +1603,12 @@ config ARCH_SUPPORTS_KEXEC
+@@ -1660,12 +1660,12 @@ config ARCH_SUPPORTS_KEXEC
  	def_bool PM_SLEEP_SMP
  
  config ARCH_SUPPORTS_KEXEC_FILE
@@ -37,7 +37,7 @@ diff --git a/drivers/of/Makefile b/drivers/of/Makefile
 diff --git a/include/linux/of.h b/include/linux/of.h
 --- a/include/linux/of.h
 +++ b/include/linux/of.h
-@@ -469,11 +469,6 @@ int of_map_id(const struct device_node *np, u32 id,
+@@ -464,11 +464,6 @@ int of_map_id(const struct device_node *np, u32 id,
  
  phys_addr_t of_dma_get_max_cpu_address(struct device_node *np);
  
@@ -49,7 +49,7 @@ diff --git a/include/linux/of.h b/include/linux/of.h
  #else /* CONFIG_OF */
  
  static inline void of_core_init(void)
-@@ -950,6 +945,14 @@ static inline const void *of_device_get_match_data(const struct device *dev)
+@@ -928,6 +923,14 @@ static inline const void *of_device_get_match_data(const struct device *dev)
  #define of_match_node(_matches, _node)	NULL
  #endif /* CONFIG_OF */
  

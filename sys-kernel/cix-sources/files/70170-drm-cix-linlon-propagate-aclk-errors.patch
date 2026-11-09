@@ -3,7 +3,7 @@ The Linlon display driver accessed registers and enabled interrupts after an acl
 diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
 --- a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
 +++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c
-@@ -449,7 +449,10 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
+@@ -457,7 +457,10 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
  		goto err_cleanup;
  	}
  
@@ -15,7 +15,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_dev.c b/drivers/gpu/drm/cix/
  #endif
  	pm_runtime_get_sync(mdev->dev);
  	mdev->funcs = linlondp_identify(mdev->reg_base, &mdev->chip);
-@@ -588,8 +591,10 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
+@@ -598,8 +601,10 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
  
  #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
  	err = clk_prepare_enable(mdev->aclk);

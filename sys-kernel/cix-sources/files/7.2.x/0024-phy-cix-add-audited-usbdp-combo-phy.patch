@@ -15,7 +15,7 @@ Source: cixtech/cix-linux-main commit
 diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
 --- a/drivers/phy/Kconfig
 +++ b/drivers/phy/Kconfig
-@@ -139,6 +139,7 @@ source "drivers/phy/apple/Kconfig"
+@@ -175,6 +175,7 @@ source "drivers/phy/axiado/Kconfig"
  source "drivers/phy/broadcom/Kconfig"
  source "drivers/phy/cadence/Kconfig"
  source "drivers/phy/canaan/Kconfig"
@@ -26,7 +26,7 @@ diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
 diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
 --- a/drivers/phy/Makefile
 +++ b/drivers/phy/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_GENERIC_PHY)		+= allwinner/	\
+@@ -27,6 +27,7 @@ obj-$(CONFIG_GENERIC_PHY)		+= allwinner/	\
  					   broadcom/	\
  					   cadence/	\
  					   canaan/	\
@@ -34,7 +34,7 @@ diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
  					   eswin/	\
  					   freescale/	\
  					   hisilicon/	\
-diff --git a/drivers/phy/cix/Kconfig b/drivers/phy/cix/Kconfig
+diff --git b/drivers/phy/cix/Kconfig b/drivers/phy/cix/Kconfig
 new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/Kconfig
@@ -54,14 +54,14 @@ new file mode 100644
 +	  by CIXH2033 firmware nodes and Device Tree compatibles.
 +	  It also publishes Type-C orientation and mode-switch providers when
 +	  those controls are described by firmware.
-diff --git a/drivers/phy/cix/Makefile b/drivers/phy/cix/Makefile
+diff --git b/drivers/phy/cix/Makefile b/drivers/phy/cix/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/Makefile
 @@ -0,0 +1,2 @@
 +# SPDX-License-Identifier: GPL-2.0
 +obj-$(CONFIG_PHY_CIX_USBDP)	+= phy-cix-usbdp.o
-diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
+diff --git b/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/phy-cix-usbdp.c
@@ -1778,7 +1778,7 @@ new file mode 100644
 +MODULE_AUTHOR("Chao Zeng <chao.zeng@cixteck.com>");
 +MODULE_DESCRIPTION("Cix USBDP Combo PHY driver");
 +MODULE_LICENSE("GPL");
-diff --git a/drivers/phy/cix/phy-cix-usbdp.h b/drivers/phy/cix/phy-cix-usbdp.h
+diff --git b/drivers/phy/cix/phy-cix-usbdp.h b/drivers/phy/cix/phy-cix-usbdp.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/phy-cix-usbdp.h

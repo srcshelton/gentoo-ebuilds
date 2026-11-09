@@ -608,7 +608,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/pan
 diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
 --- a/drivers/gpu/drm/panthor/panthor_fw.c
 +++ b/drivers/gpu/drm/panthor/panthor_fw.c
-@@ -1493,9 +1493,9 @@ int panthor_fw_init(struct panthor_device *ptdev)
+@@ -1501,9 +1501,9 @@ int panthor_fw_init(struct panthor_device *ptdev)
  	INIT_LIST_HEAD(&fw->sections);
  	INIT_DELAYED_WORK(&fw->watchdog.ping_work, panthor_fw_ping_work);
  
@@ -705,7 +705,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_hw.c b/drivers/gpu/drm/panthor/pant
 diff --git a/drivers/gpu/drm/panthor/panthor_mmu.c b/drivers/gpu/drm/panthor/panthor_mmu.c
 --- a/drivers/gpu/drm/panthor/panthor_mmu.c
 +++ b/drivers/gpu/drm/panthor/panthor_mmu.c
-@@ -3258,9 +3258,9 @@ int panthor_mmu_init(struct panthor_device *ptdev)
+@@ -3411,9 +3411,9 @@ int panthor_mmu_init(struct panthor_device *ptdev)
  	mmu->iomem = ptdev->iomem + MMU_AS_BASE;
  	ptdev->mmu = mmu;
  

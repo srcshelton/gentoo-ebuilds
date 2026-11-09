@@ -37,7 +37,7 @@ diff --git a/sound/core/Kconfig b/sound/core/Kconfig
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
-@@ -3995,6 +3995,12 @@ enum {
+@@ -3998,6 +3998,12 @@ enum {
  	ALC269_FIXUP_POSITIVO_P15X_HEADSET_MIC,
  	ALC289_FIXUP_ASUS_ZEPHYRUS_DUAL_SPK,
  	ALC256_FIXUP_VAIO_RPL_MIC_NO_PRESENCE,
@@ -50,7 +50,7 @@ diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269
  };
  
  /* A special fixup for Lenovo C940 and Yoga Duet 7;
-@@ -6504,6 +6510,141 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -6533,6 +6539,141 @@ static const struct hda_fixup alc269_fixups[] = {
  		},
  		.chained = true,
  		.chain_id = ALC269_FIXUP_LIMIT_INT_MIC_BOOST
@@ -192,7 +192,7 @@ diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269
  	}
  };
  
-@@ -7788,6 +7929,9 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
+@@ -7846,6 +7987,9 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
  	{.id = ALC285_FIXUP_HP_GPIO_AMP_INIT, .name = "alc285-hp-amp-init"},
  	{.id = ALC236_FIXUP_LENOVO_INV_DMIC, .name = "alc236-fixup-lenovo-inv-mic"},
  	{.id = ALC2XX_FIXUP_HEADSET_MIC, .name = "alc2xx-fixup-headset-mic"},
@@ -245,7 +245,7 @@ diff --git a/sound/hda/controllers/Makefile b/sound/hda/controllers/Makefile
  obj-$(CONFIG_SND_HDA_TEGRA) += snd-hda-tegra.o
 +obj-$(CONFIG_SND_HDA_CIX_IPBLOQ) += snd-hda-cix-ipbloq.o
  obj-$(CONFIG_SND_HDA_ACPI) += snd-hda-acpi.o
-diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
+diff --git b/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
 new file mode 100644
 --- /dev/null
 +++ b/sound/hda/controllers/cix-ipbloq.c

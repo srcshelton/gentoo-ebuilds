@@ -446,7 +446,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/
  	u32 *dummy_page_virt;
  	struct resource *res;
  	struct page *p;
-@@ -219,12 +340,40 @@ int panthor_device_init(struct panthor_device *ptdev)
+@@ -222,12 +343,40 @@ int panthor_device_init(struct panthor_device *ptdev)
  	if (ret)
  		return ret;
  
@@ -489,7 +489,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/
  	if (IS_ERR(ptdev->iomem))
  		return PTR_ERR(ptdev->iomem);
  
-@@ -467,6 +616,9 @@ int panthor_device_resume(struct device *dev)
+@@ -470,6 +619,9 @@ int panthor_device_resume(struct device *dev)
  		return -EINVAL;
  
  	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_RESUMING);
@@ -499,7 +499,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/
  
  	ret = clk_prepare_enable(ptdev->clks.core);
  	if (ret)
-@@ -480,6 +632,10 @@ int panthor_device_resume(struct device *dev)
+@@ -483,6 +635,10 @@ int panthor_device_resume(struct device *dev)
  	if (ret)
  		goto err_disable_stacks_clk;
  
@@ -510,7 +510,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/
  	panthor_devfreq_resume(ptdev);
  
  	if (panthor_device_is_initialized(ptdev) &&
-@@ -522,6 +678,8 @@ int panthor_device_resume(struct device *dev)
+@@ -525,6 +681,8 @@ int panthor_device_resume(struct device *dev)
  
  err_suspend_devfreq:
  	panthor_devfreq_suspend(ptdev);
@@ -598,7 +598,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/pan
 diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
 --- a/drivers/gpu/drm/panthor/panthor_fw.c
 +++ b/drivers/gpu/drm/panthor/panthor_fw.c
-@@ -1354,9 +1354,17 @@ int panthor_fw_init(struct panthor_device *ptdev)
+@@ -1385,9 +1385,17 @@ int panthor_fw_init(struct panthor_device *ptdev)
  	INIT_LIST_HEAD(&fw->sections);
  	INIT_DELAYED_WORK(&fw->watchdog.ping_work, panthor_fw_ping_work);
  
@@ -685,7 +685,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_hw.c b/drivers/gpu/drm/panthor/pant
 diff --git a/drivers/gpu/drm/panthor/panthor_mmu.c b/drivers/gpu/drm/panthor/panthor_mmu.c
 --- a/drivers/gpu/drm/panthor/panthor_mmu.c
 +++ b/drivers/gpu/drm/panthor/panthor_mmu.c
-@@ -2798,9 +2798,17 @@ int panthor_mmu_init(struct panthor_device *ptdev)
+@@ -2807,9 +2807,17 @@ int panthor_mmu_init(struct panthor_device *ptdev)
  
  	ptdev->mmu = mmu;
  

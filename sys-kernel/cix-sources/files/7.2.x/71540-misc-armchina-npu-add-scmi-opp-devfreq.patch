@@ -341,7 +341,7 @@ diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/s
  #ifdef CONFIG_PM
  	pm_runtime_get_noresume(dev);
  	pm_runtime_set_active(dev);
-@@ -396,6 +690,11 @@ static int sky1_npu_probe(struct platform_device *p_dev)
+@@ -396,6 +690,11 @@ npu_probe_failed:
  
  	pm_runtime_disable(dev);
  
@@ -364,7 +364,7 @@ diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/s
  #ifdef CONFIG_PM
  	pm_runtime_disable(&p_dev->dev);
  #endif /* CONFIG_PM */
-@@ -553,3 +856,6 @@ static struct platform_driver aipu_platform_driver = {
+@@ -547,3 +850,6 @@ static struct platform_driver aipu_platform_driver = {
  
  module_platform_driver(aipu_platform_driver);
  MODULE_LICENSE("GPL v2");

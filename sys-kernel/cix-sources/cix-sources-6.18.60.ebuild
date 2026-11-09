@@ -60,7 +60,7 @@ BDEPEND="
 
 PATCHES=(
 	"${FILESDIR}"/linux-6.18-clk-composite-export-devm-pdata-helper.patch
-	"${FILESDIR}"/linux-6.18-cifs-fix-softdep-declarations.patch
+	"${FILESDIR}"/6.18.60/linux-6.18-cifs-fix-softdep-declarations.patch
 	"${FILESDIR}"/linux-6.18-rtc-efi-restore-verified-wakeup-alarm.patch
 )
 

@@ -12,7 +12,7 @@ Source: cixtech/cix_opensource__isp_driver commit
 diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
 --- a/drivers/media/platform/cix/Kconfig
 +++ b/drivers/media/platform/cix/Kconfig
-@@ -29,6 +29,7 @@ config VIDEO_CIX_ARMCB_ISP
+@@ -39,6 +39,7 @@ config VIDEO_CIX_ARMCB_ISP
  	depends on MEDIA_CONTROLLER
  	depends on HAS_DMA
  	depends on I2C
@@ -20,7 +20,7 @@ diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kco
  	depends on ACPI || OF
  	depends on ARCH_CIX || COMPILE_TEST
  	select DMA_SHARED_BUFFER
-@@ -49,4 +50,7 @@ config VIDEO_CIX_ARMCB_ISP_KUNIT_TEST
+@@ -59,4 +60,7 @@ config VIDEO_CIX_ARMCB_ISP_KUNIT_TEST
  	depends on VIDEO_CIX_ARMCB_ISP
  	default KUNIT_ALL_TESTS
  	help
@@ -7057,7 +7057,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/driver
  	LOG(LOG_DEBUG, "ctx_id=%d stream_id=%d stream=%p", ctx_id, stream_id,
  		*ppstream);
  
-@@ -276,82 +276,6 @@ int armcb_v4l2_find_stream_by_outport_ctx(uint32_t outport, uint32_t ctx_id,
+@@ -276,82 +276,6 @@ exit:
  	return 0;
  }
  
@@ -8065,7 +8065,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/driver
  	mutex_unlock(&dev->queue_lock);
  	return ret;
  }
-@@ -1266,8 +1032,36 @@ static int armcb_isp_vb2_streamoff(struct file *file)
+@@ -1266,8 +1032,36 @@ exit:
  static int armcb_v4l2_streamoff(struct file *file, void *priv,
  				enum v4l2_buf_type buf_type)
  {
@@ -9589,7 +9589,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  			return ret;
  		}
  	}
-@@ -210,57 +211,67 @@ static int armcb_register_async_node(struct device *pdev,
+@@ -210,57 +211,67 @@ out_put_fwnodes:
  static int armcb_imgsens_hw_apply(struct cmd_buf *cmd,
  				  struct armcb_imgsens_subdev *pimgsens_sd)
  {
@@ -9781,7 +9781,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/driver
  	return 0;
  
  err_notifier:
-@@ -619,7 +636,7 @@ static int imgsens_probe(struct i2c_client *client)
+@@ -619,7 +636,7 @@ err_notifier:
  	}
  	armcb_unregister_instance(cam_id);
  err_free_sensor:

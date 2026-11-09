@@ -61,7 +61,7 @@ diff --git a/drivers/acpi/pptt.c b/drivers/acpi/pptt.c
 diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
 --- a/drivers/base/cacheinfo.c
 +++ b/drivers/base/cacheinfo.c
-@@ -21,6 +21,8 @@
+@@ -22,6 +22,8 @@
  #include <linux/smp.h>
  #include <linux/sysfs.h>
  
@@ -70,7 +70,7 @@ diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
  /* pointer to per cpu cacheinfo */
  static DEFINE_PER_CPU(struct cpu_cacheinfo, ci_cpu_cacheinfo);
  #define ci_cacheinfo(cpu)	(&per_cpu(ci_cpu_cacheinfo, cpu))
-@@ -37,9 +39,29 @@ struct cpu_cacheinfo *get_cpu_cacheinfo(unsigned int cpu)
+@@ -38,9 +40,29 @@ struct cpu_cacheinfo *get_cpu_cacheinfo(unsigned int cpu)
  	return ci_cacheinfo(cpu);
  }
  
@@ -102,7 +102,7 @@ diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
  	/*
  	 * For non DT/ACPI systems, assume unique level 1 caches,
  	 * system-wide shared caches for all other levels.
-@@ -79,7 +101,7 @@ bool last_level_cache_is_shared(unsigned int cpu_x, unsigned int cpu_y)
+@@ -98,7 +120,7 @@ bool last_level_cache_is_shared(unsigned int cpu_x, unsigned int cpu_y)
  	llc_x = per_cpu_cacheinfo_idx(cpu_x, cache_leaves(cpu_x) - 1);
  	llc_y = per_cpu_cacheinfo_idx(cpu_y, cache_leaves(cpu_y) - 1);
  
@@ -111,7 +111,7 @@ diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
  }
  
  #ifdef CONFIG_OF
-@@ -422,16 +444,8 @@ static int cache_shared_cpu_map_setup(unsigned int cpu)
+@@ -446,16 +468,8 @@ static int cache_shared_cpu_map_setup(unsigned int cpu)
  			for (sib_index = 0; sib_index < cache_leaves(i); sib_index++) {
  				sib_leaf = per_cpu_cacheinfo_idx(i, sib_index);
  
@@ -130,7 +130,7 @@ diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
  					cpumask_set_cpu(cpu, &sib_leaf->shared_cpu_map);
  					cpumask_set_cpu(i, &this_leaf->shared_cpu_map);
  					break;
-@@ -463,16 +477,8 @@ static void cache_shared_cpu_map_remove(unsigned int cpu)
+@@ -487,16 +501,8 @@ static void cache_shared_cpu_map_remove(unsigned int cpu)
  			for (sib_index = 0; sib_index < cache_leaves(sibling); sib_index++) {
  				sib_leaf = per_cpu_cacheinfo_idx(sibling, sib_index);
  
@@ -149,7 +149,7 @@ diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
  					cpumask_clear_cpu(cpu, &sib_leaf->shared_cpu_map);
  					cpumask_clear_cpu(sibling, &this_leaf->shared_cpu_map);
  					break;
-diff --git a/drivers/base/cacheinfo_internal.h b/drivers/base/cacheinfo_internal.h
+diff --git b/drivers/base/cacheinfo_internal.h b/drivers/base/cacheinfo_internal.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/base/cacheinfo_internal.h
@@ -197,7 +197,7 @@ diff --git a/drivers/base/test/Makefile b/drivers/base/test/Makefile
  CFLAGS_property-entry-test.o += $(DISABLE_STRUCTLEAK_PLUGIN)
 +
 +obj-$(CONFIG_CACHEINFO_KUNIT_TEST) += cacheinfo-test.o
-diff --git a/drivers/base/test/cacheinfo-test.c b/drivers/base/test/cacheinfo-test.c
+diff --git b/drivers/base/test/cacheinfo-test.c b/drivers/base/test/cacheinfo-test.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/base/test/cacheinfo-test.c

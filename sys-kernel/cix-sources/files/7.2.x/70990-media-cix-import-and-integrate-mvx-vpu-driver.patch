@@ -1,7 +1,7 @@
 diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
 --- a/drivers/media/platform/Kconfig
 +++ b/drivers/media/platform/Kconfig
-@@ -70,6 +70,7 @@ source "drivers/media/platform/aspeed/Kconfig"
+@@ -71,6 +71,7 @@ source "drivers/media/platform/aspeed/Kconfig"
  source "drivers/media/platform/atmel/Kconfig"
  source "drivers/media/platform/broadcom/Kconfig"
  source "drivers/media/platform/cadence/Kconfig"
@@ -12,7 +12,7 @@ diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
 diff --git a/drivers/media/platform/Makefile b/drivers/media/platform/Makefile
 --- a/drivers/media/platform/Makefile
 +++ b/drivers/media/platform/Makefile
-@@ -13,6 +13,7 @@ obj-y += aspeed/
+@@ -14,6 +14,7 @@ obj-y += aspeed/
  obj-y += atmel/
  obj-y += broadcom/
  obj-y += cadence/
@@ -20,7 +20,7 @@ diff --git a/drivers/media/platform/Makefile b/drivers/media/platform/Makefile
  obj-y += chips-media/
  obj-y += imagination/
  obj-y += intel/
-diff --git a/drivers/media/platform/cix/Kbuild b/drivers/media/platform/cix/Kbuild
+diff --git b/drivers/media/platform/cix/Kbuild b/drivers/media/platform/cix/Kbuild
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/Kbuild
@@ -82,7 +82,7 @@ new file mode 100644
 +	  mvx_log.o \
 +	  mvx_log_group.o \
 +	  $(if-y) $(dev-y)
-diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
+diff --git b/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/Kconfig
@@ -111,7 +111,7 @@ new file mode 100644
 +	depends on VIDEO_LINLON
 +	help
 +	  Append file and line number to kernel space log messages.
-diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
+diff --git b/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_dev.c
@@ -1451,7 +1451,7 @@ new file mode 100644
 +    pci_unregister_driver(&mvx_pci_driver); /* LCOV_EXCL_LINE */
 +    platform_driver_unregister(&mvx_dev_driver);
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_dev.h b/drivers/media/platform/cix/dev/mvx_dev.h
+diff --git b/drivers/media/platform/cix/dev/mvx_dev.h b/drivers/media/platform/cix/dev/mvx_dev.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_dev.h
@@ -1505,7 +1505,7 @@ new file mode 100644
 +void mvx_dev_exit(void);
 +
 +#endif /* _MVX_DEV_H_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg.c b/drivers/media/platform/cix/dev/mvx_hwreg.c
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg.c b/drivers/media/platform/cix/dev/mvx_hwreg.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg.c
@@ -2104,7 +2104,7 @@ new file mode 100644
 +{
 +    return mvx_hwreg_verify_core_mask(hwreg);
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg.h b/drivers/media/platform/cix/dev/mvx_hwreg.h
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg.h b/drivers/media/platform/cix/dev/mvx_hwreg.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg.h
@@ -2492,7 +2492,7 @@ new file mode 100644
 +uint32_t mvx_hwreg_get_core_mask(struct mvx_hwreg *hwreg);
 +
 +#endif /* _MVX_HW_REG_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v500.c b/drivers/media/platform/cix/dev/mvx_hwreg_v500.c
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v500.c b/drivers/media/platform/cix/dev/mvx_hwreg_v500.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v500.c
@@ -2562,7 +2562,7 @@ new file mode 100644
 +        mvx_set_bit(MVX_FORMAT_YUV420_NV12, formats);
 +    }
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v500.h b/drivers/media/platform/cix/dev/mvx_hwreg_v500.h
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v500.h b/drivers/media/platform/cix/dev/mvx_hwreg_v500.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v500.h
@@ -2615,7 +2615,7 @@ new file mode 100644
 +                uint64_t *formats);
 +
 +#endif /* _MVX_HWREG_V500_H_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.c b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.c
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.c b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.c
@@ -2740,7 +2740,7 @@ new file mode 100644
 +
 +    }
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.h b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.h
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.h b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v52_v76.h
@@ -2794,7 +2794,7 @@ new file mode 100644
 +                   uint64_t *formats);
 +
 +#endif /* _MVX_HWREG_V52_V76_H_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v550.c b/drivers/media/platform/cix/dev/mvx_hwreg_v550.c
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v550.c b/drivers/media/platform/cix/dev/mvx_hwreg_v550.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v550.c
@@ -2881,7 +2881,7 @@ new file mode 100644
 +        mvx_set_bit(MVX_FORMAT_YUV422_Y210, formats);
 +    }
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v550.h b/drivers/media/platform/cix/dev/mvx_hwreg_v550.h
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v550.h b/drivers/media/platform/cix/dev/mvx_hwreg_v550.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v550.h
@@ -2934,7 +2934,7 @@ new file mode 100644
 +                uint64_t *formats);
 +
 +#endif /* _MVX_HWREG_V550_H_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v61.c b/drivers/media/platform/cix/dev/mvx_hwreg_v61.c
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v61.c b/drivers/media/platform/cix/dev/mvx_hwreg_v61.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v61.c
@@ -3034,7 +3034,7 @@ new file mode 100644
 +        mvx_set_bit(MVX_FORMAT_YUV422_Y210, formats);
 +    }
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_hwreg_v61.h b/drivers/media/platform/cix/dev/mvx_hwreg_v61.h
+diff --git b/drivers/media/platform/cix/dev/mvx_hwreg_v61.h b/drivers/media/platform/cix/dev/mvx_hwreg_v61.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_hwreg_v61.h
@@ -3088,7 +3088,7 @@ new file mode 100644
 +                   uint64_t *formats);
 +
 +#endif /* _MVX_HWREG_V61_H_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_lsid.c b/drivers/media/platform/cix/dev/mvx_lsid.c
+diff --git b/drivers/media/platform/cix/dev/mvx_lsid.c b/drivers/media/platform/cix/dev/mvx_lsid.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_lsid.c
@@ -3452,7 +3452,7 @@ new file mode 100644
 +
 +    return true;
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_lsid.h b/drivers/media/platform/cix/dev/mvx_lsid.h
+diff --git b/drivers/media/platform/cix/dev/mvx_lsid.h b/drivers/media/platform/cix/dev/mvx_lsid.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_lsid.h
@@ -3632,7 +3632,7 @@ new file mode 100644
 +bool mvx_lsid_idle(struct mvx_lsid *lsid);
 +
 +#endif /* _MVX_LSID_H_ */
-diff --git a/drivers/media/platform/cix/dev/mvx_scheduler.c b/drivers/media/platform/cix/dev/mvx_scheduler.c
+diff --git b/drivers/media/platform/cix/dev/mvx_scheduler.c b/drivers/media/platform/cix/dev/mvx_scheduler.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_scheduler.c
@@ -4795,7 +4795,7 @@ new file mode 100644
 +
 +    mutex_unlock(&sched->sessions_mutex);
 +}
-diff --git a/drivers/media/platform/cix/dev/mvx_scheduler.h b/drivers/media/platform/cix/dev/mvx_scheduler.h
+diff --git b/drivers/media/platform/cix/dev/mvx_scheduler.h b/drivers/media/platform/cix/dev/mvx_scheduler.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/dev/mvx_scheduler.h
@@ -5090,7 +5090,7 @@ new file mode 100644
 +void mvx_sched_get_realtime_fps(struct list_head *sessions);
 +
 +#endif /* _MVX_SCHEDULER_H_ */
-diff --git a/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
+diff --git b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/external/fw_v2/mve_protocol_def.h
@@ -7144,7 +7144,7 @@ new file mode 100644
 +#endif
 +
 +#endif /* __FW_INCLUDE__MVE_PROTOCOL_DEF_H__ */
-diff --git a/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
+diff --git b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/external/fw_v3/mve_protocol_def.h
@@ -9168,7 +9168,7 @@ new file mode 100644
 +#endif
 +
 +#endif /* __FW_INCLUDE__MVE_PROTOCOL_DEF_H__ */
-diff --git a/drivers/media/platform/cix/if/mvx_bitops.h b/drivers/media/platform/cix/if/mvx_bitops.h
+diff --git b/drivers/media/platform/cix/if/mvx_bitops.h b/drivers/media/platform/cix/if/mvx_bitops.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_bitops.h
@@ -9264,7 +9264,7 @@ new file mode 100644
 +}
 +
 +#endif /* _MVX_BITOPS_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_buffer.c b/drivers/media/platform/cix/if/mvx_buffer.c
+diff --git b/drivers/media/platform/cix/if/mvx_buffer.c b/drivers/media/platform/cix/if/mvx_buffer.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_buffer.c
@@ -9918,7 +9918,7 @@ new file mode 100644
 +
 +    return 0;
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_buffer.h b/drivers/media/platform/cix/if/mvx_buffer.h
+diff --git b/drivers/media/platform/cix/if/mvx_buffer.h b/drivers/media/platform/cix/if/mvx_buffer.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_buffer.h
@@ -10362,7 +10362,7 @@ new file mode 100644
 +             struct seq_file *s);
 +
 +#endif /* _MVX_BUFFER_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_firmware.c b/drivers/media/platform/cix/if/mvx_firmware.c
+diff --git b/drivers/media/platform/cix/if/mvx_firmware.c b/drivers/media/platform/cix/if/mvx_firmware.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware.c
@@ -10992,7 +10992,7 @@ new file mode 100644
 +    /* Release and unmap allocates pages. */
 +    fw_unmap(fw);
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_firmware.h b/drivers/media/platform/cix/if/mvx_firmware.h
+diff --git b/drivers/media/platform/cix/if/mvx_firmware.h b/drivers/media/platform/cix/if/mvx_firmware.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware.h
@@ -12160,7 +12160,7 @@ new file mode 100644
 +void mvx_fw_destruct(struct mvx_fw *fw);
 +
 +#endif /* _MVX_FIRMWARE_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_firmware_cache.c b/drivers/media/platform/cix/if/mvx_firmware_cache.c
+diff --git b/drivers/media/platform/cix/if/mvx_firmware_cache.c b/drivers/media/platform/cix/if/mvx_firmware_cache.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware_cache.c
@@ -12948,7 +12948,7 @@ new file mode 100644
 +
 +    /* TODO remove formats we can't find any firmware for. */
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_firmware_cache.h b/drivers/media/platform/cix/if/mvx_firmware_cache.h
+diff --git b/drivers/media/platform/cix/if/mvx_firmware_cache.h b/drivers/media/platform/cix/if/mvx_firmware_cache.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware_cache.h
@@ -13200,7 +13200,7 @@ new file mode 100644
 +                  uint64_t *formats);
 +
 +#endif /* _MVX_FIRMWARE_CACHE_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_firmware_priv.h b/drivers/media/platform/cix/if/mvx_firmware_priv.h
+diff --git b/drivers/media/platform/cix/if/mvx_firmware_priv.h b/drivers/media/platform/cix/if/mvx_firmware_priv.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware_priv.h
@@ -13370,7 +13370,7 @@ new file mode 100644
 +            unsigned char minor);
 +
 +#endif
-diff --git a/drivers/media/platform/cix/if/mvx_firmware_v2.c b/drivers/media/platform/cix/if/mvx_firmware_v2.c
+diff --git b/drivers/media/platform/cix/if/mvx_firmware_v2.c b/drivers/media/platform/cix/if/mvx_firmware_v2.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware_v2.c
@@ -17289,7 +17289,7 @@ new file mode 100644
 +
 +    return 0;
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_firmware_v3.c b/drivers/media/platform/cix/if/mvx_firmware_v3.c
+diff --git b/drivers/media/platform/cix/if/mvx_firmware_v3.c b/drivers/media/platform/cix/if/mvx_firmware_v3.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_firmware_v3.c
@@ -17467,7 +17467,7 @@ new file mode 100644
 +
 +    return 0;
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_if.c b/drivers/media/platform/cix/if/mvx_if.c
+diff --git b/drivers/media/platform/cix/if/mvx_if.c b/drivers/media/platform/cix/if/mvx_if.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_if.c
@@ -17719,7 +17719,7 @@ new file mode 100644
 +
 +    flush_workqueue(ctx->secure.workqueue);
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_if.h b/drivers/media/platform/cix/if/mvx_if.h
+diff --git b/drivers/media/platform/cix/if/mvx_if.h b/drivers/media/platform/cix/if/mvx_if.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_if.h
@@ -18314,7 +18314,7 @@ new file mode 100644
 +void mvx_if_flush_work(struct mvx_if_ops *if_ops);
 +
 +#endif /* _MVX_IF_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_mmu.c b/drivers/media/platform/cix/if/mvx_mmu.c
+diff --git b/drivers/media/platform/cix/if/mvx_mmu.c b/drivers/media/platform/cix/if/mvx_mmu.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_mmu.c
@@ -19666,7 +19666,7 @@ new file mode 100644
 +
 +    return 0;
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_mmu.h b/drivers/media/platform/cix/if/mvx_mmu.h
+diff --git b/drivers/media/platform/cix/if/mvx_mmu.h b/drivers/media/platform/cix/if/mvx_mmu.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_mmu.h
@@ -20152,7 +20152,7 @@ new file mode 100644
 +                   struct dentry *parent);
 +
 +#endif /* _MVX_MMU_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_secure.c b/drivers/media/platform/cix/if/mvx_secure.c
+diff --git b/drivers/media/platform/cix/if/mvx_secure.c b/drivers/media/platform/cix/if/mvx_secure.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_secure.c
@@ -20569,7 +20569,7 @@ new file mode 100644
 +
 +    return dmabuf;
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_secure.h b/drivers/media/platform/cix/if/mvx_secure.h
+diff --git b/drivers/media/platform/cix/if/mvx_secure.h b/drivers/media/platform/cix/if/mvx_secure.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_secure.h
@@ -20713,7 +20713,7 @@ new file mode 100644
 +                     size_t size, int region);
 +
 +#endif /* _MVX_SECURE_H_ */
-diff --git a/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
+diff --git b/drivers/media/platform/cix/if/mvx_session.c b/drivers/media/platform/cix/if/mvx_session.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_session.c
@@ -27613,7 +27613,7 @@ new file mode 100644
 +
 +    return 0;
 +}
-diff --git a/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
+diff --git b/drivers/media/platform/cix/if/mvx_session.h b/drivers/media/platform/cix/if/mvx_session.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_session.h
@@ -29114,7 +29114,7 @@ new file mode 100644
 +                    enum mvx_direction dir);
 +int mvx_session_switch_out(struct mvx_session *session);
 +#endif /* _MVX_SESSION_H_ */
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h b/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h b/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_ext_if.h
@@ -29212,7 +29212,7 @@ new file mode 100644
 +void mvx_ext_if_destruct(struct mvx_ext_if ext[MVX_EXT_IF_COUNT]);
 +
 +#endif /* _MVX_EXT_H_ */
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_ext_v4l2.c
@@ -29454,7 +29454,7 @@ new file mode 100644
 +        ext[MVX_EXT_IF_DECODER].dsessions = NULL;
 +    }
 +}
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.c
@@ -30022,7 +30022,7 @@ new file mode 100644
 +error:
 +    return VB2_BUF_STATE_ERROR;
 +}
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.h
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_buffer.h
@@ -30194,7 +30194,7 @@ new file mode 100644
 +enum vb2_buffer_state mvx_v4l2_buffer_update(struct mvx_v4l2_buffer *vbuf);
 +
 +#endif /* _MVX_V4L2_BUFFER_H_ */
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.c
@@ -32384,7 +32384,7 @@ new file mode 100644
 +{
 +    v4l2_ctrl_handler_free(hnd);
 +}
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_ctrls.h
@@ -32464,7 +32464,7 @@ new file mode 100644
 +void mvx_v4l2_ctrls_done(struct v4l2_ctrl_handler *hnd);
 +
 +#endif /* _MVX_V4L2_CTRLS_H_ */
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.c
@@ -32716,7 +32716,7 @@ new file mode 100644
 +
 +    return 0;
 +}
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.h
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_fops.h
@@ -32785,7 +32785,7 @@ new file mode 100644
 +          struct vm_area_struct *vma);
 +
 +#endif /* _MVX_V4L2_FOPS_H_ */
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.c
@@ -33809,7 +33809,7 @@ new file mode 100644
 +    return mvx_session_set_color_desc(&vsession->session, &cd);
 +}
 +#endif
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.h
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_session.h
@@ -34078,7 +34078,7 @@ new file mode 100644
 +#endif
 +
 +#endif /* _MVX_V4L2_SESSION_H_ */
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.c
@@ -36144,7 +36144,7 @@ new file mode 100644
 +    mutex_unlock(&vsession->mutex);
 +    return ret;
 +}
-diff --git a/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.h
+diff --git b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.h b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/v4l2/mvx_v4l2_vidioc.h
@@ -36306,7 +36306,7 @@ new file mode 100644
 +                 void *arg);
 +
 +#endif /* _MVX_V4L2_VIDIOC_H_ */
-diff --git a/drivers/media/platform/cix/linux/mvx-v4l2-controls.h b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
+diff --git b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/linux/mvx-v4l2-controls.h
@@ -36972,7 +36972,7 @@ new file mode 100644
 +    unsigned short lambda_scale_sqrt_b_nonref_q8;
 +};
 +#endif /* _MVX_V4L2_CONTROLS_H_ */
-diff --git a/drivers/media/platform/cix/mvx_driver.c b/drivers/media/platform/cix/mvx_driver.c
+diff --git b/drivers/media/platform/cix/mvx_driver.c b/drivers/media/platform/cix/mvx_driver.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_driver.c
@@ -37049,7 +37049,7 @@ new file mode 100644
 +
 +module_init(mvx_init);
 +module_exit(mvx_exit);
-diff --git a/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/mvx_log.c
+diff --git b/drivers/media/platform/cix/mvx_log.c b/drivers/media/platform/cix/mvx_log.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_log.c
@@ -38240,7 +38240,7 @@ new file mode 100644
 +
 +    return (p == NULL) ? s : p + 1;
 +}
-diff --git a/drivers/media/platform/cix/mvx_log.h b/drivers/media/platform/cix/mvx_log.h
+diff --git b/drivers/media/platform/cix/mvx_log.h b/drivers/media/platform/cix/mvx_log.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_log.h
@@ -38672,7 +38672,7 @@ new file mode 100644
 +const char *mvx_log_strrchr(const char *s);
 +
 +#endif /* MVX_LOG_H */
-diff --git a/drivers/media/platform/cix/mvx_log_group.c b/drivers/media/platform/cix/mvx_log_group.c
+diff --git b/drivers/media/platform/cix/mvx_log_group.c b/drivers/media/platform/cix/mvx_log_group.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_log_group.c
@@ -39059,7 +39059,7 @@ new file mode 100644
 +
 +    return;
 +}
-diff --git a/drivers/media/platform/cix/mvx_log_group.h b/drivers/media/platform/cix/mvx_log_group.h
+diff --git b/drivers/media/platform/cix/mvx_log_group.h b/drivers/media/platform/cix/mvx_log_group.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_log_group.h
@@ -39141,7 +39141,7 @@ new file mode 100644
 +void mvx_log_group_deinit(void);
 +
 +#endif /* _MVX_LOG_GROUP_H_ */
-diff --git a/drivers/media/platform/cix/mvx_log_ram.h b/drivers/media/platform/cix/mvx_log_ram.h
+diff --git b/drivers/media/platform/cix/mvx_log_ram.h b/drivers/media/platform/cix/mvx_log_ram.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_log_ram.h
@@ -39358,7 +39358,7 @@ new file mode 100644
 +};
 +
 +#endif /* MVX_LOG_RAM_H */
-diff --git a/drivers/media/platform/cix/mvx_pm_runtime.c b/drivers/media/platform/cix/mvx_pm_runtime.c
+diff --git b/drivers/media/platform/cix/mvx_pm_runtime.c b/drivers/media/platform/cix/mvx_pm_runtime.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_pm_runtime.c
@@ -39429,7 +39429,7 @@ new file mode 100644
 +    return 0;
 +#endif /* CONFIG_PM */
 +}
-diff --git a/drivers/media/platform/cix/mvx_pm_runtime.h b/drivers/media/platform/cix/mvx_pm_runtime.h
+diff --git b/drivers/media/platform/cix/mvx_pm_runtime.h b/drivers/media/platform/cix/mvx_pm_runtime.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_pm_runtime.h
@@ -39501,7 +39501,7 @@ new file mode 100644
 +int mvx_pm_runtime_put_sync(struct device *dev);
 +
 +#endif /* _MVX_PM_RUNTIME_H_ */
-diff --git a/drivers/media/platform/cix/mvx_seq.c b/drivers/media/platform/cix/mvx_seq.c
+diff --git b/drivers/media/platform/cix/mvx_seq.c b/drivers/media/platform/cix/mvx_seq.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_seq.c
@@ -39601,7 +39601,7 @@ new file mode 100644
 +
 +    devm_kfree(it->dev, it);
 +}
-diff --git a/drivers/media/platform/cix/mvx_seq.h b/drivers/media/platform/cix/mvx_seq.h
+diff --git b/drivers/media/platform/cix/mvx_seq.h b/drivers/media/platform/cix/mvx_seq.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/mvx_seq.h

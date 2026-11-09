@@ -1,7 +1,7 @@
 diff --git a/drivers/bluetooth/btrtl.c b/drivers/bluetooth/btrtl.c
 --- a/drivers/bluetooth/btrtl.c
 +++ b/drivers/bluetooth/btrtl.c
-@@ -1062,7 +1062,6 @@ struct btrtl_device_info *btrtl_initialize(struct hci_dev *hdev,
+@@ -1073,7 +1073,6 @@ struct btrtl_device_info *btrtl_initialize(struct hci_dev *hdev,
  	u16 hci_rev, lmp_subver;
  	u8 hci_ver, lmp_ver, chip_type = 0;
  	int ret;
@@ -9,7 +9,7 @@ diff --git a/drivers/bluetooth/btrtl.c b/drivers/bluetooth/btrtl.c
  	u8 key_id;
  	u8 reg_val[2];
  
-@@ -1174,8 +1173,8 @@ next:
+@@ -1185,8 +1184,8 @@ next:
  		goto err_free;
  	}
  

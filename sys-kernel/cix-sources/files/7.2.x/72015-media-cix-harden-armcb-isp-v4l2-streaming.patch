@@ -1,7 +1,7 @@
 diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kconfig
 --- a/drivers/media/platform/cix/Kconfig
 +++ b/drivers/media/platform/cix/Kconfig
-@@ -42,3 +42,11 @@ config VIDEO_CIX_ARMCB_ISP
+@@ -52,3 +52,11 @@ config VIDEO_CIX_ARMCB_ISP
  	  Enable support for the CIX/ArmChina Sky1 ISP and camera capture
  	  pipeline exposed by CIXH3020/CIXH3021/CIXH3023/CIXH3024/
  	  CIXH3025/CIXH3026 ACPI devices or equivalent devicetree nodes.
@@ -26,7 +26,7 @@ diff --git a/drivers/media/platform/cix/armcb-isp/Makefile b/drivers/media/platf
  
  armcb_isp_v4l2-y := \
  	armcb_isp_entry.o \
-diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h
+diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer.h
@@ -62,7 +62,7 @@ new file mode 100644
 +}
 +
 +#endif
-diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c
+diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_buffer_test.c

@@ -23,7 +23,7 @@ diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
  	select AUDIT_ARCH_COMPAT_GENERIC
  	select ARM_GIC_V2M if PCI
  	select ARM_GIC_V3
-@@ -241,8 +241,8 @@ config ARM64
+@@ -240,8 +240,8 @@ config ARM64
  	select MODULES_USE_ELF_RELA
  	select NEED_DMA_MAP_STATE
  	select NEED_SG_DMA_LENGTH
@@ -34,7 +34,7 @@ diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
  	select PCI_DOMAINS_GENERIC if PCI
  	select PCI_ECAM if (ACPI && PCI)
  	select PCI_SYSCALL if PCI
-@@ -1561,7 +1561,7 @@ config HOTPLUG_CPU
+@@ -1610,7 +1610,7 @@ config HOTPLUG_CPU
  config NUMA
  	bool "NUMA Memory Allocation and Scheduler Support"
  	select GENERIC_ARCH_NUMA
@@ -43,7 +43,7 @@ diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
  	select HAVE_SETUP_PER_CPU_AREA
  	select NEED_PER_CPU_EMBED_FIRST_CHUNK
  	select NEED_PER_CPU_PAGE_FIRST_CHUNK
-@@ -1619,7 +1619,7 @@ config ARCH_SUPPORTS_KEXEC
+@@ -1668,7 +1668,7 @@ config ARCH_SUPPORTS_KEXEC
  	def_bool PM_SLEEP_SMP
  
  config ARCH_SUPPORTS_KEXEC_FILE
@@ -52,7 +52,7 @@ diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
  
  config ARCH_SELECTS_KEXEC_FILE
  	def_bool y
-@@ -2442,14 +2442,23 @@ endchoice
+@@ -2498,14 +2498,23 @@ endchoice
  config EFI_STUB
  	bool
  
@@ -97,7 +97,7 @@ diff --git a/arch/arm64/kernel/cacheinfo.c b/arch/arm64/kernel/cacheinfo.c
 diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
 --- a/arch/arm64/kernel/smp.c
 +++ b/arch/arm64/kernel/smp.c
-@@ -678,6 +678,7 @@ static void __init acpi_parse_and_init_cpus(void)
+@@ -677,6 +677,7 @@ static bool acpi_cpu_is_present(int cpu)
   * cpu logical map array containing MPIDR values related to logical
   * cpus. Assumes that cpu_logical_map(0) has already been initialized.
   */
@@ -105,7 +105,7 @@ diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
  static void __init of_parse_and_init_cpus(void)
  {
  	struct device_node *dn;
-@@ -730,6 +731,11 @@ static void __init of_parse_and_init_cpus(void)
+@@ -729,6 +730,11 @@ next:
  		cpu_count++;
  	}
  }
@@ -223,7 +223,7 @@ diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
  static void *unflatten_dt_alloc(void **mem, unsigned long size,
  				       unsigned long align)
  {
-@@ -451,6 +452,7 @@ void *of_fdt_unflatten_tree(const unsigned long *blob,
+@@ -449,6 +450,7 @@ void *of_fdt_unflatten_tree(const unsigned long *blob,
  	return mem;
  }
  EXPORT_SYMBOL_GPL(of_fdt_unflatten_tree);
@@ -231,7 +231,7 @@ diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
  
  /* Everything below here references initial_boot_params directly. */
  int __initdata dt_root_addr_cells;
-@@ -504,7 +506,8 @@ void __init early_init_fdt_scan_reserved_mem(void)
+@@ -502,7 +504,8 @@ void __init early_init_fdt_scan_reserved_mem(void)
  		return;
  
  	fdt_reserve_elfcorehdr();
@@ -241,7 +241,7 @@ diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
  
  	/* Process header /memreserve/ fields */
  	for (n = 0; ; n++) {
-@@ -1199,11 +1202,6 @@ void __init __weak early_init_dt_add_memory_arch(u64 base, u64 size)
+@@ -1197,11 +1200,6 @@ void __init __weak early_init_dt_add_memory_arch(u64 base, u64 size)
  	memblock_add(base, size);
  }
  
@@ -253,7 +253,7 @@ diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
  bool __init early_init_dt_verify(void *dt_virt, phys_addr_t dt_phys)
  {
  	if (!dt_virt)
-@@ -1257,6 +1255,12 @@ bool __init early_init_dt_scan(void *dt_virt, phys_addr_t dt_phys)
+@@ -1255,6 +1253,12 @@ bool __init early_init_dt_scan(void *dt_virt, phys_addr_t dt_phys)
  	return true;
  }
  
@@ -266,7 +266,7 @@ diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
  static void *__init copy_device_tree(void *fdt)
  {
  	int size;
-@@ -1327,6 +1331,7 @@ void __init unflatten_and_copy_device_tree(void)
+@@ -1325,6 +1329,7 @@ void __init unflatten_and_copy_device_tree(void)
  
  	unflatten_device_tree();
  }
@@ -338,7 +338,7 @@ diff --git a/include/linux/of.h b/include/linux/of.h
  #if defined(CONFIG_SPARC)
  #include <asm/prom.h>
  #endif
-@@ -1650,7 +1652,7 @@ enum of_reconfig_change {
+@@ -1681,7 +1683,7 @@ enum of_reconfig_change {
  
  struct notifier_block;
  
@@ -347,7 +347,7 @@ diff --git a/include/linux/of.h b/include/linux/of.h
  extern int of_reconfig_notifier_register(struct notifier_block *);
  extern int of_reconfig_notifier_unregister(struct notifier_block *);
  extern int of_reconfig_notify(unsigned long, struct of_reconfig_data *rd);
-@@ -1724,26 +1726,144 @@ int of_changeset_update_prop_string(struct of_changeset *ocs,
+@@ -1755,26 +1757,144 @@ int of_changeset_update_prop_string(struct of_changeset *ocs,
  int of_changeset_add_prop_bool(struct of_changeset *ocs, struct device_node *np,
  			       const char *prop_name);
  

@@ -117,7 +117,7 @@ diff --git a/include/linux/soc/cix/cix_hifi5.h b/include/linux/soc/cix/cix_hifi5
  static inline int cix_hifi5_validate_memory(struct device *dev)
  {
  	return -EOPNOTSUPP;
-diff --git a/include/sound/sof/dai-cix.h b/include/sound/sof/dai-cix.h
+diff --git b/include/sound/sof/dai-cix.h b/include/sound/sof/dai-cix.h
 new file mode 100644
 --- /dev/null
 +++ b/include/sound/sof/dai-cix.h
@@ -273,7 +273,7 @@ diff --git a/sound/soc/sof/Makefile b/sound/soc/sof/Makefile
 +obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1) += cix/
  obj-$(CONFIG_SND_SOC_SOF_XTENSA) += xtensa/
  obj-$(CONFIG_SND_SOC_SOF_MTK_TOPLEVEL) += mediatek/
-diff --git a/sound/soc/sof/cix/Kconfig b/sound/soc/sof/cix/Kconfig
+diff --git b/sound/soc/sof/cix/Kconfig b/sound/soc/sof/cix/Kconfig
 new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/Kconfig
@@ -312,7 +312,7 @@ new file mode 100644
 +config SND_SOC_SOF_CIX_SKY1_NOCODEC
 +	tristate
 +	depends on SND_SOC
-diff --git a/sound/soc/sof/cix/Makefile b/sound/soc/sof/cix/Makefile
+diff --git b/sound/soc/sof/cix/Makefile b/sound/soc/sof/cix/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/Makefile
@@ -323,7 +323,7 @@ new file mode 100644
 +
 +obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1) += snd-sof-cix-sky1.o
 +obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1_NOCODEC) += snd-sof-cix-sky1-nocodec.o
-diff --git a/sound/soc/sof/cix/cix-sky1-ipc3.c b/sound/soc/sof/cix/cix-sky1-ipc3.c
+diff --git b/sound/soc/sof/cix/cix-sky1-ipc3.c b/sound/soc/sof/cix/cix-sky1-ipc3.c
 new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/cix-sky1-ipc3.c
@@ -543,7 +543,7 @@ new file mode 100644
 +		.link_fixup = sky1_i2s_mc_link_fixup,
 +	},
 +};
-diff --git a/sound/soc/sof/cix/cix-sky1-ipc3.h b/sound/soc/sof/cix/cix-sky1-ipc3.h
+diff --git b/sound/soc/sof/cix/cix-sky1-ipc3.h b/sound/soc/sof/cix/cix-sky1-ipc3.h
 new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/cix-sky1-ipc3.h
@@ -566,7 +566,7 @@ new file mode 100644
 +sky1_sof_ipc3_dais[SKY1_SOF_IPC3_DAI_COUNT];
 +
 +#endif /* __SOUND_SOC_SOF_CIX_SKY1_IPC3_H */
-diff --git a/sound/soc/sof/cix/cix-sky1.c b/sound/soc/sof/cix/cix-sky1.c
+diff --git b/sound/soc/sof/cix/cix-sky1.c b/sound/soc/sof/cix/cix-sky1.c
 new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/cix-sky1.c
@@ -1119,7 +1119,7 @@ new file mode 100644
 +MODULE_SOFTDEP("pre: snd-sof-cix-sky1-nocodec");
 +MODULE_DESCRIPTION("SOF support for the CIX Sky1 HiFi5 DSP");
 +MODULE_LICENSE("Dual BSD/GPL");
-diff --git a/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
+diff --git b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
 new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
@@ -1551,7 +1551,7 @@ diff --git a/sound/soc/sof/ipc3-topology.c b/sound/soc/sof/ipc3-topology.c
  	return 0;
  free_config:
  	kfree(config);
-@@ -1711,6 +1855,7 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
+@@ -1711,6 +1855,7 @@ free_comp:
  free:
  	kfree(private);
  	dai->private = NULL;
@@ -2048,7 +2048,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  /**
   * sof_parse_string_tokens - Parse multiple sets of tokens
   * @scomp: pointer to soc component
-@@ -1883,9 +1923,16 @@ static int sof_dai_unload(struct snd_soc_component *scomp,
+@@ -1889,9 +1929,16 @@ static int sof_dai_unload(struct snd_soc_component *scomp,
  	return 0;
  }
  
@@ -2066,7 +2066,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  };
  
  /* DAI link - used for any driver specific init */
-@@ -1897,6 +1944,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+@@ -1903,6 +1950,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
  	struct snd_soc_tplg_private *private = &cfg->priv;
  	const struct sof_token_info *token_list;
  	struct snd_sof_dai_link *slink;
@@ -2074,7 +2074,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  	u32 token_id = 0;
  	int num_tuples = 0;
  	int ret, num_sets;
-@@ -1938,15 +1986,33 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+@@ -1944,15 +1992,33 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
  	dev_dbg(scomp->dev, "tplg: %d hw_configs found, default id: %d for dai link %s!\n",
  		slink->num_hw_configs, slink->default_hw_cfg_id, link->name);
  
@@ -2112,7 +2112,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  	token_list = tplg_ops ? tplg_ops->token_list : NULL;
  	if (!token_list)
  		goto out;
-@@ -1954,6 +2020,12 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+@@ -1960,6 +2026,12 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
  	/* calculate size of tuples array */
  	num_tuples += token_list[SOF_DAI_LINK_TOKENS].count;
  	num_sets = slink->num_hw_configs;
@@ -2125,7 +2125,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  	switch (slink->type) {
  	case SOF_DAI_INTEL_SSP:
  		token_id = SOF_SSP_TOKENS;
-@@ -2010,6 +2082,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+@@ -2016,6 +2088,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
  		break;
  	}
  
@@ -2133,7 +2133,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  	/* allocate memory for tuples array */
  	slink->tuples = kzalloc_objs(*slink->tuples, num_tuples);
  	if (!slink->tuples) {
-@@ -2029,6 +2102,20 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+@@ -2035,6 +2108,20 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
  		}
  	}
  
@@ -2154,7 +2154,7 @@ diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
  	/* nothing more to do if there are no DAI type-specific tokens defined */
  	if (!token_id || !token_list[token_id].tokens)
  		goto out;
-@@ -2069,6 +2156,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
+@@ -2075,6 +2162,7 @@ out:
  	return 0;
  
  err:

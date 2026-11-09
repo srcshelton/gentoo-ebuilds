@@ -1,0 +1,204 @@
+firmware: arm_scmi: preserve rational perf-level frequency scale
+
+Some SCMI firmware uses performance levels that do not divide the sustained
+frequency into an integer Hz-per-level multiplier. The current code truncates
+the multiplier once and then reuses that truncated value, accumulating small
+frequency errors and warning even though the firmware-provided ratio is
+coherent.
+
+Store the sustained frequency in Hz and convert non-indexing performance
+levels with the original sustained_freq/sustained_perf ratio. Convert Hz
+requests back to the closest performance level so OPP frequencies round-trip
+to the levels that firmware advertised. Keep the existing 1000 multiplier
+fallback for level-indexing/indicative-frequency domains and malformed
+attributes.
+
+diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scmi/perf.c
+--- before/drivers/firmware/arm_scmi/perf.c	2026-06-07 01:01:02.211520000 +0100
++++ after/drivers/firmware/arm_scmi/perf.c	2026-06-07 01:05:19.660886910 +0100
+@@ -11,6 +11,7 @@
+ #include <linux/hashtable.h>
+ #include <linux/io.h>
+ #include <linux/log2.h>
++#include <linux/math64.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+@@ -156,6 +157,7 @@
+ 	u32 rate_limit_us;
+ 	u32 sustained_freq_khz;
+ 	u32 sustained_perf_level;
++	u64 sustained_freq_hz;
+ 	unsigned long mult_factor;
+ 	struct scmi_perf_domain_info info;
+ 	struct scmi_opp opp[MAX_OPPS];
+@@ -287,9 +289,12 @@
+ 					le32_to_cpu(attr->sustained_freq_khz);
+ 		dom_info->sustained_perf_level =
+ 					le32_to_cpu(attr->sustained_perf_level);
++		dom_info->sustained_freq_hz =
++					dom_info->sustained_freq_khz * 1000ULL;
+ 		/*
+-		 * sustained_freq_khz = mult_factor * sustained_perf_level
+-		 * mult_factor must be non zero positive integer(not fraction)
++		 * Keep a legacy integer multiplier for level-indexing domains
++		 * and malformed sustained attributes. Non-indexing domains use
++		 * the exact sustained_freq/sustained_perf ratio when converting.
+ 		 */
+ 		if (!dom_info->sustained_freq_khz ||
+ 		    !dom_info->sustained_perf_level ||
+@@ -298,13 +303,8 @@
+ 			dom_info->mult_factor =	1000;
+ 		} else {
+ 			dom_info->mult_factor =
+-					(dom_info->sustained_freq_khz * 1000UL)
+-					/ dom_info->sustained_perf_level;
+-			if ((dom_info->sustained_freq_khz * 1000UL) %
+-			    dom_info->sustained_perf_level)
+-				dev_warn(ph->dev,
+-					 "multiplier for domain %d rounded\n",
+-					 dom_info->id);
++					div_u64(dom_info->sustained_freq_hz,
++						dom_info->sustained_perf_level);
+ 		}
+ 		if (!dom_info->mult_factor)
+ 			dev_warn(ph->dev,
+@@ -509,6 +509,63 @@
+ 	return pi->dom_info + domain;
+ }
+ 
++static unsigned long scmi_perf_level_to_freq(struct perf_dom_info *dom,
++					     u32 level)
++{
++	u64 freq;
++
++	if (!dom->sustained_freq_hz || !dom->sustained_perf_level ||
++	    dom->level_indexing_mode) {
++		if (!dom->mult_factor)
++			return 0;
++
++		freq = (u64)level * dom->mult_factor;
++	} else {
++		freq = mul_u64_u32_div(dom->sustained_freq_hz, level,
++				       dom->sustained_perf_level);
++	}
++
++	return min_t(u64, freq, ULONG_MAX);
++}
++
++static u32 scmi_perf_freq_to_level(struct perf_dom_info *dom,
++				   unsigned long freq)
++{
++	u64 level, this_freq, next_freq, this_delta, next_delta;
++
++	if (!dom->sustained_freq_hz || !dom->sustained_perf_level ||
++	    dom->level_indexing_mode) {
++		if (!dom->mult_factor)
++			return 0;
++
++		return freq / dom->mult_factor;
++	}
++
++	level = mul_u64_u64_div_u64(freq, dom->sustained_perf_level,
++				    dom->sustained_freq_hz);
++	if (level >= U32_MAX)
++		return U32_MAX;
++
++	this_freq = scmi_perf_level_to_freq(dom, level);
++	next_freq = scmi_perf_level_to_freq(dom, level + 1);
++	this_delta = this_freq > freq ? this_freq - freq : freq - this_freq;
++	next_delta = next_freq > freq ? next_freq - freq : freq - next_freq;
++
++	if (next_delta < this_delta)
++		level++;
++
++	return level;
++}
++
++static unsigned long scmi_perf_opp_to_freq(struct perf_dom_info *dom,
++					   struct scmi_opp *opp)
++{
++	if (dom->level_indexing_mode)
++		return scmi_perf_level_to_freq(dom, opp->indicative_freq);
++
++	return scmi_perf_level_to_freq(dom, opp->perf);
++}
++
+ static const struct scmi_perf_domain_info *
+ scmi_perf_info_get(const struct scmi_protocol_handle *ph, u32 domain)
+ {
+@@ -874,13 +931,11 @@
+ 		return PTR_ERR(dom);
+ 
+ 	for (idx = 0; idx < dom->opp_count; idx++) {
+-		if (!dom->level_indexing_mode)
+-			freq = dom->opp[idx].perf * dom->mult_factor;
+-		else
+-			freq = dom->opp[idx].indicative_freq * dom->mult_factor;
++		freq = scmi_perf_opp_to_freq(dom, &dom->opp[idx]);
+ 
+ 		/* All OPPs above the sustained frequency are treated as turbo */
+-		data.turbo = freq > dom->sustained_freq_khz * 1000UL;
++		data.turbo = freq > min_t(u64, dom->sustained_freq_hz,
++					  ULONG_MAX);
+ 
+ 		data.level = dom->opp[idx].perf;
+ 		data.freq = freq;
+@@ -941,7 +996,7 @@
+ 		return PTR_ERR(dom);
+ 
+ 	if (!dom->level_indexing_mode) {
+-		level = freq / dom->mult_factor;
++		level = scmi_perf_freq_to_level(dom, freq);
+ 	} else {
+ 		struct scmi_opp *opp;
+ 
+@@ -972,7 +1027,7 @@
+ 		return ret;
+ 
+ 	if (!dom->level_indexing_mode) {
+-		*freq = level * dom->mult_factor;
++		*freq = scmi_perf_level_to_freq(dom, level);
+ 	} else {
+ 		struct scmi_opp *opp;
+ 
+@@ -980,7 +1035,7 @@
+ 		if (!opp)
+ 			return -EIO;
+ 
+-		*freq = opp->indicative_freq * dom->mult_factor;
++		*freq = scmi_perf_opp_to_freq(dom, opp);
+ 	}
+ 
+ 	return ret;
+@@ -1000,10 +1055,7 @@
+ 		return PTR_ERR(dom);
+ 
+ 	for (opp = dom->opp, idx = 0; idx < dom->opp_count; idx++, opp++) {
+-		if (!dom->level_indexing_mode)
+-			opp_freq = opp->perf * dom->mult_factor;
+-		else
+-			opp_freq = opp->indicative_freq * dom->mult_factor;
++		opp_freq = scmi_perf_opp_to_freq(dom, opp);
+ 
+ 		if (opp_freq < *freq)
+ 			continue;
+@@ -1125,16 +1177,14 @@
+ 		opp = xa_load(&dom->opps_by_lvl, index);
+ 		if (!opp)
+ 			return -ENODEV;
+-
+-		*freq = opp->perf * dom->mult_factor;
+ 	} else {
+ 		opp = xa_load(&dom->opps_by_idx, index);
+ 		if (!opp)
+ 			return -ENODEV;
+-
+-		*freq = opp->indicative_freq * dom->mult_factor;
+ 	}
+ 
++	*freq = scmi_perf_opp_to_freq(dom, opp);
++
+ 	return 0;
+ }
+ 

@@ -1,7 +1,7 @@
 diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
 --- a/drivers/misc/armchina-npu/sky1/sky1.c
 +++ b/drivers/misc/armchina-npu/sky1/sky1.c
-@@ -72,6 +72,35 @@ static void sky1_priv_release(struct cix_aipu_priv *priv)
+@@ -73,6 +73,35 @@ static void sky1_priv_release(struct cix_aipu_priv *priv)
  }
  
  #if IS_REACHABLE(CONFIG_PM_DEVFREQ)
@@ -37,7 +37,7 @@ diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/s
  static int sky1_npu_devfreq_target(struct device *dev, unsigned long *freq,
  				   u32 flags)
  {
-@@ -88,13 +117,8 @@ static int sky1_npu_devfreq_target(struct device *dev, unsigned long *freq,
+@@ -89,13 +118,8 @@ static int sky1_npu_devfreq_target(struct device *dev, unsigned long *freq,
  		return PTR_ERR(opp);
  	dev_pm_opp_put(opp);
  
@@ -52,7 +52,7 @@ diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/s
  	if (!ret)
  		WRITE_ONCE(priv->desired_freq, *freq);
  
-@@ -346,7 +370,8 @@ static int sky1_npu_devfreq_init(struct device *dev,
+@@ -359,7 +383,8 @@ static int sky1_npu_devfreq_init(struct device *dev,
  					      "failed to register NPU OPP notifier");
  	priv->opp_notifier_registered = true;
  

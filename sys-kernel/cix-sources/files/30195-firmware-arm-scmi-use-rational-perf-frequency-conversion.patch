@@ -13,9 +13,9 @@ to the levels that firmware advertised. Keep the existing 1000 multiplier
 fallback for level-indexing/indicative-frequency domains and malformed
 attributes.
 
-diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scmi/perf.c
---- before/drivers/firmware/arm_scmi/perf.c	2026-06-07 01:01:02.211520000 +0100
-+++ after/drivers/firmware/arm_scmi/perf.c	2026-06-07 01:05:19.660886910 +0100
+diff --git a/drivers/firmware/arm_scmi/perf.c b/drivers/firmware/arm_scmi/perf.c
+--- a/drivers/firmware/arm_scmi/perf.c
++++ b/drivers/firmware/arm_scmi/perf.c
 @@ -11,6 +11,7 @@
  #include <linux/hashtable.h>
  #include <linux/io.h>
@@ -24,7 +24,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  #include <linux/module.h>
  #include <linux/of.h>
  #include <linux/platform_device.h>
-@@ -156,6 +157,7 @@
+@@ -156,6 +157,7 @@ struct perf_dom_info {
  	u32 rate_limit_us;
  	u32 sustained_freq_khz;
  	u32 sustained_perf_level;
@@ -32,7 +32,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  	unsigned long mult_factor;
  	struct scmi_perf_domain_info info;
  	struct scmi_opp opp[MAX_OPPS];
-@@ -287,9 +289,12 @@
+@@ -289,9 +291,12 @@ scmi_perf_domain_attributes_get(const struct scmi_protocol_handle *ph,
  					le32_to_cpu(attr->sustained_freq_khz);
  		dom_info->sustained_perf_level =
  					le32_to_cpu(attr->sustained_perf_level);
@@ -47,7 +47,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  		 */
  		if (!dom_info->sustained_freq_khz ||
  		    !dom_info->sustained_perf_level ||
-@@ -298,13 +303,8 @@
+@@ -300,13 +305,8 @@ scmi_perf_domain_attributes_get(const struct scmi_protocol_handle *ph,
  			dom_info->mult_factor =	1000;
  		} else {
  			dom_info->mult_factor =
@@ -63,7 +63,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  		}
  		if (!dom_info->mult_factor)
  			dev_warn(ph->dev,
-@@ -509,6 +509,63 @@
+@@ -520,6 +520,63 @@ scmi_perf_domain_lookup(const struct scmi_protocol_handle *ph, u32 domain)
  	return pi->dom_info + domain;
  }
  
@@ -127,7 +127,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  static const struct scmi_perf_domain_info *
  scmi_perf_info_get(const struct scmi_protocol_handle *ph, u32 domain)
  {
-@@ -874,13 +931,11 @@
+@@ -886,13 +943,11 @@ static int scmi_dvfs_device_opps_add(const struct scmi_protocol_handle *ph,
  		return PTR_ERR(dom);
  
  	for (idx = 0; idx < dom->opp_count; idx++) {
@@ -144,7 +144,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  
  		data.level = dom->opp[idx].perf;
  		data.freq = freq;
-@@ -941,7 +996,7 @@
+@@ -953,7 +1008,7 @@ static int scmi_dvfs_freq_set(const struct scmi_protocol_handle *ph, u32 domain,
  		return PTR_ERR(dom);
  
  	if (!dom->level_indexing_mode) {
@@ -153,7 +153,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  	} else {
  		struct scmi_opp *opp;
  
-@@ -972,7 +1027,7 @@
+@@ -984,7 +1039,7 @@ static int scmi_dvfs_freq_get(const struct scmi_protocol_handle *ph, u32 domain,
  		return ret;
  
  	if (!dom->level_indexing_mode) {
@@ -162,7 +162,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  	} else {
  		struct scmi_opp *opp;
  
-@@ -980,7 +1035,7 @@
+@@ -992,7 +1047,7 @@ static int scmi_dvfs_freq_get(const struct scmi_protocol_handle *ph, u32 domain,
  		if (!opp)
  			return -EIO;
  
@@ -171,7 +171,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  	}
  
  	return ret;
-@@ -1000,10 +1055,7 @@
+@@ -1012,10 +1067,7 @@ static int scmi_dvfs_est_power_get(const struct scmi_protocol_handle *ph,
  		return PTR_ERR(dom);
  
  	for (opp = dom->opp, idx = 0; idx < dom->opp_count; idx++, opp++) {
@@ -183,7 +183,7 @@ diff -ruN before/drivers/firmware/arm_scmi/perf.c after/drivers/firmware/arm_scm
  
  		if (opp_freq < *freq)
  			continue;
-@@ -1125,16 +1177,14 @@
+@@ -1137,16 +1189,14 @@ scmi_perf_xlate_opp_to_freq(struct perf_dom_info *dom,
  		opp = xa_load(&dom->opps_by_lvl, index);
  		if (!opp)
  			return -ENODEV;

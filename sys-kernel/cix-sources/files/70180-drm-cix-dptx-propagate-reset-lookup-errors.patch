@@ -3,7 +3,7 @@ The DPTX reset lines are optional, but provider and deferred-probe errors must n
 diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 --- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 +++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
-@@ -3471,8 +3471,15 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+@@ -3462,8 +3462,15 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
  	dp->link_config.max_lanes = dp->num_lanes;
  	dp->link_config.max_rate = dp->max_rate;
  

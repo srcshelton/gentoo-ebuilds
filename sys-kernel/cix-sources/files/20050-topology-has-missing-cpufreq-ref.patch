@@ -37,7 +37,7 @@ caller.
 diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
 --- a/drivers/base/arch_topology.c
 +++ b/drivers/base/arch_topology.c
-@@ -404,6 +404,8 @@ init_cpu_capacity_callback(struct notifier_block *nb,
+@@ -397,6 +397,8 @@ init_cpu_capacity_callback(struct notifier_block *nb,
  	cpumask_andnot(cpus_to_visit, cpus_to_visit, policy->related_cpus);
  
  	for_each_cpu(cpu, policy->related_cpus) {
@@ -46,7 +46,7 @@ diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
  		per_cpu(capacity_freq_ref, cpu) = policy->cpuinfo.max_freq;
  		freq_inv_set_max_ratio(cpu,
  				       per_cpu(capacity_freq_ref, cpu) * HZ_PER_KHZ);
-@@ -426,15 +428,35 @@ static struct notifier_block init_cpu_capacity_notifier = {
+@@ -419,15 +421,35 @@ static struct notifier_block init_cpu_capacity_notifier = {
  	.notifier_call = init_cpu_capacity_callback,
  };
  

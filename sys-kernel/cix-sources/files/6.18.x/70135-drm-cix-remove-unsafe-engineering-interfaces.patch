@@ -1,4 +1,4 @@
-diff --git a/drivers/gpu/drm/cix/cix_display.c b/drivers/gpu/drm/cix/cix_display.c
+diff --git a/drivers/gpu/drm/cix/cix_display.c a/drivers/gpu/drm/cix/cix_display.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/cix_display.c
 +++ /dev/null
@@ -236,7 +236,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/Makefile b/drivers/gpu/drm/cix/dptx/Makefi
 -obj-$(CONFIG_DRM_TRILIN_DPSUB) += trilin-dpsub.o
 \ No newline at end of file
 +obj-$(CONFIG_DRM_TRILIN_DPSUB) += trilin-dpsub.o
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
 +++ /dev/null
@@ -637,7 +637,7 @@ deleted file mode 100644
 -
 -	return 0;
 -}
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
 +++ /dev/null
@@ -783,7 +783,7 @@ deleted file mode 100644
 -int cix_hdcp_hpd_event_process(struct cix_hdcp *hdcp, bool plugged);
 -
 -#endif // __CIX_HDCP_H_
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
 +++ /dev/null
@@ -972,7 +972,7 @@ deleted file mode 100644
 -	return 0;
 -}
 -#endif
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
 +++ /dev/null
@@ -999,7 +999,7 @@ deleted file mode 100644
 -int cix_hdcp2_cix_ioctl_cipher_disable(struct cix_hdcp *hdcp);
 -int cix_hdcp2_ioctl_get_kd(struct cix_hdcp *hdcp, void *kdata);
 -int cix_hdcp2_ioctl_get_dkey2(struct cix_hdcp *hdcp, void *kdata);
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h b/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
 +++ /dev/null
@@ -1120,7 +1120,7 @@ deleted file mode 100644
 -#define HDCP2_IOCTL_GET_DKEY2 CIX_HDCP_IOWR(0x08, hdcp2_dkey2_t)
 -
 -#endif // CIX_HDCP_IOCTL_CMD_H_
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h b/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
 +++ /dev/null
@@ -1251,7 +1251,7 @@ deleted file mode 100644
 -#define TR_DPTX_AUX_STATUS_REPLY_RECEIVED (1ul << 0)
 -
 -#endif
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h b/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
 +++ /dev/null
@@ -1739,7 +1739,7 @@ deleted file mode 100644
 -#define TR_DPTX_SRC3_PSR2_UPDATE_LEFT 0xfb8ul
 -#define TR_DPTX_SRC3_PSR2_UPDATE_WIDTH 0xfbcul
 -#endif
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
 +++ /dev/null
@@ -2664,7 +2664,7 @@ deleted file mode 100644
 -
 -	return true;
 -}
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
 +++ /dev/null
@@ -2731,7 +2731,7 @@ deleted file mode 100644
 -bool hdcp2_hw_tx_rn_write(struct cix_hdcp *hdcp, uint8_t *ctl);
 -bool hdcp2_hw_tx_rn_read(struct cix_hdcp *hdcp, uint8_t *ctl);
 -#endif
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
 +++ /dev/null
@@ -2982,7 +2982,7 @@ deleted file mode 100644
 -
 -	return true;
 -}
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
 +++ /dev/null
@@ -3033,7 +3033,7 @@ deleted file mode 100644
 -bool hdcp2_key_drvn_tx_dkey2_calc(struct cix_hdcp *hdcp, void *kdata);
 -
 -#endif // HDCP2_KEY_DRVN_TX__
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
 +++ /dev/null
@@ -3164,7 +3164,7 @@ deleted file mode 100644
 -	hdcp2_hw_tx_lc128_write(hdcp,
 -				product_lc128); //  re-load the lc128 value
 -}
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
 +++ /dev/null
@@ -3200,7 +3200,7 @@ deleted file mode 100644
 -void hdcp2_tx_state_init(struct cix_hdcp *hdcp);
 -
 -#endif // HDCP2_TX_STATE__
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
 +++ /dev/null
@@ -3395,7 +3395,7 @@ deleted file mode 100644
 -
 -	hdcp->timer_in_use = false; //  clear in-use flag
 -}
-diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h b/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
+diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
 deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
 +++ /dev/null
@@ -3422,7 +3422,7 @@ deleted file mode 100644
 diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 --- a/drivers/gpu/drm/cix/dptx/trilin_dptx.c
 +++ b/drivers/gpu/drm/cix/dptx/trilin_dptx.c
-@@ -2445,30 +2445,6 @@ static int trilin_dp_link_process_request(struct trilin_dp *dp)
+@@ -2453,30 +2453,6 @@ static int trilin_dp_link_process_request(struct trilin_dp *dp)
  	return 0;
  }
  
@@ -3453,7 +3453,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  static int trilin_dp_clear_info(struct trilin_dp *dp,
  				struct trilin_dp_panel *dp_panel)
  {
-@@ -2845,8 +2821,6 @@ static void trilin_dp_hpd_event_work_func(struct work_struct *work)
+@@ -2853,8 +2829,6 @@ static void trilin_dp_hpd_event_work_func(struct work_struct *work)
  
  	DP_DEBUG("dp audio plugin status = %d\n", connected);
  	dptx_audio_handle_plugged_change(dp_audio, connected);
@@ -3462,7 +3462,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  }
  
  /* hdp irq handle other event */
-@@ -2877,7 +2851,6 @@ static void trilin_dp_hpd_irq_work_func(struct work_struct *work)
+@@ -2885,7 +2859,6 @@ static void trilin_dp_hpd_irq_work_func(struct work_struct *work)
  			trilin_dp_train_loop(dp);
  		mutex_unlock(&dp->session_lock);
  	}
@@ -3470,7 +3470,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  mst_attention:
  	trilin_dp_mst_display_hpd_irq(dp);
  }
-@@ -2892,11 +2865,6 @@ static irqreturn_t trilin_dp_irq_handler(int irq, void *data)
+@@ -2900,11 +2873,6 @@ static irqreturn_t trilin_dp_irq_handler(int irq, void *data)
  	if (!(status & ~mask))
  		return IRQ_NONE;
  
@@ -3482,7 +3482,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  	if (status & TRILIN_DPTX_INTERRUPT_GP_TIMER_IRQ)
  		dev_dbg_ratelimited(dp->dev, "gp tmr\n");
  
-@@ -3271,12 +3239,6 @@ int trilin_dp_init_config(struct trilin_dp *dp)
+@@ -3281,12 +3249,6 @@ int trilin_dp_init_config(struct trilin_dp *dp)
  	if (dp->edp_panel && !trilin_dp_get_hpd_state(dp))
  		trilin_dp_edp_drop_panel(dp);
  
@@ -3495,7 +3495,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  	irq_set_status_flags(dp->irq, IRQ_DISABLE_UNLAZY);
  	rc = devm_request_threaded_irq(dp->dev, dp->irq, NULL,
  				       trilin_dp_irq_handler, IRQF_ONESHOT,
-@@ -3324,31 +3286,6 @@ static void dptx_unregister_audio_device(void *data)
+@@ -3334,31 +3296,6 @@ static void dptx_unregister_audio_device(void *data)
  	}
  }
  
@@ -3527,7 +3527,7 @@ diff --git a/drivers/gpu/drm/cix/dptx/trilin_dptx.c b/drivers/gpu/drm/cix/dptx/t
  static int trilin_dp_gop_get(struct trilin_dp *dp)
  {
  	struct arm_smccc_res res;
-@@ -3535,7 +3472,6 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
+@@ -3563,7 +3500,6 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
  void trilin_dp_remove(struct trilin_dpsub *dpsub)
  {
  	struct trilin_dp *dp = dpsub->dp;

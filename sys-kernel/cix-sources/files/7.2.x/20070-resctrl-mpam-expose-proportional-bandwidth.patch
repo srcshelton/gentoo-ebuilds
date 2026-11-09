@@ -83,7 +83,7 @@ diff --git a/Documentation/filesystems/resctrl.rst b/Documentation/filesystems/r
  		control step available on the hardware. The
  		available bandwidth control steps are:
  		min_bandwidth + N * bandwidth_gran.
-@@ -964,6 +969,17 @@ Memory bandwidth domain is L3 cache.
+@@ -974,6 +979,17 @@ Memory bandwidth domain is L3 cache.
  
  	MB:<cache_id0>=bw_MiBps0;<cache_id1>=bw_MiBps1;...
  
@@ -104,7 +104,7 @@ diff --git a/Documentation/filesystems/resctrl.rst b/Documentation/filesystems/r
 diff --git a/arch/x86/kernel/cpu/resctrl/core.c b/arch/x86/kernel/cpu/resctrl/core.c
 --- a/arch/x86/kernel/cpu/resctrl/core.c
 +++ b/arch/x86/kernel/cpu/resctrl/core.c
-@@ -212,6 +212,7 @@ static __init bool __get_mem_config_intel(struct rdt_resource *r)
+@@ -213,6 +213,7 @@ static __init bool __get_mem_config_intel(struct rdt_resource *r)
  	hw_res->num_closid = edx.split.cos_max + 1;
  	max_delay = eax.split.max_delay + 1;
  	r->membw.max_bw = MAX_MBA_BW;
@@ -112,7 +112,7 @@ diff --git a/arch/x86/kernel/cpu/resctrl/core.c b/arch/x86/kernel/cpu/resctrl/co
  	r->membw.arch_needs_linear = true;
  	if (ecx & MBA_IS_LINEAR) {
  		r->membw.delay_linear = true;
-@@ -247,6 +248,7 @@ static __init bool __rdt_get_mem_config_amd(struct rdt_resource *r)
+@@ -248,6 +249,7 @@ static __init bool __rdt_get_mem_config_amd(struct rdt_resource *r)
  	cpuid_count(0x80000020, subleaf, &eax, &ebx, &ecx, &edx);
  	hw_res->num_closid = edx + 1;
  	r->membw.max_bw = 1 << eax;
@@ -148,7 +148,7 @@ diff --git a/arch/x86/kernel/cpu/resctrl/rdtgroup.c b/arch/x86/kernel/cpu/resctr
 diff --git a/drivers/resctrl/mpam_devices.c b/drivers/resctrl/mpam_devices.c
 --- a/drivers/resctrl/mpam_devices.c
 +++ b/drivers/resctrl/mpam_devices.c
-@@ -1532,6 +1532,15 @@ static u16 mpam_wa_t241_calc_min_from_max(struct mpam_props *props,
+@@ -1547,6 +1547,15 @@ static u16 mpam_wa_t241_calc_min_from_max(struct mpam_props *props,
  }
  
  /* Called via IPI. Call while holding an SRCU reference */
@@ -164,7 +164,7 @@ diff --git a/drivers/resctrl/mpam_devices.c b/drivers/resctrl/mpam_devices.c
  static void mpam_reprogram_ris_partid(struct mpam_msc_ris *ris, u16 partid,
  				      struct mpam_config *cfg)
  {
-@@ -1589,7 +1598,8 @@ static void mpam_reprogram_ris_partid(struct mpam_msc_ris *ris, u16 partid,
+@@ -1604,7 +1613,8 @@ static void mpam_reprogram_ris_partid(struct mpam_msc_ris *ris, u16 partid,
  	}
  
  	if (mpam_has_feature(mpam_feat_mbw_prop, rprops))
@@ -174,7 +174,7 @@ diff --git a/drivers/resctrl/mpam_devices.c b/drivers/resctrl/mpam_devices.c
  
  	if (mpam_has_feature(mpam_feat_cmax_cmax, rprops))
  		mpam_write_partsel_reg(msc, CMAX, cmax);
-@@ -2622,6 +2632,10 @@ static void mpam_reset_component_cfg(struct mpam_component *comp)
+@@ -2641,6 +2651,10 @@ static void mpam_reset_component_cfg(struct mpam_component *comp)
  			comp->cfg[i].mbw_pbm = GENMASK(cprops->mbw_pbm_bits - 1, 0);
  		if (cprops->bwa_wd)
  			comp->cfg[i].mbw_max = GENMASK(15, 16 - cprops->bwa_wd);
@@ -185,7 +185,7 @@ diff --git a/drivers/resctrl/mpam_devices.c b/drivers/resctrl/mpam_devices.c
  	}
  }
  
-@@ -2896,6 +2910,13 @@ static bool mpam_update_config(struct mpam_config *cfg,
+@@ -2915,6 +2929,13 @@ static bool mpam_update_config(struct mpam_config *cfg,
  	maybe_update_config(cfg, mpam_feat_cpor_part, newcfg, cpbm, has_changes);
  	maybe_update_config(cfg, mpam_feat_mbw_part, newcfg, mbw_pbm, has_changes);
  	maybe_update_config(cfg, mpam_feat_mbw_max, newcfg, mbw_max, has_changes);
@@ -199,7 +199,7 @@ diff --git a/drivers/resctrl/mpam_devices.c b/drivers/resctrl/mpam_devices.c
  
  	return has_changes;
  }
-@@ -2937,6 +2958,22 @@ int mpam_apply_config(struct mpam_component *comp, u16 partid,
+@@ -2956,6 +2977,22 @@ int mpam_apply_config(struct mpam_component *comp, u16 partid,
  	return 0;
  }
  
@@ -601,7 +601,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  	{
  		.name		= "bandwidth_gran",
  		.mode		= 0444,
-@@ -2404,6 +2420,7 @@ static unsigned long fflags_from_resource(struct rdt_resource *r)
+@@ -2410,6 +2426,7 @@ static unsigned long fflags_from_resource(struct rdt_resource *r)
  	case RDT_RESOURCE_L2:
  		return RFTYPE_RES_CACHE;
  	case RDT_RESOURCE_MBA:
@@ -609,7 +609,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  	case RDT_RESOURCE_SMBA:
  		return RFTYPE_RES_MB;
  	case RDT_RESOURCE_PERF_PKG:
-@@ -2648,6 +2665,7 @@ static int mkdir_mondata_all(struct kernfs_node *parent_kn,
+@@ -2667,6 +2684,7 @@ static int mkdir_mondata_all(struct kernfs_node *parent_kn,
  
  static void rdt_disable_ctx(void)
  {
@@ -617,7 +617,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  	resctrl_arch_set_cdp_enabled(RDT_RESOURCE_L3, false);
  	resctrl_arch_set_cdp_enabled(RDT_RESOURCE_L2, false);
  	set_mba_sc(false);
-@@ -2677,11 +2695,17 @@ static int rdt_enable_ctx(struct rdt_fs_context *ctx)
+@@ -2696,11 +2714,17 @@ static int rdt_enable_ctx(struct rdt_fs_context *ctx)
  			goto out_cdpl3;
  	}
  
@@ -635,7 +635,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  out_cdpl3:
  	resctrl_arch_set_cdp_enabled(RDT_RESOURCE_L3, false);
  out_cdpl2:
-@@ -2763,6 +2787,9 @@ static int schemata_list_create(void)
+@@ -2782,6 +2806,9 @@ static int schemata_list_create(void)
  	int ret = 0;
  
  	for_each_alloc_capable_rdt_resource(r) {
@@ -645,7 +645,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  		if (resctrl_arch_get_cdp_enabled(r->rid)) {
  			ret = schemata_list_add(r, CDP_CODE);
  			if (ret)
-@@ -2921,6 +2948,7 @@ enum rdt_param {
+@@ -2940,6 +2967,7 @@ enum rdt_param {
  	Opt_cdp,
  	Opt_cdpl2,
  	Opt_mba_mbps,
@@ -653,7 +653,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  	Opt_debug,
  	nr__rdt_params
  };
-@@ -2929,6 +2957,7 @@ static const struct fs_parameter_spec rdt_fs_parameters[] = {
+@@ -2948,6 +2976,7 @@ static const struct fs_parameter_spec rdt_fs_parameters[] = {
  	fsparam_flag("cdp",		Opt_cdp),
  	fsparam_flag("cdpl2",		Opt_cdpl2),
  	fsparam_flag("mba_MBps",	Opt_mba_mbps),
@@ -661,7 +661,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  	fsparam_flag("debug",		Opt_debug),
  	{}
  };
-@@ -2957,6 +2986,9 @@ static int rdt_parse_param(struct fs_context *fc, struct fs_parameter *param)
+@@ -2976,6 +3005,9 @@ static int rdt_parse_param(struct fs_context *fc, struct fs_parameter *param)
  			return invalfc(fc, msg);
  		ctx->enable_mba_mbps = true;
  		return 0;
@@ -671,7 +671,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  	case Opt_debug:
  		ctx->enable_debug = true;
  		return 0;
-@@ -3666,8 +3698,7 @@ static int rdtgroup_init_alloc(struct rdtgroup *rdtgrp)
+@@ -3685,8 +3717,7 @@ static int rdtgroup_init_alloc(struct rdtgroup *rdtgrp)
  
  	list_for_each_entry(s, &resctrl_schema_all, list) {
  		r = s->res;
@@ -681,7 +681,7 @@ diff --git a/fs/resctrl/rdtgroup.c b/fs/resctrl/rdtgroup.c
  			rdtgroup_init_mba(r, rdtgrp->closid);
  			if (is_mba_sc(r))
  				continue;
-@@ -4258,6 +4289,9 @@ static int rdtgroup_show_options(struct seq_file *seq, struct kernfs_root *kf)
+@@ -4277,6 +4308,9 @@ static int rdtgroup_show_options(struct seq_file *seq, struct kernfs_root *kf)
  	if (is_mba_sc(resctrl_arch_get_resource(RDT_RESOURCE_MBA)))
  		seq_puts(seq, ",mba_MBps");
  
@@ -721,7 +721,7 @@ diff --git a/include/linux/resctrl.h b/include/linux/resctrl.h
  	u32				delay_linear;
  	bool				arch_needs_linear;
  	enum membw_throttle_mode	throttle_mode;
-@@ -403,7 +406,7 @@ static inline u32 resctrl_get_default_ctrl(struct rdt_resource *r)
+@@ -407,7 +410,7 @@ static inline u32 resctrl_get_default_ctrl(struct rdt_resource *r)
  	case RESCTRL_SCHEMA_BITMAP:
  		return BIT_MASK(r->cache.cbm_len) - 1;
  	case RESCTRL_SCHEMA_RANGE:
@@ -730,7 +730,7 @@ diff --git a/include/linux/resctrl.h b/include/linux/resctrl.h
  	}
  
  	return WARN_ON_ONCE(1);
-@@ -479,6 +482,9 @@ static inline u32 resctrl_get_config_index(u32 closid,
+@@ -483,6 +486,9 @@ static inline u32 resctrl_get_config_index(u32 closid,
  
  bool resctrl_arch_get_cdp_enabled(enum resctrl_res_level l);
  int resctrl_arch_set_cdp_enabled(enum resctrl_res_level l, bool enable);

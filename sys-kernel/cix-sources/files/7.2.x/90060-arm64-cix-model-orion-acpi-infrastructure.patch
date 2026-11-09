@@ -108,7 +108,7 @@ diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconf
 diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
 --- a/sound/hda/controllers/Kconfig
 +++ b/sound/hda/controllers/Kconfig
-@@ -37,7 +37,8 @@ config SND_HDA_CIX_IPBLOQ
+@@ -38,7 +38,8 @@ config SND_HDA_CIX_IPBLOQ
  	select RESET_SKY1_AUDSS if ARCH_CIX
  	select SND_HDA
  	select SND_HDA_ALIGNED_MMIO
@@ -121,7 +121,7 @@ diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
 diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
 --- a/sound/hda/controllers/cix-ipbloq.c
 +++ b/sound/hda/controllers/cix-ipbloq.c
-@@ -693,7 +693,11 @@ static struct platform_driver cix_ipbloq_hda_driver = {
+@@ -721,7 +721,11 @@ static struct platform_driver cix_ipbloq_hda_driver = {
  };
  module_platform_driver(cix_ipbloq_hda_driver);
  

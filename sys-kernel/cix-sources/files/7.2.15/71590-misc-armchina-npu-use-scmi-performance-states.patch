@@ -1,0 +1,64 @@
+diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+--- a/drivers/misc/armchina-npu/sky1/sky1.c
++++ b/drivers/misc/armchina-npu/sky1/sky1.c
+@@ -72,6 +72,35 @@ static void sky1_priv_release(struct cix_aipu_priv *priv)
+ }
+ 
+ #if IS_REACHABLE(CONFIG_PM_DEVFREQ)
++static int sky1_npu_set_performance_state(struct device *dev,
++					  struct cix_aipu_priv *priv,
++					  unsigned long freq)
++{
++	struct dev_pm_opp *opp;
++	unsigned int level;
++	int ret;
++
++	opp = dev_pm_opp_find_freq_exact(priv->opp_pmdomain, freq, true);
++	if (IS_ERR(opp))
++		return PTR_ERR(opp);
++
++	level = dev_pm_opp_get_level(opp);
++	dev_pm_opp_put(opp);
++	if (level == OPP_LEVEL_UNSET) {
++		dev_err(dev, "NPU OPP for %lu Hz has no SCMI performance level\n",
++			freq);
++		return -EINVAL;
++	}
++
++	ret = dev_pm_genpd_set_performance_state(priv->opp_pmdomain, level);
++	if (ret)
++		dev_err(dev,
++			"failed to set NPU SCMI performance state %u for %lu Hz: %d\n",
++			level, freq, ret);
++
++	return ret;
++}
++
+ static int sky1_npu_devfreq_target(struct device *dev, unsigned long *freq,
+ 				   u32 flags)
+ {
+@@ -88,13 +117,8 @@ static int sky1_npu_devfreq_target(struct device *dev, unsigned long *freq,
+ 		return PTR_ERR(opp);
+ 	dev_pm_opp_put(opp);
+ 
+-	opp = dev_pm_opp_find_freq_exact(priv->opp_pmdomain, *freq, true);
+-	if (IS_ERR(opp))
+-		return PTR_ERR(opp);
+-	dev_pm_opp_put(opp);
+-
+ 	previous = READ_ONCE(priv->desired_freq);
+-	ret = dev_pm_opp_set_rate(priv->opp_pmdomain, *freq);
++	ret = sky1_npu_set_performance_state(dev, priv, *freq);
+ 	if (!ret)
+ 		WRITE_ONCE(priv->desired_freq, *freq);
+ 
+@@ -346,7 +370,8 @@ static int sky1_npu_devfreq_init(struct device *dev,
+ 					      "failed to register NPU OPP notifier");
+ 	priv->opp_notifier_registered = true;
+ 
+-	ret = dev_pm_opp_set_rate(priv->opp_pmdomain, profile->initial_freq);
++	ret = sky1_npu_set_performance_state(dev, priv,
++					     profile->initial_freq);
+ 	if (ret)
+ 		return sky1_npu_devfreq_fail(dev, priv, ret,
+ 					      "failed to select initial NPU OPP");

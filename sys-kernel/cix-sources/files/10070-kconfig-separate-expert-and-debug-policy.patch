@@ -11,7 +11,7 @@ can then disable the support without enabling unrelated expert options.
 diff --git a/init/Kconfig b/init/Kconfig
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1706,7 +1706,7 @@ config HAVE_PCSPKR_PLATFORM
+@@ -1639,7 +1639,7 @@ config HAVE_PCSPKR_PLATFORM
  menuconfig EXPERT
  	bool "Configure standard kernel features (expert users)"
  	# Unhide debug options, to make the on-by-default options visible

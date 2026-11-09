@@ -10,7 +10,7 @@ Both GPIO views of the S5 multifunction pads use the same ownership rule.
 diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
 --- a/drivers/gpio/gpio-cadence.c
 +++ b/drivers/gpio/gpio-cadence.c
-@@ -76,6 +76,101 @@ static const struct cdns_gpio_quirks sky1_acpi_gpio_quirks = {
+@@ -71,6 +71,101 @@ static const struct cdns_gpio_quirks sky1_acpi_gpio_quirks = {
  	.cix_sky1 = true,
  	.clock_optional = true,
  };
@@ -112,7 +112,7 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
  #endif
  
  struct cdns_gpio_chip {
-@@ -117,6 +212,11 @@ static void cdns_gpio_write_valid(struct cdns_gpio_chip *cgpio,
+@@ -112,6 +207,11 @@ static void cdns_gpio_write_valid(struct cdns_gpio_chip *cgpio,
  static int cdns_gpio_request(struct gpio_chip *chip, unsigned int offset)
  {
  	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
@@ -124,7 +124,7 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
  
  	guard(gpio_generic_lock)(&cgpio->gen_gc);
  
-@@ -130,11 +230,15 @@ static void cdns_gpio_free(struct gpio_chip *chip, unsigned int offset)
+@@ -125,11 +225,15 @@ static void cdns_gpio_free(struct gpio_chip *chip, unsigned int offset)
  {
  	struct cdns_gpio_chip *cgpio = gpiochip_get_data(chip);
  
@@ -144,7 +144,7 @@ diff --git a/drivers/gpio/gpio-cadence.c b/drivers/gpio/gpio-cadence.c
  }
  
  static void cdns_gpio_irq_mask(struct irq_data *d)
-@@ -619,6 +723,10 @@ static int cdns_gpio_probe(struct platform_device *pdev)
+@@ -649,6 +753,10 @@ static int cdns_gpio_probe(struct platform_device *pdev)
  	cgpio->gen_gc.gc.owner = THIS_MODULE;
  	cgpio->gen_gc.gc.request = cdns_gpio_request;
  	cgpio->gen_gc.gc.free = cdns_gpio_free;

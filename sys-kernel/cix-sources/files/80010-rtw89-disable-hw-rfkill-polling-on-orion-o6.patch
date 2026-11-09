@@ -1,7 +1,7 @@
 diff --git a/drivers/net/wireless/realtek/rtw89/core.c b/drivers/net/wireless/realtek/rtw89/core.c
 --- a/drivers/net/wireless/realtek/rtw89/core.c
 +++ b/drivers/net/wireless/realtek/rtw89/core.c
-@@ -6427,6 +6427,26 @@ static int rtw89_chip_board_info_setup(struct rtw89_dev *rtwdev)
+@@ -6138,6 +6138,26 @@ static int rtw89_chip_board_info_setup(struct rtw89_dev *rtwdev)
  
  static bool rtw89_chip_has_rfkill(struct rtw89_dev *rtwdev)
  {

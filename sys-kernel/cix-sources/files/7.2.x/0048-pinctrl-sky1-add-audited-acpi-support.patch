@@ -2494,7 +2494,7 @@ diff --git a/drivers/pinctrl/core.c b/drivers/pinctrl/core.c
  
  static bool pinctrl_dummy_state;
  
-@@ -1099,9 +1101,15 @@ static struct pinctrl *create_pinctrl(struct device *dev,
+@@ -1112,9 +1114,15 @@ static struct pinctrl *create_pinctrl(struct device *dev,
  		return ERR_PTR(-ENOMEM);
  	p->dev = dev;
  	INIT_LIST_HEAD(&p->states);
@@ -2512,7 +2512,7 @@ diff --git a/drivers/pinctrl/core.c b/drivers/pinctrl/core.c
  	if (ret < 0) {
  		kfree(p);
  		return ERR_PTR(ret);
-@@ -1225,7 +1233,10 @@ static void pinctrl_free(struct pinctrl *p, bool inlist)
+@@ -1238,7 +1246,10 @@ static void pinctrl_free(struct pinctrl *p, bool inlist)
  		kfree(state);
  	}
  
@@ -2524,7 +2524,7 @@ diff --git a/drivers/pinctrl/core.c b/drivers/pinctrl/core.c
  
  	if (inlist)
  		list_del(&p->node);
-@@ -2218,14 +2229,19 @@ int pinctrl_enable(struct pinctrl_dev *pctldev)
+@@ -2249,14 +2260,19 @@ int pinctrl_enable(struct pinctrl_dev *pctldev)
  {
  	int error;
  
@@ -2568,7 +2568,7 @@ diff --git a/drivers/pinctrl/core.h b/drivers/pinctrl/core.h
  	struct kref users;
  };
  
-diff --git a/drivers/pinctrl/pinctrl-acpi.c b/drivers/pinctrl/pinctrl-acpi.c
+diff --git b/drivers/pinctrl/pinctrl-acpi.c b/drivers/pinctrl/pinctrl-acpi.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/pinctrl/pinctrl-acpi.c
@@ -3448,7 +3448,7 @@ new file mode 100644
 +	return 0;
 +}
 +EXPORT_SYMBOL_GPL(pinctrl_acpi_get_pin_groups);
-diff --git a/drivers/pinctrl/pinctrl-acpi.h b/drivers/pinctrl/pinctrl-acpi.h
+diff --git b/drivers/pinctrl/pinctrl-acpi.h b/drivers/pinctrl/pinctrl-acpi.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/pinctrl/pinctrl-acpi.h

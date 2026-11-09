@@ -17,7 +17,7 @@ returns.
 diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
 --- a/drivers/hwmon/Kconfig
 +++ b/drivers/hwmon/Kconfig
-@@ -477,6 +477,17 @@ config SENSORS_CHIPCAP2
+@@ -489,6 +489,17 @@ config SENSORS_CHIPCAP2
  	  To compile this driver as a module, choose M here: the module
  	  will be called chipcap2.
  
@@ -38,7 +38,7 @@ diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
 diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
 --- a/drivers/hwmon/Makefile
 +++ b/drivers/hwmon/Makefile
-@@ -60,6 +60,7 @@ obj-$(CONFIG_SENSORS_ATXP1)	+= atxp1.o
+@@ -61,6 +61,7 @@ obj-$(CONFIG_SENSORS_ATXP1)	+= atxp1.o
  obj-$(CONFIG_SENSORS_AXI_FAN_CONTROL) += axi-fan-control.o
  obj-$(CONFIG_SENSORS_CGBC)	+= cgbc-hwmon.o
  obj-$(CONFIG_SENSORS_CHIPCAP2) += chipcap2.o
@@ -46,7 +46,7 @@ diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
  obj-$(CONFIG_SENSORS_CORETEMP)	+= coretemp.o
  obj-$(CONFIG_SENSORS_CORSAIR_CPRO) += corsair-cpro.o
  obj-$(CONFIG_SENSORS_CORSAIR_PSU) += corsair-psu.o
-diff --git a/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
+diff --git b/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/hwmon/cix-fan.c

@@ -1,7 +1,7 @@
 diff --git a/drivers/gpu/drm/panthor/panthor_devfreq.c b/drivers/gpu/drm/panthor/panthor_devfreq.c
 --- a/drivers/gpu/drm/panthor/panthor_devfreq.c
 +++ b/drivers/gpu/drm/panthor/panthor_devfreq.c
-@@ -253,14 +253,20 @@ static void panthor_devfreq_reset(struct panthor_devfreq *pdevfreq)
+@@ -249,14 +249,20 @@ static void panthor_devfreq_reset(struct panthor_devfreq *pdevfreq)
  	pdevfreq->time_last_update = ktime_get();
  }
  
@@ -23,7 +23,7 @@ diff --git a/drivers/gpu/drm/panthor/panthor_devfreq.c b/drivers/gpu/drm/panthor
  
  	spin_lock_irqsave(&pdevfreq->lock, irqflags);
  
-@@ -286,6 +292,25 @@ static int panthor_devfreq_get_dev_status(struct device *dev,
+@@ -282,6 +288,25 @@ static int panthor_devfreq_get_dev_status(struct device *dev,
  static int panthor_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
  {
  	struct panthor_device *ptdev = dev_get_drvdata(dev);
@@ -67,7 +67,7 @@ diff --git a/drivers/pmdomain/arm/scmi_perf_domain.c b/drivers/pmdomain/arm/scmi
  static int
  scmi_pd_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
  {
-@@ -208,6 +216,7 @@ static int scmi_perf_domain_probe(struct scmi_device *sdev)
+@@ -166,6 +174,7 @@ static int scmi_perf_domain_probe(struct scmi_device *sdev)
  				       GENPD_FLAG_OPP_TABLE_FW |
  				       GENPD_FLAG_DEV_NAME_FW;
  		scmi_pd->genpd.set_performance_state = scmi_pd_set_perf_state;
@@ -78,7 +78,7 @@ diff --git a/drivers/pmdomain/arm/scmi_perf_domain.c b/drivers/pmdomain/arm/scmi
 diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
 --- a/drivers/pmdomain/core.c
 +++ b/drivers/pmdomain/core.c
-@@ -599,6 +599,46 @@ int dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state)
+@@ -594,6 +594,46 @@ int dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state)
  }
  EXPORT_SYMBOL_GPL(dev_pm_genpd_set_performance_state);
  

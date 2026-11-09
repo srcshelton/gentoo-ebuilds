@@ -1,7 +1,7 @@
 diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/cix/dev/mvx_dev.c
 --- a/drivers/media/platform/cix/dev/mvx_dev.c
 +++ b/drivers/media/platform/cix/dev/mvx_dev.c
-@@ -1099,17 +1099,39 @@ static void mvx_pdev_remove(struct platform_device *pdev)
+@@ -1260,17 +1260,39 @@ static void mvx_pdev_remove(struct platform_device *pdev)
  static int mvx_hw_init(struct device *dev)
  {
      struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
@@ -42,7 +42,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
  static int mvx_switch_enpwoff(struct mvx_dev_ctx *ctx, bool enable)
  {
      uint32_t reg;
-@@ -1125,19 +1147,6 @@ static int mvx_switch_enpwoff(struct mvx_dev_ctx *ctx, bool enable)
+@@ -1286,19 +1308,6 @@ static int mvx_switch_enpwoff(struct mvx_dev_ctx *ctx, bool enable)
      reg = (reg & ((1 << MVX_RCSU_HWREG_ENPWOFF_SHIFT) - 1)) | (val << MVX_RCSU_HWREG_ENPWOFF_SHIFT);
      mvx_hwreg_write_rcsu(&ctx->hwreg, MVX_RCSU_HWREG_STRAP_PIN0, reg);
  
@@ -62,7 +62,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
      return 0;
  }
  
-@@ -1176,6 +1185,9 @@ static int mvx_pm_runtime_suspend(struct device *dev)
+@@ -1337,6 +1346,9 @@ static int mvx_pm_runtime_suspend(struct device *dev)
      MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_suspend");
  
      mvx_if_flush_work(ctx->if_ops);
@@ -72,7 +72,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
      ret = mvx_sched_suspend(&ctx->scheduler);
      disable_irq(ctx->irq);
  
-@@ -1189,6 +1201,7 @@ static int mvx_pm_runtime_suspend(struct device *dev)
+@@ -1350,6 +1362,7 @@ static int mvx_pm_runtime_suspend(struct device *dev)
      else
          cancel_work_sync(&ctx->work);
      mvx_sched_cancel_work(&ctx->scheduler);
@@ -80,7 +80,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
  
      mvx_switch_qchannel_clock_gating(ctx, false);
  
-@@ -1198,8 +1211,10 @@ static int mvx_pm_runtime_suspend(struct device *dev)
+@@ -1359,8 +1372,10 @@ static int mvx_pm_runtime_suspend(struct device *dev)
          usleep_range(10, 20);
          reset_control_deassert(ctx->rstc);
          mvx_switch_enpwoff(ctx, true);
@@ -91,7 +91,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
      if (!IS_ERR_OR_NULL(ctx->clk))
          clk_disable_unprepare(ctx->clk);
  
-@@ -1241,11 +1256,10 @@ static int mvx_pm_runtime_resume(struct device *dev)
+@@ -1402,11 +1417,10 @@ static int mvx_pm_runtime_resume(struct device *dev)
          return ret;
      }
  
@@ -104,7 +104,7 @@ diff --git a/drivers/media/platform/cix/dev/mvx_dev.c b/drivers/media/platform/c
  
      mvx_switch_qchannel_clock_gating(ctx, true);
  
-@@ -1310,6 +1324,9 @@ static int mvx_pm_runtime_resume(struct device *dev)
+@@ -1471,6 +1485,9 @@ static int mvx_pm_runtime_resume(struct device *dev)
      if (IS_ERR_OR_NULL(ctx->scheduler.dev))
          return ret;
  

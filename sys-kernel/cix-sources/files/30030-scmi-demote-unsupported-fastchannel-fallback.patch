@@ -1,7 +1,7 @@
 diff --git a/drivers/firmware/arm_scmi/driver.c b/drivers/firmware/arm_scmi/driver.c
 --- a/drivers/firmware/arm_scmi/driver.c
 +++ b/drivers/firmware/arm_scmi/driver.c
-@@ -2014,9 +2014,14 @@ scmi_common_fastchannel_init(const struct scmi_protocol_handle *ph,
+@@ -2018,9 +2018,14 @@ err_xfer:
  	ph->xops->xfer_put(ph, t);
  
  err_out:

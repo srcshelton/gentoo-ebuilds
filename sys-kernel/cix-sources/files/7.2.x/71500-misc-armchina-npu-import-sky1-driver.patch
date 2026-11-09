@@ -1,7 +1,7 @@
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -661,4 +661,5 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
+@@ -651,4 +651,5 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
  source "drivers/misc/keba/Kconfig"
  source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
@@ -10,12 +10,12 @@ diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -75,3 +75,4 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
+@@ -74,3 +74,4 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
  obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
 +obj-$(CONFIG_ARMCHINA_NPU)	+= armchina-npu/
-diff --git a/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
+diff --git b/drivers/misc/armchina-npu/Kconfig b/drivers/misc/armchina-npu/Kconfig
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/Kconfig
@@ -97,7 +97,7 @@ new file mode 100644
 +endchoice
 +
 +endif
-diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
+diff --git b/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/Makefile
@@ -119,7 +119,7 @@ new file mode 100644
 +include $(src)/sky1/Makefile
 +include $(src)/default/Makefile
 +include $(src)/r329/Makefile
-diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
+diff --git b/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu.c
@@ -707,7 +707,7 @@ new file mode 100644
 +
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("ArmChina Zhouyi NPU accelerator driver");
-diff --git a/drivers/misc/armchina-npu/aipu_common.c b/drivers/misc/armchina-npu/aipu_common.c
+diff --git b/drivers/misc/armchina-npu/aipu_common.c b/drivers/misc/armchina-npu/aipu_common.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_common.c
@@ -1010,7 +1010,7 @@ new file mode 100644
 +finish:
 +	return ret;
 +}
-diff --git a/drivers/misc/armchina-npu/aipu_common.h b/drivers/misc/armchina-npu/aipu_common.h
+diff --git b/drivers/misc/armchina-npu/aipu_common.h b/drivers/misc/armchina-npu/aipu_common.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_common.h
@@ -1056,7 +1056,7 @@ new file mode 100644
 +			     struct io_region *reg, struct aipu_irq_object **irq_obj);
 +
 +#endif /* __AIPU_COMMON_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
+diff --git b/drivers/misc/armchina-npu/aipu_dma_buf.c b/drivers/misc/armchina-npu/aipu_dma_buf.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_dma_buf.c
@@ -1467,7 +1467,7 @@ new file mode 100644
 +MODULE_IMPORT_NS("DMA_BUF");
 +#endif
 +#endif
-diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
+diff --git b/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-npu/aipu_dma_buf.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_dma_buf.h
@@ -1507,7 +1507,7 @@ new file mode 100644
 +int aipu_detach_dma_buf(struct aipu_memory_manager *mm, int fd);
 +
 +#endif /* __AIPU_DMA_BUF_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
+diff --git b/drivers/misc/armchina-npu/aipu_io.c b/drivers/misc/armchina-npu/aipu_io.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_io.c
@@ -1594,7 +1594,7 @@ new file mode 100644
 +	pr_debug("[Write AIPU Register]: reg addr: 0x%llx + 0x%x, write value: 0x%x\n",
 +		 region->phys, offset, (u32)data);
 +}
-diff --git a/drivers/misc/armchina-npu/aipu_io.h b/drivers/misc/armchina-npu/aipu_io.h
+diff --git b/drivers/misc/armchina-npu/aipu_io.h b/drivers/misc/armchina-npu/aipu_io.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_io.h
@@ -1626,7 +1626,7 @@ new file mode 100644
 +void aipu_write32(struct io_region *region, int offset, unsigned int data);
 +
 +#endif /* __AIPU_IO_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
+diff --git b/drivers/misc/armchina-npu/aipu_irq.c b/drivers/misc/armchina-npu/aipu_irq.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_irq.c
@@ -1763,7 +1763,7 @@ new file mode 100644
 +{
 +	flush_workqueue(irq_obj->aipu_wq);
 +}
-diff --git a/drivers/misc/armchina-npu/aipu_irq.h b/drivers/misc/armchina-npu/aipu_irq.h
+diff --git b/drivers/misc/armchina-npu/aipu_irq.h b/drivers/misc/armchina-npu/aipu_irq.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_irq.h
@@ -1813,7 +1813,7 @@ new file mode 100644
 +void aipu_destroy_irq_object(struct aipu_irq_object *irq_obj);
 +
 +#endif /* __AIPU_IRQ_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
+diff --git b/drivers/misc/armchina-npu/aipu_job_manager.c b/drivers/misc/armchina-npu/aipu_job_manager.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_job_manager.c
@@ -3886,7 +3886,7 @@ new file mode 100644
 +	return 0;
 +}
 \ No newline at end of file
-diff --git a/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
+diff --git b/drivers/misc/armchina-npu/aipu_job_manager.h b/drivers/misc/armchina-npu/aipu_job_manager.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_job_manager.h
@@ -4142,7 +4142,7 @@ new file mode 100644
 +				  u64 *job_id);
 +void aipu_sched_pending_job_lock(struct aipu_partition *part);
 +#endif /* __AIPU_JOB_MANAGER_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
+diff --git b/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aipu_mm.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_mm.c
@@ -7491,7 +7491,7 @@ new file mode 100644
 +
 +	return 0;
 +}
-diff --git a/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
+diff --git b/drivers/misc/armchina-npu/aipu_mm.h b/drivers/misc/armchina-npu/aipu_mm.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_mm.h
@@ -7831,7 +7831,7 @@ new file mode 100644
 +int aipu_copy_block_by_dma_fd(struct aipu_memory_manager *mm,
 +			      struct aipu_dma_buf *dmabuf_info);
 +#endif /* __AIPU_MM_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_partition.h b/drivers/misc/armchina-npu/aipu_partition.h
+diff --git b/drivers/misc/armchina-npu/aipu_partition.h b/drivers/misc/armchina-npu/aipu_partition.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_partition.h
@@ -7991,7 +7991,7 @@ new file mode 100644
 +};
 +
 +#endif /* __AIPU_PARTITION_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
+diff --git b/drivers/misc/armchina-npu/aipu_priv.c b/drivers/misc/armchina-npu/aipu_priv.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_priv.c
@@ -8313,7 +8313,7 @@ new file mode 100644
 +		return &partition->priv->job_manager;
 +	return NULL;
 +}
-diff --git a/drivers/misc/armchina-npu/aipu_priv.h b/drivers/misc/armchina-npu/aipu_priv.h
+diff --git b/drivers/misc/armchina-npu/aipu_priv.h b/drivers/misc/armchina-npu/aipu_priv.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_priv.h
@@ -8413,7 +8413,7 @@ new file mode 100644
 +struct aipu_soc_operations *get_soc_ops(struct aipu_partition *partition);
 +struct aipu_job_manager *get_job_manager(struct aipu_partition *partition);
 +#endif /* __AIPU_PRIV_H__ */
-diff --git a/drivers/misc/armchina-npu/aipu_tcb.c b/drivers/misc/armchina-npu/aipu_tcb.c
+diff --git b/drivers/misc/armchina-npu/aipu_tcb.c b/drivers/misc/armchina-npu/aipu_tcb.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_tcb.c
@@ -8481,7 +8481,7 @@ new file mode 100644
 +
 +	return 0;
 +}
-diff --git a/drivers/misc/armchina-npu/aipu_tcb.h b/drivers/misc/armchina-npu/aipu_tcb.h
+diff --git b/drivers/misc/armchina-npu/aipu_tcb.h b/drivers/misc/armchina-npu/aipu_tcb.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_tcb.h
@@ -8686,7 +8686,7 @@ new file mode 100644
 +};
 +
 +#endif /* __AIPU_TCB_H__ */
-diff --git a/drivers/misc/armchina-npu/config.h b/drivers/misc/armchina-npu/config.h
+diff --git b/drivers/misc/armchina-npu/config.h b/drivers/misc/armchina-npu/config.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/config.h
@@ -8710,7 +8710,7 @@ new file mode 100644
 +#define AIPU_USE_STANDARD_DMA_API_FOR_V3_2  0
 +
 +#endif /* __CONFIG_H__ */
-diff --git a/drivers/misc/armchina-npu/default/Makefile b/drivers/misc/armchina-npu/default/Makefile
+diff --git b/drivers/misc/armchina-npu/default/Makefile b/drivers/misc/armchina-npu/default/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/default/Makefile
@@ -8721,7 +8721,7 @@ new file mode 100644
 +DEFAULT_SOC_FILES := default/default.o
 +armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_DEFAULT) += $(DEFAULT_SOC_FILES)
 \ No newline at end of file
-diff --git a/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
+diff --git b/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/default/default.c
@@ -8824,7 +8824,7 @@ new file mode 100644
 +MODULE_AUTHOR("Dejia Shang");
 +MODULE_AUTHOR("Toby Huang");
 +MODULE_DESCRIPTION("ArmChina Zhouyi AI accelerator driver");
-diff --git a/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/armchina-npu/include/armchina_aipu.h
+diff --git b/drivers/misc/armchina-npu/include/armchina_aipu.h b/drivers/misc/armchina-npu/include/armchina_aipu.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/include/armchina_aipu.h
@@ -9673,7 +9673,7 @@ new file mode 100644
 +#define AIPU_IOCTL_BUF_CACHE_FLUSH _IOW(AIPU_IOCTL_MAGIC, 33, struct aipu_buf_desc)
 +
 +#endif /* __UAPI_MISC_ARMCHINA_AIPU_H__ */
-diff --git a/drivers/misc/armchina-npu/include/armchina_aipu_soc.h b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
+diff --git b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/include/armchina_aipu_soc.h
@@ -9736,7 +9736,7 @@ new file mode 100644
 +int armchina_aipu_free_dma_buf(int fd);
 +
 +#endif /* __AIPU_SOC_H__ */
-diff --git a/drivers/misc/armchina-npu/include/cix_sky1_soc.h b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
+diff --git b/drivers/misc/armchina-npu/include/cix_sky1_soc.h b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/include/cix_sky1_soc.h
@@ -9761,7 +9761,7 @@ new file mode 100644
 +int sky1_npu_pm_runtime_put(struct device *dev);
 +
 +#endif /* __CIX_SKY1_SOC_H__ */
-diff --git a/drivers/misc/armchina-npu/r329/Makefile b/drivers/misc/armchina-npu/r329/Makefile
+diff --git b/drivers/misc/armchina-npu/r329/Makefile b/drivers/misc/armchina-npu/r329/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/r329/Makefile
@@ -9772,7 +9772,7 @@ new file mode 100644
 +R329_SOC_FILES := r329/r329.o
 +armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_R329) += $(R329_SOC_FILES)
 \ No newline at end of file
-diff --git a/drivers/misc/armchina-npu/r329/r329.c b/drivers/misc/armchina-npu/r329/r329.c
+diff --git b/drivers/misc/armchina-npu/r329/r329.c b/drivers/misc/armchina-npu/r329/r329.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/r329/r329.c
@@ -9939,7 +9939,7 @@ new file mode 100644
 +
 +module_platform_driver(aipu_platform_driver);
 +MODULE_LICENSE("GPL v2");
-diff --git a/drivers/misc/armchina-npu/sky1/Makefile b/drivers/misc/armchina-npu/sky1/Makefile
+diff --git b/drivers/misc/armchina-npu/sky1/Makefile b/drivers/misc/armchina-npu/sky1/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/sky1/Makefile
@@ -9950,7 +9950,7 @@ new file mode 100644
 +SKY1_SOC_FILES := sky1/sky1.o
 +armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_SKY1) += $(SKY1_SOC_FILES)
 \ No newline at end of file
-diff --git a/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
+diff --git b/drivers/misc/armchina-npu/sky1/sky1.c b/drivers/misc/armchina-npu/sky1/sky1.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/sky1/sky1.c
@@ -10307,7 +10307,7 @@ new file mode 100644
 +
 +module_platform_driver(aipu_platform_driver);
 +MODULE_LICENSE("GPL v2");
-diff --git a/drivers/misc/armchina-npu/zhouyi/Makefile b/drivers/misc/armchina-npu/zhouyi/Makefile
+diff --git b/drivers/misc/armchina-npu/zhouyi/Makefile b/drivers/misc/armchina-npu/zhouyi/Makefile
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/Makefile
@@ -10325,7 +10325,7 @@ new file mode 100644
 +armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V2) += zhouyi/v2.o
 +armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V3) += $(ZHOUYI_V3_FILES)
 +armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V3_2) += $(ZHOUYI_V3_2_FILES)
-diff --git a/drivers/misc/armchina-npu/zhouyi/v1.c b/drivers/misc/armchina-npu/zhouyi/v1.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v1.c b/drivers/misc/armchina-npu/zhouyi/v1.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v1.c
@@ -10603,7 +10603,7 @@ new file mode 100644
 +{
 +	return &zhouyi_v1_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/v1.h b/drivers/misc/armchina-npu/zhouyi/v1.h
+diff --git b/drivers/misc/armchina-npu/zhouyi/v1.h b/drivers/misc/armchina-npu/zhouyi/v1.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v1.h
@@ -10642,7 +10642,7 @@ new file mode 100644
 +struct aipu_operations *get_zhouyi_v1_ops(void);
 +
 +#endif /* __V1_H__ */
-diff --git a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
@@ -10879,7 +10879,7 @@ new file mode 100644
 +{
 +	return &v1v2_priv_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/v2.c b/drivers/misc/armchina-npu/zhouyi/v2.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v2.c b/drivers/misc/armchina-npu/zhouyi/v2.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v2.c
@@ -11293,7 +11293,7 @@ new file mode 100644
 +{
 +	return &zhouyi_v2_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/v2.h b/drivers/misc/armchina-npu/zhouyi/v2.h
+diff --git b/drivers/misc/armchina-npu/zhouyi/v2.h b/drivers/misc/armchina-npu/zhouyi/v2.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v2.h
@@ -11352,7 +11352,7 @@ new file mode 100644
 +struct aipu_operations *get_zhouyi_v2_ops(void);
 +
 +#endif /* __V2_H__ */
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3.c b/drivers/misc/armchina-npu/zhouyi/v3.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v3.c b/drivers/misc/armchina-npu/zhouyi/v3.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v3.c
@@ -11907,7 +11907,7 @@ new file mode 100644
 +{
 +	return &zhouyi_v3_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3.h b/drivers/misc/armchina-npu/zhouyi/v3.h
+diff --git b/drivers/misc/armchina-npu/zhouyi/v3.h b/drivers/misc/armchina-npu/zhouyi/v3.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v3.h
@@ -12343,7 +12343,7 @@ new file mode 100644
 +struct aipu_priv_operations *get_v3_priv_ops(void);
 +
 +#endif /* __V3_H__ */
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2.c
@@ -12787,7 +12787,7 @@ new file mode 100644
 +{
 +	return &zhouyi_v3_2_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.h b/drivers/misc/armchina-npu/zhouyi/v3_2.h
+diff --git b/drivers/misc/armchina-npu/zhouyi/v3_2.h b/drivers/misc/armchina-npu/zhouyi/v3_2.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2.h
@@ -13265,7 +13265,7 @@ new file mode 100644
 +struct aipu_priv_operations *get_v3_2_priv_ops(void);
 +
 +#endif /* __V3_2_H__ */
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
@@ -13519,7 +13519,7 @@ new file mode 100644
 +{
 +	return &v3_2_priv_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/v3_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/v3_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/v3_priv.c
@@ -13752,7 +13752,7 @@ new file mode 100644
 +{
 +	return &v3_priv_ops;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.c b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
+diff --git b/drivers/misc/armchina-npu/zhouyi/zhouyi.c b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.c
@@ -13940,7 +13940,7 @@ new file mode 100644
 +		return TSM_QOS_FAST;
 +	return TSM_QOS_SLOW;
 +}
-diff --git a/drivers/misc/armchina-npu/zhouyi/zhouyi.h b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
+diff --git b/drivers/misc/armchina-npu/zhouyi/zhouyi.h b/drivers/misc/armchina-npu/zhouyi/zhouyi.h
 new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/zhouyi/zhouyi.h

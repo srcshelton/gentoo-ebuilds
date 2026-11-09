@@ -20,7 +20,7 @@ Signed-off-by: Brian Masney <bmasney@redhat.com>
 diff --git a/drivers/clk/clk-composite.c b/drivers/clk/clk-composite.c
 --- a/drivers/clk/clk-composite.c
 +++ b/drivers/clk/clk-composite.c
-@@ -462,3 +462,4 @@ struct clk_hw *devm_clk_hw_register_composite_pdata(struct device *dev,
+@@ -490,3 +490,4 @@ struct clk_hw *devm_clk_hw_register_composite_pdata(struct device *dev,
  						rate_hw, rate_ops, gate_hw,
  						gate_ops, flags);
  }

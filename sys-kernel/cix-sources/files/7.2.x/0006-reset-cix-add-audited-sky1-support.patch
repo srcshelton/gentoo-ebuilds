@@ -16,7 +16,7 @@ https://patchwork.kernel.org/series/1124659/.
 diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
 --- a/drivers/clk/cix/Kconfig
 +++ b/drivers/clk/cix/Kconfig
-@@ -26,6 +26,7 @@ config CLK_SKY1_AUDSS
+@@ -28,6 +28,7 @@ config CLK_SKY1_AUDSS
  	select MFD_SYSCON
  	select REGMAP_MMIO
  	select RESET_CONTROLLER
@@ -70,7 +70,7 @@ diff --git a/drivers/reset/Makefile b/drivers/reset/Makefile
  obj-$(CONFIG_RESET_SOCFPGA) += reset-socfpga.o
  obj-$(CONFIG_RESET_SUNPLUS) += reset-sunplus.o
  obj-$(CONFIG_RESET_SUNXI) += reset-sunxi.o
-diff --git a/drivers/reset/reset-sky1-audss.c b/drivers/reset/reset-sky1-audss.c
+diff --git b/drivers/reset/reset-sky1-audss.c b/drivers/reset/reset-sky1-audss.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/reset/reset-sky1-audss.c
@@ -801,7 +801,7 @@ diff --git a/drivers/reset/reset-sky1.c b/drivers/reset/reset-sky1.c
  
  MODULE_AUTHOR("Jerry Zhu <jerry.zhu@cixtech.com>");
  MODULE_DESCRIPTION("Cix Sky1 reset driver");
-diff --git a/include/dt-bindings/reset/sky1-reset-audss.h b/include/dt-bindings/reset/sky1-reset-audss.h
+diff --git b/include/dt-bindings/reset/sky1-reset-audss.h b/include/dt-bindings/reset/sky1-reset-audss.h
 new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/sky1-reset-audss.h
@@ -832,7 +832,7 @@ new file mode 100644
 +#define SKY1_AUDSS_SW_RESET_NUM	16
 +
 +#endif
-diff --git a/include/dt-bindings/reset/sky1-reset-fch.h b/include/dt-bindings/reset/sky1-reset-fch.h
+diff --git b/include/dt-bindings/reset/sky1-reset-fch.h b/include/dt-bindings/reset/sky1-reset-fch.h
 new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/sky1-reset-fch.h
@@ -847,7 +847,7 @@ new file mode 100644
 +#define SKY1_FCH_RESET_NUM	29
 +
 +#endif
-diff --git a/include/dt-bindings/reset/sky1-reset.h b/include/dt-bindings/reset/sky1-reset.h
+diff --git b/include/dt-bindings/reset/sky1-reset.h b/include/dt-bindings/reset/sky1-reset.h
 new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/sky1-reset.h

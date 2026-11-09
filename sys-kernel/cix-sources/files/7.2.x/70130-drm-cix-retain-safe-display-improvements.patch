@@ -886,7 +886,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  	u32 new_mode;
  	int err;
  
-@@ -383,8 +385,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+@@ -384,8 +386,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
  		return;
  	}
  
@@ -895,7 +895,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  	if (mdev->enabled_by_gop) {
  		mdev->enabled_by_gop = 0;
  		if (mdev->funcs->gop_mode_changed(mdev, mode)) {
-@@ -399,7 +399,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+@@ -400,7 +400,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
  
  			if (__clk_is_enabled(master->pxlclk)) {
  				clk_disable_unprepare(master->pxlclk);
@@ -904,7 +904,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  			}
  
  			reset_control_assert(mdev->ip_rst);
-@@ -413,7 +413,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+@@ -414,7 +414,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
  	if (err)
  		dev_err(mdev->dev, "%s, failed to enable aclk.\n", __func__);
  	else
@@ -913,7 +913,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  
  	/*
  	 * Do not call pm_runtime_enable() here: unbalanced vs cluster bind and
-@@ -447,7 +447,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
+@@ -448,7 +448,6 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
  	WARN_ON(drm_crtc_vblank_get(crtc));
  	linlondp_crtc_do_flush(crtc, old);
  
@@ -921,7 +921,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  }
  
  void linlondp_crtc_flush_and_wait_for_flip_done(
-@@ -503,7 +502,7 @@ void linlondp_crtc_flush_and_wait_for_flip_done(
+@@ -504,7 +503,7 @@ void linlondp_crtc_flush_and_wait_for_flip_done(
  			crtc->state->event = NULL;
  			if (event) {
  				drm_crtc_send_vblank_event(crtc, event);
@@ -930,7 +930,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  			}
  			spin_unlock_irqrestore(&drm->event_lock, flags);
  		}
-@@ -525,10 +524,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
+@@ -526,10 +525,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
  	bool needs_phase2 = false;
  	bool needs_slave_phase2 = false;
  
@@ -941,7 +941,7 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_crtc.c b/drivers/gpu/drm/cix
  	DRM_DEBUG_ATOMIC("CRTC%d_DISABLE: active_pipes: 0x%x, affected: 0x%x\n",
  			 drm_crtc_index(crtc), old_st->active_pipes,
  			 old_st->affected_pipes);
-@@ -588,7 +583,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
+@@ -589,7 +584,6 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
  	pm_runtime_put(mdev->dev);
  	clk_disable_unprepare(mdev->aclk);
  
