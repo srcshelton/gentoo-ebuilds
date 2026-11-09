@@ -127,7 +127,7 @@ apply_local_patch_file() {
 	local replaces=${2:-}
 
 	printf 'Applying %s\n' "$1"
-	patch --batch --forward --fuzz=0 --no-backup-if-mismatch -p1 -i "$1" || return
+	apply_maintained_patch_file "$1" || return
 	record_patch_file "$1" overlay "$replaces"
 }
 
@@ -138,7 +138,14 @@ apply_patch_archive() {
 	mkdir -p -- "${T}/patches"
 	tar -xf "$archive" -C "${T}/patches"
 	while IFS= read -r patch_file; do
-		apply_patch_file "$patch_file" "$origin" || return
+		case $origin in
+			gentoo-genpatches:*)
+				printf 'Applying %s\n' "$patch_file"
+				apply_gentoo_patch_file "$patch_file" || return
+				record_patch_file "$patch_file" "$origin"
+				;;
+			*) apply_patch_file "$patch_file" "$origin" || return ;;
+		esac
 	done < <(find "${T}/patches" -type f \( -name '*.patch' -o -name '*.diff' \) | LC_ALL=C sort)
 	rm -rf -- "${T}/patches"
 }
@@ -376,6 +383,7 @@ if [[ $firmware_profile != 1.2 && $compile_acpi_tables != yes ]]; then
 fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+source "${script_dir}/patch-policy.sh"
 repo_root=$(cd -- "${script_dir}/../../.." && pwd -P)
 manifest="${repo_root}/sys-kernel/cix-sources/Manifest"
 FILESDIR="${repo_root}/sys-kernel/cix-sources/files"
