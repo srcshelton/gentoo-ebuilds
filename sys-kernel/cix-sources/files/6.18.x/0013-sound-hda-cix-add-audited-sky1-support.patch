@@ -246,7 +246,6 @@ diff --git a/sound/hda/controllers/Makefile b/sound/hda/controllers/Makefile
 +obj-$(CONFIG_SND_HDA_CIX_IPBLOQ) += snd-hda-cix-ipbloq.o
  obj-$(CONFIG_SND_HDA_ACPI) += snd-hda-acpi.o
 diff --git b/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
-new file mode 100644
 --- /dev/null
 +++ b/sound/hda/controllers/cix-ipbloq.c
 @@ -0,0 +1,716 @@

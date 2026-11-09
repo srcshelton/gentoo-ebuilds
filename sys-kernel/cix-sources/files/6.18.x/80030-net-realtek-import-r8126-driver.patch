@@ -24,7 +24,6 @@ diff --git a/drivers/net/ethernet/realtek/Makefile b/drivers/net/ethernet/realte
 +obj-$(CONFIG_R8126) += r8126/
  obj-$(CONFIG_RTASE) += rtase/
 diff --git a/drivers/net/ethernet/realtek/r8126/Kconfig b/drivers/net/ethernet/realtek/r8126/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/Kconfig
 @@ -0,0 +1,23 @@
@@ -52,7 +51,6 @@ new file mode 100644
 +	  network-driver operations and are not required for networking,
 +	  RSS or wake-on-LAN. Leave this disabled on normal systems.
 diff --git a/drivers/net/ethernet/realtek/r8126/Makefile b/drivers/net/ethernet/realtek/r8126/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/Makefile
 @@ -0,0 +1,15 @@
@@ -72,7 +70,6 @@ new file mode 100644
 +ccflags-y += -DCONFIG_ASPM
 +ccflags-y += -DENABLE_RSS_SUPPORT
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126.h b/drivers/net/ethernet/realtek/r8126/r8126.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126.h
 @@ -0,0 +1,3015 @@
@@ -3092,7 +3089,6 @@ new file mode 100644
 +
 +#endif /* __R8126_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_fiber.c b/drivers/net/ethernet/realtek/r8126/r8126_fiber.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_fiber.c
 @@ -0,0 +1,466 @@
@@ -3563,7 +3559,6 @@ new file mode 100644
 +        }
 +}
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_fiber.h b/drivers/net/ethernet/realtek/r8126/r8126_fiber.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_fiber.h
 @@ -0,0 +1,63 @@
@@ -3631,7 +3626,6 @@ new file mode 100644
 +
 +#endif /* _LINUX_R8126_FIBER_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_firmware.c b/drivers/net/ethernet/realtek/r8126/r8126_firmware.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_firmware.c
 @@ -0,0 +1,264 @@
@@ -3900,7 +3894,6 @@ new file mode 100644
 +        return rc;
 +}
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_firmware.h b/drivers/net/ethernet/realtek/r8126/r8126_firmware.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_firmware.h
 @@ -0,0 +1,68 @@
@@ -3973,7 +3966,6 @@ new file mode 100644
 +
 +#endif /* _LINUX_R8126_FIRMWARE_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_n.c b/drivers/net/ethernet/realtek/r8126/r8126_n.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_n.c
 @@ -0,0 +1,16890 @@
@@ -20868,7 +20860,6 @@ new file mode 100644
 +module_init(rtl8126_init_module);
 +module_exit(rtl8126_cleanup_module);
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_ptp.c b/drivers/net/ethernet/realtek/r8126/r8126_ptp.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_ptp.c
 @@ -0,0 +1,961 @@
@@ -21834,7 +21825,6 @@ new file mode 100644
 +}
 +#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0) */
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_ptp.h b/drivers/net/ethernet/realtek/r8126/r8126_ptp.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_ptp.h
 @@ -0,0 +1,207 @@
@@ -22046,7 +22036,6 @@ new file mode 100644
 +
 +#endif /* _LINUX_R8126_PTP_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_realwow.h b/drivers/net/ethernet/realtek/r8126/r8126_realwow.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_realwow.h
 @@ -0,0 +1,118 @@
@@ -22169,7 +22158,6 @@ new file mode 100644
 +
 +#endif /* _LINUX_R8126_REALWOW_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_rss.c b/drivers/net/ethernet/realtek/r8126/r8126_rss.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_rss.c
 @@ -0,0 +1,585 @@
@@ -22759,7 +22747,6 @@ new file mode 100644
 +        netdev_rss_key_fill(tp->rss_key, RTL8126_RSS_KEY_SIZE);
 +}
 diff --git a/drivers/net/ethernet/realtek/r8126/r8126_rss.h b/drivers/net/ethernet/realtek/r8126/r8126_rss.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/r8126_rss.h
 @@ -0,0 +1,76 @@
@@ -22840,7 +22827,6 @@ new file mode 100644
 +
 +#endif /* _LINUX_R8126_RSS_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.c
 @@ -0,0 +1,285 @@
@@ -23130,7 +23116,6 @@ new file mode 100644
 +        RTL_W8(tp, Cfg9346, Cfg9346_EEM1);
 +}
 diff --git a/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/rtl_eeprom.h
 @@ -0,0 +1,58 @@
@@ -23193,7 +23178,6 @@ new file mode 100644
 +
 +#endif /* _LINUX_RTLEEPROM_H */
 diff --git a/drivers/net/ethernet/realtek/r8126/rtltool.c b/drivers/net/ethernet/realtek/r8126/rtltool.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/rtltool.c
 @@ -0,0 +1,293 @@
@@ -23491,7 +23475,6 @@ new file mode 100644
 +        return ret;
 +}
 diff --git a/drivers/net/ethernet/realtek/r8126/rtltool.h b/drivers/net/ethernet/realtek/r8126/rtltool.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/net/ethernet/realtek/r8126/rtltool.h
 @@ -0,0 +1,89 @@

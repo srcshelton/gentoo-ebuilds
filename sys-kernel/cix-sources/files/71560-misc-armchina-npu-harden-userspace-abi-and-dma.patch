@@ -906,7 +906,6 @@ diff --git a/drivers/misc/armchina-npu/aipu.c b/drivers/misc/armchina-npu/aipu.c
  MODULE_LICENSE("GPL");
  MODULE_DESCRIPTION("ArmChina Zhouyi NPU accelerator driver");
 diff --git a/drivers/misc/armchina-npu/aipu_abi_p1.c b/drivers/misc/armchina-npu/aipu_abi_p1.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_abi_p1.c
 @@ -0,0 +1,124 @@
@@ -1035,7 +1034,6 @@ new file mode 100644
 +	}
 +}
 diff --git a/drivers/misc/armchina-npu/aipu_abi_p1.h b/drivers/misc/armchina-npu/aipu_abi_p1.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_abi_p1.h
 @@ -0,0 +1,114 @@
@@ -1707,7 +1705,6 @@ diff --git a/drivers/misc/armchina-npu/aipu_dma_buf.h b/drivers/misc/armchina-np
  	struct dma_buf_attachment *attach;
  	struct sg_table *table;
 diff --git a/drivers/misc/armchina-npu/aipu_file.h b/drivers/misc/armchina-npu/aipu_file.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu/aipu_file.h
 @@ -0,0 +1,50 @@

@@ -32,7 +32,6 @@ diff --git a/drivers/soc/Makefile b/drivers/soc/Makefile
  obj-$(CONFIG_ARCH_DOVE)		+= dove/
  obj-$(CONFIG_MACH_DOVE)		+= dove/
 diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/Kconfig
 @@ -0,0 +1,17 @@
@@ -54,14 +53,12 @@ new file mode 100644
 +	  platform_get_resource_byname(), devm_reset_control_get() or
 +	  firmware clock mappings.
 diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/Makefile
 @@ -0,0 +1,2 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
 diff --git a/drivers/soc/cix/cix-acpi-resource-lookup.c b/drivers/soc/cix/cix-acpi-resource-lookup.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-acpi-resource-lookup.c
 @@ -0,0 +1,597 @@

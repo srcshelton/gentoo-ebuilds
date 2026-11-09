@@ -54,7 +54,6 @@ diff --git a/drivers/platform/arm64/Kconfig b/drivers/platform/arm64/Kconfig
 +
 +source "drivers/platform/arm64/Kconfig.radxa"
 diff --git a/drivers/platform/arm64/Kconfig.radxa b/drivers/platform/arm64/Kconfig.radxa
-new file mode 100644
 --- /dev/null
 +++ b/drivers/platform/arm64/Kconfig.radxa
 @@ -0,0 +1,154 @@

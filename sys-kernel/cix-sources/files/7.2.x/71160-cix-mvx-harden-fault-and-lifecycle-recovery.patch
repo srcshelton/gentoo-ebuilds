@@ -93,7 +93,6 @@ diff --git a/drivers/media/platform/cix/if/mvx_buffer.c b/drivers/media/platform
  
      return p->pages->va + p->pages->offset;
 diff --git a/drivers/media/platform/cix/if/mvx_buffer_test.c b/drivers/media/platform/cix/if/mvx_buffer_test.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/if/mvx_buffer_test.c
 @@ -0,0 +1,48 @@

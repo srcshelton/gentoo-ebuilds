@@ -38,7 +38,6 @@ diff --git a/drivers/media/platform/cix/Kconfig b/drivers/media/platform/cix/Kco
 +	  pipeline exposed by CIXH3020/CIXH3021/CIXH3023/CIXH3024/
 +	  CIXH3025/CIXH3026 ACPI devices or equivalent devicetree nodes.
 diff --git b/drivers/media/platform/cix/armcb-isp/Makefile b/drivers/media/platform/cix/armcb-isp/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/Makefile
 @@ -0,0 +1,33 @@
@@ -76,7 +75,6 @@ new file mode 100644
 +	sensor/actuator/armcb_actuator.o \
 +	sensor/armcb_sensor.o
 diff --git b/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c b/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/armcb_isp_entry.c
 @@ -0,0 +1,99 @@
@@ -180,7 +178,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("Armchina isp ko entry driver");
 +MODULE_LICENSE("GPL v2");
 diff --git b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.c
 @@ -0,0 +1,982 @@
@@ -1167,7 +1164,6 @@ new file mode 100644
 +MODULE_LICENSE("GPL");
 +MODULE_ALIAS("platform:" CIX_VI_HW_NAME);
 diff --git b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.h b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/cixvihw/cix_vi_hw.h
 @@ -0,0 +1,84 @@
@@ -1256,7 +1252,6 @@ new file mode 100644
 +void cix_vi_hw_destroy(void);
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.c
 @@ -0,0 +1,1536 @@
@@ -2797,7 +2792,6 @@ new file mode 100644
 +}
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.h b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_camera_io_drv.h
 @@ -0,0 +1,199 @@
@@ -3001,7 +2995,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/armcb_isp.h b/drivers/media/platform/cix/armcb-isp/common/armcb_isp.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_isp.h
 @@ -0,0 +1,462 @@
@@ -3468,7 +3461,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/armcb_register.h b/drivers/media/platform/cix/armcb-isp/common/armcb_register.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_register.h
 @@ -0,0 +1,195 @@
@@ -3668,7 +3660,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.c
 @@ -0,0 +1,267 @@
@@ -3940,7 +3931,6 @@ new file mode 100644
 +	}
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/armcb_v4l_sd.h
 @@ -0,0 +1,103 @@
@@ -4048,7 +4038,6 @@ new file mode 100644
 +int armcb_camera_async_complete(struct v4l2_async_notifier *notifier);
 +#endif //__ARMCB_V4L2_SUBDEV_H__
 diff --git b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.c
 @@ -0,0 +1,913 @@
@@ -4966,7 +4955,6 @@ new file mode 100644
 +	return ret;
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_ops.h
 @@ -0,0 +1,45 @@
@@ -5016,7 +5004,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_utils.c b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_utils.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_utils.c
 @@ -0,0 +1,372 @@
@@ -5393,7 +5380,6 @@ new file mode 100644
 +				 unSlaveNo);
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_utils.h b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_utils.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/isp_hw_if/isp_hw_utils.h
 @@ -0,0 +1,61 @@
@@ -5459,7 +5445,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/system_dma.c b/drivers/media/platform/cix/armcb-isp/common/system_dma.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/system_dma.c
 @@ -0,0 +1,213 @@
@@ -5709,7 +5694,6 @@ new file mode 100755
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/common/types_utils.h b/drivers/media/platform/cix/armcb-isp/common/types_utils.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/common/types_utils.h
 @@ -0,0 +1,52 @@
@@ -5766,7 +5750,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.c
 @@ -0,0 +1,354 @@
@@ -6125,7 +6108,6 @@ new file mode 100644
 +}
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h
 @@ -0,0 +1,233 @@
@@ -6363,7 +6345,6 @@ new file mode 100644
 +
 +#endif // __ARMCB_ISP_SUBDEV_H__
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
 @@ -0,0 +1,566 @@
@@ -6934,7 +6915,6 @@ new file mode 100644
 +MODULE_PARM_DESC(execstart_reload,
 +		 "Write 1 to invalidate cache and re-query isp_app pid/args.");
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
 @@ -0,0 +1,21 @@
@@ -6960,7 +6940,6 @@ new file mode 100644
 +
 +#endif /* __ARMCB_ISP_EXECSTART_H__ */
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_hw_reg.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_hw_reg.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_hw_reg.h
 @@ -0,0 +1,93 @@
@@ -7058,7 +7037,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.c
 @@ -0,0 +1,2269 @@
@@ -9332,7 +9310,6 @@ new file mode 100644
 +}
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_config.h
 @@ -0,0 +1,95 @@
@@ -9432,7 +9409,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.c
 @@ -0,0 +1,2127 @@
@@ -11564,7 +11540,6 @@ new file mode 100644
 +	g_adev_idx = 0;
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_core.h
 @@ -0,0 +1,219 @@
@@ -11788,7 +11763,6 @@ new file mode 100644
 +int armcb_v4l2_config_init_update_stream_hw_addr(armcb_v4l2_dev_t *dev);
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.c
 @@ -0,0 +1,460 @@
@@ -12253,7 +12227,6 @@ new file mode 100644
 +	return rc;
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_v4l2_stream.h
 @@ -0,0 +1,109 @@
@@ -12367,7 +12340,6 @@ new file mode 100644
 +                 struct list_head *stream_buffer_list);
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.c
 @@ -0,0 +1,265 @@
@@ -12637,7 +12609,6 @@ new file mode 100644
 +	return ret;
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/isp/armcb_vb2.h
 @@ -0,0 +1,37 @@
@@ -12679,7 +12650,6 @@ new file mode 100644
 +int isp_vb2_queue_release(struct vb2_queue *q, struct file *file);
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/platform/armcb_platform.c b/drivers/media/platform/cix/armcb-isp/platform/armcb_platform.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/platform/armcb_platform.c
 @@ -0,0 +1,99 @@
@@ -12783,7 +12753,6 @@ new file mode 100644
 +	return 0;
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/platform/armcb_platform.h b/drivers/media/platform/cix/armcb-isp/platform/armcb_platform.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/platform/armcb_platform.h
 @@ -0,0 +1,30 @@
@@ -12818,7 +12787,6 @@ new file mode 100644
 +s32 armcb_fpga_hwcfg_init(void);
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.c
 @@ -0,0 +1,117 @@
@@ -12940,7 +12908,6 @@ new file mode 100644
 +	va_end(va);
 +}
 diff --git b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/platform/logger/system_logger.h
 @@ -0,0 +1,68 @@
@@ -13013,7 +12980,6 @@ new file mode 100644
 +	ACBCAMERA_LOG_WRITE(level, LOG_MODULE, 1, __VA_ARGS__)
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.c
 @@ -0,0 +1,394 @@
@@ -13412,7 +13378,6 @@ new file mode 100644
 +}
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/sensor/actuator/armcb_actuator.h
 @@ -0,0 +1,63 @@
@@ -13480,7 +13445,6 @@ new file mode 100644
 +
 +#endif //__ARMCB_ACTUATOR_H__
 diff --git b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.c
 @@ -0,0 +1,689 @@
@@ -14174,7 +14138,6 @@ new file mode 100644
 +}
 +#endif
 diff --git b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.h b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/media/platform/cix/armcb-isp/sensor/armcb_sensor.h
 @@ -0,0 +1,132 @@

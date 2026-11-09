@@ -1,5 +1,4 @@
 diff --git a/drivers/usb/cdns3/cdns3-plat.c b/drivers/usb/cdns3/cdns3-plat.c
-index d21b91c..8ae74cd 100644
 --- a/drivers/usb/cdns3/cdns3-plat.c
 +++ b/drivers/usb/cdns3/cdns3-plat.c
 @@ -377,32 +377,33 @@ static int cdns3_controller_resume(struct device *dev, pm_message_t msg)
@@ -62,7 +61,6 @@ index d21b91c..8ae74cd 100644
  }
  
 diff --git a/drivers/usb/cdns3/core.c b/drivers/usb/cdns3/core.c
-index 7d4cca8..64b7557 100644
 --- a/drivers/usb/cdns3/core.c
 +++ b/drivers/usb/cdns3/core.c
 @@ -536,8 +536,17 @@ int cdns_resume(struct cdns *cdns)
@@ -86,7 +84,6 @@ index 7d4cca8..64b7557 100644
  	return 0;
  }
 diff --git a/drivers/usb/cdns3/drd.c b/drivers/usb/cdns3/drd.c
-index 50ee54d..51e29c9 100644
 --- a/drivers/usb/cdns3/drd.c
 +++ b/drivers/usb/cdns3/drd.c
 @@ -464,6 +464,8 @@ int cdns_drd_init(struct cdns *cdns)

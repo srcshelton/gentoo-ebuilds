@@ -16,7 +16,6 @@ diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
  obj-$(CONFIG_ARMCHINA_NPU)	+= armchina-npu/
 +obj-$(CONFIG_ARMCHINA_NPU_R2P0) += armchina-npu-r2p0/
 diff --git a/drivers/misc/armchina-npu-r2p0/Kconfig b/drivers/misc/armchina-npu-r2p0/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/Kconfig
 @@ -0,0 +1,21 @@
@@ -42,7 +41,6 @@ new file mode 100644
 +	  armchina_npu_r2p0.  Both backends expose /dev/aipu and cannot drive the
 +	  same device concurrently.
 diff --git a/drivers/misc/armchina-npu-r2p0/Makefile b/drivers/misc/armchina-npu-r2p0/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/Makefile
 @@ -0,0 +1,14 @@
@@ -61,7 +59,6 @@ new file mode 100644
 +			       aipu_priv.o aipu_tcb.o zhouyi/zhouyi.o \
 +			       zhouyi/v3.o zhouyi/v3_priv.o sky1/sky1.o
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu.c b/drivers/misc/armchina-npu-r2p0/aipu.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu.c
 @@ -0,0 +1,565 @@
@@ -631,7 +628,6 @@ new file mode 100644
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("ArmChina Zhouyi V3 NPU legacy R2P0 backend for CIX Sky1");
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_common.c b/drivers/misc/armchina-npu-r2p0/aipu_common.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_common.c
 @@ -0,0 +1,330 @@
@@ -966,7 +962,6 @@ new file mode 100644
 +	return ret;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_common.h b/drivers/misc/armchina-npu-r2p0/aipu_common.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_common.h
 @@ -0,0 +1,41 @@
@@ -1012,7 +1007,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_COMMON_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.c
 @@ -0,0 +1,486 @@
@@ -1503,7 +1497,6 @@ new file mode 100644
 +
 +MODULE_IMPORT_NS("DMA_BUF");
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_dma_buf.h
 @@ -0,0 +1,43 @@
@@ -1551,7 +1544,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_DMA_BUF_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_io.c b/drivers/misc/armchina-npu-r2p0/aipu_io.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_io.c
 @@ -0,0 +1,82 @@
@@ -1638,7 +1630,6 @@ new file mode 100644
 +		 region->phys, offset, (u32)data);
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_io.h b/drivers/misc/armchina-npu-r2p0/aipu_io.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_io.h
 @@ -0,0 +1,27 @@
@@ -1670,7 +1661,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_IO_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_irq.c b/drivers/misc/armchina-npu-r2p0/aipu_irq.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_irq.c
 @@ -0,0 +1,126 @@
@@ -1801,7 +1791,6 @@ new file mode 100644
 +		flush_workqueue(irq_obj->aipu_wq);
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_irq.h b/drivers/misc/armchina-npu-r2p0/aipu_irq.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_irq.h
 @@ -0,0 +1,45 @@
@@ -1851,7 +1840,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_IRQ_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.c
 @@ -0,0 +1,1902 @@
@@ -3758,7 +3746,6 @@ new file mode 100644
 +	return 0;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_job_manager.h
 @@ -0,0 +1,243 @@
@@ -4006,7 +3993,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_JOB_MANAGER_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_mm.c b/drivers/misc/armchina-npu-r2p0/aipu_mm.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_mm.c
 @@ -0,0 +1,2549 @@
@@ -6560,7 +6546,6 @@ new file mode 100644
 +	*size = 0;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_mm.h b/drivers/misc/armchina-npu-r2p0/aipu_mm.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_mm.h
 @@ -0,0 +1,292 @@
@@ -6857,7 +6842,6 @@ new file mode 100644
 +void aipu_mm_set_final_htbuf_index(struct aipu_memory_manager *mm, int index);
 +#endif /* __AIPU_MM_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_partition.h b/drivers/misc/armchina-npu-r2p0/aipu_partition.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_partition.h
 @@ -0,0 +1,151 @@
@@ -7013,7 +6997,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_PARTITION_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_priv.c b/drivers/misc/armchina-npu-r2p0/aipu_priv.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_priv.c
 @@ -0,0 +1,387 @@
@@ -7405,7 +7388,6 @@ new file mode 100644
 +	return NULL;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_priv.h b/drivers/misc/armchina-npu-r2p0/aipu_priv.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_priv.h
 @@ -0,0 +1,104 @@
@@ -7514,7 +7496,6 @@ new file mode 100644
 +struct aipu_job_manager *get_job_manager(struct aipu_partition *partition);
 +#endif /* __AIPU_PRIV_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_tcb.c b/drivers/misc/armchina-npu-r2p0/aipu_tcb.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_tcb.c
 @@ -0,0 +1,63 @@
@@ -7582,7 +7563,6 @@ new file mode 100644
 +	return 0;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/aipu_tcb.h b/drivers/misc/armchina-npu-r2p0/aipu_tcb.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/aipu_tcb.h
 @@ -0,0 +1,139 @@
@@ -7726,7 +7706,6 @@ new file mode 100644
 +
 +#endif /* __AIPU_TCB_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/config.h b/drivers/misc/armchina-npu-r2p0/config.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/config.h
 @@ -0,0 +1,18 @@
@@ -7749,7 +7728,6 @@ new file mode 100644
 +
 +#endif /* __CONFIG_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/include/armchina_aipu.h b/drivers/misc/armchina-npu-r2p0/include/armchina_aipu.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/include/armchina_aipu.h
 @@ -0,0 +1,699 @@
@@ -8453,7 +8431,6 @@ new file mode 100644
 +
 +#endif /* __UAPI_MISC_ARMCHINA_AIPU_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/include/armchina_aipu_soc.h b/drivers/misc/armchina-npu-r2p0/include/armchina_aipu_soc.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/include/armchina_aipu_soc.h
 @@ -0,0 +1,55 @@
@@ -8513,7 +8490,6 @@ new file mode 100644
 +int armchina_aipu_resume(struct platform_device *p_dev);
 +#endif /* __AIPU_SOC_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/include/cix_sky1_soc.h b/drivers/misc/armchina-npu-r2p0/include/cix_sky1_soc.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/include/cix_sky1_soc.h
 @@ -0,0 +1,45 @@
@@ -8563,7 +8539,6 @@ new file mode 100644
 +
 +#endif /* __CIX_SKY1_SOC_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/sky1/sky1.c b/drivers/misc/armchina-npu-r2p0/sky1/sky1.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/sky1/sky1.c
 @@ -0,0 +1,975 @@
@@ -9543,7 +9518,6 @@ new file mode 100644
 +#endif
 +#endif
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v1.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v1.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/v1.h
 @@ -0,0 +1,34 @@
@@ -9582,7 +9556,6 @@ new file mode 100644
 +
 +#endif /* __V1_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v2.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v2.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/v2.h
 @@ -0,0 +1,54 @@
@@ -9641,7 +9614,6 @@ new file mode 100644
 +
 +#endif /* __V2_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v3.c b/drivers/misc/armchina-npu-r2p0/zhouyi/v3.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/v3.c
 @@ -0,0 +1,540 @@
@@ -10186,7 +10158,6 @@ new file mode 100644
 +	return &zhouyi_v3_ops;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v3.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v3.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/v3.h
 @@ -0,0 +1,427 @@
@@ -10618,7 +10589,6 @@ new file mode 100644
 +
 +#endif /* __V3_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v3_1.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v3_1.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/v3_1.h
 @@ -0,0 +1,456 @@
@@ -11079,7 +11049,6 @@ new file mode 100644
 +
 +#endif /* __V3_1_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v3_priv.c b/drivers/misc/armchina-npu-r2p0/zhouyi/v3_priv.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/v3_priv.c
 @@ -0,0 +1,293 @@
@@ -11377,7 +11346,6 @@ new file mode 100644
 +	return &v3_priv_ops;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/zhouyi.c b/drivers/misc/armchina-npu-r2p0/zhouyi/zhouyi.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/zhouyi.c
 @@ -0,0 +1,181 @@
@@ -11563,7 +11531,6 @@ new file mode 100644
 +	return TSM_QOS_SLOW;
 +}
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/zhouyi.h b/drivers/misc/armchina-npu-r2p0/zhouyi/zhouyi.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-r2p0/zhouyi/zhouyi.h
 @@ -0,0 +1,104 @@

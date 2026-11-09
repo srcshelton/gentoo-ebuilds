@@ -1791,7 +1791,6 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/include/linlondp_utils.h b/drivers/gp
  
  #define dp_wait_cond(__cond, __tries, __min_range, __max_range) \
 diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_cluster.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_cluster.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_cluster.c
 @@ -0,0 +1,570 @@
@@ -4514,7 +4513,6 @@ diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_plane.c b/drivers/gpu/drm/ci
  	}
  
 diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pm.c b/drivers/gpu/drm/cix/linlon-dp/linlondp_pm.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pm.c
 @@ -0,0 +1,321 @@
@@ -4840,7 +4838,6 @@ new file mode 100644
 +	return 0;
 +}
 diff --git a/drivers/gpu/drm/cix/linlon-dp/linlondp_pm.h b/drivers/gpu/drm/cix/linlon-dp/linlondp_pm.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/gpu/drm/cix/linlon-dp/linlondp_pm.h
 @@ -0,0 +1,51 @@

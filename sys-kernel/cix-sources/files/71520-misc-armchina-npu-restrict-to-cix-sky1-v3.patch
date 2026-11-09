@@ -86,7 +86,6 @@ diff --git a/drivers/misc/armchina-npu/Makefile b/drivers/misc/armchina-npu/Make
 -include $(src)/default/Makefile
 -include $(src)/r329/Makefile
 diff --git a/drivers/misc/armchina-npu/default/Makefile b/drivers/misc/armchina-npu/default/Makefile
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/default/Makefile
 +++ /dev/null
 @@ -1,5 +0,0 @@
@@ -97,7 +96,6 @@ deleted file mode 100644
 -armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_DEFAULT) += $(DEFAULT_SOC_FILES)
 \ No newline at end of file
 diff --git a/drivers/misc/armchina-npu/default/default.c b/drivers/misc/armchina-npu/default/default.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/default/default.c
 +++ /dev/null
 @@ -1,98 +0,0 @@
@@ -200,7 +198,6 @@ deleted file mode 100644
 -MODULE_AUTHOR("Toby Huang");
 -MODULE_DESCRIPTION("ArmChina Zhouyi AI accelerator driver");
 diff --git a/drivers/misc/armchina-npu/r329/Makefile b/drivers/misc/armchina-npu/r329/Makefile
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/r329/Makefile
 +++ /dev/null
 @@ -1,5 +0,0 @@
@@ -211,7 +208,6 @@ deleted file mode 100644
 -armchina_npu-$(CONFIG_ARMCHINA_NPU_SOC_R329) += $(R329_SOC_FILES)
 \ No newline at end of file
 diff --git a/drivers/misc/armchina-npu/r329/r329.c b/drivers/misc/armchina-npu/r329/r329.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/r329/r329.c
 +++ /dev/null
 @@ -1,162 +0,0 @@
@@ -423,7 +419,6 @@ diff --git a/drivers/misc/armchina-npu/zhouyi/Makefile b/drivers/misc/armchina-n
  armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V3) += $(ZHOUYI_V3_FILES)
 -armchina_npu-$(CONFIG_ARMCHINA_NPU_ARCH_V3_2) += $(ZHOUYI_V3_2_FILES)
 diff --git a/drivers/misc/armchina-npu/zhouyi/v1.c b/drivers/misc/armchina-npu/zhouyi/v1.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v1.c
 +++ /dev/null
 @@ -1,273 +0,0 @@
@@ -701,7 +696,6 @@ deleted file mode 100644
 -	return &zhouyi_v1_ops;
 -}
 diff --git a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c b/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v1v2_priv.c
 +++ /dev/null
 @@ -1,232 +0,0 @@
@@ -938,7 +932,6 @@ deleted file mode 100644
 -	return &v1v2_priv_ops;
 -}
 diff --git a/drivers/misc/armchina-npu/zhouyi/v2.c b/drivers/misc/armchina-npu/zhouyi/v2.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v2.c
 +++ /dev/null
 @@ -1,409 +0,0 @@
@@ -1352,7 +1345,6 @@ deleted file mode 100644
 -	return &zhouyi_v2_ops;
 -}
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.c b/drivers/misc/armchina-npu/zhouyi/v3_2.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2.c
 +++ /dev/null
 @@ -1,439 +0,0 @@
@@ -1796,7 +1788,6 @@ deleted file mode 100644
 -	return &zhouyi_v3_2_ops;
 -}
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c b/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2_priv.c
 +++ /dev/null
 @@ -1,249 +0,0 @@

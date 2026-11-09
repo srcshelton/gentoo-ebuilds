@@ -4,7 +4,6 @@ Accept one integer value equal to 1 on the controller itself. No ancestor
 lookup or hardware allowlist is used, and no ACPI profile opts in yet.
 
 diff --git a/drivers/usb/host/xhci-plat.c b/drivers/usb/host/xhci-plat.c
-index 074d9c7..cca6a67 100644
 --- a/drivers/usb/host/xhci-plat.c
 +++ b/drivers/usb/host/xhci-plat.c
 @@ -20,6 +20,7 @@

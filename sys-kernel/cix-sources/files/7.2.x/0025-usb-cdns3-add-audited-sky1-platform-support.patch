@@ -463,7 +463,6 @@ diff --git a/drivers/usb/cdns3/cdns3-plat.c b/drivers/usb/cdns3/cdns3-plat.c
  MODULE_ALIAS("platform:cdns3");
 +MODULE_ALIAS("platform:cdns-usb3");
 diff --git a/drivers/usb/cdns3/cdns3-sky1.c b/drivers/usb/cdns3/cdns3-sky1.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/usb/cdns3/cdns3-sky1.c
 @@ -0,0 +1,879 @@
@@ -1347,7 +1346,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("Cadence USBSSP CIX Sky1 glue driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/usb/cdns3/cdns3-sky1.h b/drivers/usb/cdns3/cdns3-sky1.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/usb/cdns3/cdns3-sky1.h
 @@ -0,0 +1,120 @@

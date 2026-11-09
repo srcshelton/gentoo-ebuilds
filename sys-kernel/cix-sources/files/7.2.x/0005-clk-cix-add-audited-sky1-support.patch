@@ -15,7 +15,6 @@ The platform syscon mapping is non-exclusive because its range intentionally
 overlaps child-device resources described separately by firmware.
 
 diff --git a/Documentation/devicetree/bindings/soc/cix/cix,sky1-audss-cru.yaml b/Documentation/devicetree/bindings/soc/cix/cix,sky1-audss-cru.yaml
-new file mode 100644
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/soc/cix/cix,sky1-audss-cru.yaml
 @@ -0,0 +1,92 @@
@@ -152,7 +151,6 @@ diff --git a/drivers/clk/Makefile b/drivers/clk/Makefile
  obj-$(CONFIG_COMMON_CLK_ESWIN)		+= eswin/
  obj-$(CONFIG_ARCH_HISI)			+= hisilicon/
 diff --git a/drivers/clk/cix/Kconfig b/drivers/clk/cix/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/clk/cix/Kconfig
 @@ -0,0 +1,36 @@
@@ -193,7 +191,6 @@ new file mode 100644
 +	  subsystem. Say M or Y here if you want to build this driver.
 +endmenu
 diff --git a/drivers/clk/cix/Makefile b/drivers/clk/cix/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/clk/cix/Makefile
 @@ -0,0 +1,4 @@
@@ -202,7 +199,6 @@ new file mode 100644
 +obj-$(CONFIG_CLK_SKY1_ACPI) += clk-sky1-acpi.o
 +obj-$(CONFIG_CLK_SKY1_AUDSS) += clk-sky1-audss.o
 diff --git a/drivers/clk/cix/clk-sky1-acpi.c b/drivers/clk/cix/clk-sky1-acpi.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/clk/cix/clk-sky1-acpi.c
 @@ -0,0 +1,282 @@
@@ -489,7 +485,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("CIX Sky1 ACPI clock lookup table driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/clk/cix/clk-sky1-audss.c b/drivers/clk/cix/clk-sky1-audss.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/clk/cix/clk-sky1-audss.c
 @@ -0,0 +1,1772 @@
@@ -2398,7 +2393,6 @@ diff --git a/drivers/soc/Makefile b/drivers/soc/Makefile
  obj-$(CONFIG_MACH_DOVE)		+= dove/
  obj-y				+= fsl/
 diff --git a/drivers/soc/cix/Kconfig b/drivers/soc/cix/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/Kconfig
 @@ -0,0 +1,15 @@
@@ -2418,7 +2412,6 @@ new file mode 100644
 +
 +endmenu
 diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/Makefile
 @@ -0,0 +1,3 @@
@@ -2426,7 +2419,6 @@ new file mode 100644
 +
 +obj-$(CONFIG_CIX_SKY1_SYSCON) += cix-sky1-syscon.o
 diff --git a/drivers/soc/cix/cix-sky1-syscon.c b/drivers/soc/cix/cix-sky1-syscon.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-sky1-syscon.c
 @@ -0,0 +1,29 @@
@@ -2460,7 +2452,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("CIX Sky1 ACPI syscon driver");
 +MODULE_LICENSE("GPL");
 diff --git a/include/dt-bindings/clock/cix,sky1-audss-cru.h b/include/dt-bindings/clock/cix,sky1-audss-cru.h
-new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/clock/cix,sky1-audss-cru.h
 @@ -0,0 +1,60 @@
@@ -2525,7 +2516,6 @@ new file mode 100644
 +
 +#endif
 diff --git a/include/dt-bindings/reset/cix,sky1-audss-cru.h b/include/dt-bindings/reset/cix,sky1-audss-cru.h
-new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/cix,sky1-audss-cru.h
 @@ -0,0 +1,25 @@

@@ -61,7 +61,6 @@ diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
  obj-$(CONFIG_CIX_ACPI_USB_SCAN)		+= cix-acpi-usb-scan.o
 +obj-$(CONFIG_CIX_BUS_PERF)		+= cix-bus-perf.o
 diff --git a/drivers/soc/cix/cix-bus-perf.c b/drivers/soc/cix/cix-bus-perf.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-bus-perf.c
 @@ -0,0 +1,412 @@

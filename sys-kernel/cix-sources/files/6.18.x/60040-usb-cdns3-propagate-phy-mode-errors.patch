@@ -8,7 +8,6 @@ unchanged role request when its previous activation did not become
 active.
 
 diff --git a/drivers/usb/cdns3/cdns3-gadget.c b/drivers/usb/cdns3/cdns3-gadget.c
-index 331f10c..dde5599 100644
 --- a/drivers/usb/cdns3/cdns3-gadget.c
 +++ b/drivers/usb/cdns3/cdns3-gadget.c
 @@ -3440,7 +3440,9 @@ static int __cdns3_gadget_init(struct cdns *cdns)
@@ -23,7 +22,6 @@ index 331f10c..dde5599 100644
  
  	ret = cdns3_gadget_start(cdns);
 diff --git a/drivers/usb/cdns3/cdnsp-gadget.c b/drivers/usb/cdns3/cdnsp-gadget.c
-index 1ffd3bb..8ed96ff 100644
 --- a/drivers/usb/cdns3/cdnsp-gadget.c
 +++ b/drivers/usb/cdns3/cdnsp-gadget.c
 @@ -1981,7 +1981,9 @@ static int __cdnsp_gadget_init(struct cdns *cdns)
@@ -38,7 +36,6 @@ index 1ffd3bb..8ed96ff 100644
  	pdev = kzalloc(sizeof(*pdev), GFP_KERNEL);
  	if (!pdev)
 diff --git a/drivers/usb/cdns3/core.c b/drivers/usb/cdns3/core.c
-index fa698f7..23dde2a 100644
 --- a/drivers/usb/cdns3/core.c
 +++ b/drivers/usb/cdns3/core.c
 @@ -362,7 +362,9 @@ static int cdns_role_set(struct usb_role_switch *sw, enum usb_role role)
@@ -53,7 +50,6 @@ index fa698f7..23dde2a 100644
  
  	if (cdns->dr_mode == USB_DR_MODE_HOST) {
 diff --git a/drivers/usb/cdns3/drd.c b/drivers/usb/cdns3/drd.c
-index 27c2fb2..1aef437 100644
 --- a/drivers/usb/cdns3/drd.c
 +++ b/drivers/usb/cdns3/drd.c
 @@ -196,11 +196,24 @@ int cdns_drd_host_on(struct cdns *cdns)
@@ -158,7 +154,6 @@ index 27c2fb2..1aef437 100644
  EXPORT_SYMBOL_GPL(cdns_drd_gadget_off);
  
 diff --git a/drivers/usb/cdns3/host.c b/drivers/usb/cdns3/host.c
-index f0df114..bfa320e 100644
 --- a/drivers/usb/cdns3/host.c
 +++ b/drivers/usb/cdns3/host.c
 @@ -72,7 +72,9 @@ static int __cdns_host_init(struct cdns *cdns)

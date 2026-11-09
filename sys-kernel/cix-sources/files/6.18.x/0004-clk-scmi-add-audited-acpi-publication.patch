@@ -253,7 +253,6 @@ diff --git a/drivers/clk/clk-scmi.c b/drivers/clk/clk-scmi.c
  
  static const struct scmi_device_id scmi_id_table[] = {
 diff --git a/include/linux/clk/scmi.h b/include/linux/clk/scmi.h
-new file mode 100644
 --- /dev/null
 +++ b/include/linux/clk/scmi.h
 @@ -0,0 +1,11 @@

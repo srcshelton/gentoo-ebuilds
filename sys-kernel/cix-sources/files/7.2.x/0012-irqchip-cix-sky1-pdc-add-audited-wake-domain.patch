@@ -43,7 +43,6 @@ diff --git a/drivers/irqchip/Makefile b/drivers/irqchip/Makefile
  obj-$(CONFIG_LS_SCFG_MSI)		+= irq-ls-scfg-msi.o
  obj-$(CONFIG_ASPEED_AST2700_INTC)	+= irq-ast2700.o irq-ast2700-intc0.o irq-ast2700-intc1.o
 diff --git a/drivers/irqchip/irq-sky1-pdc.c b/drivers/irqchip/irq-sky1-pdc.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/irqchip/irq-sky1-pdc.c
 @@ -0,0 +1,216 @@

@@ -31,7 +31,6 @@ diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
  					   hisilicon/	\
  					   ingenic/	\
 diff --git a/drivers/phy/cix/Kconfig b/drivers/phy/cix/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/Kconfig
 @@ -0,0 +1,15 @@
@@ -51,14 +50,12 @@ new file mode 100644
 +	  It also publishes Type-C orientation and mode-switch providers when
 +	  those controls are described by firmware.
 diff --git a/drivers/phy/cix/Makefile b/drivers/phy/cix/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/Makefile
 @@ -0,0 +1,2 @@
 +# SPDX-License-Identifier: GPL-2.0
 +obj-$(CONFIG_PHY_CIX_USBDP)	+= phy-cix-usbdp.o
 diff --git a/drivers/phy/cix/phy-cix-usbdp.c b/drivers/phy/cix/phy-cix-usbdp.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/phy-cix-usbdp.c
 @@ -0,0 +1,1712 @@
@@ -1775,7 +1772,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("Cix USBDP Combo PHY driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/phy/cix/phy-cix-usbdp.h b/drivers/phy/cix/phy-cix-usbdp.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/phy/cix/phy-cix-usbdp.h
 @@ -0,0 +1,347 @@

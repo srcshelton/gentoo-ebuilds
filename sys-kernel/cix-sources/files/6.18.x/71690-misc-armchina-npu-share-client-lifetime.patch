@@ -289,7 +289,6 @@ diff --git a/drivers/misc/armchina-npu/aipu_mm.c b/drivers/misc/armchina-npu/aip
  	module_put(THIS_MODULE);
  }
 diff --git b/drivers/misc/armchina-npu-common/Kconfig b/drivers/misc/armchina-npu-common/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-common/Kconfig
 @@ -0,0 +1,4 @@
@@ -298,7 +297,6 @@ new file mode 100644
 +config ARMCHINA_NPU_COMMON
 +	tristate
 diff --git b/drivers/misc/armchina-npu-common/Makefile b/drivers/misc/armchina-npu-common/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-common/Makefile
 @@ -0,0 +1,4 @@
@@ -307,7 +305,6 @@ new file mode 100644
 +obj-$(CONFIG_ARMCHINA_NPU_COMMON) += armchina_npu_common.o
 +armchina_npu_common-y := aipu_file.o
 diff --git b/drivers/misc/armchina-npu-common/aipu_file.c b/drivers/misc/armchina-npu-common/aipu_file.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-common/aipu_file.c
 @@ -0,0 +1,109 @@
@@ -421,7 +418,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("ArmChina NPU per-client lifetime helpers");
 +MODULE_LICENSE("GPL");
 diff --git b/drivers/misc/armchina-npu-common/aipu_file.h b/drivers/misc/armchina-npu-common/aipu_file.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/misc/armchina-npu-common/aipu_file.h
 @@ -0,0 +1,64 @@

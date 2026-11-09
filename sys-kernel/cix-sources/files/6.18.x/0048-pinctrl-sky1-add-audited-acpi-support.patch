@@ -2570,7 +2570,6 @@ diff --git a/drivers/pinctrl/core.h b/drivers/pinctrl/core.h
  };
  
 diff --git a/drivers/pinctrl/pinctrl-acpi.c b/drivers/pinctrl/pinctrl-acpi.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/pinctrl/pinctrl-acpi.c
 @@ -0,0 +1,875 @@
@@ -3450,7 +3449,6 @@ new file mode 100644
 +}
 +EXPORT_SYMBOL_GPL(pinctrl_acpi_get_pin_groups);
 diff --git a/drivers/pinctrl/pinctrl-acpi.h b/drivers/pinctrl/pinctrl-acpi.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/pinctrl/pinctrl-acpi.h
 @@ -0,0 +1,106 @@

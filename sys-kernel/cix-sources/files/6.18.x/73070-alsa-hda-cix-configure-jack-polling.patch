@@ -10,7 +10,6 @@ and automatic routing may become stale. Keep the controller's
 command-response polling enabled for normal codec verb traffic.
 
 diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
-index be8707e..1bdc18e 100644
 --- a/sound/hda/controllers/cix-ipbloq.c
 +++ b/sound/hda/controllers/cix-ipbloq.c
 @@ -9,6 +9,7 @@

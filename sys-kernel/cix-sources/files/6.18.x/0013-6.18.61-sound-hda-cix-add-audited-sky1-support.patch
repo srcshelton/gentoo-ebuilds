@@ -1,5 +1,4 @@
 diff --git a/MAINTAINERS b/MAINTAINERS
-index fe7c4fa..fa9a976 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -2596,6 +2596,7 @@ F:	drivers/mailbox/cix-mailbox.c
@@ -11,7 +10,6 @@ index fe7c4fa..fa9a976 100644
  
  ARM/CLKDEV SUPPORT
 diff --git a/include/sound/hdaudio.h b/include/sound/hdaudio.h
-index 4e0c1d8..6103b6f 100644
 --- a/include/sound/hdaudio.h
 +++ b/include/sound/hdaudio.h
 @@ -380,6 +380,9 @@ struct hdac_bus {
@@ -25,7 +23,6 @@ index 4e0c1d8..6103b6f 100644
  
  int snd_hdac_bus_init(struct hdac_bus *bus, struct device *dev,
 diff --git a/sound/core/Kconfig b/sound/core/Kconfig
-index 48db44f..099cd71 100644
 --- a/sound/core/Kconfig
 +++ b/sound/core/Kconfig
 @@ -260,7 +260,7 @@ config SND_VMASTER
@@ -38,7 +35,6 @@ index 48db44f..099cd71 100644
  config SND_CTL_LED
  	tristate
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index 0326555..4795cfa 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
 @@ -4009,6 +4009,12 @@ enum {
@@ -207,7 +203,6 @@ index 0326555..4795cfa 100644
  };
  #define ALC225_STANDARD_PINS \
 diff --git a/sound/hda/controllers/Kconfig b/sound/hda/controllers/Kconfig
-index 39b9343..d478360 100644
 --- a/sound/hda/controllers/Kconfig
 +++ b/sound/hda/controllers/Kconfig
 @@ -30,6 +30,22 @@ config SND_HDA_TEGRA
@@ -234,7 +229,6 @@ index 39b9343..d478360 100644
  	tristate "HD Audio ACPI"
  	depends on ACPI
 diff --git a/sound/hda/controllers/Makefile b/sound/hda/controllers/Makefile
-index a4bcd05..8967b67 100644
 --- a/sound/hda/controllers/Makefile
 +++ b/sound/hda/controllers/Makefile
 @@ -1,6 +1,7 @@
@@ -252,8 +246,6 @@ index a4bcd05..8967b67 100644
 +obj-$(CONFIG_SND_HDA_CIX_IPBLOQ) += snd-hda-cix-ipbloq.o
  obj-$(CONFIG_SND_HDA_ACPI) += snd-hda-acpi.o
 diff --git a/sound/hda/controllers/cix-ipbloq.c b/sound/hda/controllers/cix-ipbloq.c
-new file mode 100644
-index 0000000..8a350e0
 --- /dev/null
 +++ b/sound/hda/controllers/cix-ipbloq.c
 @@ -0,0 +1,716 @@
@@ -974,7 +966,6 @@ index 0000000..8a350e0
 +MODULE_DESCRIPTION("CIX IPBLOQ HDA bus driver");
 +MODULE_AUTHOR("Joakim Zhang <joakim.zhang@cixtech.com>");
 diff --git a/sound/hda/core/bus.c b/sound/hda/core/bus.c
-index 9b196c9..81498f1 100644
 --- a/sound/hda/core/bus.c
 +++ b/sound/hda/core/bus.c
 @@ -47,6 +47,7 @@ int snd_hdac_bus_init(struct hdac_bus *bus, struct device *dev,
@@ -986,7 +977,6 @@ index 9b196c9..81498f1 100644
  	/*
  	 * Default value of '8' is as per the HD audio specification (Rev 1.0a).
 diff --git a/sound/hda/core/controller.c b/sound/hda/core/controller.c
-index a7c00ad..fdab2f9 100644
 --- a/sound/hda/core/controller.c
 +++ b/sound/hda/core/controller.c
 @@ -48,8 +48,8 @@ void snd_hdac_bus_init_cmd_io(struct hdac_bus *bus)
@@ -1025,7 +1015,6 @@ index a7c00ad..fdab2f9 100644
  
  	bus->chip_init = true;
 diff --git a/sound/hda/core/stream.c b/sound/hda/core/stream.c
-index 579ec54..b471a03 100644
 --- a/sound/hda/core/stream.c
 +++ b/sound/hda/core/stream.c
 @@ -288,16 +288,16 @@ int snd_hdac_stream_setup(struct hdac_stream *azx_dev, bool code_loading)

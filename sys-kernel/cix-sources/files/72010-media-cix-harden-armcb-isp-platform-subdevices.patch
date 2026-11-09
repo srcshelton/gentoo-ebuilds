@@ -1321,7 +1321,6 @@ diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_driver.h b/drive
  
  unsigned int armcb_isp_read_reg(unsigned int offset);
 diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
-deleted file mode 100644
 --- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.c
 +++ /dev/null
 @@ -1,566 +0,0 @@
@@ -1892,7 +1891,6 @@ deleted file mode 100644
 -MODULE_PARM_DESC(execstart_reload,
 -		 "Write 1 to invalidate cache and re-query isp_app pid/args.");
 diff --git a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h b/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
-deleted file mode 100644
 --- a/drivers/media/platform/cix/armcb-isp/isp/armcb_isp_execstart.h
 +++ /dev/null
 @@ -1,21 +0,0 @@

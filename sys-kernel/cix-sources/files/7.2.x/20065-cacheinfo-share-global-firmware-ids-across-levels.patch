@@ -150,7 +150,6 @@ diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
  					cpumask_clear_cpu(sibling, &this_leaf->shared_cpu_map);
  					break;
 diff --git b/drivers/base/cacheinfo_internal.h b/drivers/base/cacheinfo_internal.h
-new file mode 100644
 --- /dev/null
 +++ b/drivers/base/cacheinfo_internal.h
 @@ -0,0 +1,10 @@
@@ -198,7 +197,6 @@ diff --git a/drivers/base/test/Makefile b/drivers/base/test/Makefile
 +
 +obj-$(CONFIG_CACHEINFO_KUNIT_TEST) += cacheinfo-test.o
 diff --git b/drivers/base/test/cacheinfo-test.c b/drivers/base/test/cacheinfo-test.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/base/test/cacheinfo-test.c
 @@ -0,0 +1,98 @@

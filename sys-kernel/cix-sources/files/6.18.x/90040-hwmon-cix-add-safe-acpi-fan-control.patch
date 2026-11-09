@@ -47,7 +47,6 @@ diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
  obj-$(CONFIG_SENSORS_CORSAIR_CPRO) += corsair-cpro.o
  obj-$(CONFIG_SENSORS_CORSAIR_PSU) += corsair-psu.o
 diff --git a/drivers/hwmon/cix-fan.c b/drivers/hwmon/cix-fan.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/hwmon/cix-fan.c
 @@ -0,0 +1,411 @@

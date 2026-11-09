@@ -1,5 +1,4 @@
 diff --git a/Documentation/ABI/testing/sysfs-firmware-cix-ddr-low-power b/Documentation/ABI/testing/sysfs-firmware-cix-ddr-low-power
-new file mode 100644
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-firmware-cix-ddr-low-power
 @@ -0,0 +1,26 @@
@@ -228,7 +227,6 @@ diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
 +obj-$(CONFIG_CIX_DDR_LP)		+= cix-ddr-lp.o
  obj-$(CONFIG_CIX_BUS_PERF)		+= cix-bus-perf.o
 diff --git a/drivers/soc/cix/cix-ddr-lp.c b/drivers/soc/cix/cix-ddr-lp.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-ddr-lp.c
 @@ -0,0 +1,331 @@
@@ -564,7 +562,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("CIX Sky1 DDR low-power policy and coordination");
 +MODULE_LICENSE("GPL");
 diff --git a/include/linux/soc/cix/cix_ddr_lp.h b/include/linux/soc/cix/cix_ddr_lp.h
-new file mode 100644
 --- /dev/null
 +++ b/include/linux/soc/cix/cix_ddr_lp.h
 @@ -0,0 +1,38 @@

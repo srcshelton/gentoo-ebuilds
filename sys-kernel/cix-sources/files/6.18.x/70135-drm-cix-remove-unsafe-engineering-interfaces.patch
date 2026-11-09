@@ -1,5 +1,4 @@
 diff --git a/drivers/gpu/drm/cix/cix_display.c a/drivers/gpu/drm/cix/cix_display.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/cix_display.c
 +++ /dev/null
 @@ -1,204 +0,0 @@
@@ -237,7 +236,6 @@ diff --git a/drivers/gpu/drm/cix/dptx/Makefile b/drivers/gpu/drm/cix/dptx/Makefi
 \ No newline at end of file
 +obj-$(CONFIG_DRM_TRILIN_DPSUB) += trilin-dpsub.o
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.c
 +++ /dev/null
 @@ -1,396 +0,0 @@
@@ -638,7 +636,6 @@ deleted file mode 100644
 -	return 0;
 -}
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp.h
 +++ /dev/null
 @@ -1,141 +0,0 @@
@@ -784,7 +781,6 @@ deleted file mode 100644
 -
 -#endif // __CIX_HDCP_H_
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.c
 +++ /dev/null
 @@ -1,184 +0,0 @@
@@ -973,7 +969,6 @@ deleted file mode 100644
 -}
 -#endif
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl.h
 +++ /dev/null
 @@ -1,22 +0,0 @@
@@ -1000,7 +995,6 @@ deleted file mode 100644
 -int cix_hdcp2_ioctl_get_kd(struct cix_hdcp *hdcp, void *kdata);
 -int cix_hdcp2_ioctl_get_dkey2(struct cix_hdcp *hdcp, void *kdata);
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/cix_hdcp_ioctl_cmd.h
 +++ /dev/null
 @@ -1,116 +0,0 @@
@@ -1121,7 +1115,6 @@ deleted file mode 100644
 -
 -#endif // CIX_HDCP_IOCTL_CMD_H_
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/dptx_aux_reg.h
 +++ /dev/null
 @@ -1,126 +0,0 @@
@@ -1252,7 +1245,6 @@ deleted file mode 100644
 -
 -#endif
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/dptx_reg.h
 +++ /dev/null
 @@ -1,483 +0,0 @@
@@ -1740,7 +1732,6 @@ deleted file mode 100644
 -#define TR_DPTX_SRC3_PSR2_UPDATE_WIDTH 0xfbcul
 -#endif
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.c
 +++ /dev/null
 @@ -1,920 +0,0 @@
@@ -2665,7 +2656,6 @@ deleted file mode 100644
 -	return true;
 -}
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_hw_tx.h
 +++ /dev/null
 @@ -1,62 +0,0 @@
@@ -2732,7 +2722,6 @@ deleted file mode 100644
 -bool hdcp2_hw_tx_rn_read(struct cix_hdcp *hdcp, uint8_t *ctl);
 -#endif
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.c
 +++ /dev/null
 @@ -1,246 +0,0 @@
@@ -2983,7 +2972,6 @@ deleted file mode 100644
 -	return true;
 -}
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_key_drvn_tx.h
 +++ /dev/null
 @@ -1,46 +0,0 @@
@@ -3034,7 +3022,6 @@ deleted file mode 100644
 -
 -#endif // HDCP2_KEY_DRVN_TX__
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.c
 +++ /dev/null
 @@ -1,126 +0,0 @@
@@ -3165,7 +3152,6 @@ deleted file mode 100644
 -				product_lc128); //  re-load the lc128 value
 -}
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_state.h
 +++ /dev/null
 @@ -1,31 +0,0 @@
@@ -3201,7 +3187,6 @@ deleted file mode 100644
 -
 -#endif // HDCP2_TX_STATE__
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.c
 +++ /dev/null
 @@ -1,190 +0,0 @@
@@ -3396,7 +3381,6 @@ deleted file mode 100644
 -	hdcp->timer_in_use = false; //  clear in-use flag
 -}
 diff --git a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
-deleted file mode 100644
 --- a/drivers/gpu/drm/cix/dptx/hdcp/hdcp2_tx_tmr.h
 +++ /dev/null
 @@ -1,19 +0,0 @@

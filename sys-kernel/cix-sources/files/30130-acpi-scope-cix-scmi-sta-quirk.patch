@@ -7,7 +7,6 @@ to control DVFS and clock protocol visibility, so a zero _STA on these
 systems can be an intentional UEFI setting.
 
 diff --git a/drivers/acpi/bus.c b/drivers/acpi/bus.c
-index 3574b0acf306ceaf0004222d859c17460fa9cdb4..9d45f78ab5ed4aa5d29141a2f16212d978463e92 100644
 --- a/drivers/acpi/bus.c
 +++ b/drivers/acpi/bus.c
 @@ -102,11 +102,6 @@ int acpi_bus_get_status(struct acpi_device *device)
@@ -35,7 +34,6 @@ index 3574b0acf306ceaf0004222d859c17460fa9cdb4..9d45f78ab5ed4aa5d29141a2f16212d9
  		pr_info(FW_BUG "Device [%s] status [%08x]: not present and enabled\n",
  			device->pnp.bus_id, (u32)sta);
 diff --git a/drivers/acpi/sta_quirk.c b/drivers/acpi/sta_quirk.c
-index 43cd8b71df4ca260383dc6df623fd756bff64b7b..763f12882c75c61a32b7df2736772b7e77c93b72 100644
 --- a/drivers/acpi/sta_quirk.c
 +++ b/drivers/acpi/sta_quirk.c
 @@ -25,12 +25,26 @@ static const struct acpi_device_id cix_scmi_proto_sta_ids[] = {

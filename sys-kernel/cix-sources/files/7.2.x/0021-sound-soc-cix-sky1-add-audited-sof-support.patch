@@ -118,7 +118,6 @@ diff --git a/include/linux/soc/cix/cix_hifi5.h b/include/linux/soc/cix/cix_hifi5
  {
  	return -EOPNOTSUPP;
 diff --git b/include/sound/sof/dai-cix.h b/include/sound/sof/dai-cix.h
-new file mode 100644
 --- /dev/null
 +++ b/include/sound/sof/dai-cix.h
 @@ -0,0 +1,44 @@
@@ -274,7 +273,6 @@ diff --git a/sound/soc/sof/Makefile b/sound/soc/sof/Makefile
  obj-$(CONFIG_SND_SOC_SOF_XTENSA) += xtensa/
  obj-$(CONFIG_SND_SOC_SOF_MTK_TOPLEVEL) += mediatek/
 diff --git b/sound/soc/sof/cix/Kconfig b/sound/soc/sof/cix/Kconfig
-new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/Kconfig
 @@ -0,0 +1,34 @@
@@ -313,7 +311,6 @@ new file mode 100644
 +	tristate
 +	depends on SND_SOC
 diff --git b/sound/soc/sof/cix/Makefile b/sound/soc/sof/cix/Makefile
-new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/Makefile
 @@ -0,0 +1,6 @@
@@ -324,7 +321,6 @@ new file mode 100644
 +obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1) += snd-sof-cix-sky1.o
 +obj-$(CONFIG_SND_SOC_SOF_CIX_SKY1_NOCODEC) += snd-sof-cix-sky1-nocodec.o
 diff --git b/sound/soc/sof/cix/cix-sky1-ipc3.c b/sound/soc/sof/cix/cix-sky1-ipc3.c
-new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/cix-sky1-ipc3.c
 @@ -0,0 +1,215 @@
@@ -544,7 +540,6 @@ new file mode 100644
 +	},
 +};
 diff --git b/sound/soc/sof/cix/cix-sky1-ipc3.h b/sound/soc/sof/cix/cix-sky1-ipc3.h
-new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/cix-sky1-ipc3.h
 @@ -0,0 +1,18 @@
@@ -567,7 +562,6 @@ new file mode 100644
 +
 +#endif /* __SOUND_SOC_SOF_CIX_SKY1_IPC3_H */
 diff --git b/sound/soc/sof/cix/cix-sky1.c b/sound/soc/sof/cix/cix-sky1.c
-new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/cix-sky1.c
 @@ -0,0 +1,548 @@
@@ -1120,7 +1114,6 @@ new file mode 100644
 +MODULE_DESCRIPTION("SOF support for the CIX Sky1 HiFi5 DSP");
 +MODULE_LICENSE("Dual BSD/GPL");
 diff --git b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
-new file mode 100644
 --- /dev/null
 +++ b/sound/soc/sof/cix/snd-sof-cix-sky1-nocodec.c
 @@ -0,0 +1,144 @@

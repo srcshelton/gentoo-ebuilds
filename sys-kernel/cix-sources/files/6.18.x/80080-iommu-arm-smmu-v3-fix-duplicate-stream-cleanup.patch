@@ -6,7 +6,6 @@ present), and skip uninserted duplicates during rollback and removal.
 SID ownership rejection and translation/isolation policy are unchanged.
 
 diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
-index 41c66c6..86db4e8 100644
 --- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
 +++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
 @@ -3537,6 +3537,7 @@ static int arm_smmu_insert_master(struct arm_smmu_device *smmu,

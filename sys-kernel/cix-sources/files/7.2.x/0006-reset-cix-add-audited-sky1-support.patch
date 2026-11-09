@@ -71,7 +71,6 @@ diff --git a/drivers/reset/Makefile b/drivers/reset/Makefile
  obj-$(CONFIG_RESET_SUNPLUS) += reset-sunplus.o
  obj-$(CONFIG_RESET_SUNXI) += reset-sunxi.o
 diff --git b/drivers/reset/reset-sky1-audss.c b/drivers/reset/reset-sky1-audss.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/reset/reset-sky1-audss.c
 @@ -0,0 +1,396 @@
@@ -802,7 +801,6 @@ diff --git a/drivers/reset/reset-sky1.c b/drivers/reset/reset-sky1.c
  MODULE_AUTHOR("Jerry Zhu <jerry.zhu@cixtech.com>");
  MODULE_DESCRIPTION("Cix Sky1 reset driver");
 diff --git b/include/dt-bindings/reset/sky1-reset-audss.h b/include/dt-bindings/reset/sky1-reset-audss.h
-new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/sky1-reset-audss.h
 @@ -0,0 +1,26 @@
@@ -833,7 +831,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/include/dt-bindings/reset/sky1-reset-fch.h b/include/dt-bindings/reset/sky1-reset-fch.h
-new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/sky1-reset-fch.h
 @@ -0,0 +1,10 @@
@@ -848,7 +845,6 @@ new file mode 100644
 +
 +#endif
 diff --git b/include/dt-bindings/reset/sky1-reset.h b/include/dt-bindings/reset/sky1-reset.h
-new file mode 100644
 --- /dev/null
 +++ b/include/dt-bindings/reset/sky1-reset.h
 @@ -0,0 +1,12 @@

@@ -1,5 +1,4 @@
 diff --git a/Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml b/Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml
-new file mode 100644
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/remoteproc/cix,sky1-hifi5.yaml
 @@ -0,0 +1,80 @@
@@ -142,7 +141,6 @@ diff --git a/drivers/dma-buf/heaps/Makefile b/drivers/dma-buf/heaps/Makefile
  obj-$(CONFIG_DMABUF_HEAPS_CMA)		+= cma_heap.o
 +obj-$(CONFIG_DMABUF_HEAPS_CIX_DSP)	+= cix_dsp_heap.o
 diff --git a/drivers/dma-buf/heaps/cix_dsp_heap.c b/drivers/dma-buf/heaps/cix_dsp_heap.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/dma-buf/heaps/cix_dsp_heap.c
 @@ -0,0 +1,181 @@
@@ -369,7 +367,6 @@ diff --git a/drivers/remoteproc/Makefile b/drivers/remoteproc/Makefile
  obj-$(CONFIG_MTK_SCP)			+= mtk_scp.o mtk_scp_ipi.o
  obj-$(CONFIG_OMAP_REMOTEPROC)		+= omap_remoteproc.o
 diff --git a/drivers/remoteproc/cix_dsp_rproc.c b/drivers/remoteproc/cix_dsp_rproc.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/remoteproc/cix_dsp_rproc.c
 @@ -0,0 +1,804 @@
@@ -1241,7 +1238,6 @@ diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
  obj-$(CONFIG_CIX_ACPI_RESOURCE_LOOKUP)	+= cix-acpi-resource-lookup.o
 +obj-$(CONFIG_CIX_HIFI5_COMMON)		+= cix-hifi5.o
 diff --git a/drivers/soc/cix/cix-hifi5.c b/drivers/soc/cix/cix-hifi5.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/cix-hifi5.c
 @@ -0,0 +1,192 @@
@@ -1438,7 +1434,6 @@ new file mode 100644
 +	pr_info("CIX HiFi5: reserved legacy 34 MiB audio aperture as non-mapped memory\n");
 +}
 diff --git a/include/linux/soc/cix/cix_hifi5.h b/include/linux/soc/cix/cix_hifi5.h
-new file mode 100644
 --- /dev/null
 +++ b/include/linux/soc/cix/cix_hifi5.h
 @@ -0,0 +1,61 @@

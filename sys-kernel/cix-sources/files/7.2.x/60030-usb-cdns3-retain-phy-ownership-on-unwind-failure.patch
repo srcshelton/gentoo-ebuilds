@@ -6,7 +6,6 @@ balance that reference. Report cleanup failure without replacing the
 original USB3 error.
 
 diff --git a/drivers/usb/cdns3/cdns3-plat.c b/drivers/usb/cdns3/cdns3-plat.c
-index 8ae74cd..e800e64 100644
 --- a/drivers/usb/cdns3/cdns3-plat.c
 +++ b/drivers/usb/cdns3/cdns3-plat.c
 @@ -27,20 +27,29 @@

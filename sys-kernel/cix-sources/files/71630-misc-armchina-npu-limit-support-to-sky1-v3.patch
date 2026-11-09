@@ -1315,7 +1315,6 @@ diff --git a/drivers/misc/armchina-npu-r2p0/aipu_priv.h b/drivers/misc/armchina-
   * @soc_ops:       SoC operation pointer
   * @aipu_fops:     file operation struct
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v1.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v1.h
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu-r2p0/zhouyi/v1.h
 +++ /dev/null
 @@ -1,34 +0,0 @@
@@ -1354,7 +1353,6 @@ deleted file mode 100644
 -
 -#endif /* __V1_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v2.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v2.h
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu-r2p0/zhouyi/v2.h
 +++ /dev/null
 @@ -1,54 +0,0 @@
@@ -1413,7 +1411,6 @@ deleted file mode 100644
 -
 -#endif /* __V2_H__ */
 diff --git a/drivers/misc/armchina-npu-r2p0/zhouyi/v3_1.h b/drivers/misc/armchina-npu-r2p0/zhouyi/v3_1.h
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu-r2p0/zhouyi/v3_1.h
 +++ /dev/null
 @@ -1,456 +0,0 @@
@@ -5596,7 +5593,6 @@ diff --git a/drivers/misc/armchina-npu/config.h b/drivers/misc/armchina-npu/conf
  
  #endif /* __CONFIG_H__ */
 diff --git a/drivers/misc/armchina-npu/zhouyi/v1.h b/drivers/misc/armchina-npu/zhouyi/v1.h
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v1.h
 +++ /dev/null
 @@ -1,34 +0,0 @@
@@ -5635,7 +5631,6 @@ deleted file mode 100644
 -
 -#endif /* __V1_H__ */
 diff --git a/drivers/misc/armchina-npu/zhouyi/v2.h b/drivers/misc/armchina-npu/zhouyi/v2.h
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v2.h
 +++ /dev/null
 @@ -1,54 +0,0 @@
@@ -5694,7 +5689,6 @@ deleted file mode 100644
 -
 -#endif /* __V2_H__ */
 diff --git a/drivers/misc/armchina-npu/zhouyi/v3_2.h b/drivers/misc/armchina-npu/zhouyi/v3_2.h
-deleted file mode 100644
 --- a/drivers/misc/armchina-npu/zhouyi/v3_2.h
 +++ /dev/null
 @@ -1,473 +0,0 @@

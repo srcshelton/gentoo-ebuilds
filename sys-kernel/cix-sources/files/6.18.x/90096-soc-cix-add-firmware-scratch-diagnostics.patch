@@ -14,7 +14,6 @@ unmapped values unknown. CIX EDK2 reads the same register, masks its low
 three bits, and treats 0x07 as the four-second power-button override.
 
 diff --git a/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason b/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason
-new file mode 100644
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-driver-sky1-reboot-reason
 @@ -0,0 +1,38 @@
@@ -87,7 +86,6 @@ diff --git a/drivers/soc/cix/Makefile b/drivers/soc/cix/Makefile
  obj-$(CONFIG_CIX_HIFI5_COMMON)		+= cix-hifi5.o
  obj-$(CONFIG_CIX_ACPI_PCIE_SCAN)		+= cix-acpi-pcie-scan.o
 diff --git a/drivers/soc/cix/sky1-reboot-reason.c b/drivers/soc/cix/sky1-reboot-reason.c
-new file mode 100644
 --- /dev/null
 +++ b/drivers/soc/cix/sky1-reboot-reason.c
 @@ -0,0 +1,236 @@
