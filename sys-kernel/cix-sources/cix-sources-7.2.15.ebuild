@@ -65,19 +65,19 @@ BDEPEND="
 "
 
 PATCHES=(
-	"${FILESDIR}"/7.2.15/linux-6.18-clk-composite-export-devm-pdata-helper.patch
-	"${FILESDIR}"/linux-7.1-cifs-fix-softdep-declarations.patch
-	"${FILESDIR}"/linux-6.18-rtc-efi-restore-verified-wakeup-alarm.patch
+	"${FILESDIR}"/7.2.x/linux-clk-composite-export-devm-pdata-helper.patch
+	"${FILESDIR}"/7.2.x/linux-cifs-fix-softdep-declarations.patch
+	"${FILESDIR}"/linux-rtc-efi-restore-verified-wakeup-alarm.patch
 )
 
 # Applied explicitly between vendor replacements and the post-vendor series.
 # Do not use kernel-2's PATCHES variable, which would apply them a second time.
 CIX_CORE_PATCHES=(
 	"${FILESDIR}"/7.2.x/10000-arm64-stub-fdt.patch
-	"${FILESDIR}"/7.2.15/10010-arm64-stub-fdt-enable-kexec-file.patch
+	"${FILESDIR}"/7.2.x/10010-arm64-stub-fdt-enable-kexec-file.patch
 	"${FILESDIR}"/10020-lld-timer-of-table-end-warning.patch
 	"${FILESDIR}"/7.2.x/10050-bpf-gate-struct-ops-on-kallsyms.patch
-	"${FILESDIR}"/7.2.15/10070-kconfig-separate-expert-and-debug-policy.patch
+	"${FILESDIR}"/7.2.x/10070-kconfig-separate-expert-and-debug-policy.patch
 )
 
 QA_PREBUILT="usr/src/linux-*/tools/testing/selftests/tc-testing/action-ebpf"
@@ -300,7 +300,7 @@ src_prepare() {
 			0067-PROJ031-2-backlight-pwm-backlight-add-acpi-support-f.patch)
 				# Retain firmware-node backlight discovery without bypassing the
 				# PWM, regulator, GPIO or deferred-probe ownership contracts.
-				eapply "${FILESDIR}"/7.2.x/0067-backlight-pwm-add-safe-firmware-node-support.patch || die
+				eapply "${FILESDIR}"/0067-backlight-pwm-add-safe-firmware-node-support.patch || die
 				return
 				;;
 			00111-drm-panthor-add-ACPI-CIXH5000-platform-binding.patch)
@@ -392,35 +392,35 @@ src_prepare() {
 	for pf in "${CIX_CORE_PATCHES[@]}"; do
 		# The experimental scheduler changes preceding Kconfig coordinates.
 		if [[ ${pf##*/} == 10070-kconfig-separate-expert-and-debug-policy.patch ]] && use experimental; then
-			pf="${FILESDIR}"/7.2.x/experimental/10070-kconfig-separate-expert-and-debug-policy.patch
+			pf="${FILESDIR}"/7.2.x/10070-experimental-kconfig-separate-expert-and-debug-policy.patch
 		fi
 		eapply "${pf}" || die
 	done
 
 	# The post-vendor overlay series is authoritative and numerically ordered.
 	post_vendor_patches=(
-		"${FILESDIR}"/7.2.15/20050-topology-has-missing-cpufreq-ref.patch
+		"${FILESDIR}"/7.2.x/20050-topology-has-missing-cpufreq-ref.patch
 		"${FILESDIR}"/20060-acpi-processor-clarify-ignore-ppc-module-parameter.patch
 		"${FILESDIR}"/7.2.x/20065-cacheinfo-share-global-firmware-ids-across-levels.patch
 		"${FILESDIR}"/7.2.x/20070-resctrl-mpam-expose-proportional-bandwidth.patch
-		"${FILESDIR}"/7.2.15/30030-scmi-demote-unsupported-fastchannel-fallback.patch
+		"${FILESDIR}"/7.2.x/30030-scmi-demote-unsupported-fastchannel-fallback.patch
 		"${FILESDIR}"/30090-scmi-hwmon-do-not-use-of-thermal-zones-on-acpi.patch
 		"${FILESDIR}"/30125-acpi-table-upgrade-add-disable-and-exclude-options.patch
 		"${FILESDIR}"/7.2.x/30127-acpi-thermal-filter-orion-o6-ectz-zero-readings.patch
 		"${FILESDIR}"/7.2.x/30128-acpi-thermal-retain-downstream-improvements.patch
 		"${FILESDIR}"/7.2.x/30129-thermal-cix-add-safe-ipa-support.patch
 		"${FILESDIR}"/30130-acpi-scope-cix-scmi-sta-quirk.patch
-		"${FILESDIR}"/7.2.15/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch
-		"${FILESDIR}"/7.2.15/30196-power-opp-accept-acpi-only-configurations.patch
-		"${FILESDIR}"/30200-pmdomain-read-provider-performance-state.patch
+		"${FILESDIR}"/7.2.x/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch
+		"${FILESDIR}"/7.2.x/30196-power-opp-accept-acpi-only-configurations.patch
+		"${FILESDIR}"/7.2.x/30200-pmdomain-read-provider-performance-state.patch
 		"${FILESDIR}"/7.2.x/40042-platform-acpi-resolve-named-irq-resources.patch
 		# CIX-QUESTIONED-PATCH: stock-firmware log demotion; upgraded DSDTs remove the duplicate.
 		"${FILESDIR}"/7.2.x/40046-acpi-demote-cix-sky1-ecam-duplicate-reservations.patch
-		"${FILESDIR}"/7.2.x/40052-pinctrl-sky1-validate-o6-camera-mclk-duplication.patch
-		"${FILESDIR}"/7.2.15/40055-gpio-pinctrl-enforce-sky1-pad-ownership.patch
+		"${FILESDIR}"/40052-pinctrl-sky1-validate-o6-camera-mclk-duplication.patch
+		"${FILESDIR}"/7.2.x/40055-gpio-pinctrl-enforce-sky1-pad-ownership.patch
 		"${FILESDIR}"/7.2.x/40056-soc-cix-add-safe-bus-performance-domain-driver.patch
 		"${FILESDIR}"/7.2.x/40070-soc-cix-arbitrate-acpi-pcie-models.patch
-		"${FILESDIR}"/7.2.15/40093-pci-cix-enable-root-port-io-window-assignment.patch
+		"${FILESDIR}"/7.2.x/40093-pci-cix-enable-root-port-io-window-assignment.patch
 		"${FILESDIR}"/7.2.x/50030-net-bridge-warn-for-missing-netfilter-on-first-device.patch
 		"${FILESDIR}"/7.2.x/50060-watchdog-sbsa-gwdt-use-cix-sky1-refresh-value.patch
 		"${FILESDIR}"/7.2.x/50130-spi-cadence-add-audited-cix-acpi-support.patch
@@ -429,9 +429,9 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/60030-usb-cdns3-retain-phy-ownership-on-unwind-failure.patch
 		"${FILESDIR}"/7.2.x/60040-usb-cdns3-propagate-phy-mode-errors.patch
 		"${FILESDIR}"/60050-usb-xhci-plat-add-acpi-cadence-stream-context-opt-in.patch
-		"${FILESDIR}"/7.2.x/70020-drm-cix-gate-virtual-encoder-build.patch
+		"${FILESDIR}"/70020-drm-cix-gate-virtual-encoder-build.patch
 		# CIX-QUESTIONED-PATCH: optional extra DPTX stream-clock policy.
-		"${FILESDIR}"/7.2.15/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
+		"${FILESDIR}"/7.2.x/70030-drm-cix-dptx-make-extra-stream-clocks-optional.patch
 		"${FILESDIR}"/70080-drm-cix-remove-unused-dptx-cadence-phy-kconfig.patch
 		"${FILESDIR}"/70105-drm-cix-linlon-dp-tighten-private-include-flags.patch
 		"${FILESDIR}"/70120-drm-cix-demote-internal-tbu-noop-logs.patch
@@ -440,10 +440,10 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/70140-drm-cix-fix-gcc15-clang21-w1-findings.patch
 		"${FILESDIR}"/7.2.x/70150-drm-support-up-to-64-planes.patch
 		"${FILESDIR}"/70160-drm-cix-dptx-fix-audio-eld-and-shutdown.patch
-		"${FILESDIR}"/7.2.15/70170-drm-cix-linlon-propagate-aclk-errors.patch
-		"${FILESDIR}"/7.2.15/70180-drm-cix-dptx-propagate-reset-lookup-errors.patch
-		"${FILESDIR}"/7.2.15/70190-drm-cix-dptx-fix-aux-retry-accounting.patch
-		"${FILESDIR}"/7.2.15/70195-drm-cix-dptx-fix-mst-lock-leaks.patch
+		"${FILESDIR}"/7.2.x/70170-drm-cix-linlon-propagate-aclk-errors.patch
+		"${FILESDIR}"/7.2.x/70180-drm-cix-dptx-propagate-reset-lookup-errors.patch
+		"${FILESDIR}"/7.2.x/70190-drm-cix-dptx-fix-aux-retry-accounting.patch
+		"${FILESDIR}"/7.2.x/70195-drm-cix-dptx-fix-mst-lock-leaks.patch
 		"${FILESDIR}"/7.2.x/70200-drm-panthor-declare-scmi-perf-softdep.patch
 		"${FILESDIR}"/7.2.x/70990-media-cix-import-and-integrate-mvx-vpu-driver.patch
 		"${FILESDIR}"/71050-cix-mvx-enable-jpeg-mjpeg-devices.patch
@@ -460,16 +460,16 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/71150-cix-mvx-fix-single-planar-dmabuf-capture.patch
 		"${FILESDIR}"/7.2.x/71160-cix-mvx-harden-fault-and-lifecycle-recovery.patch
 		"${FILESDIR}"/7.2.x/71500-misc-armchina-npu-import-sky1-driver.patch
-		"${FILESDIR}"/7.2.x/71510-misc-armchina-npu-harden-raw-register-io.patch
+		"${FILESDIR}"/71510-misc-armchina-npu-harden-raw-register-io.patch
 		"${FILESDIR}"/71520-misc-armchina-npu-restrict-to-cix-sky1-v3.patch
-		"${FILESDIR}"/7.2.x/71530-misc-armchina-npu-harden-ownership-and-domains.patch
+		"${FILESDIR}"/71530-misc-armchina-npu-harden-ownership-and-domains.patch
 		"${FILESDIR}"/7.2.x/71540-misc-armchina-npu-add-scmi-opp-devfreq.patch
 		"${FILESDIR}"/7.2.x/71550-misc-armchina-npu-balance-runtime-pm.patch
-		"${FILESDIR}"/7.2.x/71560-misc-armchina-npu-harden-userspace-abi-and-dma.patch
+		"${FILESDIR}"/71560-misc-armchina-npu-harden-userspace-abi-and-dma.patch
 		"${FILESDIR}"/7.2.x/71570-misc-armchina-npu-harden-fault-teardown-and-source-quality.patch
 		"${FILESDIR}"/7.2.x/71580-misc-armchina-npu-link-devfreq-providers.patch
-		"${FILESDIR}"/7.2.15/71590-misc-armchina-npu-use-scmi-performance-states.patch
-		"${FILESDIR}"/7.2.15/71600-misc-armchina-npu-add-version-matched-r2p0-backend.patch
+		"${FILESDIR}"/7.2.x/71590-misc-armchina-npu-use-scmi-performance-states.patch
+		"${FILESDIR}"/7.2.x/71600-misc-armchina-npu-add-version-matched-r2p0-backend.patch
 		"${FILESDIR}"/71610-misc-armchina-npu-harden-descriptor-and-global-controls.patch
 		"${FILESDIR}"/71620-misc-armchina-npu-fix-noncoherent-acpi-dma.patch
 		"${FILESDIR}"/71630-misc-armchina-npu-limit-support-to-sky1-v3.patch
@@ -478,14 +478,14 @@ src_prepare() {
 		"${FILESDIR}"/71660-misc-armchina-npu-bound-v3-coredump-lifecycle.patch
 		"${FILESDIR}"/71670-misc-armchina-npu-bind-page-backed-dma-bufs.patch
 		"${FILESDIR}"/71680-misc-armchina-npu-import-fragmented-dma-bufs.patch
-		"${FILESDIR}"/7.2.15/71690-misc-armchina-npu-share-client-lifetime.patch
-		"${FILESDIR}"/71695-misc-armchina-npu-annotate-locking-guards.patch
+		"${FILESDIR}"/7.2.x/71690-misc-armchina-npu-share-client-lifetime.patch
+		"${FILESDIR}"/7.2.x/71695-misc-armchina-npu-annotate-locking-guards.patch
 		"${FILESDIR}"/71700-misc-armchina-npu-keep-v3-tcbs-in-asid0.patch
-		"${FILESDIR}"/7.2.15/71710-misc-armchina-npu-recover-closing-command-pools.patch
-		"${FILESDIR}"/7.2.x/72000-media-cix-import-armcb-isp-driver.patch
-		"${FILESDIR}"/7.2.x/72010-media-cix-harden-armcb-isp-platform-subdevices.patch
-		"${FILESDIR}"/7.2.x/72015-media-cix-harden-armcb-isp-v4l2-streaming.patch
-		"${FILESDIR}"/7.2.x/72020-media-cix-harden-armcb-isp-dma-legacy-abi.patch
+		"${FILESDIR}"/7.2.x/71710-misc-armchina-npu-recover-closing-command-pools.patch
+		"${FILESDIR}"/72000-media-cix-import-armcb-isp-driver.patch
+		"${FILESDIR}"/72010-media-cix-harden-armcb-isp-platform-subdevices.patch
+		"${FILESDIR}"/72015-media-cix-harden-armcb-isp-v4l2-streaming.patch
+		"${FILESDIR}"/72020-media-cix-harden-armcb-isp-dma-legacy-abi.patch
 		"${FILESDIR}"/7.2.x/72022-media-cix-handle-subdevice-probe-deferral.patch
 		"${FILESDIR}"/7.2.x/72025-media-cix-coordinate-ddr-low-power-with-isp.patch
 		"${FILESDIR}"/7.2.x/72030-media-cix-port-isp-to-linux-7.2.patch
@@ -493,8 +493,8 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/73060-sound-cix-declare-runtime-provider-dependencies.patch
 		"${FILESDIR}"/7.2.x/73070-alsa-hda-cix-configure-jack-polling.patch
 		"${FILESDIR}"/80000-pci-rtl8126-disable-unreadable-vpd-quietly.patch
-		"${FILESDIR}"/7.2.15/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch
-		"${FILESDIR}"/7.2.x/80015-bluetooth-btrtl-return-register-read-error.patch
+		"${FILESDIR}"/7.2.x/80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch
+		"${FILESDIR}"/80015-bluetooth-btrtl-return-register-read-error.patch
 		"${FILESDIR}"/7.2.x/80020-rtw89-check-acpi-dsm-before-evaluating.patch
 		"${FILESDIR}"/7.2.x/80025-cadence-macb-add-sky1-firmware-matches.patch
 		"${FILESDIR}"/7.2.x/80030-net-realtek-import-r8126-driver.patch
