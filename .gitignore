@@ -1,0 +1,8 @@
+/.agent-work/
+/.worktrees/
+**/__pycache__/
+**/integration/
+**/.DS_Store
+
+# vim swapfiles
+**/.*.sw[a-p]
