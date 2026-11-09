@@ -33,6 +33,7 @@ maintained_patch_check() {
     rm -f "$diagnostic"
     return "$status"
 }
+
 apply_maintained_patch_file() {
     maintained_patch_check "$1" --forward || return
     LC_ALL=C patch --batch --forward --fuzz=0 --no-backup-if-mismatch -p1 -i "$1" || return

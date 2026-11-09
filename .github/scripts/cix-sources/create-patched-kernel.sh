@@ -383,6 +383,7 @@ if [[ $firmware_profile != 1.2 && $compile_acpi_tables != yes ]]; then
 fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=.github/scripts/cix-sources/patch-policy.sh
 source "${script_dir}/patch-policy.sh"
 repo_root=$(cd -- "${script_dir}/../../.." && pwd -P)
 manifest="${repo_root}/sys-kernel/cix-sources/Manifest"
