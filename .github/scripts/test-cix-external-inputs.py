@@ -46,13 +46,13 @@ class MetadataTests(unittest.TestCase):
         entries = [
             {"name": f"gentoo-sources-{version}.ebuild", "unused": "discard"}
             for version in (
-                "6.18.9-r9", "6.18.10", "7.1.13-r2", "7.1.13-r10",
+                "6.18.9-r9", "6.18.10", "6.18.10-r2", "6.18.10-r10", "7.1.13-r2", "7.1.13-r10",
                 "7.2.6", "7.2.5-r99", "6.1.200", "7.3.1",
             )
         ] + [{"name": "Manifest"}, {"name": "metadata.xml"}]
         compact = compact_gentoo_metadata(entries)
         self.assertEqual(compact, [
-            {"name": "gentoo-sources-6.18.10.ebuild"},
+            {"name": "gentoo-sources-6.18.10-r10.ebuild"},
             {"name": "gentoo-sources-7.2.6.ebuild"},
         ])
         self.assertEqual(compact_gentoo_metadata(list(reversed(entries))), compact)
@@ -86,7 +86,9 @@ class MetadataTests(unittest.TestCase):
                 MATRIX.select_ebuilds(package)
 
     def test_incomplete_gentoo_metadata_rejected(self):
-        for entries in ({}, [None], [], [{"name": "gentoo-sources-6.18.52.ebuild"}]):
+        for entries in ({}, [None], [], [{}], [{"name": 42}], [{"name": "Manifest"}],
+                        [{"name": "gentoo-sources-broken.ebuild"}],
+                        [{"name": "gentoo-sources-7.3.1.ebuild", "type": "dir"}]):
             with self.subTest(entries=entries), self.assertRaises(ValueError):
                 compact_gentoo_metadata(entries)
 
@@ -203,8 +205,25 @@ class RefreshTests(unittest.TestCase):
         self.assertEqual(records["gentoo-sources"]["state"], "refreshed")
         self.assertEqual(records["acpica"]["state"], "refreshed")
 
+    def test_retirement_refresh_does_not_retain_obsolete_versions(self):
+        for versions in (("6.18.999",), ("7.3.1",)):
+            with self.subTest(versions=versions):
+                if self.output.exists():
+                    shutil.rmtree(self.output)
+                self.gentoo = [{"name": f"gentoo-sources-{v}.ebuild"} for v in versions]
+                def response(request, **kwargs):
+                    payload = self.gentoo if request.full_url == REFRESH.GENTOO_URL else self.acpica
+                    return io.BytesIO(json.dumps(payload).encode())
+                with patch.object(REFRESH.urllib.request, "urlopen", side_effect=response):
+                    with patch.object(REFRESH.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
+                        self.refresh()
+                record = load_json(self.output / "retention.json")["components"]["gentoo-sources"]
+                self.assertEqual(record["state"], "refreshed")
+                self.assertNotEqual(record["last_refreshed_at"],
+                                    load_json(self.fallback / "retention.json")["components"]["gentoo-sources"]["last_refreshed_at"])
+
     def test_failed_fetch_retains_and_compacts_old_metadata(self):
-        for payload in (None, b"not JSON", b"{}"):
+        for payload in (None, b"not JSON", b"{}", b"[]", b'[{}]'):
             with self.subTest(payload=payload):
                 if self.output.exists():
                     shutil.rmtree(self.output)
@@ -246,6 +265,49 @@ class RefreshTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 1)
         self.assertIn("out of date: Linux 6.18:", result.stdout)
+
+
+class VersionCheckTests(unittest.TestCase):
+    def test_comparisons_and_retirement(self):
+        cases = (
+            (("6.18.60", "7.2.15"), ("6.18.61", "7.2.15"), 1, "out of date: Linux 6.18"),
+            (("6.18.60", "7.2.15"), ("6.18.60", "7.2.15"), 0, "Gentoo 7.2.15"),
+            (("6.18.60", "7.2.15"), ("6.18.59", "7.2.14"), 0, "Gentoo 7.2.14"),
+            (("6.18.60", "7.2.15"), ("6.18.60",), 0, "Linux 7.2: cix-sources 7.2.15, upstream absent; locally maintained"),
+            (("6.18.60", "7.2.15"), ("7.3.1",), 0, "upstream absent; locally maintained"),
+            (("6.18.60",), ("6.18.60",), 1, "local=['7.2']"),
+            (("6.18.60-r9", "7.2.15"), ("6.18.60-r10",), 1, "out of date"),
+            (("6.18.60-r10", "7.2.15"), ("6.18.60-r9",), 0, "Gentoo 6.18.60-r9"),
+            (("6.18.60-r0", "7.2.15"), ("6.18.60",), 0, "Gentoo 6.18.60"),
+        )
+        for local, upstream, code, diagnostic in cases:
+            with self.subTest(local=local, upstream=upstream), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for v in local:
+                    (root / f"cix-sources-{v}.ebuild").touch()
+                metadata = root / "upstream.json"
+                metadata.write_text(json.dumps([{"name": f"gentoo-sources-{v}.ebuild"} for v in upstream]))
+                result = subprocess.run([sys.executable, SCRIPTS / "check-cix-source-versions.py",
+                                         "--package-dir", root, "--upstream-json", metadata],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, code, result.stderr)
+                self.assertIn(diagnostic, result.stdout + result.stderr)
+                if code == 0:
+                    self.assertNotIn("out of date", result.stdout)
+
+    def test_broken_upstream_is_not_retirement(self):
+        for payload in ("[]", "{}", "[null]", "not JSON"):
+            with self.subTest(payload=payload), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for v in ("6.18.60", "7.2.15"):
+                    (root / f"cix-sources-{v}.ebuild").touch()
+                metadata = root / "upstream.json"
+                metadata.write_text(payload)
+                result = subprocess.run([sys.executable, SCRIPTS / "check-cix-source-versions.py",
+                                         "--package-dir", root, "--upstream-json", metadata],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("upstream absent", result.stdout)
 
 
 if __name__ == "__main__":

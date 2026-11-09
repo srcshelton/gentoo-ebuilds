@@ -18,7 +18,7 @@ ACPICA_DOWNLOAD = re.compile(
 GENTOO_EBUILD = re.compile(
     r"^gentoo-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$"
 )
-REQUIRED_GENTOO_LINES = {"6.18", "7.2"}
+RELEVANT_GENTOO_LINES = {"6.18", "7.2"}
 UBUNTU_SEEDS = {
     "6.17": ["6.18"],
     "7.0": ["7.2"],
@@ -64,7 +64,7 @@ def validate_ubuntu_seed(root: Path, seed: str) -> None:
 
 
 def compact_gentoo_metadata(entries: object) -> list[dict[str, str]]:
-    """Keep only the newest upstream ebuild name for each maintained line."""
+    """Keep latest relevant ebuilds, retaining retirement evidence if none remain."""
     if not isinstance(entries, list):
         raise ValueError("Gentoo source metadata: expected a list")
 
@@ -72,23 +72,29 @@ def compact_gentoo_metadata(entries: object) -> list[dict[str, str]]:
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError("Gentoo source metadata: entry is not an object")
-        name = str(entry.get("name", ""))
+        name = entry.get("name")
+        if not isinstance(name, str) or not name or "/" in name:
+            raise ValueError("Gentoo source metadata: invalid entry name")
         match = GENTOO_EBUILD.fullmatch(name)
         if not match:
+            if (name.startswith("gentoo-sources-") and name.endswith(".ebuild")
+                    and name != "gentoo-sources-9999.ebuild"):
+                raise ValueError("Gentoo source metadata: invalid ebuild version")
             continue
+        if entry.get("type", "file") != "file":
+            raise ValueError("Gentoo source metadata: ebuild is not a file")
         major, minor, patch, revision = match.groups()
         line = f"{major}.{minor}"
-        if line not in REQUIRED_GENTOO_LINES:
-            continue
         version = (int(patch), int(revision or 0))
         if line not in latest or version > latest[line][0]:
             latest[line] = (version, name)
-    missing = REQUIRED_GENTOO_LINES - latest.keys()
-    if missing:
-        raise ValueError(
-            f"Gentoo source metadata: missing maintained lines {sorted(missing)}"
-        )
-    return [{"name": latest[line][1]} for line in sorted(latest)]
+    if not latest:
+        raise ValueError("Gentoo source metadata: no versioned source ebuilds")
+    relevant = RELEVANT_GENTOO_LINES & latest.keys()
+    # A nonempty witness distinguishes genuine retirement from a broken response
+    # and remains valid when a retained compact snapshot is validated again.
+    lines = relevant or {max(latest, key=lambda line: tuple(map(int, line.split("."))))}
+    return [{"name": latest[line][1]} for line in sorted(lines)]
 
 
 def compact_acpica_metadata(release: object) -> dict[str, object]:

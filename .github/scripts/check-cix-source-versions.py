@@ -10,6 +10,8 @@ import re
 import urllib.request
 from pathlib import Path
 
+from cix_external_inputs import compact_gentoo_metadata
+
 
 EBUILD_PATTERN = re.compile(
     r"^(?:cix|gentoo)-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$"
@@ -59,6 +61,12 @@ def select_versions(names: list[str], prefix: str) -> dict[str, str]:
     return {line: selected[line][1] for line in selected}
 
 
+def version_key(version: str) -> tuple[int, int, int, int]:
+    base, _, revision = version.partition("-r")
+    major, minor, patch = map(int, base.split("."))
+    return major, minor, patch, int(revision or 0)
+
+
 def fetch_upstream() -> list[dict[str, object]]:
     headers = {
         "Accept": "application/vnd.github+json",
@@ -83,25 +91,27 @@ def main() -> None:
     else:
         upstream_data = fetch_upstream()
     upstream = select_versions(
-        [str(entry.get("name", "")) for entry in upstream_data],
+        [str(entry.get("name", "")) for entry in compact_gentoo_metadata(upstream_data)],
         "gentoo-sources-",
     )
 
     missing_local = set(REQUIRED_LINES) - local.keys()
-    missing_upstream = set(REQUIRED_LINES) - upstream.keys()
-    if missing_local or missing_upstream:
+    if missing_local:
         raise SystemExit(
             "missing maintained lines: "
-            f"local={sorted(missing_local)}, upstream={sorted(missing_upstream)}"
+            f"local={sorted(missing_local)}"
         )
 
     mismatches = [
         (line, local[line], upstream[line])
         for line in REQUIRED_LINES
-        if local[line] != upstream[line]
+        if line in upstream and version_key(local[line]) < version_key(upstream[line])
     ]
     for line in REQUIRED_LINES:
-        print(f"Linux {line}: cix-sources {local[line]}, Gentoo {upstream[line]}")
+        if line in upstream:
+            print(f"Linux {line}: cix-sources {local[line]}, Gentoo {upstream[line]}")
+        else:
+            print(f"Linux {line}: cix-sources {local[line]}, upstream absent; locally maintained")
     if mismatches:
         for line, local_version, upstream_version in mismatches:
             print(
