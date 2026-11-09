@@ -18,8 +18,8 @@ Debian, Ubuntu, Radxa, or CIX kernel.
 
 | Kernel | Gentoo package | Gentoo patch set | CIX source |
 | --- | --- | --- | --- |
-| [Linux 6.18.62](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.18.62) | `cix-sources-6.18.62` | `6.18-70` base, extras, and experimental | [`cix-linux-main` at `116c7cc`](https://github.com/cixtech/cix-linux-main/commit/116c7cc9c3ec452aa41a68416b949387c2e05472) |
-| [Linux 7.2.15](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v7.2.15) | `cix-sources-7.2.15` | `7.2-16` base and extras | same CIX source |
+| [Linux 6.18.62](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.18.62) | `cix-sources-6.18.62` | `6.18-70` base and extras | [`cix-linux-main` at `bc078a3`](https://github.com/cixtech/cix-linux-main/commit/bc078a383042a6c14b05c56e12390e422f893088) |
+| [Linux 7.2.15](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v7.2.15) | `cix-sources-7.2.15` | `7.2-16` base, extras, and experimental | same CIX source |
 
 Each ebuild is the authority for its exact patch order. The Linux 6.18-only
 PCIe and pinctrl files listed below backport support already present in Linux
@@ -273,9 +273,30 @@ CIX-specific:
 | Wi-Fi, Bluetooth, and Ethernet | `80000-pci-rtl8126-disable-unreadable-vpd-quietly.patch`<br>`80010-rtw89-disable-hw-rfkill-polling-on-orion-o6.patch`<br>`80015-bluetooth-btrtl-return-register-read-error.patch`<br>`80020-rtw89-check-acpi-dsm-before-evaluating.patch`<br>`80025-cadence-macb-add-sky1-firmware-matches.patch`<br>`80030-net-realtek-import-r8126-driver.patch`<br>`80031-net-realtek-r8126-prefer-performance-core-irqs.patch`<br>`80032-net-realtek-r8126-remove-vendor-engineering-interfaces.patch`<br>`80033-net-realtek-r8126-remove-unused-tail-pointer-reader.patch`<br>`80035-net-realtek-r8126-demote-routine-reset-message.patch` | All | Retains the Realtek RTL8126 5GbE driver used on O6, based on Realtek 10.018.00, with the prior shutdown, S0 magic-packet Wake-on-LAN, RSS, missing-object, DMA-mapping, and compiler-warning corrections folded into one import. R8126 and r8169 are mutually exclusive because both claim the RTL8126 PCI ID. `80032` removes raw register, PCI, PHY and writable-EEPROM controls together with the procfs/sysfs test and cable-test implementation; ordinary networking, RSS, Wake-on-LAN, ethtool, and EEPROM identification/read support remain. `80033` removes the unused tail-pointer register reader left after those engineering callers disappear. `80035` treats the reset worker scheduled during every normal resume as debug output while retaining error-level reporting at the actual transmit-timeout call site. `80031` optionally prefers higher-capacity online CPUs for IRQ affinity and can be omitted without removing the driver. The remaining files suppress unreadable optional RTL8126 VPD only on exact O6/O6N system matches, avoid erroneous O6 Wi-Fi rfkill polling, validate Realtek ACPI calls, preserve Bluetooth errors, and enable Cadence MACB from firmware. O6N uses the in-tree r8169 profile. |
 | Fan, watchdog, board profiles, and crash diagnostics | `50060-watchdog-sbsa-gwdt-use-cix-sky1-refresh-value.patch`<br>`90040-hwmon-cix-add-safe-acpi-fan-control.patch`<br>`90050-arm64-cix-add-radxa-orion-board-profiles.patch`<br>`90096-soc-cix-add-firmware-scratch-diagnostics.patch`<br>`90098-pstore-ramoops-parse-firmware-node-properties.patch` | All; `90050` requires the default `radxa-menu` USE flag | Corrects the watchdog period, exposes standard hwmon fan control, supplies O6/O6N configuration profiles, provides opt-in raw firmware diagnostics with explicitly provisional `assumed-*` reset labels, and enables ACPI-described ramoops crash logs. The ACPI profile keeps the Sky1 pinctrl provider built in so a built-in PL011 console does not defer until module loading. |
 
-The display stack also applies `70170`, `70180`, and `70190`, which preserve
-clock and reset-provider errors and correct AUX retry accounting without
-changing the supported display interfaces.
+### Additional maintained patches and version-specific variants
+
+The subsystem summaries above group related changes. These patch files also
+form part of the maintained inventory; names below are relative to `files/`.
+A patch listed for both kernel lines has independently qualified context where
+separate copies exist.
+
+| Area | Additional patch files | Scope and purpose |
+| --- | --- | --- |
+| SCMI lifetime | `0003-6.18.57-firmware-arm-scmi-add-audited-acpi-support.patch` | 6.18: preserves firmware-node ownership and mailbox transport lifetime fixes introduced with 6.18.57. |
+| HDA uplift | `0013-6.18.61-sound-hda-cix-add-audited-sky1-support.patch` | 6.18.61 onward: updated Sky1 HDA integration context; the unqualified `0013` filename is retained for 6.18.60. |
+| ACPI thermal | `30128-6.18.58-acpi-thermal-retain-downstream-improvements.patch` | 6.18: preserves ACPI thermal sensor labels and safe shared hwmon teardown introduced with 6.18.58. |
+| CIFS module dependencies | `linux-cifs-fix-softdep-declarations.patch`<br>`linux-6.18.61-cifs-fix-softdep-declarations.patch` | Separate 6.18 and 7.2 line-specific patches use valid `pre:` soft dependency syntax. The 6.18.61 variant supersedes the 6.18.60 context. |
+| USB resume and PHY lifecycle | `60020-usb-cdnsp-fix-resume-order-and-v2-marker.patch`<br>`60020-usb-cdns3-fix-resume-order-and-v2-marker.patch`<br>`60030-usb-cdns3-retain-phy-ownership-on-unwind-failure.patch`<br>`60040-usb-cdns3-propagate-phy-mode-errors.patch` | `60020`: 6.18/7.2 use different Cadence controller paths; restore platform power before inspecting resume state. `60030`: 7.2 retains PHY ownership on failed unwind. `60040`: both lines propagate PHY activation errors and unwind correctly. |
+| xHCI stream context | `60050-usb-xhci-plat-add-acpi-cadence-stream-context-opt-in.patch` | Both lines: allows an explicit ACPI controller opt-in to an existing Cadence workaround; no ACPI profile enables it by default. |
+| Display error handling | `70170-drm-cix-linlon-propagate-aclk-errors.patch`<br>`70180-drm-cix-dptx-propagate-reset-lookup-errors.patch`<br>`70190-drm-cix-dptx-fix-aux-retry-accounting.patch` | Both lines: fail safely on display-clock and reset-provider errors, and count/retry DisplayPort AUX failures correctly. |
+| NPU command memory | `71700-misc-armchina-npu-keep-v3-tcbs-in-asid0.patch`<br>`71710-misc-armchina-npu-recover-closing-command-pools.patch` | Both lines: keep V3 task-control blocks in ASID 0 and recover abandoned shared command pools when all competing clients are closing. |
+| Audio power management | `73070-alsa-hda-cix-configure-jack-polling.patch` | Both lines: makes CIX HDA jack polling configurable, retaining the 1000 ms default; disabling it can prevent jack-change detection. |
+| SMMUv3 ownership | `80080-iommu-arm-smmu-v3-fix-duplicate-stream-cleanup.patch` | Both lines: upstream-derived cleanup avoids erasing never-inserted duplicate Stream ID nodes. It does **not** establish safe PCIe-switch SMMU operation. |
+| Platform dependencies | `90045-cix-close-platform-driver-dependencies.patch`<br>`90060-arm64-cix-model-orion-acpi-infrastructure.patch` | Both lines: closes mandatory provider and module dependencies and configures early ACPI mailbox, SCMI, pinctrl and wake infrastructure. |
+| Experimental Kconfig | `10070-experimental-kconfig-separate-expert-and-debug-policy.patch` | 7.2 only, `experimental` USE profile: context-adjusted expert/debug policy after experimental scheduler patches. |
+| ISP compatibility | `72030-media-cix-port-isp-to-linux-7.2.patch` | 7.2 only: updates the CIX ISP description-string helper for current kernel APIs. |
+| Quarantined MVX control | `71140-cix-mvx-add-rrc-dqp-session-controls.patch` | 7.2 only, **retained but not applied**: private RRC-DQP controls lack a qualified userspace ABI. |
+
 
 ## Known limitations
 

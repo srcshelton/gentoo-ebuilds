@@ -145,7 +145,7 @@ Package names encode the board, ACPI interface, firmware family, page-size
 flavour, and kernel. Choose `o6` or `o6n` for the physical board, `fw1.2` or
 `fw1.3` for the installed Radxa firmware family, and `arm64` unless a 64 KiB
 page kernel (`arm64-64k`) is explicitly required. For example,
-`linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb` contains the
+`linux-image-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb` contains the
 O6 firmware-1.2 full profile. These images require an ACPI-configured board.
 The 1.2 packages include both IORT transformations, and the Linux 7.2
 full 1.2 profiles include MPAM. Identify CI artifacts by workflow run and
@@ -156,15 +156,15 @@ Keep the distribution kernel installed and extract the assembled
 `cix-kernel-debs` artifact. Install only the selected image, for example:
 
 ```sh
-sudo apt install ./linux-image-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
+sudo apt install ./linux-image-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb
 ```
 
 If external-module headers are needed, install the matching flavour package
 and its common headers package together:
 
 ```sh
-sudo apt install ./linux-headers-6.18.54-cix-common_6.18.54-1_arm64.deb \
-  ./linux-headers-6.18.54-cix-o6-acpi-fw1.2-arm64_6.18.54-1_arm64.deb
+sudo apt install ./linux-headers-6.18.62-cix-common_6.18.62-1_arm64.deb \
+  ./linux-headers-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb
 ```
 
 The assembled artifact contains all variants; avoid broad installation
