@@ -57,6 +57,20 @@ PATCHES=( "${{FILESDIR}}"/shared.patch "${{FILESDIR}}"/{line}.x/local.patch )
                                            fromfile='a/file', tofile='b/file'))
         self.write(PACKAGE / 'files' / ref, data)
 
+    def git_diff(self, before, after, *options):
+        with tempfile.TemporaryDirectory(dir=self.root) as directory:
+            for name, snapshot in (('before', before), ('after', after)):
+                tree = Path(directory) / name
+                tree.mkdir()
+                for filename, content in snapshot.items():
+                    (tree / filename).write_text(content)
+            result = subprocess.run(
+                ['git', 'diff', '--no-index', '--no-color', '--no-ext-diff',
+                 '--no-renames', '--unified=3', *options, '--', 'before', 'after'],
+                cwd=directory, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            return result.stdout
+
     def manifest(self):
         rows = []
         for path in sorted(self.paths):
@@ -80,6 +94,37 @@ PATCHES=( "${{FILESDIR}}"/shared.patch "${{FILESDIR}}"/{line}.x/local.patch )
     def test_valid(self):
         self.assertEqual(self.run_check(layout), '')
         self.assertEqual(self.run_check(markdown), '')
+
+    def test_git_index_headers_in_shared_line_specific_and_retained_patches(self):
+        retained = '7.2.x/71140-retained.patch'
+        self.edit_ebuild('\nPATCHES=', f'\n# "${{FILESDIR}}"/{retained}\nPATCHES=', '7.2.15')
+        fixtures = (
+            ('shared.patch', self.git_diff({'a': 'before\n'}, {'a': 'after\n', 'b': 'new\n'},
+                                           '--abbrev=7'), [2, 10]),
+            ('6.18.x/local.patch', self.git_diff({'a': 'old\n'}, {'a': 'changed\n'},
+                                                 '--full-index'), [2]),
+            (retained, self.git_diff({}, {'a': 'retained\n'}, '--full-index'), [3]),
+        )
+        expected = []
+        for ref, data, numbers in fixtures:
+            path = PACKAGE / 'files' / ref
+            self.write(path, data)
+            expected.extend(f'{path}:{number}: remove the unnecessary Git index header'
+                            for number in numbers)
+        self.manifest()
+        self.assertEqual(sorted(self.run_check(layout).splitlines()), sorted(expected))
+
+    def test_git_index_text_outside_headers(self):
+        data = self.git_diff(
+            {'a': 'index abcd..ef01\nindex 0123..4567 100644\n'},
+            {'a': 'index abcd..ef01\nindex 89ab..cdef 100644\n'})
+        data = ''.join(line for line in data.splitlines(keepends=True)
+                       if not line.startswith('index '))
+        preamble = 'Commit message\n\nindex deadbeef..0123abcd 100644\n\n---\n'
+        trailer = '-- \nindex 0123..abcd 100644\n'
+        self.write(PACKAGE / 'files/shared.patch', preamble + data + trailer)
+        self.manifest()
+        self.assertEqual(self.run_check(layout), '')
 
     def test_git_tracking_and_failure_stderr(self):
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)

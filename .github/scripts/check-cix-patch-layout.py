@@ -8,6 +8,26 @@ from pathlib import Path
 from cix_repo import PACKAGE, Repository, version
 
 
+GIT_INDEX_HEADER = re.compile(rb'index [0-9a-fA-F]{4,64}\.\.[0-9a-fA-F]{4,64}(?: [0-7]{6})?')
+GIT_EXTENDED_HEADERS = (
+    b'old mode ', b'new mode ', b'deleted file mode ', b'new file mode ',
+    b'copy from ', b'copy to ', b'rename from ', b'rename to ',
+    b'similarity index ', b'dissimilarity index ',
+)
+
+
+def check_git_index_headers(repo, path, data):
+    in_header = False
+    for number, line in enumerate(data.splitlines(), 1):
+        if line.startswith(b'diff --git '):
+            in_header = True
+        elif in_header:
+            if GIT_INDEX_HEADER.fullmatch(line):
+                repo.fail(path, number, 'remove the unnecessary Git index header')
+            elif not line.startswith(GIT_EXTENDED_HEADERS):
+                in_header = False
+
+
 def check(repo):
     files = PACKAGE / 'files'
     lines = {line for _, line, _ in repo.ebuilds.values()}
@@ -72,7 +92,9 @@ def check(repo):
             repo.fail(manifest, 1, f'missing AUX entry for {ref}')
         if not (repo.root / p).exists():
             continue
-        digest = hashlib.sha256((repo.root / p).read_bytes()).digest()
+        data = (repo.root / p).read_bytes()
+        check_git_index_headers(repo, p, data)
+        digest = hashlib.sha256(data).digest()
         hashes.setdefault(digest, []).append(ref)
         if ref not in usage and ref not in repo.retained:
             repo.fail(p, 1, 'unapplied patch needs an explicit commented FILESDIR reference (retained/quarantined)')
