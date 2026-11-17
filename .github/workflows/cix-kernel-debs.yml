@@ -263,6 +263,7 @@ jobs:
           python3 .github/scripts/cix-sources/test-patch-policy.py
           python3 .github/scripts/test-kconfig-update.py
           python3 .github/scripts/test-cix-external-inputs.py
+          python3 .github/scripts/cix-sources/test-strict-iasl.py
           python3 .github/scripts/test-cix-deb-packaging.py
           .github/scripts/validate-cix-external-inputs.py \
             .github/fallbacks/cix-external-inputs
@@ -860,31 +861,22 @@ jobs:
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
 
-      - name: Install current ACPICA iasl
+      - name: Install selected ACPICA iasl
         shell: bash
         run: |
           set -euo pipefail
 
-          read -r acpica_url acpica_archive < <(
-            python3 - \
-              "${RUNNER_TEMP}/cix-external-inputs/acpica/latest-release.json" <<'PY'
-          import json
-          import re
+          acpica_source=$(PYTHONPATH=.github/scripts python3 - \
+            "${RUNNER_TEMP}/cix-external-inputs" <<'PY'
           import sys
+          from pathlib import Path
 
-          with open(sys.argv[1], encoding="utf-8") as release_file:
-              release = json.load(release_file)
+          from cix_external_inputs import acpica_source
 
-          for asset in release.get("assets", []):
-              if re.fullmatch(r"acpica-unix-\d{8}\.tar\.gz", asset.get("name", "")):
-                  print(asset["browser_download_url"], asset["name"])
-                  break
-          else:
-              raise SystemExit(1)
+          print(*acpica_source(Path(sys.argv[1])))
           PY
           )
-          acpica_version="${acpica_archive#acpica-unix-}"
-          acpica_version="${acpica_version%.tar.gz}"
+          read -r acpica_version acpica_archive acpica_url <<< "${acpica_source}"
 
           echo "Building ACPICA iasl ${acpica_version}"
           curl -fL --retry 5 --retry-connrefused --connect-timeout 30 \
@@ -914,7 +906,9 @@ jobs:
           rm -rf "${work_root}"
           mkdir -p "${build_dir}"
 
-          .github/scripts/cix-sources/create-patched-kernel.sh \
+          PATH="${GITHUB_WORKSPACE}/.github/scripts/cix-sources/strict-iasl:${PATH}" \
+            CIX_REAL_IASL=/usr/local/bin/iasl \
+            .github/scripts/cix-sources/create-patched-kernel.sh \
             --force \
             --compile-acpi-tables \
             --acpi-table-profile "${ACPI_TABLE_UPGRADE_MODE}" \

@@ -16,6 +16,7 @@ import unittest
 from unittest.mock import patch
 
 from cix_external_inputs import (
+    acpica_source,
     compact_acpica_metadata,
     compact_gentoo_metadata,
     load_json,
@@ -39,6 +40,19 @@ def load_script(name):
 REFRESH = load_script("refresh-cix-external-inputs")
 VERSIONS = load_script("check-cix-source-versions")
 MATRIX = load_script("discover-cix-matrix")
+
+
+def acpica_release(version):
+    return {
+        "tag_name": version,
+        "assets": [{
+            "name": f"acpica-unix-{version}.tar.gz",
+            "browser_download_url": (
+                f"https://github.com/acpica/acpica/releases/download/"
+                f"{version}/acpica-unix-{version}.tar.gz"
+            ),
+        }],
+    }
 
 
 class MetadataTests(unittest.TestCase):
@@ -119,6 +133,19 @@ class MetadataTests(unittest.TestCase):
             with self.subTest(release=release), self.assertRaises(ValueError):
                 compact_acpica_metadata(release)
 
+    def test_inconsistent_acpica_versions_rejected(self):
+        for release in (
+            acpica_release("20260230"),
+            dict(acpica_release("20260930"), tag_name="20260408"),
+            dict(acpica_release("20260930"), assets=[
+                dict(acpica_release("20260930")["assets"][0],
+                     browser_download_url=acpica_release("20260408")["assets"][0]["browser_download_url"]),
+            ]),
+            {"assets": acpica_release("20260930")["assets"] + acpica_release("20260408")["assets"]},
+        ):
+            with self.subTest(release=release), self.assertRaises(ValueError):
+                compact_acpica_metadata(release)
+
     def test_repository_fallback_is_compact_and_valid(self):
         validate_directory(FALLBACK)
         gentoo = load_json(FALLBACK / "gentoo-sources/contents.json")
@@ -152,9 +179,12 @@ class RefreshTests(unittest.TestCase):
             fallback_dir=self.fallback, output_dir=self.output,
             work_dir=self.root / "work", offline=offline,
         )
-        with patch.object(REFRESH, "parse_args", return_value=args):
-            with contextlib.redirect_stdout(io.StringIO()):
-                REFRESH.main()
+        with (
+            patch.object(REFRESH, "parse_args", return_value=args),
+            patch.dict(os.environ, GITHUB_STEP_SUMMARY=""),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            REFRESH.main()
         validate_directory(self.output)
         self.assertEqual(
             load_json(self.output / "gentoo-sources/contents.json"),
@@ -185,14 +215,8 @@ class RefreshTests(unittest.TestCase):
 
     def test_successful_fetch_is_compacted(self):
         self.gentoo[0]["name"] = "gentoo-sources-6.18.999.ebuild"
-        self.acpica["assets"][0] = {
-            "name": "acpica-unix-20260409.tar.gz",
-            "browser_download_url": (
-                "https://github.com/acpica/acpica/releases/download/"
-                "20260409/acpica-unix-20260409.tar.gz"
-            ),
-            "download_count": 1,
-        }
+        self.acpica = acpica_release("20261001")
+        self.acpica["assets"][0]["download_count"] = 1
 
         def response(request, **kwargs):
             payload = self.gentoo if request.full_url == REFRESH.GENTOO_URL else self.acpica
@@ -234,6 +258,96 @@ class RefreshTests(unittest.TestCase):
                     with patch.object(REFRESH.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)):
                         self.refresh()
                 self.assert_retained_timestamps()
+
+    def test_acpica_freshness_and_selection(self):
+        selected = acpica_source(self.fallback)[0]
+        for version, state, refreshed in (
+            (selected, "up to date", True),
+            ("20991231", "outdated", True),
+            ("20260408", "upstream older than selected", False),
+            ("invalid", "invalid metadata", False),
+            (None, "unavailable upstream", False),
+        ):
+            with self.subTest(upstream=version):
+                if self.output.exists():
+                    shutil.rmtree(self.output)
+                summary = self.root / "summary"
+                summary.unlink(missing_ok=True)
+                before = load_json(self.fallback / "retention.json")["components"]["acpica"]
+                args = argparse.Namespace(
+                    fallback_dir=self.fallback, output_dir=self.output,
+                    work_dir=self.root / "work", offline=False,
+                )
+
+                def fetch(request, **kwargs):
+                    if request.full_url == REFRESH.GENTOO_URL or version is None:
+                        raise TimeoutError("temporary failure")
+                    return io.BytesIO(json.dumps(acpica_release(version)).encode())
+
+                stdout = io.StringIO()
+                with (
+                    patch.object(REFRESH, "parse_args", return_value=args),
+                    patch.object(REFRESH.urllib.request, "urlopen", side_effect=fetch),
+                    patch.object(REFRESH.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)),
+                    patch.dict(os.environ, GITHUB_STEP_SUMMARY=str(summary)),
+                    contextlib.redirect_stdout(stdout),
+                ):
+                    REFRESH.main()
+                validate_directory(self.output)
+                record = load_json(self.output / "retention.json")["components"]["acpica"]
+                self.assertEqual(acpica_source(self.output)[0], version if refreshed else selected)
+                self.assertEqual(record["state"], "refreshed" if refreshed else "retained")
+                report = summary.read_text()
+                self.assertIn(f"ACPICA: {state}.", report)
+                self.assertIn(f"Selected before refresh: {selected}.", report)
+                self.assertIn(
+                    f"Latest upstream: {version if version and version != 'invalid' else 'unknown'}.",
+                    report,
+                )
+                if not refreshed:
+                    self.assertEqual(record["last_refreshed_at"], before["last_refreshed_at"])
+                    self.assertIn(record["last_refreshed_at"], report)
+                level = "notice" if state == "up to date" else "warning"
+                self.assertIn(f"::{level}::ACPICA: {state}.", stdout.getvalue())
+
+    def test_restore_prefers_newest_valid_acpica_without_replacing_other_inputs(self):
+        gh = self.root / "gh"
+        gh.write_text(
+            '#!/bin/bash\n'
+            'if [[ $2 == list ]]; then echo 123; exit; fi\n'
+            'while [[ $1 != --dir ]]; do shift; done\n'
+            'cp -R "$TEST_ARTIFACT" "$2"\n',
+        )
+        gh.chmod(0o755)
+        invalid = self.root / "invalid-fallback"
+        shutil.copytree(FALLBACK, invalid)
+        with (invalid / "retention.json").open("a", encoding="utf-8") as output:
+            output.write("\n")  # Break only the checksum.
+        for index, (version, fallback, selected) in enumerate((
+            ("20260408", FALLBACK, acpica_source(FALLBACK)[0]),
+            ("20991231", FALLBACK, "20991231"),
+            ("20260408", invalid, "20260408"),
+        )):
+            with self.subTest(artifact=version, fallback=fallback):
+                artifact = self.root / f"artifact-{index}"
+                shutil.copytree(self.fallback, artifact)
+                (artifact / "acpica/latest-release.json").write_text(
+                    json.dumps(acpica_release(version)),
+                )
+                write_checksums(artifact)
+                restored = self.root / f"restored-{index}"
+                subprocess.run(
+                    [SCRIPTS / "restore-cix-external-inputs.sh", fallback, restored],
+                    env={
+                        **os.environ, "CIX_EXTERNAL_INPUTS_OFFLINE": "0",
+                        "GITHUB_REPOSITORY": "example/overlay",
+                        "PATH": f"{self.root}:{os.environ['PATH']}", "TEST_ARTIFACT": str(artifact),
+                    },
+                    check=True, capture_output=True,
+                )
+                validate_directory(restored)
+                self.assertEqual(acpica_source(restored)[0], selected)
+                self.assertEqual(load_json(restored / "gentoo-sources/contents.json"), self.gentoo)
 
     def test_restored_bundle_and_version_checker_cli(self):
         restored = self.root / "restored"

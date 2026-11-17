@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import http.client
 import json
 import os
 import shutil
@@ -14,9 +15,9 @@ from pathlib import Path
 
 from cix_external_inputs import (
     UBUNTU_SEEDS,
+    acpica_source,
     compact_metadata,
     load_json,
-    validate_acpica_metadata,
     validate_directory,
     validate_gentoo_metadata,
     validate_ubuntu_seed,
@@ -84,6 +85,43 @@ def refresh_json(
     return True
 
 
+def refresh_acpica(root: Path, work_dir: Path, last_refreshed: str) -> bool:
+    relative = Path("acpica/latest-release.json")
+    selected, _, _ = acpica_source(root)
+    upstream = "unknown"
+    detail = f"Still selected for builds: {selected} (last refreshed at {last_refreshed})."
+    try:
+        fetch_json(ACPICA_URL, work_dir / relative)
+        upstream, _, _ = acpica_source(work_dir)
+    except (OSError, http.client.HTTPException) as error:
+        state = "unavailable upstream"
+        detail += f" {error}"
+    except ValueError as error:
+        state = "invalid metadata"
+        detail += f" {error}"
+    else:
+        if upstream < selected:
+            state = "upstream older than selected"
+        else:
+            state = "outdated" if upstream > selected else "up to date"
+            shutil.move(work_dir / relative, root / relative)
+            detail = f"Selected for subsequent builds: {upstream}."
+
+    refreshed = state in {"outdated", "up to date"}
+    message = (
+        f"ACPICA: {state}. Latest upstream: {upstream}. "
+        f"Selected before refresh: {selected}. {detail}"
+    )
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        level = "notice" if state == "up to date" else "warning"
+        print(f"::{level}::{message}")
+        with Path(summary).open("a", encoding="utf-8") as output:
+            output.write(f"### ACPICA freshness\n\n{message}\n\n")
+    else:
+        print(message)
+    return refreshed
+
+
 def main() -> None:
     args = parse_args()
     if args.output_dir == Path("/") or args.work_dir == Path("/"):
@@ -109,12 +147,8 @@ def main() -> None:
             validate_gentoo_metadata,
             args.work_dir,
         )
-        refreshed["acpica"] = refresh_json(
-            args.output_dir,
-            Path("acpica/latest-release.json"),
-            ACPICA_URL,
-            validate_acpica_metadata,
-            args.work_dir,
+        refreshed["acpica"] = refresh_acpica(
+            args.output_dir, args.work_dir, components["acpica"]["last_refreshed_at"],
         )
 
         fetch_script = Path(__file__).with_name("fetch-ubuntu-configs.sh")

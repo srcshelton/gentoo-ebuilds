@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Require a clean iasl compilation summary in CIX CI."""
+
+import os
+import re
+import subprocess
+import sys
+
+
+def main() -> int:
+    compiler = os.environ["CIX_REAL_IASL"]
+    args = sys.argv[1:]
+    if args == ["-v"]:
+        os.execv(compiler, [compiler, *args])
+
+    result = subprocess.run(
+        [compiler, *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+    )
+    sys.stdout.buffer.write(result.stdout)
+    sys.stdout.buffer.flush()
+    if result.returncode:
+        print(f"iasl failed (status {result.returncode}): {args[-1]}", file=sys.stderr)
+        return result.returncode if result.returncode > 0 else 1
+
+    # Check ACPICA's normal diagnostics for both ASL and data tables.
+    summaries = re.findall(
+        rb"^Compilation (successful|failed)\. ([0-9]+) Errors, "
+        rb"([0-9]+) Warnings, ([0-9]+) Remarks(?:,|\s*$)",
+        result.stdout, re.MULTILINE,
+    )
+    if not summaries or any(
+        status != b"successful" or any(map(int, counts))
+        for status, *counts in summaries
+    ):
+        print(
+            "iasl requires a successful summary with zero errors, warnings and remarks: "
+            f"{args[-1]}",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

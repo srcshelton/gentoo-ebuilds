@@ -44,7 +44,7 @@ if [[ ${CIX_EXTERNAL_INPUTS_OFFLINE:-0} != 1 && -n ${GITHUB_REPOSITORY:-} ]] &&
 			--repo "$GITHUB_REPOSITORY" \
 			--name cix-external-inputs \
 			--dir "$candidate" 2>/dev/null &&
-		"$script_dir/validate-cix-external-inputs.py" "$candidate"; then
+		"$script_dir/validate-cix-external-inputs.py" "$candidate" --acpica-floor "$fallback_dir"; then
 		restored=true
 		echo "Restored retained external inputs from workflow run $run_id"
 	else

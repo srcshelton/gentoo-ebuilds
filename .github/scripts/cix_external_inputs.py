@@ -10,10 +10,10 @@ import re
 from pathlib import Path
 
 
-ACPICA_ASSET = re.compile(r"acpica-unix-\d{8}\.tar\.gz")
+ACPICA_ASSET = re.compile(r"acpica-unix-([0-9]{8})\.tar\.gz")
 ACPICA_DOWNLOAD = re.compile(
     r"https://github\.com/(?:acpica|open-acpica)/acpica/releases/download/"
-    r"\d{8}/acpica-unix-\d{8}\.tar\.gz"
+    r"([0-9]{8})/([^/]+)"
 )
 GENTOO_EBUILD = re.compile(
     r"^gentoo-sources-(\d+)\.(\d+)\.(\d+)(?:-r(\d+))?\.ebuild$"
@@ -104,22 +104,37 @@ def compact_acpica_metadata(release: object) -> dict[str, object]:
     assets = release.get("assets", [])
     if not isinstance(assets, list):
         raise ValueError("ACPICA release metadata: assets is not a list")
+    sources = []
     for asset in assets:
         if not isinstance(asset, dict):
             continue
         name = str(asset.get("name", ""))
+        match = ACPICA_ASSET.fullmatch(name)
+        if not match:
+            continue
+        version = match[1]
+        datetime.datetime.strptime(version, "%Y%m%d")
         url = str(asset.get("browser_download_url", ""))
-        if ACPICA_ASSET.fullmatch(name) and ACPICA_DOWNLOAD.fullmatch(url):
-            return {"assets": [{"name": name, "browser_download_url": url}]}
-    raise ValueError("ACPICA release metadata: no ACPICA Unix source asset")
+        download = ACPICA_DOWNLOAD.fullmatch(url)
+        if (not download or download.groups() != (version, name)
+                or release.get("tag_name", version) != version):
+            raise ValueError(f"ACPICA release metadata: mismatched tag or URL for {name}")
+        sources.append({"name": name, "browser_download_url": url})
+    if len(sources) != 1:
+        raise ValueError("ACPICA release metadata: expected exactly one ACPICA Unix source asset")
+    return {"assets": sources}
 
 
 def validate_gentoo_metadata(root: Path) -> None:
     compact_gentoo_metadata(load_json(root / "gentoo-sources" / "contents.json"))
 
 
-def validate_acpica_metadata(root: Path) -> None:
-    compact_acpica_metadata(load_json(root / "acpica" / "latest-release.json"))
+def acpica_source(root: Path) -> tuple[str, str, str]:
+    release = compact_acpica_metadata(load_json(root / "acpica" / "latest-release.json"))
+    asset = release["assets"][0]
+    name = asset["name"]
+    version = name.removeprefix("acpica-unix-").removesuffix(".tar.gz")
+    return version, name, asset["browser_download_url"]
 
 
 def compact_metadata(root: Path) -> None:
@@ -222,6 +237,6 @@ def validate_directory(root: Path, max_age_days: int | None = None) -> None:
     for seed in UBUNTU_SEEDS:
         validate_ubuntu_seed(root, seed)
     validate_gentoo_metadata(root)
-    validate_acpica_metadata(root)
+    acpica_source(root)
     validate_retention(root, max_age_days)
     validate_checksums(root)

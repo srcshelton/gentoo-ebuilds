@@ -1,8 +1,8 @@
 {
   "components": {
     "acpica": {
-      "last_checked_at": "2026-09-01T09:59:21+00:00",
-      "last_refreshed_at": "2026-09-01T09:59:21+00:00",
+      "last_checked_at": "2026-11-17T12:11:33+00:00",
+      "last_refreshed_at": "2026-11-17T12:11:33+00:00",
       "source": "https://api.github.com/repos/acpica/acpica/releases/latest",
       "state": "refreshed"
     },
@@ -25,6 +25,6 @@
       "state": "refreshed"
     }
   },
-  "generated_at": "2026-09-21T17:37:11.703993+00:00",
+  "generated_at": "2026-11-17T12:11:33+00:00",
   "schema_version": 1
 }

@@ -1,8 +1,8 @@
 {
   "assets": [
     {
-      "browser_download_url": "https://github.com/open-acpica/acpica/releases/download/20260408/acpica-unix-20260408.tar.gz",
-      "name": "acpica-unix-20260408.tar.gz"
+      "browser_download_url": "https://github.com/open-acpica/acpica/releases/download/20260930/acpica-unix-20260930.tar.gz",
+      "name": "acpica-unix-20260930.tar.gz"
     }
   ]
 }
