@@ -1,0 +1,121 @@
+ALSA: hda/realtek: preserve CIX mic topology and ORAPI verb ordering
+
+Retain the CIX no-auto-mic fixups and adapt the ORAPI 6P part of
+vendor commit 116c7cc9c3ec ("ALSA: hda/realtek: keep the CIX board COEF verbs in codec->init_verbs").
+Run the amp and stream verbs before generic routing. Keep the COEF
+verbs on the init and resume path, including the existing Orion and
+EVB lists.
+
+diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
+--- a/sound/hda/codecs/realtek/alc269.c
++++ b/sound/hda/codecs/realtek/alc269.c
+@@ -2760,6 +2760,25 @@ static void alc256_fixup_chromebook(struct hda_codec *codec,
+ 	}
+ }
+ 
++/*
++ * CIX Sky1 boards (EVB / Orion O6 / ORAPI 6P) share a codec SSID and rely on
++ * UCM profiles that reference the generic parser's input mux
++ * ("Input Source" / "Capture Source"). The parser's auto-mic heuristic would
++ * otherwise force a single ADC and suppress that mux (see
++ * check_auto_mic_availability() in generic.c). Disable it so the codec
++ * topology matches the 6.6 BSP driver, which set suppress_auto_mic for all
++ * CIX boards via the 0x10EC129E SSID quirk (alc_fixup_cix_phecda).
++ */
++static void alc256_fixup_cix_sky1_no_auto_mic(struct hda_codec *codec,
++					      const struct hda_fixup *fix,
++					      int action)
++{
++	struct alc_spec *spec = codec->spec;
++
++	if (action == HDA_FIXUP_ACT_PRE_PROBE)
++		spec->gen.suppress_auto_mic = true;
++}
++
+ static void alc_fixup_disable_mic_vref(struct hda_codec *codec,
+ 				  const struct hda_fixup *fix, int action)
+ {
+@@ -4051,6 +4070,8 @@ enum {
+ 	ALC256_FIXUP_CIX_SKY1_ORION_O6_COEF,
+ 	ALC269_FIXUP_CIX_SKY1_ORAPI_6P,
+ 	ALC269_FIXUP_CIX_SKY1_ORAPI_6P_COEF,
++	ALC269_FIXUP_CIX_SKY1_ORAPI_6P_AMP,
++	ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC,
+ };
+ 
+ /* A special fixup for Lenovo C940 and Yoga Duet 7;
+@@ -4147,6 +4168,26 @@ static void alc287_fixup_legion_s7_amp(struct hda_codec *codec,
+ 	snd_hda_sequence_write(codec, legion_amp_verbs);
+ }
+ 
++/*
++ * Program the ORAPI amp and stream setup once, before the generic parser's
++ * routing takes effect. Keep the COEF verbs in the init list for resume.
++ */
++static const struct hda_verb alc269_cix_orapi_6p_amp_verbs[] = {
++	{ 0x0c, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
++	{ 0x02, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
++	{ 0x0d, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
++	{ 0x03, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
++	{ }
++};
++
++static void alc269_cix_orapi_6p_amp_fixup(struct hda_codec *codec,
++				       const struct hda_fixup *fix,
++				       int action)
++{
++	if (action == HDA_FIXUP_ACT_PRE_PROBE)
++		snd_hda_sequence_write(codec, alc269_cix_orapi_6p_amp_verbs);
++}
++
+ static const struct hda_fixup alc269_fixups[] = {
+ 	[ALC233_FIXUP_WUJIE_SPEAKERS] = {
+ 		.type = HDA_FIXUP_PINS,
+@@ -6719,7 +6760,9 @@ static const struct hda_fixup alc269_fixups[] = {
+ 			{ 0x57, AC_VERB_SET_COEF_INDEX, 0x03 },
+ 			{ 0x57, AC_VERB_SET_PROC_COEF,  0x09a3 },
+ 			{ }
+-		}
++		},
++		.chained = true,
++		.chain_id = ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC
+ 	},
+ 	[ALC256_FIXUP_CIX_SKY1_ORION_O6] = {
+ 		.type = HDA_FIXUP_PINS,
+@@ -6764,7 +6807,9 @@ static const struct hda_fixup alc269_fixups[] = {
+ 			{ 0x57, AC_VERB_SET_COEF_INDEX, 0x03 },
+ 			{ 0x57, AC_VERB_SET_PROC_COEF,  0x09a3 },
+ 			{ }
+-		}
++		},
++		.chained = true,
++		.chain_id = ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC
+ 	},
+ 	[ALC269_FIXUP_CIX_SKY1_ORAPI_6P] = {
+ 		.type = HDA_FIXUP_PINS,
+@@ -6803,12 +6848,20 @@ static const struct hda_fixup alc269_fixups[] = {
+ 			{ 0x20, AC_VERB_SET_PROC_COEF,  0x8002 },
+ 			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x15 },
+ 			{ 0x20, AC_VERB_SET_PROC_COEF,  0x8002 },
+-			{ 0x0c, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
+-			{ 0x02, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
+-			{ 0x0d, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
+-			{ 0x03, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
+ 			{ }
+-		}
++		},
++		.chained = true,
++		.chain_id = ALC269_FIXUP_CIX_SKY1_ORAPI_6P_AMP
++	},
++	[ALC269_FIXUP_CIX_SKY1_ORAPI_6P_AMP] = {
++		.type = HDA_FIXUP_FUNC,
++		.v.func = alc269_cix_orapi_6p_amp_fixup,
++		.chained = true,
++		.chain_id = ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC
++	},
++	[ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC] = {
++		.type = HDA_FIXUP_FUNC,
++		.v.func = alc256_fixup_cix_sky1_no_auto_mic
+ 	}
+ };
+ 

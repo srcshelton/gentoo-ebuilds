@@ -27,7 +27,8 @@ detect_arch
 
 #ECLASS_DEBUG_OUTPUT="on"
 
-EGIT_CIX_COMMIT="bc078a383042a6c14b05c56e12390e422f893088"
+# Latest patches-6.18 change is 116c7cc9c3ec. The next commit is CI-only.
+EGIT_CIX_COMMIT="21ac2e7346a24c47f96e7bec91ca0e869c88c8ef"
 
 DESCRIPTION="CIX sources including the Gentoo, CIX and audited overlay patchsets for the ${KV_MAJOR}.${KV_MINOR} kernel tree"
 HOMEPAGE="https://github.com/cixtech/cix-linux-main/
@@ -116,6 +117,7 @@ src_prepare() {
 			0003-firmware-arm_scmi-add-acpi-support-to-SCMI.patch)
 				# Replace the vendor SCMI fwnode conversion with balanced
 				# mailbox, protocol-child, transport and shared-memory ownership.
+				# The audited path already follows stable fwnode lifetime rules.
 				eapply "${FILESDIR}"/6.18.x/0003-6.18.65-firmware-arm-scmi-add-audited-acpi-support.patch || die
 				return
 				;;
@@ -131,22 +133,39 @@ src_prepare() {
 				eapply "${FILESDIR}"/6.18.x/0004-clk-scmi-add-audited-acpi-publication.patch || die
 				return
 				;;
-			0005-clk-add-cix-clk-driver.patch)
-				# Consolidate CLKT/CLKA, AUDSS and the shared ACPI syscon provider
-				# with failure-atomic publication, PM and ownership handling.
+			00050-dt-bindings-soc-cix-add-sky1-audss-cru-controller.patch)
+				# Vendor 0005 became 00050–00054. Install the audited clock,
+				# AUDSS and shared-syscon owners at the first family member.
 				eapply "${FILESDIR}"/6.18.x/0005-clk-cix-add-audited-sky1-support.patch || die
 				return
 				;;
-			0006-reset-add-cix-reset-driver.patch)
-				# Share overlapping system/AUDSS regmaps and validate every reset
-				# operation, provider lifetime and ACPI/DT applicability path.
+			00051-clk-cix-add-sky1-audss-clock-controller.patch|\
+			00052-clk-add-cix-clk-driver.patch|\
+			00053-clk-cix-add-acpi-support-to-sky1-audss-clock-control.patch|\
+			00054-clk-audss-fix-str.patch)
+				# Keep the existing clock ownership and defer vendor RCSU
+				# restore to AUDSS suspend/resume qualification.
+				return
+				;;
+			00059-reset-add-cix-reset-driver.patch)
+				# Vendor 0006 became 00059–00063. Install the audited reset
+				# providers with shared regmaps and validated resets.
 				eapply "${FILESDIR}"/6.18.x/0006-reset-cix-add-audited-sky1-support.patch || die
+				return
+				;;
+			00060-reset-cix-add-sky1-audss-auxiliary-reset-driver.patch|\
+			00061-reset-sky1-add-acpi-support.patch|\
+			00062-reset-cix-add-acpi-support-to-sky1-audss-reset-drive.patch|\
+			00063-reset-backport-fwnode-based-reset-core-from-v7.1.patch)
+				# Keep the established reset lookup and provider model.
+				# The vendor reset-core backport requires RSTL injection.
 				return
 				;;
 			0007-soc-add-cix-acpi-resource-lookup-driver.patch)
 				# Preserve the CIX firmware bridge with validated AML parsing,
 				# balanced references and persistent namespace ownership. Resolve
 				# named ACPI IRQs through the same lazy path as indexed lookups.
+				# Keep persistent RSTL lookups for the retained 6.18 reset core.
 				eapply "${FILESDIR}"/6.18.x/0007-soc-cix-harden-acpi-resource-lookup-driver.patch || die
 				return
 				;;
@@ -201,10 +220,13 @@ src_prepare() {
 			0054-usb-cdns3-fix-TypeC-hotplug-enumerati-on-failure.patch|\
 			0061-DPTSW-24991-usb-fix-SError-during-poweroff-by-releas.patch|\
 			0062-DPTSW-25423-usb-cdns3-sky1-disabled-IRQ-before-disab.patch|\
-			0065-usb-cdns3-fix-cdnsp-timeout-at-resume.patch|\
+			0065-DPTSW-10531-1-USB-CDNSP-fix-bug-for-incorrect-cdns-v.patch|\
+			0072-fix-opi-str-usb-timeout.patch|\
 			0068-DPTSW-26453-usb-cdns3-sky1-add-phy-dep-check-at-prob.patch)
 				# Unsafe reset/unbind/IRQ workarounds are removed. The valid posted
-				# write, restore and exact PHY-readiness concepts are in 0025.
+				# write, restore and PHY-readiness handling remain in 0025.
+				# 60020 already handles version-specific markers and restores
+				# platform power before CDNSP checks for loss of context.
 				return
 				;;
 			00131-ALSA-hda-core-add-addr_offset-field-for-bus-address-.patch)
@@ -220,6 +242,13 @@ src_prepare() {
 			0014-kernel-dma-Export-dma_declare_coherent_memory-for-mo.patch)
 				# Absorbed by 0013; the unreserved RSVL pool and its private
 				# coherent-memory export are deliberately not retained.
+				# The 00135 codec-only follow-up is handled with 0071.
+				return
+				;;
+			0071-DPTSW-26459-ALSA-hda-realtek-suppress-auto-mic-on-CI.patch)
+				# Keep the no-auto-mic topology and adapt the ORAPI 6P
+				# codec verb ordering fix to the audited HDA source.
+				eapply "${FILESDIR}"/6.18.x/0071-alsa-hda-realtek-fix-cix-board-verb-order.patch || die
 				return
 				;;
 			0009-remoteproc-add-cix-dsp-remoteproc-driver.patch)
@@ -235,10 +264,26 @@ src_prepare() {
 				# the separate ACPI HDMI/DP ASoC path remains supported.
 				return
 				;;
+			00220-sound-soc-add-cix-soc-support.patch)
+				# Retain the 0022 ASoC base for the 73050/73060 hardening.
+				# The later DP codec fix already has an audited equivalent.
+				eapply "${FILESDIR}"/6.18.x/0022-sound-soc-cix-retain-platform-base.patch || die
+				return
+				;;
+			00221-snd-soc-cix-fix-mainline.patch|\
+			00222-dp-audio-fix.patch)
+				# These patches depend on the deferred 00220 card rewrite.
+				return
+				;;
 			0016-dma-arm-dma350-add-acpi-support-for-cix-soc.patch)
 				# Replace the vendor driver with bounded command construction,
 				# DMA-API-correct addressing and fail-safe channel ownership.
 				eapply "${FILESDIR}"/6.18.x/0016-dma-arm-dma350-add-audited-cix-support.patch || die
+				return
+				;;
+			00170-dma-str.patch)
+				# Defer vendor DMA350 reset, IRQ and suspend handling to
+				# the AUDSS/DMA350 qualification work.
 				return
 				;;
 			0017-gpio-add-acpi-support-to-cadence-driver.patch)
@@ -265,8 +310,8 @@ src_prepare() {
 				;;
 			0012-irqchip-add-cix-sky1-pdc-driver.patch)
 				# Keep the firmware-backed wake domain, but bound it to the
-				# TF-A SPI contract and remove the unused MMIO/global lifetime
-				# model from the vendor implementation.
+				# TF-A SPI contract. Vendor 0012 retargets the unused
+				# syscore hooks already omitted by the audited driver.
 				eapply "${FILESDIR}"/6.18.x/0012-irqchip-cix-sky1-pdc-add-audited-wake-domain.patch || die
 				return
 				;;
@@ -324,7 +369,6 @@ src_prepare() {
 			0037-arm-smmu-v3-add-suspend-resume-support.patch|\
 			0039-pci-cadence-add-PCI_SKY1_HOST_CIX-for-bsp-driver.patch|\
 			0045-clocksource-add-sky1-gpt-timer-driver.patch|\
-			0046-tty-amba-pl011-use-driver-from-cix-bsp.patch|\
 			0047-drm-cix-fix-hdmi-str.patch|\
 			0049-add-hym8563-rx8900-rtc-driver.patch|\
 			0050-arm64-add-model-name-for-Cix-Sky1-Soc.patch|\
@@ -341,9 +385,14 @@ src_prepare() {
 				# Retain standard PNP0A08 roots and exclude unsafe vendor-only
 				# PCIe/DST/thermal code, global SMMU suspend and CPU-info
 				# rewrites, unsupported DP-to-HDMI glue, the unsafe GPT
-				# clocksource, wholesale PL011 rollback and RX8900 RTC import,
+				# clocksource and RX8900 RTC import,
 				# the system-wide OP-TEE
 				# shutdown probe guard, and the unused SCMI EM helper.
+				return
+				;;
+			2005-acpi-supply-the-cell-count-old-CIX-firmware-omits-on-SCMI.patch)
+				# Correct SCMI reference cells in firmware and Table Upgrades.
+				# Keep generic ACPI property parsing unchanged.
 				return
 				;;
 		esac
@@ -402,7 +451,8 @@ src_prepare() {
 		"${FILESDIR}"/6.18.x/70130-drm-cix-retain-safe-display-improvements.patch
 		"${FILESDIR}"/6.18.x/70135-drm-cix-remove-unsafe-engineering-interfaces.patch
 		"${FILESDIR}"/6.18.x/70140-drm-cix-fix-gcc15-clang21-w1-findings.patch
-		"${FILESDIR}"/6.18.x/70150-drm-support-up-to-64-planes.patch
+		# Vendor 00101 and 1009 now leave the core plane-mask conversion
+		# to 00102, which provides the full downstream 70150 result.
 		"${FILESDIR}"/70160-drm-cix-dptx-fix-audio-eld-and-shutdown.patch
 		"${FILESDIR}"/6.18.x/70170-drm-cix-linlon-propagate-aclk-errors.patch
 		"${FILESDIR}"/6.18.x/70180-drm-cix-dptx-propagate-reset-lookup-errors.patch
