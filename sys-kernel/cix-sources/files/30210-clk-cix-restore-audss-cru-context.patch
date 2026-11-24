@@ -1,0 +1,108 @@
+clk: cix: restore Sky1 AUDSS reset and AP interrupt gate context
+
+AUDSS can lose its software reset and AP interrupt gate state over
+system sleep. DMA350 can remain runtime active across that transition.
+Restoring its clock alone then leaves it in reset, while channels
+allocated before suspend can also lose their AP interrupt route.
+
+Adapt the CRU context restoration from Jelly Jia's AUDSS v3 patch 2/5.
+Restore the defined active-low reset bits after the clocks, then the
+eight AP interrupt gates. Preserve the rest of both words. The reset
+controller and ACPI DMA allocation still manage their respective bits
+during normal operation. Use the existing runtime and system-sleep
+callbacks, which already sequence the CRU's parent clocks and NoC reset.
+
+Link: https://lore.kernel.org/r/20261106013520.1134450-3-Jelly.Jia@cixtech.com
+
+diff --git a/drivers/clk/cix/clk-sky1-audss.c b/drivers/clk/cix/clk-sky1-audss.c
+--- a/drivers/clk/cix/clk-sky1-audss.c
++++ b/drivers/clk/cix/clk-sky1-audss.c
+@@ -3,12 +3,14 @@
+ 
+ #include <linux/acpi.h>
+ #include <linux/auxiliary_bus.h>
++#include <linux/bits.h>
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/clkdev.h>
+ #include <linux/device.h>
+ #include <linux/limits.h>
+ #include <linux/mfd/syscon.h>
++#include <linux/limits.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+@@ -24,7 +26,11 @@
+ #define INFO_CLK_GATE				0x10
+ #define INFO_CLK_DIV				0x14
+ #define INFO_CLK_MUX				0x18
++#define INFO_AP_IRQC				0x54
++#define INFO_AP_IRQC_DMAC_MASK			GENMASK(7, 0)
+ #define INFO_MCLK				0x70
++#define INFO_SW_RESETN				0x78
++#define INFO_SW_RESETN_MASK			GENMASK(15, 0)
+ 
+ #define SKY1_AUDSS_CLK_PARENTS_CNT		4
+ #define SKY1_AUDSS_NUM_CLKS			(CLK_MCLK4 + 1)
+@@ -34,12 +40,20 @@
+ #define SKY1_AUDSS_HIFI5_DIV2_NAME		"audss_hifi5_div2"
+ #define SKY1_AUDSS_HIFI5_DIV4_NAME		"audss_hifi5_div4"
+ 
+-static const unsigned int sky1_reg_save[] = {
+-	INFO_CLK_DIV,
+-	INFO_CLK_MUX,
+-	INFO_HIFI0,
+-	INFO_CLK_GATE,
+-	INFO_MCLK,
++struct sky1_audss_context_reg {
++	unsigned int offset;
++	unsigned int mask;
++};
++
++static const struct sky1_audss_context_reg sky1_reg_save[] = {
++	{ INFO_CLK_DIV, U32_MAX },
++	{ INFO_CLK_MUX, U32_MAX },
++	{ INFO_HIFI0, U32_MAX },
++	{ INFO_CLK_GATE, U32_MAX },
++	{ INFO_MCLK, U32_MAX },
++	/* Restore active-low reset state after clocks, then AP IRQ gates. */
++	{ INFO_SW_RESETN, INFO_SW_RESETN_MASK },
++	{ INFO_AP_IRQC, INFO_AP_IRQC_DMAC_MASK },
+ };
+ 
+ static const char * const sky1_audss_clk_names[SKY1_AUDSS_CLK_PARENTS_CNT] = {
+@@ -532,7 +546,7 @@ static const struct composite_clk_cfg sky1_audss_clks[] = {
+ };
+ 
+ struct sky1_audss_clks_devtype_data {
+-	const unsigned int *reg_save;
++	const struct sky1_audss_context_reg *reg_save;
+ 	size_t reg_save_size;
+ 	const char * const *clk_names;
+ 	size_t clk_num;
+@@ -1663,7 +1677,7 @@ static int __maybe_unused sky1_audss_clk_runtime_suspend(struct device *dev)
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 	for (i = 0; i < devtype_data->reg_save_size; i++) {
+-		ret = regmap_read(priv->regmap_cru, devtype_data->reg_save[i],
++		ret = regmap_read(priv->regmap_cru, devtype_data->reg_save[i].offset,
+ 				  &priv->reg_save[i]);
+ 		if (ret)
+ 			break;
+@@ -1700,8 +1714,14 @@ static int __maybe_unused sky1_audss_clk_runtime_resume(struct device *dev)
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 	for (i = 0; i < devtype_data->reg_save_size; i++) {
+-		ret = regmap_write(priv->regmap_cru, devtype_data->reg_save[i],
+-				   priv->reg_save[i]);
++		const struct sky1_audss_context_reg *reg = &devtype_data->reg_save[i];
++
++		if (reg->mask == U32_MAX)
++			ret = regmap_write(priv->regmap_cru, reg->offset,
++					   priv->reg_save[i]);
++		else
++			ret = regmap_update_bits(priv->regmap_cru, reg->offset,
++						 reg->mask, priv->reg_save[i]);
+ 		if (ret)
+ 			break;
+ 	}

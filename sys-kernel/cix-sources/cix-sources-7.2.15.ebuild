@@ -413,6 +413,7 @@ src_prepare() {
 		"${FILESDIR}"/7.2.x/30195-firmware-arm-scmi-use-rational-perf-frequency-conversion.patch
 		"${FILESDIR}"/7.2.x/30196-power-opp-accept-acpi-only-configurations.patch
 		"${FILESDIR}"/7.2.x/30200-pmdomain-read-provider-performance-state.patch
+		"${FILESDIR}"/30210-clk-cix-restore-audss-cru-context.patch
 		"${FILESDIR}"/7.2.x/40042-platform-acpi-resolve-named-irq-resources.patch
 		# CIX-QUESTIONED-PATCH: stock-firmware log demotion; upgraded DSDTs remove the duplicate.
 		"${FILESDIR}"/7.2.x/40046-acpi-demote-cix-sky1-ecam-duplicate-reservations.patch
