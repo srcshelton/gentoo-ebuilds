@@ -4,6 +4,16 @@
     "commit": "ac5a3a9585d8f8d8e99ebe05fe6a88c47915d8fc",
     "reason": "6.18.57 SCMI device-lifetime fixes require the replacement to keep fwnode reference ownership private to the mailbox transport; the earlier unqualified variant served pre-6.18.57. See the patch preamble and this commit's new ebuild and replacement."
   },
+  "6.18.x/0003-6.18.65-firmware-arm-scmi-add-audited-acpi-support.patch": {
+    "boundary": "6.18.65",
+    "commit": "4700e3adf3b24b39dd4929e9c6d62811ba3ccea8",
+    "reason": "The 6.18.65 stable preimage requires refreshed context. The 6.18.57-qualified predecessor remains in the older ebuilds."
+  },
+  "6.18.x/30125-6.18.65-acpi-table-upgrade-add-disable-and-exclude-options.patch": {
+    "boundary": "6.18.65",
+    "commit": "4700e3adf3b24b39dd4929e9c6d62811ba3ccea8",
+    "reason": "The 6.18.65 stable ACPI tables preimage requires refreshed context. Older 6.18 ebuilds and Linux 7.2 use the original shared patch."
+  },
   "6.18.x/30128-6.18.58-acpi-thermal-retain-downstream-improvements.patch": {
     "boundary": "6.18.58",
     "commit": "034478d577c64b24c43955bc33a65b8db680b4cb",

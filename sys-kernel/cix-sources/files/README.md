@@ -18,7 +18,7 @@ Debian, Ubuntu, Radxa, or CIX kernel.
 
 | Kernel | Gentoo package | Gentoo patch set | CIX source |
 | --- | --- | --- | --- |
-| [Linux 6.18.62](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.18.62) | `cix-sources-6.18.62` | `6.18-70` base and extras | [`cix-linux-main` at `bc078a3`](https://github.com/cixtech/cix-linux-main/commit/bc078a383042a6c14b05c56e12390e422f893088) |
+| [Linux 6.18.65](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.18.65) | `cix-sources-6.18.65` | `6.18-74` base and extras | [`cix-linux-main` at `bc078a3`](https://github.com/cixtech/cix-linux-main/commit/bc078a383042a6c14b05c56e12390e422f893088) |
 | [Linux 7.2.15](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v7.2.15) | `cix-sources-7.2.15` | `7.2-16` base, extras, and experimental | same CIX source |
 
 Each ebuild is the authority for its exact patch order. The Linux 6.18-only
@@ -41,10 +41,10 @@ Package filenames follow Debian's `<package>_<version>_<architecture>.deb`
 convention, for example:
 
 ```text
-linux-image-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb
-linux-headers-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb
-linux-headers-6.18.62-cix-common_6.18.62-1_arm64.deb
-linux-libc-dev_6.18.62-1_arm64.deb
+linux-image-6.18.65-cix-o6-acpi-fw1.2-arm64_6.18.65-1_arm64.deb
+linux-headers-6.18.65-cix-o6-acpi-fw1.2-arm64_6.18.65-1_arm64.deb
+linux-headers-6.18.65-cix-common_6.18.65-1_arm64.deb
+linux-libc-dev_6.18.65-1_arm64.deb
 ```
 
 The 64 KiB flavour ends in `arm64-64k`. Gentoo's absent revision or `-r0`
@@ -62,7 +62,7 @@ Choose every component deliberately:
 | Board | `o6`, `o6n` | Must match the physical board. |
 | Firmware | `fw1.2`, `fw1.3` | `fw1.2` targets stock Radxa 1.2.4. `fw1.3` targets stock Radxa 1.3.2. See the ACPI guide for the firmware settings required by full profiles and custom firmware considerations. |
 | Configuration | `arm64`, `arm64-64k` | Ubuntu-derived arm64 configuration with 4 KiB or 64 KiB pages, seeded from `generic` and `generic-64k` respectively. Use `arm64` unless a 64 KiB kernel is specifically required. |
-| Kernel | `6.18.62`, `7.2.15` | The maintained Linux version. |
+| Kernel | `6.18.65`, `7.2.15` | The maintained Linux version. |
 
 GitHub-built images embed the full ACPI upgrade for O6 and O6N firmware
 1.2 and O6 firmware 1.3. O6N firmware 1.3 uses SSDT-only. Local builds can
@@ -82,15 +82,15 @@ firmware family, page-size configuration, and kernel version. For example,
 install an O6 firmware-1.2 kernel with 4 KiB pages:
 
 ```sh
-sudo apt install ./linux-image-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb
+sudo apt install ./linux-image-6.18.65-cix-o6-acpi-fw1.2-arm64_6.18.65-1_arm64.deb
 ```
 
 For external modules, also install the matching flavour headers and their
 common package, whose dependency is pinned to the exact package version:
 
 ```sh
-sudo apt install ./linux-headers-6.18.62-cix-common_6.18.62-1_arm64.deb \
-  ./linux-headers-6.18.62-cix-o6-acpi-fw1.2-arm64_6.18.62-1_arm64.deb
+sudo apt install ./linux-headers-6.18.65-cix-common_6.18.65-1_arm64.deb \
+  ./linux-headers-6.18.65-cix-o6-acpi-fw1.2-arm64_6.18.65-1_arm64.deb
 ```
 
 Do not use a wildcard that installs every board and firmware variant. The
@@ -228,7 +228,7 @@ controls are already enabled.
 ## Included changes
 
 The table below names every non-Gentoo patch identity included by the default
-maintained configurations. “All” means Linux 6.18.62 and 7.2.15.
+maintained configurations. “All” means Linux 6.18.65 and 7.2.15.
 Some CIX queue files are taken directly from the pinned CIX archive and
 therefore do not also exist as standalone files in this directory. The
 `vendor:` prefix identifies these archive inputs, rather than local files.
@@ -240,7 +240,7 @@ CIX-specific:
 
 | Line | Stable point-update files | Other Gentoo patch files | Effect |
 | --- | --- | --- | --- |
-| 6.18.62 | `1000_linux-6.18.1.patch` through `1052_linux-6.18.62.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2920_sign-file-patch-for-libressl.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 6.18.0 to 6.18.62 and applies the pinned Gentoo defaults and compatibility fixes. The updated Gentoo Kconfig patch makes the former local ARM64 dependency workaround unnecessary. |
+| 6.18.65 | `1000_linux-6.18.1.patch` through `1064_linux-6.18.65.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1710_x86-cpu-amd-avoid-printing-reset-reasons-on-Xen-domU.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2050_sctp-sendmsg-slept-free-fix.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2920_sign-file-patch-for-libressl.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 6.18.0 to 6.18.65 and applies the pinned Gentoo defaults and compatibility fixes. The updated Gentoo Kconfig patch makes the former local ARM64 dependency workaround unnecessary. |
 | 7.2.15 | `1000_linux-7.2.1.patch` through `1006_linux-7.2.15.patch` | `1510_fs-enable-link-security-restrictions-by-default.patch`<br>`1700_sparc-address-warray-bound-warnings.patch`<br>`1710_x86-tools-vdso2c.patch`<br>`1730_parisc-Disable-prctl.patch`<br>`2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch`<br>`2400_mt7921_fix-arr-indx-oob-in-mt7921-load-clc.patch`<br>`2901_permit-menuconfig-sorting.patch`<br>`2902_Replace-CONST-CAST-with-const-cast.patch`<br>`2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch`<br>`2991_libbpf_add_WERROR_option.patch`<br>`3000_Support-printing-firmware-info.patch`<br>`4567_distro-Gentoo-Kconfig.patch` | Updates Linux 7.2.0 to 7.2.15 and applies the pinned Gentoo security, build, and configuration fixes. |
 
 | Subsystem | Patch files | Lines | What this provides |
@@ -283,6 +283,8 @@ separate copies exist.
 
 | Area | Additional patch files | Scope and purpose |
 | --- | --- | --- |
+| 6.18.65 patch contexts | `0003-6.18.65-firmware-arm-scmi-add-audited-acpi-support.patch`<br>`0011-6.18.65-drm-panthor-add-sky1-acpi-support.patch`<br>`0013-6.18.65-sound-hda-cix-add-audited-sky1-support.patch`<br>`10000-6.18.65-arm64-stub-fdt.patch`<br>`10010-6.18.65-arm64-stub-fdt-enable-kexec-file.patch`<br>`30030-6.18.65-scmi-demote-unsupported-fastchannel-fallback.patch`<br>`30125-6.18.65-acpi-table-upgrade-add-disable-and-exclude-options.patch`<br>`30129-6.18.65-thermal-cix-add-safe-ipa-support.patch`<br>`80070-6.18.65-pci-disable-aspm-for-sky1-smmu-faulting-endpoints.patch`<br>`80080-6.18.65-iommu-arm-smmu-v3-fix-duplicate-stream-cleanup.patch`<br>`90098-6.18.65-pstore-ramoops-parse-firmware-node-properties.patch` | Context refresh for the stable uplift. The Panthor reset locking and SMMUv3 table-publication ordering come from stable. |
+| Cadence HPA | `00304-pci-cadence-add-hpa-host-support.patch` | 6.18.65: retains the vendor HPA backport and stable Cadence probe error handling. |
 | SCMI lifetime | `0003-6.18.57-firmware-arm-scmi-add-audited-acpi-support.patch` | 6.18: preserves firmware-node ownership and mailbox transport lifetime fixes introduced with 6.18.57. |
 | HDA uplift | `0013-6.18.61-sound-hda-cix-add-audited-sky1-support.patch` | 6.18.61 onward: updated Sky1 HDA integration context; the unqualified `0013` filename is retained for 6.18.60. |
 | ACPI thermal | `30128-6.18.58-acpi-thermal-retain-downstream-improvements.patch` | 6.18: preserves ACPI thermal sensor labels and safe shared hwmon teardown introduced with 6.18.58. |
